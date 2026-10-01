@@ -1,6 +1,7 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { Vec3 } from "../spec/quantity.ts";
 import type { BuiltJoint, BuiltSegment } from "./build-body.ts";
+import { tan, atan2 } from "../math/real.ts";
 
 /**
  * **Where a joint is, in the engine's own coordinates.**
@@ -51,9 +52,9 @@ export function relativeRotationToRef(joint: BuiltJoint, out: Quaternion): Quate
  */
 export function anglesOf(rotation: Quaternion, axes: BuiltJoint["axes"], out: [number, number, number]): [number, number, number] {
   const flip = rotation.w < 0 ? -1 : 1, v = scratch.x.set(rotation.x, rotation.y, rotation.z), w = flip * rotation.w;
-  out[0] = 2 * Math.atan2(flip * along(v, axes.x), w);
-  out[1] = 2 * Math.atan2(flip * along(v, axes.y), w);
-  out[2] = 2 * Math.atan2(flip * along(v, axes.z), w);
+  out[0] = 2 * atan2(flip * along(v, axes.x), w);
+  out[1] = 2 * atan2(flip * along(v, axes.y), w);
+  out[2] = 2 * atan2(flip * along(v, axes.z), w);
   return out;
 }
 
@@ -64,7 +65,7 @@ export function anglesOf(rotation: Quaternion, axes: BuiltJoint["axes"], out: [n
  */
 export function rotationOfToRef(axes: BuiltJoint["axes"], a: number, b: number, c: number, out: Quaternion): Quaternion {
   if (!(Math.abs(a) < Math.PI && Math.abs(b) < Math.PI && Math.abs(c) < Math.PI)) throw new Error(`angles (${a}, ${b}, ${c}) reach a half turn`);
-  const tx = Math.tan(a / 2), ty = Math.tan(b / 2), tz = Math.tan(c / 2), w = 1 / Math.sqrt(1 + tx * tx + ty * ty + tz * tz);
+  const tx = tan(a / 2), ty = tan(b / 2), tz = tan(c / 2), w = 1 / Math.sqrt(1 + tx * tx + ty * ty + tz * tz);
   const x = w * tx, y = w * ty, z = w * tz, { x: X, y: Y, z: Z } = axes;
   return out.copyFromFloats(x * X[0] + y * Y[0] + z * Z[0], x * X[1] + y * Y[1] + z * Z[1], x * X[2] + y * Y[2] + z * Z[2], w);
 }
@@ -106,7 +107,7 @@ const engineAngles = (joint: BuiltJoint, angles: readonly number[]): [number, nu
 
 /** The table in `turningToRef`'s note at angles (a, b, c), the engine's senses: row k the axis, column j the angle. */
 function turningMatrix(angles: readonly [number, number, number]): number[][] {
-  const t = angles.map((a) => Math.tan(a / 2)), [x, y, z] = t as [number, number, number];
+  const t = angles.map((a) => tan(a / 2)), [x, y, z] = t as [number, number, number];
   const w2 = 1 / (1 + x * x + y * y + z * z);
   const cross = [[1, -z, y], [z, 1, -x], [-y, x, 1]];
   return cross.map((row) => row.map((v, j) => w2 * v * (1 + t[j]! * t[j]!)));
@@ -120,7 +121,7 @@ function turningMatrix(angles: readonly [number, number, number]): number[][] {
  */
 export function ratesToRef(joint: BuiltJoint, angles: readonly number[], speeds: readonly number[], out: number[]): number[] {
   const { dofs } = joint, count = dofs.length;
-  const t = engineAngles(joint, angles).map((a) => Math.tan(a / 2)), [x, y, z] = t as [number, number, number];
+  const t = engineAngles(joint, angles).map((a) => tan(a / 2)), [x, y, z] = t as [number, number, number];
   const u = [0, 1, 2].map((k) => (k < count ? dofs[k]!.sign * speeds[k]! : 0));
   // Two freedoms: the lock on Z turns the child about Z too (`motionAxesToRef`).
   if (count === 2) u[2] = u[1]! * x - u[0]! * y;
@@ -146,7 +147,7 @@ export function motionAxesToRef(joint: BuiltJoint, angles: readonly number[], ou
   out.length = dofs.length;
   dofs.forEach((dof, k) => { out[k] = signed([axes.x, axes.y, axes.z][k]!, dof.sign); });
   if (dofs.length === 2) {
-    const [a, b] = engineAngles(joint, angles), leanX = -Math.tan(b / 2), leanY = Math.tan(a / 2);
+    const [a, b] = engineAngles(joint, angles), leanX = -tan(b / 2), leanY = tan(a / 2);
     const sx = dofs[0]!.sign, sy = dofs[1]!.sign, Z = axes.z;
     out[0] = [sx * (axes.x[0] + leanX * Z[0]), sx * (axes.x[1] + leanX * Z[1]), sx * (axes.x[2] + leanX * Z[2])];
     out[1] = [sy * (axes.y[0] + leanY * Z[0]), sy * (axes.y[1] + leanY * Z[1]), sy * (axes.y[2] + leanY * Z[2])];

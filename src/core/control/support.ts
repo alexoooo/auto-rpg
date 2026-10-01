@@ -10,6 +10,7 @@ import { chainTo } from "./kinematics.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import type { Foot } from "./stance.ts";
 import { SUPPORT_INSET } from "./stance-tuning.ts";
+import { acos, hypot } from "../math/real.ts";
 
 /** What of a foot a stance keeps from one step to the next. */
 export interface FootMemory {
@@ -76,7 +77,7 @@ export function footStatesOf(built: BuiltBody): FootState[] {
 /** How far apart `feet`'s soles' middles stand across the ground, m, read now. */
 export function restWidth(feet: readonly FootState[]): number {
   const a = soleMiddleToRef(feet[0]!, new Vector3()), b = soleMiddleToRef(feet[1]!, new Vector3());
-  return Math.hypot(b.x - a.x, b.z - a.z);
+  return hypot(b.x - a.x, b.z - a.z);
 }
 
 /** Each of `feet`'s soles read into it, and the middle of `stance`'s into `out`. */
@@ -102,7 +103,7 @@ export function withinSupport(soles: readonly Sole[], x: number, z: number, inse
     if ((bz - az) * (x - ax) + (ax - bx) * (z - az) <= 0) continue;
     // Outside this edge: the nearest point of the outline is on an edge the point is outside of.
     const ex = bx - ax, ez = bz - az, t = Math.min(1, Math.max(0, ((x - ax) * ex + (z - az) * ez) / (ex * ex + ez * ez)));
-    const px = ax + t * ex, pz = az + t * ez, d = Math.hypot(x - px, z - pz);
+    const px = ax + t * ex, pz = az + t * ez, d = hypot(x - px, z - pz);
     if (far === 0 || d < far) { best = [px, pz]; far = d; }
   }
   return best;
@@ -212,13 +213,13 @@ function referenceBendOf(chain: readonly BuiltJoint[]): number {
   const [hip, knee, ankle] = chain.map((joint) => joint.spec.centre.value);
   const t = [knee![0] - hip![0], knee![1] - hip![1], knee![2] - hip![2]], h = [ankle![0] - knee![0], ankle![1] - knee![1], ankle![2] - knee![2]];
   const dot = t[0]! * h[0]! + t[1]! * h[1]! + t[2]! * h[2]!;
-  return Math.acos(Math.max(-1, Math.min(1, dot / (Math.hypot(t[0]!, t[1]!, t[2]!) * Math.hypot(h[0]!, h[1]!, h[2]!)))));
+  return acos(Math.max(-1, Math.min(1, dot / (hypot(t[0]!, t[1]!, t[2]!) * hypot(h[0]!, h[1]!, h[2]!)))));
 }
 
 /** The thigh's and the shank's lengths in the reference pose: hip to knee, and knee to ankle. */
 function lengthsOf(chain: readonly BuiltJoint[]): [number, number] {
   const [hip, knee, ankle] = chain.map((joint) => joint.spec.centre.value);
-  const distance = (p: Vec3, q: Vec3) => Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2]);
+  const distance = (p: Vec3, q: Vec3) => hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2]);
   return [distance(hip!, knee!), distance(knee!, ankle!)];
 }
 

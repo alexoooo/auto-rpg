@@ -2,6 +2,7 @@ import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { Vec3 } from "../spec/quantity.ts";
 import type { BuiltBody, BuiltSegment } from "./build-body.ts";
 import { jointAngles, motionAxesToRef } from "./joint-state.ts";
+import { hypot } from "../math/real.ts";
 
 /**
  * **The mass a contact meets**: at a point on a body, along a direction, the mass that an impulse
@@ -174,7 +175,7 @@ export function contactMass(built: BuiltBody): ContactMass {
     },
     along(segment, point, normal) {
       const J = jacobian(segmentIndex(segment), point, false);
-      const size = Math.hypot(normal[0], normal[1], normal[2]);
+      const size = hypot(normal[0], normal[1], normal[2]);
       const g = J[0]!.map((_, col) => (normal[0] * J[0]![col]! + normal[1] * J[1]![col]! + normal[2] * J[2]![col]!) / size);
       const x = solve(g);
       return 1 / g.reduce((sum, gi, k) => sum + gi * x[k]!, 0);

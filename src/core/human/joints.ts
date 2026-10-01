@@ -6,6 +6,7 @@ import { SIDES, type Side } from "./landmarks.ts";
 import { segmentName } from "./segments.ts";
 import type { Exertion } from "./tables/joint-torques.ts";
 import { rangeOfMotion, type RangeRow } from "./tables/range-of-motion.ts";
+import { acos } from "../math/real.ts";
 
 /**
  * **The human joints**: fifteen, one wherever `HUMAN_PARENTS` joins two segments, each at the point
@@ -165,7 +166,7 @@ export function humanJoints(figure: HumanFigure, segments: readonly SegmentSpec[
         { positive: "flexion", negative: "hyperextension", axis: elbowAxis,
           bind: derive("rad", "the elbow's bend in the reference pose: the angle between the upper arm's line and the forearm's",
             [upperArm.proximal, upperArm.distal, forearm.proximal, forearm.distal],
-            (up, ud, fp, fd) => Math.acos(dot(normalize(sub(ud, up)), normalize(sub(fd, fp))))),
+            (up, ud, fp, fd) => acos(dot(normalize(sub(ud, up)), normalize(sub(fd, fp))))),
           reach: [rom("elbowFlexion"), rom("elbowHyperextension")], exertions: ["elbowFlexion", "elbowExtension"] },
       ]),
       joint(`wrist.${side}`, forearm.name, hand.name, hand.proximal, [

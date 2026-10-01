@@ -1,8 +1,8 @@
 /**
  * The core's boundary: `src/core/` reaches nothing but itself, its packages and data files under
  * `assets/`, checked over the transitive closure of its imports. The pages build on the core,
- * never the reverse. Also here: the core's bans on float32 rotations and cached world matrices, the
- * engine seam and the mind seam.
+ * never the reverse. Also here: the core's bans on float32 rotations and cached world matrices, its
+ * arithmetic, the engine seam and the mind seam.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -167,6 +167,110 @@ export const probe = (mesh: ProbeMesh, hand: { right: number }): unknown[] =>
   [hand.right, ${names.map((name) => `mesh.${name}`).join(", ")}];
 `;
   assert.deepEqual(worldMatrixReads({ [world]: probe }), names.map((name) => `${world} ${name}`));
+});
+
+/**
+ * What of `Math` is the same double in every JavaScript engine: its constants, and the operations
+ * IEEE 754 or whole-number arithmetic fix. Everything else of it (a sine, an exponential, a power,
+ * `hypot`) is right to about the last bit and each engine's own.
+ */
+const EXACT_MATH = new Set(["PI", "SQRT2", "abs", "max", "min", "sqrt", "ceil", "floor", "trunc", "round", "sign", "fround", "imul"]);
+
+/** The modules beside the core whose numbers go into a bout's world: the arena's bout and its solids. */
+const WORLD_BUILDERS = ["src/arena/duel.ts", "src/arena/room.ts"];
+
+/**
+ * Each use in `text` of arithmetic an engine rounds its own way, as `"file what"`: a member of
+ * `Math` outside `EXACT_MATH`, `Math` handed on whole or read by a computed name, and the power
+ * operator. Read from the syntax tree, so a comment or a string that names one is not a use.
+ */
+function engineArithmetic(text, file) {
+  const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true), found = [];
+  const visit = (node) => {
+    if (ts.isIdentifier(node) && node.text === "Math") {
+      const parent = node.parent, member = ts.isPropertyAccessExpression(parent) && parent.expression === node ? parent.name.text : null;
+      const isOwnName = (ts.isPropertyAccessExpression(parent) || ts.isPropertyAssignment(parent)) && parent.name === node;
+      if (member === null ? !isOwnName : !EXACT_MATH.has(member)) found.push(`${file} Math${member === null ? "" : `.${member}`}`);
+    }
+    if (ts.isBinaryExpression(node) && (node.operatorToken.kind === ts.SyntaxKind.AsteriskAsteriskToken
+      || node.operatorToken.kind === ts.SyntaxKind.AsteriskAsteriskEqualsToken)) found.push(`${file} ${node.operatorToken.getText(source)}`);
+    ts.forEachChild(node, visit);
+  };
+  visit(source);
+  return found;
+}
+
+test("the core, and what builds a bout's world, compute with IEEE's operations and the core's own functions", () => {
+  const files = [...filesUnder(CORE).filter((name) => name.endsWith(".ts")), ...WORLD_BUILDERS];
+  assert.ok(files.includes("src/core/math/real.ts") && WORLD_BUILDERS.every((name) => fs.existsSync(path.join(ROOT, name))));
+  assert.deepEqual(files.flatMap((file) => engineArithmetic(fs.readFileSync(path.join(ROOT, file), "utf8"), file)), []);
+  // The control: each way of reaching the engine's arithmetic is found, and what is exact, or only named, is not.
+  const probe = `
+    /** Not a use: Math.sin(x), and x ** 2. */
+    const exact = Math.max(Math.abs(-1), Math.sqrt(2), Math.PI, Math.floor(1.5)), named = "Math.cos(1) ** 2", own = { Math: 1 }.Math;
+    const a = Math.sin(1), b = Math.hypot(3, 4), c = Math.pow(2, 0.5), d = 2 ** 0.5, { cos } = Math, e = Math["atan2"](1, 1);
+    let f = 2; f **= 3;
+  `;
+  assert.deepEqual(engineArithmetic(probe, "probe.ts"),
+    ["probe.ts Math.sin", "probe.ts Math.hypot", "probe.ts Math.pow", "probe.ts **", "probe.ts Math", "probe.ts Math", "probe.ts **="]);
+});
+
+/**
+ * Babylon's math the core calls, each read in Babylon's source and found to be IEEE's arithmetic
+ * and a square root and nothing else, so the same in every JavaScript engine. A member not listed
+ * is read before it is: `Quaternion.RotationAxis`, `Slerp`, the Euler angles and the angle
+ * between vectors take the engine's sine, cosine or arctangent, and the core has its own
+ * (`src/core/math/turn.ts`).
+ */
+const EXACT_BABYLON = new Set([
+  "Quaternion.Identity", "Quaternion.InverseToRef", "Quaternion.RotationQuaternionFromAxis", "Quaternion.clone", "Quaternion.copyFrom",
+  "Quaternion.copyFromFloats", "Quaternion.multiplyInPlace", "Quaternion.multiplyToRef", "Quaternion.normalize",
+  "Quaternion.scaleInPlace", "Quaternion.set", "Quaternion.w", "Quaternion.x", "Quaternion.y", "Quaternion.z",
+  "Vector3.Cross", "Vector3.CrossToRef", "Vector3.Distance", "Vector3.Dot", "Vector3.Forward", "Vector3.Right", "Vector3.Up",
+  "Vector3.UpReadOnly", "Vector3.add", "Vector3.addInPlace", "Vector3.addInPlaceFromFloats", "Vector3.applyRotationQuaternionToRef",
+  "Vector3.copyFrom", "Vector3.length", "Vector3.lengthSquared", "Vector3.normalize", "Vector3.scale", "Vector3.scaleInPlace",
+  "Vector3.set", "Vector3.setAll", "Vector3.subtract", "Vector3.subtractInPlace", "Vector3.subtractToRef",
+  "Vector3.x", "Vector3.y", "Vector3.z",
+]);
+
+/**
+ * Each member of Babylon's math read under `src/core/`, as `"file Class.member"`, through the
+ * checker: the name alone does not say whose `length` it is.
+ */
+function babylonMathReads(overlay = {}) {
+  const { checker, sources } = programOver(sourcesUnder("src/core", ".ts"), overlay);
+  const reads = new Set();
+  const visit = (node, file) => {
+    if (ts.isPropertyAccessExpression(node)) {
+      for (const declaration of checker.getSymbolAtLocation(node.name)?.declarations ?? []) {
+        if (!declaration.getSourceFile().fileName.includes("/node_modules/@babylonjs/core/Maths/")) continue;
+        const member = `${ts.isClassLike(declaration.parent) ? declaration.parent.name?.text : "?"}.${node.name.text}`;
+        reads.add(`${file} ${member}`);
+      }
+    }
+    ts.forEachChild(node, (child) => visit(child, file));
+  };
+  for (const { source, file } of sources()) if (file.startsWith(CORE)) visit(source, file);
+  return [...reads];
+}
+
+test("the core calls only the Babylon math it has read and found exact", () => {
+  const reads = babylonMathReads(), memberOf = (read) => read.split(" ")[1];
+  assert.deepEqual(reads.filter((read) => !EXACT_BABYLON.has(memberOf(read))), []);
+  // The list is what the core calls and no more: a member it has stopped calling leaves it.
+  const called = new Set(reads.map(memberOf));
+  assert.deepEqual([...EXACT_BABYLON].filter((member) => !called.has(member)), []);
+  // The control: the world's module turning by Babylon's own trigonometry is refused for each such
+  // call, and for a member nobody has read; the exact ones beside them are not.
+  const world = "src/core/world.ts";
+  const probe = `${fs.readFileSync(path.join(ROOT, world), "utf8")}
+import { Quaternion as ProbeQuaternion, Vector3 as ProbeVector3 } from "@babylonjs/core/Maths/math.vector.js";
+export const probe = (q: ProbeQuaternion, v: ProbeVector3): unknown[] => [
+  ProbeQuaternion.RotationAxis(v, 1), ProbeQuaternion.Slerp(q, q, 0.5), q.toEulerAngles(), ProbeQuaternion.FromEulerAngles(0, 1, 0),
+  ProbeVector3.GetAngleBetweenVectors(v, v, v), ProbeVector3.Lerp(v, v, 0.5), v.length(), q.w, ProbeQuaternion.InverseToRef(q, q)];
+`;
+  assert.deepEqual(babylonMathReads({ [world]: probe }).filter((read) => !EXACT_BABYLON.has(memberOf(read))), ["RotationAxis", "Slerp", "toEulerAngles", "FromEulerAngles"]
+    .map((name) => `${world} Quaternion.${name}`).concat([`${world} Vector3.GetAngleBetweenVectors`, `${world} Vector3.Lerp`]));
 });
 
 /** Packages that are a physics engine: only that engine's module in `src/core/engine/` imports one. */

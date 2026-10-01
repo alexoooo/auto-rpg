@@ -5,6 +5,8 @@ import { STANDARD_GRAVITY } from "../spec/constants.ts";
 import { sourced, type Vec3 } from "../spec/quantity.ts";
 import { CONTACT_FRICTION, type ColliderShape, type Contact, type EngineJoint, type FixedCollider, type JointFrames, type MassProperties,
   type PhysicsEngine, type PhysicsOptions, type PhysicsWorld, type SegmentBody } from "./engine.ts";
+import { sin, cos, hypot } from "../math/real.ts";
+import { turnAboutToRef } from "../math/turn.ts";
 
 /**
  * **The core's physics engine: Rapier**, the SIMD build of its WebAssembly (`@dimforge/rapier3d-simd-compat`,
@@ -231,7 +233,7 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions):
     },
     addFixedBox(centre, size, turn = 0) {
       return fixed(R.ColliderDesc.cuboid(size[0] / 2, size[1] / 2, size[2] / 2).setTranslation(...centre)
-        .setRotation({ x: 0, y: Math.sin(turn / 2), z: 0, w: Math.cos(turn / 2) }));
+        .setRotation({ x: 0, y: sin(turn / 2), z: 0, w: cos(turn / 2) }));
     },
     addFixedShape(shape) { return fixed(colliderOf(shape)); },
     contactsOf(segment) {
@@ -265,7 +267,7 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions):
       }
       const out: Contact[] = [];
       for (const [other, { impulse, point, normal }] of touched) {
-        const length = Math.hypot(normal[0]!, normal[1]!, normal[2]!);
+        const length = hypot(normal[0]!, normal[1]!, normal[2]!);
         out.push({ other, impulse, point: [point[0]! / impulse, point[1]! / impulse, point[2]! / impulse],
           normal: [normal[0]! / length, normal[1]! / length, normal[2]! / length] });
       }
@@ -306,7 +308,7 @@ function turnBetween(from: Vector3, to: Vector3): Quaternion {
   if (c < -1 + 1e-12) {
     // Half a turn, about any axis square to `from`.
     const axis = Math.abs(from.x) < 0.9 ? Vector3.Cross(from, Vector3.Right()) : Vector3.Cross(from, Vector3.Forward());
-    return Quaternion.RotationAxis(axis.normalize(), Math.PI);
+    return turnAboutToRef(axis.normalize(), Math.PI, new Quaternion());
   }
   const axis = Vector3.Cross(from, to);
   return new Quaternion(axis.x, axis.y, axis.z, 1 + c).normalize();

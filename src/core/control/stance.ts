@@ -15,6 +15,8 @@ import {
   GROUND_FRICTION, bearingOf, bearingSole, centreOfToRef, footMotionToRef, pointOfToRef, readSupport, soleMiddleToRef, turnOfToRef,
   withinSupport, type FootState,
 } from "./support.ts";
+import { cos, atan2, exp, sinh, cosh, hypot } from "../math/real.ts";
+import { turnAboutToRef, turnBetweenToRef } from "../math/turn.ts";
 
 export type Foot = "left" | "right";
 
@@ -189,7 +191,7 @@ function planAcross(s: Stance, goal: StanceGoal, stance: readonly FootState[], s
     // that the capture point reaches the middle of the stance the step lands in as the foot
     // lands (Englsberger et al. 2011, "Bipedal walking control based on Capture Point
     // dynamics", IROS), within what the sole holds: the body falls toward its new stance.
-    const w = Math.sqrt(pendulum), grow = Math.exp(w * Math.max(swing!.seconds - step.time, dt));
+    const w = Math.sqrt(pendulum), grow = exp(w * Math.max(swing!.seconds - step.time, dt));
     const [tx, tz] = swing!.capture ?? [(bearer!.middle.x + swing!.to[0]) / 2, (bearer!.middle.z + swing!.to[1]) / 2];
     const [px, pz] = withinSupport([bearingOf(bearer!)], (tx - (r.x + u.x / w) * grow) / (1 - grow), (tz - (r.z + u.z / w) * grow) / (1 - grow),
       inset);
@@ -201,7 +203,7 @@ function planAcross(s: Stance, goal: StanceGoal, stance: readonly FootState[], s
     // point of them chosen, as a swing's is, to bring its capture point to the step's handover
     // as the foot lifts (Englsberger et al. 2015, "Three-dimensional bipedal walking control
     // based on Divergent Component of Motion", IEEE T-RO): the walk keeps its momentum.
-    const w = Math.sqrt(pendulum), grow = Math.exp(w * Math.max(swing!.transfer - step.held, dt));
+    const w = Math.sqrt(pendulum), grow = exp(w * Math.max(swing!.transfer - step.held, dt));
     const [tx, tz] = swing!.handover!;
     const [px, pz] = withinSupport(stance.map(bearingOf), (tx - (r.x + u.x / w) * grow) / (1 - grow), (tz - (r.z + u.z / w) * grow) / (1 - grow),
       inset);
@@ -238,7 +240,7 @@ function heightLimits(s: Stance, goal: StanceGoal, stance: readonly FootState[],
   const floors: [FootState, number][] = [];
   let landX = r.x, landZ = r.z;
   if (reading.phase === "swing") {
-    const w = Math.sqrt(pendulum), left = Math.max(swing!.seconds - step.time, 0), ch = Math.cosh(w * left), sh = Math.sinh(w * left);
+    const w = Math.sqrt(pendulum), left = Math.max(swing!.seconds - step.time, 0), ch = cosh(w * left), sh = sinh(w * left);
     landX = reading.place.x + (r.x - reading.place.x) * ch + u.x / w * sh;
     landZ = reading.place.z + (r.z - reading.place.z) * ch + u.z / w * sh;
   }
@@ -250,7 +252,7 @@ function heightLimits(s: Stance, goal: StanceGoal, stance: readonly FootState[],
     const [a, b] = foot.lengths, hx = hipAt.x + (swinging ? landX : r.x) - c.x, hz = hipAt.z + (swinging ? landZ : r.z) - c.z, rise = c.y - hipAt.y - reading.support.y;
     if (swinging) ankleAt.addInPlaceFromFloats(swing!.to[0] - foot.middle.x, reading.support.y - foot.middle.y, swing!.to[1] - foot.middle.z);
     if (bend !== null) {
-      const long = Math.sqrt(a * a + b * b + 2 * a * b * Math.cos(bend)), spread = Math.hypot(hx - ankleAt.x, hz - ankleAt.z);
+      const long = Math.sqrt(a * a + b * b + 2 * a * b * cos(bend)), spread = hypot(hx - ankleAt.x, hz - ankleAt.z);
       high = Math.min(high, ankleAt.y + Math.sqrt(Math.max(0, long * long - spread * spread)) + rise);
     }
     if (spare !== null) {
@@ -260,7 +262,7 @@ function heightLimits(s: Stance, goal: StanceGoal, stance: readonly FootState[],
       turnOfToRef(foot.segment, footTurn).multiplyToRef(Quaternion.InverseToRef(shank, shank), shank);
       const k = knee!.spec.centre.value, o = ankle!.spec.centre.value;
       kneeAt.set(k[0] - o[0], k[1] - o[1], k[2] - o[2]).applyRotationQuaternionToRef(shank, kneeAt).addInPlace(ankleAt);
-      const spread = Math.hypot(hx - kneeAt.x, hz - kneeAt.z);
+      const spread = hypot(hx - kneeAt.x, hz - kneeAt.z);
       if (spread < a) floors.push([foot, kneeAt.y + Math.sqrt(a * a - spread * spread) + rise]);
     }
   }
@@ -317,12 +319,12 @@ function shiftWeight(s: Stance, swing: SwingGoal | null, bearer: FootState | und
 /** The pelvis's asked turn, into `spin`: toward upright at `heading`, the error over the time constant. */
 function pelvisTurn(s: Stance, heading: number): void {
   const { pelvis } = s, { seconds } = s.tuning, { target, inverse, error, spin } = s.scratch;
-  Quaternion.RotationAxisToRef(Vector3.UpReadOnly, heading, target);
+  turnAboutToRef(Vector3.UpReadOnly, heading, target);
   target.multiplyInPlace(pelvis.rest);
   Quaternion.InverseToRef(pelvis.node.rotationQuaternion!, inverse);
   target.multiplyToRef(inverse, error);
   if (error.w < 0) error.scaleInPlace(-1);
-  const half = Math.hypot(error.x, error.y, error.z), angle = 2 * Math.atan2(half, error.w);
+  const half = hypot(error.x, error.y, error.z), angle = 2 * atan2(half, error.w);
   spin.set(error.x, error.y, error.z).scaleInPlace(half > 1e-12 ? angle / half / seconds.turn : 0);
 }
 
@@ -343,7 +345,7 @@ function swingFoot(s: Stance, swing: SwingGoal, heading: number, dt: number): vo
   }
   // It lands flat, facing the heading: its reference-pose turn, turned about up by the heading.
   // (Held at the turn it left with, a foot's yaw drifts step by step.)
-  Quaternion.RotationAxisToRef(Vector3.UpReadOnly, heading, level);
+  turnAboutToRef(Vector3.UpReadOnly, heading, level);
   level.multiplyInPlace(foot.segment.rest);
   step.time += dt;
   const tau = Math.min(1, step.time / swing.seconds), from = step.from;
@@ -351,17 +353,17 @@ function swingFoot(s: Stance, swing: SwingGoal, heading: number, dt: number): vo
   const eased = tau * tau * tau * (10 - 15 * tau + 6 * tau * tau), ds = 30 * tau * tau * (1 - tau) * (1 - tau) / swing.seconds;
   const bump = 16 * tau * tau * (1 - tau) * (1 - tau), dbump = 32 * tau * (1 - tau) * (1 - 2 * tau) / swing.seconds;
   path.set(from.x + (swing.to[0] - from.x) * eased, from.y + swing.lift * bump, from.z + (swing.to[1] - from.z) * eased);
-  Quaternion.SlerpToRef(step.lift, level, eased, step.turn);
+  turnBetweenToRef(step.lift, level, eased, step.turn);
   along.set((swing.to[0] - from.x) * ds, swing.lift * dbump, (swing.to[1] - from.z) * ds);
   step.turn.multiplyToRef(Quaternion.InverseToRef(foot.segment.node.rotationQuaternion!, inverse), error);
   if (error.w < 0) error.scaleInPlace(-1);
-  const half = Math.hypot(error.x, error.y, error.z), angle = 2 * Math.atan2(half, error.w);
+  const half = hypot(error.x, error.y, error.z), angle = 2 * atan2(half, error.w);
   turn.set(error.x, error.y, error.z).scaleInPlace(half > 1e-12 ? angle / half / seconds.swing : 0);
   // The whole turn from lift to landing, world: the path's turn goes about its axis at its angle
   // times the path's rate.
   level.multiplyToRef(Quaternion.InverseToRef(step.lift, whole), whole);
   if (whole.w < 0) whole.scaleInPlace(-1);
-  const wholeHalf = Math.hypot(whole.x, whole.y, whole.z), wholeAngle = 2 * Math.atan2(wholeHalf, whole.w);
+  const wholeHalf = hypot(whole.x, whole.y, whole.z), wholeAngle = 2 * atan2(wholeHalf, whole.w);
   wholeAxis.set(whole.x, whole.y, whole.z).scaleInPlace(wholeHalf > 1e-12 ? wholeAngle / wholeHalf : 0);
   // The path's acceleration, and its errors in place and speed taken up critically damped at the
   // swing's constant; its turn's likewise, with the turn's own rate and acceleration: damping

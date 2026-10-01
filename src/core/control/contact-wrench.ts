@@ -1,5 +1,6 @@
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { solveLinear } from "../math/linalg.ts";
+import { norm } from "../math/real.ts";
 
 /**
  * A flat sole on level ground (y up), bearing: where its middle is, which way it lies, and how far
@@ -155,7 +156,7 @@ function activeSet(H: readonly number[][], g: readonly number[], C: readonly num
       working.forEach((c, r) => { K[i]![n + r] = -C[c]![i]!; K[n + r]![i] = C[c]![i]!; });
     }
     const solution = solveLinear(K, rhs), p = solution.slice(0, n), multipliers = solution.slice(n);
-    if (settled || Math.hypot(...p) <= 1e-12 * (1 + Math.hypot(...x))) {
+    if (settled || norm(p) <= 1e-12 * (1 + norm(x))) {
       settled = false;
       let worst = -1, least = -1e-12;
       multipliers.forEach((l, r) => { if (l < least) { least = l; worst = r; } });
@@ -191,8 +192,8 @@ function activeSet(H: readonly number[][], g: readonly number[], C: readonly num
 function orthonormal(rows: readonly (readonly number[])[]): number[][] {
   const basis: number[][] = [];
   for (const row of rows) {
-    const rest = remainder(basis, row), size = Math.hypot(...rest);
-    if (size > DEPENDENT * Math.hypot(...row)) basis.push(rest.map((v) => v / size));
+    const rest = remainder(basis, row), size = norm(rest);
+    if (size > DEPENDENT * norm(row)) basis.push(rest.map((v) => v / size));
   }
   return basis;
 }
@@ -210,5 +211,5 @@ function remainder(basis: readonly (readonly number[])[], row: readonly number[]
 
 /** Whether `row` has a part outside the span of the orthonormal `basis`, beyond rounding. */
 function independent(basis: readonly (readonly number[])[], row: readonly number[]): boolean {
-  return Math.hypot(...remainder(basis, row)) > DEPENDENT * Math.hypot(...row);
+  return norm(remainder(basis, row)) > DEPENDENT * norm(row);
 }

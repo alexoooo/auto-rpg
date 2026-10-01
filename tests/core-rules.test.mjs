@@ -126,8 +126,10 @@ test("a part comes off when a clean blow empties it, or any blow goes past empty
   assert.deepEqual(wound.severed, ["upperArm.left", "forearm.left", "hand.left"]);
   close(wound.lost, max.get("forearm.left") + max.get("hand.left"), "an arm lost");
 
-  // Not clean: it stays on until the blow goes past empty by half its hit points.
-  for (const [past, off] of [[0.49, false], [0.5, true]]) {
+  // Not clean: it stays on until the blow goes past empty by half its hit points. The two blows are a
+  // millionth of the part's hit points either side of the margin: at the margin itself, which side a
+  // blow falls is its rounding's to say.
+  for (const [past, off] of [[0.499999, false], [0.500001, true]]) {
     pool = createPool(warrior, RULES);
     wound = pool.wound({ part: "forearm.left", damage: max.get("forearm.left") * (1 + past), clean: false });
     assert.equal(wound.severed.length > 0, off, `past empty by ${past}`);

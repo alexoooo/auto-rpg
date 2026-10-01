@@ -96,6 +96,13 @@ export const SOURCES = Object.freeze({
       + "emptied. A part severs once it is half its hit points past empty.",
     record: "docs/plans/2026-09-27-warrior-rogue-reptile.md@2e99105f",
   },
+  "fdlibm": {
+    kind: "literature",
+    cite: "fdlibm, Sun Microsystems' freely distributable C math library (1993), as FreeBSD's msun carries it: "
+      + "k_sin.c, k_cos.c, k_tan.c, e_rem_pio2.c, k_rem_pio2.c, e_asin.c, e_acos.c, s_atan.c, e_atan2.c, e_exp.c, "
+      + "s_expm1.c, e_sinh.c, e_cosh.c, s_cbrt.c and s_scalbn.c. Its notice stands in src/core/math/real.ts.",
+    link: "https://github.com/freebsd/freebsd-src/tree/main/lib/msun/src",
+  },
   "owner-balance": {
     kind: "decision", date: "2026-09-30",
     decided: "How strongly a body is held up beyond its legs is an attribute of its character (the owner: "

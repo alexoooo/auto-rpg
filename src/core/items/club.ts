@@ -1,4 +1,5 @@
 import type { ItemSpec } from "../spec/body.ts";
+import { square } from "../math/real.ts";
 import { derive, si, sourced, type Quantity } from "../spec/quantity.ts";
 
 /**
@@ -30,7 +31,7 @@ export function woodenClub(): ItemSpec {
   const inertia = derive("kg m2", "each solid cylinder about its centre, m ((L/2)^2 / 3 + r^2 / 4) across and m r^2 / 2 along, moved to the club's centre",
     pieces, (mh, lh, rh, ms, ls, rs) => {
       const centre = (mh * lh / 2 + ms * (lh + ls / 2)) / (mh + ms);
-      const across = (m: number, l: number, r: number, at: number) => m * ((l / 2) ** 2 / 3 + r * r / 4) + m * (at - centre) ** 2;
+      const across = (m: number, l: number, r: number, at: number) => m * (square(l / 2) / 3 + r * r / 4) + m * square(at - centre);
       const t = across(mh, lh, rh, lh / 2) + across(ms, ls, rs, lh + ls / 2);
       return [t, mh * rh * rh / 2 + ms * rs * rs / 2, t];
     });

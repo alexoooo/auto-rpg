@@ -3,6 +3,7 @@ import type { BuiltBody, BuiltJoint, BuiltSegment } from "../build/build-body.ts
 import { rotationOfToRef } from "../build/joint-state.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { solve3 } from "../math/linalg.ts";
+import { hypot } from "../math/real.ts";
 
 /**
  * **A body's kinematics in its joints' angles**, in the root's frame: where a point on a segment is
@@ -97,7 +98,7 @@ export function solveReach(chain: readonly BuiltJoint[], angles: number[][], fre
   for (let pass = 0; pass < passes; pass++) {
     pointAtToRef(chain, angles, point, at);
     const e = [target[0] - at.x, target[1] - at.y, target[2] - at.z];
-    left = Math.hypot(e[0]!, e[1]!, e[2]!);
+    left = hypot(e[0]!, e[1]!, e[2]!);
     free.forEach((f, c) => {
       const row = angles[f.joint]!, keep = row[f.k]!;
       row[f.k] = keep + IK_STEP;
@@ -109,7 +110,7 @@ export function solveReach(chain: readonly BuiltJoint[], angles: number[][], fre
     // sees, (I - J' (J J')^-1 J) p, undamped: a damped projector leaks a share of the pull into
     // the hand's place, and the solve settles that far from the target.
     const JJ = [0, 1, 2].map((r) => [0, 1, 2].map((c) => free.reduce((s, _, k) => s + J[k]![r]! * J[k]![c]!, 0)));
-    const A = JJ.map((row, r) => row.map((v, c) => v + (r === c ? IK_DAMPING ** 2 : 0)));
+    const A = JJ.map((row, r) => row.map((v, c) => v + (r === c ? IK_DAMPING * IK_DAMPING : 0)));
     const toward = free.map((f) => IK_POSTURE_PULL * (f.preferred - angles[f.joint]![f.k]!));
     const y = solve3(A, e);
     const Jp = [0, 1, 2].map((r) => free.reduce((s, _, k) => s + J[k]![r]! * toward[k]!, 0));

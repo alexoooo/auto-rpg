@@ -6,6 +6,7 @@ import { GUARD_ACTION, type Intent } from "./intent.ts";
 import { STAND_ORDERS, type Orders } from "./orders.ts";
 import type { BodySense } from "./senses.ts";
 import type { Sight, Tactics } from "./tactics.ts";
+import { sin, cos, atan2, hypot } from "../math/real.ts";
 
 /**
  * How near a target a fighter attacks it rather than walking to it, m, between the two centres of
@@ -44,23 +45,23 @@ export function fighterTactics(name: string, orders: (sight: Sight) => Orders, s
       if (attack) {
         const thrown = report.strike.thrown.right;
         if (!aim || aim.thrown !== thrown
-          || Math.hypot(attack[0] - aim.point[0], attack[1] - aim.point[1], attack[2] - aim.point[2]) > APPROACH.reach) {
+          || hypot(attack[0] - aim.point[0], attack[1] - aim.point[1], attack[2] - aim.point[2]) > APPROACH.reach) {
           aim = { point: [attack[0], attack[1], attack[2]], thrown };
         }
         return { move: null, face: report.heading, hands: { left: GUARD_ACTION, right: { kind: "attack", target: aim.point } } };
       }
       aim = null;
       const hands = { left: GUARD_ACTION, right: GUARD_ACTION };
-      const facing = face && Math.hypot(face.x, face.z) > 0.08 ? Math.atan2(face.x, face.z) : null;
+      const facing = face && hypot(face.x, face.z) > 0.08 ? atan2(face.x, face.z) : null;
       if (!move || !envelope) return { move: null, face: facing ?? report.heading, hands };
-      const bearing = Math.atan2(move.x, move.z), walk = envelope.walk.value;
+      const bearing = atan2(move.x, move.z), walk = envelope.walk.value;
       // Facing its walk: the walk the envelope measured, forward, turning to it.
       if (facing === null) return { move: [walk, 0], face: bearing, hands };
       // Facing elsewhere: the walk's direction in the heading's frame, at the pace that holds.
       const off = bearing - report.heading;
       const share = Math.abs(wrap(facing - report.heading)) < strafe.turned
-        ? strafe.share + (1 - strafe.share) * Math.max(0, Math.cos(off)) : strafe.share;
-      return { move: [walk * share * Math.cos(off), walk * share * Math.sin(off)], face: facing, hands };
+        ? strafe.share + (1 - strafe.share) * Math.max(0, cos(off)) : strafe.share;
+      return { move: [walk * share * cos(off), walk * share * sin(off)], face: facing, hands };
     },
   };
 }
@@ -76,7 +77,7 @@ export function seekFoe({ view }: Sight): Orders {
   let foe: BodySense | null = null, near = Infinity;
   for (const other of senses.others) {
     if (other.side === senses.side) continue;
-    const d = Math.hypot(other.centre.x - from.x, other.centre.z - from.z);
+    const d = hypot(other.centre.x - from.x, other.centre.z - from.z);
     if (foe === null || (foe.out && !other.out) || (foe.out === other.out && d < near)) { foe = other; near = d; }
   }
   if (!foe) return STAND_ORDERS;

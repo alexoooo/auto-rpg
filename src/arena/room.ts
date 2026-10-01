@@ -9,6 +9,7 @@ import type { Scene } from "@babylonjs/core/scene.js";
 import "@babylonjs/core/Meshes/instancedMesh.js";
 
 import type { FixedCollider, PhysicsWorld } from "../core/engine/engine.ts";
+import { cos, sin } from "../core/math/real.ts";
 import type { Vec3 } from "../core/spec/quantity.ts";
 import { surfaceMetresPerRepeat, TEXTURED_SURFACES } from "../render/materials.ts";
 
@@ -347,6 +348,8 @@ type ArenaSolid =
 /**
  * What a body meets in the arena: the ground's slab, the four walls (`ROOM_WALL_COLLIDERS`) and the ring of posts
  * (`ARENA_POSTS`). A post is the prism its mesh draws, `CreateCylinder` of `sides` sides, corner for corner.
+ * Its corners are the world's, so their sines and cosines are the core's own: a bout is the same in every
+ * JavaScript engine only if its arena is.
  */
 export function arenaSolids(): readonly ArenaSolid[] {
   const solids: ArenaSolid[] = [{ name: "ground", kind: "box", centre: [0, -0.5, 0], size: [60, 1, 60] }];
@@ -356,11 +359,11 @@ export function arenaSolids(): readonly ArenaSolid[] {
   const { count, ring, height, diameter, sides } = ARENA_POSTS;
   for (let index = 0; index < count; index += 1) {
     const angle = (index / count) * Math.PI * 2;
-    const centre: Vec3 = [Math.sin(angle) * ring, height / 2, Math.cos(angle) * ring];
+    const centre: Vec3 = [sin(angle) * ring, height / 2, cos(angle) * ring];
     const points: Vec3[] = [];
     for (const y of [0, height]) for (let side = 0; side < sides; side += 1) {
       const a = (side / sides) * Math.PI * 2;
-      points.push([centre[0] + Math.cos(a) * diameter / 2, y, centre[2] + Math.sin(a) * diameter / 2]);
+      points.push([centre[0] + cos(a) * diameter / 2, y, centre[2] + sin(a) * diameter / 2]);
     }
     solids.push({ name: `post${index}`, kind: "hull", centre, points });
   }

@@ -69,6 +69,20 @@ file, and every decision's record present (a record in a file since deleted is n
 Tuning is immutable: an experiment passes an override in (a `RulebookOverride`, a stance tuning) and
 nothing mutates a global.
 
+### Arithmetic
+
+The core computes with the operations IEEE 754 fixes (`+`, `-`, `*`, `/`, `Math.sqrt`) and with
+functions of its own (`src/core/math/real.ts`): sine, cosine, tangent, their inverses, the
+exponential, the hyperbolics and the cube root, each fdlibm's kept operation for operation, and a
+vector's length. A JavaScript engine's `Math.sin` and its kin are right only to about the last
+bit and differ from one engine to the next, which a bout amplifies into another bout within
+seconds; the core's own return the same double everywhere. It takes no power: a square is a
+product. The two turns Babylon builds on the engine's sine and cosine are the core's as well
+(`turnAboutToRef`, `turnBetweenToRef`, `src/core/math/turn.ts`). `tests/core-boundary.test.mjs`
+holds the core, and the arena's modules that build a bout's world, to the exact members of `Math`
+and to the members of Babylon's math that are arithmetic alone; `tests/core-math.test.mjs` holds
+each function's values to a record ([reference/real-functions.md](reference/real-functions.md)).
+
 ### Build
 
 `buildBody` (`src/core/build/build-body.ts`) makes one engine body per segment, with the spec's
@@ -235,7 +249,7 @@ The rules of a fight are `src/core/rules/`, free of any page so they can be argu
   `research/core-club-unit.json`), and every mechanism (blunt, edge, axe, point) keeps its ratio to
   the club. The arena's rulebook and the dungeon's are the same rules.
 - **Wounds** (`pool.ts`): one pool of hit points per body, split over its parts by cross-section
-  (mass to the two-thirds). A part's excess damage spreads to its neighbours, nearest first and
+  (mass to the two-thirds, as the square of its cube root). A part's excess damage spreads to its neighbours, nearest first and
   inward first. A part emptied by a clean blow, or hit far enough past empty, comes off, except the
   trunk's; no blow is clean today. A body's pool ends when it is empty, or when a vital part (the
   head, for every body today) is emptied or comes off; which parts are vital is the spec's `wounds`.
@@ -255,9 +269,9 @@ A bout is built from a recipe (`DuelRecipe`): the two bodies, how far apart they
 cap, as plain data, so the same bout can be built again in another world or on another thread;
 what a page hears of it (`DuelHooks`) is beside the recipe, not in it. Nothing in a bout is
 random, so a recipe played twice is the same bout to the bit (`playBout`, `research/bout.mjs`;
-`traceOf`, `tests/harness/trace.mjs`), in one JavaScript engine: Chrome's `Math.sin` and its
-kin differ from Node's in their last bits, and the same recipe is another bout there within
-seconds ([reference/oracle.md](reference/oracle.md), Watching one). How the bouts end today is `docs/reference/bouts.md`.
+`traceOf`, `tests/harness/trace.mjs`), in Node and on the page alike
+([reference/real-functions.md](reference/real-functions.md), In Chrome). How the bouts end today
+is `docs/reference/bouts.md`.
 
 Every order a side is given is kept with the step it was given before (`Duel.tape`), an order
 that repeats the last left out. The recipe and the tape are the whole of what made a bout:
@@ -270,8 +284,8 @@ file or a link gives the orders the bout gave.
 
 A tape rides in a link's fragment, which no server is sent (`#tape=`, `readTape` and `tapeHash`
 in `src/arena/matchup.ts`), with the rest of its recipe in the link's query (`&gap=`, `&cap=`,
-`&balance=`). The arena plays a bout whose link carries a tape with nobody at the keys; a tape
-is of the engine that made it.
+`&balance=`). The arena plays a bout whose link carries a tape with nobody at the keys, and a
+tape made in Node plays its bout in a browser.
 
 **A bout forks by replay** (`rollout`, `research/rollouts.mjs`): a second bout is built from the
 recipe, played under the tape to the fork's step, and on from there under a branch of other

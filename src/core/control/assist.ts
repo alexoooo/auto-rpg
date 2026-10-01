@@ -1,6 +1,7 @@
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { BuiltBody, BuiltSegment } from "../build/build-body.ts";
 import { centreOfToRef } from "./support.ts";
+import { norm } from "../math/real.ts";
 
 /**
  * The most an assist gives a body: a force, in the body's own weights, and a moment, in its
@@ -40,7 +41,7 @@ export interface Assist {
 
 /** `built`'s assist under `ceiling`, on `root`; `apply` gives the step's ask, and is the seam's to call (`embody`). */
 export function createAssist(built: BuiltBody, root: BuiltSegment, ceiling: AssistCeiling): { assist: Assist; apply(): void } {
-  const weight = [...built.segments.values()].reduce((sum, segment) => sum + segment.rigid.mass, 0) * Math.hypot(...built.physics.gravity);
+  const weight = [...built.segments.values()].reduce((sum, segment) => sum + segment.rigid.mass, 0) * norm(built.physics.gravity);
   const most = { force: ceiling.force * weight, moment: ceiling.moment * weight };
   const asked = { force: new Vector3(), moment: new Vector3() }, given = { force: new Vector3(), moment: new Vector3() };
   const meter = { steps: 0, force: 0, moment: 0 };

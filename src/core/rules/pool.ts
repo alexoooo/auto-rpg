@@ -1,4 +1,5 @@
 import type { BodySpec } from "../spec/body.ts";
+import { cbrt, square } from "../math/real.ts";
 import { derive, type Quantity } from "../spec/quantity.ts";
 import type { Rulebook } from "./rulebook.ts";
 
@@ -8,7 +9,8 @@ import type { Rulebook } from "./rulebook.ts";
  *
  * - **A part's share** is its cross-section's (`owner-part-hp-split`): its mass to the
  *   two-thirds, over the sum of the same over the body, times the body's hit points
- *   (`partHitPoints`). For the Warrior's 6: head 0.45, upper trunk 0.78, thigh 0.72, forearm 0.17,
+ *   (`partHitPoints`). The two-thirds power is the square of the cube root, which every
+ *   JavaScript engine computes alike, where a power is each engine's own. For the Warrior's 6: head 0.45, upper trunk 0.78, thigh 0.72, forearm 0.17,
  *   hand 0.09.
  * - **A blow** lands on one part, which absorbs at most what it has left.
  * - **It takes the part off** if it empties it and was clean (the weapon's bar, which the scoring
@@ -76,7 +78,7 @@ export function partHitPoints(spec: BodySpec): ReadonlyMap<string, Quantity<numb
   return new Map(spec.segments.map((segment) => [segment.name,
     derive("HP", "a part's hit points: the body's, times its mass to the two-thirds over the sum of the same over the body",
       [spec.wounds.hp, segment.mass, ...masses],
-      (hp, own, ...all) => hp * own ** (2 / 3) / all.reduce((sum, m) => sum + m ** (2 / 3), 0))]));
+      (hp, own, ...all) => hp * square(cbrt(own)) / all.reduce((sum, m) => sum + square(cbrt(m)), 0))]));
 }
 
 /** A fresh pool for a body built from `spec`, under `rules`. */

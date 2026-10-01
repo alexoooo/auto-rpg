@@ -5,6 +5,7 @@ import type { BodySpec } from "../spec/body.ts";
 import { GUARD } from "./guard.ts";
 import { PLACING, type Footing } from "./locomotion.ts";
 import { recipeFor, type Chosen, type Repertoire } from "./strikes.ts";
+import { sin, cos, asin, atan2, hypot } from "../math/real.ts";
 
 /**
  * **Seconds stood still in the guard before a strike is thrown**: the start every recipe was
@@ -107,7 +108,7 @@ export function strikeSkill(spec: BodySpec, repertoire: Repertoire): StrikeSkill
       still = walking ? 0 : still + dt;
     },
     command(view, hands, heading, placed, dt) {
-      const s = view.stance, fx = Math.sin(heading), fz = Math.cos(heading);
+      const s = view.stance, fx = sin(heading), fz = cos(heading);
       // Across the ground, forward is (fx, fz) and the right (fz, -fx).
       const inFrame = (x: number, z: number): [number, number] => [x * fx + z * fz, x * fz - z * fx];
       const feetX = (s.soles.left.x + s.soles.right.x) / 2, feetZ = (s.soles.left.z + s.soles.right.z) / 2;
@@ -128,7 +129,7 @@ export function strikeSkill(spec: BodySpec, repertoire: Repertoire): StrikeSkill
         const [ahead, aside] = inFrame(tx - view.head.x, tz - view.head.z);
         // Facing so that the target stands at the window's middle across: its bearing less the
         // angle that puts it there, for across = r sin(bearing - heading).
-        face = Math.atan2(tx - view.head.x, tz - view.head.z) - Math.asin(Math.max(-1, Math.min(1, middle[1] / Math.hypot(ahead, aside))));
+        face = atan2(tx - view.head.x, tz - view.head.z) - asin(Math.max(-1, Math.min(1, middle[1] / hypot(ahead, aside))));
         // Where the feet stand, square and their width apart across the heading, for the head over
         // them to have the target at the window's middle.
         const along = recipe.distance + middle[0] + over[0], across = middle[1] + over[1], half = width / 2;
@@ -136,13 +137,13 @@ export function strikeSkill(spec: BodySpec, repertoire: Repertoire): StrikeSkill
         const at: Footing = { left: [mx - half * fz, mz + half * fx], right: [mx + half * fz, mz - half * fx] };
         if (phase !== "settle") {
           const square = s.phase === "stand"
-            && Math.hypot(s.soles.left.x - at.left[0], s.soles.left.z - at.left[1]) <= PLACING.near
-            && Math.hypot(s.soles.right.x - at.right[0], s.soles.right.z - at.right[1]) <= PLACING.near;
+            && hypot(s.soles.left.x - at.left[0], s.soles.left.z - at.left[1]) <= PLACING.near
+            && hypot(s.soles.right.x - at.right[0], s.soles.right.z - at.right[1]) <= PLACING.near;
           const [toX, toZ] = inFrame(mx - s.centre.x, mz - s.centre.z);
           if (square || (phase === "place" && placed)) phase = "settle";
-          else if (phase !== "place" && Math.hypot(toX, toZ) > APPROACH.reach) {
+          else if (phase !== "place" && hypot(toX, toZ) > APPROACH.reach) {
             // Walked toward the place, the centre of mass leading.
-            const speed = Math.hypot(toX, toZ) / APPROACH.seconds, scale = speed > APPROACH.pace ? APPROACH.pace / speed : 1;
+            const speed = hypot(toX, toZ) / APPROACH.seconds, scale = speed > APPROACH.pace ? APPROACH.pace / speed : 1;
             walk = [toX / APPROACH.seconds * scale, toZ / APPROACH.seconds * scale];
             phase = "approach";
           } else {

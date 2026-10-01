@@ -1,5 +1,6 @@
 import type { SegmentSpec, ShapeSpec } from "../spec/body.ts";
 import { segmentFrame } from "../spec/body.ts";
+import { square } from "../math/real.ts";
 import { capsuleRadius } from "../spec/geometry.ts";
 import { derive, si, type Quantity, type Vec3 } from "../spec/quantity.ts";
 import { add, distance, dot, lerp, normalize, scale, sub } from "../spec/vec.ts";
@@ -170,7 +171,7 @@ export function humanSegments(figure: HumanFigure): SegmentSpec[] {
       [mass, proximal, distal, si(row.radiusTransverse), si(row.radiusLongitudinal), si(row.radiusSagittal)],
       (m, p, d, transverse, longitudinal, sagittal) => {
         const l = distance(p, d);
-        return [m * (transverse * l) ** 2, m * (longitudinal * l) ** 2, m * (sagittal * l) ** 2];
+        return [m * square(transverse * l), m * square(longitudinal * l), m * square(sagittal * l)];
       });
     const segment: SegmentSpec = { name: plan.name, proximal, distal, mass, centreOfMass, inertia, shape: shapeOf(figure, plan, proximal, distal, mass) };
     const points = plan.points && Object.fromEntries(Object.entries(plan.points).map(([name, point]) => [name, atFit(point)]));

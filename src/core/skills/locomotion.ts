@@ -2,6 +2,7 @@ import type { BodyView } from "../body.ts";
 import { turnAt, type StanceEnvelope } from "../control/stance-envelope.ts";
 import type { Foot, StanceGoal, SwingGoal } from "../control/stance.ts";
 import { STANCE_GAIT } from "../control/stance-tuning.ts";
+import { sin, cos, hypot } from "../math/real.ts";
 
 /**
  * How far under its reference height a body's centre of mass is held, m. A crouch is beyond the
@@ -54,7 +55,7 @@ function stanceLegs(): StanceLegs {
       fallen ||= height - (s.centre.y - s.support.y) > FALLEN;
       // Forward is (sin h, cos h) across the ground; the right, (cos h, -sin h).
       const across = walk
-        ? [walk[0] * Math.sin(heading) + walk[1] * Math.cos(heading), walk[0] * Math.cos(heading) - walk[1] * Math.sin(heading)] as const
+        ? [walk[0] * sin(heading) + walk[1] * cos(heading), walk[0] * cos(heading) - walk[1] * sin(heading)] as const
         : null;
       return { feet: ["left", "right"], centre: null, height, heading, walk: across };
     },
@@ -111,7 +112,7 @@ export function locomotion(envelope: StanceEnvelope | null): Locomotion {
   // The footing being placed, the feet that have stepped to it, and the step under way.
   let placing: { footing: Footing; stepped: Record<Foot, boolean>; step: SwingGoal | null; lifted: boolean } | null = null;
   let placed = false;
-  const apart = (a: readonly [number, number], b: readonly [number, number]): number => Math.hypot(a[0] - b[0], a[1] - b[1]);
+  const apart = (a: readonly [number, number], b: readonly [number, number]): number => hypot(a[0] - b[0], a[1] - b[1]);
   return {
     get heading() { return heading; },
     get pace() { return pace; },
@@ -157,10 +158,10 @@ export function locomotion(envelope: StanceEnvelope | null): Locomotion {
             heading += Math.max(-rate, Math.min(rate, turn));
           } else heading += turn;
         }
-        const speed = Math.hypot(walk[0], walk[1]), most = envelope?.walk.value ?? Infinity;
+        const speed = hypot(walk[0], walk[1]), most = envelope?.walk.value ?? Infinity;
         if (speed > most) walk = [walk[0] * most / speed, walk[1] * most / speed];
         pace = Math.min(speed, most);
-      } else pace = Math.hypot(walk[0], walk[1]);
+      } else pace = hypot(walk[0], walk[1]);
       return legs.goal(view, heading, walk, lower);
     },
   };

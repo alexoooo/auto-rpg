@@ -9,11 +9,12 @@ import type { Foot, SwingGoal } from "./stance.ts";
 import { gravityOf, type Stance } from "./stance-state.ts";
 import { SUPPORT_INSET, type GaitTuning, type RecoveryTuning } from "./stance-tuning.ts";
 import { bearingOf, withinSupport, type FootState } from "./support.ts";
+import { sin, cos, exp, hypot } from "../math/real.ts";
 
 /** The soles' middles' distance apart across `heading` (rad about up, 0 facing +z), m. */
 function across(feet: readonly FootState[], heading: number): number {
   const [a, b] = feet;
-  return Math.abs((b!.middle.x - a!.middle.x) * Math.cos(heading) - (b!.middle.z - a!.middle.z) * Math.sin(heading));
+  return Math.abs((b!.middle.x - a!.middle.x) * cos(heading) - (b!.middle.z - a!.middle.z) * sin(heading));
 }
 
 /**
@@ -23,7 +24,7 @@ function across(feet: readonly FootState[], heading: number): number {
  */
 function settleStep(feet: readonly FootState[], last: Foot, heading: number, width: number, tuning: GaitTuning): SwingGoal {
   const side: Foot = last === "left" ? "right" : "left", b = feet.find((f) => f.side === last)!.middle, sign = side === "right" ? 1 : -1;
-  const rx = Math.cos(heading), rz = -Math.sin(heading);
+  const rx = cos(heading), rz = -sin(heading);
   return { foot: side, to: [b.x + sign * width * rx, b.z + sign * width * rz], seconds: tuning.seconds, lift: tuning.lift, shift: true };
 }
 
@@ -47,8 +48,8 @@ function recoveryStep(feet: readonly FootState[], centre: Vector3, velocity: Vec
   const height = centre.y - (feet[0]!.middle.y + feet[1]!.middle.y) / 2;
   const w = Math.sqrt(g / Math.max(height, 1e-3)), xi = centre.x + velocity.x / w, zi = centre.z + velocity.z / w;
   const [hx, hz] = withinSupport(feet, xi, zi, inset);
-  if (Math.hypot(xi - hx, zi - hz) <= tuning.margin) return null;
-  const grow = Math.exp(w * tuning.seconds);
+  if (hypot(xi - hx, zi - hz) <= tuning.margin) return null;
+  const grow = exp(w * tuning.seconds);
   // Where a step of the foot other than `bearer` lands, the capture point run about the bearing sole.
   const landing = (bearer: FootState): [number, number] => {
     const b = bearer.middle, [px, pz] = withinSupport([bearer], xi, zi, inset);
@@ -56,18 +57,18 @@ function recoveryStep(feet: readonly FootState[], centre: Vector3, velocity: Vec
     return [tx + (tx - b.x) * tuning.reach, tz + (tz - b.z) * tuning.reach];
   };
   // The foot nearer the capture point bears the body; the other steps.
-  const off = (foot: FootState) => { const [qx, qz] = withinSupport([foot], xi, zi, inset); return Math.hypot(xi - qx, zi - qz); };
+  const off = (foot: FootState) => { const [qx, qz] = withinSupport([foot], xi, zi, inset); return hypot(xi - qx, zi - qz); };
   const near = off(feet[0]!) <= off(feet[1]!) ? feet[0]! : feet[1]!, far = feet.find((other) => other !== near)!, b = near.middle;
   let [tx, tz] = landing(near);
   // Not onto or across the bearing foot: a sole's width out from it, along the line between the soles.
-  const ox = far.middle.x - b.x, oz = far.middle.z - b.z, wide = Math.hypot(ox, oz), out = ((tx - b.x) * ox + (tz - b.z) * oz) / wide;
+  const ox = far.middle.x - b.x, oz = far.middle.z - b.z, wide = hypot(ox, oz), out = ((tx - b.x) * ox + (tz - b.z) * oz) / wide;
   if (out < far.width) {
     tx += (far.width - out) * ox / wide;
     tz += (far.width - out) * oz / wide;
     // Beyond the nearer foot: it steps out, if the far one can bear the body there.
     let [ux, uz] = landing(far);
-    const reach = longest * (near.lengths[0] + near.lengths[1]), long = Math.hypot(ux - far.middle.x, uz - far.middle.z);
-    if (Math.hypot(tx - far.middle.x, tz - far.middle.z) < far.width) {
+    const reach = longest * (near.lengths[0] + near.lengths[1]), long = hypot(ux - far.middle.x, uz - far.middle.z);
+    if (hypot(tx - far.middle.x, tz - far.middle.z) < far.width) {
       if (long > reach) {
         ux = far.middle.x + (ux - far.middle.x) * reach / long;
         uz = far.middle.z + (uz - far.middle.z) * reach / long;
@@ -83,7 +84,7 @@ function outside(feet: readonly FootState[], centre: Vector3, velocity: Vector3,
   const height = centre.y - (feet[0]!.middle.y + feet[1]!.middle.y) / 2;
   const w = Math.sqrt(g / Math.max(height, 1e-3)), xi = centre.x + velocity.x / w, zi = centre.z + velocity.z / w;
   const [hx, hz] = withinSupport(feet, xi, zi, inset);
-  return Math.hypot(xi - hx, zi - hz);
+  return hypot(xi - hx, zi - hz);
 }
 
 /**
@@ -107,13 +108,13 @@ function outside(feet: readonly FootState[], centre: Vector3, velocity: Vector3,
 function walkStep(feet: readonly FootState[], centre: Vector3, velocity: Vector3, g: number, walk: readonly [number, number], heading: number,
   tuning: GaitTuning, last: Foot | null, under?: { readonly foot: Foot; readonly pivot: Vector3; readonly remaining: number }, inset = SUPPORT_INSET): SwingGoal {
   // The pelvis's right across the ground at the heading: +x at heading 0.
-  const rx = Math.cos(heading), rz = -Math.sin(heading);
+  const rx = cos(heading), rz = -sin(heading);
   const side: Foot = under?.foot ?? (last ? (last === "left" ? "right" : "left") : walk[0] * rx + walk[1] * rz < 0 ? "left" : "right");
   const foot = feet.find((f) => f.side === side)!, bearer = feet.find((f) => f !== foot)!, b = bearer.middle, sign = side === "right" ? 1 : -1;
-  const T = tuning.seconds, w = Math.sqrt(g / Math.max(centre.y - b.y, 1e-3)), grow = Math.exp(w * T);
+  const T = tuning.seconds, w = Math.sqrt(g / Math.max(centre.y - b.y, 1e-3)), grow = exp(w * T);
   const clear = foot.width, W = Math.max(tuning.width, clear + Math.abs(walk[0] * rx + walk[1] * rz) * T);
   // Under way, the capture point runs from the pivot the body falls about for what is left of the swing.
-  const run = under ? Math.exp(w * Math.max(under.remaining, 0)) : grow, xi = centre.x + velocity.x / w, zi = centre.z + velocity.z / w;
+  const run = under ? exp(w * Math.max(under.remaining, 0)) : grow, xi = centre.x + velocity.x / w, zi = centre.z + velocity.z / w;
   // Ahead of the new foot by the walk's distance over a swing over exp(w T) - 1, and in from it by
   // the width over exp(w T) + 1: along the walk each step goes the same way, across it they alternate.
   const nx = walk[0] * T / (grow - 1) - sign * W * rx / (grow + 1), nz = walk[1] * T / (grow - 1) - sign * W * rz / (grow + 1);
@@ -126,7 +127,7 @@ function walkStep(feet: readonly FootState[], centre: Vector3, velocity: Vector3
   // Starting from a stand, the weight is shifted first and the foot lands where a steady walk puts it.
   const steady = last || under;
   let tx = steady ? ex - nx : sx, tz = steady ? ez - nz : sz;
-  const longest = tuning.longest * (foot.lengths[0] + foot.lengths[1]), far = Math.hypot(tx - b.x, tz - b.z);
+  const longest = tuning.longest * (foot.lengths[0] + foot.lengths[1]), far = hypot(tx - b.x, tz - b.z);
   if (far > longest) {
     tx = b.x + (tx - b.x) * longest / far;
     tz = b.z + (tz - b.z) * longest / far;
@@ -161,12 +162,12 @@ const PREVIEW_STEPS = 8;
  */
 function transferStep(feet: readonly FootState[], centre: Vector3, velocity: Vector3, g: number, walk: readonly [number, number], heading: number,
   tuning: GaitTuning, last: Foot | null, under?: { readonly foot: Foot; readonly pivot: Vector3; readonly remaining: number }, inset = SUPPORT_INSET): SwingGoal {
-  const rx = Math.cos(heading), rz = -Math.sin(heading);
+  const rx = cos(heading), rz = -sin(heading);
   const side: Foot = under?.foot ?? (last === "left" ? "right" : "left");
   const foot = feet.find((f) => f.side === side)!, bearer = feet.find((f) => f !== foot)!, b = bearer.middle, sign = side === "right" ? 1 : -1;
   const Tss = tuning.seconds, Tds = tuning.transfer!, T = Tss + Tds, w = Math.sqrt(g / Math.max(centre.y - b.y, 1e-3));
   const clear = foot.width, W = Math.max(tuning.width, clear + Math.abs(walk[0] * rx + walk[1] * rz) * T);
-  const E = Math.exp(-w * Tss), F = Math.exp(-w * Tds), G = (1 - F) / (w * Tds) - F;
+  const E = exp(-w * Tss), F = exp(-w * Tds), G = (1 - F) / (w * Tds) - F;
   /** The capture point's reference as the foot lands at (x, z): at the end of the swing, on the bearing sole. */
   const reference = (x: number, z: number): [number, number] => {
     const fx = [x], fz = [z];
@@ -187,7 +188,7 @@ function transferStep(feet: readonly FootState[], centre: Vector3, velocity: Vec
   // The steady landing, and the reference there; the reference moves with the landing by F + G.
   let tx = b.x + walk[0] * T + sign * W * rx, tz = b.z + walk[1] * T + sign * W * rz;
   if (under) {
-    const [cx, cz] = reference(tx, tz), run = Math.exp(w * Math.max(under.remaining, 0));
+    const [cx, cz] = reference(tx, tz), run = exp(w * Math.max(under.remaining, 0));
     const xi = centre.x + velocity.x / w, zi = centre.z + velocity.z / w;
     let px = under.pivot.x, pz = under.pivot.z;
     if (run > 1 + 1e-6) [px, pz] = withinSupport([bearingOf(bearer)], (cx - xi * run) / (1 - run), (cz - zi * run) / (1 - run), inset);
@@ -195,7 +196,7 @@ function transferStep(feet: readonly FootState[], centre: Vector3, velocity: Vec
     tx += (ex - cx) / (F + G);
     tz += (ez - cz) / (F + G);
   }
-  const longest = tuning.longest * (foot.lengths[0] + foot.lengths[1]), far = Math.hypot(tx - b.x, tz - b.z);
+  const longest = tuning.longest * (foot.lengths[0] + foot.lengths[1]), far = hypot(tx - b.x, tz - b.z);
   if (far > longest) {
     tx = b.x + (tx - b.x) * longest / far;
     tz = b.z + (tz - b.z) * longest / far;
@@ -214,7 +215,7 @@ function transferStep(feet: readonly FootState[], centre: Vector3, velocity: Vec
 export function paceToward(s: Stance, walk: readonly [number, number] | null | undefined, dt: number): void {
   const { pace } = s.state, { gait } = s.tuning;
   const wx = walk?.[0] || 0, wz = walk?.[1] || 0, dx = wx - pace[0], dz = wz - pace[1];
-  const most = gait.accel * dt, d = Math.hypot(dx, dz), k = d > most ? most / d : 1;
+  const most = gait.accel * dt, d = hypot(dx, dz), k = d > most ? most / d : 1;
   pace[0] += dx * k;
   pace[1] += dz * k;
 }

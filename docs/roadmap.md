@@ -39,9 +39,11 @@ All of it on a physically based core, humans first ([architecture](architecture.
 - The oracle's next spaces to search: a response held longer than one period, two decisions
   looked ahead, and strikes chosen by name, since an attack at where the head stood was never
   taken.
-- A bout is the same to the bit in one JavaScript engine and another bout in the next: Chrome's
-  `Math.sin` and its kin differ from Node's in their last bits. Until the core's arithmetic is
-  its own, a tape made in Node (an oracle's) does not show its bout in a browser.
+- An arena bout is the same to the bit in Node and in a browser
+  ([reference/real-functions.md](reference/real-functions.md)). The lab and the crypt still place
+  bodies and aim orders with the engine's `Math` (`src/lab/`, `src/dungeon/`), so a lab scenario
+  or a crypt run is not yet held to be the same in every engine; the boundary test's
+  `WORLD_BUILDERS` names the modules it holds, and theirs join it when they are moved.
 - The tactics (`fighterTactics`) cannot yet attack a moving body, block or parry.
 - The arena needs tactics of its own, beyond walking at the other body and attacking its head.
 

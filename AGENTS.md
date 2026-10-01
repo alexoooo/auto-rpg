@@ -48,6 +48,13 @@ screens build on it; it never imports them.
   a source.
   `specProvenanceFaults` (`tests/fixtures/spec.mjs`) enforces this. A record in a file that has
   since been deleted is written `path@<commit>`. A spec never spreads another family's spec.
+- **The core's arithmetic is the same in every JavaScript engine.** It computes with IEEE's
+  operations (`+`, `-`, `*`, `/`, `Math.sqrt`) and its own functions (`src/core/math/real.ts`,
+  `turn.ts`), never `Math.sin` and its kin, `Math.hypot`, `Math.pow` or `**`, which an engine may
+  round its own way: one bit apart is another bout within seconds. The same holds for whatever
+  builds a bout's world (`src/arena/duel.ts`, `room.ts`). The boundary test enforces it
+  (`EXACT_MATH`), and holds the core to the Babylon math that has been read and found to be
+  arithmetic (`EXACT_BABYLON`): read a member's source before adding it.
 - **Tuning is immutable.** An experiment passes an override in; nothing mutates a global.
 - **One world step** owns physics, control, combat and the clock, at 120 Hz: `World.step`
   (`src/core/world.ts`). Pages, tests and research all call it; a page advances by real time with
@@ -143,9 +150,8 @@ screens build on it; it never imports them.
 ## Measurement
 
 - **Name the harness in every figure** (Node stand or page, engine, rate). Page and Node readings
-  of the same code have differed: Chrome's `Math.sin`, `cos`, `atan2`, `exp` and their kin are
-  not Node's to the last bit, so a bout, its digest and its tape hold within one JavaScript
-  engine and no further.
+  of the same code have differed. An arena bout is the same in both to the bit
+  (`docs/reference/real-functions.md`); a lab scenario or a crypt run is not yet held to be.
 - **Say whether a peak was driven or struck**, and exclude startup and the time after a contact.
 - **Before calling a difference between two physics rates physical**, read the faster rate at the
   slower one's spacing.

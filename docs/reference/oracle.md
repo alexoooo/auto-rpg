@@ -141,13 +141,10 @@ tape (`?play=arena&matchup=crypt-skeleton,workshop-rogue`):
 ?play=arena&matchup=crypt-skeleton,workshop-rogue&gap=4&cap=30#tape=%5B%7B%22step%22%3A1380%2C%22side%22%3A%22right%22%2C%22orders%22%3A%7B%22move%22%3Anull%2C%22face%22%3A%7B%22x%22%3A-0.9642353269925225%2C%22z%22%3A-0.26504760738332134%7D%2C%22attack%22%3Anull%7D%7D%2C%7B%22step%22%3A1440%2C%22side%22%3A%22right%22%2C%22orders%22%3Anull%7D%5D
 ```
 
-**In a browser the link plays, and its bout is not Node's.** On the built page (Chrome 154, a
-hidden tab stepped by hand) the link's matchup, gap, cap and tape are read, nobody is at the
-keys, and the clock ends " · replay". The bout is Node's to the bit through step 240 and has
-parted from it by step 480. The engines' arithmetic differs: over 20 000 arguments each,
-Chrome's `Math.sin`, `cos`, `tan`, `asin`, `acos`, `atan2`, `exp`, `sinh` and `cosh` differ from
-Node 24.19's in their last bits, where `**`, `hypot` and `sqrt` agree, and a bout amplifies a
-bit; whether that is the whole of the difference is not yet shown. In Chrome the linked bout
-ends at 11.75 s, the skeleton fallen; in Node at 12.45 s, the same way, and that the winner
-agrees is chance. So a tape made in Node shows the oracle's bout in Node alone, until the core's
-arithmetic is the same in every engine.
+**In a browser the link plays the oracle's bout.** On the built page (Chrome 154, a hidden tab
+stepped by hand) the link's matchup, gap, cap and tape are read, nobody is at the keys, and the
+bout is Node's at every step: 1494 steps to the skeleton fallen at 12.45 s, the poses of both
+bodies the same to the bit throughout ([real-functions.md](real-functions.md), In Chrome). That
+holds because the core computes with functions of its own. An engine's `Math.sin` and its kin
+are its own to the last bit, and on them the same link was Node's bout through step 240 and
+another by step 480, ending at 11.75 s.
