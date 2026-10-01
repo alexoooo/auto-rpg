@@ -19,7 +19,7 @@ import { flatStone } from "./stone.ts";
 import { REFERENCE_TORCHES } from "./reference.ts";
 import type { buildDungeonWorld } from "./world.ts";
 
-import type { CryptRoomPlan } from "./crypt-room.ts";
+import type { CryptRoomPlan } from "./crypt-plan.ts";
 import { assembleCryptKit } from "./crypt-kit.ts";
 
 export type ReferenceQuality = "high" | "reduced";

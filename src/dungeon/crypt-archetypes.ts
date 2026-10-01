@@ -1,5 +1,5 @@
 import type { DungeonObstacle, Room } from "./map.ts";
-import type { CryptPlacement } from "./crypt-room.ts";
+import type { CryptPlacement } from "./crypt-plan.ts";
 
 export type CryptRoomKind = "guard" | "burial" | "chapel" | "rootbound";
 export interface CryptArchetype { room: number; kind: CryptRoomKind; variant: number; turn: number }

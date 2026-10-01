@@ -332,7 +332,7 @@ Soil is the colour the paving's stains take in a chamber of that kind, and Stain
 are (`CryptWeathering`, `src/dungeon/crypt-weathering.ts`). Paving outside every chamber takes
 0.4, 0.32, 0.21 at 0.35, written in the shader.
 
-The dressing of a crypt's map (`dressCryptMap`, `src/dungeon/crypt-room.ts`) draws from a stream
+The dressing of a crypt's map (`dressCryptMap`, `src/dungeon/crypt-plan.ts`) draws from a stream
 of its own, one draw against each of these odds where a chamber's kind gives none.
 
 `CRYPT_ODDS`:

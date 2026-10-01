@@ -1,5 +1,5 @@
 import { cryptFurniture, type CryptArchetype, type CryptRoomKind } from "./crypt-archetypes.ts";
-import { dressCryptMap, type CryptRoomPlan } from "./crypt-room.ts";
+import { dressCryptMap, type CryptRoomPlan } from "./crypt-plan.ts";
 import { LEVEL } from "./level.ts";
 import { distance, findPath, walkable, type DungeonMap, type Point, type Room } from "./map.ts";
 import { companionSpawn } from "./party-placement.ts";

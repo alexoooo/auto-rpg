@@ -109,7 +109,7 @@ Burial Chamber, a Ruined Chapel and a Rootbound Chamber, each in one of three ar
 either way round. The exit is in the chamber farthest from the entrance, and each of the other
 three holds two enemies placed away from the doors. The camera follows the leader, starting at zoom 8 (the wheel sets 2-18).
 
-- **Plan.** `generateCryptDungeon(seed)` returns a `CryptRoomPlan` (`src/dungeon/crypt-room.ts`):
+- **Plan.** `generateCryptDungeon(seed)` returns a `CryptRoomPlan` (`src/dungeon/crypt-plan.ts`):
   the gameplay `DungeonMap` plus the art's placements, the room bounds, torches and damp regions.
   Layout and decoration draw from separate random streams, so the same seed always gives the same
   crypt.

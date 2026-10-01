@@ -27,7 +27,7 @@ import { lookProbe } from "./look-probe.ts";
 import { frameMeter } from "./frame-meter.ts";
 import { dungeonStone, stoneQuery } from "./stone.ts";
 
-import { type CryptRoomPlan } from "./crypt-room.ts";
+import { type CryptRoomPlan } from "./crypt-plan.ts";
 import { generateCryptDungeon } from "./crypt-dungeon.ts";
 import { referenceChamber, REFERENCE_CAMERA, REFERENCE_TORCHES } from "./reference.ts";
 import { dressReference, type ReferenceQuality } from "./reference-look.ts";

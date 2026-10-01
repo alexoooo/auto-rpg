@@ -1,7 +1,7 @@
 import { Mesh } from "@babylonjs/core/Meshes/mesh.js";
 import { Quaternion } from "@babylonjs/core/Maths/math.vector.js";
 import type { AssetContainer } from "@babylonjs/core/assetContainer.js";
-import type { CryptRoomPlan } from "./crypt-room.ts";
+import type { CryptRoomPlan } from "./crypt-plan.ts";
 
 /** Bake placements once and batch by material; no kit node becomes a physics body. */
 export function assembleCryptKit(container: AssetContainer, plan: CryptRoomPlan): void {

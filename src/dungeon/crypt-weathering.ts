@@ -1,7 +1,7 @@
 import { MaterialPluginBase } from "@babylonjs/core/Materials/materialPluginBase.js";
 import type { Material } from "@babylonjs/core/Materials/material.js";
 import { CRYPT_ROOM_LOOK } from "./crypt-archetypes.ts";
-import type { CryptRoomPlan } from "./crypt-room.ts";
+import type { CryptRoomPlan } from "./crypt-plan.ts";
 
 /** World-space stains follow the actual paving surface, including fractured/sunken pieces. */
 export class CryptWeathering extends MaterialPluginBase {

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {CRYPT_FURNITURE} from '../src/dungeon/crypt-archetypes.ts';
 import {generateCryptDungeon} from '../src/dungeon/crypt-dungeon.ts';
-import {CRYPT_PAVING} from '../src/dungeon/crypt-room.ts';
+import {CRYPT_PAVING} from '../src/dungeon/crypt-plan.ts';
 
 test('crypt kit has baked origins, valid normals, colours and a bounded tomb',()=>{
   const bytes=readFileSync(new URL('../public/assets/crypt-kit/kit.glb',import.meta.url));
