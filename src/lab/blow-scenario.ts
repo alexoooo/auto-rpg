@@ -3,7 +3,7 @@ import { Color3 } from "@babylonjs/core/Maths/math.color.js";
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder.js";
 import type { Scene } from "@babylonjs/core/scene.js";
 import { blowDamage, rulebook } from "../core/rules/rulebook.ts";
-import { STAND } from "../core/skills/strike.ts";
+import type { StrikeReport } from "../core/skills/strike.ts";
 import { throwBlow } from "./blow.ts";
 import { LAB_BLOWS, type StoredBlow } from "./blows.ts";
 import { watchClubBlow, type ClubLanding } from "./club-blow.ts";
@@ -33,8 +33,11 @@ import { choice, legend, note, readings } from "./hud/controls.ts";
 /** What the history holds of each step. */
 interface BlowMoment {
   readonly time: number;
-  /** Seconds since the pushes began (negative before). */
+  /** Seconds since the pushes were due (negative before), by the blow's clock. */
   readonly since: number;
+  /** Where its skills are in the blow (`StrikeReport.phase`), and whether they have thrown it. */
+  readonly phase: StrikeReport["phase"];
+  readonly thrown: boolean;
   readonly fallen: boolean;
   readonly landed: ClubLanding | null;
   readonly nearest: number;
@@ -49,6 +52,21 @@ const HOLD = 1.5;
 /** Seconds after the pushes begin in which a blow that has not landed has missed (`core-club-strike.mjs`'s window). */
 const WINDOW = 0.5;
 const RULES = rulebook("arena");
+/** What the body is doing at `moment`, by what its skills report: the clock says nothing of a blow that is not thrown. */
+function doing(moment: BlowMoment): string {
+  const { landed } = moment;
+  if (moment.fallen) return "Fell before it landed";
+  if (landed) return `Landed, ${landed.at.toFixed(3)} s after the pushes began`;
+  switch (moment.phase) {
+    case "chamber": return "Chambering";
+    case "swing": return "Swinging";
+    case "approach": case "place": case "settle": case null:
+      if (!moment.thrown) return "Standing in guard";
+      return moment.since > WINDOW ? `Missed: the club passed ${(100 * moment.nearest).toFixed(1)} cm from the head` : "Swinging";
+    default: { const never: never = moment.phase; return String(never); }
+  }
+}
+
 const MARKS = {
   head: { colour: new Color3(0.85, 0.35, 0.3), name: "the head (a mark: the club passes through)" },
   touch: { colour: new Color3(1, 0.85, 0.3), name: "where it touched" },
@@ -101,7 +119,8 @@ export function blowScenario(scene: Scene, shell: LabShell): LabScenario {
       const history = recordHistory(built, world, HISTORY_SECONDS, (): BlowMoment => {
         const t = watch?.target;
         return {
-          time: blow.time, since: blow.time - blow.pushing, fallen: blow.fallen, landed: watch?.landed ?? null,
+          time: blow.time, since: blow.time - blow.pushing, phase: blow.report.strike.phase, thrown: blow.report.strike.thrown[stored.hand] > 0,
+          fallen: blow.report.fallen, landed: watch?.landed ?? null,
           nearest: watch?.nearest ?? Infinity, peak: watch?.peak ?? 0, target: t ? [t.x, t.y, t.z] : null,
         };
       });
@@ -117,16 +136,10 @@ export function blowScenario(scene: Scene, shell: LabShell): LabScenario {
           if (!moment) return null;
           // Pause once the blow is over, so all of it stays to scrub.
           if (!held && frame === null && moment.since >= HOLD) { held = true; player.setPaused(true); }
-          const { landed } = moment;
-          const doing = !holds ? `Standing: put the club in the ${stored.hand} hand to throw it`
-            : moment.fallen ? "Fell before it landed"
-            : moment.time < STAND ? "Standing in guard"
-            : moment.since < 0 ? "Chambering"
-            : landed ? `Landed, ${landed.at.toFixed(3)} s after the pushes began`
-            : moment.since > WINDOW ? `Missed: the club passed ${(100 * moment.nearest).toFixed(1)} cm from the head`
-            : "Swinging";
+          const { landed } = moment, pushed = moment.phase === "swing" || moment.thrown;
           shown.write({
-            doing, since: moment.since < 0 ? "-" : moment.since.toFixed(3),
+            doing: holds ? doing(moment) : `Standing: put the club in the ${stored.hand} hand to throw it`,
+            since: pushed ? moment.since.toFixed(3) : "-",
             closing: landed ? landed.closing.toFixed(2) : "-", energy: landed ? landed.energy.toFixed(1) : "-",
             hp: landed ? blowDamage(RULES, "blunt", landed.energy).toFixed(2) : "-",
             club: landed ? landed.clubKg.toFixed(2) : "-", head: landed ? landed.headKg.toFixed(1) : "-",

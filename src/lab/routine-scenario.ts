@@ -14,7 +14,7 @@ import { readings, table } from "./hud/controls.ts";
 /**
  * **The Routine scenario**: the lab routine (`routine.ts`), tactics on the core's skills -- walk out,
  * strike at the post with each hand in turn, walk round and back -- to show the muscles. The
- * readout is what it is doing, its loops, the striking fist's speed, read from the hand's body each
+ * readout is its loops, the striking fist's speed, read from the hand's body each
  * physics sub-step, and each strike's peak and where the head stood from the recipe's place. The
  * last `HISTORY_SECONDS` are recorded (`history.ts`), about one loop. On the ground: the track; in
  * the air, the post.
@@ -23,7 +23,6 @@ import { readings, table } from "./hud/controls.ts";
 /** What the history holds of each step. */
 interface RoutineMoment {
   readonly time: number;
-  readonly doing: string;
   readonly loops: number;
   readonly fist: number;
   readonly closure: Readonly<Record<Hand, number>>;
@@ -45,7 +44,7 @@ export function routineScenario(scene: Scene): LabScenario {
   post.material = material;
   post.isPickable = false;
   post.isVisible = false;
-  const shown = readings({ doing: { name: "Doing" }, loops: { name: "Loops" }, fist: { name: "Fist", unit: "m/s" } });
+  const shown = readings({ loops: { name: "Loops" }, fist: { name: "Fist", unit: "m/s" } });
   const strikes = table(["Strike", "Peak fist, m/s", "Off, cm"]);
 
   return {
@@ -56,7 +55,7 @@ export function routineScenario(scene: Scene): LabScenario {
       const { world } = actor, { built } = actor.body;
       const routine = startRoutine(actor);
       const history = recordHistory(built, world, HISTORY_SECONDS, (): RoutineMoment => ({
-        time: routine.time(), doing: routine.doing(), loops: routine.tactics.loops, fist: routine.fistSpeed(),
+        time: routine.time(), loops: routine.tactics.loops, fist: routine.fistSpeed(),
         closure: { left: routine.closure("left"), right: routine.closure("right") },
       }));
       const player = createPlayer({ world, recording: history }, changed, clock);
@@ -70,7 +69,7 @@ export function routineScenario(scene: Scene): LabScenario {
           if (at) { post.position.set(at[0], at[1], at[2]); post.isVisible = true; }
           const moment = history.at(frame ?? history.live());
           if (!moment) return null;
-          shown.write({ doing: moment.doing, loops: String(moment.loops), fist: moment.fist.toFixed(1) });
+          shown.write({ loops: String(moment.loops), fist: moment.fist.toFixed(1) });
           if (routine.strikes.length !== shownStrikes) {
             shownStrikes = routine.strikes.length;
             strikes.write(routine.strikes.slice(-6).map((s) =>

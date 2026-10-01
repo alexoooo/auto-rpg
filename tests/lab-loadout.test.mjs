@@ -7,7 +7,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { humanSpec } from "../src/core/human/spec.ts";
 import { woodenClub } from "../src/core/items/club.ts";
-import { balanceAddress, loadoutBalance, loadoutSpec } from "../src/lab/loadout.ts";
+import { balanceAddress, loadoutBalance, loadoutSpec, strikesOf } from "../src/lab/loadout.ts";
 import { labActor } from "../src/lab/actor.ts";
 import { startStance } from "../src/lab/stance-mode.ts";
 import { specProvenanceFaults } from "./fixtures/spec.mjs";
@@ -32,6 +32,16 @@ test("a_bodys_balance_is_the_addresss_or_its_characters_own_which_the_address_le
   assert.deepEqual([null, 0, 2, 5].map((balance) => loadoutBalance(balance, spec)), [2, 0, 2, 5]);
   assert.deepEqual([0, 2, 5].map((points) => balanceAddress(points, spec)), [0, null, 5]);
   for (const model of MODELS) assert.equal(loadoutBalance(null, loadoutSpec(bare(model))), humanSpec(model).attributes.balance.value);
+});
+
+test("a_body_has_a_strike_for_each_thing_its_hands_hold_its_own_or_one_borrowed", () => {
+  const strikes = (loadout) => strikesOf(loadoutSpec(loadout)), fist = { held: "empty", name: "fist" }, club = { held: "club", name: "wooden club" };
+  assert.deepEqual(strikes(bare("workshop-fighter")), [fist]);
+  assert.deepEqual(strikes({ ...bare("workshop-fighter"), right: "club" }), [club, fist]);
+  // The Rogue and the skeleton have no club blow of their own, and throw the Warrior's.
+  assert.deepEqual(strikes({ ...bare("workshop-rogue"), left: "club" }), [fist, club]);
+  assert.deepEqual(strikes({ ...bare("workshop-rogue"), right: "club", left: "club" }), [club]);
+  assert.deepEqual(strikes({ ...bare("crypt-skeleton"), right: "club" }), [club, fist]);
 });
 
 test("each_hand_holds_what_the_loadout_says_and_nothing_else", () => {

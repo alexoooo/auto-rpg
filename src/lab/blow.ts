@@ -4,6 +4,7 @@ import type { BuiltSegment } from "../core/build/build-body.ts";
 import type { Hand } from "../core/control/motor.ts";
 import { GUARD_ACTION, type Intent } from "../core/mind/intent.ts";
 import type { Tactics } from "../core/mind/tactics.ts";
+import type { SkillReport } from "../core/skills/skills.ts";
 import { STAND } from "../core/skills/strike.ts";
 import { heldIn, type Strike, type StrikeWindow } from "../core/skills/strikes.ts";
 import type { Vec3 } from "../core/spec/quantity.ts";
@@ -26,19 +27,17 @@ import type { Actor } from "./actor.ts";
 
 /**
  * **Tactics that attack once**: `hand` attacks `target` (world) until the skills report the strike
- * thrown, then guards. `target` is read from the head each step until `STAND`, then held: the
+ * thrown, then guards. `target` is read from the head each step until `time`, s, is `STAND`, then held: the
  * searches place their target from the head as the body stands then, after it has settled a few
  * centimetres forward and down from the pose it was built in.
  */
-function attackOnce(hand: Hand, target: (head: Vector3) => Vec3): Tactics & { readonly time: number } {
-  let aim: Vec3 | null = null, time = 0;
+function attackOnce(hand: Hand, target: (head: Vector3) => Vec3, time: () => number): Tactics {
+  let aim: Vec3 | null = null;
   const guarding: Intent = { move: null, face: 0, hands: { left: GUARD_ACTION, right: GUARD_ACTION } };
   return {
     name: "attack once",
-    get time() { return time; },
-    decide({ view, report }, dt) {
-      time += dt;
-      if (!aim || time < STAND) aim = target(view.head);
+    decide({ view, report }) {
+      if (!aim || time() < STAND) aim = target(view.head);
       if (report.strike.thrown[hand] > 0) return guarding;
       return { ...guarding, hands: { ...guarding.hands, [hand]: { kind: "attack", target: aim } } };
     },
@@ -47,12 +46,12 @@ function attackOnce(hand: Hand, target: (head: Vector3) => Vec3): Tactics & { re
 
 export interface ThrownBlow {
   readonly body: Body;
+  /** What its skills report: whether a blow is being thrown, or has been, is read here and not from the clock. */
+  readonly report: SkillReport;
   /** When the pushes begin, s from the start. */
   readonly pushing: number;
   /** The control steps taken, s. */
   readonly time: number;
-  /** Whether the body has fallen at any step since it began. */
-  readonly fallen: boolean;
   dispose(): void;
 }
 
@@ -70,12 +69,13 @@ const AT_ITS_PLACE: StrikeWindow = { along: [-0.01, 0.01], across: [-0.01, 0.01]
 export function throwBlow(actor: Actor, strike: Strike, distance: number): ThrownBlow {
   const { body } = actor, built = body.built;
   const recipe = { model: built.spec.model, held: heldIn(built.spec, strike.hand), strike, distance, found: "an experiment's", window: AT_ITS_PLACE };
-  const tactics = attackOnce(strike.hand, (head) => [head.x, head.y, head.z + distance]);
-  const skills = actor.drive(tactics, { repertoire: [recipe] });
+  let time = 0;
+  const tactics = attackOnce(strike.hand, (head) => [head.x, head.y, head.z + distance], () => time);
+  // The clock counts the step under way, whatever mind decides it.
+  const { report } = actor.drive(tactics, { skills: { repertoire: [recipe] }, watch: (_, dt) => { time += dt; } });
   return {
-    body, pushing: STAND + (strike.chamber?.seconds ?? 0),
-    get time() { return tactics.time; },
-    get fallen() { return skills.report.fallen; },
+    body, report, pushing: STAND + (strike.chamber?.seconds ?? 0),
+    get time() { return time; },
     dispose: () => actor.dispose(),
   };
 }

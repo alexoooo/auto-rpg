@@ -24,7 +24,8 @@ import { labSections, SECTIONS, type LabPage, type SectionName } from "./hud/sec
 import { labTransport } from "./hud/transport.ts";
 import { viewSection } from "./hud/view-section.ts";
 import { SCENARIO_PANELS, type LabScenario, type LabShell, type ScenarioRun } from "./lab-scenario.ts";
-import { loadoutBalance, loadoutSpec } from "./loadout.ts";
+import { allowing, loadoutBalance, loadoutSpec } from "./loadout.ts";
+import { LAB_MINDS } from "./minds.ts";
 import { blowScenario } from "./blow-scenario.ts";
 import { routineScenario } from "./routine-scenario.ts";
 import { runScenario } from "./run-scenario.ts";
@@ -43,7 +44,8 @@ import { need } from "../dom.ts";
  * them with its own controls, each section's in its module, then with the scenario's panels.
  *
  * The body is the loadout's (`loadout.ts`): the model, and what each hand holds. Its assist
- * (`actor.ts`) has the ceiling its balance buys (`loadoutBalance`), named by the clock. It is drawn in one
+ * (`actor.ts`) has the ceiling its balance buys (`loadoutBalance`), named by the clock. Its mind (`minds.ts`)
+ * makes its tactics of the scenario's script, and throws no strike the address bars. It is drawn in one
  * of two views: World, the workshop model's skin (`skin.ts`), wearing the loadout's clothing, or
  * Tactical, the collision shapes themselves (`src/render/body-shapes.ts`); what a hand holds is drawn as its shapes
  * in both. A Free, an Isometric or a Chase camera follows it (`camera.ts`).
@@ -96,6 +98,7 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
   scene.clearColor = new Color4(0.082, 0.098, 0.11, 1);
   /** The world a body is loaded into; each load makes a new one, at the chosen rate. */
   let world: World | null = null;
+  let physicsEngine: Awaited<ReturnType<typeof loadEngine>> | null = null;
 
   const camera = new ArcRotateCamera("lab.camera", -Math.PI / 2 - 0.9, 1.25, 4.8, new Vector3(0, 1, 1.5), scene);
   camera.lowerRadiusLimit = 1.5;
@@ -172,6 +175,8 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
 
   /** Load `to`'s loadout at `to`'s rate, in a new world, and start the scenario on it. */
   function load(to: LabAddress): void {
+    // Until the physics engine has loaded there is no world to make: `to` is what is loaded then.
+    if (!physicsEngine) { show(to); return; }
     if (current) {
       current.run.dispose();
       current.skin?.dispose();
@@ -183,7 +188,7 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
     world = createWorld(scene, physicsEngine, { hz: to.hz });
     world.physics.addFixedBox([0, -0.5, 0], [40, 1, 40]);
     const built = buildBody(loadoutSpec(to), world, { position: [0, 0, 0] }), points = loadoutBalance(to.balance, built.spec);
-    const actor = labActor(built, world, { assist: balanceCeiling(points, POINT) });
+    const actor = labActor(built, world, { assist: balanceCeiling(points, POINT), mind: LAB_MINDS[to.mind].tactics, allows: allowing(to.barred) });
     const rest = built.segments.get("lowerTrunk")!.node.rotationQuaternion!.clone();
     const view = drawBody(built, scene, TINT[to.model]), heldView = drawHeld(built, scene);
     // A new body starts live: nothing of the last one's recording is shown.
@@ -229,8 +234,8 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
   document.addEventListener("visibilitychange", () => held.clear());
 
   // The HUD is filled before the wait for the physics engine, so it never shows empty.
-  const physicsEngine = await loadEngine();
-  load(address);
+  physicsEngine = await loadEngine();
+  load(shown);
   engine.runRenderLoop(() => {
     current?.run.drive(held);
     current?.run.player.tick(engine.getDeltaTime() * transport.speed(), performance.now() + SEEK_BUDGET_MS);

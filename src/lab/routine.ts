@@ -73,7 +73,8 @@ interface RoutineTactics extends Tactics {
  * **The Routine's tactics**: round `track` as the Run goes (`trackTactics`), and at the post, each hand
  * of `hands` that has a blow attacks it in turn. They hand their walk to the attack once the post is
  * within the hand's reach (`StrikeReport.reach`) and the distance the strike skill closes at its
- * own fastest (`APPROACH`'s pace over its seconds), and take it back when the last blow is thrown.
+ * own fastest (`APPROACH`'s pace over its seconds), and take it back when the last blow is thrown;
+ * with no blow in either hand they walk out to the post and back.
  */
 function routineTactics(track: Track, envelope: StanceEnvelope, hands: readonly Hand[] = ROUTINE_HANDS): RoutineTactics {
   const walk = trackTactics(track, envelope, ROUTINE_GAIT);
@@ -94,16 +95,15 @@ function routineTactics(track: Track, envelope: StanceEnvelope, hands: readonly 
       post ??= [end.x + POST_BEYOND * Math.sin(end.heading), view.head.y, end.z + POST_BEYOND * Math.cos(end.heading)];
       order ??= hands.filter((hand) => report.strike.reach[hand] !== null);
       if (laps > loops) { loops = laps; leg = "out"; next = 0; }
+      const thrown = report.strike.thrown.left + report.strike.thrown.right;
+      if (leg === "out") {
+        // It walks out to where its first blow reaches the post; with none to throw, to the post itself.
+        const first = order[next], reach = first ? report.strike.reach[first]! : 0;
+        if (Math.hypot(post[0] - view.head.x, post[2] - view.head.z) <= reach + closing) { leg = "post"; counted = thrown; }
+      }
       if (leg === "post") {
-        const thrown = report.strike.thrown.left + report.strike.thrown.right;
         if (thrown > counted) { counted = thrown; next += 1; }
         if (next >= order.length) leg = "back";
-      }
-      if (leg === "out" && next < order.length) {
-        if (Math.hypot(post[0] - view.head.x, post[2] - view.head.z) <= report.strike.reach[order[next]!]! + closing) {
-          leg = "post";
-          counted = report.strike.thrown.left + report.strike.thrown.right;
-        }
       }
       // Out, it faces the post: the straight's own line, and not the turn beyond it the walk would face.
       if (leg === "out") return { ...walked, face: Math.atan2(post[0] - view.stance.centre.x, post[2] - view.stance.centre.z) };
@@ -162,7 +162,7 @@ export function startRoutine(actor: Actor): Routine {
   const closedAt: Record<Hand, number | null> = { left: null, right: null };
   const openedAt: Record<Hand, number | null> = { left: null, right: null };
 
-  // The instrument: it reads what the tactics see, before they decide, and changes nothing.
+  // The instrument: it reads what the body's mind sees, whatever mind that is.
   const read = ({ view, report }: Sight): void => {
     time = view.time;
     for (const side of ["left", "right"] as const) speed[side] = fists[side].velocity.length();
@@ -188,7 +188,7 @@ export function startRoutine(actor: Actor): Routine {
       current = null;
     }
   };
-  const { report } = actor.drive({ name: tactics.name, decide: (sight, dt) => { read(sight); return tactics.decide(sight, dt); } });
+  const { report } = actor.drive(tactics, { watch: read });
 
   return {
     body,

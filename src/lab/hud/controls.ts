@@ -99,6 +99,20 @@ export function when(visible: () => boolean, control: Control): Control {
   return { element, refresh };
 }
 
+/** What `build` makes of `key()`, made again whenever the key is another. */
+export function following<K>(key: () => K, build: (key: K) => Control): Control {
+  const element = document.createElement("div");
+  let made: { readonly key: K; readonly control: Control } | null = null;
+  const refresh = (): void => {
+    const now = key();
+    if (made?.key === now) { made.control.refresh(); return; }
+    made = { key: now, control: build(now) };
+    element.replaceChildren(made.control.element);
+  };
+  refresh();
+  return { element, refresh };
+}
+
 /** `parts` under a heading. */
 export function group(name: string, parts: readonly Control[]): Control {
   const element = Object.assign(document.createElement("section"), { className: "group" });

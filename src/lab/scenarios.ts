@@ -5,7 +5,7 @@ import { balanceFrom } from "../core/rules/rulebook.ts";
 
 /**
  * **The lab's scenarios, and the address that opens one.** `?play=lab` is the scenario menu
- * (`setup.ts`); `?play=lab&scenario=…` runs that scenario (`main.ts`), where the loadout, the balance, the
+ * (`setup.ts`); `?play=lab&scenario=…` runs that scenario (`main.ts`), where the loadout, the balance, the mind, the
  * rate, the view and the camera are chosen, and the address keeps them. Choosing a scenario, or going back to
  * the menu, is a navigation, as every change of screen in the game is.
  *
@@ -80,6 +80,9 @@ export type LabView = (typeof LAB_VIEWS)[number];
 /** How the camera follows the body (`camera.ts`); the first is the default. */
 export const LAB_CAMERAS = ["free", "isometric", "chase"] as const;
 export type LabCamera = (typeof LAB_CAMERAS)[number];
+/** What may drive the body (`LAB_MINDS`, `minds.ts`); the first is the default. */
+export const LAB_MIND_IDS = ["script", "guard"] as const;
+export type LabMindId = (typeof LAB_MIND_IDS)[number];
 /** How the isometric camera draws; the first is the default. */
 export const LAB_PROJECTIONS = ["orthographic", "perspective"] as const;
 export type LabProjection = (typeof LAB_PROJECTIONS)[number];
@@ -89,13 +92,16 @@ export interface LabAddress extends LabLoadout {
   readonly scenario: ScenarioId | null;
   /** The body's balance, points, in place of its character's (`AttributeSpec.balance`); null is the character's. */
   readonly balance: number | null;
+  readonly mind: LabMindId;
+  /** What its mind may not strike with: each thing held whose strike is barred. */
+  readonly barred: readonly LabHeld[];
   readonly hz: LabRate;
   readonly view: LabView;
   readonly camera: LabCamera;
   readonly projection: LabProjection;
 }
 
-const KEYS = ["scenario", "model", "right", "left", "boots", "armour", "balance", "hz", "view", "camera", "projection"] as const;
+const KEYS = ["scenario", "model", "right", "left", "boots", "armour", "balance", "mind", "barred", "hz", "view", "camera", "projection"] as const;
 
 /** A switch in the address: `1` on, `0` off, anything else `fallback`. */
 const flag = (value: string | null, fallback: boolean): boolean => value === "1" ? true : value === "0" ? false : fallback;
@@ -104,7 +110,7 @@ const flag = (value: string | null, fallback: boolean): boolean => value === "1"
 export function labAddress(search: string): LabAddress {
   const query = new URLSearchParams(search);
   const model = MODELS.find((m) => m.id === query.get("model"))?.id ?? MODELS[0].id;
-  const worn = WORN[model];
+  const worn = WORN[model], barred = (query.get("barred") ?? "").split(",");
   return {
     scenario: SCENARIOS.find((s) => s.id === query.get("scenario"))?.id ?? null,
     model,
@@ -113,6 +119,8 @@ export function labAddress(search: string): LabAddress {
     boots: flag(query.get("boots"), worn.boots),
     armour: flag(query.get("armour"), worn.armour),
     balance: balanceFrom(query.get("balance") ?? ""),
+    mind: LAB_MIND_IDS.find((m) => m === query.get("mind")) ?? LAB_MIND_IDS[0],
+    barred: LAB_HELD.filter((h) => barred.includes(h)),
     hz: LAB_RATES.find((r) => String(r) === query.get("hz")) ?? LAB_RATES[0],
     view: LAB_VIEWS.find((v) => v === query.get("view")) ?? LAB_VIEWS[0],
     camera: LAB_CAMERAS.find((c) => c === query.get("camera")) ?? LAB_CAMERAS[0],
@@ -122,7 +130,7 @@ export function labAddress(search: string): LabAddress {
 
 /**
  * The address of `address`, keeping whatever else `search` holds. The menu keeps the loadout,
- * the balance, the rate, the view and the camera, so going back to it and on to another scenario keeps them too.
+ * the balance, the mind, the rate, the view and the camera, so going back to it and on to another scenario keeps them too.
  */
 export function labHref(address: LabAddress, search = ""): string {
   const query = new URLSearchParams(playHref("lab", search));
@@ -134,6 +142,8 @@ export function labHref(address: LabAddress, search = ""): string {
   query.set("boots", address.boots ? "1" : "0");
   query.set("armour", address.armour ? "1" : "0");
   if (address.balance !== null) query.set("balance", String(address.balance));
+  query.set("mind", address.mind);
+  if (address.barred.length > 0) query.set("barred", address.barred.join(","));
   query.set("hz", String(address.hz));
   query.set("view", address.view);
   query.set("camera", address.camera);

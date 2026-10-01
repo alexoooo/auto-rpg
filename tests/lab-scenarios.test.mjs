@@ -7,21 +7,22 @@ import assert from "node:assert/strict";
 import { routeFor } from "../src/app-route.ts";
 import { PHYSICS_HZ } from "../src/core/world.ts";
 import { CHARACTERS } from "../src/character-lab/catalog.ts";
-import { labAddress, labHref, LAB_CAMERAS, LAB_HELD, LAB_PROJECTIONS, LAB_RATES, LAB_VIEWS, MODELS, SCENARIOS } from "../src/lab/scenarios.ts";
+import { labAddress, labHref, LAB_CAMERAS, LAB_HELD, LAB_MIND_IDS, LAB_PROJECTIONS, LAB_RATES, LAB_VIEWS, MODELS, SCENARIOS } from "../src/lab/scenarios.ts";
 
-const DEFAULTS = { scenario: null, model: "workshop-fighter", right: "empty", left: "empty", boots: true, armour: true, balance: null, hz: 120,
+const DEFAULTS = { scenario: null, model: "workshop-fighter", right: "empty", left: "empty", boots: true, armour: true, balance: null, mind: "script", barred: [], hz: 120,
   view: "world", camera: "free", projection: "orthographic" };
 /** The Rogue as the workshop dresses it: boots, no armour. */
 const ROGUE = { model: "workshop-rogue", boots: true, armour: false };
 
 test("the_lab_address_names_a_scenario_a_character_a_rate_a_view_and_a_camera_or_falls_back", () => {
   assert.deepEqual(labAddress("?play=lab"), DEFAULTS);
-  assert.deepEqual(labAddress("?play=lab&scenario=routine&model=workshop-rogue&right=club&left=club&boots=0&armour=1&balance=2.5&hz=480&view=tactical&camera=chase&projection=perspective"),
-    { scenario: "routine", model: "workshop-rogue", right: "club", left: "club", boots: false, armour: true, balance: 2.5, hz: 480, view: "tactical",
+  assert.deepEqual(labAddress("?play=lab&scenario=routine&model=workshop-rogue&right=club&left=club&boots=0&armour=1&balance=2.5&mind=guard&barred=club,empty&hz=480&view=tactical&camera=chase&projection=perspective"),
+    { scenario: "routine", model: "workshop-rogue", right: "club", left: "club", boots: false, armour: true, balance: 2.5, mind: "guard",
+      barred: ["empty", "club"], hz: 480, view: "tactical",
       camera: "chase", projection: "perspective" });
   // Each field falls back alone; a known value beside an unknown one is kept.
-  assert.deepEqual(labAddress("?scenario=elsewhere&model=workshop-rogue&right=sword&left=club&boots=yes&hz=60&view=x-ray&camera=isometric&projection=fisheye"),
-    { ...DEFAULTS, ...ROGUE, left: "club", camera: "isometric" });
+  assert.deepEqual(labAddress("?scenario=elsewhere&model=workshop-rogue&right=sword&left=club&boots=yes&mind=fighter&barred=sword,club,club&hz=60&view=x-ray&camera=isometric&projection=fisheye"),
+    { ...DEFAULTS, ...ROGUE, left: "club", barred: ["club"], camera: "isometric" });
   assert.deepEqual(labAddress("?scenario=stance&model=golem&right=club&left=bow&armour=0&hz=480&view=tactical&camera=drone&projection=perspective"),
     { ...DEFAULTS, scenario: "stance", right: "club", armour: false, hz: 480, view: "tactical", projection: "perspective" });
 });
@@ -50,9 +51,11 @@ test("every_choice_the_lab_offers_reads_back_from_the_address_it_writes", () => 
               for (const left of LAB_HELD) {
                 for (const boots of [false, true]) {
                   for (const armour of [false, true]) {
-                    const address = { scenario, model, right, left, boots, armour, balance, hz, view, camera, projection }, href = labHref(address);
-                    assert.equal(routeFor(href), "lab", href);
-                    assert.deepEqual(labAddress(href), address, href);
+                    for (const [mind, barred] of LAB_MIND_IDS.flatMap((m) => [[], ["empty"], ["club"], ["empty", "club"]].map((b) => [m, b]))) {
+                      const address = { scenario, model, right, left, boots, armour, balance, mind, barred, hz, view, camera, projection }, href = labHref(address);
+                      assert.equal(routeFor(href), "lab", href);
+                      assert.deepEqual(labAddress(href), address, href);
+                    }
                   }
                 }
               }
@@ -85,6 +88,10 @@ test("the_lab_address_keeps_the_rest_of_the_query_and_replaces_its_own", () => {
   assert.deepEqual(query.getAll("model"), ["workshop-rogue"]);
   assert.deepEqual(query.getAll("right"), ["club"]);
   assert.deepEqual(query.getAll("armour"), ["0"]);
+  // What the address writes only when it has it is dropped when it has not.
+  assert.equal(new URLSearchParams(labHref(DEFAULTS, "?play=lab&barred=club&mind=guard")).has("barred"), false);
+  assert.deepEqual(new URLSearchParams(labHref({ ...DEFAULTS, barred: ["empty"] }, "?play=lab&barred=club&mind=guard")).getAll("barred"), ["empty"]);
+  assert.deepEqual(new URLSearchParams(labHref(DEFAULTS, "?play=lab&barred=club&mind=guard")).getAll("mind"), ["script"]);
 });
 
 test("the_lab_offers_the_game_rate_first_and_distinct_scenarios", () => {

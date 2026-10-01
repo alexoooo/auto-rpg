@@ -37,7 +37,7 @@ export interface LabShell {
 
 interface ScenarioContext {
   readonly scene: Scene;
-  /** A body in its reference pose at the origin, facing +z, on the ground of its world, as the page stands it: the scenario's mode drives it. */
+  /** A body in its reference pose at the origin, facing +z, on the ground of its world, as the page stands it: the scenario's mode hands it its script (`Actor.drive`). */
   readonly actor: Actor;
   /** For the player: the transport shows its playhead. */
   readonly changed: (playhead: Playhead) => void;

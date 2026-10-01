@@ -63,7 +63,7 @@ export function runScenario(scene: Scene, shell: LabShell): LabScenario {
   for (const mark of [centreMark, aimMark]) mark.renderingGroupId = 1;
 
   const shown = readings({
-    doing: { name: "Doing" }, state: { name: "State" }, laps: { name: "Laps" }, lap: { name: "Last lap", unit: "s" },
+    state: { name: "State" }, laps: { name: "Laps" }, lap: { name: "Last lap", unit: "s" },
     speed: { name: "Speed", unit: "m/s" }, mean: { name: "Mean speed", unit: "m/s" }, pace: { name: "Pace asked", unit: "m/s" },
     off: { name: "Off the track", unit: "cm" },
   });
@@ -99,7 +99,7 @@ export function runScenario(scene: Scene, shell: LabShell): LabScenario {
           if (!moment) return null;
           const f = moment.frame;
           shown.write({
-            doing: f.bending ? "Turning" : "Running", state: f.fallen ? "Fallen: restart" : "On its feet",
+            state: f.fallen ? "Fallen: restart" : "On its feet",
             laps: `${f.laps} (${f.travelled.toFixed(1)} m)`, lap: f.lastLap === null ? "-" : f.lastLap.toFixed(1),
             speed: f.speed.toFixed(2), mean: f.mean.toFixed(2), pace: f.pace.toFixed(2), off: (100 * f.off).toFixed(1),
           }, f.fallen ? ["state"] : []);

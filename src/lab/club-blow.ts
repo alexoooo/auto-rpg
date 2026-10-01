@@ -106,7 +106,7 @@ export function watchClubBlow(built: BuiltBody, world: World, blow: ThrownBlow, 
       headCentre = centreNow(head);
       target = headCentre.add(new Vector3(off?.across ?? 0, 0, distance + (off?.along ?? 0)));
     }
-    if (blow.fallen) { fell = true; return; }
+    if (blow.report.fallen) { fell = true; return; }
     read(now);
     const live = blow.time >= blow.pushing;
     if (live && watching) {
