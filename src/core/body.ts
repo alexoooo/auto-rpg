@@ -47,8 +47,10 @@ export interface Body {
 
 /**
  * What drives a body: given the view and the step, the command for this step, or null to keep the
- * last. The body keeps the command's goals in its state, so a command, and whatever it holds, is
- * either made for the step or frozen (`deepFreeze`): a load writes into what is not.
+ * last. The body keeps the command's goals in its state, and a load writes into whatever of a
+ * state is not frozen. So a command, and whatever it holds, is made for the step, or frozen
+ * (`deepFreeze`), or part of a state saved and loaded with the body's, as the skills' is
+ * (`Skills.state`).
  */
 type BodyDriver = (view: BodyView, dt: number) => BodyCommand | null;
 

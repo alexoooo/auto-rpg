@@ -36,21 +36,22 @@ export const STRAFE = { share: 0.5, turned: 0.3 } as const;
  * does not turn.
  */
 export function fighterTactics(name: string, orders: (sight: Sight) => Orders, strafe: typeof STRAFE = STRAFE): Tactics {
-  /** The point aimed at, and the blows thrown when it was chosen. */
-  let aim: { point: Vec3; thrown: number } | null = null;
+  /** Its memory: the point aimed at, and the blows thrown when it was chosen. */
+  const state: { aim: { point: Vec3; thrown: number } | null } = { aim: null };
   return {
-    name,
+    name, state,
     decide: (sight): Intent => {
       const { report, envelope } = sight, { move, face, attack } = orders(sight);
       if (attack) {
         const thrown = report.strike.thrown.right;
+        let aim = state.aim;
         if (!aim || aim.thrown !== thrown
           || hypot(attack[0] - aim.point[0], attack[1] - aim.point[1], attack[2] - aim.point[2]) > APPROACH.reach) {
-          aim = { point: [attack[0], attack[1], attack[2]], thrown };
+          aim = state.aim = { point: [attack[0], attack[1], attack[2]], thrown };
         }
         return { move: null, face: report.heading, hands: { left: GUARD_ACTION, right: { kind: "attack", target: aim.point } } };
       }
-      aim = null;
+      state.aim = null;
       const hands = { left: GUARD_ACTION, right: GUARD_ACTION };
       const facing = face && hypot(face.x, face.z) > 0.08 ? atan2(face.x, face.z) : null;
       if (!move || !envelope) return { move: null, face: facing ?? report.heading, hands };

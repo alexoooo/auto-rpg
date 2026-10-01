@@ -1,6 +1,7 @@
 import measured from "../../../assets/core/strikes.json" with { type: "json" };
 import type { Hand, Pose } from "../control/motor.ts";
 import type { BodySpec } from "../spec/body.ts";
+import { deepFreeze } from "../state.ts";
 
 /**
  * **The strikes a body knows** (`assets/core/strikes.json`, written by
@@ -68,8 +69,8 @@ export type Repertoire = readonly Recipe[];
 /** An empty hand. */
 export const FIST = "fist";
 
-/** The searched repertoire. */
-export const REPERTOIRE: Repertoire = measured.recipes as unknown as Repertoire;
+/** The searched repertoire, frozen deep: a table nothing writes. */
+export const REPERTOIRE: Repertoire = deepFreeze(measured.recipes as unknown as Repertoire);
 
 /** What `hand` of `spec` holds: the item's name, or `FIST`. */
 export function heldIn(spec: BodySpec, hand: Hand): string {

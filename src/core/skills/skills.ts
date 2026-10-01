@@ -22,6 +22,11 @@ export interface Skills {
   /** The command for this control step. */
   command(view: BodyView, intent: Intent, dt: number): BodyCommand;
   readonly report: SkillReport;
+  /**
+   * Their memory (`src/core/state.ts`): the one command they write again each step, which the
+   * body's state shares; the legs' and the strike's; and their tactics' (`Tactics.state`), or null.
+   */
+  readonly state: object;
 }
 
 /** How the skills are going, as the last command left them. */
@@ -42,11 +47,13 @@ export interface SkillOptions {
   readonly repertoire?: Repertoire;
 }
 
-export function createSkills(body: Body, { repertoire = REPERTOIRE }: SkillOptions = {}): Skills {
+/** The skills of `body`; `tactics` is the memory of the tactics that will hand them their intent (`Tactics.state`), kept with theirs. */
+export function createSkills(body: Body, { repertoire = REPERTOIRE }: SkillOptions = {}, tactics: object | null = null): Skills {
   const legs = locomotion(body.envelope), strikes = strikeSkill(body.built.spec, repertoire);
-  const none: readonly MusclePush[] = [];
+  const none: readonly MusclePush[] = Object.freeze([]);
   const command: { -readonly [K in keyof BodyCommand]: BodyCommand[K] } =
-    { posture: GUARD, hands: { left: null, right: null }, pushes: [], stance: null };
+    { posture: GUARD, hands: { left: null, right: null }, pushes: none, stance: null };
+  const state = { command, legs: legs.state, strikes: strikes.state, tactics };
   const report: SkillReport = {
     get heading() { return legs.heading; },
     get pace() { return legs.pace; },
@@ -55,7 +62,7 @@ export function createSkills(body: Body, { repertoire = REPERTOIRE }: SkillOptio
     strike: strikes.report,
   };
   return {
-    report,
+    report, state,
     command(view, intent, dt) {
       const strike = strikes.command(view, intent.hands, legs.heading, legs.placed, dt);
       if (!strike) strikes.idle(intent.move !== null, dt);

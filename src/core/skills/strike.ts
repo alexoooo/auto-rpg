@@ -80,32 +80,52 @@ interface StrikeSkill {
   /** Count a step the body stood still (the skill not commanding): walking, it is reset. */
   idle(walking: boolean, dt: number): void;
   readonly report: StrikeReport;
+  /** Its memory (`src/core/state.ts`). The recipes it chose are the body's, fixed when it is made, and no memory. */
+  readonly state: object;
+}
+
+/** **What the strike skill remembers.** */
+interface StrikeState {
+  /** The hand whose attack it is carrying out, and where that strike is. */
+  hand: Hand | null;
+  phase: StrikePhase | null;
+  /** Seconds since the body last walked, set its feet or finished a strike (`StrikeReport.still`). */
+  still: number;
+  /** Seconds since the pushes began; minus infinity with no strike thrown. */
+  since: number;
+  /** When the throw began, and when the body first stood for it, in `still`'s count. */
+  begun: number | null;
+  readyAt: number | null;
+  /** The feet's width apart as built, m, and the head over their middle as the body last stood: along the heading and across it. */
+  width: number | null;
+  over: [number, number] | null;
+  /** Strikes thrown to the end of their pushes, each hand. */
+  readonly thrown: Record<Hand, number>;
+  /** The pushes of the command last made: the one list, written again by each. */
+  readonly pushes: MusclePush[];
 }
 
 export function strikeSkill(spec: BodySpec, repertoire: Repertoire): StrikeSkill {
   const chosen: Record<Hand, Chosen | null> = { left: recipeFor(repertoire, spec, "left"), right: recipeFor(repertoire, spec, "right") };
-  const thrown = { left: 0, right: 0 };
-  const pushes: MusclePush[] = [];
-  let hand: Hand | null = null, phase: StrikePhase | null = null, still = 0, since = -Infinity;
-  /** When the throw began, in `still`'s count. */
-  let begun: number | null = null, readyAt: number | null = null;
-  /** The feet's width apart as built, m, and the head over their middle as the body last stood: along the heading and across it. */
-  let width: number | null = null, over: [number, number] | null = null;
+  const state: StrikeState = {
+    hand: null, phase: null, still: 0, since: -Infinity, begun: null, readyAt: null, width: null, over: null,
+    thrown: { left: 0, right: 0 }, pushes: [],
+  };
   const report: StrikeReport = {
-    get hand() { return hand; },
-    get phase() { return phase; },
-    get chosen() { return hand ? chosen[hand] : null; },
-    get since() { return since; },
-    thrown,
-    get still() { return still; },
+    get hand() { return state.hand; },
+    get phase() { return state.phase; },
+    get chosen() { return state.hand ? chosen[state.hand] : null; },
+    get since() { return state.since; },
+    get thrown() { return state.thrown; },
+    get still() { return state.still; },
     reach: { left: chosen.left?.recipe.distance ?? null, right: chosen.right?.recipe.distance ?? null },
   };
-  const end = (): void => { hand = null; phase = null; begun = null; readyAt = null; since = -Infinity; };
+  const end = (): void => { state.hand = null; state.phase = null; state.begun = null; state.readyAt = null; state.since = -Infinity; };
   return {
-    report,
+    report, state,
     idle(walking, dt) {
-      if (hand) end();
-      still = walking ? 0 : still + dt;
+      if (state.hand) end();
+      state.still = walking ? 0 : state.still + dt;
     },
     command(view, hands, heading, placed, dt) {
       const s = view.stance, fx = sin(heading), fz = cos(heading);
@@ -114,16 +134,16 @@ export function strikeSkill(spec: BodySpec, repertoire: Repertoire): StrikeSkill
       const feetX = (s.soles.left.x + s.soles.right.x) / 2, feetZ = (s.soles.left.z + s.soles.right.z) / 2;
       // As built the feet stand square, as a recipe was thrown from: their width, and the head over
       // their middle, are the body's own until it has stood again.
-      width ??= Math.abs(inFrame(s.soles.right.x - s.soles.left.x, s.soles.right.z - s.soles.left.z)[1]);
-      over ??= inFrame(view.head.x - feetX, view.head.z - feetZ);
+      const width = state.width ??= Math.abs(inFrame(s.soles.right.x - s.soles.left.x, s.soles.right.z - s.soles.left.z)[1]);
+      const over = state.over ??= inFrame(view.head.x - feetX, view.head.z - feetZ);
       // A strike under way is carried to its end; else the right hand's attack, then the left's.
-      if (hand && begun === null && hands[hand].kind !== "attack") end();
-      if (!hand) hand = hands.right.kind === "attack" && chosen.right ? "right" : hands.left.kind === "attack" && chosen.left ? "left" : null;
+      if (state.hand && state.begun === null && hands[state.hand].kind !== "attack") end();
+      const hand = state.hand ??= hands.right.kind === "attack" && chosen.right ? "right" : hands.left.kind === "attack" && chosen.left ? "left" : null;
       if (!hand) return null;
       const { strike, recipe, window } = chosen[hand]!, action = hands[hand];
       const chamber = strike.chamber ?? { seconds: 0, pose: {} };
       let walk: readonly [number, number] | null = null, face = heading, footing: Footing | null = null;
-      if (begun === null && action.kind === "attack") {
+      if (state.begun === null && action.kind === "attack") {
         const [tx, , tz] = action.target;
         const middle = [(window.along[0] + window.along[1]) / 2, (window.across[0] + window.across[1]) / 2] as const;
         const [ahead, aside] = inFrame(tx - view.head.x, tz - view.head.z);
@@ -135,54 +155,55 @@ export function strikeSkill(spec: BodySpec, repertoire: Repertoire): StrikeSkill
         const along = recipe.distance + middle[0] + over[0], across = middle[1] + over[1], half = width / 2;
         const mx = tx - along * fx - across * fz, mz = tz - along * fz + across * fx;
         const at: Footing = { left: [mx - half * fz, mz + half * fx], right: [mx + half * fz, mz - half * fx] };
-        if (phase !== "settle") {
+        if (state.phase !== "settle") {
           const square = s.phase === "stand"
             && hypot(s.soles.left.x - at.left[0], s.soles.left.z - at.left[1]) <= PLACING.near
             && hypot(s.soles.right.x - at.right[0], s.soles.right.z - at.right[1]) <= PLACING.near;
           const [toX, toZ] = inFrame(mx - s.centre.x, mz - s.centre.z);
-          if (square || (phase === "place" && placed)) phase = "settle";
-          else if (phase !== "place" && hypot(toX, toZ) > APPROACH.reach) {
+          if (square || (state.phase === "place" && placed)) state.phase = "settle";
+          else if (state.phase !== "place" && hypot(toX, toZ) > APPROACH.reach) {
             // Walked toward the place, the centre of mass leading.
             const speed = hypot(toX, toZ) / APPROACH.seconds, scale = speed > APPROACH.pace ? APPROACH.pace / speed : 1;
             walk = [toX / APPROACH.seconds * scale, toZ / APPROACH.seconds * scale];
-            phase = "approach";
+            state.phase = "approach";
           } else {
             footing = at;
-            phase = "place";
+            state.phase = "place";
           }
-          if (phase !== "settle") { still = 0; readyAt = null; }
+          if (state.phase !== "settle") { state.still = 0; state.readyAt = null; }
         }
-        if (phase === "settle") {
+        if (state.phase === "settle") {
           // It stands out its time on both feet, then asks the window of the head as it stands.
-          if (s.phase === "stand") still += dt;
-          readyAt ??= still;
-          if (still >= STAND) {
+          if (s.phase === "stand") state.still += dt;
+          state.readyAt ??= state.still;
+          if (state.still >= STAND) {
             const off = ahead - recipe.distance;
             if (window.along[0] <= off && off <= window.along[1] && window.across[0] <= aside && aside <= window.across[1]) {
-              begun = Math.max(STAND, readyAt);
+              state.begun = Math.max(STAND, state.readyAt);
             } else {
               // Out of it: the feet are set again, for the head as it stands over them now.
-              over = inFrame(view.head.x - feetX, view.head.z - feetZ);
+              state.over = inFrame(view.head.x - feetX, view.head.z - feetZ);
               footing = at;
-              phase = "place";
-              still = 0;
-              readyAt = null;
+              state.phase = "place";
+              state.still = 0;
+              state.readyAt = null;
             }
           }
         }
-      } else still += dt;
+      } else state.still += dt;
+      const { pushes } = state;
       pushes.length = 0;
       let posture = GUARD;
-      if (begun !== null) {
-        since = still - (begun + chamber.seconds);
-        if (since < 0) { posture = { ...GUARD, ...chamber.pose }; phase = "chamber"; }
+      if (state.begun !== null) {
+        const since = state.since = state.still - (state.begun + chamber.seconds);
+        if (since < 0) { posture = { ...GUARD, ...chamber.pose }; state.phase = "chamber"; }
         else {
-          phase = "swing";
+          state.phase = "swing";
           for (const p of strike.pushes) if (since >= p.from && since < p.to) pushes.push({ channel: p.channel, sense: p.sense, level: p.level ?? 1 });
           if (since >= Math.max(0, ...strike.pushes.map((p) => p.to))) {
-            thrown[hand] += 1;
+            state.thrown[hand] += 1;
             end();
-            still = 0;
+            state.still = 0;
           }
         }
       }

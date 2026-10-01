@@ -11,6 +11,11 @@ import type { Intent } from "./intent.ts";
 export interface Tactics {
   readonly name: string;
   decide(sight: Sight, dt: number): Intent;
+  /**
+   * Their memory, if they have any (`src/core/state.ts`), saved and loaded with their body's skills'
+   * (`Skills.state`). Tactics that keep what they remember anywhere else do not fork.
+   */
+  readonly state?: object;
 }
 
 /**
@@ -31,7 +36,7 @@ export interface Sight {
  * their report.
  */
 export function driveBy(body: Body, tactics: Tactics, options?: SkillOptions): Skills {
-  const skills = createSkills(body, options);
+  const skills = createSkills(body, options, tactics.state ?? null);
   const sight: Sight = { view: body.view, report: skills.report, envelope: body.envelope };
   body.drive((view, dt) => skills.command(view, tactics.decide(sight, dt), dt));
   return skills;

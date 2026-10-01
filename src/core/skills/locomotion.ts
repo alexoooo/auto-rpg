@@ -24,7 +24,7 @@ export const TURN_LEAD = 1;
 /**
  * **A body's legs, under the stance**: both feet bearing, the centre of mass held `lower` under
  * the height it was built standing at, the pelvis facing a heading, and walking at a velocity or
- * standing.
+ * standing. What it remembers (`LegsMemory`) it keeps in the state it is made with.
  */
 interface StanceLegs {
   /**
@@ -33,26 +33,26 @@ interface StanceLegs {
    * standing. Null before the body's first step, when its reference height is read.
    */
   goal(view: BodyView, heading: number, walk: readonly [forward: number, right: number] | null, lower?: number): StanceGoal | null;
-  /** The centre of mass's height over the soles the body was built standing at, m; null before the first step. */
-  readonly reference: number | null;
-  /** Whether it has fallen: its centre of mass `FALLEN` under the goal's height, at any step since. */
-  readonly fallen: boolean;
 }
 
-function stanceLegs(): StanceLegs {
-  let reference: number | null = null, fallen = false;
+interface LegsMemory {
+  /** The centre of mass's height over the soles the body was built standing at, m; null before the first step. */
+  reference: number | null;
+  /** Whether it has fallen: its centre of mass `FALLEN` under the goal's height, at any step since. */
+  fallen: boolean;
+}
+
+function stanceLegs(state: LegsMemory): StanceLegs {
   return {
-    get reference() { return reference; },
-    get fallen() { return fallen; },
     goal(view, heading, walk, lower = STANCE_LOWER) {
       const s = view.stance;
       // The reference height is read from the first view after a step, the body standing as built.
-      if (reference === null) {
+      if (state.reference === null) {
         if (view.time <= 0) return null;
-        reference = s.centre.y - s.support.y;
+        state.reference = s.centre.y - s.support.y;
       }
-      const height = reference - lower;
-      fallen ||= height - (s.centre.y - s.support.y) > FALLEN;
+      const height = state.reference - lower;
+      state.fallen ||= height - (s.centre.y - s.support.y) > FALLEN;
       // Forward is (sin h, cos h) across the ground; the right, (cos h, -sin h).
       const across = walk
         ? [walk[0] * sin(heading) + walk[1] * cos(heading), walk[0] * cos(heading) - walk[1] * sin(heading)] as const
@@ -104,65 +104,83 @@ interface Locomotion {
   place(view: BodyView, footing: Footing, lower?: number): StanceGoal | null;
   /** Whether the feet have been placed at the footing last asked, and stand: set by `place`, cleared by `goal`. */
   readonly placed: boolean;
+  /** Its memory (`src/core/state.ts`). */
+  readonly state: object;
+}
+
+/** **What the locomotion skill remembers.** */
+interface LocomotionState extends LegsMemory {
+  heading: number;
+  pace: number;
+  /** When the walk under way set off, s of the world's clock; null standing. */
+  setOff: number | null;
+  placing: Placing | null;
+  placed: boolean;
+}
+
+/** The footing being placed, the feet that have stepped to it, and the step under way. */
+interface Placing {
+  footing: Footing;
+  stepped: Record<Foot, boolean>;
+  step: SwingGoal | null;
+  lifted: boolean;
 }
 
 export function locomotion(envelope: StanceEnvelope | null): Locomotion {
-  const legs = stanceLegs();
-  let heading = 0, pace = 0, setOff: number | null = null;
-  // The footing being placed, the feet that have stepped to it, and the step under way.
-  let placing: { footing: Footing; stepped: Record<Foot, boolean>; step: SwingGoal | null; lifted: boolean } | null = null;
-  let placed = false;
+  const state: LocomotionState = { reference: null, fallen: false, heading: 0, pace: 0, setOff: null, placing: null, placed: false };
+  const legs = stanceLegs(state);
   const apart = (a: readonly [number, number], b: readonly [number, number]): number => hypot(a[0] - b[0], a[1] - b[1]);
   return {
-    get heading() { return heading; },
-    get pace() { return pace; },
-    get reference() { return legs.reference; },
-    get fallen() { return legs.fallen; },
-    get placed() { return placed; },
+    state,
+    get heading() { return state.heading; },
+    get pace() { return state.pace; },
+    get reference() { return state.reference; },
+    get fallen() { return state.fallen; },
+    get placed() { return state.placed; },
     place(view, footing, lower) {
-      setOff = null;
-      pace = 0;
-      const base = legs.goal(view, heading, null, lower);
+      state.setOff = null;
+      state.pace = 0;
+      const base = legs.goal(view, state.heading, null, lower);
       if (!base) return null;
-      const s = view.stance;
-      if (placing && (apart(placing.footing.left, footing.left) > PLACING.near || apart(placing.footing.right, footing.right) > PLACING.near)) placing = null;
-      placing ??= { footing, stepped: { left: false, right: false }, step: null, lifted: false };
+      const s = view.stance, was = state.placing;
+      if (was && (apart(was.footing.left, footing.left) > PLACING.near || apart(was.footing.right, footing.right) > PLACING.near)) state.placing = null;
+      const placing = state.placing ??= { footing, stepped: { left: false, right: false }, step: null, lifted: false };
       if (placing.step) {
         // A step is over when the stance, having taken it, stands again.
         if (s.phase !== "stand") placing.lifted = true;
         else if (placing.lifted) { placing.stepped[placing.step.foot] = true; placing.step = null; }
         if (placing.step) return { ...base, swing: placing.step };
       }
-      placed = false;
+      state.placed = false;
       // A step of the stance's own under way is finished first.
       if (s.phase !== "stand") return base;
-      const off = (foot: Foot): number => placing!.stepped[foot] ? 0 : apart([s.soles[foot].x, s.soles[foot].z], placing!.footing[foot]);
+      const off = (foot: Foot): number => placing.stepped[foot] ? 0 : apart([s.soles[foot].x, s.soles[foot].z], placing.footing[foot]);
       const foot: Foot = off("left") >= off("right") ? "left" : "right";
-      if (off(foot) <= PLACING.near) { placed = true; return base; }
+      if (off(foot) <= PLACING.near) { state.placed = true; return base; }
       placing.step = { foot, to: placing.footing[foot], seconds: STANCE_GAIT.seconds, lift: STANCE_GAIT.lift, shift: true };
       placing.lifted = false;
       return { ...base, swing: placing.step };
     },
     goal(view, walk, face, dt, lower) {
-      placing = null;
-      placed = false;
+      state.placing = null;
+      state.placed = false;
       if (!walk) {
-        setOff = null;
-        pace = 0;
+        state.setOff = null;
+        state.pace = 0;
       } else if (view.time > 0) {
-        setOff ??= view.time;
-        if (view.time - setOff >= TURN_LEAD) {
-          const turn = wrap(face - heading);
+        state.setOff ??= view.time;
+        if (view.time - state.setOff >= TURN_LEAD) {
+          const turn = wrap(face - state.heading);
           if (envelope) {
-            const rate = turnAt(envelope, pace) * dt;
-            heading += Math.max(-rate, Math.min(rate, turn));
-          } else heading += turn;
+            const rate = turnAt(envelope, state.pace) * dt;
+            state.heading += Math.max(-rate, Math.min(rate, turn));
+          } else state.heading += turn;
         }
         const speed = hypot(walk[0], walk[1]), most = envelope?.walk.value ?? Infinity;
         if (speed > most) walk = [walk[0] * most / speed, walk[1] * most / speed];
-        pace = Math.min(speed, most);
-      } else pace = hypot(walk[0], walk[1]);
-      return legs.goal(view, heading, walk, lower);
+        state.pace = Math.min(speed, most);
+      } else state.pace = hypot(walk[0], walk[1]);
+      return legs.goal(view, state.heading, walk, lower);
     },
   };
 }
