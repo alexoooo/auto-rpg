@@ -7,7 +7,7 @@ import { massesOf, type SceneSpec, type Settings, type Sim } from "./engines/typ
 export type Factory = (scene: SceneSpec, settings: Settings) => Sim;
 
 /** One control step: the engine's prepare, read, the controller, the torques, the solver. */
-export function controlStep(sim: Sim, state: Float64Array, controller: Controller): void {
+function controlStep(sim: Sim, state: Float64Array, controller: Controller): void {
   sim.prepare();
   sim.read(state);
   controller.compute(state);
@@ -26,7 +26,7 @@ const rms = (xs: readonly number[]): number => Math.sqrt(xs.reduce((a, x) => a +
 // Case A: the standing foot.
 // ---------------------------------------------------------------------------------------------
 
-export interface FootResult {
+interface FootResult {
   readonly label: string;
   /** Whether the whole centre of mass is still above 80 % of its starting height at the end. */
   readonly standing: boolean;
@@ -114,14 +114,14 @@ export function standingFoot(make: Factory, settings: Settings, conditioning = 1
 // ---------------------------------------------------------------------------------------------
 
 /** The guard, the lab's (`GUARD`, `src/core/skills/guard.ts`), in the controller's measure. */
-export const ARM_GUARD = { shoulder: [0.5, -0.2, 0], elbow: 1.3, wrist: [0, 0, 0] } as const;
+const ARM_GUARD = { shoulder: [0.5, -0.2, 0], elbow: 1.3, wrist: [0, 0, 0] } as const;
 /** The elbow's swing: from the guard's 1.3 rad to `ELBOW_TO`, minimum jerk over `SWING_SECONDS`, from `SWING_AT`. */
-export const ELBOW_TO = 0.2;
-export const SWING_SECONDS = 0.15;
-export const SWING_AT = 2.5;
-export const ARM_SECONDS = 4;
+const ELBOW_TO = 0.2;
+const SWING_SECONDS = 0.15;
+const SWING_AT = 2.5;
+const ARM_SECONDS = 4;
 
-export interface ArmResult {
+interface ArmResult {
   readonly label: string;
   /** RMS of the hand's angular speed while the guard is held (1.5-2.5 s), rad/s. */
   readonly handJitterRms: number;
@@ -258,7 +258,7 @@ const LEG = /^(hip|knee|ankle)\.(left|right)$/;
  * With the load through each hip the human stands still in Rapier, and in MuJoCo once its feet
  * carry the inertia conditioning (case C, REPORT.md).
  */
-export function humanPlacement(model: Model, base: number, prefix = ""): Placement {
+function humanPlacement(model: Model, base: number, prefix = ""): Placement {
   const index = (name: string): number => model.segments.findIndex((s) => s.name === name);
   const trunk = index("lowerTrunk");
   const legOf = (name: string): string | undefined => /^(thigh|shank|foot)\.(left|right)$/.exec(name)?.[2];
@@ -282,7 +282,7 @@ export function humanPlacement(model: Model, base: number, prefix = ""): Placeme
   };
 }
 
-export interface StepTimes {
+interface StepTimes {
   readonly solver: number[];
   readonly read: number[];
   readonly control: number[];
@@ -304,10 +304,10 @@ export interface ScalingResult {
   readonly maxSpeed: number;
 }
 
-export interface Stat { readonly median: number; readonly p95: number; readonly mean: number }
+interface Stat { readonly median: number; readonly p95: number; readonly mean: number }
 const stat = (xs: readonly number[]): Stat => ({ median: median(xs), p95: percentile(xs, 95), mean: mean(xs) });
 
-export interface ScalingOptions {
+interface ScalingOptions {
   readonly warmup?: number;
   readonly measure?: number;
   readonly now?: () => number;
@@ -376,7 +376,7 @@ export function scaling(make: Factory, settings: Settings, kind: Layout, humans:
   };
 }
 
-export interface HumanResult {
+interface HumanResult {
   readonly label: string;
   /** Centre of mass height at 0.5 s and at the end, m. */
   readonly comAtHalf: number;

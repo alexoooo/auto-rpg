@@ -6,14 +6,13 @@
 export type V3 = [number, number, number];
 export type Q4 = [number, number, number, number];
 
-export const v3 = (x = 0, y = 0, z = 0): V3 => [x, y, z];
 export const add = (a: readonly number[], b: readonly number[]): V3 => [a[0]! + b[0]!, a[1]! + b[1]!, a[2]! + b[2]!];
 export const sub = (a: readonly number[], b: readonly number[]): V3 => [a[0]! - b[0]!, a[1]! - b[1]!, a[2]! - b[2]!];
 export const scale = (a: readonly number[], s: number): V3 => [a[0]! * s, a[1]! * s, a[2]! * s];
 export const dot = (a: readonly number[], b: readonly number[]): number => a[0]! * b[0]! + a[1]! * b[1]! + a[2]! * b[2]!;
 export const cross = (a: readonly number[], b: readonly number[]): V3 =>
   [a[1]! * b[2]! - a[2]! * b[1]!, a[2]! * b[0]! - a[0]! * b[2]!, a[0]! * b[1]! - a[1]! * b[0]!];
-export const norm = (a: readonly number[]): number => Math.hypot(a[0]!, a[1]!, a[2]!);
+const norm = (a: readonly number[]): number => Math.hypot(a[0]!, a[1]!, a[2]!);
 export const normalize = (a: readonly number[]): V3 => scale(a, 1 / norm(a));
 
 /** `v` turned by `q`. */

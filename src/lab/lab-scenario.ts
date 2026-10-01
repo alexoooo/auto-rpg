@@ -27,7 +27,7 @@ export interface LabShell {
   restart(): void;
 }
 
-export interface ScenarioContext {
+interface ScenarioContext {
   readonly scene: Scene;
   /** A body in its reference pose at the origin, facing +z, on the ground. */
   readonly built: BuiltBody;

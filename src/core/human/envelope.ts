@@ -19,7 +19,7 @@ export const TRUNK_SEGMENTS: readonly TrunkSegment[] = Object.freeze(["upper", "
 
 export interface Extent { readonly min: Quantity<number>; readonly max: Quantity<number> }
 export interface Extents { readonly x: Extent; readonly y: Extent; readonly z: Extent }
-export interface WorkshopEnvelope {
+interface WorkshopEnvelope {
   /** Each trunk segment's hull corners. */
   readonly trunk: Readonly<Record<TrunkSegment, readonly Quantity<Vec3>[]>>;
   readonly feet: Readonly<Record<Side, Extents>>;

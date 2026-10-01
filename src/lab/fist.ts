@@ -26,14 +26,14 @@ export interface RestBone {
 }
 
 /** Joint angles of a finger's fist, degrees: knuckle (MCP), middle joint (PIP), end joint (DIP). */
-export interface FingerFist {
+interface FingerFist {
   readonly mcp: number;
   readonly pip: number;
   readonly dip: number;
 }
 
 /** A direction in the palm's axes. */
-export interface PalmDirection {
+interface PalmDirection {
   readonly forward: number;
   readonly palmar: number;
   readonly radial: number;
@@ -49,7 +49,7 @@ export const FINGERS = ["index", "middle", "ring", "pinky"] as const;
 const UP = new Vector3(0, 1, 0);
 
 /** The palm's axes in the hand bone's frame. */
-export interface PalmFrame {
+interface PalmFrame {
   readonly forward: Vector3;
   readonly palmar: Vector3;
   readonly radial: Vector3;

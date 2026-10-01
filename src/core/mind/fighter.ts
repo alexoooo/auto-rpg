@@ -12,7 +12,7 @@ import type { Mind } from "./mind.ts";
 export const ATTACK_METRES = 1.8;
 
 /** A direction on the ground, world. */
-export interface Heading { readonly x: number; readonly z: number }
+interface Heading { readonly x: number; readonly z: number }
 
 /**
  * What a fighter carries out this step, as whoever plans for it (the crypt's run, the arena's bout)

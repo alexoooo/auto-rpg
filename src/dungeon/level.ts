@@ -66,24 +66,24 @@ export const LEVEL = Object.freeze({
 });
 
 /** A rectangle of blocks: `x`, `z` its lowest block, `w`, `d` its size along x and z. */
-export interface BlockRect { x: number; z: number; w: number; d: number }
+interface BlockRect { x: number; z: number; w: number; d: number }
 /** Which way a corridor leaves the room it grew from: 0 +x, 1 -x, 2 +z, 3 -z. */
-export type Heading = 0 | 1 | 2 | 3;
+type Heading = 0 | 1 | 2 | 3;
 const STEP: readonly (readonly [number, number])[] = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 
 /**
  * Room `a` grew room `b` through `corridor`, or, for a `loop`, `addLoops` opened `corridor` from `a`
  * at its low end to `b` at its high end. `door` indexes `map.doors`, or null.
  */
-export interface RoomLink { a: number; b: number; corridor: BlockRect; heading: Heading; door: number | null; loop: boolean }
-export interface LevelMetrics {
+interface RoomLink { a: number; b: number; corridor: BlockRect; heading: Heading; door: number | null; loop: boolean }
+interface LevelMetrics {
   rooms: number; floorCells: number; exitPath: number; dividers: number; doors: number;
   /** The cycle rank, `links - rooms + 1`: every link holds and no two join the same rooms, so each counts. */
   loops: number;
   deadEnds: number;
   score: number;
 }
-export interface Level {
+interface Level {
   map: DungeonMap;
   /** `map.rooms[i]` as blocks. */
   roomBlocks: readonly BlockRect[];
@@ -108,7 +108,7 @@ const shuffled = <T>(items: readonly T[], random: () => number): T[] => {
  * block. Every room keeps at least one solid block between itself and every other space, so two
  * rooms meet only through a corridor, and a corridor never runs alongside anything.
  */
-export function layRooms(random: () => number): Layout {
+function layRooms(random: () => number): Layout {
   const B = LEVEL.blocks, open = new Uint8Array(B * B);
   const rooms: BlockRect[] = [], links: RoomLink[] = [];
   const filled = (x: number, z: number) => x >= 0 && z >= 0 && x < B && z < B && open[z * B + x] !== 0;

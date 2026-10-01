@@ -54,7 +54,7 @@ import { forceVelocityFactor, forceVelocityReach, type ForceVelocityCurve } from
  */
 
 /** One freedom's muscles: which joint and freedom, and the curve each way. */
-export interface MuscleChannel {
+interface MuscleChannel {
   /** `joint.name` and the freedom's positive motion, e.g. "elbow.right flexion". */
   readonly name: string;
   readonly joint: BuiltJoint;
@@ -66,7 +66,7 @@ export interface MuscleChannel {
   readonly negative: MuscleSide;
 }
 
-export interface MuscleSide {
+interface MuscleSide {
   /** Peak isometric torque, N m. */
   readonly peak: number;
   readonly curve: ForceVelocityCurve;

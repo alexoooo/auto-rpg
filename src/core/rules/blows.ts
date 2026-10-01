@@ -29,7 +29,7 @@ import { blowDamage, type Rulebook } from "./rulebook.ts";
  */
 
 /** The segments a blow is struck with: the hands, and what they hold. */
-export const STRIKERS: readonly string[] = Object.freeze(["hand.left", "hand.right"]);
+const STRIKERS: readonly string[] = Object.freeze(["hand.left", "hand.right"]);
 
 /** A body in the fight: its side, its pool, and what it was built as. */
 export interface Fighter {

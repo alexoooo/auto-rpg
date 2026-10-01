@@ -35,7 +35,7 @@ export interface Body {
 }
 
 /** What drives a body: given the view and the step, the command for this step, or null to keep the last. */
-export type BodyDriver = (view: BodyView, dt: number) => BodyCommand | null;
+type BodyDriver = (view: BodyView, dt: number) => BodyCommand | null;
 
 /**
  * **A command is goals**: a posture for the freedoms nothing else owns, a place for each hand, and
@@ -56,13 +56,13 @@ export interface BodyCommand {
   readonly stance: StanceGoal | null;
 }
 
-export interface HandGoal {
+interface HandGoal {
   readonly position: Vec3;
   readonly seconds: number;
 }
 
 /** A command that holds the reference pose. */
-export const restCommand = (): BodyCommand => ({ posture: {}, hands: { left: null, right: null }, pushes: [], stance: null });
+const restCommand = (): BodyCommand => ({ posture: {}, hands: { left: null, right: null }, pushes: [], stance: null });
 
 /** **What a body shows its driver**, read at the start of each control step from the step before. */
 export interface BodyView {
@@ -93,7 +93,7 @@ export interface Fist {
  */
 export const SERVO_SECONDS = 0.1;
 
-export interface BodyOptions {
+interface BodyOptions {
   /**
    * The joint servo's time constant, s (`servo`): a goal's error decays as a critically damped
    * motion with natural frequency 1 / servoSeconds.

@@ -17,7 +17,7 @@ export interface BearingSole {
 }
 
 /** A sole's share of the ground's wrench: a force at its middle and a moment. */
-export interface SoleWrench {
+interface SoleWrench {
   readonly force: Vector3;
   readonly moment: Vector3;
 }

@@ -22,7 +22,7 @@ export function modelSpec(model: BodyModel): BodySpec {
 }
 
 /** **A human figure, whole** (`figure.ts`): the human body plan on the figure's own numbers. */
-export function figureSpec(figure: HumanFigure): BodySpec {
+function figureSpec(figure: HumanFigure): BodySpec {
   const segments = humanSegments(figure);
   return {
     family: figure.family, model: figure.model, mass: figure.mass, stature: figure.stature, segments,

@@ -7,7 +7,7 @@
 
 export type Route = "menu" | "arena" | "dungeon" | "lab";
 
-export const PLAY_PARAM = "play";
+const PLAY_PARAM = "play";
 
 /** The menu: the directory the game is served from, which is `/auto-rpg/` on GitHub Pages. */
 export const MENU_HREF = "./";

@@ -26,7 +26,7 @@ export const STAND = 1.5;
 export const APPROACH = { pace: 0.3, seconds: 1, reach: 0.25 } as const;
 
 /** Where a strike is: walking to its place, setting the feet there, standing still, holding its chamber, or pushing. */
-export type StrikePhase = "approach" | "place" | "settle" | "chamber" | "swing";
+type StrikePhase = "approach" | "place" | "settle" | "chamber" | "swing";
 
 /** How the strike skill is going, as the last command left it. */
 export interface StrikeReport {
@@ -52,7 +52,7 @@ export interface StrikeReport {
 }
 
 /** What the strike skill asks of the body this step. */
-export interface StrikeCommand {
+interface StrikeCommand {
   /** Walk (forward, right, m/s) toward the recipe's place, or stand; and face the target. */
   readonly walk: readonly [number, number] | null;
   readonly face: number;
@@ -73,7 +73,7 @@ export interface StrikeCommand {
  * first when both attack. An attack given up before its chamber is dropped; one chambered is thrown
  * to the end of its pushes.
  */
-export interface StrikeSkill {
+interface StrikeSkill {
   /** This step's command for the hands' actions, or null when neither attacks and no strike is under way. */
   command(view: BodyView, hands: Readonly<Record<Hand, HandAction>>, heading: number, placed: boolean, dt: number): StrikeCommand | null;
   /** Count a step the body stood still (the skill not commanding): walking, it is reset. */

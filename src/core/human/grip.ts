@@ -16,7 +16,7 @@ import type { Side } from "./landmarks.ts";
  * The palm's side is the hand frame's -z: the rig holds the hands thumb up with the palms toward
  * the body, and z = x cross y points away from it on both hands (`tests/core-club.test.mjs`).
  */
-export function inHand(spec: BodySpec, side: Side, item: ItemSpec): HeldSpec {
+function inHand(spec: BodySpec, side: Side, item: ItemSpec): HeldSpec {
   const name = `hand.${side}`;
   const hand = spec.segments.find((segment) => segment.name === name);
   if (!hand || hand.shape.kind !== "capsule") throw new Error(`${spec.model} has no ${side} hand with a capsule`);

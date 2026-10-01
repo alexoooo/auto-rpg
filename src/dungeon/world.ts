@@ -96,7 +96,7 @@ function fitting(name: string, pieces: Mesh[], x: number, z: number, turn: numbe
 }
 
 /** A fixed box the level puts in the physics world: its name, and its centre and full size, world, m. */
-export interface DungeonSolid {
+interface DungeonSolid {
   readonly name: string;
   readonly centre: readonly [number, number, number];
   readonly size: readonly [number, number, number];

@@ -157,6 +157,8 @@ screens build on it; it never imports them.
 - **A module that owns a rule exports its predicate**; a caller's private copy drifts.
 - **A copy that names its fields drops the ones added later.**
 - **A published field needs a reader**, or a named reader that is coming, written down.
+- **An export has an importer.** `tests/exports.test.mjs` refuses a name under `src/` that no other
+  file imports; a test, a research script or a script is a reader.
 - **A screen is an explicit argument, never inferred from a state machine.** Pause freezes the
   world, not the camera, and opens nothing but its own panel.
 - **Two watchers on one body: set a flag in the callback and act on it at the next control step.**

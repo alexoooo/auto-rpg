@@ -28,7 +28,7 @@ const RIGS: Readonly<Record<WorkshopModel, { readonly rig: Rig; readonly source:
  * front and +z up; the body frame is Babylon's left-handed one with +x right, +z front and +y up.
  * The change of handedness is why one axis is negated more than a rotation would.
  */
-export const fromBlender = (x: number, y: number, z: number): Vec3 => [-x, z, -y];
+const fromBlender = (x: number, y: number, z: number): Vec3 => [-x, z, -y];
 
 const cache = new Map<string, Quantity<Vec3>>();
 

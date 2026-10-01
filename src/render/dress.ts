@@ -7,7 +7,7 @@ import { dressSkeleton, type SkeletonArt } from "./skeleton-skin.ts";
 import { dressBody, loadSkin, type Clothing, type SkinView } from "./skin.ts";
 
 /** The body's colour when its skin did not load, and it is drawn as its shapes. */
-export const SHAPES_TINT = Color3.FromHexString("#b9a58a");
+const SHAPES_TINT = Color3.FromHexString("#b9a58a");
 
 /** Draws a built body: its skin, or its shapes. */
 export type Dresser = (built: BuiltBody) => SkinView | BodyShapes;

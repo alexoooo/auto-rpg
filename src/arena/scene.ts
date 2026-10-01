@@ -23,7 +23,7 @@ import "@babylonjs/core/Lights/Shadows/shadowGeneratorSceneComponent.js";
 import "@babylonjs/core/Rendering/depthRendererSceneComponent.js";
 import "@babylonjs/core/PostProcesses/RenderPipeline/postProcessRenderPipelineManagerSceneComponent.js";
 
-export interface Arena {
+interface Arena {
   scene: Scene;
   camera: FreeCamera;
   materials: RoomMaterials;

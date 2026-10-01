@@ -31,7 +31,7 @@ import type { Hook, World } from "../core/world.ts";
  */
 
 /** Where the two stand, m apart across the centre, along x. */
-export const GAP_METRES = 4;
+const GAP_METRES = 4;
 /** How long a bout runs before the bars decide it, s. */
 export const CAP_SECONDS = 120;
 
@@ -49,7 +49,7 @@ export interface Verdict {
   readonly time: number;
 }
 
-export interface Duelist extends Fighter {
+interface Duelist extends Fighter {
   readonly side: Side;
   readonly model: BodyModel;
   readonly body: Body;
@@ -62,7 +62,7 @@ export interface Duelist extends Fighter {
  * **What a bout is, as plain data**: enough to build the same bout again in another world, on
  * another thread. Nothing here is a function or a live object.
  */
-export interface DuelRecipe {
+interface DuelRecipe {
   readonly left: BodyModel;
   readonly right: BodyModel;
   /** How far apart the two stand, m; `GAP_METRES` unless given. */
@@ -72,7 +72,7 @@ export interface DuelRecipe {
 }
 
 /** What a page hears of a bout. */
-export interface DuelHooks {
+interface DuelHooks {
   /** Hears each blow as it lands. */
   readonly onBlow?: (blow: LandedBlow) => void;
   /** Called with each side as its body is built, before it first steps: the page dresses it. */

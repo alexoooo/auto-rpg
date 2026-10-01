@@ -9,14 +9,14 @@ import { derive, sourced, type Quantity } from "../spec/quantity.ts";
  * The arena and the dungeon use the same rules (the owner: "The dungeon and the arena use the same
  * rule"); the mode is named so that a rule that comes to differ has a place.
  */
-export type Mode = "arena" | "dungeon";
+type Mode = "arena" | "dungeon";
 
 /**
  * How a blow wounds, each with its own price: something blunt arriving (a club, a fist), an edge
  * drawn (a sword), an axe's short edge, and a point going in (an arrow, a bite). Which one a
  * contact is waits for the weapons that have edges and points; a club is `blunt`.
  */
-export type Mechanism = "blunt" | "edge" | "axe" | "point";
+type Mechanism = "blunt" | "edge" | "axe" | "point";
 export const MECHANISMS: readonly Mechanism[] = Object.freeze(["blunt", "edge", "axe", "point"]);
 
 export interface Rulebook {
@@ -40,7 +40,7 @@ export interface Rulebook {
 }
 
 /** What an experiment may set in place of a mode's rules. */
-export type RulebookOverride = Partial<Omit<Rulebook, "mode">>;
+type RulebookOverride = Partial<Omit<Rulebook, "mode">>;
 
 /**
  * Each mechanism's price, joules per point of wound: the prices whose ratios the owner keeps

@@ -27,7 +27,7 @@ import { STANCE_LOWER } from "../core/skills/locomotion.ts";
  */
 
 /** What the page asks of the stance; the page writes it, the stance reads it every control step. */
-export interface StanceOrders {
+interface StanceOrders {
   /** The walk's velocity, m/s: along the heading, and to its right. Zero stands. */
   forward: number;
   right: number;
@@ -57,7 +57,7 @@ export interface StanceFrame {
   readonly fallen: boolean;
 }
 
-export interface StanceSession {
+interface StanceSession {
   readonly body: Body;
   readonly orders: StanceOrders;
   /** Shove the middle trunk by `impulse` N s, level, `degrees` about up from the heading (90 to its right). */
@@ -69,7 +69,7 @@ export interface StanceSession {
 }
 
 /** The orders a session starts with: standing, not turning, the lab's height (`STANCE_LOWER`). */
-export const restOrders = (): StanceOrders => ({ forward: 0, right: 0, turn: 0, lower: STANCE_LOWER });
+const restOrders = (): StanceOrders => ({ forward: 0, right: 0, turn: 0, lower: STANCE_LOWER });
 
 /**
  * How fast the Stance scenario's Q and E turn the heading while walking, rad/s, and the shuttle's
@@ -86,7 +86,7 @@ export const LAB_TURN_RATE = 1;
  * heading, the way the keys turn; the locomotion skill turns no faster than the body's envelope at
  * its walk, and not for `TURN_LEAD` after it sets off.
  */
-export function ordersMind(orders: StanceOrders): Mind {
+function ordersMind(orders: StanceOrders): Mind {
   const hands = { left: GUARD_ACTION, right: GUARD_ACTION };
   return {
     name: "keys",

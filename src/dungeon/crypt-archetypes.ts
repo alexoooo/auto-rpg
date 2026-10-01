@@ -9,7 +9,7 @@ export const CRYPT_FURNITURE = {
   bench: [1.7,.55,.65], rack: [1.8,.6,1.9], cluster: [1.8,1.5,.55],
 } as const;
 /** Open frames obstruct feet, not vision. Keep this independent of collision height. */
-export const CRYPT_SIGHT = { tomb:false, column:true, altar:false, bench:false, rack:false, cluster:false } as const;
+const CRYPT_SIGHT = { tomb:false, column:true, altar:false, bench:false, rack:false, cluster:false } as const;
 export function cryptFurniture(room: Room, type: CryptArchetype): { obstacles: DungeonObstacle[]; placements: CryptPlacement[] } {
   const obstacles: DungeonObstacle[]=[],placements: CryptPlacement[]=[];
   const mirror=type.turn===0?1:-1,shift=(type.variant-1)*.3;

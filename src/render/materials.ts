@@ -1,7 +1,7 @@
 import textureRegistry from "./textures.json" with { type: "json" };
 
 export type TextureChannel = "albedo" | "normal" | "orm";
-export type TangentBasis = "babylon-lh" | "gltf-rh-imported";
+type TangentBasis = "babylon-lh" | "gltf-rh-imported";
 
 export interface TextureDescriptor {
   url: string;
@@ -48,10 +48,10 @@ const BASE = {
   "dungeon.wall": { name: "dungeonWall", albedo: [0.066, 0.070, 0.090], metallic: 0, roughness: 1 },
 } as const;
 
-export type TexturedSurfaceName = (typeof BASE)[keyof typeof BASE]["name"];
+type TexturedSurfaceName = (typeof BASE)[keyof typeof BASE]["name"];
 
 /** Convert the provenance registry into the runtime's only map descriptors. */
-export function buildTexturedSurfaces(registry: RuntimeRegistry): Record<TexturedSurfaceName, SurfaceDescriptor> {
+function buildTexturedSurfaces(registry: RuntimeRegistry): Record<TexturedSurfaceName, SurfaceDescriptor> {
   const surfaces = Object.fromEntries(Object.entries(BASE).map(([, base]) => [
     base.name,
     { ...base, textures: {} },

@@ -21,7 +21,7 @@ export interface Chosen {
   readonly note: string;
 }
 
-export const FEET = (k: number): Record<string, number> => ({ "foot.left": k, "foot.right": k });
+const FEET = (k: number): Record<string, number> => ({ "foot.left": k, "foot.right": k });
 
 export const CHOSEN: readonly Chosen[] = [
   { engine: "mujoco", tag: "mujoco", settings: { hz: 120, substeps: 2 }, conditioning: FEET(100), note: "passes both at x1 and x100; x100 for the whole human (case C)" },

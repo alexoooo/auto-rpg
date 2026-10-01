@@ -56,7 +56,7 @@ export const SKELETON_UNSHOWN: Readonly<Record<string, string>> = Object.freeze(
 });
 
 /** One piece of the art: its vertices in its part's frame, and the eye sockets' centres on the head. */
-export interface SkeletonPiece {
+interface SkeletonPiece {
   readonly positions: Float32Array;
   readonly normals: Float32Array;
   readonly uvs: Float32Array;

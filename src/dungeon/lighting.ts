@@ -49,11 +49,11 @@ export const DUNGEON_LOOK = Object.freeze({
  * Drawn where the inverse-square contribution has fallen to `cutoff`: 14.8 m for a torch at the top of its
  * flicker, 17.3 m for the lantern. The container's tile fit is exact under this camera only because
  * `orthographicLightProxy` makes it so. */
-export const lightRange = (intensity: number): number => Math.sqrt(intensity / DUNGEON_LOOK.cutoff);
+const lightRange = (intensity: number): number => Math.sqrt(intensity / DUNGEON_LOOK.cutoff);
 
 export interface LookSwitches { torches: boolean; ssao: boolean; post: boolean }
 
-export interface DungeonLightProfile {
+interface DungeonLightProfile {
   ambientIntensity: number;
   ambientColor: string;
   environmentIntensity: number;

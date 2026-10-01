@@ -14,7 +14,7 @@ export type Piece =
   | { readonly kind: "arc"; readonly metres: number; readonly curvature: number };
 
 /** Where a track is at an arc length: across the ground (x, z), m, its heading, rad, and its curvature, 1/m. */
-export interface TrackPoint {
+interface TrackPoint {
   readonly x: number;
   readonly z: number;
   readonly heading: number;

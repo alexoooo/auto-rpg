@@ -9,7 +9,7 @@ import { mulberry32 } from "./rng.ts";
  */
 export const DECAL_KINDS = Object.freeze(["blood", "crack", "moss", "puddle", "bones", "roots", "cobweb",
   "rubble", "scorch", "straw", "grime", "stain", "lichen", "fissure", "chains", "banner"] as const);
-export type DecalKind = (typeof DECAL_KINDS)[number];
+type DecalKind = (typeof DECAL_KINDS)[number];
 
 export const ATLAS = Object.freeze({ tile: 256, columns: 4, rows: 4, rim: 6 });
 

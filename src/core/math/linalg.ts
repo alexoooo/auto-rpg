@@ -29,7 +29,7 @@ export function solveLinear(A: Rows, y: readonly number[]): number[] {
 }
 
 /** Solve `A x = y`, `A` symmetric positive definite, by Cholesky. */
-export function solveSymmetric(A: Rows, y: readonly number[]): number[] {
+function solveSymmetric(A: Rows, y: readonly number[]): number[] {
   const n = y.length, L = A.map(() => new Array<number>(n).fill(0));
   for (let i = 0; i < n; i++) for (let j = 0; j <= i; j++) {
     let sum = A[i]![j]!;
@@ -58,7 +58,7 @@ export function solve3(A: Rows, b: readonly number[]): number[] {
  * The least-squares `x` of `J x = y`, damped by `damping`: J' (J J' + d^2 E)^-1 y. Near a singular
  * `J` an undamped solve asks for unbounded `x`.
  */
-export function dampedSolve(J: Rows, y: readonly number[], damping: number): number[] {
+function dampedSolve(J: Rows, y: readonly number[], damping: number): number[] {
   const rows = J.length, cols = J[0]!.length, d2 = damping * damping;
   const G = J.map((a, r) => J.map((b, s) => a.reduce((sum, v, k) => sum + v * b[k]!, 0) + (r === s ? d2 : 0)));
   const z = solveSymmetric(G, [...y]);

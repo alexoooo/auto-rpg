@@ -24,13 +24,13 @@ export type Playhead =
 export const isPaused = (playhead: Playhead): boolean => playhead.kind === "held" || playhead.kind === "seeking";
 
 /** What the player drives: the world, and its recording. */
-export interface Stage {
+interface Stage {
   readonly world: Pick<World, "dt" | "step" | "advance">;
   readonly recording: Recording;
 }
 
 /** A recording of the world: `history.ts`'s is. */
-export interface Recording {
+interface Recording {
   /** The frame the world is at now; every frame up to it is recorded. */
   live(): number;
   /** Put the body as it was at recorded `frame` on the nodes. */

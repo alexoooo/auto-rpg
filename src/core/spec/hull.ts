@@ -12,7 +12,7 @@ import { cross, dot, length, scale, sub } from "./vec.ts";
  * lying in a face or an edge; such a vertex's faces turn about fewer than three directions, so it
  * is dropped and the hull built again, until every vertex is a corner.
  */
-export interface Hull {
+interface Hull {
   /** Indices into the points of the hull's corners, ascending. */
   readonly vertices: readonly number[];
   /** Triangles of point indices, counter-clockwise seen from outside. */
@@ -25,7 +25,7 @@ export interface Hull {
  * Floating-point slack, as a fraction of the points' extent: how far outside a face's plane a
  * point must be to count as outside it. It stands for rounding, not for any size of a body.
  */
-export const HULL_TOLERANCE = 1e-9;
+const HULL_TOLERANCE = 1e-9;
 
 export function convexHull(points: readonly Vec3[]): Hull {
   let kept = points.map((_, i) => i);

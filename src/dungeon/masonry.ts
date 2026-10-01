@@ -31,13 +31,13 @@ export const MASONRY = Object.freeze({
   mortar: 0.15,
 });
 
-export type SideFace = Exclude<WallFace, "top">;
+type SideFace = Exclude<WallFace, "top">;
 /** How a block ends: bevelled as at any joint, or cut square where an outer corner's arris is the other face's. */
-export type BlockEnd = "bevel" | "square";
+type BlockEnd = "bevel" | "square";
 
 /** One block, in its face's terms: `plane` is the collider face it sits on, `from` and `to` its span along that
  * face in world metres, `y0` and `y1` its course, `inset` how far its face stands back from the plane. */
-export interface Block {
+interface Block {
   face: SideFace; plane: number; from: number; to: number; y0: number; y1: number;
   inset: number; bevel: number; ends: readonly [BlockEnd, BlockEnd]; course: number; quoin: boolean;
   /** The cell under the block's middle, which chunks it. */
@@ -54,13 +54,13 @@ const FACE = Object.freeze({
 const SIDES: readonly SideFace[] = Object.freeze(["x+", "x-", "z+", "z-"]);
 
 /** A point on a face: `along` it, `y` up it, and `depth` into the rock behind it. */
-export function facePoint(face: SideFace, plane: number, along: number, y: number, depth: number): [number, number, number] {
+function facePoint(face: SideFace, plane: number, along: number, y: number, depth: number): [number, number, number] {
   const { normal } = FACE[face], across = plane - depth * (normal[0] + normal[2]);
   return FACE[face].along === "z" ? [across, y, along] : [along, y, across];
 }
 
 /** A hash of integers to [0, 1): the same block gets the same draw however the level is walked. */
-export function hash01(...values: number[]): number {
+function hash01(...values: number[]): number {
   let h = 0x9e3779b9;
   for (const v of values) { h = Math.imul(h ^ (v | 0), 0x85ebca6b); h ^= h >>> 13; h = Math.imul(h, 0xc2b2ae35); h ^= h >>> 16; }
   return (h >>> 0) / 4294967296;
@@ -128,7 +128,7 @@ export function masonry(map: DungeonMap): Block[] {
   return blocks;
 }
 
-export type Corner = readonly [number, number, number];
+type Corner = readonly [number, number, number];
 /** A quad to draw: four corners in order around it, the way it faces, and optionally its own UVs and a share of
  * its material's albedo (a vertex colour). */
 export interface Quad { cell: Point; corners: Corner[]; normal: Corner; uvs?: [number, number][]; shade?: number }

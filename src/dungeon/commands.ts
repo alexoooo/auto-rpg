@@ -1,7 +1,7 @@
 import { distance, type Point } from "./map.ts";
 import { CAMERA_AZIMUTH, cameraToward } from "./camera.ts";
 
-export interface ControlMode { keyboard: boolean; facing: boolean }
+interface ControlMode { keyboard: boolean; facing: boolean }
 export type Order = { kind: "idle" } | { kind: "attack-move"; destination: Point }
   | { kind: "lock"; target: string } | { kind: "force"; points: Point[]; drawing: boolean };
 export const mouseOrdersEnabled = (mode: ControlMode): boolean => !mode.keyboard && !mode.facing;

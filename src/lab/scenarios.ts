@@ -14,7 +14,7 @@ import type { BodyModel } from "../core/human/spec.ts";
 
 export type ScenarioId = "stance" | "routine" | "run" | "blow";
 
-export interface ScenarioInfo {
+interface ScenarioInfo {
   readonly id: ScenarioId;
   readonly name: string;
   readonly line: string;
@@ -71,7 +71,7 @@ export interface LabLoadout {
  * this to without the menu loading the engine), and a finer step where the readings converge.
  */
 export const LAB_RATES = [120, 480] as const;
-export type LabRate = (typeof LAB_RATES)[number];
+type LabRate = (typeof LAB_RATES)[number];
 
 /** How the camera follows the body (`camera.ts`); the first is the default. */
 export const LAB_CAMERAS = ["free", "isometric", "chase"] as const;

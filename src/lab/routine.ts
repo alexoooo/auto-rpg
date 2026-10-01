@@ -29,10 +29,8 @@ import { SHUTTLE_TURN_RADIUS, TURN_PACE, trackOf, type Piece, type Track } from 
  * fast as the muscles make them: that is what the page is for.
  */
 
-export type { Fist };
-
 /** The Routine's straights, m. */
-export const ROUTINE_METRES = 2;
+const ROUTINE_METRES = 2;
 
 /** The Routine's path: out, a half-turn to the right, back, and a half-turn to its start. */
 export const ROUTINE_TRACK: readonly Piece[] = [
@@ -47,7 +45,7 @@ export const ROUTINE_TRACK: readonly Piece[] = [
  * recipes (0.40 and 0.48 m ahead of the head) stand the body at about the straight's end. A point
  * to aim at, drawn and not solid: the strikes are read in the air.
  */
-export const POST_BEYOND = 0.45;
+const POST_BEYOND = 0.45;
 
 /**
  * **How the Routine walks and turns**: at `TURN_PACE` (m/s) and `LAB_TURN_RATE` (rad/s), the pair
@@ -57,15 +55,15 @@ export const POST_BEYOND = 0.45;
  * hold: a second after setting off (`TURN_LEAD`) the walk is barely moving, and the fastest turn
  * falls. Battery: `docs/reference/lab.md#routine-gait`.
  */
-export const ROUTINE_GAIT = { pace: TURN_PACE, turn: LAB_TURN_RATE } as const;
+const ROUTINE_GAIT = { pace: TURN_PACE, turn: LAB_TURN_RATE } as const;
 
 /** The hands that strike at the post, in turn. */
 export const ROUTINE_HANDS: readonly Hand[] = ["right", "left", "right"];
 
 /** Where the routine's mind is: walking out, at the post, or walking back. */
-export type Leg = "out" | "post" | "back";
+type Leg = "out" | "post" | "back";
 
-export interface RoutineMind extends Mind {
+interface RoutineMind extends Mind {
   readonly leg: Leg;
   /** Loops done: back at the start. */
   readonly loops: number;
@@ -79,7 +77,7 @@ export interface RoutineMind extends Mind {
  * within the hand's reach (`StrikeReport.reach`) and the distance the strike skill closes at its
  * own fastest (`APPROACH`'s pace over its seconds), and takes it back when the last blow is thrown.
  */
-export function routineMind(track: Track, envelope: StanceEnvelope, hands: readonly Hand[] = ROUTINE_HANDS): RoutineMind {
+function routineMind(track: Track, envelope: StanceEnvelope, hands: readonly Hand[] = ROUTINE_HANDS): RoutineMind {
   const walk = trackMind(track, envelope, ROUTINE_GAIT);
   let leg: Leg = "out", loops = 0, next = 0, counted = 0;
   let post: [number, number, number] | null = null;
@@ -122,7 +120,7 @@ export function routineMind(track: Track, envelope: StanceEnvelope, hands: reado
   };
 }
 
-export interface StrikeReading {
+interface StrikeReading {
   readonly name: string;
   readonly hand: Hand;
   /** Peak speed of the striking fist in the world, m/s, from its chamber to the end of its pushes. */
@@ -134,7 +132,7 @@ export interface StrikeReading {
   readonly off: { readonly along: number; readonly across: number };
 }
 
-export interface Routine {
+interface Routine {
   readonly body: Body;
   readonly fists: { readonly left: Fist; readonly right: Fist };
   readonly mind: RoutineMind;

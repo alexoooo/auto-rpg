@@ -88,7 +88,7 @@ export interface BodyDynamics {
  * The root's rows of the body's dynamics (`BodyDynamics`): its six speeds are its spin and its
  * centre of mass's velocity, world, in that order.
  */
-export interface RootDynamics {
+interface RootDynamics {
   /** The segment no joint carries. */
   readonly segment: BuiltSegment;
   /** Its centre of mass, world, as last read. */
@@ -104,7 +104,7 @@ export interface RootDynamics {
 }
 
 /** What `BodyDynamics.update` reads for `bias`. */
-export interface BodyMotion {
+interface BodyMotion {
   readonly spin: (segment: BuiltSegment) => Vector3;
 }
 

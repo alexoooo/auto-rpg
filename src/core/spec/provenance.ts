@@ -5,7 +5,7 @@ import { isQuantity, type FromSource, type Quantity } from "./quantity.ts";
  * sources each quantity finally rests on.
  */
 
-export interface SpecInventory {
+interface SpecInventory {
   /** Every quantity in the tree, by its path (`segments.3.mass`). */
   readonly quantities: ReadonlyMap<string, Quantity>;
   /** The paths of numbers found outside a quantity: each is a number with no provenance. */

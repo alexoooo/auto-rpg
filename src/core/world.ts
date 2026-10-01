@@ -48,13 +48,13 @@ export interface World {
 }
 
 /** Called with the step, s. */
-export type StepHook = (dt: number) => void;
+type StepHook = (dt: number) => void;
 
 export interface Hook {
   dispose(): void;
 }
 
-export interface WorldOptions {
+interface WorldOptions {
   /** Steps a second; the game's rate (`PHYSICS_HZ`) unless a finer reference is asked for. */
   readonly hz?: number;
   /** Standard gravity, or none, for reading a body alone. */

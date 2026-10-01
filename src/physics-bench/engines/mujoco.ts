@@ -22,7 +22,7 @@ import { conditioningOf, describe, FRICTION, type SceneSpec, type Settings, type
  * inertia: solver conditioning, not anatomy), `threads` (a thread pool of that many
  * threads bound to the data; the threaded build only, which needs cross-origin isolation in a page).
  */
-export const MUJOCO_DEFAULTS = { solver: "Newton", iterations: 100, ls_iterations: 50, integrator: "Euler", cone: "pyramidal", noslip: 0, tolerance: 1e-8 } as const;
+const MUJOCO_DEFAULTS = { solver: "Newton", iterations: 100, ls_iterations: 50, integrator: "Euler", cone: "pyramidal", noslip: 0, tolerance: 1e-8 } as const;
 
 const f = (x: number): string => (Math.abs(x) < 1e-15 ? "0" : x.toPrecision(12));
 const vec = (v: readonly number[]): string => v.map(f).join(" ");
@@ -42,7 +42,7 @@ function geomOf(shape: Shape, friction: number): string {
   }
 }
 
-export function mujocoXml(scene: SceneSpec, settings: Settings): string {
+function mujocoXml(scene: SceneSpec, settings: Settings): string {
   const knob = <K extends keyof typeof MUJOCO_DEFAULTS>(k: K): (typeof MUJOCO_DEFAULTS)[K] | string | number | boolean => settings[k] ?? MUJOCO_DEFAULTS[k];
   const dt = 1 / settings.hz / settings.substeps;
   const friction = scene.friction ?? FRICTION;

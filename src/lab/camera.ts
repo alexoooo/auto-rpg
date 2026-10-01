@@ -28,7 +28,7 @@ export const CHASE_BETA = 1.2;
  * How fast a held camera turns to its bearing, s: the time constant of its approach. Long enough
  * that a strike's twist of the pelvis does not swing the chase, short enough to follow a turn.
  */
-export const TURN_SECONDS = 0.3;
+const TURN_SECONDS = 0.3;
 /** The height the camera looks at, m: about the body's chest. */
 const LOOK_HEIGHT = 1;
 /** The share of the way the target moves to the pelvis each frame. */
@@ -75,7 +75,7 @@ export function orthoExtents(radius: number, fov: number, aspect: number): { top
   return { top: half, bottom: -half, left: -half * aspect, right: half * aspect };
 }
 
-export interface LabCameraRig {
+interface LabCameraRig {
   choose(camera: LabCamera, projection: LabProjection): void;
   /** Follow a pelvis at `position`, turned `rotation`; `rest` is its rotation facing +z. */
   follow(position: Vector3, rotation: Quaternion, rest: Quaternion, dt: number, aspect: number): void;

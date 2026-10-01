@@ -4,7 +4,7 @@ import { STRIDE } from "../control.ts";
 import { add, cross, normalize, perpendicular, qBetween, qFromBasis, scale, sub, dot, type V3 } from "../math.ts";
 import { conditioningOf, describe, FRICTION, type SceneSpec, type Settings, type Sim } from "./types.ts";
 
-export type Rapier = typeof RAPIER_NS;
+type Rapier = typeof RAPIER_NS;
 
 /**
  * **Rapier** (`@dimforge/rapier3d-compat`, or the SIMD build; the same API). Two joint kinds:
@@ -22,7 +22,7 @@ export type Rapier = typeof RAPIER_NS;
  * unset, Rapier's default). Bodies never sleep; colliders carry no mass (density 0), the mass
  * properties are set on the body.
  */
-export const RAPIER_DEFAULTS = { iterations: 4, pgs: 1, joints: "impulse" } as const;
+const RAPIER_DEFAULTS = { iterations: 4, pgs: 1, joints: "impulse" } as const;
 
 export function createRapier(R: Rapier, scene: SceneSpec, settings: Settings): Sim & { readonly world: RAPIER_NS.World } {
   const world = new R.World({ x: 0, y: -GRAVITY, z: 0 });

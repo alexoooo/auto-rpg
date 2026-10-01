@@ -66,7 +66,7 @@ export interface BuiltBody {
   dispose(): void;
 }
 
-export interface Placement {
+interface Placement {
   /** Where the body frame's origin, between the soles, is put in the world. */
   readonly position: Vec3;
 }

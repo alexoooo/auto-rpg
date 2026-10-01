@@ -32,7 +32,7 @@ import type { Rulebook } from "./rulebook.ts";
  */
 export type Ending = "fatal" | "severed" | "exhausted" | "time";
 
-export interface Blow {
+interface Blow {
   /** The segment struck. */
   readonly part: string;
   /** Hit points the blow does, in the rulebook's unit. */

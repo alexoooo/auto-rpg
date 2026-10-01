@@ -30,7 +30,7 @@ import type { World } from "../core/world.ts";
  * searches place their target from the head as the body stands then, after it has settled a few
  * centimetres forward and down from the pose it was built in.
  */
-export function attackOnce(hand: Hand, target: (head: Vector3) => Vec3): Mind & { readonly time: number } {
+function attackOnce(hand: Hand, target: (head: Vector3) => Vec3): Mind & { readonly time: number } {
   let aim: Vec3 | null = null, time = 0;
   const guarding: Intent = { move: null, face: 0, hands: { left: GUARD_ACTION, right: GUARD_ACTION } };
   return {

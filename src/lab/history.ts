@@ -11,7 +11,7 @@ import type { World } from "../core/world.ts";
  * again, the live frame goes back on the nodes (`show(live())`), because a joint reads its angles
  * from them.
  */
-export interface History<T> {
+interface History<T> {
   /** Frames held now, 0 the oldest; it grows to the capacity and then rolls. */
   readonly frames: number;
   /** Seconds per frame: the physics sub-step. */

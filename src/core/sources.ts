@@ -10,7 +10,7 @@
  * - `asset`: a file in this repository; `where` is a JSON pointer into it.
  * - `measurement`: a number measured from an asset or a run, with how and where the table is.
  */
-export type Source =
+type Source =
   | { readonly kind: "literature"; readonly cite: string; readonly link: string }
   | { readonly kind: "decision"; readonly date: string; readonly decided: string; readonly record: string }
   | { readonly kind: "asset"; readonly file: string; readonly what: string }

@@ -139,7 +139,7 @@ export function servoSolve(driver: MuscleDriver, work: ServoWork, root?: ArrayLi
  * servo then asks for the goal's own acceleration, plus the damped pull on the error in angle and
  * in rate, so it follows a path rather than lagging it by a time constant.
  */
-export interface ServoFeed {
+interface ServoFeed {
   rate(channel: number): number;
   acceleration(channel: number): number;
 }

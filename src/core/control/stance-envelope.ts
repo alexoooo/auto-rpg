@@ -33,7 +33,7 @@ export interface StanceEnvelope {
  * A battery's trials at each speed (a walk's, or a turn's rate): how many ways of `ways` held (did
  * not fall).
  */
-export interface GaitTable {
+interface GaitTable {
   readonly speeds: readonly number[];
   readonly ways: number;
   readonly held: readonly number[];

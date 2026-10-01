@@ -37,9 +37,9 @@ import type { V3 } from "./math.ts";
  * Read as itself, the ankle's torque answers the foot's own rocking, which is the engine's to show.
  */
 export const STRIDE = 13;
-export const SERVO_T = 0.1;
+const SERVO_T = 0.1;
 
-export interface ControlJoint {
+interface ControlJoint {
   readonly name: string;
   readonly parent: number;
   readonly child: number;

@@ -17,13 +17,13 @@ import type { SourceKey } from "../sources.ts";
 
 /** A vector in a spec's frame, metres or a unit direction. */
 export type Vec3 = readonly [number, number, number];
-export type Value = number | Vec3;
+type Value = number | Vec3;
 
 /**
  * The units a spec states. The source's own units are kept at the leaf, so a leaf reads as its
  * source prints it, and `si` makes the SI quantity from it.
  */
-export type Unit =
+type Unit =
   | "1" | "%"
   | "m" | "mm" | "cm"
   | "kg" | "kg m2"
@@ -46,14 +46,14 @@ export interface FromSource {
 }
 
 /** A number computed from other quantities by `rule`, which `compute` states. */
-export interface Derived {
+interface Derived {
   readonly kind: "derived";
   readonly rule: string;
   readonly inputs: readonly Quantity[];
   readonly compute: (...values: never[]) => Value;
 }
 
-export type Provenance = FromSource | Derived;
+type Provenance = FromSource | Derived;
 
 export interface Quantity<V extends Value = Value> {
   readonly value: V;

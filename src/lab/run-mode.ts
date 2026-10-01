@@ -53,7 +53,7 @@ export interface RunFrame {
   readonly fallen: boolean;
 }
 
-export interface RunSession {
+interface RunSession {
   readonly body: Body;
   readonly track: Track;
   frame(): RunFrame;
@@ -66,7 +66,7 @@ export interface RunSession {
  * drift add up loop after loop; asking for a sideways velocity toward the path instead falls.
  * Readings: `docs/reference/lab.md#aim-ahead`.
  */
-export const AIM_AHEAD = 1;
+const AIM_AHEAD = 1;
 
 /** The tightest radius of `track` within `metres` of `s` either way, m (Infinity on a straight). */
 function tightest(track: Track, s: number, metres: number): number {
@@ -80,7 +80,7 @@ function tightest(track: Track, s: number, metres: number): number {
  * walking no faster than its `pace` (m/s) and turning no faster than its `turn` (rad/s: it asks to
  * face no further round than that from the heading it has).
  */
-export interface TrackMind extends Mind {
+interface TrackMind extends Mind {
   frame(time: number): Omit<RunFrame, "speed" | "off" | "time" | "heading" | "fallen">;
 }
 

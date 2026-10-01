@@ -130,7 +130,7 @@ export function boundary(map: DungeonMap, x: number, z: number): boolean {
 }
 
 export type WallFace = "top" | "x+" | "x-" | "z+" | "z-";
-export interface WallQuad { cell: Point; face: WallFace }
+interface WallQuad { cell: Point; face: WallFace }
 export const SIDE_FACES = Object.freeze([
   { face: "x+", dx: 1, dz: 0 }, { face: "x-", dx: -1, dz: 0 }, { face: "z+", dx: 0, dz: 1 }, { face: "z-", dx: 0, dz: -1 },
 ] as const);

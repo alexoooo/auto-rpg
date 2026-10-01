@@ -5,10 +5,10 @@ import { surfaceMetresPerRepeat, TEXTURED_SURFACES, type SurfaceDescriptor } fro
 import { surface, type TextureFactory } from "../render/surface.ts";
 
 /** The textured stone, or a flat colour: the control for what the maps cost. */
-export type StoneChoice = "stone" | "flat";
+type StoneChoice = "stone" | "flat";
 
 /** A floor or wall material, and the metres its maps span, which its UVs are divided by. */
-export interface StoneSurface { material: PBRMaterial; metresPerRepeat: number; textured: boolean }
+interface StoneSurface { material: PBRMaterial; metresPerRepeat: number; textured: boolean }
 /** `masonry` is false for a flat wall skin, the control for what the blocks cost; it is on otherwise. */
 export interface DungeonSurfaces { floor: StoneSurface; wall: StoneSurface; masonry?: boolean }
 

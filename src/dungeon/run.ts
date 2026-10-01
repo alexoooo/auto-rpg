@@ -99,7 +99,6 @@ export const WAKE_METRES = SIGHT_METRES + 2;
  * are 0.46 m across) and a margin for the stance's sway.
  */
 const FOOTPRINT_METRES = 0.35;
-export { ATTACK_METRES };
 /**
  * With the cursor steering its facing, the hero takes on what the cursor points at, and also any enemy nearer than
  * `metres` wherever it stands, turning to it for as long as it stays within `keepMetres`.
@@ -111,12 +110,11 @@ const direction = (from: Point, to: Point): Point => {
   const d = Math.max(0.001, distance(from, to)); return { x: (to.x - from.x) / d, z: (to.z - from.z) / d };
 };
 const IDLE: Order = Object.freeze({ kind: "idle" });
-export { companionSpawn } from "./party-placement.ts";
 
 /** A run goes on until its party has fallen or one of it stands at the exit. */
 export type RunStatus = "playing" | "won" | "dead";
 
-export interface DungeonRunOptions {
+interface DungeonRunOptions {
   /** The level's seed (`generateLevel`), unless `layout` is given. */
   readonly seed: number;
   readonly engine: PhysicsEngine;

@@ -26,7 +26,7 @@ export type Shape =
   | { readonly kind: "box"; readonly centre: V3; readonly half: V3; readonly rotation: Q4 }
   | { readonly kind: "sphere"; readonly centre: V3; readonly radius: number };
 
-export interface Segment {
+interface Segment {
   readonly name: string;
   readonly mass: number;
   /** World, reference pose. */
@@ -39,7 +39,7 @@ export interface Segment {
   readonly shape: Shape;
 }
 
-export interface Dof {
+interface Dof {
   readonly name: string;
   /** Unit axis, world, reference pose. */
   readonly axis: V3;
@@ -67,7 +67,7 @@ export interface Model {
 }
 
 export const GRAVITY = STANDARD_GRAVITY.value;
-export const FIGHTER = "workshop-fighter" as const;
+const FIGHTER = "workshop-fighter" as const;
 
 /** Segment frame coordinates of body-frame `p`. */
 function inFrame(spec: SegmentSpec, p: readonly number[]): V3 {
@@ -211,7 +211,7 @@ export function placed(model: Model, offset: readonly number[]): Model {
 }
 
 /** The lowest point of a segment's shape, world y, reference pose. */
-export function lowestOf(s: Segment): number {
+function lowestOf(s: Segment): number {
   const sh = s.shape;
   switch (sh.kind) {
     case "capsule": return s.com[1] + Math.min(sh.a[1], sh.b[1]) - sh.radius;

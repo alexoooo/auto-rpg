@@ -6,7 +6,7 @@ import type { DungeonLighting, LookSwitches } from "./lighting.ts";
 
 /** `frameMs` is the mean interval between frames, which a display holds at its refresh rate: without `gpuMs` it
  * says only whether a setting drops frames, not what the GPU spent. */
-export interface FrameCost { frames: number; gpuMs: number | null; frameMs: number; look: LookSwitches }
+interface FrameCost { frames: number; gpuMs: number | null; frameMs: number; look: LookSwitches }
 
 /**
  * Whether everything the frame draws has compiled. Not `scene.isReady()`: that also asks the invisible colliders,

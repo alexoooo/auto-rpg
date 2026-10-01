@@ -71,7 +71,7 @@ export function pointNowToRef(segment: BuiltSegment, root: BuiltSegment, point: 
 }
 
 /** What `solveReach` may move: freedom `k` of the chain's joint `joint`, within `[min, max]`, drawn toward `preferred`. */
-export interface ReachFreedom {
+interface ReachFreedom {
   readonly joint: number;
   readonly k: number;
   readonly min: number;

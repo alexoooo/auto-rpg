@@ -25,7 +25,7 @@ export const TURN_LEAD = 1;
  * the height it was built standing at, the pelvis facing a heading, and walking at a velocity or
  * standing.
  */
-export interface StanceLegs {
+interface StanceLegs {
   /**
    * The stance goal for this control step: facing `heading` (rad about up, 0 facing +z, growing to
    * the right), walking at `walk` (m/s, forward along the heading and to its right) or, null,
@@ -38,7 +38,7 @@ export interface StanceLegs {
   readonly fallen: boolean;
 }
 
-export function stanceLegs(): StanceLegs {
+function stanceLegs(): StanceLegs {
   let reference: number | null = null, fallen = false;
   return {
     get reference() { return reference; },
@@ -86,7 +86,7 @@ export const PLACING = { near: 0.02 } as const;
  * Without an envelope (a body under an experiment's stance tuning, which the envelope did not
  * measure) nothing is capped: the walk and the turn are the intent's.
  */
-export interface Locomotion {
+interface Locomotion {
   /** The stance goal for `walk` and `face` this control step (null before the body's first step). */
   goal(view: BodyView, walk: readonly [forward: number, right: number] | null, face: number, dt: number, lower?: number): StanceGoal | null;
   /** The heading the stance is asked to face, rad. */

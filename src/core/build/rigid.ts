@@ -12,7 +12,7 @@ import { add, cross, dot, scale, sub } from "../spec/vec.ts";
  */
 
 /** A symmetric inertia's entries, kg m2: xx, yy, zz, xy, xz, yz. */
-export type Tensor = readonly [number, number, number, number, number, number];
+type Tensor = readonly [number, number, number, number, number, number];
 
 export interface Rigid {
   readonly mass: number;
@@ -50,7 +50,7 @@ function placedShape(held: HeldSpec, shape: ItemShape): ShapeSpec {
 }
 
 /** What `segment` of `spec` holds. */
-export const heldBy = (spec: BodySpec, segment: string): readonly HeldSpec[] =>
+const heldBy = (spec: BodySpec, segment: string): readonly HeldSpec[] =>
   (spec.held ?? []).filter((held) => held.segment === segment);
 
 /** `segment`'s rigid body in `spec`. */

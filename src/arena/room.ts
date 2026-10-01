@@ -21,7 +21,7 @@ export interface RoomMaterials {
   wood: Material;
 }
 
-export interface VisualColliderPair {
+interface VisualColliderPair {
   visual: string;
   collider: string;
 }
@@ -35,7 +35,7 @@ export interface ArenaAudit {
   visualColliderPairs: readonly VisualColliderPair[];
 }
 
-export interface RoomPlacement {
+interface RoomPlacement {
   name: string;
   role: "wall" | "beam" | "banner" | "rack" | "debris";
   position: readonly [number, number, number];
@@ -49,13 +49,13 @@ export interface RoomPlacement {
 /** What a piece of the room is: its mesh and its material follow from it. */
 type RoomRole = RoomPlacement["role"];
 
-export interface RoomGroup {
+interface RoomGroup {
   role: RoomRole;
   metresPerRepeat: number;
   placements: readonly RoomPlacement[];
 }
 
-export interface ShadowRegistry {
+interface ShadowRegistry {
   add(mesh: AbstractMesh): void;
   remove(mesh: AbstractMesh): void;
 }
@@ -109,7 +109,7 @@ const roomWalls = (): readonly RoomPlacement[] => {
 };
 
 /** The walls' colliders, boxes whose inner faces meet the scrims; the page and headless bouts share them. */
-export const ROOM_WALL_COLLIDERS = Object.freeze(roomWalls().map((placement) => {
+const ROOM_WALL_COLLIDERS = Object.freeze(roomWalls().map((placement) => {
   const northSouth = placement.name.endsWith("north") || placement.name.endsWith("south");
   const depth = ROOM.wallThickness; const centre = ROOM.wallHalfExtent + depth / 2;
   return Object.freeze({ name: placement.collider as string,
@@ -340,7 +340,7 @@ function segmentIntersectsMesh(
 export const ARENA_POSTS = Object.freeze({ count: 14, ring: 9.5, height: 1.5, diameter: 0.17, sides: 8 });
 
 /** One of the arena's fixed colliders, world, m: a box by its centre and full size, or a post by its corners. */
-export type ArenaSolid =
+type ArenaSolid =
   | { readonly name: string; readonly kind: "box"; readonly centre: Vec3; readonly size: Vec3 }
   | { readonly name: string; readonly kind: "hull"; readonly centre: Vec3; readonly points: readonly Vec3[] };
 
@@ -381,7 +381,7 @@ export function addArenaSolids(physics: PhysicsWorld, solids: readonly ArenaSoli
   });
 }
 
-export interface ArenaColliders {
+interface ArenaColliders {
   readonly meshes: readonly Mesh[];
   readonly pairs: readonly VisualColliderPair[];
   dispose(): void;
@@ -438,7 +438,7 @@ export function buildArenaColliders(
   };
 }
 
-export interface CosmeticRoom {
+interface CosmeticRoom {
   readonly meshes: readonly AbstractMesh[];
   readonly pairs: readonly VisualColliderPair[];
   dispose(): void;
@@ -497,7 +497,7 @@ export function buildCosmeticRoom(
   };
 }
 
-export interface ArenaWorld {
+interface ArenaWorld {
   readonly colliders: ArenaColliders;
   readonly room: CosmeticRoom;
   audit(): ArenaAudit;

@@ -18,7 +18,7 @@ import { CONTACT_FRICTION, type ColliderShape, type Contact, type EngineJoint, t
  * **Solver conditioning** (`SOLVER`): the solver's iteration counts are named here and nowhere
  * else, and come from the bake-off's table. Bodies never sleep: a sleeping body reads a perfect zero.
  */
-export type Rapier = typeof RAPIER;
+type Rapier = typeof RAPIER;
 
 /** Load Rapier's wasm; once per realm is enough, and later calls return at once. */
 export async function rapierModule(): Promise<Rapier> {
@@ -38,20 +38,20 @@ export async function loadRapier(): Promise<PhysicsEngine> {
  * 120 Hz and one sub-step at which a human held the 1920 Hz reference (the elbow within 0.001 rad,
  * a whole human drifting 0.4 mm in 10 s).
  */
-export const SOLVER = {
+const SOLVER = {
   iterations: sourced(16, "1", "physics-bakeoff", "Rapier at 120 Hz, one sub-step: passes the clean bar at 16 iterations"),
   pgs: sourced(2, "1", "physics-bakeoff", "with 2 internal PGS iterations"),
 } as const;
 
 /** A Rapier body: the contract's, and Rapier's own for a probe of Rapier (`research/core-rapier-probe.mjs`). */
-export interface RapierBody extends SegmentBody {
+interface RapierBody extends SegmentBody {
   readonly rigid: RAPIER.RigidBody;
 }
-export interface RapierJoint extends EngineJoint {
+interface RapierJoint extends EngineJoint {
   readonly raw: RAPIER.ImpulseJoint;
 }
 /** A Rapier world: the contract's, and Rapier's own. The core sees only `PhysicsWorld`. */
-export interface RapierPhysics extends PhysicsWorld {
+interface RapierPhysics extends PhysicsWorld {
   readonly rapier: Rapier;
   readonly raw: RAPIER.World;
   addBody(node: TransformNode, shapes: readonly ColliderShape[], mass: MassProperties): RapierBody;

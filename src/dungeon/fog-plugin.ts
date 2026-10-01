@@ -16,7 +16,7 @@ import type { DungeonMap, Point } from "./map.ts";
 import { CAMERA_AZIMUTH, cameraToward } from "./camera.ts";
 
 /** Set by eye. */
-export const FOG_LOOK = Object.freeze({
+const FOG_LOOK = Object.freeze({
   /** What remembered ground and walls darken toward, in linear light: a cold near-black, plus a share of the
    * surface's own lit brightness so that remembered stone stays readable. */
   memory: Object.freeze([0.035, 0.04, 0.05] as const),
@@ -45,7 +45,7 @@ export const STONE_LOOK = Object.freeze({
 });
 
 /** Which stone rules a material's fragments follow: a floor's, a wall's, or none (flat colour, and doors). */
-export type StoneRole = "floor" | "wall" | null;
+type StoneRole = "floor" | "wall" | null;
 
 interface FogView { size: number; hero: Point; pitch: number; toward: Point; texture: RawTexture }
 

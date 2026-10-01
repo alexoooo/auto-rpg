@@ -49,7 +49,7 @@ export interface ClubLanding {
   readonly point: readonly [number, number, number];
 }
 
-export interface ClubBlowWatch {
+interface ClubBlowWatch {
   /** The landing, once it landed. */
   readonly landed: ClubLanding | null;
   /** Whether the body fell before it landed. */

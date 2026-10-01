@@ -37,8 +37,8 @@ export const skinTop = (model: WorkshopModel): Quantity<number> => {
 };
 
 /** x1's stature and mass for a man, each the middle of the owner's range. */
-export const TYPICAL_MAN_STATURE = sourced(1.77, "m", "owner-typical-adult", "x1's stature for a man: the middle of 1.76-1.78 m");
-export const TYPICAL_MAN_MASS = sourced(79, "kg", "owner-typical-adult", "x1's mass for a man: the middle of 78-80 kg");
+const TYPICAL_MAN_STATURE = sourced(1.77, "m", "owner-typical-adult", "x1's stature for a man: the middle of 1.76-1.78 m");
+const TYPICAL_MAN_MASS = sourced(79, "kg", "owner-typical-adult", "x1's mass for a man: the middle of 78-80 kg");
 
 /** The one factor from the authored size to x1: the typical man's stature over the Warrior's skin top. */
 export const FIT_SCALE: Quantity<number> = derive("1", "the typical man's stature over the Warrior's skin top",

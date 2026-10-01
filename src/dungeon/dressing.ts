@@ -61,7 +61,7 @@ export const DRESSING = Object.freeze({
 /** The top of everything hung on a wall: a centimetre under the coping. */
 export const HUNG_TOP = WALL_HEIGHT - 0.01;
 /** No wall piece comes lower than this: under it the floor's tiles and a body's feet are in front of it. */
-export const MURAL_FLOOR = 0.1;
+const MURAL_FLOOR = 0.1;
 /** A wall piece's height: its width over its tile's aspect, so its painting is not stretched. */
 export const muralHeight = (m: { piece: WallPiece; width: number }): number => m.width / MURAL_ASPECT[m.piece];
 
@@ -113,18 +113,18 @@ const wallsMeet = (a: { cell: Point; facing: Point; along: number; width: number
 };
 
 /** The table `dressingPlacements` reads: `DRESSING`, or a caller's variation of it. */
-export type DressingTable = typeof DRESSING;
+type DressingTable = typeof DRESSING;
 
 /** The top of the floor's tiles, which every marking lies on. `world.ts` builds its tiles to this. */
 export const FLOOR_TOP = 0.015;
 /** How far a piece may stand off a wall's face: the sconces' allowance (`SCONCE.proud` in `world.ts`). */
 export const WALL_ALLOWANCE = 0.08;
 /** Markings that overlap are lifted apart by a layer each, so that no two share a depth; there are this many. */
-export const DECAL_LAYERS = 3;
+const DECAL_LAYERS = 3;
 /** The height a marking lies at: 4 mm over the tiles, and 2 mm more a layer. */
 export const decalHeight = (layer: number): number => FLOOR_TOP + 0.004 + 0.002 * layer;
 
-export type FloorDecal = keyof DressingTable["decals"];
+type FloorDecal = keyof DressingTable["decals"];
 export const FLOOR_DECALS = Object.freeze(Object.keys(DRESSING.decals) as FloorDecal[]);
 
 /**

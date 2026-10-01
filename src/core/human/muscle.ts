@@ -44,7 +44,7 @@ export function peakTorque(figure: HumanFigure, exertion: Exertion): Quantity<nu
 const byJoint = <E extends Exertion>(region: MuscleRegion, exertions: readonly E[]) =>
   Object.fromEntries(exertions.map((e) => [e, region])) as Record<E, MuscleRegion>;
 
-export const REGION: Readonly<Record<Exertion, MuscleRegion>> = Object.freeze({
+const REGION: Readonly<Record<Exertion, MuscleRegion>> = Object.freeze({
   ...byJoint("trunk", ["neckFlexion", "neckExtension", "neckLateralFlexion", "neckRotation"]),
   ...byJoint("trunk", ["trunkFlexion", "trunkExtension", "trunkLateralFlexionRight", "trunkLateralFlexionLeft",
     "trunkRotationRight", "trunkRotationLeft"]),

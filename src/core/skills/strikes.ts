@@ -14,7 +14,7 @@ import type { BodySpec } from "../spec/body.ts";
  */
 
 /** A push of a strike: `channel` driven its `sense` way at `level`, from `from` to `to` s after the chamber. */
-export interface StrikePush {
+interface StrikePush {
   readonly channel: string;
   readonly sense: 1 | -1;
   readonly from: number;
@@ -49,7 +49,7 @@ export interface StrikeWindow {
 }
 
 /** A searched strike and where it lands: the target's centre `distance` m straight ahead of the striker's head. */
-export interface Recipe {
+interface Recipe {
   /** The body it was searched on. */
   readonly model: string;
   /** What the hand holds: `FIST`, or the held item's name. */

@@ -36,8 +36,8 @@ import { rangeOfMotion, type RangeRow } from "./tables/range-of-motion.ts";
  * **Muscle.** `strength` gives each exertion's peak torque (`muscle.ts`), and `speed` how that
  * torque falls with speed (`speed.ts`).
  */
-export type Strength = (exertion: Exertion) => Quantity<number>;
-export type Speed = (exertion: Exertion) => ForceVelocitySpec;
+type Strength = (exertion: Exertion) => Quantity<number>;
+type Speed = (exertion: Exertion) => ForceVelocitySpec;
 
 interface Freedom {
   readonly positive: string;
