@@ -78,11 +78,11 @@ The blocks fill the wall's collider and stand nowhere outside it.
 | `every`, `lit` | a flame on every 2nd post; a light as well on posts 2 and 10 |
 | `width`, `height`, `lift` | a flame is a plane 0.38 m by 0.72 m, 1.07 m above its post's centre |
 | `colour`, `range` | a light is 1, 0.42, 0.12, reaching 16 m |
-| `intensity` | 14 as it is made; the flicker replaces it at the first frame |
-| `mean`, `swing`, `rate` | the flicker: 13, by 0.8 either way, at 8 rad/s |
-| `frameCap` | one frame advances the flames by at most 50 ms |
+| `mean`, `swing`, `rate` | the flicker: 13, by 0.8 either way, at 8 rad/s; a light is made at 13 |
+| `frameCap` | one frame burns the flames by at most 50 ms |
 
-The flames go on flickering while a bout is paused. Whether they should is the owner's to say.
+The fire has a time of its own, which only the page moves (`ForgeFire.burn`), each frame it is
+not paused: a paused bout's flames stand still, as the owner chose.
 
 ## Sound
 
@@ -128,9 +128,8 @@ the work, and what they drop is what a person would not have heard apart.
 ## Crypt camera
 
 `CAMERA_PITCH` (`src/dungeon/camera.ts`) is pi / 6, 30 degrees above the ground. The concept art
-looks down at about 40 to 45 degrees, and the reference chamber's own camera at 42. **Which the
-crypt takes is the owner's to choose** ([roadmap](../roadmap.md)); `?pitch=` on the page shows
-another, in degrees.
+looks down at about 40 to 45 degrees, and the reference chamber's own camera at 42. The owner
+chose the 30 degrees; `?pitch=` on the page shows another, in degrees.
 
 `CAMERA`: the camera stands sqrt(800) m, 28.3 m, across the ground from the point it looks at,
 which is 1 m above the floor under the hero. The camera is orthographic, so the distance decides
@@ -162,7 +161,9 @@ at 0.58, and a lantern of strength 5 in `#dce5f5`.
 (3, 8) facing +x, its flame at (3.65, 2.05, 8) and its light at (4, 2.05, 8); one on (12, 14)
 facing -z, its flame at (12, 2.05, 13.35) and its light at (12, 2.05, 13).
 
-The crypt's flames go on flickering while a run is paused, as the forge's do.
+The torches have a time of their own, which only the page moves (`DungeonLighting.burn`), each
+frame the run is not paused: a paused run's flames stand still, as the forge's do and as the
+owner chose. A frame burns them by at most 50 ms.
 
 ## Crypt fog
 

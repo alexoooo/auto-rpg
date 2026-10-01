@@ -77,6 +77,8 @@ export interface DungeonLighting {
   /** A flame whose floor is unexplored would show where a room is before the fog does. */
   refreshFog(explored: ReadonlySet<number>): void;
   setLook(change: Partial<LookSwitches>): void;
+  /** Burns the torches the `seconds` a frame took: the flames move on and each light flickers. A page that is paused does not call it. */
+  burn(seconds: number): void;
   dispose(): void;
 }
 
@@ -151,11 +153,6 @@ export function lightDungeon(scene: Scene, camera: Camera, map: DungeonMap, torc
     lights.forEach((light, i) => { const on = look.torches && order.includes(i); if (light.isEnabled() !== on) light.setEnabled(on); });
   };
   let time = 0, lastHero: Point = { x: 0, z: 0 };
-  const flicker = scene.onBeforeRenderObservable.add(() => {
-    time += Math.min(scene.getEngine().getDeltaTime(), 50) / 1000;
-    fire.setFloat("time", time);
-    lights.forEach((light, i) => light.intensity = (torches[i].intensity ?? DUNGEON_LOOK.torch.intensity) + Math.sin(time * 8 + i * 1.7) * DUNGEON_LOOK.torch.flicker);
-  });
 
   return {
     lantern, clustered, torchCount: torches.length,
@@ -176,6 +173,11 @@ export function lightDungeon(scene: Scene, camera: Camera, map: DungeonMap, torc
       showFlames();
       if (rebuild) buildPost();
     },
-    dispose() { scene.onBeforeRenderObservable.remove(flicker); flameLook.dispose(); ao?.dispose(true); post?.dispose(); ao = post = null; },
+    burn(seconds) {
+      time += Math.min(seconds * 1000, 50) / 1000;
+      fire.setFloat("time", time);
+      lights.forEach((light, i) => light.intensity = (torches[i].intensity ?? DUNGEON_LOOK.torch.intensity) + Math.sin(time * 8 + i * 1.7) * DUNGEON_LOOK.torch.flicker);
+    },
+    dispose() { flameLook.dispose(); ao?.dispose(true); post?.dispose(); ao = post = null; },
   };
 }

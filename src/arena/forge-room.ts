@@ -22,16 +22,22 @@ const FORGE_FIRE = Object.freeze({
   every: 2, lit: [2, 10],
   /** A flame's plane, m, and how far above its post's centre it stands. */
   width: .38, height: .72, lift: 1.07,
-  /** A light's colour, the strength it is made with, which the flicker replaces at the first frame, and its range, m. */
-  colour: [1, .42, .12], intensity: 14, range: 16,
+  /** A light's colour and its range, m. */
+  colour: [1, .42, .12], range: 16,
   /** The flicker: about `mean`, by `swing` either way, at `rate` rad/s, a radian apart from one light to the next. */
   mean: 13, swing: .8, rate: 8,
-  /** The most one frame advances the flames, ms. */
+  /** The most one frame burns the flames, ms. */
   frameCap: 50,
 } as const);
 
+/** The forge's fire: its flames and their lights, at a time of their own that only `burn` moves. */
+export interface ForgeFire {
+  /** Burns the fire the `seconds` a frame took: the flames move on and each light flickers. A page that is paused does not call it. */
+  burn(seconds: number): void;
+}
+
 /** Dress the arena as the forge: masonry fills the wall colliders' boxes, and flames burn on every other post. */
-export function dressForgeRoom(scene: Scene, forge: ForgeStyle): void {
+export function dressForgeRoom(scene: Scene, forge: ForgeStyle): ForgeFire {
   const wall = scene.getMeshByName("room.wall.north");
   if (wall instanceof Mesh) {
     const placements = ROOM_GROUPS.filter(group => group.role === "wall").map(group => ({ ...group,
@@ -90,14 +96,16 @@ export function dressForgeRoom(scene: Scene, forge: ForgeStyle): void {
     flame.material = fire; flame.billboardMode = Mesh.BILLBOARDMODE_Y; flame.isPickable = false;
     if (lit.includes(i)) {
       const light = new PointLight(`forge.torchlight.${i}`, flame.position, scene);
-      light.diffuse = new Color3(...FORGE_FIRE.colour); light.intensity = FORGE_FIRE.intensity; light.range = FORGE_FIRE.range;
+      light.diffuse = new Color3(...FORGE_FIRE.colour); light.intensity = FORGE_FIRE.mean; light.range = FORGE_FIRE.range;
       lights.push(light);
     }
   }
   let time = 0;
-  scene.onBeforeRenderObservable.add(() => {
-    time += Math.min(scene.getEngine().getDeltaTime(), FORGE_FIRE.frameCap) / 1000;
-    fire.setFloat("time", time);
-    lights.forEach((light, i) => light.intensity = FORGE_FIRE.mean + Math.sin(time * FORGE_FIRE.rate + i) * FORGE_FIRE.swing);
-  });
+  return {
+    burn(seconds) {
+      time += Math.min(seconds * 1000, FORGE_FIRE.frameCap) / 1000;
+      fire.setFloat("time", time);
+      lights.forEach((light, i) => light.intensity = FORGE_FIRE.mean + Math.sin(time * FORGE_FIRE.rate + i) * FORGE_FIRE.swing);
+    },
+  };
 }

@@ -255,6 +255,7 @@ export async function bootArena(): Promise<void> {
     const seconds = engine.getDeltaTime() / 1000;
     giveOrders();
     if (duel && !paused) world.advance(seconds, Math.ceil(CATCH_UP_SECONDS * world.hz));
+    if (!paused) arena.fire.burn(seconds);
     frame(); readout(); audio.update();
     scene.render();
   });

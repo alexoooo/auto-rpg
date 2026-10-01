@@ -39,9 +39,11 @@ All of it on a physically based core, humans first ([architecture](architecture.
     bouts end by a fall where 80 do at none, and the mean bout is 55 s where it is 14 s
     ([reference/assist.md](reference/assist.md)); different points for each make it a trait that
     tells characters apart.
-  - The attribute's name (`AttributeSpec.balance`): Balance, or Stability, Poise or Footing.
-  - What the pointer does while a person's body stands still: nothing, and the person walks to
-    turn; or a slow step toward its heading, which moves it without being asked.
+  - What a point of balance is worth (`Rulebook.balance`): 0.05 of the body's weight and 0.013
+    weight-metres, at which 5 points spend the effect.
+- The controls are to be worked over in play. Until then the pointer does nothing while a person's
+  body stands still, and the person walks to turn; the other way is a slow step toward its heading,
+  which moves it without being asked.
 - The owner's to watch: a bout fought with orders
   (`?play=arena&matchup=workshop-fighter,workshop-rogue&you=left`); bouts with balance against
   none (`?play=arena&matchup=workshop-fighter,workshop-fighter&balance=5`, `&balance=20`,
@@ -155,9 +157,10 @@ All of it on a physically based core, humans first ([architecture](architecture.
 - The party carries only clubs; a ranged weapon (the Rogue's bow) would need projectiles on the
   core.
 - The crypt's frame rate on the owner's machine is unmeasured.
-- The crypt's triangle budget is the owner's to set. A generated crypt places up to 415,986
-  triangles ([art/crypt.md](art/crypt.md#triangles)), and its test holds it to what it places
-  today.
+- The crypt's triangle budget waits on its frame rate, measured on a range of hardware: the owner
+  sets it from what holds the frame rate there, and names no number before that. A generated
+  crypt places up to 415,986 triangles ([art/crypt.md](art/crypt.md#triangles)), and its test
+  holds it to what it places today.
 - Saving a run. A bout saves and loads (`Duel.save`, [architecture](architecture.md#state)); a
   run does not, since its bodies are built as they wake.
 - The run plans for its fighters with the map and hands each its orders; its bodies sense the
@@ -184,13 +187,7 @@ All of it on a physically based core, humans first ([architecture](architecture.
   correctly.
 - Every value of the look and the sound is kept as found until the owner confirms it
   ([reference/look.md](reference/look.md)). Of them, the dungeon's stand open until the owner
-  judges them in play: the camera's pitch (`CAMERA_PITCH`, 30 degrees, where the concept art looks
-  down at 40 to 45), torch density, and which floor and wall textures ship.
-- The flames of the forge and of the crypt go on flickering while the page is paused. Whether
-  they should stand still is the owner's to say. To still them, each page's pause goes into
-  `dressForgeRoom` (`src/arena/forge-room.ts`) and `lightDungeon` (`src/dungeon/lighting.ts`) as a
-  `() => boolean`, and the flame's time stands while it is true. The forge's observer is never
-  removed; the crypt's is, on dispose.
+  judges them in play: torch density, and which floor and wall textures ship.
 - How loud a blow is was set against no bout (`CUE`,
   [reference/look.md](reference/look.md#sound)): the energies a bout's blows carry, read from
   headless bouts, would say how much of the range from quiet to loud a fight uses.

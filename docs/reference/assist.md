@@ -14,8 +14,9 @@ same help to a light body and a heavy one. A fight gives each body the ceiling i
 (`balanceCeiling`) and withdraws the assist when the body is out of the fight. At 0 points the
 assist is absent, and a bout is step for step the bout without it.
 
-All three are the owner's (`owner-balance` in `SOURCES`), proposed and not yet confirmed; what
-each buys in bouts is in "What balance does to a bout" below:
+All three are the owner's (`owner-balance` in `SOURCES`). The owner confirmed the name; each
+character's points and a point's worth are proposed and not yet confirmed. What each buys in
+bouts is in "What balance does to a bout" below:
 
 | What | Value | Where |
 |---|---|---|
