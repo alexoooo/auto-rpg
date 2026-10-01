@@ -1,6 +1,6 @@
 # Finish the clean-up: the rest of the code reads like the core
 
-Status: not started. Surveyed at 144961d4.
+Status: chunk 0 has landed (`scripts/fingerprint.mjs`). Surveyed at 144961d4.
 
 The clean-up after the old path left these. The crypt generator and the character workshop are
 dense one-liners. `stanceControl` and the crypt page's `boot()` are each one long closure. About
@@ -82,12 +82,17 @@ its end. A change that two bodies recover from within the case still changes the
   - Hash `JSON.stringify(generateCryptDungeon(seed))`, with `map.floor` turned into an array,
     over seeds 0-99 and 2124530852.
   - Hash `generateLevel(seed)` over seeds 0-19.
-- **Sight.** For seeds 1-3, take `map = generateCryptDungeon(seed).map` and
+- **Sight.** For seeds 1-8, take `map = generateCryptDungeon(seed).map` and
   `findPath(map, map.start, map.exit, 0.35)` (`src/dungeon/map.ts`).
   - Start with an empty `explored` and `memory`.
-  - At each point `p` of the path, call `visible = reveal(map, p, explored)`, then
+  - Walk the path, reading every 0.5 m: the path's own points are two to seven, too few to
+    see past a pillar. At each point `p`, call `visible = reveal(map, p, explored)`, then
     `revealScenery(map, p, visible, explored, memory)`.
   - Hash the sorted `memory` after each call.
+  - What it holds, by mutation: the `.35` corner samples, the 12-cell reach and whether the
+    enclosed-gap rule runs at all. It does not hold that rule's 4-cell bound: over seeds 1-300
+    no walk meets an enclosed gap of 3 to 5 cells, and `tests/crypt-detail.test.mjs` fills a
+    gap of one cell only. Chunk 7 step 6 adds the test before it names the number.
 
 The header says what the script is for: a structural change must leave its output unchanged.
 It is not a test, because a deliberate behaviour change changes it.
@@ -446,6 +451,9 @@ One commit per bullet:
 6. **The small files.**
    - `scenery-visibility.ts`: name the 12-cell radius, the `.35` corner samples and the
      4-cell gap. The flood fill reads with named neighbours.
+   - First, in a commit of its own: a test in `tests/crypt-detail.test.mjs` that an enclosed
+     gap of 4 cells is filled and one of 5 is not (the fingerprint cannot show the bound).
+     Mutate the bound to 3 and to 5 and watch it go red. **Tests:** +1.
    - `crypt-kit.ts`: write the group-by on its own lines.
 7. **`reference-look.ts`.**
    - Export a pure `cutawayCondition(...)`, which builds today's 600-character expression from
