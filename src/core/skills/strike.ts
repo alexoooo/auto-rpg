@@ -46,7 +46,7 @@ export interface StrikeReport {
   readonly still: number;
   /**
    * How far ahead of the head each hand strikes, m: its recipe's distance, or null if it has none.
-   * A mind closes to it; the skill brings the body the rest of the way (`Chosen.window`, `APPROACH`).
+   * The tactics close to it; the skill brings the body the rest of the way (`Chosen.window`, `APPROACH`).
    */
   readonly reach: Readonly<Record<Hand, number | null>>;
 }

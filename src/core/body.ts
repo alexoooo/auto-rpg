@@ -4,15 +4,18 @@ import { motorControl, type Hand, type MotorControl, type MusclePush, type Pose 
 import type { StanceGoal, StanceReading } from "./control/stance.ts";
 import type { StanceTuning } from "./control/stance-tuning.ts";
 import { stanceEnvelope, type StanceEnvelope } from "./control/stance-envelope.ts";
-import { driveMuscles, type MuscleDriver } from "./muscle/driver.ts";
+import { embody, type Mind, type OwnBody } from "./mind/mind.ts";
+import { clockSenses, type Senses } from "./mind/senses.ts";
+import type { MuscleDriver } from "./muscle/driver.ts";
 import type { Vec3 } from "./spec/quantity.ts";
 import type { World } from "./world.ts";
 
 /**
  * **A body, commanded and seen.** One class for every body assembled from a spec: its muscles
- * (`driveMuscles`) under motor control (`motorControl`), commanded by goals and read through a
- * view. Whoever drives it -- a mind, the lab's routine, a test -- sees only the view and hands back
- * only a command; nothing reaches past the command to a joint or a muscle.
+ * under motor control (`motorControl`), commanded by goals and read through a view. A body under
+ * the command layers (`commandMind`): whoever drives it at this level -- tactics, the lab's
+ * routine, a test -- sees the view and hands back a command. A mind may drive muscles itself
+ * instead (`embody`, `src/core/mind/mind.ts`).
  *
  * Each control step the body reads its view, asks its driver for a command, and gives the command
  * to motor control, all before the solver step, so a command acts in the step it was made for.
@@ -105,8 +108,22 @@ interface BodyOptions {
   readonly measuring?: boolean;
 }
 
-/** `built` in `world`, holding its reference pose until something drives it. */
-export function createBody(built: BuiltBody, world: World, { servoSeconds, stance, measuring }: BodyOptions): Body {
+/**
+ * **The command layers as a mind**: motor control under a driver that hands it goals
+ * (`BodyDriver`). Each step it reads the view, asks the driver for a command, and gives the
+ * command to motor control, which writes the muscles.
+ */
+interface CommandMind extends Mind {
+  readonly view: BodyView;
+  /** Read the view from the body as it stands, on `senses`. */
+  look(senses: Senses): void;
+  /** Hand the body to `driver`, asked for a command each control step; null keeps the last command. */
+  drive(driver: BodyDriver | null): void;
+}
+
+/** The command layers over `own`, holding its reference pose until something drives them. */
+export function commandMind(own: OwnBody, { servoSeconds, stance }: BodyOptions): CommandMind {
+  const { built, muscles } = own;
   const motor: MotorControl = motorControl(built, servoSeconds, {}, stance);
   const fists = { left: fistOf(built, "left"), right: fistOf(built, "right") };
   const head = centreOf(built, "head");
@@ -137,10 +154,9 @@ export function createBody(built: BuiltBody, world: World, { servoSeconds, stanc
   };
   obey(current.command);
 
-  /** Read the view from the body as it stands. */
-  const see = (d: MuscleDriver): void => {
-    view.time = world.time;
-    d.channels.forEach((c, i) => { angles[c.name] = d.angle(i); });
+  const look = (senses: Senses): void => {
+    view.time = senses.time;
+    muscles.channels.forEach((c, i) => { angles[c.name] = muscles.angle(i); });
     for (const hand of ["left", "right"] as const) {
       fists[hand].update();
       motor.knucklesToRef(hand, view.knuckles[hand]);
@@ -148,20 +164,30 @@ export function createBody(built: BuiltBody, world: World, { servoSeconds, stanc
     head.update();
     motor.stance.read();
   };
-  const muscles = driveMuscles(built, world, (d, dt) => {
-    see(d);
-    const next = driver?.(view, dt);
-    if (next) obey(next);
-    motor.control(d, dt);
-  });
-  // Before its first step the view is the body as built, where a driver or a run first finds it.
-  see(muscles);
-
   return {
-    built, muscles, view,
-    envelope: !measuring && Object.keys(stance ?? {}).length === 0 ? stanceEnvelope(built.spec) : null,
+    name: "command",
+    view, look,
     drive(next) { driver = next; },
-    dispose() { muscles.dispose(); },
+    step(senses, dt) {
+      look(senses);
+      const next = driver?.(view, dt);
+      if (next) obey(next);
+      motor.control(muscles, dt);
+    },
+  };
+}
+
+/** `built` in `world`, holding its reference pose until something drives it. */
+export function createBody(built: BuiltBody, world: World, options: BodyOptions): Body {
+  const sense = clockSenses(world);
+  const { own, mind, dispose } = embody(built, world, (body) => commandMind(body, options), sense);
+  // Before its first step the view is the body as built, where a driver or a run first finds it.
+  mind.look(sense());
+  return {
+    built, muscles: own.muscles, view: mind.view,
+    envelope: !options.measuring && Object.keys(options.stance ?? {}).length === 0 ? stanceEnvelope(built.spec) : null,
+    drive: (next) => mind.drive(next),
+    dispose,
   };
 }
 

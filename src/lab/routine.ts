@@ -4,23 +4,23 @@ import type { Hand } from "../core/control/motor.ts";
 import type { StanceEnvelope } from "../core/control/stance-envelope.ts";
 import type { StanceTuning } from "../core/control/stance-tuning.ts";
 import { GUARD_ACTION, type Intent } from "../core/mind/intent.ts";
-import { driveBy, type Mind, type Sight } from "../core/mind/mind.ts";
+import { driveBy, type Sight, type Tactics } from "../core/mind/tactics.ts";
 import type { SkillReport } from "../core/skills/skills.ts";
 import { APPROACH } from "../core/skills/strike.ts";
 import type { World } from "../core/world.ts";
-import { trackMind } from "./run-mode.ts";
+import { trackTactics } from "./run-mode.ts";
 import { LAB_TURN_RATE } from "./stance-mode.ts";
 import { SHUTTLE_TURN_RADIUS, TURN_PACE, trackOf, type Piece, type Track } from "./track.ts";
 
 /**
  * **The lab's routine**: a human walks out, strikes at a post three times, turns, walks back
- * to where it started and turns again, on a loop. It is driven by a mind (`routineMind`), as any
- * body is: the mind asks for a walk and a facing and gives each hand an action, and the
+ * to where it started and turns again, on a loop. It is driven by tactics (`routineTactics`), as any
+ * body is: they ask for a walk and a facing and give each hand an action, and the
  * skills (`src/core/skills/skills.ts`) carry them out.
  *
- * - **The walk is the Run's** (`trackMind`, `run-mode.ts`): round a shuttle of `ROUTINE_METRES`
+ * - **The walk is the Run's** (`trackTactics`, `run-mode.ts`): round a shuttle of `ROUTINE_METRES`
  *   straights, at the pace and turn of `ROUTINE_GAIT`.
- * - **The strikes are the strike skill's** (`src/core/skills/strike.ts`): the mind attacks the post
+ * - **The strikes are the strike skill's** (`src/core/skills/strike.ts`): the tactics attack the post
  *   with each hand of `ROUTINE_HANDS` in turn, and the skill throws the searched recipe for what
  *   that hand holds (`assets/core/strikes.json`), the left's mirrored from the right's. It brings
  *   the body to the recipe's place, sets its feet there and stands it still `STAND` s before each.
@@ -60,25 +60,25 @@ const ROUTINE_GAIT = { pace: TURN_PACE, turn: LAB_TURN_RATE } as const;
 /** The hands that strike at the post, in turn. */
 export const ROUTINE_HANDS: readonly Hand[] = ["right", "left", "right"];
 
-/** Where the routine's mind is: walking out, at the post, or walking back. */
+/** Where the routine is: walking out, at the post, or walking back. */
 type Leg = "out" | "post" | "back";
 
-interface RoutineMind extends Mind {
+interface RoutineTactics extends Tactics {
   readonly leg: Leg;
   /** Loops done: back at the start. */
   readonly loops: number;
-  /** The post (world), once the mind has seen its head's height; null before. */
+  /** The post (world), once the tactics have seen the head's height; null before. */
   readonly post: readonly [number, number, number] | null;
 }
 
 /**
- * **The Routine's mind**: round `track` as the Run goes (`trackMind`), and at the post, each hand
- * of `hands` that has a blow attacks it in turn. It hands its walk to the attack once the post is
+ * **The Routine's tactics**: round `track` as the Run goes (`trackTactics`), and at the post, each hand
+ * of `hands` that has a blow attacks it in turn. They hand their walk to the attack once the post is
  * within the hand's reach (`StrikeReport.reach`) and the distance the strike skill closes at its
- * own fastest (`APPROACH`'s pace over its seconds), and takes it back when the last blow is thrown.
+ * own fastest (`APPROACH`'s pace over its seconds), and take it back when the last blow is thrown.
  */
-function routineMind(track: Track, envelope: StanceEnvelope, hands: readonly Hand[] = ROUTINE_HANDS): RoutineMind {
-  const walk = trackMind(track, envelope, ROUTINE_GAIT);
+function routineTactics(track: Track, envelope: StanceEnvelope, hands: readonly Hand[] = ROUTINE_HANDS): RoutineTactics {
+  const walk = trackTactics(track, envelope, ROUTINE_GAIT);
   let leg: Leg = "out", loops = 0, next = 0, counted = 0;
   let post: [number, number, number] | null = null;
   let order: readonly Hand[] | null = null;
@@ -135,7 +135,7 @@ interface StrikeReading {
 interface Routine {
   readonly body: Body;
   readonly fists: { readonly left: Fist; readonly right: Fist };
-  readonly mind: RoutineMind;
+  readonly tactics: RoutineTactics;
   readonly report: SkillReport;
   /** Seconds since the routine began. */
   time(): number;
@@ -157,7 +157,7 @@ interface Routine {
 export function startRoutine(built: BuiltBody, world: World, tuning?: StanceTuning): Routine {
   if (!built.segments.has("lowerTrunk")) throw new Error(`${built.spec.model} is not a human the routine knows`);
   const body = createBody(built, world, { servoSeconds: SERVO_SECONDS, stance: tuning });
-  const mind = routineMind(trackOf(ROUTINE_TRACK), body.envelope!);
+  const tactics = routineTactics(trackOf(ROUTINE_TRACK), body.envelope!);
   const fists = body.view.fists;
   const speed = { left: 0, right: 0 };
   const strikes: StrikeReading[] = [];
@@ -167,14 +167,14 @@ export function startRoutine(built: BuiltBody, world: World, tuning?: StanceTuni
   const closedAt: Record<Hand, number | null> = { left: null, right: null };
   const openedAt: Record<Hand, number | null> = { left: null, right: null };
 
-  // The instrument: it reads what the mind sees, before the mind decides, and changes nothing.
+  // The instrument: it reads what the tactics see, before they decide, and changes nothing.
   const read = ({ view, report }: Sight): void => {
     time = view.time;
     for (const side of ["left", "right"] as const) speed[side] = fists[side].velocity.length();
     const { strike } = report;
     const striking = strike.hand !== null && (strike.phase === "chamber" || strike.phase === "swing");
-    if (striking && !current && strike.chosen && mind.post) {
-      const h = report.heading, dx = mind.post[0] - view.head.x, dz = mind.post[2] - view.head.z;
+    if (striking && !current && strike.chosen && tactics.post) {
+      const h = report.heading, dx = tactics.post[0] - view.head.x, dz = tactics.post[2] - view.head.z;
       current = {
         name: strike.chosen.strike.name, hand: strike.hand!, peak: 0,
         off: { along: dx * Math.sin(h) + dz * Math.cos(h) - strike.chosen.recipe.distance, across: dx * Math.cos(h) - dz * Math.sin(h) },
@@ -193,18 +193,18 @@ export function startRoutine(built: BuiltBody, world: World, tuning?: StanceTuni
       current = null;
     }
   };
-  const { report } = driveBy(body, { name: mind.name, decide: (sight, dt) => { read(sight); return mind.decide(sight, dt); } });
+  const { report } = driveBy(body, { name: tactics.name, decide: (sight, dt) => { read(sight); return tactics.decide(sight, dt); } });
 
   return {
     body,
     fists,
-    mind,
+    tactics,
     report,
     strikes,
     time: () => time,
     doing() {
       if (report.fallen) return "Fallen";
-      switch (mind.leg) {
+      switch (tactics.leg) {
         case "out": return "Walking out";
         case "back": return "Walking back";
         case "post": {
@@ -218,7 +218,7 @@ export function startRoutine(built: BuiltBody, world: World, tuning?: StanceTuni
             default: { const never: never = report.strike.phase; return String(never); }
           }
         }
-        default: { const never: never = mind.leg; return String(never); }
+        default: { const never: never = tactics.leg; return String(never); }
       }
     },
     fistSpeed: () => current ? speed[current.hand] : Math.max(speed.left, speed.right),

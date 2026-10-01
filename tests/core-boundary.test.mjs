@@ -1,8 +1,8 @@
 /**
  * The core's boundary: `src/core/` reaches nothing but itself, its packages and data files under
  * `assets/`, checked over the transitive closure of its imports. The pages build on the core,
- * never the reverse. Also here: the core's bans on float32 rotations and cached world matrices, and
- * the engine seam.
+ * never the reverse. Also here: the core's bans on float32 rotations and cached world matrices, the
+ * engine seam and the mind seam.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -208,4 +208,38 @@ test("the core and its lab reach an engine only through the seam: engine.ts's co
     "src/lab/main.ts imports the engine module src/core/engine/rapier.ts",
     `src/core/build/build-body.ts imports the engine package "@dimforge/rapier3d-simd-compat"`,
   ]);
+});
+
+/** The muscle driver's module, which declares `driveMuscles`. */
+const MUSCLE_DRIVER = "src/core/muscle/driver.ts";
+
+/**
+ * The files under `src/`, beside the driver's own, that name `driveMuscles`: through the checker,
+ * so an import under another name and a read off the module's namespace are both found.
+ */
+function muscleDrivers(overlay = {}) {
+  const { checker, sources } = programOver([...new Set([...sourcesUnder("src", ".ts"), ...Object.keys(overlay)])], overlay);
+  const isDriver = (symbol) => {
+    const target = symbol && symbol.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(symbol) : symbol;
+    return (target?.declarations ?? []).some((declaration) => ts.isFunctionDeclaration(declaration)
+      && declaration.name?.text === "driveMuscles" && declaration.getSourceFile().fileName.endsWith(`/${MUSCLE_DRIVER}`));
+  };
+  const found = new Set();
+  const visit = (node, file) => {
+    if (ts.isIdentifier(node) && isDriver(checker.getSymbolAtLocation(node))) found.add(file);
+    ts.forEachChild(node, (child) => visit(child, file));
+  };
+  for (const { source, file } of sources()) if (file.startsWith("src/") && file !== MUSCLE_DRIVER) visit(source, file);
+  return [...found].sort();
+}
+
+test("in the game's source only the mind seam drives muscles", () => {
+  assert.deepEqual(muscleDrivers(), ["src/core/mind/mind.ts"]);
+  // The control: a page driving muscles itself is found, under another name and off the namespace.
+  assert.deepEqual(muscleDrivers({
+    "src/lab/renamed.ts": `import { driveMuscles as drive } from "../core/muscle/driver.ts";\nexport const d = drive;\n`,
+    "src/lab/spaced.ts": `import * as driver from "../core/muscle/driver.ts";\nexport const d = driver.driveMuscles;\n`,
+    // Reading the muscles is not driving them.
+    "src/lab/reader.ts": `import type { MuscleDriver } from "../core/muscle/driver.ts";\nexport const ceiling = (d: MuscleDriver): number => d.ceiling[0]!;\n`,
+  }), ["src/core/mind/mind.ts", "src/lab/renamed.ts", "src/lab/spaced.ts"]);
 });

@@ -2,7 +2,7 @@ import type { Body } from "../body.ts";
 import { APPROACH } from "../skills/strike.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { GUARD_ACTION, type Intent } from "./intent.ts";
-import type { Mind } from "./mind.ts";
+import type { Tactics } from "./tactics.ts";
 
 /**
  * How near a target a fighter attacks it rather than walking to it, m, between the two centres of
@@ -26,7 +26,7 @@ export interface FighterPlan {
 }
 
 /**
- * **A fighter's mind**: it walks its plan's direction at its body's fastest walk
+ * **A fighter's tactics**: it walks its plan's direction at its body's fastest walk
  * (`Body.envelope`), facing it, and given a body to attack attacks its head with what the right
  * hand holds: the strike skill brings the body the rest of the way (`APPROACH` in
  * `src/core/skills/strike.ts`). It holds the point it aims at while the head stays within
@@ -34,7 +34,7 @@ export interface FighterPlan {
  * point it is given and a point that followed a swaying head would move under every placing.
  * `plan` is read every control step.
  */
-export function fighterMind(name: string, plan: () => FighterPlan): Mind {
+export function fighterTactics(name: string, plan: () => FighterPlan): Tactics {
   /** The point aimed at, whose head it was, and the blows thrown when it was chosen. */
   let aim: { target: Body; point: Vec3; thrown: number } | null = null;
   return {

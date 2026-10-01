@@ -12,7 +12,7 @@ import { trackOf } from "./track.ts";
 import { need } from "../dom.ts";
 
 /**
- * **The Routine scenario**: the lab routine (`routine.ts`), a mind on the core's skills -- walk out,
+ * **The Routine scenario**: the lab routine (`routine.ts`), tactics on the core's skills -- walk out,
  * strike at the post with each hand in turn, walk round and back -- to show the muscles. The
  * readout is what it is doing, its loops, the striking fist's speed, read from the hand's body each
  * physics sub-step, and each strike's peak and where the head stood from the recipe's place. The
@@ -54,7 +54,7 @@ export function routineScenario(scene: Scene): LabScenario {
     start({ built, world, changed, clock }) {
       const routine = startRoutine(built, world);
       const history = recordHistory(built, world, HISTORY_SECONDS, (): RoutineMoment => ({
-        time: routine.time(), doing: routine.doing(), loops: routine.mind.loops, fist: routine.fistSpeed(),
+        time: routine.time(), doing: routine.doing(), loops: routine.tactics.loops, fist: routine.fistSpeed(),
         closure: { left: routine.closure("left"), right: routine.closure("right") },
       }));
       const player = createPlayer({ world, recording: history }, changed, clock);
@@ -64,7 +64,7 @@ export function routineScenario(scene: Scene): LabScenario {
         recording: () => ({ frames: history.frames, live: history.live() }),
         drive: () => {},
         readout(frame: number | null): number | null {
-          const at = routine.mind.post;
+          const at = routine.tactics.post;
           if (at) { post.position.set(at[0], at[1], at[2]); post.isVisible = true; }
           const moment = history.at(frame ?? history.live());
           if (!moment) return null;

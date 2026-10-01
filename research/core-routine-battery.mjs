@@ -80,7 +80,7 @@ if (isMainThread) {
       const lower = stand.built.segments.get("lowerTrunk"), middle = stand.built.segments.get("middleTrunk");
       const way = (seed * 2.399963) % (2 * Math.PI), push = stand.seconds(0.5), most = stand.seconds(LOOP_SECONDS * loops);
       let fell = null, doing = routine.doing();
-      for (let t = 0; routine.mind.loops < loops && t < most; t++) {
+      for (let t = 0; routine.tactics.loops < loops && t < most; t++) {
         if (t === push) middle.body.applyImpulse(new Vector3(impulse * Math.sin(way), 0, impulse * Math.cos(way)), middle.node.position);
         stand.step(1);
         // What it was doing as it began to fall.
@@ -88,7 +88,7 @@ if (isMainThread) {
         if (lower.node.position.y < 0.5) { fell = `${doing} at ${routine.time().toFixed(1)} s`; break; }
       }
       const result = {
-        loops: routine.mind.loops, fell, stuck: !fell && routine.mind.loops < loops,
+        loops: routine.tactics.loops, fell, stuck: !fell && routine.tactics.loops < loops,
         strikes: routine.strikes.map((s) => ({ name: s.name, peak: s.peak, off: { ...s.off } })),
       };
       routine.dispose();

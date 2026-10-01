@@ -74,7 +74,7 @@ as they wake, is not in this set.
 | # | Plan | Lands | Needs | Eye gate |
 |---|---|---|---|---|
 | 01 | baseline: landed | a bout is a recipe (`DuelRecipe`); its trace digest (`research/bout-trace.mjs`); the standing table of how bouts end (`docs/reference/bouts.md`) | | |
-| 02 | [the mind at the muscles](2026-09-30-minds-02-mind-at-the-muscles.md) | `Mind`, `OwnBody`, `embody`; `Tactics`; every body driven through `Mind` | 01 | |
+| 02 | the mind at the muscles: landed | `Mind`, `OwnBody`, `embody`; `Tactics`; every body driven through `Mind` (`commandMind`) | | |
 | 03 | [senses](2026-09-30-minds-03-senses.md) | `Senses`; the arena's tactics see their opponent; `Duel.plan` goes | 02 | |
 | 04 | [orders](2026-09-30-minds-04-orders.md) | `Orders`, the orders tape, WASD and the pointer in the arena | 03 | the owner fights a bout |
 | 05 | [assist](2026-09-30-minds-05-assist.md) | what the soles miss, published and measured; the assist effector; its sweep | 02 | the owner watches assisted bouts |
@@ -100,7 +100,9 @@ lands before plan 05, which names the split's constructs (`StanceState`, `limitT
 
 Each is changed by the plan that makes it true, in the same commit.
 
-- `AGENTS.md`, "A mind drives a body only through its command" becomes (plan 02):
+- `AGENTS.md`, "A mind reaches the world only through its body" (landed with plan 02, its senses
+  the clock alone) reads in full, once plan 03 gives the senses the other bodies and plan 04 names
+  `Orders`:
   > **A mind reaches the world only through its body.** It learns of it through its senses
   > (`Senses`, `src/core/mind/senses.ts`) and its own body (`OwnBody`), and moves it through its
   > muscles' command and nothing else (`Mind.step`, `src/core/mind/mind.ts`). Camera state never

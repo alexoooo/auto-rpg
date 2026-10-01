@@ -6,8 +6,8 @@ import type { PhysicsEngine } from "../core/engine/engine.ts";
 import { armed } from "../core/human/grip.ts";
 import { modelSpec, type BodyModel } from "../core/human/spec.ts";
 import { woodenClub } from "../core/items/club.ts";
-import { ATTACK_METRES, fighterMind } from "../core/mind/fighter.ts";
-import { driveBy, type Mind } from "../core/mind/mind.ts";
+import { ATTACK_METRES, fighterTactics } from "../core/mind/fighter.ts";
+import { driveBy, type Tactics } from "../core/mind/tactics.ts";
 import type { Skills } from "../core/skills/skills.ts";
 import { watchBlows, type BlowWatch, type Fighter, type LandedBlow } from "../core/rules/blows.ts";
 import { createPool } from "../core/rules/pool.ts";
@@ -26,13 +26,13 @@ import { companionSpawn } from "./party-placement.ts";
 /**
  * **A crypt run**: the level's colliders are fixed boxes in a world
  * (`buildDungeonWorld`), and the party and the enemies are bodies (`src/core/`), each driven
- * by a mind that carries out what the run plans for it. The run plans with the map: who sees whom,
+ * by tactics that carry out what the run plans for it. The run plans with the map: who sees whom,
  * whom each fights, and the path each walks (`findPath`); the person's orders reach the party only
- * through that plan (`DungeonCommands`), and a mind reaches its body only through its intent.
+ * through that plan (`DungeonCommands`), and tactics reach their body only through their intent.
  *
  * - **The hero** is the Warrior unless the page picks another, **the companions** whom the page names,
  *   **the enemies** skeletons, each with the wooden club in the right hand, the one weapon the core has.
- * - **A mind** is a fighter's (`fighterMind`): it walks its plan's direction, and within
+ * - **The tactics** are a fighter's (`fighterTactics`): it walks its plan's direction, and within
  *   `ATTACK_METRES` of its target attacks the target's head with the club.
  * - **Wounds** are the core's blows (`watchBlows`) under the dungeon's rulebook. A fighter is out
  *   of the fight once its pool has ended, or once its body has fallen (`SkillReport.fallen`): the
@@ -78,7 +78,7 @@ export interface DungeonActor {
   post: Point | null;
   /** The order was dropped by the run rather than replaced by the person, and the member replans next step. */
   replan: boolean;
-  /** What its mind carries out this step: a direction to walk (unit, world) or null to stand, a way to face, and whom to attack. */
+  /** What its tactics carry out this step: a direction to walk (unit, world) or null to stand, a way to face, and whom to attack. */
   plan: { move: Point | null; look: Point | null; attack: DungeonActor | null };
 }
 
@@ -171,7 +171,7 @@ export class DungeonRun {
     this.map = options.layout ?? generateLevel(options.seed).map;
     this.world = createWorld(scene, options.engine);
     this.level = buildDungeonWorld(scene, this.map, options.visuals ?? true, this.world.physics);
-    // Before any body's own hooks, so each mind reads this step's plan.
+    // Before any body's own hooks, so each body's tactics read this step's plan.
     this.planning = this.world.beforeStep(() => this.plan());
     const create = (id: string, model: BodyModel, at: Point, side: DungeonActor["side"]): DungeonActor => {
       const actor: DungeonActor = {
@@ -206,12 +206,12 @@ export class DungeonRun {
   /** Seconds since the run began: the world's clock. */
   get clock(): number { return this.world.time; }
 
-  /** Build `actor`'s body where it waits, hand it its mind, and watch its blows with everybody's. */
+  /** Build `actor`'s body where it waits, hand it its tactics, and watch its blows with everybody's. */
   private build(actor: DungeonActor): void {
     const spec = clubbed(actor.model);
     const built = buildBody(spec, this.world, { position: [actor.home.x, 0, actor.home.z] });
     const body = createBody(built, this.world, { servoSeconds: SERVO_SECONDS });
-    const skills = driveBy(body, this.mind(actor));
+    const skills = driveBy(body, this.tactics(actor));
     actor.fighter = { id: actor.id, side: actor.side, built, pool: createPool(spec, this.rules), body, skills };
     this.watch?.dispose();
     const fighters = this.actors.flatMap((a) => a.fighter ? [a.fighter] : []);
@@ -219,9 +219,9 @@ export class DungeonRun {
     this.options.onBuilt?.(actor);
   }
 
-  /** What carries out `actor`'s plan (`fighterMind`); a fighter out of the fight only looks. */
-  private mind(actor: DungeonActor): Mind {
-    return fighterMind(`crypt ${actor.side}`, () => {
+  /** What carries out `actor`'s plan (`fighterTactics`); a fighter out of the fight only looks. */
+  private tactics(actor: DungeonActor): Tactics {
+    return fighterTactics(`crypt ${actor.side}`, () => {
       const { move, look, attack } = actor.plan;
       return actor.alive
         ? { move, look, attack: attack?.fighter?.body ?? null }

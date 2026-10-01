@@ -12,9 +12,9 @@ only the core itself, `@babylonjs/core`, the engine's package and JSON under `as
 
 ## The layers
 
-Each layer imports only the layers listed before it, except that skills and minds share a
-vocabulary: the `Intent` a mind returns (`src/core/mind/intent.ts`) and the `SkillReport` it
-reads (`src/core/skills/skills.ts`).
+Each layer imports only the layers listed before it, except that skills and tactics share a
+vocabulary: the `Intent` tactics return (`src/core/mind/intent.ts`) and the `SkillReport` they
+read (`src/core/skills/skills.ts`).
 
 | Layer | Where | What it does |
 |---|---|---|
@@ -22,11 +22,13 @@ reads (`src/core/skills/skills.ts`).
 | Engine seam | `src/core/engine/` | the one contract the core needs from a physics engine |
 | Build | `src/core/build/` | the spec made into engine bodies and joints, and the dynamics read back from them |
 | Muscles | `src/core/muscle/` | torque bounded by strength and by speed |
+| Mind seam | `src/core/mind/mind.ts` | a mind made with its body, stepped before the solver, writing the muscles' command |
 | Motor control | `src/core/control/` | joint goals, hand goals and the stance turned into muscle commands |
 | Skills | `src/core/skills/` | an intent turned into the body's command: walk, face, strike, guard |
-| Minds | `src/core/mind/` | what the body should do, decided from what it sees |
+| Tactics | `src/core/mind/tactics.ts`, `fighter.ts` | what the body should do, decided from what it sees |
 
-`createBody` (`src/core/body.ts`) joins a built body to its muscles and motor control. Each step it
+`createBody` (`src/core/body.ts`) gives a built body the command layers as its mind
+(`commandMind`, under `embody`): its muscles and motor control. Each step it
 reads the body's `BodyView` (time, joint angles, fists, knuckles, head, stance), asks its driver,
 and obeys the `BodyCommand` it gets back: a posture, hand goals, timed pushes and a stance goal.
 
@@ -139,22 +141,33 @@ where a strike is).
 
 ### Minds
 
-A `Mind` (`src/core/mind/mind.ts`) is `decide(sight, dt)`: from its `Sight` (its body's view, the
-skills' report and the body's envelope) it returns an `Intent` (`intent.ts`): a velocity forward
-and to the right of the body's heading, or none; a way to face; how low to stand; and for each hand
-guard or attack a point. It names no joint,
-pose or push. `driveBy(body, mind)` hands the body to the mind through the skills, and nothing
-reaches past that to pose a joint; camera state never reaches a mind.
+A `Mind` (`src/core/mind/mind.ts`) is `step(senses, dt)`: a stateful function from what its body
+senses to what its muscles are asked. `embody(built, world, make)` makes it with its own body
+(`OwnBody`: the spec, the built segments and joints, the muscles) and steps it before every solver
+step, after the muscles have read the joints. It reads its `Senses` (`senses.ts`: the clock) and
+that body, and writes each freedom's activation and the speed asked of it
+(`MuscleDriver.activation`, `.velocity`): a speed beyond the muscles' reach is a torque at the
+ceiling the activation sets, and a speed of zero holds. That command is the whole of what a mind
+does to the world; camera state never reaches one. The seam names no hand and no foot, so a body of
+another shape takes a mind through the same call. `tests/core-boundary.test.mjs` holds that
+nothing else under `src/` drives muscles.
 
-The core has one mind, `fighterMind` (`fighter.ts`). Each step it takes a plan (a direction to
+Every body the game has runs one mind, written with the layers above: `commandMind`
+(`src/core/body.ts`) is motor control under a driver that hands it goals, and the driver is the
+skills carrying out what the tactics decide.
+
+`Tactics` (`tactics.ts`) are `decide(sight, dt)`: from their `Sight` (the body's view, the
+skills' report and the body's envelope) they return an `Intent` (`intent.ts`): a velocity forward
+and to the right of the body's heading, or none; a way to face; how low to stand; and for each hand
+guard or attack a point. It names no joint, pose or push. `driveBy(body, tactics)` hands the body
+to them through the skills.
+
+The core has one set of tactics, `fighterTactics` (`fighter.ts`). Each step it takes a plan (a direction to
 walk, a way to look, a body to attack): it walks at its fastest walk, and when the plan names a body
 it attacks that body's head with its right hand, the strike skill closing the distance, while the
 left guards. Whoever owns the fight writes the plan and names a body once it is within
-`ATTACK_METRES` (1.8 m): the arena's `Duel` and the crypt's `DungeonRun`. The lab has its own minds:
-`ordersMind` (the keys), `trackMind` (the Run), `routineMind` and `attackOnce`.
-
-**The AI's structure above `fighterMind` is open.** Tactics, a person's orders, and how minds are
-layered and composed are being designed next, and the owner decides that design.
+`ATTACK_METRES` (1.8 m): the arena's `Duel` and the crypt's `DungeonRun`. The lab has its own:
+`stanceTactics` (the keys), `trackTactics` (the Run), `routineTactics` and `attackOnce`.
 
 ## One world step
 
@@ -162,8 +175,9 @@ layered and composed are being designed next, and the owner decides that design.
 (`PHYSICS_HZ`) that owns physics, control, combat and the clock. A step runs the before-step hooks
 in the order they were added, one solver step, which writes every node, and the after-step hooks
 (readings, blows); the clock is the count of steps. Each body adds one before-step hook
-(`driveMuscles`), in which its controller (`createBody`) senses (`see`), runs the mind and the
-skills, runs motor control and sets the motors; a page may add its own (the crypt's
+(`driveMuscles`), in which the muscles read the joints, the body's mind steps (`embody`) and the
+motors are set; for a game body the mind is `commandMind`, which reads the view (`look`), runs the
+tactics and the skills, and runs motor control; a page may add its own (the crypt's
 `DungeonRun.plan`, the lab's shove). The pages, the Node stand and the research all call
 `World.step`; a page advances by real time with `World.advance`, which caps the steps a frame may
 take. `scene.render()` draws what the steps produced and never advances them.
@@ -209,7 +223,7 @@ arena, crypt and lab screens at `?play=arena`, `?play=dungeon` and `?play=lab`, 
 `<template>` mounted once per page load. Changing screen is a navigation.
 
 - **The Arena** (`src/arena/`): two clubbed bodies in the Forge (`src/arena/scene.ts`,
-  `src/arena/room.ts`), each driven by `fighterMind` under a `Duel`, to a verdict. The room's
+  `src/arena/room.ts`), each driven by `fighterTactics` under a `Duel`, to a verdict. The room's
   solids (`arenaSolids`) are what bodies meet; the visible room is dressed from the forge kit
   (`src/arena/forge-style.ts`, `src/arena/forge-room.ts`). `validateRoomPlacements` refuses a
   piece that names a collider the arena lacks, or one of the wrong role, and a solid-looking piece
@@ -245,10 +259,10 @@ These are the owner's, and the code is built on them.
 - **Rapier is the engine**; MuJoCo stays on the bench; another engine is tried on the bench first.
 - **120 Hz**, and the controllers are made to work there.
 - **Torque sources with the body's real inertia**, and an eccentric ceiling of 1.4 times isometric.
-- **A person never commands muscles.** A person's input is a mind's intent (facing, movement, what
-  to attack); the body's skills make the goals.
+- **A person never commands muscles.** A person's input is an intent, as tactics' is (facing,
+  movement, what to attack); the body's skills make the goals.
 - **Strikes are searched recipes now, hand goals next**: a strike becomes a place, a speed and a
-  time for the hand, met by arm, trunk and legs together, and the mind's command, attack that, does
+  time for the hand, met by arm, trunk and legs together, and the tactics' intent, attack that, does
   not change. Nothing is built that the next step throws away, or searched on a path the game will
   not use.
 - **Sizes and hit points.** x1 is a typical adult, about 1.77 m and 79 kg; the Rogue keeps her own

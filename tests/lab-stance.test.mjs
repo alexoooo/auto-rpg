@@ -1,6 +1,6 @@
 /**
  * **The lab's stance mode** (`src/lab/stance-mode.ts`), run on the Node stand as the page
- * runs it: the page's orders, made an intent by the keys' mind and carried out by the skills, and a
+ * runs it: the page's orders, made an intent by the keys' tactics and carried out by the skills, and a
  * shove at the middle trunk. What the page shows is what these read.
  */
 import test from "node:test";

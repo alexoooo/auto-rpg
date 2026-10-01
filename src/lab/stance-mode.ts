@@ -3,14 +3,14 @@ import { createBody, SERVO_SECONDS, type Body } from "../core/body.ts";
 import type { BuiltBody } from "../core/build/build-body.ts";
 import type { StancePhase } from "../core/control/stance.ts";
 import { GUARD_ACTION, type Intent } from "../core/mind/intent.ts";
-import { driveBy, type Mind } from "../core/mind/mind.ts";
+import { driveBy, type Tactics } from "../core/mind/tactics.ts";
 import type { World } from "../core/world.ts";
 import { STANCE_LOWER } from "../core/skills/locomotion.ts";
 
 /**
  * **The lab's stance mode**: a human on its own feet under the core stance
- * (`src/core/control/stance.ts`), commanded live from the page. The page's keys are a mind
- * (`ordersMind`): what a person gives it is an intent, as any mind's -- a walk (a velocity across
+ * (`src/core/control/stance.ts`), commanded live from the page. The page's keys are its tactics
+ * (`stanceTactics`): what a person gives it is an intent, as any tactics' -- a walk (a velocity across
  * the ground, in the body's own frame), a turn and a height, the hands guarding -- which the skills
  * carry out (`src/core/skills/skills.ts`). The stance does the rest: its steps, and the steps that
  * catch a push.
@@ -81,12 +81,12 @@ const restOrders = (): StanceOrders => ({ forward: 0, right: 0, turn: 0, lower: 
 export const LAB_TURN_RATE = 1;
 
 /**
- * **The page's keys as a mind**: `orders`, as the page last wrote them, made an intent each
+ * **The page's keys as tactics**: `orders`, as the page last wrote them, made an intent each
  * control step. Walking, it asks to face `LAB_TURN_RATE` a second further round than the body's
  * heading, the way the keys turn; the locomotion skill turns no faster than the body's envelope at
  * its walk, and not for `TURN_LEAD` after it sets off.
  */
-function ordersMind(orders: StanceOrders): Mind {
+function stanceTactics(orders: StanceOrders): Tactics {
   const hands = { left: GUARD_ACTION, right: GUARD_ACTION };
   return {
     name: "keys",
@@ -108,10 +108,10 @@ export function startStance(built: BuiltBody, world: World): StanceSession {
   const trunk = built.segments.get("middleTrunk");
   if (!trunk) throw new Error(`${built.spec.model} has no middle trunk to shove`);
   const orders = restOrders();
-  const { report } = driveBy(body, ordersMind(orders));
+  const { report } = driveBy(body, stanceTactics(orders));
   let shove: Vector3 | null = null;
   const turn = new Quaternion(), at = new Vector3();
-  // After the body's control, before the solver: the page's hand on the world, not the mind's.
+  // After the body's control, before the solver: the page's hand on the world, not the body's.
   const shoving = world.beforeStep(() => {
     if (!shove) return;
     trunk.node.rotationQuaternion!.multiplyToRef(Quaternion.Inverse(trunk.rest), turn);

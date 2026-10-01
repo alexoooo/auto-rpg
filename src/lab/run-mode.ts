@@ -3,17 +3,17 @@ import type { BuiltBody } from "../core/build/build-body.ts";
 import { paceRound, type StanceEnvelope } from "../core/control/stance-envelope.ts";
 import { GUARD_ACTION, type Intent } from "../core/mind/intent.ts";
 import { wrap } from "../core/skills/locomotion.ts";
-import { driveBy, type Mind } from "../core/mind/mind.ts";
+import { driveBy, type Tactics } from "../core/mind/tactics.ts";
 import type { World } from "../core/world.ts";
 import type { Track } from "./track.ts";
 
 /**
  * **The lab's run mode**: a human on its own feet under the core stance, going round a
- * `Track` as fast as it can walk, guard up, driven by a mind (`trackMind`). The core has no run
+ * `Track` as fast as it can walk, guard up, driven by tactics (`trackTactics`). The core has no run
  * gait: this is the stance's walk at its fastest.
  *
- * Each control step the mind finds itself on the track (`Track.nearest`, from where it last was),
- * faces the track's point `AIM_AHEAD` ahead of that, and walks forward. The locomotion skill
+ * Each control step the tactics find the body on the track (`Track.nearest`, from where it last
+ * was), face the track's point `AIM_AHEAD` ahead of that, and walk forward. The locomotion skill
  * (`src/core/skills/locomotion.ts`) turns the heading toward it no faster than the body turns at
  * the pace it walks, and not for its first `TURN_LEAD`. Its pace is the body's fastest walk, but no
  * faster than its turn carries it round the tightest bend within `AIM_AHEAD` either way. Both
@@ -76,15 +76,15 @@ function tightest(track: Track, s: number, metres: number): number {
 }
 
 /**
- * **The Run's mind**: round `track` as fast as the body's walk and turns take it; given a `gait`,
+ * **The Run's tactics**: round `track` as fast as the body's walk and turns take it; given a `gait`,
  * walking no faster than its `pace` (m/s) and turning no faster than its `turn` (rad/s: it asks to
  * face no further round than that from the heading it has).
  */
-interface TrackMind extends Mind {
+interface TrackTactics extends Tactics {
   frame(time: number): Omit<RunFrame, "speed" | "off" | "time" | "heading" | "fallen">;
 }
 
-export function trackMind(track: Track, envelope: StanceEnvelope, gait?: { readonly pace: number; readonly turn: number }): TrackMind {
+export function trackTactics(track: Track, envelope: StanceEnvelope, gait?: { readonly pace: number; readonly turn: number }): TrackTactics {
   const fastest = Math.min(envelope.walk.value, gait?.pace ?? Infinity), turn = gait?.turn ?? Infinity;
   let along = 0, travelled = 0, laps = 0, lapFrom = 0, lastLap: number | null = null;
   let pace = 0, bending = false, aim: [number, number] = [0, 0], face = 0, setOff: number | null = null;
@@ -127,10 +127,10 @@ export function trackMind(track: Track, envelope: StanceEnvelope, gait?: { reado
 /** Run `built`, a human in its reference pose at the track's start facing along it, round `track`. */
 export function startRun(built: BuiltBody, world: World, track: Track): RunSession {
   const body = createBody(built, world, { servoSeconds: SERVO_SECONDS });
-  const mind = trackMind(track, body.envelope!);
-  const { report } = driveBy(body, mind);
+  const tactics = trackTactics(track, body.envelope!);
+  const { report } = driveBy(body, tactics);
   const frame = (): RunFrame => {
-    const s = body.view.stance, time = body.view.time, f = mind.frame(time), on = track.at(f.along);
+    const s = body.view.stance, time = body.view.time, f = tactics.frame(time), on = track.at(f.along);
     return { ...f, time, heading: report.heading, fallen: report.fallen, speed: Math.hypot(s.velocity.x, s.velocity.z), off: Math.hypot(s.centre.x - on.x, s.centre.z - on.z) };
   };
   return { body, track, frame, dispose: () => body.dispose() };

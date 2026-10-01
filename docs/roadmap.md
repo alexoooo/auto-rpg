@@ -31,8 +31,8 @@ All of it on a physically based core, humans first ([architecture](architecture.
   ([the minds plans](plans/2026-09-30-minds-00-design.md), which say what has landed): the mind
   at the muscles, senses, a person's orders, an assist whose ceiling is the character's
   attribute, forks of a bout and an oracle.
-- A mind cannot yet attack a moving body, block or parry.
-- The arena needs a mind of its own, beyond walking at the other body and attacking its head.
+- The tactics (`fighterTactics`) cannot yet attack a moving body, block or parry.
+- The arena needs tactics of its own, beyond walking at the other body and attacking its head.
 
 ### Strikes
 

@@ -40,7 +40,7 @@ test("a body obeys its command and shows what it does", async () => {
       }
       const t = view.time;
       if (t >= 1 && !goal) goal = view.knuckles.right.add(new Vector3(0, 0.1, 0.25)).asArray();
-      // A goal equal to the last, made afresh each step, as a mind would.
+      // A goal equal to the last, made afresh each step, as the skills would.
       const right = t >= 1 && t < 3 ? { position: [...goal], seconds: 0.4 } : null;
       const pushing = t >= 2 && t < 2.15;
       if (pushing) seen.peak = Math.max(seen.peak, view.fists.left.velocity.length());

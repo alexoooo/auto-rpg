@@ -16,7 +16,7 @@ import { armed } from "../src/core/human/grip.ts";
 import { modelSpec } from "../src/core/human/spec.ts";
 import { woodenClub } from "../src/core/items/club.ts";
 import { GUARD_ACTION, standIntent } from "../src/core/mind/intent.ts";
-import { driveBy } from "../src/core/mind/mind.ts";
+import { driveBy } from "../src/core/mind/tactics.ts";
 import { impactEnergy, reducedMass } from "../src/core/rules/impact.ts";
 import { watchBlows } from "../src/core/rules/blows.ts";
 import { createPool } from "../src/core/rules/pool.ts";

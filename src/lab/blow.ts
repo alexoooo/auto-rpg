@@ -3,7 +3,7 @@ import { createBody, SERVO_SECONDS, type Body } from "../core/body.ts";
 import type { BuiltBody, BuiltSegment } from "../core/build/build-body.ts";
 import type { Hand } from "../core/control/motor.ts";
 import { GUARD_ACTION, type Intent } from "../core/mind/intent.ts";
-import { driveBy, type Mind } from "../core/mind/mind.ts";
+import { driveBy, type Tactics } from "../core/mind/tactics.ts";
 import { STAND } from "../core/skills/strike.ts";
 import { heldIn, type Strike, type StrikeWindow } from "../core/skills/strikes.ts";
 import type { Vec3 } from "../core/spec/quantity.ts";
@@ -12,7 +12,7 @@ import type { World } from "../core/world.ts";
 /**
  * **One blow, thrown standing**: the rig the strike searches throw their blows on
  * (`research/core-strike.mjs`, `research/core-club-strike.mjs`), and the lab's Blow scenario
- * (`blow-scenario.ts`) with them. A core human (`src/core/body.ts`), driven by a mind that attacks
+ * (`blow-scenario.ts`) with them. A core human (`src/core/body.ts`), driven by tactics that attack
  * once (`attackOnce`), throws `strike` through the strike skill (`src/core/skills/strike.ts`), the
  * skill's repertoire being that one strike: it stands in the guard `STAND` seconds where it was
  * built, facing +z, holds the strike's chamber, then pushes. Every freedom not pushed is servoed to
@@ -21,16 +21,16 @@ import type { World } from "../core/world.ts";
  * on the ground, not a pelvis held still.
  *
  * A search's candidate is thrown exactly as the game's body throws the recipe it becomes: through
- * the same mind-to-skill path, so nothing is searched that the game does not run.
+ * the same path from tactics to skill, so nothing is searched that the game does not run.
  */
 
 /**
- * **A mind that attacks once**: `hand` attacks `target` (world) until the skills report the strike
+ * **Tactics that attack once**: `hand` attacks `target` (world) until the skills report the strike
  * thrown, then guards. `target` is read from the head each step until `STAND`, then held: the
  * searches place their target from the head as the body stands then, after it has settled a few
  * centimetres forward and down from the pose it was built in.
  */
-function attackOnce(hand: Hand, target: (head: Vector3) => Vec3): Mind & { readonly time: number } {
+function attackOnce(hand: Hand, target: (head: Vector3) => Vec3): Tactics & { readonly time: number } {
   let aim: Vec3 | null = null, time = 0;
   const guarding: Intent = { move: null, face: 0, hands: { left: GUARD_ACTION, right: GUARD_ACTION } };
   return {
@@ -70,11 +70,11 @@ const AT_ITS_PLACE: StrikeWindow = { along: [-0.01, 0.01], across: [-0.01, 0.01]
 export function throwBlow(built: BuiltBody, world: World, strike: Strike, distance: number): ThrownBlow {
   const body = createBody(built, world, { servoSeconds: SERVO_SECONDS });
   const recipe = { model: built.spec.model, held: heldIn(built.spec, strike.hand), strike, distance, found: "an experiment's", window: AT_ITS_PLACE };
-  const mind = attackOnce(strike.hand, (head) => [head.x, head.y, head.z + distance]);
-  const skills = driveBy(body, mind, { repertoire: [recipe] });
+  const tactics = attackOnce(strike.hand, (head) => [head.x, head.y, head.z + distance]);
+  const skills = driveBy(body, tactics, { repertoire: [recipe] });
   return {
     body, pushing: STAND + (strike.chamber?.seconds ?? 0),
-    get time() { return mind.time; },
+    get time() { return tactics.time; },
     get fallen() { return skills.report.fallen; },
     dispose: () => body.dispose(),
   };

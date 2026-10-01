@@ -56,10 +56,11 @@ screens build on it; it never imports them.
   kept out of the body's numbers.
 - **No strength is raised for feel.** A muscle's strength and speed come from their source; a
   change to one carries its measured before/after table.
-- **A mind drives a body only through its command.** `Mind.decide` returns an `Intent`, which the
-  body's skills carry out (`driveBy`, `src/core/mind/mind.ts`); nothing reaches past it to pose a
-  joint, and camera state never reaches a mind. A person gives orders; a body's own mind carries
-  them out while it defends itself.
+- **A mind reaches the world only through its body.** It learns of the world through its senses
+  (`Senses`, the clock; `src/core/mind/senses.ts`) and its own body (`OwnBody`), and moves it
+  through its muscles' command and nothing else (`Mind.step`, `src/core/mind/mind.ts`). Camera
+  state never reaches a mind. A person gives orders; a body's own mind carries them out while it
+  defends itself.
 - **Cosmetics never carry authority**: nothing decorative collides or decides a hit. The visible
   room is not the collision arena; `validateRoomPlacements` (`src/arena/room.ts`) refuses a piece
   naming a collider the arena lacks, and a solid-looking piece within reach that names none.

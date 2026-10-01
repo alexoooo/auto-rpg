@@ -1,6 +1,6 @@
 /**
- * **The lab's Routine** (`src/lab/routine.ts`), on the Node stand as the page runs it: a
- * mind on the core's skills, each human for two loops at 120 Hz: the second sets off from the post
+ * **The lab's Routine** (`src/lab/routine.ts`), on the Node stand as the page runs it:
+ * tactics on the core's skills, each human for two loops at 120 Hz: the second sets off from the post
  * into the turn, where a faster turn falls (`ROUTINE_GAIT`). It stays on its feet, completes the
  * loops, and at the post throws the right hand's strike, the left's and the right's again, each
  * from where its feet were set (`Locomotion.place`), with the head inside the recipe's window,
@@ -24,9 +24,9 @@ for (const model of ["workshop-fighter", "workshop-rogue"]) {
     const spec = humanSpec(model), stand = await coreStand(spec, { ground: true, hz: 120 });
     const routine = startRoutine(stand.built, stand.world);
     try {
-      for (let i = 0; i < stand.seconds(SECONDS) && routine.mind.loops < LOOPS && !routine.report.fallen; i++) stand.step(1);
+      for (let i = 0; i < stand.seconds(SECONDS) && routine.tactics.loops < LOOPS && !routine.report.fallen; i++) stand.step(1);
       assert.equal(routine.report.fallen, false, routine.doing());
-      assert.equal(routine.mind.loops, LOOPS, `${routine.doing()} at ${routine.time().toFixed(1)} s`);
+      assert.equal(routine.tactics.loops, LOOPS, `${routine.doing()} at ${routine.time().toFixed(1)} s`);
       assert.deepEqual(routine.strikes.map((s) => s.hand), [...ROUTINE_HANDS, ...ROUTINE_HANDS]);
       for (const s of routine.strikes) {
         const { strike, recipe } = recipeFor(REPERTOIRE, spec, s.hand);

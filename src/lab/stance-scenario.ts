@@ -12,7 +12,7 @@ import { need } from "../dom.ts";
 /**
  * **The Stance scenario**: the human on its own feet under the core stance, guard up, walked from
  * the keyboard -- W A S D or the arrows walk, Q and E turn while walking -- and shoved from the
- * panel. The keys are the body's mind (`ordersMind`), so they turn it as the locomotion skill turns
+ * panel. The keys are the body's tactics (`stanceTactics`), so they turn it as the locomotion skill turns
  * any body: once a walk is under way, a second after setting off (`TURN_LEAD`). The readout is the
  * stance's own: its phase, its steps, the centre of mass. On the ground: the centre of mass over
  * it, the capture point, the place the stance holds the centre toward, and the heading. The last

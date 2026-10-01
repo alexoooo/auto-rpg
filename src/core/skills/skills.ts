@@ -7,15 +7,15 @@ import { strikeSkill, type StrikeReport } from "./strike.ts";
 import { REPERTOIRE, type Repertoire } from "./strikes.ts";
 
 /**
- * **The skills**: the one place a mind's intent (`src/core/mind/intent.ts`) becomes the command a
- * body takes (`BodyCommand`, `src/core/body.ts`). A mind states every part's action at once; the
+ * **The skills**: the one place the tactics' intent (`src/core/mind/intent.ts`) becomes the command a
+ * body takes (`BodyCommand`, `src/core/body.ts`). The tactics state every part's action at once; the
  * skills decide which of them has the body's parts and how each is carried out, and report back
- * (`SkillReport`), which the mind reads the next step. Motor control, under them, coordinates the
+ * (`SkillReport`), which the tactics read the next step. Motor control, under them, coordinates the
  * physics: the stance balances whatever the arms and trunk do.
  *
  * - **Locomotion** (`locomotion.ts`): the walk and the facing, within the body's envelope.
  * - **Strike** (`strike.ts`): a hand's attack, with the recipe for what it holds (`strikes.ts`).
- *   It outranks the walk: while it works it has the legs, and the mind's walk waits.
+ *   It outranks the walk: while it works it has the legs, and the tactics' walk waits.
  * - **Guard** (`guard.ts`): the arms' posture when nothing owns them.
  */
 export interface Skills {
