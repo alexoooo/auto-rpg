@@ -18,7 +18,7 @@ owner chose it, every value here is **kept as found; the owner to confirm**.
   before the first blow. The standing tables are read at 3, 4 and 5 m ([bouts](bouts.md)) and
   the oracle's at 4 ([oracle](oracle.md)).
 - `CAP_SECONDS`: a bout runs 120 s before the fuller bar decides it. With no balance a bout
-  lasts 14 s on average, and with 5 points of balance 55 s ([assist](assist.md)), so the cap
+  lasts 14 s on average, and with a balance of 25 % 55 s ([assist](assist.md)), so the cap
   decides few bouts without balance and more with it.
 
 ## Sight

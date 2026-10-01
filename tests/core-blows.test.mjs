@@ -43,7 +43,7 @@ function lone(model, name, kg, { hp = 1, whole = [], spare = false } = {}) {
     joints: spare ? [{ name: "pin", parent: "spare", child: name, centre: q([0, -0.05, 0]),
       dofs: [{ positive: "flexion", negative: "extension", axis: q([0, 0, 1], "1"), min: q(-3, "rad"), max: q(3, "rad"),
         muscle: { peakPositive: q(1, "N m"), peakNegative: q(1, "N m"), speedPositive: free, speedNegative: free } }] }] : [],
-    wounds: { hp: q(hp, "HP"), vital: [], whole }, attributes: { balance: q(0, "1") },
+    wounds: { hp: q(hp, "HP"), vital: [], whole }, attributes: { balance: q(0, "%") },
   };
 }
 

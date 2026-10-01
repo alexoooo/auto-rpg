@@ -307,7 +307,7 @@ test("a_side's_assist_is_its_balance_in_its_own_weight_and_none_at_zero", async 
   const weight = (duelist) => [...duelist.built.segments.values()].reduce((sum, s) => sum + s.rigid.mass, 0) * 9.80665;
   const none = await playBout({ ...recipe, balance: { left: 0, right: 0 } }, 10);
   assert.deepEqual(none.assist, [[0, 0], [0, 0]]);
-  const helped = await playBout({ ...recipe, balance: { left: 5, right: 2 } }, 10);
+  const helped = await playBout({ ...recipe, balance: { left: 25, right: 10 } }, 10);
   assert.notEqual(helped.digest, none.digest);
   for (const [force, moment] of helped.assist) assert.ok(force > 0 && moment > 0, `each side is given some: ${force}, ${moment}`);
   const { world, dispose } = await arena();
@@ -317,18 +317,18 @@ test("a_side's_assist_is_its_balance_in_its_own_weight_and_none_at_zero", async 
     const own = new Duel(world, recipe);
     built.push(own);
     for (const duelist of Object.values(own.duelists)) {
-      const points = duelist.built.spec.attributes.balance.value;
-      assert.ok(Math.abs(duelist.body.assist.most.force / weight(duelist) - points * 0.05) < 1e-9, `${duelist.model}'s own ${points} points`);
+      const percent = duelist.built.spec.attributes.balance.value;
+      assert.ok(Math.abs(duelist.body.assist.most.force / weight(duelist) - percent / 100) < 1e-9, `${duelist.model}'s own ${percent} %`);
     }
   } finally { for (const duel of built) duel.dispose(); dispose(); }
   const second = await arena();
-  const duel = new Duel(second.world, { ...recipe, balance: { left: 5, right: 2 }, balancePoint: { force: 0.1, moment: 0.02 } });
+  const duel = new Duel(second.world, { ...recipe, balance: { left: 25, right: 10 }, balancePercent: { force: 0.02, moment: 0.004 } });
   try {
-    // Each side's own points, at the recipe's worth of a point, in its own weight.
-    for (const [side, points] of [["left", 5], ["right", 2]]) {
+    // Each side's own balance, at what the recipe's per cent is, in its own weight.
+    for (const [side, percent] of [["left", 25], ["right", 10]]) {
       const duelist = duel.duelists[side], most = duelist.body.assist.most;
-      assert.ok(Math.abs(most.force / weight(duelist) - points * 0.1) < 1e-9, `${side}'s force`);
-      assert.ok(Math.abs(most.moment / weight(duelist) - points * 0.02) < 1e-9, `${side}'s moment`);
+      assert.ok(Math.abs(most.force / weight(duelist) - percent * 0.02) < 1e-9, `${side}'s force`);
+      assert.ok(Math.abs(most.moment / weight(duelist) - percent * 0.004) < 1e-9, `${side}'s moment`);
       assert.ok(duelist.body.assist.on);
     }
     duel.run();

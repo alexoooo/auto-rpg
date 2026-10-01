@@ -107,9 +107,10 @@ export const SOURCES = Object.freeze({
     kind: "decision", date: "2026-09-30",
     decided: "How strongly a body is held up beyond its legs is an attribute of its character (the owner: "
       + "'i want that to be an attribute'), and its name is balance (the owner: '\"Balance\" is fine'). "
-      + "Proposed, for the owner to confirm: "
-      + "a point is worth 0.05 of the body's weight and 0.013 weight-metres, so that 5 points is the ceiling "
-      + "measured at a quarter of a weight; and every character starts at 0.",
+      + "It is a per cent of the body's own weight, the most force its assist gives (the owner: 'why can we "
+      + "not have it as a percentage?'). Proposed, for the owner to confirm: with each per cent go 0.0026 "
+      + "weight-metres of moment, the force at a lever of 0.26 m, so that 25 % is the ceiling measured at a "
+      + "quarter of a weight and 50 N m for the Warrior; and every character starts at 0.",
     record: "docs/reference/assist.md#balance",
   },
   "owner-part-hp-split": {

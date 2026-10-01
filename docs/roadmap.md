@@ -35,19 +35,18 @@ All of it on a physically based core, humans first ([architecture](architecture.
   every body whatever stands between); a library for a body of another shape behind the same
   seam.
 - The owner's to choose, each landed at its default:
-  - Each character's balance. Every character has 0 points. At 5 points for both sides, 19 of 99
-    bouts end by a fall where 80 do at none, and the mean bout is 55 s where it is 14 s
-    ([reference/assist.md](reference/assist.md)); different points for each make it a trait that
-    tells characters apart.
-  - What a point of balance is worth (`Rulebook.balance`): 0.05 of the body's weight and 0.013
-    weight-metres, at which 5 points spend the effect.
+  - Each character's balance, a per cent of its own weight. Every character has 0 %. At 25 % for
+    both sides, 19 of 99 bouts end by a fall where 80 do at none, and the mean bout is 55 s where
+    it is 14 s ([reference/assist.md](reference/assist.md)); a different balance for each makes it
+    a trait that tells characters apart. The moment that goes with a per cent
+    (`Rulebook.balance`, 0.0026 weight-metres) is proposed with it; 25 % spends the effect.
 - The controls are to be worked over in play. Until then the pointer does nothing while a person's
   body stands still, and the person walks to turn; the other way is a slow step toward its heading,
   which moves it without being asked.
 - The owner's to watch: a bout fought with orders
   (`?play=arena&matchup=workshop-fighter,workshop-rogue&you=left`); bouts with balance against
-  none (`?play=arena&matchup=workshop-fighter,workshop-fighter&balance=5`, `&balance=20`,
-  `&balance=5,0`); and an oracle's bout ([reference/oracle.md](reference/oracle.md), Watching
+  none (`?play=arena&matchup=workshop-fighter,workshop-fighter&balance=25`, `&balance=100`,
+  `&balance=25,0`); and an oracle's bout ([reference/oracle.md](reference/oracle.md), Watching
   one).
 - The oracle's readings ([reference/oracle.md](reference/oracle.md); counts of 18 sides, not
   rates): choosing among seven orders every half second, with the true world to try them in,
@@ -55,7 +54,7 @@ All of it on a physically based core, humans first ([architecture](architecture.
   decisions. With no balance every one of those wins is a fall, so it is a ceiling on not
   falling, not on fencing; and it is nearly the same ceiling blind, with each fork nudged a few
   centimetres off the true one, so little of it is knowing the other side's exact future. With
-  5 points of balance the search turns 6 of 9 again, 2 of them by a wound, and makes bouts
+  a balance of 25 % the search turns 6 of 9 again, 2 of them by a wound, and makes bouts
   long: 7 of its 18 reach the cap where 1 of the tactics' 9 does. A search that values 2 s on
   finds how not to be hit, and not how to end a bout.
 - The oracle's next spaces to search: a horizon long enough to end a bout with balance, a

@@ -88,7 +88,7 @@ async function oracleBout(recipe, side, pool) {
   } finally { dispose(); }
 }
 
-console.log(`${BOUT_HARNESS}; gap ${gap} m, cap ${seconds} s${balance ? `, balance ${balance.left} / ${balance.right} points` : ", every character's own balance"}`);
+console.log(`${BOUT_HARNESS}; gap ${gap} m, cap ${seconds} s${balance ? `, balance ${balance.left} / ${balance.right} %` : ", every character's own balance"}`);
 console.log(`The search: at every ${values.every} s one of own, attack, hold, close, back, left, right, held for ${values.every} s and then the side's own tactics, valued ${values.horizon} s on; `
   + (blind > 0 ? `blind: each response in ${blind} forks nudged ${nudge} N s at both roots, the mean taken` : "clairvoyant: each response in one fork of the true world")
   + (values.replay ? "; a fork by replay" : "; a fork by a load"));

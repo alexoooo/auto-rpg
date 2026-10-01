@@ -3,20 +3,20 @@
  * starting gap, each bout to its verdict or the cap in a world of its own on a worker
  * (`bout-pool.mjs`), in three tables.
  *
- *   node research/assist-sweep.mjs [--even 0,2,5,10,20,40] [--shapes "0.05,0.026;0,0.013;0.05,0"]
- *     [--uneven "5:0,5:2,10:5"] [--gaps 3,3.2,3.4,3.6,3.8,4,4.2,4.4,4.6,4.8,5] [--workers 14]
+ *   node research/assist-sweep.mjs [--even 0,10,25,50,100,200] [--shapes "0.01,0.0052;0,0.0026;0.01,0"]
+ *     [--uneven "25:0,25:10,50:25"] [--gaps 3,3.2,3.4,3.6,3.8,4,4.2,4.4,4.6,4.8,5] [--workers 14]
  *
- * - **Even**: both sides at the same balance, at the rulebook's worth of a point. A row is a cell:
+ * - **Even**: both sides at the same balance, each per cent the rulebook's. A row is a cell:
  *   its bouts by ending, the bout time, the falls and the wounding blows for each minute of it, the
  *   share at the cap, and the mean assist given a side; then the falls a minute and the mean given
  *   of each model in each cell.
- * - **Shapes**: both sides at `SHAPE_POINTS` points at another worth of a point
- *   (`DuelRecipe.balancePoint`: force in weights, moment in weight-metres), the same columns.
+ * - **Shapes**: both sides at `SHAPE_BALANCE` per cent, each per cent another force and moment
+ *   (`DuelRecipe.balancePercent`: force in weights, moment in weight-metres), the same columns.
  * - **Uneven** (`more:less`): one side at the greater balance and the other at the lesser, each
  *   matchup both ways round: the share of decided bouts the side with more wins, and each side's
  *   falls a minute.
  *
- * A balance is in points (`AttributeSpec.balance`); a cell of the even and shapes tables is every
+ * A balance is a per cent of the body's weight (`AttributeSpec.balance`); a cell of the even and shapes tables is every
  * matchup at every gap, and of the uneven table twice that.
  */
 import { parseArgs } from "node:util";
@@ -25,13 +25,13 @@ import { SIDES } from "../src/arena/duel.ts";
 import { BOUT_HARNESS } from "./bout.mjs";
 import { defaultLanes, playBouts } from "./bout-pool.mjs";
 
-/** The balance both sides have in the shapes table, points. */
-const SHAPE_POINTS = 20;
+/** The balance both sides have in the shapes table, %. */
+const SHAPE_BALANCE = 100;
 
 const { values } = parseArgs({ options: {
-  even: { type: "string", default: "0,2,5,10,20,40" },
-  shapes: { type: "string", default: "0.05,0.026;0,0.013;0.05,0" },
-  uneven: { type: "string", default: "5:0,5:2,10:5" },
+  even: { type: "string", default: "0,10,25,50,100,200" },
+  shapes: { type: "string", default: "0.01,0.0052;0,0.0026;0.01,0" },
+  uneven: { type: "string", default: "25:0,25:10,50:25" },
   gaps: { type: "string", default: "3,3.2,3.4,3.6,3.8,4,4.2,4.4,4.6,4.8,5" },
   workers: { type: "string" },
 } });
@@ -46,8 +46,8 @@ const jobs = [];
 function cellOf(cell, extra) {
   for (const gap of gaps) for (const left of BODY_MODELS) for (const right of BODY_MODELS) jobs.push({ cell, recipe: { left, right, gap, ...extra } });
 }
-even.forEach((points, k) => cellOf(`even ${k}`, { balance: { left: points, right: points } }));
-shapes.forEach((balancePoint, k) => cellOf(`shape ${k}`, { balance: { left: SHAPE_POINTS, right: SHAPE_POINTS }, balancePoint }));
+even.forEach((balance, k) => cellOf(`even ${k}`, { balance: { left: balance, right: balance } }));
+shapes.forEach((balancePercent, k) => cellOf(`shape ${k}`, { balance: { left: SHAPE_BALANCE, right: SHAPE_BALANCE }, balancePercent }));
 uneven.forEach(({ more, less }, k) => {
   cellOf(`uneven ${k} left`, { balance: { left: more, right: less } });
   cellOf(`uneven ${k} right`, { balance: { left: less, right: more } });
@@ -78,29 +78,29 @@ const CELL_HEAD = "Bouts | End by a fall | By a wound | At the cap | Bout time, 
 const rule = (head) => head.split("|").slice(1, -1).map(() => "---").join("|");
 
 if (even.length) {
-  const head = `| Balance, points | ${CELL_HEAD}`;
-  console.log(`\nEven: both sides at the same balance, at the rulebook's worth of a point.\n\n${head}\n|${rule(head)}|`);
-  even.forEach((points, k) => console.log(`| ${points} | ${cellColumns(rowsOf(`even ${k}`))}`));
-  const byModel = "| Balance, points | Model | Sides | Its bout time, s | Its falls | Its falls a minute | Mean given, N | Mean given, N m |";
+  const head = `| Balance, % | ${CELL_HEAD}`;
+  console.log(`\nEven: both sides at the same balance, each per cent the rulebook's.\n\n${head}\n|${rule(head)}|`);
+  even.forEach((balance, k) => console.log(`| ${balance} | ${cellColumns(rowsOf(`even ${k}`))}`));
+  const byModel = "| Balance, % | Model | Sides | Its bout time, s | Its falls | Its falls a minute | Mean given, N | Mean given, N m |";
   console.log(`\nEven, by model: a model's sides are every side it fought on, and its bout time those bouts' (a mirror counts twice).\n\n${byModel}\n|${rule(byModel)}|`);
-  even.forEach((points, k) => {
+  even.forEach((balance, k) => {
     for (const model of BODY_MODELS) {
       const its = rowsOf(`even ${k}`).flatMap((row) => SIDES.filter((side) => row.recipe[side] === model).map((side) => ({ row, side })));
       const minutes = sum(its, ({ row }) => row.seconds) / 60, falls = its.filter(({ row, side }) => row.fallen.includes(side)).length;
       const [force, moment] = given(rowsOf(`even ${k}`), (row, side) => row.recipe[side] === model);
-      console.log(`| ${points} | ${model} | ${its.length} | ${(60 * minutes).toFixed(0)} | ${falls} | ${rate(falls, minutes)} | ${force} | ${moment} |`);
+      console.log(`| ${balance} | ${model} | ${its.length} | ${(60 * minutes).toFixed(0)} | ${falls} | ${rate(falls, minutes)} | ${force} | ${moment} |`);
     }
   });
 }
 
 if (shapes.length) {
-  const head = `| Balance, points | A point's force, weights | A point's moment, weight-metres | ${CELL_HEAD}`;
-  console.log(`\nShapes: both sides at ${SHAPE_POINTS} points, at another worth of a point.\n\n${head}\n|${rule(head)}|`);
-  shapes.forEach(({ force, moment }, k) => console.log(`| ${SHAPE_POINTS} | ${force} | ${moment} | ${cellColumns(rowsOf(`shape ${k}`))}`));
+  const head = `| Balance, % | A per cent's force, weights | A per cent's moment, weight-metres | ${CELL_HEAD}`;
+  console.log(`\nShapes: both sides at ${SHAPE_BALANCE} %, each per cent another force and moment.\n\n${head}\n|${rule(head)}|`);
+  shapes.forEach(({ force, moment }, k) => console.log(`| ${SHAPE_BALANCE} | ${force} | ${moment} | ${cellColumns(rowsOf(`shape ${k}`))}`));
 }
 
 if (uneven.length) {
-  const head = "| More, points | Less, points | Bouts | Decided | Won by the side with more | Its share of the decided, % | Falls a minute: the side with more | The side with less | At the cap | Mean given the side with more, N | N m | The side with less, N | N m |";
+  const head = "| More, % | Less, % | Bouts | Decided | Won by the side with more | Its share of the decided, % | Falls a minute: the side with more | The side with less | At the cap | Mean given the side with more, N | N m | The side with less, N | N m |";
   console.log(`\nUneven: one side at the greater balance, each matchup both ways round.\n\n${head}\n|${rule(head)}|`);
   uneven.forEach(({ more, less }, k) => {
     const sided = SIDES.flatMap((side) => rowsOf(`uneven ${k} ${side}`).map((row) => ({ row, more: side, less: SIDES.find((other) => other !== side) })));
