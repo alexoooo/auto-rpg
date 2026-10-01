@@ -8,7 +8,7 @@ export class CryptWeathering extends MaterialPluginBase {
   constructor(material: Material, plan: CryptRoomPlan) {
     super(material,"CryptWeathering",225,{});
     this.regions=plan.map.rooms.map(r=>{
-      const kind=plan.archetypes?.find(a=>a.room===r.id)?.kind??'rootbound';
+      const kind=plan.archetypes.find(a=>a.room===r.id)!.kind;
       const color=kind==='rootbound'?'0.27,0.33,0.15':kind==='burial'?'0.32,0.23,0.18':'0.43,0.35,0.23';
       const strength=kind==='rootbound'?.7:kind==='burial'?.55:.36;
       return `if(p.x>${r.min.x-.5} && p.x<${r.max.x+.5} && p.y>${r.min.z-.5} && p.y<${r.max.z+.5}) {

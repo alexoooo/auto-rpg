@@ -4,6 +4,8 @@ import {generateCryptDungeon} from '../src/dungeon/crypt-dungeon.ts';
 import {findPath,walkable} from '../src/dungeon/map.ts';
 import {CRYPT_FURNITURE} from '../src/dungeon/crypt-archetypes.ts';
 import {companionSpawn} from '../src/dungeon/party-placement.ts';
+import {buildDungeonWorld} from '../src/dungeon/world.ts';
+import {headlessScene} from './harness/scene.mjs';
 
 test('connected crypt seeds have four reachable chambers, doors and encounters beyond a safe entrance',()=>{
   const layouts=new Set(),variants=new Set();
@@ -42,4 +44,25 @@ test('connected crypt seeds have four reachable chambers, doors and encounters b
     }
   }
   assert.ok(layouts.size>20);assert.equal(variants.size,12);
+});
+
+test("a generated crypt's doors open, and its look adds no collider", () => {
+  const stage = headlessScene();
+  try {
+    const solids = [];
+    for (const visuals of [false, true]) {
+      const map = generateCryptDungeon(12).map, world = buildDungeonWorld(stage.scene, map, visuals);
+      solids.push(world.solids.map(solid => [solid.name, ...solid.centre, ...solid.size].join(' ')));
+      world.openNearby(map.doors.map(door => door.point));
+      assert.deepEqual(map.doors.map(door => door.open), map.doors.map(() => true), 'a door with somebody at it opens');
+      assert.equal(world.doorVisuals.length, visuals ? map.doors.length : 0, 'every door is drawn, and only with visuals');
+      for (const leaf of world.doorVisuals) {
+        assert.equal(leaf.wood.isVisible, false, 'an open door hides its wood');
+        assert.equal(leaf.iron.isVisible, false, 'an open door hides its iron');
+      }
+      world.dispose();
+    }
+    assert.ok(solids[0].length > 0, 'the crypt has colliders');
+    assert.deepEqual(solids[1], solids[0], 'the colliders are the same with visuals and without');
+  } finally { stage.dispose(); }
 });

@@ -15,7 +15,7 @@ The art carries no authority. Collision is the map's: `buildDungeonWorld` (`src/
 turns the map's walls, doors and obstacles into fixed boxes in the world and lists them as
 `solids`. Nothing the look adds may add one: after the look is built, `src/dungeon/main.ts`
 compares the count of `solids` and throws if it changed, and the tests build the same colliders
-with visuals on and off (`tests/dungeon-dressing.test.mjs`, `tests/crypt-room.test.mjs`,
+with visuals on and off (`tests/dungeon-dressing.test.mjs`, `tests/crypt-dungeon.test.mjs`,
 `tests/dungeon-reference.test.mjs`).
 
 - A wall's art stands inside the rock cells it dresses. A wall-mounted piece (a sconce, roots)
@@ -149,14 +149,26 @@ blender --background --python scripts/dungeon/build-kit.py
 taken from `chamber.blend`'s sarcophagus. It reuses the chamber's stone maps and does not rewrite
 any of the chamber's files.
 
-`tests/crypt-room.test.mjs` checks the kit (baked origins, normals, colours, each furnishing and
-paving module inside its footprint and each wall piece inside its wall cells) and that doors open
-and decoration adds no physics bodies; `tests/crypt-dungeon.test.mjs` generates 100 seeds and
-checks rooms, doors, spawns, torches, obstacles and every arrangement;
-`tests/crypt-detail.test.mjs` checks paving coverage, sight through racks and columns, scenery
-memory, the hover layer and the fog's edge.
+`tests/crypt-kit.test.mjs` checks the kit (baked origins, normals, colours, each furnishing and
+paving module inside its footprint and each wall piece inside its wall cells) and the triangles a
+generated crypt places; `tests/crypt-dungeon.test.mjs` generates 100 seeds and checks rooms,
+doors, spawns, torches, obstacles and every arrangement, and that doors open and the look adds no
+collider; `tests/crypt-detail.test.mjs` checks paving coverage, sight through racks and columns,
+scenery memory, the hover layer and the fog's edge.
 
-`generateCryptRoom(seed)`, a single chamber from the same kit, is kept as a test fixture.
+### Triangles
+
+The pieces a generated crypt places, summed from `assets/crypt-kit/manifest.json` before the
+merge by material, over seeds 0 to 99 (`generateCryptDungeon`, Node):
+
+| | Triangles | Seed |
+|---|---|---|
+| Most | 415,986 | 30 |
+| Least | 337,140 | |
+
+`TRIANGLE_BUDGET` (`tests/crypt-kit.test.mjs`) is 420,000: the most measured, rounded up. It is
+what the generator places today, not a budget anyone chose; the budget is the owner's to set
+([roadmap](../roadmap.md)).
 
 ## Textures
 

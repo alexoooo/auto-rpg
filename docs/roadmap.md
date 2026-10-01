@@ -144,6 +144,9 @@ All of it on a physically based core, humans first ([architecture](architecture.
 - The party carries only clubs; a ranged weapon (the Rogue's bow) would need projectiles on the
   core.
 - The crypt's frame rate on the owner's machine is unmeasured.
+- The crypt's triangle budget is the owner's to set. A generated crypt places up to 415,986
+  triangles ([art/crypt.md](art/crypt.md#triangles)), and its test holds it to what it places
+  today.
 - Saving a run. A bout saves and loads (`Duel.save`, [architecture](architecture.md#state)); a
   run does not, since its bodies are built as they wake.
 - The run plans for its fighters with the map and hands each its orders; its bodies sense the

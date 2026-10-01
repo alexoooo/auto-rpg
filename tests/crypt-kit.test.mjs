@@ -1,38 +1,9 @@
-import {CRYPT_FURNITURE} from '../src/dungeon/crypt-archetypes.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {companionSpawn} from '../src/dungeon/party-placement.ts';
-import {CRYPT_PAVING,generateCryptRoom} from '../src/dungeon/crypt-room.ts';
-import {walkable,findPath} from '../src/dungeon/map.ts';
-import { headlessScene } from './harness/scene.mjs';
-import {buildDungeonWorld} from '../src/dungeon/world.ts';
-
-const manifest=JSON.parse(readFileSync(new URL('../assets/crypt-kit/manifest.json',import.meta.url)));
-test('100 crypt seeds are reproducible, varied, reachable and within the art budget',()=>{
-  const shapes=new Set(),doors=new Set();
-  for(let seed=0;seed<100;seed++){
-    const p=generateCryptRoom(seed),m=p.map;
-    assert.deepEqual(p,generateCryptRoom(seed));
-    shapes.add(`${p.bounds.max.x},${p.bounds.max.z}`);doors.add(JSON.stringify(m.doors[0].point));
-    assert.equal(m.spawns.length,3);assert.equal(p.torches.length,2);
-    for(const at of [m.start,m.exit,...m.spawns]){
-      assert.ok(walkable(m,at,.65),`${seed}: ${JSON.stringify(at)}`);
-      assert.ok(findPath(m,m.start,at,.65).length);
-    }
-    const party=[m.start];for(let i=0;i<3;i++){const at=companionSpawn(m,party);assert.ok(at,`${seed}: companion ${i}`);party.push(at);}
-    let triangles=0;
-    for(const placement of p.placements){
-      const pieces=Object.entries(manifest.pieces).filter(([name])=>name.startsWith(placement.piece+'__'));
-      assert.ok(pieces.length,placement.piece);triangles+=pieces.reduce((n,[,v])=>n+v.triangles,0);
-    }
-    assert.ok(triangles<=130000,`${seed}: ${triangles} triangles`);
-    const tomb=p.placements.find(p=>p.piece==='tomb'),o=m.obstacles[0];
-    assert.equal(tomb.x,o.x);assert.equal(tomb.z,o.z);
-    assert.equal(o.width,tomb.turn?1.15:2.5);assert.equal(o.depth,tomb.turn?2.5:1.15);
-  }
-  assert.equal(shapes.size,9);assert.ok(doors.size>20);
-});
+import {CRYPT_FURNITURE} from '../src/dungeon/crypt-archetypes.ts';
+import {generateCryptDungeon} from '../src/dungeon/crypt-dungeon.ts';
+import {CRYPT_PAVING} from '../src/dungeon/crypt-room.ts';
 
 test('crypt kit has baked origins, valid normals, colours and a bounded tomb',()=>{
   const bytes=readFileSync(new URL('../public/assets/crypt-kit/kit.glb',import.meta.url));
@@ -75,17 +46,22 @@ test('crypt kit has baked origins, valid normals, colours and a bounded tomb',()
   }
 });
 
-test('generated crypt doors open and decorative surfaces add no physics bodies',async()=>{
-  const arena=headlessScene();
-  try{
-    const counts=[];
-    for(const visuals of [false,true]){
-      const map=generateCryptRoom(12).map,world=buildDungeonWorld(arena.scene,map,visuals);
-      counts.push(world.solids.map(s=>[s.name,...s.centre,...s.size].join(' ')));
-      world.openNearby([map.doors[0].point]);assert.equal(map.doors[0].open,true);
-      for(const leaf of world.doorVisuals)assert.equal(leaf.wood.isVisible,false);
-      world.dispose();
+/** The most triangles a generated crypt may place, measured over these seeds (docs/art/crypt.md, Random Crypt). */
+const TRIANGLE_BUDGET = 420000;
+
+test('a generated crypt places only pieces the kit has, within the triangle budget', () => {
+  const manifest = JSON.parse(readFileSync(new URL('../assets/crypt-kit/manifest.json', import.meta.url)));
+  const trianglesOf = new Map();
+  for (const [name, part] of Object.entries(manifest.pieces)) {
+    const piece = name.split('__')[0];
+    trianglesOf.set(piece, (trianglesOf.get(piece) ?? 0) + part.triangles);
+  }
+  for (let seed = 0; seed < 100; seed++) {
+    let triangles = 0;
+    for (const placement of generateCryptDungeon(seed).placements) {
+      assert.ok(trianglesOf.has(placement.piece), `seed ${seed} places '${placement.piece}', which the kit lacks`);
+      triangles += trianglesOf.get(placement.piece);
     }
-    assert.ok(counts[0].length>0);assert.deepEqual(counts[1],counts[0]);
-  }finally{arena.dispose();}
+    assert.ok(triangles <= TRIANGLE_BUDGET, `seed ${seed} places ${triangles} triangles, over the budget`);
+  }
 });

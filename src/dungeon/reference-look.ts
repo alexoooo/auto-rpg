@@ -64,8 +64,7 @@ export async function dressReference(scene: Scene, level: ReturnType<typeof buil
   container.addAllToScene();
   if(plan) assembleCryptKit(container,plan);
   const torches=plan?.torches??REFERENCE_TORCHES;
-  const bounds=plan?.bounds;
-  const cutaway=plan && plan.map.rooms.length>1 ? plan.placements.filter(p=>["wall","wall-pier","wall-panel","wall-repair","corner-left","corner-right","niche","roots","portal"].includes(p.piece) && Math.sin(p.turn)*Math.sin(azimuth)+Math.cos(p.turn)*Math.cos(azimuth)<-.1).map(p=>`(abs(vPositionW.x-${p.x.toFixed(3)}) < ${Math.abs(Math.cos(p.turn))>.5?"1.55":"0.55"} && abs(vPositionW.z-${p.z.toFixed(3)}) < ${Math.abs(Math.sin(p.turn))>.5?"1.55":"0.55"})`).join(" || ") : bounds?`${Math.sin(azimuth)>0?`vPositionW.x > ${bounds.max.x+.45}`:`vPositionW.x < ${bounds.min.x-.45}`} || ${Math.cos(azimuth)>0?`vPositionW.z > ${bounds.max.z+.45}`:`vPositionW.z < ${bounds.min.z-.45}`}`:undefined;
+  const cutaway=plan ? plan.placements.filter(p=>["wall","wall-pier","wall-panel","wall-repair","corner-left","corner-right","niche","roots","portal"].includes(p.piece) && Math.sin(p.turn)*Math.sin(azimuth)+Math.cos(p.turn)*Math.cos(azimuth)<-.1).map(p=>`(abs(vPositionW.x-${p.x.toFixed(3)}) < ${Math.abs(Math.cos(p.turn))>.5?"1.55":"0.55"} && abs(vPositionW.z-${p.z.toFixed(3)}) < ${Math.abs(Math.sin(p.turn))>.5?"1.55":"0.55"})`).join(" || ") : undefined;
   const root=container.meshes.find(m=>m.name==="__root__");
   // The export uses game metre coordinates. Remove the loader's RH-to-LH root
   // conversion; glTF meshes retain their explicit clockwise face convention.
@@ -100,7 +99,7 @@ export async function dressReference(scene: Scene, level: ReturnType<typeof buil
   new CryptCutaway(wood, azimuth, cutaway);
   for(const door of level.doorVisuals) { door.wood.material=wood;door.iron.material=iron;door.wood.receiveShadows=door.iron.receiveShadows=true; }
   for(const [name,material] of Object.entries(materials)) {
-    material.maxSimultaneousLights=6;level.fog?.attach(material,name==="wall"||name==="trim"||name==="root"||name==="earth"||(name==="wood"&&!!plan?.archetypes)?"wall":null);
+    material.maxSimultaneousLights=6;level.fog?.attach(material,name==="wall"||name==="trim"||name==="root"||name==="earth"||(name==="wood"&&!!plan)?"wall":null);
     if (["wall", "trim", "root", "earth", "iron", "cloth"].includes(name)) new CryptCutaway(material, azimuth, cutaway);
   }
   // Retain working doors and exit; replace only the generated architectural skin.
@@ -115,8 +114,8 @@ export async function dressReference(scene: Scene, level: ReturnType<typeof buil
   // A cut-away wall must take its elevated fittings with it. Keep its light contribution;
   // this is the same presentation-only cross-section as the wall, not an extinguished torch.
   torches.forEach((torch, i) => {
-    const front = plan && plan.map.rooms.length>1 ? torch.facing.x*Math.sin(azimuth)+torch.facing.z*Math.cos(azimuth)<-.1 : (Math.sin(azimuth) > 0 ? torch.cell.x > (bounds?bounds.max.x+.45:15.45) : torch.cell.x < (bounds?bounds.min.x-.45:3.55))
-      || (Math.cos(azimuth) > 0 ? torch.cell.z > (bounds?bounds.max.z+.45:13.45) : torch.cell.z < (bounds?bounds.min.z-.45:4.55));
+    const front = plan ? torch.facing.x*Math.sin(azimuth)+torch.facing.z*Math.cos(azimuth)<-.1 : (Math.sin(azimuth) > 0 ? torch.cell.x > 15.45 : torch.cell.x < 3.55)
+      || (Math.cos(azimuth) > 0 ? torch.cell.z > 13.45 : torch.cell.z < 4.55);
     if (front) for (const name of [`torch.flame.${i}`, `torch.sconce.${i}`]) scene.getMeshByName(name)?.setEnabled(false);
   });
   const lights=torches.map((torch,i)=>{
@@ -131,7 +130,7 @@ export async function dressReference(scene: Scene, level: ReturnType<typeof buil
     shadows.push(shadow);return light;
   });
   // Keep the shadow budget fixed as the dungeon grows. Lighting follows the viewed room.
-  const observer=plan && plan.map.rooms.length>1 ? scene.onBeforeRenderObservable.add(()=>{
+  const observer=plan ? scene.onBeforeRenderObservable.add(()=>{
     const target=(scene.activeCamera as import("@babylonjs/core/Cameras/targetCamera.js").TargetCamera | null)?.getTarget();if(!target)return;
     const nearest=lights.map((light,i)=>({i,d:Vector3.DistanceSquared(light.position,target)})).sort((a,b)=>a.d-b.d).slice(0,2).map(v=>v.i);
     lights.forEach((light,i)=>light.setEnabled(nearest.includes(i)));
