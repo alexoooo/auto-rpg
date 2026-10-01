@@ -6,8 +6,8 @@ building on it.
 
 ## Where the game is going
 
-- **The Arena**: a bout of two bodies to a verdict. A person watches today; a person will give a
-  side orders.
+- **The Arena**: a bout of two bodies to a verdict. A person watches, or takes a side and gives
+  it orders.
 - **A Ladder** of bouts, to be designed.
 - **A Diablo-like Dungeon**: a dark isometric action RPG after Diablo's Cathedral, with loops,
   scored layouts and authored rooms, where a person commands a party and each member's mind carries
@@ -62,7 +62,9 @@ All of it on a physically based core, humans first ([architecture](architecture.
 - Past a fall the stance goes on asking, and what it asks of the ground grows without bound: over
   1e50 N within 3 s of a fall (Node stand, Rapier, 120 Hz; a Warrior pulled over). Nothing reads
   it in a bout, which ends at the fall; a rising skill will.
-- Running (a flight phase), a dash or lunge, a roll, a crouch, and turning on the spot. A lower
+- Running (a flight phase), a dash or lunge, a roll, a crouch, and turning on the spot: a standing
+  body under orders does not turn to the pointer, and a half turn made while walking still drops
+  the humans now and then ([reference/orders.md](reference/orders.md)). A lower
   stance also needs the hip to hinge; in the lab's Stance a lower centre of mass stands only about
   1 cm lower, and walking from there falls.
 - A two-handed grip: a hand holds its own item and nothing holds one item with both.
@@ -84,7 +86,6 @@ All of it on a physically based core, humans first ([architecture](architecture.
 
 ### The Arena
 
-- Orders a person can give a side.
 - Loadouts: every body carries one club.
 - The Ladder.
 

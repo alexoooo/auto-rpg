@@ -10,7 +10,10 @@ import { TransformNode } from "@babylonjs/core/Meshes/transformNode.js";
 import { Quaternion } from "@babylonjs/core/Maths/math.vector.js";
 import { ARENA_POSTS, addArenaSolids, arenaSolids } from "../src/arena/room.ts";
 import { CAP_SECONDS, Duel } from "../src/arena/duel.ts";
-import { DEFAULT_MATCHUP, matchupSearch, readMatchup } from "../src/arena/matchup.ts";
+import { DEFAULT_MATCHUP, matchupSearch, readMatchup, readYou, youSearch } from "../src/arena/matchup.ts";
+import { ORBIT, orbitPosition } from "../src/arena/orbit.ts";
+import { aimPoint, keysToMove, personOrders } from "../src/arena/orders-input.ts";
+import { STAND_ORDERS } from "../src/core/mind/orders.ts";
 import { createWorld } from "../src/core/world.ts";
 import { freshEngine } from "./harness/core-stand.mjs";
 import { playBout } from "../research/bout.mjs";
@@ -30,6 +33,10 @@ test("an_arena_link_names_its_matchup_and_a_malformed_one_falls_back", () => {
   const written = matchupSearch("?play=arena&matchup=x", { left: "workshop-rogue", right: "crypt-skeleton" });
   assert.equal(written, "?play=arena&matchup=workshop-rogue,crypt-skeleton");
   assert.deepEqual(readMatchup(written), { left: "workshop-rogue", right: "crypt-skeleton" });
+  // The side a person fights: named, or nobody.
+  assert.deepEqual(["?you=left", "?play=arena&you=right", "?you=both", "?you=", ""].map(readYou), ["left", "right", null, null, null]);
+  assert.equal(youSearch(written, "right"), "?play=arena&matchup=workshop-rogue,crypt-skeleton&you=right");
+  assert.equal(youSearch("?play=arena&you=left&matchup=a,b", null), "?play=arena&matchup=a,b");
 });
 
 test("each_arena_post_is_the_prism_its_mesh_draws", () => {
@@ -176,4 +183,100 @@ test("a_bout's_sense_delay_is_a_dial_that_changes_the_bout", async () => {
   const now = await playBout(recipe, 10), late = await playBout({ ...recipe, senseDelay: 24 }, 10);
   assert.notEqual(late.digest, now.digest);
   assert.deepEqual(await playBout({ ...recipe, senseDelay: 0 }, 10), { ...now, recipe: { ...recipe, senseDelay: 0 } });
+});
+
+test("a_side_under_orders_does_what_it_is_told_and_the_other_fights_on", async () => {
+  const { world, dispose } = await arena();
+  // The bout counts its own steps, not the world's.
+  world.step(7);
+  const duel = new Duel(world, { left: "workshop-fighter", right: "workshop-rogue" });
+  try {
+    const { left, right } = duel.duelists, x = (duelist) => duelist.body.view.stance.centre.x;
+    const start = x(left), there = x(right);
+    duel.order("left", STAND_ORDERS);
+    duel.run(4);
+    assert.equal(duel.steps, 480);
+    assert.ok(Math.abs(x(left) - start) < 0.05, `ordered to stand, it stands: ${start} to ${x(left)}`);
+    assert.ok(x(right) < there - 0.6, `while the other side walks at it: ${there} to ${x(right)}`);
+    assert.equal(left.skills.report.strike.thrown.right, 0, "and it throws nothing unasked");
+    assert.deepEqual(duel.tape, [{ step: 0, side: "left", orders: STAND_ORDERS }]);
+    duel.order("left", { move: null, face: null, attack: null });
+    assert.equal(duel.tape.length, 1, "an order repeated is not recorded again");
+    duel.order("left", null);
+    assert.deepEqual(duel.tape[1], { step: 480, side: "left", orders: null });
+    const held = x(left);
+    duel.run(3);
+    assert.ok(x(left) > held + 0.3, `handed back, it walks at the other side: ${held} to ${x(left)}`);
+    // A tape played takes the place of one still queued.
+    assert.equal(duel.verdict, null);
+    const now = duel.steps;
+    duel.play([{ step: now + 4000, side: "right", orders: STAND_ORDERS }]);
+    duel.play([{ step: now + 2, side: "left", orders: STAND_ORDERS }]);
+    world.step(2);
+    assert.equal(duel.tape.length, 2, "an order is given before the step it names, not sooner");
+    world.step();
+    assert.deepEqual(duel.tape.slice(2), [{ step: now + 2, side: "left", orders: STAND_ORDERS }]);
+  } finally { duel.dispose(); dispose(); }
+});
+
+test("a_bout_plays_again_from_its_recipe_and_its_tape", async () => {
+  const recipe = { left: "workshop-fighter", right: "workshop-rogue" };
+  const back = { move: { x: -1, z: 0 }, face: null, attack: null };
+  // The first order comes once the left side is turning to its walk: before that the stance holds
+  // its heading (`TURN_LEAD`), and an order to walk another way a step later is the same bout.
+  const tape = [{ step: 200, side: "left", orders: back }, { step: 360, side: "left", orders: null },
+    { step: 480, side: "right", orders: { move: null, face: { x: -1, z: 0 }, attack: null } }];
+  const first = await playBout(recipe, 8, tape), second = await playBout(recipe, 8, first.tape);
+  assert.deepEqual(first.tape, tape);
+  assert.deepEqual(second, first);
+  // The controls: no tape, and the same orders a step later, are other bouts.
+  const untold = await playBout(recipe, 8);
+  assert.deepEqual(untold.tape, []);
+  assert.notEqual(untold.digest, first.digest);
+  const late = tape.map((entry, i) => i === 0 ? { ...entry, step: 201 } : entry);
+  assert.notEqual((await playBout(recipe, 8, late)).digest, first.digest);
+});
+
+test("a_side_out_of_the_fight_is_no_longer_under_its_orders", async () => {
+  const { world, dispose } = await arena();
+  const duel = new Duel(world, { left: "workshop-fighter", right: "workshop-rogue", capSeconds: 1 });
+  try {
+    // Ordered to walk away, the left side walks until the bell; then it stands, as the right does.
+    duel.order("left", { move: { x: -1, z: 0 }, face: null, attack: null });
+    const { left } = duel.duelists;
+    assert.notEqual(duel.run(), null);
+    assert.equal(duel.verdict.ending, "time");
+    assert.ok(left.skills.report.pace > 0.5, `it was walking as the bell went: ${left.skills.report.pace}`);
+    world.step();
+    assert.equal(left.skills.report.pace, 0, "and stands once it is out");
+    assert.equal(duel.tape.length, 1, "its orders were not taken back: it is the tactics that set them aside");
+  } finally { duel.dispose(); dispose(); }
+});
+
+test("keys_and_a_pointer_make_orders_in_the_world's_frame", () => {
+  const near = (a, b) => assert.ok(Math.hypot(a.x - b.x, a.z - b.z) < 1e-12, `${JSON.stringify(a)} is ${JSON.stringify(b)}`);
+  const keys = (names) => ({ up: names.includes("up"), down: names.includes("down"), left: names.includes("left"), right: names.includes("right") });
+  // The camera looking along +z: up the screen is +z, right is +x.
+  near(keysToMove(keys(["up"]), 0), { x: 0, z: 1 });
+  near(keysToMove(keys(["down"]), 0), { x: 0, z: -1 });
+  near(keysToMove(keys(["right"]), 0), { x: 1, z: 0 });
+  near(keysToMove(keys(["left"]), 0), { x: -1, z: 0 });
+  near(keysToMove(keys(["up", "right"]), 0), { x: Math.SQRT1_2, z: Math.SQRT1_2 });
+  // Turned a quarter to the right, looking along +x: up is +x, right is -z.
+  near(keysToMove(keys(["up"]), Math.PI / 2), { x: 1, z: 0 });
+  near(keysToMove(keys(["right"]), Math.PI / 2), { x: 0, z: -1 });
+  assert.equal(keysToMove(keys([]), 0), null);
+  assert.equal(keysToMove(keys(["up", "down"]), 0), null);
+  assert.equal(keysToMove(keys(["left", "right"]), 0), null);
+  // Up the screen is away from where the orbit camera stands.
+  const [cx, , cz] = orbitPosition({ x: 0, y: 1, z: 0 }, 0.7, ORBIT.pitch, ORBIT.distance), up = keysToMove(keys(["up"]), 0.7);
+  near(up, { x: -cx / Math.hypot(cx, cz), z: -cz / Math.hypot(cx, cz) });
+  // A ray from above, down to the plane at chest height.
+  assert.deepEqual(aimPoint([0, 5, -4], [0, -0.8, 0.6], 1), [0, 1, -1]);
+  assert.deepEqual(aimPoint([1, 3, 2], [0.5, -1, -0.25], 1), [2, 1, 1.5]);
+  assert.equal(aimPoint([0, 5, -4], [0, 0.1, 1], 1), null, "a ray going up meets no plane below it");
+  assert.equal(aimPoint([0, 0.5, -4], [0, -0.8, 0.6], 1), null, "nor one that starts under the plane");
+  assert.deepEqual(personOrders({ x: 1, z: 0 }, [2, 1, 3], false, { x: 1, z: 1 }), { move: { x: 1, z: 0 }, face: { x: 1, z: 2 }, attack: null });
+  assert.deepEqual(personOrders(null, [2, 1, 3], true, { x: 1, z: 1 }), { move: null, face: { x: 1, z: 2 }, attack: [2, 1, 3] });
+  assert.deepEqual(personOrders(null, null, true, { x: 1, z: 1 }), { move: null, face: null, attack: null });
 });

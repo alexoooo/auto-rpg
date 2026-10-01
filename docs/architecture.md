@@ -171,14 +171,24 @@ and to the right of the body's heading, or none; a way to face; how low to stand
 guard or attack a point. It names no joint, pose or push. `driveBy(body, tactics)` hands the body
 to them through the skills.
 
-The core has one set of tactics, `fighterTactics` (`fighter.ts`). Each step it asks for a plan (a
-direction to walk, a way to look, a point to attack), with what the body sees: it walks at its
-fastest walk, and given a point it attacks it with its right hand, the strike skill closing the
-distance, while the left guards. In the arena the plan is the fighter's own (`seekFoe`): from its
-senses it picks the nearest body of another side still in the fight, walks at it, and attacks its
-head once their centres are within `ATTACK_METRES` (1.8 m). In the crypt the run plans for its
-fighters with the map (`DungeonRun`) and hands each its target's head; its bodies sense the clock
-alone. The lab has its own:
+The core has one set of tactics, `fighterTactics` (`fighter.ts`), which carry out `Orders`
+(`orders.ts`): a direction to walk, a direction to face and a point to attack, each or none, in
+the world's frame, as plain data naming no joint, pace or camera. Each step the tactics ask for
+the orders, with what the body sees. Ordered to walk, the body walks that way at its fastest
+walk, turning to it. Ordered to face another way as it walks, it walks at half that pace until
+it has turned to its facing, and from then at half plus the other half times the cosine of the
+angle between its heading and its walk (`STRAFE`, [reference/orders.md](reference/orders.md)).
+Given a point it attacks it with its right hand, the strike skill closing the distance, while the
+left guards. The stance turns only while it walks, so a standing body ordered to face does not
+turn.
+
+Orders come from three places. An arena side nobody has taken makes its own (`seekFoe`): from
+its senses it picks the nearest body of another side still in the fight, walks at it, and attacks
+its head once their centres are within `ATTACK_METRES` (1.8 m). A side a person has taken is
+given the person's (`Duel.order`) and does only what it is ordered, until it is handed back or is
+out of the fight. In the crypt the run plans for its fighters with the map (`DungeonRun`) and
+hands each its plan as orders, with its target's head; its bodies sense the clock alone. The lab
+has tactics of its own:
 `stanceTactics` (the keys), `trackTactics` (the Run), `routineTactics` and `attackOnce`.
 
 ## One world step
@@ -228,6 +238,14 @@ what a page hears of it (`DuelHooks`) is beside the recipe, not in it. Nothing i
 random, so a recipe played twice is the same bout to the bit (`playBout`, `research/bout.mjs`;
 `traceOf`, `tests/harness/trace.mjs`). How the bouts end today is `docs/reference/bouts.md`.
 
+Every order a side is given is kept with the step it was given before (`Duel.tape`), an order
+that repeats the last left out. The recipe and the tape are the whole of what made a bout:
+`Duel.play` gives a tape again as the bout steps, each order in the sensing phase of the step it
+names, before any mind, so a bout a person fought plays again to the bit
+(`playBout(recipe, seconds, tape)`). A facing is the way from the body to the pointer's point,
+which changes as the body moves, so a side fought with the pointer over the arena tapes an
+order a frame.
+
 ## The screens
 
 `index.html` is one document (`src/app.ts`, routed by `src/app-route.ts`): the main menu, and the
@@ -235,7 +253,11 @@ arena, crypt and lab screens at `?play=arena`, `?play=dungeon` and `?play=lab`, 
 `<template>` mounted once per page load. Changing screen is a navigation.
 
 - **The Arena** (`src/arena/`): two clubbed bodies in the Forge (`src/arena/scene.ts`,
-  `src/arena/room.ts`), each driven by `fighterTactics` under a `Duel`, to a verdict. The room's
+  `src/arena/room.ts`), each driven by `fighterTactics` under a `Duel`, to a verdict. A person
+  may take a side (`&you=left`): each frame the page turns the walking keys, as the camera sees
+  the ground, and the pointer's ray, where it crosses the level of the body's centre of mass,
+  into world directions (`src/arena/orders-input.ts`) and gives them as orders (`Duel.order`),
+  so nothing of the camera reaches a mind. The room's
   solids (`arenaSolids`) are what bodies meet; the visible room is dressed from the forge kit
   (`src/arena/forge-style.ts`, `src/arena/forge-room.ts`). `validateRoomPlacements` refuses a
   piece that names a collider the arena lacks, or one of the wrong role, and a solid-looking piece
@@ -271,8 +293,8 @@ These are the owner's, and the code is built on them.
 - **Rapier is the engine**; MuJoCo stays on the bench; another engine is tried on the bench first.
 - **120 Hz**, and the controllers are made to work there.
 - **Torque sources with the body's real inertia**, and an eccentric ceiling of 1.4 times isometric.
-- **A person never commands muscles.** A person's input is an intent, as tactics' is (facing,
-  movement, what to attack); the body's skills make the goals.
+- **A person never commands muscles.** A person's input is orders (`Orders`): walk this way, face
+  that way, attack that point. The body's own tactics and skills carry them out.
 - **Strikes are searched recipes now, hand goals next**: a strike becomes a place, a speed and a
   time for the hand, met by arm, trunk and legs together, and the tactics' intent, attack that, does
   not change. Nothing is built that the next step throws away, or searched on a path the game will

@@ -38,6 +38,15 @@
         <!-- Filled by src/arena/main.ts from the core's models, so an option that is offered is
              one the core has. Its children are laid straight into this grid. -->
         <div id="matchup"></div>
+        <!-- The side the person fights; nobody, and both sides fight for themselves. -->
+        <label class="field you">
+          <span class="field-name">You fight as</span>
+          <select id="you">
+            <option value="">nobody</option>
+            <option value="left">left</option>
+            <option value="right">right</option>
+          </select>
+        </label>
         <button id="begin" class="action" type="button" disabled>Fight</button>
         <footer class="duel-footer">
           <button id="help-open" class="link" type="button">How to play</button>
@@ -70,11 +79,15 @@
         <div class="panel">
           <h1>Controls</h1>
           <p class="lede">
-            You watch; each side is fought by its own mind, which walks at the other and swings
-            its club at the other&rsquo;s head. A side is out when its bar empties, its head goes,
-            or it falls; after two minutes the fuller bar wins.
+            Each side is fought by its own mind, which walks at the other and swings its club at
+            the other&rsquo;s head, unless you take it: then it does what you order and nothing
+            else. A side is out when its bar empties, its head goes, or it falls; after two minutes
+            the fuller bar wins.
           </p>
           <dl class="keys">
+            <dt>W A S D, or the arrows</dt><dd>walk, as the camera sees it</dd>
+            <dt>Pointer</dt><dd>where your fighter faces while it walks</dd>
+            <dt>Left button</dt><dd>attack where you point; hold to keep attacking</dd>
             <dt>Middle or right drag</dt><dd>orbit the camera</dd>
             <dt>Wheel</dt><dd>zoom</dd>
             <dt>Space / Esc</dt><dd>pause, and resume &mdash; the same key both ways</dd>

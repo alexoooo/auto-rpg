@@ -28,3 +28,19 @@ export function matchupSearch(search: string, matchup: Matchup): string {
   query.set(MATCHUP_PARAM, `${matchup.left},${matchup.right}`);
   return `?${query.toString().replace(/%2C/g, ",")}`;
 }
+
+/** The arena link's parameter for the side a person fights: `&you=left` or `&you=right`. */
+const YOU_PARAM = "you";
+
+/** The side an address says the person fights; null, nobody, for anything else. */
+export function readYou(search: string): Side | null {
+  const you = new URLSearchParams(search).get(YOU_PARAM);
+  return you === "left" || you === "right" ? you : null;
+}
+
+/** `search` with the side the person fights set to `you`, or with none. */
+export function youSearch(search: string, you: Side | null): string {
+  const query = new URLSearchParams(search);
+  if (you) query.set(YOU_PARAM, you); else query.delete(YOU_PARAM);
+  return `?${query.toString().replace(/%2C/g, ",")}`;
+}

@@ -37,10 +37,18 @@ Everything the pages need is committed, so a fresh clone runs with no download s
 Pick a body for each side (Warrior, Rogue or Skeleton) and press **Fight**. Each side carries a
 wooden club in its right hand and is driven by its own mind: it walks at the other and, once within
 reach, attacks the head. A side is out when its wounds end it or its body falls; at the two-minute
-bell the fuller bar wins, and equal bars draw. You watch: there are no orders for a side yet.
+bell the fuller bar wins, and equal bars draw.
+
+You watch, or you take a side: pick it under **You fight as**, or open
+`?play=arena&matchup=workshop-fighter,workshop-rogue&you=left`. Your side then does what you
+order and nothing else: it does not attack unasked. It turns only while it walks, so walk to
+turn; across its heading or backward it walks at half pace.
 
 | Input | Does |
 | --- | --- |
+| W A S D, or the arrows | walk, as the camera sees the ground |
+| Pointer | where your fighter faces while it walks |
+| Left button | attack where you point; hold to keep attacking |
 | Middle or right drag | orbit the camera |
 | Wheel | zoom |
 | Space / Esc | pause and resume a bout (leaving the window pauses too) |
@@ -105,8 +113,8 @@ time, scrubs, and slows time to 1/4 or 1/10.
 **Working**: the Arena and the Crypt on the core, with the Warrior, the Rogue and the skeleton,
 each armed with a club; the lab's scenarios; the character workshop; the physics bench.
 
-**Not yet**: rising after a fall (a fallen body is out), orders a person can give a side in the
-Arena, weapons beyond the club, and the AI above a single fighter's mind. See
+**Not yet**: rising after a fall (a fallen body is out), turning on the spot, weapons beyond the
+club, and the AI above a single fighter's mind. See
 [the roadmap](docs/roadmap.md).
 
 ## Where things are

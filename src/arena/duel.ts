@@ -4,6 +4,7 @@ import { armed } from "../core/human/grip.ts";
 import { modelSpec, type BodyModel } from "../core/human/spec.ts";
 import { woodenClub } from "../core/items/club.ts";
 import { fighterTactics, seekFoe } from "../core/mind/fighter.ts";
+import { sameOrders, type Orders } from "../core/mind/orders.ts";
 import { createSenses, type SensesHub } from "../core/mind/senses.ts";
 import { driveBy } from "../core/mind/tactics.ts";
 import { watchBlows, type BlowWatch, type Fighter, type LandedBlow } from "../core/rules/blows.ts";
@@ -24,6 +25,10 @@ import type { Hook, World } from "../core/world.ts";
  * - **Each side's tactics** (`seekFoe`) walk at the body they see of the other side until within
  *   `ATTACK_METRES` of it, then attack its head. What each sees of the other is the bout's senses'
  *   (`createSenses`): both see the same step, `DuelRecipe.senseDelay` steps old.
+ * - **A side given orders** (`Duel.order`) does what it is ordered and nothing else, until it is
+ *   handed back to itself or is out of the fight. Every order is kept with the step it was given
+ *   before (`Duel.tape`), so the recipe and the tape are the whole of what made a bout, and
+ *   `Duel.play` gives a tape again as the bout steps.
  * - **A side is out** once its pool has ended, or once its body has fallen (`SkillReport.fallen`): the
  *   core has no rising, so a body down stays down. The other side wins; both out on one step is a
  *   draw.
@@ -76,6 +81,13 @@ interface DuelRecipe {
   readonly senseDelay?: number;
 }
 
+/** An order given: before which of the bout's steps, to which side, and what. Null hands the side back to itself. */
+interface OrdersEntry {
+  readonly step: number;
+  readonly side: Side;
+  readonly orders: Orders | null;
+}
+
 /** What a page hears of a bout. */
 interface DuelHooks {
   /** Hears each blow as it lands. */
@@ -93,9 +105,17 @@ export class Duel {
   readonly blows: LandedBlow[] = [];
   /** Null while the bout is on. */
   verdict: Verdict | null = null;
+  /** Every order given, in the order given: with the recipe, the whole of what made this bout. */
+  readonly tape: OrdersEntry[] = [];
+  /** What each side is ordered; null leaves it to its own tactics (`seekFoe`). */
+  private readonly given: Record<Side, Orders | null> = { left: null, right: null };
+  /** Orders still to give (`play`), in the order of their steps. */
+  private readonly queued: OrdersEntry[] = [];
   private readonly start: number;
+  private readonly startStep: number;
   private readonly cap: number;
   private readonly senses: SensesHub;
+  private readonly feeding: Hook;
   private readonly watch: BlowWatch;
   private readonly judging: Hook;
 
@@ -104,9 +124,18 @@ export class Duel {
     this.recipe = Object.freeze({ ...recipe });
     this.rules = rulebook("arena");
     this.start = world.time;
+    this.startStep = world.steps;
     this.cap = recipe.capSeconds ?? CAP_SECONDS;
     const gap = recipe.gap ?? GAP_METRES;
     this.senses = createSenses(world, recipe.senseDelay ?? 0);
+    // In the step's sensing phase, after the senses and before every mind: a taped order is given
+    // before the step it names.
+    this.feeding = world.sense(() => {
+      while (this.queued.length > 0 && this.queued[0]!.step <= this.steps) {
+        const { side, orders } = this.queued.shift()!;
+        this.order(side, orders);
+      }
+    });
     const duelists = {} as Record<Side, Duelist>;
     for (const side of SIDES) {
       const model = recipe[side];
@@ -117,7 +146,11 @@ export class Duel {
       // Out to the other side once the bout is decided, its pool has ended or it has fallen.
       const senses = this.senses.add({ id: side, side, built, out: () => this.verdict !== null || !duelists[side].standing });
       const body = createBody(built, world, { servoSeconds: SERVO_SECONDS, senses });
-      const skills = driveBy(body, fighterTactics(`arena ${side}`, seekFoe));
+      const skills = driveBy(body, fighterTactics(`arena ${side}`, (sight) => {
+        const orders = this.given[side];
+        // Out of the fight it stands, as a side nobody orders does.
+        return orders && !sight.view.senses.out ? orders : seekFoe(sight);
+      }));
       duelists[side] = {
         id: side, side, model, built, pool, body, skills,
         get standing() { return pool.ending() === null && !skills.report.fallen; },
@@ -134,6 +167,22 @@ export class Duel {
 
   /** Seconds since the bout began. */
   get clock(): number { return this.world.time - this.start; }
+
+  /** Steps the bout has taken. */
+  get steps(): number { return this.world.steps - this.startStep; }
+
+  /** Order `side` from its next step on, or with null hand it back to itself. An order that repeats the last is not recorded. */
+  order(side: Side, orders: Orders | null): void {
+    if (sameOrders(this.given[side], orders)) return;
+    this.given[side] = orders;
+    this.tape.push({ step: this.steps, side, orders });
+  }
+
+  /**
+   * Give `tape`'s orders as the bout steps, each before the step it was given before, in place
+   * of any tape still queued: with the bout's recipe, the same bout again, whoever steps the world.
+   */
+  play(tape: readonly OrdersEntry[]): void { this.queued.splice(0, this.queued.length, ...tape); }
 
   /** Step the world until the verdict, or `seconds` more; returns the verdict, if there is one. */
   run(seconds = Infinity): Verdict | null {
@@ -163,6 +212,7 @@ export class Duel {
 
   dispose(): void {
     this.judging.dispose();
+    this.feeding.dispose();
     this.watch.dispose();
     this.senses.dispose();
     for (const side of SIDES) {

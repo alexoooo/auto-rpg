@@ -79,7 +79,7 @@ export interface DungeonActor {
   /** The order was dropped by the run rather than replaced by the person, and the member replans next step. */
   replan: boolean;
   /** What its tactics carry out this step: a direction to walk (unit, world) or null to stand, a way to face, and whom to attack. */
-  plan: { move: Point | null; look: Point | null; attack: DungeonActor | null };
+  plan: { move: Point | null; face: Point | null; attack: DungeonActor | null };
 }
 
 /** How far behind the hero an unposted companion trails before it walks after it, metres: clear of the hero's reach. */
@@ -184,7 +184,7 @@ export class DungeonRun {
         get vitality() { return this.fighter?.pool.bar() ?? 1; },
         target: null, home: { ...at }, lastSeen: null, alertedUntil: 0, route: [], goal: null, nextPlan: 0,
         radius: FOOTPRINT_METRES, progress: { at: { ...at }, since: 0 },
-        order: IDLE, next: 0, post: null, replan: false, plan: { move: null, look: null, attack: null },
+        order: IDLE, next: 0, post: null, replan: false, plan: { move: null, face: null, attack: null },
       };
       this.actors.push(actor); return actor;
     };
@@ -219,13 +219,17 @@ export class DungeonRun {
     this.options.onBuilt?.(actor);
   }
 
-  /** What carries out `actor`'s plan (`fighterTactics`); a fighter out of the fight only looks. */
+  /**
+   * What carries out `actor`'s plan (`fighterTactics`), which the run hands over as `Orders`: the
+   * plan's facing is for a fighter that stands, and one that walks faces its walk. A fighter out of
+   * the fight only faces.
+   */
   private tactics(actor: DungeonActor): Tactics {
     return fighterTactics(`crypt ${actor.side}`, () => {
-      const { move, look, attack } = actor.plan, head = attack?.fighter?.body.view.head;
+      const { move, face, attack } = actor.plan, head = attack?.fighter?.body.view.head;
       return actor.alive
-        ? { move, look, attack: head ? [head.x, head.y, head.z] : null }
-        : { move: null, look, attack: null };
+        ? { move, face: move ? null : face, attack: head ? [head.x, head.y, head.z] : null }
+        : { move: null, face, attack: null };
     });
   }
 
@@ -436,7 +440,7 @@ export class DungeonRun {
   /** The run's part of a step, before the bodies': orders, doors, who is built, who sees whom, and each actor's plan. */
   private plan(): void {
     if (this.status !== "playing") {
-      for (const actor of this.actors) actor.plan = { move: null, look: null, attack: null };
+      for (const actor of this.actors) actor.plan = { move: null, face: null, attack: null };
       return;
     }
     if (this.commands.revision !== this.commandRevision) {
@@ -461,14 +465,14 @@ export class DungeonRun {
     this.wake();
     if (this.clock >= this.nextPerception) { this.perceive(); this.nextPerception = this.clock + 0.2; }
     for (const actor of this.actors) {
-      if (!actor.fighter || !actor.alive) { actor.plan = { move: null, look: null, attack: null }; continue; }
+      if (!actor.fighter || !actor.alive) { actor.plan = { move: null, face: null, attack: null }; continue; }
       let move = actor.side === "party" ? this.memberMovement(actor) : this.enemyMovement(actor);
       if (move && !(actor === this.hero && this.commands.mode.keyboard)) move = this.avoidCrowd(actor, move);
       const walking = move !== null && Math.hypot(move.x, move.z) > 0.1;
       const at = actor.feet(), target = actor.target;
-      const look = target ? direction(at, target.feet())
+      const face = target ? direction(at, target.feet())
         : actor === this.hero && this.commands.mode.facing && this.commands.cursor ? direction(at, this.commands.cursor) : null;
-      actor.plan = { move: walking ? move : null, look, attack: move === null && target?.fighter && target.alive ? target : null };
+      actor.plan = { move: walking ? move : null, face, attack: move === null && target?.fighter && target.alive ? target : null };
     }
     // The run is lost when the whole party has fallen, and won when anybody still standing reaches the exit.
     const standing = this.party.filter(member => member.alive);

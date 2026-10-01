@@ -1,4 +1,6 @@
 import { Engine } from "@babylonjs/core/Engines/engine.js";
+// `scene.createPickingRay` is this module's patch: without it the build compiles and the ray is missing.
+import "@babylonjs/core/Culling/ray.js";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { buildArena } from "./scene.ts";
 import { MENU_HREF } from "../app-route.ts";
@@ -13,13 +15,19 @@ import { loadSkeletonArt, type SkeletonArt } from "../render/skeleton-skin.ts";
 import { drawHeld, type BodyShapes } from "../render/body-shapes.ts";
 import { dresserFor, type Dresser } from "../render/dress.ts";
 import { Duel, SIDES, type DuelEnding, type Side, type Verdict } from "./duel.ts";
-import { MATCHUP_PARAM, MODEL_LABELS, matchupSearch, readMatchup, type Matchup } from "./matchup.ts";
+import { MATCHUP_PARAM, MODEL_LABELS, matchupSearch, readMatchup, readYou, youSearch, type Matchup } from "./matchup.ts";
 import { ORBIT, orbitPosition } from "./orbit.ts";
+import { aimPoint, keysToMove, personOrders } from "./orders-input.ts";
 
 /**
  * **The arena page**: the arena's scene with its solids in a world (`buildArena`), and a bout
- * of two bodies in it (`Duel`). Setup picks the two models; a bout runs to its verdict, and can
- * be run again, or again with the right side redrawn. A person watches and gives no orders.
+ * of two bodies in it (`Duel`). Setup picks the two models and the side the person fights, if
+ * any; a bout runs to its verdict, and can be run again, or again with the right side redrawn.
+ *
+ * A person who takes a side gives it orders (`Duel.order`): the keys walk it, as the camera sees
+ * the ground, it faces the pointer, and the left button attacks where the pointer is. The page
+ * turns the keys and the pointer into world directions (`orders-input.ts`) before the orders are
+ * made, so nothing of the camera reaches a mind.
  *
  * Setup owns `#curtain`, pause owns `#pause-menu`, the verdict is `#bout-end`.
  */
@@ -49,7 +57,9 @@ export async function bootArena(): Promise<void> {
   const { scene, camera, shadows } = arena;
 
   // Setup: a contender panel on each side, each with its model.
-  let matchup: Matchup = readMatchup(location.search);
+  let matchup: Matchup = readMatchup(location.search), you: Side | null = readYou(location.search);
+  const youPicker = need<HTMLSelectElement>("you");
+  youPicker.value = you ?? "";
   const pickers = {} as Record<Side, HTMLSelectElement>;
   for (const side of SIDES) {
     const panel = document.createElement("section");
@@ -105,7 +115,7 @@ export async function bootArena(): Promise<void> {
   const setup = () => { end(); setPaused(false); show("bout-end", false); show("curtain", true); };
   const begin = async (next: Matchup) => {
     matchup = next;
-    history.replaceState(null, "", matchupSearch(location.search, matchup));
+    history.replaceState(null, "", youSearch(matchupSearch(location.search, matchup), you));
     const dress = new Map(await Promise.all(SIDES.map(async (side) => [side, await dresser(matchup[side])] as const)));
     end();
     audio.reset();
@@ -121,7 +131,7 @@ export async function bootArena(): Promise<void> {
         audio.cue(blowCue(blow, struck ? SURFACE_SOUND[struck.model] : "body"));
       },
     });
-    for (const row of rows) row.label.textContent = `${MODEL_LABELS[matchup[row.side]]} (${row.side})`;
+    for (const row of rows) row.label.textContent = `${MODEL_LABELS[matchup[row.side]]} (${row.side === you ? "you" : row.side})`;
     show("curtain", false); show("bout-end", false); setPaused(false);
     canvas.focus();
   };
@@ -129,7 +139,11 @@ export async function bootArena(): Promise<void> {
   const fromPickers = (): Matchup => ({ left: pickers.left.value as BodyModel, right: pickers.right.value as BodyModel });
 
   const beginButton = need<HTMLButtonElement>("begin");
-  beginButton.addEventListener("click", () => { beginButton.blur(); void begin(fromPickers()); });
+  beginButton.addEventListener("click", () => {
+    beginButton.blur();
+    you = youPicker.value === "left" || youPicker.value === "right" ? youPicker.value : null;
+    void begin(fromPickers());
+  });
   need("resume").addEventListener("click", () => setPaused(false));
   for (const id of ["restart", "bout-end-replay"]) need(id).addEventListener("click", () => void begin(matchup));
   for (const id of ["random-replay", "bout-end-random"]) need(id).addEventListener("click", () => void begin(redrawn()));
@@ -138,15 +152,43 @@ export async function bootArena(): Promise<void> {
   const help = (open: boolean) => show("help", open);
   need("help-open").addEventListener("click", () => help(true));
   need("help-close").addEventListener("click", () => help(false));
+  // What the person's hands are doing: the walking keys held, where the pointer is on the canvas,
+  // px, and whether its left button is down.
+  const keys = { up: false, down: false, left: false, right: false };
+  let pointer: { x: number; y: number } | null = null, attacking = false;
+  const walkKeys: Readonly<Record<string, keyof typeof keys>> = {
+    w: "up", arrowup: "up", s: "down", arrowdown: "down", a: "left", arrowleft: "left", d: "right", arrowright: "right",
+  };
+  /** Whether `event` was a walking key, now held or let go. */
+  const walkKey = (event: KeyboardEvent, held: boolean): boolean => {
+    const key = walkKeys[event.key.toLowerCase()];
+    if (!key) return false;
+    keys[key] = held;
+    if (event.key.startsWith("Arrow")) event.preventDefault();
+    return true;
+  };
   window.addEventListener("keydown", (event) => {
     if (event.target instanceof HTMLSelectElement) return;
     if (event.key === "?") { help(need("help").classList.contains("gone")); return; }
-    if (!duel) return;
+    if (!duel || walkKey(event, true)) return;
     if (event.key === " " || event.key === "Escape") { event.preventDefault(); if (!duel.verdict) setPaused(!paused); }
     else if (event.key === "r" || event.key === "R") void begin(matchup);
   });
-  // Losing focus pauses the bout.
-  window.addEventListener("blur", () => { if (duel && !duel.verdict) setPaused(true); });
+  window.addEventListener("keyup", (event) => { walkKey(event, false); });
+  // Losing focus pauses the bout, and lets go of every key and button: their releases are not heard.
+  window.addEventListener("blur", () => {
+    keys.up = keys.down = keys.left = keys.right = false;
+    attacking = false;
+    if (duel && !duel.verdict) setPaused(true);
+  });
+  // The left button is a level, read from every pointer event, since a release is not guaranteed.
+  for (const type of ["pointerdown", "pointermove", "pointerup"] as const) {
+    canvas.addEventListener(type, (event) => {
+      pointer = { x: event.offsetX, y: event.offsetY };
+      attacking = (event.buttons & 1) !== 0;
+    });
+  }
+  canvas.addEventListener("pointerleave", () => { pointer = null; attacking = false; });
 
   // The orbit camera: middle or right drag turns it, the wheel brings it in and out.
   let azimuth: number = ORBIT.azimuth, pitch: number = ORBIT.pitch, distance: number = ORBIT.distance;
@@ -160,6 +202,14 @@ export async function bootArena(): Promise<void> {
     event.preventDefault();
     distance = Math.min(ORBIT.farthest, Math.max(ORBIT.nearest, distance * Math.exp(event.deltaY * 0.001)));
   }, { passive: false });
+  /** The person's orders for this frame, from the keys and the pointer as the camera has them. */
+  const giveOrders = () => {
+    if (!duel || !you || paused || duel.verdict) return;
+    const centre = duel.duelists[you].body.view.stance.centre;
+    const ray = pointer ? scene.createPickingRay(pointer.x, pointer.y, null, camera) : null;
+    const point = ray ? aimPoint(ray.origin.asArray(), ray.direction.asArray(), centre.y) : null;
+    duel.order(you, personOrders(keysToMove(keys, azimuth), point, attacking, centre));
+  };
   const target = new Vector3(0, 1, 0);
   const frame = () => {
     if (duel) {
@@ -188,6 +238,7 @@ export async function bootArena(): Promise<void> {
 
   engine.runRenderLoop(() => {
     const seconds = engine.getDeltaTime() / 1000;
+    giveOrders();
     if (duel && !paused) world.advance(seconds, Math.ceil(CATCH_UP_SECONDS * world.hz));
     frame(); readout(); audio.update();
     scene.render();

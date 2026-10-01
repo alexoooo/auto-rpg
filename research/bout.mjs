@@ -18,10 +18,14 @@ export async function buildBout(recipe) {
   return { world, duel, dispose() { duel.dispose(); world.dispose(); scene.dispose(); } };
 }
 
-/** Play `recipe` to its verdict, or `seconds`: how it ended, what landed, and its trace's digest. */
-export async function playBout(recipe, seconds = Infinity) {
+/**
+ * Play `recipe` to its verdict, or `seconds`, giving `tape`'s orders as it steps (`Duel.play`): how
+ * it ended, what landed, the orders it was given, and its trace's digest.
+ */
+export async function playBout(recipe, seconds = Infinity, tape = []) {
   const { world, duel, dispose } = await buildBout(recipe);
   try {
+    duel.play(tape);
     const trace = traceOf(SIDES.map((side) => duel.duelists[side].built));
     while (!duel.verdict && duel.clock < seconds) { world.step(); trace.take(); }
     const landed = duel.blows.filter((blow) => !blow.clash);
@@ -31,7 +35,7 @@ export async function playBout(recipe, seconds = Infinity) {
       blows: landed.length, wounding: landed.filter((blow) => blow.damage > 0).length, clashes: duel.blows.length - landed.length,
       bars: SIDES.map((side) => duel.duelists[side].pool.bar()),
       fallen: SIDES.filter((side) => duel.duelists[side].skills.report.fallen),
-      digest: trace.digest(),
+      tape: duel.tape, digest: trace.digest(),
     };
   } finally { dispose(); }
 }

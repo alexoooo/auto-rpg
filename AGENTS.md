@@ -24,7 +24,8 @@ port and kill it by PID when done.
 works in dev and is absent from `dist`.
 
 - `/` (`index.html`, `src/app.ts`): the main menu; the arena at `?play=arena`
-  (`&matchup=left,right` opens a bout, `src/arena/`); the crypt at `?play=dungeon`
+  (`&matchup=left,right` opens a bout, `&you=left` takes a side, `src/arena/`); the crypt at
+  `?play=dungeon`
   (`src/dungeon/`); the lab at `?play=lab` (`&scenario=` runs one, `src/lab/scenarios.ts`).
   Each screen is a `<template>` mounted once per page load; changing screen is a navigation.
 - `/character-lab.html`: the character workshop viewer.
@@ -59,8 +60,8 @@ screens build on it; it never imports them.
 - **A mind reaches the world only through its body.** It learns of it through its senses
   (`Senses`, `src/core/mind/senses.ts`) and its own body (`OwnBody`), and moves it through its
   muscles' command and nothing else (`Mind.step`, `src/core/mind/mind.ts`). Camera state never
-  reaches a mind. A person gives orders; a body's own mind carries them out while it defends
-  itself.
+  reaches a mind. A person gives orders (`Orders`); a body's own mind carries them out while it
+  defends itself.
 - **Cosmetics never carry authority**: nothing decorative collides or decides a hit. The visible
   room is not the collision arena; `validateRoomPlacements` (`src/arena/room.ts`) refuses a piece
   naming a collider the arena lacks, and a solid-looking piece within reach that names none.

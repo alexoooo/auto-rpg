@@ -1,7 +1,9 @@
 import type { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { wrap } from "../skills/locomotion.ts";
 import { APPROACH } from "../skills/strike.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { GUARD_ACTION, type Intent } from "./intent.ts";
+import { STAND_ORDERS, type Orders } from "./orders.ts";
 import type { BodySense } from "./senses.ts";
 import type { Sight, Tactics } from "./tactics.ts";
 
@@ -12,35 +14,33 @@ import type { Sight, Tactics } from "./tactics.ts";
  */
 export const ATTACK_METRES = 1.8;
 
-/** A direction on the ground, world. */
-interface Heading { readonly x: number; readonly z: number }
-
 /**
- * What a fighter carries out this step: a direction to walk (unit, world) or null to stand, a
- * way to face when standing, and the point to attack (world), or null.
+ * Walking one way while facing another (`fighterTactics`): the share of the fastest walk held
+ * across the heading or backward, and how near its facing a body must have turned, rad, before
+ * it walks any faster. Measured with the club in hand: `docs/reference/orders.md#the-rule`.
  */
-interface FighterPlan {
-  readonly move: Heading | null;
-  readonly look: Heading | null;
-  readonly attack: Vec3 | null;
-}
+export const STRAFE = { share: 0.5, turned: 0.3 } as const;
 
 /**
- * **A fighter's tactics**: it walks its plan's direction at its body's fastest walk
- * (`Body.envelope`), facing it, and given a point to attack attacks it with what the right hand
- * holds: the strike skill brings the body the rest of the way (`APPROACH` in
- * `src/core/skills/strike.ts`). It holds the point it aims at while the plan's stays within
+ * **A fighter's tactics** carry out `Orders`, asked for every control step with what the body
+ * sees. Ordered to walk, it walks that way at its body's fastest walk (`Body.envelope`), turning
+ * to it; ordered to face another way as it walks, it walks at the pace that holds (`strafe`,
+ * `STRAFE` unless an experiment passes another). Given a point to attack it attacks it with what
+ * the right hand holds: the strike skill brings the body the rest of the way (`APPROACH` in
+ * `src/core/skills/strike.ts`). It holds the point it aims at while the ordered one stays within
  * `APPROACH.reach` of it, and aims again after each blow, since the skill sets the feet for the
  * point it is given and a point that followed a swaying head would move under every placing.
- * `plan` is asked every control step, with what the body sees.
+ *
+ * The stance turns only while it walks (`locomotion`), so a standing body ordered to face
+ * does not turn.
  */
-export function fighterTactics(name: string, plan: (sight: Sight) => FighterPlan): Tactics {
+export function fighterTactics(name: string, orders: (sight: Sight) => Orders, strafe: typeof STRAFE = STRAFE): Tactics {
   /** The point aimed at, and the blows thrown when it was chosen. */
   let aim: { point: Vec3; thrown: number } | null = null;
   return {
     name,
     decide: (sight): Intent => {
-      const { report, envelope } = sight, { move, look, attack } = plan(sight);
+      const { report, envelope } = sight, { move, face, attack } = orders(sight);
       if (attack) {
         const thrown = report.strike.thrown.right;
         if (!aim || aim.thrown !== thrown
@@ -51,22 +51,27 @@ export function fighterTactics(name: string, plan: (sight: Sight) => FighterPlan
       }
       aim = null;
       const hands = { left: GUARD_ACTION, right: GUARD_ACTION };
-      if (!move || !envelope) {
-        const face = look && Math.hypot(look.x, look.z) > 0.08 ? Math.atan2(look.x, look.z) : report.heading;
-        return { move: null, face, hands };
-      }
-      return { move: [envelope.walk.value, 0], face: Math.atan2(move.x, move.z), hands };
+      const facing = face && Math.hypot(face.x, face.z) > 0.08 ? Math.atan2(face.x, face.z) : null;
+      if (!move || !envelope) return { move: null, face: facing ?? report.heading, hands };
+      const bearing = Math.atan2(move.x, move.z), walk = envelope.walk.value;
+      // Facing its walk: the walk the envelope measured, forward, turning to it.
+      if (facing === null) return { move: [walk, 0], face: bearing, hands };
+      // Facing elsewhere: the walk's direction in the heading's frame, at the pace that holds.
+      const off = bearing - report.heading;
+      const share = Math.abs(wrap(facing - report.heading)) < strafe.turned
+        ? strafe.share + (1 - strafe.share) * Math.max(0, Math.cos(off)) : strafe.share;
+      return { move: [walk * share * Math.cos(off), walk * share * Math.sin(off)], face: facing, hands };
     },
   };
 }
 
 /**
- * **The plan of a fighter that picks its own fight**, from what it sees: the nearest body of
- * another side, one still in the fight before one that is out. It walks at it until their centres
- * of mass are within `ATTACK_METRES` across the ground, then attacks its head; once either is
- * out it stands, looking at it; and with nobody to fight it stands as it is.
+ * **The orders of a fighter that picks its own fight**, from what it sees: the nearest body of
+ * another side, one still in the fight before one that is out. It walks at it, facing its walk,
+ * until their centres of mass are within `ATTACK_METRES` across the ground, then attacks its
+ * head; once either is out it stands, facing it; and with nobody to fight it stands as it is.
  */
-export function seekFoe({ view }: Sight): FighterPlan {
+export function seekFoe({ view }: Sight): Orders {
   const { senses, stance } = view, from = stance.centre;
   let foe: BodySense | null = null, near = Infinity;
   for (const other of senses.others) {
@@ -74,11 +79,11 @@ export function seekFoe({ view }: Sight): FighterPlan {
     const d = Math.hypot(other.centre.x - from.x, other.centre.z - from.z);
     if (foe === null || (foe.out && !other.out) || (foe.out === other.out && d < near)) { foe = other; near = d; }
   }
-  if (!foe) return { move: null, look: null, attack: null };
+  if (!foe) return STAND_ORDERS;
   const d = Math.max(0.001, near);
   const toward = { x: (foe.centre.x - from.x) / d, z: (foe.centre.z - from.z) / d };
-  if (senses.out || foe.out) return { move: null, look: toward, attack: null };
-  if (d > ATTACK_METRES) return { move: toward, look: toward, attack: null };
+  if (senses.out || foe.out) return { move: null, face: toward, attack: null };
+  if (d > ATTACK_METRES) return { move: toward, face: null, attack: null };
   const head: Vector3 = foe.segments.get("head")?.centre ?? foe.centre;
-  return { move: null, look: toward, attack: [head.x, head.y, head.z] };
+  return { move: null, face: toward, attack: [head.x, head.y, head.z] };
 }

@@ -76,7 +76,7 @@ as they wake, is not in this set.
 | 01 | baseline: landed | a bout is a recipe (`DuelRecipe`); its trace digest (`research/bout-trace.mjs`); the standing table of how bouts end (`docs/reference/bouts.md`) | | |
 | 02 | the mind at the muscles: landed | `Mind`, `OwnBody`, `embody`; `Tactics`; every body driven through `Mind` (`commandMind`) | | |
 | 03 | senses: landed | the bout's senses (`createSenses`, in `World.sense`'s phase); the arena's tactics pick their foe from what they see (`seekFoe`); the bouts read again (`docs/reference/bouts.md`, With senses) | | |
-| 04 | [orders](2026-09-30-minds-04-orders.md) | `Orders`, the orders tape, WASD and the pointer in the arena | 03 | the owner fights a bout |
+| 04 | orders: landed, its eye gate open | `Orders` (`src/core/mind/orders.ts`), carried out by `fighterTactics` (`STRAFE`, `docs/reference/orders.md`); the tape (`Duel.order`, `.tape`, `.play`); WASD and the pointer in the arena (`&you=left`) | | the owner fights a bout: `?play=arena&matchup=workshop-fighter,workshop-rogue&you=left` |
 | 05 | [assist](2026-09-30-minds-05-assist.md) | what the soles miss, published and measured; the assist effector; its sweep | 02 | the owner watches assisted bouts |
 | 06 | [oracle](2026-09-30-minds-06-oracle.md) | forks by replay on worker threads; the oracle; its first table; a tape in a link | 04 | the owner watches an oracle's bout |
 | 07 | [engine save](2026-09-30-minds-07-engine-save.md) | `PhysicsWorld.save` and `load` | | |
@@ -100,8 +100,8 @@ lands before plan 05, which names the split's constructs (`StanceState`, `limitT
 
 Each is changed by the plan that makes it true, in the same commit.
 
-- `AGENTS.md`, "A mind reaches the world only through its body" (landed with plans 02 and 03)
-  reads in full, once plan 04 names `Orders`:
+- `AGENTS.md`, "A mind reaches the world only through its body" (landed with plans 02 to 04)
+  reads in full:
   > **A mind reaches the world only through its body.** It learns of it through its senses
   > (`Senses`, `src/core/mind/senses.ts`) and its own body (`OwnBody`), and moves it through its
   > muscles' command and nothing else (`Mind.step`, `src/core/mind/mind.ts`). Camera state never
@@ -120,7 +120,7 @@ Each is changed by the plan that makes it true, in the same commit.
 - `docs/architecture.md`, "Minds" and the standing decision "A person never commands muscles":
   rewritten by plans 02 to 04 as they land. The decision stands: a person's input is orders.
 - `docs/roadmap.md`, "The AI": the first item goes with plan 02, and the pointer to this set
-  with plan 08; "Orders a person can give a side" goes with plan 04.
+  with plan 08; "Orders a person can give a side" went as orders landed.
 
 ## What was measured before this was written
 
@@ -226,7 +226,8 @@ withdrawn at the verdict, and the defect goes on the roadmap.
 at each of eight bearings: at its fastest walk facing ahead, 3, 1 and 0 of 8 fall (Warrior,
 Rogue, skeleton), and facing behind, 6, 7 and 0; at half pace until it has turned to its
 facing, then up to the whole pace forward, none falls facing ahead or a quarter turn off, and 1,
-2 and 0 on a half turn. [Plan 04](2026-09-30-minds-04-orders.md) has the table and the rule.
+2 and 0 on a half turn. `docs/reference/orders.md` has the table as the landed tactics read it,
+and the rule.
 
 **A side held by orders stands, and the other fights on.** The left of the fighter-rogue bout
 ordered to stand moved 5 mm in 4 s while the right came 1.0 m nearer; handed back, it gained
@@ -240,7 +241,7 @@ None of these is a decision now; each is a value in a recipe or a constant with 
 - **What is seen of another body**: its spec with what it holds, its segments' poses and
   velocities, and whether it is out. Not its hit points.
 - **Walking while facing elsewhere**: half the fastest walk across the heading or backward, and
-  until the body has turned to within 0.3 rad of its facing (`STRAFE`, plan 04).
+  until the body has turned to within 0.3 rad of its facing (`STRAFE`, `src/core/mind/fighter.ts`).
 - **A point of balance**: 0.05 of the body's weight and 0.013 weight-metres (`Rulebook.balance`,
   or `DuelRecipe.balancePoint`; plan 05), so that 5 points is the ceiling measured at a quarter
   of a weight. A side's points for one bout: `DuelRecipe.balance`, or `&balance=` in a link.
@@ -260,7 +261,7 @@ Three, each with what it changes in play. None blocks a plan; each plan lands th
 2. **The attribute's name** (plan 05). *Default:* Balance, which says what it buys. *Or:*
    Stability, Poise or Footing, which say the same. Agility, Dexterity or Movement would promise
    speed or precision, which this number does not give.
-3. **What the pointer does while a person stands still** (plan 04). The stance turns only while
+3. **What the pointer does while a person stands still**. The stance turns only while
    it walks. *Default:* a standing body does not turn to the pointer; the person walks to turn.
    *Or:* a pointer more than a quarter turn off makes the body take a slow step toward its own
    heading so it can turn, which moves it without being asked.

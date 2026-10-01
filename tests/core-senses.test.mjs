@@ -136,29 +136,29 @@ test("a fighter picks its foe from what it sees", () => {
   const plan = (others, out = false) => seekFoe({ view: { stance: { centre: at(0, 1, 0) }, senses: { side: "left", out, others } } });
   const east = { x: 1, z: 0 }, north = { x: 0, z: 1 };
 
-  assert.deepEqual(plan([]), { move: null, look: null, attack: null }, "nobody");
-  assert.deepEqual(plan([body("right", false, at(4, 1, 0), at(4, 1.6, 0))]), { move: east, look: east, attack: null }, "a foe out of reach");
-  assert.deepEqual(plan([body("right", false, at(0, 1, 1.5), at(0.1, 1.6, 1.4))]), { move: null, look: north, attack: [0.1, 1.6, 1.4] }, "a foe within reach");
-  assert.deepEqual(plan([body("right", false, at(0, 1.2, 1.5), null)]), { move: null, look: north, attack: [0, 1.2, 1.5] }, "a foe with no head");
+  assert.deepEqual(plan([]), { move: null, face: null, attack: null }, "nobody");
+  assert.deepEqual(plan([body("right", false, at(4, 1, 0), at(4, 1.6, 0))]), { move: east, face: null, attack: null }, "a foe out of reach");
+  assert.deepEqual(plan([body("right", false, at(0, 1, 1.5), at(0.1, 1.6, 1.4))]), { move: null, face: north, attack: [0.1, 1.6, 1.4] }, "a foe within reach");
+  assert.deepEqual(plan([body("right", false, at(0, 1.2, 1.5), null)]), { move: null, face: north, attack: [0, 1.2, 1.5] }, "a foe with no head");
   // Reach is across the ground: a foe 1.5 m off and far below is still within it.
   assert.deepEqual(plan([body("right", false, at(0, -5, 1.5), at(0, -4, 1.5))]).attack, [0, -4, 1.5]);
-  assert.deepEqual(plan([body("right", true, at(0, 1, 1.5), at(0, 1.6, 1.5))]), { move: null, look: north, attack: null }, "the foe out");
-  assert.deepEqual(plan([body("right", false, at(0, 1, 1.5), at(0, 1.6, 1.5))], true), { move: null, look: north, attack: null }, "itself out");
-  assert.deepEqual(plan([body("right", false, at(4, 1, 0), at(4, 1.6, 0))], true), { move: null, look: east, attack: null }, "itself out, the foe far");
+  assert.deepEqual(plan([body("right", true, at(0, 1, 1.5), at(0, 1.6, 1.5))]), { move: null, face: north, attack: null }, "the foe out");
+  assert.deepEqual(plan([body("right", false, at(0, 1, 1.5), at(0, 1.6, 1.5))], true), { move: null, face: north, attack: null }, "itself out");
+  assert.deepEqual(plan([body("right", false, at(4, 1, 0), at(4, 1.6, 0))], true), { move: null, face: east, attack: null }, "itself out, the foe far");
   assert.deepEqual(plan([body("left", false, at(0, 1, 1), at(0, 1.6, 1)), body("right", false, at(3, 1, 0), at(3, 1.6, 0))]),
-    { move: east, look: east, attack: null }, "a friend nearer than the foe");
-  assert.deepEqual(plan([body("left", false, at(0, 1, 1), at(0, 1.6, 1))]), { move: null, look: null, attack: null }, "a friend alone");
+    { move: east, face: null, attack: null }, "a friend nearer than the foe");
+  assert.deepEqual(plan([body("left", false, at(0, 1, 1), at(0, 1.6, 1))]), { move: null, face: null, attack: null }, "a friend alone");
   const far = body("right", false, at(3, 1, 0), at(3, 1.6, 0)), near = body("right", false, at(0, 1, 2), at(0, 1.6, 2));
-  for (const order of [[far, near], [near, far]]) assert.deepEqual(plan(order), { move: north, look: north, attack: null }, "the nearer of two");
+  for (const order of [[far, near], [near, far]]) assert.deepEqual(plan(order), { move: north, face: null, attack: null }, "the nearer of two");
   const down = { ...near, out: true };
-  for (const order of [[far, down], [down, far]]) assert.deepEqual(plan(order), { move: east, look: east, attack: null }, "the nearer out: the farther");
+  for (const order of [[far, down], [down, far]]) assert.deepEqual(plan(order), { move: east, face: null, attack: null }, "the nearer out: the farther");
   const downFar = { ...far, out: true };
-  for (const order of [[downFar, down], [down, downFar]]) assert.deepEqual(plan(order), { move: null, look: north, attack: null }, "both out: it looks at the nearer");
+  for (const order of [[downFar, down], [down, downFar]]) assert.deepEqual(plan(order), { move: null, face: north, attack: null }, "both out: it faces the nearer");
 });
 
 test("a fighter holds the point it aims at until the plan's leaves it or a blow is thrown", () => {
   let attack = [1, 1.6, 0], thrown = 0;
-  const tactics = fighterTactics("aim", () => ({ move: null, look: null, attack }));
+  const tactics = fighterTactics("aim", () => ({ move: null, face: null, attack }));
   const decide = () => tactics.decide({ report: { heading: 0.25, strike: { thrown: { right: thrown } } }, envelope: null }, 1 / 120);
   const reach = APPROACH.reach;
   assert.deepEqual(decide().hands.right, { kind: "attack", target: [1, 1.6, 0] });

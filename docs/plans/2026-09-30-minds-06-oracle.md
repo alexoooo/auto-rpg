@@ -7,7 +7,7 @@ that, the first oracle: for one side of a bout, how much better it does when at 
 it tries a handful of responses in forks of the true world and takes the best.
 
 A bout repeats to the bit from its recipe and its tape
-(`DuelRecipe`; [plan 04](2026-09-30-minds-04-orders.md)), so a fork
+(`DuelRecipe`, `Duel.tape`, `Duel.play`), so a fork
 needs nothing new in the core: it is a second bout played to the fork's step and on under a
 branch of other orders. That costs the whole bout up to the fork each time (1.24 to 1.38 ms a
 step: Node, core world, Rapier, 120 Hz), which a 30 s bout affords and a long one does not;
