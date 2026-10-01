@@ -46,6 +46,18 @@ test('scenery fills a small enclosed gap but not a room edge or opaque obstacle'
   m.obstacles=[{x:5,z:5,width:1,depth:1,height:3,blocksSight:true}];
   assert.ok(!revealScenery(m,{x:100,z:100},new Set(),explored,new Set()).has(gap));
 });
+test('scenery fills an enclosed gap of four cells, and leaves one of five', () => {
+  // A row of unseen cells in the middle of a room whose every other cell is explored. The observer is out of
+  // range, so nothing is sampled and only the gap rule can fill the row.
+  const filled = (columns) => {
+    const m = room(), gap = columns.map(x => 5 * m.size + x);
+    const explored = new Set([...m.floor.keys()].filter(i => m.floor[i] && !gap.includes(i)));
+    const memory = revealScenery(m, { x: 100, z: 100 }, new Set(), explored, new Set());
+    return gap.map(cell => memory.has(cell));
+  };
+  assert.deepEqual(filled([3, 4, 5, 6]), [true, true, true, true], 'a gap of four cells is filled');
+  assert.deepEqual(filled([3, 4, 5, 6, 7]), [false, false, false, false, false], 'a gap of five cells is left');
+});
 test('coverage sampling preserves memory and does not reveal through a closed door',()=>{
   const m=room();for(let z=1;z<10;z++)m.floor[z*m.size+5]=0;
   for(let z=4;z<=6;z++)m.floor[z*m.size+5]=1;
