@@ -17,7 +17,7 @@ async function crypt(seed, layout) {
   const run = new DungeonRun(scene, { seed, engine: await freshEngine(), visuals: false, layout });
   return { run, scene, dispose: () => { run.dispose(); scene.dispose(); } };
 }
-const seconds = (run, s) => { for (let i = 0; i < s * run.core.hz && run.status === "playing"; i++) run.step(); };
+const seconds = (run, s) => { for (let i = 0; i < s * run.world.hz && run.status === "playing"; i++) run.step(); };
 
 /** The generated level with one stated edit: the start moved to floor `gap` m from the first spawn, in its sight. */
 function faceToFace(seed, gap) {
@@ -53,7 +53,7 @@ test("a_fight_in_the_crypt_starts_and_ends", async () => {
   try {
     const enemy = run.enemies[0];
     assert.ok(enemy.fighter, "the first enemy is built: the party stands 4 m from it");
-    for (let i = 0; i < 30 * run.core.hz && enemy.alive; i++) run.step();
+    for (let i = 0; i < 30 * run.world.hz && enemy.alive; i++) run.step();
     const wounds = (from, to) => run.blows.filter(b => !b.clash && b.attacker === from.id && b.target === to.id)
       .reduce((sum, b) => sum + b.damage, 0);
     assert.ok(wounds(run.hero, enemy) > 0 && wounds(enemy, run.hero) > 0, "blows land both ways, and wound");
@@ -73,13 +73,13 @@ test("a_closed_door_is_a_wall_until_it_opens", async () => {
     const radius = 0.1, node = new TransformNode("ball", scene);
     node.position.set(door.point.x, 3, door.point.z); node.rotationQuaternion = Quaternion.Identity();
     const moment = 0.4 * radius * radius;
-    run.core.physics.addBody(node, [{ kind: "sphere", centre: [0, 0, 0], radius }],
+    run.world.physics.addBody(node, [{ kind: "sphere", centre: [0, 0, 0], radius }],
       { mass: 1, centre: [0, 0, 0], moments: [moment, moment, moment], orientation: Quaternion.Identity() });
-    run.core.step(run.core.hz);
+    run.world.step(run.world.hz);
     assert.ok(Math.abs(node.position.y - 2.5 - radius) < 0.02, `a ball dropped on the closed door rests on its top: ${node.position.y}`);
-    run.world.openNearby([door.point]);
+    run.level.openNearby([door.point]);
     assert.equal(door.open, true);
-    run.core.step(run.core.hz);
+    run.world.step(run.world.hz);
     assert.ok(node.position.y < 2 * radius, `opened, the door is gone and the ball on the floor: ${node.position.y}`);
   } finally { dispose(); }
 });

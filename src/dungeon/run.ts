@@ -136,8 +136,10 @@ const clubbed = (model: BodyModel): BodySpec => armed(modelSpec(model), "right",
 export class DungeonRun {
   readonly map: DungeonMap;
   readonly commands = new DungeonCommands();
-  readonly core: World;
-  readonly world: ReturnType<typeof buildDungeonWorld>;
+  /** The world every body and collider is in. */
+  readonly world: World;
+  /** The level built: its floor, walls and doors, drawn, and their colliders in `world`. */
+  readonly level: ReturnType<typeof buildDungeonWorld>;
   readonly actors: DungeonActor[] = [];
   readonly hero: DungeonActor;
   /** The bodies one person orders: the hero first, then the companions. */
@@ -166,10 +168,10 @@ export class DungeonRun {
   constructor(scene: Scene, options: DungeonRunOptions) {
     this.options = options;
     this.map = options.layout ?? generateLevel(options.seed).map;
-    this.core = createWorld(scene, options.engine);
-    this.world = buildDungeonWorld(scene, this.map, options.visuals ?? true, this.core.physics);
+    this.world = createWorld(scene, options.engine);
+    this.level = buildDungeonWorld(scene, this.map, options.visuals ?? true, this.world.physics);
     // Before any body's own hooks, so each mind reads this step's plan.
-    this.planning = this.core.beforeStep(() => this.plan());
+    this.planning = this.world.beforeStep(() => this.plan());
     const create = (id: string, model: BodyModel, at: Point, side: DungeonActor["side"]): DungeonActor => {
       const actor: DungeonActor = {
         id, name: NAMES[model], model, side, fighter: null, meshes: [],
@@ -201,18 +203,18 @@ export class DungeonRun {
   }
 
   /** Seconds since the run began: the core world's clock. */
-  get clock(): number { return this.core.time; }
+  get clock(): number { return this.world.time; }
 
   /** Build `actor`'s body where it waits, hand it its mind, and watch its blows with everybody's. */
   private build(actor: DungeonActor): void {
     const spec = clubbed(actor.model);
-    const built = buildBody(spec, this.core, { position: [actor.home.x, 0, actor.home.z] });
-    const body = createBody(built, this.core, { servoSeconds: SERVO_SECONDS });
+    const built = buildBody(spec, this.world, { position: [actor.home.x, 0, actor.home.z] });
+    const body = createBody(built, this.world, { servoSeconds: SERVO_SECONDS });
     const skills = driveBy(body, this.mind(actor));
     actor.fighter = { id: actor.id, side: actor.side, built, pool: createPool(spec, this.rules), body, skills };
     this.watch?.dispose();
     const fighters = this.actors.flatMap((a) => a.fighter ? [a.fighter] : []);
-    this.watch = watchBlows(this.core, fighters, this.rules, (blow) => { this.blows.push(blow); this.options.onBlow?.(blow); });
+    this.watch = watchBlows(this.world, fighters, this.rules, (blow) => { this.blows.push(blow); this.options.onBlow?.(blow); });
     this.options.onBuilt?.(actor);
   }
 
@@ -454,7 +456,7 @@ export class DungeonRun {
       this.nextPerception = 0;
       if (member.order.kind === "idle" && member === this.hero) this.notice = "Find the illuminated exit.";
     }
-    this.world.openNearby(this.actors.filter(a => a.fighter && a.alive).map(a => a.feet()));
+    this.level.openNearby(this.actors.filter(a => a.fighter && a.alive).map(a => a.feet()));
     this.wake();
     if (this.clock >= this.nextPerception) { this.perceive(); this.nextPerception = this.clock + 0.2; }
     for (const actor of this.actors) {
@@ -474,13 +476,13 @@ export class DungeonRun {
   }
 
   /** `n` steps of the core world, each running the run's plan and then every body. */
-  step(n = 1): void { this.core.step(n); }
+  step(n = 1): void { this.world.step(n); }
 
   /** The steps owed after `seconds` of real time, no more than `most` (`World.advance`); none once the run is over. */
-  advance(seconds: number, most?: number): number { return this.status === "playing" ? this.core.advance(seconds, most) : 0; }
+  advance(seconds: number, most?: number): number { return this.status === "playing" ? this.world.advance(seconds, most) : 0; }
 
   present(): void {
-    this.world.present(this.visible, this.explored, this.leader.feet(), this.pitch, this.toward);
+    this.level.present(this.visible, this.explored, this.leader.feet(), this.pitch, this.toward);
     for (const actor of this.actors) {
       const shown = actor.side === "party" || this.visible.has(cellKey(this.map, actor.feet()));
       for (const mesh of actor.meshes) mesh.isVisible = shown;
@@ -501,7 +503,7 @@ export class DungeonRun {
     this.watch?.dispose();
     this.planning.dispose();
     for (const actor of this.actors) actor.fighter?.body.dispose();
+    this.level.dispose();
     this.world.dispose();
-    this.core.dispose();
   }
 }

@@ -19,7 +19,7 @@ async function crypt(map, options = {}) {
   return { run, dispose: () => { run.dispose(); scene.dispose(); } };
 }
 // Actors are compared by id: a failed `assert.equal` of two actors prints a diff of the whole scene they reach.
-const seconds = (run, s) => { for (let i = 0; i < s * run.core.hz && run.status === "playing"; i++) run.step(); };
+const seconds = (run, s) => { for (let i = 0; i < s * run.world.hz && run.status === "playing"; i++) run.step(); };
 
 /** A floor point `metres` from the start with a clear line to it, on the first bearing that has one. */
 function floorAway(map, metres, bearing = 0) {
@@ -107,6 +107,6 @@ test("a_run_is_lost_with_the_whole_party_and_won_by_any_member_at_the_exit", asy
     assert.equal(run.status, "dead");
     const clock = run.clock;
     run.step(); run.advance(1);
-    assert.ok(Math.abs(run.clock - clock - run.core.dt) < 1e-12, "a step still steps the world, and an ended run owes no steps");
+    assert.ok(Math.abs(run.clock - clock - run.world.dt) < 1e-12, "a step still steps the world, and an ended run owes no steps");
   } finally { dispose(); }
 });

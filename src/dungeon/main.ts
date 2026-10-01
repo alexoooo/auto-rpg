@@ -136,7 +136,7 @@ async function boot(): Promise<void> {
     const follow = .4 + .6 * Math.max(0, Math.min(1, (6.5 - zoom) / 3.5));
     const centre=cryptPlan?{x:(cryptPlan.bounds.min.x+cryptPlan.bounds.max.x)/2,z:(cryptPlan.bounds.min.z+cryptPlan.bounds.max.z)/2}:{x:9.5,z:9};
     frameDungeon(camera, reference && !cryptPlan ? { x: centre.x + (hero.x - centre.x) * follow, z: centre.z + (hero.z - centre.z) * follow } : hero, zoom, engine.getRenderWidth() / engine.getRenderHeight(), pitch, azimuth);
-    lighting.update(hero, zoom, pitch, toward); run.world.setHero(hero);
+    lighting.update(hero, zoom, pitch, toward); run.level.setHero(hero);
   };
   const rebuild = async (nextSeed: number) => {
     audio.reset(); soundTorches = [];
@@ -173,15 +173,15 @@ async function boot(): Promise<void> {
     run.commands.setMode({ keyboard: keyboard.checked, facing: facing.checked });
     run.pitch = pitch; run.toward = toward;
     // The look is page code no Node test loads, so the rule that it adds no collider is held here, where it runs.
-    const solids = run.world.solids.length;
+    const solids = run.level.solids.length;
     const torches = cryptPlan?.torches ?? (reference ? [...REFERENCE_TORCHES] : torchPlacements(run.map, seed)); soundTorches = torches;
-    lighting = lightDungeon(scene, camera, run.map, torches, azimuth, reference ? REFERENCE_LIGHT : undefined); run.world.sconces(torches);
-    if (!reference && stone.dressing) run.world.dress(dressingPlacements(run.map, seed, DRESSING, toward));
+    lighting = lightDungeon(scene, camera, run.map, torches, azimuth, reference ? REFERENCE_LIGHT : undefined); run.level.sconces(torches);
+    if (!reference && stone.dressing) run.level.dress(dressingPlacements(run.map, seed, DRESSING, toward));
     if (reference) {
-      referenceLook = await dressReference(scene, run.world, selectedQuality, azimuth, cryptPlan);
+      referenceLook = await dressReference(scene, run.level, selectedQuality, azimuth, cryptPlan);
       if (selectedQuality === "reduced") lighting.setLook({ ssao: false });
     }
-    if (run.world.solids.length !== solids) throw new Error(`The dungeon's look added ${run.world.solids.length - solids} colliders; cosmetics carry none.`);
+    if (run.level.solids.length !== solids) throw new Error(`The dungeon's look added ${run.level.solids.length - solids} colliders; cosmetics carry none.`);
     need("start-panel").hidden = true; need("seed-label").textContent = `SEED ${seed}`;
     need("hero-name").textContent = heroLabel(selectedHero);
     partyRows();
@@ -329,7 +329,7 @@ async function boot(): Promise<void> {
     if (!scene || !run || launching) return;
     if (!paused && run.status === "playing") {
       const going = run;
-      meter.physics(() => going.advance(engine.getDeltaTime() / 1000, Math.ceil(CATCH_UP_SECONDS * going.core.hz)));
+      meter.physics(() => going.advance(engine.getDeltaTime() / 1000, Math.ceil(CATCH_UP_SECONDS * going.world.hz)));
       if (run.status !== "playing") setPaused(true);
     }
     framing();

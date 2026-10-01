@@ -58,8 +58,8 @@ class CryptCutaway extends MaterialPluginBase {
     return shaderType === "fragment" ? { CUSTOM_FRAGMENT_MAIN_BEGIN: `if (vPositionW.y > 0.85 && (${this.condition})) discard;` } : null;
   }
 }
-/** Visual-only owner: all solid props have already been built by the gameplay world. */
-export async function dressReference(scene: Scene, world: ReturnType<typeof buildDungeonWorld>, quality: ReferenceQuality, azimuth: number, plan?: CryptRoomPlan) {
+/** Visual-only owner: all solid props have already been built by the level (`buildDungeonWorld`). */
+export async function dressReference(scene: Scene, level: ReturnType<typeof buildDungeonWorld>, quality: ReferenceQuality, azimuth: number, plan?: CryptRoomPlan) {
   const container=await LoadAssetContainerAsync(publicAssetUrl(plan ? "/assets/crypt-kit/kit.glb" : "/assets/dungeon-reference/chamber.glb"),scene);
   container.addAllToScene();
   if(plan) assembleCryptKit(container,plan);
@@ -98,18 +98,18 @@ export async function dressReference(scene: Scene, world: ReturnType<typeof buil
   const cloth=flatStone(scene,"crypt.cloth","#752c25",.95);
   const materials={wall,trim,floor,root:rootMat,earth,iron,tomb,wood,cloth};
   new CryptCutaway(wood, azimuth, cutaway);
-  for(const door of world.doorVisuals) { door.wood.material=wood;door.iron.material=iron;door.wood.receiveShadows=door.iron.receiveShadows=true; }
+  for(const door of level.doorVisuals) { door.wood.material=wood;door.iron.material=iron;door.wood.receiveShadows=door.iron.receiveShadows=true; }
   for(const [name,material] of Object.entries(materials)) {
-    material.maxSimultaneousLights=6;world.fog?.attach(material,name==="wall"||name==="trim"||name==="root"||name==="earth"||(name==="wood"&&!!plan?.archetypes)?"wall":null);
+    material.maxSimultaneousLights=6;level.fog?.attach(material,name==="wall"||name==="trim"||name==="root"||name==="earth"||(name==="wood"&&!!plan?.archetypes)?"wall":null);
     if (["wall", "trim", "root", "earth", "iron", "cloth"].includes(name)) new CryptCutaway(material, azimuth, cutaway);
   }
   // Retain working doors and exit; replace only the generated architectural skin.
-  for(const mesh of world.surfaces)if(mesh.name.startsWith("wall.")||mesh.name.startsWith("floor."))mesh.setEnabled(false);
+  for(const mesh of level.surfaces)if(mesh.name.startsWith("wall.")||mesh.name.startsWith("floor."))mesh.setEnabled(false);
   for(const mesh of container.meshes)if(mesh instanceof Mesh && mesh.getTotalVertices() && mesh.isEnabled()) {
     const name=mesh.name.replace("reference.","") as keyof typeof materials;
     if (!materials[name]) throw new Error(`Unbound reference material: ${mesh.name}`);
     mesh.material=materials[name];mesh.overrideMaterialSideOrientation = 0;mesh.receiveShadows=true;mesh.isPickable=false;
-    world.surfaces.push(mesh);
+    level.surfaces.push(mesh);
   }
   const shadows:ShadowGenerator[]=[];
   // A cut-away wall must take its elevated fittings with it. Keep its light contribution;
