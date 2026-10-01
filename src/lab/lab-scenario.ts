@@ -3,6 +3,7 @@ import type { BuiltBody } from "../core/build/build-body.ts";
 import type { World } from "../core/world.ts";
 import type { Player, Playhead } from "./player.ts";
 import type { Hand } from "../render/skin.ts";
+import type { Control } from "./hud/controls.ts";
 
 /**
  * **What the lab's shell (`main.ts`) asks of a scenario.** The shell owns the page: the engine,
@@ -15,7 +16,7 @@ import type { Hand } from "../render/skin.ts";
  */
 export interface LabScenario {
   /** What it puts in the HUD, built with the lab's controls (`hud/controls.ts`); the shell places each list. */
-  readonly panels: Readonly<Partial<Record<(typeof SCENARIO_PANELS)[number], readonly HTMLElement[]>>>;
+  readonly panels: Readonly<Partial<Record<(typeof SCENARIO_PANELS)[number], readonly Control[]>>>;
   /** The keys it takes while it runs (`KeyboardEvent.code`); the shell holds them as a level. */
   readonly keys: ReadonlySet<string>;
   /** What the transport bar's slider says it steps through. */

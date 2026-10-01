@@ -93,14 +93,14 @@ without resuming on its own.
 **Lab** on the main menu (`?play=lab`) lists scenarios that stand one body and exercise it:
 
 - **Stance**: walk it from the keyboard (W/S or Up/Down forward and back, A/D or Left/Right
-  sideways, Q/E turn while walking) and shove it from the panel.
+  sideways, Q/E turn while walking) and shove it.
 - **Routine**: it walks out, strikes three times, turns and walks back.
 - **Run**: it goes round a track as fast as its walk holds.
 - **Blow**: it swings the club blow that sets the damage unit into a head.
 
-The panel chooses the body, what each hand holds, boots and armour, the camera (Free, Isometric or
-Chase), the view, and 120 or 480 Hz. The transport pauses (Space), steps one physics step at a
-time, scrubs, and slows time to 1/4 or 1/10.
+Its sections, each of which folds away, choose the body, what each hand holds, boots and armour,
+the camera (Free, Isometric or Chase), the view, and 120 or 480 Hz. The transport pauses (Space),
+steps one physics step at a time, scrubs, and slows time to 1/4 or 1/10.
 
 ## The other pages
 

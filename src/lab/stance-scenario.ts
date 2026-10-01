@@ -77,11 +77,11 @@ export function stanceScenario(scene: Scene): LabScenario {
     panels: {
       controls: [
         keyHints([{ keys: letters(WALK_KEYS), does: "or arrows walk" }, { keys: letters(TURN_KEYS), does: "turn once walking" }]),
-        choice("Walking speed, m/s", SPEEDS.map((value) => ({ value, name: String(value) })), () => walkSpeed, (value) => { walkSpeed = value; }).element,
-        choice("Impulse, N s", IMPULSES.map((value) => ({ value, name: String(value) })), () => impulse, (value) => { impulse = value; }).element,
-        actions("Shove the chest toward", SHOVES, (degrees) => current?.shove(impulse, degrees)),
+        choice("Walk, m/s", SPEEDS.map((value) => ({ value, name: String(value) })), () => walkSpeed, (value) => { walkSpeed = value; }),
+        choice("Impulse, N s", IMPULSES.map((value) => ({ value, name: String(value) })), () => impulse, (value) => { impulse = value; }),
+        actions("Shove", SHOVES, (degrees) => current?.shove(impulse, degrees)),
       ],
-      readout: [shown.element, legend([MARKS.centre, MARKS.capture, MARKS.place])],
+      readout: [shown, legend([MARKS.centre, MARKS.capture, MARKS.place])],
     },
     timelineLabel: `The last ${HISTORY_SECONDS} seconds, one physics step a notch; dragging pauses. Arrow keys step once it has focus.`,
     start({ built, world, changed, clock }) {

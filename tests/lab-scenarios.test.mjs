@@ -7,23 +7,23 @@ import assert from "node:assert/strict";
 import { routeFor } from "../src/app-route.ts";
 import { PHYSICS_HZ } from "../src/core/world.ts";
 import { CHARACTERS } from "../src/character-lab/catalog.ts";
-import { labAddress, labHref, LAB_CAMERAS, LAB_HELD, LAB_PROJECTIONS, LAB_RATES, MODELS, SCENARIOS } from "../src/lab/scenarios.ts";
+import { labAddress, labHref, LAB_CAMERAS, LAB_HELD, LAB_PROJECTIONS, LAB_RATES, LAB_VIEWS, MODELS, SCENARIOS } from "../src/lab/scenarios.ts";
 
 const DEFAULTS = { scenario: null, model: "workshop-fighter", right: "empty", left: "empty", boots: true, armour: true, hz: 120,
-  camera: "free", projection: "orthographic" };
+  view: "world", camera: "free", projection: "orthographic" };
 /** The Rogue as the workshop dresses it: boots, no armour. */
 const ROGUE = { model: "workshop-rogue", boots: true, armour: false };
 
-test("the_lab_address_names_a_scenario_a_character_a_rate_and_a_camera_or_falls_back", () => {
+test("the_lab_address_names_a_scenario_a_character_a_rate_a_view_and_a_camera_or_falls_back", () => {
   assert.deepEqual(labAddress("?play=lab"), DEFAULTS);
-  assert.deepEqual(labAddress("?play=lab&scenario=routine&model=workshop-rogue&right=club&left=club&boots=0&armour=1&hz=480&camera=chase&projection=perspective"),
-    { scenario: "routine", model: "workshop-rogue", right: "club", left: "club", boots: false, armour: true, hz: 480, camera: "chase",
-      projection: "perspective" });
+  assert.deepEqual(labAddress("?play=lab&scenario=routine&model=workshop-rogue&right=club&left=club&boots=0&armour=1&hz=480&view=tactical&camera=chase&projection=perspective"),
+    { scenario: "routine", model: "workshop-rogue", right: "club", left: "club", boots: false, armour: true, hz: 480, view: "tactical",
+      camera: "chase", projection: "perspective" });
   // Each field falls back alone; a known value beside an unknown one is kept.
-  assert.deepEqual(labAddress("?scenario=elsewhere&model=workshop-rogue&right=sword&left=club&boots=yes&hz=60&camera=isometric&projection=fisheye"),
+  assert.deepEqual(labAddress("?scenario=elsewhere&model=workshop-rogue&right=sword&left=club&boots=yes&hz=60&view=x-ray&camera=isometric&projection=fisheye"),
     { ...DEFAULTS, ...ROGUE, left: "club", camera: "isometric" });
-  assert.deepEqual(labAddress("?scenario=stance&model=golem&right=club&left=bow&armour=0&hz=480&camera=drone&projection=perspective"),
-    { ...DEFAULTS, scenario: "stance", right: "club", armour: false, hz: 480, projection: "perspective" });
+  assert.deepEqual(labAddress("?scenario=stance&model=golem&right=club&left=bow&armour=0&hz=480&view=tactical&camera=drone&projection=perspective"),
+    { ...DEFAULTS, scenario: "stance", right: "club", armour: false, hz: 480, view: "tactical", projection: "perspective" });
 });
 
 test("a_body_wears_what_the_workshop_dresses_it_in_until_the_address_says_otherwise", () => {
@@ -43,14 +43,14 @@ test("a_body_wears_what_the_workshop_dresses_it_in_until_the_address_says_otherw
 test("every_choice_the_lab_offers_reads_back_from_the_address_it_writes", () => {
   for (const scenario of [null, ...SCENARIOS.map((s) => s.id)]) {
     for (const { id: model } of MODELS) {
-      for (const hz of LAB_RATES) {
+      for (const [hz, view] of LAB_RATES.flatMap((r) => LAB_VIEWS.map((v) => [r, v]))) {
         for (const camera of LAB_CAMERAS) {
           for (const projection of LAB_PROJECTIONS) {
             for (const right of LAB_HELD) {
               for (const left of LAB_HELD) {
                 for (const boots of [false, true]) {
                   for (const armour of [false, true]) {
-                    const address = { scenario, model, right, left, boots, armour, hz, camera, projection }, href = labHref(address);
+                    const address = { scenario, model, right, left, boots, armour, hz, view, camera, projection }, href = labHref(address);
                     assert.equal(routeFor(href), "lab", href);
                     assert.deepEqual(labAddress(href), address, href);
                   }

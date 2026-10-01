@@ -5,7 +5,7 @@ import type { BodyModel } from "../core/human/spec.ts";
 /**
  * **The lab's scenarios, and the address that opens one.** `?play=lab` is the scenario menu
  * (`setup.ts`); `?play=lab&scenario=…` runs that scenario (`main.ts`), where the loadout, the
- * rate and the camera are chosen, and the address keeps them. Choosing a scenario, or going back to
+ * rate, the view and the camera are chosen, and the address keeps them. Choosing a scenario, or going back to
  * the menu, is a navigation, as every change of screen in the game is.
  *
  * Pure and free of the DOM, so `tests/lab-scenarios.test.mjs` can argue with it; the menu
@@ -18,13 +18,13 @@ interface ScenarioInfo {
   readonly id: ScenarioId;
   readonly name: string;
   readonly line: string;
-  /** What the menu's card puts in the hands, where the scenario needs it; the panel can change it after. */
+  /** What the menu's card puts in the hands, where the scenario needs it; the scenario's page can change it after. */
   readonly holds?: Partial<Pick<LabLoadout, "right" | "left">>;
 }
 
 /** Every scenario, in the menu's order; the first is the default. */
 export const SCENARIOS: readonly ScenarioInfo[] = [
-  { id: "stance", name: "Stance", line: "Walk it from the keyboard, shove it from the panel." },
+  { id: "stance", name: "Stance", line: "Walk it from the keyboard, and shove it." },
   { id: "routine", name: "Routine", line: "It walks out, strikes three times, turns and walks back." },
   { id: "run", name: "Run", line: "It goes round a track as fast as its walk holds: a big circle, or straight back and forth." },
   { id: "blow", name: "Blow", line: "It swings a club blow the strike search found into a head, and reads what it lands with.", holds: { right: "club" } },
@@ -42,6 +42,8 @@ export const MODELS: readonly { readonly id: BodyModel; readonly name: string }[
  */
 export const LAB_HELD = ["empty", "club"] as const;
 export type LabHeld = (typeof LAB_HELD)[number];
+/** The hands that hold, and the clothing worn or not, as the loadout names them. */
+export const LAB_HANDS = ["right", "left"] as const, LAB_WORN = ["boots", "armour"] as const;
 
 /**
  * What each body wears unless the address says: the character workshop's own default loadout for
@@ -58,13 +60,8 @@ const WORN: Readonly<Record<BodyModel, { readonly boots: boolean; readonly armou
  * physical: they make the spec (`loadout.ts`). Boots and armour are the skin's meshes alone; the
  * core has no clothing, and the boot is in the foot's shape whatever the skin shows.
  */
-export interface LabLoadout {
-  readonly model: BodyModel;
-  readonly right: LabHeld;
-  readonly left: LabHeld;
-  readonly boots: boolean;
-  readonly armour: boolean;
-}
+export type LabLoadout = { readonly model: BodyModel }
+  & Readonly<Record<(typeof LAB_HANDS)[number], LabHeld>> & Readonly<Record<(typeof LAB_WORN)[number], boolean>>;
 
 /**
  * The physics and control rates on offer, Hz: the game's (`PHYSICS_HZ`, which the test pins
@@ -73,6 +70,12 @@ export interface LabLoadout {
 export const LAB_RATES = [120, 480] as const;
 type LabRate = (typeof LAB_RATES)[number];
 
+/**
+ * How the body is drawn: World, the model's skin, or Tactical, the collision shapes the solver
+ * moves. The first is the default.
+ */
+export const LAB_VIEWS = ["world", "tactical"] as const;
+export type LabView = (typeof LAB_VIEWS)[number];
 /** How the camera follows the body (`camera.ts`); the first is the default. */
 export const LAB_CAMERAS = ["free", "isometric", "chase"] as const;
 export type LabCamera = (typeof LAB_CAMERAS)[number];
@@ -84,11 +87,12 @@ export interface LabAddress extends LabLoadout {
   /** The scenario to run; none is the menu. */
   readonly scenario: ScenarioId | null;
   readonly hz: LabRate;
+  readonly view: LabView;
   readonly camera: LabCamera;
   readonly projection: LabProjection;
 }
 
-const KEYS = ["scenario", "model", "right", "left", "boots", "armour", "hz", "camera", "projection"] as const;
+const KEYS = ["scenario", "model", "right", "left", "boots", "armour", "hz", "view", "camera", "projection"] as const;
 
 /** A switch in the address: `1` on, `0` off, anything else `fallback`. */
 const flag = (value: string | null, fallback: boolean): boolean => value === "1" ? true : value === "0" ? false : fallback;
@@ -106,6 +110,7 @@ export function labAddress(search: string): LabAddress {
     boots: flag(query.get("boots"), worn.boots),
     armour: flag(query.get("armour"), worn.armour),
     hz: LAB_RATES.find((r) => String(r) === query.get("hz")) ?? LAB_RATES[0],
+    view: LAB_VIEWS.find((v) => v === query.get("view")) ?? LAB_VIEWS[0],
     camera: LAB_CAMERAS.find((c) => c === query.get("camera")) ?? LAB_CAMERAS[0],
     projection: LAB_PROJECTIONS.find((p) => p === query.get("projection")) ?? LAB_PROJECTIONS[0],
   };
@@ -113,7 +118,7 @@ export function labAddress(search: string): LabAddress {
 
 /**
  * The address of `address`, keeping whatever else `search` holds. The menu keeps the loadout,
- * the rate and the camera, so going back to it and on to another scenario keeps them too.
+ * the rate, the view and the camera, so going back to it and on to another scenario keeps them too.
  */
 export function labHref(address: LabAddress, search = ""): string {
   const query = new URLSearchParams(playHref("lab", search));
@@ -125,6 +130,7 @@ export function labHref(address: LabAddress, search = ""): string {
   query.set("boots", address.boots ? "1" : "0");
   query.set("armour", address.armour ? "1" : "0");
   query.set("hz", String(address.hz));
+  query.set("view", address.view);
   query.set("camera", address.camera);
   query.set("projection", address.projection);
   return `?${query}`;

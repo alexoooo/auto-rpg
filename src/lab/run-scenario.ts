@@ -73,8 +73,8 @@ export function runScenario(scene: Scene, shell: LabShell): LabScenario {
   return {
     keys: new Set(),
     panels: {
-      scenario: [choice("Track", TRACK_IDS.map((id) => ({ value: id, name: TRACKS[id].name })), () => chosen, (id) => { chosen = id; shell.restart(); }).element],
-      readout: [shown.element, legend([MARKS.track, MARKS.centre, MARKS.aim])],
+      scenario: [choice("Track", TRACK_IDS.map((id) => ({ value: id, name: TRACKS[id].name })), () => chosen, (id) => { chosen = id; shell.restart(); })],
+      readout: [shown, legend([MARKS.track, MARKS.centre, MARKS.aim])],
     },
     timelineLabel: `The last ${HISTORY_SECONDS} seconds, one physics step a notch; dragging pauses. Arrow keys step once it has focus.`,
     start({ built, world, changed, clock }) {

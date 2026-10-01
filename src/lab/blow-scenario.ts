@@ -75,7 +75,7 @@ export function blowScenario(scene: Scene, shell: LabShell): LabScenario {
     head: { name: "Head's mass met", unit: "kg" }, peak: { name: "Swell's peak", unit: "m/s" }, rate: { name: "Rate", unit: "Hz" },
   });
   let chosen: StoredBlow = LAB_BLOWS[0]!;
-  const about = note(chosen.line);
+  const about = note(() => chosen.line);
 
   return {
     keys: new Set(),
@@ -83,12 +83,12 @@ export function blowScenario(scene: Scene, shell: LabShell): LabScenario {
       scenario: [
         choice("Blow", LAB_BLOWS.map((blow) => ({ value: blow, name: blow.name })), () => chosen, (blow) => {
           chosen = blow;
-          about.textContent = blow.line;
+          about.refresh();
           shell.restart();
-        }).element,
+        }),
         about,
       ],
-      readout: [shown.element, legend([MARKS.head, MARKS.touch])],
+      readout: [shown, legend([MARKS.head, MARKS.touch])],
     },
     timelineLabel: "The blow, from standing in guard, one physics step a notch; dragging pauses. Arrow keys step once it has focus.",
     start({ built, world, changed, clock }) {

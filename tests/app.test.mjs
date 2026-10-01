@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { MENU_HREF, playHref, routeFor } from "../src/app-route.ts";
 import { MATCHUP_PARAM } from "../src/arena/matchup.ts";
+import { SECTIONS } from "../src/lab/hud/sections.ts";
 
 const read = (path) => readFile(new URL(path, import.meta.url), "utf8");
 const template = (html, id) => {
@@ -44,6 +45,14 @@ test("index_html_is_one_document_holding_four_screens", async () => {
     const seen = ids(text);
     assert.equal(new Set(seen).size, seen.length, `no id repeats within the ${name} screen`);
   }
+  // The lab's HUD is its sections and no other: each a `<details>` that opens with its `<summary>`.
+  assert.deepEqual([...lab.matchAll(/<details class="section" data-section="([^"]+)" open>\s*<summary>/g)].map((m) => m[1]).sort(),
+    [...SECTIONS].sort());
+  assert.equal((lab.match(/<details\b/g) ?? []).length, SECTIONS.length, "every <details> of the lab is a section");
+  // The shell finds by id only what the template holds.
+  const needed = [...(await read("../src/lab/main.ts")).matchAll(/\bneed(?:<\w+>)?\("([^"]+)"\)/g)].map((m) => m[1]);
+  assert.deepEqual(needed.filter((id) => !ids(lab).includes(id)), [], "src/lab/main.ts needs an id the lab's template lacks");
+  assert.ok(needed.includes("stage") && needed.includes("transport"), "the control: the shell's ids are found");
   // The control: the two modes may share ids only because a document never holds both.
   assert.ok(ids(arena).includes("help") && ids(dungeon).includes("help"));
 });

@@ -9,7 +9,7 @@ import { createPlayer } from "./player.ts";
 import { ROUTINE_TRACK, startRoutine } from "./routine.ts";
 import { paintTrack } from "./run-scenario.ts";
 import { trackOf } from "./track.ts";
-import { readings } from "./hud/controls.ts";
+import { readings, table } from "./hud/controls.ts";
 
 /**
  * **The Routine scenario**: the lab routine (`routine.ts`), tactics on the core's skills -- walk out,
@@ -46,18 +46,11 @@ export function routineScenario(scene: Scene): LabScenario {
   post.isPickable = false;
   post.isVisible = false;
   const shown = readings({ doing: { name: "Doing" }, loops: { name: "Loops" }, fist: { name: "Fist", unit: "m/s" } });
-  const line = (tag: "td" | "th", cells: readonly string[]): HTMLElement => {
-    const made = document.createElement("tr");
-    made.append(...cells.map((text) => Object.assign(document.createElement(tag), { textContent: text })));
-    return made;
-  };
-  const table = document.createElement("table"), strikes = document.createElement("tbody");
-  table.createTHead().append(line("th", ["Strike", "Peak fist, m/s", "Off, cm"]));
-  table.append(strikes);
+  const strikes = table(["Strike", "Peak fist, m/s", "Off, cm"]);
 
   return {
     keys: new Set(),
-    panels: { readout: [shown.element, table] },
+    panels: { readout: [shown, strikes] },
     timelineLabel: `The last ${HISTORY_SECONDS} seconds, one physics step a notch; dragging pauses. Arrow keys step once it has focus.`,
     start({ built, world, changed, clock }) {
       const routine = startRoutine(built, world);
@@ -79,8 +72,8 @@ export function routineScenario(scene: Scene): LabScenario {
           shown.write({ doing: moment.doing, loops: String(moment.loops), fist: moment.fist.toFixed(1) });
           if (routine.strikes.length !== shownStrikes) {
             shownStrikes = routine.strikes.length;
-            strikes.replaceChildren(...routine.strikes.slice(-6).map((s) =>
-              line("td", [s.name, s.peak.toFixed(1), `${(100 * s.off.along).toFixed(0)}, ${(100 * s.off.across).toFixed(0)}`])));
+            strikes.write(routine.strikes.slice(-6).map((s) =>
+              [s.name, s.peak.toFixed(1), `${(100 * s.off.along).toFixed(0)}, ${(100 * s.off.across).toFixed(0)}`]));
           }
           return moment.time;
         },
