@@ -94,7 +94,8 @@ All of it on a physically based core, humans first ([architecture](architecture.
   where a person's preferred walk is near 1.4 m/s. The next step is a controller that holds the
   pelvis against the moment the soles miss, or one whole-body solve. The assist supplies the
   moment the soles miss, as a cheat with a ceiling (`docs/reference/assist.md`).
-- Rising after a fall. A fallen body is out of every fight until this exists.
+- Rising after a fall. A fallen body is out of every fight until this exists. Its design and its
+  five plans are `docs/plans/2026-10-01-rising-00-design.md`.
 - Past a fall the stance goes on asking, and what it asks of the ground grows without bound: over
   1e50 N within 3 s of a fall (Node stand, Rapier, 120 Hz; a Warrior pulled over). Nothing reads
   it in a bout, which ends at the fall; a rising skill will.
