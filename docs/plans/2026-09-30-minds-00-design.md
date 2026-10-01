@@ -89,6 +89,11 @@ load, behind the same call. 07 touches one module and can land at any time. 05 c
 Every plan ends with `npm test`, `npm run check` and `npm run build`, the line-ending gate
 (`git diff --numstat` equal to `git diff --ignore-cr-at-eol --numstat`), and one commit.
 
+**Beside the clean-up.** [The clean-up](2026-09-30-finish-the-clean-up.md) is carried out with
+this set, and says the order under "Beside the minds set". Two of its chunks are needed here: its
+fingerprint (chunk 0) hashes with plan 01's trace, and its split of `stanceControl` (chunk 11)
+lands before plan 05, which names the split's constructs (`StanceState`, `limitToSoles`).
+
 ## The rules this changes
 
 Each is changed by the plan that makes it true, in the same commit.

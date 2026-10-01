@@ -74,7 +74,7 @@ given nothing, and the stance's ask after a fall is on the roadmap as a defect o
 |---|---|
 | `src/core/control/assist.ts` | New: `AssistCeiling`, `NO_ASSIST`, `Assist`, `createAssist`. |
 | `src/core/mind/mind.ts` | `OwnBody.assist`; `embody` takes a ceiling and applies the assist after the mind's step. |
-| `src/core/control/stance.ts` | `StanceReading.shortfall`; `stanceControl(built, tuning, assist)` asks the assist for it. |
+| `src/core/control/stance.ts`, `stance-dynamics.ts` | `StanceReading.shortfall`; `stanceControl(built, tuning, assist)` asks the assist for it. |
 | `src/core/control/motor.ts` | Hands the assist to the stance. |
 | `src/core/body.ts` | `BodyOptions.assist`; `Body.assist`. |
 | `src/arena/duel.ts` | `ASSIST`; `DuelRecipe.assist`; withdrawn at the verdict. |
@@ -102,13 +102,16 @@ Lands by itself, changes no motion, and is read by `research/assist-need.mjs`.
   readonly shortfall: { readonly force: Vector3; readonly moment: Vector3 };
 ```
 
-`reading` gains `shortfall: { force: new Vector3(), moment: new Vector3() }`; `command` sets both
-to zero where it sets `aim.on = false`; and `carry`, straight after its `shareGroundWrench`:
+The stance's memory is `StanceState` and its scratch `StanceScratch`, and `carry`'s limiting
+of the root to what the soles give is `limitToSoles` (`src/core/control/stance-dynamics.ts`).
+The state's `reading` gains `shortfall: { force: new Vector3(), moment: new Vector3() }`;
+`command` sets both to zero where it sets `aim.on = false`; and `limitToSoles`, straight after
+its `shareGroundWrench` (`reading` is `s.state.reading`, `missed` is `s.scratch.missed`):
 
 ```ts
-        // `missed` is what the soles give beyond what was asked; the shortfall is its opposite.
-        reading.shortfall.force.copyFrom(missed.force).scaleInPlace(-1);
-        reading.shortfall.moment.copyFrom(missed.moment).scaleInPlace(-1);
+    // `missed` is what the soles give beyond what was asked; the shortfall is its opposite.
+    reading.shortfall.force.copyFrom(missed.force).scaleInPlace(-1);
+    reading.shortfall.moment.copyFrom(missed.moment).scaleInPlace(-1);
 ```
 
 `research/assist-need.mjs`: `node research/assist-need.mjs [--gaps 4] [--workers 14]`. Every
@@ -224,28 +227,30 @@ export function embody<M extends Mind>(built: BuiltBody, world: World, make: Min
 
 ### `src/core/control/stance.ts`
 
-`stanceControl(built: BuiltBody, tuning: StanceTuning = {}, assist: Assist | null = null)`, and
-beside `missed`:
+`stanceControl(built: BuiltBody, tuning: StanceTuning = {}, assist: Assist | null = null)`.
+`Stance` gains `readonly assist: Assist | null` beside `built`, and `StanceState` gains,
+beside `aim`:
 
 ```ts
   /** What the assist is asked this step: the soles' shortfall, within its ceiling. */
-  const helped = { force: new Vector3(), moment: new Vector3() };
+  readonly helped: { readonly force: Vector3; readonly moment: Vector3 };
 ```
 
-`command` zeroes `helped` with the shortfall. In `carry`, after chunk A's two lines and before
-the test of `missed`:
+`command` zeroes `helped` with the shortfall. In `limitToSoles`, after chunk A's two lines and
+before the test of `missed` (`helped` is `s.state.helped`, `assist` is `s.assist`):
 
 ```ts
-        // What the soles cannot give, the assist may, up to its ceiling: the root is then asked
-        // for the motion the two give together.
-        if (assist?.on) {
-          assist.clipToRef(reading.shortfall.force, reading.shortfall.moment, helped.force, helped.moment);
-          missed.force.addInPlace(helped.force);
-          missed.moment.addInPlace(helped.moment);
-        }
+    // What the soles cannot give, the assist may, up to its ceiling: the root is then asked
+    // for the motion the two give together.
+    if (assist?.on) {
+      assist.clipToRef(reading.shortfall.force, reading.shortfall.moment, helped.force, helped.moment);
+      missed.force.addInPlace(helped.force);
+      missed.moment.addInPlace(helped.moment);
+    }
 ```
 
-In `bear`, the ground is asked for the wrench less what the assist gives, and the assist is
+In `bear`, where it shares the ground's wrench among the soles (after `groundWrench`, before
+`legTorques`), the ground is asked for the wrench less what the assist gives, and the assist is
 asked for its share:
 
 ```ts
@@ -254,7 +259,7 @@ asked for its share:
         if (assist?.on) { force.subtractInPlace(helped.force); moment.subtractInPlace(helped.moment); }
 ```
 
-and at the end of `bear`, after the legs' torques: `if (assist?.on) assist.ask(helped.force, helped.moment);`.
+and at the end of `bear`, after `legTorques`: `if (assist?.on) assist.ask(helped.force, helped.moment);`.
 
 With no assist, or one that is off, no line above runs: the arithmetic is today's, and so is the
 digest. The stance's doc comment's last paragraph gains: "With an assist (`Assist`) the root may
@@ -369,7 +374,7 @@ test("a_bout's_assist_is_its_recipe's_the_same_for_both_sides_and_none_unless_gi
   its centre of mass still holds, so check `given` by hand once; the pull's table moves.
 - `embody` applies the assist before the mind's step: test 1's first step gives nothing
   (`meter.force` reads one weight short), and test 3 lags a step.
-- `carry` does not add `helped` to `missed` (the assist is given, the root is not asked for
+- `limitToSoles` does not add `helped` to `missed` (the assist is given, the root is not asked for
   it): test 2's assisted body takes recovery steps.
 - `bear` does not take `helped` from the ground's wrench (the soles and the assist both give
   it): test 2's assisted travel.

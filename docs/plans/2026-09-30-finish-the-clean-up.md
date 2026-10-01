@@ -11,9 +11,22 @@ This plan fixes them without changing what the game does. Every chunk but the on
 otherwise leaves the fingerprint (chunk 0) bit-identical.
 
 **Not in this plan:** the structure of the minds and skills (`src/core/mind/`,
-`src/core/skills/`). The owner is designing the AI. This plan touches those files only to:
+`src/core/skills/`). That is [the minds set](2026-09-30-minds-00-design.md)'s. This plan touches
+those files only to:
 - drop an `export` (chunk 4);
 - correct a comment or cite a source (chunk 6).
+
+**Beside the minds set.** The two are carried out together, in this order:
+1. minds 01, then chunk 0, which hashes with minds 01's trace;
+2. chunks 1 to 5 and 6c: the small faults and the guards, so that the minds' code meets the
+   guards as it is written;
+3. minds 02 to 04;
+4. chunk 11, then minds 05: the stance is split before the assist goes into it;
+5. minds 06 to 08;
+6. the rest (6a, 6b, 6d, 7 to 10, 12), whenever the minds set waits on the owner.
+
+No commit carries work of both. A minds commit changes the fingerprint where it means to change
+how a bout plays, and says so; a commit of this plan does not.
 
 ## Rules for every chunk
 
@@ -29,8 +42,8 @@ otherwise leaves the fingerprint (chunk 0) bit-identical.
 - **Line endings.** `git diff --cached --numstat` equals `git diff --cached --ignore-cr-at-eol
   --numstat`.
 - **Tests.**
-  - Expect 329 tests at the start: 326 passing, 0 failing, 3 todo. A chunk that adds or removes
-    tests says so.
+  - No test fails and three are todo, before and after every commit. The count moves with the
+    minds set's commits, so a chunk that adds or removes tests says by how many.
   - A new guard test also gets a control: the guard fed a real bad case, which it must refuse.
 - **Code.** Comments follow AGENTS.md's "Code" section. A switch over a union ends in
   `default: { const never: never = x; throw new Error(...) }`, as in `src/render/body-shapes.ts`.
@@ -43,24 +56,28 @@ otherwise leaves the fingerprint (chunk 0) bit-identical.
 **`scripts/fingerprint.mjs` (new).** It prints one line per case, each line a SHA-256 prefix,
 on the Node world (Rapier, 120 Hz). It reads no clock and no `Math.random`.
 
+**A pose hash** here is `traceOf`'s digest (`tests/harness/trace.mjs`): every segment's
+`node.position` and `rotationQuaternion`, taken after every step of the case and not only at
+its end. A change that two bodies recover from within the case still changes the line.
+
 - **Arena.** For each of `workshop-fighter v workshop-rogue`, `crypt-skeleton v
   workshop-fighter` and `workshop-rogue v crypt-skeleton`:
-  - `new Duel(world, { left, right, capSeconds: 30 }).run(31)` in a `createWorld` world with
-    `addArenaSolids`;
-  - print the verdict, both `pool.bar()`s, `blows.length` and a hash of every segment's
-    `node.position` and `rotationQuaternion`;
-  - then step 2 s more and hash again.
+  - `buildBout({ left, right, capSeconds: 30 })` (`research/bout.mjs`), stepped to its verdict
+    with a trace of both sides' bodies;
+  - print the verdict, both `pool.bar()`s, `blows.length` and the pose hash;
+  - then step 2 s more, the trace still taken, and print the pose hash again. (A bout that ends
+    by a fall goes on moving, and so does the stance under it.)
 - **Crypt fights.**
   - Seeds 1 and 2. Run `new DungeonRun(scene, { seed, engine, visuals: false, layout })` for
     12 s, where `layout` places the start 4 m from the first spawn on open floor (`walkable`
     and `clearSegment` from `src/dungeon/map.ts`; try 16 headings).
-  - Print `status`, `blows.length` and a hash of every actor's pose.
+  - Print `status`, `blows.length` and the pose hash of every actor's body.
 - **The lab.** For `workshop-fighter` and `workshop-rogue`, each on `coreStand(humanSpec(model),
   { ground: true })`:
   - `startRun(built, world, trackOf(TRACKS.circle.pieces))` for 10 s (as
-    `tests/lab-run.test.mjs` builds it). Print a pose hash.
+    `tests/lab-run.test.mjs` builds it). Print the pose hash.
   - `startRoutine(built, world)` for 20 s at 120 Hz. Print the routine's `strikes.length`
-    and a pose hash.
+    and the pose hash.
 - **Crypt generation.**
   - Hash `JSON.stringify(generateCryptDungeon(seed))`, with `map.floor` turned into an array,
     over seeds 0-99 and 2124530852.
@@ -548,13 +565,33 @@ returns `{ owned, reading, carry, bear, read, command }`. The fingerprint is the
 arena, the crypt and the lab all stand on it. Also run `tests/core-stance.test.mjs`,
 `core-stance-envelope`, `lab-stance`, `core-skills` and `core-body` at every commit.
 
-**The shape.**
-- **The state.** One `StanceState` record holds:
-  - the resolved tuning, `pelvis`, `segments`, `total` and `feet`;
-  - the mutated records: `aim`, `held`, `tasks`, `shares`, `missed`, `reading`, `pace`,
-    `step` and `plan`;
+**The shape.** What the closure holds is three kinds of thing, and each gets a record of its
+own. The division is by what a later step reads, so that the stance's memory is one plain
+object a save can take whole:
+- **`Stance`**: what the functions are handed (`s`). It holds what the body and the tuning fix
+  when the stance is made, and the two records below:
+  - `built`, the resolved tuning (`ResolvedStance`), `pelvis`, `segments`, `total`, `feet`
+    and `rest`, all `readonly`;
+  - `state: StanceState` and `scratch: StanceScratch`.
+- **`StanceState`**: what a step writes and a later step, or a reader between steps, reads.
+  Plain data only: numbers, strings, plain objects, arrays, typed arrays, `Vector3`,
+  `Quaternion`; no segment, joint, body or function.
   - the lets: `stride`, `striding`, `owned` and `last`;
-  - the scratch values.
+  - `pace`, `step`, `plan`, `reading`, `aim`, `held` and `tasks`;
+  - `feet`: each foot's `FootMemory` (below).
+- **`StanceScratch`**: what a call writes before it reads. `shares`, `missed`, `idScratch`,
+  and the vectors and turns (`path`, `along`, `sole`, `v`, `spin`, `target`, `error`,
+  `inverse`, `pelvisSpin`, `turn`, `p`, `hipAt`, `ankleAt`, `kneeAt`, `shank`,
+  `footTurn`, `level`, `whole`, `wholeAxis`).
+- **A foot's memory.** `FootState` (`support.ts`) holds a segment and a chain, so it cannot be
+  state. The two of its fields that outlive a step move to `readonly memory: FootMemory`, a
+  plain record `{ channels: number[]; rolled: boolean }`, which the stance's state lists
+  (`state.feet[k] === feet[k].memory`). Every reader of `foot.channels` and `foot.rolled`
+  reads `foot.memory`. The rest stays where it is:
+  - `flat` is set once, as the foot is made, and becomes `readonly`;
+  - `corners`, `middle`, `toe`, `edge`, `edgeAxis` and `heel` are read afresh
+    (`readSupport`) before a step reads them. The reading's `soles` are the feet's `middle`s,
+    the same two vectors, and are in the state through the reading.
 - **The functions.** Each section becomes a module-level `fn(s, ...)`.
 - **The returned object** calls those functions, and stays exactly as it is.
 
@@ -569,8 +606,8 @@ One commit per bullet, the fingerprint identical after each:
    - `footStatesOf(built)` and `restWidth(feet)` go to `support.ts`.
    - `supportOf` becomes `readSupport(feet, stance, out)` in `support.ts`. It is the same
      construct, renamed because it writes into `out`.
-2. **Introduce `StanceState`**, built once in `stanceControl`. These named local functions
-   take `s`:
+2. **Introduce `Stance`, `StanceState`, `StanceScratch` and `FootMemory`**, built once in
+   `stanceControl`. These named local functions take `s`:
    - `leverOf`, `paceToward` and `ownStep` (to `gait.ts`);
    - `planAcross`, `heightLimits`, `rollFeet`, `shiftWeight`, `pelvisTurn` and `swingFoot`.
 3. **Split `command`** into:
@@ -589,6 +626,10 @@ One commit per bullet, the fingerprint identical after each:
    - `groundWrench(R, root, accel, n)`;
    - `legTorques(s, muscles, bearing)`.
 
+   `carry` and `bear` stay, as the returned object's methods, and call these in today's
+   order. `bear` keeps its own sharing of the ground's wrench among the soles, between
+   `groundWrench` and `legTorques`.
+
 **Hazards.** Each one changes bits if missed.
 
 - **Order within a step is semantic.**
@@ -597,8 +638,11 @@ One commit per bullet, the fingerprint identical after each:
   - `heightLimits` reads the `reading.place` that `planAcross` has just written.
   - `ownStep` pivots on the previous step's `place`.
   - `pendulum` is read from `r.y` before the plan advances.
-- **`owned` is reassigned** in `command`. Every function reads it through `s.owned`, never
-  from a copy.
+- **`owned` is reassigned** in `command`. Every function reads it through `s.state.owned`,
+  never from a copy. The same holds for `stride`, `striding` and `last`.
+- **`striding` is `pace` itself** while a walk's step is under way (`striding = pace`), and
+  `reading.own` is `step.swing`: one object in two slots. Keep each assignment an assignment
+  of the object, never of a copy.
 - **Shared scratch values.**
   - `error` and `inverse` serve both `pelvisTurn` and `swingFoot`.
   - `heightLimits` changes `ankleAt` in place.
