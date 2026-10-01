@@ -321,12 +321,16 @@ variant moves some pieces by a `shift` of 0.3 m either way of the middle one.
 
 `CRYPT_ROOM_LOOK`, each kind of chamber:
 
-| Kind | Niches | Roots | Scatter | Damp | Torch colour | Strength | Shadow |
-|---|---|---|---|---|---|---|---|
-| guard | 0.08 | 0 | 0.05 | no | `#ffc077` | 6 | 85 |
-| burial | 0.85 | 0.12 | 0.3 | no | `#ff9c4b` | 4 | 60 |
-| chapel | 0.35 | 0.05 | 0.15 | no | `#ffe2ad` | 8 | 95 |
-| rootbound | 0.5 | 1 | 1 | yes | `#e7ba78` | 5 | 70 |
+| Kind | Niches | Roots | Scatter | Damp | Torch colour | Strength | Shadow | Soil | Stain |
+|---|---|---|---|---|---|---|---|---|---|
+| guard | 0.08 | 0 | 0.05 | no | `#ffc077` | 6 | 85 | 0.43, 0.35, 0.23 | 0.36 |
+| burial | 0.85 | 0.12 | 0.3 | no | `#ff9c4b` | 4 | 60 | 0.32, 0.23, 0.18 | 0.55 |
+| chapel | 0.35 | 0.05 | 0.15 | no | `#ffe2ad` | 8 | 95 | 0.43, 0.35, 0.23 | 0.36 |
+| rootbound | 0.5 | 1 | 1 | yes | `#e7ba78` | 5 | 70 | 0.27, 0.33, 0.15 | 0.7 |
+
+Soil is the colour the paving's stains take in a chamber of that kind, and Stain how strong they
+are (`CryptWeathering`, `src/dungeon/crypt-weathering.ts`). Paving outside every chamber takes
+0.4, 0.32, 0.21 at 0.35, written in the shader.
 
 ## Materials
 

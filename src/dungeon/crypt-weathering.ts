@@ -1,18 +1,19 @@
 import { MaterialPluginBase } from "@babylonjs/core/Materials/materialPluginBase.js";
 import type { Material } from "@babylonjs/core/Materials/material.js";
+import { CRYPT_ROOM_LOOK } from "./crypt-archetypes.ts";
 import type { CryptRoomPlan } from "./crypt-room.ts";
 
 /** World-space stains follow the actual paving surface, including fractured/sunken pieces. */
 export class CryptWeathering extends MaterialPluginBase {
+  /** One GLSL `if` a room: inside the room, the stain takes the soil and the strength of the room's kind, and the
+   * paving is cleaner along the room's two centre axes. */
   private readonly regions: string;
   constructor(material: Material, plan: CryptRoomPlan) {
     super(material,"CryptWeathering",225,{});
     this.regions=plan.map.rooms.map(r=>{
-      const kind=plan.archetypes.find(a=>a.room===r.id)!.kind;
-      const color=kind==='rootbound'?'0.27,0.33,0.15':kind==='burial'?'0.32,0.23,0.18':'0.43,0.35,0.23';
-      const strength=kind==='rootbound'?.7:kind==='burial'?.55:.36;
+      const {soil,strength}=CRYPT_ROOM_LOOK[plan.archetypes.find(a=>a.room===r.id)!.kind];
       return `if(p.x>${r.min.x-.5} && p.x<${r.max.x+.5} && p.y>${r.min.z-.5} && p.y<${r.max.z+.5}) {
-        soil=vec3(${color});strength=${strength.toFixed(2)};
+        soil=vec3(${soil.join(',')});strength=${strength.toFixed(2)};
         traffic=1.0-smoothstep(0.5,1.8,min(abs(p.x-${r.centre.x.toFixed(1)}),abs(p.y-${r.centre.z.toFixed(1)})));
       }`;
     }).join('\n');this._enable(true);

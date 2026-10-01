@@ -94,11 +94,21 @@ export function cryptFurniture(room: Room, type: CryptArchetype): { obstacles: D
   return { obstacles, placements };
 }
 
-/** Each kind of room's look: the odds of a niche, a root and scatter, whether it is damp, and its torches' colour,
- * strength and shadow (`docs/reference/look.md#crypt-rooms`). */
-export const CRYPT_ROOM_LOOK = {
-  guard: {niches:.08,roots:0,scatter:.05,damp:false,color:'#ffc077',intensity:6,shadow:85},
-  burial: {niches:.85,roots:.12,scatter:.3,damp:false,color:'#ff9c4b',intensity:4,shadow:60},
-  chapel: {niches:.35,roots:.05,scatter:.15,damp:false,color:'#ffe2ad',intensity:8,shadow:95},
-  rootbound: {niches:.5,roots:1,scatter:1,damp:true,color:'#e7ba78',intensity:5,shadow:70},
-} as const;
+/** One kind of room's look. */
+interface CryptRoomLook {
+  /** The odds of a niche in a stretch of wall, of roots on a piece of wall, and of scatter before a niche. */
+  readonly niches: number; readonly roots: number; readonly scatter: number;
+  /** Whether its floor is wet under its torches. */
+  readonly damp: boolean;
+  /** Its torches' colour, their strength, and the strength of the lights that cast its shadows. */
+  readonly color: string; readonly intensity: number; readonly shadow: number;
+  /** The colour its paving's stains take, linear red, green and blue, and how strong they are, 0 to 1. */
+  readonly soil: readonly [number, number, number]; readonly strength: number;
+}
+/** Each kind of room's look (`docs/reference/look.md#crypt-rooms`). */
+export const CRYPT_ROOM_LOOK: Readonly<Record<CryptRoomKind, CryptRoomLook>> = {
+  guard: {niches:.08,roots:0,scatter:.05,damp:false,color:'#ffc077',intensity:6,shadow:85,soil:[.43,.35,.23],strength:.36},
+  burial: {niches:.85,roots:.12,scatter:.3,damp:false,color:'#ff9c4b',intensity:4,shadow:60,soil:[.32,.23,.18],strength:.55},
+  chapel: {niches:.35,roots:.05,scatter:.15,damp:false,color:'#ffe2ad',intensity:8,shadow:95,soil:[.43,.35,.23],strength:.36},
+  rootbound: {niches:.5,roots:1,scatter:1,damp:true,color:'#e7ba78',intensity:5,shadow:70,soil:[.27,.33,.15],strength:.7},
+};
