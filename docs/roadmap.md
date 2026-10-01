@@ -27,9 +27,10 @@ All of it on a physically based core, humans first ([architecture](architecture.
 
 ### The AI
 
-- The structure above the muscles is designed, in eight plans none of which has landed
-  ([the minds plans](plans/2026-09-30-minds-00-design.md)): the mind at the muscles, senses, a
-  person's orders, an assist with a ceiling, forks of a bout and an oracle.
+- The structure above the muscles is designed, and its plans are being carried out
+  ([the minds plans](plans/2026-09-30-minds-00-design.md), which say what has landed): the mind
+  at the muscles, senses, a person's orders, an assist whose ceiling is the character's
+  attribute, forks of a bout and an oracle.
 - A mind cannot yet attack a moving body, block or parry.
 - The arena needs a mind of its own, beyond walking at the other body and attacking its head.
 
