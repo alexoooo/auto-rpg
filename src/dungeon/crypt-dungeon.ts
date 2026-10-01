@@ -34,6 +34,10 @@ const CRYPT_LAYOUT = Object.freeze({
   companions: 3,
 });
 
+/** The decoration's stream is seeded with the layout's seed, these bits turned, so that neither stream's draws
+ * move the other's. A numeric setting. */
+const ART_SALT = 0x63727970;
+
 /** A whole number from 0 up to, and not including, `n`, drawn from the layout's stream. */
 type Pick = (n: number) => number;
 
@@ -171,5 +175,5 @@ export function generateCryptDungeon(seed: number): CryptRoomPlan {
   for (const p of [map.exit, ...map.spawns, ...rooms.map(room => room.centre)]) {
     if (!findPath(map, map.start, p, LEVEL.clearance).length) throw new CryptLayoutError(map.seed, `no way from the start to ${p.x}, ${p.z}`);
   }
-  return dressCryptMap(map, mulberry32((seed ^ 0x63727970) >>> 0), archetypes, furniture.flatMap(f => f.placements));
+  return dressCryptMap(map, mulberry32((seed ^ ART_SALT) >>> 0), archetypes, furniture.flatMap(f => f.placements));
 }

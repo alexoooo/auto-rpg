@@ -321,16 +321,53 @@ variant moves some pieces by a `shift` of 0.3 m either way of the middle one.
 
 `CRYPT_ROOM_LOOK`, each kind of chamber:
 
-| Kind | Niches | Roots | Scatter | Damp | Torch colour | Strength | Shadow | Soil | Stain |
-|---|---|---|---|---|---|---|---|---|---|
-| guard | 0.08 | 0 | 0.05 | no | `#ffc077` | 6 | 85 | 0.43, 0.35, 0.23 | 0.36 |
-| burial | 0.85 | 0.12 | 0.3 | no | `#ff9c4b` | 4 | 60 | 0.32, 0.23, 0.18 | 0.55 |
-| chapel | 0.35 | 0.05 | 0.15 | no | `#ffe2ad` | 8 | 95 | 0.43, 0.35, 0.23 | 0.36 |
-| rootbound | 0.5 | 1 | 1 | yes | `#e7ba78` | 5 | 70 | 0.27, 0.33, 0.15 | 0.7 |
+| Kind | Niches | Roots | Scatter | Large slab | Damp | Torch colour | Strength | Shadow | Soil | Stain |
+|---|---|---|---|---|---|---|---|---|---|---|
+| guard | 0.08 | 0 | 0.05 | 0.3 | no | `#ffc077` | 6 | 85 | 0.43, 0.35, 0.23 | 0.36 |
+| burial | 0.85 | 0.12 | 0.3 | 0.3 | no | `#ff9c4b` | 4 | 60 | 0.32, 0.23, 0.18 | 0.55 |
+| chapel | 0.35 | 0.05 | 0.15 | 0.58 | no | `#ffe2ad` | 8 | 95 | 0.43, 0.35, 0.23 | 0.36 |
+| rootbound | 0.5 | 1 | 1 | 0.3 | yes | `#e7ba78` | 5 | 70 | 0.27, 0.33, 0.15 | 0.7 |
 
 Soil is the colour the paving's stains take in a chamber of that kind, and Stain how strong they
 are (`CryptWeathering`, `src/dungeon/crypt-weathering.ts`). Paving outside every chamber takes
 0.4, 0.32, 0.21 at 0.35, written in the shader.
+
+The dressing of a crypt's map (`dressCryptMap`, `src/dungeon/crypt-room.ts`) draws from a stream
+of its own, one draw against each of these odds where a chamber's kind gives none.
+
+`CRYPT_ODDS`:
+
+| Field | Value |
+|---|---|
+| `largeSlab` | outside every chamber, a cell's paving is first tried as a large slab below a draw of 0.3 |
+| `brokenSlab` | not a large slab, it is tried as a broken slab below 0.63 and a long one above |
+| `fractured` | a slab that does not fit gives way to one cell: a fractured slab at 0.4, else one of the plain pavings |
+| `dampScatter` | scatter on a floor cell of a damp chamber, 0.18 |
+| `corridorNiche` | a niche in a run of three straight wall cells outside every chamber, 0.12 |
+| `panel` | a wall cell with no pier takes a panel at 0.55, else a repair |
+| `detail` | a straight wall cell is dressed with its pier, panel or repair at 0.78, else left plain |
+| `corridorRoots` | roots on a wall cell outside every chamber, 0.15 |
+| `floorRoots` | roots on the floor before a wall cell of a damp chamber, 0.75 |
+| `rootboundRoots` | roots again on each wall cell of a rootbound chamber, 0.55 |
+
+`CRYPT_DRESS`:
+
+| Field | Value |
+|---|---|
+| `pavings` | the kit has 4 plain pavings |
+| `pierEvery` | a pier stands on every 3rd cell along a wall |
+| `scatterOut` | scatter lies 0.85 m before its niche |
+| `bannerAside` | a guard chamber's two banners hang 2.7 m either side of its middle |
+
+`CRYPT_TORCH`:
+
+| Field | Value |
+|---|---|
+| `count` | 2 torches a chamber, on its -x and +z walls, nearest its middle |
+| `spacing` | the two stand no nearer than 0.65 of the chamber's shorter side |
+| `alongX` | of two wall cells as far from the middle, the one on the wall along z is taken first: the other counts as 0.1 cell farther |
+| `flameOut`, `height` | the flame stands 0.65 m out from its rock cell's centre, 2.05 m up; the light a whole cell out at the same height |
+| `dampOut` | the damp under a torch of a damp chamber lies 1.4 m beyond its light |
 
 ## Materials
 
