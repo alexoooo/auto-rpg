@@ -37,8 +37,6 @@ export interface SkillReport {
   readonly pace: number;
   /** The centre of mass's standing height over the soles, m, read on the first step; null before. */
   readonly reference: number | null;
-  /** Whether the body has fallen (its centre of mass well under the stance's height) at any step since. */
-  readonly fallen: boolean;
   readonly strike: StrikeReport;
 }
 
@@ -58,7 +56,6 @@ export function createSkills(body: Body, { repertoire = REPERTOIRE }: SkillOptio
     get heading() { return legs.heading; },
     get pace() { return legs.pace; },
     get reference() { return legs.reference; },
-    get fallen() { return legs.fallen; },
     strike: strikes.report,
   };
   return {

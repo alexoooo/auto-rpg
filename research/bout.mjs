@@ -73,7 +73,7 @@ export async function playBout(recipe, seconds = Infinity, tape = [], { shortfal
       winner: duel.verdict?.winner ?? null, ending: duel.verdict?.ending ?? "none",
       blows: landed.length, wounding: landed.filter((blow) => blow.damage > 0).length, clashes: duel.blows.length - landed.length,
       bars: SIDES.map((side) => duel.duelists[side].pool.bar()),
-      fallen: SIDES.filter((side) => duel.duelists[side].skills.report.fallen),
+      fallen: SIDES.filter((side) => duel.duelists[side].body.view.down),
       tape: duel.tape, digest: trace.digest(),
       // Each side's mean assist over its metered steps, [N, N m].
       assist: SIDES.map((side) => meanOf(duel.duelists[side].body.assist.meter)),

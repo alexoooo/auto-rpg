@@ -122,7 +122,7 @@ export async function evaluateStrike({ model = "workshop-fighter", unit, hz = 12
     for (let i = 0; i < stand.seconds(STAND + chamber.seconds + WINDOW); i++) {
       stand.step(1);
       if (!target && blow.time >= STAND) target = centreNow(head).addInPlaceFromFloats(off?.across ?? 0, 0, distance + (off?.along ?? 0));
-      if (blow.report.fallen) { fell = true; break; }
+      if (blow.body.view.down) { fell = true; break; }
       const live = blow.time >= blow.pushing;
       if (live && watching) {
         // The fist's path over the step, a straight segment from where it was: where it first

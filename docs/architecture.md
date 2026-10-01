@@ -148,8 +148,7 @@ braking and blocking). A muscle can never exceed its source's strength at its sp
 ### Skills
 
 `createSkills` (`src/core/skills/skills.ts`) is the only place an `Intent` becomes a
-`BodyCommand`, and it reports back (`SkillReport`: heading, pace, whether the body has fallen,
-where a strike is).
+`BodyCommand`, and it reports back (`SkillReport`: heading, pace, where a strike is).
 
 - **Locomotion** (`locomotion.ts`) walks at no more than the body's measured fastest walk, turns
   only while walking and no faster than its envelope allows, and can set the feet at a chosen
@@ -304,9 +303,10 @@ The rules of a fight are `src/core/rules/`, free of any page so they can be argu
   its address's (`&balance=`). Every character's balance is 0, and at 0 there is no
   assist.
 
-A body that falls (`SkillReport.fallen`) is out of the fight: rising is not built yet. The arena's
-verdict (`Duel.judge`, `src/arena/duel.ts`): a side is out when its pool ends or its body falls;
-both out on one step is a draw; at 120 s the fuller bar wins.
+A body that is down (`BodyView.down`: its centre of mass a quarter metre under the height it is
+asked to hold, over its lowest point, `src/core/control/ground.ts`) is out of the fight: rising is
+not built yet. The arena's verdict (`Duel.judge`, `src/arena/duel.ts`): a side is out when its
+pool ends or its body is down; both out on one step is a draw; at 120 s the fuller bar wins.
 
 A bout is built from a recipe (`DuelRecipe`): the two bodies, how far apart they start and the
 cap, as plain data, so the same bout can be built again in another world or on another thread;

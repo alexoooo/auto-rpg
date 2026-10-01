@@ -53,7 +53,7 @@ test("logged_tactics_decide_as_their_own_and_note_each_thing_as_it_changes", () 
     // What is theirs is read through to them as it is now, and they decide once a step.
     assert.deepEqual([tactics.name, tactics.decided], ["scripted", step]);
     assert.equal(tactics.state, own.state);
-    assert.equal(tactics.decide({ view: { time: step / 10 }, report: { strike: seen, fallen } }, 0.1), intent);
+    assert.equal(tactics.decide({ view: { time: step / 10, down: fallen }, report: { strike: seen } }, 0.1), intent);
   }
   assert.equal(tactics.decided, steps.length);
   assert.deepEqual(log.upTo(Infinity, 100).map(({ time, text }) => `${time} ${text}`), [

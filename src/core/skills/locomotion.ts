@@ -13,12 +13,6 @@ import { sin, cos, hypot } from "../math/real.ts";
 export const STANCE_LOWER = 0.03;
 
 /**
- * How far under the goal's height the centre of mass has fallen when the body has, m: the bar the
- * stance's batteries count a fall by (`docs/reference/stance-tuning.md#fallen`).
- */
-const FALLEN = 0.25;
-
-/**
  * How long a walk goes straight after it sets off from standing before its heading turns, s. A
  * heading turned over feet still planted for the walk's first weight shift runs the shift away
  * sideways until the body falls; the envelope's turn rates are a walk's already under way. Set,
@@ -43,8 +37,6 @@ interface StanceLegs {
 interface LegsMemory {
   /** The centre of mass's height over the soles the body was built standing at, m; null before the first step. */
   reference: number | null;
-  /** Whether it has fallen: its centre of mass `FALLEN` under the goal's height, at any step since. */
-  fallen: boolean;
 }
 
 function stanceLegs(state: LegsMemory): StanceLegs {
@@ -57,7 +49,6 @@ function stanceLegs(state: LegsMemory): StanceLegs {
         state.reference = s.centre.y - s.support.y;
       }
       const height = state.reference - lower;
-      state.fallen ||= height - (s.centre.y - s.support.y) > FALLEN;
       // Forward is (sin h, cos h) across the ground; the right, (cos h, -sin h).
       const across = walk
         ? [walk[0] * sin(heading) + walk[1] * cos(heading), walk[0] * cos(heading) - walk[1] * sin(heading)] as const
@@ -100,7 +91,6 @@ interface Locomotion {
   /** The walk's speed asked, m/s (0 standing). */
   readonly pace: number;
   readonly reference: number | null;
-  readonly fallen: boolean;
   /**
    * The stance goal that sets the feet at `footing`, standing, facing the heading it has: once no
    * step is under way, the foot further from its place steps there, then the other, each once for
@@ -132,7 +122,7 @@ interface Placing {
 }
 
 export function locomotion(envelope: StanceEnvelope | null): Locomotion {
-  const state: LocomotionState = { reference: null, fallen: false, heading: 0, pace: 0, setOff: null, placing: null, placed: false };
+  const state: LocomotionState = { reference: null, heading: 0, pace: 0, setOff: null, placing: null, placed: false };
   const legs = stanceLegs(state);
   const apart = (a: readonly [number, number], b: readonly [number, number]): number => hypot(a[0] - b[0], a[1] - b[1]);
   return {
@@ -140,7 +130,6 @@ export function locomotion(envelope: StanceEnvelope | null): Locomotion {
     get heading() { return state.heading; },
     get pace() { return state.pace; },
     get reference() { return state.reference; },
-    get fallen() { return state.fallen; },
     get placed() { return state.placed; },
     place(view, footing, lower) {
       state.setOff = null;

@@ -31,7 +31,7 @@ import type { Hook, World } from "../core/world.ts";
  *   handed back to itself or is out of the fight. Every order is kept with the step it was given
  *   before (`Duel.tape`), so the recipe and the tape are the whole of what made a bout, and
  *   `Duel.play` gives a tape again as the bout steps.
- * - **A side is out** once its pool has ended, or once its body has fallen (`SkillReport.fallen`): the
+ * - **A side is out** once its pool has ended, or while its body is down (`BodyView.down`): the
  *   core has no rising, so a body down stays down. The other side wins; both out on one step is a
  *   draw.
  * - **At the cap** (`CAP_SECONDS`) the fuller bar wins, and equal bars draw.
@@ -71,7 +71,7 @@ interface Duelist extends Fighter {
   readonly model: BodyModel;
   readonly body: Body;
   readonly skills: Skills;
-  /** Its pool not ended and its body not fallen. */
+  /** Its pool not ended and its body not down. */
   readonly standing: boolean;
 }
 
@@ -187,7 +187,7 @@ export class Duel {
       const x = (side === "left" ? -1 : 1) * gap / 2;
       const built = buildBody(spec, world, { position: [x, 0, 0] });
       const pool = createPool(spec, this.rules);
-      // Out to the other side once the bout is decided, its pool has ended or it has fallen.
+      // Out to the other side once the bout is decided, its pool has ended or it is down.
       const senses = this.senses.add({ id: side, side, built, out: () => this.verdict !== null || !duelists[side].standing });
       const assist = balanceCeiling(recipe.balance?.[side] ?? spec.attributes.balance.value, recipe.balancePercent ?? balancePercent(this.rules));
       const body = createBody(built, world, { servoSeconds: SERVO_SECONDS, senses, assist });
@@ -198,7 +198,7 @@ export class Duel {
       }));
       duelists[side] = {
         id: side, side, model, built, pool, body, skills,
-        get standing() { return pool.ending() === null && !skills.report.fallen; },
+        get standing() { return pool.ending() === null && !body.view.down; },
       };
     }
     this.duelists = duelists;

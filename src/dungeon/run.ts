@@ -35,7 +35,7 @@ import { companionSpawn } from "./party-placement.ts";
  * - **The tactics** are a fighter's (`fighterTactics`): it walks its plan's direction, and within
  *   `ATTACK_METRES` of its target attacks the target's head with the club.
  * - **Wounds** are the core's blows (`watchBlows`) under the dungeon's rulebook. A fighter is out
- *   of the fight once its pool has ended, or once its body has fallen (`SkillReport.fallen`): the
+ *   of the fight once its pool has ended, or once its body is down (`BodyView.down`): the
  *   core has no rising, so a body down stays down. Nobody attacks it, and its body goes limp:
  *   nothing drives its muscles again, and a step costs it only what the solver takes.
  * - **An enemy is built** once a standing party member comes within `WAKE_METRES` of where it waits,
@@ -65,7 +65,7 @@ export interface DungeonActor {
   fighter: (Fighter & { body: Body; skills: Skills }) | null;
   /** Where the body stands on the ground: its centre of mass over the floor; where its root lies, limp; or where it waits unbuilt. */
   feet(): Point;
-  /** Whether it still fights: unbuilt, or built with its pool not ended and its body not fallen. */
+  /** Whether it still fights: unbuilt, or built with its pool not ended and its body not down. */
   readonly alive: boolean;
   /** Whether its body lies limp: out of the fight, with nothing driving its muscles (`DungeonRun.drop`). */
   limp: boolean;
@@ -241,7 +241,7 @@ export class DungeonRun {
           const c = this.limp ? this.fighter.body.muscles.dynamics.root.segment.node.position : this.fighter.body.view.stance.centre;
           return { x: c.x, z: c.z };
         },
-        get alive() { return this.fighter === null || this.fighter.pool.ending() === null && !this.fighter.skills.report.fallen; },
+        get alive() { return this.fighter === null || this.fighter.pool.ending() === null && !this.fighter.body.view.down; },
         get vitality() { return this.fighter?.pool.bar() ?? 1; },
         target: null, home: { ...at }, lastSeen: null, alertedUntil: 0, route: [], goal: null, nextPlan: 0,
         radius: FOOTPRINT_METRES, progress: { at: { ...at }, since: 0 },

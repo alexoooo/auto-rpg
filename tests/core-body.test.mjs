@@ -75,15 +75,15 @@ test("a body obeys its command and shows what it does", async () => {
 
 /**
  * The Warrior on the ground under the command layers, walking forward at half its fastest walk:
- * its stand, its skills, and a running digest of its poses (`traceOf`).
+ * its stand, its body, and a running digest of its poses (`traceOf`).
  */
 async function walker() {
   const stand = await coreStand(humanSpec("workshop-fighter"));
   const body = createBody(stand.built, stand.world, { servoSeconds: SERVO_SECONDS });
-  const skills = driveBy(body, { name: "walk", decide: ({ envelope }) => ({ ...standIntent(0), move: [0.5 * envelope.walk.value, 0] }) });
+  driveBy(body, { name: "walk", decide: ({ envelope }) => ({ ...standIntent(0), move: [0.5 * envelope.walk.value, 0] }) });
   const trace = traceOf([stand.built]);
   return {
-    stand, skills, physics: stand.world.physics,
+    stand, body, physics: stand.world.physics,
     /** `n` steps, each taken into the digest; the digest after the first of them, and after the last. */
     walk(n) {
       let first = null;
@@ -110,6 +110,6 @@ test("a driven body goes on from a load as it went on from the save", async () =
     const went = a.walk(240);
     assert.deepEqual(b.walk(240), went, "loaded with another's save of the same step, it walks on as the other does");
     assert.notEqual(c.walk(240).first, went.first);
-    assert.deepEqual([a.skills.report.fallen, b.skills.report.fallen], [false, false], "and its muscles still hold it up");
+    assert.deepEqual([a.body.view.down, b.body.view.down], [false, false], "and its muscles still hold it up");
   } finally { a.dispose(); b.dispose(); c.dispose(); }
 });

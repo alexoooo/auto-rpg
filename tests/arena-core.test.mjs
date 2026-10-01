@@ -7,12 +7,13 @@ import { Scene } from "@babylonjs/core/scene.js";
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder.js";
 import { VertexBuffer } from "@babylonjs/core/Buffers/buffer.js";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode.js";
-import { Quaternion } from "@babylonjs/core/Maths/math.vector.js";
+import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { ARENA_POSTS, addArenaSolids, arenaSolids } from "../src/arena/room.ts";
 import { CAP_SECONDS, Duel } from "../src/arena/duel.ts";
 import { DEFAULT_MATCHUP, matchupSearch, readBalance, readCap, readGap, readMatchup, readTape, readYou, tapeHash, youSearch } from "../src/arena/matchup.ts";
 import { ORBIT, orbitPosition } from "../src/arena/orbit.ts";
 import { aimPoint, keysToMove, personOrders } from "../src/arena/orders-input.ts";
+import { centreOfToRef } from "../src/core/control/support.ts";
 import { STAND_ORDERS, isOrders } from "../src/core/mind/orders.ts";
 import { createWorld } from "../src/core/world.ts";
 import { freshEngine } from "./harness/core-stand.mjs";
@@ -145,6 +146,25 @@ test("a_bout_in_the_arena_runs_to_its_verdict", async () => {
       assert.ok(body.view.head.y > 1 && Math.abs(body.view.stance.centre.x) > 1, `the replay's ${side} stands where it was built`);
     }
   } finally { duel?.dispose(); dispose(); }
+});
+
+test("a_side_that_is_down_is_out_and_the_other_wins", async () => {
+  /** The Warrior against the Rogue for 3 s, the left shoved back by `impulse` N s a kilogram at its middle trunk half a second in. */
+  const shoved = async (impulse) => {
+    const { world, dispose } = await arena();
+    const duel = new Duel(world, { left: "workshop-fighter", right: "workshop-rogue" });
+    try {
+      duel.run(0.5);
+      const { left, right } = duel.duelists, trunk = left.built.segments.get("middleTrunk");
+      const mass = [...left.built.segments.values()].reduce((sum, segment) => sum + segment.rigid.mass, 0);
+      trunk.body.applyImpulse(new Vector3(-impulse * mass, 0, 0), centreOfToRef(trunk, new Vector3()));
+      const verdict = duel.run(2.5);
+      return { verdict: verdict && { winner: verdict.winner, ending: verdict.ending }, down: [left.body.view.down, right.body.view.down], standing: [left.standing, right.standing], blows: duel.blows.length };
+    } finally { duel.dispose(); dispose(); }
+  };
+  assert.deepEqual(await shoved(1.5), { verdict: { winner: "right", ending: "fallen" }, down: [true, false], standing: [false, true], blows: 0 });
+  // The control: a shove it holds decides nothing.
+  assert.deepEqual(await shoved(0.2), { verdict: null, down: [false, false], standing: [true, true], blows: 0 });
 });
 
 test("a_bout_capped_before_a_blow_lands_is_a_draw", async () => {

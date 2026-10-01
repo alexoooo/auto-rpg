@@ -84,7 +84,7 @@ if (isMainThread) {
         if (t === push) middle.body.applyImpulse(new Vector3(impulse * Math.sin(way), 0, impulse * Math.cos(way)), middle.node.position);
         stand.step(1);
         // What it was doing as it began to fall.
-        if (!routine.report.fallen) doing = routine.doing();
+        if (!routine.body.view.down) doing = routine.doing();
         if (lower.node.position.y < 0.5) { fell = `${doing} at ${routine.time().toFixed(1)} s`; break; }
       }
       const result = {

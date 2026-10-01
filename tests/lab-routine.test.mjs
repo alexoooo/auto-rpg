@@ -25,8 +25,8 @@ for (const model of ["workshop-fighter", "workshop-rogue"]) {
     const spec = humanSpec(model), stand = await coreStand(spec, { ground: true, hz: 120 });
     const routine = startRoutine(labActor(stand.built, stand.world));
     try {
-      for (let i = 0; i < stand.seconds(SECONDS) && routine.tactics.loops < LOOPS && !routine.report.fallen; i++) stand.step(1);
-      assert.equal(routine.report.fallen, false, routine.doing());
+      for (let i = 0; i < stand.seconds(SECONDS) && routine.tactics.loops < LOOPS && !routine.body.view.down; i++) stand.step(1);
+      assert.equal(routine.body.view.down, false, routine.doing());
       assert.equal(routine.tactics.loops, LOOPS, `${routine.doing()} at ${routine.time().toFixed(1)} s`);
       assert.deepEqual(routine.strikes.map((s) => s.hand), [...ROUTINE_HANDS, ...ROUTINE_HANDS]);
       for (const s of routine.strikes) {

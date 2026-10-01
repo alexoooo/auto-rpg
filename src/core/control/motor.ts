@@ -56,6 +56,8 @@ export interface MotorControl {
   setPushes(pushes: readonly MusclePush[]): void;
   /** Stand on the ground as `goal` asks, or with null leave the legs to the posture, from `control`'s next call. */
   setStance(goal: StanceGoal | null): void;
+  /** The stance goal it was last given, or null: what the legs are asked to hold. */
+  readonly standing: StanceGoal | null;
   /** The stance's readings, as its last step left them. */
   readonly stance: StanceControl;
   /** Where `hand`'s path stands now (body frame), or null with no goal. */
@@ -191,6 +193,7 @@ export function motorControl(built: BuiltBody, seconds: number, posture: Pose = 
     release(hand) { arms[hand].memory.goal = null; },
     setPushes(next) { state.pushes = next; },
     setStance(next) { state.standing = next; },
+    get standing() { return state.standing; },
     stance, state,
     path: (hand) => arms[hand].memory.goal ? arms[hand].memory.point : null,
     knucklesToRef: (hand, out) => pointNowToRef(arms[hand].hand, root, arms[hand].knuckles, out),

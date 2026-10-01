@@ -52,7 +52,7 @@ export interface StanceFrame {
   readonly goal: number;
   /** The centre of mass's distance from the place the stance holds it toward, m (across the ground). */
   readonly off: number;
-  /** Whether it has fallen: its centre 25 cm under the goal's height. */
+  /** Whether it is down (`BodyView.down`): its centre 25 cm under the goal's height. */
   readonly fallen: boolean;
 }
 
@@ -125,7 +125,7 @@ export function startStance(actor: Actor): StanceSession {
     return {
       time: body.view.time, heading: report.heading, phase: s.phase, strides: s.strides, recoveries: s.recoveries,
       speed: Math.hypot(s.velocity.x, s.velocity.z), height, goal: report.reference === null ? height : report.reference - orders.lower,
-      off: Math.hypot(s.centre.x - s.place.x, s.centre.z - s.place.z), fallen: report.fallen,
+      off: Math.hypot(s.centre.x - s.place.x, s.centre.z - s.place.z), fallen: body.view.down,
     };
   };
 

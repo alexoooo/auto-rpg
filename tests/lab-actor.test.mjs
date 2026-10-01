@@ -104,11 +104,11 @@ test("with_every_strike_barred_the_routine_walks_to_the_post_and_back", async ()
   const routine = startRoutine(labActor(stand.built, stand.world, { allows: allowing(["empty"]) }));
   try {
     const legs = [routine.tactics.leg];
-    for (let i = 0; i < stand.seconds(40) && routine.tactics.loops < 1 && !routine.report.fallen; i++) {
+    for (let i = 0; i < stand.seconds(40) && routine.tactics.loops < 1 && !routine.body.view.down; i++) {
       stand.step(1);
       if (routine.tactics.leg !== legs.at(-1)) legs.push(routine.tactics.leg);
     }
-    assert.deepEqual({ fallen: routine.report.fallen, loops: routine.tactics.loops, strikes: routine.strikes.length, thrown: routine.report.strike.thrown, legs },
+    assert.deepEqual({ fallen: routine.body.view.down, loops: routine.tactics.loops, strikes: routine.strikes.length, thrown: routine.report.strike.thrown, legs },
       { fallen: false, loops: 1, strikes: 0, thrown: { left: 0, right: 0 }, legs: ["out", "back", "out"] });
   } finally { routine.dispose(); stand.dispose(); }
 });
@@ -130,7 +130,7 @@ test("under_the_guard_a_mode_stands_still_while_its_instruments_run", async () =
     stand.step(stand.seconds(5));
     const { centre } = routine.body.view.stance;
     assert.equal(routine.time(), stand.world.time - stand.world.dt);
-    assert.deepEqual({ fallen: routine.report.fallen, strikes: routine.strikes.length, leg: routine.tactics.leg, post: routine.tactics.post },
+    assert.deepEqual({ fallen: routine.body.view.down, strikes: routine.strikes.length, leg: routine.tactics.leg, post: routine.tactics.post },
       { fallen: false, strikes: 0, leg: "out", post: null });
     // Standing settles it 7 cm forward of where it was built; the script's walk out is 2 m.
     assert.ok(Math.hypot(centre.x, centre.z) < 0.15, `it stood ${Math.hypot(centre.x, centre.z).toFixed(3)} m from where it began`);
@@ -146,7 +146,7 @@ test("under_the_guard_a_mode_stands_still_while_its_instruments_run", async () =
       const phases = new Set();
       for (let i = 0; i < armed.seconds(seconds); i++) { armed.step(1); phases.add(blow.report.strike.phase); }
       assert.ok(Math.abs(blow.time - seconds) < armed.world.dt, `the blow's clock reads ${blow.time} s after ${seconds}`);
-      assert.deepEqual({ phases: [...phases], thrown: blow.report.strike.thrown, landed: watch.landed, fell: watch.fell, fallen: blow.report.fallen },
+      assert.deepEqual({ phases: [...phases], thrown: blow.report.strike.thrown, landed: watch.landed, fell: watch.fell, fallen: blow.body.view.down },
         { phases: [null], thrown: { left: 0, right: 0 }, landed: null, fell: false, fallen: false });
     } finally { watch.dispose(); blow.dispose(); armed.dispose(); }
   }

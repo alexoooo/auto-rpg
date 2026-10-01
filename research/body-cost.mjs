@@ -44,7 +44,7 @@ async function cost(count) {
     solver = 0;
     const t = performance.now();
     world.step(steps);
-    const all = (performance.now() - t) / steps, down = bodies.filter((b) => b.skills.report.fallen).length;
+    const all = (performance.now() - t) / steps, down = bodies.filter((b) => b.body.view.down).length;
     return { bodies: count, state, down, all, solver: solver / steps, rest: all - solver / steps };
   };
   world.step(world.hz);

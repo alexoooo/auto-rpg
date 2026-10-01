@@ -1,6 +1,7 @@
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { BuiltBody, BuiltSegment } from "./build/build-body.ts";
 import type { Assist, AssistCeiling } from "./control/assist.ts";
+import { uprightness } from "./control/ground.ts";
 import { motorControl, type Hand, type MotorControl, type MusclePush, type Pose } from "./control/motor.ts";
 import type { StanceGoal, StanceReading } from "./control/stance.ts";
 import type { StanceTuning } from "./control/stance-tuning.ts";
@@ -97,6 +98,8 @@ export interface BodyView {
   readonly head: Vector3;
   /** The centre of mass, the stance's support, and what the stance last asked (`StanceReading`). */
   readonly stance: StanceReading;
+  /** Whether the body is down (`uprightness`, `src/core/control/ground.ts`): true while it is, false once it is up again. */
+  readonly down: boolean;
 }
 
 /** Where a fist's knuckles are and how they move, in the world, as the last step left them. */
@@ -149,6 +152,7 @@ export function commandMind(own: OwnBody, { servoSeconds, stance }: BodyOptions)
   const head = centreOf(built, "head");
   const angles: Record<string, number> = {};
   const goals: Record<Hand, HandGoal | null> = { left: null, right: null };
+  const upright = uprightness(built);
   // The view's own fields are the state's: between steps a view shows the step its state is of.
   const state = {
     goals, time: 0, angles,
@@ -156,6 +160,7 @@ export function commandMind(own: OwnBody, { servoSeconds, stance }: BodyOptions)
     knuckles: { left: new Vector3(), right: new Vector3() },
     head: head.centre,
     motor: motor.state,
+    down: false,
   };
   const view = {
     get time() { return state.time; },
@@ -165,6 +170,7 @@ export function commandMind(own: OwnBody, { servoSeconds, stance }: BodyOptions)
     knuckles: state.knuckles,
     head: head.centre,
     stance: motor.stance.reading,
+    get down() { return state.down; },
   };
   let driver: BodyDriver | null = null;
 
@@ -191,6 +197,8 @@ export function commandMind(own: OwnBody, { servoSeconds, stance }: BodyOptions)
     }
     head.update();
     motor.stance.read();
+    // Down is read against the height the body is asked to hold: held low on purpose, it is not down.
+    state.down = upright.down(motor.standing?.height);
   };
   return {
     name: "command",

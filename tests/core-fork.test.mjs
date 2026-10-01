@@ -139,7 +139,7 @@ async function ordered() {
     world: stand.world, builts: [stand.built], states: { body: body.state, skills: skills.state }, seen,
     advance: () => stand.step(), read: () => ({ ...shows(body), report: skills.report }),
     watch() {
-      const { heading, pace, fallen } = skills.report;
+      const { heading, pace } = skills.report, fallen = body.view.down;
       seen.strides = body.view.stance.strides;
       seen.headings = [Math.min(seen.headings[0], heading), Math.max(seen.headings[1], heading)];
       seen.paces.add(pace);
@@ -198,7 +198,7 @@ async function striker() {
     },
     read: () => ({ ...shows(warrior.body), report: skills.report, foe: shows(skeleton.body), foeReport: foe.report }),
     watch() {
-      const { strike, fallen } = skills.report;
+      const { strike } = skills.report, fallen = warrior.body.view.down;
       seen.thrown = strike.thrown.right;
       seen.phases.add(strike.phase);
       if (world.steps % STRIKER.every === 0) seen.atSaves.add(strike.phase);
@@ -230,7 +230,7 @@ const NEEDED = {
   helped: ["given", "meter", "withdrawn"].map((field) => `body > assist > ${field}`),
   ordered: ["heading", "pace", "setOff"].map((field) => `skills > legs > ${field}`),
   striker: [
-    ...["reference", "fallen", "placing"].map((field) => `skills > legs > ${field}`),
+    ...["reference", "placing"].map((field) => `skills > legs > ${field}`),
     ...["hand", "phase", "still", "since", "begun", "readyAt", "width", "over", "thrown"].map((field) => `skills > strikes > ${field}`),
     "skills > tactics > aim",
   ],
@@ -239,6 +239,7 @@ const NEEDED = {
 /** The fields of the state that are not memory: no later step reads what a step left in one, and no reader of a body shows it. */
 const NOT_MEMORY = {
   "body > assist > asked": "a step's ask is given, or dropped, in that step: between steps nothing is asked",
+  "body > mind > down": "each step's look reads it from the body before any mind steps or any fight reads the view",
   ...Object.fromEntries(["left", "right"].flatMap((hand) => [
     [`body > mind > motor > hands > ${hand} > started`, "a new goal clears it and that step's control sets it"],
     [`body > mind > motor > hands > ${hand} > goals`, "each step clears it and fills it before reading it"],

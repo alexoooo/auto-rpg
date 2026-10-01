@@ -108,14 +108,13 @@ first have those readings split from them.
 
 | # | Plan | Lands | Needs | Eye gate |
 |---|---|---|---|---|
-| 01 | [down](2026-10-01-rising-01-down.md) | `uprightness`, `BodyView.down` in place of `fallen`; the fall battery and today's row | | |
-| 02 | [sub-minds](2026-10-01-rising-02-sub-minds.md) | `SubMind`, `hosting`, `MindConfig`, `Minded`, `createMind`, `lie`; fallen bodies lie still | 01 | the owner shoves a lab body over, and watches a bout end by a fall |
+| 02 | [sub-minds](2026-10-01-rising-02-sub-minds.md) | `SubMind`, `hosting`, `MindConfig`, `Minded`, `createMind`, `lie`; fallen bodies lie still | | the owner shoves a lab body over, and watches a bout end by a fall |
 | 03 | [bearing](2026-10-01-rising-03-bearing.md) | `bearing.ts` split out of the stance, no number changed | | |
 | 04 | [riser](2026-10-01-rising-04-riser.md) | point patches, the staged riser, its row on the battery, the lab's choice of riser | 02, 03 | the owner watches lab bodies get up |
 | 05 | [rules](2026-10-01-rising-05-rules.md) | the riser in the default config; a fall no longer takes a body out | 04 | the owner watches a bout with a fall in it, and a crypt fight |
 
 03 touches only the stance and can land at any time. 04 is the open-ended one: its structure is
-fixed here, its stages' numbers are found on the battery. If 04's gate is missed, 01 to 03 stand
+fixed here, its stages' numbers are found on the battery. If 04's gate is missed, 02 and 03 stand
 as they are: bodies lie still, and 05 does not land.
 
 ## Prototype readings

@@ -44,7 +44,7 @@ async function trial({ model, bearing, facing, seconds, strafe }) {
     let fellAt = null;
     for (let step = 0; step < stand.seconds(seconds) && fellAt === null; step++) {
       stand.step();
-      if (skills.report.fallen) fellAt = stand.world.time;
+      if (body.view.down) fellAt = stand.world.time;
     }
     const dx = centre.x - from.x, dz = centre.z - from.z;
     // How the pelvis has turned since it was built facing +z, about up.

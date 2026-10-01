@@ -121,7 +121,7 @@ export function blowScenario(scene: Scene, shell: LabShell): LabScenario {
         const t = watch?.target;
         return {
           time: blow.body.view.time, since: blow.time - blow.pushing, phase: blow.report.strike.phase, thrown: blow.report.strike.thrown[stored.hand] > 0,
-          fallen: blow.report.fallen, landed: watch?.landed ?? null,
+          fallen: blow.body.view.down, landed: watch?.landed ?? null,
           nearest: watch?.nearest ?? Infinity, peak: watch?.peak ?? 0, target: t ? [t.x, t.y, t.z] : null,
         };
       });

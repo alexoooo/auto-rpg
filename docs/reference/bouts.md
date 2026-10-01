@@ -129,3 +129,65 @@ The digests `research/bout-trace.mjs` reads from here on, on this machine:
 - skeleton against skeleton at 4 m (`node research/bout-trace.mjs crypt-skeleton crypt-skeleton 60`):
   1947 steps, the left side winning by the right's fall at 16.225 s, no blow,
   `91dc2fa923804d70`.
+
+## Down read from the body
+
+Harness: Node 24.19, the core world (`src/core/world.ts`), Rapier, 120 Hz. Read on the first
+tree whose bouts take a fall from the body's own reading (`BodyView.down`, `rising.md#down`): the
+centre of mass over the body's lowest point, where it was over the soles' middles.
+
+```powershell
+node research/bout-baseline.mjs --gaps 3,4,5 --workers 14
+```
+
+The same 27 bouts as the standing table.
+
+| Left | Right | Gap, m | Winner | Ending | Seconds | Blows | Wounding | Clashes | Left bar | Right bar |
+|---|---|---|---|---|---|---|---|---|---|---|
+| workshop-fighter | workshop-fighter | 3 | right | severed | 11.83 | 1 | 1 | 0 | 0.86 | 1.00 |
+| workshop-fighter | workshop-rogue | 3 | left | severed | 13.54 | 2 | 2 | 4 | 1.00 | 0.79 |
+| workshop-fighter | crypt-skeleton | 3 | left | fallen | 10.09 | 0 | 0 | 0 | 1.00 | 1.00 |
+| workshop-rogue | workshop-fighter | 3 | right | fallen | 24.01 | 5 | 5 | 14 | 0.97 | 1.00 |
+| workshop-rogue | workshop-rogue | 3 | left | fallen | 10.82 | 0 | 0 | 0 | 1.00 | 1.00 |
+| workshop-rogue | crypt-skeleton | 3 | right | fallen | 10.00 | 1 | 1 | 2 | 0.95 | 1.00 |
+| crypt-skeleton | workshop-fighter | 3 | right | severed | 9.55 | 1 | 1 | 0 | 0.85 | 1.00 |
+| crypt-skeleton | workshop-rogue | 3 | left | fallen | 10.78 | 0 | 0 | 2 | 1.00 | 1.00 |
+| crypt-skeleton | crypt-skeleton | 3 | right | fallen | 14.91 | 7 | 7 | 0 | 1.00 | 0.99 |
+| workshop-fighter | workshop-fighter | 4 | right | severed | 20.07 | 3 | 3 | 6 | 0.86 | 1.00 |
+| workshop-fighter | workshop-rogue | 4 | left | fallen | 21.36 | 14 | 14 | 2 | 0.99 | 0.85 |
+| workshop-fighter | crypt-skeleton | 4 | left | severed | 10.22 | 2 | 2 | 0 | 1.00 | 0.87 |
+| workshop-rogue | workshop-fighter | 4 | right | fallen | 13.10 | 2 | 2 | 6 | 0.85 | 1.00 |
+| workshop-rogue | workshop-rogue | 4 | right | fallen | 20.23 | 2 | 2 | 4 | 1.00 | 1.00 |
+| workshop-rogue | crypt-skeleton | 4 | right | fallen | 16.74 | 5 | 5 | 2 | 0.92 | 0.97 |
+| crypt-skeleton | workshop-fighter | 4 | right | fallen | 11.88 | 2 | 2 | 4 | 0.96 | 1.00 |
+| crypt-skeleton | workshop-rogue | 4 | left | fallen | 12.34 | 0 | 0 | 0 | 1.00 | 1.00 |
+| crypt-skeleton | crypt-skeleton | 4 | left | fallen | 16.51 | 0 | 0 | 0 | 1.00 | 1.00 |
+| workshop-fighter | workshop-fighter | 5 | right | fallen | 12.32 | 9 | 9 | 18 | 0.97 | 0.94 |
+| workshop-fighter | workshop-rogue | 5 | left | severed | 9.61 | 1 | 1 | 0 | 1.00 | 0.81 |
+| workshop-fighter | crypt-skeleton | 5 | left | fatal | 11.80 | 2 | 2 | 0 | 1.00 | 0.92 |
+| workshop-rogue | workshop-fighter | 5 | right | fatal | 9.59 | 1 | 1 | 0 | 0.89 | 1.00 |
+| workshop-rogue | workshop-rogue | 5 | right | fallen | 13.35 | 0 | 0 | 0 | 1.00 | 1.00 |
+| workshop-rogue | crypt-skeleton | 5 | left | fallen | 14.32 | 2 | 2 | 0 | 0.99 | 1.00 |
+| crypt-skeleton | workshop-fighter | 5 | right | fallen | 12.57 | 2 | 2 | 0 | 1.00 | 0.97 |
+| crypt-skeleton | workshop-rogue | 5 | right | fallen | 17.10 | 0 | 0 | 0 | 1.00 | 1.00 |
+| crypt-skeleton | crypt-skeleton | 5 | left | fallen | 18.78 | 1 | 1 | 0 | 0.99 | 1.00 |
+
+- Bouts by ending: fatal 2, fallen 19, severed 6.
+- Bout time 377 s; falls a minute 3.02 (19 falls); wounding blows a minute 10.3.
+- Ended before any wounding blow: 7 of 27.
+
+Every winner, ending, blow and bar is as it was with senses. The 19 bouts that end by a fall end
+0.05 to 0.6 s later: a body's lowest point is never above its soles' middles, so its height
+over that point is never the lesser, and its bar is passed no sooner. The other eight end at the
+step they did.
+
+The digests `research/bout-trace.mjs` reads from here on, on this machine:
+
+- the Warrior against the Rogue at 4 m: 2563 steps, the left side winning by the right's fall at
+  21.358 s, 14 wounding blows and 2 clashes, `4a4223d7a7cf67e8`;
+- skeleton against skeleton at 4 m: 1981 steps, the left side winning by the right's fall at
+  16.508 s, no blow, `356c4896aa6f3b7b`.
+
+Played to the steps they used to end at (`node research/bout-trace.mjs workshop-fighter
+workshop-rogue 21.224`, and `crypt-skeleton crypt-skeleton 16.224`), both give the digests above
+this section: the bouts are the same to the bit until the old verdict.

@@ -163,8 +163,8 @@ async function pulled(ceiling, each = () => {}) {
       low = Math.min(low, c.y);
       far = Math.max(far, Math.hypot(c.x - from.x, c.z - from.z));
       // Past a fall the stance's ask has no bound; what the soles miss is read while it stands.
-      if (!skills.report.fallen) missed = Math.max(missed, stance.shortfall.force.length() / weight);
-      each({ body, weight, fallen: skills.report.fallen });
+      if (!body.view.down) missed = Math.max(missed, stance.shortfall.force.length() / weight);
+      each({ body, weight, fallen: body.view.down });
     };
     for (let step = 0; step < stand.seconds(2); step++) {
       root.body.applyImpulse(pull, centreOfToRef(root, at));
@@ -174,7 +174,7 @@ async function pulled(ceiling, each = () => {}) {
     for (let step = 0; step < stand.seconds(2); step++) { stand.step(); take(); }
     const { meter } = body.assist;
     return {
-      fallen: skills.report.fallen, low, far, missed, recoveries: stance.recoveries - settled,
+      fallen: body.view.down, low, far, missed, recoveries: stance.recoveries - settled,
       mean: meter.steps ? [meter.force / meter.steps, meter.moment / meter.steps] : [0, 0],
     };
   } finally { body.dispose(); stand.dispose(); }

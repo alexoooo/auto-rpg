@@ -7,7 +7,7 @@ config that a fight passes through. The first sub-mind lies still: a body that i
 muscles for nothing, on every screen, and its stance is asked nothing.
 
 The rules do not change: a body that is down is still out of its fight (the arena ends the bout,
-the crypt drops the body). A bout's trace to its verdict is the one plan 01 left
+the crypt drops the body). A bout's trace to its verdict is the one `docs/reference/bouts.md` lists
 (`research/bout-trace.mjs`); what differs is every body after it has fallen.
 
 ## Files
@@ -28,10 +28,10 @@ the crypt drops the body). A bout's trace to its verdict is the one plan 01 left
 | `src/arena/duel.ts` | `DuelRecipe.minds`; a side is a `Minded`, made by `createMind`; `SideState.mind`. |
 | `src/dungeon/run.ts` | `drive` makes a `Minded` by `createMind`. |
 | `src/lab/actor.ts`, `mind-log.ts`, `main.ts` | The actor's body takes `FIGHTER`'s sub-minds; the log notes who has the body. |
-| `research/core-rise-trials.mjs` | `mind` is a `MindConfig`, made by `createMind`. |
+| `research/core-rise-trials.mjs`, `research/core-rise.mjs` | `shoved` and `boutFall` take `mind`, a `MindConfig` made by `createMind`; the table's script takes `--mind '<MindConfig JSON>'` and passes it to every job. |
 | `tests/core-sub-mind.test.mjs` | New: four tests. |
 | `tests/core-fork.test.mjs`, `arena-fork.test.mjs`, `arena-core.test.mjs`, `lab-mind-log.test.mjs` | See Tests. |
-| `tests/core-ground.test.mjs` | Plan 01's test 4 runs under `FIGHTER`'s sub-minds. |
+| `tests/core-ground.test.mjs` | `a body asked to hold itself low is not down at that height` runs under `FIGHTER`'s sub-minds. |
 | `research/bout.mjs` and whatever else reads a duelist's or a crypt actor's `skills` | The `Minded`'s, narrowed on its kind. |
 | `AGENTS.md`, `docs/architecture.md`, `docs/roadmap.md`, `docs/reference/rising.md`, `docs/reference/play.md` | See Documents. |
 
@@ -269,13 +269,13 @@ field of `FighterMindConfig`, a nested config by kind as its sub-minds are.
   resume() {
     motor.reset();
     goals.left = null; goals.right = null;
-    state.asked = null;
     state.resumed = true;
   },
   ```
 
   so the driver's first call after a hand-back sees `resumed`, and `down` is read against the
-  body's standing height until a command asks another.
+  body's standing height until a command asks another: the height asked is the stance goal motor
+  control holds (`MotorControl.standing`), which `motor.reset()` clears.
 - `BodyView` gains
 
   ```ts
@@ -367,7 +367,7 @@ export interface Skill {
    host does not act; `b.end`, `a.begin`; `a` steps 10 to 19; `a.end`, `b.begin`; `b` steps 20 to
    29; `b.end`, `host.resume`; the host acts from 30. `has` names each in turn.
 2. **`a body that is down lies still`**: the Warrior under `createMind` and `FIGHTER`, shoved as
-   plan 01's test 3. From the step it is down: `body.has` is `"lie"`, every activation is 0, the
+   `a shoved body reads down, lying` shoves it (`tests/core-ground.test.mjs`). From the step it is down: `body.has` is `"lie"`, every activation is 0, the
    stance's shortfall is zero, and 3 s on no segment's centre moves faster than 0.05 m/s. The
    control: under `{ kind: "fighter", subs: [] }` the same shove leaves `has` at `"command"` and a
    segment faster than ten times that.
@@ -393,7 +393,7 @@ Elsewhere:
    pulled until it falls, under `FIGHTER`'s sub-minds; forks every step across the hand-over and
    after. `mind > has` is sorted as needed under it; the paths under `mind` gain `host`. In
    `arena-fork` a side's `skills` paths are under `mind`.
-8. `tests/core-ground.test.mjs`, plan 01's test 4: its body takes `FIGHTER`'s sub-minds
+8. `tests/core-ground.test.mjs`, `a body asked to hold itself low is not down at that height`: its body takes `FIGHTER`'s sub-minds
    (`subMindsOf(FIGHTER.subs)`), and `body.has` is `"command"` throughout the low hold; in its
    control, `"lie"` from the step `view.down` turns true.
 9. `tests/lab-mind-log.test.mjs`: `watchHas` notes `lie has the body` once, at the fall.

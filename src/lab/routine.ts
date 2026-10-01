@@ -198,7 +198,7 @@ export function startRoutine(actor: Actor): Routine {
     strikes,
     time: () => time,
     doing() {
-      if (report.fallen) return "Fallen";
+      if (body.view.down) return "Fallen";
       switch (tactics.leg) {
         case "out": return "Walking out";
         case "back": return "Walking back";

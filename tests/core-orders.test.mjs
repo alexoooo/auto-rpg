@@ -82,7 +82,7 @@ test("a_body_walks_one_way_while_it_faces_another", async () => {
       const from = body.view.stance.centre.clone();
       stand.step(stand.seconds(8));
       const to = body.view.stance.centre;
-      return { fallen: skills.report.fallen, x: to.x - from.x, z: to.z - from.z, heading: skills.report.heading };
+      return { fallen: body.view.down, x: to.x - from.x, z: to.z - from.z, heading: skills.report.heading };
     } finally { body.dispose(); stand.dispose(); }
   };
   // Read on this stand: 2.07 m along x and 0.04 m along z, facing; 3.10 m, turning to its walk.

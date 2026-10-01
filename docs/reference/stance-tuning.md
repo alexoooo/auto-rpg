@@ -55,9 +55,9 @@ stopping from there (the lab's Stance).
 
 ## Fallen
 
-`FALLEN` (`src/core/skills/locomotion.ts`) is 0.25 m: a body has fallen once its centre of mass
-is that far under the height its stance is asked, at any step since. It is the bar the batteries
-above count a fall by (`research/core-stance-trials.mjs`), and is set, not swept.
+The batteries above count a fall at 0.25 m: a body has fallen once its centre of mass is that far
+under the height its stance is asked (`research/core-stance-trials.mjs`). It is set, not swept.
+The game's bar is the same quarter metre, read from the body at every step: `rising.md#down`.
 
 ## Friction
 

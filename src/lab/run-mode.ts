@@ -48,7 +48,7 @@ export interface RunFrame {
   readonly off: number;
   /** The point it aims at, across the ground (x, z). */
   readonly aim: readonly [number, number];
-  /** Whether it has fallen (`StanceLegs.fallen`). */
+  /** Whether it is down (`BodyView.down`). */
   readonly fallen: boolean;
 }
 
@@ -129,7 +129,7 @@ export function startRun(actor: Actor, track: Track): RunSession {
   const { report } = actor.drive(tactics);
   const frame = (): RunFrame => {
     const s = body.view.stance, time = body.view.time, f = tactics.frame(time), on = track.at(f.along);
-    return { ...f, time, heading: report.heading, fallen: report.fallen, speed: Math.hypot(s.velocity.x, s.velocity.z), off: Math.hypot(s.centre.x - on.x, s.centre.z - on.z) };
+    return { ...f, time, heading: report.heading, fallen: body.view.down, speed: Math.hypot(s.velocity.x, s.velocity.z), off: Math.hypot(s.centre.x - on.x, s.centre.z - on.z) };
   };
   return { body, track, frame, dispose: () => actor.dispose() };
 }

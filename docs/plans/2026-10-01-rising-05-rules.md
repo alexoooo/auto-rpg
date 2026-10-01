@@ -97,8 +97,8 @@ export type DuelEnding = Ending;
 
 ## The battery under attack
 
-`boutFall({ recipe, mind, foe })`: `foe` is `"stands"` (plan 01's, the other side ordered to
-stand) or `"fights"` (left to itself). The row gains `struck`: the blows the fallen side took
+`boutFall({ recipe, mind, foe })`: `foe` is `"stands"` (the other side ordered to
+stand, as it is today) or `"fights"` (left to itself). The row gains `struck`: the blows the fallen side took
 while down; `pool`: its bar at the watch's end; and `attacker`: whether the other side was on its
 feet at the watch's end. `research/core-rise.mjs --foe fights` prints the nine matchups' table.
 This is what the first answer costs a fallen body, measured: how many falls end the bout anyway,
