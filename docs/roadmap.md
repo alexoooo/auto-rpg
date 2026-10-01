@@ -17,8 +17,9 @@ building on it.
 - **Many morphologies**: every body a sourced spec, families sharing code and not values. The human
   is the reference body, the skeleton is on the core, a reptile is next.
 - **Layered AI**: each layer depending only on those below it -- world, body, motor control,
-  skills, minds. What sits above `fighterMind` (tactics, a person's orders) is open, and the owner
-  is designing it.
+  skills, minds. Above the muscles a mind is a function from its body's senses to its body's
+  effectors, with the layers as one way to write it; a person gives orders
+  ([the minds plans](plans/2026-09-30-minds-00-design.md)).
 
 All of it on a physically based core, humans first ([architecture](architecture.md)).
 
@@ -26,8 +27,9 @@ All of it on a physically based core, humans first ([architecture](architecture.
 
 ### The AI
 
-- The structure above `fighterMind` (tactics, a person's orders, how minds are layered) is being
-  designed; the owner decides it before any restructuring of minds and skills.
+- The structure above the muscles is designed, in eight plans none of which has landed
+  ([the minds plans](plans/2026-09-30-minds-00-design.md)): the mind at the muscles, senses, a
+  person's orders, an assist with a ceiling, forks of a bout and an oracle.
 - A mind cannot yet attack a moving body, block or parry.
 - The arena needs a mind of its own, beyond walking at the other body and attacking its head.
 
@@ -56,6 +58,9 @@ All of it on a physically based core, humans first ([architecture](architecture.
   where a person's preferred walk is near 1.4 m/s. The next step is a controller that holds the
   pelvis against the moment the soles miss, or one whole-body solve.
 - Rising after a fall. A fallen body is out of every fight until this exists.
+- Past a fall the stance goes on asking, and what it asks of the ground grows without bound: over
+  1e50 N within 3 s of a fall (Node stand, Rapier, 120 Hz; a Warrior pulled over). Nothing reads
+  it in a bout, which ends at the fall; a rising skill will.
 - Running (a flight phase), a dash or lunge, a roll, a crouch, and turning on the spot. A lower
   stance also needs the hip to hinge; in the lab's Stance a lower centre of mass stands only about
   1 cm lower, and walking from there falls.
