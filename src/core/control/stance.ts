@@ -4,10 +4,12 @@ import type { MuscleDriver } from "../muscle/driver.ts";
 import type { ServoWork } from "./servo.ts";
 import { shareGroundWrench } from "./contact-wrench.ts";
 import { rotationAtToRef } from "./kinematics.ts";
-import { boundedLeastSquares, fixedSolve, solveLinear } from "../math/linalg.ts";
-import { LEG_DAMPING, type StanceTuning } from "./stance-tuning.ts";
+import type { StanceTuning } from "./stance-tuning.ts";
 import { ownStep, paceToward } from "./gait.ts";
-import { gravityOf, makeStance, type FootTask, type Stance } from "./stance-state.ts";
+import {
+  boundSwing, groundWrench, heldFreedoms, legTorques, leverOf, limitToSoles, rootAim, rootRows, solveLeg, type Leg,
+} from "./stance-dynamics.ts";
+import { gravityOf, makeStance, type Stance } from "./stance-state.ts";
 import {
   GROUND_FRICTION, bearingOf, bearingSole, centreOfToRef, footMotionToRef, pointOfToRef, readSupport, soleMiddleToRef, turnOfToRef,
   withinSupport, type FootState,
@@ -161,32 +163,6 @@ export interface StanceReading {
   /** How many steps the stance has taken to catch a push, and to walk. */
   readonly recoveries: number;
   readonly strides: number;
-}
-
-/** `foot`'s leg's Jacobian at `point`, world: its spin's rows, then the point's velocity's, a column a freedom. */
-function legJacobian(foot: FootState, point: Vector3, driver: MuscleDriver): number[][] {
-  const dynamics = driver.dynamics;
-  return [0, 1, 2, 3, 4, 5].map((row) => foot.memory.channels.map((i) => {
-    const axis = dynamics.axis(i), pivot = dynamics.pivot(i);
-    if (row < 3) return axis[row]!;
-    const d = [point.x - pivot[0], point.y - pivot[1], point.z - pivot[2]];
-    return row === 3 ? axis[1] * d[2]! - axis[2] * d[1]! : row === 4 ? axis[2] * d[0]! - axis[0] * d[2]! : axis[0] * d[1]! - axis[1] * d[0]!;
-  }));
-}
-
-/** The point of `foot` its task is asked at, into `out`: bearing, where it bears, as last read; swinging, its sole's middle, now. */
-function pointOf(foot: FootState, task: FootTask, out: Vector3): Vector3 {
-  return task.bearing ? out.copyFrom(foot.memory.rolled ? foot.edge : foot.middle) : soleMiddleToRef(foot, out);
-}
-
-/**
- * The lever a missed moment of the ground's wrench is weighed against a missed force at
- * (`shareGroundWrench`): the height of the root's centre, where the wrench is taken, over the
- * soles, at least a sole's half-length. A moment the soles miss is a force they miss at the
- * root's height. No fixed lever serves both humans better: `docs/reference/stance-tuning.md#wrench-lever`.
- */
-function leverOf(s: Stance, height: number): number {
-  return Math.max(s.feet[0]!.reach, height - s.state.reading.support.y);
 }
 
 /**
@@ -503,188 +479,42 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): Stan
     get owned() { return s.state.owned; },
     reading: s.state.reading,
     carry(muscles, work) {
-      const { feet } = s, { aim, held, tasks, reading, step } = s.state, { bend, spare, gait, seconds, soleMargin } = s.tuning;
-      const { idScratch, shares, missed } = s.scratch;
+      const { feet } = s, { aim, tasks } = s.state;
       if (!aim.on) return null;
       const dynamics = muscles.dynamics, R = dynamics.root, p0 = R.centre, n = muscles.channels.length;
-      const { lin, ang, at } = idScratch, a = aim.spin;
-      // Each leg's freedoms' accelerations are y0 - Y a_root: its foot's asked motion, less its
-      // drift and what the root's motion gives it, through the leg.
-      const legs: { foot: FootState; task: FootTask; y0: number[]; Y: number[][] }[] = [];
+      const legs: Leg[] = [];
       const inLeg = new Uint8Array(n);
       feet.forEach((foot, f) => {
         const task = tasks[f]!;
         if (!task.on) return;
-        pointOf(foot, task, at);
-        const J = legJacobian(foot, at, muscles);
-        dynamics.driftToRef(foot.segment, at, lin, ang);
-        const r = [at.x - p0[0], at.y - p0[1], at.z - p0[2]];
-        const k0 = [task.angular.x - ang.x, task.angular.y - ang.y, task.angular.z - ang.z, task.linear.x - lin.x, task.linear.y - lin.y, task.linear.z - lin.z];
-        // B a_root: the foot's motion from the root's, its spin and a + alpha x r.
-        const B = [0, 1, 2, 3, 4, 5].map((row) => [0, 1, 2, 3, 4, 5].map((col) => {
-          if (row < 3) return col === row ? 1 : 0;
-          if (col >= 3) return col === row ? 1 : 0;
-          // (alpha x r)_i = -[r]x alpha
-          const i = row - 3, j = col;
-          return i === j ? 0 : [[0, r[2]!, -r[1]!], [-r[2]!, 0, r[0]!], [r[1]!, -r[0]!, 0]][i]![j]!;
-        }));
-        // A knee past straight is on the Jacobian's other branch, where the leg shortens by extending
-        // the knee further, into its stop. That knee is asked back toward `STANCE_KNEE_BEND`,
-        // critically damped at the height's constant, ahead of the foot's task, and the leg's other
-        // freedoms take the task (`fixedSolve`).
-        const fixed = new Array<number>(foot.memory.channels.length).fill(NaN);
-        if (bend !== null) {
-          const k = foot.chain[0]!.dofs.length, i = foot.memory.channels[k]!, flexed = muscles.angle(i) - foot.straight, m = 1 / seconds.height;
-          if (flexed < 0) fixed[k] = m * m * (bend - flexed) - 2 * m * muscles.rate(i);
-        }
-        let rows: readonly (readonly number[])[] = J, y: readonly number[] = k0, Bs: readonly (readonly number[])[] = B;
-        if (task.bearing && foot.memory.rolled && spare !== null) {
-          // Rolled, the foot's turn about its front edge is free and the ankle is held at its stop
-          // less the spare, critically damped at the height's constant: the leg pivots on the edge.
-          const e = foot.edgeAxis, w = Vector3.Cross(e, Vector3.UpReadOnly);
-          const keep = (m: readonly (readonly number[])[]) => [
-            m[0]!.map((_, c) => w.x * m[0]![c]! + w.y * m[1]![c]! + w.z * m[2]![c]!), m[1]!, m[3]!, m[4]!, m[5]!];
-          rows = keep(J);
-          Bs = keep(B);
-          y = [w.x * k0[0]! + w.y * k0[1]! + w.z * k0[2]!, k0[1]!, k0[3]!, k0[4]!, k0[5]!];
-          const pre = step.swing;
-          if (gait.preswing !== undefined && reading.phase === "shift" && pre?.transfer && pre.foot === foot.side) {
-            const k = foot.chain[0]!.dofs.length, i = foot.memory.channels[k]!, m = 1 / gait.preswing.seconds;
-            fixed[k] = m * m * (gait.preswing.knee - (muscles.angle(i) - foot.straight)) - 2 * m * muscles.rate(i);
-          } else {
-            const k = foot.chain[0]!.dofs.length + foot.chain[1]!.dofs.length, i = foot.memory.channels[k]!, m = 1 / seconds.height;
-            fixed[k] = m * m * (foot.chain[2]!.dofs[0]!.spec.max.value - spare - muscles.angle(i)) - 2 * m * muscles.rate(i);
-          }
-        }
-        const y0 = fixedSolve(rows, y, fixed, LEG_DAMPING), still = fixed.map((v) => Number.isNaN(v) ? NaN : 0);
-        const columns = [0, 1, 2, 3, 4, 5].map((c) => fixedSolve(rows, Bs.map((row) => row[c]!), still, LEG_DAMPING));
-        legs.push({ foot, task, y0, Y: [0, 1, 2, 3, 4, 5].map((row) => columns.map((col) => col[row]!)) });
+        legs.push(solveLeg(s, foot, task, muscles, p0));
         for (const i of foot.memory.channels) inLeg[i] = 1;
       });
-      // The root's rows as the root accelerates: W = P a_root + w0, the wrench the ground gives about
-      // the root's centre, the other freedoms at the servo's asks.
-      const P = [0, 1, 2, 3, 4, 5].map((r) => [0, 1, 2, 3, 4, 5].map((c) => R.mass[r]![c]!));
-      const w0 = [0, 1, 2, 3, 4, 5].map((r) => R.bias[r]! - R.gravity[r]!);
-      for (const { foot, y0, Y } of legs) foot.memory.channels.forEach((i, k) => {
-        for (let r = 0; r < 6; r++) {
-          const C = R.coupling[r]![i]!;
-          w0[r] = w0[r]! + C * y0[k]!;
-          for (let c = 0; c < 6; c++) P[r]![c] = P[r]![c]! - C * Y[k]![c]!;
-        }
-      });
-      // The freedoms held at a torque (`ServoWork.fixed` outside the legs: a strike's pushes) move as
-      // that torque moves them, and the root's acceleration changes how: from M_FF q''_F = torque_F -
-      // bias_F + gravity_F - C_F' a_root - M_F,rest q''_rest, q''_F = z0 + Z a_root. Taken as at
-      // rest, a strike's arm and trunk would be carried by a ground that gave the whole body their
-      // momentum.
-      const { mass, gravity: weight, bias } = dynamics;
-      const F: number[] = [];
-      for (let i = 0; i < n; i++) if (work.fixed[i] && !inLeg[i]) F.push(i);
-      held.channels = F;
-      if (F.length) {
-        const legOf = new Map<number, { y0: number; Y: readonly number[] }>();
-        for (const { foot, y0, Y } of legs) foot.memory.channels.forEach((i, k) => legOf.set(i, { y0: y0[k]!, Y: Y[k]! }));
-        const MFF = F.map((i) => F.map((j) => mass[i]![j]!));
-        held.z0 = solveLinear(MFF, F.map((i) => {
-          let t = work.torque[i]! - bias[i]! + weight[i]!;
-          for (let j = 0; j < n; j++) {
-            if (work.fixed[j] && !inLeg[j]) continue;
-            const leg = legOf.get(j);
-            t -= mass[i]![j]! * (leg ? leg.y0 : work.accel[j]!);
-          }
-          return t;
-        }));
-        const columns = [0, 1, 2, 3, 4, 5].map((c) => solveLinear(MFF, F.map((i) => {
-          let t = -R.coupling[c]![i]!;
-          for (const [j, leg] of legOf) t += mass[i]![j]! * leg.Y[c]!;
-          return t;
-        })));
-        held.Z = F.map((_, k) => columns.map((column) => column[k]!));
-        F.forEach((i, k) => {
-          for (let r = 0; r < 6; r++) {
-            const C = R.coupling[r]![i]!;
-            w0[r] = w0[r]! + C * held.z0[k]!;
-            for (let c = 0; c < 6; c++) P[r]![c] = P[r]![c]! + C * held.Z[k]![c]!;
-          }
-        });
-      }
+      // The root's rows, W = P a_root + w0: the legs' freedoms as their feet's tasks have them, those
+      // held at a torque as it moves them, and the rest at the servo's asks.
+      const { P, w0 } = rootRows(R, legs);
+      heldFreedoms(s, legs, inLeg, dynamics, work, P, w0);
       for (let i = 0; i < n; i++) if (!inLeg[i] && !(work.fixed[i])) for (let r = 0; r < 6; r++) w0[r] = w0[r]! + R.coupling[r]![i]! * work.accel[i]!;
-      // The aims: the root's angular acceleration, and the root centre's that gives the centre of
-      // mass its aim (the ground's force is M c'' less gravity's).
-      const root = aim.root;
-      root[0] = a.x; root[1] = a.y; root[2] = a.z;
-      const target = [aim.centre.x, aim.centre.y, aim.centre.z];
-      const lift = solveLinear([3, 4, 5].map((r) => [3, 4, 5].map((c) => P[r]![c]!)),
-        [3, 4, 5].map((r, k) => R.mass[3]![3]! * target[k]! - R.gravity[r]! - w0[r]! - P[r]![0]! * a.x - P[r]![1]! * a.y - P[r]![2]! * a.z));
-      root[3] = lift[0]!; root[4] = lift[1]!; root[5] = lift[2]!;
-      // What the bearing soles can give of the wrench that asks; where they cannot give it all, the
-      // root's acceleration is the one the wrench they can give makes.
-      const bearing = legs.filter((leg) => leg.task.bearing).map((leg) => leg.foot);
-      const W = [0, 1, 2, 3, 4, 5].map((r) => w0[r]! + P[r]!.reduce((sum, v, c) => sum + v * root[c]!, 0));
-      if (bearing.length) {
-        idScratch.force.set(W[3]!, W[4]!, W[5]!);
-        idScratch.moment.set(W[0]!, W[1]!, W[2]!);
-        shareGroundWrench(bearing.map((foot) => bearingSole(foot, 1 - soleMargin)), at.set(p0[0], p0[1], p0[2]), idScratch.force, idScratch.moment,
-          GROUND_FRICTION, leverOf(s, p0[1]), shares, missed);
-        if (missed.force.lengthSquared() + missed.moment.lengthSquared() > 1e-12) {
-          const given = [W[0]! + missed.moment.x, W[1]! + missed.moment.y, W[2]! + missed.moment.z, W[3]! + missed.force.x, W[4]! + missed.force.y, W[5]! + missed.force.z];
-          root.set(solveLinear(P, given.map((v, r) => v - w0[r]!)));
-        }
-      }
+      const root = rootAim(s, R, P, w0);
+      limitToSoles(s, legs, P, w0, p0);
       for (const { task, y0, Y } of legs) for (let k = 0; k < 6; k++) task.accel[k] = y0[k]! - Y[k]!.reduce((sum, v, c) => sum + v * root[c]!, 0);
       return root;
     },
     bear(muscles, work) {
       const { feet } = s, { aim, held, tasks } = s.state, { boundedSwing, soleMargin } = s.tuning, { idScratch, shares, missed } = s.scratch;
       if (!aim.on) return;
-      const dynamics = muscles.dynamics, R = dynamics.root, n = muscles.channels.length, root = aim.root;
+      const R = muscles.dynamics.root, n = muscles.channels.length, root = aim.root;
       // Every freedom's acceleration: the legs' from their tasks, the rest as the servo solved them.
       const accel = work.accel;
       feet.forEach((foot, f) => { if (tasks[f]!.on) foot.memory.channels.forEach((i, k) => { accel[i] = tasks[f]!.accel[k]!; }); });
       // The freedoms held at a torque, as the plan has them move at this root.
       held.channels.forEach((i, k) => { accel[i] = held.z0[k]! + held.Z[k]!.reduce((sum, v, c) => sum + v * root[c]!, 0); });
-      const { mass, gravity: weight, bias } = dynamics;
-      // A swinging leg's accelerations are the nearest to its task that its muscles can give, all its
-      // freedoms at once (`boundedLeastSquares`): clipped one at a time, a hip at its strength leaves
-      // the knee's torque asking for thigh motion it does not get, and the knee drives the foot into
-      // the ground. A hip turning faster than its muscles shorten has no strength that way at all.
-      // Few swings ask past strength, but those decide a walk.
-      // Measured: `docs/reference/stance-tuning.md#bounded-swing`.
       feet.forEach((foot, f) => {
         const task = tasks[f]!;
-        if (!boundedSwing || !task.on || task.bearing) return;
-        const channels = foot.memory.channels;
-        // Each freedom's torque with the leg's own accelerations at zero, and the leg's mass matrix.
-        const still = channels.map((i) => {
-          let torque = bias[i]! - weight[i]!;
-          for (let r = 0; r < 6; r++) torque += R.coupling[r]![i]! * root[r]!;
-          for (let j = 0; j < n; j++) if (!channels.includes(j)) torque += mass[i]![j]! * accel[j]!;
-          return torque;
-        });
-        const M = channels.map((i) => channels.map((j) => mass[i]![j]!));
-        const asked = channels.map((_, a) => still[a]! + channels.reduce((sum, _j, b) => sum + M[a]![b]! * task.accel[b]!, 0));
-        const lo = channels.map((i) => -muscles.strength(i, -1)), hi = channels.map((i) => muscles.strength(i, 1));
-        if (asked.every((t, a) => t >= lo[a]! && t <= hi[a]!)) return;
-        // The foot's task missed, weighed: its sole's middle's acceleration, and its turn's at the
-        // sole's end (half its length), for a torque's miss through M^-1.
-        const J = legJacobian(foot, soleMiddleToRef(foot, idScratch.at), muscles);
-        const inverse = channels.map((_, c) => solveLinear(M, channels.map((_i, r) => (r === c ? 1 : 0))));
-        const G = J.map((row, r) => inverse.map((column) => row.reduce((sum, v, b) => sum + v * column[b]!, 0) * (r < 3 ? foot.reach : 1)));
-        const A = channels.map((_, a) => channels.map((_b, b) => G.reduce((sum, row) => sum + row[a]! * row[b]!, 0)));
-        const torque = boundedLeastSquares(A, asked, lo, hi);
-        channels.forEach((i, a) => {
-          accel[i] = inverse.reduce((sum, column, b) => sum + column[a]! * (torque[b]! - still[b]!), 0);
-          task.accel[a] = accel[i]!;
-        });
+        if (boundedSwing && task.on && !task.bearing) boundSwing(s, foot, task, muscles, accel, root);
       });
-      // The wrench the ground must give, about the root's centre: what the whole body's motion
-      // asks of the root's rows, less gravity's.
-      const W = [0, 1, 2, 3, 4, 5].map((r) => {
-        let sum = R.bias[r]! - R.gravity[r]!;
-        for (let c = 0; c < 6; c++) sum += R.mass[r]![c]! * root[c]!;
-        for (let i = 0; i < n; i++) sum += R.coupling[r]![i]! * accel[i]!;
-        return sum;
-      });
+      // The ground's wrench for it all, and each bearing sole's share of it.
+      const W = groundWrench(R, root, accel, n);
       const bearing = feet.filter((_, f) => tasks[f]!.on && tasks[f]!.bearing);
       const { force, moment } = idScratch;
       if (bearing.length) {
@@ -694,27 +524,7 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): Stan
         const at = idScratch.at.set(R.centre[0], R.centre[1], R.centre[2]);
         shareGroundWrench(soles, at, force, moment, GROUND_FRICTION, leverOf(s, at.y), shares, missed);
       }
-      feet.forEach((foot, f) => {
-        const task = tasks[f]!;
-        if (!task.on) return;
-        const share = task.bearing ? shares[bearing.indexOf(foot)]! : null;
-        foot.memory.channels.forEach((i) => {
-          let torque = bias[i]! - weight[i]!;
-          for (let r = 0; r < 6; r++) torque += R.coupling[r]![i]! * root[r]!;
-          for (let j = 0; j < n; j++) torque += mass[i]![j]! * accel[j]!;
-          if (share) {
-            // Less the ground's wrench on the foot, carried along the freedom's motion.
-            const m = dynamics.axis(i), p = dynamics.pivot(i), x = foot.memory.rolled ? foot.edge : foot.middle;
-            const d = [x.x - p[0], x.y - p[1], x.z - p[2]];
-            const swept = [m[1] * d[2]! - m[2] * d[1]!, m[2] * d[0]! - m[0] * d[2]!, m[0] * d[1]! - m[1] * d[0]!];
-            torque -= m[0] * share.moment.x + m[1] * share.moment.y + m[2] * share.moment.z
-              + swept[0]! * share.force.x + swept[1]! * share.force.y + swept[2]! * share.force.z;
-          }
-          const sense = torque >= 0 ? 1 : -1, strength = muscles.strength(i, sense);
-          muscles.velocity[i] = sense * Infinity;
-          muscles.activation[i] = strength > 0 ? Math.min(1, Math.abs(torque) / strength) : 0;
-        });
-      });
+      legTorques(s, muscles, accel, bearing);
     },
     read(which) {
       const { feet, segments, total } = s, { reading } = s.state, { p, v } = s.scratch;

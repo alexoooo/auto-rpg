@@ -1,6 +1,6 @@
 # Finish the clean-up: the rest of the code reads like the core
 
-Status: chunks 0 to 5 and 6c have landed. Surveyed at 144961d4.
+Status: chunks 0 to 5, 6c and 11 have landed. Surveyed at 144961d4.
 
 The clean-up after the old path left these. The crypt generator and the character workshop are
 dense one-liners. `stanceControl` and the crypt page's `boot()` are each one long closure. About
@@ -21,7 +21,7 @@ those files only to:
 2. chunks 1 to 5 and 6c: the small faults and the guards, so that the minds' code meets the
    guards as it is written;
 3. minds 02 to 04;
-4. chunk 11, then minds 05: the stance is split before the assist goes into it;
+4. chunk 11 (landed), then minds 05: the stance is split before the assist goes into it;
 5. minds 06 to 08;
 6. the rest (6a, 6b, 6d, 7 to 10, 12), whenever the minds set waits on the owner.
 

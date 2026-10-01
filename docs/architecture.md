@@ -110,7 +110,8 @@ braking and blocking). A muscle can never exceed its source's strength at its sp
   bias and gravity), solved around the freedoms that are being pushed and clipped at strength.
 - **Hand goals** (`motor.ts`, `kinematics.ts`): the knuckles follow a minimum-jerk path to a place
   at a time, solved for shoulder and elbow and fed forward to the servo.
-- **The stance** (`stance.ts`; its steps in `gait.ts`, its soles in `support.ts`, its constants in
+- **The stance** (`stance.ts`; its records in `stance-state.ts`, its inverse dynamics in
+  `stance-dynamics.ts`, its steps in `gait.ts`, its soles in `support.ts`, its constants in
   `stance-tuning.ts`) keeps the body up by the forces the ground can really give. It plans
   the centre of mass inside the support, asks the root's rows for the wrench that needs, shares it
   among the bearing soles within friction, no pull and the centre of pressure on the sole
