@@ -33,7 +33,7 @@ export interface Body {
    * measurement did not see, or while the envelope is being measured (`BodyOptions.measuring`).
    */
   readonly envelope: StanceEnvelope | null;
-  /** Its assist (`Assist`), for its meter; the fight that set its ceiling withdraws it. */
+  /** Its assist (`Assist`), for its meter; a fight withdraws it. */
   readonly assist: Assist;
   /**
    * Its memory under its mind, whole (`src/core/state.ts`): the muscles', the assist's, motor

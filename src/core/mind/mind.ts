@@ -41,7 +41,7 @@ export interface OwnBody {
   readonly spec: BodySpec;
   readonly built: BuiltBody;
   readonly muscles: MuscleDriver;
-  /** The force and the moment on its root that its fight allows it beyond its muscles (`Assist`): none unless the fight says so. */
+  /** The force and the moment on its root that it is allowed beyond its muscles (`Assist`): none unless it was given a ceiling. */
   readonly assist: Assist;
 }
 

@@ -9,15 +9,15 @@ import { PHYSICS_HZ } from "../src/core/world.ts";
 import { CHARACTERS } from "../src/character-lab/catalog.ts";
 import { labAddress, labHref, LAB_CAMERAS, LAB_HELD, LAB_PROJECTIONS, LAB_RATES, LAB_VIEWS, MODELS, SCENARIOS } from "../src/lab/scenarios.ts";
 
-const DEFAULTS = { scenario: null, model: "workshop-fighter", right: "empty", left: "empty", boots: true, armour: true, hz: 120,
+const DEFAULTS = { scenario: null, model: "workshop-fighter", right: "empty", left: "empty", boots: true, armour: true, balance: null, hz: 120,
   view: "world", camera: "free", projection: "orthographic" };
 /** The Rogue as the workshop dresses it: boots, no armour. */
 const ROGUE = { model: "workshop-rogue", boots: true, armour: false };
 
 test("the_lab_address_names_a_scenario_a_character_a_rate_a_view_and_a_camera_or_falls_back", () => {
   assert.deepEqual(labAddress("?play=lab"), DEFAULTS);
-  assert.deepEqual(labAddress("?play=lab&scenario=routine&model=workshop-rogue&right=club&left=club&boots=0&armour=1&hz=480&view=tactical&camera=chase&projection=perspective"),
-    { scenario: "routine", model: "workshop-rogue", right: "club", left: "club", boots: false, armour: true, hz: 480, view: "tactical",
+  assert.deepEqual(labAddress("?play=lab&scenario=routine&model=workshop-rogue&right=club&left=club&boots=0&armour=1&balance=2.5&hz=480&view=tactical&camera=chase&projection=perspective"),
+    { scenario: "routine", model: "workshop-rogue", right: "club", left: "club", boots: false, armour: true, balance: 2.5, hz: 480, view: "tactical",
       camera: "chase", projection: "perspective" });
   // Each field falls back alone; a known value beside an unknown one is kept.
   assert.deepEqual(labAddress("?scenario=elsewhere&model=workshop-rogue&right=sword&left=club&boots=yes&hz=60&view=x-ray&camera=isometric&projection=fisheye"),
@@ -43,14 +43,14 @@ test("a_body_wears_what_the_workshop_dresses_it_in_until_the_address_says_otherw
 test("every_choice_the_lab_offers_reads_back_from_the_address_it_writes", () => {
   for (const scenario of [null, ...SCENARIOS.map((s) => s.id)]) {
     for (const { id: model } of MODELS) {
-      for (const [hz, view] of LAB_RATES.flatMap((r) => LAB_VIEWS.map((v) => [r, v]))) {
+      for (const [hz, view, balance] of LAB_RATES.flatMap((r) => LAB_VIEWS.flatMap((v) => [null, 0, 5].map((b) => [r, v, b])))) {
         for (const camera of LAB_CAMERAS) {
           for (const projection of LAB_PROJECTIONS) {
             for (const right of LAB_HELD) {
               for (const left of LAB_HELD) {
                 for (const boots of [false, true]) {
                   for (const armour of [false, true]) {
-                    const address = { scenario, model, right, left, boots, armour, hz, view, camera, projection }, href = labHref(address);
+                    const address = { scenario, model, right, left, boots, armour, balance, hz, view, camera, projection }, href = labHref(address);
                     assert.equal(routeFor(href), "lab", href);
                     assert.deepEqual(labAddress(href), address, href);
                   }
@@ -62,6 +62,17 @@ test("every_choice_the_lab_offers_reads_back_from_the_address_it_writes", () => 
       }
     }
   }
+});
+
+test("a_balance_in_the_address_is_plain_decimal_points_none_or_more_or_the_characters_own", () => {
+  assert.deepEqual(["0", "5", "0.5", "%205%20", "20.5"].map((text) => labAddress(`?balance=${text}`).balance), [0, 5, 0.5, 5, 20.5]);
+  for (const text of ["", "%20", "-1", "-0", "%2B5", "1e3", "0x10", ".5", "5.", "5,5", "many", "Infinity", "NaN", "9".repeat(400)]) {
+    assert.equal(labAddress(`?balance=${text}`).balance, null, text);
+  }
+  assert.equal(labAddress("?play=lab").balance, null);
+  // The character's own is no parameter at all, and replaces one that was there.
+  assert.equal(new URLSearchParams(labHref(DEFAULTS, "?play=lab&balance=3")).has("balance"), false);
+  assert.deepEqual(new URLSearchParams(labHref({ ...DEFAULTS, balance: 0 }, "?play=lab&balance=3")).getAll("balance"), ["0"]);
 });
 
 test("the_lab_address_keeps_the_rest_of_the_query_and_replaces_its_own", () => {

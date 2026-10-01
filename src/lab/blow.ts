@@ -1,13 +1,13 @@
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import { createBody, SERVO_SECONDS, type Body } from "../core/body.ts";
-import type { BuiltBody, BuiltSegment } from "../core/build/build-body.ts";
+import type { Body } from "../core/body.ts";
+import type { BuiltSegment } from "../core/build/build-body.ts";
 import type { Hand } from "../core/control/motor.ts";
 import { GUARD_ACTION, type Intent } from "../core/mind/intent.ts";
-import { driveBy, type Tactics } from "../core/mind/tactics.ts";
+import type { Tactics } from "../core/mind/tactics.ts";
 import { STAND } from "../core/skills/strike.ts";
 import { heldIn, type Strike, type StrikeWindow } from "../core/skills/strikes.ts";
 import type { Vec3 } from "../core/spec/quantity.ts";
-import type { World } from "../core/world.ts";
+import type { Actor } from "./actor.ts";
 
 /**
  * **One blow, thrown standing**: the rig the strike searches throw their blows on
@@ -63,20 +63,20 @@ export interface ThrownBlow {
 const AT_ITS_PLACE: StrikeWindow = { along: [-0.01, 0.01], across: [-0.01, 0.01] };
 
 /**
- * Throw `strike` with `built`, a human in its reference pose at the origin facing +z, in `world`,
+ * Throw `strike` with `actor`'s body, a human in its reference pose at the origin facing +z,
  * at a target `distance` straight ahead of its head. `time` counts the control steps taken, s; the
  * chamber begins at `STAND` and the pushes at `pushing`.
  */
-export function throwBlow(built: BuiltBody, world: World, strike: Strike, distance: number): ThrownBlow {
-  const body = createBody(built, world, { servoSeconds: SERVO_SECONDS });
+export function throwBlow(actor: Actor, strike: Strike, distance: number): ThrownBlow {
+  const { body } = actor, built = body.built;
   const recipe = { model: built.spec.model, held: heldIn(built.spec, strike.hand), strike, distance, found: "an experiment's", window: AT_ITS_PLACE };
   const tactics = attackOnce(strike.hand, (head) => [head.x, head.y, head.z + distance]);
-  const skills = driveBy(body, tactics, { repertoire: [recipe] });
+  const skills = actor.drive(tactics, { repertoire: [recipe] });
   return {
     body, pushing: STAND + (strike.chamber?.seconds ?? 0),
     get time() { return tactics.time; },
     get fallen() { return skills.report.fallen; },
-    dispose: () => body.dispose(),
+    dispose: () => actor.dispose(),
   };
 }
 

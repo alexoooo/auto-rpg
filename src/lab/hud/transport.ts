@@ -23,8 +23,8 @@ interface Transport {
   togglePause(): void;
   /** Show whether a run at `playhead` is paused. */
   showPlayhead(playhead: Playhead): void;
-  /** Show `run`'s recording and `time`, the shown frame's, s. */
-  show(run: ScenarioRun, time: number | null): void;
+  /** Show `run`'s recording, `time`, the shown frame's, s, and `balance`, the points its body's assist has, if it has one. */
+  show(run: ScenarioRun, time: number | null, balance: number | null): void;
 }
 
 /** Fill `bar`; `label` says what the slider steps through. */
@@ -54,11 +54,11 @@ export function labTransport(bar: HTMLElement, label: string, run: () => Scenari
       paused = isPaused(playhead);
       pause.refresh();
     },
-    show(under, time) {
+    show(under, time, balance) {
       const recording = under.recording();
       timeline.max = String(Math.max(0, recording.frames - 1));
       if (document.activeElement !== timeline) timeline.value = String(under.player.shownFrame() ?? recording.live);
-      if (time !== null) clock.textContent = `${under.player.playhead.kind === "replaying" ? "replay " : ""}${time.toFixed(3)} s`;
+      if (time !== null) clock.textContent = `${under.player.playhead.kind === "replaying" ? "replay " : ""}${time.toFixed(3)} s${balance === null ? "" : ` · balance ${balance}`}`;
     },
   };
 }

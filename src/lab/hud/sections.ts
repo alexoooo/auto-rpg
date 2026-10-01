@@ -1,3 +1,4 @@
+import type { BodySpec } from "../../core/spec/body.ts";
 import type { LabAddress } from "../scenarios.ts";
 
 /**
@@ -13,6 +14,8 @@ export type SectionName = (typeof SECTIONS)[number];
 export interface LabPage {
   /** What the page shows now. */
   readonly shown: LabAddress;
+  /** The loaded body's spec; until one is loaded, the spec `shown` makes. */
+  readonly spec: BodySpec;
   /** Start the scenario on a new body in a new world, as `next` says. */
   load(next: LabAddress): void;
   /** Show the body under way as `next` says. */

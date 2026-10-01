@@ -88,9 +88,20 @@ export function balancePoint(rules: Rulebook): AssistCeiling {
   return { force: rules.balance.force.value, moment: rules.balance.moment.value };
 }
 
+/** A balance is a finite number of points, none or more. */
+export function isBalance(points: number): boolean {
+  return Number.isFinite(points) && points >= 0;
+}
+
+/** The balance `text` writes, points: plain decimal digits with nothing about them but spaces; null for anything else. */
+export function balanceFrom(text: string): number | null {
+  const points = /^\d+(\.\d+)?$/.test(text.trim()) ? Number(text) : NaN;
+  return isBalance(points) ? points : null;
+}
+
 /** The most an assist gives a body of `balance` points, each worth `point`. */
 export function balanceCeiling(balance: number, point: AssistCeiling): AssistCeiling {
-  if (!(balance >= 0) || !Number.isFinite(balance)) throw new Error(`a balance is a finite number of points >= 0, not ${balance}`);
+  if (!isBalance(balance)) throw new Error(`a balance is a finite number of points >= 0, not ${balance}`);
   return { force: balance * point.force, moment: balance * point.moment };
 }
 

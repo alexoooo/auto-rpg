@@ -7,7 +7,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { humanSpec } from "../src/core/human/spec.ts";
 import { woodenClub } from "../src/core/items/club.ts";
-import { loadoutSpec } from "../src/lab/loadout.ts";
+import { balanceAddress, loadoutBalance, loadoutSpec } from "../src/lab/loadout.ts";
+import { labActor } from "../src/lab/actor.ts";
 import { startStance } from "../src/lab/stance-mode.ts";
 import { specProvenanceFaults } from "./fixtures/spec.mjs";
 import { coreStand } from "./harness/core-stand.mjs";
@@ -23,6 +24,14 @@ test("an_empty_loadout_is_the_models_human_whatever_it_wears", () => {
       for (const armour of [false, true]) assert.deepEqual(plain(loadoutSpec({ ...bare(model), boots, armour })), plain(humanSpec(model)));
     }
   }
+});
+
+test("a_bodys_balance_is_the_addresss_or_its_characters_own_which_the_address_leaves_out", () => {
+  // A character whose own balance is 2 points: every workshop character's is 0, which a default would hide.
+  const spec = { attributes: { balance: { value: 2 } } };
+  assert.deepEqual([null, 0, 2, 5].map((balance) => loadoutBalance(balance, spec)), [2, 0, 2, 5]);
+  assert.deepEqual([0, 2, 5].map((points) => balanceAddress(points, spec)), [0, null, 5]);
+  for (const model of MODELS) assert.equal(loadoutBalance(null, loadoutSpec(bare(model))), humanSpec(model).attributes.balance.value);
 });
 
 test("each_hand_holds_what_the_loadout_says_and_nothing_else", () => {
@@ -57,7 +66,7 @@ test("a_club_makes_its_hand_heavier_by_the_club_and_leaves_the_other", async () 
 test("with_a_club_in_each_hand_each_human_stands_walks_and_stops_in_the_stance", async () => {
   for (const model of MODELS) {
     const stand = await coreStand(loadoutSpec({ ...bare(model), right: "club", left: "club" }), { ground: true });
-    const stance = startStance(stand.built, stand.world);
+    const stance = startStance(labActor(stand.built, stand.world));
     const run = (seconds) => stand.step(stand.seconds(seconds));
     try {
       run(2);

@@ -11,6 +11,7 @@ import { Scene } from "@babylonjs/core/scene.js";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { createWorld } from "../src/core/world.ts";
 import { humanSpec } from "../src/core/human/spec.ts";
+import { labActor } from "../src/lab/actor.ts";
 import { startRoutine } from "../src/lab/routine.ts";
 import { coreStand, freshEngine } from "./harness/core-stand.mjs";
 
@@ -125,7 +126,7 @@ test("the same steps give the same world, however the time arrives", async () =>
   // The lab's routine for 1.5 s, stepped whole, then again from frames of uneven length.
   const run = async (drive) => {
     const stand = await coreStand(humanSpec("workshop-rogue"), { hz: 120 });
-    const routine = startRoutine(stand.built, stand.world);
+    const routine = startRoutine(labActor(stand.built, stand.world));
     try {
       drive(stand.world);
       return { steps: stand.world.steps, pose: [...stand.built.segments.values()].flatMap((s) =>

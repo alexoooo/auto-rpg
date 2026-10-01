@@ -1,5 +1,7 @@
+import { isBalance } from "../../core/rules/rulebook.ts";
+import { balanceAddress, loadoutBalance } from "../loadout.ts";
 import { LAB_HANDS, LAB_HELD, LAB_WORN, MODELS, type LabHeld } from "../scenarios.ts";
-import { choice, entries, group, switches, type Control, type Named } from "./controls.ts";
+import { choice, entries, group, quantity, switches, type Control, type Named } from "./controls.ts";
 import type { LabPage } from "./sections.ts";
 
 const HANDS: Readonly<Record<(typeof LAB_HANDS)[number], string>> = { right: "Right hand", left: "Left hand" };
@@ -14,6 +16,8 @@ export function characterSection(page: LabPage): readonly Control[] {
   return [
     group("Body", [
       choice("Type", MODELS.map(({ id, name }) => ({ value: id, name })), () => page.shown.model, (model) => page.load({ ...page.shown, model })),
+      quantity("Balance", 1, isBalance, () => loadoutBalance(page.shown.balance, page.spec),
+        (points) => page.load({ ...page.shown, balance: balanceAddress(points, page.spec) })),
     ]),
     group("Items", [
       ...LAB_HANDS.map((hand) =>

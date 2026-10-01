@@ -1,10 +1,9 @@
-import { createBody, SERVO_SECONDS, type Body } from "../core/body.ts";
-import type { BuiltBody } from "../core/build/build-body.ts";
+import type { Body } from "../core/body.ts";
 import { paceRound, type StanceEnvelope } from "../core/control/stance-envelope.ts";
 import { GUARD_ACTION, type Intent } from "../core/mind/intent.ts";
 import { wrap } from "../core/skills/locomotion.ts";
-import { driveBy, type Tactics } from "../core/mind/tactics.ts";
-import type { World } from "../core/world.ts";
+import type { Tactics } from "../core/mind/tactics.ts";
+import type { Actor } from "./actor.ts";
 import type { Track } from "./track.ts";
 
 /**
@@ -124,14 +123,14 @@ export function trackTactics(track: Track, envelope: StanceEnvelope, gait?: { re
   };
 }
 
-/** Run `built`, a human in its reference pose at the track's start facing along it, round `track`. */
-export function startRun(built: BuiltBody, world: World, track: Track): RunSession {
-  const body = createBody(built, world, { servoSeconds: SERVO_SECONDS });
+/** Run `actor`'s body, a human in its reference pose at the track's start facing along it, round `track`. */
+export function startRun(actor: Actor, track: Track): RunSession {
+  const { body } = actor;
   const tactics = trackTactics(track, body.envelope!);
-  const { report } = driveBy(body, tactics);
+  const { report } = actor.drive(tactics);
   const frame = (): RunFrame => {
     const s = body.view.stance, time = body.view.time, f = tactics.frame(time), on = track.at(f.along);
     return { ...f, time, heading: report.heading, fallen: report.fallen, speed: Math.hypot(s.velocity.x, s.velocity.z), off: Math.hypot(s.centre.x - on.x, s.centre.z - on.z) };
   };
-  return { body, track, frame, dispose: () => body.dispose() };
+  return { body, track, frame, dispose: () => actor.dispose() };
 }

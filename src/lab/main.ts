@@ -11,8 +11,10 @@ import { Scene } from "@babylonjs/core/scene.js";
 import { loadEngine } from "../core/engine/engines.ts";
 import { buildBody, type BuiltBody } from "../core/build/build-body.ts";
 import type { BodyModel } from "../core/human/spec.ts";
+import { balanceCeiling, balancePoint, rulebook } from "../core/rules/rulebook.ts";
 import { createWorld, type World } from "../core/world.ts";
 import { publicAssetUrl } from "../asset-url.ts";
+import { labActor } from "./actor.ts";
 import { labCameraRig } from "./camera.ts";
 import type { Control } from "./hud/controls.ts";
 import { controlsSection } from "./hud/controls-section.ts";
@@ -22,7 +24,7 @@ import { labSections, SECTIONS, type LabPage, type SectionName } from "./hud/sec
 import { labTransport } from "./hud/transport.ts";
 import { viewSection } from "./hud/view-section.ts";
 import { SCENARIO_PANELS, type LabScenario, type LabShell, type ScenarioRun } from "./lab-scenario.ts";
-import { loadoutSpec } from "./loadout.ts";
+import { loadoutBalance, loadoutSpec } from "./loadout.ts";
 import { blowScenario } from "./blow-scenario.ts";
 import { routineScenario } from "./routine-scenario.ts";
 import { runScenario } from "./run-scenario.ts";
@@ -40,7 +42,8 @@ import { need } from "../dom.ts";
  * and its marks; the shell owns the rest. The HUD is sections (`hud/sections.ts`): the shell fills
  * them with its own controls, each section's in its module, then with the scenario's panels.
  *
- * The body is the loadout's (`loadout.ts`): the model, and what each hand holds. It is drawn in one
+ * The body is the loadout's (`loadout.ts`): the model, and what each hand holds. Its assist
+ * (`actor.ts`) has the ceiling its balance buys (`loadoutBalance`), named by the clock. It is drawn in one
  * of two views: World, the workshop model's skin (`skin.ts`), wearing the loadout's clothing, or
  * Tactical, the collision shapes themselves (`src/render/body-shapes.ts`); what a hand holds is drawn as its shapes
  * in both. A Free, an Isometric or a Chase camera follows it (`camera.ts`).
@@ -62,6 +65,9 @@ const TINT: Readonly<Record<BodyModel, Color3>> = {
   "workshop-rogue": new Color3(0.5, 0.62, 0.55),
   "crypt-skeleton": new Color3(0.72, 0.68, 0.58),
 };
+
+/** What a point of balance is worth: the arena's. */
+const POINT = balancePoint(rulebook("arena"));
 
 const SCENARIO: Readonly<Record<ScenarioId, (scene: Scene, shell: LabShell) => LabScenario>> = {
   stance: stanceScenario,
@@ -128,13 +134,15 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
     readonly built: BuiltBody; readonly view: BodyShapes; readonly held: BodyShapes; skin: SkinView | null; readonly run: ScenarioRun;
     /** The pelvis's rotation as built, facing +z: the chase camera reads the body's facing from it. */
     readonly rest: Quaternion;
+    /** The points its assist has, if it has one: every figure read under it is read beside them. */
+    readonly helped: number | null;
   }
   let current: Loaded | null = null;
   let shown: LabAddress = address;
   const transport = labTransport(need("transport"), scenario.timelineLabel, () => current?.run ?? null);
 
   // The HUD: the shell's controls in their sections, then the scenario's panels in theirs.
-  const page: LabPage = { get shown() { return shown; }, load, show };
+  const page: LabPage = { get shown() { return shown; }, get spec() { return current?.built.spec ?? loadoutSpec(shown); }, load, show };
   const sections = labSections(document);
   const controls: Readonly<Partial<Record<SectionName, readonly Control[]>>> = {
     scenario: scenarioSection(page), view: viewSection(page), character: characterSection(page), controls: controlsSection(page),
@@ -174,12 +182,13 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
     world?.dispose();
     world = createWorld(scene, physicsEngine, { hz: to.hz });
     world.physics.addFixedBox([0, -0.5, 0], [40, 1, 40]);
-    const built = buildBody(loadoutSpec(to), world, { position: [0, 0, 0] });
+    const built = buildBody(loadoutSpec(to), world, { position: [0, 0, 0] }), points = loadoutBalance(to.balance, built.spec);
+    const actor = labActor(built, world, { assist: balanceCeiling(points, POINT) });
     const rest = built.segments.get("lowerTrunk")!.node.rotationQuaternion!.clone();
     const view = drawBody(built, scene, TINT[to.model]), heldView = drawHeld(built, scene);
     // A new body starts live: nothing of the last one's recording is shown.
-    const run = scenario.start({ scene, built, world, changed: transport.showPlayhead, clock: () => performance.now() });
-    const loaded: Loaded = { built, view, held: heldView, skin: null, run, rest };
+    const run = scenario.start({ scene, actor, changed: transport.showPlayhead, clock: () => performance.now() });
+    const loaded: Loaded = { built, view, held: heldView, skin: null, run, rest, helped: actor.body.assist.on ? points : null };
     current = loaded;
     show(to);
     const model = to.model;
@@ -195,8 +204,8 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
 
   function readout(): void {
     if (!current) return;
-    const { run } = current;
-    transport.show(run, run.readout(run.player.shownFrame()));
+    const { run, helped } = current;
+    transport.show(run, run.readout(run.player.shownFrame()), helped);
   }
 
   // The scenario's keys, held: a key held is a level, what is down now, cleared whenever the page

@@ -14,7 +14,7 @@ export const NO_ASSIST: AssistCeiling = Object.freeze({ force: 0, moment: 0 });
 
 /**
  * **The assist: a force and a moment on a body's root that no muscle gives.** It is not anatomy:
- * its ceiling is the fight's to set, from the character's balance (`balanceCeiling`,
+ * its ceiling is given with the body, from the character's balance (`balanceCeiling`,
  * `src/core/rules/rulebook.ts`), and everything it gives is metered. A mind asks it for a wrench
  * each step as it asks its muscles; what it is given is the ask shortened to the ceiling, a force
  * at the root's centre of mass and a moment through the solver step that follows, with the

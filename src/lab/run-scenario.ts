@@ -77,13 +77,14 @@ export function runScenario(scene: Scene, shell: LabShell): LabScenario {
       readout: [shown, legend([MARKS.track, MARKS.centre, MARKS.aim])],
     },
     timelineLabel: `The last ${HISTORY_SECONDS} seconds, one physics step a notch; dragging pauses. Arrow keys step once it has focus.`,
-    start({ built, world, changed, clock }) {
+    start({ actor, changed, clock }) {
+      const { world } = actor, { built } = actor.body;
       if (painted?.id !== chosen) {
         painted?.mesh.dispose();
         const track = trackOf(TRACKS[chosen].pieces);
         painted = { id: chosen, track, mesh: paintTrack(scene, track, trackMaterial) };
       }
-      const run = startRun(built, world, painted.track);
+      const run = startRun(actor, painted.track);
       const history = recordHistory(built, world, HISTORY_SECONDS, (): RunMoment => {
         const c = run.body.view.stance.centre;
         return { frame: run.frame(), centre: [c.x, c.z] };

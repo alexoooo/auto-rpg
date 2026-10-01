@@ -98,9 +98,9 @@ without resuming on its own.
 - **Run**: it goes round a track as fast as its walk holds.
 - **Blow**: it swings the club blow that sets the damage unit into a head.
 
-Its sections, each of which folds away, choose the body, what each hand holds, boots and armour,
-the camera (Free, Isometric or Chase), the view, and 120 or 480 Hz. The transport pauses (Space),
-steps one physics step at a time, scrubs, and slows time to 1/4 or 1/10.
+Its sections, each of which folds away, choose the body and its balance, what each hand holds,
+boots and armour, the camera (Free, Isometric or Chase), the view, and 120 or 480 Hz. The transport
+pauses (Space), steps one physics step at a time, scrubs, and slows time to 1/4 or 1/10.
 
 ## The other pages
 

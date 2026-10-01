@@ -12,6 +12,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { humanSpec } from "../src/core/human/spec.ts";
 import { mirroredWindow, recipeFor, REPERTOIRE } from "../src/core/skills/strikes.ts";
+import { labActor } from "../src/lab/actor.ts";
 import { ROUTINE_HANDS, startRoutine } from "../src/lab/routine.ts";
 import { coreStand } from "./harness/core-stand.mjs";
 
@@ -22,7 +23,7 @@ const SECONDS = 40 * LOOPS;
 for (const model of ["workshop-fighter", "workshop-rogue"]) {
   test(`${model}_completes_two_routine_loops_striking_from_where_its_feet_were_set`, async () => {
     const spec = humanSpec(model), stand = await coreStand(spec, { ground: true, hz: 120 });
-    const routine = startRoutine(stand.built, stand.world);
+    const routine = startRoutine(labActor(stand.built, stand.world));
     try {
       for (let i = 0; i < stand.seconds(SECONDS) && routine.tactics.loops < LOOPS && !routine.report.fallen; i++) stand.step(1);
       assert.equal(routine.report.fallen, false, routine.doing());

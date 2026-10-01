@@ -20,6 +20,7 @@ import { armed } from "../src/core/human/grip.ts";
 import { humanSpec } from "../src/core/human/spec.ts";
 import { woodenClub } from "../src/core/items/club.ts";
 import { STAND } from "../src/core/skills/strike.ts";
+import { labActor } from "../src/lab/actor.ts";
 import { throwBlow } from "../src/lab/blow.ts";
 import { watchClubBlow } from "../src/lab/club-blow.ts";
 import { coreStand } from "../tests/harness/core-stand.mjs";
@@ -77,7 +78,7 @@ export async function evaluateClubStrike({ model = "workshop-fighter", unit, hz 
   const strike = perturbation ? perturbed(decoded.strike, perturbation) : decoded.strike, distance = decoded.distance;
   const chamber = strike.chamber ?? { seconds: 0 };
   const stand = await coreStand(spec, { ground: true, groundSize, hz });
-  const blow = throwBlow(stand.built, stand.world, strike, distance);
+  const blow = throwBlow(labActor(stand.built, stand.world), strike, distance);
   const watch = watchClubBlow(stand.built, stand.world, blow, distance, hand, off);
   try {
     for (let i = 0; i < stand.seconds(STAND + chamber.seconds + WINDOW) && !watch.landed && !watch.fell; i++) stand.step(1);

@@ -7,12 +7,13 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { humanSpec } from "../src/core/human/spec.ts";
 import { TURN_LEAD } from "../src/core/skills/locomotion.ts";
+import { labActor } from "../src/lab/actor.ts";
 import { startStance } from "../src/lab/stance-mode.ts";
 import { coreStand } from "./harness/core-stand.mjs";
 
 async function session(model, script) {
   const stand = await coreStand(humanSpec(model), { ground: true });
-  const stance = startStance(stand.built, stand.world);
+  const stance = startStance(labActor(stand.built, stand.world));
   try { return script(stance, (seconds) => stand.step(stand.seconds(seconds))); }
   finally { stance.dispose(); stand.dispose(); }
 }

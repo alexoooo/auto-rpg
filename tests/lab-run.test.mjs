@@ -10,6 +10,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { humanSpec } from "../src/core/human/spec.ts";
 import { paceRound } from "../src/core/control/stance-envelope.ts";
+import { labActor } from "../src/lab/actor.ts";
 import { startRun } from "../src/lab/run-mode.ts";
 import { CIRCLE_RADIUS, SHUTTLE_METRES, SHUTTLE_TURN_RADIUS, TRACKS, trackOf } from "../src/lab/track.ts";
 import { coreStand } from "./harness/core-stand.mjs";
@@ -27,7 +28,7 @@ for (const model of ["workshop-fighter", "workshop-rogue"]) {
   for (const id of ["circle", "shuttle"]) {
     test(`${model}_runs_round_the_${id}`, async () => {
       const stand = await coreStand(humanSpec(model), { ground: true });
-      const run = startRun(stand.built, stand.world, trackOf(TRACKS[id].pieces));
+      const run = startRun(labActor(stand.built, stand.world), trackOf(TRACKS[id].pieces));
       let off = 0, frame = run.frame();
       /** The paces asked, on the straight and in a bend. */
       const paces = { straight: new Set(), bend: new Set() };

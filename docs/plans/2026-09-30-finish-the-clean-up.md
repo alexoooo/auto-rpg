@@ -66,9 +66,9 @@ its end. A change that two bodies recover from within the case still changes the
   - Print `status`, `blows.length` and the pose hash of every actor's body.
 - **The lab.** For `workshop-fighter` and `workshop-rogue`, each on `coreStand(humanSpec(model),
   { ground: true })`:
-  - `startRun(built, world, trackOf(TRACKS.circle.pieces))` for 10 s (as
+  - `startRun(labActor(built, world), trackOf(TRACKS.circle.pieces))` for 10 s (as
     `tests/lab-run.test.mjs` builds it). Print the pose hash.
-  - `startRoutine(built, world)` for 20 s at 120 Hz. Print the routine's `strikes.length`
+  - `startRoutine(labActor(built, world))` for 20 s at 120 Hz. Print the routine's `strikes.length`
     and the pose hash.
 - **Crypt generation.**
   - Hash `JSON.stringify(generateCryptDungeon(seed))`, with `map.floor` turned into an array,

@@ -69,14 +69,14 @@ if (isMainThread) {
     }
   });
 } else {
-  const [{ Logger }, { Vector3 }, { modelSpec }, { startRoutine }, { coreStand }] = await Promise.all([
+  const [{ Logger }, { Vector3 }, { modelSpec }, { labActor }, { startRoutine }, { coreStand }] = await Promise.all([
     import("@babylonjs/core/Misc/logger.js"), import("@babylonjs/core/Maths/math.vector.js"), import("../src/core/human/spec.ts"),
-    import("../src/lab/routine.ts"), import("../tests/harness/core-stand.mjs")]);
+    import("../src/lab/actor.ts"), import("../src/lab/routine.ts"), import("../tests/harness/core-stand.mjs")]);
   Logger.LogLevels = Logger.ErrorLogLevel;
   parentPort.on("message", async ({ model, seed, stance, loops, impulse, hz }) => {
     try {
       const stand = await coreStand(modelSpec(model), { ground: true, hz });
-      const routine = startRoutine(stand.built, stand.world, stance);
+      const routine = startRoutine(labActor(stand.built, stand.world, { stance }));
       const lower = stand.built.segments.get("lowerTrunk"), middle = stand.built.segments.get("middleTrunk");
       const way = (seed * 2.399963) % (2 * Math.PI), push = stand.seconds(0.5), most = stand.seconds(LOOP_SECONDS * loops);
       let fell = null, doing = routine.doing();

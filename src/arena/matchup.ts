@@ -1,5 +1,6 @@
 import { BODY_MODELS, type BodyModel } from "../core/human/spec.ts";
 import { isOrders } from "../core/mind/orders.ts";
+import { balanceFrom } from "../core/rules/rulebook.ts";
 import type { OrdersEntry, Side } from "./duel.ts";
 
 /** The arena link's parameter: `?matchup=left,right`, each a core model. */
@@ -50,15 +51,15 @@ export function youSearch(search: string, you: Side | null): string {
 const BALANCE_PARAM = "balance";
 
 /**
- * The balance an address gives each side (`DuelRecipe.balance`): two numbers, each finite and not
- * negative, left then right, or one number for both; undefined for anything else, and each side's
+ * The balance an address gives each side (`DuelRecipe.balance`): two numbers (`balanceFrom`),
+ * left then right, or one number for both; undefined for anything else, and each side's
  * is then its character's.
  */
 export function readBalance(search: string): Readonly<Record<Side, number>> | undefined {
   const text = new URLSearchParams(search).get(BALANCE_PARAM);
   if (text === null) return undefined;
-  const points = text.split(",").map((part) => part.trim() === "" ? NaN : Number(part));
-  if (points.length < 1 || points.length > 2 || !points.every((p) => Number.isFinite(p) && p >= 0)) return undefined;
+  const parts = text.split(","), points = parts.map(balanceFrom).filter((p) => p !== null);
+  if (parts.length > 2 || points.length !== parts.length) return undefined;
   return { left: points[0]!, right: points[points.length - 1]! };
 }
 

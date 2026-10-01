@@ -84,8 +84,9 @@ export function stanceScenario(scene: Scene): LabScenario {
       readout: [shown, legend([MARKS.centre, MARKS.capture, MARKS.place])],
     },
     timelineLabel: `The last ${HISTORY_SECONDS} seconds, one physics step a notch; dragging pauses. Arrow keys step once it has focus.`,
-    start({ built, world, changed, clock }) {
-      const stance = startStance(built, world), capture = new Vector3();
+    start({ actor, changed, clock }) {
+      const { world } = actor, { built } = actor.body;
+      const stance = startStance(actor), capture = new Vector3();
       const history = recordHistory(built, world, HISTORY_SECONDS, (): StanceMoment => {
         const s = stance.body.view.stance;
         stance.capturePointToRef(capture);

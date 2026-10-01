@@ -1,8 +1,7 @@
 import type { Scene } from "@babylonjs/core/scene.js";
-import type { BuiltBody } from "../core/build/build-body.ts";
-import type { World } from "../core/world.ts";
 import type { Player, Playhead } from "./player.ts";
 import type { Hand } from "../render/skin.ts";
+import type { Actor } from "./actor.ts";
 import type { Control } from "./hud/controls.ts";
 
 /**
@@ -38,9 +37,8 @@ export interface LabShell {
 
 interface ScenarioContext {
   readonly scene: Scene;
-  /** A body in its reference pose at the origin, facing +z, on the ground. */
-  readonly built: BuiltBody;
-  readonly world: World;
+  /** A body in its reference pose at the origin, facing +z, on the ground of its world, as the page stands it: the scenario's mode drives it. */
+  readonly actor: Actor;
   /** For the player: the transport shows its playhead. */
   readonly changed: (playhead: Playhead) => void;
   readonly clock: () => number;

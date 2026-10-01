@@ -142,7 +142,7 @@ braking and blocking). A muscle can never exceed its source's strength at its sp
   each body was measured to hold (`assets/core/stance-envelope.json`).
 - **The assist** (`assist.ts`) is a force and a moment on the root that no muscle gives: an ask
   shortened to a ceiling in the body's own weight, given through the solver step, and metered. Its
-  ceiling is the fight's to set from the character's balance, and none unless given
+  ceiling is given with the body from the character's balance, and none unless given
   ([reference/assist.md](reference/assist.md)).
 
 ### Skills
@@ -173,7 +173,7 @@ step, after the muscles have read the joints. It reads its `Senses` (`senses.ts`
 that body, and writes each freedom's activation and the speed asked of it
 (`MuscleDriver.activation`, `.velocity`): a speed beyond the muscles' reach is a torque at the
 ceiling the activation sets, and a speed of zero holds. It may also ask its assist for a force
-and a moment on the root (`Assist.ask`), which gives none unless the fight gave it a ceiling. That
+and a moment on the root (`Assist.ask`), which gives none unless it was given a ceiling. That
 command and that ask are the whole of what a mind does to the world; camera state never reaches one. The seam names no hand and no foot, so a body of
 another shape takes a mind through the same call. `tests/core-boundary.test.mjs` holds that
 nothing else under `src/` drives muscles. What a mind remembers from step to step is its `state`
@@ -297,7 +297,8 @@ The rules of a fight are `src/core/rules/`, free of any page so they can be argu
   0.05 of the body's weight of force and 0.013 of its weight times a metre of moment, the most its
   assist gives it (`balanceCeiling`). A fight sets each body's ceiling from its character's points,
   or a recipe's (`DuelRecipe.balance`, `&balance=left,right` in an arena link), and withdraws the
-  assist when the body is out of the fight. Every character's balance is 0, and at 0 there is no
+  assist when the body is out of the fight; the lab sets its body's from the character's points or
+  its address's (`&balance=`). Every character's balance is 0, and at 0 there is no
   assist.
 
 A body that falls (`SkillReport.fallen`) is out of the fight: rising is not built yet. The arena's
@@ -361,7 +362,8 @@ arena, crypt and lab screens at `?play=arena`, `?play=dungeon` and `?play=lab`, 
   Enemies are built when the party comes near; its art is in [art/crypt.md](art/crypt.md).
 - **The lab** (`src/lab/`): one body at a time in the Stance, Routine, Run and Blow
   scenarios (`scenarios.ts`), at 120 or 480 Hz, with a transport that steps the world by hand.
-  Its HUD is sections (`hud/sections.ts`) that the shell and the scenario fill with controls
+  Every scenario drives its body through an actor (`actor.ts`), which gives the body what the
+  page chose. Its HUD is sections (`hud/sections.ts`) that the shell and the scenario fill with controls
   built from data (`hud/controls.ts`).
 - **The character workshop** (`/character-lab.html`, `src/character-lab/`): the workshop models
   with their authored preview motion. It uses no core. See [art/characters.md](art/characters.md).

@@ -32,6 +32,7 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { humanSpec } from "../src/core/human/spec.ts";
 import { coreStand } from "../tests/harness/core-stand.mjs";
 import { STAND } from "../src/core/skills/strike.ts";
+import { labActor } from "../src/lab/actor.ts";
 import { centreNow, throwBlow } from "../src/lab/blow.ts";
 
 Logger.LogLevels = Logger.ErrorLogLevel;
@@ -110,7 +111,7 @@ export async function evaluateStrike({ model = "workshop-fighter", unit, hz = 12
   const radius = spec.segments.find((s) => s.name === "head").shape.radius.value;
   const forward = new Vector3(0, 0, 1);
   const stand = await coreStand(spec, { ground: true, groundSize, hz });
-  const blow = throwBlow(stand.built, stand.world, strike, distance);
+  const blow = throwBlow(labActor(stand.built, stand.world), strike, distance);
   const fist = blow.body.view.fists[hand], head = stand.built.segments.get("head");
   // `given.centre` places the sphere anywhere, for a control; a search places it straight ahead of
   // the head as the body stands when the blow begins.

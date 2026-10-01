@@ -1,10 +1,11 @@
 import { playHref } from "../app-route.ts";
 import { CHARACTERS } from "../character-lab/catalog.ts";
 import type { BodyModel } from "../core/human/spec.ts";
+import { balanceFrom } from "../core/rules/rulebook.ts";
 
 /**
  * **The lab's scenarios, and the address that opens one.** `?play=lab` is the scenario menu
- * (`setup.ts`); `?play=lab&scenario=…` runs that scenario (`main.ts`), where the loadout, the
+ * (`setup.ts`); `?play=lab&scenario=…` runs that scenario (`main.ts`), where the loadout, the balance, the
  * rate, the view and the camera are chosen, and the address keeps them. Choosing a scenario, or going back to
  * the menu, is a navigation, as every change of screen in the game is.
  *
@@ -86,13 +87,15 @@ export type LabProjection = (typeof LAB_PROJECTIONS)[number];
 export interface LabAddress extends LabLoadout {
   /** The scenario to run; none is the menu. */
   readonly scenario: ScenarioId | null;
+  /** The body's balance, points, in place of its character's (`AttributeSpec.balance`); null is the character's. */
+  readonly balance: number | null;
   readonly hz: LabRate;
   readonly view: LabView;
   readonly camera: LabCamera;
   readonly projection: LabProjection;
 }
 
-const KEYS = ["scenario", "model", "right", "left", "boots", "armour", "hz", "view", "camera", "projection"] as const;
+const KEYS = ["scenario", "model", "right", "left", "boots", "armour", "balance", "hz", "view", "camera", "projection"] as const;
 
 /** A switch in the address: `1` on, `0` off, anything else `fallback`. */
 const flag = (value: string | null, fallback: boolean): boolean => value === "1" ? true : value === "0" ? false : fallback;
@@ -109,6 +112,7 @@ export function labAddress(search: string): LabAddress {
     left: LAB_HELD.find((h) => h === query.get("left")) ?? LAB_HELD[0],
     boots: flag(query.get("boots"), worn.boots),
     armour: flag(query.get("armour"), worn.armour),
+    balance: balanceFrom(query.get("balance") ?? ""),
     hz: LAB_RATES.find((r) => String(r) === query.get("hz")) ?? LAB_RATES[0],
     view: LAB_VIEWS.find((v) => v === query.get("view")) ?? LAB_VIEWS[0],
     camera: LAB_CAMERAS.find((c) => c === query.get("camera")) ?? LAB_CAMERAS[0],
@@ -118,7 +122,7 @@ export function labAddress(search: string): LabAddress {
 
 /**
  * The address of `address`, keeping whatever else `search` holds. The menu keeps the loadout,
- * the rate, the view and the camera, so going back to it and on to another scenario keeps them too.
+ * the balance, the rate, the view and the camera, so going back to it and on to another scenario keeps them too.
  */
 export function labHref(address: LabAddress, search = ""): string {
   const query = new URLSearchParams(playHref("lab", search));
@@ -129,6 +133,7 @@ export function labHref(address: LabAddress, search = ""): string {
   query.set("left", address.left);
   query.set("boots", address.boots ? "1" : "0");
   query.set("armour", address.armour ? "1" : "0");
+  if (address.balance !== null) query.set("balance", String(address.balance));
   query.set("hz", String(address.hz));
   query.set("view", address.view);
   query.set("camera", address.camera);

@@ -78,6 +78,18 @@ export function actions<T>(label: string, options: readonly Entry<T>[], run: (va
   return field(label, options.map(({ value, name, title }) => action(name, () => run(value), title)));
 }
 
+/** A number moved down and up by `step` among those `allows` takes; a move calls `set`. */
+export function quantity(label: string, step: number, allows: (value: number) => boolean, value: () => number, set: (value: number) => void): Control {
+  const mover = (name: string, by: number): Control => {
+    const element = button(name, () => { try { set(value() + by); } finally { all.refresh(); } });
+    return { element, refresh: () => { element.disabled = !allows(value() + by); } };
+  };
+  const shown = document.createElement("output");
+  const all = field(label, [mover("−", -step), { element: shown, refresh: () => { shown.textContent = String(value()); } }, mover("+", step)]);
+  all.refresh();
+  return all;
+}
+
 /** `control`, shown only while `visible`. */
 export function when(visible: () => boolean, control: Control): Control {
   const element = document.createElement("div");

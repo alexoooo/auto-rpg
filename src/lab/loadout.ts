@@ -18,6 +18,16 @@ export function loadoutSpec(loadout: LabLoadout): BodySpec {
   return spec;
 }
 
+/** The points of balance the body of `spec` has: `balance`, the address's, or its character's own. */
+export function loadoutBalance(balance: number | null, spec: BodySpec): number {
+  return balance ?? spec.attributes.balance.value;
+}
+
+/** What the address holds for `points` on the body of `spec`: nothing where they are its character's own. */
+export function balanceAddress(points: number, spec: BodySpec): number | null {
+  return points === spec.attributes.balance.value ? null : points;
+}
+
 function itemOf(held: LabHeld) {
   switch (held) {
     case "empty": return null;

@@ -1,13 +1,11 @@
-import { createBody, SERVO_SECONDS, type Body, type Fist } from "../core/body.ts";
-import type { BuiltBody } from "../core/build/build-body.ts";
+import type { Body, Fist } from "../core/body.ts";
 import type { Hand } from "../core/control/motor.ts";
 import type { StanceEnvelope } from "../core/control/stance-envelope.ts";
-import type { StanceTuning } from "../core/control/stance-tuning.ts";
 import { GUARD_ACTION, type Intent } from "../core/mind/intent.ts";
-import { driveBy, type Sight, type Tactics } from "../core/mind/tactics.ts";
+import type { Sight, Tactics } from "../core/mind/tactics.ts";
 import type { SkillReport } from "../core/skills/skills.ts";
 import { APPROACH } from "../core/skills/strike.ts";
-import type { World } from "../core/world.ts";
+import type { Actor } from "./actor.ts";
 import { trackTactics } from "./run-mode.ts";
 import { LAB_TURN_RATE } from "./stance-mode.ts";
 import { SHUTTLE_TURN_RADIUS, TURN_PACE, trackOf, type Piece, type Track } from "./track.ts";
@@ -150,13 +148,10 @@ interface Routine {
   dispose(): void;
 }
 
-/**
- * Run the routine on `built`, a human in its reference pose at the origin, facing +z, on its feet on
- * the ground; `tuning` tunes its stance, as an experiment's override.
- */
-export function startRoutine(built: BuiltBody, world: World, tuning?: StanceTuning): Routine {
+/** Run the routine on `actor`'s body, a human in its reference pose at the origin, facing +z, on its feet on the ground. */
+export function startRoutine(actor: Actor): Routine {
+  const { body } = actor, built = body.built;
   if (!built.segments.has("lowerTrunk")) throw new Error(`${built.spec.model} is not a human the routine knows`);
-  const body = createBody(built, world, { servoSeconds: SERVO_SECONDS, stance: tuning });
   const tactics = routineTactics(trackOf(ROUTINE_TRACK), body.envelope!);
   const fists = body.view.fists;
   const speed = { left: 0, right: 0 };
@@ -193,7 +188,7 @@ export function startRoutine(built: BuiltBody, world: World, tuning?: StanceTuni
       current = null;
     }
   };
-  const { report } = driveBy(body, { name: tactics.name, decide: (sight, dt) => { read(sight); return tactics.decide(sight, dt); } });
+  const { report } = actor.drive({ name: tactics.name, decide: (sight, dt) => { read(sight); return tactics.decide(sight, dt); } });
 
   return {
     body,
@@ -228,7 +223,7 @@ export function startRoutine(built: BuiltBody, world: World, tuning?: StanceTuni
       if (opened !== null) return Math.max(0, 1 - (time - opened) / FIST_OPENING);
       return 0;
     },
-    dispose: () => body.dispose(),
+    dispose: () => actor.dispose(),
   };
 }
 

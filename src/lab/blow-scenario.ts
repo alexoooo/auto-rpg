@@ -91,11 +91,12 @@ export function blowScenario(scene: Scene, shell: LabShell): LabScenario {
       readout: [shown, legend([MARKS.head, MARKS.touch])],
     },
     timelineLabel: "The blow, from standing in guard, one physics step a notch; dragging pauses. Arrow keys step once it has focus.",
-    start({ built, world, changed, clock }) {
+    start({ actor, changed, clock }) {
+      const { world } = actor, { built } = actor.body;
       const stored = chosen;
       const holds = built.spec.held?.some((h) => h.segment === `hand.${stored.hand}`) ?? false;
       // Without the club, the body stands in guard: the same rig with no blow to throw.
-      const blow = throwBlow(built, world, holds ? stored.strike : { name: "guard", hand: stored.hand, pushes: [] }, stored.distance);
+      const blow = throwBlow(actor, holds ? stored.strike : { name: "guard", hand: stored.hand, pushes: [] }, stored.distance);
       const watch = holds ? watchClubBlow(built, world, blow, stored.distance, stored.hand) : null;
       const history = recordHistory(built, world, HISTORY_SECONDS, (): BlowMoment => {
         const t = watch?.target;

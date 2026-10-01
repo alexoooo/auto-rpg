@@ -1,11 +1,10 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import { createBody, SERVO_SECONDS, type Body } from "../core/body.ts";
-import type { BuiltBody } from "../core/build/build-body.ts";
+import type { Body } from "../core/body.ts";
 import type { StancePhase } from "../core/control/stance.ts";
 import { GUARD_ACTION, type Intent } from "../core/mind/intent.ts";
-import { driveBy, type Tactics } from "../core/mind/tactics.ts";
-import type { World } from "../core/world.ts";
+import type { Tactics } from "../core/mind/tactics.ts";
 import { STANCE_LOWER } from "../core/skills/locomotion.ts";
+import type { Actor } from "./actor.ts";
 
 /**
  * **The lab's stance mode**: a human on its own feet under the core stance
@@ -102,13 +101,13 @@ function stanceTactics(orders: StanceOrders): Tactics {
   };
 }
 
-/** Stand `built`, a human in its reference pose on the ground, facing +z, on its feet, driven by the page's orders. */
-export function startStance(built: BuiltBody, world: World): StanceSession {
-  const body = createBody(built, world, { servoSeconds: SERVO_SECONDS });
+/** Stand `actor`'s body, a human in its reference pose on the ground, facing +z, on its feet, driven by the page's orders. */
+export function startStance(actor: Actor): StanceSession {
+  const { body, world } = actor, built = body.built;
   const trunk = built.segments.get("middleTrunk");
   if (!trunk) throw new Error(`${built.spec.model} has no middle trunk to shove`);
   const orders = restOrders();
-  const { report } = driveBy(body, stanceTactics(orders));
+  const { report } = actor.drive(stanceTactics(orders));
   let shove: Vector3 | null = null;
   const turn = new Quaternion(), at = new Vector3();
   // After the body's control, before the solver: the page's hand on the world, not the body's.
@@ -143,7 +142,7 @@ export function startStance(built: BuiltBody, world: World): StanceSession {
     },
     dispose() {
       shoving.dispose();
-      body.dispose();
+      actor.dispose();
     },
   };
 }
