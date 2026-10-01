@@ -9,6 +9,7 @@ import { createPlayer } from "./player.ts";
 import { ROUTINE_TRACK, startRoutine } from "./routine.ts";
 import { paintTrack } from "./run-scenario.ts";
 import { trackOf } from "./track.ts";
+import { need } from "../dom.ts";
 
 /**
  * **The Routine scenario**: the lab routine (`routine.ts`), a mind on the core's skills -- walk out,
@@ -44,8 +45,7 @@ export function routineScenario(scene: Scene): LabScenario {
   post.material = material;
   post.isPickable = false;
   post.isVisible = false;
-  const $ = (id: string): HTMLElement => document.getElementById(id)!;
-  const shown = { doing: $("doing"), loops: $("loops"), fist: $("fist"), strikes: $("strikes") };
+  const shown = { doing: need("doing"), loops: need("loops"), fist: need("fist"), strikes: need("strikes") };
   const cell = (text: string): HTMLElement => Object.assign(document.createElement("td"), { textContent: text });
 
   return {

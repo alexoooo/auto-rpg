@@ -10,6 +10,7 @@ import { watchClubBlow, type ClubLanding } from "./club-blow.ts";
 import { recordHistory } from "./history.ts";
 import type { LabScenario, LabShell } from "./lab-scenario.ts";
 import { createPlayer } from "./player.ts";
+import { need } from "../dom.ts";
 
 /**
  * **The Blow scenario**: the loaded body throws a stored blow (`blows.ts`) standing, as the strike
@@ -64,13 +65,12 @@ export function blowScenario(scene: Scene, shell: LabShell): LabScenario {
   touch.material = material("lab.blow.touch", new Color3(1, 0.85, 0.3), 1);
   for (const mark of [head, touch]) { mark.isPickable = false; mark.setEnabled(false); mark.renderingGroupId = 1; }
 
-  const $ = (id: string): HTMLElement => document.getElementById(id)!;
   const shown = {
-    about: $("b-about"), doing: $("b-doing"), since: $("b-since"), closing: $("b-closing"), energy: $("b-energy"),
-    hp: $("b-hp"), club: $("b-club"), head: $("b-head"), peak: $("b-peak"), rate: $("b-rate"),
+    about: need("b-about"), doing: need("b-doing"), since: need("b-since"), closing: need("b-closing"), energy: need("b-energy"),
+    hp: need("b-hp"), club: need("b-club"), head: need("b-head"), peak: need("b-peak"), rate: need("b-rate"),
   };
   let chosen: StoredBlow = LAB_BLOWS[0]!;
-  const choices = $("b-choice");
+  const choices = need("b-choice");
   const showChoice = (): void => {
     for (const b of choices.querySelectorAll<HTMLButtonElement>("button")) b.setAttribute("aria-pressed", String(b.dataset.blow === chosen.id));
     shown.about.textContent = chosen.line;

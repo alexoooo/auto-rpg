@@ -16,6 +16,7 @@ import mujocoMtWasmUrl from "@mujoco/mujoco/mt/mujoco.wasm?url";
 import mujocoMtWorkerUrl from "@mujoco/mujoco/mt?worker&url";
 import { forearmChain, scaling, standingFoot, standingHuman, type Factory, type Layout, type ScalingResult } from "./cases.ts";
 import { CHOSEN, mujocoThreaded, type Chosen } from "./chosen.ts";
+import { need } from "../dom.ts";
 
 interface Loaded { readonly initMs: number; readonly factory: Factory }
 
@@ -77,7 +78,6 @@ const results: Row[] = [];
 const state = { status: "idle", results, loads: {} as Record<string, unknown> };
 (window as unknown as { __physicsBench: typeof state }).__physicsBench = state;
 
-const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
 const f = (x: number, d = 3): string => (Number.isFinite(x) ? x.toFixed(d) : "-");
 /**
  * Yield to the page between runs. A message, not a timer: Chrome throttles a hidden tab's timers to
@@ -90,30 +90,30 @@ function show(row: Row, cells: string[]): void {
   results.push(row);
   const tr = document.createElement("tr");
   for (const c of cells) { const td = document.createElement("td"); td.textContent = c; tr.append(td); }
-  $("rows").append(tr);
+  need("rows").append(tr);
 }
 
 /** The middle value, or the mean of the two middle ones: not `median` (`math.ts`), which is the 50th percentile. */
 const midMean = (xs: number[]): number => { const s = [...xs].sort((a, b) => a - b); const m = s.length >> 1; return s.length % 2 ? s[m]! : (s[m - 1]! + s[m]!) / 2; };
 
 async function runChosen(c: Chosen, what: { fidelity: boolean; scaling: boolean }): Promise<void> {
-  $("status").textContent = `${c.tag}: loading`;
+  need("status").textContent = `${c.tag}: loading`;
   const e = await engineOf(c.engine);
   state.loads[c.engine] = { initMs: e.initMs };
   if (what.fidelity) {
-    $("status").textContent = `${c.tag}: case A`; await tick();
+    need("status").textContent = `${c.tag}: case A`; await tick();
     const a = standingFoot(e.factory, c.settings, c.conditioning?.["foot.left"] ?? 1);
     show({ tag: c.tag, kind: "A", ...a }, [c.tag, "case A", a.standing ? "standing" : "FELL", `spin ${f(a.footSpinRms, 4)}`, `tilt ${f(a.footTiltMaxLate)}`, `drift ${f(a.comDrift)} mm`, `${f(a.msPerStep)} ms`]);
-    $("status").textContent = `${c.tag}: case B`; await tick();
+    need("status").textContent = `${c.tag}: case B`; await tick();
     const b = forearmChain(e.factory, c.settings);
     show({ tag: c.tag, kind: "B", ...b, elbow: undefined }, [c.tag, "case B", `hand ${f(b.handJitterRms, 4)}`, `wrist ${f(b.wristJitterRms, 4)}`, `ring ${f(b.ringRms)}`, `over ${f(b.overshoot)}`, `${f(b.msPerStep)} ms`]);
-    $("status").textContent = `${c.tag}: case C`; await tick();
+    need("status").textContent = `${c.tag}: case C`; await tick();
     const h = standingHuman(e.factory, c.settings, c.conditioning, 10);
     show({ tag: c.tag, kind: "C", ...h }, [c.tag, "case C", `com ${f(h.comAtHalf)} -> ${f(h.comAtEnd)} m`, `drift ${f(h.comDrift, 1)} mm`, `speed ${f(h.maxSpeedLate, 2)} m/s`]);
   }
   if (!what.scaling) return;
   for (const kind of LAYOUTS) for (const humans of NS) {
-    $("status").textContent = `${c.tag}: ${kind} x${humans}`; await tick();
+    need("status").textContent = `${c.tag}: ${kind} x${humans}`; await tick();
     const runs: ScalingResult[] = [];
     for (let k = 0; k < REPEATS; k++) {
       runs.push(scaling(e.factory, c.settings, kind, humans, {
@@ -146,11 +146,11 @@ async function runAll(what: { fidelity: boolean; scaling: boolean }): Promise<vo
   }
   state.loads["resources"] = resourceSizes();
   state.status = "done";
-  $("status").textContent = "done";
+  need("status").textContent = "done";
 }
 
-$("run").addEventListener("click", () => void runAll({ fidelity: true, scaling: true }));
-$("run-fidelity").addEventListener("click", () => void runAll({ fidelity: true, scaling: false }));
+need("run").addEventListener("click", () => void runAll({ fidelity: true, scaling: true }));
+need("run-fidelity").addEventListener("click", () => void runAll({ fidelity: true, scaling: false }));
 /**
  * **Cross-origin isolation without server headers.** GitHub Pages sets no headers, and
  * SharedArrayBuffer needs COOP and COEP; `coi-sw.js` (`public/`) is a service worker that adds them
@@ -172,6 +172,6 @@ async function isolate(): Promise<boolean> {
 
 void isolate().then((ok) => {
   state.loads["crossOriginIsolated"] = globalThis.crossOriginIsolated;
-  $("ua").textContent = `${navigator.userAgent} | crossOriginIsolated=${String(globalThis.crossOriginIsolated)} | hardwareConcurrency=${navigator.hardwareConcurrency}`;
+  need("ua").textContent = `${navigator.userAgent} | crossOriginIsolated=${String(globalThis.crossOriginIsolated)} | hardwareConcurrency=${navigator.hardwareConcurrency}`;
   if (ok && params.get("auto") === "1") void runAll({ fidelity: true, scaling: true });
 });

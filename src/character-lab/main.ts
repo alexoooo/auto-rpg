@@ -15,9 +15,9 @@ import type { AssetContainer } from '@babylonjs/core/assetContainer.js';
 import '@babylonjs/loaders/glTF/index.js';
 import '@babylonjs/core/Lights/Shadows/shadowGeneratorSceneComponent.js';
 import { CHARACTERS, WEAPONS, visiblePart, clipFor, type CharacterId, type Loadout, type PoseId, type WeaponId } from './catalog.ts';
+import { need } from '../dom.ts';
 
-const el = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
-const canvas = el<HTMLCanvasElement>('stage');
+const canvas = need<HTMLCanvasElement>('stage');
 const engine = new Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true });
 engine.setHardwareScalingLevel(Math.max(1, window.devicePixelRatio / 1.5));
 const scene = new Scene(engine);
@@ -56,13 +56,13 @@ let clips: import('@babylonjs/core/Animations/animationGroup.js').AnimationGroup
 function sample(time: number) {
   seconds = Math.max(0, Math.min(12, time));
   for (const clip of clips) clip.goToFrame(pose === 'inspection' ? clip.from : clip.from + seconds * 60);
-  el<HTMLInputElement>('timeline').value = String(seconds);
-  el('time-label').textContent = `${seconds.toFixed(1)} / 12.0 s`;
+  need<HTMLInputElement>('timeline').value = String(seconds);
+  need('time-label').textContent = `${seconds.toFixed(1)} / 12.0 s`;
 }
 function restart() { seconds = 0; pose = 'loop'; playing = true; sync(); }
 
 function sync() {
-  el('play').textContent = playing ? 'Pause' : 'Play';
+  need('play').textContent = playing ? 'Pause' : 'Play';
   const kit = loadouts[current]; const character = CHARACTERS[current];
   clips = [];
   for (const [id, asset] of assets) {
@@ -79,16 +79,16 @@ function sync() {
   document.querySelectorAll<HTMLButtonElement>('[data-character]').forEach(b => { const selected = b.dataset.character === current; b.setAttribute('aria-pressed', String(selected)); b.classList.toggle('selected', selected); });
   for (const slot of ['boots', 'armour'] as const) document.querySelectorAll<HTMLButtonElement>(`[data-${slot}]`).forEach(b => b.setAttribute('aria-pressed', String(b.dataset[slot] === String(kit[slot]))));
   document.querySelectorAll<HTMLButtonElement>('[data-pose]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.pose === pose)));
-  el<HTMLSelectElement>('weapon').value = kit.weapon;
-  el('character-title').textContent = character.name; el('character-class').textContent = character.subtitle;
-  el('model-count').textContent = current === 'fighter' ? '01 / 02' : '02 / 02';
-  el('equipment-note').textContent = WEAPONS[kit.weapon].note;
-  el('loadout-summary').textContent = `${kit.boots ? 'Leather boots' : 'Barefoot'} · ${kit.armour ? (current === 'fighter' ? 'Plate armour' : 'Leather armour') : 'Base clothing'} · ${WEAPONS[kit.weapon].label}`;
+  need<HTMLSelectElement>('weapon').value = kit.weapon;
+  need('character-title').textContent = character.name; need('character-class').textContent = character.subtitle;
+  need('model-count').textContent = current === 'fighter' ? '01 / 02' : '02 / 02';
+  need('equipment-note').textContent = WEAPONS[kit.weapon].note;
+  need('loadout-summary').textContent = `${kit.boots ? 'Leather boots' : 'Barefoot'} · ${kit.armour ? (current === 'fighter' ? 'Plate armour' : 'Leather armour') : 'Base clothing'} · ${WEAPONS[kit.weapon].label}`;
   scene.render();
 }
 document.querySelectorAll<HTMLButtonElement>('[data-character]').forEach(b => b.addEventListener('click', () => { current = b.dataset.character as CharacterId; seconds = 0; if (ready) sync(); }));
 for (const slot of ['boots', 'armour'] as const) document.querySelectorAll<HTMLButtonElement>(`[data-${slot}]`).forEach(b => b.addEventListener('click', () => { loadouts[current][slot] = b.dataset[slot] === 'true'; sync(); }));
-el<HTMLSelectElement>('weapon').addEventListener('change', event => { loadouts[current].weapon = (event.target as HTMLSelectElement).value as WeaponId; seconds = 0; sync(); });
+need<HTMLSelectElement>('weapon').addEventListener('change', event => { loadouts[current].weapon = (event.target as HTMLSelectElement).value as WeaponId; seconds = 0; sync(); });
 document.querySelectorAll<HTMLButtonElement>('[data-pose]').forEach(b => b.addEventListener('click', () => { pose = b.dataset.pose as PoseId; playing = pose === 'loop'; seconds = 0; if (ready) sync(); }));
 function resetCamera() {
   document.querySelector('.stage')?.classList.remove('inspecting');
@@ -97,9 +97,9 @@ function resetCamera() {
   camera.movement.resetPanVelocity();
   camera.setTarget(new Vector3(0, 1.02, .65)); camera.alpha = Math.PI / 2 + .22; camera.beta = 1.39; camera.radius = 5.7;
 }
-el('reset').addEventListener('click', resetCamera);
-el('grip-view').addEventListener('click', () => {
-  playing = false; el('play').textContent = 'Play';
+need('reset').addEventListener('click', resetCamera);
+need('grip-view').addEventListener('click', () => {
+  playing = false; need('play').textContent = 'Play';
   const weapon = loadouts[current].weapon;
   const side = weapon === 'bow' || weapon === 'shield' ? 'l' : 'r';
   const joint = assets.get(current)?.transformNodes.find(n => n.name === `middle_01_${side}`);
@@ -123,10 +123,10 @@ canvas.addEventListener('keydown', event => {
   event.preventDefault();
 });
 const resize = () => engine.resize(); const observer = new ResizeObserver(resize); observer.observe(canvas);
-el('play').addEventListener('click', () => { playing = !playing; if (pose === 'inspection') { pose = 'loop'; sync(); } el('play').textContent = playing ? 'Pause' : 'Play'; });
-el('restart').addEventListener('click', restart);
-el<HTMLInputElement>('timeline').addEventListener('input', e => { playing = false; el('play').textContent = 'Play'; sample(Number((e.target as HTMLInputElement).value)); });
-el<HTMLSelectElement>('speed').addEventListener('change', e => { speed = Number((e.target as HTMLSelectElement).value); });
+need('play').addEventListener('click', () => { playing = !playing; if (pose === 'inspection') { pose = 'loop'; sync(); } need('play').textContent = playing ? 'Pause' : 'Play'; });
+need('restart').addEventListener('click', restart);
+need<HTMLInputElement>('timeline').addEventListener('input', e => { playing = false; need('play').textContent = 'Play'; sample(Number((e.target as HTMLInputElement).value)); });
+need<HTMLSelectElement>('speed').addEventListener('change', e => { speed = Number((e.target as HTMLSelectElement).value); });
 engine.runRenderLoop(() => { if (ready && playing && pose === 'loop' && !document.hidden) sample((seconds + Math.min(engine.getDeltaTime(), 100) / 1000 * speed) % 12); scene.render(); });
 let disposed = false;
 function dispose() { if (disposed) return; disposed = true; observer.disconnect(); engine.stopRenderLoop(); for (const asset of assets.values()) asset.dispose(); scene.dispose(); engine.dispose(); }
@@ -148,8 +148,8 @@ async function start() {
         }
       }
     }
-    sync(); ready = true; el<HTMLFieldSetElement>('kit').disabled = false; el('loading').hidden = true;
-  } catch (error) { console.error(error); el('loading').textContent = `The workshop could not load. ${error instanceof Error ? error.message : String(error)}. Reload to retry.`; }
+    sync(); ready = true; need<HTMLFieldSetElement>('kit').disabled = false; need('loading').hidden = true;
+  } catch (error) { console.error(error); need('loading').textContent = `The workshop could not load. ${error instanceof Error ? error.message : String(error)}. Reload to retry.`; }
 }
 // The page's state for the console and the browser checks (`scripts/character-lab/browser-check.mjs`).
 Object.assign(window, { __characterLab: { scene, camera, assets, loadouts, get current() { return current; }, get pose() { return pose; }, get ready() { return ready; }, get seconds() { return seconds; }, sample: (t: number) => { playing = false; sample(t); scene.render(); }, render: () => scene.render() } });

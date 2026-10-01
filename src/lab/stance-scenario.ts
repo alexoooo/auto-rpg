@@ -7,6 +7,7 @@ import type { LabScenario, ScenarioRun } from "./lab-scenario.ts";
 import { createPlayer } from "./player.ts";
 import { startStance, type StanceFrame } from "./stance-mode.ts";
 import { groundDisc } from "./ground-disc.ts";
+import { need } from "../dom.ts";
 
 /**
  * **The Stance scenario**: the human on its own feet under the core stance, guard up, walked from
@@ -47,10 +48,9 @@ export function stanceScenario(scene: Scene): LabScenario {
   // Drawn after the body, over it: the marks sit under the feet, where the skin would hide them.
   for (const mark of [placeMark, centreMark, captureMark, headingMark]) mark.renderingGroupId = 1;
 
-  const $ = (id: string): HTMLElement => document.getElementById(id)!;
   const shown = {
-    phase: $("s-phase"), strides: $("s-strides"), recoveries: $("s-recoveries"), speed: $("s-speed"),
-    height: $("s-height"), off: $("s-off"), heading: $("s-heading"), state: $("s-state"),
+    phase: need("s-phase"), strides: need("s-strides"), recoveries: need("s-recoveries"), speed: need("s-speed"),
+    height: need("s-height"), off: need("s-off"), heading: need("s-heading"), state: need("s-state"),
   };
   let walkSpeed = 0.3;
   for (const button of document.querySelectorAll<HTMLButtonElement>("[data-speed]")) {
@@ -62,7 +62,7 @@ export function stanceScenario(scene: Scene): LabScenario {
   }
   // The run the panel's controls act on: the latest one started.
   let current: (ScenarioRun & { shove(impulse: number, degrees: number): void }) | null = null;
-  const impulse = $("impulse") as HTMLSelectElement;
+  const impulse = need<HTMLSelectElement>("impulse");
   for (const button of document.querySelectorAll<HTMLButtonElement>("[data-shove]")) {
     button.addEventListener("click", () => {
       current?.shove(Number(impulse.value), Number(button.dataset.shove));

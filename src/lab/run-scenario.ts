@@ -10,6 +10,7 @@ import { createPlayer } from "./player.ts";
 import { startRun, type RunFrame } from "./run-mode.ts";
 import { TRACK_IDS, TRACKS, trackOf, type Track, type TrackId } from "./track.ts";
 import { groundDisc } from "./ground-disc.ts";
+import { need } from "../dom.ts";
 
 /**
  * **The Run scenario**: the human round a track as fast as the lab asks its walk to go
@@ -56,10 +57,9 @@ export function runScenario(scene: Scene, shell: LabShell): LabScenario {
   // Drawn after the body, over it: the marks sit under the feet, where the skin would hide them.
   for (const mark of [centreMark, aimMark]) mark.renderingGroupId = 1;
 
-  const $ = (id: string): HTMLElement => document.getElementById(id)!;
   const shown = {
-    doing: $("r-doing"), state: $("r-state"), laps: $("r-laps"), lap: $("r-lap"), speed: $("r-speed"),
-    mean: $("r-mean"), pace: $("r-pace"), off: $("r-off"),
+    doing: need("r-doing"), state: need("r-state"), laps: need("r-laps"), lap: need("r-lap"), speed: need("r-speed"),
+    mean: need("r-mean"), pace: need("r-pace"), off: need("r-off"),
   };
   let chosen: TrackId = TRACK_IDS[0];
   let painted: { readonly id: TrackId; readonly track: Track; readonly mesh: Mesh } | null = null;

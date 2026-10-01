@@ -25,6 +25,7 @@ import { dressSkeleton, loadSkeletonArt } from "../render/skeleton-skin.ts";
 import { dressBody, loadSkin, type SkinView } from "../render/skin.ts";
 import { stanceScenario } from "./stance-scenario.ts";
 import { drawBody, drawHeld, type BodyShapes } from "../render/body-shapes.ts";
+import { need } from "../dom.ts";
 
 /**
  * **The lab**: a core human in one scenario (`scenarios.ts`), the page's shell around it. The
@@ -77,8 +78,7 @@ const forAControl = (event: KeyboardEvent): boolean =>
 
 /** Run the scenario `address` names; the screen's markup (`#lab-screen`) is already mounted. */
 export async function bootLab(address: LabAddress & { readonly scenario: ScenarioId }): Promise<void> {
-  const $ = (id: string): HTMLElement => document.getElementById(id)!;
-  const canvas = $("stage") as HTMLCanvasElement;
+  const canvas = need<HTMLCanvasElement>("stage");
   const engine = new Engine(canvas, true, { stencil: true });
   const scene = new Scene(engine);
   scene.clearColor = new Color4(0.082, 0.098, 0.11, 1);
@@ -116,10 +116,10 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
   MeshBuilder.CreateLineSystem("lab.grid", { lines, colors: lines.map((l) => l.map(() => lineColour)) }, scene);
 
   const scenario = SCENARIO[address.scenario](scene, { restart: () => load(shown) });
-  const timeline = $("timeline") as HTMLInputElement;
-  const clock = $("clock"), pauseButton = $("pause") as HTMLButtonElement;
-  const back = $("to-scenarios") as HTMLAnchorElement;
-  $("scenario-name").textContent = SCENARIOS.find((s) => s.id === address.scenario)!.name;
+  const timeline = need<HTMLInputElement>("timeline");
+  const clock = need("clock"), pauseButton = need<HTMLButtonElement>("pause");
+  const back = need<HTMLAnchorElement>("to-scenarios");
+  need("scenario-name").textContent = SCENARIOS.find((s) => s.id === address.scenario)!.name;
   for (const element of document.querySelectorAll<HTMLElement>("[data-for]")) element.hidden = element.dataset.for !== address.scenario;
   timeline.setAttribute("aria-label", scenario.timelineLabel);
 
@@ -179,7 +179,7 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
     for (const button of document.querySelectorAll<HTMLButtonElement>("[data-projection]")) {
       button.setAttribute("aria-pressed", String(button.dataset.projection === shown.projection));
     }
-    $("projection").hidden = shown.camera !== "isometric";
+    need("projection").hidden = shown.camera !== "isometric";
   }
 
   /** Load `to`'s loadout at `to`'s rate, in a new world, and start the scenario on it. */
@@ -308,7 +308,7 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
     button.addEventListener("click", () => { speed = Number(button.dataset.rate); showSpeed(); button.blur(); });
   }
   showSpeed();
-  $("restart").addEventListener("click", (event) => {
+  need("restart").addEventListener("click", (event) => {
     load(shown);
     (event.currentTarget as HTMLButtonElement).blur();
   });

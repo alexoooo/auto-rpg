@@ -1,4 +1,5 @@
 import { labHref, SCENARIOS, type LabAddress } from "./scenarios.ts";
+import { need } from "../dom.ts";
 
 /**
  * **The lab's scenario menu** (`?play=lab`): a card for each scenario, and a click opens it. The
@@ -14,6 +15,6 @@ export function showScenarios(address: LabAddress): void {
       Object.assign(document.createElement("span"), { textContent: scenario.line }));
     return card;
   });
-  document.getElementById("lab-scenarios")!.replaceChildren(...cards);
+  need("lab-scenarios").replaceChildren(...cards);
   cards[0]?.focus();
 }
