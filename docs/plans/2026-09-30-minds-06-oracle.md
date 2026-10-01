@@ -7,7 +7,7 @@ that, the first oracle: for one side of a bout, how much better it does when at 
 it tries a handful of responses in forks of the true world and takes the best.
 
 A bout repeats to the bit from its recipe and its tape
-([plan 01](2026-09-30-minds-01-baseline.md), [plan 04](2026-09-30-minds-04-orders.md)), so a fork
+(`DuelRecipe`; [plan 04](2026-09-30-minds-04-orders.md)), so a fork
 needs nothing new in the core: it is a second bout played to the fork's step and on under a
 branch of other orders. That costs the whole bout up to the fork each time (1.24 to 1.38 ms a
 step: Node, core world, Rapier, 120 Hz), which a 30 s bout affords and a long one does not;
@@ -279,7 +279,7 @@ Into `docs/reference/oracle.md`, read so:
   may still be worse than the tactics' bout, since it looks 2 s ahead. Report how often.
 - The clairvoyant and the blind tables side by side: the gap between them is how much of the
   ceiling is knowing the opponent's exact future.
-- While bouts end by falls (plan 01's table), an oracle's gain is mostly "do not fall, and be
+- While bouts end by falls (`docs/reference/bouts.md`), an oracle's gain is mostly "do not fall, and be
   standing when the other does". Read it with plan 05's assisted table beside it before calling
   any of it fencing skill.
 

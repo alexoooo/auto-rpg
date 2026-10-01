@@ -21,6 +21,9 @@ Some write the data files the core reads, and only with `--write`; without it th
 | `core-strike-window.mjs` | where each recipe still lands, along and across its heading | the windows, into `assets/core/strikes.json` |
 | `core-strike-repertoire.mjs` | builds the repertoire from searches' best strikes | `assets/core/strikes.json` |
 | `core-rapier-probe.mjs` | on the core's engine module alone, off the stand: what Rapier's generic joint does: its limits' measure, motor axes, saturation, gyroscopic spin, a motor braking a hung rod | |
+| `bout.mjs`, `bout-worker.mjs` | one arena bout from its recipe (`DuelRecipe`) in a world of its own: how it ended, what landed, and the digest of every pose at every step; and its worker | |
+| `bout-trace.mjs` | one bout's row: the digest a change that should change nothing must leave as it was | |
+| `bout-baseline.mjs` | how every matchup ends at each starting gap: endings, falls and wounding blows a minute | the table, pasted into `docs/reference/bouts.md` |
 
 `core-club-unit.json` is the club blow that sets the damage unit (`core-club-unit` in `SOURCES`).
 

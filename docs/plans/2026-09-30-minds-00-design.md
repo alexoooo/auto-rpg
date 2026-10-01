@@ -2,7 +2,8 @@
 
 This is the design of the AI above the muscles, and the index of the eight plans that build it,
 01 to 08.
-Each plan lands green by itself; this file is deleted with the last of them.
+Each plan lands green by itself and is deleted as it lands; this file is deleted with the last
+of them.
 
 ## The design
 
@@ -72,7 +73,7 @@ as they wake, is not in this set.
 
 | # | Plan | Lands | Needs | Eye gate |
 |---|---|---|---|---|
-| 01 | [baseline](2026-09-30-minds-01-baseline.md) | a bout is a recipe; its trace digest; the standing table of how bouts end | | |
+| 01 | baseline: landed | a bout is a recipe (`DuelRecipe`); its trace digest (`research/bout-trace.mjs`); the standing table of how bouts end (`docs/reference/bouts.md`) | | |
 | 02 | [the mind at the muscles](2026-09-30-minds-02-mind-at-the-muscles.md) | `Mind`, `OwnBody`, `embody`; `Tactics`; every body driven through `Mind` | 01 | |
 | 03 | [senses](2026-09-30-minds-03-senses.md) | `Senses`; the arena's tactics see their opponent; `Duel.plan` goes | 02 | |
 | 04 | [orders](2026-09-30-minds-04-orders.md) | `Orders`, the orders tape, WASD and the pointer in the arena | 03 | the owner fights a bout |
@@ -92,7 +93,7 @@ Every plan ends with `npm test`, `npm run check` and `npm run build`, the line-e
 
 **Beside the clean-up.** [The clean-up](2026-09-30-finish-the-clean-up.md) is carried out with
 this set, and says the order under "Beside the minds set". Two of its chunks are needed here: its
-fingerprint (chunk 0) hashes with plan 01's trace, and its split of `stanceControl` (chunk 11)
+fingerprint (chunk 0) hashes with the bout's trace (`traceOf`), and its split of `stanceControl` (chunk 11)
 lands before plan 05, which names the split's constructs (`StanceState`, `limitToSoles`).
 
 ## The rules this changes
@@ -152,7 +153,7 @@ to take and 1.4 ms to restore; the timestep and the solver's iterations survive 
 
 **Bouts end by falling.** Every arena matchup once (9 bouts, one gap, so a count, not a rate):
 
-| Left | Right | Winner | Ending | s | Blows | Wounding |
+| Left | Right | Winner | Ending | s | Blows and clashes | Wounding |
 |---|---|---|---|---|---|---|
 | fighter | fighter | left | fallen | 8.0 | 0 | 0 |
 | fighter | rogue | right | fallen | 18.9 | 31 | 19 |

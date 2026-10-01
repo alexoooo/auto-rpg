@@ -17,7 +17,7 @@ those files only to:
 - correct a comment or cite a source (chunk 6).
 
 **Beside the minds set.** The two are carried out together, in this order:
-1. minds 01, then chunk 0, which hashes with minds 01's trace;
+1. minds 01 (landed), then chunk 0, which hashes with its trace (`traceOf`, `tests/harness/trace.mjs`);
 2. chunks 1 to 5 and 6c: the small faults and the guards, so that the minds' code meets the
    guards as it is written;
 3. minds 02 to 04;

@@ -7,8 +7,8 @@ hands each side's tactics a live `Body` (`Duel.plan`), read out of the other sid
 this the bout owns one sensing layer (`createSenses`), each body's `Senses` lists the others as
 that layer passes them, and the arena's tactics pick their own foe from what they see (`seekFoe`).
 
-Two things change in play, both small, and the trace digest of
-[plan 01](2026-09-30-minds-01-baseline.md) changes with them:
+Two things change in play, both small, and the trace digest (`research/bout-trace.mjs`) changes
+with them:
 
 - **Both sides see the same step.** Today the left side's mind runs before the right side's body
   has read itself, so the left aims at where the right was a step earlier, and the right at where
@@ -532,7 +532,7 @@ node research/bout-baseline.mjs --workers 14
 ```
 
 The digests differ from plan 02's: the left side sees a step sooner. That is the change, so no
-number gates it; what gates it is the tests, and the baseline read against plan 01's: the same
+number gates it; what gates it is the tests, and the baseline read against the standing table (`docs/reference/bouts.md`): the same
 harness, the same 27 bouts. Write both tables' totals side by side in `bouts.md` (bouts by
 ending, falls per minute, wounding blows per minute). A shift in either rate is the reading of
 one step of sight, at 27 bouts, and is recorded, not explained.

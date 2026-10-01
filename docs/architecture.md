@@ -196,6 +196,12 @@ A body that falls (`SkillReport.fallen`) is out of the fight: rising is not buil
 verdict (`Duel.judge`, `src/arena/duel.ts`): a side is out when its pool ends or its body falls;
 both out on one step is a draw; at 120 s the fuller bar wins.
 
+A bout is built from a recipe (`DuelRecipe`): the two bodies, how far apart they start and the
+cap, as plain data, so the same bout can be built again in another world or on another thread;
+what a page hears of it (`DuelHooks`) is beside the recipe, not in it. Nothing in a bout is
+random, so a recipe played twice is the same bout to the bit (`playBout`, `research/bout.mjs`;
+`traceOf`, `tests/harness/trace.mjs`). How the bouts end today is `docs/reference/bouts.md`.
+
 ## The screens
 
 `index.html` is one document (`src/app.ts`, routed by `src/app-route.ts`): the main menu, and the

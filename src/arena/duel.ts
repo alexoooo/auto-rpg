@@ -17,8 +17,9 @@ import type { Hook, World } from "../core/world.ts";
  * by a fighter's mind (`fighterMind`), wounded by the core's blows under the arena's rulebook, and
  * judged.
  *
- * - **They stand** `GAP_METRES` apart across the arena's centre, both facing +z as every body is
- *   built; each turns a quarter to the other, so neither starts ahead.
+ * - **They stand** the recipe's gap apart (`GAP_METRES` unless it says) across the arena's
+ *   centre, both facing +z as every body is built; each turns a quarter to the other, so neither
+ *   starts ahead.
  * - **A mind** walks at the other until within `ATTACK_METRES` of it, then attacks its head.
  * - **A side is out** once its pool has ended, or once its body has fallen (`SkillReport.fallen`): the
  *   core has no rising, so a body down stays down. The other side wins; both out on one step is a
@@ -57,12 +58,21 @@ export interface Duelist extends Fighter {
   readonly standing: boolean;
 }
 
-export interface DuelOptions {
+/**
+ * **What a bout is, as plain data**: enough to build the same bout again in another world, on
+ * another thread. Nothing here is a function or a live object.
+ */
+export interface DuelRecipe {
   readonly left: BodyModel;
   readonly right: BodyModel;
-  /** The arena's unless given. */
-  readonly rules?: Rulebook;
+  /** How far apart the two stand, m; `GAP_METRES` unless given. */
+  readonly gap?: number;
+  /** `CAP_SECONDS` unless given. */
   readonly capSeconds?: number;
+}
+
+/** What a page hears of a bout. */
+export interface DuelHooks {
   /** Hears each blow as it lands. */
   readonly onBlow?: (blow: LandedBlow) => void;
   /** Called with each side as its body is built, before it first steps: the page dresses it. */
@@ -71,6 +81,8 @@ export interface DuelOptions {
 
 export class Duel {
   readonly world: World;
+  /** The bout's recipe, as it was given. */
+  readonly recipe: DuelRecipe;
   readonly rules: Rulebook;
   readonly duelists: Readonly<Record<Side, Duelist>>;
   readonly blows: LandedBlow[] = [];
@@ -81,16 +93,18 @@ export class Duel {
   private readonly watch: BlowWatch;
   private readonly judging: Hook;
 
-  constructor(world: World, options: DuelOptions) {
+  constructor(world: World, recipe: DuelRecipe, hooks: DuelHooks = {}) {
     this.world = world;
-    this.rules = options.rules ?? rulebook("arena");
+    this.recipe = Object.freeze({ ...recipe });
+    this.rules = rulebook("arena");
     this.start = world.time;
-    this.cap = options.capSeconds ?? CAP_SECONDS;
+    this.cap = recipe.capSeconds ?? CAP_SECONDS;
+    const gap = recipe.gap ?? GAP_METRES;
     const duelists = {} as Record<Side, Duelist>;
     for (const side of SIDES) {
-      const model = options[side];
+      const model = recipe[side];
       const spec = armed(modelSpec(model), "right", woodenClub());
-      const x = (side === "left" ? -1 : 1) * GAP_METRES / 2;
+      const x = (side === "left" ? -1 : 1) * gap / 2;
       const built = buildBody(spec, world, { position: [x, 0, 0] });
       const body = createBody(built, world, { servoSeconds: SERVO_SECONDS });
       const other = side === "left" ? "right" : "left";
@@ -104,10 +118,10 @@ export class Duel {
     this.duelists = duelists;
     this.watch = watchBlows(world, SIDES.map((side) => duelists[side]), this.rules, (blow) => {
       this.blows.push(blow);
-      options.onBlow?.(blow);
+      hooks.onBlow?.(blow);
     });
     this.judging = world.afterStep(() => this.judge());
-    for (const side of SIDES) options.onBuilt?.(duelists[side], duelists[side].built);
+    for (const side of SIDES) hooks.onBuilt?.(duelists[side], duelists[side].built);
   }
 
   /** Seconds since the bout began. */

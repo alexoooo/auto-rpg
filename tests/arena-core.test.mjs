@@ -13,6 +13,7 @@ import { CAP_SECONDS, Duel } from "../src/arena/duel.ts";
 import { DEFAULT_MATCHUP, matchupSearch, readMatchup } from "../src/arena/matchup.ts";
 import { createWorld } from "../src/core/world.ts";
 import { freshEngine } from "./harness/core-stand.mjs";
+import { playBout } from "../research/bout.mjs";
 
 async function arena() {
   const scene = new Scene(new NullEngine());
@@ -101,4 +102,32 @@ test("a_bout_in_the_arena_runs_to_its_verdict", async () => {
       assert.ok(body.view.head.y > 1 && Math.abs(body.view.stance.centre.x) > 1, `the replay's ${side} stands where it was built`);
     }
   } finally { duel?.dispose(); dispose(); }
+});
+
+test("a_bout's_recipe_is_plain_data_that_builds_the_same_bout", async () => {
+  const recipe = { left: "workshop-rogue", right: "crypt-skeleton", gap: 3, capSeconds: 1 };
+  const { world, dispose } = await arena();
+  let duel;
+  try {
+    duel = new Duel(world, structuredClone(recipe));
+    assert.deepEqual(duel.recipe, recipe);
+    assert.ok(Object.isFrozen(duel.recipe));
+    const { left, right } = duel.duelists;
+    assert.deepEqual([left.model, right.model], ["workshop-rogue", "crypt-skeleton"]);
+    const apart = right.body.view.stance.centre.x - left.body.view.stance.centre.x;
+    assert.ok(Math.abs(apart - 3) < 0.05, `they stand the recipe's gap apart: ${apart}`);
+    const verdict = duel.run(2);
+    assert.deepEqual([verdict?.ending, verdict?.time], ["time", 1], "and its cap is the recipe's");
+  } finally { duel?.dispose(); dispose(); }
+});
+
+test("the_same_bout_built_twice_is_the_same_to_the_bit", async () => {
+  const recipe = { left: "workshop-fighter", right: "workshop-rogue" };
+  // Ten seconds: the two have met, and blows have landed.
+  const first = await playBout(recipe, 10), second = await playBout(recipe, 10);
+  assert.ok(first.blows + first.clashes > 0, "the fixture reaches contact between the two");
+  assert.deepEqual(second, first);
+  // The control: a bout that differs differs in its digest.
+  const other = await playBout({ ...recipe, gap: 4.001 }, 10);
+  assert.notEqual(other.digest, first.digest);
 });

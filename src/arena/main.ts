@@ -110,8 +110,7 @@ export async function bootArena(): Promise<void> {
     const dress = new Map(await Promise.all(SIDES.map(async (side) => [side, await dresser(matchup[side])] as const)));
     end();
     audio.reset();
-    duel = new Duel(world, {
-      left: matchup.left, right: matchup.right,
+    duel = new Duel(world, { left: matchup.left, right: matchup.right }, {
       onBuilt: (duelist, built) => {
         for (const view of [dress.get(duelist.side)!(built), drawHeld(built, scene)]) {
           for (const mesh of view.meshes) shadows.addShadowCaster(mesh);

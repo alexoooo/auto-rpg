@@ -5,7 +5,7 @@
 One seam where anything that drives a body plugs in: `Mind.step(senses, dt)`, made with its own
 body and writing its muscles' command. The stack the game has (tactics, skills, motor control)
 becomes one mind written with a library, and keeps driving every body exactly as it does: the
-trace digest of [plan 01](2026-09-30-minds-01-baseline.md) does not change.
+trace digest (`research/bout-trace.mjs`) does not change.
 
 What a mind decides an `Intent` with is today called `Mind`; it becomes `Tactics`, the top layer
 of that stack, and `Mind` names the seam.
