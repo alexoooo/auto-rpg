@@ -8,7 +8,10 @@ The servo's module comment cites it; the readings bear on the servo's time const
 ## Holding a pose
 
 The whole Rogue, lower trunk held, no ground, gravity on, servoed to the guard and held (Node core
-stand, Rapier). Read over the third second of the hold.
+stand, Rapier). Read over the third second of the hold. The three tables are `135d31fb`'s. The
+script that read them was not committed, so its flags are not recorded: what is known of it is on
+this page, the harness and the hold. No test reads the hold again; `tests/core-servo.test.mjs`
+holds the servo on an arm.
 
 At a time constant of 0.1 s, how far the worst freedom ends from its goal (the worst at a wrist or
 the neck):

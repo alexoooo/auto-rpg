@@ -167,8 +167,8 @@ merge by material, over seeds 0 to 99 (`generateCryptDungeon`, Node):
 | Least | 337,140 | |
 
 `TRIANGLE_BUDGET` (`tests/crypt-kit.test.mjs`) is 420,000: the most measured, rounded up. It is
-what the generator places today, not a budget anyone chose; the budget is the owner's to set
-([roadmap](../roadmap.md)).
+what the generator places today, not a budget anyone chose; the owner sets the budget from the
+frame rate it holds on a range of hardware, which is not yet measured ([roadmap](../roadmap.md)).
 
 ## Textures
 

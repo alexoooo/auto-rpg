@@ -62,8 +62,7 @@ interface RunSession {
 /**
  * **How far along a track a walker faces**, m: the point its heading turns toward, so a walker
  * that has drifted off the track steers back onto it. Walking on the path's own heading lets the
- * drift add up loop after loop; asking for a sideways velocity toward the path instead falls.
- * Readings: `docs/reference/lab.md#aim-ahead`.
+ * drift add up loop after loop. Set: `docs/reference/lab.md#aim-ahead`.
  */
 const AIM_AHEAD = 1;
 

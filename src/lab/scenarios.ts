@@ -90,7 +90,7 @@ export type LabProjection = (typeof LAB_PROJECTIONS)[number];
 export interface LabAddress extends LabLoadout {
   /** The scenario to run; none is the menu. */
   readonly scenario: ScenarioId | null;
-  /** The body's balance, points, in place of its character's (`AttributeSpec.balance`); null is the character's. */
+  /** The body's balance, per cent of its weight, in place of its character's (`AttributeSpec.balance`); null is the character's. */
   readonly balance: number | null;
   readonly mind: LabMindId;
   /** What its mind may not strike with: each thing held whose strike is barred. */

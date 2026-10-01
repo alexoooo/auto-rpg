@@ -677,14 +677,15 @@ function hoverEnemy(page: DungeonPage, scene: Scene, run: DungeonRun): void {
   hover.show(hit?.pickedMesh ? run.targetAt(hit.pickedMesh) : null);
 }
 
-/** One drawn frame: the world advanced by the real time since the last, then the camera, the sound, the HUD at
- * most ten times a second, the hover and the picture. */
+/** One drawn frame: the world and the torches advanced by the real time since the last unless the page is paused,
+ * then the camera, the sound, the HUD at most ten times a second, the hover and the picture. */
 function frame(page: DungeonPage, party: Party): void {
   const { scene, run, engine, meter, audio } = page;
   if (!scene || !run || page.launching) return;
   const playing = () => run.status === "playing";
   if (!page.paused && playing()) {
     meter.physics(() => run.advance(engine.getDeltaTime() / 1000, Math.ceil(CATCH_UP_SECONDS * run.world.hz)));
+    page.lighting?.burn(engine.getDeltaTime() / 1000);
     // The steps may have ended the run.
     if (!playing()) setPaused(page, true);
   }

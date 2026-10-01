@@ -39,9 +39,10 @@ export interface Rulebook {
    */
   readonly worth: Readonly<Record<Mechanism, Quantity<number>>>;
   /**
-   * **What a point of balance is worth** (`AttributeSpec.balance`): the most an assist gives a
-   * body for each point, a force in the body's own weights and a moment in its weights times a
-   * metre. What each worth does to how bouts end: `docs/reference/assist.md`.
+   * **What a per cent of balance is** (`AttributeSpec.balance`): the most an assist gives a
+   * body for each per cent, a force in the body's own weights, which is a hundredth by the
+   * meaning of a per cent, and the moment that goes with it, in its weights times a metre. What
+   * each does to how bouts end: `docs/reference/assist.md`.
    */
   readonly balance: { readonly force: Quantity<number>; readonly moment: Quantity<number> };
 }
@@ -68,8 +69,8 @@ const RULES: Omit<Rulebook, "mode"> = Object.freeze({
     derive("1", "the blunt price over this mechanism's", [MECHANISM_PRICE.blunt, MECHANISM_PRICE[mechanism]], (blunt, own) => blunt / own)],
   )) as Record<Mechanism, Quantity<number>>),
   balance: Object.freeze({
-    force: sourced(0.05, "1", "owner-balance", "a point is 0.05 of the body's weight"),
-    moment: sourced(0.013, "m", "owner-balance", "and 0.013 weight-metres"),
+    force: sourced(0.01, "1", "owner-balance", "a per cent of the body's weight"),
+    moment: sourced(0.0026, "m", "owner-balance", "and 0.0026 weight-metres with each per cent"),
   }),
 });
 
@@ -83,26 +84,26 @@ export function blowDamage(rules: Rulebook, mechanism: Mechanism, energy: number
   return energy * rules.worth[mechanism].value / rules.unit.value;
 }
 
-/** What a point of balance is worth under `rules`, as a ceiling. */
-export function balancePoint(rules: Rulebook): AssistCeiling {
+/** What a per cent of balance is under `rules`, as a ceiling. */
+export function balancePercent(rules: Rulebook): AssistCeiling {
   return { force: rules.balance.force.value, moment: rules.balance.moment.value };
 }
 
-/** A balance is a finite number of points, none or more. */
-export function isBalance(points: number): boolean {
-  return Number.isFinite(points) && points >= 0;
+/** A balance is a finite per cent, none or more. */
+export function isBalance(balance: number): boolean {
+  return Number.isFinite(balance) && balance >= 0;
 }
 
-/** The balance `text` writes, points: plain decimal digits with nothing about them but spaces; null for anything else. */
+/** The balance `text` writes, per cent: plain decimal digits with nothing about them but spaces; null for anything else. */
 export function balanceFrom(text: string): number | null {
-  const points = /^\d+(\.\d+)?$/.test(text.trim()) ? Number(text) : NaN;
-  return isBalance(points) ? points : null;
+  const balance = /^\d+(\.\d+)?$/.test(text.trim()) ? Number(text) : NaN;
+  return isBalance(balance) ? balance : null;
 }
 
-/** The most an assist gives a body of `balance` points, each worth `point`. */
-export function balanceCeiling(balance: number, point: AssistCeiling): AssistCeiling {
-  if (!isBalance(balance)) throw new Error(`a balance is a finite number of points >= 0, not ${balance}`);
-  return { force: balance * point.force, moment: balance * point.moment };
+/** The most an assist gives a body whose balance is `balance` per cent of its weight, each per cent being `percent`. */
+export function balanceCeiling(balance: number, percent: AssistCeiling): AssistCeiling {
+  if (!isBalance(balance)) throw new Error(`a balance is a finite per cent >= 0, not ${balance}`);
+  return { force: balance * percent.force, moment: balance * percent.moment };
 }
 
 /** The rules of `mode`, with `override` in place of any of them. */

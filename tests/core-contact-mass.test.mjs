@@ -36,7 +36,7 @@ function chain() {
     dofs: triad.slice(0, count).map((axis, k) => ({ positive: `p${k}`, negative: `n${k}`, axis: q(axis, "1"), min: q(-1.3, "rad"), max: q(1.3, "rad"), muscle })),
   });
   return {
-    family: "test", model: "chain", mass: q(5.2, "kg"), stature: q(1.5), wounds, attributes: { balance: q(0, "1") },
+    family: "test", model: "chain", mass: q(5.2, "kg"), stature: q(1.5), wounds, attributes: { balance: q(0, "%") },
     segments: [
       segment("post", [0, 1.6, 0], [0, 1.3, 0], 2, [0.02, 0.004, 0.02]),
       segment("upper", [0, 1.3, 0], [0.12, 1.0, 0.05], 1.6, [0.012, 0.003, 0.014]),

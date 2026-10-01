@@ -6,7 +6,7 @@ Each section names its constants, where they live, their values, and whose choic
 
 None of these is measured on the core. Each is **set**: chosen while the rule was written. Two
 were once backed by a measurement on a body and an engine that are gone, and are named below as
-set, with the measurement to make again on the [roadmap](../roadmap.md). Unless a line says the
+set; what is still to measure is on the [roadmap](../roadmap.md). Unless a line says the
 owner chose it, every value here is **kept as found; the owner to confirm**.
 
 ## The bout
@@ -18,7 +18,7 @@ owner chose it, every value here is **kept as found; the owner to confirm**.
   before the first blow. The standing tables are read at 3, 4 and 5 m ([bouts](bouts.md)) and
   the oracle's at 4 ([oracle](oracle.md)).
 - `CAP_SECONDS`: a bout runs 120 s before the fuller bar decides it. With no balance a bout
-  lasts 14 s on average, and with 5 points of balance 55 s ([assist](assist.md)), so the cap
+  lasts 14 s on average, and with a balance of 25 % 55 s ([assist](assist.md)), so the cap
   decides few bouts without balance and more with it.
 
 ## Sight
@@ -28,12 +28,107 @@ the distance given.
 
 - `SIGHT_METRES`: an enemy sees a party member within 14 m.
 - `WAKE_METRES`: an enemy's body is built once a standing party member comes within 16 m of
-  where it waits, 2 m beyond its sight, so that it is standing when it can first see. **Set, not
-  measured.** The margin came with a rule that put far enemies to sleep, whose cost was measured
-  on an engine that is gone (`src/dungeon/run.ts@e029c1e7`). What a level's unbuilt enemies save a
-  step on the core is a measurement to make.
+  where it waits, 2 m beyond its sight, so that it is standing when it can first see; or a body
+  going somewhere comes within `REST.company` of it, so that nothing stands where it is built.
+  An enemy not yet built saves the step what a standing body costs it
+  ([Bodies in the step](#bodies-in-the-step)).
+- `REST`: an enemy at rest is held: its muscles are released and its segments fixed where they
+  are (`DungeonRun.hold`). It rests when it stands within 0.5 m of its home (`home`), unalerted,
+  with every standing party member farther than 18 m (`metres`) and nobody going anywhere within
+  5 m (`clear`). It is let go, and driven afresh, once a party member is within `WAKE_METRES` or a
+  body going somewhere within 4 m (`company`). A body going somewhere is a party member, or an
+  enemy that is not at rest: two at rest side by side are held together. The 2 m between 16 and
+  18 and the 1 m between 4 and 5 keep a body on a line from being held and let go by turns.
+
+`WAKE_METRES` and `REST` are **set, not measured**: they are the distances of the rule the crypt
+had on an engine that is gone (`src/dungeon/run.ts@e029c1e7`), which held a far enemy asleep in
+that engine. What holding one saves on the core is measured below.
 - `PARTY_SIGHT`: a party member sees the enemy its order locks within 12 m, picks one for itself
   within 8 m, and keeps the one it fights while it is within 5 m and nothing ranks above it.
+
+## Bodies in the step
+
+`src/dungeon/run.ts`. A run steps every body it has built, and a body costs a step what its
+control and the solver take for it.
+
+Harness: Node, the core world (`src/core/world.ts`), Rapier, 120 Hz, one thread of the development
+host; skeletons with the club, 3 m apart on a ground, each under the command layers with an order
+to stand. Read standing; then held, their muscles released (`Body.dispose`) and every segment
+fixed where it is (`SegmentBody.setFixed`); then let go and driven afresh; then felled by a shove
+at the root and still driven; then limp, their muscles released. A row is the mean of 600 steps.
+The step is 8.33 ms of the run's time, so a step of 8.33 ms is real time with nothing drawn.
+
+```powershell
+node research/body-cost.mjs
+```
+
+| Bodies | State | Down | A step, ms | The solver, ms | The rest, ms | A body, ms | Of real time, % |
+|---|---|---|---|---|---|---|---|
+| 1 | standing, driven | 0 | 0.68 | 0.32 | 0.36 | 0.68 | 8 |
+| 1 | standing, held | 0 | 0.03 | 0.03 | 0.00 | 0.03 | 0 |
+| 1 | let go, driven | 0 | 0.60 | 0.28 | 0.32 | 0.60 | 7 |
+| 1 | down, driven | 1 | 0.76 | 0.30 | 0.46 | 0.76 | 9 |
+| 1 | down, limp | 1 | 0.26 | 0.26 | 0.00 | 0.26 | 3 |
+| 4 | standing, driven | 0 | 2.14 | 0.99 | 1.16 | 0.54 | 26 |
+| 4 | standing, held | 0 | 0.07 | 0.07 | 0.00 | 0.02 | 1 |
+| 4 | let go, driven | 0 | 2.11 | 0.96 | 1.15 | 0.53 | 25 |
+| 4 | down, driven | 4 | 2.77 | 1.14 | 1.63 | 0.69 | 33 |
+| 4 | down, limp | 4 | 1.08 | 1.08 | 0.00 | 0.27 | 13 |
+| 8 | standing, driven | 0 | 4.17 | 1.92 | 2.26 | 0.52 | 50 |
+| 8 | standing, held | 0 | 0.12 | 0.12 | 0.00 | 0.02 | 1 |
+| 8 | let go, driven | 0 | 4.08 | 1.89 | 2.19 | 0.51 | 49 |
+| 8 | down, driven | 8 | 5.47 | 2.29 | 3.17 | 0.68 | 66 |
+| 8 | down, limp | 8 | 2.15 | 2.15 | 0.00 | 0.27 | 26 |
+
+A standing body costs 0.53 ms a step, over half of it control. Held, it costs 0.02 ms, and let
+go it stands as before: none of the eight is down. A body that is down and still driven costs
+more than one standing, 0.69 ms: its stance goes on solving for a ground its soles cannot give.
+Limp, it costs the solver's 0.27 ms and nothing else.
+
+So a body out of the fight goes limp (`DungeonRun.drop`): its assist is withdrawn and its muscles
+released at the next step. In the crypt the stance of a body that is down cost more than under an
+order to stand. Read at `69549c6c`, before the rule, with a script that is not kept (Node, a crypt
+run of seed 42 with no visuals, every enemy built by hand at its home and seven of the nine bodies
+felled by a shove): 12.5 ms a step, 9.8 of it outside the solver, where the nine standing took
+5.2 ms. With the rule the same nine take 3.3 ms, 0.7 of it outside the solver.
+
+Over a run: the hero explores a generated level with three Warriors following, for 180 s or to
+the run's end. A rule changes a fight's course, so the three tables are not the same runs.
+
+```powershell
+node research/crypt-step.mjs --seeds 1,2,3,4 --seconds 180 --companions 3
+```
+
+At `69549c6c`, a body out of the fight still driven:
+
+| Seed | The run | Seconds | Enemies | Bodies built at the end | The most built | Out of the fight | A step, ms | In its slowest second, ms | Of real time, % |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | playing | 180 | 8 | 9 | 9 | 3 | 5.09 | 6.77 | 81 |
+| 2 | playing | 180 | 8 | 7 | 7 | 2 | 4.50 | 5.09 | 61 |
+| 3 | playing | 180 | 8 | 8 | 8 | 2 | 4.66 | 5.55 | 67 |
+| 4 | playing | 180 | 8 | 8 | 8 | 5 | 5.63 | 6.36 | 76 |
+
+With a body out of the fight limp:
+
+| Seed | The run | Seconds | Enemies | Bodies built at the end | The most built | Out of the fight | A step, ms | In its slowest second, ms | Of real time, % |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | playing | 180 | 8 | 8 | 8 | 2 | 3.98 | 5.18 | 62 |
+| 2 | playing | 180 | 8 | 7 | 7 | 2 | 3.69 | 5.26 | 63 |
+| 3 | playing | 180 | 8 | 8 | 8 | 2 | 3.88 | 4.97 | 60 |
+| 4 | dead | 51 | 8 | 8 | 8 | 4 | 4.33 | 5.16 | 62 |
+
+With an enemy at rest held as well (`REST`):
+
+| Seed | The run | Seconds | Enemies | Bodies built at the end | The most built | Held | Out of the fight | A step, ms | In its slowest second, ms | Of real time, % |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | playing | 180 | 8 | 8 | 8 | 1 | 2 | 3.43 | 5.09 | 61 |
+| 2 | playing | 180 | 8 | 7 | 7 | 1 | 2 | 3.10 | 4.64 | 56 |
+| 3 | playing | 180 | 8 | 8 | 8 | 0 | 2 | 3.72 | 4.74 | 57 |
+| 4 | dead | 51 | 8 | 8 | 8 | 2 | 4 | 4.09 | 4.83 | 58 |
+
+Four runs a table, on one machine: the mean step is 4.5 to 5.6 ms with neither rule, 3.7 to
+4.3 ms with the limp one and 3.1 to 4.1 ms with both. A party of four costs 2.1 ms a step by
+itself, and in 180 s it has not left many enemies behind: none to two are held at the end.
 
 ## Targets
 

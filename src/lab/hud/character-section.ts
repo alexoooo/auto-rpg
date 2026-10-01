@@ -12,13 +12,16 @@ const WORN: Named<(typeof LAB_WORN)[number]> = {
   armour: { name: "Armour", title: "Appearance only" },
 };
 
+/** What a press moves the balance by, per cent of the body's weight. */
+const BALANCE_STEP = 5;
+
 /** The character, in the order each part depends on the last: its body, what the body holds and wears, and the mind that drives them. */
 export function characterSection(page: LabPage): readonly Control[] {
   return [
     group("Body", [
       choice("Type", MODELS.map(({ id, name }) => ({ value: id, name })), () => page.shown.model, (model) => page.load({ ...page.shown, model })),
-      quantity("Balance", 1, isBalance, () => loadoutBalance(page.shown.balance, page.spec),
-        (points) => page.load({ ...page.shown, balance: balanceAddress(points, page.spec) })),
+      quantity("Balance, %", BALANCE_STEP, isBalance, () => loadoutBalance(page.shown.balance, page.spec),
+        (balance) => page.load({ ...page.shown, balance: balanceAddress(balance, page.spec) })),
     ]),
     group("Items", [
       ...LAB_HANDS.map((hand) =>

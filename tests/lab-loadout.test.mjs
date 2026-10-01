@@ -27,10 +27,10 @@ test("an_empty_loadout_is_the_models_human_whatever_it_wears", () => {
 });
 
 test("a_bodys_balance_is_the_addresss_or_its_characters_own_which_the_address_leaves_out", () => {
-  // A character whose own balance is 2 points: every workshop character's is 0, which a default would hide.
+  // A character whose own balance is 2 %: every workshop character's is 0, which a default would hide.
   const spec = { attributes: { balance: { value: 2 } } };
   assert.deepEqual([null, 0, 2, 5].map((balance) => loadoutBalance(balance, spec)), [2, 0, 2, 5]);
-  assert.deepEqual([0, 2, 5].map((points) => balanceAddress(points, spec)), [0, null, 5]);
+  assert.deepEqual([0, 2, 5].map((balance) => balanceAddress(balance, spec)), [0, null, 5]);
   for (const model of MODELS) assert.equal(loadoutBalance(null, loadoutSpec(bare(model))), humanSpec(model).attributes.balance.value);
 });
 

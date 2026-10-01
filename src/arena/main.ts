@@ -236,10 +236,10 @@ export async function bootArena(): Promise<void> {
   const readout = () => {
     if (!duel) return;
     for (const row of rows) row.bar.value = duel.duelists[row.side].pool.bar();
-    // While either side is helped, each side's balance, points: the link's, or its character's.
+    // While either side is helped, each side's balance, per cent of its weight: the link's, or its character's.
     const helped = SIDES.some((side) => duel!.duelists[side].body.assist.on);
-    const points = SIDES.map((side) => duel!.recipe.balance?.[side] ?? duel!.duelists[side].built.spec.attributes.balance.value);
-    clock.textContent = `${duel.clock.toFixed(1)} s${helped ? ` · balance ${points.join(" / ")}` : ""}${replaying ? " · replay" : ""}`;
+    const balance = SIDES.map((side) => duel!.recipe.balance?.[side] ?? duel!.duelists[side].built.spec.attributes.balance.value);
+    clock.textContent = `${duel.clock.toFixed(1)} s${helped ? ` · balance ${balance.join(" / ")} %` : ""}${replaying ? " · replay" : ""}`;
     if (duel.verdict && shown !== duel.verdict) {
       shown = duel.verdict;
       const { winner, ending, time } = shown;
@@ -255,6 +255,7 @@ export async function bootArena(): Promise<void> {
     const seconds = engine.getDeltaTime() / 1000;
     giveOrders();
     if (duel && !paused) world.advance(seconds, Math.ceil(CATCH_UP_SECONDS * world.hz));
+    if (!paused) arena.fire.burn(seconds);
     frame(); readout(); audio.update();
     scene.render();
   });

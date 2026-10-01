@@ -47,7 +47,7 @@ export function youSearch(search: string, you: Side | null): string {
   return `?${query.toString().replace(/%2C/g, ",")}`;
 }
 
-/** The arena link's parameter for each side's balance, points: `&balance=left,right`, or one number for both. */
+/** The arena link's parameter for each side's balance, per cent of its weight: `&balance=left,right`, or one number for both. */
 const BALANCE_PARAM = "balance";
 
 /**
@@ -58,9 +58,9 @@ const BALANCE_PARAM = "balance";
 export function readBalance(search: string): Readonly<Record<Side, number>> | undefined {
   const text = new URLSearchParams(search).get(BALANCE_PARAM);
   if (text === null) return undefined;
-  const parts = text.split(","), points = parts.map(balanceFrom).filter((p) => p !== null);
-  if (parts.length > 2 || points.length !== parts.length) return undefined;
-  return { left: points[0]!, right: points[points.length - 1]! };
+  const parts = text.split(","), given = parts.map(balanceFrom).filter((p) => p !== null);
+  if (parts.length > 2 || given.length !== parts.length) return undefined;
+  return { left: given[0]!, right: given[given.length - 1]! };
 }
 
 /**

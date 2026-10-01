@@ -65,9 +65,9 @@ screens build on it; it never imports them.
   kept out of the body's numbers.
 - **An assist is not anatomy.** A force or moment no muscle gives is an assist (`Assist`,
   `src/core/control/assist.ts`). Its ceiling is the character's balance (`AttributeSpec`,
-  `src/core/spec/body.ts`) at the worth the rulebook gives a point (`Rulebook.balance`), in the
-  body's own weight; it is metered every step, and kept out of the body's anatomy. A figure
-  measured under an assist names each side's balance.
+  `src/core/spec/body.ts`), a per cent of the body's own weight, with the moment the rulebook
+  gives a per cent (`Rulebook.balance`); it is metered every step, and kept out of the body's
+  anatomy. A figure measured under an assist names each side's balance.
 - **No strength is raised for feel.** A muscle's strength and speed come from their source; a
   change to one carries its measured before/after table.
 - **A mind reaches the world only through its body.** It learns of it through its senses

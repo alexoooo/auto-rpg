@@ -214,7 +214,10 @@ its senses it picks the nearest body of another side still in the fight, walks a
 its head once their centres are within `ATTACK_METRES` (1.8 m). A side a person has taken is
 given the person's (`Duel.order`) and does only what it is ordered, until it is handed back or is
 out of the fight. In the crypt the run plans for its fighters with the map (`DungeonRun`) and
-hands each its plan as orders, with its target's head; its bodies sense the clock alone. The lab
+hands each its plan as orders, with its target's head; its bodies sense the clock alone. One out
+of the fight goes limp, its muscles released; and an enemy at rest at its home, with the party
+far off, is held, fixed where it stands with nothing driving it, until the party nears (`REST`).
+The lab
 has tactics of its own:
 `stanceTactics` (the keys), `trackTactics` (the Run), `routineTactics` and `attackOnce`.
 
@@ -292,12 +295,12 @@ The rules of a fight are `src/core/rules/`, free of any page so they can be argu
   inward first. A part emptied by a clean blow, or hit far enough past empty, comes off, except the
   trunk's; no blow is clean today. A body's pool ends when it is empty, or when a vital part (the
   head, for every body today) is emptied or comes off; which parts are vital is the spec's `wounds`.
-- **Balance**: a character has a number of points of balance beside its hit points
-  (`AttributeSpec.balance`), and the rulebook says what a point is worth (`Rulebook.balance`):
-  0.05 of the body's weight of force and 0.013 of its weight times a metre of moment, the most its
-  assist gives it (`balanceCeiling`). A fight sets each body's ceiling from its character's points,
+- **Balance**: a character has a balance beside its hit points (`AttributeSpec.balance`): a per
+  cent of its own weight, the most force its assist gives it, with the moment the rulebook gives
+  each per cent (`Rulebook.balance`: 0.0026 of its weight times a metre; `balanceCeiling`). A
+  fight sets each body's ceiling from its character's balance,
   or a recipe's (`DuelRecipe.balance`, `&balance=left,right` in an arena link), and withdraws the
-  assist when the body is out of the fight; the lab sets its body's from the character's points or
+  assist when the body is out of the fight; the lab sets its body's from the character's balance or
   its address's (`&balance=`). Every character's balance is 0, and at 0 there is no
   assist.
 

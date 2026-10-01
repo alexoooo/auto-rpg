@@ -22,7 +22,10 @@ async function body(model, stance, hz) {
   return { stand, body: built, feet: ["left", "right"].map((side) => stand.built.segments.get(`foot.${side}`)) };
 }
 
-/** Stand 5 s 3 cm low in the guard: the centre's stop off the soles' middle, its drift over the last 2 s, the feet's slide across the ground and sink. */
+/** The seconds stood at which `stand` reads the centre of mass's speed as the body settles. */
+const SETTLE_SECONDS = [0.5, 1, 1.5, 2];
+
+/** Stand 5 s 3 cm low in the guard: the centre's speed as it settles (`SETTLE_SECONDS`), its stop off the soles' middle, its drift over the last 2 s, the feet's slide across the ground and sink. */
 export async function stand({ model, stance, hz = 120 }) {
   const { stand, body: b, feet } = await body(model, stance, hz);
   let goal = null, from = null;
@@ -32,11 +35,18 @@ export async function stand({ model, stance, hz = 120 }) {
     return { posture: GUARD, hands: { left: null, right: null }, pushes: [], stance: goal };
   });
   try {
-    stand.step(stand.seconds(3));
+    const settle = [];
+    let stood = 0;
+    for (const seconds of SETTLE_SECONDS) {
+      stand.step(stand.seconds(seconds - stood));
+      stood = seconds;
+      settle.push(b.view.stance.velocity.length());
+    }
+    stand.step(stand.seconds(3 - stood));
     const before = b.view.stance.centre.clone();
     stand.step(stand.seconds(2));
     const s = b.view.stance;
-    return { off: across(s.centre, s.support), low: Math.abs(s.centre.y - s.support.y - goal.height), drift: Vector3.Distance(s.centre, before),
+    return { settle, off: across(s.centre, s.support), low: Math.abs(s.centre.y - s.support.y - goal.height), drift: Vector3.Distance(s.centre, before),
       speed: s.velocity.length(), slide: Math.max(...feet.map((f, k) => across(f.node.position, from[k]))),
       sink: Math.max(...feet.map((f, k) => from[k].y - f.node.position.y)) };
   } finally { b.dispose(); stand.dispose(); }

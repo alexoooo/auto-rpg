@@ -53,7 +53,7 @@ decision" is the mean over the bout's decisions of the best response's value les
 
 ### Clairvoyant
 
-Every character at its own balance, which is 0 points.
+Every character at its own balance, which is 0 %.
 
 ```powershell
 node research/oracle.mjs --all --side both --workers 14 --out research/runs/oracle-cap
@@ -111,11 +111,11 @@ node research/oracle.mjs --all --side both --blind 4 --workers 14 --out research
 
 ### With balance
 
-Clairvoyant, both sides at 5 points of balance, a ceiling of a quarter of the body's weight and
+Clairvoyant, both sides at a balance of 25 %, a ceiling of a quarter of the body's weight and
 0.065 of its weight times a metre (`docs/reference/assist.md`).
 
 ```powershell
-node research/oracle.mjs --all --side both --balance 5,5 --workers 14 --out research/runs/oracle-balance
+node research/oracle.mjs --all --side both --balance 25,25 --workers 14 --out research/runs/oracle-balance
 ```
 
 | Left | Right | Side | Tactics: winner | Ending | Seconds | Bars | Value | Oracle: winner | Ending | Seconds | Bars | Value | Decisions | Left its tactics, % | own | attack | hold | close | back | left | right | Believed gain a decision | Rollouts | Their steps | Wall, s |
@@ -174,7 +174,7 @@ rate. The tactics' values sum to nothing, as one bout read from both sides must.
   So the blind search knows the other side's future to a few centimetres, and its table says
   the search does not need that future to the bit. It does not say what a mind that must guess
   the other's intent would keep.
-- **With balance a gain is seldom a fall, and it is mostly time.** At 5 points the 6 bouts
+- **With balance a gain is seldom a fall, and it is mostly time.** At 25 % the 6 bouts
   turned from a loss to a win end by a wound in 2 (a severed head at 19.0 s, a fatal wound at
   115.4 s), by the foe's fall in 2 and at the cap ahead on bars in 2, by 0.106 and 0.035 of a
   bar. The other 3 are carried to the cap and lost there, two of them by under a hundredth of a

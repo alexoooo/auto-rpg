@@ -35,17 +35,18 @@ All of it on a physically based core, humans first ([architecture](architecture.
   every body whatever stands between); a library for a body of another shape behind the same
   seam.
 - The owner's to choose, each landed at its default:
-  - Each character's balance. Every character has 0 points. At 5 points for both sides, 19 of 99
-    bouts end by a fall where 80 do at none, and the mean bout is 55 s where it is 14 s
-    ([reference/assist.md](reference/assist.md)); different points for each make it a trait that
-    tells characters apart.
-  - The attribute's name (`AttributeSpec.balance`): Balance, or Stability, Poise or Footing.
-  - What the pointer does while a person's body stands still: nothing, and the person walks to
-    turn; or a slow step toward its heading, which moves it without being asked.
+  - Each character's balance, a per cent of its own weight. Every character has 0 %. At 25 % for
+    both sides, 19 of 99 bouts end by a fall where 80 do at none, and the mean bout is 55 s where
+    it is 14 s ([reference/assist.md](reference/assist.md)); a different balance for each makes it
+    a trait that tells characters apart. The moment that goes with a per cent
+    (`Rulebook.balance`, 0.0026 weight-metres) is proposed with it; 25 % spends the effect.
+- The controls are to be worked over in play. Until then the pointer does nothing while a person's
+  body stands still, and the person walks to turn; the other way is a slow step toward its heading,
+  which moves it without being asked.
 - The owner's to watch: a bout fought with orders
   (`?play=arena&matchup=workshop-fighter,workshop-rogue&you=left`); bouts with balance against
-  none (`?play=arena&matchup=workshop-fighter,workshop-fighter&balance=5`, `&balance=20`,
-  `&balance=5,0`); and an oracle's bout ([reference/oracle.md](reference/oracle.md), Watching
+  none (`?play=arena&matchup=workshop-fighter,workshop-fighter&balance=25`, `&balance=100`,
+  `&balance=25,0`); and an oracle's bout ([reference/oracle.md](reference/oracle.md), Watching
   one).
 - The oracle's readings ([reference/oracle.md](reference/oracle.md); counts of 18 sides, not
   rates): choosing among seven orders every half second, with the true world to try them in,
@@ -53,7 +54,7 @@ All of it on a physically based core, humans first ([architecture](architecture.
   decisions. With no balance every one of those wins is a fall, so it is a ceiling on not
   falling, not on fencing; and it is nearly the same ceiling blind, with each fork nudged a few
   centimetres off the true one, so little of it is knowing the other side's exact future. With
-  5 points of balance the search turns 6 of 9 again, 2 of them by a wound, and makes bouts
+  a balance of 25 % the search turns 6 of 9 again, 2 of them by a wound, and makes bouts
   long: 7 of its 18 reach the cap where 1 of the tactics' 9 does. A search that values 2 s on
   finds how not to be hit, and not how to end a bout.
 - The oracle's next spaces to search: a horizon long enough to end a bout with balance, a
@@ -110,6 +111,17 @@ All of it on a physically based core, humans first ([architecture](architecture.
   attacks (`ATTACK_METRES`) and the shaping of an arm's path (`IK_POSTURE_PULL`, `IK_TURN`)
   ([human and strikes](reference/human-and-strikes.md)); the stance's height and its fall bar
   (`STANCE_LOWER`, `FALLEN`, [stance tuning](reference/stance-tuning.md#stance-height)).
+- Set on readings from an engine that is gone, to read again on this one: how long a body stands
+  before it throws (`STAND`: the Warrior reads 6 mm/s at 1.5 s where it read 5) and whether a step
+  into a stance before a strike converges with the rate
+  ([human and strikes](reference/human-and-strikes.md#stand-time)); how far ahead a walker on a
+  track faces (`AIM_AHEAD`) and the lab's seek budget ([lab](reference/lab.md)).
+- Records no script reads again, to measure afresh when their subject changes: the servo's hold
+  ([servo and muscle](reference/servo-and-muscle.md)), the servo's time constant on the routine and
+  Rapier's per-step disturbance by rate ([body and engine](reference/body-and-engine.md)), the
+  wrench lever and the bounded swing's routine table
+  ([stance tuning](reference/stance-tuning.md#wrench-lever)), and the models' volumes
+  ([human strike reference](reference/human-strike-reference.md), section 8).
 - Shoves: the least impulse held from any way is 55 N s on the Warrior and 35 on the Rogue.
   Bounding the swing costs 15 held shoves on the Warrior and 11 on the Rogue
   ([stance tuning](reference/stance-tuning.md#bounded-swing)). No sourced human reference exists
@@ -144,16 +156,20 @@ All of it on a physically based core, humans first ([architecture](architecture.
 - The party carries only clubs; a ranged weapon (the Rogue's bow) would need projectiles on the
   core.
 - The crypt's frame rate on the owner's machine is unmeasured.
-- The crypt's triangle budget is the owner's to set. A generated crypt places up to 415,986
-  triangles ([art/crypt.md](art/crypt.md#triangles)), and its test holds it to what it places
-  today.
+- The crypt's triangle budget waits on its frame rate, measured on a range of hardware: the owner
+  sets it from what holds the frame rate there, and names no number before that. A generated
+  crypt places up to 415,986 triangles ([art/crypt.md](art/crypt.md#triangles)), and its test
+  holds it to what it places today.
 - Saving a run. A bout saves and loads (`Duel.save`, [architecture](architecture.md#state)); a
   run does not, since its bodies are built as they wake.
 - The run plans for its fighters with the map and hands each its orders; its bodies sense the
   clock alone. A crypt on senses, and a hero that walks one way and faces another, are not built.
-- Set, and to measure on the core ([reference/play.md](reference/play.md)): what a level's
-  unbuilt enemies save a step, which is what `WAKE_METRES` buys; and how long a hero facing the
-  cursor stands being hit from behind, with `SET_UPON` and `AIM_COSINE` and without.
+- Set, and to measure on the core ([reference/play.md](reference/play.md)): how long a hero
+  facing the cursor stands being hit from behind, with `SET_UPON` and `AIM_COSINE` and without.
+- The crypt's step ([reference/play.md](reference/play.md#bodies-in-the-step)): a body out of
+  the fight lies limp and still costs the solver 0.27 ms a step. Fixed where it lies once it is
+  still, it would cost 0.02 ms and could not be pushed aside; an engine that let it rest would
+  take none until something touched it.
 - The generator keeps 0.65 m clear about every place a body stands (`LEVEL.clearance`), written
   for a body that is gone; a walker's path keeps 0.35 m (`FOOTPRINT_METRES`), less than the
   0.38 m the Warrior's elbows stand out in the pose its spec writes. Both are the owner's to
@@ -173,10 +189,7 @@ All of it on a physically based core, humans first ([architecture](architecture.
   correctly.
 - Every value of the look and the sound is kept as found until the owner confirms it
   ([reference/look.md](reference/look.md)). Of them, the dungeon's stand open until the owner
-  judges them in play: the camera's pitch (`CAMERA_PITCH`, 30 degrees, where the concept art looks
-  down at 40 to 45), torch density, and which floor and wall textures ship.
-- The flames of the forge and of the crypt go on flickering while the page is paused. Whether
-  they should stand still is the owner's to say.
+  judges them in play: torch density, and which floor and wall textures ship.
 - How loud a blow is was set against no bout (`CUE`,
   [reference/look.md](reference/look.md#sound)): the energies a bout's blows carry, read from
   headless bouts, would say how much of the range from quiet to loud a fight uses.

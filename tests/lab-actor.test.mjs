@@ -7,7 +7,7 @@ import assert from "node:assert/strict";
 import { stanceEnvelope } from "../src/core/control/stance-envelope.ts";
 import { humanSpec } from "../src/core/human/spec.ts";
 import { standIntent } from "../src/core/mind/intent.ts";
-import { balanceCeiling, balancePoint, rulebook } from "../src/core/rules/rulebook.ts";
+import { balanceCeiling, balancePercent, rulebook } from "../src/core/rules/rulebook.ts";
 import { STAND } from "../src/core/skills/strike.ts";
 import { recipeFor, REPERTOIRE } from "../src/core/skills/strikes.ts";
 import { labActor } from "../src/lab/actor.ts";
@@ -21,7 +21,7 @@ import { LAB_MIND_IDS } from "../src/lab/scenarios.ts";
 import { startStance } from "../src/lab/stance-mode.ts";
 import { coreStand } from "./harness/core-stand.mjs";
 
-const POINT = balancePoint(rulebook("arena"));
+const PERCENT = balancePercent(rulebook("arena"));
 
 /** The Stance's frame 4 s after a shove at 2 s, the actor given `options`, and what its assist gave. */
 async function shoved(model, impulse, degrees, options) {
@@ -37,15 +37,15 @@ async function shoved(model, impulse, degrees, options) {
 
 test("a_lab_bodys_balance_holds_it_through_a_shove_that_fells_it_without", async () => {
   // Node stand, Rapier, 120 Hz, a 1 N s grid. Shoved toward its front, the Warrior stands to 66 N s on
-  // its muscles and to 76 at 5 points; toward its back, the Rogue stands to 50 and to 70.
+  // its muscles and to 76 at a balance of 25 %; toward its back, the Rogue stands to 50 and to 70.
   for (const [model, impulse, degrees] of [["workshop-fighter", 71, 0], ["workshop-rogue", 60, 180]]) {
     const alone = await shoved(model, impulse, degrees, undefined);
-    const none = await shoved(model, impulse, degrees, { assist: balanceCeiling(0, POINT) });
-    const helped = await shoved(model, impulse, degrees, { assist: balanceCeiling(5, POINT) });
+    const none = await shoved(model, impulse, degrees, { assist: balanceCeiling(0, PERCENT) });
+    const helped = await shoved(model, impulse, degrees, { assist: balanceCeiling(25, PERCENT) });
     assert.ok(alone.frame.fallen && alone.given === 0, `${model} alone: ${JSON.stringify(alone)}`);
-    // No points is no assist: the same fall, to the bit.
+    // No balance is no assist: the same fall, to the bit.
     assert.deepEqual(none, alone, model);
-    assert.ok(!helped.frame.fallen && helped.frame.phase === "stand" && helped.given > 0, `${model} at 5 points: ${JSON.stringify(helped)}`);
+    assert.ok(!helped.frame.fallen && helped.frame.phase === "stand" && helped.given > 0, `${model} at 25 %: ${JSON.stringify(helped)}`);
   }
 });
 

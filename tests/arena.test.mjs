@@ -8,6 +8,7 @@ import { RawTexture } from "@babylonjs/core/Materials/Textures/rawTexture.js";
 import { VertexBuffer } from "@babylonjs/core/Buffers/buffer.js";
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder.js";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { FreeCamera } from "@babylonjs/core/Cameras/freeCamera.js";
 import { DirectionalLight } from "@babylonjs/core/Lights/directionalLight.js";
 import { ShadowGenerator } from "@babylonjs/core/Lights/Shadows/shadowGenerator.js";
 
@@ -26,6 +27,7 @@ import {
 } from "../src/arena/room.ts";
 import { createWorld } from "../src/core/world.ts";
 import { ORBIT, orbitPosition } from "../src/arena/orbit.ts";
+import { dressForgeRoom } from "../src/arena/forge-room.ts";
 import { freshEngine } from "./harness/core-stand.mjs";
 
 const makeMaterial = (scene, name, colour) => {
@@ -371,4 +373,35 @@ test("an_arena_rebuild_returns_every_audit_count_to_its_baseline", async (t) => 
   }
   shadowGenerator.dispose();
   light.dispose();
+});
+
+test("the_forges_fire_stands_through_drawn_frames_and_moves_when_it_is_burned", async (t) => {
+  // A paused page draws frames and does not burn the fire: nothing but `burn` may move it, however much real
+  // time the frames take.
+  const { engine, scene, physics, materials } = await setup();
+  t.after(() => engine.dispose());
+  buildArenaWorld(scene, physics, materials);
+  new FreeCamera("probe", new Vector3(0, 2, -4), scene);
+  const kit = new Map([["masonry", MeshBuilder.CreateBox("fixture.masonry", { size: 1 }, scene)]]);
+  const fire = dressForgeRoom(scene, { kit, materials: { brazierBronze: materials.timber } });
+  const lights = scene.lights.filter((light) => light.name.startsWith("forge.torchlight."));
+  const flame = scene.getMeshByName("forge.torch.0").material;
+  let time;
+  const setFloat = flame.setFloat.bind(flame);
+  flame.setFloat = (name, value) => { if (name === "time") time = value; return setFloat(name, value); };
+  const made = lights.map((light) => light.intensity);
+  assert.equal(made.length, 2, "two posts carry a light");
+  assert.equal(made[0], made[1], "each light is made at the flicker's mean");
+  for (let frame = 0; frame < 3; frame += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    engine.beginFrame(); scene.render(); engine.endFrame();
+  }
+  assert.ok(engine.getDeltaTime() > 0, "the frames took no time, so they could not have moved a fire");
+  assert.deepEqual({ lights: lights.map((light) => light.intensity), time }, { lights: made, time: undefined }, "a drawn frame moved the fire");
+  fire.burn(0.02);
+  const burned = lights.map((light) => light.intensity);
+  assert.equal(time, 0.02, "the flames' time is what was burned");
+  assert.ok(burned[0] !== made[0] && burned[1] !== made[1] && burned[0] !== burned[1], `burned 0.02 s, the lights read ${burned}`);
+  fire.burn(10);
+  assert.ok(Math.abs(time - 0.07) < 1e-12, `one frame burned ${time - 0.02} s of a 10 s stall`);
 });

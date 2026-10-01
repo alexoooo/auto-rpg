@@ -4,7 +4,7 @@
  * from went on, in the bout it came from or in another of the same recipe. Node, core world,
  * Rapier, 120 Hz.
  *
- * The bout is the fighter against the rogue, each with 5 points of balance, each seeing the other
+ * The bout is the fighter against the rogue, each with a balance of 25 %, each seeing the other
  * three steps late, under a tape that orders the left side back before step 300 and hands it back
  * to itself before step 420.
  *
@@ -27,7 +27,7 @@ import { freshEngine } from "./harness/core-stand.mjs";
 import { assertForks, fieldsOf, forgetting, forks, PHYSICS_ALONE, shows, STATE_ALONE, unsorted } from "./harness/fork.mjs";
 import { traceOf } from "./harness/trace.mjs";
 
-const RECIPE = deepFreeze({ left: "workshop-fighter", right: "workshop-rogue", balance: { left: 5, right: 5 }, senseDelay: 3 });
+const RECIPE = deepFreeze({ left: "workshop-fighter", right: "workshop-rogue", balance: { left: 25, right: 25 }, senseDelay: 3 });
 const BACK = { move: { x: -1, z: 0 }, face: null, attack: null };
 const TAPE = deepFreeze([{ step: 300, side: "left", orders: BACK }, { step: 420, side: "left", orders: null }]);
 /** Steps a twin's world has taken when its bout is built: a bout begins at whatever step its world is at. */
@@ -173,7 +173,7 @@ test("a_load_is_of_the_same_recipe", async () => {
     // The control: the physics alone takes it, the two worlds having the same counts of bodies, joints and colliders.
     assert.doesNotThrow(() => taken.world.physics.load(saved.physics));
     // And a bout of the same recipe takes it whatever the order its recipe's keys were written in.
-    const again = await bout("twin", { senseDelay: 3, balance: { right: 5, left: 5 }, right: RECIPE.right, left: RECIPE.left });
+    const again = await bout("twin", { senseDelay: 3, balance: { right: 25, left: 25 }, right: RECIPE.right, left: RECIPE.left });
     try {
       again.duel.load(saved);
       assert.equal(stepped(again, 300), stepped(from, 300));

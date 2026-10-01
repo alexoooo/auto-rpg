@@ -11,7 +11,7 @@ import { Scene } from "@babylonjs/core/scene.js";
 import { loadEngine } from "../core/engine/engines.ts";
 import { buildBody, type BuiltBody } from "../core/build/build-body.ts";
 import type { BodyModel } from "../core/human/spec.ts";
-import { balanceCeiling, balancePoint, rulebook } from "../core/rules/rulebook.ts";
+import { balanceCeiling, balancePercent, rulebook } from "../core/rules/rulebook.ts";
 import { createWorld, type World } from "../core/world.ts";
 import { publicAssetUrl } from "../asset-url.ts";
 import { labActor } from "./actor.ts";
@@ -71,8 +71,8 @@ const TINT: Readonly<Record<BodyModel, Color3>> = {
   "crypt-skeleton": new Color3(0.72, 0.68, 0.58),
 };
 
-/** What a point of balance is worth: the arena's. */
-const POINT = balancePoint(rulebook("arena"));
+/** What a per cent of balance is: the arena's. */
+const PERCENT = balancePercent(rulebook("arena"));
 
 const SCENARIO: Readonly<Record<ScenarioId, (scene: Scene, shell: LabShell) => LabScenario>> = {
   stance: stanceScenario,
@@ -83,8 +83,7 @@ const SCENARIO: Readonly<Record<ScenarioId, (scene: Scene, shell: LabShell) => L
 
 /**
  * A seek runs the world for up to this long in each page frame, ms, then lets the page draw: with
- * the draw's 6 ms it fits one frame of a 60 Hz display. Longer frames lose more than they gain,
- * since the browser holds back frames that run long: `docs/reference/lab.md#seek-budget`.
+ * the draw's 6 ms it fits one frame of a 60 Hz display. Set: `docs/reference/lab.md#seek-budget`.
  */
 const SEEK_BUDGET_MS = 10;
 
@@ -140,7 +139,7 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
     readonly built: BuiltBody; readonly view: BodyShapes; readonly held: BodyShapes; skin: SkinView | null; readonly run: ScenarioRun;
     /** The pelvis's rotation as built, facing +z: the chase camera reads the body's facing from it. */
     readonly rest: Quaternion;
-    /** The points its assist has, if it has one: every figure read under it is read beside them. */
+    /** Its balance, per cent of its weight, if its assist has one: every figure read under it is read beside it. */
     readonly helped: number | null;
     /** What its mind has decided. */
     readonly log: MindLog;
@@ -194,16 +193,16 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
     world?.dispose();
     world = createWorld(scene, physicsEngine, { hz: to.hz });
     world.physics.addFixedBox([0, -0.5, 0], [40, 1, 40]);
-    const built = buildBody(loadoutSpec(to), world, { position: [0, 0, 0] }), points = loadoutBalance(to.balance, built.spec);
+    const built = buildBody(loadoutSpec(to), world, { position: [0, 0, 0] }), balance = loadoutBalance(to.balance, built.spec);
     const log = createMindLog();
     const actor = labActor(built, world, {
-      assist: balanceCeiling(points, POINT), allows: allowing(to.barred), mind: (script) => logged(LAB_MINDS[to.mind].tactics(script), log),
+      assist: balanceCeiling(balance, PERCENT), allows: allowing(to.barred), mind: (script) => logged(LAB_MINDS[to.mind].tactics(script), log),
     });
     const rest = built.segments.get("lowerTrunk")!.node.rotationQuaternion!.clone();
     const view = drawBody(built, scene, TINT[to.model]), heldView = drawHeld(built, scene);
     // A new body starts live: nothing of the last one's recording is shown.
     const run = scenario.start({ scene, actor, changed: transport.showPlayhead, clock: () => performance.now() });
-    const loaded: Loaded = { built, view, held: heldView, skin: null, run, rest, helped: actor.body.assist.on ? points : null, log };
+    const loaded: Loaded = { built, view, held: heldView, skin: null, run, rest, helped: actor.body.assist.on ? balance : null, log };
     current = loaded;
     show(to);
     const model = to.model;

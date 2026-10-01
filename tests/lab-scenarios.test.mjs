@@ -67,7 +67,7 @@ test("every_choice_the_lab_offers_reads_back_from_the_address_it_writes", () => 
   }
 });
 
-test("a_balance_in_the_address_is_plain_decimal_points_none_or_more_or_the_characters_own", () => {
+test("a_balance_in_the_address_is_a_plain_decimal_per_cent_none_or_more_or_the_characters_own", () => {
   assert.deepEqual(["0", "5", "0.5", "%205%20", "20.5"].map((text) => labAddress(`?balance=${text}`).balance), [0, 5, 0.5, 5, 20.5]);
   for (const text of ["", "%20", "-1", "-0", "%2B5", "1e3", "0x10", ".5", "5.", "5,5", "many", "Infinity", "NaN", "9".repeat(400)]) {
     assert.equal(labAddress(`?balance=${text}`).balance, null, text);

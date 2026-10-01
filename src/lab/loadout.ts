@@ -19,14 +19,14 @@ export function loadoutSpec(loadout: LabLoadout): BodySpec {
   return spec;
 }
 
-/** The points of balance the body of `spec` has: `balance`, the address's, or its character's own. */
+/** The balance the body of `spec` has, per cent of its weight: `balance`, the address's, or its character's own. */
 export function loadoutBalance(balance: number | null, spec: BodySpec): number {
   return balance ?? spec.attributes.balance.value;
 }
 
-/** What the address holds for `points` on the body of `spec`: nothing where they are its character's own. */
-export function balanceAddress(points: number, spec: BodySpec): number | null {
-  return points === spec.attributes.balance.value ? null : points;
+/** What the address holds for a `balance` on the body of `spec`: nothing where it is its character's own. */
+export function balanceAddress(balance: number, spec: BodySpec): number | null {
+  return balance === spec.attributes.balance.value ? null : balance;
 }
 
 /** What the repertoire calls a hand holding `held` (`heldIn`). */

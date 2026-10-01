@@ -7,29 +7,36 @@ throws (`STAND`) and how it comes to a recipe's place (`APPROACH`), both in
 how near a fighter attacks (`ATTACK_METRES`, `src/core/mind/fighter.ts`); and what shapes an
 arm's path to a place (`IK_POSTURE_PULL`, `IK_TURN`, `src/core/control/kinematics.ts`). Each
 constant's comment cites its section below. A value said to be set was chosen and not swept: no
-table stands behind it.
+table read on the engine the game runs on stands behind the choice.
 
 ## Stand time
 
-Each human stood still in the guard where it was built, and the speed of its centre of mass was
-read at each time stood, mm/s, at three physics rates (Node core stand, Rapier). The readings
-converge with the rate:
+Each human stood still in the guard where it was built, 3 cm under its reference height, and the
+speed of its centre of mass was read at each time stood, mm/s, at three physics rates (Node core
+stand, Rapier). The readings converge with the rate:
 
     seconds                0.5   1    1.5   2
-    Warrior 120 Hz          62   19    5    1
-            480 Hz          66   20    5    1
-            1920 Hz         67   20    5    1
-    Rogue   120 Hz          43   14    3    0
-            480 Hz          52   15    3    1
-            1920 Hz         52   15    3    0
+    Warrior 120 Hz          66   21    6    2
+            480 Hz          67   22    6    2
+            1920 Hz         66   23    6    2
+    Rogue   120 Hz          52   15    4    1
+            480 Hz          53   16    4    1
+            1920 Hz         52   17    5    1
 
-`STAND` is 1.5 s: the first time in the table at which each human is at 5 mm/s or less.
+Command: `node research/core-stance-sweep.mjs --batteries stand --hz 120`, and with `--hz 480` and
+`--hz 1920`; the reading is the `settle` of each line. The controller read is `e4ec0709`'s.
+
+`STAND` is 1.5 s. Set: it was chosen as the first time at which each human was at 5 mm/s or less
+in the same table read on an engine that is gone (`research/core-blow.mjs@5e652760`), where the
+Warrior read 5 mm/s at 1.5 s; here it reads 6. Every recipe was searched from a body that had stood
+1.5 s, so a change to it voids the recipes.
 
 A step into a stance before the strike (the right foot set 0.3 m across and 0.15 m behind) was
-tried on the Warrior and does not converge with the rate: at 1920 Hz the bearing foot slid 15 cm
+tried on the Warrior and did not converge with the rate: at 1920 Hz the bearing foot slid 15 cm
 toward the swinging one in the swing's last 60 ms and the body staggered at up to 1.4 m/s; at
-480 Hz it slid 4 cm; at 120 Hz not at all. Strikes are thrown from the square stance the body was
-built in.
+480 Hz it slid 4 cm; at 120 Hz not at all. That was read at `5e652760`, on the engine that is
+gone, with a script that was not kept, and has not been read on this one. Strikes are thrown from
+the square stance the body was built in.
 
 ## Approach
 
@@ -43,6 +50,11 @@ Warrior settled out of the recipe's window each time and walked again, round and
 With the feet set at the place (`Locomotion.place`), each of the 360 strikes each human threw in
 the Routine stood inside its window, at 120 and 480 Hz (`research/core-routine-battery.mjs`, Node
 core stand, Rapier).
+
+Command: `node research/core-routine-battery.mjs --seeds 6 --loops 10`, and with `--hz 480`: three
+strikes a loop, 180 a human at each rate. Read at `8ee70e1e`; at `e4ec0709` each human throws the
+same 180 at each rate and none falls. The walk stopped by its head was that commit's work before
+the feet were set, and was not committed.
 
 `APPROACH` is `{ pace: 0.3, seconds: 1, reach: 0.25 }`. `APPROACH.pace`, m/s, is the Routine's
 pace through its turns, which each human held. `APPROACH.seconds` and `APPROACH.reach` are set:

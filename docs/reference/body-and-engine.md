@@ -9,7 +9,10 @@ against the engine. `SERVO_SECONDS` in `src/core/body.ts` cites the servo's time
 The joint servo was run at 0.1 s on the lab's scripted routine (`src/lab/routine.ts`), and read
 over the second half of each settle, on the freedoms the legs leave to the posture. Harness: Node
 core stand, Rapier. The Warrior at 120 Hz was read over the first two settles, since it fell in the
-third strike.
+third strike. The table is `135d31fb`'s, read on the routine as it then was (a script of timed
+steps, `src/core-lab/routine.ts@135d31fb`, which the lab no longer has). The script that read it
+was not committed, so its flags are not recorded, and the table does not read again on the routine
+as it stands.
 
 | Body    | Rate   | Largest step-to-step speed reversal (rad/s) | Guard held within (rad) |
 |---------|--------|---------------------------------------------|-------------------------|
@@ -49,11 +52,16 @@ core stand, Rapier. The median error, alike with the steps at a stop left out:
 At 1920 Hz, leaving the gyroscopic torque out of the model read 25.9 % against 25.0 %: at that rate
 the disturbance hides the term.
 
+Command: not recorded. The table is `135d31fb`'s; the chain and the let-go are that file's test
+(`node --test tests/core-dynamics.test.mjs`), which runs at 480 Hz and asserts a bound on the
+median. How the other rates were run and the medians printed was not kept.
+
 The same chain holding a rod, free in the air under gravity at 480 Hz, was read through the root's
 rows (`BodyDynamics.root`). Off every stop, the rows gave the bodies' momentum to 0.01 to 0.05 %;
 while a joint pressed its stop, 5 to 9 % off, and 44 % off on the step one landed on it. Over
 windows of 4 steps the accelerations read 2.6 % off for the root and 1.8 % for the joints at the
-median; a step at a time, 14 % and 8 %.
+median; a step at a time, 14 % and 8 %. These are `abfe6153`'s, on the same file's free-chain test,
+and how they were printed was not kept either.
 
 Choice: the let-go test runs at 480 Hz, and the free chain's accelerations are read over windows
 of 4 steps, with the steps at a stop left out.

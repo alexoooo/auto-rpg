@@ -115,7 +115,7 @@ verdict, so a late reading that agrees says every step before it did.
 |---|---|---:|---|---|---:|
 | skeleton v Rogue, gap 4, cap 30, the oracle's tape ([oracle.md](oracle.md), Watching one) | built, and the development server's | 1494 | the Rogue, the skeleton fallen, 12.45 s | 1, 1 | 26 of 26 |
 | Warrior v Rogue | the development server's | 2547 | the Warrior, the Rogue fallen, 21.225 s | 0.9942642965393281, 0.848672812168439 | 44 of 44 |
-| Warrior v Rogue, balance 5 a side | built | 2112 | the Warrior, the Rogue's head off, 17.6 s | 0.9732457233222181, 0.5696885055513037 | 37 of 37 |
+| Warrior v Rogue, balance 25 % a side | built | 2112 | the Warrior, the Rogue's head off, 17.6 s | 0.9732457233222181, 0.5696885055513037 | 37 of 37 |
 
 Each is Node's bout: the steps, the verdict, the bars to their last digit and every reading. No
 test holds a browser to this, since none runs in one; to read it again, import

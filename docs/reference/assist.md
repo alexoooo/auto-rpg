@@ -6,30 +6,32 @@ the ceiling, a character's balance.
 
 ## Balance
 
-A character's **balance** is a number of points in its spec (`AttributeSpec.balance`,
-`src/core/spec/body.ts`), beside its hit points. The rulebook says what a point is worth
-(`Rulebook.balance`, `src/core/rules/rulebook.ts`): the most the assist gives the body, as a force
-in the body's own weights and a moment in its weights times a metre, so the same points are the
-same help to a light body and a heavy one. A fight gives each body the ceiling its points buy
-(`balanceCeiling`) and withdraws the assist when the body is out of the fight. At 0 points the
+A character's **balance** is a per cent of its own weight, in its spec (`AttributeSpec.balance`,
+`src/core/spec/body.ts`) beside its hit points: the most force its assist gives it. The rulebook
+gives the moment that goes with each per cent (`Rulebook.balance`, `src/core/rules/rulebook.ts`),
+in the body's weights times a metre. Both are in the body's own weight, so the same balance is the
+same help to a light body and a heavy one. A fight gives each body the ceiling its balance comes
+to (`balanceCeiling`) and withdraws the assist when the body is out of the fight. At 0 % the
 assist is absent, and a bout is step for step the bout without it.
 
-All three are the owner's (`owner-balance` in `SOURCES`), proposed and not yet confirmed; what
-each buys in bouts is in "What balance does to a bout" below:
+All of it is the owner's (`owner-balance` in `SOURCES`). The owner chose the name and the per
+cent of the body's weight; each character's balance and the moment that goes with a per cent are
+proposed and not yet confirmed. What each buys in bouts is in "What balance does to a bout" below:
 
 | What | Value | Where |
 |---|---|---|
 | The attribute's name | balance | `AttributeSpec.balance` |
-| The Warrior's points | 0 | `workshopBalance` (`src/core/human/attributes.ts`) |
-| The Rogue's points | 0 | `workshopBalance` |
-| The skeleton's points | 0 | its figure (`src/core/human/skeleton.ts`), a placeholder as the rest of it is |
-| A point's force | 0.05 of the body's weight | `RULES.balance.force` |
-| A point's moment | 0.013 of the body's weight times a metre | `RULES.balance.moment` |
+| The Warrior's balance | 0 % | `workshopBalance` (`src/core/human/attributes.ts`) |
+| The Rogue's balance | 0 % | `workshopBalance` |
+| The skeleton's balance | 0 % | its figure (`src/core/human/skeleton.ts`), a placeholder as the rest of it is |
+| A per cent's force | 0.01 of the body's weight, which is what a per cent is | `RULES.balance.force` |
+| A per cent's moment | 0.0026 of the body's weight times a metre | `RULES.balance.moment` |
 
-A point's worth puts 5 points at a quarter of a weight and, for the Warrior's 775 N, 50 N m: the
-ceiling the pull below was first held at. A bout takes a balance for each side in place of its
-character's (`DuelRecipe.balance`; in a link, `&balance=left,right`, or one number for both), and
-a worth of a point in place of the rulebook's (`DuelRecipe.balancePoint`).
+The moment is the force at a lever of 0.26 m. It puts a balance of 25 % at a quarter of a weight
+and, for the Warrior's 775 N, 50 N m: the ceiling the pull below was first held at. A bout takes a
+balance for each side in place of its character's (`DuelRecipe.balance`; in a link,
+`&balance=left,right` in per cent, or one number for both), and a force and a moment for a per
+cent in place of the rulebook's (`DuelRecipe.balancePercent`).
 
 ## What the soles miss
 
@@ -82,25 +84,27 @@ Harness: Node stand (`tests/harness/core-stand.mjs`), Rapier, 120 Hz; the Warrio
 ground, unarmed, under the command layers with an order to stand. One second to settle; then for
 2 s a steady tenth of its weight forward at its root's centre of mass, an impulse before each
 step; then 2 s more. The readings are over those 4 s. The fixture is `pulled` in
-`tests/core-assist.test.mjs`, whose test holds the first row and the three 5-point rows.
+`tests/core-assist.test.mjs`, whose test holds the first row and the three rows at 25 %. The
+fixture is given the two ceilings as the row writes them; the balance is the per cent that comes
+to them.
 
-| Balance, points | Force ceiling, weights | Moment ceiling, weight-metres | Fell | Centre of mass at its lowest, m | Centre of mass travelled, m | Recovery steps | Most the soles missed while it stood, weights | Mean given, N | Mean given, N m |
+| Balance, % | Force ceiling, weights | Moment ceiling, weight-metres | Fell | Centre of mass at its lowest, m | Centre of mass travelled, m | Recovery steps | Most the soles missed while it stood, weights | Mean given, N | Mean given, N m |
 |---|---|---|---|---|---|---|---|---|---|
 | 0 | 0 | 0 | yes | 0.18 | 1.46 | 11 | 0.710 | 0.0 | 0.0 |
-| 0.02 | 0.001 | 0.00026 | yes | 0.19 | 1.67 | 11 | 0.836 | 0.6 | 0.2 |
-| 0.05 | 0.0025 | 0.00065 | yes | 0.20 | 2.11 | 11 | 0.622 | 1.4 | 0.4 |
-| 0.1 | 0.005 | 0.0013 | no | 0.93 | 0.86 | 7 | 0.281 | 2.2 | 0.6 |
-| 0.2 | 0.01 | 0.0026 | no | 0.95 | 0.25 | 3 | 0.309 | 3.2 | 0.8 |
-| 0.5 | 0.025 | 0.0065 | no | 0.98 | 0.05 | 0 | 0.012 | 2.2 | 1.7 |
-| 1 | 0.05 | 0.013 | no | 0.98 | 0.05 | 0 | 0.010 | 2.0 | 1.9 |
-| 5 | 0.25 | 0.065 | no | 0.98 | 0.05 | 0 | 0.010 | 2.0 | 1.9 |
-| 5, the force alone | 0.25 | 0 | no | 0.98 | 0.05 | 0 | 0.020 | 4.1 | 0.0 |
-| 5, the moment alone | 0 | 0.065 | no | 0.98 | 0.06 | 0 | 0.025 | 0.0 | 5.7 |
+| 0.1 | 0.001 | 0.00026 | yes | 0.19 | 1.67 | 11 | 0.836 | 0.6 | 0.2 |
+| 0.25 | 0.0025 | 0.00065 | yes | 0.20 | 2.11 | 11 | 0.622 | 1.4 | 0.4 |
+| 0.5 | 0.005 | 0.0013 | no | 0.93 | 0.86 | 7 | 0.281 | 2.2 | 0.6 |
+| 1 | 0.01 | 0.0026 | no | 0.95 | 0.25 | 3 | 0.309 | 3.2 | 0.8 |
+| 2.5 | 0.025 | 0.0065 | no | 0.98 | 0.05 | 0 | 0.012 | 2.2 | 1.7 |
+| 5 | 0.05 | 0.013 | no | 0.98 | 0.05 | 0 | 0.010 | 2.0 | 1.9 |
+| 25 | 0.25 | 0.065 | no | 0.98 | 0.05 | 0 | 0.010 | 2.0 | 1.9 |
+| 25, the force alone | 0.25 | 0 | no | 0.98 | 0.05 | 0 | 0.020 | 4.1 | 0.0 |
+| 25, the moment alone | 0 | 0.065 | no | 0.98 | 0.06 | 0 | 0.025 | 0.0 | 5.7 |
 
-With none the body is pulled off its soles, steps eleven times and falls. Half a point holds it
-where it stands with no step, on a mean of about 2 N and 2 N m: a quarter of a hundredth of its
+With none the body is pulled off its soles, steps eleven times and falls. A balance of 2.5 % holds
+it where it stands with no step, on a mean of about 2 N and 2 N m: a quarter of a hundredth of its
 weight. What is given early is what keeps the shortfall from growing, so the mean stays far under
-the ceiling once the ceiling is enough; either part alone holds this pull at 5 points, on about
+the ceiling once the ceiling is enough; either part alone holds this pull at 25 %, on about
 twice the mean. A part alone holds only because the legs are asked for the ground's wrench less
 what the assist gives (`bear`, `src/core/control/stance.ts`): asked for all of it, the body
 under the moment alone travels 0.42 m and takes five recovery steps. This is one body and one
@@ -116,85 +120,90 @@ starting gaps from 3 to 5 m, each bout to its verdict or the 120 s cap, in a wor
 node research/assist-sweep.mjs --workers 14
 ```
 
-**Even**: both sides at the same balance, at the rulebook's worth of a point. Falls and wounding
-blows are for each minute of the cell's bout time; the mean given is a side's, over its steps
-until the verdict.
+**Even**: both sides at the same balance, at the rulebook's moment for a per cent. Falls and
+wounding blows are for each minute of the cell's bout time; the mean given is a side's, over its
+steps until the verdict.
 
-| Balance, points | Bouts | End by a fall | By a wound | At the cap | Bout time, s | Falls a minute | Wounding blows a minute | At the cap, % | Mean given a side, N | Mean given, N m |
+| Balance, % | Bouts | End by a fall | By a wound | At the cap | Bout time, s | Falls a minute | Wounding blows a minute | At the cap, % | Mean given a side, N | Mean given, N m |
 |---|---|---|---|---|---|---|---|---|---|---|
 | 0 | 99 | 80 | 19 | 0 | 1392 | 3.45 | 9.05 | 0 | 0.0 | 0.0 |
-| 2 | 99 | 53 | 42 | 4 | 3028 | 1.05 | 18.68 | 4 | 8.2 | 4.5 |
-| 5 | 99 | 19 | 56 | 24 | 5453 | 0.21 | 18.23 | 24 | 9.3 | 6.7 |
-| 10 | 99 | 11 | 58 | 30 | 5905 | 0.11 | 18.74 | 30 | 10.4 | 9.0 |
-| 20 | 99 | 11 | 58 | 30 | 5705 | 0.12 | 16.78 | 30 | 9.1 | 9.1 |
-| 40 | 99 | 11 | 55 | 33 | 6180 | 0.11 | 17.35 | 33 | 8.9 | 9.3 |
+| 10 | 99 | 53 | 42 | 4 | 3028 | 1.05 | 18.68 | 4 | 8.2 | 4.5 |
+| 25 | 99 | 19 | 56 | 24 | 5453 | 0.21 | 18.23 | 24 | 9.3 | 6.7 |
+| 50 | 99 | 11 | 58 | 30 | 5905 | 0.11 | 18.74 | 30 | 10.4 | 9.0 |
+| 100 | 99 | 11 | 58 | 30 | 5705 | 0.12 | 16.78 | 30 | 9.1 | 9.1 |
+| 200 | 99 | 11 | 55 | 33 | 6180 | 0.11 | 17.35 | 33 | 8.9 | 9.3 |
 
 By model: a model's sides are every side it fought on, and its bout time those bouts' (a mirror
 counts twice).
 
-| Balance, points | Model | Sides | Its bout time, s | Its falls | Its falls a minute | Mean given, N | Mean given, N m |
+| Balance, % | Model | Sides | Its bout time, s | Its falls | Its falls a minute | Mean given, N | Mean given, N m |
 |---|---|---|---|---|---|---|---|
 | 0 | workshop-fighter | 66 | 746 | 17 | 1.37 | 0.0 | 0.0 |
 | 0 | workshop-rogue | 66 | 921 | 29 | 1.89 | 0.0 | 0.0 |
 | 0 | crypt-skeleton | 66 | 1118 | 34 | 1.83 | 0.0 | 0.0 |
-| 2 | workshop-fighter | 66 | 1257 | 5 | 0.24 | 10.7 | 5.9 |
-| 2 | workshop-rogue | 66 | 2379 | 23 | 0.58 | 5.9 | 3.3 |
-| 2 | crypt-skeleton | 66 | 2421 | 25 | 0.62 | 7.9 | 4.2 |
-| 5 | workshop-fighter | 66 | 1935 | 0 | 0.00 | 11.1 | 9.2 |
-| 5 | workshop-rogue | 66 | 4249 | 9 | 0.13 | 6.4 | 4.5 |
-| 5 | crypt-skeleton | 66 | 4721 | 10 | 0.13 | 10.4 | 6.4 |
-| 10 | workshop-fighter | 66 | 1619 | 0 | 0.00 | 11.2 | 11.3 |
-| 10 | workshop-rogue | 66 | 4853 | 4 | 0.05 | 6.4 | 5.8 |
-| 10 | crypt-skeleton | 66 | 5339 | 7 | 0.08 | 13.7 | 9.9 |
-| 20 | workshop-fighter | 66 | 1424 | 0 | 0.00 | 10.6 | 12.2 |
-| 20 | workshop-rogue | 66 | 4945 | 5 | 0.06 | 6.2 | 6.2 |
-| 20 | crypt-skeleton | 66 | 5040 | 6 | 0.07 | 10.6 | 8.8 |
-| 40 | workshop-fighter | 66 | 1911 | 1 | 0.03 | 11.4 | 13.3 |
-| 40 | workshop-rogue | 66 | 4985 | 7 | 0.08 | 7.3 | 7.2 |
-| 40 | crypt-skeleton | 66 | 5463 | 3 | 0.03 | 8.1 | 7.4 |
+| 10 | workshop-fighter | 66 | 1257 | 5 | 0.24 | 10.7 | 5.9 |
+| 10 | workshop-rogue | 66 | 2379 | 23 | 0.58 | 5.9 | 3.3 |
+| 10 | crypt-skeleton | 66 | 2421 | 25 | 0.62 | 7.9 | 4.2 |
+| 25 | workshop-fighter | 66 | 1935 | 0 | 0.00 | 11.1 | 9.2 |
+| 25 | workshop-rogue | 66 | 4249 | 9 | 0.13 | 6.4 | 4.5 |
+| 25 | crypt-skeleton | 66 | 4721 | 10 | 0.13 | 10.4 | 6.4 |
+| 50 | workshop-fighter | 66 | 1619 | 0 | 0.00 | 11.2 | 11.3 |
+| 50 | workshop-rogue | 66 | 4853 | 4 | 0.05 | 6.4 | 5.8 |
+| 50 | crypt-skeleton | 66 | 5339 | 7 | 0.08 | 13.7 | 9.9 |
+| 100 | workshop-fighter | 66 | 1424 | 0 | 0.00 | 10.6 | 12.2 |
+| 100 | workshop-rogue | 66 | 4945 | 5 | 0.06 | 6.2 | 6.2 |
+| 100 | crypt-skeleton | 66 | 5040 | 6 | 0.07 | 10.6 | 8.8 |
+| 200 | workshop-fighter | 66 | 1911 | 1 | 0.03 | 11.4 | 13.3 |
+| 200 | workshop-rogue | 66 | 4985 | 7 | 0.08 | 7.3 | 7.2 |
+| 200 | crypt-skeleton | 66 | 5463 | 3 | 0.03 | 8.1 | 7.4 |
 
-**Shapes**: both sides at 20 points, at another worth of a point.
+**Shapes**: both sides at 100 %, at another force and moment for a per cent.
 
-| Balance, points | A point's force, weights | A point's moment, weight-metres | Bouts | End by a fall | By a wound | At the cap | Bout time, s | Falls a minute | Wounding blows a minute | At the cap, % | Mean given a side, N | Mean given, N m |
+| Balance, % | A per cent's force, weights | A per cent's moment, weight-metres | Bouts | End by a fall | By a wound | At the cap | Bout time, s | Falls a minute | Wounding blows a minute | At the cap, % | Mean given a side, N | Mean given, N m |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| 20 | 0.05 | 0.026 | 99 | 12 | 55 | 32 | 6094 | 0.12 | 16.59 | 32 | 8.9 | 9.3 |
-| 20 | 0 | 0.013 | 99 | 28 | 53 | 18 | 4989 | 0.34 | 19.07 | 18 | 0.0 | 12.8 |
-| 20 | 0.05 | 0 | 99 | 44 | 27 | 28 | 5127 | 0.51 | 14.16 | 28 | 16.2 | 0.0 |
+| 100 | 0.01 | 0.0052 | 99 | 12 | 55 | 32 | 6094 | 0.12 | 16.59 | 32 | 8.9 | 9.3 |
+| 100 | 0 | 0.0026 | 99 | 28 | 53 | 18 | 4989 | 0.34 | 19.07 | 18 | 0.0 | 12.8 |
+| 100 | 0.01 | 0 | 99 | 44 | 27 | 28 | 5127 | 0.51 | 14.16 | 28 | 16.2 | 0.0 |
 
 **Uneven**: one side at the greater balance and the other at the lesser, each matchup both ways
 round. Every bout was decided: at the cap the fuller bar wins.
 
-| More, points | Less, points | Bouts | Decided | Won by the side with more | Its share of the decided, % | Falls a minute: the side with more | The side with less | At the cap | Mean given the side with more, N | N m | The side with less, N | N m |
+| More, % | Less, % | Bouts | Decided | Won by the side with more | Its share of the decided, % | Falls a minute: the side with more | The side with less | At the cap | Mean given the side with more, N | N m | The side with less, N | N m |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| 5 | 0 | 198 | 198 | 165 | 83 | 0.05 | 2.57 | 0 | 8.6 | 7.2 | 0.0 | 0.0 |
-| 5 | 2 | 198 | 198 | 122 | 62 | 0.14 | 0.40 | 24 | 8.7 | 6.5 | 7.7 | 4.1 |
-| 10 | 5 | 198 | 198 | 101 | 51 | 0.06 | 0.10 | 58 | 11.0 | 9.3 | 9.1 | 6.5 |
+| 25 | 0 | 198 | 198 | 165 | 83 | 0.05 | 2.57 | 0 | 8.6 | 7.2 | 0.0 | 0.0 |
+| 25 | 10 | 198 | 198 | 122 | 62 | 0.14 | 0.40 | 24 | 8.7 | 6.5 | 7.7 | 4.1 |
+| 50 | 25 | 198 | 198 | 101 | 51 | 0.06 | 0.10 | 58 | 11.0 | 9.3 | 9.1 | 6.5 |
 
 What the tables carry, and what they do not:
 
 - **Balance takes the falls out of a bout.** With none, 80 of 99 bouts end by a fall, at 3.45
-  falls a minute; at 2 points 53, at 1.05; at 5 points 19, at 0.21. The wounding blows a minute
+  falls a minute; at 10 % 53, at 1.05; at 25 % 19, at 0.21. The wounding blows a minute
   double, since a bout that no fall ends goes on to be decided by its blows.
-- **The attribute is spent by about 5 points, at this worth of a point.** From 10 points on the
+- **The attribute is spent by about 25 %, at this moment for a per cent.** From 50 % on the
   rows are one row (11 bouts ending by a fall in each), and the mean given stays near 9 N and
-  9 N m however high the ceiling: the stance asks for no more. Nothing between 10 and 40 points is
+  9 N m however high the ceiling: the stance asks for no more. Nothing between 50 and 200 % is
   read from 99 bouts.
-- **Bouts get long.** The mean bout is 14 s with no balance, 31 s at 2 points and 55 s at 5, and
-  from 5 points on a quarter to a third of the bouts reach the 120 s cap.
-- **The models differ.** At 5 points and above the Warrior fell once in 264 sides; the Rogue and
+- **Bouts get long.** The mean bout is 14 s with no balance, 31 s at 10 % and 55 s at 25 %, and
+  from 25 % on a quarter to a third of the bouts reach the 120 s cap.
+- **The models differ.** At 25 % and above the Warrior fell once in 264 sides; the Rogue and
   the skeleton still fall, at 0.03 to 0.13 falls a minute.
-- **Both parts of a point do work.** At 20 points the moment alone leaves 0.34 falls a minute and
+- **Both parts do work.** At 100 % the moment alone leaves 0.34 falls a minute and
   the force alone 0.51, against 0.12 for both; twice the moment beside the force changes nothing
   (0.12).
-- **A difference in points buys bouts only where the lesser side still falls.** 5 points against
-  none wins 83 % of bouts, 5 against 2 wins 62 %, and 10 against 5 wins 51 %, which is no
-  difference: a share over 198 bouts is read to about 7 points either way.
+- **A difference in balance buys bouts only where the lesser side still falls.** 25 % against
+  none wins 83 % of bouts, 25 % against 10 % wins 62 %, and 50 % against 25 % wins 51 %, which is
+  no difference: a share over 198 bouts is read to about 7 points of share either way.
+
+The tables were read with the balance written as a count of twentieths of the body's weight (0, 2,
+5, 10, 20 and 40 of them, at 0.013 weight-metres each); each ceiling is the same number as the
+per cent's, so a row is the bout the command plays.
 
 On the page (Rapier, 120 Hz, the tab hidden and the world stepped by hand; one bout each, a count
-and not a rate): Warrior against Warrior at `&balance=5` showed "balance 5 / 5" beside the clock,
-each side's ceiling 196.5 N and 51.1 N m, and ended at 19.9 s by a fatal wound after 17 wounding
-blows and no fall, on means of 8.7 and 12.6 N and 8.1 and 9.7 N m; with no balance it showed no
-readout and ended by a fall at 28.5 s after 6 wounding blows.
+and not a rate): Warrior against Warrior at a quarter of a weight a side showed its balance beside
+the clock, each side's ceiling 196.5 N and 51.1 N m, and ended at 19.9 s by a fatal wound after 17
+wounding blows and no fall, on means of 8.7 and 12.6 N and 8.1 and 9.7 N m; with no balance it
+showed no readout and ended by a fall at 28.5 s after 6 wounding blows. The link for that bout is
+`&balance=25`, and the clock reads "balance 25 / 25 %".
 
 ## A force through the step, not an impulse before it
 

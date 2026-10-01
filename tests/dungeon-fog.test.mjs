@@ -445,3 +445,36 @@ test("presenting_a_run_writes_its_fog_mask_and_no_body_is_fogged", async () => {
     assert.deepEqual(run.memberMovement(run.hero), screenMovement(1, 0, diagonal));
   } finally { run.dispose(); arena.dispose(); }
 });
+
+test("the_torches_stand_through_drawn_frames_and_move_when_they_are_burned", async () => {
+  // A paused page draws frames and does not burn the torches: nothing but `burn` may move them, however much
+  // real time the frames take.
+  const arena = headlessScene(), map = levels.get(1), torches = torchPlacements(map, 1);
+  try {
+    const engine = arena.scene.getEngine(), camera = new FreeCamera("probe", Vector3.Zero(), arena.scene);
+    const lighting = lightDungeon(arena.scene, camera, map, torches);
+    lighting.setLook({ ssao: false, post: false });
+    assert.equal(lighting.clustered, false, "the torches are plain lights here, where the scene lists them");
+    const lights = torches.map((_, i) => arena.scene.getLightByName(`torch.light.${i}`));
+    const fire = arena.scene.getMeshByName("torch.flame.0").material;
+    let time;
+    const setFloat = fire.setFloat.bind(fire);
+    fire.setFloat = (name, value) => { if (name === "time") time = value; return setFloat(name, value); };
+    const made = lights.map((light) => light.intensity);
+    assert.ok(made.length > 1 && made.every((intensity, i) => intensity === (torches[i].intensity ?? DUNGEON_LOOK.torch.intensity)), "each light is made at its own strength");
+    for (let frame = 0; frame < 3; frame += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      engine.beginFrame(); arena.scene.render(); engine.endFrame();
+    }
+    assert.ok(engine.getDeltaTime() > 0, "the frames took no time, so they could not have moved a torch");
+    assert.deepEqual({ lights: lights.map((light) => light.intensity), time }, { lights: made, time: undefined }, "a drawn frame moved the torches");
+    lighting.burn(0.02);
+    assert.equal(time, 0.02, "the flames' time is what was burned");
+    const moved = lights.filter((light, i) => light.intensity !== made[i]).length;
+    assert.equal(moved, lights.length, `burned 0.02 s, ${moved} of ${lights.length} lights flickered`);
+    for (const [i, light] of lights.entries()) assert.ok(Math.abs(light.intensity - made[i]) <= DUNGEON_LOOK.torch.flicker, `torch ${i} swung to ${light.intensity}`);
+    lighting.burn(10);
+    assert.ok(Math.abs(time - 0.07) < 1e-12, `one frame burned ${time - 0.02} s of a 10 s stall`);
+    lighting.dispose();
+  } finally { arena.dispose(); }
+});

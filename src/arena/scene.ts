@@ -9,7 +9,7 @@ import { Color3, Color4 } from "@babylonjs/core/Maths/math.color.js";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { Engine } from "@babylonjs/core/Engines/engine.js";
 
-import { dressForgeRoom } from "./forge-room.ts";
+import { dressForgeRoom, type ForgeFire } from "./forge-room.ts";
 import { loadForgeStyle, paveForge } from "./forge-style.ts";
 import { TEXTURED_SURFACES } from "../render/materials.ts";
 import { postPipeline } from "../render/post.ts";
@@ -32,6 +32,8 @@ interface Arena {
   audit(): ArenaAudit;
   /** Hide an overhead prop only while it crosses the protected combat sight lines. */
   updateRoomOcclusion(targets: readonly RoomOcclusionTarget[]): void;
+  /** The posts' fire, which the page burns each frame it is not paused. */
+  fire: ForgeFire;
 }
 
 /**
@@ -115,11 +117,11 @@ export async function buildArena(engine: Engine, physicsFor: (scene: Scene) => P
   });
 
   paveForge(scene, forge.kit, forge.materials.pavement, forge.materials.lava);
-  dressForgeRoom(scene, forge);
+  const fire = dressForgeRoom(scene, forge);
   postPipeline(scene, camera);
 
   return {
-    scene, camera, materials, shadows, audit: world.audit,
+    scene, camera, materials, shadows, fire, audit: world.audit,
     updateRoomOcclusion: (targets) => world.updateOcclusion(camera.position, targets),
   };
 }

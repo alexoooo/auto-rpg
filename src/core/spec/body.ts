@@ -92,11 +92,12 @@ export interface WoundSpec {
 
 /**
  * **What a fight's rules read of a character beyond its anatomy and its wounds.** Each is the
- * owner's number for that character, in points; the rulebook says what a point is worth.
+ * owner's number for that character.
  */
 export interface AttributeSpec {
   /**
-   * How far the character may be held up beyond what its legs give: its assist's ceiling
+   * How far the character may be held up beyond what its legs give: the most force its assist
+   * gives it, per cent of its own weight, with the moment the rulebook gives each per cent
    * (`Rulebook.balance`, `Assist`). At 0 nothing holds it up that its muscles do not.
    */
   readonly balance: Quantity<number>;

@@ -127,7 +127,7 @@ function slice(boxes: readonly Part[], name: TrunkSegment, below?: Quantity<Vec3
   return corners;
 }
 
-const placeholder = <V extends number | Vec3>(value: V, unit: "kg" | "m" | "HP" | "1", where: string): Quantity<V> =>
+const placeholder = <V extends number | Vec3>(value: V, unit: "kg" | "m" | "HP" | "1" | "%", where: string): Quantity<V> =>
   sourced(value, unit, "skeleton-placeholders", where);
 
 function limb(side: Side): LimbFigure {
@@ -181,6 +181,6 @@ export function skeletonFigure(): HumanFigure {
     },
     feet: { left: boxExtents(part("legs.footL"), "the left foot"), right: boxExtents(part("legs.footR"), "the right foot") },
     hp: placeholder(6, "HP", "the Warrior's hit points"),
-    balance: placeholder(0, "1", "the Warrior's balance"),
+    balance: placeholder(0, "%", "the Warrior's balance"),
   };
 }

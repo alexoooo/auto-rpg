@@ -137,6 +137,11 @@ positions in `public/assets/humanoid/workshop-*.glb`, bind pose, soles on 0. Hai
 x1 is the owner's typical adult: 1.77 m and 79 kg for a man. The Rogue takes the
 Warrior's factor, so she keeps her size against him.
 
+Command: none is needed. A skin top is its GLB's own figure, the maximum the skin's position
+accessor states (`/accessors/231/max/1` in the Warrior's file, `/accessors/220/max/1` in the
+Rogue's), and `node --test tests/core-human.test.mjs` reads both back from the files
+(`specProvenanceFaults`, `tests/fixtures/spec.mjs`).
+
 **Volume.** Each model's skin, feet, jacket, trousers, collar and belt were closed by voxel flood
 fill in the bind pose and extrapolated to a zero voxel from grids of 4.5 to 8 mm; a finer grid
 leaks through a seam. What is enclosed, and what is not outside, bracket the volume (litres, at the
@@ -151,10 +156,17 @@ The ratio is 0.729 on either bound to the third digit, and the clothes are the s
 both. The Rogue's mass is the Warrior's 79 kg times this ratio, 57.6 kg: her own build's mass at
 the same density.
 
+Command: none. The flood fill's script was not committed (`f9ff0e90`), so its grids and its
+extrapolation are known only as this page gives them, and no test measures a volume again.
+
 ## 9. Joint ranges and strengths for the core human
 
-For the core's human joints (`src/core/human/joints.ts`, `muscle.ts` and `tables/`). Every figure here is from the Node harness on the spec alone (no engine), unless it
-says otherwise. Tables 9.2 and 9.4 are printed from the spec, not retyped.
+For the core's human joints (`src/core/human/joints.ts`, `muscle.ts` and `tables/`). Every figure
+here is from Node on the spec alone (no engine), unless it says otherwise. Tables 9.2 and 9.4 were
+printed from `humanSpec` (`src/core/human/spec.ts`) at `1e7bc4f2`, not retyped; the script that
+printed them, and the one that weighed 9.1's three rules, were not committed.
+`node --test tests/core-human.test.mjs` holds what they show: each Rogue ratio and the middle one,
+each range about the reference pose, and each model reading its own sex's column.
 
 ### 9.1 A model's torque comes from its muscle
 
