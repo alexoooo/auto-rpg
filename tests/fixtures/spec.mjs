@@ -50,6 +50,21 @@ function json(file) {
 const anchorOf = (heading) => heading.trim().toLowerCase().replace(/[^\w\- ]/g, "").replace(/ /g, "-");
 
 /**
+ * The text of the section a record names (`path.md#anchor`): from its heading to the next heading
+ * of its level or above. Undefined where the file or the heading is missing.
+ */
+export function recordSection(record) {
+  const [file, anchor] = record.split("#");
+  const where = path.join(ROOT, file);
+  if (!fs.existsSync(where)) return undefined;
+  const text = fs.readFileSync(where, "utf8"), headings = [...text.matchAll(/^(#+) (.*)$/gm)];
+  const at = headings.findIndex((heading) => anchorOf(heading[2]) === anchor);
+  if (at < 0) return undefined;
+  const next = headings.slice(at + 1).find((heading) => heading[1].length <= headings[at][1].length);
+  return text.slice(headings[at].index, next?.index);
+}
+
+/**
  * A record that looks like a repository path must exist, and a `#anchor` into a Markdown file must
  * name one of its headings, unless the record names the commit that holds it (`path@commit#anchor`,
  * a file since deleted; a shallow clone cannot read it back, so its shape is all that is checked).
@@ -58,10 +73,8 @@ export const recordExists = (record) => {
   if (!/^(docs|src|tests|research|scripts|assets)\//.test(record)) return true;
   if (/^[^@#]+@[0-9a-f]{8,40}(#[\w-]+)?$/.test(record)) return true;
   const [file, anchor] = record.split("#");
-  const where = path.join(ROOT, file);
-  if (!fs.existsSync(where)) return false;
-  if (anchor === undefined) return true;
-  return [...fs.readFileSync(where, "utf8").matchAll(/^#+ (.*)$/gm)].some((heading) => anchorOf(heading[1]) === anchor);
+  if (anchor === undefined) return fs.existsSync(path.join(ROOT, file));
+  return recordSection(record) !== undefined;
 };
 
 /** Every way `spec` breaks the provenance rule, as readable lines; empty when it keeps it. */

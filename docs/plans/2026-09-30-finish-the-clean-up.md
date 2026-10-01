@@ -1,6 +1,6 @@
 # Finish the clean-up: the rest of the code reads like the core
 
-Status: chunks 0 to 5 have landed. Surveyed at 144961d4.
+Status: chunks 0 to 5 and 6c have landed. Surveyed at 144961d4.
 
 The clean-up after the old path left these. The crypt generator and the character workshop are
 dense one-liners. `stanceControl` and the crypt page's `boot()` are each one long closure. About
@@ -351,12 +351,11 @@ nothing would read them.
     the constant in backticks;
   - a `SOURCES` key;
   - "numeric setting" or "solver conditioning".
-- **Code:** move `commentsOf` from `tests/comments.test.mjs` to `tests/fixtures/comments.mjs`,
-  so that importing it does not run the comment tests again. Reuse the anchor reading from
-  `recordExists` (`tests/fixtures/spec.mjs`).
-- **`NOT_YET`.** At 144961d4 about 109 constants are in scope and about 17 pass, so the test
-  lands with every failing constant named in a `NOT_YET` list (`"path NAME"`).
-  - Generate the list by running the scan, and paste it in.
+- **Code:** the reading is `tunedConstants`, `sourceFault` and `ledgerFaults`
+  (`tests/fixtures/constants.mjs`), over the comment on a constant's own statement; a section's
+  text is `recordSection` (`tests/fixtures/spec.mjs`), which `recordExists` reads too.
+- **`NOT_YET`.** As landed, 93 constants are in scope and 13 pass; the other 80 are named in the
+  test's `NOT_YET` list (`"path NAME"`).
   - The test also fails when a `NOT_YET` entry passes or no longer exists, so the list only
     shrinks.
   - 6a, 6b, 6d and chunk 7 each remove what they source. The end of chunk 7 asserts the list
@@ -376,8 +375,7 @@ finds them all.
 - **Numerics:**
   - `HULL_TOLERANCE`, `UNREACHABLE`, `PREVIEW_STEPS`, `START`, both `CATCH_UP_SECONDS`, and
     `FOG_SAMPLE` and `VISUAL_CHUNK`: "a numeric setting".
-  - `SKIN_TOP`, `VOLUME`, `PRODUCTS` and `RULES`: read each first, then cite a source or say
-    "a numeric setting".
+  - `SKIN_TOP`: read it first, then cite a source or say "a numeric setting".
 - **Look** (`look.md`): `ORBIT`, `ROOM`, `ROOM_GROUPS`, `ARENA_POSTS`, the `dressing.ts`
   constants, `FOG`, `WALL_HEIGHT`, `TILE`, `DOOR_LEAF`, `SCONCE`, `WOOD`, and
   `REFERENCE_CAMERA` and `REFERENCE_TORCHES` (`src/dungeon/reference.ts`). Some of these are
