@@ -187,7 +187,10 @@ All of it on a physically based core, humans first ([architecture](architecture.
   judges them in play: the camera's pitch (`CAMERA_PITCH`, 30 degrees, where the concept art looks
   down at 40 to 45), torch density, and which floor and wall textures ship.
 - The flames of the forge and of the crypt go on flickering while the page is paused. Whether
-  they should stand still is the owner's to say.
+  they should stand still is the owner's to say. To still them, each page's pause goes into
+  `dressForgeRoom` (`src/arena/forge-room.ts`) and `lightDungeon` (`src/dungeon/lighting.ts`) as a
+  `() => boolean`, and the flame's time stands while it is true. The forge's observer is never
+  removed; the crypt's is, on dispose.
 - How loud a blow is was set against no bout (`CUE`,
   [reference/look.md](reference/look.md#sound)): the energies a bout's blows carry, read from
   headless bouts, would say how much of the range from quiet to loud a fight uses.
