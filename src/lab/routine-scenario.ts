@@ -9,7 +9,7 @@ import { createPlayer } from "./player.ts";
 import { ROUTINE_TRACK, startRoutine } from "./routine.ts";
 import { paintTrack } from "./run-scenario.ts";
 import { trackOf } from "./track.ts";
-import { need } from "../dom.ts";
+import { readings } from "./hud/controls.ts";
 
 /**
  * **The Routine scenario**: the lab routine (`routine.ts`), tactics on the core's skills -- walk out,
@@ -45,11 +45,19 @@ export function routineScenario(scene: Scene): LabScenario {
   post.material = material;
   post.isPickable = false;
   post.isVisible = false;
-  const shown = { doing: need("doing"), loops: need("loops"), fist: need("fist"), strikes: need("strikes") };
-  const cell = (text: string): HTMLElement => Object.assign(document.createElement("td"), { textContent: text });
+  const shown = readings({ doing: { name: "Doing" }, loops: { name: "Loops" }, fist: { name: "Fist", unit: "m/s" } });
+  const line = (tag: "td" | "th", cells: readonly string[]): HTMLElement => {
+    const made = document.createElement("tr");
+    made.append(...cells.map((text) => Object.assign(document.createElement(tag), { textContent: text })));
+    return made;
+  };
+  const table = document.createElement("table"), strikes = document.createElement("tbody");
+  table.createTHead().append(line("th", ["Strike", "Peak fist, m/s", "Off, cm"]));
+  table.append(strikes);
 
   return {
     keys: new Set(),
+    panels: { readout: [shown.element, table] },
     timelineLabel: `The last ${HISTORY_SECONDS} seconds, one physics step a notch; dragging pauses. Arrow keys step once it has focus.`,
     start({ built, world, changed, clock }) {
       const routine = startRoutine(built, world);
@@ -68,16 +76,11 @@ export function routineScenario(scene: Scene): LabScenario {
           if (at) { post.position.set(at[0], at[1], at[2]); post.isVisible = true; }
           const moment = history.at(frame ?? history.live());
           if (!moment) return null;
-          shown.doing.textContent = moment.doing;
-          shown.loops.textContent = String(moment.loops);
-          shown.fist.textContent = moment.fist.toFixed(1);
+          shown.write({ doing: moment.doing, loops: String(moment.loops), fist: moment.fist.toFixed(1) });
           if (routine.strikes.length !== shownStrikes) {
             shownStrikes = routine.strikes.length;
-            shown.strikes.replaceChildren(...routine.strikes.slice(-6).map((s) => {
-              const row = document.createElement("tr");
-              row.append(cell(s.name), cell(s.peak.toFixed(1)), cell(`${(100 * s.off.along).toFixed(0)}, ${(100 * s.off.across).toFixed(0)}`));
-              return row;
-            }));
+            strikes.replaceChildren(...routine.strikes.slice(-6).map((s) =>
+              line("td", [s.name, s.peak.toFixed(1), `${(100 * s.off.along).toFixed(0)}, ${(100 * s.off.across).toFixed(0)}`])));
           }
           return moment.time;
         },

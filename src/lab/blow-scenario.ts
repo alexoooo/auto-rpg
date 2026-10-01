@@ -10,7 +10,7 @@ import { watchClubBlow, type ClubLanding } from "./club-blow.ts";
 import { recordHistory } from "./history.ts";
 import type { LabScenario, LabShell } from "./lab-scenario.ts";
 import { createPlayer } from "./player.ts";
-import { need } from "../dom.ts";
+import { choice, legend, note, readings } from "./hud/controls.ts";
 
 /**
  * **The Blow scenario**: the loaded body throws a stored blow (`blows.ts`) standing, as the strike
@@ -20,7 +20,7 @@ import { need } from "../dom.ts";
  * mark, not a body: the club passes through it, and the reading is its first touch.
  *
  * A club blow needs the club in the hand it was found with; the menu's card puts it there
- * (`SCENARIOS`' `holds`). Without it the body stands in guard and the panel says so. The world
+ * (`SCENARIOS`' `holds`). Without it the body stands in guard and the readout says so. The world
  * pauses `HOLD` seconds after the pushes begin, so the whole blow stays in the recording to scrub
  * or replay; Restart throws it again.
  *
@@ -49,6 +49,10 @@ const HOLD = 1.5;
 /** Seconds after the pushes begin in which a blow that has not landed has missed (`core-club-strike.mjs`'s window). */
 const WINDOW = 0.5;
 const RULES = rulebook("arena");
+const MARKS = {
+  head: { colour: new Color3(0.85, 0.35, 0.3), name: "the head (a mark: the club passes through)" },
+  touch: { colour: new Color3(1, 0.85, 0.3), name: "where it touched" },
+};
 
 export function blowScenario(scene: Scene, shell: LabShell): LabScenario {
   const material = (name: string, colour: Color3, alpha: number): StandardMaterial => {
@@ -60,37 +64,32 @@ export function blowScenario(scene: Scene, shell: LabShell): LabScenario {
     return m;
   };
   const head = MeshBuilder.CreateSphere("lab.blow.head", { diameter: 1, segments: 24 }, scene);
-  head.material = material("lab.blow.head", new Color3(0.85, 0.35, 0.3), 0.35);
+  head.material = material("lab.blow.head", MARKS.head.colour, 0.35);
   const touch = MeshBuilder.CreateSphere("lab.blow.touch", { diameter: 0.035, segments: 12 }, scene);
-  touch.material = material("lab.blow.touch", new Color3(1, 0.85, 0.3), 1);
+  touch.material = material("lab.blow.touch", MARKS.touch.colour, 1);
   for (const mark of [head, touch]) { mark.isPickable = false; mark.setEnabled(false); mark.renderingGroupId = 1; }
 
-  const shown = {
-    about: need("b-about"), doing: need("b-doing"), since: need("b-since"), closing: need("b-closing"), energy: need("b-energy"),
-    hp: need("b-hp"), club: need("b-club"), head: need("b-head"), peak: need("b-peak"), rate: need("b-rate"),
-  };
+  const shown = readings({
+    doing: { name: "Doing" }, since: { name: "Since the pushes", unit: "s" }, closing: { name: "Closing speed", unit: "m/s" },
+    energy: { name: "Energy", unit: "J" }, hp: { name: "Worth", unit: "HP" }, club: { name: "Club's mass met", unit: "kg" },
+    head: { name: "Head's mass met", unit: "kg" }, peak: { name: "Swell's peak", unit: "m/s" }, rate: { name: "Rate", unit: "Hz" },
+  });
   let chosen: StoredBlow = LAB_BLOWS[0]!;
-  const choices = need("b-choice");
-  const showChoice = (): void => {
-    for (const b of choices.querySelectorAll<HTMLButtonElement>("button")) b.setAttribute("aria-pressed", String(b.dataset.blow === chosen.id));
-    shown.about.textContent = chosen.line;
-  };
-  choices.replaceChildren(...LAB_BLOWS.map((blow) => {
-    const button = Object.assign(document.createElement("button"), { textContent: blow.name });
-    button.dataset.blow = blow.id;
-    button.addEventListener("click", () => {
-      button.blur();
-      if (blow === chosen) return;
-      chosen = blow;
-      showChoice();
-      shell.restart();
-    });
-    return button;
-  }));
-  showChoice();
+  const about = note(chosen.line);
 
   return {
     keys: new Set(),
+    panels: {
+      scenario: [
+        choice("Blow", LAB_BLOWS.map((blow) => ({ value: blow, name: blow.name })), () => chosen, (blow) => {
+          chosen = blow;
+          about.textContent = blow.line;
+          shell.restart();
+        }).element,
+        about,
+      ],
+      readout: [shown.element, legend([MARKS.head, MARKS.touch])],
+    },
     timelineLabel: "The blow, from standing in guard, one physics step a notch; dragging pauses. Arrow keys step once it has focus.",
     start({ built, world, changed, clock }) {
       const stored = chosen;
@@ -118,21 +117,20 @@ export function blowScenario(scene: Scene, shell: LabShell): LabScenario {
           // Pause once the blow is over, so all of it stays to scrub.
           if (!held && frame === null && moment.since >= HOLD) { held = true; player.setPaused(true); }
           const { landed } = moment;
-          shown.doing.textContent = !holds ? `Standing: put the club in the ${stored.hand} hand to throw it`
+          const doing = !holds ? `Standing: put the club in the ${stored.hand} hand to throw it`
             : moment.fallen ? "Fell before it landed"
             : moment.time < STAND ? "Standing in guard"
             : moment.since < 0 ? "Chambering"
             : landed ? `Landed, ${landed.at.toFixed(3)} s after the pushes began`
             : moment.since > WINDOW ? `Missed: the club passed ${(100 * moment.nearest).toFixed(1)} cm from the head`
             : "Swinging";
-          shown.since.textContent = moment.since < 0 ? "-" : moment.since.toFixed(3);
-          shown.closing.textContent = landed ? landed.closing.toFixed(2) : "-";
-          shown.energy.textContent = landed ? landed.energy.toFixed(1) : "-";
-          shown.hp.textContent = landed ? blowDamage(RULES, "blunt", landed.energy).toFixed(2) : "-";
-          shown.club.textContent = landed ? landed.clubKg.toFixed(2) : "-";
-          shown.head.textContent = landed ? landed.headKg.toFixed(1) : "-";
-          shown.peak.textContent = moment.peak.toFixed(1);
-          shown.rate.textContent = String(Math.round(1 / world.dt));
+          shown.write({
+            doing, since: moment.since < 0 ? "-" : moment.since.toFixed(3),
+            closing: landed ? landed.closing.toFixed(2) : "-", energy: landed ? landed.energy.toFixed(1) : "-",
+            hp: landed ? blowDamage(RULES, "blunt", landed.energy).toFixed(2) : "-",
+            club: landed ? landed.clubKg.toFixed(2) : "-", head: landed ? landed.headKg.toFixed(1) : "-",
+            peak: moment.peak.toFixed(1), rate: String(Math.round(1 / world.dt)),
+          });
           head.setEnabled(moment.target !== null);
           if (moment.target) head.position.set(...moment.target);
           touch.setEnabled(landed !== null);

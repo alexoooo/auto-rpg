@@ -7,12 +7,12 @@ import type { LabScenario, ScenarioRun } from "./lab-scenario.ts";
 import { createPlayer } from "./player.ts";
 import { startStance, type StanceFrame } from "./stance-mode.ts";
 import { groundDisc } from "./ground-disc.ts";
-import { need } from "../dom.ts";
+import { actions, choice, keyHints, legend, readings, type Entry } from "./hud/controls.ts";
 
 /**
  * **The Stance scenario**: the human on its own feet under the core stance, guard up, walked from
- * the keyboard -- W A S D or the arrows walk, Q and E turn while walking -- and shoved from the
- * panel. The keys are the body's tactics (`stanceTactics`), so they turn it as the locomotion skill turns
+ * the keyboard -- W A S D or the arrows walk, Q and E turn while walking -- and shoved from its
+ * controls. The keys are the body's tactics (`stanceTactics`), so they turn it as the locomotion skill turns
  * any body: once a walk is under way, a second after setting off (`TURN_LEAD`). The readout is the
  * stance's own: its phase, its steps, the centre of mass. On the ground: the centre of mass over
  * it, the capture point, the place the stance holds the centre toward, and the heading. The last
@@ -30,49 +30,59 @@ interface StanceMoment {
 const HISTORY_SECONDS = 10;
 
 const WALK_KEYS: Readonly<Record<string, readonly [forward: number, right: number]>> = {
-  KeyW: [1, 0], ArrowUp: [1, 0], KeyS: [-1, 0], ArrowDown: [-1, 0],
-  KeyA: [0, -1], ArrowLeft: [0, -1], KeyD: [0, 1], ArrowRight: [0, 1],
+  KeyW: [1, 0], KeyA: [0, -1], KeyS: [-1, 0], KeyD: [0, 1],
+  ArrowUp: [1, 0], ArrowLeft: [0, -1], ArrowDown: [-1, 0], ArrowRight: [0, 1],
 };
 const TURN_KEYS: Readonly<Record<string, -1 | 1>> = { KeyQ: -1, KeyE: 1 };
+/** The letters among `codes`, as their keys are marked. */
+const letters = (codes: object): string[] => Object.keys(codes).filter((code) => code.startsWith("Key")).map((code) => code.slice(3));
 
 const PHASE: Readonly<Record<StanceFrame["phase"], string>> = { stand: "Standing", shift: "Shifting its weight", swing: "Swinging a foot" };
+
+/** The walking speeds on offer, m/s, and the shove's impulses, N s. */
+const SPEEDS = [0.2, 0.3, 0.4, 0.5], IMPULSES = [10, 20, 30, 40, 60];
+/** Where a shove pushes the chest, degrees to the right of where it faces. */
+const SHOVES: readonly Entry<number>[] = [
+  { value: 0, name: "Front", title: "Toward where it faces" }, { value: 180, name: "Back", title: "Toward its back" },
+  { value: 270, name: "Left", title: "Toward its left" }, { value: 90, name: "Right", title: "Toward its right" },
+];
+const MARKS = {
+  centre: { colour: new Color3(0.95, 0.75, 0.4), name: "centre of mass" },
+  capture: { colour: new Color3(0.9, 0.3, 0.25), name: "capture point" },
+  place: { colour: new Color3(0.35, 0.65, 0.9), name: "the place it holds the centre toward" },
+};
 
 export function stanceScenario(scene: Scene): LabScenario {
   // The marks: the place the stance holds the centre toward, the centre of mass over the ground,
   // the capture point, and a stroke along the heading.
-  const placeMark = groundDisc(scene, "lab.place", 0.07, new Color3(0.35, 0.65, 0.9), 0.55, 0.006);
-  const centreMark = groundDisc(scene, "lab.centre", 0.045, new Color3(0.95, 0.75, 0.4), 0.95, 0.008);
-  const captureMark = groundDisc(scene, "lab.capture", 0.035, new Color3(0.9, 0.3, 0.25), 0.95, 0.01);
+  const placeMark = groundDisc(scene, "lab.place", 0.07, MARKS.place.colour, 0.55, 0.006);
+  const centreMark = groundDisc(scene, "lab.centre", 0.045, MARKS.centre.colour, 0.95, 0.008);
+  const captureMark = groundDisc(scene, "lab.capture", 0.035, MARKS.capture.colour, 0.95, 0.01);
   const headingMark = MeshBuilder.CreateBox("lab.heading", { width: 0.012, height: 0.002, depth: 0.35 }, scene);
   headingMark.material = centreMark.material;
   // Drawn after the body, over it: the marks sit under the feet, where the skin would hide them.
   for (const mark of [placeMark, centreMark, captureMark, headingMark]) mark.renderingGroupId = 1;
 
-  const shown = {
-    phase: need("s-phase"), strides: need("s-strides"), recoveries: need("s-recoveries"), speed: need("s-speed"),
-    height: need("s-height"), off: need("s-off"), heading: need("s-heading"), state: need("s-state"),
-  };
-  let walkSpeed = 0.3;
-  for (const button of document.querySelectorAll<HTMLButtonElement>("[data-speed]")) {
-    button.addEventListener("click", () => {
-      walkSpeed = Number(button.dataset.speed);
-      for (const b of document.querySelectorAll<HTMLButtonElement>("[data-speed]")) b.setAttribute("aria-pressed", String(b === button));
-      button.blur();
-    });
-  }
-  // The run the panel's controls act on: the latest one started.
+  const shown = readings({
+    phase: { name: "Doing" }, state: { name: "State" }, strides: { name: "Walking steps" }, recoveries: { name: "Catching steps" },
+    speed: { name: "Speed", unit: "m/s" }, height: { name: "Height / goal", unit: "m" }, off: { name: "Off its place", unit: "cm" },
+    heading: { name: "Heading" },
+  });
+  let walkSpeed = 0.3, impulse = 30;
+  // The run the controls act on: the latest one started.
   let current: (ScenarioRun & { shove(impulse: number, degrees: number): void }) | null = null;
-  const impulse = need<HTMLSelectElement>("impulse");
-  for (const button of document.querySelectorAll<HTMLButtonElement>("[data-shove]")) {
-    button.addEventListener("click", () => {
-      current?.shove(Number(impulse.value), Number(button.dataset.shove));
-      button.blur();
-    });
-  }
-  impulse.addEventListener("change", () => impulse.blur());
 
   return {
     keys: new Set([...Object.keys(WALK_KEYS), ...Object.keys(TURN_KEYS)]),
+    panels: {
+      controls: [
+        keyHints([{ keys: letters(WALK_KEYS), does: "or arrows walk" }, { keys: letters(TURN_KEYS), does: "turn once walking" }]),
+        choice("Walking speed, m/s", SPEEDS.map((value) => ({ value, name: String(value) })), () => walkSpeed, (value) => { walkSpeed = value; }).element,
+        choice("Impulse, N s", IMPULSES.map((value) => ({ value, name: String(value) })), () => impulse, (value) => { impulse = value; }).element,
+        actions("Shove the chest toward", SHOVES, (degrees) => current?.shove(impulse, degrees)),
+      ],
+      readout: [shown.element, legend([MARKS.centre, MARKS.capture, MARKS.place])],
+    },
     timelineLabel: `The last ${HISTORY_SECONDS} seconds, one physics step a notch; dragging pauses. Arrow keys step once it has focus.`,
     start({ built, world, changed, clock }) {
       const stance = startStance(built, world), capture = new Vector3();
@@ -104,15 +114,11 @@ export function stanceScenario(scene: Scene): LabScenario {
           const moment = history.at(frame ?? history.live());
           if (!moment) return null;
           const f = moment.frame;
-          shown.phase.textContent = PHASE[f.phase];
-          shown.strides.textContent = String(f.strides);
-          shown.recoveries.textContent = String(f.recoveries);
-          shown.speed.textContent = f.speed.toFixed(2);
-          shown.height.textContent = `${f.height.toFixed(3)} / ${f.goal.toFixed(3)}`;
-          shown.off.textContent = (100 * f.off).toFixed(1);
-          shown.heading.textContent = String(Math.round(f.heading * 180 / Math.PI));
-          shown.state.textContent = f.fallen ? "Fallen: restart" : "On its feet";
-          shown.state.classList.toggle("fallen", f.fallen);
+          shown.write({
+            phase: PHASE[f.phase], state: f.fallen ? "Fallen: restart" : "On its feet", strides: String(f.strides),
+            recoveries: String(f.recoveries), speed: f.speed.toFixed(2), height: `${f.height.toFixed(3)} / ${f.goal.toFixed(3)}`,
+            off: (100 * f.off).toFixed(1), heading: `${Math.round(f.heading * 180 / Math.PI)}°`,
+          }, f.fallen ? ["state"] : []);
           placeMark.position.x = moment.place[0]; placeMark.position.z = moment.place[1];
           centreMark.position.x = moment.centre[0]; centreMark.position.z = moment.centre[1];
           captureMark.position.x = moment.capture[0]; captureMark.position.z = moment.capture[1];

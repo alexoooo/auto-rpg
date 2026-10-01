@@ -23,7 +23,7 @@ export interface StoredBlow {
   readonly distance: number;
 }
 
-/** Every stored blow, in the panel's order; the first is the default. */
+/** Every stored blow, in the order offered; the first is the default. */
 export const LAB_BLOWS: readonly StoredBlow[] = [
   {
     id: "unit", name: "The damage unit's",

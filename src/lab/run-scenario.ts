@@ -10,11 +10,11 @@ import { createPlayer } from "./player.ts";
 import { startRun, type RunFrame } from "./run-mode.ts";
 import { TRACK_IDS, TRACKS, trackOf, type Track, type TrackId } from "./track.ts";
 import { groundDisc } from "./ground-disc.ts";
-import { need } from "../dom.ts";
+import { choice, legend, readings } from "./hud/controls.ts";
 
 /**
  * **The Run scenario**: the human round a track as fast as the lab asks its walk to go
- * (`run-mode.ts`), on the track the panel chooses -- the big circle, or straight back and forth
+ * (`run-mode.ts`), on the track chosen -- the big circle, or straight back and forth
  * (`track.ts`). Choosing a track starts the run again on it. The readout is the run's: its laps,
  * its speed and how far it is off the track. On the ground: the track, the centre of mass over it
  * and the point it aims at. The last ten seconds are recorded (`history.ts`).
@@ -29,6 +29,11 @@ interface RunMoment {
 const HISTORY_SECONDS = 10;
 /** The track's painted width, m. */
 const LANE = 0.08;
+const MARKS = {
+  track: { colour: new Color3(0.85, 0.64, 0.36), name: "the track" },
+  centre: { colour: new Color3(0.95, 0.75, 0.4), name: "centre of mass" },
+  aim: { colour: new Color3(0.35, 0.65, 0.9), name: "the point it aims at" },
+};
 
 /** A flat strip along `track` on the ground, for the eye; it collides with nothing. */
 export function paintTrack(scene: Scene, track: Track, material: StandardMaterial): Mesh {
@@ -48,38 +53,29 @@ export function paintTrack(scene: Scene, track: Track, material: StandardMateria
 
 export function runScenario(scene: Scene, shell: LabShell): LabScenario {
   const trackMaterial = new StandardMaterial("lab.track", scene);
-  trackMaterial.diffuseColor = new Color3(0.85, 0.64, 0.36);
+  trackMaterial.diffuseColor = MARKS.track.colour;
   trackMaterial.emissiveColor = trackMaterial.diffuseColor.scale(0.4);
   trackMaterial.specularColor = Color3.Black();
   trackMaterial.alpha = 0.55;
-  const centreMark = groundDisc(scene, "lab.centre", 0.045, new Color3(0.95, 0.75, 0.4), 0.95, 0.008);
-  const aimMark = groundDisc(scene, "lab.aim", 0.035, new Color3(0.35, 0.65, 0.9), 0.95, 0.01);
+  const centreMark = groundDisc(scene, "lab.centre", 0.045, MARKS.centre.colour, 0.95, 0.008);
+  const aimMark = groundDisc(scene, "lab.aim", 0.035, MARKS.aim.colour, 0.95, 0.01);
   // Drawn after the body, over it: the marks sit under the feet, where the skin would hide them.
   for (const mark of [centreMark, aimMark]) mark.renderingGroupId = 1;
 
-  const shown = {
-    doing: need("r-doing"), state: need("r-state"), laps: need("r-laps"), lap: need("r-lap"), speed: need("r-speed"),
-    mean: need("r-mean"), pace: need("r-pace"), off: need("r-off"),
-  };
+  const shown = readings({
+    doing: { name: "Doing" }, state: { name: "State" }, laps: { name: "Laps" }, lap: { name: "Last lap", unit: "s" },
+    speed: { name: "Speed", unit: "m/s" }, mean: { name: "Mean speed", unit: "m/s" }, pace: { name: "Pace asked", unit: "m/s" },
+    off: { name: "Off the track", unit: "cm" },
+  });
   let chosen: TrackId = TRACK_IDS[0];
   let painted: { readonly id: TrackId; readonly track: Track; readonly mesh: Mesh } | null = null;
-  const showTrack = (): void => {
-    for (const b of document.querySelectorAll<HTMLButtonElement>("[data-track]")) b.setAttribute("aria-pressed", String(b.dataset.track === chosen));
-  };
-  for (const button of document.querySelectorAll<HTMLButtonElement>("[data-track]")) {
-    button.addEventListener("click", () => {
-      button.blur();
-      const id = TRACK_IDS.find((t) => t === button.dataset.track);
-      if (!id || id === chosen) return;
-      chosen = id;
-      showTrack();
-      shell.restart();
-    });
-  }
-  showTrack();
 
   return {
     keys: new Set(),
+    panels: {
+      scenario: [choice("Track", TRACK_IDS.map((id) => ({ value: id, name: TRACKS[id].name })), () => chosen, (id) => { chosen = id; shell.restart(); }).element],
+      readout: [shown.element, legend([MARKS.track, MARKS.centre, MARKS.aim])],
+    },
     timelineLabel: `The last ${HISTORY_SECONDS} seconds, one physics step a notch; dragging pauses. Arrow keys step once it has focus.`,
     start({ built, world, changed, clock }) {
       if (painted?.id !== chosen) {
@@ -101,15 +97,11 @@ export function runScenario(scene: Scene, shell: LabShell): LabScenario {
           const moment = history.at(frame ?? history.live());
           if (!moment) return null;
           const f = moment.frame;
-          shown.doing.textContent = f.bending ? "Turning" : "Running";
-          shown.state.textContent = f.fallen ? "Fallen: restart" : "On its feet";
-          shown.state.classList.toggle("fallen", f.fallen);
-          shown.laps.textContent = `${f.laps} (${f.travelled.toFixed(1)} m)`;
-          shown.lap.textContent = f.lastLap === null ? "-" : f.lastLap.toFixed(1);
-          shown.speed.textContent = f.speed.toFixed(2);
-          shown.mean.textContent = f.mean.toFixed(2);
-          shown.pace.textContent = f.pace.toFixed(2);
-          shown.off.textContent = (100 * f.off).toFixed(1);
+          shown.write({
+            doing: f.bending ? "Turning" : "Running", state: f.fallen ? "Fallen: restart" : "On its feet",
+            laps: `${f.laps} (${f.travelled.toFixed(1)} m)`, lap: f.lastLap === null ? "-" : f.lastLap.toFixed(1),
+            speed: f.speed.toFixed(2), mean: f.mean.toFixed(2), pace: f.pace.toFixed(2), off: (100 * f.off).toFixed(1),
+          }, f.fallen ? ["state"] : []);
           centreMark.position.x = moment.centre[0]; centreMark.position.z = moment.centre[1];
           aimMark.position.x = f.aim[0]; aimMark.position.z = f.aim[1];
           return f.time;

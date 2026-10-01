@@ -14,7 +14,7 @@ import type { BodyModel } from "../core/human/spec.ts";
 import { createWorld, type World } from "../core/world.ts";
 import { publicAssetUrl } from "../asset-url.ts";
 import { labCameraRig } from "./camera.ts";
-import type { LabScenario, LabShell, ScenarioRun } from "./lab-scenario.ts";
+import { SCENARIO_PANELS, type LabScenario, type LabShell, type ScenarioRun } from "./lab-scenario.ts";
 import { loadoutSpec } from "./loadout.ts";
 import { isPaused, type Playhead } from "./player.ts";
 import { blowScenario } from "./blow-scenario.ts";
@@ -30,8 +30,8 @@ import { need } from "../dom.ts";
 /**
  * **The lab**: a core human in one scenario (`scenarios.ts`), the page's shell around it. The
  * scenario -- the Stance (`stance-scenario.ts`), the Routine (`routine-scenario.ts`), the Run
- * (`run-scenario.ts`) or the Blow (`blow-scenario.ts`) -- owns what it does to the body, its panel
- * section and its marks; the shell owns the rest.
+ * (`run-scenario.ts`) or the Blow (`blow-scenario.ts`) -- owns what it does to the body, its panels
+ * and its marks; the shell owns the rest.
  *
  * The body is the loadout's (`loadout.ts`): the model, and what each hand holds. It is drawn in one
  * of two views: World, the workshop model's skin (`skin.ts`), wearing the loadout's clothing, or
@@ -72,9 +72,8 @@ type ViewKind = "world" | "tactical";
  */
 const SEEK_BUDGET_MS = 10;
 
-/** A key pressed in a slider or a list is that control's: a focused slider takes its arrows. */
-const forAControl = (event: KeyboardEvent): boolean =>
-  event.target instanceof HTMLInputElement || event.target instanceof HTMLSelectElement;
+/** A key pressed in a slider is the slider's: focused, it takes its arrows. */
+const forAControl = (event: KeyboardEvent): boolean => event.target instanceof HTMLInputElement;
 
 /** Run the scenario `address` names; the screen's markup (`#lab-screen`) is already mounted. */
 export async function bootLab(address: LabAddress & { readonly scenario: ScenarioId }): Promise<void> {
@@ -120,7 +119,7 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
   const clock = need("clock"), pauseButton = need<HTMLButtonElement>("pause");
   const back = need<HTMLAnchorElement>("to-scenarios");
   need("scenario-name").textContent = SCENARIOS.find((s) => s.id === address.scenario)!.name;
-  for (const element of document.querySelectorAll<HTMLElement>("[data-for]")) element.hidden = element.dataset.for !== address.scenario;
+  need("scenario-panels").append(...SCENARIO_PANELS.flatMap((panel) => scenario.panels[panel] ?? []));
   timeline.setAttribute("aria-label", scenario.timelineLabel);
 
   interface Loaded {
