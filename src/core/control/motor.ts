@@ -62,17 +62,28 @@ export interface MotorControl {
   path(hand: Hand): Vector3 | null;
   /** Where `hand`'s knuckles are now, body frame. */
   knucklesToRef(hand: Hand, out: Vector3): Vector3;
+  /** Its memory (`src/core/state.ts`): the goals it was last given, each hand's path, and the stance's. */
+  readonly state: object;
 }
 
-/** A freedom the inverse kinematics moves (`ReachFreedom`), by channel name, drawn toward the posture's angle. */
+/**
+ * A freedom the inverse kinematics moves (`ReachFreedom`), by channel name, drawn toward the
+ * posture's angle: `preferred`, which every step sets before it solves.
+ */
 interface Free { readonly joint: number; readonly k: number; readonly min: number; readonly max: number; preferred: number; readonly name: string }
 
-interface HandState {
+/** An arm as the inverse kinematics takes it, and what motor control remembers of its hand's goal. */
+interface Arm {
   readonly chain: BuiltJoint[];
   readonly hand: BuiltSegment;
   readonly knuckles: Vec3;
   /** The chain's freedoms the inverse kinematics moves: the shoulder's and the elbow's. */
   readonly free: Free[];
+  readonly memory: HandMemory;
+}
+
+/** What motor control remembers of a hand's goal from one step to the next. */
+interface HandMemory {
   goal: { readonly position: Vec3; readonly seconds: number } | null;
   started: boolean;
   from: Vec3;
@@ -86,13 +97,10 @@ interface HandState {
 
 /** Motor control of `built`, servoing at a time constant of `seconds`; its stance asks `assist` for what the soles miss. */
 export function motorControl(built: BuiltBody, seconds: number, posture: Pose = {}, stanceTuning?: StanceTuning, assist: Assist | null = null): MotorControl {
-  let pose = posture;
-  let pushes: readonly MusclePush[] = [];
-  let standing: StanceGoal | null = null;
   const stance = stanceControl(built, stanceTuning, assist);
   const root = chainTo(built, built.segments.get("hand.left")!)[0]!.parent;
   const names = (joint: BuiltJoint) => joint.dofs.map((dof) => `${joint.spec.name} ${dof.spec.positive}`);
-  const hands = new Map<Hand, HandState>((["left", "right"] as const).map((side) => {
+  const arm = (side: Hand): Arm => {
     const hand = built.segments.get(`hand.${side}`);
     const knuckles = hand?.spec.points?.knuckles?.value;
     if (!hand || !knuckles) throw new Error(`${built.spec.model} has no ${side} hand with knuckles`);
@@ -100,52 +108,57 @@ export function motorControl(built: BuiltBody, seconds: number, posture: Pose = 
     const free = chain.flatMap((joint, j) => joint.spec.name === `shoulder.${side}` || joint.spec.name === `elbow.${side}`
       ? joint.dofs.map((dof, k) => ({ joint: j, k, min: dof.spec.min.value, max: dof.spec.max.value, preferred: 0, name: names(joint)[k]! }))
       : []);
-    return [side, { chain, hand, knuckles, free, goal: null, started: false, from: [0, 0, 0], time: 0,
-      angles: chain.map((joint) => joint.dofs.map(() => 0)), point: new Vector3(), goals: new Map() }];
-  }));
+    return { chain, hand, knuckles, free, memory: { goal: null, started: false, from: [0, 0, 0], time: 0,
+      angles: chain.map((joint) => joint.dofs.map(() => 0)), point: new Vector3(), goals: new Map() } };
+  };
+  const arms: Record<Hand, Arm> = { left: arm("left"), right: arm("right") }, both = [arms.left, arms.right];
+  const state: { pose: Pose; pushes: readonly MusclePush[]; standing: StanceGoal | null; readonly hands: Record<Hand, HandMemory>; readonly stance: object } =
+    { pose: posture, pushes: [], standing: null, hands: { left: arms.left.memory, right: arms.right.memory }, stance: stance.state };
 
   /** Where the path is at `time`: minimum jerk, 10 s^3 - 15 s^4 + 6 s^5 of the way. */
-  const along = (state: HandState, time: number, out: Vector3): Vector3 => {
-    const { position, seconds: length } = state.goal!;
+  const along = (m: HandMemory, time: number, out: Vector3): Vector3 => {
+    const { position, seconds: length } = m.goal!;
     const s = Math.max(0, Math.min(1, time / length)), f = s * s * s * (10 - 15 * s + 6 * s * s);
-    return out.set(state.from[0] + f * (position[0] - state.from[0]), state.from[1] + f * (position[1] - state.from[1]),
-      state.from[2] + f * (position[2] - state.from[2]));
+    return out.set(m.from[0] + f * (position[0] - m.from[0]), m.from[1] + f * (position[1] - m.from[1]),
+      m.from[2] + f * (position[2] - m.from[2]));
   };
   const at = new Vector3();
-  const solveAt = (state: HandState, time: number): number[][] => {
-    const angles = state.angles.map((row) => [...row]);
-    along(state, time, at);
-    solveReach(state.chain, angles, state.free, state.knuckles, [at.x, at.y, at.z]);
+  const solveAt = ({ chain, free, knuckles, memory }: Arm, time: number): number[][] => {
+    const angles = memory.angles.map((row) => [...row]);
+    along(memory, time, at);
+    solveReach(chain, angles, free, knuckles, [at.x, at.y, at.z]);
     return angles;
   };
 
   const control: MuscleController = (driver: MuscleDriver, dt: number) => {
-    for (const state of hands.values()) {
-      state.goals.clear();
-      if (!state.goal) continue;
+    const { pose, pushes, standing } = state;
+    for (const limb of both) {
+      const m = limb.memory;
+      m.goals.clear();
+      if (!m.goal) continue;
       // The held freedoms at the posture's angles, the free ones drawn toward it.
-      state.chain.forEach((joint, j) => {
-        if (state.free.some((f) => f.joint === j)) return;
-        names(joint).forEach((name, k) => { state.angles[j]![k] = pose[name] ?? 0; });
+      limb.chain.forEach((joint, j) => {
+        if (limb.free.some((f) => f.joint === j)) return;
+        names(joint).forEach((name, k) => { m.angles[j]![k] = pose[name] ?? 0; });
       });
-      for (const f of state.free) f.preferred = pose[f.name] ?? 0;
-      if (!state.started) {
-        pointNowToRef(state.hand, root, state.knuckles, at);
-        state.from = [at.x, at.y, at.z];
-        state.time = 0;
-        state.started = true;
-      } else state.time += dt;
-      const before = solveAt(state, state.time - dt), now = solveAt(state, state.time), after = solveAt(state, state.time + dt);
-      state.angles = now;
-      along(state, state.time, state.point);
-      for (const f of state.free) {
+      for (const f of limb.free) f.preferred = pose[f.name] ?? 0;
+      if (!m.started) {
+        pointNowToRef(limb.hand, root, limb.knuckles, at);
+        m.from = [at.x, at.y, at.z];
+        m.time = 0;
+        m.started = true;
+      } else m.time += dt;
+      const before = solveAt(limb, m.time - dt), now = solveAt(limb, m.time), after = solveAt(limb, m.time + dt);
+      m.angles = now;
+      along(m, m.time, m.point);
+      for (const f of limb.free) {
         const q0 = before[f.joint]![f.k]!, q1 = now[f.joint]![f.k]!, q2 = after[f.joint]![f.k]!;
-        state.goals.set(f.name, [q1, (q2 - q0) / (2 * dt), (q2 - 2 * q1 + q0) / (dt * dt)]);
+        m.goals.set(f.name, [q1, (q2 - q0) / (2 * dt), (q2 - 2 * q1 + q0) / (dt * dt)]);
       }
     }
     const owned = (i: number) => {
       const name = driver.channels[i]!.name;
-      for (const state of hands.values()) { const g = state.goals.get(name); if (g) return g; }
+      for (const limb of both) { const g = limb.memory.goals.get(name); if (g) return g; }
       return undefined;
     };
     stance.command(driver, standing, dt);
@@ -169,18 +182,18 @@ export function motorControl(built: BuiltBody, seconds: number, posture: Pose = 
 
   return {
     control,
-    setPosture(next) { pose = next; },
+    setPosture(next) { state.pose = next; },
     reach(hand, position, time) {
-      const state = hands.get(hand)!;
-      state.goal = { position, seconds: time };
-      state.started = false;
+      const m = arms[hand].memory;
+      m.goal = { position, seconds: time };
+      m.started = false;
     },
-    release(hand) { hands.get(hand)!.goal = null; },
-    setPushes(next) { pushes = next; },
-    setStance(next) { standing = next; },
-    stance,
-    path: (hand) => hands.get(hand)!.goal ? hands.get(hand)!.point : null,
-    knucklesToRef: (hand, out) => { const state = hands.get(hand)!; return pointNowToRef(state.hand, root, state.knuckles, out); },
+    release(hand) { arms[hand].memory.goal = null; },
+    setPushes(next) { state.pushes = next; },
+    setStance(next) { state.standing = next; },
+    stance, state,
+    path: (hand) => arms[hand].memory.goal ? arms[hand].memory.point : null,
+    knucklesToRef: (hand, out) => pointNowToRef(arms[hand].hand, root, arms[hand].knuckles, out),
   };
 }
 

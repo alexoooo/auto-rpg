@@ -26,6 +26,9 @@ export interface FootTask {
  * steps, reads. It is plain data -- numbers, strings, plain objects, arrays, typed arrays, vectors
  * and turns, and no segment, joint, body or function -- so the whole of a stance's memory is this
  * one record.
+ *
+ * With it are five values no later step reads: what `command` leaves for `carry` and `bear` of its
+ * own step (`aim`, `helped`, `held`, `tasks`), and the turn a swing asks (`step.turn`).
  */
 interface StanceState {
   /** The foot of the last step of a walk, while it steps on without standing between. */
@@ -38,7 +41,7 @@ interface StanceState {
   last: readonly Foot[] | null;
   /** The walk's pace, world (x, z), m/s: toward the goal's at the gait's acceleration, toward none standing. */
   readonly pace: [number, number];
-  /** The step under way: its swing, the time since its foot left the ground, and where and how the foot left it. */
+  /** The step under way: its swing, the time since its foot left the ground, where and how the foot left it, and the turn asked of it now. */
   readonly step: {
     swing: SwingGoal | null;
     lifted: boolean;

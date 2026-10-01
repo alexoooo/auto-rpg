@@ -24,6 +24,11 @@ export interface Mind {
   readonly name: string;
   /** One control step, before the solver's: write this step's command into the body's muscles. */
   step(senses: Senses, dt: number): void;
+  /**
+   * Its memory, if it has any (`src/core/state.ts`): saved and loaded with its body's. A mind that
+   * remembers anywhere else does not go on from a load as it went on from the save.
+   */
+  readonly state?: object;
 }
 
 /**
@@ -45,6 +50,8 @@ type MindMaker<M extends Mind = Mind> = (own: OwnBody) => M;
 interface Embodied<M extends Mind = Mind> {
   readonly own: OwnBody;
   readonly mind: M;
+  /** The body's memory under this mind (`src/core/state.ts`): its muscles', its assist's, and the mind's own, or null. */
+  readonly state: object;
   /** Stop driving: the motors are released. */
   dispose(): void;
 }
@@ -62,5 +69,5 @@ export function embody<M extends Mind>(built: BuiltBody, world: World, make: Min
   help = createAssist(built, muscles.dynamics.root.segment, ceiling);
   const own: OwnBody = { spec: built.spec, built, muscles, assist: help.assist };
   mind = make(own);
-  return { own, mind, dispose: () => muscles.dispose() };
+  return { own, mind, state: { muscles: muscles.state, assist: help.state, mind: mind.state ?? null }, dispose: () => muscles.dispose() };
 }

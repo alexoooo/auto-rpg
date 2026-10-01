@@ -142,6 +142,8 @@ export interface StanceControl {
   readonly owned: Uint8Array;
   /** What the last reading and command found and asked. */
   readonly reading: StanceReading;
+  /** Its memory, whole (`StanceState`, `src/core/state.ts`). */
+  readonly state: object;
 }
 
 export interface StanceReading {
@@ -489,6 +491,7 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}, assis
   return {
     get owned() { return s.state.owned; },
     reading: s.state.reading,
+    state: s.state,
     carry(muscles, work) {
       const { feet } = s, { aim, tasks } = s.state;
       if (!aim.on) return null;

@@ -32,6 +32,8 @@ export interface World {
   readonly steps: number;
   /** Seconds since the world was made: `steps / hz`. */
   readonly time: number;
+  /** Its memory (`src/core/state.ts`): the steps taken, and the time `advance` owes. The physics saves its own (`PhysicsWorld.save`). */
+  readonly state: object;
   /**
    * Run `hook` first in every step, before every `beforeStep` hook, after the sensing hooks added
    * before it: what reads the world for the minds, so that every mind in a step decides on the
@@ -72,7 +74,8 @@ export function createWorld(scene: Scene, engine: PhysicsEngine, { hz = PHYSICS_
   const physics = engine.createPhysics({ hz, gravity });
   const dt = 1 / hz;
   const sensing: HookEntry[] = [], before: HookEntry[] = [], after: HookEntry[] = [];
-  let steps = 0, owed = 0, disposed = false;
+  const state = { steps: 0, owed: 0 };
+  let disposed = false;
 
   const add = (list: HookEntry[], run: StepHook): Hook => {
     const entry: HookEntry = { run, live: true };
@@ -85,9 +88,9 @@ export function createWorld(scene: Scene, engine: PhysicsEngine, { hz = PHYSICS_
   };
 
   const world: World = {
-    scene, physics, hz, dt,
-    get steps() { return steps; },
-    get time() { return steps / hz; },
+    scene, physics, hz, dt, state,
+    get steps() { return state.steps; },
+    get time() { return state.steps / hz; },
     sense: (hook) => add(sensing, hook),
     beforeStep: (hook) => add(before, hook),
     afterStep: (hook) => add(after, hook),
@@ -99,16 +102,16 @@ export function createWorld(scene: Scene, engine: PhysicsEngine, { hz = PHYSICS_
         runAll(sensing);
         runAll(before);
         physics.step(dt);
-        steps += 1;
+        state.steps += 1;
         runAll(after);
       }
     },
     advance(seconds, most = Infinity) {
-      owed += seconds;
+      state.owed += seconds;
       let taken = 0;
       // A step is owed once its whole length has passed, give or take the float sum's rounding.
-      while (owed >= dt - 1e-9 && taken < most) { world.step(); owed -= dt; taken += 1; }
-      if (owed >= dt) owed %= dt;
+      while (state.owed >= dt - 1e-9 && taken < most) { world.step(); state.owed -= dt; taken += 1; }
+      if (state.owed >= dt) state.owed %= dt;
       return taken;
     },
     dispose() {

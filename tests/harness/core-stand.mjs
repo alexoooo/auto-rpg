@@ -15,6 +15,7 @@ import { DEFAULT_ENGINE, isEngineName, loadEngine } from "../../src/core/engine/
 import { PHYSICS_HZ } from "../../src/core/world.ts";
 import { createWorld } from "../../src/core/world.ts";
 import { buildBody } from "../../src/core/build/build-body.ts";
+import { loadState, saveState } from "../../src/core/state.ts";
 
 /** The engine `CORE_ENGINE` names, or the game's. */
 export const CORE_ENGINE = process.env.CORE_ENGINE || DEFAULT_ENGINE;
@@ -51,6 +52,18 @@ export async function coreStand(spec, { gravity = true, ground = true, position 
       engine.dispose();
     },
   };
+}
+
+/**
+ * A stand at a step, whole: the physics' bytes, and the world's state with `states`', a record of
+ * the states of whatever stands in it (`{ body: body.state }`).
+ */
+export const saveStand = (world, states) => ({ physics: world.physics.save(), state: saveState({ world: world.state, ...states }) });
+
+/** Put a stand where `saved` (a `saveStand` of a stand built alike) left one: the next step is the step that followed the save. */
+export function loadStand(world, states, saved) {
+  world.physics.load(saved.physics);
+  loadState({ world: world.state, ...states }, saved.state);
 }
 
 /**

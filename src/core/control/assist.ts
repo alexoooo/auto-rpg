@@ -40,14 +40,14 @@ export interface Assist {
 }
 
 /** `built`'s assist under `ceiling`, on `root`; `apply` gives the step's ask, and is the seam's to call (`embody`). */
-export function createAssist(built: BuiltBody, root: BuiltSegment, ceiling: AssistCeiling): { assist: Assist; apply(): void } {
+export function createAssist(built: BuiltBody, root: BuiltSegment, ceiling: AssistCeiling): { assist: Assist; apply(): void; state: object } {
   const weight = [...built.segments.values()].reduce((sum, segment) => sum + segment.rigid.mass, 0) * norm(built.physics.gravity);
   const most = { force: ceiling.force * weight, moment: ceiling.moment * weight };
   const asked = { force: new Vector3(), moment: new Vector3() }, given = { force: new Vector3(), moment: new Vector3() };
   const meter = { steps: 0, force: 0, moment: 0 };
+  const state = { asked, given, meter, withdrawn: false };
   const at = new Vector3();
-  let withdrawn = false;
-  const on = (): boolean => !withdrawn && (most.force > 0 || most.moment > 0);
+  const on = (): boolean => !state.withdrawn && (most.force > 0 || most.moment > 0);
   const clip = (v: Vector3, limit: number, out: Vector3): void => {
     const size = v.length();
     if (!Number.isFinite(size) || size === 0 || limit <= 0) out.setAll(0);
@@ -55,17 +55,17 @@ export function createAssist(built: BuiltBody, root: BuiltSegment, ceiling: Assi
   };
   const assist: Assist = {
     get on() { return on(); },
-    get withdrawn() { return withdrawn; },
+    get withdrawn() { return state.withdrawn; },
     most, given, meter,
     clipToRef(force, moment, givenForce, givenMoment) {
-      clip(force, withdrawn ? 0 : most.force, givenForce);
-      clip(moment, withdrawn ? 0 : most.moment, givenMoment);
+      clip(force, state.withdrawn ? 0 : most.force, givenForce);
+      clip(moment, state.withdrawn ? 0 : most.moment, givenMoment);
     },
     ask(force, moment) { asked.force.copyFrom(force); asked.moment.copyFrom(moment); },
-    withdraw() { withdrawn = true; },
+    withdraw() { state.withdrawn = true; },
   };
   return {
-    assist,
+    assist, state,
     apply() {
       if (!on()) { given.force.setAll(0); given.moment.setAll(0); return; }
       assist.clipToRef(asked.force, asked.moment, given.force, given.moment);

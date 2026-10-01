@@ -101,6 +101,8 @@ export interface MuscleDriver {
   strength(channel: number, sense: 1 | -1): number;
   /** The ceiling last given to the channel's motor, N m. */
   readonly ceiling: Float64Array;
+  /** Its memory (`src/core/state.ts`): the command, the ceilings, and each joint as last read. */
+  readonly state: object;
   /** The channel named `name`; throws if there is none. */
   channel(name: string): number;
   /** Stop driving: the motors are released and its step hook removed. */
@@ -139,11 +141,15 @@ export function driveMuscles(built: BuiltBody, world: World, control?: MuscleCon
   const angles = trackers.map((tracker) => tracker.angles);
   const motion = { spin: angularVelocity };
   let hook: Hook | null = null;
+  const state = {
+    activation: new Float64Array(n), velocity: new Float64Array(n), ceiling: new Float64Array(n),
+    trackers: trackers.map(({ angles, speeds, rates, turning }) => ({ angles, speeds, rates, turning })),
+  };
   const driver: MuscleDriver = {
-    channels,
-    activation: new Float64Array(n),
-    velocity: new Float64Array(n),
-    ceiling: new Float64Array(n),
+    channels, state,
+    activation: state.activation,
+    velocity: state.velocity,
+    ceiling: state.ceiling,
     angle: (i) => trackerOf[i]!.angles[channels[i]!.index]!,
     rate: (i) => trackerOf[i]!.rates[channels[i]!.index]!,
     speed: (i) => trackerOf[i]!.speeds[channels[i]!.index]!,

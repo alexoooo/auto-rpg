@@ -35,12 +35,21 @@ export interface Body {
   readonly envelope: StanceEnvelope | null;
   /** Its assist (`Assist`), for its meter; the fight that set its ceiling withdraws it. */
   readonly assist: Assist;
+  /**
+   * Its memory under its mind, whole (`src/core/state.ts`): the muscles', the assist's, motor
+   * control's with the stance's, and the view. Its driver's memory is the driver's to keep.
+   */
+  readonly state: object;
   /** Hand the body to `driver`, asked for a command each control step; null keeps the last command. */
   drive(driver: BodyDriver | null): void;
   dispose(): void;
 }
 
-/** What drives a body: given the view and the step, the command for this step, or null to keep the last. */
+/**
+ * What drives a body: given the view and the step, the command for this step, or null to keep the
+ * last. The body keeps the command's goals in its state, so a command, and whatever it holds, is
+ * either made for the step or frozen (`deepFreeze`): a load writes into what is not.
+ */
 type BodyDriver = (view: BodyView, dt: number) => BodyCommand | null;
 
 /**
@@ -137,21 +146,27 @@ export function commandMind(own: OwnBody, { servoSeconds, stance }: BodyOptions)
   const fists = { left: fistOf(built, "left"), right: fistOf(built, "right") };
   const head = centreOf(built, "head");
   const angles: Record<string, number> = {};
-  const view = {
-    time: 0,
-    senses: NOTHING_SENSED,
-    angles,
+  const goals: Record<Hand, HandGoal | null> = { left: null, right: null };
+  // The view's own fields are the state's: between steps a view shows the step its state is of.
+  const state = {
+    goals, time: 0, angles,
     fists: { left: fists.left.fist, right: fists.right.fist },
     knuckles: { left: new Vector3(), right: new Vector3() },
+    head: head.centre,
+    motor: motor.state,
+  };
+  const view = {
+    get time() { return state.time; },
+    senses: NOTHING_SENSED,
+    angles,
+    fists: state.fists,
+    knuckles: state.knuckles,
     head: head.centre,
     stance: motor.stance.reading,
   };
   let driver: BodyDriver | null = null;
-  const current: { command: BodyCommand } = { command: restCommand() };
-  const goals: Record<Hand, HandGoal | null> = { left: null, right: null };
 
   const obey = (command: BodyCommand): void => {
-    current.command = command;
     motor.setPosture(command.posture);
     motor.setPushes(command.pushes);
     motor.setStance(command.stance);
@@ -162,10 +177,10 @@ export function commandMind(own: OwnBody, { servoSeconds, stance }: BodyOptions)
       goals[hand] = goal;
     }
   };
-  obey(current.command);
+  obey(restCommand());
 
   const look = (senses: Senses): void => {
-    view.time = senses.time;
+    state.time = senses.time;
     view.senses = senses;
     muscles.channels.forEach((c, i) => { angles[c.name] = muscles.angle(i); });
     for (const hand of ["left", "right"] as const) {
@@ -177,7 +192,7 @@ export function commandMind(own: OwnBody, { servoSeconds, stance }: BodyOptions)
   };
   return {
     name: "command",
-    view, look,
+    view, look, state,
     drive(next) { driver = next; },
     step(senses, dt) {
       look(senses);
@@ -191,11 +206,11 @@ export function commandMind(own: OwnBody, { servoSeconds, stance }: BodyOptions)
 /** `built` in `world`, holding its reference pose until something drives it. */
 export function createBody(built: BuiltBody, world: World, options: BodyOptions): Body {
   const sense = options.senses ?? clockSenses(world);
-  const { own, mind, dispose } = embody(built, world, (body) => commandMind(body, options), sense, options.assist);
+  const { own, mind, state, dispose } = embody(built, world, (body) => commandMind(body, options), sense, options.assist);
   // Before its first step the view is the body as built, where a driver or a run first finds it.
   mind.look(sense());
   return {
-    built, muscles: own.muscles, view: mind.view, assist: own.assist,
+    built, muscles: own.muscles, view: mind.view, assist: own.assist, state,
     envelope: !options.measuring && Object.keys(options.stance ?? {}).length === 0 ? stanceEnvelope(built.spec) : null,
     drive: (next) => mind.drive(next),
     dispose,
