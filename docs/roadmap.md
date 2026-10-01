@@ -19,7 +19,7 @@ building on it.
 - **Layered AI**: each layer depending only on those below it -- world, body, motor control,
   skills, minds. Above the muscles a mind is a function from its body's senses to its body's
   effectors, with the layers as one way to write it; a person gives orders
-  ([the minds plans](plans/2026-09-30-minds-00-design.md)).
+  ([architecture](architecture.md#minds)).
 
 All of it on a physically based core, humans first ([architecture](architecture.md)).
 
@@ -27,18 +27,39 @@ All of it on a physically based core, humans first ([architecture](architecture.
 
 ### The AI
 
-- The structure above the muscles is designed, and its plans are being carried out
-  ([the minds plans](plans/2026-09-30-minds-00-design.md), which say what has landed): the mind
-  at the muscles, senses, a person's orders, an assist whose ceiling is the character's
-  attribute, forks of a bout and an oracle.
-- The oracle's first reading ([reference/oracle.md](reference/oracle.md)): choosing among seven
-  orders every half second, with the true world to try them in, turns 6 of 9 lost bouts into
-  wins while leaving the tactics' own choice in 93 % of decisions. Every one of those wins is a
-  fall or the cap, so it is a ceiling on not falling, not on fencing. Still to read: the same
-  search blind (`--blind`), and with balance, where bouts are not decided by falls.
-- The oracle's next spaces to search: a response held longer than one period, two decisions
-  looked ahead, and strikes chosen by name, since an attack at where the head stood was never
-  taken.
+- The structure above the muscles is built ([architecture](architecture.md#minds)): the mind at
+  the muscles, senses, a person's orders, an assist whose ceiling is the character's balance, a
+  bout that saves, loads and forks ([architecture](architecture.md#state)), and an oracle. Not
+  built: a learned mind, and a registry of minds a recipe can name (the arena's recipe names
+  bodies, and each side runs `seekFoe` unless ordered); sight that is blocked (the senses pass
+  every body whatever stands between); a library for a body of another shape behind the same
+  seam.
+- The owner's to choose, each landed at its default:
+  - Each character's balance. Every character has 0 points. At 5 points for both sides, 19 of 99
+    bouts end by a fall where 80 do at none, and the mean bout is 55 s where it is 14 s
+    ([reference/assist.md](reference/assist.md)); different points for each make it a trait that
+    tells characters apart.
+  - The attribute's name (`AttributeSpec.balance`): Balance, or Stability, Poise or Footing.
+  - What the pointer does while a person's body stands still: nothing, and the person walks to
+    turn; or a slow step toward its heading, which moves it without being asked.
+- The owner's to watch: a bout fought with orders
+  (`?play=arena&matchup=workshop-fighter,workshop-rogue&you=left`); bouts with balance against
+  none (`?play=arena&matchup=workshop-fighter,workshop-fighter&balance=5`, `&balance=20`,
+  `&balance=5,0`); and an oracle's bout ([reference/oracle.md](reference/oracle.md), Watching
+  one).
+- The oracle's readings ([reference/oracle.md](reference/oracle.md); counts of 18 sides, not
+  rates): choosing among seven orders every half second, with the true world to try them in,
+  turns 6 of 9 lost bouts into wins while leaving the tactics' own choice in over 90 % of
+  decisions. With no balance every one of those wins is a fall, so it is a ceiling on not
+  falling, not on fencing; and it is nearly the same ceiling blind, with each fork nudged a few
+  centimetres off the true one, so little of it is knowing the other side's exact future. With
+  5 points of balance the search turns 6 of 9 again, 2 of them by a wound, and makes bouts
+  long: 7 of its 18 reach the cap where 1 of the tactics' 9 does. A search that values 2 s on
+  finds how not to be hit, and not how to end a bout.
+- The oracle's next spaces to search: a horizon long enough to end a bout with balance, a
+  response held longer than one period, two decisions looked ahead, and strikes chosen by name,
+  since an attack at where the head stood is taken in under 1 % of decisions. Its next
+  readings: a rate over several gaps, a blind search with balance, and a wider nudge.
 - An arena bout is the same to the bit in Node and in a browser
   ([reference/real-functions.md](reference/real-functions.md)). The lab and the crypt still place
   bodies and aim orders with the engine's `Math` (`src/lab/`, `src/dungeon/`), so a lab scenario
@@ -118,6 +139,10 @@ All of it on a physically based core, humans first ([architecture](architecture.
 - The party carries only clubs; a ranged weapon (the Rogue's bow) would need projectiles on the
   core.
 - The crypt's frame rate on the owner's machine is unmeasured.
+- Saving a run. A bout saves and loads (`Duel.save`, [architecture](architecture.md#state)); a
+  run does not, since its bodies are built as they wake.
+- The run plans for its fighters with the map and hands each its orders; its bodies sense the
+  clock alone. A crypt on senses, and a hero that walks one way and faces another, are not built.
 
 ### Art and look
 

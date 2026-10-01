@@ -213,3 +213,37 @@ is `lifted` in `tests/core-assist.test.mjs`.
 | An impulse before each step | 0.019153 | 0.000319 (gravity times the step squared, times 15/32) |
 | A force through each step | 0.00000026 | |
 | None given | 1.227 down (half of gravity over 0.5 s squared is 1.226) | |
+
+## Inside the stance's solve, not beside it
+
+The assist supplies what the stance's own solve finds its soles cannot give ("What the soles
+miss"). A torque and a lift put on the root from outside that solve were measured first, and do
+not hold a body up.
+
+Harness: Node, the core world, Rapier, 120 Hz, at `144961d4`; the nine matchups at 4 m, each bout
+to its verdict, so a count of nine and not a rate. On each body's root, a hook outside the core
+that the tree does not keep: a torque toward upright about the level axes (300 N m/rad,
+15 N m s/rad, clipped at a ceiling), and a lift at the root's centre toward its built height
+(clipped at a share of the body's weight). The record is
+`docs/plans/2026-09-30-minds-00-design.md@ecda48dc`.
+
+| Torque ceiling, N m | Lift ceiling, weights | End by a fall, of 9 | Mean torque given, N m |
+|---|---|---|---|
+| 0 | 0 | 8 | 0 |
+| 25 | 0 | 7 | 5.6 |
+| 50 | 0 | 7 | 6.6 |
+| 100 | 0 | 7 | 11.7 |
+| 200 | 0 | 6 | 14.3 |
+| 50 | 0.25 | 8 | 9.3 |
+| 100 | 0.25 | 8 | 21.8 |
+| 200 | 0.5 | 8 | 41.9 |
+| 0 | 1 | 8 | 0 |
+| 200 | 1 | 7 | 31.2 |
+| 400 | 2 | 7 | 33.7 |
+
+Nine bouts cannot tell 6 from 8, and the torque was at its ceiling in under a tenth of the steps:
+righting the root is not what these bodies lack. With the gain scaled to the ceiling instead (the
+ceiling over 0.15 rad, damped over 0.1 s) the torque sat at its ceiling in 78 to 98 % of steps
+from 50 N m up, and at 200 and 400 N m every bout ended by a fall, in 3.1 and 1.1 s on average: an
+explicit torque on one light segment at 120 Hz goes unstable. So the assist is solved with the
+body, as every other torque here is, and what it gives is the wrench the soles miss.

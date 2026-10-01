@@ -179,6 +179,9 @@ screens build on it; it never imports them.
 - **A published field needs a reader**, or a named reader that is coming, written down.
 - **An export has an importer.** `tests/exports.test.mjs` refuses a name under `src/` that no other
   file imports; a test, a research script or a script is a reader.
+- **What changes from step to step is plain data in one `state` object** per module
+  (`src/core/state.ts`), hung on the bout's; `tests/arena-fork.test.mjs` forks a bout to prove
+  it. A body, a node or a function is not state, and a constant a state points at is frozen.
 - **A screen is an explicit argument, never inferred from a state machine.** Pause freezes the
   world, not the camera, and opens nothing but its own panel.
 - **Two watchers on one body: set a flag in the callback and act on it at the next control step.**

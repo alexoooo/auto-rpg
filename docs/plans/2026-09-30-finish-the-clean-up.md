@@ -11,22 +11,14 @@ This plan fixes them without changing what the game does. Every chunk but the on
 otherwise leaves the fingerprint (chunk 0) bit-identical.
 
 **Not in this plan:** the structure of the minds and skills (`src/core/mind/`,
-`src/core/skills/`). That is [the minds set](2026-09-30-minds-00-design.md)'s. This plan touches
-those files only to:
+`src/core/skills/`), which the minds set built (`docs/architecture.md`, Minds and State). This
+plan touches those files only to:
 - drop an `export` (chunk 4);
 - correct a comment or cite a source (chunk 6).
 
-**Beside the minds set.** The two are carried out together, in this order:
-1. minds 01 (landed), then chunk 0, which hashes with its trace (`traceOf`, `tests/harness/trace.mjs`);
-2. chunks 1 to 5 and 6c: the small faults and the guards, so that the minds' code meets the
-   guards as it is written;
-3. minds 02 to 04;
-4. chunk 11 (landed), then minds 05 (landed): the stance is split before the assist goes into it;
-5. minds 06 to 08;
-6. the rest (6a, 6b, 6d, 7 to 10, 12), whenever the minds set waits on the owner.
-
-No commit carries work of both. A minds commit changes the fingerprint where it means to change
-how a bout plays, and says so; a commit of this plan does not.
+**Beside the minds set.** The two were carried out together, no commit carrying work of both,
+and the minds set has landed. What is left of this plan is 6a, 6b, 6d, 7 to 10 and 12, and none
+of its commits changes how a bout plays.
 
 ## Rules for every chunk
 
@@ -42,8 +34,8 @@ how a bout plays, and says so; a commit of this plan does not.
 - **Line endings.** `git diff --cached --numstat` equals `git diff --cached --ignore-cr-at-eol
   --numstat`.
 - **Tests.**
-  - No test fails and three are todo, before and after every commit. The count moves with the
-    minds set's commits, so a chunk that adds or removes tests says by how many.
+  - No test fails and three are todo, before and after every commit. A chunk that adds or
+    removes tests says by how many.
   - A new guard test also gets a control: the guard fed a real bad case, which it must refuse.
 - **Code.** Comments follow AGENTS.md's "Code" section. A switch over a union ends in
   `default: { const never: never = x; throw new Error(...) }`, as in `src/render/body-shapes.ts`.

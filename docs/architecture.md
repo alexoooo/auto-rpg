@@ -176,7 +176,8 @@ ceiling the activation sets, and a speed of zero holds. It may also ask its assi
 and a moment on the root (`Assist.ask`), which gives none unless the fight gave it a ceiling. That
 command and that ask are the whole of what a mind does to the world; camera state never reaches one. The seam names no hand and no foot, so a body of
 another shape takes a mind through the same call. `tests/core-boundary.test.mjs` holds that
-nothing else under `src/` drives muscles.
+nothing else under `src/` drives muscles. What a mind remembers from step to step is its `state`
+(`Mind.state`; a tactics', `Tactics.state`), saved and loaded with its body's ([State](#state)).
 
 `Senses` are the clock, the body's side, whether it is out of the fight, and every other body the
 senses carry (`BodySense`): its side, its spec with what it holds, whether it is out, its centre
@@ -235,6 +236,43 @@ of its own (`coreStand`, `freshEngine`), `tests/harness/scene.mjs` gives a `Null
 tests that need meshes and no physics, and most of `research/` measures on the same stand
 ([research/README.md](../research/README.md)).
 
+## State
+
+What a step writes and a later step reads is **state**, and it is plain data
+(`src/core/state.ts`). The physics keeps its own, as bytes (`PhysicsWorld.save`, `load`). Every
+module that remembers anything else keeps it in one object, its `state`: the world its count of
+steps; the muscle driver, the assist, motor control with the stance, and the body's view; the
+skills with the command they write, the legs and the strike; the tactics; the senses, the pool
+and the blow watch.
+
+- **State is** numbers, strings, booleans, null, plain objects, arrays, typed arrays, a `Map` or
+  `Set` keyed by strings or numbers, a `Vector3` and a `Quaternion`. A body, a node, a function or
+  an object with a getter is not, and `saveState` refuses one by its path.
+- **`saveState(root)`** copies what is under a root, and the copy crosses a thread.
+  **`loadState(root, saved)`** puts it back in place: whoever holds an object of the state holds
+  it still, with the saved values in it, so no module is told of a load. Two slots that held one
+  object at the save hold one after the load, and two that held two hold two.
+- **A constant a state points at is frozen** (`deepFreeze`: the strike recipes, the guard, the
+  orders to stand). A load never writes into a frozen object; it puts a copy in the slot. A blow
+  and a verdict are frozen as they are made, so one a page was handed is a record no load changes.
+- **The states hang on one root.** A body's is its memory under its mind (`Body.state`), its
+  skills' is theirs with their tactics' (`Skills.state`), and a bout's (`Duel.state`) is its own
+  (when it began, its verdict, what each side is ordered, its tape and what is still queued of one
+  played) with the world's, the senses', the blow watch's and each side's body's, skills' and
+  pool's.
+
+`Duel.save()` is a bout at a step: its recipe, the physics' bytes and a copy of its state.
+`Duel.load(saved)` puts a bout of the same recipe there, the bout it was saved from or another
+built in any world: the physics, the state, and each body shown the others again from the
+senses' frames (`SensesHub.show`). The next step is the one that followed the save. A save of
+another recipe is refused.
+
+`tests/arena-fork.test.mjs` forks a bout at every second of its course and at every step about a
+blow, and holds every field of the bout's state to be one a fork needs: loaded with the field
+left as another step had it, the bout goes another way. `tests/core-fork.test.mjs` does the same
+for a body under its mind and its skills. A crypt run does not save: its bodies are built as
+they wake.
+
 ## Rules and wounds
 
 The rules of a fight are `src/core/rules/`, free of any page so they can be argued with in tests
@@ -287,14 +325,17 @@ in `src/arena/matchup.ts`), with the rest of its recipe in the link's query (`&g
 `&balance=`). The arena plays a bout whose link carries a tape with nobody at the keys, and a
 tape made in Node plays its bout in a browser.
 
-**A bout forks by replay** (`rollout`, `research/rollouts.mjs`): a second bout is built from the
-recipe, played under the tape to the fork's step, and on from there under a branch of other
-orders. Every fork tells the digest of its poses at the fork, so two forks of one bout at one
-step agree in it or one of them is not that bout. **The oracle** (`research/oracle.mjs`) is built
-on forks, and is an instrument outside the core, not a mind: it holds the true world, which no
-mind may. At every half second of a bout it tries a handful of orders for one side, each in a
-fork, and gives the bout the best. What it reports is the ceiling of what it searched and of
-nothing wider ([reference/oracle.md](reference/oracle.md)).
+**A bout forks** (`rollout`, `research/rollouts.mjs`) by a load: a bout of the recipe, which the
+thread keeps, is loaded with a save of the fork's step (`Duel.save`) and played on under a branch
+of other orders, at the cost of the steps played out. It forks by replay too, which needs the
+recipe and the tape alone: a second bout is built, played under the tape to the fork's step, and
+on under the branch. The two are one fork (`tests/research-rollouts.test.mjs`). Every fork tells
+the digest of its poses at the fork, so two forks of one bout at one step agree in it or one of
+them is not that bout. **The oracle** (`research/oracle.mjs`) is built on forks, and is an
+instrument outside the core, not a mind: it holds the true world, which no mind may. At every
+half second of a bout it tries a handful of orders for one side, each in a fork, and gives the
+bout the best. What it reports is the ceiling of what it searched and of nothing wider
+([reference/oracle.md](reference/oracle.md)).
 
 ## The screens
 
