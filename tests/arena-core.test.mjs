@@ -10,10 +10,10 @@ import { TransformNode } from "@babylonjs/core/Meshes/transformNode.js";
 import { Quaternion } from "@babylonjs/core/Maths/math.vector.js";
 import { ARENA_POSTS, addArenaSolids, arenaSolids } from "../src/arena/room.ts";
 import { CAP_SECONDS, Duel } from "../src/arena/duel.ts";
-import { DEFAULT_MATCHUP, matchupSearch, readBalance, readMatchup, readYou, youSearch } from "../src/arena/matchup.ts";
+import { DEFAULT_MATCHUP, matchupSearch, readBalance, readCap, readGap, readMatchup, readTape, readYou, tapeHash, youSearch } from "../src/arena/matchup.ts";
 import { ORBIT, orbitPosition } from "../src/arena/orbit.ts";
 import { aimPoint, keysToMove, personOrders } from "../src/arena/orders-input.ts";
-import { STAND_ORDERS } from "../src/core/mind/orders.ts";
+import { STAND_ORDERS, isOrders } from "../src/core/mind/orders.ts";
 import { createWorld } from "../src/core/world.ts";
 import { freshEngine } from "./harness/core-stand.mjs";
 import { playBout } from "../research/bout.mjs";
@@ -42,6 +42,37 @@ test("an_arena_link_names_its_matchup_and_a_malformed_one_falls_back", () => {
     [{ left: 5, right: 2 }, { left: 5, right: 5 }, { left: 0, right: 20.5 }, { left: 5, right: 2 }]);
   assert.deepEqual(["", "?balance=", "?balance=5,", "?balance=,5", "?balance=-1", "?balance=5,-1", "?balance=1,2,3", "?balance=many", "?balance=Infinity"].map(readBalance),
     Array(9).fill(undefined));
+});
+
+test("a_tape_rides_in_a_link's_fragment", () => {
+  const toward = { x: 0.6, z: -0.8 };
+  const tape = [
+    { step: 0, side: "left", orders: { move: toward, face: null, attack: null } },
+    { step: 60, side: "right", orders: { move: null, face: { x: 1 / 3, z: 2e-17 }, attack: [1.9, 1.6180339887, -0.25] } },
+    { step: 120, side: "left", orders: null },
+  ];
+  const hash = tapeHash(tape);
+  assert.match(hash, /^#tape=%5B/);
+  assert.deepEqual(readTape(hash), tape);
+  assert.deepEqual(readTape(hash.slice(1)), tape, "with or without its #");
+  assert.deepEqual(["", "#", "#tape=", "#tape=%7B%7D", "#tape=nonsense", "#other=1"].map(readTape), Array(6).fill([]));
+  // One entry that is not an entry and the tape is none: a tape played in part is another bout.
+  const wrong = [
+    { step: 1.5, side: "left", orders: null }, { step: -1, side: "left", orders: null }, { side: "left", orders: null },
+    { step: 1, side: "top", orders: null }, { step: 1, side: "left" }, { step: 1, side: "left", orders: 3 }, null,
+    { step: 1, side: "left", orders: { move: { x: "1", z: 0 }, face: null, attack: null } },
+    { step: 1, side: "left", orders: { move: null, face: { x: 1 }, attack: null } },
+    { step: 1, side: "left", orders: { move: null, face: null, attack: [1, 2] } },
+    { step: 1, side: "left", orders: { move: null, face: null, attack: [1, 2, null] } },
+    { step: 1, side: "left", orders: { move: null, face: null } },
+  ];
+  for (const entry of wrong) assert.deepEqual(readTape(tapeHash([tape[0], entry])), [], JSON.stringify(entry));
+  assert.deepEqual([STAND_ORDERS, tape[1].orders, null, [], { move: null, face: null, attack: "head" }].map(isOrders), [true, true, false, false, false]);
+  // The gap and the cap a link asks for, each within its range or not at all.
+  assert.deepEqual(["?gap=3.5", "?play=arena&gap=1", "?gap=8"].map(readGap), [3.5, 1, 8]);
+  assert.deepEqual(["", "?gap=", "?gap=0", "?gap=0.99", "?gap=8.01", "?gap=x", "?gap=Infinity", "?cap=4"].map(readGap), Array(8).fill(undefined));
+  assert.deepEqual(["?cap=30", "?cap=1", "?cap=600"].map(readCap), [30, 1, 600]);
+  assert.deepEqual(["", "?cap=", "?cap=0", "?cap=601", "?cap=x", "?gap=4"].map(readCap), Array(6).fill(undefined));
 });
 
 test("each_arena_post_is_the_prism_its_mesh_draws", () => {
@@ -238,9 +269,14 @@ test("a_bout_plays_again_from_its_recipe_and_its_tape", async () => {
   // The first order comes once the left side is turning to its walk: before that the stance holds
   // its heading (`TURN_LEAD`), and an order to walk another way a step later is the same bout.
   const tape = [{ step: 200, side: "left", orders: back }, { step: 360, side: "left", orders: null },
-    { step: 480, side: "right", orders: { move: null, face: { x: -1, z: 0 }, attack: null } }];
+    { step: 480, side: "right", orders: { move: null, face: { x: -1, z: -0 }, attack: null } }];
   const first = await playBout(recipe, 8, tape), second = await playBout(recipe, 8, first.tape);
-  assert.deepEqual(first.tape, tape);
+  // A side is given its orders as JSON carries them, a negative zero as zero: the tape that has been
+  // through a link's fragment is the bout's tape, and plays the bout.
+  const carried = readTape(tapeHash(tape));
+  assert.equal(carried.length, 3);
+  assert.deepEqual(first.tape, carried);
+  assert.notDeepEqual(tape, carried, "the fixture's negative zero is what the fragment does not carry");
   assert.deepEqual(second, first);
   // The controls: no tape, and the same orders a step later, are other bouts.
   const untold = await playBout(recipe, 8);

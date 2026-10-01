@@ -31,6 +31,17 @@ All of it on a physically based core, humans first ([architecture](architecture.
   ([the minds plans](plans/2026-09-30-minds-00-design.md), which say what has landed): the mind
   at the muscles, senses, a person's orders, an assist whose ceiling is the character's
   attribute, forks of a bout and an oracle.
+- The oracle's first reading ([reference/oracle.md](reference/oracle.md)): choosing among seven
+  orders every half second, with the true world to try them in, turns 6 of 9 lost bouts into
+  wins while leaving the tactics' own choice in 93 % of decisions. Every one of those wins is a
+  fall or the cap, so it is a ceiling on not falling, not on fencing. Still to read: the same
+  search blind (`--blind`), and with balance, where bouts are not decided by falls.
+- The oracle's next spaces to search: a response held longer than one period, two decisions
+  looked ahead, and strikes chosen by name, since an attack at where the head stood was never
+  taken.
+- A bout is the same to the bit in one JavaScript engine and another bout in the next: Chrome's
+  `Math.sin` and its kin differ from Node's in their last bits. Until the core's arithmetic is
+  its own, a tape made in Node (an oracle's) does not show its bout in a browser.
 - The tactics (`fighterTactics`) cannot yet attack a moving body, block or parry.
 - The arena needs tactics of its own, beyond walking at the other body and attacking its head.
 

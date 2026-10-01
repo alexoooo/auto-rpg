@@ -19,5 +19,16 @@ export interface Orders {
 
 export const STAND_ORDERS: Orders = Object.freeze({ move: null, face: null, attack: null });
 
+const isHeading = (value: unknown): value is Heading => typeof value === "object" && value !== null
+  && Number.isFinite((value as Heading).x) && Number.isFinite((value as Heading).z);
+
+/** Whether `value` is orders: what orders read from outside the program must be before a body is given them. */
+export function isOrders(value: unknown): value is Orders {
+  if (typeof value !== "object" || value === null) return false;
+  const { move, face, attack } = value as Record<string, unknown>;
+  return (move === null || isHeading(move)) && (face === null || isHeading(face))
+    && (attack === null || (Array.isArray(attack) && attack.length === 3 && attack.every((n) => Number.isFinite(n))));
+}
+
 /** Whether two orders, or two absences of them, say the same thing. */
 export const sameOrders = (a: Orders | null, b: Orders | null): boolean => JSON.stringify(a) === JSON.stringify(b);

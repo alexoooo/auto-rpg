@@ -1,5 +1,6 @@
 import { BODY_MODELS, type BodyModel } from "../core/human/spec.ts";
-import type { Side } from "./duel.ts";
+import { isOrders } from "../core/mind/orders.ts";
+import type { OrdersEntry, Side } from "./duel.ts";
 
 /** The arena link's parameter: `?matchup=left,right`, each a core model. */
 export const MATCHUP_PARAM = "matchup";
@@ -60,3 +61,47 @@ export function readBalance(search: string): Readonly<Record<Side, number>> | un
   if (points.length < 1 || points.length > 2 || !points.every((p) => Number.isFinite(p) && p >= 0)) return undefined;
   return { left: points[0]!, right: points[points.length - 1]! };
 }
+
+/**
+ * The gap, m, and the cap, s, a link may ask for (`DuelRecipe.gap`, `.capSeconds`), a numeric setting:
+ * from the two all but touching to the arena's floor, and from a second to ten minutes.
+ */
+const LINK_RANGE = { gap: [1, 8], cap: [1, 600] } as const;
+
+/** The number an address gives `key`, if it is one from `least` to `most`; undefined for anything else. */
+function readWithin(search: string, key: string, [least, most]: readonly [number, number]): number | undefined {
+  const text = new URLSearchParams(search).get(key);
+  const value = text === null || text.trim() === "" ? NaN : Number(text);
+  return Number.isFinite(value) && value >= least && value <= most ? value : undefined;
+}
+
+/** How far apart an address stands the two, m: `&gap=`; undefined, and the bout's own, for anything else. */
+export const readGap = (search: string): number | undefined => readWithin(search, "gap", LINK_RANGE.gap);
+
+/** How long an address lets the bout run, s: `&cap=`; undefined, and the bout's own, for anything else. */
+export const readCap = (search: string): number | undefined => readWithin(search, "cap", LINK_RANGE.cap);
+
+/** A bout's tape in a link's fragment, which no server is sent: `#tape=<the tape's JSON, URI-encoded>`. */
+const TAPE_KEY = "tape";
+
+const isEntry = (entry: unknown): entry is OrdersEntry => {
+  if (typeof entry !== "object" || entry === null) return false;
+  const { step, side, orders } = entry as Record<string, unknown>;
+  return Number.isInteger(step) && (step as number) >= 0 && (side === "left" || side === "right") && (orders === null || isOrders(orders));
+};
+
+/**
+ * The tape `hash` carries; none if it carries none, or one that is not an array of entries. A
+ * tape is of one recipe: the link names the matchup, the gap, the cap and each side's balance with it.
+ */
+export function readTape(hash: string): OrdersEntry[] {
+  const text = new URLSearchParams(hash.replace(/^#/, "")).get(TAPE_KEY);
+  if (!text) return [];
+  try {
+    const tape: unknown = JSON.parse(text);
+    return Array.isArray(tape) && tape.every(isEntry) ? tape : [];
+  } catch { return []; }
+}
+
+/** The fragment that carries `tape` (`readTape`). */
+export const tapeHash = (tape: readonly OrdersEntry[]): string => `#${TAPE_KEY}=${encodeURIComponent(JSON.stringify(tape))}`;

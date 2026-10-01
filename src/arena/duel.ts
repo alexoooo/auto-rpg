@@ -90,7 +90,7 @@ interface DuelRecipe {
 }
 
 /** An order given: before which of the bout's steps, to which side, and what. Null hands the side back to itself. */
-interface OrdersEntry {
+export interface OrdersEntry {
   readonly step: number;
   readonly side: Side;
   readonly orders: Orders | null;
@@ -183,8 +183,11 @@ export class Duel {
   /** Order `side` from its next step on, or with null hand it back to itself. An order that repeats the last is not recorded. */
   order(side: Side, orders: Orders | null): void {
     if (sameOrders(this.given[side], orders)) return;
-    this.given[side] = orders;
-    this.tape.push({ step: this.steps, side, orders });
+    // The side is given its orders as JSON carries them (a negative zero is zero there), so a tape
+    // that has been through a file or a link gives the orders this bout gave.
+    const given = JSON.parse(JSON.stringify(orders)) as Orders | null;
+    this.given[side] = given;
+    this.tape.push({ step: this.steps, side, orders: given });
   }
 
   /**

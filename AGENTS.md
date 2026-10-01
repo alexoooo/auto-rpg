@@ -24,7 +24,8 @@ port and kill it by PID when done.
 works in dev and is absent from `dist`.
 
 - `/` (`index.html`, `src/app.ts`): the main menu; the arena at `?play=arena`
-  (`&matchup=left,right` opens a bout, `&you=left` takes a side, `src/arena/`); the crypt at
+  (`&matchup=left,right` opens a bout, `&you=left` takes a side, `&gap=`, `&cap=` and
+  `&balance=` are its recipe's, `#tape=` plays a bout's orders again, `src/arena/`); the crypt at
   `?play=dungeon`
   (`src/dungeon/`); the lab at `?play=lab` (`&scenario=` runs one, `src/lab/scenarios.ts`).
   Each screen is a `<template>` mounted once per page load; changing screen is a navigation.
@@ -142,7 +143,9 @@ screens build on it; it never imports them.
 ## Measurement
 
 - **Name the harness in every figure** (Node stand or page, engine, rate). Page and Node readings
-  of the same code have differed.
+  of the same code have differed: Chrome's `Math.sin`, `cos`, `atan2`, `exp` and their kin are
+  not Node's to the last bit, so a bout, its digest and its tape hold within one JavaScript
+  engine and no further.
 - **Say whether a peak was driven or struck**, and exclude startup and the time after a contact.
 - **Before calling a difference between two physics rates physical**, read the faster rate at the
   slower one's spacing.

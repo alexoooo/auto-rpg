@@ -78,7 +78,7 @@ as they wake, is not in this set.
 | 03 | senses: landed | the bout's senses (`createSenses`, in `World.sense`'s phase); the arena's tactics pick their foe from what they see (`seekFoe`); the bouts read again (`docs/reference/bouts.md`, With senses) | | |
 | 04 | orders: landed, its eye gate open | `Orders` (`src/core/mind/orders.ts`), carried out by `fighterTactics` (`STRAFE`, `docs/reference/orders.md`); the tape (`Duel.order`, `.tape`, `.play`); WASD and the pointer in the arena (`&you=left`) | | the owner fights a bout: `?play=arena&matchup=workshop-fighter,workshop-rogue&you=left` |
 | 05 | assist: landed, its eye gate open | what the soles miss (`StanceReading.shortfall`); the assist (`Assist`, `src/core/control/assist.ts`), its ceiling a character's balance (`AttributeSpec.balance`, `Rulebook.balance`); its tables (`docs/reference/assist.md`) | | the owner watches bouts with balance, against none: `?play=arena&matchup=workshop-fighter,workshop-fighter&balance=5`, `&balance=20`, `&balance=5,0` |
-| 06 | [oracle](2026-09-30-minds-06-oracle.md) | forks by replay on worker threads; the oracle; its first table; a tape in a link | 04 | the owner watches an oracle's bout |
+| 06 | oracle: landed, its eye gate open | forks by replay on worker threads (`rollout`, `research/rollouts.mjs`); the oracle (`research/oracle.mjs`); its first table (`docs/reference/oracle.md`); a tape in a link (`#tape=`, `readTape`) | | the owner watches an oracle's bout from the link under "Watching one" in `docs/reference/oracle.md`, beside `?play=arena&matchup=crypt-skeleton,workshop-rogue`; the gate waits on a bout being the same in Chrome as in Node, which it is not (the same section) |
 | 07 | engine save: landed | `PhysicsWorld.save` and `load` (`src/core/engine/engine.ts`): a world's whole physical state as bytes, loaded in place | | |
 | 08 | [fork](2026-09-30-minds-08-fork.md) | `saveState`/`loadState`; every module's memory as data; `Duel.save`/`load`; forks by a load | 05, 06, 07 | |
 
@@ -246,7 +246,7 @@ None of these is a decision now; each is a value in a recipe or a constant with 
   or `DuelRecipe.balancePoint`), so that 5 points is the ceiling measured at a quarter
   of a weight. A side's points for one bout: `DuelRecipe.balance`, or `&balance=` in a link.
 - **The oracle's search**: its responses, its period (0.5 s), its horizon (2 s), and whether it
-  is blind, named in each run (plan 06).
+  is blind, named in each run (`research/oracle.mjs`, `docs/reference/oracle.md`).
 
 ## The owner's choices
 

@@ -21,11 +21,6 @@ Some write the data files the core reads, and only with `--write`; without it th
 | `core-strike-window.mjs` | where each recipe still lands, along and across its heading | the windows, into `assets/core/strikes.json` |
 | `core-strike-repertoire.mjs` | builds the repertoire from searches' best strikes | `assets/core/strikes.json` |
 | `core-rapier-probe.mjs` | on the core's engine module alone, off the stand: what Rapier's generic joint does: its limits' measure, motor axes, saturation, gyroscopic spin, a motor braking a hung rod | |
-| `bout.mjs`, `bout-worker.mjs`, `bout-pool.mjs` | one arena bout from its recipe (`DuelRecipe`) in a world of its own: how it ended, what landed, each side's mean assist, and the digest of every pose at every step; its worker; and many bouts over workers | |
-| `bout-trace.mjs` | one bout's row: the digest a change that should change nothing must leave as it was | |
-| `bout-baseline.mjs` | how every matchup ends at each starting gap: endings, falls and wounding blows a minute | the table, pasted into `docs/reference/bouts.md` |
-| `assist-need.mjs` | what each side's soles miss of what its stance asks of the ground, over every matchup | the table, pasted into `docs/reference/assist.md` |
-| `assist-sweep.mjs` | what balance does to how bouts end: both sides even, other worths of a point, and one side with more | the three tables, pasted into `docs/reference/assist.md` |
 
 `core-club-unit.json` is the club blow that sets the damage unit (`core-club-unit` in `SOURCES`).
 
@@ -39,6 +34,28 @@ node research/core-routine-battery.mjs --variants '[{}]' --seeds 12
 ```
 
 Each script's doc comment gives its options, what it prints and the rule it reads by.
+
+## Bouts
+
+Arena bouts off the page: Node, the core's world, Rapier, 120 Hz. A bout is its recipe
+(`DuelRecipe`) and its tape, and plays the same to the bit from them, so a row names both.
+
+| Script | What it measures | Writes |
+|---|---|---|
+| `bout.mjs`, `bout-worker.mjs`, `bout-pool.mjs` | one arena bout from its recipe in a world of its own: how it ended, what landed, each side's mean assist, and the digest of every pose at every step; its worker; and many bouts over workers | |
+| `bout-trace.mjs` | one bout's row: the digest a change that should change nothing must leave as it was | |
+| `bout-baseline.mjs` | how every matchup ends at each starting gap: endings, falls and wounding blows a minute | the table, pasted into `docs/reference/bouts.md` |
+| `assist-need.mjs` | what each side's soles miss of what its stance asks of the ground, over every matchup | the table, pasted into `docs/reference/assist.md` |
+| `assist-sweep.mjs` | what balance does to how bouts end: both sides even, other worths of a point, and one side with more | the three tables, pasted into `docs/reference/assist.md` |
+| `rollouts.mjs`, `rollout-worker.mjs`, `rollout-pool.mjs` | a bout forked by replay: played to a step under its tape and on under a branch of other orders; a row's value to a side, the responses a side may try, and the choice among them; its worker; and a pool that stays up between batches | |
+| `oracle.mjs` | for one side of a bout, how it does when at every half second it tries each response in a fork of the true world and takes the best, beside the bout under its tactics alone | the table, pasted into `docs/reference/oracle.md`; with `--out`, each bout's recipe and tape, and the link that plays it |
+
+```powershell
+node research/bout-trace.mjs
+node research/bout-baseline.mjs --workers 14
+node research/assist-sweep.mjs --workers 14
+node research/oracle.mjs --all --side both --workers 14 --out research/runs/oracle
+```
 
 ## The physics bake-off
 

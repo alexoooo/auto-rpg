@@ -15,7 +15,7 @@ import { loadSkeletonArt, type SkeletonArt } from "../render/skeleton-skin.ts";
 import { drawHeld, type BodyShapes } from "../render/body-shapes.ts";
 import { dresserFor, type Dresser } from "../render/dress.ts";
 import { Duel, SIDES, type DuelEnding, type Side, type Verdict } from "./duel.ts";
-import { MATCHUP_PARAM, MODEL_LABELS, matchupSearch, readBalance, readMatchup, readYou, youSearch, type Matchup } from "./matchup.ts";
+import { MATCHUP_PARAM, MODEL_LABELS, matchupSearch, readBalance, readCap, readGap, readMatchup, readTape, readYou, youSearch, type Matchup } from "./matchup.ts";
 import { ORBIT, orbitPosition } from "./orbit.ts";
 import { aimPoint, keysToMove, personOrders } from "./orders-input.ts";
 
@@ -58,6 +58,10 @@ export async function bootArena(): Promise<void> {
 
   // Setup: a contender panel on each side, each with its model.
   let matchup: Matchup = readMatchup(location.search), you: Side | null = readYou(location.search);
+  // A link's tape is of the link's matchup: a bout of another matchup begun from the page plays none.
+  const linked = { matchup, tape: readTape(location.hash), hash: location.hash };
+  /** Whether the bout under way plays a tape: it then takes no orders from a person. */
+  let replaying = false;
   const youPicker = need<HTMLSelectElement>("you");
   youPicker.value = you ?? "";
   const pickers = {} as Record<Side, HTMLSelectElement>;
@@ -115,12 +119,17 @@ export async function bootArena(): Promise<void> {
   const setup = () => { end(); setPaused(false); show("bout-end", false); show("curtain", true); };
   const begin = async (next: Matchup) => {
     matchup = next;
-    history.replaceState(null, "", youSearch(matchupSearch(location.search, matchup), you));
+    const tape = matchup.left === linked.matchup.left && matchup.right === linked.matchup.right ? linked.tape : [];
+    replaying = tape.length > 0;
+    history.replaceState(null, "", youSearch(matchupSearch(location.search, matchup), you) + (replaying ? linked.hash : ""));
     const dress = new Map(await Promise.all(SIDES.map(async (side) => [side, await dresser(matchup[side])] as const)));
     end();
     audio.reset();
-    const balance = readBalance(location.search);
-    duel = new Duel(world, { left: matchup.left, right: matchup.right, ...(balance ? { balance } : {}) }, {
+    const balance = readBalance(location.search), gap = readGap(location.search), capSeconds = readCap(location.search);
+    duel = new Duel(world, {
+      left: matchup.left, right: matchup.right,
+      ...(gap !== undefined ? { gap } : {}), ...(capSeconds !== undefined ? { capSeconds } : {}), ...(balance ? { balance } : {}),
+    }, {
       onBuilt: (duelist, built) => {
         for (const view of [dress.get(duelist.side)!(built), drawHeld(built, scene)]) {
           for (const mesh of view.meshes) shadows.addShadowCaster(mesh);
@@ -132,7 +141,8 @@ export async function bootArena(): Promise<void> {
         audio.cue(blowCue(blow, struck ? SURFACE_SOUND[struck.model] : "body"));
       },
     });
-    for (const row of rows) row.label.textContent = `${MODEL_LABELS[matchup[row.side]]} (${row.side === you ? "you" : row.side})`;
+    duel.play(tape);
+    for (const row of rows) row.label.textContent = `${MODEL_LABELS[matchup[row.side]]} (${row.side === you && !replaying ? "you" : row.side})`;
     show("curtain", false); show("bout-end", false); setPaused(false);
     canvas.focus();
   };
@@ -205,7 +215,7 @@ export async function bootArena(): Promise<void> {
   }, { passive: false });
   /** The person's orders for this frame, from the keys and the pointer as the camera has them. */
   const giveOrders = () => {
-    if (!duel || !you || paused || duel.verdict) return;
+    if (!duel || !you || replaying || paused || duel.verdict) return;
     const centre = duel.duelists[you].body.view.stance.centre;
     const ray = pointer ? scene.createPickingRay(pointer.x, pointer.y, null, camera) : null;
     const point = ray ? aimPoint(ray.origin.asArray(), ray.direction.asArray(), centre.y) : null;
@@ -228,7 +238,7 @@ export async function bootArena(): Promise<void> {
     // While either side is helped, each side's balance, points: the link's, or its character's.
     const helped = SIDES.some((side) => duel!.duelists[side].body.assist.on);
     const points = SIDES.map((side) => duel!.recipe.balance?.[side] ?? duel!.duelists[side].built.spec.attributes.balance.value);
-    clock.textContent = `${duel.clock.toFixed(1)} s${helped ? ` · balance ${points.join(" / ")}` : ""}`;
+    clock.textContent = `${duel.clock.toFixed(1)} s${helped ? ` · balance ${points.join(" / ")}` : ""}${replaying ? " · replay" : ""}`;
     if (duel.verdict && shown !== duel.verdict) {
       shown = duel.verdict;
       const { winner, ending, time } = shown;

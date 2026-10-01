@@ -255,7 +255,9 @@ A bout is built from a recipe (`DuelRecipe`): the two bodies, how far apart they
 cap, as plain data, so the same bout can be built again in another world or on another thread;
 what a page hears of it (`DuelHooks`) is beside the recipe, not in it. Nothing in a bout is
 random, so a recipe played twice is the same bout to the bit (`playBout`, `research/bout.mjs`;
-`traceOf`, `tests/harness/trace.mjs`). How the bouts end today is `docs/reference/bouts.md`.
+`traceOf`, `tests/harness/trace.mjs`), in one JavaScript engine: Chrome's `Math.sin` and its
+kin differ from Node's in their last bits, and the same recipe is another bout there within
+seconds ([reference/oracle.md](reference/oracle.md), Watching one). How the bouts end today is `docs/reference/bouts.md`.
 
 Every order a side is given is kept with the step it was given before (`Duel.tape`), an order
 that repeats the last left out. The recipe and the tape are the whole of what made a bout:
@@ -263,7 +265,22 @@ that repeats the last left out. The recipe and the tape are the whole of what ma
 names, before any mind, so a bout a person fought plays again to the bit
 (`playBout(recipe, seconds, tape)`). A facing is the way from the body to the pointer's point,
 which changes as the body moves, so a side fought with the pointer over the arena tapes an
-order a frame.
+order a frame. A side is given its orders as JSON carries them, so a tape that has been through a
+file or a link gives the orders the bout gave.
+
+A tape rides in a link's fragment, which no server is sent (`#tape=`, `readTape` and `tapeHash`
+in `src/arena/matchup.ts`), with the rest of its recipe in the link's query (`&gap=`, `&cap=`,
+`&balance=`). The arena plays a bout whose link carries a tape with nobody at the keys; a tape
+is of the engine that made it.
+
+**A bout forks by replay** (`rollout`, `research/rollouts.mjs`): a second bout is built from the
+recipe, played under the tape to the fork's step, and on from there under a branch of other
+orders. Every fork tells the digest of its poses at the fork, so two forks of one bout at one
+step agree in it or one of them is not that bout. **The oracle** (`research/oracle.mjs`) is built
+on forks, and is an instrument outside the core, not a mind: it holds the true world, which no
+mind may. At every half second of a bout it tries a handful of orders for one side, each in a
+fork, and gives the bout the best. What it reports is the ceiling of what it searched and of
+nothing wider ([reference/oracle.md](reference/oracle.md)).
 
 ## The screens
 

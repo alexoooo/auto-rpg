@@ -58,7 +58,9 @@ turn; across its heading or backward it walks at half pace.
 
 A link can name its matchup and open the bout directly:
 `?play=arena&matchup=workshop-fighter,crypt-skeleton` (the bodies are `workshop-fighter`,
-`workshop-rogue` and `crypt-skeleton`).
+`workshop-rogue` and `crypt-skeleton`). It may also say how far apart the two start (`&gap=3`,
+metres) and how long the bout may run (`&cap=30`, seconds), and carry a bout's orders after a
+`#tape=`, which the arena then plays again by itself.
 
 ## The Crypt
 
