@@ -145,6 +145,22 @@ export interface PhysicsWorld {
   contactsOf(body: SegmentBody): readonly Contact[];
   /** One solver step of `dt`, then every body's node written from its body. */
   step(dt: number): void;
+  /**
+   * The world's whole physical state as it stands: every body's pose and velocity, every joint's
+   * motor, the last step's contacts, and a force asked for the next. Opaque, the engine's own, and
+   * good only for `load` on a world of this engine with the same bodies, joints and fixed
+   * colliders, made in the same order.
+   */
+  save(): Uint8Array;
+  /**
+   * Put the world where `bytes` (a `save`) left one, in place: every body, joint and fixed
+   * collider it has stays the object it was, each node is written from its body, and the next
+   * step is the step that followed the save. It throws, and changes nothing, if `bytes` is not a
+   * save of a world with this one's bodies, joints and colliders. What the core set outside the
+   * solver (`SegmentBody.massProperties`) is not in a save: a load between two worlds is between
+   * two built from the same specs.
+   */
+  load(bytes: Uint8Array): void;
   /** Remove a body, its colliders and its joints; nothing once the world is disposed. */
   removeBody(body: SegmentBody): void;
   /** Free the world and everything in it; again is nothing. */

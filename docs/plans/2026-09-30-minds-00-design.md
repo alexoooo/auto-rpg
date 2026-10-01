@@ -79,7 +79,7 @@ as they wake, is not in this set.
 | 04 | orders: landed, its eye gate open | `Orders` (`src/core/mind/orders.ts`), carried out by `fighterTactics` (`STRAFE`, `docs/reference/orders.md`); the tape (`Duel.order`, `.tape`, `.play`); WASD and the pointer in the arena (`&you=left`) | | the owner fights a bout: `?play=arena&matchup=workshop-fighter,workshop-rogue&you=left` |
 | 05 | assist: landed, its eye gate open | what the soles miss (`StanceReading.shortfall`); the assist (`Assist`, `src/core/control/assist.ts`), its ceiling a character's balance (`AttributeSpec.balance`, `Rulebook.balance`); its tables (`docs/reference/assist.md`) | | the owner watches bouts with balance, against none: `?play=arena&matchup=workshop-fighter,workshop-fighter&balance=5`, `&balance=20`, `&balance=5,0` |
 | 06 | [oracle](2026-09-30-minds-06-oracle.md) | forks by replay on worker threads; the oracle; its first table; a tape in a link | 04 | the owner watches an oracle's bout |
-| 07 | [engine save](2026-09-30-minds-07-engine-save.md) | `PhysicsWorld.save` and `load` | | |
+| 07 | engine save: landed | `PhysicsWorld.save` and `load` (`src/core/engine/engine.ts`): a world's whole physical state as bytes, loaded in place | | |
 | 08 | [fork](2026-09-30-minds-08-fork.md) | `saveState`/`loadState`; every module's memory as data; `Duel.save`/`load`; forks by a load | 05, 06, 07 | |
 
 04 and 05 come first because they are what a person sees. The fork comes twice: 06 forks by
@@ -142,7 +142,7 @@ steps): a world restored from a snapshot at step 90 matches the original in all 
 to take and 1.4 ms to restore; the timestep and the solver's iterations survive it.
 
 **A load under a driven bout is transparent, and the physics is not the whole state.** With
-`save`/`load` on a copy of the engine module (plan 07's code), the fighter-rogue bout at step
+`save`/`load` on a copy of the engine module (what landed as `PhysicsWorld.save` and `load`), the fighter-rogue bout at step
 1200, compared with a bout run straight through, over the next 600 steps:
 
 | What was loaded, under which controllers | First step that differs |

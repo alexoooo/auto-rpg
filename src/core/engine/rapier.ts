@@ -17,6 +17,9 @@ import { CONTACT_FRICTION, type ColliderShape, type Contact, type EngineJoint, t
  *
  * **Solver conditioning** (`SOLVER`): the solver's iteration counts are named here and nowhere
  * else, and come from the bake-off's table. Bodies never sleep: a sleeping body reads a perfect zero.
+ *
+ * **A save** is Rapier's snapshot. It restores as a new world, so the module holds handles and
+ * finds its objects again on a load (`rebinds`, `joints`).
  */
 type Rapier = typeof RAPIER;
 
@@ -53,6 +56,7 @@ interface RapierJoint extends EngineJoint {
 /** A Rapier world: the contract's, and Rapier's own. The core sees only `PhysicsWorld`. */
 interface RapierPhysics extends PhysicsWorld {
   readonly rapier: Rapier;
+  /** Rapier's world as it is now: a load replaces it, so read it afresh. */
   readonly raw: RAPIER.World;
   addBody(node: TransformNode, shapes: readonly ColliderShape[], mass: MassProperties): RapierBody;
   addJoint(parent: SegmentBody, child: SegmentBody, frames: JointFrames): RapierJoint;
@@ -61,11 +65,15 @@ interface RapierPhysics extends PhysicsWorld {
 /** A Rapier world with the core's gravity and solver settings. */
 export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions): RapierPhysics {
   const g: Vec3 = gravity ? [0, -STANDARD_GRAVITY.value, 0] : [0, 0, 0];
-  const raw = new R.World({ x: g[0], y: g[1], z: g[2] });
+  let raw = new R.World({ x: g[0], y: g[1], z: g[2] });
   raw.timestep = 1 / hz;
   raw.numSolverIterations = SOLVER.iterations.value;
   raw.numInternalPgsIterations = SOLVER.pgs.value;
+  /** The world's joints, which every joint's limits and motor are set through. */
+  let joints = raw.impulseJoints.raw;
   const bodies = new Set<RapierBody>();
+  /** What each body does to find its rigid body again in a world just loaded. */
+  const rebinds = new Map<RapierBody, () => void>();
   /** Each body by its rigid body's handle, for a contact's other side. */
   const byHandle = new Map<number, RapierBody>();
   /** The bodies given a force or a moment for the next step: Rapier keeps one until it is reset. */
@@ -112,16 +120,44 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions):
 
   /** A collider with no body: fixed in the world, under the contract's contact. */
   const fixed = (desc: RAPIER.ColliderDesc): FixedCollider => {
-    const collider = raw.createCollider(contact(desc));
+    const handle = raw.createCollider(contact(desc)).handle;
     let gone = false;
-    return { dispose() { if (gone || freed) return; gone = true; raw.removeCollider(collider, false); } };
+    return { dispose() { if (gone || freed) return; gone = true; raw.removeCollider(raw.getCollider(handle), false); } };
+  };
+  /** Every body's node, from its body. */
+  const writeNodes = () => {
+    for (const { node, rigid } of bodies) {
+      const t = rigid.translation(), r = rigid.rotation();
+      node.position.set(t.x, t.y, t.z);
+      (node.rotationQuaternion ??= new Quaternion()).set(r.x, r.y, r.z, r.w);
+    }
   };
 
   const physics: RapierPhysics = {
-    engine: "rapier", rapier: R, raw, gravity: g,
+    engine: "rapier", rapier: R, get raw() { return raw; }, gravity: g,
+    save() { return raw.takeSnapshot(); },
+    load(bytes) {
+      const next = R.World.restoreSnapshot(bytes);
+      if (!next) throw new Error("these bytes are not a Rapier world");
+      let same = next.bodies.len() === raw.bodies.len() && next.colliders.len() === raw.colliders.len()
+        && next.impulseJoints.len() === raw.impulseJoints.len();
+      // Rapier's own set reads a handle whole; its JavaScript set reads the index alone, and takes a body made in a removed one's place for it.
+      for (const body of bodies) same &&= next.bodies.raw.contains(body.rigid.handle);
+      if (!same) {
+        next.free();
+        throw new Error("that save is of a world with other bodies, joints or colliders");
+      }
+      raw.free();
+      raw = next;
+      joints = raw.impulseJoints.raw;
+      for (const rebind of rebinds.values()) rebind();
+      // A save may hold a force asked for its next step; every body's is reset after that step.
+      for (const body of bodies) forced.add(body);
+      writeNodes();
+    },
     addBody(node, shapes, mass) {
       const q = node.rotationQuaternion ?? Quaternion.Identity();
-      const rigid = raw.createRigidBody(R.RigidBodyDesc.dynamic()
+      let rigid = raw.createRigidBody(R.RigidBodyDesc.dynamic()
         .setTranslation(node.position.x, node.position.y, node.position.z)
         .setRotation(xyzw(q))
         .setCanSleep(false));
@@ -134,8 +170,9 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions):
         rigid.recomputeMassPropertiesFromColliders();
       };
       setMass(mass);
+      const handle = rigid.handle;
       const body: RapierBody = {
-        node, rigid,
+        node, get rigid() { return rigid; },
         linearVelocityToRef(out) { const v = rigid.linvel(); return out.set(v.x, v.y, v.z); },
         angularVelocityToRef(out) { const w = rigid.angvel(); return out.set(w.x, w.y, w.z); },
         applyImpulse(impulse, at) { rigid.applyImpulseAtPoint(impulse, at, true); },
@@ -156,7 +193,8 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions):
         setFixed(fixed) { rigid.setBodyType(fixed ? R.RigidBodyType.Fixed : R.RigidBodyType.Dynamic, true); },
       };
       bodies.add(body);
-      byHandle.set(rigid.handle, body);
+      byHandle.set(handle, body);
+      rebinds.set(body, () => { rigid = raw.getRigidBody(handle); });
       return body;
     },
     addJoint(parentBody, childBody, frames) {
@@ -169,18 +207,18 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions):
       joint.setLocalFrame1(xyz(frames.anchorParent), xyzw(frames.frameParent));
       joint.setLocalFrame2(xyz(frames.anchorChild), xyzw(frames.frameChild));
       joint.setContactsEnabled(false);
-      const set = raw.impulseJoints.raw, handle = joint.handle;
+      const handle = joint.handle;
       const axes = [R.JointAxis.AngX, R.JointAxis.AngY, R.JointAxis.AngZ] as const;
       frames.limits.forEach(([min, max], k) => {
-        set.jointSetLimits(handle, axes[k]! as never, min, max);
-        set.jointConfigureMotorVelocity(handle, axes[k]! as never, 0, Infinity);
-        set.jointSetMotorMaxForce(handle, axes[k]! as never, 0);
+        joints.jointSetLimits(handle, axes[k]! as never, min, max);
+        joints.jointConfigureMotorVelocity(handle, axes[k]! as never, 0, Infinity);
+        joints.jointSetMotorMaxForce(handle, axes[k]! as never, 0);
       });
       return {
-        raw: joint,
+        get raw() { return raw.getImpulseJoint(handle); },
         setMotor(k, speed, ceiling) {
-          set.jointConfigureMotorVelocity(handle, axes[k]! as never, speed, Infinity);
-          set.jointSetMotorMaxForce(handle, axes[k]! as never, ceiling);
+          joints.jointConfigureMotorVelocity(handle, axes[k]! as never, speed, Infinity);
+          joints.jointSetMotorMaxForce(handle, axes[k]! as never, ceiling);
         },
       };
     },
@@ -231,11 +269,7 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions):
       raw.step();
       for (const { rigid } of forced) { rigid.resetForces(false); rigid.resetTorques(false); }
       forced.clear();
-      for (const { node, rigid } of bodies) {
-        const t = rigid.translation(), r = rigid.rotation();
-        node.position.set(t.x, t.y, t.z);
-        (node.rotationQuaternion ??= new Quaternion()).set(r.x, r.y, r.z, r.w);
-      }
+      writeNodes();
     },
     removeBody(segment) {
       // After the world is freed its bodies went with it.
@@ -243,6 +277,7 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions):
       if (!bodies.delete(body) || freed) return;
       byHandle.delete(body.rigid.handle);
       forced.delete(body);
+      rebinds.delete(body);
       raw.removeRigidBody(body.rigid);
     },
     dispose() {
@@ -251,6 +286,7 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions):
       bodies.clear();
       byHandle.clear();
       forced.clear();
+      rebinds.clear();
       raw.free();
     },
   };

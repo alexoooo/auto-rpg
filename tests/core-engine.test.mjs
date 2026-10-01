@@ -6,7 +6,10 @@
  * under a box lets it fall, and a body from another world is refused a joint; a box drifting at a
  * millimetre a second keeps drifting, where a sleeping one would stop and read zero; a force
  * through a step is integrated as gravity is and lasts that step alone; a box resting on another
- * touches it, pushed with its weight, and the ground is no body; and a fixed box turns about up.
+ * touches it, pushed with its weight, and the ground is no body; a fixed box turns about up; and a
+ * world loaded from a save goes on as it went on from the save, its contacts, its fixed colliders
+ * and its bodies the ones it had, a force asked for the next step with them, and a save of another
+ * world refused.
  * Node, a NullEngine scene, 120 Hz.
  */
 import test from "node:test";
@@ -196,4 +199,116 @@ test("a fixed hull stands where its points are in the world", async () => {
       else assert.ok(y < 0, `a ball dropped beside the post falls past it: ${y}`);
     } finally { b.dispose(); }
   }
+});
+
+/** Each body's pose and velocity, as numbers. */
+const stateOf = (bodies) => bodies.flatMap((body) => {
+  const p = body.node.position, q = body.node.rotationQuaternion;
+  const v = body.linearVelocityToRef(new Vector3()), w = body.angularVelocityToRef(new Vector3());
+  return [p.x, p.y, p.z, q.x, q.y, q.z, q.w, v.x, v.y, v.z, w.x, w.y, w.z];
+});
+/** A box on `b`'s, a little off its centre, rested half a second and then shoved along the lower box's top: sliding at the last step. */
+const stacked = (b) => {
+  const top = add(b, "top", [0.03, 1.5 * SIDE, 0]);
+  b.step(HZ / 2 - 3);
+  top.applyImpulse(new Vector3(0.5, 0, 0), top.node.position.clone());
+  b.step(3);
+  return top;
+};
+
+test("a world loaded from a save goes on as it went on from the save", async () => {
+  const b = await box();
+  try {
+    const top = stacked(b), both = [b.body, top];
+    const saved = b.physics.save(), at = stateOf(both);
+    assert.ok(speed(top) > 0.1, `the top box slides at ${speed(top)} m/s at the save`);
+    const trail = [];
+    for (let i = 0; i < 30; i++) { b.step(1); trail.push(stateOf(both)); }
+    // The control: knocked off the lower box, it is somewhere else.
+    top.applyImpulse(new Vector3(3, 2, 0), top.node.position.clone());
+    b.step(HZ / 2);
+    assert.ok(top.node.position.x > 1, `knocked to ${top.node.position.x} m`);
+    b.physics.load(saved);
+    assert.deepEqual(stateOf(both), at, "both boxes are where they were at the save, moving as they were");
+    assert.deepEqual(b.physics.save(), saved, "and a save of the loaded world is the save it loaded");
+    const again = [];
+    for (let i = 0; i < 30; i++) { b.step(1); again.push(stateOf(both)); }
+    assert.deepEqual(again, trail);
+  } finally { b.dispose(); }
+});
+
+test("a force asked for the step after a save is given through that step after a load, and no longer", async () => {
+  const held = await box({ height: 1, ground: false });
+  try {
+    held.body.applyForce(new Vector3(0, MASS.mass * STANDARD_GRAVITY.value, 0), held.node.position);
+    const saved = held.physics.save();
+    held.step(1);
+    assert.ok(speed(held.body) < 1e-6, `held through the step: ${speed(held.body)} m/s`);
+    held.step(1);
+    const went = stateOf([held.body]);
+    assert.ok(Math.abs(went[8] + STANDARD_GRAVITY.value / HZ) < 1e-6, `falling at ${went[8]} m/s a step on`);
+    held.step(HZ / 4);
+    held.physics.load(saved);
+    held.step(2);
+    assert.deepEqual(stateOf([held.body]), went);
+  } finally { held.dispose(); }
+});
+
+test("a loaded world keeps the last step's contacts, its fixed colliders and its bodies' identity", async () => {
+  const b = await box();
+  try {
+    const top = stacked(b);
+    const saved = b.physics.save(), read = (contacts) => contacts.map(({ point, normal, impulse }) => ({ point, normal, impulse }));
+    const touched = b.physics.contactsOf(top);
+    assert.deepEqual(touched.map((c) => c.other), [b.body]);
+    top.applyImpulse(new Vector3(3, 2, 0), top.node.position.clone());
+    b.step(HZ / 2);
+    assert.deepEqual(b.physics.contactsOf(top), [], "knocked off, it touches no body");
+    b.physics.load(saved);
+    const again = b.physics.contactsOf(top);
+    assert.deepEqual(read(again), read(touched), "before any step, the contacts of the step before the save");
+    assert.equal(again[0].other, b.body, "and the body touched is the object it was");
+    // A body made before the save takes an impulse after the load: its speed changes by the impulse over its mass.
+    const before = top.linearVelocityToRef(new Vector3());
+    top.applyImpulse(new Vector3(0, 0, 2), top.node.position.clone());
+    const gained = top.linearVelocityToRef(new Vector3()).subtract(before);
+    assert.ok(Math.abs(gained.z - 2 / MASS.mass) < 1e-6 && Math.hypot(gained.x, gained.y) < 1e-9, `gained ${gained}`);
+    // The ground made before the save is taken out after the load.
+    const resting = b.node.position.y;
+    b.floor.dispose();
+    b.step(HZ / 2);
+    assert.ok(b.node.position.y < resting - 0.5, `${b.node.position.y} m, from ${resting}`);
+  } finally { b.dispose(); }
+});
+
+test("a save of another world is refused, and the world it was offered to is untouched", async () => {
+  const two = await box(), twin = await box();
+  // One body where `two` has two; `two`'s count of bodies, the second made, removed and made again;
+  // `two`'s bodies and a fixed box more; `two`'s bodies and a joint between them. And `ghost`: `fewer`'s
+  // body and colliders, and a body more that has no shape.
+  const others = { fewer: await box(), reborn: await box(), walled: await box(), jointed: await box() }, ghost = await box();
+  try {
+    const tops = [stacked(two), stacked(twin)], above = [0.03, 1.5 * SIDE, 0];
+    others.reborn.physics.removeBody(add(others.reborn, "first", above));
+    add(others.reborn, "second", above);
+    add(others.walled, "top", above);
+    others.walled.physics.addFixedBox([5, 0.5, 0], [1, 1, 1]);
+    others.jointed.physics.addJoint(others.jointed.body, add(others.jointed, "top", above), FRAMES);
+    for (const [name, other] of Object.entries(others)) {
+      other.step(HZ / 2);
+      assert.throws(() => two.physics.load(other.physics.save()), /other bodies, joints or colliders/, name);
+    }
+    const node = new TransformNode("ghost", ghost.node.getScene());
+    node.rotationQuaternion = Quaternion.Identity();
+    ghost.physics.addBody(node, [], MASS);
+    ghost.step(HZ / 2);
+    assert.throws(() => others.fewer.physics.load(ghost.physics.save()), /other bodies, joints or colliders/, "a body more");
+    assert.throws(() => two.physics.load(new Uint8Array(8)), /not a Rapier world/);
+    two.step(30); twin.step(30);
+    assert.deepEqual(stateOf([two.body, tops[0]]), stateOf([twin.body, tops[1]]), "it steps on as its twin, which was offered none");
+    // Its twin's save it takes, and is then where its twin is.
+    twin.step(7);
+    two.physics.load(twin.physics.save());
+    assert.deepEqual(stateOf([two.body, tops[0]]), stateOf([twin.body, tops[1]]));
+  } finally { two.dispose(); twin.dispose(); ghost.dispose(); for (const other of Object.values(others)) other.dispose(); }
 });

@@ -90,7 +90,10 @@ writes each node's `position` and `rotationQuaternion`; bodies that never sleep;
 whole; velocities of the centre of mass; one friction (`CONTACT_FRICTION`, 0.5) and no bounce on
 every contact; freedom k as axis k of the joint's frame; a motor as a velocity constraint bounded
 by a torque; a force and a moment on a body through one step, integrated as gravity is, beside
-the impulse that is whole before it; and the contacts the solver pushed on in the last step. `rapier.ts` implements it,
+the impulse that is whole before it; and the contacts the solver pushed on in the last step. A
+world saves its whole physical state and loads it in place (`PhysicsWorld.save`, `load`); a body,
+joint or collider the core holds survives a load as the object it was, and a save of a world with
+other bodies, joints or colliders is refused. `rapier.ts` implements it,
 with the solver's own settings in `SOLVER`, which are conditioning and not anatomy. `engines.ts`
 lists the engines and is the only module in `src/core/` or the lab that imports one. A candidate
 is tried on the physics bench (`src/physics-bench/engines/`) first, then added to `ENGINES` and run

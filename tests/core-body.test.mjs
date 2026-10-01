@@ -3,15 +3,19 @@
  * hand goal given afresh each step keeps its path and is reached, a push drives its freedom flat
  * out, a released hand goes back to the posture, and the view's two readings of the knuckles, the
  * world's and the body frame's, agree. Node stand: the Warrior, lower trunk held, gravity on, no
- * ground, 120 Hz.
+ * ground, 120 Hz. And a body walking on the ground under the command layers goes on from an
+ * engine's load as it went on from the save (`PhysicsWorld.save`, `load`).
  */
 import test from "node:test";
 import assert from "node:assert/strict";
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import { createBody } from "../src/core/body.ts";
+import { createBody, SERVO_SECONDS } from "../src/core/body.ts";
 import { chainTo } from "../src/core/control/kinematics.ts";
 import { humanSpec } from "../src/core/human/spec.ts";
+import { standIntent } from "../src/core/mind/intent.ts";
+import { driveBy } from "../src/core/mind/tactics.ts";
 import { coreStand } from "./harness/core-stand.mjs";
+import { traceOf } from "./harness/trace.mjs";
 
 const GUARD = {
   "shoulder.right flexion": 0.5, "shoulder.right abduction": -0.2, "elbow.right flexion": 1.3,
@@ -67,4 +71,45 @@ test("a body obeys its command and shows what it does", async () => {
     assert.ok(released < 0.05, `the released arm was ${released.toFixed(3)} rad off the posture`);
     assert.ok(seen.gap < 1e-6, `the view's knuckles were ${(1000 * seen.gap).toFixed(3)} mm apart`);
   } finally { body.dispose(); stand.dispose(); }
+});
+
+/**
+ * The Warrior on the ground under the command layers, walking forward at half its fastest walk:
+ * its stand, its skills, and a running digest of its poses (`traceOf`).
+ */
+async function walker() {
+  const stand = await coreStand(humanSpec("workshop-fighter"));
+  const body = createBody(stand.built, stand.world, { servoSeconds: SERVO_SECONDS });
+  const skills = driveBy(body, { name: "walk", decide: ({ envelope }) => ({ ...standIntent(0), move: [0.5 * envelope.walk.value, 0] }) });
+  const trace = traceOf([stand.built]);
+  return {
+    stand, skills, physics: stand.world.physics,
+    /** `n` steps, each taken into the digest; the digest after the first of them, and after the last. */
+    walk(n) {
+      let first = null;
+      for (let i = 0; i < n; i++) { stand.step(); trace.take(); first ??= trace.digest(); }
+      return { first, last: trace.digest() };
+    },
+    dispose() { body.dispose(); stand.dispose(); },
+  };
+}
+
+test("a driven body goes on from a load as it went on from the save", async () => {
+  // Triplets, built alike and walked alike: the engine's half of a fork alone, every body's controllers at one step.
+  const a = await walker(), b = await walker(), c = await walker();
+  try {
+    a.walk(230); b.walk(230); c.walk(230);
+    const early = a.physics.save();
+    const before = a.walk(10);
+    assert.deepEqual([b.walk(10), c.walk(10)], [before, before], "built alike, they agree to the bit before any load");
+    const root = a.stand.built.segments.get("lowerTrunk").node.position, far = Math.hypot(root.x, root.z);
+    assert.ok(far > 0.3, `it walked ${far} m in 2 s`);
+    b.physics.load(a.physics.save());
+    // The control: a save taken ten steps earlier parts them at the first step.
+    c.physics.load(early);
+    const went = a.walk(240);
+    assert.deepEqual(b.walk(240), went, "loaded with another's save of the same step, it walks on as the other does");
+    assert.notEqual(c.walk(240).first, went.first);
+    assert.deepEqual([a.skills.report.fallen, b.skills.report.fallen], [false, false], "and its muscles still hold it up");
+  } finally { a.dispose(); b.dispose(); c.dispose(); }
 });
