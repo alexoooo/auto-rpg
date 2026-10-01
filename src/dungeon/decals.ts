@@ -11,6 +11,8 @@ export const DECAL_KINDS = Object.freeze(["blood", "crack", "moss", "puddle", "b
   "rubble", "scorch", "straw", "grime", "stain", "lichen", "fissure", "chains", "banner"] as const);
 type DecalKind = (typeof DECAL_KINDS)[number];
 
+/** The atlas: a tile's side, px, the tiles across and down, and the clear rim round each, px
+ * (`docs/reference/look.md#crypt-dressing`). */
 export const ATLAS = Object.freeze({ tile: 256, columns: 4, rows: 4, rim: 6 });
 
 /**
@@ -18,7 +20,7 @@ export const ATLAS = Object.freeze({ tile: 256, columns: 4, rows: 4, rim: 6 });
  * (chains are 0.3 by 1 m and more), and a square tile stretched onto it would stretch its strokes and void the mip
  * rule, which assumes a tile shrinks the same both ways. So each is painted in the centred part of its tile that has
  * its aspect (`muralRect`), and drawn `width / aspect` high. The aspect lives here because the painting and the quad
- * have to agree on it.
+ * have to agree on it. Set by eye (`docs/reference/look.md#crypt-dressing`).
  */
 export const MURAL_ASPECT = Object.freeze({ stain: 0.45, lichen: 1, fissure: 0.45, chains: 0.3, banner: 0.55 } as const);
 export type WallPiece = keyof typeof MURAL_ASPECT;
@@ -139,7 +141,7 @@ function blob(random: () => number, radius: number, wobble: number, lobes: numbe
   };
 }
 
-/** Each kind's painting, set by eye. Colours are sRGB, 0 to 1. */
+/** Each kind's painting, set by eye (`docs/reference/look.md#crypt-dressing`). Colours are sRGB, 0 to 1. */
 const PAINT: Record<DecalKind, (tile: Tile, random: () => number) => void> = {
   blood(tile, random) {
     const edge = blob(random, 0.26, 0.24, 3), grain = noise(random, 9), dark: Rgb = [0.2, 0.015, 0.01], wet: Rgb = [0.36, 0.03, 0.02];

@@ -2,9 +2,15 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { FreeCamera } from "@babylonjs/core/Cameras/freeCamera.js";
 import type { Point } from "./map.ts";
 
-/** The camera's elevation above the ground plane. The page takes `?pitch=` in degrees to compare others;
- * the concept art looks down at about 40 to 45. */
+/** The camera's elevation above the ground plane, rad: 30 degrees, where the concept art looks down at about 40 to
+ * 45 and the reference chamber's own camera at 42 (`REFERENCE_CAMERA`). Which the crypt takes is the owner's to
+ * choose (`docs/reference/look.md#crypt-camera`); the page takes `?pitch=` in degrees to compare others. */
 export const CAMERA_PITCH = Math.PI / 6;
+
+/** How far across the ground the camera stands from the point it looks at, m, and that point's height above the
+ * floor under the hero, m (`docs/reference/look.md#crypt-camera`). The camera is orthographic, so the distance
+ * sets what is clipped and not how large anything is drawn. */
+const CAMERA = Object.freeze({ ground: Math.sqrt(800), height: 1 });
 
 /** Which way the camera stands from the hero, as a bearing on the ground: `cameraToward` of it is the unit step from
  * the hero toward the camera. Pi stands it at -z, so walls run across and up the screen, screen right is +x and screen
@@ -15,14 +21,14 @@ export const CAMERA_AZIMUTH = Math.PI;
 /** The unit step on the ground from the hero toward a camera at `azimuth`. */
 export const cameraToward = (azimuth: number): Point => ({ x: Math.sin(azimuth), z: Math.cos(azimuth) });
 
-/** How far the camera stands from the point it looks at: sqrt(800) across the ground. */
-export const cameraDistance = (pitch: number): number => Math.sqrt(800) / Math.cos(pitch);
+/** How far the camera stands from the point it looks at: `CAMERA.ground` across the ground. */
+export const cameraDistance = (pitch: number): number => CAMERA.ground / Math.cos(pitch);
 
 export function frameDungeon(camera: FreeCamera, hero: Point, zoom: number, aspect: number, pitch = CAMERA_PITCH,
   azimuth = CAMERA_AZIMUTH): void {
-  const toward = cameraToward(azimuth), ground = Math.sqrt(800);
-  camera.position.set(hero.x + toward.x * ground, 1 + ground * Math.tan(pitch), hero.z + toward.z * ground);
-  camera.setTarget(new Vector3(hero.x, 1, hero.z));
+  const toward = cameraToward(azimuth), ground = CAMERA.ground;
+  camera.position.set(hero.x + toward.x * ground, CAMERA.height + ground * Math.tan(pitch), hero.z + toward.z * ground);
+  camera.setTarget(new Vector3(hero.x, CAMERA.height, hero.z));
   camera.orthoLeft = -zoom * aspect; camera.orthoRight = zoom * aspect;
   camera.orthoTop = zoom; camera.orthoBottom = -zoom;
 }

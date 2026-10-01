@@ -73,6 +73,10 @@ const MATERIAL_TEXTURE_FIELDS = Object.freeze([
 ] as const);
 const CARTESIAN_AXES = Object.freeze(["x", "y", "z"] as const);
 
+/**
+ * The arena's room, m (`docs/reference/look.md#arena-room`): the floor, the walls a body meets, and
+ * what one repeat of each surface's image spans.
+ */
 export const ROOM = Object.freeze({
   groundHalfExtent: 30,
   /** The highest a fighter can reach, m: crown, raised arm and the longest carried object, with margin. */
@@ -135,7 +139,8 @@ const placed = (
  * The room's cosmetic placements. Nothing solid is admitted below the reach
  * ceiling (`ROOM.maxReachHeight`) unless it names one of the arena's colliders
  * (`validateRoomPlacements`). A fighter can move beyond the slab, so distance
- * admits nothing; only overhead solids may go without a collider.
+ * admits nothing; only overhead solids may go without a collider. Where each piece stands is set by
+ * eye (`docs/reference/look.md#arena-room`).
  */
 export const ROOM_GROUPS: readonly RoomGroup[] = Object.freeze([
   {
@@ -187,9 +192,16 @@ export const ROOM_GROUPS: readonly RoomGroup[] = Object.freeze([
   },
 ]);
 
+/**
+ * The ring of posts round the fighting floor: how many, the ring's radius, and each post's size and
+ * sides, m (`docs/reference/look.md#arena-room`).
+ */
+export const ARENA_POSTS = Object.freeze({ count: 14, ring: 9.5, height: 1.5, diameter: 0.17, sides: 8 });
+
+/** The name of every collider the arena has (`arenaSolids`). */
 const existingColliders = new Set([
   "ground",
-  ...Array.from({ length: 14 }, (_, index) => `post${index}`),
+  ...Array.from({ length: ARENA_POSTS.count }, (_, index) => `post${index}`),
   ...roomWalls().map((placement) => placement.collider as string),
 ]);
 
@@ -336,9 +348,6 @@ function segmentIntersectsMesh(
   }
   return true;
 }
-
-/** The ring of posts round the fighting floor: how many, the ring's radius, and each post's size and sides, m. */
-export const ARENA_POSTS = Object.freeze({ count: 14, ring: 9.5, height: 1.5, diameter: 0.17, sides: 8 });
 
 /** One of the arena's fixed colliders, world, m: a box by its centre and full size, or a post by its corners. */
 type ArenaSolid =

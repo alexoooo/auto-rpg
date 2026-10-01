@@ -47,9 +47,9 @@ import type { Hook, World } from "../core/world.ts";
  * there, in this world or another, to go on as the saved bout went on.
  */
 
-/** Where the two stand, m apart across the centre, along x. */
+/** Where the two stand, m apart across the centre, along x (`docs/reference/play.md#the-bout`). */
 const GAP_METRES = 4;
-/** How long a bout runs before the bars decide it, s. */
+/** How long a bout runs before the bars decide it, s (`docs/reference/play.md#the-bout`). */
 export const CAP_SECONDS = 120;
 
 export type Side = "left" | "right";

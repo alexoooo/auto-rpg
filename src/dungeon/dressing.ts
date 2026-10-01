@@ -8,7 +8,8 @@ import { MURAL_ASPECT, WALL_PIECES, type WallPiece } from "./decals.ts";
  * wall's top. Its height is its width over its tile's aspect (`MURAL_ASPECT` in `decals.ts`, which paints it). */
 interface MuralSpec { weight: number; width: readonly [number, number]; y: "top" | readonly [number, number] }
 
-/** Where the dungeon's body-free decoration goes. Every number here is set by eye, and density is judged in play. */
+/** Where the dungeon's body-free decoration goes. Every number here is set by eye, and density is judged in play
+ * (`docs/reference/look.md#crypt-dressing`). */
 export const DRESSING = Object.freeze({
   /** No two torches closer than this, in metres. */
   torchSpacing: 7,
@@ -58,9 +59,10 @@ export const DRESSING = Object.freeze({
   } satisfies Record<WallPiece, MuralSpec>),
 });
 
-/** The top of everything hung on a wall: a centimetre under the coping. */
+/** The top of everything hung on a wall: a centimetre under the coping (`docs/reference/look.md#crypt-dressing`). */
 export const HUNG_TOP = WALL_HEIGHT - 0.01;
-/** No wall piece comes lower than this: under it the floor's tiles and a body's feet are in front of it. */
+/** No wall piece comes lower than this: under it the floor's tiles and a body's feet are in front of it
+ * (`docs/reference/look.md#crypt-dressing`). */
 const MURAL_FLOOR = 0.1;
 /** A wall piece's height: its width over its tile's aspect, so its painting is not stretched. */
 export const muralHeight = (m: { piece: WallPiece; width: number }): number => m.width / MURAL_ASPECT[m.piece];
@@ -70,7 +72,8 @@ export const muralHeight = (m: { piece: WallPiece; width: number }): number => m
  * step toward the camera (`cameraToward`). A hung piece is one face, culled from behind as the walls are, so it hangs
  * only where the camera sees that face. The facing tests ask 0.3 of the face's normal against the camera's view,
  * which is `cos(pitch)` of the ground dot: 0.3 / cos 30 = 0.346. A bare `> 0` would hang pieces on faces nearly
- * edge-on to the camera. Square to the walls, the face looking at the camera scores 1 and the side faces 0.
+ * edge-on to the camera. Square to the walls, the face looking at the camera scores 1 and the side faces 0
+ * (`docs/reference/look.md#crypt-dressing`).
  */
 export const FACING_MIN = 0.35;
 const facesCamera = (p: Point, toward: Point) => p.x * toward.x + p.z * toward.z >= FACING_MIN;
@@ -115,11 +118,14 @@ const wallsMeet = (a: { cell: Point; facing: Point; along: number; width: number
 /** The table `dressingPlacements` reads: `DRESSING`, or a caller's variation of it. */
 type DressingTable = typeof DRESSING;
 
-/** The top of the floor's tiles, which every marking lies on. `world.ts` builds its tiles to this. */
+/** The top of the floor's tiles, which every marking lies on. `world.ts` builds its tiles to this
+ * (`docs/reference/look.md#crypt-dressing`). */
 export const FLOOR_TOP = 0.015;
-/** How far a piece may stand off a wall's face: the sconces' allowance (`SCONCE.proud` in `world.ts`). */
+/** How far a piece may stand off a wall's face: the sconces' allowance (`SCONCE.proud` in `world.ts`;
+ * `docs/art/crypt.md#the-rule-every-piece-keeps`). */
 export const WALL_ALLOWANCE = 0.08;
-/** Markings that overlap are lifted apart by a layer each, so that no two share a depth; there are this many. */
+/** Markings that overlap are lifted apart by a layer each, so that no two share a depth; there are this many
+ * (`docs/reference/look.md#crypt-dressing`). */
 const DECAL_LAYERS = 3;
 /** The height a marking lies at: 4 mm over the tiles, and 2 mm more a layer. */
 export const decalHeight = (layer: number): number => FLOOR_TOP + 0.004 + 0.002 * layer;
@@ -244,7 +250,8 @@ const decalsMeet = (a: { at: Point; size: number }, b: { at: Point; size: number
 /** How close a marking's square comes to a point, at worst: its circumcircle's distance. */
 const decalReach = (d: { at: Point; size: number }, p: Point) => Math.hypot(d.at.x - p.x, d.at.z - p.z) - d.size * Math.SQRT1_2;
 
-/** A root hung this near a flame would be burning; a web this near one would hang through it. */
+/** A root hung this near a flame would be burning; a web this near one would hang through it, m
+ * (`docs/reference/look.md#crypt-dressing`). */
 const ROOT_TORCH_CLEARANCE = 1.5, WEB_TORCH_CLEARANCE = 1.2;
 
 /** A room's inner corners: a floor cell inside a room, and a corner of it where the two cells beside it and the one
@@ -348,7 +355,7 @@ export function dressingPlacements(map: DungeonMap, seed: number, densities: Dre
   return [...decals, ...roots, ...webs, ...murals];
 }
 
-/** A mural's tries at a face before it is given up. */
+/** A mural's tries at a face before it is given up: a numeric setting, the bound on a search. */
 const MURAL_TRIES = 8;
 
 /** Every reason a wall piece may not hang where it is, apart from its neighbours; empty when it may. The placement

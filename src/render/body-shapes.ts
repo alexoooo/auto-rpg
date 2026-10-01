@@ -84,13 +84,20 @@ function shapeMesh(name: string, frame: SegmentFrame, shape: ShapeSpec, scene: S
   }
 }
 
+/**
+ * The plain shapes' colours, set by eye (`docs/reference/look.md#bodies`): the faint grey every shape
+ * shines with, and the warm colour a body's right side is drawn toward, `warmShare` of the way, so
+ * that its two sides tell apart.
+ */
+const SHAPE_TINT = Object.freeze({ sheen: 0.08, warm: [0.85, 0.45, 0.25], warmShare: 0.35 } as const);
+
 /** Draw `built`'s shapes; `tint` colours the body, and the right side is drawn a shade warmer. */
 export function drawBody(built: BuiltBody, scene: Scene, tint: Color3): BodyShapes {
   const left = new StandardMaterial(`${built.spec.model}.view.left`, scene);
   left.diffuseColor = tint;
-  left.specularColor = new Color3(0.08, 0.08, 0.08);
+  left.specularColor = new Color3(SHAPE_TINT.sheen, SHAPE_TINT.sheen, SHAPE_TINT.sheen);
   const right = new StandardMaterial(`${built.spec.model}.view.right`, scene);
-  right.diffuseColor = Color3.Lerp(tint, new Color3(0.85, 0.45, 0.25), 0.35);
+  right.diffuseColor = Color3.Lerp(tint, new Color3(...SHAPE_TINT.warm), SHAPE_TINT.warmShare);
   right.specularColor = left.specularColor;
   const meshes: Mesh[] = [];
   for (const segment of built.segments.values()) {
@@ -110,7 +117,7 @@ export function drawBody(built: BuiltBody, scene: Scene, tint: Color3): BodyShap
   };
 }
 
-/** Wood, for what a hand holds. */
+/** Wood, for what a hand holds (`docs/reference/look.md#bodies`). */
 const WOOD = new Color3(0.45, 0.3, 0.17);
 
 /**
@@ -121,7 +128,7 @@ const WOOD = new Color3(0.45, 0.3, 0.17);
 export function drawHeld(built: BuiltBody, scene: Scene): BodyShapes {
   const wood = new StandardMaterial(`${built.spec.model}.view.held`, scene);
   wood.diffuseColor = WOOD;
-  wood.specularColor = new Color3(0.08, 0.08, 0.08);
+  wood.specularColor = new Color3(SHAPE_TINT.sheen, SHAPE_TINT.sheen, SHAPE_TINT.sheen);
   const meshes: Mesh[] = [];
   for (const segment of built.segments.values()) {
     segment.rigid.shapes.slice(1).forEach((shape, i) => {

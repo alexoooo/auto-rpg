@@ -119,7 +119,8 @@ scenario.addEventListener("change", chooseScenario);
 chooseScenario();
 updateEquipment();
 
-/** The most real time one frame steps the world through, s: a page that falls behind runs slow rather than in a burst. */
+/** The most real time one frame steps the world through, s: a page that falls behind runs slow rather than in a burst.
+ * A numeric setting. */
 const CATCH_UP_SECONDS = 0.1;
 
 async function boot(): Promise<void> {

@@ -15,7 +15,7 @@ import { MASONRY } from "./masonry.ts";
 import type { DungeonMap, Point } from "./map.ts";
 import { CAMERA_AZIMUTH, cameraToward } from "./camera.ts";
 
-/** Set by eye. */
+/** What ground no longer in sight is drawn as, set by eye (`docs/reference/look.md#crypt-fog`). */
 const FOG_LOOK = Object.freeze({
   /** What remembered ground and walls darken toward, in linear light: a cold near-black, plus a share of the
    * surface's own lit brightness so that remembered stone stays readable. */
@@ -24,7 +24,7 @@ const FOG_LOOK = Object.freeze({
 });
 
 /**
- * What a textured floor or wall does to its own albedo, set by eye. A 1k map
+ * What a textured floor or wall does to its own albedo, set by eye (`docs/reference/look.md#crypt-stone`). A 1k map
  * repeats every 2 or 3 m, and at the widest zoom that is a grid the eye finds at once: a two-octave value noise of
  * world position, at spans that share no multiple with the map's, varies the brightness under it. A per-cell UV
  * rotation would do it too, and would put a mip seam on every cell edge.
@@ -60,6 +60,9 @@ const f = (v: number) => v.toFixed(3);
 // The cut-away is `cutAway` in `fog.ts`, with `fogBand.xy` the camera pitch's cosine and sine, and `fogToward` the
 // unit step on the ground toward the camera.
 // `texelFetch` and a one-channel texture need WebGL2, as SSAO2 does.
+// What the template works out for itself (the 5 mm under the coping's bevel, the digits a value is printed to) is a
+// numeric setting. The look's numbers are `STONE_LOOK`'s, `FOG_LOOK`'s and `CUT_AWAY`'s; the few the shader's text
+// writes itself are recorded with them (`docs/reference/look.md#crypt-stone`, `#crypt-fog`).
 const FRAGMENT = Object.freeze({
   CUSTOM_FRAGMENT_DEFINITIONS: `
 #ifdef DUNGEON_FOG

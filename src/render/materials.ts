@@ -39,6 +39,10 @@ interface RegistryRow {
 
 interface RuntimeRegistry { textures: RegistryRow[] }
 
+/**
+ * Each plain surface's colour in linear light, its metalness and its roughness
+ * (`docs/reference/look.md#materials`).
+ */
 const BASE = {
   wood: { name: "wood", albedo: [0.34, 0.20, 0.09], metallic: 0, roughness: 0.72 },
   "room.timber": { name: "roomTimber", albedo: [0.20, 0.12, 0.065], metallic: 0, roughness: 0.88 },

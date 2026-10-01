@@ -35,48 +35,67 @@ interface Arena {
 }
 
 /**
+ * The arena's light and its camera's lens, set by eye (`docs/reference/look.md#arena-light`): a
+ * cool fill from the sky over a warm bounce from the ground, a warm sun with its shadow map, and
+ * the image the metal and the stone reflect. Colours are red, green and blue from 0 to 1;
+ * directions and places are the world's, m.
+ */
+const ARENA_LIGHT = Object.freeze({
+  /** What shows where nothing is drawn, with its alpha, and the ambient colour. */
+  clear: [0.055, 0.062, 0.078, 1],
+  ambient: [0.14, 0.15, 0.18],
+  /** Where the camera is made, before the page's orbit places it; its vertical field of view, rad; its near and far planes, m. */
+  camera: { start: [0, 2, -4], fov: 0.95, near: 0.05, far: 220 },
+  /** The reflected image: its cube's side, px, and its strength. */
+  environment: { size: 256, intensity: 0.85 },
+  sky: { direction: [0.2, 1, 0.1], intensity: 0.45, diffuse: [0.72, 0.78, 0.92], ground: [0.24, 0.2, 0.16] },
+  sun: { direction: [-0.45, -1, 0.62], position: [9, 16, -12], intensity: 2.6, diffuse: [1, 0.85, 0.66] },
+  /** The sun's shadow map: its side, px, and the two biases that keep a lit face from shadowing itself. */
+  shadow: { size: 2048, bias: 0.0015, normalBias: 0.012 },
+} as const);
+
+/**
  * The arena's scene: its light, its room and its solids, which are fixed colliders in the physics
  * `physicsFor` makes on the scene (the core's world, `createWorld`).
  */
 export async function buildArena(engine: Engine, physicsFor: (scene: Scene) => PhysicsWorld): Promise<Arena> {
   const scene = new Scene(engine);
-  scene.clearColor = new Color4(0.055, 0.062, 0.078, 1);
-  scene.ambientColor = new Color3(0.14, 0.15, 0.18);
+  scene.clearColor = new Color4(...ARENA_LIGHT.clear);
+  scene.ambientColor = new Color3(...ARENA_LIGHT.ambient);
 
   // Physics first: the room's solids go into it as they are built.
   const physics = physicsFor(scene);
 
-  const camera = new FreeCamera("camera", new Vector3(0, 2, -4), scene);
-  // Vertical field of view, rad.
-  camera.fov = 0.95;
-  camera.minZ = 0.05;
-  camera.maxZ = 220;
+  const camera = new FreeCamera("camera", new Vector3(...ARENA_LIGHT.camera.start), scene);
+  camera.fov = ARENA_LIGHT.camera.fov;
+  camera.minZ = ARENA_LIGHT.camera.near;
+  camera.maxZ = ARENA_LIGHT.camera.far;
 
   // Image-based lighting gives metal and stone their reflections. Without the HDRI the scene still
   // lights, only flatter, so a fresh clone runs before anyone downloads it.
   try {
-    const env = new HDRCubeTexture(publicAssetUrl("/assets/env.hdr"), scene, 256, false, true, false, true);
+    const env = new HDRCubeTexture(publicAssetUrl("/assets/env.hdr"), scene, ARENA_LIGHT.environment.size, false, true, false, true);
     scene.environmentTexture = env;
-    scene.environmentIntensity = 0.85;
+    scene.environmentIntensity = ARENA_LIGHT.environment.intensity;
   } catch {
     scene.environmentIntensity = 0;
   }
 
-  const sky = new HemisphericLight("sky", new Vector3(0.2, 1, 0.1), scene);
-  sky.intensity = 0.45;
-  sky.diffuse = new Color3(0.72, 0.78, 0.92);
-  sky.groundColor = new Color3(0.24, 0.2, 0.16);
+  const sky = new HemisphericLight("sky", new Vector3(...ARENA_LIGHT.sky.direction), scene);
+  sky.intensity = ARENA_LIGHT.sky.intensity;
+  sky.diffuse = new Color3(...ARENA_LIGHT.sky.diffuse);
+  sky.groundColor = new Color3(...ARENA_LIGHT.sky.ground);
 
-  const sun = new DirectionalLight("sun", new Vector3(-0.45, -1, 0.62), scene);
-  sun.position = new Vector3(9, 16, -12);
-  sun.intensity = 2.6;
-  sun.diffuse = new Color3(1, 0.85, 0.66);
+  const sun = new DirectionalLight("sun", new Vector3(...ARENA_LIGHT.sun.direction), scene);
+  sun.position = new Vector3(...ARENA_LIGHT.sun.position);
+  sun.intensity = ARENA_LIGHT.sun.intensity;
+  sun.diffuse = new Color3(...ARENA_LIGHT.sun.diffuse);
 
-  const shadows = new ShadowGenerator(2048, sun);
+  const shadows = new ShadowGenerator(ARENA_LIGHT.shadow.size, sun);
   shadows.usePercentageCloserFiltering = true;
   shadows.filteringQuality = ShadowGenerator.QUALITY_MEDIUM;
-  shadows.bias = 0.0015;
-  shadows.normalBias = 0.012;
+  shadows.bias = ARENA_LIGHT.shadow.bias;
+  shadows.normalBias = ARENA_LIGHT.shadow.normalBias;
 
   const forge = await loadForgeStyle(scene);
 

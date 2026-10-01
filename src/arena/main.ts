@@ -32,7 +32,8 @@ import { aimPoint, keysToMove, personOrders } from "./orders-input.ts";
  * Setup owns `#curtain`, pause owns `#pause-menu`, the verdict is `#bout-end`.
  */
 
-/** The most real time one frame steps the world through, s: a page that falls behind runs slow rather than in a burst. */
+/** The most real time one frame steps the world through, s: a page that falls behind runs slow rather than in a burst.
+ * A numeric setting. */
 const CATCH_UP_SECONDS = 0.1;
 
 /** How a bout ended, as the verdict bar says it. */

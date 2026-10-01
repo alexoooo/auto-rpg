@@ -3,7 +3,8 @@ import type { CryptPlacement } from "./crypt-room.ts";
 
 export type CryptRoomKind = "guard" | "burial" | "chapel" | "rootbound";
 export interface CryptArchetype { room: number; kind: CryptRoomKind; variant: number; turn: number }
-/** Footprints are shared by exported furnishings and their authoritative colliders. */
+/** Footprints are shared by exported furnishings and their authoritative colliders: each piece's width, depth and
+ * height, m (`docs/reference/look.md#crypt-rooms`). */
 export const CRYPT_FURNITURE = {
   tomb: [2.5,1.15,1.1], column: [.8,.8,2.65], altar: [2.4,1.1,1.05],
   bench: [1.7,.55,.65], rack: [1.8,.6,1.9], cluster: [1.8,1.5,.55],
@@ -44,6 +45,8 @@ export function cryptFurniture(room: Room, type: CryptArchetype): { obstacles: D
   return {obstacles,placements};
 }
 
+/** Each kind of room's look: the odds of a niche, a root and scatter, whether it is damp, and its torches' colour,
+ * strength and shadow (`docs/reference/look.md#crypt-rooms`). */
 export const CRYPT_ROOM_LOOK = {
   guard: {niches:.08,roots:0,scatter:.05,damp:false,color:'#ffc077',intensity:6,shadow:85},
   burial: {niches:.85,roots:.12,scatter:.3,damp:false,color:'#ff9c4b',intensity:4,shadow:60},

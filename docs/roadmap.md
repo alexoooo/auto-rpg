@@ -148,6 +148,13 @@ All of it on a physically based core, humans first ([architecture](architecture.
   run does not, since its bodies are built as they wake.
 - The run plans for its fighters with the map and hands each its orders; its bodies sense the
   clock alone. A crypt on senses, and a hero that walks one way and faces another, are not built.
+- Set, and to measure on the core ([reference/play.md](reference/play.md)): what a level's
+  unbuilt enemies save a step, which is what `WAKE_METRES` buys; and how long a hero facing the
+  cursor stands being hit from behind, with `SET_UPON` and `AIM_COSINE` and without.
+- The generator keeps 0.65 m clear about every place a body stands (`LEVEL.clearance`), written
+  for a body that is gone; a walker's path keeps 0.35 m (`FOOTPRINT_METRES`), less than the
+  0.38 m the Warrior's elbows stand out in the pose its spec writes. Both are the owner's to
+  confirm, as every value of [reference/play.md](reference/play.md) is.
 
 ### Art and look
 
@@ -161,8 +168,15 @@ All of it on a physically based core, humans first ([architecture](architecture.
   `docs/plans/2026-09-24-dungeon-look-06-pixel-look.md@144961d4`.
 - A raking-light check that `tangentBasis: "babylon-lh"` in `surface()` orients OpenGL normal maps
   correctly.
-- The dungeon's look choices stand open until the owner judges them in play: the camera pitch
-  (`CAMERA_PITCH`), torch density, and which floor and wall textures ship.
+- Every value of the look and the sound is kept as found until the owner confirms it
+  ([reference/look.md](reference/look.md)). Of them, the dungeon's stand open until the owner
+  judges them in play: the camera's pitch (`CAMERA_PITCH`, 30 degrees, where the concept art looks
+  down at 40 to 45), torch density, and which floor and wall textures ship.
+- The flames of the forge and of the crypt go on flickering while the page is paused. Whether
+  they should stand still is the owner's to say.
+- How loud a blow is was set against no bout (`CUE`,
+  [reference/look.md](reference/look.md#sound)): the energies a bout's blows carry, read from
+  headless bouts, would say how much of the range from quiet to loud a fight uses.
 - The reptile needs art; it starts as procedural shells.
 - The unused templates inside `public/assets/forge/forge-kit.glb` could be removed by
   re-exporting from Blender.

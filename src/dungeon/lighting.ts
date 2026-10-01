@@ -23,7 +23,8 @@ import { cellKey, type DungeonMap, type Point } from "./map.ts";
 import type { TorchPlacement } from "./dressing.ts";
 
 /**
- * Generated-dungeon defaults. The reference chamber opts into its own visually verified profile.
+ * Generated-dungeon defaults, set by eye (`docs/reference/look.md#crypt-light`). The reference chamber opts into
+ * its own profile (`REFERENCE_LIGHT`).
  */
 export const DUNGEON_LOOK = Object.freeze({
   /** A cold, dim fill from above that leaves the torches to do the work. */
@@ -60,6 +61,7 @@ interface DungeonLightProfile {
   lanternIntensity: number;
   lanternColor: string;
 }
+/** The reference chamber's cooler fill and dimmer lantern (`docs/reference/look.md#crypt-light`). */
 export const REFERENCE_LIGHT: Readonly<DungeonLightProfile> = Object.freeze({
   ambientIntensity: .30, ambientColor: "#9aaecf", environmentIntensity: .58,
   lanternIntensity: 5, lanternColor: "#dce5f5",

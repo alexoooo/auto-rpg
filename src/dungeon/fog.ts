@@ -1,7 +1,8 @@
 import { isFloor, type DungeonMap, type Point } from "./map.ts";
 import { CAMERA_AZIMUTH, cameraToward } from "./camera.ts";
 
-/** What the fog mask holds for a cell: never seen, seen before, in sight now. */
+/** What the fog mask holds for a cell: never seen, seen before, in sight now. A numeric setting: the bytes are an
+ * encoding, which the shader reads as none, half and all. */
 export const FOG = Object.freeze({ unexplored: 0, remembered: 128, visible: 255 });
 
 /**
@@ -11,6 +12,7 @@ export const FOG = Object.freeze({ unexplored: 0, remembered: 128, visible: 255 
  * a top where it lies. Whether it is drawn at all is the mask of the cell that point is in, unfiltered, so no
  * pixel shows ground the fog hides. Bilinear brightness blends remembered ground; a separate known-coverage
  * interpolation fades to black inside the reveal edge. A half-cell pull would tint a door from behind it.
+ * Both are numeric settings: where to read, and what counts as more than nothing.
  */
 export const FOG_SAMPLE = Object.freeze({ pull: 0.2, drawnFrom: 0.02 });
 
@@ -76,11 +78,11 @@ export function fogSample(map: DungeonMap, mask: Uint8Array, x: number, z: numbe
   return { drawn, lit: t * t * (3 - 2 * t), edge:edgeT*edgeT*(3-2*edgeT) };
 }
 
-/** How tall a wall stands, its collider and its drawn skin alike. */
+/** How tall a wall stands, m, its collider and its drawn skin alike (`docs/reference/look.md#crypt-stone`). */
 export const WALL_HEIGHT = 2.8;
 
 /**
- * How a wall between the hero and the camera ghosts away, set by eye. The shader drops a share of a wall's pixels
+ * How a wall between the hero and the camera ghosts away, set by eye (`docs/reference/look.md#crypt-fog`). The shader drops a share of a wall's pixels
  * by a 4x4 ordered dither; the share is greatest where the wall covers the hero's body on screen and falls smoothly
  * to none at the rim of an oval around it, so the opening has no edge. The bubble shows the hero and a bit of the
  * room around them and reads plainly as see-through, so it is wide and most of its radius is the fade. Its heart

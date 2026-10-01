@@ -1,4 +1,5 @@
-/** The arena's orbit camera: its bearing and elevation, rad, and its distance, m, with the distance's and elevation's limits. */
+/** The arena's orbit camera: its bearing and elevation, rad, and its distance, m, with the distance's and elevation's
+ * limits. Set by eye (`docs/reference/look.md#arena-camera`). */
 export const ORBIT = Object.freeze({ azimuth: 0, pitch: 0.32, distance: 7, nearest: 2.5, farthest: 16, lowest: 0.05, highest: 1.35 });
 
 interface OrbitPoint { readonly x: number; readonly y: number; readonly z: number }

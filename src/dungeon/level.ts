@@ -18,7 +18,7 @@ import { mulberry32 } from "./rng.ts";
 import { distance, isFloor, walkable, type Door, type DungeonMap, type Point, type Room } from "./map.ts";
 
 /**
- * The generator's table, frozen: a level rule is not a console dial.
+ * The generator's table, frozen: a level rule is not a console dial (`docs/reference/play.md#the-level`).
  */
 export const LEVEL = Object.freeze({
   blocks: 17,

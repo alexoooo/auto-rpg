@@ -4,8 +4,37 @@ const STORAGE = "auto-rpg-sound-v1";
 type Voice = { source: AudioBufferSourceNode; gain: GainNode; pan: StereoPannerNode };
 /** Everything the page synthesizes: a blow's surface, what a severed part scatters, and the crypt's air, fire and drips. */
 type Sound = SoundKind | "air" | "fire" | "drip" | "debris";
-/** Each sound's length, s; a loop's is its period. */
+/** Each sound's length, s; a loop's is its period. Set by ear (`docs/reference/look.md#sound`). */
 const SOUND_SECONDS: Readonly<Record<Sound, number>> = { bone: .26, body: .26, shield: .26, debris: .4, drip: .26, air: 6, fire: 6 };
+/**
+ * The mix, set by ear (`docs/reference/look.md#sound`). A gain is a share of full scale; a time is in seconds unless
+ * it says ms.
+ */
+const MIX = Object.freeze({
+  /** The slider before a person moves it; the master's gain at a full slider, and the time constant it is reached with. */
+  volume: .5, master: .65, masterSeconds: .025,
+  /** The limiter on the master: its threshold, dB, and its ratio. */
+  compressor: { threshold: -12, ratio: 8 },
+  /** The crypt's reverb: an impulse of noise this long, decaying at this rate, 1/s, at this level, and mixed in at `wet`. */
+  reverb: { seconds: .7, decay: 9, level: .25, wet: .13 },
+  /** The crypt's air; and the fire of the `fires` nearest torches, each at its placement's gain times `fire`, followed
+   * with the time constant `ambienceSeconds`. */
+  air: .06, fires: 3, fire: .12, ambienceSeconds: .3,
+  /** A drip, and the wait before the first and between two, ms: `least` and a draw of up to `spread` more. */
+  drip: { gain: .065, first: { least: 4000, spread: 5000 }, next: { least: 5000, spread: 8000 } },
+  /** A blow placed quieter than this plays nothing. */
+  audible: .001,
+  /** A blow's gain before its placement: `floor` and `perStrength` of its strength; what a severed part scatters,
+   * `debris` of the strength. */
+  impact: { floor: .08, perStrength: .5, debris: .18 },
+  /** A voice's playback rate, `least` and a draw of up to `spread` more: a loop's, and a one-shot's. */
+  rate: { loop: { least: .94, spread: .12 }, shot: { least: .9, spread: .2 } },
+  /** A voice that is stopped fades with this time constant, and stops after `stop`. */
+  fade: .008, stop: .04,
+});
+/** The most one-shot voices at once: a numeric setting, which bounds the work and not the mix. */
+const VOICES = 12;
+
 /** One owner per browser page. No import from a body, mind or headless harness. */
 export class GameAudio {
   private context: AudioContext | null = null;
@@ -19,7 +48,7 @@ export class GameAudio {
   private disposed = false;
   private failed = false;
   private muted = false;
-  private volume = .5;
+  private volume: number = MIX.volume;
   private listener: SoundPoint = { x: 0, z: 0 };
   private toward: SoundPoint = { x: 0, z: 1 };
   private torches: SoundPoint[] = [];
@@ -66,7 +95,7 @@ export class GameAudio {
   private refreshGain(): void {
     this.button.textContent = this.failed ? "Sound unavailable" : this.muted ? "Sound off" : "Sound on";
     this.button.setAttribute("aria-pressed", String(!this.muted && !this.failed));
-    if (this.context && this.master) this.master.gain.setTargetAtTime(this.active && !this.muted && !this.failed ? this.volume * .65 : 0, this.context.currentTime, .025);
+    if (this.context && this.master) this.master.gain.setTargetAtTime(this.active && !this.muted && !this.failed ? this.volume * MIX.master : 0, this.context.currentTime, MIX.masterSeconds);
   }
   private async unlock(): Promise<void> {
     if (this.disposed || this.failed || this.muted || !this.volume) return;
@@ -74,12 +103,12 @@ export class GameAudio {
       if (!this.context) {
         const ctx = this.context = new AudioContext();
         this.master = ctx.createGain(); this.master.gain.value = 0;
-        const compressor = ctx.createDynamicsCompressor(); compressor.threshold.value = -12; compressor.ratio.value = 8;
+        const compressor = ctx.createDynamicsCompressor(); compressor.threshold.value = MIX.compressor.threshold; compressor.ratio.value = MIX.compressor.ratio;
         this.master.connect(compressor); compressor.connect(ctx.destination);
         if (this.dungeon) {
-          this.reverb = ctx.createConvolver(); const impulse = ctx.createBuffer(2, Math.ceil(ctx.sampleRate * .7), ctx.sampleRate);
-          for (let c = 0; c < 2; c++) { const data = impulse.getChannelData(c); for (let i = 0; i < data.length; i++) data[i] = (this.random() * 2 - 1) * Math.exp(-i / ctx.sampleRate * 9) * .25; }
-          this.reverb.buffer = impulse; const wet = ctx.createGain(); wet.gain.value = .13; this.reverb.connect(wet); wet.connect(this.master);
+          this.reverb = ctx.createConvolver(); const impulse = ctx.createBuffer(2, Math.ceil(ctx.sampleRate * MIX.reverb.seconds), ctx.sampleRate);
+          for (let c = 0; c < 2; c++) { const data = impulse.getChannelData(c); for (let i = 0; i < data.length; i++) data[i] = (this.random() * 2 - 1) * Math.exp(-i / ctx.sampleRate * MIX.reverb.decay) * MIX.reverb.level; }
+          this.reverb.buffer = impulse; const wet = ctx.createGain(); wet.gain.value = MIX.reverb.wet; this.reverb.connect(wet); wet.connect(this.master);
         }
       }
       if (this.context.state === "suspended") await this.context.resume();
@@ -116,28 +145,29 @@ export class GameAudio {
     for (const cue of this.inbox.drain(now)) this.impact(cue);
     if (!this.dungeon) return;
     if (!this.ambience.length) {
-      this.ambience.push(this.play("air", .06, 0, true));
-      for (let i = 0; i < 3; i++) this.ambience.push(this.play("fire", 0, 0, true));
-      this.nextDrip = now + 4000 + this.random() * 5000;
+      this.ambience.push(this.play("air", MIX.air, 0, true));
+      for (let i = 0; i < MIX.fires; i++) this.ambience.push(this.play("fire", 0, 0, true));
+      this.nextDrip = now + MIX.drip.first.least + this.random() * MIX.drip.first.spread;
     }
-    const nearby = this.torches.map(p => soundPlacement(p, this.listener, this.toward, true)).sort((a, b) => b.gain - a.gain).slice(0, 3);
-    for (let i = 0; i < 3; i++) {
+    const nearby = this.torches.map(p => soundPlacement(p, this.listener, this.toward, true)).sort((a, b) => b.gain - a.gain).slice(0, MIX.fires);
+    for (let i = 0; i < MIX.fires; i++) {
       const voice = this.ambience[i + 1], place = nearby[i];
-      voice.gain.gain.setTargetAtTime((place?.gain ?? 0) * .12, this.context!.currentTime, .3);
-      voice.pan.pan.setTargetAtTime(place?.pan ?? 0, this.context!.currentTime, .3);
+      voice.gain.gain.setTargetAtTime((place?.gain ?? 0) * MIX.fire, this.context!.currentTime, MIX.ambienceSeconds);
+      voice.pan.pan.setTargetAtTime(place?.pan ?? 0, this.context!.currentTime, MIX.ambienceSeconds);
     }
-    if (now >= this.nextDrip) { if (this.voices.size < 12) this.play("drip", .065, 0); this.nextDrip = now + 5000 + this.random() * 8000; }
+    if (now >= this.nextDrip) { if (this.voices.size < VOICES) this.play("drip", MIX.drip.gain, 0); this.nextDrip = now + MIX.drip.next.least + this.random() * MIX.drip.next.spread; }
   }
   private impact(cue: ImpactCue): void {
-    if (this.voices.size >= 12) return;
+    if (this.voices.size >= VOICES) return;
     const place = soundPlacement(cue.point, this.listener, this.toward, this.dungeon);
-    if (place.gain <= .001) return;
-    this.play(cue.kind, (.08 + cue.strength * .5) * place.gain, place.pan);
-    if (cue.severed && this.voices.size < 12) this.play("debris", cue.strength * .18 * place.gain, place.pan);
+    if (place.gain <= MIX.audible) return;
+    this.play(cue.kind, (MIX.impact.floor + cue.strength * MIX.impact.perStrength) * place.gain, place.pan);
+    if (cue.severed && this.voices.size < VOICES) this.play("debris", cue.strength * MIX.impact.debris * place.gain, place.pan);
   }
   private play(kind: Sound, volume: number, pan: number, loop = false): Voice {
     const ctx = this.context!, source = ctx.createBufferSource(), gain = ctx.createGain(), panner = ctx.createStereoPanner();
-    source.buffer = this.buffer(kind); source.loop = loop; source.playbackRate.value = loop ? .94 + this.random() * .12 : .9 + this.random() * .2;
+    const rate = loop ? MIX.rate.loop : MIX.rate.shot;
+    source.buffer = this.buffer(kind); source.loop = loop; source.playbackRate.value = rate.least + this.random() * rate.spread;
     gain.gain.value = volume; panner.pan.value = pan;
     source.connect(gain); gain.connect(panner); panner.connect(this.master!); if (this.reverb && !loop) panner.connect(this.reverb);
     const voice = { source, gain, pan: panner };
@@ -157,6 +187,7 @@ export class GameAudio {
       low += (noise - low) * (kind === "air" ? .008 : .12);
       const attack = Math.min(1, t / .002), tail = Math.min(1, (duration - t) / .02);
       let value: number;
+      // Each sound is its own formula, set by ear (`docs/reference/look.md#sound`).
       switch (kind) {
         // What a clash plays (`blowCue`): held wood on held wood, damped by the grips and the
         // bodies behind them. A broad crack and a low thump, with no long, high partials.
@@ -182,8 +213,8 @@ export class GameAudio {
     this.inbox.clear();
     const ctx = this.context;
     for (const voice of [...this.voices, ...this.ambience]) {
-      if (ctx) { voice.gain.gain.cancelScheduledValues(ctx.currentTime); voice.gain.gain.setTargetAtTime(0, ctx.currentTime, .008); }
-      try { voice.source.stop((ctx?.currentTime ?? 0) + .04); } catch { /* Already stopped. */ }
+      if (ctx) { voice.gain.gain.cancelScheduledValues(ctx.currentTime); voice.gain.gain.setTargetAtTime(0, ctx.currentTime, MIX.fade); }
+      try { voice.source.stop((ctx?.currentTime ?? 0) + MIX.stop); } catch { /* Already stopped. */ }
     }
     this.voices.clear(); this.ambience = [];
   }
