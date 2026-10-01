@@ -9,6 +9,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import ts from "typescript";
+import { programOver, sourcesUnder } from "./harness/program.mjs";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
 const CORE = "src/core/";
@@ -119,6 +120,53 @@ test("the core reads world transforms from its nodes, never through a cached wor
   assert.deepEqual(offenders, [], "a core file reads a world matrix");
   // The control: the rule finds a reader where there is one.
   assert.ok(banned.test("const at = mesh.getWorldMatrix().getTranslation();"));
+});
+
+/**
+ * What Babylon reads through the cached world matrix, by the name it is declared under on a node:
+ * the matrix itself, and every position, direction, pivot, scale and distance derived from it.
+ */
+const WORLD_MATRIX_READERS = new Set([
+  "getWorldMatrix", "worldMatrixFromCache", "computeWorldMatrix",
+  "absolutePosition", "absoluteRotationQuaternion", "absoluteScaling", "getAbsolutePosition",
+  "getAbsolutePivotPoint", "getAbsolutePivotPointToRef",
+  "forward", "up", "right", "getDirection", "getDirectionToRef",
+  "getPositionInCameraSpace", "getDistanceToCamera",
+]);
+/** Babylon's classes a node of the core is one of. */
+const NODE_CLASSES = new Set(["Node", "TransformNode", "AbstractMesh"]);
+
+/**
+ * Each read under `src/core/` of a `WORLD_MATRIX_READERS` name that Babylon declares on a node, as
+ * `"file name"`, through the checker: a regex on `.right` would refuse the core's own `hand.right`.
+ */
+function worldMatrixReads(overlay = {}) {
+  const { checker, sources } = programOver(sourcesUnder("src/core", ".ts"), overlay);
+  const reads = [];
+  const visit = (node, file) => {
+    if (ts.isPropertyAccessExpression(node) && WORLD_MATRIX_READERS.has(node.name.text)) {
+      const onNode = (checker.getSymbolAtLocation(node.name)?.declarations ?? []).some((declaration) =>
+        declaration.getSourceFile().fileName.includes("/node_modules/@babylonjs/core/")
+        && ts.isClassLike(declaration.parent) && NODE_CLASSES.has(declaration.parent.name?.text));
+      if (onNode) reads.push(`${file} ${node.name.text}`);
+    }
+    ts.forEachChild(node, (child) => visit(child, file));
+  };
+  for (const { source, file } of sources()) if (file.startsWith(CORE)) visit(source, file);
+  return reads;
+}
+
+test("the core reads nothing Babylon derives from a cached world matrix, whatever its name", () => {
+  assert.deepEqual(worldMatrixReads(), []);
+  // The control: the world's module reading every one of those names off a mesh is refused for each,
+  // so no name in the list is one Babylon does not declare; a plain record's `right` beside them is not.
+  const world = "src/core/world.ts", names = [...WORLD_MATRIX_READERS];
+  const probe = `${fs.readFileSync(path.join(ROOT, world), "utf8")}
+import type { AbstractMesh as ProbeMesh } from "@babylonjs/core/Meshes/abstractMesh.js";
+export const probe = (mesh: ProbeMesh, hand: { right: number }): unknown[] =>
+  [hand.right, ${names.map((name) => `mesh.${name}`).join(", ")}];
+`;
+  assert.deepEqual(worldMatrixReads({ [world]: probe }), names.map((name) => `${world} ${name}`));
 });
 
 /** Packages that are a physics engine: only that engine's module in `src/core/engine/` imports one. */

@@ -74,9 +74,10 @@ screens build on it; it never imports them.
   suspect this first.
 - **Read world transforms from `mesh.position` and `mesh.rotationQuaternion`.** `getWorldMatrix()`
   caches per render id and reading it stamps the id, so the first reader in a frame freezes every
-  later one. The core may not use `getWorldMatrix()`, `absolutePosition` or
-  `absoluteRotationQuaternion` (the boundary test enforces it). From a console, call
-  `computeWorldMatrix(true)` on every node you read.
+  later one. The core may not use `getWorldMatrix()`, `absolutePosition`,
+  `absoluteRotationQuaternion` or anything else Babylon derives from that matrix (`forward`,
+  `getAbsolutePosition()`, `getDirection()`: `WORLD_MATRIX_READERS`, which the boundary test
+  enforces by type). From a console, call `computeWorldMatrix(true)` on every node you read.
 - **Turn a vector with `applyRotationQuaternionToRef`**, never `rotateByQuaternionToRef`, which
   goes through a float32 matrix: enough noise to ruin a differenced Jacobian. The boundary test
   refuses it in the core.

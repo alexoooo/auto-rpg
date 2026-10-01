@@ -1,6 +1,6 @@
 # Finish the clean-up: the rest of the code reads like the core
 
-Status: chunks 0 to 4 have landed. Surveyed at 144961d4.
+Status: chunks 0 to 5 have landed. Surveyed at 144961d4.
 
 The clean-up after the old path left these. The crypt generator and the character workshop are
 dense one-liners. `stanceControl` and the crypt page's `boot()` are each one long closure. About
