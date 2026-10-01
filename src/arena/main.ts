@@ -34,10 +34,10 @@ export async function bootArena(): Promise<void> {
   const engine = new Engine(canvas, true, { stencil: true, antialias: true });
   engine.setHardwareScalingLevel(1 / Math.min(devicePixelRatio, 1.5));
   const physicsEngine = await loadEngine();
-  let world: World | null = null;
-  const arena = await buildArena(engine, (scene) => (world = createWorld(scene, physicsEngine)).physics);
-  const core = world as World | null;
-  if (!core) throw new Error("the arena made no core world");
+  let made: World | null = null;
+  const arena = await buildArena(engine, (scene) => (made = createWorld(scene, physicsEngine)).physics);
+  const world = made as World | null;
+  if (!world) throw new Error("the arena made no world");
   const { scene, camera, shadows } = arena;
 
   // Setup: a contender panel on each side, each with its model.
@@ -101,7 +101,7 @@ export async function bootArena(): Promise<void> {
     const dress = new Map(await Promise.all(SIDES.map(async (side) => [side, await dresser(matchup[side])] as const)));
     end();
     audio.reset();
-    duel = new Duel(core, {
+    duel = new Duel(world, {
       left: matchup.left, right: matchup.right,
       onBuilt: (duelist, built) => {
         for (const view of [dress.get(duelist.side)!(built), drawHeld(built, scene)]) {
@@ -181,13 +181,13 @@ export async function bootArena(): Promise<void> {
 
   engine.runRenderLoop(() => {
     const seconds = engine.getDeltaTime() / 1000;
-    if (duel && !paused) core.advance(seconds, Math.ceil(CATCH_UP_SECONDS * core.hz));
+    if (duel && !paused) world.advance(seconds, Math.ceil(CATCH_UP_SECONDS * world.hz));
     frame(); readout(); audio.update();
     scene.render();
   });
   window.addEventListener("resize", () => engine.resize());
-  window.addEventListener("pagehide", () => { end(); audio.dispose(); engine.stopRenderLoop(); core.dispose(); scene.dispose(); engine.dispose(); });
-  Object.assign(window, { __arena: { get duel() { return duel; }, world: core, scene, engine } });
+  window.addEventListener("pagehide", () => { end(); audio.dispose(); engine.stopRenderLoop(); world.dispose(); scene.dispose(); engine.dispose(); });
+  Object.assign(window, { __arena: { get duel() { return duel; }, world, scene, engine } });
 
   need("boot-note").textContent = "";
   beginButton.disabled = false;

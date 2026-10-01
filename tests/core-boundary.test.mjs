@@ -150,6 +150,7 @@ test("the core and its lab reach an engine only through the seam: engine.ts's co
   const files = [...filesUnder(CORE), ...filesUnder("src/lab/")].filter((file) => file.endsWith(".ts"))
     .map((file) => [file, fs.readFileSync(path.join(ROOT, file), "utf8")]);
   assert.ok(files.some(([file]) => isEngineModule(file)), "no engine module, so this test would pass on nothing");
+  assert.ok(files.some(([file]) => file === "src/lab/main.ts"), "no lab, so its half of this test would pass on nothing");
   assert.deepEqual(seamCrossings(files), []);
   // The control: the lab loading Rapier itself, and the build reaching Rapier's package, are found.
   assert.deepEqual(seamCrossings([

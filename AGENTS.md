@@ -77,14 +77,15 @@ screens build on it; it never imports them.
   later one. The core may not use `getWorldMatrix()`, `absolutePosition` or
   `absoluteRotationQuaternion` (the boundary test enforces it). From a console, call
   `computeWorldMatrix(true)` on every node you read.
-- **Turn a vector with `applyRotationQuaternionToRef`**, never `rotateByQuaternionToRef`, which goes
-  through a float32 matrix: enough noise to ruin a differenced Jacobian. The boundary test refuses it
-  in the core.
+- **Turn a vector with `applyRotationQuaternionToRef`**, never `rotateByQuaternionToRef`, which
+  goes through a float32 matrix: enough noise to ruin a differenced Jacobian. The boundary test
+  refuses it in the core.
 - **A controller of a fast chain asks for the motion under way** (`bias` in `bodyDynamics`,
   `src/core/build/dynamics.ts`, gyroscopic torque included), or a fast forearm throws the hand it
   holds.
-- **A joint's angles are the ones its limit reads** (`jointAngles`, `src/core/build/joint-state.ts`).
-  A range or a goal means nothing unless read that way; press a limit before trusting a reading.
+- **A joint's angles are the ones its limit reads** (`jointAngles`,
+  `src/core/build/joint-state.ts`). A range or a goal means nothing unless read that way; press a
+  limit before trusting a reading.
 - **Bodies never sleep**: a sleeping body reads a perfect zero. `tests/core-engine.test.mjs` holds
   the engine to it.
 - **Build a jointed body in the pose its joints demand.** A joint that disagrees at construction is

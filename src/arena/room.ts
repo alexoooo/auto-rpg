@@ -231,7 +231,7 @@ export function validateRoomPlacements(groups: readonly RoomGroup[], registeredC
 }
 
 /** Whether `mesh` stands for a collider: a fixed collider in the core's world stands behind it (`buildArenaColliders`). */
-export const isCollider = (mesh: AbstractMesh): boolean => mesh.metadata?.collider === true;
+export const isCollider = (mesh: AbstractMesh): boolean => mesh.metadata?.isCollider === true;
 
 /**
  * Check each pair against the scene's meshes, not the placement table: its collider exists, has a
@@ -420,7 +420,7 @@ export function buildArenaColliders(
   const solids = arenaSolids();
   const fixed = addArenaSolids(physics, solids);
   // A mesh a collider stands behind says so, for the checks that ask what is solid (`isCollider`).
-  const mark = (mesh: Mesh) => { mesh.metadata = { ...mesh.metadata, collider: true }; };
+  const mark = (mesh: Mesh) => { mesh.metadata = { ...mesh.metadata, isCollider: true }; };
   for (const solid of solids) {
     if (solid.kind === "box") {
       const box = MeshBuilder.CreateBox(solid.name, { width: solid.size[0], height: solid.size[1], depth: solid.size[2] }, scene);

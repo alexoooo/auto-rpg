@@ -110,7 +110,7 @@ test("the_arena_room_stands_on_a_core_world_whose_colliders_stand_behind_its_pai
   assert.ok(pairs.length > 0);
   assert.deepEqual(validateVisualColliderPairs(scene, pairs), [], "each pair names a mesh a core collider stands behind");
   // The control: the same room with its collider meshes unmarked is refused.
-  for (const mesh of scene.meshes) if (mesh.metadata?.collider) mesh.metadata = { ...mesh.metadata, collider: false };
+  for (const mesh of scene.meshes) if (mesh.metadata?.isCollider) mesh.metadata = { ...mesh.metadata, isCollider: false };
   assert.match(validateVisualColliderPairs(scene, pairs).join("\n"), /which has no physics body/);
   core.dispose();
 });
