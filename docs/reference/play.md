@@ -102,6 +102,25 @@ bearings, from -z of the start round, on a ring of 1.6 m about it, then 2.4 m, t
 0.7 m of floor is clear about it and along the line from the start, and nobody already placed is
 within 1.4 m.
 
+## The crypt
+
+`CRYPT_LAYOUT` (`src/dungeon/crypt-dungeon.ts`), the Random Crypt's layout
+([the crypt's art](../art/crypt.md#random-crypt)), in cells of 1 m.
+
+| Field | Value |
+|---|---|
+| `size` | the map is 44 cells a side |
+| `first`, `pitch` | four rooms, two by two: the first's centre is 12 cells from the map's corner, and a neighbour's 20 cells on |
+| `half` | half a room's side is 5 cells and a draw of 0, 1 or 2 more (one of 3), along x and along z; a chapel's is 5 along x and 7 along z |
+| `cornerCut` | a rootbound room keeps as rock the cells fewer than 2 steps from a corner |
+| `corridorHalf` | a corridor is 1 cell wide either side of its middle line: 3 cells |
+| `variants` | a kind of room has 3 arrangements ([look](look.md#crypt-rooms)) |
+| `spawns` | 2 enemies in each room but the entrance |
+| `spawnFromStart`, `spawnFromDoor`, `spawnSpacing` | an enemy starts more than 15 m from the party's start, 3 m from every door and 2 m from the other |
+| `companions` | the entrance has room for 3 companions (`COMPANION_SPAWN`) |
+
+A body stands, and a path is proved, with `LEVEL.clearance` about it, as in the level below.
+
 ## The level
 
 `LEVEL` (`src/dungeon/level.ts`), the generator's table. A level is laid out on a grid of blocks
