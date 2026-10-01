@@ -69,6 +69,13 @@ test("a human's hit points are the owner's, split over its segments by cross-sec
   assert.equal(w.get("hand.left"), w.get("hand.right"));
 });
 
+test("a whole body's bar is 1 exactly, whatever its parts sum to", () => {
+  // The Rogue's shares sum to its hit points and a bit: a bar over the hit points would read past 1.
+  const sums = BODY_MODELS.map((model) => [...partHitPoints(modelSpec(model)).values()].reduce((sum, q) => sum + q.value, 0) / modelSpec(model).wounds.hp.value);
+  assert.ok(sums.some((sum) => sum !== 1), `some body's parts miss its hit points by a bit: ${sums}`);
+  for (const model of BODY_MODELS) assert.equal(createPool(modelSpec(model), RULES).bar(), 1, model);
+});
+
 test("a blow within a part's hit points stays in it; blows on a severed part or of no damage do nothing", () => {
   const pool = createPool(warrior, RULES), max = hitPoints(warrior);
   const wound = pool.wound({ part: "thigh.left", damage: 0.3, clean: true });

@@ -116,6 +116,14 @@ test("a_bout_in_the_arena_runs_to_its_verdict", async () => {
   } finally { duel?.dispose(); dispose(); }
 });
 
+test("a_bout_capped_before_a_blow_lands_is_a_draw", async () => {
+  // Every pairing: each side's bar is of its own parts, and two whole bodies are even whatever they are.
+  for (const [left, right] of [["workshop-fighter", "workshop-rogue"], ["workshop-rogue", "crypt-skeleton"], ["crypt-skeleton", "workshop-fighter"]]) {
+    const row = await playBout({ left, right, capSeconds: 1 }, 2);
+    assert.deepEqual([row.winner, row.ending, row.bars, row.blows], [null, "time", [1, 1], 0], `${left} v ${right}`);
+  }
+});
+
 test("a_bout's_recipe_is_plain_data_that_builds_the_same_bout", async () => {
   const recipe = { left: "workshop-rogue", right: "crypt-skeleton", gap: 3, capSeconds: 1 };
   const { world, dispose } = await arena();

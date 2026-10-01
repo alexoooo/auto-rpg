@@ -23,7 +23,8 @@ import type { Rulebook } from "./rulebook.ts";
  *   left elsewhere -- `fatal`. A blow that spends the whole pool empties the head with it, and
  *   reads `exhausted`, not `fatal`. The first ending stands.
  *
- * The bar a page shows is the attached hit points over the body's.
+ * The bar a page shows is the attached hit points over the parts' full ones, summed as the attached
+ * are: a whole body's is 1 exactly, so two whole bodies are even.
  */
 
 /**
@@ -63,7 +64,7 @@ export interface Pool {
   attached(part: string): boolean;
   /** Hit points in the parts still attached. */
   attachedHp(): number;
-  /** The attached hit points over the body's: 1 whole, 0 spent. */
+  /** The attached hit points over every part's full ones: 1 whole, 0 spent. */
   bar(): number;
   ending(): Ending | null;
   wound(blow: Blow): Wound;
@@ -95,6 +96,8 @@ export function createPool(spec: BodySpec, rules: Rulebook): Pool {
   const total = spec.wounds.hp.value;
   // Sums of the parts' shares differ from the total in the last bit; below this the pool is empty.
   const empty = total * Number.EPSILON * names.length;
+  /** Every part's full hit points, summed as `attachedHp` sums: the total, but for its last bit. */
+  const full = names.reduce((sum, name) => sum + max.get(name)!, 0);
   let ending: Ending | null = null;
 
   const part = (name: string): string => {
@@ -130,7 +133,7 @@ export function createPool(spec: BodySpec, rules: Rulebook): Pool {
     hp: (name) => hp.get(part(name))!,
     attached: (name) => attached.has(part(name)),
     attachedHp,
-    bar: () => attachedHp() / total,
+    bar: () => attachedHp() / full,
     ending: () => ending,
     wound({ part: struck, damage, clean }) {
       part(struck);
