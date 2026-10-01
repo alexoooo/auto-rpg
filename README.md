@@ -99,8 +99,9 @@ without resuming on its own.
 - **Blow**: it swings the club blow that sets the damage unit into a head.
 
 Its sections, each of which folds away, choose the body and its balance, what each hand holds,
-boots and armour, the camera (Free, Isometric or Chase), the view, and 120 or 480 Hz. The transport
-pauses (Space), steps one physics step at a time, scrubs, and slows time to 1/4 or 1/10.
+boots and armour, its mind and the strikes it may throw, the camera (Free, Isometric or Chase), the
+view, and 120 or 480 Hz; one logs what the mind decides. The transport pauses (Space), steps one
+physics step at a time, scrubs, and slows time to 1/4 or 1/10.
 
 ## The other pages
 

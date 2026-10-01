@@ -7,7 +7,7 @@ import type { LabAddress } from "../scenarios.ts";
  */
 
 /** Every section, by the name its `data-section` carries. */
-export const SECTIONS = ["scenario", "view", "character", "readout", "controls"] as const;
+export const SECTIONS = ["scenario", "view", "character", "readout", "controls", "thinking"] as const;
 export type SectionName = (typeof SECTIONS)[number];
 
 /** What the shell offers a section's controls. */

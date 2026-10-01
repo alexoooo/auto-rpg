@@ -21,10 +21,12 @@ import { controlsSection } from "./hud/controls-section.ts";
 import { characterSection } from "./hud/character-section.ts";
 import { scenarioSection } from "./hud/scenario-section.ts";
 import { labSections, SECTIONS, type LabPage, type SectionName } from "./hud/sections.ts";
+import { thinkingSection } from "./hud/thinking-section.ts";
 import { labTransport } from "./hud/transport.ts";
 import { viewSection } from "./hud/view-section.ts";
 import { SCENARIO_PANELS, type LabScenario, type LabShell, type ScenarioRun } from "./lab-scenario.ts";
 import { allowing, loadoutBalance, loadoutSpec } from "./loadout.ts";
+import { createMindLog, logged, type MindLog } from "./mind-log.ts";
 import { LAB_MINDS } from "./minds.ts";
 import { blowScenario } from "./blow-scenario.ts";
 import { routineScenario } from "./routine-scenario.ts";
@@ -45,7 +47,8 @@ import { need } from "../dom.ts";
  *
  * The body is the loadout's (`loadout.ts`): the model, and what each hand holds. Its assist
  * (`actor.ts`) has the ceiling its balance buys (`loadoutBalance`), named by the clock. Its mind (`minds.ts`)
- * makes its tactics of the scenario's script, and throws no strike the address bars. It is drawn in one
+ * makes its tactics of the scenario's script, and throws no strike the address bars; what it decides
+ * is logged (`mind-log.ts`), and the Thinking section shows the log up to the time shown. It is drawn in one
  * of two views: World, the workshop model's skin (`skin.ts`), wearing the loadout's clothing, or
  * Tactical, the collision shapes themselves (`src/render/body-shapes.ts`); what a hand holds is drawn as its shapes
  * in both. A Free, an Isometric or a Chase camera follows it (`camera.ts`).
@@ -139,6 +142,8 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
     readonly rest: Quaternion;
     /** The points its assist has, if it has one: every figure read under it is read beside them. */
     readonly helped: number | null;
+    /** What its mind has decided. */
+    readonly log: MindLog;
   }
   let current: Loaded | null = null;
   let shown: LabAddress = address;
@@ -147,8 +152,10 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
   // The HUD: the shell's controls in their sections, then the scenario's panels in theirs.
   const page: LabPage = { get shown() { return shown; }, get spec() { return current?.built.spec ?? loadoutSpec(shown); }, load, show };
   const sections = labSections(document);
+  const thinking = thinkingSection();
   const controls: Readonly<Partial<Record<SectionName, readonly Control[]>>> = {
     scenario: scenarioSection(page), view: viewSection(page), character: characterSection(page), controls: controlsSection(page),
+    thinking: [thinking],
   };
   for (const name of SECTIONS) sections[name].append(...(controls[name] ?? []).map((control) => control.element));
   for (const panel of SCENARIO_PANELS) sections[panel].append(...(scenario.panels[panel] ?? []).map((control) => control.element));
@@ -188,12 +195,15 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
     world = createWorld(scene, physicsEngine, { hz: to.hz });
     world.physics.addFixedBox([0, -0.5, 0], [40, 1, 40]);
     const built = buildBody(loadoutSpec(to), world, { position: [0, 0, 0] }), points = loadoutBalance(to.balance, built.spec);
-    const actor = labActor(built, world, { assist: balanceCeiling(points, POINT), mind: LAB_MINDS[to.mind].tactics, allows: allowing(to.barred) });
+    const log = createMindLog();
+    const actor = labActor(built, world, {
+      assist: balanceCeiling(points, POINT), allows: allowing(to.barred), mind: (script) => logged(LAB_MINDS[to.mind].tactics(script), log),
+    });
     const rest = built.segments.get("lowerTrunk")!.node.rotationQuaternion!.clone();
     const view = drawBody(built, scene, TINT[to.model]), heldView = drawHeld(built, scene);
     // A new body starts live: nothing of the last one's recording is shown.
     const run = scenario.start({ scene, actor, changed: transport.showPlayhead, clock: () => performance.now() });
-    const loaded: Loaded = { built, view, held: heldView, skin: null, run, rest, helped: actor.body.assist.on ? points : null };
+    const loaded: Loaded = { built, view, held: heldView, skin: null, run, rest, helped: actor.body.assist.on ? points : null, log };
     current = loaded;
     show(to);
     const model = to.model;
@@ -209,8 +219,10 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
 
   function readout(): void {
     if (!current) return;
-    const { run, helped } = current;
-    transport.show(run, run.readout(run.player.shownFrame()), helped);
+    const { run, helped, log } = current, time = run.readout(run.player.shownFrame());
+    transport.show(run, time, helped);
+    // Before its first step a body's mind has decided nothing.
+    thinking.show(log, time ?? -Infinity);
   }
 
   // The scenario's keys, held: a key held is a level, what is down now, cleared whenever the page

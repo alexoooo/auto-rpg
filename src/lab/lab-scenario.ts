@@ -51,7 +51,10 @@ export interface ScenarioRun {
   recording(): { readonly frames: number; readonly live: number };
   /** Each page frame, before the player ticks: what the keys held now ask of the body. */
   drive(held: ReadonlySet<string>): void;
-  /** Write the readout and the marks for the frame shown (null: live), and return its time, s. */
+  /**
+   * Write the readout and the marks for the frame shown (null: live), and return its time, s: the
+   * time the body's mind saw at that step (`BodyView.time`), which the shell cuts the mind's log at.
+   */
   readout(frame: number | null): number | null;
   /** How far `hand` is closed at the frame shown, from 0 (open) to 1 (a fist). */
   closure(hand: Hand): number;

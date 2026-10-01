@@ -32,6 +32,7 @@ import { choice, legend, note, readings } from "./hud/controls.ts";
 
 /** What the history holds of each step. */
 interface BlowMoment {
+  /** The time its mind saw at this step (`BodyView.time`), s. */
   readonly time: number;
   /** Seconds since the pushes were due (negative before), by the blow's clock. */
   readonly since: number;
@@ -119,7 +120,7 @@ export function blowScenario(scene: Scene, shell: LabShell): LabScenario {
       const history = recordHistory(built, world, HISTORY_SECONDS, (): BlowMoment => {
         const t = watch?.target;
         return {
-          time: blow.time, since: blow.time - blow.pushing, phase: blow.report.strike.phase, thrown: blow.report.strike.thrown[stored.hand] > 0,
+          time: blow.body.view.time, since: blow.time - blow.pushing, phase: blow.report.strike.phase, thrown: blow.report.strike.thrown[stored.hand] > 0,
           fallen: blow.report.fallen, landed: watch?.landed ?? null,
           nearest: watch?.nearest ?? Infinity, peak: watch?.peak ?? 0, target: t ? [t.x, t.y, t.z] : null,
         };

@@ -141,7 +141,7 @@ export function readings<K extends string>(rows: Readonly<Record<K, { readonly n
   };
 }
 
-/** A table under `columns`; `write` replaces its rows. */
+/** A table under `columns`, if it names any; `write` replaces its rows. */
 export function table(columns: readonly string[]): Control & { write(rows: readonly (readonly string[])[]): void } {
   const line = (tag: "td" | "th", cells: readonly string[]): HTMLElement => {
     const made = document.createElement("tr");
@@ -149,7 +149,7 @@ export function table(columns: readonly string[]): Control & { write(rows: reado
     return made;
   };
   const element = document.createElement("table"), body = document.createElement("tbody");
-  element.createTHead().append(line("th", columns));
+  if (columns.length > 0) element.createTHead().append(line("th", columns));
   element.append(body);
   return { ...fixed(element), write: (rows) => body.replaceChildren(...rows.map((cells) => line("td", cells))) };
 }
