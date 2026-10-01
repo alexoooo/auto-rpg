@@ -1,10 +1,10 @@
 /**
  * A fingerprint of what the game does: fights in the arena and the crypt, the lab's run and
  * routine, the generated levels, what a walk through one reveals, and the shader code the crypt's
- * look writes from a level. A structural change, one that moves code without changing what it
- * computes, leaves every line as it was; read the output before the change and compare after, on
- * the same machine. It is not a test: a change that means to change how a fight plays changes its
- * lines, and says so.
+ * look writes from a level and a camera's bearing. A structural change, one that moves code
+ * without changing what it computes, leaves every line as it was; read the output before the
+ * change and compare after, on the same machine. It is not a test: a change that means to change
+ * how a fight plays changes its lines, and says so.
  *
  *   node scripts/fingerprint.mjs [--workers 12]
  *
@@ -28,6 +28,7 @@ import { generateCryptDungeon } from "../src/dungeon/crypt-dungeon.ts";
 import { CryptWeathering } from "../src/dungeon/crypt-weathering.ts";
 import { generateLevel } from "../src/dungeon/level.ts";
 import { clearSegment, distance, findPath, reveal, walkable } from "../src/dungeon/map.ts";
+import { cutawayCondition } from "../src/dungeon/reference-look.ts";
 import { DungeonRun } from "../src/dungeon/run.ts";
 import { revealScenery } from "../src/dungeon/scenery-visibility.ts";
 import { startRoutine } from "../src/lab/routine.ts";
@@ -129,6 +130,19 @@ function weathering(seeds) {
   } finally { scene.dispose(); engine.dispose(); }
 }
 
+/** The camera bearings the cut-away case reads at, degrees: one in each quarter, the second 8 degrees past an
+ * axis, where a wall just counts as facing away. */
+const CUTAWAY_BEARINGS = [35, 98, 200, 305];
+
+/** The condition that cuts the near walls away, for each crypt of `seeds` and for the reference chamber. */
+function cutaway(seeds) {
+  const hash = createHash("sha256");
+  for (const plan of [undefined, ...seeds.map((seed) => generateCryptDungeon(seed))]) {
+    for (const bearing of CUTAWAY_BEARINGS) hash.update(cutawayCondition(bearing * Math.PI / 180, plan));
+  }
+  return digestOf(hash);
+}
+
 /** How far apart the sight case reads along its walk, m. */
 const SIGHT_STRIDE = 0.5;
 
@@ -169,6 +183,7 @@ const CASES = [
   { name: "levels, seeds 0-19", run: () => levels(range(20)) },
   ...range(8).map((i) => i + 1).map((seed) => ({ name: `sight, crypt ${seed}`, run: () => sight(seed) })),
   { name: "weathering, crypts 1-3", run: () => weathering([1, 2, 3]) },
+  { name: "cut-away, the chamber and crypts 1-3", run: () => cutaway([1, 2, 3]) },
 ];
 
 if (isMainThread) {

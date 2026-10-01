@@ -45,12 +45,19 @@ class CryptDamp extends MaterialPluginBase {
     } : null;
   }
 }
+/** The GLSL condition, over a fragment's world position, that is true in the walls between the camera at `azimuth`
+ * and the floor: every wall piece of `plan` that faces away from the camera, or the reference chamber's two near
+ * walls. */
+export function cutawayCondition(azimuth: number, plan?: CryptRoomPlan): string {
+  return plan ? plan.placements.filter(p=>["wall","wall-pier","wall-panel","wall-repair","corner-left","corner-right","niche","roots","portal"].includes(p.piece) && Math.sin(p.turn)*Math.sin(azimuth)+Math.cos(p.turn)*Math.cos(azimuth)<-.1).map(p=>`(abs(vPositionW.x-${p.x.toFixed(3)}) < ${Math.abs(Math.cos(p.turn))>.5?"1.55":"0.55"} && abs(vPositionW.z-${p.z.toFixed(3)}) < ${Math.abs(Math.sin(p.turn))>.5?"1.55":"0.55"})`).join(" || ")
+    : `${Math.sin(azimuth) > 0 ? "vPositionW.x > 15.45" : "vPositionW.x < 3.55"} || ${Math.cos(azimuth) > 0 ? "vPositionW.z > 13.45" : "vPositionW.z < 4.55"}`;
+}
 /** The front walls remain as low sills: a cutaway, never a change to collision. */
 class CryptCutaway extends MaterialPluginBase {
   private readonly condition: string;
-  constructor(material: Material, azimuth: number, condition?: string) {
+  constructor(material: Material, condition: string) {
     super(material, "CryptCutaway", 210, {});
-    this.condition = condition ?? `${Math.sin(azimuth) > 0 ? "vPositionW.x > 15.45" : "vPositionW.x < 3.55"} || ${Math.cos(azimuth) > 0 ? "vPositionW.z > 13.45" : "vPositionW.z < 4.55"}`;
+    this.condition = condition;
     this._enable(true);
   }
   override getClassName() { return "CryptCutaway"; }
@@ -64,7 +71,7 @@ export async function dressReference(scene: Scene, level: ReturnType<typeof buil
   container.addAllToScene();
   if(plan) assembleCryptKit(container,plan);
   const torches=plan?.torches??REFERENCE_TORCHES;
-  const cutaway=plan ? plan.placements.filter(p=>["wall","wall-pier","wall-panel","wall-repair","corner-left","corner-right","niche","roots","portal"].includes(p.piece) && Math.sin(p.turn)*Math.sin(azimuth)+Math.cos(p.turn)*Math.cos(azimuth)<-.1).map(p=>`(abs(vPositionW.x-${p.x.toFixed(3)}) < ${Math.abs(Math.cos(p.turn))>.5?"1.55":"0.55"} && abs(vPositionW.z-${p.z.toFixed(3)}) < ${Math.abs(Math.sin(p.turn))>.5?"1.55":"0.55"})`).join(" || ") : undefined;
+  const cutaway=cutawayCondition(azimuth,plan);
   const root=container.meshes.find(m=>m.name==="__root__");
   // The export uses game metre coordinates. Remove the loader's RH-to-LH root
   // conversion; glTF meshes retain their explicit clockwise face convention.
@@ -96,11 +103,11 @@ export async function dressReference(scene: Scene, level: ReturnType<typeof buil
   const wood=surface(scene,TEXTURED_SURFACES.wood);
   const cloth=flatStone(scene,"crypt.cloth","#752c25",.95);
   const materials={wall,trim,floor,root:rootMat,earth,iron,tomb,wood,cloth};
-  new CryptCutaway(wood, azimuth, cutaway);
+  new CryptCutaway(wood, cutaway);
   for(const door of level.doorVisuals) { door.wood.material=wood;door.iron.material=iron;door.wood.receiveShadows=door.iron.receiveShadows=true; }
   for(const [name,material] of Object.entries(materials)) {
     material.maxSimultaneousLights=6;level.fog?.attach(material,name==="wall"||name==="trim"||name==="root"||name==="earth"||(name==="wood"&&!!plan)?"wall":null);
-    if (["wall", "trim", "root", "earth", "iron", "cloth"].includes(name)) new CryptCutaway(material, azimuth, cutaway);
+    if (["wall", "trim", "root", "earth", "iron", "cloth"].includes(name)) new CryptCutaway(material, cutaway);
   }
   // Retain working doors and exit; replace only the generated architectural skin.
   for(const mesh of level.surfaces)if(mesh.name.startsWith("wall.")||mesh.name.startsWith("floor."))mesh.setEnabled(false);
