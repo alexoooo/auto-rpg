@@ -144,13 +144,22 @@ where a strike is).
 A `Mind` (`src/core/mind/mind.ts`) is `step(senses, dt)`: a stateful function from what its body
 senses to what its muscles are asked. `embody(built, world, make)` makes it with its own body
 (`OwnBody`: the spec, the built segments and joints, the muscles) and steps it before every solver
-step, after the muscles have read the joints. It reads its `Senses` (`senses.ts`: the clock) and
+step, after the muscles have read the joints. It reads its `Senses` (`senses.ts`) and
 that body, and writes each freedom's activation and the speed asked of it
 (`MuscleDriver.activation`, `.velocity`): a speed beyond the muscles' reach is a torque at the
 ceiling the activation sets, and a speed of zero holds. That command is the whole of what a mind
 does to the world; camera state never reaches one. The seam names no hand and no foot, so a body of
 another shape takes a mind through the same call. `tests/core-boundary.test.mjs` holds that
 nothing else under `src/` drives muscles.
+
+`Senses` are the clock, the body's side, whether it is out of the fight, and every other body the
+senses carry (`BodySense`): its side, its spec with what it holds, whether it is out, its centre
+of mass and that centre's velocity, and each segment's pose, centre, velocity and spin. Not its hit
+points, and nothing of its mind. A fight owns one sensing layer (`createSenses`), which reads every
+body it carries in the step's sensing phase (`World.sense`), before any mind steps, so every mind
+in a step sees the same moment; it shows each body to the others a whole number of steps late,
+none unless given (`DuelRecipe.senseDelay`). A body alone senses the clock (`clockSenses`). Under
+the command layers the senses are in the view (`BodyView.senses`).
 
 Every body the game has runs one mind, written with the layers above: `commandMind`
 (`src/core/body.ts`) is motor control under a driver that hands it goals, and the driver is the
@@ -162,17 +171,20 @@ and to the right of the body's heading, or none; a way to face; how low to stand
 guard or attack a point. It names no joint, pose or push. `driveBy(body, tactics)` hands the body
 to them through the skills.
 
-The core has one set of tactics, `fighterTactics` (`fighter.ts`). Each step it takes a plan (a direction to
-walk, a way to look, a body to attack): it walks at its fastest walk, and when the plan names a body
-it attacks that body's head with its right hand, the strike skill closing the distance, while the
-left guards. Whoever owns the fight writes the plan and names a body once it is within
-`ATTACK_METRES` (1.8 m): the arena's `Duel` and the crypt's `DungeonRun`. The lab has its own:
+The core has one set of tactics, `fighterTactics` (`fighter.ts`). Each step it asks for a plan (a
+direction to walk, a way to look, a point to attack), with what the body sees: it walks at its
+fastest walk, and given a point it attacks it with its right hand, the strike skill closing the
+distance, while the left guards. In the arena the plan is the fighter's own (`seekFoe`): from its
+senses it picks the nearest body of another side still in the fight, walks at it, and attacks its
+head once their centres are within `ATTACK_METRES` (1.8 m). In the crypt the run plans for its
+fighters with the map (`DungeonRun`) and hands each its target's head; its bodies sense the clock
+alone. The lab has its own:
 `stanceTactics` (the keys), `trackTactics` (the Run), `routineTactics` and `attackOnce`.
 
 ## One world step
 
 `createWorld(scene, engine)` (`src/core/world.ts`) makes the world: one fixed step at 120 Hz
-(`PHYSICS_HZ`) that owns physics, control, combat and the clock. A step runs the before-step hooks
+(`PHYSICS_HZ`) that owns physics, control, combat and the clock. A step runs the sensing hooks (a fight's senses, `createSenses`), the before-step hooks
 in the order they were added, one solver step, which writes every node, and the after-step hooks
 (readings, blows); the clock is the count of steps. Each body adds one before-step hook
 (`driveMuscles`), in which the muscles read the joints, the body's mind steps (`embody`) and the

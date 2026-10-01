@@ -75,7 +75,7 @@ as they wake, is not in this set.
 |---|---|---|---|---|
 | 01 | baseline: landed | a bout is a recipe (`DuelRecipe`); its trace digest (`research/bout-trace.mjs`); the standing table of how bouts end (`docs/reference/bouts.md`) | | |
 | 02 | the mind at the muscles: landed | `Mind`, `OwnBody`, `embody`; `Tactics`; every body driven through `Mind` (`commandMind`) | | |
-| 03 | [senses](2026-09-30-minds-03-senses.md) | `Senses`; the arena's tactics see their opponent; `Duel.plan` goes | 02 | |
+| 03 | senses: landed | the bout's senses (`createSenses`, in `World.sense`'s phase); the arena's tactics pick their foe from what they see (`seekFoe`); the bouts read again (`docs/reference/bouts.md`, With senses) | | |
 | 04 | [orders](2026-09-30-minds-04-orders.md) | `Orders`, the orders tape, WASD and the pointer in the arena | 03 | the owner fights a bout |
 | 05 | [assist](2026-09-30-minds-05-assist.md) | what the soles miss, published and measured; the assist effector; its sweep | 02 | the owner watches assisted bouts |
 | 06 | [oracle](2026-09-30-minds-06-oracle.md) | forks by replay on worker threads; the oracle; its first table; a tape in a link | 04 | the owner watches an oracle's bout |
@@ -100,9 +100,8 @@ lands before plan 05, which names the split's constructs (`StanceState`, `limitT
 
 Each is changed by the plan that makes it true, in the same commit.
 
-- `AGENTS.md`, "A mind reaches the world only through its body" (landed with plan 02, its senses
-  the clock alone) reads in full, once plan 03 gives the senses the other bodies and plan 04 names
-  `Orders`:
+- `AGENTS.md`, "A mind reaches the world only through its body" (landed with plans 02 and 03)
+  reads in full, once plan 04 names `Orders`:
   > **A mind reaches the world only through its body.** It learns of it through its senses
   > (`Senses`, `src/core/mind/senses.ts`) and its own body (`OwnBody`), and moves it through its
   > muscles' command and nothing else (`Mind.step`, `src/core/mind/mind.ts`). Camera state never
@@ -237,7 +236,7 @@ ordered to stand moved 5 mm in 4 s while the right came 1.0 m nearer; handed bac
 
 None of these is a decision now; each is a value in a recipe or a constant with a record.
 
-- **The senses' delay**: none (`DuelRecipe.senseDelay`, in steps; plan 03).
+- **The senses' delay**: none (`DuelRecipe.senseDelay`, in steps).
 - **What is seen of another body**: its spec with what it holds, its segments' poses and
   velocities, and whether it is out. Not its hit points.
 - **Walking while facing elsewhere**: half the fastest walk across the heading or backward, and

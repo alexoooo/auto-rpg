@@ -64,6 +64,24 @@ test("a hook added while the world steps runs from the next step, and one remove
   } finally { stand.dispose(); }
 });
 
+test("sensing runs before every step hook, whenever it was added", async () => {
+  const stand = await airborne();
+  const { world } = stand, calls = [];
+  try {
+    world.beforeStep(() => calls.push("before 1"));
+    const first = world.sense((dt) => calls.push(`sense 1 ${dt === world.dt}`));
+    world.afterStep(() => calls.push("after"));
+    world.beforeStep(() => calls.push("before 2"));
+    world.sense(() => calls.push("sense 2"));
+    world.step(1);
+    assert.deepEqual(calls, ["sense 1 true", "sense 2", "before 1", "before 2", "after"]);
+    calls.length = 0;
+    first.dispose();
+    world.step(1);
+    assert.deepEqual(calls, ["sense 2", "before 1", "before 2", "after"], "a sensing hook removed stops at once");
+  } finally { stand.dispose(); }
+});
+
 test("elapsed time becomes whole steps, the remainder is carried, and a page that falls behind runs slow", async () => {
   const stand = await airborne();
   const { world } = stand, dt = world.dt;

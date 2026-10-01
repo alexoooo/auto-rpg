@@ -11,9 +11,9 @@ export const PHYSICS_HZ: Quantity<number> = sourced(120, "Hz", "owner-physics-ra
  * and the research runners all advance it through `step` (or `advance`, which turns elapsed time
  * into whole steps), and nothing else moves its bodies or its clock.
  *
- * A step is: the step hooks, in the order they were added (sensing, minds, motor control, the
- * muscle driver), then one solver step of `dt`, which writes every body's node, then the after-step
- * hooks (readings). The physics is the engine's the world was made with (`src/core/engine/engine.ts`),
+ * A step is: the sensing hooks; the step hooks, in the order they were added (minds, motor control,
+ * the muscle driver); then one solver step of `dt`, which writes every body's node; then the
+ * after-step hooks (readings). The physics is the engine's the world was made with (`src/core/engine/engine.ts`),
  * beside the scene, which only carries the nodes: `scene.render()` never advances it, and a page renders what the steps
  * produced. The clock is the count of steps; `time` is that count over the rate, not a sum of deltas.
  *
@@ -32,6 +32,12 @@ export interface World {
   readonly steps: number;
   /** Seconds since the world was made: `steps / hz`. */
   readonly time: number;
+  /**
+   * Run `hook` first in every step, before every `beforeStep` hook, after the sensing hooks added
+   * before it: what reads the world for the minds, so that every mind in a step decides on the
+   * same moment.
+   */
+  sense(hook: StepHook): Hook;
   /** Run `hook` before every solver step, after the hooks added before it. */
   beforeStep(hook: StepHook): Hook;
   /** Run `hook` after every solver step, after the hooks added before it. */
@@ -65,7 +71,7 @@ interface WorldOptions {
 export function createWorld(scene: Scene, engine: PhysicsEngine, { hz = PHYSICS_HZ.value, gravity = true }: WorldOptions = {}): World {
   const physics = engine.createPhysics({ hz, gravity });
   const dt = 1 / hz;
-  const before: HookEntry[] = [], after: HookEntry[] = [];
+  const sensing: HookEntry[] = [], before: HookEntry[] = [], after: HookEntry[] = [];
   let steps = 0, owed = 0, disposed = false;
 
   const add = (list: HookEntry[], run: StepHook): Hook => {
@@ -82,6 +88,7 @@ export function createWorld(scene: Scene, engine: PhysicsEngine, { hz = PHYSICS_
     scene, physics, hz, dt,
     get steps() { return steps; },
     get time() { return steps / hz; },
+    sense: (hook) => add(sensing, hook),
     beforeStep: (hook) => add(before, hook),
     afterStep: (hook) => add(after, hook),
     step(n = 1) {
@@ -89,6 +96,7 @@ export function createWorld(scene: Scene, engine: PhysicsEngine, { hz = PHYSICS_
       for (let i = 0; i < n; i++) {
         // Babylon caches a node's world matrix per render id; a step is a new moment, so a new id.
         (scene as unknown as { _renderId: number })._renderId += 1;
+        runAll(sensing);
         runAll(before);
         physics.step(dt);
         steps += 1;
@@ -105,6 +113,7 @@ export function createWorld(scene: Scene, engine: PhysicsEngine, { hz = PHYSICS_
     },
     dispose() {
       disposed = true;
+      sensing.length = 0;
       before.length = 0;
       after.length = 0;
       physics.dispose();

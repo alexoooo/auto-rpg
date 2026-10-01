@@ -5,7 +5,7 @@ import type { StanceGoal, StanceReading } from "./control/stance.ts";
 import type { StanceTuning } from "./control/stance-tuning.ts";
 import { stanceEnvelope, type StanceEnvelope } from "./control/stance-envelope.ts";
 import { embody, type Mind, type OwnBody } from "./mind/mind.ts";
-import { clockSenses, type Senses } from "./mind/senses.ts";
+import { clockSenses, NOTHING_SENSED, type Senses } from "./mind/senses.ts";
 import type { MuscleDriver } from "./muscle/driver.ts";
 import type { Vec3 } from "./spec/quantity.ts";
 import type { World } from "./world.ts";
@@ -71,6 +71,8 @@ const restCommand = (): BodyCommand => ({ posture: {}, hands: { left: null, righ
 export interface BodyView {
   /** Seconds of the world's clock. */
   readonly time: number;
+  /** What the body senses of the world this step (`Senses`): the clock, its side, and every other body. */
+  readonly senses: Senses;
   /** Each freedom's angle, rad, by channel name (`jointAngles`). */
   readonly angles: Readonly<Record<string, number>>;
   /** Each hand's knuckles in the world: where a fist strikes, and how fast. */
@@ -106,6 +108,8 @@ interface BodyOptions {
   readonly stance?: StanceTuning;
   /** The envelope's own measurement (`research/core-stance-envelope.mjs`): the body has none to read yet. */
   readonly measuring?: boolean;
+  /** What this body senses (`SensesHub.add`); the clock alone unless given. */
+  readonly senses?: () => Senses;
 }
 
 /**
@@ -130,6 +134,7 @@ export function commandMind(own: OwnBody, { servoSeconds, stance }: BodyOptions)
   const angles: Record<string, number> = {};
   const view = {
     time: 0,
+    senses: NOTHING_SENSED,
     angles,
     fists: { left: fists.left.fist, right: fists.right.fist },
     knuckles: { left: new Vector3(), right: new Vector3() },
@@ -156,6 +161,7 @@ export function commandMind(own: OwnBody, { servoSeconds, stance }: BodyOptions)
 
   const look = (senses: Senses): void => {
     view.time = senses.time;
+    view.senses = senses;
     muscles.channels.forEach((c, i) => { angles[c.name] = muscles.angle(i); });
     for (const hand of ["left", "right"] as const) {
       fists[hand].update();
@@ -179,7 +185,7 @@ export function commandMind(own: OwnBody, { servoSeconds, stance }: BodyOptions)
 
 /** `built` in `world`, holding its reference pose until something drives it. */
 export function createBody(built: BuiltBody, world: World, options: BodyOptions): Body {
-  const sense = clockSenses(world);
+  const sense = options.senses ?? clockSenses(world);
   const { own, mind, dispose } = embody(built, world, (body) => commandMind(body, options), sense);
   // Before its first step the view is the body as built, where a driver or a run first finds it.
   mind.look(sense());

@@ -131,3 +131,49 @@ test("the_same_bout_built_twice_is_the_same_to_the_bit", async () => {
   const other = await playBout({ ...recipe, gap: 4.001 }, 10);
   assert.notEqual(other.digest, first.digest);
 });
+
+test("each_side_of_a_bout_sees_the_other_and_closes_on_it", async () => {
+  const { world, dispose } = await arena();
+  const duel = new Duel(world, { left: "workshop-fighter", right: "workshop-rogue" });
+  try {
+    const { left, right } = duel.duelists;
+    const seen = (duelist) => duelist.body.view.senses.others.map((other) => [other.id, other.side, other.spec.model, other.out]);
+    assert.deepEqual(seen(left), [["right", "right", "workshop-rogue", false]]);
+    assert.deepEqual(seen(right), [["left", "left", "workshop-fighter", false]]);
+    assert.deepEqual([left.body.view.senses.side, right.body.view.senses.side], ["left", "right"]);
+    const gap = () => right.body.view.stance.centre.x - left.body.view.stance.centre.x;
+    const before = gap();
+    duel.run(3);
+    assert.ok(gap() < before - 0.5, `they close: ${before} to ${gap()}`);
+    // Each sees the other where its own reading has it.
+    const other = left.body.view.senses.others[0].centre, own = right.body.view.stance.centre;
+    assert.ok(Math.hypot(other.x - own.x, other.y - own.y, other.z - own.z) < 1e-9);
+  } finally { duel.dispose(); dispose(); }
+});
+
+test("a_side_is_out_to_the_other_once_the_bout_is_decided", async () => {
+  const { world, dispose } = await arena();
+  const duel = new Duel(world, { left: "workshop-fighter", right: "workshop-rogue", capSeconds: 1 });
+  try {
+    const { left, right } = duel.duelists;
+    const out = () => [left.body.view.senses.out, right.body.view.senses.out, left.body.view.senses.others[0].out, right.body.view.senses.others[0].out];
+    duel.run(0.5);
+    assert.deepEqual(out(), [false, false, false, false]);
+    assert.equal(duel.run(2)?.ending, "time");
+    // Its own it knows at once; the other is shown it at the next step, and both then stand.
+    assert.deepEqual(out(), [true, true, false, false]);
+    world.step();
+    assert.deepEqual(out(), [true, true, true, true]);
+    const at = () => [left, right].map((duelist) => duelist.body.view.stance.centre.x);
+    const before = at();
+    world.step(240);
+    for (const [k, x] of at().entries()) assert.ok(Math.abs(x - before[k]) < 0.15, `a side that is out walks no further: ${before[k]} to ${x}`);
+  } finally { duel.dispose(); dispose(); }
+});
+
+test("a_bout's_sense_delay_is_a_dial_that_changes_the_bout", async () => {
+  const recipe = { left: "workshop-fighter", right: "workshop-rogue" };
+  const now = await playBout(recipe, 10), late = await playBout({ ...recipe, senseDelay: 24 }, 10);
+  assert.notEqual(late.digest, now.digest);
+  assert.deepEqual(await playBout({ ...recipe, senseDelay: 0 }, 10), { ...now, recipe: { ...recipe, senseDelay: 0 } });
+});

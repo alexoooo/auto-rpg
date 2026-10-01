@@ -222,9 +222,9 @@ export class DungeonRun {
   /** What carries out `actor`'s plan (`fighterTactics`); a fighter out of the fight only looks. */
   private tactics(actor: DungeonActor): Tactics {
     return fighterTactics(`crypt ${actor.side}`, () => {
-      const { move, look, attack } = actor.plan;
+      const { move, look, attack } = actor.plan, head = attack?.fighter?.body.view.head;
       return actor.alive
-        ? { move, look, attack: attack?.fighter?.body ?? null }
+        ? { move, look, attack: head ? [head.x, head.y, head.z] : null }
         : { move: null, look, attack: null };
     });
   }

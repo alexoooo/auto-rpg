@@ -3,7 +3,8 @@ import { buildBody } from "../core/build/build-body.ts";
 import { armed } from "../core/human/grip.ts";
 import { modelSpec, type BodyModel } from "../core/human/spec.ts";
 import { woodenClub } from "../core/items/club.ts";
-import { ATTACK_METRES, fighterTactics, type FighterPlan } from "../core/mind/fighter.ts";
+import { fighterTactics, seekFoe } from "../core/mind/fighter.ts";
+import { createSenses, type SensesHub } from "../core/mind/senses.ts";
 import { driveBy } from "../core/mind/tactics.ts";
 import { watchBlows, type BlowWatch, type Fighter, type LandedBlow } from "../core/rules/blows.ts";
 import { createPool, type Ending } from "../core/rules/pool.ts";
@@ -20,7 +21,9 @@ import type { Hook, World } from "../core/world.ts";
  * - **They stand** the recipe's gap apart (`GAP_METRES` unless it says) across the arena's
  *   centre, both facing +z as every body is built; each turns a quarter to the other, so neither
  *   starts ahead.
- * - **Each** walks at the other until within `ATTACK_METRES` of it, then attacks its head.
+ * - **Each side's tactics** (`seekFoe`) walk at the body they see of the other side until within
+ *   `ATTACK_METRES` of it, then attack its head. What each sees of the other is the bout's senses'
+ *   (`createSenses`): both see the same step, `DuelRecipe.senseDelay` steps old.
  * - **A side is out** once its pool has ended, or once its body has fallen (`SkillReport.fallen`): the
  *   core has no rising, so a body down stays down. The other side wins; both out on one step is a
  *   draw.
@@ -69,6 +72,8 @@ interface DuelRecipe {
   readonly gap?: number;
   /** `CAP_SECONDS` unless given. */
   readonly capSeconds?: number;
+  /** How many steps old what each side sees of the other is; none unless given (`createSenses`). */
+  readonly senseDelay?: number;
 }
 
 /** What a page hears of a bout. */
@@ -90,6 +95,7 @@ export class Duel {
   verdict: Verdict | null = null;
   private readonly start: number;
   private readonly cap: number;
+  private readonly senses: SensesHub;
   private readonly watch: BlowWatch;
   private readonly judging: Hook;
 
@@ -100,16 +106,18 @@ export class Duel {
     this.start = world.time;
     this.cap = recipe.capSeconds ?? CAP_SECONDS;
     const gap = recipe.gap ?? GAP_METRES;
+    this.senses = createSenses(world, recipe.senseDelay ?? 0);
     const duelists = {} as Record<Side, Duelist>;
     for (const side of SIDES) {
       const model = recipe[side];
       const spec = armed(modelSpec(model), "right", woodenClub());
       const x = (side === "left" ? -1 : 1) * gap / 2;
       const built = buildBody(spec, world, { position: [x, 0, 0] });
-      const body = createBody(built, world, { servoSeconds: SERVO_SECONDS });
-      const other = side === "left" ? "right" : "left";
-      const skills = driveBy(body, fighterTactics(`arena ${side}`, () => this.plan(side, other)));
       const pool = createPool(spec, this.rules);
+      // Out to the other side once the bout is decided, its pool has ended or it has fallen.
+      const senses = this.senses.add({ id: side, side, built, out: () => this.verdict !== null || !duelists[side].standing });
+      const body = createBody(built, world, { servoSeconds: SERVO_SECONDS, senses });
+      const skills = driveBy(body, fighterTactics(`arena ${side}`, seekFoe));
       duelists[side] = {
         id: side, side, model, built, pool, body, skills,
         get standing() { return pool.ending() === null && !skills.report.fallen; },
@@ -134,16 +142,6 @@ export class Duel {
     return this.verdict;
   }
 
-  /** What `side`'s tactics carry out: walk at the other, attack it within `ATTACK_METRES`, or stand once it is over. */
-  private plan(side: Side, other: Side): FighterPlan {
-    const own = this.duelists[side], them = this.duelists[other];
-    const from = own.body.view.stance.centre, to = them.body.view.stance.centre;
-    const dx = to.x - from.x, dz = to.z - from.z, d = Math.max(0.001, Math.hypot(dx, dz));
-    const toward = { x: dx / d, z: dz / d };
-    if (this.verdict || !own.standing || !them.standing) return { move: null, look: toward, attack: null };
-    return d > ATTACK_METRES ? { move: toward, look: toward, attack: null } : { move: null, look: toward, attack: them.body };
-  }
-
   private judge(): void {
     if (this.verdict) return;
     const out = SIDES.filter((side) => !this.duelists[side].standing);
@@ -166,6 +164,7 @@ export class Duel {
   dispose(): void {
     this.judging.dispose();
     this.watch.dispose();
+    this.senses.dispose();
     for (const side of SIDES) {
       this.duelists[side].body.dispose();
       this.duelists[side].built.dispose();

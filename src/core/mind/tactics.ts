@@ -13,7 +13,10 @@ export interface Tactics {
   decide(sight: Sight, dt: number): Intent;
 }
 
-/** What tactics see of their own body. What they are aimed at is their own: a scenario hands them their target. */
+/**
+ * What tactics see: the body's view, with what it senses of the others (`BodyView.senses`), how
+ * its skills are going, and what its stance holds.
+ */
 export interface Sight {
   readonly view: BodyView;
   /** How the skills are going, as the last step left them. */

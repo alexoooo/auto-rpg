@@ -64,3 +64,68 @@ The Warrior against the Rogue at 4 m is the bout `research/bout-trace.mjs` plays
 `fd30dd8586076627` on this machine. The digest is every segment's pose at every step
 (`traceOf`, `tests/harness/trace.mjs`); a change that should change nothing leaves it as it
 was. On another Node or processor, read it before a change and compare after.
+
+## With senses
+
+Harness: Node 24.19, the core world (`src/core/world.ts`), Rapier, 120 Hz. Read on the commit
+after `e10fad89`, the first whose bouts go through the senses (`createSenses`,
+`src/core/mind/senses.ts`): every body is read before any mind steps, so both sides decide on
+the same step, where the left side had aimed at the right as it was a step earlier; and each
+side picks its own foe from what it sees (`seekFoe`). The delay is none.
+
+```powershell
+node research/bout-baseline.mjs --gaps 3,4,5 --workers 14
+```
+
+The same 27 bouts as the standing table.
+
+| Left | Right | Gap, m | Winner | Ending | Seconds | Blows | Wounding | Clashes | Left bar | Right bar |
+|---|---|---|---|---|---|---|---|---|---|---|
+| workshop-fighter | workshop-fighter | 3 | right | severed | 11.83 | 1 | 1 | 0 | 0.86 | 1.00 |
+| workshop-fighter | workshop-rogue | 3 | left | severed | 13.54 | 2 | 2 | 4 | 1.00 | 0.79 |
+| workshop-fighter | crypt-skeleton | 3 | left | fallen | 10.01 | 0 | 0 | 0 | 1.00 | 1.00 |
+| workshop-rogue | workshop-fighter | 3 | right | fallen | 23.94 | 5 | 5 | 14 | 0.97 | 1.00 |
+| workshop-rogue | workshop-rogue | 3 | left | fallen | 10.22 | 0 | 0 | 0 | 1.00 | 1.00 |
+| workshop-rogue | crypt-skeleton | 3 | right | fallen | 9.88 | 1 | 1 | 2 | 0.95 | 1.00 |
+| crypt-skeleton | workshop-fighter | 3 | right | severed | 9.55 | 1 | 1 | 0 | 0.85 | 1.00 |
+| crypt-skeleton | workshop-rogue | 3 | left | fallen | 10.69 | 0 | 0 | 2 | 1.00 | 1.00 |
+| crypt-skeleton | crypt-skeleton | 3 | right | fallen | 14.68 | 7 | 7 | 0 | 1.00 | 0.99 |
+| workshop-fighter | workshop-fighter | 4 | right | severed | 20.07 | 3 | 3 | 6 | 0.86 | 1.00 |
+| workshop-fighter | workshop-rogue | 4 | left | fallen | 21.23 | 14 | 14 | 2 | 0.99 | 0.85 |
+| workshop-fighter | crypt-skeleton | 4 | left | severed | 10.22 | 2 | 2 | 0 | 1.00 | 0.87 |
+| workshop-rogue | workshop-fighter | 4 | right | fallen | 13.04 | 2 | 2 | 6 | 0.85 | 1.00 |
+| workshop-rogue | workshop-rogue | 4 | right | fallen | 19.99 | 2 | 2 | 4 | 1.00 | 1.00 |
+| workshop-rogue | crypt-skeleton | 4 | right | fallen | 16.67 | 5 | 5 | 2 | 0.92 | 0.97 |
+| crypt-skeleton | workshop-fighter | 4 | right | fallen | 11.73 | 2 | 2 | 4 | 0.96 | 1.00 |
+| crypt-skeleton | workshop-rogue | 4 | left | fallen | 12.28 | 0 | 0 | 0 | 1.00 | 1.00 |
+| crypt-skeleton | crypt-skeleton | 4 | left | fallen | 16.23 | 0 | 0 | 0 | 1.00 | 1.00 |
+| workshop-fighter | workshop-fighter | 5 | right | fallen | 12.21 | 9 | 9 | 18 | 0.97 | 0.94 |
+| workshop-fighter | workshop-rogue | 5 | left | severed | 9.61 | 1 | 1 | 0 | 1.00 | 0.81 |
+| workshop-fighter | crypt-skeleton | 5 | left | fatal | 11.80 | 2 | 2 | 0 | 1.00 | 0.92 |
+| workshop-rogue | workshop-fighter | 5 | right | fatal | 9.59 | 1 | 1 | 0 | 0.89 | 1.00 |
+| workshop-rogue | workshop-rogue | 5 | right | fallen | 13.28 | 0 | 0 | 0 | 1.00 | 1.00 |
+| workshop-rogue | crypt-skeleton | 5 | left | fallen | 14.21 | 2 | 2 | 0 | 0.99 | 1.00 |
+| crypt-skeleton | workshop-fighter | 5 | right | fallen | 12.52 | 2 | 2 | 0 | 1.00 | 0.97 |
+| crypt-skeleton | workshop-rogue | 5 | right | fallen | 16.88 | 0 | 0 | 0 | 1.00 | 1.00 |
+| crypt-skeleton | crypt-skeleton | 5 | left | fallen | 18.64 | 1 | 1 | 0 | 0.99 | 1.00 |
+
+| | Standing table | With senses |
+|---|---|---|
+| Bouts by ending | fatal 1, fallen 20, severed 6 | fatal 2, fallen 19, severed 6 |
+| Bout time, s | 361 | 375 |
+| Falls a minute | 3.33 (20 falls) | 3.04 (19 falls) |
+| Wounding blows a minute | 10.8 | 10.4 |
+| Ended before any wounding blow | 8 of 27 | 7 of 27 |
+
+Every bout is another bout: the left side sees a step sooner, and nothing in a bout damps a
+difference that small. In the totals one bout went from a fall to a fatal wound and each rate
+moved by under a tenth of itself: the reading of one step of sight at 27 bouts, recorded and not
+explained.
+
+The digests `research/bout-trace.mjs` reads from here on, on this machine:
+
+- the Warrior against the Rogue at 4 m: 2547 steps, the left side winning by the right's fall at
+  21.225 s, 14 wounding blows and 2 clashes, `3ab8855dc81d4dfa`;
+- skeleton against skeleton at 4 m (`node research/bout-trace.mjs crypt-skeleton crypt-skeleton 60`):
+  1947 steps, the left side winning by the right's fall at 16.225 s, no blow,
+  `91dc2fa923804d70`.

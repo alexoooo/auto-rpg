@@ -12,7 +12,8 @@ reaches a mind.
 Every order is recorded with the step it was given at (`Duel.tape`), so a bout a person fought is
 its recipe and its tape, and plays again to the bit.
 
-A bout nobody takes a side in is unchanged: its digests are [plan 03](2026-09-30-minds-03-senses.md)'s.
+A bout nobody takes a side in is unchanged: its digests are the ones under "With senses" in
+`docs/reference/bouts.md`.
 
 ## What walking while facing costs
 
@@ -440,7 +441,7 @@ test("keys_and_a_pointer_make_orders_in_the_world's_frame", () => {
 npm test
 npm run check
 npm run build
-node research/bout-trace.mjs                                   # plan 03's digest: nobody was ordered
+node research/bout-trace.mjs                                   # 3ab8855dc81d4dfa: nobody was ordered
 node research/orders-walk.mjs --workers 14 --shares 1,0.7,0.5,0.4,0.3  # into docs/reference/orders.md
 npm run preview -- --port 5181                                 # then kill it by the PID that holds the port
 ```
