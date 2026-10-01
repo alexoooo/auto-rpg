@@ -6,7 +6,10 @@
  * change and compare after, on the same machine. It is not a test: a change that means to change
  * how a fight plays changes its lines, and says so.
  *
- *   node scripts/fingerprint.mjs [--workers 12]
+ *   node scripts/fingerprint.mjs [--workers 12] [--character]
+ *
+ * `--character` prints instead what the character workshop's checks measure on its two models: the
+ * lines a change to `scripts/character-lab/validation.mjs` or `contact.mjs` must leave as they were.
  *
  * One line a case, each ending in the first 16 hex digits of a SHA-256. A pose hash is `traceOf`'s
  * digest (`tests/harness/trace.mjs`): every segment's position and rotation after every step of
@@ -15,14 +18,19 @@
  * reads no clock and no `Math.random`.
  */
 import { createHash } from "node:crypto";
+import { readFile } from "node:fs/promises";
 import { availableParallelism } from "node:os";
 import { parseArgs } from "node:util";
 import { Worker, isMainThread, parentPort } from "node:worker_threads";
 import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
+import { LoadAssetContainerAsync } from "@babylonjs/core/Loading/sceneLoader.js";
 import { PBRMaterial } from "@babylonjs/core/Materials/PBR/pbrMaterial.js";
+import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { Logger } from "@babylonjs/core/Misc/logger.js";
 import { Scene } from "@babylonjs/core/scene.js";
+import "@babylonjs/loaders/glTF/index.js";
 import { SIDES } from "../src/arena/duel.ts";
+import { CHARACTERS, WEAPONS, clipFor } from "../src/character-lab/catalog.ts";
 import { humanSpec } from "../src/core/human/spec.ts";
 import { generateCryptDungeon } from "../src/dungeon/crypt-dungeon.ts";
 import { CryptWeathering } from "../src/dungeon/crypt-weathering.ts";
@@ -35,6 +43,10 @@ import { startRoutine } from "../src/lab/routine.ts";
 import { startRun } from "../src/lab/run-mode.ts";
 import { TRACKS, trackOf } from "../src/lab/track.ts";
 import { buildBout } from "../research/bout.mjs";
+import { gripGap, surface } from "./character-lab/contact.mjs";
+import {
+  contactPatch, forearmExpansion, gripDistances, skinPart, skinRegions, surfaceIndex, wristAreaRatio,
+} from "./character-lab/validation.mjs";
 import { coreStand, freshEngine } from "../tests/harness/core-stand.mjs";
 import { traceOf } from "../tests/harness/trace.mjs";
 
@@ -42,8 +54,9 @@ import { traceOf } from "../tests/harness/trace.mjs";
 Logger.LogLevels = Logger.NoneLogLevel;
 
 const digestOf = (hash) => hash.digest("hex").slice(0, 16);
-/** `value` as JSON, a typed array written as a plain one. */
-const written = (value) => JSON.stringify(value, (_, v) => ArrayBuffer.isView(v) ? Array.from(v) : v);
+/** `value` as JSON, a typed array written as a plain one and a vector as its three numbers. */
+const written = (value) => JSON.stringify(value,
+  (_, v) => ArrayBuffer.isView(v) ? Array.from(v) : v instanceof Vector3 ? v.asArray() : v);
 
 /** A bout to its verdict or its cap, then 2 s more: a body that fell goes on moving, and so does the stance under it. */
 async function arena(left, right) {
@@ -143,6 +156,89 @@ function cutaway(seeds) {
   return digestOf(hash);
 }
 
+/** The frames of each clip the character case reads. */
+const CHARACTER_FRAMES = [0, 10, 20];
+/** The hand that holds each grip. */
+const GRIP_HAND = { sword: "r", shield: "l", bow: "l" };
+/** The pads of a hand that lie on a grip. */
+const PADS = ["palm", "index", "middle", "ring", "pinky", "thumb"];
+/** How many of the head's triangles the character case sends a segment through. */
+const HEAD_PROBES = 64;
+/** The joints the character case draws its long segments between, each read where it is and again `CLEAR` to the
+ * side, where it meets nothing. */
+const SPANS = [["hand_l", "hand_r"], ["foot_l", "head"], ["foot_r", "upperarm_l"], ["hand_l", "foot_l"]];
+const CLEAR = new Vector3(3, 0, 0);
+
+/**
+ * What the workshop's checks measure on the model `id` (`scripts/character-lab/validation.mjs`, `contact.mjs`):
+ * the regions of its skin at rest, and, at `CHARACTER_FRAMES` of every clip of the catalogue, each wrist's area and
+ * each forearm's girth against rest, how each pad of the holding hand lies on each grip the clip carries, and what
+ * the surface index answers for a short segment through triangles of the head and for long ones across the body
+ * and beside it.
+ */
+async function character(id) {
+  const engine = new NullEngine(), scene = new Scene(engine);
+  try {
+    const bytes = await readFile(new URL(`../public/assets/character-lab/${CHARACTERS[id].asset}`, import.meta.url));
+    const asset = await LoadAssetContainerAsync(bytes, scene, { pluginExtension: ".glb" });
+    asset.addAllToScene();
+    const mesh = (name) => asset.meshes.find((m) => m.name === name);
+    const point = (name) => asset.transformNodes.find((n) => n.name === name).getAbsolutePosition().clone();
+    const skin = mesh("base__skin"), head = skinPart(skin, (bone) => bone === "head" || bone === "neck_01");
+    const regions = { l: skinRegions(skin, "l"), r: skinRegions(skin, "r") };
+    const hash = createHash("sha256");
+    hash.update(written(regions));
+    let samples = 0, probes = 0, crossings = 0;
+    for (const pose of ["inspection", "loop"]) for (const weapon of Object.keys(WEAPONS)) {
+      for (const group of asset.animationGroups) group.stop();
+      const clip = asset.animationGroups.find((group) => group.name === clipFor(pose, { weapon }));
+      clip.start(false);
+      clip.pause();
+      for (const frame of CHARACTER_FRAMES) {
+        clip.goToFrame(frame);
+        scene.incrementRenderId();
+        for (const node of asset.transformNodes) node.computeWorldMatrix(true);
+        for (const skeleton of asset.skeletons) skeleton.prepare(true);
+        const points = surface(skin), cache = new Map([[skin, points]]);
+        for (const side of ["l", "r"]) {
+          const elbow = point(`lowerarm_${side}`), wrist = point(`hand_${side}`);
+          hash.update(written([
+            wristAreaRatio(regions[side], points, wrist.subtract(elbow).normalize()),
+            forearmExpansion(regions[side], points, elbow, wrist),
+          ]));
+        }
+        for (const held of WEAPONS[weapon].groups) {
+          const grip = surface(mesh(`${held}__grip`));
+          for (const pad of PADS) {
+            const patch = regions[GRIP_HAND[held]][pad].map((i) => points[i]), distances = gripDistances(patch, grip);
+            hash.update(written([distances, contactPatch(distances), gripGap(patch, grip)]));
+          }
+        }
+        const skull = surfaceIndex([head], cache), headPoints = surface(head, false), ids = head.getIndices();
+        const stride = Math.max(1, Math.floor(ids.length / 3 / HEAD_PROBES));
+        for (let triangle = 0; triangle < ids.length / 3; triangle += stride) {
+          const [a, b, c] = [0, 1, 2].map((corner) => headPoints[ids[triangle * 3 + corner]]);
+          const centre = a.add(b).add(c).scale(1 / 3);
+          const normal = Vector3.Cross(b.subtract(a), c.subtract(a)).normalize().scale(0.01);
+          const crossed = skull.intersects(centre.subtract(normal), centre.add(normal));
+          probes++;
+          if (crossed) crossings++;
+          hash.update(written([crossed, skull.lastTriangle]));
+        }
+        const body = surfaceIndex([mesh("base__jacket"), mesh("base__trousers"), head], cache);
+        for (const [from, to] of SPANS) for (const shift of [Vector3.Zero(), CLEAR]) {
+          const crossed = body.intersects(point(from).add(shift), point(to).add(shift));
+          probes++;
+          if (crossed) crossings++;
+          hash.update(written([crossed, body.lastTriangle]));
+        }
+        samples++;
+      }
+    }
+    return `read ${samples} poses, ${crossings} of ${probes} segments cross, ${digestOf(hash)}`;
+  } finally { scene.dispose(); engine.dispose(); }
+}
+
 /** How far apart the sight case reads along its walk, m. */
 const SIGHT_STRIDE = 0.5;
 
@@ -184,18 +280,20 @@ const CASES = [
   ...range(8).map((i) => i + 1).map((seed) => ({ name: `sight, crypt ${seed}`, run: () => sight(seed) })),
   { name: "weathering, crypts 1-3", run: () => weathering([1, 2, 3]) },
   { name: "cut-away, the chamber and crypts 1-3", run: () => cutaway([1, 2, 3]) },
+  ...Object.keys(CHARACTERS).map((id) => ({ name: `character ${id}`, workshop: true, run: () => character(id) })),
 ];
 
 if (isMainThread) {
-  const { values } = parseArgs({ options: { workers: { type: "string" } } });
-  const lanes = Math.min(CASES.length, Number(values.workers ?? Math.max(1, availableParallelism() - 2)));
+  const { values } = parseArgs({ options: { workers: { type: "string" }, character: { type: "boolean" } } });
+  const chosen = CASES.keys().filter((id) => !!CASES[id].workshop === !!values.character).toArray();
+  const lanes = Math.min(chosen.length, Number(values.workers ?? Math.max(1, availableParallelism() - 2)));
   const lines = new Array(CASES.length);
   let next = 0;
   await Promise.all(Array.from({ length: lanes }, () => new Promise((resolve, reject) => {
     const worker = new Worker(new URL(import.meta.url));
     const feed = () => {
-      if (next >= CASES.length) { worker.terminate(); resolve(); return; }
-      const id = next++;
+      if (next >= chosen.length) { worker.terminate(); resolve(); return; }
+      const id = chosen[next++];
       worker.once("message", ({ line, error }) => {
         if (error) { reject(new Error(`${CASES[id].name}: ${error}`)); return; }
         lines[id] = line;
@@ -205,7 +303,7 @@ if (isMainThread) {
     };
     feed();
   })));
-  for (const [id, line] of lines.entries()) console.log(`${CASES[id].name}: ${line}`);
+  for (const id of chosen) console.log(`${CASES[id].name}: ${lines[id]}`);
 } else {
   // One case at a time: each is answered only when it is done.
   parentPort.on("message", async (id) => {
