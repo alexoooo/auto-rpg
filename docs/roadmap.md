@@ -83,7 +83,9 @@ All of it on a physically based core, humans first ([architecture](architecture.
 
 ### The Crypt
 
-- Authored set pieces for Generated depths: [the plan](plans/2026-09-23-depths-06-set-pieces.md).
+- Authored set pieces for Generated depths: rooms drawn as text (a pillared hall, a pier, four
+  chambers) and stamped into a generated room, kept only where every corridor into the room is
+  still a way through. A draft is `docs/plans/2026-09-23-depths-06-set-pieces.md@144961d4`.
 - The skeleton's intent (see [architecture](architecture.md#standing-decisions)): the ribcage and
   pelvis fatal and the skull not, weak joints, blunt blows worth more against bone. Today its
   wounds are the human's and the head is vital.
@@ -102,7 +104,9 @@ All of it on a physically based core, humans first ([architecture](architecture.
 - An optional skeleton costume (a loincloth and belt, bracers, one shoulder plate), only if the
   owner wants it after seeing the bones in play. Each piece is rigid, rides a part like the bones,
   collides with nothing, and is checked for clearance over a driven sweep.
-- A pixel look for the dungeon, behind a switch: [the plan](plans/2026-09-24-dungeon-look-06-pixel-look.md).
+- A pixel look for the dungeon, behind a switch: render at a fraction of the canvas and upscale
+  without filtering, for the owner to judge against the concept images. A draft is
+  `docs/plans/2026-09-24-dungeon-look-06-pixel-look.md@144961d4`.
 - A raking-light check that `tangentBasis: "babylon-lh"` in `surface()` orients OpenGL normal maps
   correctly.
 - The dungeon's look choices stand open until the owner judges them in play: the camera pitch
