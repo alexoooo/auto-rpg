@@ -113,13 +113,25 @@ open `http://127.0.0.1:5183/character-lab.html`, and stop the server when done.
 
 ## Checking the models
 
-`npm test` loads the real GLBs. `tests/character-lab.test.mjs` checks every loadout, real
+`npm test` loads the real GLBs (`workshopModel`, `tests/harness/workshop-model.mjs`, which works
+out every node's world matrix again at each pose and before each read).
+`tests/character-lab.test.mjs` checks every loadout's groups, strap and clips, real
 forward-and-return displacement, the stance foot, the attacks and the bow's flex; samples every
-loop for wrist collapse, and the bow's for hands entering the torso; and, on each loop's first
-frame, that the palm and finger pads lie on the sword's, shield's and bow's grips (`gripDistances`,
-`contactPatch` and `gripGap`).
-`tests/character-motion.test.mjs` checks that the bow turns continuously between authored poses and
-that the sword-and-shield and bow attacks clear the head, body and opposite arm.
+loop for a wrist bent past 60 degrees, and the bow's for hands entering the torso; and, on each
+loop's first frame, that the palm and finger pads lie on the sword's, shield's and bow's grips
+(`gripDistances`, `contactPatch` and `gripGap`), in the hand the page inspects (`gripHand`).
+`tests/character-motion.test.mjs` checks that the bow hand turns no faster than 180 degrees a
+second at every half frame, and, at every frame of the sword-and-shield and bow loops, that the
+wrists keep their area, the forearms their girth, and the arms and what they carry clear the head,
+the body and each other. Its controls show each check finding what it looks for: a crossed
+triangle, the head pushed a centimetre through itself, a wrist pressed flat, a forearm pushed out
+to twice its girth.
+
+Over those two loops the least a wrist keeps of its rest area is 0.71 on the fighter and 0.74 on
+the rogue, both drawing the bow, against a bound of 0.65; the forearm's skin never stands farther
+from its axis than at rest (a greatest ratio of 1.000 on both), against a bound of 1.5; and the
+bow's hands stay outside a torso twice as wide and deep as the one the check uses (Node,
+`NullEngine`, both GLBs, every frame at 60 a second).
 These are sampled surface checks, not proof of clearance between samples, and they do not judge
 anatomy or art: a person looks as well.
 

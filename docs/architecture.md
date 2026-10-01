@@ -233,7 +233,8 @@ take. `scene.render()` draws what the steps produced and never advances them.
 
 Node imports `src/` directly. `tests/harness/core-stand.mjs` stands one spec on a ground in a world
 of its own (`coreStand`, `freshEngine`), `tests/harness/scene.mjs` gives a `NullEngine` scene for
-tests that need meshes and no physics, and most of `research/` measures on the same stand
+tests that need meshes and no physics, `tests/harness/workshop-model.mjs` stands a workshop model
+at a frame of a clip, and most of `research/` measures on the core's stand
 ([research/README.md](../research/README.md)).
 
 ## State

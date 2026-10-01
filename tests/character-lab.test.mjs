@@ -1,78 +1,194 @@
-import test from 'node:test';
-import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
-import { NullEngine } from '@babylonjs/core/Engines/nullEngine.js';
-import { Scene } from '@babylonjs/core/scene.js';
-import { LoadAssetContainerAsync } from '@babylonjs/core/Loading/sceneLoader.js';
-import '@babylonjs/loaders/glTF/index.js';
-import {visiblePart,clipFor} from '../src/character-lab/catalog.ts';
-import {surface} from '../scripts/character-lab/contact.mjs';
-import {skinRegions,gripDistances,gripGap,contactPatch} from '../scripts/character-lab/validation.mjs';
-import {Vector3} from '@babylonjs/core/Maths/math.vector.js';
-for(const id of ['fighter','rogue']) test(`character workshop: ${id} loadouts and real motion`,async()=>{
- const engine=new NullEngine();const scene=new Scene(engine);
- try{
-  const bytes=await readFile(new URL(`../public/assets/character-lab/${id}.glb`,import.meta.url));
-  const asset=await LoadAssetContainerAsync(bytes,scene,{pluginExtension:'.glb'});asset.addAllToScene();
-  const meshes=asset.meshes.filter(m=>m.getTotalVertices());
-  assert.ok(meshes.every(m=>m.skeleton),'every visible part has skin bindings');
-  for(const boots of [false,true])for(const armour of [false,true])for(const weapon of ['empty','sword','shield','sword-shield','bow']){
-   const kit={boots,armour,weapon};const actual=new Set(meshes.filter(m=>visiblePart(m.name,kit)).map(m=>m.name.split('__')[0]));
-   const expected=new Set(['base',boots?'boots':'bare',...(armour?['armour']:[]),...(weapon==='empty'?[]:weapon==='sword-shield'?['sword','shield']:[weapon])]);assert.deepEqual(actual,expected);
-   for(const pose of ['inspection','loop'])assert.ok(asset.animationGroups.some(a=>a.name===clipFor(pose,kit)));
+/**
+ * The character workshop's models as they are exported: what each loadout shows, and what the authored loop does
+ * with the body and with what it holds. The loop stands until 0.6 s, walks out until 3 s, attacks where it stands,
+ * turns from 6.4 s, walks back from 8 s and turns again from 10.4 s (`pose`,
+ * `scripts/character-lab/realistic/motion.py`). Every reading is of the exported bones and skin, never of the
+ * generator's targets.
+ */
+import test, { after } from "node:test";
+import assert from "node:assert/strict";
+import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { CHARACTERS, clipFor, gripHand, visiblePart } from "../src/character-lab/catalog.ts";
+import { surface } from "../scripts/character-lab/contact.mjs";
+import { contactPatch, gripDistances, gripGap, skinRegions } from "../scripts/character-lab/validation.mjs";
+import { LOOP, workshopModels } from "./harness/workshop-model.mjs";
+
+const IDS = Object.keys(CHARACTERS);
+/** The mesh groups each choice of weapon shows, written out here apart from the catalogue's own table. */
+const HELD = { empty: [], sword: ["sword"], shield: ["shield"], "sword-shield": ["shield", "sword"], bow: ["bow"] };
+const WEAPON_IDS = Object.keys(HELD);
+const SIDES = ["l", "r"];
+const DIGITS = ["index", "middle", "ring", "pinky", "thumb"];
+
+/** Moments of the loop, s: the walk out has ended and the guard is up; the blow is under way; the bow is drawn;
+ * the arrow has gone. */
+const WALKED_OUT = 3.1, STRUCK = 4.5, DRAWN = 4.6, RELEASED = 5;
+/** Two moments of one step of the walk out, s, with the left foot on the ground through both. */
+const STANCE = [0.8, 1.0];
+/** The loop is read for the wrists and the torso every 0.2 s. */
+const SAMPLES = Array.from({ length: LOOP.seconds * 5 }, (_, step) => step / 5);
+/** The widest a wrist may bend: the angle between the forearm and the hand's length, degrees. */
+const WRIST_BEND = 60;
+/** The torso, as an ellipsoid about the middle of the pelvis and the neck: its half width and half depth, m, and
+ * its half height as a share of the pelvis to the neck. */
+const TORSO = { across: 0.16, front: 0.13, up: 0.52 };
+/** A grip is held when the pad's nearest point sinks no deeper than `deepest` into it, its contact
+ * (`contactPatch`) lies within `patch` of it, and a digit's nearest skin within `gap`, m. */
+const HOLD = { deepest: -0.0015, patch: 0.004, gap: 0.003 };
+
+const models = workshopModels();
+after(() => models.dispose());
+
+const loop = (weapon) => clipFor("loop", { weapon });
+/** Stands `model` at `seconds` of the loop with `weapon`. */
+const stand = (model, weapon, seconds) => model.pose(loop(weapon), seconds * LOOP.framesPerSecond);
+const millimetres = (metres) => Math.round(metres * 1000);
+
+/** The skin of `model`, the regions of each arm on it, and each vertex's bones with their weights. */
+function skinOf(model) {
+  const skin = model.mesh("base__skin");
+  const indices = skin.getVerticesData("matricesIndices"), weights = skin.getVerticesData("matricesWeights");
+  const names = new Map(skin.skeleton.bones.map((bone) => [bone.getIndex(), bone.name]));
+  /** Whether vertex `i` is bound by more than a quarter to one bone of `digit` on `side`. */
+  const onDigit = (i, digit, side) => [0, 1, 2, 3].some((j) => {
+    const name = names.get(indices[i * 4 + j]);
+    return name?.startsWith(`${digit}_`) && name.endsWith(`_${side}`) && weights[i * 4 + j] > 0.25;
+  });
+  return { skin, regions: { l: skinRegions(skin, "l"), r: skinRegions(skin, "r") }, onDigit };
+}
+
+/** The grips a hand holds at the loop's first frame, each with the posed skin and the grip's own points. */
+function* grips(model) {
+  const { skin, regions, onDigit } = skinOf(model);
+  for (const weapon of ["sword", "shield", "bow"]) {
+    stand(model, weapon, 0);
+    const side = gripHand(weapon);
+    yield { weapon, side, points: surface(skin), grip: surface(model.mesh(`${weapon}__grip`)), regions: regions[side], onDigit };
   }
-  const point=name=>{const n=asset.transformNodes.find(n=>n.name===name);assert.ok(n,name);n.computeWorldMatrix(true);return n.getAbsolutePosition().clone()};
-  function sample(weapon,t){for(const a of asset.animationGroups)a.stop();const a=asset.animationGroups.find(a=>a.name==='loop-'+weapon);a.start(false);a.pause();a.goToFrame(t*60);for(const n of asset.transformNodes)n.computeWorldMatrix(true);return {root:point('pelvis'),left:point('foot_l'),right:point('hand_r')};}
-  for(const weapon of ['empty','sword','shield','sword-shield','bow']){
-   const start=sample(weapon,0),advanced=sample(weapon,3.1),end=sample(weapon,12);
-   assert.ok(advanced.root.subtract(start.root).length()>1.5,'walk advances through world');
-   assert.ok(end.root.subtract(start.root).length()<.005,'loop returns to origin');
-   const guard=sample(weapon,3.1),strike=sample(weapon,4.5);
-   const moved=weapon==='shield'?point('hand_l'):strike.right;
-   sample(weapon,3.1);const previous=weapon==='shield'?point('hand_l'):guard.right;
-   assert.ok(moved.subtract(previous).length()>.08,`${weapon} attack moves its active hand`);
-  }
-  const stanceA=sample('empty',.8),stanceB=sample('empty',1.0);
-  assert.ok(stanceA.left.subtract(stanceB.left).length()<.012,'stance foot stays planted while pelvis advances');
-  assert.ok(stanceA.root.subtract(stanceB.root).length()>.1,'fixture actually advances');
-  const bow=meshes.find(m=>m.name==='bow__stave');assert.ok(bow.morphTargetManager);
-  sample('bow',3.1);const rest=bow.morphTargetManager.getTarget(0).influence;
-  sample('bow',4.6);assert.ok(bow.morphTargetManager.getTarget(0).influence-rest>.9,'bow actually flexes during draw');
-  sample('bow',5);assert.ok(bow.morphTargetManager.getTarget(0).influence<.01,'bow returns after release');
-  // These read exported bone transforms, not the generator's target positions.
-  for(const weapon of ['empty','sword','shield','sword-shield','bow'])for(let t=0;t<12;t+=.2){
-   sample(weapon,t);
-   for(const side of ['l','r']){
-    const fore=point('hand_'+side).subtract(point('lowerarm_'+side)).normalize();
-    const palm=point('middle_01_'+side).subtract(point('hand_'+side)).normalize();
-    assert.ok(Vector3.Dot(fore,palm)>Math.cos(Math.PI/3),`${weapon}/${t}/${side}: wrist exceeds 60 degrees`);
-   }
-   if(weapon==='bow'){
-    const pelvis=point('pelvis'),neck=point('neck_01');const up=neck.subtract(pelvis).normalize();const across=point('upperarm_l').subtract(point('upperarm_r')).normalize();let front=Vector3.Cross(up,across).normalize();if(Vector3.Dot(front,point('ball_l').subtract(point('foot_l')))<0)front=front.scale(-1);
-    const centre=pelvis.add(neck).scale(.5);const height=neck.subtract(pelvis).length()*.52;
-    const inside=p=>{const d=p.subtract(centre);return (Vector3.Dot(d,across)/.16)**2+(Vector3.Dot(d,up)/height)**2+(Vector3.Dot(d,front)/.13)**2<1;};
-    assert.equal(inside(centre),true,'torso fixture can detect an internal point');
-    for(const name of ['hand_r','middle_01_r','hand_l','middle_01_l'])assert.equal(inside(point(name)),false,`${t}/${name}: hand enters torso envelope`);
-   }
-  }
-  const skin=meshes.find(m=>m.name==='base__skin'),jointIndices=skin.getVerticesData('matricesIndices'),jointWeights=skin.getVerticesData('matricesWeights');
-  const byIndex=new Map(skin.skeleton.bones.map(b=>[b.getIndex(),b.name]));
-  const regions={l:skinRegions(skin,'l'),r:skinRegions(skin,'r')};
-  for(const weapon of ['sword','shield','bow']){
-   sample(weapon,0);scene.incrementRenderId();for(const n of asset.transformNodes)n.computeWorldMatrix(true);for(const skeleton of asset.skeletons)skeleton.prepare(true);
-   const points=surface(skin),grip=surface(meshes.find(m=>m.name===weapon+'__grip')),side=weapon==='sword'?'r':'l';
-   for(const label of ['palm','index','middle','ring','pinky','thumb']){
-    const patch=regions[side][label].map(i=>points[i]);assert.ok(patch.length>8,`${label}: contact region exists`);
-    const contact=contactPatch(gripDistances(patch,grip));
-    assert.ok(contact.minimum>-.0015&&contact.patch<.004,`${weapon}/${label}: distributed contact ${JSON.stringify(contact)}`);
-    assert.ok(contactPatch(gripDistances(patch.map(p=>p.add(new Vector3(.1,0,.1))),grip)).patch>.02,'detached contact patch fails');
-   }
-   for(const digit of ['index','middle','ring','pinky','thumb']){
-    const belongs=i=>[0,1,2,3].some(j=>{const name=byIndex.get(jointIndices[i*4+j]);return name?.startsWith(digit+'_')&&name.endsWith('_'+side)&&jointWeights[i*4+j]>.25});
-    const subset=points.filter((_,i)=>belongs(i));assert.ok(subset.length>8);
-    const gap=gripGap(subset,grip);assert.ok(gap>-.0015&&gap<.003,`${weapon}/${digit}: skin contact gap ${gap}m`);
-    assert.ok(gripGap(subset.map(p=>p.add(new Vector3(1,1,1))),grip)>.1,'detached hand fails contact');
-   }
-  }
- }finally{scene.dispose();engine.dispose();}
-});
+}
+
+for (const id of IDS) {
+  test(`${id}: every drawn part is skinned, and each loadout shows its own groups, its own strap and has both its clips`, async () => {
+    const model = await models.model(id);
+    assert.deepEqual(model.meshes.filter((mesh) => !mesh.skeleton).map((mesh) => mesh.name), [], "every drawn mesh is bound to the skeleton");
+    const shown = {}, expected = {}, straps = {}, cut = {}, missing = [];
+    for (const boots of [false, true]) for (const armour of [false, true]) for (const weapon of WEAPON_IDS) {
+      const kit = { boots, armour, weapon }, name = `${boots ? "boots" : "bare"}, ${armour ? "armour" : "no armour"}, ${weapon}`;
+      shown[name] = [...new Set(model.meshes.filter((mesh) => visiblePart(mesh.name, kit)).map((mesh) => mesh.name.split("__")[0]))].sort();
+      expected[name] = ["base", boots ? "boots" : "bare", ...(armour ? ["armour"] : []), ...HELD[weapon]].sort();
+      straps[name] = model.meshes.filter((mesh) => mesh.name.includes("strap") && visiblePart(mesh.name, kit)).map((mesh) => mesh.name);
+      cut[name] = HELD[weapon].includes("shield") ? [`shield__forearm_strap_${armour ? "armour" : "cloth"}`] : [];
+      for (const pose of ["inspection", "loop"]) if (!model.clips.includes(clipFor(pose, kit))) missing.push(clipFor(pose, kit));
+    }
+    assert.equal(Object.keys(shown).length, 20, "there are twenty loadouts");
+    assert.deepEqual(shown, expected, "each loadout shows the body, its footwear, its armour and what it holds, and nothing else");
+    assert.deepEqual(straps, cut, "a shield's forearm strap is the one cut for what the arm wears, and it is shown with no other weapon");
+    assert.deepEqual(missing, [], "each loadout has a clip to be inspected in and a clip to loop");
+  });
+
+  test(`${id}: the loop walks out more than 1.5 m and ends where it began, whatever is in the hands`, async () => {
+    const model = await models.model(id), strayed = [];
+    for (const weapon of WEAPON_IDS) {
+      const pelvis = [0, WALKED_OUT, LOOP.seconds].map((seconds) => { stand(model, weapon, seconds); return model.point("pelvis"); });
+      const out = Vector3.Distance(pelvis[1], pelvis[0]), back = Vector3.Distance(pelvis[2], pelvis[0]);
+      if (!(out > 1.5 && back < 0.005)) strayed.push(`${weapon}: out ${out.toFixed(3)} m, back to within ${back.toFixed(4)} m`);
+    }
+    assert.deepEqual(strayed, [], `the pelvis is more than 1.5 m from its start at ${WALKED_OUT} s, and within 5 mm of it at ${LOOP.seconds} s`);
+  });
+
+  test(`${id}: an attack moves the hand that makes it`, async () => {
+    const model = await models.model(id), still = [];
+    for (const weapon of WEAPON_IDS) {
+      // The shield strikes with the arm that carries it, and everything else with the right.
+      const hand = weapon === "shield" ? "hand_l" : "hand_r";
+      const [guard, blow] = [WALKED_OUT, STRUCK].map((seconds) => { stand(model, weapon, seconds); return model.point(hand); });
+      const moved = Vector3.Distance(blow, guard);
+      if (!(moved > 0.08)) still.push(`${weapon}: ${hand} moves ${millimetres(moved)} mm`);
+    }
+    assert.deepEqual(still, [], `the hand moves more than 80 mm between ${WALKED_OUT} s and ${STRUCK} s`);
+  });
+
+  test(`${id}: a planted foot stays where it is while the pelvis goes on`, async () => {
+    const model = await models.model(id);
+    const [from, to] = STANCE.map((seconds) => { stand(model, "empty", seconds); return { foot: model.point("foot_l"), pelvis: model.point("pelvis") }; });
+    const slid = Vector3.Distance(from.foot, to.foot), advanced = Vector3.Distance(from.pelvis, to.pelvis);
+    assert.ok(advanced > 0.1, `the pelvis advances between ${STANCE[0]} s and ${STANCE[1]} s: ${millimetres(advanced)} mm`);
+    assert.ok(slid < 0.012, `the left foot slides less than 12 mm in that time: ${millimetres(slid)} mm`);
+  });
+
+  test(`${id}: the bow bends as it is drawn and is straight again once the arrow has gone`, async () => {
+    const model = await models.model(id), stave = model.mesh("bow__stave");
+    assert.ok(stave.morphTargetManager, "the stave has a morph target to bend by");
+    const [rest, drawn, released] = [WALKED_OUT, DRAWN, RELEASED].map((seconds) => {
+      stand(model, "bow", seconds);
+      return stave.morphTargetManager.getTarget(0).influence;
+    });
+    assert.ok(drawn - rest > 0.9, `the bend rises by more than 0.9 from ${WALKED_OUT} s to ${DRAWN} s: ${rest} to ${drawn}`);
+    assert.ok(released < 0.01, `the bend is under 0.01 at ${RELEASED} s: ${released}`);
+  });
+
+  test(`${id}: no wrist bends more than ${WRIST_BEND} degrees anywhere in a loop`, async () => {
+    const model = await models.model(id), bent = [];
+    for (const weapon of WEAPON_IDS) for (const seconds of SAMPLES) {
+      stand(model, weapon, seconds);
+      for (const side of SIDES) {
+        const wrist = model.point(`hand_${side}`);
+        const forearm = wrist.subtract(model.point(`lowerarm_${side}`)).normalize();
+        const hand = model.point(`middle_01_${side}`).subtract(wrist).normalize();
+        const bend = Math.acos(Math.min(1, Vector3.Dot(forearm, hand))) * 180 / Math.PI;
+        if (!(bend < WRIST_BEND)) bent.push(`${weapon} at ${seconds} s, ${side}: ${bend.toFixed(1)}`);
+      }
+    }
+    assert.deepEqual(bent, [], "the hand's length stays within the bend of the forearm's, at every sample of every loop");
+  });
+
+  test(`${id}: the hands stay outside the torso through the bow's loop`, async () => {
+    const model = await models.model(id), entered = [];
+    for (const seconds of SAMPLES) {
+      stand(model, "bow", seconds);
+      const pelvis = model.point("pelvis"), neck = model.point("neck_01");
+      const up = neck.subtract(pelvis).normalize();
+      const across = model.point("upperarm_l").subtract(model.point("upperarm_r")).normalize();
+      const front = Vector3.Cross(up, across).normalize();
+      const centre = pelvis.add(neck).scale(0.5), height = Vector3.Distance(neck, pelvis) * TORSO.up;
+      const inside = (point) => {
+        const from = point.subtract(centre);
+        return (Vector3.Dot(from, across) / TORSO.across) ** 2 + (Vector3.Dot(from, up) / height) ** 2 + (Vector3.Dot(from, front) / TORSO.front) ** 2 < 1;
+      };
+      assert.deepEqual([inside(centre), inside(centre.add(across.scale(2 * TORSO.across)))], [true, false],
+        "the torso holds its own middle, and not a point two half widths to its side");
+      for (const name of ["hand_r", "middle_01_r", "hand_l", "middle_01_l"]) if (inside(model.point(name))) entered.push(`${seconds} s: ${name}`);
+    }
+    assert.deepEqual(entered, [], "no wrist and no middle knuckle is inside the torso at any sample");
+  });
+
+  test(`${id}: the palm and every digit's pad lie on the grip the hand holds`, async () => {
+    const model = await models.model(id), off = [], small = [], attached = [];
+    for (const { weapon, points, grip, regions } of grips(model)) for (const pad of ["palm", ...DIGITS]) {
+      const patch = regions[pad].map((i) => points[i]);
+      if (!(patch.length > 8)) small.push(`${weapon} ${pad}: ${patch.length}`);
+      const contact = contactPatch(gripDistances(patch, grip));
+      if (!(contact.minimum > HOLD.deepest && contact.patch < HOLD.patch)) off.push(`${weapon} ${pad}: ${JSON.stringify(contact)}`);
+      const apart = contactPatch(gripDistances(patch.map((p) => p.add(new Vector3(0.1, 0, 0.1))), grip));
+      if (!(apart.patch > 0.02)) attached.push(`${weapon} ${pad}: ${JSON.stringify(apart)}`);
+    }
+    assert.deepEqual(small, [], "every pad is more than eight vertices of skin");
+    assert.deepEqual(off, [], `no pad sinks deeper than ${-HOLD.deepest} m into its grip, and each one's contact is within ${HOLD.patch} m of it`);
+    assert.deepEqual(attached, [], "a pad moved 0.1 m along x and z reads as off its grip, by more than 0.02 m");
+  });
+
+  test(`${id}: every digit's skin touches the grip the hand holds`, async () => {
+    const model = await models.model(id), off = [], small = [], attached = [];
+    for (const { weapon, side, points, grip, onDigit } of grips(model)) for (const digit of DIGITS) {
+      const skin = points.filter((_, i) => onDigit(i, digit, side));
+      if (!(skin.length > 8)) small.push(`${weapon} ${digit}: ${skin.length}`);
+      const gap = gripGap(skin, grip);
+      if (!(gap > HOLD.deepest && gap < HOLD.gap)) off.push(`${weapon} ${digit}: ${gap}`);
+      const apart = gripGap(skin.map((p) => p.add(new Vector3(1, 1, 1))), grip);
+      if (!(apart > 0.1)) attached.push(`${weapon} ${digit}: ${apart}`);
+    }
+    assert.deepEqual(small, [], "every digit is more than eight vertices of skin");
+    assert.deepEqual(off, [], `each digit's nearest skin is between ${HOLD.deepest} m and ${HOLD.gap} m from its grip`);
+    assert.deepEqual(attached, [], "a digit moved a metre each way reads as more than 0.1 m off its grip");
+  });
+}
