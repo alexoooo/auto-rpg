@@ -108,7 +108,7 @@ All of it on a physically based core, humans first ([architecture](architecture.
 - The dungeon's look choices stand open until the owner judges them in play: the camera pitch
   (`CAMERA_PITCH`), torch density, and which floor and wall textures ship.
 - The reptile needs art; it starts as procedural shells.
-- The unused templates inside `public/assets/art-proof/forge-kit.glb` could be removed by
+- The unused templates inside `public/assets/forge/forge-kit.glb` could be removed by
   re-exporting from Blender.
 
 ### New bodies

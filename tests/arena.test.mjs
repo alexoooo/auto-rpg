@@ -39,10 +39,10 @@ const makeMaterial = (scene, name, colour) => {
 };
 
 const makeMaterials = (scene) => {
-  const ground = makeMaterial(scene, "proof.ground", [0.15, 0.14, 0.12]);
-  const wall = makeMaterial(scene, "proof.wall", [0.20, 0.19, 0.17]);
-  const timber = makeMaterial(scene, "proof.timber", [0.20, 0.12, 0.065]);
-  const banner = makeMaterial(scene, "proof.banner", [0.25, 0.19, 0.16]);
+  const ground = makeMaterial(scene, "fixture.ground", [0.15, 0.14, 0.12]);
+  const wall = makeMaterial(scene, "fixture.wall", [0.20, 0.19, 0.17]);
+  const timber = makeMaterial(scene, "fixture.timber", [0.20, 0.12, 0.065]);
+  const banner = makeMaterial(scene, "fixture.banner", [0.25, 0.19, 0.16]);
   return {
     ground, wall, timber, banner, wood: timber,
   };
@@ -323,7 +323,7 @@ test("room_instances_share_materials_and_textures", async (t) => {
 test("an_arena_rebuild_returns_every_audit_count_to_its_baseline", async (t) => {
   const { engine, scene, physics, bodies, materials } = await setup();
   t.after(() => engine.dispose());
-  const light = new DirectionalLight("proof.sun", new Vector3(-1, -2, 1), scene);
+  const light = new DirectionalLight("fixture.sun", new Vector3(-1, -2, 1), scene);
   const shadowGenerator = new ShadowGenerator(256, light);
   let shadowAdds = 0;
   let shadowRemoves = 0;

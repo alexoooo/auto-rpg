@@ -1,6 +1,6 @@
-"""Blender 4.5 LTS: --background --python scripts/art-proof/build-assets.py
+"""Blender 4.5 LTS: --background --python scripts/forge/build-assets.py
 
-The Forge's kit (public/assets/art-proof/forge-kit.glb) and its textures, generated deterministically.
+The Forge's kit (public/assets/forge/forge-kit.glb) and its textures, generated deterministically.
 Babylon (x,y,z) -> Blender (x,z,y); the glTF importer restores left handedness.
 Procedural textures are baked to ordinary images, never exported as Blender shader nodes.
 """
@@ -10,7 +10,7 @@ import numpy as np
 from mathutils import Vector
 
 ROOT = Path(__file__).resolve().parents[2]
-OUT = ROOT / 'public/assets/art-proof'
+OUT = ROOT / 'public/assets/forge'
 OUT.mkdir(parents=True, exist_ok=True)
 random.seed(713)
 bpy.ops.object.select_all(action='SELECT')
@@ -230,5 +230,5 @@ def export(objects,filename):
 export(kit,'forge-kit.glb')
 # Editable source arranged as an asset shelf; GLBs above keep each template at its local origin.
 for i,o in enumerate(kit):o.location=((i%10)*1.5,(i//10)*1.8,0)
-bpy.ops.wm.save_as_mainfile(filepath=str(ROOT/'assets/art-proof/forge.blend'))
+bpy.ops.wm.save_as_mainfile(filepath=str(ROOT/'assets/forge/forge.blend'))
 print('Forge kit exported:',len(kit),'templates')

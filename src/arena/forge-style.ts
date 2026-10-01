@@ -53,7 +53,7 @@ export function paveForge(scene: Scene, kit: Map<string, Mesh>, material: PBRMat
     glow.metadata = { forgeNoShadow: true };
   }
   // The underlay reaches the slab's edge; it sits just below the paving and its modelled joints.
-  const floor = scene.getMeshByName("room.floor") ?? scene.getMeshByName("bench.floor");
+  const floor = scene.getMeshByName("room.floor");
   if (floor) floor.position.y = -.015;
 }
 
