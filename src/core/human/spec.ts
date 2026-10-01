@@ -13,11 +13,11 @@ import { humanWounds } from "./wounds.ts";
 export const humanSpec = (model: WorkshopModel): BodySpec => figureSpec(workshopFigure(model));
 
 /** The core's bodies by model: the workshop humans and the crypt skeleton. */
-export type CoreModel = WorkshopModel | typeof SKELETON_MODEL;
-export const CORE_MODELS: readonly CoreModel[] = Object.freeze([...WORKSHOP_MODELS, SKELETON_MODEL]);
+export type BodyModel = WorkshopModel | typeof SKELETON_MODEL;
+export const BODY_MODELS: readonly BodyModel[] = Object.freeze([...WORKSHOP_MODELS, SKELETON_MODEL]);
 
 /** **A core body by model**, whole. */
-export function modelSpec(model: CoreModel): BodySpec {
+export function modelSpec(model: BodyModel): BodySpec {
   return model === SKELETON_MODEL ? figureSpec(skeletonFigure()) : humanSpec(model);
 }
 

@@ -6,7 +6,7 @@ import { need } from "../dom.ts";
 import { blowCue } from "../audio/cues.ts";
 import { GameAudio } from "../audio/game-audio.ts";
 import { loadEngine } from "../core/engine/engines.ts";
-import { CORE_MODELS, type CoreModel } from "../core/human/spec.ts";
+import { BODY_MODELS, type BodyModel } from "../core/human/spec.ts";
 import { createWorld, type World } from "../core/world.ts";
 import type { SkinView } from "../render/skin.ts";
 import { loadSkeletonArt, type SkeletonArt } from "../render/skeleton-skin.ts";
@@ -50,7 +50,7 @@ export async function bootArena(): Promise<void> {
     head.className = "contender-head"; title.textContent = side === "left" ? "Left" : "Right"; head.append(title);
     const field = document.createElement("label"), name = document.createElement("span"), select = document.createElement("select");
     field.className = "field"; name.className = "field-name"; name.textContent = "Body";
-    for (const model of CORE_MODELS) {
+    for (const model of BODY_MODELS) {
       const option = document.createElement("option"); option.value = model; option.textContent = MODEL_LABELS[model]; select.append(option);
     }
     select.value = matchup[side];
@@ -61,8 +61,8 @@ export async function bootArena(): Promise<void> {
 
   // Each model's dresser, loaded once: its skin, or its shapes if the skin does not load.
   let skeletonArt: Promise<SkeletonArt> | null = null;
-  const dressers = new Map<CoreModel, Promise<Dresser>>();
-  const dresser = (model: CoreModel): Promise<Dresser> => {
+  const dressers = new Map<BodyModel, Promise<Dresser>>();
+  const dresser = (model: BodyModel): Promise<Dresser> => {
     let found = dressers.get(model);
     if (!found) {
       found = dresserFor(model, scene, { boots: true, armour: true }, () => skeletonArt ??= loadSkeletonArt());
@@ -118,8 +118,8 @@ export async function bootArena(): Promise<void> {
     show("curtain", false); show("bout-end", false); setPaused(false);
     canvas.focus();
   };
-  const redrawn = (): Matchup => ({ ...matchup, right: CORE_MODELS[Math.floor(Math.random() * CORE_MODELS.length)] });
-  const fromPickers = (): Matchup => ({ left: pickers.left.value as CoreModel, right: pickers.right.value as CoreModel });
+  const redrawn = (): Matchup => ({ ...matchup, right: BODY_MODELS[Math.floor(Math.random() * BODY_MODELS.length)] });
+  const fromPickers = (): Matchup => ({ left: pickers.left.value as BodyModel, right: pickers.right.value as BodyModel });
 
   const beginButton = need<HTMLButtonElement>("begin");
   beginButton.addEventListener("click", () => { beginButton.blur(); void begin(fromPickers()); });

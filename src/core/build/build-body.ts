@@ -1,6 +1,6 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode.js";
-import type { ColliderShape, CoreJoint, PhysicsWorld, SegmentBody } from "../engine/engine.ts";
+import type { ColliderShape, EngineJoint, PhysicsWorld, SegmentBody } from "../engine/engine.ts";
 import type { World } from "../world.ts";
 import { frameOf, type BodySpec, type DofSpec, type JointSpec, type SegmentFrame, type SegmentSpec, type ShapeSpec } from "../spec/body.ts";
 import type { Vec3 } from "../spec/quantity.ts";
@@ -48,7 +48,7 @@ export interface BuiltJoint {
   readonly spec: JointSpec;
   readonly parent: BuiltSegment;
   readonly child: BuiltSegment;
-  readonly joint: CoreJoint;
+  readonly joint: EngineJoint;
   readonly dofs: readonly BuiltDof[];
   /**
    * The constraint's X, Y and Z, body frame, reference pose: X is the first freedom's axis, and

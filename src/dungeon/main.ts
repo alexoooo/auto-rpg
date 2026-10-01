@@ -9,7 +9,7 @@ import type { LinesMesh } from "@babylonjs/core/Meshes/linesMesh.js";
 import { Plane } from "@babylonjs/core/Maths/math.plane.js";
 import "@babylonjs/core/Culling/ray.js";
 import { loadEngine } from "../core/engine/engines.ts";
-import type { CoreModel } from "../core/human/spec.ts";
+import type { BodyModel } from "../core/human/spec.ts";
 import type { Clothing, SkinView } from "../render/skin.ts";
 import { loadSkeletonArt } from "../render/skeleton-skin.ts";
 import { drawHeld, type BodyShapes } from "../render/body-shapes.ts";
@@ -54,10 +54,10 @@ let toward = cameraToward(azimuth);
 const stone = stoneQuery(location.search);
 seedInput.value = String(randomSeed());
 /** The heroes a person can lead, in the order companions are drawn from: each is a core body, and each carries a club. */
-const HEROES: readonly { readonly model: CoreModel; readonly label: string }[] = [
+const HEROES: readonly { readonly model: BodyModel; readonly label: string }[] = [
   { model: "workshop-fighter", label: "Warrior" }, { model: "workshop-rogue", label: "Rogue" }, { model: "crypt-skeleton", label: "Skeleton" }];
 /** The companions for a hero: the next heroes on the list after the hero's own, in turn. */
-const companionModels = (hero: CoreModel, count: number): CoreModel[] => {
+const companionModels = (hero: BodyModel, count: number): BodyModel[] => {
   const at = Math.max(0, HEROES.findIndex(h => h.model === hero));
   return Array.from({ length: count }, (_, i) => HEROES[(at + 1 + i) % HEROES.length].model);
 };
@@ -66,7 +66,7 @@ for (const hero of HEROES) {
 }
 // The Warrior leads unless somebody picks another hero.
 heroBuild.value = "workshop-fighter";
-const heroLabel = (model: CoreModel) => HEROES.find(h => h.model === model)?.label ?? model;
+const heroLabel = (model: BodyModel) => HEROES.find(h => h.model === model)?.label ?? model;
 
 // What a workshop hero's skin wears; the skin is appearance only.
 const heroEquipment = need("hero-equipment");
@@ -99,7 +99,7 @@ async function boot(): Promise<void> {
   let hoverPointer: { clientX:number; clientY:number } | null = null;
   let scene: Scene | null = null, run: DungeonRun | null = null, camera: FreeCamera | null = null;
   let lighting: DungeonLighting | null = null, paused = false, zoom = 10, seed = 0;
-  let selectedHero: CoreModel = "workshop-fighter", companions: CoreModel[] = [], clothing: Clothing = { boots: true, armour: true };
+  let selectedHero: BodyModel = "workshop-fighter", companions: BodyModel[] = [], clothing: Clothing = { boots: true, armour: true };
   /** What the page drew for the bodies: their skins or shapes, and their clubs. */
   let drawn: (SkinView | BodyShapes)[] = [];
   let selectedScenario: DungeonScenario = "generated";
@@ -155,8 +155,8 @@ async function boot(): Promise<void> {
     camera = new FreeCamera("dungeon camera", new Vector3(0, 20, 0), scene); camera.mode = Camera.ORTHOGRAPHIC_CAMERA;
     camera.minZ = 0.1; camera.maxZ = 160;
     // Each model's skin, loaded once a scene; a body whose skin did not load is drawn as its shapes.
-    const dressers = new Map<CoreModel, Dresser>();
-    await Promise.all([...new Set<CoreModel>([selectedHero, ...companions, "crypt-skeleton"])].map(model =>
+    const dressers = new Map<BodyModel, Dresser>();
+    await Promise.all([...new Set<BodyModel>([selectedHero, ...companions, "crypt-skeleton"])].map(model =>
       dresserFor(model, shown, clothing, () => skeletonArt).then(dress => { dressers.set(model, dress); })));
     const dress = (actor: DungeonActor) => {
       const built = actor.fighter!.built, skin = dressers.get(actor.model)!(built), club = drawHeld(built, shown);
@@ -213,7 +213,7 @@ async function boot(): Promise<void> {
   start.disabled = false; start.textContent = "Enter the dungeon →";
   start.addEventListener("click", () => {
     if (!/^\d{1,10}$/.test(seedInput.value) || Number(seedInput.value) > 0xffffffff) { seedInput.setCustomValidity("Enter a seed from 0 to 4294967295."); seedInput.reportValidity(); return; }
-    seedInput.setCustomValidity(""); selectedHero = heroBuild.value as CoreModel;
+    seedInput.setCustomValidity(""); selectedHero = heroBuild.value as BodyModel;
     selectedScenario = scenario.value as DungeonScenario; reference = selectedScenario !== "generated"; selectedQuality = quality.value === "reduced" ? "reduced" : "high";
     const url = new URL(location.href);
     if (reference) { url.searchParams.set("scene", selectedScenario); url.searchParams.set("quality", selectedQuality); }

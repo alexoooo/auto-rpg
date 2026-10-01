@@ -95,7 +95,7 @@ export interface JointFrames {
   readonly limits: readonly (readonly [number, number])[];
 }
 
-export interface CoreJoint {
+export interface EngineJoint {
   /**
    * Freedom k's motor: turn the child relative to the parent about the parent-fixed axis at `speed`
    * (rad/s), with at most `ceiling` (N m) either way.
@@ -132,7 +132,7 @@ export interface PhysicsWorld {
   readonly gravity: Vec3;
   /** A dynamic body at its node's pose, its colliders massless: its mass is `mass`. */
   addBody(node: TransformNode, shapes: readonly ColliderShape[], mass: MassProperties): SegmentBody;
-  addJoint(parent: SegmentBody, child: SegmentBody, frames: JointFrames): CoreJoint;
+  addJoint(parent: SegmentBody, child: SegmentBody, frames: JointFrames): EngineJoint;
   /** A fixed box, centre and full size, world, turned `turn` about up (rad; 0 unturned). */
   addFixedBox(centre: Vec3, size: Vec3, turn?: number): FixedCollider;
   /** A fixed collider of any shape a body takes (`ColliderShape`), its coordinates world. */

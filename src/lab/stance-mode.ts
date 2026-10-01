@@ -1,5 +1,5 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import { createBody, SERVO_SECONDS, type CoreBody } from "../core/body.ts";
+import { createBody, SERVO_SECONDS, type Body } from "../core/body.ts";
 import type { BuiltBody } from "../core/build/build-body.ts";
 import type { StancePhase } from "../core/control/stance.ts";
 import { GUARD_ACTION, type Intent } from "../core/mind/intent.ts";
@@ -58,7 +58,7 @@ export interface StanceFrame {
 }
 
 export interface StanceSession {
-  readonly body: CoreBody;
+  readonly body: Body;
   readonly orders: StanceOrders;
   /** Shove the middle trunk by `impulse` N s, level, `degrees` about up from the heading (90 to its right). */
   shove(impulse: number, degrees: number): void;
@@ -74,7 +74,7 @@ export const restOrders = (): StanceOrders => ({ forward: 0, right: 0, turn: 0, 
 /**
  * How fast the Stance scenario's Q and E turn the heading while walking, rad/s, and the shuttle's
  * half-turns' radius with the Routine's pace (`track.ts`): a lab setting, not the stance's. It is
- * inside every body's envelope at the Routine's pace (`turnAt`, `CoreBody.envelope`,
+ * inside every body's envelope at the Routine's pace (`turnAt`, `Body.envelope`,
  * `tests/core-stance-envelope.test.mjs`); walking faster, Q and E turn no faster than the body held
  * at that walk.
  */

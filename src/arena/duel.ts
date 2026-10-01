@@ -1,7 +1,7 @@
-import { createBody, SERVO_SECONDS, type CoreBody } from "../core/body.ts";
+import { createBody, SERVO_SECONDS, type Body } from "../core/body.ts";
 import { buildBody } from "../core/build/build-body.ts";
 import { armed } from "../core/human/grip.ts";
-import { modelSpec, type CoreModel } from "../core/human/spec.ts";
+import { modelSpec, type BodyModel } from "../core/human/spec.ts";
 import { woodenClub } from "../core/items/club.ts";
 import { ATTACK_METRES, fighterMind, type FighterPlan } from "../core/mind/fighter.ts";
 import { driveBy } from "../core/mind/mind.ts";
@@ -50,16 +50,16 @@ export interface Verdict {
 
 export interface Duelist extends Fighter {
   readonly side: Side;
-  readonly model: CoreModel;
-  readonly body: CoreBody;
+  readonly model: BodyModel;
+  readonly body: Body;
   readonly skills: Skills;
   /** Its pool not ended and its body not fallen. */
   readonly standing: boolean;
 }
 
 export interface DuelOptions {
-  readonly left: CoreModel;
-  readonly right: CoreModel;
+  readonly left: BodyModel;
+  readonly right: BodyModel;
   /** The arena's unless given. */
   readonly rules?: Rulebook;
   readonly capSeconds?: number;

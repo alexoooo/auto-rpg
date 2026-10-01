@@ -1,6 +1,6 @@
 import { playHref } from "../app-route.ts";
 import { CHARACTERS } from "../character-lab/catalog.ts";
-import type { CoreModel } from "../core/human/spec.ts";
+import type { BodyModel } from "../core/human/spec.ts";
 
 /**
  * **The lab's scenarios, and the address that opens one.** `?play=lab` is the scenario menu
@@ -30,7 +30,7 @@ export const SCENARIOS: readonly ScenarioInfo[] = [
   { id: "blow", name: "Blow", line: "It swings a club blow the strike search found into a head, and reads what it lands with.", holds: { right: "club" } },
 ];
 
-export const MODELS: readonly { readonly id: CoreModel; readonly name: string }[] = [
+export const MODELS: readonly { readonly id: BodyModel; readonly name: string }[] = [
   { id: "workshop-fighter", name: "Warrior" },
   { id: "workshop-rogue", name: "Rogue" },
   { id: "crypt-skeleton", name: "Skeleton" },
@@ -47,7 +47,7 @@ export type LabHeld = (typeof LAB_HELD)[number];
  * What each body wears unless the address says: the character workshop's own default loadout for
  * the humans, the Warrior armoured and the Rogue not; the skeleton wears nothing.
  */
-const WORN: Readonly<Record<CoreModel, { readonly boots: boolean; readonly armour: boolean }>> = {
+const WORN: Readonly<Record<BodyModel, { readonly boots: boolean; readonly armour: boolean }>> = {
   "workshop-fighter": CHARACTERS.fighter.defaults,
   "workshop-rogue": CHARACTERS.rogue.defaults,
   "crypt-skeleton": { boots: false, armour: false },
@@ -59,7 +59,7 @@ const WORN: Readonly<Record<CoreModel, { readonly boots: boolean; readonly armou
  * core has no clothing, and the boot is in the foot's shape whatever the skin shows.
  */
 export interface LabLoadout {
-  readonly model: CoreModel;
+  readonly model: BodyModel;
   readonly right: LabHeld;
   readonly left: LabHeld;
   readonly boots: boolean;

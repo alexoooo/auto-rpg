@@ -1,4 +1,4 @@
-import type { BodyCommand, BodyView, CoreBody } from "../body.ts";
+import type { Body, BodyCommand, BodyView } from "../body.ts";
 import type { Intent } from "../mind/intent.ts";
 import type { MusclePush } from "../control/motor.ts";
 import { GUARD } from "./guard.ts";
@@ -42,7 +42,7 @@ export interface SkillOptions {
   readonly repertoire?: Repertoire;
 }
 
-export function createSkills(body: CoreBody, { repertoire = REPERTOIRE }: SkillOptions = {}): Skills {
+export function createSkills(body: Body, { repertoire = REPERTOIRE }: SkillOptions = {}): Skills {
   const legs = locomotion(body.envelope), strikes = strikeSkill(body.built.spec, repertoire);
   const none: readonly MusclePush[] = [];
   const command: { -readonly [K in keyof BodyCommand]: BodyCommand[K] } =

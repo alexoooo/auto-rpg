@@ -1,4 +1,4 @@
-import type { BodyView, CoreBody } from "../body.ts";
+import type { Body, BodyView } from "../body.ts";
 import type { StanceEnvelope } from "../control/stance-envelope.ts";
 import { createSkills, type SkillOptions, type SkillReport, type Skills } from "../skills/skills.ts";
 import type { Intent } from "./intent.ts";
@@ -18,7 +18,7 @@ export interface Sight {
   readonly view: BodyView;
   /** How the skills are going, as the last step left them. */
   readonly report: SkillReport;
-  /** What the stance holds with this body (`CoreBody.envelope`): its fastest walk, and its turns. */
+  /** What the stance holds with this body (`Body.envelope`): its fastest walk, and its turns. */
   readonly envelope: StanceEnvelope | null;
 }
 
@@ -27,7 +27,7 @@ export interface Sight {
  * report, and the skills make the command; `options` are an experiment's. Returns the skills, for
  * their report.
  */
-export function driveBy(body: CoreBody, mind: Mind, options?: SkillOptions): Skills {
+export function driveBy(body: Body, mind: Mind, options?: SkillOptions): Skills {
   const skills = createSkills(body, options);
   const sight: Sight = { view: body.view, report: skills.report, envelope: body.envelope };
   body.drive((view, dt) => skills.command(view, mind.decide(sight, dt), dt));

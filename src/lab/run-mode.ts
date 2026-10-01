@@ -1,4 +1,4 @@
-import { createBody, SERVO_SECONDS, type CoreBody } from "../core/body.ts";
+import { createBody, SERVO_SECONDS, type Body } from "../core/body.ts";
 import type { BuiltBody } from "../core/build/build-body.ts";
 import { paceRound, type StanceEnvelope } from "../core/control/stance-envelope.ts";
 import { GUARD_ACTION, type Intent } from "../core/mind/intent.ts";
@@ -17,7 +17,7 @@ import type { Track } from "./track.ts";
  * (`src/core/skills/locomotion.ts`) turns the heading toward it no faster than the body turns at
  * the pace it walks, and not for its first `TURN_LEAD`. Its pace is the body's fastest walk, but no
  * faster than its turn carries it round the tightest bend within `AIM_AHEAD` either way. Both
- * are the body's own (`CoreBody.envelope`, what the stance was measured to hold with it, its turn
+ * are the body's own (`Body.envelope`, what the stance was measured to hold with it, its turn
  * at each speed of walk, `turnAt` and `paceRound`).
  *
  * It slows before a bend and keeps the bend's pace a metre past it, for its heading lags the
@@ -54,7 +54,7 @@ export interface RunFrame {
 }
 
 export interface RunSession {
-  readonly body: CoreBody;
+  readonly body: Body;
   readonly track: Track;
   frame(): RunFrame;
   dispose(): void;

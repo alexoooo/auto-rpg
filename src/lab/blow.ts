@@ -1,5 +1,5 @@
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import { createBody, SERVO_SECONDS, type CoreBody } from "../core/body.ts";
+import { createBody, SERVO_SECONDS, type Body } from "../core/body.ts";
 import type { BuiltBody, BuiltSegment } from "../core/build/build-body.ts";
 import type { Hand } from "../core/control/motor.ts";
 import { GUARD_ACTION, type Intent } from "../core/mind/intent.ts";
@@ -46,7 +46,7 @@ export function attackOnce(hand: Hand, target: (head: Vector3) => Vec3): Mind & 
 }
 
 export interface ThrownBlow {
-  readonly body: CoreBody;
+  readonly body: Body;
   /** When the pushes begin, s from the start. */
   readonly pushing: number;
   /** The control steps taken, s. */

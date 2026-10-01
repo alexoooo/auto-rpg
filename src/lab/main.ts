@@ -10,7 +10,7 @@ import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder.js";
 import { Scene } from "@babylonjs/core/scene.js";
 import { loadEngine } from "../core/engine/engines.ts";
 import { buildBody, type BuiltBody } from "../core/build/build-body.ts";
-import type { CoreModel } from "../core/human/spec.ts";
+import type { BodyModel } from "../core/human/spec.ts";
 import { createWorld, type World } from "../core/world.ts";
 import { publicAssetUrl } from "../asset-url.ts";
 import { labCameraRig } from "./camera.ts";
@@ -49,7 +49,7 @@ import { drawBody, drawHeld, type BodyShapes } from "../render/body-shapes.ts";
  * always its own.
  */
 
-const TINT: Readonly<Record<CoreModel, Color3>> = {
+const TINT: Readonly<Record<BodyModel, Color3>> = {
   "workshop-fighter": new Color3(0.55, 0.6, 0.66),
   "workshop-rogue": new Color3(0.5, 0.62, 0.55),
   "crypt-skeleton": new Color3(0.72, 0.68, 0.58),
@@ -253,7 +253,7 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
   document.addEventListener("visibilitychange", () => held.clear());
 
   for (const button of document.querySelectorAll<HTMLButtonElement>("[data-model]")) {
-    button.addEventListener("click", () => { load({ ...shown, model: button.dataset.model as CoreModel }); button.blur(); });
+    button.addEventListener("click", () => { load({ ...shown, model: button.dataset.model as BodyModel }); button.blur(); });
   }
   for (const button of document.querySelectorAll<HTMLButtonElement>("[data-held]")) {
     button.addEventListener("click", () => {

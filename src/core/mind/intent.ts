@@ -11,7 +11,7 @@ import type { Vec3 } from "../spec/quantity.ts";
 export interface Intent {
   /**
    * Walk at this velocity, m/s: forward along the body's heading and to its right; its speed is
-   * capped at the body's fastest walk (`CoreBody.envelope`). Null stands.
+   * capped at the body's fastest walk (`Body.envelope`). Null stands.
    */
   readonly move: readonly [forward: number, right: number] | null;
   /** Face this way, rad about up (0 faces +z, growing to the right); the body turns toward it as its walk allows. */

@@ -1,4 +1,4 @@
-import type { CoreBody } from "../body.ts";
+import type { Body } from "../body.ts";
 import { APPROACH } from "../skills/strike.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { GUARD_ACTION, type Intent } from "./intent.ts";
@@ -22,12 +22,12 @@ export interface Heading { readonly x: number; readonly z: number }
 export interface FighterPlan {
   readonly move: Heading | null;
   readonly look: Heading | null;
-  readonly attack: CoreBody | null;
+  readonly attack: Body | null;
 }
 
 /**
  * **A fighter's mind**: it walks its plan's direction at its body's fastest walk
- * (`CoreBody.envelope`), facing it, and given a body to attack attacks its head with what the right
+ * (`Body.envelope`), facing it, and given a body to attack attacks its head with what the right
  * hand holds: the strike skill brings the body the rest of the way (`APPROACH` in
  * `src/core/skills/strike.ts`). It holds the point it aims at while the head stays within
  * `APPROACH.reach` of it, and aims again after each blow, since the skill sets the feet for the
@@ -36,7 +36,7 @@ export interface FighterPlan {
  */
 export function fighterMind(name: string, plan: () => FighterPlan): Mind {
   /** The point aimed at, whose head it was, and the blows thrown when it was chosen. */
-  let aim: { target: CoreBody; point: Vec3; thrown: number } | null = null;
+  let aim: { target: Body; point: Vec3; thrown: number } | null = null;
   return {
     name,
     decide: ({ report, envelope }): Intent => {

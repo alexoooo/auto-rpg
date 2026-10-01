@@ -1,20 +1,20 @@
-import { CORE_MODELS, type CoreModel } from "../core/human/spec.ts";
+import { BODY_MODELS, type BodyModel } from "../core/human/spec.ts";
 import type { Side } from "./duel.ts";
 
 /** The arena link's parameter: `?matchup=left,right`, each a core model. */
 export const MATCHUP_PARAM = "matchup";
 
-export type Matchup = Readonly<Record<Side, CoreModel>>;
+export type Matchup = Readonly<Record<Side, BodyModel>>;
 
 /** The Warrior against the Rogue unless a link or a person picks another pair. */
 export const DEFAULT_MATCHUP: Matchup = Object.freeze({ left: "workshop-fighter", right: "workshop-rogue" });
 
 /** What each model is called on the page. */
-export const MODEL_LABELS: Readonly<Record<CoreModel, string>> = Object.freeze({
+export const MODEL_LABELS: Readonly<Record<BodyModel, string>> = Object.freeze({
   "workshop-fighter": "Warrior", "workshop-rogue": "Rogue", "crypt-skeleton": "Skeleton",
 });
 
-const isModel = (text: string | undefined): text is CoreModel => CORE_MODELS.includes(text as CoreModel);
+const isModel = (text: string | undefined): text is BodyModel => BODY_MODELS.includes(text as BodyModel);
 
 /** The matchup an address names; a side it does not name, or names wrongly, is the default's. */
 export function readMatchup(search: string): Matchup {

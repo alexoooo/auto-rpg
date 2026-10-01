@@ -49,7 +49,7 @@ and torques, Abe for regional muscle, and Anderson, Frey-Law and Thelen for forc
 | `workshop-rogue`, the Rogue | `workshopFigure` | 4 |
 | `crypt-skeleton` | `skeletonFigure`: its art's bind (`assets/skeleton/bind.json`); mass, strength and hit points are placeholders | 6 |
 
-`CORE_MODELS` lists them and `modelSpec` builds one; `armed(spec, side, woodenClub())`
+`BODY_MODELS` lists them and `modelSpec` builds one; `armed(spec, side, woodenClub())`
 (`src/core/human/grip.ts`, `src/core/items/club.ts`) puts the club, the only weapon so far, in a
 hand. Families share code, never values: a spec does not spread another family's spec.
 

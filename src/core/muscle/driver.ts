@@ -8,7 +8,7 @@ import { forceVelocityFactor, forceVelocityReach, type ForceVelocityCurve } from
 
 /**
  * **The muscle actuator**: each freedom's muscles as a velocity motor on its joint's axis
- * (`CoreJoint.setMotor`) whose ceiling is what the muscles can do at the speed the joint is turning.
+ * (`EngineJoint.setMotor`) whose ceiling is what the muscles can do at the speed the joint is turning.
  *
  * A controller commands, for each freedom, an activation (0-1) and a speed it would like the joint
  * to turn at. Every world step the driver reads each joint (`jointTracker`: angles from the

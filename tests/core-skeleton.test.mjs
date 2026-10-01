@@ -12,7 +12,7 @@ import { createBody } from "../src/core/body.ts";
 import { armed } from "../src/core/human/grip.ts";
 import { woodenClub } from "../src/core/items/club.ts";
 import { stanceEnvelope } from "../src/core/control/stance-envelope.ts";
-import { CORE_MODELS, modelSpec } from "../src/core/human/spec.ts";
+import { BODY_MODELS, modelSpec } from "../src/core/human/spec.ts";
 import { SKELETON_MODEL } from "../src/core/human/skeleton.ts";
 import { sourcesOf } from "../src/core/spec/provenance.ts";
 import { walk } from "../research/core-stance-trials.mjs";
@@ -77,8 +77,8 @@ test("each fist holds the club, its grip ending at the little finger's knuckle h
 });
 
 test("every core model has a measured stance envelope, the skeleton among them", () => {
-  assert.ok(CORE_MODELS.includes(SKELETON_MODEL));
-  for (const model of CORE_MODELS) assert.ok(stanceEnvelope(modelSpec(model)).walk.value > 0, model);
+  assert.ok(BODY_MODELS.includes(SKELETON_MODEL));
+  for (const model of BODY_MODELS) assert.ok(stanceEnvelope(modelSpec(model)).walk.value > 0, model);
 });
 
 test("the skeleton stands 3 cm low for 4 s, its centre over its soles, and walks at its envelope's pace", async () => {

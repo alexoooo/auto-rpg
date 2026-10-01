@@ -1,10 +1,10 @@
 import type { Scene } from "@babylonjs/core/scene.js";
 import type { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh.js";
-import { createBody, SERVO_SECONDS, type CoreBody } from "../core/body.ts";
+import { createBody, SERVO_SECONDS, type Body } from "../core/body.ts";
 import { buildBody } from "../core/build/build-body.ts";
 import type { PhysicsEngine } from "../core/engine/engine.ts";
 import { armed } from "../core/human/grip.ts";
-import { modelSpec, type CoreModel } from "../core/human/spec.ts";
+import { modelSpec, type BodyModel } from "../core/human/spec.ts";
 import { woodenClub } from "../core/items/club.ts";
 import { ATTACK_METRES, fighterMind } from "../core/mind/fighter.ts";
 import { driveBy, type Mind } from "../core/mind/mind.ts";
@@ -45,17 +45,17 @@ import { companionSpawn } from "./party-placement.ts";
  */
 
 /** Who stands for each model in the party list and the target panel. */
-const NAMES: Readonly<Record<CoreModel, string>> = Object.freeze({
+const NAMES: Readonly<Record<BodyModel, string>> = Object.freeze({
   "workshop-fighter": "warrior", "workshop-rogue": "rogue", "crypt-skeleton": "skeleton",
 });
 
 export interface DungeonActor {
   readonly id: string;
   readonly name: string;
-  readonly model: CoreModel;
+  readonly model: BodyModel;
   readonly side: "party" | "enemy";
   /** The body and its pool, once built; an enemy waits unbuilt until the party is near (`WAKE_METRES`). */
-  fighter: (Fighter & { readonly body: CoreBody; readonly skills: Skills }) | null;
+  fighter: (Fighter & { readonly body: Body; readonly skills: Skills }) | null;
   /** Where the body stands on the ground: its centre of mass over the floor, or where it waits unbuilt. */
   feet(): Point;
   /** Whether it still fights: unbuilt, or built with its pool not ended and its body not fallen. */
@@ -120,10 +120,10 @@ export interface DungeonRunOptions {
   /** The level's look (`buildDungeonWorld`); false draws nothing. */
   readonly visuals?: boolean | DungeonSurfaces;
   readonly layout?: DungeonMap;
-  readonly hero?: CoreModel;
-  readonly companions?: readonly CoreModel[];
+  readonly hero?: BodyModel;
+  readonly companions?: readonly BodyModel[];
   /** Each spawn's model; the skeleton unless given. */
-  readonly enemy?: (i: number) => CoreModel;
+  readonly enemy?: (i: number) => BodyModel;
   /** Hears each blow as it lands. */
   readonly onBlow?: (blow: LandedBlow) => void;
   /** Called with each actor as its body is built, before it first steps: the page dresses it. */
@@ -131,7 +131,7 @@ export interface DungeonRunOptions {
 }
 
 /** A model with the club in its right hand. */
-const clubbed = (model: CoreModel): BodySpec => armed(modelSpec(model), "right", woodenClub());
+const clubbed = (model: BodyModel): BodySpec => armed(modelSpec(model), "right", woodenClub());
 
 export class DungeonRun {
   readonly map: DungeonMap;
@@ -170,7 +170,7 @@ export class DungeonRun {
     this.world = buildDungeonWorld(scene, this.map, options.visuals ?? true, this.core.physics);
     // Before any body's own hooks, so each mind reads this step's plan.
     this.planning = this.core.beforeStep(() => this.plan());
-    const create = (id: string, model: CoreModel, at: Point, side: DungeonActor["side"]): DungeonActor => {
+    const create = (id: string, model: BodyModel, at: Point, side: DungeonActor["side"]): DungeonActor => {
       const actor: DungeonActor = {
         id, name: NAMES[model], model, side, fighter: null, meshes: [],
         feet() {

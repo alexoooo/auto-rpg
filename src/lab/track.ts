@@ -88,7 +88,7 @@ export function trackOf(pieces: readonly Piece[]): Track {
 /**
  * The big circle's radius, m: the owner's "big circle", about 25 m a lap. Walked at 0.5 m/s it
  * asks the heading to turn 0.125 rad/s, inside the turn each body holds walking at its fastest
- * (`CoreBody.envelope`, `assets/core/stance-envelope.json`).
+ * (`Body.envelope`, `assets/core/stance-envelope.json`).
  */
 export const CIRCLE_RADIUS = 4;
 /**

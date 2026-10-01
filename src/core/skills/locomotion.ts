@@ -74,7 +74,7 @@ export const PLACING = { near: 0.02 } as const;
 
 /**
  * **The locomotion skill**: an intent's walk and facing made a stance goal, within what the stance
- * holds with the body (`StanceEnvelope`, `CoreBody.envelope`).
+ * holds with the body (`StanceEnvelope`, `Body.envelope`).
  *
  * - **The walk** is the intent's velocity (forward along the heading and to its right, m/s), its
  *   speed capped at the envelope's fastest walk. None stands.

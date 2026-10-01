@@ -1,4 +1,4 @@
-import { createBody, SERVO_SECONDS, type CoreBody, type Fist } from "../core/body.ts";
+import { createBody, SERVO_SECONDS, type Body, type Fist } from "../core/body.ts";
 import type { BuiltBody } from "../core/build/build-body.ts";
 import type { Hand } from "../core/control/motor.ts";
 import type { StanceEnvelope } from "../core/control/stance-envelope.ts";
@@ -135,7 +135,7 @@ export interface StrikeReading {
 }
 
 export interface Routine {
-  readonly body: CoreBody;
+  readonly body: Body;
   readonly fists: { readonly left: Fist; readonly right: Fist };
   readonly mind: RoutineMind;
   readonly report: SkillReport;

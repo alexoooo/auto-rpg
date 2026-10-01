@@ -17,7 +17,7 @@ import type { World } from "./world.ts";
  * Each control step the body reads its view, asks its driver for a command, and gives the command
  * to motor control, all before the solver step, so a command acts in the step it was made for.
  */
-export interface CoreBody {
+export interface Body {
   readonly built: BuiltBody;
   /** The muscles, for readings (a view of the torques); a driver commands through `drive`. */
   readonly muscles: MuscleDriver;
@@ -106,7 +106,7 @@ export interface BodyOptions {
 }
 
 /** `built` in `world`, holding its reference pose until something drives it. */
-export function createBody(built: BuiltBody, world: World, { servoSeconds, stance, measuring }: BodyOptions): CoreBody {
+export function createBody(built: BuiltBody, world: World, { servoSeconds, stance, measuring }: BodyOptions): Body {
   const motor: MotorControl = motorControl(built, servoSeconds, {}, stance);
   const fists = { left: fistOf(built, "left"), right: fistOf(built, "right") };
   const head = centreOf(built, "head");

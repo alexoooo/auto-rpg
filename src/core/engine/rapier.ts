@@ -3,7 +3,7 @@ import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { TransformNode } from "@babylonjs/core/Meshes/transformNode.js";
 import { STANDARD_GRAVITY } from "../spec/constants.ts";
 import { sourced, type Vec3 } from "../spec/quantity.ts";
-import { CONTACT_FRICTION, type ColliderShape, type Contact, type CoreJoint, type FixedCollider, type JointFrames, type MassProperties,
+import { CONTACT_FRICTION, type ColliderShape, type Contact, type EngineJoint, type FixedCollider, type JointFrames, type MassProperties,
   type PhysicsEngine, type PhysicsOptions, type PhysicsWorld, type SegmentBody } from "./engine.ts";
 
 /**
@@ -47,7 +47,7 @@ export const SOLVER = {
 export interface RapierBody extends SegmentBody {
   readonly rigid: RAPIER.RigidBody;
 }
-export interface RapierJoint extends CoreJoint {
+export interface RapierJoint extends EngineJoint {
   readonly raw: RAPIER.ImpulseJoint;
 }
 /** A Rapier world: the contract's, and Rapier's own. The core sees only `PhysicsWorld`. */
