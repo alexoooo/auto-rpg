@@ -54,6 +54,7 @@ const moromizato = (motion: string, male: number, female: number): Printed =>
 const oneSample = (source: SourceKey, where: string, value: Cell, sample: string): Printed =>
   ({ source, where, male: value, female: value, sample });
 
+/** Each range as its source prints it, deg; a row names its own source (`moromizato-2016` and the others). */
 const PRINTED: Readonly<Record<RangeRow, Printed>> = {
   shoulderFlexion: moromizato("Shoulder flexion", 174.7, 178.4),
   shoulderExtension: moromizato("Shoulder extension", 65.7, 67.6),

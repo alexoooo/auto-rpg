@@ -11,6 +11,7 @@ export type DensitySegment = "head" | "upperArm" | "forearm" | "hand" | "thigh" 
 const printed = (segment: string, value: number): Quantity<number> =>
   sourced(value, "g/cm3", "winter-table-4-1", `Table 4.1, ${segment}, density`);
 
+/** Each segment's density as Table 4.1 prints it (`winter-table-4-1`), g/cm3. */
 export const SEGMENT_DENSITY: Readonly<Record<DensitySegment, Quantity<number>>> = Object.freeze({
   head: printed("head and neck", 1.11),
   upperArm: printed("upper arm", 1.07),

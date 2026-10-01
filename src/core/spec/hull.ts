@@ -23,7 +23,8 @@ interface Hull {
 
 /**
  * Floating-point slack, as a fraction of the points' extent: how far outside a face's plane a
- * point must be to count as outside it. It stands for rounding, not for any size of a body.
+ * point must be to count as outside it. It stands for rounding, not for any size of a body: a
+ * numeric setting.
  */
 const HULL_TOLERANCE = 1e-9;
 

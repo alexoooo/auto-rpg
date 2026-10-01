@@ -28,6 +28,7 @@ interface WorkshopEnvelope {
 /** [x min, x max, y min, y max, z min, z max], as the script prints them. */
 type Printed = readonly [number, number, number, number, number, number];
 
+/** Each foot's extents as the measurement printed them (`workshop-envelope`), m. */
 const PRINTED: Readonly<Record<WorkshopModel, { readonly feet: Record<Side, Printed> }>> = {
   "workshop-fighter": {
     feet: {

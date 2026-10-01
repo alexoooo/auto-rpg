@@ -39,21 +39,6 @@ const unsourced = (files) => new Map(scanned(files)
  * names its source.
  */
 const NOT_YET = [
-  "src/core/control/contact-wrench.ts START",
-  "src/core/control/gait.ts PREVIEW_STEPS",
-  "src/core/control/motor.ts UNREACHABLE",
-  "src/core/human/envelope.ts PRINTED",
-  "src/core/human/model.ts SKIN_TOP",
-  "src/core/human/tables/abe-2003.ts PRINTED",
-  "src/core/human/tables/de-leva-1996.ts PRINTED",
-  "src/core/human/tables/densities.ts SEGMENT_DENSITY",
-  "src/core/human/tables/force-velocity.ts ANDERSON_TABLE_3",
-  "src/core/human/tables/force-velocity.ts FREY_LAW_SPEEDS",
-  "src/core/human/tables/force-velocity.ts FREY_LAW_65",
-  "src/core/human/tables/joint-torques.ts COHORTS",
-  "src/core/human/tables/joint-torques.ts PRINTED",
-  "src/core/human/tables/range-of-motion.ts PRINTED",
-  "src/core/spec/hull.ts HULL_TOLERANCE",
   "src/arena/duel.ts GAP_METRES",
   "src/arena/duel.ts CAP_SECONDS",
   "src/arena/main.ts CATCH_UP_SECONDS",

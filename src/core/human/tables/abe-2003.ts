@@ -19,6 +19,7 @@ import type { Sex } from "./de-leva-1996.ts";
 export type MuscleRegion = "trunk" | "arms" | "upperLegs" | "lowerLegs";
 
 const ROW: Readonly<Record<MuscleRegion, string>> = { trunk: "SM trunk", arms: "SM arms", upperLegs: "SM upper legs", lowerLegs: "SM lower legs" };
+/** Table 1 as the paper prints it (`abe-2003`), kg. */
 const PRINTED: Readonly<Record<Sex, { readonly mass: number } & Readonly<Record<MuscleRegion, number>>>> = {
   male: { mass: 63.5, trunk: 9.7, arms: 2.3, upperLegs: 8.0, lowerLegs: 2.4 },
   female: { mass: 55.6, trunk: 5.5, arms: 1.2, upperLegs: 5.0, lowerLegs: 1.8 },

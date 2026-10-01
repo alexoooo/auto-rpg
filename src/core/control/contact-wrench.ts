@@ -132,7 +132,7 @@ const REGULARIZER = 1e-6;
 type Term = readonly (readonly [number, number])[];
 /** The part of a limit's normal outside the working limits' span, relative to the normal, below which the limit is taken to depend on them: rounding, a numeric setting. */
 const DEPENDENT = 1e-9;
-/** The press each sole starts from, N: strictly inside every limit, and far below any share. */
+/** The press each sole starts from, N: strictly inside every limit, and far below any share. A numeric setting. */
 const START = 1e-3;
 
 /**

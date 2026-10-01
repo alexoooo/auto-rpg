@@ -44,6 +44,7 @@ interface Printed {
   readonly sagittal: Cell; readonly transverse: Cell; readonly longitudinal: Cell;
 }
 
+/** Table 4 as the paper prints it (`de-leva-1996`). */
 const PRINTED: Readonly<Record<DeLevaSegment, Printed>> = {
   head: { row: "Head (alternative row)", landmarks: "VERT-CERV",
     length: [243.7, 242.9], mass: [6.68, 6.94], centreOfMass: [48.41, 50.02], sagittal: [27.1, 30.3], transverse: [29.5, 31.5], longitudinal: [26.1, 26.1] },

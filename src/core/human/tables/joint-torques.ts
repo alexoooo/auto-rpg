@@ -48,6 +48,7 @@ interface Cohort {
   readonly stature?: Readonly<Record<Sex, number>>;
 }
 
+/** Each source's cohort as the source prints it, kg and m; a cohort names its source (`ds-2009` and the others). */
 const COHORTS = {
   ds2009: { source: "ds-2009", where: "Appendices I and II, 20-29 y, weight", mass: { male: 73.8, female: 62.8 } },
   anderson: { source: "anderson-2007", where: "subjects, 18-25 y group",
@@ -73,6 +74,7 @@ const pan = (where: string, male: number, female: number): Printed => ({ cohort:
 const vasavada = (where: string, male: number, female: number): Printed =>
   ({ cohort: "vasavada", where: `Table 2, ${where}, resolved at C7-T1`, male, female });
 
+/** Each exertion's torque as its source prints it; the source is its cohort's (`COHORTS`: `ds-2009` and the others). */
 const PRINTED: Readonly<Record<Exertion, Printed>> = {
   shoulderFlexion: ds("shoulder, isometric flexion", 63.0, 30.0),
   shoulderExtension: ds("shoulder, isometric extension", 91.9, 43.5),

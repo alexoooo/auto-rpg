@@ -18,6 +18,7 @@ import type { Sex } from "./de-leva-1996.ts";
 
 export type AndersonDirection = "hipExtension" | "hipFlexion" | "kneeExtension" | "kneeFlexion" | "ankleDorsiflexion";
 
+/** Table 3's C4 and C5 for the 18-25 y groups, as the paper prints them (`anderson-2007`), rad/s. */
 const ANDERSON_TABLE_3: Readonly<Record<AndersonDirection, { readonly row: string } & Readonly<Record<Sex, readonly [number, number]>>>> = {
   hipExtension: { row: "HE", male: [1.578, 3.190], female: [1.567, 3.164] },
   hipFlexion: { row: "HF", male: [2.095, 4.267], female: [2.136, 4.349] },
@@ -44,9 +45,10 @@ export const ANDERSON_C5_SHARE = sourced(50, "%", "anderson-2007", "Table 1: C5,
 
 export type FreyLawDirection = "elbowFlexion" | "elbowExtension";
 
-/** The test speeds, deg/s, isometric first. */
+/** The test speeds of the paper's Tables 4 and 5 (`frey-law-2012`), deg/s, isometric first. */
 const FREY_LAW_SPEEDS = [0, 60, 120, 180, 240, 300] as const;
 
+/** The torques those tables print at 65 deg of flexion (`frey-law-2012`), N m, one for each test speed. */
 const FREY_LAW_65 = {
   elbowFlexion: { table: "Table 4", male: [63.0, 44.7, 38.7, 33.1, 27.9, 25.7], female: [32.0, 21.4, 19.9, 17.9, 15.8, 14.1] },
   elbowExtension: { table: "Table 5", male: [52.8, 39.6, 35.6, 31.8, 26.1, 24.6], female: [29.2, 22.1, 20.0, 18.1, 15.9, 13.3] },

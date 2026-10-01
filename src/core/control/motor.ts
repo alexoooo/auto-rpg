@@ -200,5 +200,6 @@ export function motorControl(built: BuiltBody, seconds: number, posture: Pose = 
 /**
  * Rad/s beyond any joint's unloaded speed: a pushed motor's target, which the driver holds to the
  * muscles' reach (`forceVelocityReach`), so the motor pushes at its ceiling until the joint gets there.
+ * A numeric setting: any speed no joint reaches does.
  */
 const UNREACHABLE = 1e3;

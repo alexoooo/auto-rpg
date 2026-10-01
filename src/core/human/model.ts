@@ -24,7 +24,8 @@ export const WORKSHOP_SEX: Readonly<Record<WorkshopModel, Sex>> = Object.freeze(
 
 /**
  * The top of each model's skin at the authored size, bind pose, soles on 0: the maximum height of
- * `base__skin`'s positions, as the glTF's accessor states it. Hair is not stature.
+ * `base__skin`'s positions, as the glTF's accessor states it (`workshop-fighter-glb`,
+ * `workshop-rogue-glb`). Hair is not stature.
  */
 const SKIN_TOP: Readonly<Record<WorkshopModel, { readonly source: SourceKey; readonly accessor: number; readonly value: number }>> = Object.freeze({
   "workshop-fighter": { source: "workshop-fighter-glb", accessor: 231, value: 1.8804991245269775 },

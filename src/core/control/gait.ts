@@ -148,6 +148,7 @@ function walkStep(feet: readonly FootState[], centre: Vector3, velocity: Vector3
  * How many footsteps past the step under way a walk with a double support plans (`transferStep`):
  * the capture point's reference assumes the body at rest over the last, and each step back shrinks
  * what that assumption moves by exp(-w T), about a quarter at 0.4 s steps; over eight, by 1e-4.
+ * A numeric setting: where the series is cut off.
  */
 const PREVIEW_STEPS = 8;
 
