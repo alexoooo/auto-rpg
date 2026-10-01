@@ -398,6 +398,105 @@ function swingFoot(s: Stance, swing: SwingGoal, heading: number, dt: number): vo
   }
 }
 
+/** Each foot's leg's channels, found once the driver's are known. */
+function bindChannels(s: Stance, muscles: MuscleDriver): void {
+  const { state } = s;
+  if (state.owned.length === muscles.channels.length) return;
+  state.owned = new Uint8Array(muscles.channels.length);
+  for (const foot of s.feet) foot.memory.channels = foot.chain.flatMap((joint) => joint.dofs.map((dof) => muscles.channel(`${joint.spec.name} ${dof.spec.positive}`)));
+}
+
+/** Whether `goal` leaves the stance to step of itself: it stands on both feet and asks for no step. */
+function stepsOfItself(goal: StanceGoal | null): goal is StanceGoal {
+  return !!goal && goal.feet.includes("left") && goal.feet.includes("right") && !goal.swing;
+}
+
+/**
+ * The step this command takes: the goal's, or the stance's own (`ownStep`), or none. A swing unlike
+ * the last starts a step, at its weight shift or, asked to, at its swing.
+ */
+function chooseStep(s: Stance, goal: StanceGoal | null): SwingGoal | null {
+  const { state } = s, { reading, step } = state;
+  if (stepsOfItself(goal)) ownStep(s, goal.heading);
+  else {
+    reading.own = null;
+    state.stride = null;
+    state.striding = null;
+  }
+  const swing = goal?.swing ?? reading.own;
+  if (!swing) {
+    step.swing = null;
+    reading.phase = "stand";
+  } else if (!sameSwing(swing, step.swing)) {
+    step.swing = swing;
+    step.lifted = false;
+    step.held = 0;
+    reading.phase = swing.shift === false ? "swing" : "shift";
+  }
+  return swing;
+}
+
+/** The feet that bear the body: the goal's, but for a foot that is swinging. */
+function bearerOf(goal: StanceGoal | null, phase: StancePhase, swing: SwingGoal | null): readonly Foot[] {
+  return !goal ? [] : phase === "swing" ? goal.feet.filter((side) => side !== swing!.foot) : goal.feet;
+}
+
+/**
+ * The plan, one step on: where the centre of mass should be, moving critically damped toward the goal
+ * across the ground and in height at each time constant, from where the stance began. The ground is
+ * level, y up; the plan's y is the height over the soles. Returns the plan's acceleration.
+ */
+function advancePlan(s: Stance, goal: StanceGoal, stance: readonly FootState[], swing: SwingGoal | null, bearer: FootState | undefined,
+  pendulum: number, dt: number): [number, number, number] {
+  const { plan, reading } = s.state, { seconds } = s.tuning;
+  const r = plan.at, u = plan.velocity;
+  const [ax, az] = planAcross(s, goal, stance, swing, bearer, pendulum, dt);
+  // Where the ceiling and a floor disagree, the ankle's stop is the harder limit.
+  const limits = heightLimits(s, goal, stance, swing, pendulum);
+  rollFeet(s, stance, swing, limits.floors, limits.high);
+  let low = -Infinity;
+  for (const [foot, floor] of limits.floors) if (!foot.memory.rolled) low = Math.max(low, floor);
+  const high = Math.max(limits.high, low), k = 1 / seconds.height;
+  const ay = k * k * (high - r.y) - 2 * k * u.y;
+  u.addInPlaceFromFloats(ax * dt, ay * dt, az * dt);
+  r.addInPlace(u.scale(dt));
+  reading.plan.copyFrom(r);
+  reading.planVelocity.copyFrom(u);
+  return [ax, ay, az];
+}
+
+/**
+ * The root's aims. Its angular acceleration: toward upright at `heading`, critically damped at the
+ * turn's constant (`spin` is the error's angle over it). The centre of mass's: the plan's (`planned`),
+ * its errors from the plan taken up critically damped at the rate `e`, one over `STANCE_TRACK`.
+ * `height` is the centre of mass's over the stance soles.
+ */
+function aimRoot(s: Stance, heading: number, planned: readonly [number, number, number], height: number, e: number): void {
+  const { pelvis } = s, { aim, plan, reading } = s.state, { seconds } = s.tuning, { spin, pelvisSpin } = s.scratch;
+  const r = plan.at, u = plan.velocity, c = reading.centre, vel = reading.velocity, [ax, ay, az] = planned;
+  pelvisTurn(s, heading);
+  pelvis.body.angularVelocityToRef(pelvisSpin);
+  const q = 1 / seconds.turn;
+  aim.spin.copyFrom(spin).scaleInPlace(q).subtractInPlace(pelvisSpin.scaleInPlace(2 * q));
+  aim.centre.set(ax + e * e * (r.x - c.x) + 2 * e * (u.x - vel.x), ay + e * e * (r.y - height) + 2 * e * (u.y - vel.y),
+    az + e * e * (r.z - c.z) + 2 * e * (u.z - vel.z));
+  aim.on = true;
+}
+
+/** Each of `stance`'s feet held still where it bears, what motion it has damped out at the rate `e`. */
+function holdStance(s: Stance, stance: readonly FootState[], e: number): void {
+  const { feet } = s, { tasks } = s.state;
+  for (const foot of stance) {
+    const task = tasks[feet.indexOf(foot)]!;
+    footMotionToRef(foot, foot.memory.rolled ? foot.edge : foot.middle, task.linear, task.angular);
+    task.linear.scaleInPlace(-e);
+    task.angular.scaleInPlace(-e);
+    task.on = true;
+    task.bearing = true;
+    for (const i of foot.memory.channels) s.state.owned[i] = 1;
+  }
+}
+
 export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): StanceControl {
   const s = makeStance(built, tuning);
   return {
@@ -633,35 +732,14 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): Stan
       readSupport(feet, on ? feet.filter((foot) => on.includes(foot.side)) : feet, reading.support);
     },
     command(muscles, goal, dt) {
-      const { feet, pelvis, state } = s, { aim, tasks, reading, step, plan } = state, { seconds, track } = s.tuning, { spin, pelvisSpin } = s.scratch;
-      if (state.owned.length !== muscles.channels.length) {
-        state.owned = new Uint8Array(muscles.channels.length);
-        for (const foot of feet) foot.memory.channels = foot.chain.flatMap((joint) => joint.dofs.map((dof) => muscles.channel(`${joint.spec.name} ${dof.spec.positive}`)));
-      }
+      const { feet, state } = s, { reading, plan } = state;
+      bindChannels(s, muscles);
       state.owned.fill(0);
-      aim.on = false;
-      for (const task of tasks) task.on = false;
-      const both = !!goal && goal.feet.includes("left") && goal.feet.includes("right") && !goal.swing;
-      paceToward(s, both ? goal!.walk : null, dt);
-      if (both) ownStep(s, goal!.heading);
-      else {
-        reading.own = null;
-        state.stride = null;
-        state.striding = null;
-      }
-      // The step: a swing unlike the last starts one, and the feet that bear the body are the goal's
-      // but for a swinging foot.
-      const swing = goal?.swing ?? reading.own;
-      if (!swing) {
-        step.swing = null;
-        reading.phase = "stand";
-      } else if (!sameSwing(swing, step.swing)) {
-        step.swing = swing;
-        step.lifted = false;
-        step.held = 0;
-        reading.phase = swing.shift === false ? "swing" : "shift";
-      }
-      const bearing = !goal ? [] : reading.phase === "swing" ? goal.feet.filter((side) => side !== swing!.foot) : goal.feet;
+      state.aim.on = false;
+      for (const task of state.tasks) task.on = false;
+      paceToward(s, stepsOfItself(goal) ? goal.walk : null, dt);
+      const swing = chooseStep(s, goal);
+      const bearing = bearerOf(goal, reading.phase, swing);
       if (!goal || !state.last || bearing.length !== state.last.length || bearing.some((side) => !state.last!.includes(side))) {
         plan.on = false;
       }
@@ -670,52 +748,20 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): Stan
       if (!goal || stance.length === 0) return;
       readSupport(feet, stance, reading.support);
       const c = reading.centre, vel = reading.velocity, g = gravityOf(s);
-
-      // The plan: where the centre of mass should be, moving critically damped toward the goal
-      // across the ground and in height at each time constant, from where the stance began. The
-      // ground is level, y up; the plan's y is the height over the soles.
       const height = c.y - reading.support.y;
       if (!plan.on) {
         plan.at.set(c.x, height, c.z);
         plan.velocity.copyFrom(vel);
         plan.on = true;
       }
-      const r = plan.at, u = plan.velocity, pendulum = g / Math.max(r.y, 1e-3);
+      // The pendulum is the plan's as this step finds it, before the plan goes on.
+      const pendulum = g / Math.max(plan.at.y, 1e-3);
       const bearer = swing ? stance.find((foot) => foot.side !== swing.foot) : undefined;
-      const [ax, az] = planAcross(s, goal, stance, swing, bearer, pendulum, dt);
-      // Where the ceiling and a floor disagree, the ankle's stop is the harder limit.
-      const limits = heightLimits(s, goal, stance, swing, pendulum);
-      rollFeet(s, stance, swing, limits.floors, limits.high);
-      let low = -Infinity;
-      for (const [foot, floor] of limits.floors) if (!foot.memory.rolled) low = Math.max(low, floor);
-      const high = Math.max(limits.high, low), k = 1 / seconds.height;
-      const ay = k * k * (high - r.y) - 2 * k * u.y;
-      u.addInPlaceFromFloats(ax * dt, ay * dt, az * dt);
-      r.addInPlace(u.scale(dt));
-      reading.plan.copyFrom(r);
-      reading.planVelocity.copyFrom(u);
+      const planned = advancePlan(s, goal, stance, swing, bearer, pendulum, dt);
       shiftWeight(s, swing, bearer, height, dt);
-      pelvisTurn(s, goal.heading);
-
-      // The root's angular acceleration: toward upright at the heading, critically damped at the
-      // turn's constant (`spin` is the error's angle over it). The centre of mass's: the plan's,
-      // its errors taken up critically damped at `track`. Each bearing foot is held still, what
-      // motion it has damped out at `track`.
-      pelvis.body.angularVelocityToRef(pelvisSpin);
-      const q = 1 / seconds.turn, e = 1 / track;
-      aim.spin.copyFrom(spin).scaleInPlace(q).subtractInPlace(pelvisSpin.scaleInPlace(2 * q));
-      aim.centre.set(ax + e * e * (r.x - c.x) + 2 * e * (u.x - vel.x), ay + e * e * (r.y - height) + 2 * e * (u.y - vel.y),
-        az + e * e * (r.z - c.z) + 2 * e * (u.z - vel.z));
-      aim.on = true;
-      for (const foot of stance) {
-        const task = tasks[feet.indexOf(foot)]!;
-        footMotionToRef(foot, foot.memory.rolled ? foot.edge : foot.middle, task.linear, task.angular);
-        task.linear.scaleInPlace(-e);
-        task.angular.scaleInPlace(-e);
-        task.on = true;
-        task.bearing = true;
-        for (const i of foot.memory.channels) state.owned[i] = 1;
-      }
+      const e = 1 / s.tuning.track;
+      aimRoot(s, goal.heading, planned, height, e);
+      holdStance(s, stance, e);
       if (reading.phase === "swing" && swing) swingFoot(s, swing, goal.heading, dt);
     },
   };
