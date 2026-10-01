@@ -15,12 +15,15 @@
  * feet back at the width the body was built standing at, and holds a sideways shove there that the
  * gait's width did not (`shove` in `research/core-stance-trials.mjs`). Shoved hard straight to the
  * side, the Warrior catches itself with the near foot stepping out once the far one has come in.
+ * What a stance remembers between steps (`StanceState`, `src/core/control/stance-state.ts`) is one
+ * record of plain data.
  * Node core stand, Rapier, both humans, on a ground, 120 Hz.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { createBody } from "../src/core/body.ts";
+import { makeStance } from "../src/core/control/stance-state.ts";
 import { SOLE_MARGIN, SUPPORT_INSET, STANCE_ANKLE_SPARE } from "../src/core/control/stance-tuning.ts";
 import { withinSupport } from "../src/core/control/support.ts";
 import { humanSpec } from "../src/core/human/spec.ts";
@@ -401,4 +404,35 @@ test("shoved hard to the side, the Warrior brings its far foot in and steps out 
     const r = await shove({ model: "workshop-fighter", impulse: 60, degrees });
     assert.ok(!r.fell && r.steps >= 2 && r.speed < 0.05, `at ${degrees}: ${r.fell ? "fell" : "held"} in ${r.steps} steps at ${r.speed.toFixed(3)} m/s`);
   }
+});
+
+test("what a stance remembers is one record of plain data, which lists each foot's memory", async () => {
+  /** The paths under `value` that are not plain data: numbers, strings, plain objects, arrays, typed arrays, vectors and turns. */
+  const faults = (value, path, seen = new Set()) => {
+    if (value === null || ["number", "string", "boolean"].includes(typeof value)) return [];
+    if (typeof value !== "object") return [`${path}: a ${typeof value}`];
+    if (seen.has(value)) return [];
+    seen.add(value);
+    if (ArrayBuffer.isView(value) || value instanceof Vector3 || value instanceof Quaternion) return [];
+    if (Array.isArray(value)) return value.flatMap((item, k) => faults(item, `${path}[${k}]`, seen));
+    const made = Object.getPrototypeOf(value);
+    if (made !== Object.prototype) return [`${path}: a ${made?.constructor?.name}`];
+    return Object.entries(value).flatMap(([key, item]) => faults(item, `${path}.${key}`, seen));
+  };
+  const stand = await coreStand(humanSpec("workshop-fighter"), { ground: true, hz: 120 });
+  try {
+    const s = makeStance(stand.built, {});
+    assert.deepEqual(faults(s.state, "state"), []);
+    assert.deepEqual(Object.keys(s.state).sort(),
+      ["aim", "feet", "held", "last", "owned", "pace", "plan", "reading", "step", "stride", "striding", "tasks"]);
+    assert.equal(s.state.feet.length, 2);
+    assert.ok(s.state.feet.every((memory, k) => memory === s.feet[k].memory), "the state lists each foot's own memory");
+    assert.deepEqual(s.state.feet, [{ channels: [], rolled: false }, { channels: [], rolled: false }]);
+    assert.ok(s.state.reading.soles.left === s.feet[0].middle && s.state.reading.soles.right === s.feet[1].middle, "the reading's soles are the feet's middles");
+    // The controls: a foot holds a segment's node, a turn of the engine's and a function are not data.
+    assert.deepEqual(faults({ node: s.feet[0].segment.node }, "state"), ["state.node: a TransformNode"]);
+    assert.notEqual(faults({ foot: s.feet[0] }, "state").length, 0, "a foot is not data");
+    assert.deepEqual(faults({ read() {} }, "state"), ["state.read: a function"]);
+    assert.deepEqual(faults({ at: [new Map()] }, "state"), ["state.at[0]: a Map"]);
+  } finally { stand.dispose(); }
 });

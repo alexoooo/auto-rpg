@@ -142,7 +142,7 @@ export const LEG_DAMPING = 0.02;
 export const SUPPORT_INSET = 0.5;
 
 /** The stance's settings as it reads them: each one `StanceTuning`'s, or the constant it stands in for. */
-interface ResolvedStance {
+export interface ResolvedStance {
   readonly seconds: NonNullable<StanceTuning["seconds"]>;
   readonly inset: number;
   /** Null where the tuning turns the limit, or the step, off. */

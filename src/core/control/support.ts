@@ -11,6 +11,17 @@ import type { Vec3 } from "../spec/quantity.ts";
 import type { Foot } from "./stance.ts";
 import { SUPPORT_INSET } from "./stance-tuning.ts";
 
+/** What of a foot a stance keeps from one step to the next. */
+export interface FootMemory {
+  /** The stance leg's channels, the chain's freedoms in order. */
+  channels: number[];
+  /**
+   * Whether the foot bears on its sole's front edge, its heel lifted: its ankle held short of its
+   * dorsiflexion stop, the leg pivots about that edge.
+   */
+  rolled: boolean;
+}
+
 /** A foot as the stance reads it. */
 export interface FootState {
   readonly side: Foot;
@@ -18,8 +29,7 @@ export interface FootState {
   readonly chain: BuiltJoint[];
   /** The sole's corners, in the segment's own frame. */
   readonly sole: readonly Vector3[];
-  /** The stance leg's channels, the chain's freedoms in order. */
-  channels: number[];
+  readonly memory: FootMemory;
   /** The sole's corners and middle, world, as last read (the reading's `soles`). */
   readonly corners: Vector3[];
   readonly middle: Vector3;
@@ -31,11 +41,6 @@ export interface FootState {
   readonly width: number;
   /** Half the sole's length, m. */
   readonly reach: number;
-  /**
-   * Whether the foot bears on its sole's front edge, its heel lifted: its ankle held short of its
-   * dorsiflexion stop, the leg pivots about that edge.
-   */
-  rolled: boolean;
   /** The sole's front edge (the two corners farthest ahead of the ankle), world, as last read. */
   readonly toe: Vector3[];
   /** The front edge's middle, and its line's direction, level, unit; world, as last read. */
@@ -44,21 +49,21 @@ export interface FootState {
   /** How far the heel's edge stands over the front edge, m, as last read. */
   heel: number;
   /** `heel` as the body was built, flat on the ground, m. */
-  flat: number;
+  readonly flat: number;
 }
 
 /** `built`'s two feet as a stance reads them, left then right, each read as the body stands built. */
 export function footStatesOf(built: BuiltBody): FootState[] {
-  const feet = (["left", "right"] as const).map((side): FootState => {
+  const feet = (["left", "right"] as const).map((side) => {
     const segment = built.segments.get(`foot.${side}`);
     if (!segment) throw new Error(`${built.spec.model} has no ${side} foot`);
     const sole = soleOf(segment), chain = chainTo(built, segment);
-    return { side, segment, chain, sole, channels: [], corners: sole.map(() => new Vector3()), lengths: lengthsOf(chain),
+    return { side, segment, chain, sole, memory: { channels: [] as number[], rolled: false }, corners: sole.map(() => new Vector3()), lengths: lengthsOf(chain),
       straight: -referenceBendOf(chain),
       width: Math.max(...sole.map((q) => q.x)) - Math.min(...sole.map((q) => q.x)),
       // The rectangle's sides from one corner: the nearer two of the other three.
       reach: [1, 2, 3].map((k) => Vector3.Distance(sole[0]!, sole[k]!)).sort((a, b) => a - b)[1]! / 2,
-      middle: new Vector3(), rolled: false, toe: [new Vector3(), new Vector3()], edge: new Vector3(), edgeAxis: new Vector3(), heel: 0, flat: 0 };
+      middle: new Vector3(), toe: [new Vector3(), new Vector3()], edge: new Vector3(), edgeAxis: new Vector3(), heel: 0, flat: 0 };
   });
   for (const foot of feet) {
     soleMiddleToRef(foot, foot.middle);
@@ -168,13 +173,13 @@ export function bearingSole(foot: FootState, keep: number): BearingSole {
   const other = rest[near[1]![1]]!, along = other.subtract(a!);
   along.y = 0;
   // Rolled, the centre of pressure is on the front edge: kept within the margin's band of it.
-  if (foot.rolled) return { middle: foot.edge, along: along.normalize(), length: (1 - keep) * foot.reach, width: keep * foot.width / 2 };
+  if (foot.memory.rolled) return { middle: foot.edge, along: along.normalize(), length: (1 - keep) * foot.reach, width: keep * foot.width / 2 };
   return { middle: foot.middle, along: along.normalize(), length: keep * foot.reach, width: keep * foot.width / 2 };
 }
 
 /** The sole a foot bears on, for the region the stance holds: its front edge when rolled. */
 export function bearingOf(foot: FootState): Sole {
-  return foot.rolled ? { corners: foot.toe } : foot;
+  return foot.memory.rolled ? { corners: foot.toe } : foot;
 }
 
 const edgeScratch = { ankle: new Vector3() };
