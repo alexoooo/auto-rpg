@@ -20,8 +20,10 @@ import { turnAboutToRef } from "../math/turn.ts";
  * **Solver conditioning** (`SOLVER`): the solver's iteration counts are named here and nowhere
  * else, and come from the bake-off's table. Bodies never sleep: a sleeping body reads a perfect zero.
  *
- * **A save** is Rapier's snapshot. It restores as a new world, so the module holds handles and
- * finds its objects again on a load (`rebinds`, `joints`).
+ * **A save** is each node's pose and Rapier's snapshot. The snapshot restores as a new world, so
+ * the module holds handles and finds its objects again on a load (`rebinds`, `joints`). The nodes
+ * are in it because Rapier holds a pose in single precision: a node the solver has written is its
+ * body's, and a node before its first step is as it was built, in double.
  */
 type Rapier = typeof RAPIER;
 
@@ -54,6 +56,9 @@ const SOLVER = {
   iterations: sourced(16, "1", "physics-bakeoff", "Rapier at 120 Hz, one sub-step: passes the clean bar at 16 iterations"),
   pgs: sourced(2, "1", "physics-bakeoff", "with 2 internal PGS iterations"),
 } as const;
+
+/** The numbers of a node's pose in a save: its position and its turn. A numeric setting. */
+const NODE_POSE = 7;
 
 /** A Rapier body: the contract's, and Rapier's own for a probe of Rapier (`research/core-rapier-probe.mjs`). */
 interface RapierBody extends SegmentBody {
@@ -144,9 +149,26 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions):
 
   const physics: RapierPhysics = {
     engine: "rapier", rapier: R, get raw() { return raw; }, gravity: g,
-    save() { return raw.takeSnapshot(); },
+    save() {
+      // Rapier's snapshot, after the count of bodies and each node's pose as it stands: the solver
+      // holds a pose in single precision, and a node before its first step is as it was built.
+      const snapshot = raw.takeSnapshot(), poses = new Float64Array(1 + NODE_POSE * bodies.size);
+      poses[0] = bodies.size;
+      let k = 1;
+      for (const { node } of bodies) {
+        const p = node.position, q = node.rotationQuaternion ?? Quaternion.Identity();
+        poses[k++] = p.x; poses[k++] = p.y; poses[k++] = p.z;
+        poses[k++] = q.x; poses[k++] = q.y; poses[k++] = q.z; poses[k++] = q.w;
+      }
+      const bytes = new Uint8Array(poses.byteLength + snapshot.length);
+      bytes.set(new Uint8Array(poses.buffer));
+      bytes.set(snapshot, poses.byteLength);
+      return bytes;
+    },
     load(bytes) {
-      const next = R.World.restoreSnapshot(bytes);
+      const count = bytes.length >= 8 ? new Float64Array(bytes.slice(0, 8).buffer)[0]! : NaN;
+      const head = 8 * (1 + NODE_POSE * count);
+      const next = Number.isInteger(count) && count >= 0 && head < bytes.length ? R.World.restoreSnapshot(bytes.subarray(head)) : null;
       if (!next) throw new Error("these bytes are not a Rapier world");
       let same = next.bodies.len() === raw.bodies.len() && next.colliders.len() === raw.colliders.len()
         && next.impulseJoints.len() === raw.impulseJoints.len();
@@ -162,7 +184,12 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions):
       for (const rebind of rebinds.values()) rebind();
       // A save may hold a force asked for its next step; every body's is reset after that step.
       for (const body of bodies) forced.add(body);
-      writeNodes();
+      const poses = new Float64Array(bytes.slice(8, head).buffer);
+      let k = 0;
+      for (const { node } of bodies) {
+        node.position.set(poses[k++]!, poses[k++]!, poses[k++]!);
+        (node.rotationQuaternion ??= new Quaternion()).set(poses[k++]!, poses[k++]!, poses[k++]!, poses[k++]!);
+      }
     },
     addBody(node, shapes, mass) {
       const q = node.rotationQuaternion ?? Quaternion.Identity();

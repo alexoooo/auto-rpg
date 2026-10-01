@@ -237,6 +237,28 @@ test("a world loaded from a save goes on as it went on from the save", async () 
   } finally { b.dispose(); }
 });
 
+test("a world saved before its first step loads to its nodes as they were built", async () => {
+  // 0.1 is no single-precision number: a node is built at it, and the solver holds its nearest.
+  const b = await box({ ground: false, gravity: false });
+  try {
+    const top = add(b, "top", [0.1, 2, 0.3]), both = [b.body, top];
+    const built = stateOf(both), saved = b.physics.save();
+    assert.equal(top.node.position.x, 0.1);
+    b.step(1);
+    const stepped = stateOf(both), later = b.physics.save();
+    assert.equal(top.node.position.x, Math.fround(0.1), "a step writes the node from its body");
+    b.physics.load(saved);
+    assert.deepEqual(stateOf(both), built, "as built: at 0.1, not at the solver's nearest to it");
+    assert.deepEqual(b.physics.save(), saved);
+    b.step(1);
+    assert.deepEqual(stateOf(both), stepped);
+    // A save after a step holds the nodes the step wrote.
+    top.node.position.x = 5;
+    b.physics.load(later);
+    assert.deepEqual(stateOf(both), stepped);
+  } finally { b.dispose(); }
+});
+
 test("a force asked for the step after a save is given through that step after a load, and no longer", async () => {
   const held = await box({ height: 1, ground: false });
   try {
