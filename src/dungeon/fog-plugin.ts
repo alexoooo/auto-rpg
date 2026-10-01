@@ -121,7 +121,7 @@ float dungeonCut = ${f(CUT_AWAY.most)} * (1.0 - smoothstep(${f(CUT_AWAY.soft)}, 
 if (dungeonBayer4(gl_FragCoord.xy) < dungeonCut) discard;
 #endif
 `,
-  // After the material's own image processing: in linear light while `forgePost` does that processing, as it does
+  // After the material's own image processing: in linear light while `postPipeline` does that processing, as it does
   // unless the look probe switches post-processing off.
   CUSTOM_FRAGMENT_BEFORE_FRAGCOLOR: `
 #ifdef DUNGEON_FOG

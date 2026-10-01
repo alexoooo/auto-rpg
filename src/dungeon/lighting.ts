@@ -14,7 +14,7 @@ import "@babylonjs/core/Materials/Textures/Loaders/hdrTextureLoader.js";
 import "@babylonjs/core/Rendering/geometryBufferRendererSceneComponent.js";
 import "@babylonjs/core/Rendering/prePassRendererSceneComponent.js";
 import "@babylonjs/core/Lights/Clustered/clusteredLightingSceneComponent.js";
-import { forgePost } from "../render/post.ts";
+import { postPipeline } from "../render/post.ts";
 import { publicAssetUrl } from "../asset-url.ts";
 import { CAMERA_AZIMUTH, cameraDistance } from "./camera.ts";
 import { flameFade, flameMaterial } from "./fire.ts";
@@ -136,7 +136,7 @@ export function lightDungeon(scene: Scene, camera: Camera, map: DungeonMap, torc
       ao.radius = DUNGEON_LOOK.ssao.radius; ao.totalStrength = DUNGEON_LOOK.ssao.totalStrength;
       ao.samples = DUNGEON_LOOK.ssao.samples; ao.expensiveBlur = false; setMaxZ();
     }
-    if (look.post) post = forgePost(scene, camera);
+    if (look.post) post = postPipeline(scene, camera);
   };
   buildPost();
 
@@ -150,7 +150,7 @@ export function lightDungeon(scene: Scene, camera: Camera, map: DungeonMap, torc
   };
   let time = 0, lastHero: Point = { x: 0, z: 0 };
   const flicker = scene.onBeforeRenderObservable.add(() => {
-    if (scene.physicsEnabled) time += Math.min(scene.getEngine().getDeltaTime(), 50) / 1000;
+    time += Math.min(scene.getEngine().getDeltaTime(), 50) / 1000;
     fire.setFloat("time", time);
     lights.forEach((light, i) => light.intensity = (torches[i].intensity ?? DUNGEON_LOOK.torch.intensity) + Math.sin(time * 8 + i * 1.7) * DUNGEON_LOOK.torch.flicker);
   });

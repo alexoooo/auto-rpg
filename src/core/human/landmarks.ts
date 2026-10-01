@@ -17,7 +17,8 @@ import { DE_LEVA_1996, type Sex } from "./tables/de-leva-1996.ts";
  * - XYPH (the xiphoid) and OMPH (the navel) have no bone. They divide the rig's CERV-MIDH line in
  *   the proportions of de Leva's upper, middle and lower trunk lengths for the model's sex.
  *
- * HEEL and TTIP come from the boot's footprint (`segments.ts`).
+ * HEEL and TTIP are the foot's ends: a workshop model's from its boot's footprint (`workshop.ts`), the
+ * skeleton's from its foot bones (`skeleton.ts`).
  */
 export type Side = "left" | "right";
 export const SIDES: readonly Side[] = Object.freeze(["left", "right"]);

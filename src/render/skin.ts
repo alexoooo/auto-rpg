@@ -17,7 +17,7 @@ import { CLUB_GRIP } from "../lab/club-grip.ts";
 import { fistTurns, type FistPose, type RestBone } from "../lab/fist.ts";
 
 /**
- * **The core body as the world sees it**: the workshop model's skinned mesh, each bone carried by
+ * **The body as the world sees it**: the workshop model's skinned mesh, each bone carried by
  * the core segment it belongs to. It reads the segments' achieved transforms and nothing else; it
  * owns no collision and decides nothing, so what it shows is a costume on the shapes `body-shapes.ts`
  * draws.

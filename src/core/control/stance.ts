@@ -56,7 +56,7 @@ export interface SwingGoal {
   readonly lift: number;
   /**
    * Whether the weight is first shifted onto the other foot (the default): the foot leaves the
-   * ground once the planned capture point is over the other sole. A step to catch a fall lifts at
+   * ground once the body's capture point is over the other sole. A step to catch a fall lifts at
    * once.
    */
   readonly shift?: boolean;

@@ -202,18 +202,18 @@ both out on one step is a draw; at 120 s the fuller bar wins.
 arena, crypt and lab screens at `?play=arena`, `?play=dungeon` and `?play=lab`, each a
 `<template>` mounted once per page load. Changing screen is a navigation.
 
-- **The Arena** (`src/arena/`): two clubbed core bodies in the Forge (`src/arena/scene.ts`,
+- **The Arena** (`src/arena/`): two clubbed bodies in the Forge (`src/arena/scene.ts`,
   `src/arena/room.ts`), each driven by `fighterMind` under a `Duel`, to a verdict. The room's
   solids (`arenaSolids`) are what bodies meet; the visible room is dressed from the forge kit
   (`src/arena/forge-style.ts`, `src/arena/forge-room.ts`). `validateRoomPlacements` refuses a
   piece that names a collider the arena lacks, or one of the wrong role, and a solid-looking piece
   within reach (below `ROOM.maxReachHeight`) that names none.
 - **The Crypt** (`src/dungeon/`): a party in a generated dungeon (`DungeonRun`, `run.ts`). The
-  map's walls, doors and obstacles are fixed boxes in the core world (`buildDungeonWorld`); every
-  body is a core body driven by a mind; a person's orders reach the party only through the run's
+  map's walls, doors and obstacles are fixed boxes in the world (`buildDungeonWorld`); every
+  body is driven by a mind; a person's orders reach the party only through the run's
   plan (`DungeonCommands`), and each member's mind carries them out while it defends itself.
   Enemies are built when the party comes near; its art is in [art/crypt.md](art/crypt.md).
-- **The lab** (`src/lab/`): one core body at a time in the Stance, Routine, Run and Blow
+- **The lab** (`src/lab/`): one body at a time in the Stance, Routine, Run and Blow
   scenarios (`scenarios.ts`), at 120 or 480 Hz, with a transport that steps the world by hand.
 - **The character workshop** (`/character-lab.html`, `src/character-lab/`): the workshop models
   with their authored preview motion. It uses no core. See [art/characters.md](art/characters.md).

@@ -1,5 +1,5 @@
-// The arena (`src/arena/duel.ts`): its solids are fixed colliders in a core world, and a bout of two
-// core bodies runs to its verdict (Node, core world, Rapier, 120 Hz).
+// The arena (`src/arena/duel.ts`): its solids are fixed colliders in a world, and a bout of two
+// bodies runs to its verdict (Node, core world, Rapier, 120 Hz).
 import test from "node:test";
 import assert from "node:assert/strict";
 import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";

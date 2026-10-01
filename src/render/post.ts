@@ -5,10 +5,12 @@ import type { Scene } from "@babylonjs/core/scene.js";
 import "@babylonjs/core/PostProcesses/RenderPipeline/postProcessRenderPipelineManagerSceneComponent.js";
 import "@babylonjs/core/Rendering/depthRendererSceneComponent.js";
 
-// A leaf, so that a page wanting the forge's grade -- the dungeon -- does not also load the forge's models.
-
-export function forgePost(scene: Scene, camera: Camera): DefaultRenderingPipeline {
-  const post = new DefaultRenderingPipeline("forge.post", true, scene, [camera]);
+/**
+ * The grade the arena and the crypt share: anti-aliasing, ACES tone mapping, a vignette and a light
+ * bloom. A leaf, so that the crypt takes it without loading the arena's room.
+ */
+export function postPipeline(scene: Scene, camera: Camera): DefaultRenderingPipeline {
+  const post = new DefaultRenderingPipeline("post", true, scene, [camera]);
   post.samples = 1;
   post.fxaaEnabled = true;
   post.imageProcessing.toneMappingEnabled = true;

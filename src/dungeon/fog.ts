@@ -54,7 +54,8 @@ export function fogMask(map: DungeonMap, visible: ReadonlySet<number>, explored:
   return into;
 }
 
-/** The cells a door's box stands in: 0.35 m thick across its axis and three cells long along it (`buildDungeonWorld`). */
+/** The cells a door's box stands in: 0.35 m thick along its axis, the way through it, and three cells long across it
+ * (`buildDungeonWorld`). */
 export function doorCells(door: DungeonMap["doors"][number]): Point[] {
   return [-1, 0, 1].map(i => door.axis === "x" ? { x: door.point.x, z: door.point.z + i } : { x: door.point.x + i, z: door.point.z });
 }

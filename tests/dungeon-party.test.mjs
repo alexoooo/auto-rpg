@@ -1,5 +1,5 @@
 // One person orders a party in the dungeon. The hero and its companions are
-// core bodies on one side (`src/dungeon/run.ts`); a mouse order goes to the selected members only,
+// bodies on one side (`src/dungeon/run.ts`); a mouse order goes to the selected members only,
 // a companion with none holds where it was sent or walks after the hero, and enemies go for
 // whichever member they see nearest (Node, core world, Rapier, 120 Hz).
 import test from "node:test";

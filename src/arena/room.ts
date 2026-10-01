@@ -1,6 +1,5 @@
 import { VertexBuffer } from "@babylonjs/core/Buffers/buffer.js";
 import type { Material } from "@babylonjs/core/Materials/material.js";
-import type { ShadowGenerator } from "@babylonjs/core/Lights/Shadows/shadowGenerator.js";
 import type { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh.js";
 import type { Mesh } from "@babylonjs/core/Meshes/mesh.js";
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder.js";
@@ -62,28 +61,6 @@ export interface RoomOcclusionTarget {
   readonly point: { x: number; y: number; z: number };
   /** Whether the target counts now; an inactive target keeps no sight line clear. */
   readonly active?: () => boolean;
-}
-
-/** Rebuild the shadow caster list from the scene, leaving out floors, non-solid scrims and effects. */
-export function refreshShadowCasters(scene: Scene, shadows: ShadowGenerator): void {
-  const list = shadows.getShadowMap()?.renderList;
-  if (!list) return;
-  list.length = 0;
-  for (const mesh of scene.meshes) {
-    if (mesh.name === "ground" || mesh.metadata?.forgeNoShadow) continue;
-    const roomPlacement = mesh.metadata?.roomPlacement as { role?: string; solid?: boolean } | undefined;
-    if (roomPlacement?.role === "floor" || roomPlacement?.solid === false) continue;
-    // A beam hidden for a sight line stays a caster; dropped here, it would get its
-    // shadow back only at the next full refresh.
-    if (!mesh.isVisible && !roomPlacement?.solid) continue;
-    if (
-      mesh.name.startsWith("aim.")
-      || mesh.name.startsWith("target.")
-      || mesh.name.startsWith("orders.")
-      || mesh.name.startsWith("rig.")
-    ) continue;
-    list.push(mesh);
-  }
 }
 
 const NO_SHADOWS: ShadowRegistry = Object.freeze({ add: () => {}, remove: () => {} });
@@ -385,7 +362,7 @@ export function arenaSolids(): readonly ArenaSolid[] {
   return solids;
 }
 
-/** The arena's solids as fixed colliders in a core world. */
+/** The arena's solids as fixed colliders in a world. */
 export function addArenaSolids(physics: PhysicsWorld, solids: readonly ArenaSolid[] = arenaSolids()): FixedCollider[] {
   return solids.map((solid) => {
     switch (solid.kind) {

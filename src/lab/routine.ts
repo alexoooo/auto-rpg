@@ -15,7 +15,7 @@ import { SHUTTLE_TURN_RADIUS, TURN_PACE, trackOf, type Piece, type Track } from 
 /**
  * **The lab's routine**: a human walks out, strikes at a post three times, turns, walks back
  * to where it started and turns again, on a loop. It is driven by a mind (`routineMind`), as any
- * core body is: the mind asks for a walk and a facing and gives each hand an action, and the
+ * body is: the mind asks for a walk and a facing and gives each hand an action, and the
  * skills (`src/core/skills/skills.ts`) carry them out.
  *
  * - **The walk is the Run's** (`trackMind`, `run-mode.ts`): round a shuttle of `ROUTINE_METRES`

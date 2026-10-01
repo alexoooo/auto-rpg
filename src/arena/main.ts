@@ -12,13 +12,13 @@ import type { SkinView } from "../render/skin.ts";
 import { loadSkeletonArt, type SkeletonArt } from "../render/skeleton-skin.ts";
 import { drawHeld, type BodyShapes } from "../render/body-shapes.ts";
 import { dresserFor, type Dresser } from "../render/dress.ts";
-import { Duel, SIDES, type Side, type Verdict } from "./duel.ts";
+import { Duel, SIDES, type DuelEnding, type Side, type Verdict } from "./duel.ts";
 import { MATCHUP_PARAM, MODEL_LABELS, matchupSearch, readMatchup, type Matchup } from "./matchup.ts";
 import { ORBIT, orbitPosition } from "./orbit.ts";
 
 /**
- * **The arena page**: the arena's scene with its solids in a core world (`buildArena`), and a bout
- * of two core bodies in it (`Duel`). Setup picks the two models; a bout runs to its verdict, and can
+ * **The arena page**: the arena's scene with its solids in a world (`buildArena`), and a bout
+ * of two bodies in it (`Duel`). Setup picks the two models; a bout runs to its verdict, and can
  * be run again, or again with the right side redrawn. A person watches and gives no orders.
  *
  * Setup owns `#curtain`, pause owns `#pause-menu`, the verdict is `#bout-end`.
@@ -26,6 +26,15 @@ import { ORBIT, orbitPosition } from "./orbit.ts";
 
 /** The most real time one frame steps the world through, s: a page that falls behind runs slow rather than in a burst. */
 const CATCH_UP_SECONDS = 0.1;
+
+/** How a bout ended, as the verdict bar says it. */
+const ENDING_TEXT: Readonly<Record<DuelEnding, string>> = Object.freeze({
+  fatal: "by a fatal wound",
+  severed: "by a severing wound",
+  exhausted: "by exhaustion",
+  fallen: "by a fall",
+  time: "on the bar at the bell",
+});
 
 const show = (id: string, shown: boolean) => need(id).classList.toggle("gone", !shown);
 
@@ -171,7 +180,7 @@ export async function bootArena(): Promise<void> {
     if (duel.verdict && shown !== duel.verdict) {
       shown = duel.verdict;
       const { winner, ending, time } = shown;
-      const how = ending === "time" ? "on the bar at the bell" : ending === "fallen" ? "by a fall" : `by a ${ending} wound`;
+      const how = ENDING_TEXT[ending];
       need("bout-verdict").textContent = winner
         ? `${MODEL_LABELS[matchup[winner]]} (${winner}) wins ${how}, ${time.toFixed(1)} s`
         : `A draw ${how}, ${time.toFixed(1)} s`;

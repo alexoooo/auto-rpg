@@ -80,7 +80,7 @@ without resuming on its own.
 
 ## The Lab
 
-**Lab** on the main menu (`?play=lab`) lists scenarios that stand one core body and exercise it:
+**Lab** on the main menu (`?play=lab`) lists scenarios that stand one body and exercise it:
 
 - **Stance**: walk it from the keyboard (W/S or Up/Down forward and back, A/D or Left/Right
   sideways, Q/E turn while walking) and shove it from the panel.
@@ -118,7 +118,7 @@ Arena, weapons beyond the club, and the AI above a single fighter's mind. See
 | `src/render/`, `src/audio/` | what the screens share: bodies drawn, surfaces, post-processing; sound |
 | `src/character-lab/`, `src/physics-bench/` | the character workshop and the physics bench |
 | `src/app.ts`, `index.html` | the main menu and the screens' routing |
-| `tests/` | `node --test` suites; `tests/harness/` stands a core body headless |
+| `tests/` | `node --test` suites; `tests/harness/` stands a body headless |
 | `research/` | measurements of the core and the physics bake-off ([README](research/README.md)) |
 | `assets/` | data the core reads (rigs, envelopes, strikes) and the art's Blender sources |
 | `public/assets/` | what the pages load: models, maps, the environment map |
@@ -133,9 +133,10 @@ The environment map is `kloofendal_43d_clear` from [Poly Haven](https://polyhave
 committed as `public/assets/env.hdr`. `public/assets/textures/` carries digest-pinned CC0 1K maps,
 registered in `src/render/textures.json`. The humans are customized MakeHuman/MPFB CC0 models
 ([docs/art/characters.md](docs/art/characters.md)); the skeleton is Blender Studio's CC0 realistic
-skeleton ([docs/art/skeleton.md](docs/art/skeleton.md)); the crypt's chamber and kit and the
-arena's forge kit are original generated work, each with its Blender source under `assets/`
-([docs/art/crypt.md](docs/art/crypt.md)).
+skeleton ([docs/art/skeleton.md](docs/art/skeleton.md)); the crypt's chamber and kit
+([docs/art/crypt.md](docs/art/crypt.md)) and the arena's forge kit
+([assets/forge/README.md](assets/forge/README.md)) are original generated work, each with its
+Blender source under `assets/`.
 
 ## Troubleshooting
 

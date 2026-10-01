@@ -9,21 +9,21 @@ import { CAMERA_AZIMUTH, cameraToward } from "./camera.ts";
 import type { Point } from "./map.ts";
 
 /**
- * The forge's flame (`flame` in `src/render/fire.ts`) times a `fade`, so a torch inside the cut-away ghosts with
- * the wall and sconce behind it rather than floating in front of a hole. Derived from the forge's text rather than
- * copied, and refused at load if that text has moved, so the arena's fire stays the one source of the flame.
+ * The flame (`flame` in `src/render/fire.ts`) times a `fade`, so a torch inside the cut-away ghosts with the wall
+ * and sconce behind it rather than floating in front of a hole. Derived from that shader's text rather than copied,
+ * and refused at load if the text has moved, so `flame` stays the one source of the flame.
  *
  * The fade scales the colour as well as the alpha. The flame's core is HDR, about (5, 2, 0.28), and blending adds
  * colour times alpha: a flame faded by its alpha alone still tone-maps to a bright core and only loses its bloom, so
  * it reads as dimmer rather than see-through. Scaling both fades it as the wall beside it fades.
  */
 const HEAD = "varying vec2 vUV; uniform float time;", TAIL = "gl_FragColor=vec4(c,a*.82);}";
-const forge = Effect.ShadersStore.flameFragmentShader;
-if (!forge.includes(HEAD) || !forge.endsWith(TAIL)) throw new Error("dungeon fire: flame has changed; derive the fade again");
-Effect.ShadersStore.dungeonFireFragmentShader = forge.replace(HEAD, `${HEAD} uniform float fade; uniform vec3 tint;`)
+const flame = Effect.ShadersStore.flameFragmentShader;
+if (!flame.includes(HEAD) || !flame.endsWith(TAIL)) throw new Error("dungeon fire: flame has changed; derive the fade again");
+Effect.ShadersStore.dungeonFireFragmentShader = flame.replace(HEAD, `${HEAD} uniform float fade; uniform vec3 tint;`)
   .slice(0, -TAIL.length) + "gl_FragColor=vec4(c*fade*tint,a*.82*fade);}";
 
-/** Which shaders a dungeon flame draws with: the forge's vertex, the fading fragment. */
+/** Which shaders a dungeon flame draws with: the flame's vertex, the fading fragment. */
 export const DUNGEON_FIRE = Object.freeze({ vertex: "flame", fragment: "dungeonFire" });
 
 /**

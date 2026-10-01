@@ -155,8 +155,9 @@ const scratch = new WeakMap<MuscleDriver, ServoWork>();
  * With M u' + bias = torque + gravity: the fixed freedoms' accelerations from their torques and the
  * free ones' accelerations, then the free ones' torques. Writes `torque` for the free freedoms and
  * `accel` for the fixed ones. M restricted to the fixed freedoms is positive definite (a mass
- * matrix), so it is solved by Cholesky, in place on the step's flat arrays rather than by
- * `solveSymmetric` (`src/core/math/linalg.ts`), which allocates: this runs every step.
+ * matrix), so it is solved by Cholesky in place on flat typed arrays rather than by
+ * `solveSymmetric` (`src/core/math/linalg.ts`), which builds an array per row: this runs every
+ * step.
  */
 function solveAround(mass: readonly Float64Array[], gravity: Float64Array, bias: Float64Array, fixed: Uint8Array,
   torque: Float64Array, accel: Float64Array, count: number): void {

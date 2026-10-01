@@ -1,6 +1,6 @@
 /**
  * The stance's tuned constants, and the settings an experiment may pass in their place
- * (`StanceTuning`). Each constant's measurements are in `docs/reference/stance-tuning.md`.
+ * (`StanceTuning`). The measured constants' tables are in `docs/reference/stance-tuning.md`.
  */
 
 /**
@@ -127,6 +127,7 @@ export const SOLE_MARGIN = 0.1;
  * The damping of the leg's least-squares Jacobian solve (`fixedSolve`): a numeric setting, not
  * anatomy. A straight knee is a singular leg -- no motion of its freedoms lengthens it -- and
  * without damping a root asked to rise over a straight knee asks the leg for unbounded accelerations.
+ * Set rather than measured: no table records it.
  */
 export const LEG_DAMPING = 0.02;
 

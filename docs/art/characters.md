@@ -8,7 +8,7 @@ original anatomical meshes.
 
 The models reach the game in two forms: the workshop's own GLBs with their authored preview
 motion, shown on `/character-lab.html`; and animation-free derivatives that the core measures and
-the pages wear as skins on core bodies.
+the pages wear as skins on bodies.
 
 ## Where each file comes from
 

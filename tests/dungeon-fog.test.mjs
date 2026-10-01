@@ -229,7 +229,7 @@ test("a_dungeon_flame_is_the_forge_flame_times_its_fade_and_tint", () => {
   assert.equal(own, expected);
   assert.ok(own.includes("uniform float fade;") && own.includes("vec4(c*fade*tint,a*.82*fade)"));
   assert.deepEqual({ ...DUNGEON_FIRE }, { vertex: "flame", fragment: "dungeonFire" });
-  assert.ok(Effect.ShadersStore.flameVertexShader, "the flame draws with the forge's vertex shader");
+  assert.ok(Effect.ShadersStore.flameVertexShader, "the flame draws with its own vertex shader");
 });
 
 test("each_flame_is_drawn_with_its_own_fade", async () => {

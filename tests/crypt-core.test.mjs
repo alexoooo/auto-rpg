@@ -1,5 +1,5 @@
-// The Crypt on the core (`src/dungeon/run.ts`): a seeded crypt loads, its bodies stand in it, and a
-// fight starts and ends; its doors are fixed boxes in the core world until they open (Node, core
+// The Crypt (`src/dungeon/run.ts`): a seeded crypt loads, its bodies stand in it, and a
+// fight starts and ends; its doors are fixed boxes in the world until they open (Node, core
 // world, Rapier, 120 Hz).
 import test from "node:test";
 import assert from "node:assert/strict";

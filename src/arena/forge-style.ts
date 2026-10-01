@@ -50,12 +50,10 @@ export function paveForge(scene: Scene, kit: Map<string, Mesh>, material: PBRMat
     const glow = seams.createInstance(`forge.seams.${x}.${z}`);
     glow.position.copyFrom(pavement.position);
     glow.setEnabled(true); glow.isVisible = true; glow.isPickable = false;
-    glow.metadata = { forgeNoShadow: true };
   }
   // The underlay reaches the slab's edge; it sits just below the paving and its modelled joints.
   const floor = scene.getMeshByName("room.floor");
   if (floor) floor.position.y = -.015;
 }
 
-export { forgePost } from "../render/post.ts";
 

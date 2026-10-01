@@ -1,7 +1,7 @@
 /**
  * Dense linear algebra for the small systems motor control solves: a few rows and columns, row
- * arrays, no allocation concerns. The servo's per-step Cholesky is flat and allocation-free, and
- * stays beside it (`src/core/control/servo.ts`).
+ * arrays. The servo's per-step Cholesky works in place on flat typed arrays, and stays beside the
+ * servo (`src/core/control/servo.ts`).
  */
 
 /** A matrix as its rows. */

@@ -9,11 +9,12 @@ import { Color3, Color4 } from "@babylonjs/core/Maths/math.color.js";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { Engine } from "@babylonjs/core/Engines/engine.js";
 
-import { dressForgeRoom } from "./forge-room";
-import { loadForgeStyle, paveForge, forgePost } from "./forge-style";
-import { TEXTURED_SURFACES } from "../render/materials";
-import { sharedSurface } from "../render/surface";
-import { buildArenaWorld, type ArenaAudit, type RoomMaterials, type RoomOcclusionTarget } from "./room";
+import { dressForgeRoom } from "./forge-room.ts";
+import { loadForgeStyle, paveForge } from "./forge-style.ts";
+import { TEXTURED_SURFACES } from "../render/materials.ts";
+import { postPipeline } from "../render/post.ts";
+import { sharedSurface } from "../render/surface.ts";
+import { buildArenaWorld, type ArenaAudit, type RoomMaterials, type RoomOcclusionTarget } from "./room.ts";
 import type { PhysicsWorld } from "../core/engine/engine.ts";
 
 // Side effects: the PBR pipeline and shadow support register themselves on import.
@@ -96,7 +97,7 @@ export async function buildArena(engine: Engine, physicsFor: (scene: Scene) => P
 
   paveForge(scene, forge.kit, forge.materials.pavement, forge.materials.lava);
   dressForgeRoom(scene, forge);
-  forgePost(scene, camera);
+  postPipeline(scene, camera);
 
   return {
     scene, camera, materials, shadows, audit: world.audit,

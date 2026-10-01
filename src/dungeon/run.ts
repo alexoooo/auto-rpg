@@ -24,8 +24,8 @@ import { CAMERA_AZIMUTH, CAMERA_PITCH, cameraToward } from "./camera.ts";
 import { companionSpawn } from "./party-placement.ts";
 
 /**
- * **A crypt run on the core**: the level's colliders are fixed boxes in a core world
- * (`buildDungeonWorld`), and the party and the enemies are core bodies (`src/core/`), each driven
+ * **A crypt run**: the level's colliders are fixed boxes in a world
+ * (`buildDungeonWorld`), and the party and the enemies are bodies (`src/core/`), each driven
  * by a mind that carries out what the run plans for it. The run plans with the map: who sees whom,
  * whom each fights, and the path each walks (`findPath`); the person's orders reach the party only
  * through that plan (`DungeonCommands`), and a mind reaches its body only through its intent.
@@ -38,7 +38,7 @@ import { companionSpawn } from "./party-placement.ts";
  *   of the fight once its pool has ended, or once its body has fallen (`SkillReport.fallen`): the
  *   core has no rising, so a body down stays down. Nobody attacks it.
  * - **An enemy is built** once a standing party member comes within `WAKE_METRES` of where it waits,
- *   beyond its sight, and is never taken out again: a core body is costly to step, and a level's
+ *   beyond its sight, and is never taken out again: a body is costly to step, and a level's
  *   worth of skeletons built from the start runs slower than real time.
  *
  * The run is lost when the whole party has fallen and won when a standing member reaches the exit.
@@ -202,7 +202,7 @@ export class DungeonRun {
     this.visible = this.sight(this.party.map(member => member.home));
   }
 
-  /** Seconds since the run began: the core world's clock. */
+  /** Seconds since the run began: the world's clock. */
   get clock(): number { return this.world.time; }
 
   /** Build `actor`'s body where it waits, hand it its mind, and watch its blows with everybody's. */
@@ -475,7 +475,7 @@ export class DungeonRun {
     else if (standing.some(member => distance(member.feet(), this.map.exit) < 1.1)) this.status = "won";
   }
 
-  /** `n` steps of the core world, each running the run's plan and then every body. */
+  /** `n` steps of the world, each running the run's plan and then every body. */
   step(n = 1): void { this.world.step(n); }
 
   /** The steps owed after `seconds` of real time, no more than `most` (`World.advance`); none once the run is over. */

@@ -45,8 +45,7 @@ export function dressForgeRoom(scene: Scene, forge: ForgeStyle): void {
     geometry.applyToMesh(wall);
     for (const name of ["north", "south", "east", "west"]) {
       const mesh = scene.getMeshByName(`room.wall.${name}`)!;
-      // The boundary uses ambient lighting; the fighter shadow map stays focused on combat.
-      mesh.metadata = { ...mesh.metadata, forgeOpaqueWall: true, forgeNoShadow: true,
+      mesh.metadata = { ...mesh.metadata, forgeOpaqueWall: true,
         roomPlacement: { ...mesh.metadata?.roomPlacement, solid: true } };
     }
     const failures = validateVisualColliderPairs(scene, ["north", "south", "east", "west"].map(name =>
@@ -65,7 +64,6 @@ export function dressForgeRoom(scene: Scene, forge: ForgeStyle): void {
     post.material = forge.materials.brazierBronze;
     const flame = MeshBuilder.CreatePlane(`forge.torch.${i}`, { width: .38, height: .72 }, scene);
     flame.position.copyFrom(post.position.add(new Vector3(0, 1.07, 0)));
-    flame.metadata = { forgeNoShadow: true };
     flame.material = fire; flame.billboardMode = Mesh.BILLBOARDMODE_Y; flame.isPickable = false;
     if (i === 2 || i === 10) {
       const light = new PointLight(`forge.torchlight.${i}`, flame.position, scene);
@@ -75,7 +73,7 @@ export function dressForgeRoom(scene: Scene, forge: ForgeStyle): void {
   }
   let time = 0;
   scene.onBeforeRenderObservable.add(() => {
-    if (scene.physicsEnabled) time += Math.min(scene.getEngine().getDeltaTime(), 50) / 1000;
+    time += Math.min(scene.getEngine().getDeltaTime(), 50) / 1000;
     fire.setFloat("time", time);
     lights.forEach((light, i) => light.intensity = 13 + Math.sin(time * 8 + i) * .8);
   });

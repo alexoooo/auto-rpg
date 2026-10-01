@@ -15,7 +15,7 @@ seen both in play.
     it renders into a 1/factor texture, and this pass, as the last stage, samples that texture
     NEAREST onto the screen. A second full-size pass adds nothing.
   - Confirm it on the page: the pass's `inputTexture` should be about 1/factor of the canvas.
-  - It goes after `forgePost`'s pipeline (`src/render/post.ts`), so bloom and tone mapping happen
+  - It goes after `postPipeline` (`src/render/post.ts`), so bloom and tone mapping happen
     at full resolution before the pixelation.
   - Measure the other order too, and keep whichever reads better. Say which in the commit.
 - **Posterise** (optional, `?look=pixel-poster`): a small `PostProcess` fragment that quantises
@@ -29,7 +29,7 @@ seen both in play.
 way it already reads `pitch`, `azimuth`, `scene` and `quality`, and hands the factor to
 `lightDungeon` (`src/dungeon/lighting.ts`), which gains a factor parameter. The pass is built
 **inside `buildPost`, as its last stage**, not once after it:
-- `setLook` rebuilds SSAO and `forgePost`, and a rebuilt pipeline attaches at the end of the
+- `setLook` rebuilds SSAO and `postPipeline`, and a rebuilt pipeline attaches at the end of the
   camera's list.
 - So a pixel pass attached once would run *first* after any switch. The scene would then render
   into a 1/factor texture while the clustered lights look up tiles against the full render width.

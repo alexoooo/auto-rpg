@@ -12,7 +12,7 @@ art:
 ## The rule every piece keeps
 
 The art carries no authority. Collision is the map's: `buildDungeonWorld` (`src/dungeon/world.ts`)
-turns the map's walls, doors and obstacles into fixed boxes in the core world and lists them as
+turns the map's walls, doors and obstacles into fixed boxes in the world and lists them as
 `solids`. Nothing the look adds may add one: after the look is built, `src/dungeon/main.ts`
 compares the count of `solids` and throws if it changed, and the tests build the same colliders
 with visuals on and off (`tests/dungeon-dressing.test.mjs`, `tests/crypt-room.test.mjs`,
@@ -60,8 +60,8 @@ damp patches, a carved sarcophagus and warm torch pools, under a diagonal orthog
   the shadow-casting spot lights, `CryptDamp` (three patches of darker, glossier paving in the
   opaque floor's material, not puddle planes) and `CryptCutaway` (the walls nearest the camera cut
   down to sills; they stay full-height obstacles). The working door's two visual meshes come from
-  `world.doorVisuals`; the world's door code still owns their visibility and collision. The door's
-  wood is the Poly Haven set registered as `wood` in `src/render/textures.json`.
+  `level.doorVisuals` (`buildDungeonWorld`), whose door code still owns their visibility and
+  collision. The door's wood is the Poly Haven set registered as `wood` in `src/render/textures.json`.
 - `REFERENCE_LIGHT` (`src/dungeon/lighting.ts`) gives the room its cooler fill and dimmer carried
   light.
 

@@ -269,7 +269,7 @@ export const SOURCES = Object.freeze({
       + "prices energy, and every weapon keeps its ratio to the club. The prices this rescales, joules per point "
       + "of wound: an edge 197.96 (cutJoulesPerDamage), an axe's edge 147.45 (chopJoulesPerDamage), blunt 1134.99 "
       + "(crushJoulesPerDamage), in CONFIG.combat; a point 34 (PROJECTILE_PENETRATION_V1.joulesPerDamage in "
-      + "src/scoring.ts).",
+      + "src/scoring.ts@77a0cd77).",
     record: "src/config.ts@77a0cd77",
   },
   "core-club-unit": {

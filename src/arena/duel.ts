@@ -13,11 +13,11 @@ import type { Skills } from "../core/skills/skills.ts";
 import type { Hook, World } from "../core/world.ts";
 
 /**
- * **A bout in the arena**: two core bodies, each with the wooden club in its right hand, each driven
+ * **A bout in the arena**: two bodies, each with the wooden club in its right hand, each driven
  * by a fighter's mind (`fighterMind`), wounded by the core's blows under the arena's rulebook, and
  * judged.
  *
- * - **They stand** `GAP_METRES` apart across the arena's centre, both facing +z as every core body is
+ * - **They stand** `GAP_METRES` apart across the arena's centre, both facing +z as every body is
  *   built; each turns a quarter to the other, so neither starts ahead.
  * - **A mind** walks at the other until within `ATTACK_METRES` of it, then attacks its head.
  * - **A side is out** once its pool has ended, or once its body has fallen (`SkillReport.fallen`): the

@@ -21,7 +21,6 @@ import {
   buildArenaWorld,
   buildCosmeticRoom,
   isCollider,
-  refreshShadowCasters,
   validateRoomPlacements,
   validateVisualColliderPairs,
 } from "../src/arena/room.ts";
@@ -48,7 +47,7 @@ const makeMaterials = (scene) => {
   };
 };
 
-// A core world whose physics counts the fixed colliders standing in it: the arena adds nothing else.
+// A world whose physics counts the fixed colliders standing in it: the arena adds nothing else.
 const setup = async () => {
   const engine = new NullEngine();
   const scene = new Scene(engine);
@@ -353,12 +352,7 @@ test("an_arena_rebuild_returns_every_audit_count_to_its_baseline", async (t) => 
     const beam = scene.getMeshByName("room.beam.n1");
     world.updateOcclusion(new Vector3(-5, 8, 10), [{ point: new Vector3(-5, 1, 15) }]);
     assert.equal(beam.isVisible, false, "the beam begins culled");
-    refreshShadowCasters(scene, shadowGenerator);
-    assert.equal(
-      shadowGenerator.getShadowMap().renderList.length, shadowBaseline + 22,
-      "the runtime shadow refresh keeps translucent scrims out too",
-    );
-    assert.ok(shadowGenerator.getShadowMap().renderList.includes(beam), "refresh retains a temporarily culled solid beam");
+    assert.ok(shadowGenerator.getShadowMap().renderList.includes(beam), "a culled beam stays a caster");
     world.updateOcclusion(new Vector3(-5, 8, 10), [{ point: Vector3.Zero() }]);
     assert.equal(beam.isVisible, true, "the beam is revealed after its ray clears");
     assert.ok(shadowGenerator.getShadowMap().renderList.includes(beam), "reveal does not leave the beam shadowless");

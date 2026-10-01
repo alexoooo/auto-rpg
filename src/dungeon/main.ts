@@ -53,7 +53,7 @@ let toward = cameraToward(azimuth);
 // `?masonry=0` the flat wall skin, the control for what the blocks cost; `?dressing=0` leaves the clutter out.
 const stone = stoneQuery(location.search);
 seedInput.value = String(randomSeed());
-/** The heroes a person can lead, in the order companions are drawn from: each is a core body, and each carries a club. */
+/** The heroes a person can lead, in the order companions are drawn from: each is a body, and each carries a club. */
 const HEROES: readonly { readonly model: BodyModel; readonly label: string }[] = [
   { model: "workshop-fighter", label: "Warrior" }, { model: "workshop-rogue", label: "Rogue" }, { model: "crypt-skeleton", label: "Skeleton" }];
 /** The companions for a hero: the next heroes on the list after the hero's own, in turn. */

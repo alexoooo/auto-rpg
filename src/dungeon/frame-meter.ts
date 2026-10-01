@@ -5,7 +5,7 @@ import type { AbstractEngine } from "@babylonjs/core/Engines/abstractEngine.js";
 /**
  * The frame counter in the dungeon's top bar, which says where a frame goes:
  * - frames a second, and the mean interval between them;
- * - `physics`: the core world's steps a frame took -- the run's plan, the bodies' control and the solver
+ * - `physics`: the world's steps a frame took -- the run's plan, the bodies' control and the solver
  *   (`World.advance`) -- with how many (x2 is 60 fps at 120 Hz; more means it is catching up);
  * - `other`: the rest of the render callback -- framing, the HUD, fog, and submitting the draw. Input handlers, garbage
  *   collection and the engine's own frame bookkeeping fall outside it, so the interval less these two is not idle;
