@@ -110,6 +110,17 @@ All of it on a physically based core, humans first ([architecture](architecture.
   attacks (`ATTACK_METRES`) and the shaping of an arm's path (`IK_POSTURE_PULL`, `IK_TURN`)
   ([human and strikes](reference/human-and-strikes.md)); the stance's height and its fall bar
   (`STANCE_LOWER`, `FALLEN`, [stance tuning](reference/stance-tuning.md#stance-height)).
+- Set on readings from an engine that is gone, to read again on this one: how long a body stands
+  before it throws (`STAND`: the Warrior reads 6 mm/s at 1.5 s where it read 5) and whether a step
+  into a stance before a strike converges with the rate
+  ([human and strikes](reference/human-and-strikes.md#stand-time)); how far ahead a walker on a
+  track faces (`AIM_AHEAD`) and the lab's seek budget ([lab](reference/lab.md)).
+- Records no script reads again, to measure afresh when their subject changes: the servo's hold
+  ([servo and muscle](reference/servo-and-muscle.md)), the servo's time constant on the routine and
+  Rapier's per-step disturbance by rate ([body and engine](reference/body-and-engine.md)), the
+  wrench lever and the bounded swing's routine table
+  ([stance tuning](reference/stance-tuning.md#wrench-lever)), and the models' volumes
+  ([human strike reference](reference/human-strike-reference.md), section 8).
 - Shoves: the least impulse held from any way is 55 N s on the Warrior and 35 on the Rogue.
   Bounding the swing costs 15 held shoves on the Warrior and 11 on the Rogue
   ([stance tuning](reference/stance-tuning.md#bounded-swing)). No sourced human reference exists

@@ -25,7 +25,7 @@ const ROUND = { circle: Math.PI / 2 * CIRCLE_RADIUS, shuttle: SHUTTLE_METRES + M
 
 for (const model of ["workshop-fighter", "workshop-rogue"]) {
   for (const id of ["circle", "shuttle"]) {
-    test(`${model}_runs_round_the_${id}`, async () => {
+    test(`${model}_runs_round_the_${id}`, async (t) => {
       const stand = await coreStand(humanSpec(model), { ground: true });
       const run = startRun(stand.built, stand.world, trackOf(TRACKS[id].pieces));
       let off = 0, frame = run.frame();
@@ -39,6 +39,7 @@ for (const model of ["workshop-fighter", "workshop-rogue"]) {
           if (frame.time > 0.5) paces[frame.bending ? "bend" : "straight"].add(frame.pace);
         }
       } finally { run.dispose(); stand.dispose(); }
+      t.diagnostic(`${model} ${id}: ${(frame.travelled / frame.time).toFixed(3)} m/s along the track, ${(100 * off).toFixed(1)} cm off it at most after the first second`);
       assert.ok(!frame.fallen, `${model} ${id}: fell at ${frame.time.toFixed(1)} s`);
       assert.ok(frame.travelled > ROUND[id], `${model} ${id}: ${frame.travelled.toFixed(2)} m round, not past ${ROUND[id].toFixed(2)}`);
       // The walk off the bends; in them, what the turn carries round, where that is slower.

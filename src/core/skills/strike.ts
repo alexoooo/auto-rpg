@@ -10,8 +10,8 @@ import { sin, cos, asin, atan2, hypot } from "../math/real.ts";
 /**
  * **Seconds stood still in the guard before a strike is thrown**: the start every recipe was
  * searched from, the body standing where it was built. By then each human's centre of mass has
- * settled to 5 mm/s or less. A step into a stance before the strike is not used: its landing does
- * not converge with the physics rate. Table: `docs/reference/human-and-strikes.md#stand-time`.
+ * settled to 6 mm/s or less. Set, with the table it settles by:
+ * `docs/reference/human-and-strikes.md#stand-time`.
  */
 export const STAND = 1.5;
 

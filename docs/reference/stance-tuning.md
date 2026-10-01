@@ -25,6 +25,26 @@ four batteries (`research/core-stance-trials.mjs`):
   centre of mass, watched 4.5 s (272 shoves); the count held, then the impulse held each way (the
   largest below the first that fell) as its mean over the ways and its least, N s.
 
+**The command.** A battery table is the sweep's print, a row a variant:
+
+    node research/core-stance-sweep.mjs --batteries stand,edge,step,gait,shove --top 90 --variants '<list>'
+
+`--variants` is a JSON list of settings (`StanceTuning`, `src/core/control/stance-tuning.ts`), `{}`
+being the constants. The sweep's `edge` battery is the places, `step` the steps, `gait` the walks
+and `shove` the shoves: to 90 N s with `--top 90`, and to 60 N s (176 shoves) without it. Its other
+flags are `--hz` (120), `--models` (both humans), `--workers`, `--speeds` and `--ways` for the
+walks, and `--walked` for shoves that come after a walk. The lines typed were not recorded. Each
+section gives the commit whose controller its table was read on and the settings its rows name,
+from which the list is written; where a row was read on a controller that was never committed, the
+section says so. A reading a section gives in its prose, outside its table, was taken by hand on
+the same stand, with a script that was not kept.
+
+Checked out at its commit, a table reads again: the rows named as read again below were, to the
+digit. On another commit the same command reads other counts. At `e4ec0709` the constants
+(`--variants '[{}]'`) read, for the Rogue and the Warrior: places 0 and 0 failed; steps 0 and 0;
+walks 24 and 25 held of 25; shoves 118 of 272 (41.9 N s the mean, 35 the least) and 216 (72.2,
+55).
+
 ## Stance height
 
 `STANCE_LOWER` (`src/core/skills/locomotion.ts`) is 0.03 m: how far under its reference height
@@ -69,6 +89,10 @@ turn (0.15) was not swept.
 
 Chosen: across 0.3, height 0.15, turn 0.15, swing 0.1.
 
+Command: the sweep at `abfe6153`, a variant a row, each with the four constants written out:
+`{"seconds": {"across": 0.2, "height": 0.15, "turn": 0.15, "swing": 0.1}}` is the first. The first
+row and the chosen one were read again.
+
 ## Knee bend
 
 `STANCE_KNEE_BEND`. Asked to stand higher than its legs reach, a stance held to the height asked
@@ -86,6 +110,9 @@ it fell); held for the bend, each drifted 0.03 mm. At 3 cm low, against the batt
 
 Chosen: 0.2, the least bend under which no step failed; 0.1 to 0.3 read alike.
 
+Command: the sweep at `abfe6153`; `{"kneeBend": null}` is none, then `{"kneeBend": 0.1}` and so
+on. The row for none was read again.
+
 ## Ankle spare
 
 `STANCE_ANKLE_SPARE`. Standing 3 cm under the reference height, the Rogue's ankles are already at
@@ -102,6 +129,9 @@ Chosen: 0.2, the least bend under which no step failed; 0.1 to 0.3 read alike.
 A larger spare holds a stepping stance too high for its knees, and the long steps fail first.
 
 Chosen: 0.01.
+
+Command: the sweep at `abfe6153`; `{"ankleSpare": null}` is none, then `{"ankleSpare": 0}` and so
+on. The row for none was read again.
 
 ## Recovery step
 
@@ -136,6 +166,11 @@ battery than the table's: Rogue 118 of 272 against 117, Warrior 213 against 209)
 
 Chosen: margin 0.01 (the lesser of the two that stand), reach 0.2, seconds 0.3, lift 0.05.
 
+Command: the sweep at `abfe6153` with `--batteries shove --top 90`; `{"recovery": null}` is no
+step, and a row is `{"recovery": {"margin": 0, "reach": 0.2, "seconds": 0.3, "lift": 0.05}}`. The
+row for no step was read again. The later battery of the paragraph above, and its commit, were not
+recorded.
+
 ## Gait
 
 `STANCE_GAIT`, against the walk battery (25 walks a human). Held is the walks that did not fall;
@@ -163,6 +198,11 @@ At the chosen settings every walk up to 0.4 m/s holds, and all but one of the Ro
 more of the fifty, the most of any row; at 25 walks a human, the best of twelve rows is expected to
 read that high by chance, and it waits for a replication on other speeds and heights. A human's
 preferred walk is near 1.4 m/s.
+
+Command: the sweep at `abfe6153` with `--batteries gait`, a row a whole gait:
+`{"gait": {"seconds": 0.25, "lift": 0.05, "width": 0.2, "longest": 0.8, "accel": 1}}` is the
+second. The first two rows and the row at `accel` 0.5 were read again. That commit's controller
+has no double support, pre-swing or heel-off.
 
 ### Double support and pre-swing
 
@@ -207,6 +247,16 @@ of 176 either way and the Warrior 173 against 174.
 
 Chosen: knee 0.61 rad (35 degrees, the toe-off bend above), 0.04 s.
 
+Command: the sweep at `608ef66b`, with `--batteries gait` for the 25 walks and
+`--batteries gait --speeds 0.4,0.5,0.6,0.7,0.8,1.0 --ways 0,45,315` for the 18; a row is
+`{"gait": {"seconds": 0.3, "lift": 0.05, "width": 0.2, "longest": 0.8, "accel": 1, "transfer":
+0.05, "preswing": {"knee": 0.6, "seconds": 0.04}}}`, the control the same without `transfer` and
+`preswing`, and the last row `{}`. The control and the last row were read again. The rows between
+were read on a controller that rolled the trailing foot whichever way the body went, which was
+never committed: at `608ef66b` the row at knee 0.6 and 0.04 s reads 21/20 and 5,5,5,4,2 for the
+Rogue and 23/23 and 5,5,5,5,3 for the Warrior, its forward walks as the table has them. The
+shoves after a walk are `--batteries shove --walked 0.3`.
+
 ### Swing time and double support together
 
 With the pre-swing at 0.61 rad and 0.04 s and a swinging leg's height ceiling taken at its landing
@@ -234,6 +284,12 @@ pitching moment the bearing sole cannot give with the push the plan asks (the Ro
 100 N m with 55 N forward); the push is what is missed, the body falls behind its plan, and the
 step under way is shortened to catch it.
 
+Command: the sweep at `1444ce42`, with the two gait commands of the table above; a row is
+`{"gait": {"seconds": 0.25, "lift": 0.05, "width": 0.2, "longest": 0.8, "accel": 1, "transfer":
+0.05, "preswing": {"knee": 0.61, "seconds": 0.04}}}`. The rows at 0.25 s and 0.08, at 0.35 s and
+0.05 and the chosen one were read again, and the shoves after a walk
+(`--batteries shove --walked 0.3`). The chosen row and those shoves read the same at `e4ec0709`.
+
 ## Heel-off
 
 `StanceTuning.heelOff`: a walk's bearing foot rolls onto its front edge only while the other
@@ -255,6 +311,12 @@ without, and so do the shoves at rest (to 60 N s: Rogue 118 of 176, Warrior 174)
 
 Chosen: on, keyed on the centre of mass.
 
+Command: the sweep at `f36962f7`, with the two gait commands of the pre-swing's table;
+`{"heelOff": false}` is the control and `{}` the heel-off keyed on the centre of mass. Both rows
+were read again. The row keyed on the capture point was read on a controller that was never
+committed. The circle's column was read by hand on the lab's run (`src/lab/run-mode.ts`), with a
+script that was not kept.
+
 ## Track
 
 `STANCE_TRACK`, against the batteries.
@@ -271,6 +333,8 @@ Every setting stands still (off, drift and speed read 0.0 mm and mm/s) and lands
 
 Chosen: 0.2; 0.15 to 0.3 read alike.
 
+Command: the sweep at `abfe6153`; `{"track": 0.1}` is the first row, which was read again.
+
 ## Sole margin
 
 `SOLE_MARGIN`. Asked for a place 30 cm to the side, held at the edge of what the soles hold, each
@@ -285,6 +349,8 @@ within 0.6 mm. Against the batteries:
         0.2          0       0      20     127  44.4  35    0       0      22     212  68.8  55
 
 Chosen: 0.1; 0.05 to 0.2 read alike.
+
+Command: the sweep at `abfe6153`; `{"soleMargin": 0}` is the first row, which was read again.
 
 ## Support inset
 
@@ -302,6 +368,9 @@ stance the steps land in: the Rogue slid a foot 22 cm holding a place, and the W
 unpushed, 33 cm.
 
 Chosen: 0.5; 0.4 reads alike.
+
+Command: the sweep at `abfe6153`; `{"supportInset": 0.3}` is the first row. The row at 0.6 was
+read again.
 
 ## Wrench lever
 
@@ -321,6 +390,12 @@ and the recovery steps of `STANCE_RECOVERY`.
 
 No fixed lever is better for both humans. Chosen: the root's height, the one the wrench's geometry
 gives.
+
+Command: the sweep with `--batteries shove`, to its 60 N s. The lever is not a setting: each row
+was read with `leverOf` written for it, on the controller as it stood in the work that became
+`abfe6153`, before the knee's return, and none of those controllers was committed. The first three
+rows' settings are `{"track": 0.1, "recovery": {"margin": 0.01, "seconds": 0.2, "lift": 0.03,
+"reach": 0.15}}`. The table does not read again from any commit.
 
 ## Bounded swing
 
@@ -344,3 +419,13 @@ read alike. The tables of `STANCE_SECONDS`, `STANCE_KNEE_BEND`, `STANCE_ANKLE_SP
 `STANCE_RECOVERY`, `STANCE_TRACK`, `SOLE_MARGIN` and `SUPPORT_INSET` were read clipped alone.
 
 Chosen: bounded.
+
+Command: `node research/core-routine-battery.mjs --variants '[{}, {"boundedSwing": false}]'
+--seeds 24`, and with `--seeds 12 --hz 480`; its other flags are `--loops` (5), `--impulse` (3),
+`--models`, `--workers` and `--list`. The table was read before a freedom held at a torque was
+planned, on a controller that was never committed, so no row of it reads again. At `3d657452`,
+which plans them, the command reads at 120 Hz: bounded, the Rogue 84 of 120 loops with 12 runs
+through and the Warrior 109 with 20; clipped alone, 70 with 8 and 53 with 3. At 480 Hz that
+commit's message gives 56 and 60 of 60 bounded, which was not read again. The stance's batteries
+are the sweep at `3d657452` with
+`--batteries gait,shove --top 90 --variants '[{}, {"boundedSwing": false}]'`, read again.

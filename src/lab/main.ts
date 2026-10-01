@@ -67,8 +67,7 @@ type ViewKind = "world" | "tactical";
 
 /**
  * A seek runs the world for up to this long in each page frame, ms, then lets the page draw: with
- * the draw's 6 ms it fits one frame of a 60 Hz display. Longer frames lose more than they gain,
- * since the browser holds back frames that run long: `docs/reference/lab.md#seek-budget`.
+ * the draw's 6 ms it fits one frame of a 60 Hz display. Set: `docs/reference/lab.md#seek-budget`.
  */
 const SEEK_BUDGET_MS = 10;
 

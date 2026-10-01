@@ -4,8 +4,8 @@
  *
  *   node research/core-stance-sweep.mjs --variants '[{}, {"track": 0.15}]' [--batteries stand,edge,step,walk,shove] [--hz 120] [--workers 14]
  *
- * - stand: 5 s 3 cm low in the guard; the centre's stop off the soles' middle, its drift over the
- *   last 2 s, the feet's slide and sink, mm (worst of the two humans' single runs).
+ * - stand: 5 s 3 cm low in the guard; the centre's speed 0.5, 1, 1.5 and 2 s in (`settle`, mm/s), its
+ *   stop off the soles' middle, its drift over the last 2 s, the feet's slide and sink, mm.
  * - edge: a place 30 cm out each of 4 ways; failures (fell, over 15 mm off the held place, 5 mm off
  *   height or 10 mm of slide), the worst stop and slide.
  * - step: each foot 15 and 25 cm forward, 15 back and 10 out; failures by the tests' bars, worst miss.
@@ -67,7 +67,7 @@ console.log(`${CORE_STANCE_HARNESS}, ${hz} Hz; ${jobs.length} trials in ${((Date
 variants.forEach((stance, v) => { for (const model of models) {
   const of = (trial) => jobs.filter((j) => j.v === v && j.model === model && j.trial === trial).map((j) => ({ ...j, speed_: j.speed, ...j.result }));
   const parts = [];
-  for (const r of of("stand")) parts.push(`stand off ${mm(r.off)} low ${mm(r.low)} drift ${mm(r.drift)} slide ${mm(r.slide)} sink ${mm(r.sink)}`);
+  for (const r of of("stand")) parts.push(`stand settle ${r.settle.map((v) => (1000 * v).toFixed(0)).join(",")} off ${mm(r.off)} low ${mm(r.low)} drift ${mm(r.drift)} slide ${mm(r.slide)} sink ${mm(r.sink)}`);
   const edges = of("edge");
   if (edges.length) {
     const fails = edges.filter((r) => r.fell || r.off > 0.015 || r.low > 0.005 || r.slide > 0.01);
