@@ -1,7 +1,7 @@
 import type { Scene } from "@babylonjs/core/scene.js";
 import type { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh.js";
 import { createBody, SERVO_SECONDS, type Body } from "../core/body.ts";
-import { buildBody } from "../core/build/build-body.ts";
+import { buildBody, type BuiltBody } from "../core/build/build-body.ts";
 import type { PhysicsEngine } from "../core/engine/engine.ts";
 import { armed } from "../core/human/grip.ts";
 import { modelSpec, type BodyModel } from "../core/human/spec.ts";
@@ -39,8 +39,11 @@ import { companionSpawn } from "./party-placement.ts";
  *   core has no rising, so a body down stays down. Nobody attacks it, and its body goes limp:
  *   nothing drives its muscles again, and a step costs it only what the solver takes.
  * - **An enemy is built** once a standing party member comes within `WAKE_METRES` of where it waits,
- *   beyond its sight, and is never taken out again: a body is costly to step, and a level's
- *   worth of skeletons built from the start runs slower than real time.
+ *   beyond its sight: a standing body costs a step 0.53 ms of its 8.33
+ *   (`docs/reference/play.md#bodies-in-the-step`).
+ * - **An enemy at rest is held** (`REST`): standing at its home, unalerted, with the party far off
+ *   and nobody walking near, its body is fixed where it stands and nothing drives it, until the
+ *   party or a walker comes near again.
  *
  * The run is lost when the whole party has fallen and won when a standing member reaches the exit.
  */
@@ -55,14 +58,19 @@ export interface DungeonActor {
   readonly name: string;
   readonly model: BodyModel;
   readonly side: "party" | "enemy";
-  /** The body and its pool, once built; an enemy waits unbuilt until the party is near (`WAKE_METRES`). */
-  fighter: (Fighter & { readonly body: Body; readonly skills: Skills }) | null;
+  /**
+   * The body and its pool, once built; an enemy waits unbuilt until the party is near (`WAKE_METRES`). Its `body` and
+   * `skills` are the ones that drive it now: a body held and let go is driven afresh (`DungeonRun.hold`).
+   */
+  fighter: (Fighter & { body: Body; skills: Skills }) | null;
   /** Where the body stands on the ground: its centre of mass over the floor; where its root lies, limp; or where it waits unbuilt. */
   feet(): Point;
   /** Whether it still fights: unbuilt, or built with its pool not ended and its body not fallen. */
   readonly alive: boolean;
   /** Whether its body lies limp: out of the fight, with nothing driving its muscles (`DungeonRun.drop`). */
   limp: boolean;
+  /** Whether its body is held: at rest, fixed where it stands, with nothing driving it (`REST`). */
+  held: boolean;
   /** Its pool's bar: 1 whole, 0 spent. */
   readonly vitality: number;
   /** What the page drew for it (its skin), shown while it is in sight, and picked to select or lock it. */
@@ -99,6 +107,14 @@ const SIGHT_METRES = 14;
 /** How near a standing party member comes before an enemy is built: beyond its sight, so it is standing when it can
  * first see (`docs/reference/play.md#sight`). */
 export const WAKE_METRES = SIGHT_METRES + 2;
+/**
+ * When an enemy rests and its body is held (`DungeonRun.rest`; `docs/reference/play.md#sight`): it stands within
+ * `home` of its home, unalerted, every standing party member is farther than `metres` from it, and nobody going
+ * anywhere is within `clear`. It is let go once a party member is within `WAKE_METRES`, before it could see one, or a
+ * body going somewhere is within `company`, before that body could reach it. The gaps from `WAKE_METRES` to
+ * `metres` and from `company` to `clear` keep a body on a boundary from being held and let go by turns.
+ */
+export const REST = Object.freeze({ metres: SIGHT_METRES + 4, company: 4, clear: 5, home: 0.5 });
 /**
  * The clearance a body's path keeps from rock, m: half a human's shoulders' breadth (the Warrior's
  * are 0.46 m across) and a margin for the stance's sway (`docs/reference/play.md#following`).
@@ -147,6 +163,8 @@ const SLOTS = Object.freeze({ apart: 1.3, rings: [1.4, 2.8] });
 const AVOID = Object.freeze({ margin: 0.15, ahead: 1, side: 0.05, turn: 1.05, step: 0.65, gain: 0.05 });
 /** A walk is a unit step or none: anything shorter than this is none. A numeric setting. */
 const MOVING = 0.1;
+/** Whether any of `places` is nearer than `metres` to `at`. */
+const within = (at: Point, places: readonly Point[], metres: number): boolean => places.some(p => distance(p, at) < metres);
 const direction = (from: Point, to: Point): Point => {
   const d = Math.max(0.001, distance(from, to)); return { x: (to.x - from.x) / d, z: (to.z - from.z) / d };
 };
@@ -216,7 +234,7 @@ export class DungeonRun {
     this.planning = this.world.beforeStep(() => this.plan());
     const create = (id: string, model: BodyModel, at: Point, side: DungeonActor["side"]): DungeonActor => {
       const actor: DungeonActor = {
-        id, name: NAMES[model], model, side, fighter: null, meshes: [], limp: false,
+        id, name: NAMES[model], model, side, fighter: null, meshes: [], limp: false, held: false,
         feet() {
           if (!this.fighter) return { x: this.home.x, z: this.home.z };
           // A limp body's view is of the step its control left at; its root is where it lies now.
@@ -253,14 +271,18 @@ export class DungeonRun {
   private build(actor: DungeonActor): void {
     const spec = clubbed(actor.model);
     const built = buildBody(spec, this.world, { position: [actor.home.x, 0, actor.home.z] });
-    const assist = balanceCeiling(spec.attributes.balance.value, balancePercent(this.rules));
-    const body = createBody(built, this.world, { servoSeconds: SERVO_SECONDS, assist });
-    const skills = driveBy(body, this.tactics(actor));
-    actor.fighter = { id: actor.id, side: actor.side, built, pool: createPool(spec, this.rules), body, skills };
+    actor.fighter = { id: actor.id, side: actor.side, built, pool: createPool(spec, this.rules), ...this.drive(actor, built) };
     this.watch?.dispose();
     const fighters = this.actors.flatMap((a) => a.fighter ? [a.fighter] : []);
     this.watch = watchBlows(this.world, fighters, this.rules, (blow) => { this.blows.push(blow); this.options.onBlow?.(blow); });
     this.options.onBuilt?.(actor);
+  }
+
+  /** `built` under the command layers and `actor`'s tactics, with the assist its character's balance gives it. */
+  private drive(actor: DungeonActor, built: BuiltBody): { body: Body; skills: Skills } {
+    const assist = balanceCeiling(built.spec.attributes.balance.value, balancePercent(this.rules));
+    const body = createBody(built, this.world, { servoSeconds: SERVO_SECONDS, assist });
+    return { body, skills: driveBy(body, this.tactics(actor)) };
   }
 
   /**
@@ -282,15 +304,60 @@ export class DungeonRun {
    * (`docs/reference/play.md#bodies-in-the-step`).
    */
   private drop(actor: DungeonActor): void {
+    if (actor.held) this.hold(actor, false);
     actor.fighter!.body.assist.withdraw();
     actor.fighter!.body.dispose();
     actor.limp = true;
   }
 
-  /** Build each enemy a standing party member has come within `WAKE_METRES` of. */
+  /** Build each enemy a standing party member has come within `WAKE_METRES` of, or a body going somewhere within `REST.company`. */
   private wake(): void {
-    const standing = this.party.filter(member => member.alive).map(member => member.feet());
-    for (const enemy of this.enemies) if (!enemy.fighter && standing.some(at => distance(at, enemy.home) < WAKE_METRES)) this.build(enemy);
+    const party = this.standing(), company = this.company();
+    for (const enemy of this.enemies) {
+      if (!enemy.fighter && (within(enemy.home, party, WAKE_METRES) || within(enemy.home, company, REST.company))) this.build(enemy);
+    }
+  }
+
+  /** Where each party member still in the fight stands. */
+  private standing(): Point[] { return this.party.filter(member => member.alive).map(member => member.feet()); }
+
+  /** Whether `actor` rests: an enemy in the fight with no target, not alerted, standing at its home. */
+  private resting(actor: DungeonActor): boolean {
+    return actor.side === "enemy" && actor.alive && !actor.target && actor.alertedUntil <= this.clock &&
+      distance(actor.feet(), actor.home) < REST.home;
+  }
+
+  /**
+   * Where each body going somewhere stands: a party member, or an enemy that is not at rest. Two resting neighbours
+   * are no company to each other, so a pair is held together: one walking home beside a held one has it let go, and
+   * both are held once it is home.
+   */
+  private company(): Point[] {
+    return this.actors.filter(a => a.fighter && a.alive && !a.held && !this.resting(a)).map(a => a.feet());
+  }
+
+  /** Hold each enemy at rest that nobody is near, and let go each held one that somebody has come near (`REST`). */
+  private rest(): void {
+    const party = this.standing(), company = this.company();
+    for (const enemy of this.enemies) {
+      if (!enemy.fighter || !enemy.alive) continue;
+      const at = enemy.feet();
+      if (enemy.held) { if (within(at, party, WAKE_METRES) || within(at, company, REST.company)) this.hold(enemy, false); }
+      else if (this.resting(enemy) && !within(at, party, REST.metres) && !within(at, company, REST.clear)) this.hold(enemy, true);
+    }
+  }
+
+  /**
+   * Hold `actor`'s body, or let it go. Held, its muscles are released and every segment is fixed where it is, so it
+   * costs a step next to nothing (`docs/reference/play.md#bodies-in-the-step`) and stands as it stood. Let go while it
+   * is in the fight, it is driven afresh from the pose it was held in.
+   */
+  private hold(actor: DungeonActor, held: boolean): void {
+    const fighter = actor.fighter!;
+    if (held) fighter.body.dispose();
+    for (const segment of fighter.built.segments.values()) segment.body.setFixed(held);
+    if (!held && actor.alive) Object.assign(fighter, this.drive(actor, fighter.built));
+    actor.held = held;
   }
 
   /** What the party sees from where its members stand: every member's cells, one set. */
@@ -354,7 +421,7 @@ export class DungeonRun {
     this.visible = this.sight(places);
     // An enemy goes for the nearest party member it can see.
     for (const actor of this.enemies) {
-      if (!actor.fighter || !actor.alive) { actor.target = null; continue; }
+      if (!actor.fighter || !actor.alive || actor.held) { actor.target = null; continue; }
       const at = actor.feet();
       let seen = -1, best = Infinity;
       for (let i = 0; i < members.length; i++) {
@@ -518,9 +585,10 @@ export class DungeonRun {
     }
     this.level.openNearby(this.actors.filter(a => a.fighter && a.alive).map(a => a.feet()));
     this.wake();
+    this.rest();
     if (this.clock >= this.nextPerception) { this.perceive(); this.nextPerception = this.clock + RUN_TIMING.perceive; }
     for (const actor of this.actors) {
-      if (!actor.fighter || !actor.alive) {
+      if (!actor.fighter || !actor.alive || actor.held) {
         actor.plan = { move: null, face: null, attack: null };
         continue;
       }

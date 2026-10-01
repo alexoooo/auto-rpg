@@ -7,14 +7,14 @@ import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { Scene } from "@babylonjs/core/scene.js";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode.js";
 import { Quaternion } from "@babylonjs/core/Maths/math.vector.js";
-import { DungeonRun, WAKE_METRES } from "../src/dungeon/run.ts";
+import { DungeonRun, REST, WAKE_METRES } from "../src/dungeon/run.ts";
 import { generateLevel } from "../src/dungeon/level.ts";
-import { clearSegment, distance, walkable } from "../src/dungeon/map.ts";
+import { clearSegment, distance, findPath, walkable } from "../src/dungeon/map.ts";
 import { freshEngine } from "./harness/core-stand.mjs";
 
-async function crypt(seed, layout) {
+async function crypt(seed, layout, options = {}) {
   const scene = new Scene(new NullEngine());
-  const run = new DungeonRun(scene, { seed, engine: await freshEngine(), visuals: false, layout });
+  const run = new DungeonRun(scene, { seed, engine: await freshEngine(), visuals: false, layout, ...options });
   return { run, scene, dispose: () => { run.dispose(); scene.dispose(); } };
 }
 const seconds = (run, s) => { for (let i = 0; i < s * run.world.hz && run.status === "playing"; i++) run.step(); };
@@ -73,6 +73,106 @@ test("a_fight_in_the_crypt_starts_and_ends", async () => {
     assert.ok(head.y < 0.6, `it lies on the floor: its head at ${head.y} m`);
     assert.deepEqual(enemy.feet(), { x: root.x, z: root.z }, "and it is where its root lies");
     assert.equal(run.status, "playing", "the rest of the crypt is still to come");
+  } finally { dispose(); }
+});
+
+/**
+ * The generated level with stated edits, for the rule that holds an enemy at rest (`REST`): its first spawn kept,
+ * and a second put on floor `between` m from it, or none; the start moved to floor 15.5 m from the first, inside
+ * `WAKE_METRES` and beyond an enemy's sight, and inside `WAKE_METRES` of the second, or beyond `REST.metres` of it,
+ * as `both` says. `far` is the floor nearest the start by a path that is farther than `REST.metres` from every spawn.
+ */
+function restFixture(seed, between = null, both = true) {
+  const map = generateLevel(seed).map, spawn = map.spawns[0], floor = [];
+  for (let x = 0; x < map.size; x++) for (let z = 0; z < map.size; z++) if (walkable(map, { x, z }, 0.7, true)) floor.push({ x, z });
+  const starts = (spawns) => floor.filter(p => Math.abs(distance(p, spawns[0]) - 15.5) < 0.3 &&
+    (spawns.length < 2 || (both ? distance(p, spawns[1]) < WAKE_METRES - 0.3 : distance(p, spawns[1]) > REST.metres + 0.5)));
+  const seconds = between === null ? [null] : floor.filter(p => Math.abs(distance(p, spawn) - between) < 0.3);
+  let best = null;
+  for (const second of seconds) {
+    const spawns = second ? [spawn, second] : [spawn];
+    const fars = floor.filter(p => spawns.every(s => distance(s, p) > REST.metres + 0.7));
+    for (const start of starts(spawns)) for (const far of fars) {
+      if (distance(start, far) > 6 || (best && distance(start, far) >= best.length)) continue;
+      const route = findPath(map, start, far, 0.35);
+      if (route.length && (!best || route.length < best.length)) best = { spawns, start, far, length: route.length };
+    }
+  }
+  if (!best) throw new Error("no floor");
+  map.spawns = best.spawns; map.start = best.start;
+  return { map, far: best.far };
+}
+/** Step until `done` or for `most` s: whether it came to be. */
+function until(run, done, most) {
+  for (let i = 0; i < most * run.world.hz && run.status === "playing" && !done(); i++) run.step();
+  return done();
+}
+/** Order the hero to `to`, and step until `done` or for `most` s: whether it came to be. */
+function walkUntil(run, to, done, most) {
+  run.commands.order = { kind: "attack-move", destination: to }; run.commands.revision++;
+  return until(run, done, most);
+}
+const poses = (actor) => [...actor.fighter.built.segments.values()].flatMap(s => [...s.node.position.asArray(), ...s.node.rotationQuaternion.asArray()]);
+
+test("an_enemy_at_rest_is_held_while_the_party_is_far_and_let_go_before_it_can_see_it", async () => {
+  const { map, far } = restFixture(1);
+  const { run, dispose } = await crypt(1, map);
+  try {
+    const [enemy] = run.enemies, start = { ...map.start }, apartNow = () => distance(run.hero.feet(), enemy.feet());
+    seconds(run, 1);
+    assert.ok(enemy.fighter && !enemy.held, `built with the party ${apartNow().toFixed(1)} m off, and not held inside ${REST.metres} m`);
+    assert.ok(walkUntil(run, far, () => enemy.held, 30), `it is held once the party has walked off: ${apartNow().toFixed(1)} m`);
+    assert.ok(apartNow() > REST.metres && apartNow() < REST.metres + 0.5, `at ${REST.metres} m and no sooner: ${apartNow()}`);
+    // Held, it stands as it stood to the bit, nothing drives it, and it is still in the fight.
+    const stood = poses(enemy), time = enemy.fighter.body.view.time;
+    seconds(run, 1);
+    assert.deepEqual(poses(enemy), stood);
+    assert.equal(enemy.fighter.body.view.time, time);
+    assert.deepEqual([enemy.alive, enemy.limp], [true, false]);
+    // Let go as the party comes back, beyond its sight, and driven afresh: it stands, and its view moves on.
+    assert.ok(walkUntil(run, start, () => !enemy.held, 30), `it is let go as the party comes back: ${apartNow().toFixed(1)} m`);
+    assert.ok(apartNow() < WAKE_METRES && apartNow() > WAKE_METRES - 0.5, `at ${WAKE_METRES} m and no later: ${apartNow()}`);
+    const then = run.clock;
+    seconds(run, 3);
+    assert.equal(enemy.held, false, "and is not held again while the party stays inside the farther line");
+    assert.ok(enemy.fighter.body.view.time > then + 2.9, "its control steps again");
+    assert.ok(enemy.alive && enemy.fighter.body.view.head.y > 1, `and it is on its feet: head at ${enemy.fighter.body.view.head.y} m`);
+    assert.notDeepEqual(poses(enemy), stood, "no longer fixed");
+  } finally { dispose(); }
+});
+
+test("two_enemies_at_rest_side_by_side_are_held_together", async () => {
+  const { map, far } = restFixture(1, 3);
+  const { run, dispose } = await crypt(1, map);
+  try {
+    seconds(run, 1);
+    assert.deepEqual(run.enemies.map(e => [e.fighter !== null, e.held]), [[true, false], [true, false]], "both are built, and neither held");
+    assert.ok(distance(run.enemies[0].feet(), run.enemies[1].feet()) < REST.company, "each within the other's company distance");
+    assert.ok(walkUntil(run, far, () => run.enemies.every(e => e.held), 30), `both are held once the party is far: ${run.enemies.map(e => e.held)}`);
+  } finally { dispose(); }
+});
+
+test("a_body_walking_up_to_where_an_enemy_waits_has_it_built_and_a_held_one_let_go", async () => {
+  const { map } = restFixture(1, 8, false);
+  const { run, dispose } = await crypt(1, map, { enemy: () => "workshop-fighter" });
+  try {
+    const [walker, waiting] = run.enemies, gap = () => distance(walker.feet(), waiting.feet()), toHome = () => distance(walker.feet(), waiting.home);
+    seconds(run, 1);
+    assert.deepEqual([walker.fighter !== null, waiting.fighter !== null], [true, false], "the party is near the first alone");
+    assert.ok(distance(run.hero.feet(), waiting.home) > REST.metres && gap() > REST.clear, "and far from the second, as the first is");
+    // The run's state, set by hand: an enemy that saw the party at `to` walks there while it is alerted, and home after.
+    const send = (to) => { walker.lastSeen = to ? { ...to } : null; walker.alertedUntil = to ? run.clock + 60 : 0; };
+    send(waiting.home);
+    assert.ok(until(run, () => waiting.fighter !== null, 30), `the one waiting is built as the walker nears: ${toHome().toFixed(2)} m`);
+    assert.ok(toHome() < REST.company && toHome() > REST.company - 0.3, `at ${REST.company} m of where it waits, and no sooner: ${toHome()}`);
+    assert.equal(waiting.held, false, "and is not held with the walker beside it");
+    send(null);
+    assert.ok(until(run, () => waiting.held, 30), `it is held once the walker has gone home: ${gap().toFixed(2)} m`);
+    assert.ok(gap() > REST.clear && gap() < REST.clear + 0.3, `at ${REST.clear} m and no sooner: ${gap()}`);
+    send(waiting.home);
+    assert.ok(until(run, () => !waiting.held, 30), `and let go as the walker nears again: ${gap().toFixed(2)} m`);
+    assert.ok(gap() < REST.company && gap() > REST.company - 0.3, `at ${REST.company} m: ${gap()}`);
+    assert.equal(walker.held, false, "the walker was never held: the party stayed near it");
   } finally { dispose(); }
 });
 

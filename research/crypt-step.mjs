@@ -1,8 +1,9 @@
 /**
- * What a crypt run costs a step, over a run: the hero alone explores a generated level
- * (`DungeonRun`, no visuals), `--companions` Warriors following it, until the run ends or `--seconds` of it have passed. A row is a seed:
- * how the run stood at the end, the bodies built and how many of them were out of the fight, and
- * the wall time of a step, as the run's mean and as the mean of its slowest second.
+ * What a crypt run costs a step, over a run: the hero explores a generated level (`DungeonRun`, no
+ * visuals), `--companions` Warriors following it, until the run ends or `--seconds` of it have
+ * passed. A row is a seed: how the run stood at the end, the bodies built, how many of them were
+ * held at rest (`REST`) and how many out of the fight, and the wall time of a step, as the run's
+ * mean and as the mean of its slowest second.
  *
  *   node research/crypt-step.mjs [--seeds 1,2,3,4] [--seconds 120] [--companions 0]
  *
@@ -33,16 +34,16 @@ async function played(seed) {
   }
   const built = run.actors.filter((a) => a.fighter), row = {
     seed, status: run.status, seconds: steps / hz, enemies: run.enemies.length, built: built.length, most,
-    out: built.filter((a) => !a.alive).length, mean: total / steps, worst,
+    held: built.filter((a) => a.held).length, out: built.filter((a) => !a.alive).length, mean: total / steps, worst,
   };
   run.dispose(); scene.dispose(); engine.dispose();
   return row;
 }
 
 console.log(`Node, a crypt run with no visuals, ${CORE_ENGINE}, 120 Hz; the hero exploring, ${companions.length} with it; to the run's end or ${seconds} s\n`);
-console.log("| Seed | The run | Seconds | Enemies | Bodies built at the end | The most built | Out of the fight | A step, ms | In its slowest second, ms | Of real time, % |");
-console.log("|---|---|---|---|---|---|---|---|---|---|");
+console.log("| Seed | The run | Seconds | Enemies | Bodies built at the end | The most built | Held | Out of the fight | A step, ms | In its slowest second, ms | Of real time, % |");
+console.log("|---|---|---|---|---|---|---|---|---|---|---|");
 for (const seed of values.seeds.split(",").map(Number)) {
   const r = await played(seed);
-  console.log(`| ${r.seed} | ${r.status} | ${r.seconds} | ${r.enemies} | ${r.built} | ${r.most} | ${r.out} | ${r.mean.toFixed(2)} | ${r.worst.toFixed(2)} | ${(r.worst * 120 / 10).toFixed(0)} |`);
+  console.log(`| ${r.seed} | ${r.status} | ${r.seconds} | ${r.enemies} | ${r.built} | ${r.most} | ${r.held} | ${r.out} | ${r.mean.toFixed(2)} | ${r.worst.toFixed(2)} | ${(r.worst * 120 / 10).toFixed(0)} |`);
 }
