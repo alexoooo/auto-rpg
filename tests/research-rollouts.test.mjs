@@ -1,6 +1,7 @@
 /**
- * A bout forked by replay (`research/rollouts.mjs`), and the oracle's arithmetic: a fork with no
- * branch is the bout; a fork leaves the bout at its step and not before; the pool's workers answer
+ * A bout forked (`research/rollouts.mjs`), and the oracle's arithmetic: a fork with no
+ * branch is the bout; a fork leaves the bout at its step and not before; a fork by a load is the
+ * fork by replay; the pool's workers answer
  * as the call does; and a row's value, the choice among values and the responses offered are what
  * they say. Node, core world, Rapier, 120 Hz; the Warrior against the Rogue.
  */
@@ -43,6 +44,38 @@ test("a_fork_leaves_the_bout_at_its_step_and_not_before", async () => {
   assert.equal(nudged.at, plain.at);
   assert.notEqual(nudged.digest, plain.digest);
   assert.deepEqual(await rollout({ recipe, from: 360, steps: 360, nudges: [{ side: "right", impulse: [0, 0, 0] }] }), plain);
+});
+
+test("a_fork_by_load_is_the_fork_by_replay", async () => {
+  // A tape with orders before both forks and one after both, which a fork drops.
+  const tape = [{ step: 200, side: "right", orders: back }, { step: 320, side: "right", orders: null }, { step: 1000, side: "left", orders: back }];
+  const skeleton = { left: "workshop-rogue", right: "crypt-skeleton", gap: 3 };
+  /** `recipe`'s bout played to its step `from` under `tape`, saved. */
+  const savedAt = async (recipe, tape, from) => {
+    const { world, duel, dispose } = await buildBout(recipe);
+    try {
+      duel.play(tape);
+      while (duel.steps < from) world.step();
+      return duel.save();
+    } finally { dispose(); }
+  };
+  const jobs = [];
+  for (const from of [360, 900]) {
+    const job = { recipe, tape, from, steps: 360, save: await savedAt(recipe, tape, from) };
+    jobs.push(job, { ...job, branch: [{ step: from, side: "left", orders: back }] }, { ...job, nudges: [{ side: "right", impulse: [0.5, 0, 0] }] });
+  }
+  // Another recipe's among them: a thread keeps a bout for each.
+  jobs.splice(2, 0, { recipe: skeleton, from: 120, steps: 120, save: await savedAt(skeleton, [], 120) });
+  const replayed = [];
+  for (const { save: _, ...job } of jobs) replayed.push(await rollout(job));
+  assert.equal(new Set(replayed.map((row) => row.digest)).size, jobs.length, "the control: seven forks, seven bouts");
+  // In this thread, each loaded into the bout the fork before it left.
+  for (const [k, job] of jobs.entries()) assert.deepEqual(await rollout(job), replayed[k], `job ${k}`);
+  // And on one worker, where each save has crossed a thread.
+  const pool = rolloutPool(1);
+  try { assert.deepEqual(await pool.run(jobs), replayed); } finally { await pool.close(); }
+  // A save is the fork's own step's.
+  await assert.rejects(rollout({ ...jobs[0], from: 300 }), /no fork at step 300/);
 });
 
 test("the_pool_answers_as_the_call_does", async () => {

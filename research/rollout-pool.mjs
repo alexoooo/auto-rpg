@@ -1,4 +1,4 @@
-// Rollouts over worker threads (`rollout-worker.mjs`), each in a world of its own.
+// Rollouts over worker threads (`rollout-worker.mjs`): a fork by replay in a world of its own, a fork by a load in the worker's bout of its recipe.
 import { Worker } from "node:worker_threads";
 
 /**

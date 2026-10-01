@@ -4,15 +4,18 @@
  * the same bout under its tactics alone.
  *
  *   node research/oracle.mjs [--left workshop-fighter] [--right workshop-rogue] [--all] [--gap 4]
- *     [--side left|right|both] [--every 0.5] [--horizon 2] [--seconds 30] [--blind 0] [--nudge 0.5]
- *     [--balance left,right] [--workers 14] [--out research/runs/oracle]
+ *     [--side left|right|both] [--every 0.5] [--horizon 2] [--seconds 120] [--blind 0] [--nudge 0.5]
+ *     [--balance left,right] [--replay] [--workers 14] [--out research/runs/oracle]
  *
  * An instrument, not a mind: it holds the true world, which no mind may. Its forks play the
  * opponent's exact future, so it is clairvoyant; `--blind n` plays each response n times, each fork
  * nudged at both roots by `--nudge` N s in a level direction, and takes the mean.
  *
  * - **The trunk** is the oracle's bout, in this thread: the true world, the only one that advances
- *   for good. Its cap is `--seconds`.
+ *   for good. Its cap is `--seconds`, the arena's unless given.
+ * - **A fork** is a load of the trunk's save at the decision (`Duel.save`), which costs the steps
+ *   it plays out; `--replay` forks by playing the trunk's tape again from the start, which costs
+ *   the bout up to the decision as well, and makes the same choices.
  * - **A decision**, every `--every` seconds of the trunk until its verdict: each response of
  *   `responsesAt` is held for one period in a fork and the side then handed back to its tactics
  *   for the rest of `--horizon` seconds. A response's value is the mean of `valueOf` over its
@@ -22,13 +25,13 @@
  * It prints the harness, the search, and for each bout its row: the tactics' own bout and the
  * oracle's (winner, ending, seconds, each bar, the side's value at the end), the decisions taken,
  * the share that left the side's own tactics, each response's count, the mean over decisions of
- * the best value less `own`'s (what the search believed it gained), and the rollouts run with their
- * steps and the wall time. `--all` runs every matchup; with `--out` each oracle bout's recipe and
+ * the best value less `own`'s (what the search believed it gained), and the rollouts run with the
+ * steps they took and the wall time. `--all` runs every matchup; with `--out` each oracle bout's recipe and
  * tape are written there, and the link that plays it is printed.
  */
 import { mkdirSync, writeFileSync } from "node:fs";
 import { parseArgs } from "node:util";
-import { SIDES } from "../src/arena/duel.ts";
+import { CAP_SECONDS, SIDES } from "../src/arena/duel.ts";
 import { tapeHash } from "../src/arena/matchup.ts";
 import { BODY_MODELS } from "../src/core/human/spec.ts";
 import { mulberry32 } from "../src/dungeon/rng.ts";
@@ -41,8 +44,8 @@ const { values } = parseArgs({ options: {
   left: { type: "string", default: "workshop-fighter" }, right: { type: "string", default: "workshop-rogue" },
   all: { type: "boolean", default: false }, gap: { type: "string", default: "4" },
   side: { type: "string", default: "left" }, every: { type: "string", default: "0.5" }, horizon: { type: "string", default: "2" },
-  seconds: { type: "string", default: "30" }, blind: { type: "string", default: "0" }, nudge: { type: "string", default: "0.5" },
-  balance: { type: "string" }, workers: { type: "string" }, out: { type: "string" },
+  seconds: { type: "string", default: String(CAP_SECONDS) }, blind: { type: "string", default: "0" }, nudge: { type: "string", default: "0.5" },
+  balance: { type: "string" }, replay: { type: "boolean", default: false }, workers: { type: "string" }, out: { type: "string" },
 } });
 const gap = Number(values.gap), seconds = Number(values.seconds), blind = Number(values.blind), nudge = Number(values.nudge);
 const sides = values.side === "both" ? SIDES : [values.side];
@@ -73,14 +76,16 @@ async function oracleBout(recipe, side, pool) {
     while (!duel.verdict) {
       const from = duel.steps, at = poseDigest(builts), responses = responsesAt(duel, side);
       const trials = blind > 0 ? Array.from({ length: blind }, (_, trial) => nudgesOf(from, trial)) : [[]];
+      const fork = values.replay ? { tape: [...duel.tape] } : { save: duel.save() };
       const jobs = responses.flatMap(({ orders }) => trials.map((nudges) => ({
-        recipe, tape: [...duel.tape], from, steps: horizon, nudges,
+        recipe, ...fork, from, steps: horizon, nudges,
         branch: orders ? [{ step: from, side, orders }, { step: from + every, side, orders: null }] : [{ step: from, side, orders: null }],
       })));
       const rows = await pool.run(jobs);
       for (const row of rows) if (row.at !== at) throw new Error(`a fork at step ${from} did not reach the trunk's world: ${row.at}, not ${at}`);
       cost.rollouts += rows.length;
-      cost.steps += rows.reduce((sum, row) => sum + row.steps, 0);
+      // A replay steps from the bout's start; a load, from the fork.
+      cost.steps += rows.reduce((sum, row) => sum + row.steps - (values.replay ? 0 : row.from), 0);
       const worth = responses.map((_, k) => mean(rows.slice(k * trials.length, (k + 1) * trials.length).map((row) => valueOf(row, side))));
       const best = chooseResponse(worth);
       decisions.push({ step: from, choice: responses[best].name, gain: worth[best] - worth[0] });
@@ -94,7 +99,8 @@ async function oracleBout(recipe, side, pool) {
 
 console.log(`${BOUT_HARNESS}; gap ${gap} m, cap ${seconds} s${balance ? `, balance ${balance.left} / ${balance.right} points` : ", every character's own balance"}`);
 console.log(`The search: at every ${values.every} s one of own, attack, hold, close, back, left, right, held for ${values.every} s and then the side's own tactics, valued ${values.horizon} s on; `
-  + (blind > 0 ? `blind: each response in ${blind} forks nudged ${nudge} N s at both roots, the mean taken` : "clairvoyant: each response in one fork of the true world"));
+  + (blind > 0 ? `blind: each response in ${blind} forks nudged ${nudge} N s at both roots, the mean taken` : "clairvoyant: each response in one fork of the true world")
+  + (values.replay ? "; a fork by replay" : "; a fork by a load"));
 
 const started = Date.now();
 const bouts = matchups.flatMap((matchup) => sides.map((side) => ({ recipe: { ...matchup, gap, capSeconds: seconds, ...(balance ? { balance } : {}) }, side })));
