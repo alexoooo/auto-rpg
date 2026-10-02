@@ -209,7 +209,7 @@ The digests `research/bout-trace.mjs` reads from here on, on this machine:
 - skeleton against skeleton at 4 m: 1981 steps, the left side winning by the right's fall at
   16.508 s, no blow, `489780706aad98b9`.
 
-With a mind that hands its body to nobody on both sides (`--mind '{"kind":"fighter","subs":[]}'`)
+With a mind that hands its body to nobody on both sides (`--mind '{"kind":"fighter","subs":[],"guard":"pose"}'`)
 both give the digests of the section above. Played a step short of the verdict (`node
 research/bout-trace.mjs workshop-fighter workshop-rogue 21.349`, and `crypt-skeleton
 crypt-skeleton 16.499`), the game's mind and that one give the same digests: `76fd792f95855fef`

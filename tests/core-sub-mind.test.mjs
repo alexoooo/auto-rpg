@@ -146,7 +146,7 @@ test("a body that is down lies still", async () => {
     { has: ["lie"], asking: 0, short: 0, phases: ["stand"], goals: ["none"], up: 0 }, "from the step it is down it asks its muscles and its stance nothing");
   assert.ok(lay.late < 0.05, `3 s on, the fastest of its segments moves ${lay.late} m/s`);
   // The control: a fighter with no sub-minds keeps its body, and drives it where it lies.
-  const driven = await felled({ kind: "fighter", subs: [] });
+  const driven = await felled({ ...FIGHTER, subs: [] });
   assert.ok(driven.fell);
   assert.deepEqual([driven.has, driven.goals], [["command"], ["a stance"]]);
   assert.ok(driven.asking > 0 && driven.short > 0 && driven.late > 0.5, `driven: ${driven.asking} steps asking, ${driven.short} short, ${driven.late} m/s 3 s on`);
@@ -164,7 +164,7 @@ test("what was asked is given up with the body, and asked again when it is back"
   const body = createBody(stand.built, stand.world, { servoSeconds: SERVO_SECONDS, subs: [hold] });
   try {
     const height = body.view.stance.centre.y - body.view.stance.support.y;
-    const goal = deepFreeze({ places: [{ point: "knuckles", position: body.view.knuckles.left.add(new Vector3(0, 0.1, 0.25)).asArray() }], seconds: 0.4 });
+    const goal = deepFreeze({ places: [{ point: "knuckles", position: body.view.points.left.knuckles.add(new Vector3(0, 0.1, 0.25)).asArray() }], seconds: 0.4 });
     const command = Object.freeze({
       posture: GUARD, hands: Object.freeze({ left: goal, right: null }),
       // A push too light to move the body: what is read of it is whether it is asked.
@@ -177,7 +177,7 @@ test("what was asked is given up with the body, and asked again when it is back"
     const read = () => ({
       has: body.has, goal: host.goals.left !== null, reaching: host.motor.hands.left.goal !== null, standing: host.motor.standing !== null,
       pushes: host.motor.pushes.length,
-      off: body.view.knuckles.left.subtract(Vector3.FromArray(goal.places[0].position)).length(),
+      off: body.view.points.left.knuckles.subtract(Vector3.FromArray(goal.places[0].position)).length(),
     });
     stand.step(60);
     const reached = read();

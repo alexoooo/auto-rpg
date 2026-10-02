@@ -1,7 +1,7 @@
 import type { Body, BodyCommand, BodyView } from "../body.ts";
 import type { Intent } from "../mind/intent.ts";
 import type { MusclePush } from "../control/motor.ts";
-import { GUARD } from "./guard.ts";
+import { GUARD, guardSkill, type Covering } from "./guard.ts";
 import { locomotion } from "./locomotion.ts";
 import type { Skill } from "./skill.ts";
 import { strikeSkill, type Placed, type StrikeReport } from "./strike.ts";
@@ -18,7 +18,8 @@ import { REPERTOIRE, type Repertoire } from "./strikes.ts";
  * - **Strike** (`strike.ts`): a hand's attack, thrown with the recipe for what it holds
  *   (`strikes.ts`) or placed, its point carried to the target by a hand goal. It outranks the
  *   walk: while it works it has the legs, and the tactics' walk waits.
- * - **Guard** (`guard.ts`): the arms' posture when nothing owns them.
+ * - **Guard** (`guard.ts`): the arms' posture when nothing owns them, and a guarding hand's
+ *   cover of what its tactics name. It has the hands the strike has not.
  *
  * Every skill answers `Skill.resume`, and the skills tell every one of them from one list: a
  * skill added to it cannot be left out.
@@ -50,17 +51,19 @@ export interface SkillOptions {
   readonly repertoire?: Repertoire;
   /** An experiment's placed blow in place of the one set (`PLACED`): a sweep's cell. */
   readonly placed?: Placed;
+  /** An experiment's cover in place of the one set (`GUARD_COVER`): a sweep's cell. */
+  readonly cover?: Covering;
 }
 
 /** The skills of `body`; `tactics` is the memory of the tactics that will hand them their intent (`Tactics.state`), kept with theirs. */
-export function createSkills(body: Body, { repertoire = REPERTOIRE, placed }: SkillOptions = {}, tactics: object | null = null): Skills {
-  const legs = locomotion(body.envelope), strikes = strikeSkill(body.built.spec, repertoire, placed);
+export function createSkills(body: Body, { repertoire = REPERTOIRE, placed, cover }: SkillOptions = {}, tactics: object | null = null): Skills {
+  const legs = locomotion(body.envelope), strikes = strikeSkill(body.built.spec, repertoire, placed), guard = guardSkill(body.built.spec, cover);
   const none: readonly MusclePush[] = Object.freeze([]);
   const idle: BodyCommand["hands"] = Object.freeze({ left: null, right: null });
   const command: { -readonly [K in keyof BodyCommand]: BodyCommand[K] } =
     { posture: GUARD, hands: idle, pushes: none, stance: null };
   const state = { command, legs: legs.state, strikes: strikes.state, tactics };
-  const all: readonly Skill[] = [legs, strikes];
+  const all: readonly Skill[] = [legs, strikes, guard];
   const report: SkillReport = {
     get heading() { return legs.heading; },
     get pace() { return legs.pace; },
@@ -79,7 +82,10 @@ export function createSkills(body: Body, { repertoire = REPERTOIRE, placed }: Sk
       if (goal) command.stance = goal;
       command.posture = strike?.posture ?? GUARD;
       command.pushes = strike?.pushes ?? none;
-      command.hands = strike?.hands ?? idle;
+      // The strike's goal for the hand it has; the guard's for a hand it has not.
+      const thrown = strike?.hands, covers = guard.command(view, intent.hands, strikes.report.hand);
+      command.hands = !thrown || (!thrown.left && !thrown.right) ? covers
+        : { left: thrown.left ?? covers.left, right: thrown.right ?? covers.right };
       return command;
     },
   };

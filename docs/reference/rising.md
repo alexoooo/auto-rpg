@@ -78,7 +78,7 @@ bears on soles that are not under it. Every character's balance is 0, so no assi
 ask.
 
 ```powershell
-node research/core-rise.mjs --mind '{"kind":"fighter","subs":[]}'
+node research/core-rise.mjs --mind '{"kind":"fighter","subs":[],"guard":"pose"}'
 ```
 
 | falls | of | fell | rose | median s to rise | median peak, m/s | worst asked, weights | median s it last moved | the longest, s |
@@ -568,7 +568,7 @@ recipe (`RISE`): the roll, and the rise as far as `fours`. No assist: every side
 0 %.
 
 ```powershell
-node research/core-rise.mjs --workers 30 --mind '{"kind":"fighter","subs":[{"kind":"staged-rise"}]}'
+node research/core-rise.mjs --workers 30 --mind '{"kind":"fighter","subs":[{"kind":"staged-rise"}],"guard":"pose"}'
 ```
 
 Harness: the battery's ([Battery](#battery)), 30 workers.

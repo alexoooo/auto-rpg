@@ -13,8 +13,9 @@ import { midpoint } from "../spec/vec.ts";
  * centre, a rod's m (L/2)^2 / 3 across plus a disc's m r^2 / 4, and m r^2 / 2 along, moved to
  * the club's centre of mass. It collides as two capsules, each spanning its cylinder's length.
  *
- * Points: `swellFrom` and `swellTo`, the ends of the swell's capsule's axis, where a blow lands,
- * and `swell`, the middle of that axis, which a blow is aimed by (`ItemSpec.aim`).
+ * Points: `swellFrom` and `swellTo`, the ends of the swell's capsule's axis, where a blow lands
+ * and between which one is stopped (`ItemSpec.cover`), and `swell`, the middle of that axis, which
+ * a blow is aimed by (`ItemSpec.aim`).
  */
 const HAFT_LENGTH = sourced(0.45, "m", "owner-club", "a 0.45 m haft");
 const HAFT_RADIUS = sourced(18, "mm", "owner-club", "of 18 mm radius");
@@ -52,6 +53,7 @@ export function woodenClub(): ItemSpec {
     ],
     points: { swellFrom, swellTo, swell: derive("m", "the middle of the swell's capsule's axis", [swellFrom, swellTo], midpoint) },
     aim: "swell",
+    cover: ["swellFrom", "swellTo"],
     grip: haftRadius,
   };
 }

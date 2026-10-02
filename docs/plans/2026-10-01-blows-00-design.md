@@ -18,8 +18,6 @@ with the last of them.
 - **A search scores what the rule does not.** A fist's recipe was found for its speed and the
   club's for the energy it brings to a mark, where a fight wounds by the rule: any two surfaces
   that meet share the blow (`src/core/rules/blows.ts`), so a fist pays for its own punch.
-- **There is no defence.** The guard is one pose (`src/core/skills/guard.ts`); nothing reads the
-  blow coming.
 
 ## The design
 
@@ -132,15 +130,12 @@ Each is put with its table at the gate of the plan that measures it. None is ass
 | Today | After |
 |---|---|
 | one recipe a hand, thrown at a target in its window, three directions; a placed blow elsewhere | a recipe by height band |
-| a hand goal takes named points of the hand's rigid body to places, and the strike uses it | the guard uses it too |
-| the guard is a pose | a pose, or a cover of a threat |
 | a search scores a fist's speed, or a club's energy into a mark | every search scores net damage under the rule |
 
 ## The plans
 
 | # | Plan | Lands | Needs | Eye gate |
 |---|---|---|---|---|
-| 06 | [guard](2026-10-01-blows-06-guard.md) | the guard covers a threat; the block battery | | the owner watches a body cover itself |
 | 07 | [searched blows](2026-10-01-blows-07-searched-blows.md) | one evaluator under the rule; recipes by band for every body and thing held | | the owner watches each body's blows, and reads the price before the searches run |
 
 The targets every plan here is read on have landed (`src/lab/targets.ts`,
@@ -150,9 +145,12 @@ share it (`src/core/rules/blows.ts`, `docs/reference/wounds.md`), and the unit: 
 `docs/reference/bouts.md#a-hit-point-is-100-j`, and the targets at it in
 `docs/reference/blows.md#at-100-j`), and placement: hand goals on named points, a window's
 height, and the placed blow (`src/core/skills/strike.ts`, `docs/reference/blows.md#placed`),
-whose eye gate is open: the owner watches the Routine's high and middle targets struck. 07 is
-the open-ended one: its structure is fixed here, its
-recipes are found by search.
+whose eye gate is open: the owner watches the Routine's high and middle targets struck; and the
+guard: a hand told what threatens the head covers it (`src/core/skills/guard.ts`,
+`src/core/mind/threat.ts`), fighters stay in the pose since the cover missed its bar
+(`docs/reference/blows.md#guard-battery`), and its eye gate is open: the owner watches a bout
+with both sides covering (`&guard=cover`). 07 is the open-ended one: its structure is fixed
+here, its recipes are found by search.
 
 The rising set (`2026-10-01-rising-05-rules.md`) measures `docs/reference/bouts.md` again too:
 it measures against the last table in that record.

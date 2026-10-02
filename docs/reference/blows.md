@@ -495,3 +495,425 @@ and 24 of its 30 targets are hit where 13 of 23 were; the Rogue with the club lo
 it never did, and the skeleton bare-handed once. The skeleton with the club falls setting its
 feet for its second target in every run, as it did, and the Warrior with the club in two runs
 of three, as it did.
+
+## Cover
+
+A cover (`GUARD_COVER`, `src/core/skills/guard.ts`) is what a guarding hand does once it is told
+what threatens which place of its own body: the point it covers with goes `out` m from the place
+guarded toward the threat, by a hand goal given `seconds` to reach it, which follows the two as
+they move. An empty hand covers with its knuckles. A club covers with its swell
+(`ItemSpec.cover`, the swell's two ends): the middle of the two goes where a single point would,
+and their line is laid square to the threat's, the way nearest how the club lies.
+
+### Reach
+
+`node research/core-guard-reach.mjs --covers '<the covers below>'`, and `--model workshop-rogue`
+for the Rogue's rows: a body that has stood in the guard 1.5 s (Node core stand, Rapier, 120 Hz,
+no assist) is given a cover of a threat standing still 0.8 m from its head: ahead, to its left,
+to its right, above and ahead, low and ahead. Its left hand is empty and its right holds the
+club, each read on a run of its own. Off is how far the left hand's knuckles, and the middle of
+the club's swell, are from the place the cover asks for; off square is the angle of the swell's
+line from square to the threat's, at 1 s. No run fell.
+
+The Warrior:
+
+| Out, m | Seconds | Threat | Knuckles off, cm: 0.15 s | 0.3 s | 0.6 s | 1 s | Swell off, cm: 0.15 s | 0.3 s | 0.6 s | 1 s | Off square, rad | Same end up |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0.2 | 0.15 | ahead | 4.4 | 3.5 | 2.8 | 2.8 | 20.4 | 21.1 | 1.9 | 0.2 | 0.00 | yes |
+| 0.2 | 0.15 | its left | 9.1 | 3.0 | 2.2 | 0.3 | 8.6 | 6.3 | 11.1 | 2.2 | 0.23 | yes |
+| 0.2 | 0.15 | its right | 41.0 | 36.2 | 30.3 | 26.1 | 39.9 | 61.0 | 54.7 | 42.1 | 0.42 | yes |
+| 0.2 | 0.15 | above | 18.0 | 9.5 | 0.8 | 0.6 | 5.8 | 4.7 | 0.4 | 0.0 | 0.00 | yes |
+| 0.2 | 0.15 | low | 0.7 | 0.3 | 0.2 | 0.2 | 33.7 | 26.4 | 48.8 | 11.3 | 0.16 | yes |
+| 0.3 | 0.15 | ahead | 3.8 | 2.2 | 0.1 | 0.3 | 16.7 | 20.8 | 3.5 | 0.4 | 0.01 | yes |
+| 0.3 | 0.15 | its left | 11.9 | 8.0 | 1.9 | 0.4 | 13.7 | 6.7 | 3.1 | 3.4 | 0.21 | yes |
+| 0.3 | 0.15 | its right | 46.4 | 40.8 | 27.0 | 24.9 | 42.0 | 38.4 | 15.7 | 15.0 | 0.29 | yes |
+| 0.3 | 0.15 | above | 26.5 | 13.0 | 2.3 | 1.3 | 7.8 | 6.9 | 0.9 | 0.0 | 0.00 | yes |
+| 0.3 | 0.15 | low | 0.7 | 0.3 | 0.2 | 0.2 | 30.9 | 22.5 | 10.1 | 1.2 | 0.01 | yes |
+| 0.4 | 0.15 | ahead | 6.6 | 3.7 | 0.2 | 0.3 | 15.5 | 18.2 | 4.6 | 0.6 | 0.00 | yes |
+| 0.4 | 0.15 | its left | 18.2 | 14.7 | 3.6 | 0.5 | 21.1 | 13.8 | 9.2 | 7.1 | 0.33 | yes |
+| 0.4 | 0.15 | its right | 55.1 | 36.3 | 32.9 | 31.8 | 54.3 | 41.6 | 28.2 | 11.2 | 0.16 | yes |
+| 0.4 | 0.15 | above | 39.9 | 21.2 | 2.5 | 1.9 | 16.6 | 12.3 | 2.6 | 0.7 | 0.06 | yes |
+| 0.4 | 0.15 | low | 0.5 | 0.2 | 0.2 | 0.2 | 37.4 | 27.5 | 18.1 | 1.6 | 0.00 | yes |
+| 0.3 | 0.1 | ahead | 18.1 | 6.8 | 2.1 | 0.6 | 21.7 | 11.8 | 4.2 | 0.6 | 0.02 | yes |
+| 0.3 | 0.1 | its left | 19.7 | 11.9 | 3.5 | 0.4 | 26.2 | 19.8 | 12.8 | 3.1 | 0.34 | yes |
+| 0.3 | 0.1 | its right | 45.5 | 36.1 | 23.9 | 7.0 | 43.6 | 44.0 | 50.7 | 23.6 | 0.24 | yes |
+| 0.3 | 0.1 | above | 41.8 | 18.1 | 1.6 | 1.1 | 15.8 | 12.4 | 4.7 | 0.5 | 0.01 | yes |
+| 0.3 | 0.1 | low | 0.8 | 0.4 | 0.2 | 0.2 | 36.0 | 25.4 | 37.7 | 3.5 | 0.10 | no |
+| 0.3 | 0.25 | ahead | 8.1 | 0.3 | 0.2 | 0.3 | 14.3 | 5.6 | 0.8 | 0.0 | 0.00 | yes |
+| 0.3 | 0.25 | its left | 15.2 | 3.7 | 0.3 | 0.2 | 10.4 | 15.4 | 20.8 | 24.0 | 0.54 | no |
+| 0.3 | 0.25 | its right | 38.4 | 26.0 | 26.8 | 23.1 | 42.4 | 43.4 | 28.1 | 22.2 | 0.11 | yes |
+| 0.3 | 0.25 | above | 15.4 | 2.7 | 1.6 | 0.6 | 11.1 | 1.5 | 0.3 | 0.0 | 0.00 | yes |
+| 0.3 | 0.25 | low | 6.8 | 0.3 | 0.2 | 0.2 | 25.3 | 24.4 | 7.7 | 0.9 | 0.00 | yes |
+| 0.3 | 0.4 | ahead | 16.0 | 2.7 | 0.2 | 0.3 | 29.3 | 4.7 | 0.2 | 0.0 | 0.00 | yes |
+| 0.3 | 0.4 | its left | 28.8 | 4.3 | 0.5 | 0.2 | 18.9 | 4.2 | 35.9 | 35.9 | 0.66 | no |
+| 0.3 | 0.4 | its right | 44.4 | 27.4 | 25.3 | 27.6 | 43.8 | 39.5 | 51.5 | 24.9 | 0.32 | yes |
+| 0.3 | 0.4 | above | 27.8 | 4.7 | 1.2 | 0.6 | 21.3 | 4.4 | 0.4 | 0.0 | 0.00 | yes |
+| 0.3 | 0.4 | low | 13.7 | 2.2 | 0.2 | 0.2 | 37.9 | 10.8 | 4.9 | 0.9 | 0.02 | yes |
+
+The Rogue:
+
+| Out, m | Seconds | Threat | Knuckles off, cm: 0.15 s | 0.3 s | 0.6 s | 1 s | Swell off, cm: 0.15 s | 0.3 s | 0.6 s | 1 s | Off square, rad | Same end up |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0.3 | 0.15 | ahead | 7.7 | 4.6 | 0.5 | 0.0 | 21.5 | 20.3 | 50.3 | 83.1 | 0.71 | no |
+| 0.3 | 0.15 | its left | 21.5 | 17.2 | 3.2 | 0.4 | 16.0 | 14.8 | 7.3 | 27.8 | 0.38 | no |
+| 0.3 | 0.15 | its right | 48.8 | 36.6 | 30.4 | 25.8 | 50.9 | 64.9 | 98.1 | 37.5 | 0.34 | yes |
+| 0.3 | 0.15 | above | 32.8 | 17.0 | 1.8 | 1.0 | 24.9 | 15.5 | 12.6 | 46.9 | 0.20 | no |
+| 0.3 | 0.15 | low | 4.4 | 3.8 | 3.4 | 3.4 | 29.4 | 28.1 | 42.1 | 14.5 | 0.45 | no |
+
+- **A bare hand is before the face in 0.3 s, and at its own side or overhead in 0.6.** The
+  Warrior's knuckles at 0.3 m out and 0.15 s are 2.2 cm from a place ahead at 0.3 s, 8.0 cm from
+  one to their own side and 13.0 cm from one above; at 0.6 s all three are within 2.3 cm.
+- **A hand does not cover across the body.** A threat on the far side is 26 to 41 cm from the
+  left hand's knuckles at 0.3 s at every cover tried, and 25 cm at 1 s at the one set: the arm
+  does not reach round its own trunk and head in time. The other hand's side is the other
+  hand's to cover.
+- **`out` is 0.3.** At 0.2 the knuckles stop 2.8 cm short of a place ahead, which is where the
+  face is; at 0.4 the hand has further to go, and is 14.7 cm from a place at its side at 0.3 s
+  where it is 8.0 at 0.3.
+- **`seconds` is 0.15.** At 0.1 the arm is asked for more than it gives and is later: 18.1 cm
+  from a place ahead at 0.15 s where it is 3.8, and a low threat turns the club end over end. At
+  0.25 and 0.4 a threat at its left turns it over, and it is 24 and 36 cm from its place at 1 s.
+  At 0.15 the same end stays up for every threat.
+- **The Warrior's club is slower than its hand.** Its swell is 16.7 and 20.8 cm from a place
+  ahead at 0.15 and 0.3 s, and 3.5 cm at 0.6 s.
+- **The Rogue's club does not come to its place.** Its swell is 50 and 83 cm off at 0.6 and 1 s
+  for a threat ahead, and has turned end over end for four threats of five. Its bare hand
+  reaches as the Warrior's does: 0.5 cm from a place ahead at 0.6 s.
+
+### A club's line
+
+`node research/core-guard-reach.mjs --model <each> --club skill|up|middle`: the same stand at
+the cover set, the club's hand given its goal three ways. The skill's lays the swell's two ends
+square to the threat's line the way nearest how the club lies. The other two are the script's,
+in the skill's place, with the same middle: the two ends laid square the way nearest the body's
+up; and the swell's middle alone as one point, its line left to the posture.
+
+| Body | The swell's goal | Threat | Swell off, cm: 0.15 s | 0.3 s | 0.6 s | 1 s | Off square at 1 s, rad | Same end up |
+|---|---|---|---|---|---|---|---|---|
+| Warrior | the skill's | ahead | 16.7 | 20.8 | 3.5 | 0.4 | 0.01 | yes |
+| Warrior | the skill's | its left | 13.7 | 6.7 | 3.1 | 3.4 | 0.21 | yes |
+| Warrior | the skill's | its right | 42.0 | 38.4 | 15.7 | 15.0 | 0.29 | yes |
+| Warrior | the skill's | above | 7.8 | 6.9 | 0.9 | 0.0 | 0.00 | yes |
+| Warrior | the skill's | low | 30.9 | 22.5 | 10.1 | 1.2 | 0.01 | yes |
+| Warrior | by the body's up | ahead | 16.9 | 52.8 | 46.4 | 9.6 | 0.05 | yes |
+| Warrior | by the body's up | its left | 17.2 | 9.4 | 9.0 | 5.5 | 0.35 | yes |
+| Warrior | by the body's up | its right | 50.9 | 47.3 | 19.1 | 16.1 | 0.29 | yes |
+| Warrior | by the body's up | above | 14.0 | 15.7 | 6.1 | 1.5 | 0.05 | yes |
+| Warrior | by the body's up | low | 29.4 | 25.4 | 11.9 | 9.5 | 0.39 | yes |
+| Warrior | the middle alone | ahead | 16.9 | 20.6 | 3.9 | 0.4 | 0.07 | yes |
+| Warrior | the middle alone | its left | 5.9 | 2.8 | 0.4 | 0.0 | 0.79 | yes |
+| Warrior | the middle alone | its right | 43.6 | 41.6 | 16.8 | 17.5 | 0.27 | yes |
+| Warrior | the middle alone | above | 1.4 | 3.4 | 0.3 | 0.0 | 0.33 | yes |
+| Warrior | the middle alone | low | 33.7 | 34.8 | 48.9 | 14.5 | 0.06 | yes |
+| Rogue | the skill's | ahead | 21.5 | 20.3 | 50.3 | 83.1 | 0.71 | no |
+| Rogue | the skill's | its left | 16.0 | 14.8 | 7.3 | 27.8 | 0.38 | no |
+| Rogue | the skill's | its right | 50.9 | 64.9 | 98.1 | 37.5 | 0.34 | yes |
+| Rogue | the skill's | above | 24.9 | 15.5 | 12.6 | 46.9 | 0.20 | no |
+| Rogue | the skill's | low | 29.4 | 28.1 | 42.1 | 14.5 | 0.45 | no |
+| Rogue | by the body's up | ahead | 29.1 | 24.2 | 10.4 | 4.3 | 0.02 | yes |
+| Rogue | by the body's up | its left | 9.0 | 7.2 | 11.5 | 11.4 | 0.33 | yes |
+| Rogue | by the body's up | its right | 51.0 | 72.7 | 78.5 | 61.8 | 0.36 | yes |
+| Rogue | by the body's up | above | 26.6 | 16.8 | 13.7 | 2.0 | 0.13 | yes |
+| Rogue | by the body's up | low | 31.7 | 22.0 | 54.1 | 36.2 | 1.07 | no |
+| Rogue | the middle alone | ahead | 23.0 | 15.6 | 7.3 | 0.5 | 0.08 | yes |
+| Rogue | the middle alone | its left | 7.4 | 6.8 | 26.0 | 34.3 | 1.14 | no |
+| Rogue | the middle alone | its right | 51.2 | 65.2 | 62.4 | 45.4 | 0.42 | yes |
+| Rogue | the middle alone | above | 19.1 | 18.3 | 3.4 | 0.2 | 0.44 | yes |
+| Rogue | the middle alone | low | 29.6 | 22.9 | 20.6 | 6.8 | 0.13 | yes |
+
+- **How the line is laid is not what fails.** Laid by the body's up, the Rogue's swell comes to
+  4.3 cm from a place ahead at 1 s where the skill's is 83 cm off, and the Warrior's is 52.8 cm
+  off at 0.3 s where the skill's is 20.8: each way of laying it suits one body and not the
+  other. Low, the Rogue's turns over under it.
+- **The middle alone comes to a place ahead on both bodies, and no sooner.** It is within
+  0.5 cm of a place ahead and of one above at 1 s on both, and 15 to 21 cm from the place ahead
+  at 0.3 s, as the skill's is. Its line is whatever the posture leaves, 0.3 to 1.1 rad off
+  square for a threat at either side, and a threat at the Rogue's left turns its club over
+  under it too.
+- What the three share is the hand goal: two points of a held club, or one, taken to places by
+  the arm's solve, which a heavy item at the end of the Rogue's arm does not follow
+  ([human-and-strikes.md](human-and-strikes.md#ik)). The skill's line stays.
+
+## Threat
+
+A threat (`THREAT`, `src/core/mind/threat.ts`) is a foe's striking point (its knuckles, or the
+swell of the club it holds) within `within` m of a body's head and closing on it at over
+`closing` m/s; of those, the one closing fastest is what a covering hand is told to cover
+against. Set: within 1.5 m, closing at over 2 m/s.
+
+### How late a cover is
+
+`node research/core-guard-late.mjs`, and `--threat '{"within":2.5,"closing":-100}'` for the
+second table: arena bouts with a club in every right hand, each pair at five gaps, each side
+covering in turn. For each blow the covering side's head met: how long its mind had seen a
+threat, and how far the left hand's knuckles and the club's swell were from the place the cover
+asks for, at the step before the blow.
+
+Node, core world (src/core/world.ts), Rapier, 120 Hz; each side's balance its character's; a club in every right hand; gaps 3, 3.5, 4, 4.5, 5 m; what each side senses 0 steps old.
+The covering side's threat: {"within":1.5,"closing":2}; its cover: {"out":0.3,"seconds":0.15}. Three figures are the least, the median and the most.
+
+| Left | Right | Covers | Blows met | By its head | No threat seen | Threat seen, s | Knuckles from the place, cm | Swell from the place, cm | Steps a threat is seen in, % | Steps a strike has a hand in, % |
+|---|---|---|---|---|---|---|---|---|---|---|
+| workshop-fighter | workshop-fighter | left | 30 | 4 | 0 | 0.14, 0.14, 0.14 | 24, 41, 43 | 27, 38, 88 | 1.3 | 74.0 |
+| workshop-fighter | workshop-fighter | right | 34 | 2 | 0 | 0.14, 0.16, 0.16 | 25, 39, 39 | 36, 58, 58 | 0.6 | 69.2 |
+| workshop-fighter | workshop-rogue | left | 13 | 0 | 0 | - | - | - | 0.2 | 64.8 |
+| workshop-fighter | workshop-rogue | right | 17 | 5 | 0 | 0.14, 0.15, 0.15 | 56, 61, 63 | 25, 35, 49 | 1.7 | 54.3 |
+| workshop-rogue | workshop-fighter | left | 15 | 4 | 0 | 0.14, 0.15, 0.16 | 39, 56, 58 | 32, 45, 63 | 1.6 | 72.2 |
+| workshop-rogue | workshop-fighter | right | 33 | 0 | 0 | - | - | - | 0.5 | 75.4 |
+| workshop-rogue | workshop-rogue | left | 4 | 0 | 0 | - | - | - | 1.5 | 74.1 |
+| workshop-rogue | workshop-rogue | right | 6 | 0 | 0 | - | - | - | 1.4 | 73.1 |
+
+The covering side's threat: {"within":2.5,"closing":-100}; its cover: {"out":0.3,"seconds":0.15}. Three figures are the least, the median and the most.
+
+| Left | Right | Covers | Blows met | By its head | No threat seen | Threat seen, s | Knuckles from the place, cm | Swell from the place, cm | Steps a threat is seen in, % | Steps a strike has a hand in, % |
+|---|---|---|---|---|---|---|---|---|---|---|
+| workshop-fighter | workshop-fighter | left | 37 | 2 | 0 | 8.57, 8.58, 8.58 | 18, 19, 19 | 29, 31, 31 | 69.4 | 60.0 |
+| workshop-fighter | workshop-fighter | right | 37 | 1 | 0 | 8.47, 8.47, 8.47 | 18, 18, 18 | 31, 31, 31 | 78.0 | 71.5 |
+| workshop-fighter | workshop-rogue | left | 20 | 0 | 0 | - | - | - | 77.1 | 69.5 |
+| workshop-fighter | workshop-rogue | right | 12 | 4 | 0 | 5.54, 5.88, 13.72 | 23, 36, 39 | 32, 70, 75 | 71.0 | 61.1 |
+| workshop-rogue | workshop-fighter | left | 35 | 3 | 0 | 5.52, 5.74, 6.91 | 17, 39, 40 | 40, 50, 52 | 77.8 | 70.2 |
+| workshop-rogue | workshop-fighter | right | 12 | 0 | 0 | - | - | - | 66.3 | 56.3 |
+| workshop-rogue | workshop-rogue | left | 21 | 1 | 0 | 6.38, 6.38, 6.38 | 20, 20, 20 | 23, 23, 23 | 72.8 | 63.1 |
+| workshop-rogue | workshop-rogue | right | 3 | 0 | 0 | - | - | - | 72.9 | 63.9 |
+
+- **The threat set is seen 0.14 to 0.16 s before the blow, and the cover is not there.** Every
+  blow that met a covering head had a threat seen before it. At the blow the knuckles are 24 to
+  63 cm from their place and the swell 25 to 88 cm: a bare hand is at a place before the face
+  in 0.3 s and a club's swell in 0.6 ([Reach](#reach)). A threat is seen in 0.2 to 1.7 % of a
+  bout's steps.
+- **Seen sooner, the cover is still not there.** Within 2.5 m at any closing speed a threat is
+  seen in 66 to 78 % of the steps and for 5.5 to 13.7 s before the blow, and the knuckles are
+  17 to 40 cm and the swell 23 to 75 cm from their places at the blow. Under either threat a
+  strike has one of the covering side's hands in 54 to 75 % of its steps, and the place a cover
+  asks for moves with the foe's striking point as it swings.
+
+### Sweep
+
+`node research/core-guard.mjs --bouts 32 --from 1000 --held club --variants '<the threats
+below>'`, played in two parts (`--save`) and read as one (`--load`): 5376 arena bouts, Node, core
+world, Rapier, 120 Hz, each side's balance its character's, clubs, the Warrior and the Rogue in
+each ordered pair, what each side senses 0 and 24 steps old, 32 starting gaps from 3.06 to
+4.99 m. One control with both sides in the pose; for each threat, each side covering in turn
+under it. The rows pool the eight cells of a delay, and the sixteen of both: the covering
+side's hit points lost a bout to blows that met its head, in the pose and covering, what
+covering saved and its effect size (Cohen's d of the differences paired by gap); all the hit
+points it lost; the share of bouts it fell in, and won (the control's is 0.50). A closing speed
+of "any" is `closing: -100`.
+
+| Within, m | Closing over, m/s | Delay, steps | Bouts paired | Head HP, pose | cover | Saved | d | HP, pose | cover | d | Fell, pose | cover | Won, cover |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1.5 | 2 | 0 | 256 | 0.159 | 0.133 | 0.026 | 0.11 | 0.273 | 0.238 | 0.12 | 0.34 | 0.34 | 0.50 |
+| 1.5 | 2 | 24 | 256 | 0.084 | 0.087 | -0.003 | -0.02 | 0.272 | 0.257 | 0.09 | 0.39 | 0.44 | 0.44 |
+| 1.5 | 2 | both | 512 | 0.122 | 0.110 | 0.012 | 0.06 | 0.273 | 0.248 | 0.11 | 0.37 | 0.39 | 0.47 |
+| 1.5 | 0 | 0 | 256 | 0.159 | 0.141 | 0.018 | 0.06 | 0.273 | 0.227 | 0.13 | 0.34 | 0.34 | 0.49 |
+| 1.5 | 0 | 24 | 256 | 0.084 | 0.111 | -0.027 | -0.10 | 0.272 | 0.274 | -0.01 | 0.39 | 0.44 | 0.43 |
+| 1.5 | 0 | both | 512 | 0.122 | 0.126 | -0.004 | -0.02 | 0.273 | 0.250 | 0.06 | 0.37 | 0.39 | 0.46 |
+| 1.5 | any | 0 | 256 | 0.159 | 0.142 | 0.017 | 0.06 | 0.273 | 0.235 | 0.10 | 0.34 | 0.50 | 0.33 |
+| 1.5 | any | 24 | 256 | 0.084 | 0.111 | -0.027 | -0.09 | 0.272 | 0.281 | -0.02 | 0.39 | 0.49 | 0.38 |
+| 1.5 | any | both | 512 | 0.122 | 0.126 | -0.005 | -0.02 | 0.273 | 0.258 | 0.03 | 0.37 | 0.49 | 0.36 |
+| 2 | 2 | 0 | 256 | 0.159 | 0.134 | 0.025 | 0.10 | 0.273 | 0.244 | 0.10 | 0.34 | 0.34 | 0.50 |
+| 2 | 2 | 24 | 256 | 0.084 | 0.084 | 0.000 | 0.00 | 0.272 | 0.263 | 0.06 | 0.39 | 0.43 | 0.45 |
+| 2 | 2 | both | 512 | 0.122 | 0.109 | 0.013 | 0.07 | 0.273 | 0.253 | 0.08 | 0.37 | 0.39 | 0.48 |
+| 2 | 0 | 0 | 256 | 0.159 | 0.090 | 0.069 | 0.21 | 0.273 | 0.254 | 0.05 | 0.34 | 0.43 | 0.45 |
+| 2 | 0 | 24 | 256 | 0.084 | 0.114 | -0.030 | -0.08 | 0.272 | 0.226 | 0.09 | 0.39 | 0.45 | 0.41 |
+| 2 | 0 | both | 512 | 0.122 | 0.102 | 0.020 | 0.06 | 0.273 | 0.240 | 0.07 | 0.37 | 0.44 | 0.43 |
+| 2 | any | 0 | 256 | 0.159 | 0.107 | 0.053 | 0.15 | 0.273 | 0.210 | 0.15 | 0.34 | 0.45 | 0.43 |
+| 2 | any | 24 | 256 | 0.084 | 0.095 | -0.011 | -0.03 | 0.272 | 0.225 | 0.11 | 0.39 | 0.53 | 0.36 |
+| 2 | any | both | 512 | 0.122 | 0.101 | 0.021 | 0.06 | 0.273 | 0.217 | 0.13 | 0.37 | 0.49 | 0.39 |
+| 2.5 | 0 | 0 | 256 | 0.159 | 0.102 | 0.057 | 0.15 | 0.273 | 0.221 | 0.12 | 0.34 | 0.45 | 0.44 |
+| 2.5 | 0 | 24 | 256 | 0.084 | 0.110 | -0.025 | -0.08 | 0.272 | 0.213 | 0.12 | 0.39 | 0.48 | 0.41 |
+| 2.5 | 0 | both | 512 | 0.122 | 0.106 | 0.016 | 0.04 | 0.273 | 0.217 | 0.12 | 0.37 | 0.46 | 0.43 |
+| 2.5 | any | 0 | 256 | 0.159 | 0.107 | 0.052 | 0.14 | 0.273 | 0.240 | 0.08 | 0.34 | 0.53 | 0.35 |
+| 2.5 | any | 24 | 256 | 0.084 | 0.087 | -0.003 | -0.01 | 0.272 | 0.195 | 0.17 | 0.39 | 0.56 | 0.34 |
+| 2.5 | any | both | 512 | 0.122 | 0.097 | 0.024 | 0.07 | 0.273 | 0.218 | 0.12 | 0.37 | 0.54 | 0.35 |
+| 3 | any | 0 | 256 | 0.159 | 0.096 | 0.063 | 0.18 | 0.273 | 0.202 | 0.18 | 0.34 | 0.50 | 0.37 |
+| 3 | any | 24 | 256 | 0.084 | 0.060 | 0.024 | 0.08 | 0.272 | 0.186 | 0.21 | 0.39 | 0.60 | 0.32 |
+| 3 | any | both | 512 | 0.122 | 0.078 | 0.044 | 0.14 | 0.273 | 0.194 | 0.19 | 0.37 | 0.55 | 0.35 |
+| 1 | any | 0 | 256 | 0.159 | 0.116 | 0.043 | 0.15 | 0.273 | 0.217 | 0.15 | 0.34 | 0.56 | 0.29 |
+| 1 | any | 24 | 256 | 0.084 | 0.098 | -0.014 | -0.05 | 0.272 | 0.250 | 0.06 | 0.39 | 0.53 | 0.34 |
+| 1 | any | both | 512 | 0.122 | 0.107 | 0.015 | 0.05 | 0.273 | 0.233 | 0.10 | 0.37 | 0.54 | 0.32 |
+
+The bar ([Guard battery](#guard-battery)) by cell, of sixteen: those where covering saves the
+head at d over 0.2, those of them with no more falls, and the least d of any cell.
+
+| Within, m | Closing over, m/s | Cells over 0.2 | With no more falls | Least d |
+|---|---|---|---|---|
+| 1.5 | 2 | 4 of 16 | 1 | -0.26 |
+| 1.5 | 0 | 1 of 16 | 0 | -0.52 |
+| 1.5 | any | 2 of 16 | 1 | -0.31 |
+| 2 | 2 | 3 of 16 | 0 | -0.27 |
+| 2 | 0 | 5 of 16 | 1 | -0.41 |
+| 2 | any | 4 of 16 | 0 | -0.35 |
+| 2.5 | 0 | 6 of 16 | 0 | -0.49 |
+| 2.5 | any | 5 of 16 | 1 | -0.35 |
+| 3 | any | 4 of 16 | 0 | -0.22 |
+| 1 | any | 5 of 16 | 1 | -0.40 |
+
+- **No threat meets the bar.** The most cells over 0.2 are 6 of 16, at most 1 of them with no
+  more falls, and every threat has a cell where covering costs the head at d of -0.22 or worse.
+- **A wider threat saves somewhat more of the head, and costs falls and wins.** The widest, 3 m
+  at any closing speed, saves the most: 0.122 to 0.078 HP a bout, d 0.14; its side falls in
+  0.55 of its bouts where it fell in 0.37, and wins 0.35 of them. With no closing speed asked,
+  at every distance, the covering side falls in 0.49 to 0.55 of its bouts and wins 0.32 to
+  0.39.
+- **With the senses 24 steps old only the widest saves anything.** Its d is 0.08; every other
+  threat's is from -0.10 to 0.00.
+- **`THREAT` stays.** Within 1.5 m and closing at over 2 m/s costs the least: falls 0.37 to
+  0.39, wins 0.47. Within 2 m at the same closing speed reads the same to the band of 512
+  pairs; nothing read here earns a change.
+
+## Guard battery
+
+`node research/core-guard.mjs --bouts 32`: arena bouts (`research/bout.mjs`: Node, core world,
+Rapier, 120 Hz, each side's balance its character's), clubs and bare hands, the Warrior and the
+Rogue in each ordered pair, what each side senses 0 and 24 steps old (the arena's), 32 starting
+gaps from 3.03 to 4.99 m by the golden ratio's sequence. A bout has no seed: what stands for one
+is its gap. At each gap one bout has both sides in the pose, the control, and one each side
+covering (`guard: "cover"`, `THREAT`, `GUARD_COVER`) against the other in the pose. A cell
+is what is held, the delay, the pair and the side that covers; its rows pair the covering bout
+with the control at the same gap. 1536 bouts in 1608 s on 14 workers.
+
+**The bar.** Covering loses fewer hit points to the head in every cell, at d over 0.2, on two
+sets of gaps, with no more falls.
+
+| Held | Delay | Left | Right | Covers | Gaps | Head HP, pose | cover | Saved | d | HP, pose | cover | d | Fell, pose | cover | Won, pose | cover | Seconds, pose | cover |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| club | 0 | workshop-fighter | workshop-fighter | left | 32 | 0.134 | 0.174 | -0.040 | -0.16 | 0.260 | 0.320 | -0.29 | 0.16 | 0.06 | 0.72 | 0.72 | 8.6 | 9.2 |
+| club | 0 | workshop-fighter | workshop-fighter | right | 32 | 0.140 | 0.141 | -0.001 | -0.00 | 0.305 | 0.360 | -0.12 | 0.56 | 0.53 | 0.28 | 0.34 | 8.6 | 8.6 |
+| club | 0 | workshop-fighter | workshop-rogue | left | 32 | 0.000 | 0.000 | 0.000 | 0.00 | 0.051 | 0.031 | 0.29 | 0.03 | 0.06 | 0.97 | 0.94 | 13.0 | 12.9 |
+| club | 0 | workshop-fighter | workshop-rogue | right | 32 | 0.525 | 0.655 | -0.129 | -0.43 | 0.761 | 0.875 | -0.25 | 0.38 | 0.25 | 0.03 | 0.06 | 13.0 | 11.8 |
+| club | 0 | workshop-rogue | workshop-fighter | left | 32 | 0.277 | 0.283 | -0.007 | -0.03 | 0.420 | 0.458 | -0.13 | 0.28 | 0.28 | 0.47 | 0.44 | 9.0 | 8.6 |
+| club | 0 | workshop-rogue | workshop-fighter | right | 32 | 0.000 | 0.002 | -0.002 | -0.18 | 0.040 | 0.072 | -0.29 | 0.47 | 0.44 | 0.53 | 0.56 | 9.0 | 10.4 |
+| club | 0 | workshop-rogue | workshop-rogue | left | 32 | 0.025 | 0.019 | 0.006 | 0.16 | 0.055 | 0.047 | 0.07 | 0.41 | 0.56 | 0.56 | 0.41 | 16.1 | 18.9 |
+| club | 0 | workshop-rogue | workshop-rogue | right | 32 | 0.022 | 0.018 | 0.004 | 0.18 | 0.052 | 0.046 | 0.05 | 0.56 | 0.59 | 0.44 | 0.38 | 16.1 | 15.8 |
+| club | 24 | workshop-fighter | workshop-fighter | left | 32 | 0.129 | 0.129 | 0.000 | 0.18 | 0.305 | 0.306 | -0.22 | 0.22 | 0.19 | 0.66 | 0.69 | 7.7 | 8.3 |
+| club | 24 | workshop-fighter | workshop-fighter | right | 32 | 0.232 | 0.213 | 0.019 | 0.15 | 0.340 | 0.361 | -0.10 | 0.47 | 0.50 | 0.34 | 0.34 | 7.7 | 8.7 |
+| club | 24 | workshop-fighter | workshop-rogue | left | 32 | 0.001 | 0.000 | 0.001 | 0.18 | 0.038 | 0.030 | 0.12 | 0.19 | 0.16 | 0.81 | 0.84 | 13.1 | 12.2 |
+| club | 24 | workshop-fighter | workshop-rogue | right | 32 | 0.298 | 0.231 | 0.067 | 0.26 | 0.671 | 0.573 | 0.28 | 0.38 | 0.56 | 0.19 | 0.06 | 13.1 | 11.8 |
+| club | 24 | workshop-rogue | workshop-fighter | left | 32 | 0.130 | 0.165 | -0.034 | -0.19 | 0.506 | 0.481 | 0.11 | 0.41 | 0.38 | 0.41 | 0.41 | 11.3 | 9.7 |
+| club | 24 | workshop-rogue | workshop-fighter | right | 32 | 0.000 | 0.000 | 0.000 | 0.00 | 0.044 | 0.047 | -0.25 | 0.41 | 0.44 | 0.59 | 0.56 | 11.3 | 9.6 |
+| club | 24 | workshop-rogue | workshop-rogue | left | 32 | 0.000 | 0.000 | -0.000 | -0.18 | 0.004 | 0.046 | -0.35 | 0.59 | 0.53 | 0.41 | 0.47 | 16.1 | 16.8 |
+| club | 24 | workshop-rogue | workshop-rogue | right | 32 | 0.006 | 0.004 | 0.002 | 0.04 | 0.016 | 0.008 | 0.17 | 0.41 | 0.41 | 0.59 | 0.59 | 16.1 | 15.9 |
+| empty | 0 | workshop-fighter | workshop-fighter | left | 32 | 0.002 | 0.001 | 0.001 | 0.20 | 0.014 | 0.009 | 0.25 | 0.00 | 0.06 | 1.00 | 0.94 | 3.7 | 3.5 |
+| empty | 0 | workshop-fighter | workshop-fighter | right | 32 | 0.001 | 0.002 | -0.001 | -0.18 | 0.013 | 0.012 | 0.09 | 1.00 | 0.97 | 0.00 | 0.03 | 3.7 | 3.7 |
+| empty | 0 | workshop-fighter | workshop-rogue | left | 32 | 0.021 | 0.022 | -0.001 | -0.17 | 0.293 | 0.308 | -0.42 | 0.00 | 0.00 | 1.00 | 1.00 | 116.8 | 116.8 |
+| empty | 0 | workshop-fighter | workshop-rogue | right | 32 | 0.094 | 0.098 | -0.004 | -0.14 | 0.346 | 0.366 | -0.25 | 0.03 | 0.00 | 0.00 | 0.00 | 116.8 | 120.0 |
+| empty | 0 | workshop-rogue | workshop-fighter | left | 32 | 0.006 | 0.006 | 0.000 | 0.16 | 0.027 | 0.027 | -0.17 | 0.00 | 0.00 | 0.94 | 0.94 | 10.2 | 10.2 |
+| empty | 0 | workshop-rogue | workshop-fighter | right | 32 | 0.001 | 0.001 | -0.000 | -0.16 | 0.020 | 0.022 | -0.12 | 0.94 | 0.94 | 0.06 | 0.06 | 10.2 | 10.2 |
+| empty | 0 | workshop-rogue | workshop-rogue | left | 32 | 0.003 | 0.005 | -0.002 | -0.20 | 0.229 | 0.224 | 0.03 | 0.50 | 0.53 | 0.50 | 0.44 | 37.7 | 39.8 |
+| empty | 0 | workshop-rogue | workshop-rogue | right | 32 | 0.004 | 0.004 | 0.000 | 0.01 | 0.229 | 0.223 | 0.08 | 0.47 | 0.41 | 0.50 | 0.50 | 37.7 | 37.3 |
+| empty | 24 | workshop-fighter | workshop-fighter | left | 32 | 0.001 | 0.001 | -0.000 | -0.18 | 0.011 | 0.012 | -0.17 | 0.03 | 0.00 | 0.97 | 1.00 | 3.7 | 3.7 |
+| empty | 24 | workshop-fighter | workshop-fighter | right | 32 | 0.000 | 0.001 | -0.001 | -0.18 | 0.011 | 0.009 | 0.22 | 0.97 | 0.97 | 0.03 | 0.03 | 3.7 | 3.6 |
+| empty | 24 | workshop-fighter | workshop-rogue | left | 32 | 0.021 | 0.023 | -0.002 | -0.18 | 0.284 | 0.286 | -0.03 | 0.00 | 0.03 | 1.00 | 0.97 | 116.9 | 115.2 |
+| empty | 24 | workshop-fighter | workshop-rogue | right | 32 | 0.087 | 0.086 | 0.001 | 0.08 | 0.324 | 0.333 | -0.18 | 0.03 | 0.03 | 0.00 | 0.00 | 116.9 | 116.9 |
+| empty | 24 | workshop-rogue | workshop-fighter | left | 32 | 0.003 | 0.003 | -0.000 | -0.18 | 0.013 | 0.011 | 0.18 | 0.00 | 0.00 | 0.97 | 0.97 | 6.6 | 6.6 |
+| empty | 24 | workshop-rogue | workshop-fighter | right | 32 | 0.001 | 0.000 | 0.000 | 0.18 | 0.008 | 0.009 | -0.18 | 0.97 | 0.97 | 0.03 | 0.03 | 6.6 | 6.6 |
+| empty | 24 | workshop-rogue | workshop-rogue | left | 32 | 0.005 | 0.004 | 0.001 | 0.14 | 0.179 | 0.171 | 0.07 | 0.47 | 0.56 | 0.50 | 0.44 | 27.9 | 26.0 |
+| empty | 24 | workshop-rogue | workshop-rogue | right | 32 | 0.003 | 0.002 | 0.001 | 0.19 | 0.169 | 0.159 | 0.08 | 0.50 | 0.66 | 0.50 | 0.34 | 27.9 | 24.2 |
+| club | 0 | every | pair | either | 256 | 0.140 | 0.161 | -0.021 | -0.10 | 0.243 | 0.276 | -0.12 | 0.36 | 0.35 | 0.50 | 0.48 | 11.6 | 12.0 |
+| club | 24 | every | pair | either | 256 | 0.100 | 0.093 | 0.007 | 0.06 | 0.241 | 0.232 | 0.05 | 0.38 | 0.39 | 0.50 | 0.50 | 12.1 | 11.6 |
+| empty | 0 | every | pair | either | 256 | 0.017 | 0.018 | -0.001 | -0.08 | 0.146 | 0.149 | -0.04 | 0.37 | 0.36 | 0.50 | 0.49 | 42.1 | 42.7 |
+| empty | 24 | every | pair | either | 256 | 0.015 | 0.015 | 0.000 | 0.01 | 0.125 | 0.124 | 0.02 | 0.37 | 0.40 | 0.50 | 0.47 | 38.8 | 37.8 |
+| every | delay | every | pair | either | 1024 | 0.068 | 0.072 | -0.004 | -0.03 | 0.189 | 0.195 | -0.04 | 0.37 | 0.38 | 0.50 | 0.48 | 26.2 | 26.0 |
+
+The blows the covering side met a bout, by the surface it met them with.
+
+| Held | Delay | Left | Right | Covers | head, pose | cover | trunk, pose | cover | arm, pose | cover | item, pose | cover | other, pose | cover |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| club | 0 | workshop-fighter | workshop-fighter | left | 0.75 | 0.50 | 0.28 | 0.22 | 2.16 | 1.81 | 2.44 | 2.75 | 0.13 | 0.13 |
+| club | 0 | workshop-fighter | workshop-fighter | right | 0.97 | 0.53 | 0.22 | 0.34 | 2.34 | 1.78 | 2.06 | 1.38 | 0.16 | 0.25 |
+| club | 0 | workshop-fighter | workshop-rogue | left | 0.00 | 0.00 | 0.16 | 0.09 | 0.72 | 0.97 | 2.88 | 2.94 | 0.03 | 0.06 |
+| club | 0 | workshop-fighter | workshop-rogue | right | 1.31 | 1.44 | 0.53 | 0.38 | 0.75 | 1.66 | 0.94 | 0.53 | 0.25 | 0.09 |
+| club | 0 | workshop-rogue | workshop-fighter | left | 0.50 | 0.56 | 0.19 | 0.25 | 0.38 | 0.69 | 0.53 | 0.31 | 0.09 | 0.16 |
+| club | 0 | workshop-rogue | workshop-fighter | right | 0.03 | 0.03 | 0.03 | 0.06 | 0.47 | 0.63 | 1.09 | 1.53 | 0.06 | 0.03 |
+| club | 0 | workshop-rogue | workshop-rogue | left | 0.47 | 0.25 | 0.56 | 0.28 | 0.69 | 0.44 | 2.94 | 2.03 | 0.31 | 0.16 |
+| club | 0 | workshop-rogue | workshop-rogue | right | 0.63 | 0.47 | 0.78 | 1.25 | 0.97 | 0.97 | 2.25 | 2.06 | 0.34 | 0.47 |
+| club | 24 | workshop-fighter | workshop-fighter | left | 0.41 | 0.38 | 0.31 | 0.34 | 1.22 | 0.78 | 1.53 | 1.47 | 0.09 | 0.19 |
+| club | 24 | workshop-fighter | workshop-fighter | right | 0.53 | 0.53 | 0.28 | 0.31 | 1.50 | 1.66 | 1.09 | 1.44 | 0.16 | 0.19 |
+| club | 24 | workshop-fighter | workshop-rogue | left | 0.25 | 0.00 | 0.09 | 1.16 | 0.63 | 0.81 | 3.28 | 2.34 | 0.03 | 0.28 |
+| club | 24 | workshop-fighter | workshop-rogue | right | 0.75 | 0.75 | 0.84 | 0.53 | 1.34 | 0.91 | 0.69 | 0.56 | 0.66 | 0.63 |
+| club | 24 | workshop-rogue | workshop-fighter | left | 0.38 | 0.34 | 0.41 | 0.31 | 1.31 | 0.78 | 1.22 | 0.75 | 0.41 | 0.25 |
+| club | 24 | workshop-rogue | workshop-fighter | right | 0.00 | 0.00 | 0.25 | 0.22 | 0.34 | 0.41 | 3.03 | 2.16 | 0.09 | 0.19 |
+| club | 24 | workshop-rogue | workshop-rogue | left | 0.00 | 0.03 | 0.16 | 0.31 | 0.34 | 0.31 | 2.06 | 1.50 | 0.13 | 0.16 |
+| club | 24 | workshop-rogue | workshop-rogue | right | 0.28 | 0.03 | 0.78 | 0.31 | 0.53 | 0.50 | 0.91 | 1.03 | 0.19 | 0.19 |
+| empty | 0 | workshop-fighter | workshop-fighter | left | 0.84 | 0.53 | 1.38 | 0.88 | 4.63 | 2.44 | 0.00 | 0.00 | 0.63 | 0.44 |
+| empty | 0 | workshop-fighter | workshop-fighter | right | 0.59 | 0.50 | 1.06 | 0.78 | 5.19 | 4.03 | 0.00 | 0.00 | 0.63 | 0.50 |
+| empty | 0 | workshop-fighter | workshop-rogue | left | 55.81 | 60.66 | 597.72 | 637.81 | 876.28 | 883.50 | 0.00 | 0.00 | 130.31 | 132.00 |
+| empty | 0 | workshop-fighter | workshop-rogue | right | 341.00 | 348.59 | 39.13 | 43.09 | 1241.72 | 1282.88 | 0.00 | 0.00 | 38.28 | 44.88 |
+| empty | 0 | workshop-rogue | workshop-fighter | left | 23.94 | 22.59 | 3.47 | 3.25 | 83.75 | 76.91 | 0.00 | 0.00 | 2.28 | 3.09 |
+| empty | 0 | workshop-rogue | workshop-fighter | right | 3.25 | 3.69 | 40.56 | 40.25 | 58.94 | 57.19 | 0.00 | 0.00 | 10.69 | 9.41 |
+| empty | 0 | workshop-rogue | workshop-rogue | left | 14.59 | 14.91 | 183.06 | 180.56 | 429.69 | 428.41 | 0.00 | 0.00 | 195.94 | 193.41 |
+| empty | 0 | workshop-rogue | workshop-rogue | right | 16.78 | 15.72 | 169.16 | 168.50 | 445.13 | 435.03 | 0.00 | 0.00 | 192.22 | 191.03 |
+| empty | 24 | workshop-fighter | workshop-fighter | left | 0.22 | 0.31 | 0.50 | 0.59 | 6.50 | 5.09 | 0.00 | 0.00 | 0.78 | 0.75 |
+| empty | 24 | workshop-fighter | workshop-fighter | right | 0.41 | 0.38 | 0.50 | 0.84 | 6.69 | 5.19 | 0.00 | 0.00 | 0.41 | 0.72 |
+| empty | 24 | workshop-fighter | workshop-rogue | left | 55.28 | 56.00 | 568.69 | 593.50 | 856.91 | 850.97 | 0.00 | 0.00 | 120.09 | 118.13 |
+| empty | 24 | workshop-fighter | workshop-rogue | right | 307.03 | 315.50 | 40.19 | 40.25 | 1210.78 | 1224.16 | 0.00 | 0.00 | 42.97 | 35.16 |
+| empty | 24 | workshop-rogue | workshop-fighter | left | 10.75 | 8.03 | 1.72 | 1.50 | 42.66 | 37.63 | 0.00 | 0.00 | 0.72 | 1.03 |
+| empty | 24 | workshop-rogue | workshop-fighter | right | 1.94 | 1.06 | 20.38 | 16.47 | 27.88 | 27.56 | 0.00 | 0.00 | 5.66 | 5.06 |
+| empty | 24 | workshop-rogue | workshop-rogue | left | 10.63 | 6.19 | 112.13 | 93.25 | 249.19 | 232.03 | 0.00 | 0.00 | 108.66 | 106.34 |
+| empty | 24 | workshop-rogue | workshop-rogue | right | 7.16 | 3.59 | 101.81 | 80.88 | 263.28 | 213.66 | 0.00 | 0.00 | 108.34 | 95.03 |
+
+The bar: covering saves the head at d over 0.2 in 1 of 32 cells, and in 0 of them with no more falls; the least d is -0.43.
+
+The same with clubs on fresh gaps, the sequence from its 1000th (`--from 1000 --held club`),
+3.06 to 4.99 m: the first threat of the [sweep](#sweep-1).
+
+| Held | Delay | Left | Right | Covers | Gaps | Head HP, pose | cover | Saved | d | HP, pose | cover | d | Fell, pose | cover | Won, pose | cover | Seconds, pose | cover |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| club | 0 | workshop-fighter | workshop-fighter | left | 32 | 0.190 | 0.121 | 0.069 | 0.24 | 0.332 | 0.297 | 0.12 | 0.16 | 0.22 | 0.72 | 0.69 | 9.0 | 9.9 |
+| club | 0 | workshop-fighter | workshop-fighter | right | 32 | 0.118 | 0.075 | 0.044 | 0.18 | 0.257 | 0.207 | 0.16 | 0.66 | 0.66 | 0.28 | 0.31 | 9.0 | 9.9 |
+| club | 0 | workshop-fighter | workshop-rogue | left | 32 | 0.000 | 0.001 | -0.001 | -0.11 | 0.087 | 0.047 | 0.27 | 0.06 | 0.09 | 0.94 | 0.91 | 14.6 | 12.4 |
+| club | 0 | workshop-fighter | workshop-rogue | right | 32 | 0.611 | 0.486 | 0.125 | 0.32 | 0.894 | 0.766 | 0.27 | 0.22 | 0.25 | 0.06 | 0.16 | 14.6 | 12.6 |
+| club | 0 | workshop-rogue | workshop-fighter | left | 32 | 0.292 | 0.317 | -0.026 | -0.07 | 0.432 | 0.420 | 0.03 | 0.22 | 0.16 | 0.50 | 0.44 | 10.5 | 9.1 |
+| club | 0 | workshop-rogue | workshop-fighter | right | 32 | 0.018 | 0.019 | -0.002 | -0.13 | 0.062 | 0.046 | 0.14 | 0.47 | 0.50 | 0.50 | 0.47 | 10.5 | 11.7 |
+| club | 0 | workshop-rogue | workshop-rogue | left | 32 | 0.001 | 0.000 | 0.001 | 0.24 | 0.031 | 0.011 | 0.19 | 0.41 | 0.50 | 0.59 | 0.50 | 14.5 | 14.5 |
+| club | 0 | workshop-rogue | workshop-rogue | right | 32 | 0.043 | 0.042 | 0.001 | 0.08 | 0.091 | 0.114 | -0.22 | 0.53 | 0.38 | 0.41 | 0.56 | 14.5 | 15.6 |
+| club | 24 | workshop-fighter | workshop-fighter | left | 32 | 0.194 | 0.194 | 0.000 | 0.00 | 0.276 | 0.271 | 0.18 | 0.09 | 0.19 | 0.72 | 0.63 | 10.2 | 9.0 |
+| club | 24 | workshop-fighter | workshop-fighter | right | 32 | 0.179 | 0.136 | 0.043 | 0.26 | 0.414 | 0.346 | 0.30 | 0.53 | 0.53 | 0.28 | 0.31 | 10.2 | 7.9 |
+| club | 24 | workshop-fighter | workshop-rogue | left | 32 | 0.000 | 0.000 | 0.000 | 0.00 | 0.064 | 0.064 | -0.01 | 0.06 | 0.16 | 0.94 | 0.84 | 13.3 | 14.0 |
+| club | 24 | workshop-fighter | workshop-rogue | right | 32 | 0.175 | 0.162 | 0.013 | 0.18 | 0.705 | 0.667 | 0.15 | 0.69 | 0.72 | 0.06 | 0.03 | 13.3 | 11.6 |
+| club | 24 | workshop-rogue | workshop-fighter | left | 32 | 0.108 | 0.167 | -0.059 | -0.26 | 0.562 | 0.593 | -0.15 | 0.34 | 0.31 | 0.41 | 0.38 | 10.4 | 9.6 |
+| club | 24 | workshop-rogue | workshop-fighter | right | 32 | 0.000 | 0.000 | -0.000 | -0.18 | 0.049 | 0.050 | -0.03 | 0.41 | 0.44 | 0.59 | 0.56 | 10.4 | 9.6 |
+| club | 24 | workshop-rogue | workshop-rogue | left | 32 | 0.003 | 0.020 | -0.018 | -0.25 | 0.038 | 0.028 | 0.08 | 0.41 | 0.63 | 0.59 | 0.31 | 17.2 | 14.1 |
+| club | 24 | workshop-rogue | workshop-rogue | right | 32 | 0.015 | 0.015 | 0.000 | 0.17 | 0.064 | 0.039 | 0.30 | 0.59 | 0.56 | 0.41 | 0.44 | 17.2 | 14.2 |
+| club | 0 | every | pair | either | 256 | 0.159 | 0.133 | 0.026 | 0.11 | 0.273 | 0.238 | 0.12 | 0.34 | 0.34 | 0.50 | 0.50 | 12.1 | 12.0 |
+| club | 24 | every | pair | either | 256 | 0.084 | 0.087 | -0.003 | -0.02 | 0.272 | 0.257 | 0.09 | 0.39 | 0.44 | 0.50 | 0.44 | 12.8 | 11.2 |
+| every | delay | every | pair | either | 512 | 0.122 | 0.110 | 0.012 | 0.06 | 0.273 | 0.248 | 0.11 | 0.37 | 0.39 | 0.50 | 0.47 | 12.5 | 11.6 |
+
+| Held | Delay | Left | Right | Covers | head, pose | cover | trunk, pose | cover | arm, pose | cover | item, pose | cover | other, pose | cover |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| club | 0 | workshop-fighter | workshop-fighter | left | 0.97 | 0.66 | 0.31 | 0.41 | 2.66 | 2.81 | 2.16 | 2.03 | 0.22 | 0.09 |
+| club | 0 | workshop-fighter | workshop-fighter | right | 0.72 | 0.41 | 0.22 | 0.44 | 2.97 | 1.31 | 2.25 | 2.31 | 0.16 | 0.22 |
+| club | 0 | workshop-fighter | workshop-rogue | left | 0.06 | 0.03 | 0.19 | 0.13 | 0.88 | 1.09 | 3.13 | 2.44 | 0.03 | 0.13 |
+| club | 0 | workshop-fighter | workshop-rogue | right | 1.13 | 1.06 | 0.63 | 0.38 | 0.94 | 1.94 | 1.25 | 0.97 | 0.34 | 0.34 |
+| club | 0 | workshop-rogue | workshop-fighter | left | 0.81 | 0.75 | 0.41 | 0.28 | 0.97 | 0.97 | 1.13 | 0.81 | 0.19 | 0.25 |
+| club | 0 | workshop-rogue | workshop-fighter | right | 0.06 | 0.13 | 0.34 | 0.22 | 0.78 | 0.75 | 2.22 | 2.44 | 0.09 | 0.09 |
+| club | 0 | workshop-rogue | workshop-rogue | left | 0.16 | 0.00 | 0.41 | 0.09 | 0.34 | 0.66 | 1.94 | 1.66 | 0.13 | 0.19 |
+| club | 0 | workshop-rogue | workshop-rogue | right | 0.13 | 0.16 | 0.06 | 0.31 | 1.09 | 0.41 | 1.16 | 0.81 | 0.53 | 0.72 |
+| club | 24 | workshop-fighter | workshop-fighter | left | 0.25 | 0.25 | 0.09 | 0.09 | 0.78 | 0.72 | 1.75 | 1.44 | 0.06 | 0.06 |
+| club | 24 | workshop-fighter | workshop-fighter | right | 0.69 | 0.50 | 0.41 | 0.28 | 1.16 | 1.13 | 0.53 | 0.53 | 0.16 | 0.13 |
+| club | 24 | workshop-fighter | workshop-rogue | left | 0.00 | 0.00 | 0.34 | 0.28 | 1.00 | 0.94 | 2.34 | 2.63 | 0.34 | 0.50 |
+| club | 24 | workshop-fighter | workshop-rogue | right | 0.66 | 0.44 | 0.47 | 0.53 | 0.88 | 0.84 | 1.50 | 1.03 | 0.53 | 0.50 |
+| club | 24 | workshop-rogue | workshop-fighter | left | 0.34 | 0.38 | 0.50 | 0.41 | 0.53 | 0.34 | 0.78 | 0.72 | 0.44 | 0.31 |
+| club | 24 | workshop-rogue | workshop-fighter | right | 0.00 | 0.03 | 0.09 | 0.13 | 0.44 | 0.75 | 1.91 | 1.63 | 0.16 | 0.19 |
+| club | 24 | workshop-rogue | workshop-rogue | left | 0.13 | 0.06 | 0.19 | 0.03 | 0.22 | 0.09 | 1.63 | 1.69 | 0.28 | 0.06 |
+| club | 24 | workshop-rogue | workshop-rogue | right | 0.16 | 0.19 | 0.34 | 0.31 | 0.75 | 0.81 | 0.94 | 0.72 | 0.25 | 0.31 |
+
+The bar: covering saves the head at d over 0.2 in 4 of 16 cells, and in 1 of them with no more falls; the least d is -0.26.
+
+- **The bar is missed on both sets.** Pooled over every cell the head's d is -0.03 on the
+  first gaps (1024 pairs) and 0.06 on the fresh ones (512 pairs, clubs), and all the hit points
+  lost read -0.04 and 0.11. The covering side falls in 0.38 and 0.39 of its bouts where the pose
+  falls in 0.37, and wins 0.48 and 0.47.
+- **A cell of 32 gaps is noise.** The Warrior against the Rogue with the Rogue covering, clubs,
+  nothing delayed, reads d -0.43 on the first gaps and 0.32 on the fresh ones. The pooled rows
+  are what is read; the sets of 384 gaps the bar was written for were not played, since no
+  pooled row on either set comes near 0.2.
+- **Fewer blows meet the head, and it loses no less.** In the Warriors' mirror with clubs on
+  the first gaps the covering side's head meets 0.50 and 0.53 blows a bout where it met 0.75
+  and 0.97, and loses 0.174 and 0.141 HP where it lost 0.134 and 0.140.
+- **Bare-handed there is nothing to save.** A head loses 0.000 to 0.098 HP a bout to bare hands
+  either way, and the pooled d is -0.08 and 0.01.
+- **Fighters go on in the pose** (`FIGHTER.guard`). The cover is a skill a config asks for
+  (`&guard=cover` on the arena's address); why it does not save the head is in
+  [How late a cover is](#how-late-a-cover-is).

@@ -195,7 +195,15 @@ braking and blocking). A muscle can never exceed its source's strength at its sp
   recipe; walks the body to where the target sits in the blow's window, sets the feet, stands
   `STAND` seconds, chooses again by the head as it stands, and throws. While a strike runs it
   owns the legs and trunk, and the other hand guards.
-- **Guard** (`guard.ts`, `GUARD`) is the arms' posture when nothing else owns them.
+- **Guard** (`guard.ts`) is a skill in the one list, and has the hands the strike has not. Its
+  pose (`GUARD`) is the arms' posture when nothing else owns them. A guarding hand told what to
+  cover (`Cover`: where the threat is, and the place of its own body kept from it) is given a
+  hand goal that follows the two (`GUARD_COVER`): an empty hand's knuckles go between them,
+  `out` from the place guarded; an item that names two points to cover with (`ItemSpec.cover`,
+  the club's swell) has their middle there and their line square to the threat's, the way
+  nearest how it lies. There is no block and no parry: a club across a blow's line, a hand before
+  the face and a shield raised are this one skill placing different points, and what a cover
+  costs is the blows' rule's.
 
 ### Minds
 
@@ -286,6 +294,14 @@ angle between its heading and its walk (`STRAFE`, [reference/orders.md](referenc
 Given a point it attacks it with its right hand, the strike skill closing the distance, while the
 left guards. The stance turns only while it walks, so a standing body ordered to face does not
 turn.
+
+A hand that does not attack guards as the mind's config says (`FighterMindConfig.guard`): in the
+pose, or by a cover of what threatens its head. The threat is read from the senses (`threatOf`,
+`threat.ts`): of the other sides' bodies still in the fight, the point each hand strikes with
+(its knuckles, or its club's swell) that closes fastest on the head, within `THREAT`'s distance
+and over its speed. What is sensed is as old as the senses' delay, and nothing corrects for it.
+Every body's fighter guards in the pose (`FIGHTER`); an arena link's `&guard=cover` gives both
+sides the cover ([reference/blows.md](reference/blows.md#guard-battery)).
 
 Orders come from three places. An arena side nobody has taken makes its own (`seekFoe`): from
 its senses it picks the nearest body of another side still in the fight, walks at it, and attacks
@@ -418,7 +434,7 @@ file or a link gives the orders the bout gave.
 
 A tape rides in a link's fragment, which no server is sent (`#tape=`, `readTape` and `tapeHash`
 in `src/arena/matchup.ts`), with the rest of its recipe in the link's query (`&gap=`, `&cap=`,
-`&balance=`). The arena plays a bout whose link carries a tape with nobody at the keys, and a
+`&balance=`, `&guard=`). The arena plays a bout whose link carries a tape with nobody at the keys, and a
 tape made in Node plays its bout in a browser.
 
 **A bout forks** (`rollout`, `research/rollouts.mjs`) by a load: a bout of the recipe, which the

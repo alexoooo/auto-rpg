@@ -39,11 +39,11 @@ test("a body obeys its command and shows what it does", async () => {
       // the root's turn since then, against its fists.
       for (const hand of ["left", "right"]) {
         const turn = root.node.rotationQuaternion.multiply(Quaternion.Inverse(root.rest));
-        const world = view.knuckles[hand].subtract(Vector3.FromArray(root.frame.origin)).applyRotationQuaternion(turn).addInPlace(root.node.position);
+        const world = view.points[hand].knuckles.subtract(Vector3.FromArray(root.frame.origin)).applyRotationQuaternion(turn).addInPlace(root.node.position);
         seen.gap = Math.max(seen.gap, Vector3.Distance(world, view.fists[hand].position));
       }
       const t = view.time;
-      if (t >= 1 && !goal) goal = view.knuckles.right.add(new Vector3(0, 0.1, 0.25)).asArray();
+      if (t >= 1 && !goal) goal = view.points.right.knuckles.add(new Vector3(0, 0.1, 0.25)).asArray();
       // A goal equal to the last, made afresh each step, as the skills would.
       const right = t >= 1 && t < 3 ? { places: [{ point: "knuckles", position: [...goal] }], seconds: 0.4 } : null;
       const pushing = t >= 2 && t < 2.15;
@@ -56,7 +56,7 @@ test("a body obeys its command and shows what it does", async () => {
     stand.step(stand.seconds(1));
     const held = off(Object.keys(posture));
     stand.step(stand.seconds(1));
-    const reached = Vector3.Distance(body.view.knuckles.right, Vector3.FromArray(goal));
+    const reached = Vector3.Distance(body.view.points.right.knuckles, Vector3.FromArray(goal));
     stand.step(stand.seconds(0.15));
     const opened = angles["elbow.left flexion"] - straight;
     stand.step(stand.seconds(1.85));

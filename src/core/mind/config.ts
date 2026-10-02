@@ -1,4 +1,6 @@
+import type { Covering } from "../skills/guard.ts";
 import { deepFreeze } from "../state.ts";
+import type { Threat } from "./threat.ts";
 
 /** Lie still while down: ask the muscles for nothing (`lying`, `lie.ts`). */
 interface LieConfig { readonly kind: "lie" }
@@ -14,6 +16,12 @@ export interface FighterMindConfig {
   readonly kind: "fighter";
   /** The sub-minds it hands its body to, in rank order: the first that wants the body has it. */
   readonly subs: readonly SubMindConfig[];
+  /** How a hand that does not attack guards: the pose, or a cover of what threatens (`threatOf`, `threat.ts`). */
+  readonly guard: "pose" | "cover";
+  /** An experiment's cover in place of the one set (`GUARD_COVER`): a sweep's cell. */
+  readonly covering?: Covering;
+  /** An experiment's threat in place of the one set (`THREAT`): a sweep's cell. */
+  readonly threat?: Threat;
 }
 
 /**
@@ -23,4 +31,4 @@ export interface FighterMindConfig {
 export type MindConfig = FighterMindConfig;
 
 /** The mind every body has unless its fight says otherwise. */
-export const FIGHTER: FighterMindConfig = deepFreeze({ kind: "fighter", subs: [{ kind: "lie" }] });
+export const FIGHTER: FighterMindConfig = deepFreeze({ kind: "fighter", subs: [{ kind: "lie" }], guard: "pose" });

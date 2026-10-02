@@ -1,11 +1,13 @@
 /**
  * **Orders** (`src/core/mind/orders.ts`) and the tactics that carry them out (`fighterTactics`,
- * `src/core/mind/fighter.ts`): what an order becomes as an intent, on sights made by hand, and a
- * body walking one way while it faces another (Node stand, Rapier, 120 Hz: the Warrior with the
+ * `src/core/mind/fighter.ts`): what an order becomes as an intent, on sights made by hand, what a
+ * hand that does not attack is given under each way of guarding, and a body walking one way while
+ * it faces another (Node stand, Rapier, 120 Hz: the Warrior with the
  * club in its right hand).
  */
 import test from "node:test";
 import assert from "node:assert/strict";
+import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { createBody, SERVO_SECONDS } from "../src/core/body.ts";
 import { armed } from "../src/core/human/grip.ts";
 import { modelSpec } from "../src/core/human/spec.ts";
@@ -14,6 +16,7 @@ import { fighterTactics, STRAFE } from "../src/core/mind/fighter.ts";
 import { GUARD_ACTION } from "../src/core/mind/intent.ts";
 import { sameOrders, STAND_ORDERS } from "../src/core/mind/orders.ts";
 import { driveBy } from "../src/core/mind/tactics.ts";
+import { threatOf } from "../src/core/mind/threat.ts";
 import { coreStand } from "./harness/core-stand.mjs";
 
 const QUARTER = Math.PI / 2, WALK = 0.7;
@@ -70,6 +73,38 @@ test("tactics_turn_orders_into_an_intent", () => {
   const slow = fighterTactics("orders", () => ({ move: EAST, face: NORTH, attack: null }), { ...STRAFE, share: 0.25 })
     .decide({ view: { resumed: false }, report: { heading: 0, strike: { thrown: { right: 0 } } }, envelope: { walk: { value: WALK } } }, 1 / 120);
   is(slow, [0, 0.175], 0, "a quarter share");
+});
+
+test("a_fighter_told_to_cover_gives_the_cover_to_the_hand_that_does_not_attack", () => {
+  // A sight with one foe, whose left hand hangs still two metres off and whose right hand's frame
+  // is 0.6 m before the head, coming at it at `speed` m/s.
+  const head = new Vector3(0, 1.6, 0);
+  const sensedHand = (at, velocity) => ({ position: at, rotation: Quaternion.Identity(), centre: at, velocity, spin: Vector3.Zero() });
+  const sight = (speed) => ({
+    view: { resumed: false, head, senses: { time: 0, side: "left", out: false, others: [{
+      id: "foe", side: "right", spec: modelSpec("workshop-fighter"), out: false, centre: new Vector3(0, 1, 2), velocity: Vector3.Zero(),
+      segments: new Map([["hand.left", sensedHand(new Vector3(0.2, 1.2, 2), Vector3.Zero())], ["hand.right", sensedHand(new Vector3(0, 1.6, 0.6), new Vector3(0, 0, -speed))]]),
+    }] } },
+    report: { heading: 0, strike: { thrown: { right: 0 } } }, envelope: { walk: { value: WALK } },
+  });
+  const hands = (guard, orders, speed) => fighterTactics("orders", () => orders, STRAFE, guard).decide(sight(speed), 1 / 120).hands;
+  const attack = { move: null, face: null, attack: [0, 1.6, 1] }, struck = { kind: "attack", target: [0, 1.6, 1] };
+  const cover = threatOf(sight(5).view);
+  assert.ok(cover && Math.hypot(cover.threat[0], cover.threat[1] - 1.6, cover.threat[2] - 0.6) < 0.2, `the sight's threat: ${JSON.stringify(cover)}`);
+  assert.deepEqual(cover.guarded, [0, 1.6, 0]);
+  assert.equal(threatOf(sight(1).view), null, "a hand that comes slowly is no threat");
+  // Told to cover: the hand that does not attack covers, and both do when neither attacks.
+  assert.deepEqual(hands("cover", attack, 5), { left: { kind: "guard", cover }, right: struck });
+  assert.deepEqual(hands("cover", STAND_ORDERS, 5), { left: { kind: "guard", cover }, right: { kind: "guard", cover } });
+  assert.deepEqual(hands("cover", { move: EAST, face: null, attack: null }, 5), { left: { kind: "guard", cover }, right: { kind: "guard", cover } });
+  // With nothing threatening, the plain guard.
+  assert.deepEqual(hands("cover", attack, 1), { left: GUARD_ACTION, right: struck });
+  assert.deepEqual(hands("cover", STAND_ORDERS, 1), { left: GUARD_ACTION, right: GUARD_ACTION });
+  // In the pose, the plain guard whatever threatens.
+  assert.deepEqual(hands("pose", attack, 5), { left: GUARD_ACTION, right: struck });
+  assert.deepEqual(hands("pose", STAND_ORDERS, 5), { left: GUARD_ACTION, right: GUARD_ACTION });
+  // A way of guarding nobody knows is refused as the tactics are made.
+  assert.throws(() => fighterTactics("orders", () => STAND_ORDERS, STRAFE, "shield"), /in the pose or by a cover, not by "shield"/);
 });
 
 test("a_body_walks_one_way_while_it_faces_another", async () => {

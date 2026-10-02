@@ -15,7 +15,7 @@ import { loadSkeletonArt, type SkeletonArt } from "../render/skeleton-skin.ts";
 import { drawHeld, type BodyShapes } from "../render/body-shapes.ts";
 import { dresserFor, type Dresser } from "../render/dress.ts";
 import { Duel, SIDES, type DuelEnding, type Side, type Verdict } from "./duel.ts";
-import { MATCHUP_PARAM, MODEL_LABELS, matchupSearch, readBalance, readCap, readGap, readHeld, readMatchup, readTape, readYou, youSearch, type Matchup } from "./matchup.ts";
+import { MATCHUP_PARAM, MODEL_LABELS, matchupSearch, readBalance, readCap, readGap, readGuard, readHeld, readMatchup, readTape, readYou, youSearch, type Matchup } from "./matchup.ts";
 import { ORBIT, orbitPosition } from "./orbit.ts";
 import { aimPoint, keysToMove, personOrders } from "./orders-input.ts";
 
@@ -126,10 +126,10 @@ export async function bootArena(): Promise<void> {
     const dress = new Map(await Promise.all(SIDES.map(async (side) => [side, await dresser(matchup[side])] as const)));
     end();
     audio.reset();
-    const balance = readBalance(location.search), gap = readGap(location.search), capSeconds = readCap(location.search), held = readHeld(location.search);
+    const balance = readBalance(location.search), gap = readGap(location.search), capSeconds = readCap(location.search), held = readHeld(location.search), minds = readGuard(location.search);
     duel = new Duel(world, {
       left: matchup.left, right: matchup.right,
-      ...(gap !== undefined ? { gap } : {}), ...(capSeconds !== undefined ? { capSeconds } : {}), ...(balance ? { balance } : {}), ...(held ? { held } : {}),
+      ...(gap !== undefined ? { gap } : {}), ...(capSeconds !== undefined ? { capSeconds } : {}), ...(balance ? { balance } : {}), ...(held ? { held } : {}), ...(minds ? { minds } : {}),
     }, {
       onBuilt: (duelist, built) => {
         for (const view of [dress.get(duelist.side)!(built), drawHeld(built, scene)]) {
