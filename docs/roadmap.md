@@ -68,6 +68,12 @@ All of it on a physically based core, humans first ([architecture](architecture.
   bodies and aim orders with the engine's `Math` (`src/lab/`, `src/dungeon/`), so a lab scenario
   or a crypt run is not yet held to be the same in every engine; the boundary test's
   `WORLD_BUILDERS` names the modules it holds, and theirs join it when they are moved.
+- Thinking that takes longer than a step has no place yet: the crypt plans inside its step, and
+  a rollout, a planner or a learned mind's slow part would too. Designed, with its plans, and
+  nothing built ([plans/2026-10-02-thinking-00-design.md](plans/2026-10-02-thinking-00-design.md)):
+  a thought is a pure function asked at one step and answered at a named later one, so it may be
+  thought in a worker and the game is the same to the bit; when an answer is late the world
+  waits (the owner's choice).
 - The tactics (`fighterTactics`) cannot yet attack a moving body.
 - A fighter can cover its head against a blow it sees coming (`guard: "cover"`,
   `&guard=cover`), and does not unless asked: the cover is late, and saves no more of the head
@@ -260,6 +266,15 @@ All of it on a physically based core, humans first ([architecture](architecture.
   ([stance tuning](reference/stance-tuning.md#bounded-swing)). No sourced human reference exists
   for shove impulses or for reversal time.
 - The stance does not model the thighs touching.
+- The reach solver runs to its cap. A hand sent to a place is solved three times a step
+  (`solveReach`), and most of those solves take all 200 passes: at its place the solve never
+  falls under the 1e-10 rad it stops at, the noise of its differenced Jacobian being larger, and
+  out of reach it turns back and forth by the most a pass may. In a bout of the Warrior against
+  the Rogue that is 42 steps in a row of 6 to 11 ms where the median step is 1.2 ms, and a place
+  out of reach is answered by whichever end of the swing the last pass is
+  ([reference/step-cost.md](reference/step-cost.md#the-reach-solver-at-its-cap)). A looser stop
+  ends the first kind; halving the turn does not end the second; every remedy is another bout,
+  and comes with its table.
 - A hand goal has no orientation or speed yet, and the trunk takes no goal.
 - Attributes: a size range (x0.9-1.18), a weight range (x0.85-1.25), and arm speed as a muscle's
   fibre share.
@@ -303,10 +318,24 @@ All of it on a physically based core, humans first ([architecture](architecture.
   clock alone. A crypt on senses, and a hero that walks one way and faces another, are not built.
 - Set, and to measure on the core ([reference/play.md](reference/play.md)): how long a hero
   facing the cursor stands being hit from behind, with `SET_UPON` and `AIM_COSINE` and without.
+- How many bodies a step carries ([reference/step-cost.md](reference/step-cost.md#bodies-in-a-step)):
+  a body under control costs 0.58 to 0.61 ms of a step's 8.33, so fourteen are real time in Node
+  with nothing drawn. The owner's choice is a game designed inside that, with only the near
+  ones under control: a cap on the bodies at full, set by one rule
+  ([plans/2026-10-02-thinking-03-levels.md](plans/2026-10-02-thinking-03-levels.md)), not built.
+  The owner's to choose: the cap (8 as planned: a party of four leaves four enemies fighting at
+  once, the rest in reach standing held until a place is free), from a page's reading on the
+  owner's machine; and what becomes of the dead, below.
+- A step allocates 0.54 MiB a body. The collector takes about 1 % of the step; the cost is in
+  the code that allocates, and its remedy is planned and not built
+  ([plans/2026-10-02-thinking-04-garbage.md](plans/2026-10-02-thinking-04-garbage.md)).
 - The crypt's step ([reference/play.md](reference/play.md#bodies-in-the-step)): a body out of
   the fight lies limp and still costs the solver 0.28 ms a step. Fixed where it lies once it is
   still, it would cost 0.02 ms and could not be pushed aside; an engine that let it rest would
-  take none until something touched it.
+  take none until something touched it. Put to sleep through Rapier's own rigid bodies, four limp
+  skeletons cost under 0.01 ms each and a ball dropped on one wakes it alone; of eight, three
+  woke of themselves and a segment read 49 m/s, which is not understood
+  ([reference/step-cost.md](reference/step-cost.md#a-limp-body-put-to-sleep)).
 - Hearing a run costs 8 to 11 % of its step
   ([reference/play.md](reference/play.md#hearing-in-the-step)), nearly all of it asking the
   engine what is near every segment, every step. Rapier's collision events tell of a contact as

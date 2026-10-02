@@ -75,6 +75,31 @@ node research/assist-sweep.mjs --workers 14
 node research/oracle.mjs --all --side both --workers 14 --out research/runs/oracle
 ```
 
+## The step
+
+What a world step takes in time and in memory: Node, the core's world, Rapier, 120 Hz. The times
+are wall time on the machine a script runs on, read on a quiet one; the bytes and the counts are
+the same on any machine.
+
+| Script | What it measures | Writes |
+|---|---|---|
+| `body-cost.mjs` | what a body costs a step by its state: standing, held, let go, felled, lying, limp, rising; the solver's part and the rest | the table, pasted into `docs/reference/play.md` |
+| `crypt-step.mjs` | a crypt run's step over the run, by seed: the bodies built, held and out, the mean step and the slowest second; with `--listen`, what hearing the run costs | the tables, pasted into `docs/reference/play.md` |
+| `step-garbage.mjs` | what a step allocates and what the collector takes as bodies are added, a count a process; with `--sites`, where one bout's steps allocate, by file and by function | the tables, pasted into `docs/reference/step-cost.md` |
+| `step-time.mjs` | one bout's steps, each the least of several playings, split into the solver and the rest, with every collection; with `--profile`, the bout's time by file and by function | the tables, pasted into `docs/reference/step-cost.md` |
+| `crypt-plan.mjs` | what a crypt run's own planning takes of its steps, by seed, and its part of the slowest ones | the table, pasted into `docs/reference/step-cost.md` |
+| `rest-probe.mjs` | what Rapier does with limp bodies put to sleep through its own rigid bodies: a step's time standing, limp and asleep, how many stay asleep, and what a ball dropped on one wakes | the table, pasted into `docs/reference/step-cost.md` |
+
+`step-garbage.mjs` reads allocation with `allocatedIn` (`tests/harness/garbage.mjs`): everything
+allocated while a function runs, collected or not, by V8's sampling heap profiler.
+
+```powershell
+node research/step-garbage.mjs --bodies 1,2,4,8,10,12,16,24,32,48
+node research/step-garbage.mjs --sites
+node research/step-time.mjs --profile
+node research/crypt-plan.mjs --seeds 1,2,3,4
+```
+
 ## The physics bake-off
 
 `physics-bakeoff/` compares engines under one controller on the same cases: a standing foot and a
