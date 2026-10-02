@@ -3,8 +3,8 @@
  * body, or on something fixed, has touched it, closing at the speed the step before left it and
  * priced from the masses the contact meets. A ball dropped on the ground; a fist sent into a body,
  * priced as its blow is; a Warrior walking, a touch a footfall while a touch lasts as long as the
- * contact; a body that is not watched; and the segments and the contacts a reader asks for (Node
- * core stand, Rapier, 120 Hz, balance 0 %).
+ * contact; a body that is not watched; a body's own segments; and the segments and the contacts a
+ * reader asks for (Node core stand, Rapier, 120 Hz, balance 0 %).
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -12,7 +12,7 @@ import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { Scene } from "@babylonjs/core/scene.js";
 import { buildBody } from "../src/core/build/build-body.ts";
-import { humanSpec } from "../src/core/human/spec.ts";
+import { humanSpec, modelSpec } from "../src/core/human/spec.ts";
 import { watchBlows } from "../src/core/rules/blows.ts";
 import { createPool } from "../src/core/rules/pool.ts";
 import { rulebook } from "../src/core/rules/rulebook.ts";
@@ -131,6 +131,22 @@ test("a body that is not watched is no touch", async () => {
     assert.ok(trunk.z > 1, `the fist met the trunk, which goes on at ${trunk.z} m/s`);
     assert.deepEqual([heard.length, asked.length], [0, 0]);
   } finally { p.dispose(); }
+});
+
+test("a body's own segments touch, read from each of the two, unless they do not count", async () => {
+  const stand = await coreStand(modelSpec("crypt-skeleton"));
+  const stance = startStance(labActor(stand.built, stand.world));
+  try {
+    const body = { built: stand.built }, own = [], others = [];
+    watchTouches(stand.world, [body], { lasts: "contact", counts: all }, (touch) => own.push(touch));
+    watchTouches(stand.world, [body], { lasts: "contact", counts: (of, on) => on?.body !== of.body }, (touch) => others.push(touch));
+    // Taking its guard, each forearm of the skeleton comes to rest on its trunk.
+    stand.step(stand.seconds(1));
+    const pairs = own.map((touch) => `${touch.of.segment.spec.name} on ${touch.on?.segment.spec.name}`).sort();
+    assert.deepEqual(pairs, ["forearm.left on middleTrunk", "forearm.right on middleTrunk", "middleTrunk on forearm.left", "middleTrunk on forearm.right"]);
+    assert.ok(own.every((touch) => touch.on.body === body));
+    assert.equal(others.length, 0);
+  } finally { stance.dispose(); stand.dispose(); }
 });
 
 test("only the segments named are read, and a contact that does not count is no touch", async () => {

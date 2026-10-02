@@ -37,8 +37,8 @@ interface Low {
   readonly radius: number;
 }
 
-/** The points a shape's lowest is among, whichever way it is turned: a capsule's two ends, a sphere's centre, a box's corners, a hull's points. */
-function lowsOf(shape: ShapeSpec, frame: SegmentFrame): Low[] {
+/** The points a shape's lowest is among, whichever way it is turned, and its fastest when it turns: a capsule's two ends, a sphere's centre, a box's corners, a hull's points. */
+export function lowsOf(shape: ShapeSpec, frame: SegmentFrame): Low[] {
   switch (shape.kind) {
     case "capsule": return [{ at: shape.from.value, radius: shape.radius.value }, { at: shape.to.value, radius: shape.radius.value }];
     case "sphere": return [{ at: shape.centre.value, radius: shape.radius.value }];

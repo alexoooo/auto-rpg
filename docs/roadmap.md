@@ -205,9 +205,15 @@ All of it on a physically based core, humans first ([architecture](architecture.
 - Every value of the look and the sound is kept as found until the owner confirms it
   ([reference/look.md](reference/look.md)). Of them, the dungeon's stand open until the owner
   judges them in play: torch density, and which floor and wall textures ship.
-- How loud a blow is was set against no bout (`CUE`,
-  [reference/look.md](reference/look.md#sound)): the energies a bout's blows carry, read from
-  headless bouts, would say how much of the range from quiet to loud a fight uses.
+- The pages play a landed blow and nothing else. What a body sounds of is read on the Node stand
+  (`hearTouches`, `airOf`, [reference/look.md](reference/look.md#sound)): its footfalls, its
+  falls, one body on another and its air. The lab, the arena and the crypt are to play them.
+- A body's air (`MIX.swish`, the `swish` formula), which of two surfaces decides a touch's voice,
+  and how loud a footfall is beside a blow (`MIX.impact`) are set and not heard: the owner's to
+  judge in play.
+- A step that stays within the engine's contact margin is not heard: of 24 recoveries from a
+  shove, 14 footfalls ([reference/look.md](reference/look.md#sound)). A touch that began again
+  when the solver pushed anew would hear them, and gives a walk more touches than strides.
 - The reptile needs art; it starts as procedural shells.
 - The unused templates inside `public/assets/forge/forge-kit.glb` could be removed by
   re-exporting from Blender.

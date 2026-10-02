@@ -326,8 +326,9 @@ The rules of a fight are `src/core/rules/`, free of any page so they can be argu
 (`tests/core-rules.test.mjs`, `tests/core-blows.test.mjs`).
 
 - **A touch** (`watchTouches`, `src/core/touches.ts`) is a watched segment that the solver pushed
-  on another watched body, or on something fixed, while closing on it, from the step it is first
-  pushed until, as its reader asks, the solver stops pushing or the two part. Its energy is
+  on another watched segment, or on something fixed, while closing on it, from the step it is
+  first pushed until, as its reader asks, the solver stops pushing or the two part. A body's own
+  segments touch too, read from each of the two, unless the reader refuses them. Its energy is
   `impactEnergy` (`impact.ts`): half the reduced mass of the two effective masses (`contactMass`;
   something fixed is a mass nothing moves) times the closing speed squared.
 - **A blow** (`watchBlows`, `blows.ts`) is a touch of a striker (a hand, or anything it holds) on
@@ -427,8 +428,11 @@ its collision shapes if the skin does not load; the skins (`skin.ts` for the hum
 `skeleton-skin.ts` for the skeleton, see [art/skeleton.md](art/skeleton.md)), which read only the
 segments' achieved transforms and own no collision, and the collision shapes drawn
 (`body-shapes.ts`). The arena and the crypt also share the post pipeline (`post.ts`), textured
-surfaces (`surface.ts`, `materials.ts`, `textures.json`) and sound (`src/audio/game-audio.ts`,
-`src/audio/cues.ts`, which voices each landed blow).
+surfaces (`surface.ts`, `materials.ts`, `textures.json`) and sound (`src/audio/`): `cues.ts`
+makes a cue of an energy and the two surfaces that met, `game-audio.ts` synthesizes and mixes
+what a page plays, and `body-sounds.ts` reads what a body sounds of from the world: its touches
+(`hearTouches`) and its air (`airOf`). The pages play each landed blow
+([reference/look.md](reference/look.md#sound)).
 
 ## Standing decisions
 

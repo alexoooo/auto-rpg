@@ -48,6 +48,7 @@ export function woodenClub(): ItemSpec {
       { kind: "capsule", radius: swellRadius, from: swellFrom, to: swellTo },
     ],
     points: { swellFrom, swellTo },
+    surface: "wood",
     grip: haftRadius,
   };
 }

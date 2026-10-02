@@ -9,9 +9,12 @@ import type { World } from "./world.ts";
 /**
  * **New touches, read from the engine's contacts**: what a blow is (`src/core/rules/blows.ts`) and
  * what a sound is (`src/audio/body-sounds.ts`). After every step (`World.afterStep`), each watched
- * segment the solver pushed on another watched body, or on something fixed
+ * segment the solver pushed on another watched segment, or on something fixed
  * (`PhysicsWorld.contactsOf`), has touched it, unless the touch was already under way.
  *
+ * - **A body's own segments touch too**: an arm on its trunk is read from the arm and from the
+ *   trunk, a touch each. A reader that wants none refuses them (`counts`), as a blow and a sound
+ *   do. One that is priced takes each side's mass as if the other were another body's.
  * - **A touch begins the step the solver first pushes on it**, and lasts as its reader says
  *   (`lasts`): while the solver goes on pushing, or until the two are no longer in contact. Two
  *   are in contact from a little way off (`Contact`), so a body coming down is in contact a step
@@ -30,7 +33,7 @@ export interface Part<B> {
   readonly segment: BuiltSegment;
 }
 
-/** **A new touch**: a segment met another watched body's, or something fixed, and was closing on it. */
+/** **A new touch**: a segment met another watched segment, or something fixed, and was closing on it. */
 export interface Touch<B> {
   /** The world's clock when it landed, s. */
   readonly time: number;

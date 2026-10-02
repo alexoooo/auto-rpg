@@ -13,7 +13,8 @@ import { cross, normalize, orthogonalTo, sub } from "./vec.ts";
  *
  * What the rulebook wounds is `wounds`: the body's hit points, and which segments kill when they
  * are emptied or lost and which never come off. What else a fight's rules read of the character is
- * `attributes`. Contact surfaces join the spec when a rule first reads them.
+ * `attributes`. What a body and an item are made of is `surface`: no rule of a fight reads it yet,
+ * and a sound does (`src/audio/cues.ts`).
  *
  * **What a body holds is not its anatomy.** A segment states the body's own numbers; an item held
  * in it (`held`) is stated beside it, and the builder makes the two one rigid body
@@ -34,6 +35,8 @@ export interface BodySpec {
   readonly joints: readonly JointSpec[];
   readonly wounds: WoundSpec;
   readonly attributes: AttributeSpec;
+  /** What its segments are made of, where they meet the world. */
+  readonly surface: Surface;
   /** Items held rigidly in a segment, such as a club in a hand; absent, nothing. */
   readonly held?: readonly HeldSpec[];
 }
@@ -44,6 +47,9 @@ export interface BodySpec {
  * the reference pose, as a segment's ends and right place its frame (`segmentFrame`): y along
  * `along`, x `across` made square to it, z = x cross y.
  */
+/** What a thing is made of, where it meets another: a body's flesh or bone, an item's wood, the world's stone. */
+export type Surface = "flesh" | "bone" | "wood" | "stone";
+
 export interface HeldSpec {
   /** The segment that holds it. */
   readonly segment: string;
@@ -68,6 +74,8 @@ export interface ItemSpec {
   readonly shapes: readonly ItemShape[];
   /** Named points, in the item frame: where a reading is taken on it, such as where a club strikes. */
   readonly points: { readonly [name: string]: Quantity<Vec3> };
+  /** What it is made of. */
+  readonly surface: Surface;
   /**
    * For an item a hand closes on: the radius it is held at, with the item frame's origin at the end
    * of the grip and y along it (`src/core/human/grip.ts`).

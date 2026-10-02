@@ -21,6 +21,7 @@ Some write the data files the core reads, and only with `--write`; without it th
 | `core-strike-window.mjs` | where each recipe still lands, along and across its heading | the windows, into `assets/core/strikes.json` |
 | `core-strike-repertoire.mjs` | builds the repertoire from searches' best strikes | `assets/core/strikes.json` |
 | `core-rapier-probe.mjs` | on the core's engine module alone, off the stand: what Rapier's generic joint does: its limits' measure, motor axes, saturation, gyroscopic spin, a motor braking a hung rod | |
+| `touches.mjs` | what a body sounds of: each part's new touches with the ground, with itself and with another body (a second, their energies, closing speeds and the mass met) and its fastest point's speed, standing, walking, in the Run, shoved, falling, in the Routine and the Blow, and in three bouts | the tables, condensed into `docs/reference/look.md#touches-measured` |
 | `real-against-engine.mjs` | the core's functions of a real number beside the running engine's `Math`: how many values differ in any bit, how widely, and each function's digest, the same in every engine | the table, pasted into `docs/reference/real-functions.md` |
 
 `core-club-unit.json` is the club blow that sets the damage unit (`core-club-unit` in `SOURCES`).
