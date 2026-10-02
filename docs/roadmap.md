@@ -344,14 +344,12 @@ All of it on a physically based core, humans first ([architecture](architecture.
   0.47 ms is the estimate. Under that floor, not planned: the solver itself; the wrench's active
   set started from the last step's (3.5 iterations a call today), which is another bout; and
   control on other threads, which is a design of its own.
-- A crypt run's own planning is half of its slowest steps, and all of it is sight read sample
-  by sample ([reference/step-cost.md](reference/step-cost.md#the-crypts-plan-in-the-step)).
-  Read through an index of the cells that need no reading, with the answers it has, its 99th
-  per cent falls from 2.4 to 4.6 ms to 0.2 to 0.3: planned and not built
-  ([plans/2026-10-02-step-02-sight.md](plans/2026-10-02-step-02-sight.md)). What is then left
-  over 1 ms is an enemy's body built in the step as the party comes near, 2.6 to 4.3 ms three
-  or four times a run; and the scenery's memory on the page reads sight the same slow way and is
-  not measured.
+- What is left over 1 ms of a crypt run's own planning is an enemy's body built in the step as
+  the party comes near, 2.8 to 4.2 ms three or four times a run
+  ([reference/step-cost.md](reference/step-cost.md#sight-read-through-an-index)); its sight,
+  read through an index, has a 99th per cent of 0.2 to 0.3 ms. The scenery's memory on the page
+  (`sampleCorners`, `src/dungeon/scenery-visibility.ts`) still reads sight sample by sample and
+  is not measured.
 - The crypt's step ([reference/play.md](reference/play.md#bodies-in-the-step)): a body out of
   the fight lies limp and still costs the solver 0.28 ms a step. Fixed where it lies once it is
   still, it would cost 0.02 ms and could not be pushed aside; an engine that let it rest would

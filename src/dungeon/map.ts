@@ -14,6 +14,9 @@ export function isFloor(map: DungeonMap, x: number, z: number): boolean {
   return x >= 0 && z >= 0 && x < map.size && z < map.size && map.floor[z * map.size + x] === 1;
 }
 
+/** Half of a closed door's box along `axis`, m: thin along the door's own axis, wide across it. */
+const doorHalf = (door: Door, axis: "x" | "z"): number => door.axis === axis ? 0.18 : 1.5;
+
 /** Clearance is measured against cell rectangles, not an arbitrary number of tile neighbours. */
 export function walkable(map: DungeonMap, p: Point, radius: number, closedDoors = false, sight = false): boolean {
   if (!isFloor(map, Math.round(p.x), Math.round(p.z))) return false;
@@ -26,8 +29,8 @@ export function walkable(map: DungeonMap, p: Point, radius: number, closedDoors 
       if (Math.hypot(Math.max(0, Math.abs(p.x - x) - 0.5), Math.max(0, Math.abs(p.z - z) - 0.5)) < radius + 0.001) return false;
     }
   return !closedDoors || !map.doors.some(d => !d.open &&
-    Math.abs(p.x - d.point.x) < (d.axis === "x" ? 0.18 : 1.5) + radius &&
-    Math.abs(p.z - d.point.z) < (d.axis === "z" ? 0.18 : 1.5) + radius);
+    Math.abs(p.x - d.point.x) < doorHalf(d, "x") + radius &&
+    Math.abs(p.z - d.point.z) < doorHalf(d, "z") + radius);
 }
 
 export function clearSegment(map: DungeonMap, a: Point, b: Point, radius: number, closedDoors = false, sight = false): boolean {
@@ -37,8 +40,60 @@ export function clearSegment(map: DungeonMap, a: Point, b: Point, radius: number
   return true;
 }
 
-export function canSee(map: DungeonMap, a: Point, b: Point, range = 12): boolean {
-  return distance(a, b) <= range && clearSegment(map, a, b, 0, true, true);
+/**
+ * **Where sight needs no reading.** `clear[z * size + x]` is 1 where the cell is floor and no
+ * sight-blocking obstacle and no closed door reaches any point of it. A sample of a sight line in
+ * such a cell, within `SIGHT_RIM` of the cell's middle on both axes, is seen through whatever is
+ * beside the cell: rock stops sight within 0.001 m of itself and no farther. Every other sample is
+ * `walkable`'s.
+ *
+ * It is of the map as it was when made. It stays right as doors open, since a cell it does not
+ * vouch for is read from the map; it is made again then so that those cells are fast. It is
+ * wrong once a door has closed, an obstacle has come or the floor has changed: whoever does that
+ * to a map makes another.
+ */
+export interface SightIndex { readonly clear: Uint8Array }
+
+/**
+ * A cell's samples within this of its middle on both axes are at least 0.002 m from every other
+ * cell, m: twice the 0.001 m within which `walkable` stops sight at rock, a numeric setting
+ * (`docs/reference/step-cost.md#sight-read-through-an-index`).
+ */
+const SIGHT_RIM = 0.498;
+
+/**
+ * The map's sight index. A cell is not vouched for where an obstacle's or a closed door's own test
+ * in `walkable`, taken at the cell's nearest point to it and widened, could stop a sample: so the
+ * index never vouches for a sample the map would stop.
+ */
+export function sightIndex(map: DungeonMap): SightIndex {
+  const size = map.size, clear = new Uint8Array(size * size);
+  for (let z = 0; z < size; z++) for (let x = 0; x < size; x++) {
+    if (map.floor[z * size + x] !== 1) continue;
+    if (map.obstacles?.some(o => o.blocksSight &&
+      Math.abs(x - o.x) - o.width / 2 - 0.5 < 0.002 && Math.abs(z - o.z) - o.depth / 2 - 0.5 < 0.002)) continue;
+    if (map.doors.some(d => !d.open &&
+      Math.abs(x - d.point.x) - 0.5 < doorHalf(d, "x") + 1e-9 && Math.abs(z - d.point.z) - 0.5 < doorHalf(d, "z") + 1e-9)) continue;
+    clear[z * size + x] = 1;
+  }
+  return { clear };
+}
+
+/** `clearSegment` for sight, its samples the same: one the index vouches for is not read from the map. */
+function clearSight(map: DungeonMap, a: Point, b: Point, index: SightIndex): boolean {
+  const steps = Math.max(1, Math.ceil(distance(a, b) / 0.2)), size = map.size, clear = index.clear;
+  for (let i = 0; i <= steps; i++) {
+    const x = a.x + (b.x - a.x) * i / steps, z = a.z + (b.z - a.z) * i / steps, cx = Math.round(x), cz = Math.round(z);
+    if (cx >= 0 && cz >= 0 && cx < size && cz < size && clear[cz * size + cx] === 1 &&
+      Math.abs(x - cx) < SIGHT_RIM && Math.abs(z - cz) < SIGHT_RIM) continue;
+    if (!walkable(map, { x, z }, 0, true, true)) return false;
+  }
+  return true;
+}
+
+/** Whether `b` is seen from `a`: within `range`, with nothing that stops sight on the line. `index`, the map's own, answers the same faster. */
+export function canSee(map: DungeonMap, a: Point, b: Point, range = 12, index?: SightIndex): boolean {
+  return distance(a, b) <= range && (index ? clearSight(map, a, b, index) : clearSegment(map, a, b, 0, true, true));
 }
 
 /**
@@ -81,11 +136,17 @@ export function findPath(map: DungeonMap, from: Point, to: Point, radius: number
   return [];
 }
 
-export function reveal(map: DungeonMap, hero: Point, explored: Set<number>, range = 12): Set<number> {
-  const visible = new Set<number>();
+/**
+ * The floor cells seen from `hero`, each added to `explored`. `seen`, where given, is the cells
+ * this reading has seen from other places: a cell in it is not looked at again, what is seen from
+ * here is added to it, and it is what is returned.
+ */
+export function reveal(map: DungeonMap, hero: Point, explored: Set<number>, range = 12, index?: SightIndex, seen?: Set<number>): Set<number> {
+  const visible = seen ?? new Set<number>();
   for (let z = Math.max(0, Math.floor(hero.z - range)); z <= Math.min(map.size - 1, hero.z + range); z++)
     for (let x = Math.max(0, Math.floor(hero.x - range)); x <= Math.min(map.size - 1, hero.x + range); x++) {
-      const p = { x, z }; if (isFloor(map, x, z) && canSee(map, hero, p, range)) { const key = cellKey(map, p); visible.add(key); explored.add(key); }
+      if (!isFloor(map, x, z) || seen?.has(z * map.size + x)) continue;
+      const p = { x, z }; if (canSee(map, hero, p, range, index)) { const key = cellKey(map, p); visible.add(key); explored.add(key); }
     }
   return visible;
 }

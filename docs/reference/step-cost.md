@@ -318,7 +318,8 @@ Each in a scratch copy, taken out again.
 `research/crypt-plan.mjs`. A crypt run with no visuals, the hero exploring by itself with three
 Warriors following, to the run's end or 90 s; every step timed with the run's own planning inside
 it (`DungeonRun.plan`: who is built and held, who sees whom, each walker's path). The first 2 s are
-not read. A row is a level's seed.
+not read. A row is a level's seed. These are read with sight sample by sample, before it was read
+through an index ([below](#sight-read-through-an-index)).
 
 | Seed | The run | Seconds | Bodies built | A step, ms: mean / 99th per cent / longest | The plan in it, ms: mean / 99th per cent / longest | Steps over 8.33 ms | Plans over 1 ms | Plans over 4 ms |
 |---|---|---|---|---|---|---|---|---|
@@ -363,45 +364,54 @@ a step in the mean, each function with everything it calls.
   step in every run. The long plans are long reads of sight, in the open rooms where most cells
   are in range.
 
-### Sight read through an index, tried
+### Sight read through an index
 
-The same four runs with sight read another way that gives the same answers, in a scratch copy of
-`src/dungeon/map.ts` and `run.ts` at `8d783172`, taken out again:
+How the crypt reads sight (`SightIndex`, `src/dungeon/map.ts`): a byte a cell, 1 where the cell
+is floor and no sight-blocking obstacle and no closed door reaches any point of it. A sample of a
+sight line in such a cell, within `SIGHT_RIM` (0.498 m) of the cell's middle on both axes, is seen
+through with nothing more read: rock stops sight within 1 mm of itself and no farther. Every other
+sample is `walkable`'s. The run makes its index as it first looks and again when a door has
+opened, and reads its party's sight into one set, a cell one member sees not looked at for the
+next (`DungeonRun.sight`). `tests/crypt-sight.test.mjs` holds every answer to the map's own: on
+the levels of seeds 1 to 8, from 60 points a level off the cells' middles, with the doors closed
+and as each opens, with an index made at each and with one made before they opened; about
+obstacles, at a cell's edge, and through a corner where two rock cells meet. The fingerprint is
+the same to the bit.
 
-- **An index**: a byte a cell, 1 where the cell is floor with no closed door and no sight-blocking
-  obstacle within reach of it. A sample of a line that falls in such a cell, farther than 2 mm
-  from the cell's edge, is seen through with nothing more read (rock stops sight within 1 mm of
-  itself only); every other sample is `walkable`'s as before. The index is made when the run is,
-  and again when a door has opened.
-- **Each cell looked at once**: a cell one member already sees is not looked at for the next.
+The four runs, `node research/crypt-plan.mjs --seeds 1,2,3,4` with sight read sample by sample
+(`src/dungeon/map.ts@24ce4c51`) and through the index, one after the other on a quiet machine:
 
-Read against sight as it is on the levels of seeds 1 to 8, from 60 points a level off the cells'
-middles, with the doors closed and after each is opened: 425587 cells revealed and 4500 lines of
-up to 14 m, and no answer differs. The four runs end as they did.
+| Seed | Sight | The plan, ms: mean / 99th per cent / longest | Plans over 1 ms | Plans over 4 ms | Steps over 8.33 ms | A step, ms: mean / 99th per cent / longest |
+|---|---|---|---|---|---|---|
+| 1 | sample by sample | 0.09 / 1.76 / 4.73 | 381 | 3 | 12 of 10560 | 3.63 / 6.38 / 12.36 |
+| 1 | the index | 0.04 / 0.19 / 4.40 | 3 | 1 | 2 | 3.46 / 5.74 / 12.77 |
+| 2 | sample by sample | 0.09 / 2.17 / 5.81 | 199 | 1 | 2 of 7146 | 3.43 / 5.97 / 9.81 |
+| 2 | the index | 0.03 / 0.24 / 3.38 | 1 | 0 | 0 | 3.32 / 4.41 / 7.14 |
+| 3 | sample by sample | 0.12 / 2.55 / 5.08 | 306 | 2 | 24 of 7424 | 3.37 / 7.26 / 19.95 |
+| 3 | the index | 0.04 / 0.27 / 3.13 | 4 | 0 | 5 | 3.36 / 6.33 / 9.93 |
+| 4 | sample by sample | 0.11 / 3.17 / 4.32 | 279 | 17 | 52 of 10560 | 3.98 / 7.71 / 24.56 |
+| 4 | the index | 0.04 / 0.31 / 3.00 | 4 | 0 | 7 | 3.87 / 5.52 / 10.77 |
 
-| Seed | The plan, ms: mean / 99th per cent / longest | Plans over 1 ms | Plans over 4 ms | Steps over 8.33 ms | A step, ms, mean |
+Each run ends as it did, at the same step, with the same bodies built. Under the profiler
+(`--profile`), microseconds a step in the mean:
+
+| Seed | Sight | `plan` | `reveal` | `canSee` | `walkable` |
 |---|---|---|---|---|---|
-| 1, as it is | 0.11 / 2.44 / 4.38 | 388 | 3 | 21 of 10560 | 3.68 |
-| 1, the index | 0.04 / 0.28 / 4.22 | 4 | 1 | 7 | 3.48 |
-| 1, and each cell once | 0.03 / 0.19 / 4.24 | 4 | 1 | 9 | 3.49 |
-| 2, as it is | 0.11 / 3.13 / 7.81 | 199 | 5 | 12 of 7146 | 3.56 |
-| 2, the index | 0.03 / 0.36 / 3.42 | 1 | 0 | 0 | 3.40 |
-| 2, and each cell once | 0.03 / 0.25 / 3.40 | 1 | 0 | 3 | 3.38 |
-| 3, as it is | 0.14 / 3.23 / 6.69 | 308 | 21 | 68 of 7424 | 3.48 |
-| 3, the index | 0.04 / 0.43 / 3.14 | 4 | 0 | 11 | 3.30 |
-| 3, and each cell once | 0.03 / 0.27 / 3.49 | 4 | 0 | 15 | 3.29 |
-| 4, as it is | 0.15 / 4.59 / 10.64 | 439 | 158 | 175 of 10560 | 4.17 |
-| 4, the index | 0.04 / 0.46 / 2.83 | 4 | 0 | 10 | 3.93 |
-| 4, and each cell once | 0.04 / 0.32 / 2.90 | 3 | 0 | 14 | 3.91 |
+| 1 | sample by sample | 108.5 | 77.2 | 65.7 | 68.2 |
+| 1 | the index | 33.2 | 4.1 | 1.0 | 1.5 |
+| 2 | sample by sample | 114.2 | 88.9 | 83.6 | 77.2 |
+| 2 | the index | 32.6 | 7.0 | 1.8 | 1.5 |
+| 3 | sample by sample | 143.8 | 117.2 | 109.8 | 104.6 |
+| 3 | the index | 34.7 | 8.1 | 1.3 | 1.5 |
+| 4 | sample by sample | 165.4 | 136.3 | 129.1 | 120.0 |
+| 4 | the index | 39.5 | 9.6 | 2.0 | 1.7 |
 
-- The plan's 99th per cent falls from 2.4 to 4.6 ms to 0.2 to 0.3, and the steps over a step's
-  length from 12 to 175 a run to 3 to 15. The rows of one seed were read one after another and
-  the steps over 8.33 ms differ by a few between the last two: that is the reading's spread.
-- **What is left over 1 ms is a body being built.** Of the twelve plans over 1 ms in the four
-  runs with both changes, eleven are an enemy's body built as the party comes near
-  (`DungeonRun.wake`, `build`): 2.6 to 4.3 ms each, three or four times a run. The twelfth is a
-  read of sight of 1.1 ms.
-- The steps still over 8.33 ms have no plan in them: they are the bodies'.
+- The plan's 99th per cent falls to 0.19 to 0.31 ms, and the plans over 1 ms from 199 to 381 a
+  run to 1 to 4.
+- **What is left over 1 ms is a body being built.** Timed by part in the same four runs, all 11
+  plans over 1 ms build an enemy's body as the party comes near (`DungeonRun.build`): 2.8 to
+  4.2 ms each, of which sight is under 0.25.
+- The steps still over 8.33 ms are the bodies'.
 
 ## A limp body put to sleep
 

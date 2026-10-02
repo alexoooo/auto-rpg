@@ -14,8 +14,8 @@ import { createPool } from "../core/rules/pool.ts";
 import { balanceCeiling, balancePercent, rulebook } from "../core/rules/rulebook.ts";
 import type { BodySpec } from "../core/spec/body.ts";
 import { createWorld, type Hook, type World } from "../core/world.ts";
-import { canSee, cellKey, clearSegment, distance, explorationGoal, findPath, reveal, walkable,
-  type DungeonMap, type Point } from "./map.ts";
+import { canSee, cellKey, clearSegment, distance, explorationGoal, findPath, reveal, sightIndex, walkable,
+  type DungeonMap, type Point, type SightIndex } from "./map.ts";
 import { generateLevel } from "./level.ts";
 import { DungeonCommands, screenMovement, type Order } from "./commands.ts";
 import { buildDungeonWorld } from "./world.ts";
@@ -219,6 +219,8 @@ export class DungeonRun {
    * cut-away opens. The page sets it from its azimuth. */
   toward: Point = cameraToward(CAMERA_AZIMUTH);
   private nextPerception = 0;
+  /** The map's sight index, and how many of its doors were open when it was made: `sight` makes it again when another has opened. */
+  private seeing: { index: SightIndex; opened: number } | null = null;
   private commandRevision = -1;
   private watch: BlowWatch | null = null;
   private readonly planning: Hook;
@@ -359,10 +361,13 @@ export class DungeonRun {
     actor.held = held;
   }
 
-  /** What the party sees from where its members stand: every member's cells, one set. */
+  /** What the party sees from where its members stand: every member's cells, one set, a cell one member sees not looked at for the next. */
   private sight(from: readonly Point[]): Set<number> {
-    const [first, ...rest] = from, visible = reveal(this.map, first, this.explored);
-    for (const at of rest) for (const cell of reveal(this.map, at, this.explored)) visible.add(cell);
+    let opened = 0;
+    for (const door of this.map.doors) if (door.open) opened++;
+    if (this.seeing?.opened !== opened) this.seeing = { index: sightIndex(this.map), opened };
+    const visible = new Set<number>();
+    for (const at of from) reveal(this.map, at, this.explored, 12, this.seeing.index, visible);
     return visible;
   }
 
@@ -427,7 +432,7 @@ export class DungeonRun {
       let seen = -1, best = Infinity;
       for (let i = 0; i < members.length; i++) {
         const d = distance(at, places[i]);
-        if (d < best && canSee(this.map, at, places[i], SIGHT_METRES)) { best = d; seen = i; }
+        if (d < best && canSee(this.map, at, places[i], SIGHT_METRES, this.seeing?.index)) { best = d; seen = i; }
       }
       if (seen >= 0) {
         actor.lastSeen = { x: places[seen].x, z: places[seen].z }; actor.alertedUntil = this.clock + RUN_TIMING.alerted;
@@ -443,7 +448,7 @@ export class DungeonRun {
     const fighting = (a: DungeonActor) => a.fighter !== null && a.alive;
     if (order.kind === "lock") {
       const locked = this.enemies.find(a => a.id === order.target);
-      if (locked && fighting(locked) && canSee(this.map, at, locked.feet(), PARTY_SIGHT.locked)) {
+      if (locked && fighting(locked) && canSee(this.map, at, locked.feet(), PARTY_SIGHT.locked, this.seeing?.index)) {
         member.target = locked; member.lastSeen = locked.feet(); return;
       }
       // Pursue the last observed position, never a hidden moving actor.
@@ -453,7 +458,7 @@ export class DungeonRun {
     }
     const hero = member === this.hero, current = member.target;
     const rank = (actor: DungeonActor) => hero ? this.aimRank(actor) : 0;
-    const candidates = this.enemies.filter(a => fighting(a) && canSee(this.map, at, a.feet(), PARTY_SIGHT.pick))
+    const candidates = this.enemies.filter(a => fighting(a) && canSee(this.map, at, a.feet(), PARTY_SIGHT.pick, this.seeing?.index))
       .filter(a => !hero || this.aimedAt(a) || distance(at, a.feet()) < (a === current ? SET_UPON.keepMetres : SET_UPON.metres))
       .sort((a, b) => rank(a) - rank(b) || distance(a.feet(), at) - distance(b.feet(), at));
     const keep = current && candidates.includes(current) && distance(current.feet(), at) < PARTY_SIGHT.keep && rank(current) <= rank(candidates[0]);

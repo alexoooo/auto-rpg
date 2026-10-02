@@ -495,7 +495,9 @@ arena, crypt and lab screens at `?play=arena`, `?play=dungeon` and `?play=lab`, 
   map's walls, doors and obstacles are fixed boxes in the world (`buildDungeonWorld`); every
   body is driven by a mind; a person's orders reach the party only through the run's
   plan (`DungeonCommands`), and each member's mind carries them out while it defends itself.
-  Enemies are built when the party comes near; its art is in [art/crypt.md](art/crypt.md). The
+  Enemies are built when the party comes near; its art is in [art/crypt.md](art/crypt.md). Sight
+  is the map's (`canSee`, `reveal`, `src/dungeon/map.ts`), read through an index of the cells
+  where nothing need be read (`SightIndex`), made again when a door opens. The
   page hears every built body where the party sees (`hearRun`, `hearing.ts`), its listener made
   again when a body is built.
 - **The lab** (`src/lab/`): one body at a time in the Stance, Routine, Run and Blow

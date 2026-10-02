@@ -24,7 +24,9 @@ owner chose it, every value here is **kept as found; the owner to confirm**.
 ## Sight
 
 `src/dungeon/run.ts`. Every sight line is `canSee`'s: a clear line on the map, no farther than
-the distance given.
+the distance given. The run reads it through an index of the cells where nothing need be read
+(`SightIndex`, `src/dungeon/map.ts`), which changes no answer
+([step-cost.md](step-cost.md#sight-read-through-an-index)).
 
 - `SIGHT_METRES`: an enemy sees a party member within 14 m.
 - `WAKE_METRES`: an enemy's body is built once a standing party member comes within 16 m of
