@@ -445,8 +445,9 @@ What a way on asks that a stage does not give: **a limb moved to a place**. A st
 bear where they came down, and a limb it leaves goes where the posture puts it. Reckoned from
 the bodies' ranges and strengths, not read on the stand: a foot planted between the hands needs
 the hip's flexion (2.21 rad) and the lumbar spine's (0.89) at their stops together; standing on
-one leg from a half kneel asks 140 to 210 N m of a knee that gives 142; and a squat on flat feet
-asks more dorsiflexion than the ankle's 0.39 rad.
+one leg from a half kneel asks 140 to 210 N m of the Warrior's knee, whose extensors give 259
+(its flexors, 141), so its strength does not close that way; and a squat on flat feet asks more
+dorsiflexion than the ankle's 0.39 rad.
 
 ### The roll
 
