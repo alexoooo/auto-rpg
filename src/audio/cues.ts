@@ -1,5 +1,5 @@
 import type { BodyModel } from "../core/human/spec.ts";
-import type { LandedBlow } from "../core/rules/blows.ts";
+import { isClash, woundedIn, type LandedBlow } from "../core/rules/blows.ts";
 
 export type SoundKind = "bone" | "body" | "shield";
 /** What each body sounds like when struck. */
@@ -31,14 +31,27 @@ const PLACEMENT = Object.freeze({ panMetres: 10, panMost: .85, reach: 18 });
 
 /**
  * The cue for a blow (`LandedBlow`) on a body of `struck`'s surface, as loud as `CUE` makes it.
- * A clash, a hand or what it holds meeting another (`src/core/rules/blows.ts`), plays the `shield`
- * knock whatever the bodies are made of: a wooden club on a wooden club.
+ * A clash, a blow that wounded nobody (`isClash`, `src/core/rules/blows.ts`), plays the `shield`
+ * knock whatever the bodies are made of: a wooden club on a wooden club. Its key is the two sides'
+ * fighters.
  */
 export function blowCue(blow: LandedBlow, struck: SoundKind): ImpactCue | null {
   const strength = Math.sqrt(Math.max(0, blow.energy) / CUE.joules);
   if (!Number.isFinite(strength) || strength < CUE.floor) return null;
-  return { key: `${blow.attacker}:${blow.target}`, kind: blow.clash ? "shield" : struck, strength: Math.min(1, strength),
-    severed: (blow.wound?.severed.length ?? 0) > 0, point: { x: blow.point[0], z: blow.point[2] } };
+  return { key: `${blow.sides[0].fighter}:${blow.sides[1].fighter}`, kind: isClash(blow) ? "shield" : struck, strength: Math.min(1, strength),
+    severed: woundedIn(blow).some((side) => side.wound.severed.length > 0), point: { x: blow.point[0], z: blow.point[2] } };
+}
+
+/**
+ * The cues for a blow: a clash's one knock, or one for each side it wounded, on that side's
+ * surface (`surfaceOf` its fighter; a fighter it does not know is not heard).
+ */
+export function blowCues(blow: LandedBlow, surfaceOf: (fighter: string) => SoundKind | null): ImpactCue[] {
+  const kinds = isClash(blow) ? ["shield" as const] : woundedIn(blow).map((side) => surfaceOf(side.fighter));
+  return kinds.flatMap((kind) => {
+    const cue = kind && blowCue(blow, kind);
+    return cue ? [cue] : [];
+  });
 }
 
 /** A bounded wall-clock inbox: a fast simulation cannot flood the audio clock. */

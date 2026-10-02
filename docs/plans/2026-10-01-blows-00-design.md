@@ -138,7 +138,6 @@ Each is put with its table at the gate of the plan that measures it. None is ass
 | the hands strike (`STRIKERS`) | any two segments of different sides that meet |
 | a contact names the other body | and each pair of shapes that touched |
 | a blow wounds the struck part alone | each surface takes its share by compliance; an item takes none |
-| `LandedBlow`: an attacker, a target, a `clash` flag | two sides, each with its share, damage and wound; `isClash` |
 | the unit is the club's best blow, 138.26 J | 100 J, on the owner's yes |
 | a blow is thrown at head height, straight ahead | a recipe by height band, with a window in three directions; a placed blow elsewhere |
 | a hand goal takes the knuckles to a place, and no skill uses it | named points of the hand's rigid body, the wrist freed for two; the strike and the guard use it |
@@ -149,15 +148,14 @@ Each is put with its table at the gate of the plan that measures it. None is ass
 
 | # | Plan | Lands | Needs | Eye gate |
 |---|---|---|---|---|
-| 02 | [sides](2026-10-01-blows-02-sides.md) | contacts name shapes; a blow's record has two sides; nothing wounds differently | | none |
-| 03 | [shares](2026-10-01-blows-03-shares.md) | surfaces' stiffness; any touch is a blow, shared by compliance; the bouts measured again | 02 | the owner reads the tables and answers three choices |
+| 03 | [shares](2026-10-01-blows-03-shares.md) | surfaces' stiffness; any touch is a blow, shared by compliance; the bouts measured again | | the owner reads the tables and answers three choices |
 | 04 | [unit](2026-10-01-blows-04-unit.md) | 100 J a hit point | the owner's yes | none |
 | 05 | [placement](2026-10-01-blows-05-placement.md) | hand goals on named points; windows with height; the placed blow | | the Routine's high and middle targets are struck |
-| 06 | [guard](2026-10-01-blows-06-guard.md) | the guard covers a threat; the block battery | 02, 05 | the owner watches a body cover itself |
+| 06 | [guard](2026-10-01-blows-06-guard.md) | the guard covers a threat; the block battery | 05 | the owner watches a body cover itself |
 | 07 | [searched blows](2026-10-01-blows-07-searched-blows.md) | one evaluator under the rule; recipes by band for every body and thing held | 03, 05 | the owner watches each body's blows, and reads the price before the searches run |
 
-The targets every plan here is read on have landed (`src/lab/targets.ts`, `docs/reference/blows.md`).
-02 buys no compute and changes no fight. 03 and 04 change what every bout is worth: each
+The targets every plan here is read on have landed (`src/lab/targets.ts`, `docs/reference/blows.md`),
+and so has the record of two sides (`BlowSide`, `src/core/rules/blows.ts`). 03 and 04 change what every bout is worth: each
 measures the standing table before and after, and the two tables are not merged. 07 is the
 open-ended one: its structure is fixed here, its recipes are found by search.
 

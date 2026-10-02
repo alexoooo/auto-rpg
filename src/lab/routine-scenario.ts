@@ -39,8 +39,8 @@ const ROWS = 10;
 
 /** A reading's row: its stratum and hand, the strike thrown, what it did, and whether the body went down. */
 function row(reading: TargetReading): string[] {
-  const { target, hand, strike, hung, blow, nearest, fell } = reading;
-  const did = blow ? `${blow.damage.toFixed(2)} HP` : !strike ? "no strike" : !hung || nearest === null ? "no room to hang it" : `missed by ${(100 * nearest).toFixed(0)} cm`;
+  const { target, hand, strike, hung, took, nearest, fell } = reading;
+  const did = took ? `${took.damage.toFixed(2)} HP` : !strike ? "no strike" : !hung || nearest === null ? "no room to hang it" : `missed by ${(100 * nearest).toFixed(0)} cm`;
   return [`${target.stratum}, ${hand}`, strike?.name ?? "", did, fell ? "fell" : ""];
 }
 

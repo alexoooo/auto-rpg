@@ -3,6 +3,7 @@
 // world, Rapier, 120 Hz).
 import test from "node:test";
 import assert from "node:assert/strict";
+import { woundsBy } from "./fixtures/blows.mjs";
 import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { Scene } from "@babylonjs/core/scene.js";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode.js";
@@ -54,9 +55,7 @@ test("a_fight_in_the_crypt_starts_and_ends", async () => {
     const enemy = run.enemies[0];
     assert.ok(enemy.fighter, "the first enemy is built: the party stands 4 m from it");
     for (let i = 0; i < 30 * run.world.hz && enemy.alive; i++) run.step();
-    const wounds = (from, to) => run.blows.filter(b => !b.clash && b.attacker === from.id && b.target === to.id)
-      .reduce((sum, b) => sum + b.damage, 0);
-    assert.ok(wounds(run.hero, enemy) > 0 && wounds(enemy, run.hero) > 0, "blows land both ways, and wound");
+    assert.ok(woundsBy(run.blows, run.hero.id, enemy.id) > 0 && woundsBy(run.blows, enemy.id, run.hero.id) > 0, "blows land both ways, and wound");
     // A fall or an emptied pool ends a body's fight (`DungeonActor.alive`).
     assert.equal(enemy.alive, false, `and the fight ends inside 30 s: ${run.clock.toFixed(1)} s`);
     assert.ok(run.hero.alive, "with the hero standing");

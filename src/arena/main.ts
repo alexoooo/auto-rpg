@@ -5,7 +5,7 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { buildArena } from "./scene.ts";
 import { MENU_HREF } from "../app-route.ts";
 import { need } from "../dom.ts";
-import { blowCue, SURFACE_SOUND } from "../audio/cues.ts";
+import { blowCues, SURFACE_SOUND } from "../audio/cues.ts";
 import { GameAudio } from "../audio/game-audio.ts";
 import { loadEngine } from "../core/engine/engines.ts";
 import { BODY_MODELS, type BodyModel } from "../core/human/spec.ts";
@@ -138,8 +138,7 @@ export async function bootArena(): Promise<void> {
         }
       },
       onBlow: (blow) => {
-        const struck = duel?.duelists[blow.target as Side];
-        audio.cue(blowCue(blow, struck ? SURFACE_SOUND[struck.model] : "body"));
+        for (const cue of blowCues(blow, (fighter) => SURFACE_SOUND[duel!.duelists[fighter as Side].model])) audio.cue(cue);
       },
     });
     duel.play(tape);

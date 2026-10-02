@@ -72,7 +72,7 @@ if (isMainThread) {
         listed.push(`${model}, ${held}, seed ${seed}${values.each ? `, target ${from + 1}` : ""}: ${result.ended} at ${result.seconds.toFixed(1)} s`);
         for (const r of result.readings) {
           listed.push(`  ${r.stratum} [${r.at.map((x) => x.toFixed(2)).join(", ")}] ${r.hand} ${r.strike ?? "no strike"}: `
-            + `${r.blow ? `${r.blow.damage.toFixed(3)} HP, ${r.blow.energy.toFixed(1)} J at ${r.blow.closing.toFixed(1)} m/s with ${r.blow.striker}` : r.nearest === null ? "none began" : !r.hung ? "its place was filled" : `missed by ${(100 * r.nearest).toFixed(1)} cm`}`
+            + `${r.blow ? `${r.blow.damage.toFixed(3)} HP, ${r.blow.energy.toFixed(1)} J at ${r.blow.closing.toFixed(1)} m/s with ${r.blow.with}` : r.nearest === null ? "none began" : !r.hung ? "its place was filled" : `missed by ${(100 * r.nearest).toFixed(1)} cm`}`
             + `${r.fell ? ", fell" : ""}, ${r.seconds.toFixed(1)} s`);
         }
       }
@@ -107,7 +107,7 @@ if (isMainThread) {
         strata: (routine.tactics.targets ?? []).slice(from).map((target) => target.stratum),
         readings: routine.readings.map((r) => ({
           stratum: r.target.stratum, at: [...r.target.at], hand: r.hand, strike: r.strike?.name ?? null, seconds: r.seconds, hung: r.hung, nearest: r.nearest,
-          blow: r.blow && { damage: r.blow.damage, energy: r.blow.energy, closing: r.blow.closing, striker: r.blow.striker },
+          blow: r.blow && { damage: r.took.damage, energy: r.blow.energy, closing: r.blow.closing, with: r.gave.item ?? r.gave.segment },
           fell: r.fell,
         })),
       };

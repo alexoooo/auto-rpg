@@ -6,7 +6,8 @@
  * under a box lets it fall, and a body from another world is refused a joint; a box drifting at a
  * millimetre a second keeps drifting, where a sleeping one would stop and read zero; a force
  * through a step is integrated as gravity is and lasts that step alone; a box resting on another
- * touches it, pushed with its weight, and the ground is no body; a fixed box turns about up; a
+ * touches it, pushed with its weight, and the ground is no body; a contact names each pair of
+ * shapes that touched, by their places in their bodies; a fixed box turns about up; a
  * body's gap to a point is to the nearest of its shapes, and none inside one; and a
  * world loaded from a save goes on as it went on from the save, its contacts, its fixed colliders
  * and its bodies the ones it had, a force asked for the next step with them, and a save of another
@@ -163,6 +164,65 @@ test("a box resting on another touches it, pushed down on it with its weight eac
   } finally { b.dispose(); }
 });
 
+test("a body of two shapes names the one that touched", async () => {
+  const b = await box({ ground: false, gravity: false, height: 5 });
+  try {
+    const made = (name, at, shapes) => {
+      const node = new TransformNode(name, b.node.getScene());
+      node.position.set(...at); node.rotationQuaternion = Quaternion.Identity();
+      return b.physics.addBody(node, shapes, MASS);
+    };
+    const ball = (centre) => ({ kind: "sphere", centre, radius: 0.1 });
+    /** Step until `body` touches another, and return its contacts and the other's with it. */
+    const meet = (body, other) => {
+      for (let i = 0; i < HZ && b.physics.contactsOf(body).length === 0; i++) b.step(1);
+      return [b.physics.contactsOf(body), b.physics.contactsOf(other)];
+    };
+    const unit = (v, e, what) => assert.ok(Math.hypot(v[0] - e[0], v[1] - e[1], v[2] - e[2]) < 1e-3, `${what}: ${v}`);
+    // Two balls 0.4 m apart, and a third body's ball sent down on the second.
+    const two = made("two", [0, 0, 0], [ball([0, 0, 0]), ball([0.4, 0, 0])]);
+    const one = made("one", [0.4, 0.4, 0], [ball([0, 0, 0])]);
+    one.applyImpulse(new Vector3(0, -MASS.mass, 0), one.node.position.clone());
+    const [[under, ...more], [over, ...others]] = meet(two, one);
+    assert.equal(more.length + others.length, 0);
+    assert.deepEqual([under.other, over.other], [one, two]);
+    assert.deepEqual(under.pairs.map(({ mine, theirs }) => [mine, theirs]), [[1, 0]]);
+    assert.deepEqual(over.pairs.map(({ mine, theirs }) => [mine, theirs]), [[0, 1]]);
+    // One pair: the merged touch is the pair's, and each body reads it from its own side.
+    for (const contact of [under, over]) {
+      const { other, pairs, ...merged } = contact, [{ mine, theirs, ...pair }] = pairs;
+      assert.deepEqual(pair, merged);
+    }
+    unit(under.normal, [0, 1, 0], "from the two balls up into the one");
+    unit(over.normal, [0, -1, 0], "from the one down into the two");
+    assert.ok(under.impulse > 0 && Math.abs(under.impulse - over.impulse) < 1e-9, `${under.impulse} and ${over.impulse} N s`);
+    assert.ok(Math.hypot(under.point[0] - 0.4, under.point[2]) < 5e-3 && Math.abs(under.point[1] - 0.1) < 0.02, `${under.point}`);
+    assert.deepEqual(over.point, under.point);
+    b.physics.removeBody(one);
+
+    // A long box sent down across both balls, nearer the second: two pairs, in the shapes' order.
+    const three = made("three", [10, 0, 0], [ball([0, 0, 0]), ball([0.4, 0, 0])]);
+    const beam = made("beam", [10.3, 0.4, 0], [{ kind: "box", centre: [0, 0, 0], size: [1, 0.1, 0.2] }]);
+    beam.applyImpulse(new Vector3(0, -MASS.mass, 0), beam.node.position.clone());
+    const [[lower], [upper]] = meet(three, beam);
+    assert.deepEqual(lower.pairs.map(({ mine, theirs }) => [mine, theirs]), [[0, 0], [1, 0]]);
+    assert.deepEqual(upper.pairs.map(({ mine, theirs }) => [mine, theirs]), [[0, 0], [0, 1]]);
+    const [first, second] = lower.pairs;
+    assert.ok(Math.abs(first.point[0] - 10) < 1e-2 && Math.abs(second.point[0] - 10.4) < 1e-2, `${first.point} and ${second.point}`);
+    assert.ok(first.impulse > 0 && second.impulse > 0 && first.impulse !== second.impulse, `${first.impulse} and ${second.impulse} N s`);
+    for (const pair of lower.pairs) unit(pair.normal, [0, 1, 0], "a pair's normal, up into the beam");
+    for (const pair of upper.pairs) unit(pair.normal, [0, -1, 0], "a pair's normal, down into the balls");
+    // The merged touch is the pairs', weighted by impulse.
+    const sum = first.impulse + second.impulse;
+    assert.ok(Math.abs(lower.impulse - sum) < 1e-12, `${lower.impulse} N s of ${sum}`);
+    for (let c = 0; c < 3; c++) {
+      const mean = (first.point[c] * first.impulse + second.point[c] * second.impulse) / sum;
+      assert.ok(Math.abs(lower.point[c] - mean) < 1e-9, `${lower.point[c]} against ${mean}`);
+    }
+    unit(lower.normal, [0, 1, 0], "the merged normal");
+  } finally { b.dispose(); }
+});
+
 test("a fixed box turned a quarter about up lies across where it lay", async () => {
   for (const [turn, caught] of [[0, true], [Math.PI / 2, false]]) {
     const b = await box({ ground: false, height: 5 });
@@ -307,9 +367,10 @@ test("a loaded world keeps the last step's contacts, its fixed colliders and its
   const b = await box();
   try {
     const top = stacked(b);
-    const saved = b.physics.save(), read = (contacts) => contacts.map(({ point, normal, impulse }) => ({ point, normal, impulse }));
+    const saved = b.physics.save(), read = (contacts) => contacts.map(({ point, normal, impulse, pairs }) => ({ point, normal, impulse, pairs }));
     const touched = b.physics.contactsOf(top);
     assert.deepEqual(touched.map((c) => c.other), [b.body]);
+    assert.deepEqual(touched[0].pairs.map(({ mine, theirs }) => [mine, theirs]), [[0, 0]]);
     top.applyImpulse(new Vector3(3, 2, 0), top.node.position.clone());
     b.step(HZ / 2);
     assert.deepEqual(b.physics.contactsOf(top), [], "knocked off, it touches no body");

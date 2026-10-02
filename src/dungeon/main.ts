@@ -15,7 +15,7 @@ import type { Clothing, SkinView } from "../render/skin.ts";
 import { loadSkeletonArt, type SkeletonArt } from "../render/skeleton-skin.ts";
 import { drawHeld, type BodyShapes } from "../render/body-shapes.ts";
 import { dresserFor, type Dresser } from "../render/dress.ts";
-import { blowCue, SURFACE_SOUND } from "../audio/cues.ts";
+import { blowCues, SURFACE_SOUND } from "../audio/cues.ts";
 import { GameAudio } from "../audio/game-audio.ts";
 import { EnemyHover } from "./hover.ts";
 import { DungeonRun, type DungeonActor, type RunStatus } from "./run.ts";
@@ -359,8 +359,11 @@ async function buildRun(page: DungeonPage, nextSeed: number): Promise<void> {
     onBlow: (blow) => {
       const heard = page.run;
       if (!heard || !heard.visible.has(cellKey(heard.map, { x: blow.point[0], z: blow.point[2] }))) return;
-      const target = heard.actors.find((actor) => actor.id === blow.target);
-      if (target) audio.cue(blowCue(blow, SURFACE_SOUND[target.model]));
+      const surfaceOf = (fighter: string) => {
+        const actor = heard.actors.find((one) => one.id === fighter);
+        return actor ? SURFACE_SOUND[actor.model] : null;
+      };
+      for (const cue of blowCues(blow, surfaceOf)) audio.cue(cue);
     },
   });
   run.commands.setMode({ keyboard: keyboard.checked, facing: facing.checked });

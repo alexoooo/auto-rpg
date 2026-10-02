@@ -115,6 +115,19 @@ export interface EngineJoint {
   setMotor(k: number, speed: number, ceiling: number): void;
 }
 
+/** One pair of shapes that touched: this body's and the other's. */
+export interface ContactPair {
+  /** Which of this body's shapes, and which of the other's, in the order `addBody` was given them. */
+  readonly mine: number;
+  readonly theirs: number;
+  /** Where they touch, world, m: the pair's solver contact points averaged. */
+  readonly point: Vec3;
+  /** The pair's normal, world, unit, from this body into the other. */
+  readonly normal: Vec3;
+  /** The impulse the solver pushed the pair apart with in the last step, N s. */
+  readonly impulse: number;
+}
+
 /**
  * **A body's touch with another dynamic body**, as the last step left it: one for each body it
  * touched, whatever colliders met.
@@ -130,6 +143,8 @@ export interface Contact {
   readonly normal: Vec3;
   /** The impulse the solver pushed them apart with in the last step, N s, along the normal. */
   readonly impulse: number;
+  /** Each pair of shapes that touched, in this body's shapes' order, then the other's. */
+  readonly pairs: readonly ContactPair[];
 }
 
 /** Something fixed in the world: the ground, a wall. */

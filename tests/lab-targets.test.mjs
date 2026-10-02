@@ -142,13 +142,14 @@ test("a_dummy_hangs_still_and_gives_way_to_a_blow", async () => {
     const { blows, fistSpeed } = h.strike();
     assert.equal(blows.length, 1, JSON.stringify(blows));
     const [blow] = blows, kg = h.head.rigid.mass;
-    assert.deepEqual([blow.attacker, blow.striker, blow.target, blow.part, blow.clash], ["fist", "hand.right", "dummy", "head", false]);
+    const [by, on] = blow.sides;
+    assert.deepEqual(blow.sides.map(sideOf), [["fist", "hand.right", null, 0], ["dummy", "head", null, 1]]);
     // Two balls meet through their centres, so the masses the contact meets are the bodies' own: but
     // for the few millimetres the fist has dropped on its way, which put the contact that far off the line.
-    assert.ok(Math.abs(blow.strikerKg - 1) < 0.01 && Math.abs(blow.struckKg - kg) < 0.01, `${blow.strikerKg}, ${blow.struckKg} kg of 1 and ${kg}`);
+    assert.ok(Math.abs(by.kg - 1) < 0.01 && Math.abs(on.kg - kg) < 0.01, `${by.kg}, ${on.kg} kg of 1 and ${kg}`);
     assert.ok(Math.abs(blow.closing - 6) < 0.02, `${blow.closing} m/s`);
-    assert.equal(blow.energy, impactEnergy(blow.strikerKg, blow.struckKg, blow.closing));
-    assert.equal(blow.damage, blowDamage(RULES, "blunt", blow.energy));
+    assert.equal(blow.energy, impactEnergy(by.kg, on.kg, blow.closing));
+    assert.deepEqual([by.damage, by.wound, on.damage], [0, null, blowDamage(RULES, "blunt", blow.energy)]);
     // It moves off with the blow, as a head on no neck does: the fist's 6 N s is in the two of them, and it has not dropped.
     const moving = h.head.body.linearVelocityToRef(new Vector3());
     assert.ok(moving.z > 0.5 && Math.abs(fistSpeed.z + kg * moving.z - 6) < 0.06, `the dummy at ${moving.z} m/s, the fist at ${fistSpeed.z}`);
@@ -191,10 +192,19 @@ async function strikeAt(loadout, places) {
   } finally { open?.dispose(); actor.dispose(); stand.dispose(); }
 }
 
+/** A blow's side without its measures. */
+const sideOf = ({ fighter, segment, item, share }) => [fighter, segment, item, share];
 const CLUB = { model: "workshop-fighter", right: "club", left: "empty" }, BARE = { model: "workshop-fighter", right: "empty", left: "empty" };
-/** A reading's record without its measures: what was struck at, with what, and whether anything was read. */
-const record = ({ target, hand, strike, hung, fell, blow }) =>
-  ({ target, hand, strike: strike?.name ?? null, hung, fell, blow: blow && { attacker: blow.attacker, striker: blow.striker, target: blow.target, part: blow.part, clash: blow.clash } });
+/**
+ * A reading's record without its measures: what was struck at, with what, and whether anything was
+ * read: its blow's two sides, and which of them the dummy's and the body's are.
+ */
+const record = ({ target, hand, strike, hung, fell, blow, took, gave }) => ({
+  target, hand, strike: strike?.name ?? null, hung, fell,
+  blow: blow && blow.sides.map(sideOf), took: took && blow.sides.indexOf(took), gave: gave && blow.sides.indexOf(gave),
+});
+/** The club's blow on a dummy: the club's side takes none of it, the dummy's head all. */
+const CLUBBED = { blow: [["attacker", "hand.right", "wooden club", 0], ["dummy", "head", null, 1]], took: 1, gave: 0 }, UNSTRUCK = { blow: null, took: null, gave: null };
 
 test("a_target_where_the_recipe_lands_is_struck_and_one_out_of_its_height_is_missed_by_that_much", async () => {
   // The club's recipe lands at the head's height, 1.05 m off: the skill closes the last of 1.3 m itself.
@@ -203,11 +213,11 @@ test("a_target_where_the_recipe_lands_is_struck_and_one_out_of_its_height_is_mis
   const [hit] = struck.readings;
   assert.deepEqual(record(hit), {
     target: { at: [0, struck.head, 1.3], stratum: "control" }, hand: "right", strike: "searched right club blow", hung: true, fell: false,
-    blow: { attacker: "attacker", striker: "hand.right", target: "dummy", part: "head", clash: false },
+    ...CLUBBED,
   });
   assert.equal(hit.nearest, 0);
-  assert.ok(hit.blow.damage > 0 && hit.blow.damage === blowDamage(RULES, "blunt", hit.blow.energy), `${hit.blow.damage} HP of ${hit.blow.energy} J`);
-  assert.equal(hit.blow.energy, impactEnergy(hit.blow.strikerKg, hit.blow.struckKg, hit.blow.closing));
+  assert.ok(hit.took.damage > 0 && hit.took.damage === blowDamage(RULES, "blunt", hit.blow.energy), `${hit.took.damage} HP of ${hit.blow.energy} J`);
+  assert.equal(hit.blow.energy, impactEnergy(hit.gave.kg, hit.took.kg, hit.blow.closing));
   // The blow is the strike's own, and the watch outlasts the pushes by its seconds.
   assert.ok(hit.began <= hit.blow.time && hit.blow.time <= hit.ended, `struck at ${hit.blow.time} s of ${hit.began} to ${hit.ended}`);
   assert.ok(Math.abs(hit.seconds - hit.ended) < 1e-9 && hit.ended - hit.blow.time >= TARGET_WATCH - 0.25, `${hit.seconds} s`);
@@ -218,7 +228,7 @@ test("a_target_where_the_recipe_lands_is_struck_and_one_out_of_its_height_is_mis
   // The club's swell passes 0.28 m off and the knuckles 0.72: the reading is of the hand's whole body.
   const missed = await strikeAt(CLUB, [(head) => [0, head - 1.3, 1.3]]);
   const [miss] = missed.readings;
-  assert.deepEqual(record(miss), { ...record(hit), target: { at: [0, missed.head - 1.3, 1.3], stratum: "control" }, blow: null });
+  assert.deepEqual(record(miss), { ...record(hit), target: { at: [0, missed.head - 1.3, 1.3], stratum: "control" }, ...UNSTRUCK });
   assert.ok(miss.nearest > 0.2 && miss.nearest < 0.4, `it passed ${miss.nearest} m off`);
   assert.deepEqual(miss.strike, hit.strike);
 });
@@ -229,8 +239,8 @@ test("a_reading_is_one_targets_own", async () => {
   assert.equal(down, false);
   assert.deepEqual(readings.map(record), [
     { target: { at: [0, head, 1.3], stratum: "control" }, hand: "right", strike: "searched right club blow", hung: true, fell: false,
-      blow: { attacker: "attacker", striker: "hand.right", target: "dummy", part: "head", clash: false } },
-    { target: { at: [0, head - 1, 1.3], stratum: "control" }, hand: "right", strike: "searched right club blow", hung: true, fell: false, blow: null },
+      ...CLUBBED },
+    { target: { at: [0, head - 1, 1.3], stratum: "control" }, hand: "right", strike: "searched right club blow", hung: true, fell: false, ...UNSTRUCK },
   ]);
   const [first, second] = readings;
   assert.ok(first.blow.time < first.ended && first.ended < second.began, `${first.blow.time}, ${first.ended}, ${second.began}`);
@@ -247,7 +257,7 @@ test("a_target_is_a_place_and_no_body_until_its_strike_begins", async () => {
   assert.ok(reading.before.length > 0);
   assert.deepEqual(reading.before, reading.before.map(() => ({ centre: reading.target.at, radius: reading.before[0].radius })));
   // Hung as the strike began, it was passed by: nothing before the strike is a blow of its.
-  assert.deepEqual(record(reading), { target: reading.target, hand: "right", strike: "searched right straight", hung: true, fell: false, blow: null });
+  assert.deepEqual(record(reading), { target: reading.target, hand: "right", strike: "searched right straight", hung: true, fell: false, ...UNSTRUCK });
   assert.ok(reading.nearest > 0 && reading.nearest < 0.1, `it passed ${reading.nearest} m off`);
 });
 
@@ -256,7 +266,7 @@ test("a_target_in_the_bodys_place_is_hung_once_the_body_has_stepped_off_it", asy
   // clear as the strike begins.
   const { readings, down } = await strikeAt(BARE, [(head) => [0, head - 0.35, 0]]);
   assert.equal(down, false);
-  assert.deepEqual(readings.map(record), [{ target: { at: [0, readings[0].target.at[1], 0], stratum: "control" }, hand: "right", strike: "searched right straight", hung: true, fell: false, blow: null }]);
+  assert.deepEqual(readings.map(record), [{ target: { at: [0, readings[0].target.at[1], 0], stratum: "control" }, hand: "right", strike: "searched right straight", hung: true, fell: false, ...UNSTRUCK }]);
 });
 
 /**
@@ -294,7 +304,7 @@ test("a_dummy_is_not_hung_in_a_place_the_body_fills", async () => {
   // Made inside the head, the solver would throw the head and the dummy apart, which is no blow.
   const { reading, ball, clear, down } = await strikeFromInside(false);
   assert.equal(down, false);
-  assert.deepEqual(record(reading), { target: reading.target, hand: "right", strike: "searched right straight", hung: false, fell: false, blow: null });
+  assert.deepEqual(record(reading), { target: reading.target, hand: "right", strike: "searched right straight", hung: false, fell: false, ...UNSTRUCK });
   assert.equal(clear, 0);
   // Its ball stayed the place it was drawn at, and the hand's body was never off it by half a metre.
   assert.deepEqual(ball, { centre: reading.target.at, radius: ball.radius });
@@ -306,6 +316,6 @@ test("a_dummy_is_not_hung_once_its_strikes_pushes_have_ended", async () => {
   // place is clear from then on, and a dummy hung then would be there for no strike.
   const { reading, ball, clear, down } = await strikeFromInside(true);
   assert.ok(clear > 10, `the place was clear for ${clear} steps of the watch`);
-  assert.deepEqual(record(reading), { target: reading.target, hand: "right", strike: "searched right straight", hung: false, fell: down, blow: null });
+  assert.deepEqual(record(reading), { target: reading.target, hand: "right", strike: "searched right straight", hung: false, fell: down, ...UNSTRUCK });
   assert.deepEqual(ball, { centre: reading.target.at, radius: ball.radius });
 });

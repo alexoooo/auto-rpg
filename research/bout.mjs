@@ -3,6 +3,7 @@ import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { Scene } from "@babylonjs/core/scene.js";
 import { addArenaSolids } from "../src/arena/room.ts";
 import { Duel, SIDES } from "../src/arena/duel.ts";
+import { isClash, woundedIn } from "../src/core/rules/blows.ts";
 import { createWorld } from "../src/core/world.ts";
 import { freshEngine } from "../tests/harness/core-stand.mjs";
 import { traceOf } from "../tests/harness/trace.mjs";
@@ -67,11 +68,11 @@ export async function playBout(recipe, seconds = Infinity, tape = [], { shortfal
       trace.take();
       if (missed) for (const meter of missed) meter.take();
     }
-    const landed = duel.blows.filter((blow) => !blow.clash);
+    const landed = duel.blows.filter((blow) => !isClash(blow));
     return {
       recipe, steps: world.steps, seconds: duel.clock,
       winner: duel.verdict?.winner ?? null, ending: duel.verdict?.ending ?? "none",
-      blows: landed.length, wounding: landed.filter((blow) => blow.damage > 0).length, clashes: duel.blows.length - landed.length,
+      blows: landed.length, wounding: landed.filter((blow) => woundedIn(blow).some((side) => side.damage > 0)).length, clashes: duel.blows.length - landed.length,
       bars: SIDES.map((side) => duel.duelists[side].pool.bar()),
       fallen: SIDES.filter((side) => duel.duelists[side].body.view.down),
       tape: duel.tape, digest: trace.digest(),

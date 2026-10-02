@@ -2,6 +2,7 @@
 // bodies runs to its verdict (Node, core world, Rapier, 120 Hz).
 import test from "node:test";
 import assert from "node:assert/strict";
+import { woundsBy } from "./fixtures/blows.mjs";
 import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { Scene } from "@babylonjs/core/scene.js";
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder.js";
@@ -121,9 +122,7 @@ test("a_bout_in_the_arena_runs_to_its_verdict", async () => {
     duel = new Duel(world, { left: "workshop-fighter", right: "workshop-rogue" });
     const verdict = duel.run(CAP_SECONDS + 1);
     assert.ok(verdict, "the bout is decided by its cap");
-    const wounds = (from, to) => duel.blows.filter(b => !b.clash && b.attacker === from && b.target === to)
-      .reduce((sum, b) => sum + b.damage, 0);
-    assert.ok(wounds("left", "right") > 0 && wounds("right", "left") > 0, "blows land both ways, and wound");
+    assert.ok(woundsBy(duel.blows, "left", "right") > 0 && woundsBy(duel.blows, "right", "left") > 0, "blows land both ways, and wound");
     const { left, right } = duel.duelists;
     if (verdict.winner) {
       const winner = duel.duelists[verdict.winner], loser = verdict.winner === "left" ? right : left;

@@ -64,9 +64,10 @@ for (const model of ["workshop-fighter", "workshop-rogue"]) {
       }
       // The control is where the recipe lands: struck by the hand that threw, each loop. The low one is out of the fist's height.
       for (const k of [0, TARGETS]) {
-        const { blow, nearest, hand } = readings[k];
-        assert.ok(blow && blow.damage > 0 && nearest === 0, `the control read ${JSON.stringify(readings[k])}`);
-        assert.deepEqual([blow.attacker, blow.striker, blow.target, blow.part], ["attacker", `hand.${hand}`, "dummy", "head"]);
+        const { blow, took, gave, nearest, hand } = readings[k];
+        assert.ok(blow && took.damage > 0 && nearest === 0, `the control read ${JSON.stringify(readings[k])}`);
+        assert.deepEqual([gave, took].map(({ fighter, segment, item, share }) => [fighter, segment, item, share]), [["attacker", `hand.${hand}`, null, 0], ["dummy", "head", null, 1]]);
+        assert.deepEqual(blow.sides, [gave, took]);
       }
       for (const k of [TARGETS - 1, 2 * TARGETS - 1]) assert.ok(readings[k].blow === null && readings[k].nearest > 0.1, `the low one read ${JSON.stringify(readings[k])}`);
       // Its strike thrown, a target is watched from the guard: the next attack is the next target's.
@@ -98,7 +99,8 @@ test("a_fall_closes_the_reading_of_the_target_that_is_up", async () => {
     }
     assert.ok(downs > 0 && routine.body.view.down && routine.doing() === "Fallen", `${downs} steps down, ${routine.doing()}`);
     // The reading closed as it stood: no strike had begun, so nothing was hung and nothing read.
-    const { target, hand, strike, hung, nearest, blow, fell } = routine.readings[0];
-    assert.deepEqual({ target, hand, strike, hung, nearest, blow, fell }, { target: routine.tactics.targets[0], hand: "right", strike: null, hung: false, nearest: null, blow: null, fell: true });
+    const { seconds, ...read } = routine.readings[0];
+    assert.deepEqual(read, { target: routine.tactics.targets[0], hand: "right", strike: null, hung: false, nearest: null, blow: null, took: null, gave: null, fell: true });
+    assert.ok(seconds > 0, `${seconds} s`);
   } finally { routine.dispose(); stand.dispose(); }
 });

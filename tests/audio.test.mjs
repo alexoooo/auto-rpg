@@ -1,24 +1,44 @@
 import test from 'node:test';
 import { Vector3 } from '@babylonjs/core/Maths/math.vector.js';
 import assert from 'node:assert/strict';
-import { blowCue, ImpactInbox, soundPlacement } from '../src/audio/cues.ts';
+import { blowCue, blowCues, ImpactInbox, soundPlacement } from '../src/audio/cues.ts';
 import { GameAudio } from '../src/audio/game-audio.ts';
-// A core blow (`LandedBlow`) of 15 J from the hero to the enemy's head.
-const blow = (patch = {}) => ({ time: 1, attacker: 'hero', target: 'enemy', striker: 'club', part: 'head', point: [1, 1.6, 2], normal: [0, 0, 1],
-  closing: 4, strikerKg: 1, struckKg: 5, energy: 15, damage: 3, clash: false, wound: { taken: [{ part: 'head', hp: 3 }], severed: [], lost: 0, spent: 3, ending: null }, ...patch });
+const WOUND = { taken: [{ part: 'head', hp: 3 }], severed: [], lost: 0, spent: 3, ending: null };
+// A core blow (`LandedBlow`) of 15 J from the hero's club to the enemy's head: `struck` patches the head's side, `patch` the blow.
+const blow = (struck = {}, patch = {}) => ({ time: 1, point: [1, 1.6, 2], normal: [0, 0, 1], closing: 4, energy: 15, sides: [
+  { fighter: 'hero', segment: 'hand.right', item: 'club', kg: 1, share: 0, damage: 0, wound: null },
+  { fighter: 'enemy', segment: 'head', item: null, kg: 5, share: 1, damage: 3, wound: WOUND, ...struck },
+], ...patch });
 
 test('a blow sounds as the surface it struck, a clash as wood on wood, and a graze not at all', () => {
   const hit = blow(); const before = structuredClone(hit);
   assert.deepEqual(blowCue(hit, 'bone'), { key: 'hero:enemy', kind: 'bone', strength: .5, severed: false, point: { x: 1, z: 2 } });
   assert.equal(blowCue(hit, 'body').kind, 'body');
-  assert.equal(blowCue(blow({ clash: true, damage: 0, wound: null }), 'body').kind, 'shield');
-  assert.equal(blowCue(blow({ wound: { ...hit.wound, severed: ['head'] } }), 'body').severed, true);
-  assert.equal(blowCue(blow({ energy: 240 }), 'body').strength, 1);
+  // A clash: neither side took a share.
+  const clash = blow({ share: 0, damage: 0, wound: null });
+  assert.equal(blowCue(clash, 'body').kind, 'shield');
+  assert.equal(blowCue(blow({ wound: { ...WOUND, severed: ['head'] } }), 'body').severed, true);
+  assert.equal(blowCue(blow({}, { energy: 240 }), 'body').strength, 1);
   // Just under and just over the quietest cue.
-  assert.equal(blowCue(blow({ energy: 60 * .034 ** 2 }), 'body'), null);
-  assert.ok(blowCue(blow({ energy: 60 * .036 ** 2 }), 'body'));
-  assert.equal(blowCue(blow({ energy: 0 }), 'body'), null);
+  assert.equal(blowCue(blow({}, { energy: 60 * .034 ** 2 }), 'body'), null);
+  assert.ok(blowCue(blow({}, { energy: 60 * .036 ** 2 }), 'body'));
+  assert.equal(blowCue(blow({}, { energy: 0 }), 'body'), null);
   assert.deepEqual(hit, before);
+});
+test('a blow is heard once for each side it wounded, on that side\'s surface, and a clash once', () => {
+  const surfaces = { hero: 'body', enemy: 'bone' }, surfaceOf = (fighter) => surfaces[fighter] ?? null;
+  const hit = blow();
+  assert.deepEqual(blowCues(hit, surfaceOf), [blowCue(hit, 'bone')]);
+  // Both sides wounded: the hero's side first, as the blow lists them.
+  const both = blow();
+  both.sides[0] = { ...both.sides[0], share: .5, damage: 1, wound: WOUND };
+  assert.deepEqual(blowCues(both, surfaceOf).map((cue) => cue.kind), ['body', 'bone']);
+  const clash = blow({ share: 0, damage: 0, wound: null });
+  assert.deepEqual(blowCues(clash, surfaceOf), [blowCue(clash, 'body')]);
+  assert.deepEqual(blowCues(clash, surfaceOf).map((cue) => cue.kind), ['shield']);
+  // A fighter the listener does not know is not heard; nor is a graze.
+  assert.deepEqual(blowCues(hit, () => null), []);
+  assert.deepEqual(blowCues(blow({}, { energy: 0 }), surfaceOf), []);
 });
 test('impact windows retain the strongest, distinguish attackers, bound bursts and drop stale events', () => {
   const inbox = new ImpactInbox(), cue = blowCue(blow(), 'bone');

@@ -18,6 +18,7 @@ import { Scene } from "@babylonjs/core/scene.js";
 import { Duel, SIDES } from "../src/arena/duel.ts";
 import { addArenaSolids } from "../src/arena/room.ts";
 import { FIGHTER } from "../src/core/mind/config.ts";
+import { isClash, woundedIn } from "../src/core/rules/blows.ts";
 import { GUARD_ACTION } from "../src/core/mind/intent.ts";
 import { STAND_ORDERS } from "../src/core/mind/orders.ts";
 import { GUARD } from "../src/core/skills/guard.ts";
@@ -73,9 +74,9 @@ async function bout(which = "trunk", recipe = RECIPE, tape = TAPE) {
     watch() {
       for (; counted < duel.blows.length; counted++) {
         const blow = duel.blows[counted];
-        if (blow.clash) seen.clashes += 1;
+        if (isClash(blow)) seen.clashes += 1;
         else seen.landed.push(duel.steps);
-        if (blow.wound?.severed.length) seen.severed.push(blow.target);
+        for (const side of woundedIn(blow)) if (side.wound.severed.length) seen.severed.push(side.fighter);
       }
       seen.orders = duel.tape.map(({ step, orders }) => [step, orders !== null]);
       seen.withdrawn = sides.every(({ body }) => body.assist.withdrawn);
@@ -148,7 +149,8 @@ test("a_bout_rewinds", async () => {
     stepped(stand, 840);
     const saved = duel.save(), on = stepped(stand, 600), then = saveState(duel.state), blows = [...duel.blows], [blow] = blows;
     const told = JSON.stringify(blows), verdict = duel.verdict;
-    assert.ok(blows.length > 0 && Object.isFrozen(blow) && Object.isFrozen(blow.wound ?? blow.point), "a blow landed, and is frozen as it landed");
+    assert.ok(blows.length > 0 && Object.isFrozen(blow) && Object.isFrozen(blow.point) && blow.sides.every((side) => Object.isFrozen(side) && Object.isFrozen(side.wound ?? side)),
+      "a blow landed, and is frozen as it landed");
     duel.load(saved);
     assert.deepEqual([duel.steps, duel.blows.length], [1200, 0]);
     assert.equal(stepped(stand, 600), on);

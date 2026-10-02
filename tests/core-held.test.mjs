@@ -42,7 +42,17 @@ const times = (m, v) => m.map((row) => dot(row, v));
 test("a segment that holds nothing is its own numbers", () => {
   const spec = { ...holder(), held: [] }, [segment] = spec.segments;
   const rigid = rigidOf(spec, segment);
-  assert.deepEqual(rigid, { mass: 0.6, centre: segment.centreOfMass.value, tensor: [0.0012, 0.0004, 0.0015, 0, 0, 0], shapes: [segment.shape] });
+  assert.deepEqual(rigid, { mass: 0.6, centre: segment.centreOfMass.value, tensor: [0.0012, 0.0004, 0.0015, 0, 0, 0], shapes: [segment.shape], owners: [{ kind: "segment" }] });
+});
+
+test("a rigid body says whose each shape is", () => {
+  const spec = holder(), [segment] = spec.segments, [held] = spec.held;
+  const rigid = rigidOf(spec, segment);
+  // The segment's own shape, then the rod's two, each the holding it came by: parallel to `shapes`.
+  assert.deepEqual(rigid.shapes.map((shape) => shape.kind), ["capsule", "capsule", "sphere"]);
+  assert.deepEqual(rigid.owners.map((owner) => owner.kind), ["segment", "held", "held"]);
+  assert.ok(rigid.owners.slice(1).every((owner) => owner.held === held), "each held shape names its holding");
+  assert.equal(rigid.shapes[0], segment.shape);
 });
 
 test("principal moments and right-handed axes rebuild the tensor", () => {

@@ -87,7 +87,8 @@ each function's values to a record ([reference/real-functions.md](reference/real
 ### Build
 
 `buildBody` (`src/core/build/build-body.ts`) makes one engine body per segment, with the spec's
-mass and inertia (a held item's are folded in by `rigidOf`), and one joint per spec joint, whose
+mass and inertia (a held item's are folded in by `rigidOf`, which says whose each of the rigid
+body's shapes is: the segment's own, or an item it holds), and one joint per spec joint, whose
 free axes are the spec's freedoms. The body is built in the pose its joints demand.
 
 - `jointAngles` and `jointTracker` (`joint-state.ts`) read each freedom's angle as the engine's
@@ -105,8 +106,9 @@ writes each node's `position` and `rotationQuaternion`; bodies that never sleep;
 whole; velocities of the centre of mass; one friction (`CONTACT_FRICTION`, 0.5) and no bounce on
 every contact; freedom k as axis k of the joint's frame; a motor as a velocity constraint bounded
 by a torque; a force and a moment on a body through one step, integrated as gravity is, beside
-the impulse that is whole before it; the contacts the solver pushed on in the last step; and how
-far a point is from a body's shapes (`SegmentBody.gapTo`). A
+the impulse that is whole before it; the contacts the solver pushed on in the last step, each
+naming the pairs of shapes that touched by their places in their bodies (`Contact.pairs`); and
+how far a point is from a body's shapes (`SegmentBody.gapTo`). A
 world saves its whole physical state and loads it in place (`PhysicsWorld.save`, `load`); a body,
 joint or collider the core holds survives a load as the object it was, and a save of a world with
 other bodies, joints or colliders is refused. `rapier.ts` implements it,
@@ -324,8 +326,12 @@ The rules of a fight are `src/core/rules/`, free of any page so they can be argu
 
 - **A blow** (`watchBlows`, `blows.ts`) is a new contact between a striker (a hand, or anything it
   holds) and another side's body, closing. Its energy is `impactEnergy` (`impact.ts`): half the
-  reduced mass of the two effective masses (`contactMass`) times the closing speed squared. Hand
-  against hand is a clash and does nothing.
+  reduced mass of the two effective masses (`contactMass`) times the closing speed squared. Its
+  record is two sides (`BlowSide`), the surfaces that met: of the pairs of shapes that touched,
+  the one the solver pushed on hardest, each shape its segment's own or an item it holds. Each
+  side has the share of the energy it took, its damage and its wound: the struck side takes the
+  whole and the striker's none, and hand against hand is a clash, in which neither takes any
+  (`isClash`).
 - **Damage** (`rulebook.ts`) is energy times the mechanism's worth over the unit. The unit is the
   Warrior's strongest one-handed blow with the wooden club (`core-club-unit`,
   `research/core-club-unit.json`), and every mechanism (blunt, edge, axe, point) keeps its ratio to

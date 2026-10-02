@@ -3,7 +3,7 @@ import { buildBody } from "../core/build/build-body.ts";
 import type { Hand } from "../core/control/motor.ts";
 import { cos, sin } from "../core/math/real.ts";
 import type { Sight } from "../core/mind/tactics.ts";
-import { watchBlows, type BlowWatch, type Fighter, type LandedBlow } from "../core/rules/blows.ts";
+import { watchBlows, woundedIn, type BlowSide, type BlowWatch, type Fighter, type LandedBlow } from "../core/rules/blows.ts";
 import { createPool } from "../core/rules/pool.ts";
 import type { Rulebook } from "../core/rules/rulebook.ts";
 import type { BodySpec, ShapeSpec } from "../core/spec/body.ts";
@@ -170,8 +170,11 @@ export interface TargetReading {
    * touched; null if no strike began.
    */
   readonly nearest: number | null;
-  /** The first blow on the dummy, or null. */
+  /** The first blow that wounded the dummy, or null. */
   readonly blow: LandedBlow | null;
+  /** That blow's two sides: the dummy's, and the body's that struck it; null with no blow. */
+  readonly took: BlowSide | null;
+  readonly gave: BlowSide | null;
   /** Whether the body went down before the watch's end: the reading closed there. */
   readonly fell: boolean;
 }
@@ -219,8 +222,9 @@ export function readTarget(actor: Actor, target: Target, hand: Hand, rules: Rule
   /** The hand's strikes thrown before this one, once it has begun; and when its pushes ended. */
   let thrown: number | null = null, ended: number | null = null;
   const reading = (fell: boolean): TargetReading => {
-    const blow = up?.watch.blows.find((b) => b.target === up!.dummy.fighter.id) ?? null;
-    return { target, hand, strike: strike && { ...strike }, seconds: world.time - asked, hung: up !== null, nearest, blow, fell };
+    const dummy = up?.dummy.fighter.id, blow = up?.watch.blows.find((b) => woundedIn(b).some((side) => side.fighter === dummy)) ?? null;
+    const took = blow?.sides.find((side) => side.fighter === dummy) ?? null, gave = blow?.sides.find((side) => side.fighter !== dummy) ?? null;
+    return { target, hand, strike: strike && { ...strike }, seconds: world.time - asked, hung: up !== null, nearest, blow, took, gave, fell };
   };
   /** Where the ball is: its dummy's centre, or its place while none hangs. */
   const centre = (): Vec3 => up ? [up.dummy.centre.x, up.dummy.centre.y, up.dummy.centre.z] : target.at;

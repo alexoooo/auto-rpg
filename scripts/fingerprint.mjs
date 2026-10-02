@@ -113,8 +113,8 @@ async function labRoutine(model) {
   try {
     const trace = traceOf([stand.built]);
     for (let i = 0; i < stand.seconds(60) && routine.readings.length < 4; i++) { stand.step(); trace.take(); }
-    const read = routine.readings.map(({ target, blow, nearest }) =>
-      `${target.stratum} ${blow ? `${blow.damage.toFixed(4)} HP` : nearest === null ? "unread" : `missed by ${(100 * nearest).toFixed(2)} cm`}`);
+    const read = routine.readings.map(({ target, took, nearest }) =>
+      `${target.stratum} ${took ? `${took.damage.toFixed(4)} HP` : nearest === null ? "unread" : `missed by ${(100 * nearest).toFixed(2)} cm`}`);
     return `targets ${read.join(", ") || "none"}; pose ${trace.digest()}`;
   } finally { routine.dispose(); stand.dispose(); }
 }
