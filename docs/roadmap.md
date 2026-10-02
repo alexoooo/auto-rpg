@@ -205,9 +205,10 @@ All of it on a physically based core, humans first ([architecture](architecture.
 - Every value of the look and the sound is kept as found until the owner confirms it
   ([reference/look.md](reference/look.md)). Of them, the dungeon's stand open until the owner
   judges them in play: torch density, and which floor and wall textures ship.
-- The pages play a landed blow and nothing else. What a body sounds of is read on the Node stand
-  (`hearTouches`, `airOf`, [reference/look.md](reference/look.md#sound)): its footfalls, its
-  falls, one body on another and its air. The lab, the arena and the crypt are to play them.
+- The arena and the crypt play a landed blow and nothing else. What a body sounds of
+  (`hearTouches`, `airOf`, [reference/look.md](reference/look.md#sound)), its footfalls, its
+  falls, one body on another and its air, is played by the lab; the arena and the crypt are to
+  play it too.
 - A body's air (`MIX.swish`, the `swish` formula), which of two surfaces decides a touch's voice,
   and how loud a footfall is beside a blow (`MIX.impact`) are set and not heard: the owner's to
   judge in play.

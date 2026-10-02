@@ -10,6 +10,7 @@ import { watchClubBlow, type ClubLanding } from "./club-blow.ts";
 import { recordHistory } from "./history.ts";
 import type { LabScenario, LabShell } from "./lab-scenario.ts";
 import { createPlayer } from "./player.ts";
+import { landingCue } from "./sound-log.ts";
 import { choice, legend, note, readings } from "./hud/controls.ts";
 
 /**
@@ -17,7 +18,8 @@ import { choice, legend, note, readings } from "./hud/controls.ts";
  * search threw it (`throwBlow`, `blow.ts`), into an opponent's head, and the landing is read as the
  * search reads it (`watchClubBlow`, `club-blow.ts`): its closing speed, the masses the contact
  * meets, its energy and its worth in hit points (`blowDamage`, the arena's rulebook). The head is a
- * mark, not a body: the club passes through it, and the reading is its first touch.
+ * mark, not a body: the club passes through it, and the reading is its first touch. The landing
+ * sounds as the club on a head of the body's own kind (`landingCue`), at the step it is read.
  *
  * A club blow needs the club in the hand it was found with; the menu's card puts it there
  * (`SCENARIOS`' `holds`). Without it the body stands in guard and the readout says so. The world
@@ -110,13 +112,21 @@ export function blowScenario(scene: Scene, shell: LabShell): LabScenario {
       readout: [shown, legend([MARKS.head, MARKS.touch])],
     },
     timelineLabel: "The blow, from standing in guard, one physics step a notch; dragging pauses. Arrow keys step once it has focus.",
-    start({ actor, changed, clock }) {
+    start({ actor, changed, clock, heard }) {
       const { world } = actor, { built } = actor.body;
       const stored = chosen;
       const holds = built.spec.held?.some((h) => h.segment === `hand.${stored.hand}`) ?? false;
       // Without the club, the body stands in guard: the same rig with no blow to throw.
       const blow = throwBlow(actor, holds ? stored.strike : { name: "guard", hand: stored.hand, pushes: [] }, stored.distance);
       const watch = holds ? watchClubBlow(built, world, blow, stored.distance, stored.hand) : null;
+      // After the watch has read the step: the landing sounds once, at the step it is first read.
+      let sounded = false;
+      const sounding = world.afterStep(() => {
+        const landed = watch?.landed;
+        if (sounded || !landed) return;
+        sounded = true;
+        heard(landingCue(built, stored.hand, landed));
+      });
       const history = recordHistory(built, world, HISTORY_SECONDS, (): BlowMoment => {
         const t = watch?.target;
         return {
@@ -156,6 +166,7 @@ export function blowScenario(scene: Scene, shell: LabShell): LabScenario {
         closure: () => 0,
         dispose(): void {
           history.dispose();
+          sounding.dispose();
           watch?.dispose();
           blow.dispose();
           head.setEnabled(false);

@@ -416,7 +416,10 @@ arena, crypt and lab screens at `?play=arena`, `?play=dungeon` and `?play=lab`, 
   scenarios (`scenarios.ts`), at 120 or 480 Hz, with a transport that steps the world by hand.
   Every scenario drives its body through an actor (`actor.ts`), which gives the body what the
   page chose: its balance, its mind (`minds.ts`) and the strikes it may throw. The page logs what
-  the mind decides, and who has the body when it changes hands (`mind-log.ts`). Its HUD is sections (`hud/sections.ts`) that the shell and the scenario fill with controls
+  the mind decides, and who has the body when it changes hands (`mind-log.ts`), and what the body
+  sounds of (`sound-log.ts`): its touches, its air, and the cue of each instrument that is no
+  contact, the shove and the Blow's mark, each at the mind's time, so the page plays what the
+  frame it shows sounded of, live or replayed. Its HUD is sections (`hud/sections.ts`) that the shell and the scenario fill with controls
   built from data (`hud/controls.ts`).
 - **The character workshop** (`/character-lab.html`, `src/character-lab/`): the workshop models
   with their authored preview motion. It uses no core. See [art/characters.md](art/characters.md).
@@ -431,8 +434,8 @@ segments' achieved transforms and own no collision, and the collision shapes dra
 surfaces (`surface.ts`, `materials.ts`, `textures.json`) and sound (`src/audio/`): `cues.ts`
 makes a cue of an energy and the two surfaces that met, `game-audio.ts` synthesizes and mixes
 what a page plays, and `body-sounds.ts` reads what a body sounds of from the world: its touches
-(`hearTouches`) and its air (`airOf`). The pages play each landed blow
-([reference/look.md](reference/look.md#sound)).
+(`hearTouches`) and its air (`airOf`). The lab plays both; the arena and the crypt play each
+landed blow ([reference/look.md](reference/look.md#sound)).
 
 ## Standing decisions
 

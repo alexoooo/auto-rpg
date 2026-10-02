@@ -103,10 +103,11 @@ stance, strike or scenario says when a sound is due:
   ends and corners of the shapes of its extremities (the segments that are no joint's parent) and
   of what they hold. A body has one looping voice that follows it (`GameAudio.swish`, `SWISH`).
 
-The two rules are read on the Node stand (`tests/audio-bodies.test.mjs`, `research/touches.mjs`).
-The pages play a landed blow (`blowCue`, which is `impactCue` of the blow's energy in the struck
-body's voice, or in wood's for a clash) and no touch or air of their own
-([roadmap](../roadmap.md)).
+The lab plays both, and the cues of its two instruments that are no contact: the page's hand
+shoving the body, and the Blow scenario's mark (`src/lab/sound-log.ts`,
+[lab.md](lab.md#sound)). The arena and the crypt play a landed blow (`blowCue`, which is
+`impactCue` of the blow's energy in the struck body's voice, or in wood's for a clash) and no
+touch or air of their own ([roadmap](../roadmap.md)).
 
 **Surfaces.** A body and an item say what they are made of (`BodySpec.surface`,
 `ItemSpec.surface`, `src/core/spec/body.ts`): the workshop's bodies are flesh, the skeleton is

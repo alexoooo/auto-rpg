@@ -103,6 +103,11 @@ boots and armour, its mind and the strikes it may throw, the camera (Free, Isome
 view, and 120 or 480 Hz; one logs what the mind decides. The transport pauses (Space), steps one
 physics step at a time, scrubs, and slows time to 1/4 or 1/10.
 
+The body is heard: its footfalls, its landing when it falls, a shove, the air of a swing and the
+club on the head. A replay sounds as the run did; paused, scrubbing or seeking, the page is
+silent. The volume is at the end of the transport, and a browser plays nothing until the page has
+had a click or a key.
+
 ## The other pages
 
 - **The character workshop** (`/character-lab.html`): the Warrior's and Rogue's workshop models

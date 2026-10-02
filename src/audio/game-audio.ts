@@ -85,6 +85,7 @@ export class GameAudio {
     this.button = document.createElement("button"); this.button.type = "button";
     this.button.style.cssText = "font:inherit;color:inherit;background:transparent;border:0;cursor:pointer";
     const label = document.createElement("label"); label.textContent = "Volume ";
+    if (mount) label.style.cssText = "display:flex;align-items:center;gap:6px";
     const slider = document.createElement("input"); slider.type = "range"; slider.min = "0"; slider.max = "100"; slider.value = String(this.volume * 100);
     slider.setAttribute("aria-label", "Sound volume"); slider.style.width = "80px";
     label.append(slider); this.panel.append(this.button, label); (mount ?? document.body).append(this.panel);

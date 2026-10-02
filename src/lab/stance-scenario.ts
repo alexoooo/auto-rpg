@@ -5,6 +5,7 @@ import type { Scene } from "@babylonjs/core/scene.js";
 import { recordHistory } from "./history.ts";
 import type { LabScenario, ScenarioRun } from "./lab-scenario.ts";
 import { createPlayer } from "./player.ts";
+import { shoveSound } from "./sound-log.ts";
 import { startStance, type StanceFrame } from "./stance-mode.ts";
 import { groundDisc } from "./ground-disc.ts";
 import { actions, choice, keyHints, legend, readings, type Entry } from "./hud/controls.ts";
@@ -16,7 +17,7 @@ import { actions, choice, keyHints, legend, readings, type Entry } from "./hud/c
  * any body: once a walk is under way, a second after setting off (`TURN_LEAD`). The readout is the
  * stance's own: its phase, its steps, the centre of mass. On the ground: the centre of mass over
  * it, the capture point, the place the stance holds the centre toward, and the heading. The last
- * ten seconds are recorded (`history.ts`).
+ * ten seconds are recorded (`history.ts`). A shove sounds as a hand on the body (`shoveSound`).
  */
 
 /** What the history holds of each step: the readout, and where the marks were. */
@@ -84,9 +85,10 @@ export function stanceScenario(scene: Scene): LabScenario {
       readout: [shown, legend([MARKS.centre, MARKS.capture, MARKS.place])],
     },
     timelineLabel: `The last ${HISTORY_SECONDS} seconds, one physics step a notch; dragging pauses. Arrow keys step once it has focus.`,
-    start({ actor, changed, clock }) {
+    start({ actor, changed, clock, heard }) {
       const { world } = actor, { built } = actor.body;
-      const stance = startStance(actor), capture = new Vector3();
+      const shoved = shoveSound(built);
+      const stance = startStance(actor, (segment, impulse, at) => heard(shoved(segment, impulse, at))), capture = new Vector3();
       const history = recordHistory(built, world, HISTORY_SECONDS, (): StanceMoment => {
         const s = stance.body.view.stance;
         stance.capturePointToRef(capture);

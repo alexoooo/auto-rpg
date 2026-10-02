@@ -3,8 +3,9 @@
 The readings behind the lab's constants and fitted poses: the hand poses the skin draws
 (`src/lab/club-grip.ts`, `src/render/skin.ts`), the page's seek budget
 (`src/lab/main.ts`), the Routine's gait (`src/lab/routine.ts`, `src/lab/track.ts`),
-how far ahead a walker on a track faces (`src/lab/run-mode.ts`), and how far off the track
-the run test lets a walker go (`tests/lab-run.test.mjs`).
+how far ahead a walker on a track faces (`src/lab/run-mode.ts`), how far off the track
+the run test lets a walker go (`tests/lab-run.test.mjs`), and what the page hears
+(`src/lab/sound-log.ts`).
 
 ## Club grip
 
@@ -124,3 +125,32 @@ leaves the bend short of the way back: on the same stand, the Warrior asked 0.5 
 
 `OFF`, the test's limit: 0.4 m, over every reading here, under the walker that does not keep a
 bend's pace.
+
+## Sound
+
+The page logs what its body sounds of against the mind's time (`createSoundLog`, `logSounds`,
+`src/lab/sound-log.ts`) and plays what the time shown passes: the rules and their numbers are
+[look.md](look.md#sound)'s.
+
+- **A frame plays at most `CATCH_UP_MS` of sound**, 100 ms: what the player lets one page frame
+  run of the world or of a replay (`src/lab/player.ts`). A jump of the time shown, as on a seek
+  or a Restart, plays its last 100 ms and no more.
+- **`AIR_SECONDS`** (`src/lab/main.ts`), 30 s of the body's air: as long as the Routine's
+  recording, the longest a scenario keeps. The log keeps its latest 1024 cues (`CAPACITY`), a
+  numeric setting.
+- **A shove's energy** is what its impulse J gives the mass m it meets from rest, J squared over
+  2 m (`shoveSound`), with m the body's at the middle trunk's centre along the push
+  (`contactMass`). Node core stand, Rapier, 120 Hz, standing in guard, balance 0 %, pushed from
+  behind:
+
+  | Model | Mass met, kg: from behind, from the side | Strength at 10, 20, 30, 40, 60 N s |
+  |---|---|---|
+  | workshop-fighter | 20.9, 31.3 | 0.20, 0.40, 0.60, 0.80, 1 |
+  | workshop-rogue | 14.1, 20.7 | 0.24, 0.49, 0.73, 0.97, 1 |
+  | crypt-skeleton | 21.5, 33.1 | 0.20, 0.39, 0.59, 0.79, 1 |
+
+- **On the page** (Chrome, Rapier, 120 Hz, a 40 m ground, balance 0 %, stepped by hand): the
+  Warrior walking at 0.3 m/s is heard a footfall every 0.375 s, strength 0.064 to 0.069; its Blow
+  lands 123.8 J on the mark at 2.375 s, strength 1, and its air's fastest point reaches 19.8 m/s
+  the step after. Paused, the page starts no voice; a scrub starts none; a replay starts the air
+  again.

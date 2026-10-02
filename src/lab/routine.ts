@@ -135,7 +135,7 @@ interface Routine {
   readonly fists: { readonly left: Fist; readonly right: Fist };
   readonly tactics: RoutineTactics;
   readonly report: SkillReport;
-  /** Seconds since the routine began. */
+  /** Seconds since the routine began: the time its body's mind saw at the last step (`BodyView.time`), whichever mind has the body. */
   time(): number;
   /** What it is doing, in words. */
   doing(): string;
@@ -196,7 +196,7 @@ export function startRoutine(actor: Actor): Routine {
     tactics,
     report,
     strikes,
-    time: () => time,
+    time: () => body.view.time,
     doing() {
       if (body.view.down) return "Fallen";
       switch (tactics.leg) {

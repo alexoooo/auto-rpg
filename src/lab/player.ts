@@ -23,6 +23,13 @@ export type Playhead =
 /** Paused, or on the way to a pause: Play resumes. */
 export const isPaused = (playhead: Playhead): boolean => playhead.kind === "held" || playhead.kind === "seeking";
 
+/**
+ * The most page time one frame plays, ms: neither the world nor a replay leaps for a page that
+ * stalled, since a hidden tab can hand over seconds at once. Behind by more, the page runs slow and
+ * the time is dropped. What a frame sounds of is bounded by it too (`sound-log.ts`).
+ */
+export const CATCH_UP_MS = 100;
+
 /** What the player drives: the world, and its recording. */
 interface Stage {
   readonly world: Pick<World, "dt" | "step" | "advance">;
@@ -63,9 +70,6 @@ export interface Player {
 export function createPlayer({ world, recording }: Stage, changed: (playhead: Playhead) => void, clock: () => number): Player {
   let playhead: Playhead = { kind: "live" };
   const step = world.dt * 1000;
-  // Neither the world nor a replay leaps for a page that stalled: a hidden tab can hand over
-  // seconds at once. Behind by more, the page runs slow and the time is dropped.
-  const CATCH_UP_MS = 100;
 
   const shownFrame = (): number | null =>
     playhead.kind === "held" || playhead.kind === "replaying" ? playhead.frame : null;
