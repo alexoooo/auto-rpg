@@ -22,13 +22,14 @@ read (`src/core/skills/skills.ts`).
 | Engine seam | `src/core/engine/` | the one contract the core needs from a physics engine |
 | Build | `src/core/build/` | the spec made into engine bodies and joints, and the dynamics read back from them |
 | Muscles | `src/core/muscle/` | torque bounded by strength and by speed |
-| Mind seam | `src/core/mind/mind.ts` | a mind made with its body, stepped before the solver, writing the muscles' command and its assist's ask |
+| Mind seam | `src/core/mind/mind.ts`, `sub-mind.ts` | a mind made with its body, stepped before the solver, writing the muscles' command and its assist's ask; a host hands its body to a sub-mind that wants it |
 | Motor control | `src/core/control/` | joint goals, hand goals and the stance turned into muscle commands |
 | Skills | `src/core/skills/` | an intent turned into the body's command: walk, face, strike, guard |
 | Tactics | `src/core/mind/tactics.ts`, `fighter.ts` | what the body should do, decided from what it sees |
+| Minds | `src/core/mind/config.ts`, `minds.ts` | a body's mind made from its config, plain data by kind |
 
 `createBody` (`src/core/body.ts`) gives a built body the command layers as its mind
-(`commandMind`, under `embody`): its muscles and motor control. Each step it
+(`commandMind`, hosting the sub-minds it is given, under `embody`): its muscles and motor control. Each step it
 reads the body's `BodyView` (time, joint angles, fists, knuckles, head, stance), asks its driver,
 and obeys the `BodyCommand` it gets back: a posture, hand goals, timed pushes and a stance goal.
 
@@ -191,6 +192,34 @@ Every body the game has runs one mind, written with the layers above: `commandMi
 (`src/core/body.ts`) is motor control under a driver that hands it goals, and the driver is the
 skills carrying out what the tactics decide.
 
+**A mind may hand its body to a sub-mind** (`sub-mind.ts`). A `SubMind` is a mind that also says
+each step whether it wants the body (`wants`), and is told when it has it and when it has it no
+longer (`begin`, `end`). `hosting(host, subs)` makes one mind of a host and its sub-minds, in
+rank order. Each step the host reads its body (`HostMind.look`), so its view is of this step
+whoever drives, and a sub-mind reads that view too; then the first sub-mind that wants the body
+steps in the host's place, or the host acts (`act`). When a sub-mind takes the body the host
+gives up what it had asked (`release`: the command mind forgets its hand goals, its pushes and
+its stance, the step under way with it, so nothing it began goes on under another mind's hands
+and the view shows no stance asked). When the body is its own again it is told (`resume`), and
+the view says so for that step (`BodyView.resumed`): `driveBy` resumes every skill before the
+tactics decide (`Skills.resume`, each a `Skill`, told from one list), and the fighter's tactics
+aim afresh, so the body goes on from where it is and not from what it was in the middle of. Who
+has the body is one number in the mind's state, and `Body.has` names it.
+
+What a mind is made of is its config, plain data tagged by kind (`MindConfig`, `config.ts`), its
+sub-minds nested configs in it (`SubMindConfig`), so a sub-mind is configured where it is chosen.
+`createMind(built, world, config, wiring)` (`minds.ts`) makes a body's mind from one, wired to
+its fight (its orders, its senses, its assist's ceiling), and gives back a `Minded`: the body and
+the mind's memory, which is all a fight reads; a reader that knows the kind narrows on it (a
+fighter's skills and their report). The switches that make a mind and a sub-mind of a config
+have a `never` default. There is one kind of mind, the fighter, and one sub-mind, `lie`
+(`lying`, `lie.ts`), which wants the body while it is down (`BodyView.down`) and asks its
+muscles for nothing. `FIGHTER` is the fighter with `lie`: the mind every body has unless its
+fight says otherwise, so a body that falls lies still
+([reference/rising.md](reference/rising.md#lying)). An arena recipe may name each side's mind
+(`DuelRecipe.minds`); the crypt gives every body `FIGHTER`; the lab's actor, whose tactics are
+its scenario's, takes `FIGHTER`'s sub-minds (`subMindsOf`).
+
 `Tactics` (`tactics.ts`) are `decide(sight, dt)`: from their `Sight` (the body's view, the
 skills' report and the body's envelope) they return an `Intent` (`intent.ts`): a velocity forward
 and to the right of the body's heading, or none; a way to face; how low to stand; and for each hand
@@ -227,8 +256,8 @@ has tactics of its own:
 in the order they were added, one solver step, which writes every node, and the after-step hooks
 (readings, blows); the clock is the count of steps. Each body adds one before-step hook
 (`driveMuscles`), in which the muscles read the joints, the body's mind steps (`embody`), its
-assist gives what the mind asked of it and the motors are set; for a game body the mind is `commandMind`, which reads the view (`look`), runs the
-tactics and the skills, and runs motor control; a page may add its own (the crypt's
+assist gives what the mind asked of it and the motors are set; for a game body the mind is `commandMind` with its sub-minds (`hosting`): it reads the view (`look`), and then a sub-mind that wants the
+body drives it, or the tactics, the skills and motor control do; a page may add its own (the crypt's
 `DungeonRun.plan`, the lab's shove). The pages, the Node stand and the research all call
 `World.step`; a page advances by real time with `World.advance`, which caps the steps a frame may
 take. `scene.render()` draws what the steps produced and never advances them.
@@ -258,7 +287,8 @@ and the blow watch.
 - **A constant a state points at is frozen** (`deepFreeze`: the strike recipes, the guard, the
   orders to stand). A load never writes into a frozen object; it puts a copy in the slot. A blow
   and a verdict are frozen as they are made, so one a page was handed is a record no load changes.
-- **The states hang on one root.** A body's is its memory under its mind (`Body.state`), its
+- **The states hang on one root.** A body's is its memory under its mind (`Body.state`: who has
+  the body, the command layers' and each sub-mind's), its
   skills' is theirs with their tactics' (`Skills.state`), and a bout's (`Duel.state`) is its own
   (when it began, its verdict, what each side is ordered, its tape and what is still queued of one
   played) with the world's, the senses', the blow watch's and each side's body's, skills' and
@@ -304,12 +334,12 @@ The rules of a fight are `src/core/rules/`, free of any page so they can be argu
   assist.
 
 A body that is down (`BodyView.down`: its centre of mass a quarter metre under the height it is
-asked to hold, over its lowest point, `src/core/control/ground.ts`) is out of the fight: rising is
+asked to hold, over its lowest point, `src/core/control/ground.ts`) is out of the fight, and lies still (`lie`): rising is
 not built yet. The arena's verdict (`Duel.judge`, `src/arena/duel.ts`): a side is out when its
 pool ends or its body is down; both out on one step is a draw; at 120 s the fuller bar wins.
 
-A bout is built from a recipe (`DuelRecipe`): the two bodies, how far apart they start and the
-cap, as plain data, so the same bout can be built again in another world or on another thread;
+A bout is built from a recipe (`DuelRecipe`): the two bodies, how far apart they start, the
+cap, and a side's mind where it names one (`minds`, each a `MindConfig`), as plain data, so the same bout can be built again in another world or on another thread;
 what a page hears of it (`DuelHooks`) is beside the recipe, not in it. Nothing in a bout is
 random, so a recipe played twice is the same bout to the bit (`playBout`, `research/bout.mjs`;
 `traceOf`, `tests/harness/trace.mjs`), in Node and on the page alike
@@ -367,7 +397,7 @@ arena, crypt and lab screens at `?play=arena`, `?play=dungeon` and `?play=lab`, 
   scenarios (`scenarios.ts`), at 120 or 480 Hz, with a transport that steps the world by hand.
   Every scenario drives its body through an actor (`actor.ts`), which gives the body what the
   page chose: its balance, its mind (`minds.ts`) and the strikes it may throw. The page logs what
-  the mind decides (`mind-log.ts`). Its HUD is sections (`hud/sections.ts`) that the shell and the scenario fill with controls
+  the mind decides, and who has the body when it changes hands (`mind-log.ts`). Its HUD is sections (`hud/sections.ts`) that the shell and the scenario fill with controls
   built from data (`hud/controls.ts`).
 - **The character workshop** (`/character-lab.html`, `src/character-lab/`): the workshop models
   with their authored preview motion. It uses no core. See [art/characters.md](art/characters.md).

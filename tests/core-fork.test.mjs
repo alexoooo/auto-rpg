@@ -19,9 +19,11 @@ import { centreOfToRef } from "../src/core/control/support.ts";
 import { armed } from "../src/core/human/grip.ts";
 import { humanSpec, modelSpec } from "../src/core/human/spec.ts";
 import { woodenClub } from "../src/core/items/club.ts";
+import { FIGHTER } from "../src/core/mind/config.ts";
 import { fighterTactics } from "../src/core/mind/fighter.ts";
 import { standIntent } from "../src/core/mind/intent.ts";
 import { STAND_ORDERS } from "../src/core/mind/orders.ts";
+import { subMindsOf } from "../src/core/mind/sub-minds.ts";
 import { driveBy } from "../src/core/mind/tactics.ts";
 import { GUARD } from "../src/core/skills/guard.ts";
 import { STANCE_LOWER } from "../src/core/skills/locomotion.ts";
@@ -75,48 +77,57 @@ async function walker() {
       seen.strides = body.view.stance.strides;
       seen.phases.add(body.view.stance.phase);
       seen.centre = [body.view.stance.centre.x, body.view.stance.centre.z];
-      if (body.state.mind.motor.stance.feet.some((foot) => foot.rolled)) seen.rolled += 1;
+      if (body.state.mind.host.motor.stance.feet.some((foot) => foot.rolled)) seen.rolled += 1;
     },
     dispose() { body.dispose(); stand.dispose(); },
   };
 }
 
 /**
- * The Warrior, unarmed, standing under a command; from its world's step 120 to its step 360 it is
- * pulled at its root's centre of mass along +z, an impulse before each advance of a tenth of its
- * weight for as long as the advance takes, and then stands on.
+ * The Warrior, unarmed, standing under a command; from its world's step 120 to its step `until` it
+ * is pulled at its root's centre of mass along +z, an impulse before each advance of `share` of its
+ * weight for as long as the advance takes, and then stands on: a tenth of its weight for 2 s
+ * unless told, which it holds.
  *
  * `ceiling` is its assist's, or none: with none it steps to catch itself. `frame`, if given, is
  * the seconds each advance takes of a clock that is not the world's (`World.advance`), so the
- * world owes time between them. From its world's step `withdraw` its assist is withdrawn.
+ * world owes time between them. From its world's step `withdraw` its assist is withdrawn. `subs`
+ * are the sub-minds its command layers hand it to.
  */
-const pulled = ({ ceiling = null, frame = null, withdraw = Infinity }) => async () => {
+const pulled = ({ ceiling = null, frame = null, withdraw = Infinity, share = 0.1, until = 360, subs = [] }) => async () => {
   const stand = await coreStand(humanSpec("workshop-fighter"));
-  const body = createBody(stand.built, stand.world, { servoSeconds: SERVO_SECONDS, ...(ceiling ? { assist: ceiling } : {}) });
+  const body = createBody(stand.built, stand.world, { servoSeconds: SERVO_SECONDS, subs, ...(ceiling ? { assist: ceiling } : {}) });
   const height = body.view.stance.centre.y - body.view.stance.support.y - STANCE_LOWER;
   const command = deepFreeze({ posture: GUARD, hands: { left: null, right: null }, pushes: [], stance: { feet: BOTH, centre: null, height, heading: 0, walk: null } });
   body.drive(() => command);
   const root = body.muscles.dynamics.root.segment, at = new Vector3();
   const weight = [...stand.built.segments.values()].reduce((sum, segment) => sum + segment.rigid.mass, 0) * -stand.built.physics.gravity[1];
-  const pull = new Vector3(0, 0, weight / 10 * (frame ?? stand.world.dt));
-  const seen = { recoveries: 0, given: 0, withdrawn: false, steps: new Set() };
+  const pull = new Vector3(0, 0, weight * share * (frame ?? stand.world.dt));
+  const seen = { recoveries: 0, given: 0, withdrawn: false, steps: new Set(), has: [], down: null };
   return {
     world: stand.world, builts: [stand.built], states: { body: body.state }, seen,
     advance() {
       const before = stand.world.steps;
-      if (before >= 120 && before < 360) root.body.applyImpulse(pull, centreOfToRef(root, at));
+      if (before >= 120 && before < until) root.body.applyImpulse(pull, centreOfToRef(root, at));
       if (before >= withdraw) body.assist.withdraw();
       if (frame === null) stand.step();
       else stand.world.advance(frame);
       seen.steps.add(stand.world.steps - before);
     },
-    read: () => shows(body),
-    watch() { seen.recoveries = body.view.stance.recoveries; seen.given = body.assist.meter.force; seen.withdrawn = body.assist.withdrawn; },
+    read: () => ({ ...shows(body), has: body.has }),
+    watch() {
+      seen.recoveries = body.view.stance.recoveries; seen.given = body.assist.meter.force; seen.withdrawn = body.assist.withdrawn;
+      if (seen.has.at(-1) !== body.has) seen.has.push(body.has);
+      if (body.view.down) seen.down ??= stand.world.steps;
+    },
     dispose() { body.dispose(); stand.dispose(); },
   };
 };
 const framed = pulled({ frame: 0.011 });
 const helped = pulled({ ceiling: { force: 0.25, moment: 0.065 }, withdraw: 300 });
+/** Pulled at its whole weight for a quarter second, it falls; its mind is the game's, which lies where it fell. Saved at every step from `FELLED.from`, `FELLED.count` times. */
+const FELLED = { from: 180, count: 30 };
+const felled = pulled({ share: 1, until: 150, subs: subMindsOf(FIGHTER.subs) });
 
 const EAST = Object.freeze({ x: 1, z: 0 }), NORTH = Object.freeze({ x: 0, z: 1 }), WEST = Object.freeze({ x: -1, z: 0 });
 const walking = (move, face = null) => deepFreeze({ move, face, attack: null });
@@ -213,21 +224,22 @@ async function striker() {
 }
 
 const HAND = ["goal", "from", "time", "angles"];
-const STANCE = "body > mind > motor > stance";
+const STANCE = "body > mind > host > motor > stance";
 /** The fields a fork is shown to need, under the fixture that shows it. */
 const NEEDED = {
   walker: [
     "world > steps",
     ...["activation", "velocity", "ceiling", "trackers"].map((field) => `body > muscles > ${field}`),
-    ...["goals", "time", "angles", "fists", "knuckles", "head"].map((field) => `body > mind > ${field}`),
-    ...["pose", "pushes", "standing"].map((field) => `body > mind > motor > ${field}`),
-    ...["left", "right"].flatMap((hand) => HAND.map((field) => `body > mind > motor > hands > ${hand} > ${field}`)),
+    ...["goals", "time", "angles", "fists", "knuckles", "head"].map((field) => `body > mind > host > ${field}`),
+    ...["pose", "pushes", "standing"].map((field) => `body > mind > host > motor > ${field}`),
+    ...["left", "right"].flatMap((hand) => HAND.map((field) => `body > mind > host > motor > hands > ${hand} > ${field}`)),
     ...["stride", "striding", "owned", "last", "pace", "reading", "feet"].map((field) => `${STANCE} > ${field}`),
     ...["swing", "lifted", "time", "held", "from", "lift"].map((field) => `${STANCE} > step > ${field}`),
     ...["on", "at", "velocity"].map((field) => `${STANCE} > plan > ${field}`),
   ],
   framed: ["world > owed"],
   helped: ["given", "meter", "withdrawn"].map((field) => `body > assist > ${field}`),
+  felled: ["body > mind > has"],
   ordered: ["heading", "pace", "setOff"].map((field) => `skills > legs > ${field}`),
   striker: [
     ...["reference", "placing"].map((field) => `skills > legs > ${field}`),
@@ -239,11 +251,13 @@ const NEEDED = {
 /** The fields of the state that are not memory: no later step reads what a step left in one, and no reader of a body shows it. */
 const NOT_MEMORY = {
   "body > assist > asked": "a step's ask is given, or dropped, in that step: between steps nothing is asked",
-  "body > mind > down": "each step's look reads it from the body before any mind steps or any fight reads the view",
+  "body > mind > host > down": "each step's look reads it from the body before any mind steps or any fight reads the view",
+  "body > mind > host > resumed": "the step the body is handed back sets it and clears it: between steps it is false",
+  "body > mind > subs": "each sub-mind's own memory, in rank order: the one that lies still has none",
   ...Object.fromEntries(["left", "right"].flatMap((hand) => [
-    [`body > mind > motor > hands > ${hand} > started`, "a new goal clears it and that step's control sets it"],
-    [`body > mind > motor > hands > ${hand} > goals`, "each step clears it and fills it before reading it"],
-    [`body > mind > motor > hands > ${hand} > point`, "each step with a goal writes it; `MotorControl.path` shows it, and a body does not"],
+    [`body > mind > host > motor > hands > ${hand} > started`, "a new goal clears it and that step's control sets it"],
+    [`body > mind > host > motor > hands > ${hand} > goals`, "each step clears it and fills it before reading it"],
+    [`body > mind > host > motor > hands > ${hand} > point`, "each step with a goal writes it; `MotorControl.path` shows it, and a body does not"],
   ])),
   [`${STANCE} > step > turn`]: "each step of a swing writes it before reading it",
   ...Object.fromEntries(["aim", "helped", "held", "tasks"].map((field) =>
@@ -269,6 +283,15 @@ test("a_pushed_body_forks_through_its_recovery_steps", async () => {
   const run = await forks(helped, 30, 60, 16, forgetting(NEEDED.helped));
   assertForks(run, NEEDED.helped);
   assert.ok(run.seen.given > 0 && run.seen.withdrawn, "the assist gave, and was withdrawn");
+});
+
+test("a_body_forks_as_it_goes_down_and_lying", async () => {
+  const run = await forks(felled, 1, 5, FELLED.count, forgetting(NEEDED.felled), FELLED.from);
+  assertForks(run, NEEDED.felled);
+  // The fixture reaches the hand-over: the command layers had the body, then the mind that lies, and it is saved on both sides of the step between.
+  const { has, down } = run.seen;
+  assert.deepEqual(has, ["command", "lie"]);
+  assert.ok(down > run.steps[0] + 5 && down < run.steps.at(-1) - 5, `down at step ${down}, forked from ${run.steps[0]} to ${run.steps.at(-1)}`);
 });
 
 test("a_body_under_orders_forks_through_its_turns", async () => {

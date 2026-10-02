@@ -1,6 +1,8 @@
+import type { Body } from "../core/body.ts";
 import type { Hand } from "../core/control/motor.ts";
 import type { Intent } from "../core/mind/intent.ts";
 import type { Sight, Tactics } from "../core/mind/tactics.ts";
+import type { Hook, World } from "../core/world.ts";
 import { deciding } from "./minds.ts";
 
 /**
@@ -8,7 +10,8 @@ import { deciding } from "./minds.ts";
  * made, each at the time its mind saw (`BodyView.time`); `logged` tactics write one whenever what
  * they decide, or how their skills are going, is no longer what it was. What they see of their skills
  * is the last step's (`Sight.report`): a strike's phase is noted the step after the skills enter it.
- * Free of the DOM.
+ * Tactics do not decide while a sub-mind has the body, so who has it is noted by a watch of the body
+ * (`watchHas`). Free of the DOM.
  */
 
 /**
@@ -48,13 +51,12 @@ export function createMindLog(capacity = CAPACITY): MindLog {
 const HANDS: readonly Hand[] = ["left", "right"];
 
 /** What is said of a step, by kind; null says nothing. The words are the intent's and the report's own. */
-function said({ view, report }: Sight, intent: Intent): Readonly<Record<string, string | null>> {
+function said({ report }: Sight, intent: Intent): Readonly<Record<string, string | null>> {
   const { phase, chosen } = report.strike;
   return {
     move: intent.move ? `move ${intent.move[0].toFixed(2)} ${intent.move[1].toFixed(2)}` : "stand",
     ...Object.fromEntries(HANDS.map((hand) => [hand, `${hand} ${intent.hands[hand].kind}`])),
     strike: phase && `strike ${phase}${chosen ? ` ${chosen.strike.name}` : ""}`,
-    fallen: view.down ? "fallen" : null,
   };
 }
 
@@ -69,5 +71,15 @@ export function logged<T extends Tactics>(tactics: T, log: MindLog): T {
       if (text !== null) log.note(sight.view.time, text);
     }
     return intent;
+  });
+}
+
+/** Note in `log` who has `body` (`Body.has`) whenever it is no longer who last had it, after each of `world`'s steps, at the time its mind saw. */
+export function watchHas(world: World, body: Body, log: MindLog): Hook {
+  let last = body.has;
+  return world.afterStep(() => {
+    if (body.has === last) return;
+    last = body.has;
+    log.note(body.view.time, `${last} has the body`);
   });
 }

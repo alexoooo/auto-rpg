@@ -3,9 +3,12 @@
  * sixteen ways with the club in hand and with nothing, and the fall of each of the arena's nine
  * matchups, each watched for whether the body gets up (`core-rise-trials.mjs`). A line a cell: how
  * many fell, how many of those rose, the median seconds to rise, the median of the fastest a
- * segment moved while down, and the most the stance asked of the ground beyond its soles.
+ * segment moved while down, the most the stance asked of the ground beyond its soles, and the
+ * median and the longest of the seconds until the body last moved.
  *
- *   node research/core-rise.mjs [--workers 12]
+ *   node research/core-rise.mjs [--workers 12] [--mind '<MindConfig JSON>']
+ *
+ * With `--mind` every body has that mind in place of the game's (`FIGHTER`).
  */
 import { Worker } from "node:worker_threads";
 import { BODY_MODELS } from "../src/core/human/spec.ts";
@@ -15,6 +18,7 @@ import { LOADOUTS, RISE_HARNESS, UP_SECONDS, WATCH_SECONDS } from "./core-rise-t
 const args = process.argv.slice(2);
 const option = (name, otherwise) => { const at = args.indexOf(`--${name}`); return at < 0 ? otherwise : args[at + 1]; };
 const lanes = Number(option("workers", defaultLanes()));
+const given = option("mind", null), mind = given === null ? undefined : JSON.parse(given);
 
 /** How many ways a body is shoved, evenly about up. */
 const SHOVES = 16;
@@ -44,7 +48,7 @@ async function run(jobs) {
         rows[id] = result;
         feed();
       });
-      worker.postMessage({ ...jobs[id], id });
+      worker.postMessage({ ...jobs[id], mind, id });
     };
     feed();
   })));
@@ -60,13 +64,13 @@ const fixed = (value, digits) => value === null ? "-" : Number.isFinite(value) ?
 
 const jobs = cells.flatMap((cell) => cell.jobs);
 const rows = await run(jobs);
-console.log(`${RISE_HARNESS}; watched ${WATCH_SECONDS} s from the fall, risen is ${UP_SECONDS} s up running; ${lanes} workers`);
-console.log("| falls | of | fell | rose | median s to rise | median peak, m/s | worst asked, weights |");
-console.log("|---|---|---|---|---|---|---|");
+console.log(`${RISE_HARNESS}; watched ${WATCH_SECONDS} s from the fall, risen is ${UP_SECONDS} s up running; mind ${given ?? "the game's"}; ${lanes} workers`);
+console.log("| falls | of | fell | rose | median s to rise | median peak, m/s | worst asked, weights | median s it last moved | the longest, s |");
+console.log("|---|---|---|---|---|---|---|---|---|");
 let at = 0;
 for (const cell of cells) {
   const all = rows.slice(at, at += cell.jobs.length);
   // A shove the body holds and a bout nobody falls in are no falls: they are counted, and left out of the rates.
   const fell = all.filter((row) => row?.fell), rose = fell.filter((row) => row.risen);
-  console.log(`| ${cell.name} | ${all.length} | ${fell.length} | ${rose.length} | ${fixed(median(rose.map((row) => row.seconds)), 2)} | ${fixed(median(fell.map((row) => row.peak)), 2)} | ${fixed(fell.length ? Math.max(...fell.map((row) => row.asked)) : null, 1)} |`);
+  console.log(`| ${cell.name} | ${all.length} | ${fell.length} | ${rose.length} | ${fixed(median(rose.map((row) => row.seconds)), 2)} | ${fixed(median(fell.map((row) => row.peak)), 2)} | ${fixed(fell.length ? Math.max(...fell.map((row) => row.asked)) : null, 1)} | ${fixed(median(fell.map((row) => row.moved)), 2)} | ${fixed(fell.length ? Math.max(...fell.map((row) => row.moved)) : null, 2)} |`);
 }

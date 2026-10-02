@@ -4,7 +4,7 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { risenAt, shoved, UP_SECONDS } from "../research/core-rise-trials.mjs";
+import { risenAt, shoved, UP_SECONDS, WATCH_SECONDS } from "../research/core-rise-trials.mjs";
 
 test("a rise is two seconds up running", () => {
   const hz = 10, run = UP_SECONDS * hz;
@@ -17,15 +17,27 @@ test("a rise is two seconds up running", () => {
   assert.equal(risenAt([], hz), null);
 });
 
+/** A fighter that hands its body to nobody: what drives it standing drives it lying. */
+const DRIVEN = { kind: "fighter", subs: [] };
+
 test("a shove of the battery fells the Warrior, and it does not rise", async () => {
   for (const degrees of [0, 90]) {
     const row = await shoved({ model: "workshop-fighter", held: "club", degrees });
-    assert.deepEqual(Object.keys(row), ["fell", "risen", "seconds", "peak", "asked"]);
+    assert.deepEqual(Object.keys(row), ["fell", "risen", "seconds", "peak", "asked", "moved"]);
     assert.deepEqual({ fell: row.fell, risen: row.risen, seconds: row.seconds }, { fell: true, risen: false, seconds: null }, `shoved ${degrees} degrees about up`);
     assert.ok(row.peak > 0 && Number.isFinite(row.peak), `the fastest of its segments moved ${row.peak} m/s`);
-    assert.ok(row.asked > 0, `its stance asked ${row.asked} weights more than its soles gave`);
+    // Lying, the game's mind asks its stance nothing; one that keeps the body asks more than its soles give.
+    assert.equal(row.asked, 0);
+    const driven = await shoved({ model: "workshop-fighter", held: "club", degrees, mind: DRIVEN });
+    assert.ok(driven.fell && driven.asked > 0, `driven, its stance asked ${driven.asked} weights more than its soles gave`);
+    assert.ok(driven.peak > row.peak, `driven, the fastest of its segments moved ${driven.peak} m/s, and lying ${row.peak}`);
+    // The peak is read from a second after the fall, not from the fall: shoved to its side, it lands within that second.
+    if (degrees === 90) assert.ok(row.peak < 1, `lying on its side, the fastest of its segments moved ${row.peak} m/s`);
+    // Lying, it is still within 3 s of the fall; driven, it moves to the watch's last step.
+    assert.ok(row.moved > 0.5 && row.moved < 3, `lying, it last moved ${row.moved} s after the fall`);
+    assert.ok(Math.abs(driven.moved - (WATCH_SECONDS - 1 / 120)) < 1e-9, `driven, it last moved ${driven.moved} s after the fall`);
   }
   // The control: a shove it holds is no fall.
   assert.deepEqual(await shoved({ model: "workshop-fighter", held: "club", degrees: 0, impulse: 0.2 }),
-    { fell: false, risen: false, seconds: null, peak: null, asked: null });
+    { fell: false, risen: false, seconds: null, peak: null, asked: null, moved: null });
 });

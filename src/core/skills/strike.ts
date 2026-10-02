@@ -4,6 +4,7 @@ import type { HandAction } from "../mind/intent.ts";
 import type { BodySpec } from "../spec/body.ts";
 import { GUARD } from "./guard.ts";
 import { PLACING, type Footing } from "./locomotion.ts";
+import type { Skill } from "./skill.ts";
 import { recipeFor, type Chosen, type Repertoire } from "./strikes.ts";
 import { sin, cos, asin, atan2, hypot } from "../math/real.ts";
 
@@ -72,9 +73,10 @@ interface StrikeCommand {
  * if it is out; holds the chamber; and pushes. While it works it has the legs (a recipe is
  * thrown standing) and the trunk; the other hand guards. One strike at a time: the right hand's
  * first when both attack. An attack given up before its chamber is dropped; one chambered is thrown
- * to the end of its pushes.
+ * to the end of its pushes. Resumed (`Skill.resume`), the strike in hand is over, unthrown, and
+ * the body has stood still for no time.
  */
-interface StrikeSkill {
+interface StrikeSkill extends Skill {
   /** This step's command for the hands' actions, or null when neither attacks and no strike is under way. */
   command(view: BodyView, hands: Readonly<Record<Hand, HandAction>>, heading: number, placed: boolean, dt: number): StrikeCommand | null;
   /** Count a step the body stood still (the skill not commanding): walking, it is reset. */
@@ -123,6 +125,10 @@ export function strikeSkill(spec: BodySpec, repertoire: Repertoire): StrikeSkill
   const end = (): void => { state.hand = null; state.phase = null; state.begun = null; state.readyAt = null; state.since = -Infinity; };
   return {
     report, state,
+    resume() {
+      if (state.hand) end();
+      state.still = 0;
+    },
     idle(walking, dt) {
       if (state.hand) end();
       state.still = walking ? 0 : state.still + dt;

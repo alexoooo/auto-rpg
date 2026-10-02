@@ -1,14 +1,14 @@
 import type { Scene } from "@babylonjs/core/scene.js";
 import type { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh.js";
-import { createBody, SERVO_SECONDS, type Body } from "../core/body.ts";
+import type { Body } from "../core/body.ts";
 import { buildBody, type BuiltBody } from "../core/build/build-body.ts";
 import type { PhysicsEngine } from "../core/engine/engine.ts";
 import { armed } from "../core/human/grip.ts";
 import { modelSpec, type BodyModel } from "../core/human/spec.ts";
 import { woodenClub } from "../core/items/club.ts";
-import { ATTACK_METRES, fighterTactics } from "../core/mind/fighter.ts";
-import { driveBy, type Tactics } from "../core/mind/tactics.ts";
-import type { Skills } from "../core/skills/skills.ts";
+import { FIGHTER } from "../core/mind/config.ts";
+import { ATTACK_METRES } from "../core/mind/fighter.ts";
+import { createMind, type Minded } from "../core/mind/minds.ts";
 import { watchBlows, type BlowWatch, type Fighter, type LandedBlow } from "../core/rules/blows.ts";
 import { createPool } from "../core/rules/pool.ts";
 import { balanceCeiling, balancePercent, rulebook } from "../core/rules/rulebook.ts";
@@ -60,9 +60,9 @@ export interface DungeonActor {
   readonly side: "party" | "enemy";
   /**
    * The body and its pool, once built; an enemy waits unbuilt until the party is near (`WAKE_METRES`). Its `body` and
-   * `skills` are the ones that drive it now: a body held and let go is driven afresh (`DungeonRun.hold`).
+   * its mind (`minded`) are the ones that drive it now: a body held and let go is driven afresh (`DungeonRun.hold`).
    */
-  fighter: (Fighter & { body: Body; skills: Skills }) | null;
+  fighter: (Fighter & { minded: Minded; body: Body }) | null;
   /** Where the body stands on the ground: its centre of mass over the floor; where its root lies, limp; or where it waits unbuilt. */
   feet(): Point;
   /** Whether it still fights: unbuilt, or built with its pool not ended and its body not down. */
@@ -267,7 +267,7 @@ export class DungeonRun {
   /** Seconds since the run began: the world's clock. */
   get clock(): number { return this.world.time; }
 
-  /** Build `actor`'s body where it waits, hand it its tactics, and watch its blows with everybody's. */
+  /** Build `actor`'s body where it waits, give it its mind, and watch its blows with everybody's. */
   private build(actor: DungeonActor): void {
     const spec = clubbed(actor.model);
     const built = buildBody(spec, this.world, { position: [actor.home.x, 0, actor.home.z] });
@@ -278,30 +278,28 @@ export class DungeonRun {
     this.options.onBuilt?.(actor);
   }
 
-  /** `built` under the command layers and `actor`'s tactics, with the assist its character's balance gives it. */
-  private drive(actor: DungeonActor, built: BuiltBody): { body: Body; skills: Skills } {
-    const assist = balanceCeiling(built.spec.attributes.balance.value, balancePercent(this.rules));
-    const body = createBody(built, this.world, { servoSeconds: SERVO_SECONDS, assist });
-    return { body, skills: driveBy(body, this.tactics(actor)) };
-  }
-
   /**
-   * What carries out `actor`'s plan (`fighterTactics`), which the run hands over as `Orders`: the
-   * plan's facing is for a fighter that stands, and one that walks faces its walk. They are asked
-   * only while the fighter is in the fight (`drop`).
+   * `built` under the mind every body has (`FIGHTER`), with the assist its character's balance
+   * gives it. The mind carries out `actor`'s plan, which the run hands it as `Orders`: the plan's
+   * facing is for a fighter that stands, and one that walks faces its walk. It is asked only while
+   * the fighter is in the fight (`drop`).
    */
-  private tactics(actor: DungeonActor): Tactics {
-    return fighterTactics(`crypt ${actor.side}`, () => {
-      const { move, face, attack } = actor.plan, head = attack?.fighter?.body.view.head;
-      return { move, face: move ? null : face, attack: head ? [head.x, head.y, head.z] : null };
+  private drive(actor: DungeonActor, built: BuiltBody): { minded: Minded; body: Body } {
+    const assist = balanceCeiling(built.spec.attributes.balance.value, balancePercent(this.rules));
+    const minded = createMind(built, this.world, FIGHTER, {
+      name: `crypt ${actor.side}`, assist,
+      orders: () => {
+        const { move, face, attack } = actor.plan, head = attack?.fighter?.body.view.head;
+        return { move, face: move ? null : face, attack: head ? [head.x, head.y, head.z] : null };
+      },
     });
+    return { minded, body: minded.body };
   }
 
   /**
    * `actor` is out of the fight, for good: its assist is withdrawn and its muscles are released, so
-   * its body lies as the blow or the fall left it and nothing asks its stance for a ground it
-   * cannot have. A stance still solving for a body that is down costs more than one standing
-   * (`docs/reference/play.md#bodies-in-the-step`).
+   * its body lies as the blow or the fall left it. A body that fell had already been let go by its
+   * mind (`FIGHTER` lies still while down); one whose pool ended standing is let go here.
    */
   private drop(actor: DungeonActor): void {
     if (actor.held) this.hold(actor, false);

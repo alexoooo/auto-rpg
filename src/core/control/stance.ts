@@ -138,6 +138,11 @@ export interface StanceControl {
   carry(driver: MuscleDriver, work: ServoWork): Float64Array | null;
   /** The owned legs' torques, once the servo has solved the rest (`servoSolve`). */
   bear(driver: MuscleDriver, work: ServoWork): void;
+  /**
+   * Forget the stance under way: nothing is driven or asked, no step is being taken, and the next
+   * command begins from the body as it is. The steps counted stay.
+   */
+  reset(): void;
   /** Each channel the last command drove, 1, or 0. */
   readonly owned: Uint8Array;
   /** What the last reading and command found and asked. */
@@ -152,6 +157,8 @@ export interface StanceReading {
   readonly velocity: Vector3;
   /** The middle of the stance feet's soles, world; with no stance, of both feet. */
   readonly support: Vector3;
+  /** The way the pelvis faces, rad about up, as a heading is counted: 0 as in the reference pose, growing to the right. */
+  readonly facing: number;
   /** Each sole's middle, world. */
   readonly soles: Readonly<Record<Foot, Vector3>>;
   /**
@@ -489,9 +496,38 @@ function holdStance(s: Stance, stance: readonly FootState[], e: number): void {
   }
 }
 
+/** Nothing is driven and nothing asked: where every command begins, and what a reset leaves. */
+function askNothing(s: Stance): void {
+  const { state } = s, { reading } = state;
+  state.owned.fill(0);
+  state.aim.on = false;
+  reading.shortfall.force.setAll(0);
+  reading.shortfall.moment.setAll(0);
+  state.helped.force.setAll(0);
+  state.helped.moment.setAll(0);
+  for (const task of state.tasks) task.on = false;
+}
+
 export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}, assist: Assist | null = null): StanceControl {
   const s = makeStance(built, tuning, assist);
   return {
+    reset() {
+      const { state } = s, { reading, step } = state;
+      askNothing(s);
+      state.plan.on = false;
+      state.last = null;
+      state.stride = null;
+      state.striding = null;
+      state.pace[0] = 0;
+      state.pace[1] = 0;
+      step.swing = null;
+      step.lifted = false;
+      step.time = 0;
+      step.held = 0;
+      reading.phase = "stand";
+      reading.own = null;
+      for (const foot of s.feet) foot.memory.rolled = false;
+    },
     get owned() { return s.state.owned; },
     reading: s.state.reading,
     state: s.state,
@@ -547,7 +583,7 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}, assis
       if (assist?.on) assist.ask(helped.force, helped.moment);
     },
     read(which) {
-      const { feet, segments, total } = s, { reading } = s.state, { p, v } = s.scratch;
+      const { feet, segments, total, pelvis } = s, { reading } = s.state, { p, v, whole } = s.scratch;
       // The centre of mass and its velocity (a body's linear velocity is its centre of mass's).
       const c = reading.centre.setAll(0), vel = reading.velocity.setAll(0);
       for (const segment of segments) {
@@ -558,19 +594,16 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}, assis
       }
       c.scaleInPlace(1 / total);
       vel.scaleInPlace(1 / total);
+      // The reference pose faces +z: its forward, turned as the pelvis has turned since.
+      p.set(0, 0, 1).applyRotationQuaternionToRef(turnOfToRef(pelvis, whole), p);
+      reading.facing = atan2(p.x, p.z);
       const on = which ?? s.state.last;
       readSupport(feet, on ? feet.filter((foot) => on.includes(foot.side)) : feet, reading.support);
     },
     command(muscles, goal, dt) {
       const { feet, state } = s, { reading, plan } = state;
       bindChannels(s, muscles);
-      state.owned.fill(0);
-      state.aim.on = false;
-      reading.shortfall.force.setAll(0);
-      reading.shortfall.moment.setAll(0);
-      state.helped.force.setAll(0);
-      state.helped.moment.setAll(0);
-      for (const task of state.tasks) task.on = false;
+      askNothing(s);
       paceToward(s, stepsOfItself(goal) ? goal.walk : null, dt);
       const swing = chooseStep(s, goal);
       const bearing = bearerOf(goal, reading.phase, swing);

@@ -2,6 +2,8 @@ import { createBody, SERVO_SECONDS, type Body } from "../core/body.ts";
 import type { BuiltBody } from "../core/build/build-body.ts";
 import type { AssistCeiling } from "../core/control/assist.ts";
 import type { StanceTuning } from "../core/control/stance-tuning.ts";
+import { FIGHTER } from "../core/mind/config.ts";
+import { subMindsOf } from "../core/mind/sub-minds.ts";
 import { driveBy, type Sight, type Tactics } from "../core/mind/tactics.ts";
 import type { SkillOptions, Skills } from "../core/skills/skills.ts";
 import { REPERTOIRE, type Repertoire } from "../core/skills/strikes.ts";
@@ -21,7 +23,8 @@ interface Driving {
 
 /**
  * **A lab body and what drives it.** Every mode stands its body through an actor, so what a page
- * or an experiment gives a body is given here, and a mode knows none of it. A mode takes its
+ * or an experiment gives a body is given here, and a mode knows none of it. Its tactics are a
+ * mode's script; its sub-minds are the ones every body in a fight has (`FIGHTER`). A mode takes its
  * actor over: it disposes it with itself.
  */
 export interface Actor {
@@ -50,7 +53,7 @@ function watched(tactics: Tactics, watch: Watch): Tactics {
 
 /** `built`, a human in its reference pose on the ground of `world`, as a mode's actor. */
 export function labActor(built: BuiltBody, world: World, { assist, stance, allows, mind = (script) => script }: ActorOptions = {}): Actor {
-  const body = createBody(built, world, { servoSeconds: SERVO_SECONDS, assist, stance });
+  const body = createBody(built, world, { servoSeconds: SERVO_SECONDS, assist, stance, subs: subMindsOf(FIGHTER.subs) });
   return {
     body, world,
     drive(script, { skills, watch } = {}) {

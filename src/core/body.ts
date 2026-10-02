@@ -6,8 +6,10 @@ import { motorControl, type Hand, type MotorControl, type MusclePush, type Pose 
 import type { StanceGoal, StanceReading } from "./control/stance.ts";
 import type { StanceTuning } from "./control/stance-tuning.ts";
 import { stanceEnvelope, type StanceEnvelope } from "./control/stance-envelope.ts";
-import { embody, type Mind, type OwnBody } from "./mind/mind.ts";
+import { embody, type OwnBody } from "./mind/mind.ts";
 import { clockSenses, NOTHING_SENSED, type Senses } from "./mind/senses.ts";
+import { hosting, type HostMind } from "./mind/sub-mind.ts";
+import type { SubMindMaker } from "./mind/sub-minds.ts";
 import type { MuscleDriver } from "./muscle/driver.ts";
 import type { Vec3 } from "./spec/quantity.ts";
 import type { World } from "./world.ts";
@@ -21,6 +23,10 @@ import type { World } from "./world.ts";
  *
  * Each control step the body reads its view, asks its driver for a command, and gives the command
  * to motor control, all before the solver step, so a command acts in the step it was made for.
+ *
+ * The command layers host the body's sub-minds (`BodyOptions.subs`, `hosting`): on a step one of
+ * them wants the body the view is read all the same, the driver is not asked, and the sub-mind
+ * writes the muscles.
  */
 export interface Body {
   readonly built: BuiltBody;
@@ -36,9 +42,12 @@ export interface Body {
   readonly envelope: StanceEnvelope | null;
   /** Its assist (`Assist`), for its meter; a fight withdraws it. */
   readonly assist: Assist;
+  /** The name of the mind that has the body: the command layers', or a sub-mind's. */
+  readonly has: string;
   /**
-   * Its memory under its mind, whole (`src/core/state.ts`): the muscles', the assist's, motor
-   * control's with the stance's, and the view. Its driver's memory is the driver's to keep.
+   * Its memory under its mind, whole (`src/core/state.ts`): the muscles', the assist's, who has the
+   * body, each sub-mind's, and the command layers' (motor control's with the stance's, and the
+   * view). Its driver's memory is the driver's to keep.
    */
   readonly state: object;
   /** Hand the body to `driver`, asked for a command each control step; null keeps the last command. */
@@ -48,7 +57,7 @@ export interface Body {
 
 /**
  * What drives a body: given the view and the step, the command for this step, or null to keep the
- * last. The body keeps the command's goals in its state, and a load writes into whatever of a
+ * last (after a sub-mind had the body, the last is its posture alone). The body keeps the command's goals in its state, and a load writes into whatever of a
  * state is not frozen. So a command, and whatever it holds, is made for the step, or frozen
  * (`deepFreeze`), or part of a state saved and loaded with the body's, as the skills' is
  * (`Skills.state`).
@@ -100,6 +109,8 @@ export interface BodyView {
   readonly stance: StanceReading;
   /** Whether the body is down (`uprightness`, `src/core/control/ground.ts`): true while it is, false once it is up again. */
   readonly down: boolean;
+  /** Whether a sub-mind had the body until this step: whatever its driver had under way is over. */
+  readonly resumed: boolean;
 }
 
 /** Where a fist's knuckles are and how they move, in the world, as the last step left them. */
@@ -129,17 +140,20 @@ interface BodyOptions {
   readonly senses?: () => Senses;
   /** The most its assist gives it (`balanceCeiling`, `src/core/rules/rulebook.ts`); none unless given: it stands on its muscles. */
   readonly assist?: AssistCeiling;
+  /** The sub-minds the command layers hand the body to, in rank order (`hosting`): what its mind's config names (`subMindsOf`). None unless given. */
+  readonly subs?: readonly SubMindMaker[];
 }
 
 /**
  * **The command layers as a mind**: motor control under a driver that hands it goals
- * (`BodyDriver`). Each step it reads the view, asks the driver for a command, and gives the
- * command to motor control, which writes the muscles.
+ * (`BodyDriver`). Each step it reads the view (`look`), then asks the driver for a command and
+ * gives the command to motor control, which writes the muscles (`act`). It hosts sub-minds
+ * (`HostMind`): released, motor control forgets what was under way, so while a sub-mind has the
+ * body the view shows no stance asked and the body is down by its standing height; resumed, its
+ * driver is told (`BodyView.resumed`).
  */
-interface CommandMind extends Mind {
+interface CommandMind extends HostMind {
   readonly view: BodyView;
-  /** Read the view from the body as it stands, on `senses`. */
-  look(senses: Senses): void;
   /** Hand the body to `driver`, asked for a command each control step; null keeps the last command. */
   drive(driver: BodyDriver | null): void;
 }
@@ -161,6 +175,7 @@ export function commandMind(own: OwnBody, { servoSeconds, stance }: BodyOptions)
     head: head.centre,
     motor: motor.state,
     down: false,
+    resumed: false,
   };
   const view = {
     get time() { return state.time; },
@@ -171,6 +186,7 @@ export function commandMind(own: OwnBody, { servoSeconds, stance }: BodyOptions)
     head: head.centre,
     stance: motor.stance.reading,
     get down() { return state.down; },
+    get resumed() { return state.resumed; },
   };
   let driver: BodyDriver | null = null;
 
@@ -200,29 +216,41 @@ export function commandMind(own: OwnBody, { servoSeconds, stance }: BodyOptions)
     // Down is read against the height the body is asked to hold: held low on purpose, it is not down.
     state.down = upright.down(motor.standing?.height);
   };
+  const act = (dt: number): void => {
+    const next = driver?.(view, dt);
+    if (next) obey(next);
+    motor.control(muscles, dt);
+    state.resumed = false;
+  };
   return {
     name: "command",
-    view, look, state,
+    view, look, act, state,
     drive(next) { driver = next; },
-    step(senses, dt) {
-      look(senses);
-      const next = driver?.(view, dt);
-      if (next) obey(next);
-      motor.control(muscles, dt);
+    step(senses, dt) { look(senses); act(dt); },
+    release() {
+      motor.reset();
+      goals.left = null;
+      goals.right = null;
     },
+    resume() { state.resumed = true; },
   };
 }
 
 /** `built` in `world`, holding its reference pose until something drives it. */
 export function createBody(built: BuiltBody, world: World, options: BodyOptions): Body {
   const sense = options.senses ?? clockSenses(world);
-  const { own, mind, state, dispose } = embody(built, world, (body) => commandMind(body, options), sense, options.assist);
+  let command!: CommandMind;
+  const { own, mind, state, dispose } = embody(built, world, (body) => {
+    command = commandMind(body, options);
+    return hosting(command, (options.subs ?? []).map((make) => make(body, command.view)));
+  }, sense, options.assist);
   // Before its first step the view is the body as built, where a driver or a run first finds it.
-  mind.look(sense());
+  command.look(sense());
   return {
-    built, muscles: own.muscles, view: mind.view, assist: own.assist, state,
+    built, muscles: own.muscles, view: command.view, assist: own.assist, state,
+    get has() { return mind.has; },
     envelope: !options.measuring && Object.keys(options.stance ?? {}).length === 0 ? stanceEnvelope(built.spec) : null,
-    drive: (next) => mind.drive(next),
+    drive: (next) => command.drive(next),
     dispose,
   };
 }

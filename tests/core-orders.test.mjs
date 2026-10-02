@@ -22,7 +22,7 @@ const EAST = { x: 1, z: 0 }, NORTH = { x: 0, z: 1 }, SOUTH = { x: 0, z: -1 };
 test("tactics_turn_orders_into_an_intent", () => {
   /** The intent `orders` become for a body whose stance is asked to face `heading`. */
   const intent = (orders, heading = 0, envelope = { walk: { value: WALK } }) =>
-    fighterTactics("orders", () => orders).decide({ report: { heading, strike: { thrown: { right: 0 } } }, envelope }, 1 / 120);
+    fighterTactics("orders", () => orders).decide({ view: { resumed: false }, report: { heading, strike: { thrown: { right: 0 } } }, envelope }, 1 / 120);
   const guard = { left: GUARD_ACTION, right: GUARD_ACTION };
   /** `got` is `{ move, face, hands: guard }`, its numbers within 1e-12. */
   const is = (got, move, face, what) => {
@@ -68,7 +68,7 @@ test("tactics_turn_orders_into_an_intent", () => {
 
   // An experiment's rule is passed in.
   const slow = fighterTactics("orders", () => ({ move: EAST, face: NORTH, attack: null }), { ...STRAFE, share: 0.25 })
-    .decide({ report: { heading: 0, strike: { thrown: { right: 0 } } }, envelope: { walk: { value: WALK } } }, 1 / 120);
+    .decide({ view: { resumed: false }, report: { heading: 0, strike: { thrown: { right: 0 } } }, envelope: { walk: { value: WALK } } }, 1 / 120);
   is(slow, [0, 0.175], 0, "a quarter share");
 });
 

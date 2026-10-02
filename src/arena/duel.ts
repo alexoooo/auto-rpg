@@ -1,38 +1,37 @@
-import { createBody, SERVO_SECONDS, type Body } from "../core/body.ts";
+import type { Body } from "../core/body.ts";
 import { buildBody } from "../core/build/build-body.ts";
 import type { AssistCeiling } from "../core/control/assist.ts";
 import { armed } from "../core/human/grip.ts";
 import { modelSpec, type BodyModel } from "../core/human/spec.ts";
 import { woodenClub } from "../core/items/club.ts";
-import { fighterTactics, seekFoe } from "../core/mind/fighter.ts";
+import { FIGHTER, type MindConfig } from "../core/mind/config.ts";
+import { createMind, type Minded } from "../core/mind/minds.ts";
 import { sameOrders, type Orders } from "../core/mind/orders.ts";
 import { createSenses, type SensesHub } from "../core/mind/senses.ts";
-import { driveBy } from "../core/mind/tactics.ts";
 import { watchBlows, type BlowWatch, type Fighter, type LandedBlow } from "../core/rules/blows.ts";
 import { createPool, type Ending } from "../core/rules/pool.ts";
 import { balanceCeiling, balancePercent, rulebook, type Rulebook } from "../core/rules/rulebook.ts";
 import type { BuiltBody } from "../core/build/build-body.ts";
-import type { Skills } from "../core/skills/skills.ts";
 import { loadState, saveState, type Saved } from "../core/state.ts";
 import type { Hook, World } from "../core/world.ts";
 
 /**
- * **A bout in the arena**: two bodies, each with the wooden club in its right hand, each driven
- * by a fighter's tactics (`fighterTactics`), wounded by the core's blows under the arena's rulebook, and
- * judged.
+ * **A bout in the arena**: two bodies, each with the wooden club in its right hand, each under a
+ * mind made from its config (`createMind`; the fighter, `FIGHTER`, unless the recipe names
+ * another), wounded by the core's blows under the arena's rulebook, and judged.
  *
  * - **They stand** the recipe's gap apart (`GAP_METRES` unless it says) across the arena's
  *   centre, both facing +z as every body is built; each turns a quarter to the other, so neither
  *   starts ahead.
- * - **Each side's tactics** (`seekFoe`) walk at the body they see of the other side until within
- *   `ATTACK_METRES` of it, then attack its head. What each sees of the other is the bout's senses'
+ * - **Each side, left to itself** (a fighter's `seekFoe`), walks at the body it sees of the other
+ *   side until within `ATTACK_METRES` of it, then attacks its head. What each sees of the other is the bout's senses'
  *   (`createSenses`): both see the same step, `DuelRecipe.senseDelay` steps old.
  * - **A side given orders** (`Duel.order`) does what it is ordered and nothing else, until it is
  *   handed back to itself or is out of the fight. Every order is kept with the step it was given
  *   before (`Duel.tape`), so the recipe and the tape are the whole of what made a bout, and
  *   `Duel.play` gives a tape again as the bout steps.
- * - **A side is out** once its pool has ended, or while its body is down (`BodyView.down`): the
- *   core has no rising, so a body down stays down. The other side wins; both out on one step is a
+ * - **A side is out** once its pool has ended, or while its body is down (`BodyView.down`): a
+ *   body down lies where it fell. The other side wins; both out on one step is a
  *   draw.
  * - **At the cap** (`CAP_SECONDS`) the fuller bar wins, and equal bars draw.
  * - **Each side's assist** (`Assist`) has the ceiling its balance is: its character's per cent of
@@ -69,8 +68,9 @@ export interface Verdict {
 interface Duelist extends Fighter {
   readonly side: Side;
   readonly model: BodyModel;
+  /** Its body under its mind, whatever kind the mind is; a reader of a kind's own narrows on `minded.kind`. */
+  readonly minded: Minded;
   readonly body: Body;
-  readonly skills: Skills;
   /** Its pool not ended and its body not down. */
   readonly standing: boolean;
 }
@@ -92,6 +92,8 @@ interface DuelRecipe {
   readonly balance?: { readonly left: number; readonly right: number };
   /** What a per cent of balance is, in place of the rulebook's (`Rulebook.balance`): a sweep's. */
   readonly balancePercent?: AssistCeiling;
+  /** Each side's mind, in place of the fighter every body has (`FIGHTER`): an experiment's, or a table's row. */
+  readonly minds?: Readonly<Record<Side, MindConfig>>;
 }
 
 /** A recipe as JSON with every object's keys in order: two recipes that say the same in it are one bout's, however each was written. */
@@ -115,14 +117,14 @@ interface DuelSave {
 
 /**
  * **What a bout remembers**, and the root every module's memory hangs on: the world's, the senses',
- * the blow watch's, and each side's body's, skills' and pool's.
+ * the blow watch's, and each side's body's, mind's and pool's.
  */
 interface DuelState {
   /** The world's clock and step when the bout began. */
   readonly start: number;
   readonly startStep: number;
   verdict: Verdict | null;
-  /** What each side is ordered; null leaves it to its own tactics (`seekFoe`). */
+  /** What each side is ordered; null leaves it to itself. */
   readonly given: Record<Side, Orders | null>;
   readonly tape: OrdersEntry[];
   /** Orders still to give (`play`), in the order of their steps. */
@@ -136,7 +138,8 @@ interface DuelState {
 
 interface SideState {
   readonly body: object;
-  readonly skills: object;
+  /** Its mind's memory above its body's (`Minded.state`). */
+  readonly mind: object;
   readonly pool: object;
 }
 
@@ -190,20 +193,20 @@ export class Duel {
       // Out to the other side once the bout is decided, its pool has ended or it is down.
       const senses = this.senses.add({ id: side, side, built, out: () => this.verdict !== null || !duelists[side].standing });
       const assist = balanceCeiling(recipe.balance?.[side] ?? spec.attributes.balance.value, recipe.balancePercent ?? balancePercent(this.rules));
-      const body = createBody(built, world, { servoSeconds: SERVO_SECONDS, senses, assist });
-      const skills = driveBy(body, fighterTactics(`arena ${side}`, (sight) => {
-        const orders = given[side];
-        // Out of the fight it stands, as a side nobody orders does.
-        return orders && !sight.view.senses.out ? orders : seekFoe(sight);
-      }));
+      const minded = createMind(built, world, recipe.minds?.[side] ?? FIGHTER, {
+        name: `arena ${side}`, senses, assist,
+        // Out of the fight it is left to itself, as a side nobody orders is.
+        orders: (sensed) => sensed.out ? null : given[side],
+      });
+      const { body } = minded;
       duelists[side] = {
-        id: side, side, model, built, pool, body, skills,
+        id: side, side, model, built, pool, minded, body,
         get standing() { return pool.ending() === null && !body.view.down; },
       };
     }
     this.duelists = duelists;
     this.watch = watchBlows(world, SIDES.map((side) => duelists[side]), this.rules, hooks.onBlow);
-    const sideState = ({ body, skills, pool }: Duelist): SideState => ({ body: body.state, skills: skills.state, pool: pool.state });
+    const sideState = ({ body, minded, pool }: Duelist): SideState => ({ body: body.state, mind: minded.state, pool: pool.state });
     this.state = {
       start, startStep, verdict: null, given, tape: [], queued: [],
       world: world.state, senses: this.senses.state, watch: this.watch.state,
@@ -273,7 +276,7 @@ export class Duel {
   private judge(): void {
     if (this.verdict) return;
     this.state.verdict = this.decide();
-    // A body that is down still has a stance that asks, and an assist that answered it would throw the body about.
+    // The bout is over: neither body is given anything more.
     if (this.verdict) for (const side of SIDES) this.duelists[side].body.assist.withdraw();
   }
 

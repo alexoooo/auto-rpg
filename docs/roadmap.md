@@ -28,10 +28,10 @@ All of it on a physically based core, humans first ([architecture](architecture.
 ### The AI
 
 - The structure above the muscles is built ([architecture](architecture.md#minds)): the mind at
-  the muscles, senses, a person's orders, an assist whose ceiling is the character's balance, a
+  the muscles, sub-minds, a mind made from its config, senses, a person's orders, an assist whose ceiling is the character's balance, a
   bout that saves, loads and forks ([architecture](architecture.md#state)), and an oracle. Not
-  built: a learned mind, and a registry of minds a recipe can name (the arena's recipe names
-  bodies, and each side runs `seekFoe` unless ordered); sight that is blocked (the senses pass
+  built: a learned mind (a recipe names each side's mind by its config, `DuelRecipe.minds`, and
+  the fighter is the one kind there is); sight that is blocked (the senses pass
   every body whatever stands between); a library for a body of another shape behind the same
   seam.
 - The owner's to choose, each landed at its default:
@@ -46,8 +46,10 @@ All of it on a physically based core, humans first ([architecture](architecture.
 - The owner's to watch: a bout fought with orders
   (`?play=arena&matchup=workshop-fighter,workshop-rogue&you=left`); bouts with balance against
   none (`?play=arena&matchup=workshop-fighter,workshop-fighter&balance=25`, `&balance=100`,
-  `&balance=25,0`); and an oracle's bout ([reference/oracle.md](reference/oracle.md), Watching
-  one).
+  `&balance=25,0`); an oracle's bout ([reference/oracle.md](reference/oracle.md), Watching
+  one); and a body that lies where it fell: the lab's Stance (`?play=lab&scenario=stance`) with a
+  shove of 90 N s, and an arena bout that ends by a fall
+  (`?play=arena&matchup=workshop-fighter,workshop-rogue`: the loser lies, the winner stands).
 - The oracle's readings ([reference/oracle.md](reference/oracle.md); counts of 18 sides, not
   rates): choosing among seven orders every half second, with the true world to try them in,
   turns 6 of 9 lost bouts into wins while leaving the tactics' own choice in over 90 % of
@@ -78,6 +80,11 @@ All of it on a physically based core, humans first ([architecture](architecture.
   club blow. A body with no recipe of its own for what its hand holds borrows the first that fits
   (`recipeFor`): the Rogue and the skeleton the club blow, the skeleton also the Warrior's straight.
   The skeleton falls after two borrowed strikes in the Routine.
+- A blow that meets nothing unbalances the body that threw it. The Warrior with the club on the
+  Node stand (Rapier, 120 Hz), attacking a point 1.6 m off with nobody at it, ends its swing
+  turned 0.75 rad from where it faced, and takes 2 s of steps to face it again. Held rigid for
+  0.4 s as it chambers and handed back, it stands its time again, ends the swing turned 0.4 rad,
+  and is down a second later (`tests/core-sub-mind.test.mjs`'s fixture; one point, read once).
 - The club blow that sets the damage unit lands harder 6-8 cm beyond where it was searched from, so
   the unit was not thrown from its best distance; a wider search might move the unit.
 - What a straight is held to (its time, its path) is the owner's to say. The Warrior's best reads
@@ -94,11 +101,14 @@ All of it on a physically based core, humans first ([architecture](architecture.
   where a person's preferred walk is near 1.4 m/s. The next step is a controller that holds the
   pelvis against the moment the soles miss, or one whole-body solve. The assist supplies the
   moment the soles miss, as a cheat with a ceiling (`docs/reference/assist.md`).
-- Rising after a fall. A fallen body is out of every fight until this exists. Its design and its
-  five plans are `docs/plans/2026-10-01-rising-00-design.md`.
-- Past a fall the stance goes on asking, and what it asks of the ground grows without bound: over
-  1e50 N within 3 s of a fall (Node stand, Rapier, 120 Hz; a Warrior pulled over). Nothing reads
-  it in a bout, which ends at the fall; a rising skill will.
+- Rising after a fall. A fallen body lies still (`lie`) and is out of every fight until this
+  exists. Its design and its plans are `docs/plans/2026-10-01-rising-00-design.md`.
+- A limp body does not always come to rest: a light segment at a joint's limit on the ground
+  goes on moving, a skeleton's hand at 0.2 m/s to the end of a 15 s watch
+  ([reference/rising.md](reference/rising.md#lying)). It is what a body lying after a fall and a
+  crypt body out of the fight look like. What in the solver keeps it going is not read, nor
+  whether a slack joint's passive damping, a sourced number that would change every bout, is
+  the cure.
 - Running (a flight phase), a dash or lunge, a roll, a crouch, and turning on the spot: a standing
   body under orders does not turn to the pointer, and a half turn made while walking still drops
   the humans now and then ([reference/orders.md](reference/orders.md)). A lower
@@ -168,7 +178,7 @@ All of it on a physically based core, humans first ([architecture](architecture.
 - Set, and to measure on the core ([reference/play.md](reference/play.md)): how long a hero
   facing the cursor stands being hit from behind, with `SET_UPON` and `AIM_COSINE` and without.
 - The crypt's step ([reference/play.md](reference/play.md#bodies-in-the-step)): a body out of
-  the fight lies limp and still costs the solver 0.27 ms a step. Fixed where it lies once it is
+  the fight lies limp and still costs the solver 0.28 ms a step. Fixed where it lies once it is
   still, it would cost 0.02 ms and could not be pushed aside; an engine that let it rest would
   take none until something touched it.
 - The generator keeps 0.65 m clear about every place a body stands (`LEVEL.clearance`), written

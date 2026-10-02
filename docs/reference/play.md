@@ -55,7 +55,8 @@ Harness: Node, the core world (`src/core/world.ts`), Rapier, 120 Hz, one thread 
 host; skeletons with the club, 3 m apart on a ground, each under the command layers with an order
 to stand. Read standing; then held, their muscles released (`Body.dispose`) and every segment
 fixed where it is (`SegmentBody.setFixed`); then let go and driven afresh; then felled by a shove
-at the root and still driven; then limp, their muscles released. A row is the mean of 600 steps.
+at the root and still driven by a mind with no sub-minds; then lying, under the sub-minds the
+game's mind has (`FIGHTER`); then limp, their muscles released. A row is the mean of 600 steps.
 The step is 8.33 ms of the run's time, so a step of 8.33 ms is real time with nothing drawn.
 
 ```powershell
@@ -64,26 +65,30 @@ node research/body-cost.mjs
 
 | Bodies | State | Down | A step, ms | The solver, ms | The rest, ms | A body, ms | Of real time, % |
 |---|---|---|---|---|---|---|---|
-| 1 | standing, driven | 0 | 0.68 | 0.32 | 0.36 | 0.68 | 8 |
+| 1 | standing, driven | 0 | 0.69 | 0.32 | 0.37 | 0.69 | 8 |
 | 1 | standing, held | 0 | 0.03 | 0.03 | 0.00 | 0.03 | 0 |
-| 1 | let go, driven | 0 | 0.60 | 0.28 | 0.32 | 0.60 | 7 |
-| 1 | down, driven | 1 | 0.76 | 0.30 | 0.46 | 0.76 | 9 |
-| 1 | down, limp | 1 | 0.26 | 0.26 | 0.00 | 0.26 | 3 |
-| 4 | standing, driven | 0 | 2.14 | 0.99 | 1.16 | 0.54 | 26 |
+| 1 | let go, driven | 0 | 0.60 | 0.29 | 0.32 | 0.60 | 7 |
+| 1 | down, driven | 1 | 0.79 | 0.31 | 0.47 | 0.79 | 9 |
+| 1 | down, lying | 1 | 0.35 | 0.28 | 0.08 | 0.35 | 4 |
+| 1 | down, limp | 1 | 0.27 | 0.27 | 0.00 | 0.27 | 3 |
+| 4 | standing, driven | 0 | 2.17 | 1.00 | 1.17 | 0.54 | 26 |
 | 4 | standing, held | 0 | 0.07 | 0.07 | 0.00 | 0.02 | 1 |
-| 4 | let go, driven | 0 | 2.11 | 0.96 | 1.15 | 0.53 | 25 |
-| 4 | down, driven | 4 | 2.77 | 1.14 | 1.63 | 0.69 | 33 |
-| 4 | down, limp | 4 | 1.08 | 1.08 | 0.00 | 0.27 | 13 |
-| 8 | standing, driven | 0 | 4.17 | 1.92 | 2.26 | 0.52 | 50 |
+| 4 | let go, driven | 0 | 2.18 | 0.99 | 1.19 | 0.54 | 26 |
+| 4 | down, driven | 4 | 2.89 | 1.18 | 1.71 | 0.72 | 35 |
+| 4 | down, lying | 4 | 1.43 | 1.14 | 0.29 | 0.36 | 17 |
+| 4 | down, limp | 4 | 1.13 | 1.13 | 0.00 | 0.28 | 14 |
+| 8 | standing, driven | 0 | 4.27 | 1.97 | 2.30 | 0.53 | 51 |
 | 8 | standing, held | 0 | 0.12 | 0.12 | 0.00 | 0.02 | 1 |
-| 8 | let go, driven | 0 | 4.08 | 1.89 | 2.19 | 0.51 | 49 |
-| 8 | down, driven | 8 | 5.47 | 2.29 | 3.17 | 0.68 | 66 |
-| 8 | down, limp | 8 | 2.15 | 2.15 | 0.00 | 0.27 | 26 |
+| 8 | let go, driven | 0 | 4.25 | 1.96 | 2.29 | 0.53 | 51 |
+| 8 | down, driven | 8 | 5.71 | 2.37 | 3.34 | 0.71 | 68 |
+| 8 | down, lying | 8 | 2.87 | 2.29 | 0.58 | 0.36 | 34 |
+| 8 | down, limp | 8 | 2.23 | 2.23 | 0.00 | 0.28 | 27 |
 
 A standing body costs 0.53 ms a step, over half of it control. Held, it costs 0.02 ms, and let
 go it stands as before: none of the eight is down. A body that is down and still driven costs
-more than one standing, 0.69 ms: its stance goes on solving for a ground its soles cannot give.
-Limp, it costs the solver's 0.27 ms and nothing else.
+more than one standing, 0.71 ms: its stance goes on solving for a ground its soles cannot give.
+Lying, it costs 0.36 ms: the solver's 0.28, and 0.07 for its mind's look at it each step, which
+is how it knows it is down. Limp, it costs the solver's 0.28 ms and nothing else.
 
 So a body out of the fight goes limp (`DungeonRun.drop`): its assist is withdrawn and its muscles
 released at the next step. In the crypt the stance of a body that is down cost more than under an

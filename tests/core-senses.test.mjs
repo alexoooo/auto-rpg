@@ -160,9 +160,9 @@ test("a fighter picks its foe from what it sees", () => {
 });
 
 test("a fighter holds the point it aims at until the plan's leaves it or a blow is thrown", () => {
-  let attack = [1, 1.6, 0], thrown = 0;
+  let attack = [1, 1.6, 0], thrown = 0, resumed = false;
   const tactics = fighterTactics("aim", () => ({ move: null, face: null, attack }));
-  const decide = () => tactics.decide({ report: { heading: 0.25, strike: { thrown: { right: thrown } } }, envelope: null }, 1 / 120);
+  const decide = () => tactics.decide({ view: { resumed }, report: { heading: 0.25, strike: { thrown: { right: thrown } } }, envelope: null }, 1 / 120);
   const reach = APPROACH.reach;
   assert.deepEqual(decide().hands.right, { kind: "attack", target: [1, 1.6, 0] });
   // A point that sways inside the reach is not followed, though the plan moves its own array.
@@ -181,5 +181,11 @@ test("a fighter holds the point it aims at until the plan's leaves it or a blow 
   attack = null;
   assert.deepEqual(decide(), { move: null, face: 0.25, hands: { left: GUARD_ACTION, right: GUARD_ACTION } });
   attack = [held[0] + 0.5 * reach, 1.6, 0];
+  assert.deepEqual(decide().hands.right.target, attack);
+  // Back from another mind, it aims afresh, however near the point has stayed.
+  const aimed = attack;
+  attack = [aimed[0] + 0.5 * reach, 1.6, 0];
+  assert.deepEqual(decide().hands.right.target, aimed);
+  resumed = true;
   assert.deepEqual(decide().hands.right.target, attack);
 });

@@ -3,11 +3,14 @@
  * every segment's pose at every step. A change that should change nothing leaves the digest as it
  * was; read it before the change and compare after, on the same machine.
  *
- *   node research/bout-trace.mjs [left] [right] [seconds]
+ *   node research/bout-trace.mjs [left] [right] [seconds] [--mind '<MindConfig JSON>']
  *
- * The defaults are the Warrior against the Rogue, to the verdict or 30 s.
+ * The defaults are the Warrior against the Rogue, to the verdict or 30 s. With `--mind` both sides
+ * have that mind in place of the game's (`FIGHTER`).
  */
 import { playBout } from "./bout.mjs";
 
-const [left = "workshop-fighter", right = "workshop-rogue", seconds = "30"] = process.argv.slice(2);
-console.log(JSON.stringify(await playBout({ left, right }, Number(seconds))));
+const args = process.argv.slice(2), at = args.indexOf("--mind");
+const mind = at < 0 ? null : JSON.parse(args.splice(at, 2)[1]);
+const [left = "workshop-fighter", right = "workshop-rogue", seconds = "30"] = args;
+console.log(JSON.stringify(await playBout(mind ? { left, right, minds: { left: mind, right: mind } } : { left, right }, Number(seconds))));

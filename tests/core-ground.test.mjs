@@ -12,8 +12,10 @@ import { centreOfToRef } from "../src/core/control/support.ts";
 import { armed } from "../src/core/human/grip.ts";
 import { BODY_MODELS, modelSpec } from "../src/core/human/spec.ts";
 import { woodenClub } from "../src/core/items/club.ts";
+import { FIGHTER } from "../src/core/mind/config.ts";
 import { standIntent } from "../src/core/mind/intent.ts";
 import { embody } from "../src/core/mind/mind.ts";
+import { subMindsOf } from "../src/core/mind/sub-minds.ts";
 import { driveBy } from "../src/core/mind/tactics.ts";
 import { GUARD } from "../src/core/skills/guard.ts";
 import { coreStand } from "./harness/core-stand.mjs";
@@ -153,10 +155,16 @@ test("a shoved body reads down, lying", async () => {
 });
 
 test("a body asked to hold itself low is not down at that height", async () => {
-  /** The Warrior, pinned, its legs folded by its posture under a stance that bears on no foot and asks `asked(standing)` m, then straightened under the same: whether its view said down folded, how far under its standing height it got, and whether its view says down straightened. */
+  /**
+   * The Warrior, pinned, under the game's sub-minds, its legs folded by its posture under a stance
+   * that bears on no foot and asks `asked(standing)` m, then straightened under the same: whether
+   * its view said down folded, how far under its standing height it got, who had the body in turn,
+   * whether at every step the mind that lies had it just when the view said down, and what its
+   * view says straightened.
+   */
   const folded = async (asked) => {
     const stand = await coreStand(warrior, { ground: false, pinned: "lowerTrunk" });
-    const body = createBody(stand.built, stand.world, { servoSeconds: SERVO_SECONDS });
+    const body = createBody(stand.built, stand.world, { servoSeconds: SERVO_SECONDS, subs: subMindsOf(FIGHTER.subs) });
     try {
       const upright = uprightness(stand.built), { standing } = upright;
       const stance = Object.freeze({ feet: Object.freeze([]), centre: null, height: asked(standing), heading: 0, walk: null });
@@ -166,25 +174,32 @@ test("a body asked to hold itself low is not down at that height", async () => {
       });
       let now = command(1.6);
       body.drive(() => now);
-      let down = false, under = 0;
+      let down = false, under = 0, agree = true;
+      const has = [];
       for (let i = 0; i < stand.seconds(2.5); i++) {
         stand.step();
         down ||= body.view.down;
         under = Math.max(under, standing - upright.height());
+        if (has.at(-1) !== body.has) has.push(body.has);
+        agree &&= body.has === (body.view.down ? "lie" : "command");
       }
       now = command(0);
       stand.step(stand.seconds(2.5));
-      return { down, under, after: { down: body.view.down, under: standing - upright.height() } };
+      return { down, under, has, agree, after: { down: body.view.down, has: body.has, under: standing - upright.height() } };
     } finally { body.dispose(); stand.dispose(); }
   };
   const low = await folded((standing) => standing - 0.35);
   assert.ok(low.under > 0.3 && low.under < 0.35 + FALLEN, `the fixture folds it between the two bars: ${low.under} m under`);
   assert.equal(low.down, false, "held low as it was asked, it is not down");
-  // The control: the same fold under a goal that asks its standing height.
+  // The mind that lies reads its host's view, not a bar of its own: the body is its host's all the way.
+  assert.deepEqual([low.has, low.agree], [["command"], true]);
+  // The control: the same fold under a goal that asks its standing height is down at the bar, and
+  // the mind that lies has the body from that step, so it folds no further.
   const high = await folded((standing) => standing);
-  assert.ok(Math.abs(high.under - low.under) < 0.01, `the same fold: ${high.under} and ${low.under} m under`);
+  assert.ok(high.under > FALLEN && high.under < low.under, `folded to the bar: ${high.under} m under, and ${low.under} held low`);
   assert.equal(high.down, true);
-  // And the view's reading is the body's now: straightened, it is up again.
+  assert.deepEqual([high.has.slice(0, 2), high.agree], [["command", "lie"], true]);
+  // And the view's reading is the body's now: straightened, it is up again, and its host's.
   assert.ok(high.after.under < 0.05, `straightened, it is ${high.after.under} m under`);
-  assert.equal(high.after.down, false);
+  assert.deepEqual([high.after.down, high.after.has], [false, "command"]);
 });

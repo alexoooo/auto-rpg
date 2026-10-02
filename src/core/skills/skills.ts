@@ -3,6 +3,7 @@ import type { Intent } from "../mind/intent.ts";
 import type { MusclePush } from "../control/motor.ts";
 import { GUARD } from "./guard.ts";
 import { locomotion } from "./locomotion.ts";
+import type { Skill } from "./skill.ts";
 import { strikeSkill, type StrikeReport } from "./strike.ts";
 import { REPERTOIRE, type Repertoire } from "./strikes.ts";
 
@@ -17,8 +18,11 @@ import { REPERTOIRE, type Repertoire } from "./strikes.ts";
  * - **Strike** (`strike.ts`): a hand's attack, with the recipe for what it holds (`strikes.ts`).
  *   It outranks the walk: while it works it has the legs, and the tactics' walk waits.
  * - **Guard** (`guard.ts`): the arms' posture when nothing owns them.
+ *
+ * Every skill answers `Skill.resume`, and the skills tell every one of them from one list: a
+ * skill added to it cannot be left out.
  */
-export interface Skills {
+export interface Skills extends Skill {
   /** The command for this control step. */
   command(view: BodyView, intent: Intent, dt: number): BodyCommand;
   readonly report: SkillReport;
@@ -52,6 +56,7 @@ export function createSkills(body: Body, { repertoire = REPERTOIRE }: SkillOptio
   const command: { -readonly [K in keyof BodyCommand]: BodyCommand[K] } =
     { posture: GUARD, hands: { left: null, right: null }, pushes: none, stance: null };
   const state = { command, legs: legs.state, strikes: strikes.state, tactics };
+  const all: readonly Skill[] = [legs, strikes];
   const report: SkillReport = {
     get heading() { return legs.heading; },
     get pace() { return legs.pace; },
@@ -60,6 +65,7 @@ export function createSkills(body: Body, { repertoire = REPERTOIRE }: SkillOptio
   };
   return {
     report, state,
+    resume(view) { for (const skill of all) skill.resume(view); },
     command(view, intent, dt) {
       const strike = strikes.command(view, intent.hands, legs.heading, legs.placed, dt);
       if (!strike) strikes.idle(intent.move !== null, dt);

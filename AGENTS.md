@@ -75,6 +75,14 @@ screens build on it; it never imports them.
   muscles' command and nothing else (`Mind.step`, `src/core/mind/mind.ts`). Camera state never
   reaches a mind. A person gives orders (`Orders`); a body's own mind carries them out while it
   defends itself.
+- **A mind may hand its body to a sub-mind.** A sub-mind (`SubMind`, `src/core/mind/sub-mind.ts`)
+  is a mind that says when it wants the body; its host reads the body every step, acts when the
+  body is its own, gives up what it had asked when a sub-mind takes it (`HostMind.release`), and
+  is told when it is its own again (`resume`). A sub-mind reads whether its body is down from its
+  host's view, never by a bar of its own. What a mind is made of is its config, plain data by
+  kind (`MindConfig`, `src/core/mind/config.ts`): a fight passes it through, reads nothing in it,
+  and holds what it gets by what every kind gives (`Minded`, `src/core/mind/minds.ts`). A skill
+  answers `Skill.resume` and is in the one list the skills resume (`createSkills`).
 - **Cosmetics never carry authority**: nothing decorative collides or decides a hit. The visible
   room is not the collision arena; `validateRoomPlacements` (`src/arena/room.ts`) refuses a piece
   naming a collider the arena lacks, and a solid-looking piece within reach that names none.

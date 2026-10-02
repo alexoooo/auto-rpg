@@ -14,6 +14,7 @@ import { DEFAULT_MATCHUP, matchupSearch, readBalance, readCap, readGap, readMatc
 import { ORBIT, orbitPosition } from "../src/arena/orbit.ts";
 import { aimPoint, keysToMove, personOrders } from "../src/arena/orders-input.ts";
 import { centreOfToRef } from "../src/core/control/support.ts";
+import { FIGHTER } from "../src/core/mind/config.ts";
 import { STAND_ORDERS, isOrders } from "../src/core/mind/orders.ts";
 import { createWorld } from "../src/core/world.ts";
 import { freshEngine } from "./harness/core-stand.mjs";
@@ -167,6 +168,30 @@ test("a_side_that_is_down_is_out_and_the_other_wins", async () => {
   assert.deepEqual(await shoved(0.2), { verdict: null, down: [false, false], standing: [true, true], blows: 0 });
 });
 
+test("a_bout's_minds_are_its_recipe's", async () => {
+  /** The Warrior against the Rogue under `minds`, `side` shoved down, away from the other, half a second in: who has each body at the verdict. */
+  const felled = async (side, minds) => {
+    const { world, dispose } = await arena();
+    const duel = new Duel(world, { left: "workshop-fighter", right: "workshop-rogue", ...minds });
+    try {
+      duel.run(0.5);
+      const { left, right } = duel.duelists, { built } = duel.duelists[side], trunk = built.segments.get("middleTrunk");
+      const mass = [...built.segments.values()].reduce((sum, segment) => sum + segment.rigid.mass, 0);
+      trunk.body.applyImpulse(new Vector3((side === "left" ? -1.5 : 1.5) * mass, 0, 0), centreOfToRef(trunk, new Vector3()));
+      const verdict = duel.run(2.5);
+      assert.deepEqual([verdict?.ending, verdict?.winner], ["fallen", side === "left" ? "right" : "left"]);
+      return [left.body.has, right.body.has];
+    } finally { duel.dispose(); dispose(); }
+  };
+  const bare = { kind: "fighter", subs: [] };
+  // The game's mind lies where it fell; one whose recipe gives it no sub-minds keeps its body. Each side has its own.
+  assert.deepEqual(await felled("left", {}), ["lie", "command"]);
+  assert.deepEqual(await felled("right", {}), ["command", "lie"]);
+  assert.deepEqual(await felled("left", { minds: { left: bare, right: FIGHTER } }), ["command", "command"]);
+  assert.deepEqual(await felled("right", { minds: { left: bare, right: FIGHTER } }), ["command", "lie"]);
+  assert.deepEqual(await felled("right", { minds: { left: FIGHTER, right: bare } }), ["command", "command"]);
+});
+
 test("a_bout_capped_before_a_blow_lands_is_a_draw", async () => {
   // Every pairing: each side's bar is of its own parts, and two whole bodies are even whatever they are.
   for (const [left, right] of [["workshop-fighter", "workshop-rogue"], ["workshop-rogue", "crypt-skeleton"], ["crypt-skeleton", "workshop-fighter"]]) {
@@ -262,7 +287,8 @@ test("a_side_under_orders_does_what_it_is_told_and_the_other_fights_on", async (
     assert.equal(duel.steps, 480);
     assert.ok(Math.abs(x(left) - start) < 0.05, `ordered to stand, it stands: ${start} to ${x(left)}`);
     assert.ok(x(right) < there - 0.6, `while the other side walks at it: ${there} to ${x(right)}`);
-    assert.equal(left.skills.report.strike.thrown.right, 0, "and it throws nothing unasked");
+    assert.equal(left.minded.kind, "fighter");
+    assert.equal(left.minded.skills.report.strike.thrown.right, 0, "and it throws nothing unasked");
     assert.deepEqual(duel.tape, [{ step: 0, side: "left", orders: STAND_ORDERS }]);
     duel.order("left", { move: null, face: null, attack: null });
     assert.equal(duel.tape.length, 1, "an order repeated is not recorded again");
@@ -315,9 +341,10 @@ test("a_side_out_of_the_fight_is_no_longer_under_its_orders", async () => {
     const { left } = duel.duelists;
     assert.notEqual(duel.run(), null);
     assert.equal(duel.verdict.ending, "time");
-    assert.ok(left.skills.report.pace > 0.5, `it was walking as the bell went: ${left.skills.report.pace}`);
+    const { report } = left.minded.skills;
+    assert.ok(report.pace > 0.5, `it was walking as the bell went: ${report.pace}`);
     world.step();
-    assert.equal(left.skills.report.pace, 0, "and stands once it is out");
+    assert.equal(left.minded.skills.report.pace, 0, "and stands once it is out");
     assert.equal(duel.tape.length, 1, "its orders were not taken back: it is the tactics that set them aside");
   } finally { duel.dispose(); dispose(); }
 });

@@ -137,7 +137,7 @@ export function makeStance(built: BuiltBody, tuning: StanceTuning, assist: Assis
       plan: { on: false, at: new Vector3(), velocity: new Vector3() },
       reading: { centre: new Vector3(), velocity: new Vector3(), support: new Vector3(), place: new Vector3(),
         plan: new Vector3(), planVelocity: new Vector3(),
-        phase: "stand", soles: { left: feet[0]!.middle, right: feet[1]!.middle }, own: null, recoveries: 0, strides: 0,
+        facing: 0, phase: "stand", soles: { left: feet[0]!.middle, right: feet[1]!.middle }, own: null, recoveries: 0, strides: 0,
         shortfall: { force: new Vector3(), moment: new Vector3() } },
       aim: { on: false, spin: new Vector3(), centre: new Vector3(), root: new Float64Array(6) },
       helped: { force: new Vector3(), moment: new Vector3() },

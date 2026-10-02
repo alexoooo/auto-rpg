@@ -33,11 +33,15 @@ export interface Sight {
 /**
  * Hand `body` to `tactics`: each control step they decide on the body's view and the skills'
  * report, and the skills make the command; `options` are an experiment's. Returns the skills, for
- * their report.
+ * their report. On the step the body is back from another mind (`BodyView.resumed`) the skills
+ * are resumed before the tactics decide, so the report they read is of the body as it is.
  */
 export function driveBy(body: Body, tactics: Tactics, options?: SkillOptions): Skills {
   const skills = createSkills(body, options, tactics.state ?? null);
   const sight: Sight = { view: body.view, report: skills.report, envelope: body.envelope };
-  body.drive((view, dt) => skills.command(view, tactics.decide(sight, dt), dt));
+  body.drive((view, dt) => {
+    if (view.resumed) skills.resume(view);
+    return skills.command(view, tactics.decide(sight, dt), dt);
+  });
   return skills;
 }

@@ -5,7 +5,7 @@
 A sub-mind that gets a fallen body to its feet with its own muscles: `{ kind: "staged-rise" }`. It
 lies slack until still, reads how it lies, rolls to its front if it is not on it, and plays stages
 that are data: poses first, then bearings solved by the bearing solve (plan 03) on knees, hands and
-feet. It is scored on the battery (`research/core-rise.mjs`) beside the body that lies (plan 02), and the lab offers
+feet. It is scored on the battery (`research/core-rise.mjs`) beside the body that lies (`rising.md#lying`), and the lab offers
 it. The game's default does not change here: `FIGHTER` still lies, and a fall still takes a body
 out. Plan 05 changes both.
 
@@ -474,7 +474,7 @@ the roll of the lie it finds.
 - no way of lying under half, either human;
 - the bout falls: at least half risen;
 - the skeleton: reported, not held to the bar;
-- nothing flung: `peak` no worse than `#driven`'s (the game before plan 02).
+- nothing flung: `peak` no worse than `#driven`'s (a fighter that hands its body to nobody).
 
 Under the bar, chunks A to C stand, the lab offers the riser as it is, the table says where it
 stops (`stage`), and plan 05 does not land. What is tried next is the table's: the stage most

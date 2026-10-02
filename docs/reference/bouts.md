@@ -191,3 +191,26 @@ The digests `research/bout-trace.mjs` reads from here on, on this machine:
 Played to the steps they used to end at (`node research/bout-trace.mjs workshop-fighter
 workshop-rogue 21.224`, and `crypt-skeleton crypt-skeleton 16.224`), both give the digests above
 this section: the bouts are the same to the bit until the old verdict.
+
+## Lying still
+
+Harness: Node 24.19, the core world (`src/core/world.ts`), Rapier, 120 Hz. Read on the first
+tree whose bodies lie still once they are down (`lie`, `rising.md#lying`).
+
+A bout that ends by a fall ends on the step its loser is first down, and on that step the
+loser's mind hands its body to `lie`, where it used to drive it once more. So such a bout is the
+same to the bit up to the step before its verdict, has the same verdict at the same step, and
+differs in the poses of that one step. A bout that ends another way is the same throughout.
+
+The digests `research/bout-trace.mjs` reads from here on, on this machine:
+
+- the Warrior against the Rogue at 4 m: 2563 steps, the left side winning by the right's fall at
+  21.358 s, 14 wounding blows and 2 clashes, `6f7ded18dd73c7f8`;
+- skeleton against skeleton at 4 m: 1981 steps, the left side winning by the right's fall at
+  16.508 s, no blow, `489780706aad98b9`.
+
+With a mind that hands its body to nobody on both sides (`--mind '{"kind":"fighter","subs":[]}'`)
+both give the digests of the section above. Played a step short of the verdict (`node
+research/bout-trace.mjs workshop-fighter workshop-rogue 21.349`, and `crypt-skeleton
+crypt-skeleton 16.499`), the game's mind and that one give the same digests: `76fd792f95855fef`
+over 2562 steps and `35fa4058e1f57862` over 1980.

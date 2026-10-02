@@ -58,6 +58,8 @@ export interface MotorControl {
   setStance(goal: StanceGoal | null): void;
   /** The stance goal it was last given, or null: what the legs are asked to hold. */
   readonly standing: StanceGoal | null;
+  /** Forget what was under way: no pushes, no stance, no hand's goal, and the stance's own memory (`StanceControl.reset`). The posture stays. */
+  reset(): void;
   /** The stance's readings, as its last step left them. */
   readonly stance: StanceControl;
   /** Where `hand`'s path stands now (body frame), or null with no goal. */
@@ -194,11 +196,20 @@ export function motorControl(built: BuiltBody, seconds: number, posture: Pose = 
     setPushes(next) { state.pushes = next; },
     setStance(next) { state.standing = next; },
     get standing() { return state.standing; },
+    reset() {
+      state.pushes = NO_PUSHES;
+      state.standing = null;
+      for (const limb of both) limb.memory.goal = null;
+      stance.reset();
+    },
     stance, state,
     path: (hand) => arms[hand].memory.goal ? arms[hand].memory.point : null,
     knucklesToRef: (hand, out) => pointNowToRef(arms[hand].hand, root, arms[hand].knuckles, out),
   };
 }
+
+/** No freedom pushed. */
+const NO_PUSHES: readonly MusclePush[] = Object.freeze([]);
 
 /**
  * Rad/s beyond any joint's unloaded speed: a pushed motor's target, which the driver holds to the

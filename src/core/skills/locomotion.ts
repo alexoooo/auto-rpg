@@ -3,6 +3,7 @@ import { turnAt, type StanceEnvelope } from "../control/stance-envelope.ts";
 import type { Foot, StanceGoal, SwingGoal } from "../control/stance.ts";
 import { STANCE_GAIT } from "../control/stance-tuning.ts";
 import { sin, cos, hypot } from "../math/real.ts";
+import type { Skill } from "./skill.ts";
 
 /**
  * How far under its reference height a body's centre of mass is held, m: the height every table
@@ -82,8 +83,11 @@ export const PLACING = { near: 0.02 } as const;
  *
  * Without an envelope (a body under an experiment's stance tuning, which the envelope did not
  * measure) nothing is capped: the walk and the turn are the intent's.
+ *
+ * Resumed (`Skill.resume`), it stands facing the way the pelvis faces, with no footing asked. The
+ * reference height stays: it is the body's.
  */
-interface Locomotion {
+interface Locomotion extends Skill {
   /** The stance goal for `walk` and `face` this control step (null before the body's first step). */
   goal(view: BodyView, walk: readonly [forward: number, right: number] | null, face: number, dt: number, lower?: number): StanceGoal | null;
   /** The heading the stance is asked to face, rad. */
@@ -131,6 +135,13 @@ export function locomotion(envelope: StanceEnvelope | null): Locomotion {
     get pace() { return state.pace; },
     get reference() { return state.reference; },
     get placed() { return state.placed; },
+    resume(view) {
+      state.heading = view.stance.facing;
+      state.pace = 0;
+      state.setOff = null;
+      state.placing = null;
+      state.placed = false;
+    },
     place(view, footing, lower) {
       state.setOff = null;
       state.pace = 0;

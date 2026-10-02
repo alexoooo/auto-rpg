@@ -1,17 +1,16 @@
 # Rising: the design, and the order it lands in
 
-This is the design of what a body does once it is down, and the index of the five plans that build
-it, 01 to 05. Each plan lands green by itself and is deleted as it lands; this file is deleted with
-the last of them.
+This is the design of what a body does once it is down, and the index of the plans that build it.
+Each plan lands green by itself and is deleted as it lands; this file is deleted with the last of
+them. Down as a reading of the body, and sub-minds with lying still, have landed.
 
 ## Why
 
-A body that falls does not get up, and what it does instead is wrong on every screen. `fallen` is
-a flag (`LegsMemory.fallen`, `src/core/skills/locomotion.ts`) that nothing in the core acts on: the
-skills go on handing the stance a standing goal, the stance goes on asking the soles for a wrench
-no lying body's soles can give (over 1e50 N within 3 s, `docs/roadmap.md`), and the legs thrash at
-their strength. Each screen then copes alone: the arena ends the bout and withdraws the assists
-(`Duel.judge`), the crypt disposes of the body's mind (`DungeonRun.drop`), the lab does nothing.
+A body that falls does not get up. Its mind hands it to `lie`, and it lies where it fell
+(`docs/reference/rising.md#lying`); driven on by its stance instead, it thrashes at its strength
+and asks the ground for a wrench without bound (`#driven`). Each screen then copes alone: the
+arena ends the bout and withdraws the assists (`Duel.judge`), the crypt disposes of the body's
+mind (`DungeonRun.drop`), the lab does nothing.
 
 ## The design
 
@@ -27,8 +26,10 @@ their strength. Each screen then copes alone: the arena ends the bout and withdr
    has it no longer (`begin`, `end`). A host keeps its sub-minds in rank order. Each control step
    the host reads its body (`HostMind.look`), so its view is of this step whoever drives; then the
    first sub-mind that wants the body steps in the host's place, or the host acts
-   (`HostMind.act`). The host is told when the body is its own again (`HostMind.resume`): what it
-   was in the middle of is over, and it goes on from the body as it is. Which mind has the body is
+   (`HostMind.act`). The host gives up what it had asked when a sub-mind takes the body
+   (`HostMind.release`), and is told when the body is its own again (`HostMind.resume`): what it
+   was in the middle of is over, and it goes on from the body as it is (`BodyView.resumed`, on
+   which `driveBy` resumes every skill). Which mind has the body is
    one number in the host's state (`hosting`, `src/core/mind/sub-mind.ts`).
 3. **What a mind is made of is its own config, plain data.** Each kind of mind declares its
    config type; `MindConfig` is their union, tagged by `kind`; a sub-mind slot holds a nested
@@ -78,7 +79,7 @@ The set is written so that what comes next is added beside it and not through it
 
 | Added later | Where it goes | What it leaves alone |
 |---|---|---|
-| **Archery**: a bow, an arrow in flight | A bow is what a hand holds, and shooting is a skill's work: the intent already says "attack this point with whatever the hand holds" (`HandAction`), and a skill beside the strike joins the skills (`createSkills`). An arrow's hit is a blow under the rulebook. How a fighter with a bow conducts itself is its tactics, a field of `FighterMindConfig` once there are two to choose between. | Sub-minds, the riser's player, who is out. A skill joins the one list the skills resume (`Skills`, plan 02), so a body knocked down in the middle of a draw goes on from where it is as one mid-strike does. The battery gains a loadout's row; a hand that cannot bear with a bow in it gets a recipe that does not bear on it. |
+| **Archery**: a bow, an arrow in flight | A bow is what a hand holds, and shooting is a skill's work: the intent already says "attack this point with whatever the hand holds" (`HandAction`), and a skill beside the strike joins the skills (`createSkills`). An arrow's hit is a blow under the rulebook. How a fighter with a bow conducts itself is its tactics, a field of `FighterMindConfig` once there are two to choose between. | Sub-minds, the riser's player, who is out. A skill joins the one list the skills resume (`Skills.resume`), so a body knocked down in the middle of a draw goes on from where it is as one mid-strike does. The battery gains a loadout's row; a hand that cannot bear with a bow in it gets a recipe that does not bear on it. |
 | **A reflex**: a dodge, a brace | A `SubMindConfig` kind, its case in `subMind`, a place in a mind's `subs`. What it reacts to must be sensed: `Senses` carries bodies today, not arrows. | `hosting`, the other sub-minds. |
 | **A reflex of part of a body**: the arms flinch, the legs walk on | `SubMind` gains what it claims; `hosting` lets the host act and the sub-mind write its own channels after it, as a push does (the stance already carries freedoms held at a torque, `heldFreedoms`). | Every sub-mind that claims the whole body, which is all of them here. |
 | **A posture low on purpose**: a crouch, a kneel, a roll | The skill asks its height (`Intent.lower`, the stance goal's), and `down` is read against the height asked. | `lie` and the riser: they read `view.down`. |
@@ -96,11 +97,7 @@ first have those readings split from them.
 
 | Today | After |
 |---|---|
-| `SkillReport.fallen`, sticky, set inside the legs' goal | `BodyView.down`, read each step from the body (`uprightness`) |
-| a fallen body's stance is asked to stand, without bound | the body's mind hands it to a sub-mind; the stance is asked nothing |
 | the crypt disposes of a fallen body's mind (`DungeonRun.drop`) | `drop` is for a body whose pool has ended; a fall is the mind's own business |
-| `createBody` then `driveBy`, in three screens | `createMind(built, world, config, wiring)` in the fights, which hold a `Minded`; the lab's actor, whose tactics are a scenario's, takes its sub-minds from a config (`subMindsOf`) |
-| no mind is named by a recipe | `DuelRecipe.minds`, a `MindConfig` a side |
 | `stance-dynamics.ts`: two legs, two soles | `bearing.ts`: limbs and patches; the stance is its first user |
 | a fall ends a bout and takes a crypt body out | a body rises; it is out when its pool ends |
 
@@ -108,14 +105,13 @@ first have those readings split from them.
 
 | # | Plan | Lands | Needs | Eye gate |
 |---|---|---|---|---|
-| 02 | [sub-minds](2026-10-01-rising-02-sub-minds.md) | `SubMind`, `hosting`, `MindConfig`, `Minded`, `createMind`, `lie`; fallen bodies lie still | | the owner shoves a lab body over, and watches a bout end by a fall |
 | 03 | [bearing](2026-10-01-rising-03-bearing.md) | `bearing.ts` split out of the stance, no number changed | | |
-| 04 | [riser](2026-10-01-rising-04-riser.md) | point patches, the staged riser, its row on the battery, the lab's choice of riser | 02, 03 | the owner watches lab bodies get up |
+| 04 | [riser](2026-10-01-rising-04-riser.md) | point patches, the staged riser, its row on the battery, the lab's choice of riser | 03 | the owner watches lab bodies get up |
 | 05 | [rules](2026-10-01-rising-05-rules.md) | the riser in the default config; a fall no longer takes a body out | 04 | the owner watches a bout with a fall in it, and a crypt fight |
 
 03 touches only the stance and can land at any time. 04 is the open-ended one: its structure is
-fixed here, its stages' numbers are found on the battery. If 04's gate is missed, 02 and 03 stand
-as they are: bodies lie still, and 05 does not land.
+fixed here, its stages' numbers are found on the battery. If 04's gate is missed, 03 stands
+as it is, bodies go on lying still, and 05 does not land.
 
 ## Prototype readings
 

@@ -17,6 +17,7 @@ import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { Scene } from "@babylonjs/core/scene.js";
 import { Duel, SIDES } from "../src/arena/duel.ts";
 import { addArenaSolids } from "../src/arena/room.ts";
+import { FIGHTER } from "../src/core/mind/config.ts";
 import { GUARD_ACTION } from "../src/core/mind/intent.ts";
 import { STAND_ORDERS } from "../src/core/mind/orders.ts";
 import { GUARD } from "../src/core/skills/guard.ts";
@@ -64,8 +65,8 @@ async function bout(which = "trunk", recipe = RECIPE, tape = TAPE) {
     advance: () => world.step(),
     read: () => ({
       steps: duel.steps, clock: duel.clock, verdict: duel.verdict, blows: duel.blows, tape: duel.tape,
-      sides: sides.map(({ body, skills, pool, standing, built }) => ({
-        ...shows(body), senses: sensed(body.view.senses), report: skills.report, standing, bar: pool.bar(), ending: pool.ending(),
+      sides: sides.map(({ body, minded, pool, standing, built }) => ({
+        ...shows(body), has: body.has, senses: sensed(body.view.senses), report: minded.skills.report, standing, bar: pool.bar(), ending: pool.ending(),
         parts: [...built.segments.keys()].map((part) => [pool.hp(part), pool.attached(part)]),
       })),
     }),
@@ -107,11 +108,11 @@ const NEEDED = {
   blow: ["senses > left > at", "senses > right > at", "watch > touching", "watch > last"],
 };
 /**
- * What of a bout's state is sorted elsewhere: the world's, and each body's and its skills'
- * (`tests/core-fork.test.mjs`); and the left side's pool, which is the right's, where the part
- * comes off.
+ * What of a bout's state is sorted elsewhere: the world's, and each body's and its mind's, a
+ * fighter's skills' (`tests/core-fork.test.mjs`); and the left side's pool, which is the right's,
+ * where the part comes off.
  */
-const SORTED_ELSEWHERE = ["world", "left > body", "left > skills", "right > body", "right > skills", "left > pool"];
+const SORTED_ELSEWHERE = ["world", "left > body", "left > mind", "right > body", "right > mind", "left > pool"];
 
 test("a_bout_forks_at_any_step", async () => {
   const controls = { physics: PHYSICS_ALONE, state: STATE_ALONE, unshown: UNSHOWN, ...forgetting(NEEDED.bout) };
@@ -172,6 +173,12 @@ test("a_load_is_of_the_same_recipe", async () => {
     assert.deepEqual(saveState(offered.duel.state), saveState(twin.duel.state));
     // The control: the physics alone takes it, the two worlds having the same counts of bodies, joints and colliders.
     assert.doesNotThrow(() => taken.world.physics.load(saved.physics));
+    // A bout of other minds is of another recipe: a mind's memory is its kind's, and its sub-minds'.
+    const minds = await bout("twin", { ...RECIPE, minds: { left: { kind: "fighter", subs: [] }, right: FIGHTER } });
+    try {
+      assert.throws(() => minds.duel.load(saved), /another bout's recipe/);
+      assert.throws(() => from.duel.load(minds.duel.save()), /another bout's recipe/);
+    } finally { minds.dispose(); }
     // And a bout of the same recipe takes it whatever the order its recipe's keys were written in.
     const again = await bout("twin", { senseDelay: 3, balance: { right: 25, left: 25 }, right: RECIPE.right, left: RECIPE.left });
     try {
@@ -192,7 +199,7 @@ test("every_field_of_a_bouts_state_is_sorted", async () => {
     const under = (field, path) => field === path || field.startsWith(`${path} > `);
     const fields = fieldsOf(stand.root).filter((field) => !SORTED_ELSEWHERE.some((path) => under(field, path)));
     assert.deepEqual(unsorted(fields, Object.values(NEEDED).flat(), []), []);
-    // What is sorted elsewhere is there: each side's body, skills and pool, and the world's.
+    // What is sorted elsewhere is there: each side's body, mind and pool, and the world's.
     assert.deepEqual(SORTED_ELSEWHERE.filter((path) => !fieldsOf(stand.root).some((field) => under(field, path))), []);
   } finally { stand.dispose(); }
 });

@@ -4,14 +4,16 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
+import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { centreOfToRef } from "../src/core/control/support.ts";
 import { humanSpec } from "../src/core/human/spec.ts";
-import { GUARD_ACTION } from "../src/core/mind/intent.ts";
+import { GUARD_ACTION, standIntent } from "../src/core/mind/intent.ts";
 import { STAND } from "../src/core/skills/strike.ts";
 import { labActor } from "../src/lab/actor.ts";
 import { throwBlow } from "../src/lab/blow.ts";
 import { LAB_BLOWS } from "../src/lab/blows.ts";
 import { loadoutSpec } from "../src/lab/loadout.ts";
-import { createMindLog, logged } from "../src/lab/mind-log.ts";
+import { createMindLog, logged, watchHas } from "../src/lab/mind-log.ts";
 import { startRun } from "../src/lab/run-mode.ts";
 import { TRACKS, trackOf } from "../src/lab/track.ts";
 import { coreStand } from "./harness/core-stand.mjs";
@@ -39,27 +41,27 @@ test("logged_tactics_decide_as_their_own_and_note_each_thing_as_it_changes", () 
   const strike = (phase) => ({ phase, chosen: phase && { strike: { name: "a blow" } } });
   // Each step: what the tactics decide, and what they see of their skills.
   const steps = [
-    [stand, strike(null), false], [stand, strike(null), false], [{ ...stand, move: [0.3, 0], face: 1 }, strike(null), false],
-    [{ ...stand, move: [0.3, 0], face: 2 }, strike(null), false], [{ ...stand, move: [0.304, -0.1] }, strike(null), false],
-    [attack, strike(null), false], [attack, strike("chamber"), false], [attack, strike("swing"), false], [stand, strike(null), false],
-    [attack, strike("swing"), false], [stand, strike(null), true], [stand, strike(null), true], [stand, strike(null), false], [stand, strike(null), true],
+    [stand, strike(null)], [stand, strike(null)], [{ ...stand, move: [0.3, 0], face: 1 }, strike(null)],
+    [{ ...stand, move: [0.3, 0], face: 2 }, strike(null)], [{ ...stand, move: [0.304, -0.1] }, strike(null)],
+    [attack, strike(null)], [attack, strike("chamber")], [attack, strike("swing")], [stand, strike(null)],
+    [attack, strike("swing")], [stand, strike(null)], [stand, strike(null)], [stand, strike(null)], [stand, strike(null)],
   ];
   // Tactics with a memory of their own: each decision is their next.
   let decided = 0;
   const own = { name: "scripted", state: { kept: 1 }, get decided() { return decided; }, decide: () => steps[decided++][0] };
   const log = createMindLog(), tactics = logged(own, log);
   for (let step = 0; step < steps.length; step++) {
-    const [intent, seen, fallen] = steps[step];
+    const [intent, seen] = steps[step];
     // What is theirs is read through to them as it is now, and they decide once a step.
     assert.deepEqual([tactics.name, tactics.decided], ["scripted", step]);
     assert.equal(tactics.state, own.state);
-    assert.equal(tactics.decide({ view: { time: step / 10, down: fallen }, report: { strike: seen } }, 0.1), intent);
+    assert.equal(tactics.decide({ view: { time: step / 10 }, report: { strike: seen } }, 0.1), intent);
   }
   assert.equal(tactics.decided, steps.length);
   assert.deepEqual(log.upTo(Infinity, 100).map(({ time, text }) => `${time} ${text}`), [
     "0 stand", "0 left guard", "0 right guard", "0.2 move 0.30 0.00", "0.4 move 0.30 -0.10", "0.5 stand", "0.5 right attack",
     "0.6 strike chamber a blow", "0.7 strike swing a blow", "0.8 right guard", "0.9 right attack", "0.9 strike swing a blow",
-    "1 right guard", "1 fallen", "1.3 fallen",
+    "1 right guard",
   ]);
 });
 
@@ -93,4 +95,29 @@ test("the_log_of_a_run_and_of_a_blow_is_what_their_scripts_decide", async () => 
       assert.ok(Math.abs(at(`strike swing ${name}`) - (blow.pushing + dt)) < dt, `swinging at ${at(`strike swing ${name}`)}, pushing from ${blow.pushing}`);
     } finally { blow.dispose(); stand.dispose(); }
   }
+});
+
+test("the_log_notes_who_has_the_body_when_it_changes_hands", async () => {
+  /** The Warrior as a lab actor, standing, shoved `impulse` N s forward at its middle trunk a second in: the log's notes, and the time its view first said down. */
+  const shoved = async (impulse) => {
+    const stand = await coreStand(humanSpec("workshop-fighter"), { ground: true }), log = createMindLog();
+    const actor = labActor(stand.built, stand.world), has = watchHas(stand.world, actor.body, log);
+    try {
+      actor.drive({ name: "stand", decide: () => standIntent(0) });
+      stand.step(stand.seconds(1));
+      const trunk = stand.built.segments.get("middleTrunk");
+      trunk.body.applyImpulse(new Vector3(0, 0, impulse), centreOfToRef(trunk, new Vector3()));
+      let at = null;
+      for (let i = 0; i < stand.seconds(4); i++) {
+        stand.step();
+        if (actor.body.view.down) at ??= actor.body.view.time;
+      }
+      return { notes: log.upTo(Infinity, 100), at };
+    } finally { has.dispose(); actor.dispose(); stand.dispose(); }
+  };
+  const fell = await shoved(120);
+  assert.ok(fell.at !== null, "the shove fells it");
+  assert.deepEqual(fell.notes, [{ time: fell.at, text: "lie has the body" }], "one note, at the step it went down");
+  // The control: a body nobody takes is noted nowhere.
+  assert.deepEqual(await shoved(20), { notes: [], at: null });
 });

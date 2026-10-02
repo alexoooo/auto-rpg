@@ -12,7 +12,7 @@ import { loadEngine } from "../core/engine/engines.ts";
 import { buildBody, type BuiltBody } from "../core/build/build-body.ts";
 import type { BodyModel } from "../core/human/spec.ts";
 import { balanceCeiling, balancePercent, rulebook } from "../core/rules/rulebook.ts";
-import { createWorld, type World } from "../core/world.ts";
+import { createWorld, type Hook, type World } from "../core/world.ts";
 import { publicAssetUrl } from "../asset-url.ts";
 import { labActor } from "./actor.ts";
 import { labCameraRig } from "./camera.ts";
@@ -26,7 +26,7 @@ import { labTransport } from "./hud/transport.ts";
 import { viewSection } from "./hud/view-section.ts";
 import { SCENARIO_PANELS, type LabScenario, type LabShell, type ScenarioRun } from "./lab-scenario.ts";
 import { allowing, loadoutBalance, loadoutSpec } from "./loadout.ts";
-import { createMindLog, logged, type MindLog } from "./mind-log.ts";
+import { createMindLog, logged, watchHas, type MindLog } from "./mind-log.ts";
 import { LAB_MINDS } from "./minds.ts";
 import { blowScenario } from "./blow-scenario.ts";
 import { routineScenario } from "./routine-scenario.ts";
@@ -141,8 +141,9 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
     readonly rest: Quaternion;
     /** Its balance, per cent of its weight, if its assist has one: every figure read under it is read beside it. */
     readonly helped: number | null;
-    /** What its mind has decided. */
+    /** What its mind has decided, and the watch that notes in it who has the body. */
     readonly log: MindLog;
+    readonly has: Hook;
   }
   let current: Loaded | null = null;
   let shown: LabAddress = address;
@@ -184,6 +185,7 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
     // Until the physics engine has loaded there is no world to make: `to` is what is loaded then.
     if (!physicsEngine) { show(to); return; }
     if (current) {
+      current.has.dispose();
       current.run.dispose();
       current.skin?.dispose();
       current.view.dispose();
@@ -202,7 +204,7 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
     const view = drawBody(built, scene, TINT[to.model]), heldView = drawHeld(built, scene);
     // A new body starts live: nothing of the last one's recording is shown.
     const run = scenario.start({ scene, actor, changed: transport.showPlayhead, clock: () => performance.now() });
-    const loaded: Loaded = { built, view, held: heldView, skin: null, run, rest, helped: actor.body.assist.on ? balance : null, log };
+    const loaded: Loaded = { built, view, held: heldView, skin: null, run, rest, helped: actor.body.assist.on ? balance : null, log, has: watchHas(world, actor.body, log) };
     current = loaded;
     show(to);
     const model = to.model;

@@ -31,6 +31,7 @@ export const STRAFE = { share: 0.5, turned: 0.3 } as const;
  * `src/core/skills/strike.ts`). It holds the point it aims at while the ordered one stays within
  * `APPROACH.reach` of it, and aims again after each blow, since the skill sets the feet for the
  * point it is given and a point that followed a swaying head would move under every placing.
+ * Back from another mind (`BodyView.resumed`), it aims afresh.
  *
  * The stance turns only while it walks (`locomotion`), so a standing body ordered to face
  * does not turn.
@@ -41,6 +42,7 @@ export function fighterTactics(name: string, orders: (sight: Sight) => Orders, s
   return {
     name, state,
     decide: (sight): Intent => {
+      if (sight.view.resumed) state.aim = null;
       const { report, envelope } = sight, { move, face, attack } = orders(sight);
       if (attack) {
         const thrown = report.strike.thrown.right;
