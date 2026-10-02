@@ -105,7 +105,8 @@ writes each node's `position` and `rotationQuaternion`; bodies that never sleep;
 whole; velocities of the centre of mass; one friction (`CONTACT_FRICTION`, 0.5) and no bounce on
 every contact; freedom k as axis k of the joint's frame; a motor as a velocity constraint bounded
 by a torque; a force and a moment on a body through one step, integrated as gravity is, beside
-the impulse that is whole before it; and the contacts the solver pushed on in the last step. A
+the impulse that is whole before it; the contacts the solver pushed on in the last step; and how
+far a point is from a body's shapes (`SegmentBody.gapTo`). A
 world saves its whole physical state and loads it in place (`PhysicsWorld.save`, `load`); a body,
 joint or collider the core holds survives a load as the object it was, and a save of a world with
 other bodies, joints or colliders is refused. `rapier.ts` implements it,
@@ -406,7 +407,10 @@ arena, crypt and lab screens at `?play=arena`, `?play=dungeon` and `?play=lab`, 
 - **The lab** (`src/lab/`): one body at a time in the Stance, Routine, Run and Blow
   scenarios (`scenarios.ts`), at 120 or 480 Hz, with a transport that steps the world by hand.
   Every scenario drives its body through an actor (`actor.ts`), which gives the body what the
-  page chose: its balance, its mind (`minds.ts`) and the strikes it may throw. The page logs what
+  page chose: its balance, its mind (`minds.ts`) and the strikes it may throw. The Routine's
+  targets are bodies (`targets.ts`): a ball of the attacker's head, hung where a seed drew it as
+  the strike at it begins and read by the rule a fight wounds by (`watchBlows`), one at a time
+  ([reference/blows.md](reference/blows.md#targets)). The page logs what
   the mind decides, and who has the body when it changes hands (`mind-log.ts`). Its HUD is sections (`hud/sections.ts`) that the shell and the scenario fill with controls
   built from data (`hud/controls.ts`).
 - **The character workshop** (`/character-lab.html`, `src/character-lab/`): the workshop models

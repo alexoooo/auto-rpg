@@ -203,7 +203,7 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
     const rest = built.segments.get("lowerTrunk")!.node.rotationQuaternion!.clone();
     const view = drawBody(built, scene, TINT[to.model]), heldView = drawHeld(built, scene);
     // A new body starts live: nothing of the last one's recording is shown.
-    const run = scenario.start({ scene, actor, changed: transport.showPlayhead, clock: () => performance.now() });
+    const run = scenario.start({ scene, actor, address: to, changed: transport.showPlayhead, clock: () => performance.now() });
     const loaded: Loaded = { built, view, held: heldView, skin: null, run, rest, helped: actor.body.assist.on ? balance : null, log, has: watchHas(world, actor.body, log) };
     current = loaded;
     show(to);

@@ -94,7 +94,9 @@ without resuming on its own.
 
 - **Stance**: walk it from the keyboard (W/S or Up/Down forward and back, A/D or Left/Right
   sideways, Q/E turn while walking) and shove it.
-- **Routine**: it walks out, strikes three times, turns and walks back.
+- **Routine**: it walks out, strikes at ten targets hung high, middle and low, turns and walks
+  back. Each target is a ball of its own head, and the table says what the blow did to it or how
+  near it passed. `&targets=` (0 to 30) and `&seed=` in the address choose how many and which.
 - **Run**: it goes round a track as fast as its walk holds.
 - **Blow**: it swings the club blow that sets the damage unit into a head.
 

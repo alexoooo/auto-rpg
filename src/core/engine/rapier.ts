@@ -227,6 +227,18 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions):
           return out;
         },
         setFixed(fixed) { rigid.setBodyType(fixed ? R.RigidBodyType.Fixed : R.RigidBodyType.Dynamic, true); },
+        gapTo(point) {
+          let gap = Infinity;
+          for (let k = 0; k < rigid.numColliders(); k++) {
+            // Solid: a point inside a shape projects onto itself, and is told so.
+            const nearest = rigid.collider(k).projectPoint(xyz(point), true);
+            if (!nearest) continue;
+            if (nearest.isInside) return 0;
+            const p = nearest.point;
+            gap = Math.min(gap, hypot(point[0] - p.x, point[1] - p.y, point[2] - p.z));
+          }
+          return gap;
+        },
       };
       bodies.add(body);
       byHandle.set(handle, body);

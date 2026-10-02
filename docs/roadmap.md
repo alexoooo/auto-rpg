@@ -79,7 +79,15 @@ All of it on a physically based core, humans first ([architecture](architecture.
 - The repertoire is three recipes: the Warrior's and the Rogue's right straights and the Warrior's
   club blow. A body with no recipe of its own for what its hand holds borrows the first that fits
   (`recipeFor`): the Rogue and the skeleton the club blow, the skeleton also the Warrior's straight.
-  The skeleton falls after two borrowed strikes in the Routine.
+  The borrowed ones miss and put their bodies down: the Rogue's club passes its targets 0.6 m
+  off, and the Rogue with the club and the skeleton fall within five targets of the Routine
+  ([reference/blows.md](reference/blows.md#a-loop-of-ten)).
+- The strike skill reads a target's place across the ground and not its height: no fist strikes
+  a target under the hips ([reference/blows.md](reference/blows.md#baseline)).
+- A blow of its own that lands can put a body down. The Warrior in the Routine fell in 3 runs of
+  6 of ten loops with its blows landing on its targets, and in 1 of 6 with the same strikes
+  thrown at nothing ([reference/lab.md](reference/lab.md#routine-gait)); in the one fall read, a
+  recovering step after the blow left its feet together, and it fell stepping to the next target.
 - A blow that meets nothing unbalances the body that threw it. The Warrior with the club on the
   Node stand (Rapier, 120 Hz), attacking a point 1.6 m off with nobody at it, ends its swing
   turned 0.75 rad from where it faced, and takes 2 s of steps to face it again. Held rigid for

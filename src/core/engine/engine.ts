@@ -79,6 +79,11 @@ export interface SegmentBody {
   hullVertices(k: number): readonly Vec3[] | null;
   /** Hold the body still where it is, or let it go again. */
   setFixed(fixed: boolean): void;
+  /**
+   * How far `point` (world, m) is from the nearest of the body's shapes' surfaces, m: 0 inside
+   * one. Where the body is now.
+   */
+  gapTo(point: Vec3): number;
 }
 
 /** A body's shape, in its own frame: what `PhysicsWorld.addBody` gives it colliders for. */

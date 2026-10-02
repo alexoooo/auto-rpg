@@ -6,7 +6,8 @@
  * under a box lets it fall, and a body from another world is refused a joint; a box drifting at a
  * millimetre a second keeps drifting, where a sleeping one would stop and read zero; a force
  * through a step is integrated as gravity is and lasts that step alone; a box resting on another
- * touches it, pushed with its weight, and the ground is no body; a fixed box turns about up; and a
+ * touches it, pushed with its weight, and the ground is no body; a fixed box turns about up; a
+ * body's gap to a point is to the nearest of its shapes, and none inside one; and a
  * world loaded from a save goes on as it went on from the save, its contacts, its fixed colliders
  * and its bodies the ones it had, a force asked for the next step with them, and a save of another
  * world refused.
@@ -199,6 +200,32 @@ test("a fixed hull stands where its points are in the world", async () => {
       else assert.ok(y < 0, `a ball dropped beside the post falls past it: ${y}`);
     } finally { b.dispose(); }
   }
+});
+
+test("a body's gap to a point is to its nearest shape, and none inside", async () => {
+  const b = await box({ ground: false, gravity: false, height: 5 });
+  try {
+    const ball = (name, at, centres) => {
+      const node = new TransformNode(name, b.node.getScene());
+      node.position.set(...at); node.rotationQuaternion = Quaternion.Identity();
+      return b.physics.addBody(node, centres.map((centre) => ({ kind: "sphere", centre, radius: 0.1 })), MASS);
+    };
+    const one = ball("one", [0, 0, 0], [[0, 0, 0]]), near = (a, e) => Math.abs(a - e) < 1e-6;
+    assert.ok(near(one.gapTo([0.3, 0, 0]), 0.2), `${one.gapTo([0.3, 0, 0])} m from a point 0.3 m off the centre of a ball of 0.1 m`);
+    assert.ok(near(one.gapTo([0, 0.3, 0.4]), 0.4), `${one.gapTo([0, 0.3, 0.4])} m, off two axes`);
+    assert.equal(one.gapTo([0.05, 0, 0]), 0, "a point inside reads no gap");
+    assert.equal(one.gapTo([0, 0, 0]), 0, "nor does the centre");
+    // Two balls on one body, 1 m apart: a point is as far as the nearer.
+    const two = ball("two", [0, 2, 0], [[0, 0, 0], [1, 0, 0]]);
+    assert.ok(near(two.gapTo([1.5, 2, 0]), 0.4), `${two.gapTo([1.5, 2, 0])} m, by the second ball`);
+    assert.ok(near(two.gapTo([-0.5, 2, 0]), 0.4), `${two.gapTo([-0.5, 2, 0])} m, by the first`);
+    assert.equal(two.gapTo([1, 2.05, 0]), 0, "inside the second ball");
+    // Moved a metre in a second, the body reads from where it is.
+    one.applyImpulse(new Vector3(MASS.mass, 0, 0), one.node.position.clone());
+    b.step(HZ);
+    assert.ok(Math.abs(one.node.position.x - 1) < 1e-3, `${one.node.position.x} m`);
+    assert.ok(Math.abs(one.gapTo([0.3, 0, 0]) - (one.node.position.x - 0.3 - 0.1)) < 1e-5, `${one.gapTo([0.3, 0, 0])} m after it moved`);
+  } finally { b.dispose(); }
 });
 
 /** Each body's pose and velocity, as numbers. */

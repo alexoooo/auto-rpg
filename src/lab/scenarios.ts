@@ -26,7 +26,7 @@ interface ScenarioInfo {
 /** Every scenario, in the menu's order; the first is the default. */
 export const SCENARIOS: readonly ScenarioInfo[] = [
   { id: "stance", name: "Stance", line: "Walk it from the keyboard, and shove it." },
-  { id: "routine", name: "Routine", line: "It walks out, strikes three times, turns and walks back." },
+  { id: "routine", name: "Routine", line: "It walks out, strikes at ten targets hung high, middle and low, turns and walks back." },
   { id: "run", name: "Run", line: "It goes round a track as fast as its walk holds: a big circle, or straight back and forth." },
   { id: "blow", name: "Blow", line: "It swings a club blow the strike search found into a head, and reads what it lands with.", holds: { right: "club" } },
 ];
@@ -87,6 +87,13 @@ export type LabMindId = (typeof LAB_MIND_IDS)[number];
 export const LAB_PROJECTIONS = ["orthographic", "perspective"] as const;
 export type LabProjection = (typeof LAB_PROJECTIONS)[number];
 
+/**
+ * The Routine's targets: the most the address may ask for, and how many it has and the seed they are
+ * drawn from unless the address says (`ROUTINE_TARGETS`, `routine.ts`, which the test pins these to
+ * without the menu loading the routine).
+ */
+export const LAB_TARGETS = { most: 30, count: 10, seed: 1 } as const;
+
 export interface LabAddress extends LabLoadout {
   /** The scenario to run; none is the menu. */
   readonly scenario: ScenarioId | null;
@@ -99,11 +106,21 @@ export interface LabAddress extends LabLoadout {
   readonly view: LabView;
   readonly camera: LabCamera;
   readonly projection: LabProjection;
+  /** The Routine's targets a loop, 0 to `LAB_TARGETS.most`, and the seed they are drawn from (`drawTargets`, `targets.ts`). */
+  readonly targets: number;
+  readonly seed: number;
 }
 
-const KEYS = ["scenario", "model", "right", "left", "boots", "armour", "balance", "mind", "barred", "hz", "view", "camera", "projection"] as const;
+const KEYS = ["scenario", "model", "right", "left", "boots", "armour", "balance", "mind", "barred", "hz", "view", "camera", "projection", "targets", "seed"] as const;
 
 /** A switch in the address: `1` on, `0` off, anything else `fallback`. */
+/** A whole number in the address, from `least` to `most`: plain digits, anything else `fallback`. */
+function whole(value: string | null, least: number, most: number, fallback: number): number {
+  if (value === null || !/^\d{1,10}$/.test(value)) return fallback;
+  const n = Number(value);
+  return n >= least && n <= most ? n : fallback;
+}
+
 const flag = (value: string | null, fallback: boolean): boolean => value === "1" ? true : value === "0" ? false : fallback;
 
 /** Read the lab's address; anything missing or unknown is the default. */
@@ -125,6 +142,9 @@ export function labAddress(search: string): LabAddress {
     view: LAB_VIEWS.find((v) => v === query.get("view")) ?? LAB_VIEWS[0],
     camera: LAB_CAMERAS.find((c) => c === query.get("camera")) ?? LAB_CAMERAS[0],
     projection: LAB_PROJECTIONS.find((p) => p === query.get("projection")) ?? LAB_PROJECTIONS[0],
+    targets: whole(query.get("targets"), 0, LAB_TARGETS.most, LAB_TARGETS.count),
+    // A seed is taken modulo 2^32 (`mulberry32`), so any whole number under it names one stream.
+    seed: whole(query.get("seed"), 0, 4294967295, LAB_TARGETS.seed),
   };
 }
 
@@ -148,5 +168,7 @@ export function labHref(address: LabAddress, search = ""): string {
   query.set("view", address.view);
   query.set("camera", address.camera);
   query.set("projection", address.projection);
+  if (address.targets !== LAB_TARGETS.count) query.set("targets", String(address.targets));
+  if (address.seed !== LAB_TARGETS.seed) query.set("seed", String(address.seed));
   return `?${query}`;
 }

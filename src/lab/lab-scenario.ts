@@ -3,6 +3,7 @@ import type { Player, Playhead } from "./player.ts";
 import type { Hand } from "../render/skin.ts";
 import type { Actor } from "./actor.ts";
 import type { Control } from "./hud/controls.ts";
+import type { LabAddress } from "./scenarios.ts";
 
 /**
  * **What the lab's shell (`main.ts`) asks of a scenario.** The shell owns the page: the engine,
@@ -39,6 +40,8 @@ interface ScenarioContext {
   readonly scene: Scene;
   /** A body in its reference pose at the origin, facing +z, on the ground of its world, as the page stands it: the scenario's mode hands it its script (`Actor.drive`). */
   readonly actor: Actor;
+  /** The address the body was loaded from: what a scenario reads of its own in it. */
+  readonly address: LabAddress;
   /** For the player: the transport shows its playhead. */
   readonly changed: (playhead: Playhead) => void;
   readonly clock: () => number;

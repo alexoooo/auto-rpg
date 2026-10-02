@@ -3,21 +3,24 @@ import { Color3 } from "@babylonjs/core/Maths/math.color.js";
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder.js";
 import type { Scene } from "@babylonjs/core/scene.js";
 import type { Hand } from "../core/control/motor.ts";
+import type { Vec3 } from "../core/spec/quantity.ts";
 import { recordHistory } from "./history.ts";
 import type { LabScenario } from "./lab-scenario.ts";
 import { createPlayer } from "./player.ts";
 import { ROUTINE_TRACK, startRoutine } from "./routine.ts";
+import type { TargetReading } from "./targets.ts";
 import { paintTrack } from "./run-scenario.ts";
 import { trackOf } from "./track.ts";
 import { readings, table } from "./hud/controls.ts";
 
 /**
  * **The Routine scenario**: the lab routine (`routine.ts`), tactics on the core's skills -- walk out,
- * strike at the post with each hand in turn, walk round and back -- to show the muscles. The
+ * strike at each target with the hands in turn, walk round and back -- to show the muscles. The
  * readout is its loops, the striking fist's speed, read from the hand's body each
- * physics sub-step, and each strike's peak and where the head stood from the recipe's place. The
- * last `HISTORY_SECONDS` are recorded (`history.ts`), about one loop. On the ground: the track; in
- * the air, the post.
+ * physics sub-step, and each target's reading (`targets.ts`): what the blow did, or how near it
+ * passed. The last `HISTORY_SECONDS` are recorded (`history.ts`). On the ground: the track; in
+ * the air, the target that is up, drawn where it will hang and then where its body is: a picture,
+ * which decides nothing.
  */
 
 /** What the history holds of each step. */
@@ -26,11 +29,20 @@ interface RoutineMoment {
   readonly loops: number;
   readonly fist: number;
   readonly closure: Readonly<Record<Hand, number>>;
+  /** The ball of the target that is up: its centre and its radius; null when none is. */
+  readonly ball: { readonly centre: Vec3; readonly radius: number } | null;
 }
-/** Seconds of the routine the page keeps to scrub back through: about a loop. */
+/** Seconds of the routine the page keeps to scrub back through. */
 const HISTORY_SECONDS = 30;
-/** The post's drawn diameter, m: a point aimed at, not a body. */
-const POST = 0.06;
+/** The targets' readings the table shows: the most recent. */
+const ROWS = 10;
+
+/** A reading's row: its stratum and hand, the strike thrown, what it did, and whether the body went down. */
+function row(reading: TargetReading): string[] {
+  const { target, hand, strike, hung, blow, nearest, fell } = reading;
+  const did = blow ? `${blow.damage.toFixed(2)} HP` : !strike ? "no strike" : !hung || nearest === null ? "no room to hang it" : `missed by ${(100 * nearest).toFixed(0)} cm`;
+  return [`${target.stratum}, ${hand}`, strike?.name ?? "", did, fell ? "fell" : ""];
+}
 
 export function routineScenario(scene: Scene): LabScenario {
   const material = new StandardMaterial("lab.routine", scene);
@@ -40,40 +52,46 @@ export function routineScenario(scene: Scene): LabScenario {
   material.alpha = 0.55;
   const track = trackOf(ROUTINE_TRACK);
   paintTrack(scene, track, material);
-  const post = MeshBuilder.CreateSphere("lab.routine.post", { diameter: POST, segments: 12 }, scene);
-  post.material = material;
-  post.isPickable = false;
-  post.isVisible = false;
+  // A ball of diameter 1, scaled to the target that is up.
+  const ball = MeshBuilder.CreateSphere("lab.routine.target", { diameter: 1, segments: 16 }, scene);
+  ball.material = material;
+  ball.isPickable = false;
+  ball.isVisible = false;
   const shown = readings({ loops: { name: "Loops" }, fist: { name: "Fist", unit: "m/s" } });
-  const strikes = table(["Strike", "Peak fist, m/s", "Off, cm"]);
+  const targets = table(["Target", "Strike", "Did", ""]);
 
   return {
     keys: new Set(),
-    panels: { readout: [shown, strikes] },
+    panels: { readout: [shown, targets] },
     timelineLabel: `The last ${HISTORY_SECONDS} seconds, one physics step a notch; dragging pauses. Arrow keys step once it has focus.`,
-    start({ actor, changed, clock }) {
+    start({ actor, address, changed, clock }) {
       const { world } = actor, { built } = actor.body;
-      const routine = startRoutine(actor);
+      const routine = startRoutine(actor, { targets: address.targets, seed: address.seed });
       const history = recordHistory(built, world, HISTORY_SECONDS, (): RoutineMoment => ({
         time: routine.time(), loops: routine.tactics.loops, fist: routine.fistSpeed(),
         closure: { left: routine.closure("left"), right: routine.closure("right") },
+        ball: routine.ball(),
       }));
       const player = createPlayer({ world, recording: history }, changed, clock);
-      let shownStrikes = -1;
+      let shownReadings = -1;
       return {
         player,
         recording: () => ({ frames: history.frames, live: history.live() }),
         drive: () => {},
         readout(frame: number | null): number | null {
-          const at = routine.tactics.post;
-          if (at) { post.position.set(at[0], at[1], at[2]); post.isVisible = true; }
           const moment = history.at(frame ?? history.live());
+          // Before the first step nothing is recorded: the ball is where it is now.
+          const up = moment ? moment.ball : routine.ball();
+          ball.isVisible = up !== null;
+          if (up) {
+            ball.position.set(...up.centre);
+            ball.scaling.setAll(2 * up.radius);
+          }
           if (!moment) return null;
           shown.write({ loops: String(moment.loops), fist: moment.fist.toFixed(1) });
-          if (routine.strikes.length !== shownStrikes) {
-            shownStrikes = routine.strikes.length;
-            strikes.write(routine.strikes.slice(-6).map((s) =>
-              [s.name, s.peak.toFixed(1), `${(100 * s.off.along).toFixed(0)}, ${(100 * s.off.across).toFixed(0)}`]));
+          if (routine.readings.length !== shownReadings) {
+            shownReadings = routine.readings.length;
+            targets.write(routine.readings.slice(-ROWS).map(row));
           }
           return moment.time;
         },
@@ -83,6 +101,7 @@ export function routineScenario(scene: Scene): LabScenario {
           return moment?.closure[hand] ?? 0;
         },
         dispose(): void {
+          ball.isVisible = false;
           history.dispose();
           routine.dispose();
         },
