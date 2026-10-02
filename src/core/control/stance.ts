@@ -3,16 +3,13 @@ import type { BuiltBody } from "../build/build-body.ts";
 import type { MuscleDriver } from "../muscle/driver.ts";
 import type { Assist } from "./assist.ts";
 import type { ServoWork } from "./servo.ts";
-import { shareGroundWrench } from "./contact-wrench.ts";
+import { bearLimbs, carryRoot, type Limb } from "./bearing.ts";
 import { rotationAtToRef } from "./kinematics.ts";
 import type { StanceTuning } from "./stance-tuning.ts";
 import { ownStep, paceToward } from "./gait.ts";
-import {
-  boundSwing, groundWrench, heldFreedoms, legTorques, leverOf, limitToSoles, rootAim, rootRows, solveLeg, type Leg,
-} from "./stance-dynamics.ts";
 import { gravityOf, makeStance, type Stance } from "./stance-state.ts";
 import {
-  GROUND_FRICTION, bearingOf, bearingSole, centreOfToRef, footMotionToRef, pointOfToRef, readSupport, soleMiddleToRef, turnOfToRef,
+  bearingOf, bearingSole, centreOfToRef, footMotionToRef, pointOfToRef, readSupport, soleMiddleToRef, turnOfToRef,
   withinSupport, type FootState,
 } from "./support.ts";
 import { cos, atan2, exp, sinh, cosh, hypot } from "../math/real.ts";
@@ -93,7 +90,8 @@ export type StancePhase = "stand" | "shift" | "swing";
  * goal's heading; and each bearing foot's, none, what motion it has damped out.
  *
  * **The legs give those by torque, through the whole body's floating-base dynamics**
- * (`BodyDynamics.root`). The root's six rows say what wrench the ground must give for the body's
+ * (`BodyDynamics.root`): the bearing solve's work (`bearing.ts`), with the stance's legs its limbs
+ * and their soles its patches (`aimLimb`). The root's six rows say what wrench the ground must give for the body's
  * accelerations; each stance leg's freedoms' accelerations follow from the root's and its foot's
  * (`carry`). The ground's wrench is shared among the bearing soles as nearly as a sole can give it
  * (`shareGroundWrench`: no pull, the centre of pressure on the sole, friction, twist), and where
@@ -496,6 +494,56 @@ function holdStance(s: Stance, stance: readonly FootState[], e: number): void {
   }
 }
 
+/**
+ * The lever a missed moment of the ground's wrench is weighed against a missed force at
+ * (`shareGroundWrench`): the height of the root's centre, where the wrench is taken, over the
+ * soles, at least a sole's half-length. A moment the soles miss is a force they miss at the
+ * root's height. No fixed lever serves both humans better: `docs/reference/stance-tuning.md#wrench-lever`.
+ */
+function leverOf(s: Stance, height: number): number {
+  return Math.max(s.feet[0]!.reach, height - s.state.reading.support.y);
+}
+
+/**
+ * A driven leg's part of the solve, for this step (`Limb.work`): the point its task is asked at;
+ * where it bears, its patch; and the leg's own asks ahead of the task. A knee past straight is
+ * asked back toward the bend; a rolled foot's turn about its front edge is left free and its ankle
+ * held short of its stop, or, in a walk's pre-swing, its knee bent.
+ */
+function aimLimb(s: Stance, foot: FootState, limb: Limb, muscles: MuscleDriver): void {
+  const { reading, step } = s.state, { bend, spare, gait, seconds, soleMargin } = s.tuning, { task, work } = limb, { ahead } = work;
+  // The point: bearing, where the foot bears, as last read; swinging, its sole's middle, now.
+  if (task.bearing) work.at.copyFrom(foot.memory.rolled ? foot.edge : foot.middle);
+  else soleMiddleToRef(foot, work.at);
+  // A knee past straight is on the Jacobian's other branch, where the leg shortens by extending
+  // the knee further, into its stop. That knee is asked back toward `STANCE_KNEE_BEND`,
+  // critically damped at the height's constant, ahead of the foot's task, and the leg's other
+  // freedoms take the task.
+  ahead.length = foot.memory.channels.length;
+  ahead.fill(NaN);
+  if (bend !== null) {
+    const k = foot.chain[0]!.dofs.length, i = foot.memory.channels[k]!, flexed = muscles.angle(i) - foot.straight, m = 1 / seconds.height;
+    if (flexed < 0) ahead[k] = m * m * (bend - flexed) - 2 * m * muscles.rate(i);
+  }
+  work.rows = null;
+  if (task.bearing && foot.memory.rolled && spare !== null) {
+    // Rolled, the foot's turn about its front edge is free and the ankle is held at its stop
+    // less the spare, critically damped at the height's constant: the leg pivots on the edge.
+    // Of the spin's rows the task keeps the one about the level normal to the edge, and the one about up.
+    const w = Vector3.Cross(foot.edgeAxis, Vector3.UpReadOnly);
+    work.rows = [[[0, w.x], [1, w.y], [2, w.z]], [[1, 1]], [[3, 1]], [[4, 1]], [[5, 1]]];
+    const pre = step.swing;
+    if (gait.preswing !== undefined && reading.phase === "shift" && pre?.transfer && pre.foot === foot.side) {
+      const k = foot.chain[0]!.dofs.length, i = foot.memory.channels[k]!, m = 1 / gait.preswing.seconds;
+      ahead[k] = m * m * (gait.preswing.knee - (muscles.angle(i) - foot.straight)) - 2 * m * muscles.rate(i);
+    } else {
+      const k = foot.chain[0]!.dofs.length + foot.chain[1]!.dofs.length, i = foot.memory.channels[k]!, m = 1 / seconds.height;
+      ahead[k] = m * m * (foot.chain[2]!.dofs[0]!.spec.max.value - spare - muscles.angle(i)) - 2 * m * muscles.rate(i);
+    }
+  }
+  work.patch = task.bearing ? bearingSole(foot, 1 - soleMargin) : null;
+}
+
 /** Nothing is driven and nothing asked: where every command begins, and what a reset leaves. */
 function askNothing(s: Stance): void {
   const { state } = s, { reading } = state;
@@ -532,55 +580,14 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}, assis
     reading: s.state.reading,
     state: s.state,
     carry(muscles, work) {
-      const { feet } = s, { aim, tasks } = s.state;
+      const { aim } = s.state;
       if (!aim.on) return null;
-      const dynamics = muscles.dynamics, R = dynamics.root, p0 = R.centre, n = muscles.channels.length;
-      const legs: Leg[] = [];
-      const inLeg = new Uint8Array(n);
-      feet.forEach((foot, f) => {
-        const task = tasks[f]!;
-        if (!task.on) return;
-        legs.push(solveLeg(s, foot, task, muscles, p0));
-        for (const i of foot.memory.channels) inLeg[i] = 1;
-      });
-      // The root's rows, W = P a_root + w0: the legs' freedoms as their feet's tasks have them, those
-      // held at a torque as it moves them, and the rest at the servo's asks.
-      const { P, w0 } = rootRows(R, legs);
-      heldFreedoms(s, legs, inLeg, dynamics, work, P, w0);
-      for (let i = 0; i < n; i++) if (!inLeg[i] && !(work.fixed[i])) for (let r = 0; r < 6; r++) w0[r] = w0[r]! + R.coupling[r]![i]! * work.accel[i]!;
-      const root = rootAim(s, R, P, w0);
-      limitToSoles(s, legs, P, w0, p0);
-      for (const { task, y0, Y } of legs) for (let k = 0; k < 6; k++) task.accel[k] = y0[k]! - Y[k]!.reduce((sum, v, c) => sum + v * root[c]!, 0);
-      return root;
+      s.feet.forEach((foot, f) => { if (s.limbs[f]!.task.on) aimLimb(s, foot, s.limbs[f]!, muscles); });
+      return carryRoot(s.bearing, muscles, work, aim, leverOf(s, muscles.dynamics.root.centre[1]));
     },
     bear(muscles, work) {
-      const { feet, assist } = s, { aim, held, tasks, helped } = s.state, { boundedSwing, soleMargin } = s.tuning, { idScratch, shares, missed } = s.scratch;
-      if (!aim.on) return;
-      const R = muscles.dynamics.root, n = muscles.channels.length, root = aim.root;
-      // Every freedom's acceleration: the legs' from their tasks, the rest as the servo solved them.
-      const accel = work.accel;
-      feet.forEach((foot, f) => { if (tasks[f]!.on) foot.memory.channels.forEach((i, k) => { accel[i] = tasks[f]!.accel[k]!; }); });
-      // The freedoms held at a torque, as the plan has them move at this root.
-      held.channels.forEach((i, k) => { accel[i] = held.z0[k]! + held.Z[k]!.reduce((sum, v, c) => sum + v * root[c]!, 0); });
-      feet.forEach((foot, f) => {
-        const task = tasks[f]!;
-        if (boundedSwing && task.on && !task.bearing) boundSwing(s, foot, task, muscles, accel, root);
-      });
-      // The ground's wrench for it all, and each bearing sole's share of it.
-      const W = groundWrench(R, root, accel, n);
-      const bearing = feet.filter((_, f) => tasks[f]!.on && tasks[f]!.bearing);
-      const { force, moment } = idScratch;
-      if (bearing.length) {
-        force.set(W[3]!, W[4]!, W[5]!);
-        moment.set(W[0]!, W[1]!, W[2]!);
-        // The ground is asked for the wrench less what the assist gives.
-        if (assist?.on) { force.subtractInPlace(helped.force); moment.subtractInPlace(helped.moment); }
-        const soles = bearing.map((foot) => bearingSole(foot, 1 - soleMargin));
-        const at = idScratch.at.set(R.centre[0], R.centre[1], R.centre[2]);
-        shareGroundWrench(soles, at, force, moment, GROUND_FRICTION, leverOf(s, at.y), shares, missed);
-      }
-      legTorques(s, muscles, accel, bearing);
-      if (assist?.on) assist.ask(helped.force, helped.moment);
+      if (!s.state.aim.on) return;
+      bearLimbs(s.bearing, muscles, work, leverOf(s, muscles.dynamics.root.centre[1]), s.tuning.boundedSwing);
     },
     read(which) {
       const { feet, segments, total, pelvis } = s, { reading } = s.state, { p, v, whole } = s.scratch;

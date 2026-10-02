@@ -23,7 +23,7 @@ read (`src/core/skills/skills.ts`).
 | Build | `src/core/build/` | the spec made into engine bodies and joints, and the dynamics read back from them |
 | Muscles | `src/core/muscle/` | torque bounded by strength and by speed |
 | Mind seam | `src/core/mind/mind.ts`, `sub-mind.ts` | a mind made with its body, stepped before the solver, writing the muscles' command and its assist's ask; a host hands its body to a sub-mind that wants it |
-| Motor control | `src/core/control/` | joint goals, hand goals and the stance turned into muscle commands |
+| Motor control | `src/core/control/` | joint goals, hand goals and the stance turned into muscle commands; a body borne on the ground through its limbs (`bearing.ts`) |
 | Skills | `src/core/skills/` | an intent turned into the body's command: walk, face, strike, guard |
 | Tactics | `src/core/mind/tactics.ts`, `fighter.ts` | what the body should do, decided from what it sees |
 | Minds | `src/core/mind/config.ts`, `minds.ts` | a body's mind made from its config, plain data by kind |
@@ -129,18 +129,28 @@ braking and blocking). A muscle can never exceed its source's strength at its sp
   bias and gravity), solved around the freedoms that are being pushed and clipped at strength.
 - **Hand goals** (`motor.ts`, `kinematics.ts`): the knuckles follow a minimum-jerk path to a place
   at a time, solved for shoulder and elbow and fed forward to the servo.
-- **The stance** (`stance.ts`; its records in `stance-state.ts`, its inverse dynamics in
-  `stance-dynamics.ts`, its steps in `gait.ts`, its soles in `support.ts`, its constants in
-  `stance-tuning.ts`) keeps the body up by the forces the ground can really give. It plans
-  the centre of mass inside the support, asks the root's rows for the wrench that needs, shares it
-  among the bearing soles within friction, no pull and the centre of pressure on the sole
-  (`shareGroundWrench`, `contact-wrench.ts`), asks the root for less where the soles fall short,
-  and gives each stance leg its inverse dynamics minus the ground's force at its foot. What the
-  soles miss is published (`StanceReading.shortfall`), and it is what the stance asks its assist
-  for: the root is asked for what the soles and the assist give together. The swing
-  leg is solved within its strength (`boundedLeastSquares`). Steps (to recover, to walk, to shift
-  weight) are placed from the capture point. `stanceEnvelope` (`stance-envelope.ts`) reads what
-  each body was measured to hold (`assets/core/stance-envelope.json`).
+- **The bearing solve** (`bearing.ts`) is a body borne on the ground through limbs, and knows no
+  foot. A limb (`Limb`) is the chain of freedoms from the root to a segment, with a task at a
+  point of that segment: to bear there on a patch of the ground, or to move free. `carryRoot`
+  asks the root's rows for the wrench its caller's aim needs (the centre of mass's acceleration
+  and the root's spin's), shares it among the bearing patches within friction, no pull and the
+  centre of pressure on the patch (`shareGroundWrench`, `contact-wrench.ts`), and asks the root
+  for less where the patches fall short; the servo solves the rest of the body around that root;
+  `bearLimbs` gives each driven limb its inverse dynamics minus the ground's force at its point,
+  a free limb solved within its strength (`boundedLeastSquares`). What the patches miss it
+  leaves in its caller's record and asks the assist for: the root is asked for what the patches
+  and the assist give together. A task may ask only some rows of its point's motion, and a
+  freedom may be asked ahead of the task (`Limb.work`).
+- **The stance** (`stance.ts`; its records in `stance-state.ts`, its steps in `gait.ts`, its
+  soles in `support.ts`, its constants in `stance-tuning.ts`) is the standing plan, and the
+  solve's first user: it keeps the body up by the forces the ground can really give. It plans
+  the centre of mass inside the support and each foot's task, and says each leg's part of the
+  solve (`aimLimb`): the point of its sole, the sole as a patch, a knee past straight asked back
+  to its bend, a rolled foot left free to turn about its front edge. The solve's limbs are the
+  stance's legs and its records the stance's own state; what the soles miss is published
+  (`StanceReading.shortfall`). Steps (to recover, to walk, to shift weight) are placed from the
+  capture point. `stanceEnvelope` (`stance-envelope.ts`) reads what each body was measured to
+  hold (`assets/core/stance-envelope.json`).
 - **The assist** (`assist.ts`) is a force and a moment on the root that no muscle gives: an ask
   shortened to a ceiling in the body's own weight, given through the solver step, and metered. Its
   ceiling is given with the body from the character's balance, and none unless given

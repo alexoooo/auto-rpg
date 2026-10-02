@@ -36,8 +36,8 @@ cent in place of the rulebook's (`DuelRecipe.balancePercent`).
 ## What the soles miss
 
 Each step a stance works out the wrench the ground must give for the accelerations it asks and
-shares it among the bearing soles as far as soles can give it (`limitToSoles`,
-`src/core/control/stance-dynamics.ts`). What they cannot give is `StanceReading.shortfall`, and it
+shares it among the bearing soles as far as soles can give it (`limitToPatches`,
+`src/core/control/bearing.ts`). What they cannot give is `StanceReading.shortfall`, and it
 is what the stance asks its assist for.
 
 Harness: Node, the core world (`src/core/world.ts`), Rapier, 120 Hz; the nine matchups at 4 m,

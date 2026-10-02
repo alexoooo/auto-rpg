@@ -4,7 +4,7 @@
 
 A sub-mind that gets a fallen body to its feet with its own muscles: `{ kind: "staged-rise" }`. It
 lies slack until still, reads how it lies, rolls to its front if it is not on it, and plays stages
-that are data: poses first, then bearings solved by the bearing solve (plan 03) on knees, hands and
+that are data: poses first, then bearings solved by the bearing solve (`bearing.ts`) on knees, hands and
 feet. It is scored on the battery (`research/core-rise.mjs`) beside the body that lies (`rising.md#lying`), and the lab offers
 it. The game's default does not change here: `FIGHTER` still lies, and a fall still takes a body
 out. Plan 05 changes both.

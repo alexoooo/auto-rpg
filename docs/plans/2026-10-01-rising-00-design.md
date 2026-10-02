@@ -2,7 +2,8 @@
 
 This is the design of what a body does once it is down, and the index of the plans that build it.
 Each plan lands green by itself and is deleted as it lands; this file is deleted with the last of
-them. Down as a reading of the body, and sub-minds with lying still, have landed.
+them. Down as a reading of the body, sub-minds with lying still, and the bearing solve split from
+the stance have landed.
 
 ## Why
 
@@ -43,12 +44,12 @@ mind (`DungeonRun.drop`), the lab does nothing.
    asks its muscles for nothing. With it in the fighter's default config the flail is gone from
    every screen, the stance is no longer asked for a ground it cannot have, and it is the control
    row of every table that scores a riser.
-5. **A body bears on the ground through limbs, on patches.** The stance's whole-body solve
-   (`carry` and `bear`, `src/core/control/stance-dynamics.ts`) is written for two feet. It is
-   split into the solve (`src/core/control/bearing.ts`: limbs, each a chain of freedoms with a
-   task at a point of its last segment, bearing on a patch or moving free) and the standing plan
-   that uses it (`stance.ts`: where the centre of mass goes, when to step, the heel's roll). The
-   split changes no number: the arena's trace digest and the fingerprint are the gate.
+5. **A body bears on the ground through limbs, on patches.** The whole-body solve is a module
+   that knows no foot (`src/core/control/bearing.ts`: limbs, each a chain of freedoms with a
+   task at a point of its last segment, bearing on a patch or moving free), and the standing plan
+   is its first user (`stance.ts`: where the centre of mass goes, when to step, the heel's roll).
+   A patch is a sole today; a point, and a limb that hangs from somewhere other than the root,
+   come with the riser that reads them.
 6. **A rise is one riser, and the first is staged.** `{ kind: "staged-rise" }` is a sub-mind that
    wants the body from the moment it is down until it stands. It lies slack until still, reads how
    it lies, and plays a recipe that is data: the limbs the body may bear on, and stages, each
@@ -98,20 +99,18 @@ first have those readings split from them.
 | Today | After |
 |---|---|
 | the crypt disposes of a fallen body's mind (`DungeonRun.drop`) | `drop` is for a body whose pool has ended; a fall is the mind's own business |
-| `stance-dynamics.ts`: two legs, two soles | `bearing.ts`: limbs and patches; the stance is its first user |
+| `bearing.ts`: limbs from the root, bearing on soles | limbs with stems, bearing on soles and points |
 | a fall ends a bout and takes a crypt body out | a body rises; it is out when its pool ends |
 
 ## The plans
 
 | # | Plan | Lands | Needs | Eye gate |
 |---|---|---|---|---|
-| 03 | [bearing](2026-10-01-rising-03-bearing.md) | `bearing.ts` split out of the stance, no number changed | | |
-| 04 | [riser](2026-10-01-rising-04-riser.md) | point patches, the staged riser, its row on the battery, the lab's choice of riser | 03 | the owner watches lab bodies get up |
+| 04 | [riser](2026-10-01-rising-04-riser.md) | point patches, the staged riser, its row on the battery, the lab's choice of riser | | the owner watches lab bodies get up |
 | 05 | [rules](2026-10-01-rising-05-rules.md) | the riser in the default config; a fall no longer takes a body out | 04 | the owner watches a bout with a fall in it, and a crypt fight |
 
-03 touches only the stance and can land at any time. 04 is the open-ended one: its structure is
-fixed here, its stages' numbers are found on the battery. If 04's gate is missed, 03 stands
-as it is, bodies go on lying still, and 05 does not land.
+04 is the open-ended one: its structure is fixed here, its stages' numbers are found on the
+battery. If 04's gate is missed, bodies go on lying still, and 05 does not land.
 
 ## Prototype readings
 
