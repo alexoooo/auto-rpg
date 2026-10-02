@@ -9,12 +9,14 @@
  * soles' limits. The control, run by hand: with a blocking limit's dependence on the working set
  * judged by its cosine with the step, 34 of those 20000 come back NaN. Points: three give every
  * wrench whose pressure falls inside them, each a force and no moment, and nothing past their
- * limits; and a sole among points shares with them as their levers say.
+ * limits; and a sole among points shares with them as their levers say. Patches given parts bear
+ * by them where the wrench leaves the split open. A patch's corners (`patchCorners`) are where its
+ * centre of pressure may go.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import { shareGroundWrench } from "../src/core/control/contact-wrench.ts";
+import { patchCorners, shareGroundWrench } from "../src/core/control/contact-wrench.ts";
 
 const MU = 0.5, PYRAMID = MU / Math.SQRT2;
 const out = (k) => Array.from({ length: k }, () => ({ force: new Vector3(), moment: new Vector3() }));
@@ -208,4 +210,67 @@ test("a sole and two points share as their levers do", () => {
   assert.ok(shares[0].force.y + shares[2].force.y < 1e-4 * weight, `behind, the points bear ${shares[0].force.y + shares[2].force.y} N`);
   assert.ok(Math.abs(shares[1].moment.length() - 0.08 * weight) < 1e-3 * weight, `behind, the sole gives ${shares[1].moment.length()} N m of ${0.08 * weight}`);
   assert.ok(outside(sole, shares[1]) < 1e-6 * weight);
+});
+
+test("patches given parts bear by them where the wrench leaves the split open, and alike without", () => {
+  // Four points at a rectangle's corners: three rows of the wrench (the weight, and its moments
+  // about the two level axes) leave one way to shift load between the diagonals. Pressing at the
+  // middle of the points weighed by `parts`, bearing by the parts gives the wrench; so does
+  // bearing 0.35, 0.35, 0.15 and 0.15, the least forces that do.
+  const corners = [[-0.2, -0.4], [0.2, -0.4], [0.2, 0.4], [-0.2, 0.4]].map(([x, z]) => new Vector3(x, 0, z));
+  const points = corners.map((at) => ({ kind: "point", at })), parts = [0.4, 0.3, 0.2, 0.1];
+  const centre = new Vector3(0.01, 0.35, -0.02), weight = 800, force = new Vector3(0, weight, 0);
+  const pressed = corners.reduce((at, corner, k) => at.addInPlace(corner.scale(parts[k])), new Vector3());
+  const moment = Vector3.Cross(pressed.subtract(centre), force);
+  const borne = (given) => {
+    const shares = out(4), miss = missOf();
+    shareGroundWrench(points, centre, force, moment, MU, 0.35, shares, miss, given);
+    assert.ok(miss.force.length() < 1e-5 * weight && miss.moment.length() < 1e-5 * weight, `missed ${miss.force.length()} N, ${miss.moment.length()} N m`);
+    assert.ok(Math.max(...shares.map(outsidePoint)) < 1e-6 * weight);
+    return shares.map((share) => share.force.y / weight);
+  };
+  const off = (found, want) => Math.max(...found.map((v, k) => Math.abs(v - want[k])));
+  const byParts = borne(parts), alike = borne(undefined), even = borne([1, 1, 1, 1]), scaled = borne(parts.map((part) => 5 * part));
+  assert.ok(off(byParts, parts) < 1e-4, `by parts ${parts}, the points bear ${byParts} of the weight`);
+  assert.ok(off(alike, [0.35, 0.35, 0.15, 0.15]) < 1e-4, `with no parts, the points bear ${alike} of the weight`);
+  // Parts that are all one are no parts, to the bit; and only their ratios count.
+  assert.deepEqual(even, alike);
+  assert.ok(off(scaled, parts) < 1e-4, `by five times the parts, the points bear ${scaled} of the weight`);
+
+  // A sole among points takes its part too: a sole and two points, each a third without parts
+  // (the least that gives the wrench with no moment of the sole's); pressing where the parts'
+  // middle is, they bear by the parts, the sole still giving no moment.
+  const sole = { kind: "sole", middle: new Vector3(0, 0, -0.3), along: new Vector3(0, 0, 1), length: 0.12, width: 0.05 };
+  const patches = [{ kind: "point", at: new Vector3(-0.2, 0, 0.25) }, sole, { kind: "point", at: new Vector3(0.2, 0, 0.25) }], thirds = [0.25, 0.5, 0.25];
+  const middle = new Vector3(0, 0, 0.25 * 0.25 - 0.5 * 0.3 + 0.25 * 0.25), shares = out(3), miss = missOf();
+  shareGroundWrench(patches, centre, force, Vector3.Cross(middle.subtract(centre), force), MU, 0.35, shares, miss, thirds);
+  // The parts weigh the regularizer, and the miss with it: a part in a hundred thousand.
+  assert.ok(miss.force.length() < 1e-4 * weight && miss.moment.length() < 1e-4 * weight, `missed ${miss.force.length()} N, ${miss.moment.length()} N m`);
+  assert.ok(off(shares.map((share) => share.force.y / weight), thirds) < 1e-4 && shares[1].moment.length() < 1e-4 * weight,
+    `by parts ${thirds}, the patches bear ${shares.map((share) => share.force.y / weight)} of the weight, and the sole gives ${shares[1].moment.length()} N m`);
+
+  // A sole's moment is weighed by its part as its force is. A sole and a point 0.55 m ahead of
+  // it, pressing 0.1 m ahead of the sole's middle: the point bearing t of the weight, the sole
+  // bears the rest and a moment of (0.1 - 0.55 t) m of it, about its middle; the least of
+  // (1 - t)^2 / sole's part + t^2 / point's part + moment^2 / (length^2 sole's part) is the t below.
+  const pair = [sole, { kind: "point", at: new Vector3(0, 0, 0.25) }], [ofSole, ofPoint] = [0.7, 0.3], length2 = sole.length * sole.length;
+  const rule = (1 / ofSole + 0.55 * 0.1 / (length2 * ofSole)) / (1 / ofSole + 1 / ofPoint + 0.55 * 0.55 / (length2 * ofSole));
+  const two = out(2), missed = missOf();
+  shareGroundWrench(pair, centre, force, Vector3.Cross(new Vector3(0, 0, -0.2).subtract(centre), force), MU, 0.35, two, missed, [ofSole, ofPoint]);
+  assert.ok(missed.force.length() < 1e-4 * weight && missed.moment.length() < 1e-4 * weight);
+  assert.ok(Math.abs(two[1].force.y / weight - rule) < 1e-4 && Math.abs(Math.abs(two[0].moment.x) / weight - Math.abs(0.1 - 0.55 * rule)) < 1e-4,
+    `the point bears ${two[1].force.y / weight} of the weight, by the rule ${rule}, and the sole gives ${two[0].moment.x / weight} m of it`);
+});
+
+test("a patch's corners are where its centre of pressure may go", () => {
+  const at = new Vector3(0.3, 0, -0.2);
+  assert.deepEqual(patchCorners({ kind: "point", at }).map((corner) => corner.asArray()), [[0.3, 0, -0.2]]);
+  const xz = (corners) => corners.map((corner) => [corner.x, corner.y, corner.z].map((v) => Math.round(v * 1e9) / 1e9));
+  // A sole along +z: its length's two ends, and across it (up x along, +x) its width's.
+  const sole = { kind: "sole", middle: new Vector3(0.1, 0.02, -0.3), along: new Vector3(0, 0, 1), length: 0.12, width: 0.05 };
+  assert.deepEqual(xz(patchCorners(sole)), [[0.15, 0.02, -0.18], [0.05, 0.02, -0.18], [0.05, 0.02, -0.42], [0.15, 0.02, -0.42]]);
+  // Along +x, across it is -z.
+  assert.deepEqual(xz(patchCorners({ ...sole, along: new Vector3(1, 0, 0) })), [[0.22, 0.02, -0.35], [0.22, 0.02, -0.25], [-0.02, 0.02, -0.25], [-0.02, 0.02, -0.35]]);
+  // A sole of no width is a line: its two ends, each twice.
+  assert.deepEqual(xz(patchCorners({ ...sole, width: 0 })), [[0.1, 0.02, -0.18], [0.1, 0.02, -0.18], [0.1, 0.02, -0.42], [0.1, 0.02, -0.42]]);
 });

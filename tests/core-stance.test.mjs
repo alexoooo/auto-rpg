@@ -151,6 +151,15 @@ test("a place the soles cannot hold is taken at the nearest point of their drawn
   const held = cases.map(([[x, z]]) => withinSupport(soles, x, z));
   cases.forEach(([asked, want], k) => assert.ok(Math.hypot(held[k][0] - want[0], held[k][1] - want[1]) < 1e-9,
     `(${asked}) was held at (${held[k]}), not (${want})`));
+  // Corners that are all one point have no inside: whatever is asked, even the point itself, the point is what is held.
+  const one = new Vector3(0.2, 0, -0.1);
+  for (const points of [[{ corners: [one] }], [{ corners: [one] }, { corners: [one.clone(), one.clone()] }]]) {
+    assert.deepEqual([[0.5, 0.3], [0.2, -0.1], [-1, -0.1]].map(([x, z]) => withinSupport(points, x, z)), [[0.2, -0.1], [0.2, -0.1], [0.2, -0.1]]);
+  }
+  // Two points are a line, drawn in toward its middle: beside it, the nearest point of it; past its end, the end.
+  const line = [{ corners: [new Vector3(0, 0, 0)] }, { corners: [new Vector3(0.4, 0, 0)] }];
+  const beside = withinSupport(line, 0.22, 0.1), past = withinSupport(line, 0.9, -0.05), end = 0.2 + 0.2 * (1 - SUPPORT_INSET);
+  assert.ok(Math.hypot(beside[0] - 0.22, beside[1]) < 1e-12 && Math.hypot(past[0] - end, past[1]) < 1e-12, `beside the line (${beside}), past its end (${past})`);
 });
 
 for (const model of ["workshop-fighter", "workshop-rogue"]) {

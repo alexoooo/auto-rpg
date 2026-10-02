@@ -27,9 +27,12 @@ import { subMindsOf } from "../src/core/mind/sub-minds.ts";
 import { driveBy } from "../src/core/mind/tactics.ts";
 import { GUARD } from "../src/core/skills/guard.ts";
 import { STANCE_LOWER } from "../src/core/skills/locomotion.ts";
+import { stagedRise } from "../src/core/mind/rise/staged.ts";
+import { RISE } from "../src/core/mind/rise/stages.ts";
 import { REPERTOIRE } from "../src/core/skills/strikes.ts";
 import { deepFreeze } from "../src/core/state.ts";
 import { createWorld } from "../src/core/world.ts";
+import { riserOf, toppled } from "../research/core-rise-trials.mjs";
 import { coreStand, freshEngine } from "./harness/core-stand.mjs";
 import { assertForks, fieldsOf, forgetting, forks, PHYSICS_ALONE, shows, STATE_ALONE, unsorted } from "./harness/fork.mjs";
 
@@ -128,6 +131,32 @@ const helped = pulled({ ceiling: { force: 0.25, moment: 0.065 }, withdraw: 300 }
 /** Pulled at its whole weight for a quarter second, it falls; its mind is the game's, which lies where it fell. Saved at every step from `FELLED.from`, `FELLED.count` times. */
 const FELLED = { from: 180, count: 30 };
 const felled = pulled({ share: 1, until: 150, subs: subMindsOf(FIGHTER.subs) });
+
+/**
+ * How many advances after its topple `rising` is first saved, how often after, and how many
+ * times: from the middle of `prop`, through `fours` and the slack after it.
+ */
+const RISING = { from: 560, every: 10, count: 30 };
+
+/**
+ * The Warrior, unarmed, toppled stiff onto its front on the arena's ground (`toppled`), under the
+ * game's rise (`stagedRise`, `RISE`): it lies slack until it is still, plays the pose stages,
+ * comes to its knees and hands in `fours`, and lies slack again.
+ */
+async function rising() {
+  const { world, built, body, dispose } = await toppled({ model: "workshop-fighter", held: "empty", degrees: 0 }, [(own, view) => stagedRise(own, view, RISE)]);
+  const riser = riserOf(body), seen = { stages: [], bore: 0, tries: 0 };
+  return {
+    world, builts: [built], states: { body: body.state }, seen, dispose,
+    advance: () => world.step(), read: () => ({ ...shows(body), has: body.has }),
+    watch() {
+      const stage = riser.phase === "rise" ? RISE.rise[riser.stage].name : riser.phase;
+      if (seen.stages.at(-1) !== stage) seen.stages.push(stage);
+      if (riser.bear.tasks.every((task) => task.bearing)) seen.bore += 1;
+      seen.tries = riser.tries;
+    },
+  };
+}
 
 const EAST = Object.freeze({ x: 1, z: 0 }), NORTH = Object.freeze({ x: 0, z: 1 }), WEST = Object.freeze({ x: -1, z: 0 });
 const walking = (move, face = null) => deepFreeze({ move, face, attack: null });
@@ -240,6 +269,7 @@ const NEEDED = {
   framed: ["world > owed"],
   helped: ["given", "meter", "withdrawn"].map((field) => `body > assist > ${field}`),
   felled: ["body > mind > has"],
+  rising: ["body > mind > subs"],
   ordered: ["heading", "pace", "setOff"].map((field) => `skills > legs > ${field}`),
   striker: [
     ...["reference", "placing"].map((field) => `skills > legs > ${field}`),
@@ -253,7 +283,6 @@ const NOT_MEMORY = {
   "body > assist > asked": "a step's ask is given, or dropped, in that step: between steps nothing is asked",
   "body > mind > host > down": "each step's look reads it from the body before any mind steps or any fight reads the view",
   "body > mind > host > resumed": "the step the body is handed back sets it and clears it: between steps it is false",
-  "body > mind > subs": "each sub-mind's own memory, in rank order: the one that lies still has none",
   ...Object.fromEntries(["left", "right"].flatMap((hand) => [
     [`body > mind > host > motor > hands > ${hand} > started`, "a new goal clears it and that step's control sets it"],
     [`body > mind > host > motor > hands > ${hand} > goals`, "each step clears it and fills it before reading it"],
@@ -292,6 +321,16 @@ test("a_body_forks_as_it_goes_down_and_lying", async () => {
   const { has, down } = run.seen;
   assert.deepEqual(has, ["command", "lie"]);
   assert.ok(down > run.steps[0] + 5 && down < run.steps.at(-1) - 5, `down at step ${down}, forked from ${run.steps[0]} to ${run.steps.at(-1)}`);
+});
+
+test("a_body_forks_as_it_rises", async () => {
+  const run = await forks(rising, RISING.every, 20, RISING.count, forgetting(NEEDED.rising), RISING.from);
+  assertForks(run, NEEDED.rising);
+  // The fixture reaches the bearing stage from the pose before it, the stage's end, and the slack after: every limb bore, and one attempt was
+  // played. Its riser does nothing until the body is its own, and again for the step its rise is over.
+  const { stages, bore, tries } = run.seen;
+  assert.deepEqual(stages, ["idle", "settle", "fold", "tuck", "prop", "fours", "idle", "settle"]);
+  assert.ok(bore > 100 && tries === 1, `every limb bore in ${bore} steps, in ${tries} attempts`);
 });
 
 test("a_body_under_orders_forks_through_its_turns", async () => {

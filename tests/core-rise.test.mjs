@@ -1,16 +1,21 @@
 /**
  * **Rising by stages** (`stagedRise`, `src/core/mind/rise/staged.ts`): a recipe that cannot be
  * played, how a body lies, the wait until it is still, the pose stages that draw the knees under a
- * body on its front and prop it, and a riser the body is taken from. Node, core world on the
- * arena's ground (`research/core-rise-trials.mjs`), Rapier, 120 Hz.
+ * body on its front and prop it, a riser the body is taken from, the bearing stage that brings it
+ * to its knees and hands, what that stage is done by, and what its limbs bear on. Node, core world
+ * on the arena's ground, or a floor over it (`research/core-rise-trials.mjs`), Rapier, 120 Hz; no
+ * assist.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { createBody, SERVO_SECONDS } from "../src/core/body.ts";
-import { centreOfToRef } from "../src/core/control/support.ts";
+import { uprightness } from "../src/core/control/ground.ts";
+import { SOLE_MARGIN } from "../src/core/control/stance-tuning.ts";
+import { centreOfToRef, footStatesOf, pointOfToRef, readSupport, turnOfToRef } from "../src/core/control/support.ts";
 import { BODY_MODELS, modelSpec } from "../src/core/human/spec.ts";
 import { lying } from "../src/core/mind/lie.ts";
+import { riseLimbs } from "../src/core/mind/rise/limbs.ts";
 import { lieOf, stagedRise } from "../src/core/mind/rise/staged.ts";
 import { RISE, stageFaults } from "../src/core/mind/rise/stages.ts";
 import { felled, riserOf, toppled } from "../research/core-rise-trials.mjs";
@@ -23,6 +28,18 @@ const withStage = (recipe, stage) => ({ ...recipe, rise: recipe.rise.map((old) =
 /** The height of `built`'s segment `name`'s centre of mass, m. */
 const heightOf = (built, name) => centreOfToRef(built.segments.get(name), new Vector3()).y;
 const speedOf = (v) => Math.hypot(v.x, v.y, v.z);
+/** A riser's memory as a record to compare: its clocks left out, and of its bearing records each limb's task, on or off. */
+const seenOf = (riser) => ({ ...riser, time: null, still: null, bear: riser.bear.tasks.map((task) => (task.on ? (task.bearing ? "bears" : "moves") : "off")) });
+/** No limb of the game's recipe on, and every one bearing. */
+const NONE = RISE.limbs.map(() => "off"), ALL = RISE.limbs.map(() => "bears");
+/** The rise's last stage, and its place among them. */
+const FOURS = RISE.rise.at(-1), LAST = RISE.rise.length - 1;
+/** `body` as a mind owns it. */
+const ownOf = (built, body) => ({ spec: built.spec, built, muscles: body.muscles, assist: body.assist });
+/** The fastest any segment of `built` moves, m/s. */
+const fastest = (built) => Math.max(...[...built.segments.values()].map((segment) => segment.body.linearVelocityToRef(new Vector3()).length()));
+/** `model` toppled forward under a riser playing `recipe`. */
+const fallen = (model, recipe) => toppled({ model, held: "empty", degrees: 0 }, [(own, view) => stagedRise(own, view, recipe)]);
 
 test("a recipe that cannot be played says why", () => {
   for (const model of BODY_MODELS) assert.deepEqual(stageFaults(RISE, modelSpec(model)), [], model);
@@ -50,6 +67,33 @@ test("a recipe that cannot be played says why", () => {
   }
   // A roll's stages are read as the rise's are.
   assert.deepEqual(stageFaults({ ...RISE, roll: { ...RISE.roll, left: [{ ...tuck, name: "turn", seconds: 0 }] } }, warrior), ["stage turn lasts 0 s"]);
+  // The limbs: a recipe for each fault.
+  const [shin, hand] = RISE.limbs, hips = shin.takes.slice(0, 3);
+  const withLimbs = (...limbs) => ({ ...RISE, limbs: [...RISE.limbs, ...limbs] });
+  const withLimb = (limb) => ({ ...RISE, limbs: RISE.limbs.map((old) => (old.name === limb.name ? limb : old)) });
+  for (const [recipe, faults] of [
+    [withLimbs(shin), ["limb shin.left is named twice"]],
+    [withLimbs({ ...hand, name: "tail", segment: "tail" }), ["limb tail is on tail, which workshop-fighter lacks"]],
+    [withLimbs({ kind: "end", name: "toe", segment: "foot.left", from: "hip.left", takes: hips }), ["limb toe bears on an end of foot.left, a box"]],
+    [withLimb({ ...hand, from: "hip.left" }), ["limb hand.left begins at hip.left, which is not on the way to hand.left"]],
+    [withLimb({ ...hand, takes: [...hand.takes.slice(0, 3), hand.takes[0]] }), ["limb hand.left takes shoulder.left flexion twice"]],
+    [withLimb({ ...hand, takes: [...hand.takes.slice(0, 3), "knee.left flexion"] }), ["limb hand.left takes knee.left flexion, which is not a freedom of its chain"]],
+    [withLimb({ ...hand, takes: hand.takes.slice(0, 2) }), ["limb hand.left takes 2 channels, and its task has 3 rows"]],
+    [withLimb({ ...shin, takes: hips }), ["limb shin.left takes 3 channels, and its task has 4 rows"]],
+    [withLimb({ ...shin, prop: "hand.left" }), ["limb shin.left is propped on hand.left, which is not a foot a stance stands on"]],
+    [withLimb({ ...shin, prop: "foot.right" }), ["limb shin.left is propped on foot.right, which does not hang from shank.left"]],
+  ]) assert.deepEqual(stageFaults(recipe, warrior), faults);
+  // And a bearing stage's.
+  const thigh = { kind: "end", name: "thigh.left", segment: "thigh.left", from: "hip.left", takes: hips };
+  for (const [recipe, faults] of [
+    [withStage(RISE, { ...FOURS, on: [...FOURS.on.slice(1), { limb: "tail", share: FOURS.on[0].share }] }), ["stage fours bears on tail, which the recipe lacks"]],
+    [withStage(RISE, { ...FOURS, leave: ["tail"] }), ["stage fours leaves tail, which the recipe lacks"]],
+    [withStage(withLimbs(thigh), { ...FOURS, leave: ["thigh.left"] }), ["stage fours drives shin.left and thigh.left, which share hip.left flexion"]],
+    [withStage(RISE, { ...FOURS, on: FOURS.on.slice(1) }), [`stage fours's shares sum to ${FOURS.on.slice(1).reduce((sum, { share }) => sum + share, 0)}`]],
+    [withStage(RISE, { ...FOURS, limit: 0 }), ["stage fours may take 0 s"]],
+    [withStage(RISE, { ...FOURS, posture: { ...FOURS.posture, "knee.left flexion": 3 } }), [`stage fours asks knee.left flexion for 3 rad, outside its range, ${range}`]],
+  ]) assert.deepEqual(stageFaults(recipe, warrior), faults);
+  assert.deepEqual(stageFaults(withStage(RISE, { ...FOURS, posture: "reference" }), warrior), [], "the reference pose is a posture every body has");
   // And a riser is not made of a recipe its body cannot play.
   assert.throws(() => stagedRise({ spec: warrior }, {}, withStage(RISE, { ...tuck, seconds: 0 })), /workshop-fighter cannot play this rise: stage tuck lasts 0 s/);
 });
@@ -87,7 +131,8 @@ test("a riser lies slack until its body is still, and after a roll reads how it 
   const body = createBody(stand.built, stand.world, { servoSeconds: SERVO_SECONDS, subs: [(own, view) => stagedRise(own, view, { ...POSES, roll: { ...POSES.roll, back: [turn] } })] });
   try {
     const riser = riserOf(body), dt = stand.world.dt, seen = [];
-    assert.deepEqual(riser, { phase: "idle", lie: "front", stage: 0, time: 0, still: 0, tries: 0, furthest: -1 });
+    assert.deepEqual({ ...riser, bear: seenOf(riser).bear }, { phase: "idle", lie: "front", stage: 0, time: 0, still: 0, tries: 0, furthest: -1, lifted: false, bear: NONE });
+    assert.deepEqual(Object.keys(riser.bear), ["tasks", "aim", "helped", "held", "shortfall"]);
     for (let i = 0; i < stand.seconds(6) && riser.tries < 2; i++) {
       // The phase a step is played in is the one it begins with; taking the body, it begins slack.
       const phase = riser.phase === "idle" ? "settle" : riser.phase;
@@ -143,7 +188,7 @@ test("fallen forward, a body draws its knees under and props itself", async () =
         steps += 1;
       } while (riser.phase !== "idle" && steps < 12 * world.hz);
       const seconds = POSES.rise.reduce((sum, stage) => sum + stage.seconds, 0);
-      assert.deepEqual({ ...riser, time: null, still: null }, { phase: "idle", lie: "front", stage: POSES.rise.length - 1, time: null, still: null, tries: 1, furthest: POSES.rise.length - 1 }, model);
+      assert.deepEqual(seenOf(riser), { phase: "idle", lie: "front", stage: POSES.rise.length - 1, time: null, still: null, tries: 1, furthest: POSES.rise.length - 1, lifted: false, bear: NONE }, model);
       assert.deepEqual([...has], ["staged-rise"], `${model}: from the fall to the last stage's end the riser has it`);
       // Half a second slack, then each stage for its time.
       assert.ok(steps / world.hz > 0.5 + seconds - 0.01 && steps / world.hz < 0.5 + seconds + 0.5, `${model}: the stages ended ${steps / world.hz} s after the riser took it`);
@@ -153,7 +198,7 @@ test("fallen forward, a body draws its knees under and props itself", async () =
       // Its stages over and still down, it keeps the body, lies slack, and begins another attempt.
       world.step();
       assert.deepEqual([body.has, body.view.down, riser.phase, riser.tries, body.muscles.activation.some((level) => level !== 0)], ["staged-rise", true, "settle", 1, false], model);
-      for (let i = 0; i < 4 * world.hz && riser.tries < 2; i++) world.step();
+      for (let i = 0; i < 6 * world.hz && riser.tries < 2; i++) world.step();
       assert.deepEqual([riser.phase, riser.stage, riser.tries, riser.furthest], ["rise", 0, 2, POSES.rise.length - 1], model);
     } finally { dispose(); }
   }
@@ -177,14 +222,364 @@ test("a riser that is taken from begins again", async () => {
     const last = POSES.rise.length - 1;
     while (body.has !== "taker" && world.steps < 12 * world.hz) world.step();
     // Taken from, it is doing nothing; what it reached is kept until it begins again.
-    assert.deepEqual([body.has, { ...riser, time: null, still: null }], ["taker", { phase: "idle", lie: "front", stage: last, time: null, still: null, tries: 1, furthest: last }]);
+    assert.deepEqual([body.has, seenOf(riser)], ["taker", { phase: "idle", lie: "front", stage: last, time: null, still: null, tries: 1, furthest: last, lifted: false, bear: NONE }]);
     while (body.has === "taker") {
       assert.equal(riser.phase, "idle");
       world.step();
     }
-    assert.deepEqual([body.has, body.view.down, { ...riser, still: null }], ["staged-rise", true, { phase: "settle", lie: "front", stage: last, time: riser.time, still: null, tries: 0, furthest: -1 }],
+    assert.deepEqual([body.has, body.view.down, { ...seenOf(riser), time: riser.time }], ["staged-rise", true, { phase: "settle", lie: "front", stage: last, time: riser.time, still: null, tries: 0, furthest: -1, lifted: false, bear: NONE }],
       "back, it lies slack and counts its attempts from none");
     while (riser.phase !== "idle" && world.steps < 24 * world.hz) world.step();
-    assert.deepEqual({ ...riser, time: null, still: null }, { phase: "idle", lie: "front", stage: last, time: null, still: null, tries: 1, furthest: last }, "and plays its stages again from the first");
+    assert.deepEqual(seenOf(riser), { phase: "idle", lie: "front", stage: last, time: null, still: null, tries: 1, furthest: last, lifted: false, bear: NONE }, "and plays its stages again from the first");
   } finally { dispose(); }
+});
+
+/**
+ * What `fours` leaves of each body that reaches it: the least height of its pelvis's centre of
+ * mass and of its upper trunk's at the step the stage is done, m, and the most the stage takes, s
+ * (`docs/reference/rising.md#stages`: the readings these stand under).
+ */
+const ON_FOURS = {
+  "workshop-fighter": { pelvis: 0.42, chest: 0.42, seconds: 2.5 },
+  "crypt-skeleton": { pelvis: 0.4, chest: 0.4, seconds: 1.5 },
+};
+/** The tolerances the player and its limbs read by (`staged.ts`, `limbs.ts`): a limb down, m; the centre of mass at its place, m, and slow, m/s; the pelvis turned, rad. */
+const DOWN = 0.03, NEAR = 0.05, SLOW = 0.1, TURNED = 0.15;
+const weightOf = (built, world) => [...built.segments.values()].reduce((sum, segment) => sum + segment.rigid.mass, 0) * Math.hypot(...world.physics.gravity);
+/** How far forward `root` is pitched from upright, rad: none standing, a quarter turn on its front. */
+function pitchOf(root) {
+  const forward = new Vector3(0, 0, 1).applyRotationQuaternionToRef(turnOfToRef(root, new Quaternion()), new Vector3());
+  return Math.atan2(-forward.y, Math.hypot(forward.x, forward.z));
+}
+/** Where `stage` holds the centre of mass over `limbs` as last read: the middle of where they are borne on, by its shares. */
+const placeOf = (stage, limbs) => stage.on.reduce((at, { limb, share }) => at.addInPlace(limbs.over[RISE.limbs.findIndex(({ name }) => name === limb)].scale(share)), new Vector3());
+/** Step `world` until `riser` has left the stage `index` of its rise, 16 s at most; the steps it played of that stage, and the fastest any segment moved, m/s. */
+function playedTo(world, built, riser, index) {
+  let played = 0, peak = 0;
+  for (let i = 0; i < 16 * world.hz && !(riser.furthest === index && riser.phase !== "rise"); i++) {
+    if (riser.phase === "rise" && riser.stage === index) played += 1;
+    world.step();
+    peak = Math.max(peak, fastest(built));
+  }
+  return { played, peak };
+}
+
+test("fallen forward, a body comes to its knees and hands", async () => {
+  for (const [model, bar] of Object.entries(ON_FOURS)) {
+    const { world, built, body, dispose } = await fallen(model, RISE);
+    try {
+      const riser = riserOf(body), upright = uprightness(built), limbs = riseLimbs(ownOf(built, body), RISE), root = body.muscles.dynamics.root.segment;
+      const { played, peak } = playedTo(world, built, riser, LAST);
+      // The stage done, the rise is over: its last step's records stand.
+      assert.deepEqual(seenOf(riser), { phase: "idle", lie: "front", stage: LAST, time: null, still: null, tries: 1, furthest: LAST, lifted: true, bear: ALL }, model);
+      assert.ok(played > 0.25 * world.hz && played < bar.seconds * world.hz, `${model}: fours took ${played / world.hz} s`);
+      const up = { pelvis: heightOf(built, "lowerTrunk"), chest: heightOf(built, "upperTrunk") };
+      assert.ok(up.pelvis > bar.pelvis && up.chest > bar.chest, `${model}: on its knees and hands its pelvis is ${up.pelvis} m up and its chest ${up.chest}`);
+      // Every limb is on the ground, and the centre of mass is where the shares put it: a third of the way from the shins to the hands.
+      const ground = upright.lowest(), c = body.view.stance.centre;
+      limbs.read(ground);
+      const over = limbs.limbs.map((limb) => limb.work.at.y - ground), place = placeOf(FOURS, limbs), off = Math.hypot(c.x - place.x, c.z - place.z);
+      assert.ok(over.every((y) => y < DOWN), `${model}: its limbs are ${over} m over the ground`);
+      const shins = (limbs.over[0].z + limbs.over[2].z) / 2, hands = (limbs.over[1].z + limbs.over[3].z) / 2;
+      assert.ok(hands - shins > 0.4 && Math.abs(place.z - shins - 0.34 * (hands - shins)) < 1e-9, `${model}: its shins bear at z ${shins}, its hands at ${hands}, and the place is ${place.z}`);
+      // A step's motion on from the reading the stage was done by.
+      assert.ok(off < NEAR + 0.005, `${model}: its centre of mass is ${off} m from its place`);
+      assert.ok(speedOf(body.view.stance.velocity) < SLOW && Math.abs(pitchOf(root) - FOURS.pitch) < TURNED + 0.01,
+        `${model}: its centre of mass moves at ${speedOf(body.view.stance.velocity)} m/s, and its pelvis is pitched ${pitchOf(root)} rad`);
+      // Its patches give the whole of what is asked of the ground, and nothing else gives any.
+      const short = riser.bear.shortfall.force.length() / weightOf(built, world);
+      assert.ok(short < 0.05, `${model}: its patches miss ${short} of its weight`);
+      assert.deepEqual([body.assist.on, riser.bear.helped.force.asArray(), riser.bear.helped.moment.asArray()], [false, [0, 0, 0], [0, 0, 0]], model);
+      assert.ok(peak < 3, `${model}: a segment moved at ${peak} m/s`);
+      // Still down, it lies slack and begins again.
+      world.step();
+      assert.deepEqual([body.has, body.view.down, riser.phase, riser.tries, body.muscles.activation.some((level) => level !== 0)], ["staged-rise", true, "settle", 1, false], model);
+    } finally { dispose(); }
+  }
+  // The Rogue ends `prop` with its hands beside its knees, and does not: the stage is given up at its limit, and the body is not flung.
+  const { world, built, body, dispose } = await fallen("workshop-rogue", RISE);
+  try {
+    const riser = riserOf(body), { played, peak } = playedTo(world, built, riser, LAST);
+    assert.deepEqual([riser.phase, riser.stage, riser.tries, riser.furthest, played], ["settle", LAST, 1, LAST, FOURS.limit * world.hz]);
+    assert.ok(peak < 3, `the Rogue: a segment moved at ${peak} m/s`);
+  } finally { dispose(); }
+});
+
+test("a bearing stage that is not reached is given up at its limit, and the rise begins again", async () => {
+  // Two things the Warrior on its knees and hands does not do: hold its centre of mass at half its standing height, and its pelvis 0.6 rad from upright.
+  const lies = [];
+  for (const [what, change] of [["height", { height: 0.5 }], ["pitch", { pitch: 0.6 }]]) {
+    const stage = { ...FOURS, ...change, limit: 2 };
+    const { world, built, body, dispose } = await fallen("workshop-fighter", withStage(RISE, stage));
+    try {
+      const riser = riserOf(body), upright = uprightness(built), limbs = riseLimbs(ownOf(built, body), RISE), root = body.muscles.dynamics.root.segment;
+      const { played, peak } = playedTo(world, built, riser, LAST);
+      assert.deepEqual(seenOf(riser), { phase: "settle", lie: "front", stage: LAST, time: null, still: null, tries: 1, furthest: LAST, lifted: true, bear: ALL }, what);
+      assert.equal(played, stage.limit * world.hz, `${what}: the stage was played ${played} steps`);
+      // What was asked is what is missing: the rest of what the stage is done by holds.
+      const ground = upright.lowest(), c = body.view.stance.centre;
+      limbs.read(ground);
+      const place = placeOf(stage, limbs), off = Math.hypot(c.x - place.x, c.z - place.z);
+      const low = ground + 0.5 * upright.standing - c.y, turned = Math.abs(pitchOf(root) - stage.pitch);
+      if (what === "height") assert.ok(low > 0.1, `its centre of mass is ${low} m under the height asked`);
+      else assert.ok(turned > 0.5 && off < NEAR && speedOf(body.view.stance.velocity) < SLOW, `its pelvis is ${turned} rad from the pitch asked, its centre of mass ${off} m from its place at ${speedOf(body.view.stance.velocity)} m/s`);
+      assert.ok(peak < 3, `${what}: a segment moved at ${peak} m/s`);
+      // Given up, it lies slack until it is still, and reads how it lies again: on its front, it plays the rise from its first stage.
+      world.step();
+      assert.deepEqual([body.has, riser.phase, body.muscles.activation.some((level) => level !== 0)], ["staged-rise", "settle", false], what);
+      for (let i = 0; i < 8 * world.hz && riser.tries < 2; i++) world.step();
+      assert.deepEqual([riser.tries, riser.furthest], [2, LAST], what);
+      if (riser.lie === "front") assert.deepEqual([riser.phase, riser.stage], ["rise", 0], what);
+      else assert.deepEqual([riser.phase, RISE.roll[riser.lie]], ["settle", []], what);
+      lies.push(riser.lie);
+    } finally { dispose(); }
+  }
+  // Let go from its knees and hands it lies on its front; from a pitch it could not hold it goes over onto its side, and the recipe has no roll for it yet.
+  assert.deepEqual(lies, ["front", "right"]);
+});
+
+test("on its knees and hands, a stage is done only once the body is slow, and only at its height", async () => {
+  const NEXT = RISE.rise.length;
+  /**
+   * The Warrior brought to its knees and hands, then under `stage`, with `first(built, world)`
+   * called before the stage's first step: how the stage ended, the steps it played, the centre of
+   * mass's speed as its first step and its last read it, and at its end how far the centre of
+   * mass is from its place across the ground, how far the pelvis from its pitch, and how far the
+   * centre of mass is over the height asked.
+   */
+  const then = async (stage, first) => {
+    const recipe = { ...RISE, rise: [...RISE.rise, stage] };
+    const { world, built, body, dispose } = await fallen("workshop-fighter", recipe);
+    try {
+      const riser = riserOf(body), upright = uprightness(built), limbs = riseLimbs(ownOf(built, body), recipe), root = body.muscles.dynamics.root.segment;
+      for (let i = 0; i < 16 * world.hz && !(riser.phase === "rise" && riser.stage === NEXT); i++) world.step();
+      assert.deepEqual([riser.phase, riser.stage, riser.time], ["rise", NEXT, 0], stage.name);
+      first?.(built);
+      let played = 0, entered = null;
+      while (riser.phase === "rise" && riser.stage === NEXT && played < 16 * world.hz) {
+        world.step();
+        played += 1;
+        entered ??= speedOf(body.view.stance.velocity);
+      }
+      const ground = upright.lowest(), c = body.view.stance.centre;
+      limbs.read(ground);
+      const place = placeOf(stage, limbs);
+      return {
+        phase: riser.phase, played, entered, speed: speedOf(body.view.stance.velocity), off: Math.hypot(c.x - place.x, c.z - place.z),
+        turned: Math.abs(pitchOf(root) - stage.pitch), over: stage.height === null ? null : c.y - ground - stage.height * upright.standing,
+      };
+    } finally { dispose(); }
+  };
+  // The control: asked what it has just been brought to, it is done at its first step.
+  const held = await then({ ...FOURS, name: "hold" });
+  assert.deepEqual([held.phase, held.played], ["idle", 1]);
+  assert.ok(held.entered < SLOW, `it began the stage at ${held.entered} m/s`);
+  // Knocked across at 0.2 m/s as the stage begins, it is where it was and moving: not done until it is slow again.
+  const knocked = await then({ ...FOURS, name: "hold" }, (built) => {
+    const trunk = built.segments.get("middleTrunk"), mass = [...built.segments.values()].reduce((sum, segment) => sum + segment.rigid.mass, 0);
+    trunk.body.applyImpulse(new Vector3(0.2 * mass, 0, 0), centreOfToRef(trunk, new Vector3()));
+  });
+  assert.ok(knocked.entered > 1.5 * SLOW, `knocked, it began the stage at ${knocked.entered} m/s`);
+  assert.deepEqual([knocked.phase, knocked.played > 5], ["idle", true], `knocked, the stage was ${knocked.phase === "idle" ? "done" : "given up"} after ${knocked.played} steps`);
+  assert.ok(knocked.speed < SLOW && knocked.off < NEAR + 0.005 && knocked.turned < TURNED + 0.01, `it was done at ${knocked.speed} m/s, ${knocked.off} m from its place, ${knocked.turned} rad from its pitch`);
+  // Asked a height its shins do not let it down to, it is over its place, at its pitch and still, and not done.
+  const lower = await then({ ...FOURS, name: "lower", height: 0.27, limit: 2 });
+  assert.deepEqual([lower.phase, lower.played], ["settle", 2 * 120]);
+  assert.ok(lower.over > NEAR && lower.off < NEAR && lower.turned < TURNED && lower.speed < SLOW,
+    `it ended ${lower.over} m over the height asked, ${lower.off} m from its place, ${lower.turned} rad from its pitch, at ${lower.speed} m/s`);
+});
+
+test("the ground a rise reads is the one its body is on", async () => {
+  // A floor 0.7 m over the arena's ground: the Warrior comes to its knees and hands on it as on the ground, and a stage's height is over it.
+  const level = 0.7, hold = { ...FOURS, name: "hold", height: 0.33 }, recipe = { ...RISE, rise: [...RISE.rise, hold] }, bar = ON_FOURS["workshop-fighter"];
+  const { world, built, body, dispose } = await toppled({ model: "workshop-fighter", held: "empty", degrees: 0, level }, [(own, view) => stagedRise(own, view, recipe)]);
+  try {
+    const riser = riserOf(body), upright = uprightness(built), limbs = riseLimbs(ownOf(built, body), recipe);
+    assert.ok(body.view.down && Math.abs(upright.lowest() - level) < 5e-3, `fallen, its lowest point is at ${upright.lowest()} m`);
+    const { played, peak } = playedTo(world, built, riser, LAST + 1);
+    assert.deepEqual(seenOf(riser), { phase: "idle", lie: "front", stage: LAST + 1, time: null, still: null, tries: 1, furthest: LAST + 1, lifted: true, bear: ALL });
+    assert.ok(played >= 1 && peak < 3, `the stage after fours took ${played} steps, and a segment moved at ${peak} m/s`);
+    const ground = upright.lowest(), c = body.view.stance.centre;
+    limbs.read(ground);
+    const over = limbs.limbs.map((limb) => limb.work.at.y - ground), up = { pelvis: heightOf(built, "lowerTrunk") - level, chest: heightOf(built, "upperTrunk") - level };
+    assert.ok(Math.abs(ground - level) < 5e-3 && over.every((y) => y < DOWN), `its lowest point is at ${ground} m, and its limbs ${over} m over it`);
+    assert.ok(up.pelvis > bar.pelvis && up.chest > bar.chest, `over the floor its pelvis is ${up.pelvis} m up and its chest ${up.chest}`);
+    assert.ok(Math.abs(c.y - level - hold.height * upright.standing) < NEAR, `its centre of mass is ${c.y - level} m over the floor, asked ${hold.height * upright.standing}`);
+  } finally { dispose(); }
+});
+
+test("a limb that is off the ground bears nothing, and a stage that bears on it is not done", async () => {
+  // Prone with its feet pointed (`fold`), a body's knees are off the ground. Asked to bear on its
+  // shins there, in the posture it has and at the pitch it lies at (1.30 to 1.42 rad), nothing else is missing.
+  const fold = RISE.rise[0];
+  const kneel = { ...FOURS, name: "kneel", on: ["left", "right"].map((side) => ({ limb: `shin.${side}`, share: 0.5 })), pitch: 1.35, posture: fold.posture, limit: 2 };
+  const recipe = { ...RISE, rise: [fold, kneel] };
+  for (const model of BODY_MODELS) {
+    const { world, built, body, dispose } = await fallen(model, recipe);
+    try {
+      const riser = riserOf(body), upright = uprightness(built), limbs = riseLimbs(ownOf(built, body), recipe), root = body.muscles.dynamics.root.segment;
+      const bore = new Set();
+      let played = 0, least = Infinity;
+      for (let i = 0; i < 16 * world.hz && !(riser.furthest === 1 && riser.phase !== "rise"); i++) {
+        world.step();
+        if (riser.phase !== "rise" || riser.stage !== 1 || riser.time === 0) continue;
+        played += 1;
+        bore.add(JSON.stringify(seenOf(riser).bear));
+        const ground = upright.lowest();
+        limbs.read(ground);
+        least = Math.min(least, limbs.limbs[0].work.at.y - ground, limbs.limbs[2].work.at.y - ground);
+      }
+      // The step it is given up is the stage's last: one short of its limit is seen in it.
+      assert.deepEqual([riser.phase, riser.furthest, played], ["settle", 1, kneel.limit * world.hz - 1], model);
+      assert.deepEqual([...bore], [JSON.stringify(NONE)], `${model}: no limb bore`);
+      assert.ok(least > DOWN, `${model}: its knees came within ${least} m of the ground`);
+      const turned = Math.abs(pitchOf(root) - kneel.pitch), speed = speedOf(body.view.stance.velocity);
+      assert.ok(turned < TURNED && speed < SLOW, `${model}: its pelvis is ${turned} rad from the pitch asked, and its centre of mass moves at ${speed} m/s`);
+    } finally { dispose(); }
+  }
+});
+
+test("a limb a stage leaves bears until the centre of mass is over the others", async () => {
+  // After `fours`: a stage that leaves the right shin, and one that leaves both hands.
+  const step = { ...FOURS, name: "step", on: [{ limb: "shin.left", share: 0.8 }, { limb: "hand.left", share: 0.1 }, { limb: "hand.right", share: 0.1 }], leave: ["shin.right"], limit: 2 };
+  const kneel = { ...FOURS, name: "kneel", on: ["left", "right"].map((side) => ({ limb: `shin.${side}`, share: 0.5 })), leave: ["hand.left", "hand.right"], pitch: 0.5, limit: 2 };
+  /**
+   * The runs of steps `stage` is played in, each as whether the left limbs are let go, what each limb does, and how many
+   * steps; and how the stage ended, with whether its left limbs were let go by then and what each limb did last.
+   */
+  const runsOf = async (stage, model = "workshop-fighter") => {
+    const { world, body, dispose } = await fallen(model, { ...RISE, rise: [...RISE.rise, stage] });
+    try {
+      const riser = riserOf(body), runs = [];
+      for (let i = 0; i < 16 * world.hz && !(riser.furthest === LAST + 1 && riser.phase !== "rise"); i++) {
+        world.step();
+        if (riser.phase !== "rise" || riser.stage !== LAST + 1 || riser.time === 0) continue;
+        const key = JSON.stringify([riser.lifted, seenOf(riser).bear]);
+        if (runs.at(-1)?.[0] === key) runs.at(-1)[1] += 1;
+        else runs.push([key, 1]);
+      }
+      return { runs: runs.map(([key, steps]) => [...JSON.parse(key), steps]), phase: riser.phase, lifted: riser.lifted, bear: seenOf(riser).bear, steps: stage.limit * world.hz - 1, hz: world.hz };
+    } finally { dispose(); }
+  };
+  // The body is nearly over its left shin and its hands already: the right shin bears a third of a second, and is let go for the rest of the stage.
+  const stepped = await runsOf(step), free = ALL.map((bears, l) => (RISE.limbs[l].name === "shin.right" ? "off" : bears));
+  assert.deepEqual(stepped.runs.map(([lifted, bear]) => [lifted, bear]), [[false, ALL], [true, free]]);
+  assert.ok(stepped.runs[0][2] > 0.1 * stepped.hz && stepped.runs[0][2] < 0.5 * stepped.hz, `the right shin bore ${stepped.runs[0][2]} steps`);
+  assert.deepEqual([stepped.phase, stepped.runs[0][2] + stepped.runs[1][2]], ["settle", stepped.steps]);
+  // The control: its arms straight, the body cannot come over its shins, and its hands bear to the stage's last step.
+  const knelt = await runsOf(kneel);
+  assert.deepEqual([knelt.phase, knelt.runs], ["settle", [[false, ALL, knelt.steps]]]);
+  // The skeleton is where a stage that leaves its left hand holds it, slow and at its pitch, before it is over its other
+  // three limbs: the stage is not done until the hand is let go.
+  const hand = { ...FOURS, name: "hand", on: [{ limb: "shin.left", share: 0.4 }, { limb: "shin.right", share: 0.4 }, { limb: "hand.right", share: 0.2 }], leave: ["hand.left"], limit: 3 };
+  const handed = await runsOf(hand, "crypt-skeleton");
+  assert.deepEqual([handed.phase, handed.lifted, handed.bear], ["idle", true, ALL.map((bears, l) => (RISE.limbs[l].name === "hand.left" ? "off" : bears))]);
+  assert.deepEqual(handed.runs.map(([lifted, bear]) => [lifted, bear]), [[false, ALL]]);
+  assert.ok(handed.runs[0][2] > 0.5 * handed.hz && handed.runs[0][2] < handed.steps, `the left hand bore ${handed.runs[0][2]} steps`);
+  // The control: a stage that leaves nothing has nothing to let go. The skeleton's knees and hands with its shins bearing
+  // four fifths hold it nearer its knees than the outline drawn in, and the stage is done there.
+  const near = { ...FOURS, on: FOURS.on.map(({ limb }) => ({ limb, share: limb.startsWith("shin") ? 0.4 : 0.1 })) };
+  const { world, built, body, dispose } = await fallen("crypt-skeleton", { ...RISE, rise: [...RISE.rise.slice(0, -1), near] });
+  try {
+    const riser = riserOf(body), { played } = playedTo(world, built, riser, LAST);
+    assert.deepEqual([riser.phase, riser.lifted, seenOf(riser).bear, played < near.limit * world.hz - 1], ["idle", false, ALL, true]);
+  } finally { dispose(); }
+});
+
+test("a shin bears from its knee to where its foot stands, and a hand where it touches the ground", async () => {
+  const xyz = (v) => v.asArray(), near = (a, b, within) => Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z) < within;
+  /** A capsule segment's two ends' lowest points, world: `first` is the end nearer the joint `joint`'s centre as built. */
+  const endsOf = (built, name, joint) => {
+    const segment = built.segments.get(name), shape = segment.spec.shape, centre = built.spec.joints.find((j) => j.name === joint).centre.value;
+    const away = (p) => Math.hypot(p[0] - centre[0], p[1] - centre[1], p[2] - centre[2]);
+    const [first, second] = [shape.from.value, shape.to.value].sort((a, b) => away(a) - away(b)).map((p) => pointOfToRef(segment, p, new Vector3()).subtractFromFloats(0, shape.radius.value, 0));
+    return { first, second };
+  };
+  /** A hand's point by the rule: under the middle of its ends when both are down, else under the lower. */
+  const handPoint = (built, side, ground) => {
+    const { first, second } = endsOf(built, `hand.${side}`, `wrist.${side}`), flat = first.y - ground < DOWN && second.y - ground < DOWN;
+    return { flat, at: flat ? first.add(second).scale(0.5) : first.y <= second.y ? first : second };
+  };
+  for (const [model, propped] of [["workshop-fighter", true], ["crypt-skeleton", false]]) {
+    const { world, built, body, dispose } = await fallen(model, RISE);
+    try {
+      const riser = riserOf(body), limbs = riseLimbs(ownOf(built, body), RISE), ground = uprightness(built).lowest();
+      // Toppled stiff, its arms at its sides: each hand lies on its far end alone.
+      limbs.read(ground);
+      for (const [l, side] of [[1, "left"], [3, "right"]]) {
+        const point = handPoint(built, side, ground), { first, second } = endsOf(built, `hand.${side}`, `wrist.${side}`);
+        assert.ok(!point.flat && second.y < first.y, `${model}: lying, its ${side} hand's ends are ${first.y - ground} and ${second.y - ground} m up`);
+        assert.deepEqual([limbs.limbs[l].work.patch.kind, xyz(limbs.limbs[l].work.at), xyz(limbs.over[l])], ["point", xyz(point.at), xyz(point.at)], `${model}, lying, ${side}`);
+      }
+      playedTo(world, built, riser, LAST);
+      assert.equal(riser.phase, "idle", `${model} came to its knees and hands`);
+      const level = uprightness(built).lowest(), feet = footStatesOf(built);
+      readSupport(feet, feet, new Vector3());
+      limbs.read(level);
+      for (const [l, side] of [[0, "left"], [2, "right"]]) {
+        const limb = limbs.limbs[l], knee = endsOf(built, `shank.${side}`, `knee.${side}`).first;
+        const down = feet.find((foot) => foot.side === side).corners.filter((corner) => corner.y - level < DOWN);
+        assert.equal(down.length > 0, propped, `${model}: ${down.length} corners of its ${side} sole are on the ground`);
+        // The task: the point's three rows and the shank's tilt's, about the level line across it.
+        assert.equal(limb.work.rows.length, 4, `${model}, ${side}`);
+        if (!propped) {
+          // No corner of its sole is down: the shin bears at its knee alone.
+          assert.deepEqual([limb.work.patch.kind, xyz(limb.work.at), xyz(limbs.over[l])], ["point", xyz(knee), xyz(knee)], `${model}, ${side}`);
+          continue;
+        }
+        const stands = down.reduce((sum, corner) => sum.addInPlace(corner), new Vector3()).scaleInPlace(1 / down.length);
+        const span = Math.hypot(stands.x - knee.x, stands.z - knee.z), middle = knee.add(stands).scale(0.5), patch = limb.work.patch;
+        assert.ok(span > 0.3, `${model}: its ${side} foot stands ${span} m from its knee`);
+        assert.deepEqual([patch.kind, patch.width, xyz(limb.work.at), xyz(limbs.over[l])], ["sole", 0, xyz(patch.middle), xyz(patch.middle)], `${model}, ${side}`);
+        assert.ok(near(patch.middle, middle, 1e-9) && Math.abs(patch.length - (1 - SOLE_MARGIN) * span / 2) < 1e-12
+          && near(patch.along, new Vector3((stands.x - knee.x) / span, 0, (stands.z - knee.z) / span), 1e-9),
+        `${model}: its ${side} shin's patch is ${patch.length} m either way of (${xyz(patch.middle)}) along (${xyz(patch.along)}); its knee is at (${xyz(knee)}) and its foot stands at (${xyz(stands)})`);
+        assert.deepEqual(limb.work.rows[3], [[0, patch.along.z], [2, -patch.along.x]], `${model}, ${side}`);
+      }
+      // On its knees and hands, each hand lies on both its ends.
+      for (const [l, side] of [[1, "left"], [3, "right"]]) {
+        const point = handPoint(built, side, level);
+        assert.ok(point.flat, `${model}: on its hands, its ${side} hand lies flat`);
+        assert.deepEqual([limbs.limbs[l].work.patch.kind, limbs.limbs[l].work.rows.length, xyz(limbs.limbs[l].work.at), xyz(limbs.over[l])], ["point", 3, xyz(point.at), xyz(point.at)], `${model}, ${side}`);
+      }
+      // Down, each bears as it is asked: its task on, its share kept.
+      const goal = new Float64Array(body.muscles.channels.length);
+      limbs.limbs.forEach((limb, l) => {
+        assert.deepEqual([limbs.bear(l, goal, 2.5, level, 0.25 + l), limb.task.on, limb.task.bearing, limb.work.share], [true, true, true, 0.25 + l], `${model}, ${RISE.limbs[l].name}`);
+        limbs.rest(l);
+        assert.deepEqual([limb.task.on, limb.task.bearing], [false, false]);
+      });
+    } finally { dispose(); }
+  }
+  // Standing, no limb is down, and none bears.
+  const stand = await coreStand(modelSpec("workshop-fighter"));
+  const body = createBody(stand.built, stand.world, { servoSeconds: SERVO_SECONDS });
+  try {
+    const limbs = riseLimbs(ownOf(stand.built, body), RISE), goal = new Float64Array(body.muscles.channels.length);
+    limbs.read(0);
+    limbs.limbs.forEach((limb, l) => {
+      limb.task.on = true;
+      assert.ok(limb.work.at.y > 0.15, `standing, ${RISE.limbs[l].name} is ${limb.work.at.y} m up`);
+      assert.deepEqual([limbs.bear(l, goal, 2.5, 0, 0.25), limb.task.on, limb.task.bearing], [false, false, false], RISE.limbs[l].name);
+    });
+  } finally { body.dispose(); stand.dispose(); }
+});
+
+test("what is a foot's own is its reference pose's, however the body lies when its feet are made", async () => {
+  const own = (feet) => feet.map((foot) => ({ ahead: foot.ahead, flat: foot.flat, width: foot.width, reach: foot.reach, sole: foot.sole.map((corner) => corner.asArray()) }));
+  for (const model of BODY_MODELS) {
+    const stand = await coreStand(modelSpec(model)), { built, dispose } = await fallen(model, POSES);
+    try {
+      const standing = footStatesOf(stand.built), lying = footStatesOf(built);
+      assert.deepEqual(own(lying), own(standing), model);
+      // The front edge's two corners are the two ahead of the ankle, and flat the heel is level with them.
+      for (const foot of standing) {
+        assert.ok(foot.heel < 1e-9 && Math.abs(foot.flat) < 1e-9, `${model}: standing, its ${foot.side} heel is ${foot.heel} m over its front edge, and flat ${foot.flat}`);
+        const z = foot.ahead.map((k) => foot.corners[k].z);
+        assert.ok(Math.min(z[0], z[1]) > Math.max(z[2], z[3]) + 0.1, `${model}: its ${foot.side} sole's corners in order ahead are at z ${z}`);
+      }
+      // On its front the foot is on its toes or its top, and reads so.
+      assert.ok(lying.every((foot) => Math.abs(foot.heel) > 0.02), `${model}: lying, its heels are ${lying.map((foot) => foot.heel)} m over its front edges`);
+    } finally { stand.dispose(); dispose(); }
+  }
 });

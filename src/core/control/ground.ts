@@ -21,6 +21,8 @@ export const FALLEN = 0.25;
 interface Uprightness {
   /** The centre of mass's height over the body's lowest point, m, now. */
   height(): number;
+  /** The height of the body's lowest point, world, m, now: the ground's level under a body that touches it. */
+  lowest(): number;
   /** That height in the reference pose, m: the spec's, whatever pose the body is in when this is made. */
   readonly standing: number;
   /**
@@ -82,7 +84,9 @@ export function uprightness(built: BuiltBody): Uprightness {
   if (parts.length === 0) throw new Error(`${built.spec.model} has no segment to stand on`);
   const standing = moment / mass - lowest;
   const turn = new Quaternion(), at = new Vector3();
-  const height = (): number => {
+  /** The centre of mass's height, world, and the lowest point's, read now. */
+  const levels = { centre: 0, low: 0 };
+  const read = (): typeof levels => {
     let high = 0, low = Infinity;
     for (const part of parts) {
       const node = part.segment.node;
@@ -90,10 +94,17 @@ export function uprightness(built: BuiltBody): Uprightness {
       high += part.mass * (part.centre.applyRotationQuaternionToRef(turn, at).y + node.position.y);
       for (const point of part.lows) low = Math.min(low, point.from.applyRotationQuaternionToRef(turn, at).y + node.position.y - point.radius);
     }
-    return high / mass - low;
+    levels.centre = high / mass;
+    levels.low = low;
+    return levels;
+  };
+  const height = (): number => {
+    const { centre, low } = read();
+    return centre - low;
   };
   return {
     height, standing,
+    lowest: () => read().low,
     down: (asked = standing) => Math.min(asked, standing) - height() > FALLEN,
   };
 }

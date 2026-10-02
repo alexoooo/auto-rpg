@@ -6,9 +6,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import { bearLimbs, carryRoot, makeBearing } from "../src/core/control/bearing.ts";
+import { bearLimbs, carryRoot, limbMotion, makeBearing } from "../src/core/control/bearing.ts";
 import { servoAsk, servoSolve } from "../src/core/control/servo.ts";
-import { bearingSole, centreOfToRef, footMotionToRef, footStatesOf, readSupport } from "../src/core/control/support.ts";
+import { bearingSole, centreOfToRef, footStatesOf, motionAtToRef, readSupport } from "../src/core/control/support.ts";
 import { humanSpec } from "../src/core/human/spec.ts";
 import { embody } from "../src/core/mind/mind.ts";
 import { coreStand } from "./harness/core-stand.mjs";
@@ -34,6 +34,8 @@ function centreVelocityToRef(built, out) {
 const SECONDS = 0.1;
 /** The part of a sole's half-length and half-width its centre of pressure is kept to. */
 const KEEP = 0.9;
+/** Accelerations a leg's freedoms are asked toward beneath its task, rad/s2, hip outward. */
+const TOWARD = [3, -2, 1, -4, 5, 2];
 
 /**
  * A mind of the bearing solve and the servo alone. Its two legs are limbs that end in the feet,
@@ -50,7 +52,7 @@ const bearing = (bears, found, probe = null) => (own) => {
   const limbs = feet.map((foot) => ({
     segment: foot.segment, memory: foot.memory, reach: foot.reach,
     task: { on: true, bearing: bears, linear: new Vector3(), angular: new Vector3(), accel: new Float64Array(foot.chain.reduce((count, joint) => count + joint.dofs.length, 0)) },
-    work: { at: new Vector3(), rows: null, ahead: [], patch: null },
+    stem: [], work: { at: new Vector3(), rows: null, ahead: [], toward: null, patch: null, share: 1 },
   }));
   const solve = makeBearing(null, limbs, found);
   const aim = { spin: new Vector3(), centre: new Vector3() };
@@ -75,7 +77,7 @@ const bearing = (bears, found, probe = null) => (own) => {
         work.ahead.length = foot.memory.channels.length;
         work.ahead.fill(NaN);
         work.patch = bears ? bearingSole(foot, KEEP) : null;
-        footMotionToRef(foot, work.at, task.linear, task.angular);
+        motionAtToRef(foot.segment, work.at, task.linear, task.angular);
         task.linear.scaleInPlace(-e);
         task.angular.scaleInPlace(-e);
       });
@@ -168,15 +170,19 @@ test("a limb's task asks the rows it names and no other, around the freedoms ask
     // level normal to the edge (z) and the one about up; the point's three. The turn about the edge is free.
     const w = Vector3.Cross(new Vector3(1, 0, 0), Vector3.UpReadOnly);
     const pivoting = [[[0, w.x], [1, w.y], [2, w.z]], [[1, 1]], [[3, 1]], [[4, 1]], [[5, 1]]];
-    const solved = ({ rows, about = "x", spin = 0, ahead = 0 }) => {
+    const solved = ({ rows, about = "x", spin = 0, ahead = 0, toward = null }) => {
       const was = task.angular.clone();
       work.rows = rows;
       work.ahead[ankle] = ahead;
+      work.toward = toward;
       task.angular[about] += spin;
       const accel = carry()[0];
       task.angular.copyFrom(was);
+      work.toward = null;
       return accel;
     };
+    // The point's velocity alone: three rows, which the leg's five freedoms that are not asked ahead take with two to spare.
+    const point = [[[3, 1]], [[4, 1]], [[5, 1]]];
     read = {
       ankle,
       pivoting: solved({ rows: pivoting }),
@@ -187,6 +193,10 @@ test("a limb's task asks the rows it names and no other, around the freedoms ask
       wholeAboutTheEdge: solved({ rows: null, spin: hard }),
       named: solved({ rows: [0, 1, 2, 3, 4, 5].map((row) => [[row, 1]]) }),
       backward: solved({ rows: [5, 4, 3, 2, 1, 0].map((row) => [[row, 1]]) }),
+      point: solved({ rows: point }),
+      pointTowardNone: solved({ rows: point, toward: TOWARD.map(() => 0) }),
+      pointToward: solved({ rows: point, toward: TOWARD }),
+      wholeToward: solved({ rows: null, toward: TOWARD }),
     };
   });
   const most = (a, b) => Math.max(...a.map((v, k) => Math.abs(v - b[k])));
@@ -206,4 +216,25 @@ test("a limb's task asks the rows it names and no other, around the freedoms ask
   assert.equal(read.pivoting[read.ankle], 0);
   assert.equal(read.ahead[read.ankle], 7);
   assert.ok(most(read.pivoting, read.ahead) >= 7 && read.ahead.some((v, k) => k !== read.ankle && Math.abs(v - read.pivoting[k]) > 1), "the other freedoms did not move around the ankle's ask");
+  // Freedoms to spare go toward what they are asked beneath the task: asked toward nothing they move
+  // the least, as with no such ask; asked toward `TOWARD` they come nearer it, the ankle still as
+  // it was asked ahead; and with every row asked there is little to spare, and they move as the task has them.
+  const from = (accel) => Math.hypot(...accel.map((v, k) => (k === read.ankle ? 0 : v - TOWARD[k])));
+  console.log(`asked toward ${TOWARD}: the point's task alone leaves the freedoms ${from(read.point).toFixed(2)} rad/s2 from it, and with the ask ${from(read.pointToward).toFixed(2)}; every row asked, the ask moves a freedom ${most(read.whole, read.wholeToward).toFixed(3)} rad/s2 at most`);
+  assert.ok(most(read.point, read.pointTowardNone) < 1e-9, `asked toward nothing, the freedoms moved ${most(read.point, read.pointTowardNone)} rad/s2 otherwise`);
+  assert.ok(from(read.pointToward) < from(read.point) - 1 && most(read.point, read.pointToward) > 1, `asked toward it, the freedoms are ${from(read.pointToward)} rad/s2 from it, and unasked ${from(read.point)}`);
+  assert.equal(read.pointToward[read.ankle], 0);
+  assert.ok(most(read.whole, read.wholeToward) < 0.1 * most(read.point, read.pointToward), `with every row asked the ask moved the freedoms ${most(read.whole, read.wholeToward)} rad/s2`);
+});
+
+test("the servo is told which freedoms a driven limb moves, and how", () => {
+  // Six freedoms: a limb that is on has the third and fourth and hangs from the first; one that is
+  // off has the fifth and hangs from the second; the sixth is no limb's.
+  const limb = (on, channels, stem, accel) => ({ task: { on, accel: Float64Array.from(accel) }, memory: { channels }, stem });
+  const work = { fixed: new Uint8Array(6).fill(1), accel: new Float64Array(6).fill(9) }, moved = new Uint8Array(6).fill(1);
+  limbMotion({ limbs: [limb(true, [2, 3], [0], [5, 6]), limb(false, [4], [1], [7])] }, work, moved);
+  // The driven limb's own freedoms move as its task has them and are none of the servo's to hold;
+  // its stem's are marked and left as the servo asked them; the rest are as they were, unmarked.
+  assert.deepEqual({ moved: [...moved], fixed: [...work.fixed], accel: [...work.accel] },
+    { moved: [1, 0, 1, 1, 0, 0], fixed: [1, 1, 0, 0, 1, 1], accel: [9, 9, 5, 6, 9, 9] });
 });

@@ -90,18 +90,23 @@ export const riserOf = (body) => (body.state.mind.subs ?? []).find((sub) => sub 
 /** The row of a body that did not fall. */
 const HELD = Object.freeze({ fell: false, risen: false, seconds: null, peak: null, asked: null, moved: null, lie: null, stage: null });
 
+/** The side of a floor raised over the arena's ground, m: wider than a fall and a rise cross. */
+const FLOOR = 12;
+
 /**
  * `model` holding `held` (a key of `LOADOUTS`), built on the arena's ground as the arena builds a
  * body, under the mind `minded(built, world)` makes of it (its `Body`), left `STAND_SECONDS`, and
  * shoved at its middle trunk's centre by `impulse` N s a kilogram of the whole body, `degrees`
  * about up from the way it faces: the world stepped to the first step it is down, or
- * `FALL_SECONDS` if it holds. The caller disposes.
+ * `FALL_SECONDS` if it holds. With `level`, m, it is built on a floor that high over the arena's
+ * ground, `FLOOR` m square. The caller disposes.
  */
-export async function felled({ model, held, degrees, impulse = 1.5 }, minded) {
+export async function felled({ model, held, degrees, impulse = 1.5, level = 0 }, minded) {
   const scene = new Scene(new NullEngine());
   const world = createWorld(scene, await freshEngine());
   addArenaSolids(world.physics);
-  const built = buildBody(LOADOUTS[held](modelSpec(model)), world, { position: [0, 0, 0] });
+  if (level > 0) world.physics.addFixedBox([0, level / 2, 0], [FLOOR, level, FLOOR]);
+  const built = buildBody(LOADOUTS[held](modelSpec(model)), world, { position: [0, level, 0] });
   const body = minded(built, world);
   const dispose = () => { body.dispose(); built.dispose(); world.dispose(); scene.dispose(); };
   try {
