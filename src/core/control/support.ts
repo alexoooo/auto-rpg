@@ -174,8 +174,8 @@ export function bearingSole(foot: FootState, keep: number): BearingSole {
   const other = rest[near[1]![1]]!, along = other.subtract(a!);
   along.y = 0;
   // Rolled, the centre of pressure is on the front edge: kept within the margin's band of it.
-  if (foot.memory.rolled) return { middle: foot.edge, along: along.normalize(), length: (1 - keep) * foot.reach, width: keep * foot.width / 2 };
-  return { middle: foot.middle, along: along.normalize(), length: keep * foot.reach, width: keep * foot.width / 2 };
+  if (foot.memory.rolled) return { kind: "sole", middle: foot.edge, along: along.normalize(), length: (1 - keep) * foot.reach, width: keep * foot.width / 2 };
+  return { kind: "sole", middle: foot.middle, along: along.normalize(), length: keep * foot.reach, width: keep * foot.width / 2 };
 }
 
 /** The sole a foot bears on, for the region the stance holds: its front edge when rolled. */

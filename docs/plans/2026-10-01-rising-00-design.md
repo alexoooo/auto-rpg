@@ -48,8 +48,8 @@ mind (`DungeonRun.drop`), the lab does nothing.
    that knows no foot (`src/core/control/bearing.ts`: limbs, each a chain of freedoms with a
    task at a point of its last segment, bearing on a patch or moving free), and the standing plan
    is its first user (`stance.ts`: where the centre of mass goes, when to step, the heel's roll).
-   A patch is a sole today; a point, and a limb that hangs from somewhere other than the root,
-   come with the riser that reads them.
+   A patch is a sole or a point (`Patch`, `contact-wrench.ts`); a limb that bears on a point, and
+   one that hangs from somewhere other than the root, come with the riser that reads them.
 6. **A rise is one riser, and the first is staged.** `{ kind: "staged-rise" }` is a sub-mind that
    wants the body from the moment it is down until it stands. It lies slack until still, reads how
    it lies, and plays a recipe that is data: the limbs the body may bear on, and stages, each
@@ -106,7 +106,7 @@ first have those readings split from them.
 
 | # | Plan | Lands | Needs | Eye gate |
 |---|---|---|---|---|
-| 04 | [riser](2026-10-01-rising-04-riser.md) | point patches, the staged riser, its row on the battery, the lab's choice of riser | | the owner watches lab bodies get up |
+| 04 | [riser](2026-10-01-rising-04-riser.md) | the staged riser, its row on the battery, the lab's choice of riser | | the owner watches lab bodies get up |
 | 05 | [rules](2026-10-01-rising-05-rules.md) | the riser in the default config; a fall no longer takes a body out | 04 | the owner watches a bout with a fall in it, and a crypt fight |
 
 04 is the open-ended one: its structure is fixed here, its stages' numbers are found on the

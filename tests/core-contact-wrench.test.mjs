@@ -1,5 +1,5 @@
 /**
- * The ground's wrench shared among bearing soles (`src/core/control/contact-wrench.ts`): every
+ * The ground's wrench shared among bearing patches (`src/core/control/contact-wrench.ts`): every
  * wrench a sole's corners can make, each pushing inside the friction pyramid, is given with no
  * miss; a twist past what the corners' friction can give, a centre of pressure past the sole and a
  * pull are not, and what is given lies inside the limits; a sole that bears nothing gives nothing,
@@ -7,7 +7,9 @@
  * friction limits meeting at a light sole; a Rogue striking in its routine's fourteenth loop) come
  * back finite; and so do 20000 random two-sole problems shaped like the stance's, each inside its
  * soles' limits. The control, run by hand: with a blocking limit's dependence on the working set
- * judged by its cosine with the step, 34 of those 20000 come back NaN.
+ * judged by its cosine with the step, 34 of those 20000 come back NaN. Points: three give every
+ * wrench whose pressure falls inside them, each a force and no moment, and nothing past their
+ * limits; and a sole among points shares with them as their levers say.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -30,6 +32,11 @@ function outside(sole, share) {
     t3 - PYRAMID * (X + Y) * f3 + Math.abs(Y * f1 + PYRAMID * t1) + Math.abs(X * f2 + PYRAMID * t2)];
   return Math.max(0, ...over);
 }
+/** How far `share` is outside a point's limits, N or N m: no pull, the friction pyramid along x and z, and no moment. */
+function outsidePoint(share) {
+  const f = share.force;
+  return Math.max(0, -f.y, Math.abs(f.x) - PYRAMID * f.y, Math.abs(f.z) - PYRAMID * f.y, share.moment.length());
+}
 
 test("every wrench a sole's corners can make inside the friction pyramid is given, with no miss", () => {
   let seed = 7;
@@ -37,7 +44,7 @@ test("every wrench a sole's corners can make inside the friction pyramid is give
   let worst = 0, largestTwist = 0;
   for (let trial = 0; trial < 200; trial++) {
     const a = random() * 2 * Math.PI, u = new Vector3(Math.sin(a), 0, Math.cos(a)), w = new Vector3(u.z, 0, -u.x);
-    const sole = { middle: new Vector3(random() - 0.5, 0, random() - 0.5), along: u, length: 0.12, width: 0.05 };
+    const sole = { kind: "sole", middle: new Vector3(random() - 0.5, 0, random() - 0.5), along: u, length: 0.12, width: 0.05 };
     const centre = new Vector3(0, 0.9, 0), force = new Vector3(), moment = new Vector3();
     for (const [i, j] of [[1, 1], [1, -1], [-1, 1], [-1, -1]]) {
       const fz = 100 * random();
@@ -56,7 +63,7 @@ test("every wrench a sole's corners can make inside the friction pyramid is give
 });
 
 test("a twist, a centre of pressure or a pull past the sole is not given, and what is given is inside the limits", () => {
-  const sole = { middle: new Vector3(0, 0, 0), along: new Vector3(0, 0, 1), length: 0.12, width: 0.05 };
+  const sole = { kind: "sole", middle: new Vector3(0, 0, 0), along: new Vector3(0, 0, 1), length: 0.12, width: 0.05 };
   // Straight down 100 N at the middle: the corners' friction twists at most mu (X + Y) f3.
   const most = PYRAMID * (sole.length + sole.width) * 100;
   const cases = [
@@ -84,7 +91,7 @@ test("a sole that bears nothing gives nothing, twist included; a recorded share 
   const soles = [
     { middle: new Vector3(-0.16885133114635587, -0.006462237483764022, 0.06559793217555063), along: new Vector3(0.0002746066032038252, 0, 0.999999962295606) },
     { middle: new Vector3(0.1700979549712681, -0.0035022077774349678, 0.06669322717143379), along: new Vector3(-0.0199250429646959, 0, 0.9998014766256624) },
-  ].map((s) => ({ ...s, length: 0.12283175088321414, width: 0.06353366424993835 }));
+  ].map((s) => ({ kind: "sole", ...s, length: 0.12283175088321414, width: 0.06353366424993835 }));
   const centre = new Vector3(-0.0033824566134876615, 0.8845580465087064, 0.05188870879901126);
   const force = new Vector3(176.1958980324399, 521.7417948696399, -191.1676020859362), moment = new Vector3(29.989128553603337, -3.051744522216977, -8.73631347122803);
   const shares = out(2), miss = missOf();
@@ -104,7 +111,7 @@ test("a share whose last step is rounding comes back finite, as do 20000 two-sol
   const soles = [
     { middle: new Vector3(-0.093511201539401, -0.005475106883502039, 1.9189550655586372), along: new Vector3(-0.01792728309757968, 0, 0.9998392933470555) },
     { middle: new Vector3(0.19453189860768572, -0.005219573794148877, 1.7896073784288162), along: new Vector3(-0.021872588459735602, 0, 0.9997607663206588) },
-  ].map((s) => ({ ...s, length: 0.12283175088321414, width: 0.06353366424993835 }));
+  ].map((s) => ({ kind: "sole", ...s, length: 0.12283175088321414, width: 0.06353366424993835 }));
   const centre = new Vector3(0.03070985993772695, 0.882219516156343, 1.827376574952522);
   const force = new Vector3(89.19496503463537, 559.2146823551765, -92.52064792619704), moment = new Vector3(-14.566345399287933, -26.90184635293252, 19.225789044201118);
   const shares = out(2), miss = missOf();
@@ -117,7 +124,7 @@ test("a share whose last step is rounding comes back finite, as do 20000 two-sol
   for (let trial = 0; trial < 20000; trial++) {
     const pair = [-1, 1].map((side) => {
       const a = 0.6 * (random() - 0.5);
-      return { middle: new Vector3(0.15 * side + 0.1 * (random() - 0.5), -0.005 * random(), 0.4 * (random() - 0.5)), along: new Vector3(Math.sin(a), 0, Math.cos(a)), length: 0.1228, width: 0.0635 };
+      return { kind: "sole", middle: new Vector3(0.15 * side + 0.1 * (random() - 0.5), -0.005 * random(), 0.4 * (random() - 0.5)), along: new Vector3(Math.sin(a), 0, Math.cos(a)), length: 0.1228, width: 0.0635 };
     });
     const at = new Vector3(0.1 * (random() - 0.5), 0.88, 0.1 * (random() - 0.5));
     const f = new Vector3(300 * (random() - 0.5), 600 * random(), 300 * (random() - 0.5)), m = new Vector3(80 * (random() - 0.5), 60 * (random() - 0.5), 80 * (random() - 0.5));
@@ -128,4 +135,77 @@ test("a share whose last step is rounding comes back finite, as do 20000 two-sol
   }
   assert.equal(broken, 0, `${broken} of 20000 shares came back not finite`);
   assert.ok(worst < 1e-6, `a share is outside its sole's limits by ${worst} of its force`);
+});
+
+test("three points give every wrench whose pressure falls inside them, and no moment each", () => {
+  const corners = [new Vector3(-0.3, 0, -0.2), new Vector3(0.35, 0, -0.1), new Vector3(0.05, 0, 0.45)];
+  const points = corners.map((at) => ({ kind: "point", at }));
+  const centre = new Vector3(0.02, 0.9, 0.04), lever = 0.9, weight = 700;
+  /** The wrench about `centre` of the force `f` pressing at `p` of the ground. */
+  const pressing = (p, f) => ({ force: f, moment: Vector3.Cross(p.subtract(centre), f) });
+  const shared = ({ force, moment }) => {
+    const shares = out(3), miss = missOf();
+    // A share is written whole: what its moment held before is gone.
+    for (const share of shares) share.moment.setAll(7);
+    shareGroundWrench(points, centre, force, moment, MU, lever, shares, miss);
+    return { shares, miss, over: Math.max(...shares.map(outsidePoint)) };
+  };
+  let seed = 5, worst = 0, level = 0, least = Infinity;
+  const random = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  for (let trial = 0; trial < 20; trial++) {
+    // A place inside the triangle, no nearer an edge than a twentieth of the way in; a force inside the pyramid.
+    const w = [random(), random(), random()].map((v) => 0.05 + v), sum = w[0] + w[1] + w[2];
+    const p = corners.reduce((at, corner, k) => at.addInPlace(corner.scale(w[k] / sum)), new Vector3());
+    const f = new Vector3(0.9 * PYRAMID * weight * (2 * random() - 1), weight, 0.9 * PYRAMID * weight * (2 * random() - 1));
+    const { shares, miss, over } = shared(pressing(p, f));
+    worst = Math.max(worst, miss.force.length() / weight, miss.moment.length() / (lever * weight));
+    level = Math.max(level, Math.hypot(f.x, f.z) / weight);
+    least = Math.min(least, ...shares.map((share) => share.force.y / weight));
+    for (const share of shares) assert.deepEqual(share.moment.asArray(), [0, 0, 0]);
+    assert.ok(over < 1e-6 * weight, `inside, a share is outside its point's limits by ${over}`);
+  }
+  // The miss is the regularizer's: a few parts in a million.
+  assert.ok(worst < 1e-5, `a wrench pressing inside the three points was missed by ${worst.toExponential(2)} of it`);
+  assert.ok(level > 0.2 && least > 0.01, `the cases pushed level by at most ${level} of the weight, and a point bore as little as ${least} of it`);
+
+  // Pressing outside the three, the moment is missed; pushed level past friction, the force is.
+  const outside = shared(pressing(new Vector3(0.6, 0, 0.5), new Vector3(0, weight, 0)));
+  assert.ok(outside.miss.moment.length() > 0.02 * lever * weight, `pressing outside the points, the moment missed is ${outside.miss.moment.length()} N m`);
+  assert.ok(outside.over < 1e-6 * weight, `pressing outside, a share is outside its point's limits by ${outside.over}`);
+  const pushed = shared(pressing(new Vector3(0.03, 0, 0.05), new Vector3(0.6 * weight, weight, 0)));
+  assert.ok(pushed.miss.force.length() > 0.1 * weight, `pushed level past friction, the force missed is ${pushed.miss.force.length()} N`);
+  assert.ok(pushed.over < 1e-6 * weight, `pushed past friction, a share is outside its point's limits by ${pushed.over}`);
+  const level0 = Math.max(...pushed.shares.map((share) => Math.abs(share.force.x) / share.force.y));
+  assert.ok(level0 > 0.99 * PYRAMID, `pushed past friction, no point is at its pyramid: ${level0} against ${PYRAMID}`);
+
+  // A pull is not given at all.
+  const pulled = shared(pressing(new Vector3(0.03, 0, 0.05), new Vector3(0, -weight, 0)));
+  assert.ok(Math.max(...pulled.shares.map((share) => share.force.length())) < 1e-6 * weight, `a pull was given ${pulled.shares.map((share) => share.force.y)} N`);
+  assert.ok(Math.abs(pulled.miss.force.y - weight) < 1e-5 * weight, `a pull of ${weight} N was missed by ${pulled.miss.force.y}`);
+});
+
+test("a sole and two points share as their levers do", () => {
+  // A point, a sole behind, a point: a weight over the middle of the three is a third on each,
+  // which gives it with no moment from the sole, and is the least share that does.
+  const sole = { kind: "sole", middle: new Vector3(0, 0, -0.3), along: new Vector3(0, 0, 1), length: 0.12, width: 0.05 };
+  const patches = [{ kind: "point", at: new Vector3(-0.2, 0, 0.25) }, sole, { kind: "point", at: new Vector3(0.2, 0, 0.25) }];
+  const middle = new Vector3(0, 0, (0.25 - 0.3 + 0.25) / 3), centre = new Vector3(0.01, 0.6, 0.02), weight = 600;
+  const force = new Vector3(0, weight, 0), moment = Vector3.Cross(middle.subtract(centre), force);
+  const shares = out(3), miss = missOf();
+  shareGroundWrench(patches, centre, force, moment, MU, 0.6, shares, miss);
+  assert.ok(miss.force.length() < 1e-5 * weight && miss.moment.length() < 1e-5 * weight, `missed ${miss.force.length()} N, ${miss.moment.length()} N m`);
+  shares.forEach((share, k) => assert.ok(Math.abs(share.force.y - weight / 3) < 1e-5 * weight, `patch ${k} bears ${share.force.y} N of ${weight}`));
+  assert.ok(Math.abs(shares[0].force.y + shares[1].force.y + shares[2].force.y - weight) < 1e-5 * weight);
+  assert.ok(shares[1].moment.length() < 1e-5 * weight, `the sole gave ${shares[1].moment.length()} N m`);
+  assert.deepEqual([shares[0].moment.asArray(), shares[2].moment.asArray()], [[0, 0, 0], [0, 0, 0]]);
+  assert.ok(outside(sole, shares[1]) < 1e-6 * weight && outsidePoint(shares[0]) < 1e-6 * weight && outsidePoint(shares[2]) < 1e-6 * weight);
+
+  // Behind the sole's middle, 8 cm toward its heel: no point can help, and the sole gives it alone, by its moment.
+  const behind = Vector3.Cross(new Vector3(0, 0, -0.38).subtract(centre), force);
+  shareGroundWrench(patches, centre, force, behind, MU, 0.6, shares, miss);
+  // The sole's moment is what the regularizer weighs most: the miss is a few parts in a hundred thousand.
+  assert.ok(miss.force.length() < 1e-4 * weight && miss.moment.length() < 1e-4 * weight, `behind, missed ${miss.force.length()} N, ${miss.moment.length()} N m`);
+  assert.ok(shares[0].force.y + shares[2].force.y < 1e-4 * weight, `behind, the points bear ${shares[0].force.y + shares[2].force.y} N`);
+  assert.ok(Math.abs(shares[1].moment.length() - 0.08 * weight) < 1e-3 * weight, `behind, the sole gives ${shares[1].moment.length()} N m of ${0.08 * weight}`);
+  assert.ok(outside(sole, shares[1]) < 1e-6 * weight);
 });

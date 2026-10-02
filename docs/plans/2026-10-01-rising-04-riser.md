@@ -17,11 +17,12 @@ body's rise, or a rise with a hand kept off the ground for what it holds, is ano
 prototype (design file) carries the first three stages for both humans; everything after them is
 untried, and the roll most of all.
 
-It lands in four chunks, each green:
+A point bears already (`BearingPoint`, `Patch`, `shareGroundWrench`, `contact-wrench.ts`), with no
+reader yet: `BearingPoint` is exported when chunk C's limbs read it. The rest lands in three
+chunks, each green:
 
 | | Lands | Gate |
 |---|---|---|
-| A | point patches in `shareGroundWrench` | the trace digests and the fingerprint, to the bit |
 | B | the player, the pose stages, how a body lies; `StagedRiseConfig` | a body fallen forward gets its pelvis off the ground and props itself |
 | C | limb stems in the bearing solve; the bearing stages; the hand-back | a body fallen forward stands, both humans, on the stand |
 | D | the roll; the battery's row and the bar; the lab's choice; the documents | the bar below |
@@ -30,75 +31,23 @@ It lands in four chunks, each green:
 
 | File | Change | Chunk |
 |---|---|---|
-| `src/core/control/contact-wrench.ts` | `BearingPoint`, `Patch`; `BearingSole.kind`; `shareGroundWrench` takes patches. | A |
-| `src/core/control/support.ts` | `bearingSole` returns `kind: "sole"`; `footMotionToRef` becomes `motionAtToRef(segment, ...)`; `rolledRows`. | A, C |
+| `src/core/control/contact-wrench.ts` | `BearingPoint` is exported. | C |
+| `src/core/control/support.ts` | `footMotionToRef` becomes `motionAtToRef(segment, ...)`; `rolledRows`. | C |
 | `src/core/control/ground.ts` | `Uprightness.lowest`; `farEndToRef`. | B |
 | `src/core/mind/config.ts`, `sub-minds.ts` | `StagedRiseConfig`; its case. | B |
 | `src/core/mind/rise/stages.ts` | New: `Stage`, `LimbSpec`, `Recipe`, `RISE`, `stageFaults`. | B, C, D |
 | `src/core/mind/rise/staged.ts` | New: `stagedRise`. | B, C, D |
 | `src/core/mind/rise/limbs.ts` | New: `riseLimbs`: a recipe's limbs, made of a body. | C |
-| `src/core/control/bearing.ts` | `Limb.stem`; `LimbWork.patch` is a `Patch`. | C |
+| `src/core/control/bearing.ts` | `Limb.stem`. | C |
 | `src/core/math/turn.ts` | `turnErrorToRef`, lifted from the stance. | C |
 | `src/core/control/stance.ts` | Calls `turnErrorToRef`, `rolledRows`, `motionAtToRef`; passes `stem: []`. | C |
 | `research/core-rise-trials.mjs`, `core-rise.mjs` | The row's `lie` and `stage`; the table by way of lying. | B, D |
 | `research/core-rise-poses.mjs` | New: plays a recipe's pose stages on the stand, for finding them. | B |
 | `src/lab/scenarios.ts`, `minds.ts`, `actor.ts`, `main.ts`, `hud/character-section.ts` | `LAB_DOWN_IDS`, `LAB_DOWN`, the address's `down`, the Character section's choice. | D |
-| `tests/core-contact-wrench.test.mjs` | Two tests. | A |
 | `tests/core-rise.test.mjs` | New: seven tests. | B, C, D |
 | `tests/core-fork.test.mjs` | One test. | C |
 | `tests/lab-scenarios.test.mjs`, `lab-actor.test.mjs` | `down` rides the address; the actor's sub-minds are its options'. | D |
 | `docs/reference/rising.md`, `docs/architecture.md`, `docs/roadmap.md`, `README.md` | See Documents. | D |
-
-## Chunk A: a point bears
-
-`contact-wrench.ts`:
-
-```ts
-export interface BearingSole { readonly kind: "sole"; /* as it is */ }
-
-/** A point on level ground (y up), bearing: it gives a force at itself and no moment. */
-export interface BearingPoint {
-  readonly kind: "point";
-  readonly at: Vector3;
-}
-
-/** What a body bears on the ground through. */
-export type Patch = BearingSole | BearingPoint;
-
-export function shareGroundWrench(patches: readonly Patch[], centre: Vector3, force: Vector3, moment: Vector3,
-  friction: number, lever: number, out: SoleWrench[], miss?: { force: Vector3; moment: Vector3 }): void
-```
-
-- A sole has six unknowns and a point three; `o`, a patch's first column, is the sum of the widths
-  before it, where the code has `6 * s`. Each loop over patches switches on `kind` with a `never`
-  default.
-- A point's columns are its force's; its `D` is 1; its limits are three: it does not pull
-  (`f.y >= 0`), and it does not slide, within the pyramid inscribed in the cone of `friction`
-  along the world's x and z (`|f.x| <= mu f.y`, `|f.z| <= mu f.y`, `mu` as a sole's). It starts
-  from the same light press (`START`). Its share's moment is zero.
-- With soles alone every sum has the terms it has today in the order it has them, so the stance's
-  shares are the same to the bit. The header says patches, and what a point's limits are.
-
-`bearingSole` (`support.ts`) returns `kind: "sole"`; the soles written in
-`tests/core-contact-wrench.test.mjs` gain it.
-
-Tests, in `tests/core-contact-wrench.test.mjs`:
-
-1. **`three points give every wrench whose pressure falls inside them, and no moment each`**:
-   three points at the corners of a triangle; a weight with its centre of pressure at twenty
-   places inside is given with a miss under 1e-6 of it, each share's moment exactly zero and its
-   force inside its pyramid; at a place outside, the miss's moment is not zero and every share
-   still holds its limits; a pull upward is not given at all.
-2. **`a sole and two points share as their levers do`**: a sole behind and two points ahead, the
-   wrench of a weight over the middle of the three: the sole's normal force and the points'
-   together are the weight, split as the levers say, within 1e-6.
-
-Mutations: a point given a moment's columns (test 1's zero); the pyramid's test dropped (test 1's
-limits); `o` taken as `6 * s` with a point before a sole (test 2).
-
-Gate: `npm test`; `node research/bout-trace.mjs` and
-`node research/bout-trace.mjs crypt-skeleton crypt-skeleton 60`, the same digests; the
-fingerprint, no line different.
 
 ## Chunk B: the player, and the stages that are poses
 
@@ -283,7 +232,6 @@ lumbar and thoracic joints, which both arms share and neither can own.
 - `limbTorques`: for a bearing limb, each stem channel's torque is the servo's (`work.torque`)
   less the share carried along that freedom, as a chain's freedom's is, and its command is given
   again from it. Two hands' shares both come off the trunk's.
-- `LimbWork.patch` is a `Patch`.
 - `makeBearing` refuses two limbs that are ever on together and share a channel; since which are
   on is a stage's, the check is `stageFaults`': a stage that bears on a knee and on that leg's foot
   is a fault.

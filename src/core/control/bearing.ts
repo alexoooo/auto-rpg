@@ -12,7 +12,7 @@ import type { BodyDynamics } from "../build/dynamics.ts";
 import { boundedLeastSquares, fixedSolve, solveLinear } from "../math/linalg.ts";
 import type { MuscleDriver } from "../muscle/driver.ts";
 import type { Assist } from "./assist.ts";
-import { shareGroundWrench, type BearingSole } from "./contact-wrench.ts";
+import { shareGroundWrench, type Patch } from "./contact-wrench.ts";
 import type { ServoWork } from "./servo.ts";
 import { LEG_DAMPING } from "./stance-tuning.ts";
 import { GROUND_FRICTION } from "./support.ts";
@@ -45,7 +45,7 @@ interface LimbWork {
   /** For each of the limb's freedoms, an acceleration asked ahead of the task, or NaN: the others take the task (`fixedSolve`). */
   readonly ahead: number[];
   /** Where it bears, while it bears. */
-  patch: BearingSole | null;
+  patch: Patch | null;
 }
 
 /** **A limb**: the chain of freedoms from the root to `segment`, and the task of a point of it. */
