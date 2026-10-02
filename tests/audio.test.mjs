@@ -1,27 +1,25 @@
 import test from 'node:test';
 import { Vector3 } from '@babylonjs/core/Maths/math.vector.js';
 import assert from 'node:assert/strict';
-import { blowCue, CueInbox, impactCue, soundPlacement, swishStrength, voiceOf } from '../src/audio/cues.ts';
+import { CueInbox, debrisCue, impactCue, soundPlacement, swishStrength, voiceOf } from '../src/audio/cues.ts';
 import { GameAudio } from '../src/audio/game-audio.ts';
 // A core blow (`LandedBlow`) of 15 J from the hero to the enemy's head.
 const blow = (patch = {}) => ({ time: 1, attacker: 'hero', target: 'enemy', striker: 'club', part: 'head', point: [1, 1.6, 2], normal: [0, 0, 1],
   closing: 4, strikerKg: 1, struckKg: 5, energy: 15, damage: 3, clash: false, wound: { taken: [{ part: 'head', hp: 3 }], severed: [], lost: 0, spent: 3, ending: null }, ...patch });
 
-test('a blow sounds as the surface it struck, a clash as wood on wood, and a graze not at all', () => {
-  const hit = blow(); const before = structuredClone(hit);
-  assert.deepEqual(blowCue(hit, 'bone'), { key: 'hero:enemy', kind: 'bone', strength: .5, severed: false, point: { x: 1, z: 2 } });
-  assert.equal(blowCue(hit, 'body').kind, 'body');
-  assert.equal(blowCue(blow({ clash: true, damage: 0, wound: null }), 'body').kind, 'shield');
-  assert.equal(blowCue(blow({ wound: { ...hit.wound, severed: ['head'] } }), 'body').severed, true);
-  assert.equal(blowCue(blow({ energy: 240 }), 'body').strength, 1);
+test('what a blow took off is debris, as loud as the blow, of a pair of its own; a blow that took nothing off is none', () => {
+  const hit = blow(), off = blow({ wound: { ...hit.wound, severed: ['forearm.right', 'hand.right'] } }), before = structuredClone(off);
+  assert.deepEqual(debrisCue(off), { key: 'enemy:debris', kind: 'debris', strength: .5, point: { x: 1, z: 2 } });
+  assert.equal(debrisCue(hit), null);
+  assert.equal(debrisCue(blow({ clash: true, damage: 0, wound: null })), null);
+  assert.equal(debrisCue({ ...off, energy: 240 }).strength, 1);
   // Just under and just over the quietest cue.
-  assert.equal(blowCue(blow({ energy: 60 * .012 ** 2 }), 'body'), null);
-  assert.ok(blowCue(blow({ energy: 60 * .013 ** 2 }), 'body'));
-  assert.equal(blowCue(blow({ energy: 0 }), 'body'), null);
-  assert.deepEqual(hit, before);
+  assert.equal(debrisCue({ ...off, energy: 60 * .012 ** 2 }), null);
+  assert.ok(debrisCue({ ...off, energy: 60 * .013 ** 2 }));
+  assert.deepEqual(off, before);
 });
-test('impact windows retain the strongest, distinguish attackers, bound bursts and drop stale events', () => {
-  const inbox = new CueInbox(), cue = blowCue(blow(), 'bone');
+test('impact windows retain the strongest of a pair, keep pairs apart, bound bursts and drop stale events', () => {
+  const inbox = new CueInbox(), cue = impactCue('hero:enemy', 'bone', 15, { x: 1, z: 2 });
   inbox.add(cue, 0); inbox.add({ ...cue, strength: .9 }, 30); inbox.add({ ...cue, strength: .1 }, 40);
   inbox.add({ ...cue, key: 'b' }, 0);
   assert.deepEqual(inbox.drain(59), []);
@@ -44,7 +42,7 @@ test('browser audio voice limit and reset discard pending sounds and stop all so
   const voice=()=>({source:{stop(){stops++;}},gain:{gain:{cancelScheduledValues(){},setTargetAtTime(){}}},level:1});
   audio.voices=new Set(Array.from({length:12},voice));audio.ambience=[voice(),voice()];audio.airs=new Map([['hero',{voice:voice()}]]);
   audio.context={currentTime:0};audio.inbox=new CueInbox();
-  const cue=blowCue(blow(),'body');audio.inbox.add(cue,0);
+  const cue=impactCue('hero:enemy','body',15,{x:1,z:2});audio.inbox.add(cue,0);
   audio.play=()=>assert.fail('voice cap must refuse a thirteenth source no louder than the twelve');audio.impact(cue);
   audio.reset();assert.equal(stops,15);assert.equal(audio.voices.size,0);assert.deepEqual(audio.ambience,[]);assert.equal(audio.airs.size,0);assert.deepEqual(audio.inbox.drain(100),[]);
 });
@@ -57,15 +55,25 @@ test('a louder blow takes the quietest voice when every voice is playing', () =>
   audio.voices = new Set([.5, .4, .3, .1, .2, .6, .5, .4, .3, .2, .6, .5].map(voice));
   audio.play = (kind, level) => { played.push([kind, level]); audio.voices.add(voice(level)); };
   // A cue of strength .04 plays at .08 + .5 * .04 = .1: no louder than the quietest, and dropped.
-  audio.impact({ key: 'a', kind: 'body', strength: .04, severed: false, point: { x: 0, z: 0 } });
+  audio.impact({ key: 'a', kind: 'body', strength: .04, point: { x: 0, z: 0 } });
   assert.deepEqual([stopped, played, audio.voices.size], [[], [], 12]);
   // One of strength .5 plays at .33, in the quietest's place.
-  audio.impact({ key: 'a', kind: 'bone', strength: .5, severed: false, point: { x: 0, z: 0 } });
+  audio.impact({ key: 'a', kind: 'bone', strength: .5, point: { x: 0, z: 0 } });
   assert.deepEqual([stopped, played, audio.voices.size], [[.1], [['bone', .08 + .5 * .5]], 12]);
   // With a voice to spare, nothing is stopped.
   audio.voices.delete([...audio.voices][0]);
-  audio.impact({ key: 'a', kind: 'bone', strength: .04, severed: false, point: { x: 0, z: 0 } });
+  audio.impact({ key: 'a', kind: 'bone', strength: .04, point: { x: 0, z: 0 } });
   assert.deepEqual([stopped.length, played.length, audio.voices.size], [1, 2, 12]);
+});
+
+test('debris plays at its own gain, and a cue of no known kind is refused', () => {
+  const audio = Object.create(GameAudio.prototype), played = [];
+  audio.listener = { x: 0, z: 0 }; audio.toward = { x: 0, z: 1 }; audio.dungeon = false; audio.voices = new Set();
+  audio.play = (kind, level, pan) => played.push([kind, level, pan]);
+  audio.impact({ key: 'enemy:debris', kind: 'debris', strength: .5, point: { x: 5, z: 0 } });
+  audio.impact({ key: 'hero:enemy', kind: 'body', strength: .5, point: { x: 5, z: 0 } });
+  assert.deepEqual(played, [['debris', .18 * .5, -.5], ['body', .08 + .5 * .5, -.5]]);
+  assert.throws(() => audio.impact({ key: 'a', kind: 'air', strength: .5, point: { x: 0, z: 0 } }), /no gain for a cue of air/);
 });
 
 test('the softer surface decides the voice', () => {
@@ -77,7 +85,7 @@ test('the softer surface decides the voice', () => {
 });
 
 test('a touch is as loud as the root of its energy over 60 J, and one too quiet is no cue', () => {
-  assert.deepEqual(impactCue('hero:ground', 'body', 15, { x: 1, z: 2 }), { key: 'hero:ground', kind: 'body', strength: .5, severed: false, point: { x: 1, z: 2 } });
+  assert.deepEqual(impactCue('hero:ground', 'body', 15, { x: 1, z: 2 }), { key: 'hero:ground', kind: 'body', strength: .5, point: { x: 1, z: 2 } });
   assert.equal(impactCue('a', 'bone', 600, { x: 0, z: 0 }).strength, 1);
   // The quietest footfall measured, 0.0099 J, is heard; the hardest a sole was laid down, 0.0083 J, is not.
   assert.ok(Math.abs(impactCue('a', 'bone', .0099, { x: 0, z: 0 }).strength - Math.sqrt(.0099 / 60)) < 1e-12);
@@ -148,7 +156,7 @@ test('audio copies Babylon vector coordinates before positioning arena and dunge
     audio.setView(listener,toward);
     listener.x=999; toward.z=-1; // The audio view is a snapshot, not a reference.
     const played=[]; audio.play=(kind,gain,pan)=>played.push({kind,gain,pan});
-    audio.impact({...blowCue(blow(),'bone'), point:{x:15,z:20}});
+    audio.impact({key:'hero:enemy',kind:'bone',strength:.5,point:{x:15,z:20}});
     assert.deepEqual(played,[{kind:'bone',gain:(.08+.5*.5)*(dungeon?(1-5/18)**2:1),pan:-.5}]);
   }
 });

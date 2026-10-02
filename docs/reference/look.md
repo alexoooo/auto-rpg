@@ -103,11 +103,19 @@ stance, strike or scenario says when a sound is due:
   ends and corners of the shapes of its extremities (the segments that are no joint's parent) and
   of what they hold. A body has one looping voice that follows it (`GameAudio.swish`, `SWISH`).
 
-The lab plays both, and the cues of its two instruments that are no contact: the page's hand
-shoving the body, and the Blow scenario's mark (`src/lab/sound-log.ts`,
-[lab.md](lab.md#sound)). The arena and the crypt play a landed blow (`blowCue`, which is
-`impactCue` of the blow's energy in the struck body's voice, or in wood's for a clash) and no
-touch or air of their own ([roadmap](../roadmap.md)).
+Every screen plays both. The lab plays its one body's from a log at the mind's time, with the
+cues of its two instruments that are no contact: the page's hand shoving the body, and the Blow
+scenario's mark (`src/lab/sound-log.ts`, [lab.md](lab.md#sound)). The arena plays its two sides'
+as they happen, until the verdict (`src/arena/main.ts`). The crypt plays every built body's
+while the party sees the cell the body stands in (`hearRun`, `src/dungeon/hearing.ts`), fading
+with its distance from the leader (`PLACEMENT.reach`). A screen that stops playing drops the
+cues it has not played yet (`GameAudio.setActive`), and a cue waits 60 ms for a louder one of
+its pair (`INBOX.coalesce`): what decides a bout, or ends a run, is not heard.
+
+A blow is a touch, and is heard as one: the hand, or what it holds, on what it struck, in the
+softer one's voice. What a blow takes off its target is a cue of its own (`debrisCue`): the kind
+`debris`, as loud as the blow's energy makes it, of a pair of its own, so it plays beside the
+blow's touch and is not weighed against it.
 
 **Surfaces.** A body and an item say what they are made of (`BodySpec.surface`,
 `ItemSpec.surface`, `src/core/spec/body.ts`): the workshop's bodies are flesh, the skeleton is
@@ -130,7 +138,7 @@ scale:
 | `fires`, `fire`, `ambienceSeconds` | the 3 nearest torches' fire, each at 0.12 of its placement's gain, followed with a time constant of 0.3 s |
 | `drip` | a drip at 0.065; the first after 4000 ms and up to 5000 more, then one every 5000 ms and up to 8000 more |
 | `swish` | a body's air at full strength plays at 0.3, and at 0.7 to 1.5 of its buffer's pitch (0.7 and 0.8 of the strength); gain, pitch and pan follow with a time constant of 0.04 s |
-| `audible` | a touch placed quieter than 0.001 plays nothing |
+| `audible` | a cue placed quieter than 0.001 plays nothing |
 | `impact` | a touch plays at 0.08 and 0.5 of its strength; what a severed part scatters, at 0.18 of the strength |
 | `rate` | a loop plays at 0.94 to 1.06 of its pitch (0.94 and a draw of 0.12), a one-shot at 0.9 to 1.1 (0.9 and a draw of 0.2) |
 | `fade`, `stop` | a stopped voice fades with a time constant of 0.008 s and stops after 0.04 s |

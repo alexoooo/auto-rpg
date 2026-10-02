@@ -67,7 +67,12 @@ interface TouchOptions<B> {
    * contact (it lands again only once they have parted).
    */
   readonly lasts: "pushed" | "contact";
-  /** Whether a contact is one to read at all: asked every step, before the touch is remembered. */
+  /**
+   * Whether a contact is one to read at all. It is asked every step of each thing near a segment,
+   * before the contact between them is read from the engine (one refused is not read), and again
+   * of each contact before its touch is remembered: what a touch does as it is told may refuse a
+   * later one of the same step.
+   */
   counts(of: Part<B>, on: Part<B> | null): boolean;
 }
 
@@ -130,12 +135,19 @@ export function watchTouches<B extends { readonly built: BuiltBody }>(
   };
   /** Whether a step's touches are being told: outside it, a pose taken is not kept. */
   let telling = false;
+  /** The part whose contacts are being read, and whether the one with `other` is wanted of the engine. */
+  let reading: Owned<B> | null = null;
+  const wanted = (other: SegmentBody | null): boolean => {
+    const on = other === null ? null : owners.get(other);
+    return on !== undefined && options.counts(reading!, on);
+  };
 
   const hook = world.afterStep(() => {
     const now = new Set<string>();
     telling = true;
     for (const part of read) {
-      for (const contact of world.physics.contactsOf(part.segment.body)) {
+      reading = part;
+      for (const contact of world.physics.contactsOf(part.segment.body, wanted)) {
         const on = contact.other === null ? null : owners.get(contact.other);
         // A body that is not watched is no touch.
         if (on === undefined || !options.counts(part, on)) continue;
@@ -151,6 +163,7 @@ export function watchTouches<B extends { readonly built: BuiltBody }>(
       }
     }
     telling = false;
+    reading = null;
     posed.clear();
     state.touching = now;
     remember();

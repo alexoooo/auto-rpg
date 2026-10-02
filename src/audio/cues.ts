@@ -1,18 +1,16 @@
 import type { BuiltBody, BuiltSegment } from "../core/build/build-body.ts";
 import { heldBy } from "../core/build/rigid.ts";
-import type { BodyModel } from "../core/human/spec.ts";
 import type { LandedBlow } from "../core/rules/blows.ts";
 import type { Surface } from "../core/spec/body.ts";
 
-/** The voices an impact has: a blow on bone, on flesh, and on wood. */
+/** The voices a touch has: on bone, on flesh, and on wood. */
 export type SoundKind = "bone" | "body" | "shield";
-/** What each body sounds like when struck. */
-export const SURFACE_SOUND: Readonly<Record<BodyModel, SoundKind>> = Object.freeze({
-  "workshop-fighter": "body", "workshop-rogue": "body", "crypt-skeleton": "bone",
-});
 export interface SoundPoint { x: number; z: number }
-/** A sound to play: the pair it is of (`key`), its voice, how loud from 0 to 1, and where. */
-export interface SoundCue { key: string; kind: SoundKind; strength: number; severed: boolean; point: SoundPoint }
+/**
+ * A sound to play: the pair it is of (`key`), its voice, how loud from 0 to 1, and where. Its
+ * voice is a touch's, or `debris`: what a blow took off, scattering (`debrisCue`).
+ */
+export interface SoundCue { key: string; kind: SoundKind | "debris"; strength: number; point: SoundPoint }
 /**
  * How loud a touch is: its strength is the square root of its energy over `joules`, J, capped at 1,
  * and one weaker than `floor` makes no sound. `joules` is over the hardest blow of three bouts, and
@@ -71,10 +69,10 @@ export function surfaceOf(built: BuiltBody, segment: BuiltSegment): Surface {
  * The cue for `energy`, J, in the voice `kind`, of the pair `key` at `point`: as loud as `CUE`
  * makes it, and none for one too quiet to hear.
  */
-export function impactCue(key: string, kind: SoundKind, energy: number, point: SoundPoint, severed = false): SoundCue | null {
+export function impactCue(key: string, kind: SoundCue["kind"], energy: number, point: SoundPoint): SoundCue | null {
   const strength = Math.sqrt(Math.max(0, energy) / CUE.joules);
   if (!Number.isFinite(strength) || strength < CUE.floor) return null;
-  return { key, kind, strength: Math.min(1, strength), severed, point: { x: point.x, z: point.z } };
+  return { key, kind, strength: Math.min(1, strength), point: { x: point.x, z: point.z } };
 }
 
 /** How much of its air a body whose fastest point moves at `speed`, m/s, makes, from 0 to 1 (`SWISH`). */
@@ -83,13 +81,13 @@ export function swishStrength(speed: number): number {
 }
 
 /**
- * The cue for a blow (`LandedBlow`) on a body of `struck`'s surface, as loud as `CUE` makes it.
- * A clash, a hand or what it holds meeting another (`src/core/rules/blows.ts`), plays the `shield`
- * knock whatever the bodies are made of: a wooden club on a wooden club.
+ * The cue for what `blow` took off its target (`Wound.severed`), or none if it took nothing off:
+ * debris, as loud as the blow's energy makes it. The blow itself is a touch, and is heard as one
+ * (`hearTouches`); this is of a pair of its own, so it plays beside it.
  */
-export function blowCue(blow: LandedBlow, struck: SoundKind): SoundCue | null {
-  return impactCue(`${blow.attacker}:${blow.target}`, blow.clash ? "shield" : struck, blow.energy,
-    { x: blow.point[0], z: blow.point[2] }, (blow.wound?.severed.length ?? 0) > 0);
+export function debrisCue(blow: LandedBlow): SoundCue | null {
+  if (!blow.wound?.severed.length) return null;
+  return impactCue(`${blow.target}:debris`, "debris", blow.energy, { x: blow.point[0], z: blow.point[2] });
 }
 
 /** A bounded wall-clock inbox: a fast simulation cannot flood the audio clock. */

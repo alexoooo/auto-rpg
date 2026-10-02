@@ -185,6 +185,13 @@ All of it on a physically based core, humans first ([architecture](architecture.
   the fight lies limp and still costs the solver 0.28 ms a step. Fixed where it lies once it is
   still, it would cost 0.02 ms and could not be pushed aside; an engine that let it rest would
   take none until something touched it.
+- Hearing a run costs 7 to 10 % of its step
+  ([reference/play.md](reference/play.md#hearing-in-the-step)), nearly all of it asking the
+  engine what is near every segment, every step. Rapier's collision events tell of a contact as
+  it starts and ends, and a watch on them would read only what began. That is another rule for
+  when two are in contact than the solver's contact point, so the touches of
+  [reference/look.md](reference/look.md#sound) are counted again under it before it replaces
+  the asking.
 - The generator keeps 0.65 m clear about every place a body stands (`LEVEL.clearance`), written
   for a body that is gone; a walker's path keeps 0.35 m (`FOOTPRINT_METRES`), less than the
   0.38 m the Warrior's elbows stand out in the pose its spec writes. Both are the owner's to
@@ -205,10 +212,15 @@ All of it on a physically based core, humans first ([architecture](architecture.
 - Every value of the look and the sound is kept as found until the owner confirms it
   ([reference/look.md](reference/look.md)). Of them, the dungeon's stand open until the owner
   judges them in play: torch density, and which floor and wall textures ship.
-- The arena and the crypt play a landed blow and nothing else. What a body sounds of
-  (`hearTouches`, `airOf`, [reference/look.md](reference/look.md#sound)), its footfalls, its
-  falls, one body on another and its air, is played by the lab; the arena and the crypt are to
-  play it too.
+- The arena goes silent at its verdict and the crypt at its run's end, and each drops the cues
+  it has not played yet: the blow that decides a bout, what it took off, and the fall that ends
+  a bout or a run are not heard. A fall is heard in the lab, and in the crypt while somebody of
+  the party still stands.
+- In the arena both sides' blows are one pair's (`left:right`), and of a pair's touches within
+  60 ms the loudest alone plays (`CueInbox`): two blows exchanged at once sound as one.
+- The crypt's listener is made again when a body is built, and remembers no touch under way: a
+  segment pressing something at that step, and still closing on it, sounds once more
+  (`hearRun`, `src/dungeon/hearing.ts`).
 - A body's air (`MIX.swish`, the `swish` formula), which of two surfaces decides a touch's voice,
   and how loud a footfall is beside a blow (`MIX.impact`) are set and not heard: the owner's to
   judge in play.

@@ -15,8 +15,9 @@ import type { Clothing, SkinView } from "../render/skin.ts";
 import { loadSkeletonArt, type SkeletonArt } from "../render/skeleton-skin.ts";
 import { drawHeld, type BodyShapes } from "../render/body-shapes.ts";
 import { dresserFor, type Dresser } from "../render/dress.ts";
-import { blowCue, SURFACE_SOUND } from "../audio/cues.ts";
+import { debrisCue } from "../audio/cues.ts";
 import { GameAudio } from "../audio/game-audio.ts";
+import { hearRun, type RunHearing } from "./hearing.ts";
 import { EnemyHover } from "./hover.ts";
 import { DungeonRun, type DungeonActor, type RunStatus } from "./run.ts";
 import { orderLabel } from "./commands.ts";
@@ -171,6 +172,8 @@ interface DungeonPage {
   cryptPlan: CryptRoomPlan | undefined;
   scene: Scene | null;
   run: DungeonRun | null;
+  /** What hears the run: its bodies' touches and air, where the party sees. */
+  hearing: RunHearing | null;
   camera: FreeCamera | null;
   lighting: DungeonLighting | null;
   referenceLook: Awaited<ReturnType<typeof dressReference>> | null;
@@ -213,7 +216,7 @@ function createPage(physicsEngine: PhysicsEngine, skeletonArt: Promise<SkeletonA
     party: null,
     selectedHero: "workshop-fighter", companions: [], clothing: { boots: true, armour: true },
     selectedScenario: "generated", selectedQuality: "high", reference: false,
-    seed: 0, cryptPlan: undefined, scene: null, run: null, camera: null, lighting: null, referenceLook: null,
+    seed: 0, cryptPlan: undefined, scene: null, run: null, hearing: null, camera: null, lighting: null, referenceLook: null,
     drawn: [], soundTorches: [], route: null, routeSignature: "",
     paused: false, launching: false, zoom: 10, lastUi: 0, held: new Set(), hoverPointer: null,
   };
@@ -287,6 +290,8 @@ function teardownRun(page: DungeonPage): void {
   page.lighting?.dispose();
   page.lighting = null;
   undraw(page);
+  page.hearing?.dispose();
+  page.hearing = null;
   page.run?.dispose();
   page.run = null;
   page.scene?.dispose();
@@ -355,14 +360,13 @@ async function buildRun(page: DungeonPage, nextSeed: number): Promise<void> {
     visuals: { ...dungeonStone(scene, stone.floor, stone.wall), masonry: reference ? false : stone.masonry },
     layout: cryptPlan?.map ?? (reference ? referenceChamber(seed) : undefined),
     hero: page.selectedHero, companions: page.companions, onBuilt: dress,
-    // A blow is heard when it lands where the party can see.
+    // A blow is a touch, and is heard as one (`hearRun`); this is what it took off, where the party can see.
     onBlow: (blow) => {
       const heard = page.run;
-      if (!heard || !heard.visible.has(cellKey(heard.map, { x: blow.point[0], z: blow.point[2] }))) return;
-      const target = heard.actors.find((actor) => actor.id === blow.target);
-      if (target) audio.cue(blowCue(blow, SURFACE_SOUND[target.model]));
+      if (heard?.visible.has(cellKey(heard.map, { x: blow.point[0], z: blow.point[2] }))) audio.cue(debrisCue(blow));
     },
   });
+  page.hearing = hearRun(run, (cue) => audio.cue(cue));
   run.commands.setMode({ keyboard: keyboard.checked, facing: facing.checked });
   run.pitch = pitch;
   run.toward = toward;
@@ -685,6 +689,7 @@ function frame(page: DungeonPage, party: Party): void {
   const playing = () => run.status === "playing";
   if (!page.paused && playing()) {
     meter.physics(() => run.advance(engine.getDeltaTime() / 1000, Math.ceil(CATCH_UP_SECONDS * run.world.hz)));
+    page.hearing?.airs((id, speed, at) => audio.swish(id, speed, at));
     page.lighting?.burn(engine.getDeltaTime() / 1000);
     // The steps may have ended the run.
     if (!playing()) setPaused(page, true);

@@ -37,9 +37,9 @@ const GROUND = "ground";
  * fixed, as its cue. A pair of bodies is heard once, from the earlier of the two, and a body's
  * touch with itself never. Everything fixed is stone. A touch too quiet for a cue is not heard.
  */
-export function hearTouches(world: World, bodies: readonly Heard[], heard: (cue: SoundCue, touch: Touch<Heard>) => void): { dispose(): void } {
+export function hearTouches<B extends Heard>(world: World, bodies: readonly B[], heard: (cue: SoundCue, touch: Touch<B>) => void): { dispose(): void } {
   const place = new Map(bodies.map((body, i) => [body, i]));
-  const watch: TouchWatch<Heard> = watchTouches(world, bodies, {
+  const watch: TouchWatch<B> = watchTouches(world, bodies, {
     lasts: "contact",
     counts: (of, on) => on === null || place.get(on.body)! > place.get(of.body)!,
   }, (touch) => {

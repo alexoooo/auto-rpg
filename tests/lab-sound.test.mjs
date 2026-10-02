@@ -27,7 +27,7 @@ import { TRACKS, trackOf } from "../src/lab/track.ts";
 import { coreStand } from "./harness/core-stand.mjs";
 
 const DT = 1 / 120;
-const cue = (name) => ({ key: name, kind: "body", strength: 0.5, severed: false, point: { x: 0, z: 0 } });
+const cue = (name) => ({ key: name, kind: "body", strength: 0.5, point: { x: 0, z: 0 } });
 const names = (cues) => cues.map((c) => c.key);
 
 test("a log gives what the time shown passed, and no more than a frame of it", () => {
@@ -94,7 +94,7 @@ test("a shove is told as it is applied, and sounds as a hand, louder with its im
     assert.ok(kg > 5 && kg < 60, `${kg} kg`);
     const cues = [5, 10, 20].map((impulse) => shoved(trunk, new Vector3(0, 0, impulse), at));
     for (const [i, impulse] of [5, 10, 20].entries()) {
-      assert.deepEqual({ ...cues[i], strength: 0 }, { key: `${LAB_BODY}:hand`, kind: "body", strength: 0, severed: false, point: { x: at.x, z: at.z } });
+      assert.deepEqual({ ...cues[i], strength: 0 }, { key: `${LAB_BODY}:hand`, kind: "body", strength: 0, point: { x: at.x, z: at.z } });
       assert.ok(Math.abs(cues[i].strength - Math.sqrt(impulse * impulse / (2 * kg) / 60)) < 1e-12, `${impulse} N s: ${cues[i].strength}`);
     }
     assert.ok(cues[0].strength < cues[1].strength && cues[1].strength < cues[2].strength && cues[2].strength < 1);
@@ -195,6 +195,6 @@ test("what a step sounded of is held at the time its frame shows, under every mo
   assert.ok(landedAt, "the blow landed");
   const marks = blow.cues.filter((c) => c.key === `${LAB_BODY}:mark`);
   // Wood on a head of flesh: the softer one's voice, at the point the club touched.
-  assert.deepEqual(marks, [{ key: `${LAB_BODY}:mark`, kind: "body", strength: 1, severed: false, point: { x: landedAt.landed.point[0], z: landedAt.landed.point[2] } }]);
+  assert.deepEqual(marks, [{ key: `${LAB_BODY}:mark`, kind: "body", strength: 1, point: { x: landedAt.landed.point[0], z: landedAt.landed.point[2] } }]);
   assert.ok(landedAt.landed.energy > 60 && blow.fastest > 19, `${landedAt.landed.energy} J, ${blow.fastest} m/s`);
 });

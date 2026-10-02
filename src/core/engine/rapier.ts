@@ -263,7 +263,7 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions):
         .setRotation({ x: 0, y: sin(turn / 2), z: 0, w: cos(turn / 2) }));
     },
     addFixedShape(shape) { return fixed(colliderOf(shape)); },
-    contactsOf(segment) {
+    contactsOf(segment, wanted) {
       const body = own(segment);
       /** A body of this world's, or a fixed collider by its handle. */
       type Other = RapierBody | number;
@@ -277,6 +277,8 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions):
           // Rapier pairs no two colliders of one body; a collider with no body is a fixed one.
           const parent = theirs.parent(), other: Other | undefined = parent ? byHandle.get(parent.handle) : theirs.handle;
           if (other === undefined) return;
+          // Before the pair is read: reading one makes objects of Rapier's, and most pairs are refused.
+          if (wanted && !wanted(typeof other === "number" ? null : other)) return;
           raw.contactPair(mine, theirs, (manifold, flipped) => {
             let impulse = 0;
             for (let i = 0; i < manifold.numContacts(); i++) impulse += manifold.contactImpulse(i);

@@ -30,9 +30,9 @@ const MIX = Object.freeze({
   /** A body's air (`GameAudio.swish`): at full strength its gain is `gain` and its pitch `least` and `spread` of its
    * buffer's; both follow its strength with the time constant `seconds`. */
   swish: { gain: .3, least: .7, spread: .8, seconds: .04 },
-  /** A blow placed quieter than this plays nothing. */
+  /** A cue placed quieter than this plays nothing. */
   audible: .001,
-  /** A blow's gain before its placement: `floor` and `perStrength` of its strength; what a severed part scatters,
+  /** A touch's gain before its placement: `floor` and `perStrength` of its strength; what a severed part scatters,
    * `debris` of the strength. */
   impact: { floor: .08, perStrength: .5, debris: .18 },
   /** A voice's playback rate, `least` and a draw of up to `spread` more: a loop's, and a one-shot's. */
@@ -139,7 +139,7 @@ export class GameAudio {
     if (!active) this.reset();
     this.refreshGain();
   }
-  /** Queue a cue the page read itself (`hearTouches`, `impactCue`). */
+  /** Queue a cue the page read (`hearTouches`, `impactCue`, `debrisCue`). */
   cue(cue: SoundCue | null): void {
     if (cue && this.ready()) this.inbox.add(cue, performance.now());
   }
@@ -193,7 +193,7 @@ export class GameAudio {
   private impact(cue: SoundCue): void {
     const place = soundPlacement(cue.point, this.listener, this.toward, this.dungeon);
     if (place.gain <= MIX.audible) return;
-    const level = (MIX.impact.floor + cue.strength * MIX.impact.perStrength) * place.gain;
+    const level = this.level(cue) * place.gain;
     if (this.voices.size >= VOICES) {
       // Every voice is playing: a louder cue takes the quietest one's place, and a quieter one is dropped.
       let quietest: Voice | null = null;
@@ -202,7 +202,14 @@ export class GameAudio {
       this.stop(quietest); this.voices.delete(quietest);
     }
     this.play(cue.kind, level, place.pan);
-    if (cue.severed && this.voices.size < VOICES) this.play("debris", cue.strength * MIX.impact.debris * place.gain, place.pan);
+  }
+  /** `cue`'s gain before its placement (`MIX.impact`). */
+  private level(cue: SoundCue): number {
+    switch (cue.kind) {
+      case "bone": case "body": case "shield": return MIX.impact.floor + cue.strength * MIX.impact.perStrength;
+      case "debris": return cue.strength * MIX.impact.debris;
+      default: { const never: never = cue.kind; throw new Error(`no gain for a cue of ${String(never)}`); }
+    }
   }
   private play(kind: Sound, volume: number, pan: number, loop = false): Voice {
     const ctx = this.context!, source = ctx.createBufferSource(), gain = ctx.createGain(), panner = ctx.createStereoPanner();
@@ -230,7 +237,7 @@ export class GameAudio {
       let value: number;
       // Each sound is its own formula, set by ear (`docs/reference/look.md#sound`).
       switch (kind) {
-        // What a clash plays (`blowCue`): held wood on held wood, damped by the grips and the
+        // What wood plays (`voiceOf`): held wood on held wood, damped by the grips and the
         // bodies behind them. A broad crack and a low thump, with no long, high partials.
         case "shield": value = noise * .38 * Math.exp(-t * 150) + low * 1.1 * Math.exp(-t * 32)
           + Math.sin(t * 2 * Math.PI * 145) * .3 * Math.exp(-t * 35)

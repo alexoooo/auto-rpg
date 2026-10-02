@@ -154,9 +154,13 @@ export interface PhysicsWorld {
   addFixedShape(shape: ColliderShape): FixedCollider;
   /**
    * Everything `body` is in contact with as the last step left it (`Contact`): first what the
-   * solver pushed on, in the order its colliders met them, then what it did not.
+   * solver pushed on, in the order its colliders met them, then what it did not. `wanted`, if
+   * given, is asked of each body near it, and of something fixed (null), before the contact
+   * between them is read: one it refuses is not read, and is not reported. Most of what is near
+   * a segment is its own body's neighbouring segments, so a reader that wants none of them reads
+   * a small part of what there is.
    */
-  contactsOf(body: SegmentBody): readonly Contact[];
+  contactsOf(body: SegmentBody, wanted?: (other: SegmentBody | null) => boolean): readonly Contact[];
   /** One solver step of `dt`, then every body's node written from its body. */
   step(dt: number): void;
   /**

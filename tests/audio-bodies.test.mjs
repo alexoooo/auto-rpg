@@ -48,7 +48,7 @@ for (const [model, voice] of [["workshop-fighter", "body"], ["crypt-skeleton", "
       assert.ok(heard.length >= strides - 2 && heard.length <= strides, `${heard.length} cues in ${strides} strides`);
       assert.deepEqual([...new Set(feet)].sort(), ["foot.left", "foot.right"]);
       assert.ok(feet.every((foot, i) => i === 0 || foot !== feet[i - 1]), `the feet take turns: ${feet.join(" ")}`);
-      assert.deepEqual([...new Set(heard.map(({ cue }) => `${cue.key} ${cue.kind} ${cue.severed}`))], [`body:ground ${voice} false`]);
+      assert.deepEqual([...new Set(heard.map(({ cue }) => `${cue.key} ${cue.kind}`))], [`body:ground ${voice}`]);
       // A footfall is quiet beside a blow, and where the foot met the ground.
       for (const { cue, touch } of heard) {
         assert.ok(cue.strength >= 0.0125 && cue.strength < 0.1, `${cue.strength}`);
@@ -105,7 +105,7 @@ test("two bodies meeting are heard once, from the earlier of them, in the softer
       const [{ cue, touch }] = heard;
       assert.deepEqual([touch.of.body.id, touch.on.body.id], order);
       // 1 kg on 3 kg at 6 m/s: three quarters of a kilogram's 18 J, 13.5 J of the 60 a cue is all of.
-      assert.deepEqual({ ...cue, strength: 0, point: 0 }, { key: order.join(":"), kind: "bone", strength: 0, severed: false, point: 0 });
+      assert.deepEqual({ ...cue, strength: 0, point: 0 }, { key: order.join(":"), kind: "bone", strength: 0, point: 0 });
       assert.ok(Math.abs(cue.strength - Math.sqrt(13.5 / 60)) < 1e-4, `${cue.strength}`);
       assert.ok(Math.abs(cue.point.x) < 1e-6 && cue.point.z > 0.03 && cue.point.z < 0.5, JSON.stringify(cue.point));
     } finally { p.dispose(); }

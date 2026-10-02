@@ -109,7 +109,9 @@ the impulse that is whole before it; and every body and every fixed collider a b
 with as the last step left it (`contactsOf`), each with the impulse the solver pushed the two apart
 with, which is 0 for two in contact that it did not push on. In contact is the engine's narrow
 phase giving the solver a contact point: touching, or within the distance Rapier predicts a contact
-over, 2 cm. A
+over, 2 cm. A reader may refuse a body, or everything fixed, before the contact between them is
+read: most of what is near a segment is its own body's neighbouring segments, and reading a pair
+is what costs ([reference/play.md](reference/play.md#hearing-in-the-step)). A
 world saves its whole physical state and loads it in place (`PhysicsWorld.save`, `load`); a body,
 joint or collider the core holds survives a load as the object it was, and a save of a world with
 other bodies, joints or colliders is refused. `rapier.ts` implements it,
@@ -411,7 +413,9 @@ arena, crypt and lab screens at `?play=arena`, `?play=dungeon` and `?play=lab`, 
   map's walls, doors and obstacles are fixed boxes in the world (`buildDungeonWorld`); every
   body is driven by a mind; a person's orders reach the party only through the run's
   plan (`DungeonCommands`), and each member's mind carries them out while it defends itself.
-  Enemies are built when the party comes near; its art is in [art/crypt.md](art/crypt.md).
+  Enemies are built when the party comes near; its art is in [art/crypt.md](art/crypt.md). The
+  page hears every built body where the party sees (`hearRun`, `hearing.ts`), its listener made
+  again when a body is built.
 - **The lab** (`src/lab/`): one body at a time in the Stance, Routine, Run and Blow
   scenarios (`scenarios.ts`), at 120 or 480 Hz, with a transport that steps the world by hand.
   Every scenario drives its body through an actor (`actor.ts`), which gives the body what the
@@ -434,8 +438,10 @@ segments' achieved transforms and own no collision, and the collision shapes dra
 surfaces (`surface.ts`, `materials.ts`, `textures.json`) and sound (`src/audio/`): `cues.ts`
 makes a cue of an energy and the two surfaces that met, `game-audio.ts` synthesizes and mixes
 what a page plays, and `body-sounds.ts` reads what a body sounds of from the world: its touches
-(`hearTouches`) and its air (`airOf`). The lab plays both; the arena and the crypt play each
-landed blow ([reference/look.md](reference/look.md#sound)).
+(`hearTouches`) and its air (`airOf`). Every screen plays both: the lab from its log, the arena
+of its two sides until the verdict, the crypt of every body the party sees. A blow is a touch,
+and is heard as one; what it takes off is a cue of its own (`debrisCue`)
+([reference/look.md](reference/look.md#sound)).
 
 ## Standing decisions
 

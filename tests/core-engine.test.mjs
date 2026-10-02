@@ -173,6 +173,14 @@ test("a box resting on another is in contact with it, and the lower with the gro
     assert.ok(Math.abs(under.impulse - weight) < 0.05 * weight, `${under.impulse} N s, a step of its own weight ${weight}`);
     assert.deepEqual(new Set(boxes.map((c) => c.other)), new Set([b.body, top]));
     assert.deepEqual(boxes.map((c) => c.impulse), [0, 0], "and no box pushes on it");
+    // A reader that wants only some: what it refuses is not reported, and what it wants is what it was.
+    const asked = [];
+    const wanted = (refused) => (other) => { asked.push(other); return other !== refused; };
+    assert.deepEqual(b.physics.contactsOf(b.body, wanted(top)), up.filter((c) => c.other !== top));
+    assert.deepEqual(new Set(asked), new Set([top, beside, null]), "it is asked of each body near, and of the ground as null");
+    assert.deepEqual(b.physics.contactsOf(b.body, wanted(null)), up.filter((c) => c.other !== null));
+    assert.deepEqual(b.physics.contactsOf(b.body, () => false), []);
+    assert.deepEqual(b.physics.contactsOf(b.body, () => true), up);
   } finally { b.dispose(); }
 });
 

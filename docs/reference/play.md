@@ -135,6 +135,65 @@ Four runs a table, on one machine: the mean step is 4.5 to 5.6 ms with neither r
 4.3 ms with the limp one and 3.1 to 4.1 ms with both. A party of four costs 2.1 ms a step by
 itself, and in 180 s it has not left many enemies behind: none to two are held at the end.
 
+## Hearing in the step
+
+`src/dungeon/hearing.ts`. A page hears every body its run has built (`hearRun`): one watch of
+touches over all of their segments, beside the run's own watch of blows over their hands, and
+each body's air.
+
+Harness: Node, a crypt run with no visuals, the core world, Rapier, 120 Hz; the hero exploring a
+generated level with three Warriors following, for 120 s. A seed is played twice in one process,
+unheard and heard, a step of each by turns, and the script refuses a pair that ends as two runs.
+Heard is as a page hears it, by a listener that does nothing with what it is given, and with the
+air asked every step where a page asks once a frame. The process is held to three performance
+cores of the development host (an i7-13700H: six performance cores, eight efficiency ones) at
+high priority. Left to the scheduler it is moved onto the efficiency cores for seconds at a time:
+the same unheard step then reads 12 to 23 ms, and the share between the two runs is lost in it
+(one reading of 30 s gave -7.8 %).
+
+```powershell
+cmd /c "start /b /wait /high /affinity 54 node research/crypt-step.mjs --seeds 1,2,3,4 --seconds 120 --companions 3 --listen"
+```
+
+| Seed | The run | Seconds | Enemies | Bodies built at the end | The most built | Held | Out of the fight | A step, ms | In its slowest second, ms | Of real time, % | Heard: a step, ms | In its slowest second, ms | Hearing, % of the unheard step |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | playing | 120 | 8 | 8 | 8 | 1 | 2 | 4.01 | 5.32 | 64 | 4.35 | 5.63 | 8.4 |
+| 2 | playing | 120 | 8 | 7 | 7 | 1 | 2 | 3.78 | 6.32 | 76 | 4.04 | 6.71 | 6.8 |
+| 3 | playing | 120 | 8 | 8 | 8 | 0 | 2 | 4.16 | 6.04 | 73 | 4.48 | 6.76 | 7.8 |
+| 4 | playing | 120 | 8 | 8 | 8 | 0 | 5 | 4.52 | 6.23 | 75 | 4.98 | 6.80 | 10.1 |
+
+Hearing costs 6.8 to 10.1 % of a step, 8 % over the four runs, and 6 to 12 % of the slowest
+second. Another reading of the same four gave 7.7, 7.1, 8.2 and 9.3 %. Seed 4, where five bodies
+lie out of the fight, is the dearest, and stands at a tenth.
+
+Nearly all of it is asking the engine what is near each segment. A profile of seed 4's pair over
+90 s (Node `--cpu-prof`, the two runs in one profile, so a run is half of it): the watches of
+touches, three of them (each run's blows, and the heard run's listener), take 6.0 % of the time.
+Of that, 4.2 is the engine's reader (`contactsOf`, `src/core/engine/rapier.ts`), 0.5 is
+remembering each segment's velocity for the next step and 0.4 is pricing the touches that landed.
+Asking every body's air takes 0.4.
+
+The engine's reader refuses a pair before it reads it (`wanted`, `PhysicsWorld.contactsOf`).
+About 470 pairs a step are near the 90 segments of five bodies (Node, seed 1, three with the
+hero); 12 to 25 of them are with something fixed, and most of the rest lie between a body's own
+neighbouring segments, which no watch wants. Reading a pair makes objects of Rapier's for its
+manifold. With every pair read and the unwanted ones dropped afterwards, the same harness and
+the same four runs:
+
+| Seed | The run | Seconds | Enemies | Bodies built at the end | The most built | Held | Out of the fight | A step, ms | In its slowest second, ms | Of real time, % | Heard: a step, ms | In its slowest second, ms | Hearing, % of the unheard step |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | playing | 120 | 8 | 8 | 8 | 1 | 2 | 3.97 | 6.27 | 75 | 4.58 | 7.20 | 15.3 |
+| 2 | playing | 120 | 8 | 7 | 7 | 1 | 2 | 3.70 | 5.68 | 68 | 4.31 | 6.43 | 16.6 |
+| 3 | playing | 120 | 8 | 8 | 8 | 0 | 2 | 4.24 | 6.23 | 75 | 4.91 | 7.22 | 15.7 |
+| 4 | playing | 120 | 8 | 8 | 8 | 0 | 5 | 4.51 | 6.11 | 73 | 5.39 | 7.09 | 19.4 |
+
+Refusing unread halves what hearing costs, 15.3 to 19.4 % down to 6.8 to 10.1 %, and leaves the
+unheard step where it was: a watch of blows reads hands alone.
+
+What is left is the asking: with eight bodies, 144 segments a step, and a call out of Rapier for
+each pair near one. Rapier can tell of a contact as it starts and as it ends instead; a watch on
+that would read only what began. It is not built ([roadmap](../roadmap.md)).
+
 ## Targets
 
 `src/dungeon/run.ts`, for a hero whose facing the cursor steers.
