@@ -65,10 +65,11 @@ stance asked of the ground beyond what its soles gave over the same span, in the
 the longest, over the falls, of the seconds from the fall to the last step any segment's centre
 moved faster than 0.05 m/s (`STILL`; 14.99 is the watch's last step).
 
-A second table has a line for each way a model's shoved bodies lay a second after the fall
-(`lieOf`, [Stages](#stages)), over both loadouts: how many, how many of those rose, and the
-furthest stage of the game's rise each reached (`none` if its riser began none; the count is of
-the body's last fall within the watch). Under a mind with no riser the last column is empty.
+A second table has a line for each way each row's bodies lay a second after the fall (`lieOf`,
+[Stages](#stages)): how many, how many of those rose, the furthest stage of the game's rise each
+began (`none` if its riser began none; the count is of the body's last fall within the watch),
+and how many played the rise to its end within the watch: its last stage done, and not given up
+at its limit. Under a mind with no riser the last two columns are empty.
 
 ## Driven
 
@@ -143,9 +144,11 @@ the same way (`DungeonRun.drop`).
 ## Stages
 
 The riser (`stagedRise`, `src/core/mind/rise/staged.ts`) plays a recipe (`Recipe`, `RISE`,
-`src/core/mind/rise/stages.ts`): it lies slack until still, reads how it lies, and plays stages:
-poses, then a stage that bears the body on its limbs. This is the record of the recipe's
-numbers and the player's, and of where the rise stops.
+`src/core/mind/rise/stages.ts`): it lies slack until still, reads how it lies, and plays stages.
+On its back or a side they are that lie's roll, poses that turn it onto its front, after which
+it lies slack and reads again; on its front they are the rise, poses and then a stage that
+bears the body on its limbs. This is the record of the recipe's numbers and the player's, and of
+where the rise stops.
 
 Harness, for every figure of this section but the battery's: Node, the core world
 (`src/core/world.ts`) with the arena's solids, Rapier, 120 Hz; the body with nothing in its
@@ -266,7 +269,7 @@ kilogram, 0.66 and 0.60 of the Warrior's.
 
 **The bare `prop`**: as `TUCK`, but shoulder flexion 1.3, elbow flexion 1.0, lumbar flexion 0.4
 and thoracic flexion 0, with the hands as they fall and the feet pointed. The drive's table
-above, the readings below and the battery's table were read with it; it ends the Warrior at
+above and the readings below were read with it; it ends the Warrior at
 0.34, 0.43, 0.46, 0.48, the Rogue at 0.25, 0.38, 0.23, 0.10 and the skeleton at 0.32, 0.40,
 0.42, 0.46. With it:
 
@@ -445,41 +448,192 @@ the hip's flexion (2.21 rad) and the lumbar spine's (0.89) at their stops togeth
 one leg from a half kneel asks 140 to 210 N m of a knee that gives 142; and a squat on flat feet
 asks more dorsiflexion than the ankle's 0.39 rad.
 
-### The battery, with the pose stages alone
+### The roll
+
+A body on its back plays `RISE.roll.back`: four poses that turn it over its right side onto its
+front. A posture names the side that goes under `near` and the side that comes over the top
+`far` (`rollingOver`); a freedom a stage does not name goes to its zero. From the anatomical
+zero, rad:
+
+| Stage | Posture | Seconds |
+|---|---|---|
+| `wind` | `WIND`: far hip flexion 1.2, far hip abduction 0.54, near hip flexion 0.2, near shoulder flexion 2.8 | 0.5 |
+| `swing` | `SWING`: far hip flexion 0.8, far hip internal rotation 0.6, near hip abduction 0.2, lumbar flexion 0.8, far shoulder flexion 1.4, near shoulder flexion 1.2, near shoulder abduction 2 | 1 |
+| `over` | `OVER`: far hip flexion 1.2, far hip abduction 0.54, near shoulder flexion 2.8 | 0.5 |
+| `flat` | `FLAT`: near shoulder flexion 2.8, far shoulder internal rotation -0.8, far elbow flexion 2.1 | 1 |
+
+`wind` raises the far leg out to its own side and lays the near arm overhead, out of the roll's
+way. `swing` throws the far leg and the far arm across the body with the pelvis curled off the
+ground, and the body turns onto its near side. `over` lays the trunk straight with the far leg
+kept ahead of it, and the body goes on over. `flat` lays the legs straight and sets the far hand
+down beside the chest, so that the rise finds the body square on its front. Toppled backward,
+both humans read on their back until `flat` begins, on their right side then, and on their
+front when it ends; the body then lies slack until still, and the rise begins.
+
+**On a side** a body plays the last two stages over the side that is under it
+(`RISE.roll.left`, `RISE.roll.right`): `over` and `flat`, with `near` the side it lies on.
+
+**How it was found.** Two rolls written by hand (a knee drawn up and its foot pushing the pelvis
+over with the trunk turned after it; the far leg and arm swung across with the trunk turned)
+leave the Warrior on its back at every playing, and so does the second on the Rogue. The game's
+came of a seeded random search (a script that is not kept): 2,400 sequences of two to four
+poses, each a random half of 23 freedoms (the hips, knees, shoulders, elbows, trunk and neck) at
+random angles within every body's range, 0.4 to 1.3 s a pose, played as the back's roll on the
+Warrior toppled backward. 13 ended on the front, 34 on a side and 2,353 on the back; three of
+the best sixteen turned the Rogue as well. The best of those turned its body only at its second
+playing, from where the first left it, so its second pose is played first (`wind`). Then each
+freedom was dropped in turn, and the drop kept while every one of the twelve falls below still
+ended on the front at the first playing; the angles were rounded the same way; and `flat` was
+added for the rise.
+
+**Each number's reading.** Twelve falls: both humans, with the wooden club and with nothing,
+toppled backward and 20 degrees to each side of it. The roll ends all twelve on the front at
+its first playing (the pelvis's forward 0.84 to 1.00 of straight down) with no segment faster
+than 3.61 m/s. Fourteen falls more: the Warrior, with the club and with nothing, toppled 150 to
+210 degrees about up by tens. The rise after the roll is done (`fours`) at its first attempt in
+all fourteen. The same with one thing taken away:
+
+| Without | On the front at the first playing, of 12 | The Warrior's `fours` done, of 14 |
+|---|---|---|
+| nothing: the game's roll | 12 | 14 |
+| `wind`'s far hip flexion | 9 | 13 |
+| `wind`'s far hip abduction | 10 | 12 |
+| `wind`'s near hip flexion | 12 | 11 |
+| `wind`'s near shoulder flexion | 12 | 12 |
+| `swing`'s far hip flexion | 0 | 0 |
+| `swing`'s far hip internal rotation | 0 | 0 |
+| `swing`'s near hip abduction | 9 | 14 |
+| `swing`'s lumbar flexion | 0 | 0 |
+| `swing`'s far shoulder flexion | 9 | 4 |
+| `swing`'s near shoulder flexion | 4 | 0 |
+| `swing`'s near shoulder abduction | 6 | 14 |
+| `over`'s far hip flexion | 6 | 2 |
+| `over`'s far hip abduction | 12 | 12 |
+| `over`'s near shoulder flexion | 0 | 0 |
+| `flat`'s near shoulder flexion | 6 | 0 |
+| `flat`'s far shoulder internal rotation | 12 | 8 |
+| `flat`'s far elbow flexion | 12 | 0 |
+| `wind` | 0 | |
+| `swing` | 0 | |
+| `over` | 8 | |
+| `flat` | 12 | 7 |
+
+Three numbers are kept on the rise's count alone, which fourteen falls do not hold firmly:
+`wind`'s near hip and near shoulder, and `over`'s far hip abduction. `flat` is the rise's:
+without it every body is on its front, turned, and half the Warrior's rises are given up; and
+without the far hand set down beside the chest none is done.
+
+A stage's seconds, the others the game's; on the front at the first playing, of 12, and for
+`flat` the Warrior's `fours` done, of 14:
+
+| Seconds | `wind` | `swing` | `over` | `flat` |
+|---|---|---|---|---|
+| 0.25 | 7 | 0 | 12 | 12 |
+| 0.5 | **12** | 3 | **12** | 12; 13 |
+| 0.75 | 12 | 12 | 12 | 12; 12 |
+| 1 | 12 | **12** | 12 | **12; 14** |
+| 1.25 | | | | 13 of 14 |
+| 1.5 | 12 | 9 | 12 | 12; 14 |
+
+`swing` for 1.5 s flings a segment at 6.86 m/s.
+
+**With `swing`'s near hip flexed** 1 rad, as the search left it, the twelve falls end on the
+front and the Warrior's fourteen rises are done just the same, and the fastest segment moves at
+5.44 m/s in place of 3.61. On the battery ([Staged](#staged)) the Warrior then plays the rise
+to its end in 16 falls of 31 where the game's does in 14, and the humans' median peaks are 4.2
+to 5.1 m/s where the game's are 3.3 to 4.1. The number buys nothing these falls can tell, and
+is not kept.
+
+**Over the right.** Mirrored, over the left, the roll ends 9 of the twelve on the front: the
+Rogue with the club in its right hand stays on its back in all three of its falls.
+
+**The skeleton is not turned.** Toppled backward under the same recipe it reads on its back at
+every stage and after each of its playings. On the battery's sixteen shoves of each model and
+loadout ([Battery](#battery)), each watched 30 s (a script that is not kept), of the falls a
+riser first reads on the back, the next reading is the front in 9 of 11 and 7 of 11 for the
+Warrior (with nothing, with the club), 11 of 14 and 8 of 11 for the Rogue, and 0 of 11 and 1 of
+10 for the skeleton.
+
+**A shoved body on its front lies twisted.** Of the same shoves' falls that a riser first reads
+on the front, the rise is given up at `fours` in 6 of the Warrior's 7 and 4 of the Rogue's 4. Reading a body as
+on its front only when its pelvis's forward is under -0.9, in place of `LIE_UP`'s -0.5, so that
+a twisted one plays its side's roll first: over a 30 s watch the Warrior comes to its knees and
+hands at least once in 16 of 16 falls with nothing and 10 of 15 with the club, against 15 and
+12 with the game's. No difference these falls can tell, so `LIE_UP` stays.
+
+## Staged
+
+A fighter whose body, once down, is the staged riser's ([Stages](#stages)), playing the game's
+recipe (`RISE`): the roll, and the rise as far as `fours`. No assist: every side's balance is
+0 %.
 
 ```powershell
-node research/core-rise.mjs --mind '{"kind":"fighter","subs":[{"kind":"staged-rise"}]}'
+node research/core-rise.mjs --workers 30 --mind '{"kind":"fighter","subs":[{"kind":"staged-rise"}]}'
 ```
 
-Harness: the battery's ([Battery](#battery)), 30 workers. The rise is `fold`, `tuck` and the
-bare `prop`, and no roll.
+Harness: the battery's ([Battery](#battery)), 30 workers.
+
+**The bar**, set and not swept: each human with each loadout risen within the watch in at least
+three falls of four; no way of lying under half, for either human; at least half of the bouts'
+falls risen; the skeleton reported, and not held to it; and nothing flung, no row's median peak
+over its row of [Driven](#driven).
 
 | falls | of | fell | rose | median s to rise | median peak, m/s | worst asked, weights | median s it last moved | the longest, s |
 |---|---|---|---|---|---|---|---|---|
-| workshop-fighter, club, shoved | 16 | 15 | 0 | - | 3.13 | 0.0 | 3.06 | 14.99 |
-| workshop-fighter, empty, shoved | 16 | 16 | 0 | - | 2.72 | 0.0 | 3.01 | 14.43 |
-| workshop-rogue, club, shoved | 16 | 16 | 0 | - | 1.99 | 0.0 | 5.70 | 14.99 |
-| workshop-rogue, empty, shoved | 16 | 16 | 0 | - | 2.09 | 0.0 | 5.54 | 14.99 |
-| crypt-skeleton, club, shoved | 16 | 16 | 0 | - | 3.10 | 0.0 | 13.18 | 14.99 |
-| crypt-skeleton, empty, shoved | 16 | 16 | 0 | - | 4.14 | 0.0 | 12.45 | 14.99 |
-| bouts | 9 | 7 | 0 | - | 2.02 | 0.0 | 14.99 | 14.99 |
+| workshop-fighter, club, shoved | 16 | 15 | 0 | - | 4.09 | 0.0 | 14.99 | 14.99 |
+| workshop-fighter, empty, shoved | 16 | 16 | 0 | - | 3.67 | 0.0 | 14.99 | 14.99 |
+| workshop-rogue, club, shoved | 16 | 16 | 0 | - | 3.34 | 0.0 | 14.99 | 14.99 |
+| workshop-rogue, empty, shoved | 16 | 16 | 0 | - | 3.27 | 0.0 | 14.99 | 14.99 |
+| crypt-skeleton, club, shoved | 16 | 16 | 0 | - | 6.38 | 0.0 | 14.99 | 14.99 |
+| crypt-skeleton, empty, shoved | 16 | 16 | 0 | - | 4.45 | 0.0 | 14.99 | 14.99 |
+| bouts | 9 | 7 | 0 | - | 3.01 | 0.0 | 14.99 | 14.99 |
 
-| shoved, as it lay | fell | rose | the furthest stage reached |
-|---|---|---|---|
-| crypt-skeleton, on its back | 21 | 0 | none 20, prop 1 |
-| crypt-skeleton, on its front | 5 | 0 | none 1, prop 4 |
-| crypt-skeleton, on its left | 3 | 0 | none 3 |
-| crypt-skeleton, on its right | 3 | 0 | none 3 |
-| workshop-fighter, on its back | 21 | 0 | none 21 |
-| workshop-fighter, on its front | 7 | 0 | none 1, prop 6 |
-| workshop-fighter, on its left | 1 | 0 | prop 1 |
-| workshop-fighter, on its right | 2 | 0 | none 2 |
-| workshop-rogue, on its back | 27 | 0 | none 27 |
-| workshop-rogue, on its front | 4 | 0 | prop 4 |
-| workshop-rogue, on its left | 1 | 0 | none 1 |
+| falls, as the body lay | fell | rose | the furthest stage reached | played to the rise's end |
+|---|---|---|---|---|
+| bouts, on its back | 4 | 0 | fours 4 | 0 |
+| bouts, on its front | 3 | 0 | fours 3 | 2 |
+| crypt-skeleton, club, shoved, on its back | 12 | 0 | none 9, fours 3 | 2 |
+| crypt-skeleton, club, shoved, on its front | 2 | 0 | none 1, fours 1 | 1 |
+| crypt-skeleton, club, shoved, on its left | 1 | 0 | none 1 | 0 |
+| crypt-skeleton, club, shoved, on its right | 1 | 0 | fours 1 | 1 |
+| crypt-skeleton, empty, shoved, on its back | 9 | 0 | none 9 | 0 |
+| crypt-skeleton, empty, shoved, on its front | 3 | 0 | fours 3 | 2 |
+| crypt-skeleton, empty, shoved, on its left | 2 | 0 | none 2 | 0 |
+| crypt-skeleton, empty, shoved, on its right | 2 | 0 | none 1, fours 1 | 1 |
+| workshop-fighter, club, shoved, on its back | 11 | 0 | prop 1, fours 10 | 4 |
+| workshop-fighter, club, shoved, on its front | 4 | 0 | prop 1, fours 3 | 1 |
+| workshop-fighter, empty, shoved, on its back | 10 | 0 | prop 1, fours 9 | 7 |
+| workshop-fighter, empty, shoved, on its front | 3 | 0 | fours 3 | 0 |
+| workshop-fighter, empty, shoved, on its left | 1 | 0 | fours 1 | 0 |
+| workshop-fighter, empty, shoved, on its right | 2 | 0 | fours 2 | 2 |
+| workshop-rogue, club, shoved, on its back | 12 | 0 | none 1, fours 11 | 0 |
+| workshop-rogue, club, shoved, on its front | 3 | 0 | fours 3 | 0 |
+| workshop-rogue, club, shoved, on its left | 1 | 0 | fours 1 | 0 |
+| workshop-rogue, empty, shoved, on its back | 15 | 0 | none 1, prop 1, fours 13 | 0 |
+| workshop-rogue, empty, shoved, on its front | 1 | 0 | fours 1 | 0 |
 
-None rises: the stages end propped, and nothing stands a body up from there. **Of 95 shoved
-falls 69 end on the back**, 16 on the front and 10 on a side: a body that fights a shove turns
-as it goes down, and shoved forward it is as likely to land on its back. A body on its back plays
-nothing, since no roll is written. Nothing is flung: the median peak is 2.0 to 4.1 m/s, the
-lying body's 1.4 to 4.1.
+**The bar is missed: of 102 falls none rises.** The rise ends on knees and hands
+([Where the rise stops](#where-the-rise-stops)), which is down, and the riser then lies slack
+and begins again: every body moves to the watch's last step. Nothing is flung: the median peaks
+are 3.0 to 6.4 m/s where the driven body's are 10 to 15, and the stance is asked nothing.
+
+What the rows say of the falls:
+
+- **Of 95 shoved falls 69 end on the back**, 16 on the front and 10 on a side: a body that
+  fights a shove turns as it goes down, and shoved forward it is as likely to land on its back.
+  The roll carries them: of the humans' 48 falls on the back, 43 begin `fours`.
+- **The Warrior** plays the rise to its end, on its knees and hands, in 14 falls of 31: 9 of 16
+  with nothing in its hands and 5 of 15 with the club; 11 of the 21 on its back, 1 of the 7 on
+  its front ([The roll](#the-roll): shoved onto its front it lies twisted) and 2 of the 3 on a
+  side. The watch is short for it: a body is first read 1 to 3.5 s after its fall, and a roll,
+  the stillness after it and a rise take 10 s more, so an attempt given up leaves no time for
+  another. Over a 30 s watch (a script that is not kept) it
+  comes to its knees and hands at least once in 15 of 16 falls with nothing and 12 of 15 with
+  the club.
+- **The Rogue** begins `fours` in 29 falls of 32 and is done with it in none, in 15 s or in
+  30: its arms do not raise its chest ([The pose stages](#the-pose-stages)).
+- **The skeleton** ends the rise in 7 falls of 32. The roll does not turn it, and 18 of its 21
+  falls on the back begin no stage of the rise.
+- **The bouts**: all 7 falls begin `fours`, and 2 end the rise, both from the front.
+
+What a rising body costs a step is in `play.md#bodies-in-the-step`.

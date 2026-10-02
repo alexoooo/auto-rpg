@@ -151,8 +151,22 @@ All of it on a physically based core, humans first ([architecture](architecture.
   where a person's preferred walk is near 1.4 m/s. The next step is a controller that holds the
   pelvis against the moment the soles miss, or one whole-body solve. The assist supplies the
   moment the soles miss, as a cheat with a ceiling (`docs/reference/assist.md`).
-- Rising after a fall. A fallen body lies still (`lie`) and is out of every fight until this
-  exists. Its design and its plans are `docs/plans/2026-10-01-rising-00-design.md`.
+- Rising after a fall is built as far as knees and hands, and for the lab alone (its
+  Character section's "Down"). A fallen body rolls onto its front, draws its knees under, props
+  itself and bears on its shins and hands; nothing stands it up, so on the battery of falls
+  none rises ([reference/rising.md](reference/rising.md#staged)), and in a fight a fallen body
+  still lies (`lie`) and is out of it. Open, each with its readings in the record:
+  - the way on from knees and hands is a limb moved to a place (a foot planted, a hand walked
+    back), which a stage of a rise does not have
+    ([reference/rising.md](reference/rising.md#where-the-rise-stops));
+  - the Rogue plays the Warrior's recipe and its arms do not raise its chest: it wants a recipe
+    of its own;
+  - the skeleton is not turned over by the humans' roll;
+  - a body shoved onto its front lies twisted, and gives the rise up from there;
+  - the club in the Warrior's hand costs it rises its empty hand plays to the end;
+  - a recipe found by search and a learned riser, each a row of the same battery;
+  - the fights take rising up once the battery's bar is met: the design and the rules' plan
+    are `docs/plans/2026-10-01-rising-00-design.md` and `2026-10-01-rising-05-rules.md`.
 - A limp body does not always come to rest: a light segment at a joint's limit on the ground
   goes on moving, a skeleton's hand at 0.2 m/s to the end of a 15 s watch
   ([reference/rising.md](reference/rising.md#lying)). It is what a body lying after a fall and a

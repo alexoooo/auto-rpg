@@ -83,6 +83,9 @@ export type LabCamera = (typeof LAB_CAMERAS)[number];
 /** What may drive the body (`LAB_MINDS`, `minds.ts`); the first is the default. */
 export const LAB_MIND_IDS = ["script", "guard"] as const;
 export type LabMindId = (typeof LAB_MIND_IDS)[number];
+/** What a body does once it is down (`LAB_DOWN`, `minds.ts`); the first is the default. */
+export const LAB_DOWN_IDS = ["lie", "rise"] as const;
+export type LabDownId = (typeof LAB_DOWN_IDS)[number];
 /** How the isometric camera draws; the first is the default. */
 export const LAB_PROJECTIONS = ["orthographic", "perspective"] as const;
 export type LabProjection = (typeof LAB_PROJECTIONS)[number];
@@ -100,6 +103,7 @@ export interface LabAddress extends LabLoadout {
   /** The body's balance, per cent of its weight, in place of its character's (`AttributeSpec.balance`); null is the character's. */
   readonly balance: number | null;
   readonly mind: LabMindId;
+  readonly down: LabDownId;
   /** What its mind may not strike with: each thing held whose strike is barred. */
   readonly barred: readonly LabHeld[];
   readonly hz: LabRate;
@@ -111,7 +115,7 @@ export interface LabAddress extends LabLoadout {
   readonly seed: number;
 }
 
-const KEYS = ["scenario", "model", "right", "left", "boots", "armour", "balance", "mind", "barred", "hz", "view", "camera", "projection", "targets", "seed"] as const;
+const KEYS = ["scenario", "model", "right", "left", "boots", "armour", "balance", "mind", "down", "barred", "hz", "view", "camera", "projection", "targets", "seed"] as const;
 
 /** A switch in the address: `1` on, `0` off, anything else `fallback`. */
 /** A whole number in the address, from `least` to `most`: plain digits, anything else `fallback`. */
@@ -137,6 +141,7 @@ export function labAddress(search: string): LabAddress {
     armour: flag(query.get("armour"), worn.armour),
     balance: balanceFrom(query.get("balance") ?? ""),
     mind: LAB_MIND_IDS.find((m) => m === query.get("mind")) ?? LAB_MIND_IDS[0],
+    down: LAB_DOWN_IDS.find((d) => d === query.get("down")) ?? LAB_DOWN_IDS[0],
     barred: LAB_HELD.filter((h) => barred.includes(h)),
     hz: LAB_RATES.find((r) => String(r) === query.get("hz")) ?? LAB_RATES[0],
     view: LAB_VIEWS.find((v) => v === query.get("view")) ?? LAB_VIEWS[0],
@@ -163,6 +168,7 @@ export function labHref(address: LabAddress, search = ""): string {
   query.set("armour", address.armour ? "1" : "0");
   if (address.balance !== null) query.set("balance", String(address.balance));
   query.set("mind", address.mind);
+  query.set("down", address.down);
   if (address.barred.length > 0) query.set("barred", address.barred.join(","));
   query.set("hz", String(address.hz));
   query.set("view", address.view);

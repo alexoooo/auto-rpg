@@ -117,12 +117,55 @@ export interface Recipe {
 }
 
 const SIDES = ["left", "right"] as const;
+type Side = (typeof SIDES)[number];
 
 /** `posture` with each channel written `name.@ motion` given to both sides. */
 function bothSides(posture: Posture): Posture {
   return Object.fromEntries(Object.entries(posture).flatMap(([name, angle]) =>
     name.includes("@") ? SIDES.map((side) => [name.replace("@", side), angle]) : [[name, angle]]));
 }
+
+/**
+ * `posture` for a roll over the body's `over` side: a channel written `name.near motion` is that
+ * side's, the one that goes under, and `name.far motion` the other's, which comes over the top.
+ */
+function rollingOver(over: Side, posture: Posture): Posture {
+  const far = over === "left" ? "right" : "left";
+  return Object.fromEntries(Object.entries(posture).map(([name, angle]) => [name.replace(".near ", `.${over} `).replace(".far ", `.${far} `), angle]));
+}
+
+/**
+ * The far leg raised and out to its own side, the near arm laid overhead, out of the roll's way
+ * (`docs/reference/rising.md#the-roll`).
+ */
+const WIND = { "hip.far flexion": 1.2, "hip.far abduction": 0.54, "hip.near flexion": 0.2, "shoulder.near flexion": 2.8 };
+/**
+ * The far leg and the far arm swung across the body, the pelvis curled off the ground, the near
+ * leg set out to its side and the near arm swept out from overhead: the body turns onto its near
+ * side (`docs/reference/rising.md#the-roll`).
+ */
+const SWING = {
+  "hip.far flexion": 0.8, "hip.far internal rotation": 0.6, "hip.near abduction": 0.2, "lumbar flexion": 0.8,
+  "shoulder.far flexion": 1.4, "shoulder.near flexion": 1.2, "shoulder.near abduction": 2,
+};
+/**
+ * The trunk and the near leg laid straight, the near arm overhead, and the far leg kept ahead:
+ * the body goes on over its near side onto its front (`docs/reference/rising.md#the-roll`).
+ */
+const OVER = { "hip.far flexion": 1.2, "hip.far abduction": 0.54, "shoulder.near flexion": 2.8 };
+/**
+ * The legs laid straight, the near arm kept overhead and the far hand set down beside the chest:
+ * the body lies on its front as the rise finds it (`docs/reference/rising.md#the-roll`).
+ */
+const FLAT = { "shoulder.near flexion": 2.8, "shoulder.far internal rotation": -0.8, "elbow.far flexion": 2.1 };
+
+/** The stages that turn a body on its back onto its front, over its `over` side. */
+const rollOver = (over: Side): PoseStage[] => [
+  { kind: "pose", name: "wind", posture: rollingOver(over, WIND), seconds: 0.5 },
+  { kind: "pose", name: "swing", posture: rollingOver(over, SWING), seconds: 1 },
+  { kind: "pose", name: "over", posture: rollingOver(over, OVER), seconds: 0.5 },
+  { kind: "pose", name: "flat", posture: rollingOver(over, FLAT), seconds: 1 },
+];
 
 /**
  * The arms folded, the hands beside the chest, and the feet pointed, so that the knees slide
@@ -162,7 +205,8 @@ export const RISE: Recipe = deepFreeze({
     { kind: "end", name: `hand.${side}`, segment: `hand.${side}`, from: `shoulder.${side}`,
       takes: [`shoulder.${side} flexion`, `shoulder.${side} abduction`, `shoulder.${side} internal rotation`, `elbow.${side} flexion`] },
   ]),
-  roll: { back: [], left: [], right: [] },
+  // From its back a body rolls over its right side; on a side, it goes on over that side.
+  roll: { back: rollOver("right"), left: rollOver("left").slice(2), right: rollOver("right").slice(2) },
   rise: [
     { kind: "pose", name: "fold", posture: bothSides(FOLD), seconds: 1 },
     // The pelvis comes off the ground over the shins.

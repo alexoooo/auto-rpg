@@ -27,7 +27,7 @@ import { viewSection } from "./hud/view-section.ts";
 import { SCENARIO_PANELS, type LabScenario, type LabShell, type ScenarioRun } from "./lab-scenario.ts";
 import { allowing, loadoutBalance, loadoutSpec } from "./loadout.ts";
 import { createMindLog, logged, watchHas, type MindLog } from "./mind-log.ts";
-import { LAB_MINDS } from "./minds.ts";
+import { LAB_DOWN, LAB_MINDS } from "./minds.ts";
 import { blowScenario } from "./blow-scenario.ts";
 import { routineScenario } from "./routine-scenario.ts";
 import { runScenario } from "./run-scenario.ts";
@@ -199,6 +199,7 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
     const log = createMindLog();
     const actor = labActor(built, world, {
       assist: balanceCeiling(balance, PERCENT), allows: allowing(to.barred), mind: (script) => logged(LAB_MINDS[to.mind].tactics(script), log),
+      subs: LAB_DOWN[to.down].subs,
     });
     const rest = built.segments.get("lowerTrunk")!.node.rotationQuaternion!.clone();
     const view = drawBody(built, scene, TINT[to.model]), heldView = drawHeld(built, scene);

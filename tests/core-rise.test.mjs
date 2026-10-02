@@ -2,9 +2,9 @@
  * **Rising by stages** (`stagedRise`, `src/core/mind/rise/staged.ts`): a recipe that cannot be
  * played, how a body lies, the wait until it is still, the pose stages that draw the knees under a
  * body on its front and prop it, a riser the body is taken from, the bearing stage that brings it
- * to its knees and hands, what that stage is done by, and what its limbs bear on. Node, core world
- * on the arena's ground, or a floor over it (`research/core-rise-trials.mjs`), Rapier, 120 Hz; no
- * assist.
+ * to its knees and hands, the roll that turns it onto its front from its back and from a side,
+ * what a bearing stage is done by, and what its limbs bear on. Node, core world on the arena's
+ * ground, or a floor over it (`research/core-rise-trials.mjs`), Rapier, 120 Hz; no assist.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -15,12 +15,16 @@ import { SOLE_MARGIN } from "../src/core/control/stance-tuning.ts";
 import { centreOfToRef, footStatesOf, pointOfToRef, readSupport, turnOfToRef } from "../src/core/control/support.ts";
 import { BODY_MODELS, modelSpec } from "../src/core/human/spec.ts";
 import { lying } from "../src/core/mind/lie.ts";
+import { createMind } from "../src/core/mind/minds.ts";
+import { STAND_ORDERS } from "../src/core/mind/orders.ts";
 import { riseLimbs } from "../src/core/mind/rise/limbs.ts";
 import { lieOf, stagedRise } from "../src/core/mind/rise/staged.ts";
 import { RISE, stageFaults } from "../src/core/mind/rise/stages.ts";
 import { felled, riserOf, toppled } from "../research/core-rise-trials.mjs";
 import { coreStand } from "./harness/core-stand.mjs";
 
+/** No roll: a body not on its front lies as it is. */
+const NO_ROLL = { back: [], left: [], right: [] };
 /** The game's rise as far as its stages are poses. */
 const POSES = { ...RISE, rise: RISE.rise.filter((stage) => stage.kind === "pose") };
 /** `recipe` with `stage` in place of the rise's stage of its name. */
@@ -60,7 +64,7 @@ test("a recipe that cannot be played says why", () => {
   assert.deepEqual(stageFaults(withStage(RISE, { ...tuck, posture: { ...tuck.posture, "knee.left flexion": most } }), warrior), []);
   // A freedom the posture does not name goes to its zero, which the range must hold too.
   const bent = { ...warrior, joints: warrior.joints.map((joint) => (joint.name !== "knee.left" ? joint : { ...joint, dofs: [{ ...knee, min: { ...knee.min, value: 0.2 - knee.bind.value } }] })) };
-  assert.deepEqual(stageFaults({ ...RISE, rise: [{ kind: "pose", name: "rest", posture: {}, seconds: 1 }] }, bent),
+  assert.deepEqual(stageFaults({ ...RISE, roll: NO_ROLL, rise: [{ kind: "pose", name: "rest", posture: {}, seconds: 1 }] }, bent),
     [`stage rest asks knee.left flexion for 0 rad, outside its range, 0.2 to ${knee.max.value + knee.bind.value}`]);
   for (const seconds of [0, -1, NaN]) {
     assert.deepEqual(stageFaults(withStage(RISE, { ...tuck, seconds }), warrior), [`stage tuck lasts ${seconds} s`]);
@@ -160,7 +164,6 @@ test("a riser lies slack until its body is still, and after a roll reads how it 
     assert.ok(runs[2][1] >= still, `after the roll it waited ${runs[2][1]} steps`);
     assert.ok(seen.slice(-runs[2][1]).every((step) => !step.asking), "and asks nothing again");
     assert.ok(seen.slice(runs[0][1], runs[0][1] + rolled).every((step) => step.asking), "rolling, it drives its muscles");
-    // On its back with no roll to play it would wait for ever: the game's recipe has none yet, and its tries count the waits.
   } finally { body.dispose(); stand.dispose(); }
 });
 
@@ -305,6 +308,80 @@ test("fallen forward, a body comes to its knees and hands", async () => {
   } finally { dispose(); }
 });
 
+/** What a human's roll from its back passes through, by the stage each lie is read at the start of; and the skeleton's, which does not turn over. */
+const ROLLED = {
+  "workshop-fighter": ["back", "back", "back", "back", "right", "front"],
+  "workshop-rogue": ["back", "back", "back", "back", "right", "front"],
+  "crypt-skeleton": ["back", "back", "back", "back", "back", "back"],
+};
+
+test("fallen backward, a body rolls over its right side onto its front, and rises from there", async () => {
+  const names = RISE.roll.back.map((stage) => stage.name);
+  assert.deepEqual(names, ["wind", "swing", "over", "flat"]);
+  for (const model of BODY_MODELS) {
+    const { world, built, body, dispose } = await toppled({ model, held: "empty", degrees: 180 }, [(own, view) => stagedRise(own, view)]);
+    try {
+      const riser = riserOf(body), root = body.muscles.dynamics.root.segment, runs = [], lies = [];
+      let peak = 0;
+      for (let i = 0; i < 12 * world.hz && riser.tries < 2; i++) {
+        // The phase a step is played in is the one it begins with; taking the body, it begins slack.
+        const playing = riser.phase === "roll" ? names[riser.stage] : riser.phase === "idle" ? "settle" : riser.phase;
+        if (runs.at(-1)?.[0] === playing) runs.at(-1)[1] += 1;
+        else {
+          runs.push([playing, 1]);
+          lies.push(lieOf(root));
+        }
+        world.step();
+        if (riser.phase === "roll") peak = Math.max(peak, fastest(built));
+      }
+      // Slack until still, each stage of the roll for its time, and slack again.
+      assert.deepEqual(runs.map(([playing]) => playing), ["settle", ...names, "settle"], model);
+      assert.deepEqual(runs.slice(1, -1).map(([, steps]) => steps), RISE.roll.back.map((stage) => Math.round(stage.seconds * world.hz)), model);
+      // How it lay at the start of each: over its right side at the end of `over`, and on its front by the end of `flat`.
+      assert.deepEqual(lies, ROLLED[model], model);
+      assert.ok(peak < 4.5, `${model}: rolling, a segment moved at ${peak} m/s`);
+      if (ROLLED[model].at(-1) !== "front") {
+        // Still on its back, it plays the roll again.
+        assert.deepEqual(seenOf(riser), { phase: "roll", lie: "back", stage: 0, time: null, still: null, tries: 2, furthest: -1, lifted: false, bear: NONE }, model);
+        continue;
+      }
+      assert.deepEqual(seenOf(riser), { phase: "rise", lie: "front", stage: 0, time: null, still: null, tries: 2, furthest: 0, lifted: false, bear: NONE }, model);
+      const bar = ON_FOURS[model];
+      if (!bar) continue;
+      // Laid flat, it rises as a body fallen forward does: its pelvis is within 0.3 rad of level, and `fours` is done.
+      assert.ok(pitchOf(root) > Math.PI / 2 - 0.3, `${model}: rolled, its pelvis is pitched ${pitchOf(root)} rad`);
+      const { played, peak: rising } = playedTo(world, built, riser, LAST);
+      assert.deepEqual(seenOf(riser), { phase: "idle", lie: "front", stage: LAST, time: null, still: null, tries: 2, furthest: LAST, lifted: true, bear: ALL }, model);
+      const up = { pelvis: heightOf(built, "lowerTrunk"), chest: heightOf(built, "upperTrunk") };
+      assert.ok(played < bar.seconds * world.hz && up.pelvis > bar.pelvis && up.chest > bar.chest, `${model}: fours took ${played / world.hz} s, and left its pelvis ${up.pelvis} m up and its chest ${up.chest}`);
+      assert.ok(rising < 3, `${model}: rising, a segment moved at ${rising} m/s`);
+    } finally { dispose(); }
+  }
+});
+
+test("on a side, a body goes on over that side onto its front", async () => {
+  // A side's roll is the back's from where the back's has the body on its side, over the side that is down: the left's is the right's, mirrored.
+  assert.deepEqual(RISE.roll.right, RISE.roll.back.slice(2));
+  const mirrored = (posture) => Object.fromEntries(Object.entries(posture).map(([name, angle]) => [name.replace(/.(left|right) /, (_, side) => `.${side === "left" ? "right" : "left"} `), angle]));
+  assert.deepEqual(RISE.roll.left, RISE.roll.right.map((stage) => ({ ...stage, posture: mirrored(stage.posture) })));
+  assert.deepEqual(Object.keys(RISE.roll.right[0].posture).sort(), ["hip.left abduction", "hip.left flexion", "shoulder.right flexion"], "the fixture: the roll's postures are of one side and the other");
+  // Two of the battery's shoves that leave a body on a side, under the fighter's mind as the battery has it: it reads the side, rolls, and reads its front.
+  for (const [model, held, degrees, side] of [["workshop-fighter", "empty", 45, "right"], ["workshop-rogue", "club", 315, "left"]]) {
+    const mind = { kind: "fighter", subs: [{ kind: "staged-rise" }] };
+    const { world, body, dispose } = await felled({ model, held, degrees }, (made, into) => createMind(made, into, mind, { name: "shoved", orders: () => STAND_ORDERS }).body);
+    try {
+      const riser = riserOf(body), reads = [];
+      assert.ok(body.view.down, `${model}, shoved ${degrees} degrees about up, fell`);
+      for (let i = 0; i < 10 * world.hz && reads.length < 2; i++) {
+        const tries = riser.tries;
+        world.step();
+        if (riser.tries > tries) reads.push([riser.lie, riser.phase, RISE.roll[side].length]);
+      }
+      assert.deepEqual(reads, [[side, "roll", 2], ["front", "rise", 2]], `${model}, ${held}, shoved ${degrees} degrees about up`);
+    } finally { dispose(); }
+  }
+});
+
 test("a bearing stage that is not reached is given up at its limit, and the rise begins again", async () => {
   // Two things the Warrior on its knees and hands does not do: hold its centre of mass at half its standing height, and its pelvis 0.6 rad from upright.
   const lies = [];
@@ -329,12 +406,11 @@ test("a bearing stage that is not reached is given up at its limit, and the rise
       assert.deepEqual([body.has, riser.phase, body.muscles.activation.some((level) => level !== 0)], ["staged-rise", "settle", false], what);
       for (let i = 0; i < 8 * world.hz && riser.tries < 2; i++) world.step();
       assert.deepEqual([riser.tries, riser.furthest], [2, LAST], what);
-      if (riser.lie === "front") assert.deepEqual([riser.phase, riser.stage], ["rise", 0], what);
-      else assert.deepEqual([riser.phase, RISE.roll[riser.lie]], ["settle", []], what);
+      assert.deepEqual([riser.phase, riser.stage], [riser.lie === "front" ? "rise" : "roll", 0], what);
       lies.push(riser.lie);
     } finally { dispose(); }
   }
-  // Let go from its knees and hands it lies on its front; from a pitch it could not hold it goes over onto its side, and the recipe has no roll for it yet.
+  // Let go from its knees and hands it lies on its front; from a pitch it could not hold it goes over onto its side, and plays that side's roll.
   assert.deepEqual(lies, ["front", "right"]);
 });
 

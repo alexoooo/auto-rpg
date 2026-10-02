@@ -56,7 +56,9 @@ host; skeletons with the club, 3 m apart on a ground, each under the command lay
 to stand. Read standing; then held, their muscles released (`Body.dispose`) and every segment
 fixed where it is (`SegmentBody.setFixed`); then let go and driven afresh; then felled by a shove
 at the root and still driven by a mind with no sub-minds; then lying, under the sub-minds the
-game's mind has (`FIGHTER`); then limp, their muscles released. A row is the mean of 600 steps.
+game's mind has (`FIGHTER`); then limp, their muscles released; then rising, under the riser
+that plays stages (`stagedRise`, `rising.md#stages`), the row saying what part of the bodies'
+steps the riser lay slack, held a pose and bore on its limbs. A row is the mean of 600 steps.
 The step is 8.33 ms of the run's time, so a step of 8.33 ms is real time with nothing drawn.
 
 ```powershell
@@ -65,30 +67,37 @@ node research/body-cost.mjs
 
 | Bodies | State | Down | A step, ms | The solver, ms | The rest, ms | A body, ms | Of real time, % |
 |---|---|---|---|---|---|---|---|
-| 1 | standing, driven | 0 | 0.69 | 0.32 | 0.37 | 0.69 | 8 |
-| 1 | standing, held | 0 | 0.03 | 0.03 | 0.00 | 0.03 | 0 |
-| 1 | let go, driven | 0 | 0.60 | 0.29 | 0.32 | 0.60 | 7 |
-| 1 | down, driven | 1 | 0.79 | 0.31 | 0.47 | 0.79 | 9 |
+| 1 | standing, driven | 0 | 0.70 | 0.33 | 0.37 | 0.70 | 8 |
+| 1 | standing, held | 0 | 0.04 | 0.03 | 0.00 | 0.04 | 0 |
+| 1 | let go, driven | 0 | 0.61 | 0.29 | 0.33 | 0.61 | 7 |
+| 1 | down, driven | 1 | 0.80 | 0.32 | 0.48 | 0.80 | 10 |
 | 1 | down, lying | 1 | 0.35 | 0.28 | 0.08 | 0.35 | 4 |
-| 1 | down, limp | 1 | 0.27 | 0.27 | 0.00 | 0.27 | 3 |
-| 4 | standing, driven | 0 | 2.17 | 1.00 | 1.17 | 0.54 | 26 |
+| 1 | down, limp | 1 | 0.28 | 0.28 | 0.00 | 0.28 | 3 |
+| 1 | down, rising: slack 0 %, posing 40 %, bearing 60 % | 1 | 0.62 | 0.30 | 0.32 | 0.62 | 7 |
+| 4 | standing, driven | 0 | 2.21 | 1.01 | 1.20 | 0.55 | 27 |
 | 4 | standing, held | 0 | 0.07 | 0.07 | 0.00 | 0.02 | 1 |
-| 4 | let go, driven | 0 | 2.18 | 0.99 | 1.19 | 0.54 | 26 |
-| 4 | down, driven | 4 | 2.89 | 1.18 | 1.71 | 0.72 | 35 |
-| 4 | down, lying | 4 | 1.43 | 1.14 | 0.29 | 0.36 | 17 |
+| 4 | let go, driven | 0 | 2.18 | 1.00 | 1.19 | 0.55 | 26 |
+| 4 | down, driven | 4 | 2.89 | 1.17 | 1.72 | 0.72 | 35 |
+| 4 | down, lying | 4 | 1.44 | 1.14 | 0.30 | 0.36 | 17 |
 | 4 | down, limp | 4 | 1.13 | 1.13 | 0.00 | 0.28 | 14 |
-| 8 | standing, driven | 0 | 4.27 | 1.97 | 2.30 | 0.53 | 51 |
-| 8 | standing, held | 0 | 0.12 | 0.12 | 0.00 | 0.02 | 1 |
-| 8 | let go, driven | 0 | 4.25 | 1.96 | 2.29 | 0.53 | 51 |
-| 8 | down, driven | 8 | 5.71 | 2.37 | 3.34 | 0.71 | 68 |
-| 8 | down, lying | 8 | 2.87 | 2.29 | 0.58 | 0.36 | 34 |
-| 8 | down, limp | 8 | 2.23 | 2.23 | 0.00 | 0.28 | 27 |
+| 4 | down, rising: slack 28 %, posing 48 %, bearing 24 % | 4 | 1.63 | 1.09 | 0.53 | 0.41 | 20 |
+| 8 | standing, driven | 0 | 4.26 | 1.98 | 2.29 | 0.53 | 51 |
+| 8 | standing, held | 0 | 0.13 | 0.13 | 0.00 | 0.02 | 2 |
+| 8 | let go, driven | 0 | 4.25 | 1.97 | 2.28 | 0.53 | 51 |
+| 8 | down, driven | 8 | 5.72 | 2.36 | 3.35 | 0.71 | 69 |
+| 8 | down, lying | 8 | 2.85 | 2.27 | 0.58 | 0.36 | 34 |
+| 8 | down, limp | 8 | 2.22 | 2.22 | 0.00 | 0.28 | 27 |
+| 8 | down, rising: slack 16 %, posing 65 %, bearing 19 % | 8 | 3.20 | 2.18 | 1.02 | 0.40 | 38 |
 
 A standing body costs 0.53 ms a step, over half of it control. Held, it costs 0.02 ms, and let
 go it stands as before: none of the eight is down. A body that is down and still driven costs
 more than one standing, 0.71 ms: its stance goes on solving for a ground its soles cannot give.
 Lying, it costs 0.36 ms: the solver's 0.28, and 0.07 for its mind's look at it each step, which
-is how it knows it is down. Limp, it costs the solver's 0.28 ms and nothing else.
+is how it knows it is down. Limp, it costs the solver's 0.28 ms and nothing else. Rising, it
+costs 0.40 to 0.62 ms by what its riser is at: a stage that bears on its limbs solves what a
+stance does (one body, bearing three steps in five: 0.62 ms, 0.32 of it outside the solver),
+and a pose or lying slack costs little more than lying. The Warrior's rows read the same
+(`--model workshop-fighter --bodies 1`: standing 0.67 ms, rising 0.60).
 
 So a body out of the fight goes limp (`DungeonRun.drop`): its assist is withdrawn and its muscles
 released at the next step. In the crypt the stance of a body that is down cost more than under an

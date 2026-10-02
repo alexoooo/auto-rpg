@@ -4,6 +4,8 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
+import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { centreOfToRef } from "../src/core/control/support.ts";
 import { stanceEnvelope } from "../src/core/control/stance-envelope.ts";
 import { humanSpec } from "../src/core/human/spec.ts";
 import { standIntent } from "../src/core/mind/intent.ts";
@@ -15,9 +17,9 @@ import { throwBlow } from "../src/lab/blow.ts";
 import { LAB_BLOWS } from "../src/lab/blows.ts";
 import { watchClubBlow } from "../src/lab/club-blow.ts";
 import { allowing, loadoutSpec } from "../src/lab/loadout.ts";
-import { LAB_MINDS } from "../src/lab/minds.ts";
+import { LAB_DOWN, LAB_MINDS } from "../src/lab/minds.ts";
 import { startRoutine } from "../src/lab/routine.ts";
-import { LAB_MIND_IDS } from "../src/lab/scenarios.ts";
+import { LAB_DOWN_IDS, LAB_MIND_IDS } from "../src/lab/scenarios.ts";
 import { startStance } from "../src/lab/stance-mode.ts";
 import { coreStand } from "./harness/core-stand.mjs";
 
@@ -150,4 +152,30 @@ test("under_the_guard_a_mode_stands_still_while_its_instruments_run", async () =
         { phases: [null], thrown: { left: 0, right: 0 }, landed: null, fell: false, fallen: false });
     } finally { watch.dispose(); blow.dispose(); armed.dispose(); }
   }
+});
+
+test("a_lab_body_that_is_down_is_handed_to_the_sub_minds_its_actor_is_given", async () => {
+  assert.deepEqual(LAB_DOWN_IDS, ["lie", "rise"]);
+  assert.deepEqual(LAB_DOWN_IDS.map((id) => [LAB_DOWN[id].name, LAB_DOWN[id].subs]), [["Lies", [{ kind: "lie" }]], ["Rises", [{ kind: "staged-rise" }]]]);
+  /** The Warrior standing under an actor given `options`, shoved 120 N s forward at its middle trunk a second in: who has it a second after it is down. */
+  const has = async (options) => {
+    const stand = await coreStand(humanSpec("workshop-fighter"), { ground: true });
+    const actor = labActor(stand.built, stand.world, options);
+    try {
+      actor.drive({ name: "stand", decide: () => standIntent(0) });
+      stand.step(stand.seconds(1));
+      assert.equal(actor.body.has, "command", "standing, the command layers have it");
+      const trunk = stand.built.segments.get("middleTrunk");
+      trunk.body.applyImpulse(new Vector3(0, 0, 120), centreOfToRef(trunk, new Vector3()));
+      for (let i = 0; i < stand.seconds(4) && !actor.body.view.down; i++) stand.step();
+      stand.step(stand.seconds(1));
+      return [actor.body.view.down, actor.body.has];
+    } finally { actor.dispose(); stand.dispose(); }
+  };
+  // Given none it has the game's, which lies.
+  assert.deepEqual(await has(undefined), [true, "lie"]);
+  assert.deepEqual(await has({ subs: LAB_DOWN.lie.subs }), [true, "lie"]);
+  assert.deepEqual(await has({ subs: LAB_DOWN.rise.subs }), [true, "staged-rise"]);
+  // Given no sub-mind, nobody takes it from the command layers.
+  assert.deepEqual(await has({ subs: [] }), [true, "command"]);
 });

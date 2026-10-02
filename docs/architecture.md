@@ -26,7 +26,7 @@ read (`src/core/skills/skills.ts`).
 | Motor control | `src/core/control/` | joint goals, hand goals and the stance turned into muscle commands; a body borne on the ground through its limbs (`bearing.ts`) |
 | Skills | `src/core/skills/` | an intent turned into the body's command: walk, face, strike, guard |
 | Tactics | `src/core/mind/tactics.ts`, `fighter.ts` | what the body should do, decided from what it sees |
-| Minds | `src/core/mind/config.ts`, `minds.ts` | a body's mind made from its config, plain data by kind |
+| Minds | `src/core/mind/config.ts`, `minds.ts`, `rise/` | a body's mind made from its config, plain data by kind; a riser that plays a recipe of stages |
 
 `createBody` (`src/core/body.ts`) gives a built body the command layers as its mind
 (`commandMind`, hosting the sub-minds it is given, under `embody`): its muscles and motor control. Each step it
@@ -147,7 +147,12 @@ braking and blocking). A muscle can never exceed its source's strength at its sp
   a free limb solved within its strength (`boundedLeastSquares`). What the patches miss it
   leaves in its caller's record and asks the assist for: the root is asked for what the patches
   and the assist give together. A task may ask only some rows of its point's motion, and a
-  freedom may be asked ahead of the task (`Limb.work`).
+  freedom may be asked ahead of the task or toward a posture beneath it (`Limb.work`). A patch
+  is a sole or a point (`Patch`), and may be given a part of the load (`LimbWork.share`). A
+  limb may hang from a stem (`Limb.stem`): the freedoms between the root and its chain, which
+  limbs may share and the servo moves (the trunk's, under both arms). The limb's task takes
+  their motion as known, and their torques are the solve's, less each bearing limb's share of
+  the ground's wrench.
 - **The stance** (`stance.ts`; its records in `stance-state.ts`, its steps in `gait.ts`, its
   soles in `support.ts`, its constants in `stance-tuning.ts`) is the standing plan, and the
   solve's first user: it keeps the body up by the forces the ground can really give. It plans
@@ -229,13 +234,30 @@ sub-minds nested configs in it (`SubMindConfig`), so a sub-mind is configured wh
 its fight (its orders, its senses, its assist's ceiling), and gives back a `Minded`: the body and
 the mind's memory, which is all a fight reads; a reader that knows the kind narrows on it (a
 fighter's skills and their report). The switches that make a mind and a sub-mind of a config
-have a `never` default. There is one kind of mind, the fighter, and one sub-mind, `lie`
-(`lying`, `lie.ts`), which wants the body while it is down (`BodyView.down`) and asks its
-muscles for nothing. `FIGHTER` is the fighter with `lie`: the mind every body has unless its
-fight says otherwise, so a body that falls lies still
-([reference/rising.md](reference/rising.md#lying)). An arena recipe may name each side's mind
-(`DuelRecipe.minds`); the crypt gives every body `FIGHTER`; the lab's actor, whose tactics are
-its scenario's, takes `FIGHTER`'s sub-minds (`subMindsOf`).
+have a `never` default. There is one kind of mind, the fighter, and two sub-minds, each of
+which wants the body while it is down (`BodyView.down`): `lie` (`lying`, `lie.ts`), which
+asks its muscles for nothing, and `staged-rise` (`stagedRise`, `rise/staged.ts`), the riser.
+`FIGHTER` is the fighter with `lie`: the mind every body has unless its fight says otherwise,
+so a body that falls lies still ([reference/rising.md](reference/rising.md#lying)). An arena
+recipe may name each side's mind (`DuelRecipe.minds`); the crypt gives every body `FIGHTER`;
+the lab's actor, whose tactics are its scenario's, takes the sub-minds its page chose
+(`ActorOptions.subs`, made by `subMindsOf`), and `FIGHTER`'s unless it is given others.
+
+**The riser plays a recipe** (`Recipe`, `RISE`, `rise/stages.ts`): plain data that names
+freedoms and limbs, and no body. It lies slack until its centre of mass is still, reads how it
+lies (`lieOf`: on its front, its back or a side), and plays stages. A stage is a pose
+(`PoseStage`: every freedom turned toward a posture for a time, the posture written from each
+freedom's own zero, `DofSpec.bind`, so one posture is one shape on every body) or a bearing
+(`BearStage`: the body borne on limbs the recipe names, `riseLimbs`, `rise/limbs.ts`, its
+centre of mass held over them by their shares; a step of motor control's shape on the bearing
+solve). On its back or a side it plays that lie's roll, which turns it onto its front, lies
+slack and reads again; on its front it plays the rise. A bearing stage is done when the body is
+where the stage asks and slow, and is given up at its limit, which ends the attempt: the riser
+lies slack and begins again. `stageFaults` says what of a recipe a body's spec cannot play, and
+a riser refuses such a recipe as it is made. What a riser remembers (its phase, how it lies, its
+stage, its attempts and the furthest it got) is its state under its mind's. The game's recipe
+ends on knees and hands: nothing in it stands a body up
+([reference/rising.md](reference/rising.md#where-the-rise-stops)).
 
 `Tactics` (`tactics.ts`) are `decide(sight, dt)`: from their `Sight` (the body's view, the
 skills' report and the body's envelope) they return an `Intent` (`intent.ts`): a velocity forward
@@ -360,8 +382,8 @@ The rules of a fight are `src/core/rules/`, free of any page so they can be argu
   assist.
 
 A body that is down (`BodyView.down`: its centre of mass a quarter metre under the height it is
-asked to hold, over its lowest point, `src/core/control/ground.ts`) is out of the fight, and lies still (`lie`): rising is
-not built yet. The arena's verdict (`Duel.judge`, `src/arena/duel.ts`): a side is out when its
+asked to hold, over its lowest point, `src/core/control/ground.ts`) is out of the fight, and lies still (`lie`): the
+riser ends on knees and hands, and no fight gives its bodies one. The arena's verdict (`Duel.judge`, `src/arena/duel.ts`): a side is out when its
 pool ends or its body is down; both out on one step is a draw; at 120 s the fuller bar wins.
 
 A bout is built from a recipe (`DuelRecipe`): the two bodies, how far apart they start, the
@@ -422,7 +444,8 @@ arena, crypt and lab screens at `?play=arena`, `?play=dungeon` and `?play=lab`, 
 - **The lab** (`src/lab/`): one body at a time in the Stance, Routine, Run and Blow
   scenarios (`scenarios.ts`), at 120 or 480 Hz, with a transport that steps the world by hand.
   Every scenario drives its body through an actor (`actor.ts`), which gives the body what the
-  page chose: its balance, its mind (`minds.ts`) and the strikes it may throw. The Routine's
+  page chose: its balance, its mind, what it does once it is down (to lie, or to rise by
+  stages: `LAB_MINDS`, `LAB_DOWN`, `minds.ts`) and the strikes it may throw. The Routine's
   targets are bodies (`targets.ts`): a ball of the attacker's head, hung where a seed drew it as
   the strike at it begins and read by the rule a fight wounds by (`watchBlows`), one at a time
   ([reference/blows.md](reference/blows.md#targets)). The page logs what

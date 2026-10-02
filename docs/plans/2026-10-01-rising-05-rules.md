@@ -7,8 +7,9 @@ end: a body is out of its fight when its pool ends, and not before. A body that 
 struck. Each fight says why a side is out in one function, which is where a context's own rule
 goes if it ever has one.
 
-It needs plan 04's bar met. The standing bout tables are void once this lands and are measured
-again in it.
+It needs the battery's bar met (`docs/reference/rising.md#staged`), which the staged riser
+misses: its rise ends on knees and hands. The standing bout tables are void once this lands and
+are measured again in it.
 
 ## The owner's answers, 2026-10-01
 
