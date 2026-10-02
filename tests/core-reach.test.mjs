@@ -1,11 +1,11 @@
 /**
  * Motor control's kinematics and hand goals (`src/core/control/kinematics.ts`, `motor.ts`): the
- * chain's forward kinematics put the knuckles where the built body has them; they are exact far
- * below a millimetre, so a Jacobian differenced by 1e-7 rad is sound; the inverse kinematics find a
+ * chain's forward kinematics put the knuckles where the built body has them; the Jacobian in
+ * closed form is their derivative; the inverse kinematics find a
  * reachable place and stretch toward one out of reach without crossing the arm's straight
  * singularity; a solve says its passes and whether it ended, motor control counts its hands'
- * solves, and the solves a bout asked (`research/reach-bed.mjs`) run to the cap no oftener than
- * they did; a hand goal is followed and reached alike at the game's 120 Hz and at 1920 Hz; its
+ * solves, and of the solves a bout asked (`research/reach-bed.mjs`) those at their place end and
+ * those at the cap are the ones out of reach; a hand goal is followed and reached alike at the game's 120 Hz and at 1920 Hz; its
  * path may run on through its place, and keep its start and its clock while its place moves; and
  * a goal may name a point of what the hand holds, or two of them, which lay the held thing's line.
  * Node stand: the Warrior and the Rogue, lower trunk held, gravity on, no ground.
@@ -14,14 +14,14 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { rigidPoints } from "../src/core/build/rigid.ts";
-import { chainTo, pointAtToRef, pointNowToRef, solveReach } from "../src/core/control/kinematics.ts";
+import { chainTo, pointAtToRef, pointNowToRef, reachJacobianTo, solveReach } from "../src/core/control/kinematics.ts";
 import { motorControl } from "../src/core/control/motor.ts";
 import { servo } from "../src/core/control/servo.ts";
 import { armed } from "../src/core/human/grip.ts";
 import { humanSpec, modelSpec } from "../src/core/human/spec.ts";
 import { woodenClub } from "../src/core/items/club.ts";
 import { driveMuscles } from "../src/core/muscle/driver.ts";
-import { reachBed } from "../research/reach-bed.mjs";
+import { AT_PLACE, reachBed } from "../research/reach-bed.mjs";
 import { coreStand } from "./harness/core-stand.mjs";
 
 const GUARD = {
@@ -76,24 +76,38 @@ test("the kinematics put the knuckles and the toes where the body has them, trun
   }
 });
 
-test("the kinematics are exact far below a millimetre: a Jacobian differenced by 1e-7 rad agrees with one by 1e-5", async () => {
+test("the_jacobian_is_the_kinematics_derivative", async () => {
   const stand = await coreStand(humanSpec("workshop-fighter"), { ground: false, pinned: "lowerTrunk" });
-  const arm = rightArm(stand.built), angles = arm.at(GUARD);
-  let worst = 0;
-  for (const f of arm.free) {
-    const column = (h) => {
-      const base = pointAtToRef(arm.chain, angles, arm.knuckles, new Vector3());
-      angles[f.joint][f.k] += h;
-      const moved = pointAtToRef(arm.chain, angles, arm.knuckles, new Vector3());
-      angles[f.joint][f.k] -= h;
-      return moved.subtract(base).scale(1 / h);
-    };
-    const fine = column(1e-7), coarse = column(1e-5);
-    worst = Math.max(worst, fine.subtract(coarse).length() / coarse.length());
-  }
-  stand.dispose();
-  // A float32 step anywhere in the chain reads 1e-8 m of noise: a quarter of a column at 1e-7 rad.
-  assert.ok(worst < 1e-3, `the Jacobian's columns differ by ${worst.toExponential(2)} of themselves`);
+  try {
+    // The arm's chain has joints of three freedoms and of one; the leg's ankle has two, whose axes lean with its angles.
+    const hand = stand.built.segments.get("hand.right"), foot = stand.built.segments.get("foot.right");
+    for (const [segment, point, counts] of [[hand, hand.spec.points.knuckles.value, [3, 3, 3, 1, 3]], [foot, foot.spec.distal.value, [3, 1, 2]]]) {
+      const chain = chainTo(stand.built, segment), next = random(11);
+      assert.deepEqual(chain.map((joint) => joint.dofs.length), counts);
+      // Every freedom of the chain, the trunk's included, over its range short of a half turn.
+      const free = chain.flatMap((joint, j) => joint.dofs.map((dof, k) => ({ joint: j, k, min: Math.max(dof.spec.min.value, -3), max: Math.min(dof.spec.max.value, 3), preferred: 0 })));
+      const J = [];
+      let worst = 0, least = Infinity, most = 0;
+      for (let n = 0; n < 200; n++) {
+        const angles = chain.map((joint) => joint.dofs.map(() => 0));
+        for (const f of free) angles[f.joint][f.k] = f.min + (0.02 + 0.96 * next()) * (f.max - f.min);
+        const was = JSON.stringify(angles);
+        assert.equal(reachJacobianTo(J, chain, angles, free, point), J);
+        assert.equal(JSON.stringify(angles), was, "the angles are read, not written");
+        assert.equal(J.length, free.length);
+        free.forEach((f, c) => {
+          // Central differences of 1e-5 rad: their error is the third derivative's, 1e-10 of a column.
+          const at = (h) => { const moved = angles.map((row) => [...row]); moved[f.joint][f.k] += h; return pointAtToRef(chain, moved, point, new Vector3()); };
+          const column = at(1e-5).subtract(at(-1e-5)).scale(1 / 2e-5);
+          worst = Math.max(worst, Vector3.Distance(Vector3.FromArray(J[c]), column));
+          least = Math.min(least, column.length()); most = Math.max(most, column.length());
+        });
+      }
+      assert.ok(worst < 1e-8, `${segment.spec.name}: a column is ${worst.toExponential(2)} m/rad from the kinematics' derivative`);
+      // The control: the columns are not all small, so the bound says something of every one.
+      assert.ok(most > 0.5 && least < 0.05, `${segment.spec.name}: the columns run from ${least.toFixed(3)} to ${most.toFixed(3)} m/rad`);
+    }
+  } finally { stand.dispose(); }
 });
 
 test("the inverse kinematics find a reachable place, and stretch toward one out of reach without flipping", async () => {
@@ -153,13 +167,13 @@ test("motor_control_meters_its_hands_solves", async () => {
   try {
     stand.step(stand.seconds(1));
     assert.deepEqual(motor.state.reach, { solves: 0, passes: 0, capped: 0 }, "no hand has a goal: nothing is solved");
-    // A place the hand can take: three solves a step (the step before, the step, the step after), some of them ending.
+    // A place the hand can take: three solves a step (the step before, the step, the step after), each ending.
     const from = motor.knucklesToRef("right", new Vector3()), steps = stand.seconds(0.4);
     motor.reach("right", { places: [{ point: "knuckles", position: [from.x, from.y + 0.05, from.z + 0.2] }], seconds: 0.4 });
     stand.step(steps);
     const near = { ...motor.state.reach };
     assert.equal(near.solves, 3 * steps);
-    assert.ok(near.capped < near.solves, `${near.capped} of ${near.solves} solves ran to the cap`);
+    assert.equal(near.capped, 0);
     // Every solve takes a pass at least, and the first of a path, from the guard's angles, many.
     assert.ok(near.passes > near.solves + 10 && near.passes < CAP * near.solves, `${near.passes} passes in ${near.solves} solves`);
     // A place two metres ahead, which no arm reaches: its solves run to the cap and are counted so.
@@ -179,11 +193,29 @@ test("the_bed_s_solves_at_the_cap_are_no_more_than", async () => {
   const bed = await reachBed();
   try {
     assert.equal(bed.solves.length, 144);
-    const capped = bed.solves.filter((_, k) => !bed.solve(k).end.still).length;
-    // The bout's own count (`docs/reference/step-cost.md#the-reach-solver-at-its-cap`): a change of the solve lowers it, and none raises it.
-    assert.ok(capped <= 117, `${capped} of the bed's 144 solves ran to the cap`);
-    // The control: the bed asks what the bout asked, so the solve as it stands is not under its count by another body's arm.
-    assert.ok(capped >= 40, `only ${capped} of the bed's solves ran to the cap: 43 are of a place out of reach`);
+    const answers = bed.solves.map((_, k) => bed.solve(k)), capped = answers.filter(({ end }) => !end.still);
+    // The bed's count (`docs/reference/step-cost.md#the-reach-solver-at-its-cap`): a change of the solve lowers it, and none raises it.
+    assert.ok(capped.length <= 43, `${capped.length} of the bed's 144 solves ran to the cap`);
+    // The control: those left are of a place out of reach, half a centimetre or more, but for one.
+    assert.equal(capped.filter(({ left }) => left > 0.005).length, 42);
+  } finally { bed.dispose(); }
+});
+
+test("a_solve_at_its_place_ends", async () => {
+  const bed = await reachBed();
+  try {
+    const answers = bed.solves.map((_, k) => bed.solve(k));
+    const placed = answers.map((answer, k) => ({ ...answer, k })).filter(({ left }) => left < AT_PLACE);
+    assert.equal(placed.length, 102, "the bed's solves that are at their place");
+    // All but one end, and soon. That one stands with a wrist's freedom at its stop and is still
+    // closing at the cap, a nanometre from its place: a second solve from its answer ends, having moved it under 1e-9 rad.
+    const slow = placed.filter(({ end }) => !end.still);
+    assert.deepEqual(slow.map(({ k }) => k), [98]);
+    const most = Math.max(...placed.filter(({ end }) => end.still).map(({ end }) => end.passes));
+    assert.ok(most < 120, `a solve at its place took ${most} passes`);
+    const again = bed.solve(98, slow[0].angles);
+    const turned = Math.max(...again.angles.flatMap((row, j) => row.map((angle, i) => Math.abs(angle - slow[0].angles[j][i]))));
+    assert.ok(again.end.still && again.end.passes < 60 && turned < 1e-9, `solved again: ${again.end.passes} passes, ${turned} rad`);
   } finally { bed.dispose(); }
 });
 

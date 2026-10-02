@@ -10,7 +10,7 @@
  * placed from within the approach's reach of its place. A loop has both. The control, the high
  * and the middle targets are struck by the arm that was sent, the two surfaces sharing the blow
  * by their compliance, and a recipe's blow is harder than any placed one. The low one is under
- * the arm's reach from where the toes stop, and the reading is how near the hand passed. The
+ * the arm's reach from where the toes stop: the hand passes it farther off than a hand that lands. The
  * targets are a seed's on which each human stands through both loops: how often one falls is the
  * battery's to say (`docs/reference/blows.md#baseline`).
  */
@@ -29,6 +29,8 @@ import { coreStand } from "./harness/core-stand.mjs";
 const LOOPS = 2, TARGETS = 4, SEED = 4;
 /** Seconds allowed for the loops: a loop's walk takes about 20 s, and a target about 5. */
 const SECONDS = (30 + 8 * TARGETS) * LOOPS;
+/** How far off a hand that lands a blow may read, m: at the ball at a control step, or within a centimetre of it between two. */
+const LANDS_WITHIN = 0.01;
 
 test("the_page_draws_the_targets_the_routine_does_unless_its_address_says", () => {
   assert.deepEqual({ count: LAB_TARGETS.count, seed: LAB_TARGETS.seed }, ROUTINE_TARGETS);
@@ -76,16 +78,15 @@ for (const model of ["workshop-fighter", "workshop-rogue"]) {
       for (const reading of readings.filter((r) => r.target.stratum !== "low")) {
         const { blow, took, gave, nearest, hand, hung } = reading;
         assert.ok(hung && blow && took.damage > 0, `the ${reading.target.stratum} one read ${JSON.stringify(reading)}`);
-        // The hand's own blow, or the forearm's behind it: a hand that landed one was at the ball at a
-        // control step, or within a centimetre of it between two.
-        assert.ok(gave.segment === `hand.${hand}` ? nearest < 0.01 : gave.segment === `forearm.${hand}`, `${gave.segment}, the hand ${nearest} m off`);
+        // The hand's own blow, or the forearm's behind it: a hand that landed one read within `LANDS_WITHIN`.
+        assert.ok(gave.segment === `hand.${hand}` ? nearest < LANDS_WITHIN : gave.segment === `forearm.${hand}`, `${gave.segment}, the hand ${nearest} m off`);
         const shares = energyShares([stiffness(gave.segment), stiffness("head")]);
         assert.deepEqual([gave, took].map(({ fighter, segment, item, share }) => [fighter, segment, item, share]), [["attacker", gave.segment, null, shares[0]], ["dummy", "head", null, shares[1]]]);
         assert.deepEqual(blow.sides, [gave, took]);
       }
       const energies = (kind) => readings.filter((r) => r.blow && r.strike.kind === kind).map((r) => r.blow.energy);
       assert.ok(Math.min(...energies("recipe")) > Math.max(...energies("placed")), `recipes ${energies("recipe")} J, placed ${energies("placed")} J`);
-      for (const k of [TARGETS - 1, 2 * TARGETS - 1]) assert.ok(readings[k].blow === null && readings[k].nearest > 0.02, `the low one read ${JSON.stringify(readings[k])}`);
+      for (const k of [TARGETS - 1, 2 * TARGETS - 1]) assert.ok(readings[k].blow === null && readings[k].nearest > LANDS_WITHIN, `the low one read ${JSON.stringify(readings[k])}`);
       // Its strike thrown, a target is watched from the guard: the next attack is the next target's.
       assert.deepEqual([...after], [null]);
       assert.equal(routine.report.strike.thrown.left + routine.report.strike.thrown.right, LOOPS * TARGETS);

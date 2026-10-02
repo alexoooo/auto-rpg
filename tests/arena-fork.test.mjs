@@ -5,7 +5,7 @@
  * Rapier, 120 Hz.
  *
  * The bout is the fighter against the rogue from 4.5 m apart, each with a balance of 25 %, each
- * seeing the other two steps late, under a tape that orders the left side back before step 300
+ * seeing the other a step late, under a tape that orders the left side back before step 300
  * and hands it back to itself before step 420. It crosses blows thrown by a recipe and one placed.
  *
  * Each field of the bout's own state is sorted as a body's are (`tests/core-fork.test.mjs`): one
@@ -30,7 +30,7 @@ import { freshEngine } from "./harness/core-stand.mjs";
 import { assertForks, fieldsOf, forgetting, forks, PHYSICS_ALONE, shows, STATE_ALONE, unsorted } from "./harness/fork.mjs";
 import { traceOf } from "./harness/trace.mjs";
 
-const RECIPE = deepFreeze({ left: "workshop-fighter", right: "workshop-rogue", gap: 4.5, balance: { left: 25, right: 25 }, senseDelay: 2 });
+const RECIPE = deepFreeze({ left: "workshop-fighter", right: "workshop-rogue", gap: 4.5, balance: { left: 25, right: 25 }, senseDelay: 1 });
 /** The same bout with both sides covering what threatens them (`FighterMindConfig.guard`). */
 const COVERING = deepFreeze({ ...RECIPE, minds: { left: { ...FIGHTER, guard: "cover" }, right: { ...FIGHTER, guard: "cover" } } });
 const BACK = { move: { x: -1, z: 0 }, face: null, attack: null };
@@ -178,7 +178,7 @@ test("a_bout_rewinds", async () => {
     assert.deepEqual(saveState(duel.state), then);
     assert.equal(JSON.stringify(duel.blows), told);
     assert.equal(JSON.stringify(blows), told, "the blows it had landed are as they were");
-    assert.equal(duel.verdict, verdict);
+    assert.deepEqual(duel.verdict, verdict);
     assert.equal(stand.seen.heard.length, 2 * blows.length, "the blows landed again, and were heard again");
   } finally { stand.dispose(); }
 });
@@ -203,7 +203,7 @@ test("a_load_is_of_the_same_recipe", async () => {
       assert.throws(() => from.duel.load(minds.duel.save()), /another bout's recipe/);
     } finally { minds.dispose(); }
     // And a bout of the same recipe takes it whatever the order its recipe's keys were written in.
-    const again = await bout("twin", { senseDelay: 2, balance: { right: 25, left: 25 }, gap: RECIPE.gap, right: RECIPE.right, left: RECIPE.left });
+    const again = await bout("twin", { senseDelay: RECIPE.senseDelay, balance: { right: 25, left: 25 }, gap: RECIPE.gap, right: RECIPE.right, left: RECIPE.left });
     try {
       again.duel.load(saved);
       assert.equal(stepped(again, 300), stepped(from, 300));

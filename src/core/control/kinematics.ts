@@ -1,6 +1,6 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { BuiltBody, BuiltJoint, BuiltSegment } from "../build/build-body.ts";
-import { rotationOfToRef } from "../build/joint-state.ts";
+import { motionAxesToRef, rotationOfToRef, turningToRef } from "../build/joint-state.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { cross, dot, normalize, orthogonalTo } from "../spec/vec.ts";
 import { solve3, solveLinear } from "../math/linalg.ts";
@@ -29,7 +29,7 @@ export function chainTo(built: BuiltBody, segment: BuiltSegment): BuiltJoint[] {
   return chain;
 }
 
-const scratch = { a: new Quaternion(), b: new Quaternion(), d: new Quaternion(), v: new Vector3() };
+const scratch = { a: new Quaternion(), b: new Quaternion(), d: new Quaternion(), v: new Vector3(), at: new Vector3() };
 
 /** `joint`'s rotation at `angles` (each freedom's, its own sense), body frame: `jointAngles` undone. */
 export function rotationAtToRef(joint: BuiltJoint, angles: readonly number[], out: Quaternion): Quaternion {
@@ -51,6 +51,82 @@ export function pointAtToRef(chain: readonly BuiltJoint[], angles: readonly (rea
     scratch.v.set(next[0] - centre[0], next[1] - centre[1], next[2] - centre[2]).applyRotationQuaternionToRef(turn, scratch.v);
     out.addInPlace(scratch.v);
   });
+  return out;
+}
+
+/**
+ * What a walk of a chain leaves (`walkTo`): the turn of everything before each joint; each
+ * joint's centre as the chain stands; the turn of the chain's last segment; and, for each freedom
+ * asked for, its spin: the axis, root's frame, that everything beyond its joint turns about for a
+ * unit of its rate. Made once and grown to the longest chain walked: a walk writes every entry it
+ * or its reader reads.
+ */
+const walked = {
+  before: [] as Quaternion[], centre: [] as Vector3[], last: new Quaternion(), spin: [] as Vector3[],
+  axes: [] as Vec3[], turning: [] as number[][],
+};
+
+/**
+ * Walk `chain` at `angles`, into `walked`. A freedom's spin is its joint's axes (`motionAxesToRef`,
+ * which leans a two-freedom joint's as its lock asks) summed by what each freedom's speed is for a
+ * unit of this one's rate (`turningToRef`), turned by everything before the joint.
+ */
+function walkTo(chain: readonly BuiltJoint[], angles: readonly (readonly number[])[], free: readonly ReachFreedom[]): void {
+  const { before, centre, last, spin, axes, turning } = walked;
+  last.copyFromFloats(0, 0, 0, 1);
+  for (let j = 0; j < chain.length; j++) {
+    const joint = chain[j]!, at = (centre[j] ??= new Vector3()), c = joint.spec.centre.value;
+    (before[j] ??= new Quaternion()).copyFrom(last);
+    if (j === 0) at.set(c[0], c[1], c[2]);
+    else {
+      const from = chain[j - 1]!.spec.centre.value;
+      scratch.v.set(c[0] - from[0], c[1] - from[1], c[2] - from[2]).applyRotationQuaternionToRef(last, scratch.v);
+      at.copyFrom(centre[j - 1]!).addInPlace(scratch.v);
+    }
+    last.multiplyInPlace(rotationAtToRef(joint, angles[j]!, scratch.b));
+  }
+  let read = -1;
+  for (let c = 0; c < free.length; c++) {
+    const f = free[c]!, joint = chain[f.joint]!;
+    if (f.joint !== read) {
+      motionAxesToRef(joint, angles[f.joint]!, axes);
+      turningToRef(joint, angles[f.joint]!, turning);
+      read = f.joint;
+    }
+    let x = 0, y = 0, z = 0;
+    for (let i = 0; i < joint.dofs.length; i++) {
+      const axis = axes[i]!, share = turning[i]![f.k]!;
+      x += axis[0] * share; y += axis[1] * share; z += axis[2] * share;
+    }
+    (spin[c] ??= new Vector3()).set(x, y, z).applyRotationQuaternionToRef(before[f.joint]!, spin[c]!);
+  }
+}
+
+/** Where `point` of the last segment of the chain last walked is, root's frame: `pointAtToRef`'s answer, by the walk's sums. */
+function walkedPointToRef(chain: readonly BuiltJoint[], point: Vec3, out: Vector3): Vector3 {
+  const end = chain.length - 1, c = chain[end]!.spec.centre.value;
+  scratch.v.set(point[0] - c[0], point[1] - c[1], point[2] - c[2]).applyRotationQuaternionToRef(walked.last, scratch.v);
+  return out.copyFrom(walked.centre[end]!).addInPlace(scratch.v);
+}
+
+/** How a point at `at` moves for a unit of the walked chain's freedom `c` of joint `joint`: its spin crossed with the arm from the joint's centre, into `out` from `from` on. */
+function walkedColumn(c: number, joint: number, at: Vector3, out: number[], from: number): void {
+  const w = walked.spin[c]!, centre = walked.centre[joint]!, x = at.x - centre.x, y = at.y - centre.y, z = at.z - centre.z;
+  out[from] = w.y * z - w.z * y; out[from + 1] = w.z * x - w.x * z; out[from + 2] = w.x * y - w.y * x;
+}
+
+/**
+ * How `point` (body frame, reference pose, on the chain's last segment) moves for a unit of each
+ * of `free`, with the chain at `angles`: `out[c]` is freedom c's column, m/rad, root's frame. One
+ * walk of the chain, no differences: the column of freedom k of joint j is w x (p - c_j), p the
+ * point as the chain stands, c_j the joint's centre, w the freedom's spin (`walkTo`).
+ */
+export function reachJacobianTo(out: number[][], chain: readonly BuiltJoint[], angles: readonly (readonly number[])[],
+  free: readonly ReachFreedom[], point: Vec3): number[][] {
+  walkTo(chain, angles, free);
+  const at = walkedPointToRef(chain, point, scratch.at);
+  out.length = free.length;
+  for (let c = 0; c < free.length; c++) walkedColumn(c, free[c]!.joint, at, (out[c] ??= []), 0);
   return out;
 }
 
@@ -127,7 +203,9 @@ export interface ReachEnd { passes: number; still: boolean }
  * Damped least squares: each pass moves the free angles by J+ e, J's pseudo-inverse damped by
  * `IK_DAMPING` so a straight arm does not fling, plus the null space's share of a pull toward the
  * preferred angles, so a redundant arm settles its swing where the posture asks rather than
- * wherever it began; then clamps each to its range. J is read by differences of `IK_STEP` rad.
+ * wherever it began; then clamps each to its range. J is the kinematics' own derivative, in
+ * closed form (`reachJacobianTo`): read by differences its noise is a thousand times what the
+ * solve stops at, and a solve at its place never stops.
  * Where the free angles do not outnumber the rows there is no null space, and no pull.
  *
  * A range that reaches a half turn is taken `IK_SHORT` short of it: a joint's angles read within
@@ -139,7 +217,7 @@ export function solveReach(chain: readonly BuiltJoint[], angles: number[][], fre
   if (tasks.length !== 1 && tasks.length !== 2) throw new Error(`a reach is one task or two, not ${tasks.length}`);
   const [first, second] = tasks as readonly [ReachTask, ReachTask?];
   const n = free.length, rows = Array.from({ length: second ? 5 : 3 }, (_, r) => r), solve = second ? solveLinear : solve3;
-  const at = new Vector3(), moved = new Vector3(), at2 = new Vector3(), moved2 = new Vector3();
+  const at = new Vector3(), at2 = new Vector3(), column: [number, number, number] = [0, 0, 0];
   const J = free.map(() => rows.map(() => 0));
   // Each freedom's range, kept short of the half turn its joint's measure reads within.
   const least = free.map((f) => Math.max(f.min, IK_SHORT - Math.PI)), most = free.map((f) => Math.min(f.max, Math.PI - IK_SHORT));
@@ -152,13 +230,14 @@ export function solveReach(chain: readonly BuiltJoint[], angles: number[][], fre
   let left = Infinity, taken = 0, still = false;
   while (taken < IK_PASSES && !still) {
     taken++;
-    pointAtToRef(chain, angles, first.point, at);
+    walkTo(chain, angles, free);
+    walkedPointToRef(chain, first.point, at);
     const e = [first.target[0] - at.x, first.target[1] - at.y, first.target[2] - at.z];
     left = hypot(e[0]!, e[1]!, e[2]!);
     // The second point's two directions: square to the line from the first point to it, as they lie.
     let a: Vec3 | null = null, b: Vec3 | null = null;
     if (second) {
-      pointAtToRef(chain, angles, second.point, at2);
+      walkedPointToRef(chain, second.point, at2);
       const line = normalize([at2.x - at.x, at2.y - at.y, at2.z - at.z]);
       a = orthogonalTo(Math.abs(line[1]) < Math.abs(line[0]) ? [0, 1, 0] : [1, 0, 0], line);
       b = cross(line, a);
@@ -166,18 +245,13 @@ export function solveReach(chain: readonly BuiltJoint[], angles: number[][], fre
       e.push(dot(e2, a), dot(e2, b));
       left = Math.max(left, hypot(e2[0], e2[1], e2[2]));
     }
-    free.forEach((f, c) => {
-      const row = angles[f.joint]!, keep = row[f.k]!;
-      row[f.k] = keep + IK_STEP;
-      pointAtToRef(chain, angles, first.point, moved);
-      if (second) pointAtToRef(chain, angles, second.point, moved2);
-      row[f.k] = keep;
-      J[c]![0] = (moved.x - at.x) / IK_STEP; J[c]![1] = (moved.y - at.y) / IK_STEP; J[c]![2] = (moved.z - at.z) / IK_STEP;
+    for (let c = 0; c < n; c++) {
+      walkedColumn(c, free[c]!.joint, at, J[c]!, 0);
       if (second) {
-        const d: Vec3 = [(moved2.x - at2.x) / IK_STEP, (moved2.y - at2.y) / IK_STEP, (moved2.z - at2.z) / IK_STEP];
-        J[c]![3] = dot(d, a!); J[c]![4] = dot(d, b!);
+        walkedColumn(c, free[c]!.joint, at2, column, 0);
+        J[c]![3] = dot(column, a!); J[c]![4] = dot(column, b!);
       }
-    });
+    }
     // The step is J' (J J' + damping^2 I)^-1 e, and the posture's pull is projected off what J
     // sees, (I - J' (J J')^-1 J) p: a projector damped as the step is leaks a share of the pull
     // into the hand's place, and the solve settles that far from the target. A straight arm sees
@@ -232,13 +306,13 @@ export function solveReach(chain: readonly BuiltJoint[], angles: number[][], fre
 
 /**
  * The solver's numeric settings, which are not anatomy: passes at most, the largest change of an
- * angle it stops at (rad), the angle it differences by (rad), its damping (m), and how far short
+ * angle it stops at (rad), its damping (m), and how far short
  * of a half turn it keeps every angle (rad): there the half angle's tangent is 20, and a servo
  * that follows the angle a few degrees off reads it on the same side; and the least a place
  * moves for a radian, m, for the posture's pull to be kept off that way: at a decimetre a
  * radian, an arm's own, the pull's leak into the place is a part in a hundred million.
  */
-const IK_PASSES = 200, IK_TOLERANCE = 1e-10, IK_STEP = 1e-7, IK_DAMPING = 0.01, IK_SHORT = 0.1, IK_BLIND = 1e-5;
+const IK_PASSES = 200, IK_TOLERANCE = 1e-10, IK_DAMPING = 0.01, IK_SHORT = 0.1, IK_BLIND = 1e-5;
 /**
  * What shapes the path an arm takes to a place: the share of the way to the preferred angles each
  * pass asks in the null space, and the most any angle turns in one pass (rad). Set

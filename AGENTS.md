@@ -106,8 +106,8 @@ screens build on it; it never imports them.
   `getAbsolutePosition()`, `getDirection()`: `WORLD_MATRIX_READERS`, which the boundary test
   enforces by type). From a console, call `computeWorldMatrix(true)` on every node you read.
 - **Turn a vector with `applyRotationQuaternionToRef`**, never `rotateByQuaternionToRef`, which
-  goes through a float32 matrix: enough noise to ruin a differenced Jacobian. The boundary test
-  refuses it in the core.
+  goes through a float32 matrix: 1e-8 m of noise in every point it turns, which a solve that
+  stops at 1e-10 rad never gets under. The boundary test refuses it in the core.
 - **A controller of a fast chain asks for the motion under way** (`bias` in `bodyDynamics`,
   `src/core/build/dynamics.ts`, gyroscopic torque included), or a fast forearm throws the hand it
   holds.

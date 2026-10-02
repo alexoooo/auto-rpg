@@ -268,24 +268,21 @@ All of it on a physically based core, humans first ([architecture](architecture.
   ([stance tuning](reference/stance-tuning.md#bounded-swing)). No sourced human reference exists
   for shove impulses or for reversal time.
 - The stance does not model the thighs touching.
-- The reach solver runs to its cap. A hand sent to a place is solved three times a step
-  (`solveReach`), and most of those solves take all 200 passes: in a bout of the Warrior against
-  the Rogue that is 42 steps in a row of 6 to 11 ms where the median step is 1.2 ms
-  ([reference/step-cost.md](reference/step-cost.md#the-reach-solver-at-its-cap)). They are of
-  two kinds.
-  - At its place and never still: the noise of its differenced Jacobian is larger than the
-    1e-10 rad it stops at. The Jacobian in closed form ends these, 74 of the bout's 117, and is
-    planned, with a meter of the solve's passes and a bed of the bout's real solves
-    ([plans/2026-10-02-step-01-reach.md](plans/2026-10-02-step-01-reach.md)); not built.
-  - Out of reach: the solve has no still point, since the posture's pull is taken along
-    directions that hold the place only where the place is reached. What it answers is whichever
-    pass was the last, and the hand's rate and acceleration are differences of three such
-    answers. Six rules of its step were tried and none ends them at an answer a second solve
-    leaves alone; two of them read 0 solves at the cap and were not cures
-    ([reference/step-cost.md](reference/step-cost.md#the-reach-solvers-remedies-tried)). It
-    wants a solve whose answer out of reach is defined (the nearest pose, then the posture among
-    those), judged on the bed: it ends by stillness, a second solve from its answer moves
-    nothing, and a step's three answers vary smoothly.
+- The reach solver runs to its cap out of reach. A hand sent to a place is solved three times a
+  step (`solveReach`); a solve says its passes and motor control counts them (`ReachMeter`). Of
+  the 144 solves a bout of the Warrior against the Rogue asked, kept as a bed
+  (`tests/fixtures/reach-solves.json`, `node research/reach-bed.mjs`), 43 still take all 200
+  passes, and in that bout the eight dearest steps, which ask them, take 8.7 to 10.4 ms where the
+  median is 1.2 ([reference/step-cost.md](reference/step-cost.md#the-reach-solver-at-its-cap)).
+  42 of them are of a place out of reach, 6.6 mm to 0.49 m beyond the hand: the solve has no
+  still point, since the posture's pull is taken along directions that hold the place only where
+  the place is reached. What it answers is whichever pass was the last, and the hand's rate and
+  acceleration are differences of three such answers. Six rules of its step were tried and none
+  ends them at an answer a second solve leaves alone; two of them read 0 solves at the cap and
+  were not cures ([reference/step-cost.md](reference/step-cost.md#the-reach-solvers-remedies-tried)).
+  It wants a solve whose answer out of reach is defined (the nearest pose, then the posture
+  among those), judged on the bed: it ends by stillness, a second solve from its answer moves
+  nothing, and a step's three answers vary smoothly.
 - A hand goal has no orientation or speed yet, and the trunk takes no goal.
 - Attributes: a size range (x0.9-1.18), a weight range (x0.85-1.25), and arm speed as a muscle's
   fibre share.

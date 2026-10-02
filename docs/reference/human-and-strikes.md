@@ -217,9 +217,15 @@ and 4 cm across.
 its preferred one, the share a pass asks in the null space of the reach; and the most any angle
 turns in a pass, the whole step scaled alike, so a place out of reach draws the arm straight
 toward it. Both shape the path an arm takes to a place and not where it ends. Set. The solver's
-other settings (its passes, tolerance, differencing step and damping, how far short of a half
-turn it keeps an angle, and the least a way moves a place for the posture's pull to be kept off
-it) are numerics.
+other settings (its passes, tolerance and damping, how far short of a half turn it keeps an
+angle, and the least a way moves a place for the posture's pull to be kept off it) are numerics.
+
+The solve's Jacobian is the kinematics' own derivative in closed form (`reachJacobianTo`): how a
+point of the chain's last segment moves for a unit of each freedom, from the joints' own axes
+(`motionAxesToRef`, `turningToRef`), one walk of the chain a pass. A solve says how many passes
+it took and whether it stopped of itself (`ReachEnd`), and motor control counts them
+(`ReachMeter`); what the count is in a bout, and which solves still run to the cap, is in
+[step-cost.md](step-cost.md#the-reach-solver-at-its-cap).
 
 **The wrist is the arm's.** A hand goal moves the shoulder's, the elbow's and the wrist's
 freedoms, seven for the three rows of one place. With the wrist held at the posture's angles, a

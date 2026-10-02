@@ -15,6 +15,7 @@ of one run.
 ```powershell
 node research/step-garbage.mjs --bodies 1,2,4,8,10,12,16,24,32,48
 node research/step-time.mjs --profile
+node research/reach-bed.mjs
 node research/step-garbage.mjs --sites
 node research/crypt-plan.mjs --seeds 1,2,3,4
 node research/crypt-plan.mjs --seeds 1,2,3,4 --profile
@@ -60,7 +61,10 @@ V8's sampling heap profiler (`allocatedIn`, `tests/harness/garbage.mjs`). Nobody
 ## A bout's step
 
 `research/step-time.mjs`. One arena bout, the Warrior against the Rogue, each with the club, to
-its verdict at 1145 steps (9.54 s), played four times in one process, a world each. A bout plays
+its verdict at 1145 steps (9.54 s), played four times in one process, a world each. This section,
+with its profile and what it allocates, is the bout as it was before the reach's Jacobian was in
+closed form (`src/core/control/kinematics.ts@889b3c3d`); the bout with it is read in
+[The reach solver at its cap](#the-reach-solver-at-its-cap). A bout plays
 the same to the bit each time, so step k is the same work in every playing: the least of its times
 over the last three playings is what that work takes, and what a playing took beyond it was the
 machine's or the collector's.
@@ -115,9 +119,50 @@ A hand sent to a place (`BodyCommand`'s places, `motor.ts`'s `solveAt`) is solve
 step, at the path's point a step back, now and a step on, so its freedoms' rates and accelerations
 are differences of the three. Each solve is `solveReach` (`src/core/control/kinematics.ts`), damped
 least squares from the last step's answer, to at most 200 passes (`IK_PASSES`) or until no angle
-moves 1e-10 rad in a pass (`IK_TOLERANCE`).
+moves 1e-10 rad in a pass (`IK_TOLERANCE`). A solve says how many passes it took and whether it
+stopped of itself (`ReachEnd`), and motor control sums them for each body (`ReachMeter`), which
+`research/step-time.mjs` prints.
 
-Read with a counter put into `solveReach` for the reading and taken out again, in three bouts:
+Its Jacobian is the kinematics' own derivative in closed form (`reachJacobianTo`): the point's
+velocity for a unit of each freedom's rate, from the joint's own axes (`motionAxesToRef`,
+`turningToRef`, `src/core/build/joint-state.ts`), one walk of the chain a pass. Against central
+differences of 1e-5 rad over 200 poses drawn across each freedom's range, on the Warrior's arm
+(joints of 3, 3, 3, 1 and 3 freedoms) and leg (3, 1, 2), it is within 9.9e-11 m/rad, and
+`tests/core-reach.test.mjs` holds it within 1e-8. The Jacobian it replaced was read by forward differences of
+1e-7 rad (`@889b3c3d`), within 8.8e-8 of the same.
+
+**The bed.** The 144 solves of the bout as it was at `889b3c3d` (all of them the Rogue's right arm,
+steps 1022 to 1069), each as it was asked: its chain, the angles it started from, its freedoms and
+its tasks (`tests/fixtures/reach-solves.json`). Each is solved again alone, so two solves are
+judged on the same questions where in a bout every change of the solve is another bout.
+`node research/reach-bed.mjs`, kinematics alone, Node core stand; the two rows read one after the
+other on a quiet machine, a pass's time the least of seven readings of the 144.
+
+| The Jacobian | At 200 passes | All passes | Of those that end: median, most | At their place (0.1 mm), and of them at the cap | Solved again from its answer, the most an angle moves | A step's three: the greatest second difference | A pass |
+|---|---|---|---|---|---|---|---|
+| Differenced (`@889b3c3d`) | 117 of 144 | 24583 | 27, 146 | 102, 75 | 1.8e-9 rad where it ended, 3.7e-2 where it did not | 0.2949 rad | 10.65 us |
+| In closed form | 43 of 144 | 11470 | 28, 109 | 102, 1 | 7.6e-11 rad where it ended, 3.7e-2 where it did not | 0.2949 rad | 9.86 us |
+
+- **A solve at its place ends**, but one: solve 98, with a freedom of the wrist at its stop, is
+  1.1e-9 m from its place and still closing at the cap. Solved again from its answer it ends in
+  42 passes, having moved under 1e-9 rad.
+- **The other 42 at the cap are of a place out of reach**, 6.6 mm to 0.49 m beyond the hand.
+- A pass costs no more than it did, and the 144 solves take 113 ms where they took 262.
+
+In the bout, `node research/step-time.mjs` read one after the other on a quiet machine, each step
+the least of its times over three playings:
+
+| The Jacobian | Steps, and how it ends | Solves, at the cap, all passes | A step, ms: mean, median, 99th per cent, longest | The rest beside the solver, ms: mean, 99th per cent | Steps over 3 ms in three playings |
+|---|---|---|---|---|---|
+| Differenced (`@889b3c3d`) | 1145: the Warrior, by a fatal blow, at 9.54 s | 144, 117, 24583 | 1.547, 1.225, 9.337, 11.294 | 0.998, 8.660 | 144 of 3435 |
+| In closed form | 1244: the Warrior, by a fall, at 10.37 s | 144, 43, 11469 | 1.418, 1.165, 7.767, 10.355 | 0.908, 7.117 | 70 of 3732 |
+
+- The steps over 3 ms are halved and **the longest are left**: the eight dearest, steps 1057 to 1068,
+  take 8.7 to 10.4 ms, each with the solver's 0.64 to 0.70. They are the steps whose three solves
+  are out of reach and each runs its 200 passes. They go with a solve whose answer out of reach
+  is defined ([below](#the-reach-solvers-remedies-tried)).
+
+Read with a counter put into `solveReach` at `8d783172`, before the meter, in three bouts:
 
 | Bout | Steps | Steps with a reach | Solves | Solves that ran all 200 passes | Passes in a step with a reach: the median, the most |
 |---|---|---|---|---|---|
@@ -125,25 +170,26 @@ Read with a counter put into `solveReach` for the reading and taken out again, i
 | Skeleton against skeleton | 2236 | 0 | 0 | 0 | |
 | Warrior against skeleton | 1578 | 0 | 0 | 0 | |
 
-A solve that ends does so in 25 to 59 passes. The 117 that do not are of two kinds, by how the last
-six passes moved:
+With the Jacobian differenced, a solve that ended did so in 25 to 59 passes, and the 117 that did
+not were of two kinds, by how the last six passes moved:
 
-- **At its place, and never still.** The point is at its target to the tenth of a millimetre, and
-  every pass still moves an angle by 2e-10 to 1e-8 rad, never under the 1e-10 it stops at. The
-  Jacobian is read by differences of 1e-7 rad (`IK_STEP`), which leaves it rounding of about 1e-9;
-  the posture's pull is projected through it, so the step never falls under that. The solve was
-  done by about the 30th pass and runs the other 170.
+- **At its place, and never still.** The point was at its target to the tenth of a millimetre,
+  and every pass still moved an angle by 2e-10 to 1e-8 rad, never under the 1e-10 it stops at.
+  The Jacobian was read by differences of 1e-7 rad, which left it rounding of about 1e-9; the
+  posture's pull is projected through it, so the step never fell under that. The solve was done
+  by about the 30th pass and ran the other 170. The closed form ends these.
 - **Out of reach, and turning back and forth.** With the target 0.24 to 0.45 m beyond the hand and
   a freedom at its stop, every pass turns the most a pass may (`IK_TURN`, 0.2 rad) and the next
   turns it back: the distance left alternates between two values (0.4098 and 0.3642 m in one
   solve) to the 200th pass. What the solve returns is whichever end of the swing the 200th pass
   is.
 
-Tried on the Warrior against the Rogue, each a change of the solve alone:
+Tried on the Warrior against the Rogue at `8d783172`, with the Jacobian differenced, each a change
+of the solve alone:
 
 | The solve | Solves at 200 passes | Passes in a step with a reach, median | The bout |
 |---|---|---|---|
-| As it is | 117 of 144 | 600 | the Warrior, by a fatal blow, at 9.54 s |
+| As it was | 117 of 144 | 600 | the Warrior, by a fatal blow, at 9.54 s |
 | The turn a pass may take halved whenever the distance left did not fall | 74 of 288 | 201 | the Warrior, fatal, 14.01 s |
 | That, stopping at 1e-8 rad | 71 of 288 | 65 | the Warrior, fatal, 14.21 s |
 | That, stopping at 1e-7 rad | 103 of 432 | 53 | the Warrior, by a fall, 20.20 s |
@@ -156,22 +202,19 @@ rows say little of the solve itself: the next table asks every solve the same qu
 
 ### The reach solver's remedies, tried
 
-The bout's 144 solves, each taken from the bout as it was asked (its chain, the angles it started
-from, its freedoms and its tasks; all are the Rogue's right arm, steps 1022 to 1069) and solved
-again alone, by `solveReach` as it is and by scratch copies of it at `8d783172`. So every row
-answers the same 144 questions. The solves are kept (`tests/fixtures/reach-solves.json`), and
-`node research/reach-bed.mjs` solves them by the solve in the tree: the first row is its reading.
-Read beside the passes:
+The bed's 144 solves, by `solveReach` with its Jacobian differenced (`@889b3c3d`) and by scratch
+copies of it at `8d783172`. So every row answers the same 144 questions. The closed form is the
+solve in the tree, and `node research/reach-bed.mjs` reads its row again. Read beside the passes:
 
 - **Solved again**: the solve run once more from its own answer, and the most any angle moves. An
   answer is one a second solve leaves alone.
-- **Farther, nearer**: the solves that end farther from their place than the solve as it is does,
-  and nearer.
+- **Farther, nearer**: the solves that end farther from their place than the differenced solve
+  does, and nearer.
 
 | The solve | At 200 passes | All passes | Of those that end: median, most | Farther, nearer | Solved again, rad |
 |---|---|---|---|---|---|
-| As it is | 117 of 144 | 24583 | 27, 146 | | 1.8e-9 where it ended, 3.7e-2 where it did not |
-| **The Jacobian in closed form** | 43 | 11470 | 28, 109 | 16 (by 0.036 mm at most), 4 | 7.6e-11 where it ended |
+| Differenced | 117 of 144 | 24583 | 27, 146 | | 1.8e-9 where it ended, 3.7e-2 where it did not |
+| **The Jacobian in closed form**, the solve in the tree | 43 | 11470 | 28, 109 | 16 (by 0.036 mm at most), 4 | 7.6e-11 where it ended |
 | That, and a step refused when the error grows: the damping four times on a refusal, halved on a step taken | 0 | 4024 | 27, 142 | 0, 42 | 0.20 |
 | The same on the differenced Jacobian | 48 | | | | |
 | Closed form, and the turn a pass may take halved on a refusal and doubled on a step taken | 28 | 12113 | | 3, 39 | 9.8e-2 |
@@ -180,23 +223,18 @@ Read beside the passes:
 | Closed form, the pull taken by halves with the place's step put right after it | 35 | 11310 | | | 0.62 |
 | Closed form, the pull dropped on a refusal, then the damping raised | 39 to 40 | 9212 to 10899 | | | 0.77 |
 
-The Jacobian in closed form is the point's velocity for a unit of each freedom's rate, from the
-joint's own axes (`motionAxesToRef`, `turningToRef`, `src/core/build/joint-state.ts`): one walk
-of the chain a pass. Against central differences of 1e-5 rad over 200 poses drawn across each
-freedom's range, on an arm (joints of 3, 3, 3, 1 and 3 freedoms) and a leg (3, 1, 2), it is within
-9.9e-11 m/rad; forward differences of 1e-7 rad, the solve's own, are within 8.8e-8.
-
-- **The closed form ends the solves that were at their place**: 74 of the 117. Where the solve as
-  it is ended, the two answers are within 1.2e-8 rad. All passes fall by more than half.
-- **The 43 left are the ones out of reach, and no rule of the step ends them.** The rows that
-  read 0 at the cap are not cures: 69 of the solves in the third row end because the damping has
+- **The closed form ends the solves that were at their place**: 74 of the 117. Where the
+  differenced solve ended, the two answers are within 1.2e-8 rad. All passes fall by more than
+  half.
+- **The 43 left are the ones out of reach (but solve 98, above), and no rule of the step ends
+  them.** The rows that read 0 at the cap are not cures: 69 of the solves in the third row end because the damping has
   grown until nothing moves, and solved again from where they stopped their angles move 0.2 rad.
   A count of solves at the cap reads the same for a solve that converged and one that gave up;
   the reading that tells them apart is the solve taken again.
 - The same holds across a step. A hand's three solves a step apart are differenced for its rate
   and its acceleration (`solveAt`), so three answers that are not the same function of their
   place make an acceleration of nothing: the greatest second difference of a step's three is
-  0.29 rad as it is and 0.56 with the pull dropped on a refusal.
+  0.29 rad with either Jacobian and 0.56 with the pull dropped on a refusal.
 - Why out of reach has no still point: the posture's pull is asked in the directions that leave
   the place where it is, to first order. Where the place is reached those are the directions the
   answers lie along. Out of reach they are not: the pull bends the elbow and turns the shoulder
@@ -206,11 +244,11 @@ freedom's range, on an arm (joints of 3, 3, 3, 1 and 3 freedoms) and a leg (3, 1
   is defined, which is a design and not a rule of its step; it is the roadmap's
   ([roadmap](../roadmap.md#body-and-motor-control)).
 
-In the bout, each a bout of its own:
+In the bout, each a bout of its own, read with the counter in scratch copies:
 
 | The solve | Steps, and how it ends | Solves at 200 passes | Passes in a step with a reach: median, most |
 |---|---|---|---|
-| As it is | 1145: the Warrior, by a fatal blow, at 9.54 s | 117 | 600, 600 |
+| Differenced | 1145: the Warrior, by a fatal blow, at 9.54 s | 117 | 600, 600 |
 | The Jacobian in closed form | 1244: the Warrior, by a fall, at 10.37 s | 43 | 89, 600 |
 | That, and a step refused when the error grows | 1270: the Warrior, by a fall, at 10.58 s | 0 | 70, 175 |
 
