@@ -415,6 +415,8 @@ export class DungeonRun {
 
   private perceive(): void {
     const members = this.party.filter(member => member.alive);
+    // With nobody of the party standing the run is lost in this plan, and what it last saw stands.
+    if (!members.length) return;
     const places = members.map(member => member.feet());
     this.visible = this.sight(places);
     // An enemy goes for the nearest party member it can see.

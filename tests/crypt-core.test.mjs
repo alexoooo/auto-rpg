@@ -1,12 +1,13 @@
 // The Crypt (`src/dungeon/run.ts`): a seeded crypt loads, its bodies stand in it, and a
-// fight starts and ends; its doors are fixed boxes in the world until they open (Node, core
-// world, Rapier, 120 Hz).
+// fight starts and ends; its doors are fixed boxes in the world until they open; a run is lost
+// when its party is down, in whatever step that is (Node, core world, Rapier, 120 Hz).
 import test from "node:test";
 import assert from "node:assert/strict";
 import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { Scene } from "@babylonjs/core/scene.js";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode.js";
-import { Quaternion } from "@babylonjs/core/Maths/math.vector.js";
+import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { centreOfToRef } from "../src/core/control/support.ts";
 import { DungeonRun, REST, WAKE_METRES } from "../src/dungeon/run.ts";
 import { generateLevel } from "../src/dungeon/level.ts";
 import { clearSegment, distance, findPath, walkable } from "../src/dungeon/map.ts";
@@ -193,4 +194,27 @@ test("a_closed_door_is_a_wall_until_it_opens", async () => {
     run.world.step(run.world.hz);
     assert.ok(node.position.y < 2 * radius, `opened, the door is gone and the ball on the floor: ${node.position.y}`);
   } finally { dispose(); }
+});
+
+test("a_run_is_lost_when_its_last_member_falls_in_whatever_step_that_is", async () => {
+  // One hall, the hero alone in it: its one enemy waits unbuilt, far beyond `WAKE_METRES`.
+  const size = 41, floor = new Uint8Array(size * size);
+  for (let z = 19; z <= 21; z++) for (let x = 3; x <= 37; x++) floor[z * size + x] = 1;
+  const hall = () => ({ seed: 1, size, floor: floor.slice(), doors: [], rooms: [{ id: 0, centre: { x: 20, z: 20 }, min: { x: 3, z: 19 }, max: { x: 37, z: 21 } }],
+    start: { x: 6, z: 20 }, exit: { x: 37, z: 20 }, spawns: [{ x: 33, z: 20 }] });
+  // The party looks about it every 0.2 s, 24 steps: felled a step later each time, the hero is first
+  // found down in every step of that round, the one the party looks in among them.
+  const ended = [];
+  for (let late = 0; late < 24; late++) {
+    const { run, dispose } = await crypt(42, hall());
+    try {
+      run.step(60 + late);
+      const trunk = run.hero.fighter.built.segments.get("upperTrunk");
+      // 200 N s at the upper trunk, from the side: it does not keep its feet.
+      trunk.body.applyImpulse(new Vector3(0, 0, 200), centreOfToRef(trunk, new Vector3()));
+      seconds(run, 3);
+      ended.push([late, run.status, run.visible.size > 0]);
+    } finally { dispose(); }
+  }
+  assert.deepEqual(ended, Array.from({ length: 24 }, (_, late) => [late, "dead", true]), "lost each time, and what the party last saw stands");
 });
