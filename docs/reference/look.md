@@ -104,9 +104,8 @@ stance, strike or scenario says when a sound is due:
   of what they hold. A body has one looping voice that follows it (`GameAudio.swish`, `SWISH`).
 
 Every screen plays both. The lab plays its body's from a log at the mind's time, with the touches
-of a target the Routine hangs beside it, and the cues of its two instruments that are no contact:
-the page's hand shoving the body, and the Blow scenario's mark (`src/lab/sound-log.ts`,
-[lab.md](lab.md#sound)). The arena plays its two sides'
+of a target the Routine or the Blow hangs beside it, and the cue of its one instrument that is no
+contact, the page's hand shoving the body (`src/lab/sound-log.ts`, [lab.md](lab.md#sound)). The arena plays its two sides'
 as they happen, until the verdict (`src/arena/main.ts`). The crypt plays every built body's
 while the party sees the cell the body stands in (`hearRun`, `src/dungeon/hearing.ts`), fading
 with its distance from the leader (`PLACEMENT.reach`). A screen that stops playing drops the
@@ -155,14 +154,15 @@ is how loud a footfall is beside a blow.
 capped at 1, and a touch weaker than 0.0125, which is 0.0094 J, makes no sound. Both are read
 from [the touches measured](#touches-measured):
 
-- **60 J** is over the hardest touch of one body on another in three bouts (54.4 J), so a bout's
-  blows use the range and a hard fall's landing comes to the end of it (to 59 J). The Warrior's
-  strongest club blow carries 138 J on a mark that does not give (`core-club-unit`); on a head
-  that does, the Blow scenario's lands 119 J. A fist on a target of the Routine carries 6 to
-  7.8 J where a recipe is thrown and 1 J or less where the blow is placed.
-- **0.0125** is between a sole set down and the quietest footfall. Of 955 touches of a foot on
-  the ground by a body on its feet, 7 are under 0.0094 J, each of 0.0083 J or less: a sole laid
-  flat at 0.06 to 0.09 m/s, a sixth of a footfall's speed. The quietest of the rest is 0.0099 J,
+- **60 J** is a hard fall's landing, which comes to the end of the range (to 59 J). A club blow
+  that lands is past it, and as loud as a cue gets: of the 8 touches of one body on another in
+  three bouts 2 are over 60 J (72.1 and 112 J, a club on a head and on a trunk), and the Blow
+  scenario's club blows land 48 to 137 J on their target bodies. A fist on a target of the
+  Routine carries 4.6 to 37 J where a recipe is thrown and 1 J or less where the blow is placed.
+- **0.0125** is between a sole set down and the quietest footfall but two. Of 1061 touches of a
+  foot on the ground by a body on its feet, 7 are under 0.0094 J: five are a sole laid flat at
+  0.06 to 0.08 m/s, a sixth of a footfall's speed, each of 0.0083 J or less; two are a toe's edge
+  set down in the Routine at 0.19 and 0.32 m/s, 0.0040 and 0.0088 J. The quietest of the rest is 0.0099 J,
   strength 0.0128, so the gap the floor sits in is narrow. A footfall is of two kinds: the sole
   landing flat meets 2 kg of the body at about 0.5 m/s, 0.2 to 0.3 J; a sole landing on its
   toe's edge meets 0.2 kg, 0.01 to 0.09 J. The skeleton's walk is the second kind at nearly every
@@ -175,9 +175,10 @@ from [the touches measured](#touches-measured):
   4.38 m/s, a foot, for one step of the shuttle's half turn). A foot catching a hard shove passes
   it (to 6.3 m/s, for 0.03 s or less), and so does a foot going out from under a body that falls
   (7.0 to 8.4 m/s) and a hand of a body going down (10 to 16 m/s).
-- **20 m/s** is a club's end in the Blow scenario's blow: 19.3 m/s before it lands, 20.3 m/s over
-  the whole of it. A fist's far point in the Routine's strikes reaches 12.6 to 14.8 m/s, half to
-  two thirds of the air; the clubs of three bouts 13.3 to 19.9 m/s.
+- **20 m/s** is the Warrior's club's end in the Blow scenario's blows, 19.9 to 20.3 m/s; the
+  Rogue's reaches 12.9 to 13.6 m/s and the skeleton's 14.5 to 18.6. A fist's far point in the
+  Routine's strikes reaches 13.4 to 14.5 m/s, 0.56 to 0.63 of the air; the clubs of three bouts
+  11.8 to 20.7 m/s.
 
 `PLACEMENT`: a sound's pan is how far it is to the listener's side over 10 m, held within 0.85
 either way; in the crypt its gain is the square of the share of 18 m it has left to go, and
@@ -230,19 +231,41 @@ A foot on the ground, by a body on its feet:
 | workshop-rogue | Run, shuttle, 30 s | 79 | 76 | 0.0199 / 0.262 / 0.293 | 0.506 | 0.17 / 2.05 / 2.25 | 0 | 4.00, a foot |
 | crypt-skeleton | Run, circle, 30 s | 79 | 78 | 0.02 / 0.0234 / 0.292 | 0.482 | 0.17 / 0.204 / 2.3 | 0 | 1.47, a foot |
 | crypt-skeleton | Run, shuttle, 30 s | 79 | 78 | 0.0204 / 0.0228 / 0.276 | 0.475 | 0.17 / 0.203 / 2.23 | 0 | 1.87, a foot |
-| workshop-fighter | Routine, a loop of 10 targets, 67.8 s | 70 | 85 | 0.00633 / 0.268 / 1.26 | 0.507 | 0.213 / 2.09 / 2.3 | 1 | 12.6, a hand |
-| workshop-rogue | Routine, a loop of 10 targets, 67.9 s | 71 | 81 | 0.0108 / 0.243 / 0.299 | 0.507 | 0.168 / 1.92 / 3 | 0 | 12.8, a hand |
-| crypt-skeleton | Routine, to its fall at 20.3 s, 2 strikes | 28 | 34 | 0.017 / 0.0234 / 17 | 0.478 | 0.17 / 0.203 / 2.54 | 0 | 14.8, a hand |
-| workshop-fighter | Blow, 3.6 s, lands 119 J | | 1 | 0.0104 | 0.329 | 0.192 | 0 | 20.3, the club |
+| workshop-fighter | Routine, a loop of 10 targets, 81.3 s | 77 | 95 | 0.0143 / 0.272 / 0.331 | 0.507 | 0.223 / 2.11 / 2.5 | 0 | 14.5, a hand |
+| workshop-rogue | Routine, a loop of 10 targets, 71.2 s | 67 | 85 | 0.00878 / 0.234 / 0.325 | 0.505 | 0.175 / 1.83 / 2.45 | 1 | 13.4, a hand |
+| crypt-skeleton | Routine, a loop of 10 targets, 93.2 s | 116 | 135 | 0.00396 / 0.0234 / 0.615 | 0.478 | 0.167 / 0.204 / 2.41 | 1 | 14.3, a hand |
 
 The skeleton asked to walk at 0.5 m/s walks as it does at 0.2 m/s, row for row: its stance holds
-it to its envelope (1.64 m in the 10 s). The rogue's and the skeleton's Blow do not land (by 51
-and 26 cm); the skeleton's club reaches 18.1 m/s.
+it to its envelope (1.64 m in the 10 s).
 
 The Routine's targets, each a ball hung as its strike begins (`src/lab/targets.ts`), touched the
-body that struck at them 9 times in the Warrior's loop, every one its hand (0.013 to 7.55 J, the
-median 0.56 J), and 10 times in the Rogue's, 8 its hand and 2 its forearm (0.0012 to 7.81 J, the
-median 1.67 J). The skeleton fell before it touched one.
+body that struck at them 12 times in the Warrior's loop, 7 its hand and 5 its forearm (0.19 to
+36.9 J, the median 6.02 J); 11 times in the Rogue's, 7 its hand and 4 its forearm (0.15 to
+15.1 J, the median 4.95 J); and 8 times in the skeleton's, 6 its hand and 2 its forearm (0.15 to
+17.6 J, the median 0.48 J).
+
+The Blow's stored blows (`LAB_BLOWS`), each thrown by its own body with what it was found with
+in its hand, at its target body, a ball of a head (high) or of an upper trunk (middle), to 1.5 s
+after its pushes begin. Every one lands, and its body stays on its feet.
+
+| Model | Blow | Its hardest landing, J | Touches of the target on the body, J | Footfalls | Fastest point, m/s |
+|---|---|---|---|---|---|
+| workshop-fighter | the unit club blow | 98.1 | 98.1 | 2 | 19.9, the club |
+| workshop-fighter | club, high | 119 | 119 | 0 | 20.1, the club |
+| workshop-fighter | club, middle | 137 | 137 | 1 | 20.3, the club |
+| workshop-fighter | fist, high | 21.6 | 21.6 | 0 | 10.1, a hand |
+| workshop-fighter | fist, middle | 36.6 | 29.2, 36.6 | 0 | 13.5, a hand |
+| workshop-rogue | club, high | 47.7 | 47.7 | 0 | 12.9, the club |
+| workshop-rogue | club, middle | 56.8 | 56.8 | 0 | 13.6, the club |
+| workshop-rogue | fist, high | 7.86 | 0.383, 7.86 | 1 | 10.0, a hand |
+| workshop-rogue | fist, middle | 15.5 | 15.5, 15.5 | 0 | 11.6, a hand |
+| crypt-skeleton | club, high | 72.0 | 72.0 | 0 | 14.5, the club |
+| crypt-skeleton | club, middle | 107 | 107 | 1 | 18.6, the club |
+| crypt-skeleton | fist, high | 32.1 | 2.22, 32.1 | 0 | 12.3, a hand |
+| crypt-skeleton | fist, middle | 47.7 | 29.6, 47.7 | 1 | 14.1, a hand |
+
+A club blow is one touch of the target, on the club. A fist's is one or two, on the hand and on
+the forearm.
 
 A shove from the front on a standing body, 20 to 60 N s, 4 s each: 13 of the 15 are caught, in 24
 recoveries, with 14 footfalls heard (0.066 to 1.13 J) and none under 0.0094 J. The fastest point
@@ -259,20 +282,20 @@ A fall: 80 N s from the front on a standing body, read for 6 s.
 
 Which part lands hardest turns on how the body goes down. A body that is down lies still: its
 touches come within 1.2 to 3.4 s of its going down, but for the fighter's lower trunk settling at
-5.77 s, and the skeleton's fall in the Routine is over sooner (18 touches within 1.1 s, the
-hardest its head's, 35.1 J).
+5.77 s.
 
-Three bouts (`scripts/fingerprint.mjs`'s; each ends at a fall), with both bodies heard. The
-bouts' digests are the ones they have unheard.
+Three bouts (`scripts/fingerprint.mjs`'s: one ends at a death, one at a part taken off and one
+at a fall), with both bodies heard. The bouts' digests are the ones they have unheard.
 
 | Bout | Seconds | Feet on the ground: left, right | Their energy, J: least / median / most | Under 0.0094 J | One body on the other | Energy, J: least / median / most | Closing, m/s: median | Fastest point, m/s: left, right |
 |---|---|---|---|---|---|---|---|---|
-| workshop-fighter v workshop-rogue | 20.28 | 20, 17 | 0.0188 / 0.224 / 0.313; 0.0176 / 0.223 / 2.77 | 0 | 3 | 12.5 / 13.4 / 54.4 | 6.78 | 19.9, 13.3, clubs |
-| crypt-skeleton v workshop-fighter | 11.88 | 16, 18 | 0.0188 / 0.0238 / 0.231; 0.00605 / 0.224 / 2.75 | 2 | 3 | 3.25 / 4.08 / 28.3 | 3.73 | 19.0, 19.2, clubs |
-| workshop-rogue v crypt-skeleton | 16.74 | 23, 22 | 0.00988 / 0.188 / 0.445; 0.0159 / 0.022 / 0.291 | 0 | 6 | 0.086 / 4.62 / 38.1 | 2.66 | 14.1, 18.2, clubs |
+| workshop-fighter v workshop-rogue | 9.54 | 14, 14 | 0.0211 / 0.255 / 0.313; 0.0172 / 0.234 / 0.289 | 0 | 5 | 0.22 / 10.2 / 112 | 12 | 20.2, the club; 7.66, a hand |
+| crypt-skeleton v workshop-fighter | 13.09 | 20, 17 | 0.0194 / 0.0239 / 0.231; 0.00605 / 0.239 / 0.474 | 2 | 1 | 72.1 | 14.8 | 2.49, a foot; 20.7, the club |
+| workshop-rogue v crypt-skeleton | 11.82 | 20, 19 | 0.00988 / 0.233 / 1.46; 0.0172 / 0.0225 / 0.291 | 0 | 2 | 8.35 / 9.79 / 11.2 | 4.99 | 11.8, the club; 3.6, a foot |
 
-A club's end is over 5 m/s for 0.4 to 1 s of a bout. The one other touch of the ground in the
-three is the skeleton's club on the floor, 9.66 J.
+Where a club's end is a body's fastest point it is over 5 m/s for 0.18 to 0.5 s of the bout. The
+skeleton's fastest point in its two bouts is a foot, under 5 m/s. The one other touch of the
+ground in the three is the Rogue's club on the floor, 12.3 J.
 
 ## Crypt camera
 

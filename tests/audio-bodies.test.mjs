@@ -14,12 +14,14 @@ import { Scene } from "@babylonjs/core/scene.js";
 import { airOf, hearTouches } from "../src/audio/body-sounds.ts";
 import { substanceOf, swishStrength } from "../src/audio/cues.ts";
 import { buildBody } from "../src/core/build/build-body.ts";
+import { heldPoint } from "../src/core/build/rigid.ts";
+import { centreOfToRef, pointOfToRef } from "../src/core/control/support.ts";
 import { modelSpec } from "../src/core/human/spec.ts";
+import { rulebook } from "../src/core/rules/rulebook.ts";
 import { createWorld } from "../src/core/world.ts";
 import { labActor } from "../src/lab/actor.ts";
-import { throwBlow } from "../src/lab/blow.ts";
+import { throwBlow, watchBlow } from "../src/lab/blow.ts";
 import { LAB_BLOWS } from "../src/lab/blows.ts";
-import { watchClubBlow } from "../src/lab/club-blow.ts";
 import { loadoutSpec } from "../src/lab/loadout.ts";
 import { startRun } from "../src/lab/run-mode.ts";
 import { startStance } from "../src/lab/stance-mode.ts";
@@ -156,21 +158,33 @@ test("a segment sounds as what it holds, and else as what its body is made of", 
 
 test("a body's air is its club's end in a blow", async () => {
   const stored = LAB_BLOWS[0];
-  const stand = await coreStand(loadoutSpec({ model: stored.model, right: "club", left: "empty", boots: true, armour: true }), { ground: true, hz: 120 });
-  const blow = throwBlow(labActor(stand.built, stand.world), stored.strike, stored.distance);
-  const watch = watchClubBlow(stand.built, stand.world, blow, stored.distance, stored.hand);
+  const spec = loadoutSpec({ model: stored.model, right: "club", left: "empty", boots: true, armour: true });
+  const stand = await coreStand(spec, { ground: true, hz: 120 });
+  const actor = labActor(stand.built, stand.world);
+  const blow = throwBlow(actor, { hand: stored.hand, strike: stored.strike, place: stored.place, band: stored.band });
+  const watch = watchBlow(actor, blow, rulebook("arena"));
   const air = airOf(stand.built), at = new Vector3(), fastest = { speed: 0, at: new Vector3(), hand: new Vector3() };
   const hand = stand.built.segments.get(`hand.${stored.hand}`);
-  // Read after the watch is: in the step the blow lands, the watch has it, and its peak is of the steps before.
+  // The club's swell's far end, in the body's frame: with the hand's velocity and spin, how fast it moves.
+  const held = spec.held.find((h) => h.segment === hand.spec.name), end = heldPoint(held, held.item.shapes[1].to).value;
+  const velocity = new Vector3(), spin = new Vector3(), lever = new Vector3(), centre = new Vector3();
+  let peak = 0, landed = false;
+  // Both are read at the steps after the pushes begin and before the blow lands.
   stand.world.afterStep(() => {
+    landed ||= watch.reading.blows.length > 0;
+    if (blow.time < blow.pushing || landed) return;
     const speed = air(at);
-    if (blow.time >= blow.pushing && !watch.landed && speed > fastest.speed) { fastest.speed = speed; fastest.at.copyFrom(at); fastest.hand.copyFrom(hand.node.position); }
+    if (speed > fastest.speed) { fastest.speed = speed; fastest.at.copyFrom(at); fastest.hand.copyFrom(hand.node.position); }
+    hand.body.linearVelocityToRef(velocity);
+    hand.body.angularVelocityToRef(spin);
+    pointOfToRef(hand, end, lever).subtractInPlace(centreOfToRef(hand, centre));
+    peak = Math.max(peak, velocity.addInPlace(Vector3.Cross(spin, lever)).length());
   });
   try {
-    for (let i = 0; i < stand.seconds(5) && !watch.landed && !watch.fell; i++) stand.step(1);
-    assert.ok(watch.landed && watch.peak > 15, `the blow lands, its club's end at ${watch.peak} m/s`);
+    for (let i = 0; i < stand.seconds(5) && !landed && !blow.body.view.down; i++) stand.step(1);
+    assert.ok(landed && peak > 15, `the blow lands, its club's end at ${peak} m/s`);
     // The two turn the same lever by quaternions a float32 from unit, each its own way.
-    assert.ok(Math.abs(fastest.speed - watch.peak) < 1e-5, `${fastest.speed} m/s of air, the club's end at ${watch.peak}`);
+    assert.ok(Math.abs(fastest.speed - peak) < 1e-5, `${fastest.speed} m/s of air, the club's end at ${peak}`);
     const reach = Vector3.Distance(fastest.at, fastest.hand);
     assert.ok(reach > 0.4 && reach < 1, `the fastest point is ${reach} m from the hand's node`);
     assert.ok(swishStrength(fastest.speed) > 0.9, `${swishStrength(fastest.speed)} of its air`);

@@ -17,8 +17,9 @@
  * - `fall`: standing 2 s, then a shove of 80 N s from the front, and 6 s.
  * - `routine`: the Routine to the end of its first loop, or 150 s (`startRoutine`), with the
  *   touches of each target it hangs on the body, which are not the ground's and are no row.
- * - `blow`: the Blow's stored blow with the club in its hand (`throwBlow`, `LAB_BLOWS`), to 1.5 s
- *   after its pushes begin, where the page pauses it.
+ * - `blow`: each of the Blow's stored blows that is the model's, with what it was found with in
+ *   its hand, at its target body (`throwBlow`, `watchBlow`, `LAB_BLOWS`), to 1.5 s after its
+ *   pushes begin, where the page pauses it; with the target's touches on the body, as the Routine's.
  * - `bouts`: three arena bouts, a pair of bodies heard once, from its earlier body.
  *
  * It prints the harness and each side's balance, then a markdown table for each case. A row is the
@@ -49,17 +50,18 @@ import { Logger } from "@babylonjs/core/Misc/logger.js";
 import { SIDES } from "../src/arena/duel.ts";
 import { airOf } from "../src/audio/body-sounds.ts";
 import { balanceCeiling, balancePercent, isBalance, rulebook } from "../src/core/rules/rulebook.ts";
+import { FIST } from "../src/core/skills/strikes.ts";
 import { watchTouches } from "../src/core/touches.ts";
 import { PHYSICS_HZ } from "../src/core/world.ts";
 import { labActor } from "../src/lab/actor.ts";
-import { inFrameOf, throwBlow } from "../src/lab/blow.ts";
+import { inFrameOf, throwBlow, watchBlow } from "../src/lab/blow.ts";
 import { LAB_BLOWS } from "../src/lab/blows.ts";
-import { watchClubBlow } from "../src/lab/club-blow.ts";
 import { loadoutBalance, loadoutSpec } from "../src/lab/loadout.ts";
 import { startRoutine } from "../src/lab/routine.ts";
 import { startRun } from "../src/lab/run-mode.ts";
-import { labAddress, MODELS, SCENARIOS } from "../src/lab/scenarios.ts";
+import { labAddress, MODELS } from "../src/lab/scenarios.ts";
 import { startStance } from "../src/lab/stance-mode.ts";
+import { hardestOn } from "../src/lab/targets.ts";
 import { TRACK_IDS, TRACKS, trackOf } from "../src/lab/track.ts";
 import { CORE_ENGINE, coreStand } from "../tests/harness/core-stand.mjs";
 import { traceOf } from "../tests/harness/trace.mjs";
@@ -74,7 +76,7 @@ const WALKS = [0.2, 0.5], SHOVES = [20, 30, 40, 50, 60], FALL_SHOVE = 80;
 /** Seconds after the Blow's pushes begin at which the page pauses its world (`HOLD`, `src/lab/blow-scenario.ts`). */
 const BLOW_HOLD = 1.5;
 /** What a per cent of balance is: the arena's, as the Lab's page has it. */
-const PERCENT = balancePercent(rulebook("arena"));
+const RULES = rulebook("arena"), PERCENT = balancePercent(RULES);
 /** The ground's side on the stand, m: the stand's own. */
 const GROUND = 20;
 
@@ -274,17 +276,22 @@ const LAB = {
       + `${some(run.struck.length, "touch", "touches")} of a target on the body${run.struck.length ? ` (${tally(run.struck, (touch) => touch.on.part)}; ${energies(run.struck)} J)` : ""}, `
       + `${some(run.took.strides, "stride")}, ${fellWords(run)}`,
   })],
-  blow: (model) => LAB_BLOWS.map((stored) => labRun("blow", model, stored.id, {
-    held: SCENARIOS.find((s) => s.id === "blow").holds,
-    start(actor, stand) {
-      const blow = throwBlow(actor, stored.strike, stored.distance);
-      const watch = watchClubBlow(stand.built, stand.world, blow, stored.distance, stored.hand);
+  blow: (model) => LAB_BLOWS.filter((stored) => stored.model === model).map((stored) => labRun("blow", model, stored.id, {
+    held: { right: "empty", left: "empty", [stored.hand]: stored.held === FIST ? "empty" : "club" },
+    start(actor, _, hung) {
+      const blow = throwBlow(actor, { hand: stored.hand, strike: stored.strike, place: stored.place, band: stored.band });
+      const watch = watchBlow(actor, blow, RULES, { hung });
       return { blow, watch, dispose() { watch.dispose(); blow.dispose(); } };
     },
     seconds: (session) => session.blow.pushing + BLOW_HOLD,
-    read: ({ watch, blow }, run) => `${whole(run)} s, the pushes at ${blow.pushing.toFixed(2)} s, `
-      + (watch.landed ? `landed ${sig(watch.landed.energy)} J ${watch.landed.at.toFixed(3)} s after` : watch.fell ? "fell before it landed" : `missed by ${(100 * watch.nearest).toFixed(1)} cm`)
-      + `, ${fellWords(run)}`,
+    read({ watch, blow }, run) {
+      const { reading } = watch, landed = hardestOn(reading.blows, "dummy");
+      return `${whole(run)} s, the pushes at ${blow.pushing.toFixed(2)} s, `
+        + (landed ? `landed ${sig(landed.energy)} J, its hardest of ${some(reading.blows.length, "blow")}: ${sig(reading.done)} HP done, ${sig(reading.cost)} cost`
+          : reading.nearest === null ? "not thrown" : `missed by ${(100 * reading.nearest).toFixed(1)} cm`)
+        + `, ${some(run.struck.length, "touch", "touches")} of the target on the body${run.struck.length ? ` (${tally(run.struck, (touch) => touch.on.part)}; ${energies(run.struck)} J)` : ""}, `
+        + fellWords(run);
+    },
   })),
 };
 

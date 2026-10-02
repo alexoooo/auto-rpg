@@ -599,3 +599,100 @@ The digests `research/bout-trace.mjs` reads: the Warrior against the Rogue at 4 
 the left side winning by the right's fall at 20.28 s, `88668e71fdacd2fd`, 4 wounding blows and
 no clash, bars 1 and 0.799; skeleton against skeleton at 4 m as it was, 1981 steps,
 `489780706aad98b9`, no blow. The crypt's runs (`scripts/fingerprint.mjs`) are as they were.
+
+## Searched blows
+
+Harness: Node 24.19, the core world (`src/core/world.ts`), Rapier, 120 Hz, each side's balance
+its character's (0 %). Read on the first tree whose repertoire is searched for every body, with
+a fist and with the club, at a head and at an upper trunk ([blows.md](blows.md#searched)); the
+section above is the tree before it. A fighter attacks its foe's head, with the recipe whose
+window holds that head's height over its own, or placed.
+
+```powershell
+node research/bout-baseline.mjs --gaps 3,3.5,4,4.5,5 --workers 26
+node research/bout-baseline.mjs --gaps 3,3.5,4,4.5,5 --held empty --workers 26
+```
+
+**With clubs**, 45 bouts, a row a matchup's five bouts and a mean a bout. Three are the bouts
+they were, and 30 have the winner they had.
+
+| Left | Right | Endings placed | Searched | Seconds placed | Searched | Blows placed | Searched | HP taken placed | Searched | Own placed | Searched |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| workshop-fighter | workshop-fighter | severed 2, fallen 2, fatal 1 | fallen 5 | 12.1 | 12.9 | 6.0 | 6.6 | 1.098 | 0.717 | 0.022 | 0.018 |
+| workshop-fighter | workshop-rogue | severed 4, fallen 1 | fallen 3, fatal 2 | 12.2 | 11.7 | 2.2 | 7.6 | 0.958 | 0.893 | 0.002 | 0.049 |
+| workshop-fighter | crypt-skeleton | severed 4, fallen 1 | severed 3, fallen 1, fatal 1 | 10.6 | 17.3 | 1.4 | 8.2 | 0.665 | 1.283 | 0.000 | 0.187 |
+| workshop-rogue | workshop-fighter | fallen 4, severed 1 | fallen 4, severed 1 | 19.6 | 10.6 | 4.4 | 7.2 | 0.536 | 0.779 | 0.018 | 0.083 |
+| workshop-rogue | workshop-rogue | fallen 5 | fallen 4, fatal 1 | 14.7 | 13.5 | 0.8 | 7.0 | 0.010 | 0.425 | 0.000 | 0.033 |
+| workshop-rogue | crypt-skeleton | fallen 5 | fallen 4, severed 1 | 12.9 | 14.2 | 2.8 | 6.6 | 0.362 | 0.311 | 0.115 | 0.002 |
+| crypt-skeleton | workshop-fighter | fallen 4, severed 1 | severed 4, fallen 1 | 9.8 | 12.0 | 3.8 | 2.6 | 0.689 | 0.892 | 0.009 | 0.016 |
+| crypt-skeleton | workshop-rogue | fallen 5 | fallen 4, fatal 1 | 12.9 | 18.6 | 0.8 | 16.2 | 0.021 | 0.464 | 0.004 | 0.059 |
+| crypt-skeleton | crypt-skeleton | fallen 5 | fallen 4, fatal 1 | 16.9 | 26.5 | 4.0 | 13.0 | 0.072 | 0.670 | 0.000 | 0.130 |
+
+| | Placed | Searched |
+|---|---|---|
+| Bouts by ending | fallen 32, severed 12, fatal 1 | fallen 30, severed 9, fatal 6 |
+| Bout time, s | 608 | 686 |
+| Falls a minute | 3.16 (32 falls) | 2.62 (30 falls) |
+| Wounding blows a minute | 12.9 | 32.8 |
+| Ended before any wounding blow | 12 of 45 | 3 of 45 |
+| HP a bout the blows took | 0.490 | 0.715 |
+| Of it, a bare hand's in a blow it was in | 0.019 | 0.064 |
+| Hands emptied by a blow of their own, a bout | 0.04 | 0.20 |
+| Bouts won: the Warrior, the Rogue, the skeleton | 23, 11, 11 | 22, 8, 15 |
+
+- **A club lands where there was no club blow.** The Rogue and the skeleton had no recipe for
+  the club, and their placed club blows passed their targets
+  ([blows.md](blows.md#the-battery-placed)): between two Rogues the blows took 0.010 HP a bout
+  and take 0.425, between two skeletons 0.072 and 0.670. Three bouts end before a wounding blow
+  where 12 did, each a Warrior on the right falling at 3.5 to 3.7 s, from 4.5 m.
+- **Six bouts end by a death where one did**, and nine by a part taken off where 12 did.
+- **A hand in its own side's blow costs more**, 0.064 HP a bout where it cost 0.019, and most
+  where the skeleton is on the right of the Warrior (0.187) and of a skeleton (0.130): its
+  club blow at a head lands its hand ([blows.md](blows.md#on-a-standing-body)).
+
+**Bare hands** (`--held empty`), the same 45. A blow with no hand in it is the column the
+script heads `Jostled`: neither surface a hand's or an item's.
+
+| Left | Right | Endings placed | Searched | Seconds placed | Searched | Blows placed | Searched | HP taken placed | Searched | Own placed | Searched | No hand in it placed | Searched | Hands emptied by a blow of their own, placed | Searched |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| workshop-fighter | workshop-fighter | fallen 5 | fallen 5 | 2.9 | 2.9 | 0.0 | 0.0 | 0.000 | 0.000 | 0.000 | 0.000 | 0.000 | 0.000 | 0.00 | 0.00 |
+| workshop-fighter | workshop-rogue | time 5 | fatal 4, fallen 1 | 120.0 | 50.9 | 1644.0 | 503.0 | 0.617 | 1.422 | 0.156 | 0.134 | 0.343 | 1.137 | 0.40 | 0.40 |
+| workshop-fighter | crypt-skeleton | time 5 | fallen 2, time 2, fatal 1 | 120.0 | 93.7 | 487.0 | 164.6 | 0.965 | 1.734 | 0.485 | 0.295 | 0.273 | 1.189 | 2.60 | 1.20 |
+| workshop-rogue | workshop-fighter | fallen 5 | fallen 5 | 2.9 | 2.9 | 0.0 | 0.0 | 0.000 | 0.000 | 0.000 | 0.000 | 0.000 | 0.000 | 0.00 | 0.00 |
+| workshop-rogue | workshop-rogue | fallen 5 | fallen 5 | 22.2 | 30.0 | 410.8 | 415.0 | 0.247 | 0.739 | 0.031 | 0.158 | 0.196 | 0.458 | 0.00 | 1.40 |
+| workshop-rogue | crypt-skeleton | fallen 5 | fallen 5 | 23.5 | 44.1 | 191.8 | 353.0 | 0.467 | 0.906 | 0.097 | 0.155 | 0.300 | 0.634 | 0.20 | 0.80 |
+| crypt-skeleton | workshop-fighter | fallen 5 | fallen 5 | 2.9 | 2.9 | 0.0 | 0.0 | 0.000 | 0.000 | 0.000 | 0.000 | 0.000 | 0.000 | 0.00 | 0.00 |
+| crypt-skeleton | workshop-rogue | fallen 5 | fallen 4, fatal 1 | 19.2 | 49.7 | 120.4 | 416.6 | 0.321 | 1.178 | 0.030 | 0.180 | 0.269 | 0.858 | 0.00 | 1.20 |
+| crypt-skeleton | crypt-skeleton | fallen 5 | fallen 2, fatal 2, time 1 | 20.5 | 69.7 | 38.2 | 112.6 | 0.201 | 1.066 | 0.038 | 0.181 | 0.144 | 0.779 | 0.00 | 0.60 |
+
+| | Placed | Searched |
+|---|---|---|
+| Bouts by ending | fallen 35, time 10 | fallen 34, fatal 8, time 3 |
+| Bout time, s | 1670 | 1734 |
+| Falls a minute | 1.26 (35 falls) | 1.18 (34 falls) |
+| Blows a bout | 321.4 | 218.3 |
+| HP a bout the blows took | 0.313 | 0.783 |
+| Of it, a bare hand's in a blow it was in | 0.093 | 0.123 |
+| Of it, in blows with no hand in them | 0.169 | 0.562 |
+| Hands emptied by a blow of their own, a bout | 0.36 | 0.62 |
+| Ended before any wounding blow | 15 of 45 | 15 of 45 |
+| Bouts won: the Warrior, the Rogue, the skeleton | 10, 18, 17 | 14, 12, 19 |
+
+- **Three bouts run to the 120 s cap where ten did.** The Warrior on the left wins all five
+  against the Rogue, four by its death, where the five ran to the cap; against the skeleton two
+  of five still do.
+- **Most of what a bare bout takes is in blows with no hand in them**, and a searched fist's
+  blow is one where it lands its forearm: in the Warrior's bout against the Rogue from 4 m, of the 1.89 HP the
+  blows took, 1.62 were the Warrior's forearm on the Rogue's upper trunk (8 blows, to 33.7 J)
+  and on its head (13, to 18.7 J), and 0.10 its hand on the head in 63 blows. A forearm is no
+  hand, and the script counts its blows with the jostling.
+- **0.62 hands a bout are emptied by a blow of their own, where 0.36 were**: a fist at a head
+  costs its hand most of what it does the head, and the hardest more than the hand holds
+  ([blows.md](blows.md#the-searches)).
+- **The 15 bouts a Warrior on the right falls out of at 2.9 s are the bouts they were.**
+
+The digests `research/bout-trace.mjs` and `scripts/fingerprint.mjs` read: the Warrior against
+the Rogue at 4 m, 1145 steps, the left side winning by the right's death at 9.54 s,
+`60cab1dda3377989`, 8 wounding blows and no clash, bars 0.985 and 0.494. The crypt's fights
+are other fights (seed 1 `f51bc51da2733bd5`, seed 2 `c5ce688d4676d6a4`); its runs with no
+fight in them are as they were.

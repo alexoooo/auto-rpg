@@ -128,8 +128,8 @@ test("a_bout_in_the_arena_runs_to_its_verdict", async () => {
   const { world, dispose } = await arena();
   let duel;
   try {
-    // The Rogue against the skeleton: each wounds the other before one of them is down.
-    duel = new Duel(world, { left: "workshop-rogue", right: "crypt-skeleton" });
+    // The Warrior against the Rogue: each wounds the other before one of them is out.
+    duel = new Duel(world, { left: "workshop-fighter", right: "workshop-rogue" });
     const verdict = duel.run(CAP_SECONDS + 1);
     assert.ok(verdict, "the bout is decided by its cap");
     assert.ok(woundsBy(duel.blows, "left", "right") > 0 && woundsBy(duel.blows, "right", "left") > 0, "blows land both ways, and wound");
@@ -199,6 +199,28 @@ test("a_bout's_minds_are_its_recipe's", async () => {
   assert.deepEqual(await felled("left", { minds: { left: bare, right: FIGHTER } }), ["command", "command"]);
   assert.deepEqual(await felled("right", { minds: { left: bare, right: FIGHTER } }), ["command", "lie"]);
   assert.deepEqual(await felled("right", { minds: { left: FIGHTER, right: bare } }), ["command", "command"]);
+});
+
+test("a_fighters_aim_rides_in_its_minds_config", async () => {
+  // A Warrior with the club against one ordered to stand: the band of the recipe its first blow is thrown with.
+  const thrown = async (aim) => {
+    const { world, dispose } = await arena();
+    const duel = new Duel(world, { left: "workshop-fighter", right: "workshop-fighter", gap: 3, minds: { left: { ...FIGHTER, aim }, right: FIGHTER } });
+    try {
+      duel.play([{ step: 0, side: "right", orders: STAND_ORDERS }]);
+      const report = () => duel.duelists.left.minded.skills.report.strike;
+      let band = null;
+      while (report().thrown.right === 0 && duel.clock < 20) {
+        world.step();
+        band = report().chosen?.recipe.band ?? band;
+      }
+      return { thrown: report().thrown.right, band, nets: report().nets.right };
+    } finally { duel.dispose(); dispose(); }
+  };
+  const head = await thrown("head"), pays = await thrown("pays");
+  // The fixture: its club's recipe nets more on an upper trunk than on a head, so the two aims differ.
+  assert.ok(head.nets.middle > head.nets.high, JSON.stringify(head.nets));
+  assert.deepEqual([head.thrown, head.band, pays.thrown, pays.band], [1, "high", 1, "middle"]);
 });
 
 test("a_bout_capped_before_a_blow_lands_is_a_draw", async () => {

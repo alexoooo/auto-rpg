@@ -189,18 +189,29 @@ braking and blocking). A muscle can never exceed its source's strength at its sp
   only while walking and no faster than its envelope allows, and can set the feet at a chosen
   place (`Locomotion.place`).
 - **Strike** (`strike.ts`, `strikes.ts`) carries out a hand's attack by one of two blows. A
-  searched recipe is a chamber pose and timed muscle pushes (`Strike`), one per body and held
-  item, for the right hand, in `assets/core/strikes.json` (`REPERTOIRE`, written by
-  `research/core-strike-repertoire.mjs` from the searches), thrown from guard and landing over a
-  measured window (`Recipe.window`: along the heading, across it, and the target's height over
-  the head). A placed blow (`PLACED`) is a hand goal: the point the hand strikes with (`aimOf`:
-  its knuckles, or what its item says, the club's swell) carried through the target, which it
-  follows in the body frame each step. The skill chooses the recipe for what the hand holds
-  (`recipeFor`; the left hand's is mirrored, and a body with none of its own borrows one) where
-  the target's height is in its window, and a placed blow where it is not or the hand has no
-  recipe; walks the body to where the target sits in the blow's window, sets the feet, stands
-  `STAND` seconds, chooses again by the head as it stands, and throws. While a strike runs it
-  owns the legs and trunk, and the other hand guards.
+  searched recipe is a chamber pose and timed muscle pushes (`Strike`) for a body, a thing held
+  and a height band (`BANDS`: high, where a foe of its own build has its head; middle, its
+  upper trunk), for the right hand, in `assets/core/strikes.json` (`REPERTOIRE`, written by
+  `research/core-strike-repertoire.mjs` from the searches). A search scores a blow by the rule a
+  fight wounds by: the hit points it takes from a target body of the band's part, less those it
+  costs the body that throws it, standing afterwards whether it lands or misses
+  (`research/core-blow.mjs`). A recipe is thrown from guard at its place (`Recipe.place`:
+  ahead of the head, and above it), lands over a measured window about it (`Recipe.window`:
+  along the heading, across it, and up; `research/core-strike-window.mjs`), and says what it
+  nets there (`Recipe.net`). A cell's recipe is the one of its searches' that nets most among
+  those that net more than a placed blow at the same target and have a window the feet can be
+  set to; a cell with none has no recipe
+  ([reference/human-and-strikes.md](reference/human-and-strikes.md#windows)). A placed blow
+  (`PLACED`) is a hand goal: the point the hand strikes with (`aimOf`: its knuckles, or what
+  its item says, the club's swell) carried through the target, which it follows in the body
+  frame each step. A recipe is its body's own, and no other body throws it
+  ([reference/blows.md](reference/blows.md#another-bodys-recipe)). Of its body's recipes for
+  what the hand holds (`recipesFor`: the left hand's mirrored) the skill chooses the one whose
+  window holds the target's height over the head, the nearest its place where two do
+  (`recipeAt`), and a placed blow where none does; walks the body to where the target sits in
+  the blow's window, sets the feet, stands `STAND` seconds, chooses again by the head as it
+  stands, once for a point attacked, and throws. It reports what each hand's recipes net by band (`StrikeReport.nets`).
+  While a strike runs it owns the legs and trunk, and the other hand guards.
 - **Guard** (`guard.ts`) is a skill in the one list, and has the hands the strike has not. Its
   pose (`GUARD`) is the arms' posture when nothing else owns them. A guarding hand told what to
   cover (`Cover`: where the threat is, and the place of its own body kept from it) is given a
@@ -307,11 +318,14 @@ pose, or by a cover of what threatens its head. The threat is read from the sens
 (its knuckles, or its club's swell) that closes fastest on the head, within `THREAT`'s distance
 and over its speed. What is sensed is as old as the senses' delay, and nothing corrects for it.
 Every body's fighter guards in the pose (`FIGHTER`); an arena link's `&guard=cover` gives both
-sides the cover ([reference/blows.md](reference/blows.md#guard-battery)).
+sides the cover ([reference/blows.md](reference/blows.md#covering-searched)).
 
 Orders come from three places. An arena side nobody has taken makes its own (`seekFoe`): from
 its senses it picks the nearest body of another side still in the fight, walks at it, and attacks
-its head once their centres are within `ATTACK_METRES` (1.8 m). A side a person has taken is
+it once their centres are within `ATTACK_METRES` (1.8 m): at its head, or, where its config says
+to aim at what pays (`FighterMindConfig.aim`, `bandAimed`), at the part of the band its hand's
+recipe nets most on (`StrikeReport.nets`, `BANDS`). Every body's fighter aims at the head
+(`FIGHTER`; [reference/blows.md](reference/blows.md#aim)). A side a person has taken is
 given the person's (`Duel.order`) and does only what it is ordered, until it is handed back or is
 out of the fight. In the crypt the run plans for its fighters with the map (`DungeonRun`) and
 hands each its plan as orders, with its target's head; its bodies sense the clock alone. One out
@@ -494,7 +508,7 @@ arena, crypt and lab screens at `?play=arena`, `?play=dungeon` and `?play=lab`, 
   ([reference/blows.md](reference/blows.md#targets)). The page logs what
   the mind decides, and who has the body when it changes hands (`mind-log.ts`), and what the body
   sounds of (`sound-log.ts`): its touches, its air, the touches of a target that hangs beside it,
-  and the cue of each instrument that is no contact, the shove and the Blow's mark, each at the
+  and the cue of the instrument that is no contact, the shove, each at the
   mind's time, so the page plays what the frame it shows sounded of, live or replayed. Its HUD is sections (`hud/sections.ts`) that the shell and the scenario fill with controls
   built from data (`hud/controls.ts`).
 - **The character workshop** (`/character-lab.html`, `src/character-lab/`): the workshop models
@@ -514,6 +528,28 @@ what a page plays, and `body-sounds.ts` reads what a body sounds of from the wor
 of its two sides until the verdict, the crypt of every body the party sees. A blow is a touch,
 and is heard as one; what it takes off a side is a cue of its own (`debrisCues`)
 ([reference/look.md](reference/look.md#sound)).
+
+## What the seams are for
+
+An attack is a function of its target: the tactics say what to attack (`HandAction`: a point,
+with whatever the hand holds) and never how, and the strike skill chooses how, a searched recipe
+or a placed blow. No technique is a kind in the code: a recipe is data a search found. Defence
+is the guard placing what a hand holds, or the hand. A blow is whatever two surfaces of two
+sides met with. Each seam is where one kind of addition goes; none of these is built
+([roadmap](roadmap.md#strikes)).
+
+| Added | Where it goes | What it leaves alone |
+|---|---|---|
+| **A sword, a spear**: an edge, a point | An item's shape states its mechanism where it cuts or pierces; a blow whose surface is that shape is priced by it (`MECHANISM_PRICE`), after a breach cost under which it is a blunt blow. The item states its `aim` and its points; a search finds its recipes; the guard places its two ends. | The shares, the pool, the skill, the targets. |
+| **The face and the vault** | A segment takes several shapes, each with its own surface; a blow reads the surface of the shape that was touched, which a contact already names. | The pool: one head, one share of hit points. |
+| **Armour**: boots, greaves, a cuirass, vambraces, gloves, a helmet | A worn item, rigid with its segments as a held one is: it adds its mass, and its surface is one more layer in series (`energyShares` over the layers), taking its share and wounding nobody; it raises the breach cost of an edge or a point. A glove protects the puncher by the same rule. | The rule's shape; a rigid body's shapes gain a kind of owner. |
+| **A shield** | A held item with a face: its points are what the guard places (`ItemSpec.cover`); a bash is a blow like any other. A third place on one rigid body fixes its roll (`HandGoal.places`). | The guard skill, the rule. |
+| **A staff, a spear in two hands** | An item held by two segments: the builder closes the loop with a joint at the second hand, and a placement solves both arms to the item's points. | Recipes, which are per thing held; the rule. |
+| **A bow** | Shooting is a skill beside the strike in the one list (`createSkills`); an arrow is a body, and what it touches is a blow by the same rule, its point's mechanism priced. The draw is a placement. | Every contact rule. |
+| **A kick, a knee** | A recipe whose pushes are a leg's, once the stance can give a leg up; the rule already wounds by any segment. | The rule, the targets. |
+| **A crouch, a low target** | The stance lowers the body beyond `STANCE_LOWER`, and a band under the middle one (`BANDS`) names it. The targets' low stratum is the row that turns from missed to hit. | The search, the skill's choice by window. |
+| **Another body**: four legs, a tail | A search on it: recipes are per model. Its surfaces are its spec's. | Everything else. |
+| **A learned or a planning mind** | It asks the same `HandAction`s; or, at the muscles, it is a `MindConfig` kind and the targets score it as a row. | The rule, the targets. |
 
 ## Standing decisions
 

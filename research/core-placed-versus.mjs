@@ -1,15 +1,15 @@
 /**
  * **A recipe against a placed blow, by the target's height**: one body standing as built, its
  * right hand's blow at a target 1.3 m ahead of where it was built and `--ups` m over its head as
- * it stands, thrown twice: with the hand's recipe whatever the height (its window's height
- * opened), and placed (no repertoire). What each did to the dummy hung at the target is the
- * lab's reading (`readTarget`, `src/lab/targets.ts`).
+ * it stands, thrown twice: with a recipe of the hand's whatever the height (every window's height
+ * opened, so the one whose place is nearest in height), and placed (no repertoire). What each did
+ * to the dummy hung at the target is the lab's reading (`readTarget`, `src/lab/targets.ts`).
  *
  *   node research/core-placed-versus.mjs [--models workshop-fighter,workshop-rogue] [--held empty,club]
  *     [--ups 0.2,0.14,0.1,0.06,0,-0.04,-0.08,-0.14,-0.2,-0.3,-0.5,-0.8]
  *
  * Prints, per body, thing held and height: which of the two the skill itself throws there
- * (`Chosen.window.up`), and for each of the two the dummy's damage (HP), the blow's energy (J)
+ * (`recipeFor`), and for each of the two the dummy's damage (HP), the blow's energy (J)
  * and closing speed (m/s), the part or item that landed it, and how near the hand's body passed
  * (cm). Node core stand, Rapier, 120 Hz, no assist, the arena's rules.
  */
@@ -29,7 +29,7 @@ const { values } = parseArgs({ options: {
   ups: { type: "string", default: "0.2,0.14,0.1,0.06,0,-0.04,-0.08,-0.14,-0.2,-0.3,-0.5,-0.8" },
 } });
 const RULES = rulebook("arena");
-/** The repertoire with every window's height opened: a recipe is thrown whatever the target's height. */
+/** The repertoire with every window's height opened: a recipe is thrown whatever the target's height, the nearest in height. */
 const ANY = REPERTOIRE.map((recipe) => ({ ...recipe, window: { ...recipe.window, up: [-Infinity, Infinity] } }));
 /** Seconds the body stands before its head's height is read. */
 const STOOD = 1.5;
@@ -67,10 +67,10 @@ console.log("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|");
 for (const model of values.models.split(",")) {
   for (const right of values.held.split(",")) {
     const loadout = { model, right, left: "empty" };
-    const window = recipeFor(REPERTOIRE, loadoutSpec(loadout), "right")?.window.up ?? null;
+    const spec = loadoutSpec(loadout);
     for (const up of values.ups.split(",").map(Number)) {
       const [recipe, placed] = await Promise.all([one(loadout, up, ANY), one(loadout, up, [])]);
-      const thrown = window && window[0] <= up && up <= window[1] ? "recipe" : "placed";
+      const chosen = recipeFor(REPERTOIRE, spec, "right", up), thrown = chosen ? `${chosen.recipe.band} recipe` : "placed";
       console.log(`| ${model} | ${right} | ${(100 * up).toFixed(0)} | ${thrown} | ${cells(recipe)} | ${cells(placed)} |`);
     }
   }

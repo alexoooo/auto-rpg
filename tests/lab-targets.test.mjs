@@ -3,7 +3,8 @@
  * still against its own weight and gives way to a blow as a head on no neck does; and a target's
  * reading, which is the blow the rule read on its dummy, hung as its strike began, or how near the
  * hand's body passed, of a recipe thrown where it lands and of a blow placed where none does
- * (Node core stand, Rapier, 120 Hz, no assist, the arena's rules).
+ * (Node core stand, Rapier, 120 Hz, no assist, the arena's rules). The recipes are the fixture's
+ * (`tests/fixtures/strikes.mjs`): what is under test is the reading, whatever a search finds.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -25,6 +26,7 @@ import { labActor } from "../src/lab/actor.ts";
 import { loadoutSpec } from "../src/lab/loadout.ts";
 import { drawTargets, dummySpec, hangDummy, readTarget, TARGET_BOX, TARGET_WATCH } from "../src/lab/targets.ts";
 import { specProvenanceFaults } from "./fixtures/spec.mjs";
+import { FIXTURE_REPERTOIRE } from "./fixtures/strikes.mjs";
 import { coreStand, freshEngine } from "./harness/core-stand.mjs";
 
 const RULES = rulebook("arena");
@@ -171,7 +173,8 @@ test("a_dummy_hangs_still_and_gives_way_to_a_blow", async () => {
  * A body of `loadout` standing as built, its right hand attacking each of `places` in turn (each
  * from the head's height), a target's reading closed before the next is asked for: what each read,
  * with the time its strike began, where its ball was at each step before that, and the heading
- * the body had as the reading closed. `skills` is an experiment's, in place of the skills' own.
+ * the body had as the reading closed. Its recipes are the fixture's; `skills` is an experiment's
+ * besides.
  */
 async function strikeAt(loadout, places, skills) {
   const stand = await coreStand(loadoutSpec(loadout), { ground: true });
@@ -184,7 +187,7 @@ async function strikeAt(loadout, places, skills) {
     name: "attack",
     decide: () => ({ move: null, face: 0, hands: { left: GUARD_ACTION, right: readings.length < targets.length && thrown === counted ? { kind: "attack", target: targets[readings.length].at } : GUARD_ACTION } }),
   };
-  actor.drive(tactics, { skills, watch(sight) {
+  actor.drive(tactics, { skills: { repertoire: FIXTURE_REPERTOIRE, ...skills }, watch(sight) {
     if (readings.length >= targets.length) return;
     open ??= readTarget(actor, targets[readings.length], "right", RULES);
     const { phase } = sight.report.strike;
@@ -240,7 +243,7 @@ test("a_target_where_the_recipe_lands_is_struck_with_it", async () => {
   assert.ok(hit.began <= hit.blow.time && hit.blow.time <= hit.ended, `struck at ${hit.blow.time} s of ${hit.began} to ${hit.ended}`);
   assert.ok(Math.abs(hit.seconds - hit.ended) < 1e-9 && hit.ended - hit.blow.time >= TARGET_WATCH - 0.25, `${hit.seconds} s`);
   // Where the head stood is inside the club's window, and its hand went as fast as it goes.
-  assert.ok(hit.strike.kind === "recipe" && Math.abs(hit.strike.off.along) < 0.05 && Math.abs(hit.strike.off.across) < 0.05 && hit.strike.peak > 5, JSON.stringify(hit.strike));
+  assert.ok(hit.strike.kind === "recipe" && hit.strike.band === "high" && Math.abs(hit.strike.off.along) < 0.05 && Math.abs(hit.strike.off.across) < 0.05 && hit.strike.peak > 5, JSON.stringify(hit.strike));
 });
 
 test("a_middle_target_is_struck_by_a_placed_blow", async () => {
@@ -252,7 +255,7 @@ test("a_middle_target_is_struck_by_a_placed_blow", async () => {
   assert.deepEqual(record(fist), { target: { at: middle, stratum: "control" }, hand: "right", strike: "placed", hung: true, fell: false, ...FISTED });
   assert.ok(fist.nearest === 0 && fist.took.damage > 0 && fist.began <= fist.blow.time && fist.blow.time <= fist.ended, `struck at ${fist.blow.time} s of ${fist.began} to ${fist.ended}`);
   // It stood where a placed blow stands: the target the arm's stretch from the shoulder, ahead of the head.
-  assert.ok(fist.strike.kind === "placed" && Math.abs(fist.strike.off.along) < 0.05 && Math.abs(fist.strike.off.across) < 0.05, JSON.stringify(fist.strike));
+  assert.ok(fist.strike.kind === "placed" && fist.strike.band === null && Math.abs(fist.strike.off.along) < 0.05 && Math.abs(fist.strike.off.across) < 0.05, JSON.stringify(fist.strike));
   // Carried through its target, the fist arrives faster than on a path that ends there.
   const { readings: [ended] } = await strikeAt(BARE, [() => middle], { placed: { ...PLACED, through: 0 } });
   assert.ok(PLACED.through > 0 && ended.blow && fist.blow.closing > 1.2 * ended.blow.closing, `closing at ${fist.blow.closing} m/s, and ${ended.blow?.closing} on a path that ends at the target`);
@@ -350,7 +353,7 @@ async function strikeFromInside(shoved) {
   const actor = labActor(stand.built, stand.world);
   const ahead = [0, actor.body.view.head.y, 0.8], chest = stand.built.segments.get("upperTrunk"), head = stand.built.segments.get("head");
   let open = null, reading = null, ball = null, thrown = 0, clear = 0;
-  actor.drive({ name: "attack", decide: () => ({ move: null, face: 0, hands: { left: GUARD_ACTION, right: thrown ? GUARD_ACTION : { kind: "attack", target: ahead } } }) }, { watch(sight) {
+  actor.drive({ name: "attack", decide: () => ({ move: null, face: 0, hands: { left: GUARD_ACTION, right: thrown ? GUARD_ACTION : { kind: "attack", target: ahead } } }) }, { skills: { repertoire: FIXTURE_REPERTOIRE }, watch(sight) {
     if (shoved && !thrown && sight.report.strike.thrown.right) chest.body.applyImpulse(new Vector3(0, 0, -150), chest.node.position);
     thrown = sight.report.strike.thrown.right;
     if (reading) return;

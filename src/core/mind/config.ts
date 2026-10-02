@@ -22,6 +22,8 @@ export interface FighterMindConfig {
   readonly covering?: Covering;
   /** An experiment's threat in place of the one set (`THREAT`): a sweep's cell. */
   readonly threat?: Threat;
+  /** What of a foe a fighter attacks: its head; or, of its head and upper trunk, the one its hand's recipe nets more on (`seekFoe`, `fighter.ts`). */
+  readonly aim: "head" | "pays";
 }
 
 /**
@@ -31,4 +33,4 @@ export interface FighterMindConfig {
 export type MindConfig = FighterMindConfig;
 
 /** The mind every body has unless its fight says otherwise. */
-export const FIGHTER: FighterMindConfig = deepFreeze({ kind: "fighter", subs: [{ kind: "lie" }], guard: "pose" });
+export const FIGHTER: FighterMindConfig = deepFreeze({ kind: "fighter", subs: [{ kind: "lie" }], guard: "pose", aim: "head" });

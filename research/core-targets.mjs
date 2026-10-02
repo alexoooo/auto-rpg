@@ -68,7 +68,7 @@ if (isMainThread) {
       for (const { seed, from, result } of runs) {
         listed.push(`${model}, ${held}, seed ${seed}${values.each ? `, target ${from + 1}` : ""}: ${result.ended} at ${result.seconds.toFixed(1)} s`);
         for (const r of result.readings) {
-          listed.push(`  ${r.stratum} [${r.at.map((x) => x.toFixed(2)).join(", ")}] ${r.hand} ${r.strike ?? "no strike"}: `
+          listed.push(`  ${r.stratum} [${r.at.map((x) => x.toFixed(2)).join(", ")}] ${r.hand} ${r.strike ?? "no strike"}${r.band ? ` (${r.band})` : ""}${r.up === null ? "" : `, ${(100 * r.up).toFixed(0)} cm over the head`}: `
             + `${r.blow ? `${r.blow.damage.toFixed(3)} HP, ${r.blow.energy.toFixed(1)} J at ${r.blow.closing.toFixed(1)} m/s with ${r.blow.with}` : r.nearest === null ? "none began" : !r.hung ? "its place was filled" : `missed by ${(100 * r.nearest).toFixed(1)} cm`}`
             + `${r.fell ? ", fell" : ""}, ${r.seconds.toFixed(1)} s`);
         }

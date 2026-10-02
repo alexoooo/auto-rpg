@@ -306,9 +306,10 @@ export const SOURCES = Object.freeze({
   },
   "core-club-unit": {
     kind: "measurement",
-    how: "research/core-strike-search.mjs --weapon club: the Warrior's strongest one-handed blow with the wooden "
-      + "club into a head-sized sphere, thrown standing on its own feet (src/lab/blow.ts), by cross-entropy "
-      + "search (Node core stand, ground on), its energy 1/2 mu v^2 from the masses the contact meets. On Rapier, "
+    how: "research/core-strike-search.mjs@80e5cec9 --weapon club: the Warrior's strongest one-handed blow with the "
+      + "wooden club into a head-sized sphere it passes through (src/lab/club-blow.ts@80e5cec9), thrown standing "
+      + "on its own feet (src/lab/blow.ts), by cross-entropy search (Node core stand, ground on), its energy "
+      + "1/2 mu v^2 from the masses the contact meets. On Rapier, "
       + "three seeds searched at 960 Hz, the coarsest rate a standing blow converges at, then searched on from the "
       + "best of two of them and from a blow found on another engine (research/core-club-havok.json@0d63a616); the "
       + "strongest, from that one, read again at 1920 Hz, where it agrees with 960 and 3840 Hz to 0.4 %. Recorded, not asked: the blow's energy is the rate-converged reading, not the "
@@ -326,10 +327,13 @@ export const SOURCES = Object.freeze({
   },
   "core-strikes": {
     kind: "asset", file: "assets/core/strikes.json",
-    what: "The strike skill's repertoire (src/core/skills/strikes.ts): for each body and thing held, the right "
-      + "hand's strike found by search, thrown from standing in the guard, with the target's distance ahead of "
-      + "the head, how it was searched and what it read on replay; written by "
-      + "research/core-strike-repertoire.mjs --write from the searches' outputs, whose harness it names.",
+    what: "The strike skill's repertoire (src/core/skills/strikes.ts): for a body, a thing held and a height "
+      + "band, the right hand's strike found by search (research/core-strike-search.mjs), scored by the hit "
+      + "points it takes from a target body under the rule less those it costs the body that throws it "
+      + "(research/core-blow.mjs), thrown from standing in the guard; with where its target stood, ahead of the "
+      + "head and above it, how it was searched, where about its place it still lands, and what it read on "
+      + "replay; written by research/core-strike-repertoire.mjs --write from the searches' outputs, whose "
+      + "harness it names.",
   },
   "core-grip": {
     kind: "decision", date: "2026-09-29",

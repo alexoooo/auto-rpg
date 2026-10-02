@@ -1,6 +1,7 @@
 import type { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { wrap } from "../skills/locomotion.ts";
-import { APPROACH } from "../skills/strike.ts";
+import { APPROACH, type StrikeReport } from "../skills/strike.ts";
+import { BAND_NAMES, BANDS, type Band } from "../skills/strikes.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { FIGHTER, type FighterMindConfig } from "./config.ts";
 import { GUARD_ACTION, type HandAction, type Intent } from "./intent.ts";
@@ -91,12 +92,36 @@ export function fighterTactics(name: string, orders: (sight: Sight) => Orders, s
 }
 
 /**
+ * The band of a foe a fighter attacks, by its `aim` (`FighterMindConfig.aim`): the high one, its
+ * head; or the one the right hand's recipe nets the most on (`StrikeReport.nets`), the first of
+ * equals in the bands' order, and the high one where the hand has no recipe.
+ */
+function bandAimed(aim: FighterMindConfig["aim"], nets: StrikeReport["nets"]): Band {
+  switch (aim) {
+    case "head": return "high";
+    case "pays": {
+      let best: Band = "high", most: number | null = null;
+      for (const band of BAND_NAMES) {
+        const net = nets.right[band];
+        if (net !== null && (most === null || net > most)) { best = band; most = net; }
+      }
+      return best;
+    }
+    default: {
+      const never: never = aim;
+      throw new Error(`a fighter aims at the head or at what pays, not at ${JSON.stringify(never)}`);
+    }
+  }
+}
+
+/**
  * **The orders of a fighter that picks its own fight**, from what it sees: the nearest body of
  * another side, one still in the fight before one that is out. It walks at it, facing its walk,
- * until their centres of mass are within `ATTACK_METRES` across the ground, then attacks its
- * head; once either is out it stands, facing it; and with nobody to fight it stands as it is.
+ * until their centres of mass are within `ATTACK_METRES` across the ground, then attacks the
+ * part its `aim` names (`bandAimed`, `BANDS`), its head where it has not that part; once either
+ * is out it stands, facing it; and with nobody to fight it stands as it is.
  */
-export function seekFoe({ view }: Sight): Orders {
+export function seekFoe({ view, report }: Sight, aim: FighterMindConfig["aim"] = FIGHTER.aim): Orders {
   const { senses, stance } = view, from = stance.centre;
   let foe: BodySense | null = null, near = Infinity;
   for (const other of senses.others) {
@@ -110,5 +135,6 @@ export function seekFoe({ view }: Sight): Orders {
   if (senses.out || foe.out) return { move: null, face: toward, attack: null };
   if (d > ATTACK_METRES) return { move: toward, face: null, attack: null };
   const head: Vector3 = foe.segments.get("head")?.centre ?? foe.centre;
-  return { move: null, face: toward, attack: [head.x, head.y, head.z] };
+  const part = aim === "head" ? head : foe.segments.get(BANDS[bandAimed(aim, report.strike.nets)])?.centre ?? head;
+  return { move: null, face: toward, attack: [part.x, part.y, part.z] };
 }

@@ -12,6 +12,7 @@ import { createBody, SERVO_SECONDS } from "../src/core/body.ts";
 import { buildBody } from "../src/core/build/build-body.ts";
 import { centreOfToRef } from "../src/core/control/support.ts";
 import { humanSpec } from "../src/core/human/spec.ts";
+import { FIGHTER } from "../src/core/mind/config.ts";
 import { fighterTactics, seekFoe } from "../src/core/mind/fighter.ts";
 import { GUARD_ACTION } from "../src/core/mind/intent.ts";
 import { embody } from "../src/core/mind/mind.ts";
@@ -157,6 +158,36 @@ test("a fighter picks its foe from what it sees", () => {
   for (const order of [[far, down], [down, far]]) assert.deepEqual(plan(order), { move: east, face: null, attack: null }, "the nearer out: the farther");
   const downFar = { ...far, out: true };
   for (const order of [[downFar, down], [down, downFar]]) assert.deepEqual(plan(order), { move: null, face: north, attack: null }, "both out: it faces the nearer");
+});
+
+test("a fighter aims at a foe's head, or at the part its right hand's recipe nets the most on", () => {
+  const at = (x, y, z) => new Vector3(x, y, z);
+  const head = [0.1, 1.6, 1.4], trunk = [0, 1.3, 1.5], none = { high: null, middle: null };
+  const whole = new Map([["head", { centre: at(...head) }], ["upperTrunk", { centre: at(...trunk) }]]);
+  const sight = (right, left, segments) => ({
+    view: { stance: { centre: at(0, 1, 0) }, senses: { side: "left", out: false, others: [{ side: "right", out: false, centre: at(0, 1, 1.5), segments }] } },
+    report: { strike: { nets: { left, right } } },
+  });
+  const aimed = (aim, right, left = none, segments = whole) => seekFoe(sight(right, left, segments), aim).attack;
+  // A bare fist nets more on a trunk, a club on a head: under "pays" each is aimed where it does.
+  const fist = { high: -0.03, middle: 0.2 }, club = { high: 0.98, middle: 0.5 };
+  assert.deepEqual([aimed("pays", fist), aimed("pays", club)], [trunk, head]);
+  assert.deepEqual([aimed("head", fist), aimed("head", club)], [head, head]);
+  // Left to itself a fighter aims at the head (`FIGHTER.aim`).
+  assert.equal(FIGHTER.aim, "head");
+  assert.deepEqual(seekFoe(sight(fist, none, whole)).attack, head);
+  // Of equals the first band, the high one; a band its hand has no recipe in is not aimed at, whatever the other nets.
+  assert.deepEqual(aimed("pays", { high: 0.2, middle: 0.2 }), head);
+  assert.deepEqual(aimed("pays", { high: null, middle: -0.01 }), trunk);
+  assert.deepEqual(aimed("pays", { high: -0.01, middle: null }), head);
+  assert.deepEqual(aimed("pays", none), head);
+  // It is the right hand's recipes that are read, the hand a fighter attacks with.
+  assert.deepEqual(aimed("pays", club, fist), head);
+  assert.deepEqual(aimed("pays", fist, club), trunk);
+  // A foe with no such part is attacked at its head, and with no head at its centre.
+  assert.deepEqual(aimed("pays", fist, none, new Map([["head", { centre: at(...head) }]])), head);
+  assert.deepEqual(aimed("pays", fist, none, new Map()), [0, 1, 1.5]);
+  assert.throws(() => aimed("heart", fist), /aims at the head or at what pays/);
 });
 
 test("a fighter holds the point it aims at until the plan's leaves it or a blow is thrown", () => {

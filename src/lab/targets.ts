@@ -4,12 +4,14 @@ import type { Hand } from "../core/control/motor.ts";
 import { cos, sin } from "../core/math/real.ts";
 import type { Sight } from "../core/mind/tactics.ts";
 import type { StrikeReport } from "../core/skills/strike.ts";
+import type { Band } from "../core/skills/strikes.ts";
 import { watchBlows, woundedIn, type BlowSide, type BlowWatch, type Fighter, type LandedBlow } from "../core/rules/blows.ts";
 import { createPool } from "../core/rules/pool.ts";
 import type { Rulebook } from "../core/rules/rulebook.ts";
+import { SEGMENT_DENSITY, type DensitySegment } from "../core/human/tables/densities.ts";
 import type { BodySpec, ShapeSpec } from "../core/spec/body.ts";
-import { ballMoment } from "../core/spec/geometry.ts";
-import { derive, type Vec3 } from "../core/spec/quantity.ts";
+import { ballMoment, ballRadius } from "../core/spec/geometry.ts";
+import { derive, si, type Quantity, type Vec3 } from "../core/spec/quantity.ts";
 import type { World } from "../core/world.ts";
 import { mulberry32 } from "../rng.ts";
 import type { Actor } from "./actor.ts";
@@ -17,7 +19,7 @@ import type { Actor } from "./actor.ts";
 /**
  * **The lab's targets**: bodies hung in the air and struck under the rule a fight wounds by
  * (`watchBlows`, `src/core/rules/blows.ts`). A target is drawn by seed in a box scaled to the body
- * that strikes at it (`drawTargets`); its body is a ball of that body's head (`dummySpec`), hung
+ * that strikes at it (`drawTargets`); its body is a ball of a part of that body, its head unless another is named (`dummySpec`), hung
  * as the strike at it begins and held up against its own weight and nothing else (`hangDummy`);
  * and what the strike did to it, or how near it passed, is one reading (`readTarget`). Whatever
  * the body is and whatever its hand holds, the reading is the same.
@@ -47,8 +49,8 @@ export interface Target {
 
 /**
  * `count` targets about `place` (world, on the ground) for a body of `stature` facing `heading`:
- * the first is the control, at `place` and `head` high, where today's recipes land; each one
- * after is drawn in the box from `seed`'s stream (`mulberry32`), three draws a target: across,
+ * the first is the control, at `place` and `head` high, where a foe of its own build has its
+ * head; each one after is drawn in the box from `seed`'s stream (`mulberry32`), three draws a target: across,
  * along, up.
  */
 export function drawTargets(seed: number, count: number, frame: { readonly place: Vec3; readonly heading: number; readonly stature: number; readonly head: number }): Target[] {
@@ -66,46 +68,53 @@ export function drawTargets(seed: number, count: number, frame: { readonly place
   return targets;
 }
 
-/** A dummy's one segment, and its part in its pool. */
+/** The part a dummy is made of unless another is named. */
 const DUMMY_PART = "head";
 
 /**
- * **A target's body**: one ball, the attacker's head's mass, its head capsule's radius and its
- * head's surface, made of what the attacker is, named `head`, with the attacker's hit points in it
- * and never coming off. Every number is the attacker's own, by a rule that names it. Its frame's origin is the ball's centre, so its node is
- * where it is.
+ * **A target's body**: one ball, the mass and the surface of the attacker's `part`, made of what
+ * the attacker is, named for the part, with the attacker's hit points in it and never coming off.
+ * A ball of a part that is itself a ball or a capsule has its radius; of any other part, the
+ * radius of a ball that holds its mass at its density (`SEGMENT_DENSITY`, by the part's name
+ * before its side). Every number is the attacker's own, by a rule that names it. Its frame's
+ * origin is the ball's centre, so its node is where it is.
  */
-export function dummySpec(attacker: BodySpec): BodySpec {
-  const head = attacker.segments.find((segment) => segment.name === "head");
-  if (!head || (head.shape.kind !== "capsule" && head.shape.kind !== "sphere")) throw new Error(`${attacker.model} has no head a ball is made of`);
-  const mass = derive("kg", "the attacker's head's mass", [head.mass], (m) => m);
-  const radius = derive("m", "the attacker's head capsule's radius", [head.shape.radius], (r) => r);
+export function dummySpec(attacker: BodySpec, part: string = DUMMY_PART): BodySpec {
+  const made = attacker.segments.find((segment) => segment.name === part);
+  if (!made) throw new Error(`${attacker.model} has no ${part} a ball is made of`);
+  const mass = derive("kg", `the attacker's ${part}'s mass`, [made.mass], (m) => m);
+  const radius = ((): Quantity<number> => {
+    if (made.shape.kind === "capsule" || made.shape.kind === "sphere") return derive("m", `the attacker's ${part}'s ${made.shape.kind}'s radius`, [made.shape.radius], (r) => r);
+    const kind = part.split(".")[0]!, density = Object.hasOwn(SEGMENT_DENSITY, kind) ? SEGMENT_DENSITY[kind as DensitySegment] : null;
+    if (!density) throw new Error(`${attacker.model}'s ${part} has no radius and no density a ball is made by`);
+    return derive("m", `the ball that holds the attacker's ${part}'s mass at its density`, [made.mass, si(density)], (m, rho) => ballRadius(m / rho));
+  })();
   const centre = derive("m", "the ball's centre, its frame's origin", [], (): Vec3 => [0, 0, 0]);
   return {
     family: "dummy", model: `${attacker.model}.dummy`, substance: attacker.substance, mass,
     stature: derive("m", "the ball's height, twice its radius", [radius], (r) => 2 * r),
     segments: [{
-      name: DUMMY_PART, proximal: centre, mass, centreOfMass: centre,
+      name: part, proximal: centre, mass, centreOfMass: centre,
       distal: derive("m", "the ball's top, its radius over its centre", [radius], (r): Vec3 => [0, r, 0]),
       inertia: derive("kg m2", "a solid ball's moment about each axis", [mass, radius], (m, r): Vec3 => [ballMoment(m, r), ballMoment(m, r), ballMoment(m, r)]),
       shape: { kind: "sphere", centre, radius },
-      surface: { stiffness: derive("N/m", "the attacker's head's surface", [head.surface.stiffness], (k) => k) },
+      surface: { stiffness: derive("N/m", `the attacker's ${part}'s surface`, [made.surface.stiffness], (k) => k) },
     }],
     joints: [],
-    wounds: { hp: derive("HP", "the attacker's hit points", [attacker.wounds.hp], (hp) => hp), vital: [], whole: [DUMMY_PART] },
+    wounds: { hp: derive("HP", "the attacker's hit points", [attacker.wounds.hp], (hp) => hp), vital: [], whole: [part] },
     attributes: { balance: derive("%", "the attacker's balance", [attacker.attributes.balance], (percent) => percent) },
   };
 }
 
-/** A dummy's ball, from its spec. */
-function ballOf(spec: BodySpec): Extract<ShapeSpec, { readonly kind: "sphere" }> {
-  const shape = spec.segments.find((segment) => segment.name === DUMMY_PART)?.shape;
-  if (spec.segments.length !== 1 || shape?.kind !== "sphere") throw new Error(`${spec.model} is no dummy`);
-  return shape;
+/** A dummy's one segment's name and its ball, from its spec. */
+export function ballOf(spec: BodySpec): { readonly part: string; readonly ball: Extract<ShapeSpec, { readonly kind: "sphere" }> } {
+  const segment = spec.segments[0];
+  if (spec.segments.length !== 1 || segment?.shape.kind !== "sphere") throw new Error(`${spec.model} is no dummy`);
+  return { part: segment.name, ball: segment.shape };
 }
 
 /** A hung dummy. */
-interface Dummy {
+export interface Dummy {
   /** What a blow watch takes, on a side of its own. */
   readonly fighter: Fighter;
   /** The ball's centre, world: its node's own place, as the last step left it. */
@@ -122,8 +131,8 @@ interface Dummy {
  * `fighter` is what a blow watch takes (`Fighter`), on a side of its own.
  */
 export function hangDummy(world: World, spec: BodySpec, at: Vec3, rules: Rulebook): Dummy {
-  const radius = ballOf(spec).radius.value, built = buildBody(spec, world, { position: at });
-  const { body, node, rigid } = built.segments.get(DUMMY_PART)!, g = world.physics.gravity;
+  const { part, ball } = ballOf(spec), radius = ball.radius.value, built = buildBody(spec, world, { position: at });
+  const { body, node, rigid } = built.segments.get(part)!, g = world.physics.gravity;
   const weight = new Vector3(-g[0] * rigid.mass, -g[1] * rigid.mass, -g[2] * rigid.mass);
   const hold = (): void => body.applyForce(weight, node.position), hung = world.steps;
   hold();
@@ -146,6 +155,10 @@ interface ThrownStrike {
   readonly kind: NonNullable<StrikeReport["blow"]>;
   /** The recipe's strike's name; a placed blow's is its kind. */
   readonly name: string;
+  /** The recipe's height band (`Recipe.band`); null for a placed blow. */
+  readonly band: Band | null;
+  /** How high the target stood over the head as the strike began, m: what the blow was chosen by (`recipeAt`). */
+  readonly up: number;
   /** Peak speed of the striking fist in the world, m/s, from the strike's beginning to the end of its pushes. */
   readonly peak: number;
   /**
@@ -171,20 +184,30 @@ export interface TargetReading {
   readonly hung: boolean;
   /**
    * The nearest any shape of the hand's body came to the dummy's surface, or to where it would
-   * hang while it does not, from the strike's beginning to the watch's end, m: 0 where they
-   * touched; null if no strike began.
+   * hang while it does not, as each control step found them from the strike's beginning to the
+   * watch's end, m: 0 where a step found them touching; null if no strike began.
    */
   readonly nearest: number | null;
-  /**
-   * The blow that took the most from the dummy, the first of equals, or null: an arm that brushes
-   * the dummy on the fist's way is a blow too, and not the one its strike is read by.
-   */
+  /** The blow that took the most from the dummy (`hardestOn`), or null. */
   readonly blow: LandedBlow | null;
   /** That blow's two sides: the dummy's, and the body's that struck it; null with no blow. */
   readonly took: BlowSide | null;
   readonly gave: BlowSide | null;
   /** Whether the body went down before the watch's end: the reading closed there. */
   readonly fell: boolean;
+}
+
+/**
+ * Of `blows`, the one that took the most hit points from `fighter`, the first of equals, or null
+ * if none took any: an arm that brushes a target on the fist's way is a blow too, and not the one
+ * its strike is read by.
+ */
+export function hardestOn(blows: readonly LandedBlow[], fighter: string): LandedBlow | null {
+  /** What `landed` took from the fighter, HP. */
+  const taken = (landed: LandedBlow): number => woundedIn(landed).find((side) => side.fighter === fighter)?.damage ?? 0;
+  let blow: LandedBlow | null = null;
+  for (const landed of blows) if (taken(landed) > (blow ? taken(blow) : 0)) blow = landed;
+  return blow;
 }
 
 /** Seconds a target is watched after its strike's pushes end. */
@@ -195,7 +218,7 @@ export const TARGET_WATCH = 0.5;
  * made inside another is thrown out of it by the solver, which is no blow. Set:
  * `docs/reference/lab.md#targets`.
  */
-const TARGET_CLEAR = 0.02;
+export const TARGET_CLEAR = 0.02;
 
 /** One target's reading under way. */
 interface TargetRead {
@@ -220,7 +243,7 @@ interface TargetRead {
  */
 export function readTarget(actor: Actor, target: Target, hand: Hand, rules: Rulebook, hung?: (built: BuiltBody) => { dispose(): void }): TargetRead {
   const { world, body } = actor, built = body.built;
-  const spec = dummySpec(built.spec), radius = ballOf(spec).radius.value;
+  const spec = dummySpec(built.spec), radius = ballOf(spec).ball.radius.value;
   const striking = built.segments.get(`hand.${hand}`);
   if (!striking) throw new Error(`${built.spec.model} has no ${hand} hand`);
   const segments = [...built.segments.values()];
@@ -231,11 +254,7 @@ export function readTarget(actor: Actor, target: Target, hand: Hand, rules: Rule
   /** The hand's strikes thrown before this one, once it has begun; and when its pushes ended. */
   let thrown: number | null = null, ended: number | null = null;
   const reading = (fell: boolean): TargetReading => {
-    const dummy = up?.dummy.fighter.id;
-    /** What `landed` took from the dummy, HP. */
-    const taken = (landed: LandedBlow): number => woundedIn(landed).find((side) => side.fighter === dummy)?.damage ?? 0;
-    let blow: LandedBlow | null = null;
-    for (const landed of up?.watch.blows ?? []) if (taken(landed) > (blow ? taken(blow) : 0)) blow = landed;
+    const dummy = up?.dummy.fighter.id, blow = up ? hardestOn(up.watch.blows, up.dummy.fighter.id) : null;
     const took = blow?.sides.find((side) => side.fighter === dummy) ?? null, gave = blow?.sides.find((side) => side.fighter !== dummy) ?? null;
     return { target, hand, strike: strike && { ...strike }, seconds: world.time - asked, hung: up !== null, nearest, blow, took, gave, fell };
   };
@@ -249,7 +268,7 @@ export function readTarget(actor: Actor, target: Target, hand: Hand, rules: Rule
         thrown = report.strike.thrown[hand];
         const { blow, chosen, distance } = report.strike, h = report.heading, dx = target.at[0] - view.head.x, dz = target.at[2] - view.head.z;
         strike = {
-          kind: blow!, name: chosen?.strike.name ?? blow!, peak: 0,
+          kind: blow!, name: chosen?.strike.name ?? blow!, band: chosen?.recipe.band ?? null, up: target.at[1] - view.head.y, peak: 0,
           off: { along: dx * sin(h) + dz * cos(h) - distance!, across: dx * cos(h) - dz * sin(h) },
         };
       }

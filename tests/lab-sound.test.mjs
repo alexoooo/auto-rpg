@@ -3,7 +3,8 @@
  * passed and no more than a page frame of it; a shove is told as it is applied, and sounds as a
  * hand with the energy its impulse gives; and under each of the lab's modes, what a step sounded
  * of is held at the time the frame that step recorded shows, on its feet and down, a target the
- * Routine hangs beside the body heard with it. Node core stand, Rapier, 120 Hz, balance 0 %.
+ * Routine or the Blow hangs beside the body heard with it. Node core stand, Rapier, 120 Hz,
+ * balance 0 %.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -12,17 +13,18 @@ import { airOf, hearTouches } from "../src/audio/body-sounds.ts";
 import { contactMass } from "../src/core/build/contact-mass.ts";
 import { centreOfToRef } from "../src/core/control/support.ts";
 import { modelSpec } from "../src/core/human/spec.ts";
+import { rulebook } from "../src/core/rules/rulebook.ts";
 import { STAND } from "../src/core/skills/strike.ts";
 import { labActor } from "../src/lab/actor.ts";
-import { throwBlow } from "../src/lab/blow.ts";
+import { throwBlow, watchBlow } from "../src/lab/blow.ts";
 import { LAB_BLOWS } from "../src/lab/blows.ts";
-import { watchClubBlow } from "../src/lab/club-blow.ts";
 import { loadoutSpec } from "../src/lab/loadout.ts";
 import { CATCH_UP_MS } from "../src/lab/player.ts";
 import { startRoutine } from "../src/lab/routine.ts";
 import { startRun } from "../src/lab/run-mode.ts";
-import { createSoundLog, LAB_BODY, LAB_OTHER, landingCue, logSounds, shoveSound } from "../src/lab/sound-log.ts";
+import { createSoundLog, LAB_BODY, LAB_OTHER, logSounds, shoveSound } from "../src/lab/sound-log.ts";
 import { startStance } from "../src/lab/stance-mode.ts";
+import { hardestOn } from "../src/lab/targets.ts";
 import { TRACKS, trackOf } from "../src/lab/track.ts";
 import { coreStand } from "./harness/core-stand.mjs";
 
@@ -202,23 +204,20 @@ test("what a step sounded of is held at the time its frame shows, under every mo
   assert.deepEqual(run.faults.slice(0, 5), []);
   assert.ok(!run.down && run.cues.length >= 6 && run.cues.every((c) => c.key === `${LAB_BODY}:ground`), `${run.cues.length} footfalls`);
 
-  // The Blow: the landing on the mark is the scenario's own cue, at the step the watch first reads it.
+  // The Blow: the body hung for it is heard with the body, as the Routine's is.
   const stored = LAB_BLOWS[0];
-  let landedAt = null;
-  const blow = await logged(loadoutSpec({ model: stored.model, right: "club", left: "empty", boots: true, armour: true }), STAND + stored.strike.chamber.seconds + 0.6, (actor, logging, stand) => {
-    const thrown = throwBlow(actor, stored.strike, stored.distance);
-    const watch = watchClubBlow(stand.built, stand.world, thrown, stored.distance, stored.hand);
-    const sounding = stand.world.afterStep(() => {
-      if (landedAt !== null || !watch.landed) return;
-      landedAt = { time: thrown.body.view.time, landed: watch.landed };
-      logging.heard(landingCue(stand.built, stored.hand, watch.landed));
-    });
-    return { time: () => thrown.body.view.time, dispose: () => { sounding.dispose(); watch.dispose(); thrown.dispose(); } };
+  let landed = null;
+  const blow = await logged(loadoutSpec({ model: stored.model, right: "club", left: "empty", boots: true, armour: true }), STAND + stored.strike.chamber.seconds + 0.6, (actor, logging) => {
+    const thrown = throwBlow(actor, { hand: stored.hand, strike: stored.strike, place: stored.place, band: stored.band });
+    const watch = watchBlow(actor, thrown, rulebook("arena"), { hung: logging.hears });
+    // Read at every step, to the end: the blow that took the most from the target.
+    return { time: () => thrown.body.view.time, done: () => { landed = hardestOn(watch.reading.blows, "dummy"); return false; }, dispose: () => { watch.dispose(); thrown.dispose(); } };
   });
   assert.deepEqual(blow.faults.slice(0, 5), []);
-  assert.ok(landedAt, "the blow landed");
-  const marks = blow.cues.filter((c) => c.key === `${LAB_BODY}:mark`);
-  // Wood on a head of flesh: the softer one's voice, at the point the club touched.
-  assert.deepEqual(marks, [{ key: `${LAB_BODY}:mark`, kind: "body", strength: 1, point: { x: landedAt.landed.point[0], z: landedAt.landed.point[2] } }]);
-  assert.ok(landedAt.landed.energy > 60 && blow.fastest > 19, `${landedAt.landed.energy} J, ${blow.fastest} m/s`);
+  assert.ok(landed && !blow.down, "the blow landed");
+  // Wood on a head of flesh: the softer one's voice, at the point the club touched, and all a cue can be.
+  const key = `${LAB_OTHER}:${LAB_BODY}`;
+  assert.deepEqual(blow.cues.filter((c) => c.point.x === landed.point[0] && c.point.z === landed.point[2]), [{ key, kind: "body", strength: 1, point: { x: landed.point[0], z: landed.point[2] } }]);
+  assert.deepEqual(blow.cues.filter((c) => c.key.startsWith(`${LAB_OTHER}:`) && c.key !== key), []);
+  assert.ok(landed.energy > 60 && blow.fastest > 19, `${landed.energy} J, ${blow.fastest} m/s`);
 });

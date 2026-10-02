@@ -24,11 +24,12 @@ import { SHUTTLE_TURN_RADIUS, TURN_PACE, trackOf, type Piece, type Track } from 
  *   straights, at the pace and turn of `ROUTINE_GAIT`.
  * - **The targets are bodies** (`targets.ts`): drawn by seed about the place `POST_BEYOND` beyond
  *   the walk out, high, middle and low, one up at a time, each hung as its strike begins and read
- *   by the rule a fight wounds by. The first is the control, at the head's height, where the
- *   recipes land.
+ *   by the rule a fight wounds by. The first is the control, at the head's height as the body
+ *   is built.
  * - **The strikes are the strike skill's** (`src/core/skills/strike.ts`): the tactics attack the
- *   target that is up with the hands of `ROUTINE_HANDS` in turn, and the skill throws what it has
- *   for what that hand holds (`assets/core/strikes.json`), the left's mirrored from the right's.
+ *   target that is up with the hands of `ROUTINE_HANDS` in turn, and the skill throws what its
+ *   body has for what that hand holds at that height (`assets/core/strikes.json`), the left's
+ *   mirrored from the right's, or places its blow.
  *
  * Every torque comes from the muscle driver (`src/core/muscle/driver.ts`), so the strikes are as
  * fast as the muscles make them: that is what the page is for.
@@ -46,8 +47,8 @@ export const ROUTINE_TRACK: readonly Piece[] = [
 ];
 
 /**
- * The place the targets are drawn about, m beyond the end of the walk out: where the fists'
- * recipes (0.40 and 0.48 m ahead of the head) stand the body at about the straight's end.
+ * The place the targets are drawn about, m beyond the end of the walk out: about a bare hand's
+ * blow's distance, so that the body stands for its blows at about the straight's end.
  */
 const POST_BEYOND = 0.45;
 

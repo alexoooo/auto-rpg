@@ -222,11 +222,11 @@ test("the_threat_is_the_foes_striking_point_that_closes_fastest", async () => {
 });
 
 /**
- * The first blow between a Warrior who throws its club and a Warrior ordered to stand `gap` m off
+ * The first blow between a Rogue who throws its club and a Warrior ordered to stand `gap` m off
  * under `guard`: the surface of the one who stands.
  */
 async function firstBlow(gap, guard, experiment = {}) {
-  const { world, duel, dispose } = await buildBout({ left: "workshop-fighter", right: "workshop-fighter", gap, minds: { left: FIGHTER, right: { ...FIGHTER, guard, ...experiment } } });
+  const { world, duel, dispose } = await buildBout({ left: "workshop-rogue", right: "workshop-fighter", gap, minds: { left: FIGHTER, right: { ...FIGHTER, guard, ...experiment } } });
   try {
     duel.play([{ step: 0, side: "right", orders: STAND_ORDERS }]);
     while (duel.blows.length === 0 && duel.clock < 20) world.step();
@@ -238,7 +238,7 @@ async function firstBlow(gap, guard, experiment = {}) {
 }
 
 test("a_clubs_blow_at_the_head_is_met_by_the_club_that_covers", async () => {
-  for (const gap of [3, 3.5, 4]) {
+  for (const gap of [3, 4, 5]) {
     const { segment, item } = await firstBlow(gap, "pose");
     assert.deepEqual({ segment, item }, { segment: "head", item: null }, `in the pose, from ${gap} m`);
     const met = await firstBlow(gap, "cover");

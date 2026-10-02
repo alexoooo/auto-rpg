@@ -13,8 +13,8 @@ export interface SoundPoint { x: number; z: number }
 export interface SoundCue { key: string; kind: SoundKind | "debris"; strength: number; point: SoundPoint }
 /**
  * How loud a touch is: its strength is the square root of its energy over `joules`, J, capped at 1,
- * and one weaker than `floor` makes no sound. `joules` is over the hardest blow of three bouts, and
- * `floor` between a sole laid down and the quietest footfall (`docs/reference/look.md#sound`).
+ * and one weaker than `floor` makes no sound. `joules` is a hard fall's landing, which a club blow
+ * passes, and `floor` between a sole laid down and the quietest footfall (`docs/reference/look.md#sound`).
  */
 const CUE = Object.freeze({ joules: 60, floor: .0125 });
 

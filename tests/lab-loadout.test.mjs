@@ -34,11 +34,11 @@ test("a_bodys_balance_is_the_addresss_or_its_characters_own_which_the_address_le
   for (const model of MODELS) assert.equal(loadoutBalance(null, loadoutSpec(bare(model))), humanSpec(model).attributes.balance.value);
 });
 
-test("a_body_has_a_strike_for_each_thing_its_hands_hold_its_own_or_one_borrowed", () => {
+test("a_body_has_a_strike_for_each_thing_its_hands_hold", () => {
   const strikes = (loadout) => strikesOf(loadoutSpec(loadout)), fist = { held: "empty", name: "fist" }, club = { held: "club", name: "wooden club" };
   assert.deepEqual(strikes(bare("workshop-fighter")), [fist]);
   assert.deepEqual(strikes({ ...bare("workshop-fighter"), right: "club" }), [club, fist]);
-  // The Rogue and the skeleton have no club blow of their own, and throw the Warrior's.
+  // Whatever recipes it has: a hand with none for what it holds places its blows.
   assert.deepEqual(strikes({ ...bare("workshop-rogue"), left: "club" }), [fist, club]);
   assert.deepEqual(strikes({ ...bare("workshop-rogue"), right: "club", left: "club" }), [club]);
   assert.deepEqual(strikes({ ...bare("crypt-skeleton"), right: "club" }), [club, fist]);

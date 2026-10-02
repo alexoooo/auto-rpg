@@ -51,10 +51,10 @@ test("a_seeded_crypt_loads_and_its_bodies_stand_in_it", async () => {
 });
 
 test("a_fight_in_the_crypt_starts_and_ends", async () => {
-  const { run, dispose } = await crypt(1, faceToFace(1, 4));
+  const { run, dispose } = await crypt(1, faceToFace(1, 3.5));
   try {
     const enemy = run.enemies[0];
-    assert.ok(enemy.fighter, "the first enemy is built: the party stands 4 m from it");
+    assert.ok(enemy.fighter, "the first enemy is built: the party stands 3.5 m from it");
     for (let i = 0; i < 30 * run.world.hz && enemy.alive; i++) run.step();
     assert.ok(woundsBy(run.blows, run.hero.id, enemy.id) > 0 && woundsBy(run.blows, enemy.id, run.hero.id) > 0, "blows land both ways, and wound");
     // A fall or an emptied pool ends a body's fight (`DungeonActor.alive`).

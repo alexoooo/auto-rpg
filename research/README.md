@@ -16,11 +16,14 @@ Some write the data files the core reads, and only with `--write`; without it th
 | `core-stance-sweep.mjs` | the stance's batteries (stand, edge, step, walk, gait at `--speeds` and `--ways`, shove) over stance tunings (`--variants`) | |
 | `core-stance-trials.mjs`, `core-stance-worker.mjs` | the trials the sweep and envelope run, and their worker | |
 | `core-routine-battery.mjs` | the lab's Routine from seeded pushed starts, per tuning: loops held, falls, each strike's peak | |
-| `core-strike.mjs`, `core-club-strike.mjs` | modules the searches and workers call, with no entry point of their own: one fist strike scored by the fist's speed, one club blow by the energy it brings to a head | |
-| `core-strike-search.mjs`, `core-strike-worker.mjs` | a cross-entropy search for a body's fastest strike (`--guard` for a straight from guard, `--weapon club`) | |
-| `core-strike-window.mjs` | where each recipe still lands, along and across its heading and up from its target's height | the windows, into `assets/core/strikes.json` |
-| `core-strike-repertoire.mjs` | builds the repertoire from searches' best strikes | `assets/core/strikes.json` |
+| `core-blow.mjs` | a module the searches, the windows and the repertoire call, with no entry point of its own: one strike thrown through the strike skill at a target body of a band's part, read by the rule a fight wounds by; its score, the hit points done less those it cost, a miss under any hit, a fall under any miss; and what a candidate's numbers stand for by what is held | |
+| `core-strike.mjs`, `core-club-strike.mjs` | what a candidate's numbers are, with no entry point of their own: a fist's strike and a club's blow decoded from and encoded to a search's unit numbers, the freedoms each may push, and a trial's perturbation | |
+| `core-strike-search.mjs`, `core-strike-worker.mjs` | a cross-entropy search for the blow that pays most for a body, a thing held (`--held`) and a height band (`--band`), from scratch or going on from a recipe or a search (`--from`); `--guard` for a straight from guard | |
+| `core-strike-window.mjs` | where each recipe still lands about its place, along and across its heading and up: the stand-offs at which it lands, leaves its body up three seconds after, and does a share of what it does at its place (`--keep`, `--keep-up`), at every rate, as the mean of `--trials` perturbed throws; a recipe whose window is narrower than the feet are set to is taken out, and its cell takes the next of its searches (`--spare`); `--save` and `--load` keep the readings | the windows, into `assets/core/strikes.json` |
+| `core-strike-repertoire.mjs` | builds the repertoire from searches' outputs: of a cell's searches the one that nets most on replay at 120 Hz, kept only where it nets more than a placed blow at the same target; `--spare` writes the cell's other searches that do | `assets/core/strikes.json`, without its windows |
 | `core-targets.mjs`, `core-targets-run.mjs` | the lab's Routine on its seeded targets, each body bare and with the club: what each strike did to the dummy hung at its target; and the run both batteries' workers make | the tables, pasted into `docs/reference/blows.md` |
+| `core-blow-standing.mjs` | what a body's blow does a body that stands: an arena bout in which one side stands, bare-handed, and the other is ordered to attack its head or its upper trunk, by body, thing held, band, foe and starting gap | the table, pasted into `docs/reference/blows.md` |
+| `core-aim.mjs` | whether a fighter that aims at what its recipes pay most on does better than one that aims at the head: arena bouts paired by their starting gap against a control with both aiming at the head, by what is held, the pair and the side that aims | the tables, pasted into `docs/reference/blows.md` |
 | `core-placed.mjs` | the placed blow's sweep: the targets' battery at each stretch, time and distance carried through, given to the skills in place of the blow set | the table, pasted into `docs/reference/blows.md` |
 | `core-placed-versus.mjs` | a recipe against a placed blow by the target's height: one body, one target ahead of it, thrown at both ways | the table, pasted into `docs/reference/blows.md` |
 | `core-placed-arm.mjs` | an arm alone following a placed blow's goal, the lower trunk held: how near its point comes to a place, in each of two times | the table, pasted into `docs/reference/blows.md` |
@@ -39,8 +42,8 @@ For example:
 
 ```powershell
 node research/core-stance-envelope.mjs --workers 14
-node research/core-strike-search.mjs --model workshop-rogue --hand right --guard
-node research/core-strike-window.mjs --hz 120,480
+node research/core-strike-search.mjs --model workshop-rogue --held fist --band middle --guard
+node research/core-strike-window.mjs --spare spare.json --save windows.json
 node research/core-routine-battery.mjs --variants '[{}]' --seeds 12
 node research/core-targets.mjs --each
 node research/core-placed.mjs --workers 26

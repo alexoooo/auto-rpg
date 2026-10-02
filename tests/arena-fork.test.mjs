@@ -4,7 +4,7 @@
  * from went on, in the bout it came from or in another of the same recipe. Node, core world,
  * Rapier, 120 Hz.
  *
- * The bout is the fighter against the skeleton from 3 m apart, each with a balance of 25 %, each
+ * The bout is the fighter against the rogue from 4.5 m apart, each with a balance of 25 %, each
  * seeing the other two steps late, under a tape that orders the left side back before step 300
  * and hands it back to itself before step 420. It crosses blows thrown by a recipe and one placed.
  *
@@ -30,7 +30,7 @@ import { freshEngine } from "./harness/core-stand.mjs";
 import { assertForks, fieldsOf, forgetting, forks, PHYSICS_ALONE, shows, STATE_ALONE, unsorted } from "./harness/fork.mjs";
 import { traceOf } from "./harness/trace.mjs";
 
-const RECIPE = deepFreeze({ left: "workshop-fighter", right: "crypt-skeleton", gap: 3, balance: { left: 25, right: 25 }, senseDelay: 2 });
+const RECIPE = deepFreeze({ left: "workshop-fighter", right: "workshop-rogue", gap: 4.5, balance: { left: 25, right: 25 }, senseDelay: 2 });
 /** The same bout with both sides covering what threatens them (`FighterMindConfig.guard`). */
 const COVERING = deepFreeze({ ...RECIPE, minds: { left: { ...FIGHTER, guard: "cover" }, right: { ...FIGHTER, guard: "cover" } } });
 const BACK = { move: { x: -1, z: 0 }, face: null, attack: null };

@@ -84,7 +84,7 @@ test("the_log_of_a_run_and_of_a_blow_is_what_their_scripts_decide", async () => 
   {
     const stored = LAB_BLOWS[0], log = createMindLog(), name = stored.strike.name;
     const stand = await coreStand(loadoutSpec({ model: stored.model, right: "club", left: "empty" }), { ground: true });
-    const blow = throwBlow(labActor(stand.built, stand.world, { mind: (script) => logged(script, log) }), stored.strike, stored.distance);
+    const blow = throwBlow(labActor(stand.built, stand.world, { mind: (script) => logged(script, log) }), { hand: stored.hand, strike: stored.strike, place: stored.place, band: stored.band });
     try {
       stand.step(stand.seconds(blow.pushing + 1));
       const notes = log.upTo(Infinity, 100);

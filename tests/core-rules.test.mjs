@@ -235,14 +235,23 @@ test("the club's best blow is worth 1.38 hit points", async () => {
   // The club's best blow is a measurement beside the unit, and not the unit.
   assert.deepEqual([CLUB_BEST.value, CLUB_BEST.unit, CLUB_BEST.provenance.source], [138.26, "J", "core-club-unit"]);
   close(blowDamage(RULES, "blunt", CLUB_BEST.value), 1.3826, "the club's best blow");
-  // The whole path: the stored blow on the core stand, its contact, the masses it meets, its energy, its price.
-  const { evaluateClubStrike } = await import("../research/core-club-strike.mjs");
+  // The whole path: that blow on the core stand at a target body, its contact, the masses it meets, its energy, its price.
+  const { evaluateBlow } = await import("../research/core-blow.mjs");
+  const { hardestOn } = await import("../src/lab/targets.ts");
   const { readFile } = await import("node:fs/promises");
   const blow = JSON.parse(await readFile(new URL("../research/core-club-unit.json", import.meta.url), "utf8"));
-  const result = await evaluateClubStrike({ model: blow.model, hand: blow.hand, strike: blow.strike, distance: blow.distance, hz: 960 });
-  assert.ok(result.at !== null, "the blow lands");
-  close(result.energy, impactEnergy(result.clubKg, result.headKg, result.closing), "its energy is its parts'");
-  const hp = blowDamage(RULES, "blunt", result.energy);
-  assert.ok(result.fell === false, "thrown standing");
-  assert.ok(Math.abs(hp - blowDamage(RULES, "blunt", CLUB_BEST.value)) < 0.02, `the club's best blow at 960 Hz is worth ${hp} HP`);
+  const result = await evaluateBlow({ model: blow.model, held: "wooden club", hand: blow.hand, band: "high", strike: blow.strike, ahead: blow.distance, hz: 960 });
+  const landed = hardestOn(result.blows, "dummy");
+  assert.ok(landed, "the blow lands");
+  const [club, head] = landed.sides;
+  assert.deepEqual([club.fighter, club.item, club.share, head.fighter, head.segment, head.share], ["attacker", "wooden club", 0, "dummy", "head", 1]);
+  close(landed.energy, impactEnergy(club.kg, head.kg, landed.closing), "its energy is its parts'");
+  close(head.damage, blowDamage(RULES, "blunt", landed.energy), "the head takes the whole of it");
+  assert.deepEqual({ fell: result.fell, stood: result.stood, cost: result.cost }, { fell: false, stood: true, cost: 0 });
+  // It closes as the record's did. A head hung on no neck is its own mass and no more, where the
+  // record's mark was a head on a body: the same blow is worth that much less on it.
+  const record = blow.readings.at960, kg = humanSpec(blow.model).segments.find((segment) => segment.name === "head").mass.value;
+  assert.ok(Math.abs(landed.closing - record.closing) < 0.5 && Math.abs(club.kg - record.clubKg) < 0.05, `${landed.closing} m/s with ${club.kg} kg`);
+  assert.ok(Math.abs(head.kg - kg) < 0.01 * kg && record.headKg > 2 * kg, `${head.kg} kg of a head of ${kg}, the record's ${record.headKg}`);
+  assert.ok(Math.abs(head.damage - 1.28) < 0.05 && head.damage < blowDamage(RULES, "blunt", CLUB_BEST.value), `the club's best blow at 960 Hz is worth ${head.damage} HP on a hung head`);
 });

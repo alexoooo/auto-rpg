@@ -30,7 +30,7 @@ export async function runTargets({ model, held, seed, from, targets, hz, skills 
       seconds: stand.world.time,
       strata: (routine.tactics.targets ?? []).slice(from).map((target) => target.stratum),
       readings: routine.readings.map((r) => ({
-        stratum: r.target.stratum, at: [...r.target.at], hand: r.hand, strike: r.strike?.name ?? null, kind: r.strike?.kind ?? null,
+        stratum: r.target.stratum, at: [...r.target.at], hand: r.hand, strike: r.strike?.name ?? null, kind: r.strike?.kind ?? null, band: r.strike?.band ?? null, up: r.strike?.up ?? null,
         seconds: r.seconds, hung: r.hung, nearest: r.nearest,
         blow: r.blow && { damage: r.took.damage, energy: r.blow.energy, closing: r.blow.closing, with: r.gave.item ?? r.gave.segment },
         fell: r.fell,

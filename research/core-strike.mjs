@@ -1,21 +1,10 @@
 /**
- * One strike by a core human (`src/core/`), scored by how fast its fist closes on a target.
- *
- * The human stands on its own feet on the core stand and throws the blow from there (`throwBlow` in
- * `src/lab/blow.ts`): it stands in the lab's guard, holds a chamber pose, then pushes a chosen
- * set of freedoms, each from a chosen moment for a chosen time at a chosen activation;
- * every other freedom is servoed to the guard, and the legs are the stance's. Every torque is its
- * muscles'.
- *
- * The target is an opponent's head: a sphere of the striker's own head capsule's radius, at its
- * own head's centre of mass, as it stands when the blow begins, moved straight ahead by a chosen
- * distance. The reading is the fist's forward speed, its knuckles' velocity along the line the target lies on, as it first enters the
- * sphere from outside after the chamber: a straight's speed as a punch's impact speed is measured
- * (Adamec 2021), so a blow chopped down from above scores only what it carries forward. No body
- * is struck, so nothing slows the fist before it arrives. A search's `score` is that speed, or,
- * for a fist that never arrives, minus how far it passed from the sphere, so any hit beats any
- * miss and a near miss beats a wide one. A body that falls before its fist arrives has thrown no
- * blow, and scores below any miss (`FELL`).
+ * What a strike search's candidate stands for with an empty hand: a straight, or a chambered blow,
+ * by a core human (`src/core/`). The body stands on its own feet on the core stand and throws the
+ * blow from there (`throwBlow` in `src/lab/blow.ts`): it stands in the lab's guard, holds a
+ * chamber pose, then pushes a chosen set of freedoms, each from a chosen moment for a chosen time
+ * at a chosen activation; every other freedom is servoed to the guard, and the legs are the
+ * stance's. Every torque is its muscles'. `research/core-blow.mjs` throws it and scores it.
  *
  * **The wrist is not pushed; it is servoed to the guard like every freedom not pushed.** A punch
  * lands on a fist held in line with the forearm; a search free to push the wrist finds a flick of
@@ -27,23 +16,6 @@
  * that takes the best single run of thousands takes the luckiest. `perturbed` gives a strike the
  * variation a mind cannot remove, and the search scores a candidate by its mean over several.
  */
-import { Logger } from "@babylonjs/core/Misc/logger.js";
-import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import { humanSpec } from "../src/core/human/spec.ts";
-import { coreStand } from "../tests/harness/core-stand.mjs";
-import { STAND } from "../src/core/skills/strike.ts";
-import { labActor } from "../src/lab/actor.ts";
-import { centreNow, throwBlow } from "../src/lab/blow.ts";
-
-Logger.LogLevels = Logger.ErrorLogLevel;
-
-export const CORE_STRIKE_HARNESS = "Node core stand, standing on its feet as built, ground on; a strike into a sphere at head height";
-
-/** Seconds to watch after the chamber. */
-const WINDOW = 0.5;
-
-/** The score of a body that falls before its blow lands: below any miss, whose score is minus a distance within the stand. */
-export const FELL = -10;
 
 /** The freedoms a straight with `hand` may push, and those its chamber poses. */
 export const pushed = (hand) => [
@@ -58,35 +30,74 @@ export const chambered = (hand) => [
 
 /**
  * The search's bounds, each mapped from [-1, 1]. A chamber goal spans its freedom's range; a push's
- * level is its sense and activation together (under a tenth, no push).
+ * level is its sense and activation together (under `OFF`, no push).
  */
-const BOUNDS = { chamberSeconds: [0.1, 0.6], from: [0, 0.3], length: [0, 0.3], distance: [0.3, 1] };
-const OFF = 0.1;
-
-/** How many numbers a strike takes: with a chamber, or (`guard`) thrown from the guard itself. */
-export const dimensions = (hand, guard = false) => (guard ? 0 : 1 + chambered(hand).length) + 3 * pushed(hand).length + 1;
+export const BOUNDS = { chamberSeconds: [0.1, 0.6], from: [0, 0.3], length: [0, 0.3], distance: [0.3, 1] };
+export const OFF = 0.1;
 
 const map = (u, [lo, hi]) => lo + (Math.max(-1, Math.min(1, u)) + 1) / 2 * (hi - lo);
+const unmap = (x, [lo, hi]) => Math.max(-1, Math.min(1, 2 * (x - lo) / (hi - lo) - 1));
+const rangesOf = (spec) => new Map(spec.joints.flatMap((j) => j.dofs.map((d) => [`${j.name} ${d.positive}`, [d.min.value, d.max.value]])));
 
 /**
- * The strike and the target distance that `unit` (numbers in [-1, 1]) stands for, on `spec`. With
- * `guard` the strike has no chamber: it is thrown from the lab's guard, as a straight is.
+ * The strike and the target's distance ahead that `unit` (numbers in [-1, 1]) stands for on
+ * `spec`, by a loadout's `row`: the freedoms it may push and those its chamber poses, each for
+ * `hand`, its `bounds` and its strike's `name`. With `guard` the strike has no chamber: it is
+ * thrown from the lab's guard, as a straight is.
  */
-export function decode(unit, spec, hand = "right", guard = false) {
-  const ranges = new Map(spec.joints.flatMap((j) => j.dofs.map((d) => [`${j.name} ${d.positive}`, [d.min.value, d.max.value]])));
+export function decodeBy(row, unit, spec, hand = "right", guard = false) {
+  const ranges = rangesOf(spec), { bounds } = row;
   let k = 0;
-  const chamberSeconds = guard ? 0 : map(unit[k++], BOUNDS.chamberSeconds);
-  const pose = guard ? {} : Object.fromEntries(chambered(hand).map((name) => [name, map(unit[k++], ranges.get(name))]));
+  const seconds = guard ? 0 : map(unit[k++], bounds.chamberSeconds);
+  const pose = guard ? {} : Object.fromEntries(row.chambered(hand).map((name) => [name, map(unit[k++], ranges.get(name))]));
   const pushes = [];
-  for (const channel of pushed(hand)) {
-    const level = Math.max(-1, Math.min(1, unit[k++])), from = map(unit[k++], BOUNDS.from), length = map(unit[k++], BOUNDS.length);
+  for (const channel of row.pushed(hand)) {
+    const level = Math.max(-1, Math.min(1, unit[k++])), from = map(unit[k++], bounds.from), length = map(unit[k++], bounds.length);
     if (Math.abs(level) >= OFF && length > 0) pushes.push({ channel, sense: level > 0 ? 1 : -1, from, to: from + length, level: Math.abs(level) });
   }
-  const distance = map(unit[k++], BOUNDS.distance);
-  const strike = guard ? { name: `searched ${hand} straight`, hand, pushes }
-    : { name: `searched ${hand} blow`, hand, chamber: { seconds: chamberSeconds, pose }, pushes };
-  return { strike, distance };
+  const distance = map(unit[k++], bounds.distance);
+  const name = row.name(hand, guard);
+  return { strike: guard ? { name, hand, pushes } : { name, hand, chamber: { seconds, pose }, pushes }, distance };
 }
+
+/** How many numbers a candidate of `row` takes: with a chamber, or (`guard`) thrown from the guard itself. */
+export const dimensionsBy = (row, hand, guard = false) => (guard ? 0 : 1 + row.chambered(hand).length) + 3 * row.pushed(hand).length + 1;
+
+/**
+ * The numbers in [-1, 1] that stand for `strike` with its target `distance` ahead, on `spec`, by
+ * `row`: what `decodeBy` reads back, to rounding, each number held to its bounds. A freedom the
+ * strike does not push is given no level, and the middle of its bounds; a strike that pushes a
+ * freedom the row has not, or poses one, is refused.
+ */
+export function encodeBy(row, strike, distance, spec) {
+  const ranges = rangesOf(spec), { bounds } = row, { hand } = strike, guard = !strike.chamber, unit = [];
+  const known = (names, given, what) => {
+    for (const name of given) if (!names.includes(name)) throw new Error(`${strike.name} ${what} ${name}, which a search of ${row.name(hand, guard)} does not`);
+  };
+  if (!guard) {
+    const names = row.chambered(hand);
+    known(names, Object.keys(strike.chamber.pose), "poses");
+    unit.push(unmap(strike.chamber.seconds, bounds.chamberSeconds));
+    for (const name of names) {
+      if (!(name in strike.chamber.pose)) throw new Error(`${strike.name}'s chamber does not pose ${name}`);
+      unit.push(unmap(strike.chamber.pose[name], ranges.get(name)));
+    }
+  }
+  const channels = row.pushed(hand);
+  known(channels, strike.pushes.map((p) => p.channel), "pushes");
+  for (const channel of channels) {
+    const pushes = strike.pushes.filter((p) => p.channel === channel);
+    if (pushes.length > 1) throw new Error(`${strike.name} pushes ${channel} twice`);
+    const [p] = pushes;
+    if (p) unit.push(p.sense * (p.level ?? 1), unmap(p.from, bounds.from), unmap(p.to - p.from, bounds.length));
+    else unit.push(0, 0, 0);
+  }
+  unit.push(unmap(distance, bounds.distance));
+  return unit;
+}
+
+/** A straight's row (`decodeBy`). */
+export const STRAIGHT = { pushed, chambered, bounds: BOUNDS, name: (hand, guard) => guard ? `searched ${hand} straight` : `searched ${hand} blow` };
 
 /**
  * `strike` with every push `shift` s later (none before the chamber's end) and its activation
@@ -95,59 +106,4 @@ export function decode(unit, spec, hand = "right", guard = false) {
 export function perturbed(strike, { shift = 0, scale = 1 }) {
   return { ...strike, pushes: strike.pushes.map((p) => ({ ...p, from: Math.max(0, p.from + shift), to: Math.max(0, p.to + shift),
     level: Math.min(1, (p.level ?? 1) * scale) })) };
-}
-
-/**
- * Run a strike on `model` at `hz`: the one `unit` stands for, or a given `strike` at `distance`.
- * Returns the forward speed at the target (0 if the fist never arrives), when it arrived after the
- * chamber, and the fist's peak speed before it. `off` moves the sphere from the place the blow is
- * thrown at, m: `along`, farther ahead, `across`, to the right (+x), and `up`, as a body stands off it.
- */
-export async function evaluateStrike({ model = "workshop-fighter", unit, hz = 120, hand = "right", guard = false, perturbation, groundSize, off, ...given }) {
-  const spec = humanSpec(model);
-  const decoded = unit ? decode(unit, spec, hand, guard) : given;
-  const strike = perturbation ? perturbed(decoded.strike, perturbation) : decoded.strike, distance = decoded.distance;
-  const chamber = strike.chamber ?? { seconds: 0 };
-  const radius = spec.segments.find((s) => s.name === "head").shape.radius.value;
-  const forward = new Vector3(0, 0, 1);
-  const stand = await coreStand(spec, { ground: true, groundSize, hz });
-  const blow = throwBlow(labActor(stand.built, stand.world), strike, distance);
-  const fist = blow.body.view.fists[hand], head = stand.built.segments.get("head");
-  // `given.centre` places the sphere anywhere, for a control; a search places it straight ahead of
-  // the head as the body stands when the blow begins.
-  let target = given.centre ? new Vector3(...given.centre) : null;
-  const last = { position: new Vector3(), velocity: new Vector3() }, path = new Vector3(), from = new Vector3();
-  let closing = 0, at = null, peak = 0, nearest = Infinity, watching = false, fell = false;
-  try {
-    for (let i = 0; i < stand.seconds(STAND + chamber.seconds + WINDOW); i++) {
-      stand.step(1);
-      if (!target && blow.time >= STAND) target = centreNow(head).addInPlaceFromFloats(off?.across ?? 0, off?.up ?? 0, distance + (off?.along ?? 0));
-      if (blow.body.view.down) { fell = true; break; }
-      const live = blow.time >= blow.pushing;
-      if (live && watching) {
-        // The fist's path over the step, a straight segment from where it was: where it first
-        // crosses the sphere, if it does, and its velocity there, interpolated along the step.
-        fist.position.subtractToRef(last.position, path);
-        last.position.subtractToRef(target, from);
-        const a = path.lengthSquared(), b = Vector3.Dot(from, path), c = from.lengthSquared() - radius * radius;
-        const root = b * b - a * c;
-        const t = c <= 0 ? 0 : root >= 0 && a > 0 ? (-b - Math.sqrt(root)) / a : Infinity;
-        const along = a > 0 ? Math.max(0, Math.min(1, -b / a)) : 0;
-        nearest = Math.min(nearest, Math.sqrt(Math.max(0, from.lengthSquared() + 2 * along * b + along * along * a)));
-        if (c > 0 && t >= 0 && t <= 1) {
-          closing = Vector3.Dot(Vector3.Lerp(last.velocity, fist.velocity, t), forward);
-          at = +(blow.time - blow.pushing - (1 - t) / stand.seconds(1)).toFixed(4);
-          break;
-        }
-        peak = Math.max(peak, fist.velocity.length());
-      }
-      // A fist already in the sphere when the pushes begin has not arrived: wait for it to leave.
-      if (live) watching = Vector3.Distance(fist.position, target) >= radius;
-      last.position.copyFrom(fist.position);
-      last.velocity.copyFrom(fist.velocity);
-    }
-  } finally { blow.dispose(); stand.dispose(); }
-  if (fell) return { score: FELL, closing: 0, at: null, peak, distance, strike, fell };
-  const score = at !== null ? closing : -(nearest - radius);
-  return { score, closing, at, peak, distance, strike, fell };
 }

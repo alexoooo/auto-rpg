@@ -24,8 +24,7 @@ import { energyShares } from "./share.ts";
  *   surface is its spec's (`SegmentSpec.surface`), and an item that states none is rigid and takes
  *   none. So a fist takes its part of its own punch, what a club strikes takes the whole blow, and
  *   two items meeting are a clash, in which neither side takes any (`isClash`).
- * - **Its closing speed and its energy** are the touch's (`TouchWatch.priced`): the energy as the
- *   club's best blow was read (`src/lab/club-blow.ts`).
+ * - **Its closing speed and its energy** are the touch's (`TouchWatch.priced`).
  * - **A side's damage** is `blowDamage` of its share of that energy. Every blow is blunt until
  *   the weapons that cut and pierce come, and a blunt blow is never clean, so it takes a part off
  *   only past empty by the rulebook's margin (`src/core/rules/pool.ts`). Both sides are wounded,

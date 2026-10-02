@@ -245,14 +245,15 @@ test("a body handed back goes on from where it is", async () => {
   const stand = await coreStand(armed(warrior, "right", woodenClub()));
   // A point to its right, at head height: the strike skill walks it there, turning, and sets its feet.
   const ATTACK = Object.freeze({ move: null, face: null, attack: Object.freeze([1.6, 1.5, 0.4]) });
-  const HELD = 0.4;
+  /** How long the body is held, in steps: counted, since a time that is a whole number of steps reads either side of its last one. */
+  const HELD = 48;
   let skills = null, until = null;
-  /** A sub-mind that holds every freedom where it is, for `HELD` s from the step the first strike is chambering. */
+  /** A sub-mind that holds every freedom where it is, for `HELD` steps from the step the first strike is chambering. */
   const hold = (own) => ({
     name: "hold",
-    wants(senses) {
-      if (until === null && skills.report.strike.phase === "chamber") until = senses.time + HELD;
-      return until !== null && senses.time < until;
+    wants() {
+      if (until === null && skills.report.strike.phase === "chamber") until = stand.world.steps + HELD;
+      return until !== null && stand.world.steps < until;
     },
     begin() {}, end() {},
     step() { own.muscles.activation.fill(1); own.muscles.velocity.fill(0); },
@@ -280,7 +281,7 @@ test("a body handed back goes on from where it is", async () => {
     // Held, the tactics did not decide; the step it is back, and that step alone, they are told.
     const back = decided.findIndex((step) => step.resumed), at = decided[back], before = decided[back - 1];
     assert.equal(decided.filter((step) => step.resumed).length, 1);
-    assert.ok(Math.abs(at.time - before.time - HELD) < 2 * stand.world.dt, `nothing decided from ${before.time} s to ${at.time} s`);
+    assert.ok(Math.abs(at.time - before.time - (HELD + 1) * stand.world.dt) < 0.5 * stand.world.dt, `nothing decided from ${before.time} s to ${at.time} s`);
     // The strike in hand is over, unthrown, and the legs' heading is the way the body faces.
     assert.deepEqual({ phase: at.phase, thrown: at.thrown, heading: at.heading }, { phase: null, thrown: 0, heading: at.facing });
     assert.ok(at.facing > 1 && Math.abs(at.facing - before.heading) < 0.1, `the fixture turned it to its right: it faces ${at.facing} rad, and was asked ${before.heading}`);

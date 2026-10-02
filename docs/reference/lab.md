@@ -129,6 +129,7 @@ part of the arm is one now, and counts as landed.
 | 480 | ten targets | 27, 0; 285 thrown, 97 landed | 50, 5; 507 thrown, 275 landed |
 | 120 | ten targets, placed blows | 43, 2; 446 thrown, 335 landed | 60, 6; 600 thrown, 438 landed |
 | 480 | ten targets, placed blows | 45, 4; 464 thrown, 353 landed | 60, 6; 600 thrown, 429 landed |
+| 120 | ten targets, the searched repertoire | 52, 4; 534 thrown, 415 landed | 54, 4; 550 thrown, 399 landed |
 
 The gait holds the walk and the turn from standing, at both rates. The Warrior's falls at 120 Hz
 came closing on a target (twice) and setting its feet for one, with its blows landing; walking
@@ -143,6 +144,12 @@ recipe is thrown at one or two and the Rogue's at two, and the rest are placed. 
 every loop at both rates. The Warrior falls in four runs of six at 120 Hz, in its third, fourth
 and tenth loops (the tenth twice), and in two of six at 480 Hz, in its first and sixth: five of
 the six setting its feet for a target and one closing on one.
+
+The last row is of the tree whose repertoire is searched ([blows.md](blows.md#searched)), a
+recipe of the body's own thrown at the targets whose height its window holds: the Warrior's at
+289 of its 534, every one landing, and the Rogue's at 208 of its 550, 205 landing. The Warrior
+falls in two runs of six, in its sixth and eighth loops, setting its feet for a target; the
+Rogue in two, in its sixth and tenth, closing on one.
 
 Command: `node research/core-routine-battery.mjs --seeds 6 --loops 10`, with `--targets` and
 `--hz 480` for the other rows; its other flags are `--variants` (stance settings), `--impulse`
@@ -199,8 +206,10 @@ The page logs what its body sounds of against the mind's time (`createSoundLog`,
   or a Restart, plays its last 100 ms and no more.
 - **A target is heard with the body.** A scenario that puts another body in the world hands it to
   the page (`ScenarioContext.hears`), as the Routine does each target it hangs
-  (`src/lab/targets.ts`): its touches on the body are logged with the body's own, keyed
-  `other:body`, from the step it is hung until its reading closes.
+  (`src/lab/targets.ts`) and the Blow its one (`watchBlow`, `src/lab/blow.ts`): its touches on
+  the body are logged with the body's own, keyed `other:body`, and its touches on the ground,
+  keyed `other:ground`, from the step it is hung until its reading closes or its blow is thrown
+  again.
 - **`AIR_SECONDS`** (`src/lab/main.ts`), 30 s of the body's air: as long as the Routine's
   recording, the longest a scenario keeps. The log keeps its latest 1024 cues (`CAPACITY`), a
   numeric setting.
@@ -216,7 +225,8 @@ The page logs what its body sounds of against the mind's time (`createSoundLog`,
   | crypt-skeleton | 21.5, 33.1 | 0.20, 0.39, 0.59, 0.79, 1 |
 
 - **On the page** (Chrome, Rapier, 120 Hz, a 40 m ground, balance 0 %, stepped by hand): the
-  Warrior walking at 0.3 m/s is heard a footfall every 0.375 s, strength 0.064 to 0.069; its Blow
-  lands 123.8 J on the mark at 2.375 s, strength 1, and its air's fastest point reaches 19.8 m/s
-  the step after. Paused, the page starts no voice; a scrub starts none; a replay starts the air
+  Warrior walking at 0.3 m/s is heard a footfall every 0.375 s, strength 0.064 to 0.069; its Blow,
+  the unit club blow, lands 103.2 J on its target body at 2.383 s, strength 1, its air's fastest
+  point at 19.6 m/s the step before, and the target is heard on the ground 0.73 s after, strength
+  0.43. Paused, the page starts no voice; a scrub starts none; a replay starts the air
   again.

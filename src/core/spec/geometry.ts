@@ -1,3 +1,5 @@
+import { cbrt } from "../math/real.ts";
+
 /**
  * Geometry a spec's rules need and cannot write in one line.
  */
@@ -20,6 +22,11 @@ export function capsuleRadius(volume: number, length: number): number {
     if (held(mid) < volume) low = mid; else high = mid;
   }
   return (low + high) / 2;
+}
+
+/** The radius of a ball that holds `volume`, m: the cube root of 3 volume / (4 pi). */
+export function ballRadius(volume: number): number {
+  return cbrt(3 * volume / (4 * Math.PI));
 }
 
 /** A solid ball's moment of inertia about any axis through its centre, kg m2: 2/5 m r^2. */

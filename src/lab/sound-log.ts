@@ -5,7 +5,6 @@ import type { Body } from "../core/body.ts";
 import type { BuiltBody, BuiltSegment } from "../core/build/build-body.ts";
 import { contactMass } from "../core/build/contact-mass.ts";
 import type { World } from "../core/world.ts";
-import type { ClubLanding } from "./club-blow.ts";
 import { CATCH_UP_MS } from "./player.ts";
 
 /**
@@ -19,8 +18,8 @@ import { CATCH_UP_MS } from "./player.ts";
  *
  * What is logged is what the world says (`logSounds`: the body's touches and its air, and the
  * touches of whatever other body a scenario puts beside it, `src/audio/body-sounds.ts`), and the
- * cue of each of the lab's two instruments that are no contact: the page's hand shoving the body
- * (`shoveSound`), and the Blow scenario's mark (`landingCue`).
+ * cue of the lab's one instrument that is no contact: the page's hand shoving the body
+ * (`shoveSound`).
  *
  * This module has no page-only imports, so the Node stand can run it (`tests/lab-sound.test.mjs`).
  */
@@ -99,13 +98,4 @@ export function shoveSound(built: BuiltBody): (segment: BuiltSegment, impulse: V
     const kg = mass.along(segment, [at.x, at.y, at.z], [impulse.x, impulse.y, impulse.z]);
     return impactCue(`${LAB_BODY}:hand`, voiceOf("flesh", substanceOf(built, segment)), impulse.lengthSquared() / (2 * kg), at);
   };
-}
-
-/**
- * **A club blow's landing on the Blow scenario's mark**, which is no body and so no touch: what
- * `hand` of `built` holds on a head of the body's own kind, with the energy the landing read.
- */
-export function landingCue(built: BuiltBody, hand: "left" | "right", landed: ClubLanding): SoundCue | null {
-  const club = substanceOf(built, built.segments.get(`hand.${hand}`)!), head = substanceOf(built, built.segments.get("head")!);
-  return impactCue(`${LAB_BODY}:mark`, voiceOf(club, head), landed.energy, { x: landed.point[0], z: landed.point[2] });
 }

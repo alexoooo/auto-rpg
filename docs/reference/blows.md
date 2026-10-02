@@ -182,8 +182,9 @@ targets after are unread.
 The runs are the same runs under both rules, to the second each fell or looped at: a dummy's
 wound moves nothing. What differs is which touches are blows ([Shared](#shared)).
 
-- **The borrowed strikes put their bodies down whether or not they land.** The Rogue with the
-  club and the skeleton land nothing here and fall within five targets.
+- **Another body's strikes put a body down whether or not they land.** The Rogue with the
+  club and the skeleton, which threw the Warrior's recipes on that tree, land nothing here and
+  fall within five targets.
 - **The Warrior falls stepping to a target after a blow of its own has landed.** Seed 1, empty
   hands (one run, read once): its left straight lands on the second target at 13.0 J; in the half
   second after, a recovering step sets its left foot about 0.2 m from its right; the third target
@@ -197,8 +198,14 @@ A placed blow (`PLACED`, `src/core/skills/strike.ts`) is what a hand throws at a
 of its own lands at: the point it strikes with (its knuckles, or its club's swell) is carried by
 a hand goal along the line from where it is to `through` m beyond the target, in `seconds`, the
 body standing with the target `stretch` of the arm's straight length from the shoulder. The
-heights a recipe lands at are its window's
-([human-and-strikes.md](human-and-strikes.md#window-height)).
+heights a recipe is thrown at are its window's
+([human-and-strikes.md](human-and-strikes.md#windows)).
+
+The tables of this section were read at `80e5cec9`, on the repertoire of that tree
+(`assets/core/strikes.json@80e5cec9`: the Warrior's straight and club blow, the Rogue's
+straight, each with a window in height alone, and each thrown by any body whose hand held the
+same), and say what a placed blow does. What a hand throws at each target now:
+[Searched](#searched).
 
 ### Sweep
 
@@ -375,23 +382,25 @@ one throw a cell.
   from 50 cm under to 20 cm over. His club's swing lands 59 to 113 J from 30 cm under to 20 cm
   over, but for one throw at 10 cm over that read no blow; placed, the swell lands 8.5 to
   13.7 J over those heights and at 50 cm under.
-- **A fist's window is narrower than its blow.** The window's reading is the fist's point
-  through a sphere of the head's radius with no body at it
-  ([human-and-strikes.md](human-and-strikes.md#window-height)), which a point that passes a
+- **A fist's window was narrower than its blow.** The windows of that tree were read as the
+  fist's point through a sphere of the head's radius with no body at it
+  (`docs/reference/human-and-strikes.md@80e5cec9`, Window height), which a point that passes a
   radius off misses. A fist and the forearm behind it have a size: a dummy 4, 8 and 14 cm under
-  the Warrior's head takes 10.9, 10.2 and 6.1 J of his straight, and there, under his window,
-  the skill places 0.4 to 0.7 J. The Rogue's window, 6 cm under to 8 over, is nearer its
-  blow's: 4.9 to 6.4 J from 4 cm under to 6 over, 2.6 and 2.9 J at 8 under and 10 over.
-- **A recipe borrowed from another body is thrown where a placed blow would land.** The Rogue
-  with the club throws the Warrior's swing at every height its window holds, and it passes 0.5
-  to 0.7 m off; placed, the Rogue's swell lands 4.8 to 10.4 J from 50 cm under its head to
-  14 cm over.
+  the Warrior's head takes 10.9, 10.2 and 6.1 J of his straight, and there, under that window,
+  the skill placed 0.4 to 0.7 J. The Rogue's window, 6 cm under to 8 over, was nearer its
+  blow's: 4.9 to 6.4 J from 4 cm under to 6 over, 2.6 and 2.9 J at 8 under and 10 over. A
+  window is read from the blow's own damage since ([Windows](human-and-strikes.md#windows)).
+- **Another body's recipe is thrown where a placed blow would land.** The Rogue with the club
+  threw the Warrior's swing at every height its window held, and it passes 0.5 to 0.7 m off;
+  placed, the Rogue's swell lands 4.8 to 10.4 J from 50 cm under its head to 14 cm over. A hand
+  throws its own body's recipes alone since ([Another body's recipe](#another-bodys-recipe)).
 
 ### The battery, placed
 
 `node research/core-targets.mjs --each` on the tree `PLACED` is in, beside
-[At 100 J](#at-100-j): same harness. No run fell and no target went unread. It is the table a
-change is read against from here.
+[At 100 J](#at-100-j): same harness. No reading was closed by a fall and no target went unread;
+23 of the 180 runs fell walking back from their target after its reading (the Warrior's 1, the
+Rogue's 5 and the skeleton's 17). It is the table a change is read against from here.
 
 | Body | Held | Stratum | Targets | Hit: at 100 J | placed | Damage, HP, mean: at 100 J | placed | least, placed | Missed by, cm, mean: at 100 J | placed | Crowded |
 |---|---|---|---|---|---|---|---|---|---|---|---|
@@ -764,6 +773,10 @@ head at d over 0.2, those of them with no more falls, and the least d of any cel
 
 ## Guard battery
 
+On the repertoire of `assets/core/strikes.json@80e5cec9`, as are [How late a cover
+is](#how-late-a-cover-is) and the [sweep](#sweep-1); on the searched one,
+[Covering, searched](#covering-searched).
+
 `node research/core-guard.mjs --bouts 32`: arena bouts (`research/bout.mjs`: Node, core world,
 Rapier, 120 Hz, each side's balance its character's), clubs and bare hands, the Warrior and the
 Rogue in each ordered pair, what each side senses 0 and 24 steps old (the arena's), 32 starting
@@ -917,3 +930,457 @@ The bar: covering saves the head at d over 0.2 in 4 of 16 cells, and in 1 of the
 - **Fighters go on in the pose** (`FIGHTER.guard`). The cover is a skill a config asks for
   (`&guard=cover` on the arena's address); why it does not save the head is in
   [How late a cover is](#how-late-a-cover-is).
+
+## Searched
+
+A recipe is searched for a cell: a body, what its right hand holds, and a height band
+(`BANDS`: high, where a foe of the body's own build has its head; middle, its upper trunk).
+`research/core-strike-search.mjs` is a cross-entropy search over the strikes a candidate stands
+for (a chamber pose and its time, a push on each freedom that may push, and how far ahead the
+target stands; a fist's blow has no chamber). A candidate is thrown through the strike skill,
+standing from the guard, at a target body: a ball of the band's part, of the thrower's own
+build, hung at the band's height (`evaluateBlow`, `research/core-blow.mjs`). Its score is
+what the rule a fight wounds by reads (`scoreOf`): the hit points the blow does the target less
+those it costs the body that throws it; under any hit, a miss, by how near it passed; and under
+any miss, a blow that leaves its body down or not standing on both feet a second after
+(`FELL`), whether thrown at the target or at nothing. A candidate's score is its mean over four
+throws, one as written and three perturbed, and one more thrown at nothing. 30 generations of
+64 candidates, at 120 Hz; the best is read again as the mean of eight throws at 120, 480 and
+1920 Hz. Node core stand, Rapier, standing on its feet as built, ground on, no assist; the
+arena's rulebook.
+
+Three searches a cell, 36 in all, each going on from a recipe of the repertoire before
+(`assets/core/strikes.json@80e5cec9`: the Warrior's club blow and straight, the Rogue's
+straight) with a spread of its own, or from nothing. A search is 9600 throws and its replay:
+4 to 10 minutes on 24 worker threads of a 16-core desktop, and the 36 took 4 h 5 min one after
+another, other measurements sharing the machine. The windows after them are 18,800 throws more,
+about 2 h on 8 threads.
+
+### The searches
+
+What each search's best strike read on replay, the mean of eight throws at each rate: what it
+nets, does its target and costs its own body (HP), in how many of the eight it landed and in
+how many its body stood a second after, and whether it stands thrown once at nothing.
+
+| Body | Held | Band | Seed | From | Spread | Searched, HP | 120 Hz: net | done | cost | landed | stood | 480 Hz: net | done | cost | landed | stood | 1920 Hz: net | done | cost | landed | stood | At nothing, 120, 480, 1920 Hz | The cell's |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Warrior | wooden club | high | 1 | Warrior's, high | 0.2 | 1.181 | 1.107 | 1.107 | 0.000 | 8 | 8 | 1.117 | 1.117 | 0.000 | 8 | 8 | 0.864 | 0.864 | 0.000 | 8 | 8 | stands, falls, stands | yes |
+| Warrior | wooden club | high | 2 | Warrior's, high | 0.4 | 1.073 | 1.038 | 1.038 | 0.000 | 8 | 8 | 0.899 | 0.899 | 0.000 | 8 | 8 | 0.903 | 0.903 | 0.000 | 8 | 8 | stands, stands, stands |  |
+| Warrior | wooden club | high | 3 | Warrior's, high | 0.6 | 1.063 | 0.720 | 0.720 | 0.000 | 8 | 7 | 1.036 | 1.036 | 0.000 | 8 | 8 | 1.026 | 1.026 | 0.000 | 8 | 8 | stands, stands, stands |  |
+| Warrior | wooden club | middle | 1 | Warrior's, high | 0.2 | 1.401 | 1.370 | 1.370 | 0.000 | 8 | 8 | 1.315 | 1.315 | 0.000 | 8 | 8 | 1.320 | 1.320 | 0.000 | 8 | 8 | stands, stands, stands |  |
+| Warrior | wooden club | middle | 2 | Warrior's, high | 0.4 | 1.428 | 1.417 | 1.417 | 0.000 | 8 | 8 | 1.315 | 1.315 | 0.000 | 8 | 8 | 1.323 | 1.323 | 0.000 | 8 | 8 | stands, stands, falls | yes |
+| Warrior | wooden club | middle | 3 | Warrior's, high | 0.6 | 1.416 | 1.342 | 1.342 | 0.000 | 8 | 8 | 1.353 | 1.353 | 0.000 | 8 | 8 | 1.344 | 1.344 | 0.000 | 8 | 8 | stands, stands, stands |  |
+| Warrior | fist | high | 1 | Warrior's, high | 0.3 | 0.009 | 0.005 | 0.028 | 0.023 | 6 | 8 | 0.007 | 0.037 | 0.030 | 7 | 8 | 0.007 | 0.039 | 0.032 | 8 | 8 | stands, stands, stands |  |
+| Warrior | fist | high | 2 | Warrior's, high | 0.6 | 0.023 | 0.022 | 0.121 | 0.099 | 8 | 8 | 0.020 | 0.108 | 0.088 | 8 | 8 | 0.021 | 0.112 | 0.092 | 8 | 4 | stands, stands, stands | yes |
+| Warrior | fist | high | 3 | nothing | - | 0.001 | 0.001 | 0.004 | 0.003 | 8 | 8 | 0.001 | 0.003 | 0.003 | 8 | 8 | 0.001 | 0.003 | 0.003 | 8 | 8 | stands, stands, stands |  |
+| Warrior | fist | middle | 1 | Warrior's, high | 0.3 | 0.472 | 0.352 | 0.390 | 0.038 | 8 | 8 | 0.267 | 0.294 | 0.027 | 8 | 8 | 0.284 | 0.313 | 0.029 | 8 | 8 | stands, stands, stands |  |
+| Warrior | fist | middle | 2 | Warrior's, high | 0.6 | 0.550 | 0.507 | 0.567 | 0.060 | 8 | 8 | 0.325 | 0.356 | 0.031 | 8 | 8 | 0.336 | 0.368 | 0.033 | 8 | 8 | stands, stands, stands | yes |
+| Warrior | fist | middle | 3 | nothing | - | 0.540 | 0.495 | 0.551 | 0.055 | 8 | 8 | 0.273 | 0.307 | 0.034 | 8 | 8 | 0.302 | 0.340 | 0.038 | 8 | 8 | stands, stands, stands |  |
+| Rogue | wooden club | high | 1 | Warrior's, high | 0.2 | 0.467 | 0.433 | 0.433 | 0.000 | 8 | 8 | 0.466 | 0.466 | 0.000 | 8 | 8 | 0.458 | 0.458 | 0.000 | 8 | 8 | stands, falls, falls | yes |
+| Rogue | wooden club | high | 2 | Warrior's, high | 0.4 | 0.439 | 0.420 | 0.420 | 0.000 | 8 | 7 | 0.392 | 0.392 | 0.000 | 8 | 8 | 0.357 | 0.357 | 0.000 | 8 | 8 | stands, falls, falls |  |
+| Rogue | wooden club | high | 3 | Warrior's, high | 0.6 | 0.310 | 0.293 | 0.293 | 0.000 | 8 | 8 | 0.274 | 0.274 | 0.000 | 8 | 8 | 0.266 | 0.266 | 0.000 | 8 | 8 | stands, stands, stands |  |
+| Rogue | wooden club | middle | 1 | Warrior's, high | 0.2 | 0.526 | 0.500 | 0.500 | 0.000 | 8 | 8 | 0.058 | 0.058 | 0.000 | 5 | 8 | 0.185 | 0.185 | 0.000 | 8 | 8 | stands, stands, stands |  |
+| Rogue | wooden club | middle | 2 | Warrior's, high | 0.4 | 0.554 | 0.528 | 0.528 | 0.000 | 8 | 8 | 0.563 | 0.563 | 0.000 | 8 | 8 | 0.585 | 0.585 | 0.000 | 8 | 8 | stands, falls, stands | yes |
+| Rogue | wooden club | middle | 3 | Warrior's, high | 0.6 | 0.375 | 0.363 | 0.363 | 0.000 | 8 | 8 | 0.364 | 0.364 | 0.000 | 8 | 8 | 0.370 | 0.370 | 0.000 | 8 | 8 | stands, stands, stands |  |
+| Rogue | fist | high | 1 | Rogue's, high | 0.3 | 0.007 | 0.007 | 0.047 | 0.041 | 8 | 8 | 0.007 | 0.046 | 0.040 | 8 | 8 | 0.007 | 0.046 | 0.039 | 8 | 8 | stands, stands, stands | yes |
+| Rogue | fist | high | 2 | Rogue's, high | 0.6 | 0.013 | 0.006 | 0.068 | 0.062 | 8 | 8 | 0.006 | 0.051 | 0.045 | 8 | 8 | 0.008 | 0.044 | 0.035 | 8 | 8 | stands, stands, stands |  |
+| Rogue | fist | high | 3 | nothing | - | 0.002 | 0.002 | 0.010 | 0.008 | 8 | 8 | 0.000 | 0.001 | 0.001 | 8 | 8 | -0.000 | 0.001 | 0.001 | 8 | 8 | stands, stands, stands |  |
+| Rogue | fist | middle | 1 | Rogue's, high | 0.3 | 0.304 | 0.225 | 0.252 | 0.027 | 8 | 8 | 0.132 | 0.144 | 0.012 | 8 | 8 | 0.146 | 0.160 | 0.014 | 8 | 8 | stands, stands, stands | yes |
+| Rogue | fist | middle | 2 | Rogue's, high | 0.6 | 0.122 | 0.120 | 0.131 | 0.011 | 8 | 8 | 0.000 | 0.000 | 0.000 | 0 | 8 | 0.000 | 0.000 | 0.000 | 0 | 8 | stands, stands, stands |  |
+| Rogue | fist | middle | 3 | nothing | - | 0.127 | 0.125 | 0.137 | 0.012 | 8 | 8 | 0.103 | 0.113 | 0.009 | 8 | 8 | 0.070 | 0.077 | 0.006 | 8 | 8 | stands, stands, stands |  |
+| skeleton | wooden club | high | 1 | Warrior's, high | 0.2 | 0.862 | 0.558 | 0.558 | 0.000 | 8 | 8 | 0.716 | 0.716 | 0.000 | 8 | 8 | 0.385 | 0.385 | 0.000 | 8 | 8 | stands, stands, stands |  |
+| skeleton | wooden club | high | 2 | Warrior's, high | 0.4 | 0.780 | 0.755 | 0.755 | 0.000 | 8 | 8 | 0.740 | 0.740 | 0.000 | 8 | 8 | 0.728 | 0.728 | 0.000 | 8 | 8 | stands, stands, stands |  |
+| skeleton | wooden club | high | 3 | Warrior's, high | 0.6 | 0.700 | 0.660 | 0.660 | 0.000 | 8 | 8 | 0.702 | 0.702 | 0.000 | 8 | 8 | 0.684 | 0.684 | 0.000 | 8 | 8 | stands, stands, stands | yes |
+| skeleton | wooden club | middle | 1 | Warrior's, high | 0.2 | 1.088 | 1.075 | 1.075 | 0.000 | 8 | 8 | 1.127 | 1.127 | 0.000 | 8 | 8 | 1.054 | 1.054 | 0.000 | 8 | 8 | stands, stands, stands | yes |
+| skeleton | wooden club | middle | 2 | Warrior's, high | 0.4 | 1.057 | 1.030 | 1.030 | 0.000 | 8 | 8 | 1.047 | 1.047 | 0.000 | 8 | 8 | 1.015 | 1.015 | 0.000 | 8 | 8 | stands, stands, stands |  |
+| skeleton | wooden club | middle | 3 | Warrior's, high | 0.6 | 0.739 | 0.740 | 0.740 | 0.000 | 8 | 8 | 0.728 | 0.728 | 0.000 | 8 | 8 | 0.632 | 0.632 | 0.000 | 8 | 8 | stands, stands, stands |  |
+| skeleton | fist | high | 1 | Warrior's, high | 0.3 | 0.029 | 0.026 | 0.154 | 0.128 | 8 | 8 | 0.014 | 0.149 | 0.135 | 8 | 8 | 0.018 | 0.104 | 0.086 | 8 | 8 | stands, stands, stands | yes |
+| skeleton | fist | high | 2 | Warrior's, high | 0.6 | 0.031 | 0.025 | 0.173 | 0.148 | 8 | 7 | 0.008 | 0.179 | 0.170 | 8 | 8 | 0.018 | 0.155 | 0.138 | 8 | 8 | stands, stands, stands |  |
+| skeleton | fist | high | 3 | nothing | - | 0.000 | 0.000 | 0.041 | 0.041 | 8 | 8 | 0.000 | 0.043 | 0.043 | 8 | 8 | 0.000 | 0.043 | 0.043 | 8 | 8 | stands, stands, stands |  |
+| skeleton | fist | middle | 1 | Warrior's, high | 0.3 | 0.630 | 0.646 | 0.725 | 0.079 | 8 | 8 | 0.523 | 0.586 | 0.063 | 8 | 8 | 0.419 | 0.461 | 0.042 | 8 | 8 | stands, stands, stands | yes |
+| skeleton | fist | middle | 2 | Warrior's, high | 0.6 | 0.483 | 0.469 | 0.525 | 0.056 | 8 | 8 | 0.378 | 0.424 | 0.046 | 8 | 8 | 0.303 | 0.341 | 0.038 | 8 | 8 | stands, stands, stands |  |
+| skeleton | fist | middle | 3 | nothing | - | 0.568 | 0.513 | 0.571 | 0.058 | 8 | 7 | 0.316 | 0.355 | 0.039 | 8 | 8 | 0.269 | 0.301 | 0.032 | 8 | 8 | stands, stands, stands |  |
+
+- **A fist at a head nets about nothing.** A head is stiffer than a hand
+  ([wounds.md](wounds.md#shares)), and every one of the nine searches costs its hand 0.8 to
+  0.9 of what it does the head, or all of it: they net 0.000 to 0.026 HP. The hardest of them
+  cost their hands more than the hands hold: the Warrior's does a head 0.121 HP and its own
+  hand 0.099, and its hand holds 0.088; the skeleton's 0.154 and 0.128.
+- **At an upper trunk the same hands net 0.12 to 0.65 HP**, a tenth of what they do coming back
+  on them.
+- **A blow found at 120 Hz is another blow at a finer step.** The Rogue's club at a trunk,
+  seed 1, nets 0.500 HP at 120 Hz, 0.058 at 480 (5 of 8 landing) and 0.185 at 1920; its fist
+  at a trunk, seed 2, lands 8 of 8 at 120 Hz and none at 480 or 1920. The other fists at a
+  trunk net at 480 Hz 0.55 to 0.82 of what they net at 120.
+- **Thrown at nothing, five stand at 120 Hz and fall at a finer step**: the Warrior's club at a
+  head (seed 1) and at a trunk (seed 2), the Rogue's at a head (seeds 1 and 2) and at a trunk
+  (seed 2). A search throws at nothing at its own rate alone. Four of the five are their cells'
+  recipes.
+
+### The repertoire
+
+Of a cell's three searches the one that nets most on replay at 120 Hz is its recipe
+(`research/core-strike-repertoire.mjs`), kept only where it nets more than a placed blow at the
+same target, read by the same evaluator (`keeps`), and where its window is wide enough for the
+feet to be set to ([human-and-strikes.md](human-and-strikes.md#a-recipe-the-feet-cannot-be-set-to)).
+A cell with no recipe is thrown at by placement.
+
+| Body | Held | Band | Target ahead, m | up, m | Net at 120 Hz, HP | at 480 | at 1920 | The placed blow's net, HP | Window along, cm | across | up |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| Warrior | wooden club | high | 0.932 | 0.000 | 1.107 | 1.117 | 0.864 | 0.118 | -2 to 12 | -4 to 2 | -6 to 12 |
+| Warrior | wooden club | middle | 1.117 | -0.240 | 1.417 | 1.315 | 1.323 | 0.165 | -16 to 8 | -6 to 4 | -30 to 26 |
+| Warrior | fist | high | 0.378 | 0.000 | 0.022 | 0.020 | 0.021 | -0.002 | -6 to 2 | -2 to 14 | 0 to 8 |
+| Warrior | fist | middle | 0.617 | -0.240 | 0.507 | 0.325 | 0.336 | 0.003 | -2 to 2 | -8 to 2 | -36 to 20 |
+| Rogue | wooden club | high | 0.938 | 0.000 | 0.433 | 0.466 | 0.458 | 0.116 | -14 to 6 | -2 to 6 | -8 to 8 |
+| Rogue | wooden club | middle | 0.884 | -0.231 | 0.528 | 0.563 | 0.585 | 0.119 | -10 to 10 | -6 to 6 | -40 to 24 |
+| Rogue | fist | high | 0.437 | 0.000 | 0.007 | 0.007 | 0.007 | -0.001 | -6 to 8 | -2 to 6 | -12 to 6 |
+| Rogue | fist | middle | 0.575 | -0.231 | 0.225 | 0.132 | 0.146 | 0.001 | -4 to 2 | -6 to 2 | -14 to 20 |
+| skeleton | wooden club | high | 0.770 | 0.000 | 0.660 | 0.702 | 0.684 | 0.000 | -4 to 4 | -2 to 2 | -14 to 26 |
+| skeleton | wooden club | middle | 1.047 | -0.248 | 1.075 | 1.127 | 1.054 | 0.000 | -8 to 6 | -4 to 6 | -18 to 14 |
+| skeleton | fist | high | 0.499 | 0.000 | 0.026 | 0.014 | 0.018 | -0.000 | 0 to 6 | -4 to 2 | -28 to 18 |
+| skeleton | fist | middle | 0.625 | -0.248 | 0.646 | 0.523 | 0.419 | 0.008 | -4 to 0 | 0 to 8 | -14 to 24 |
+
+Every cell has a recipe. The skeleton's club blow at a head is its search of seed 3: seed 2's
+nets more (0.755 HP), and at its own place leaves the skeleton down in one throw of four at
+120 Hz, so it has no window (`assets/core/strikes.json`, `passed`).
+
+### Another body's recipe
+
+A hand throws its own body's recipes and no other's (`recipesFor`). A recipe is a table of one
+body's muscles' pushes, timed for that body's lengths, and thrown by another it passes its
+target:
+
+- the Rogue with the club, throwing the Warrior's club blow, passes its targets 0.5 to 0.7 m
+  off at every height, where its placed blow lands 4.8 to 10.4 J
+  ([Against a recipe](#against-a-recipe));
+- on the targets' battery (`node research/core-targets.mjs --each`, the Warrior and the Rogue,
+  30 targets each, bare-handed; the repertoire with one throw a stand-off in its windows), with
+  each hand given the other body's recipes after its own and with its own alone:
+
+| Body | Stratum | Targets | Hit, with the other's too | with its own alone | Damage, HP, mean: with the other's too | its own alone |
+|---|---|---|---|---|---|---|
+| Warrior | high | 9 | 8 | 9 | 0.042 | 0.035 |
+| Warrior | middle | 9 | 9 | 9 | 0.078 | 0.082 |
+| Rogue | high | 9 | 9 | 9 | 0.034 | 0.034 |
+| Rogue | middle | 9 | 4 | 9 | 0.013 | 0.006 |
+
+The Rogue's five missed middle targets are thrown at with the Warrior's straight at a trunk,
+whose window holds a height the Rogue's own does not; its own hand, placing, strikes all nine.
+With the club, each has both its recipes and throws no other's: the rows are the same.
+
+### On a standing body
+
+A search's target is the ball of one part, hung alone. `node research/core-blow-standing.mjs`
+throws the same blows at a body: an arena bout in which the foe is ordered to stand,
+bare-handed, and the body is ordered to attack its head or its upper trunk, from 2, 2.5 and 3 m
+(Node, core world, Rapier, 120 Hz; no assist). A row is the three bouts: how high the point
+stood over the attacker's head, how the blow was thrown (one entry where the three agree), the
+mean of the hit points the foe and the thrower lost from the order to a second after the blow,
+and the hardest blow of the three. Nobody went down in any of the 72.
+
+| Body | Held | Ordered at | Foe | Up, m | Thrown, by gap | Foe lost, HP | Thrower lost, HP | Hardest blow |
+|---|---|---|---|---|---|---|---|---|
+| Warrior | club | head | Warrior | 0.01 | high recipe | 0.879 | 0.000 | club on head, 104.1 J |
+| Warrior | club | head | Rogue | -0.13 | middle recipe | 1.116 | 0.000 | club on head, 124.3 J |
+| Warrior | club | upper trunk | Warrior | -0.23 | middle recipe | 0.692 | 0.000 | club on head, 97.8 J |
+| Warrior | club | upper trunk | Rogue | -0.36 | middle recipe | 1.144 | 0.000 | club on head, 135.1 J |
+| Warrior | fist | head | Warrior | 0.00 | high recipe; not thrown; not thrown | 0.011 | 0.013 | thigh.left on thigh.left, 1.1 J |
+| Warrior | fist | head | Rogue | -0.14 | middle recipe | 0.115 | 0.169 | hand.right on head, 25.9 J |
+| Warrior | fist | upper trunk | Warrior | -0.24 | middle recipe | 0.277 | 0.078 | forearm.right on upperTrunk, 24.3 J |
+| Warrior | fist | upper trunk | Rogue | -0.37 | middle recipe | 0.135 | 0.151 | hand.right on head, 21.9 J |
+| Rogue | club | head | Warrior | 0.15 | placed | 0.139 | 0.000 | club on upperTrunk, 12.2 J |
+| Rogue | club | head | Rogue | 0.01 | high recipe | 0.384 | 0.000 | club on head, 40.0 J |
+| Rogue | club | upper trunk | Warrior | -0.09 | middle recipe | 0.612 | 0.000 | club on upperTrunk, 50.8 J |
+| Rogue | club | upper trunk | Rogue | -0.22 | middle recipe | 1.002 | 0.000 | club on upperTrunk, 56.8 J |
+| Rogue | fist | head | Warrior | 0.14 | placed | 0.011 | 0.009 | foot.left on foot.left, 0.9 J |
+| Rogue | fist | head | Rogue | 0.00 | high recipe | 0.060 | 0.032 | forearm.right on head, 3.8 J |
+| Rogue | fist | upper trunk | Warrior | -0.10 | high recipe | 0.031 | 0.010 | forearm.right on upperTrunk, 2.1 J |
+| Rogue | fist | upper trunk | Rogue | -0.23 | middle recipe | 0.054 | 0.057 | hand.right on head, 7.3 J |
+| skeleton | club | head | Warrior | 0.19 | high recipe | 0.089 | 0.159 | hand.right on upperArm.left, 36.6 J |
+| skeleton | club | head | Rogue | 0.06 | high recipe | 0.079 | 0.109 | hand.right on upperArm.left, 24.8 J |
+| skeleton | club | upper trunk | Warrior | -0.05 | high recipe | 0.087 | 0.160 | hand.right on upperArm.left, 37.2 J |
+| skeleton | club | upper trunk | Rogue | -0.17 | middle recipe | 0.582 | 0.000 | club on upperTrunk, 96.5 J |
+| skeleton | fist | head | Warrior | 0.19 | high recipe; high recipe; placed | 0.118 | 0.128 | hand.right on head, 31.4 J |
+| skeleton | fist | head | Rogue | 0.06 | high recipe; not thrown; not thrown | 0.001 | 0.000 | hand.right on upperTrunk, 0.5 J |
+| skeleton | fist | upper trunk | Warrior | -0.05 | high recipe; high recipe; not thrown | 0.052 | 0.061 | hand.right on head, 12.0 J |
+| skeleton | fist | upper trunk | Rogue | -0.18 | middle recipe; middle recipe; not thrown | 0.135 | 0.140 | hand.right on head, 37.5 J |
+
+- **The head is in a middle blow's way.** The Warrior's club blow at a trunk lands on the head
+  of either foe, 0.69 and 1.14 HP, and its fist's on the Rogue's; the Rogue's and the skeleton's
+  fists at a Rogue's trunk land on its head too. The Rogue's club blow at a trunk lands on the
+  trunk, or on the arm before it.
+- **A club blow does a standing body 0.4 to 1.1 HP and costs nothing**, where its club lands:
+  the Warrior's four, the Rogue's at a Rogue's head and at either trunk, the skeleton's at a
+  Rogue's trunk. A Warrior's head stands 15 cm over the Rogue's own, over its window, and its
+  club is placed there, 0.14 HP.
+- **The skeleton's club blow at a head lands its hand and not its club.** A Warrior's head
+  (19 cm over its own), a Rogue's (6 cm over) and a Warrior's upper trunk (5 cm under) are in
+  its window, and at each the club passes and the hand meets the foe's upper arm (its upper
+  trunk in one bout of the nine), at 5 to 37 J: 0.08 to 0.09 HP to the foe and 0.11 to 0.16 to the skeleton. At the ball of a head
+  hung alone the same blow nets 0.660 HP ([The repertoire](#the-repertoire)).
+- **A fist costs its thrower about what it does a standing body**: 0.12 against 0.17 HP for
+  the Warrior's at a Rogue's head, 0.05 against 0.06 for the Rogue's at a Rogue's trunk, 0.14
+  against 0.14 for the skeleton's. The Warrior's at a Warrior's trunk is the one that pays:
+  its forearm on the trunk at 24 J, 0.28 HP against 0.08.
+- **A fist's place at a head is among a standing foe's feet.** The Warrior's has its target
+  0.378 m ahead of the head. Ordered at a standing Warrior's head from 2 m, the bare Warrior
+  walks into its foe, sets its feet twice and throws 15 s after the order, a forearm on an
+  upper arm at 0.6 J; from 2.5 and 3 m it has not thrown in 20 s. The skeleton's, 0.499 m
+  ahead, is thrown at a Rogue's head from 2 m and not from further in that time.
+- **A height at a window's edge reads either side of it.** The Warrior's fist at a head has
+  a window from the head's own height up, and a standing Warrior's head stood 6.3 mm under
+  the attacker's to 0.8 mm over from one stand to the next of that bout. The skill chooses a
+  blow by the head as it stands once for a point attacked (`strikeSkill`); choosing at every
+  stand, it stood for the recipe and for a placed blow in turn and threw neither.
+
+### The battery, searched
+
+`node research/core-targets.mjs --each` on the tree the searched repertoire is in, beside
+[The battery, placed](#the-battery-placed): same harness, the same 180 targets. No reading was
+closed by a fall and no target went unread; 6 of the 180 runs fell walking back from their
+target after its reading (the Warrior's 1, the Rogue's 3 and the skeleton's 2), where 23 did.
+
+| Body | Held | Stratum | Targets | Hit: placed | searched | Damage, HP, mean: placed | searched | least, searched | Missed by, cm, mean: placed | searched | Crowded |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| Warrior | empty | control | 3 | 3 | 3 | 0.029 | 0.026 | 0.026 | - | - | 0 |
+| Warrior | empty | high | 9 | 9 | 9 | 0.002 | 0.078 | 0.002 | - | - | 0 |
+| Warrior | empty | middle | 9 | 9 | 9 | 0.002 | 0.080 | 0.002 | - | - | 0 |
+| Warrior | empty | low | 9 | 1 | 1 | 0.002 | 0.003 | 0.003 | 26.6 | 25.9 | 5 |
+| Warrior | club | control | 3 | 3 | 3 | 1.001 | 1.027 | 1.027 | - | - | 0 |
+| Warrior | club | high | 9 | 9 | 9 | 0.827 | 0.908 | 0.096 | - | - | 0 |
+| Warrior | club | middle | 9 | 8 | 8 | 0.108 | 0.520 | 0.058 | 0.0 | 0.0 | 0 |
+| Warrior | club | low | 9 | 3 | 2 | 0.018 | 0.031 | 0.015 | 32.3 | 27.4 | 0 |
+| Rogue | empty | control | 3 | 3 | 3 | 0.023 | 0.041 | 0.041 | - | - | 0 |
+| Rogue | empty | high | 9 | 9 | 9 | 0.007 | 0.048 | 0.002 | - | - | 0 |
+| Rogue | empty | middle | 9 | 9 | 9 | 0.001 | 0.006 | 0.001 | - | - | 0 |
+| Rogue | empty | low | 9 | 1 | 1 | 0.001 | 0.001 | 0.001 | 30.3 | 30.1 | 6 |
+| Rogue | club | control | 3 | 0 | 3 | - | 0.013 | 0.013 | 68.5 | - | 0 |
+| Rogue | club | high | 9 | 0 | 8 | - | 0.376 | 0.149 | 61.0 | 2.5 | 0 |
+| Rogue | club | middle | 9 | 1 | 9 | 0.007 | 0.221 | 0.005 | 61.4 | - | 0 |
+| Rogue | club | low | 9 | 1 | 2 | 0.003 | 0.012 | 0.008 | 26.6 | 32.4 | 0 |
+| Skeleton | empty | control | 3 | 0 | 3 | - | 0.090 | 0.090 | 18.3 | - | 0 |
+| Skeleton | empty | high | 9 | 3 | 8 | 0.003 | 0.047 | 0.000 | 10.7 | 4.7 | 0 |
+| Skeleton | empty | middle | 9 | 9 | 9 | 0.004 | 0.031 | 0.002 | - | - | 0 |
+| Skeleton | empty | low | 9 | 1 | 2 | 0.009 | 0.007 | 0.006 | 20.1 | 15.6 | 5 |
+| Skeleton | club | control | 3 | 0 | 3 | - | 0.460 | 0.460 | 28.4 | - | 0 |
+| Skeleton | club | high | 9 | 0 | 9 | - | 0.325 | 0.225 | 23.8 | - | 0 |
+| Skeleton | club | middle | 9 | 0 | 4 | - | 0.565 | 0.184 | 24.9 | 55.3 | 0 |
+| Skeleton | club | low | 9 | 0 | 0 | - | - | - | 75.1 | 76.2 | 0 |
+
+- **100 of the 108 high and middle targets are struck, where 66 were, and every control**, 18
+  of 18 where 9 were. Each body with each thing held strikes 17 or 18 of its 18 high and
+  middle targets, but the skeleton with the club, which strikes 13.
+- **The skeleton's club misses the lower middle targets.** Its blow at a trunk has a window
+  from 43 to 11 cm under its head; five of its nine middle targets hang 43 to 60 cm under,
+  are thrown at by placement, and are passed 39 to 69 cm off, as every placed blow of its club
+  is ([The battery, placed](#the-battery-placed)).
+- **A recipe is thrown at 95 of the 180**: at every control, at 48 of the 54 high targets (20
+  of them with the blow searched at a trunk, whose window holds a head under the body's own),
+  at 29 of the 54 middle ones, and at no low one. The rest are placed.
+- **The blows are harder.** The Warrior's fists do a high target 0.078 HP in the mean where
+  they did 0.002 placed, and a middle one 0.080; its club a middle one 0.520 where it did
+  0.108. The Rogue's club, which struck 1 of its 18 placed, strikes 17 at 0.376 and 0.221 HP.
+- **The low targets are as they were**: 8 of 54 struck, 16 crowded.
+
+### A loop of ten, searched
+
+`node research/core-targets.mjs --list` on the same tree, as
+[A loop of ten, placed](#a-loop-of-ten-placed).
+
+| Body | Held | Runs that looped, of 3 | Targets read, of 30 | Hit | Crowded | The runs |
+|---|---|---|---|---|---|---|
+| Warrior | empty | 2 | 28 | 21 | 1 | seed 1: looped at 81.3 s; seed 2: fell (Setting its feet) at 52.8 s; seed 3: looped at 72.7 s |
+| Warrior | club | 1 | 23 | 14 | 0 | seed 1: fell (Closing on its target) at 59.9 s; seed 2: fell (Closing on its target) at 16.2 s; seed 3: looped at 75.5 s |
+| Rogue | empty | 3 | 30 | 21 | 4 | seed 1: looped at 71.2 s; seed 2: looped at 73.3 s; seed 3: looped at 67.0 s |
+| Rogue | club | 0 | 12 | 6 | 0 | seed 1: fell (Closing on its target) at 15.6 s; seed 2: fell (Setting its feet) at 18.7 s; seed 3: fell (Setting its feet) at 31.8 s |
+| Skeleton | empty | 3 | 30 | 19 | 6 | seed 1: looped at 93.2 s; seed 2: looped at 98.2 s; seed 3: looped at 95.5 s |
+| Skeleton | club | 0 | 16 | 8 | 0 | seed 1: fell (Setting its feet) at 48.6 s; seed 2: fell (Setting its feet) at 54.6 s; seed 3: fell (Closing on its target) at 40.2 s |
+
+With the hands empty 8 runs of 9 loop, where 7 did: the skeleton loops in all three where it
+looped in one, and the Warrior falls in one, setting its feet for a target. With the club 1 run
+of 9 loops, where 2 did: the Rogue falls within its first four targets in every run, the
+skeleton in its fifth to seventh where it fell at its second, and the Warrior in two of three,
+as it did. A club blow that lands turns the body that threw it, and it falls closing on its next
+target or setting its feet for it.
+
+### Covering, searched
+
+`node research/core-guard.mjs --bouts 32` on the tree the searched repertoire is in, as the
+first set of the [Guard battery](#guard-battery): the same 32 gaps, cells and bar. 1536 bouts
+in 1015 s on 28 workers.
+
+| Held | Delay | Left | Right | Covers | Gaps | Head HP, pose | cover | Saved | d | HP, pose | cover | d | Fell, pose | cover | Won, pose | cover | Seconds, pose | cover |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| club | 0 | workshop-fighter | workshop-fighter | left | 32 | 0.071 | 0.080 | -0.010 | -0.05 | 0.194 | 0.182 | 0.07 | 0.13 | 0.09 | 0.81 | 0.81 | 8.6 | 8.2 |
+| club | 0 | workshop-fighter | workshop-fighter | right | 32 | 0.327 | 0.274 | 0.054 | 0.32 | 0.483 | 0.384 | 0.31 | 0.41 | 0.47 | 0.19 | 0.19 | 8.6 | 8.0 |
+| club | 0 | workshop-fighter | workshop-rogue | left | 32 | 0.011 | 0.001 | 0.010 | 0.45 | 0.088 | 0.051 | 0.87 | 0.09 | 0.13 | 0.91 | 0.88 | 12.7 | 12.0 |
+| club | 0 | workshop-fighter | workshop-rogue | right | 32 | 0.127 | 0.096 | 0.032 | 0.12 | 0.743 | 0.733 | 0.03 | 0.75 | 0.63 | 0.09 | 0.13 | 12.7 | 12.8 |
+| club | 0 | workshop-rogue | workshop-fighter | left | 32 | 0.107 | 0.064 | 0.043 | 0.26 | 0.458 | 0.397 | 0.16 | 0.34 | 0.34 | 0.47 | 0.50 | 9.6 | 10.2 |
+| club | 0 | workshop-rogue | workshop-fighter | right | 32 | 0.011 | 0.000 | 0.010 | 0.40 | 0.058 | 0.032 | 0.60 | 0.47 | 0.44 | 0.53 | 0.56 | 9.6 | 8.9 |
+| club | 0 | workshop-rogue | workshop-rogue | left | 32 | 0.045 | 0.049 | -0.004 | -0.04 | 0.187 | 0.178 | 0.06 | 0.25 | 0.28 | 0.75 | 0.66 | 11.8 | 11.6 |
+| club | 0 | workshop-rogue | workshop-rogue | right | 32 | 0.039 | 0.022 | 0.017 | 0.37 | 0.181 | 0.171 | 0.12 | 0.75 | 0.47 | 0.22 | 0.53 | 11.8 | 11.7 |
+| club | 24 | workshop-fighter | workshop-fighter | left | 32 | 0.139 | 0.139 | -0.000 | -0.18 | 0.229 | 0.230 | -0.18 | 0.03 | 0.09 | 0.78 | 0.72 | 7.4 | 7.8 |
+| club | 24 | workshop-fighter | workshop-fighter | right | 32 | 0.263 | 0.264 | -0.000 | -0.17 | 0.345 | 0.353 | -0.18 | 0.50 | 0.50 | 0.22 | 0.22 | 7.4 | 7.8 |
+| club | 24 | workshop-fighter | workshop-rogue | left | 32 | 0.014 | 0.013 | 0.000 | 0.01 | 0.082 | 0.092 | -0.22 | 0.09 | 0.16 | 0.91 | 0.84 | 12.3 | 12.0 |
+| club | 24 | workshop-fighter | workshop-rogue | right | 32 | 0.236 | 0.257 | -0.021 | -0.27 | 0.826 | 0.862 | -0.12 | 0.53 | 0.53 | 0.09 | 0.06 | 12.3 | 13.2 |
+| club | 24 | workshop-rogue | workshop-fighter | left | 32 | 0.128 | 0.188 | -0.059 | -0.32 | 0.450 | 0.466 | -0.06 | 0.34 | 0.34 | 0.47 | 0.41 | 8.3 | 8.3 |
+| club | 24 | workshop-rogue | workshop-fighter | right | 32 | 0.002 | 0.001 | 0.001 | 0.26 | 0.048 | 0.045 | 0.24 | 0.47 | 0.44 | 0.53 | 0.56 | 8.3 | 7.8 |
+| club | 24 | workshop-rogue | workshop-rogue | left | 32 | 0.045 | 0.019 | 0.026 | 0.20 | 0.176 | 0.113 | 0.35 | 0.44 | 0.47 | 0.50 | 0.50 | 12.6 | 11.9 |
+| club | 24 | workshop-rogue | workshop-rogue | right | 32 | 0.019 | 0.037 | -0.018 | -0.22 | 0.109 | 0.132 | -0.27 | 0.50 | 0.66 | 0.50 | 0.31 | 12.6 | 12.2 |
+| empty | 0 | workshop-fighter | workshop-fighter | left | 32 | 0.010 | 0.001 | 0.010 | 0.18 | 0.044 | 0.012 | 0.18 | 0.00 | 0.00 | 0.97 | 1.00 | 7.2 | 5.2 |
+| empty | 0 | workshop-fighter | workshop-fighter | right | 32 | 0.011 | 0.001 | 0.010 | 0.18 | 0.041 | 0.014 | 0.18 | 0.97 | 0.97 | 0.03 | 0.03 | 7.2 | 4.9 |
+| empty | 0 | workshop-fighter | workshop-rogue | left | 32 | 0.004 | 0.006 | -0.002 | -0.36 | 0.419 | 0.453 | -0.17 | 0.16 | 0.13 | 0.84 | 0.88 | 58.5 | 63.9 |
+| empty | 0 | workshop-fighter | workshop-rogue | right | 32 | 0.248 | 0.201 | 0.047 | 0.30 | 1.043 | 0.726 | 0.57 | 0.03 | 0.41 | 0.16 | 0.09 | 58.5 | 50.1 |
+| empty | 0 | workshop-rogue | workshop-fighter | left | 32 | 0.019 | 0.019 | -0.000 | -0.01 | 0.055 | 0.065 | -0.13 | 0.00 | 0.00 | 0.94 | 0.94 | 8.0 | 8.0 |
+| empty | 0 | workshop-rogue | workshop-fighter | right | 32 | 0.000 | 0.000 | 0.000 | 0.06 | 0.034 | 0.022 | 0.20 | 0.94 | 0.94 | 0.06 | 0.06 | 8.0 | 6.2 |
+| empty | 0 | workshop-rogue | workshop-rogue | left | 32 | 0.039 | 0.048 | -0.009 | -0.14 | 0.328 | 0.321 | 0.02 | 0.44 | 0.63 | 0.56 | 0.38 | 30.3 | 29.1 |
+| empty | 0 | workshop-rogue | workshop-rogue | right | 32 | 0.032 | 0.041 | -0.009 | -0.18 | 0.333 | 0.307 | 0.09 | 0.53 | 0.47 | 0.44 | 0.53 | 30.3 | 25.8 |
+| empty | 24 | workshop-fighter | workshop-fighter | left | 32 | 0.000 | 0.001 | -0.000 | -0.18 | 0.007 | 0.009 | -0.16 | 0.00 | 0.03 | 1.00 | 0.97 | 4.0 | 4.1 |
+| empty | 24 | workshop-fighter | workshop-fighter | right | 32 | 0.000 | 0.000 | -0.000 | -0.18 | 0.007 | 0.012 | -0.18 | 1.00 | 1.00 | 0.00 | 0.00 | 4.0 | 4.3 |
+| empty | 24 | workshop-fighter | workshop-rogue | left | 32 | 0.006 | 0.006 | -0.001 | -0.20 | 0.384 | 0.399 | -0.10 | 0.09 | 0.13 | 0.91 | 0.88 | 52.7 | 50.0 |
+| empty | 24 | workshop-fighter | workshop-rogue | right | 32 | 0.256 | 0.239 | 0.018 | 0.16 | 0.932 | 0.913 | 0.04 | 0.09 | 0.13 | 0.09 | 0.16 | 52.7 | 63.2 |
+| empty | 24 | workshop-rogue | workshop-fighter | left | 32 | 0.005 | 0.006 | -0.001 | -0.18 | 0.039 | 0.046 | -0.18 | 0.00 | 0.00 | 0.97 | 0.97 | 6.6 | 4.8 |
+| empty | 24 | workshop-rogue | workshop-fighter | right | 32 | 0.000 | 0.000 | 0.000 | 0.18 | 0.017 | 0.020 | -0.18 | 0.97 | 0.97 | 0.03 | 0.03 | 6.6 | 6.4 |
+| empty | 24 | workshop-rogue | workshop-rogue | left | 32 | 0.047 | 0.050 | -0.004 | -0.06 | 0.388 | 0.346 | 0.18 | 0.50 | 0.59 | 0.50 | 0.41 | 28.7 | 27.2 |
+| empty | 24 | workshop-rogue | workshop-rogue | right | 32 | 0.062 | 0.049 | 0.012 | 0.20 | 0.387 | 0.339 | 0.25 | 0.50 | 0.38 | 0.50 | 0.63 | 28.7 | 27.2 |
+| club | 0 | every | pair | either | 256 | 0.092 | 0.073 | 0.019 | 0.13 | 0.299 | 0.266 | 0.14 | 0.40 | 0.36 | 0.50 | 0.53 | 10.7 | 10.4 |
+| club | 24 | every | pair | either | 256 | 0.106 | 0.115 | -0.009 | -0.10 | 0.283 | 0.287 | -0.02 | 0.36 | 0.40 | 0.50 | 0.45 | 10.1 | 10.1 |
+| empty | 0 | every | pair | either | 256 | 0.046 | 0.040 | 0.006 | 0.08 | 0.287 | 0.240 | 0.17 | 0.38 | 0.44 | 0.50 | 0.49 | 26.0 | 24.2 |
+| empty | 24 | every | pair | either | 256 | 0.047 | 0.044 | 0.003 | 0.06 | 0.270 | 0.261 | 0.04 | 0.39 | 0.40 | 0.50 | 0.50 | 23.0 | 23.4 |
+| every | delay | every | pair | either | 1024 | 0.073 | 0.068 | 0.005 | 0.05 | 0.285 | 0.263 | 0.09 | 0.38 | 0.40 | 0.50 | 0.49 | 17.5 | 17.0 |
+
+The bar: covering saves the head at d over 0.2 in 9 of 32 cells, and in 5 of them with no more falls; the least d is -0.36.
+
+`node research/core-guard-late.mjs` on the same tree, as [How late a cover is](#how-late-a-cover-is):
+
+| Left | Right | Covers | Blows met | By its head | No threat seen | Threat seen, s | Knuckles from the place, cm | Swell from the place, cm | Steps a threat is seen in, % | Steps a strike has a hand in, % |
+|---|---|---|---|---|---|---|---|---|---|---|
+| workshop-fighter | workshop-fighter | left | 35 | 2 | 0 | 0.13, 0.14, 0.14 | 43, 48, 48 | 62, 79, 79 | 1.3 | 59.9 |
+| workshop-fighter | workshop-fighter | right | 37 | 4 | 1 | 0.13, 0.14, 0.15 | 32, 33, 60 | 13, 25, 81 | 1.8 | 69.8 |
+| workshop-fighter | workshop-rogue | left | 33 | 0 | 0 | - | - | - | 1.9 | 65.2 |
+| workshop-fighter | workshop-rogue | right | 58 | 3 | 0 | 0.14, 0.14, 0.16 | 29, 33, 47 | 29, 34, 41 | 1.3 | 69.8 |
+| workshop-rogue | workshop-fighter | left | 41 | 1 | 0 | 0.14, 0.14, 0.14 | 41, 41, 41 | 31, 31, 31 | 1.0 | 68.1 |
+| workshop-rogue | workshop-fighter | right | 37 | 0 | 0 | - | - | - | 1.8 | 56.3 |
+| workshop-rogue | workshop-rogue | left | 40 | 2 | 0 | 0.17, 0.18, 0.18 | 31, 44, 44 | 58, 67, 67 | 2.2 | 66.4 |
+| workshop-rogue | workshop-rogue | right | 39 | 3 | 2 | 0.19, 0.19, 0.19 | 54, 54, 54 | 69, 69, 69 | 2.5 | 65.1 |
+
+- **The bar is missed as it was.** Pooled over every cell the head's d is 0.05 (1024 pairs),
+  where it was -0.03, and all the hit points lost read 0.09. Covering saves the head at d over
+  0.2 in 9 cells of 32 where it did in 1, and in 5 of them with no more falls; the least is
+  -0.36. With clubs and nothing delayed the pooled d is 0.13, and with what is sensed 24 steps
+  old, -0.10.
+- **The cover is as late.** Of the 15 blows that met a covering head, 12 had a threat seen
+  before them, for 0.13 to 0.19 s, and 3 had none; at the blow the knuckles are 29 to 60 cm
+  from their place and the swell 13 to 81 cm.
+- **Against a Warrior that stands, the Warrior's club blow is met by the pose's club and by
+  the cover's head.** `firstBlow` (`tests/core-guard.test.mjs`: a bout whose right side is
+  ordered to stand) with a Warrior on the left, at ten gaps from 2.5 to 5 m: in the pose the
+  first blow lands on the standing Warrior's club at every gap, at 40 to 52 J; covering, from
+  3.5 to 4.25 m, it lands on its head, at 89 to 112 J. The Rogue's club blow, which the test
+  throws from 3, 4 and 5 m, lands first on the head in the pose and on a hand or the club
+  covering.
+- **Fighters go on in the pose** (`FIGHTER.guard`).
+
+## Aim
+
+A fighter aims at its foe's head (`FighterMindConfig.aim`, `"head"`), or at the part of it
+its right hand's recipes net most on (`"pays"`: `netsOf`). Under `"pays"` every body aims at
+the upper trunk, with a fist and with the club:
+
+| Held | Body | High, HP | Middle, HP | Aims at |
+|---|---|---|---|---|
+| club | Warrior | 1.107 | 1.417 | the upper trunk |
+| club | Rogue | 0.433 | 0.528 | the upper trunk |
+| club | skeleton | 0.660 | 1.075 | the upper trunk |
+| fist | Warrior | 0.022 | 0.507 | the upper trunk |
+| fist | Rogue | 0.007 | 0.225 | the upper trunk |
+| fist | skeleton | 0.026 | 0.646 | the upper trunk |
+
+`node research/core-aim.mjs --bouts 32`: arena bouts (Node, core world, Rapier, 120 Hz, each
+side's balance its character's) from 32 starting gaps, 3.03 to 4.99 m, the first set. At each gap, for each
+thing held and each ordered pair of bodies, one bout with both sides aiming at the head and
+one with each side in turn aiming at what pays: 1728 bouts, 36 cells of 32. A row is the side
+that aims at what pays: its margin at the end of a bout (its bar less its foe's), what aiming
+at what pays gained of it over the bout at the same gap and that gain's effect size (Cohen's d
+of the paired differences), the share of the bouts it won and fell in, and the hit points its
+foe lost.
+
+| Held | Left | Right | Aims at what pays | Margin: at the head | at what pays | Gained | d | Won: at the head | at what pays | Fell: at the head | at what pays | Foe's HP lost: at the head | at what pays |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| club | Warrior | Warrior | left | 0.048 | -0.042 | -0.090 | -0.47 | 0.81 | 0.53 | 0.13 | 0.09 | 0.483 | 0.196 |
+| club | Warrior | Warrior | right | -0.048 | -0.051 | -0.003 | -0.02 | 0.19 | 0.25 | 0.41 | 0.44 | 0.194 | 0.176 |
+| club | Warrior | Rogue | left | 0.175 | 0.203 | 0.028 | 0.15 | 0.91 | 0.91 | 0.09 | 0.09 | 0.743 | 0.856 |
+| club | Warrior | Rogue | right | -0.175 | -0.104 | 0.071 | 0.32 | 0.09 | 0.22 | 0.75 | 0.38 | 0.088 | 0.269 |
+| club | Warrior | skeleton | left | 0.127 | 0.133 | 0.006 | 0.03 | 0.91 | 0.78 | 0.06 | 0.19 | 0.833 | 0.866 |
+| club | Warrior | skeleton | right | -0.127 | -0.102 | 0.025 | 0.22 | 0.09 | 0.09 | 0.25 | 0.28 | 0.081 | 0.174 |
+| club | Rogue | Warrior | left | -0.107 | -0.043 | 0.064 | 0.39 | 0.47 | 0.56 | 0.34 | 0.13 | 0.058 | 0.177 |
+| club | Rogue | Warrior | right | 0.107 | 0.118 | 0.011 | 0.07 | 0.53 | 0.59 | 0.47 | 0.41 | 0.458 | 0.477 |
+| club | Rogue | Rogue | left | -0.002 | -0.014 | -0.012 | -0.13 | 0.75 | 0.69 | 0.25 | 0.28 | 0.181 | 0.165 |
+| club | Rogue | Rogue | right | 0.002 | 0.018 | 0.016 | 0.18 | 0.22 | 0.66 | 0.75 | 0.25 | 0.187 | 0.239 |
+| club | Rogue | skeleton | left | 0.051 | 0.039 | -0.013 | -0.16 | 0.31 | 0.31 | 0.66 | 0.47 | 0.380 | 0.499 |
+| club | Rogue | skeleton | right | -0.051 | 0.037 | 0.089 | 0.81 | 0.69 | 0.63 | 0.03 | 0.38 | 0.048 | 0.316 |
+| club | skeleton | Warrior | left | -0.076 | -0.055 | 0.021 | 0.31 | 0.56 | 0.50 | 0.09 | 0.22 | 0.050 | 0.070 |
+| club | skeleton | Warrior | right | 0.076 | 0.067 | -0.009 | -0.11 | 0.44 | 0.47 | 0.56 | 0.53 | 0.499 | 0.453 |
+| club | skeleton | Rogue | left | -0.044 | -0.001 | 0.043 | 0.39 | 0.78 | 0.56 | 0.00 | 0.44 | 0.059 | 0.210 |
+| club | skeleton | Rogue | right | 0.044 | 0.054 | 0.010 | 0.12 | 0.22 | 0.19 | 0.69 | 0.72 | 0.354 | 0.473 |
+| club | skeleton | skeleton | left | 0.009 | 0.063 | 0.054 | 0.32 | 0.53 | 0.13 | 0.28 | 0.56 | 0.480 | 0.740 |
+| club | skeleton | skeleton | right | -0.009 | 0.015 | 0.023 | 0.15 | 0.47 | 0.13 | 0.22 | 0.38 | 0.428 | 0.513 |
+| fist | Warrior | Warrior | left | -0.001 | 0.001 | 0.001 | 0.16 | 0.97 | 0.97 | 0.00 | 0.03 | 0.041 | 0.026 |
+| fist | Warrior | Warrior | right | 0.001 | 0.002 | 0.001 | 0.10 | 0.03 | 0.03 | 0.97 | 0.97 | 0.044 | 0.027 |
+| fist | Warrior | Rogue | left | 0.191 | 0.156 | -0.035 | -0.27 | 0.84 | 0.81 | 0.16 | 0.19 | 1.043 | 0.923 |
+| fist | Warrior | Rogue | right | -0.191 | -0.036 | 0.155 | 1.55 | 0.16 | 0.06 | 0.03 | 0.91 | 0.419 | 0.254 |
+| fist | Warrior | skeleton | left | 0.071 | 0.048 | -0.023 | -0.22 | 0.81 | 0.84 | 0.13 | 0.06 | 1.093 | 0.945 |
+| fist | Warrior | skeleton | right | -0.071 | -0.050 | 0.021 | 0.23 | 0.19 | 0.19 | 0.13 | 0.13 | 0.666 | 0.848 |
+| fist | Rogue | Warrior | left | -0.008 | -0.000 | 0.008 | 0.25 | 0.94 | 0.94 | 0.00 | 0.06 | 0.034 | 0.010 |
+| fist | Rogue | Warrior | right | 0.008 | 0.003 | -0.005 | -0.25 | 0.06 | 0.06 | 0.94 | 0.94 | 0.055 | 0.029 |
+| fist | Rogue | Rogue | left | 0.001 | 0.028 | 0.027 | 0.58 | 0.56 | 0.47 | 0.44 | 0.53 | 0.333 | 0.377 |
+| fist | Rogue | Rogue | right | -0.001 | 0.011 | 0.012 | 0.34 | 0.44 | 0.31 | 0.53 | 0.69 | 0.328 | 0.260 |
+| fist | Rogue | skeleton | left | -0.023 | 0.012 | 0.035 | 0.72 | 0.31 | 0.22 | 0.56 | 0.63 | 0.336 | 0.750 |
+| fist | Rogue | skeleton | right | 0.023 | 0.053 | 0.030 | 0.38 | 0.69 | 0.59 | 0.31 | 0.41 | 0.315 | 0.390 |
+| fist | skeleton | Warrior | left | 0.000 | 0.001 | 0.001 | 0.18 | 0.97 | 1.00 | 0.03 | 0.00 | 0.016 | 0.030 |
+| fist | skeleton | Warrior | right | -0.000 | 0.001 | 0.001 | 0.18 | 0.03 | 0.03 | 0.97 | 0.97 | 0.014 | 0.026 |
+| fist | skeleton | Rogue | left | 0.020 | 0.037 | 0.017 | 0.45 | 0.88 | 0.84 | 0.13 | 0.16 | 0.329 | 0.381 |
+| fist | skeleton | Rogue | right | -0.020 | 0.008 | 0.028 | 0.60 | 0.13 | 0.00 | 0.78 | 0.84 | 0.368 | 0.679 |
+| fist | skeleton | skeleton | left | -0.001 | 0.013 | 0.014 | 0.44 | 0.53 | 0.47 | 0.19 | 0.44 | 0.423 | 0.653 |
+| fist | skeleton | skeleton | right | 0.001 | 0.015 | 0.014 | 0.33 | 0.47 | 0.47 | 0.34 | 0.34 | 0.439 | 0.598 |
+| club | every | pair | either | 0.000 | 0.019 | 0.019 | 0.13 | 0.50 | 0.45 | 0.34 | 0.35 | 0.311 | 0.381 |
+| fist | every | pair | either | -0.000 | 0.017 | 0.017 | 0.24 | 0.50 | 0.46 | 0.37 | 0.46 | 0.350 | 0.400 |
+| every | every | pair | either | 0.000 | 0.018 | 0.018 | 0.15 | 0.50 | 0.46 | 0.35 | 0.40 | 0.331 | 0.391 |
+
+- **Aiming at what pays gains 0.018 of margin, d 0.15** over the 1152 pairs: 0.13 with the
+  club and 0.24 with a fist. 18 of the 36 cells are over 0.2 and 4 under -0.2; the least is
+  the Warrior's with the club on the left of a Warrior, -0.47, where its wins fall from 0.81
+  of its bouts to 0.53.
+- **It wins fewer bouts.** A side that aims at what pays wins 0.46 of its bouts where it won
+  0.50, and falls in 0.40 where it fell in 0.35; its foe loses 0.39 HP where it lost 0.33.
+- **Six cells say nothing**: with a bare Warrior on the right the bout is its fall at 2.9 s
+  ([bouts.md](bouts.md#searched-blows)), whoever aims where.
+
+`--from 32` plays the same cells from the next 32 gaps, a second set, and `--load` reads the
+two sets' records as one of 64:
+
+| Gaps | Held | Gained | d | Won: at the head | at what pays | Fell: at the head | at what pays | Foe's HP lost: at the head | at what pays |
+|---|---|---|---|---|---|---|---|---|---|
+| the first 32 | club | 0.019 | 0.13 | 0.50 | 0.45 | 0.34 | 0.35 | 0.311 | 0.381 |
+| the first 32 | fist | 0.017 | 0.24 | 0.50 | 0.46 | 0.37 | 0.46 | 0.350 | 0.400 |
+| the first 32 | either | 0.018 | 0.15 | 0.50 | 0.46 | 0.35 | 0.40 | 0.331 | 0.391 |
+| the second 32 | club | 0.013 | 0.09 | 0.50 | 0.48 | 0.31 | 0.32 | 0.317 | 0.367 |
+| the second 32 | fist | 0.016 | 0.25 | 0.50 | 0.47 | 0.38 | 0.45 | 0.324 | 0.441 |
+| the second 32 | either | 0.015 | 0.13 | 0.50 | 0.47 | 0.35 | 0.38 | 0.320 | 0.404 |
+| all 64 | club | 0.016 | 0.11 | 0.50 | 0.47 | 0.32 | 0.33 | 0.314 | 0.374 |
+| all 64 | fist | 0.017 | 0.24 | 0.50 | 0.47 | 0.37 | 0.45 | 0.337 | 0.421 |
+| all 64 | either | 0.016 | 0.14 | 0.50 | 0.47 | 0.35 | 0.39 | 0.325 | 0.397 |
+
+- **The second set says what the first did**: more margin, by d 0.13 where 0.15, fewer bouts
+  won and more fallen in. 13 of the 36 cells are over 0.2 in both sets, and one under -0.2 in
+  both: the Warrior's with the club on the left of a Warrior, -0.47 and -0.32. One is over 0.2
+  in the first and under -0.2 in the second, the bare skeleton's on the right of a Warrior.
+  Read as one set, 15 cells are over 0.2 and 2 under -0.2.
+- **The margin and the bouts won disagree most where a body that aims at a trunk falls.** The
+  bare Rogue on the right of a Warrior gains 0.13 of margin over the 64 gaps, d 1.25, falls in
+  0.92 of its bouts where it fell in 0.08, and wins 0.03 where it won 0.14.
+- **64 gaps a cell is a pilot.** A cell's d has a standard error near 0.13. A set of 32 took
+  1190 and 1254 s on 26 and 24 worker threads, so 384 gaps a cell are 4 h, and a second set on
+  fresh gaps (`--from 384`) 4 h more. They have not been played.
+
+`FIGHTER.aim` is `"head"`.

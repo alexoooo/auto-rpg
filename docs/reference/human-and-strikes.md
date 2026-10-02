@@ -6,7 +6,7 @@ throws (`STAND`) and how it comes to a recipe's place (`APPROACH`), both in
 `TURN_LEAD`, `src/core/skills/locomotion.ts`); the guard (`GUARD`, `src/core/skills/guard.ts`);
 how near a fighter attacks (`ATTACK_METRES`, `src/core/mind/fighter.ts`); what shapes an
 arm's path to a place (`IK_POSTURE_PULL`, `IK_TURN`, `src/core/control/kinematics.ts`); and
-the heights a recipe is thrown at (`StrikeWindow.up`, `src/core/skills/strikes.ts`). Each
+where about its place a recipe is thrown (`StrikeWindow`, `src/core/skills/strikes.ts`). Each
 constant's comment cites its section below. A value said to be set was chosen and not swept: no
 table read on the engine the game runs on stands behind the choice.
 
@@ -66,9 +66,10 @@ has moved by the same reach (`fighterTactics`, `src/core/mind/fighter.ts`).
 ## Placing
 
 `PLACING.near` is 0.02 m: a foot further than that from its place steps there
-(`Locomotion.place`). Set. It is under every window of the repertoire, of which the narrowest is
-the club blow's 4 cm across (`assets/core/strikes.json`). Where a placed foot lands beside its
-place has not been measured; the Routine's strikes above stood inside their windows with it.
+(`Locomotion.place`). Set. A recipe is kept only if its window is twice that wide or more along
+the heading and across it ([Windows](#a-recipe-the-feet-cannot-be-set-to)). Where a placed foot
+lands beside its place has not been measured; the Routine's strikes above stood inside their
+windows with it.
 
 ## Turn lead
 
@@ -90,72 +91,125 @@ the guard's elbows into their stops.
 ## Attack distance
 
 `ATTACK_METRES` is 1.8 m, between the two centres of mass across the ground: nearer than that, a
-fighter attacks its foe's head; further, it walks at it. Set. The club blow is thrown from 1.05 m
-(its `distance`, `assets/core/strikes.json`), and the strike skill closes what is left itself
-(`APPROACH`), so 1.8 m is the blow's distance and about a step.
+fighter attacks its foe; further, it walks at it. Set. The Warrior's club blows are thrown with
+their target 0.93 m (a head) and 1.12 m (a trunk) ahead of its own head (`Recipe.place`,
+`assets/core/strikes.json`), and the strike skill closes what is left itself (`APPROACH`), so
+1.8 m is a blow's distance and about a step.
 
-## Window height
+## Windows
 
-A recipe's window has a third way, up: the target's height over the head of the body that
-throws (`StrikeWindow.up`). The strike skill throws a recipe at a target whose height is in its
-window, and places its blow at any other ([blows.md](blows.md#placed)).
-`research/core-strike-window.mjs` moves the target up and down from the recipe's place as it
-moves it along the heading and across it, in steps of 2 cm, and reads a fist by its point's
-forward speed into a sphere of the head's radius with no body at it (`evaluateStrike`), and
-the club by the energy of its blow on a ball (`evaluateClubStrike`). Node core stand, Rapier,
-each recipe thrown from standing in the guard; a miss is a throw that read nothing.
+A recipe's window is where its target may stand from its place for the recipe to be thrown at
+it: along the heading, across it, and up, the target's height over the head of the body that
+throws (`StrikeWindow`). The strike skill throws a recipe at a target whose height is in its
+window, sets the feet until the target stands in the window along and across, and places its
+blow at a height no window holds ([blows.md](blows.md#placed)).
 
-| Up, cm | The Warrior's straight, m/s: 120 Hz | 480 Hz | The Rogue's straight, m/s: 120 Hz | 480 Hz |
+`research/core-strike-window.mjs` throws each recipe as its search threw it, through the strike
+skill at a ball of its band's part hung at its place (`evaluateBlow`,
+`research/core-blow.mjs`), and moves the ball one way at a time in steps of 2 cm. A stand-off is
+in the window if at it, and at every stand-off nearer the place, the blow
+
+- landed: the ball lost hit points;
+- left its body up: not down `WATCH` (3 s) after its pushes;
+- did a share of what it does at its place, or more: `--keep` (0.8) along the heading and across
+  it, where the feet are set to the window, and `--keep-up` (0.5) up, where nothing sets a
+  target's height and the blow outside the window is another recipe or a placed one;
+
+at 120 and at 480 Hz, each reading the mean of four throws (`--trials`): the recipe as written,
+and three with each push's timing moved by up to 1/240 s and its level by up to 0.02, as a search
+perturbs its trials. A window is read by what the blow does its target, and not by what it nets:
+a blow that costs its hand more than it does its target nets under nothing, and the less of it
+lands the more it nets. Node core stand, Rapier, standing on its feet as built, ground on, no
+assist; the arena's rulebook.
+
+`node research/core-strike-window.mjs --write --spare <the repertoire's spare searches>`, on the
+repertoire of [blows.md](blows.md#the-repertoire): what each recipe does its target at its
+place, the mean of four throws, and its window.
+
+| Body | Held | Band | Does at its place, HP: 120 Hz | 480 Hz | Window along, cm | across | up |
+|---|---|---|---|---|---|---|---|
+| Warrior | wooden club | high | 1.02 | 1.11 | -2 to 12 | -4 to 2 | -6 to 12 |
+| Warrior | wooden club | middle | 1.37 | 1.31 | -16 to 8 | -6 to 4 | -30 to 26 |
+| Warrior | fist | high | 0.12 | 0.11 | -6 to 2 | -2 to 14 | 0 to 8 |
+| Warrior | fist | middle | 0.53 | 0.36 | -2 to 2 | -8 to 2 | -36 to 20 |
+| Rogue | wooden club | high | 0.42 | 0.46 | -14 to 6 | -2 to 6 | -8 to 8 |
+| Rogue | wooden club | middle | 0.54 | 0.57 | -10 to 10 | -6 to 6 | -40 to 24 |
+| Rogue | fist | high | 0.05 | 0.05 | -6 to 8 | -2 to 6 | -12 to 6 |
+| Rogue | fist | middle | 0.31 | 0.15 | -4 to 2 | -6 to 2 | -14 to 20 |
+| skeleton | wooden club | high | 0.67 | 0.70 | -4 to 4 | -2 to 2 | -14 to 26 |
+| skeleton | wooden club | middle | 1.08 | 1.14 | -8 to 6 | -4 to 6 | -18 to 14 |
+| skeleton | fist | high | 0.18 | 0.15 | 0 to 6 | -4 to 2 | -28 to 18 |
+| skeleton | fist | middle | 0.54 | 0.50 | -4 to 0 | 0 to 8 | -14 to 24 |
+
+No window comes to the 60 cm the ball is moved to. The fists' are 4 to 14 cm wide along the
+heading and 6 to 16 across; the clubs' 8 to 24 and 4 to 12.
+
+### Four throws
+
+One throw a stand-off reads the step grid along with the blow. The Warrior's club blow at a
+head, at 120 Hz, its target 6, 8 and 10 cm over its place, thrown as written and with its
+pushes moved as three perturbed trials move them (Node core stand, Rapier; HP done):
+
+| Up, cm | As written | -2.2 ms, level 0.995 | +0.04 ms, level 1.008 | -3.75 ms, level 0.995 |
 |---|---|---|---|---|
-| -10 | miss | miss | miss | miss |
-| -8 | miss | miss | miss | miss |
-| -6 | miss | miss | 6.16 | 7.10 |
-| -4 | 7.36 | miss | 7.02 | 7.73 |
-| -2 | 7.83 | 9.17 | 7.53 | 7.98 |
-| 0 | 8.06 | 9.51 | 7.70 | 8.06 |
-| 2 | 8.21 | 9.61 | 7.70 | 8.06 |
-| 4 | 8.31 | 9.65 | 7.71 | 8.03 |
-| 6 | 8.37 | 9.66 | 7.71 | 8.02 |
-| 8 | 8.36 | 9.66 | 7.71 | 8.04 |
-| 10 | 8.31 | 9.65 | miss | 8.06 |
-| 12 | miss | miss | miss | miss |
+| 6 | 0.90 | 0.62 | 1.06 | 0.06 |
+| 8 | 0.11 | 0.99 | 1.04 | 0.94 |
+| 10 | 1.12 | 0.99 | 0.95 | 0.93 |
 
-| Up, cm | The Warrior's club blow, J: 120 Hz | 480 Hz |
-|---|---|---|
-| -80 | 7.94 | miss |
-| -74 | 37.91 | 4.64 |
-| -70 | 55.57 | 21.31 |
-| -60 | 85.79 | 64.90 |
-| -58 | 90.28 | 70.93 |
-| -56 | 94.00 | 74.50 |
-| -50 | 103.46 | 93.99 |
-| -40 | 125.91 | 123.77 |
-| -30 | 138.24 | 144.05 |
-| -20 | 134.89 | 147.20 |
-| -10 | 129.86 | 143.75 |
-| 0 | 119.45 | 136.09 |
-| 10 | 113.19 | 124.06 |
-| 20 | 80.17 | 72.22 |
-| 22 | 67.27 | 49.98 |
-| 24 | 45.52 | 14.28 |
-| 26 | 21.94 | miss |
-| 28 | miss | miss |
+One throw in four at a height reads a tenth of the others, and not the same throw at the next
+height: the swell passes the ball between two steps. Read once, the 0.11 at 8 cm ended the
+window at 6 cm. The mean of four is what a stand-off is read by.
 
-Command: `node research/core-strike-window.mjs --hz 120,480`, and with `--write` to put the
-windows into `assets/core/strikes.json`.
+### The watch
 
-The window up runs from the recipe's place out to the last height at which it, and every height
-nearer, read half its reading at its place or more, at 120 and at 480 Hz (`--keep-up 0.5`): the
-Warrior's straight from 2 cm under to 10 cm over, the Rogue's from 6 under to 8 over, the club
-blow from 58 under to 20 over. Along the heading and across it the share is 0.95, the feet
-being set to the window. Half is set, and not swept: nothing sets a target's height, the blow
-outside the window is a placed one, a tenth of a recipe's, and a recipe at half is the better
-blow.
+A blow that leaves its body down is no blow to throw, and a search scores it under any miss
+(`FELL`). A search asks more: that the body stands on both feet a second after its pushes
+(`RECOVER`). Held to that, a window ends wherever the body is still stepping at the second,
+whether it then stands or falls. 27 stand-offs of the Warrior's club blow at a head and of its
+straight at a trunk, each watched 1, 2 and 3 s after its pushes (Node core stand, Rapier, 120
+and 480 Hz):
 
-A fist's window up is its reading's, and narrower than its blow: the point misses a sphere it
-passes a radius from, 9.1 cm for the Warrior and 7.2 for the Rogue, whatever the fist and the
-arm behind it would do to a head there. On a dummy the Warrior's straight lands 6 to 11 J from
-14 cm under his head to 10 over ([blows.md](blows.md#against-a-recipe)).
+| At 1 s | Stand-offs | Standing at 2 s | Down at 2 s | Standing at 3 s | Down at 3 s |
+|---|---|---|---|---|---|
+| Standing on both feet | 18 | 18 | 0 | 18 | 0 |
+| Still stepping | 9 | 5 | 3 | 6 | 3 |
+
+Every body that was going to fall was down within 2 s, and the last to recover stood by 3 s.
+`WATCH` is 3 s, and what is asked at its end is that the body is not down.
+
+### The share kept
+
+The windows of the Warrior's recipes along the heading and across it, cm, at each share of the
+reading at the place (`--keep`), from one throw a stand-off (the windows up are `--keep-up`'s,
+and do not move):
+
+| Keep | Club, high: along | across | Club, middle: along | across | Fist, middle: along | across |
+|---|---|---|---|---|---|---|
+| 0.95 | -4 to 12 | 0 to 0 | -6 to 6 | -2 to 2 | 0 to 2 | -6 to 0 |
+| 0.9 | -4 to 12 | 0 to 2 | -8 to 6 | -2 to 2 | 0 to 2 | -6 to 2 |
+| 0.8 | -10 to 12 | -2 to 2 | -18 to 12 | -4 to 6 | -2 to 2 | -6 to 2 |
+| 0.65 | -12 to 12 | -2 to 4 | -24 to 16 | -6 to 8 | -2 to 6 | -10 to 4 |
+| 0.5 | -16 to 12 | -4 to 6 | -28 to 16 | -8 to 12 | -6 to 6 | -10 to 4 |
+
+The skill throws a recipe only with its target in the window, and sets each foot within
+`PLACING.near` (2 cm) of its place: a window narrower than 4 cm is one it cannot set its feet
+to, and a recipe with one is never thrown. At 0.95 the club's blow at a head has no width
+across, and at 0.9 it has 2 cm. 0.8 is the greatest share of the sweep at which every one of the
+three is 4 cm wide both ways, and is the one set.
+
+### A recipe the feet cannot be set to
+
+A recipe whose window along the heading or across it is narrower than twice `PLACING.near` is
+taken out of the asset (`setTo`). Its cell takes the next of its searches that beat the placed
+blow, in the order of what they net, whose window is read in its turn
+(`research/core-strike-repertoire.mjs --spare`); a cell none of whose searches the feet can be
+set to is thrown at by placement. The asset says which recipes were passed over (`passed`) and
+which cells are placed (`placed`), and why.
+
+One recipe of the 12 was passed over: the skeleton's club blow at a head of seed 2, which nets
+0.755 HP and at its own place, at 120 Hz, leaves the skeleton down in one throw of the four, so
+that no stand-off is in its window. Its cell has seed 3's, 0.660 HP, with a window 8 cm along
+and 4 cm across.
 
 ## IK
 

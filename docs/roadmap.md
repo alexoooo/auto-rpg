@@ -71,62 +71,86 @@ All of it on a physically based core, humans first ([architecture](architecture.
 - The tactics (`fighterTactics`) cannot yet attack a moving body.
 - A fighter can cover its head against a blow it sees coming (`guard: "cover"`,
   `&guard=cover`), and does not unless asked: the cover is late, and saves no more of the head
-  than the pose ([blows](reference/blows.md#guard-battery)). Left: a cover that leads the blow
-  and is in place before it; a cover of another part; a dodge; a counter; and the Rogue's club,
-  which a two-point hand goal does not bring to its place
+  than the pose ([blows](reference/blows.md#covering-searched)). A Warrior that stands meets
+  the Warrior's club blow with its club in the pose, and with its head covering. Left: a cover
+  that leads the blow and is in place before it; a cover of another part; a dodge; a counter;
+  and the Rogue's club, which a two-point hand goal does not bring to its place
   ([blows](reference/blows.md#a-clubs-line)).
 - The arena needs tactics of its own, beyond walking at the other body and attacking its head.
 
 ### Strikes
 
+- The repertoire is searched (`assets/core/strikes.json`,
+  [reference/blows.md](reference/blows.md#searched)): for the Warrior, the Rogue and the skeleton,
+  with a fist and with the club, a blow at a head and a blow at an upper trunk, scored by the
+  rule a fight wounds by and thrown by its own body alone. Each of the 12 cells has a recipe;
+  the skeleton's club blow at a head is the second of its searches by what they net, the
+  first having no window the feet can be set to. A target off every window's height is struck
+  by a placed blow.
+- The owner's to choose, each landed at its default:
+  - Where a fighter aims (`FighterMindConfig.aim`): the head, as it does, or the part its hand's
+    blow pays most on (`"pays"`). Over two pilots of 32 starting gaps a cell, aiming at what pays
+    (the upper trunk, for every body with either thing held) gains 0.018 and 0.015 of the bar's
+    margin, d 0.15 and 0.13, and wins fewer bouts, 0.47 of them where 0.50, falling in 0.39
+    where 0.35 ([reference/blows.md](reference/blows.md#aim)). The battery of 384 gaps a cell,
+    twice, is 8 h on 26 worker threads and has not been run.
+  - Whether a bare fist strikes at a head at all. The hand takes the greater share of a blow on
+    a head ([reference/wounds.md](reference/wounds.md#shares)), and the best blows a search finds
+    there net 0.007 to 0.026 HP: the Warrior's does a head 0.121 HP and its own hand 0.099, more
+    than the hand holds. Thrown at an upper trunk the same hands net 0.23 to 0.65 HP.
+  - What the searches cost: the 36 took 4 h 5 min on 24 worker threads, and the windows after
+    them about 2 h on 8. A cell is searched again whenever its body, its item or the rule
+    changes.
+- The owner's to watch: each body's blows in the lab (`?play=lab&scenario=blow`, and the Routine,
+  `?play=lab&scenario=routine`), and a bout of each matchup, with clubs and bare-handed
+  (`&held=empty`).
+- A search's target is the ball of one part, hung alone, and a standing body is more than that
+  ([reference/blows.md](reference/blows.md#on-a-standing-body)): the head is in a middle blow's
+  way, which the Warrior's club blow at a trunk lands on; the skeleton's club blow at a head
+  lands its hand on the foe's arm and not its club, and costs the skeleton more than its foe; a
+  fist's place at a head is among a standing foe's feet, and the bare Warrior takes 15 s to
+  throw at a Warrior's head. A search at a standing body is not built.
+- The skeleton's club strikes 13 of its 18 high and middle targets where every other body and
+  thing held strikes 17 or 18: its blow at a trunk reaches from 11 to 43 cm under its head, and
+  under that its club is placed and passes
+  ([reference/blows.md](reference/blows.md#the-battery-searched)).
+- A search throws at 120 Hz, and its blow is another blow at a finer step: the fists at a
+  trunk net at 480 Hz 0.6 to 0.8 of what they net at 120, and one lands none
+  ([reference/blows.md](reference/blows.md#the-searches)). A search scored at two rates is not
+  built.
+- A blow that meets nothing unbalances the body that threw it. A search scores a blow thrown at
+  nothing that leaves its body down under any miss, at 120 Hz; five of the 36 searches' blows
+  stand so at 120 Hz and fall at 480 or 1920, four of them their cells' recipes. A search that
+  throws at nothing at a finer step too is not built.
+- A window is narrow: the fists' are 4 to 14 cm along the heading and 6 to 16 across, the
+  clubs' 8 to 24 and 4 to 12
+  ([reference/human-and-strikes.md](reference/human-and-strikes.md#windows)). The feet are set
+  within 2 cm of their places (`PLACING.near`), and a recipe whose window is narrower than 4 cm
+  is not kept.
+- A blow of its own that lands can put a body down. With the club one run of nine completes a
+  loop of ten targets, and with empty hands eight
+  ([reference/blows.md](reference/blows.md#a-loop-of-ten-searched)); in the Routine each human
+  falls in 2 runs of 6 of ten loops, setting its feet for a target or closing on one
+  ([reference/lab.md](reference/lab.md#routine-gait)).
 - Hand goals: a placed blow is a place and a time for the hand's point, met by the arm alone
   ([reference/blows.md](reference/blows.md#placed)). Left: a speed at the place, and the trunk
   and the legs in the blow, and the strike search in that form; a placed blow lands a tenth of a
   recipe's energy. A recipe stays wherever it beats the hand goal.
 - A hand goal's path is a straight line of its point, and for a point of a held thing that line
-  can run through places no pose of the arm puts it: of 32 placed club blows 8 land, and the
-  skeleton's club, which rests behind its shoulder, never comes within half a metre
+  can run through places no pose of the arm puts it: of 32 placed club blows 8 landed, and the
+  skeleton's club, which rests behind its shoulder, never came within half a metre
   ([reference/blows.md](reference/blows.md#the-battery-placed)). A path a pose can follow from end
   to end (through the joints' angles, or by a point between) is not built.
-- A strike thrown while walking comes with hand goals.
-- The repertoire is three recipes: the Warrior's and the Rogue's right straights and the Warrior's
-  club blow. A body with no recipe of its own for what its hand holds borrows the first that fits
-  (`recipeFor`): the Rogue and the skeleton the club blow, the skeleton also the Warrior's straight.
-  The borrowed ones miss and put their bodies down: the Rogue's club passes its targets 0.5 to
-  0.7 m off where the same hand's placed blow lands
-  ([reference/blows.md](reference/blows.md#against-a-recipe)), and in the Routine the Rogue with
-  the club falls in two runs of three and the skeleton with it in every one, at its second
-  target ([reference/blows.md](reference/blows.md#a-loop-of-ten-placed)).
-- A target off a recipe's height is struck by a placed blow: every middle target of the battery
-  is hit by a fist ([reference/blows.md](reference/blows.md#the-battery-placed)). Left:
-  - blows searched by band of height, for each body and thing held, in place of one recipe a
-    hand and a placed blow everywhere else;
-  - the low targets: 16 of the fists' 27 are filled by the body's own leg as it stands at its
-    toes, and 3 are hit. Nothing stoops or kneels to strike;
-  - a fist's window up is read by its point through an empty sphere and is narrower than its
-    blow: the Warrior places 0.4 to 0.7 J at a head 4 to 14 cm under his own, where his straight
-    lands 6 to 11 J ([reference/human-and-strikes.md](reference/human-and-strikes.md#window-height)).
-    Bare-handed against the Rogue and the skeleton, whose heads are there, he fells nobody in
-    120 s ([reference/bouts.md](reference/bouts.md#placed-blows)).
-- A blow of its own that lands can put a body down. The Warrior in the Routine falls in 4 runs
-  of 6 of ten loops at 120 Hz and in 2 of 6 at 480 Hz, setting its feet for a target or closing
-  on one ([reference/lab.md](reference/lab.md#routine-gait)). Before the placed blow it fell in
-  3 of 6 with its blows landing and in 1 of 6 with the same strikes thrown at nothing; in the
-  one fall read, a recovering step after the blow left its feet together, and it fell stepping
-  to the next target.
-- A blow that meets nothing unbalances the body that threw it. The Warrior with the club on the
-  Node stand (Rapier, 120 Hz), attacking a point 1.6 m off with nobody at it, ends its swing
-  turned 0.75 rad from where it faced, and takes 2 s of steps to face it again. Held rigid for
-  0.4 s as it chambers and handed back, it stands its time again, ends the swing turned 0.4 rad,
-  and is down a second later (`tests/core-sub-mind.test.mjs`'s fixture; one point, read once).
-- The club blow that sets the damage unit lands harder 6-8 cm beyond where it was searched from, so
-  the unit was not thrown from its best distance; a wider search might move the unit.
-- What a straight is held to (its time, its path) is the owner's to say. The Warrior's best reads
-  9.5 m/s at 960 Hz, in the elite's 9-11 band rather than a typical person's 8, and 8.2 at the
-  game's 120 Hz (`assets/core/strikes.json`).
-- The unit search's separate grounds per trial (`--grounds 20,30,40,25`) have not been run on a
-  full search.
-- Searched blows found at 120 Hz read between 20 % and 100 % of their converged value.
+- The low targets: 8 of 54 are struck, and 16 are filled by the body's own leg as it stands at
+  its toes. Nothing stoops or kneels to strike.
+- A strike thrown while walking, and one at a target that moves, come with hand goals. A feint
+  and a counter are not built; the senses carry what a mind would read for them (`BodySense`).
+- The search's separate grounds per trial (`--grounds 20,30,40,25`) have not been run on a full
+  search.
+- Later, in this order, each with its place in the seams
+  ([architecture](architecture.md#what-the-seams-are-for)): the face and the vault; an edge and
+  a point, with a sword; a shield; armour; an item in two hands; a bow; a crouch and the low
+  targets; a kick.
 
 ### Blows and wounds
 
@@ -149,8 +173,11 @@ All of it on a physically based core, humans first ([architecture](architecture.
     ([reference/bouts.md](reference/bouts.md#a-hit-point-is-100-j)). Three bare left hands in
     those 45 bouts are emptied by a club and come off.
   - What two bodies that walk into each other cost. Today any touch that closes is a blow,
-    however slight. With clubs nothing is lost that way; bare-handed, 0.14 of the 0.20 HP a
-    bout's blows take is from blows with neither a hand nor an item in them, and in the crypt
+    however slight. With clubs nothing is lost that way; bare-handed, with the repertoire
+    before the searched one, 0.14 of the 0.20 HP a bout's blows took was from blows with
+    neither a hand nor an item in them (with the searched one a thrown blow's forearm is in
+    such blows too, and they take 0.56 of 0.78 HP:
+    [reference/bouts.md](reference/bouts.md#searched-blows)), and in the crypt
     every such blow has one side already on the floor and costs the living 0.05 to 0.11 HP over
     four runs. A floor of 1 J would drop 95 % of bare-handed blows and 23 % of their hit
     points, and half a per cent of the clubs'; a body out of the fight taken out of the watch
@@ -161,9 +188,11 @@ All of it on a physically based core, humans first ([architecture](architecture.
 - The owner's to watch: a bare-handed bout
   (`?play=arena&matchup=workshop-rogue,workshop-rogue&held=empty`) beside one with clubs
   (`?play=arena&matchup=workshop-fighter,workshop-rogue`).
-- Fists decide nothing: of 45 bare-handed bouts 35 end by a fall and 10 at the 120 s cap, and
-  a bout's blows take 0.31 of the sides' 10 to 12 HP
-  ([reference/bouts.md](reference/bouts.md#placed-blows)).
+- Fists decide little: of 45 bare-handed bouts 34 end by a fall, 8 by a death and 3 at the
+  120 s cap, and a bout's blows take 0.78 of the sides' 10 to 12 HP
+  ([reference/bouts.md](reference/bouts.md#searched-blows)).
+- A part with no hit points left moves as it did: a hand emptied by its own blows strikes on.
+  A fall wounds nobody: the ground is no side of a blow.
 - The Warrior with an empty right hand, on the right side of a bout, falls at 2.9 s before any
   touch: it turns a quarter turn from its heading as it sets off. On the left, and on either
   side with the club, it walks.
@@ -317,6 +346,11 @@ All of it on a physically based core, humans first ([architecture](architecture.
 - A body's air (`MIX.swish`, the `swish` formula), which of the two that meet decides a touch's
   voice, and how loud a footfall is beside a blow (`MIX.impact`) are set and not heard: the
   owner's to judge in play.
+- A cue is as loud as it gets at 60 J (`CUE.joules`, `src/audio/cues.ts`), a hard fall's landing,
+  and a club blow that lands is past it: the searched club blows land 48 to 137 J on their
+  targets, and 2 of the 8 touches of one body on another in three bouts are over 60 J
+  ([reference/look.md](reference/look.md#touches-measured)). A range that went to the hardest
+  blow would make every footfall quieter beside it. The owner's to choose by ear.
 - A hand that holds something sounds as what it holds, whichever of the two met
   (`substanceOf`, `src/audio/cues.ts`). A touch names the shapes the solver pushed on
   (`Touch.pairs`), as a blow reads them, and a sound does not read them yet. What a thing is

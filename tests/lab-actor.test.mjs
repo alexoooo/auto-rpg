@@ -10,20 +10,23 @@ import { stanceEnvelope } from "../src/core/control/stance-envelope.ts";
 import { humanSpec } from "../src/core/human/spec.ts";
 import { standIntent } from "../src/core/mind/intent.ts";
 import { balanceCeiling, balancePercent, rulebook } from "../src/core/rules/rulebook.ts";
-import { STAND } from "../src/core/skills/strike.ts";
+import { placedReach, STAND } from "../src/core/skills/strike.ts";
 import { recipeFor, REPERTOIRE } from "../src/core/skills/strikes.ts";
 import { labActor } from "../src/lab/actor.ts";
-import { throwBlow } from "../src/lab/blow.ts";
+import { throwBlow, watchBlow } from "../src/lab/blow.ts";
 import { LAB_BLOWS } from "../src/lab/blows.ts";
-import { watchClubBlow } from "../src/lab/club-blow.ts";
 import { allowing, loadoutSpec } from "../src/lab/loadout.ts";
 import { LAB_DOWN, LAB_MINDS } from "../src/lab/minds.ts";
 import { startRoutine } from "../src/lab/routine.ts";
 import { LAB_DOWN_IDS, LAB_MIND_IDS } from "../src/lab/scenarios.ts";
 import { startStance } from "../src/lab/stance-mode.ts";
+import { WARRIOR_STRAIGHT } from "./fixtures/strikes.mjs";
 import { coreStand } from "./harness/core-stand.mjs";
 
-const PERCENT = balancePercent(rulebook("arena"));
+const RULES = rulebook("arena"), PERCENT = balancePercent(RULES);
+
+/** How far `hand` of `spec` stands from a target as high as its head: its recipe's place there, or its placed blow's with none. */
+const reachOf = (spec, hand) => recipeFor(REPERTOIRE, spec, hand, 0)?.recipe.place.ahead ?? placedReach(spec, hand, 0);
 
 /** The Stance's frame 4 s after a shove at 2 s, the actor given `options`, and what its assist gave. */
 async function shoved(model, impulse, degrees, options) {
@@ -74,9 +77,10 @@ async function strikes(loadout, options) {
 
 test("a_lab_bodys_hand_may_not_strike_with_what_its_actor_bars", async () => {
   const bare = { model: "workshop-fighter", right: "empty", left: "empty" }, armed = { ...bare, right: "club" };
-  // Each hand's reach is its recipe's distance: the fist's and the club's are not the same. A bar
-  // is the mind's, and changes nothing the skills know.
-  const fist = recipeFor(REPERTOIRE, loadoutSpec(bare), "right").recipe.distance, club = recipeFor(REPERTOIRE, loadoutSpec(armed), "right").recipe.distance;
+  // Each hand's reach is how far it stands from a target as high as its head: the fist's and the
+  // club's are not the same. A bar is the mind's, and changes nothing the skills know.
+  const fist = reachOf(loadoutSpec(bare), "right"), club = reachOf(loadoutSpec(armed), "right");
+  assert.equal(reachOf(loadoutSpec(armed), "left"), fist);
   assert.ok(fist > 0 && club > fist, `the fist reaches ${fist} m, the club ${club}`);
   const fists = { left: fist, right: fist }, clubbed = { left: fist, right: club };
   assert.deepEqual(await strikes(bare), { may: { left: true, right: true }, reach: fists });
@@ -93,16 +97,17 @@ test("a_hand_with_no_recipe_reaches_as_far_as_its_placed_blow", async () => {
   // The Blow gives its skills one recipe of its own, the club's, at a distance no searched recipe
   // has: the right hand reaches that far, and the left, with no recipe for its fist, as far as a
   // placed blow at a target as high as the head.
-  const stored = LAB_BLOWS[0], distance = stored.distance + 0.013;
+  const stored = LAB_BLOWS[0], distance = stored.place.ahead + 0.013;
+  assert.deepEqual({ id: stored.id, held: stored.held, band: stored.band, up: stored.place.up }, { id: "unit", held: "wooden club", band: "high", up: 0 });
   const stand = await coreStand(loadoutSpec({ model: stored.model, right: "club", left: "empty" }), { ground: true });
-  const blow = throwBlow(labActor(stand.built, stand.world), stored.strike, distance);
+  const blow = throwBlow(labActor(stand.built, stand.world), { hand: stored.hand, strike: stored.strike, place: { ahead: distance, up: 0 }, band: stored.band });
   try {
     const { left, right } = blow.report.strike.reach;
     assert.equal(right, distance);
-    // A placed blow is thrown with the arm out, from farther off than the fist's recipe, which
-    // these skills are not given; and from nearer than the club's.
-    const fist = recipeFor(REPERTOIRE, humanSpec(stored.model), "left").recipe.distance;
-    assert.ok(left > fist && left < right, `the left reaches ${left} m, its fist's recipe ${fist} and the club ${right}`);
+    // A placed blow is thrown with the arm out, from farther off than the Warrior's straight
+    // (`tests/fixtures/strikes.mjs`); and from nearer than the club's.
+    assert.equal(left, placedReach(stand.built.spec, "left", 0));
+    assert.ok(left > WARRIOR_STRAIGHT.place.ahead && left < right, `the left reaches ${left} m, a straight ${WARRIOR_STRAIGHT.place.ahead} and the club ${right}`);
   } finally { blow.dispose(); stand.dispose(); }
 });
 
@@ -147,14 +152,16 @@ test("under_the_guard_a_mode_stands_still_while_its_instruments_run", async () =
   const stored = LAB_BLOWS[0], seconds = STAND + stored.strike.chamber.seconds + 0.5;
   for (const options of [{ mind }, { allows: allowing(["club"]) }]) {
     const armed = await coreStand(loadoutSpec({ model: stored.model, right: "club", left: "empty" }), { ground: true });
-    const blow = throwBlow(labActor(armed.built, armed.world, options), stored.strike, stored.distance);
-    const watch = watchClubBlow(armed.built, armed.world, blow, stored.distance, stored.hand);
+    const actor = labActor(armed.built, armed.world, options);
+    const blow = throwBlow(actor, { hand: stored.hand, strike: stored.strike, place: stored.place, band: stored.band });
+    const watch = watchBlow(actor, blow, RULES);
     try {
       const phases = new Set();
       for (let i = 0; i < armed.seconds(seconds); i++) { armed.step(1); phases.add(blow.report.strike.phase); }
       assert.ok(Math.abs(blow.time - seconds) < armed.world.dt, `the blow's clock reads ${blow.time} s after ${seconds}`);
-      assert.deepEqual({ phases: [...phases], thrown: blow.report.strike.thrown, landed: watch.landed, fell: watch.fell, fallen: blow.body.view.down },
-        { phases: [null], thrown: { left: 0, right: 0 }, landed: null, fell: false, fallen: false });
+      // Its target hangs where the blow would land, and nothing comes near it.
+      assert.deepEqual({ phases: [...phases], thrown: blow.report.strike.thrown, reading: watch.reading, fallen: blow.body.view.down },
+        { phases: [null], thrown: { left: 0, right: 0 }, reading: { done: 0, cost: 0, nearest: null, hung: true, blows: [] }, fallen: false });
     } finally { watch.dispose(); blow.dispose(); armed.dispose(); }
   }
 });

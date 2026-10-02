@@ -195,7 +195,7 @@ async function ordered() {
  * at which its feet are first placed, when it is saved at every step: the skill holds that they
  * are placed for one step.
  */
-const STRIKER = { every: 20, nudged: [255, 280], shoved: [600, 630], placed: [270, 310] };
+const STRIKER = { every: 20, nudged: [205, 230], shoved: [640, 670], placed: [300, 340] };
 
 /**
  * A Warrior with a club and, 1.4 m ahead of it, a skeleton, on a ground in a bare world. The
@@ -273,7 +273,7 @@ const NEEDED = {
   ordered: ["heading", "pace", "setOff"].map((field) => `skills > legs > ${field}`),
   striker: [
     ...["reference", "placing"].map((field) => `skills > legs > ${field}`),
-    ...["hand", "phase", "blow", "distance", "still", "since", "begun", "readyAt", "width", "over", "thrown"].map((field) => `skills > strikes > ${field}`),
+    ...["hand", "phase", "blow", "recipe", "distance", "stoodFor", "still", "since", "begun", "readyAt", "width", "over", "thrown"].map((field) => `skills > strikes > ${field}`),
     "skills > tactics > aim",
   ],
   placed: ["skills > legs > placed"],

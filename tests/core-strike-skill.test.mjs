@@ -1,30 +1,38 @@
 /**
  * **The strike skill and its repertoire** (`src/core/skills/strike.ts`, `strikes.ts`), on views
  * built by hand: the left hand's strike is the right's with the arms' channels swapped and the
- * trunk's sided turns reversed; a hand throws the recipe for what it holds, its body's own or
- * another's, with its window turned over for the other hand; the club blow in the repertoire is the
- * club's best (`CLUB_BEST`); an attack walks toward its place, sets the feet there, stands `STAND` s, asks
- * the window of the head as it stands, chambers, pushes and is counted; and a target out of the
- * recipe's height is struck by a placed blow, a hand goal that carries the hand's point through
- * the target in the body frame. That a blow thrown through the skill reads as its search read it,
- * to the digit, is `tests/lab-blow.test.mjs`'s; that a placed blow lands, `tests/lab-targets.test.mjs`'s.
+ * trunk's sided turns reversed; a hand throws the recipe for what it holds whose window holds its
+ * target's height, its body's own before another's, with its window turned over for the other
+ * hand; every recipe of the repertoire is whole, and reads at its place what its record says; an
+ * attack walks toward its place, sets the feet there, stands `STAND` s, asks the window of the
+ * head as it stands, chambers, pushes and is counted; and a target out of every recipe's height is
+ * struck by a placed blow, a hand goal that carries the hand's point through the target in the
+ * body frame. That a blow thrown through the skill reads as its search read it, to the digit, is
+ * `tests/lab-blow.test.mjs`'s; that a placed blow lands, `tests/lab-targets.test.mjs`'s.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { rigidPoints } from "../src/core/build/rigid.ts";
 import { armed } from "../src/core/human/grip.ts";
 import { humanSpec } from "../src/core/human/spec.ts";
 import { woodenClub } from "../src/core/items/club.ts";
 import { GUARD_ACTION } from "../src/core/mind/intent.ts";
-import { CLUB_BEST } from "../src/core/rules/rulebook.ts";
 import { GUARD } from "../src/core/skills/guard.ts";
+import { PLACING } from "../src/core/skills/locomotion.ts";
 import { APPROACH, PLACED, STAND, strikeSkill } from "../src/core/skills/strike.ts";
-import { FIST, heldIn, mirrored, mirroredWindow, recipeFor, REPERTOIRE } from "../src/core/skills/strikes.ts";
+import { BAND_NAMES, BANDS, FIST, heldIn, mirrored, mirroredWindow, netsOf, recipeFor, recipesFor, REPERTOIRE } from "../src/core/skills/strikes.ts";
+import { bandRise } from "../src/lab/blow.ts";
+import { CORE_BLOW_HARNESS, evaluateBlow, heldSpec } from "../research/core-blow.mjs";
+import { WARRIOR_STRAIGHT } from "./fixtures/strikes.mjs";
 
 const DT = 1 / 120;
 const plain = (value) => JSON.parse(JSON.stringify(value));
+
+/** The Warrior's own recipes, of a test's: a straight at a head, and the repertoire's club blow at one. */
+const STRAIGHTS = [WARRIOR_STRAIGHT];
+const CLUB = REPERTOIRE.find((recipe) => recipe.model === "workshop-fighter" && recipe.held === "wooden club" && recipe.band === "high");
+const CLUBS = [CLUB];
 
 test("a_left_strike_swaps_the_arms_channels_and_reverses_the_trunks_sided_turns", () => {
   const right = {
@@ -52,44 +60,92 @@ test("a_left_strike_swaps_the_arms_channels_and_reverses_the_trunks_sided_turns"
   for (const recipe of REPERTOIRE) assert.deepEqual(mirrored(mirrored(recipe.strike)), recipe.strike, recipe.strike.name);
 });
 
-test("a_hand_throws_the_recipe_for_what_it_holds_its_bodys_own_or_another_bodys", () => {
+test("a_hand_throws_the_recipe_for_what_it_holds_whose_window_holds_its_targets_height", () => {
   const warrior = humanSpec("workshop-fighter"), rogue = humanSpec("workshop-rogue");
   const rogueClub = armed(rogue, "right", woodenClub());
   assert.equal(heldIn(rogueClub, "right"), "wooden club");
   assert.equal(heldIn(rogueClub, "left"), FIST);
-  const own = (spec, held) => REPERTOIRE.find((r) => r.model === spec.model && r.held === held);
+  /** A recipe of `model`'s with `held` in the right hand: its target `up` m over the head, its window's height about that. */
+  const made = (model, held, band, up, net, height = [-0.1, 0.1]) => ({
+    model, held, band, strike: { name: `a right ${band} blow`, hand: "right", pushes: [{ channel: "thoracic rotation right", sense: -1, from: 0, to: 0.1 }] },
+    place: { ahead: 0.5, up }, found: "a fixture", window: { along: [-0.02, 0.08], across: [-0.14, 0.01], up: height }, net,
+  });
+  const theirs = made("workshop-rogue", FIST, "high", 0, -0.02), high = made("workshop-fighter", FIST, "high", 0, -0.03), middle = made("workshop-fighter", FIST, "middle", -0.24, 0.2);
+  const club = made("workshop-fighter", "wooden club", "high", 0, 0.98);
+  const known = [theirs, high, middle, club];
   const as = (recipe, hand) => hand === recipe.strike.hand
     ? { recipe, strike: recipe.strike, window: recipe.window }
     : { recipe, strike: mirrored(recipe.strike), window: mirroredWindow(recipe.window) };
-  assert.deepEqual(recipeFor(REPERTOIRE, warrior, "right"), { ...as(own(warrior, FIST), "right"), borrowed: false });
-  assert.deepEqual(recipeFor(REPERTOIRE, rogue, "left"), { ...as(own(rogue, FIST), "left"), borrowed: false });
-  // The window is turned over across the heading, not along it.
+
+  // By the target's height over the head: a head-high one the high recipe, a chest-high one the
+  // middle, and one between the two windows, or over the higher, none.
+  for (const up of [-0.09, 0, 0.09]) assert.deepEqual(recipeFor(known, warrior, "right", up), as(high, "right"), `${up} m`);
+  for (const up of [-0.33, -0.24, -0.15]) assert.deepEqual(recipeFor(known, warrior, "right", up), as(middle, "right"), `${up} m`);
+  for (const up of [-0.12, 0.11, -0.35]) assert.equal(recipeFor(known, warrior, "right", up), null, `${up} m`);
+  // The other hand's is turned over, across the heading and not along it or up.
   assert.deepEqual(mirroredWindow({ along: [-0.02, 0.08], across: [-0.14, 0.01], up: [-0.3, 0.06] }), { along: [-0.02, 0.08], across: [-0.01, 0.14], up: [-0.3, 0.06] });
-  // The Rogue has no club blow of its own and throws the Warrior's.
-  const club = own(warrior, "wooden club");
-  assert.deepEqual(recipeFor(REPERTOIRE, rogueClub, "right"), { ...as(club, "right"), borrowed: true });
-  assert.deepEqual(recipeFor(REPERTOIRE, rogueClub, "left"), { ...as(own(rogue, FIST), "left"), borrowed: false });
-  assert.equal(recipeFor(REPERTOIRE.filter((r) => r.held === FIST), rogueClub, "right"), null);
+  assert.deepEqual(recipeFor(known, warrior, "left", -0.2), as(middle, "left"));
+  assert.deepEqual(recipeFor(known, warrior, "left", -0.2).window, { along: [-0.02, 0.08], across: [-0.01, 0.14], up: [-0.1, 0.1] });
+
+  // A body's own and no other's: wherever it is in the table, and though another body's window holds the height.
+  assert.deepEqual(recipeFor(known, rogue, "right", 0), as(theirs, "right"));
+  assert.deepEqual(recipeFor(known, rogue, "left", 0.05), as(theirs, "left"));
+  const wide = made("workshop-rogue", FIST, "high", 0, -0.02, [-0.3, 0.06]);
+  for (const table of [[middle, wide], [wide, middle]]) assert.deepEqual(recipeFor(table, rogue, "right", -0.22), as(wide, "right"));
+  assert.equal(recipeFor(known, rogue, "right", -0.24), null);
+  assert.equal(recipeFor(known, rogueClub, "right", 0), null);
+  assert.deepEqual(recipeFor(known, rogueClub, "left", 0), as(theirs, "left"));
+  // Of two of its own whose windows both hold it, the one whose place is nearer in height, the first of equals.
+  const upper = made("workshop-fighter", FIST, "high", 0, -0.03, [-0.3, 0.1]), lower = made("workshop-fighter", FIST, "middle", -0.24, 0.2, [-0.1, 0.3]);
+  assert.deepEqual(recipeFor([upper, lower], warrior, "right", -0.1), as(upper, "right"));
+  assert.deepEqual(recipeFor([upper, lower], warrior, "right", -0.15), as(lower, "right"));
+  assert.deepEqual(recipeFor([lower, upper], warrior, "right", -0.1), as(upper, "right"));
+  assert.deepEqual(recipeFor([upper, lower], warrior, "right", -0.12), as(upper, "right"));
+  assert.deepEqual(recipeFor([lower, upper], warrior, "right", -0.12), as(lower, "right"));
+
+  // Every recipe a hand may throw, in the table's order; and what they net by band.
+  assert.deepEqual(recipesFor(known, warrior, "right"), [as(high, "right"), as(middle, "right")]);
+  assert.deepEqual(recipesFor(known, rogue, "left"), [as(theirs, "left")]);
+  assert.deepEqual(recipesFor(known, armed(warrior, "right", woodenClub()), "right"), [as(club, "right")]);
+  assert.deepEqual(netsOf(recipesFor(known, warrior, "right")), { high: -0.03, middle: 0.2 });
+  assert.deepEqual(netsOf(recipesFor(known, rogue, "right")), { high: -0.02, middle: null });
+  assert.deepEqual(netsOf(recipesFor(known, rogueClub, "right")), { high: null, middle: null });
+  assert.deepEqual(netsOf([]), { high: null, middle: null });
 });
 
-test("the_repertoires_club_blow_is_the_clubs_best", async () => {
-  const unit = JSON.parse(await readFile(new URL("../research/core-club-unit.json", import.meta.url), "utf8"));
-  const clubs = REPERTOIRE.filter((r) => r.held === "wooden club");
-  assert.equal(clubs.length, 1);
-  // Its window is measured after (`research/core-strike-window.mjs`), and holds its place.
-  const { window, ...recipe } = clubs[0];
-  assert.ok(window.along[0] <= 0 && 0 <= window.along[1] && window.across[0] <= 0 && 0 <= window.across[1], JSON.stringify(window));
-  assert.deepEqual(plain(recipe), plain({
-    model: unit.model, held: "wooden club", strike: unit.strike, distance: unit.distance, found: unit.found, readings: unit.readings,
-  }));
-  // The blow things are priced against is that record's converged reading.
-  assert.equal(recipe.readings.at1920.mean, CLUB_BEST.value);
+test("every_recipe_of_the_repertoire_is_whole", () => {
+  assert.ok(CLUB, "the Warrior has a club blow at a head");
+  const cells = REPERTOIRE.map(({ model, held, band }) => `${model}/${held}/${band}`);
+  assert.equal(new Set(cells).size, cells.length, "one recipe a cell");
+  for (const { model, held, band, strike, place, found, window, net } of REPERTOIRE) {
+    const cell = `${model}, ${held}, ${band}`;
+    assert.ok(BAND_NAMES.includes(band) && strike.hand === "right" && strike.pushes.length > 0, cell);
+    // Its target stood at its band's part's height on its own body, ahead of it.
+    assert.ok(place.ahead > 0 && Math.abs(place.up - bandRise(heldSpec(model, held), band)) < 1e-3, `${cell}: ${JSON.stringify(place)}`);
+    for (const way of ["along", "across", "up"]) assert.ok(window[way][0] <= 0 && 0 <= window[way][1], `${cell}: ${way} is ${JSON.stringify(window[way])}`);
+    // The feet can be set to it: each is placed within `PLACING.near`, and the blow is thrown once the target stands in the window.
+    for (const way of ["along", "across"]) assert.ok(window[way][1] - window[way][0] > 2 * PLACING.near - 1e-9, `${cell}: ${way} is ${JSON.stringify(window[way])}`);
+    assert.ok(Number.isFinite(net), `${cell}: it nets ${net}`);
+    assert.ok(found.includes(CORE_BLOW_HARNESS), `${cell}: found by ${found}`);
+  }
+  assert.deepEqual(BANDS, { high: "head", middle: "upperTrunk" });
+});
+
+test("the_repertoires_club_blow_reads_at_its_place_what_its_record_says", async () => {
+  // As written, on a 20 m ground at the game's rate: the first of the eight its net is the mean of.
+  const { readings, net } = CLUB, read = readings.at120;
+  const blow = await evaluateBlow({ model: CLUB.model, held: CLUB.held, band: CLUB.band, strike: CLUB.strike, ahead: CLUB.place.ahead, hz: 120, ground: 20 });
+  assert.deepEqual({ fell: blow.fell, stood: blow.stood, cost: blow.cost }, { fell: false, stood: true, cost: 0 });
+  assert.equal(+(blow.done - blow.cost).toFixed(3), read.runs[0]);
+  assert.equal(read.runs.length, 8);
+  assert.ok(Math.abs(net - read.runs.reduce((sum, run) => sum + run, 0) / 8) < 1e-3 && net === read.net, `it nets ${net} of ${read.runs}`);
+  assert.ok(net > 0.5, `${net} HP`);
 });
 
 test("an_attack_walks_to_its_place_sets_the_feet_stands_asks_the_window_and_is_thrown", () => {
   const spec = armed(humanSpec("workshop-fighter"), "right", woodenClub());
-  const skill = strikeSkill(spec, REPERTOIRE);
-  const { strike, recipe, window } = recipeFor(REPERTOIRE, spec, "right");
+  const skill = strikeSkill(spec, CLUBS);
+  const { strike, recipe, window } = recipeFor(CLUBS, spec, "right", 0);
   // Standing as built: the feet 0.4 m apart, the head over their middle; heading 0 faces +z.
   const stance = { phase: "stand", centre: new Vector3(0, 0.9, 0), soles: { left: new Vector3(-0.2, 0, 0), right: new Vector3(0.2, 0, 0) } };
   const head = new Vector3(0, 1.6, 0), view = { head, stance };
@@ -98,7 +154,7 @@ test("an_attack_walks_to_its_place_sets_the_feet_stands_asks_the_window_and_is_t
   const attack = { left: GUARD_ACTION, right: { kind: "attack", target } };
   // Where the feet stand for the target to be at the window's middle: square, as built.
   const middle = [(window.along[0] + window.along[1]) / 2, (window.across[0] + window.across[1]) / 2];
-  const mx = target[0] - middle[1], mz = target[2] - recipe.distance - middle[0];
+  const mx = target[0] - middle[1], mz = target[2] - recipe.place.ahead - middle[0];
   const footing = { left: [mx - 0.2, mz], right: [mx + 0.2, mz] };
   const near = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]) < 1e-12;
 
@@ -173,26 +229,18 @@ function armOf(spec, hand, point) {
   };
 }
 
-test("every_recipes_window_holds_its_place_each_way", () => {
-  for (const { model, held, window } of REPERTOIRE) {
-    for (const way of ["along", "across", "up"]) {
-      assert.ok(window[way][0] <= 0 && 0 <= window[way][1], `${model}, ${held}: ${way} is ${JSON.stringify(window[way])}`);
-    }
-  }
-});
-
 test("a_target_in_a_recipes_window_is_thrown_at_with_it_and_one_out_of_its_height_is_placed", () => {
   const spec = humanSpec("workshop-fighter");
-  const { recipe, window } = recipeFor(REPERTOIRE, spec, "right");
+  const { recipe, window } = recipeFor(STRAIGHTS, spec, "right", 0);
   const attack = (target) => ({ left: GUARD_ACTION, right: { kind: "attack", target } });
   const taken = (up) => {
-    const skill = strikeSkill(spec, REPERTOIRE), { view } = standing();
+    const skill = strikeSkill(spec, STRAIGHTS), { view } = standing();
     skill.command(view, attack([0, 1.6 + up, 3]), 0, false, DT);
     return { blow: skill.report.blow, chosen: skill.report.chosen?.recipe ?? null, distance: skill.report.distance };
   };
   // Either side of both ends of the height's window, a micrometre off: the window is not even about its place.
   assert.notEqual(-window.up[0], window.up[1]);
-  for (const up of [window.up[0] + 1e-6, 0, window.up[1] - 1e-6]) assert.deepEqual(taken(up), { blow: "recipe", chosen: recipe, distance: recipe.distance }, `${up} m over the head`);
+  for (const up of [window.up[0] + 1e-6, 0, window.up[1] - 1e-6]) assert.deepEqual(taken(up), { blow: "recipe", chosen: recipe, distance: recipe.place.ahead }, `${up} m over the head`);
   const arm = armOf(spec, "right", "knuckles");
   for (const up of [window.up[0] - 1e-6, window.up[1] + 1e-6, -0.4, -0.6]) {
     const { blow, chosen, distance } = taken(up);
@@ -207,7 +255,7 @@ test("a_target_in_a_recipes_window_is_thrown_at_with_it_and_one_out_of_its_heigh
   assert.ok(arm.toes > arm.shoulder[2], "the fixture's toes reach ahead of its shoulder: the floor is the toes'");
 
   // A placed blow, whole: the walk, the feet, the stand, the hand's goal each step, and the count.
-  const skill = strikeSkill(spec, REPERTOIRE), { view, moveBy } = standing();
+  const skill = strikeSkill(spec, STRAIGHTS), { view, moveBy } = standing();
   const target = [0.1, 1.2, 3], hands = attack(target);
   const far = skill.command(view, hands, 0, false, DT);
   assert.equal(skill.report.phase, "approach");
@@ -245,13 +293,13 @@ test("a_target_in_a_recipes_window_is_thrown_at_with_it_and_one_out_of_its_heigh
   assert.deepEqual(plain(goals.at(-1)), plain(goals[0]));
 
   // What a placed blow takes is the skill's to be given: another time is another count of steps.
-  const quick = strikeSkill(spec, REPERTOIRE, { ...PLACED, seconds: PLACED.seconds / 2 });
+  const quick = strikeSkill(spec, STRAIGHTS, { ...PLACED, seconds: PLACED.seconds / 2 });
   for (steps = 0; quick.report.thrown.right === 0 && steps < 10 * 120; steps++) quick.command(view, hands, 0, false, DT);
   assert.ok(Math.abs(steps * DT - (STAND + PLACED.seconds / 2)) <= 2 * DT, `thrown after ${steps} steps`);
 
   // With the club the point is the swell's, and the arm reaches the club's length farther.
-  const clubbed = armed(spec, "right", woodenClub()), held = strikeSkill(clubbed, REPERTOIRE);
-  const high = [0, 1.6 + recipeFor(REPERTOIRE, clubbed, "right").window.up[1] + 0.1, 3];
+  const clubbed = armed(spec, "right", woodenClub()), held = strikeSkill(clubbed, CLUBS);
+  const high = [0, 1.6 + recipeFor(CLUBS, clubbed, "right", 0).window.up[1] + 0.1, 3];
   held.command(view, attack(high), 0, false, DT);
   assert.deepEqual({ blow: held.report.blow, phase: held.report.phase }, { blow: "placed", phase: "approach" });
   assert.ok(armOf(clubbed, "right", "swell").length > arm.length + 0.4);
@@ -261,12 +309,12 @@ test("a_target_in_a_recipes_window_is_thrown_at_with_it_and_one_out_of_its_heigh
 });
 
 test("a_blow_is_chosen_again_by_the_head_as_it_stands", () => {
-  const spec = humanSpec("workshop-fighter"), skill = strikeSkill(spec, REPERTOIRE);
-  const { recipe, window } = recipeFor(REPERTOIRE, spec, "right");
+  const spec = humanSpec("workshop-fighter"), skill = strikeSkill(spec, STRAIGHTS);
+  const { recipe, window } = recipeFor(STRAIGHTS, spec, "right", 0);
   const { view, moveBy } = standing();
   const target = [0, 1.6, 3], hands = { left: GUARD_ACTION, right: { kind: "attack", target } };
   const middle = [(window.along[0] + window.along[1]) / 2, (window.across[0] + window.across[1]) / 2];
-  moveBy(target[0] - middle[1], target[2] - recipe.distance - middle[0]);
+  moveBy(target[0] - middle[1], target[2] - recipe.place.ahead - middle[0]);
   skill.command(view, hands, 0, false, DT);
   assert.deepEqual({ blow: skill.report.blow, phase: skill.report.phase }, { blow: "recipe", phase: "settle" });
   // Standing, the head sinks under the recipe's height: asked again after the stand, the blow is placed, and walked to.
@@ -275,11 +323,54 @@ test("a_blow_is_chosen_again_by_the_head_as_it_stands", () => {
   while (skill.report.phase === "settle" && steps < 10 * 120) { skill.command(view, hands, 0, false, DT); steps += 1; }
   assert.ok(Math.abs(steps * DT - STAND) <= 2 * DT, `chosen again after ${steps} steps`);
   assert.deepEqual({ blow: skill.report.blow, chosen: skill.report.chosen, still: skill.report.still }, { blow: "placed", chosen: null, still: 0 });
-  assert.notEqual(skill.report.distance, recipe.distance);
+  assert.notEqual(skill.report.distance, recipe.place.ahead);
   assert.deepEqual({ ...skill.report.thrown }, { left: 0, right: 0 });
   const next = skill.command(view, hands, 0, false, DT);
   assert.ok(["approach", "place"].includes(skill.report.phase), skill.report.phase);
   assert.deepEqual(plain(next.hands), { left: null, right: null });
+});
+
+test("a_blow_chosen_standing_is_the_one_thrown_at_that_point", () => {
+  const spec = humanSpec("workshop-fighter"), skill = strikeSkill(spec, STRAIGHTS);
+  const { recipe, window } = recipeFor(STRAIGHTS, spec, "right", 0);
+  const { view, moveBy } = standing();
+  const target = [0, 1.6, 3], attack = (at) => ({ left: GUARD_ACTION, right: { kind: "attack", target: at } });
+  const middle = [(window.along[0] + window.along[1]) / 2, (window.across[0] + window.across[1]) / 2];
+  moveBy(target[0] - middle[1], target[2] - recipe.place.ahead - middle[0]);
+  skill.command(view, attack(target), 0, false, DT);
+  // Standing, the head is over the recipe's height: the blow is placed.
+  view.head.y += 0.05 - window.up[0];
+  let steps = 0;
+  while (skill.report.phase === "settle" && steps < 10 * 120) { skill.command(view, attack(target), 0, false, DT); steps += 1; }
+  assert.equal(skill.report.blow, "placed");
+  // Stood where the placed blow is thrown from, with the head back in the recipe's height: the
+  // blow chosen standing for that point is thrown, and no other is stood for.
+  view.head.y = 1.6;
+  moveBy(target[0] - view.head.x, target[2] - skill.report.distance - view.head.z);
+  for (steps = 0; skill.report.phase !== "swing" && steps < 10 * 120; steps++) skill.command(view, attack(target), 0, false, DT);
+  assert.deepEqual({ phase: skill.report.phase, blow: skill.report.blow, chosen: skill.report.chosen }, { phase: "swing", blow: "placed", chosen: null });
+
+  // Another point attacked is chosen for standing in its turn: with the recipe, at that height.
+  const other = strikeSkill(spec, STRAIGHTS), stood = standing(), moved = [0, 1.6, 3.5];
+  stood.moveBy(target[0] - middle[1], target[2] - recipe.place.ahead - middle[0]);
+  other.command(stood.view, attack(target), 0, false, DT);
+  stood.view.head.y += 0.05 - window.up[0];
+  for (steps = 0; other.report.phase === "settle" && steps < 10 * 120; steps++) other.command(stood.view, attack(target), 0, false, DT);
+  assert.equal(other.report.blow, "placed");
+  stood.view.head.y = 1.6;
+  stood.moveBy(moved[0] - stood.view.head.x, moved[2] - other.report.distance - stood.view.head.z);
+  for (steps = 0; other.report.blow === "placed" && other.report.phase !== "swing" && steps < 10 * 120; steps++) other.command(stood.view, attack(moved), 0, false, DT);
+  assert.deepEqual({ blow: other.report.blow, band: other.report.chosen?.recipe.band }, { blow: "recipe", band: recipe.band });
+
+  // And so is the same point attacked anew: given up and taken up with the head over the
+  // recipe's height, the blow is placed, and chosen again by the head as it stands.
+  assert.equal(skill.command(view, { left: GUARD_ACTION, right: GUARD_ACTION }, 0, false, DT), null);
+  view.head.y += 0.05 - window.up[0];
+  skill.command(view, attack(target), 0, false, DT);
+  assert.deepEqual({ blow: skill.report.blow, phase: skill.report.phase }, { blow: "placed", phase: "settle" });
+  view.head.y = 1.6;
+  for (steps = 0; skill.report.blow === "placed" && skill.report.phase !== "swing" && steps < 10 * 120; steps++) skill.command(view, attack(target), 0, false, DT);
+  assert.deepEqual({ blow: skill.report.blow, band: skill.report.chosen?.recipe.band }, { blow: "recipe", band: recipe.band });
 });
 
 test("a_placed_blow_is_over_when_the_body_is_resumed", () => {
@@ -287,7 +378,7 @@ test("a_placed_blow_is_over_when_the_body_is_resumed", () => {
   const target = [0, 1.2, 3], hands = { left: GUARD_ACTION, right: { kind: "attack", target } };
   /** A skill with its placed blow under way, a third of the way through. */
   const swinging = () => {
-    const skill = strikeSkill(spec, REPERTOIRE), { view, moveBy } = standing();
+    const skill = strikeSkill(spec, STRAIGHTS), { view, moveBy } = standing();
     skill.command(view, hands, 0, false, DT);
     moveBy(0, target[2] - skill.report.distance);
     let command, steps = 0;
