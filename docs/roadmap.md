@@ -320,12 +320,12 @@ All of it on a physically based core, humans first ([architecture](architecture.
   facing the cursor stands being hit from behind, with `SET_UPON` and `AIM_COSINE` and without.
 - How many bodies a step carries ([reference/step-cost.md](reference/step-cost.md#bodies-in-a-step)):
   a body under control costs 0.58 to 0.61 ms of a step's 8.33, so fourteen are real time in Node
-  with nothing drawn. The owner's choice is a game designed inside that, with only the near
-  ones under control: a cap on the bodies at full, set by one rule
-  ([plans/2026-10-02-thinking-03-levels.md](plans/2026-10-02-thinking-03-levels.md)), not built.
-  The owner's to choose: the cap (8 as planned: a party of four leaves four enemies fighting at
-  once, the rest in reach standing held until a place is free), from a page's reading on the
-  owner's machine; and what becomes of the dead, below.
+  with nothing drawn. The owner's choices: only the near ones have control, there is no cap on
+  them, and the dead are fixed where they lie once nobody is near. One rule for a body's level
+  does all three ([plans/2026-10-02-thinking-03-levels.md](plans/2026-10-02-thinking-03-levels.md)),
+  not built. With more near than a machine carries the game plays slower; what raises the count
+  is what a body costs: the solver is half of it, the stance's share of the ground's wrench and
+  the hands' reach most of the rest. The owner's to shape: how the dead disappear in time.
 - A step allocates 0.54 MiB a body. The collector takes about 1 % of the step; the cost is in
   the code that allocates, and its remedy is planned and not built
   ([plans/2026-10-02-thinking-04-garbage.md](plans/2026-10-02-thinking-04-garbage.md)).

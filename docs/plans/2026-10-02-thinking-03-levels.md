@@ -1,15 +1,16 @@
-# Thinking 03: a body's level, and one rule that sets it with a cap
+# Thinking 03: a body's level, and one rule that sets it
 
 ## Goal
 
 A body is at one level, `full`, `limp` or `held`, as data in its muscles' state: below `full`
 its senses and mind are not run and its motors are released, and `held` it is fixed where it is.
-One pure rule gives every body's level, with a cap on how many are at `full`. The crypt's `hold`,
-`drop` and `rest` go: a body is never disposed and driven afresh to change what it costs.
+One pure rule gives every body's level from where the bodies are: a body with nothing to do and
+nobody near is held, the living and the dead alike. The crypt's `hold`, `drop` and `rest` go: a
+body is never disposed and driven afresh to change what it costs.
 
 It needs no other plan. The design is `2026-10-02-thinking-00-design.md`, rule 2, and the owner's
-second answer: the game is designed inside what a step can carry, with only the near ones under
-control.
+answers: only the near ones have control; there is no cap on them; and the dead are fixed where
+they lie once nobody is near.
 
 ## Files
 
@@ -21,11 +22,10 @@ control.
 | `src/core/body.ts` | `Body.level`, `.setLevel`; `Body.has` may read `"nobody"`. |
 | `src/core/rules/levels.ts` | New: `LevelAsk`, `LevelRule`, `levelsOf`, `stirs`. |
 | `src/dungeon/run.ts` | `LEVELS`; `levels()`; `hold`, `drop`, `rest`, `REST`, `standing`, `company` go; `DungeonRunOptions.levels`. |
-| `src/dungeon/main.ts` | `&full=` in the address, for the eye gate. |
 | `src/lab/mind-log.ts` | Logs `nobody` as it logs any other holder: no change unless it switches on a name. |
 | `tests/core-levels.test.mjs` | New. |
 | `tests/core-sub-mind.test.mjs`, `tests/crypt-core.test.mjs`, `tests/dungeon-hearing.test.mjs` | See Tests. |
-| `research/body-cost.mjs`, `research/crypt-step.mjs` | Levels in place of dispose and fix; the most at `full`. |
+| `research/body-cost.mjs`, `research/crypt-step.mjs`, `research/rest-probe.mjs` | Levels in place of dispose and fix; the dead held, in a column; how long a felled body takes to lie still. |
 | `docs/reference/play.md`, `docs/architecture.md`, `AGENTS.md`, `docs/roadmap.md` | See Documents. |
 
 ## The level (`src/core/muscle/driver.ts`)
@@ -130,91 +130,90 @@ export interface LevelAsk {
   readonly side: string;
   /** Where it is on the ground, m. */
   readonly at: { readonly x: number; readonly z: number };
-  /** Out of the fight, for good. */
-  readonly out: boolean;
-  /** A person's: at `full` while it is in the fight, whatever the cap. */
-  readonly pinned: boolean;
-  /** It has nothing to do where it is: it may be held. */
+  /** How long it has been out of the fight, for good, s; null while it is in it. */
+  readonly out: number | null;
+  /** In the fight with nothing to do where it is: it may be held. */
   readonly waiting: boolean;
 }
 
-/** A fight's distances and its cap. */
+/** A fight's distances. Each pair is a line to cross coming and a farther one going, so a body on a line is not held and let go by turns. */
 export interface LevelRule {
-  /** The most bodies at `full`. */
-  readonly most: number;
-  /** A body not at `full` asks to be let go with a foe nearer than this, m. */
+  /** A held body in the fight is let go with a foe nearer than `wake`, m, and a waiting one is held with every foe beyond `rest`. */
   readonly wake: number;
-  /** A waiting body at `full` asks to stay with a foe nearer than this, m: more than `wake`. */
   readonly rest: number;
-  /** The same two for a body going somewhere, m: let go nearer than `company`, kept nearer than `clear`. */
+  /** The same two for a body going somewhere, m: a held body is let go with one nearer than `company`, and held with every one beyond `clear`. */
   readonly company: number;
   readonly clear: number;
-  /** How much nearer its foe a body not at `full` must be than a waiting one at `full` to take its place, m. */
-  readonly swap: number;
+  /** How long a body out of the fight lies loose before it may be held, s: long enough for its fall to end. */
+  readonly settle: number;
 }
 
 /** Each body's level, in `bodies`' order. */
 export function levelsOf(bodies: readonly LevelAsk[], rule: LevelRule): BodyLevel[]
 
 /**
- * Whether a body at `at` on `side`, not at `full`, asks to be let go: a foe in the fight is
- * nearer than `rule.wake`, or a body going somewhere nearer than `rule.company`.
+ * Whether a body in the fight at `at` on `side`, held or not yet built, is to be let go: a foe
+ * in the fight is nearer than `rule.wake`, or a body going somewhere nearer than `rule.company`.
  */
 export function stirs(at: LevelAsk["at"], side: string, bodies: readonly LevelAsk[], rule: LevelRule): boolean
 ```
 
-A **foe** of a body is one of another side that is not out. A body **going somewhere** is one
-that is not out, at `full`, and not waiting. Distances are on the ground, by `Math.sqrt`.
+A **foe** of a body is one of another side that is in the fight. A body **going somewhere** is
+one in the fight, at `full`, and not waiting. Distances are on the ground, by `Math.sqrt`.
 
-`levelsOf`, in this order:
+**Somebody is near** a body when a body going somewhere, itself apart, is nearer than `company`
+if it is held and `clear` if it is not; or, for a body in the fight, a foe is nearer than `wake`
+if it is held and `rest` if it is not. A foe counts by sight and a walker by reach; nobody
+watches for the dead, so only a walker is near one.
 
-1. A body that is out is `limp`. A pinned body in the fight is `full`.
-2. Each of the rest **asks** for `full` or does not. At `full`, it asks unless it waits with no
-   foe nearer than `rest` and nobody going somewhere (itself apart) nearer than `clear`. Not at
-   `full`, it asks where `stirs`.
-3. **A body at `full` that does not wait keeps its place**, whatever the count: the cap is kept
-   by not waking more, never by holding a body in the middle of what it does.
-4. **The places left** are `most` less the pinned in the fight and less step 3's. The others that
-   ask are ranked by the distance to their nearest foe, one at `full` counted `swap` nearer, the
-   earlier in `bodies` first among equals; they take the places left in that order.
-5. A body that does not ask, or asks and has no place, is `held`.
+`levelsOf` is one sentence: **a body with nothing to do and nobody near is `held`; any other is
+`full` in the fight and `limp` out of it.** A body in the fight has nothing to do when it waits;
+one out of it, when it has lain `settle` seconds.
 
-Under the cap this is the crypt's rule as it stands (`REST`, `WAKE_METRES`). `swap` is the same
-kind of gap as `rest` over `wake`: it keeps two bodies as near as each other from changing
-places by turns.
+- For the living this is the crypt's rule as it stands (`REST`, `WAKE_METRES`).
+- For the dead it is the owner's answer at its simplest: fixed where they lie once nobody walks
+  near, loose again when somebody does, so a body underfoot can still be pushed aside. That they
+  disappear in time is not planned: it would be a fight disposing a body it has held for long,
+  and is the owner's to shape.
+- **There is no cap.** A level is read from the game alone, never from the machine, so a run is
+  the same on every machine; with more bodies near than a machine carries, it plays the same
+  game slower (`World.advance` drops the time it cannot take). How many are near at once is the
+  level's to decide, as it places them.
 
 ## The crypt (`src/dungeon/run.ts`)
 
 ```ts
 /**
- * The levels' rule (`levelsOf`; `docs/reference/play.md#levels`): `most` bodies at full; an enemy
- * is let go with a party member within `wake`, before it could see one, or a body going
- * somewhere within `company`, before that body could reach it; it is held, waiting, with the
- * party beyond `rest` and nobody going anywhere within `clear`.
+ * The levels' rule (`levelsOf`; `docs/reference/play.md#levels`): an enemy is let go with a party
+ * member within `wake`, before it could see one, or a body going somewhere within `company`,
+ * before that body could reach it; waiting, it is held with the party beyond `rest` and nobody
+ * going anywhere within `clear`. A body out of the fight is held by the last two once it has
+ * lain `settle` seconds.
  */
-export const LEVELS: LevelRule = Object.freeze({ most: 8, wake: WAKE_METRES, rest: SIGHT_METRES + 4, company: 4, clear: 5, swap: 2 });
+export const LEVELS: LevelRule = Object.freeze({ wake: WAKE_METRES, rest: SIGHT_METRES + 4, company: 4, clear: 5, settle: ... });
 /** How near its home an enemy with nothing to do counts as waiting there, m. */
 const HOME_METRES = 0.5;
 ```
 
+- `settle` is read, not chosen: `research/rest-probe.mjs` fells skeletons and Warriors by a
+  shove, lets them go limp as they fall, and prints how long each takes until its fastest segment
+  stays under 0.05 m/s; `settle` is the longest of the falls read, rounded up to a second. The
+  table goes in `docs/reference/play.md#levels`.
 - `DungeonRunOptions.levels?: LevelRule`, the run's `LEVELS` unless given.
-- `asks()`: every built actor's `LevelAsk`: `out` is `!alive`, `pinned` is `side === "party"`,
-  `waiting` is what `resting` reads today (an enemy in the fight with no target, unalerted, within
-  `HOME_METRES` of its home).
+- `DungeonActor.outAt: number | null`: the run's clock when it was first found out of the fight.
+- `asks()`: every built actor's `LevelAsk`: `out` is the clock less `outAt`, `waiting` is what
+  `resting` reads today (an enemy in the fight with no target, unalerted, within `HOME_METRES` of
+  its home).
 - `levels()`: `levelsOf(asks, rule)`, and each body whose level differs is set
-  (`body.setLevel`); one that goes out has its assist withdrawn first, as `drop` does.
+  (`body.setLevel`); one found out of the fight has its assist withdrawn, as `drop` does.
 - `plan()` begins `if (this.status === "playing") this.wake(); this.levels();` in place of its
-  loop over `drop`, and its later `wake()` and `rest()` go. So a body built over the cap is held
-  before its first step, and the dead go limp in whatever step the run ends.
+  loop over `drop`, and its later `wake()` and `rest()` go. So the dead go limp in whatever step
+  the run ends.
 - `wake()` builds an enemy where `stirs(enemy.home, "enemy", asks, rule)`.
 - `build` calls `drive` once; `hold`, `drop`, `rest`, `REST`, `standing` and `company` go.
-- `DungeonActor.limp` and `.held` are getters on the body's level; `feet()` reads the root where
-  the level is not `full`; `fighter`'s comment loses "driven afresh".
-- **A held enemy is not in the fight yet**: `choose` picks none, `targetAt` returns none, and a
-  lock on one is dropped as a lock on one out of the fight is. A blow that meets one all the same
-  is a blow (`watchBlows` is as it was).
-
-`src/dungeon/main.ts`: `&full=<n>` in the address gives the run `{ ...LEVELS, most: n }`.
+- `DungeonActor.limp` is `!alive` with its body below `full`, and `.held` is the body's level:
+  both getters. `feet()` reads the root where the level is not `full`; `fighter`'s comment loses
+  "driven afresh".
 
 ## Tests
 
@@ -248,34 +247,34 @@ command layers and a driver that counts its calls and orders a stand):
 
 The rule, in the same file, each a table of `LevelAsk`s and the levels expected, whole:
 
-8. **`a_body_out_is_limp_and_a_person_s_is_full`**, with the cap at 0.
-9. **`a_waiting_body_is_held_and_let_go_on_both_sides_of_each_distance`**: a foe just inside and
+8. **`a_waiting_body_is_held_and_let_go_on_both_sides_of_each_distance`**: a foe just inside and
    just outside `wake` and `rest`, a body going somewhere just inside and outside `company` and
    `clear`, from `full` and from `held`: eight rows; and two waiting bodies side by side with
    nobody near are both held.
-10. **`the_cap_is_kept_by_not_waking`**: `most` 3, one pinned: of four held bodies with a foe
-    inside `wake`, the two nearest are `full`; with two bodies at `full` and not waiting, none
-    of the four; with three, the cap is over and none of the three is held.
-11. **`a_place_goes_to_the_nearer_only_by_more_than_the_swap`**: a waiting body at `full` 10 m
-    from its foe and a held one at 8.5 m and at 7.5 m, `swap` 2.
-12. **`equals_keep_their_order`**: two held bodies as far as each other, one place.
+9. **`a_body_with_something_to_do_is_full_wherever_it_is`**: not waiting, with nobody within a
+   kilometre, from `full` and from `held`.
+10. **`a_body_out_lies_loose_until_it_has_settled_and_nobody_walks_near`**: out for just under and
+    just over `settle`; a walker just inside and outside `company` and `clear`, from `limp` and
+    from `held`; a foe a metre off that waits does not keep it loose; it is never `full`.
+11. **`a_waiting_body_is_no_company`**: a held body beside one at `full` that waits is not let go
+    by it, and is by the same body going somewhere.
+12. **`stirs_is_the_rule_s_own_letting_go`**: for the rows of 8 that are in the fight and held,
+    `stirs` answers what `levelsOf` did.
 
 `tests/crypt-core.test.mjs`: the three tests of an enemy at rest stand with `LEVELS` for `REST`
 (`tests/dungeon-hearing.test.mjs` reads `WAKE_METRES` as before), and:
 
 13. **`an_enemy_held_and_let_go_is_the_body_and_the_mind_it_was`**: `enemy.fighter.body` and
     `.minded` are the same objects before and after, and it fights (a blow lands within 30 s).
-14. **`no_more_than_the_cap_are_at_full_and_a_freed_place_is_taken`**: a hall with the hero, one
-    companion and four enemies inside `wake`, `levels: { ...LEVELS, most: 4 }`: at every step of
-    20 s no more than four are at `full`; the two enemies nearest the party are the two; one of
-    them put out of the fight as the existing fight test ends one, the next step it is `limp` and
-    the nearer held one is `full`.
-15. **`the_cap_holds_on_generated_levels`**: seeds 1 to 4, the hero exploring with three
-    companions, 60 s, `most: 6`: never more than six at `full`; and with the run's own `LEVELS`
-    at `most: Infinity` more than six are at `full` at some step of some seed, or the test says
-    its fixture cannot show the cap.
-16. **`a_held_enemy_is_neither_picked_nor_locked`**: with the cap full and a held enemy the
-    nearest to a party member: its target is another or none, and `targetAt` on its mesh is null.
+14. **`the_dead_are_held_once_the_party_has_walked_off_and_loose_when_it_is_back`**: an enemy put
+    out of the fight as the existing fight test ends one: `limp` at the next step, and still
+    `limp` `settle` seconds on with the hero beside it; `held` once the hero has walked beyond
+    `clear`, every segment where it was 240 steps on; `limp` again with the hero back inside
+    `company`, and the hero walking into it moves it.
+15. **`nobody_in_the_fight_is_held_with_the_party_near`**: seeds 1 to 4, the hero exploring with
+    three companions, 60 s: at no step is an enemy in the fight `held` with a party member in the
+    fight inside `wake`; and at some step of some seed an enemy is `held`, or the test says its
+    fixture cannot show one.
 
 ## Mutations, each must go red
 
@@ -284,32 +283,32 @@ The rule, in the same file, each a table of `LevelAsk`s and the levels expected,
 - No `idle` on leaving `full`, or `idle` on every call: tests 4 and 5.
 - `hosting.step` releasing the host from `NOBODY`: test 5.
 - `level` out of the driver's state: test 6.
-- `rest` read where `wake` is, or `clear` where `company` is: test 9.
-- A body at `full` and not waiting held to keep the cap: test 10's last row.
-- The pinned not counted against `most`: tests 10 and 14.
-- `swap` of 0: test 11's first row.
-- `levels()` before `wake()`'s builds are counted: test 14 (a body over the cap steps at `full`).
+- `rest` read where `wake` is, or `clear` where `company` is: tests 8 and 10.
+- A body with something to do held when nobody is near: test 9.
+- A body out held before `settle`, kept loose by a foe that waits, or let go to `full`: test 10.
+- A waiting body counted as going somewhere: test 11, and the crypt's test of two side by side.
+- `levels()` before `wake()`: an enemy built this step is not asked about until the next; test
+  15's first half on a seed where one is built far from the party by a walker.
 
 ## Documents
 
 - `docs/reference/play.md`: `## Sight` loses `REST` and keeps `WAKE_METRES`; a new `## Levels`
-  has the rule in words, `LEVELS` with where each number is from (`wake`, `rest`, `company`,
-  `clear`: the distances the crypt had, set and not measured; `swap`: set; `most`: the owner's
-  choice of a game inside what a step carries, 8 by
-  `step-cost.md#bodies-in-a-step`), and that a held enemy is not in the fight. `## Bodies in the
+  has the rule in its one sentence, `LEVELS` with where each number is from (`wake`, `rest`,
+  `company`, `clear`: the distances the crypt had, set and not measured; `settle`: the falls'
+  table), that there is no cap and why, and what the dead cost held and loose. `## Bodies in the
   step`: the harness names `Body.setLevel`, and the table is read again by
   `node research/body-cost.mjs`: "let go, driven" is now the same body and mind resumed.
 - The run's tables by `node research/crypt-step.mjs --seeds 1,2,3,4 --seconds 180 --companions 3`,
-  with the most at `full` in a column, beside the ones there.
+  with the dead held in a column, beside the ones there.
 - `docs/architecture.md`: the body's level in the muscles' part; `Mind.idle` with the sub-minds;
   the rule under the rules; the crypt's part loses `hold`, `drop`, `rest`.
 - `AGENTS.md`, the core: "**How much of itself a body runs is its level** (`BodyLevel`,
   `src/core/muscle/driver.ts`): data on the body, set by one rule (`levelsOf`,
-  `src/core/rules/levels.ts`) from what its fight says of every body, with the fight's cap. A
-  body is not disposed and driven afresh to save a step; a mind is told (`Mind.idle`) and goes on
-  from the body as it is." The page's address list gains `&full=`.
-- `docs/roadmap.md`: the crypt's step item says the cap and the levels are in; the dead stay an
-  open choice, with what each answer costs.
+  `src/core/rules/levels.ts`) from where the bodies are and never from the machine. A body is
+  not disposed and driven afresh to save a step; a mind is told (`Mind.idle`) and goes on from
+  the body as it is."
+- `docs/roadmap.md`: the crypt's step item says the levels are in and the dead are held; that
+  they disappear in time stays the owner's to shape.
 
 ## Verification
 
@@ -321,14 +320,14 @@ npm run build
 node scripts/fingerprint.mjs > after.txt
 node research/bout-trace.mjs
 node research/body-cost.mjs
+node research/rest-probe.mjs
 node research/crypt-step.mjs --seeds 1,2,3,4 --seconds 180 --companions 3
 ```
 
-Every line of the fingerprint is as it was: the arena's bodies are always at `full`, and in the
-crypt's two fights nobody is held and a body out was already let go. A crypt line that moves is
+The arena's lines of the fingerprint are as they were: its bodies are always at `full`. A crypt
+line may move only by a body out of the fight being held where it lay loose; one that moves is
 read before it is accepted: which body changed level, and at which step.
 
-**Eye gate.** The crypt on the page with three companions and `&full=6`, in a room with more
-enemies than two: who waits and where they stand, that a waiting one takes its turn when one in
-the fight goes out, and what it looks like to walk up to one that waits. Then the same at the
-default.
+**Eye gate.** The crypt on the page with three companions: a fight; the party walks off and
+comes back, and the dead lie as they lay; one walked into is pushed aside. And an enemy that
+waited far off stands and fights as before when the party comes to it.

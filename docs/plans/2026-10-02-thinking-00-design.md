@@ -91,15 +91,17 @@ A body is at one **level** (`BodyLevel`, in its muscles' state):
   (`HostMind.release`, `SubMind.end`); back at `full`, it takes the body up as it is
   (`resume`, `begin`). Nothing is disposed and nothing is made again.
 - **One pure rule gives every body's level** (`levelsOf`, `src/core/rules/levels.ts`) from what a
-  fight knows of each: where it is and whose side it is on, whether it is out, whether it is a
-  person's, and whether it has anything to do. The rule reads how far each one's nearest foe is,
-  and the nearest body going somewhere. Its distances and its cap are the fight's data
-  (`LevelRule`).
-- **The cap is the rule's**: no more than `most` bodies at `full`. The owner's choice is to design
-  the game inside what a step can carry, with only the near ones under control. A person's bodies
-  are always at `full`; of the rest, the nearest to a foe are let go first, and one beyond the cap
-  stays held where it waits until a place is free. A body that has something to do is never held
-  in the middle of it: the cap is kept by not waking more.
+  fight knows of each: where it is and whose side it is on, whether it is out and for how long,
+  and whether it has anything to do. It is one sentence: a body with nothing to do and nobody
+  near is `held`; any other is `full` in the fight and `limp` out of it. The distances are the
+  fight's data (`LevelRule`).
+- **The living and the dead are one case.** An enemy waiting far from the party and a body that
+  has lain still with nobody walking near are both bodies with nothing to do: both are held, and
+  both are let go when somebody comes.
+- **A level is read from the game, never from the machine.** There is no cap (the owner's
+  choice): every body that is near runs in full, and the run is the same on every machine. With
+  more bodies near than a machine carries, the game plays slower, as it does when an answer is
+  late. How many are near at once is the level's to decide, as it places them.
 
 ### 3. A step makes no garbage of its own
 
@@ -126,18 +128,15 @@ Answered 2026-10-02:
    we can only support 10 at a time, then we'll need to design around that (by only the close
    ones having control)".
 
-Open, each landing at its default:
-
-- **The cap** (`LEVELS.most`, plan 03), default **8**. In Node on the development host, eight
-  bodies at `full` are 57 % of real time, ten 69 %, twelve 85 %, before anything is drawn and
-  before the dead are counted. In the crypt a party of four leaves four enemies fighting at once
-  under 8, six under 10; a hero alone, seven and nine. The rest within reach stand held at their
-  posts until a place is free. A page measurement on the owner's machine sets it.
-- **The dead.** A body out of the fight lies limp and costs 0.28 ms a step for the rest of the
-  run, so every two dead take a living body's place in the step. Fixed where it lies once still
-  it costs next to nothing and cannot be pushed aside or kicked; taken away after a time it costs
-  nothing and is gone. Plan 03 leaves it limp, as it is today. Letting the engine rest it is not
-  ready ([step-cost.md](../reference/step-cost.md#a-limp-body-put-to-sleep)).
+3. **The cap** (2026-10-02): "there is no cap -- we should be able to support as many of them as
+   we can". So nothing in the rule counts bodies, and what a machine carries is raised by what a
+   body costs ([Readings](#readings), and Not in this set).
+4. **The dead** (2026-10-02): fixed in place after some time, "e.g. when player is some distance
+   from them", and in time gone, "but I haven't really though this through yet, so let's keep
+   it simple and open to future refinement". Plan 03 holds a body out of the fight once it has
+   lain still and nobody walks near, by the rule that holds a waiting enemy, and lets it go when
+   somebody does. That it disappears is not planned: it would be a fight disposing a body it has
+   held for long.
 
 ## How it extends
 
@@ -149,7 +148,7 @@ Open, each landing at its default:
 | Sight that is blocked, for the senses | The kind the crypt's sight is, asked by the senses' hub. |
 | A mind for a squad | One thinker whose answer is several bodies' orders, as the crypt's sight thinker sets every enemy's target. |
 | A table too large to copy at every ask (a policy's weights, a baked level) | Each realm's kinds are made with it (`kinds(tables)`), from an asset or a message sent once; a question names it. |
-| Forty bodies in a room | The cap. Those beyond it and in view want a fourth level, `carried`: the solver moves the body through a played pose, with no control. It is a member of `BodyLevel` and a row of its one switch. |
+| Forty bodies in a room | They all run, and the step is their sum: what carries them is what a body costs (plan 04, and Not in this set). A body that needs to be seen moving and not to fight wants a fourth level, `carried`: the solver moves it through a played pose, with no control. It is a member of `BodyLevel` and a row of its one switch. |
 | A body of another shape | Its work arrays are sized from its spec; its level is the same three. |
 | Archery | An arrow is a body with no muscles and no level. Finding the shot is a kind, bounded by a count. |
 | A crypt run that saves | The thoughts out and every body's level are already state. |
@@ -166,7 +165,7 @@ Open, each landing at its default:
 | No worker in the game; `research/` has pools of its own | One runner (`src/think/`), plan 02 |
 | `World.advance` takes what real time owes | And takes none while a thought due is out, plan 02 |
 | `DungeonRun.hold`, `.drop`, `.rest`; a body disposed and driven afresh | `Body.setLevel`, `levelsOf`, `Mind.idle`, plan 03 |
-| No cap on bodies | `LevelRule.most`, plan 03 |
+| The dead lie loose for the rest of the run | Held once they have lain still and nobody walks near, by the same rule, plan 03 |
 | Solves on arrays of row arrays, made for each call | `src/core/math/flat.ts` and each body's work arrays, plan 04 |
 | No test of what a step allocates | `tests/core-garbage.test.mjs`, plan 04 |
 
@@ -179,13 +178,13 @@ The arena changes in nothing it plays: it gives its world no kinds, its two bodi
 |---|---|---|---|---|
 | 01 | `2026-10-02-thinking-01-thoughts.md` | The world's thoughts, thought in the step; the crypt's sight, routes and exploring on them | | A crypt run: the party walks, follows and fights as before |
 | 02 | `2026-10-02-thinking-02-workers.md` | The runner over workers; the world waits; the crypt page thinks off its thread | 01 | A crypt run on the page with the workers on: no hitch as the hero explores |
-| 03 | `2026-10-02-thinking-03-levels.md` | A body's level; `levelsOf` with the cap; the crypt's `hold`, `drop` and `rest` go | | A crypt room with more enemies than the cap: who waits, and that they take their turn |
+| 03 | `2026-10-02-thinking-03-levels.md` | A body's level; `levelsOf`; the dead held; the crypt's `hold`, `drop` and `rest` go | | A crypt fight: the party walks off and comes back, and the dead lie as they lay and can be pushed aside |
 | 04 | `2026-10-02-thinking-04-garbage.md` | The ceiling test; the flat kernel; each part of control on its body's work arrays; the engine read once a step | | None: every bout is the same to the bit |
 
 01 and 02 are one line of work; 03 and 04 need nothing and may go in any order or beside them.
 They are numbered by what they buy the game. 01 and 02 take the planning out of the crypt's
-slowest steps and are the seam every heavier mind needs. 03 is what lets a scene hold more bodies
-than a step carries. 04 is last because the collector is 1 % of a step and the gain in the step
+slowest steps and are the seam every heavier mind needs. 03 is what keeps the bodies nobody is
+near, the dead among them, out of the step's sum. 04 is last because the collector is 1 % of a step and the gain in the step
 itself, about a tenth by the one function tried, is to be measured chunk by chunk; it is also the
 one that can be checked to the bit, so it is safe to take whenever there is a quiet day.
 
@@ -218,7 +217,7 @@ The tables and their commands are in [reference/step-cost.md](../reference/step-
   cost; making them cheap is its own change.
 - **Control on other threads.** A body's control reads the engine's state and writes its motors;
   on another thread it would need an engine of its own kept in step. The step is the bodies' sum,
-  so this is what would raise the cap by the number of cores. It is a design of its own, after
+  so this is what would raise what a machine carries by the number of cores. It is a design of its own, after
   this one's seams are in.
 - **The simulation in a worker, the page drawing snapshots.** The same.
 - **A solve that starts from the last step's answer** (the stance's share of the ground's
