@@ -5,7 +5,8 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { buildArena } from "./scene.ts";
 import { MENU_HREF } from "../app-route.ts";
 import { need } from "../dom.ts";
-import { blowCues, SURFACE_SOUND } from "../audio/cues.ts";
+import { airOf, hearTouches } from "../audio/body-sounds.ts";
+import { debrisCues } from "../audio/cues.ts";
 import { GameAudio } from "../audio/game-audio.ts";
 import { loadEngine } from "../core/engine/engines.ts";
 import { BODY_MODELS, type BodyModel } from "../core/human/spec.ts";
@@ -28,6 +29,10 @@ import { aimPoint, keysToMove, personOrders } from "./orders-input.ts";
  * the ground, it faces the pointer, and the left button attacks where the pointer is. The page
  * turns the keys and the pointer into world directions (`orders-input.ts`) before the orders are
  * made, so nothing of the camera reaches a mind.
+ *
+ * The bout is heard until its verdict: each body's touches and its air
+ * (`src/audio/body-sounds.ts`), and what a blow takes off (`debrisCues`). The verdict silences
+ * it with the cues not played yet, so what decides the bout is not heard.
  *
  * Setup owns `#curtain`, pause owns `#pause-menu`, the verdict is `#bout-end`.
  */
@@ -100,7 +105,9 @@ export async function bootArena(): Promise<void> {
     for (const view of drawn) { for (const mesh of view.meshes) shadows.removeShadowCaster(mesh); view.dispose(); }
     drawn = [];
   };
-  const end = () => { undraw(); duel?.dispose(); duel = null; shown = null; };
+  /** What hears the bout under way: its touches' listener, and each side's air. */
+  let hearing: { dispose(): void } | null = null, airs: { readonly side: Side; readonly air: (at: Vector3) => number }[] = [];
+  const end = () => { undraw(); hearing?.dispose(); hearing = null; airs = []; duel?.dispose(); duel = null; shown = null; };
 
   // The readout: each side's name and bar, and the clock.
   const hud = need("hud");
@@ -127,7 +134,7 @@ export async function bootArena(): Promise<void> {
     end();
     audio.reset();
     const balance = readBalance(location.search), gap = readGap(location.search), capSeconds = readCap(location.search), held = readHeld(location.search), minds = readGuard(location.search);
-    duel = new Duel(world, {
+    const bout = duel = new Duel(world, {
       left: matchup.left, right: matchup.right,
       ...(gap !== undefined ? { gap } : {}), ...(capSeconds !== undefined ? { capSeconds } : {}), ...(balance ? { balance } : {}), ...(held ? { held } : {}), ...(minds ? { minds } : {}),
     }, {
@@ -137,11 +144,13 @@ export async function bootArena(): Promise<void> {
           drawn.push(view);
         }
       },
-      onBlow: (blow) => {
-        for (const cue of blowCues(blow, (fighter) => SURFACE_SOUND[duel!.duelists[fighter as Side].model])) audio.cue(cue);
-      },
+      // A blow is a touch, and is heard as one; this is what it took off.
+      onBlow: (blow) => { for (const cue of debrisCues(blow)) audio.cue(cue); },
     });
-    duel.play(tape);
+    const sides = SIDES.map((side) => ({ id: side, built: bout.duelists[side].built }));
+    hearing = hearTouches(world, sides, (cue) => audio.cue(cue));
+    airs = sides.map(({ id, built }) => ({ side: id, air: airOf(built) }));
+    bout.play(tape);
     for (const row of rows) row.label.textContent = `${MODEL_LABELS[matchup[row.side]]} (${row.side === you && !replaying ? "you" : row.side})`;
     show("curtain", false); show("bout-end", false); setPaused(false);
     canvas.focus();
@@ -221,7 +230,7 @@ export async function bootArena(): Promise<void> {
     const point = ray ? aimPoint(ray.origin.asArray(), ray.direction.asArray(), centre.y) : null;
     duel.order(you, personOrders(keysToMove(keys, azimuth), point, attacking, centre));
   };
-  const target = new Vector3(0, 1, 0);
+  const target = new Vector3(0, 1, 0), airAt = new Vector3();
   const frame = () => {
     if (duel) {
       const a = duel.duelists.left.body.view.stance.centre, b = duel.duelists.right.body.view.stance.centre;
@@ -253,7 +262,10 @@ export async function bootArena(): Promise<void> {
   engine.runRenderLoop(() => {
     const seconds = engine.getDeltaTime() / 1000;
     giveOrders();
-    if (duel && !paused) world.advance(seconds, Math.ceil(CATCH_UP_SECONDS * world.hz));
+    if (duel && !paused) {
+      world.advance(seconds, Math.ceil(CATCH_UP_SECONDS * world.hz));
+      for (const { side, air } of airs) audio.swish(side, air(airAt), airAt);
+    }
     if (!paused) arena.fire.burn(seconds);
     frame(); readout(); audio.update();
     scene.render();

@@ -8,6 +8,7 @@ import { Color3, Color4 } from "@babylonjs/core/Maths/math.color.js";
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder.js";
 import { Scene } from "@babylonjs/core/scene.js";
+import { GameAudio } from "../audio/game-audio.ts";
 import { loadEngine } from "../core/engine/engines.ts";
 import { buildBody, type BuiltBody } from "../core/build/build-body.ts";
 import type { BodyModel } from "../core/human/spec.ts";
@@ -31,6 +32,7 @@ import { LAB_DOWN, LAB_MINDS } from "./minds.ts";
 import { blowScenario } from "./blow-scenario.ts";
 import { routineScenario } from "./routine-scenario.ts";
 import { runScenario } from "./run-scenario.ts";
+import { createSoundLog, LAB_BODY, logSounds, type SoundLog } from "./sound-log.ts";
 import { labHref, SCENARIOS, type LabAddress, type ScenarioId } from "./scenarios.ts";
 import { dressSkeleton, loadSkeletonArt } from "../render/skeleton-skin.ts";
 import { dressBody, loadSkin, type SkinView } from "../render/skin.ts";
@@ -52,6 +54,10 @@ import { need } from "../dom.ts";
  * of two views: World, the workshop model's skin (`skin.ts`), wearing the loadout's clothing, or
  * Tactical, the collision shapes themselves (`src/render/body-shapes.ts`); what a hand holds is drawn as its shapes
  * in both. A Free, an Isometric or a Chase camera follows it (`camera.ts`).
+ *
+ * The body is heard (`sound-log.ts`): its touches, its air, and the scenario's own instruments,
+ * logged at the mind's time and played as the time shown passes them, so a replay sounds as the
+ * run did, and a pause, a scrub and a seek are silent. The volume control sits at the transport's end.
  *
  * The world (`src/core/world.ts`) owns the clock, and the render only draws what its steps
  * produced. Loading a body or a new rate makes a new world, and starts the scenario on it anew.
@@ -86,6 +92,9 @@ const SCENARIO: Readonly<Record<ScenarioId, (scene: Scene, shell: LabShell) => L
  * the draw's 6 ms it fits one frame of a 60 Hz display. Set: `docs/reference/lab.md#seek-budget`.
  */
 const SEEK_BUDGET_MS = 10;
+
+/** Seconds of the body's air the page keeps: as long as the longest recording a scenario keeps, the Routine's. */
+const AIR_SECONDS = 30;
 
 /** A key pressed in a slider is the slider's: focused, it takes its arrows. */
 const forAControl = (event: KeyboardEvent): boolean => event.target instanceof HTMLInputElement;
@@ -144,10 +153,15 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
     /** What its mind has decided, and the watch that notes in it who has the body. */
     readonly log: MindLog;
     readonly has: Hook;
+    /** What it sounded of, what logs it, and the time shown that was last heard. */
+    readonly sounds: SoundLog;
+    readonly logging: { dispose(): void };
+    heardTo: number;
   }
   let current: Loaded | null = null;
   let shown: LabAddress = address;
   const transport = labTransport(need("transport"), scenario.timelineLabel, () => current?.run ?? null);
+  const audio = new GameAudio(false, need("transport"));
 
   // The HUD: the shell's controls in their sections, then the scenario's panels in theirs.
   const page: LabPage = { get shown() { return shown; }, get spec() { return current?.built.spec ?? loadoutSpec(shown); }, load, show };
@@ -184,8 +198,10 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
   function load(to: LabAddress): void {
     // Until the physics engine has loaded there is no world to make: `to` is what is loaded then.
     if (!physicsEngine) { show(to); return; }
+    audio.reset();
     if (current) {
       current.has.dispose();
+      current.logging.dispose();
       current.run.dispose();
       current.skin?.dispose();
       current.view.dispose();
@@ -203,9 +219,13 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
     });
     const rest = built.segments.get("lowerTrunk")!.node.rotationQuaternion!.clone();
     const view = drawBody(built, scene, TINT[to.model]), heldView = drawHeld(built, scene);
+    const sounds = createSoundLog(world.dt, AIR_SECONDS), logging = logSounds(world, actor.body, sounds);
     // A new body starts live: nothing of the last one's recording is shown.
-    const run = scenario.start({ scene, actor, address: to, changed: transport.showPlayhead, clock: () => performance.now() });
-    const loaded: Loaded = { built, view, held: heldView, skin: null, run, rest, helped: actor.body.assist.on ? balance : null, log, has: watchHas(world, actor.body, log) };
+    const run = scenario.start({ scene, actor, address: to, changed: transport.showPlayhead, clock: () => performance.now(), heard: logging.heard, hears: logging.hears });
+    const loaded: Loaded = {
+      built, view, held: heldView, skin: null, run, rest, helped: actor.body.assist.on ? balance : null, log, has: watchHas(world, actor.body, log),
+      sounds, logging, heardTo: -Infinity,
+    };
     current = loaded;
     show(to);
     const model = to.model;
@@ -221,10 +241,21 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
 
   function readout(): void {
     if (!current) return;
-    const { run, helped, log } = current, time = run.readout(run.player.shownFrame());
+    const { run, helped, log, sounds } = current;
+    // Read before the readout, where a scenario may pause its own run: the frame that pauses is still heard.
+    const playing = !run.player.isPaused();
+    const time = run.readout(run.player.shownFrame());
     transport.show(run, time, helped);
     // Before its first step a body's mind has decided nothing.
     thinking.show(log, time ?? -Infinity);
+    audio.setActive(playing);
+    if (time === null) return;
+    if (playing) {
+      for (const cue of sounds.passed(current.heardTo, time)) audio.cue(cue);
+      const air = sounds.airAt(time);
+      if (air) audio.swish(LAB_BODY, air.speed, air.at);
+    }
+    current.heardTo = time;
   }
 
   // The scenario's keys, held: a key held is a level, what is down now, cleared whenever the page
@@ -259,6 +290,8 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
       const pelvis = current.built.segments.get("lowerTrunk")!.node;
       rig.follow(pelvis.position, pelvis.rotationQuaternion!, current.rest, engine.getDeltaTime() / 1000, engine.getAspectRatio(camera));
     }
+    audio.setView(camera.position, camera.target.subtract(camera.position));
+    audio.update();
   });
   window.addEventListener("resize", () => engine.resize());
   // For the console: a hidden tab does not render, so a check steps the world by hand

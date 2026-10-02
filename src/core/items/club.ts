@@ -54,6 +54,7 @@ export function woodenClub(): ItemSpec {
     points: { swellFrom, swellTo, swell: derive("m", "the middle of the swell's capsule's axis", [swellFrom, swellTo], midpoint) },
     aim: "swell",
     cover: ["swellFrom", "swellTo"],
+    substance: "wood",
     grip: haftRadius,
   };
 }

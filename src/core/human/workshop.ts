@@ -21,7 +21,7 @@ export function workshopFigure(model: WorkshopModel): HumanFigure {
   const envelope = workshopEnvelope(model);
   const limbs = { left: limb(model, "left", envelope.feet.left), right: limb(model, "right", envelope.feet.right) };
   return {
-    family: "human", model, sex: WORKSHOP_SEX[model], scale: FIT_SCALE, mass: bodyMass(model), stature: stature(model),
+    family: "human", model, substance: "flesh", sex: WORKSHOP_SEX[model], scale: FIT_SCALE, mass: bodyMass(model), stature: stature(model),
     trunk: trunkLandmarks(model), limbs, hulls: envelope.trunk, feet: envelope.feet, hp: workshopHitPoints(model),
     balance: workshopBalance(model),
   };

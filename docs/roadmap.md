@@ -167,8 +167,6 @@ All of it on a physically based core, humans first ([architecture](architecture.
 - The Warrior with an empty right hand, on the right side of a bout, falls at 2.9 s before any
   touch: it turns a quarter turn from its heading as it sets off. On the left, and on either
   side with the club, it walks.
-- A blow that wounds both sides is heard once, by its first side's surface: its two cues share
-  a key (`src/audio/cues.ts`).
 - The crypt makes its watch again at each body it builds, and a watch made again has forgotten
   which bodies were touching: a touch that is still closing lands once more.
 - Two parts of one body that meet another's part in one step are two blows, each priced from its
@@ -238,6 +236,10 @@ All of it on a physically based core, humans first ([architecture](architecture.
   fibre share.
 - Contact materials: every contact has one friction, 0.5.
 - `contactMass` reads a blow with the joints free; whether a joint's give belongs in it is open.
+- A blow lasts while the solver pushes on it (`watchBlows`, `lasts: "pushed"`), so one the solver
+  lets go of for a single step lands again; a touch read with `lasts: "contact"`
+  (`src/core/touches.ts`) lands again only once the two have parted. Whether a blow should is a
+  change of rule, which moves every bout, and comes with its table.
 - Rapier's limits, held as `todo` tests: a limit pushes along its parent's axis, so a pressed angle
   can pass its stop by up to 0.046 rad; and the JavaScript binding does not read joint impulses,
   so the muscle driver guesses which side pulled.
@@ -276,6 +278,13 @@ All of it on a physically based core, humans first ([architecture](architecture.
   the fight lies limp and still costs the solver 0.28 ms a step. Fixed where it lies once it is
   still, it would cost 0.02 ms and could not be pushed aside; an engine that let it rest would
   take none until something touched it.
+- Hearing a run costs 8 to 11 % of its step
+  ([reference/play.md](reference/play.md#hearing-in-the-step)), nearly all of it asking the
+  engine what is near every segment, every step. Rapier's collision events tell of a contact as
+  it starts and ends, and a watch on them would read only what began. That is another rule for
+  when two are in contact than the solver's contact point, so the touches of
+  [reference/look.md](reference/look.md#sound) are counted again under it before it replaces
+  the asking.
 - The generator keeps 0.65 m clear about every place a body stands (`LEVEL.clearance`), written
   for a body that is gone; a walker's path keeps 0.35 m (`FOOTPRINT_METRES`), less than the
   0.38 m the Warrior's elbows stand out in the pose its spec writes. Both are the owner's to
@@ -296,9 +305,26 @@ All of it on a physically based core, humans first ([architecture](architecture.
 - Every value of the look and the sound is kept as found until the owner confirms it
   ([reference/look.md](reference/look.md)). Of them, the dungeon's stand open until the owner
   judges them in play: torch density, and which floor and wall textures ship.
-- How loud a blow is was set against no bout (`CUE`,
-  [reference/look.md](reference/look.md#sound)): the energies a bout's blows carry, read from
-  headless bouts, would say how much of the range from quiet to loud a fight uses.
+- The arena goes silent at its verdict and the crypt at its run's end, and each drops the cues
+  it has not played yet: the blow that decides a bout, what it took off, and the fall that ends
+  a bout or a run are not heard. A fall is heard in the lab, and in the crypt while somebody of
+  the party still stands.
+- In the arena both sides' blows are one pair's (`left:right`), and of a pair's touches within
+  60 ms the loudest alone plays (`CueInbox`): two blows exchanged at once sound as one.
+- The crypt's listener is made again when a body is built, and remembers no touch under way: a
+  segment pressing something at that step, and still closing on it, sounds once more
+  (`hearRun`, `src/dungeon/hearing.ts`).
+- A body's air (`MIX.swish`, the `swish` formula), which of the two that meet decides a touch's
+  voice, and how loud a footfall is beside a blow (`MIX.impact`) are set and not heard: the
+  owner's to judge in play.
+- A hand that holds something sounds as what it holds, whichever of the two met
+  (`substanceOf`, `src/audio/cues.ts`). A touch names the shapes the solver pushed on
+  (`Touch.pairs`), as a blow reads them, and a sound does not read them yet. What a thing is
+  made of is a name beside its surface's stiffness (`BodySpec.substance`, `SegmentSpec.surface`):
+  whether the softer of two is the one of less stiffness, and a voice follows from that, is open.
+- A step that stays within the engine's contact margin is not heard: of 24 recoveries from a
+  shove, 14 footfalls ([reference/look.md](reference/look.md#sound)). A touch that began again
+  when the solver pushed anew would hear them, and gives a walk more touches than strides.
 - The reptile needs art; it starts as procedural shells.
 - The unused templates inside `public/assets/forge/forge-kit.glb` could be removed by
   re-exporting from Blender.

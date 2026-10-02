@@ -1,4 +1,5 @@
 import type { Body, Fist } from "../core/body.ts";
+import type { BuiltBody } from "../core/build/build-body.ts";
 import type { Hand } from "../core/control/motor.ts";
 import type { StanceEnvelope } from "../core/control/stance-envelope.ts";
 import { GUARD_ACTION, type Intent } from "../core/mind/intent.ts";
@@ -160,6 +161,8 @@ interface RoutineOptions {
   readonly skills?: SkillOptions;
   /** The rules its targets are read under: the arena's unless given. */
   readonly rules?: Rulebook;
+  /** Told each target's body as it is hung; what it returns is disposed with that body. */
+  readonly hung?: (built: BuiltBody) => { dispose(): void };
 }
 
 /** How many targets the Routine strikes at a loop, and the seed they are drawn from, unless told. */
@@ -170,7 +173,7 @@ interface Routine {
   readonly fists: { readonly left: Fist; readonly right: Fist };
   readonly tactics: RoutineTactics;
   readonly report: SkillReport;
-  /** Seconds since the routine began. */
+  /** Seconds since the routine began: the time its body's mind saw at the last step (`BodyView.time`), whichever mind has the body. */
   time(): number;
   /** What it is doing, in words. */
   doing(): string;
@@ -189,7 +192,7 @@ interface Routine {
 export function startRoutine(actor: Actor, options: RoutineOptions = {}): Routine {
   const { body, world } = actor, built = body.built;
   if (!built.segments.has("lowerTrunk")) throw new Error(`${built.spec.model} is not a human the routine knows`);
-  const { targets: count = ROUTINE_TARGETS.count, seed = ROUTINE_TARGETS.seed, from = 0, hands = ROUTINE_HANDS, rules = rulebook("arena"), skills } = options;
+  const { targets: count = ROUTINE_TARGETS.count, seed = ROUTINE_TARGETS.seed, from = 0, hands = ROUTINE_HANDS, rules = rulebook("arena"), skills, hung } = options;
   const tactics = routineTactics(trackOf(ROUTINE_TRACK), body.envelope!, { count, seed, from, stature: built.spec.stature.value },
     hands.filter((hand) => actor.strikes[hand]));
   const fists = body.view.fists;
@@ -229,7 +232,7 @@ export function startRoutine(actor: Actor, options: RoutineOptions = {}): Routin
     }
     // One target is up at a time: the next is read from when the tactics turn to it.
     const up = tactics.up;
-    if (!open && up) open = readTarget(actor, tactics.targets![up.index]!, up.hand, rules);
+    if (!open && up) open = readTarget(actor, tactics.targets![up.index]!, up.hand, rules, hung);
     const reading = open?.step(sight);
     if (reading) close(reading);
   };
@@ -243,7 +246,7 @@ export function startRoutine(actor: Actor, options: RoutineOptions = {}): Routin
     tactics,
     report,
     readings,
-    time: () => time,
+    time: () => body.view.time,
     ball: () => open?.ball ?? null,
     doing() {
       if (body.view.down) return "Fallen";

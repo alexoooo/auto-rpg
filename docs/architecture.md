@@ -110,9 +110,15 @@ writes each node's `position` and `rotationQuaternion`; bodies that never sleep;
 whole; velocities of the centre of mass; one friction (`CONTACT_FRICTION`, 0.5) and no bounce on
 every contact; freedom k as axis k of the joint's frame; a motor as a velocity constraint bounded
 by a torque; a force and a moment on a body through one step, integrated as gravity is, beside
-the impulse that is whole before it; the contacts the solver pushed on in the last step, each
-naming the pairs of shapes that touched by their places in their bodies (`Contact.pairs`); and
-how far a point is from a body's shapes (`SegmentBody.gapTo`). A
+the impulse that is whole before it; every body and every fixed collider a body is in contact
+with as the last step left it (`contactsOf`), each with the impulse the solver pushed the two apart
+with, which is 0 for two in contact that it did not push on, and naming the pairs of shapes it
+pushed on by their places in their bodies (`Contact.pairs`); and how far a point is from a body's
+shapes (`SegmentBody.gapTo`). In contact is the engine's narrow
+phase giving the solver a contact point: touching, or within the distance Rapier predicts a contact
+over, 2 cm. A reader may refuse a body, or everything fixed, before the contact between them is
+read: most of what is near a segment is its own body's neighbouring segments, and reading a pair
+is what costs ([reference/play.md](reference/play.md#hearing-in-the-step)). A
 world saves its whole physical state and loads it in place (`PhysicsWorld.save`, `load`); a body,
 joint or collider the core holds survives a load as the object it was, and a save of a world with
 other bodies, joints or colliders is refused. `rapier.ts` implements it,
@@ -377,11 +383,17 @@ they wake.
 The rules of a fight are `src/core/rules/`, free of any page so they can be argued with in tests
 (`tests/core-rules.test.mjs`, `tests/core-blows.test.mjs`).
 
-- **A blow** (`watchBlows`, `blows.ts`) is a new contact between any two segments of two sides'
-  bodies, closing: it has no striker. Its energy is `impactEnergy` (`impact.ts`): half the
-  reduced mass of the two effective masses (`contactMass`) times the closing speed squared. Its
-  record is two sides (`BlowSide`), the surfaces that met: of the pairs of shapes that touched,
-  the one the solver pushed on hardest, each shape its segment's own or an item it holds. Each
+- **A touch** (`watchTouches`, `src/core/touches.ts`) is a watched segment that the solver pushed
+  on another watched segment, or on something fixed, while closing on it, from the step it is
+  first pushed until, as its reader asks, the solver stops pushing or the two part. A body's own
+  segments touch too, read from each of the two, unless the reader refuses them. It names the
+  pairs of shapes the solver pushed on. Its energy is `impactEnergy` (`impact.ts`): half the
+  reduced mass of the two effective masses (`contactMass`; something fixed is a mass nothing
+  moves) times the closing speed squared.
+- **A blow** (`watchBlows`, `blows.ts`) is a touch between any two segments of two sides'
+  bodies, lasting while the solver pushes: it has no striker. Its energy is the touch's. Its
+  record is two sides (`BlowSide`), the surfaces that met: of the pairs of shapes the solver
+  pushed on, the one it pushed on hardest, each shape its segment's own or an item it holds. Each
   side has the share of the energy it took, its damage and its wound.
 - **The two surfaces share the energy by their compliance** (`energyShares`, `share.ts`): springs
   in series under one force, so the softer takes the more. A segment's surface is its spec's; an
@@ -469,7 +481,9 @@ arena, crypt and lab screens at `?play=arena`, `?play=dungeon` and `?play=lab`, 
   map's walls, doors and obstacles are fixed boxes in the world (`buildDungeonWorld`); every
   body is driven by a mind; a person's orders reach the party only through the run's
   plan (`DungeonCommands`), and each member's mind carries them out while it defends itself.
-  Enemies are built when the party comes near; its art is in [art/crypt.md](art/crypt.md).
+  Enemies are built when the party comes near; its art is in [art/crypt.md](art/crypt.md). The
+  page hears every built body where the party sees (`hearRun`, `hearing.ts`), its listener made
+  again when a body is built.
 - **The lab** (`src/lab/`): one body at a time in the Stance, Routine, Run and Blow
   scenarios (`scenarios.ts`), at 120 or 480 Hz, with a transport that steps the world by hand.
   Every scenario drives its body through an actor (`actor.ts`), which gives the body what the
@@ -478,7 +492,10 @@ arena, crypt and lab screens at `?play=arena`, `?play=dungeon` and `?play=lab`, 
   targets are bodies (`targets.ts`): a ball of the attacker's head, hung where a seed drew it as
   the strike at it begins and read by the rule a fight wounds by (`watchBlows`), one at a time
   ([reference/blows.md](reference/blows.md#targets)). The page logs what
-  the mind decides, and who has the body when it changes hands (`mind-log.ts`). Its HUD is sections (`hud/sections.ts`) that the shell and the scenario fill with controls
+  the mind decides, and who has the body when it changes hands (`mind-log.ts`), and what the body
+  sounds of (`sound-log.ts`): its touches, its air, the touches of a target that hangs beside it,
+  and the cue of each instrument that is no contact, the shove and the Blow's mark, each at the
+  mind's time, so the page plays what the frame it shows sounded of, live or replayed. Its HUD is sections (`hud/sections.ts`) that the shell and the scenario fill with controls
   built from data (`hud/controls.ts`).
 - **The character workshop** (`/character-lab.html`, `src/character-lab/`): the workshop models
   with their authored preview motion. It uses no core. See [art/characters.md](art/characters.md).
@@ -490,8 +507,13 @@ its collision shapes if the skin does not load; the skins (`skin.ts` for the hum
 `skeleton-skin.ts` for the skeleton, see [art/skeleton.md](art/skeleton.md)), which read only the
 segments' achieved transforms and own no collision, and the collision shapes drawn
 (`body-shapes.ts`). The arena and the crypt also share the post pipeline (`post.ts`), textured
-surfaces (`surface.ts`, `materials.ts`, `textures.json`) and sound (`src/audio/game-audio.ts`,
-`src/audio/cues.ts`, which voices each landed blow).
+surfaces (`surface.ts`, `materials.ts`, `textures.json`) and sound (`src/audio/`): `cues.ts`
+makes a cue of an energy and what the two that met are made of, `game-audio.ts` synthesizes and mixes
+what a page plays, and `body-sounds.ts` reads what a body sounds of from the world: its touches
+(`hearTouches`) and its air (`airOf`). Every screen plays both: the lab from its log, the arena
+of its two sides until the verdict, the crypt of every body the party sees. A blow is a touch,
+and is heard as one; what it takes off a side is a cue of its own (`debrisCues`)
+([reference/look.md](reference/look.md#sound)).
 
 ## Standing decisions
 

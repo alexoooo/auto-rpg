@@ -172,7 +172,7 @@ export function skeletonFigure(): HumanFigure {
   const trunk = dividedTrunk("male", VERT, CERV, MIDH);
   const boxes = [part("trunk.core"), part("legs.pelvis")];
   return {
-    family: "skeleton", model: SKELETON_MODEL, sex: "male",
+    family: "skeleton", model: SKELETON_MODEL, substance: "bone", sex: "male",
     mass: placeholder(79, "kg", "the typical man's mass"),
     stature: derive("m", "the vertex's height over the soles", [VERT], (v) => v[1]),
     trunk, limbs,

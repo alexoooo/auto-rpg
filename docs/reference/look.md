@@ -3,9 +3,10 @@
 What the screens draw and play, and the numbers they do it with. Each section names its
 constants, where they live, their values, and whose choice they are.
 
-Nothing here was measured. A value is **set by eye** (or by ear): chosen by looking at the page
-while the thing was built. Unless a line says the owner chose it, every value in this record is
-**kept as found; the owner to confirm**.
+A value is **set by eye** (or by ear): chosen by looking at the page while the thing was built.
+Unless a line says the owner chose it, every value in this record is **kept as found; the owner
+to confirm**. Nothing here was measured but how loud a touch is and how fast a body's air begins
+([Sound](#sound)).
 
 None of it decides a fight, with one exception that each section names where it applies: a wall,
 a post or a door that is drawn is also a collider, and its size is the collider's.
@@ -89,7 +90,45 @@ not paused: a paused bout's flames stand still, as the owner chose.
 Everything a page plays is synthesized by `GameAudio` (`src/audio/game-audio.ts`); nothing is a
 recording.
 
-`MIX`, set by ear. A gain is a share of full scale:
+What a body sounds of is read from the world by two rules (`src/audio/body-sounds.ts`), and no
+stance, strike or scenario says when a sound is due:
+
+- **A touch** (`hearTouches`): a segment meeting another body, or something fixed, that it was
+  not in contact with, while closing on it (`watchTouches`, `src/core/touches.ts`, lasting as long
+  as the contact). It is as loud as the energy it carries (`impactCue`, `CUE`) and in the voice of
+  the softer of the two surfaces. A footfall is a foot meeting the ground; a fall is the trunk,
+  the head and the limbs meeting it. A pair of bodies is heard once, from the earlier of the two,
+  and a body's touch with itself is not heard.
+- **Air** (`airOf`): the speed of the body's fastest point, found each time it is asked among the
+  ends and corners of the shapes of its extremities (the segments that are no joint's parent) and
+  of what they hold. A body has one looping voice that follows it (`GameAudio.swish`, `SWISH`).
+
+Every screen plays both. The lab plays its body's from a log at the mind's time, with the touches
+of a target the Routine hangs beside it, and the cues of its two instruments that are no contact:
+the page's hand shoving the body, and the Blow scenario's mark (`src/lab/sound-log.ts`,
+[lab.md](lab.md#sound)). The arena plays its two sides'
+as they happen, until the verdict (`src/arena/main.ts`). The crypt plays every built body's
+while the party sees the cell the body stands in (`hearRun`, `src/dungeon/hearing.ts`), fading
+with its distance from the leader (`PLACEMENT.reach`). A screen that stops playing drops the
+cues it has not played yet (`GameAudio.setActive`), and a cue waits 60 ms for a louder one of
+its pair (`INBOX.coalesce`): what decides a bout, or ends a run, is not heard.
+
+A blow is a touch, and is heard as one: a part of one body, or what it holds, on a part of
+another, in the softer one's voice. What a blow takes off a side is a cue of its own
+(`debrisCues`): the kind `debris`, as loud as that side's share of the blow's energy makes it,
+of a pair of its own, so it plays beside the blow's touch and is not weighed against it.
+
+**What things are made of.** A body and an item say what they are made of (`BodySpec.substance`,
+`ItemSpec.substance`, `src/core/spec/body.ts`): the workshop's bodies are flesh, the skeleton is
+bone, the club is wood, and everything fixed is stone. A hand that holds something sounds as what
+it holds, whichever of the two met, since they are one rigid body (`substanceOf`). The softer of
+the two that meet decides the voice (`voiceOf`), softest first: flesh, the thump `body`; bone,
+the tick `bone`; wood, the knock `shield`; stone has no voice of its own. The order is set, and
+not heard yet. It is a name and no number: how stiff a surface is under a blow is the spec's
+`surface` ([wounds.md](wounds.md)), which a sound does not read.
+
+`MIX`, set by ear but for `swish`, which is set and not heard yet. A gain is a share of full
+scale:
 
 | Field | Value |
 |---|---|
@@ -100,30 +139,140 @@ recording.
 | `air` | the crypt's air loop, 0.06 |
 | `fires`, `fire`, `ambienceSeconds` | the 3 nearest torches' fire, each at 0.12 of its placement's gain, followed with a time constant of 0.3 s |
 | `drip` | a drip at 0.065; the first after 4000 ms and up to 5000 more, then one every 5000 ms and up to 8000 more |
-| `audible` | a blow placed quieter than 0.001 plays nothing |
-| `impact` | a blow plays at 0.08 and 0.5 of its strength; what a severed part scatters, at 0.18 of the strength |
+| `swish` | a body's air at full strength plays at 0.3, and at 0.7 to 1.5 of its buffer's pitch (0.7 and 0.8 of the strength); gain, pitch and pan follow with a time constant of 0.04 s |
+| `audible` | a cue placed quieter than 0.001 plays nothing |
+| `impact` | a touch plays at 0.08 and 0.5 of its strength; what a severed part scatters, at 0.18 of the strength |
 | `rate` | a loop plays at 0.94 to 1.06 of its pitch (0.94 and a draw of 0.12), a one-shot at 0.9 to 1.1 (0.9 and a draw of 0.2) |
 | `fade`, `stop` | a stopped voice fades with a time constant of 0.008 s and stops after 0.04 s |
 
-`SOUND_SECONDS`: a blow on bone, on a body or on wood lasts 0.26 s, as a drip does; debris 0.4 s;
-the air's and the fire's loops are 6 s long.
+So a footfall of strength 0.02 plays at 0.09 and a blow of strength 0.5 at 0.33: `impact`'s 0.08
+is how loud a footfall is beside a blow.
 
-`CUE` (`src/audio/cues.ts`): a blow's strength is the square root of its energy over 60 J, capped
-at 1, and a blow weaker than 0.035 makes no sound. **Set, not measured**: no bout's blows were
-read to choose the 60. The Warrior's strongest club blow carries 138 J (`core-club-unit`),
-so a blow of that kind plays at full strength, and so does one of less than half its energy; what
-energies a bout's blows carry, and so how much of the range from quiet to loud a bout uses, is a
-measurement to make ([roadmap](../roadmap.md)).
+`SOUND_SECONDS`: a touch in bone's, a body's or wood's voice lasts 0.26 s, as a drip does; debris
+0.4 s; the crypt's air and the fire are loops 6 s long, and a body's air a loop 3 s long.
+
+`CUE` (`src/audio/cues.ts`): a touch's strength is the square root of its energy over 60 J,
+capped at 1, and a touch weaker than 0.0125, which is 0.0094 J, makes no sound. Both are read
+from [the touches measured](#touches-measured):
+
+- **60 J** is over the hardest touch of one body on another in three bouts (54.4 J), so a bout's
+  blows use the range and a hard fall's landing comes to the end of it (to 59 J). The Warrior's
+  strongest club blow carries 138 J on a mark that does not give (`core-club-unit`); on a head
+  that does, the Blow scenario's lands 119 J. A fist on a target of the Routine carries 6 to
+  7.8 J where a recipe is thrown and 1 J or less where the blow is placed.
+- **0.0125** is between a sole set down and the quietest footfall. Of 955 touches of a foot on
+  the ground by a body on its feet, 7 are under 0.0094 J, each of 0.0083 J or less: a sole laid
+  flat at 0.06 to 0.09 m/s, a sixth of a footfall's speed. The quietest of the rest is 0.0099 J,
+  strength 0.0128, so the gap the floor sits in is narrow. A footfall is of two kinds: the sole
+  landing flat meets 2 kg of the body at about 0.5 m/s, 0.2 to 0.3 J; a sole landing on its
+  toe's edge meets 0.2 kg, 0.01 to 0.09 J. The skeleton's walk is the second kind at nearly every
+  step (median 0.023 J).
+
+`SWISH`: a body's air is nothing while its fastest point moves at 5 m/s or slower, all of it at
+20 m/s, and in proportion between (`swishStrength`).
+
+- **5 m/s** is over the fastest point of a body walking (1.0 to 2.5 m/s) or in the Run (to
+  4.38 m/s, a foot, for one step of the shuttle's half turn). A foot catching a hard shove passes
+  it (to 6.3 m/s, for 0.03 s or less), and so does a foot going out from under a body that falls
+  (7.0 to 8.4 m/s) and a hand of a body going down (10 to 16 m/s).
+- **20 m/s** is a club's end in the Blow scenario's blow: 19.3 m/s before it lands, 20.3 m/s over
+  the whole of it. A fist's far point in the Routine's strikes reaches 12.6 to 14.8 m/s, half to
+  two thirds of the air; the clubs of three bouts 13.3 to 19.9 m/s.
 
 `PLACEMENT`: a sound's pan is how far it is to the listener's side over 10 m, held within 0.85
 either way; in the crypt its gain is the square of the share of 18 m it has left to go, and
-nothing from there on. The arena plays every blow at full gain.
+nothing from there on. The arena plays every sound at full gain.
 
 Each sound's own formula (`GameAudio.buffer`) is written where it is computed: its partials,
-their decays and the noise under them are the sound, and no number of them is shared.
+their decays and the noise under them are the sound, and no number of them is shared. The air's
+(`swish`) is noise between two low-passes.
 
-The inbox's bounds (`INBOX`) and the 12 voices at once (`VOICES`) are numeric settings: they bound
-the work, and what they drop is what a person would not have heard apart.
+A cue (`SoundCue`) names the pair it is of, and the inbox (`CueInbox`) plays the loudest of a
+pair's cues in 60 ms: that is what makes one sound of the several parts a landing body touches
+the ground with at once. The inbox's bounds (`INBOX`) and the 12 one-shot voices at once
+(`VOICES`) are numeric settings: they bound the work, and what they drop is what a person would
+not have heard apart. With every voice playing, a louder cue takes the quietest voice's place.
+
+What the rules do not hear:
+
+- **A step that never leaves the ground's contact margin.** The engine holds two things in
+  contact while they are within 2 cm, and a touch is new only once they have parted. A walking
+  foot lifts clear; a low catching step after a shove may not. Of 24 recoveries caught, 14
+  footfalls were heard.
+- **What a hand holds, set down beside it.** A hand and what it holds are one rigid body, in
+  contact with the ground once.
+
+### Touches measured
+
+`node research/touches.mjs`: Node core stand (`tests/harness/core-stand.mjs`), Rapier, 120 Hz, a
+20 m ground, one body, balance 0 % of its weight; the bouts are the Node core world's, Rapier,
+120 Hz, each side's balance 0 %. Every segment is read, a touch lasting as long as the contact;
+one run a row. A body's air leaves out the first second of its world, in which a body built in
+its reference pose takes its guard (to 5 m/s). The script prints every part's row; these are the
+feet's, the landings' and the bouts'.
+
+Standing 10 s, no body touches the ground anew, and its fastest point moves at 0.02 to 0.03 m/s.
+The skeleton's forearms come to rest on its trunk as it takes its guard (0.024 and 0.027 J),
+which is a touch with itself.
+
+A foot on the ground, by a body on its feet:
+
+| Model | Case | Strides | Footfalls | Energy, J: least / median / most | Closing, m/s: median | The foot's mass met, kg: least / median / most | Under 0.0094 J | Fastest point, m/s |
+|---|---|---|---|---|---|---|---|---|
+| workshop-fighter | walk, 0.2 m/s, 10 s | 26 | 25 | 0.0244 / 0.0245 / 0.269 | 0.456 | 0.236 / 0.236 / 2.1 | 0 | 1.43, a foot |
+| workshop-fighter | walk, 0.5 m/s, 10 s | 26 | 25 | 0.0241 / 0.294 / 0.318 | 0.505 | 0.227 / 2.31 / 2.39 | 0 | 2.47, a foot |
+| workshop-rogue | walk, 0.2 m/s, 10 s | 26 | 25 | 0.199 / 0.234 / 0.249 | 0.505 | 1.61 / 1.84 / 1.92 | 0 | 1.00, a foot |
+| workshop-rogue | walk, 0.5 m/s, 10 s | 26 | 25 | 0.0184 / 0.26 / 0.296 | 0.506 | 0.171 / 2.04 / 2.27 | 0 | 2.48, a foot |
+| crypt-skeleton | walk, 0.2 m/s, 10 s | 26 | 25 | 0.0196 / 0.0229 / 0.084 | 0.476 | 0.171 / 0.203 / 0.685 | 0 | 1.23, a foot |
+| workshop-fighter | Run, circle, 30 s | 79 | 79 | 0.00453 / 0.284 / 0.324 | 0.49 | 0.225 / 2.36 / 2.43 | 1 | 3.53, a foot |
+| workshop-fighter | Run, shuttle, 30 s | 79 | 75 | 0.00403 / 0.277 / 0.32 | 0.489 | 0.195 / 2.32 / 2.42 | 2 | 4.38, a foot |
+| workshop-rogue | Run, circle, 30 s | 79 | 79 | 0.0199 / 0.26 / 0.297 | 0.506 | 0.17 / 2.03 / 2.3 | 0 | 2.61, a foot |
+| workshop-rogue | Run, shuttle, 30 s | 79 | 76 | 0.0199 / 0.262 / 0.293 | 0.506 | 0.17 / 2.05 / 2.25 | 0 | 4.00, a foot |
+| crypt-skeleton | Run, circle, 30 s | 79 | 78 | 0.02 / 0.0234 / 0.292 | 0.482 | 0.17 / 0.204 / 2.3 | 0 | 1.47, a foot |
+| crypt-skeleton | Run, shuttle, 30 s | 79 | 78 | 0.0204 / 0.0228 / 0.276 | 0.475 | 0.17 / 0.203 / 2.23 | 0 | 1.87, a foot |
+| workshop-fighter | Routine, a loop of 10 targets, 67.8 s | 70 | 85 | 0.00633 / 0.268 / 1.26 | 0.507 | 0.213 / 2.09 / 2.3 | 1 | 12.6, a hand |
+| workshop-rogue | Routine, a loop of 10 targets, 67.9 s | 71 | 81 | 0.0108 / 0.243 / 0.299 | 0.507 | 0.168 / 1.92 / 3 | 0 | 12.8, a hand |
+| crypt-skeleton | Routine, to its fall at 20.3 s, 2 strikes | 28 | 34 | 0.017 / 0.0234 / 17 | 0.478 | 0.17 / 0.203 / 2.54 | 0 | 14.8, a hand |
+| workshop-fighter | Blow, 3.6 s, lands 119 J | | 1 | 0.0104 | 0.329 | 0.192 | 0 | 20.3, the club |
+
+The skeleton asked to walk at 0.5 m/s walks as it does at 0.2 m/s, row for row: its stance holds
+it to its envelope (1.64 m in the 10 s). The rogue's and the skeleton's Blow do not land (by 51
+and 26 cm); the skeleton's club reaches 18.1 m/s.
+
+The Routine's targets, each a ball hung as its strike begins (`src/lab/targets.ts`), touched the
+body that struck at them 9 times in the Warrior's loop, every one its hand (0.013 to 7.55 J, the
+median 0.56 J), and 10 times in the Rogue's, 8 its hand and 2 its forearm (0.0012 to 7.81 J, the
+median 1.67 J). The skeleton fell before it touched one.
+
+A shove from the front on a standing body, 20 to 60 N s, 4 s each: 13 of the 15 are caught, in 24
+recoveries, with 14 footfalls heard (0.066 to 1.13 J) and none under 0.0094 J. The fastest point
+is a catching foot at up to 6.1 m/s, over 5 m/s for at most 0.03 s. The rogue goes down at 50 and
+at 60 N s.
+
+A fall: 80 N s from the front on a standing body, read for 6 s.
+
+| Model | Down at, s | Touches on the ground while down | Loudest, J | Others over 5 J | The last, s | Fastest point going down, m/s | Fastest point while down, m/s |
+|---|---|---|---|---|---|---|---|
+| workshop-fighter | 2.18 | 13 | 32.3, a shank | none | 5.77 (0.006 J); the one before, 3.72 | 6.96, a foot | 10.4, a hand |
+| workshop-rogue | 0.33 | 20 | 26.8, the head | upper trunk 13.2, lower trunk 9.54, a hand 7.45 | 3.75 | 6.95, a foot | 13.6, a hand |
+| crypt-skeleton | 1.10 | 19 | 59, the lower trunk | the head 36.9 and 9.58, an upper arm 13.2, a forearm 10.2, a hand 9.94, the upper trunk 8.25 | 2.25 | 8.41, a foot | 11.8, a hand |
+
+Which part lands hardest turns on how the body goes down. A body that is down lies still: its
+touches come within 1.2 to 3.4 s of its going down, but for the fighter's lower trunk settling at
+5.77 s, and the skeleton's fall in the Routine is over sooner (18 touches within 1.1 s, the
+hardest its head's, 35.1 J).
+
+Three bouts (`scripts/fingerprint.mjs`'s; each ends at a fall), with both bodies heard. The
+bouts' digests are the ones they have unheard.
+
+| Bout | Seconds | Feet on the ground: left, right | Their energy, J: least / median / most | Under 0.0094 J | One body on the other | Energy, J: least / median / most | Closing, m/s: median | Fastest point, m/s: left, right |
+|---|---|---|---|---|---|---|---|---|
+| workshop-fighter v workshop-rogue | 20.28 | 20, 17 | 0.0188 / 0.224 / 0.313; 0.0176 / 0.223 / 2.77 | 0 | 3 | 12.5 / 13.4 / 54.4 | 6.78 | 19.9, 13.3, clubs |
+| crypt-skeleton v workshop-fighter | 11.88 | 16, 18 | 0.0188 / 0.0238 / 0.231; 0.00605 / 0.224 / 2.75 | 2 | 3 | 3.25 / 4.08 / 28.3 | 3.73 | 19.0, 19.2, clubs |
+| workshop-rogue v crypt-skeleton | 16.74 | 23, 22 | 0.00988 / 0.188 / 0.445; 0.0159 / 0.022 / 0.291 | 0 | 6 | 0.086 / 4.62 / 38.1 | 2.66 | 14.1, 18.2, clubs |
+
+A club's end is over 5 m/s for 0.4 to 1 s of a bout. The one other touch of the ground in the
+three is the skeleton's club on the floor, 9.66 J.
 
 ## Crypt camera
 

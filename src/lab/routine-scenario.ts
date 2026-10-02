@@ -64,9 +64,9 @@ export function routineScenario(scene: Scene): LabScenario {
     keys: new Set(),
     panels: { readout: [shown, targets] },
     timelineLabel: `The last ${HISTORY_SECONDS} seconds, one physics step a notch; dragging pauses. Arrow keys step once it has focus.`,
-    start({ actor, address, changed, clock }) {
+    start({ actor, address, changed, clock, hears }) {
       const { world } = actor, { built } = actor.body;
-      const routine = startRoutine(actor, { targets: address.targets, seed: address.seed });
+      const routine = startRoutine(actor, { targets: address.targets, seed: address.seed, hung: hears });
       const history = recordHistory(built, world, HISTORY_SECONDS, (): RoutineMoment => ({
         time: routine.time(), loops: routine.tactics.loops, fist: routine.fistSpeed(),
         closure: { left: routine.closure("left"), right: routine.closure("right") },

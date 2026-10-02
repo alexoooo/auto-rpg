@@ -24,8 +24,10 @@ import type { Vec3 } from "../spec/quantity.ts";
  *   other axis, linear and angular, is locked, and the two bodies it joins do not collide.
  * - **A motor is a velocity constraint bounded by a torque**: freedom k driven at a speed, with at
  *   most a ceiling of torque either way, as a hard constraint (no softness) the step enforces.
- * - **A contact is one the step pushed on**: `contactsOf` names another body only if the solver
- *   gave the touch between them an impulse in the last step, so a blow is read in the step it lands.
+ * - **A contact says whether the step pushed on it**: `contactsOf` names every body and every fixed
+ *   collider a body is in contact with, and the impulse the solver gave the touch between them in
+ *   the last step, which is 0 for two that are in contact and were not pushed apart. A blow is read
+ *   in the step it lands: the step it is first pushed.
  * - Solver settings that exist for the solver are the engine module's, named and sourced there, and
  *   kept out of the body's numbers.
  */
@@ -115,9 +117,9 @@ export interface EngineJoint {
   setMotor(k: number, speed: number, ceiling: number): void;
 }
 
-/** One pair of shapes that touched: this body's and the other's. */
+/** One pair of shapes the solver pushed apart: this body's and the other's. */
 export interface ContactPair {
-  /** Which of this body's shapes, and which of the other's, in the order `addBody` was given them. */
+  /** Which of this body's shapes, and which of the other's, in the order `addBody` was given them; a fixed collider is one shape, 0. */
   readonly mine: number;
   readonly theirs: number;
   /** Where they touch, world, m: the pair's solver contact points averaged. */
@@ -129,21 +131,27 @@ export interface ContactPair {
 }
 
 /**
- * **A body's touch with another dynamic body**, as the last step left it: one for each body it
- * touched, whatever colliders met.
+ * **A body's contact with another dynamic body or with a fixed collider**, as the last step left
+ * it: one for each body and each fixed collider it is in contact with, whatever colliders met. Two
+ * are in contact when the engine's narrow phase gives the solver a contact point between them:
+ * touching, or about to within the solver's margin.
  */
 export interface Contact {
-  readonly other: SegmentBody;
+  /** The body; null when it is a fixed collider. */
+  readonly other: SegmentBody | null;
+  /** The fixed collider, when `other` is null: a number that is that collider's for as long as it is in the world. */
+  readonly fixed: number | null;
   /**
-   * Where they touch, world, m: each touching pair of colliders' solver contact points averaged,
-   * and the pairs weighted by their impulse.
+   * Where they touch, world, m: each pair of colliders' solver contact points averaged, and the
+   * pairs the solver pushed on weighted by their impulse. Of a contact it did not push on, the
+   * pairs' plain average.
    */
   readonly point: Vec3;
-  /** The touch's normal, world, unit, from this body into the other. */
+  /** The contact's normal, world, unit, from this body into the other: the pairs' weighted as the point is. */
   readonly normal: Vec3;
-  /** The impulse the solver pushed them apart with in the last step, N s, along the normal. */
+  /** The impulse the solver pushed them apart with in the last step, N s, along the normal; 0 if it pushed nothing. */
   readonly impulse: number;
-  /** Each pair of shapes that touched, in this body's shapes' order, then the other's. */
+  /** Each pair of shapes the solver pushed on, in this body's shapes' order, then the other's; none if it pushed nothing. */
   readonly pairs: readonly ContactPair[];
 }
 
@@ -164,8 +172,15 @@ export interface PhysicsWorld {
   addFixedBox(centre: Vec3, size: Vec3, turn?: number): FixedCollider;
   /** A fixed collider of any shape a body takes (`ColliderShape`), its coordinates world. */
   addFixedShape(shape: ColliderShape): FixedCollider;
-  /** Every other dynamic body `body` touched in the last step (`Contact`); fixed colliders are not bodies. */
-  contactsOf(body: SegmentBody): readonly Contact[];
+  /**
+   * Everything `body` is in contact with as the last step left it (`Contact`): first what the
+   * solver pushed on, in the order its colliders met them, then what it did not. `wanted`, if
+   * given, is asked of each body near it, and of something fixed (null), before the contact
+   * between them is read: one it refuses is not read, and is not reported. Most of what is near
+   * a segment is its own body's neighbouring segments, so a reader that wants none of them reads
+   * a small part of what there is.
+   */
+  contactsOf(body: SegmentBody, wanted?: (other: SegmentBody | null) => boolean): readonly Contact[];
   /** One solver step of `dt`, then every body's node written from its body. */
   step(dt: number): void;
   /**

@@ -1,5 +1,5 @@
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import { buildBody } from "../core/build/build-body.ts";
+import { buildBody, type BuiltBody } from "../core/build/build-body.ts";
 import type { Hand } from "../core/control/motor.ts";
 import { cos, sin } from "../core/math/real.ts";
 import type { Sight } from "../core/mind/tactics.ts";
@@ -71,8 +71,8 @@ const DUMMY_PART = "head";
 
 /**
  * **A target's body**: one ball, the attacker's head's mass, its head capsule's radius and its
- * head's surface, named `head`, with the attacker's hit points in it and never coming off. Every number is the
- * attacker's own, by a rule that names it. Its frame's origin is the ball's centre, so its node is
+ * head's surface, made of what the attacker is, named `head`, with the attacker's hit points in it
+ * and never coming off. Every number is the attacker's own, by a rule that names it. Its frame's origin is the ball's centre, so its node is
  * where it is.
  */
 export function dummySpec(attacker: BodySpec): BodySpec {
@@ -82,7 +82,7 @@ export function dummySpec(attacker: BodySpec): BodySpec {
   const radius = derive("m", "the attacker's head capsule's radius", [head.shape.radius], (r) => r);
   const centre = derive("m", "the ball's centre, its frame's origin", [], (): Vec3 => [0, 0, 0]);
   return {
-    family: "dummy", model: `${attacker.model}.dummy`, mass,
+    family: "dummy", model: `${attacker.model}.dummy`, substance: attacker.substance, mass,
     stature: derive("m", "the ball's height, twice its radius", [radius], (r) => 2 * r),
     segments: [{
       name: DUMMY_PART, proximal: centre, mass, centreOfMass: centre,
@@ -215,16 +215,17 @@ interface TargetRead {
  * after the strike's pushes end. Until its strike begins a target is a place and no body: nothing
  * stands in the way of the walk to it. `step(sight)` is called from the actor's watch each
  * control step, and returns the reading once, when it closes. A body that goes down is no longer
- * stepped by its tactics, so whatever steps the world closes the reading then (`fall`).
+ * stepped by its tactics, so whatever steps the world closes the reading then (`fall`). `hung` is
+ * told the dummy's body as it is hung, and what it returns is disposed with the dummy.
  */
-export function readTarget(actor: Actor, target: Target, hand: Hand, rules: Rulebook): TargetRead {
+export function readTarget(actor: Actor, target: Target, hand: Hand, rules: Rulebook, hung?: (built: BuiltBody) => { dispose(): void }): TargetRead {
   const { world, body } = actor, built = body.built;
   const spec = dummySpec(built.spec), radius = ballOf(spec).radius.value;
   const striking = built.segments.get(`hand.${hand}`);
   if (!striking) throw new Error(`${built.spec.model} has no ${hand} hand`);
   const segments = [...built.segments.values()];
   const asked = world.time;
-  let up: { readonly dummy: Dummy; readonly watch: BlowWatch } | null = null;
+  let up: { readonly dummy: Dummy; readonly watch: BlowWatch; readonly told: { dispose(): void } | null } | null = null;
   const fist = body.view.fists[hand];
   let strike: { -readonly [K in keyof ThrownStrike]: ThrownStrike[K] } | null = null, nearest: number | null = null;
   /** The hand's strikes thrown before this one, once it has begun; and when its pushes ended. */
@@ -257,7 +258,7 @@ export function readTarget(actor: Actor, target: Target, hand: Hand, rules: Rule
         if (!up && segments.every((segment) => segment.body.gapTo(target.at) - radius > TARGET_CLEAR)) {
           const dummy = hangDummy(world, spec, target.at, rules);
           const attacker: Fighter = { id: "attacker", side: "attacker", built, pool: createPool(built.spec, rules) };
-          up = { dummy, watch: watchBlows(world, [attacker, dummy.fighter], rules) };
+          up = { dummy, watch: watchBlows(world, [attacker, dummy.fighter], rules), told: hung?.(dummy.fighter.built) ?? null };
         }
       }
       const gap = Math.max(0, striking.body.gapTo(centre()) - radius);
@@ -267,6 +268,7 @@ export function readTarget(actor: Actor, target: Target, hand: Hand, rules: Rule
     },
     fall: () => reading(true),
     dispose() {
+      up?.told?.dispose();
       up?.watch.dispose();
       up?.dummy.dispose();
     },

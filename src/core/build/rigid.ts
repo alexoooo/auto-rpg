@@ -57,7 +57,7 @@ function placedShape(held: HeldSpec, shape: ItemShape): ShapeSpec {
 }
 
 /** What `segment` of `spec` holds. */
-const heldBy = (spec: BodySpec, segment: string): readonly HeldSpec[] =>
+export const heldBy = (spec: BodySpec, segment: string): readonly HeldSpec[] =>
   (spec.held ?? []).filter((held) => held.segment === segment);
 
 /**

@@ -1,11 +1,16 @@
-import { ImpactInbox, soundPlacement, type ImpactCue, type SoundKind, type SoundPoint } from "./cues.ts";
+import { CueInbox, soundPlacement, swishStrength, type SoundCue, type SoundKind, type SoundPoint } from "./cues.ts";
 
 const STORAGE = "auto-rpg-sound-v1";
-type Voice = { source: AudioBufferSourceNode; gain: GainNode; pan: StereoPannerNode };
-/** Everything the page synthesizes: a blow's surface, what a severed part scatters, and the crypt's air, fire and drips. */
-type Sound = SoundKind | "air" | "fire" | "drip" | "debris";
+/** A playing sound: its nodes, and the gain it was played at. */
+type Voice = { source: AudioBufferSourceNode; gain: GainNode; pan: StereoPannerNode; level: number };
+/** A body's air: its looping voice, and what the page last gave of it. */
+type Air = { voice: Voice; strength: number; point: SoundPoint; given: boolean };
+/** Everything the page synthesizes: a touch's surface, what a severed part scatters, a body's air, and the crypt's air, fire and drips. */
+type Sound = SoundKind | "air" | "fire" | "drip" | "debris" | "swish";
 /** Each sound's length, s; a loop's is its period. Set by ear (`docs/reference/look.md#sound`). */
-const SOUND_SECONDS: Readonly<Record<Sound, number>> = { bone: .26, body: .26, shield: .26, debris: .4, drip: .26, air: 6, fire: 6 };
+const SOUND_SECONDS: Readonly<Record<Sound, number>> = { bone: .26, body: .26, shield: .26, debris: .4, drip: .26, air: 6, fire: 6, swish: 3 };
+/** The sounds that loop: their buffers have no attack or tail, and fade through their seam. */
+const LOOPS: ReadonlySet<Sound> = new Set<Sound>(["air", "fire", "swish"]);
 /**
  * The mix, set by ear (`docs/reference/look.md#sound`). A gain is a share of full scale; a time is in seconds unless
  * it says ms.
@@ -22,9 +27,12 @@ const MIX = Object.freeze({
   air: .06, fires: 3, fire: .12, ambienceSeconds: .3,
   /** A drip, and the wait before the first and between two, ms: `least` and a draw of up to `spread` more. */
   drip: { gain: .065, first: { least: 4000, spread: 5000 }, next: { least: 5000, spread: 8000 } },
-  /** A blow placed quieter than this plays nothing. */
+  /** A body's air (`GameAudio.swish`): at full strength its gain is `gain` and its pitch `least` and `spread` of its
+   * buffer's; both follow its strength with the time constant `seconds`. */
+  swish: { gain: .3, least: .7, spread: .8, seconds: .04 },
+  /** A cue placed quieter than this plays nothing. */
   audible: .001,
-  /** A blow's gain before its placement: `floor` and `perStrength` of its strength; what a severed part scatters,
+  /** A touch's gain before its placement: `floor` and `perStrength` of its strength; what a severed part scatters,
    * `debris` of the strength. */
   impact: { floor: .08, perStrength: .5, debris: .18 },
   /** A voice's playback rate, `least` and a draw of up to `spread` more: a loop's, and a one-shot's. */
@@ -43,7 +51,9 @@ export class GameAudio {
   private buffers = new Map<Sound, AudioBuffer>();
   private voices = new Set<Voice>();
   private ambience: Voice[] = [];
-  private inbox = new ImpactInbox();
+  /** Each body's air, by its key. */
+  private airs = new Map<string, Air>();
+  private inbox = new CueInbox();
   private active = false;
   private disposed = false;
   private failed = false;
@@ -62,20 +72,23 @@ export class GameAudio {
   private random = () => { let x = this.randomState; x ^= x << 13; x ^= x >>> 17; x ^= x << 5;
     this.randomState = x; return (x >>> 0) / 4294967296; };
 
-  constructor(dungeon = false) {
+  /** `mount`, if given, takes the volume control in line with what it holds; without one it sits in the page's corner. */
+  constructor(dungeon = false, mount?: HTMLElement) {
     this.dungeon = dungeon;
     try { const saved = JSON.parse(localStorage.getItem(STORAGE) ?? "null");
       if (typeof saved?.muted === "boolean") this.muted = saved.muted;
       if (typeof saved?.volume === "number" && Number.isFinite(saved.volume)) this.volume = Math.max(0, Math.min(1, saved.volume));
     } catch { /* Storage is optional. */ }
     this.panel = document.createElement("div"); this.panel.className = "game-sound";
-    this.panel.style.cssText = "position:fixed;bottom:12px;right:12px;z-index:100;display:flex;align-items:center;gap:8px;padding:7px 10px;border:1px solid #706654;border-radius:6px;background:#181815ed;color:#e9dfc7;font:12px system-ui;pointer-events:auto";
+    this.panel.style.cssText = mount ? "display:flex;align-items:center;gap:8px;font:12px system-ui;white-space:nowrap;pointer-events:auto"
+      : "position:fixed;bottom:12px;right:12px;z-index:100;display:flex;align-items:center;gap:8px;padding:7px 10px;border:1px solid #706654;border-radius:6px;background:#181815ed;color:#e9dfc7;font:12px system-ui;pointer-events:auto";
     this.button = document.createElement("button"); this.button.type = "button";
     this.button.style.cssText = "font:inherit;color:inherit;background:transparent;border:0;cursor:pointer";
     const label = document.createElement("label"); label.textContent = "Volume ";
+    if (mount) label.style.cssText = "display:flex;align-items:center;gap:6px";
     const slider = document.createElement("input"); slider.type = "range"; slider.min = "0"; slider.max = "100"; slider.value = String(this.volume * 100);
     slider.setAttribute("aria-label", "Sound volume"); slider.style.width = "80px";
-    label.append(slider); this.panel.append(this.button, label); document.body.append(this.panel);
+    label.append(slider); this.panel.append(this.button, label); (mount ?? document.body).append(this.panel);
     const signal = this.abort.signal;
     this.button.addEventListener("click", () => { this.muted = !this.muted; this.save(); void this.unlock(); this.button.blur(); }, { signal });
     slider.addEventListener("input", () => { this.volume = Number(slider.value) / 100; this.save(); void this.unlock(); }, { signal });
@@ -126,9 +139,20 @@ export class GameAudio {
     if (!active) this.reset();
     this.refreshGain();
   }
-  /** Queue a cue the page read itself (`blowCue`). */
-  cue(cue: ImpactCue | null): void {
+  /** Queue a cue the page read (`hearTouches`, `impactCue`, `debrisCues`). */
+  cue(cue: SoundCue | null): void {
     if (cue && this.ready()) this.inbox.add(cue, performance.now());
+  }
+  /**
+   * The air of the body `key` this frame: its fastest point's speed, m/s, and where that is
+   * (`airOf`). A body has one looping voice, made when its air is first heard and stopped at the
+   * next `update` it is not given before, or is given still.
+   */
+  swish(key: string, speed: number, point: SoundPoint): void {
+    if (!this.ready()) return;
+    const strength = swishStrength(speed), air = this.airs.get(key);
+    if (air) { air.strength = strength; air.point = { x: point.x, z: point.z }; air.given = true; }
+    else if (strength > 0) this.airs.set(key, { voice: this.play("swish", 0, 0, true), strength, point: { x: point.x, z: point.z }, given: true });
   }
   private ready(): boolean { return this.active && !this.muted && this.volume > 0 && !this.failed && this.context?.state === "running"; }
   setView(listener: SoundPoint, toward: SoundPoint, torches: readonly SoundPoint[] = []): void {
@@ -143,6 +167,15 @@ export class GameAudio {
     if (!this.ready()) { this.inbox.clear(); return; }
     const now = performance.now();
     for (const cue of this.inbox.drain(now)) this.impact(cue);
+    for (const [key, air] of this.airs) {
+      const { voice } = air, at = this.context!.currentTime;
+      if (!air.given || air.strength === 0) { this.stop(voice); this.airs.delete(key); continue; }
+      const place = soundPlacement(air.point, this.listener, this.toward, this.dungeon);
+      voice.gain.gain.setTargetAtTime(MIX.swish.gain * air.strength * place.gain, at, MIX.swish.seconds);
+      voice.source.playbackRate.setTargetAtTime(MIX.swish.least + MIX.swish.spread * air.strength, at, MIX.swish.seconds);
+      voice.pan.pan.setTargetAtTime(place.pan, at, MIX.swish.seconds);
+      air.given = false;
+    }
     if (!this.dungeon) return;
     if (!this.ambience.length) {
       this.ambience.push(this.play("air", MIX.air, 0, true));
@@ -157,12 +190,26 @@ export class GameAudio {
     }
     if (now >= this.nextDrip) { if (this.voices.size < VOICES) this.play("drip", MIX.drip.gain, 0); this.nextDrip = now + MIX.drip.next.least + this.random() * MIX.drip.next.spread; }
   }
-  private impact(cue: ImpactCue): void {
-    if (this.voices.size >= VOICES) return;
+  private impact(cue: SoundCue): void {
     const place = soundPlacement(cue.point, this.listener, this.toward, this.dungeon);
     if (place.gain <= MIX.audible) return;
-    this.play(cue.kind, (MIX.impact.floor + cue.strength * MIX.impact.perStrength) * place.gain, place.pan);
-    if (cue.severed && this.voices.size < VOICES) this.play("debris", cue.strength * MIX.impact.debris * place.gain, place.pan);
+    const level = this.level(cue) * place.gain;
+    if (this.voices.size >= VOICES) {
+      // Every voice is playing: a louder cue takes the quietest one's place, and a quieter one is dropped.
+      let quietest: Voice | null = null;
+      for (const voice of this.voices) if (!quietest || voice.level < quietest.level) quietest = voice;
+      if (!quietest || level <= quietest.level) return;
+      this.stop(quietest); this.voices.delete(quietest);
+    }
+    this.play(cue.kind, level, place.pan);
+  }
+  /** `cue`'s gain before its placement (`MIX.impact`). */
+  private level(cue: SoundCue): number {
+    switch (cue.kind) {
+      case "bone": case "body": case "shield": return MIX.impact.floor + cue.strength * MIX.impact.perStrength;
+      case "debris": return cue.strength * MIX.impact.debris;
+      default: { const never: never = cue.kind; throw new Error(`no gain for a cue of ${String(never)}`); }
+    }
   }
   private play(kind: Sound, volume: number, pan: number, loop = false): Voice {
     const ctx = this.context!, source = ctx.createBufferSource(), gain = ctx.createGain(), panner = ctx.createStereoPanner();
@@ -170,7 +217,7 @@ export class GameAudio {
     source.buffer = this.buffer(kind); source.loop = loop; source.playbackRate.value = rate.least + this.random() * rate.spread;
     gain.gain.value = volume; panner.pan.value = pan;
     source.connect(gain); gain.connect(panner); panner.connect(this.master!); if (this.reverb && !loop) panner.connect(this.reverb);
-    const voice = { source, gain, pan: panner };
+    const voice = { source, gain, pan: panner, level: volume };
     if (!loop) this.voices.add(voice);
     source.onended = () => { this.voices.delete(voice); source.disconnect(); gain.disconnect(); panner.disconnect(); };
     source.start(0, loop ? this.random() * source.buffer.duration : 0);
@@ -178,18 +225,19 @@ export class GameAudio {
   }
   private buffer(kind: Sound): AudioBuffer {
     const cached = this.buffers.get(kind); if (cached) return cached;
-    const ctx = this.context!, loop = kind === "air" || kind === "fire";
+    const ctx = this.context!, loop = LOOPS.has(kind);
     const duration = SOUND_SECONDS[kind];
     const buffer = ctx.createBuffer(1, Math.ceil(duration * ctx.sampleRate), ctx.sampleRate), data = buffer.getChannelData(0);
-    let low = 0;
+    let low = 0, under = 0;
     for (let i = 0; i < data.length; i++) {
       const t = i / ctx.sampleRate, noise = this.random() * 2 - 1;
       low += (noise - low) * (kind === "air" ? .008 : .12);
+      under += (noise - under) * .02;
       const attack = Math.min(1, t / .002), tail = Math.min(1, (duration - t) / .02);
       let value: number;
       // Each sound is its own formula, set by ear (`docs/reference/look.md#sound`).
       switch (kind) {
-        // What a clash plays (`blowCue`): held wood on held wood, damped by the grips and the
+        // What wood plays (`voiceOf`): held wood on held wood, damped by the grips and the
         // bodies behind them. A broad crack and a low thump, with no long, high partials.
         case "shield": value = noise * .38 * Math.exp(-t * 150) + low * 1.1 * Math.exp(-t * 32)
           + Math.sin(t * 2 * Math.PI * 145) * .3 * Math.exp(-t * 35)
@@ -201,6 +249,8 @@ export class GameAudio {
         case "drip": value = Math.sin(2 * Math.PI * (650 * t + 1800 * t * t)) * .3 * Math.exp(-t * 28); break;
         case "air": value = low * 2; break;
         case "fire": value = low * .35 + (this.random() > .997 ? noise * .6 : 0); break;
+        // A body's air: noise between two low-passes, a band a whoosh has and a rumble or a hiss has not.
+        case "swish": value = (low - under) * 1.6; break;
         default: { const never: never = kind; throw new Error(`no sound ${String(never)}`); }
       }
       data[i] = value * (loop ? 1 : attack * tail);
@@ -209,14 +259,16 @@ export class GameAudio {
     if (loop) { const n = Math.floor(ctx.sampleRate * .05); for (let i = 0; i < n; i++) { const a = i / n; data[i] *= a; data[data.length - 1 - i] *= a; } }
     this.buffers.set(kind, buffer); return buffer;
   }
+  /** Fade `voice` out and stop it. */
+  private stop(voice: Voice): void {
+    const ctx = this.context;
+    if (ctx) { voice.gain.gain.cancelScheduledValues(ctx.currentTime); voice.gain.gain.setTargetAtTime(0, ctx.currentTime, MIX.fade); }
+    try { voice.source.stop((ctx?.currentTime ?? 0) + MIX.stop); } catch { /* Already stopped. */ }
+  }
   reset(): void {
     this.inbox.clear();
-    const ctx = this.context;
-    for (const voice of [...this.voices, ...this.ambience]) {
-      if (ctx) { voice.gain.gain.cancelScheduledValues(ctx.currentTime); voice.gain.gain.setTargetAtTime(0, ctx.currentTime, MIX.fade); }
-      try { voice.source.stop((ctx?.currentTime ?? 0) + MIX.stop); } catch { /* Already stopped. */ }
-    }
-    this.voices.clear(); this.ambience = [];
+    for (const voice of [...this.voices, ...this.ambience, ...[...this.airs.values()].map((air) => air.voice)]) this.stop(voice);
+    this.voices.clear(); this.ambience = []; this.airs.clear();
   }
   dispose(): void {
     if (this.disposed) return;

@@ -45,6 +45,9 @@ takes most of its own punch to a head and little of one to a chest. A held weapo
 costs its holder nothing: what a club strikes takes the whole blow, a bare hand that meets a
 club takes all of it, and two clubs meeting wound nobody.
 
+The bout is heard until its verdict: footfalls, the air of a swing, a club on a body or on the
+other club, a body against a wall. The verdict silences it, the deciding blow included.
+
 You watch, or you take a side: pick it under **You fight as**, or open
 `?play=arena&matchup=workshop-fighter,workshop-rogue&you=left`. Your side then does what you
 order and nothing else: it does not attack unasked. It turns only while it walks, so walk to
@@ -76,7 +79,8 @@ again by itself.
 Choose **New Game**, then the dungeon, your hero (Warrior, Rogue or Skeleton), up to three
 companions and a seed, and walk to the exit's green ring. Everybody carries a club; the enemies are
 skeletons, built and woken as the party comes near. The run is won when anybody standing reaches
-the exit and lost when the whole party is down.
+the exit and lost when the whole party is down. What the party sees it hears: footfalls, swings,
+blows and falls, nearer ones louder, over the torches and the drips.
 
 The dungeons:
 - **Generated depths** (the default): a floor of rooms and corridors after Diablo's Cathedral.
@@ -114,6 +118,11 @@ boots and armour, its mind, whether it lies or tries to rise once it is down (**
 ends on knees and hands) and the strikes it may throw, the camera (Free, Isometric or Chase), the
 view, and 120 or 480 Hz; one logs what the mind decides. The transport pauses (Space), steps one
 physics step at a time, scrubs, and slows time to 1/4 or 1/10.
+
+The body is heard: its footfalls, its landing when it falls, a shove, the air of a swing and the
+club on the head. A replay sounds as the run did; paused, scrubbing or seeking, the page is
+silent. The volume is at the end of the transport, and a browser plays nothing until the page has
+had a click or a key.
 
 ## The other pages
 

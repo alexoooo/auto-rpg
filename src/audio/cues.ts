@@ -1,19 +1,29 @@
-import type { BodyModel } from "../core/human/spec.ts";
-import { isClash, woundedIn, type LandedBlow } from "../core/rules/blows.ts";
+import type { BuiltBody, BuiltSegment } from "../core/build/build-body.ts";
+import { heldBy } from "../core/build/rigid.ts";
+import { woundedIn, type LandedBlow } from "../core/rules/blows.ts";
+import type { Substance } from "../core/spec/body.ts";
 
+/** The voices a touch has: on bone, on flesh, and on wood. */
 export type SoundKind = "bone" | "body" | "shield";
-/** What each body sounds like when struck. */
-export const SURFACE_SOUND: Readonly<Record<BodyModel, SoundKind>> = Object.freeze({
-  "workshop-fighter": "body", "workshop-rogue": "body", "crypt-skeleton": "bone",
-});
 export interface SoundPoint { x: number; z: number }
-export interface ImpactCue { key: string; kind: SoundKind; strength: number; severed: boolean; point: SoundPoint }
 /**
- * How loud a blow is: its strength is the square root of its energy over `joules`, J, capped at 1, and
- * one weaker than `floor` makes no sound. Set, and measured against no bout's blows
- * (`docs/reference/look.md#sound`).
+ * A sound to play: the pair it is of (`key`), its voice, how loud from 0 to 1, and where. Its
+ * voice is a touch's, or `debris`: what a blow took off, scattering (`debrisCues`).
  */
-const CUE = Object.freeze({ joules: 60, floor: .035 });
+export interface SoundCue { key: string; kind: SoundKind | "debris"; strength: number; point: SoundPoint }
+/**
+ * How loud a touch is: its strength is the square root of its energy over `joules`, J, capped at 1,
+ * and one weaker than `floor` makes no sound. `joules` is over the hardest blow of three bouts, and
+ * `floor` between a sole laid down and the quietest footfall (`docs/reference/look.md#sound`).
+ */
+const CUE = Object.freeze({ joules: 60, floor: .0125 });
+
+/**
+ * A body's air: none while its fastest point moves at `from`, m/s, or slower, all of it at `full`,
+ * and in proportion between. `from` is over the fastest foot of a walk or the Run, and `full` is a
+ * club's end in a blow (`docs/reference/look.md#sound`).
+ */
+const SWISH = Object.freeze({ from: 5, full: 20 });
 
 /**
  * The inbox's bounds, numeric settings that keep a fast simulation from flooding the audio clock: a
@@ -29,35 +39,64 @@ const INBOX = Object.freeze({ coalesce: 60, stale: 200, pending: 64, most: 12 })
  */
 const PLACEMENT = Object.freeze({ panMetres: 10, panMost: .85, reach: 18 });
 
-/**
- * The cue for a blow (`LandedBlow`) on a body of `struck`'s surface, as loud as `CUE` makes it.
- * A clash, a blow that wounded nobody (`isClash`, `src/core/rules/blows.ts`), plays the `shield`
- * knock whatever the bodies are made of: a wooden club on a wooden club. Its key is the two sides'
- * fighters.
- */
-export function blowCue(blow: LandedBlow, struck: SoundKind): ImpactCue | null {
-  const strength = Math.sqrt(Math.max(0, blow.energy) / CUE.joules);
-  if (!Number.isFinite(strength) || strength < CUE.floor) return null;
-  return { key: `${blow.sides[0].fighter}:${blow.sides[1].fighter}`, kind: isClash(blow) ? "shield" : struck, strength: Math.min(1, strength),
-    severed: woundedIn(blow).some((side) => side.wound.severed.length > 0), point: { x: blow.point[0], z: blow.point[2] } };
+/** What things are made of, softest first: the softer of two that meet decides the voice. */
+const SOFTNESS: readonly Substance[] = Object.freeze(["flesh", "bone", "wood", "stone"]);
+
+/** The voice of `a` meeting `b`: the softer one's. Stone has none of its own, and two stones never meet. */
+export function voiceOf(a: Substance, b: Substance): SoundKind {
+  const softer = SOFTNESS.indexOf(a) <= SOFTNESS.indexOf(b) ? a : b;
+  switch (softer) {
+    case "flesh": return "body";
+    case "bone": return "bone";
+    case "wood": return "shield";
+    case "stone": throw new Error("stone on stone has no voice: nothing fixed meets something fixed");
+    default: { const never: never = softer; throw new Error(`no voice for a thing of ${String(never)}`); }
+  }
 }
 
 /**
- * The cues for a blow: a clash's one knock, or one for each side it wounded, on that side's
- * surface (`surfaceOf` its fighter; a fighter it does not know is not heard).
+ * What `segment` of `built` is made of: what it holds, if it holds anything (the two are one rigid
+ * body, and sound as the item whichever of them met), and else what its body is made of.
  */
-export function blowCues(blow: LandedBlow, surfaceOf: (fighter: string) => SoundKind | null): ImpactCue[] {
-  const kinds = isClash(blow) ? ["shield" as const] : woundedIn(blow).map((side) => surfaceOf(side.fighter));
-  return kinds.flatMap((kind) => {
-    const cue = kind && blowCue(blow, kind);
+export function substanceOf(built: BuiltBody, segment: BuiltSegment): Substance {
+  const [held] = heldBy(built.spec, segment.spec.name);
+  const substance = held ? held.item.substance : built.spec.substance;
+  if (!SOFTNESS.includes(substance)) throw new Error(`${held ? held.item.name : built.spec.model} does not say what it is made of`);
+  return substance;
+}
+
+/**
+ * The cue for `energy`, J, in the voice `kind`, of the pair `key` at `point`: as loud as `CUE`
+ * makes it, and none for one too quiet to hear.
+ */
+export function impactCue(key: string, kind: SoundCue["kind"], energy: number, point: SoundPoint): SoundCue | null {
+  const strength = Math.sqrt(Math.max(0, energy) / CUE.joules);
+  if (!Number.isFinite(strength) || strength < CUE.floor) return null;
+  return { key, kind, strength: Math.min(1, strength), point: { x: point.x, z: point.z } };
+}
+
+/** How much of its air a body whose fastest point moves at `speed`, m/s, makes, from 0 to 1 (`SWISH`). */
+export function swishStrength(speed: number): number {
+  return Math.max(0, Math.min(1, (speed - SWISH.from) / (SWISH.full - SWISH.from)));
+}
+
+/**
+ * The cues for what `blow` took off (`Wound.severed`), one for each side it took something off:
+ * debris, as loud as that side's share of the blow's energy makes it. The blow itself is a touch,
+ * and is heard as one (`hearTouches`); each of these is of a pair of its own, so it plays beside
+ * it.
+ */
+export function debrisCues(blow: LandedBlow): SoundCue[] {
+  return woundedIn(blow).flatMap((side) => {
+    const cue = side.wound.severed.length ? impactCue(`${side.fighter}:debris`, "debris", side.share * blow.energy, { x: blow.point[0], z: blow.point[2] }) : null;
     return cue ? [cue] : [];
   });
 }
 
 /** A bounded wall-clock inbox: a fast simulation cannot flood the audio clock. */
-export class ImpactInbox {
-  private pending = new Map<string, { cue: ImpactCue; at: number }>();
-  add(cue: ImpactCue, now: number): void {
+export class CueInbox {
+  private pending = new Map<string, { cue: SoundCue; at: number }>();
+  add(cue: SoundCue, now: number): void {
     const old = this.pending.get(cue.key);
     if (old && now - old.at < INBOX.coalesce) {
       if (cue.strength > old.cue.strength) old.cue = cue;
@@ -67,8 +106,8 @@ export class ImpactInbox {
     if (this.pending.size >= INBOX.pending) this.pending.delete(this.pending.keys().next().value!);
     this.pending.set(cue.key, { cue, at: now });
   }
-  drain(now: number): ImpactCue[] {
-    const ready: ImpactCue[] = [];
+  drain(now: number): SoundCue[] {
+    const ready: SoundCue[] = [];
     for (const [key, entry] of this.pending) {
       const age = now - entry.at;
       if (age < INBOX.coalesce) continue;

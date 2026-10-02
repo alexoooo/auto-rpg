@@ -1,5 +1,6 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { Body } from "../core/body.ts";
+import type { BuiltSegment } from "../core/build/build-body.ts";
 import type { StancePhase } from "../core/control/stance.ts";
 import { GUARD_ACTION, type Intent } from "../core/mind/intent.ts";
 import type { Tactics } from "../core/mind/tactics.ts";
@@ -101,8 +102,12 @@ function stanceTactics(orders: StanceOrders): Tactics {
   };
 }
 
-/** Stand `actor`'s body, a human in its reference pose on the ground, facing +z, on its feet, driven by the page's orders. */
-export function startStance(actor: Actor): StanceSession {
+/**
+ * Stand `actor`'s body, a human in its reference pose on the ground, facing +z, on its feet,
+ * driven by the page's orders. `pushed` is told of each shove as it is applied: the segment
+ * pushed, the impulse, N s, and where, world.
+ */
+export function startStance(actor: Actor, pushed?: (segment: BuiltSegment, impulse: Vector3, at: Vector3) => void): StanceSession {
   const { body, world } = actor, built = body.built;
   const trunk = built.segments.get("middleTrunk");
   if (!trunk) throw new Error(`${built.spec.model} has no middle trunk to shove`);
@@ -117,6 +122,7 @@ export function startStance(actor: Actor): StanceSession {
     const com = trunk.rigid.centre, o = trunk.frame.origin;
     at.set(com[0] - o[0], com[1] - o[1], com[2] - o[2]).applyRotationQuaternionToRef(turn, at).addInPlace(trunk.node.position);
     trunk.body.applyImpulse(shove, at);
+    pushed?.(trunk, shove, at);
     shove = null;
   });
 

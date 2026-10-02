@@ -149,12 +149,18 @@ itself, and in 180 s it has not left many enemies behind: none to two are held a
 segment that has a fighter of another side given after its own, where a watch of the hands alone
 asked for two a fighter. The run gives its party first, the fewer bodies. Seed 4 with two
 Warriors following, 120 s, `PhysicsWorld.contactsOf` timed by a wrapper in a script that is not
-kept (Node, Rapier, 120 Hz):
+kept (Node, Rapier, 120 Hz), with every pair near a segment read:
 
 | The watch is given | Bodies read a step | A read, µs | The reads, ms a step |
 |---|---|---|---|
 | the party, then the enemies | 48 | 5.3 | 0.25 |
 | the enemies, then the party | 109 | 5.3 | 0.58 |
+
+The watch refuses a pair it does not want before the engine reads it (`wanted`,
+`PhysicsWorld.contactsOf`), as a listener does ([below](#hearing-in-the-step)): most of what is
+near a segment is its own body's. The same run, the party first, the process held to three
+performance cores: 48 bodies read a step at 1.6 µs a read, 0.08 ms a step, where every pair read
+took 5.8 µs and 0.28 ms.
 
 The step with the hands alone read and with every segment read, the party first: the same runs
 (a wound changes no body's course while its fighter stands, and each row's other columns are the
@@ -176,8 +182,62 @@ node research/crypt-step.mjs --companions 2
 | 2 | 3 | playing | 120 | 2 | 3.08 | 3.21 | 4.18 | 4.39 |
 | 2 | 4 | playing | 120 | 4 | 3.40 | 3.66 | 4.80 | 5.07 |
 
-Every segment read costs a step 1 to 5 % alone and 4 to 8 % with two following: 0.02 to
-0.26 ms. The hands' column is `80b2f84e`'s.
+Every segment read, and every pair near it, costs a step 1 to 5 % alone and 4 to 8 % with two
+following: 0.02 to 0.26 ms. The hands' column is `80b2f84e`'s and the other `cac25ccc`'s; with
+the pairs it does not want refused, the watch gives 0.2 ms of that back on seed 4 with two
+following.
+
+## Hearing in the step
+
+`src/dungeon/hearing.ts`. A page hears every body its run has built (`hearRun`): one watch of
+touches over all of their segments, beside the run's own watch of blows over the party's, and
+each body's air.
+
+Harness: Node, a crypt run with no visuals, the core world, Rapier, 120 Hz; the hero exploring a
+generated level with three Warriors following, for 120 s. A seed is played twice in one process,
+unheard and heard, a step of each by turns, and the script refuses a pair that ends as two runs.
+Heard is as a page hears it, by a listener that does nothing with what it is given, and with the
+air asked every step where a page asks once a frame. The process is held to three performance
+cores of the development host (an i7-13700H: six performance cores, eight efficiency ones) at
+high priority. Left to the scheduler it is moved onto the efficiency cores for seconds at a time:
+the same unheard step then reads 12 to 23 ms, and the share between the two runs is lost in it
+(one reading of 30 s gave -7.8 %).
+
+```powershell
+cmd /c "start /b /wait /high /affinity 54 node research/crypt-step.mjs --seeds 1,2,3,4 --seconds 120 --companions 3 --listen"
+```
+
+| Seed | The run | Seconds | Enemies | Bodies built at the end | The most built | Held | Out of the fight | A step, ms | In its slowest second, ms | Of real time, % | Heard: a step, ms | In its slowest second, ms | Hearing, % of the unheard step |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | playing | 120 | 8 | 8 | 8 | 1 | 2 | 4.34 | 6.09 | 73 | 4.72 | 6.62 | 8.6 |
+| 2 | playing | 120 | 8 | 7 | 7 | 1 | 2 | 4.73 | 7.13 | 86 | 5.17 | 8.07 | 9.4 |
+| 3 | playing | 120 | 8 | 8 | 8 | 0 | 2 | 6.04 | 11.17 | 134 | 6.54 | 11.58 | 8.3 |
+| 4 | playing | 120 | 8 | 8 | 8 | 0 | 5 | 4.60 | 6.96 | 83 | 5.09 | 7.27 | 10.5 |
+
+Hearing costs 8.3 to 10.5 % of a step, 9 % over the four runs. Another reading of the same four
+gave 9.0, 9.4, 7.7 and 10.7 %. Seed 4, where five bodies lie out of the fight, is the dearest,
+and stands at a tenth. The machine was in use through both readings, which shows in the steps
+(seed 3's is 6.04 ms in one and 4.19 ms in the other); the share between a pair's two runs, a
+step of each by turns, holds.
+
+Nearly all of it is asking the engine what is near each segment. A profile of seed 4's pair over
+90 s (Node `--cpu-prof`, the two runs in one profile, so a run is half of it): the watches of
+touches, three of them (each run's blows, and the heard run's listener), take 6.9 % of the time.
+Of that, 5.4 is the engine's reader (`contactsOf`, `src/core/engine/rapier.ts`), 4.5 of it
+Rapier's own list of what is near a shape; 0.5 is remembering each segment's velocity for the
+next step and 0.3 is pricing the touches that landed. Asking every body's air takes 0.3.
+
+The engine's reader refuses a pair before it reads it (`wanted`, `PhysicsWorld.contactsOf`).
+Over 120 s of seed 1 with three following (Node), the 5 to 8 bodies built have 110 segments a
+step and 640 pairs near them (403 to 815, the 5th to the 95th per cent of the steps): 27 are with
+something fixed (12 to 43), and 563 lie between a body's own neighbouring segments, which no
+watch wants. Reading a pair makes objects of Rapier's for its manifold: a body's contacts read
+with every pair near it take 5.8 µs, and with the unwanted ones refused 1.6 µs
+([above](#bodies-in-the-step)).
+
+What is left is the asking: with eight bodies, 144 segments a step, and a call out of Rapier for
+each pair near one. Rapier can tell of a contact as it starts and as it ends instead; a watch on
+that would read only what began. It is not built ([roadmap](../roadmap.md)).
 
 ## Targets
 

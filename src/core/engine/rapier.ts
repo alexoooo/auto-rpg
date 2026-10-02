@@ -286,22 +286,32 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions):
         .setRotation({ x: 0, y: sin(turn / 2), z: 0, w: cos(turn / 2) }));
     },
     addFixedShape(shape) { return fixed(colliderOf(shape)); },
-    contactsOf(segment) {
+    contactsOf(segment, wanted) {
       const body = own(segment);
+      /** A body of this world's, or a fixed collider by its handle. */
+      type Other = RapierBody | number;
       interface Sum { impulse: number; point: number[]; normal: number[] }
-      const touched = new Map<RapierBody, Sum & { pairs: Map<number, Sum & { mine: number; theirs: number }> }>();
+      /** What the solver pushed on: each pair's point and normal, weighted by its impulse, and the same of each pair of shapes. */
+      const pushed = new Map<Other, Sum & { pairs: Map<number, Sum & { mine: number; theirs: number }> }>();
+      /** Everything in contact: each pair's point and normal, and how many pairs. */
+      const met = new Map<Other, { pairs: number; point: number[]; normal: number[]; first: number[] }>();
       for (let k = 0; k < body.rigid.numColliders(); k++) {
         const mine = body.rigid.collider(k);
         raw.contactPairsWith(mine, (theirs) => {
-          // Rapier pairs no two colliders of one body; a fixed collider has no body of ours.
-          const parent = theirs.parent(), other = parent ? byHandle.get(parent.handle) : undefined;
-          if (!other) return;
-          const shapes = [shapeOf.get(mine.handle)!, shapeOf.get(theirs.handle)!] as const;
+          // Rapier pairs no two colliders of one body; a collider with no body is a fixed one.
+          const parent = theirs.parent(), other: Other | undefined = parent ? byHandle.get(parent.handle) : theirs.handle;
+          if (other === undefined) return;
+          // Before the pair is read: reading one makes objects of Rapier's, and most pairs are refused.
+          if (wanted && !wanted(typeof other === "number" ? null : other)) return;
+          // A fixed collider is one shape.
+          const shapes = [shapeOf.get(mine.handle)!, parent ? shapeOf.get(theirs.handle)! : 0] as const;
           raw.contactPair(mine, theirs, (manifold, flipped) => {
             let impulse = 0;
             for (let i = 0; i < manifold.numContacts(); i++) impulse += manifold.contactImpulse(i);
+            // In contact is a solver contact point: the two touch, or are within the distance Rapier
+            // predicts a contact over (`normalizedPredictionDistance`, 0.02 m as Rapier ships).
             const points = manifold.numSolverContacts();
-            if (!(impulse > 0) || points === 0) return;
+            if (points === 0) return;
             // The manifold's normal runs from its first collider into its second; flipped, the first is theirs.
             const n = manifold.normal(), sign = flipped ? -1 : 1;
             const at = [0, 0, 0];
@@ -309,7 +319,13 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions):
               const p = manifold.solverContactPoint(i)!;
               at[0] += p.x / points; at[1] += p.y / points; at[2] += p.z / points;
             }
-            const sum = touched.get(other) ?? { impulse: 0, point: [0, 0, 0], normal: [0, 0, 0], pairs: new Map() };
+            const seen = met.get(other) ?? { pairs: 0, point: [0, 0, 0], normal: [0, 0, 0], first: [sign * n.x, sign * n.y, sign * n.z] };
+            seen.pairs += 1;
+            for (let c = 0; c < 3; c++) seen.point[c]! += at[c]!;
+            seen.normal[0]! += sign * n.x; seen.normal[1]! += sign * n.y; seen.normal[2]! += sign * n.z;
+            met.set(other, seen);
+            if (!(impulse > 0)) return;
+            const sum = pushed.get(other) ?? { impulse: 0, point: [0, 0, 0], normal: [0, 0, 0], pairs: new Map() };
             // A pair's key: this body's shape, then the other's, which a body has fewer of than this.
             const key = shapes[0] * SHAPES_MOST + shapes[1];
             const pair = sum.pairs.get(key) ?? { mine: shapes[0], theirs: shapes[1], impulse: 0, point: [0, 0, 0], normal: [0, 0, 0] };
@@ -319,10 +335,11 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions):
               to.normal[0]! += sign * n.x * impulse; to.normal[1]! += sign * n.y * impulse; to.normal[2]! += sign * n.z * impulse;
             }
             sum.pairs.set(key, pair);
-            touched.set(other, sum);
+            pushed.set(other, sum);
           });
         });
       }
+      const named = (other: Other) => typeof other === "number" ? { other: null, fixed: other } : { other, fixed: null };
       /** A sum's touch: its point the impulse's mean, its normal made unit. */
       const touch = ({ impulse, point, normal }: Sum) => {
         const length = hypot(normal[0]!, normal[1]!, normal[2]!);
@@ -330,9 +347,16 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions):
           normal: [normal[0]! / length, normal[1]! / length, normal[2]! / length] as Vec3 };
       };
       const out: Contact[] = [];
-      for (const [other, sum] of touched) {
+      for (const [other, sum] of pushed) {
         const pairs = [...sum.pairs.entries()].sort((a, b) => a[0] - b[0]).map(([, pair]) => ({ mine: pair.mine, theirs: pair.theirs, ...touch(pair) }));
-        out.push({ other, ...touch(sum), pairs });
+        out.push({ ...named(other), ...touch(sum), pairs });
+      }
+      for (const [other, { pairs, point, normal, first }] of met) {
+        if (pushed.has(other)) continue;
+        // Pairs whose normals cancel have no mean direction: the first pair's stands.
+        const length = hypot(normal[0]!, normal[1]!, normal[2]!), n = length > 0 ? normal : first, by = length > 0 ? length : 1;
+        out.push({ ...named(other), impulse: 0, point: [point[0]! / pairs, point[1]! / pairs, point[2]! / pairs],
+          normal: [n[0]! / by, n[1]! / by, n[2]! / by], pairs: [] });
       }
       return out;
     },
