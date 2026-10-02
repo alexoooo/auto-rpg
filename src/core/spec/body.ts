@@ -171,6 +171,12 @@ export interface DofSpec {
   /** Range of motion from the reference pose, radians. */
   readonly min: Quantity<number>;
   readonly max: Quantity<number>;
+  /**
+   * The reference pose's angle from the freedom's own zero (a human's, the anatomical position), in
+   * the positive sense, rad: a posture written from that zero is the same shape on bodies whose
+   * reference poses differ, and is this much less from the reference pose.
+   */
+  readonly bind: Quantity<number>;
   readonly muscle: MuscleSpec;
 }
 

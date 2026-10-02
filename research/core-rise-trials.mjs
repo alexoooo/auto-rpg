@@ -8,6 +8,7 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { Scene } from "@babylonjs/core/scene.js";
 import { SIDES } from "../src/arena/duel.ts";
 import { addArenaSolids } from "../src/arena/room.ts";
+import { createBody, SERVO_SECONDS } from "../src/core/body.ts";
 import { buildBody } from "../src/core/build/build-body.ts";
 import { centreOfToRef } from "../src/core/control/support.ts";
 import { armed } from "../src/core/human/grip.ts";
@@ -16,6 +17,8 @@ import { woodenClub } from "../src/core/items/club.ts";
 import { FIGHTER } from "../src/core/mind/config.ts";
 import { createMind } from "../src/core/mind/minds.ts";
 import { STAND_ORDERS } from "../src/core/mind/orders.ts";
+import { lieOf } from "../src/core/mind/rise/staged.ts";
+import { RISE } from "../src/core/mind/rise/stages.ts";
 import { createWorld } from "../src/core/world.ts";
 import { freshEngine } from "../tests/harness/core-stand.mjs";
 import { buildBout } from "./bout.mjs";
@@ -52,14 +55,16 @@ export function risenAt(downs, hz) {
  * Watch a body that is down for `WATCH_SECONDS` of `world`'s steps, and give its row: whether it
  * rose and when (`risenAt`), the fastest any of its segments' centres of mass moved from
  * `LYING_SECONDS` after the fall, m/s, the most its stance asked of the ground beyond what its
- * soles gave over the same span, in its weights (`Infinity` once it is not finite), and the
- * seconds from the fall to the last step it was not still (`STILL`).
+ * soles gave over the same span, in its weights (`Infinity` once it is not finite), the
+ * seconds from the fall to the last step it was not still (`STILL`), how it lay `LYING_SECONDS`
+ * after the fall (`lieOf`), and the furthest stage of the game's rise (`RISE`) its last attempt's
+ * fall reached: its name, "none" if it began none, and null under a mind with no riser.
  */
 function watched(world, built, body) {
   const hz = world.hz, segments = [...built.segments.values()];
   const weight = segments.reduce((sum, segment) => sum + segment.rigid.mass, 0) * Math.hypot(...world.physics.gravity);
   const downs = [body.view.down], velocity = new Vector3();
-  let peak = 0, asked = 0, last = 0;
+  let peak = 0, asked = 0, last = 0, lie = null;
   for (let i = 1; i < Math.round(WATCH_SECONDS * hz); i++) {
     world.step();
     downs.push(body.view.down);
@@ -67,37 +72,84 @@ function watched(world, built, body) {
     for (const segment of segments) fastest = Math.max(fastest, segment.body.linearVelocityToRef(velocity).length());
     if (fastest > STILL) last = i;
     if (i < Math.round(LYING_SECONDS * hz)) continue;
+    lie ??= lieOf(body.muscles.dynamics.root.segment);
     peak = Math.max(peak, fastest);
     const ask = body.view.stance.shortfall.force.length() / weight;
     asked = Number.isFinite(ask) ? Math.max(asked, ask) : Infinity;
   }
-  const seconds = risenAt(downs, hz);
-  return { fell: true, risen: seconds !== null, seconds, peak, asked, moved: last / hz };
+  const seconds = risenAt(downs, hz), riser = riserOf(body);
+  return {
+    fell: true, risen: seconds !== null, seconds, peak, asked, moved: last / hz, lie,
+    stage: riser ? RISE.rise[riser.furthest]?.name ?? "none" : null,
+  };
 }
 
+/** The memory of `body`'s staged riser (`stagedRise`), or null if no sub-mind of its mind is one. */
+export const riserOf = (body) => (body.state.mind.subs ?? []).find((sub) => sub && "furthest" in sub) ?? null;
+
 /** The row of a body that did not fall. */
-const HELD = Object.freeze({ fell: false, risen: false, seconds: null, peak: null, asked: null, moved: null });
+const HELD = Object.freeze({ fell: false, risen: false, seconds: null, peak: null, asked: null, moved: null, lie: null, stage: null });
 
 /**
- * `model` holding `held` (a key of `LOADOUTS`), built on the arena's ground under `mind` (a
- * `MindConfig`; the game's, `FIGHTER`, unless given) as the arena builds a body, and ordered to
- * stand in guard, shoved at its middle trunk's centre by `impulse` N s a
- * kilogram of the whole body, `degrees` about up from the way it faces, and watched.
+ * `model` holding `held` (a key of `LOADOUTS`), built on the arena's ground as the arena builds a
+ * body, under the mind `minded(built, world)` makes of it (its `Body`), left `STAND_SECONDS`, and
+ * shoved at its middle trunk's centre by `impulse` N s a kilogram of the whole body, `degrees`
+ * about up from the way it faces: the world stepped to the first step it is down, or
+ * `FALL_SECONDS` if it holds. The caller disposes.
  */
-export async function shoved({ model, held, degrees, impulse = 1.5, mind = FIGHTER }) {
+export async function felled({ model, held, degrees, impulse = 1.5 }, minded) {
   const scene = new Scene(new NullEngine());
   const world = createWorld(scene, await freshEngine());
   addArenaSolids(world.physics);
   const built = buildBody(LOADOUTS[held](modelSpec(model)), world, { position: [0, 0, 0] });
-  const { body } = createMind(built, world, mind, { name: "battery", orders: () => STAND_ORDERS });
+  const body = minded(built, world);
+  const dispose = () => { body.dispose(); built.dispose(); world.dispose(); scene.dispose(); };
   try {
     world.step(Math.round(STAND_SECONDS * world.hz));
     const mass = [...built.segments.values()].reduce((sum, segment) => sum + segment.rigid.mass, 0);
     const way = degrees * Math.PI / 180, trunk = built.segments.get("middleTrunk");
     trunk.body.applyImpulse(new Vector3(Math.sin(way), 0, Math.cos(way)).scale(impulse * mass), centreOfToRef(trunk, new Vector3()));
     for (let i = 0; i < Math.round(FALL_SECONDS * world.hz) && !body.view.down; i++) world.step();
+  } catch (error) { dispose(); throw error; }
+  return { world, built, body, dispose };
+}
+
+/** How long after its shove a toppled body is held stiff, s: long enough to land. */
+const STIFF_SECONDS = 1.5;
+
+/**
+ * `felled`, of a body held stiff in its reference pose (every freedom driven to it at full
+ * activation) until `STIFF_SECONDS` after the shove, so that it topples in one piece and lands the way it
+ * was shoved: on its front shoved forward, which a body that fights the shove does not
+ * reliably do. `subs` (sub-mind makers, `BodyOptions.subs`) have it from the next step, in their
+ * order; the world is left at the stiffness's last step.
+ */
+export async function toppled(shove, subs) {
+  const until = (world) => Math.round((STAND_SECONDS + STIFF_SECONDS) * world.hz);
+  const fall = await felled(shove, (made, into) => {
+    const stiff = (own) => ({
+      name: "stiff", wants: () => into.steps < until(into), begin() {}, end() {},
+      step() {
+        own.muscles.activation.fill(1);
+        for (let i = 0; i < own.muscles.velocity.length; i++) own.muscles.velocity[i] = Math.max(-3, Math.min(3, -own.muscles.angle(i) / 0.2));
+      },
+    });
+    return createBody(made, into, { servoSeconds: SERVO_SECONDS, subs: [stiff, ...subs] });
+  });
+  while (fall.world.steps < until(fall.world)) fall.world.step();
+  return fall;
+}
+
+/**
+ * `felled`, under `mind` (a `MindConfig`; the game's, `FIGHTER`, unless given) ordered to stand in
+ * guard, and watched.
+ */
+export async function shoved({ mind = FIGHTER, ...shove }) {
+  const { world, built, body, dispose } = await felled(shove,
+    (made, into) => createMind(made, into, mind, { name: "battery", orders: () => STAND_ORDERS }).body);
+  try {
     return body.view.down ? watched(world, built, body) : HELD;
-  } finally { body.dispose(); built.dispose(); world.dispose(); scene.dispose(); }
+  } finally { dispose(); }
 }
 
 /**

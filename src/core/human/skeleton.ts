@@ -28,7 +28,9 @@ import { dividedTrunk, type Side } from "./landmarks.ts";
  *   the fists thumb up, which the bind's guard shows but no number states.
  *
  * Posture angles are measured from a body's reference pose, so a posture written for the humans
- * (`GUARD`) bends the skeleton's elbows past its stop from here.
+ * (`GUARD`) bends the skeleton's elbows past its stop from here. A posture written from each
+ * freedom's own zero (`DofSpec.bind`; a rise's stages, `src/core/mind/rise/stages.ts`) is the same
+ * shape on both.
  */
 export const SKELETON_MODEL = "crypt-skeleton";
 

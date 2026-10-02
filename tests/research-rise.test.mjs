@@ -4,6 +4,7 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
+import { RISE } from "../src/core/mind/rise/stages.ts";
 import { risenAt, shoved, UP_SECONDS, WATCH_SECONDS } from "../research/core-rise-trials.mjs";
 
 test("a rise is two seconds up running", () => {
@@ -23,7 +24,10 @@ const DRIVEN = { kind: "fighter", subs: [] };
 test("a shove of the battery fells the Warrior, and it does not rise", async () => {
   for (const degrees of [0, 90]) {
     const row = await shoved({ model: "workshop-fighter", held: "club", degrees });
-    assert.deepEqual(Object.keys(row), ["fell", "risen", "seconds", "peak", "asked", "moved"]);
+    assert.deepEqual(Object.keys(row), ["fell", "risen", "seconds", "peak", "asked", "moved", "lie", "stage"]);
+    // How it lay a second after the fall; and it has no riser, so no stage.
+    assert.ok(["front", "back", "left", "right"].includes(row.lie), `it lay on its ${row.lie}`);
+    assert.equal(row.stage, null);
     assert.deepEqual({ fell: row.fell, risen: row.risen, seconds: row.seconds }, { fell: true, risen: false, seconds: null }, `shoved ${degrees} degrees about up`);
     assert.ok(row.peak > 0 && Number.isFinite(row.peak), `the fastest of its segments moved ${row.peak} m/s`);
     // Lying, the game's mind asks its stance nothing; one that keeps the body asks more than its soles give.
@@ -39,5 +43,17 @@ test("a shove of the battery fells the Warrior, and it does not rise", async () 
   }
   // The control: a shove it holds is no fall.
   assert.deepEqual(await shoved({ model: "workshop-fighter", held: "club", degrees: 0, impulse: 0.2 }),
-    { fell: false, risen: false, seconds: null, peak: null, asked: null, moved: null });
+    { fell: false, risen: false, seconds: null, peak: null, asked: null, moved: null, lie: null, stage: null });
+});
+
+test("a row says how the body lay, and how far a riser got", async () => {
+  // Under a mind whose sub-mind rises by stages (`stagedRise`), the row names the furthest stage of the game's rise it reached, or that it reached none.
+  const rise = { kind: "fighter", subs: [{ kind: "staged-rise" }] };
+  const stages = ["none", ...RISE.rise.map((stage) => stage.name)];
+  const rows = [];
+  for (const degrees of [315, 180]) rows.push(await shoved({ model: "workshop-fighter", held: "empty", degrees, mind: rise }));
+  for (const row of rows) assert.ok(row.fell && stages.includes(row.stage), `it reached ${row.stage}, lying on its ${row.lie}`);
+  // The Warrior shoved forward and to its left ends on its front, and plays the rise to its last stage;
+  // shoved backward it lies on its back, which the rise has no roll for.
+  assert.deepEqual(rows.map((row) => [row.lie, row.stage]), [["front", RISE.rise.at(-1).name], ["back", "none"]]);
 });

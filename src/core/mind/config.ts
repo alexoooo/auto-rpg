@@ -3,8 +3,11 @@ import { deepFreeze } from "../state.ts";
 /** Lie still while down: ask the muscles for nothing (`lying`, `lie.ts`). */
 interface LieConfig { readonly kind: "lie" }
 
+/** Rise by stages (`stagedRise`, `rise/staged.ts`): the recipe is the game's (`RISE`). */
+interface StagedRiseConfig { readonly kind: "staged-rise" }
+
 /** **A sub-mind's config**, by kind: what a host's slot holds, whole, so a sub-mind is configured where it is chosen. */
-export type SubMindConfig = LieConfig;
+export type SubMindConfig = LieConfig | StagedRiseConfig;
 
 /** **The fighter**: tactics over skills over the command layers (`createMind`, `minds.ts`). */
 export interface FighterMindConfig {

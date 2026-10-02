@@ -65,6 +65,11 @@ stance asked of the ground beyond what its soles gave over the same span, in the
 the longest, over the falls, of the seconds from the fall to the last step any segment's centre
 moved faster than 0.05 m/s (`STILL`; 14.99 is the watch's last step).
 
+A second table has a line for each way a model's shoved bodies lay a second after the fall
+(`lieOf`, [Stages](#stages)), over both loadouts: how many, how many of those rose, and the
+furthest stage of the game's rise each reached (`none` if its riser began none; the count is of
+the body's last fall within the watch). Under a mind with no riser the last column is empty.
+
 ## Driven
 
 A fighter that hands its body to nobody: a body that is down is driven on by its stance, which
@@ -134,3 +139,160 @@ same script):
 No muscle moves it: it is a light segment on the ground at the end of a slack joint, kept going
 by the solver. What in the solver does it is not read. A crypt body out of the fight is limp in
 the same way (`DungeonRun.drop`).
+
+## Stages
+
+The riser (`stagedRise`, `src/core/mind/rise/staged.ts`) plays a recipe (`Recipe`, `RISE`,
+`src/core/mind/rise/stages.ts`): it lies slack until still, reads how it lies, and plays stages.
+This is the record of the recipe's numbers and the player's.
+
+Harness, for every figure of this section but the battery's: Node, the core world
+(`src/core/world.ts`) with the arena's solids, Rapier, 120 Hz; the body with nothing in its
+hands, held stiff in its reference pose, shoved as the battery shoves and held stiff 1.5 s more
+(`toppled`, `research/core-rise-trials.mjs`), so that it lands in one piece the way it was
+shoved; then the riser has it. No assist: every balance is 0.
+
+```powershell
+node research/core-rise-poses.mjs --model workshop-fighter --lie front [--stages '<PoseStage[] JSON>']
+```
+
+### A posture is written from each freedom's own zero
+
+A body's joint angles are measured from its reference pose, and the reference poses differ: the
+humans stand with their arms out and down, the skeleton with its elbows at a right angle. Each
+freedom's angle in the reference pose from its own zero (the anatomical position) is in its spec
+(`DofSpec.bind`), and a stage's posture (`Posture`) is written from that zero, so one posture is
+the same shape on all three. The freedoms a rise names, rad:
+
+| The reference pose's | Warrior | Rogue | skeleton |
+|---|---|---|---|
+| elbow flexion | 0.81 | 0.73 | 1.62 |
+| shoulder abduction | 0.72 | 0.74 | 0.00 |
+| shoulder flexion | 0.03 | -0.04 | -0.09 |
+| hip flexion | 0.11 | 0.03 | 0.00 |
+| knee flexion | 0.11 | 0.14 | 0.00 |
+| ankle dorsiflexion | 0.03 | 0.07 | 0.00 |
+
+Written from the reference pose, the humans' folded elbow (1.6 rad from theirs) is past the
+skeleton's stop (0.84 rad from its own). From the zero, the ranges are the source's and the
+Warrior's and the skeleton's are the same, so a recipe that fits one fits the other
+(`stageFaults`).
+
+### The player's numbers
+
+Each is set, not swept.
+
+- **Still** is the centre of mass under 0.1 m/s (`SLOW`) for 0.5 s (`STILL_SECONDS`). It is the
+  centre of mass and not the segments because a limp body's hand can turn on the ground for as
+  long as it is watched ([Lying](#lying)) while the body lies where it lay.
+- **How it lies** (`lieOf`): the pelvis's forward against up. Over 0.5 (`LIE_UP`), within 60
+  degrees of straight up, it is on its back; under -0.5, on its front; between, on the side its
+  left is under.
+- **The pose drive**: each freedom is asked the speed that closes its error in 0.2 s
+  (`POSE_SECONDS`), no faster than 3 rad/s (`POSE_SPEED`), at full activation: the muscle driver
+  turns the joint toward the posture with what its muscles give at that speed. The core's other
+  way to a pose, the joint servo (`servo`, `src/core/control/servo.ts`), solves each freedom's
+  torque with the root taken as held and no contact known, and a body pressing itself off the
+  ground is neither; its record rejects asking a speed for a joint held in the air, which a
+  hard stop reverses within a step. Both read on the game's stages, fallen
+  forward, at the end of `prop`, the heights of the pelvis's and the upper trunk's centres of
+  mass, m:
+
+  | Drive | Warrior | Rogue | skeleton |
+  |---|---|---|---|
+  | lying, before any | 0.17, 0.14 | 0.14, 0.12 | 0.10, 0.10 |
+  | the speeds | 0.43, 0.46 | 0.38, 0.23 | 0.40, 0.42 |
+  | the servo, 0.1 s | 0.30, 0.15 | 0.32, 0.11 | 0.31, 0.12 |
+  | the servo, 0.2 s | 0.21, 0.15 | 0.20, 0.14 | 0.22, 0.12 |
+
+  The servo draws the knees half under and props nothing; at 0.1 s it leaves the Warrior on its
+  side.
+- **A stage's time** is counted to the nearest step.
+
+### The pose stages
+
+Both sides alike; a freedom a stage does not name goes to its zero. From the anatomical zero, rad:
+
+| Stage | Posture | Seconds |
+|---|---|---|
+| `fold` | shoulder flexion 0.9, shoulder abduction 0.7, elbow flexion 2.4, ankle dorsiflexion -0.85 | 1 |
+| `tuck` | as `fold`, and hip flexion 2.1, knee flexion 2.5, lumbar flexion 0.7, thoracic flexion 0.3 | 2 |
+| `prop` | as `tuck`, but shoulder flexion 1.3, elbow flexion 1.0, lumbar flexion 0.4, thoracic flexion 0 | 1.5 |
+
+`fold`'s posture is `FOLD`, which the later stages keep but for what they name anew, and the
+hips and knees of `tuck` and `prop` are `KNEES`.
+
+`fold` points the feet, so the shins lie flat, and asks the arms folded; lying on them a body
+cannot fold them (the humans' elbows and the skeleton's shoulders end 1.7 rad short), and they
+fold as `tuck` lifts it off them.
+`tuck` draws the knees under: the pelvis comes up over the shins. `prop` reaches the arms ahead
+and straightens them.
+
+Fallen forward, at each stage's last step, the heights of the centre of mass and of the
+pelvis's, the upper trunk's and the head's centres of mass, m:
+
+| | Warrior | Rogue | skeleton |
+|---|---|---|---|
+| lying | 0.14, 0.17, 0.14, 0.10 | 0.12, 0.14, 0.12, 0.08 | 0.10, 0.10, 0.10, 0.09 |
+| `fold` | 0.16, 0.17, 0.15, 0.11 | 0.14, 0.16, 0.14, 0.09 | 0.11, 0.10, 0.10, 0.10 |
+| `tuck` | 0.26, 0.41, 0.23, 0.11 | 0.23, 0.37, 0.16, 0.07 | 0.24, 0.37, 0.25, 0.12 |
+| `prop` | 0.34, 0.43, 0.46, 0.48 | 0.25, 0.38, 0.23, 0.10 | 0.32, 0.40, 0.42, 0.46 |
+
+Every body gets its pelvis over its shins. The Warrior and the skeleton prop their trunks; the
+**Rogue's arms do not raise its chest**: its shoulders end 0.5 to 0.7 rad short of the posture.
+Its shoulder flexors peak at 32 N m and its elbow extensors at 25, the Warrior's at 67 and 57,
+for 57.6 kg against 79.0: per kilogram, 0.66 and 0.60 of the Warrior's. Twelve other recipes
+were read on it (no `fold`; the arms nearer the trunk; the shoulders less flexed; the elbows
+straighter and more bent; the trunk straight and arched; `prop` for 3 s; the hips opened to 1.9,
+1.7, 1.3 and 0.6 rad): its chest ended 0.12 to 0.23 m up in every one. Opening its hips lowers
+its pelvis (to 0.31 m at 1.3 rad) and lifts nothing, since its trunk's weight is ahead of its
+knees and its arms do not carry it. On the Warrior and the skeleton the hips at 1.3 rad end the
+chest at 0.50 and 0.49 m, with the pelvis at 0.45 and 0.42.
+
+What else was read:
+
+- Without `fold` (`tuck` for 2 s, then `prop`) the Warrior's chest ends at 0.22 m and its head at
+  0.11: the arms asked to fold while the knees draw under do not get under the shoulders.
+- With the arms asked 0.3 rad from the trunk in place of 0.7 (`shoulder abduction`), the
+  readings are the Warrior's and the Rogue's to the centimetre, and the skeleton's chest 0.45.
+- A body toppled stiff to a side lies on that side at the first step it is down, and is on its
+  front or its back by the time its stiffness ends. A side is a lie a fall passes through.
+
+### The battery, with the pose stages alone
+
+```powershell
+node research/core-rise.mjs --mind '{"kind":"fighter","subs":[{"kind":"staged-rise"}]}'
+```
+
+Harness: the battery's ([Battery](#battery)), 30 workers. The rise is `fold`, `tuck`, `prop`,
+and no roll.
+
+| falls | of | fell | rose | median s to rise | median peak, m/s | worst asked, weights | median s it last moved | the longest, s |
+|---|---|---|---|---|---|---|---|---|
+| workshop-fighter, club, shoved | 16 | 15 | 0 | - | 3.13 | 0.0 | 3.06 | 14.99 |
+| workshop-fighter, empty, shoved | 16 | 16 | 0 | - | 2.72 | 0.0 | 3.01 | 14.43 |
+| workshop-rogue, club, shoved | 16 | 16 | 0 | - | 1.99 | 0.0 | 5.70 | 14.99 |
+| workshop-rogue, empty, shoved | 16 | 16 | 0 | - | 2.09 | 0.0 | 5.54 | 14.99 |
+| crypt-skeleton, club, shoved | 16 | 16 | 0 | - | 3.10 | 0.0 | 13.18 | 14.99 |
+| crypt-skeleton, empty, shoved | 16 | 16 | 0 | - | 4.14 | 0.0 | 12.45 | 14.99 |
+| bouts | 9 | 7 | 0 | - | 2.02 | 0.0 | 14.99 | 14.99 |
+
+| shoved, as it lay | fell | rose | the furthest stage reached |
+|---|---|---|---|
+| crypt-skeleton, on its back | 21 | 0 | none 20, prop 1 |
+| crypt-skeleton, on its front | 5 | 0 | none 1, prop 4 |
+| crypt-skeleton, on its left | 3 | 0 | none 3 |
+| crypt-skeleton, on its right | 3 | 0 | none 3 |
+| workshop-fighter, on its back | 21 | 0 | none 21 |
+| workshop-fighter, on its front | 7 | 0 | none 1, prop 6 |
+| workshop-fighter, on its left | 1 | 0 | prop 1 |
+| workshop-fighter, on its right | 2 | 0 | none 2 |
+| workshop-rogue, on its back | 27 | 0 | none 27 |
+| workshop-rogue, on its front | 4 | 0 | prop 4 |
+| workshop-rogue, on its left | 1 | 0 | none 1 |
+
+None rises: the stages end propped, and nothing stands a body up from there. **Of 95 shoved
+falls 69 end on the back**, 16 on the front and 10 on a side: a body that fights a shove turns
+as it goes down, and shoved forward it is as likely to land on its back. A body on its back plays
+nothing, since no roll is written. Nothing is flung: the median peak is 2.0 to 4.1 m/s, the
+lying body's 1.4 to 4.1.

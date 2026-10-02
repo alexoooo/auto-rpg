@@ -58,7 +58,7 @@ function dof(joint: string, f: Freedom, strength: Strength, speed: Speed): DofSp
     throw new Error(`${joint} ${f.positive}: the reference pose, ${f.bind.value} rad, lies outside ${min.value}..${max.value} rad`);
   }
   return {
-    positive: f.positive, negative: f.negative, axis: f.axis, min, max,
+    positive: f.positive, negative: f.negative, axis: f.axis, min, max, bind: f.bind,
     muscle: {
       peakPositive: strength(f.exertions[0]), peakNegative: strength(f.exertions[1]),
       speedPositive: speed(f.exertions[0]), speedNegative: speed(f.exertions[1]),

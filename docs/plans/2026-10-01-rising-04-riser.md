@@ -18,12 +18,11 @@ prototype (design file) carries the first three stages for both humans; everythi
 untried, and the roll most of all.
 
 A point bears already (`BearingPoint`, `Patch`, `shareGroundWrench`, `contact-wrench.ts`), with no
-reader yet: `BearingPoint` is exported when chunk C's limbs read it. The rest lands in three
-chunks, each green:
+reader yet: `BearingPoint` is exported when chunk C's limbs read it. The player, the pose stages
+and how a body lies are in too (What stands). The rest lands in two chunks, each green:
 
 | | Lands | Gate |
 |---|---|---|
-| B | the player, the pose stages, how a body lies; `StagedRiseConfig` | a body fallen forward gets its pelvis off the ground and props itself |
 | C | limb stems in the bearing solve; the bearing stages; the hand-back | a body fallen forward stands, both humans, on the stand |
 | D | the roll; the battery's row and the bar; the lab's choice; the documents | the bar below |
 
@@ -33,36 +32,52 @@ chunks, each green:
 |---|---|---|
 | `src/core/control/contact-wrench.ts` | `BearingPoint` is exported. | C |
 | `src/core/control/support.ts` | `footMotionToRef` becomes `motionAtToRef(segment, ...)`; `rolledRows`. | C |
-| `src/core/control/ground.ts` | `Uprightness.lowest`; `farEndToRef`. | B |
-| `src/core/mind/config.ts`, `sub-minds.ts` | `StagedRiseConfig`; its case. | B |
-| `src/core/mind/rise/stages.ts` | New: `Stage`, `LimbSpec`, `Recipe`, `RISE`, `stageFaults`. | B, C, D |
-| `src/core/mind/rise/staged.ts` | New: `stagedRise`. | B, C, D |
+| `src/core/control/ground.ts` | `Uprightness.lowest`; `farEndToRef`. | C |
+| `src/core/mind/rise/stages.ts` | `BearStage`, `LimbSpec`, `Recipe.limbs`, their faults, the bearing stages; the roll. | C, D |
+| `src/core/mind/rise/staged.ts` | The bear stage's step; done and failed. | C |
 | `src/core/mind/rise/limbs.ts` | New: `riseLimbs`: a recipe's limbs, made of a body. | C |
 | `src/core/control/bearing.ts` | `Limb.stem`. | C |
 | `src/core/math/turn.ts` | `turnErrorToRef`, lifted from the stance. | C |
 | `src/core/control/stance.ts` | Calls `turnErrorToRef`, `rolledRows`, `motionAtToRef`; passes `stem: []`. | C |
-| `research/core-rise-trials.mjs`, `core-rise.mjs` | The row's `lie` and `stage`; the table by way of lying. | B, D |
-| `research/core-rise-poses.mjs` | New: plays a recipe's pose stages on the stand, for finding them. | B |
 | `src/lab/scenarios.ts`, `minds.ts`, `actor.ts`, `main.ts`, `hud/character-section.ts` | `LAB_DOWN_IDS`, `LAB_DOWN`, the address's `down`, the Character section's choice. | D |
-| `tests/core-rise.test.mjs` | New: seven tests. | B, C, D |
+| `tests/core-rise.test.mjs` | Three tests more, and test 1's limb faults. | C |
 | `tests/core-fork.test.mjs` | One test. | C |
 | `tests/lab-scenarios.test.mjs`, `lab-actor.test.mjs` | `down` rides the address; the actor's sub-minds are its options'. | D |
 | `docs/reference/rising.md`, `docs/architecture.md`, `docs/roadmap.md`, `README.md` | See Documents. | D |
 
-## Chunk B: the player, and the stages that are poses
+## What stands
 
-### `src/core/mind/config.ts`, `sub-minds.ts`
+The player and the pose stages are in, and `docs/reference/rising.md#stages` is their record.
+What chunks C and D build on, where it is not what a reader would guess:
 
-```ts
-/** Rise by stages (`stagedRise`, `rise/staged.ts`): the recipe is the game's (`RISE`). */
-export interface StagedRiseConfig { readonly kind: "staged-rise" }
+- **A posture is written from each freedom's own zero** (`Posture`, `stages.ts`; `DofSpec.bind`),
+  not from the reference pose as a `Pose` is (`motor.ts`): the reference poses differ (the
+  skeleton's elbows are bound at a right angle), and one recipe fits all three of `BODY_MODELS`
+  only so. A channel a posture does not name goes to that zero, which is not the reference pose.
+  `stageFaults` holds every channel of every stage to its range, named or not.
+- **The recipe is `{ roll, rise }`**, `Stage` is `PoseStage` alone, and `RISE.rise` is three pose
+  stages: `fold` (1 s), `tuck` (2 s), `prop` (1.5 s). Without `fold` the Warrior does not prop.
+- **The player** (`stagedRise`): `idle`, `settle`, `roll`, `rise`. A stage's time is counted to
+  the nearest step. After the rise's last stage it is `idle`, and if the body is still down the
+  next step is `settle`: another attempt, `tries` up. `furthest` is raised by the rise's stages
+  only. It has no switch on a stage's kind yet (a union of one does not narrow).
+- **The pose drive is the speeds**: the servo read worse on the ground (`rising.md#stages`).
+- **A body propped is not on its front**: its pelvis is pitched up, so `lieOf` reads a side.
+  The lie is read only after the body has lain slack, which lays it down again.
+- **The Rogue's arms do not raise its chest** (0.23 m at `prop`'s end; the Warrior's 0.46, the
+  skeleton's 0.42): two thirds of the Warrior's shoulder and elbow strength for its weight.
+  Twelve other recipes left it between 0.12 and 0.23 m.
+- **A shoved fighter turns as it falls**: 69 of the battery's 95 shoved falls end on the back,
+  16 on the front, 10 on a side. A test that needs a body on its front topples it stiff
+  (`toppled`, `research/core-rise-trials.mjs`), and `core-rise-poses.mjs --lie` does the same. A
+  body toppled stiff to a side is on its front or back by the time the riser has it.
+- **Tests 1 to 5** of `tests/core-rise.test.mjs` stand: a recipe's faults; how a body lies; the
+  wait, and a roll's hand-back to it; fallen forward, a body props itself (bars by model, on the
+  pelvis's and the upper trunk's centres); a riser taken from begins again.
+- **The battery's row** has `lie` and `stage`, and its second table is by the way of lying
+  (`rising.md#battery`).
 
-export type SubMindConfig = LieConfig | StagedRiseConfig;
-```
-
-`subMind` gains `case "staged-rise": return stagedRise(own, view);`. The config has no field: it
-gains one, which recipe, when a second recipe exists and something chooses between them (a body's
-family, a loadout, a search's result).
+## Chunk C: the stages that bear
 
 ### `src/core/control/ground.ts`
 
@@ -71,152 +86,6 @@ family, a loadout, a search's result).
 - `farEndToRef(segment: BuiltSegment, out: Vector3): Vector3`: "The point a capsule segment bears
   on when its far end is down: the centre of the end farther from the joint that carries it, a
   radius below, world." It throws, naming the segment, for a shape that is not a capsule.
-
-### `src/core/mind/rise/stages.ts`
-
-```ts
-/** How a body lies: on its front, its back, or a side (the side that is down). */
-export type Lie = "front" | "back" | "left" | "right";
-
-/** **A stage that is a pose**: every freedom driven toward `posture` for `seconds`. */
-export interface PoseStage {
-  readonly kind: "pose";
-  readonly name: string;
-  /** Goal angles by channel name, rad (`Pose`, `motor.ts`); a channel it does not name goes to 0. */
-  readonly posture: Pose;
-  readonly seconds: number;
-}
-
-/** **A stage that is a bearing** (chunk C). */
-export interface BearStage { readonly kind: "bear"; /* below */ }
-
-export type Stage = PoseStage | BearStage;
-
-/** **A limb a rise may bear on** (chunk C). */
-export type LimbSpec = SoleLimb | EndLimb;
-
-/**
- * **A rise, as data**: the limbs the body may bear on, the stages that turn it onto its front from
- * each other way it lies, and the stages that stand it up from its front. It names segments,
- * joints and channels of the body it is for, and nothing in the player does.
- */
-export interface Recipe {
-  /** The limbs a bearing stage may name, in the order the riser's memory keeps them. */
-  readonly limbs: readonly LimbSpec[];
-  readonly roll: Readonly<Record<Exclude<Lie, "front">, readonly PoseStage[]>>;
-  readonly rise: readonly Stage[];
-}
-
-/** The game's recipe (`docs/reference/rising.md#stages`: each stage's numbers, and the battery's table for each change to them). */
-export const RISE: Recipe = deepFreeze({ ... });
-
-/** What is wrong with `recipe` for `spec`, in words; none if it can be played. */
-export function stageFaults(recipe: Recipe, spec: BodySpec): string[]
-```
-
-The first table's pose stages, from the prototype, both sides alike:
-
-| Stage | Posture, rad | Seconds |
-|---|---|---|
-| `tuck` | hip flexion 2.0, knee flexion 2.4, ankle dorsiflexion -0.9, lumbar flexion 0.7, shoulder flexion 0.9, elbow flexion 1.6 | 1.5 |
-| `prop` | as `tuck`, but shoulder flexion 1.3, elbow flexion 0.2 | 1.5 |
-
-`stageFaults` in this chunk: a posture's channel the body lacks; an angle outside its freedom's
-range; a stage of no time. `stagedRise` throws them when it is made.
-
-### `src/core/mind/rise/staged.ts`
-
-```ts
-/**
- * **Rising by stages.** It wants the body from the step it is down until it stands or is taken
- * from it. It lies slack until it is still; reads how it lies; if not on its front, plays that
- * lie's roll and lies slack again; on its front, plays the rise. A stage that fails ends the
- * attempt: it lies slack and begins again, from the body as it is, as often as it takes.
- */
-export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE): SubMind
-```
-
-What its host reads of the body each step it reads from the host's `view`, which is of this step
-(`hosting`): whether it is down (`view.down`), the centre of mass and its velocity
-(`view.stance.centre`, `velocity`), the way it faces (`view.stance.facing`). What only a rise
-needs it reads itself: how it lies, the ground's level, its limbs' points.
-
-Its state, plain data:
-
-```ts
-{
-  /** What it is doing: nothing (the body is not its own), lying slack, rolling, or rising. */
-  phase: "idle" as "idle" | "settle" | "roll" | "rise",
-  lie: "front" as Lie,
-  /** The stage under way, in the roll or the rise; the time in it, s; how long it has lain still, s. */
-  stage: 0, time: 0, still: 0,
-  /** How many attempts this fall has had, and the furthest stage any reached (the battery's column). */
-  tries: 0, furthest: -1,
-}
-```
-
-- `wants: () => state.phase !== "idle" || view.down`: the host's reading, so a body its host
-  holds low on purpose is not taken from it.
-- `begin()`: `phase = "settle"`, `still = 0`, `tries = 0`, `furthest = -1`. `end()`: `phase = "idle"`.
-- `step`, by `phase`, a switch with a `never` default:
-  - `settle`: every activation and speed 0. `still` counts the time the centre of mass
-    (`view.stance.velocity`) has been under `SLOW`, and at `STILL_SECONDS` the lie is read,
-    `tries` goes up, and the phase is `roll` (not on its front) or `rise`, at stage 0.
-  - `roll`, `rise`, a pose stage: each channel `i` with goal `g = posture[name] ?? 0`:
-    `velocity[i] = clamp((g - angle(i)) / POSE_SECONDS, -POSE_SPEED, POSE_SPEED)`,
-    `activation[i] = 1`. After its `seconds`, the next stage; after a roll's last, `settle`; after
-    the rise's last, `idle`.
-  - a bear stage: chunk C.
-- **How it lies** (`lieOf`, exported for the test): the pelvis's forward (the reference pose's
-  (0, 0, 1), turned by `turnOfToRef(pelvis)`) against up: over `LIE_UP`, `back`; under its
-  opposite, `front`; else the side the pelvis's left is under.
-- Constants, each citing `docs/reference/rising.md#stages`: `POSE_SECONDS = 0.2` and
-  `POSE_SPEED = 3` (the prototype's drive), `SLOW = 0.1` m/s, `STILL_SECONDS = 0.5`,
-  `LIE_UP = 0.5`.
-
-The pose stage is driven as the prototype's was, since that is what the readings are of. Its other
-candidate is the joint servo (`servo(driver, goal, seconds, dt)`); the chunk runs `tuck` and `prop`
-both ways on the stand and records the two rows in `rising.md#stages`. The servo takes the root to
-be held, which a body on the ground is not; if it reads no worse it replaces the speeds, since it
-is the core's one way to a pose.
-
-### `research/core-rise-poses.mjs`
-
-    node research/core-rise-poses.mjs --model workshop-fighter --lie back --stages '<PoseStage[] JSON>'
-
-The battery's body, felled (`--lie front|back|left|right`: the shove's way), slack until still,
-then the stages played by `stagedRise`'s own pose drive; it prints, after each stage, the lie and
-the heights of the centre of mass, the pelvis and the head. It is the instrument the roll's stages
-are found with, in chunk D, and the two humans' `tuck` and `prop` are its first rows.
-
-### `research/core-rise-trials.mjs`
-
-The row gains `lie`, how the body lay a second after its fall (`lieOf`), and `stage`, the name of
-the furthest stage reached (`state.furthest`), or null under a mind that has none. The table
-gains a line for each way of lying, over all the shoves of a model.
-
-### Tests (`tests/core-rise.test.mjs`, Node stand, Rapier, 120 Hz)
-
-1. **`a recipe that cannot be played says why`**: `stageFaults(RISE, spec)` is empty for each of
-   `BODY_MODELS`; a recipe with a posture channel `"tail flexion"` names it; with a knee asked
-   3 rad, names it and the range.
-2. **`how a body lies is read from its pelvis`**: the Warrior shoved forward, backward, and to
-   each side, slack until still: `lieOf` is `front`, `back`, and the side it fell to.
-3. **`fallen forward, a human draws its knees under and props itself`**: each human under
-   `createBody` with the sub-mind `(own, view) => stagedRise(own, view, recipe)`
-   (`BodyOptions.subs`), `recipe` being `tuck` and `prop` alone, shoved forward. (A test's recipe
-   goes in this way throughout; the config names the game's.) At the end of `prop` the pelvis is over 0.30 m and the head over 0.15 m (the
-   prototype: Warrior 0.41 and 0.45, Rogue 0.37 and 0.19; lying, 0.16 and 0.12); `body.has` is
-   `"staged-rise"` from the fall to the last stage's end; the state's `furthest` is 1.
-4. **`a riser that is taken from begins again`**: a written sub-mind of higher rank wants the body
-   for 0.5 s in the middle of `prop`; after it lets go the riser's phase is `settle` and `tries`
-   is 1 again.
-
-Mutations: `settle` skips the wait (test 3's Rogue, which is still sliding); the pose drive's
-activation 0 (test 3); `lieOf` reads the head (test 2's side); `end` leaves the phase (test 4);
-`stageFaults` skips ranges (test 1).
-
-## Chunk C: the stages that bear
 
 ### The solve gains a stem (`bearing.ts`)
 
@@ -259,6 +128,21 @@ export interface EndLimb {
   readonly from: string;
   /** The three channels of its chain that take its point's rows; the chain's others are asked toward the stage's posture ahead of the task. */
   readonly takes: readonly [string, string, string];
+}
+```
+
+`Recipe` gains them, and `Stage` the bearing kind; the player's `roll` and `rise` cases switch on
+the stage's kind with a `never` default:
+
+```ts
+export type Stage = PoseStage | BearStage;
+export type LimbSpec = SoleLimb | EndLimb;
+
+export interface Recipe {
+  /** The limbs a bearing stage may name, in the order the riser's memory keeps them. */
+  readonly limbs: readonly LimbSpec[];
+  readonly roll: Readonly<Record<Exclude<Lie, "front">, readonly PoseStage[]>>;
+  readonly rise: readonly Stage[];
 }
 ```
 
@@ -316,8 +200,12 @@ export interface BearStage {
   readonly height: number;
   /** The pelvis's pitch forward from upright, about the level axis across the way it faces, rad. */
   readonly pitch: number;
-  /** What every freedom outside the bearing limbs' chains is servoed to (the stems among them). */
-  readonly posture: Pose;
+  /**
+   * What every freedom outside the bearing limbs' chains is servoed to (the stems among them):
+   * a posture, from each freedom's zero, or the body's reference pose, which no posture can
+   * name since the bodies' differ.
+   */
+  readonly posture: Posture | "reference";
   /** The time constant of its aims, s; and the longest it may take, s. */
   readonly seconds: number;
   readonly limit: number;
@@ -353,32 +241,34 @@ limbs, in its order; `aim`, with `root`; `helped`; `held`; `shortfall`) and the 
 (`channels`, `rolled`). `ServoWork` is the
 servo's scratch, written by `servoAsk` before it is read, whichever mind asks.
 
-The first table's bearing stages. The shares and the pitch are geometry (which limbs, and a trunk
-level, half up, upright); the heights are first guesses read off the prototype's table, and each
-is found on the stand:
+The first table's bearing stages, after `fold`, `tuck` and `prop`. The shares and the pitch are
+geometry (which limbs, and a trunk level, half up, upright); the heights are first guesses read
+off the prototype's table, and each is found on the stand. The postures are from each freedom's
+zero: the prototype's, which were from the Warrior's reference pose, with its binds added:
 
 | Stage | Bears on | Height | Pitch | Posture | Seconds, limit |
 |---|---|---|---|---|---|
-| `fours` | knees 0.25 each, hands 0.25 each | 0.36 | 1.45 | ankle dorsiflexion 0.3 (the toes under), knee flexion 1.6, wrist and neck 0 | 0.4, 4 |
-| `bear` | feet 0.35 each, hands 0.15 each | 0.40 | 1.2 | | 0.4, 4 |
-| `crouch` | feet 0.5 each | 0.55 | 0.6 | shoulder flexion 0.6, elbow flexion 0.4 | 0.4, 4 |
+| `fours` | knees 0.25 each, hands 0.25 each | 0.36 | 1.45 | ankle dorsiflexion 0.3 (the toes under), knee flexion 1.7 | 0.4, 4 |
+| `bear` | feet 0.35 each, hands 0.15 each | 0.40 | 1.2 | none named | 0.4, 4 |
+| `crouch` | feet 0.5 each | 0.55 | 0.6 | shoulder flexion 0.6, shoulder abduction 0.7, elbow flexion 1.2 | 0.4, 4 |
 | `stand` | feet 0.5 each | 1 less `STANCE_LOWER` over the standing height | 0 | the reference pose | 0.4, 4 |
 
 ### Tests
 
-5. **`a body on its knees and hands holds itself there`**: each human, fallen forward, through
-   `tuck`, `prop` and `fours` alone. Two seconds after `fours` is done the centre of mass has not
+6. **`a body on its knees and hands holds itself there`**: each human, toppled forward
+   (`toppled`), through `fold`, `tuck`, `prop` and `fours` alone. Two seconds after `fours` is done the centre of mass has not
    moved 2 cm, the shortfall's force is under a twentieth of the weight, each bearing point is
    within 2 cm of the ground, the upper trunk's centre has not dropped 2 cm, and the trunk joints'
    torques are not zero. Its control is its first mutation: the stems left out, the trunk sags.
-6. **`fallen forward, a human stands up`**: each human, unarmed, shoved forward, under the whole
-   rise. Within `WATCH_SECONDS` `body.view.down` is false for `UP_SECONDS` running, `body.has` is
-   back to `"command"`, and 3 s later it stands in guard: not down, its centre of mass over its
-   soles.
-7. **`a stage that cannot be reached is given up, and the rise begins again`**: a recipe whose
+7. **`fallen forward, a human stands up`**: each human, unarmed, toppled forward, under the whole
+   rise. Within `WATCH_SECONDS` `body.view.down` is false for `UP_SECONDS` running, the riser
+   no longer has the body, and 3 s later it stands: not down, its centre of mass over its soles.
+   (Under `createMind` with the fighter's commands, `body.has` is back to `"command"` and it
+   stands in guard: one model, shoved as the battery shoves, on a shove that ends on its front.)
+8. **`a stage that cannot be reached is given up, and the rise begins again`**: a recipe whose
    `fours` asks a height of 0.9. At its `limit` the phase is `settle`, `tries` goes up, every
    activation is 0 that step, and the body is not flung (no segment over 3 m/s).
-8. `tests/core-fork.test.mjs`, **`a_body_forks_mid_rise`**: test 6's Warrior, forked every tenth
+9. `tests/core-fork.test.mjs`, **`a_body_forks_mid_rise`**: test 7's Warrior, forked every tenth
    step from the fall to the hand-back; the paths under `mind > subs` are sorted as needed.
 
 Test 1 gains the limbs' faults, a recipe for each: a limb named twice; an end on `foot.left` (a
@@ -386,23 +276,27 @@ box); a hand whose `from` is `hip.left`; a `takes` naming a wrist channel twice;
 `"tail"`; a stage on `knee.left` and `foot.left`; shares summing to 0.9. And its control: `RISE`
 has none, for each of `BODY_MODELS`.
 
-Mutations: `riseLimbs` takes a hand's stem as empty whatever `from` says (test 5: the trunk
+Mutations: `riseLimbs` takes a hand's stem as empty whatever `from` says (test 6: the trunk
 sags); `stageFaults` skips the limbs (test 1); `limbTorques` leaves the stem's torques as the
-servo's (test 5: the trunk sags); a knee's rows all six (test 5: the thigh cannot turn about its knee as the body
-moves); `rolled` never cleared (test 6: it stands on its toes and `stand` fails); the
-`limit` ignored (test 7); the aim's place taken as the first limb's point (test 5's drift);
-`state.stage` kept in a closure (test 8); `turnErrorToRef` with the product reversed
+servo's (test 6: the trunk sags); a knee's rows all six (test 6: the thigh cannot turn about its knee as the body
+moves); `rolled` never cleared (test 7: it stands on its toes and `stand` fails); the
+`limit` ignored (test 8); the aim's place taken as the first limb's point (test 6's drift);
+`state.stage` kept in a closure (test 9); `turnErrorToRef` with the product reversed
 (`core-stance`'s heading test).
 
 Gate: the digests and the fingerprint the same (the stance's calls moved, no number did), and
-test 6.
+test 7.
 
 ## Chunk D: the roll, the bar, the lab
 
 ### The roll
 
 `RISE.roll`: pose stages for `back`, `left` and `right`, found with `research/core-rise-poses.mjs`
-before any is written into the table. The first candidates, each to be tried on both humans:
+before any is written into the table. The back's carries the bar: 69 of the battery's 95 shoved
+falls end on it. The instrument topples its body stiff, so `--lie left` and `right` give a body
+that has rolled on to its front or back already: a side's roll is found from the back's, which
+passes through a side, or on the battery's own shoves that end on one (`shoved`). The first
+candidates, each to be tried on both humans:
 
 - from a side: the upper leg's hip flexed and brought across, the upper arm reached across, the
   trunk turned toward the ground (lumbar and thoracic rotation), then both legs straightened;
@@ -448,6 +342,14 @@ human: the owner watches it get up.
 
 ## What may not work, and what then
 
+- **The Rogue's arms.** Under the pose drive they do not raise its chest, and `fours` begins
+  with it 0.23 m up. A bearing hand is driven by the solve at what its muscles give, the trunk's
+  joints with it, which may do what the pose drive did not; its strength is its source's and is
+  not raised. If `fours` cannot be reached on its hands, its route brings its weight back over
+  its knees first (sitting back on its heels, the hips over the feet), where its legs carry it:
+  another order of stages, and if the Warrior's is better as it is, a recipe of its own, chosen
+  by `StagedRiseConfig`'s field. Read already: `prop` with the hips opened to 1.3 rad ends the
+  Warrior's and the skeleton's chests at 0.50 and 0.49 m, and drops the Rogue's pelvis to 0.31.
 - **The roll.** Untried. If no pose sequence turns a body over, the roll becomes bearing stages
   (a side-lying body bears on a hand and a knee), or the bar is missed on the back and the table
   says so.
@@ -471,9 +373,9 @@ human: the owner watches it get up.
 
 ## Documents
 
-- `docs/reference/rising.md`: `## Stages` (the table as it lands, each number's reading, the two
-  pose drives' rows, every revision's battery table); `## Staged` (the battery's table, the bar,
-  the harness line; each side's balance, 0 %).
+- `docs/reference/rising.md`: `## Stages` gains the bearing stages and the roll (the table as it
+  lands, each number's reading, every revision's battery table); `## Staged` (the battery's
+  table, the bar, the harness line; each side's balance, 0 %).
 - `docs/architecture.md`: the Minds section's sub-minds gain the riser; the Motor control section
   says a limb may hang from a stem and a patch may be a point; the lab's Character section.
 - `docs/roadmap.md`: "Rising after a fall" reads as built, for the lab; the fights take it up once
