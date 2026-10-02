@@ -6,7 +6,9 @@
  * under a box lets it fall, and a body from another world is refused a joint; a box drifting at a
  * millimetre a second keeps drifting, where a sleeping one would stop and read zero; a force
  * through a step is integrated as gravity is and lasts that step alone; a box resting on another
- * touches it, pushed with its weight, and the ground is no body; a fixed box turns about up; and a
+ * is in contact with it, pushed with its weight, and the lower with the ground, pushed with both;
+ * a box a centimetre off another, or over the ground, is in contact with it and not pushed, and
+ * each fixed collider is a contact of its own; a fixed box turns about up; and a
  * world loaded from a save goes on as it went on from the save, its contacts, its fixed colliders
  * and its bodies the ones it had, a force asked for the next step with them, and a save of another
  * world refused.
@@ -143,22 +145,66 @@ test("a force through a step is integrated as gravity is, and lasts that step al
   } finally { pushed.dispose(); }
 });
 
-test("a box resting on another touches it, pushed down on it with its weight each step, and the ground is no body", async () => {
+test("a box resting on another is in contact with it, and the lower with the ground, each pushed with the weight above it", async () => {
   const b = await box();
   try {
     const top = add(b, "top", [0, 1.5 * SIDE, 0]), beside = add(b, "beside", [SIDE + 0.01, SIDE / 2, 0]);
     b.step(HZ / 2);
     const [down, ...more] = b.physics.contactsOf(top);
-    assert.equal(more.length, 0);
+    assert.deepEqual(more.map((c) => [c.other === beside, c.impulse]), [[true, 0]], "the box a centimetre off its corner is in contact, and not pushed");
     assert.equal(down.other, b.body);
+    assert.equal(down.fixed, null);
     assert.ok(Math.hypot(down.normal[0], down.normal[1] + 1, down.normal[2]) < 1e-3, `${down.normal}: from the top box into the lower`);
     assert.ok(Math.abs(down.point[1] - SIDE) < 0.005, `${down.point} m, where the boxes meet`);
     const weight = MASS.mass * STANDARD_GRAVITY.value / HZ;
     assert.ok(Math.abs(down.impulse - weight) < 0.05 * weight, `${down.impulse} N s, a step of its weight ${weight}`);
-    const up = b.physics.contactsOf(b.body);
-    assert.deepEqual(up.map((c) => c.other), [top], "the lower box touches the upper, and not the ground or the box a centimetre off");
-    assert.ok(Math.hypot(up[0].normal[0], up[0].normal[1] - 1, up[0].normal[2]) < 1e-3, `${up[0].normal}`);
-    assert.deepEqual(b.physics.contactsOf(beside), []);
+    const up = b.physics.contactsOf(b.body), upper = up.find((c) => c.other === top), ground = up.find((c) => c.other === null);
+    assert.deepEqual(up.map((c) => c.impulse > 0), [true, true, false], "what the solver pushed on comes first");
+    assert.equal(up[2].other, beside, "the box a centimetre off is in contact, and not pushed");
+    assert.ok(Math.hypot(up[2].normal[0] - 1, up[2].normal[1], up[2].normal[2]) < 1e-3, `${up[2].normal}: from the lower box into the one beside`);
+    assert.ok(Math.abs(up[2].point[0] - (SIDE / 2 + 0.005)) < 1e-3, `${up[2].point} m, midway between the two`);
+    assert.ok(Math.hypot(upper.normal[0], upper.normal[1] - 1, upper.normal[2]) < 1e-3, `${upper.normal}`);
+    assert.equal(typeof ground.fixed, "number");
+    assert.ok(Math.hypot(ground.normal[0], ground.normal[1] + 1, ground.normal[2]) < 1e-3, `${ground.normal}: from the lower box into the ground`);
+    assert.ok(Math.abs(ground.point[1]) < 0.005, `${ground.point} m, where the box meets the ground`);
+    assert.ok(Math.abs(ground.impulse - 2 * weight) < 0.05 * 2 * weight, `${ground.impulse} N s, a step of both boxes' weight ${2 * weight}`);
+    const [under, ...boxes] = b.physics.contactsOf(beside);
+    assert.deepEqual([under.other, under.fixed], [null, ground.fixed], "the box beside is on the one ground");
+    assert.ok(Math.abs(under.impulse - weight) < 0.05 * weight, `${under.impulse} N s, a step of its own weight ${weight}`);
+    assert.deepEqual(new Set(boxes.map((c) => c.other)), new Set([b.body, top]));
+    assert.deepEqual(boxes.map((c) => c.impulse), [0, 0], "and no box pushes on it");
+  } finally { b.dispose(); }
+});
+
+test("a box a centimetre over the ground is in contact with it and not pushed, and one three over is not in contact", async () => {
+  for (const [gap, met] of [[0.01, true], [0.03, false]]) {
+    const b = await box({ height: SIDE / 2 + gap, gravity: false });
+    try {
+      b.step(2);
+      const contacts = b.physics.contactsOf(b.body);
+      assert.equal(contacts.length, met ? 1 : 0, `${gap} m over the ground`);
+      if (!met) continue;
+      const [near] = contacts;
+      assert.equal(near.other, null);
+      assert.equal(near.impulse, 0, "nothing presses it down, so the solver pushes nothing");
+      assert.ok(Math.hypot(near.normal[0], near.normal[1] + 1, near.normal[2]) < 1e-3, `${near.normal}`);
+      assert.ok(Math.abs(near.point[0]) < 1e-3 && Math.abs(near.point[2]) < 1e-3, `${near.point}: under the box's middle`);
+    } finally { b.dispose(); }
+  }
+});
+
+test("each fixed collider a body rests on is a contact of its own", async () => {
+  const b = await box({ ground: false, height: SIDE / 2 });
+  try {
+    b.physics.addFixedBox([-0.5, -0.5, 0], [1, 1, 1]);
+    b.physics.addFixedBox([0.5, -0.5, 0], [1, 1, 1]);
+    b.step(HZ / 2);
+    const contacts = b.physics.contactsOf(b.body), weight = MASS.mass * STANDARD_GRAVITY.value / HZ;
+    assert.deepEqual(contacts.map((c) => c.other), [null, null]);
+    assert.notEqual(contacts[0].fixed, contacts[1].fixed);
+    const pushed = contacts[0].impulse + contacts[1].impulse;
+    assert.ok(Math.abs(pushed - weight) < 0.05 * weight, `${pushed} N s between the two, a step of its weight ${weight}`);
+    assert.ok(contacts[0].point[0] * contacts[1].point[0] < 0, `${contacts[0].point[0]} and ${contacts[1].point[0]} m: one on each`);
   } finally { b.dispose(); }
 });
 
@@ -285,7 +331,7 @@ test("a loaded world keeps the last step's contacts, its fixed colliders and its
     assert.deepEqual(touched.map((c) => c.other), [b.body]);
     top.applyImpulse(new Vector3(3, 2, 0), top.node.position.clone());
     b.step(HZ / 2);
-    assert.deepEqual(b.physics.contactsOf(top), [], "knocked off, it touches no body");
+    assert.deepEqual(b.physics.contactsOf(top).filter((c) => c.other !== null), [], "knocked off, it touches no body");
     b.physics.load(saved);
     const again = b.physics.contactsOf(top);
     assert.deepEqual(read(again), read(touched), "before any step, the contacts of the step before the save");

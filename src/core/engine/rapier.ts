@@ -265,18 +265,25 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions):
     addFixedShape(shape) { return fixed(colliderOf(shape)); },
     contactsOf(segment) {
       const body = own(segment);
-      const touched = new Map<RapierBody, { impulse: number; point: number[]; normal: number[] }>();
+      /** A body of this world's, or a fixed collider by its handle. */
+      type Other = RapierBody | number;
+      /** What the solver pushed on: each pair's point and normal, weighted by its impulse. */
+      const pushed = new Map<Other, { impulse: number; point: number[]; normal: number[] }>();
+      /** Everything in contact: each pair's point and normal, and how many pairs. */
+      const met = new Map<Other, { pairs: number; point: number[]; normal: number[]; first: number[] }>();
       for (let k = 0; k < body.rigid.numColliders(); k++) {
         const mine = body.rigid.collider(k);
         raw.contactPairsWith(mine, (theirs) => {
-          // Rapier pairs no two colliders of one body; a fixed collider has no body of ours.
-          const parent = theirs.parent(), other = parent ? byHandle.get(parent.handle) : undefined;
-          if (!other) return;
+          // Rapier pairs no two colliders of one body; a collider with no body is a fixed one.
+          const parent = theirs.parent(), other: Other | undefined = parent ? byHandle.get(parent.handle) : theirs.handle;
+          if (other === undefined) return;
           raw.contactPair(mine, theirs, (manifold, flipped) => {
             let impulse = 0;
             for (let i = 0; i < manifold.numContacts(); i++) impulse += manifold.contactImpulse(i);
+            // In contact is a solver contact point: the two touch, or are within the distance Rapier
+            // predicts a contact over (`normalizedPredictionDistance`, 0.02 m as Rapier ships).
             const points = manifold.numSolverContacts();
-            if (!(impulse > 0) || points === 0) return;
+            if (points === 0) return;
             // The manifold's normal runs from its first collider into its second; flipped, the first is theirs.
             const n = manifold.normal(), sign = flipped ? -1 : 1;
             const at = [0, 0, 0];
@@ -284,19 +291,33 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions):
               const p = manifold.solverContactPoint(i)!;
               at[0] += p.x / points; at[1] += p.y / points; at[2] += p.z / points;
             }
-            const sum = touched.get(other) ?? { impulse: 0, point: [0, 0, 0], normal: [0, 0, 0] };
+            const seen = met.get(other) ?? { pairs: 0, point: [0, 0, 0], normal: [0, 0, 0], first: [sign * n.x, sign * n.y, sign * n.z] };
+            seen.pairs += 1;
+            for (let c = 0; c < 3; c++) seen.point[c]! += at[c]!;
+            seen.normal[0]! += sign * n.x; seen.normal[1]! += sign * n.y; seen.normal[2]! += sign * n.z;
+            met.set(other, seen);
+            if (!(impulse > 0)) return;
+            const sum = pushed.get(other) ?? { impulse: 0, point: [0, 0, 0], normal: [0, 0, 0] };
             sum.impulse += impulse;
             for (let c = 0; c < 3; c++) sum.point[c]! += at[c]! * impulse;
             sum.normal[0]! += sign * n.x * impulse; sum.normal[1]! += sign * n.y * impulse; sum.normal[2]! += sign * n.z * impulse;
-            touched.set(other, sum);
+            pushed.set(other, sum);
           });
         });
       }
+      const named = (other: Other) => typeof other === "number" ? { other: null, fixed: other } : { other, fixed: null };
       const out: Contact[] = [];
-      for (const [other, { impulse, point, normal }] of touched) {
+      for (const [other, { impulse, point, normal }] of pushed) {
         const length = hypot(normal[0]!, normal[1]!, normal[2]!);
-        out.push({ other, impulse, point: [point[0]! / impulse, point[1]! / impulse, point[2]! / impulse],
+        out.push({ ...named(other), impulse, point: [point[0]! / impulse, point[1]! / impulse, point[2]! / impulse],
           normal: [normal[0]! / length, normal[1]! / length, normal[2]! / length] });
+      }
+      for (const [other, { pairs, point, normal, first }] of met) {
+        if (pushed.has(other)) continue;
+        // Pairs whose normals cancel have no mean direction: the first pair's stands.
+        const length = hypot(normal[0]!, normal[1]!, normal[2]!), n = length > 0 ? normal : first, by = length > 0 ? length : 1;
+        out.push({ ...named(other), impulse: 0, point: [point[0]! / pairs, point[1]! / pairs, point[2]! / pairs],
+          normal: [n[0]! / by, n[1]! / by, n[2]! / by] });
       }
       return out;
     },

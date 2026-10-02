@@ -139,6 +139,8 @@ export function watchBlows(world: World, fighters: readonly Fighter[], rules: Ru
       const attacker = striker.fighter;
       if (!standing(attacker) || !attacker.pool.attached(striker.segment.spec.name)) continue;
       for (const contact of world.physics.contactsOf(striker.segment.body)) {
+        // A blow is a touch of a body that the solver pushed on.
+        if (contact.other === null || !(contact.impulse > 0)) continue;
         const struck = owners.get(contact.other);
         if (!struck || struck.fighter.side === attacker.side || !standing(struck.fighter)) continue;
         const key = `${striker.key}:${struck.key}`;

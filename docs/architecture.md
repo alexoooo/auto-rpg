@@ -105,7 +105,11 @@ writes each node's `position` and `rotationQuaternion`; bodies that never sleep;
 whole; velocities of the centre of mass; one friction (`CONTACT_FRICTION`, 0.5) and no bounce on
 every contact; freedom k as axis k of the joint's frame; a motor as a velocity constraint bounded
 by a torque; a force and a moment on a body through one step, integrated as gravity is, beside
-the impulse that is whole before it; and the contacts the solver pushed on in the last step. A
+the impulse that is whole before it; and every body and every fixed collider a body is in contact
+with as the last step left it (`contactsOf`), each with the impulse the solver pushed the two apart
+with, which is 0 for two in contact that it did not push on. In contact is the engine's narrow
+phase giving the solver a contact point: touching, or within the distance Rapier predicts a contact
+over, 2 cm. A
 world saves its whole physical state and loads it in place (`PhysicsWorld.save`, `load`); a body,
 joint or collider the core holds survives a load as the object it was, and a save of a world with
 other bodies, joints or colliders is refused. `rapier.ts` implements it,
