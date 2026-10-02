@@ -87,7 +87,7 @@ the same on any machine.
 | `crypt-step.mjs` | a crypt run's step over the run, by seed: the bodies built, held and out, the mean step and the slowest second; with `--listen`, what hearing the run costs | the tables, pasted into `docs/reference/play.md` |
 | `step-garbage.mjs` | what a step allocates and what the collector takes as bodies are added, a count a process; with `--sites`, where one bout's steps allocate, by file and by function | the tables, pasted into `docs/reference/step-cost.md` |
 | `step-time.mjs` | one bout's steps, each the least of several playings, split into the solver and the rest, with every collection; with `--profile`, the bout's time by file and by function | the tables, pasted into `docs/reference/step-cost.md` |
-| `crypt-plan.mjs` | what a crypt run's own planning takes of its steps, by seed, and its part of the slowest ones | the table, pasted into `docs/reference/step-cost.md` |
+| `crypt-plan.mjs` | what a crypt run's own planning takes of its steps, by seed, and its part of the slowest ones; with `--profile`, which of the plan's functions the time is | the tables, pasted into `docs/reference/step-cost.md` |
 | `rest-probe.mjs` | what Rapier does with limp bodies put to sleep through its own rigid bodies: a step's time standing, limp and asleep, how many stay asleep, and what a ball dropped on one wakes | the table, pasted into `docs/reference/step-cost.md` |
 
 `step-garbage.mjs` reads allocation with `allocatedIn` (`tests/harness/garbage.mjs`): everything
@@ -98,6 +98,7 @@ node research/step-garbage.mjs --bodies 1,2,4,8,10,12,16,24,32,48
 node research/step-garbage.mjs --sites
 node research/step-time.mjs --profile
 node research/crypt-plan.mjs --seeds 1,2,3,4
+node research/crypt-plan.mjs --seeds 1,2,3,4 --profile
 ```
 
 ## The physics bake-off

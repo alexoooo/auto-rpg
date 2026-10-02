@@ -68,12 +68,14 @@ All of it on a physically based core, humans first ([architecture](architecture.
   bodies and aim orders with the engine's `Math` (`src/lab/`, `src/dungeon/`), so a lab scenario
   or a crypt run is not yet held to be the same in every engine; the boundary test's
   `WORLD_BUILDERS` names the modules it holds, and theirs join it when they are moved.
-- Thinking that takes longer than a step has no place yet: the crypt plans inside its step, and
-  a rollout, a planner or a learned mind's slow part would too. Designed, with its plans, and
-  nothing built ([plans/2026-10-02-thinking-00-design.md](plans/2026-10-02-thinking-00-design.md)):
-  a thought is a pure function asked at one step and answered at a named later one, so it may be
-  thought in a worker and the game is the same to the bit; when an answer is late the world
-  waits (the owner's choice).
+- Thinking that takes longer than a step has no place yet, and nothing in the game needs one
+  yet: tactics are under 1 % of a bout, and the crypt's planning is sight, which is made cheap
+  where it stands. A rollout in play, a planner or a learned mind's slow part will. Designed, and
+  planned with the first of them
+  ([plans/2026-10-02-step-00-design.md](plans/2026-10-02-step-00-design.md#thinking-that-takes-longer-than-a-step)):
+  a thought is a pure function of a question asked at one step and answered at a step the asker
+  names, so it may be thought in a worker and the game is the same to the bit; when an answer is
+  late the world waits (the owner's choice).
 - The tactics (`fighterTactics`) cannot yet attack a moving body.
 - A fighter can cover its head against a blow it sees coming (`guard: "cover"`,
   `&guard=cover`), and does not unless asked: the cover is late, and saves no more of the head
@@ -267,14 +269,23 @@ All of it on a physically based core, humans first ([architecture](architecture.
   for shove impulses or for reversal time.
 - The stance does not model the thighs touching.
 - The reach solver runs to its cap. A hand sent to a place is solved three times a step
-  (`solveReach`), and most of those solves take all 200 passes: at its place the solve never
-  falls under the 1e-10 rad it stops at, the noise of its differenced Jacobian being larger, and
-  out of reach it turns back and forth by the most a pass may. In a bout of the Warrior against
-  the Rogue that is 42 steps in a row of 6 to 11 ms where the median step is 1.2 ms, and a place
-  out of reach is answered by whichever end of the swing the last pass is
-  ([reference/step-cost.md](reference/step-cost.md#the-reach-solver-at-its-cap)). A looser stop
-  ends the first kind; halving the turn does not end the second; every remedy is another bout,
-  and comes with its table.
+  (`solveReach`), and most of those solves take all 200 passes: in a bout of the Warrior against
+  the Rogue that is 42 steps in a row of 6 to 11 ms where the median step is 1.2 ms
+  ([reference/step-cost.md](reference/step-cost.md#the-reach-solver-at-its-cap)). They are of
+  two kinds.
+  - At its place and never still: the noise of its differenced Jacobian is larger than the
+    1e-10 rad it stops at. The Jacobian in closed form ends these, 74 of the bout's 117, and is
+    planned, with a meter of the solve's passes and a bed of the bout's real solves
+    ([plans/2026-10-02-step-01-reach.md](plans/2026-10-02-step-01-reach.md)); not built.
+  - Out of reach: the solve has no still point, since the posture's pull is taken along
+    directions that hold the place only where the place is reached. What it answers is whichever
+    pass was the last, and the hand's rate and acceleration are differences of three such
+    answers. Six rules of its step were tried and none ends them at an answer a second solve
+    leaves alone; two of them read 0 solves at the cap and were not cures
+    ([reference/step-cost.md](reference/step-cost.md#the-reach-solvers-remedies-tried)). It
+    wants a solve whose answer out of reach is defined (the nearest pose, then the posture among
+    those), judged on the bed: it ends by stillness, a second solve from its answer moves
+    nothing, and a step's three answers vary smoothly.
 - A hand goal has no orientation or speed yet, and the trunk takes no goal.
 - Attributes: a size range (x0.9-1.18), a weight range (x0.85-1.25), and arm speed as a muscle's
   fibre share.
@@ -322,13 +333,28 @@ All of it on a physically based core, humans first ([architecture](architecture.
   a body under control costs 0.58 to 0.61 ms of a step's 8.33, so fourteen are real time in Node
   with nothing drawn. The owner's choices: only the near ones have control, there is no cap on
   them, and the dead are fixed where they lie once nobody is near. One rule for a body's level
-  does all three ([plans/2026-10-02-thinking-03-levels.md](plans/2026-10-02-thinking-03-levels.md)),
+  does all three ([plans/2026-10-02-step-03-levels.md](plans/2026-10-02-step-03-levels.md)),
   not built. With more near than a machine carries the game plays slower; what raises the count
-  is what a body costs: the solver is half of it, the stance's share of the ground's wrench and
-  the hands' reach most of the rest. The owner's to shape: how the dead disappear in time.
-- A step allocates 0.54 MiB a body. The collector takes about 1 % of the step; the cost is in
-  the code that allocates, and its remedy is planned and not built
-  ([plans/2026-10-02-thinking-04-garbage.md](plans/2026-10-02-thinking-04-garbage.md)).
+  is what a body costs. The owner's to shape: how the dead disappear in time.
+- What a body costs: the solver is 0.25 to 0.28 ms of its 0.59, and the rest is control written
+  with a matrix made for every solve (0.54 MiB allocated a body a step; the collector is 1 % of
+  the step, and the cost is in the code that allocates). The dearest function, the stance's
+  share of the ground's wrench, rewritten to do the same arithmetic in arrays made once, went
+  from 61 us a call to 17 with every number the same: 0.09 ms a body a step
+  ([reference/step-cost.md](reference/step-cost.md#control-written-into-arrays-made-once-tried)).
+  Planned function by function, each landing only if it pays, and not built
+  ([plans/2026-10-02-step-04-cost.md](plans/2026-10-02-step-04-cost.md)); a body at 0.42 to
+  0.47 ms is the estimate. Under that floor, not planned: the solver itself; the wrench's active
+  set started from the last step's (3.5 iterations a call today), which is another bout; and
+  control on other threads, which is a design of its own.
+- A crypt run's own planning is half of its slowest steps, and all of it is sight read sample
+  by sample ([reference/step-cost.md](reference/step-cost.md#the-crypts-plan-in-the-step)).
+  Read through an index of the cells that need no reading, with the answers it has, its 99th
+  per cent falls from 2.4 to 4.6 ms to 0.2 to 0.3: planned and not built
+  ([plans/2026-10-02-step-02-sight.md](plans/2026-10-02-step-02-sight.md)). What is then left
+  over 1 ms is an enemy's body built in the step as the party comes near, 2.6 to 4.3 ms three
+  or four times a run; and the scenery's memory on the page reads sight the same slow way and is
+  not measured.
 - The crypt's step ([reference/play.md](reference/play.md#bodies-in-the-step)): a body out of
   the fight lies limp and still costs the solver 0.28 ms a step. Fixed where it lies once it is
   still, it would cost 0.02 ms and could not be pushed aside; an engine that let it rest would

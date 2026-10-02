@@ -17,6 +17,7 @@ node research/step-garbage.mjs --bodies 1,2,4,8,10,12,16,24,32,48
 node research/step-time.mjs --profile
 node research/step-garbage.mjs --sites
 node research/crypt-plan.mjs --seeds 1,2,3,4
+node research/crypt-plan.mjs --seeds 1,2,3,4 --profile
 node research/rest-probe.mjs
 node research/rest-probe.mjs --bodies 4
 ```
@@ -150,8 +151,66 @@ Tried on the Warrior against the Rogue, each a change of the solve alone:
 
 A looser stop ends the solves that were at their place. Halving the turn does not end the ones out
 of reach: once the turn is small the distance falls a little every pass, so it is never halved
-again and the solve creeps to its cap. Each row is another bout, since the answers differ. The
-remedy is not found; it is the roadmap's ([roadmap](../roadmap.md#body-and-motor-control)).
+again and the solve creeps to its cap. Each row is another bout, since the answers differ, so the
+rows say little of the solve itself: the next table asks every solve the same questions.
+
+### The reach solver's remedies, tried
+
+The bout's 144 solves, each taken from the bout as it was asked (its chain, the angles it started
+from, its freedoms and its tasks; all are the Rogue's right arm, steps 1022 to 1069) and solved
+again alone, by `solveReach` as it is and by scratch copies of it at `8d783172`. So every row
+answers the same 144 questions. Read beside the passes:
+
+- **Solved again**: the solve run once more from its own answer, and the most any angle moves. An
+  answer is one a second solve leaves alone.
+- **Farther, nearer**: the solves that end farther from their place than the solve as it is does,
+  and nearer.
+
+| The solve | At 200 passes | All passes | Of those that end: median, most | Farther, nearer | Solved again, rad |
+|---|---|---|---|---|---|
+| As it is | 117 of 144 | 24583 | 27, 146 | | 1.8e-9 where it ended, 3.7e-2 where it did not |
+| **The Jacobian in closed form** | 43 | 11470 | 28, 109 | 16 (by 0.036 mm at most), 4 | 7.6e-11 where it ended |
+| That, and a step refused when the error grows: the damping four times on a refusal, halved on a step taken | 0 | 4024 | 27, 142 | 0, 42 | 0.20 |
+| The same on the differenced Jacobian | 48 | | | | |
+| Closed form, and the turn a pass may take halved on a refusal and doubled on a step taken | 28 | 12113 | | 3, 39 | 9.8e-2 |
+| Closed form, both of those | 0 | 3979 | | | 0.44 |
+| Closed form, the place's step refused alone and the posture's pull taken whatever | 43 | 11470 | | 2, 37 | |
+| Closed form, the pull taken by halves with the place's step put right after it | 35 | 11310 | | | 0.62 |
+| Closed form, the pull dropped on a refusal, then the damping raised | 39 to 40 | 9212 to 10899 | | | 0.77 |
+
+The Jacobian in closed form is the point's velocity for a unit of each freedom's rate, from the
+joint's own axes (`motionAxesToRef`, `turningToRef`, `src/core/build/joint-state.ts`): one walk
+of the chain a pass. Against central differences of 1e-5 rad over 200 poses drawn across each
+freedom's range, on an arm (joints of 3, 3, 3, 1 and 3 freedoms) and a leg (3, 1, 2), it is within
+9.9e-11 m/rad; forward differences of 1e-7 rad, the solve's own, are within 8.8e-8.
+
+- **The closed form ends the solves that were at their place**: 74 of the 117. Where the solve as
+  it is ended, the two answers are within 1.2e-8 rad. All passes fall by more than half.
+- **The 43 left are the ones out of reach, and no rule of the step ends them.** The rows that
+  read 0 at the cap are not cures: 69 of the solves in the third row end because the damping has
+  grown until nothing moves, and solved again from where they stopped their angles move 0.2 rad.
+  A count of solves at the cap reads the same for a solve that converged and one that gave up;
+  the reading that tells them apart is the solve taken again.
+- The same holds across a step. A hand's three solves a step apart are differenced for its rate
+  and its acceleration (`solveAt`), so three answers that are not the same function of their
+  place make an acceleration of nothing: the greatest second difference of a step's three is
+  0.29 rad as it is and 0.56 with the pull dropped on a refusal.
+- Why out of reach has no still point: the posture's pull is asked in the directions that leave
+  the place where it is, to first order. Where the place is reached those are the directions the
+  answers lie along. Out of reach they are not: the pull bends the elbow and turns the shoulder
+  to hold the point, the point falls back by the second order, the place's step straightens the
+  arm again, and near a straight arm each over-corrects the other (the angles alternate, each
+  pass about 0.93 of the last and against it). The remedy is a solve whose answer out of reach
+  is defined, which is a design and not a rule of its step; it is the roadmap's
+  ([roadmap](../roadmap.md#body-and-motor-control)).
+
+In the bout, each a bout of its own:
+
+| The solve | Steps, and how it ends | Solves at 200 passes | Passes in a step with a reach: median, most |
+|---|---|---|---|
+| As it is | 1145: the Warrior, by a fatal blow, at 9.54 s | 117 | 600, 600 |
+| The Jacobian in closed form | 1244: the Warrior, by a fall, at 10.37 s | 43 | 89, 600 |
+| That, and a step refused when the error grows | 1270: the Warrior, by a fall, at 10.58 s | 0 | 70, 175 |
 
 ### Where a bout allocates
 
@@ -195,6 +254,25 @@ What is allocated is small arrays: a matrix as an array of row arrays made for e
 as a three-number array returned from each cross product, a closure for each loop written as
 `map` or `forEach`, and a wrapper object for each vector read from the engine.
 
+### Control written into arrays made once, tried
+
+Two functions rewritten to do the same operations in the same order on the same numbers, with
+nothing made in a call: flat `Float64Array`s made once, loops for `map` and `reduce`, no closure.
+Each in a scratch copy, taken out again.
+
+| The function | Read on | As it is | Rewritten | The answers |
+|---|---|---|---|---|
+| `shareGroundWrench` with its `activeSet` (`src/core/control/contact-wrench.ts@8d783172`) | the bout's own 4576 calls (four a step: two a body), each taken from the bout as it was asked and answered alone; the least of nine passes over them | 61.1 us a call | 17.3 us a call | all 68544 numbers the same to the bit |
+| `bodyDynamics.update`, the loop that sums the mass matrix alone (`src/core/build/dynamics.ts@fda2945b`) | the bout as it was then, 2434 steps, the least of three playings, twice | 72 and 74 us a step | 59 and 58 us a step | the bout's digest the same; 157 KiB a step fewer |
+
+- The ground's wrench is the largest function of a bout's control (16 % of its time). It takes
+  3.5 active-set iterations a call in the mean, each a dense solve of the system built afresh;
+  most of what the rewrite saves is the building. At four calls a step that is 0.24 ms of a
+  two-body step as it is and 0.07 rewritten: **0.09 ms a body a step, of its 0.59.**
+- So the cost of allocating shows where the collector's pauses do not: in the code that
+  allocates. How much a rewrite pays differs by function, from a fifth of its time to nearly
+  three quarters, and is read function by function.
+
 ## The crypt's plan in the step
 
 `research/crypt-plan.mjs`. A crypt run with no visuals, the hero exploring by itself with three
@@ -224,9 +302,66 @@ The ten slowest steps of each run, with the plan's part in brackets, ms:
   every one of the ten slowest has 6 to 9 ms of planning in it.
 - A plan over 1 ms comes about five times a second, which is how often the run reads who sees
   whom (`RUN_TIMING.perceive`, 0.2 s): the party's sight is read cell by cell for each member
-  (`reveal`), and an enemy's line to each member (`canSee`). The plans over 4 ms have a path
-  search in them as well (`findPath`, `explorationGoal`).
+  (`reveal`), and an enemy's line to each member (`canSee`).
 - The slow steps with no plan in them are the bodies': the reach solver's, as in a bout.
+
+The same runs under V8's CPU profiler at 100 us (`--profile`), from their first step: microseconds
+a step in the mean, each function with everything it calls.
+
+| Seed | The run | Steps | A step | `plan` | `reveal` | `canSee` | `walkable` | `findPath` | `explorationGoal` |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | playing | 10800 | 3758 | 108.2 | 78.6 | 66.7 | 68.5 | 0.4 | 0.2 |
+| 2 | dead | 7386 | 3683 | 114.0 | 89.1 | 84.2 | 78.2 | 0.1 | 0.0 |
+| 3 | dead | 7664 | 3663 | 148.3 | 117.7 | 109.1 | 103.2 | 0.2 | 0.1 |
+| 4 | playing | 10800 | 4477 | 166.5 | 136.0 | 129.6 | 120.8 | 0.9 | 0.0 |
+
+- **The plan's time is sight.** `reveal` is 73 to 82 % of it, and nearly all of `reveal` is
+  `canSee` asking `walkable` at every 0.2 m of a line to every floor cell within 12 m of every
+  living member. `walkable` reads the nine cells about a point, every door and every obstacle,
+  each time.
+- **The path search is nothing**: `findPath` and `explorationGoal` together are under 1 us a
+  step in every run. The long plans are long reads of sight, in the open rooms where most cells
+  are in range.
+
+### Sight read through an index, tried
+
+The same four runs with sight read another way that gives the same answers, in a scratch copy of
+`src/dungeon/map.ts` and `run.ts` at `8d783172`, taken out again:
+
+- **An index**: a byte a cell, 1 where the cell is floor with no closed door and no sight-blocking
+  obstacle within reach of it. A sample of a line that falls in such a cell, farther than 2 mm
+  from the cell's edge, is seen through with nothing more read (rock stops sight within 1 mm of
+  itself only); every other sample is `walkable`'s as before. The index is made when the run is,
+  and again when a door has opened.
+- **Each cell looked at once**: a cell one member already sees is not looked at for the next.
+
+Read against sight as it is on the levels of seeds 1 to 8, from 60 points a level off the cells'
+middles, with the doors closed and after each is opened: 425587 cells revealed and 4500 lines of
+up to 14 m, and no answer differs. The four runs end as they did.
+
+| Seed | The plan, ms: mean / 99th per cent / longest | Plans over 1 ms | Plans over 4 ms | Steps over 8.33 ms | A step, ms, mean |
+|---|---|---|---|---|---|
+| 1, as it is | 0.11 / 2.44 / 4.38 | 388 | 3 | 21 of 10560 | 3.68 |
+| 1, the index | 0.04 / 0.28 / 4.22 | 4 | 1 | 7 | 3.48 |
+| 1, and each cell once | 0.03 / 0.19 / 4.24 | 4 | 1 | 9 | 3.49 |
+| 2, as it is | 0.11 / 3.13 / 7.81 | 199 | 5 | 12 of 7146 | 3.56 |
+| 2, the index | 0.03 / 0.36 / 3.42 | 1 | 0 | 0 | 3.40 |
+| 2, and each cell once | 0.03 / 0.25 / 3.40 | 1 | 0 | 3 | 3.38 |
+| 3, as it is | 0.14 / 3.23 / 6.69 | 308 | 21 | 68 of 7424 | 3.48 |
+| 3, the index | 0.04 / 0.43 / 3.14 | 4 | 0 | 11 | 3.30 |
+| 3, and each cell once | 0.03 / 0.27 / 3.49 | 4 | 0 | 15 | 3.29 |
+| 4, as it is | 0.15 / 4.59 / 10.64 | 439 | 158 | 175 of 10560 | 4.17 |
+| 4, the index | 0.04 / 0.46 / 2.83 | 4 | 0 | 10 | 3.93 |
+| 4, and each cell once | 0.04 / 0.32 / 2.90 | 3 | 0 | 14 | 3.91 |
+
+- The plan's 99th per cent falls from 2.4 to 4.6 ms to 0.2 to 0.3, and the steps over a step's
+  length from 12 to 175 a run to 3 to 15. The rows of one seed were read one after another and
+  the steps over 8.33 ms differ by a few between the last two: that is the reading's spread.
+- **What is left over 1 ms is a body being built.** Of the twelve plans over 1 ms in the four
+  runs with both changes, eleven are an enemy's body built as the party comes near
+  (`DungeonRun.wake`, `build`): 2.6 to 4.3 ms each, three or four times a run. The twelfth is a
+  read of sight of 1.1 ms.
+- The steps still over 8.33 ms have no plan in them: they are the bodies'.
 
 ## A limp body put to sleep
 
