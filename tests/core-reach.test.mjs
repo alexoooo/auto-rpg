@@ -3,7 +3,9 @@
  * chain's forward kinematics put the knuckles where the built body has them; they are exact far
  * below a millimetre, so a Jacobian differenced by 1e-7 rad is sound; the inverse kinematics find a
  * reachable place and stretch toward one out of reach without crossing the arm's straight
- * singularity; a hand goal is followed and reached alike at the game's 120 Hz and at 1920 Hz; its
+ * singularity; a solve says its passes and whether it ended, motor control counts its hands'
+ * solves, and the solves a bout asked (`research/reach-bed.mjs`) run to the cap no oftener than
+ * they did; a hand goal is followed and reached alike at the game's 120 Hz and at 1920 Hz; its
  * path may run on through its place, and keep its start and its clock while its place moves; and
  * a goal may name a point of what the hand holds, or two of them, which lay the held thing's line.
  * Node stand: the Warrior and the Rogue, lower trunk held, gravity on, no ground.
@@ -19,6 +21,7 @@ import { armed } from "../src/core/human/grip.ts";
 import { humanSpec, modelSpec } from "../src/core/human/spec.ts";
 import { woodenClub } from "../src/core/items/club.ts";
 import { driveMuscles } from "../src/core/muscle/driver.ts";
+import { reachBed } from "../research/reach-bed.mjs";
 import { coreStand } from "./harness/core-stand.mjs";
 
 const GUARD = {
@@ -120,6 +123,68 @@ test("the inverse kinematics find a reachable place, and stretch toward one out 
     assert.ok(jump < 1, `${model}: the arm turned ${jump.toFixed(2)} rad between neighbouring places on a path`);
     assert.ok(left > 0.05 && left < 0.4, `${model}: the far end of the path was ${(1000 * left).toFixed(0)} mm off`);
   }
+});
+
+/** The most passes a solve takes (`IK_PASSES`). */
+const CAP = 200;
+
+test("a_solve_says_its_passes_and_whether_it_ended", async () => {
+  const stand = await coreStand(humanSpec("workshop-fighter"), { ground: false, pinned: "lowerTrunk" });
+  const bed = await reachBed();
+  try {
+    // A place the arm can take, from the guard: the solve stops of itself, short of the cap.
+    const arm = rightArm(stand.built), angles = arm.at(GUARD);
+    for (const f of arm.free) angles[f.joint][f.k] = f.min + 0.4 * (f.max - f.min);
+    const target = pointAtToRef(arm.chain, angles, arm.knuckles, new Vector3()).asArray();
+    const end = { passes: 0, still: false };
+    const left = solveReach(arm.chain, arm.at(GUARD), arm.free, [{ point: arm.knuckles, target }], end);
+    assert.ok(left < 1e-6 && end.still && end.passes > 1 && end.passes < CAP, `${1000 * left} mm left after ${end.passes} passes, still ${end.still}`);
+    // A place out of reach, as a bout asked it: the solve runs to the cap, and says so.
+    const far = bed.solve(120);
+    assert.ok(far.left > 0.4, `the fixture's place is ${(1000 * far.left).toFixed(0)} mm out of reach`);
+    assert.deepEqual(far.end, { passes: CAP, still: false });
+  } finally { stand.dispose(); bed.dispose(); }
+});
+
+test("motor_control_meters_its_hands_solves", async () => {
+  const stand = await coreStand(humanSpec("workshop-fighter"), { ground: false, pinned: "lowerTrunk" });
+  const motor = motorControl(stand.built, 0.1, GUARD);
+  const driver = driveMuscles(stand.built, stand.world, motor.control);
+  try {
+    stand.step(stand.seconds(1));
+    assert.deepEqual(motor.state.reach, { solves: 0, passes: 0, capped: 0 }, "no hand has a goal: nothing is solved");
+    // A place the hand can take: three solves a step (the step before, the step, the step after), some of them ending.
+    const from = motor.knucklesToRef("right", new Vector3()), steps = stand.seconds(0.4);
+    motor.reach("right", { places: [{ point: "knuckles", position: [from.x, from.y + 0.05, from.z + 0.2] }], seconds: 0.4 });
+    stand.step(steps);
+    const near = { ...motor.state.reach };
+    assert.equal(near.solves, 3 * steps);
+    assert.ok(near.capped < near.solves, `${near.capped} of ${near.solves} solves ran to the cap`);
+    // Every solve takes a pass at least, and the first of a path, from the guard's angles, many.
+    assert.ok(near.passes > near.solves + 10 && near.passes < CAP * near.solves, `${near.passes} passes in ${near.solves} solves`);
+    // A place two metres ahead, which no arm reaches: its solves run to the cap and are counted so.
+    motor.reach("right", { places: [{ point: "knuckles", position: [from.x, from.y, from.z + 2] }], seconds: 0.4 });
+    stand.step(steps);
+    const far = motor.state.reach;
+    assert.equal(far.solves, 6 * steps);
+    const capped = far.capped - near.capped;
+    assert.ok(capped > 2 * steps && capped <= 3 * steps, `${capped} of the second path's ${3 * steps} solves ran to the cap`);
+    assert.ok(far.passes - near.passes >= CAP * capped, `${far.passes - near.passes} passes with ${capped} at the cap`);
+  } finally {
+    driver.dispose(); stand.dispose();
+  }
+});
+
+test("the_bed_s_solves_at_the_cap_are_no_more_than", async () => {
+  const bed = await reachBed();
+  try {
+    assert.equal(bed.solves.length, 144);
+    const capped = bed.solves.filter((_, k) => !bed.solve(k).end.still).length;
+    // The bout's own count (`docs/reference/step-cost.md#the-reach-solver-at-its-cap`): a change of the solve lowers it, and none raises it.
+    assert.ok(capped <= 117, `${capped} of the bed's 144 solves ran to the cap`);
+    // The control: the bed asks what the bout asked, so the solve as it stands is not under its count by another body's arm.
+    assert.ok(capped >= 40, `only ${capped} of the bed's solves ran to the cap: 43 are of a place out of reach`);
+  } finally { bed.dispose(); }
 });
 
 test("a range that reaches a half turn is solved short of it: an arm drawn up and far behind stops there", async () => {

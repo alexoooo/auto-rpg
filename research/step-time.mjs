@@ -7,7 +7,8 @@
  *
  * It prints each playing's steps, the least over the playings split into the solver and the rest
  * (control, senses, blows), the dearest steps, every kind of collection in the playings read, and
- * how many steps over `--over` ms had a collection inside.
+ * how many steps over `--over` ms had a collection inside; and what each side's hands' solves took
+ * (`ReachMeter`, `src/core/control/motor.ts`): how many, their passes, and how many ran to the cap.
  *
  *   node research/step-time.mjs [--left workshop-fighter] [--right workshop-rogue] [--runs 4] [--over 3]
  *
@@ -21,6 +22,7 @@ import { PerformanceObserver } from "node:perf_hooks";
 import { parseArgs } from "node:util";
 import { Logger } from "@babylonjs/core/Misc/logger.js";
 import { CORE_ENGINE } from "../tests/harness/core-stand.mjs";
+import { SIDES } from "../src/arena/duel.ts";
 import { buildBout } from "./bout.mjs";
 
 const { values } = parseArgs({ options: {
@@ -35,7 +37,7 @@ const collections = [];
 const observer = new PerformanceObserver((list) => { for (const e of list.getEntries()) collections.push({ at: e.startTime, ms: e.duration, kind: e.detail?.kind }); });
 observer.observe({ entryTypes: ["gc"] });
 
-/** One playing: each step's start, its time, and the solver's part of it. */
+/** One playing: each step's start, its time, and the solver's part of it; and, as `reach`, each side's hands' solves counted. */
 async function play() {
   const { world, duel, dispose } = await buildBout(recipe);
   const solve = world.physics.step.bind(world.physics);
@@ -43,6 +45,7 @@ async function play() {
   world.physics.step = (dt) => { const t = performance.now(); solve(dt); solver = performance.now() - t; };
   const rows = [];
   while (!duel.verdict) { const t = performance.now(); world.step(); const all = performance.now() - t; rows.push({ t, all, solver, rest: all - solver }); }
+  rows.reach = SIDES.map((side) => ({ side, ...duel.duelists[side].body.state.mind.host.motor.reach }));
   dispose();
   return rows;
 }
@@ -72,6 +75,7 @@ for (const c of mine) byKind.set(c.kind, [...(byKind.get(c.kind) ?? []), c.ms]);
 for (const [kind, v] of byKind) console.log(`the collector, ${KINDS[kind] ?? `kind ${kind}`}: ${v.length} in ${steps} steps, one every ${(steps / v.length).toFixed(0)}; mean ${(v.reduce((a, b) => a + b, 0) / v.length).toFixed(2)}, longest ${Math.max(...v).toFixed(2)}`);
 const slow = read.flatMap((rows) => rows.filter((r) => r.all > over));
 console.log(`steps over ${over} ms: ${slow.length} of ${steps}; with a collection inside: ${slow.filter((r) => mine.some((c) => c.at >= r.t && c.at <= r.t + r.all)).length}`);
+console.log(`the hands' solves in a playing: ${read[0].reach.map(({ side, solves, passes, capped }) => `${side} ${solves} solves, ${passes} passes, ${capped} at the cap`).join("; ")}`);
 observer.disconnect();
 
 if (values.profile) {

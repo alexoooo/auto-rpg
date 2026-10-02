@@ -6,7 +6,7 @@ import type { MuscleController, MuscleDriver } from "../muscle/driver.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { distance } from "../spec/vec.ts";
 import type { Assist } from "./assist.ts";
-import { chainTo, pointNowToRef, solveReach } from "./kinematics.ts";
+import { chainTo, pointNowToRef, solveReach, type ReachEnd } from "./kinematics.ts";
 import { servoAsk, servoSolve } from "./servo.ts";
 import { stanceControl, type StanceControl, type StanceGoal } from "./stance.ts";
 import type { StanceTuning } from "./stance-tuning.ts";
@@ -104,7 +104,7 @@ export interface MotorControl {
   pointToRef(hand: Hand, point: string, out: Vector3): Vector3;
   /** The segment whose frame the body frame is carried by. */
   readonly root: BuiltSegment;
-  /** Its memory (`src/core/state.ts`): the goals it was last given, each hand's path, and the stance's. */
+  /** Its memory (`src/core/state.ts`): the goals it was last given, each hand's path, its hands' solves counted (`ReachMeter`), and the stance's. */
   readonly state: object;
 }
 
@@ -141,6 +141,9 @@ interface HandMemory {
   readonly goals: Map<string, [number, number, number]>;
 }
 
+/** The hands' solves since the body was made: how many, their passes, and how many ran to the cap. */
+interface ReachMeter { solves: number; passes: number; capped: number }
+
 /** Motor control of `built`, servoing at a time constant of `seconds`; its stance asks `assist` for what the soles miss. */
 export function motorControl(built: BuiltBody, seconds: number, posture: Pose = {}, stanceTuning?: StanceTuning, assist: Assist | null = null): MotorControl {
   const stance = stanceControl(built, stanceTuning, assist);
@@ -161,8 +164,10 @@ export function motorControl(built: BuiltBody, seconds: number, posture: Pose = 
         angles: chain.map((joint) => joint.dofs.map(() => 0)), point: new Vector3(), goals: new Map() } };
   };
   const arms: Record<Hand, Arm> = { left: arm("left"), right: arm("right") }, both = [arms.left, arms.right];
-  const state: { pose: Pose; pushes: readonly MusclePush[]; standing: StanceGoal | null; readonly hands: Record<Hand, HandMemory>; readonly stance: object } =
-    { pose: posture, pushes: [], standing: null, hands: { left: arms.left.memory, right: arms.right.memory }, stance: stance.state };
+  const state: { pose: Pose; pushes: readonly MusclePush[]; standing: StanceGoal | null; readonly hands: Record<Hand, HandMemory>;
+    readonly reach: ReachMeter; readonly stance: object } =
+    { pose: posture, pushes: [], standing: null, hands: { left: arms.left.memory, right: arms.right.memory },
+      reach: { solves: 0, passes: 0, capped: 0 }, stance: stance.state };
 
   /**
    * Where the path of place `i` is at `time`: minimum jerk, 10 s^3 - 15 s^4 + 6 s^5 of the way
@@ -179,14 +184,17 @@ export function motorControl(built: BuiltBody, seconds: number, posture: Pose = 
     return out.set(from[0] + f * (position[0] - from[0]), from[1] + f * (position[1] - from[1]),
       from[2] + f * (position[2] - from[2]));
   };
-  const at = new Vector3();
+  const at = new Vector3(), end: ReachEnd = { passes: 0, still: false };
   const solveAt = ({ chain, free, points, memory }: Arm, time: number): number[][] => {
     const angles = memory.angles.map((row) => [...row]);
     const tasks = memory.goal!.places.map((place, i) => {
       along(memory, i, time, at);
       return { point: points.get(place.point)!, target: [at.x, at.y, at.z] as Vec3 };
     });
-    solveReach(chain, angles, free, tasks);
+    solveReach(chain, angles, free, tasks, end);
+    state.reach.solves++;
+    state.reach.passes += end.passes;
+    if (!end.still) state.reach.capped++;
     return angles;
   };
 

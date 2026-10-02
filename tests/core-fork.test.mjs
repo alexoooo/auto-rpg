@@ -260,7 +260,7 @@ const NEEDED = {
     "world > steps",
     ...["activation", "velocity", "ceiling", "trackers"].map((field) => `body > muscles > ${field}`),
     ...["goals", "time", "angles", "fists", "points", "root > position", "root > rotation", "head"].map((field) => `body > mind > host > ${field}`),
-    ...["pose", "pushes", "standing"].map((field) => `body > mind > host > motor > ${field}`),
+    ...["pose", "pushes", "standing", "reach"].map((field) => `body > mind > host > motor > ${field}`),
     ...["left", "right"].flatMap((hand) => HAND.map((field) => `body > mind > host > motor > hands > ${hand} > ${field}`)),
     ...["stride", "striding", "owned", "last", "pace", "reading", "feet"].map((field) => `${STANCE} > ${field}`),
     ...["swing", "lifted", "time", "held", "from", "lift"].map((field) => `${STANCE} > step > ${field}`),

@@ -159,7 +159,9 @@ rows say little of the solve itself: the next table asks every solve the same qu
 The bout's 144 solves, each taken from the bout as it was asked (its chain, the angles it started
 from, its freedoms and its tasks; all are the Rogue's right arm, steps 1022 to 1069) and solved
 again alone, by `solveReach` as it is and by scratch copies of it at `8d783172`. So every row
-answers the same 144 questions. Read beside the passes:
+answers the same 144 questions. The solves are kept (`tests/fixtures/reach-solves.json`), and
+`node research/reach-bed.mjs` solves them by the solve in the tree: the first row is its reading.
+Read beside the passes:
 
 - **Solved again**: the solve run once more from its own answer, and the most any angle moves. An
   answer is one a second solve leaves alone.

@@ -111,10 +111,13 @@ interface ReachFreedom {
   readonly preferred: number;
 }
 
+/** How a solve ended: the passes it took, and whether it stopped of itself (no angle moved `IK_TOLERANCE` in its last pass) or at `IK_PASSES`. */
+export interface ReachEnd { passes: number; still: boolean }
+
 /**
  * The angles that carry out `tasks`, moving only `free` and holding every other angle in
  * `angles` as given; `angles` is the start and is overwritten with the answer. Returns the
- * greatest distance left over the tasks, m.
+ * greatest distance left over the tasks, m, and says in `end`, if given, how it ended.
  *
  * One task puts its point at its target: three rows. Two are two points of one rigid body, which
  * can be asked five things, not six: the first point's place, and the second's error taken across
@@ -132,7 +135,7 @@ interface ReachFreedom {
  * has no rotation.
  */
 export function solveReach(chain: readonly BuiltJoint[], angles: number[][], free: readonly ReachFreedom[], tasks: readonly ReachTask[],
-  passes = IK_PASSES): number {
+  end?: ReachEnd): number {
   if (tasks.length !== 1 && tasks.length !== 2) throw new Error(`a reach is one task or two, not ${tasks.length}`);
   const [first, second] = tasks as readonly [ReachTask, ReachTask?];
   const n = free.length, rows = Array.from({ length: second ? 5 : 3 }, (_, r) => r), solve = second ? solveLinear : solve3;
@@ -146,8 +149,9 @@ export function solveReach(chain: readonly BuiltJoint[], angles: number[][], fre
     for (let r = 1; r < rows.length; r++) sum += J[k]![r]! * x[r]!;
     return sum;
   };
-  let left = Infinity;
-  for (let pass = 0; pass < passes; pass++) {
+  let left = Infinity, taken = 0, still = false;
+  while (taken < IK_PASSES && !still) {
+    taken++;
     pointAtToRef(chain, angles, first.point, at);
     const e = [first.target[0] - at.x, first.target[1] - at.y, first.target[2] - at.z];
     left = hypot(e[0]!, e[1]!, e[2]!);
@@ -220,8 +224,9 @@ export function solveReach(chain: readonly BuiltJoint[], angles: number[][], fre
     }
     // Done when the angles no longer move: a path differenced for its rates must not carry a
     // solve's unfinished drift along the posture's pull.
-    if (largest < IK_TOLERANCE) break;
+    still = largest < IK_TOLERANCE;
   }
+  if (end) { end.passes = taken; end.still = still; }
   return left;
 }
 
