@@ -1,4 +1,5 @@
 import { BODY_MODELS, type BodyModel } from "../core/human/spec.ts";
+import { FIGHTER, type MindConfig } from "../core/mind/config.ts";
 import { isOrders } from "../core/mind/orders.ts";
 import { balanceFrom } from "../core/rules/rulebook.ts";
 import { DUEL_HELD, type OrdersEntry, type Side } from "./duel.ts";
@@ -78,6 +79,21 @@ export function readHeld(search: string): Readonly<Record<Side, (typeof DUEL_HEL
   return { left: given[0]!, right: given[given.length - 1]! };
 }
 
+/** The arena link's parameter for how both sides' hands guard while they do not attack: `&guard=cover` or `&guard=pose`. */
+const GUARD_PARAM = "guard";
+
+/**
+ * The minds an address gives both sides (`DuelRecipe.minds`): the fighter (`FIGHTER`) guarding
+ * as it names (`FighterMindConfig.guard`); undefined for anything else, and each side's mind is
+ * then the bout's own.
+ */
+export function readGuard(search: string): Readonly<Record<Side, MindConfig>> | undefined {
+  const guard = new URLSearchParams(search).get(GUARD_PARAM);
+  if (guard !== "cover" && guard !== "pose") return undefined;
+  const mind: MindConfig = { ...FIGHTER, guard };
+  return { left: mind, right: mind };
+}
+
 /**
  * The gap, m, and the cap, s, a link may ask for (`DuelRecipe.gap`, `.capSeconds`), a numeric setting:
  * from the two all but touching to the arena's floor, and from a second to ten minutes.
@@ -108,7 +124,7 @@ const isEntry = (entry: unknown): entry is OrdersEntry => {
 
 /**
  * The tape `hash` carries; none if it carries none, or one that is not an array of entries. A
- * tape is of one recipe: the link names the matchup, the gap, the cap, each side's balance and what it holds with it.
+ * tape is of one recipe: the link names the matchup, the gap, the cap, each side's balance, what it holds and how it guards with it.
  */
 export function readTape(hash: string): OrdersEntry[] {
   const text = new URLSearchParams(hash.replace(/^#/, "")).get(TAPE_KEY);

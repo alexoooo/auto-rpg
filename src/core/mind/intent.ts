@@ -21,13 +21,21 @@ export interface Intent {
   readonly lower?: number;
 }
 
+/** What a guarding hand covers: where the threat is, and the place of its own body it is kept from; world, m. */
+export interface Cover {
+  readonly threat: Vec3;
+  readonly guarded: Vec3;
+}
+
 /**
  * What a hand does: guard, or attack a point (world), with whatever the hand holds. An attack is
  * the skill's to carry out: it chooses the blow for what the hand holds, brings the body to its
- * range, and throws it (`SkillReport.strike` says where it is).
+ * range, and throws it (`SkillReport.strike` says where it is). So is a guard with a cover: the
+ * skill puts what the hand covers with between the threat and the place guarded
+ * (`src/core/skills/guard.ts`); a guard with none holds the guard's pose.
  */
 export type HandAction =
-  | { readonly kind: "guard" }
+  | { readonly kind: "guard"; readonly cover?: Cover }
   | { readonly kind: "attack"; readonly target: Vec3 };
 
 export const GUARD_ACTION: HandAction = Object.freeze({ kind: "guard" });

@@ -57,7 +57,7 @@ async function walker() {
   const body = createBody(stand.built, stand.world, { servoSeconds: SERVO_SECONDS });
   const pace = body.envelope.walk.value, rate = turnAt(body.envelope, pace);
   const height = body.view.stance.centre.y - body.view.stance.support.y - STANCE_LOWER;
-  const reach = (hand, by) => deepFreeze({ places: [{ point: "knuckles", position: body.view.knuckles[hand].add(by).asArray() }], seconds: 0.4 });
+  const reach = (hand, by) => deepFreeze({ places: [{ point: "knuckles", position: body.view.points[hand].knuckles.add(by).asArray() }], seconds: 0.4 });
   const left = [reach("left", new Vector3(0, 0.1, 0.25)), reach("left", new Vector3(0.1, 0.2, 0.15))];
   const right = [reach("right", new Vector3(-0.1, 0.15, 0.2)), reach("right", new Vector3(0, 0.25, 0.1))];
   const hand = (goals, time, from, to) => time >= from && time < to ? goals[time < from + 0.3 ? 0 : 1] : null;
@@ -259,7 +259,7 @@ const NEEDED = {
   walker: [
     "world > steps",
     ...["activation", "velocity", "ceiling", "trackers"].map((field) => `body > muscles > ${field}`),
-    ...["goals", "time", "angles", "fists", "knuckles", "root > position", "root > rotation", "head"].map((field) => `body > mind > host > ${field}`),
+    ...["goals", "time", "angles", "fists", "points", "root > position", "root > rotation", "head"].map((field) => `body > mind > host > ${field}`),
     ...["pose", "pushes", "standing"].map((field) => `body > mind > host > motor > ${field}`),
     ...["left", "right"].flatMap((hand) => HAND.map((field) => `body > mind > host > motor > hands > ${hand} > ${field}`)),
     ...["stride", "striding", "owned", "last", "pace", "reading", "feet"].map((field) => `${STANCE} > ${field}`),

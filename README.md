@@ -69,8 +69,10 @@ A link can name its matchup and open the bout directly:
 `?play=arena&matchup=workshop-fighter,crypt-skeleton` (the bodies are `workshop-fighter`,
 `workshop-rogue` and `crypt-skeleton`). It may also say how far apart the two start (`&gap=3`,
 metres), how long the bout may run (`&cap=30`, seconds) and what each right hand holds
-(`&held=empty` for a bare-handed bout, or `&held=empty,club` left then right), and carry a
-bout's orders after a `#tape=`, which the arena then plays again by itself.
+(`&held=empty` for a bare-handed bout, or `&held=empty,club` left then right) and how both
+sides guard (`&guard=cover`: a hand that does not attack covers what threatens the head; in the
+pose unless it says), and carry a bout's orders after a `#tape=`, which the arena then plays
+again by itself.
 
 ## The Crypt
 

@@ -68,7 +68,13 @@ All of it on a physically based core, humans first ([architecture](architecture.
   bodies and aim orders with the engine's `Math` (`src/lab/`, `src/dungeon/`), so a lab scenario
   or a crypt run is not yet held to be the same in every engine; the boundary test's
   `WORLD_BUILDERS` names the modules it holds, and theirs join it when they are moved.
-- The tactics (`fighterTactics`) cannot yet attack a moving body, block or parry.
+- The tactics (`fighterTactics`) cannot yet attack a moving body.
+- A fighter can cover its head against a blow it sees coming (`guard: "cover"`,
+  `&guard=cover`), and does not unless asked: the cover is late, and saves no more of the head
+  than the pose ([blows](reference/blows.md#guard-battery)). Left: a cover that leads the blow
+  and is in place before it; a cover of another part; a dodge; a counter; and the Rogue's club,
+  which a two-point hand goal does not bring to its place
+  ([blows](reference/blows.md#a-clubs-line)).
 - The arena needs tactics of its own, beyond walking at the other body and attacking its head.
 
 ### Strikes

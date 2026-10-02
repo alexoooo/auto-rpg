@@ -4,7 +4,7 @@ import type { AssistCeiling } from "../control/assist.ts";
 import type { Skills } from "../skills/skills.ts";
 import type { World } from "../world.ts";
 import type { FighterMindConfig, MindConfig } from "./config.ts";
-import { fighterTactics, seekFoe } from "./fighter.ts";
+import { fighterTactics, seekFoe, STRAFE } from "./fighter.ts";
 import type { Orders } from "./orders.ts";
 import type { Senses } from "./senses.ts";
 import { subMindsOf } from "./sub-minds.ts";
@@ -51,7 +51,8 @@ export function createMind(built: BuiltBody, world: World, config: MindConfig, w
 /** A fighter left to itself seeks its foe (`seekFoe`): the one conduct there is. */
 function createFighter(built: BuiltBody, world: World, config: FighterMindConfig, wiring: MindWiring): FighterMind {
   const body = createBody(built, world, { servoSeconds: SERVO_SECONDS, senses: wiring.senses, assist: wiring.assist, subs: subMindsOf(config.subs) });
-  const skills = driveBy(body, fighterTactics(wiring.name, (sight) => wiring.orders(sight.view.senses) ?? seekFoe(sight)));
+  const skills = driveBy(body, fighterTactics(wiring.name, (sight) => wiring.orders(sight.view.senses) ?? seekFoe(sight), STRAFE, config.guard, config.threat),
+    { cover: config.covering });
   return { kind: "fighter", body, skills, state: skills.state };
 }
 

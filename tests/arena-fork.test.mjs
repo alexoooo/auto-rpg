@@ -21,6 +21,7 @@ import { FIGHTER } from "../src/core/mind/config.ts";
 import { isClash, woundedIn } from "../src/core/rules/blows.ts";
 import { GUARD_ACTION } from "../src/core/mind/intent.ts";
 import { STAND_ORDERS } from "../src/core/mind/orders.ts";
+import { threatOf } from "../src/core/mind/threat.ts";
 import { GUARD } from "../src/core/skills/guard.ts";
 import { REPERTOIRE } from "../src/core/skills/strikes.ts";
 import { deepFreeze, loadState, saveState } from "../src/core/state.ts";
@@ -30,6 +31,8 @@ import { assertForks, fieldsOf, forgetting, forks, PHYSICS_ALONE, shows, STATE_A
 import { traceOf } from "./harness/trace.mjs";
 
 const RECIPE = deepFreeze({ left: "workshop-fighter", right: "crypt-skeleton", gap: 3, balance: { left: 25, right: 25 }, senseDelay: 2 });
+/** The same bout with both sides covering what threatens them (`FighterMindConfig.guard`). */
+const COVERING = deepFreeze({ ...RECIPE, minds: { left: { ...FIGHTER, guard: "cover" }, right: { ...FIGHTER, guard: "cover" } } });
 const BACK = { move: { x: -1, z: 0 }, face: null, attack: null };
 const TAPE = deepFreeze([{ step: 300, side: "left", orders: BACK }, { step: 420, side: "left", orders: null }]);
 /** Steps a twin's world has taken when its bout is built: a bout begins at whatever step its world is at. */
@@ -58,7 +61,7 @@ async function bout(which = "trunk", recipe = RECIPE, tape = TAPE) {
   const duel = new Duel(world, recipe, { onBlow: (blow) => heard.push(blow) });
   if (which === "trunk") duel.play(tape);
   const sides = SIDES.map((side) => duel.duelists[side]);
-  const seen = { landed: [], clashes: 0, severed: [], swung: new Set(), orders: [], withdrawn: false, verdict: null, heard };
+  const seen = { landed: [], clashes: 0, severed: [], swung: new Set(), covered: new Set(), orders: [], withdrawn: false, verdict: null, heard };
   let counted = 0;
   return {
     world, duel, builts: sides.map(({ built }) => built), seen,
@@ -79,6 +82,7 @@ async function bout(which = "trunk", recipe = RECIPE, tape = TAPE) {
         for (const side of woundedIn(blow)) if (side.wound.severed.length) seen.severed.push(side.fighter);
       }
       for (const { minded } of sides) if (minded.skills.report.strike.phase === "swing") seen.swung.add(minded.skills.report.strike.blow);
+      for (const { side, body, minded } of sides) if (minded.kind === "fighter" && recipe.minds?.[side].guard === "cover" && threatOf(body.view)) seen.covered.add(side);
       seen.orders = duel.tape.map(({ step, orders }) => [step, orders !== null]);
       seen.withdrawn = sides.every(({ body }) => body.assist.withdrawn);
       seen.verdict = duel.verdict;
@@ -135,6 +139,21 @@ test("a_bout_forks_at_any_step", async () => {
   assert.equal(about.seen.landed[0], first);
 });
 
+test("a_bout_forks_across_a_cover", async () => {
+  const covering = (which) => bout(which, COVERING);
+  // The first step a side covers a threat at, found on a bout of its own.
+  const scout = await covering();
+  let first = 0;
+  try {
+    while (scout.seen.covered.size === 0 && scout.duel.verdict === null) { scout.advance(); scout.watch(); first++; }
+    assert.ok(scout.seen.covered.size > 0, "a side covers before the verdict");
+  } finally { scout.dispose(); }
+  // Forked at every step from before the cover to after it is held: the hand's goal follows its threat across each.
+  const run = await forks(covering, 1, 5, 40, { physics: PHYSICS_ALONE, state: STATE_ALONE }, first - 6);
+  assertForks(run, ["physics", "state"]);
+  assert.ok(run.seen.covered.size > 0 && run.steps[0] < first && run.steps.at(-1) > first + 20, `forked from ${run.steps[0]} to ${run.steps.at(-1)} about the cover at ${first}`);
+});
+
 test("a_bout_rewinds", async () => {
   const tape = JSON.parse(JSON.stringify(TAPE)), given = JSON.stringify(tape);
   const stand = await bout("trunk", RECIPE, tape), { duel } = stand;
@@ -178,7 +197,7 @@ test("a_load_is_of_the_same_recipe", async () => {
     // The control: the physics alone takes it, the two worlds having the same counts of bodies, joints and colliders.
     assert.doesNotThrow(() => taken.world.physics.load(saved.physics));
     // A bout of other minds is of another recipe: a mind's memory is its kind's, and its sub-minds'.
-    const minds = await bout("twin", { ...RECIPE, minds: { left: { kind: "fighter", subs: [] }, right: FIGHTER } });
+    const minds = await bout("twin", { ...RECIPE, minds: { left: { ...FIGHTER, subs: [] }, right: FIGHTER } });
     try {
       assert.throws(() => minds.duel.load(saved), /another bout's recipe/);
       assert.throws(() => from.duel.load(minds.duel.save()), /another bout's recipe/);

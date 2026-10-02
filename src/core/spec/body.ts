@@ -77,6 +77,8 @@ export interface ItemSpec {
   readonly points: { readonly [name: string]: Quantity<Vec3> };
   /** The point of `points` a blow with the item is brought to its target by: where it strikes. */
   readonly aim?: string;
+  /** The two points of `points` between which the item stops a blow: a parry puts a threat's line across them. */
+  readonly cover?: readonly [string, string];
   /** Absent, the item is rigid: it takes no share of a blow. */
   readonly surface?: SurfaceSpec;
   /** What it is made of. */

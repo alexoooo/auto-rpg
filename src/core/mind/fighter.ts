@@ -2,10 +2,12 @@ import type { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { wrap } from "../skills/locomotion.ts";
 import { APPROACH } from "../skills/strike.ts";
 import type { Vec3 } from "../spec/quantity.ts";
-import { GUARD_ACTION, type Intent } from "./intent.ts";
+import { FIGHTER, type FighterMindConfig } from "./config.ts";
+import { GUARD_ACTION, type HandAction, type Intent } from "./intent.ts";
 import { STAND_ORDERS, type Orders } from "./orders.ts";
 import type { BodySense } from "./senses.ts";
 import type { Sight, Tactics } from "./tactics.ts";
+import { THREAT, threatOf, type Threat } from "./threat.ts";
 import { sin, cos, atan2, hypot } from "../math/real.ts";
 
 /**
@@ -33,17 +35,35 @@ export const STRAFE = { share: 0.5, turned: 0.3 } as const;
  * point it is given and a point that followed a swaying head would move under every placing.
  * Back from another mind (`BodyView.resumed`), it aims afresh.
  *
+ * A hand that does not attack guards as `guard` says (`FighterMindConfig.guard`): in the pose,
+ * or covering what threatens the head (`threatOf`, by `threat`) while anything does.
+ *
  * The stance turns only while it walks (`locomotion`), so a standing body ordered to face
  * does not turn.
  */
-export function fighterTactics(name: string, orders: (sight: Sight) => Orders, strafe: typeof STRAFE = STRAFE): Tactics {
+export function fighterTactics(name: string, orders: (sight: Sight) => Orders, strafe: typeof STRAFE = STRAFE,
+  guard: FighterMindConfig["guard"] = FIGHTER.guard, threat: Threat = THREAT): Tactics {
+  /** What a hand that does not attack does this step. */
+  const guarding = ((): (sight: Sight) => HandAction => {
+    switch (guard) {
+      case "pose": return () => GUARD_ACTION;
+      case "cover": return ({ view }) => {
+        const cover = threatOf(view, threat);
+        return cover ? { kind: "guard", cover } : GUARD_ACTION;
+      };
+      default: {
+        const never: never = guard;
+        throw new Error(`a fighter guards in the pose or by a cover, not by ${JSON.stringify(never)}`);
+      }
+    }
+  })();
   /** Its memory: the point aimed at, and the blows thrown when it was chosen. */
   const state: { aim: { point: Vec3; thrown: number } | null } = { aim: null };
   return {
     name, state,
     decide: (sight): Intent => {
       if (sight.view.resumed) state.aim = null;
-      const { report, envelope } = sight, { move, face, attack } = orders(sight);
+      const { report, envelope } = sight, { move, face, attack } = orders(sight), rest = guarding(sight);
       if (attack) {
         const thrown = report.strike.thrown.right;
         let aim = state.aim;
@@ -51,10 +71,10 @@ export function fighterTactics(name: string, orders: (sight: Sight) => Orders, s
           || hypot(attack[0] - aim.point[0], attack[1] - aim.point[1], attack[2] - aim.point[2]) > APPROACH.reach) {
           aim = state.aim = { point: [attack[0], attack[1], attack[2]], thrown };
         }
-        return { move: null, face: report.heading, hands: { left: GUARD_ACTION, right: { kind: "attack", target: aim.point } } };
+        return { move: null, face: report.heading, hands: { left: rest, right: { kind: "attack", target: aim.point } } };
       }
       state.aim = null;
-      const hands = { left: GUARD_ACTION, right: GUARD_ACTION };
+      const hands = { left: rest, right: rest };
       // A facing under 8 cm long names no direction: the point to face is over the body itself.
       const facing = face && hypot(face.x, face.z) > 0.08 ? atan2(face.x, face.z) : null;
       if (!move || !envelope) return { move: null, face: facing ?? report.heading, hands };

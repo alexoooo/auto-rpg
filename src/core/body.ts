@@ -1,5 +1,6 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { BuiltBody, BuiltSegment } from "./build/build-body.ts";
+import { rigidPoints } from "./build/rigid.ts";
 import type { Assist, AssistCeiling } from "./control/assist.ts";
 import { uprightness } from "./control/ground.ts";
 import { rootFrameToRef, type Frame } from "./control/kinematics.ts";
@@ -97,8 +98,11 @@ export interface BodyView {
   readonly angles: Readonly<Record<string, number>>;
   /** Each hand's knuckles in the world: where a fist strikes, and how fast. */
   readonly fists: Readonly<Record<Hand, Fist>>;
-  /** Each hand's knuckles in the body frame, where a hand goal is set. */
-  readonly knuckles: Readonly<Record<Hand, Vector3>>;
+  /**
+   * Each named point of each hand's rigid body (`rigidPoints`: its knuckles, the points of what
+   * it holds), by name, in the body frame, where a hand goal is set.
+   */
+  readonly points: Readonly<Record<Hand, Readonly<Record<string, Vector3>>>>;
   /**
    * The body frame in the world, as the last step left it: the root segment's place and turn
    * (`rootFrameToRef`), the frame a hand goal is set in. A world point is brought into it with
@@ -173,7 +177,7 @@ export function commandMind(own: OwnBody, { servoSeconds, stance }: BodyOptions)
   const state = {
     goals, time: 0, angles,
     fists: { left: fists.left.fist, right: fists.right.fist },
-    knuckles: { left: new Vector3(), right: new Vector3() },
+    points: { left: pointsOf(built, "left"), right: pointsOf(built, "right") },
     root: { position: new Vector3(), rotation: new Quaternion() },
     head: head.centre,
     motor: motor.state,
@@ -185,7 +189,7 @@ export function commandMind(own: OwnBody, { servoSeconds, stance }: BodyOptions)
     senses: NOTHING_SENSED,
     angles,
     fists: state.fists,
-    knuckles: state.knuckles,
+    points: state.points,
     root: state.root,
     head: head.centre,
     stance: motor.stance.reading,
@@ -213,7 +217,7 @@ export function commandMind(own: OwnBody, { servoSeconds, stance }: BodyOptions)
     muscles.channels.forEach((c, i) => { angles[c.name] = muscles.angle(i); });
     for (const hand of ["left", "right"] as const) {
       fists[hand].update();
-      motor.knucklesToRef(hand, view.knuckles[hand]);
+      for (const name in view.points[hand]) motor.pointToRef(hand, name, view.points[hand][name]!);
     }
     rootFrameToRef(motor.root, state.root);
     head.update();
@@ -263,6 +267,13 @@ export function createBody(built: BuiltBody, world: World, options: BodyOptions)
 const sameGoal = (a: HandGoal, b: HandGoal): boolean =>
   a.seconds === b.seconds && a.through === b.through && a.follows === b.follows && a.places.length === b.places.length
   && a.places.every((place, i) => place.point === b.places[i]!.point && place.position.every((v, k) => v === b.places[i]!.position[k]));
+
+/** A vector for each named point of `hand`'s rigid body (`rigidPoints`). */
+function pointsOf(built: BuiltBody, hand: Hand): Record<string, Vector3> {
+  const segment = built.segments.get(`hand.${hand}`);
+  if (!segment) throw new Error(`${built.spec.model} has no ${hand} hand`);
+  return Object.fromEntries([...rigidPoints(built.spec, segment.spec).keys()].map((name) => [name, new Vector3()]));
+}
 
 /** Where `name`'s rigid body's centre of mass is, world, as the last step left it. */
 function centreOf(built: BuiltBody, name: string): { centre: Vector3; update(): void } {
