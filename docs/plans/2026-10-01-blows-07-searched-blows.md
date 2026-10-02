@@ -10,8 +10,8 @@ the placed blow. The fist's speed and the club's energy into a mark stop being w
 scores.
 
 It is the open-ended one: its structure is fixed here, and its recipes are whatever the searches
-find. It needs plan 01's target bodies, plan 03's rule (a search under today's rule would send
-every fist at a head for nothing) and plan 05's windows.
+find. It is read on the target bodies and scored by the rule that shares a blow between its two
+surfaces, both landed, and needs plan 05's windows.
 
 ## Files
 

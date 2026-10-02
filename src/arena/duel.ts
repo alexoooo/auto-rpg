@@ -10,13 +10,16 @@ import { sameOrders, type Orders } from "../core/mind/orders.ts";
 import { createSenses, type SensesHub } from "../core/mind/senses.ts";
 import { watchBlows, type BlowWatch, type Fighter, type LandedBlow } from "../core/rules/blows.ts";
 import { createPool, type Ending } from "../core/rules/pool.ts";
-import { balanceCeiling, balancePercent, rulebook, type Rulebook } from "../core/rules/rulebook.ts";
+import { balanceCeiling, balancePercent, rulebook, type Rulebook, type RulebookOverride } from "../core/rules/rulebook.ts";
+import type { BodySpec } from "../core/spec/body.ts";
+import { derive } from "../core/spec/quantity.ts";
 import type { BuiltBody } from "../core/build/build-body.ts";
 import { loadState, saveState, type Saved } from "../core/state.ts";
 import type { Hook, World } from "../core/world.ts";
 
 /**
- * **A bout in the arena**: two bodies, each with the wooden club in its right hand, each under a
+ * **A bout in the arena**: two bodies, each with the wooden club in its right hand unless the
+ * recipe empties it (`DuelRecipe.held`), each under a
  * mind made from its config (`createMind`; the fighter, `FIGHTER`, unless the recipe names
  * another), wounded by the core's blows under the arena's rulebook, and judged.
  *
@@ -50,6 +53,10 @@ import type { Hook, World } from "../core/world.ts";
 const GAP_METRES = 4;
 /** How long a bout runs before the bars decide it, s (`docs/reference/play.md#the-bout`). */
 export const CAP_SECONDS = 120;
+
+/** What a side's right hand holds in a bout: the wooden club, or nothing. */
+export const DUEL_HELD = ["club", "empty"] as const;
+type DuelHeld = (typeof DUEL_HELD)[number];
 
 export type Side = "left" | "right";
 export const SIDES: readonly Side[] = Object.freeze(["left", "right"]);
@@ -94,6 +101,38 @@ interface DuelRecipe {
   readonly balancePercent?: AssistCeiling;
   /** Each side's mind, in place of the fighter every body has (`FIGHTER`): an experiment's, or a table's row. */
   readonly minds?: Readonly<Record<Side, MindConfig>>;
+  /** What each side's right hand holds; the wooden club unless given. */
+  readonly held?: Readonly<Record<Side, DuelHeld>>;
+  /** The arena's rules with these in their place (`rulebook`'s override): an experiment's. */
+  readonly rules?: RulebookOverride;
+  /** For each segment named, what its surface's stiffness is times, on both sides: a sensitivity sweep's. */
+  readonly surfaces?: Readonly<Record<string, number>>;
+}
+
+/** `spec` with `held` in its right hand. */
+function holding(spec: BodySpec, held: DuelHeld): BodySpec {
+  switch (held) {
+    case "club": return armed(spec, "right", woodenClub());
+    case "empty": return spec;
+    default: {
+      const never: never = held;
+      throw new Error(`a bout's hand holds nothing called ${String(never)}`);
+    }
+  }
+}
+
+/** `spec` with each segment `factors` names as stiff as its own surface times its factor. */
+function stiffened(spec: BodySpec, factors: Readonly<Record<string, number>>): BodySpec {
+  for (const name of Object.keys(factors)) if (!spec.segments.some((segment) => segment.name === name)) throw new Error(`${spec.model} has no segment ${name} to stiffen`);
+  return {
+    ...spec,
+    segments: spec.segments.map((segment) => {
+      const factor = factors[segment.name];
+      if (factor === undefined) return segment;
+      const times = derive("1", "the recipe's factor on this surface", [], () => factor);
+      return { ...segment, surface: { stiffness: derive("N/m", "the surface's stiffness, times the recipe's factor", [segment.surface.stiffness, times], (k, f) => k * f) } };
+    }),
+  };
 }
 
 /** A recipe as JSON with every object's keys in order: two recipes that say the same in it are one bout's, however each was written. */
@@ -168,7 +207,7 @@ export class Duel {
   constructor(world: World, recipe: DuelRecipe, hooks: DuelHooks = {}) {
     this.world = world;
     this.recipe = Object.freeze({ ...recipe });
-    this.rules = rulebook("arena");
+    this.rules = rulebook("arena", recipe.rules);
     const start = world.time, startStep = world.steps;
     const given: Record<Side, Orders | null> = { left: null, right: null };
     this.cap = recipe.capSeconds ?? CAP_SECONDS;
@@ -186,7 +225,7 @@ export class Duel {
     const duelists = {} as Record<Side, Duelist>;
     for (const side of SIDES) {
       const model = recipe[side];
-      const spec = armed(modelSpec(model), "right", woodenClub());
+      const spec = holding(recipe.surfaces ? stiffened(modelSpec(model), recipe.surfaces) : modelSpec(model), recipe.held?.[side] ?? "club");
       const x = (side === "left" ? -1 : 1) * gap / 2;
       const built = buildBody(spec, world, { position: [x, 0, 0] });
       const pool = createPool(spec, this.rules);

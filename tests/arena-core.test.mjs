@@ -11,7 +11,7 @@ import { TransformNode } from "@babylonjs/core/Meshes/transformNode.js";
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { ARENA_POSTS, addArenaSolids, arenaSolids } from "../src/arena/room.ts";
 import { CAP_SECONDS, Duel } from "../src/arena/duel.ts";
-import { DEFAULT_MATCHUP, matchupSearch, readBalance, readCap, readGap, readMatchup, readTape, readYou, tapeHash, youSearch } from "../src/arena/matchup.ts";
+import { DEFAULT_MATCHUP, matchupSearch, readBalance, readCap, readGap, readHeld, readMatchup, readTape, readYou, tapeHash, youSearch } from "../src/arena/matchup.ts";
 import { ORBIT, orbitPosition } from "../src/arena/orbit.ts";
 import { aimPoint, keysToMove, personOrders } from "../src/arena/orders-input.ts";
 import { centreOfToRef } from "../src/core/control/support.ts";
@@ -72,6 +72,10 @@ test("a_tape_rides_in_a_link's_fragment", () => {
   for (const entry of wrong) assert.deepEqual(readTape(tapeHash([tape[0], entry])), [], JSON.stringify(entry));
   assert.deepEqual([STAND_ORDERS, tape[1].orders, null, [], { move: null, face: null, attack: "head" }].map(isOrders), [true, true, false, false, false]);
   // The gap and the cap a link asks for, each within its range or not at all.
+  // What each side's right hand holds: left then right, one word for both, or the club.
+  assert.deepEqual(["?held=empty,club", "?play=arena&held=empty", "?held=club", "?held=%20club%20,empty"].map(readHeld),
+    [{ left: "empty", right: "club" }, { left: "empty", right: "empty" }, { left: "club", right: "club" }, { left: "club", right: "empty" }]);
+  assert.deepEqual(["", "?held=", "?held=empty,", "?held=,empty", "?held=sword", "?held=empty,club,club", "?balance=empty"].map(readHeld), Array(7).fill(undefined));
   assert.deepEqual(["?gap=3.5", "?play=arena&gap=1", "?gap=8"].map(readGap), [3.5, 1, 8]);
   assert.deepEqual(["", "?gap=", "?gap=0", "?gap=0.99", "?gap=8.01", "?gap=x", "?gap=Infinity", "?cap=4"].map(readGap), Array(8).fill(undefined));
   assert.deepEqual(["?cap=30", "?cap=1", "?cap=600"].map(readCap), [30, 1, 600]);
@@ -214,6 +218,24 @@ test("a_bout's_recipe_is_plain_data_that_builds_the_same_bout", async () => {
     const verdict = duel.run(2);
     assert.deepEqual([verdict?.ending, verdict?.time], ["time", 1], "and its cap is the recipe's");
   } finally { duel?.dispose(); dispose(); }
+});
+
+test("a_side's_right_hand_holds_the_club_unless_its_recipe_empties_it", async () => {
+  const names = (duelist) => (duelist.built.spec.held ?? []).map((held) => [held.segment, held.item.name]);
+  const built = async (held) => {
+    const { world, dispose } = await arena();
+    const duel = new Duel(world, { left: "workshop-fighter", right: "crypt-skeleton", ...held });
+    try { return [names(duel.duelists.left), names(duel.duelists.right)]; } finally { duel.dispose(); dispose(); }
+  };
+  assert.deepEqual(await built({}), [[["hand.right", "wooden club"]], [["hand.right", "wooden club"]]]);
+  assert.deepEqual(await built({ held: { left: "empty", right: "club" } }), [[], [["hand.right", "wooden club"]]]);
+  assert.deepEqual(await built({ held: { left: "club", right: "empty" } }), [[["hand.right", "wooden club"]], []]);
+  await assert.rejects(built({ held: { left: "sword", right: "club" } }), /a bout's hand holds nothing called sword/);
+  // Two with nothing in their hands fight with them: a blow between them has no item in it, and each side of it is wounded.
+  const row = await playBout({ left: "workshop-fighter", right: "workshop-rogue", gap: 3, held: { left: "empty", right: "empty" } }, 30, [], { blows: true });
+  assert.ok(row.landed.length > 0, "the fixture's two meet");
+  assert.ok(row.landed.every((blow) => blow.sides.every((side) => side.item === null)), "no blow of theirs names an item");
+  assert.ok(row.landed.some((blow) => blow.sides.every((side) => side.wound !== null)), "and one wounds both its sides");
 });
 
 test("the_same_bout_built_twice_is_the_same_to_the_bit", async () => {

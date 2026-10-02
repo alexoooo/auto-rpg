@@ -69,8 +69,8 @@ export function drawTargets(seed: number, count: number, frame: { readonly place
 const DUMMY_PART = "head";
 
 /**
- * **A target's body**: one ball, the attacker's head's mass and its head capsule's radius, named
- * `head`, with the attacker's hit points in it and never coming off. Every number is the
+ * **A target's body**: one ball, the attacker's head's mass, its head capsule's radius and its
+ * head's surface, named `head`, with the attacker's hit points in it and never coming off. Every number is the
  * attacker's own, by a rule that names it. Its frame's origin is the ball's centre, so its node is
  * where it is.
  */
@@ -88,6 +88,7 @@ export function dummySpec(attacker: BodySpec): BodySpec {
       distal: derive("m", "the ball's top, its radius over its centre", [radius], (r): Vec3 => [0, r, 0]),
       inertia: derive("kg m2", "a solid ball's moment about each axis", [mass, radius], (m, r): Vec3 => [ballMoment(m, r), ballMoment(m, r), ballMoment(m, r)]),
       shape: { kind: "sphere", centre, radius },
+      surface: { stiffness: derive("N/m", "the attacker's head's surface", [head.surface.stiffness], (k) => k) },
     }],
     joints: [],
     wounds: { hp: derive("HP", "the attacker's hit points", [attacker.wounds.hp], (hp) => hp), vital: [], whole: [DUMMY_PART] },
@@ -170,7 +171,10 @@ export interface TargetReading {
    * touched; null if no strike began.
    */
   readonly nearest: number | null;
-  /** The first blow that wounded the dummy, or null. */
+  /**
+   * The blow that took the most from the dummy, the first of equals, or null: an arm that brushes
+   * the dummy on the fist's way is a blow too, and not the one its strike is read by.
+   */
   readonly blow: LandedBlow | null;
   /** That blow's two sides: the dummy's, and the body's that struck it; null with no blow. */
   readonly took: BlowSide | null;
@@ -222,7 +226,11 @@ export function readTarget(actor: Actor, target: Target, hand: Hand, rules: Rule
   /** The hand's strikes thrown before this one, once it has begun; and when its pushes ended. */
   let thrown: number | null = null, ended: number | null = null;
   const reading = (fell: boolean): TargetReading => {
-    const dummy = up?.dummy.fighter.id, blow = up?.watch.blows.find((b) => woundedIn(b).some((side) => side.fighter === dummy)) ?? null;
+    const dummy = up?.dummy.fighter.id;
+    /** What `landed` took from the dummy, HP. */
+    const taken = (landed: LandedBlow): number => woundedIn(landed).find((side) => side.fighter === dummy)?.damage ?? 0;
+    let blow: LandedBlow | null = null;
+    for (const landed of up?.watch.blows ?? []) if (taken(landed) > (blow ? taken(blow) : 0)) blow = landed;
     const took = blow?.sides.find((side) => side.fighter === dummy) ?? null, gave = blow?.sides.find((side) => side.fighter !== dummy) ?? null;
     return { target, hand, strike: strike && { ...strike }, seconds: world.time - asked, hung: up !== null, nearest, blow, took, gave, fell };
   };

@@ -15,13 +15,9 @@ with the last of them.
 - **The lab reads a blow in the air, one way per weapon.** The Routine strikes a drawn post and
   reads the fist's speed (`src/lab/routine.ts`); the Blow scenario reads the club's energy into a
   mark it passes through (`src/lab/club-blow.ts`). Neither is the rule a fight wounds by.
-- **The rule knows two strikers.** `STRIKERS` (`src/core/rules/blows.ts`) is the two hands. A
-  kick, a shoulder, a head, a shield's face land nothing. A hand and the club it holds are one
-  body to the rule, since a contact names the other body and not which shape was touched
-  (`Contact`, `src/core/engine/engine.ts`).
-- **The one who strikes never pays.** A fist driven into a skull wounds the skull alone. Nothing
-  decided that: the rule was written around the club, whose striker is an item
-  (`39407d75`), and no source says a fist is unharmed by its own punch.
+- **A search scores what the rule does not.** A fist's recipe was found for its speed and the
+  club's for the energy it brings to a mark, where a fight wounds by the rule: any two surfaces
+  that meet share the blow (`src/core/rules/blows.ts`), so a fist pays for its own punch.
 - **There is no defence.** The guard is one pose (`src/core/skills/guard.ts`); nothing reads the
   blow coming.
 
@@ -100,9 +96,9 @@ Each is put with its table at the gate of the plan that measures it. None is ass
 | Choice | Options, and what each does in the game | Where |
 |---|---|---|
 | **The unit** | 100 J a hit point with the bodies' hit points as they are (every body 28 % frailer in joules: the Warrior's 6 HP is 600 J, not 830 J); 100 J with hit points raised to hold the joules (Warrior 8.3, Rogue 5.5); or 138.26 J kept. | 04 |
-| **A hand ruined by its own punch** | On the candidate stiffnesses a fist takes 62 % of a punch to a head, a hand holds 12 J (Warrior), and a part comes off half its hit points past empty: a punch to a head of about 30 J or more takes the puncher's hand off. Leave it (a bare fist is for the trunk, where it takes 15 to 35 %; plan 07's search finds that by itself); or a blunt blow empties a part and never takes it off (no part comes off until an edge exists; the club no longer takes a head off, it kills by emptying it). | 03 |
-| **Jostling** | Every closing touch is a blow, so two bodies that bump shoulders wound each other a little. Leave it; or a floor under which a touch only shoves (`Rulebook`, a decision of its own). | 03 |
-| **The stiffness gaps** | Confirm, or correct, the values no source gives: the hand's (a porcine figure), the arm's, the shank's and the foot's. | 03 |
+| **Whether a blunt blow takes a part off** | A fist takes 62 % of a punch to a head, a hand holds 12 J (Warrior), and a part comes off half its hit points past empty: a punch to a head of 29 J or more takes the puncher's hand off. Leave it (a bare fist is for the trunk, where it takes 12 %; plan 07's search finds that by itself); or a blunt blow empties a part and never takes it off (no part comes off until an edge exists; the club no longer takes a head off, it kills by emptying it). Measured both ways: `docs/reference/bouts.md#a-blow-has-two-sides`. | the roadmap, Blows and wounds |
+| **Jostling** | Every closing touch is a blow, so two bodies that bump shoulders wound each other a little. Leave it; a floor under which a touch only shoves (`Rulebook`, a decision of its own); or a body out of the fight out of the watch. Measured at two floors, in the same record. | the roadmap |
+| **The stiffness gaps** | Confirm, or correct, the values no source gives: the arm's, the shank's, the foot's, the middle and lower trunk's (`docs/reference/wounds.md#gaps`, with what a factor of two in each does). | the roadmap |
 | **Where a fighter aims** | The head, as today; or the part its blow pays most on. Chosen on a paired table of bouts. | 07 |
 
 ## Recorded, not asked
@@ -135,9 +131,6 @@ Each is put with its table at the gate of the plan that measures it. None is ass
 
 | Today | After |
 |---|---|
-| the hands strike (`STRIKERS`) | any two segments of different sides that meet |
-| a contact names the other body | and each pair of shapes that touched |
-| a blow wounds the struck part alone | each surface takes its share by compliance; an item takes none |
 | the unit is the club's best blow, 138.26 J | 100 J, on the owner's yes |
 | a blow is thrown at head height, straight ahead | a recipe by height band, with a window in three directions; a placed blow elsewhere |
 | a hand goal takes the knuckles to a place, and no skill uses it | named points of the hand's rigid body, the wrist freed for two; the strike and the guard use it |
@@ -148,35 +141,25 @@ Each is put with its table at the gate of the plan that measures it. None is ass
 
 | # | Plan | Lands | Needs | Eye gate |
 |---|---|---|---|---|
-| 03 | [shares](2026-10-01-blows-03-shares.md) | surfaces' stiffness; any touch is a blow, shared by compliance; the bouts measured again | | the owner reads the tables and answers three choices |
 | 04 | [unit](2026-10-01-blows-04-unit.md) | 100 J a hit point | the owner's yes | none |
 | 05 | [placement](2026-10-01-blows-05-placement.md) | hand goals on named points; windows with height; the placed blow | | the Routine's high and middle targets are struck |
 | 06 | [guard](2026-10-01-blows-06-guard.md) | the guard covers a threat; the block battery | 05 | the owner watches a body cover itself |
-| 07 | [searched blows](2026-10-01-blows-07-searched-blows.md) | one evaluator under the rule; recipes by band for every body and thing held | 03, 05 | the owner watches each body's blows, and reads the price before the searches run |
+| 07 | [searched blows](2026-10-01-blows-07-searched-blows.md) | one evaluator under the rule; recipes by band for every body and thing held | 05 | the owner watches each body's blows, and reads the price before the searches run |
 
-The targets every plan here is read on have landed (`src/lab/targets.ts`, `docs/reference/blows.md`),
-and so has the record of two sides (`BlowSide`, `src/core/rules/blows.ts`). 03 and 04 change what every bout is worth: each
-measures the standing table before and after, and the two tables are not merged. 07 is the
-open-ended one: its structure is fixed here, its recipes are found by search.
+The targets every plan here is read on have landed (`src/lab/targets.ts`,
+`docs/reference/blows.md`), and so has the rule: a blow has no striker, and its two surfaces
+share it (`src/core/rules/blows.ts`, `docs/reference/wounds.md`). 04 changes what every bout is
+worth: it measures the standing table before and after
+(`docs/reference/bouts.md#a-blow-has-two-sides` is its before), and the two tables are not
+merged. 07 is the open-ended one: its structure is fixed here, its recipes are found by search.
 
-The rising set (`2026-10-01-rising-05-rules.md`) measures `docs/reference/bouts.md` again too.
-Whichever of it and 03 lands second measures against the other's table, not against the one both
-replaced.
+The rising set (`2026-10-01-rising-05-rules.md`) measures `docs/reference/bouts.md` again too:
+it and 04 each measure against the last table in that record, not against one both replaced.
 
 ## Readings
 
-### Probes
-
-Node, Rapier, 120 Hz, two bodies of one ball each (`lone`, `tests/core-blows.test.mjs`), a fist of
-1 kg sent at 6 m/s into a ball of 5.48 kg under gravity, read by `watchBlows`:
-
-| The target is | closing, m/s | masses met, kg | energy, J | the fist after, m/s | the target after, m/s |
-|---|---|---|---|---|---|
-| held up by a force equal to its weight each step (`applyForce`), free otherwise | 5.96 | 1.00, 5.48 | 15.0 | 0.93 | 0.93 |
-| held fixed (`setFixed(true)`) | 6.00 | 1.00, 5.48 | 15.2 | 0 | 0 |
-
-Either way the rule reads the blow. Held up, the target gives way as a free head does; fixed, it
-is a wall to the fist. Held up for 10 s before the blow, it does not move.
+The surfaces' stiffness, the shares, the tolerances beside the literature's and the mechanisms'
+prices are in `docs/reference/wounds.md`.
 
 ### What each part holds
 
@@ -196,56 +179,6 @@ is a wall to the fist. Held up for 10 s before the blow, it does not move.
 | foot | 1.08 | 0.151 | 20.9 | 15.1 | 0.74 | 0.097 | 13.4 | 9.7 |
 
 The skeleton's are the Warrior's (`skeleton-placeholders`).
-
-### Stiffness, as looked up
-
-Read in the paper or its abstract unless marked (2nd) for a secondary source or (mine) for
-arithmetic on a paper's numbers. **Every one is opened again at its source before it enters a
-spec** (plan 03); a value not found as cited becomes a gap.
-
-| Part | Candidate, N/mm | From |
-|---|---|---|
-| head | 201 | Cormier et al. 2010, the nasal bone's second slope (55 then 201). The face's, until the head is two surfaces; the vault is 812 static to 4023 dynamic (Yoganandan et al. 1995, J Neurotrauma 12:659), and a 6.45 cm² disc on the frontal bone reads 331 then 731 (Cormier et al. 2009). |
-| upperTrunk | 26.3 | Lobdell 1973 (2nd); Kent 2005 (IRCOBI) gives 17. |
-| middleTrunk | 21 to 70, rising with speed | Cavanaugh 1986; Hardy 2001 (2nd). The reading nearest a blow's speed is taken. |
-| lowerTrunk | the middle trunk's | gap |
-| thigh | 247 | Funk 2004: the femur fails at 4.35 kN and 17.6 mm (mine). |
-| upperArm, forearm, shank | the thigh's | gap: no stiffness found for the humerus, the forearm or the tibia |
-| hand | 122 | Ochman 2011, porcine; no human fist stiffness was found. Gap. |
-| foot | the hand's | gap |
-
-Tolerances beside the pool's, for the record plan 03 writes (`docs/reference/wounds.md`): the
-vault fails at 14 to 68 J (Yoganandan 1995); the thorax at about 200 J and the femur at about
-38 J by F²/2k (mine); the knuckle joint's 50 % injury is 3.0 kN axial (Carpanen et al. 2019,
-JMBBM 97:306), about 37 J at 122 N/mm (mine); a boxer's punch is 3427 N at 9.14 m/s with an
-effective mass of 2.9 kg (Walilko, Viano & Bir 2005). Against these the pool's head, trunk and
-thigh are within about a factor of two, and its hand is about three times too frail.
-
-### Shares on the candidates
-
-A surface's share is the other's stiffness over the sum.
-
-| Meeting | First's share | Second's share |
-|---|---|---|
-| hand, head | 0.62 | 0.38 |
-| hand, upper trunk | 0.18 | 0.82 |
-| hand, middle trunk (21 to 70) | 0.15 to 0.36 | 0.85 to 0.64 |
-| hand, hand | 0.50 | 0.50 |
-| hand, forearm | 0.67 | 0.33 |
-| foot, thigh | 0.67 | 0.33 |
-| club, anything | 0 | 1 |
-| club, club | 0 | 0 |
-
-So a bare fist is a poor weapon against a head and a fair one against a trunk, and a club costs
-its holder nothing anywhere. Nothing authored says so.
-
-### Mechanisms, for later
-
-The rulebook's prices are blunt 1 : edge 5.7 : point 33 a joule. Against the literature a point
-is in range (people stab at up to 64 J underarm and 115 J overarm, Horsfall et al. 1999; skin
-breaches at about 0.25 J with a sharp knife, Gilchrist et al. 2008); an edge is plausible on soft
-tissue and only 1.5 to 3.4 times blunt on bone (Gentile et al. 2019; Gaudet et al. 2020); an axe
-against a sword is unsupported either way.
 
 ## Later, in order
 

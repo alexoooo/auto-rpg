@@ -337,6 +337,42 @@ export const SOURCES = Object.freeze({
       + "trunk is in the way.",
     record: "docs/reference/human-strike-reference.md#9-joint-ranges-and-strengths-for-the-core-human",
   },
+  "cormier-2009": {
+    kind: "literature",
+    cite: "Cormier JM. Epidemiology and Biomechanical Analysis of Facial Fractures. PhD dissertation, Virginia "
+      + "Polytechnic Institute and State University, 2009: cadaver faces struck by a flat-faced impactor; Table 14 "
+      + "gives the nasal bone's stiffness at 20 % and between 20 and 80 % of peak force.",
+    link: "https://hdl.handle.net/10919/26280",
+  },
+  "kent-2005": {
+    kind: "literature",
+    cite: "Kent R, Murakami D, Kobayashi S. Frontal thoracic response to dynamic loading: the role of superficial "
+      + "tissues, viscera and the rib cage. Proc IRCOBI Conference 2005:355-365: three cadavers' chests loaded by "
+      + "a hub, belts and a distributed load, intact, denuded and eviscerated; Table 3 gives the effective stiffness.",
+    link: "https://www.ircobi.org/wordpress/downloads/irc0111/2005/Session6/64.pdf",
+  },
+  "funk-2004": {
+    kind: "literature",
+    cite: "Funk JR, Kerrigan JR, Crandall JR. Dynamic bending tolerance and elastic-plastic material properties of "
+      + "the human femur. Annu Proc Assoc Adv Automot Med 2004;48:215-233: 15 femurs of 8 men bent to failure at "
+      + "mid-shaft in dynamic three-point bending.",
+    link: "https://pmc.ncbi.nlm.nih.gov/articles/PMC3217417/",
+  },
+  "ochman-2011": {
+    kind: "literature",
+    cite: "Ochman S, Vordemvenne T, Paletta J, Raschke MJ, Meffert RH, Doht S. Experimental fracture model versus "
+      + "osteotomy model in metacarpal bone plate fixation. ScientificWorldJournal 2011;11:1692-1698: second "
+      + "metacarpals of pigs in three-point bending; the intact bones' bending stiffness.",
+    link: "https://doi.org/10.1100/2011/465371",
+  },
+  "contact-stiffness-gaps": {
+    kind: "decision", date: "2026-10-02",
+    decided: "Proposed, for the owner to confirm: where no study read gives a part's stiffness under a blunt load, it "
+      + "takes a neighbour's: the middle trunk the upper trunk's and the lower trunk the middle's, the upper arm, "
+      + "forearm and shank the femur's, the foot the hand's; and the hand's is a porcine metacarpal's in bending, no "
+      + "human fist's having been found. The head's is its face's until the head is two surfaces.",
+    record: "docs/reference/wounds.md#gaps",
+  },
 } as const satisfies Readonly<Record<string, Source>>);
 
 export type SourceKey = keyof typeof SOURCES;

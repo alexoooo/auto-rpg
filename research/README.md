@@ -21,6 +21,7 @@ Some write the data files the core reads, and only with `--write`; without it th
 | `core-strike-window.mjs` | where each recipe still lands, along and across its heading | the windows, into `assets/core/strikes.json` |
 | `core-strike-repertoire.mjs` | builds the repertoire from searches' best strikes | `assets/core/strikes.json` |
 | `core-rapier-probe.mjs` | on the core's engine module alone, off the stand: what Rapier's generic joint does: its limits' measure, motor axes, saturation, gyroscopic spin, a motor braking a hung rod | |
+| `blow-shares.mjs` | the surfaces' stiffness table with its sources, the share each surface takes where two meet, the same at half and twice a surface's stiffness, and the joules that empty each part | the tables, pasted into `docs/reference/wounds.md` |
 | `real-against-engine.mjs` | the core's functions of a real number beside the running engine's `Math`: how many values differ in any bit, how widely, and each function's digest, the same in every engine | the table, pasted into `docs/reference/real-functions.md` |
 
 `core-club-unit.json` is the club blow that sets the damage unit (`core-club-unit` in `SOURCES`).
@@ -45,7 +46,8 @@ Arena bouts off the page: Node, the core's world, Rapier, 120 Hz. A bout is its 
 |---|---|---|
 | `bout.mjs`, `bout-worker.mjs`, `bout-pool.mjs` | one arena bout from its recipe in a world of its own: how it ended, what landed, each side's mean assist, and the digest of every pose at every step; its worker; and many bouts over workers | |
 | `bout-trace.mjs` | one bout's row: the digest a change that should change nothing must leave as it was | |
-| `bout-baseline.mjs` | how every matchup ends at each starting gap: endings, falls and wounding blows a minute | the table, pasted into `docs/reference/bouts.md` |
+| `bout-baseline.mjs` | how every matchup ends at each starting gap: endings, falls and wounding blows a minute, and what a bout's blows cost its sides; with the right hands empty (`--held empty`), no part coming off (`--never-off`), the hands' surfaces stiffer or softer (`--hand`), and what the blows under a floor were (`--floors`) | the tables, pasted into `docs/reference/bouts.md` and `wounds.md` |
+| `crypt-blows.mjs` | a crypt run's blows with no visuals, by what met in each (an item, a bare hand, two bodies), and those with a side already out of the fight | the table, pasted into `docs/reference/bouts.md` |
 | `assist-need.mjs` | what each side's soles miss of what its stance asks of the ground, over every matchup | the table, pasted into `docs/reference/assist.md` |
 | `assist-sweep.mjs` | what balance does to how bouts end: both sides even, other worths of a point, and one side with more | the three tables, pasted into `docs/reference/assist.md` |
 | `rollouts.mjs`, `rollout-worker.mjs`, `rollout-pool.mjs` | a bout forked by replay: played to a step under its tape and on under a branch of other orders; a row's value to a side, the responses a side may try, and the choice among them; its worker; and a pool that stays up between batches | |
@@ -54,6 +56,7 @@ Arena bouts off the page: Node, the core's world, Rapier, 120 Hz. A bout is its 
 ```powershell
 node research/bout-trace.mjs
 node research/bout-baseline.mjs --workers 14
+node research/bout-baseline.mjs --gaps 3,3.5,4,4.5,5 --held empty --floors 1,5
 node research/assist-sweep.mjs --workers 14
 node research/oracle.mjs --all --side both --workers 14 --out research/runs/oracle
 ```

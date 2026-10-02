@@ -39,6 +39,12 @@ wooden club in its right hand and is driven by its own mind: it walks at the oth
 reach, attacks the head. A side is out when its wounds end it or its body falls; at the two-minute
 bell the fuller bar wins, and equal bars draw.
 
+A blow costs both who meet in it. Any two parts of the two bodies that come together closing
+have met in a blow, and the two surfaces share its energy: the softer takes the more. A fist
+takes most of its own punch to a head and little of one to a chest. A held weapon is rigid and
+costs its holder nothing: what a club strikes takes the whole blow, a bare hand that meets a
+club takes all of it, and two clubs meeting wound nobody.
+
 You watch, or you take a side: pick it under **You fight as**, or open
 `?play=arena&matchup=workshop-fighter,workshop-rogue&you=left`. Your side then does what you
 order and nothing else: it does not attack unasked. It turns only while it walks, so walk to
@@ -59,8 +65,9 @@ turn; across its heading or backward it walks at half pace.
 A link can name its matchup and open the bout directly:
 `?play=arena&matchup=workshop-fighter,crypt-skeleton` (the bodies are `workshop-fighter`,
 `workshop-rogue` and `crypt-skeleton`). It may also say how far apart the two start (`&gap=3`,
-metres) and how long the bout may run (`&cap=30`, seconds), and carry a bout's orders after a
-`#tape=`, which the arena then plays again by itself.
+metres), how long the bout may run (`&cap=30`, seconds) and what each right hand holds
+(`&held=empty` for a bare-handed bout, or `&held=empty,club` left then right), and carry a
+bout's orders after a `#tape=`, which the arena then plays again by itself.
 
 ## The Crypt
 

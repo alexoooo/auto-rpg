@@ -48,7 +48,7 @@ export interface Rulebook {
 }
 
 /** What an experiment may set in place of a mode's rules. */
-type RulebookOverride = Partial<Omit<Rulebook, "mode">>;
+export type RulebookOverride = Partial<Omit<Rulebook, "mode">>;
 
 /**
  * Each mechanism's price, joules per point of wound: the prices whose ratios the owner keeps

@@ -115,7 +115,8 @@ work that became `8ee70e1e`, and were not committed. The last row read the same 
 **With its targets.** The Routine strikes at ten targets a loop, each a body from its strike's
 beginning ([blows.md](blows.md#targets)). The same battery, each run's targets drawn from its
 seed, `ROUTINE_GAIT` as it stands: loops held of 60, runs that stood through of 6, and the
-strikes thrown and landed.
+strikes thrown and landed. Read at `b72e4ebe`, where a blow was a hand's landing: a touch by any
+part of the arm is one now, and counts as landed.
 
 | Rate, Hz | The loop | Warrior | Rogue |
 |----------|----------|---------|-------|

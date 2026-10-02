@@ -102,6 +102,48 @@ All of it on a physically based core, humans first ([architecture](architecture.
   full search.
 - Searched blows found at 120 Hz read between 20 % and 100 % of their converged value.
 
+### Blows and wounds
+
+- A blow has no striker and its two surfaces share its energy by their compliance
+  ([architecture](architecture.md#rules-and-wounds), [reference/wounds.md](reference/wounds.md)). Not
+  built: a tolerance of a part's own (the pool's rule stands, by the owner's answer, and a hand
+  is a third as tough as a knuckle while a head is far tougher than a face:
+  [reference/wounds.md](reference/wounds.md#tolerances)); the face apart from the rest of the
+  head; armour, which is a layer more in the list `energyShares` already takes; an edge and a
+  point, whose prices are in the rulebook and which no item states.
+- The owner's to choose, each landed at its default:
+  - Whether a blunt blow takes a part off. Today it does, half a part's hit points past empty.
+    With clubs, 8 of 45 bouts end by a part coming off; where none does, those bouts go on and
+    13 end by a fatal wound where 4 did
+    ([reference/bouts.md](reference/bouts.md#a-blow-has-two-sides)). Three bare left hands in
+    those 45 bouts were emptied by a club and came off.
+  - What two bodies that walk into each other cost. Today any touch that closes is a blow,
+    however slight. With clubs nothing is lost that way; bare-handed, 0.10 of the 0.15 HP a
+    bout's blows take is from blows with neither a hand nor an item in them, and in the crypt
+    every such blow has one side already on the floor and costs the living about 0.1 HP over
+    four runs. A floor of 1 J would drop 95 % of bare-handed blows and 23 % of their hit
+    points, and half a per cent of the clubs'; a body out of the fight taken out of the watch
+    would drop the crypt's.
+  - The stiffness of the parts no paper was read for (`contact-stiffness-gaps`: the arms, the
+    shank and the foot, the middle and lower trunk, each given its neighbour's). A factor of two
+    in one moves a share by 0.06 to 0.17 ([reference/wounds.md](reference/wounds.md#sensitivity)).
+- The owner's to watch: a bare-handed bout
+  (`?play=arena&matchup=workshop-rogue,workshop-rogue&held=empty`) beside one with clubs
+  (`?play=arena&matchup=workshop-fighter,workshop-rogue`).
+- Fists as they are thrown decide nothing: every one of 45 bare-handed bouts ends by a fall, the
+  hardest of 4365 blows is 22 J, and a bout's blows take 0.15 of the sides' 10 to 12 HP
+  ([reference/bouts.md](reference/bouts.md#a-blow-has-two-sides)).
+- The Warrior with an empty right hand, on the right side of a bout, falls at 2.9 s before any
+  touch: it turns a quarter turn from its heading as it sets off. On the left, and on either
+  side with the club, it walks.
+- A blow that wounds both sides is heard once, by its first side's surface: its two cues share
+  a key (`src/audio/cues.ts`).
+- The crypt makes its watch again at each body it builds, and a watch made again has forgotten
+  which bodies were touching: a touch that is still closing lands once more.
+- Two parts of one body that meet another's part in one step are two blows, each priced from its
+  own contact as if it met the part alone: a bare Warrior's fist and forearm landing together
+  on a ball 10 cm under its head's height read 10.9 J and 5.9 J (`tests/lab-targets.test.mjs`).
+
 ### Body and motor control
 
 - Walking: the fastest walk held every way is 0.7 m/s for the Warrior, 0.5 for the Rogue and 0.2 for

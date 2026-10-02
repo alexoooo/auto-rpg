@@ -24,8 +24,8 @@ port and kill it by PID when done.
 works in dev and is absent from `dist`.
 
 - `/` (`index.html`, `src/app.ts`): the main menu; the arena at `?play=arena`
-  (`&matchup=left,right` opens a bout, `&you=left` takes a side, `&gap=`, `&cap=` and
-  `&balance=` are its recipe's, `#tape=` plays a bout's orders again, `src/arena/`); the crypt at
+  (`&matchup=left,right` opens a bout, `&you=left` takes a side, `&gap=`, `&cap=`, `&balance=`
+  and `&held=` are its recipe's, `#tape=` plays a bout's orders again, `src/arena/`); the crypt at
   `?play=dungeon`
   (`src/dungeon/`); the lab at `?play=lab` (`&scenario=` runs one, `src/lab/scenarios.ts`).
   Each screen is a `<template>` mounted once per page load; changing screen is a navigation.
@@ -83,6 +83,10 @@ screens build on it; it never imports them.
   kind (`MindConfig`, `src/core/mind/config.ts`): a fight passes it through, reads nothing in it,
   and holds what it gets by what every kind gives (`Minded`, `src/core/mind/minds.ts`). A skill
   answers `Skill.resume` and is in the one list the skills resume (`createSkills`).
+- **A blow has no striker.** Any two segments of two sides that meet closing have met in a blow,
+  and the two surfaces share its energy by their compliance (`energyShares`,
+  `src/core/rules/share.ts`); an item with no stated surface is rigid. A part's tolerance is the
+  pool's rule and no part has its own.
 - **Cosmetics never carry authority**: nothing decorative collides or decides a hit. The visible
   room is not the collision arena; `validateRoomPlacements` (`src/arena/room.ts`) refuses a piece
   naming a collider the arena lacks, and a solid-looking piece within reach that names none.

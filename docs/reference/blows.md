@@ -36,7 +36,9 @@ tried (0, 5 and 15 cm ahead of the chest's middle; Node core stand, Rapier, 120 
 whose place the body fills to the end of the pushes has no dummy, and its reading says so
 (`hung`).
 
-**What is read** (`TargetReading`). The first blow on the dummy; the nearest any shape of the
+**What is read** (`TargetReading`). The blow that took the most from the dummy: any part of the
+attacker that touches it closing has met it in a blow, and an arm that brushes it on the fist's
+way is not the one its strike is read by. With it, the nearest any shape of the
 hand's body came to the dummy's surface from the strike's beginning to `TARGET_WATCH` after its
 pushes end (`SegmentBody.gapTo`: a fist, a club or anything else the hand's body is made of);
 and the strike thrown, with its fist's peak speed and where the head stood from the recipe's
@@ -50,7 +52,9 @@ swell and 0.72 m by its knuckles. A body that goes down closes the reading as it
 (`drawTargets`: the control, then high, middle and low in turn), each target on a run of its own,
 the walk out to it included. With a hand empty the hands strike in turn; with the club in the
 right hand that hand strikes at every target. Node core stand, Rapier, 120 Hz, no assist, the
-arena's rules (138.26 J a hit point). No run fell, and no target went unhung or unread.
+arena's rules (138.26 J a hit point). No run fell, and no target went unhung or unread. Read at
+`b72e4ebe`, where a blow was a hand's landing, with what it holds, and what it landed on took the
+whole of it; the rows the rule's two sides change are in [the table after](#shared).
 
 | Body | Held | Stratum | Targets | Hit | Damage, HP: mean | least | Missed by, cm: mean |
 |---|---|---|---|---|---|---|---|
@@ -94,20 +98,53 @@ and not its height:
   club blow of their own and throw the Warrior's: the Rogue's passes 0.6 to 0.9 m off, the
   skeleton's 0.2 to 0.3 m. The skeleton's fist, the Warrior's too, passes the control by 18 cm.
 
+### Shared
+
+The same command where a blow has no striker and its two surfaces share it
+([wounds.md](wounds.md#shares)), each target read by the blow that took the most from it. The
+club's twelve rows are the first table's to the digit: a club is rigid and takes none of its
+blow. The empty hands':
+
+| Body | Stratum | Targets | Hit: a hand's blow, whole | any touch, shared | Damage, HP: mean, whole | shared | least, whole | shared |
+|---|---|---|---|---|---|---|---|---|
+| Warrior | control | 3 | 3 | 3 | 0.055 | 0.021 | 0.055 | 0.021 |
+| Warrior | high | 9 | 5 | 9 | 0.067 | 0.023 | 0.020 | 0.008 |
+| Warrior | middle | 9 | 4 | 6 | 0.016 | 0.010 | 0.008 | 0.003 |
+| Warrior | low | 9 | 0 | 0 | - | - | - | - |
+| Rogue | control | 3 | 3 | 3 | 0.043 | 0.016 | 0.043 | 0.016 |
+| Rogue | high | 9 | 9 | 9 | 0.021 | 0.010 | 0.001 | 0.002 |
+| Rogue | middle | 9 | 0 | 7 | - | 0.002 | - | 0.000 |
+| Rogue | low | 9 | 0 | 0 | - | - | - | - |
+| Skeleton | control | 3 | 0 | 0 | - | - | - | - |
+| Skeleton | high | 9 | 0 | 0 | - | - | - | - |
+| Skeleton | middle | 9 | 4 | 4 | 0.005 | 0.002 | 0.001 | 0.001 |
+| Skeleton | low | 9 | 1 | 1 | 0.007 | 0.003 | 0.007 | 0.003 |
+
+- **A fist does a head 0.38 of what it did.** The blow's energy is the same, 7.5 J at the
+  Warrior's control; the head takes its share by compliance and the hand the rest, 0.62.
+- **A forearm or an upper arm that reaches a target is a blow.** The Warrior's high targets are
+  all struck where five were, and the Rogue's middle ones seven of nine where none were: the
+  fist passes them and the arm behind it does not. Those blows are slight, 0.002 HP in the
+  Rogue's mean.
+- No missed target is nearer or farther: the strikes are the same strikes.
+
 ### A loop of ten
 
 `node research/core-targets.mjs --list`: the same targets, the ten of a seed struck at in turn
 on one run, as the page runs them. Same harness. A body that falls lies where it fell, and the
 targets after are unread.
 
-| Body | Held | Runs that looped, of 3 | Targets read, of 30 | Hit | Where the others fell |
-|---|---|---|---|---|---|
-| Warrior | empty | 2 | 23 | 8 | closing on its third target, its second blow landed |
-| Warrior | club | 1 | 24 | 9 | closing on its fifth target; setting its feet for its ninth |
-| Rogue | empty | 3 | 30 | 14 | - |
-| Rogue | club | 0 | 13 | 0 | setting its feet for its fourth or fifth target |
-| Skeleton | empty | 0 | 8 | 0 | at its second target, or closing on its third |
-| Skeleton | club | 0 | 6 | 0 | setting its feet for its second target |
+| Body | Held | Runs that looped, of 3 | Targets read, of 30 | Hit by a hand's blow | by any touch | Where the others fell |
+|---|---|---|---|---|---|---|
+| Warrior | empty | 2 | 23 | 8 | 13 | closing on its third target, its second blow landed |
+| Warrior | club | 1 | 24 | 9 | 9 | closing on its fifth target; setting its feet for its ninth |
+| Rogue | empty | 3 | 30 | 14 | 21 | - |
+| Rogue | club | 0 | 13 | 0 | 0 | setting its feet for its fourth or fifth target |
+| Skeleton | empty | 0 | 8 | 0 | 0 | at its second target, or closing on its third |
+| Skeleton | club | 0 | 6 | 0 | 0 | setting its feet for its second target |
+
+The runs are the same runs under both rules, to the second each fell or looped at: a dummy's
+wound moves nothing. What differs is which touches are blows ([Shared](#shared)).
 
 - **The borrowed strikes put their bodies down whether or not they land.** The Rogue with the
   club and the skeleton land nothing here and fall within five targets.

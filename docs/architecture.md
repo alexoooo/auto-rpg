@@ -37,14 +37,18 @@ and obeys the `BodyCommand` it gets back: a posture, hand goals, timed pushes an
 
 A `BodySpec` (`src/core/spec/body.ts`) holds a body in its reference pose, in metres, with +x
 right, +y up, +z forward and the soles on y = 0: its segments (mass, centre of mass, principal
-inertia, collision shape), its joints (a tree; each freedom with its axis, range and muscle), its
-wounds (`hp`, the `vital` parts, the parts that never come off) and anything held.
+inertia, collision shape, and its surface: how stiff it is under a blunt load, which is what a
+blow is shared by), its joints (a tree; each freedom with its axis, range and muscle), its
+wounds (`hp`, the `vital` parts, the parts that never come off) and anything held. An item
+states a surface or is rigid.
 
 The human body plan builds every current body. `figureSpec` (`src/core/human/spec.ts`) takes a
 `HumanFigure` (the sex whose tables apply, the landmarks, the trunk's hulls, the feet, the hands,
 the mass, the stature and the hit points) and lays out 16 segments and 15 joints from published
 tables: de Leva for segment parameters, Dempster via Winter for densities, measured joint ranges
-and torques, Abe for regional muscle, and Anderson, Frey-Law and Thelen for force and speed.
+and torques, Abe for regional muscle, Anderson, Frey-Law and Thelen for force and speed, and
+the impact literature for each part's stiffness under a blunt load (`CONTACT_STIFFNESS`,
+[reference/wounds.md](reference/wounds.md#stiffness)).
 
 | Model | Figure | Hit points |
 |---|---|---|
@@ -324,14 +328,19 @@ they wake.
 The rules of a fight are `src/core/rules/`, free of any page so they can be argued with in tests
 (`tests/core-rules.test.mjs`, `tests/core-blows.test.mjs`).
 
-- **A blow** (`watchBlows`, `blows.ts`) is a new contact between a striker (a hand, or anything it
-  holds) and another side's body, closing. Its energy is `impactEnergy` (`impact.ts`): half the
+- **A blow** (`watchBlows`, `blows.ts`) is a new contact between any two segments of two sides'
+  bodies, closing: it has no striker. Its energy is `impactEnergy` (`impact.ts`): half the
   reduced mass of the two effective masses (`contactMass`) times the closing speed squared. Its
   record is two sides (`BlowSide`), the surfaces that met: of the pairs of shapes that touched,
   the one the solver pushed on hardest, each shape its segment's own or an item it holds. Each
-  side has the share of the energy it took, its damage and its wound: the struck side takes the
-  whole and the striker's none, and hand against hand is a clash, in which neither takes any
-  (`isClash`).
+  side has the share of the energy it took, its damage and its wound.
+- **The two surfaces share the energy by their compliance** (`energyShares`, `share.ts`): springs
+  in series under one force, so the softer takes the more. A segment's surface is its spec's; an
+  item that states none is rigid and takes none. So a fist takes five eighths of its own punch to
+  a head and an eighth of one to a chest, what a club strikes takes the whole blow, a bare hand
+  that meets a club takes all of it, and two clubs meeting are a clash, in which neither side
+  takes any (`isClash`). The values, their gaps and what a part holds beside the literature:
+  [reference/wounds.md](reference/wounds.md).
 - **Damage** (`rulebook.ts`) is energy times the mechanism's worth over the unit. The unit is the
   Warrior's strongest one-handed blow with the wooden club (`core-club-unit`,
   `research/core-club-unit.json`), and every mechanism (blunt, edge, axe, point) keeps its ratio to

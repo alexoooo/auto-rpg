@@ -13,7 +13,7 @@ import { cross, normalize, orthogonalTo, sub } from "./vec.ts";
  *
  * What the rulebook wounds is `wounds`: the body's hit points, and which segments kill when they
  * are emptied or lost and which never come off. What else a fight's rules read of the character is
- * `attributes`. Contact surfaces join the spec when a rule first reads them.
+ * `attributes`. What a blow reads of a segment, or of an item, is its `surface`.
  *
  * **What a body holds is not its anatomy.** A segment states the body's own numbers; an item held
  * in it (`held`) is stated beside it, and the builder makes the two one rigid body
@@ -68,6 +68,8 @@ export interface ItemSpec {
   readonly shapes: readonly ItemShape[];
   /** Named points, in the item frame: where a reading is taken on it, such as where a club strikes. */
   readonly points: { readonly [name: string]: Quantity<Vec3> };
+  /** Absent, the item is rigid: it takes no share of a blow. */
+  readonly surface?: SurfaceSpec;
   /**
    * For an item a hand closes on: the radius it is held at, with the item frame's origin at the end
    * of the grip and y along it (`src/core/human/grip.ts`).
@@ -136,6 +138,15 @@ export interface SegmentSpec {
    * are set on the body explicitly, so a shape can be sized for contact without moving them.
    */
   readonly shape: ShapeSpec;
+  readonly surface: SurfaceSpec;
+}
+
+/**
+ * **What a blow reads of a surface** (`src/core/rules/share.ts`): how stiff it is under a blunt
+ * load pressed into it, N/m. The softer of two surfaces that meet takes the more of a blow.
+ */
+interface SurfaceSpec {
+  readonly stiffness: Quantity<number>;
 }
 
 /**

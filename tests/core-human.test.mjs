@@ -36,6 +36,26 @@ test("every number in each model's segment table says where it came from", () =>
   for (const model of WORKSHOP_MODELS) assert.deepEqual(specProvenanceFaults(table(model)), [], model);
 });
 
+/** Each row's stiffness under a blunt load, N/m, as its paper prints it, and the sources its provenance names. */
+const FEMUR = 4349 / 17.6 * 1000, LENT = "contact-stiffness-gaps";
+const SURFACES = {
+  head: [201e3, ["cormier-2009"]], upperTrunk: [17e3, ["kent-2005"]], middleTrunk: [17e3, ["kent-2005", LENT]], lowerTrunk: [17e3, ["kent-2005", LENT]],
+  upperArm: [FEMUR, ["funk-2004", LENT]], forearm: [FEMUR, ["funk-2004", LENT]], hand: [122.3e3, ["ochman-2011"]],
+  thigh: [FEMUR, ["funk-2004"]], shank: [FEMUR, ["funk-2004", LENT]], foot: [122.3e3, ["ochman-2011", LENT]],
+};
+
+test("each segment's surface is its row's stiffness in N/m, and a part no study gives names the decision that lends it", () => {
+  for (const model of WORKSHOP_MODELS) {
+    const segments = humanSegments(workshopFigure(model));
+    assert.deepEqual(
+      segments.map(({ name, surface: { stiffness } }) => [name, stiffness.unit, stiffness.value, [...new Set([...sourcesOf(stiffness)].map((leaf) => leaf.provenance.source))].sort()]),
+      segments.map(({ name }) => { const [k, sources] = SURFACES[name.split(".")[0]]; return [name, "N/m", k, [...sources].sort()]; }), model);
+  }
+  // A blow is shared by these: the trunk is the softest part and a long bone the stiffest.
+  const k = (row) => SURFACES[row][0];
+  assert.ok(k("upperTrunk") < k("hand") && k("hand") < k("head") && k("head") < k("thigh"));
+});
+
 test("each model's segments sum to its mass: the typical man's 79 kg, and the Rogue's by volume", () => {
   assert.equal(bodyMass("workshop-fighter").value, 79);
   assert.ok(Math.abs(bodyMass("workshop-rogue").value - 79 * 79.8 / 109.5) < 1e-12);

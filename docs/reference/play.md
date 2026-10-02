@@ -135,6 +135,41 @@ Four runs a table, on one machine: the mean step is 4.5 to 5.6 ms with neither r
 4.3 ms with the limp one and 3.1 to 4.1 ms with both. A party of four costs 2.1 ms a step by
 itself, and in 180 s it has not left many enemies behind: none to two are held at the end.
 
+**What the blows' watch costs.** A blow is any two segments of two sides that touch
+(`watchBlows`, `src/core/rules/blows.ts`), so the watch asks the engine for the contacts of every
+segment that has a fighter of another side given after its own, where a watch of the hands alone
+asked for two a fighter. The run gives its party first, the fewer bodies. Seed 4 with two
+Warriors following, 120 s, `PhysicsWorld.contactsOf` timed by a wrapper in a script that is not
+kept (Node, Rapier, 120 Hz):
+
+| The watch is given | Bodies read a step | A read, µs | The reads, ms a step |
+|---|---|---|---|
+| the party, then the enemies | 48 | 5.3 | 0.25 |
+| the enemies, then the party | 109 | 5.3 | 0.58 |
+
+The step with the hands alone read and with every segment read, the party first: the same runs
+(a wound changes no body's course while its fighter stands, and each row's other columns are the
+same in both), run by turns three times over on one machine, the least of the three:
+
+```powershell
+node research/crypt-step.mjs
+node research/crypt-step.mjs --companions 2
+```
+
+| With the hero | Seed | The run | Seconds | Out of the fight | A step, ms: the hands | every segment | In its slowest second, ms: the hands | every segment |
+|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | dead | 14 | 1 | 1.41 | 1.48 | 2.87 | 3.15 |
+| 0 | 2 | dead | 40 | 2 | 1.80 | 1.84 | 2.98 | 2.79 |
+| 0 | 3 | dead | 57 | 2 | 1.45 | 1.47 | 3.17 | 3.14 |
+| 0 | 4 | dead | 67 | 2 | 2.64 | 2.66 | 3.68 | 3.71 |
+| 2 | 1 | playing | 120 | 3 | 2.63 | 2.73 | 4.31 | 4.65 |
+| 2 | 2 | playing | 120 | 3 | 2.40 | 2.52 | 3.80 | 3.91 |
+| 2 | 3 | playing | 120 | 2 | 3.08 | 3.21 | 4.18 | 4.39 |
+| 2 | 4 | playing | 120 | 4 | 3.40 | 3.66 | 4.80 | 5.07 |
+
+Every segment read costs a step 1 to 5 % alone and 4 to 8 % with two following: 0.02 to
+0.26 ms. The hands' column is `80b2f84e`'s.
+
 ## Targets
 
 `src/dungeon/run.ts`, for a hero whose facing the cursor steers.

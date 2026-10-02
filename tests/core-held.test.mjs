@@ -21,7 +21,7 @@ function holder() {
   const segment = {
     name: "grip", proximal: q([0.1, 1, 0.05]), distal: q([0.25, 0.9, 0.2]), mass: q(0.6, "kg"),
     centreOfMass: q([0.17, 0.955, 0.12]), inertia: q([0.0012, 0.0004, 0.0015], "kg m2"),
-    shape: { kind: "capsule", from: q([0.11, 0.99, 0.06]), to: q([0.24, 0.91, 0.19]), radius: q(0.03) },
+    shape: { kind: "capsule", from: q([0.11, 0.99, 0.06]), to: q([0.24, 0.91, 0.19]), radius: q(0.03) }, surface: { stiffness: q(1e5, "N/m") },
   };
   const rod = {
     name: "rod", mass: q(1.1, "kg"), centreOfMass: q([0.004, 0.42, -0.006]), inertia: q([0.04, 0.0009, 0.045], "kg m2"),

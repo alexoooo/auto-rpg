@@ -3,6 +3,6 @@ import { parentPort } from "node:worker_threads";
 import { playBout } from "./bout.mjs";
 
 parentPort.on("message", async (job) => {
-  try { parentPort.postMessage({ id: job.id, result: await playBout(job.recipe, job.seconds, [], { shortfall: job.shortfall }) }); }
+  try { parentPort.postMessage({ id: job.id, result: await playBout(job.recipe, job.seconds, [], { shortfall: job.shortfall, blows: job.blows }) }); }
   catch (error) { parentPort.postMessage({ id: job.id, error: String(error?.stack ?? error) }); }
 });

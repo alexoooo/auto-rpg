@@ -7,7 +7,8 @@
  * (`Locomotion.place`), with the head inside the recipe's window, turned over for the left hand,
  * and the fist as fast as the recipe was searched to go. A reading's peak is the fist's in the
  * air, to the pushes' end, so it is above the recipe's peak to its landing. The first target is
- * the control, where the recipe lands: it is struck. The targets are a seed's on which each human
+ * the control, where the recipe lands: it is struck, and the fist that struck it, the softer of the
+ * two, takes the more of its own blow. The targets are a seed's on which each human
  * stands through both loops: how often one falls is the battery's to say
  * (`docs/reference/blows.md#baseline`).
  */
@@ -15,6 +16,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { humanSpec } from "../src/core/human/spec.ts";
+import { energyShares } from "../src/core/rules/share.ts";
 import { mirroredWindow, recipeFor, REPERTOIRE } from "../src/core/skills/strikes.ts";
 import { labActor } from "../src/lab/actor.ts";
 import { ROUTINE_HANDS, ROUTINE_TARGETS, startRoutine } from "../src/lab/routine.ts";
@@ -62,11 +64,14 @@ for (const model of ["workshop-fighter", "workshop-rogue"]) {
         assert.ok(window.along[0] <= along && along <= window.along[1] && window.across[0] <= across && across <= window.across[1], what);
         assert.ok(r.strike.peak >= recipe.readings.at120.peak, `${r.strike.name}: peak ${r.strike.peak} under the recipe's ${recipe.readings.at120.peak}`);
       }
-      // The control is where the recipe lands: struck by the hand that threw, each loop. The low one is out of the fist's height.
+      // The control is where the recipe lands: struck by the hand that threw, each loop, the two surfaces
+      // sharing the blow by their compliance. The low one is out of the fist's height.
+      const stiffness = (name) => spec.segments.find((segment) => segment.name === name).surface.stiffness.value;
       for (const k of [0, TARGETS]) {
         const { blow, took, gave, nearest, hand } = readings[k];
-        assert.ok(blow && took.damage > 0 && nearest === 0, `the control read ${JSON.stringify(readings[k])}`);
-        assert.deepEqual([gave, took].map(({ fighter, segment, item, share }) => [fighter, segment, item, share]), [["attacker", `hand.${hand}`, null, 0], ["dummy", "head", null, 1]]);
+        assert.ok(blow && took.damage > 0 && gave.damage > took.damage && nearest === 0, `the control read ${JSON.stringify(readings[k])}`);
+        const shares = energyShares([stiffness(`hand.${hand}`), stiffness("head")]);
+        assert.deepEqual([gave, took].map(({ fighter, segment, item, share }) => [fighter, segment, item, share]), [["attacker", `hand.${hand}`, null, shares[0]], ["dummy", "head", null, shares[1]]]);
         assert.deepEqual(blow.sides, [gave, took]);
       }
       for (const k of [TARGETS - 1, 2 * TARGETS - 1]) assert.ok(readings[k].blow === null && readings[k].nearest > 0.1, `the low one read ${JSON.stringify(readings[k])}`);

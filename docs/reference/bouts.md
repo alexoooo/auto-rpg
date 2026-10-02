@@ -214,3 +214,173 @@ both give the digests of the section above. Played a step short of the verdict (
 research/bout-trace.mjs workshop-fighter workshop-rogue 21.349`, and `crypt-skeleton
 crypt-skeleton 16.499`), the game's mind and that one give the same digests: `76fd792f95855fef`
 over 2562 steps and `35fa4058e1f57862` over 1980.
+
+## A blow has two sides
+
+Harness: Node 24.19, the core world (`src/core/world.ts`), Rapier, 120 Hz, each side's balance
+its character's (0 %). Read on the first tree whose blows have no striker: any two segments of the
+two sides that meet closing have met in a blow, and the two surfaces share its energy by their
+compliance ([wounds.md](wounds.md#shares)). Before it a blow was a hand, with what it holds,
+landing on a body, and whatever it landed on took the whole of it.
+
+```powershell
+node research/bout-baseline.mjs --gaps 3,4,5 --workers 14 --floors 1,5
+```
+
+The same 27 bouts as the standing table.
+
+| Left | Right | Gap, m | Winner | Ending | Seconds | Blows | Wounding | Clashes | Left bar | Right bar |
+|---|---|---|---|---|---|---|---|---|---|---|
+| workshop-fighter | workshop-fighter | 3 | right | severed | 11.83 | 1 | 1 | 0 | 0.86 | 1.00 |
+| workshop-fighter | workshop-rogue | 3 | left | severed | 13.54 | 3 | 3 | 1 | 1.00 | 0.79 |
+| workshop-fighter | crypt-skeleton | 3 | left | fallen | 10.09 | 0 | 0 | 0 | 1.00 | 1.00 |
+| workshop-rogue | workshop-fighter | 3 | right | fallen | 24.01 | 10 | 10 | 2 | 0.97 | 1.00 |
+| workshop-rogue | workshop-rogue | 3 | left | fallen | 10.82 | 0 | 0 | 0 | 1.00 | 1.00 |
+| workshop-rogue | crypt-skeleton | 3 | right | fallen | 10.00 | 2 | 2 | 0 | 0.94 | 1.00 |
+| crypt-skeleton | workshop-fighter | 3 | right | severed | 9.55 | 1 | 1 | 0 | 0.85 | 1.00 |
+| crypt-skeleton | workshop-rogue | 3 | left | fallen | 10.78 | 1 | 1 | 0 | 1.00 | 1.00 |
+| crypt-skeleton | crypt-skeleton | 3 | right | fallen | 14.91 | 7 | 7 | 0 | 1.00 | 0.99 |
+| workshop-fighter | workshop-fighter | 4 | right | severed | 20.07 | 6 | 6 | 0 | 0.86 | 1.00 |
+| workshop-fighter | workshop-rogue | 4 | left | fallen | 21.36 | 14 | 14 | 1 | 0.99 | 0.85 |
+| workshop-fighter | crypt-skeleton | 4 | left | severed | 10.22 | 2 | 2 | 0 | 1.00 | 0.87 |
+| workshop-rogue | workshop-fighter | 4 | right | fallen | 13.10 | 2 | 2 | 3 | 0.85 | 1.00 |
+| workshop-rogue | workshop-rogue | 4 | right | fallen | 20.23 | 3 | 3 | 1 | 1.00 | 1.00 |
+| workshop-rogue | crypt-skeleton | 4 | right | fallen | 16.74 | 5 | 5 | 1 | 0.92 | 0.97 |
+| crypt-skeleton | workshop-fighter | 4 | right | fallen | 11.88 | 4 | 4 | 0 | 0.96 | 1.00 |
+| crypt-skeleton | workshop-rogue | 4 | left | fallen | 12.34 | 0 | 0 | 0 | 1.00 | 1.00 |
+| crypt-skeleton | crypt-skeleton | 4 | left | fallen | 16.51 | 0 | 0 | 0 | 1.00 | 1.00 |
+| workshop-fighter | workshop-fighter | 5 | right | fallen | 12.32 | 17 | 17 | 1 | 0.96 | 0.94 |
+| workshop-fighter | workshop-rogue | 5 | left | severed | 9.61 | 1 | 1 | 0 | 1.00 | 0.81 |
+| workshop-fighter | crypt-skeleton | 5 | left | fatal | 11.80 | 2 | 2 | 0 | 1.00 | 0.92 |
+| workshop-rogue | workshop-fighter | 5 | right | fatal | 9.59 | 1 | 1 | 0 | 0.89 | 1.00 |
+| workshop-rogue | workshop-rogue | 5 | right | fallen | 13.35 | 0 | 0 | 0 | 1.00 | 1.00 |
+| workshop-rogue | crypt-skeleton | 5 | left | fallen | 14.32 | 2 | 2 | 0 | 0.99 | 1.00 |
+| crypt-skeleton | workshop-fighter | 5 | right | fallen | 12.57 | 2 | 2 | 0 | 1.00 | 0.97 |
+| crypt-skeleton | workshop-rogue | 5 | right | fallen | 17.10 | 0 | 0 | 0 | 1.00 | 1.00 |
+| crypt-skeleton | crypt-skeleton | 5 | left | fallen | 18.78 | 1 | 1 | 0 | 0.99 | 1.00 |
+
+| | Down read from the body | A blow has two sides |
+|---|---|---|
+| Bouts by ending | fatal 2, fallen 19, severed 6 | fatal 2, fallen 19, severed 6 |
+| Bout time, s | 377 | 377 |
+| Falls a minute | 3.02 (19 falls) | 3.02 (19 falls) |
+| Wounding blows a minute | 10.3 | 13.8 |
+| Clashes | 64 | 11 |
+| Ended before any wounding blow | 7 of 27 | 6 of 27 |
+
+Every winner, ending and second is as it was: a wound moves no body until it decides the bout,
+and no bout is decided otherwise or at another step. What changed is the count. A clash was a
+hand's body meeting a hand's body, read once from each, so the 64 were 32 meetings; a touch is
+now read once, and it is a clash only where both surfaces are items. A club that meets the hand
+under another club is a blow, on the hand; a club caught on a bare left hand, and an arm or a
+leg that meets the other body, are blows where they were nothing. Two bars moved, each by 0.01.
+
+**What the blows cost**, the same command over five gaps: 45 bouts
+(`--gaps 3,3.5,4,4.5,5`). A row is a matchup's five bouts, a mean a bout: the hit points the
+blows took from the two sides together; of them, those a side lost to a blow its own bare hand
+was in (own), and those lost where neither surface was a hand's or an item's (jostled); hands
+emptied by a blow they were in (ruined), and taken off by one (off).
+
+| Left | Right | Endings | Seconds | Blows | HP taken | Own | Jostled | Ruined | Off |
+|---|---|---|---|---|---|---|---|---|---|
+| workshop-fighter | workshop-fighter | fallen 3, severed 2 | 15.4 | 7.0 | 0.992 | 0.016 | 0.000 | 0.00 | 0.00 |
+| workshop-fighter | workshop-rogue | severed 4, fallen 1 | 12.4 | 4.2 | 0.704 | 0.002 | 0.000 | 0.00 | 0.00 |
+| workshop-fighter | crypt-skeleton | fatal 3, fallen 1, severed 1 | 10.6 | 1.4 | 0.481 | 0.000 | 0.000 | 0.00 | 0.00 |
+| workshop-rogue | workshop-fighter | fallen 4, fatal 1 | 14.2 | 4.0 | 0.386 | 0.010 | 0.000 | 0.00 | 0.00 |
+| workshop-rogue | workshop-rogue | fallen 5 | 14.7 | 0.8 | 0.007 | 0.000 | 0.000 | 0.00 | 0.00 |
+| workshop-rogue | crypt-skeleton | fallen 5 | 12.9 | 2.8 | 0.262 | 0.083 | 0.000 | 0.40 | 0.40 |
+| crypt-skeleton | workshop-fighter | fallen 4, severed 1 | 16.7 | 6.4 | 0.869 | 0.096 | 0.000 | 0.20 | 0.20 |
+| crypt-skeleton | workshop-rogue | fallen 5 | 12.9 | 0.8 | 0.015 | 0.003 | 0.000 | 0.00 | 0.00 |
+| crypt-skeleton | crypt-skeleton | fallen 5 | 16.9 | 4.0 | 0.052 | 0.000 | 0.000 | 0.00 | 0.00 |
+| every matchup, 45 bouts | | fallen 33, severed 8, fatal 4 | 14.1 | 3.5 | 0.419 | 0.023 | 0.000 | 0.07 | 0.07 |
+
+With the club in every right hand, a bout's blows take 0.42 HP and 0.023 of it is a bare hand's
+in a blow it was in: a left hand that punched, or met a club. Three such hands in 45 bouts were
+emptied and taken off. Nothing was jostled: no blow here had neither a hand nor a club in it.
+Over the 45: 633 s of bout time, 3.13 falls a minute, 14.9 wounding blows a minute, and 12 bouts
+ended before any wounding blow.
+
+Where no blunt blow takes a part off (`--never-off`: the sever margin out of reach), the same 45:
+
+| | A part comes off | No part comes off |
+|---|---|---|
+| Bouts by ending | fallen 33, severed 8, fatal 4 | fallen 32, fatal 13 |
+| Bout time, s | 633 | 627 |
+| Falls a minute | 3.13 (33 falls) | 3.06 (32 falls) |
+| HP a bout the blows took | 0.419 | 0.436 |
+| Of it, a bare hand's in a blow it was in | 0.023 | 0.027 |
+| Hands emptied by such a blow, a bout | 0.07 | 0.07 |
+
+No bout ends by a part coming off, and 13 end by a fatal wound where 4 did. The same three hands
+are emptied, and stay on.
+
+**Bare hands** (`--held empty`, the same 45 bouts with nothing in either right hand):
+
+| Left | Right | Endings | Seconds | Blows | HP taken | Own | Jostled | Ruined | Off |
+|---|---|---|---|---|---|---|---|---|---|
+| workshop-fighter | workshop-fighter | fallen 5 | 2.9 | 0.0 | 0.000 | 0.000 | 0.000 | 0.00 | 0.00 |
+| workshop-fighter | workshop-rogue | fallen 5 | 13.5 | 111.2 | 0.247 | 0.066 | 0.102 | 0.20 | 0.00 |
+| workshop-fighter | crypt-skeleton | fallen 5 | 13.0 | 63.6 | 0.231 | 0.026 | 0.186 | 0.00 | 0.00 |
+| workshop-rogue | workshop-fighter | fallen 5 | 2.9 | 0.0 | 0.000 | 0.000 | 0.000 | 0.00 | 0.00 |
+| workshop-rogue | workshop-rogue | fallen 5 | 22.2 | 410.8 | 0.178 | 0.022 | 0.142 | 0.00 | 0.00 |
+| workshop-rogue | crypt-skeleton | fallen 5 | 20.1 | 131.2 | 0.318 | 0.052 | 0.225 | 0.00 | 0.00 |
+| crypt-skeleton | workshop-fighter | fallen 5 | 2.9 | 0.0 | 0.000 | 0.000 | 0.000 | 0.00 | 0.00 |
+| crypt-skeleton | workshop-rogue | fallen 5 | 18.6 | 118.2 | 0.187 | 0.021 | 0.151 | 0.00 | 0.00 |
+| crypt-skeleton | crypt-skeleton | fallen 5 | 20.6 | 38.0 | 0.147 | 0.025 | 0.108 | 0.00 | 0.00 |
+| every matchup, 45 bouts | | fallen 45 | 13.0 | 97.0 | 0.145 | 0.024 | 0.102 | 0.02 | 0.00 |
+
+- **Every bare-handed bout ends by a fall**, and its blows take 0.15 HP of the 10 to 12 the two
+  sides have: the hardest of 4365 blows is 22 J, and nine in ten are under 0.3 J. Fists as they
+  are thrown today decide nothing.
+- **Most of what is lost is jostled**: 0.102 of the 0.145 HP is from blows with neither a hand
+  nor an item in them, which is two bodies that have walked into each other. A side's bare hand
+  in a blow costs it 0.024.
+- **One hand was emptied by a blow it was in** in 45 bouts, and none came off: `--never-off`
+  gives the same 45 rows.
+- **The Warrior with an empty right hand, on the right, falls at 2.9 s** in all 15 of its bouts,
+  before any touch: it turns from its heading by a quarter turn as it sets off. On the left, and
+  on either side with the club, it walks. It is a defect of the walk and not of the blows, and
+  those 15 bouts say nothing of them.
+
+**A floor.** What the blows under 1 J and under 5 J were, read from the blows that landed and
+not played again: a bout that a fall or the clock decided is the same bout under a floor, less
+those blows.
+
+| Held | Blows | HP taken | Under 1 J: blows | HP | Of all HP, % | Under 5 J: blows | HP | Of all HP, % |
+|---|---|---|---|---|---|---|---|---|
+| the club, 27 bouts | 97 | 9.185 | 44 | 0.047 | 0.5 | 65 | 0.429 | 4.7 |
+| the club, 45 bouts | 175 | 18.841 | 75 | 0.075 | 0.4 | 112 | 0.692 | 3.7 |
+| nothing, 45 bouts | 4365 | 6.542 | 4165 | 1.477 | 22.6 | 4327 | 3.932 | 60.1 |
+
+With clubs a floor of 1 J drops four blows in ten and half a per cent of the hit points. Bare
+handed it drops 95 % of the blows and 23 % of the hit points; a floor of 5 J would drop 60 %,
+most of what a fist does today. A blow's energy with clubs, over the 45 bouts: half under 1.5 J,
+three quarters under 13.5 J, nine tenths under 64.6 J, the most 131.8 J.
+
+**In the crypt** (`node research/crypt-blows.mjs`, and `--companions 2`: Node, a crypt run with
+no visuals, Rapier, 120 Hz, seeds 1 to 4, the hero exploring to the run's end or 120 s). What met
+in each blow, and the blows in which one side was already out of the fight, which is a body on
+the floor whose pool has not ended:
+
+| The hero | What met | Blows | Most J | HP taken | With a side out of the fight: blows | HP | Of it, from a side still in the fight |
+|---|---|---|---|---|---|---|---|
+| alone | an item on a body | 32 | 73.2 | 1.265 | 26 | 0.589 | 0.027 |
+| alone | an item on a bare hand | 2 | 3.4 | 0.024 | 0 | 0.000 | 0.000 |
+| alone | a bare hand on a body | 14 | 2.7 | 0.035 | 14 | 0.035 | 0.018 |
+| alone | two bodies, no hand or item | 52 | 7.7 | 0.281 | 52 | 0.281 | 0.098 |
+| alone | an item on an item | 1 | 22.0 | 0.000 | 0 | 0.000 | 0.000 |
+| with two | an item on a body | 32 | 73.2 | 1.185 | 25 | 0.719 | 0.003 |
+| with two | an item on a bare hand | 7 | 2.2 | 0.016 | 6 | 0.000 | 0.000 |
+| with two | a bare hand on a body | 9 | 2.1 | 0.035 | 9 | 0.035 | 0.008 |
+| with two | two bodies, no hand or item | 348 | 20.6 | 0.957 | 348 | 0.957 | 0.119 |
+| with two | an item on an item | 3 | 0.1 | 0.000 | 3 | 0.000 | 0.000 |
+
+Every one of the 400 blows between two bodies with no hand or item in them had a side already
+on the floor: a body that walks over a fallen one, or a limp one settling against it. They cost
+the sides still in the fight 0.10 to 0.12 HP over four runs. Four runs a row, and a rule changes
+a fight's course: counts, and no rates.
+
+The digests `research/bout-trace.mjs` reads are those of the section above, the poses being the
+same: the Warrior against the Rogue at 4 m, 2563 steps, the left side winning by the right's fall
+at 21.358 s, `6f7ded18dd73c7f8`, now with 14 wounding blows and 1 clash; skeleton against
+skeleton at 4 m, 1981 steps, `489780706aad98b9`, no blow.

@@ -16,6 +16,7 @@ import { watchBlows } from "../src/core/rules/blows.ts";
 import { impactEnergy } from "../src/core/rules/impact.ts";
 import { createPool } from "../src/core/rules/pool.ts";
 import { blowDamage, rulebook } from "../src/core/rules/rulebook.ts";
+import { energyShares } from "../src/core/rules/share.ts";
 import { sourced } from "../src/core/spec/quantity.ts";
 import { createWorld } from "../src/core/world.ts";
 import { labActor } from "../src/lab/actor.ts";
@@ -74,19 +75,23 @@ test("a_dummy_is_a_ball_of_its_attackers_head_and_every_number_is_the_attackers"
   assert.deepEqual(
     { family: spec.family, model: spec.model, segments: spec.segments.map((segment) => segment.name), joints: spec.joints, mass: spec.mass.value, stature: spec.stature.value,
       kind: ball.shape.kind, radius: ball.shape.radius.value, centre: ball.shape.centre.value, com: ball.centreOfMass.value, kg: ball.mass.value,
-      inertia: ball.inertia.value, hp: spec.wounds.hp.value, vital: spec.wounds.vital, whole: spec.wounds.whole, balance: spec.attributes.balance.value },
+      inertia: ball.inertia.value, surface: [ball.surface.stiffness.value, ball.surface.stiffness.unit], hp: spec.wounds.hp.value, vital: spec.wounds.vital, whole: spec.wounds.whole, balance: spec.attributes.balance.value },
     { family: "dummy", model: "workshop-fighter.dummy", segments: ["head"], joints: [], mass: m, stature: 2 * r,
       kind: "sphere", radius: r, centre: [0, 0, 0], com: [0, 0, 0], kg: m,
-      inertia: [(2 / 5) * m * r * r, (2 / 5) * m * r * r, (2 / 5) * m * r * r], hp: WARRIOR.wounds.hp.value, vital: [], whole: ["head"], balance: WARRIOR.attributes.balance.value });
+      inertia: [(2 / 5) * m * r * r, (2 / 5) * m * r * r, (2 / 5) * m * r * r], surface: [201e3, "N/m"], hp: WARRIOR.wounds.hp.value, vital: [], whole: ["head"], balance: WARRIOR.attributes.balance.value });
 });
 
 const q = (value, unit = "m") => sourced(value, unit, "de-leva-1996", "a stand-in leaf for the targets' tests");
+
+/** The fist's surface, N/m: as stiff as the dummy's, a head's, so each takes half of a blow between them. */
+const FIST_K = 201e3;
 
 /** A body of one ball of `kg`, 5 cm in radius, named `hand.right`: a fist and nothing else, its centre 5 cm over its node. */
 const fistSpec = (kg) => ({
   family: "test", model: "fist", mass: q(kg, "kg"), stature: q(0.1),
   segments: [{ name: "hand.right", proximal: q([0, 0, 0]), distal: q([0, 0.1, 0]), mass: q(kg, "kg"), centreOfMass: q([0, 0.05, 0]),
-    inertia: q([0.001, 0.001, 0.001], "kg m2"), shape: { kind: "sphere", centre: q([0, 0.05, 0]), radius: q(0.05) } }],
+    inertia: q([0.001, 0.001, 0.001], "kg m2"), shape: { kind: "sphere", centre: q([0, 0.05, 0]), radius: q(0.05) },
+    surface: { stiffness: q(FIST_K, "N/m") } }],
   joints: [], wounds: { hp: q(1, "HP"), vital: [], whole: [] }, attributes: { balance: q(0, "%") },
 });
 
@@ -143,13 +148,16 @@ test("a_dummy_hangs_still_and_gives_way_to_a_blow", async () => {
     assert.equal(blows.length, 1, JSON.stringify(blows));
     const [blow] = blows, kg = h.head.rigid.mass;
     const [by, on] = blow.sides;
-    assert.deepEqual(blow.sides.map(sideOf), [["fist", "hand.right", null, 0], ["dummy", "head", null, 1]]);
+    assert.deepEqual(blow.sides.map(sideOf), [["fist", "hand.right", null, 0.5], ["dummy", "head", null, 0.5]]);
     // Two balls meet through their centres, so the masses the contact meets are the bodies' own: but
     // for the few millimetres the fist has dropped on its way, which put the contact that far off the line.
     assert.ok(Math.abs(by.kg - 1) < 0.01 && Math.abs(on.kg - kg) < 0.01, `${by.kg}, ${on.kg} kg of 1 and ${kg}`);
     assert.ok(Math.abs(blow.closing - 6) < 0.02, `${blow.closing} m/s`);
     assert.equal(blow.energy, impactEnergy(by.kg, on.kg, blow.closing));
-    assert.deepEqual([by.damage, by.wound, on.damage], [0, null, blowDamage(RULES, "blunt", blow.energy)]);
+    // Each takes its half of it, and is wounded by that much.
+    const half = blowDamage(RULES, "blunt", 0.5 * blow.energy);
+    assert.ok(half > 0);
+    assert.deepEqual([by, on].map((side) => [side.damage, side.wound.taken]), [[half, [{ part: "hand.right", hp: half }]], [half, [{ part: "head", hp: half }]]]);
     // It moves off with the blow, as a head on no neck does: the fist's 6 N s is in the two of them, and it has not dropped.
     const moving = h.head.body.linearVelocityToRef(new Vector3());
     assert.ok(moving.z > 0.5 && Math.abs(fistSpeed.z + kg * moving.z - 6) < 0.06, `the dummy at ${moving.z} m/s, the fist at ${fistSpeed.z}`);
@@ -247,6 +255,21 @@ test("a_reading_is_one_targets_own", async () => {
   assert.ok(second.nearest > 0.1, `it passed ${second.nearest} m off`);
 });
 
+test("a_reading_is_of_the_blow_that_cost_its_dummy_most", async () => {
+  // A target 10 cm under the head's height: the fist and the forearm behind it land in one step,
+  // two blows, and the forearm's, the lighter, is the one the rule reads first.
+  const { head, readings, down } = await strikeAt(BARE, [(h) => [0, h - 0.1, 1.3]]);
+  assert.equal(down, false);
+  const [reading] = readings;
+  const stiffness = (name) => loadoutSpec(BARE).segments.find((segment) => segment.name === name).surface.stiffness.value;
+  const shares = energyShares([stiffness("hand.right"), stiffness("head")]);
+  assert.deepEqual(record(reading), {
+    target: { at: [0, head - 0.1, 1.3], stratum: "control" }, hand: "right", strike: "searched right straight", hung: true, fell: false,
+    blow: [["attacker", "hand.right", null, shares[0]], ["dummy", "head", null, shares[1]]], took: 1, gave: 0,
+  });
+  assert.ok(reading.blow.energy > 10 && reading.nearest === 0, `${reading.blow.energy} J`);
+});
+
 test("a_target_is_a_place_and_no_body_until_its_strike_begins", async () => {
   // A target where the left hand comes up into its guard, struck at with the right: a body there
   // from the first is bumped by the guard, and stands in the way of the feet being set.
@@ -256,8 +279,15 @@ test("a_target_is_a_place_and_no_body_until_its_strike_begins", async () => {
   // Until the strike began its ball was the place it was drawn at, whatever passed through it.
   assert.ok(reading.before.length > 0);
   assert.deepEqual(reading.before, reading.before.map(() => ({ centre: reading.target.at, radius: reading.before[0].radius })));
-  // Hung as the strike began, it was passed by: nothing before the strike is a blow of its.
-  assert.deepEqual(record(reading), { target: reading.target, hand: "right", strike: "searched right straight", hung: true, fell: false, ...UNSTRUCK });
+  // Hung as the strike began, the fist passed it by and the forearm behind it brushed it: nothing
+  // before the strike is a blow of its, and the arm's touch in the strike is one, shared by the two surfaces.
+  const stiffness = (name) => loadoutSpec(BARE).segments.find((segment) => segment.name === name).surface.stiffness.value;
+  const shares = energyShares([stiffness("forearm.right"), stiffness("head")]);
+  assert.deepEqual(record(reading), {
+    target: reading.target, hand: "right", strike: "searched right straight", hung: true, fell: false,
+    blow: [["attacker", "forearm.right", null, shares[0]], ["dummy", "head", null, shares[1]]], took: 1, gave: 0,
+  });
+  assert.ok(reading.began <= reading.blow.time && reading.blow.time <= reading.ended, `touched at ${reading.blow.time} s of ${reading.began} to ${reading.ended}`);
   assert.ok(reading.nearest > 0 && reading.nearest < 0.1, `it passed ${reading.nearest} m off`);
 });
 

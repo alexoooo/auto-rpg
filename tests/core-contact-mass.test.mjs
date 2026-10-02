@@ -29,7 +29,7 @@ function chain() {
   const segment = (name, proximal, distal, mass, inertia) => ({
     name, proximal: q(proximal), distal: q(distal), mass: q(mass, "kg"),
     centreOfMass: q(proximal.map((p, i) => 0.55 * p + 0.45 * distal[i] + [0.01, -0.02, 0.015][i])),
-    inertia: q(inertia, "kg m2"), shape: { kind: "capsule", from: q(proximal), to: q(distal), radius: q(0.02) },
+    inertia: q(inertia, "kg m2"), shape: { kind: "capsule", from: q(proximal), to: q(distal), radius: q(0.02) }, surface: { stiffness: q(1e5, "N/m") },
   });
   const joint = (name, parent, child, centre, triad, count) => ({
     name, parent, child, centre: q(centre),
