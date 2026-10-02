@@ -325,10 +325,14 @@ they wake.
 The rules of a fight are `src/core/rules/`, free of any page so they can be argued with in tests
 (`tests/core-rules.test.mjs`, `tests/core-blows.test.mjs`).
 
-- **A blow** (`watchBlows`, `blows.ts`) is a new contact between a striker (a hand, or anything it
-  holds) and another side's body, closing. Its energy is `impactEnergy` (`impact.ts`): half the
-  reduced mass of the two effective masses (`contactMass`) times the closing speed squared. Hand
-  against hand is a clash and does nothing.
+- **A touch** (`watchTouches`, `src/core/touches.ts`) is a watched segment that the solver pushed
+  on another watched body, or on something fixed, while closing on it, from the step it is first
+  pushed until, as its reader asks, the solver stops pushing or the two part. Its energy is
+  `impactEnergy` (`impact.ts`): half the reduced mass of the two effective masses (`contactMass`;
+  something fixed is a mass nothing moves) times the closing speed squared.
+- **A blow** (`watchBlows`, `blows.ts`) is a touch of a striker (a hand, or anything it holds) on
+  another side's body, lasting while the solver pushes, priced by the rulebook. Hand against hand
+  is a clash and does nothing.
 - **Damage** (`rulebook.ts`) is energy times the mechanism's worth over the unit. The unit is the
   Warrior's strongest one-handed blow with the wooden club (`core-club-unit`,
   `research/core-club-unit.json`), and every mechanism (blunt, edge, axe, point) keeps its ratio to

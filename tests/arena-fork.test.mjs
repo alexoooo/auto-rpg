@@ -105,7 +105,7 @@ const NEEDED = {
     ...["hp", "attached", "ending"].map((field) => `right > pool > ${field}`),
   ],
   // Saved at every step about its first blow: what one step leaves the next.
-  blow: ["senses > left > at", "senses > right > at", "watch > touching", "watch > last"],
+  blow: ["senses > left > at", "senses > right > at", "watch > touches > touching", "watch > touches > last"],
 };
 /**
  * What of a bout's state is sorted elsewhere: the world's, and each body's and its mind's, a

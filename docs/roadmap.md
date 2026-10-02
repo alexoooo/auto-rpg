@@ -143,6 +143,10 @@ All of it on a physically based core, humans first ([architecture](architecture.
   fibre share.
 - Contact materials: every contact has one friction, 0.5.
 - `contactMass` reads a blow with the joints free; whether a joint's give belongs in it is open.
+- A blow lasts while the solver pushes on it (`watchBlows`, `lasts: "pushed"`), so one the solver
+  lets go of for a single step lands again; a touch read with `lasts: "contact"`
+  (`src/core/touches.ts`) lands again only once the two have parted. Whether a blow should is a
+  change of rule, which moves every bout, and comes with its table.
 - Rapier's limits, held as `todo` tests: a limit pushes along its parent's axis, so a pressed angle
   can pass its stop by up to 0.046 rad; and the JavaScript binding does not read joint impulses,
   so the muscle driver guesses which side pulled.
