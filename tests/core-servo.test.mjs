@@ -25,7 +25,7 @@ function rod(peak = 400) {
     name, proximal: q(proximal), distal: q(distal), mass: q(mass, "kg"),
     centreOfMass: q(proximal.map((p, i) => (p + distal[i]) / 2)),
     inertia: q([0.02 * mass, 0.004 * mass, 0.03 * mass], "kg m2"),
-    shape: { kind: "capsule", from: q(proximal), to: q(distal), radius: q(0.04) },
+    shape: { kind: "capsule", from: q(proximal), to: q(distal), radius: q(0.04) }, surface: { stiffness: q(1e5, "N/m") },
   });
   return {
     family: "test", model: "rod", mass: q(3, "kg"), stature: q(1.5),
@@ -168,7 +168,7 @@ function pair(upperPeak, lowerPeak) {
     name, proximal: q(proximal), distal: q(distal), mass: q(mass, "kg"),
     centreOfMass: q(proximal.map((p, i) => (p + distal[i]) / 2)),
     inertia: q([0.02 * mass, 0.004 * mass, 0.03 * mass], "kg m2"),
-    shape: { kind: "capsule", from: q(proximal), to: q(distal), radius: q(0.03) },
+    shape: { kind: "capsule", from: q(proximal), to: q(distal), radius: q(0.03) }, surface: { stiffness: q(1e5, "N/m") },
   });
   const pin = (name, parent, child, centre, peak) => ({ name, parent, child, centre: q(centre),
     dofs: [{ positive: "flexion", negative: "extension", axis: q([0, 0, 1], "1"), min: q(-3, "rad"), max: q(3, "rad"), muscle: muscle(peak) }] });

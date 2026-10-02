@@ -57,6 +57,8 @@ const SOLVER = {
   pgs: sourced(2, "1", "physics-bakeoff", "with 2 internal PGS iterations"),
 } as const;
 
+/** More shapes than any body has: what orders a contact's pairs by this body's shape, then the other's. A numeric setting. */
+const SHAPES_MOST = 65536;
 /** The numbers of a node's pose in a save: its position and its turn. A numeric setting. */
 const NODE_POSE = 7;
 
@@ -90,6 +92,10 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions):
   const rebinds = new Map<RapierBody, () => void>();
   /** Each body by its rigid body's handle, for a contact's other side. */
   const byHandle = new Map<number, RapierBody>();
+  /** Each body collider's place among its body's shapes, as `addBody` was given them, by its handle. */
+  const shapeOf = new Map<number, number>();
+  /** Each body's colliders' handles, in its shapes' order. */
+  const colliderHandles = new Map<RapierBody, readonly number[]>();
   /** The bodies given a force or a moment for the next step: Rapier keeps one until it is reset. */
   const forced = new Set<RapierBody>();
   let freed = false;
@@ -197,7 +203,11 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions):
         .setTranslation(node.position.x, node.position.y, node.position.z)
         .setRotation(xyzw(q))
         .setCanSleep(false));
-      for (const shape of shapes) raw.createCollider(contact(colliderOf(shape)).setDensity(0), rigid);
+      const colliders = shapes.map((shape, k) => {
+        const handle = raw.createCollider(contact(colliderOf(shape)).setDensity(0), rigid).handle;
+        shapeOf.set(handle, k);
+        return handle;
+      });
       let properties = mass;
       const setMass = (m: MassProperties) => {
         properties = m;
@@ -227,10 +237,23 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions):
           return out;
         },
         setFixed(fixed) { rigid.setBodyType(fixed ? R.RigidBodyType.Fixed : R.RigidBodyType.Dynamic, true); },
+        gapTo(point) {
+          let gap = Infinity;
+          for (let k = 0; k < rigid.numColliders(); k++) {
+            // Solid: a point inside a shape projects onto itself, and is told so.
+            const nearest = rigid.collider(k).projectPoint(xyz(point), true);
+            if (!nearest) continue;
+            if (nearest.isInside) return 0;
+            const p = nearest.point;
+            gap = Math.min(gap, hypot(point[0] - p.x, point[1] - p.y, point[2] - p.z));
+          }
+          return gap;
+        },
       };
       bodies.add(body);
       byHandle.set(handle, body);
       rebinds.set(body, () => { rigid = raw.getRigidBody(handle); });
+      colliderHandles.set(body, colliders);
       return body;
     },
     addJoint(parentBody, childBody, frames) {
@@ -267,8 +290,9 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions):
       const body = own(segment);
       /** A body of this world's, or a fixed collider by its handle. */
       type Other = RapierBody | number;
-      /** What the solver pushed on: each pair's point and normal, weighted by its impulse. */
-      const pushed = new Map<Other, { impulse: number; point: number[]; normal: number[] }>();
+      interface Sum { impulse: number; point: number[]; normal: number[] }
+      /** What the solver pushed on: each pair's point and normal, weighted by its impulse, and the same of each pair of shapes. */
+      const pushed = new Map<Other, Sum & { pairs: Map<number, Sum & { mine: number; theirs: number }> }>();
       /** Everything in contact: each pair's point and normal, and how many pairs. */
       const met = new Map<Other, { pairs: number; point: number[]; normal: number[]; first: number[] }>();
       for (let k = 0; k < body.rigid.numColliders(); k++) {
@@ -279,6 +303,8 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions):
           if (other === undefined) return;
           // Before the pair is read: reading one makes objects of Rapier's, and most pairs are refused.
           if (wanted && !wanted(typeof other === "number" ? null : other)) return;
+          // A fixed collider is one shape.
+          const shapes = [shapeOf.get(mine.handle)!, parent ? shapeOf.get(theirs.handle)! : 0] as const;
           raw.contactPair(mine, theirs, (manifold, flipped) => {
             let impulse = 0;
             for (let i = 0; i < manifold.numContacts(); i++) impulse += manifold.contactImpulse(i);
@@ -299,27 +325,38 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions):
             seen.normal[0]! += sign * n.x; seen.normal[1]! += sign * n.y; seen.normal[2]! += sign * n.z;
             met.set(other, seen);
             if (!(impulse > 0)) return;
-            const sum = pushed.get(other) ?? { impulse: 0, point: [0, 0, 0], normal: [0, 0, 0] };
-            sum.impulse += impulse;
-            for (let c = 0; c < 3; c++) sum.point[c]! += at[c]! * impulse;
-            sum.normal[0]! += sign * n.x * impulse; sum.normal[1]! += sign * n.y * impulse; sum.normal[2]! += sign * n.z * impulse;
+            const sum = pushed.get(other) ?? { impulse: 0, point: [0, 0, 0], normal: [0, 0, 0], pairs: new Map() };
+            // A pair's key: this body's shape, then the other's, which a body has fewer of than this.
+            const key = shapes[0] * SHAPES_MOST + shapes[1];
+            const pair = sum.pairs.get(key) ?? { mine: shapes[0], theirs: shapes[1], impulse: 0, point: [0, 0, 0], normal: [0, 0, 0] };
+            for (const to of [sum, pair]) {
+              to.impulse += impulse;
+              for (let c = 0; c < 3; c++) to.point[c]! += at[c]! * impulse;
+              to.normal[0]! += sign * n.x * impulse; to.normal[1]! += sign * n.y * impulse; to.normal[2]! += sign * n.z * impulse;
+            }
+            sum.pairs.set(key, pair);
             pushed.set(other, sum);
           });
         });
       }
       const named = (other: Other) => typeof other === "number" ? { other: null, fixed: other } : { other, fixed: null };
-      const out: Contact[] = [];
-      for (const [other, { impulse, point, normal }] of pushed) {
+      /** A sum's touch: its point the impulse's mean, its normal made unit. */
+      const touch = ({ impulse, point, normal }: Sum) => {
         const length = hypot(normal[0]!, normal[1]!, normal[2]!);
-        out.push({ ...named(other), impulse, point: [point[0]! / impulse, point[1]! / impulse, point[2]! / impulse],
-          normal: [normal[0]! / length, normal[1]! / length, normal[2]! / length] });
+        return { impulse, point: [point[0]! / impulse, point[1]! / impulse, point[2]! / impulse] as Vec3,
+          normal: [normal[0]! / length, normal[1]! / length, normal[2]! / length] as Vec3 };
+      };
+      const out: Contact[] = [];
+      for (const [other, sum] of pushed) {
+        const pairs = [...sum.pairs.entries()].sort((a, b) => a[0] - b[0]).map(([, pair]) => ({ mine: pair.mine, theirs: pair.theirs, ...touch(pair) }));
+        out.push({ ...named(other), ...touch(sum), pairs });
       }
       for (const [other, { pairs, point, normal, first }] of met) {
         if (pushed.has(other)) continue;
         // Pairs whose normals cancel have no mean direction: the first pair's stands.
         const length = hypot(normal[0]!, normal[1]!, normal[2]!), n = length > 0 ? normal : first, by = length > 0 ? length : 1;
         out.push({ ...named(other), impulse: 0, point: [point[0]! / pairs, point[1]! / pairs, point[2]! / pairs],
-          normal: [n[0]! / by, n[1]! / by, n[2]! / by] });
+          normal: [n[0]! / by, n[1]! / by, n[2]! / by], pairs: [] });
       }
       return out;
     },
@@ -335,6 +372,8 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions):
       const body = segment as RapierBody;
       if (!bodies.delete(body) || freed) return;
       byHandle.delete(body.rigid.handle);
+      for (const handle of colliderHandles.get(body)!) shapeOf.delete(handle);
+      colliderHandles.delete(body);
       forced.delete(body);
       rebinds.delete(body);
       raw.removeRigidBody(body.rigid);
@@ -344,6 +383,8 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions):
       freed = true;
       bodies.clear();
       byHandle.clear();
+      shapeOf.clear();
+      colliderHandles.clear();
       forced.clear();
       rebinds.clear();
       raw.free();

@@ -56,7 +56,9 @@ host; skeletons with the club, 3 m apart on a ground, each under the command lay
 to stand. Read standing; then held, their muscles released (`Body.dispose`) and every segment
 fixed where it is (`SegmentBody.setFixed`); then let go and driven afresh; then felled by a shove
 at the root and still driven by a mind with no sub-minds; then lying, under the sub-minds the
-game's mind has (`FIGHTER`); then limp, their muscles released. A row is the mean of 600 steps.
+game's mind has (`FIGHTER`); then limp, their muscles released; then rising, under the riser
+that plays stages (`stagedRise`, `rising.md#stages`), the row saying what part of the bodies'
+steps the riser lay slack, held a pose and bore on its limbs. A row is the mean of 600 steps.
 The step is 8.33 ms of the run's time, so a step of 8.33 ms is real time with nothing drawn.
 
 ```powershell
@@ -65,30 +67,37 @@ node research/body-cost.mjs
 
 | Bodies | State | Down | A step, ms | The solver, ms | The rest, ms | A body, ms | Of real time, % |
 |---|---|---|---|---|---|---|---|
-| 1 | standing, driven | 0 | 0.69 | 0.32 | 0.37 | 0.69 | 8 |
-| 1 | standing, held | 0 | 0.03 | 0.03 | 0.00 | 0.03 | 0 |
-| 1 | let go, driven | 0 | 0.60 | 0.29 | 0.32 | 0.60 | 7 |
-| 1 | down, driven | 1 | 0.79 | 0.31 | 0.47 | 0.79 | 9 |
+| 1 | standing, driven | 0 | 0.70 | 0.33 | 0.37 | 0.70 | 8 |
+| 1 | standing, held | 0 | 0.04 | 0.03 | 0.00 | 0.04 | 0 |
+| 1 | let go, driven | 0 | 0.61 | 0.29 | 0.33 | 0.61 | 7 |
+| 1 | down, driven | 1 | 0.80 | 0.32 | 0.48 | 0.80 | 10 |
 | 1 | down, lying | 1 | 0.35 | 0.28 | 0.08 | 0.35 | 4 |
-| 1 | down, limp | 1 | 0.27 | 0.27 | 0.00 | 0.27 | 3 |
-| 4 | standing, driven | 0 | 2.17 | 1.00 | 1.17 | 0.54 | 26 |
+| 1 | down, limp | 1 | 0.28 | 0.28 | 0.00 | 0.28 | 3 |
+| 1 | down, rising: slack 0 %, posing 40 %, bearing 60 % | 1 | 0.62 | 0.30 | 0.32 | 0.62 | 7 |
+| 4 | standing, driven | 0 | 2.21 | 1.01 | 1.20 | 0.55 | 27 |
 | 4 | standing, held | 0 | 0.07 | 0.07 | 0.00 | 0.02 | 1 |
-| 4 | let go, driven | 0 | 2.18 | 0.99 | 1.19 | 0.54 | 26 |
-| 4 | down, driven | 4 | 2.89 | 1.18 | 1.71 | 0.72 | 35 |
-| 4 | down, lying | 4 | 1.43 | 1.14 | 0.29 | 0.36 | 17 |
+| 4 | let go, driven | 0 | 2.18 | 1.00 | 1.19 | 0.55 | 26 |
+| 4 | down, driven | 4 | 2.89 | 1.17 | 1.72 | 0.72 | 35 |
+| 4 | down, lying | 4 | 1.44 | 1.14 | 0.30 | 0.36 | 17 |
 | 4 | down, limp | 4 | 1.13 | 1.13 | 0.00 | 0.28 | 14 |
-| 8 | standing, driven | 0 | 4.27 | 1.97 | 2.30 | 0.53 | 51 |
-| 8 | standing, held | 0 | 0.12 | 0.12 | 0.00 | 0.02 | 1 |
-| 8 | let go, driven | 0 | 4.25 | 1.96 | 2.29 | 0.53 | 51 |
-| 8 | down, driven | 8 | 5.71 | 2.37 | 3.34 | 0.71 | 68 |
-| 8 | down, lying | 8 | 2.87 | 2.29 | 0.58 | 0.36 | 34 |
-| 8 | down, limp | 8 | 2.23 | 2.23 | 0.00 | 0.28 | 27 |
+| 4 | down, rising: slack 28 %, posing 48 %, bearing 24 % | 4 | 1.63 | 1.09 | 0.53 | 0.41 | 20 |
+| 8 | standing, driven | 0 | 4.26 | 1.98 | 2.29 | 0.53 | 51 |
+| 8 | standing, held | 0 | 0.13 | 0.13 | 0.00 | 0.02 | 2 |
+| 8 | let go, driven | 0 | 4.25 | 1.97 | 2.28 | 0.53 | 51 |
+| 8 | down, driven | 8 | 5.72 | 2.36 | 3.35 | 0.71 | 69 |
+| 8 | down, lying | 8 | 2.85 | 2.27 | 0.58 | 0.36 | 34 |
+| 8 | down, limp | 8 | 2.22 | 2.22 | 0.00 | 0.28 | 27 |
+| 8 | down, rising: slack 16 %, posing 65 %, bearing 19 % | 8 | 3.20 | 2.18 | 1.02 | 0.40 | 38 |
 
 A standing body costs 0.53 ms a step, over half of it control. Held, it costs 0.02 ms, and let
 go it stands as before: none of the eight is down. A body that is down and still driven costs
 more than one standing, 0.71 ms: its stance goes on solving for a ground its soles cannot give.
 Lying, it costs 0.36 ms: the solver's 0.28, and 0.07 for its mind's look at it each step, which
-is how it knows it is down. Limp, it costs the solver's 0.28 ms and nothing else.
+is how it knows it is down. Limp, it costs the solver's 0.28 ms and nothing else. Rising, it
+costs 0.40 to 0.62 ms by what its riser is at: a stage that bears on its limbs solves what a
+stance does (one body, bearing three steps in five: 0.62 ms, 0.32 of it outside the solver),
+and a pose or lying slack costs little more than lying. The Warrior's rows read the same
+(`--model workshop-fighter --bodies 1`: standing 0.67 ms, rising 0.60).
 
 So a body out of the fight goes limp (`DungeonRun.drop`): its assist is withdrawn and its muscles
 released at the next step. In the crypt the stance of a body that is down cost more than under an
@@ -135,10 +144,53 @@ Four runs a table, on one machine: the mean step is 4.5 to 5.6 ms with neither r
 4.3 ms with the limp one and 3.1 to 4.1 ms with both. A party of four costs 2.1 ms a step by
 itself, and in 180 s it has not left many enemies behind: none to two are held at the end.
 
+**What the blows' watch costs.** A blow is any two segments of two sides that touch
+(`watchBlows`, `src/core/rules/blows.ts`), so the watch asks the engine for the contacts of every
+segment that has a fighter of another side given after its own, where a watch of the hands alone
+asked for two a fighter. The run gives its party first, the fewer bodies. Seed 4 with two
+Warriors following, 120 s, `PhysicsWorld.contactsOf` timed by a wrapper in a script that is not
+kept (Node, Rapier, 120 Hz), with every pair near a segment read:
+
+| The watch is given | Bodies read a step | A read, µs | The reads, ms a step |
+|---|---|---|---|
+| the party, then the enemies | 48 | 5.3 | 0.25 |
+| the enemies, then the party | 109 | 5.3 | 0.58 |
+
+The watch refuses a pair it does not want before the engine reads it (`wanted`,
+`PhysicsWorld.contactsOf`), as a listener does ([below](#hearing-in-the-step)): most of what is
+near a segment is its own body's. The same run, the party first, the process held to three
+performance cores: 48 bodies read a step at 1.6 µs a read, 0.08 ms a step, where every pair read
+took 5.8 µs and 0.28 ms.
+
+The step with the hands alone read and with every segment read, the party first: the same runs
+(a wound changes no body's course while its fighter stands, and each row's other columns are the
+same in both), run by turns three times over on one machine, the least of the three:
+
+```powershell
+node research/crypt-step.mjs
+node research/crypt-step.mjs --companions 2
+```
+
+| With the hero | Seed | The run | Seconds | Out of the fight | A step, ms: the hands | every segment | In its slowest second, ms: the hands | every segment |
+|---|---|---|---|---|---|---|---|---|
+| 0 | 1 | dead | 14 | 1 | 1.41 | 1.48 | 2.87 | 3.15 |
+| 0 | 2 | dead | 40 | 2 | 1.80 | 1.84 | 2.98 | 2.79 |
+| 0 | 3 | dead | 57 | 2 | 1.45 | 1.47 | 3.17 | 3.14 |
+| 0 | 4 | dead | 67 | 2 | 2.64 | 2.66 | 3.68 | 3.71 |
+| 2 | 1 | playing | 120 | 3 | 2.63 | 2.73 | 4.31 | 4.65 |
+| 2 | 2 | playing | 120 | 3 | 2.40 | 2.52 | 3.80 | 3.91 |
+| 2 | 3 | playing | 120 | 2 | 3.08 | 3.21 | 4.18 | 4.39 |
+| 2 | 4 | playing | 120 | 4 | 3.40 | 3.66 | 4.80 | 5.07 |
+
+Every segment read, and every pair near it, costs a step 1 to 5 % alone and 4 to 8 % with two
+following: 0.02 to 0.26 ms. The hands' column is `80b2f84e`'s and the other `cac25ccc`'s; with
+the pairs it does not want refused, the watch gives 0.2 ms of that back on seed 4 with two
+following.
+
 ## Hearing in the step
 
 `src/dungeon/hearing.ts`. A page hears every body its run has built (`hearRun`): one watch of
-touches over all of their segments, beside the run's own watch of blows over their hands, and
+touches over all of their segments, beside the run's own watch of blows over the party's, and
 each body's air.
 
 Harness: Node, a crypt run with no visuals, the core world, Rapier, 120 Hz; the hero exploring a
@@ -157,38 +209,31 @@ cmd /c "start /b /wait /high /affinity 54 node research/crypt-step.mjs --seeds 1
 
 | Seed | The run | Seconds | Enemies | Bodies built at the end | The most built | Held | Out of the fight | A step, ms | In its slowest second, ms | Of real time, % | Heard: a step, ms | In its slowest second, ms | Hearing, % of the unheard step |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| 1 | playing | 120 | 8 | 8 | 8 | 1 | 2 | 4.01 | 5.32 | 64 | 4.35 | 5.63 | 8.4 |
-| 2 | playing | 120 | 8 | 7 | 7 | 1 | 2 | 3.78 | 6.32 | 76 | 4.04 | 6.71 | 6.8 |
-| 3 | playing | 120 | 8 | 8 | 8 | 0 | 2 | 4.16 | 6.04 | 73 | 4.48 | 6.76 | 7.8 |
-| 4 | playing | 120 | 8 | 8 | 8 | 0 | 5 | 4.52 | 6.23 | 75 | 4.98 | 6.80 | 10.1 |
+| 1 | playing | 120 | 8 | 8 | 8 | 1 | 2 | 4.34 | 6.09 | 73 | 4.72 | 6.62 | 8.6 |
+| 2 | playing | 120 | 8 | 7 | 7 | 1 | 2 | 4.73 | 7.13 | 86 | 5.17 | 8.07 | 9.4 |
+| 3 | playing | 120 | 8 | 8 | 8 | 0 | 2 | 6.04 | 11.17 | 134 | 6.54 | 11.58 | 8.3 |
+| 4 | playing | 120 | 8 | 8 | 8 | 0 | 5 | 4.60 | 6.96 | 83 | 5.09 | 7.27 | 10.5 |
 
-Hearing costs 6.8 to 10.1 % of a step, 8 % over the four runs, and 6 to 12 % of the slowest
-second. Another reading of the same four gave 7.7, 7.1, 8.2 and 9.3 %. Seed 4, where five bodies
-lie out of the fight, is the dearest, and stands at a tenth.
+Hearing costs 8.3 to 10.5 % of a step, 9 % over the four runs. Another reading of the same four
+gave 9.0, 9.4, 7.7 and 10.7 %. Seed 4, where five bodies lie out of the fight, is the dearest,
+and stands at a tenth. The machine was in use through both readings, which shows in the steps
+(seed 3's is 6.04 ms in one and 4.19 ms in the other); the share between a pair's two runs, a
+step of each by turns, holds.
 
 Nearly all of it is asking the engine what is near each segment. A profile of seed 4's pair over
 90 s (Node `--cpu-prof`, the two runs in one profile, so a run is half of it): the watches of
-touches, three of them (each run's blows, and the heard run's listener), take 6.0 % of the time.
-Of that, 4.2 is the engine's reader (`contactsOf`, `src/core/engine/rapier.ts`), 0.5 is
-remembering each segment's velocity for the next step and 0.4 is pricing the touches that landed.
-Asking every body's air takes 0.4.
+touches, three of them (each run's blows, and the heard run's listener), take 6.9 % of the time.
+Of that, 5.4 is the engine's reader (`contactsOf`, `src/core/engine/rapier.ts`), 4.5 of it
+Rapier's own list of what is near a shape; 0.5 is remembering each segment's velocity for the
+next step and 0.3 is pricing the touches that landed. Asking every body's air takes 0.3.
 
 The engine's reader refuses a pair before it reads it (`wanted`, `PhysicsWorld.contactsOf`).
-About 470 pairs a step are near the 90 segments of five bodies (Node, seed 1, three with the
-hero); 12 to 25 of them are with something fixed, and most of the rest lie between a body's own
-neighbouring segments, which no watch wants. Reading a pair makes objects of Rapier's for its
-manifold. With every pair read and the unwanted ones dropped afterwards, the same harness and
-the same four runs:
-
-| Seed | The run | Seconds | Enemies | Bodies built at the end | The most built | Held | Out of the fight | A step, ms | In its slowest second, ms | Of real time, % | Heard: a step, ms | In its slowest second, ms | Hearing, % of the unheard step |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| 1 | playing | 120 | 8 | 8 | 8 | 1 | 2 | 3.97 | 6.27 | 75 | 4.58 | 7.20 | 15.3 |
-| 2 | playing | 120 | 8 | 7 | 7 | 1 | 2 | 3.70 | 5.68 | 68 | 4.31 | 6.43 | 16.6 |
-| 3 | playing | 120 | 8 | 8 | 8 | 0 | 2 | 4.24 | 6.23 | 75 | 4.91 | 7.22 | 15.7 |
-| 4 | playing | 120 | 8 | 8 | 8 | 0 | 5 | 4.51 | 6.11 | 73 | 5.39 | 7.09 | 19.4 |
-
-Refusing unread halves what hearing costs, 15.3 to 19.4 % down to 6.8 to 10.1 %, and leaves the
-unheard step where it was: a watch of blows reads hands alone.
+Over 120 s of seed 1 with three following (Node), the 5 to 8 bodies built have 110 segments a
+step and 640 pairs near them (403 to 815, the 5th to the 95th per cent of the steps): 27 are with
+something fixed (12 to 43), and 563 lie between a body's own neighbouring segments, which no
+watch wants. Reading a pair makes objects of Rapier's for its manifold: a body's contacts read
+with every pair near it take 5.8 µs, and with the unwanted ones refused 1.6 µs
+([above](#bodies-in-the-step)).
 
 What is left is the asking: with eight bodies, 144 segments a step, and a call out of Rapier for
 each pair near one. Rapier can tell of a contact as it starts and as it ends instead; a watch on

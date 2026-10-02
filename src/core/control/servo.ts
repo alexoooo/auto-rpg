@@ -100,9 +100,11 @@ export function servoAsk(driver: MuscleDriver, goal: (channel: number) => number
  * freedoms, and the commands. With `root`, the root's acceleration (`RootDynamics`' order: its
  * angular acceleration and its centre's, world), each freedom carries its share of it; without, the
  * root is taken to be held. `work.accel` is left with every freedom's acceleration: the asked, and
- * the fixed freedoms' as their torques give them.
+ * the fixed freedoms' as their torques give them. `moved` marks freedoms another solve moves (a
+ * bearing limb's and its stem's, `limbMotion`, `bearing.ts`): their accelerations are taken as
+ * `work` has them, and none is held at its strength here, its torque being that solve's to give.
  */
-export function servoSolve(driver: MuscleDriver, work: ServoWork, root?: ArrayLike<number>): void {
+export function servoSolve(driver: MuscleDriver, work: ServoWork, root?: ArrayLike<number>, moved?: ArrayLike<number>): void {
   const count = driver.channels.length;
   const { mass, gravity } = driver.dynamics;
   const { change, accel, torque, fixed } = work;
@@ -119,7 +121,7 @@ export function servoSolve(driver: MuscleDriver, work: ServoWork, root?: ArrayLi
     solveAround(mass, gravity, bias, fixed, torque, accel, count);
     let clipped = false;
     for (let i = 0; i < count; i++) {
-      if (fixed[i]) continue;
+      if (fixed[i] || moved?.[i]) continue;
       const sense = torque[i]! >= 0 ? 1 : -1, strength = driver.strength(i, sense);
       if (Math.abs(torque[i]!) > strength) { torque[i] = sense * strength; fixed[i] = 1; clipped = true; }
     }

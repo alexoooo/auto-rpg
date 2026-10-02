@@ -1,7 +1,7 @@
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { BuiltBody, BuiltSegment } from "./build/build-body.ts";
 import { contactMass, type ContactMass } from "./build/contact-mass.ts";
-import type { SegmentBody } from "./engine/engine.ts";
+import type { ContactPair, SegmentBody } from "./engine/engine.ts";
 import { impactEnergy } from "./rules/impact.ts";
 import type { Vec3 } from "./spec/quantity.ts";
 import type { World } from "./world.ts";
@@ -45,6 +45,8 @@ export interface Touch<B> {
   readonly normal: Vec3;
   /** The closing speed along the normal, m/s. */
   readonly closing: number;
+  /** Each pair of shapes the solver pushed on, `of`'s and `on`'s (`Contact.pairs`). */
+  readonly pairs: readonly ContactPair[];
 }
 
 export interface TouchWatch<B> {
@@ -59,8 +61,11 @@ export interface TouchWatch<B> {
 }
 
 interface TouchOptions<B> {
-  /** The segments whose contacts are read, in this order; all of a body's, in its own order, if not given. */
-  readonly segments?: readonly string[];
+  /**
+   * Whether a body's contacts are read; every body's, if not given. A touch of two bodies is told
+   * from the one whose contacts are read, and from each if both are.
+   */
+  reads?(body: B): boolean;
   /**
    * How long a touch lasts, from the step the solver first pushes on it: `pushed`, while the
    * solver pushes on it (one let go of for a step lands again); `contact`, while the two are in
@@ -119,9 +124,8 @@ export function watchTouches<B extends { readonly built: BuiltBody }>(
     }
   };
   remember();
-  const read = bodies.flatMap((body) => options.segments
-    ? options.segments.flatMap((name) => { const segment = body.built.segments.get(name); return segment ? [owners.get(segment.body)!] : []; })
-    : [...body.built.segments.values()].map((segment) => owners.get(segment.body)!));
+  const read = bodies.filter((body) => options.reads?.(body) ?? true)
+    .flatMap((body) => [...body.built.segments.values()].map((segment) => owners.get(segment.body)!));
   /** The velocity of `owned`'s segment at `point` as the last step left it. */
   const velocityAt = (owned: Owned<B>, point: Vector3): Vector3 => {
     const last = state.last[owned.key]!;
@@ -159,7 +163,7 @@ export function watchTouches<B extends { readonly built: BuiltBody }>(
         const closing = Vector3.Dot(on ? velocityAt(part, point).subtract(velocityAt(on, point)) : velocityAt(part, point), normal);
         // A touch that was not closing is none: a hand laid on, or brushing past.
         if (!(closing > 0)) continue;
-        heard({ time: world.time, of: part, on, point: contact.point, normal: contact.normal, closing });
+        heard({ time: world.time, of: part, on, point: contact.point, normal: contact.normal, closing, pairs: contact.pairs });
       }
     }
     telling = false;

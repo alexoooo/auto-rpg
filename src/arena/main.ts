@@ -6,7 +6,7 @@ import { buildArena } from "./scene.ts";
 import { MENU_HREF } from "../app-route.ts";
 import { need } from "../dom.ts";
 import { airOf, hearTouches } from "../audio/body-sounds.ts";
-import { debrisCue } from "../audio/cues.ts";
+import { debrisCues } from "../audio/cues.ts";
 import { GameAudio } from "../audio/game-audio.ts";
 import { loadEngine } from "../core/engine/engines.ts";
 import { BODY_MODELS, type BodyModel } from "../core/human/spec.ts";
@@ -16,7 +16,7 @@ import { loadSkeletonArt, type SkeletonArt } from "../render/skeleton-skin.ts";
 import { drawHeld, type BodyShapes } from "../render/body-shapes.ts";
 import { dresserFor, type Dresser } from "../render/dress.ts";
 import { Duel, SIDES, type DuelEnding, type Side, type Verdict } from "./duel.ts";
-import { MATCHUP_PARAM, MODEL_LABELS, matchupSearch, readBalance, readCap, readGap, readMatchup, readTape, readYou, youSearch, type Matchup } from "./matchup.ts";
+import { MATCHUP_PARAM, MODEL_LABELS, matchupSearch, readBalance, readCap, readGap, readHeld, readMatchup, readTape, readYou, youSearch, type Matchup } from "./matchup.ts";
 import { ORBIT, orbitPosition } from "./orbit.ts";
 import { aimPoint, keysToMove, personOrders } from "./orders-input.ts";
 
@@ -31,7 +31,7 @@ import { aimPoint, keysToMove, personOrders } from "./orders-input.ts";
  * made, so nothing of the camera reaches a mind.
  *
  * The bout is heard until its verdict: each body's touches and its air
- * (`src/audio/body-sounds.ts`), and what a blow takes off (`debrisCue`). The verdict silences
+ * (`src/audio/body-sounds.ts`), and what a blow takes off (`debrisCues`). The verdict silences
  * it with the cues not played yet, so what decides the bout is not heard.
  *
  * Setup owns `#curtain`, pause owns `#pause-menu`, the verdict is `#bout-end`.
@@ -133,10 +133,10 @@ export async function bootArena(): Promise<void> {
     const dress = new Map(await Promise.all(SIDES.map(async (side) => [side, await dresser(matchup[side])] as const)));
     end();
     audio.reset();
-    const balance = readBalance(location.search), gap = readGap(location.search), capSeconds = readCap(location.search);
+    const balance = readBalance(location.search), gap = readGap(location.search), capSeconds = readCap(location.search), held = readHeld(location.search);
     const bout = duel = new Duel(world, {
       left: matchup.left, right: matchup.right,
-      ...(gap !== undefined ? { gap } : {}), ...(capSeconds !== undefined ? { capSeconds } : {}), ...(balance ? { balance } : {}),
+      ...(gap !== undefined ? { gap } : {}), ...(capSeconds !== undefined ? { capSeconds } : {}), ...(balance ? { balance } : {}), ...(held ? { held } : {}),
     }, {
       onBuilt: (duelist, built) => {
         for (const view of [dress.get(duelist.side)!(built), drawHeld(built, scene)]) {
@@ -145,7 +145,7 @@ export async function bootArena(): Promise<void> {
         }
       },
       // A blow is a touch, and is heard as one; this is what it took off.
-      onBlow: (blow) => audio.cue(debrisCue(blow)),
+      onBlow: (blow) => { for (const cue of debrisCues(blow)) audio.cue(cue); },
     });
     const sides = SIDES.map((side) => ({ id: side, built: bout.duelists[side].built }));
     hearing = hearTouches(world, sides, (cue) => audio.cue(cue));

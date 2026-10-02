@@ -77,6 +77,11 @@ test("a quantity refuses a number that is not finite, and converts to SI by its 
   assert.throws(() => derive("kg", "divide", [bodyMass()], (m) => m / 0));
   assert.equal(si(sourced(90, "deg", "de-leva-1996", "x")).value, Math.PI / 2);
   assert.deepEqual(si(sourced([100, 0, -50], "mm", "de-leva-1996", "x")).value, [0.1, 0, -0.05]);
+  // A stiffness as a paper prints it: per millimetre, or per centimetre.
+  for (const [value, unit, newtonsAMetre] of [[201, "N/mm", 201e3], [170, "N/cm", 17e3]]) {
+    const stiffness = si(sourced(value, unit, "de-leva-1996", "x"));
+    assert.deepEqual([stiffness.value, stiffness.unit], [newtonsAMetre, "N/m"], unit);
+  }
   const kg = bodyMass();
   assert.equal(si(kg), kg, "a quantity already in SI is itself");
   assert.ok(Object.isFrozen(kg) && Object.isFrozen(si(sourced([1, 2, 3], "mm", "de-leva-1996", "x")).value));

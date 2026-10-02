@@ -3,16 +3,21 @@
  * chain's forward kinematics put the knuckles where the built body has them; they are exact far
  * below a millimetre, so a Jacobian differenced by 1e-7 rad is sound; the inverse kinematics find a
  * reachable place and stretch toward one out of reach without crossing the arm's straight
- * singularity; and a hand goal is followed and reached alike at the game's 120 Hz and at 1920 Hz.
+ * singularity; a hand goal is followed and reached alike at the game's 120 Hz and at 1920 Hz; its
+ * path may run on through its place, and keep its start and its clock while its place moves; and
+ * a goal may name a point of what the hand holds, or two of them, which lay the held thing's line.
  * Node stand: the Warrior and the Rogue, lower trunk held, gravity on, no ground.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { rigidPoints } from "../src/core/build/rigid.ts";
 import { chainTo, pointAtToRef, pointNowToRef, solveReach } from "../src/core/control/kinematics.ts";
 import { motorControl } from "../src/core/control/motor.ts";
 import { servo } from "../src/core/control/servo.ts";
-import { humanSpec } from "../src/core/human/spec.ts";
+import { armed } from "../src/core/human/grip.ts";
+import { humanSpec, modelSpec } from "../src/core/human/spec.ts";
+import { woodenClub } from "../src/core/items/club.ts";
 import { driveMuscles } from "../src/core/muscle/driver.ts";
 import { coreStand } from "./harness/core-stand.mjs";
 
@@ -98,14 +103,14 @@ test("the inverse kinematics find a reachable place, and stretch toward one out 
       const angles = arm.at(GUARD);
       for (const f of arm.free) angles[f.joint][f.k] = f.min + (0.25 + 0.5 * next()) * (f.max - f.min);
       const target = pointAtToRef(arm.chain, angles, arm.knuckles, new Vector3()).asArray();
-      worst = Math.max(worst, solveReach(arm.chain, arm.at(GUARD), arm.free, arm.knuckles, target));
+      worst = Math.max(worst, solveReach(arm.chain, arm.at(GUARD), arm.free, [{ point: arm.knuckles, target }]));
     }
     // Out of reach: a straight path from the guard running 0.6 m forward and 0.2 m up, each solve from the last.
     const angles = arm.at(GUARD), start = pointAtToRef(arm.chain, angles, arm.knuckles, new Vector3());
     let jump = 0, left = 0;
     for (let s = 1; s <= 30; s++) {
       const was = angles.map((row) => [...row]);
-      left = solveReach(arm.chain, angles, arm.free, arm.knuckles, [start.x, start.y + 0.2 * s / 30, start.z + 0.6 * s / 30]);
+      left = solveReach(arm.chain, angles, arm.free, [{ point: arm.knuckles, target: [start.x, start.y + 0.2 * s / 30, start.z + 0.6 * s / 30] }]);
       for (const f of arm.free) jump = Math.max(jump, Math.abs(angles[f.joint][f.k] - was[f.joint][f.k]));
     }
     stand.dispose();
@@ -117,6 +122,54 @@ test("the inverse kinematics find a reachable place, and stretch toward one out 
   }
 });
 
+test("a range that reaches a half turn is solved short of it: an arm drawn up and far behind stops there", async () => {
+  // How far short of a half turn the solve keeps an angle (`IK_SHORT`).
+  const most = Math.PI - 0.1;
+  for (const model of ["workshop-rogue", "crypt-skeleton"]) {
+    const stand = await coreStand(modelSpec(model), { ground: false, pinned: "lowerTrunk" });
+    try {
+      const arm = rightArm(stand.built);
+      const wide = arm.free.filter((f) => f.max > most);
+      assert.ok(wide.length > 0, `${model}: no freedom of the fixture's arm has a range that reaches a half turn`);
+      // From the guard, up and far behind, out of reach: the shoulder turns as far as it may.
+      const angles = arm.at(GUARD), start = pointAtToRef(arm.chain, angles, arm.knuckles, new Vector3());
+      for (let s = 1; s <= 40; s++) {
+        solveReach(arm.chain, angles, arm.free, [{ point: arm.knuckles, target: [start.x, start.y + s / 40, start.z - 2 * s / 40] }]);
+      }
+      const reached = wide.map((f) => angles[f.joint][f.k]);
+      assert.ok(reached.some((angle) => angle === most), `${model}: the path drew no wide freedom to the end of its range: ${reached.map((a) => a.toFixed(3))}`);
+      for (const f of arm.free) assert.ok(Math.abs(angles[f.joint][f.k]) <= most, `${model}: ${arm.name(f.joint, f.k)} is at ${angles[f.joint][f.k]}`);
+    } finally { stand.dispose(); }
+  }
+});
+
+test("a straight arm with its elbow and wrist at their stops is solved: the way it cannot see is left to the posture", async () => {
+  // The Rogue's right arm as a placed blow left it in a bout, a pass from its place: the elbow
+  // straight at its stop and two of the wrist's freedoms at theirs, so every freedom left moves
+  // the knuckles across the arm's line and none along it.
+  const stand = await coreStand(humanSpec("workshop-rogue"), { ground: false, pinned: "lowerTrunk" });
+  try {
+    const hand = stand.built.segments.get("hand.right"), chain = chainTo(stand.built, hand), knuckles = hand.spec.points.knuckles.value;
+    const moved = ["shoulder.right", "elbow.right", "wrist.right"];
+    const free = chain.flatMap((joint, j) => moved.includes(joint.spec.name)
+      ? joint.dofs.map((dof, k) => ({ joint: j, k, min: dof.spec.min.value, max: dof.spec.max.value, preferred: GUARD[`${joint.spec.name} ${dof.spec.positive}`] ?? 0 }))
+      : []);
+    const angles = [[0, 0, 0], [0, 0, 0], [2.3576057189622546, 0.041551409595667596, -0.1241796316652358], [-0.8314727849836531],
+      [-1.5031210562283344, -0.8970909878475719, -0.2468925408474032]];
+    assert.deepEqual(chain.map((joint) => joint.dofs.length), angles.map((row) => row.length));
+    const stops = free.filter((f) => angles[f.joint][f.k] === f.min).map((f) => `${chain[f.joint].spec.name} ${f.k}`);
+    assert.deepEqual(stops, ["elbow.right 0", "wrist.right 0", "wrist.right 1"], "the fixture's arm stands at these stops");
+    const target = [0.046321817712006386, 1.557405804959468, 0.38646868857246497];
+    const before = pointAtToRef(chain, angles, knuckles, new Vector3());
+    const left = solveReach(chain, angles, free, [{ point: knuckles, target }]);
+    assert.ok(angles.flat().every(Number.isFinite) && Number.isFinite(left), `the solve left ${JSON.stringify(angles)}, ${left} m off`);
+    for (const f of free) assert.ok(f.min <= angles[f.joint][f.k] && angles[f.joint][f.k] <= f.max, `${chain[f.joint].spec.name} ${f.k} is at ${angles[f.joint][f.k]}`);
+    // It began 1.6 mm from its place, along its own line, and stays there: no freedom left lengthens it.
+    const began = Vector3.Distance(before, new Vector3(...target));
+    assert.ok(began > 0.001 && began < 0.002 && Math.abs(left - began) < 1e-4, `${(1000 * began).toFixed(2)} mm off before and ${(1000 * left).toFixed(2)} after`);
+  } finally { stand.dispose(); }
+});
+
 /** The Warrior at the guard, then his right knuckles sent `move` from where they are over 0.4 s; the worst gap to the path, and where they end. */
 async function reachRun(hz, move) {
   const stand = await coreStand(humanSpec("workshop-fighter"), { ground: false, pinned: "lowerTrunk", hz });
@@ -126,7 +179,7 @@ async function reachRun(hz, move) {
     stand.step(stand.seconds(1));
     const from = motor.knucklesToRef("right", new Vector3());
     const target = [from.x + move[0], from.y + move[1], from.z + move[2]];
-    motor.reach("right", target, 0.4);
+    motor.reach("right", { places: [{ point: "knuckles", position: target }], seconds: 0.4 });
     const now = new Vector3();
     let worst = 0;
     for (let s = 0; s < stand.seconds(0.9); s++) {
@@ -150,4 +203,177 @@ test("a hand goal is followed and reached alike at 120 Hz and 1920 Hz", async ()
     }
     assert.ok(apart < 0.006, `the two rates ended ${(1000 * apart).toFixed(1)} mm apart`);
   }
+});
+
+test("a goal's path runs on through its place, and one that follows keeps its start and its clock as its place moves", async () => {
+  const stand = await coreStand(humanSpec("workshop-fighter"), { ground: false, pinned: "lowerTrunk", hz: 120 });
+  const motor = motorControl(stand.built, 0.1, GUARD);
+  const driver = driveMuscles(stand.built, stand.world, motor.control);
+  try {
+    stand.step(stand.seconds(1));
+    const from = motor.knucklesToRef("right", new Vector3()).clone();
+    const goal = (shift, more) => ({ places: [{ point: "knuckles", position: [from.x + shift, from.y + 0.05, from.z + 0.2] }], seconds: 0.4, ...more });
+    const placeOf = ({ places: [{ position }] }) => new Vector3(...position);
+    /** The arm let back to its guard, then what `given(s)` gives, if anything, asked before each of `steps` steps: the path's point after the first, and after the last. */
+    const run = (steps, given) => {
+      motor.release("right");
+      stand.step(stand.seconds(1));
+      let start = null;
+      for (let s = 0; s < steps; s++) {
+        const next = given(s);
+        if (next) motor.reach("right", next);
+        stand.step(1);
+        start ??= motor.path("right").clone();
+      }
+      return { start, end: motor.path("right").clone() };
+    };
+    const half = stand.seconds(0.2) + 1, whole = stand.seconds(0.4) + 1, shifted = (s) => 0.001 * s;
+
+    // Through: at its time's end the path is that far beyond its place, on the line it came by.
+    const once = (made) => (s) => s === 0 ? made : null;
+    const through = run(whole, once(goal(0, { through: 0.1 }))), place = placeOf(goal(0));
+    const came = place.subtract(through.start).normalize(), beyond = through.end.subtract(place);
+    assert.ok(Math.abs(beyond.length() - 0.1) < 1e-9 && Vector3.Distance(beyond.normalize(), came) < 1e-9, `the path ended ${beyond.length()} m beyond its place`);
+    // The control: with none, it ends at its place.
+    assert.ok(Vector3.Distance(run(whole, once(goal(0))).end, place) < 1e-12);
+
+    // A goal that follows, given each step with its place a millimetre on: half its time gone it
+    // is half the way from where it began to the place as last given, and at its time's end at it.
+    const midway = run(half, (s) => goal(shifted(s), { follows: true })), last = placeOf(goal(shifted(half - 1)));
+    assert.ok(Vector3.Distance(midway.end, midway.start.add(last.subtract(midway.start).scale(0.5))) < 1e-9, `half its time gone the path is at ${midway.end.asArray()}`);
+    const followed = run(whole, (s) => goal(shifted(s), { follows: true }));
+    assert.ok(Vector3.Distance(followed.end, placeOf(goal(shifted(whole - 1)))) < 1e-12);
+
+    // One that does not, given another place half its time gone, begins again there: after as
+    // long again it is half the way from where the knuckles then were, not at its place.
+    const again = run(2 * half, (s) => s === 0 ? goal(0) : s === half ? goal(0.05) : null), other = placeOf(goal(0.05));
+    const short = Vector3.Distance(again.end, other);
+    assert.ok(short > 0.02, `the path is ${short} m from its place`);
+    assert.ok(Vector3.Distance(run(2 * half, (s) => goal(s < half ? 0 : 0.05, { follows: true })).end, other) < 1e-12, "the control: following, its time is up");
+    // And a goal of another time is another path, though both follow.
+    const retimed = run(2 * half, (s) => goal(s < half ? 0 : 0.05, { follows: true, seconds: s < half ? 0.4 : 0.3 }));
+    assert.ok(Vector3.Distance(retimed.end, other) > 0.005, `the path is ${Vector3.Distance(retimed.end, other)} m from its place`);
+  } finally {
+    driver.dispose(); stand.dispose();
+  }
+});
+
+/** The right arm's seven freedoms, in the order the poses below give them. */
+const ARM = ["shoulder.right flexion", "shoulder.right abduction", "shoulder.right internal rotation", "elbow.right flexion",
+  "wrist.right flexion", "wrist.right radial deviation", "wrist.right pronation"];
+
+/**
+ * Poses of the right arm that lay a held club's swell three ways: across the body, upright, and
+ * askew from the guard with the wrist bent. Each is within the arm's ranges, so the two places it
+ * gives are ones the arm can take.
+ */
+const LINES = {
+  across: [2.03, 0.69, -0.08, -0.26, -0.82, -0.06, 1.06],
+  upright: [1.36, -0.38, -0.11, 0.15, -0.58, -0.60, -0.17],
+  askew: [0.5, -0.2, 0, 1.3, 0.6, -0.3, 0.5],
+};
+
+/** The Warrior with the club, and where `pose` of his right arm puts each of `names`, body frame. */
+async function clubStand(hz, pose, names) {
+  const spec = armed(humanSpec("workshop-fighter"), "right", woodenClub());
+  const stand = await coreStand(spec, { ground: false, pinned: "lowerTrunk", hz });
+  const arm = rightArm(stand.built), points = rigidPoints(spec, arm.hand.spec);
+  const angles = arm.at({ ...GUARD, ...Object.fromEntries(ARM.map((name, i) => [name, pose[i]])) });
+  const places = names.map((point) => ({ point, position: pointAtToRef(arm.chain, angles, points.get(point).value, new Vector3()).asArray() }));
+  return { stand, places };
+}
+
+/** The Warrior at the guard with the club, then `places` asked of his right hand over 0.6 s: how far each point ends from its place, and the wrist's angles. */
+async function placeRun(hz, pose, names, order = (places) => places) {
+  const { stand, places } = await clubStand(hz, pose, names);
+  const motor = motorControl(stand.built, 0.1, GUARD);
+  const driver = driveMuscles(stand.built, stand.world, motor.control);
+  try {
+    stand.step(stand.seconds(1));
+    motor.reach("right", { places: order(places), seconds: 0.6 });
+    const now = new Vector3();
+    let strayed = 0;
+    for (let s = 0; s < stand.seconds(1.2); s++) {
+      stand.step(1);
+      strayed = Math.max(strayed, Vector3.Distance(motor.path("right"), motor.pointToRef("right", order(places)[0].point, now)));
+    }
+    return {
+      off: places.map(({ point, position }) => Vector3.Distance(motor.pointToRef("right", point, now), Vector3.FromArray(position))),
+      end: places.map(({ point }) => motor.pointToRef("right", point, new Vector3())),
+      wrist: ARM.slice(4).map((name) => driver.angle(driver.channel(name))),
+      strayed,
+    };
+  } finally {
+    driver.dispose(); stand.dispose();
+  }
+}
+
+test("two points of what a hand holds are put where they are asked", async () => {
+  for (const [line, pose] of Object.entries(LINES)) {
+    // Either point first: the first is placed, the second lays the line.
+    for (const order of [(places) => places, (places) => [places[1], places[0]]]) {
+      const run = await placeRun(120, pose, ["swellFrom", "swellTo"], order);
+      run.off.forEach((off, i) => assert.ok(off < 0.005, `${line}: ${["swellFrom", "swellTo"][i]} ended ${(1000 * off).toFixed(1)} mm from its place`));
+      // The posture holds the wrist straight: a line laid is the wrist's doing.
+      assert.ok(Math.max(...run.wrist.map(Math.abs)) > 0.2, `${line}: the wrist's angles are ${run.wrist.map((a) => a.toFixed(2))}`);
+    }
+  }
+});
+
+test("a hand goal on a held point is followed alike at 120 Hz and 1920 Hz", async () => {
+  // One place whose pose has the wrist at the end of a range, where a solve that clamps a freedom
+  // it has already counted on settles 30 mm short; and two places.
+  for (const [line, names] of [["across", ["swell"]], ["upright", ["swellFrom", "swellTo"]]]) {
+    const slow = await placeRun(120, LINES[line], names), fast = await placeRun(1920, LINES[line], names);
+    for (const [hz, run] of [[120, slow], [1920, fast]]) {
+      run.off.forEach((off, i) => assert.ok(off < 0.005, `${line}, ${hz} Hz: ${names[i]} ended ${(1000 * off).toFixed(1)} mm from its place`));
+      assert.ok(run.strayed < 0.03, `${line}, ${hz} Hz: ${names[0]} strayed ${(1000 * run.strayed).toFixed(1)} mm from its path`);
+    }
+    slow.end.forEach((end, i) => {
+      const apart = Vector3.Distance(end, fast.end[i]);
+      assert.ok(apart < 0.005, `${line}: the two rates ended ${names[i]} ${(1000 * apart).toFixed(1)} mm apart`);
+    });
+  }
+});
+
+test("a hand goal is refused with its reason: no place, three, a point the hand has not, two places one body cannot be at", async () => {
+  const { stand, places: [from, to] } = await clubStand(120, LINES.upright, ["swellFrom", "swellTo"]);
+  const motor = motorControl(stand.built, 0.1, GUARD);
+  try {
+    const goal = (places) => () => motor.reach("right", { places, seconds: 0.4 });
+    assert.throws(goal([]), /one place or two, not 0/);
+    assert.throws(goal([from, to, from]), /one place or two, not 3/);
+    assert.throws(goal([{ point: "pommel", position: from.position }]), /the right hand has no point pommel: it has knuckles, .*swellFrom, swellTo, swell/);
+    // The left hand holds nothing: the club's points are the right's alone.
+    assert.throws(() => motor.reach("left", { places: [from], seconds: 0.4 }), /the left hand has no point swellFrom/);
+    // A decimetre farther apart than the swell's ends are; the control is the pair as built.
+    const far = { point: to.point, position: [to.position[0], to.position[1] + 0.1, to.position[2]] };
+    const apart = Math.hypot(...far.position.map((c, k) => c - from.position[k])), built = Math.hypot(...to.position.map((c, k) => c - from.position[k]));
+    assert.ok(apart - built > 0.09, `the fixture's places are ${(apart - built).toFixed(3)} m farther apart than the points`);
+    assert.throws(goal([from, far]), /one rigid body cannot be at both/);
+    assert.doesNotThrow(goal([from, to]));
+    assert.doesNotThrow(goal([from]));
+  } finally { stand.dispose(); }
+});
+
+test("two tasks with fewer freedoms than rows are solved without the posture's pull: a line the shoulder and elbow can lay is found", async () => {
+  const spec = armed(humanSpec("workshop-fighter"), "right", woodenClub());
+  const stand = await coreStand(spec, { ground: false, pinned: "lowerTrunk" });
+  try {
+    const arm = rightArm(stand.built), points = rigidPoints(spec, arm.hand.spec), next = random(11);
+    const [a, b] = ["swellFrom", "swellTo"].map((name) => points.get(name).value);
+    assert.equal(arm.free.length, 4, "the shoulder's three and the elbow's one: fewer than two tasks' five rows");
+    let worst = 0;
+    for (let n = 0; n < 10; n++) {
+      // A pose near the guard by the four freedoms alone, the wrist as the guard has it: its two places, solved from the guard.
+      const angles = arm.at(GUARD);
+      for (const f of arm.free) angles[f.joint][f.k] = Math.max(f.min, Math.min(f.max, angles[f.joint][f.k] + 0.6 * (next() - 0.5)));
+      const tasks = [a, b].map((point) => ({ point, target: pointAtToRef(arm.chain, angles, point, new Vector3()).asArray() }));
+      const found = arm.at(GUARD);
+      worst = Math.max(worst, solveReach(arm.chain, found, arm.free, tasks));
+      for (const row of found) for (const angle of row) assert.ok(Number.isFinite(angle), "an angle solved is a number");
+    }
+    assert.ok(worst < 0.002, `a line the four freedoms can lay was missed by ${(1000 * worst).toFixed(2)} mm`);
+    assert.throws(() => solveReach(arm.chain, arm.at(GUARD), arm.free, []), /one task or two, not 0/);
+  } finally { stand.dispose(); }
 });

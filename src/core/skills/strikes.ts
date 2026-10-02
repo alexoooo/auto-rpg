@@ -32,10 +32,11 @@ export interface Strike {
   readonly pushes: readonly StrikePush[];
 }
 
-/** Where a target stands from a recipe's place, m: `along` the heading, farther ahead, and `across` it, to the right. */
+/** Where a target stands from a recipe's place, m: `along` the heading, farther ahead, `across` it, to the right, and `up`. */
 export interface StandOff {
   readonly along: number;
   readonly across: number;
+  readonly up: number;
 }
 
 /**
@@ -47,6 +48,8 @@ export interface StandOff {
 export interface StrikeWindow {
   readonly along: readonly [number, number];
   readonly across: readonly [number, number];
+  /** Above the recipe's place: the target's height over the striker's head's, m. */
+  readonly up: readonly [number, number];
 }
 
 /** A searched strike and where it lands: the target's centre `distance` m straight ahead of the striker's head. */
@@ -102,8 +105,14 @@ export function recipeFor(repertoire: Repertoire, spec: BodySpec, hand: Hand): C
   };
 }
 
-/** A recipe's window for the other hand: the same along the heading, turned over across it. */
-export const mirroredWindow = (window: StrikeWindow): StrikeWindow => ({ along: window.along, across: [-window.across[1], -window.across[0]] });
+/** A recipe's window for the other hand: the same along the heading and up, turned over across it. */
+export const mirroredWindow = (window: StrikeWindow): StrikeWindow =>
+  ({ along: window.along, across: [-window.across[1], -window.across[0]], up: window.up });
+
+/** The point `hand` of `spec` strikes with (`rigidPoints`): what it holds says (`ItemSpec.aim`), or the hand's knuckles. */
+export function aimOf(spec: BodySpec, hand: Hand): string {
+  return spec.held?.find((h) => h.segment === `hand.${hand}`)?.item.aim ?? "knuckles";
+}
 
 /** The trunk's freedoms whose positive way is to one side: mirrored, their sense and angle turn over. */
 const SIDED = [" rotation right", " lateral flexion right"];

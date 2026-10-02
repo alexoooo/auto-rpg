@@ -26,7 +26,7 @@ interface ScenarioInfo {
 /** Every scenario, in the menu's order; the first is the default. */
 export const SCENARIOS: readonly ScenarioInfo[] = [
   { id: "stance", name: "Stance", line: "Walk it from the keyboard, and shove it." },
-  { id: "routine", name: "Routine", line: "It walks out, strikes three times, turns and walks back." },
+  { id: "routine", name: "Routine", line: "It walks out, strikes at ten targets hung high, middle and low, turns and walks back." },
   { id: "run", name: "Run", line: "It goes round a track as fast as its walk holds: a big circle, or straight back and forth." },
   { id: "blow", name: "Blow", line: "It swings a club blow the strike search found into a head, and reads what it lands with.", holds: { right: "club" } },
 ];
@@ -83,9 +83,19 @@ export type LabCamera = (typeof LAB_CAMERAS)[number];
 /** What may drive the body (`LAB_MINDS`, `minds.ts`); the first is the default. */
 export const LAB_MIND_IDS = ["script", "guard"] as const;
 export type LabMindId = (typeof LAB_MIND_IDS)[number];
+/** What a body does once it is down (`LAB_DOWN`, `minds.ts`); the first is the default. */
+export const LAB_DOWN_IDS = ["lie", "rise"] as const;
+export type LabDownId = (typeof LAB_DOWN_IDS)[number];
 /** How the isometric camera draws; the first is the default. */
 export const LAB_PROJECTIONS = ["orthographic", "perspective"] as const;
 export type LabProjection = (typeof LAB_PROJECTIONS)[number];
+
+/**
+ * The Routine's targets: the most the address may ask for, and how many it has and the seed they are
+ * drawn from unless the address says (`ROUTINE_TARGETS`, `routine.ts`, which the test pins these to
+ * without the menu loading the routine).
+ */
+export const LAB_TARGETS = { most: 30, count: 10, seed: 1 } as const;
 
 export interface LabAddress extends LabLoadout {
   /** The scenario to run; none is the menu. */
@@ -93,17 +103,28 @@ export interface LabAddress extends LabLoadout {
   /** The body's balance, per cent of its weight, in place of its character's (`AttributeSpec.balance`); null is the character's. */
   readonly balance: number | null;
   readonly mind: LabMindId;
+  readonly down: LabDownId;
   /** What its mind may not strike with: each thing held whose strike is barred. */
   readonly barred: readonly LabHeld[];
   readonly hz: LabRate;
   readonly view: LabView;
   readonly camera: LabCamera;
   readonly projection: LabProjection;
+  /** The Routine's targets a loop, 0 to `LAB_TARGETS.most`, and the seed they are drawn from (`drawTargets`, `targets.ts`). */
+  readonly targets: number;
+  readonly seed: number;
 }
 
-const KEYS = ["scenario", "model", "right", "left", "boots", "armour", "balance", "mind", "barred", "hz", "view", "camera", "projection"] as const;
+const KEYS = ["scenario", "model", "right", "left", "boots", "armour", "balance", "mind", "down", "barred", "hz", "view", "camera", "projection", "targets", "seed"] as const;
 
 /** A switch in the address: `1` on, `0` off, anything else `fallback`. */
+/** A whole number in the address, from `least` to `most`: plain digits, anything else `fallback`. */
+function whole(value: string | null, least: number, most: number, fallback: number): number {
+  if (value === null || !/^\d{1,10}$/.test(value)) return fallback;
+  const n = Number(value);
+  return n >= least && n <= most ? n : fallback;
+}
+
 const flag = (value: string | null, fallback: boolean): boolean => value === "1" ? true : value === "0" ? false : fallback;
 
 /** Read the lab's address; anything missing or unknown is the default. */
@@ -120,11 +141,15 @@ export function labAddress(search: string): LabAddress {
     armour: flag(query.get("armour"), worn.armour),
     balance: balanceFrom(query.get("balance") ?? ""),
     mind: LAB_MIND_IDS.find((m) => m === query.get("mind")) ?? LAB_MIND_IDS[0],
+    down: LAB_DOWN_IDS.find((d) => d === query.get("down")) ?? LAB_DOWN_IDS[0],
     barred: LAB_HELD.filter((h) => barred.includes(h)),
     hz: LAB_RATES.find((r) => String(r) === query.get("hz")) ?? LAB_RATES[0],
     view: LAB_VIEWS.find((v) => v === query.get("view")) ?? LAB_VIEWS[0],
     camera: LAB_CAMERAS.find((c) => c === query.get("camera")) ?? LAB_CAMERAS[0],
     projection: LAB_PROJECTIONS.find((p) => p === query.get("projection")) ?? LAB_PROJECTIONS[0],
+    targets: whole(query.get("targets"), 0, LAB_TARGETS.most, LAB_TARGETS.count),
+    // A seed is taken modulo 2^32 (`mulberry32`), so any whole number under it names one stream.
+    seed: whole(query.get("seed"), 0, 4294967295, LAB_TARGETS.seed),
   };
 }
 
@@ -143,10 +168,13 @@ export function labHref(address: LabAddress, search = ""): string {
   query.set("armour", address.armour ? "1" : "0");
   if (address.balance !== null) query.set("balance", String(address.balance));
   query.set("mind", address.mind);
+  query.set("down", address.down);
   if (address.barred.length > 0) query.set("barred", address.barred.join(","));
   query.set("hz", String(address.hz));
   query.set("view", address.view);
   query.set("camera", address.camera);
   query.set("projection", address.projection);
+  if (address.targets !== LAB_TARGETS.count) query.set("targets", String(address.targets));
+  if (address.seed !== LAB_TARGETS.seed) query.set("seed", String(address.seed));
   return `?${query}`;
 }

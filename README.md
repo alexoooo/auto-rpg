@@ -39,6 +39,12 @@ wooden club in its right hand and is driven by its own mind: it walks at the oth
 reach, attacks the head. A side is out when its wounds end it or its body falls; at the two-minute
 bell the fuller bar wins, and equal bars draw.
 
+A blow costs both who meet in it. Any two parts of the two bodies that come together closing
+have met in a blow, and the two surfaces share its energy: the softer takes the more. A fist
+takes most of its own punch to a head and little of one to a chest. A held weapon is rigid and
+costs its holder nothing: what a club strikes takes the whole blow, a bare hand that meets a
+club takes all of it, and two clubs meeting wound nobody.
+
 The bout is heard until its verdict: footfalls, the air of a swing, a club on a body or on the
 other club, a body against a wall. The verdict silences it, the deciding blow included.
 
@@ -62,8 +68,9 @@ turn; across its heading or backward it walks at half pace.
 A link can name its matchup and open the bout directly:
 `?play=arena&matchup=workshop-fighter,crypt-skeleton` (the bodies are `workshop-fighter`,
 `workshop-rogue` and `crypt-skeleton`). It may also say how far apart the two start (`&gap=3`,
-metres) and how long the bout may run (`&cap=30`, seconds), and carry a bout's orders after a
-`#tape=`, which the arena then plays again by itself.
+metres), how long the bout may run (`&cap=30`, seconds) and what each right hand holds
+(`&held=empty` for a bare-handed bout, or `&held=empty,club` left then right), and carry a
+bout's orders after a `#tape=`, which the arena then plays again by itself.
 
 ## The Crypt
 
@@ -98,12 +105,15 @@ without resuming on its own.
 
 - **Stance**: walk it from the keyboard (W/S or Up/Down forward and back, A/D or Left/Right
   sideways, Q/E turn while walking) and shove it.
-- **Routine**: it walks out, strikes three times, turns and walks back.
+- **Routine**: it walks out, strikes at ten targets hung high, middle and low, turns and walks
+  back. Each target is a ball of its own head, and the table says what the blow did to it or how
+  near it passed. `&targets=` (0 to 30) and `&seed=` in the address choose how many and which.
 - **Run**: it goes round a track as fast as its walk holds.
-- **Blow**: it swings the club blow that sets the damage unit into a head.
+- **Blow**: it swings the Warrior's strongest club blow into a head.
 
 Its sections, each of which folds away, choose the body and its balance, what each hand holds,
-boots and armour, its mind and the strikes it may throw, the camera (Free, Isometric or Chase), the
+boots and armour, its mind, whether it lies or tries to rise once it is down (**Down**: a rise
+ends on knees and hands) and the strikes it may throw, the camera (Free, Isometric or Chase), the
 view, and 120 or 480 Hz; one logs what the mind decides. The transport pauses (Space), steps one
 physics step at a time, scrubs, and slows time to 1/4 or 1/10.
 

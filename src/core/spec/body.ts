@@ -13,8 +13,9 @@ import { cross, normalize, orthogonalTo, sub } from "./vec.ts";
  *
  * What the rulebook wounds is `wounds`: the body's hit points, and which segments kill when they
  * are emptied or lost and which never come off. What else a fight's rules read of the character is
- * `attributes`. What a body and an item are made of is `surface`: no rule of a fight reads it yet,
- * and a sound does (`src/audio/cues.ts`).
+ * `attributes`. What a blow reads of a segment, or of an item, is its `surface`. What a body and
+ * an item are made of is `substance`: no rule of a fight reads it, and a sound does
+ * (`src/audio/cues.ts`).
  *
  * **What a body holds is not its anatomy.** A segment states the body's own numbers; an item held
  * in it (`held`) is stated beside it, and the builder makes the two one rigid body
@@ -36,7 +37,7 @@ export interface BodySpec {
   readonly wounds: WoundSpec;
   readonly attributes: AttributeSpec;
   /** What its segments are made of, where they meet the world. */
-  readonly surface: Surface;
+  readonly substance: Substance;
   /** Items held rigidly in a segment, such as a club in a hand; absent, nothing. */
   readonly held?: readonly HeldSpec[];
 }
@@ -48,7 +49,7 @@ export interface BodySpec {
  * `along`, x `across` made square to it, z = x cross y.
  */
 /** What a thing is made of, where it meets another: a body's flesh or bone, an item's wood, the world's stone. */
-export type Surface = "flesh" | "bone" | "wood" | "stone";
+export type Substance = "flesh" | "bone" | "wood" | "stone";
 
 export interface HeldSpec {
   /** The segment that holds it. */
@@ -74,8 +75,12 @@ export interface ItemSpec {
   readonly shapes: readonly ItemShape[];
   /** Named points, in the item frame: where a reading is taken on it, such as where a club strikes. */
   readonly points: { readonly [name: string]: Quantity<Vec3> };
+  /** The point of `points` a blow with the item is brought to its target by: where it strikes. */
+  readonly aim?: string;
+  /** Absent, the item is rigid: it takes no share of a blow. */
+  readonly surface?: SurfaceSpec;
   /** What it is made of. */
-  readonly surface: Surface;
+  readonly substance: Substance;
   /**
    * For an item a hand closes on: the radius it is held at, with the item frame's origin at the end
    * of the grip and y along it (`src/core/human/grip.ts`).
@@ -90,7 +95,7 @@ export type ItemShape = Exclude<ShapeSpec, { readonly kind: "box" }>;
  * split over its segments by the rulebook's rule.
  */
 export interface WoundSpec {
-  /** The body's hit points, in the rulebook's unit (one the strongest club hit). */
+  /** The body's hit points, in the rulebook's unit (`Rulebook.unit`: one is 100 J of blunt blow). */
   readonly hp: Quantity<number>;
   /** Segments whose emptying, or loss, kills the body: a head. */
   readonly vital: readonly string[];
@@ -144,6 +149,15 @@ export interface SegmentSpec {
    * are set on the body explicitly, so a shape can be sized for contact without moving them.
    */
   readonly shape: ShapeSpec;
+  readonly surface: SurfaceSpec;
+}
+
+/**
+ * **What a blow reads of a surface** (`src/core/rules/share.ts`): how stiff it is under a blunt
+ * load pressed into it, N/m. The softer of two surfaces that meet takes the more of a blow.
+ */
+interface SurfaceSpec {
+  readonly stiffness: Quantity<number>;
 }
 
 /**

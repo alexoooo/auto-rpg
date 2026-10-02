@@ -9,8 +9,9 @@ import type { StandOff } from "../core/skills/strikes.ts";
 import { centreNow, inFrameOf, type ThrownBlow } from "./blow.ts";
 
 /**
- * **A club blow read as it lands**: the damage unit's reading, shared by the search that scores
- * club blows (`research/core-club-strike.mjs`) and the lab's Blow scenario (`blow-scenario.ts`).
+ * **A club blow read as it lands**: the reading the club's best blow was found by, shared by the
+ * search that scores club blows (`research/core-club-strike.mjs`) and the lab's Blow scenario
+ * (`blow-scenario.ts`).
  *
  * **The target is an opponent's head**: a sphere of the striker's head capsule's radius, at its own
  * head's centre as it stands when the blow begins (`STAND`), moved straight ahead by `distance`.
@@ -72,7 +73,7 @@ function nearestOn(a: Vector3, b: Vector3, c: Vector3, out: Vector3): Vector3 {
 }
 
 /** Watch `blow`, a club blow by `built` with the club in `hand`, into a head `distance` ahead, stood `off` that. */
-export function watchClubBlow(built: BuiltBody, world: World, blow: ThrownBlow, distance: number, hand: "left" | "right", off?: StandOff): ClubBlowWatch {
+export function watchClubBlow(built: BuiltBody, world: World, blow: ThrownBlow, distance: number, hand: "left" | "right", off?: Partial<StandOff>): ClubBlowWatch {
   const headSpec = built.spec.segments.find((s) => s.name === "head")!;
   if (headSpec.shape.kind !== "capsule") throw new Error(`the head is a ${headSpec.shape.kind}, not a capsule`);
   const R = headSpec.shape.radius.value;
@@ -104,7 +105,7 @@ export function watchClubBlow(built: BuiltBody, world: World, blow: ThrownBlow, 
       // The body as it stands when the blow begins: the target's pose, and where it is.
       struck.update();
       headCentre = centreNow(head);
-      target = headCentre.add(new Vector3(off?.across ?? 0, 0, distance + (off?.along ?? 0)));
+      target = headCentre.add(new Vector3(off?.across ?? 0, off?.up ?? 0, distance + (off?.along ?? 0)));
     }
     if (blow.body.view.down) { fell = true; return; }
     read(now);

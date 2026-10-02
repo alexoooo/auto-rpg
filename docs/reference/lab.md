@@ -2,7 +2,8 @@
 
 The readings behind the lab's constants and fitted poses: the hand poses the skin draws
 (`src/lab/club-grip.ts`, `src/render/skin.ts`), the page's seek budget
-(`src/lab/main.ts`), the Routine's gait (`src/lab/routine.ts`, `src/lab/track.ts`),
+(`src/lab/main.ts`), where the Routine's targets are drawn and how they are read
+(`src/lab/targets.ts`), the Routine's gait (`src/lab/routine.ts`, `src/lab/track.ts`),
 how far ahead a walker on a track faces (`src/lab/run-mode.ts`), how far off the track
 the run test lets a walker go (`tests/lab-run.test.mjs`), and what the page hears
 (`src/lab/sound-log.ts`).
@@ -66,12 +67,39 @@ The browser holds back frames that run long, so a longer budget loses more than 
 budget is 10 ms, set rather than measured: with the draw's 6 ms it fits one frame of a 60 Hz
 display (16.7 ms), where every budget above ran over.
 
+## Targets
+
+`TARGET_BOX` (`src/lab/targets.ts`): where a target is drawn, in the statures of the body that
+strikes at it, about the place the control hangs (`POST_BEYOND` beyond the Routine's walk out,
+where the fists' recipes land). Set, and not measured: the box is the reach of an arm either side
+and a step nearer or further, and the three bands divide the height a body has.
+
+| | From, statures | To | For the Warrior (1.8 m), m | What it spans |
+|---|---|---|---|---|
+| Across the heading | -0.2 | 0.2 | -0.36 to 0.36 | an arm's reach to either side |
+| Along it | -0.1 | 0.1 | -0.18 to 0.18 | a step nearer or further |
+| Up, high | 0.75 | 1 | 1.35 to 1.80 | the shoulders to the crown |
+| Up, middle | 0.5 | 0.75 | 0.90 to 1.35 | the hips to the shoulders |
+| Up, low | 0.15 | 0.5 | 0.27 to 0.90 | the shins to the hips |
+
+A target's stratum is its turn's, high, middle and low in that order after the control, so every
+seed has the same number in each.
+
+`TARGET_WATCH`: 0.5 s after a strike's pushes end before its target's reading closes. Set: the
+Warrior's club lands within the quarter second before its pushes end
+(`tests/lab-targets.test.mjs`), and the half second after is for a blow that lands late.
+
+`TARGET_CLEAR`: 0.02 m between every shape of the body and a dummy's surface as the dummy is
+hung. Set, and not measured: a body made inside another is thrown out of it by the solver
+([blows.md](blows.md#targets)), and the margin keeps a dummy from being made in touch.
+
 ## Routine gait
 
-The Routine sets off from standing at the post into its half-turn, where the envelope's turns,
+The Routine sets off from standing at its targets into its half-turn, where the envelope's turns,
 measured on a walk under way, do not hold: a second after setting off the walk is at 0.1 m/s.
 `research/core-routine-battery.mjs` ran each human through 6 runs of 10 loops, pushed 3 N s at
-the start, at 120 and at 480 Hz (Node core stand, Rapier).
+the start, at 120 and at 480 Hz (Node core stand, Rapier). The Routine these rows read struck
+three times in the air at one place.
 
 | Pace, m/s | Turn, rad/s | What happened |
 |-----------|-------------|---------------|
@@ -82,11 +110,45 @@ the start, at 120 and at 480 Hz (Node core stand, Rapier).
 Standing still after each strike before walking on changed nothing: the turn is the cause.
 `ROUTINE_GAIT`: 0.3 m/s (`TURN_PACE`) at 1 rad/s (`LAB_TURN_RATE`), a half-turn of 0.3 m radius.
 
-Command: `node research/core-routine-battery.mjs --seeds 6 --loops 10`, and with `--hz 480`; its
-other flags are `--variants` (stance settings), `--impulse` (3), `--models`, `--workers` and
-`--list`. The gait is not a flag: the first two rows were read with `ROUTINE_GAIT` written for
-them, in the work that became `8ee70e1e`, and were not committed. The last row is the command as
-it stands, and reads the same at `e4ec0709`: each human 60 of 60 loops at 120 and at 480 Hz.
+The gait is not a flag: the first two rows were read with `ROUTINE_GAIT` written for them, in the
+work that became `8ee70e1e`, and were not committed. The last row read the same at `e4ec0709`.
+
+**With its targets.** The Routine strikes at ten targets a loop, each a body from its strike's
+beginning ([blows.md](blows.md#targets)). The same battery, each run's targets drawn from its
+seed, `ROUTINE_GAIT` as it stands: loops held of 60, runs that stood through of 6, and the
+strikes thrown and landed. Read at `b72e4ebe`, where a blow was a hand's landing: a touch by any
+part of the arm is one now, and counts as landed.
+
+| Rate, Hz | The loop | Warrior | Rogue |
+|----------|----------|---------|-------|
+| 120 | the walk alone (`--targets 0`) | 60, 6 | 60, 6 |
+| 120 | the control alone (`--targets 1`) | 53, 5; 54 thrown, 54 landed | 60, 6; 60 thrown, 60 landed |
+| 120 | ten targets | 41, 3; 426 thrown, 169 landed | 60, 6; 600 thrown, 298 landed |
+| 120 | ten targets, no dummy hung | 58, 5; 590 thrown | 60, 6; 600 thrown |
+| 480 | the walk alone | 60, 6 | 60, 6 |
+| 480 | ten targets | 27, 0; 285 thrown, 97 landed | 50, 5; 507 thrown, 275 landed |
+| 120 | ten targets, placed blows | 43, 2; 446 thrown, 335 landed | 60, 6; 600 thrown, 438 landed |
+| 480 | ten targets, placed blows | 45, 4; 464 thrown, 353 landed | 60, 6; 600 thrown, 429 landed |
+
+The gait holds the walk and the turn from standing, at both rates. The Warrior's falls at 120 Hz
+came closing on a target (twice) and setting its feet for one, with its blows landing; walking
+back, with the control alone and with no dummy hung. At 480 Hz with ten targets it fell in every
+run, closing on a target or setting its feet for one, and the Rogue fell once setting its feet
+and once did not end its loops in their time. Six runs a row: counts, and no rates. What one of
+the falls was: [blows.md](blows.md#a-loop-of-ten).
+
+The two rows with placed blows are of the tree where a target off a recipe's height is struck
+by a placed blow ([blows.md](blows.md#placed)): of the ten targets of a loop the Warrior's
+recipe is thrown at one or two and the Rogue's at two, and the rest are placed. The Rogue holds
+every loop at both rates. The Warrior falls in four runs of six at 120 Hz, in its third, fourth
+and tenth loops (the tenth twice), and in two of six at 480 Hz, in its first and sixth: five of
+the six setting its feet for a target and one closing on one.
+
+Command: `node research/core-routine-battery.mjs --seeds 6 --loops 10`, with `--targets` and
+`--hz 480` for the other rows; its other flags are `--variants` (stance settings), `--impulse`
+(3), `--models`, `--workers` and `--list`. The row with no dummy hung was read with
+`TARGET_CLEAR` (`src/lab/targets.ts`) written past any reach, so that every place read as filled
+and its strike was thrown at nothing, and was not committed.
 
 ## Aim ahead
 
@@ -135,6 +197,10 @@ The page logs what its body sounds of against the mind's time (`createSoundLog`,
 - **A frame plays at most `CATCH_UP_MS` of sound**, 100 ms: what the player lets one page frame
   run of the world or of a replay (`src/lab/player.ts`). A jump of the time shown, as on a seek
   or a Restart, plays its last 100 ms and no more.
+- **A target is heard with the body.** A scenario that puts another body in the world hands it to
+  the page (`ScenarioContext.hears`), as the Routine does each target it hangs
+  (`src/lab/targets.ts`): its touches on the body are logged with the body's own, keyed
+  `other:body`, from the step it is hung until its reading closes.
 - **`AIR_SECONDS`** (`src/lab/main.ts`), 30 s of the body's air: as long as the Routine's
   recording, the longest a scenario keeps. The log keeps its latest 1024 cues (`CAPACITY`), a
   numeric setting.

@@ -3,7 +3,9 @@
 This is the design of what a body does once it is down, and the index of the plans that build it.
 Each plan lands green by itself and is deleted as it lands; this file is deleted with the last of
 them. Down as a reading of the body, sub-minds with lying still, and the bearing solve split from
-the stance have landed.
+the stance have landed; so has the staged riser, as far as knees and hands, with the lab's choice
+of it. It misses the battery's bar (`docs/reference/rising.md#staged`), so the rules wait on a
+riser that meets it.
 
 ## Why
 
@@ -48,15 +50,15 @@ mind (`DungeonRun.drop`), the lab does nothing.
    that knows no foot (`src/core/control/bearing.ts`: limbs, each a chain of freedoms with a
    task at a point of its last segment, bearing on a patch or moving free), and the standing plan
    is its first user (`stance.ts`: where the centre of mass goes, when to step, the heel's roll).
-   A patch is a sole or a point (`Patch`, `contact-wrench.ts`); a limb that bears on a point, and
-   one that hangs from somewhere other than the root, come with the riser that reads them.
+   A patch is a sole or a point (`Patch`, `contact-wrench.ts`), and a limb may hang from
+   somewhere other than the root (`Limb.stem`).
 6. **A rise is one riser, and the first is staged.** `{ kind: "staged-rise" }` is a sub-mind that
    wants the body from the moment it is down until it stands. It lies slack until still, reads how
    it lies, and plays a recipe that is data: the limbs the body may bear on, and stages, each
    either a pose its muscles are driven to or a bearing (which limbs bear, where the centre of
    mass goes over them, how the trunk is turned) solved by the bearing solve. Each stage starts
    from the body as measured; a stage that runs out of time lets go and the rise begins again. A
-   hand or a knee bears on a point, a sole on its rectangle.
+   hand bears where its capsule touches, a shin from its knee to where its foot props it.
 7. **Every riser is scored on one battery of falls** (`research/core-rise-trials.mjs`): shoves
    from sixteen ways, falls out of arena bouts, each model, each loadout; the rate risen within
    the watch and the time taken. A searched riser (the same player, a recipe found by search) and
@@ -99,18 +101,19 @@ first have those readings split from them.
 | Today | After |
 |---|---|
 | the crypt disposes of a fallen body's mind (`DungeonRun.drop`) | `drop` is for a body whose pool has ended; a fall is the mind's own business |
-| `bearing.ts`: limbs from the root, bearing on soles | limbs with stems, bearing on soles and points |
 | a fall ends a bout and takes a crypt body out | a body rises; it is out when its pool ends |
 
 ## The plans
 
 | # | Plan | Lands | Needs | Eye gate |
 |---|---|---|---|---|
-| 04 | [riser](2026-10-01-rising-04-riser.md) | the staged riser, its row on the battery, the lab's choice of riser | | the owner watches lab bodies get up |
-| 05 | [rules](2026-10-01-rising-05-rules.md) | the riser in the default config; a fall no longer takes a body out | 04 | the owner watches a bout with a fall in it, and a crypt fight |
+| 05 | [rules](2026-10-01-rising-05-rules.md) | the riser in the default config; a fall no longer takes a body out | a riser that meets the battery's bar | the owner watches a bout with a fall in it, and a crypt fight |
 
-04 is the open-ended one: its structure is fixed here, its stages' numbers are found on the
-battery. If 04's gate is missed, bodies go on lying still, and 05 does not land.
+The staged riser landed under its bar: its rise ends on knees and hands, and none of the
+battery's falls rises (`docs/reference/rising.md#staged`, `#where-the-rise-stops`). So bodies
+go on lying still in a fight, and 05 does not land until a riser meets the bar. The eye gate
+left of the riser: the owner watches lab bodies try to get up (the lab's Stance, "Down" set to
+"Rises", shoved from the front, the back and a side, each human).
 
 ## Prototype readings
 
@@ -152,5 +155,5 @@ then every freedom is driven toward a stage's angles at full activation (a speed
   servo's time constant, a stance tuning, a repertoire) stay where they are: none is a fight's
   choice today.
 - A parameter of an arena link that names a mind: `DuelRecipe.minds` is an experiment's and a
-  table's. The lab's address gains one key, what its body does when down (plan 04).
+  table's. The lab's address has one key for what its body does when down (`down`).
 - A crouch for the stance, and what a limp or held body costs a step.

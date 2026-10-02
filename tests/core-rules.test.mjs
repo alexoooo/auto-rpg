@@ -7,7 +7,7 @@ import assert from "node:assert/strict";
 import { BODY_MODELS, humanSpec, modelSpec } from "../src/core/human/spec.ts";
 import { impactEnergy } from "../src/core/rules/impact.ts";
 import { createPool, partHitPoints } from "../src/core/rules/pool.ts";
-import { balanceCeiling, balancePercent, blowDamage, MECHANISMS, rulebook } from "../src/core/rules/rulebook.ts";
+import { balanceCeiling, balancePercent, blowDamage, CLUB_BEST, MECHANISMS, rulebook } from "../src/core/rules/rulebook.ts";
 import { sourced } from "../src/core/spec/quantity.ts";
 import { specProvenanceFaults } from "./fixtures/spec.mjs";
 
@@ -222,12 +222,19 @@ test("a blow is worth its energy in the unit, and every weapon keeps the owner's
   }
   assert.deepEqual(Object.keys(RULES.worth).sort(), [...MECHANISMS].sort());
   // An experiment's unit moves every price with it.
-  const dear = rulebook("arena", { unit: sourced(2 * unit, "J/HP", "core-club-unit", "an experiment") });
+  const dear = rulebook("arena", { unit: sourced(2 * unit, "J/HP", "owner-damage-unit", "an experiment") });
   for (const mechanism of MECHANISMS) close(blowDamage(dear, mechanism, 7), blowDamage(RULES, mechanism, 7) / 2, `${mechanism} at twice the unit`);
   for (const bad of [-1, NaN, Infinity]) assert.throws(() => blowDamage(RULES, "blunt", bad), String(bad));
 });
 
-test("the unit's own blow, replayed, is worth one hit point", async () => {
+test("the club's best blow is worth 1.38 hit points", async () => {
+  // One hit point is 100 J of blunt blow, and an edge's 100 J is 5.73.
+  assert.deepEqual([RULES.unit.value, RULES.unit.unit, RULES.unit.provenance.source], [100, "J/HP", "owner-damage-unit"]);
+  assert.equal(blowDamage(RULES, "blunt", 100), 1);
+  close(blowDamage(RULES, "edge", 100), 1134.99 / 197.96, "an edge's 100 J");
+  // The club's best blow is a measurement beside the unit, and not the unit.
+  assert.deepEqual([CLUB_BEST.value, CLUB_BEST.unit, CLUB_BEST.provenance.source], [138.26, "J", "core-club-unit"]);
+  close(blowDamage(RULES, "blunt", CLUB_BEST.value), 1.3826, "the club's best blow");
   // The whole path: the stored blow on the core stand, its contact, the masses it meets, its energy, its price.
   const { evaluateClubStrike } = await import("../research/core-club-strike.mjs");
   const { readFile } = await import("node:fs/promises");
@@ -237,5 +244,5 @@ test("the unit's own blow, replayed, is worth one hit point", async () => {
   close(result.energy, impactEnergy(result.clubKg, result.headKg, result.closing), "its energy is its parts'");
   const hp = blowDamage(RULES, "blunt", result.energy);
   assert.ok(result.fell === false, "thrown standing");
-  assert.ok(Math.abs(hp - 1) < 0.02, `the unit's blow at 960 Hz is worth ${hp} HP`);
+  assert.ok(Math.abs(hp - blowDamage(RULES, "blunt", CLUB_BEST.value)) < 0.02, `the club's best blow at 960 Hz is worth ${hp} HP`);
 });

@@ -89,7 +89,7 @@ test("a touch between two bodies is priced as a blow is", async () => {
       [["fist", "hand.right", "target", "trunk"], ["target", "trunk", "fist", "hand.right"]]);
     const [{ touch, priced }, back] = heard;
     assert.deepEqual([touch.time, touch.point, touch.normal, touch.closing], [blow.time, blow.point, blow.normal, blow.closing]);
-    assert.deepEqual(priced, { ofKg: blow.strikerKg, onKg: blow.struckKg, energy: blow.energy });
+    assert.deepEqual(priced, { ofKg: blow.sides[0].kg, onKg: blow.sides[1].kg, energy: blow.energy });
     assert.ok(Math.abs(priced.ofKg - 1) < 1e-6 && Math.abs(priced.onKg - 3) < 1e-6 && Math.abs(touch.closing - 6) < 1e-6, JSON.stringify(priced));
     // The same touch from the other side: the normal the other way, the masses changed about, the energy the same.
     assert.ok(Math.hypot(...back.touch.normal.map((n, k) => n + touch.normal[k])) < 1e-9, `${back.touch.normal}`);
@@ -149,11 +149,11 @@ test("a body's own segments touch, read from each of the two, unless they do not
   } finally { stance.dispose(); stand.dispose(); }
 });
 
-test("only the segments named are read, and a contact that does not count is no touch", async () => {
+test("only the bodies that read are read, and a contact that does not count is no touch", async () => {
   const p = await pair();
   try {
     const named = [], refused = [];
-    watchTouches(p.world, [p.fist, p.target], { segments: ["trunk"], lasts: "contact", counts: all }, (touch) => named.push(touch));
+    watchTouches(p.world, [p.fist, p.target], { reads: (body) => body === p.target, lasts: "contact", counts: all }, (touch) => named.push(touch));
     watchTouches(p.world, [p.fist, p.target], { lasts: "contact", counts: (of) => of.body !== p.fist }, (touch) => refused.push(touch));
     p.world.step(60);
     // The two met once, and each watch reads it from the trunk's side alone.

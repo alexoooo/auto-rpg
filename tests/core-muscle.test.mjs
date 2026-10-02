@@ -73,7 +73,7 @@ function rod(curve, peak) {
     name, proximal: q(proximal), distal: q(distal), mass: q(mass, "kg"),
     centreOfMass: q(proximal.map((p, i) => (p + distal[i]) / 2)),
     inertia: q([0.02 * mass, 0.004 * mass, 0.03 * mass], "kg m2"),
-    shape: { kind: "capsule", from: q(proximal), to: q(distal), radius: q(0.04) },
+    shape: { kind: "capsule", from: q(proximal), to: q(distal), radius: q(0.04) }, surface: { stiffness: q(1e5, "N/m") },
   });
   return {
     family: "test", model: "rod", mass: q(3, "kg"), stature: q(1.5),
@@ -196,7 +196,7 @@ test("a light limb on a heavy one speeds up at 120 Hz as it does at a fine rate"
   const muscle = (peak, w0) => ({ peakPositive: q(peak, "N m"), peakNegative: q(peak, "N m"), speedPositive: q2(w0), speedNegative: q2(w0) });
   const segment = (name, proximal, distal, mass, inertia) => ({ name, proximal: q(proximal), distal: q(distal), mass: q(mass, "kg"),
     centreOfMass: q(proximal.map((p, i) => (p + distal[i]) / 2)), inertia: q(inertia, "kg m2"),
-    shape: { kind: "capsule", from: q(proximal), to: q(distal), radius: q(0.03) } });
+    shape: { kind: "capsule", from: q(proximal), to: q(distal), radius: q(0.03) }, surface: { stiffness: q(1e5, "N/m") } });
   const pin = (name, parent, child, centre, m) => ({ name, parent, child, centre: q(centre),
     dofs: [{ positive: "flexion", negative: "extension", axis: q([0, 0, 1], "1"), min: q(-30, "rad"), max: q(30, "rad"), muscle: m }] });
   const spec = { family: "test", model: "arm", mass: q(3, "kg"), stature: q(1.5),
@@ -339,7 +339,7 @@ test("the inertia beyond a joint is its segments' about the axis, at the pose as
   const muscle = { peakPositive: q(20, "N m"), peakNegative: q(20, "N m"), speedPositive: speed, speedNegative: speed };
   const segment = (name, proximal, distal, mass, inertia) => ({ name, proximal: q(proximal), distal: q(distal), mass: q(mass, "kg"),
     centreOfMass: q(proximal.map((p, i) => 0.4 * p + 0.6 * distal[i])), inertia: q(inertia, "kg m2"),
-    shape: { kind: "capsule", from: q(proximal), to: q(distal), radius: q(0.03) } });
+    shape: { kind: "capsule", from: q(proximal), to: q(distal), radius: q(0.03) }, surface: { stiffness: q(1e5, "N/m") } });
   const pin = (name, parent, child, centre) => ({ name, parent, child, centre: q(centre),
     dofs: [{ positive: "flexion", negative: "extension", axis: q([0, 0, 1], "1"), min: q(-3, "rad"), max: q(3, "rad"), muscle }] });
   const arm = { family: "test", model: "arm", mass: q(3, "kg"), stature: q(1.5),

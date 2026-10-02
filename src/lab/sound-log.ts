@@ -1,6 +1,6 @@
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { airOf, hearTouches } from "../audio/body-sounds.ts";
-import { impactCue, surfaceOf, voiceOf, type SoundCue, type SoundPoint } from "../audio/cues.ts";
+import { impactCue, substanceOf, voiceOf, type SoundCue, type SoundPoint } from "../audio/cues.ts";
 import type { Body } from "../core/body.ts";
 import type { BuiltBody, BuiltSegment } from "../core/build/build-body.ts";
 import { contactMass } from "../core/build/contact-mass.ts";
@@ -17,10 +17,10 @@ import { CATCH_UP_MS } from "./player.ts";
  * A sound of step k is stamped with the time the body's mind saw at that step, which is the time
  * the frame recorded after step k shows (`history.ts`): the log and the recording agree.
  *
- * What is logged is what the world says (`logSounds`: the body's touches and its air,
- * `src/audio/body-sounds.ts`), and the cue of each of the lab's two instruments that are no
- * contact: the page's hand shoving the body (`shoveSound`), and the Blow scenario's mark
- * (`landingCue`).
+ * What is logged is what the world says (`logSounds`: the body's touches and its air, and the
+ * touches of whatever other body a scenario puts beside it, `src/audio/body-sounds.ts`), and the
+ * cue of each of the lab's two instruments that are no contact: the page's hand shoving the body
+ * (`shoveSound`), and the Blow scenario's mark (`landingCue`).
  *
  * This module has no page-only imports, so the Node stand can run it (`tests/lab-sound.test.mjs`).
  */
@@ -68,20 +68,23 @@ export function createSoundLog(dt: number, seconds: number): SoundLog {
   };
 }
 
-/** What the lab's one body is keyed by in a cue, and its air by. */
-export const LAB_BODY = "body";
+/** What the lab's body is keyed by in a cue, and its air by; and a body a scenario puts beside it. */
+export const LAB_BODY = "body", LAB_OTHER = "other";
 
 /**
  * Log what `body` sounds of in `world` into `log`: its touches (`hearTouches`) and, after every
  * step, its air (`airOf`), each at the time its mind saw at that step. `heard` logs a cue of an
- * instrument's at the same time; it is good before the solver steps and after.
+ * instrument's at the same time; it is good before the solver steps and after. `hears` logs the
+ * touches of another body in the world, with the body and with the ground, until what it returns
+ * is disposed.
  */
-export function logSounds(world: World, body: Body, log: SoundLog): { heard(cue: SoundCue | null): void; dispose(): void } {
+export function logSounds(world: World, body: Body, log: SoundLog): { heard(cue: SoundCue | null): void; hears(built: BuiltBody): { dispose(): void }; dispose(): void } {
   const heard = (cue: SoundCue | null): void => { if (cue) log.note(body.view.time, cue); };
-  const touches = hearTouches(world, [{ id: LAB_BODY, built: body.built }], heard);
+  const own = { id: LAB_BODY, built: body.built };
+  const touches = hearTouches(world, [own], heard);
   const air = airOf(body.built), at = new Vector3();
   const airing = world.afterStep(() => log.air(body.view.time, air(at), at));
-  return { heard, dispose() { touches.dispose(); airing.dispose(); } };
+  return { heard, hears: (built) => hearTouches(world, [{ id: LAB_OTHER, built }], heard, [own]), dispose() { touches.dispose(); airing.dispose(); } };
 }
 
 /**
@@ -94,7 +97,7 @@ export function shoveSound(built: BuiltBody): (segment: BuiltSegment, impulse: V
   return (segment, impulse, at) => {
     mass.update();
     const kg = mass.along(segment, [at.x, at.y, at.z], [impulse.x, impulse.y, impulse.z]);
-    return impactCue(`${LAB_BODY}:hand`, voiceOf("flesh", surfaceOf(built, segment)), impulse.lengthSquared() / (2 * kg), at);
+    return impactCue(`${LAB_BODY}:hand`, voiceOf("flesh", substanceOf(built, segment)), impulse.lengthSquared() / (2 * kg), at);
   };
 }
 
@@ -103,6 +106,6 @@ export function shoveSound(built: BuiltBody): (segment: BuiltSegment, impulse: V
  * `hand` of `built` holds on a head of the body's own kind, with the energy the landing read.
  */
 export function landingCue(built: BuiltBody, hand: "left" | "right", landed: ClubLanding): SoundCue | null {
-  const club = surfaceOf(built, built.segments.get(`hand.${hand}`)!), head = surfaceOf(built, built.segments.get("head")!);
+  const club = substanceOf(built, built.segments.get(`hand.${hand}`)!), head = substanceOf(built, built.segments.get("head")!);
   return impactCue(`${LAB_BODY}:mark`, voiceOf(club, head), landed.energy, { x: landed.point[0], z: landed.point[2] });
 }

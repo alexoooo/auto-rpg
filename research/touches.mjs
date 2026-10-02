@@ -15,7 +15,8 @@
  * - `run`: the Run on each of its tracks, 30 s (`startRun`).
  * - `shove`: standing 2 s, then a shove of 20 to 60 N s from behind, and 4 s.
  * - `fall`: standing 2 s, then a shove of 80 N s from the front, and 6 s.
- * - `routine`: the Routine to the end of its first loop, or 40 s (`startRoutine`).
+ * - `routine`: the Routine to the end of its first loop, or 150 s (`startRoutine`), with the
+ *   touches of each target it hangs on the body, which are not the ground's and are no row.
  * - `blow`: the Blow's stored blow with the club in its hand (`throwBlow`, `LAB_BLOWS`), to 1.5 s
  *   after its pushes begin, where the page pauses it.
  * - `bouts`: three arena bouts, a pair of bodies heard once, from its earlier body.
@@ -143,8 +144,8 @@ const fixedOf = (normal) => normal[1] < -0.7 ? "ground" : "wall";
  * and energy, and whether its body was down. Every touch is priced before any is left out, and one
  * that was not closing, or has no energy, stops the run.
  */
-function listen(world, bodies, counts = () => true) {
-  const touches = [], places = new Map(bodies.flatMap((body) => [...body.built.segments.values()].map((segment, k) => [segment, k])));
+function listen(world, bodies, counts = () => true, touches = []) {
+  const places = new Map(bodies.flatMap((body) => [...body.built.segments.values()].map((segment, k) => [segment, k])));
   const watch = watchTouches(world, bodies, { lasts: "contact", counts }, (touch) => {
     const { ofKg, onKg, energy } = watch.priced(touch), of = touch.of.segment.spec.name;
     if (!(touch.closing > 0) || !(energy >= 0) || !Number.isFinite(energy) || !(ofKg > 0)) {
@@ -204,8 +205,12 @@ const balanceOf = (spec) => loadoutBalance(balance, spec);
 async function labRun(kind, model, variant, { held = {}, start, lead = 0, begin = () => {}, seconds, until = () => false, read }) {
   const spec = loadoutSpec({ ...labAddress(`?model=${model}`), ...held }), stand = await coreStand(spec, { groundSize: GROUND });
   const actor = labActor(stand.built, stand.world, { assist: balanceCeiling(balanceOf(spec), PERCENT) });
-  const session = start(actor, stand), { body } = actor, { world } = stand;
-  const heard = listen(world, [{ name: model, built: stand.built, body }]), breath = breathe(world, { built: stand.built, body });
+  const { body } = actor, { world } = stand, own = { name: model, built: stand.built, body };
+  // A body the mode hangs beside its own: its touches on the body, read from it. Whether its body was down is the body's own.
+  const struck = [];
+  const hung = (built) => listen(world, [{ name: "target", built, body }, own], (of, on) => of.body !== own && on?.body === own, struck);
+  const session = start(actor, stand, hung);
+  const heard = listen(world, [own]), breath = breathe(world, { built: stand.built, body });
   const counts = () => ({ strides: body.view.stance.strides, recoveries: body.view.stance.recoveries, x: body.view.stance.centre.x, z: body.view.stance.centre.z });
   try {
     stand.step(stand.seconds(lead));
@@ -222,7 +227,7 @@ async function labRun(kind, model, variant, { held = {}, start, lead = 0, begin 
     const took = (to) => ({ strides: to.strides - first.strides, recoveries: to.recoveries - first.recoveries, metres: Math.hypot(to.x - first.x, to.z - first.z) });
     const touches = heard.touches.slice(early).map((touch) => ({ ...touch, at: touch.time - from }));
     const run = {
-      kind, model, variant, touches, seconds: { up: steps.up * world.dt, down: steps.down * world.dt },
+      kind, model, variant, touches, struck, seconds: { up: steps.up * world.dt, down: steps.down * world.dt },
       fell: fell && { at: fell.at, ...took(fell) }, took: took(last),
     };
     const before = early > 0 ? `; in the ${lead} s before, ${tally(heard.touches.slice(0, early), (touch) => touch.on ? "on itself" : "on the ground")}` : "";
@@ -263,8 +268,10 @@ const LAB = {
     },
   })],
   routine: (model) => [labRun("routine", model, "", {
-    start: (actor) => startRoutine(actor), seconds: () => 40, until: (session) => session.tactics.loops >= 1,
-    read: (session, run) => `${whole(run)} s, ${some(session.tactics.loops, "loop")}, ${some(session.strikes.length, "strike")} (${session.strikes.map((s) => `${s.name} ${s.peak.toFixed(1)} m/s`).join(", ") || "none"}), `
+    start: (actor, _, hung) => startRoutine(actor, { hung }), seconds: () => 150, until: (session) => session.tactics.loops >= 1,
+    read: (session, run) => `${whole(run)} s, ${some(session.tactics.loops, "loop")}, ${some(session.readings.length, "target")} `
+      + `(${session.readings.map((r) => `${r.target.stratum}: ${r.strike ? `${r.strike.name} ${r.strike.peak.toFixed(1)} m/s` : "no strike"}${r.blow ? `, ${sig(r.blow.energy)} J` : ""}`).join("; ") || "none"}), `
+      + `${some(run.struck.length, "touch", "touches")} of a target on the body${run.struck.length ? ` (${tally(run.struck, (touch) => touch.on.part)}; ${energies(run.struck)} J)` : ""}, `
       + `${some(run.took.strides, "stride")}, ${fellWords(run)}`,
   })],
   blow: (model) => LAB_BLOWS.map((stored) => labRun("blow", model, stored.id, {
@@ -311,6 +318,12 @@ const sorted = (numbers) => [...numbers].sort((a, b) => a - b);
 function median(numbers) {
   const s = sorted(numbers), half = s.length >> 1;
   return s.length % 2 ? s[half] : (s[half - 1] + s[half]) / 2;
+}
+
+/** The least, the median and the most of `touches`' energies, J. */
+function energies(touches) {
+  const s = sorted(touches.map((touch) => touch.energy));
+  return `${sig(s[0])} / ${sig(median(s))} / ${sig(s.at(-1))}`;
 }
 
 /** A row's cells for `touches` over `seconds`: how many, how many a second, their energies, their closing speeds' median, the masses their parts met them with, and how many are quiet. */

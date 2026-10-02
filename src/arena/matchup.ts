@@ -1,7 +1,7 @@
 import { BODY_MODELS, type BodyModel } from "../core/human/spec.ts";
 import { isOrders } from "../core/mind/orders.ts";
 import { balanceFrom } from "../core/rules/rulebook.ts";
-import type { OrdersEntry, Side } from "./duel.ts";
+import { DUEL_HELD, type OrdersEntry, type Side } from "./duel.ts";
 
 /** The arena link's parameter: `?matchup=left,right`, each a core model. */
 export const MATCHUP_PARAM = "matchup";
@@ -63,6 +63,21 @@ export function readBalance(search: string): Readonly<Record<Side, number>> | un
   return { left: given[0]!, right: given[given.length - 1]! };
 }
 
+/** The arena link's parameter for what each side's right hand holds: `&held=left,right`, or one word for both, each of `DUEL_HELD`. */
+const HELD_PARAM = "held";
+
+/**
+ * What an address has each side's right hand hold (`DuelRecipe.held`): two of `DUEL_HELD`, left
+ * then right, or one for both; undefined for anything else, and each then holds the club.
+ */
+export function readHeld(search: string): Readonly<Record<Side, (typeof DUEL_HELD)[number]>> | undefined {
+  const text = new URLSearchParams(search).get(HELD_PARAM);
+  if (text === null) return undefined;
+  const parts = text.split(","), given = parts.flatMap((part) => DUEL_HELD.filter((held) => held === part.trim()));
+  if (parts.length > 2 || given.length !== parts.length) return undefined;
+  return { left: given[0]!, right: given[given.length - 1]! };
+}
+
 /**
  * The gap, m, and the cap, s, a link may ask for (`DuelRecipe.gap`, `.capSeconds`), a numeric setting:
  * from the two all but touching to the arena's floor, and from a second to ten minutes.
@@ -93,7 +108,7 @@ const isEntry = (entry: unknown): entry is OrdersEntry => {
 
 /**
  * The tape `hash` carries; none if it carries none, or one that is not an array of entries. A
- * tape is of one recipe: the link names the matchup, the gap, the cap and each side's balance with it.
+ * tape is of one recipe: the link names the matchup, the gap, the cap, each side's balance and what it holds with it.
  */
 export function readTape(hash: string): OrdersEntry[] {
   const text = new URLSearchParams(hash.replace(/^#/, "")).get(TAPE_KEY);

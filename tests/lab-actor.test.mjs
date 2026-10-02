@@ -4,6 +4,8 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
+import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { centreOfToRef } from "../src/core/control/support.ts";
 import { stanceEnvelope } from "../src/core/control/stance-envelope.ts";
 import { humanSpec } from "../src/core/human/spec.ts";
 import { standIntent } from "../src/core/mind/intent.ts";
@@ -15,9 +17,9 @@ import { throwBlow } from "../src/lab/blow.ts";
 import { LAB_BLOWS } from "../src/lab/blows.ts";
 import { watchClubBlow } from "../src/lab/club-blow.ts";
 import { allowing, loadoutSpec } from "../src/lab/loadout.ts";
-import { LAB_MINDS } from "../src/lab/minds.ts";
+import { LAB_DOWN, LAB_MINDS } from "../src/lab/minds.ts";
 import { startRoutine } from "../src/lab/routine.ts";
-import { LAB_MIND_IDS } from "../src/lab/scenarios.ts";
+import { LAB_DOWN_IDS, LAB_MIND_IDS } from "../src/lab/scenarios.ts";
 import { startStance } from "../src/lab/stance-mode.ts";
 import { coreStand } from "./harness/core-stand.mjs";
 
@@ -62,44 +64,49 @@ test("a_lab_body_stands_under_the_stance_tuning_its_actor_is_given", async () =>
   } finally { stand.dispose(); }
 });
 
-/** The reach the skills report for each hand of `loadout`'s body, its actor given `options`: a hand with no strike has none. */
-async function reach(loadout, options) {
+/** Which hands of `loadout`'s body may strike, and the reach the skills report for each, its actor given `options`. */
+async function strikes(loadout, options) {
   const stand = await coreStand(loadoutSpec(loadout), { ground: true });
   const actor = labActor(stand.built, stand.world, options);
-  try { return actor.drive({ name: "stand", decide: () => standIntent(0) }).report.strike.reach; }
+  try { return { may: { ...actor.strikes }, reach: { ...actor.drive({ name: "stand", decide: () => standIntent(0) }).report.strike.reach } }; }
   finally { actor.dispose(); stand.dispose(); }
 }
 
-test("a_lab_bodys_hand_has_no_strike_its_actor_bars", async () => {
+test("a_lab_bodys_hand_may_not_strike_with_what_its_actor_bars", async () => {
   const bare = { model: "workshop-fighter", right: "empty", left: "empty" }, armed = { ...bare, right: "club" };
-  // Each hand's reach is its recipe's distance: the fist's and the club's are not the same.
+  // Each hand's reach is its recipe's distance: the fist's and the club's are not the same. A bar
+  // is the mind's, and changes nothing the skills know.
   const fist = recipeFor(REPERTOIRE, loadoutSpec(bare), "right").recipe.distance, club = recipeFor(REPERTOIRE, loadoutSpec(armed), "right").recipe.distance;
   assert.ok(fist > 0 && club > fist, `the fist reaches ${fist} m, the club ${club}`);
-  assert.deepEqual(await reach(bare), { left: fist, right: fist });
-  assert.deepEqual(await reach(bare, { allows: allowing([]) }), { left: fist, right: fist });
-  assert.deepEqual(await reach(bare, { allows: allowing(["club"]) }), { left: fist, right: fist });
-  assert.deepEqual(await reach(bare, { allows: allowing(["empty"]) }), { left: null, right: null });
-  assert.deepEqual(await reach(armed), { left: fist, right: club });
-  assert.deepEqual(await reach(armed, { allows: allowing(["club"]) }), { left: fist, right: null });
-  assert.deepEqual(await reach(armed, { allows: allowing(["empty"]) }), { left: null, right: club });
-  assert.deepEqual(await reach(armed, { allows: allowing(["empty", "club"]) }), { left: null, right: null });
+  const fists = { left: fist, right: fist }, clubbed = { left: fist, right: club };
+  assert.deepEqual(await strikes(bare), { may: { left: true, right: true }, reach: fists });
+  assert.deepEqual(await strikes(bare, { allows: allowing([]) }), { may: { left: true, right: true }, reach: fists });
+  assert.deepEqual(await strikes(bare, { allows: allowing(["club"]) }), { may: { left: true, right: true }, reach: fists });
+  assert.deepEqual(await strikes(bare, { allows: allowing(["empty"]) }), { may: { left: false, right: false }, reach: fists });
+  assert.deepEqual(await strikes(armed), { may: { left: true, right: true }, reach: clubbed });
+  assert.deepEqual(await strikes(armed, { allows: allowing(["club"]) }), { may: { left: true, right: false }, reach: clubbed });
+  assert.deepEqual(await strikes(armed, { allows: allowing(["empty"]) }), { may: { left: false, right: true }, reach: clubbed });
+  assert.deepEqual(await strikes(armed, { allows: allowing(["empty", "club"]) }), { may: { left: false, right: false }, reach: clubbed });
 });
 
-test("an_actor_bars_strikes_among_those_its_mode_gives_the_skills", async () => {
-  // The Blow gives its skills one recipe of its own, at a distance no searched recipe has.
+test("a_hand_with_no_recipe_reaches_as_far_as_its_placed_blow", async () => {
+  // The Blow gives its skills one recipe of its own, the club's, at a distance no searched recipe
+  // has: the right hand reaches that far, and the left, with no recipe for its fist, as far as a
+  // placed blow at a target as high as the head.
   const stored = LAB_BLOWS[0], distance = stored.distance + 0.013;
-  const reaches = async (options) => {
-    const stand = await coreStand(loadoutSpec({ model: stored.model, right: "club", left: "empty" }), { ground: true });
-    const blow = throwBlow(labActor(stand.built, stand.world, options), stored.strike, distance);
-    try { return blow.report.strike.reach; } finally { blow.dispose(); stand.dispose(); }
-  };
-  assert.deepEqual(await reaches(), { left: null, right: distance });
-  assert.deepEqual(await reaches({ allows: allowing([]) }), { left: null, right: distance });
-  assert.deepEqual(await reaches({ allows: allowing(["empty"]) }), { left: null, right: distance });
-  assert.deepEqual(await reaches({ allows: allowing(["club"]) }), { left: null, right: null });
+  const stand = await coreStand(loadoutSpec({ model: stored.model, right: "club", left: "empty" }), { ground: true });
+  const blow = throwBlow(labActor(stand.built, stand.world), stored.strike, distance);
+  try {
+    const { left, right } = blow.report.strike.reach;
+    assert.equal(right, distance);
+    // A placed blow is thrown with the arm out, from farther off than the fist's recipe, which
+    // these skills are not given; and from nearer than the club's.
+    const fist = recipeFor(REPERTOIRE, humanSpec(stored.model), "left").recipe.distance;
+    assert.ok(left > fist && left < right, `the left reaches ${left} m, its fist's recipe ${fist} and the club ${right}`);
+  } finally { blow.dispose(); stand.dispose(); }
 });
 
-test("with_every_strike_barred_the_routine_walks_to_the_post_and_back", async () => {
+test("with_every_strike_barred_the_routine_walks_to_its_targets_and_back", async () => {
   const stand = await coreStand(humanSpec("workshop-fighter"), { ground: true });
   const routine = startRoutine(labActor(stand.built, stand.world, { allows: allowing(["empty"]) }));
   try {
@@ -108,8 +115,8 @@ test("with_every_strike_barred_the_routine_walks_to_the_post_and_back", async ()
       stand.step(1);
       if (routine.tactics.leg !== legs.at(-1)) legs.push(routine.tactics.leg);
     }
-    assert.deepEqual({ fallen: routine.body.view.down, loops: routine.tactics.loops, strikes: routine.strikes.length, thrown: routine.report.strike.thrown, legs },
-      { fallen: false, loops: 1, strikes: 0, thrown: { left: 0, right: 0 }, legs: ["out", "back", "out"] });
+    assert.deepEqual({ fallen: routine.body.view.down, loops: routine.tactics.loops, readings: routine.readings.length, up: routine.ball(), thrown: routine.report.strike.thrown, legs },
+      { fallen: false, loops: 1, readings: 0, up: null, thrown: { left: 0, right: 0 }, legs: ["out", "back", "out"] });
   } finally { routine.dispose(); stand.dispose(); }
 });
 
@@ -130,8 +137,8 @@ test("under_the_guard_a_mode_stands_still_while_its_instruments_run", async () =
     stand.step(stand.seconds(5));
     const { centre } = routine.body.view.stance;
     assert.equal(routine.time(), stand.world.time - stand.world.dt);
-    assert.deepEqual({ fallen: routine.body.view.down, strikes: routine.strikes.length, leg: routine.tactics.leg, post: routine.tactics.post },
-      { fallen: false, strikes: 0, leg: "out", post: null });
+    assert.deepEqual({ fallen: routine.body.view.down, readings: routine.readings.length, leg: routine.tactics.leg, targets: routine.tactics.targets, up: routine.tactics.up },
+      { fallen: false, readings: 0, leg: "out", targets: null, up: null });
     // Standing settles it 7 cm forward of where it was built; the script's walk out is 2 m.
     assert.ok(Math.hypot(centre.x, centre.z) < 0.15, `it stood ${Math.hypot(centre.x, centre.z).toFixed(3)} m from where it began`);
   } finally { routine.dispose(); stand.dispose(); }
@@ -150,4 +157,30 @@ test("under_the_guard_a_mode_stands_still_while_its_instruments_run", async () =
         { phases: [null], thrown: { left: 0, right: 0 }, landed: null, fell: false, fallen: false });
     } finally { watch.dispose(); blow.dispose(); armed.dispose(); }
   }
+});
+
+test("a_lab_body_that_is_down_is_handed_to_the_sub_minds_its_actor_is_given", async () => {
+  assert.deepEqual(LAB_DOWN_IDS, ["lie", "rise"]);
+  assert.deepEqual(LAB_DOWN_IDS.map((id) => [LAB_DOWN[id].name, LAB_DOWN[id].subs]), [["Lies", [{ kind: "lie" }]], ["Rises", [{ kind: "staged-rise" }]]]);
+  /** The Warrior standing under an actor given `options`, shoved 120 N s forward at its middle trunk a second in: who has it a second after it is down. */
+  const has = async (options) => {
+    const stand = await coreStand(humanSpec("workshop-fighter"), { ground: true });
+    const actor = labActor(stand.built, stand.world, options);
+    try {
+      actor.drive({ name: "stand", decide: () => standIntent(0) });
+      stand.step(stand.seconds(1));
+      assert.equal(actor.body.has, "command", "standing, the command layers have it");
+      const trunk = stand.built.segments.get("middleTrunk");
+      trunk.body.applyImpulse(new Vector3(0, 0, 120), centreOfToRef(trunk, new Vector3()));
+      for (let i = 0; i < stand.seconds(4) && !actor.body.view.down; i++) stand.step();
+      stand.step(stand.seconds(1));
+      return [actor.body.view.down, actor.body.has];
+    } finally { actor.dispose(); stand.dispose(); }
+  };
+  // Given none it has the game's, which lies.
+  assert.deepEqual(await has(undefined), [true, "lie"]);
+  assert.deepEqual(await has({ subs: LAB_DOWN.lie.subs }), [true, "lie"]);
+  assert.deepEqual(await has({ subs: LAB_DOWN.rise.subs }), [true, "staged-rise"]);
+  // Given no sub-mind, nobody takes it from the command layers.
+  assert.deepEqual(await has({ subs: [] }), [true, "command"]);
 });

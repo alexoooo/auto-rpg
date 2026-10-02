@@ -10,7 +10,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { acos, asin, atan2, cbrt, cos, cosh, exp, hypot, norm, sin, sinh, square, tan } from "../src/core/math/real.ts";
-import { turnAboutToRef, turnBetweenToRef } from "../src/core/math/turn.ts";
+import { spinBetweenToRef, turnAboutToRef, turnBetweenToRef } from "../src/core/math/turn.ts";
 import { SWEEP_EACH, sweep, sweepPlan } from "./fixtures/real-sweep.mjs";
 
 /** Each function's digest over the sweep. */
@@ -114,4 +114,29 @@ test("a turn between two is each at its end, the half turn half way, and goes th
   const into = from.clone();
   assert.equal(turnBetweenToRef(into, to, 1, into), into);
   assert.ok(sameTurn(into, to));
+});
+
+test("the spin between two turns is the turn from one to the other, world, over the time, the short way round", () => {
+  const spun = (from, to, seconds) => spinBetweenToRef(from, to, seconds, new Vector3());
+  const close = (v, want, within = 1e-12) => Math.hypot(v.x - want[0], v.y - want[1], v.z - want[2]) < within;
+  const x = new Vector3(1, 0, 0), y = new Vector3(0, 1, 0), none = new Quaternion(0, 0, 0, 1);
+  // From no turn: the turn's own axis times its angle, over the time.
+  const axis = new Vector3(1, -2, 2), to = turnAboutToRef(axis, 0.6, new Quaternion());
+  assert.ok(close(spun(none, to, 2), [0.1, -0.2, 0.2]), `${spun(none, to, 2)}`);
+  // From a turn about x to that turn turned on about y, world: the spin is about y, not about what x carries y to.
+  const from = turnAboutToRef(x, 1, new Quaternion()), on = turnAboutToRef(y, 0.4, new Quaternion()).multiply(from);
+  assert.ok(close(spun(from, on, 0.5), [0, 0.8, 0]), `${spun(from, on, 0.5)}`);
+  // It is the spin that carries one to the other: a body turned by it for the time stands as `on`.
+  const carried = turnAboutToRef(spun(from, on, 0.5), 0.5 * spun(from, on, 0.5).length(), new Quaternion()).multiply(from);
+  assert.ok(sameTurn(carried, on, 1e-12), `${carried}`);
+  // Three quarters of a turn one way is a quarter the other; the same turn written with the other sign is the same turn.
+  const far = turnAboutToRef(y, 1.5 * Math.PI, new Quaternion());
+  assert.ok(close(spun(none, far, 1), [0, -Math.PI / 2, 0]), `${spun(none, far, 1)}`);
+  assert.ok(close(spun(none, new Quaternion(-to.x, -to.y, -to.z, -to.w), 2), [0.1, -0.2, 0.2]));
+  // No turn between them is no spin, and has no axis to divide by.
+  assert.deepEqual(spun(from, from.clone(), 0.1).asArray(), [0, 0, 0]);
+  // It writes into the vector it is given.
+  const into = new Vector3(7, 7, 7);
+  assert.equal(spinBetweenToRef(none, to, 2, into), into);
+  assert.ok(close(into, [0.1, -0.2, 0.2]));
 });

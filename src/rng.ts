@@ -1,7 +1,7 @@
 /**
  * Mulberry32, a small deterministic generator: everything seeded (the crypt's levels and their
- * dressing) draws from it, so a seed names one level. The seed is taken modulo 2^32, so any integer
- * will do.
+ * dressing, the lab's targets) draws from it, so a seed names one level or one set of targets. The
+ * seed is taken modulo 2^32, so any integer will do.
  */
 export function mulberry32(seed: number): () => number {
   let state = seed >>> 0;

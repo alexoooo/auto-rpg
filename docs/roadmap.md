@@ -73,13 +73,41 @@ All of it on a physically based core, humans first ([architecture](architecture.
 
 ### Strikes
 
-- Hand goals: a strike as a place, a speed and a time for the hand, met by arm, trunk and legs
-  together, and the strike search in that form. A recipe stays wherever it beats the hand goal.
+- Hand goals: a placed blow is a place and a time for the hand's point, met by the arm alone
+  ([reference/blows.md](reference/blows.md#placed)). Left: a speed at the place, and the trunk
+  and the legs in the blow, and the strike search in that form; a placed blow lands a tenth of a
+  recipe's energy. A recipe stays wherever it beats the hand goal.
+- A hand goal's path is a straight line of its point, and for a point of a held thing that line
+  can run through places no pose of the arm puts it: of 32 placed club blows 8 land, and the
+  skeleton's club, which rests behind its shoulder, never comes within half a metre
+  ([reference/blows.md](reference/blows.md#the-battery-placed)). A path a pose can follow from end
+  to end (through the joints' angles, or by a point between) is not built.
 - A strike thrown while walking comes with hand goals.
 - The repertoire is three recipes: the Warrior's and the Rogue's right straights and the Warrior's
   club blow. A body with no recipe of its own for what its hand holds borrows the first that fits
   (`recipeFor`): the Rogue and the skeleton the club blow, the skeleton also the Warrior's straight.
-  The skeleton falls after two borrowed strikes in the Routine.
+  The borrowed ones miss and put their bodies down: the Rogue's club passes its targets 0.5 to
+  0.7 m off where the same hand's placed blow lands
+  ([reference/blows.md](reference/blows.md#against-a-recipe)), and in the Routine the Rogue with
+  the club falls in two runs of three and the skeleton with it in every one, at its second
+  target ([reference/blows.md](reference/blows.md#a-loop-of-ten-placed)).
+- A target off a recipe's height is struck by a placed blow: every middle target of the battery
+  is hit by a fist ([reference/blows.md](reference/blows.md#the-battery-placed)). Left:
+  - blows searched by band of height, for each body and thing held, in place of one recipe a
+    hand and a placed blow everywhere else;
+  - the low targets: 16 of the fists' 27 are filled by the body's own leg as it stands at its
+    toes, and 3 are hit. Nothing stoops or kneels to strike;
+  - a fist's window up is read by its point through an empty sphere and is narrower than its
+    blow: the Warrior places 0.4 to 0.7 J at a head 4 to 14 cm under his own, where his straight
+    lands 6 to 11 J ([reference/human-and-strikes.md](reference/human-and-strikes.md#window-height)).
+    Bare-handed against the Rogue and the skeleton, whose heads are there, he fells nobody in
+    120 s ([reference/bouts.md](reference/bouts.md#placed-blows)).
+- A blow of its own that lands can put a body down. The Warrior in the Routine falls in 4 runs
+  of 6 of ten loops at 120 Hz and in 2 of 6 at 480 Hz, setting its feet for a target or closing
+  on one ([reference/lab.md](reference/lab.md#routine-gait)). Before the placed blow it fell in
+  3 of 6 with its blows landing and in 1 of 6 with the same strikes thrown at nothing; in the
+  one fall read, a recovering step after the blow left its feet together, and it fell stepping
+  to the next target.
 - A blow that meets nothing unbalances the body that threw it. The Warrior with the club on the
   Node stand (Rapier, 120 Hz), attacking a point 1.6 m off with nobody at it, ends its swing
   turned 0.75 rad from where it faced, and takes 2 s of steps to face it again. Held rigid for
@@ -94,6 +122,51 @@ All of it on a physically based core, humans first ([architecture](architecture.
   full search.
 - Searched blows found at 120 Hz read between 20 % and 100 % of their converged value.
 
+### Blows and wounds
+
+- A blow has no striker and its two surfaces share its energy by their compliance
+  ([architecture](architecture.md#rules-and-wounds), [reference/wounds.md](reference/wounds.md)). Not
+  built: a tolerance of a part's own (the pool's rule stands, by the owner's answer, and a hand
+  is a third as tough as a knuckle while a head is far tougher than a face:
+  [reference/wounds.md](reference/wounds.md#tolerances)); the face apart from the rest of the
+  head; armour, which is a layer more in the list `energyShares` already takes; an edge and a
+  point, whose prices are in the rulebook and which no item states.
+- The owner's to choose, each landed at its default:
+  - What the bodies hold now that a hit point is 100 J of blunt blow (`owner-damage-unit`).
+    Today their hit points are as they were, so each holds 28 % fewer joules: of 45 bouts with
+    clubs, 43 have the winner and the second they had and two long ones are ended by a wound,
+    and 14 end by a wound where 12 did. Hit points raised to hold the joules (Warrior 8.3,
+    Rogue 5.5) is every bout as it was ([reference/wounds.md](reference/wounds.md#unit)).
+  - Whether a blunt blow takes a part off. Today it does, half a part's hit points past empty.
+    With clubs, 12 of 45 bouts end by a part coming off; where none does, each of the 12 ends
+    by a fatal wound at the same second
+    ([reference/bouts.md](reference/bouts.md#a-hit-point-is-100-j)). Three bare left hands in
+    those 45 bouts are emptied by a club and come off.
+  - What two bodies that walk into each other cost. Today any touch that closes is a blow,
+    however slight. With clubs nothing is lost that way; bare-handed, 0.14 of the 0.20 HP a
+    bout's blows take is from blows with neither a hand nor an item in them, and in the crypt
+    every such blow has one side already on the floor and costs the living 0.05 to 0.11 HP over
+    four runs. A floor of 1 J would drop 95 % of bare-handed blows and 23 % of their hit
+    points, and half a per cent of the clubs'; a body out of the fight taken out of the watch
+    would drop the crypt's.
+  - The stiffness of the parts no paper was read for (`contact-stiffness-gaps`: the arms, the
+    shank and the foot, the middle and lower trunk, each given its neighbour's). A factor of two
+    in one moves a share by 0.06 to 0.17 ([reference/wounds.md](reference/wounds.md#sensitivity)).
+- The owner's to watch: a bare-handed bout
+  (`?play=arena&matchup=workshop-rogue,workshop-rogue&held=empty`) beside one with clubs
+  (`?play=arena&matchup=workshop-fighter,workshop-rogue`).
+- Fists decide nothing: of 45 bare-handed bouts 35 end by a fall and 10 at the 120 s cap, and
+  a bout's blows take 0.31 of the sides' 10 to 12 HP
+  ([reference/bouts.md](reference/bouts.md#placed-blows)).
+- The Warrior with an empty right hand, on the right side of a bout, falls at 2.9 s before any
+  touch: it turns a quarter turn from its heading as it sets off. On the left, and on either
+  side with the club, it walks.
+- The crypt makes its watch again at each body it builds, and a watch made again has forgotten
+  which bodies were touching: a touch that is still closing lands once more.
+- Two parts of one body that meet another's part in one step are two blows, each priced from its
+  own contact as if it met the part alone: a bare Rogue's fist and forearm landing together
+  on a ball 6 cm under its head's height read 8.8 J and 2.8 J (`tests/lab-targets.test.mjs`).
+
 ### Body and motor control
 
 - Walking: the fastest walk held every way is 0.7 m/s for the Warrior, 0.5 for the Rogue and 0.2 for
@@ -101,8 +174,22 @@ All of it on a physically based core, humans first ([architecture](architecture.
   where a person's preferred walk is near 1.4 m/s. The next step is a controller that holds the
   pelvis against the moment the soles miss, or one whole-body solve. The assist supplies the
   moment the soles miss, as a cheat with a ceiling (`docs/reference/assist.md`).
-- Rising after a fall. A fallen body lies still (`lie`) and is out of every fight until this
-  exists. Its design and its plans are `docs/plans/2026-10-01-rising-00-design.md`.
+- Rising after a fall is built as far as knees and hands, and for the lab alone (its
+  Character section's "Down"). A fallen body rolls onto its front, draws its knees under, props
+  itself and bears on its shins and hands; nothing stands it up, so on the battery of falls
+  none rises ([reference/rising.md](reference/rising.md#staged)), and in a fight a fallen body
+  still lies (`lie`) and is out of it. Open, each with its readings in the record:
+  - the way on from knees and hands is a limb moved to a place (a foot planted, a hand walked
+    back), which a stage of a rise does not have
+    ([reference/rising.md](reference/rising.md#where-the-rise-stops));
+  - the Rogue plays the Warrior's recipe and its arms do not raise its chest: it wants a recipe
+    of its own;
+  - the skeleton is not turned over by the humans' roll;
+  - a body shoved onto its front lies twisted, and gives the rise up from there;
+  - the club in the Warrior's hand costs it rises its empty hand plays to the end;
+  - a recipe found by search and a learned riser, each a row of the same battery;
+  - the fights take rising up once the battery's bar is met: the design and the rules' plan
+    are `docs/plans/2026-10-01-rising-00-design.md` and `2026-10-01-rising-05-rules.md`.
 - A limp body does not always come to rest: a light segment at a joint's limit on the ground
   goes on moving, a skeleton's hand at 0.2 m/s to the end of a 15 s watch
   ([reference/rising.md](reference/rising.md#lying)). It is what a body lying after a fall and a
@@ -185,7 +272,7 @@ All of it on a physically based core, humans first ([architecture](architecture.
   the fight lies limp and still costs the solver 0.28 ms a step. Fixed where it lies once it is
   still, it would cost 0.02 ms and could not be pushed aside; an engine that let it rest would
   take none until something touched it.
-- Hearing a run costs 7 to 10 % of its step
+- Hearing a run costs 8 to 11 % of its step
   ([reference/play.md](reference/play.md#hearing-in-the-step)), nearly all of it asking the
   engine what is near every segment, every step. Rapier's collision events tell of a contact as
   it starts and ends, and a watch on them would read only what began. That is another rule for
@@ -221,9 +308,14 @@ All of it on a physically based core, humans first ([architecture](architecture.
 - The crypt's listener is made again when a body is built, and remembers no touch under way: a
   segment pressing something at that step, and still closing on it, sounds once more
   (`hearRun`, `src/dungeon/hearing.ts`).
-- A body's air (`MIX.swish`, the `swish` formula), which of two surfaces decides a touch's voice,
-  and how loud a footfall is beside a blow (`MIX.impact`) are set and not heard: the owner's to
-  judge in play.
+- A body's air (`MIX.swish`, the `swish` formula), which of the two that meet decides a touch's
+  voice, and how loud a footfall is beside a blow (`MIX.impact`) are set and not heard: the
+  owner's to judge in play.
+- A hand that holds something sounds as what it holds, whichever of the two met
+  (`substanceOf`, `src/audio/cues.ts`). A touch names the shapes the solver pushed on
+  (`Touch.pairs`), as a blow reads them, and a sound does not read them yet. What a thing is
+  made of is a name beside its surface's stiffness (`BodySpec.substance`, `SegmentSpec.surface`):
+  whether the softer of two is the one of less stiffness, and a voice follows from that, is open.
 - A step that stays within the engine's contact margin is not heard: of 24 recoveries from a
   shove, 14 footfalls ([reference/look.md](reference/look.md#sound)). A touch that began again
   when the solver pushed anew would hear them, and gives a walk more touches than strides.

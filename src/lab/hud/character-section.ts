@@ -1,7 +1,7 @@
 import { isBalance } from "../../core/rules/rulebook.ts";
 import { balanceAddress, loadoutBalance, strikesOf } from "../loadout.ts";
-import { LAB_MINDS } from "../minds.ts";
-import { LAB_HANDS, LAB_HELD, LAB_MIND_IDS, LAB_WORN, MODELS, type LabHeld } from "../scenarios.ts";
+import { LAB_DOWN, LAB_MINDS } from "../minds.ts";
+import { LAB_DOWN_IDS, LAB_HANDS, LAB_HELD, LAB_MIND_IDS, LAB_WORN, MODELS, type LabHeld } from "../scenarios.ts";
 import { choice, entries, following, group, quantity, switches, when, type Control, type Named } from "./controls.ts";
 import type { LabPage } from "./sections.ts";
 
@@ -30,6 +30,7 @@ export function characterSection(page: LabPage): readonly Control[] {
     ]),
     group("Mind", [
       choice("Type", LAB_MIND_IDS.map((id) => ({ value: id, name: LAB_MINDS[id].name })), () => page.shown.mind, (mind) => page.load({ ...page.shown, mind })),
+      choice("Down", LAB_DOWN_IDS.map((id) => ({ value: id, name: LAB_DOWN[id].name })), () => page.shown.down, (down) => page.load({ ...page.shown, down })),
       // The strikes are the loaded body's, offered to a mind that may throw one.
       when(() => LAB_MINDS[page.shown.mind].strikes, following(() => page.spec, (spec) => switches("Actions",
         strikesOf(spec).map(({ held, name }) => ({ value: held, name })),

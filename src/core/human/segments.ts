@@ -8,6 +8,7 @@ import type { Extents } from "./envelope.ts";
 import type { HumanFigure } from "./figure.ts";
 import { SIDES, type Side } from "./landmarks.ts";
 import { DE_LEVA_1996, type DeLevaRow, type DeLevaSegment } from "./tables/de-leva-1996.ts";
+import { CONTACT_STIFFNESS } from "./tables/contact-stiffness.ts";
 import { SEGMENT_DENSITY, type DensitySegment } from "./tables/densities.ts";
 
 /**
@@ -26,6 +27,7 @@ import { SEGMENT_DENSITY, type DensitySegment } from "./tables/densities.ts";
  *   model's clothed envelope), not a box on its extents, whose corners stand out of the body where
  *   a driven upper arm passes. A foot is a box on its extents (the boot). A shape carries no mass
  *   (`SegmentSpec.shape`).
+ * - **Surface.** How stiff the part is under a blunt load, by its row (`tables/contact-stiffness.ts`).
  *
  * A foot runs from the figure's heel to its toe.
  *
@@ -173,7 +175,8 @@ export function humanSegments(figure: HumanFigure): SegmentSpec[] {
         const l = distance(p, d);
         return [m * square(transverse * l), m * square(longitudinal * l), m * square(sagittal * l)];
       });
-    const segment: SegmentSpec = { name: plan.name, proximal, distal, mass, centreOfMass, inertia, shape: shapeOf(figure, plan, proximal, distal, mass) };
+    const segment: SegmentSpec = { name: plan.name, proximal, distal, mass, centreOfMass, inertia, shape: shapeOf(figure, plan, proximal, distal, mass),
+      surface: { stiffness: si(CONTACT_STIFFNESS[plan.row]) } };
     const points = plan.points && Object.fromEntries(Object.entries(plan.points).map(([name, point]) => [name, atFit(point)]));
     return { ...segment, ...(plan.right && { right: plan.right }), ...(points && { points }) };
   });

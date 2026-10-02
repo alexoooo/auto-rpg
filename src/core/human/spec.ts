@@ -30,6 +30,6 @@ function figureSpec(figure: HumanFigure): BodySpec {
     joints: humanJoints(figure, segments, (exertion) => peakTorque(figure, exertion), (exertion) => jointSpeed(figure, exertion)),
     wounds: humanWounds(figure),
     attributes: humanAttributes(figure),
-    surface: figure.surface,
+    substance: figure.substance,
   };
 }

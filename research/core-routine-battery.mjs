@@ -1,20 +1,22 @@
 /**
  * The lab routine (`src/lab/routine.ts`) run from seeded starts, per stance tuning: each run
- * pushes the middle trunk at 0.5 s by `--impulse` N s (default 3) in a direction the seed picks (the
- * golden angle times the seed), then runs up to `--loops` loops (default 5), a fall (the lower
+ * strikes at `--targets` targets a loop (the Routine's ten unless given; none is the walk alone)
+ * drawn from its seed, pushes the middle trunk at 0.5 s by `--impulse` N s (default 3) in a
+ * direction the seed picks (the golden angle times the seed), then runs up to `--loops` loops (default 5), a fall (the lower
  * trunk under 0.5 m) or `LOOP_SECONDS` a loop. Each run on a worker of its own stand (Node core
  * stand, Rapier). Prints, per tuning and human, the loops completed of those possible, the runs
- * that stood through, where the falls came (what the routine was doing), and each strike's peak
- * fist speed (mean and least, m/s) and where the head stood from its recipe's place (least and
- * most, cm, each way).
+ * that stood through, where the falls came (what the routine was doing), and for each strike
+ * thrown at a target how many landed a blow, its peak fist speed (mean and least, m/s) and where
+ * the head stood from its recipe's place (least and most, cm, each way). What the strikes did to their targets is
+ * `research/core-targets.mjs`'s to tell.
  *
- *   node research/core-routine-battery.mjs --variants '[{}, {"boundedSwing": false}]' [--seeds 12] [--loops 5] [--hz 120] [--impulse 3] [--workers 14] [--list]
+ *   node research/core-routine-battery.mjs --variants '[{}, {"boundedSwing": false}]' [--seeds 12] [--loops 5] [--targets 10] [--hz 120] [--impulse 3] [--workers 14] [--list]
  *
  * `--list` prints each run's seed, loops and fall too.
  */
 
-/** Seconds a loop may take before the run is called stuck: a loop is about 28 s. */
-const LOOP_SECONDS = 60;
+/** Seconds a loop may take before the run is called stuck: a loop of ten targets is about 65 s. */
+const LOOP_SECONDS = 120;
 import { Worker, isMainThread, parentPort } from "node:worker_threads";
 import { availableParallelism } from "node:os";
 import { parseArgs } from "node:util";
@@ -23,15 +25,15 @@ import { BODY_MODELS } from "../src/core/human/spec.ts";
 if (isMainThread) {
   const { values } = parseArgs({ options: {
     variants: { type: "string", default: "[{}]" }, seeds: { type: "string", default: "12" }, loops: { type: "string", default: "5" },
-    impulse: { type: "string", default: "3" }, hz: { type: "string", default: "120" }, workers: { type: "string" },
+    impulse: { type: "string", default: "3" }, targets: { type: "string" }, hz: { type: "string", default: "120" }, workers: { type: "string" },
     models: { type: "string", default: "workshop-rogue,workshop-fighter" }, list: { type: "boolean", default: false },
   } });
   const variants = JSON.parse(values.variants), models = values.models.split(","), seeds = Number(values.seeds);
   for (const model of models) if (!BODY_MODELS.includes(model)) throw new Error(`--models names no body: ${model} (one of ${BODY_MODELS.join(", ")})`);
-  const loops = Number(values.loops), impulse = Number(values.impulse), hz = Number(values.hz);
+  const loops = Number(values.loops), targets = values.targets === undefined ? undefined : Number(values.targets), impulse = Number(values.impulse), hz = Number(values.hz);
   const lanes = Number(values.workers ?? Math.max(1, availableParallelism() - 2));
   const jobs = [];
-  variants.forEach((stance, v) => { for (const model of models) for (let seed = 1; seed <= seeds; seed++) jobs.push({ v, model, seed, stance, loops, impulse, hz }); });
+  variants.forEach((stance, v) => { for (const model of models) for (let seed = 1; seed <= seeds; seed++) jobs.push({ v, model, seed, stance, loops, targets, impulse, hz }); });
   const started = Date.now();
   let next = 0, done = 0;
   await Promise.all(Array.from({ length: Math.min(lanes, jobs.length) }, () => new Promise((resolve, reject) => {
@@ -49,7 +51,7 @@ if (isMainThread) {
     };
     feed();
   })));
-  console.log(`Lab routine from ${seeds} seeded starts (${impulse} N s at 0.5 s), up to ${loops} loops; Node core stand, Rapier, ${hz} Hz`);
+  console.log(`Lab routine from ${seeds} seeded starts (${impulse} N s at 0.5 s), up to ${loops} loops of ${targets ?? "its own"} targets, each run's its seed's; Node core stand, Rapier, ${hz} Hz`);
   variants.forEach((stance, v) => {
     for (const model of models) {
       const mine = jobs.filter((job) => job.v === v && job.model === model), runs = mine.map((job) => job.result);
@@ -63,7 +65,7 @@ if (isMainThread) {
       for (const [name, all] of strikes) {
         const peaks = all.map((s) => s.peak);
         const range = (way) => `${(100 * Math.min(...all.map((s) => s.off[way]))).toFixed(1)} to ${(100 * Math.max(...all.map((s) => s.off[way]))).toFixed(1)}`;
-        console.log(`    ${name}: ${all.length} thrown, peak ${(peaks.reduce((a, b) => a + b, 0) / peaks.length).toFixed(2)} mean, `
+        console.log(`    ${name}: ${all.length} thrown, ${all.filter((s) => s.landed).length} landed, peak ${(peaks.reduce((a, b) => a + b, 0) / peaks.length).toFixed(2)} mean, `
           + `${Math.min(...peaks).toFixed(2)} least; off ${range("along")} along, ${range("across")} across`);
       }
     }
@@ -73,10 +75,10 @@ if (isMainThread) {
     import("@babylonjs/core/Misc/logger.js"), import("@babylonjs/core/Maths/math.vector.js"), import("../src/core/human/spec.ts"),
     import("../src/lab/actor.ts"), import("../src/lab/routine.ts"), import("../tests/harness/core-stand.mjs")]);
   Logger.LogLevels = Logger.ErrorLogLevel;
-  parentPort.on("message", async ({ model, seed, stance, loops, impulse, hz }) => {
+  parentPort.on("message", async ({ model, seed, stance, loops, targets, impulse, hz }) => {
     try {
       const stand = await coreStand(modelSpec(model), { ground: true, hz });
-      const routine = startRoutine(labActor(stand.built, stand.world, { stance }));
+      const routine = startRoutine(labActor(stand.built, stand.world, { stance }), { seed, targets });
       const lower = stand.built.segments.get("lowerTrunk"), middle = stand.built.segments.get("middleTrunk");
       const way = (seed * 2.399963) % (2 * Math.PI), push = stand.seconds(0.5), most = stand.seconds(LOOP_SECONDS * loops);
       let fell = null, doing = routine.doing();
@@ -89,7 +91,7 @@ if (isMainThread) {
       }
       const result = {
         loops: routine.tactics.loops, fell, stuck: !fell && routine.tactics.loops < loops,
-        strikes: routine.strikes.map((s) => ({ name: s.name, peak: s.peak, off: { ...s.off } })),
+        strikes: routine.readings.flatMap((r) => r.strike ? [{ name: r.strike.name, peak: r.strike.peak, off: { ...r.strike.off }, landed: r.blow !== null }] : []),
       };
       routine.dispose();
       stand.dispose();

@@ -273,7 +273,8 @@ export class DungeonRun {
     const built = buildBody(spec, this.world, { position: [actor.home.x, 0, actor.home.z] });
     actor.fighter = { id: actor.id, side: actor.side, built, pool: createPool(spec, this.rules), ...this.drive(actor, built) };
     this.watch?.dispose();
-    const fighters = this.actors.flatMap((a) => a.fighter ? [a.fighter] : []);
+    // The party first: a touch is read from the fighter given first (`watchBlows`), and the party's bodies are the fewer.
+    const fighters = [...this.party, ...this.enemies].flatMap((a) => a.fighter ? [a.fighter] : []);
     this.watch = watchBlows(this.world, fighters, this.rules, (blow) => { this.blows.push(blow); this.options.onBlow?.(blow); });
     this.options.onBuilt?.(actor);
   }

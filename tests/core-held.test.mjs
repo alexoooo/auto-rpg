@@ -2,12 +2,16 @@
  * **An item held in a segment is one rigid body with it** (`src/core/build/rigid.ts`): the two
  * masses, their centre, and their inertia about it with products, turned to principal axes for
  * the engine. Read against a sum written another way, and against the engine's own response to an
- * impulse (Node core stand, Rapier).
+ * impulse (Node core stand, Rapier). Its named points are the segment's and its items', placed.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import { heldFrame, heldPoint, principalOf, rigidOf } from "../src/core/build/rigid.ts";
+import { heldFrame, heldPoint, principalOf, rigidOf, rigidPoints } from "../src/core/build/rigid.ts";
+import { armed } from "../src/core/human/grip.ts";
+import { humanSpec } from "../src/core/human/spec.ts";
+import { woodenClub } from "../src/core/items/club.ts";
+import { aimOf } from "../src/core/skills/strikes.ts";
 import { frameOf } from "../src/core/spec/body.ts";
 import { sourced } from "../src/core/spec/quantity.ts";
 import { add, cross, dot, scale, sub } from "../src/core/spec/vec.ts";
@@ -21,7 +25,7 @@ function holder() {
   const segment = {
     name: "grip", proximal: q([0.1, 1, 0.05]), distal: q([0.25, 0.9, 0.2]), mass: q(0.6, "kg"),
     centreOfMass: q([0.17, 0.955, 0.12]), inertia: q([0.0012, 0.0004, 0.0015], "kg m2"),
-    shape: { kind: "capsule", from: q([0.11, 0.99, 0.06]), to: q([0.24, 0.91, 0.19]), radius: q(0.03) },
+    shape: { kind: "capsule", from: q([0.11, 0.99, 0.06]), to: q([0.24, 0.91, 0.19]), radius: q(0.03) }, surface: { stiffness: q(1e5, "N/m") },
   };
   const rod = {
     name: "rod", mass: q(1.1, "kg"), centreOfMass: q([0.004, 0.42, -0.006]), inertia: q([0.04, 0.0009, 0.045], "kg m2"),
@@ -42,7 +46,17 @@ const times = (m, v) => m.map((row) => dot(row, v));
 test("a segment that holds nothing is its own numbers", () => {
   const spec = { ...holder(), held: [] }, [segment] = spec.segments;
   const rigid = rigidOf(spec, segment);
-  assert.deepEqual(rigid, { mass: 0.6, centre: segment.centreOfMass.value, tensor: [0.0012, 0.0004, 0.0015, 0, 0, 0], shapes: [segment.shape] });
+  assert.deepEqual(rigid, { mass: 0.6, centre: segment.centreOfMass.value, tensor: [0.0012, 0.0004, 0.0015, 0, 0, 0], shapes: [segment.shape], owners: [{ kind: "segment" }] });
+});
+
+test("a rigid body says whose each shape is", () => {
+  const spec = holder(), [segment] = spec.segments, [held] = spec.held;
+  const rigid = rigidOf(spec, segment);
+  // The segment's own shape, then the rod's two, each the holding it came by: parallel to `shapes`.
+  assert.deepEqual(rigid.shapes.map((shape) => shape.kind), ["capsule", "capsule", "sphere"]);
+  assert.deepEqual(rigid.owners.map((owner) => owner.kind), ["segment", "held", "held"]);
+  assert.ok(rigid.owners.slice(1).every((owner) => owner.held === held), "each held shape names its holding");
+  assert.equal(rigid.shapes[0], segment.shape);
 });
 
 test("principal moments and right-handed axes rebuild the tensor", () => {
@@ -134,6 +148,42 @@ test("the engine holds the rigid body: its mass, centre and inertia, read back b
     const want = [dot(moment, own.x), dot(moment, own.y), dot(moment, own.z)];
     for (let k = 0; k < 3; k++) close(L[k], want[k], 2e-3 * Math.hypot(...moment), `L ${k} from the push`);
   } finally { stand.dispose(); }
+});
+
+test("a rigid body's points are its segment's and its items', placed", () => {
+  const bare = humanSpec("workshop-fighter"), hand = bare.segments.find((segment) => segment.name === "hand.right");
+  const own = rigidPoints(bare, hand);
+  assert.deepEqual([...own.keys()], ["knuckles", "little"]);
+  for (const [name, point] of own) assert.equal(point, hand.points[name], `${name} is the segment's own quantity`);
+
+  const club = woodenClub(), spec = armed(bare, "right", club), [held] = spec.held;
+  const points = rigidPoints(spec, hand);
+  assert.deepEqual([...points.keys()], ["knuckles", "little", "swellFrom", "swellTo", "swell"]);
+  for (const name of ["knuckles", "little"]) assert.equal(points.get(name), hand.points[name]);
+  for (const name of ["swellFrom", "swellTo", "swell"]) {
+    assert.deepEqual(points.get(name).value, heldPoint(held, club.points[name]).value, `${name} is where its holding puts it`);
+  }
+  // Placed, not the item's own frame: the swell is a club's length from the hand, not at the body's origin.
+  const far = sub(points.get("swell").value, hand.centreOfMass.value);
+  assert.ok(Math.hypot(...far) > 0.4 && Math.hypot(...far) < 0.8, `the swell is ${Math.hypot(...far).toFixed(2)} m from the hand`);
+  const middle = scale(add(points.get("swellFrom").value, points.get("swellTo").value), 0.5);
+  points.get("swell").value.forEach((c, k) => close(c, middle[k], 1e-12, `the swell's middle ${k}`));
+  // The other hand holds nothing, and has its own alone.
+  const left = spec.segments.find((segment) => segment.name === "hand.left");
+  assert.deepEqual([...rigidPoints(spec, left).keys()], ["knuckles", "little"]);
+
+  // A name the segment and its item both state is refused.
+  const twice = { ...club, points: { ...club.points, knuckles: club.points.swell } };
+  assert.throws(() => rigidPoints(armed(bare, "right", twice), hand), /hand\.right and what it holds have two points named knuckles/);
+});
+
+test("a hand strikes with the point its item says, or its knuckles", () => {
+  const bare = humanSpec("workshop-fighter"), club = woodenClub(), spec = armed(bare, "right", club);
+  assert.deepEqual({ right: aimOf(spec, "right"), left: aimOf(spec, "left"), bare: aimOf(bare, "right") }, { right: "swell", left: "knuckles", bare: "knuckles" });
+  // An item that names no point to aim by is aimed by the hand.
+  const { aim, ...plain } = club;
+  assert.equal(aim, "swell");
+  assert.equal(aimOf(armed(bare, "right", plain), "right"), "knuckles");
 });
 
 test("a body refuses to hold an item in a segment it does not have", async () => {

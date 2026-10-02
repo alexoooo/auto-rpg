@@ -15,7 +15,7 @@ import type { Clothing, SkinView } from "../render/skin.ts";
 import { loadSkeletonArt, type SkeletonArt } from "../render/skeleton-skin.ts";
 import { drawHeld, type BodyShapes } from "../render/body-shapes.ts";
 import { dresserFor, type Dresser } from "../render/dress.ts";
-import { debrisCue } from "../audio/cues.ts";
+import { debrisCues } from "../audio/cues.ts";
 import { GameAudio } from "../audio/game-audio.ts";
 import { hearRun, type RunHearing } from "./hearing.ts";
 import { EnemyHover } from "./hover.ts";
@@ -363,7 +363,7 @@ async function buildRun(page: DungeonPage, nextSeed: number): Promise<void> {
     // A blow is a touch, and is heard as one (`hearRun`); this is what it took off, where the party can see.
     onBlow: (blow) => {
       const heard = page.run;
-      if (heard?.visible.has(cellKey(heard.map, { x: blow.point[0], z: blow.point[2] }))) audio.cue(debrisCue(blow));
+      if (heard?.visible.has(cellKey(heard.map, { x: blow.point[0], z: blow.point[2] }))) for (const cue of debrisCues(blow)) audio.cue(cue);
     },
   });
   page.hearing = hearRun(run, (cue) => audio.cue(cue));

@@ -2,8 +2,8 @@
  * **What the lab's body sounded of** (`src/lab/sound-log.ts`): the log gives what the time shown
  * passed and no more than a page frame of it; a shove is told as it is applied, and sounds as a
  * hand with the energy its impulse gives; and under each of the lab's modes, what a step sounded
- * of is held at the time the frame that step recorded shows, on its feet and down. Node core
- * stand, Rapier, 120 Hz, balance 0 %.
+ * of is held at the time the frame that step recorded shows, on its feet and down, a target the
+ * Routine hangs beside the body heard with it. Node core stand, Rapier, 120 Hz, balance 0 %.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -21,7 +21,7 @@ import { loadoutSpec } from "../src/lab/loadout.ts";
 import { CATCH_UP_MS } from "../src/lab/player.ts";
 import { startRoutine } from "../src/lab/routine.ts";
 import { startRun } from "../src/lab/run-mode.ts";
-import { createSoundLog, LAB_BODY, landingCue, logSounds, shoveSound } from "../src/lab/sound-log.ts";
+import { createSoundLog, LAB_BODY, LAB_OTHER, landingCue, logSounds, shoveSound } from "../src/lab/sound-log.ts";
 import { startStance } from "../src/lab/stance-mode.ts";
 import { TRACKS, trackOf } from "../src/lab/track.ts";
 import { coreStand } from "./harness/core-stand.mjs";
@@ -110,8 +110,9 @@ test("a shove is told as it is applied, and sounds as a hand, louder with its im
 });
 
 /**
- * Run `mode` (`start(actor, logging)` returns `{ time(), act?(step), dispose() }`) on `spec` for
- * `seconds` under `logSounds`, and after every step hold the log to the frame that step recorded:
+ * Run `mode` (`start(actor, logging, stand)` returns `{ time(), act?(step), done?(), dispose() }`) on
+ * `spec` for `seconds`, or until it is `done`, under `logSounds`, and after every step hold the log
+ * to the frame that step recorded:
  * the frame's time (`time()`) is a step on from the last, the air held at it is the air of this
  * step, and what passed since the last frame is what this step sounded of.
  */
@@ -121,12 +122,19 @@ async function logged(spec, seconds, start) {
   const logging = logSounds(stand.world, actor.body, log);
   let sounded = 0;
   const heard = (c) => { if (c) sounded += 1; logging.heard(c); };
-  const mode = start(actor, { ...logging, heard }, stand);
-  const touches = hearTouches(stand.world, [{ id: LAB_BODY, built: stand.built }], () => { sounded += 1; });
+  const own = { id: LAB_BODY, built: stand.built };
+  // A body hung beside it is logged, and counted here as the log's own listener hears it.
+  const hears = (built) => {
+    const logs = logging.hears(built), counts = hearTouches(stand.world, [{ id: LAB_OTHER, built }], () => { sounded += 1; }, [own]);
+    return { dispose() { logs.dispose(); counts.dispose(); } };
+  };
+  const mode = start(actor, { ...logging, heard, hears }, stand);
+  const touches = hearTouches(stand.world, [own], () => { sounded += 1; });
   const air = airOf(stand.built), at = new Vector3();
   const faults = [], all = [];
   let last = -Infinity, steps = 0, fastest = 0, down = false;
-  const check = stand.world.afterStep(() => {
+  // As a page reads it: once the step is over, whatever listener was made in it included.
+  const check = () => {
     const time = mode.time(), speed = air(at), held = log.airAt(time), passed = log.passed(last, time);
     if (steps > 0 && Math.abs(time - last - stand.world.dt) > 1e-9) faults.push(`step ${steps}: the frame's time went from ${last} to ${time}`);
     if (!held || held.speed !== speed || held.at.x !== at.x || held.at.z !== at.z) faults.push(`step ${steps}: the air held at ${time} is ${held?.speed}, and this step's ${speed}`);
@@ -135,11 +143,11 @@ async function logged(spec, seconds, start) {
     fastest = Math.max(fastest, speed);
     down ||= actor.body.view.down;
     sounded = 0; last = time; steps += 1;
-  });
+  };
   try {
-    for (let i = 0; i < stand.seconds(seconds); i++) { mode.act?.(i); stand.step(1); }
+    for (let i = 0; i < stand.seconds(seconds) && !mode.done?.(); i++) { mode.act?.(i); stand.step(1); check(); }
     return { faults, cues: all, fastest, down, steps };
-  } finally { check.dispose(); touches.dispose(); mode.dispose(); logging.dispose(); stand.dispose(); }
+  } finally { touches.dispose(); mode.dispose(); logging.dispose(); stand.dispose(); }
 }
 
 test("what a step sounded of is held at the time its frame shows, under every mode, on its feet and down", async () => {
@@ -169,6 +177,22 @@ test("what a step sounded of is held at the time its frame shows, under every mo
   assert.deepEqual(routine.faults.slice(0, 5), []);
   assert.ok(routine.down, "the push put it down");
   assert.ok(routine.cues.length > 5);
+
+  // The Routine at its first target: the body hung for it is heard with the body, a fist on a head of flesh.
+  let reading = null;
+  const struck = await logged(modelSpec("workshop-fighter"), 40, (actor, logging) => {
+    const session = startRoutine(actor, { targets: 1, hung: logging.hears });
+    return { time: () => session.time(), done: () => (reading = session.readings[0] ?? null) !== null, dispose: () => session.dispose() };
+  });
+  assert.deepEqual(struck.faults.slice(0, 5), []);
+  assert.ok(reading?.blow && !struck.down, `the target read ${JSON.stringify(reading)}`);
+  const met = struck.cues.filter((c) => c.key === `${LAB_OTHER}:${LAB_BODY}`);
+  assert.ok(met.length >= 1 && met.every((c) => c.kind === "body"), `${met.length} touches of the target`);
+  // The blow its reading is of is one of them: as loud as its energy, where it landed.
+  const loud = Math.min(1, Math.sqrt(reading.blow.energy / 60));
+  const its = met.filter((c) => Math.abs(c.strength - loud) < 1e-9);
+  assert.deepEqual(its.map((c) => c.point), [{ x: reading.blow.point[0], z: reading.blow.point[2] }], `${reading.blow.energy} J, and ${met.map((c) => c.strength)}`);
+  assert.deepEqual(struck.cues.filter((c) => c.key.startsWith(`${LAB_OTHER}:`) && c.key !== `${LAB_OTHER}:${LAB_BODY}`), []);
 
   // The Run, round the shuttle.
   const run = await logged(modelSpec("workshop-fighter"), 4, (actor) => {

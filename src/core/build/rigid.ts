@@ -14,6 +14,11 @@ import { add, cross, dot, scale, sub } from "../spec/vec.ts";
 /** A symmetric inertia's entries, kg m2: xx, yy, zz, xy, xz, yz. */
 type Tensor = readonly [number, number, number, number, number, number];
 
+/** Whose a rigid body's shape is: its segment's own, or an item it holds. */
+type ShapeOwner =
+  | { readonly kind: "segment" }
+  | { readonly kind: "held"; readonly held: HeldSpec };
+
 export interface Rigid {
   readonly mass: number;
   /** The centre of mass, body frame, reference pose. */
@@ -22,6 +27,8 @@ export interface Rigid {
   readonly tensor: Tensor;
   /** What it collides as: the segment's shape, then each held item's, placed in the body frame. */
   readonly shapes: readonly ShapeSpec[];
+  /** Whose each of `shapes` is, in their order. */
+  readonly owners: readonly ShapeOwner[];
 }
 
 /** Where `held`'s item frame lies in the body frame, reference pose. */
@@ -53,12 +60,28 @@ function placedShape(held: HeldSpec, shape: ItemShape): ShapeSpec {
 export const heldBy = (spec: BodySpec, segment: string): readonly HeldSpec[] =>
   (spec.held ?? []).filter((held) => held.segment === segment);
 
+/**
+ * Every named point `segment`'s rigid body carries, body frame, reference pose: the segment's
+ * own, and those of each item it holds, placed by its holding (`heldPoint`). A name stated twice
+ * is refused.
+ */
+export function rigidPoints(spec: BodySpec, segment: SegmentSpec): ReadonlyMap<string, Quantity<Vec3>> {
+  const points = new Map<string, Quantity<Vec3>>(Object.entries(segment.points ?? {}));
+  for (const held of heldBy(spec, segment.name)) {
+    for (const [name, point] of Object.entries(held.item.points)) {
+      if (points.has(name)) throw new Error(`${spec.model}: ${segment.name} and what it holds have two points named ${name}`);
+      points.set(name, heldPoint(held, point));
+    }
+  }
+  return points;
+}
+
 /** `segment`'s rigid body in `spec`. */
 export function rigidOf(spec: BodySpec, segment: SegmentSpec): Rigid {
   const holding = heldBy(spec, segment.name);
   const [ix, iy, iz] = segment.inertia.value;
   if (holding.length === 0) {
-    return { mass: segment.mass.value, centre: segment.centreOfMass.value, tensor: [ix, iy, iz, 0, 0, 0], shapes: [segment.shape] };
+    return { mass: segment.mass.value, centre: segment.centreOfMass.value, tensor: [ix, iy, iz, 0, 0, 0], shapes: [segment.shape], owners: [{ kind: "segment" }] };
   }
   const own = frameOf(segment);
   const pieces = [
@@ -86,6 +109,7 @@ export function rigidOf(spec: BodySpec, segment: SegmentSpec): Rigid {
   return {
     mass, centre, tensor: t as unknown as Tensor,
     shapes: [segment.shape, ...holding.flatMap((held) => held.item.shapes.map((shape) => placedShape(held, shape)))],
+    owners: [{ kind: "segment" }, ...holding.flatMap((held) => held.item.shapes.map((): ShapeOwner => ({ kind: "held", held })))],
   };
 }
 

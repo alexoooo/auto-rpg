@@ -1,9 +1,11 @@
 import type { Scene } from "@babylonjs/core/scene.js";
 import type { SoundCue } from "../audio/cues.ts";
+import type { BuiltBody } from "../core/build/build-body.ts";
 import type { Player, Playhead } from "./player.ts";
 import type { Hand } from "../render/skin.ts";
 import type { Actor } from "./actor.ts";
 import type { Control } from "./hud/controls.ts";
+import type { LabAddress } from "./scenarios.ts";
 
 /**
  * **What the lab's shell (`main.ts`) asks of a scenario.** The shell owns the page: the engine,
@@ -40,6 +42,8 @@ interface ScenarioContext {
   readonly scene: Scene;
   /** A body in its reference pose at the origin, facing +z, on the ground of its world, as the page stands it: the scenario's mode hands it its script (`Actor.drive`). */
   readonly actor: Actor;
+  /** The address the body was loaded from: what a scenario reads of its own in it. */
+  readonly address: LabAddress;
   /** For the player: the transport shows its playhead. */
   readonly changed: (playhead: Playhead) => void;
   readonly clock: () => number;
@@ -48,6 +52,11 @@ interface ScenarioContext {
    * time now; the body's touches and its air are heard without it (`sound-log.ts`).
    */
   readonly heard: (cue: SoundCue | null) => void;
+  /**
+   * Another body the scenario puts in the body's world, such as a target it strikes at: its
+   * touches are heard with the body's until what this returns is disposed.
+   */
+  readonly hears: (built: BuiltBody) => { dispose(): void };
 }
 
 export interface ScenarioRun {

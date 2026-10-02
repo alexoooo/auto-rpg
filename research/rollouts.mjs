@@ -4,7 +4,7 @@
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { SIDES } from "../src/arena/duel.ts";
 import { centreOfToRef } from "../src/core/control/support.ts";
-import { mulberry32 } from "../src/dungeon/rng.ts";
+import { mulberry32 } from "../src/rng.ts";
 import { traceOf } from "../tests/harness/trace.mjs";
 import { buildBout } from "./bout.mjs";
 

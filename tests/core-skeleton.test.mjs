@@ -65,6 +65,13 @@ test("what the art does not give is a named placeholder, and the rest is the bin
   assert.ok(Math.abs(spec.stature.value - (part("head.head").position[1] + part("head.head").max[1])) < 1e-9);
 });
 
+test("the skeleton's surfaces are a man's, part for part", () => {
+  const surfaces = (model) => modelSpec(model).segments.map(({ name, surface: { stiffness } }) => [name, stiffness.unit, stiffness.value, sources(stiffness).sort()]);
+  assert.deepEqual(surfaces(SKELETON_MODEL), surfaces("workshop-fighter"));
+  assert.equal(surfaces(SKELETON_MODEL).length, 16);
+  assert.deepEqual(surfaces(SKELETON_MODEL).find(([name]) => name === "head"), ["head", "N/m", 201e3, ["cormier-2009"]]);
+});
+
 test("each fist holds the club, its grip ending at the little finger's knuckle half the fist below the middle one", () => {
   for (const side of ["right", "left"]) {
     const spec = armed(modelSpec(SKELETON_MODEL), side, woodenClub());

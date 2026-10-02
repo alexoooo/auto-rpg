@@ -43,6 +43,8 @@ test("a body's standing height is its spec's", async () => {
       assert.ok(Math.abs(upright.standing - overGround(stand.built)) < 1e-3, `${spec.model}: ${upright.standing} by its spec, ${overGround(stand.built)} over the ground`);
       assert.ok(upright.standing > 0.5 && upright.standing < 1.5, `${spec.model} stands ${upright.standing} m`);
       assert.ok(Math.abs(upright.height() - upright.standing) < 1e-3, `${spec.model}: ${upright.height()} as built, ${upright.standing} by its spec`);
+      // Its lowest point is the ground's top, which the stand has at 0.
+      assert.ok(Math.abs(upright.lowest()) < 1e-3, `${spec.model}: as built its lowest point is at ${upright.lowest()} m`);
       assert.equal(upright.down(), false);
     } finally { stand.dispose(); }
   }
@@ -59,6 +61,9 @@ test("a limp body's height is its centre of mass's over the ground it lies on", 
       assert.ok(over < 0.2, `${spec.model} lies: its centre of mass is ${over} m over the ground`);
       // A lying body sinks a few millimetres into the ground it rests on.
       assert.ok(Math.abs(height - over) < 5e-3, `${spec.model}: ${height} over its lowest point, ${over} over the ground`);
+      // The lowest point is what the height is read over: the ground it lies on, less what it sinks.
+      const lowest = upright.lowest();
+      assert.ok(lowest < 0 && lowest > -5e-3 && Math.abs(over - lowest - height) < 1e-12, `${spec.model}: its lowest point is at ${lowest} m, its centre of mass ${over} m up and ${height} over it`);
       assert.equal(upright.down(), true);
     } finally { stand.dispose(); }
   }

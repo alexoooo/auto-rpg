@@ -81,6 +81,11 @@ export interface SegmentBody {
   hullVertices(k: number): readonly Vec3[] | null;
   /** Hold the body still where it is, or let it go again. */
   setFixed(fixed: boolean): void;
+  /**
+   * How far `point` (world, m) is from the nearest of the body's shapes' surfaces, m: 0 inside
+   * one. Where the body is now.
+   */
+  gapTo(point: Vec3): number;
 }
 
 /** A body's shape, in its own frame: what `PhysicsWorld.addBody` gives it colliders for. */
@@ -112,6 +117,19 @@ export interface EngineJoint {
   setMotor(k: number, speed: number, ceiling: number): void;
 }
 
+/** One pair of shapes the solver pushed apart: this body's and the other's. */
+export interface ContactPair {
+  /** Which of this body's shapes, and which of the other's, in the order `addBody` was given them; a fixed collider is one shape, 0. */
+  readonly mine: number;
+  readonly theirs: number;
+  /** Where they touch, world, m: the pair's solver contact points averaged. */
+  readonly point: Vec3;
+  /** The pair's normal, world, unit, from this body into the other. */
+  readonly normal: Vec3;
+  /** The impulse the solver pushed the pair apart with in the last step, N s. */
+  readonly impulse: number;
+}
+
 /**
  * **A body's contact with another dynamic body or with a fixed collider**, as the last step left
  * it: one for each body and each fixed collider it is in contact with, whatever colliders met. Two
@@ -133,6 +151,8 @@ export interface Contact {
   readonly normal: Vec3;
   /** The impulse the solver pushed them apart with in the last step, N s, along the normal; 0 if it pushed nothing. */
   readonly impulse: number;
+  /** Each pair of shapes the solver pushed on, in this body's shapes' order, then the other's; none if it pushed nothing. */
+  readonly pairs: readonly ContactPair[];
 }
 
 /** Something fixed in the world: the ground, a wall. */

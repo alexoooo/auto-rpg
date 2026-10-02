@@ -2,7 +2,8 @@
  * **What a body sounds of** (`src/audio/body-sounds.ts`): its touches as cues, and its air. A walk
  * is heard a footfall a stride, in the voice of what the walker is made of, and standing not at
  * all; a fall is heard louder than any footfall; two bodies meeting are heard once, in the softer
- * one's voice; a segment sounds as what it holds; and a body's air is its fastest point's, a
+ * one's voice; a body beside the heard ones is heard meeting them and not by itself; a segment
+ * sounds as what it holds; and a body's air is its fastest point's, a
  * club's end in a blow (Node core stand, Rapier, 120 Hz, balance 0 %).
  */
 import test from "node:test";
@@ -11,7 +12,7 @@ import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { Scene } from "@babylonjs/core/scene.js";
 import { airOf, hearTouches } from "../src/audio/body-sounds.ts";
-import { surfaceOf, swishStrength } from "../src/audio/cues.ts";
+import { substanceOf, swishStrength } from "../src/audio/cues.ts";
 import { buildBody } from "../src/core/build/build-body.ts";
 import { modelSpec } from "../src/core/human/spec.ts";
 import { createWorld } from "../src/core/world.ts";
@@ -88,7 +89,7 @@ async function pair() {
   const scene = new Scene(new NullEngine());
   const world = createWorld(scene, await freshEngine(), { gravity: false });
   const make = (id, spec, z) => ({ id, built: buildBody(spec, world, { position: [0, 1, z] }) });
-  const fist = make("fist", lone("fist", "hand.right", 1, { surface: "bone" }), 0), target = make("target", lone("target", "trunk", 3, { surface: "wood" }), 0.5);
+  const fist = make("fist", lone("fist", "hand.right", 1, { substance: "bone" }), 0), target = make("target", lone("target", "trunk", 3, { substance: "wood" }), 0.5);
   const hand = fist.built.segments.get("hand.right");
   hand.body.applyImpulse(new Vector3(0, 0, 6), hand.node.position.add(new Vector3(0, 0.05, 0)));
   return { world, fist, target, dispose: () => { world.dispose(); scene.dispose(); } };
@@ -112,19 +113,45 @@ test("two bodies meeting are heard once, from the earlier of them, in the softer
   }
 });
 
+test("a body beside the heard ones is heard meeting them, and not by itself", async () => {
+  // The pair, one of the two heard and the other beside it: their meeting, once, told from the heard one.
+  for (const [own, other] of [["fist", "target"], ["target", "fist"]]) {
+    const p = await pair();
+    try {
+      const heard = [];
+      hearTouches(p.world, [p[own]], (cue) => heard.push(cue.key), [p[other]]);
+      p.world.step(60);
+      assert.deepEqual(heard, [`${own}:${other}`]);
+    } finally { p.dispose(); }
+  }
+  // Two balls let fall on a floor, 2 m apart: the heard one's landing, and not the landing of the one beside it.
+  const scene = new Scene(new NullEngine());
+  const world = createWorld(scene, await freshEngine());
+  try {
+    world.physics.addFixedBox([0, -0.5, 0], [20, 1, 20]);
+    const [own, other] = ["own", "other"].map((id, k) => ({ id, built: buildBody(lone(id, "trunk", 3, { substance: "wood" }), world, { position: [2 * k, 0.5, 0] }) }));
+    const heard = [], all = [];
+    hearTouches(world, [own], (cue) => heard.push(cue.key), [other]);
+    hearTouches(world, [own, other], (cue) => all.push(cue.key));
+    world.step(120);
+    assert.ok(heard.length >= 1 && heard.every((key) => key === "own:ground"), heard.join(" "));
+    assert.deepEqual([...new Set(all)].sort(), ["other:ground", "own:ground"]);
+  } finally { world.dispose(); scene.dispose(); }
+});
+
 test("a segment sounds as what it holds, and else as what its body is made of", async () => {
   const stored = LAB_BLOWS[0];
-  const surfaces = async (spec, names) => {
+  const made = async (spec, names) => {
     const stand = await coreStand(spec);
-    try { return names.map((name) => surfaceOf(stand.built, stand.built.segments.get(name))); } finally { stand.dispose(); }
+    try { return names.map((name) => substanceOf(stand.built, stand.built.segments.get(name))); } finally { stand.dispose(); }
   };
   const names = ["hand.right", "hand.left", "foot.left", "head"];
-  assert.deepEqual(await surfaces(modelSpec("workshop-fighter"), names), ["flesh", "flesh", "flesh", "flesh"]);
-  assert.deepEqual(await surfaces(modelSpec("workshop-rogue"), names), ["flesh", "flesh", "flesh", "flesh"]);
-  assert.deepEqual(await surfaces(modelSpec("crypt-skeleton"), names), ["bone", "bone", "bone", "bone"]);
-  assert.deepEqual(await surfaces(loadoutSpec({ model: stored.model, right: "club", left: "empty", boots: true, armour: true }), names), ["wood", "flesh", "flesh", "flesh"]);
-  assert.deepEqual(await surfaces(loadoutSpec({ model: "crypt-skeleton", right: "empty", left: "club", boots: true, armour: true }), names), ["bone", "wood", "bone", "bone"]);
-  await assert.rejects(surfaces(lone("ball", "ball", 1), ["ball"]), /ball does not say what it is made of/);
+  assert.deepEqual(await made(modelSpec("workshop-fighter"), names), ["flesh", "flesh", "flesh", "flesh"]);
+  assert.deepEqual(await made(modelSpec("workshop-rogue"), names), ["flesh", "flesh", "flesh", "flesh"]);
+  assert.deepEqual(await made(modelSpec("crypt-skeleton"), names), ["bone", "bone", "bone", "bone"]);
+  assert.deepEqual(await made(loadoutSpec({ model: stored.model, right: "club", left: "empty", boots: true, armour: true }), names), ["wood", "flesh", "flesh", "flesh"]);
+  assert.deepEqual(await made(loadoutSpec({ model: "crypt-skeleton", right: "empty", left: "club", boots: true, armour: true }), names), ["bone", "wood", "bone", "bone"]);
+  await assert.rejects(made(lone("ball", "ball", 1), ["ball"]), /ball does not say what it is made of/);
 });
 
 test("a body's air is its club's end in a blow", async () => {

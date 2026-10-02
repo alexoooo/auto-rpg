@@ -1,6 +1,7 @@
+import { FIGHTER, type SubMindConfig } from "../core/mind/config.ts";
 import { standIntent } from "../core/mind/intent.ts";
 import type { Tactics } from "../core/mind/tactics.ts";
-import type { LabMindId } from "./scenarios.ts";
+import type { LabDownId, LabMindId } from "./scenarios.ts";
 
 /**
  * **The minds a lab body can be given.** A scenario's mode writes a script, tactics of its own; a
@@ -19,6 +20,15 @@ export const LAB_MINDS: Readonly<Record<LabMindId, LabMind>> = {
   script: { name: "Script", strikes: true, tactics: (script) => script },
   /** Stands in guard the way it faces, whatever the script asks. */
   guard: { name: "Guard", strikes: false, tactics: () => ({ name: "guard", decide: ({ report }) => standIntent(report.heading) }) },
+};
+
+/**
+ * What a lab body may do once it is down (`LAB_DOWN_IDS`, `scenarios.ts`): the sub-minds its mind
+ * hands it to, in rank order (`ActorOptions.subs`, `actor.ts`). The first is the game's.
+ */
+export const LAB_DOWN: Readonly<Record<LabDownId, { readonly name: string; readonly subs: readonly SubMindConfig[] }>> = {
+  lie: { name: "Lies", subs: FIGHTER.subs },
+  rise: { name: "Rises", subs: [{ kind: "staged-rise" }] },
 };
 
 /**

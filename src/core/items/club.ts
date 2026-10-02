@@ -1,17 +1,20 @@
 import type { ItemSpec } from "../spec/body.ts";
 import { square } from "../math/real.ts";
 import { derive, si, sourced, type Quantity } from "../spec/quantity.ts";
+import { midpoint } from "../spec/vec.ts";
 
 /**
- * **The wooden club** (`owner-club`): the strongest hit with it, one-handed, is the rulebook's unit
- * of damage (`Rulebook.unit`). A haft and a swell, each a solid cylinder of ash, end to end.
+ * **The wooden club** (`owner-club`): the strongest hit with it, one-handed, is the blow things
+ * are priced against (`CLUB_BEST`, `src/core/rules/rulebook.ts`). A haft and a swell, each a solid
+ * cylinder of ash, end to end.
  *
  * Its frame: the origin at the butt, y up the haft to the swell's end, x and z across. Its mass is
  * the two cylinders' volumes at ash's density; its inertia is each cylinder's about its own
  * centre, a rod's m (L/2)^2 / 3 across plus a disc's m r^2 / 4, and m r^2 / 2 along, moved to
  * the club's centre of mass. It collides as two capsules, each spanning its cylinder's length.
  *
- * Points: `swellFrom` and `swellTo`, the ends of the swell's capsule's axis, where a blow lands.
+ * Points: `swellFrom` and `swellTo`, the ends of the swell's capsule's axis, where a blow lands,
+ * and `swell`, the middle of that axis, which a blow is aimed by (`ItemSpec.aim`).
  */
 const HAFT_LENGTH = sourced(0.45, "m", "owner-club", "a 0.45 m haft");
 const HAFT_RADIUS = sourced(18, "mm", "owner-club", "of 18 mm radius");
@@ -47,8 +50,9 @@ export function woodenClub(): ItemSpec {
         to: at("the haft's capsule, in by its radius from the haft's end", [HAFT_LENGTH, haftRadius], (lh, rh) => lh - rh) },
       { kind: "capsule", radius: swellRadius, from: swellFrom, to: swellTo },
     ],
-    points: { swellFrom, swellTo },
-    surface: "wood",
+    points: { swellFrom, swellTo, swell: derive("m", "the middle of the swell's capsule's axis", [swellFrom, swellTo], midpoint) },
+    aim: "swell",
+    substance: "wood",
     grip: haftRadius,
   };
 }

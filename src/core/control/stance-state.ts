@@ -73,8 +73,6 @@ interface StanceScratch {
   readonly v: Vector3;
   readonly spin: Vector3;
   readonly target: Quaternion;
-  readonly error: Quaternion;
-  readonly inverse: Quaternion;
   readonly pelvisSpin: Vector3;
   readonly turn: Vector3;
   readonly p: Vector3;
@@ -138,7 +136,7 @@ export function makeStance(built: BuiltBody, tuning: StanceTuning, assist: Assis
   };
   const limbs = feet.map((foot, f): Limb => ({
     segment: foot.segment, memory: foot.memory, reach: foot.reach, task: state.tasks[f]!,
-    work: { at: new Vector3(), rows: null, ahead: [], patch: null },
+    stem: [], work: { at: new Vector3(), rows: null, ahead: [], toward: null, patch: null, share: 1 },
   }));
   return {
     built, assist, tuning: resolveStance(tuning), pelvis: feet[0]!.chain[0]!.parent, segments,
@@ -148,7 +146,7 @@ export function makeStance(built: BuiltBody, tuning: StanceTuning, assist: Assis
     state,
     scratch: {
       path: new Vector3(), along: new Vector3(), sole: new Vector3(), v: new Vector3(), spin: new Vector3(),
-      target: new Quaternion(), error: new Quaternion(), inverse: new Quaternion(), pelvisSpin: new Vector3(), turn: new Vector3(),
+      target: new Quaternion(), pelvisSpin: new Vector3(), turn: new Vector3(),
       p: new Vector3(), hipAt: new Vector3(), ankleAt: new Vector3(), kneeAt: new Vector3(), shank: new Quaternion(),
       footTurn: new Quaternion(), level: new Quaternion(), whole: new Quaternion(), wholeAxis: new Vector3(),
     },

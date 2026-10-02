@@ -59,7 +59,7 @@ export interface ThrownBlow {
  * An experiment's window: its target is read from the head until the blow begins, so it stands at
  * the recipe's place but for rounding, which a centimetre each way holds.
  */
-const AT_ITS_PLACE: StrikeWindow = { along: [-0.01, 0.01], across: [-0.01, 0.01] };
+const AT_ITS_PLACE: StrikeWindow = { along: [-0.01, 0.01], across: [-0.01, 0.01], up: [-0.01, 0.01] };
 
 /**
  * Throw `strike` with `actor`'s body, a human in its reference pose at the origin facing +z,

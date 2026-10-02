@@ -25,12 +25,12 @@ const FURTHEST = 4;
 export const SHOVE = Object.freeze({ front: 0, right: 90, back: 180, left: 270 });
 
 /**
- * `model` holding `held`, toppled by `SHOVE[lie]`, then under a riser playing `stages` however it lies:
- * a row a stage, read at its last step, with one before them for the body as it lay when the first
- * began. Null if the shove did not fell it.
+ * `model` holding `held`, toppled by `SHOVE[lie]`, then under a riser playing `stages`, on the
+ * game's limbs, however it lies: a row a stage, read at its last step, with one before them for
+ * the body as it lay when the first began. Null if the shove did not fell it.
  */
 export async function posed({ model, held = "empty", lie, stages }) {
-  const recipe = { roll: { back: stages, left: stages, right: stages }, rise: stages };
+  const recipe = { limbs: RISE.limbs, roll: { back: stages, left: stages, right: stages }, rise: stages };
   const { world, built, body, dispose } = await toppled({ model, held, degrees: SHOVE[lie] }, [(own, view) => stagedRise(own, view, recipe)]);
   try {
     if (!body.view.down) return null;

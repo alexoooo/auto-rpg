@@ -4,9 +4,9 @@
  * from went on, in the bout it came from or in another of the same recipe. Node, core world,
  * Rapier, 120 Hz.
  *
- * The bout is the fighter against the rogue, each with a balance of 25 %, each seeing the other
- * three steps late, under a tape that orders the left side back before step 300 and hands it back
- * to itself before step 420.
+ * The bout is the fighter against the skeleton from 3 m apart, each with a balance of 25 %, each
+ * seeing the other two steps late, under a tape that orders the left side back before step 300
+ * and hands it back to itself before step 420. It crosses blows thrown by a recipe and one placed.
  *
  * Each field of the bout's own state is sorted as a body's are (`tests/core-fork.test.mjs`): one
  * a fork is shown to need (`NEEDED`).
@@ -18,6 +18,7 @@ import { Scene } from "@babylonjs/core/scene.js";
 import { Duel, SIDES } from "../src/arena/duel.ts";
 import { addArenaSolids } from "../src/arena/room.ts";
 import { FIGHTER } from "../src/core/mind/config.ts";
+import { isClash, woundedIn } from "../src/core/rules/blows.ts";
 import { GUARD_ACTION } from "../src/core/mind/intent.ts";
 import { STAND_ORDERS } from "../src/core/mind/orders.ts";
 import { GUARD } from "../src/core/skills/guard.ts";
@@ -28,7 +29,7 @@ import { freshEngine } from "./harness/core-stand.mjs";
 import { assertForks, fieldsOf, forgetting, forks, PHYSICS_ALONE, shows, STATE_ALONE, unsorted } from "./harness/fork.mjs";
 import { traceOf } from "./harness/trace.mjs";
 
-const RECIPE = deepFreeze({ left: "workshop-fighter", right: "workshop-rogue", balance: { left: 25, right: 25 }, senseDelay: 3 });
+const RECIPE = deepFreeze({ left: "workshop-fighter", right: "crypt-skeleton", gap: 3, balance: { left: 25, right: 25 }, senseDelay: 2 });
 const BACK = { move: { x: -1, z: 0 }, face: null, attack: null };
 const TAPE = deepFreeze([{ step: 300, side: "left", orders: BACK }, { step: 420, side: "left", orders: null }]);
 /** Steps a twin's world has taken when its bout is built: a bout begins at whatever step its world is at. */
@@ -57,7 +58,7 @@ async function bout(which = "trunk", recipe = RECIPE, tape = TAPE) {
   const duel = new Duel(world, recipe, { onBlow: (blow) => heard.push(blow) });
   if (which === "trunk") duel.play(tape);
   const sides = SIDES.map((side) => duel.duelists[side]);
-  const seen = { landed: [], clashes: 0, severed: [], orders: [], withdrawn: false, verdict: null, heard };
+  const seen = { landed: [], clashes: 0, severed: [], swung: new Set(), orders: [], withdrawn: false, verdict: null, heard };
   let counted = 0;
   return {
     world, duel, builts: sides.map(({ built }) => built), seen,
@@ -73,10 +74,11 @@ async function bout(which = "trunk", recipe = RECIPE, tape = TAPE) {
     watch() {
       for (; counted < duel.blows.length; counted++) {
         const blow = duel.blows[counted];
-        if (blow.clash) seen.clashes += 1;
+        if (isClash(blow)) seen.clashes += 1;
         else seen.landed.push(duel.steps);
-        if (blow.wound?.severed.length) seen.severed.push(blow.target);
+        for (const side of woundedIn(blow)) if (side.wound.severed.length) seen.severed.push(side.fighter);
       }
+      for (const { minded } of sides) if (minded.skills.report.strike.phase === "swing") seen.swung.add(minded.skills.report.strike.blow);
       seen.orders = duel.tape.map(({ step, orders }) => [step, orders !== null]);
       seen.withdrawn = sides.every(({ body }) => body.assist.withdrawn);
       seen.verdict = duel.verdict;
@@ -118,9 +120,10 @@ test("a_bout_forks_at_any_step", async () => {
   const controls = { physics: PHYSICS_ALONE, state: STATE_ALONE, unshown: UNSHOWN, ...forgetting(NEEDED.bout) };
   const run = await forks(bout, 120, 240, (trunk) => trunk.duel.verdict !== null, controls);
   assertForks(run, ["physics", "state", "unshown", ...NEEDED.bout]);
-  // The fixture reaches a bout's whole course: both orders given, blows landed and clashed, a part taken off, the verdict, and the assists withdrawn at it.
-  const { landed, clashes, severed, orders, withdrawn, verdict, heard } = run.seen;
+  // The fixture reaches a bout's whole course: both orders given, blows of both kinds thrown, landed and clashed, a part taken off, the verdict, and the assists withdrawn at it.
+  const { landed, clashes, severed, swung, orders, withdrawn, verdict, heard } = run.seen;
   assert.deepEqual(orders, [[300, true], [420, false]]);
+  assert.deepEqual([...swung].sort(), ["placed", "recipe"]);
   assert.ok(landed.length > 0 && clashes > 0 && heard.length === landed.length + clashes, `${landed.length} blows, ${clashes} clashes, ${heard.length} heard`);
   assert.deepEqual(severed, ["right"], "the right side loses a part: `NEEDED.bout` shows a pool's fields on that side");
   assert.ok(verdict !== null && withdrawn && run.steps.at(-1) > verdict.time * 120, `forked past the verdict at ${verdict?.time} s: from ${run.steps.at(-1)}`);
@@ -145,12 +148,13 @@ test("a_bout_rewinds", async () => {
     assert.equal(stepped(stand, 360), first);
     assert.deepEqual(saveState(duel.state), was);
     // And in the middle, across its first blows.
-    stepped(stand, 840);
+    stepped(stand, 720);
     const saved = duel.save(), on = stepped(stand, 600), then = saveState(duel.state), blows = [...duel.blows], [blow] = blows;
     const told = JSON.stringify(blows), verdict = duel.verdict;
-    assert.ok(blows.length > 0 && Object.isFrozen(blow) && Object.isFrozen(blow.wound ?? blow.point), "a blow landed, and is frozen as it landed");
+    assert.ok(blows.length > 0 && Object.isFrozen(blow) && Object.isFrozen(blow.point) && blow.sides.every((side) => Object.isFrozen(side) && Object.isFrozen(side.wound ?? side)),
+      "a blow landed, and is frozen as it landed");
     duel.load(saved);
-    assert.deepEqual([duel.steps, duel.blows.length], [1200, 0]);
+    assert.deepEqual([duel.steps, duel.blows.length], [1080, 0]);
     assert.equal(stepped(stand, 600), on);
     assert.deepEqual(saveState(duel.state), then);
     assert.equal(JSON.stringify(duel.blows), told);
@@ -180,7 +184,7 @@ test("a_load_is_of_the_same_recipe", async () => {
       assert.throws(() => from.duel.load(minds.duel.save()), /another bout's recipe/);
     } finally { minds.dispose(); }
     // And a bout of the same recipe takes it whatever the order its recipe's keys were written in.
-    const again = await bout("twin", { senseDelay: 3, balance: { right: 25, left: 25 }, right: RECIPE.right, left: RECIPE.left });
+    const again = await bout("twin", { senseDelay: 2, balance: { right: 25, left: 25 }, gap: RECIPE.gap, right: RECIPE.right, left: RECIPE.left });
     try {
       again.duel.load(saved);
       assert.equal(stepped(again, 300), stepped(from, 300));

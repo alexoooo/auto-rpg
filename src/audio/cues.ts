@@ -1,14 +1,14 @@
 import type { BuiltBody, BuiltSegment } from "../core/build/build-body.ts";
 import { heldBy } from "../core/build/rigid.ts";
-import type { LandedBlow } from "../core/rules/blows.ts";
-import type { Surface } from "../core/spec/body.ts";
+import { woundedIn, type LandedBlow } from "../core/rules/blows.ts";
+import type { Substance } from "../core/spec/body.ts";
 
 /** The voices a touch has: on bone, on flesh, and on wood. */
 export type SoundKind = "bone" | "body" | "shield";
 export interface SoundPoint { x: number; z: number }
 /**
  * A sound to play: the pair it is of (`key`), its voice, how loud from 0 to 1, and where. Its
- * voice is a touch's, or `debris`: what a blow took off, scattering (`debrisCue`).
+ * voice is a touch's, or `debris`: what a blow took off, scattering (`debrisCues`).
  */
 export interface SoundCue { key: string; kind: SoundKind | "debris"; strength: number; point: SoundPoint }
 /**
@@ -39,18 +39,18 @@ const INBOX = Object.freeze({ coalesce: 60, stale: 200, pending: 64, most: 12 })
  */
 const PLACEMENT = Object.freeze({ panMetres: 10, panMost: .85, reach: 18 });
 
-/** The surfaces, softest first: the softer of two that meet decides the voice. */
-const SOFTNESS: readonly Surface[] = Object.freeze(["flesh", "bone", "wood", "stone"]);
+/** What things are made of, softest first: the softer of two that meet decides the voice. */
+const SOFTNESS: readonly Substance[] = Object.freeze(["flesh", "bone", "wood", "stone"]);
 
 /** The voice of `a` meeting `b`: the softer one's. Stone has none of its own, and two stones never meet. */
-export function voiceOf(a: Surface, b: Surface): SoundKind {
+export function voiceOf(a: Substance, b: Substance): SoundKind {
   const softer = SOFTNESS.indexOf(a) <= SOFTNESS.indexOf(b) ? a : b;
   switch (softer) {
     case "flesh": return "body";
     case "bone": return "bone";
     case "wood": return "shield";
     case "stone": throw new Error("stone on stone has no voice: nothing fixed meets something fixed");
-    default: { const never: never = softer; throw new Error(`no voice for a surface of ${String(never)}`); }
+    default: { const never: never = softer; throw new Error(`no voice for a thing of ${String(never)}`); }
   }
 }
 
@@ -58,11 +58,11 @@ export function voiceOf(a: Surface, b: Surface): SoundKind {
  * What `segment` of `built` is made of: what it holds, if it holds anything (the two are one rigid
  * body, and sound as the item whichever of them met), and else what its body is made of.
  */
-export function surfaceOf(built: BuiltBody, segment: BuiltSegment): Surface {
+export function substanceOf(built: BuiltBody, segment: BuiltSegment): Substance {
   const [held] = heldBy(built.spec, segment.spec.name);
-  const surface = held ? held.item.surface : built.spec.surface;
-  if (!SOFTNESS.includes(surface)) throw new Error(`${held ? held.item.name : built.spec.model} does not say what it is made of`);
-  return surface;
+  const substance = held ? held.item.substance : built.spec.substance;
+  if (!SOFTNESS.includes(substance)) throw new Error(`${held ? held.item.name : built.spec.model} does not say what it is made of`);
+  return substance;
 }
 
 /**
@@ -81,13 +81,16 @@ export function swishStrength(speed: number): number {
 }
 
 /**
- * The cue for what `blow` took off its target (`Wound.severed`), or none if it took nothing off:
- * debris, as loud as the blow's energy makes it. The blow itself is a touch, and is heard as one
- * (`hearTouches`); this is of a pair of its own, so it plays beside it.
+ * The cues for what `blow` took off (`Wound.severed`), one for each side it took something off:
+ * debris, as loud as that side's share of the blow's energy makes it. The blow itself is a touch,
+ * and is heard as one (`hearTouches`); each of these is of a pair of its own, so it plays beside
+ * it.
  */
-export function debrisCue(blow: LandedBlow): SoundCue | null {
-  if (!blow.wound?.severed.length) return null;
-  return impactCue(`${blow.target}:debris`, "debris", blow.energy, { x: blow.point[0], z: blow.point[2] });
+export function debrisCues(blow: LandedBlow): SoundCue[] {
+  return woundedIn(blow).flatMap((side) => {
+    const cue = side.wound.severed.length ? impactCue(`${side.fighter}:debris`, "debris", side.share * blow.energy, { x: blow.point[0], z: blow.point[2] }) : null;
+    return cue ? [cue] : [];
+  });
 }
 
 /** A bounded wall-clock inbox: a fast simulation cannot flood the audio clock. */

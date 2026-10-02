@@ -139,7 +139,7 @@ export class GameAudio {
     if (!active) this.reset();
     this.refreshGain();
   }
-  /** Queue a cue the page read (`hearTouches`, `impactCue`, `debrisCue`). */
+  /** Queue a cue the page read (`hearTouches`, `impactCue`, `debrisCues`). */
   cue(cue: SoundCue | null): void {
     if (cue && this.ready()) this.inbox.add(cue, performance.now());
   }

@@ -3,7 +3,7 @@ import { dressCryptMap, type CryptRoomPlan } from "./crypt-plan.ts";
 import { LEVEL } from "./level.ts";
 import { distance, findPath, walkable, type DungeonMap, type Point, type Room } from "./map.ts";
 import { companionSpawn } from "./party-placement.ts";
-import { mulberry32 } from "./rng.ts";
+import { mulberry32 } from "../rng.ts";
 
 /**
  * The crypt's layout, in cells of 1 m (`docs/reference/play.md#the-crypt`): four rooms, two by two, each joined to

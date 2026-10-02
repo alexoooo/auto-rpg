@@ -1,21 +1,30 @@
 import test from 'node:test';
 import { Vector3 } from '@babylonjs/core/Maths/math.vector.js';
 import assert from 'node:assert/strict';
-import { CueInbox, debrisCue, impactCue, soundPlacement, swishStrength, voiceOf } from '../src/audio/cues.ts';
+import { CueInbox, debrisCues, impactCue, soundPlacement, swishStrength, voiceOf } from '../src/audio/cues.ts';
 import { GameAudio } from '../src/audio/game-audio.ts';
-// A core blow (`LandedBlow`) of 15 J from the hero to the enemy's head.
-const blow = (patch = {}) => ({ time: 1, attacker: 'hero', target: 'enemy', striker: 'club', part: 'head', point: [1, 1.6, 2], normal: [0, 0, 1],
-  closing: 4, strikerKg: 1, struckKg: 5, energy: 15, damage: 3, clash: false, wound: { taken: [{ part: 'head', hp: 3 }], severed: [], lost: 0, spent: 3, ending: null }, ...patch });
+const WOUND = { taken: [{ part: 'head', hp: 3 }], severed: [], lost: 0, spent: 3, ending: null };
+// A core blow (`LandedBlow`) of 15 J from the hero's club to the enemy's head: `struck` patches the head's side, `patch` the blow.
+const blow = (struck = {}, patch = {}) => ({ time: 1, point: [1, 1.6, 2], normal: [0, 0, 1], closing: 4, energy: 15, sides: [
+  { fighter: 'hero', segment: 'hand.right', item: 'club', kg: 1, share: 0, damage: 0, wound: null },
+  { fighter: 'enemy', segment: 'head', item: null, kg: 5, share: 1, damage: 3, wound: WOUND, ...struck },
+], ...patch });
 
-test('what a blow took off is debris, as loud as the blow, of a pair of its own; a blow that took nothing off is none', () => {
-  const hit = blow(), off = blow({ wound: { ...hit.wound, severed: ['forearm.right', 'hand.right'] } }), before = structuredClone(off);
-  assert.deepEqual(debrisCue(off), { key: 'enemy:debris', kind: 'debris', strength: .5, point: { x: 1, z: 2 } });
-  assert.equal(debrisCue(hit), null);
-  assert.equal(debrisCue(blow({ clash: true, damage: 0, wound: null })), null);
-  assert.equal(debrisCue({ ...off, energy: 240 }).strength, 1);
+test('what a blow took off is debris, for each side it took something off, as loud as that side\'s share, of a pair of its own', () => {
+  const hit = blow(), off = blow({ wound: { ...WOUND, severed: ['forearm.right', 'hand.right'] } }), before = structuredClone(off);
+  assert.deepEqual(debrisCues(off), [{ key: 'enemy:debris', kind: 'debris', strength: .5, point: { x: 1, z: 2 } }]);
+  // A blow that took nothing off, and a clash, in which neither side took a share.
+  assert.deepEqual(debrisCues(hit), []);
+  assert.deepEqual(debrisCues(blow({ share: 0, damage: 0, wound: null })), []);
+  assert.equal(debrisCues({ ...off, energy: 240 })[0].strength, 1);
+  // Both sides lose a part: the hero's side first, as the blow lists them, each as loud as its share.
+  const both = structuredClone(off);
+  both.sides[0] = { ...both.sides[0], share: .25, damage: 1, wound: { ...WOUND, severed: ['hand.right'] } };
+  both.sides[1] = { ...both.sides[1], share: .75 };
+  assert.deepEqual(debrisCues(both).map((cue) => [cue.key, cue.strength]), [['hero:debris', Math.sqrt(.25 * 15 / 60)], ['enemy:debris', Math.sqrt(.75 * 15 / 60)]]);
   // Just under and just over the quietest cue.
-  assert.equal(debrisCue({ ...off, energy: 60 * .012 ** 2 }), null);
-  assert.ok(debrisCue({ ...off, energy: 60 * .013 ** 2 }));
+  assert.deepEqual(debrisCues({ ...off, energy: 60 * .012 ** 2 }), []);
+  assert.equal(debrisCues({ ...off, energy: 60 * .013 ** 2 }).length, 1);
   assert.deepEqual(off, before);
 });
 test('impact windows retain the strongest of a pair, keep pairs apart, bound bursts and drop stale events', () => {

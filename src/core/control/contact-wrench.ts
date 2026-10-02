@@ -19,13 +19,27 @@ export interface BearingSole {
 }
 
 /** A point on level ground (y up), bearing: it gives a force at itself and no moment. */
-interface BearingPoint {
+export interface BearingPoint {
   readonly kind: "point";
   readonly at: Vector3;
 }
 
 /** What a body bears on the ground through. */
 export type Patch = BearingSole | BearingPoint;
+
+/** `patch`'s corners, world: a point's one, a sole's four, as far from its middle as its centre of pressure may go. */
+export function patchCorners(patch: Patch): Vector3[] {
+  switch (patch.kind) {
+    case "point": return [patch.at];
+    case "sole": {
+      const { middle, along, length, width } = patch;
+      // Across the sole: up x along.
+      return [[1, 1], [1, -1], [-1, -1], [-1, 1]].map(([a, b]) =>
+        new Vector3(middle.x + a! * length * along.x + b! * width * along.z, middle.y, middle.z + a! * length * along.z - b! * width * along.x));
+    }
+    default: return unknownKind(patch);
+  }
+}
 
 /** A patch's share of the ground's wrench: a force at its place (a sole's middle, a point) and a moment, a point's none. */
 interface PatchWrench {
@@ -65,9 +79,13 @@ interface PatchWrench {
  * surface contacts for humanoid robots: closed-form formulae of the contact wrench cone", ICRA):
  * besides the three above, the sole's twist about the vertical is bounded by what friction at its
  * corners can give, so a sole that bears nothing twists nothing.
+ *
+ * `parts`, where given, is each patch's part of the load against the others': the regularizer
+ * weighs a patch's wrench by its inverse, so among the shares that give the wrench the patches'
+ * forces are as their parts, as nearly as the wrench lets them be. Without it they bear alike.
  */
 export function shareGroundWrench(patches: readonly Patch[], centre: Vector3, force: Vector3, moment: Vector3,
-  friction: number, lever: number, out: PatchWrench[], miss?: { force: Vector3; moment: Vector3 }): void {
+  friction: number, lever: number, out: PatchWrench[], miss?: { force: Vector3; moment: Vector3 }, parts?: readonly number[]): void {
   // Each patch's first column: the widths before it.
   const first: number[] = [];
   let n = 0;
@@ -78,8 +96,10 @@ export function shareGroundWrench(patches: readonly Patch[], centre: Vector3, fo
   patches.forEach((patch, s) => {
     const o = first[s]!, at = placeOf(patch);
     const d = [at.x - centre.x, at.y - centre.y, at.z - centre.z];
+    const part = parts ? parts[s]! : 1;
     for (let a = 0; a < 3; a++) {
       A[a]![o + a] = 1;
+      D[o + a] = 1 / part;
       // d x e_a
       const e = [0, 0, 0]; e[a] = 1;
       A[3]![o + a] = d[1]! * e[2]! - d[2]! * e[1]!;
@@ -88,7 +108,7 @@ export function shareGroundWrench(patches: readonly Patch[], centre: Vector3, fo
       switch (patch.kind) {
         case "sole":
           A[3 + a]![o + 3 + a] = 1;
-          D[o + 3 + a] = 1 / (patch.length * patch.length);
+          D[o + 3 + a] = 1 / (patch.length * patch.length * part);
           break;
         case "point": break;
         default: unknownKind(patch);

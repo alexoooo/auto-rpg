@@ -18,10 +18,16 @@ Some write the data files the core reads, and only with `--write`; without it th
 | `core-routine-battery.mjs` | the lab's Routine from seeded pushed starts, per tuning: loops held, falls, each strike's peak | |
 | `core-strike.mjs`, `core-club-strike.mjs` | modules the searches and workers call, with no entry point of their own: one fist strike scored by the fist's speed, one club blow by the energy it brings to a head | |
 | `core-strike-search.mjs`, `core-strike-worker.mjs` | a cross-entropy search for a body's fastest strike (`--guard` for a straight from guard, `--weapon club`) | |
-| `core-strike-window.mjs` | where each recipe still lands, along and across its heading | the windows, into `assets/core/strikes.json` |
+| `core-strike-window.mjs` | where each recipe still lands, along and across its heading and up from its target's height | the windows, into `assets/core/strikes.json` |
 | `core-strike-repertoire.mjs` | builds the repertoire from searches' best strikes | `assets/core/strikes.json` |
+| `core-targets.mjs`, `core-targets-run.mjs` | the lab's Routine on its seeded targets, each body bare and with the club: what each strike did to the dummy hung at its target; and the run both batteries' workers make | the tables, pasted into `docs/reference/blows.md` |
+| `core-placed.mjs` | the placed blow's sweep: the targets' battery at each stretch, time and distance carried through, given to the skills in place of the blow set | the table, pasted into `docs/reference/blows.md` |
+| `core-placed-versus.mjs` | a recipe against a placed blow by the target's height: one body, one target ahead of it, thrown at both ways | the table, pasted into `docs/reference/blows.md` |
+| `core-placed-arm.mjs` | an arm alone following a placed blow's goal, the lower trunk held: how near its point comes to a place, in each of two times | the table, pasted into `docs/reference/blows.md` |
+| `core-reach-map.mjs` | kinematics alone: where one place for the Warrior's knuckles, and for the swell of the club he holds, is solved, with the wrist held and freed | the tables, pasted into `docs/reference/human-and-strikes.md` |
 | `core-rapier-probe.mjs` | on the core's engine module alone, off the stand: what Rapier's generic joint does: its limits' measure, motor axes, saturation, gyroscopic spin, a motor braking a hung rod | |
 | `touches.mjs` | what a body sounds of: each part's new touches with the ground, with itself and with another body (a second, their energies, closing speeds and the mass met) and its fastest point's speed, standing, walking, in the Run, shoved, falling, in the Routine and the Blow, and in three bouts | the tables, condensed into `docs/reference/look.md#touches-measured` |
+| `blow-shares.mjs` | the surfaces' stiffness table with its sources, the share each surface takes where two meet, the same at half and twice a surface's stiffness, and the joules that empty each part | the tables, pasted into `docs/reference/wounds.md` |
 | `real-against-engine.mjs` | the core's functions of a real number beside the running engine's `Math`: how many values differ in any bit, how widely, and each function's digest, the same in every engine | the table, pasted into `docs/reference/real-functions.md` |
 
 `core-club-unit.json` is the club blow that sets the damage unit (`core-club-unit` in `SOURCES`).
@@ -33,6 +39,8 @@ node research/core-stance-envelope.mjs --workers 14
 node research/core-strike-search.mjs --model workshop-rogue --hand right --guard
 node research/core-strike-window.mjs --hz 120,480
 node research/core-routine-battery.mjs --variants '[{}]' --seeds 12
+node research/core-targets.mjs --each
+node research/core-placed.mjs --workers 26
 ```
 
 Each script's doc comment gives its options, what it prints and the rule it reads by.
@@ -46,7 +54,8 @@ Arena bouts off the page: Node, the core's world, Rapier, 120 Hz. A bout is its 
 |---|---|---|
 | `bout.mjs`, `bout-worker.mjs`, `bout-pool.mjs` | one arena bout from its recipe in a world of its own: how it ended, what landed, each side's mean assist, and the digest of every pose at every step; its worker; and many bouts over workers | |
 | `bout-trace.mjs` | one bout's row: the digest a change that should change nothing must leave as it was | |
-| `bout-baseline.mjs` | how every matchup ends at each starting gap: endings, falls and wounding blows a minute | the table, pasted into `docs/reference/bouts.md` |
+| `bout-baseline.mjs` | how every matchup ends at each starting gap: endings, falls and wounding blows a minute, and what a bout's blows cost its sides; with the right hands empty (`--held empty`), no part coming off (`--never-off`), the hands' surfaces stiffer or softer (`--hand`), a hit point of other joules (`--unit`), and what the blows under a floor were (`--floors`) | the tables, pasted into `docs/reference/bouts.md` and `wounds.md` |
+| `crypt-blows.mjs` | a crypt run's blows with no visuals, by what met in each (an item, a bare hand, two bodies), and those with a side already out of the fight | the table, pasted into `docs/reference/bouts.md` |
 | `assist-need.mjs` | what each side's soles miss of what its stance asks of the ground, over every matchup | the table, pasted into `docs/reference/assist.md` |
 | `assist-sweep.mjs` | what balance does to how bouts end: both sides even, other worths of a point, and one side with more | the three tables, pasted into `docs/reference/assist.md` |
 | `rollouts.mjs`, `rollout-worker.mjs`, `rollout-pool.mjs` | a bout forked by replay: played to a step under its tape and on under a branch of other orders; a row's value to a side, the responses a side may try, and the choice among them; its worker; and a pool that stays up between batches | |
@@ -55,6 +64,7 @@ Arena bouts off the page: Node, the core's world, Rapier, 120 Hz. A bout is its 
 ```powershell
 node research/bout-trace.mjs
 node research/bout-baseline.mjs --workers 14
+node research/bout-baseline.mjs --gaps 3,3.5,4,4.5,5 --held empty --floors 1,5
 node research/assist-sweep.mjs --workers 14
 node research/oracle.mjs --all --side both --workers 14 --out research/runs/oracle
 ```

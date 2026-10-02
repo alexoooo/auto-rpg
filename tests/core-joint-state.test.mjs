@@ -92,7 +92,7 @@ function rods(dofs) {
     name, proximal: q(proximal), distal: q(distal), mass: q(mass, "kg"),
     centreOfMass: q(proximal.map((p, i) => (p + distal[i]) / 2)),
     inertia: q([0.02 * mass, 0.004 * mass, 0.03 * mass], "kg m2"),
-    shape: { kind: "capsule", from: q(proximal), to: q(distal), radius: q(0.04) },
+    shape: { kind: "capsule", from: q(proximal), to: q(distal), radius: q(0.04) }, surface: { stiffness: q(1e5, "N/m") },
   });
   return {
     family: "test", model: "rods", mass: q(3, "kg"), stature: q(1.5),
@@ -112,7 +112,7 @@ async function pressed(limited, limit, goal) {
   const shoulder = humanSpec("workshop-rogue").joints.find((j) => j.name === "shoulder.right"), c0 = shoulder.centre.value;
   const speed = { unloadedSpeed: q(60, "rad/s"), curvature: q(0.25, "1"), eccentricCeiling: q(1.4, "1"), eccentricSlopeRatio: q(2, "1") };
   const segment = (name, p, d, mass) => ({ name, proximal: q(p), distal: q(d), mass: q(mass, "kg"), centreOfMass: q(p.map((v, i) => (v + d[i]) / 2)),
-    inertia: q([0.02 * mass, 0.004 * mass, 0.03 * mass], "kg m2"), shape: { kind: "capsule", from: q(p), to: q(d), radius: q(0.03) } });
+    inertia: q([0.02 * mass, 0.004 * mass, 0.03 * mass], "kg m2"), shape: { kind: "capsule", from: q(p), to: q(d), radius: q(0.03) }, surface: { stiffness: q(1e5, "N/m") } });
   const spec = { family: "test", model: "rods", mass: q(3, "kg"), stature: q(1.5),
     segments: [segment("post", [c0[0], c0[1] + 0.4, c0[2]], c0, 2), segment("arm", c0, [c0[0] + 0.05, c0[1] - 0.3, c0[2]], 1)],
     joints: [{ name: "shoulder", parent: "post", child: "arm", centre: q(c0),

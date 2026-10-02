@@ -106,14 +106,16 @@ async function labRun(model) {
   } finally { run.dispose(); stand.dispose(); }
 }
 
-/** `model` through the lab's routine for 20 s. */
+/** `model` through the lab's routine to the last of four targets of seed 1, or 60 s: what each target read, and the pose. */
 async function labRoutine(model) {
   const stand = await coreStand(humanSpec(model), { ground: true });
-  const routine = startRoutine(labActor(stand.built, stand.world));
+  const routine = startRoutine(labActor(stand.built, stand.world), { targets: 4, seed: 1 });
   try {
     const trace = traceOf([stand.built]);
-    for (let i = 0; i < stand.seconds(20); i++) { stand.step(); trace.take(); }
-    return `strikes ${routine.strikes.length}, pose ${trace.digest()}`;
+    for (let i = 0; i < stand.seconds(60) && routine.readings.length < 4; i++) { stand.step(); trace.take(); }
+    const read = routine.readings.map(({ target, took, nearest }) =>
+      `${target.stratum} ${took ? `${took.damage.toFixed(4)} HP` : nearest === null ? "unread" : `missed by ${(100 * nearest).toFixed(2)} cm`}`);
+    return `targets ${read.join(", ") || "none"}; pose ${trace.digest()}`;
   } finally { routine.dispose(); stand.dispose(); }
 }
 

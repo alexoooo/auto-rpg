@@ -57,17 +57,22 @@ export function risenAt(downs, hz) {
  * `LYING_SECONDS` after the fall, m/s, the most its stance asked of the ground beyond what its
  * soles gave over the same span, in its weights (`Infinity` once it is not finite), the
  * seconds from the fall to the last step it was not still (`STILL`), how it lay `LYING_SECONDS`
- * after the fall (`lieOf`), and the furthest stage of the game's rise (`RISE`) its last attempt's
- * fall reached: its name, "none" if it began none, and null under a mind with no riser.
+ * after the fall (`lieOf`), the furthest stage of the game's rise (`RISE`) its last attempt's
+ * fall reached: its name, "none" if it began none, and null under a mind with no riser; and
+ * whether its riser played the rise to its end, its last stage done, within the watch (null
+ * under a mind with none).
  */
 function watched(world, built, body) {
   const hz = world.hz, segments = [...built.segments.values()];
   const weight = segments.reduce((sum, segment) => sum + segment.rigid.mass, 0) * Math.hypot(...world.physics.gravity);
-  const downs = [body.view.down], velocity = new Vector3();
-  let peak = 0, asked = 0, last = 0, lie = null;
+  const downs = [body.view.down], velocity = new Vector3(), riser = riserOf(body);
+  let peak = 0, asked = 0, last = 0, lie = null, was = riser?.phase, ended = riser ? false : null;
   for (let i = 1; i < Math.round(WATCH_SECONDS * hz); i++) {
     world.step();
     downs.push(body.view.down);
+    // A rise whose last stage is done leaves its riser idle; one given up leaves it lying slack.
+    if (riser && was === "rise" && riser.phase === "idle") ended = true;
+    was = riser?.phase;
     let fastest = 0;
     for (const segment of segments) fastest = Math.max(fastest, segment.body.linearVelocityToRef(velocity).length());
     if (fastest > STILL) last = i;
@@ -77,10 +82,10 @@ function watched(world, built, body) {
     const ask = body.view.stance.shortfall.force.length() / weight;
     asked = Number.isFinite(ask) ? Math.max(asked, ask) : Infinity;
   }
-  const seconds = risenAt(downs, hz), riser = riserOf(body);
+  const seconds = risenAt(downs, hz);
   return {
     fell: true, risen: seconds !== null, seconds, peak, asked, moved: last / hz, lie,
-    stage: riser ? RISE.rise[riser.furthest]?.name ?? "none" : null,
+    stage: riser ? RISE.rise[riser.furthest]?.name ?? "none" : null, ended,
   };
 }
 
@@ -88,20 +93,25 @@ function watched(world, built, body) {
 export const riserOf = (body) => (body.state.mind.subs ?? []).find((sub) => sub && "furthest" in sub) ?? null;
 
 /** The row of a body that did not fall. */
-const HELD = Object.freeze({ fell: false, risen: false, seconds: null, peak: null, asked: null, moved: null, lie: null, stage: null });
+const HELD = Object.freeze({ fell: false, risen: false, seconds: null, peak: null, asked: null, moved: null, lie: null, stage: null, ended: null });
+
+/** The side of a floor raised over the arena's ground, m: wider than a fall and a rise cross. */
+const FLOOR = 12;
 
 /**
  * `model` holding `held` (a key of `LOADOUTS`), built on the arena's ground as the arena builds a
  * body, under the mind `minded(built, world)` makes of it (its `Body`), left `STAND_SECONDS`, and
  * shoved at its middle trunk's centre by `impulse` N s a kilogram of the whole body, `degrees`
  * about up from the way it faces: the world stepped to the first step it is down, or
- * `FALL_SECONDS` if it holds. The caller disposes.
+ * `FALL_SECONDS` if it holds. With `level`, m, it is built on a floor that high over the arena's
+ * ground, `FLOOR` m square. The caller disposes.
  */
-export async function felled({ model, held, degrees, impulse = 1.5 }, minded) {
+export async function felled({ model, held, degrees, impulse = 1.5, level = 0 }, minded) {
   const scene = new Scene(new NullEngine());
   const world = createWorld(scene, await freshEngine());
   addArenaSolids(world.physics);
-  const built = buildBody(LOADOUTS[held](modelSpec(model)), world, { position: [0, 0, 0] });
+  if (level > 0) world.physics.addFixedBox([0, level / 2, 0], [FLOOR, level, FLOOR]);
+  const built = buildBody(LOADOUTS[held](modelSpec(model)), world, { position: [0, level, 0] });
   const body = minded(built, world);
   const dispose = () => { body.dispose(); built.dispose(); world.dispose(); scene.dispose(); };
   try {

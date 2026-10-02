@@ -6,7 +6,7 @@ import { availableParallelism } from "node:os";
 export const defaultLanes = () => Math.max(1, availableParallelism() - 2);
 
 /**
- * Play every job (`{ recipe, seconds?, shortfall? }`, as `bout-worker.mjs` reads it) on `lanes`
+ * Play every job (`{ recipe, seconds?, shortfall?, blows? }`, as `bout-worker.mjs` reads it) on `lanes`
  * workers, each worker one bout at a time, and give the rows in the jobs' order. A row comes back as
  * a message: no two workers share a file.
  */

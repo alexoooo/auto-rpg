@@ -1,7 +1,10 @@
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { BuiltBody, BuiltJoint, BuiltSegment } from "../build/build-body.ts";
+import { rigidPoints } from "../build/rigid.ts";
+import { hypot } from "../math/real.ts";
 import type { MuscleController, MuscleDriver } from "../muscle/driver.ts";
 import type { Vec3 } from "../spec/quantity.ts";
+import { distance } from "../spec/vec.ts";
 import type { Assist } from "./assist.ts";
 import { chainTo, pointNowToRef, solveReach } from "./kinematics.ts";
 import { servoAsk, servoSolve } from "./servo.ts";
@@ -23,15 +26,42 @@ export interface MusclePush {
   readonly level: number;
 }
 
+/** A point of a hand's rigid body (`rigidPoints`), by name, and where it goes: body frame, m. */
+interface Place {
+  readonly point: string;
+  readonly position: Vec3;
+}
+
+/** **Where a hand goes, and in what time.** */
+export interface HandGoal {
+  /** One place, or two points of the hand's one rigid body: where it is, and how its line lies. */
+  readonly places: readonly Place[];
+  readonly seconds: number;
+  /**
+   * How far past its place each point's path runs, m, along its own line from where the path
+   * began: a blow goes through what it is thrown at. None if not given.
+   */
+  readonly through?: number;
+  /**
+   * Whether the goal is one path whose places move: given again with other positions, it keeps its
+   * start and its clock, and its path ends at the new ones. Without it, a goal with other places is
+   * a new path from where the points are.
+   */
+  readonly follows?: boolean;
+}
+
 /**
  * **Motor control: goals in, muscle commands out.** A body is given a posture (angles for the
- * freedoms, by name, the rest held at their reference angles) and, for each hand, a place for its
- * knuckles in the body frame (the root's frame, `kinematics.ts`) and the time to get there. The
- * knuckles travel a straight, minimum-jerk path from where they are; each step the path's point
- * becomes the shoulder's and elbow's angles by inverse kinematics, with the trunk and the wrist at
- * the posture's angles, and the servo (`servo.ts`) follows those angles with their rates and
- * accelerations fed forward, bounded by the muscles. The shoulder's swing, which a place for the
- * hand leaves free, settles toward the posture's.
+ * freedoms, by name, the rest held at their reference angles) and, for each hand, places for
+ * named points of its rigid body (its knuckles, a point of what it holds) in the body frame (the
+ * root's frame, `kinematics.ts`) and the time to get there (`HandGoal`). Each point travels a
+ * straight, minimum-jerk path from where it is; each step the paths' points become the
+ * shoulder's, the elbow's and the wrist's angles by inverse kinematics, with the trunk at the
+ * posture's angles, and the servo (`servo.ts`) follows those angles with their rates and
+ * accelerations fed forward, bounded by the muscles. What a goal leaves free of the arm (one
+ * place leaves four of its seven freedoms, two leave two) settles toward the posture's angles.
+ * The wrist is the arm's: held at the posture's angle, a point of a held item half a metre from
+ * the hand has no path the solve can follow (`docs/reference/human-and-strikes.md#ik`).
  *
  * The rates and accelerations are the inverse kinematics differenced a step either side along the
  * path, each solved from the angles the last step found.
@@ -48,8 +78,12 @@ export interface MotorControl {
   readonly control: MuscleController;
   /** Hold `pose` for every freedom no hand goal owns, from `control`'s next call. */
   setPosture(pose: Pose): void;
-  /** Take `hand`'s knuckles to `position` (body frame, m) over `seconds`, from `control`'s next call. */
-  reach(hand: Hand, position: Vec3, seconds: number): void;
+  /**
+   * Take `hand` to `goal`, from `control`'s next call. It refuses, with the reason, a point the
+   * hand's rigid body has not, no place or more than two, and two places whose distance apart
+   * differs from their points' by more than `PLACES_SLACK`.
+   */
+  reach(hand: Hand, goal: HandGoal): void;
   /** Give `hand`'s arm back to the posture. */
   release(hand: Hand): void;
   /** Drive `pushes` flat out from `control`'s next call, in place of those before. */
@@ -62,10 +96,14 @@ export interface MotorControl {
   reset(): void;
   /** The stance's readings, as its last step left them. */
   readonly stance: StanceControl;
-  /** Where `hand`'s path stands now (body frame), or null with no goal. */
+  /** Where the path of `hand`'s first place stands now (body frame), or null with no goal. */
   path(hand: Hand): Vector3 | null;
   /** Where `hand`'s knuckles are now, body frame. */
   knucklesToRef(hand: Hand, out: Vector3): Vector3;
+  /** Where `point` of `hand`'s rigid body is now, body frame. */
+  pointToRef(hand: Hand, point: string, out: Vector3): Vector3;
+  /** The segment whose frame the body frame is carried by. */
+  readonly root: BuiltSegment;
   /** Its memory (`src/core/state.ts`): the goals it was last given, each hand's path, and the stance's. */
   readonly state: object;
 }
@@ -81,19 +119,23 @@ interface Arm {
   readonly chain: BuiltJoint[];
   readonly hand: BuiltSegment;
   readonly knuckles: Vec3;
-  /** The chain's freedoms the inverse kinematics moves: the shoulder's and the elbow's. */
+  /** Its hand's rigid body's points (`rigidPoints`), body frame, reference pose, by name. */
+  readonly points: ReadonlyMap<string, Vec3>;
+  /** The chain's freedoms the inverse kinematics moves: the shoulder's, the elbow's and the wrist's. */
   readonly free: Free[];
   readonly memory: HandMemory;
 }
 
 /** What motor control remembers of a hand's goal from one step to the next. */
 interface HandMemory {
-  goal: { readonly position: Vec3; readonly seconds: number } | null;
+  goal: HandGoal | null;
   started: boolean;
-  from: Vec3;
+  /** Where each place's point was when the path began, in the places' order. */
+  from: Vec3[];
   time: number;
   /** The angles last solved, by chain joint. */
   angles: number[][];
+  /** Where the first place's path stands. */
   readonly point: Vector3;
   /** Goal angle, rate and acceleration by channel name. */
   readonly goals: Map<string, [number, number, number]>;
@@ -109,28 +151,42 @@ export function motorControl(built: BuiltBody, seconds: number, posture: Pose = 
     const knuckles = hand?.spec.points?.knuckles?.value;
     if (!hand || !knuckles) throw new Error(`${built.spec.model} has no ${side} hand with knuckles`);
     const chain = chainTo(built, hand);
-    const free = chain.flatMap((joint, j) => joint.spec.name === `shoulder.${side}` || joint.spec.name === `elbow.${side}`
+    const moved = [`shoulder.${side}`, `elbow.${side}`, `wrist.${side}`];
+    const free = chain.flatMap((joint, j) => moved.includes(joint.spec.name)
       ? joint.dofs.map((dof, k) => ({ joint: j, k, min: dof.spec.min.value, max: dof.spec.max.value, preferred: 0, name: names(joint)[k]! }))
       : []);
-    return { chain, hand, knuckles, free, memory: { goal: null, started: false, from: [0, 0, 0], time: 0,
-      angles: chain.map((joint) => joint.dofs.map(() => 0)), point: new Vector3(), goals: new Map() } };
+    const points = new Map([...rigidPoints(built.spec, hand.spec)].map(([name, point]) => [name, point.value]));
+    return { chain, hand, knuckles, points, free,
+      memory: { goal: null, started: false, from: [], time: 0,
+        angles: chain.map((joint) => joint.dofs.map(() => 0)), point: new Vector3(), goals: new Map() } };
   };
   const arms: Record<Hand, Arm> = { left: arm("left"), right: arm("right") }, both = [arms.left, arms.right];
   const state: { pose: Pose; pushes: readonly MusclePush[]; standing: StanceGoal | null; readonly hands: Record<Hand, HandMemory>; readonly stance: object } =
     { pose: posture, pushes: [], standing: null, hands: { left: arms.left.memory, right: arms.right.memory }, stance: stance.state };
 
-  /** Where the path is at `time`: minimum jerk, 10 s^3 - 15 s^4 + 6 s^5 of the way. */
-  const along = (m: HandMemory, time: number, out: Vector3): Vector3 => {
-    const { position, seconds: length } = m.goal!;
-    const s = Math.max(0, Math.min(1, time / length)), f = s * s * s * (10 - 15 * s + 6 * s * s);
-    return out.set(m.from[0] + f * (position[0] - m.from[0]), m.from[1] + f * (position[1] - m.from[1]),
-      m.from[2] + f * (position[2] - m.from[2]));
+  /**
+   * Where the path of place `i` is at `time`: minimum jerk, 10 s^3 - 15 s^4 + 6 s^5 of the way
+   * from where the point began to its place, and on `through` beyond it along that line.
+   */
+  const along = (m: HandMemory, i: number, time: number, out: Vector3): Vector3 => {
+    const { places, seconds: length, through = 0 } = m.goal!, position = places[i]!.position, from = m.from[i]!;
+    const s = Math.max(0, Math.min(1, time / length));
+    let f = s * s * s * (10 - 15 * s + 6 * s * s);
+    if (through !== 0) {
+      const way = hypot(position[0] - from[0], position[1] - from[1], position[2] - from[2]);
+      if (way > 0) f = f * (1 + through / way);
+    }
+    return out.set(from[0] + f * (position[0] - from[0]), from[1] + f * (position[1] - from[1]),
+      from[2] + f * (position[2] - from[2]));
   };
   const at = new Vector3();
-  const solveAt = ({ chain, free, knuckles, memory }: Arm, time: number): number[][] => {
+  const solveAt = ({ chain, free, points, memory }: Arm, time: number): number[][] => {
     const angles = memory.angles.map((row) => [...row]);
-    along(memory, time, at);
-    solveReach(chain, angles, free, knuckles, [at.x, at.y, at.z]);
+    const tasks = memory.goal!.places.map((place, i) => {
+      along(memory, i, time, at);
+      return { point: points.get(place.point)!, target: [at.x, at.y, at.z] as Vec3 };
+    });
+    solveReach(chain, angles, free, tasks);
     return angles;
   };
 
@@ -147,14 +203,16 @@ export function motorControl(built: BuiltBody, seconds: number, posture: Pose = 
       });
       for (const f of limb.free) f.preferred = pose[f.name] ?? 0;
       if (!m.started) {
-        pointNowToRef(limb.hand, root, limb.knuckles, at);
-        m.from = [at.x, at.y, at.z];
+        m.from = m.goal.places.map((place) => {
+          pointNowToRef(limb.hand, root, limb.points.get(place.point)!, at);
+          return [at.x, at.y, at.z] as Vec3;
+        });
         m.time = 0;
         m.started = true;
       } else m.time += dt;
       const before = solveAt(limb, m.time - dt), now = solveAt(limb, m.time), after = solveAt(limb, m.time + dt);
       m.angles = now;
-      along(m, m.time, m.point);
+      along(m, 0, m.time, m.point);
       for (const f of limb.free) {
         const q0 = before[f.joint]![f.k]!, q1 = now[f.joint]![f.k]!, q2 = after[f.joint]![f.k]!;
         m.goals.set(f.name, [q1, (q2 - q0) / (2 * dt), (q2 - 2 * q1 + q0) / (dt * dt)]);
@@ -187,10 +245,25 @@ export function motorControl(built: BuiltBody, seconds: number, posture: Pose = 
   return {
     control,
     setPosture(next) { state.pose = next; },
-    reach(hand, position, time) {
-      const m = arms[hand].memory;
-      m.goal = { position, seconds: time };
-      m.started = false;
+    reach(hand, goal) {
+      const { memory: m, points } = arms[hand], { places } = goal;
+      if (places.length !== 1 && places.length !== 2) throw new Error(`a hand goal is one place or two, not ${places.length}`);
+      for (const place of places) {
+        if (!points.has(place.point)) throw new Error(`the ${hand} hand has no point ${place.point}: it has ${[...points.keys()].join(", ")}`);
+      }
+      if (places.length === 2) {
+        const [a, b] = places as [Place, Place];
+        const apart = distance(a.position, b.position), built = distance(points.get(a.point)!, points.get(b.point)!);
+        if (Math.abs(apart - built) > PLACES_SLACK) {
+          throw new Error(`${a.point} and ${b.point} are ${built.toFixed(3)} m apart and their places ${apart.toFixed(3)} m: one rigid body cannot be at both`);
+        }
+      }
+      // A goal that follows keeps the path it is the next places of: the same points, time and run beyond.
+      const was = m.goal;
+      const follows = goal.follows === true && was?.follows === true && was.seconds === goal.seconds && was.through === goal.through
+        && was.places.length === places.length && was.places.every((place, i) => place.point === places[i]!.point);
+      m.goal = goal;
+      if (!follows) m.started = false;
     },
     release(hand) { arms[hand].memory.goal = null; },
     setPushes(next) { state.pushes = next; },
@@ -205,8 +278,20 @@ export function motorControl(built: BuiltBody, seconds: number, posture: Pose = 
     stance, state,
     path: (hand) => arms[hand].memory.goal ? arms[hand].memory.point : null,
     knucklesToRef: (hand, out) => pointNowToRef(arms[hand].hand, root, arms[hand].knuckles, out),
+    pointToRef(hand, point, out) {
+      const at = arms[hand].points.get(point);
+      if (!at) throw new Error(`the ${hand} hand has no point ${point}`);
+      return pointNowToRef(arms[hand].hand, root, at, out);
+    },
+    root,
   };
 }
+
+/**
+ * How far two places' distance apart may differ from their points', m, before the goal is refused:
+ * a centimetre. A numeric setting: places made from the points' own distance miss it by rounding alone.
+ */
+const PLACES_SLACK = 0.01;
 
 /** No freedom pushed. */
 const NO_PUSHES: readonly MusclePush[] = Object.freeze([]);

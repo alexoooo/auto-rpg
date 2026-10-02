@@ -26,7 +26,7 @@ read (`src/core/skills/skills.ts`).
 | Motor control | `src/core/control/` | joint goals, hand goals and the stance turned into muscle commands; a body borne on the ground through its limbs (`bearing.ts`) |
 | Skills | `src/core/skills/` | an intent turned into the body's command: walk, face, strike, guard |
 | Tactics | `src/core/mind/tactics.ts`, `fighter.ts` | what the body should do, decided from what it sees |
-| Minds | `src/core/mind/config.ts`, `minds.ts` | a body's mind made from its config, plain data by kind |
+| Minds | `src/core/mind/config.ts`, `minds.ts`, `rise/` | a body's mind made from its config, plain data by kind; a riser that plays a recipe of stages |
 
 `createBody` (`src/core/body.ts`) gives a built body the command layers as its mind
 (`commandMind`, hosting the sub-minds it is given, under `embody`): its muscles and motor control. Each step it
@@ -37,14 +37,18 @@ and obeys the `BodyCommand` it gets back: a posture, hand goals, timed pushes an
 
 A `BodySpec` (`src/core/spec/body.ts`) holds a body in its reference pose, in metres, with +x
 right, +y up, +z forward and the soles on y = 0: its segments (mass, centre of mass, principal
-inertia, collision shape), its joints (a tree; each freedom with its axis, range and muscle), its
-wounds (`hp`, the `vital` parts, the parts that never come off) and anything held.
+inertia, collision shape, and its surface: how stiff it is under a blunt load, which is what a
+blow is shared by), its joints (a tree; each freedom with its axis, range and muscle), its
+wounds (`hp`, the `vital` parts, the parts that never come off) and anything held. An item
+states a surface or is rigid.
 
 The human body plan builds every current body. `figureSpec` (`src/core/human/spec.ts`) takes a
 `HumanFigure` (the sex whose tables apply, the landmarks, the trunk's hulls, the feet, the hands,
 the mass, the stature and the hit points) and lays out 16 segments and 15 joints from published
 tables: de Leva for segment parameters, Dempster via Winter for densities, measured joint ranges
-and torques, Abe for regional muscle, and Anderson, Frey-Law and Thelen for force and speed.
+and torques, Abe for regional muscle, Anderson, Frey-Law and Thelen for force and speed, and
+the impact literature for each part's stiffness under a blunt load (`CONTACT_STIFFNESS`,
+[reference/wounds.md](reference/wounds.md#stiffness)).
 
 | Model | Figure | Hit points |
 |---|---|---|
@@ -87,7 +91,8 @@ each function's values to a record ([reference/real-functions.md](reference/real
 ### Build
 
 `buildBody` (`src/core/build/build-body.ts`) makes one engine body per segment, with the spec's
-mass and inertia (a held item's are folded in by `rigidOf`), and one joint per spec joint, whose
+mass and inertia (a held item's are folded in by `rigidOf`, which says whose each of the rigid
+body's shapes is: the segment's own, or an item it holds), and one joint per spec joint, whose
 free axes are the spec's freedoms. The body is built in the pose its joints demand.
 
 - `jointAngles` and `jointTracker` (`joint-state.ts`) read each freedom's angle as the engine's
@@ -105,9 +110,11 @@ writes each node's `position` and `rotationQuaternion`; bodies that never sleep;
 whole; velocities of the centre of mass; one friction (`CONTACT_FRICTION`, 0.5) and no bounce on
 every contact; freedom k as axis k of the joint's frame; a motor as a velocity constraint bounded
 by a torque; a force and a moment on a body through one step, integrated as gravity is, beside
-the impulse that is whole before it; and every body and every fixed collider a body is in contact
+the impulse that is whole before it; every body and every fixed collider a body is in contact
 with as the last step left it (`contactsOf`), each with the impulse the solver pushed the two apart
-with, which is 0 for two in contact that it did not push on. In contact is the engine's narrow
+with, which is 0 for two in contact that it did not push on, and naming the pairs of shapes it
+pushed on by their places in their bodies (`Contact.pairs`); and how far a point is from a body's
+shapes (`SegmentBody.gapTo`). In contact is the engine's narrow
 phase giving the solver a contact point: touching, or within the distance Rapier predicts a contact
 over, 2 cm. A reader may refuse a body, or everything fixed, before the contact between them is
 read: most of what is near a segment is its own body's neighbouring segments, and reading a pair
@@ -133,8 +140,14 @@ braking and blocking). A muscle can never exceed its source's strength at its sp
 - **The servo** (`src/core/control/servo.ts`) asks each joint for a critically damped approach to
   its goal and computes the torques that produce it through the body's own dynamics (mass matrix,
   bias and gravity), solved around the freedoms that are being pushed and clipped at strength.
-- **Hand goals** (`motor.ts`, `kinematics.ts`): the knuckles follow a minimum-jerk path to a place
-  at a time, solved for shoulder and elbow and fed forward to the servo.
+- **Hand goals** (`motor.ts`, `kinematics.ts`): named points of a hand's rigid body (its
+  knuckles, a point of what it holds: `rigidPoints`, `src/core/build/rigid.ts`) follow
+  minimum-jerk paths to places in the body frame at a time (`HandGoal`), solved for the
+  shoulder, the elbow and the wrist and fed forward to the servo. One place puts a point there;
+  two put two points of the one body, which lays the line between them (`solveReach`: three
+  rows, or five). A path may run on past its place (`through`), and a goal given again with
+  other places may be the same path, its end moved (`follows`). The body frame is the root's
+  (`BodyView.root`), which a skill turns a world point into (`intoFrameToRef`).
 - **The bearing solve** (`bearing.ts`) is a body borne on the ground through limbs, and knows no
   foot. A limb (`Limb`) is the chain of freedoms from the root to a segment, with a task at a
   point of that segment: to bear there on a patch of the ground, or to move free. `carryRoot`
@@ -146,7 +159,12 @@ braking and blocking). A muscle can never exceed its source's strength at its sp
   a free limb solved within its strength (`boundedLeastSquares`). What the patches miss it
   leaves in its caller's record and asks the assist for: the root is asked for what the patches
   and the assist give together. A task may ask only some rows of its point's motion, and a
-  freedom may be asked ahead of the task (`Limb.work`).
+  freedom may be asked ahead of the task or toward a posture beneath it (`Limb.work`). A patch
+  is a sole or a point (`Patch`), and may be given a part of the load (`LimbWork.share`). A
+  limb may hang from a stem (`Limb.stem`): the freedoms between the root and its chain, which
+  limbs may share and the servo moves (the trunk's, under both arms). The limb's task takes
+  their motion as known, and their torques are the solve's, less each bearing limb's share of
+  the ground's wrench.
 - **The stance** (`stance.ts`; its records in `stance-state.ts`, its steps in `gait.ts`, its
   soles in `support.ts`, its constants in `stance-tuning.ts`) is the standing plan, and the
   solve's first user: it keeps the body up by the forces the ground can really give. It plans
@@ -170,14 +188,19 @@ braking and blocking). A muscle can never exceed its source's strength at its sp
 - **Locomotion** (`locomotion.ts`) walks at no more than the body's measured fastest walk, turns
   only while walking and no faster than its envelope allows, and can set the feet at a chosen
   place (`Locomotion.place`).
-- **Strike** (`strike.ts`, `strikes.ts`) throws a searched recipe: a chamber pose and timed muscle
-  pushes (`Strike`), one per body and held item, for the right hand, in `assets/core/strikes.json`
-  (`REPERTOIRE`, written by `research/core-strike-repertoire.mjs` from the searches), thrown from
-  guard and landing over a measured window (`Recipe.window`). The skill chooses the recipe for what
-  the hand holds (`recipeFor`; the left hand's is mirrored, and a body with none of its own
-  borrows one), walks the body to where the target sits in the window, sets the feet, stands
-  `STAND` seconds, and throws. While a strike runs it owns the legs and trunk, and the other hand
-  guards.
+- **Strike** (`strike.ts`, `strikes.ts`) carries out a hand's attack by one of two blows. A
+  searched recipe is a chamber pose and timed muscle pushes (`Strike`), one per body and held
+  item, for the right hand, in `assets/core/strikes.json` (`REPERTOIRE`, written by
+  `research/core-strike-repertoire.mjs` from the searches), thrown from guard and landing over a
+  measured window (`Recipe.window`: along the heading, across it, and the target's height over
+  the head). A placed blow (`PLACED`) is a hand goal: the point the hand strikes with (`aimOf`:
+  its knuckles, or what its item says, the club's swell) carried through the target, which it
+  follows in the body frame each step. The skill chooses the recipe for what the hand holds
+  (`recipeFor`; the left hand's is mirrored, and a body with none of its own borrows one) where
+  the target's height is in its window, and a placed blow where it is not or the hand has no
+  recipe; walks the body to where the target sits in the blow's window, sets the feet, stands
+  `STAND` seconds, chooses again by the head as it stands, and throws. While a strike runs it
+  owns the legs and trunk, and the other hand guards.
 - **Guard** (`guard.ts`, `GUARD`) is the arms' posture when nothing else owns them.
 
 ### Minds
@@ -228,13 +251,30 @@ sub-minds nested configs in it (`SubMindConfig`), so a sub-mind is configured wh
 its fight (its orders, its senses, its assist's ceiling), and gives back a `Minded`: the body and
 the mind's memory, which is all a fight reads; a reader that knows the kind narrows on it (a
 fighter's skills and their report). The switches that make a mind and a sub-mind of a config
-have a `never` default. There is one kind of mind, the fighter, and one sub-mind, `lie`
-(`lying`, `lie.ts`), which wants the body while it is down (`BodyView.down`) and asks its
-muscles for nothing. `FIGHTER` is the fighter with `lie`: the mind every body has unless its
-fight says otherwise, so a body that falls lies still
-([reference/rising.md](reference/rising.md#lying)). An arena recipe may name each side's mind
-(`DuelRecipe.minds`); the crypt gives every body `FIGHTER`; the lab's actor, whose tactics are
-its scenario's, takes `FIGHTER`'s sub-minds (`subMindsOf`).
+have a `never` default. There is one kind of mind, the fighter, and two sub-minds, each of
+which wants the body while it is down (`BodyView.down`): `lie` (`lying`, `lie.ts`), which
+asks its muscles for nothing, and `staged-rise` (`stagedRise`, `rise/staged.ts`), the riser.
+`FIGHTER` is the fighter with `lie`: the mind every body has unless its fight says otherwise,
+so a body that falls lies still ([reference/rising.md](reference/rising.md#lying)). An arena
+recipe may name each side's mind (`DuelRecipe.minds`); the crypt gives every body `FIGHTER`;
+the lab's actor, whose tactics are its scenario's, takes the sub-minds its page chose
+(`ActorOptions.subs`, made by `subMindsOf`), and `FIGHTER`'s unless it is given others.
+
+**The riser plays a recipe** (`Recipe`, `RISE`, `rise/stages.ts`): plain data that names
+freedoms and limbs, and no body. It lies slack until its centre of mass is still, reads how it
+lies (`lieOf`: on its front, its back or a side), and plays stages. A stage is a pose
+(`PoseStage`: every freedom turned toward a posture for a time, the posture written from each
+freedom's own zero, `DofSpec.bind`, so one posture is one shape on every body) or a bearing
+(`BearStage`: the body borne on limbs the recipe names, `riseLimbs`, `rise/limbs.ts`, its
+centre of mass held over them by their shares; a step of motor control's shape on the bearing
+solve). On its back or a side it plays that lie's roll, which turns it onto its front, lies
+slack and reads again; on its front it plays the rise. A bearing stage is done when the body is
+where the stage asks and slow, and is given up at its limit, which ends the attempt: the riser
+lies slack and begins again. `stageFaults` says what of a recipe a body's spec cannot play, and
+a riser refuses such a recipe as it is made. What a riser remembers (its phase, how it lies, its
+stage, its attempts and the furthest it got) is its state under its mind's. The game's recipe
+ends on knees and hands: nothing in it stands a body up
+([reference/rising.md](reference/rising.md#where-the-rise-stops)).
 
 `Tactics` (`tactics.ts`) are `decide(sight, dt)`: from their `Sight` (the body's view, the
 skills' report and the body's envelope) they return an `Intent` (`intent.ts`): a velocity forward
@@ -330,16 +370,28 @@ The rules of a fight are `src/core/rules/`, free of any page so they can be argu
 - **A touch** (`watchTouches`, `src/core/touches.ts`) is a watched segment that the solver pushed
   on another watched segment, or on something fixed, while closing on it, from the step it is
   first pushed until, as its reader asks, the solver stops pushing or the two part. A body's own
-  segments touch too, read from each of the two, unless the reader refuses them. Its energy is
-  `impactEnergy` (`impact.ts`): half the reduced mass of the two effective masses (`contactMass`;
-  something fixed is a mass nothing moves) times the closing speed squared.
-- **A blow** (`watchBlows`, `blows.ts`) is a touch of a striker (a hand, or anything it holds) on
-  another side's body, lasting while the solver pushes, priced by the rulebook. Hand against hand
-  is a clash and does nothing.
-- **Damage** (`rulebook.ts`) is energy times the mechanism's worth over the unit. The unit is the
-  Warrior's strongest one-handed blow with the wooden club (`core-club-unit`,
-  `research/core-club-unit.json`), and every mechanism (blunt, edge, axe, point) keeps its ratio to
-  the club. The arena's rulebook and the dungeon's are the same rules.
+  segments touch too, read from each of the two, unless the reader refuses them. It names the
+  pairs of shapes the solver pushed on. Its energy is `impactEnergy` (`impact.ts`): half the
+  reduced mass of the two effective masses (`contactMass`; something fixed is a mass nothing
+  moves) times the closing speed squared.
+- **A blow** (`watchBlows`, `blows.ts`) is a touch between any two segments of two sides'
+  bodies, lasting while the solver pushes: it has no striker. Its energy is the touch's. Its
+  record is two sides (`BlowSide`), the surfaces that met: of the pairs of shapes the solver
+  pushed on, the one it pushed on hardest, each shape its segment's own or an item it holds. Each
+  side has the share of the energy it took, its damage and its wound.
+- **The two surfaces share the energy by their compliance** (`energyShares`, `share.ts`): springs
+  in series under one force, so the softer takes the more. A segment's surface is its spec's; an
+  item that states none is rigid and takes none. So a fist takes five eighths of its own punch to
+  a head and an eighth of one to a chest, what a club strikes takes the whole blow, a bare hand
+  that meets a club takes all of it, and two clubs meeting are a clash, in which neither side
+  takes any (`isClash`). The values, their gaps and what a part holds beside the literature:
+  [reference/wounds.md](reference/wounds.md).
+- **Damage** (`rulebook.ts`) is energy times the mechanism's worth over the unit. The unit is
+  100 J of blunt blow a hit point, the owner's round number (`owner-damage-unit`,
+  [reference/wounds.md](reference/wounds.md#unit)), and every mechanism (blunt, edge, axe, point)
+  keeps its ratio to blunt. The Warrior's strongest one-handed blow with the wooden club is a
+  measurement beside it (`CLUB_BEST`, `research/core-club-unit.json`): 138.26 J, 1.38 hit points.
+  The arena's rulebook and the dungeon's are the same rules.
 - **Wounds** (`pool.ts`): one pool of hit points per body, split over its parts by cross-section
   (mass to the two-thirds, as the square of its cube root). A part's excess damage spreads to its neighbours, nearest first and
   inward first. A part emptied by a clean blow, or hit far enough past empty, comes off, except the
@@ -355,8 +407,8 @@ The rules of a fight are `src/core/rules/`, free of any page so they can be argu
   assist.
 
 A body that is down (`BodyView.down`: its centre of mass a quarter metre under the height it is
-asked to hold, over its lowest point, `src/core/control/ground.ts`) is out of the fight, and lies still (`lie`): rising is
-not built yet. The arena's verdict (`Duel.judge`, `src/arena/duel.ts`): a side is out when its
+asked to hold, over its lowest point, `src/core/control/ground.ts`) is out of the fight, and lies still (`lie`): the
+riser ends on knees and hands, and no fight gives its bodies one. The arena's verdict (`Duel.judge`, `src/arena/duel.ts`): a side is out when its
 pool ends or its body is down; both out on one step is a draw; at 120 s the fuller bar wins.
 
 A bout is built from a recipe (`DuelRecipe`): the two bodies, how far apart they start, the
@@ -419,11 +471,15 @@ arena, crypt and lab screens at `?play=arena`, `?play=dungeon` and `?play=lab`, 
 - **The lab** (`src/lab/`): one body at a time in the Stance, Routine, Run and Blow
   scenarios (`scenarios.ts`), at 120 or 480 Hz, with a transport that steps the world by hand.
   Every scenario drives its body through an actor (`actor.ts`), which gives the body what the
-  page chose: its balance, its mind (`minds.ts`) and the strikes it may throw. The page logs what
+  page chose: its balance, its mind, what it does once it is down (to lie, or to rise by
+  stages: `LAB_MINDS`, `LAB_DOWN`, `minds.ts`) and the strikes it may throw. The Routine's
+  targets are bodies (`targets.ts`): a ball of the attacker's head, hung where a seed drew it as
+  the strike at it begins and read by the rule a fight wounds by (`watchBlows`), one at a time
+  ([reference/blows.md](reference/blows.md#targets)). The page logs what
   the mind decides, and who has the body when it changes hands (`mind-log.ts`), and what the body
-  sounds of (`sound-log.ts`): its touches, its air, and the cue of each instrument that is no
-  contact, the shove and the Blow's mark, each at the mind's time, so the page plays what the
-  frame it shows sounded of, live or replayed. Its HUD is sections (`hud/sections.ts`) that the shell and the scenario fill with controls
+  sounds of (`sound-log.ts`): its touches, its air, the touches of a target that hangs beside it,
+  and the cue of each instrument that is no contact, the shove and the Blow's mark, each at the
+  mind's time, so the page plays what the frame it shows sounded of, live or replayed. Its HUD is sections (`hud/sections.ts`) that the shell and the scenario fill with controls
   built from data (`hud/controls.ts`).
 - **The character workshop** (`/character-lab.html`, `src/character-lab/`): the workshop models
   with their authored preview motion. It uses no core. See [art/characters.md](art/characters.md).
@@ -436,11 +492,11 @@ its collision shapes if the skin does not load; the skins (`skin.ts` for the hum
 segments' achieved transforms and own no collision, and the collision shapes drawn
 (`body-shapes.ts`). The arena and the crypt also share the post pipeline (`post.ts`), textured
 surfaces (`surface.ts`, `materials.ts`, `textures.json`) and sound (`src/audio/`): `cues.ts`
-makes a cue of an energy and the two surfaces that met, `game-audio.ts` synthesizes and mixes
+makes a cue of an energy and what the two that met are made of, `game-audio.ts` synthesizes and mixes
 what a page plays, and `body-sounds.ts` reads what a body sounds of from the world: its touches
 (`hearTouches`) and its air (`airOf`). Every screen plays both: the lab from its log, the arena
 of its two sides until the verdict, the crypt of every body the party sees. A blow is a touch,
-and is heard as one; what it takes off is a cue of its own (`debrisCue`)
+and is heard as one; what it takes off a side is a cue of its own (`debrisCues`)
 ([reference/look.md](reference/look.md#sound)).
 
 ## Standing decisions
@@ -456,10 +512,10 @@ These are the owner's, and the code is built on them.
 - **Torque sources with the body's real inertia**, and an eccentric ceiling of 1.4 times isometric.
 - **A person never commands muscles.** A person's input is orders (`Orders`): walk this way, face
   that way, attack that point. The body's own tactics and skills carry them out.
-- **Strikes are searched recipes now, hand goals next**: a strike becomes a place, a speed and a
-  time for the hand, met by arm, trunk and legs together, and the tactics' intent, attack that, does
-  not change. Nothing is built that the next step throws away, or searched on a path the game will
-  not use.
+- **Strikes are searched recipes where one lands, and hand goals where none does**: a placed
+  blow is a place and a time for the hand, met by the arm alone. Next it is met by arm, trunk and
+  legs together, with a speed, and the tactics' intent, attack that, does not change. Nothing is
+  built that the next step throws away, or searched on a path the game will not use.
 - **Sizes and hit points.** x1 is a typical adult, about 1.77 m and 79 kg; the Rogue keeps her own
   proportions. The Warrior has 6 hit points and the Rogue 4.
 - **The skeleton is a family of its own, not a reskin.** It keeps thin colliders though they make it

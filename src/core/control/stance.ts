@@ -9,11 +9,11 @@ import type { StanceTuning } from "./stance-tuning.ts";
 import { ownStep, paceToward } from "./gait.ts";
 import { gravityOf, makeStance, type Stance } from "./stance-state.ts";
 import {
-  bearingOf, bearingSole, centreOfToRef, footMotionToRef, pointOfToRef, readSupport, soleMiddleToRef, turnOfToRef,
+  bearingOf, bearingSole, centreOfToRef, motionAtToRef, pointOfToRef, readSupport, rolledRows, soleMiddleToRef, turnOfToRef,
   withinSupport, type FootState,
 } from "./support.ts";
 import { cos, atan2, exp, sinh, cosh, hypot } from "../math/real.ts";
-import { turnAboutToRef, turnBetweenToRef } from "../math/turn.ts";
+import { spinBetweenToRef, turnAboutToRef, turnBetweenToRef } from "../math/turn.ts";
 
 export type Foot = "left" | "right";
 
@@ -326,15 +326,10 @@ function shiftWeight(s: Stance, swing: SwingGoal | null, bearer: FootState | und
 
 /** The pelvis's asked turn, into `spin`: toward upright at `heading`, the error over the time constant. */
 function pelvisTurn(s: Stance, heading: number): void {
-  const { pelvis } = s, { seconds } = s.tuning, { target, inverse, error, spin } = s.scratch;
+  const { pelvis } = s, { seconds } = s.tuning, { target, spin } = s.scratch;
   turnAboutToRef(Vector3.UpReadOnly, heading, target);
   target.multiplyInPlace(pelvis.rest);
-  Quaternion.InverseToRef(pelvis.node.rotationQuaternion!, inverse);
-  target.multiplyToRef(inverse, error);
-  if (error.w < 0) error.scaleInPlace(-1);
-  // A turn under 1e-12 has no axis to divide by: a numeric setting.
-  const half = hypot(error.x, error.y, error.z), angle = 2 * atan2(half, error.w);
-  spin.set(error.x, error.y, error.z).scaleInPlace(half > 1e-12 ? angle / half / seconds.turn : 0);
+  spinBetweenToRef(pelvis.node.rotationQuaternion!, target, seconds.turn, spin);
 }
 
 /**
@@ -343,7 +338,7 @@ function pelvisTurn(s: Stance, heading: number): void {
  */
 function swingFoot(s: Stance, swing: SwingGoal, heading: number, dt: number): void {
   const { feet } = s, { step, tasks, reading } = s.state, { seconds } = s.tuning;
-  const { sole, level, path, along, inverse, error, turn, whole, wholeAxis } = s.scratch;
+  const { sole, level, path, along, turn, wholeAxis } = s.scratch;
   const foot = feet.find((f) => f.side === swing.foot)!;
   soleMiddleToRef(foot, sole);
   if (!step.lifted) {
@@ -364,24 +359,17 @@ function swingFoot(s: Stance, swing: SwingGoal, heading: number, dt: number): vo
   path.set(from.x + (swing.to[0] - from.x) * eased, from.y + swing.lift * bump, from.z + (swing.to[1] - from.z) * eased);
   turnBetweenToRef(step.lift, level, eased, step.turn);
   along.set((swing.to[0] - from.x) * ds, swing.lift * dbump, (swing.to[1] - from.z) * ds);
-  step.turn.multiplyToRef(Quaternion.InverseToRef(foot.segment.node.rotationQuaternion!, inverse), error);
-  if (error.w < 0) error.scaleInPlace(-1);
-  // A turn under 1e-12 has no axis to divide by, here and for the whole turn below: a numeric setting.
-  const half = hypot(error.x, error.y, error.z), angle = 2 * atan2(half, error.w);
-  turn.set(error.x, error.y, error.z).scaleInPlace(half > 1e-12 ? angle / half / seconds.swing : 0);
-  // The whole turn from lift to landing, world: the path's turn goes about its axis at its angle
-  // times the path's rate.
-  level.multiplyToRef(Quaternion.InverseToRef(step.lift, whole), whole);
-  if (whole.w < 0) whole.scaleInPlace(-1);
-  const wholeHalf = hypot(whole.x, whole.y, whole.z), wholeAngle = 2 * atan2(wholeHalf, whole.w);
-  wholeAxis.set(whole.x, whole.y, whole.z).scaleInPlace(wholeHalf > 1e-12 ? wholeAngle / wholeHalf : 0);
+  spinBetweenToRef(foot.segment.node.rotationQuaternion!, step.turn, seconds.swing, turn);
+  // The whole turn from lift to landing, world, as its axis times its angle: the path's turn goes
+  // about its axis at its angle times the path's rate.
+  spinBetweenToRef(step.lift, level, 1, wholeAxis);
   // The path's acceleration, and its errors in place and speed taken up critically damped at the
   // swing's constant; its turn's likewise, with the turn's own rate and acceleration: damping
   // alone lags a turn by twice its rate times the swing's constant, and a foot turning over a
   // swing lands off the heading (`tests/core-stance.test.mjs`).
   const task = tasks[feet.indexOf(foot)]!, w = 1 / seconds.swing, T = swing.seconds;
   const dds = tau < 1 ? 60 * tau * (1 - tau) * (1 - 2 * tau) / (T * T) : 0, ddbump = tau < 1 ? 32 * (1 - 6 * tau + 6 * tau * tau) / (T * T) : 0;
-  footMotionToRef(foot, sole, task.linear, task.angular);
+  motionAtToRef(foot.segment, sole, task.linear, task.angular);
   task.linear.set((swing.to[0] - from.x) * dds + w * w * (path.x - sole.x) + 2 * w * (along.x - task.linear.x),
     swing.lift * ddbump + w * w * (path.y - sole.y) + 2 * w * (along.y - task.linear.y),
     (swing.to[1] - from.z) * dds + w * w * (path.z - sole.z) + 2 * w * (along.z - task.linear.z));
@@ -485,7 +473,7 @@ function holdStance(s: Stance, stance: readonly FootState[], e: number): void {
   const { feet } = s, { tasks } = s.state;
   for (const foot of stance) {
     const task = tasks[feet.indexOf(foot)]!;
-    footMotionToRef(foot, foot.memory.rolled ? foot.edge : foot.middle, task.linear, task.angular);
+    motionAtToRef(foot.segment, foot.memory.rolled ? foot.edge : foot.middle, task.linear, task.angular);
     task.linear.scaleInPlace(-e);
     task.angular.scaleInPlace(-e);
     task.on = true;
@@ -530,8 +518,7 @@ function aimLimb(s: Stance, foot: FootState, limb: Limb, muscles: MuscleDriver):
     // Rolled, the foot's turn about its front edge is free and the ankle is held at its stop
     // less the spare, critically damped at the height's constant: the leg pivots on the edge.
     // Of the spin's rows the task keeps the one about the level normal to the edge, and the one about up.
-    const w = Vector3.Cross(foot.edgeAxis, Vector3.UpReadOnly);
-    work.rows = [[[0, w.x], [1, w.y], [2, w.z]], [[1, 1]], [[3, 1]], [[4, 1]], [[5, 1]]];
+    work.rows = rolledRows(foot);
     const pre = step.swing;
     if (gait.preswing !== undefined && reading.phase === "shift" && pre?.transfer && pre.foot === foot.side) {
       const k = foot.chain[0]!.dofs.length, i = foot.memory.channels[k]!, m = 1 / gait.preswing.seconds;

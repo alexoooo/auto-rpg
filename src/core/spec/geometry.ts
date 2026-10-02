@@ -21,3 +21,8 @@ export function capsuleRadius(volume: number, length: number): number {
   }
   return (low + high) / 2;
 }
+
+/** A solid ball's moment of inertia about any axis through its centre, kg m2: 2/5 m r^2. */
+export function ballMoment(mass: number, radius: number): number {
+  return (2 / 5) * mass * radius * radius;
+}

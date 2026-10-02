@@ -1,4 +1,4 @@
-import type { Surface } from "../spec/body.ts";
+import type { Substance } from "../spec/body.ts";
 import type { Quantity, Vec3 } from "../spec/quantity.ts";
 import type { Extents, TrunkSegment } from "./envelope.ts";
 import type { LimbLandmarks, Side, TrunkLandmarks } from "./landmarks.ts";
@@ -18,8 +18,8 @@ export interface HumanFigure {
   /** The spec's family and model. */
   readonly family: string;
   readonly model: string;
-  /** What the body is made of (`BodySpec.surface`). */
-  readonly surface: Surface;
+  /** What the body is made of (`BodySpec.substance`). */
+  readonly substance: Substance;
   /** Which column of a sex-specific table the figure reads. */
   readonly sex: Sex;
   /** The one factor from the authored size to x1; absent, the figure is authored at x1. */

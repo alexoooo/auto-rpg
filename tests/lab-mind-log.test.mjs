@@ -38,7 +38,7 @@ test("a_log_keeps_its_last_notes_and_gives_those_made_by_a_time", () => {
 test("logged_tactics_decide_as_their_own_and_note_each_thing_as_it_changes", () => {
   const stand = { move: null, face: 0, hands: { left: GUARD_ACTION, right: GUARD_ACTION } };
   const attack = { ...stand, hands: { left: GUARD_ACTION, right: { kind: "attack", target: [0, 1, 1] } } };
-  const strike = (phase) => ({ phase, chosen: phase && { strike: { name: "a blow" } } });
+  const strike = (phase) => ({ phase, blow: phase && "recipe", chosen: phase && { strike: { name: "a blow" } } });
   // Each step: what the tactics decide, and what they see of their skills.
   const steps = [
     [stand, strike(null)], [stand, strike(null)], [{ ...stand, move: [0.3, 0], face: 1 }, strike(null)],
