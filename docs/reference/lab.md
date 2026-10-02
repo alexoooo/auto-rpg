@@ -126,6 +126,8 @@ part of the arm is one now, and counts as landed.
 | 120 | ten targets, no dummy hung | 58, 5; 590 thrown | 60, 6; 600 thrown |
 | 480 | the walk alone | 60, 6 | 60, 6 |
 | 480 | ten targets | 27, 0; 285 thrown, 97 landed | 50, 5; 507 thrown, 275 landed |
+| 120 | ten targets, placed blows | 43, 2; 446 thrown, 335 landed | 60, 6; 600 thrown, 438 landed |
+| 480 | ten targets, placed blows | 45, 4; 464 thrown, 353 landed | 60, 6; 600 thrown, 429 landed |
 
 The gait holds the walk and the turn from standing, at both rates. The Warrior's falls at 120 Hz
 came closing on a target (twice) and setting its feet for one, with its blows landing; walking
@@ -133,6 +135,13 @@ back, with the control alone and with no dummy hung. At 480 Hz with ten targets 
 run, closing on a target or setting its feet for one, and the Rogue fell once setting its feet
 and once did not end its loops in their time. Six runs a row: counts, and no rates. What one of
 the falls was: [blows.md](blows.md#a-loop-of-ten).
+
+The two rows with placed blows are of the tree where a target off a recipe's height is struck
+by a placed blow ([blows.md](blows.md#placed)): of the ten targets of a loop the Warrior's
+recipe is thrown at one or two and the Rogue's at two, and the rest are placed. The Rogue holds
+every loop at both rates. The Warrior falls in four runs of six at 120 Hz, in its third, fourth
+and tenth loops (the tenth twice), and in two of six at 480 Hz, in its first and sixth: five of
+the six setting its feet for a target and one closing on one.
 
 Command: `node research/core-routine-battery.mjs --seeds 6 --loops 10`, with `--targets` and
 `--hz 480` for the other rows; its other flags are `--variants` (stance settings), `--impulse`

@@ -4,7 +4,7 @@ import type { StanceEnvelope } from "../core/control/stance-envelope.ts";
 import { GUARD_ACTION, type Intent } from "../core/mind/intent.ts";
 import type { Sight, Tactics } from "../core/mind/tactics.ts";
 import { rulebook, type Rulebook } from "../core/rules/rulebook.ts";
-import type { SkillReport } from "../core/skills/skills.ts";
+import type { SkillOptions, SkillReport } from "../core/skills/skills.ts";
 import { APPROACH } from "../core/skills/strike.ts";
 import type { Actor } from "./actor.ts";
 import { trackTactics } from "./run-mode.ts";
@@ -103,9 +103,8 @@ function routineTactics(track: Track, envelope: StanceEnvelope, drawing: Drawing
   /** The strikes thrown so far, and as the target that is up took its turn. */
   let thrown = 0, counted = 0;
   let targets: readonly Target[] | null = null;
-  let order: readonly Hand[] | null = null;
   const closing = APPROACH.pace * APPROACH.seconds;
-  const handOf = (index: number): Hand | null => order && order.length > 0 ? order[index % order.length]! : null;
+  const handOf = (index: number): Hand | null => hands.length > 0 ? hands[index % hands.length]! : null;
   return {
     name: "routine",
     get leg() { return leg; },
@@ -123,13 +122,12 @@ function routineTactics(track: Track, envelope: StanceEnvelope, drawing: Drawing
       const end = track.at(ROUTINE_METRES);
       const place: Vec3 = [end.x + POST_BEYOND * Math.sin(end.heading), 0, end.z + POST_BEYOND * Math.cos(end.heading)];
       targets ??= drawTargets(drawing.seed, drawing.count, { place, heading: end.heading, stature: drawing.stature, head: view.head.y });
-      order ??= hands.filter((hand) => report.strike.reach[hand] !== null);
       if (laps > loops) { loops = laps; leg = "out"; next = drawing.from; }
       thrown = report.strike.thrown.left + report.strike.thrown.right;
       const hand = handOf(next), first = targets[drawing.from]?.at ?? place;
       if (leg === "out") {
         // It walks out to where its first blow reaches its first target; with none to throw, to the targets' place.
-        const reach = hand ? report.strike.reach[hand]! : 0;
+        const reach = hand ? report.strike.reach[hand] : 0;
         if (Math.hypot(first[0] - view.head.x, first[2] - view.head.z) <= reach + closing) { leg = "post"; counted = thrown; }
       }
       if (leg === "post" && (!hand || next >= targets.length)) leg = "back";
@@ -158,6 +156,8 @@ interface RoutineOptions {
   readonly from?: number;
   /** The hands that strike, in turn. */
   readonly hands?: readonly Hand[];
+  /** An experiment's skills, in place of their defaults. */
+  readonly skills?: SkillOptions;
   /** The rules its targets are read under: the arena's unless given. */
   readonly rules?: Rulebook;
 }
@@ -189,8 +189,9 @@ interface Routine {
 export function startRoutine(actor: Actor, options: RoutineOptions = {}): Routine {
   const { body, world } = actor, built = body.built;
   if (!built.segments.has("lowerTrunk")) throw new Error(`${built.spec.model} is not a human the routine knows`);
-  const { targets: count = ROUTINE_TARGETS.count, seed = ROUTINE_TARGETS.seed, from = 0, hands = ROUTINE_HANDS, rules = rulebook("arena") } = options;
-  const tactics = routineTactics(trackOf(ROUTINE_TRACK), body.envelope!, { count, seed, from, stature: built.spec.stature.value }, hands);
+  const { targets: count = ROUTINE_TARGETS.count, seed = ROUTINE_TARGETS.seed, from = 0, hands = ROUTINE_HANDS, rules = rulebook("arena"), skills } = options;
+  const tactics = routineTactics(trackOf(ROUTINE_TRACK), body.envelope!, { count, seed, from, stature: built.spec.stature.value },
+    hands.filter((hand) => actor.strikes[hand]));
   const fists = body.view.fists;
   const speed = { left: 0, right: 0 };
   const readings: TargetReading[] = [];
@@ -232,7 +233,7 @@ export function startRoutine(actor: Actor, options: RoutineOptions = {}): Routin
     const reading = open?.step(sight);
     if (reading) close(reading);
   };
-  const { report } = actor.drive(tactics, { watch: read });
+  const { report } = actor.drive(tactics, { skills, watch: read });
   // Down, the body is not its tactics' to step: the target that is up is closed as it stands.
   const fall = world.afterStep(() => { if (open && body.view.down) close(open.fall()); });
 
@@ -250,7 +251,7 @@ export function startRoutine(actor: Actor, options: RoutineOptions = {}): Routin
         case "out": return "Walking out";
         case "back": return "Walking back";
         case "post": {
-          const name = report.strike.chosen?.strike.name;
+          const name = report.strike.chosen?.strike.name ?? "placed";
           switch (report.strike.phase) {
             case "approach": return "Closing on its target";
             case "place": return "Setting its feet";

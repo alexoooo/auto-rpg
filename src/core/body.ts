@@ -1,8 +1,9 @@
-import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { BuiltBody, BuiltSegment } from "./build/build-body.ts";
 import type { Assist, AssistCeiling } from "./control/assist.ts";
 import { uprightness } from "./control/ground.ts";
-import { motorControl, type Hand, type MotorControl, type MusclePush, type Pose } from "./control/motor.ts";
+import { rootFrameToRef, type Frame } from "./control/kinematics.ts";
+import { motorControl, type Hand, type HandGoal, type MotorControl, type MusclePush, type Pose } from "./control/motor.ts";
 import type { StanceGoal, StanceReading } from "./control/stance.ts";
 import type { StanceTuning } from "./control/stance-tuning.ts";
 import { stanceEnvelope, type StanceEnvelope } from "./control/stance-envelope.ts";
@@ -11,7 +12,6 @@ import { clockSenses, NOTHING_SENSED, type Senses } from "./mind/senses.ts";
 import { hosting, type HostMind } from "./mind/sub-mind.ts";
 import type { SubMindMaker } from "./mind/sub-minds.ts";
 import type { MuscleDriver } from "./muscle/driver.ts";
-import type { Vec3 } from "./spec/quantity.ts";
 import type { World } from "./world.ts";
 
 /**
@@ -72,20 +72,16 @@ export interface BodyCommand {
   /** Angles by channel; a freedom not named is held at its reference angle. */
   readonly posture: Pose;
   /**
-   * For each hand, where its knuckles go (body frame, `kinematics.ts`) and in what time, or null to
-   * give the arm to the posture. A goal equal to the one before keeps its path; another starts a
-   * new one from where the knuckles are.
+   * For each hand, where named points of its rigid body go (body frame, `BodyView.root`) and in
+   * what time (`HandGoal`), or null to give the arm to the posture. A goal equal to the one before
+   * keeps its path, as does one that follows it (`HandGoal.follows`); another starts a new one
+   * from where the points are.
    */
   readonly hands: Readonly<Record<Hand, HandGoal | null>>;
   /** Freedoms driven by their muscles alone, whatever else would own them. */
   readonly pushes: readonly MusclePush[];
   /** Stand on the ground so (`stance.ts`), or null to leave the legs to the posture. */
   readonly stance: StanceGoal | null;
-}
-
-interface HandGoal {
-  readonly position: Vec3;
-  readonly seconds: number;
 }
 
 /** A command that holds the reference pose. */
@@ -103,6 +99,12 @@ export interface BodyView {
   readonly fists: Readonly<Record<Hand, Fist>>;
   /** Each hand's knuckles in the body frame, where a hand goal is set. */
   readonly knuckles: Readonly<Record<Hand, Vector3>>;
+  /**
+   * The body frame in the world, as the last step left it: the root segment's place and turn
+   * (`rootFrameToRef`), the frame a hand goal is set in. A world point is brought into it with
+   * `intoFrameToRef`.
+   */
+  readonly root: Frame;
   /** The head's centre of mass, world: where a strike's range is measured from (`src/core/skills/strike.ts`). */
   readonly head: Vector3;
   /** The centre of mass, the stance's support, and what the stance last asked (`StanceReading`). */
@@ -172,6 +174,7 @@ export function commandMind(own: OwnBody, { servoSeconds, stance }: BodyOptions)
     goals, time: 0, angles,
     fists: { left: fists.left.fist, right: fists.right.fist },
     knuckles: { left: new Vector3(), right: new Vector3() },
+    root: { position: new Vector3(), rotation: new Quaternion() },
     head: head.centre,
     motor: motor.state,
     down: false,
@@ -183,6 +186,7 @@ export function commandMind(own: OwnBody, { servoSeconds, stance }: BodyOptions)
     angles,
     fists: state.fists,
     knuckles: state.knuckles,
+    root: state.root,
     head: head.centre,
     stance: motor.stance.reading,
     get down() { return state.down; },
@@ -197,7 +201,7 @@ export function commandMind(own: OwnBody, { servoSeconds, stance }: BodyOptions)
     for (const hand of ["left", "right"] as const) {
       const goal = command.hands[hand], was = goals[hand];
       if (!goal) { if (was) motor.release(hand); }
-      else if (!was || !sameGoal(goal, was)) motor.reach(hand, goal.position, goal.seconds);
+      else if (!was || !sameGoal(goal, was)) motor.reach(hand, goal);
       goals[hand] = goal;
     }
   };
@@ -211,6 +215,7 @@ export function commandMind(own: OwnBody, { servoSeconds, stance }: BodyOptions)
       fists[hand].update();
       motor.knucklesToRef(hand, view.knuckles[hand]);
     }
+    rootFrameToRef(motor.root, state.root);
     head.update();
     motor.stance.read();
     // Down is read against the height the body is asked to hold: held low on purpose, it is not down.
@@ -256,7 +261,8 @@ export function createBody(built: BuiltBody, world: World, options: BodyOptions)
 }
 
 const sameGoal = (a: HandGoal, b: HandGoal): boolean =>
-  a.seconds === b.seconds && a.position.every((v, k) => v === b.position[k]);
+  a.seconds === b.seconds && a.through === b.through && a.follows === b.follows && a.places.length === b.places.length
+  && a.places.every((place, i) => place.point === b.places[i]!.point && place.position.every((v, k) => v === b.places[i]!.position[k]));
 
 /** Where `name`'s rigid body's centre of mass is, world, as the last step left it. */
 function centreOf(built: BuiltBody, name: string): { centre: Vector3; update(): void } {

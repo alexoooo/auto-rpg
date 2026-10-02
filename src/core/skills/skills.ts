@@ -4,7 +4,7 @@ import type { MusclePush } from "../control/motor.ts";
 import { GUARD } from "./guard.ts";
 import { locomotion } from "./locomotion.ts";
 import type { Skill } from "./skill.ts";
-import { strikeSkill, type StrikeReport } from "./strike.ts";
+import { strikeSkill, type Placed, type StrikeReport } from "./strike.ts";
 import { REPERTOIRE, type Repertoire } from "./strikes.ts";
 
 /**
@@ -15,8 +15,9 @@ import { REPERTOIRE, type Repertoire } from "./strikes.ts";
  * physics: the stance balances whatever the arms and trunk do.
  *
  * - **Locomotion** (`locomotion.ts`): the walk and the facing, within the body's envelope.
- * - **Strike** (`strike.ts`): a hand's attack, with the recipe for what it holds (`strikes.ts`).
- *   It outranks the walk: while it works it has the legs, and the tactics' walk waits.
+ * - **Strike** (`strike.ts`): a hand's attack, thrown with the recipe for what it holds
+ *   (`strikes.ts`) or placed, its point carried to the target by a hand goal. It outranks the
+ *   walk: while it works it has the legs, and the tactics' walk waits.
  * - **Guard** (`guard.ts`): the arms' posture when nothing owns them.
  *
  * Every skill answers `Skill.resume`, and the skills tell every one of them from one list: a
@@ -47,14 +48,17 @@ export interface SkillReport {
 export interface SkillOptions {
   /** An experiment's strikes in place of the searched repertoire (`REPERTOIRE`): a search's candidate. */
   readonly repertoire?: Repertoire;
+  /** An experiment's placed blow in place of the one set (`PLACED`): a sweep's cell. */
+  readonly placed?: Placed;
 }
 
 /** The skills of `body`; `tactics` is the memory of the tactics that will hand them their intent (`Tactics.state`), kept with theirs. */
-export function createSkills(body: Body, { repertoire = REPERTOIRE }: SkillOptions = {}, tactics: object | null = null): Skills {
-  const legs = locomotion(body.envelope), strikes = strikeSkill(body.built.spec, repertoire);
+export function createSkills(body: Body, { repertoire = REPERTOIRE, placed }: SkillOptions = {}, tactics: object | null = null): Skills {
+  const legs = locomotion(body.envelope), strikes = strikeSkill(body.built.spec, repertoire, placed);
   const none: readonly MusclePush[] = Object.freeze([]);
+  const idle: BodyCommand["hands"] = Object.freeze({ left: null, right: null });
   const command: { -readonly [K in keyof BodyCommand]: BodyCommand[K] } =
-    { posture: GUARD, hands: { left: null, right: null }, pushes: none, stance: null };
+    { posture: GUARD, hands: idle, pushes: none, stance: null };
   const state = { command, legs: legs.state, strikes: strikes.state, tactics };
   const all: readonly Skill[] = [legs, strikes];
   const report: SkillReport = {
@@ -75,6 +79,7 @@ export function createSkills(body: Body, { repertoire = REPERTOIRE }: SkillOptio
       if (goal) command.stance = goal;
       command.posture = strike?.posture ?? GUARD;
       command.pushes = strike?.pushes ?? none;
+      command.hands = strike?.hands ?? idle;
       return command;
     },
   };

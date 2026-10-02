@@ -73,7 +73,7 @@ function nearestOn(a: Vector3, b: Vector3, c: Vector3, out: Vector3): Vector3 {
 }
 
 /** Watch `blow`, a club blow by `built` with the club in `hand`, into a head `distance` ahead, stood `off` that. */
-export function watchClubBlow(built: BuiltBody, world: World, blow: ThrownBlow, distance: number, hand: "left" | "right", off?: StandOff): ClubBlowWatch {
+export function watchClubBlow(built: BuiltBody, world: World, blow: ThrownBlow, distance: number, hand: "left" | "right", off?: Partial<StandOff>): ClubBlowWatch {
   const headSpec = built.spec.segments.find((s) => s.name === "head")!;
   if (headSpec.shape.kind !== "capsule") throw new Error(`the head is a ${headSpec.shape.kind}, not a capsule`);
   const R = headSpec.shape.radius.value;
@@ -105,7 +105,7 @@ export function watchClubBlow(built: BuiltBody, world: World, blow: ThrownBlow, 
       // The body as it stands when the blow begins: the target's pose, and where it is.
       struck.update();
       headCentre = centreNow(head);
-      target = headCentre.add(new Vector3(off?.across ?? 0, 0, distance + (off?.along ?? 0)));
+      target = headCentre.add(new Vector3(off?.across ?? 0, off?.up ?? 0, distance + (off?.along ?? 0)));
     }
     if (blow.body.view.down) { fell = true; return; }
     read(now);

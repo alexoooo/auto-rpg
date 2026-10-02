@@ -68,6 +68,8 @@ export interface ItemSpec {
   readonly shapes: readonly ItemShape[];
   /** Named points, in the item frame: where a reading is taken on it, such as where a club strikes. */
   readonly points: { readonly [name: string]: Quantity<Vec3> };
+  /** The point of `points` a blow with the item is brought to its target by: where it strikes. */
+  readonly aim?: string;
   /** Absent, the item is rigid: it takes no share of a blow. */
   readonly surface?: SurfaceSpec;
   /**

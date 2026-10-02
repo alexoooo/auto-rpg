@@ -15,17 +15,14 @@
  * where it fell, or a loop over its time). `--each` reads each target on a run of its own, the walk
  * out to it included, so that no target is left unread by a fall at one before it: the hand that
  * strikes at it is the one its turn in the loop gives. `--list` prints each reading after the table.
- * One worker a run, each on a stand of its own (Node core stand, Rapier, no assist, the arena's
- * rules).
+ * One worker a run, each on a stand of its own (`core-targets-run.mjs`: Node core stand, Rapier,
+ * no assist, the arena's rules).
  */
 import { Worker, isMainThread, parentPort } from "node:worker_threads";
 import { availableParallelism } from "node:os";
 import { parseArgs } from "node:util";
 import { BODY_MODELS } from "../src/core/human/spec.ts";
 import { LAB_HELD } from "../src/lab/scenarios.ts";
-
-/** Seconds a loop may take beyond its walk before the run is called stuck: the walk is about 20 s, a target about 5. */
-const WALK_SECONDS = 40, TARGET_SECONDS = 10;
 
 const STRATA = ["control", "high", "middle", "low"];
 const mean = (values) => values.length ? values.reduce((a, b) => a + b, 0) / values.length : null;
@@ -89,31 +86,10 @@ if (isMainThread) {
   }
   if (listed.length) console.log(["", ...listed].join("\n"));
 } else {
-  const [{ Logger }, { labActor }, { loadoutSpec }, { ROUTINE_HANDS, startRoutine }, { coreStand }] = await Promise.all([
-    import("@babylonjs/core/Misc/logger.js"), import("../src/lab/actor.ts"), import("../src/lab/loadout.ts"),
-    import("../src/lab/routine.ts"), import("../tests/harness/core-stand.mjs")]);
+  const [{ Logger }, { runTargets }] = await Promise.all([import("@babylonjs/core/Misc/logger.js"), import("./core-targets-run.mjs")]);
   Logger.LogLevels = Logger.ErrorLogLevel;
-  parentPort.on("message", async ({ model, held, seed, from, targets, hz }) => {
-    try {
-      const stand = await coreStand(loadoutSpec({ model, right: held, left: "empty" }), { ground: true, hz });
-      const routine = startRoutine(labActor(stand.built, stand.world), { targets, seed, from, hands: held === "empty" ? ROUTINE_HANDS : ["right"] });
-      const most = stand.seconds(WALK_SECONDS + TARGET_SECONDS * (targets - from));
-      let t = 0, doing = routine.doing();
-      // What it was doing as it went down is what it was doing the step before.
-      while (t < most && routine.tactics.loops < 1 && !routine.body.view.down) { doing = routine.doing(); stand.step(1); t++; }
-      const result = {
-        ended: routine.tactics.loops >= 1 ? "looped" : routine.body.view.down ? `fell (${doing})` : "out of time",
-        seconds: stand.world.time,
-        strata: (routine.tactics.targets ?? []).slice(from).map((target) => target.stratum),
-        readings: routine.readings.map((r) => ({
-          stratum: r.target.stratum, at: [...r.target.at], hand: r.hand, strike: r.strike?.name ?? null, seconds: r.seconds, hung: r.hung, nearest: r.nearest,
-          blow: r.blow && { damage: r.took.damage, energy: r.blow.energy, closing: r.blow.closing, with: r.gave.item ?? r.gave.segment },
-          fell: r.fell,
-        })),
-      };
-      routine.dispose();
-      stand.dispose();
-      parentPort.postMessage({ result });
-    } catch (error) { parentPort.postMessage({ error: String(error?.stack ?? error) }); }
+  parentPort.on("message", async (job) => {
+    try { parentPort.postMessage({ result: await runTargets(job) }); }
+    catch (error) { parentPort.postMessage({ error: String(error?.stack ?? error) }); }
   });
 }

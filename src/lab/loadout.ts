@@ -1,7 +1,7 @@
 import { armed } from "../core/human/grip.ts";
 import { modelSpec } from "../core/human/spec.ts";
 import { woodenClub } from "../core/items/club.ts";
-import { FIST, heldIn, recipeFor, REPERTOIRE, type Repertoire } from "../core/skills/strikes.ts";
+import { FIST, heldIn } from "../core/skills/strikes.ts";
 import type { BodySpec } from "../core/spec/body.ts";
 import { LAB_HANDS, LAB_HELD, type LabHeld, type LabLoadout } from "./scenarios.ts";
 
@@ -29,23 +29,23 @@ export function balanceAddress(balance: number, spec: BodySpec): number | null {
   return balance === spec.attributes.balance.value ? null : balance;
 }
 
-/** What the repertoire calls a hand holding `held` (`heldIn`). */
+/** What the core calls a hand holding `held` (`heldIn`). */
 const heldName = (held: LabHeld): string => itemOf(held)?.name ?? FIST;
 
-/** The strikes the body of `spec` has: each thing a hand of it holds that the hand has a recipe for, by the repertoire's name for it. */
+/** The strikes the body of `spec` has: each thing a hand of it holds, by the core's name for it. A hand strikes with whatever it holds. */
 export function strikesOf(spec: BodySpec): { readonly held: LabHeld; readonly name: string }[] {
   const strikes = new Map<LabHeld, string>();
   for (const hand of LAB_HANDS) {
-    const held = LAB_HELD.find((h) => heldName(h) === heldIn(spec, hand)), chosen = recipeFor(REPERTOIRE, spec, hand);
-    if (held && chosen) strikes.set(held, chosen.recipe.held);
+    const name = heldIn(spec, hand), held = LAB_HELD.find((h) => heldName(h) === name);
+    if (held) strikes.set(held, name);
   }
   return [...strikes].map(([held, name]) => ({ held, name }));
 }
 
-/** Whether a mind barred from the strikes of `barred` may throw a recipe. */
-export function allowing(barred: readonly LabHeld[]): (recipe: Repertoire[number]) => boolean {
+/** Whether a mind barred from the strikes of `barred` may strike with what a hand holds (`heldIn`). */
+export function allowing(barred: readonly LabHeld[]): (held: string) => boolean {
   const names = barred.map(heldName);
-  return (recipe) => !names.includes(recipe.held);
+  return (held) => !names.includes(held);
 }
 
 function itemOf(held: LabHeld) {

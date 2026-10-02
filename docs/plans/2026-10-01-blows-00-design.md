@@ -131,8 +131,8 @@ Each is put with its table at the gate of the plan that measures it. None is ass
 
 | Today | After |
 |---|---|
-| a blow is thrown at head height, straight ahead | a recipe by height band, with a window in three directions; a placed blow elsewhere |
-| a hand goal takes the knuckles to a place, and no skill uses it | named points of the hand's rigid body, the wrist freed for two; the strike and the guard use it |
+| one recipe a hand, thrown at a target in its window, three directions; a placed blow elsewhere | a recipe by height band |
+| a hand goal takes named points of the hand's rigid body to places, and the strike uses it | the guard uses it too |
 | the guard is a pose | a pose, or a cover of a threat |
 | a search scores a fist's speed, or a club's energy into a mark | every search scores net damage under the rule |
 
@@ -140,16 +140,18 @@ Each is put with its table at the gate of the plan that measures it. None is ass
 
 | # | Plan | Lands | Needs | Eye gate |
 |---|---|---|---|---|
-| 05 | [placement](2026-10-01-blows-05-placement.md) | hand goals on named points; windows with height; the placed blow | | the Routine's high and middle targets are struck |
-| 06 | [guard](2026-10-01-blows-06-guard.md) | the guard covers a threat; the block battery | 05 | the owner watches a body cover itself |
-| 07 | [searched blows](2026-10-01-blows-07-searched-blows.md) | one evaluator under the rule; recipes by band for every body and thing held | 05 | the owner watches each body's blows, and reads the price before the searches run |
+| 06 | [guard](2026-10-01-blows-06-guard.md) | the guard covers a threat; the block battery | | the owner watches a body cover itself |
+| 07 | [searched blows](2026-10-01-blows-07-searched-blows.md) | one evaluator under the rule; recipes by band for every body and thing held | | the owner watches each body's blows, and reads the price before the searches run |
 
 The targets every plan here is read on have landed (`src/lab/targets.ts`,
 `docs/reference/blows.md`), and so has the rule: a blow has no striker, and its two surfaces
 share it (`src/core/rules/blows.ts`, `docs/reference/wounds.md`), and the unit: a hit point is
 100 J of blunt blow (`docs/reference/wounds.md#unit`,
 `docs/reference/bouts.md#a-hit-point-is-100-j`, and the targets at it in
-`docs/reference/blows.md#at-100-j`). 07 is the open-ended one: its structure is fixed here, its
+`docs/reference/blows.md#at-100-j`), and placement: hand goals on named points, a window's
+height, and the placed blow (`src/core/skills/strike.ts`, `docs/reference/blows.md#placed`),
+whose eye gate is open: the owner watches the Routine's high and middle targets struck. 07 is
+the open-ended one: its structure is fixed here, its
 recipes are found by search.
 
 The rising set (`2026-10-01-rising-05-rules.md`) measures `docs/reference/bouts.md` again too:

@@ -123,7 +123,8 @@ test("a_bout_in_the_arena_runs_to_its_verdict", async () => {
   const { world, dispose } = await arena();
   let duel;
   try {
-    duel = new Duel(world, { left: "workshop-fighter", right: "workshop-rogue" });
+    // The Rogue against the skeleton: each wounds the other before one of them is down.
+    duel = new Duel(world, { left: "workshop-rogue", right: "crypt-skeleton" });
     const verdict = duel.run(CAP_SECONDS + 1);
     assert.ok(verdict, "the bout is decided by its cap");
     assert.ok(woundsBy(duel.blows, "left", "right") > 0 && woundsBy(duel.blows, "right", "left") > 0, "blows land both ways, and wound");

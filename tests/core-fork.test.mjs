@@ -57,7 +57,7 @@ async function walker() {
   const body = createBody(stand.built, stand.world, { servoSeconds: SERVO_SECONDS });
   const pace = body.envelope.walk.value, rate = turnAt(body.envelope, pace);
   const height = body.view.stance.centre.y - body.view.stance.support.y - STANCE_LOWER;
-  const reach = (hand, by) => deepFreeze({ position: body.view.knuckles[hand].add(by).asArray(), seconds: 0.4 });
+  const reach = (hand, by) => deepFreeze({ places: [{ point: "knuckles", position: body.view.knuckles[hand].add(by).asArray() }], seconds: 0.4 });
   const left = [reach("left", new Vector3(0, 0.1, 0.25)), reach("left", new Vector3(0.1, 0.2, 0.15))];
   const right = [reach("right", new Vector3(-0.1, 0.15, 0.2)), reach("right", new Vector3(0, 0.25, 0.1))];
   const hand = (goals, time, from, to) => time >= from && time < to ? goals[time < from + 0.3 ? 0 : 1] : null;
@@ -259,7 +259,7 @@ const NEEDED = {
   walker: [
     "world > steps",
     ...["activation", "velocity", "ceiling", "trackers"].map((field) => `body > muscles > ${field}`),
-    ...["goals", "time", "angles", "fists", "knuckles", "head"].map((field) => `body > mind > host > ${field}`),
+    ...["goals", "time", "angles", "fists", "knuckles", "root > position", "root > rotation", "head"].map((field) => `body > mind > host > ${field}`),
     ...["pose", "pushes", "standing"].map((field) => `body > mind > host > motor > ${field}`),
     ...["left", "right"].flatMap((hand) => HAND.map((field) => `body > mind > host > motor > hands > ${hand} > ${field}`)),
     ...["stride", "striding", "owned", "last", "pace", "reading", "feet"].map((field) => `${STANCE} > ${field}`),
@@ -273,7 +273,7 @@ const NEEDED = {
   ordered: ["heading", "pace", "setOff"].map((field) => `skills > legs > ${field}`),
   striker: [
     ...["reference", "placing"].map((field) => `skills > legs > ${field}`),
-    ...["hand", "phase", "still", "since", "begun", "readyAt", "width", "over", "thrown"].map((field) => `skills > strikes > ${field}`),
+    ...["hand", "phase", "blow", "distance", "still", "since", "begun", "readyAt", "width", "over", "thrown"].map((field) => `skills > strikes > ${field}`),
     "skills > tactics > aim",
   ],
   placed: ["skills > legs > placed"],
@@ -291,7 +291,7 @@ const NOT_MEMORY = {
   [`${STANCE} > step > turn`]: "each step of a swing writes it before reading it",
   ...Object.fromEntries(["aim", "helped", "held", "tasks"].map((field) =>
     [`${STANCE} > ${field}`, "the stance's `command` writes it each step, for `carry` and `bear` of that step"])),
-  "skills > command": "each step the skills write its posture, pushes and stance before the body reads them, and its hands never: it is in the state for what the body's shares with it",
+  "skills > command": "each step the skills write its posture, hands, pushes and stance before the body reads them: it is in the state for what the body's shares with it",
   "skills > strikes > pushes": "each command of a strike clears it and fills it before the body reads it",
 };
 

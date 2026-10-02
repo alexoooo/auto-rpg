@@ -11,7 +11,7 @@ scores.
 
 It is the open-ended one: its structure is fixed here, and its recipes are whatever the searches
 find. It is read on the target bodies and scored by the rule that shares a blow between its two
-surfaces, both landed, and needs plan 05's windows.
+surfaces, and its recipes are chosen by the windows' height (`StrikeWindow.up`): all landed.
 
 ## Files
 

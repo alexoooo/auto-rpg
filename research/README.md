@@ -18,8 +18,13 @@ Some write the data files the core reads, and only with `--write`; without it th
 | `core-routine-battery.mjs` | the lab's Routine from seeded pushed starts, per tuning: loops held, falls, each strike's peak | |
 | `core-strike.mjs`, `core-club-strike.mjs` | modules the searches and workers call, with no entry point of their own: one fist strike scored by the fist's speed, one club blow by the energy it brings to a head | |
 | `core-strike-search.mjs`, `core-strike-worker.mjs` | a cross-entropy search for a body's fastest strike (`--guard` for a straight from guard, `--weapon club`) | |
-| `core-strike-window.mjs` | where each recipe still lands, along and across its heading | the windows, into `assets/core/strikes.json` |
+| `core-strike-window.mjs` | where each recipe still lands, along and across its heading and up from its target's height | the windows, into `assets/core/strikes.json` |
 | `core-strike-repertoire.mjs` | builds the repertoire from searches' best strikes | `assets/core/strikes.json` |
+| `core-targets.mjs`, `core-targets-run.mjs` | the lab's Routine on its seeded targets, each body bare and with the club: what each strike did to the dummy hung at its target; and the run both batteries' workers make | the tables, pasted into `docs/reference/blows.md` |
+| `core-placed.mjs` | the placed blow's sweep: the targets' battery at each stretch, time and distance carried through, given to the skills in place of the blow set | the table, pasted into `docs/reference/blows.md` |
+| `core-placed-versus.mjs` | a recipe against a placed blow by the target's height: one body, one target ahead of it, thrown at both ways | the table, pasted into `docs/reference/blows.md` |
+| `core-placed-arm.mjs` | an arm alone following a placed blow's goal, the lower trunk held: how near its point comes to a place, in each of two times | the table, pasted into `docs/reference/blows.md` |
+| `core-reach-map.mjs` | kinematics alone: where one place for the Warrior's knuckles, and for the swell of the club he holds, is solved, with the wrist held and freed | the tables, pasted into `docs/reference/human-and-strikes.md` |
 | `core-rapier-probe.mjs` | on the core's engine module alone, off the stand: what Rapier's generic joint does: its limits' measure, motor axes, saturation, gyroscopic spin, a motor braking a hung rod | |
 | `blow-shares.mjs` | the surfaces' stiffness table with its sources, the share each surface takes where two meet, the same at half and twice a surface's stiffness, and the joules that empty each part | the tables, pasted into `docs/reference/wounds.md` |
 | `real-against-engine.mjs` | the core's functions of a real number beside the running engine's `Math`: how many values differ in any bit, how widely, and each function's digest, the same in every engine | the table, pasted into `docs/reference/real-functions.md` |
@@ -33,6 +38,8 @@ node research/core-stance-envelope.mjs --workers 14
 node research/core-strike-search.mjs --model workshop-rogue --hand right --guard
 node research/core-strike-window.mjs --hz 120,480
 node research/core-routine-battery.mjs --variants '[{}]' --seeds 12
+node research/core-targets.mjs --each
+node research/core-placed.mjs --workers 26
 ```
 
 Each script's doc comment gives its options, what it prints and the rule it reads by.

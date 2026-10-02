@@ -3,6 +3,7 @@ import { buildBody } from "../core/build/build-body.ts";
 import type { Hand } from "../core/control/motor.ts";
 import { cos, sin } from "../core/math/real.ts";
 import type { Sight } from "../core/mind/tactics.ts";
+import type { StrikeReport } from "../core/skills/strike.ts";
 import { watchBlows, woundedIn, type BlowSide, type BlowWatch, type Fighter, type LandedBlow } from "../core/rules/blows.ts";
 import { createPool } from "../core/rules/pool.ts";
 import type { Rulebook } from "../core/rules/rulebook.ts";
@@ -141,12 +142,15 @@ export function hangDummy(world: World, spec: BodySpec, at: Vec3, rules: Ruleboo
 
 /** The strike thrown at a target. */
 interface ThrownStrike {
+  /** How it was carried out (`StrikeReport.blow`): with a recipe, or placed. */
+  readonly kind: NonNullable<StrikeReport["blow"]>;
+  /** The recipe's strike's name; a placed blow's is its kind. */
   readonly name: string;
   /** Peak speed of the striking fist in the world, m/s, from the strike's beginning to the end of its pushes. */
   readonly peak: number;
   /**
-   * Where the head stood as the strike began, from the recipe's place, m: along the heading
-   * (positive, the target was beyond the recipe's distance) and across it (positive, to the right).
+   * Where the head stood as the strike began, from the blow's place, m: along the heading
+   * (positive, the target was beyond the distance the body stood for) and across it (positive, to the right).
    */
   readonly off: { readonly along: number; readonly across: number };
 }
@@ -206,7 +210,7 @@ interface TargetRead {
 
 /**
  * Read one target on `actor`'s body: hang its dummy as the strike skill first holds `hand`'s
- * chamber or pushes, or as soon after as its place is clear of the body; watch the blows between
+ * chamber, pushes or carries its point, or as soon after as its place is clear of the body; watch the blows between
  * the two under `rules` with a fresh pool for the attacker; and close the reading `TARGET_WATCH`
  * after the strike's pushes end. Until its strike begins a target is a place and no body: nothing
  * stands in the way of the walk to it. `step(sight)` is called from the actor's watch each
@@ -222,7 +226,7 @@ export function readTarget(actor: Actor, target: Target, hand: Hand, rules: Rule
   const asked = world.time;
   let up: { readonly dummy: Dummy; readonly watch: BlowWatch } | null = null;
   const fist = body.view.fists[hand];
-  let strike: { name: string; peak: number; readonly off: ThrownStrike["off"] } | null = null, nearest: number | null = null;
+  let strike: { -readonly [K in keyof ThrownStrike]: ThrownStrike[K] } | null = null, nearest: number | null = null;
   /** The hand's strikes thrown before this one, once it has begun; and when its pushes ended. */
   let thrown: number | null = null, ended: number | null = null;
   const reading = (fell: boolean): TargetReading => {
@@ -242,10 +246,10 @@ export function readTarget(actor: Actor, target: Target, hand: Hand, rules: Rule
       if (thrown === null || !strike) {
         if (report.strike.hand !== hand || (report.strike.phase !== "chamber" && report.strike.phase !== "swing")) return null;
         thrown = report.strike.thrown[hand];
-        const chosen = report.strike.chosen!, h = report.heading, dx = target.at[0] - view.head.x, dz = target.at[2] - view.head.z;
+        const { blow, chosen, distance } = report.strike, h = report.heading, dx = target.at[0] - view.head.x, dz = target.at[2] - view.head.z;
         strike = {
-          name: chosen.strike.name, peak: 0,
-          off: { along: dx * sin(h) + dz * cos(h) - chosen.recipe.distance, across: dx * cos(h) - dz * sin(h) },
+          kind: blow!, name: chosen?.strike.name ?? blow!, peak: 0,
+          off: { along: dx * sin(h) + dz * cos(h) - distance!, across: dx * cos(h) - dz * sin(h) },
         };
       }
       if (ended === null) {

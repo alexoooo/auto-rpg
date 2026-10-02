@@ -2,7 +2,8 @@
  * **The lab's targets** (`src/lab/targets.ts`): drawn by seed in their strata; a dummy that hangs
  * still against its own weight and gives way to a blow as a head on no neck does; and a target's
  * reading, which is the blow the rule read on its dummy, hung as its strike began, or how near the
- * hand's body passed (Node core stand, Rapier, 120 Hz, no assist, the arena's rules).
+ * hand's body passed, of a recipe thrown where it lands and of a blow placed where none does
+ * (Node core stand, Rapier, 120 Hz, no assist, the arena's rules).
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -17,6 +18,7 @@ import { impactEnergy } from "../src/core/rules/impact.ts";
 import { createPool } from "../src/core/rules/pool.ts";
 import { blowDamage, rulebook } from "../src/core/rules/rulebook.ts";
 import { energyShares } from "../src/core/rules/share.ts";
+import { PLACED } from "../src/core/skills/strike.ts";
 import { sourced } from "../src/core/spec/quantity.ts";
 import { createWorld } from "../src/core/world.ts";
 import { labActor } from "../src/lab/actor.ts";
@@ -168,9 +170,10 @@ test("a_dummy_hangs_still_and_gives_way_to_a_blow", async () => {
 /**
  * A body of `loadout` standing as built, its right hand attacking each of `places` in turn (each
  * from the head's height), a target's reading closed before the next is asked for: what each read,
- * with the time its strike began, and where its ball was at each step before that.
+ * with the time its strike began, where its ball was at each step before that, and the heading
+ * the body had as the reading closed. `skills` is an experiment's, in place of the skills' own.
  */
-async function strikeAt(loadout, places) {
+async function strikeAt(loadout, places, skills) {
   const stand = await coreStand(loadoutSpec(loadout), { ground: true });
   const actor = labActor(stand.built, stand.world);
   const head = actor.body.view.head.y;
@@ -181,7 +184,7 @@ async function strikeAt(loadout, places) {
     name: "attack",
     decide: () => ({ move: null, face: 0, hands: { left: GUARD_ACTION, right: readings.length < targets.length && thrown === counted ? { kind: "attack", target: targets[readings.length].at } : GUARD_ACTION } }),
   };
-  actor.drive(tactics, { watch(sight) {
+  actor.drive(tactics, { skills, watch(sight) {
     if (readings.length >= targets.length) return;
     open ??= readTarget(actor, targets[readings.length], "right", RULES);
     const { phase } = sight.report.strike;
@@ -190,7 +193,7 @@ async function strikeAt(loadout, places) {
     if (began === null) before.push(open.ball);
     const reading = open.step(sight);
     if (!reading) return;
-    readings.push({ ...reading, began, ended: stand.world.time, before });
+    readings.push({ ...reading, began, ended: stand.world.time, before, heading: sight.report.heading });
     open.dispose();
     open = null; began = null; counted = thrown; before = [];
   } });
@@ -213,8 +216,15 @@ const record = ({ target, hand, strike, hung, fell, blow, took, gave }) => ({
 });
 /** The club's blow on a dummy: the club's side takes none of it, the dummy's head all. */
 const CLUBBED = { blow: [["attacker", "hand.right", "wooden club", 0], ["dummy", "head", null, 1]], took: 1, gave: 0 }, UNSTRUCK = { blow: null, took: null, gave: null };
+/** A bare part's blow on a dummy, the body of `loadout`: the two surfaces share it by their compliance. */
+const bared = (part, loadout = BARE) => {
+  const stiffness = (name) => loadoutSpec(loadout).segments.find((segment) => segment.name === name).surface.stiffness.value;
+  const shares = energyShares([stiffness(part), stiffness("head")]);
+  return { blow: [["attacker", part, null, shares[0]], ["dummy", "head", null, shares[1]]], took: 1, gave: 0 };
+};
+const FISTED = bared("hand.right");
 
-test("a_target_where_the_recipe_lands_is_struck_and_one_out_of_its_height_is_missed_by_that_much", async () => {
+test("a_target_where_the_recipe_lands_is_struck_with_it", async () => {
   // The club's recipe lands at the head's height, 1.05 m off: the skill closes the last of 1.3 m itself.
   const struck = await strikeAt(CLUB, [(head) => [0, head, 1.3]]);
   assert.equal(struck.down, false);
@@ -230,44 +240,80 @@ test("a_target_where_the_recipe_lands_is_struck_and_one_out_of_its_height_is_mis
   assert.ok(hit.began <= hit.blow.time && hit.blow.time <= hit.ended, `struck at ${hit.blow.time} s of ${hit.began} to ${hit.ended}`);
   assert.ok(Math.abs(hit.seconds - hit.ended) < 1e-9 && hit.ended - hit.blow.time >= TARGET_WATCH - 0.25, `${hit.seconds} s`);
   // Where the head stood is inside the club's window, and its hand went as fast as it goes.
-  assert.ok(Math.abs(hit.strike.off.along) < 0.05 && Math.abs(hit.strike.off.across) < 0.05 && hit.strike.peak > 5, JSON.stringify(hit.strike));
+  assert.ok(hit.strike.kind === "recipe" && Math.abs(hit.strike.off.along) < 0.05 && Math.abs(hit.strike.off.across) < 0.05 && hit.strike.peak > 5, JSON.stringify(hit.strike));
+});
 
-  // The same strike at a target 1.3 m lower: the skill reads no height, so the club passes over it.
-  // The club's swell passes 0.28 m off and the knuckles 0.72: the reading is of the hand's whole body.
-  const missed = await strikeAt(CLUB, [(head) => [0, head - 1.3, 1.3]]);
-  const [miss] = missed.readings;
-  assert.deepEqual(record(miss), { ...record(hit), target: { at: [0, missed.head - 1.3, 1.3], stratum: "control" }, ...UNSTRUCK });
-  assert.ok(miss.nearest > 0.2 && miss.nearest < 0.4, `it passed ${miss.nearest} m off`);
-  assert.deepEqual(miss.strike, hit.strike);
+test("a_middle_target_is_struck_by_a_placed_blow", async () => {
+  const stature = WARRIOR.stature.value, middle = [0, 0.6 * stature, 1.3];
+  // Bare-handed, 0.6 of the stature up is half a metre under the straight's window: the knuckles are carried through it.
+  const bare = await strikeAt(BARE, [() => middle]);
+  assert.equal(bare.down, false);
+  const [fist] = bare.readings;
+  assert.deepEqual(record(fist), { target: { at: middle, stratum: "control" }, hand: "right", strike: "placed", hung: true, fell: false, ...FISTED });
+  assert.ok(fist.nearest === 0 && fist.took.damage > 0 && fist.began <= fist.blow.time && fist.blow.time <= fist.ended, `struck at ${fist.blow.time} s of ${fist.began} to ${fist.ended}`);
+  // It stood where a placed blow stands: the target the arm's stretch from the shoulder, ahead of the head.
+  assert.ok(fist.strike.kind === "placed" && Math.abs(fist.strike.off.along) < 0.05 && Math.abs(fist.strike.off.across) < 0.05, JSON.stringify(fist.strike));
+  // Carried through its target, the fist arrives faster than on a path that ends there.
+  const { readings: [ended] } = await strikeAt(BARE, [() => middle], { placed: { ...PLACED, through: 0 } });
+  assert.ok(PLACED.through > 0 && ended.blow && fist.blow.closing > 1.2 * ended.blow.closing, `closing at ${fist.blow.closing} m/s, and ${ended.blow?.closing} on a path that ends at the target`);
+
+  // With the club that height is in its blow's window, and the recipe is thrown; half the stature
+  // up is under it, and the swell is carried there: the club's is the surface.
+  const club = await strikeAt(CLUB, [() => middle]);
+  assert.deepEqual(record(club.readings[0]), { target: { at: middle, stratum: "control" }, hand: "right", strike: "searched right club blow", hung: true, fell: false, ...CLUBBED });
+  const half = [0, 0.5 * stature, 1.3], under = await strikeAt(CLUB, [() => half]);
+  assert.equal(under.down, false);
+  const [swell] = under.readings;
+  assert.deepEqual(record(swell), { target: { at: half, stratum: "control" }, hand: "right", strike: "placed", hung: true, fell: false, ...CLUBBED });
+  assert.ok(swell.nearest === 0 && swell.took.damage > 0, `${swell.took.damage} HP`);
+
+  // The control: a fifth of the stature up is under the arm's reach from any place the body
+  // stands, and is missed still: the reading says by how much.
+  const low = [0, 0.2 * stature, 1.3], { readings: [miss], down } = await strikeAt(BARE, [() => low]);
+  assert.equal(down, false);
+  assert.deepEqual(record(miss), { target: { at: low, stratum: "control" }, hand: "right", strike: "placed", hung: true, fell: false, ...UNSTRUCK });
+  assert.ok(miss.nearest > 0.1 && miss.nearest < 0.5, `it passed ${miss.nearest} m off`);
+});
+
+test("a_placed_blow_lands_whichever_way_the_body_faces", async () => {
+  // A target a quarter turn to the body's right: it turns to it, and the hand's goal is the
+  // target in the body's own frame, turned with it.
+  const stature = WARRIOR.stature.value;
+  for (const [loadout, up, struck] of [[BARE, 0.6, FISTED], [CLUB, 0.5, CLUBBED]]) {
+    const at = [1.3, up * stature, 0], { readings: [reading], down } = await strikeAt(loadout, [() => at]);
+    assert.equal(down, false);
+    assert.ok(Math.abs(reading.heading - Math.PI / 2) < 0.2, `it faces ${reading.heading} rad`);
+    assert.deepEqual(record(reading), { target: { at, stratum: "control" }, hand: "right", strike: "placed", hung: true, fell: false, ...struck });
+    assert.ok(reading.nearest === 0 && reading.took.damage > 0, `${reading.took.damage} HP`);
+  }
 });
 
 test("a_reading_is_one_targets_own", async () => {
-  // Two targets in turn: the first where the recipe lands, the second a metre under it.
-  const { head, readings, down } = await strikeAt(CLUB, [(h) => [0, h, 1.3], (h) => [0, h - 1, 1.3]]);
+  // Two targets in turn: the first where the recipe lands; the second 1.3 m under it, where a blow is placed and falls short.
+  const { head, readings, down } = await strikeAt(CLUB, [(h) => [0, h, 1.3], (h) => [0, h - 1.3, 1.3]]);
   assert.equal(down, false);
   assert.deepEqual(readings.map(record), [
     { target: { at: [0, head, 1.3], stratum: "control" }, hand: "right", strike: "searched right club blow", hung: true, fell: false,
       ...CLUBBED },
-    { target: { at: [0, head - 1, 1.3], stratum: "control" }, hand: "right", strike: "searched right club blow", hung: true, fell: false, ...UNSTRUCK },
+    { target: { at: [0, head - 1.3, 1.3], stratum: "control" }, hand: "right", strike: "placed", hung: true, fell: false, ...UNSTRUCK },
   ]);
   const [first, second] = readings;
   assert.ok(first.blow.time < first.ended && first.ended < second.began, `${first.blow.time}, ${first.ended}, ${second.began}`);
-  assert.ok(second.nearest > 0.1, `it passed ${second.nearest} m off`);
+  assert.ok(second.nearest > 0.2, `it passed ${second.nearest} m off`);
 });
 
 test("a_reading_is_of_the_blow_that_cost_its_dummy_most", async () => {
-  // A target 10 cm under the head's height: the fist and the forearm behind it land in one step,
-  // two blows, and the forearm's, the lighter, is the one the rule reads first.
-  const { head, readings, down } = await strikeAt(BARE, [(h) => [0, h - 0.1, 1.3]]);
+  // The Rogue's straight at a target 6 cm under its head's height as built, in the straight's
+  // window: the fist and the forearm behind it land in one step, two blows, and the forearm's,
+  // the lighter, is the one the rule reads first.
+  const rogue = { ...BARE, model: "workshop-rogue" };
+  const { head, readings, down } = await strikeAt(rogue, [(h) => [0, h - 0.06, 1.3]]);
   assert.equal(down, false);
   const [reading] = readings;
-  const stiffness = (name) => loadoutSpec(BARE).segments.find((segment) => segment.name === name).surface.stiffness.value;
-  const shares = energyShares([stiffness("hand.right"), stiffness("head")]);
   assert.deepEqual(record(reading), {
-    target: { at: [0, head - 0.1, 1.3], stratum: "control" }, hand: "right", strike: "searched right straight", hung: true, fell: false,
-    blow: [["attacker", "hand.right", null, shares[0]], ["dummy", "head", null, shares[1]]], took: 1, gave: 0,
+    target: { at: [0, head - 0.06, 1.3], stratum: "control" }, hand: "right", strike: "searched right straight", hung: true, fell: false, ...bared("hand.right", rogue),
   });
-  assert.ok(reading.blow.energy > 10 && reading.nearest === 0, `${reading.blow.energy} J`);
+  assert.ok(reading.blow.energy > 8 && reading.nearest === 0, `${reading.blow.energy} J`);
 });
 
 test("a_target_is_a_place_and_no_body_until_its_strike_begins", async () => {
@@ -279,24 +325,19 @@ test("a_target_is_a_place_and_no_body_until_its_strike_begins", async () => {
   // Until the strike began its ball was the place it was drawn at, whatever passed through it.
   assert.ok(reading.before.length > 0);
   assert.deepEqual(reading.before, reading.before.map(() => ({ centre: reading.target.at, radius: reading.before[0].radius })));
-  // Hung as the strike began, the fist passed it by and the forearm behind it brushed it: nothing
-  // before the strike is a blow of its, and the arm's touch in the strike is one, shared by the two surfaces.
-  const stiffness = (name) => loadoutSpec(BARE).segments.find((segment) => segment.name === name).surface.stiffness.value;
-  const shares = energyShares([stiffness("forearm.right"), stiffness("head")]);
-  assert.deepEqual(record(reading), {
-    target: reading.target, hand: "right", strike: "searched right straight", hung: true, fell: false,
-    blow: [["attacker", "forearm.right", null, shares[0]], ["dummy", "head", null, shares[1]]], took: 1, gave: 0,
-  });
+  // Hung as the strike began, under the straight's window: the fist is carried to it. Nothing
+  // before the strike is a blow of its, and the fist's in the strike is one, shared by the two surfaces.
+  assert.deepEqual(record(reading), { target: reading.target, hand: "right", strike: "placed", hung: true, fell: false, ...FISTED });
   assert.ok(reading.began <= reading.blow.time && reading.blow.time <= reading.ended, `touched at ${reading.blow.time} s of ${reading.began} to ${reading.ended}`);
-  assert.ok(reading.nearest > 0 && reading.nearest < 0.1, `it passed ${reading.nearest} m off`);
+  assert.equal(reading.nearest, 0);
 });
 
 test("a_target_in_the_bodys_place_is_hung_once_the_body_has_stepped_off_it", async () => {
   // A target in the middle of the chest: the skill steps back to its distance, and the place is
-  // clear as the strike begins.
+  // clear as the blow begins.
   const { readings, down } = await strikeAt(BARE, [(head) => [0, head - 0.35, 0]]);
   assert.equal(down, false);
-  assert.deepEqual(readings.map(record), [{ target: { at: [0, readings[0].target.at[1], 0], stratum: "control" }, hand: "right", strike: "searched right straight", hung: true, fell: false, ...UNSTRUCK }]);
+  assert.deepEqual(readings.map(record), [{ target: { at: [0, readings[0].target.at[1], 0], stratum: "control" }, hand: "right", strike: "placed", hung: true, fell: false, ...FISTED }]);
 });
 
 /**

@@ -3,20 +3,24 @@
  * tactics on the core's skills, each human for two loops of four targets at 120 Hz: the second
  * sets off from its targets into the turn, where a faster turn falls (`ROUTINE_GAIT`). It stays on
  * its feet, completes the loops, and reads its targets in their order, the same ones each loop,
- * with the right hand's strike and the left's in turn, each from where its feet were set
- * (`Locomotion.place`), with the head inside the recipe's window, turned over for the left hand,
- * and the fist as fast as the recipe was searched to go. A reading's peak is the fist's in the
- * air, to the pushes' end, so it is above the recipe's peak to its landing. The first target is
- * the control, where the recipe lands: it is struck, and the fist that struck it, the softer of the
- * two, takes the more of its own blow. The targets are a seed's on which each human
- * stands through both loops: how often one falls is the battery's to say
- * (`docs/reference/blows.md#baseline`).
+ * with the right hand's blow and the left's in turn, each from where its feet were set
+ * (`Locomotion.place`). The first target is the control, where the recipe lands: the recipe is
+ * thrown at it, with the head inside its window and the fist as fast as it was searched to go (a
+ * reading's peak is the fist's in the air, to the pushes' end, so it is above the recipe's peak to
+ * its landing), and it is struck. The others are under the recipe's height: a blow is placed at
+ * each, from within the approach's reach of its place, and the high and the middle ones are
+ * struck by the hand that was carried there. Either way the fist, the softer of the two
+ * surfaces, takes the more of its own blow. The low one is under the arm's reach from where the
+ * toes stop, where the legs fill its place: no body is hung there, and the reading is how near
+ * the hand passed. The targets are a seed's on which each human stands through both loops: how
+ * often one falls is the battery's to say (`docs/reference/blows.md#baseline`).
  */
 import test from "node:test";
 import assert from "node:assert/strict";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { humanSpec } from "../src/core/human/spec.ts";
 import { energyShares } from "../src/core/rules/share.ts";
+import { APPROACH } from "../src/core/skills/strike.ts";
 import { mirroredWindow, recipeFor, REPERTOIRE } from "../src/core/skills/strikes.ts";
 import { labActor } from "../src/lab/actor.ts";
 import { ROUTINE_HANDS, ROUTINE_TARGETS, startRoutine } from "../src/lab/routine.ts";
@@ -55,26 +59,36 @@ for (const model of ["workshop-fighter", "workshop-rogue"]) {
       // Each loop reads the same targets in their order, the hands in turn.
       assert.deepEqual(readings.map((r) => r.target), [...targets, ...targets]);
       assert.deepEqual(readings.map((r) => r.hand), Array.from({ length: LOOPS * TARGETS }, (_, k) => ROUTINE_HANDS[(k % TARGETS) % ROUTINE_HANDS.length]));
-      assert.deepEqual(readings.map((r) => [r.hung, r.fell]), readings.map(() => [true, false]));
+      // The recipe at the control and a placed blow at each of the others; a body is hung for all but the low one.
+      assert.deepEqual(readings.map((r) => r.strike.kind), readings.map((r) => r.target.stratum === "control" ? "recipe" : "placed"));
+      assert.deepEqual(readings.map((r) => [r.hung, r.fell]), readings.map((r) => [r.target.stratum !== "low", false]));
       for (const r of readings) {
+        const { along, across } = r.strike.off, what = `${r.target.stratum}, ${r.strike.name}: off ${JSON.stringify(r.strike.off)}`;
+        if (r.strike.kind === "placed") {
+          assert.ok(Math.abs(along) <= APPROACH.reach && Math.abs(across) <= APPROACH.reach && r.strike.peak > 0, what);
+          continue;
+        }
         const { strike, recipe } = recipeFor(REPERTOIRE, spec, r.hand);
         const window = r.hand === recipe.strike.hand ? recipe.window : mirroredWindow(recipe.window);
         assert.equal(r.strike.name, strike.name);
-        const { along, across } = r.strike.off, what = `${r.target.stratum}, ${r.strike.name}: off ${JSON.stringify(r.strike.off)}, window ${JSON.stringify(window)}`;
-        assert.ok(window.along[0] <= along && along <= window.along[1] && window.across[0] <= across && across <= window.across[1], what);
+        assert.ok(window.along[0] <= along && along <= window.along[1] && window.across[0] <= across && across <= window.across[1], `${what}, window ${JSON.stringify(window)}`);
         assert.ok(r.strike.peak >= recipe.readings.at120.peak, `${r.strike.name}: peak ${r.strike.peak} under the recipe's ${recipe.readings.at120.peak}`);
       }
-      // The control is where the recipe lands: struck by the hand that threw, each loop, the two surfaces
-      // sharing the blow by their compliance. The low one is out of the fist's height.
+      // Every target a body was hung for is struck by the hand that was sent, each loop, the two
+      // surfaces sharing the blow by their compliance; the recipe's blow is the heaviest of a loop's.
       const stiffness = (name) => spec.segments.find((segment) => segment.name === name).surface.stiffness.value;
-      for (const k of [0, TARGETS]) {
-        const { blow, took, gave, nearest, hand } = readings[k];
-        assert.ok(blow && took.damage > 0 && gave.damage > took.damage && nearest === 0, `the control read ${JSON.stringify(readings[k])}`);
+      for (const reading of readings.filter((r) => r.hung)) {
+        const { blow, took, gave, nearest, hand } = reading;
+        assert.ok(blow && took.damage > 0 && gave.damage > took.damage && nearest === 0, `the ${reading.target.stratum} one read ${JSON.stringify(reading)}`);
         const shares = energyShares([stiffness(`hand.${hand}`), stiffness("head")]);
         assert.deepEqual([gave, took].map(({ fighter, segment, item, share }) => [fighter, segment, item, share]), [["attacker", `hand.${hand}`, null, shares[0]], ["dummy", "head", null, shares[1]]]);
         assert.deepEqual(blow.sides, [gave, took]);
       }
-      for (const k of [TARGETS - 1, 2 * TARGETS - 1]) assert.ok(readings[k].blow === null && readings[k].nearest > 0.1, `the low one read ${JSON.stringify(readings[k])}`);
+      for (let loop = 0; loop < LOOPS; loop++) {
+        const [control, ...placed] = readings.slice(loop * TARGETS, (loop + 1) * TARGETS).filter((r) => r.blow);
+        assert.ok(placed.length === 2 && placed.every((r) => r.blow.energy < control.blow.energy), `${control.blow.energy} J, and ${placed.map((r) => r.blow.energy)} J placed`);
+      }
+      for (const k of [TARGETS - 1, 2 * TARGETS - 1]) assert.ok(readings[k].blow === null && readings[k].nearest > 0.02, `the low one read ${JSON.stringify(readings[k])}`);
       // Its strike thrown, a target is watched from the guard: the next attack is the next target's.
       assert.deepEqual([...after], [null]);
       assert.equal(routine.report.strike.thrown.left + routine.report.strike.thrown.right, LOOPS * TARGETS);

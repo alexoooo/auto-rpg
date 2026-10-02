@@ -60,6 +60,22 @@ function placedShape(held: HeldSpec, shape: ItemShape): ShapeSpec {
 const heldBy = (spec: BodySpec, segment: string): readonly HeldSpec[] =>
   (spec.held ?? []).filter((held) => held.segment === segment);
 
+/**
+ * Every named point `segment`'s rigid body carries, body frame, reference pose: the segment's
+ * own, and those of each item it holds, placed by its holding (`heldPoint`). A name stated twice
+ * is refused.
+ */
+export function rigidPoints(spec: BodySpec, segment: SegmentSpec): ReadonlyMap<string, Quantity<Vec3>> {
+  const points = new Map<string, Quantity<Vec3>>(Object.entries(segment.points ?? {}));
+  for (const held of heldBy(spec, segment.name)) {
+    for (const [name, point] of Object.entries(held.item.points)) {
+      if (points.has(name)) throw new Error(`${spec.model}: ${segment.name} and what it holds have two points named ${name}`);
+      points.set(name, heldPoint(held, point));
+    }
+  }
+  return points;
+}
+
 /** `segment`'s rigid body in `spec`. */
 export function rigidOf(spec: BodySpec, segment: SegmentSpec): Rigid {
   const holding = heldBy(spec, segment.name);

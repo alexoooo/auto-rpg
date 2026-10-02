@@ -52,11 +52,11 @@ const HANDS: readonly Hand[] = ["left", "right"];
 
 /** What is said of a step, by kind; null says nothing. The words are the intent's and the report's own. */
 function said({ report }: Sight, intent: Intent): Readonly<Record<string, string | null>> {
-  const { phase, chosen } = report.strike;
+  const { phase, blow, chosen } = report.strike;
   return {
     move: intent.move ? `move ${intent.move[0].toFixed(2)} ${intent.move[1].toFixed(2)}` : "stand",
     ...Object.fromEntries(HANDS.map((hand) => [hand, `${hand} ${intent.hands[hand].kind}`])),
-    strike: phase && `strike ${phase}${chosen ? ` ${chosen.strike.name}` : ""}`,
+    strike: phase && `strike ${phase}${blow ? ` ${chosen?.strike.name ?? blow}` : ""}`,
   };
 }
 

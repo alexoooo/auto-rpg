@@ -134,8 +134,14 @@ braking and blocking). A muscle can never exceed its source's strength at its sp
 - **The servo** (`src/core/control/servo.ts`) asks each joint for a critically damped approach to
   its goal and computes the torques that produce it through the body's own dynamics (mass matrix,
   bias and gravity), solved around the freedoms that are being pushed and clipped at strength.
-- **Hand goals** (`motor.ts`, `kinematics.ts`): the knuckles follow a minimum-jerk path to a place
-  at a time, solved for shoulder and elbow and fed forward to the servo.
+- **Hand goals** (`motor.ts`, `kinematics.ts`): named points of a hand's rigid body (its
+  knuckles, a point of what it holds: `rigidPoints`, `src/core/build/rigid.ts`) follow
+  minimum-jerk paths to places in the body frame at a time (`HandGoal`), solved for the
+  shoulder, the elbow and the wrist and fed forward to the servo. One place puts a point there;
+  two put two points of the one body, which lays the line between them (`solveReach`: three
+  rows, or five). A path may run on past its place (`through`), and a goal given again with
+  other places may be the same path, its end moved (`follows`). The body frame is the root's
+  (`BodyView.root`), which a skill turns a world point into (`intoFrameToRef`).
 - **The bearing solve** (`bearing.ts`) is a body borne on the ground through limbs, and knows no
   foot. A limb (`Limb`) is the chain of freedoms from the root to a segment, with a task at a
   point of that segment: to bear there on a patch of the ground, or to move free. `carryRoot`
@@ -176,14 +182,19 @@ braking and blocking). A muscle can never exceed its source's strength at its sp
 - **Locomotion** (`locomotion.ts`) walks at no more than the body's measured fastest walk, turns
   only while walking and no faster than its envelope allows, and can set the feet at a chosen
   place (`Locomotion.place`).
-- **Strike** (`strike.ts`, `strikes.ts`) throws a searched recipe: a chamber pose and timed muscle
-  pushes (`Strike`), one per body and held item, for the right hand, in `assets/core/strikes.json`
-  (`REPERTOIRE`, written by `research/core-strike-repertoire.mjs` from the searches), thrown from
-  guard and landing over a measured window (`Recipe.window`). The skill chooses the recipe for what
-  the hand holds (`recipeFor`; the left hand's is mirrored, and a body with none of its own
-  borrows one), walks the body to where the target sits in the window, sets the feet, stands
-  `STAND` seconds, and throws. While a strike runs it owns the legs and trunk, and the other hand
-  guards.
+- **Strike** (`strike.ts`, `strikes.ts`) carries out a hand's attack by one of two blows. A
+  searched recipe is a chamber pose and timed muscle pushes (`Strike`), one per body and held
+  item, for the right hand, in `assets/core/strikes.json` (`REPERTOIRE`, written by
+  `research/core-strike-repertoire.mjs` from the searches), thrown from guard and landing over a
+  measured window (`Recipe.window`: along the heading, across it, and the target's height over
+  the head). A placed blow (`PLACED`) is a hand goal: the point the hand strikes with (`aimOf`:
+  its knuckles, or what its item says, the club's swell) carried through the target, which it
+  follows in the body frame each step. The skill chooses the recipe for what the hand holds
+  (`recipeFor`; the left hand's is mirrored, and a body with none of its own borrows one) where
+  the target's height is in its window, and a placed blow where it is not or the hand has no
+  recipe; walks the body to where the target sits in the blow's window, sets the feet, stands
+  `STAND` seconds, chooses again by the head as it stands, and throws. While a strike runs it
+  owns the legs and trunk, and the other hand guards.
 - **Guard** (`guard.ts`, `GUARD`) is the arms' posture when nothing else owns them.
 
 ### Minds
@@ -479,10 +490,10 @@ These are the owner's, and the code is built on them.
 - **Torque sources with the body's real inertia**, and an eccentric ceiling of 1.4 times isometric.
 - **A person never commands muscles.** A person's input is orders (`Orders`): walk this way, face
   that way, attack that point. The body's own tactics and skills carry them out.
-- **Strikes are searched recipes now, hand goals next**: a strike becomes a place, a speed and a
-  time for the hand, met by arm, trunk and legs together, and the tactics' intent, attack that, does
-  not change. Nothing is built that the next step throws away, or searched on a path the game will
-  not use.
+- **Strikes are searched recipes where one lands, and hand goals where none does**: a placed
+  blow is a place and a time for the hand, met by the arm alone. Next it is met by arm, trunk and
+  legs together, with a speed, and the tactics' intent, attack that, does not change. Nothing is
+  built that the next step throws away, or searched on a path the game will not use.
 - **Sizes and hit points.** x1 is a typical adult, about 1.77 m and 79 kg; the Rogue keeps her own
   proportions. The Warrior has 6 hit points and the Rogue 4.
 - **The skeleton is a family of its own, not a reskin.** It keeps thin colliders though they make it

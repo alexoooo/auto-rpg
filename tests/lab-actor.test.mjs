@@ -64,41 +64,46 @@ test("a_lab_body_stands_under_the_stance_tuning_its_actor_is_given", async () =>
   } finally { stand.dispose(); }
 });
 
-/** The reach the skills report for each hand of `loadout`'s body, its actor given `options`: a hand with no strike has none. */
-async function reach(loadout, options) {
+/** Which hands of `loadout`'s body may strike, and the reach the skills report for each, its actor given `options`. */
+async function strikes(loadout, options) {
   const stand = await coreStand(loadoutSpec(loadout), { ground: true });
   const actor = labActor(stand.built, stand.world, options);
-  try { return actor.drive({ name: "stand", decide: () => standIntent(0) }).report.strike.reach; }
+  try { return { may: { ...actor.strikes }, reach: { ...actor.drive({ name: "stand", decide: () => standIntent(0) }).report.strike.reach } }; }
   finally { actor.dispose(); stand.dispose(); }
 }
 
-test("a_lab_bodys_hand_has_no_strike_its_actor_bars", async () => {
+test("a_lab_bodys_hand_may_not_strike_with_what_its_actor_bars", async () => {
   const bare = { model: "workshop-fighter", right: "empty", left: "empty" }, armed = { ...bare, right: "club" };
-  // Each hand's reach is its recipe's distance: the fist's and the club's are not the same.
+  // Each hand's reach is its recipe's distance: the fist's and the club's are not the same. A bar
+  // is the mind's, and changes nothing the skills know.
   const fist = recipeFor(REPERTOIRE, loadoutSpec(bare), "right").recipe.distance, club = recipeFor(REPERTOIRE, loadoutSpec(armed), "right").recipe.distance;
   assert.ok(fist > 0 && club > fist, `the fist reaches ${fist} m, the club ${club}`);
-  assert.deepEqual(await reach(bare), { left: fist, right: fist });
-  assert.deepEqual(await reach(bare, { allows: allowing([]) }), { left: fist, right: fist });
-  assert.deepEqual(await reach(bare, { allows: allowing(["club"]) }), { left: fist, right: fist });
-  assert.deepEqual(await reach(bare, { allows: allowing(["empty"]) }), { left: null, right: null });
-  assert.deepEqual(await reach(armed), { left: fist, right: club });
-  assert.deepEqual(await reach(armed, { allows: allowing(["club"]) }), { left: fist, right: null });
-  assert.deepEqual(await reach(armed, { allows: allowing(["empty"]) }), { left: null, right: club });
-  assert.deepEqual(await reach(armed, { allows: allowing(["empty", "club"]) }), { left: null, right: null });
+  const fists = { left: fist, right: fist }, clubbed = { left: fist, right: club };
+  assert.deepEqual(await strikes(bare), { may: { left: true, right: true }, reach: fists });
+  assert.deepEqual(await strikes(bare, { allows: allowing([]) }), { may: { left: true, right: true }, reach: fists });
+  assert.deepEqual(await strikes(bare, { allows: allowing(["club"]) }), { may: { left: true, right: true }, reach: fists });
+  assert.deepEqual(await strikes(bare, { allows: allowing(["empty"]) }), { may: { left: false, right: false }, reach: fists });
+  assert.deepEqual(await strikes(armed), { may: { left: true, right: true }, reach: clubbed });
+  assert.deepEqual(await strikes(armed, { allows: allowing(["club"]) }), { may: { left: true, right: false }, reach: clubbed });
+  assert.deepEqual(await strikes(armed, { allows: allowing(["empty"]) }), { may: { left: false, right: true }, reach: clubbed });
+  assert.deepEqual(await strikes(armed, { allows: allowing(["empty", "club"]) }), { may: { left: false, right: false }, reach: clubbed });
 });
 
-test("an_actor_bars_strikes_among_those_its_mode_gives_the_skills", async () => {
-  // The Blow gives its skills one recipe of its own, at a distance no searched recipe has.
+test("a_hand_with_no_recipe_reaches_as_far_as_its_placed_blow", async () => {
+  // The Blow gives its skills one recipe of its own, the club's, at a distance no searched recipe
+  // has: the right hand reaches that far, and the left, with no recipe for its fist, as far as a
+  // placed blow at a target as high as the head.
   const stored = LAB_BLOWS[0], distance = stored.distance + 0.013;
-  const reaches = async (options) => {
-    const stand = await coreStand(loadoutSpec({ model: stored.model, right: "club", left: "empty" }), { ground: true });
-    const blow = throwBlow(labActor(stand.built, stand.world, options), stored.strike, distance);
-    try { return blow.report.strike.reach; } finally { blow.dispose(); stand.dispose(); }
-  };
-  assert.deepEqual(await reaches(), { left: null, right: distance });
-  assert.deepEqual(await reaches({ allows: allowing([]) }), { left: null, right: distance });
-  assert.deepEqual(await reaches({ allows: allowing(["empty"]) }), { left: null, right: distance });
-  assert.deepEqual(await reaches({ allows: allowing(["club"]) }), { left: null, right: null });
+  const stand = await coreStand(loadoutSpec({ model: stored.model, right: "club", left: "empty" }), { ground: true });
+  const blow = throwBlow(labActor(stand.built, stand.world), stored.strike, distance);
+  try {
+    const { left, right } = blow.report.strike.reach;
+    assert.equal(right, distance);
+    // A placed blow is thrown with the arm out, from farther off than the fist's recipe, which
+    // these skills are not given; and from nearer than the club's.
+    const fist = recipeFor(REPERTOIRE, humanSpec(stored.model), "left").recipe.distance;
+    assert.ok(left > fist && left < right, `the left reaches ${left} m, its fist's recipe ${fist} and the club ${right}`);
+  } finally { blow.dispose(); stand.dispose(); }
 });
 
 test("with_every_strike_barred_the_routine_walks_to_its_targets_and_back", async () => {

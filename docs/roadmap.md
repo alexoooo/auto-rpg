@@ -73,21 +73,41 @@ All of it on a physically based core, humans first ([architecture](architecture.
 
 ### Strikes
 
-- Hand goals: a strike as a place, a speed and a time for the hand, met by arm, trunk and legs
-  together, and the strike search in that form. A recipe stays wherever it beats the hand goal.
+- Hand goals: a placed blow is a place and a time for the hand's point, met by the arm alone
+  ([reference/blows.md](reference/blows.md#placed)). Left: a speed at the place, and the trunk
+  and the legs in the blow, and the strike search in that form; a placed blow lands a tenth of a
+  recipe's energy. A recipe stays wherever it beats the hand goal.
+- A hand goal's path is a straight line of its point, and for a point of a held thing that line
+  can run through places no pose of the arm puts it: of 32 placed club blows 8 land, and the
+  skeleton's club, which rests behind its shoulder, never comes within half a metre
+  ([reference/blows.md](reference/blows.md#the-battery-placed)). A path a pose can follow from end
+  to end (through the joints' angles, or by a point between) is not built.
 - A strike thrown while walking comes with hand goals.
 - The repertoire is three recipes: the Warrior's and the Rogue's right straights and the Warrior's
   club blow. A body with no recipe of its own for what its hand holds borrows the first that fits
   (`recipeFor`): the Rogue and the skeleton the club blow, the skeleton also the Warrior's straight.
-  The borrowed ones miss and put their bodies down: the Rogue's club passes its targets 0.6 m
-  off, and the Rogue with the club and the skeleton fall within five targets of the Routine
-  ([reference/blows.md](reference/blows.md#a-loop-of-ten)).
-- The strike skill reads a target's place across the ground and not its height: no fist strikes
-  a target under the hips ([reference/blows.md](reference/blows.md#baseline)).
-- A blow of its own that lands can put a body down. The Warrior in the Routine fell in 3 runs of
-  6 of ten loops with its blows landing on its targets, and in 1 of 6 with the same strikes
-  thrown at nothing ([reference/lab.md](reference/lab.md#routine-gait)); in the one fall read, a
-  recovering step after the blow left its feet together, and it fell stepping to the next target.
+  The borrowed ones miss and put their bodies down: the Rogue's club passes its targets 0.5 to
+  0.7 m off where the same hand's placed blow lands
+  ([reference/blows.md](reference/blows.md#against-a-recipe)), and in the Routine the Rogue with
+  the club falls in two runs of three and the skeleton with it in every one, at its second
+  target ([reference/blows.md](reference/blows.md#a-loop-of-ten-placed)).
+- A target off a recipe's height is struck by a placed blow: every middle target of the battery
+  is hit by a fist ([reference/blows.md](reference/blows.md#the-battery-placed)). Left:
+  - blows searched by band of height, for each body and thing held, in place of one recipe a
+    hand and a placed blow everywhere else;
+  - the low targets: 16 of the fists' 27 are filled by the body's own leg as it stands at its
+    toes, and 3 are hit. Nothing stoops or kneels to strike;
+  - a fist's window up is read by its point through an empty sphere and is narrower than its
+    blow: the Warrior places 0.4 to 0.7 J at a head 4 to 14 cm under his own, where his straight
+    lands 6 to 11 J ([reference/human-and-strikes.md](reference/human-and-strikes.md#window-height)).
+    Bare-handed against the Rogue and the skeleton, whose heads are there, he fells nobody in
+    120 s ([reference/bouts.md](reference/bouts.md#placed-blows)).
+- A blow of its own that lands can put a body down. The Warrior in the Routine falls in 4 runs
+  of 6 of ten loops at 120 Hz and in 2 of 6 at 480 Hz, setting its feet for a target or closing
+  on one ([reference/lab.md](reference/lab.md#routine-gait)). Before the placed blow it fell in
+  3 of 6 with its blows landing and in 1 of 6 with the same strikes thrown at nothing; in the
+  one fall read, a recovering step after the blow left its feet together, and it fell stepping
+  to the next target.
 - A blow that meets nothing unbalances the body that threw it. The Warrior with the club on the
   Node stand (Rapier, 120 Hz), attacking a point 1.6 m off with nobody at it, ends its swing
   turned 0.75 rad from where it faced, and takes 2 s of steps to face it again. Held rigid for
@@ -135,9 +155,9 @@ All of it on a physically based core, humans first ([architecture](architecture.
 - The owner's to watch: a bare-handed bout
   (`?play=arena&matchup=workshop-rogue,workshop-rogue&held=empty`) beside one with clubs
   (`?play=arena&matchup=workshop-fighter,workshop-rogue`).
-- Fists as they are thrown decide nothing: every one of 45 bare-handed bouts ends by a fall, the
-  hardest of 4347 blows is 22 J, and a bout's blows take 0.20 of the sides' 10 to 12 HP
-  ([reference/bouts.md](reference/bouts.md#a-hit-point-is-100-j)).
+- Fists decide nothing: of 45 bare-handed bouts 35 end by a fall and 10 at the 120 s cap, and
+  a bout's blows take 0.31 of the sides' 10 to 12 HP
+  ([reference/bouts.md](reference/bouts.md#placed-blows)).
 - The Warrior with an empty right hand, on the right side of a bout, falls at 2.9 s before any
   touch: it turns a quarter turn from its heading as it sets off. On the left, and on either
   side with the club, it walks.
@@ -146,8 +166,8 @@ All of it on a physically based core, humans first ([architecture](architecture.
 - The crypt makes its watch again at each body it builds, and a watch made again has forgotten
   which bodies were touching: a touch that is still closing lands once more.
 - Two parts of one body that meet another's part in one step are two blows, each priced from its
-  own contact as if it met the part alone: a bare Warrior's fist and forearm landing together
-  on a ball 10 cm under its head's height read 10.9 J and 5.9 J (`tests/lab-targets.test.mjs`).
+  own contact as if it met the part alone: a bare Rogue's fist and forearm landing together
+  on a ball 6 cm under its head's height read 8.8 J and 2.8 J (`tests/lab-targets.test.mjs`).
 
 ### Body and motor control
 
