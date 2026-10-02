@@ -44,8 +44,8 @@ with the last of them.
 5. **Every blow is blunt until an item states an edge or a point.** The mechanisms' prices are
    in the rulebook already (`MECHANISM_PRICE`); which mechanism a contact is comes with the
    first item that has one (Later).
-6. **The unit is a round number, on the owner's yes**: 100 J a hit point, in place of the club's
-   best blow (138.26 J).
+6. **The unit is a round number**: 100 J a hit point (`owner-damage-unit`). The club's best
+   blow, 138.26 J, is a measurement beside it (`CLUB_BEST`).
 7. **An attack is a function of its target.** The tactics say what to attack (`HandAction`:
    a point, with whatever the hand holds) and never how. The strike skill chooses how, from two
    primitives:
@@ -95,8 +95,8 @@ Each is put with its table at the gate of the plan that measures it. None is ass
 
 | Choice | Options, and what each does in the game | Where |
 |---|---|---|
-| **The unit** | 100 J a hit point with the bodies' hit points as they are (every body 28 % frailer in joules: the Warrior's 6 HP is 600 J, not 830 J); 100 J with hit points raised to hold the joules (Warrior 8.3, Rogue 5.5); or 138.26 J kept. | 04 |
-| **Whether a blunt blow takes a part off** | A fist takes 62 % of a punch to a head, a hand holds 12 J (Warrior), and a part comes off half its hit points past empty: a punch to a head of 29 J or more takes the puncher's hand off. Leave it (a bare fist is for the trunk, where it takes 12 %; plan 07's search finds that by itself); or a blunt blow empties a part and never takes it off (no part comes off until an edge exists; the club no longer takes a head off, it kills by emptying it). Measured both ways: `docs/reference/bouts.md#a-blow-has-two-sides`. | the roadmap, Blows and wounds |
+| **What the bodies hold at 100 J** | The unit is 100 J a hit point and the bodies' hit points are as they were, so every body is 28 % frailer in joules (the Warrior's 6 HP is 600 J, not 830 J): it is what the rulebook has. Or hit points raised to hold the joules (Warrior 8.3, Rogue 5.5), which is every bout as it was at 138.26 J. Measured both ways: `docs/reference/wounds.md#unit`. | the roadmap, Blows and wounds |
+| **Whether a blunt blow takes a part off** | A fist takes 62 % of a punch to a head, a hand holds 8.8 J (Warrior), and a part comes off half its hit points past empty: a punch to a head of 21 J or more takes the puncher's hand off. Leave it (a bare fist is for the trunk, where it takes 12 %; plan 07's search finds that by itself); or a blunt blow empties a part and never takes it off (no part comes off until an edge exists; the club no longer takes a head off, it kills by emptying it). Measured both ways: `docs/reference/bouts.md#a-blow-has-two-sides`. | the roadmap, Blows and wounds |
 | **Jostling** | Every closing touch is a blow, so two bodies that bump shoulders wound each other a little. Leave it; a floor under which a touch only shoves (`Rulebook`, a decision of its own); or a body out of the fight out of the watch. Measured at two floors, in the same record. | the roadmap |
 | **The stiffness gaps** | Confirm, or correct, the values no source gives: the arm's, the shank's, the foot's, the middle and lower trunk's (`docs/reference/wounds.md#gaps`, with what a factor of two in each does). | the roadmap |
 | **Where a fighter aims** | The head, as today; or the part its blow pays most on. Chosen on a paired table of bouts. | 07 |
@@ -131,7 +131,6 @@ Each is put with its table at the gate of the plan that measures it. None is ass
 
 | Today | After |
 |---|---|
-| the unit is the club's best blow, 138.26 J | 100 J, on the owner's yes |
 | a blow is thrown at head height, straight ahead | a recipe by height band, with a window in three directions; a placed blow elsewhere |
 | a hand goal takes the knuckles to a place, and no skill uses it | named points of the hand's rigid body, the wrist freed for two; the strike and the guard use it |
 | the guard is a pose | a pose, or a cover of a threat |
@@ -141,20 +140,20 @@ Each is put with its table at the gate of the plan that measures it. None is ass
 
 | # | Plan | Lands | Needs | Eye gate |
 |---|---|---|---|---|
-| 04 | [unit](2026-10-01-blows-04-unit.md) | 100 J a hit point | the owner's yes | none |
 | 05 | [placement](2026-10-01-blows-05-placement.md) | hand goals on named points; windows with height; the placed blow | | the Routine's high and middle targets are struck |
 | 06 | [guard](2026-10-01-blows-06-guard.md) | the guard covers a threat; the block battery | 05 | the owner watches a body cover itself |
 | 07 | [searched blows](2026-10-01-blows-07-searched-blows.md) | one evaluator under the rule; recipes by band for every body and thing held | 05 | the owner watches each body's blows, and reads the price before the searches run |
 
 The targets every plan here is read on have landed (`src/lab/targets.ts`,
 `docs/reference/blows.md`), and so has the rule: a blow has no striker, and its two surfaces
-share it (`src/core/rules/blows.ts`, `docs/reference/wounds.md`). 04 changes what every bout is
-worth: it measures the standing table before and after
-(`docs/reference/bouts.md#a-blow-has-two-sides` is its before), and the two tables are not
-merged. 07 is the open-ended one: its structure is fixed here, its recipes are found by search.
+share it (`src/core/rules/blows.ts`, `docs/reference/wounds.md`), and the unit: a hit point is
+100 J of blunt blow (`docs/reference/wounds.md#unit`,
+`docs/reference/bouts.md#a-hit-point-is-100-j`, and the targets at it in
+`docs/reference/blows.md#at-100-j`). 07 is the open-ended one: its structure is fixed here, its
+recipes are found by search.
 
 The rising set (`2026-10-01-rising-05-rules.md`) measures `docs/reference/bouts.md` again too:
-it and 04 each measure against the last table in that record, not against one both replaced.
+it measures against the last table in that record.
 
 ## Readings
 
@@ -163,20 +162,20 @@ prices are in `docs/reference/wounds.md`.
 
 ### What each part holds
 
-`partHitPoints`, Node. Joules to empty at 138.26 J and at 100 J a hit point.
+`partHitPoints`, Node. Joules to empty at 100 J a hit point.
 
-| Part | Warrior (6 HP): kg | HP | J at 138.26 | J at 100 | Rogue (4 HP): kg | HP | J at 138.26 | J at 100 |
-|---|---|---|---|---|---|---|---|---|
-| head | 5.48 | 0.446 | 61.7 | 44.6 | 3.85 | 0.291 | 40.2 | 29.1 |
-| upperTrunk | 12.61 | 0.776 | 107.3 | 77.6 | 8.90 | 0.508 | 70.2 | 50.8 |
-| middleTrunk | 12.90 | 0.788 | 108.9 | 78.8 | 8.44 | 0.491 | 67.9 | 49.1 |
-| lowerTrunk | 8.82 | 0.612 | 84.6 | 61.2 | 7.18 | 0.441 | 61.0 | 44.1 |
-| upperArm | 2.14 | 0.238 | 32.9 | 23.8 | 1.47 | 0.153 | 21.2 | 15.3 |
-| forearm | 1.28 | 0.169 | 23.4 | 16.9 | 0.79 | 0.102 | 14.1 | 10.2 |
-| hand | 0.48 | 0.088 | 12.2 | 8.8 | 0.32 | 0.056 | 7.7 | 5.6 |
-| thigh | 11.19 | 0.717 | 99.1 | 71.7 | 8.51 | 0.494 | 68.3 | 49.4 |
-| shank | 3.42 | 0.325 | 44.9 | 32.5 | 2.77 | 0.234 | 32.4 | 23.4 |
-| foot | 1.08 | 0.151 | 20.9 | 15.1 | 0.74 | 0.097 | 13.4 | 9.7 |
+| Part | Warrior (6 HP): kg | HP | J | Rogue (4 HP): kg | HP | J |
+|---|---|---|---|---|---|---|
+| head | 5.48 | 0.446 | 44.6 | 3.85 | 0.291 | 29.1 |
+| upperTrunk | 12.61 | 0.776 | 77.6 | 8.90 | 0.508 | 50.8 |
+| middleTrunk | 12.90 | 0.788 | 78.8 | 8.44 | 0.491 | 49.1 |
+| lowerTrunk | 8.82 | 0.612 | 61.2 | 7.18 | 0.441 | 44.1 |
+| upperArm | 2.14 | 0.238 | 23.8 | 1.47 | 0.153 | 15.3 |
+| forearm | 1.28 | 0.169 | 16.9 | 0.79 | 0.102 | 10.2 |
+| hand | 0.48 | 0.088 | 8.8 | 0.32 | 0.056 | 5.6 |
+| thigh | 11.19 | 0.717 | 71.7 | 8.51 | 0.494 | 49.4 |
+| shank | 3.42 | 0.325 | 32.5 | 2.77 | 0.234 | 23.4 |
+| foot | 1.08 | 0.151 | 15.1 | 0.74 | 0.097 | 9.7 |
 
 The skeleton's are the Warrior's (`skeleton-placeholders`).
 

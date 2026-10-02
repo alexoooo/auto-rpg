@@ -3,7 +3,7 @@
  * built by hand: the left hand's strike is the right's with the arms' channels swapped and the
  * trunk's sided turns reversed; a hand throws the recipe for what it holds, its body's own or
  * another's, with its window turned over for the other hand; the club blow in the repertoire is the
- * damage unit's; and an attack walks toward its place, sets the feet there, stands `STAND` s, asks
+ * club's best (`CLUB_BEST`); and an attack walks toward its place, sets the feet there, stands `STAND` s, asks
  * the window of the head as it stands, chambers, pushes and is counted. That a blow thrown through
  * the skill reads as its search read it, to the digit, is `tests/lab-blow.test.mjs`'s.
  */
@@ -15,6 +15,7 @@ import { armed } from "../src/core/human/grip.ts";
 import { humanSpec } from "../src/core/human/spec.ts";
 import { woodenClub } from "../src/core/items/club.ts";
 import { GUARD_ACTION } from "../src/core/mind/intent.ts";
+import { CLUB_BEST } from "../src/core/rules/rulebook.ts";
 import { GUARD } from "../src/core/skills/guard.ts";
 import { APPROACH, STAND, strikeSkill } from "../src/core/skills/strike.ts";
 import { FIST, heldIn, mirrored, mirroredWindow, recipeFor, REPERTOIRE } from "../src/core/skills/strikes.ts";
@@ -68,7 +69,7 @@ test("a_hand_throws_the_recipe_for_what_it_holds_its_bodys_own_or_another_bodys"
   assert.equal(recipeFor(REPERTOIRE.filter((r) => r.held === FIST), rogueClub, "right"), null);
 });
 
-test("the_repertoires_club_blow_is_the_damage_units", async () => {
+test("the_repertoires_club_blow_is_the_clubs_best", async () => {
   const unit = JSON.parse(await readFile(new URL("../research/core-club-unit.json", import.meta.url), "utf8"));
   const clubs = REPERTOIRE.filter((r) => r.held === "wooden club");
   assert.equal(clubs.length, 1);
@@ -78,6 +79,8 @@ test("the_repertoires_club_blow_is_the_damage_units", async () => {
   assert.deepEqual(plain(recipe), plain({
     model: unit.model, held: "wooden club", strike: unit.strike, distance: unit.distance, found: unit.found, readings: unit.readings,
   }));
+  // The blow things are priced against is that record's converged reading.
+  assert.equal(recipe.readings.at1920.mean, CLUB_BEST.value);
 });
 
 test("an_attack_walks_to_its_place_sets_the_feet_stands_asks_the_window_and_is_thrown", () => {

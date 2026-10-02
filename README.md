@@ -105,7 +105,7 @@ without resuming on its own.
   back. Each target is a ball of its own head, and the table says what the blow did to it or how
   near it passed. `&targets=` (0 to 30) and `&seed=` in the address choose how many and which.
 - **Run**: it goes round a track as fast as its walk holds.
-- **Blow**: it swings the club blow that sets the damage unit into a head.
+- **Blow**: it swings the Warrior's strongest club blow into a head.
 
 Its sections, each of which folds away, choose the body and its balance, what each hand holds,
 boots and armour, its mind, whether it lies or tries to rise once it is down (**Down**: a rise

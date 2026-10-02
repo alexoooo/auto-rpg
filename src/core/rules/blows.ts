@@ -31,7 +31,7 @@ import { energyShares } from "./share.ts";
  *   bodies' velocities as the step before left them: the step a blow lands in has already met it.
  *   A touch that was not closing lands nothing.
  * - **Its energy** is `impactEnergy` of the masses the contact meets on each side (`contactMass`,
- *   joints free and each body floating), as the damage unit's blow was read
+ *   joints free and each body floating), as the club's best blow was read
  *   (`src/lab/club-blow.ts`).
  * - **A side's damage** is `blowDamage` of its share of that energy. Every blow is blunt until
  *   the weapons that cut and pierce come, and a blunt blow is never clean, so it takes a part off

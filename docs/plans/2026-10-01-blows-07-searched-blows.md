@@ -161,7 +161,7 @@ harness at the commit that held it.
 chest-high one the middle, one between the windows none); the body's own before another's;
 mirrored, `window.up` is carried. Every recipe in the asset whole: its `window.up` holds 0, its
 `net` is a finite number, its `found` names the harness. The club's test
-(`the_repertoires_club_blow_is_the_damage_units`) reads the recipe by `evaluateBlow` and holds it
+(`the_repertoires_club_blow_is_the_clubs_best`) reads the recipe by `evaluateBlow` and holds it
 to the asset's `net`.
 
 `research-blow`, **`a cell keeps its recipe only over the placed blow`**: `keeps` of a recipe

@@ -2,7 +2,7 @@
  * **Writes the strike skill's repertoire** (`assets/core/strikes.json`, read by
  * `src/core/skills/strikes.ts`) from the strike searches' outputs: for each recipe, the last line
  * of a `research/core-strike-search.mjs` run (its best strike, where it was found and what it read
- * on replay), or a record in that form (`research/core-club-unit.json`, the damage unit's blow).
+ * on replay), or a record in that form (`research/core-club-unit.json`, the club's best blow).
  *
  *   node research/core-strike-repertoire.mjs [--write] <held>=<file> ...
  *

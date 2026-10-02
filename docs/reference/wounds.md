@@ -119,7 +119,8 @@ most: a fist on a head costs the puncher from 45 to 77 % of the blow across a fa
 **The bouts.** Node, the core world, Rapier, 120 Hz, each side's balance its character's: every
 ordered pair of the three bodies at gaps of 3, 3.5, 4, 4.5 and 5 m, nothing in either right
 hand, with both hands' surfaces half, once and twice as stiff
-(`node research/bout-baseline.mjs --gaps 3,3.5,4,4.5,5 --held empty --hand 0.5`, and `--hand 2`).
+(`node research/bout-baseline.mjs --gaps 3,3.5,4,4.5,5 --held empty --hand 0.5`, and `--hand 2`),
+read at 138.26 J a hit point (`--unit 138.26`).
 Wounds change no bout until one decides it and none of these is decided by a wound, so the 45
 bouts are the same bouts in all three: every ending, second and blow is the same, and so is what
 the two sides lose together, since the two shares sum to one. What moves is who loses it:
@@ -140,47 +141,81 @@ the rows and counted in the last: its 15 bouts end at 2.9 s before any touch
 ([bouts.md](bouts.md#a-blow-has-two-sides)). With the club in every right hand the hands' factor
 changes less still: only a left hand is bare.
 
+## Unit
+
+**One hit point is 100 J of blunt blow** (`Rulebook.unit`, `owner-damage-unit`), and every
+mechanism keeps its ratio to blunt. The owner, 2026-10-01: "should we just make it 100J what's
+so special about 138?". Before it the unit was the Warrior's strongest one-handed blow with the
+wooden club, 138.26 J (`core-club-unit`), which stays a measurement (`CLUB_BEST`,
+`src/core/rules/rulebook.ts`) and is worth 1.38 hit points.
+
+The owner's words name the number and not what becomes of the bodies' hit points, so the option
+is the owner's to change. The first is what the rulebook has:
+
+| Option | In the game |
+|---|---|
+| **100 J, hit points as they are** | Every body holds 28 % fewer joules: the Warrior's 6 HP is 600 J where it was 830 J, the Rogue's 4 is 400 J where it was 553 J. The club's best blow is 1.38 HP and empties a Warrior's head (0.446 HP) three times over, where it did 2.2 times. |
+| 100 J, hit points raised to hold the joules | No fight changes; the numbers shown do: Warrior 8.3, Rogue 5.5. |
+| 138.26 J kept | Nothing changes; the unit is a measurement, and moves if the club's blow is measured again. |
+
+What the first does to the arena's bouts (Node, the core world, Rapier, 120 Hz, each side's
+balance its character's, the club in every right hand; `node research/bout-baseline.mjs --gaps
+3,3.5,4,4.5,5`, and with `--unit 138.26` on the same tree):
+
+| Over 45 bouts | 138.26 J a hit point | 100 J |
+|---|---|---|
+| Bouts by ending | fallen 33, severed 8, fatal 4 | fallen 31, severed 12, fatal 2 |
+| Bout time, s | 633 | 601 |
+| HP a bout the blows took, both sides | 0.419 | 0.543 |
+| Bouts with another winner or another second | - | 2 |
+
+A wound moves no body, so a bout differs only from the step a wound decides it. Of the 45, 43
+have the winner and the second they had, four of them ended by a head coming off where a fatal
+wound ended them; two long bouts are ended sooner by a fatal wound, one with the other winner.
+Bare-handed, all 45 are the bouts they were, and their blows take 0.200 HP a bout where they
+took 0.145. The rows: [bouts.md](bouts.md#a-hit-point-is-100-j).
+
 ## Tolerances
 
 **What a part tolerates is the pool's rule** (`partHitPoints`, `src/core/rules/pool.ts`): its
 cross-section's share of the body's hit points, times the unit. No part has a tolerance of its
 own. The energy that empties each part, which a blow must bring to that surface as its share, at
-138.26 J a hit point:
+100 J a hit point:
 
 | Part | Warrior and skeleton (6 HP): kg | HP | J | Rogue (4 HP): kg | HP | J |
 |---|---|---|---|---|---|---|
-| head | 5.48 | 0.446 | 61.6 | 3.85 | 0.291 | 40.2 |
-| upperTrunk | 12.61 | 0.776 | 107.4 | 8.90 | 0.508 | 70.3 |
-| middleTrunk | 12.90 | 0.788 | 109.0 | 8.44 | 0.491 | 67.9 |
-| lowerTrunk | 8.82 | 0.612 | 84.6 | 7.18 | 0.441 | 60.9 |
-| upperArm | 2.14 | 0.238 | 32.9 | 1.47 | 0.153 | 21.2 |
-| forearm | 1.28 | 0.169 | 23.4 | 0.79 | 0.102 | 14.0 |
-| hand | 0.48 | 0.088 | 12.2 | 0.32 | 0.056 | 7.7 |
-| thigh | 11.19 | 0.717 | 99.1 | 8.51 | 0.494 | 68.3 |
-| shank | 3.42 | 0.325 | 45.0 | 2.77 | 0.234 | 32.3 |
-| foot | 1.08 | 0.151 | 20.9 | 0.74 | 0.097 | 13.4 |
+| head | 5.48 | 0.446 | 44.6 | 3.85 | 0.291 | 29.1 |
+| upperTrunk | 12.61 | 0.776 | 77.6 | 8.90 | 0.508 | 50.8 |
+| middleTrunk | 12.90 | 0.788 | 78.8 | 8.44 | 0.491 | 49.1 |
+| lowerTrunk | 8.82 | 0.612 | 61.2 | 7.18 | 0.441 | 44.1 |
+| upperArm | 2.14 | 0.238 | 23.8 | 1.47 | 0.153 | 15.3 |
+| forearm | 1.28 | 0.169 | 16.9 | 0.79 | 0.102 | 10.2 |
+| hand | 0.48 | 0.088 | 8.8 | 0.32 | 0.056 | 5.6 |
+| thigh | 11.19 | 0.717 | 71.7 | 8.51 | 0.494 | 49.4 |
+| shank | 3.42 | 0.325 | 32.5 | 2.77 | 0.234 | 23.4 |
+| foot | 1.08 | 0.151 | 15.1 | 0.74 | 0.097 | 9.7 |
 
 A part comes off half its hit points past empty (`Rulebook.severMargin`): a Warrior's hand at
-18.3 J of its own share, which against a head is a blow of 29 J.
+13.2 J of its own share, which against a head is a blow of 21 J.
 
 Beside them, what the literature gives a part before it breaks. "Mine" is arithmetic on a
 paper's numbers, a spring's ½ F x or F²/2k, and no paper's own figure:
 
 | Part | The literature | J | The pool's, Warrior, J |
 |---|---|---|---|
-| head, the vault | failure at 33.5 J quasi-static and 28.0 J dynamic, 12 intact heads (Yoganandan et al. 1995, its abstract) | 28 to 34 | 61.6 |
-| head, the nose | an even chance of fracture at 450 to 850 N (Cormier et al. 2010, Ann Adv Automot Med 54:3-14); over the dissertation's toe and two slopes that is 1.2 to 2.5 J (mine) | 1 to 3 | 61.6 |
-| head, the frontal bone | an even chance of fracture at 1885 to 2405 N (Cormier et al. 2011, J Biomech Eng 133(2):021004, its abstract); at 731 N/mm, 2.4 to 4.0 J (mine) | 2 to 4 | 61.6 |
-| thigh | 4349 N at 17.6 mm (`funk-2004`): 38 J (mine) | 38 | 99.1 |
-| hand | an even chance of injury at 3.0 kN on the knuckle joints (Carpanen et al. 2019, J Mech Behav Biomed Mater 97:306-311, its abstract); at 122.3 N/mm, 37 J (mine, a human load on a pig's stiffness) | 37 | 12.2 |
-| trunk | none read: `kent-2005` loads a chest to 20 % of its depth and breaks nothing | - | 107.4 |
+| head, the vault | failure at 33.5 J quasi-static and 28.0 J dynamic, 12 intact heads (Yoganandan et al. 1995, its abstract) | 28 to 34 | 44.6 |
+| head, the nose | an even chance of fracture at 450 to 850 N (Cormier et al. 2010, Ann Adv Automot Med 54:3-14); over the dissertation's toe and two slopes that is 1.2 to 2.5 J (mine) | 1 to 3 | 44.6 |
+| head, the frontal bone | an even chance of fracture at 1885 to 2405 N (Cormier et al. 2011, J Biomech Eng 133(2):021004, its abstract); at 731 N/mm, 2.4 to 4.0 J (mine) | 2 to 4 | 44.6 |
+| thigh | 4349 N at 17.6 mm (`funk-2004`): 38 J (mine) | 38 | 71.7 |
+| hand | an even chance of injury at 3.0 kN on the knuckle joints (Carpanen et al. 2019, J Mech Behav Biomed Mater 97:306-311, its abstract); at 122.3 N/mm, 37 J (mine, a human load on a pig's stiffness) | 37 | 8.8 |
+| trunk | none read: `kent-2005` loads a chest to 20 % of its depth and breaks nothing | - | 77.6 |
 
 A boxer's straight punch is 3427 N at 9.14 m/s with an effective mass of 2.9 kg (Walilko, Viano
 and Bir 2005, Br J Sports Med 39:710-719, not opened at its source for this record): 121 J in the
 fist as it lands (mine).
 
-Against these the pool's vault and thigh are within a factor of three, on the tough side; its
-head is far tougher than a face; and its hand is about a third as tough as a knuckle. A
+Against these the pool's vault and thigh are within a factor of two, on the tough side; its
+head is far tougher than a face; and its hand is about a quarter as tough as a knuckle. A
 tolerance of a part's own is not built: the pool's rule stands, by the owner's answer.
 
 ## Mechanisms

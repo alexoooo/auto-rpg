@@ -84,7 +84,7 @@ export type ItemShape = Exclude<ShapeSpec, { readonly kind: "box" }>;
  * split over its segments by the rulebook's rule.
  */
 export interface WoundSpec {
-  /** The body's hit points, in the rulebook's unit (one the strongest club hit). */
+  /** The body's hit points, in the rulebook's unit (`Rulebook.unit`: one is 100 J of blunt blow). */
   readonly hp: Quantity<number>;
   /** Segments whose emptying, or loss, kills the body: a head. */
   readonly vital: readonly string[];

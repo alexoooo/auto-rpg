@@ -52,9 +52,10 @@ swell and 0.72 m by its knuckles. A body that goes down closes the reading as it
 (`drawTargets`: the control, then high, middle and low in turn), each target on a run of its own,
 the walk out to it included. With a hand empty the hands strike in turn; with the club in the
 right hand that hand strikes at every target. Node core stand, Rapier, 120 Hz, no assist, the
-arena's rules (138.26 J a hit point). No run fell, and no target went unhung or unread. Read at
-`b72e4ebe`, where a blow was a hand's landing, with what it holds, and what it landed on took the
-whole of it; the rows the rule's two sides change are in [the table after](#shared).
+arena's rules with a hit point at 138.26 J (the same [at 100 J](#at-100-j)). No run fell, and
+no target went unhung or unread. Read at `b72e4ebe`, where a blow was a hand's landing, with
+what it holds, and what it landed on took the whole of it; the rows the rule's two sides change
+are in [the table after](#shared).
 
 | Body | Held | Stratum | Targets | Hit | Damage, HP: mean | least | Missed by, cm: mean |
 |---|---|---|---|---|---|---|---|
@@ -127,6 +128,41 @@ blow. The empty hands':
   fist passes them and the arm behind it does not. Those blows are slight, 0.002 HP in the
   Rogue's mean.
 - No missed target is nearer or farther: the strikes are the same strikes.
+
+### At 100 J
+
+The same command at 100 J a hit point ([wounds.md](wounds.md#unit)), where the two tables above
+are at 138.26 J: the same strikes and the same blows, each worth 1.38 times the hit points. It
+is the table a change is read against from here.
+
+| Body | Held | Stratum | Targets | Hit | Damage, HP: mean | least | Missed by, cm: mean |
+|---|---|---|---|---|---|---|---|
+| Warrior | empty | control | 3 | 3 | 0.029 | 0.029 | - |
+| Warrior | empty | high | 9 | 9 | 0.032 | 0.011 | - |
+| Warrior | empty | middle | 9 | 6 | 0.014 | 0.004 | 4.8 |
+| Warrior | empty | low | 9 | 0 | - | - | 23.9 |
+| Warrior | club | control | 3 | 3 | 1.001 | 1.001 | - |
+| Warrior | club | high | 9 | 9 | 0.827 | 0.006 | - |
+| Warrior | club | middle | 9 | 5 | 0.140 | 0.039 | 1.1 |
+| Warrior | club | low | 9 | 0 | - | - | 13.6 |
+| Rogue | empty | control | 3 | 3 | 0.023 | 0.023 | - |
+| Rogue | empty | high | 9 | 9 | 0.013 | 0.003 | - |
+| Rogue | empty | middle | 9 | 7 | 0.003 | 0.000 | 5.5 |
+| Rogue | empty | low | 9 | 0 | - | - | 23.1 |
+| Rogue | club | control | 3 | 0 | - | - | 68.5 |
+| Rogue | club | high | 9 | 0 | - | - | 61.0 |
+| Rogue | club | middle | 9 | 0 | - | - | 62.8 |
+| Rogue | club | low | 9 | 1 | 0.022 | 0.022 | 94.7 |
+| Skeleton | empty | control | 3 | 0 | - | - | 18.3 |
+| Skeleton | empty | high | 9 | 0 | - | - | 12.8 |
+| Skeleton | empty | middle | 9 | 4 | 0.002 | 0.001 | 2.9 |
+| Skeleton | empty | low | 9 | 1 | 0.004 | 0.004 | 16.2 |
+| Skeleton | club | control | 3 | 0 | - | - | 28.4 |
+| Skeleton | club | high | 9 | 0 | - | - | 23.8 |
+| Skeleton | club | middle | 9 | 0 | - | - | 22.9 |
+| Skeleton | club | low | 9 | 0 | - | - | 21.6 |
+
+The Warrior's club at the control, 100.1 J, is one hit point.
 
 ### A loop of ten
 

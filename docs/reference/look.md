@@ -110,7 +110,7 @@ the air's and the fire's loops are 6 s long.
 
 `CUE` (`src/audio/cues.ts`): a blow's strength is the square root of its energy over 60 J, capped
 at 1, and a blow weaker than 0.035 makes no sound. **Set, not measured**: no bout's blows were
-read to choose the 60. The club blow that sets the damage unit carries 138 J (`core-club-unit`),
+read to choose the 60. The Warrior's strongest club blow carries 138 J (`core-club-unit`),
 so a blow of that kind plays at full strength, and so does one of less than half its energy; what
 energies a bout's blows carry, and so how much of the range from quiet to loud a bout uses, is a
 measurement to make ([roadmap](../roadmap.md)).

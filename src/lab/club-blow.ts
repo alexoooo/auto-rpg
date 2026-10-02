@@ -9,8 +9,9 @@ import type { StandOff } from "../core/skills/strikes.ts";
 import { centreNow, inFrameOf, type ThrownBlow } from "./blow.ts";
 
 /**
- * **A club blow read as it lands**: the damage unit's reading, shared by the search that scores
- * club blows (`research/core-club-strike.mjs`) and the lab's Blow scenario (`blow-scenario.ts`).
+ * **A club blow read as it lands**: the reading the club's best blow was found by, shared by the
+ * search that scores club blows (`research/core-club-strike.mjs`) and the lab's Blow scenario
+ * (`blow-scenario.ts`).
  *
  * **The target is an opponent's head**: a sphere of the striker's head capsule's radius, at its own
  * head's centre as it stands when the blow begins (`STAND`), moved straight ahead by `distance`.

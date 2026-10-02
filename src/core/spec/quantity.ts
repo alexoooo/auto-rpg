@@ -36,7 +36,7 @@ type Unit =
   | "m/s" | "m/s2"
   | "s" | "Hz"
   | "J" | "J/HP"
-  /** Hit points: the rulebook's damage unit, one the strongest club hit. */
+  /** Hit points: the rulebook's damage unit (`Rulebook.unit`), one 100 J of blunt blow. */
   | "HP";
 
 /** A number read from a source: `where` says where in it, as the source is cited. */

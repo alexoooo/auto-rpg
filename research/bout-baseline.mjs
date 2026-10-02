@@ -2,7 +2,7 @@
  * How the arena's bouts end: every ordered pair of the core's bodies at each starting gap, each
  * bout to its verdict in a world of its own on a worker (`bout-pool.mjs`).
  *
- *   node research/bout-baseline.mjs [--gaps 3,4,5] [--workers 14] [--held empty] [--never-off] [--hand 0.5] [--floors 1,5]
+ *   node research/bout-baseline.mjs [--gaps 3,4,5] [--workers 14] [--held empty] [--never-off] [--hand 0.5] [--floors 1,5] [--unit 138.26]
  *
  * It prints the harness, a row for each bout (who won, how it ended, when, the blows that landed,
  * those that wounded, the clashes in which nobody was, each side's bar), a row for each matchup
@@ -15,6 +15,7 @@
  * - `--never-off` plays under a sever margin no blow reaches: a blunt blow empties a part and
  *   never takes it off.
  * - `--hand` plays with both hands' surfaces that many times as stiff, on both sides.
+ * - `--unit` plays with that many joules of blunt blow a hit point, in place of the rulebook's.
  * - `--floors` adds, for each floor in joules, what the blows under it were: how many, and the
  *   hit points they took. It is read from the blows that landed, not played again: a bout that a
  *   fall or the clock decided is the same bout under a floor, less those blows; one a pool's
@@ -30,12 +31,16 @@ import { defaultLanes, playBouts } from "./bout-pool.mjs";
 const { values } = parseArgs({ options: {
   gaps: { type: "string", default: "3,4,5" }, workers: { type: "string" }, held: { type: "string", default: "club" },
   "never-off": { type: "boolean", default: false }, hand: { type: "string" }, floors: { type: "string" },
+  unit: { type: "string" },
 } });
 const gaps = values.gaps.split(",").map(Number), floors = values.floors?.split(",").map(Number) ?? [];
 if (!DUEL_HELD.includes(values.held)) throw new Error(`--held is one of ${DUEL_HELD.join(", ")}, not ${values.held}`);
 const experiment = {
   ...(values.held !== "club" ? { held: { left: values.held, right: values.held } } : {}),
-  ...(values["never-off"] ? { rules: { severMargin: sourced(1e9, "1", "owner-hp-pool", "an experiment's: no blow goes this far past empty") } } : {}),
+  ...(values["never-off"] || values.unit ? { rules: {
+    ...(values["never-off"] ? { severMargin: sourced(1e9, "1", "owner-hp-pool", "an experiment's: no blow goes this far past empty") } : {}),
+    ...(values.unit ? { unit: sourced(Number(values.unit), "J/HP", "owner-damage-unit", "an experiment's") } : {}),
+  } } : {}),
   ...(values.hand ? { surfaces: { "hand.left": Number(values.hand), "hand.right": Number(values.hand) } } : {}),
 };
 
@@ -48,6 +53,7 @@ console.log(`${BOUT_HARNESS}; each side's balance its character's; ${rows.length
 console.log(`Each right hand holds: ${values.held}.`);
 if (values["never-off"]) console.log("No blow takes a part off (the sever margin out of reach).");
 if (values.hand) console.log(`Both hands' surfaces ${values.hand} times as stiff.`);
+if (values.unit) console.log(`A hit point is ${values.unit} J of blunt blow.`);
 console.log("\n| Left | Right | Gap, m | Winner | Ending | Seconds | Blows | Wounding | Clashes | Left bar | Right bar |");
 console.log("|---|---|---|---|---|---|---|---|---|---|---|");
 for (const row of rows) {

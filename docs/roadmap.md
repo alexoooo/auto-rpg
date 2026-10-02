@@ -112,15 +112,20 @@ All of it on a physically based core, humans first ([architecture](architecture.
   head; armour, which is a layer more in the list `energyShares` already takes; an edge and a
   point, whose prices are in the rulebook and which no item states.
 - The owner's to choose, each landed at its default:
+  - What the bodies hold now that a hit point is 100 J of blunt blow (`owner-damage-unit`).
+    Today their hit points are as they were, so each holds 28 % fewer joules: of 45 bouts with
+    clubs, 43 have the winner and the second they had and two long ones are ended by a wound,
+    and 14 end by a wound where 12 did. Hit points raised to hold the joules (Warrior 8.3,
+    Rogue 5.5) is every bout as it was ([reference/wounds.md](reference/wounds.md#unit)).
   - Whether a blunt blow takes a part off. Today it does, half a part's hit points past empty.
-    With clubs, 8 of 45 bouts end by a part coming off; where none does, those bouts go on and
-    13 end by a fatal wound where 4 did
-    ([reference/bouts.md](reference/bouts.md#a-blow-has-two-sides)). Three bare left hands in
-    those 45 bouts were emptied by a club and came off.
+    With clubs, 12 of 45 bouts end by a part coming off; where none does, each of the 12 ends
+    by a fatal wound at the same second
+    ([reference/bouts.md](reference/bouts.md#a-hit-point-is-100-j)). Three bare left hands in
+    those 45 bouts are emptied by a club and come off.
   - What two bodies that walk into each other cost. Today any touch that closes is a blow,
-    however slight. With clubs nothing is lost that way; bare-handed, 0.10 of the 0.15 HP a
+    however slight. With clubs nothing is lost that way; bare-handed, 0.14 of the 0.20 HP a
     bout's blows take is from blows with neither a hand nor an item in them, and in the crypt
-    every such blow has one side already on the floor and costs the living about 0.1 HP over
+    every such blow has one side already on the floor and costs the living 0.05 to 0.11 HP over
     four runs. A floor of 1 J would drop 95 % of bare-handed blows and 23 % of their hit
     points, and half a per cent of the clubs'; a body out of the fight taken out of the watch
     would drop the crypt's.
@@ -131,8 +136,8 @@ All of it on a physically based core, humans first ([architecture](architecture.
   (`?play=arena&matchup=workshop-rogue,workshop-rogue&held=empty`) beside one with clubs
   (`?play=arena&matchup=workshop-fighter,workshop-rogue`).
 - Fists as they are thrown decide nothing: every one of 45 bare-handed bouts ends by a fall, the
-  hardest of 4365 blows is 22 J, and a bout's blows take 0.15 of the sides' 10 to 12 HP
-  ([reference/bouts.md](reference/bouts.md#a-blow-has-two-sides)).
+  hardest of 4347 blows is 22 J, and a bout's blows take 0.20 of the sides' 10 to 12 HP
+  ([reference/bouts.md](reference/bouts.md#a-hit-point-is-100-j)).
 - The Warrior with an empty right hand, on the right side of a bout, falls at 2.9 s before any
   touch: it turns a quarter turn from its heading as it sets off. On the left, and on either
   side with the club, it walks.

@@ -3,8 +3,9 @@ import { square } from "../math/real.ts";
 import { derive, si, sourced, type Quantity } from "../spec/quantity.ts";
 
 /**
- * **The wooden club** (`owner-club`): the strongest hit with it, one-handed, is the rulebook's unit
- * of damage (`Rulebook.unit`). A haft and a swell, each a solid cylinder of ash, end to end.
+ * **The wooden club** (`owner-club`): the strongest hit with it, one-handed, is the blow things
+ * are priced against (`CLUB_BEST`, `src/core/rules/rulebook.ts`). A haft and a swell, each a solid
+ * cylinder of ash, end to end.
  *
  * Its frame: the origin at the butt, y up the haft to the swell's end, x and z across. Its mass is
  * the two cylinders' volumes at ash's density; its inertia is each cylinder's about its own

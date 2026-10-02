@@ -363,10 +363,12 @@ The rules of a fight are `src/core/rules/`, free of any page so they can be argu
   that meets a club takes all of it, and two clubs meeting are a clash, in which neither side
   takes any (`isClash`). The values, their gaps and what a part holds beside the literature:
   [reference/wounds.md](reference/wounds.md).
-- **Damage** (`rulebook.ts`) is energy times the mechanism's worth over the unit. The unit is the
-  Warrior's strongest one-handed blow with the wooden club (`core-club-unit`,
-  `research/core-club-unit.json`), and every mechanism (blunt, edge, axe, point) keeps its ratio to
-  the club. The arena's rulebook and the dungeon's are the same rules.
+- **Damage** (`rulebook.ts`) is energy times the mechanism's worth over the unit. The unit is
+  100 J of blunt blow a hit point, the owner's round number (`owner-damage-unit`,
+  [reference/wounds.md](reference/wounds.md#unit)), and every mechanism (blunt, edge, axe, point)
+  keeps its ratio to blunt. The Warrior's strongest one-handed blow with the wooden club is a
+  measurement beside it (`CLUB_BEST`, `research/core-club-unit.json`): 138.26 J, 1.38 hit points.
+  The arena's rulebook and the dungeon's are the same rules.
 - **Wounds** (`pool.ts`): one pool of hit points per body, split over its parts by cross-section
   (mass to the two-thirds, as the square of its cube root). A part's excess damage spreads to its neighbours, nearest first and
   inward first. A part emptied by a clean blow, or hit far enough past empty, comes off, except the
