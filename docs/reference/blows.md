@@ -1584,7 +1584,14 @@ is the [off its place](#robustness) table's.
   to 0.92; at its place every recipe reads as it did, to the bit.
 - **But for the skeleton's club at a head**, 0.12 and 0.00 at twelve: its pelvis does not turn
   under the chamber. Asked 0.155 rad of turn, it faces within 0.01 rad of where it faced through
-  the chamber; the Warrior's, asked about 0.13, has turned 0.11 by the chamber's end.
+  the chamber; the Warrior's, asked about 0.13, has turned 0.11 by the chamber's end. The
+  skeleton's pelvis turns under no recipe, nor standing: its thighs' capsules (0.101 m, the
+  placeholder typical man's thigh at its density, on axes 0.18 m apart) overlap by 2.2 cm as
+  built, and press on each other with about 690 N as it stands, its feet pushed apart unevenly
+  (soles at x -0.179 and 0.102) and its centre of mass 1.3 cm under its asked height. Asked
+  0.15 rad either way standing (Node core stand, Rapier, 120 Hz), it faces -0.035 and -0.048;
+  with its thighs at 0.088 m, which clear, 0.150 and -0.151, at its asked height. Its upper arms
+  overlap its trunk by 0.9 cm too. The art's bones are 0.028 m across the thigh.
 - **Along, the turn changes little**, and a club twelve centimetres beyond its place keeps less
   turned in three recipes (the Warrior's at a head, 0.91 to 0.71; the Rogue's at a head, 0.24 to
   0.06; its club at a trunk, 0.78 to 0.41).
@@ -1621,3 +1628,42 @@ since.
   under the placebo, 4 of 12 turned, against the skeleton or another Rogue. Its fists thrown on
   the stand at a head 4 to 16 cm beyond the window and up to 24 cm across, turned, stand in every
   throw. Not explained.
+
+### Up
+
+`node research/strike-robustness.mjs --ways up --offsets 0.04,0.08,0.12` and
+`--offsets 0.14,0.18,0.22` (Node core stand, Rapier, 120 Hz, each throw as its search threw it,
+four throws a reading): the target moved from its place up or down, unseen, as its own throws
+read it; a cell is the mean done as a share of the done at its place, and where fewer than four
+landed, how many did.
+
+| Held | Body | Band | Window up, cm | At its place, HP | -18 | -14 | -8 | -4 | +4 | +8 | +14 | +18 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| club | Warrior | high | -6 to 12 | 1.02 | 0.95 | 0.88 | 0.99 (3/4, 1 fell) | 1.01 | 0.87 | 0.75 | 0.72 (3/4) | 0.82 |
+| club | Warrior | middle | -30 to 26 | 1.37 | 0.68 | 0.82 | 0.96 | 0.97 | 0.99 | 0.96 | 0.90 | 0.70 |
+| club | Rogue | high | -8 to 8 | 0.42 | 0.31 | 0.48 | 0.81 | 0.95 | 1.02 | 0.79 | 0.50 (3/4) | 0.14 (2/4) |
+| club | Rogue | middle | -40 to 24 | 0.54 | 0.85 | 0.85 | 0.91 | 0.98 | 1.00 | 0.98 | 0.93 | 0.85 |
+| club | skeleton | high | -14 to 26 | 0.67 | 0.43 | 0.52 | 0.69 | 0.76 | 1.03 | 0.90 | 0.87 | 0.81 |
+| club | skeleton | middle | -18 to 14 | 1.08 | 0.54 | 0.85 | 0.88 | 0.85 | 0.99 | 0.91 | 0.54 | 0.67 |
+| fist | Warrior | high | 0 to 8 | 0.12 | 0.00 (1/4) | 0.17 (3/4) | 0.58 | 0.92 | 1.00 | 0.67 | 0.25 | 0.00 (1/4) |
+| fist | Warrior | middle | -36 to 20 | 0.53 | 1.09 | 1.13 | 1.11 | 0.79 | 0.81 | 1.00 | 0.85 | 0.66 |
+| fist | Rogue | high | -12 to 6 | 0.05 | 0.20 | 0.40 | 0.80 | 0.80 | 1.40 | 1.40 | 0.40 | 0.20 |
+| fist | Rogue | middle | -14 to 20 | 0.31 | 0.48 | 0.52 | 0.77 | 0.77 | 0.68 | 0.90 | 0.81 | 0.61 |
+| fist | skeleton | high | -28 to 18 | 0.18 | 0.83 | 0.78 | 0.89 | 0.89 | 0.83 | 1.11 | 1.11 | 0.94 |
+| fist | skeleton | middle | -14 to 24 | 0.54 | 0.61 | 0.76 | 1.20 | 1.15 | 1.17 | 0.93 | 0.89 | 0.80 |
+
+**What a bout asks up.** A blow at a head is placed from the thrower's own head, and a head
+stands still up and down while a fight sets its feet: at the commits of the 126 bouts of
+[steered](#steered), unturned, the foe's head stood at 1.582 to 1.603 m for the Warrior, 1.443 to
+1.462 for the Rogue and 1.407 to 1.422 for the skeleton (the middle 80 %). The offset up is the
+matchup's: the Warrior's blow at the Rogue's head is 14 cm under its place and at the skeleton's
+18 cm, theirs at its head as far over, and between the Rogue and the skeleton 4 cm.
+
+- **Up, the clubs at a head miss little in the matchups that ask it**: the Warrior's keeps 0.88
+  at the Rogue's head and 0.95 at the skeleton's, the skeleton's 0.81 at the Warrior's and about
+  all of it at the Rogue's. The Rogue's at the Warrior's head is the one loss, 0.50, with one of
+  four missing.
+- **The fists at a head lose more, and do least**: the Warrior's lands one of four at the
+  skeleton's head, but does 0.12 HP at its place.
+- **The offset is known at the commit and does not move under the blow**: what it asks is the
+  recipe aimed for it, not steered after it.
