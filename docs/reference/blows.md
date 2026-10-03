@@ -1746,3 +1746,34 @@ approach ends.
   so it seldom ends with the target in the window; the feet are set as before.
 - What is landed of what is committed is the same within the bouts' spread: club 0.90 and 0.87,
   empty 0.60 and 0.65.
+
+### Searched still
+
+`node research/core-strike-search.mjs --held "wooden club" --band high --from workshop-fighter:high --sigma 0.2 --still`
+(Node core stand, Rapier, 120 Hz, 30 generations of 64, four trials, seed 1): the Warrior's club
+at a head searched from its recipe with each trial thrown at nothing as well, each step the
+stance took there costing `STEPPED`, 10 HP, on the mean; its control is the search without
+`--still` of [searched with jitter](#searched-with-jitter), whose best is the recipe. The best is
+read by `research/core-strike-window.mjs` and `research/strike-robustness.mjs` (`--seen`, and
+`--offsets "" --trials 16`) with it in the recipe's place.
+
+| | Searched | Replay 120 / 480 / 1920 Hz net | At its place, 16 throws | Window along, across | Steered across -12 / +12 | Along +6 / +12 |
+|---|---|---|---|---|---|---|
+| the recipe | 1.181 | 1.11 / 1.12 / 0.86 | 0.93 | -2 to 12, -4 to 2 cm | 0.57 / 0.92 | 1.15 / 0.72 |
+| searched still | 0.969 | 0.72 / 0.83 / 0.82 | 0.84 | -12 to 0, -4 to 2 cm | 0.85 / 0.97 | 0.27 / 0.39 |
+
+Thrown at nothing, 16 throws each rate:
+
+| | 120 Hz: throws that stepped | steps | down | capture point back, right | 480 Hz: throws that stepped | steps | down | capture point back, right |
+|---|---|---|---|---|---|---|---|---|
+| the recipe | 15 | 47 | 2 | 109, 57 cm | 16 | 94 | 6 | 203, 136 cm |
+| searched still | 3 | 8 | 0 | 17, 34 cm | 0 | 0 | 0 | 5, 4 cm |
+
+- **A blow searched still keeps its feet**: it steps in three throws of sixteen at 120 Hz and in
+  none at 480, where the recipe steps in 31 of the 32 and is down after 8; its capture point runs
+  5 cm back at 480 Hz, the recipe's 2 m.
+- **It does 0.90 of what the recipe does at its place** on the same sixteen throws, and converges
+  with the rate better: 0.83 and 0.82 at 480 and 1920 Hz, the recipe 1.12 and 0.86. Two of the
+  replay's eight throws at 120 Hz land little, 0.02 and 0.08.
+- **Its window is the recipe's across, and 2 cm narrower along**, set nearer the body: from 12 cm
+  nearer than its place to its place.
