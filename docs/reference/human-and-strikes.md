@@ -32,12 +32,26 @@ in the same table read on an engine that is gone (`research/core-blow.mjs@5e6527
 Warrior read 5 mm/s at 1.5 s; here it reads 6. Every recipe was searched from a body that had stood
 1.5 s, so a change to it voids the recipes.
 
-A step into a stance before the strike (the right foot set 0.3 m across and 0.15 m behind) was
-tried on the Warrior and did not converge with the rate: at 1920 Hz the bearing foot slid 15 cm
-toward the swinging one in the swing's last 60 ms and the body staggered at up to 1.4 m/s; at
-480 Hz it slid 4 cm; at 120 Hz not at all. That was read at `5e652760`, on the engine that is
-gone, with a script that was not kept, and has not been read on this one. Strikes are thrown from
-the square stance the body was built in.
+A step into a staggered stance converges with the rate. Each body stood 1.5 s in the guard,
+square as built, then stepped its right sole's middle to 30 cm right of the left's and 15 cm behind
+it over 0.3 s, lifted 5 cm, its weight shifted off the foot first, as `Locomotion.place` steps.
+Read: how far the bearing foot slid, cm, in the step and to 2 s after it; the centre of mass's top
+speed, m/s; and where the right sole landed against its goal, cm (Node core stand, Rapier):
+
+                            slid   top speed   landed off
+    Warrior   120 Hz        0.1      0.25         2.3
+              480 Hz        0.0      0.25         2.3
+              1920 Hz       0.0      0.24         2.4
+    Rogue     120 Hz        0.1      0.25         2.3
+              480 Hz        0.0      0.25         1.5
+              1920 Hz       0.0      0.24         1.6
+    skeleton  120 Hz        0.2      0.20         2.2
+              480 Hz        0.2      0.19         1.3
+              1920 Hz       0.0      0.19         1.3
+
+Each stayed up, and the stance took no step of its own to catch it. Command:
+`node research/stance-stagger.mjs`. Strikes are still thrown from the square stance the body was
+built in: every recipe was searched from it.
 
 ## Approach
 
