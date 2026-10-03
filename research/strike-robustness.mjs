@@ -4,7 +4,9 @@
  *
  * - at its target body moved from its place along the heading and across it by each of `--offsets`
  *   (m, either way), as a body whose feet stood that far off its place throws: the skill aims where
- *   the place is and the target is not there. A stand-off's reading is how many of `--trials`
+ *   the place is and the target is not there; with `--seen`, as a target that moved under the blow
+ *   once it was committed, the skill told so (`Throw.moved`) and turning after it (`STEER`, or
+ *   `--steer`). A stand-off's reading is how many of `--trials`
  *   throws landed (the first as written, the rest perturbed as a search's are) and the mean of what
  *   they did, HP;
  * - at nothing, each throw traced (`balanceTrace`): how far the capture point ran and which way,
@@ -14,7 +16,7 @@
  * Node core stand, Rapier; each throw on a worker of its own stand.
  *
  *   node research/strike-robustness.mjs [--offsets 0.06,0.1,0.12] [--hz 120,480] [--trials 4] [--only <model>/<held>/<band>]
- *     [--workers 14] [--save rows.json] [--load rows.json,...]
+ *     [--seen] [--steer <rad>] [--workers 14] [--save rows.json] [--load rows.json,...]
  *
  * Prints, for each recipe, a line of its offsets' readings each way, and a line of its throws at
  * nothing at each rate. `--save` keeps every throw's reading, and `--load` reads those it has in
@@ -34,7 +36,7 @@ const WATCH = 3;
 if (isMainThread) {
   const { values } = parseArgs({ options: {
     offsets: { type: "string", default: "0.06,0.1,0.12" }, hz: { type: "string", default: "120,480" }, trials: { type: "string", default: "4" },
-    only: { type: "string" }, workers: { type: "string" }, save: { type: "string" }, load: { type: "string" },
+    only: { type: "string" }, seen: { type: "boolean", default: false }, steer: { type: "string" }, workers: { type: "string" }, save: { type: "string" }, load: { type: "string" },
   } });
   const sizes = values.offsets.split(",").map(Number), rates = values.hz.split(",").map(Number), trials = Number(values.trials);
   const offsets = [0, ...sizes.flatMap((d) => [-d, d])].sort((a, b) => a - b);
@@ -51,7 +53,7 @@ if (isMainThread) {
     draws.forEach((perturbation, trial) => {
       for (const way of ["along", "across"]) for (const d of offsets) {
         if (way === "across" && d === 0) continue;
-        jobs.push({ r, kind: "off", hz: rates[0], way, d, trial, perturbation, recipe });
+        jobs.push({ r, kind: "off", hz: rates[0], way, d, trial, perturbation, recipe, seen: values.seen, ...(values.steer === undefined ? {} : { steer: Number(values.steer) }) });
       }
       for (const hz of rates) jobs.push({ r, kind: "nothing", hz, way: null, d: null, trial, perturbation, recipe });
     });
@@ -110,11 +112,11 @@ if (isMainThread) {
   if (values.save) await writeFile(values.save, JSON.stringify(jobs.map((job) => [key(job), job.result])));
 } else {
   const { balanceTrace, evaluateBlow } = await import("./core-blow.mjs");
-  parentPort.on("message", async ({ kind, hz, way, d, perturbation, recipe }) => {
+  parentPort.on("message", async ({ kind, hz, way, d, perturbation, recipe, seen, steer }) => {
     try {
       let trace = null;
       const r = await evaluateBlow({ model: recipe.model, held: recipe.held, hand: recipe.strike.hand, band: recipe.band, strike: recipe.strike,
-        ahead: recipe.place.ahead, hz, perturbation, recover: WATCH,
+        ahead: recipe.place.ahead, hz, perturbation, recover: WATCH, seen, steer,
         ...(kind === "off" ? { off: { [way]: d } } : { dummy: false, trace: (body, blow) => (trace ??= balanceTrace(body)).take(body, blow) }) });
       parentPort.postMessage({ result: { done: r.done, fell: r.fell, stood: r.stood, balance: trace?.reading ?? null } });
     } catch (error) { parentPort.postMessage({ error: String(error?.stack ?? error) }); }

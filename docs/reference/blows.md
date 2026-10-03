@@ -1537,3 +1537,87 @@ to come back into the window before setting the feet again. Neither change is in
   points a minute fall** in every variant, club and bare.
 - So a point held stale is not what makes a blow in a bout miss: an open-loop throw with a window
   of centimetres cannot follow a head that sways, and the body spends its bout standing for one.
+
+### Steered
+
+A recipe follows its target across (`STEER`, `src/core/skills/strike.ts`): from the commit to the
+end of its pushes the stance's heading is turned by as much as the target's bearing has turned
+since the commit, read from where the feet's middle stood then, up to 0.3 rad either way; and the
+fighter aims at the foe's head itself once a blow is committed (`fighterTactics`).
+
+**On the stand.** `node research/strike-robustness.mjs --seen` (Node core stand, Rapier, 120 Hz,
+each throw as its search threw it, four throws a reading): the target moved from its place, and the
+skill told so, once the blow is committed, as a head that moved under the blow. A cell is the mean
+done as a share of the done at its place; where fewer than four landed, how many did and how many
+left their thrower down. Unturned, a recipe never reads its target after the commit, and its row
+is the [off its place](#robustness) table's.
+
+| Held | Body | Band | Turn | At its place, HP | Across -12 | -6 | +6 | +12 | Along -12 | +12 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| club | Warrior | high | none | 1.02 | 0.17 (3/4, 1 fell) | 0.61 | 0.49 | 0.09 (2/4) | 0.73 | 0.91 |
+| club | Warrior | high | 0.3 rad | 1.02 | 0.56 (3/4, 1 fell) | 0.57 | 1.01 | 0.91 | 0.77 | 0.71 (3/4) |
+| club | Warrior | middle | none | 1.37 | 0.34 (3/4) | 0.84 | 0.72 | 0.42 | 0.86 | 0.74 |
+| club | Warrior | middle | 0.3 rad | 1.37 | 0.95 | 0.91 | 1.02 | 0.99 | 0.89 | 0.76 |
+| club | Rogue | high | none | 0.42 | 0.02 (1/4) | 0.46 | 0.84 | 0.09 | 0.87 | 0.24 |
+| club | Rogue | high | 0.3 rad | 0.42 | 0.77 | 0.74 | 0.80 | 0.46 | 0.89 | 0.06 (3/4) |
+| club | Rogue | middle | none | 0.54 | 0.35 | 0.81 | 0.86 | 0.47 | 0.79 | 0.78 |
+| club | Rogue | middle | 0.3 rad | 0.54 | 0.89 | 0.98 | 0.87 | 0.83 | 0.83 | 0.41 |
+| club | skeleton | high | none | 0.67 | 0.10 | 0.71 | 0.67 (3/4, 1 fell) | 0.00 (1/4) | 0.48 | 0.82 |
+| club | skeleton | high | 0.3 rad | 0.67 | 0.12 | 0.82 | 0.72 | 0.00 (0/4, 1 fell) | 0.50 | 0.82 |
+| club | skeleton | middle | none | 1.08 | 0.35 | 0.62 | 0.85 | 0.51 | 0.88 | 0.25 |
+| club | skeleton | middle | 0.3 rad | 1.08 | 0.52 | 0.89 | 0.88 | 0.78 | 0.89 | 0.47 |
+| fist | Warrior | high | none | 0.12 | 0.61 | 0.91 | 1.07 | 0.92 | 0.50 | 0.54 |
+| fist | Warrior | high | 0.3 rad | 0.12 | 0.80 | 0.84 | 1.06 | 1.15 | 0.49 | 0.45 |
+| fist | Warrior | middle | none | 0.53 | 0.60 | 1.12 | 0.54 | 0.18 | 0.21 (2/4, 2 fell) | 0.41 |
+| fist | Warrior | middle | 0.3 rad | 0.53 | 1.04 | 1.13 | 0.81 | 0.73 | 0.21 | 0.40 |
+| fist | Rogue | high | none | 0.05 | 0.00 (0/4) | 0.48 | 0.95 | 0.30 | 0.49 | 0.72 |
+| fist | Rogue | high | 0.3 rad | 0.05 | 0.59 | 0.82 | 1.04 | 1.02 | 0.50 | 0.96 |
+| fist | Rogue | middle | none | 0.31 | 0.45 | 0.84 | 0.56 | 0.10 | 0.34 | 0.10 |
+| fist | Rogue | middle | 0.3 rad | 0.31 | 0.70 | 0.77 | 0.71 | 0.47 | 0.38 | 0.12 |
+| fist | skeleton | high | none | 0.18 | 0.19 | 0.74 | 0.68 | 0.12 (3/4) | 0.09 | 1.07 |
+| fist | skeleton | high | 0.3 rad | 0.18 | 0.55 | 0.84 | 0.80 | 0.45 | 0.10 | 0.99 |
+| fist | skeleton | middle | none | 0.54 | 0.62 | 1.07 | 0.96 | 0.53 | 0.40 | 0.36 |
+| fist | skeleton | middle | 0.3 rad | 0.54 | 0.82 (3/4, 1 fell) | 1.07 | 1.05 | 0.49 | 0.39 | 0.36 |
+
+- **Across, a turned blow keeps what it does.** Twelve centimetres across, the clubs keep 0.46 to
+  0.99 of their done where unturned they kept 0.02 to 0.51, and the fists 0.45 to 1.15 where 0.00
+  to 0.92; at its place every recipe reads as it did, to the bit.
+- **But for the skeleton's club at a head**, 0.12 and 0.00 at twelve: its pelvis does not turn
+  under the chamber. Asked 0.155 rad of turn, it faces within 0.01 rad of where it faced through
+  the chamber; the Warrior's, asked about 0.13, has turned 0.11 by the chamber's end.
+- **Along, the turn changes little**, and a club twelve centimetres beyond its place keeps less
+  turned in three recipes (the Warrior's at a head, 0.91 to 0.71; the Rogue's at a head, 0.24 to
+  0.06; its club at a trunk, 0.78 to 0.41).
+- **No throw is put down by its turn**: the Rogue's three recipes moved 12, 18 and 24 cm across,
+  eight throws a cell, stand turned; unturned its club at a trunk falls in three of four at
+  24 cm to the left.
+- **The limit**: at 0.15 rad every club keeps as much at twelve centimetres as at 0.3, and the
+  fists keep less (the Rogue's at a head, 0.14 where 0.53); at 18 and 24 cm the Rogue's club at a
+  trunk keeps less, and its fist at a trunk lands none of four at 24 cm to the left where at 0.3
+  it lands four. Read on a turn taken from the feet's middle as it stood each step, not as it
+  stood at the commit.
+
+**In bouts.** `node research/strike-bouts.mjs --gaps 2.5,3,3.5,4,4.5,5,5.5 --held club,empty`
+(Node core world, Rapier, 120 Hz, the arena's rulebook): 63 bouts each. The placebo is the same
+bouts with the turn held under 0.001 rad, which turns nothing and moves every bout; struck is a
+thrower down within 2 s of its commit that its foe's hand or held item had taken hit points from
+since.
+
+| Held | Turn | Bout s | Committed | Landed | On the head | HP a minute | Thrower down | not struck first |
+|---|---|---|---|---|---|---|---|---|
+| club | none | 992 | 150 | 139 (93 %) | 95 (63 %) | 2.53 | 9 | 2 |
+| club | placebo | 948 | 145 | 133 (92 %) | 90 (62 %) | 2.64 | 10 | 8 |
+| club | 0.3 rad | 890 | 137 | 129 (94 %) | 87 (64 %) | 2.71 | 15 | 3 |
+| empty | none | 2947 | 782 | 517 (66 %) | 232 (30 %) | 0.14 | 8 | 0 |
+| empty | placebo | 2634 | 612 | 462 (75 %) | 240 (39 %) | 0.14 | 9 | 2 |
+| empty | 0.3 rad | 2197 | 541 | 359 (66 %) | 186 (34 %) | 0.12 | 14 | 5 |
+
+- **In bouts the turn shows nothing a placebo does not.** Every column moves by as much under
+  the placebo as under the turn. A club throw landed 93 % of the time unturned; at the commit the
+  foe's head is a median 7 cm short of the window along and as far either way across as along
+  (the middle 80 %, 19 cm short to 7 beyond, and 9 cm either way), so the turn takes up half of
+  what the feet leave.
+- **The bare Rogue goes down unstruck after more throws**: none of 7 downs unturned, 1 of 5
+  under the placebo, 4 of 12 turned, against the skeleton or another Rogue. Its fists thrown on
+  the stand at a head 4 to 16 cm beyond the window and up to 24 cm across, turned, stand in every
+  throw. Not explained.

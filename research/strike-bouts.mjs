@@ -8,7 +8,8 @@
  * the point its tactics held to attack (`fighterTactics`) was from that head then; whether the
  * throw landed a blow of the thrower's hand or what it holds on the foe, and on what part; the
  * steps the thrower's stance took to catch it from the commit to a second after the throw; and
- * whether it was down within `DOWN` seconds of the commit.
+ * whether it was down within `DOWN` seconds of the commit, and the hit points its foe's blows took
+ * from it from the commit until then.
  *
  * Node core world, Rapier, 120 Hz, the arena's rulebook; each bout on a worker of its own.
  *
@@ -80,9 +81,9 @@ if (isMainThread) {
     for (const model of [...new Set(sides.map((s) => s.model))]) {
       const mine = sides.filter((s) => s.model === model).flatMap((s) => s.attempts).filter((a) => a.commit !== null);
       const landed = mine.filter((a) => a.landed.length), headed = mine.filter((a) => a.landed.some((b) => b.part === "head"));
-      const stepped = mine.filter((a) => a.recoveries > 0), down = mine.filter((a) => a.down);
+      const stepped = mine.filter((a) => a.recoveries > 0), down = mine.filter((a) => a.down), struck = down.filter((a) => a.struck > 0);
       console.log(`  ${model}: committed ${mine.length}, placed ${mine.filter((a) => a.commit.at === null).length}; landed ${landed.length}, on the head ${headed.length}, `
-        + `done ${sum(mine.flatMap((a) => a.landed.map((b) => b.done))).toFixed(2)} HP; the thrower stepped to catch itself in ${stepped.length}, down within ${DOWN} s in ${down.length}`);
+        + `done ${sum(mine.flatMap((a) => a.landed.map((b) => b.done))).toFixed(2)} HP; the thrower stepped to catch itself in ${stepped.length}, down within ${DOWN} s in ${down.length}, struck by the foe before it in ${struck.length}`);
     }
   }
   console.log(`${jobs.length} bouts, ${played.length} played, in ${((Date.now() - started) / 1000).toFixed(0)} s`);
@@ -133,7 +134,7 @@ if (isMainThread) {
           }
           // After a throw: the stance's steps to a second past its end, and a fall within `DOWN` of its commit.
           for (const done of t.attempts.slice(-2)) if (done.commit && duel.clock <= done.end + 1) done.recoveries = recoveries - done.from;
-          for (const done of t.attempts.slice(-2)) if (done.commit && duel.clock <= done.commit.time + DOWN && me.body.view.down) done.down = true;
+          for (const done of t.attempts.slice(-2)) if (done.commit && !done.down && duel.clock <= done.commit.time + DOWN && me.body.view.down) { done.down = true; done.downAt = duel.clock; }
           t.thrown = thrown;
           t.last = phase;
         }
@@ -147,7 +148,13 @@ if (isMainThread) {
             const striking = mine && (mine.item !== null || mine.segment.startsWith("hand."));
             return striking && theirs && theirs.damage > 0 ? [{ part: theirs.segment, done: theirs.damage, energy: b.energy }] : [];
           });
-          delete a.from;
+          // What the foe's blows took from the thrower from the commit to its fall, or to `DOWN` after the commit.
+          const until = a.down ? a.downAt : a.commit ? a.commit.time + DOWN : 0;
+          a.struck = !a.commit ? 0 : duel.blows.filter((b) => b.time >= a.commit.time && b.time <= until).reduce((sum, b) => {
+            const mine = b.sides.find((s) => s.fighter === me.id), theirs = b.sides.find((s) => s.fighter !== me.id);
+            return sum + (mine && theirs && (theirs.item !== null || theirs.segment.startsWith("hand.")) ? mine.damage : 0);
+          }, 0);
+          delete a.from; delete a.downAt;
         }
         delete t.open; delete t.last; delete t.thrown;
       }

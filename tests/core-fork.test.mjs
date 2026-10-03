@@ -280,7 +280,7 @@ const NEEDED = {
   ordered: ["heading", "pace", "setOff"].map((field) => `skills > legs > ${field}`),
   striker: [
     ...["reference", "placing"].map((field) => `skills > legs > ${field}`),
-    ...["hand", "phase", "blow", "recipe", "distance", "stoodFor", "still", "since", "begun", "readyAt", "width", "over", "thrown"].map((field) => `skills > strikes > ${field}`),
+    ...["hand", "phase", "blow", "recipe", "distance", "stoodFor", "still", "since", "begun", "readyAt", "origin", "bearing", "steer", "width", "over", "thrown"].map((field) => `skills > strikes > ${field}`),
     "skills > tactics > aim",
   ],
   placed: ["skills > legs > placed"],

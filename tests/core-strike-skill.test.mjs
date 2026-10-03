@@ -20,7 +20,7 @@ import { woodenClub } from "../src/core/items/club.ts";
 import { GUARD_ACTION } from "../src/core/mind/intent.ts";
 import { GUARD } from "../src/core/skills/guard.ts";
 import { PLACING } from "../src/core/skills/locomotion.ts";
-import { APPROACH, PLACED, STAND, strikeSkill } from "../src/core/skills/strike.ts";
+import { APPROACH, PLACED, STAND, STEER, strikeSkill } from "../src/core/skills/strike.ts";
 import { BAND_NAMES, BANDS, FIST, heldIn, mirrored, mirroredWindow, netsOf, recipeFor, recipesFor, REPERTOIRE } from "../src/core/skills/strikes.ts";
 import { bandRise } from "../src/lab/blow.ts";
 import { CORE_BLOW_HARNESS, evaluateBlow, heldSpec } from "../research/core-blow.mjs";
@@ -140,6 +140,16 @@ test("the_repertoires_club_blow_reads_at_its_place_what_its_record_says", async 
   assert.equal(read.runs.length, 8);
   assert.ok(Math.abs(net - read.runs.reduce((sum, run) => sum + run, 0) / 8) < 1e-3 && net === read.net, `it nets ${net} of ${read.runs}`);
   assert.ok(net > 0.5, `${net} HP`);
+});
+
+test("the_repertoires_club_blow_follows_a_head_that_moved_across_under_it", async () => {
+  // The Warrior's club at a head, the target 12 cm to the left once the blow is committed: on the
+  // stand, as written, it does 0.09 HP unturned and 0.93 turned (`docs/reference/blows.md#steered`).
+  const thrown = (steer) => evaluateBlow({ model: CLUB.model, held: CLUB.held, band: CLUB.band, strike: CLUB.strike, ahead: CLUB.place.ahead,
+    off: { across: -0.12 }, seen: true, steer });
+  const [turned, unturned] = [await thrown(STEER), await thrown(0)], at = CLUB.readings.at120.runs[0];
+  assert.deepEqual({ fell: turned.fell, stood: turned.stood }, { fell: false, stood: true });
+  assert.ok(turned.done > 0.7 * at && unturned.done < 0.2 * at, `turned ${turned.done}, unturned ${unturned.done}, at its place ${at}`);
 });
 
 test("an_attack_walks_to_its_place_sets_the_feet_stands_asks_the_window_and_is_thrown", () => {
@@ -371,6 +381,47 @@ test("a_blow_chosen_standing_is_the_one_thrown_at_that_point", () => {
   view.head.y = 1.6;
   for (steps = 0; skill.report.blow === "placed" && skill.report.phase !== "swing" && steps < 10 * 120; steps++) skill.command(view, attack(target), 0, false, DT);
   assert.deepEqual({ blow: skill.report.blow, band: skill.report.chosen?.recipe.band }, { blow: "recipe", band: recipe.band });
+});
+
+test("a_recipe_thrown_turns_the_heading_after_its_target_from_where_the_feet_stood_as_it_was_committed", () => {
+  const spec = armed(humanSpec("workshop-fighter"), "right", woodenClub());
+  const { strike, recipe, window } = recipeFor(CLUBS, spec, "right", 0);
+  const { view, moveBy } = standing();
+  const target = [0.3, 1.6, 3], attack = (at) => ({ left: GUARD_ACTION, right: { kind: "attack", target: at } });
+  const middle = [(window.along[0] + window.along[1]) / 2, (window.across[0] + window.across[1]) / 2];
+  moveBy(target[0] - middle[1], target[2] - recipe.place.ahead - middle[0]);
+  const skill = strikeSkill(spec, CLUBS), still = strikeSkill(spec, CLUBS, PLACED, 0);
+  const [ox, oz] = [(view.stance.soles.left.x + view.stance.soles.right.x) / 2, (view.stance.soles.left.z + view.stance.soles.right.z) / 2];
+  const bearing = (at) => Math.atan2(at[0] - ox, at[2] - oz);
+  // Standing for the blow, nothing is turned; committed, the target where it was, nor is it.
+  let command, steps = 0;
+  while (skill.report.phase !== "chamber" && steps < 10 * 120) {
+    command = skill.command(view, attack(target), 0, false, DT);
+    still.command(view, attack(target), 0, false, DT);
+    steps += 1;
+    assert.equal(command.steer, 0, skill.report.phase);
+  }
+  assert.equal(skill.report.phase, "chamber");
+  // The feet sway under it: the bearing is read from where they stood.
+  moveBy(0.05, -0.03);
+  for (const [x, z, phase] of [[0.08, 3, "chamber"], [-0.1, 2.9, "chamber"], [5, 3, "chamber"], [-5, 3, "chamber"]]) {
+    const at = [x, 1.6, z], asked = bearing(at) - bearing(target);
+    command = skill.command(view, attack(at), 0, false, DT);
+    assert.equal(skill.report.phase, phase);
+    assert.ok(Math.abs(command.steer - Math.max(-STEER, Math.min(STEER, asked))) < 1e-9, `${x}, ${z}: ${command.steer} for ${asked}`);
+    assert.equal(still.command(view, attack(at), 0, false, DT).steer, 0);
+  }
+  // Right of where it was, the heading turns right (a heading grows to the right).
+  assert.ok(skill.command(view, attack([0.4, 1.6, 3]), 0, false, DT).steer > 0);
+  // Given up, the recipe is thrown to its end with the turn it had; then nothing is turned.
+  const had = skill.command(view, attack([0.2, 1.6, 3]), 0, false, DT).steer, guard = { left: GUARD_ACTION, right: GUARD_ACTION };
+  assert.ok(had < 0);
+  for (steps = 0; skill.report.thrown.right === 0 && steps < 10 * 120; steps++) {
+    assert.equal(skill.command(view, guard, 0, false, DT).steer, had);
+  }
+  assert.ok(steps > 0 && steps * DT <= strike.chamber.seconds + Math.max(...strike.pushes.map((p) => p.to)), `${steps} steps`);
+  assert.equal(skill.command(view, guard, 0, false, DT), null);
+  assert.equal(skill.command(view, attack(target), 0, false, DT).steer, 0);
 });
 
 test("a_placed_blow_is_over_when_the_body_is_resumed", () => {

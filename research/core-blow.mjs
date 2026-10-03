@@ -80,7 +80,9 @@ const RULES = rulebook("arena");
  * nothing (`dummy: false`). The blow is the one `unit` stands for, or a given `strike` at `ahead`;
  * a `strike` of null is the skill's placed blow, at the distance the skill stands for it unless
  * `ahead` is given. `perturbation` is `perturbed`'s; `off` moves the target from its place, m, as
- * a body stands off it (`StandOff`); `ground` is the ground's side, m; `recover` is how long
+ * a body stands off it (`StandOff`), and with `seen` the skill is told so once the blow is
+ * committed, as of a target that moved under it (`Throw.moved`); `steer` is the skill's most turn
+ * of the pelvis after its target (`STEER`) where it is not its own; `ground` is the ground's side, m; `recover` is how long
  * after the pushes end the body is watched, s, where it is not `RECOVER`. `trace` is called after
  * every step with the throwing body and the blow (`balanceTrace`'s `take`), and reads nothing
  * the score does.
@@ -91,7 +93,7 @@ const RULES = rulebook("arena");
  * feet at the end of that time; and `blows`, every blow between the two.
  */
 export async function evaluateBlow({ model = "workshop-fighter", held = FIST, hand = "right", band = "high", unit, guard = false,
-  strike, ahead, hz = 120, ground = 20, dummy = true, perturbation, off, recover = RECOVER, trace }) {
+  strike, ahead, hz = 120, ground = 20, dummy = true, perturbation, off, seen = false, steer, recover = RECOVER, trace }) {
   const spec = heldSpec(model, held, hand), up = bandRise(spec, band);
   const given = unit ? decodeHeld(held, unit, spec, hand, guard)
     : strike === null ? { strike: null, distance: ahead ?? placedReach(spec, hand, up) } : { strike, distance: ahead };
@@ -99,7 +101,8 @@ export async function evaluateBlow({ model = "workshop-fighter", held = FIST, ha
   const thrown = given.strike && perturbation ? perturbed(given.strike, perturbation) : given.strike;
   const stand = await coreStand(spec, { ground: true, groundSize: ground, hz });
   const actor = labActor(stand.built, stand.world);
-  const blow = throwBlow(actor, { hand, strike: thrown, place: { ahead: given.distance, up }, band });
+  const blow = throwBlow(actor, { hand, strike: thrown, place: { ahead: given.distance, up }, band,
+    ...(seen && off ? { moved: off } : {}), ...(steer === undefined ? {} : { steer }) });
   const watch = watchBlow(actor, blow, RULES, { dummy, off });
   const { view } = blow.body;
   let fell = false, ended = null;
