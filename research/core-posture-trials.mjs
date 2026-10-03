@@ -18,15 +18,22 @@
 import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { Scene } from "@babylonjs/core/scene.js";
+import { addArenaSolids } from "../src/arena/room.ts";
+import { createBody, SERVO_SECONDS } from "../src/core/body.ts";
 import { buildBody } from "../src/core/build/build-body.ts";
 import { bodyDynamics } from "../src/core/build/dynamics.ts";
+import { jointAngles } from "../src/core/build/joint-state.ts";
 import { lowsOf } from "../src/core/control/ground.ts";
 import { chainTo, pointAtToRef, rotationAtToRef } from "../src/core/control/kinematics.ts";
 import { pointOfToRef } from "../src/core/control/support.ts";
 import { CONTACT_FRICTION } from "../src/core/engine/engine.ts";
 import { modelSpec } from "../src/core/human/spec.ts";
-import { createWorld } from "../src/core/world.ts";
+import { driveMuscles } from "../src/core/muscle/driver.ts";
+import { STANCE_LOWER } from "../src/core/skills/locomotion.ts";
+import { derive } from "../src/core/spec/quantity.ts";
+import { createWorld, PHYSICS_HZ } from "../src/core/world.ts";
 import { freshEngine } from "../tests/harness/core-stand.mjs";
+import { risenAt } from "./core-rise-trials.mjs";
 
 export const STATICS_HARNESS = "Node, statics: the joints' kinematics and the body's dynamics (src/core/build/dynamics.ts), no world step";
 
@@ -508,8 +515,8 @@ export function leastShare(body, row, posture, { friction = "box", ranges = body
 
 /**
  * **A linear programme**: the least of `c . x` over x >= 0, `Aub x <= bub`, `Aeq x = beq`, by the
- * two-phase simplex method on a dense tableau (Dantzig's rule, Bland's past a run of degenerate
- * pivots). `infeasibility` is phase one's least sum of the artificial variables: how far the
+ * two-phase simplex method on a dense tableau (Dantzig's rule, Bland's from a run of degenerate
+ * pivots on). `infeasibility` is phase one's least sum of the artificial variables: how far the
  * equalities, as scaled, are from being met when they cannot be.
  */
 export function linearProgramme(c, Aub, bub, Aeq, beq) {
@@ -543,11 +550,13 @@ export function linearProgramme(c, Aub, bub, Aeq, beq) {
     }
     basis[row] = col;
   };
+  // Bland's rule, once a run of degenerate pivots has called it in, stays in for the phase: it
+  // cannot cycle, and Dantzig's, taken up again, can.
   const run = (allowed) => {
-    let degenerate = 0;
+    let degenerate = 0, bland = false;
     for (let iteration = 0; iteration < 50 * (m + N); iteration++) {
       let col = -1, best = -eps;
-      const bland = degenerate > 2 * m;
+      bland ||= degenerate > 2 * m;
       for (let j = 0; j < N; j++) {
         if (!allowed(j)) continue;
         const r = T[objective + j];
@@ -965,8 +974,229 @@ export function jointMomentsOf(body, posture, torques) {
   });
 }
 
+// --- The stand hold and the handover
+
+export const HOLD_HARNESS = "Node, core world (src/core/world.ts), Rapier, at the solver named";
+
+/**
+ * The solvers a hold is read on. A posture held by its joints' motors alone gives under its load
+ * as far as the solver falls short of converging: on the game's own (`game`: 120 Hz, the core's
+ * iterations) a statue standing as built, every freedom driven to its angle at 5000 N m, misses
+ * its goals by 0.12 rad within a second and falls, and one squatting at 0.5 m sinks and falls on
+ * its back; at 480 Hz and 256 iterations of 4 passes (`reference`) the two stay within 2 and 4 cm
+ * of where they were put over 2 s, every joint within 0.0006 rad (`docs/reference/postures.md`).
+ * So the body's hold is read on the reference, and the game's on its own. The reference's
+ * iterations are set on Rapier's world from here, outside the engine's contract: a measuring
+ * instrument's, not the core's.
+ */
+export const SOLVERS = Object.freeze({
+  reference: Object.freeze({ hz: 480, iterations: 256, pgs: 4 }),
+  game: Object.freeze({ hz: PHYSICS_HZ.value }),
+});
+/** How long a placed posture is watched, s. */
+const HOLD_SECONDS = 3;
+/** How far a placed body is put over its ground, m: no contact is made in placing it. */
+const LIFT = 0.0005;
+/**
+ * A freedom driven to its angle closes its error in `CLOSE_SECONDS`, at most `CLOSE_MOST` rad/s:
+ * the pose drive the rise battery holds a body stiff with (`toppled`, `research/core-rise-trials.mjs`).
+ */
+const CLOSE_SECONDS = 0.2, CLOSE_MOST = 3;
+/** How far a segment may move from where it was put, m, and the posture have stayed. */
+const STAYED = 0.02;
+/** How much stronger than its strength the solver's own creep is read at (`creep`): every freedom held by ten times its peak. */
+export const STRONG = 10;
+/** How far the strong control may move and not have fallen, m: five times `STAYED`. */
+const FELL = 5 * STAYED;
+/** The shares the least that holds is bisected over (`least`), and how many times. */
+const LEAST_MOST = 1.5, LEAST_STEPS = 8;
+/** How long a handed-over body is watched, s: long enough to rise and be up `UP_SECONDS`. */
+const HANDED_SECONDS = 6;
+/** How far under the height its stance asks a handed-over body's centre of mass may end and it have stood, m. */
+const STOOD = 0.05;
+
+/** `spec` with each stop `variant` strips put at `STRIPPED` (`VARIANTS`), each a fresh leaf. */
+export function strippedSpec(spec, variant) {
+  const patterns = VARIANTS[variant];
+  if (!patterns) throw new Error(`no variant ${variant}`);
+  if (patterns.length === 0) return spec;
+  const rule = "the posture audit's stripped stop: short of the half turn the angles' measure reads within";
+  return {
+    ...spec,
+    joints: spec.joints.map((joint) => ({
+      ...joint,
+      dofs: joint.dofs.map((dof) => (patterns.some((pattern) => pattern.test(`${joint.name} ${dof.positive}`)) ? { ...dof, max: derive("rad", rule, [dof.max], () => STRIPPED) } : dof)),
+    })),
+  };
+}
+
+/**
+ * **`variant`'s body built in a world on the arena's ground and put in `posture`**, `lift` m over
+ * it and at rest: its segments fixed while they are put (as the `held` level does), then let go.
+ * `make(built, world)` makes what drives it before it is put (`setLevel` is the caller's, through
+ * `level`). The caller disposes.
+ */
+async function placed(posture, { variant = "built", lift = LIFT, make, solver = "game" } = {}) {
+  const scene = new Scene(new NullEngine());
+  const { hz, iterations, pgs } = SOLVERS[solver];
+  const world = createWorld(scene, await freshEngine(), { hz });
+  if (iterations && !world.physics.raw) throw new Error(`the ${solver} solver is Rapier's`);
+  if (iterations) { world.physics.raw.numSolverIterations = iterations; world.physics.raw.numInternalPgsIterations = pgs; }
+  addArenaSolids(world.physics);
+  const built = buildBody(strippedSpec(modelSpec(AUDITED), variant), world, { position: [0, 0, 0] });
+  const driving = make?.(built, world) ?? null;
+  const level = (fixed) => { for (const segment of built.segments.values()) segment.body.setFixed(fixed); };
+  if (driving?.setLevel) driving.setLevel("held"); else level(true);
+  const body = await bodyOnce();
+  posed(body, posture);
+  placeLike(body, built, lift);
+  if (driving?.setLevel) driving.setLevel("full"); else level(false);
+  return { world, built, driving, dispose: () => { driving?.dispose?.(); built.dispose(); world.dispose(); scene.dispose(); } };
+}
+
+/**
+ * What a placed body did over `steps` of its world's steps: how far its segments went from where
+ * they were put (`drift`, m, the most of any), the freedom furthest from its goal at the end
+ * (`worst`), the fastest any segment moved over the last second (`peak`, m/s), and over the last
+ * half second which segments the ground pushed (`touched`) and which pairs of its own unjointed
+ * segments the solver pushed apart (`leant`).
+ */
+function watch(world, built, goals, steps, each = () => {}) {
+  const segments = [...built.segments.values()], joints = [...built.joints.values()];
+  const from = segments.map((segment) => segment.node.position.clone());
+  const nameOf = new Map(segments.map((segment) => [segment.body, segment.spec.name]));
+  const jointed = new Set(joints.flatMap((joint) => [`${joint.parent.spec.name}|${joint.child.spec.name}`, `${joint.child.spec.name}|${joint.parent.spec.name}`]));
+  const touched = new Set(), leant = new Set(), v = new Vector3();
+  let peak = 0;
+  for (let i = 0; i < steps; i++) {
+    world.step();
+    each(i);
+    if (i >= steps - world.hz) for (const segment of segments) peak = Math.max(peak, segment.body.linearVelocityToRef(v).length());
+    if (i < steps - world.hz / 2) continue;
+    for (const segment of segments) {
+      for (const contact of world.physics.contactsOf(segment.body)) {
+        if (contact.impulse <= 0) continue;
+        if (contact.other === null) touched.add(segment.spec.name);
+        else if (nameOf.has(contact.other) && !jointed.has(`${segment.spec.name}|${nameOf.get(contact.other)}`)) leant.add([segment.spec.name, nameOf.get(contact.other)].sort().join(" on "));
+      }
+    }
+  }
+  const drift = Math.max(...segments.map((segment, k) => Vector3.Distance(segment.node.position, from[k])));
+  let worst = { channel: null, error: 0 };
+  joints.forEach((joint, j) => jointAngles(joint).forEach((a, k) => {
+    const error = a - goals[j][k];
+    if (Math.abs(error) > Math.abs(worst.error)) worst = { channel: `${joint.spec.name} ${joint.dofs[k].spec.positive}`, error };
+  }));
+  return { drift, worst, peak, touched: [...touched].sort(), leant: [...leant].sort() };
+}
+
+const close = (error) => Math.max(-CLOSE_MOST, Math.min(CLOSE_MOST, error / CLOSE_SECONDS));
+const round = (v, places = 3) => Math.round(v * 10 ** places) / 10 ** places;
+
+/**
+ * **Whether the engine's body stays in `posture`** (a row's, `row`), put there and held `seconds`
+ * by its motors, each freedom driven to its angle (`close`) with at most `k` times the peak of its
+ * muscles on the side the statics say it loads (`drive: "side"`; a freedom the statics load
+ * nowhere, its weaker side), or by the muscle driver itself at activation `k` (`drive: "driver"`,
+ * `driveMuscles`): its ceiling the side it is pushed toward. Stayed: no segment `STAYED` m from
+ * where it was put. The rest is `watch`'s. On `solver` (`SOLVERS`).
+ */
+export async function held({ row: name, posture, variant = "built", k = 1, drive = "side", seconds = HOLD_SECONDS, lift = LIFT, solver = "reference" }) {
+  const body = await bodyOnce(), row = rowNamed(name), goals = byJoint(body, posture.angles);
+  posed(body, posture);
+  const solved = leastShare(body, row, posture, { ranges: rangesOf(body, variant), snap: true });
+  const ceilings = body.freedoms.map((f, i) => {
+    const t = solved.balanced ? solved.torques[i] : 0;
+    return k * (t > 0 ? f.plus : t < 0 ? f.minus : Math.min(f.plus, f.minus));
+  });
+  const make = (built, world) => {
+    if (drive === "driver") {
+      const d = driveMuscles(built, world, (muscles) => {
+        muscles.activation.fill(Math.min(1, k));
+        for (let i = 0; i < muscles.velocity.length; i++) {
+          const f = body.freedoms[i];
+          muscles.velocity[i] = close(goals[f.j][f.k] - muscles.angle(i));
+        }
+      });
+      return d;
+    }
+    if (drive !== "side") throw new Error(`no drive ${drive}`);
+    const joints = [...built.joints.values()], angles = [], ceilingOf = byJoint(body, ceilings);
+    const hook = world.beforeStep(() => joints.forEach((joint, j) => {
+      jointAngles(joint, angles);
+      joint.dofs.forEach((dof, kk) => joint.joint.setMotor(kk, dof.sign * close(goals[j][kk] - angles[kk]), ceilingOf[j][kk]));
+    }));
+    return { dispose: () => hook.dispose() };
+  };
+  const stand = await placed(posture, { variant, lift, make, solver });
+  try {
+    const seen = watch(stand.world, stand.built, goals, Math.round(seconds * stand.world.hz));
+    return {
+      row: name, variant, drive, solver, k: round(k), stayed: seen.drift <= STAYED, drift: round(seen.drift, 4),
+      worst: { channel: seen.worst.channel, error: round(seen.worst.error) }, peak: round(seen.peak), touched: seen.touched, leant: seen.leant,
+    };
+  } finally { stand.dispose(); }
+}
+
+/**
+ * **The least share of its strength that holds `posture` on the engine** (`held`), bisected over
+ * [0, `LEAST_MOST`] in `LEAST_STEPS` halvings, beside the solver's own creep there (`STRONG` times
+ * its strength): `k` null if even `LEAST_MOST` does not hold it, or if the creep is a fall
+ * (`FELL`), when no share is read. A posture whose creep is over `STAYED` is judged against twice
+ * its creep.
+ */
+export async function least({ row, posture, variant = "built", drive = "side", solver = "reference" }) {
+  const creep = await held({ row, posture, variant, drive: "side", k: STRONG, solver });
+  if (creep.drift > FELL) return { row, variant, drive, solver, k: null, at: creep, creep, fell: true };
+  const bar = Math.max(STAYED, 2 * creep.drift);
+  const stays = async (k) => { const r = await held({ row, posture, variant, drive, k, solver }); return { ...r, stayed: r.drift <= bar }; };
+  const hi = await stays(drive === "driver" ? 1 : LEAST_MOST);
+  if (!hi.stayed) return { row, variant, drive, solver, k: null, at: hi, creep, fell: false };
+  let lo = 0, best = hi;
+  for (let step = 0; step < LEAST_STEPS; step++) {
+    const k = (lo + best.k) / 2, r = await stays(k);
+    if (r.stayed) best = r; else lo = k;
+  }
+  return { row, variant, drive, solver, k: best.k, at: best, creep, fell: false };
+}
+
+/**
+ * **The handover**: the body as the game makes it (`createBody`) put in `posture` while it is
+ * `held`, then at `full` and asked what a standing body is asked: the stance on both feet, its
+ * centre of mass `STANCE_LOWER` under the height it stands at as built, facing as built, the rest
+ * at the reference pose. Stood: up `UP_SECONDS` running within `HANDED_SECONDS` (`risenAt`), which a
+ * body squatting on its feet is, and its centre of mass at the end within `STOOD` of the height
+ * asked. When it was first up, the centre's height at the end and the height asked, m, and the
+ * fastest a segment moved over the last second. On the game's solver unless `solver` says.
+ */
+export async function handed({ row, posture, seconds = HANDED_SECONDS, lift = LIFT, solver = "game" }) {
+  const body = await bodyOnce();
+  const height = standingHeight(body) - STANCE_LOWER;
+  const stance = Object.freeze({ feet: Object.freeze(["left", "right"]), centre: null, height, heading: 0 });
+  const command = Object.freeze({ posture: Object.freeze({}), hands: Object.freeze({ left: null, right: null }), pushes: Object.freeze([]), stance });
+  const stand = await placed(posture, { lift, solver, make: (built, world) => createBody(built, world, { servoSeconds: SERVO_SECONDS }) });
+  try {
+    stand.driving.drive(() => command);
+    const downs = [];
+    const seen = watch(stand.world, stand.built, byJoint(body, posture.angles), Math.round(seconds * stand.world.hz), () => downs.push(stand.driving.view.down));
+    const at = risenAt(downs, stand.world.hz), segments = [...stand.built.segments.values()];
+    const centre = centreOfMass({ segments, mass: segments.reduce((sum, segment) => sum + segment.rigid.mass, 0) }).y;
+    return {
+      row, solver, stood: at !== null && centre >= height - STOOD, seconds: at === null ? null : round(at, 2),
+      centre: round(centre), asked: round(height), peak: round(seen.peak), down: downs.at(-1),
+    };
+  } finally { stand.dispose(); }
+}
+
+/** The height of `body`'s centre of mass over its soles standing in its reference pose, m. */
+function standingHeight(body) {
+  const stand = rowNamed("stand"), { posture } = project(body, stand, { height: 1, pitch: 0, roll: 0, angles: body.freedoms.map(() => 0) }, { knobs: [] });
+  posed(body, posture);
+  return centreOfMass(body).y;
+}
+
 /** A worker's one static body, built at its first job. */
 let made = null;
 const bodyOnce = () => (made ??= staticBody());
 
-export const TRIALS = { audit, path };
+export const TRIALS = { audit, path, held, least, handed };

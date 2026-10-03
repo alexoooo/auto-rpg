@@ -1,8 +1,9 @@
 /**
  * **The posture audit's statics** (`research/core-posture-trials.mjs`): that a posture is written in
  * the joints' own measure, that the least share is the body's statics and the engine's, and that
- * the controls come out as they must. Node, statics; the engine's check on the core world, Rapier,
- * 120 Hz.
+ * the controls come out as they must; and that the engine's body put in a posture stays or falls
+ * as it must. Node, statics; the engine's check on the core world, Rapier, 120 Hz; the stand hold
+ * on the audit's reference solver and the handover on the game's (`SOLVERS`).
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -11,8 +12,9 @@ import { jointAngles } from "../src/core/build/joint-state.ts";
 import { pointAtToRef } from "../src/core/control/kinematics.ts";
 import { pointOfToRef } from "../src/core/control/support.ts";
 import { modelSpec } from "../src/core/human/spec.ts";
+import { STANCE_LOWER } from "../src/core/skills/locomotion.ts";
 import {
-  AUDITED, jointMomentsOf, leastShare, linearProgramme, placeLike, posed, project, random, rangesOf, recordOf, rowNamed, search, staticBody,
+  AUDITED, handed, held, jointMomentsOf, leastShare, linearProgramme, placeLike, posed, project, random, rangesOf, recordOf, rowNamed, search, staticBody,
 } from "../research/core-posture-trials.mjs";
 import { coreStand } from "./harness/core-stand.mjs";
 
@@ -216,4 +218,23 @@ test("the statics' torques hold the engine's body still", async () => {
     assert.ok(wrong > 3 * still, `${name}: ${body.freedoms[largest].name}'s torque turned, ${wrong} m/s`);
     assert.ok(limp > 8 * still, `${name}: limp, ${limp} m/s`);
   }
+});
+
+test("standing put on the engine stays, held by its motors and handed to its stance; a deep squat at a tenth of its strength falls", async () => {
+  const { posture } = standing();
+  const stand = await held({ row: "stand", posture });
+  assert.deepEqual(Object.keys(stand), ["row", "variant", "drive", "solver", "k", "stayed", "drift", "worst", "peak", "touched", "leant"]);
+  assert.deepEqual([stand.row, stand.solver, stand.stayed, stand.touched, stand.leant], ["stand", "reference", true, ["foot.left", "foot.right"], []]);
+  // A squat that stays at its whole strength, held at a tenth of it: its share is over a tenth.
+  const squat = answer(rowNamed("squat"), { height: 0.7 });
+  assert.ok(squat.share > 0.1, `the squat asks ${squat.share} of its strength`);
+  const whole = await held({ row: "squat", posture: squat.posture, k: 1 }), weak = await held({ row: "squat", posture: squat.posture, k: 0.1 });
+  assert.ok(whole.stayed, `the squat at its whole strength moved ${whole.drift} m`);
+  assert.ok(!weak.stayed && weak.drift > 0.1, `the squat at a tenth of its strength moved ${weak.drift} m`);
+  // Handed to its stance standing, it ends where the stance asks: standing's centre, STANCE_LOWER down.
+  const handed_ = await handed({ row: "stand", posture });
+  posed(body, posture);
+  const up = body.segments.reduce((sum, s) => sum + pointOfToRef(s, s.rigid.centre, new Vector3()).y * s.rigid.mass, 0) / body.mass;
+  assert.deepEqual([handed_.solver, handed_.stood, handed_.down], ["game", true, false]);
+  near(handed_.centre, up - STANCE_LOWER, 0.05, "the handed body's centre, m");
 });

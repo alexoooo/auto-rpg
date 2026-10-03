@@ -9,7 +9,8 @@
  * random postures. Every row's answer is read again on the cone's friction. Where two held rows
  * stand on one ground, the postures between their answers are read too (`path`). Each answer is drawn
  * from the side and the front, `research/runs/postures/<row>, <variant>.svg`, and every record is
- * written to `research/runs/postures/records.json`.
+ * written to `research/runs/postures/records.json`. Each held answer is then put on the engine and
+ * held by its motors (`least`), and handed to the game's stance (`handed`).
  *
  *   node research/core-posture.mjs [--workers 30] [--rows 'stand;half kneel, knee light'] [--variants built,knee]
  *     [--seeds 8] [--evals 1500]
@@ -19,7 +20,7 @@ import { Worker } from "node:worker_threads";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { pointOfToRef } from "../src/core/control/support.ts";
 import { defaultLanes } from "./bout-pool.mjs";
-import { AUDITED, posed, ROWS, rowName, STATICS_HARNESS, staticBody, VARIANTS } from "./core-posture-trials.mjs";
+import { AUDITED, HOLD_HARNESS, posed, ROWS, rowName, SOLVERS, STATICS_HARNESS, staticBody, STRONG, VARIANTS } from "./core-posture-trials.mjs";
 
 const args = process.argv.slice(2);
 const option = (name, otherwise) => { const at = args.indexOf(`--${name}`); return at < 0 ? otherwise : args[at + 1]; };
@@ -105,6 +106,22 @@ for (const a of rows) for (const b of rows) {
 }
 const paths = await run(pairs.map(([a, b]) => ({ trial: "path", from: a.row, to: b.row, names: [a.name, b.name], start: built.get(a.name).posture, end: built.get(b.name).posture })));
 
+// The stand hold: each held answer put on the engine and held by its motors, the least share that
+// keeps it, by side and by the driver on the reference solver and by side on the game's; a stripped
+// answer by side alone. Then the handover from each held answer as built.
+const heldRows = rows.filter((r) => built.get(r.name).held);
+const HOLDS = [{ drive: "side" }, { drive: "driver" }, { drive: "side", solver: "game" }];
+const holdJobs = heldRows.flatMap((r) => HOLDS.map((hold) => ({ trial: "least", name: r.name, row: r.row, posture: built.get(r.name).posture, ...hold })));
+const strippedHeld = [];
+for (const variant of stripped) for (const r of rows) {
+  const answer = bestOf(all.filter((x) => x.row === r.name && x.variant === variant && x.friction === "box"));
+  if (answer.seeds.of > 0 && answer.held) strippedHeld.push({ trial: "least", name: r.name, row: r.row, posture: answer.posture, variant, drive: "side" });
+}
+const tagged = (jobs, records) => records.map((record, k) => ({ ...record, name: jobs[k].name }));
+const holds = tagged([...holdJobs, ...strippedHeld], await run([...holdJobs, ...strippedHeld]));
+const handJobs = heldRows.map((r) => ({ trial: "handed", name: r.name, row: r.row, posture: built.get(r.name).posture }));
+const handovers = tagged(handJobs, await run(handJobs));
+
 const answers = new Map();
 for (const record of all) {
   const key = `${record.row}|${record.variant}|${record.friction}`;
@@ -150,9 +167,31 @@ for (const r of rows) {
   const box = of(r.name), cone = of(r.name, "built", "cone");
   console.log(`| ${r.name} | ${verdict(box)} ${f2(box.share)} | ${verdict(cone)} ${f2(cone.share)} | ${box.held !== cone.held ? "yes" : ""} |`);
 }
+console.log(`\n### The stand hold (${HOLD_HARNESS})\n`);
+console.log("Least `k` that keeps each segment within twice the strong control's drift (and at least the bar) of where it was put; `none` if even the most tried does not, `fell` if the strong control itself falls, each with its drift and worst channel.\n");
+const solverName = (name) => { const s = SOLVERS[name]; return `${s.hz} Hz, ${s.iterations ? `${s.iterations} iterations of ${s.pgs} passes` : "the core's iterations"}`; };
+console.log(`On the reference solver (${solverName("reference")}) and the game's (${solverName("game")}).\n`);
+console.log(`| row | variant | statics share | by side, reference | by the driver, reference | by side, game | creep at ${STRONG}x, m (reference) | touched | leant on |`);
+console.log("|---|---|---|---|---|---|---|---|---|");
+const holdCell = (h) => (!h ? "-" : h.k !== null ? f2(h.k) : `${h.fell ? "fell" : "none"} (${h.at.drift} m, ${h.at.worst.channel})`);
+for (const r of heldRows) {
+  const mine = holds.filter((h) => h.name === r.name && h.variant === "built");
+  const side = mine.find((h) => h.drive === "side" && h.solver === "reference"), driver = mine.find((h) => h.drive === "driver"), game = mine.find((h) => h.solver === "game");
+  const at = side.k !== null ? side.at : side.creep;
+  console.log(`| ${r.name} | built | ${f2(built.get(r.name).share)} | ${holdCell(side)} | ${holdCell(driver)} | ${holdCell(game)} | ${side.creep.drift} | ${at.touched.join(", ") || "-"} | ${at.leant.join(", ") || "-"} |`);
+}
+for (const h of holds.filter((x) => x.variant !== "built")) {
+  const at = h.k !== null ? h.at : h.creep;
+  console.log(`| ${h.name} | ${h.variant} | ${f2(of(h.name, h.variant).share)} | ${holdCell(h)} | - | - | ${h.creep.drift} | ${at.touched.join(", ") || "-"} | ${at.leant.join(", ") || "-"} |`);
+}
+console.log(`\n### The handover (the game's body and stance, on its solver: ${solverName("game")})\n`);
+console.log("Stood: not down for its last 2 s and more, and its centre of mass within 5 cm of the height its stance asks.\n");
+console.log("| row | centre put, m | stood | up after, s | centre at the end, m | asked, m | fastest segment at the end, m/s |");
+console.log("|---|---|---|---|---|---|---|");
+for (const h of handovers) console.log(`| ${h.name} | ${f2(built.get(h.name).height)} | ${h.stood ? "yes" : "no"} | ${h.seconds ?? "-"} | ${f2(h.centre)} | ${f2(h.asked)} | ${f2(h.peak)} |`);
 
 mkdirSync(OUT, { recursive: true });
-writeFileSync(new URL("records.json", OUT), JSON.stringify({ harness: STATICS_HARNESS, evals, seeds, records: all, best: Object.fromEntries(best), paths }, null, 1));
+writeFileSync(new URL("records.json", OUT), JSON.stringify({ harness: STATICS_HARNESS, evals, seeds, records: all, best: Object.fromEntries(best), paths, holds, handovers }, null, 1));
 const body = await staticBody();
 for (const [key, record] of best) {
   const [name, variant, friction] = key.split("|");
