@@ -16,14 +16,15 @@ import { freshEngine } from "./core-stand.mjs";
 /**
  * `count` bodies of `model` with the club on a ground in a world of their own, on a square grid
  * 3 m apart, each under the command layers with an order to stand: what a step allocates is read
- * on them (`tests/core-step-cost.test.mjs`, `research/step-garbage.mjs`).
+ * on them (`tests/core-step-cost.test.mjs`, `research/step-garbage.mjs`). With `only`, the world
+ * holds that one of them alone, at its place on the grid.
  */
-export async function standBodies(count, model = "crypt-skeleton") {
+export async function standBodies(count, model = "crypt-skeleton", { only } = {}) {
   const spec = armed(modelSpec(model), "right", woodenClub());
   const scene = new Scene(new NullEngine()), world = createWorld(scene, await freshEngine());
   world.physics.addFixedBox([0, -0.5, 0], [200, 1, 200]);
   const side = Math.ceil(Math.sqrt(count));
-  const bodies = Array.from({ length: count }, (_, i) => {
+  const bodies = Array.from({ length: count }, (_, i) => i).filter((i) => only === undefined || i === only).map((i) => {
     const body = createBody(buildBody(spec, world, { position: [3 * (i % side), 0, 3 * Math.floor(i / side)] }), world, { servoSeconds: SERVO_SECONDS });
     driveBy(body, { name: "stand", decide: () => standIntent(0) });
     return body;
