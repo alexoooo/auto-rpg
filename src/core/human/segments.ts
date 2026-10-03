@@ -119,9 +119,14 @@ function shapeOf(figure: HumanFigure, plan: Plan, proximal: Quantity<Vec3>, dist
   const shape = plan.shape;
   switch (shape.kind) {
     case "capsule": {
-      const radius = derive("m", "the capsule as long as the segment that holds its mass at its density",
-        [mass, si(SEGMENT_DENSITY[shape.density]), proximal, distal],
-        (m, density, p, d) => capsuleRadius(m / density, distance(p, d)));
+      const widest = figure.widest?.[plan.row];
+      const radius = widest
+        ? derive("m", "the capsule as long as the segment that holds its mass at its density, no wider than its figure leaves it room",
+          [mass, si(SEGMENT_DENSITY[shape.density]), proximal, distal, widest],
+          (m, density, p, d, w) => Math.min(capsuleRadius(m / density, distance(p, d)), w))
+        : derive("m", "the capsule as long as the segment that holds its mass at its density",
+          [mass, si(SEGMENT_DENSITY[shape.density]), proximal, distal],
+          (m, density, p, d) => capsuleRadius(m / density, distance(p, d)));
       return {
         kind: "capsule", radius,
         from: derive("m", "the proximal end, in by the radius", [proximal, distal, radius], (p, d, r) => add(p, scale(normalize(sub(d, p)), r))),

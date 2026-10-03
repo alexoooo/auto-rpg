@@ -198,11 +198,13 @@ test("fallen forward, a body draws its knees under and props itself", async () =
       const up = { pelvis: heightOf(built, "lowerTrunk"), chest: heightOf(built, "upperTrunk") }, bar = PROPPED[model];
       assert.ok(up.pelvis > bar.pelvis && up.chest > bar.chest, `${model}: at the end of prop its pelvis is ${up.pelvis} m up and its chest ${up.chest}, from ${lay.pelvis} and ${lay.chest}`);
       assert.equal(lieOf(body.muscles.dynamics.root.segment), "front", model);
-      // Its stages over and still down, it keeps the body, lies slack, and begins another attempt.
+      // Its stages over and still down, it keeps the body, lies slack, and begins another attempt from how it lies then:
+      // a body come to rest on a side rolls first.
       world.step();
       assert.deepEqual([body.has, body.view.down, riser.phase, riser.tries, body.muscles.activation.some((level) => level !== 0)], ["staged-rise", true, "settle", 1, false], model);
       for (let i = 0; i < 6 * world.hz && riser.tries < 2; i++) world.step();
-      assert.deepEqual([riser.phase, riser.stage, riser.tries, riser.furthest], ["rise", 0, 2, POSES.rise.length - 1], model);
+      const lies = lieOf(body.muscles.dynamics.root.segment);
+      assert.deepEqual([riser.phase, riser.stage, riser.tries, riser.furthest], [lies === "front" ? "rise" : "roll", 0, 2, POSES.rise.length - 1], `${model}, lying ${lies}`);
     } finally { dispose(); }
   }
 });
@@ -545,16 +547,16 @@ test("a limb a stage leaves bears until the centre of mass is over the others", 
   // The control: its arms straight, the body cannot come over its shins, and its hands bear to the stage's last step.
   const knelt = await runsOf(kneel);
   assert.deepEqual([knelt.phase, knelt.runs], ["settle", [[false, ALL, knelt.steps]]]);
-  // The skeleton is where a stage that leaves its left hand holds it, slow and at its pitch, before it is over its other
-  // three limbs: the stage is not done until the hand is let go.
-  const hand = { ...FOURS, name: "hand", on: [{ limb: "shin.left", share: 0.4 }, { limb: "shin.right", share: 0.4 }, { limb: "hand.right", share: 0.2 }], leave: ["hand.left"], limit: 3 };
-  const handed = await runsOf(hand, "crypt-skeleton");
-  assert.deepEqual([handed.phase, handed.lifted, handed.bear], ["idle", true, ALL.map((bears, l) => (RISE.limbs[l].name === "hand.left" ? "off" : bears))]);
-  assert.deepEqual(handed.runs.map(([lifted, bear]) => [lifted, bear]), [[false, ALL]]);
-  assert.ok(handed.runs[0][2] > 0.5 * handed.hz && handed.runs[0][2] < handed.steps, `the left hand bore ${handed.runs[0][2]} steps`);
+  // A stage that leaves the left hand, its trunk pitched less: the body comes over its other three limbs slowly, and the
+  // hand bears more than a second and a half before it is let go.
+  const hand = { ...FOURS, name: "hand", pitch: 0.9, on: [{ limb: "shin.left", share: 0.4 }, { limb: "shin.right", share: 0.4 }, { limb: "hand.right", share: 0.2 }], leave: ["hand.left"], limit: 3 };
+  const handed = await runsOf(hand), handFree = ALL.map((bears, l) => (RISE.limbs[l].name === "hand.left" ? "off" : bears));
+  assert.deepEqual(handed.runs.map(([lifted, bear]) => [lifted, bear]), [[false, ALL], [true, handFree]]);
+  assert.ok(handed.runs[0][2] > 1.5 * handed.hz && handed.runs[0][2] < handed.steps, `the left hand bore ${handed.runs[0][2]} steps`);
+  assert.deepEqual([handed.phase, handed.runs[0][2] + handed.runs[1][2]], ["settle", handed.steps]);
   // The control: a stage that leaves nothing has nothing to let go. The skeleton's knees and hands with its shins bearing
-  // four fifths hold it nearer its knees than the outline drawn in, and the stage is done there.
-  const near = { ...FOURS, on: FOURS.on.map(({ limb }) => ({ limb, share: limb.startsWith("shin") ? 0.4 : 0.1 })) };
+  // seven tenths and its trunk pitched steeply hold it nearer its knees than the outline drawn in, and the stage is done there.
+  const near = { ...FOURS, pitch: 1.6, on: FOURS.on.map(({ limb }) => ({ limb, share: limb.startsWith("shin") ? 0.36 : 0.14 })) };
   const { world, built, body, dispose } = await fallen("crypt-skeleton", { ...RISE, rise: [...RISE.rise.slice(0, -1), near] });
   try {
     const riser = riserOf(body), { played } = playedTo(world, built, riser, LAST);
@@ -576,8 +578,11 @@ test("a shin bears from its knee to where its foot stands, and a hand where it t
     const { first, second } = endsOf(built, `hand.${side}`, `wrist.${side}`), flat = first.y - ground < DOWN && second.y - ground < DOWN;
     return { flat, at: flat ? first.add(second).scale(0.5) : first.y <= second.y ? first : second };
   };
-  for (const [model, propped] of [["workshop-fighter", true], ["crypt-skeleton", false]]) {
-    const { world, built, body, dispose } = await fallen(model, RISE);
+  // Its toes tucked under, a body kneels on its feet; pointed, its feet are off the ground.
+  const POINTED = { ...RISE, rise: RISE.rise.map((stage) => (stage.name === "prop" || stage.name === "fours"
+    ? { ...stage, posture: Object.fromEntries(Object.entries(stage.posture).map(([channel, angle]) => [channel, channel.startsWith("ankle") ? -0.6 : angle])) } : stage)) };
+  for (const [model, recipe, propped] of [["workshop-fighter", RISE, true], ["workshop-fighter", POINTED, false]]) {
+    const { world, built, body, dispose } = await fallen(model, recipe);
     try {
       const riser = riserOf(body), limbs = riseLimbs(ownOf(built, body), RISE), ground = uprightness(built).lowest();
       // Toppled stiff, its arms at its sides: each hand lies on its far end alone.

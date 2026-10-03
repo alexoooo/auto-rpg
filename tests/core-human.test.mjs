@@ -17,6 +17,7 @@ import { humanSpec } from "../src/core/human/spec.ts";
 import { peakTorque } from "../src/core/human/muscle.ts";
 import { jointSpeed } from "../src/core/human/speed.ts";
 import { workshopFigure } from "../src/core/human/workshop.ts";
+import { SKELETON_MODEL, skeletonFigure } from "../src/core/human/skeleton.ts";
 import { forceVelocityFactor } from "../src/core/muscle/force-velocity.ts";
 import { EXERTIONS, measuredTorque, subjectMass } from "../src/core/human/tables/joint-torques.ts";
 import { specProvenanceFaults } from "./fixtures/spec.mjs";
@@ -142,9 +143,9 @@ test("the segment tree joins every segment to the lower trunk", () => {
  * every such pair must have room: measured geometrically, since nothing in the engine would show
  * an overlap it forbids.
  */
-test("segments that share no joint have room between them in the reference pose", () => {
-  for (const model of WORKSHOP_MODELS) {
-    const segments = humanSegments(workshopFigure(model));
+test("segments that share no joint have room between them in the reference pose, the humans' and the skeleton's", () => {
+  for (const [model, figure] of [...WORKSHOP_MODELS.map((model) => [model, workshopFigure(model)]), [SKELETON_MODEL, skeletonFigure()]]) {
+    const segments = humanSegments(figure);
     const tight = [];
     for (let i = 0; i < segments.length; i++) {
       for (let j = i + 1; j < segments.length; j++) {

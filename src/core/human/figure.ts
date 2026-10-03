@@ -2,7 +2,7 @@ import type { Substance } from "../spec/body.ts";
 import type { Quantity, Vec3 } from "../spec/quantity.ts";
 import type { Extents, TrunkSegment } from "./envelope.ts";
 import type { LimbLandmarks, Side, TrunkLandmarks } from "./landmarks.ts";
-import type { Sex } from "./tables/de-leva-1996.ts";
+import type { DeLevaSegment, Sex } from "./tables/de-leva-1996.ts";
 
 /**
  * **A human figure**: everything the human body-plan code (`segments.ts`, `joints.ts`,
@@ -33,6 +33,12 @@ export interface HumanFigure {
   readonly hulls: Readonly<Record<TrunkSegment, readonly Quantity<Vec3>[]>>;
   /** Each foot's extents, body frame. */
   readonly feet: Readonly<Record<Side, Extents>>;
+  /**
+   * The widest a limb's capsule is, m, by its row, where the figure's limbs stand nearer each other
+   * or its trunk than their mass at its density leaves room for; absent, a capsule holds its mass
+   * at its density.
+   */
+  readonly widest?: Readonly<Partial<Record<DeLevaSegment, Quantity<number>>>>;
   /** The body's hit points, in the rulebook's unit. */
   readonly hp: Quantity<number>;
   /** The body's balance, per cent of its weight (`AttributeSpec`). */
