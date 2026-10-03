@@ -9,7 +9,8 @@
  * impulse, a step, new mass, a hold or a load is the body's new one; a box resting on another
  * is in contact with it, pushed with its weight, and the lower with the ground, pushed with both;
  * a box a centimetre off another, or over the ground, is in contact with it and not pushed, and
- * each fixed collider is a contact of its own; a contact names each pair of shapes the solver
+ * each fixed collider is a contact of its own, what a reader's choice throws the read throws, and a
+ * reader that reads contacts while it chooses is refused; a contact names each pair of shapes the solver
  * pushed on, by their places in their bodies; a fixed box turns about up; a
  * body's gap to a point is to the nearest of its shapes, and none inside one; and a
  * world loaded from a save goes on as it went on from the save, its contacts, its fixed colliders
@@ -220,6 +221,11 @@ test("a box resting on another is in contact with it, and the lower with the gro
     assert.deepEqual(b.physics.contactsOf(b.body, wanted(null)), up.filter((c) => c.other !== null));
     assert.deepEqual(b.physics.contactsOf(b.body, () => false), []);
     assert.deepEqual(b.physics.contactsOf(b.body, () => true), up);
+    // What a choice throws, the read throws; a reader that reads contacts while it chooses is refused;
+    // and the read after either is whole.
+    assert.throws(() => b.physics.contactsOf(b.body, () => { throw new Error("chosen badly"); }), /chosen badly/);
+    assert.throws(() => b.physics.contactsOf(b.body, () => b.physics.contactsOf(top).length > 0), /while another's are/);
+    assert.deepEqual(b.physics.contactsOf(b.body), up);
   } finally { b.dispose(); }
 });
 

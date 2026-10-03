@@ -17,7 +17,7 @@ import { traceOf } from "./harness/trace.mjs";
  * last set, and a quarter. A change that goes over it takes its allocation out of the step or,
  * where the allocation is the feature's, raises the ceiling and says why in its commit.
  */
-const CEILING = { standing: 100, bout: 148 };
+const CEILING = { standing: 100, bout: 139 };
 
 test("a_standing_body_s_step_allocates_no_more_than_its_ceiling", () => {
   const kib = stepAllocation("standing");
