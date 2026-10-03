@@ -440,7 +440,8 @@ export function leastShare(body, row, posture, { friction = "box", ranges = body
   });
   const floor = Math.max(0, ...freedoms.map((fr, f) => (fixedTorque[f] >= 0 ? fixedTorque[f] / fr.plus : -fixedTorque[f] / fr.minus)));
   const E = columns.length, S = stopColumns.length;
-  // The unknowns: the edges' forces, N; the stops' torques, N m; s.
+  // The unknowns: the edges' forces, N; the stops' torques as shares of `STOP_BEARS`, so that every
+  // row is of a size; s.
   const v = E + S + 1, sAt = E + S;
   const Aeq = [], beq = [];
   // The root's rows, moments over the weight times a metre and forces over the weight.
@@ -454,7 +455,7 @@ export function leastShare(body, row, posture, { friction = "box", ranges = body
   const torqueRow = (f, sign, P) => {
     const a = new Array(v).fill(0);
     columns.forEach((col, e) => { a[e] = (-sign * col.joints[f]) / P; });
-    stopColumns.forEach((st, k) => { if (st.f === f) a[E + k] = (sign * st.sign) / P; });
+    stopColumns.forEach((st, k) => { if (st.f === f) a[E + k] = (sign * st.sign * STOP_BEARS) / P; });
     return a;
   };
   const Aub = [], bub = [];
@@ -464,12 +465,12 @@ export function leastShare(body, row, posture, { friction = "box", ranges = body
     const up = torqueRow(f, 1, fr.plus); up[sAt] = -1; Aub.push(up); bub.push(g / fr.plus);
     const down = torqueRow(f, -1, fr.minus); down[sAt] = -1; Aub.push(down); bub.push(-g / fr.minus);
   }
-  stopColumns.forEach((st, k) => { const a = new Array(v).fill(0); a[E + k] = 1; Aub.push(a); bub.push(st.most); });
+  stopColumns.forEach((st, k) => { const a = new Array(v).fill(0); a[E + k] = 1; Aub.push(a); bub.push(st.most / STOP_BEARS); });
   const cost = new Array(v).fill(0);
   cost[sAt] = 1;
   const first = linearProgramme(cost, Aub, bub, Aeq, beq);
   if (first.status === "infeasible") return { balanced: false, miss: first.infeasibility, share: Infinity, bearing };
-  if (first.status !== "optimal") throw new Error(`the least share's programme is ${first.status}`);
+  if (first.status !== "optimal") throw Object.assign(new Error(`the least share's programme is ${first.status}`), { programme: { cost, Aub, bub, Aeq, beq } });
   const share = Math.max(floor, first.x[sAt]);
   // The least sum of shares at that s: a share a reached freedom, each at least its torque over its side's peak.
   let x = first.x;
@@ -497,11 +498,11 @@ export function leastShare(body, row, posture, { friction = "box", ranges = body
     if (!reached[f]) return fixedTorque[f];
     let t = -dynamics.gravity[f];
     columns.forEach((col, e) => { t -= col.joints[f] * x[e]; });
-    stopColumns.forEach((st, k) => { if (st.f === f) t += st.sign * x[E + k]; });
+    stopColumns.forEach((st, k) => { if (st.f === f) t += st.sign * STOP_BEARS * x[E + k]; });
     return t;
   });
   const stopTorques = [
-    ...stopColumns.map((st, k) => ({ channel: freedoms[st.f].name, at: st.sign > 0 ? "hi" : "lo", torque: -st.sign * x[E + k] })),
+    ...stopColumns.map((st, k) => ({ channel: freedoms[st.f].name, at: st.sign > 0 ? "hi" : "lo", torque: -st.sign * STOP_BEARS * x[E + k] })),
     ...freedoms.flatMap((fr, f) => {
       const leant = reached[f] ? 0 : -dynamics.gravity[f] - fixedTorque[f];
       return leant === 0 ? [] : [{ channel: fr.name, at: leant < 0 ? "hi" : "lo", torque: leant }];
@@ -513,13 +514,56 @@ export function leastShare(body, row, posture, { friction = "box", ranges = body
   return { balanced: true, miss: 0, share, torques, ratios, stops: stopTorques, bearing, forces };
 }
 
+/** The least a pivot may be of its column's largest entry (`simplex`). */
+const PIVOT = 1e-9;
+
 /**
- * **A linear programme**: the least of `c . x` over x >= 0, `Aub x <= bub`, `Aeq x = beq`, by the
- * two-phase simplex method on a dense tableau (Dantzig's rule, Bland's from a run of degenerate
- * pivots on). `infeasibility` is phase one's least sum of the artificial variables: how far the
- * equalities, as scaled, are from being met when they cannot be.
+ * How many orders of its unknowns a programme is solved in before its failure is believed, and
+ * before its infeasibility is: a rounded tableau has called a programme that holds infeasible by
+ * 1.8e-3.
+ */
+const ORDERS = 8, CONFIRM = 3;
+/** How far an answer may stand outside a constraint, over 1 and the constraint's bound, and be within it. */
+const WITHIN = 1e-7;
+
+/**
+ * **A linear programme**: the least of `c . x` over x >= 0, `Aub x <= bub`, `Aeq x = beq`
+ * (`simplex`). An answer is checked against the constraints; one that fails the check, or a
+ * programme that stalls, reads unbounded or reads infeasible, is solved again with its unknowns in
+ * another order, since the tableau's rounding follows its order; infeasible in `CONFIRM` orders
+ * is believed, by the least of their misses. `infeasibility` is phase one's least sum of the
+ * artificial variables: how far the equalities, as scaled, are from being met when they cannot be.
  */
 export function linearProgramme(c, Aub, bub, Aeq, beq) {
+  const n = c.length, dot = (a, x) => a.reduce((sum, v, k) => sum + v * x[k], 0);
+  const within = (x) => x.every((v) => v >= -WITHIN)
+    && Aub.every((a, i) => dot(a, x) - bub[i] <= WITHIN * (1 + Math.abs(bub[i])))
+    && Aeq.every((a, i) => Math.abs(dot(a, x) - beq[i]) <= WITHIN * (1 + Math.abs(beq[i])));
+  let last = null, infeasible = null, misses = 0;
+  for (let k = 0; k < ORDERS; k++) {
+    const draw = random(k), order = [...c.keys()].map((j) => [k === 0 ? j : draw(), j]).sort((a, b) => a[0] - b[0]).map(([, j]) => j);
+    const P = (a) => order.map((j) => a[j]);
+    const solved = simplex(P(c), Aub.map(P), bub, Aeq.map(P), beq);
+    if (solved.status === "infeasible") {
+      if (!infeasible || solved.infeasibility < infeasible.infeasibility) infeasible = solved;
+      if (++misses >= CONFIRM) return infeasible;
+      continue;
+    }
+    if (solved.status === "optimal") {
+      const x = new Array(n).fill(0);
+      order.forEach((j, at) => { x[j] = solved.x[at]; });
+      if (within(x)) return { ...solved, x };
+      last = { status: "outside its constraints" };
+    } else last = solved;
+  }
+  return infeasible ?? last;
+}
+
+/**
+ * **The simplex method** on `linearProgramme`'s programme: two phases on a dense tableau, Dantzig's
+ * rule, Bland's from a run of degenerate pivots on.
+ */
+export function simplex(c, Aub, bub, Aeq, beq) {
   const n = c.length, rows = [];
   // Each row as a x (=, <=) b with b >= 0: a slack where one is added, an artificial where one is needed.
   Aub.forEach((a, i) => rows.push(bub[i] >= 0 ? { a, b: bub[i], slack: 1, art: false } : { a: a.map((v) => -v), b: -bub[i], slack: -1, art: true }));
@@ -563,11 +607,17 @@ export function linearProgramme(c, Aub, bub, Aeq, beq) {
         if (r < best) { col = j; if (bland) break; best = r; }
       }
       if (col < 0) return "optimal";
-      let row = -1, least = Infinity;
+      // A pivot under `PIVOT` of its column's largest entry is a zero rounded: divided by, it
+      // multiplies the tableau's rounding past its values.
+      let row = -1, least = Infinity, largest = 0;
+      for (let i = 0; i < m; i++) largest = Math.max(largest, Math.abs(T[i * width + col]));
       for (let i = 0; i < m; i++) {
         const a = T[i * width + col];
-        if (a > eps) {
-          const ratio = T[i * width + N] / a;
+        if (a > eps && a > PIVOT * largest) {
+          // A value within `eps` of zero is zero, so that a degenerate row ties with another
+          // exactly and Bland's rule breaks the tie; left as rounded, the rows are told apart
+          // by their rounding and the pivots cycle.
+          const b = T[i * width + N], ratio = (b <= eps ? 0 : b) / a;
           if (ratio < least - 1e-12 || (Math.abs(ratio - least) <= 1e-12 && row >= 0 && basis[i] < basis[row])) { least = ratio; row = i; }
         }
       }

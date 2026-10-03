@@ -41,8 +41,14 @@ async function run(jobs) {
     const feed = () => {
       if (next >= jobs.length) { worker.terminate(); resolve(); return; }
       const id = next++;
-      worker.once("message", ({ result, error }) => {
-        if (error) { reject(new Error(error)); return; }
+      worker.once("message", ({ result, error, programme }) => {
+        if (error) {
+          // The job that failed and, where a programme failed, the programme: kept to be read again.
+          mkdirSync(OUT, { recursive: true });
+          writeFileSync(new URL("failed.json", OUT), JSON.stringify({ job: jobs[id], error, programme }));
+          reject(new Error(error));
+          return;
+        }
         records[id] = result;
         feed();
       });

@@ -5,6 +5,7 @@
  * as it must. Node, statics; the engine's check on the core world, Rapier, 120 Hz; the stand hold
  * on the audit's reference solver and the handover on the game's (`SOLVERS`).
  */
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
@@ -14,7 +15,7 @@ import { pointOfToRef } from "../src/core/control/support.ts";
 import { modelSpec } from "../src/core/human/spec.ts";
 import { STANCE_LOWER } from "../src/core/skills/locomotion.ts";
 import {
-  AUDITED, handed, held, jointMomentsOf, leastShare, linearProgramme, placeLike, posed, project, random, rangesOf, recordOf, rowNamed, search, staticBody,
+  AUDITED, handed, held, jointMomentsOf, leastShare, linearProgramme, placeLike, posed, project, random, rangesOf, recordOf, rowNamed, search, simplex, staticBody,
 } from "../research/core-posture-trials.mjs";
 import { coreStand } from "./harness/core-stand.mjs";
 
@@ -138,6 +139,43 @@ test("the simplex solves programmes small enough to solve by hand", () => {
   near(none.infeasibility, 0.5, 1e-12, "how far short");
   assert.equal(linearProgramme([-1, 0], [[1, -1]], [1], [], []).status, "unbounded");
 });
+
+test("the simplex solves the audit's hard programmes, their stops as shares and in N m, in any order", () => {
+  // Least shares the simplex once failed by its rounding (each its `what`), the stops' torques
+  // written as shares of 10^4 N m; then the same written in N m. One marked `bare` is solved by
+  // the simplex itself in its own order; the rest need another order.
+  for (const lp of JSON.parse(readFileSync(new URL("./fixtures/posture-programme.json", import.meta.url), "utf8"))) hard(lp);
+});
+
+/**
+ * The orders a hard programme is given in: its own, two drawn, and the one in which the third's
+ * tableau calls it infeasible.
+ */
+const ORDERED = [0, 1, 2, 46];
+
+/** One hard programme solved in both forms and four orders: each answer within its constraints, one least. */
+function hard(lp) {
+  if (lp.bare) assert.equal(simplex(lp.cost, lp.Aub, lp.bub, lp.Aeq, lp.beq).status, "optimal", `${lp.what}, by the simplex alone`);
+  const stop = new Set(lp.stops), unit = (a) => a.filter((v) => v !== 0).length === 1 && a.some((v, j) => v !== 0 && stop.has(j));
+  const nm = (a) => a.map((v, j) => (stop.has(j) ? v / 1e4 : v));
+  const inNm = { ...lp, Aub: lp.Aub.map((a) => (unit(a) ? a : nm(a))), bub: lp.bub.map((b, i) => (unit(lp.Aub[i]) ? b * 1e4 : b)), Aeq: lp.Aeq.map(nm) };
+  const dot = (a, x) => a.reduce((sum, v, k) => sum + v * x[k], 0);
+  const values = [];
+  for (const form of [lp, inNm]) for (const seed of ORDERED) {
+    // The first order is the programme's own.
+    const draw = random(seed), order = [...lp.cost.keys()].map((j) => [seed === 0 ? j : draw(), j]).sort((a, b) => a[0] - b[0]).map(([, j]) => j);
+    const P = (a) => order.map((j) => a[j]), Aub = form.Aub.map(P), Aeq = form.Aeq.map(P);
+    const r = linearProgramme(P(form.cost), Aub, form.bub, Aeq, form.beq);
+    const what = `${lp.what}, seed ${seed}`;
+    assert.equal(r.status, "optimal", what);
+    assert.ok(r.x.every((v) => v >= -1e-9), `${what}: ${Math.min(...r.x)}`);
+    Aub.forEach((a, i) => assert.ok(dot(a, r.x) <= form.bub[i] + 1e-9 * (1 + Math.abs(form.bub[i])), `${what}, row ${i}`));
+    Aeq.forEach((a, i) => near(dot(a, r.x), form.beq[i], 1e-9, `${what}, equality ${i}`));
+    values.push(r.value);
+  }
+  assert.ok(values[0] > 0.1, `${lp.what}: the least share ${values[0]}`);
+  for (const v of values) near(v, values[0], 1e-9, `${lp.what}: the least share in every order and form`);
+}
 
 /** A row's searched answer, few evaluations, seed 0, as its record. */
 function answer(row, { height, evals = 300, variant } = {}) {
