@@ -56,6 +56,10 @@ screens build on it; it never imports them.
   (`EXACT_MATH`), and holds the core to the Babylon math that has been read and found to be
   arithmetic (`EXACT_BABYLON`): read a member's source before adding it.
 - **Tuning is immutable.** An experiment passes an override in; nothing mutates a global.
+- **How much of itself a body runs is its level** (`BodyLevel`, `src/core/muscle/driver.ts`): data
+  on the body, set by one rule (`levelsOf`, `src/core/rules/levels.ts`) from where the bodies are
+  and never from the machine. A body is not disposed and driven afresh to save a step; a mind is
+  told (`Mind.idle`) and goes on from the body as it is.
 - **One world step** owns physics, control, combat and the clock, at 120 Hz: `World.step`
   (`src/core/world.ts`). Pages, tests and research all call it; a page advances by real time with
   `World.advance`. The scene has no physics of its own (the core's engine is not Babylon's

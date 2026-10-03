@@ -100,6 +100,48 @@ test("a sub-mind reads its host's view of this step", async () => {
   }
 });
 
+test("a body idled under a sub-mind ends it, and the one that wants it begins", async () => {
+  const stand = await coreStand(warrior);
+  const calls = [];
+  let wanting = true;
+  const sub = { name: "a", wants() { return wanting; }, begin() { calls.push("a.begin"); }, end() { calls.push("a.end"); }, step() { calls.push("a.step"); } };
+  const host = {
+    name: "host", look() {}, act() { calls.push("host.act"); },
+    release() { calls.push("host.release"); }, resume() { calls.push("host.resume"); }, step() {},
+  };
+  const { own, mind, dispose } = embody(stand.built, stand.world, () => hosting(host, [sub]));
+  try {
+    const record = [];
+    /** Set the body's level, or with none take a step: who has the body after it, and what was called. */
+    const take = (level) => {
+      calls.length = 0;
+      if (level) own.muscles.setLevel(level); else stand.step();
+      record.push(`${level ?? "step"} ${mind.has} ${mind.state.has}: ${calls.join(" ")}`);
+    };
+    take();
+    // Idled while the sub-mind has it: it ends, and the host is told nothing. Back with the sub-mind wanting it: it begins.
+    take("limp"); take(); take("full"); take();
+    // Back with it not wanting the body: the host is resumed.
+    take("limp"); wanting = false; take("full"); take();
+    // Idled while the host has it: the host is released, and resumed at its first step back.
+    take("held"); take(); take("full"); take();
+    assert.deepEqual(record, [
+      "step a 0: host.release a.begin a.step",
+      "limp nobody -2: a.end",
+      "step nobody -2: ",
+      "full nobody -2: ",
+      "step a 0: a.begin a.step",
+      "limp nobody -2: a.end",
+      "full nobody -2: ",
+      "step host -1: host.resume host.act",
+      "held nobody -2: host.release",
+      "step nobody -2: ",
+      "full nobody -2: ",
+      "step host -1: host.resume host.act",
+    ]);
+  } finally { dispose(); stand.dispose(); }
+});
+
 test("a sub-mind's config names its kind", () => {
   const own = { muscles: null }, view = { down: false };
   const lie = subMind(own, view, { kind: "lie" });

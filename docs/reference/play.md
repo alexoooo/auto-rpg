@@ -31,22 +31,74 @@ the distance given. The run reads it through an index of the cells where nothing
 - `SIGHT_METRES`: an enemy sees a party member within 14 m.
 - `WAKE_METRES`: an enemy's body is built once a standing party member comes within 16 m of
   where it waits, 2 m beyond its sight, so that it is standing when it can first see; or a body
-  going somewhere comes within `REST.company` of it, so that nothing stands where it is built.
-  An enemy not yet built saves the step what a standing body costs it
-  ([Bodies in the step](#bodies-in-the-step)).
-- `REST`: an enemy at rest is held: its muscles are released and its segments fixed where they
-  are (`DungeonRun.hold`). It rests when it stands within 0.5 m of its home (`home`), unalerted,
-  with every standing party member farther than 18 m (`metres`) and nobody going anywhere within
-  5 m (`clear`). It is let go, and driven afresh, once a party member is within `WAKE_METRES` or a
-  body going somewhere within 4 m (`company`). A body going somewhere is a party member, or an
-  enemy that is not at rest: two at rest side by side are held together. The 2 m between 16 and
-  18 and the 1 m between 4 and 5 keep a body on a line from being held and let go by turns.
+  going somewhere comes within `LEVELS.company` of it, so that nothing stands where it is built
+  (`stirs`, [Levels](#levels)). An enemy not yet built saves the step what a standing body costs
+  it ([Bodies in the step](#bodies-in-the-step)).
 
-`WAKE_METRES` and `REST` are **set, not measured**: they are the distances of the rule the crypt
-had on an engine that is gone (`src/dungeon/run.ts@e029c1e7`), which held a far enemy asleep in
-that engine. What holding one saves on the core is measured below.
+`WAKE_METRES` is **set, not measured**: it is the distance of the rule the crypt had on an engine
+that is gone (`src/dungeon/run.ts@e029c1e7`), which held a far enemy asleep in that engine.
 - `PARTY_SIGHT`: a party member sees the enemy its order locks within 12 m, picks one for itself
   within 8 m, and keeps the one it fights while it is within 5 m and nothing ranks above it.
+
+## Levels
+
+`src/core/rules/levels.ts`, `src/dungeon/run.ts`. **A body with nothing to do and nobody near is
+held; any other is at full in the fight and limp out of it** (`levelsOf`, `BodyLevel`). Held,
+its segments are fixed where they are and nothing drives it; limp, nothing drives it and the
+solver alone moves it. In the crypt a body in the fight has nothing to do when it waits: an enemy
+with no target, unalerted, within `HOME_METRES` (0.5 m) of its home. One out of the fight has
+nothing to do once it has lain `settle` seconds. Somebody is near a body when a body going
+somewhere (in the fight, at full, not waiting: a party member, or an enemy that is not waiting,
+so two waiting side by side are held together) is within `company`, or, for a body in the fight,
+a party member in the fight is within `wake`; once it is loose, the farther `clear` and `rest`
+keep it so. Nobody watches for the dead, so only a walker is near one: the dead lie loose while
+the party is about them, are fixed where they lie once it has walked off, and are loose again
+when somebody walks near, so a body underfoot can still be pushed aside.
+
+`LEVELS`, the crypt's distances:
+
+- `wake`, 16 m, and `rest`, 18 m: `WAKE_METRES`, and 2 m beyond it; `company`, 4 m, and
+  `clear`, 5 m. These are **set, not measured**: they are the distances of the rule the crypt
+  had on an engine that is gone (`src/dungeon/run.ts@e029c1e7`). The gap within each pair keeps a
+  body on a line from being held and let go by turns.
+- `settle`, 10 s: how long a body out of the fight lies loose before it may be held, long enough
+  for its fall to end. Read, below.
+- `HOME_METRES`, 0.5 m: how near its home a waiting enemy stands, set with the others.
+
+**There is no cap.** A level is read from the game alone, never from the machine, so a run is the
+same on every machine; with more bodies near than a machine carries, it plays the same game
+slower (`World.advance` drops the time it cannot take). How many are near at once is the level's
+design to decide, as it places them.
+
+**How long a fall takes to end.** Each crypt model with the club, alone on a ground under the
+crypt's mind and orders to stand: stood 2 s, then shoved at its root's centre of mass by its
+whole weight for a quarter second toward each of four bearings and let go limp as it is found
+down; or let go limp standing, as one whose pool ends on its feet. Seconds from going limp until
+its centre of mass stays under 0.05 m/s, and then until its fastest segment does, read over 15 s;
+"moving" is still moving at the end.
+
+Harness: Node, the core world, Rapier, 120 Hz.
+
+```powershell
+node research/rest-probe.mjs
+```
+
+| Model | Shoved ahead | Shoved behind | Shoved left | Shoved right | Let go standing |
+|---|---:|---:|---:|---:|---:|
+| crypt-skeleton | moving, moving | 1.74, 8.24 | 6.04, 7.14 | 0.82, 1.55 | 5.17, 5.52 |
+| workshop-fighter | 9.05, moving | 4.27, 4.47 | 2.17, moving | 3.43, 13.56 | 1.55, 2.09 |
+| workshop-rogue | 0.93, 1.18 | 1.02, 1.20 | 1.19, moving | 4.98, 9.99 | 1.38, 3.15 |
+
+The longest fall that ends takes 9.05 s, so `settle` is 10 s: a body has come down, whatever its
+limbs do after. They do not all come to rest. A limp body's joints have nothing passive in them
+(no damping, no stiffness: `BodyLevel` `limp` releases every motor), and some poses do not
+settle: the Warrior shoved ahead still moves a hand 2 to 3 cm a second at the end, and the
+skeleton shoved ahead crawls, 25 cm a second. Read by a script that is not kept (the same
+harness): in half a second of the skeleton's crawl, 2 s after it went limp, its potential energy
+rises from 97 J to 106 J and its kinetic from 0.2 J to 3.5 J with nothing pushing it, while a
+raised leg rocks on its limit. Holding the dead stops it once nobody is near; while somebody is, the dead may stir.
+The sleep that the second half of the probe reads (Rapier's own, which the core does not use) is
+the same with a body let go limp by its level as by the end of its driving.
 
 ## Bodies in the step
 
@@ -55,12 +107,13 @@ control and the solver take for it.
 
 Harness: Node, the core world (`src/core/world.ts`), Rapier, 120 Hz, one thread of the development
 host; skeletons with the club, 3 m apart on a ground, each under the command layers with an order
-to stand. Read standing; then held, their muscles released (`Body.dispose`) and every segment
-fixed where it is (`SegmentBody.setFixed`); then let go and driven afresh; then felled by a shove
-at the root and still driven by a mind with no sub-minds; then lying, under the sub-minds the
-game's mind has (`FIGHTER`); then limp, their muscles released; then rising, under the riser
-that plays stages (`stagedRise`, `rising.md#stages`), the row saying what part of the bodies'
-steps the riser lay slack, held a pose and bore on its limbs. A row is the mean of 600 steps.
+to stand. Read standing; then held (`Body.setLevel`), their muscles released and every segment
+fixed where it is; then let go, the same bodies and minds going on; then felled by a shove at the
+root and still driven by a mind with no sub-minds; then lying, under the sub-minds the game's mind
+has (`FIGHTER`); then limp, their muscles released; then held where they lie; then let go limp
+and rising, under the riser that plays stages (`stagedRise`, `rising.md#stages`), the row
+saying what part of the bodies' steps the riser lay slack, held a pose and bore on its limbs. A
+row is the mean of 600 steps.
 The step is 8.33 ms of the run's time, so a step of 8.33 ms is real time with nothing drawn.
 
 ```powershell
@@ -69,39 +122,50 @@ node research/body-cost.mjs
 
 | Bodies | State | Down | A step, ms | The solver, ms | The rest, ms | A body, ms | Of real time, % |
 |---|---|---|---|---|---|---|---|
-| 1 | standing, driven | 0 | 0.70 | 0.33 | 0.37 | 0.70 | 8 |
-| 1 | standing, held | 0 | 0.04 | 0.03 | 0.00 | 0.04 | 0 |
+| 1 | standing, driven | 0 | 0.71 | 0.33 | 0.38 | 0.71 | 8 |
+| 1 | standing, held | 0 | 0.05 | 0.05 | 0.00 | 0.05 | 1 |
 | 1 | let go, driven | 0 | 0.61 | 0.29 | 0.33 | 0.61 | 7 |
-| 1 | down, driven | 1 | 0.80 | 0.32 | 0.48 | 0.80 | 10 |
-| 1 | down, lying | 1 | 0.35 | 0.28 | 0.08 | 0.35 | 4 |
-| 1 | down, limp | 1 | 0.28 | 0.28 | 0.00 | 0.28 | 3 |
-| 1 | down, rising: slack 0 %, posing 40 %, bearing 60 % | 1 | 0.62 | 0.30 | 0.32 | 0.62 | 7 |
-| 4 | standing, driven | 0 | 2.21 | 1.01 | 1.20 | 0.55 | 27 |
+| 1 | down, driven | 1 | 0.79 | 0.32 | 0.46 | 0.79 | 9 |
+| 1 | down, lying | 1 | 0.37 | 0.28 | 0.08 | 0.37 | 4 |
+| 1 | down, limp | 1 | 0.27 | 0.27 | 0.00 | 0.27 | 3 |
+| 1 | down, held | 1 | 0.02 | 0.02 | 0.00 | 0.02 | 0 |
+| 1 | down, rising: slack 47 %, posing 40 %, bearing 14 % | 1 | 0.43 | 0.30 | 0.13 | 0.43 | 5 |
+| 4 | standing, driven | 0 | 2.24 | 1.01 | 1.23 | 0.56 | 27 |
 | 4 | standing, held | 0 | 0.07 | 0.07 | 0.00 | 0.02 | 1 |
-| 4 | let go, driven | 0 | 2.18 | 1.00 | 1.19 | 0.55 | 26 |
-| 4 | down, driven | 4 | 2.89 | 1.17 | 1.72 | 0.72 | 35 |
-| 4 | down, lying | 4 | 1.44 | 1.14 | 0.30 | 0.36 | 17 |
-| 4 | down, limp | 4 | 1.13 | 1.13 | 0.00 | 0.28 | 14 |
-| 4 | down, rising: slack 28 %, posing 48 %, bearing 24 % | 4 | 1.63 | 1.09 | 0.53 | 0.41 | 20 |
-| 8 | standing, driven | 0 | 4.26 | 1.98 | 2.29 | 0.53 | 51 |
-| 8 | standing, held | 0 | 0.13 | 0.13 | 0.00 | 0.02 | 2 |
-| 8 | let go, driven | 0 | 4.25 | 1.97 | 2.28 | 0.53 | 51 |
-| 8 | down, driven | 8 | 5.72 | 2.36 | 3.35 | 0.71 | 69 |
-| 8 | down, lying | 8 | 2.85 | 2.27 | 0.58 | 0.36 | 34 |
-| 8 | down, limp | 8 | 2.22 | 2.22 | 0.00 | 0.28 | 27 |
-| 8 | down, rising: slack 16 %, posing 65 %, bearing 19 % | 8 | 3.20 | 2.18 | 1.02 | 0.40 | 38 |
+| 4 | let go, driven | 0 | 2.21 | 0.99 | 1.22 | 0.55 | 26 |
+| 4 | down, driven | 4 | 3.02 | 1.17 | 1.84 | 0.75 | 36 |
+| 4 | down, lying | 4 | 1.44 | 1.13 | 0.31 | 0.36 | 17 |
+| 4 | down, limp | 4 | 1.10 | 1.10 | 0.00 | 0.28 | 13 |
+| 4 | down, held | 4 | 0.07 | 0.07 | 0.00 | 0.02 | 1 |
+| 4 | down, rising: slack 11 %, posing 62 %, bearing 27 % | 4 | 1.68 | 1.09 | 0.59 | 0.42 | 20 |
+| 8 | standing, driven | 0 | 4.32 | 1.97 | 2.35 | 0.54 | 52 |
+| 8 | standing, held | 0 | 0.13 | 0.12 | 0.00 | 0.02 | 2 |
+| 8 | let go, driven | 0 | 4.31 | 1.97 | 2.35 | 0.54 | 52 |
+| 8 | down, driven | 8 | 5.91 | 2.36 | 3.55 | 0.74 | 71 |
+| 8 | down, lying | 8 | 2.97 | 2.33 | 0.64 | 0.37 | 36 |
+| 8 | down, limp | 8 | 2.26 | 2.26 | 0.00 | 0.28 | 27 |
+| 8 | down, held | 8 | 0.13 | 0.13 | 0.00 | 0.02 | 2 |
+| 8 | down, rising: slack 32 %, posing 64 %, bearing 4 % | 8 | 2.88 | 2.17 | 0.71 | 0.36 | 35 |
 
-A standing body costs 0.53 ms a step, over half of it control. Held, it costs 0.02 ms, and let
-go it stands as before: none of the eight is down. A body that is down and still driven costs
-more than one standing, 0.71 ms: its stance goes on solving for a ground its soles cannot give.
-Lying, it costs 0.36 ms: the solver's 0.28, and 0.07 for its mind's look at it each step, which
-is how it knows it is down. Limp, it costs the solver's 0.28 ms and nothing else. Rising, it
-costs 0.40 to 0.62 ms by what its riser is at: a stage that bears on its limbs solves what a
-stance does (one body, bearing three steps in five: 0.62 ms, 0.32 of it outside the solver),
-and a pose or lying slack costs little more than lying. The Warrior's rows read the same
-(`--model workshop-fighter --bodies 1`: standing 0.67 ms, rising 0.60).
+A standing body costs 0.54 ms a step, over half of it control. Held, it costs 0.02 ms, and let
+go it stands as before, its own mind going on: none of the eight is down. A body that is down
+and still driven costs more than one standing, 0.74 ms: its stance goes on solving for a ground
+its soles cannot give. Lying, it costs 0.37 ms: the solver's 0.28, and 0.08 for its mind's look
+at it each step, which is how it knows it is down. Limp, it costs the solver's 0.28 ms and
+nothing else; held where it lies, 0.02 ms. Rising, it costs 0.36 to 0.43 ms by what its riser
+is at: a stage that bears on its limbs solves what a stance does, and a pose or lying slack
+costs little more than lying. A rise is begun from bodies let go limp from held, so its stages
+are not the ones the table had before the held row was read: at `bf88bd38`, risen from limp,
+one body bore three steps in five and cost 0.59 ms, 0.30 of it outside the solver. The Warrior's
+rows read as the skeleton's (`--model workshop-fighter --bodies 1`: standing 0.67 ms, rising
+0.60).
 
-So a body out of the fight goes limp (`DungeonRun.drop`): its assist is withdrawn and its muscles
+Read on one machine the same evening at `bf88bd38`, the rule before the levels, which held a
+body by releasing its muscles and fixing its segments and drove it afresh when let go: one body
+standing 0.69 ms, held 0.04, let go 0.61; eight 4.27, 0.12 and 4.26. A level costs what the
+disposal did.
+
+So a body out of the fight goes limp ([Levels](#levels)): its assist is withdrawn and its muscles
 released at the next step. In the crypt the stance of a body that is down cost more than under an
 order to stand. Read at `69549c6c`, before the rule, with a script that is not kept (Node, a crypt
 run of seed 42 with no visuals, every enemy built by hand at its home and seven of the nine bodies
@@ -133,7 +197,7 @@ With a body out of the fight limp:
 | 3 | playing | 180 | 8 | 8 | 8 | 2 | 3.88 | 4.97 | 60 |
 | 4 | dead | 51 | 8 | 8 | 8 | 4 | 4.33 | 5.16 | 62 |
 
-With an enemy at rest held as well (`REST`):
+With an enemy at rest held as well, by the rule before the levels:
 
 | Seed | The run | Seconds | Enemies | Bodies built at the end | The most built | Held | Out of the fight | A step, ms | In its slowest second, ms | Of real time, % |
 |---|---|---|---|---|---|---|---|---|---|---|
@@ -145,6 +209,21 @@ With an enemy at rest held as well (`REST`):
 Four runs a table, on one machine: the mean step is 4.5 to 5.6 ms with neither rule, 3.7 to
 4.3 ms with the limp one and 3.1 to 4.1 ms with both. A party of four costs 2.1 ms a step by
 itself, and in 180 s it has not left many enemies behind: none to two are held at the end.
+
+With the levels' rule (`LEVELS`), the dead held as well, and the same rule before it at
+`bf88bd38`, read by turns on one machine the same evening:
+
+| Seed | The run | Seconds | Enemies | Bodies built at the end | The most built | Held | Out of the fight | Of them held | A step, ms | In its slowest second, ms | Of real time, % | A step at `bf88bd38`, ms |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | playing | 180 | 8 | 8 | 8 | 1 | 4 | 0 | 3.32 | 5.81 | 70 | 3.31 |
+| 2 | dead | 62 | 8 | 7 | 7 | 2 | 4 | 0 | 3.44 | 4.29 | 51 | 3.46 |
+| 3 | dead | 64 | 8 | 8 | 8 | 3 | 4 | 0 | 3.33 | 6.09 | 73 | 3.41 |
+| 4 | playing | 180 | 8 | 8 | 8 | 1 | 4 | 0 | 3.53 | 5.28 | 63 | 3.49 |
+
+They are the same runs: the other columns read the same at `bf88bd38`. No body out of the fight
+is held in them, at any step: on seeds 2 and 3 the whole party falls where it fights, and on 1
+and 4 the hero and two of the three fall and the last stands among the dead, 0.6 to 3.1 m from
+them at 180 s (counted at every step by a script that is not kept).
 
 **What the blows' watch costs.** A blow is any two segments of two sides that touch
 (`watchBlows`, `src/core/rules/blows.ts`), so the watch asks the engine for the contacts of every

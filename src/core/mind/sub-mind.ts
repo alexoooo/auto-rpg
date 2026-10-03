@@ -31,35 +31,51 @@ export interface HostMind extends Mind {
 
 /** A host with its sub-minds, as one mind. */
 interface Hosted extends Mind {
-  /** The name of the mind that has the body: the host's, or a sub-mind's. */
+  /** The name of the mind that has the body: the host's, a sub-mind's, or `"nobody"` while the body is idle. */
   readonly has: string;
+  idle(): void;
 }
+
+/** Who has the body, by a sub-mind's place in its list or one of these: numeric settings, codes that are no place in a list. */
+const HOST = -1, NOBODY = -2;
 
 /**
  * `host` with `subs`, in rank order: each step the host looks, then the first sub-mind that wants
  * the body steps in the host's place, or the host acts. Its memory is who has the body (the
- * sub-mind's place in `subs`, or -1), the host's, and each sub-mind's.
+ * sub-mind's place in `subs`, `HOST`, or `NOBODY`), the host's, and each sub-mind's.
+ *
+ * Idled (`Mind.idle`), the body is handed to nobody as it is handed to a sub-mind: the one that had
+ * it ends, or the host is released. Its first step back is the one a sub-mind's end makes: the
+ * host is resumed, or the sub-mind that wants the body begins.
  *
  * A hand-over changes only state (`release`, `begin`, `end`, `resume`): a load in the middle of
  * one puts who has the body and each mind's memory back, and calls none of them.
  */
 export function hosting(host: HostMind, subs: readonly SubMind[]): Hosted {
-  const state = { has: -1, host: host.state ?? null, subs: subs.map((sub) => sub.state ?? null) };
+  const state = { has: HOST, host: host.state ?? null, subs: subs.map((sub) => sub.state ?? null) };
+  /** Whoever has the body gives it up. */
+  const giveUp = (): void => {
+    if (state.has >= 0) subs[state.has]!.end();
+    else if (state.has === HOST) host.release();
+  };
   return {
     name: host.name, state,
-    get has() { return state.has < 0 ? host.name : subs[state.has]!.name; },
+    get has() { return state.has === NOBODY ? "nobody" : state.has === HOST ? host.name : subs[state.has]!.name; },
     step(senses, dt) {
       host.look(senses);
       const want = subs.findIndex((sub) => sub.wants(senses));
       if (want !== state.has) {
-        if (state.has >= 0) subs[state.has]!.end();
-        else host.release();
+        giveUp();
         if (want >= 0) subs[want]!.begin();
         else host.resume();
         state.has = want;
       }
       if (want < 0) host.act(dt);
       else subs[want]!.step(senses, dt);
+    },
+    idle() {
+      giveUp();
+      state.has = NOBODY;
     },
   };
 }

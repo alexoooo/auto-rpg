@@ -12,7 +12,7 @@ import { embody, type OwnBody } from "./mind/mind.ts";
 import { clockSenses, NOTHING_SENSED, type Senses } from "./mind/senses.ts";
 import { hosting, type HostMind } from "./mind/sub-mind.ts";
 import type { SubMindMaker } from "./mind/sub-minds.ts";
-import type { MuscleDriver } from "./muscle/driver.ts";
+import type { BodyLevel, MuscleDriver } from "./muscle/driver.ts";
 import type { World } from "./world.ts";
 
 /**
@@ -43,8 +43,12 @@ export interface Body {
   readonly envelope: StanceEnvelope | null;
   /** Its assist (`Assist`), for its meter; a fight withdraws it. */
   readonly assist: Assist;
-  /** The name of the mind that has the body: the command layers', or a sub-mind's. */
+  /** The name of the mind that has the body: the command layers', a sub-mind's, or `"nobody"` below `full`. */
   readonly has: string;
+  /** How much of itself it runs (`BodyLevel`): its muscles'. */
+  readonly level: BodyLevel;
+  /** Put it at `level` (`MuscleDriver.setLevel`): below `full` its mind is idled and not stepped. */
+  setLevel(level: BodyLevel): void;
   /**
    * Its memory under its mind, whole (`src/core/state.ts`): the muscles', the assist's, who has the
    * body, each sub-mind's, and the command layers' (motor control's with the stance's, and the
@@ -258,6 +262,8 @@ export function createBody(built: BuiltBody, world: World, options: BodyOptions)
   return {
     built, muscles: own.muscles, view: command.view, assist: own.assist, state,
     get has() { return mind.has; },
+    get level() { return own.muscles.level; },
+    setLevel: (level) => own.muscles.setLevel(level),
     envelope: !options.measuring && Object.keys(options.stance ?? {}).length === 0 ? stanceEnvelope(built.spec) : null,
     drive: (next) => command.drive(next),
     dispose,

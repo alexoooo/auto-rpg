@@ -53,6 +53,22 @@ import { forceVelocityFactor, forceVelocityReach, type ForceVelocityCurve } from
  * measured about one axis at a time.
  */
 
+/**
+ * **How much of itself a body runs.** `full`: its joints are read, its mind steps and its motors
+ * are driven. `limp`: none of the three, and its motors are released: the solver alone moves it.
+ * `held`: limp, and every segment fixed where it is.
+ */
+export type BodyLevel = "full" | "limp" | "held";
+
+/** What the engine is asked for a body at `level`: whether its segments are fixed. */
+function fixedAt(level: BodyLevel): boolean {
+  switch (level) {
+    case "full": case "limp": return false;
+    case "held": return true;
+    default: return level satisfies never;
+  }
+}
+
 /** One freedom's muscles: which joint and freedom, and the curve each way. */
 interface MuscleChannel {
   /** `joint.name` and the freedom's positive motion, e.g. "elbow.right flexion". */
@@ -101,8 +117,16 @@ export interface MuscleDriver {
   strength(channel: number, sense: 1 | -1): number;
   /** The ceiling last given to the channel's motor, N m. */
   readonly ceiling: Float64Array;
-  /** Its memory (`src/core/state.ts`): the command, the ceilings, and each joint as last read. */
+  /** Its memory (`src/core/state.ts`): its level, the command, the ceilings, and each joint as last read. */
   readonly state: object;
+  /** Its level (`BodyLevel`), `full` as made. */
+  readonly level: BodyLevel;
+  /**
+   * Put the body at `level`. Leaving `full`, whatever has the body is told it is nobody's
+   * (`idle`), and the command and every motor are zeroed. The joints as last read stay as they
+   * were read until it is at `full` again, where its first step reads them before its mind steps.
+   */
+  setLevel(level: BodyLevel): void;
   /** The channel named `name`; throws if there is none. */
   channel(name: string): number;
   /** Stop driving: the motors are released and its step hook removed. */
@@ -112,8 +136,11 @@ export interface MuscleDriver {
 /** Called every world step, before the driver applies the command; `dt` is the step, s. */
 export type MuscleController = (driver: MuscleDriver, dt: number) => void;
 
-/** Drive every freedom of `built` from its spec's muscles, before each step of `world`. */
-export function driveMuscles(built: BuiltBody, world: World, control?: MuscleController): MuscleDriver {
+/**
+ * Drive every freedom of `built` from its spec's muscles, before each step of `world` while the
+ * body is at `full`. `idle` is called as it leaves `full`, before its motors are zeroed.
+ */
+export function driveMuscles(built: BuiltBody, world: World, control?: MuscleController, idle?: () => void): MuscleDriver {
   const trackers: JointTracker[] = [];
   const channels: MuscleChannel[] = [];
   const trackerOf: JointTracker[] = [];
@@ -142,6 +169,7 @@ export function driveMuscles(built: BuiltBody, world: World, control?: MuscleCon
   const motion = { spin: angularVelocity };
   let hook: Hook | null = null;
   const state = {
+    level: "full" as BodyLevel,
     activation: new Float64Array(n), velocity: new Float64Array(n), ceiling: new Float64Array(n),
     trackers: trackers.map(({ angles, speeds, rates, turning }) => ({ angles, speeds, rates, turning })),
   };
@@ -155,6 +183,17 @@ export function driveMuscles(built: BuiltBody, world: World, control?: MuscleCon
     speed: (i) => trackerOf[i]!.speeds[channels[i]!.index]!,
     turning: (i, k) => trackerOf[i]!.turning[channels[i]!.index]![k]!,
     dynamics,
+    get level() { return state.level; },
+    setLevel(next) {
+      if (next === state.level) return;
+      if (state.level === "full") {
+        idle?.();
+        state.activation.fill(0); state.velocity.fill(0); state.ceiling.fill(0);
+        for (const c of channels) c.joint.joint.setMotor(c.index, 0, 0);
+      }
+      if (fixedAt(next) !== fixedAt(state.level)) for (const segment of built.segments.values()) segment.body.setFixed(fixedAt(next));
+      state.level = next;
+    },
     strength(i, sense) {
       const c = channels[i]!, side = sense > 0 ? c.positive : c.negative;
       return side.peak * forceVelocityFactor(sense * driver.speed(i), side.curve);
@@ -171,6 +210,7 @@ export function driveMuscles(built: BuiltBody, world: World, control?: MuscleCon
     },
   };
   hook = world.beforeStep(() => {
+    if (state.level !== "full") return;
     for (const [segment, w] of spin) segment.body.angularVelocityToRef(w);
     for (const tracker of trackers) tracker.update(angularVelocity);
     dynamics.update(angles, motion);

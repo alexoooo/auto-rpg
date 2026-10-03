@@ -25,6 +25,12 @@ export interface Mind {
   /** One control step, before the solver's: write this step's command into the body's muscles. */
   step(senses: Senses, dt: number): void;
   /**
+   * Its body is nobody's from now (`BodyLevel` below `full`): it is not stepped until the body
+   * is its own again, and then goes on from the body as it is. A mind with nothing under way
+   * need not answer.
+   */
+  idle?(): void;
+  /**
    * Its memory, if it has any (`src/core/state.ts`): saved and loaded with its body's. A mind that
    * remembers anywhere else does not go on from a load as it went on from the save.
    */
@@ -65,7 +71,7 @@ interface Embodied<M extends Mind = Mind> {
 export function embody<M extends Mind>(built: BuiltBody, world: World, make: MindMaker<M>,
   sense: () => Senses = clockSenses(world), ceiling: AssistCeiling = NO_ASSIST): Embodied<M> {
   let mind: M | null = null, help: ReturnType<typeof createAssist> | null = null;
-  const muscles = driveMuscles(built, world, (_, dt) => { mind!.step(sense(), dt); help!.apply(); });
+  const muscles = driveMuscles(built, world, (_, dt) => { mind!.step(sense(), dt); help!.apply(); }, () => mind!.idle?.());
   help = createAssist(built, muscles.dynamics.root.segment, ceiling);
   const own: OwnBody = { spec: built.spec, built, muscles, assist: help.assist };
   mind = make(own);

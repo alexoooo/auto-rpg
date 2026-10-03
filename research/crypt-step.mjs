@@ -2,8 +2,8 @@
  * What a crypt run costs a step, over a run: the hero explores a generated level (`DungeonRun`, no
  * visuals), `--companions` Warriors following it, until the run ends or `--seconds` of it have
  * passed. A row is a seed: how the run stood at the end, the bodies built, how many of them were
- * held at rest (`REST`) and how many out of the fight, and the wall time of a step, as the run's
- * mean and as the mean of its slowest second.
+ * held in the fight (`LEVELS`), how many out of it and how many of those held where they lie, and
+ * the wall time of a step, as the run's mean and as the mean of its slowest second.
  *
  * With `--listen` the same run is played twice at once, unheard and heard, a step of each by
  * turns, so the two are read on the machine as it is at that moment and their difference is what
@@ -54,7 +54,7 @@ async function played(seed) {
   }
   const built = run.actors.filter((a) => a.fighter), [unheard, heard] = sides, row = {
     seed, status: run.status, seconds: steps / hz, enemies: run.enemies.length, built: built.length, most,
-    held: built.filter((a) => a.held).length, out: built.filter((a) => !a.alive).length, mean: unheard.total / steps, worst: unheard.worst,
+    held: built.filter((a) => a.held && a.alive).length, out: built.filter((a) => !a.alive).length, lying: built.filter((a) => a.held && !a.alive).length, mean: unheard.total / steps, worst: unheard.worst,
     heard: heard ? { mean: heard.total / steps, worst: heard.worst } : null,
   };
   if (heard && (heard.run.status !== run.status || heard.run.blows.length !== run.blows.length)) throw new Error(`seed ${seed}: heard, the run is another run`);
@@ -64,10 +64,10 @@ async function played(seed) {
 
 console.log(`Node, a crypt run with no visuals, ${CORE_ENGINE}, 120 Hz; the hero exploring, ${companions.length} with it; to the run's end or ${seconds} s\n`);
 const listened = values.listen ? " Heard: a step, ms | In its slowest second, ms | Hearing, % of the unheard step |" : "";
-console.log(`| Seed | The run | Seconds | Enemies | Bodies built at the end | The most built | Held | Out of the fight | A step, ms | In its slowest second, ms | Of real time, % |${listened}`);
-console.log(`|---|---|---|---|---|---|---|---|---|---|---|${values.listen ? "---|---|---|" : ""}`);
+console.log(`| Seed | The run | Seconds | Enemies | Bodies built at the end | The most built | Held | Out of the fight | Of them held | A step, ms | In its slowest second, ms | Of real time, % |${listened}`);
+console.log(`|---|---|---|---|---|---|---|---|---|---|---|---|${values.listen ? "---|---|---|" : ""}`);
 for (const seed of values.seeds.split(",").map(Number)) {
   const r = await played(seed);
   const heard = r.heard ? ` ${r.heard.mean.toFixed(2)} | ${r.heard.worst.toFixed(2)} | ${((r.heard.mean / r.mean - 1) * 100).toFixed(1)} |` : "";
-  console.log(`| ${r.seed} | ${r.status} | ${r.seconds} | ${r.enemies} | ${r.built} | ${r.most} | ${r.held} | ${r.out} | ${r.mean.toFixed(2)} | ${r.worst.toFixed(2)} | ${(r.worst * 120 / 10).toFixed(0)} |${heard}`);
+  console.log(`| ${r.seed} | ${r.status} | ${r.seconds} | ${r.enemies} | ${r.built} | ${r.most} | ${r.held} | ${r.out} | ${r.lying} | ${r.mean.toFixed(2)} | ${r.worst.toFixed(2)} | ${(r.worst * 120 / 10).toFixed(0)} |${heard}`);
 }

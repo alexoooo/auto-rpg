@@ -1,10 +1,11 @@
 /**
  * What a body costs a step: `--bodies` of one model with the club, 3 m apart on a ground in one
- * core world, each under the command layers with an order to stand. Read standing; then held, its
- * muscles released (`Body.dispose`) and every segment fixed where it is; then let go and driven
- * afresh, which says whether a body held and let go still stands; then felled by a shove at the
- * root and still driven; then lying, under the sub-minds the game's mind has (`FIGHTER`); then
- * limp, its muscles released; then rising, under the riser that plays stages (`stagedRise`), the
+ * core world, each under the command layers with an order to stand. Read standing; then held
+ * (`Body.setLevel`), its muscles released and every segment fixed where it is; then let go, the
+ * same body and mind going on, which says whether a body held and let go still stands; then
+ * felled by a shove at the root and still driven; then lying, under the sub-minds the game's mind
+ * has (`FIGHTER`); then limp, its muscles released; then held where it lies; then rising, under
+ * the riser that plays stages (`stagedRise`), the
  * row saying what part of its steps it lay slack, held a pose, and bore on its limbs. A row is
  * the mean of `--steps` steps: the whole step, the solver's part, and the rest, which is control.
  *
@@ -42,7 +43,7 @@ async function cost(count) {
     return { body, skills: driveBy(body, { name: "stand", decide: () => standIntent(0) }) };
   };
   const bodies = Array.from({ length: count }, (_, i) => driven(buildBody(spec, world, { position: [3 * (i - (count - 1) / 2), 0, 0] })));
-  const fix = (fixed) => { for (const { body } of bodies) for (const segment of body.built.segments.values()) segment.body.setFixed(fixed); };
+  const level = (to) => { for (const { body } of bodies) body.setLevel(to); };
   const solve = world.physics.step.bind(world.physics);
   let solver = 0;
   world.physics.step = (dt) => { const t = performance.now(); solve(dt); solver += performance.now() - t; };
@@ -60,11 +61,9 @@ async function cost(count) {
   };
   world.step(world.hz);
   const rows = [read("standing, driven")];
-  for (const { body } of bodies) body.dispose();
-  fix(true);
+  level("held");
   rows.push(read("standing, held"));
-  fix(false);
-  bodies.forEach((b, i) => { bodies[i] = driven(b.body.built); });
+  level("full");
   world.step(3 * world.hz);
   rows.push(read("let go, driven"));
   const at = new Vector3();
@@ -78,9 +77,13 @@ async function cost(count) {
   bodies.forEach((b, i) => { bodies[i] = driven(b.body.built, subMindsOf(FIGHTER.subs)); });
   world.step(3 * world.hz);
   rows.push(read("down, lying"));
-  for (const { body } of bodies) body.dispose();
+  level("limp");
   world.step(3 * world.hz);
   rows.push(read("down, limp"));
+  level("held");
+  rows.push(read("down, held"));
+  level("limp");
+  for (const { body } of bodies) body.dispose();
   bodies.forEach((b, i) => { bodies[i] = driven(b.body.built, subMindsOf([{ kind: "staged-rise" }])); });
   world.step(3 * world.hz);
   // What each riser is at, counted over the bodies at every step of the reading.

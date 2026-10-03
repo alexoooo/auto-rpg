@@ -95,9 +95,10 @@ async function walker() {
  * `ceiling` is its assist's, or none: with none it steps to catch itself. `frame`, if given, is
  * the seconds each advance takes of a clock that is not the world's (`World.advance`), so the
  * world owes time between them. From its world's step `withdraw` its assist is withdrawn. `subs`
- * are the sub-minds its command layers hand it to.
+ * are the sub-minds its command layers hand it to. `levels` are the levels it is put at, each from
+ * its world's step.
  */
-const pulled = ({ ceiling = null, frame = null, withdraw = Infinity, share = 0.1, until = 360, subs = [] }) => async () => {
+const pulled = ({ ceiling = null, frame = null, withdraw = Infinity, share = 0.1, until = 360, subs = [], levels = [] }) => async () => {
   const stand = await coreStand(humanSpec("workshop-fighter"));
   const body = createBody(stand.built, stand.world, { servoSeconds: SERVO_SECONDS, subs, ...(ceiling ? { assist: ceiling } : {}) });
   const height = body.view.stance.centre.y - body.view.stance.support.y - STANCE_LOWER;
@@ -106,13 +107,14 @@ const pulled = ({ ceiling = null, frame = null, withdraw = Infinity, share = 0.1
   const root = body.muscles.dynamics.root.segment, at = new Vector3();
   const weight = [...stand.built.segments.values()].reduce((sum, segment) => sum + segment.rigid.mass, 0) * -stand.built.physics.gravity[1];
   const pull = new Vector3(0, 0, weight * share * (frame ?? stand.world.dt));
-  const seen = { recoveries: 0, given: 0, withdrawn: false, steps: new Set(), has: [], down: null };
+  const seen = { recoveries: 0, given: 0, withdrawn: false, steps: new Set(), has: [], down: null, levels: [] };
   return {
     world: stand.world, builts: [stand.built], states: { body: body.state }, seen,
     advance() {
       const before = stand.world.steps;
       if (before >= 120 && before < until) root.body.applyImpulse(pull, centreOfToRef(root, at));
       if (before >= withdraw) body.assist.withdraw();
+      for (const [from, level] of levels) if (before === from) body.setLevel(level);
       if (frame === null) stand.step();
       else stand.world.advance(frame);
       seen.steps.add(stand.world.steps - before);
@@ -122,6 +124,7 @@ const pulled = ({ ceiling = null, frame = null, withdraw = Infinity, share = 0.1
       seen.recoveries = body.view.stance.recoveries; seen.given = body.assist.meter.force; seen.withdrawn = body.assist.withdrawn;
       if (seen.has.at(-1) !== body.has) seen.has.push(body.has);
       if (body.view.down) seen.down ??= stand.world.steps;
+      if (seen.levels.at(-1)?.[1] !== body.level) seen.levels.push([stand.world.steps, body.level]);
     },
     dispose() { body.dispose(); stand.dispose(); },
   };
@@ -131,6 +134,9 @@ const helped = pulled({ ceiling: { force: 0.25, moment: 0.065 }, withdraw: 300 }
 /** Pulled at its whole weight for a quarter second, it falls; its mind is the game's, which lies where it fell. Saved at every step from `FELLED.from`, `FELLED.count` times. */
 const FELLED = { from: 180, count: 30 };
 const felled = pulled({ share: 1, until: 150, subs: subMindsOf(FIGHTER.subs) });
+/** Unpulled, it is let go limp, held where it is, and given its body back; saved every 5 steps from step 80, 26 times. */
+const LEVELLED = { levels: [[100, "limp"], [140, "held"], [180, "full"]], from: 80, count: 26 };
+const levelled = pulled({ until: 0, levels: LEVELLED.levels });
 
 /**
  * How many advances after its topple `rising` is first saved, how often after, and how many
@@ -269,6 +275,7 @@ const NEEDED = {
   framed: ["world > owed"],
   helped: ["given", "meter", "withdrawn"].map((field) => `body > assist > ${field}`),
   felled: ["body > mind > has"],
+  levelled: ["body > muscles > level"],
   rising: ["body > mind > subs"],
   ordered: ["heading", "pace", "setOff"].map((field) => `skills > legs > ${field}`),
   striker: [
@@ -321,6 +328,14 @@ test("a_body_forks_as_it_goes_down_and_lying", async () => {
   const { has, down } = run.seen;
   assert.deepEqual(has, ["command", "lie"]);
   assert.ok(down > run.steps[0] + 5 && down < run.steps.at(-1) - 5, `down at step ${down}, forked from ${run.steps[0]} to ${run.steps.at(-1)}`);
+});
+
+test("a_body_forks_as_its_level_changes", async () => {
+  const run = await forks(levelled, 5, 10, LEVELLED.count, forgetting(NEEDED.levelled), LEVELLED.from);
+  assertForks(run, NEEDED.levelled);
+  // The fixture reaches each level, and is saved on both sides of each change.
+  assert.deepEqual(run.seen.levels, [[0, "full"], [101, "limp"], [141, "held"], [181, "full"]]);
+  assert.ok(run.steps[0] < 100 && run.steps.at(-1) > 180, `forked from ${run.steps[0]} to ${run.steps.at(-1)}`);
 });
 
 test("a_body_forks_as_it_rises", async () => {

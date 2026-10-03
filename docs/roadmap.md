@@ -236,9 +236,13 @@ All of it on a physically based core, humans first ([architecture](architecture.
 - A limp body does not always come to rest: a light segment at a joint's limit on the ground
   goes on moving, a skeleton's hand at 0.2 m/s to the end of a 15 s watch
   ([reference/rising.md](reference/rising.md#lying)). It is what a body lying after a fall and a
-  crypt body out of the fight look like. What in the solver keeps it going is not read, nor
-  whether a slack joint's passive damping, a sourced number that would change every bout, is
-  the cure.
+  crypt body out of the fight look like. The solver puts energy in: a skeleton shoved onto its
+  front and let go limp crawls at 25 cm a second, its potential energy rising 9 J in half a
+  second with nothing pushing it while a raised leg rocks on its limit, and 1 fall in 15 is
+  still moving 15 s on ([reference/play.md](reference/play.md#levels)). The crypt holds the dead
+  once nobody is near, which stops it there. What in the solver gives the energy is not read,
+  nor whether a slack joint's passive damping, a sourced number that would change every bout,
+  is the cure.
 - Running (a flight phase), a dash or lunge, a roll, a crouch, and turning on the spot: a standing
   body under orders does not turn to the pointer, and a half turn made while walking still drops
   the humans now and then ([reference/orders.md](reference/orders.md)). A lower
@@ -330,9 +334,11 @@ All of it on a physically based core, humans first ([architecture](architecture.
   a body under control costs 0.58 to 0.61 ms of a step's 8.33, so fourteen are real time in Node
   with nothing drawn. The owner's choices: only the near ones have control, there is no cap on
   them, and the dead are fixed where they lie once nobody is near. One rule for a body's level
-  does all three ([plans/2026-10-02-step-03-levels.md](plans/2026-10-02-step-03-levels.md)),
-  not built. With more near than a machine carries the game plays slower; what raises the count
-  is what a body costs. The owner's to shape: how the dead disappear in time.
+  does all three (`levelsOf`, [reference/play.md](reference/play.md#levels)): the crypt holds an
+  enemy that waits with the party far off, and the dead once their fall is over and nobody walks
+  near. With more near than a machine carries the game plays slower; what raises the count is
+  what a body costs. The owner's to shape: how the dead disappear in time, which would be a
+  fight disposing of a body it has held for long.
 - What a body costs: the solver is 0.25 to 0.28 ms of its 0.59, and the rest is control written
   with a matrix made for every solve (0.54 MiB allocated a body a step; the collector is 1 % of
   the step, and the cost is in the code that allocates). The dearest function, the stance's

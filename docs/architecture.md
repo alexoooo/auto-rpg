@@ -135,6 +135,15 @@ pushed toward, times the force-velocity factor at the joint's speed (`force-velo
 curve shortening, and an eccentric branch lengthening that rises toward 1.4 times isometric, for
 braking and blocking). A muscle can never exceed its source's strength at its speed.
 
+**A body runs at a level** (`BodyLevel`, `MuscleDriver.level`), data in its muscles' state:
+`full`, its joints read, its mind stepped and its motors driven; `limp`, none of the three, its
+motors released, so the solver alone moves it; `held`, limp and every segment fixed where it is.
+`setLevel` changes it: leaving `full` the mind is told its body is nobody's (`Mind.idle`), and
+the command and every motor are zeroed; back at `full` its first step reads the joints before its
+mind steps. A save holds the level and the engine's save which bodies are fixed. Which level each
+body is at is the levels' rule's ([Rules and wounds](#rules-and-wounds)); a body is never disposed
+and driven afresh to change what it costs.
+
 ### Motor control
 
 - **The servo** (`src/core/control/servo.ts`) asks each joint for a critically damped approach to
@@ -264,6 +273,12 @@ tactics decide (`Skills.resume`, each a `Skill`, told from one list), and the fi
 aim afresh, so the body goes on from where it is and not from what it was in the middle of. Who
 has the body is one number in the mind's state, and `Body.has` names it.
 
+A mind whose body leaves `full` is told (`Mind.idle`), and is not stepped until its body is at
+`full` again; it then goes on from the body as it is. Under `hosting` this is the hand-over to a
+sub-mind, made to nobody: the one that had the body ends, or the host is released, and `Body.has`
+reads `"nobody"`; the first step back is the one a sub-mind's end makes, the host resumed or the
+sub-mind that wants the body begun.
+
 What a mind is made of is its config, plain data tagged by kind (`MindConfig`, `config.ts`), its
 sub-minds nested configs in it (`SubMindConfig`), so a sub-mind is configured where it is chosen.
 `createMind(built, world, config, wiring)` (`minds.ts`) makes a body's mind from one, wired to
@@ -328,9 +343,11 @@ recipe nets most on (`StrikeReport.nets`, `BANDS`). Every body's fighter aims at
 (`FIGHTER`; [reference/blows.md](reference/blows.md#aim)). A side a person has taken is
 given the person's (`Duel.order`) and does only what it is ordered, until it is handed back or is
 out of the fight. In the crypt the run plans for its fighters with the map (`DungeonRun`) and
-hands each its plan as orders, with its target's head; its bodies sense the clock alone. One out
-of the fight goes limp, its muscles released; and an enemy at rest at its home, with the party
-far off, is held, fixed where it stands with nothing driving it, until the party nears (`REST`).
+hands each its plan as orders, with its target's head; its bodies sense the clock alone. Each
+body's level is the levels' rule's (`levelsOf`, the run's `LEVELS`): one out of the fight goes
+limp, its assist withdrawn; an enemy waiting at its home with the party far off is held, fixed
+where it stands with nothing driving it, until the party nears; and the dead are held where they
+lie once their fall is over and nobody walks near.
 The lab
 has tactics of its own:
 `stanceTactics` (the keys), `trackTactics` (the Run), `routineTactics` and `attackOnce`.
@@ -435,6 +452,15 @@ The rules of a fight are `src/core/rules/`, free of any page so they can be argu
   assist when the body is out of the fight; the lab sets its body's from the character's balance or
   its address's (`&balance=`). Every character's balance is 0, and at 0 there is no
   assist.
+- **Levels** (`levelsOf`, `levels.ts`): which bodies run themselves, for any fight with more
+  bodies than fight at once. A body with nothing to do and nobody near is `held`; any other is
+  `full` in the fight and `limp` out of it. A body in the fight has nothing to do when the fight
+  says it waits; one out of it, once it has lain `settle` seconds. Somebody is near when a body
+  going somewhere (in the fight, at `full`, not waiting) is within `company`, or for a body in
+  the fight a foe is within `wake`; once it is loose, the farther `clear` and `rest` keep it so.
+  `stirs` is the rule's letting go for a body not yet built. A level is read from the game alone,
+  never from the machine, so there is no cap on the bodies at `full`; the fight gives the
+  distances (`LevelRule`). The crypt is its one caller today.
 
 A body that is down (`BodyView.down`: its centre of mass a quarter metre under the height it is
 asked to hold, over its lowest point, `src/core/control/ground.ts`) is out of the fight, and lies still (`lie`): the
