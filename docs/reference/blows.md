@@ -1496,8 +1496,44 @@ the commit to a quarter second after the throw.
   foe's head is `APPROACH.reach`, 25 cm, from it (`fighterTactics`), so the skill sets the feet
   for, and throws at, a point a median 11 cm from the head, more than a window's width across.
   The foe's head is in the window at a third of the committed club throws and a seventh of the
-  bare ones.
+  bare ones. Aiming at the head as it is does not make more of them land
+  ([aiming afresh](#aiming-afresh)).
 - **A thrower steps to catch itself after more than a third of its throws**, as it does at
   nothing; it is down after four of 384.
 - **Setting up is most of a bout**: placing the feet and standing are half a club side's time and
   three quarters of a bare one's, and a throw is four seconds in the making.
+
+### Aiming afresh
+
+The same bouts (`node research/strike-bouts.mjs --held club,empty`, Node core world, Rapier,
+120 Hz, the arena's rulebook) with the tactics' point following the foe's head while the skill
+stands for the blow (`settle`), so a throw is committed only with the head in its window. With
+that alone a stand whose head has left the window sets its feet again at once ("wait 0"); the
+other rows choose the recipe once a stand and keep standing up to that many seconds for the head
+to come back into the window before setting the feet again. Neither change is in the code.
+
+| Held | Aim | Bout s | Committed | Landed | On the head | Done, HP | HP a minute | Feet set again a throw | Thrower down |
+|---|---|---|---|---|---|---|---|---|---|
+| club | held point | 431 | 66 | 60 (91 %) | 42 (64 %) | 17.94 | 2.49 | 0.30 | 2 |
+| club | fresh, wait 0 | 698 | 53 | 49 (92 %) | 29 (55 %) | 12.35 | 1.06 | 1.51 | 7 |
+| club | fresh, wait 0.5 | 837 | 78 | 73 (94 %) | 46 (59 %) | 18.29 | 1.31 | 1.56 | 2 |
+| club | fresh, wait 1 | 614 | 69 | 66 (96 %) | 42 (61 %) | 20.39 | 1.99 | 1.10 | 2 |
+| club | fresh, wait 2 | 610 | 73 | 65 (89 %) | 41 (56 %) | 20.16 | 1.98 | 0.89 | 3 |
+| empty | held point | 1137 | 318 | 223 (70 %) | 99 (31 %) | 2.82 | 0.15 | 0.44 | 2 |
+| empty | fresh, wait 0 | 1456 | 185 | 170 (92 %) | 113 (61 %) | 1.79 | 0.07 | 1.46 | 2 |
+| empty | fresh, wait 0.5 | 1468 | 216 | 180 (83 %) | 113 (52 %) | 2.27 | 0.09 | 1.53 | 5 |
+| empty | fresh, wait 1 | 1380 | 205 | 171 (83 %) | 98 (48 %) | 2.08 | 0.09 | 1.01 | 3 |
+| empty | fresh, wait 2 | 1369 | 211 | 187 (89 %) | 113 (54 %) | 1.95 | 0.09 | 0.89 | 3 |
+
+- **A club throw committed in the window has left it by the pushes.** The head is in the window
+  at every commit, and as the pushes begin at 11 of 41 to 19 of 60 (held point, 10 of 57): the
+  head moves a median 5 to 7 cm in the club's chamber. A club throw on the head is 55 to 61 %
+  of them (held point, 64 %).
+- **Bare, more throws land and fewer recipes are thrown.** On the head rises from 31 % to 48 to
+  61 %, but the throws that are recipes fall from 227 of 318 to 74 to 119 of 185 to 216, the rest
+  placed blows, which land a tenth of a recipe's energy. The Warrior, with no placed blow, commits
+  7 to 19 throws in place of 88: its head is seldom in a window while it stands.
+- **The feet are set again three to five times as often, the bouts run longer, and the hit
+  points a minute fall** in every variant, club and bare.
+- So a point held stale is not what makes a blow in a bout miss: an open-loop throw with a window
+  of centimetres cannot follow a head that sways, and the body spends its bout standing for one.
