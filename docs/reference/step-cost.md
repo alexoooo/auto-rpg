@@ -313,6 +313,7 @@ fixtures `tests/core-step-cost.test.mjs` holds under a ceiling).
 | Bearing on limbs (`carryRoot`, `bearLimbs`; `src/core/math/flat.ts`) | 1.045, 1.068 | 0.890, 0.911 | 0.48 | 3.16 | 267 | 319 |
 | The body's dynamics and its joints (`bodyDynamics`, `joint-state.ts`) | 0.997, 1.018 | 0.851, 0.870 | 0.45 | 2.98 | 80 | 128 |
 | The hands' reach (`solveReach`) | 0.937, 0.937 | 0.847, 0.852 | 0.45 | 2.85 | 80 | 129 |
+| A body's velocities kept from the step (`rapier.ts`) | 0.971, 0.931 | 0.883, 0.846 | 0.43 | 2.98 | 80 | 118 |
 
 - **The ground's wrench**: on the bout's own 4576 calls, each asked as the bout asked it and
   answered alone, the least of nine passes, 57.2 us a call before and 12.5 after, all 68544
@@ -337,6 +338,14 @@ fixtures `tests/core-step-cost.test.mjs` holds under a ceiling).
   and 9.21 to 4.20 and 4.05, and `solveReach` with what it calls 6.1 and 6.4 % of the bout to 2.8
   and 2.7. The bout from 2 s to its verdict allocates 283 KiB a step against 495 (`--sites`); the
   two fixtures, which hold no reach, read as they did.
+- **A body's velocities kept from the step**: the bout reads each segment's linear velocity 3.25
+  times a step and its angular 3.31 (the senses, the muscles' driver, the stance, the touches),
+  each read a call into Rapier's binding that makes an object. The engine keeps what a body read
+  until the next step, or an impulse, new mass or a hold. On the bout's own states from 2 s, every
+  segment's two velocities read three times a step take 17.4 and 17.9 us a step through the
+  binding and 9.5 and 9.8 kept; read once, 5.7 and 6.0 against 6.9 and 7.1. The bout's step is
+  the same within the spread of its two readings, and its own fixture allocates 117 KiB a body a
+  step against 128; the bout from 2 s to its verdict 263 against 283 (`--sites`).
 
 ## The crypt's plan in the step
 

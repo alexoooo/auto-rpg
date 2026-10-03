@@ -5,7 +5,8 @@
  * not bounce; the engine holds the mass the core set, and a box is no hull; a ground taken out from
  * under a box lets it fall, and a body from another world is refused a joint; a box drifting at a
  * millimetre a second keeps drifting, where a sleeping one would stop and read zero; a force
- * through a step is integrated as gravity is and lasts that step alone; a box resting on another
+ * through a step is integrated as gravity is and lasts that step alone; a velocity read after an
+ * impulse, a step, new mass, a hold or a load is the body's new one; a box resting on another
  * is in contact with it, pushed with its weight, and the lower with the ground, pushed with both;
  * a box a centimetre off another, or over the ground, is in contact with it and not pushed, and
  * each fixed collider is a contact of its own; a contact names each pair of shapes the solver
@@ -145,6 +146,39 @@ test("a force through a step is integrated as gravity is, and lasts that step al
     pushed.step(10);
     assert.ok(Math.abs(pushed.body.linearVelocityToRef(new Vector3()).z - v.z) < 1e-6, "and no faster ten steps on");
   } finally { pushed.dispose(); }
+});
+
+test("a velocity read after an impulse, a step, new mass, a hold or a load is the body's new one", async () => {
+  // Each change is read just before it is made, so a body that answered from that read would answer it again.
+  const b = await box({ ground: false }), inertia = MASS.moments[1], save = { bytes: null, at: null };
+  const velocity = () => {
+    const v = b.body.linearVelocityToRef(new Vector3()), w = b.body.angularVelocityToRef(new Vector3());
+    return [v.x, v.y, v.z, w.x, w.y, w.z];
+  };
+  const near = (got, want, by, what) => assert.ok(got.every((x, k) => Math.abs(x - want[k]) < by), `${what}: ${got} against ${want}`);
+  try {
+    near(velocity(), [0, 0, 0, 0, 0, 0], 1e-12, "built");
+    b.body.applyImpulse(new Vector3(1, 0, 0), b.node.position.clone());
+    near(velocity(), [1, 0, 0, 0, 0, 0], 1e-6, "an impulse of 1 N s at the centre");
+    b.body.applyTorqueImpulse(new Vector3(0, 0.02, 0));
+    near(velocity(), [1, 0, 0, 0, 0.02 / inertia, 0], 1e-5, "and a turning impulse of 0.02 N m s");
+    b.step(1);
+    near(velocity(), [1, -STANDARD_GRAVITY.value / HZ, 0, 0, 0.02 / inertia, 0], 1e-5, "a step under gravity");
+    const before = velocity();
+    b.body.setMassProperties({ ...MASS, mass: 2 });
+    assert.deepEqual(velocity(), before, "new mass changes no velocity");
+    b.body.applyImpulse(new Vector3(1, 0, 0), b.node.position.clone());
+    near(velocity(), [before[0] + 0.5, ...before.slice(1)], 1e-5, "and an impulse moves the new mass");
+    save.bytes = b.physics.save();
+    save.at = velocity();
+    b.body.setFixed(true);
+    near(velocity(), [0, 0, 0, 0, 0, 0], 1e-12, "held still");
+    b.body.setFixed(false);
+    b.body.applyImpulse(new Vector3(0, 0, 2), b.node.position.clone());
+    near(velocity(), [0, 0, 1, 0, 0, 0], 1e-6, "let go, and an impulse of 2 N s");
+    b.physics.load(save.bytes);
+    assert.deepEqual(velocity(), save.at, "loaded: as at the save");
+  } finally { b.dispose(); }
 });
 
 test("a box resting on another is in contact with it, and the lower with the ground, each pushed with the weight above it", async () => {

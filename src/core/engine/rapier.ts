@@ -64,6 +64,7 @@ const NODE_POSE = 7;
 
 /** A Rapier body: the contract's, and Rapier's own for a probe of Rapier (`research/core-rapier-probe.mjs`). */
 interface RapierBody extends SegmentBody {
+  /** Rapier's own body: a velocity written to it is read from the next step on (`linearVelocityToRef`). */
   readonly rigid: RAPIER.RigidBody;
 }
 interface RapierJoint extends EngineJoint {
@@ -98,6 +99,8 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions):
   const colliderHandles = new Map<RapierBody, readonly number[]>();
   /** The bodies given a force or a moment for the next step: Rapier keeps one until it is reset. */
   const forced = new Set<RapierBody>();
+  /** Which world's velocities a body's read holds: a step or a load moves it on. */
+  let moment = 0;
   let freed = false;
   const xyz = (v: Vec3) => ({ x: v[0], y: v[1], z: v[2] });
   const xyzw = (q: Quaternion) => ({ x: q.x, y: q.y, z: q.z, w: q.w });
@@ -186,6 +189,7 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions):
       }
       raw.free();
       raw = next;
+      moment += 1;
       joints = raw.impulseJoints.raw;
       for (const rebind of rebinds.values()) rebind();
       // A save may hold a force asked for its next step; every body's is reset after that step.
@@ -209,7 +213,13 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions):
         return handle;
       });
       let properties = mass;
+      // The body's velocities as last read from Rapier, each with the moment it was read at: a read
+      // crosses into the wasm and makes an object, and control reads each a few times a step. A
+      // call that may change a velocity outside a step forgets them (`unread`).
+      const read = { linear: new Vector3(), angular: new Vector3(), linearAt: -1, angularAt: -1 };
+      const unread = () => { read.linearAt = read.angularAt = -1; };
       const setMass = (m: MassProperties) => {
+        unread();
         properties = m;
         rigid.setAdditionalMassProperties(m.mass, xyz(m.centre), xyz(m.moments), xyzw(m.orientation), true);
         // Rapier applies them at its next step unless told now; an impulse before then meets none.
@@ -219,10 +229,16 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions):
       const handle = rigid.handle;
       const body: RapierBody = {
         node, get rigid() { return rigid; },
-        linearVelocityToRef(out) { const v = rigid.linvel(); return out.set(v.x, v.y, v.z); },
-        angularVelocityToRef(out) { const w = rigid.angvel(); return out.set(w.x, w.y, w.z); },
-        applyImpulse(impulse, at) { rigid.applyImpulseAtPoint(impulse, at, true); },
-        applyTorqueImpulse(impulse) { rigid.applyTorqueImpulse(impulse, true); },
+        linearVelocityToRef(out) {
+          if (read.linearAt !== moment) { const v = rigid.linvel(); read.linear.set(v.x, v.y, v.z); read.linearAt = moment; }
+          return out.copyFrom(read.linear);
+        },
+        angularVelocityToRef(out) {
+          if (read.angularAt !== moment) { const w = rigid.angvel(); read.angular.set(w.x, w.y, w.z); read.angularAt = moment; }
+          return out.copyFrom(read.angular);
+        },
+        applyImpulse(impulse, at) { unread(); rigid.applyImpulseAtPoint(impulse, at, true); },
+        applyTorqueImpulse(impulse) { unread(); rigid.applyTorqueImpulse(impulse, true); },
         applyForce(force, at) { rigid.addForceAtPoint(force, at, true); forced.add(body); },
         applyTorque(torque) { rigid.addTorque(torque, true); forced.add(body); },
         get massProperties() { return properties; },
@@ -236,7 +252,7 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions):
           for (let i = 0; i < vertices.length; i += 3) out.push([vertices[i]!, vertices[i + 1]!, vertices[i + 2]!]);
           return out;
         },
-        setFixed(fixed) { rigid.setBodyType(fixed ? R.RigidBodyType.Fixed : R.RigidBodyType.Dynamic, true); },
+        setFixed(fixed) { unread(); rigid.setBodyType(fixed ? R.RigidBodyType.Fixed : R.RigidBodyType.Dynamic, true); },
         gapTo(point) {
           let gap = Infinity;
           for (let k = 0; k < rigid.numColliders(); k++) {
@@ -363,6 +379,7 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions):
     step(dt) {
       raw.timestep = dt;
       raw.step();
+      moment += 1;
       for (const { rigid } of forced) { rigid.resetForces(false); rigid.resetTorques(false); }
       forced.clear();
       writeNodes();
