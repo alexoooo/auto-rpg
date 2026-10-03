@@ -227,7 +227,17 @@ All of it on a physically based core, humans first ([architecture](architecture.
   still lies (`lie`) and is out of it. Open, each with its readings in the record:
   - the way on from knees and hands is a limb moved to a place (a foot planted, a hand walked
     back), which a stage of a rise does not have
-    ([reference/rising.md](reference/rising.md#where-the-rise-stops));
+    ([reference/rising.md](reference/rising.md#where-the-rise-stops)). Held still, the Warrior's
+    body allows every waypoint but four lift-offs: sitting back (the knee's stop), the hands
+    leaving a half kneel, the front foot alone (balance), the knees leaving a kneel on the toes
+    (the ankle, and a foot with no toe joint); every squat holds, and the bear's rows hold to a
+    straight-legged fold ([reference/postures.md](reference/postures.md#the-verdict-by-route)).
+    The candidates for the body, a toe joint, the ankle's range bearing weight, the knee folded
+    on the calf, are each to be read in a source first;
+  - on the game's solver iterations (`SOLVER`) a body held stiffly on its own stops does not
+    stay: the standing body held at 5000 N m falls, and four times the iterations keep it within
+    3 cm ([reference/postures.md](reference/postures.md#the-games-solver)). A riser's loaded
+    postures are read again there, with the step's cost;
   - the Rogue plays the Warrior's recipe and its arms do not raise its chest: it wants a recipe
     of its own;
   - the skeleton is not turned over by the humans' roll;

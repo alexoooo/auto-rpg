@@ -442,12 +442,14 @@ What was read of the ways on from knees and hands, each as one stage more:
   to 2.5 rad and its chest sinks; the stage is never done.
 
 What a way on asks that a stage does not give: **a limb moved to a place**. A stage's limbs
-bear where they came down, and a limb it leaves goes where the posture puts it. Reckoned from
-the bodies' ranges and strengths, not read on the stand: a foot planted between the hands needs
-the hip's flexion (2.21 rad) and the lumbar spine's (0.89) at their stops together; standing on
-one leg from a half kneel asks 140 to 210 N m of the Warrior's knee, whose extensors give 259
-(its flexors, 141), so its strength does not close that way; and a squat on flat feet asks more
-dorsiflexion than the ankle's 0.39 rad.
+bear where they came down, and a limb it leaves goes where the posture puts it. What the
+Warrior's body allows on each way, held still with no controller in it, is read in
+[postures.md](postures.md#the-verdict-by-route): every waypoint holds but the moments a support
+leaves the ground. Sitting back is closed by the knee's stop (it asks 2.81 rad); the hands leave
+a half kneel only with the rear knee's stop stripped; the front foot alone is unbalanced by 16
+cm, not too weak; the knees leave a kneel on the toes only with the ankle's stop stripped (1.15
+rad); a squat on flat feet holds at every height from 0.45 to 0.80 m with the hips spread, and
+the stance stands the body up from one at 0.80 m.
 
 ### The roll
 
