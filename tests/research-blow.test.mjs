@@ -15,7 +15,7 @@ import { woundedIn } from "../src/core/rules/blows.ts";
 import { BANDS, FIST, REPERTOIRE } from "../src/core/skills/strikes.ts";
 import { bandRise } from "../src/lab/blow.ts";
 import { dummySpec } from "../src/lab/targets.ts";
-import { candidateScore, decodeHeld, dimensionsHeld, encodeHeld, evaluateBlow, FELL, heldSpec, scoreOf } from "../research/core-blow.mjs";
+import { balanceTrace, candidateScore, decodeHeld, dimensionsHeld, encodeHeld, evaluateBlow, FELL, heldSpec, scoreOf } from "../research/core-blow.mjs";
 import { keeps } from "../research/core-strike-repertoire.mjs";
 import { specProvenanceFaults } from "./fixtures/spec.mjs";
 import { WARRIOR_STRAIGHT } from "./fixtures/strikes.mjs";
@@ -80,6 +80,27 @@ test("a_blow_that_leaves_the_body_down_scores_a_fall", async () => {
   const lands = { done: 1, cost: 0, nearest: 0, fell: false, stood: true };
   assert.equal(candidateScore([lands, lands], atNothing), FELL);
   assert.equal(candidateScore([lands, { ...lands, done: 0.5 }], { done: 0, cost: 0, nearest: null, fell: false, stood: true }), 0.75);
+});
+
+test("a_blow_traced_reads_the_same_and_says_how_its_body_kept_its_feet", async () => {
+  const traced = (thrown) => {
+    let trace = null;
+    return evaluateBlow({ ...thrown, dummy: false, trace: (body, blow) => (trace ??= balanceTrace(body)).take(body, blow) }).then((result) => ({ result, balance: trace.reading }));
+  };
+  const straightly = { model: WARRIOR_STRAIGHT.model, held: FIST, band: "high", strike: WARRIOR_STRAIGHT.strike, ahead: WARRIOR_STRAIGHT.place.ahead };
+  // Traced, a blow reads as it does untraced.
+  const [plain, standing] = [await straight({ dummy: false }), await traced(straightly)];
+  assert.deepEqual(standing.result, plain);
+  // A blow that stands keeps its capture point over its soles, and its stance took no step.
+  assert.deepEqual([standing.balance.out, standing.balance.inner, standing.balance.left, standing.balance.recoveries, standing.balance.stepped], [0, 0, null, 0, false]);
+  // One that throws the body down runs its capture point past the soles once its pushes have begun, and the stance steps after it.
+  const down = await traced({ ...straightly, strike: THROWN_DOWN });
+  assert.equal(down.result.fell || !down.result.stood, true);
+  assert.ok(down.balance.out > 0.1 && down.balance.inner > down.balance.out, `${down.balance.out}, ${down.balance.inner} m`);
+  assert.ok(down.balance.left >= 0 && down.balance.left < 0.5, `${down.balance.left} s`);
+  assert.ok(down.balance.recoveries > 0 && down.balance.stepped);
+  // Its trunk turned right and leaned right: the capture point runs right.
+  assert.ok(down.balance.aside[1] > 0.1 && down.balance.aside[1] > -down.balance.aside[0], `${down.balance.aside} m`);
 });
 
 test("a_middle_target_is_the_upper_trunks_mass_and_surface", () => {

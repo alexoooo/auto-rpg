@@ -1384,3 +1384,120 @@ two sets' records as one of 64:
   fresh gaps (`--from 384`) 4 h more. They have not been played.
 
 `FIGHTER.aim` is `"head"`.
+
+## Robustness
+
+Where each recipe misses, and what it does to its own body when it meets nothing.
+`node research/strike-robustness.mjs` (Node core stand, Rapier, each throw as its search threw it,
+`evaluateBlow`; four throws a reading, the first as written and three perturbed as a search's are,
+watched 3 s after the pushes).
+
+**Off its place.** The target body moved from the recipe's place along the heading or across it,
+at 120 Hz: what a body whose feet stood that far off throws, since the skill aims where the place
+is. A cell is the mean done as a share of the done at its place; where fewer than four landed, how
+many did and how many left their thrower down.
+
+| Held | Body | Band | At its place, HP | Along -12 | -6 | +6 | +12 | Across -12 | -6 | +6 | +12 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| club | Warrior | high | 1.02 | 0.73 | 0.87 | 1.08 | 0.91 | 0.17 (3/4, 1 fell) | 0.61 | 0.49 | 0.09 (2/4) |
+| club | Warrior | middle | 1.37 | 0.86 | 0.95 | 0.89 | 0.74 | 0.34 (3/4) | 0.84 | 0.72 | 0.42 |
+| club | Rogue | high | 0.42 | 0.87 | 1.02 | 0.93 | 0.24 | 0.02 (1/4) | 0.46 | 0.84 | 0.09 |
+| club | Rogue | middle | 0.54 | 0.79 | 0.89 | 1.00 | 0.78 | 0.35 | 0.81 | 0.86 | 0.47 |
+| club | skeleton | high | 0.67 | 0.48 | 0.77 | 0.86 | 0.82 | 0.10 | 0.71 | 0.67 (3/4, 1 fell) | 0.00 (1/4) |
+| club | skeleton | middle | 1.08 | 0.88 | 1.00 | 0.96 | 0.25 | 0.35 | 0.62 | 0.85 | 0.51 |
+| fist | Warrior | high | 0.12 | 0.50 | 0.83 | 0.91 | 0.54 | 0.61 | 0.91 | 1.07 | 0.92 |
+| fist | Warrior | middle | 0.53 | 0.21 (2/4, 2 fell) | 0.59 | 0.68 | 0.41 | 0.60 | 1.12 | 0.54 | 0.18 |
+| fist | Rogue | high | 0.05 | 0.49 | 0.87 | 1.36 | 0.72 | 0.00 (0/4) | 0.48 | 0.95 | 0.30 |
+| fist | Rogue | middle | 0.31 | 0.34 | 0.63 | 0.42 | 0.10 | 0.45 | 0.84 | 0.56 | 0.10 |
+| fist | skeleton | high | 0.18 | 0.09 | 0.48 | 1.43 | 1.07 | 0.19 | 0.74 | 0.68 | 0.12 (3/4) |
+| fist | skeleton | middle | 0.54 | 0.40 | 1.02 | 0.77 | 0.36 | 0.62 | 1.07 | 0.96 | 0.53 |
+
+- **Across the heading is where a club misses.** Twelve centimetres across, the club blows at a
+  head keep 0.17 or less of what they do at their place, and those at a trunk 0.34 to 0.51; six
+  across, those at a head keep 0.46 to 0.84. Along the heading the clubs' arcs forgive more: six
+  centimetres either way keeps 0.77 to 1.08 of every club blow.
+- **A fist blow loses either way**: twelve centimetres along toward the body keeps 0.09 to 0.50 of
+  it, and twelve across 0.00 to 0.92.
+- **An off blow can put its thrower down**: the Warrior's club at a head, twelve across to the
+  left, and its fist at a trunk, twelve along toward it, two of four; the skeleton's club six
+  across to the right.
+
+**At nothing.** Each throw traced (`balanceTrace`, `research/core-blow.mjs`): the steps the stance
+took to catch the body (`recoveryStep`, `src/core/control/gait.ts`); the most the capture point
+ran back, forward, left and right of the soles' middle as the pushes began, cm; the most it lay
+past the outline the stance steps from (both soles' corners drawn in by `SUPPORT_INSET`), cm, and
+the first time it did, s from the pushes' beginning; the most the soles fell short of what the
+stance asked; and the throws that left the body down or not standing.
+
+| Held | Body | Band | Hz | Steps, each throw | Back | Forward | Left | Right | Past the inner outline | Left it at, s | Short, weights | Short, N m | Down |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| club | Warrior | high | 120 | 0, 3, 2, 2 | 50 | 8 | 19 | 41 | 11 | 0.41 | 0.68 | 880 | 0 |
+| club | Warrior | high | 480 | 11, 9, 5, 4 | 203 | 3 | 14 | 136 | 33 | 0.36 | 1.22 | 936 | 1 |
+| club | Warrior | middle | 120 | 0, 0, 0, 2 | 11 | 6 | 3 | 10 | 4 | 0.44 | 0.55 | 507 | 0 |
+| club | Warrior | middle | 480 | 0, 2, 0, 0 | 2 | 19 | 3 | 21 | 9 | 0.58 | 0.38 | 468 | 0 |
+| club | Rogue | high | 120 | 0, 0, 0, 2 | 14 | 6 | 22 | 13 | 5 | 1.10 | 0.52 | 401 | 0 |
+| club | Rogue | high | 480 | 4, 2, 7, 2 | 2 | 99 | 25 | 11 | 35 | 0.47 | 0.58 | 455 | 2 |
+| club | Rogue | middle | 120 | 2, 4, 1, 4 | 21 | 39 | 11 | 125 | 97 | 0.55 | 2.78 | 1099 | 2 |
+| club | Rogue | middle | 480 | 3, 2, 3, 0 | 1 | 44 | 28 | 19 | 15 | 0.37 | 0.51 | 412 | 0 |
+| club | skeleton | high | 120 | 2, 0, 0, 0 | 13 | 5 | 6 | 20 | 4 | 0.23 | 0.42 | 480 | 0 |
+| club | skeleton | high | 480 | 0, 1, 7, 0 | 43 | 4 | 7 | 103 | 54 | 0.23 | 2.79 | 2598 | 1 |
+| club | skeleton | middle | 120 | 1, 1, 1, 1 | 9 | 4 | 7 | 7 | 2 | 0.25 | 0.44 | 478 | 0 |
+| club | skeleton | middle | 480 | 1, 1, 1, 1 | 8 | 0 | 4 | 5 | 2 | 0.25 | 0.42 | 490 | 0 |
+| fist | Warrior | high | 120 | 2, 1, 1, 1 | 11 | 0 | 7 | 15 | 4 | 0.47 | 0.37 | 334 | 0 |
+| fist | Warrior | high | 480 | 2, 1, 1, 1 | 9 | 0 | 7 | 13 | 2 | 0.43 | 0.37 | 322 | 0 |
+| fist | Warrior | middle | 120 | 1, 0, 0, 0 | 5 | 4 | 6 | 10 | 1 | 0.42 | 0.22 | 225 | 0 |
+| fist | Warrior | middle | 480 | 0, 0, 1, 0 | 4 | 5 | 4 | 10 | 1 | 0.49 | 0.19 | 169 | 0 |
+| fist | Rogue | high | 120 | 0, 0, 0, 0 | 4 | 1 | 6 | 1 | 0 | never | 0.25 | 137 | 0 |
+| fist | Rogue | high | 480 | 0, 0, 0, 0 | 4 | 1 | 7 | 1 | 0 | never | 0.11 | 129 | 0 |
+| fist | Rogue | middle | 120 | 0, 0, 0, 0 | 5 | 2 | 1 | 6 | 0 | 0.41 | 0.18 | 90 | 0 |
+| fist | Rogue | middle | 480 | 0, 0, 0, 0 | 5 | 2 | 1 | 6 | 0 | never | 0.14 | 89 | 0 |
+| fist | skeleton | high | 120 | 2, 2, 2, 2 | 10 | 0 | 1 | 17 | 4 | 0.33 | 0.24 | 180 | 0 |
+| fist | skeleton | high | 480 | 1, 2, 1, 2 | 9 | 0 | 2 | 16 | 4 | 0.32 | 0.24 | 219 | 0 |
+| fist | skeleton | middle | 120 | 2, 2, 2, 2 | 9 | 1 | 1 | 21 | 7 | 0.35 | 0.23 | 254 | 0 |
+| fist | skeleton | middle | 480 | 2, 2, 2, 0 | 10 | 0 | 16 | 1 | 2 | 0.36 | 0.27 | 310 | 0 |
+
+- **What a blow at nothing does at 120 Hz is make its stance step.** The capture point runs past
+  the outline drawn in by `SUPPORT_INSET` a quarter to a half second after the pushes begin (the
+  Rogue's club at a head, a second), in the follow-through, and the stance steps to catch it. Ten
+  of the twelve recipes step in one throw of four or more; the skeleton's at a trunk and its fists
+  in every throw. The capture point leaves the soles' own outline in the throws that fall, and by
+  1 and 2 cm in two of the Warrior's club blows at a head, which the steps catch.
+- **The step is back and to the thrower's right.** The capture point runs behind the soles' middle
+  (the Warrior's club at a head, 50 cm) and to the right (41 cm); a fist runs it 4 to 11 cm back.
+- **The soles fall short of what the stance asks** in every recipe: by 0.18 to 0.68 of the body's
+  weight and 90 to 880 N m at 120 Hz, where it stands.
+- **It falls at 120 Hz in one recipe**, the Rogue's club at a trunk, two of four throws, the
+  perturbed ones; at 480 Hz in three, the high clubs, where the Warrior's runs its capture point
+  2 m back.
+
+**In bouts.** `node research/strike-bouts.mjs --held club,empty` (Node core world, Rapier, 120 Hz,
+the arena's rulebook): every pair of bodies at gaps of 3, 4 and 5 m, each side the fighter, read
+from its skills' report. An attempt runs from the skill taking an attack up to its blow thrown,
+dropped or cut by the verdict; it is committed at its chamber, or its pushes where it has none. A
+throw landed where a blow of the thrower's hand or what it holds took hit points from the foe from
+the commit to a quarter second after the throw.
+
+| | Club | Empty |
+|---|---|---|
+| Bouts, s of bout | 27, 431 | 27, 1137 |
+| A side's time: approach, place, settle | 10.8, 29.9, 21.3 % | 6.2, 43.3, 33.0 % |
+| A side's time: chamber, swing | 3.6, 3.0 % | 0.0, 6.3 % |
+| Set-up, from the attempt to its commit, median | 4.44 s | 4.05 s |
+| Committed throws with the foe's head in the recipe's window at the commit | 17 of 57 | 33 of 227 |
+| the same as the pushes began | 10 of 57 | 33 of 227 |
+| The point the tactics held from the foe's head at the commit, median | 11.4 cm | 10.9 cm |
+| held more than 10 cm off | 35 of 66 | 178 of 318 |
+| Committed throws that landed: Warrior, Rogue, skeleton | 21 of 25, 27 of 29, 12 of 12 | 27 of 88, 119 of 132, 77 of 98 |
+| on the head | 16, 16, 10 | 12, 48, 39 |
+| the thrower stepped to catch itself | 11, 8, 6 | 46, 27, 40 |
+| the thrower down within 2 s of the commit | 0, 2, 0 | 0, 2, 0 |
+
+- **A throw is thrown at where the head was.** The tactics hold the point they attack until the
+  foe's head is `APPROACH.reach`, 25 cm, from it (`fighterTactics`), so the skill sets the feet
+  for, and throws at, a point a median 11 cm from the head, more than a window's width across.
+  The foe's head is in the window at a third of the committed club throws and a seventh of the
+  bare ones.
+- **A thrower steps to catch itself after more than a third of its throws**, as it does at
+  nothing; it is down after four of 384.
+- **Setting up is most of a bout**: placing the feet and standing are half a club side's time and
+  three quarters of a bare one's, and a throw is four seconds in the making.
