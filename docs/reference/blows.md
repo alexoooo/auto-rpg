@@ -1725,3 +1725,24 @@ the twelve, HP; steps and falls are over the twelve recipes' 48 throws at nothin
   steps at 480 Hz and adds half again at 120.
 - **A braked follow-through makes a body step more**, at every length and brake tried: the guard
   taking the arm back as the pushes end steps least. Why is not measured.
+
+### Thrown from where it stands
+
+`node research/strike-bouts.mjs --gaps 2.5,3,3.5,4,4.5,5,5.5 --held club,empty` (Node core world,
+Rapier, 120 Hz, the arena's rulebook; 63 bouts each way), the strike skill setting the feet at
+every recipe's place, and standing where it is when the recipe's window holds the target as the
+approach ends.
+
+| | Club, feet set | Club, from where it stands | Empty, feet set | Empty, from where it stands |
+|---|---|---|---|---|
+| A side's time: approach, place, settle | 10.8, 28.4, 19.5 % | 11.0, 24.7, 20.8 % | 6.4, 44.2, 30.6 % | 6.6, 41.9, 32.0 % |
+| Set-up, from the attempt to its commit, median | 4.52 s | 4.60 s | 4.24 s | 4.26 s |
+| Committed throws | 146 | 139 | 564 | 573 |
+| landed | 132 | 121 | 340 | 370 |
+| the thrower down within 2 s of the commit | 16 | 18 | 11 | 6 |
+
+- **Standing where it is takes a few points off placing, and nothing off the set-up.** The
+  approach walks to within `APPROACH.reach`, 25 cm, of the place, and a window is 4 to 24 cm wide,
+  so it seldom ends with the target in the window; the feet are set as before.
+- What is landed of what is committed is the same within the bouts' spread: club 0.90 and 0.87,
+  empty 0.60 and 0.65.

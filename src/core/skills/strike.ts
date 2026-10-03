@@ -176,7 +176,8 @@ interface StrikeCommand {
  * holds, the one whose window holds the target's height over the head (`recipeAt`); else a
  * placed blow. It walks the body toward the place where its feet stand square for the
  * target to be at the middle of the blow's window (`Chosen.window`, or about a placed blow's
- * distance) straight ahead of the head, and sets its feet there (`APPROACH`); stands still in the
+ * distance) straight ahead of the head, and sets its feet there (`APPROACH`), or, for a recipe
+ * whose window holds the target from where the body stands, stands where it is; stands still in the
  * guard `STAND` seconds; then chooses the blow again by the head as it stands, once for a point
  * attacked (from one stand to the next a height at a window's edge reads either side of it), and
  * asks the window of it, standing again for another blow or setting the feet again if it is out.
@@ -354,7 +355,12 @@ export function strikeSkill(spec: BodySpec, repertoire: Repertoire, placing: Pla
             && hypot(s.soles.left.x - at.left[0], s.soles.left.z - at.left[1]) <= PLACING.near
             && hypot(s.soles.right.x - at.right[0], s.soles.right.z - at.right[1]) <= PLACING.near;
           const [toX, toZ] = inFrame(mx - s.centre.x, mz - s.centre.z);
+          // A recipe's window holding the target from where the body stands: it stands there, and
+          // is then within `APPROACH.reach` of its place.
+          const off = ahead - reach, held = state.blow === "recipe"
+            && window.along[0] <= off && off <= window.along[1] && window.across[0] <= aside && aside <= window.across[1];
           if (square || (state.phase === "place" && placed)) state.phase = "settle";
+          else if (state.phase !== "place" && held) state.phase = "settle";
           else if (state.phase !== "place" && hypot(toX, toZ) > APPROACH.reach) {
             // Walked toward the place, the centre of mass leading.
             const speed = hypot(toX, toZ) / APPROACH.seconds, scale = speed > APPROACH.pace ? APPROACH.pace / speed : 1;

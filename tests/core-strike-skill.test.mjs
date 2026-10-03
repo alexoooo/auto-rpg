@@ -212,6 +212,41 @@ test("an_attack_walks_to_its_place_sets_the_feet_stands_asks_the_window_and_is_t
   assert.equal(skill.report.still, 0);
 });
 
+test("a_recipe_whose_window_holds_its_target_where_the_body_stands_is_thrown_from_there", () => {
+  const spec = armed(humanSpec("workshop-fighter"), "right", woodenClub());
+  const { strike, recipe, window } = recipeFor(CLUBS, spec, "right", 0);
+  const middle = [(window.along[0] + window.along[1]) / 2, (window.across[0] + window.across[1]) / 2];
+  const target = [middle[1], 1.6, recipe.place.ahead + middle[0]];
+  const attack = { left: GUARD_ACTION, right: { kind: "attack", target } };
+  // From each edge of the window along, inside it and past it, and from across it: the feet not where they would be set.
+  const from = (along, across) => {
+    const skill = strikeSkill(spec, CLUBS), { view, moveBy } = standing();
+    moveBy(across, along);
+    const first = skill.command(view, attack, 0, false, DT), phases = [skill.report.phase];
+    let steps = 0;
+    while (skill.report.thrown.right === 0 && skill.report.phase !== "place" && steps < 10 * 120) {
+      const command = skill.command(view, attack, 0, false, DT);
+      steps += 1;
+      if (phases.at(-1) !== skill.report.phase) phases.push(skill.report.phase);
+      assert.equal(command.walk, null);
+    }
+    return { footing: first.footing !== null, walk: first.walk !== null, phases, thrown: skill.report.thrown.right };
+  };
+  const inside = 0.01, beyond = 0.01, margin = Math.max(PLACING.near, 0.03);
+  // Moved toward the target by its middle less the window's near edge (and less a little), the target sits just inside it.
+  for (const along of [middle[0] - window.along[0] - inside, -(window.along[1] - middle[0] - inside), margin]) {
+    assert.deepEqual(from(along, 0), { footing: false, walk: false, phases: ["settle", "chamber", "swing", null], thrown: 1 }, `${along} m along`);
+  }
+  // Past its edge either way, it sets the feet.
+  for (const along of [middle[0] - window.along[0] + beyond, -(window.along[1] - middle[0] + beyond)]) {
+    assert.deepEqual(from(along, 0), { footing: true, walk: false, phases: ["place"], thrown: 0 }, `${along} m along`);
+  }
+  // Across: the target at its window's edge across stands; past it, the feet are set.
+  assert.deepEqual(from(0, middle[1] - window.across[0] - inside).thrown, 1);
+  assert.deepEqual(from(0, middle[1] - window.across[0] + beyond).phases, ["place"]);
+  assert.ok(strike.chamber);
+});
+
 /**
  * A view built by hand: the body standing as built at the origin, heading 0 (facing +z), its head
  * `height` up; the root's frame turned a quarter about the upright and set off, so a place in it
