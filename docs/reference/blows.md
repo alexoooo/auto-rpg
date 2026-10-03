@@ -1667,3 +1667,29 @@ matchup's: the Warrior's blow at the Rogue's head is 14 cm under its place and a
   skeleton's head, but does 0.12 HP at its place.
 - **The offset is known at the commit and does not move under the blow**: what it asks is the
   recipe aimed for it, not steered after it.
+
+### Searched with jitter
+
+`node research/core-strike-search.mjs --held "wooden club" --band high --from workshop-fighter:high --sigma 0.2 --jitter 0.08,0.08,0`
+(Node core stand, Rapier, 120 Hz, 30 generations of 64, four trials, seed 1), and the same search
+without `--jitter` as its control: the Warrior's club at a head searched from its recipe with
+each trial's target within 8 cm of its place along and across, told to the skill once committed
+(`--seen`'s steered blow), against a search that throws at the place. The replay reads the best
+at its place, eight throws at each rate.
+
+| Search | Mean searched | 120 Hz net | Landed | 480 Hz net | Landed | 1920 Hz net | Landed | Ahead, m |
+|---|---|---|---|---|---|---|---|---|
+| jittered | 1.004 | 0.82 | 8/8 | 0.01 | 1/8 | 0.02 | 4/8, 4 not standing | 0.951 |
+| control | 1.181 | 1.11 | 8/8 | 1.12 | 8/8 | 0.86 | 8/8 | 0.932 |
+
+The control's best is the recipe it started from: thirty generations found nothing better at the
+place. Both thrown at the same sixteen targets within 8 cm along and across (the plastic number's
+sequence, seen once committed; 120 Hz), the recipe does a mean 1.06 HP and lands all sixteen, the
+jittered search's best 0.97 and lands all sixteen.
+
+- **The recipe as it is keeps its blow over the jitter**: steered, it lands every throw within
+  8 cm and does 0.81 to 1.20 HP; the search had no window to widen.
+- **The jittered search's best is a blow of the one rate**: it does 0.82 at its place at 120 Hz
+  and nearly nothing at 480 and 1920, where the recipe keeps 1.12 and 0.86. A score averaged over
+  offsets that move every generation rewards what the noise favours, not what converges.
+- The 36 searches with jitter are not run.

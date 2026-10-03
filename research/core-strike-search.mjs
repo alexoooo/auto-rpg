@@ -10,7 +10,7 @@
  *
  *   node research/core-strike-search.mjs [--model workshop-rogue] [--held fist|"wooden club"] [--band high|middle] [--hand right]
  *     [--hz 120] [--guard] [--generations 30] [--population 64] [--elite 10] [--workers 14] [--seed 1] [--trials 4] [--grounds 20]
- *     [--from <model>:<band>|<file>] [--sigma 0.6]
+ *     [--from <model>:<band>|<file>] [--sigma 0.6] [--jitter <along>,<across>,<up>]
  *
  * With `--guard` the strike has no chamber: it is thrown from the lab's guard, as a straight is.
  *
@@ -24,6 +24,14 @@
  * it in. Prints one JSON line per generation, then the best strike read again on eight fresh
  * trials at each of `--replay`'s rates (120, 480 and 1920 Hz unless given), as written on a 20, 30
  * and 40 m ground (`noise`), and thrown at nothing.
+ *
+ * With `--jitter` each trial's target body stands off the strike's place, m, within that much each
+ * way along the heading, across it and up, and the skill is told where once the blow is committed,
+ * as of a head that moved under it (`Throw.moved`), so that the blow turns after it (`STEER`): the
+ * offsets are the golden ratio's sequence in as many dimensions as are jittered (Roberts 2018, "The
+ * unreasonable effectiveness of quasirandom sequences"), carried on from one generation to the
+ * next, so that no candidate is scored on the same four; the best is the last generation's. The
+ * replay reads the best at its place.
  *
  * `--from` starts the search centred on a strike, which is its first generation's first
  * candidate, with every spread `--sigma` (0.6, the fresh search's, unless given): a recipe of the
@@ -47,8 +55,11 @@ const { values } = parseArgs({ options: {
   elite: { type: "string", default: "10" }, workers: { type: "string" }, seed: { type: "string", default: "1" },
   trials: { type: "string", default: "4" }, replay: { type: "string", default: "120,480,1920" },
   from: { type: "string" }, sigma: { type: "string", default: "0.6" }, grounds: { type: "string", default: "20" },
+  jitter: { type: "string" },
 } });
 const { model, hand, held, band } = values, hz = Number(values.hz);
+const WAYS = ["along", "across", "up"], jitter = values.jitter ? values.jitter.split(",").map(Number) : null;
+if (jitter && (jitter.length !== 3 || jitter.some((j) => !(j >= 0)))) throw new Error(`--jitter is three sizes, m, along, across and up: ${values.jitter}`);
 if (!HELD[held]) throw new Error(`--held is one of ${Object.keys(HELD).join(", ")}, not ${held}`);
 if (!BAND_NAMES.includes(band)) throw new Error(`--band is one of ${BAND_NAMES.join(", ")}, not ${band}`);
 const generations = Number(values.generations), population = Number(values.population), elite = Number(values.elite);
@@ -81,6 +92,30 @@ if (from && from.unit.length !== n) throw new Error(`--from ${values.from} is ${
  * anywhere within half a 120 Hz step, and its activation within 2 %.
  */
 const TIMING = 1 / 240, LEVEL = 0.02;
+/**
+ * The golden ratio's sequence in the jittered dimensions: the n-th point, each coordinate in [0, 1).
+ * Its generator is the root over 1 of x^(d+1) = x + 1, found by Newton's method.
+ */
+const jittered = jitter ? WAYS.filter((_, i) => jitter[i] > 0) : [];
+const generator = (() => {
+  const d = jittered.length;
+  let x = 2;
+  for (let k = 0; k < 64; k++) { let power = 1; for (let i = 0; i < d + 1; i++) power *= x; x -= (power - x - 1) / ((d + 1) * power / x - 1); }
+  return x;
+})();
+const alphas = jittered.map((_, i) => { let a = 1; for (let k = 0; k <= i; k++) a /= generator; return a; });
+let sequenceAt = 0;
+/** The next offset of the sequence (`StandOff`), or none without `--jitter`. */
+const nextOff = () => {
+  if (!jitter) return null;
+  const n = ++sequenceAt;
+  return Object.fromEntries(WAYS.map((way, i) => {
+    const k = jittered.indexOf(way);
+    if (k < 0) return [way, 0];
+    const u = (0.5 + n * alphas[k]) % 1;
+    return [way, jitter[i] * (2 * u - 1)];
+  }));
+};
 /** Each trial's ground, m, in turn; and the grounds the replay reads the strike as written on. */
 const GROUNDS = values.grounds.split(",").map(Number), NOISE = [20, 30, 40];
 
@@ -103,7 +138,8 @@ function run1(unit, perturbation, { dummy = true, rate = hz } = {}) {
     const run = (worker) => {
       const id = nextId++;
       pending.set(id, { resolve: (r) => { release(worker); resolve(r); }, reject: (e) => { release(worker); reject(e); } });
-      worker.postMessage({ id, model, held, hand, band, guard, unit, hz: rate, perturbation, ground: perturbation.ground, dummy });
+      worker.postMessage({ id, model, held, hand, band, guard, unit, hz: rate, perturbation, ground: perturbation.ground, dummy,
+        ...(perturbation.off && dummy ? { off: perturbation.off, seen: true } : {}) });
     };
     idle.length ? run(idle.pop()) : waiting.push(run);
   });
@@ -116,7 +152,8 @@ async function evaluate(unit, perturbations) {
 }
 /** Trials for one generation, shared by every candidate in it; the first is the strike as written. */
 const draw = () => Array.from({ length: trials }, (_, k) => ({ ...(k === 0 ? AS_WRITTEN
-  : { shift: TIMING * (2 * uniform() - 1), scale: 1 + LEVEL * (2 * uniform() - 1) }), ground: GROUNDS[k % GROUNDS.length] }));
+  : { shift: TIMING * (2 * uniform() - 1), scale: 1 + LEVEL * (2 * uniform() - 1) }), ground: GROUNDS[k % GROUNDS.length],
+  ...(jitter ? { off: nextOff() } : {}) }));
 
 let mean = from ? [...from.unit] : new Array(n).fill(0), sigma = new Array(n).fill(Number(values.sigma));
 let best = null;
@@ -128,7 +165,9 @@ for (let g = 0; g < generations; g++) {
   const perturbations = draw();
   const results = await Promise.all(candidates.map(async (unit) => ({ unit, ...(await evaluate(unit, perturbations)) })));
   results.sort((a, b) => b.score - a.score);
-  if (!best || results[0].score > best.score) best = results[0];
+  // Under jitter a generation's draws are its own, so a score is not held against another
+  // generation's: the best is the generation's, among which the last best is scored again.
+  if (jitter || !best || results[0].score > best.score) best = results[0];
   const top = results.slice(0, elite);
   mean = mean.map((_, i) => top.reduce((s, r) => s + r.unit[i], 0) / top.length);
   sigma = sigma.map((_, i) => Math.max(0.05, Math.sqrt(top.reduce((s, r) => s + (r.unit[i] - mean[i]) ** 2, 0) / top.length)));
@@ -157,6 +196,6 @@ for (const rate of values.replay.split(",").map(Number)) {
 await Promise.all(pool.map((w) => w.terminate()));
 const found = decodeHeld(held, best.unit, spec, hand, guard);
 console.log(JSON.stringify({ harness: CORE_BLOW_HARNESS, held, band, model, hand, guard, seed: Number(values.seed), hz, trials,
-  generations, population, ...(values.from ? { from: values.from, sigma: Number(values.sigma) } : {}), ...(values.grounds !== "20" ? { grounds: GROUNDS } : {}),
+  generations, population, ...(values.from ? { from: values.from, sigma: Number(values.sigma) } : {}), ...(values.grounds !== "20" ? { grounds: GROUNDS } : {}), ...(jitter ? { jitter } : {}),
   searched: { mean: +best.score.toFixed(3), runs: best.runs }, ...readings,
   place: { ahead: found.distance, up: bandRise(spec, band) }, strike: found.strike, unit: best.unit }));
