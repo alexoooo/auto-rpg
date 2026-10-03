@@ -84,8 +84,12 @@ export function clockSenses(world: World): () => Senses {
   return () => { senses.time = world.time; return senses; };
 }
 
-/** One reading of a body: plain numbers, in the order `read` writes them and `show` takes them. */
-type Frame = { [index: number]: number };
+/**
+ * How many numbers one reading of a body of `segments` holds, in the order `read` writes them and
+ * `show` takes them: each segment's position, turn, centre, velocity and spin, then the whole
+ * body's centre, its velocity, and whether it is out.
+ */
+function frameLength(segments: number): number { return (3 + 4 + 3 + 3 + 3) * segments + 3 + 3 + 1; }
 
 /**
  * **The one layer between the world and every mind's `Senses`.** In the step's sensing phase
@@ -103,7 +107,7 @@ export function createSenses(world: World, delay = 0): SensesHub {
   const p = new Vector3(), v = new Vector3(), w = new Vector3();
 
   /** `entry`'s body as it stands, into `frame`: each segment, then the whole body's centre, its velocity, and whether it is out. */
-  const read = (entry: Carried, frame: Frame, out: boolean): void => {
+  const read = (entry: Carried, frame: Float64Array, out: boolean): void => {
     let k = 0, cx = 0, cy = 0, cz = 0, vx = 0, vy = 0, vz = 0;
     for (const segment of entry.segments) {
       const at = segment.node.position, q = segment.node.rotationQuaternion!, m = segment.rigid.mass;
@@ -123,7 +127,7 @@ export function createSenses(world: World, delay = 0): SensesHub {
     frame[k++] = out ? 1 : 0;
   };
   /** `frame` into what the others are shown of `entry`. */
-  const show = (entry: Carried, frame: Frame): void => {
+  const show = (entry: Carried, frame: Float64Array): void => {
     let k = 0;
     for (const s of entry.shown.segments.values()) {
       s.position.set(frame[k++]!, frame[k++]!, frame[k++]!);
@@ -169,9 +173,9 @@ export function createSenses(world: World, delay = 0): SensesHub {
         mass: segments.reduce((sum, s) => sum + s.rigid.mass, 0),
       };
       // Every frame starts as the body stands, in the fight: `out` is first asked at the next step.
-      const standing: number[] = [], memory: Remembered = { at: 0, frames: [] };
+      const standing = new Float64Array(frameLength(segments.length)), memory: Remembered = { at: 0, frames: [] };
       read(entry, standing, false);
-      for (let i = 0; i <= delay; i++) memory.frames.push(Float64Array.from(standing));
+      for (let i = 0; i <= delay; i++) memory.frames.push(standing.slice());
       state[sensed.id] = memory;
       show(entry, standing);
       for (const other of carried) { other.others.push(shown); entry.others.push(other.shown); }

@@ -314,6 +314,7 @@ fixtures `tests/core-step-cost.test.mjs` holds under a ceiling).
 | The body's dynamics and its joints (`bodyDynamics`, `joint-state.ts`) | 0.997, 1.018 | 0.851, 0.870 | 0.45 | 2.98 | 80 | 128 |
 | The hands' reach (`solveReach`) | 0.937, 0.937 | 0.847, 0.852 | 0.45 | 2.85 | 80 | 129 |
 | A body's velocities kept from the step (`rapier.ts`) | 0.971, 0.931 | 0.883, 0.846 | 0.43 | 2.98 | 80 | 118 |
+| The senses' frames all of one kind (`senses.ts`) | 0.909, 0.919 | 0.820, 0.826 | 0.46 | 2.96 | 80 | 117 |
 
 - **The ground's wrench**: on the bout's own 4576 calls, each asked as the bout asked it and
   answered alone, the least of nine passes, 57.2 us a call before and 12.5 after, all 68544
@@ -346,6 +347,13 @@ fixtures `tests/core-step-cost.test.mjs` holds under a ceiling).
   binding and 9.5 and 9.8 kept; read once, 5.7 and 6.0 against 6.9 and 7.1. The bout's step is
   the same within the spread of its two readings, and its own fixture allocates 117 KiB a body a
   step against 128; the bout from 2 s to its verdict 263 against 283 (`--sites`).
+- **The senses' frames all of one kind**: the senses read every segment of every body into a
+  frame, a `Float64Array` each step and a plain array once, as a body was added. Read with both,
+  each number written into a frame was boxed, 9 KiB a step of the bout. Every frame is now a
+  `Float64Array` of the length a body's segments give (`frameLength`): the senses' `read` was 3.4
+  and 3.8 % of the bout under the CPU profiler and is under the profile's 1 %, the bout's step
+  0.971 and 0.931 ms to 0.909 and 0.919 (its median 0.883 and 0.846 to 0.820 and 0.826), and the
+  senses allocate nothing a step. Standing bodies sense nothing and read as they did.
 
 ## The crypt's plan in the step
 
