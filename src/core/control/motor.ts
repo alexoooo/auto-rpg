@@ -6,7 +6,7 @@ import type { MuscleController, MuscleDriver } from "../muscle/driver.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { distance } from "../spec/vec.ts";
 import type { Assist } from "./assist.ts";
-import { chainTo, pointNowToRef, solveReach, type ReachEnd } from "./kinematics.ts";
+import { chainTo, pointNowToRef, reachWork, solveReach, type ReachEnd, type ReachWork } from "./kinematics.ts";
 import { servoAsk, servoSolve } from "./servo.ts";
 import { stanceControl, type StanceControl, type StanceGoal } from "./stance.ts";
 import type { StanceTuning } from "./stance-tuning.ts";
@@ -123,6 +123,8 @@ interface Arm {
   readonly points: ReadonlyMap<string, Vec3>;
   /** The chain's freedoms the inverse kinematics moves: the shoulder's, the elbow's and the wrist's. */
   readonly free: Free[];
+  /** What its reach works in (`solveReach`). */
+  readonly work: ReachWork;
   readonly memory: HandMemory;
 }
 
@@ -159,7 +161,7 @@ export function motorControl(built: BuiltBody, seconds: number, posture: Pose = 
       ? joint.dofs.map((dof, k) => ({ joint: j, k, min: dof.spec.min.value, max: dof.spec.max.value, preferred: 0, name: names(joint)[k]! }))
       : []);
     const points = new Map([...rigidPoints(built.spec, hand.spec)].map(([name, point]) => [name, point.value]));
-    return { chain, hand, knuckles, points, free,
+    return { chain, hand, knuckles, points, free, work: reachWork(free.length),
       memory: { goal: null, started: false, from: [], time: 0,
         angles: chain.map((joint) => joint.dofs.map(() => 0)), point: new Vector3(), goals: new Map() } };
   };
@@ -185,13 +187,13 @@ export function motorControl(built: BuiltBody, seconds: number, posture: Pose = 
       from[2] + f * (position[2] - from[2]));
   };
   const at = new Vector3(), end: ReachEnd = { passes: 0, still: false };
-  const solveAt = ({ chain, free, points, memory }: Arm, time: number): number[][] => {
+  const solveAt = ({ chain, free, points, work, memory }: Arm, time: number): number[][] => {
     const angles = memory.angles.map((row) => [...row]);
     const tasks = memory.goal!.places.map((place, i) => {
       along(memory, i, time, at);
       return { point: points.get(place.point)!, target: [at.x, at.y, at.z] as Vec3 };
     });
-    solveReach(chain, angles, free, tasks, end);
+    solveReach(chain, angles, free, tasks, end, work);
     state.reach.solves++;
     state.reach.passes += end.passes;
     if (!end.still) state.reach.capped++;

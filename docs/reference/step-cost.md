@@ -312,6 +312,7 @@ fixtures `tests/core-step-cost.test.mjs` holds under a ceiling).
 | The ground's wrench (`shareGroundWrench`, `activeSet`) | 1.168, 1.194 | 1.012, 1.039 | 0.53 | 3.66 | 379 | 437 |
 | Bearing on limbs (`carryRoot`, `bearLimbs`; `src/core/math/flat.ts`) | 1.045, 1.068 | 0.890, 0.911 | 0.48 | 3.16 | 267 | 319 |
 | The body's dynamics and its joints (`bodyDynamics`, `joint-state.ts`) | 0.997, 1.018 | 0.851, 0.870 | 0.45 | 2.98 | 80 | 128 |
+| The hands' reach (`solveReach`) | 0.937, 0.937 | 0.847, 0.852 | 0.45 | 2.85 | 80 | 129 |
 
 - **The ground's wrench**: on the bout's own 4576 calls, each asked as the bout asked it and
   answered alone, the least of nine passes, 57.2 us a call before and 12.5 after, all 68544
@@ -329,6 +330,13 @@ fixtures `tests/core-step-cost.test.mjs` holds under a ceiling).
   gain is the collector's: a scavenge every 33 and 30 steps of the bout to every 63 and 67, its
   99th per cent step 7.47 and 7.45 ms to 6.50 and 6.54, and the collector's share of one body
   standing 0.9 % to 0.3.
+- **The hands' reach**: on the reach's bed (`node research/reach-bed.mjs`'s 144 solves, 11470
+  passes, each solved alone with a work made for it), the least of nine plays, 8.15 and 8.55 us a
+  pass before and 3.26 and 3.17 after, every answer the same to the bit. In the bout its solves
+  come with the blows: the 99th per cent step 6.50 and 6.54 ms to 2.92 and 2.88, the longest 8.38
+  and 9.21 to 4.20 and 4.05, and `solveReach` with what it calls 6.1 and 6.4 % of the bout to 2.8
+  and 2.7. The bout from 2 s to its verdict allocates 283 KiB a step against 495 (`--sites`); the
+  two fixtures, which hold no reach, read as they did.
 
 ## The crypt's plan in the step
 

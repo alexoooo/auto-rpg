@@ -1,14 +1,14 @@
 /**
  * **The flat solves answer as `linalg.ts` does, to the bit.** Each of `flat.ts`'s solves is held to
- * its twin on seeded systems of 1 to 14 unknowns, every entry the same by `Object.is` (a `-0` is
+ * its twin on seeded systems of 1 to 14 unknowns (Cramer's rule, of three), every entry the same by `Object.is` (a `-0` is
  * not a `0`, a NaN is a NaN): integers with ties in a column, so a pivot's choice shows; zeros on
  * a diagonal; a zero column, whose sums are of `-0`s; a singular system; bounds that all bind, and
  * bounds none does. One work, made for the largest, answers every size in turn as a fresh one does.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { boundedLeastSquares, fixedSolve, solveLinear } from "../src/core/math/linalg.ts";
-import { boundedLeastSquaresTo, boundedWork, fixedSolveTo, fixedWork, linearWork, solveLinearTo } from "../src/core/math/flat.ts";
+import { boundedLeastSquares, fixedSolve, solve3, solveLinear } from "../src/core/math/linalg.ts";
+import { boundedLeastSquaresTo, boundedWork, fixedSolveTo, fixedWork, linearWork, solve3To, solveLinearTo } from "../src/core/math/flat.ts";
 
 /** A seeded stream in [0, 1): mulberry32. */
 function stream(seed) {
@@ -59,6 +59,15 @@ test("solve_linear_to_answers_as_solve_linear", () => {
     if (kind === "ties" && n > 2) pivoted++;
   }
   assert.ok(pivoted > 10);
+});
+
+test("solve_3_to_answers_as_solve_3", () => {
+  const random = stream(4);
+  for (let c = 0; c < CASES; c++) {
+    const kind = KINDS[c % KINDS.length], A = matrix(random, 3, 3, kind), b = vector(random, 3), a = flat(A);
+    same(solve3To(a, b, new Float64Array(3)), solve3(A, b), `case ${c} (${kind})`);
+    same(a, A.flat(), `case ${c}: A is left as it was`);
+  }
 });
 
 test("fixed_solve_to_answers_as_fixed_solve", () => {

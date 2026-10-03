@@ -2,8 +2,7 @@ import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { BuiltBody, BuiltJoint, BuiltSegment } from "../build/build-body.ts";
 import { motionAxesToRef, rotationOfToRef, turningToRef } from "../build/joint-state.ts";
 import type { Vec3 } from "../spec/quantity.ts";
-import { cross, dot, normalize, orthogonalTo } from "../spec/vec.ts";
-import { solve3, solveLinear } from "../math/linalg.ts";
+import { linearWork, solve3To, solveLinearTo, type LinearWork } from "../math/flat.ts";
 import { hypot } from "../math/real.ts";
 
 /**
@@ -33,8 +32,12 @@ const scratch = { a: new Quaternion(), b: new Quaternion(), d: new Quaternion(),
 
 /** `joint`'s rotation at `angles` (each freedom's, its own sense), body frame: `jointAngles` undone. */
 export function rotationAtToRef(joint: BuiltJoint, angles: readonly number[], out: Quaternion): Quaternion {
-  const { dofs } = joint, engine = (k: number) => (k < dofs.length ? dofs[k]!.sign * angles[k]! : 0);
-  return rotationOfToRef(joint.axes, engine(0), engine(1), engine(2), out);
+  return rotationOfToRef(joint.axes, engineAngle(joint, angles, 0), engineAngle(joint, angles, 1), engineAngle(joint, angles, 2), out);
+}
+
+/** Freedom `k` of `joint` at `angles` in the engine's sense, a locked one at zero. */
+function engineAngle(joint: BuiltJoint, angles: readonly number[], k: number): number {
+  return k < joint.dofs.length ? joint.dofs[k]!.sign * angles[k]! : 0;
 }
 
 /**
@@ -58,21 +61,29 @@ export function pointAtToRef(chain: readonly BuiltJoint[], angles: readonly (rea
  * What a walk of a chain leaves (`walkTo`): the turn of everything before each joint; each
  * joint's centre as the chain stands; the turn of the chain's last segment; and, for each freedom
  * asked for, its spin: the axis, root's frame, that everything beyond its joint turns about for a
- * unit of its rate. Made once and grown to the longest chain walked: a walk writes every entry it
- * or its reader reads.
+ * unit of its rate. Grown to the longest chain walked in it: a walk writes every entry it or its
+ * reader reads.
  */
-const walked = {
-  before: [] as Quaternion[], centre: [] as Vector3[], last: new Quaternion(), spin: [] as Vector3[],
-  axes: [] as [number, number, number][], turning: [] as number[][],
-};
+interface ChainWalk {
+  readonly before: Quaternion[];
+  readonly centre: Vector3[];
+  readonly last: Quaternion;
+  readonly spin: Vector3[];
+  readonly axes: [number, number, number][];
+  readonly turning: number[][];
+}
+
+function chainWalk(): ChainWalk {
+  return { before: [], centre: [], last: new Quaternion(), spin: [], axes: [], turning: [] };
+}
 
 /**
- * Walk `chain` at `angles`, into `walked`. A freedom's spin is its joint's axes (`motionAxesToRef`,
+ * Walk `chain` at `angles`, into `walk`. A freedom's spin is its joint's axes (`motionAxesToRef`,
  * which leans a two-freedom joint's as its lock asks) summed by what each freedom's speed is for a
  * unit of this one's rate (`turningToRef`), turned by everything before the joint.
  */
-function walkTo(chain: readonly BuiltJoint[], angles: readonly (readonly number[])[], free: readonly ReachFreedom[]): void {
-  const { before, centre, last, spin, axes, turning } = walked;
+function walkTo(walk: ChainWalk, chain: readonly BuiltJoint[], angles: readonly (readonly number[])[], free: readonly ReachFreedom[]): void {
+  const { before, centre, last, spin, axes, turning } = walk;
   last.copyFromFloats(0, 0, 0, 1);
   for (let j = 0; j < chain.length; j++) {
     const joint = chain[j]!, at = (centre[j] ??= new Vector3()), c = joint.spec.centre.value;
@@ -102,16 +113,16 @@ function walkTo(chain: readonly BuiltJoint[], angles: readonly (readonly number[
   }
 }
 
-/** Where `point` of the last segment of the chain last walked is, root's frame: `pointAtToRef`'s answer, by the walk's sums. */
-function walkedPointToRef(chain: readonly BuiltJoint[], point: Vec3, out: Vector3): Vector3 {
+/** Where `point` of the last segment of the chain walked into `walk` is, root's frame: `pointAtToRef`'s answer, by the walk's sums. */
+function walkedPointToRef(walk: ChainWalk, chain: readonly BuiltJoint[], point: Vec3, out: Vector3): Vector3 {
   const end = chain.length - 1, c = chain[end]!.spec.centre.value;
-  scratch.v.set(point[0] - c[0], point[1] - c[1], point[2] - c[2]).applyRotationQuaternionToRef(walked.last, scratch.v);
-  return out.copyFrom(walked.centre[end]!).addInPlace(scratch.v);
+  scratch.v.set(point[0] - c[0], point[1] - c[1], point[2] - c[2]).applyRotationQuaternionToRef(walk.last, scratch.v);
+  return out.copyFrom(walk.centre[end]!).addInPlace(scratch.v);
 }
 
 /** How a point at `at` moves for a unit of the walked chain's freedom `c` of joint `joint`: its spin crossed with the arm from the joint's centre, into `out` from `from` on. */
-function walkedColumn(c: number, joint: number, at: Vector3, out: number[], from: number): void {
-  const w = walked.spin[c]!, centre = walked.centre[joint]!, x = at.x - centre.x, y = at.y - centre.y, z = at.z - centre.z;
+function walkedColumn(walk: ChainWalk, c: number, joint: number, at: Vector3, out: number[] | Float64Array, from: number): void {
+  const w = walk.spin[c]!, centre = walk.centre[joint]!, x = at.x - centre.x, y = at.y - centre.y, z = at.z - centre.z;
   out[from] = w.y * z - w.z * y; out[from + 1] = w.z * x - w.x * z; out[from + 2] = w.x * y - w.y * x;
 }
 
@@ -123,10 +134,11 @@ function walkedColumn(c: number, joint: number, at: Vector3, out: number[], from
  */
 export function reachJacobianTo(out: number[][], chain: readonly BuiltJoint[], angles: readonly (readonly number[])[],
   free: readonly ReachFreedom[], point: Vec3): number[][] {
-  walkTo(chain, angles, free);
-  const at = walkedPointToRef(chain, point, scratch.at);
+  const walk = chainWalk();
+  walkTo(walk, chain, angles, free);
+  const at = walkedPointToRef(walk, chain, point, scratch.at);
   out.length = free.length;
-  for (let c = 0; c < free.length; c++) walkedColumn(c, free[c]!.joint, at, (out[c] ??= []), 0);
+  for (let c = 0; c < free.length; c++) walkedColumn(walk, c, free[c]!.joint, at, (out[c] ??= []), 0);
   return out;
 }
 
@@ -190,10 +202,57 @@ interface ReachFreedom {
 /** How a solve ended: the passes it took, and whether it stopped of itself (no angle moved `IK_TOLERANCE` in its last pass) or at `IK_PASSES`. */
 export interface ReachEnd { passes: number; still: boolean }
 
+/** The rows a reach of `tasks` tasks asks: one point's three, and a second point's two more. */
+function rowsOf(tasks: number): number {
+  return tasks === 1 ? 3 : 5;
+}
+
+/**
+ * What `solveReach` works in, for up to `freedoms` freedoms: the walk of the chain; each freedom's
+ * column of J (`stride` entries, the most rows a reach asks), range, whether it is stuck, its step
+ * and the posture's pull on it; the tasks' errors; J J' and the system a pass solves (rows by rows,
+ * end to end); J times the pull; the two answers; the line from the first point to the second, a
+ * direction square to it, and the second point's column. A solve writes every entry it reads.
+ */
+export interface ReachWork {
+  readonly freedoms: number;
+  readonly stride: number;
+  readonly walk: ChainWalk;
+  readonly J: Float64Array;
+  readonly least: Float64Array;
+  readonly most: Float64Array;
+  readonly stuck: Uint8Array;
+  readonly steps: Float64Array;
+  readonly toward: Float64Array;
+  readonly e: Float64Array;
+  readonly JJ: Float64Array;
+  readonly A: Float64Array;
+  readonly Jp: Float64Array;
+  readonly y: Float64Array;
+  readonly z: Float64Array;
+  readonly line: Float64Array;
+  readonly square: Float64Array;
+  readonly column: Float64Array;
+  readonly linear: LinearWork;
+  readonly at: Vector3;
+  readonly at2: Vector3;
+}
+
+export function reachWork(freedoms: number): ReachWork {
+  const stride = rowsOf(2);
+  return {
+    freedoms, stride, walk: chainWalk(), J: new Float64Array(freedoms * stride), least: new Float64Array(freedoms), most: new Float64Array(freedoms),
+    stuck: new Uint8Array(freedoms), steps: new Float64Array(freedoms), toward: new Float64Array(freedoms), e: new Float64Array(stride),
+    JJ: new Float64Array(stride * stride), A: new Float64Array(stride * stride), Jp: new Float64Array(stride), y: new Float64Array(stride), z: new Float64Array(stride),
+    line: new Float64Array(3), square: new Float64Array(3), column: new Float64Array(3), linear: linearWork(stride), at: new Vector3(), at2: new Vector3(),
+  };
+}
+
 /**
  * The angles that carry out `tasks`, moving only `free` and holding every other angle in
  * `angles` as given; `angles` is the start and is overwritten with the answer. Returns the
- * greatest distance left over the tasks, m, and says in `end`, if given, how it ended.
+ * greatest distance left over the tasks, m, and says in `end`, if given, how it ended. It works
+ * in `work`, made for at least as many freedoms as `free`.
  *
  * One task puts its point at its target: three rows. Two are two points of one rigid body, which
  * can be asked five things, not six: the first point's place, and the second's error taken across
@@ -213,43 +272,45 @@ export interface ReachEnd { passes: number; still: boolean }
  * has no rotation.
  */
 export function solveReach(chain: readonly BuiltJoint[], angles: number[][], free: readonly ReachFreedom[], tasks: readonly ReachTask[],
-  end?: ReachEnd): number {
+  end?: ReachEnd, work: ReachWork = reachWork(free.length)): number {
   if (tasks.length !== 1 && tasks.length !== 2) throw new Error(`a reach is one task or two, not ${tasks.length}`);
+  const n = free.length;
+  if (n > work.freedoms) throw new Error(`a reach of ${n} freedoms in a work made for ${work.freedoms}`);
   const [first, second] = tasks as readonly [ReachTask, ReachTask?];
-  const n = free.length, rows = Array.from({ length: second ? 5 : 3 }, (_, r) => r), solve = second ? solveLinear : solve3;
-  const at = new Vector3(), at2 = new Vector3(), column: [number, number, number] = [0, 0, 0];
-  const J = free.map(() => rows.map(() => 0));
+  const rows = rowsOf(tasks.length), { stride, walk, J, least, most, stuck, steps, toward, e, JJ, A, Jp, y, z, line, square, column, at, at2 } = work;
   // Each freedom's range, kept short of the half turn its joint's measure reads within.
-  const least = free.map((f) => Math.max(f.min, IK_SHORT - Math.PI)), most = free.map((f) => Math.min(f.max, Math.PI - IK_SHORT));
-  /** Freedom k's column of J against `x`, summed in the rows' order. */
-  const across = (k: number, x: readonly number[]): number => {
-    let sum = J[k]![0]! * x[0]!;
-    for (let r = 1; r < rows.length; r++) sum += J[k]![r]! * x[r]!;
-    return sum;
-  };
+  for (let k = 0; k < n; k++) {
+    least[k] = Math.max(free[k]!.min, IK_SHORT - Math.PI);
+    most[k] = Math.min(free[k]!.max, Math.PI - IK_SHORT);
+  }
   let left = Infinity, taken = 0, still = false;
   while (taken < IK_PASSES && !still) {
     taken++;
-    walkTo(chain, angles, free);
-    walkedPointToRef(chain, first.point, at);
-    const e = [first.target[0] - at.x, first.target[1] - at.y, first.target[2] - at.z];
+    walkTo(walk, chain, angles, free);
+    walkedPointToRef(walk, chain, first.point, at);
+    e[0] = first.target[0] - at.x; e[1] = first.target[1] - at.y; e[2] = first.target[2] - at.z;
     left = hypot(e[0]!, e[1]!, e[2]!);
-    // The second point's two directions: square to the line from the first point to it, as they lie.
-    let a: Vec3 | null = null, b: Vec3 | null = null;
+    // The second point's two directions, a and b: square to the line from the first point to it, as they lie.
+    let ax = 0, ay = 0, az = 0, bx = 0, by = 0, bz = 0;
     if (second) {
-      walkedPointToRef(chain, second.point, at2);
-      const line = normalize([at2.x - at.x, at2.y - at.y, at2.z - at.z]);
-      a = orthogonalTo(Math.abs(line[1]) < Math.abs(line[0]) ? [0, 1, 0] : [1, 0, 0], line);
-      b = cross(line, a);
-      const e2: Vec3 = [second.target[0] - at2.x, second.target[1] - at2.y, second.target[2] - at2.z];
-      e.push(dot(e2, a), dot(e2, b));
-      left = Math.max(left, hypot(e2[0], e2[1], e2[2]));
+      walkedPointToRef(walk, chain, second.point, at2);
+      unitTo(at2.x - at.x, at2.y - at.y, at2.z - at.z, line);
+      const lx = line[0]!, ly = line[1]!, lz = line[2]!;
+      // The axis the line leans least toward, less its part along the line.
+      const flat = Math.abs(ly) < Math.abs(lx), px = flat ? 0 : 1, py = flat ? 1 : 0, pz = 0, along = px * lx + py * ly + pz * lz;
+      unitTo(px - lx * along, py - ly * along, pz - lz * along, square);
+      ax = square[0]!; ay = square[1]!; az = square[2]!;
+      bx = ly * az - lz * ay; by = lz * ax - lx * az; bz = lx * ay - ly * ax;
+      const ex = second.target[0] - at2.x, ey = second.target[1] - at2.y, ez = second.target[2] - at2.z;
+      e[3] = ex * ax + ey * ay + ez * az; e[4] = ex * bx + ey * by + ez * bz;
+      left = Math.max(left, hypot(ex, ey, ez));
     }
     for (let c = 0; c < n; c++) {
-      walkedColumn(c, free[c]!.joint, at, J[c]!, 0);
+      walkedColumn(walk, c, free[c]!.joint, at, J, c * stride);
       if (second) {
-        walkedColumn(c, free[c]!.joint, at2, column, 0);
-        J[c]![3] = dot(column, a!); J[c]![4] = dot(column, b!);
+        walkedColumn(walk, c, free[c]!.joint, at2, column, 0);
+        J[c * stride + 3] = column[0]! * ax + column[1]! * ay + column[2]! * az;
+        J[c * stride + 4] = column[0]! * bx + column[1]! * by + column[2]! * bz;
       }
     }
     // The step is J' (J J' + damping^2 I)^-1 e, and the posture's pull is projected off what J
@@ -262,33 +323,44 @@ export function solveReach(chain: readonly BuiltJoint[], angles: number[][], fre
     // the step is found again without it. Left in and clamped after, the others move as though it
     // had moved, the posture's pull leaks into the tasks by its share, and the solve settles
     // short of a place the arm can reach.
-    const stuck = free.map(() => false);
-    let steps: number[] = [];
+    stuck.fill(0, 0, n);
     for (let moving = n; ;) {
-      const JJ = rows.map((r) => rows.map((c) => free.reduce((s, _, k) => s + J[k]![r]! * J[k]![c]!, 0)));
-      const A = JJ.map((row, r) => row.map((v, c) => v + (r === c ? IK_DAMPING * IK_DAMPING : 0)));
-      const y = solve(A, e);
-      if (moving > rows.length) {
-        const toward = free.map((f, k) => stuck[k] ? 0 : IK_POSTURE_PULL * (f.preferred - angles[f.joint]![f.k]!));
-        const Jp = rows.map((r) => free.reduce((s, _, k) => s + J[k]![r]! * toward[k]!, 0));
-        const z = solve(JJ.map((row, r) => row.map((v, c) => v + (r === c ? IK_BLIND * IK_BLIND : 0))), Jp);
-        steps = free.map((_, k) => across(k, y) + toward[k]! - across(k, z));
-      } else steps = free.map((_, k) => across(k, y));
+      for (let r = 0; r < rows; r++) for (let c = 0; c < rows; c++) {
+        let sum = 0;
+        for (let k = 0; k < n; k++) sum = sum + J[k * stride + r]! * J[k * stride + c]!;
+        JJ[r * rows + c] = sum;
+        A[r * rows + c] = sum + (r === c ? IK_DAMPING * IK_DAMPING : 0);
+      }
+      solveTo(work, rows, A, e, y);
+      if (moving > rows) {
+        for (let k = 0; k < n; k++) toward[k] = stuck[k] ? 0 : IK_POSTURE_PULL * (free[k]!.preferred - angles[free[k]!.joint]![free[k]!.k]!);
+        for (let r = 0; r < rows; r++) {
+          let sum = 0;
+          for (let k = 0; k < n; k++) sum = sum + J[k * stride + r]! * toward[k]!;
+          Jp[r] = sum;
+        }
+        for (let r = 0; r < rows; r++) for (let c = 0; c < rows; c++) A[r * rows + c] = JJ[r * rows + c]! + (r === c ? IK_BLIND * IK_BLIND : 0);
+        solveTo(work, rows, A, Jp, z);
+        for (let k = 0; k < n; k++) steps[k] = across(J, stride, k, y, rows) + toward[k]! - across(J, stride, k, z, rows);
+      } else for (let k = 0; k < n; k++) steps[k] = across(J, stride, k, y, rows);
       let more = false;
       for (let k = 0; k < n; k++) {
         if (stuck[k]) continue;
         const angle = angles[free[k]!.joint]![free[k]!.k]!;
         if ((angle <= least[k]! && steps[k]! < 0) || (angle >= most[k]! && steps[k]! > 0)) {
-          stuck[k] = more = true;
+          stuck[k] = 1;
+          more = true;
           moving--;
-          for (const r of rows) J[k]![r] = 0;
+          for (let r = 0; r < rows; r++) J[k * stride + r] = 0;
         }
       }
       if (!more) break;
     }
     // A pass turns no angle more than `IK_TURN`, the whole step scaled alike, so a target out of
     // reach draws the arm straight toward it rather than across the singularity at full stretch.
-    const scale = Math.min(1, IK_TURN / Math.max(...steps.map(Math.abs)));
+    let biggest = -Infinity;
+    for (let k = 0; k < n; k++) biggest = Math.max(biggest, Math.abs(steps[k]!));
+    const scale = Math.min(1, IK_TURN / biggest);
     let largest = 0;
     for (let k = 0; k < n; k++) {
       const f = free[k]!, row = angles[f.joint]!;
@@ -302,6 +374,27 @@ export function solveReach(chain: readonly BuiltJoint[], angles: number[][], fre
   }
   if (end) { end.passes = taken; end.still = still; }
   return left;
+}
+
+/** `(x, y, z)` scaled to a unit, into `out`: `normalize`'s arithmetic (`src/core/spec/vec.ts`). */
+function unitTo(x: number, y: number, z: number, out: Float64Array): void {
+  const length = hypot(x, y, z);
+  if (!(length > 0)) throw new Error("cannot normalize a zero vector");
+  const s = 1 / length;
+  out[0] = x * s; out[1] = y * s; out[2] = z * s;
+}
+
+/** Freedom `k`'s column of `J` against `x`, summed in the rows' order. */
+function across(J: Float64Array, stride: number, k: number, x: Float64Array, rows: number): number {
+  let sum = J[k * stride]! * x[0]!;
+  for (let r = 1; r < rows; r++) sum += J[k * stride + r]! * x[r]!;
+  return sum;
+}
+
+/** `A x = y` of `rows` rows (`A` its rows end to end), into `x`: Cramer's rule for three (`solve3To`), elimination for more. */
+function solveTo(work: ReachWork, rows: number, A: Float64Array, y: Float64Array, x: Float64Array): void {
+  if (rows === 3) solve3To(A, y, x);
+  else solveLinearTo(work.linear, A, y, rows, x);
 }
 
 /**

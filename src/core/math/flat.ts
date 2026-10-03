@@ -56,6 +56,20 @@ export function solveLinearTo(work: LinearWork, A: ArrayLike<number>, y: ArrayLi
   return solveAugmentedTo(K, n, work.order, x);
 }
 
+/** `solve3` of `A` (3 by 3, its rows end to end) and `b`, into `x`: Cramer's rule, each determinant by its first row. */
+export function solve3To(A: ArrayLike<number>, b: ArrayLike<number>, x: Float64Array): Float64Array {
+  const det = det3(A[0]!, A[1]!, A[2]!, A[3]!, A[4]!, A[5]!, A[6]!, A[7]!, A[8]!);
+  x[0] = det3(b[0]!, A[1]!, A[2]!, b[1]!, A[4]!, A[5]!, b[2]!, A[7]!, A[8]!) / det;
+  x[1] = det3(A[0]!, b[0]!, A[2]!, A[3]!, b[1]!, A[5]!, A[6]!, b[2]!, A[8]!) / det;
+  x[2] = det3(A[0]!, A[1]!, b[0]!, A[3]!, A[4]!, b[1]!, A[6]!, A[7]!, b[2]!) / det;
+  return x;
+}
+
+/** The determinant of the rows (a0 a1 a2), (b0 b1 b2), (c0 c1 c2), by the first row. */
+function det3(a0: number, a1: number, a2: number, b0: number, b1: number, b2: number, c0: number, c1: number, c2: number): number {
+  return a0 * (b1 * c2 - b2 * c1) - a1 * (b0 * c2 - b2 * c0) + a2 * (b0 * c1 - b1 * c0);
+}
+
 /** What `fixedSolveTo` works in, for up to `rows` rows and `columns` columns. */
 export interface FixedWork {
   readonly rows: number;
