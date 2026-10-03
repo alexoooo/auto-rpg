@@ -1,10 +1,10 @@
 /**
  * What a step allocates, and what the collector takes of it, as bodies are added: `--bodies` of one
  * model with the club, 3 m apart on a ground in one core world, each under the command layers with
- * an order to stand (as `body-cost.mjs` stands them). A row is one count in a process of its own,
- * so one count's heap is not the next one's: `--steps` steps timed after 3 s, with every collection
- * in them (`PerformanceObserver`), then 240 steps under the sampling heap profiler
- * (`allocatedIn`, `tests/harness/garbage.mjs`).
+ * an order to stand (`standBodies`, `tests/harness/garbage.mjs`). A row is one count in a process
+ * of its own, so one count's heap is not the next one's: `--steps` steps timed after 3 s, with
+ * every collection in them (`PerformanceObserver`), then 240 steps under the sampling heap profiler
+ * (`allocatedIn`).
  *
  *   node research/step-garbage.mjs [--model crypt-skeleton] [--bodies 2,8,16,32,48] [--steps 1200]
  *
@@ -22,18 +22,8 @@ import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import v8 from "node:v8";
 import { Logger } from "@babylonjs/core/Misc/logger.js";
-import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
-import { Scene } from "@babylonjs/core/scene.js";
-import { createBody, SERVO_SECONDS } from "../src/core/body.ts";
-import { buildBody } from "../src/core/build/build-body.ts";
-import { armed } from "../src/core/human/grip.ts";
-import { modelSpec } from "../src/core/human/spec.ts";
-import { woodenClub } from "../src/core/items/club.ts";
-import { standIntent } from "../src/core/mind/intent.ts";
-import { driveBy } from "../src/core/mind/tactics.ts";
-import { createWorld } from "../src/core/world.ts";
-import { CORE_ENGINE, freshEngine } from "../tests/harness/core-stand.mjs";
-import { allocatedIn } from "../tests/harness/garbage.mjs";
+import { CORE_ENGINE } from "../tests/harness/core-stand.mjs";
+import { allocatedIn, standBodies } from "../tests/harness/garbage.mjs";
 import { buildBout } from "./bout.mjs";
 
 const { values } = parseArgs({ options: {
@@ -45,23 +35,9 @@ const steps = Number(values.steps), SAMPLED = 240, MIB = 1048576;
 // Babylon greets every engine it makes on the console.
 Logger.LogLevels = Logger.NoneLogLevel;
 
-/** `count` bodies standing on a square grid, 3 m apart, each driven to stand. */
-async function standing(count) {
-  const spec = armed(modelSpec(values.model), "right", woodenClub());
-  const scene = new Scene(new NullEngine()), world = createWorld(scene, await freshEngine());
-  world.physics.addFixedBox([0, -0.5, 0], [200, 1, 200]);
-  const side = Math.ceil(Math.sqrt(count));
-  const bodies = Array.from({ length: count }, (_, i) => {
-    const body = createBody(buildBody(spec, world, { position: [3 * (i % side), 0, 3 * Math.floor(i / side)] }), world, { servoSeconds: SERVO_SECONDS });
-    driveBy(body, { name: "stand", decide: () => standIntent(0) });
-    return body;
-  });
-  return { world, bodies };
-}
-
 /** One count's row: the steps timed with the collections in them, then the steps sampled. */
 async function row(count) {
-  const { world, bodies } = await standing(count);
+  const { world, bodies } = await standBodies(count, values.model);
   world.step(3 * world.hz);
   const collections = [];
   const observer = new PerformanceObserver((list) => { for (const e of list.getEntries()) collections.push({ at: e.startTime, ms: e.duration, kind: e.detail?.kind }); });
