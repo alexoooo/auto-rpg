@@ -1693,3 +1693,35 @@ jittered search's best 0.97 and lands all sixteen.
   and nearly nothing at 480 and 1920, where the recipe keeps 1.12 and 0.86. A score averaged over
   offsets that move every generation rewards what the noise favours, not what converges.
 - The 36 searches with jitter are not run.
+
+### Leaning and following through
+
+`node research/strike-robustness.mjs --offsets "" --ways along --hz 120,480` (Node core stand,
+Rapier, four throws a reading as in [robustness](#robustness)), on a strike skill that could lean
+a recipe or follow it through: the twelve recipes at their place and at nothing, each leaning, or
+each followed through, so. A lean set the stance's centre of mass (`StanceGoal.centre`) that far
+from the soles' middle, ahead and to the thrower's right along the steered heading, from the
+commit to the end of the pushes; a follow-through braked each freedom the recipe moves from the
+rate it had (read from its angle a step before), at a time constant of the brake, for its seconds
+after the pushes, before the guard took the arm back. Neither is kept. The skeleton's recipes are
+those searched on its wider limbs, thrown on its present ones. Done is the mean at the place over
+the twelve, HP; steps and falls are over the twelve recipes' 48 throws at nothing at each rate.
+
+| Setting | Done at the place | 120 Hz: throws that stepped | steps | down | 480 Hz: throws that stepped | steps | down |
+|---|---|---|---|---|---|---|---|
+| as they are | 0.50 | 23 | 40 | 2 | 21 | 65 | 3 |
+| lean 4 cm ahead | 0.47 | 24 | 88 | 10 | 26 | 98 | 10 |
+| lean 4 cm back | 0.39 | 46 | 119 | 10 | 41 | 79 | 2 |
+| lean 4 cm right | 0.42 | 33 | 64 | 4 | 24 | 42 | 1 |
+| lean 4 cm left | 0.44 | 20 | 51 | 5 | 22 | 47 | 2 |
+| follow 0.2 s, brake 0.2 s | 0.50 | 28 | 67 | 3 | 20 | 66 | 8 |
+| follow 0.4 s, brake 0.2 s | 0.50 | 27 | 62 | 1 | 20 | 65 | 10 |
+| follow 0.6 s, brake 0.2 s | 0.50 | 27 | 54 | 2 | 20 | 59 | 8 |
+| follow 0.3 s, brake 0.1 s | 0.50 | 28 | 62 | 3 | 20 | 60 | 5 |
+| follow 0.3 s, brake 0.3 s | 0.50 | 26 | 61 | 4 | 24 | 80 | 11 |
+
+- **No lean the same for every recipe keeps a body on its feet**: each costs a twentieth to a
+  fifth of what the blows do, and each steps more at 120 Hz. Leaning right takes a third off the
+  steps at 480 Hz and adds half again at 120.
+- **A braked follow-through makes a body step more**, at every length and brake tried: the guard
+  taking the arm back as the pushes end steps least. Why is not measured.

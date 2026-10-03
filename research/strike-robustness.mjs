@@ -38,7 +38,7 @@ if (isMainThread) {
     offsets: { type: "string", default: "0.06,0.1,0.12" }, ways: { type: "string", default: "along,across" }, hz: { type: "string", default: "120,480" }, trials: { type: "string", default: "4" },
     only: { type: "string" }, seen: { type: "boolean", default: false }, steer: { type: "string" }, workers: { type: "string" }, save: { type: "string" }, load: { type: "string" },
   } });
-  const ways = values.ways.split(","), sizes = values.offsets.split(",").map(Number), rates = values.hz.split(",").map(Number), trials = Number(values.trials);
+  const ways = values.ways.split(","), sizes = values.offsets.split(",").filter(Boolean).map(Number), rates = values.hz.split(",").map(Number), trials = Number(values.trials);
   const offsets = [0, ...sizes.flatMap((d) => [-d, d])].sort((a, b) => a - b);
   const asset = JSON.parse(await readFile(ASSET, "utf8"));
   const cell = (recipe) => `${recipe.model}/${recipe.held}/${recipe.band}`;
