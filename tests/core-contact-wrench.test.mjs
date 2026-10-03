@@ -10,15 +10,18 @@
  * judged by its cosine with the step, 34 of those 20000 come back NaN. Points: three give every
  * wrench whose pressure falls inside them, each a force and no moment, and nothing past their
  * limits; and a sole among points shares with them as their levers say. Patches given parts bear
- * by them where the wrench leaves the split open. A patch's corners (`patchCorners`) are where its
- * centre of pressure may go.
+ * by them where the wrench leaves the split open. A work used for fewer patches than it is made
+ * for answers to the bit as one made for them, whatever it was used for before. A patch's corners
+ * (`patchCorners`) are where its centre of pressure may go.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import { patchCorners, shareGroundWrench } from "../src/core/control/contact-wrench.ts";
+import { groundWrenchWork, patchCorners, shareGroundWrench } from "../src/core/control/contact-wrench.ts";
 
 const MU = 0.5, PYRAMID = MU / Math.SQRT2;
+/** One work for every share below, made for the most patches any asks. */
+const WORK = groundWrenchWork(4, 0);
 const out = (k) => Array.from({ length: k }, () => ({ force: new Vector3(), moment: new Vector3() }));
 const missOf = () => ({ force: new Vector3(), moment: new Vector3() });
 /** A sole's frame: along it, across it (up x along), and its limits read in it. */
@@ -56,7 +59,7 @@ test("every wrench a sole's corners can make inside the friction pyramid is give
       moment.addInPlace(Vector3.Cross(at.subtract(centre), f));
     }
     const shares = out(1), miss = missOf();
-    shareGroundWrench([sole], centre, force, moment, MU, 0.9, shares, miss);
+    shareGroundWrench(WORK, [sole], centre, force, moment, MU, 0.9, shares, miss);
     worst = Math.max(worst, miss.force.length() / force.length(), miss.moment.length() / (0.9 * force.length()));
     largestTwist = Math.max(largestTwist, Math.abs(shares[0].moment.y) / force.y);
   }
@@ -79,7 +82,7 @@ test("a twist, a centre of pressure or a pull past the sole is not given, and wh
   ];
   for (const [what, force, moment, reachable] of cases) {
     const shares = out(1), miss = missOf();
-    shareGroundWrench([sole], sole.middle, force, moment, MU, 0.9, shares, miss);
+    shareGroundWrench(WORK, [sole], sole.middle, force, moment, MU, 0.9, shares, miss);
     const missed = miss.force.length() + miss.moment.length() / 0.9, over = outside(sole, shares[0]);
     assert.ok(over < 1e-6 * (1 + force.length()), `${what}: the share is outside the sole's limits by ${over}`);
     if (reachable) assert.ok(missed < 1e-3, `${what}: missed by ${missed}`);
@@ -97,7 +100,7 @@ test("a sole that bears nothing gives nothing, twist included; a recorded share 
   const centre = new Vector3(-0.0033824566134876615, 0.8845580465087064, 0.05188870879901126);
   const force = new Vector3(176.1958980324399, 521.7417948696399, -191.1676020859362), moment = new Vector3(29.989128553603337, -3.051744522216977, -8.73631347122803);
   const shares = out(2), miss = missOf();
-  shareGroundWrench(soles, centre, force, moment, MU, 0.8895402691393058, shares, miss);
+  shareGroundWrench(WORK, soles, centre, force, moment, MU, 0.8895402691393058, shares, miss);
   const values = shares.flatMap((s) => [...s.force.asArray(), ...s.moment.asArray()]);
   assert.ok(values.every(Number.isFinite), `the share came back ${values}`);
   soles.forEach((sole, k) => assert.ok(outside(sole, shares[k]) < 1e-6 * force.length(), `sole ${k} is outside its limits by ${outside(sole, shares[k])}`));
@@ -117,7 +120,7 @@ test("a share whose last step is rounding comes back finite, as do 20000 two-sol
   const centre = new Vector3(0.03070985993772695, 0.882219516156343, 1.827376574952522);
   const force = new Vector3(89.19496503463537, 559.2146823551765, -92.52064792619704), moment = new Vector3(-14.566345399287933, -26.90184635293252, 19.225789044201118);
   const shares = out(2), miss = missOf();
-  shareGroundWrench(soles, centre, force, moment, MU, 0.8875668564951684, shares, miss);
+  shareGroundWrench(WORK, soles, centre, force, moment, MU, 0.8875668564951684, shares, miss);
   const values = shares.flatMap((s) => [...s.force.asArray(), ...s.moment.asArray()]);
   assert.ok(values.every(Number.isFinite), `the share came back ${values}`);
   soles.forEach((sole, k) => assert.ok(outside(sole, shares[k]) < 1e-6 * force.length(), `sole ${k} is outside its limits by ${outside(sole, shares[k])}`));
@@ -131,7 +134,7 @@ test("a share whose last step is rounding comes back finite, as do 20000 two-sol
     const at = new Vector3(0.1 * (random() - 0.5), 0.88, 0.1 * (random() - 0.5));
     const f = new Vector3(300 * (random() - 0.5), 600 * random(), 300 * (random() - 0.5)), m = new Vector3(80 * (random() - 0.5), 60 * (random() - 0.5), 80 * (random() - 0.5));
     const given = out(2);
-    shareGroundWrench(pair, at, f, m, MU, 0.88, given);
+    shareGroundWrench(WORK, pair, at, f, m, MU, 0.88, given);
     if (!given.flatMap((s) => [...s.force.asArray(), ...s.moment.asArray()]).every(Number.isFinite)) { broken++; continue; }
     pair.forEach((sole, k) => { worst = Math.max(worst, outside(sole, given[k]) / (1 + f.length())); });
   }
@@ -149,7 +152,7 @@ test("three points give every wrench whose pressure falls inside them, and no mo
     const shares = out(3), miss = missOf();
     // A share is written whole: what its moment held before is gone.
     for (const share of shares) share.moment.setAll(7);
-    shareGroundWrench(points, centre, force, moment, MU, lever, shares, miss);
+    shareGroundWrench(WORK, points, centre, force, moment, MU, lever, shares, miss);
     return { shares, miss, over: Math.max(...shares.map(outsidePoint)) };
   };
   let seed = 5, worst = 0, level = 0, least = Infinity;
@@ -194,7 +197,7 @@ test("a sole and two points share as their levers do", () => {
   const middle = new Vector3(0, 0, (0.25 - 0.3 + 0.25) / 3), centre = new Vector3(0.01, 0.6, 0.02), weight = 600;
   const force = new Vector3(0, weight, 0), moment = Vector3.Cross(middle.subtract(centre), force);
   const shares = out(3), miss = missOf();
-  shareGroundWrench(patches, centre, force, moment, MU, 0.6, shares, miss);
+  shareGroundWrench(WORK, patches, centre, force, moment, MU, 0.6, shares, miss);
   assert.ok(miss.force.length() < 1e-5 * weight && miss.moment.length() < 1e-5 * weight, `missed ${miss.force.length()} N, ${miss.moment.length()} N m`);
   shares.forEach((share, k) => assert.ok(Math.abs(share.force.y - weight / 3) < 1e-5 * weight, `patch ${k} bears ${share.force.y} N of ${weight}`));
   assert.ok(Math.abs(shares[0].force.y + shares[1].force.y + shares[2].force.y - weight) < 1e-5 * weight);
@@ -204,7 +207,7 @@ test("a sole and two points share as their levers do", () => {
 
   // Behind the sole's middle, 8 cm toward its heel: no point can help, and the sole gives it alone, by its moment.
   const behind = Vector3.Cross(new Vector3(0, 0, -0.38).subtract(centre), force);
-  shareGroundWrench(patches, centre, force, behind, MU, 0.6, shares, miss);
+  shareGroundWrench(WORK, patches, centre, force, behind, MU, 0.6, shares, miss);
   // The sole's moment is what the regularizer weighs most: the miss is a few parts in a hundred thousand.
   assert.ok(miss.force.length() < 1e-4 * weight && miss.moment.length() < 1e-4 * weight, `behind, missed ${miss.force.length()} N, ${miss.moment.length()} N m`);
   assert.ok(shares[0].force.y + shares[2].force.y < 1e-4 * weight, `behind, the points bear ${shares[0].force.y + shares[2].force.y} N`);
@@ -224,7 +227,7 @@ test("patches given parts bear by them where the wrench leaves the split open, a
   const moment = Vector3.Cross(pressed.subtract(centre), force);
   const borne = (given) => {
     const shares = out(4), miss = missOf();
-    shareGroundWrench(points, centre, force, moment, MU, 0.35, shares, miss, given);
+    shareGroundWrench(WORK, points, centre, force, moment, MU, 0.35, shares, miss, given);
     assert.ok(miss.force.length() < 1e-5 * weight && miss.moment.length() < 1e-5 * weight, `missed ${miss.force.length()} N, ${miss.moment.length()} N m`);
     assert.ok(Math.max(...shares.map(outsidePoint)) < 1e-6 * weight);
     return shares.map((share) => share.force.y / weight);
@@ -243,7 +246,7 @@ test("patches given parts bear by them where the wrench leaves the split open, a
   const sole = { kind: "sole", middle: new Vector3(0, 0, -0.3), along: new Vector3(0, 0, 1), length: 0.12, width: 0.05 };
   const patches = [{ kind: "point", at: new Vector3(-0.2, 0, 0.25) }, sole, { kind: "point", at: new Vector3(0.2, 0, 0.25) }], thirds = [0.25, 0.5, 0.25];
   const middle = new Vector3(0, 0, 0.25 * 0.25 - 0.5 * 0.3 + 0.25 * 0.25), shares = out(3), miss = missOf();
-  shareGroundWrench(patches, centre, force, Vector3.Cross(middle.subtract(centre), force), MU, 0.35, shares, miss, thirds);
+  shareGroundWrench(WORK, patches, centre, force, Vector3.Cross(middle.subtract(centre), force), MU, 0.35, shares, miss, thirds);
   // The parts weigh the regularizer, and the miss with it: a part in a hundred thousand.
   assert.ok(miss.force.length() < 1e-4 * weight && miss.moment.length() < 1e-4 * weight, `missed ${miss.force.length()} N, ${miss.moment.length()} N m`);
   assert.ok(off(shares.map((share) => share.force.y / weight), thirds) < 1e-4 && shares[1].moment.length() < 1e-4 * weight,
@@ -256,10 +259,33 @@ test("patches given parts bear by them where the wrench leaves the split open, a
   const pair = [sole, { kind: "point", at: new Vector3(0, 0, 0.25) }], [ofSole, ofPoint] = [0.7, 0.3], length2 = sole.length * sole.length;
   const rule = (1 / ofSole + 0.55 * 0.1 / (length2 * ofSole)) / (1 / ofSole + 1 / ofPoint + 0.55 * 0.55 / (length2 * ofSole));
   const two = out(2), missed = missOf();
-  shareGroundWrench(pair, centre, force, Vector3.Cross(new Vector3(0, 0, -0.2).subtract(centre), force), MU, 0.35, two, missed, [ofSole, ofPoint]);
+  shareGroundWrench(WORK, pair, centre, force, Vector3.Cross(new Vector3(0, 0, -0.2).subtract(centre), force), MU, 0.35, two, missed, [ofSole, ofPoint]);
   assert.ok(missed.force.length() < 1e-4 * weight && missed.moment.length() < 1e-4 * weight);
   assert.ok(Math.abs(two[1].force.y / weight - rule) < 1e-4 && Math.abs(Math.abs(two[0].moment.x) / weight - Math.abs(0.1 - 0.55 * rule)) < 1e-4,
     `the point bears ${two[1].force.y / weight} of the weight, by the rule ${rule}, and the sole gives ${two[0].moment.x / weight} m of it`);
+});
+
+test("a_work_used_for_fewer_patches_answers_as_one_made_for_them", () => {
+  // The two soles of a Rogue striking, as recorded above, and the first alone.
+  const soles = [
+    { middle: new Vector3(-0.093511201539401, -0.005475106883502039, 1.9189550655586372), along: new Vector3(-0.01792728309757968, 0, 0.9998392933470555) },
+    { middle: new Vector3(0.19453189860768572, -0.005219573794148877, 1.7896073784288162), along: new Vector3(-0.021872588459735602, 0, 0.9997607663206588) },
+  ].map((s) => ({ kind: "sole", ...s, length: 0.12283175088321414, width: 0.06353366424993835 }));
+  const centre = new Vector3(0.03070985993772695, 0.882219516156343, 1.827376574952522);
+  const force = new Vector3(89.19496503463537, 559.2146823551765, -92.52064792619704), moment = new Vector3(-14.566345399287933, -26.90184635293252, 19.225789044201118);
+  const answer = (work, patches, parts) => {
+    const shares = out(patches.length), miss = missOf();
+    shareGroundWrench(work, patches, centre, force, moment, MU, 0.8875668564951684, shares, miss, parts);
+    return [...shares.flatMap((s) => [...s.force.asArray(), ...s.moment.asArray()]), ...miss.force.asArray(), ...miss.moment.asArray()];
+  };
+  const same = (a, b) => a.length === b.length && a.every((v, i) => Object.is(v, b[i]));
+  const used = groundWrenchWork(2, 2), one = [soles[0]], two = soles;
+  const asked = [[one, undefined], [two, [0.6, 0.4]], [one, undefined], [two, undefined], [one, [2]]];
+  for (const [patches, parts] of asked) {
+    const fresh = answer(groundWrenchWork(patches.length, 0), patches, parts), reused = answer(used, patches, parts);
+    assert.ok(same(reused, fresh), `${patches.length} soles, parts ${parts}: ${reused} against ${fresh}`);
+  }
+  assert.throws(() => answer(groundWrenchWork(1, 0), two), /a share of 2 patches in a work made for 1/);
 });
 
 test("a patch's corners are where its centre of pressure may go", () => {

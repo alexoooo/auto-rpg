@@ -339,13 +339,13 @@ All of it on a physically based core, humans first ([architecture](architecture.
   near. With more near than a machine carries the game plays slower; what raises the count is
   what a body costs. The owner's to shape: how the dead disappear in time, which would be a
   fight disposing of a body it has held for long.
-- What a body costs: the solver is 0.25 to 0.28 ms of its 0.59, and the rest is control written
-  with a matrix made for every solve (0.54 MiB allocated a body a step; the collector is 1 % of
-  the step, and the cost is in the code that allocates). The dearest function, the stance's
-  share of the ground's wrench, rewritten to do the same arithmetic in arrays made once, went
-  from 61 us a call to 17 with every number the same: 0.09 ms a body a step
-  ([reference/step-cost.md](reference/step-cost.md#control-written-into-arrays-made-once-tried)).
-  Planned function by function, each landing only if it pays, and not built
+- What a body costs: the solver is 0.25 to 0.28 ms of it, and the rest is control, much of it
+  written with a matrix made for every solve (the collector is 1 % of the step, and the cost is
+  in the code that allocates). The dearest function, the stance's share of the ground's wrench,
+  does the same arithmetic in arrays made once: 57 us a call to 12.5 with every number the same,
+  and a body standing 0.62 ms a step to 0.53, allocating 379 KiB a step against 603
+  ([reference/step-cost.md](reference/step-cost.md#control-written-into-arrays-made-once)). The
+  rest is planned function by function, each landing only if it pays
   ([plans/2026-10-02-step-04-cost.md](plans/2026-10-02-step-04-cost.md)); a body at 0.42 to
   0.47 ms is the estimate. Under that floor, not planned: the solver itself; the wrench's active
   set started from the last step's (3.5 iterations a call today), which is another bout; and

@@ -1,6 +1,5 @@
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import { solveLinear } from "../math/linalg.ts";
-import { norm } from "../math/real.ts";
+import { normIn } from "../math/real.ts";
 
 /**
  * A flat sole on level ground (y up), bearing: where its middle is, which way it lies, and how far
@@ -48,6 +47,63 @@ interface PatchWrench {
 }
 
 /**
+ * **What a share of the ground's wrench works in** (`shareGroundWrench`), for up to the patches it
+ * is made for, as flat arrays read with the call's own count of unknowns as their stride. A call
+ * writes every entry it reads, so a work carries nothing from one call to the next; the body
+ * whose control makes it is its only user.
+ */
+export interface GroundWrenchWork {
+  /** The most unknowns, limits and patches it holds. */
+  readonly unknowns: number;
+  readonly limits: number;
+  readonly patches: number;
+  /** Each patch's first column. */
+  readonly first: Int32Array;
+  /** The wrench the unknowns make about the centre (6 rows), and what it is asked (`b`). */
+  readonly A: Float64Array;
+  readonly b: Float64Array;
+  /** The rows' weights: a moment's miss against a force's. */
+  readonly Q: Float64Array;
+  /** The regularizer's weight on each unknown. */
+  readonly D: Float64Array;
+  /** The problem's Hessian and gradient. */
+  readonly H: Float64Array;
+  readonly g: Float64Array;
+  /** The limits, C x >= 0, a row a limit. */
+  readonly C: Float64Array;
+  /** The share, as the active set moves it, and its step. */
+  readonly x: Float64Array;
+  readonly p: Float64Array;
+  /** A step's system and its right-hand side, a row of (unknowns + working limits + 1), the rows' order as elimination swaps them, and its solution. */
+  readonly K: Float64Array;
+  readonly order: Int32Array;
+  readonly solution: Float64Array;
+  /** The working limits, by their rows, and an orthonormal basis of their span. */
+  readonly working: Int32Array;
+  readonly basis: Float64Array;
+  /** A limit less its part in the basis. */
+  readonly rest: Float64Array;
+  /** The wrench's miss. */
+  readonly miss: Float64Array;
+}
+
+/** A work for up to `soles` soles and `points` points bearing at once; a sole's room holds a point. */
+export function groundWrenchWork(soles: number, points: number): GroundWrenchWork {
+  const unknowns = unknownsOf("sole") * soles + unknownsOf("point") * points, limits = limitsOf("sole") * soles + limitsOf("point") * points;
+  const system = unknowns + limits;
+  return {
+    unknowns, limits, patches: soles + points,
+    first: new Int32Array(soles + points),
+    A: new Float64Array(6 * unknowns), b: new Float64Array(6), Q: new Float64Array(6), D: new Float64Array(unknowns),
+    H: new Float64Array(unknowns * unknowns), g: new Float64Array(unknowns), C: new Float64Array(limits * unknowns),
+    x: new Float64Array(unknowns), p: new Float64Array(unknowns),
+    K: new Float64Array(system * (system + 1)), order: new Int32Array(system), solution: new Float64Array(system),
+    working: new Int32Array(limits), basis: new Float64Array(limits * unknowns), rest: new Float64Array(unknowns),
+    miss: new Float64Array(6),
+  };
+}
+
+/**
  * **The ground's wrench shared among bearing patches** (`patches`): each patch's force at its place
  * and moment, such that together they give the force `force` and the moment `moment` about
  * `centre`, as nearly as the patches can. A sole gives a force at its middle and a moment, and
@@ -83,121 +139,163 @@ interface PatchWrench {
  * `parts`, where given, is each patch's part of the load against the others': the regularizer
  * weighs a patch's wrench by its inverse, so among the shares that give the wrench the patches'
  * forces are as their parts, as nearly as the wrench lets them be. Without it they bear alike.
+ *
+ * It works in `work` (`groundWrenchWork`), made for at least as many patches.
  */
-export function shareGroundWrench(patches: readonly Patch[], centre: Vector3, force: Vector3, moment: Vector3,
+export function shareGroundWrench(work: GroundWrenchWork, patches: readonly Patch[], centre: Vector3, force: Vector3, moment: Vector3,
   friction: number, lever: number, out: PatchWrench[], miss?: { force: Vector3; moment: Vector3 }, parts?: readonly number[]): void {
-  // Each patch's first column: the widths before it.
-  const first: number[] = [];
-  let n = 0;
-  for (const patch of patches) { first.push(n); n += widthOf(patch); }
+  const { first, A, b, Q, D, H, g, C, x } = work;
+  // Each patch's first column: the widths before it; and the count of limits.
+  let n = 0, limits = 0;
+  for (let s = 0; s < patches.length; s++) {
+    const { kind } = patches[s]!;
+    first[s] = n;
+    n += unknownsOf(kind);
+    limits += limitsOf(kind);
+  }
+  if (patches.length > work.patches || n > work.unknowns || limits > work.limits) throw new Error(`a share of ${patches.length} patches in a work made for ${work.patches}`);
   // A: rows force (3), moment about the centre (3); columns each patch's force (3) and, a sole's, moment (3).
-  const A = [0, 1, 2, 3, 4, 5].map(() => new Array<number>(n).fill(0));
-  const D = new Array<number>(n).fill(1);
-  patches.forEach((patch, s) => {
-    const o = first[s]!, at = placeOf(patch);
-    const d = [at.x - centre.x, at.y - centre.y, at.z - centre.z];
+  A.fill(0, 0, 6 * n);
+  D.fill(1, 0, n);
+  for (let s = 0; s < patches.length; s++) {
+    const patch = patches[s]!, o = first[s]!, at = placeOf(patch);
+    const d0 = at.x - centre.x, d1 = at.y - centre.y, d2 = at.z - centre.z;
     const part = parts ? parts[s]! : 1;
     for (let a = 0; a < 3; a++) {
-      A[a]![o + a] = 1;
+      A[a * n + o + a] = 1;
       D[o + a] = 1 / part;
       // d x e_a
-      const e = [0, 0, 0]; e[a] = 1;
-      A[3]![o + a] = d[1]! * e[2]! - d[2]! * e[1]!;
-      A[4]![o + a] = d[2]! * e[0]! - d[0]! * e[2]!;
-      A[5]![o + a] = d[0]! * e[1]! - d[1]! * e[0]!;
+      const e0 = a === 0 ? 1 : 0, e1 = a === 1 ? 1 : 0, e2 = a === 2 ? 1 : 0;
+      A[3 * n + o + a] = d1 * e2 - d2 * e1;
+      A[4 * n + o + a] = d2 * e0 - d0 * e2;
+      A[5 * n + o + a] = d0 * e1 - d1 * e0;
       switch (patch.kind) {
         case "sole":
-          A[3 + a]![o + 3 + a] = 1;
+          A[(3 + a) * n + o + 3 + a] = 1;
           D[o + 3 + a] = 1 / (patch.length * patch.length * part);
           break;
         case "point": break;
         default: unknownKind(patch);
       }
     }
-  });
-  const b = [force.x, force.y, force.z, moment.x, moment.y, moment.z];
-  const Q = [1, 1, 1, 1 / (lever * lever), 1 / (lever * lever), 1 / (lever * lever)];
+  }
+  b[0] = force.x; b[1] = force.y; b[2] = force.z; b[3] = moment.x; b[4] = moment.y; b[5] = moment.z;
+  const turn = 1 / (lever * lever);
+  Q[0] = 1; Q[1] = 1; Q[2] = 1; Q[3] = turn; Q[4] = turn; Q[5] = turn;
   // H = A' Q A + e D, g = -A' Q b; e small against the problem's own scale.
-  const scale = Math.max(...Q.map((q, r) => q * A[r]!.reduce((sum, v) => sum + v * v, 0)));
+  let scale = -Infinity;
+  for (let r = 0; r < 6; r++) {
+    let sum = 0;
+    for (let j = 0; j < n; j++) sum = sum + A[r * n + j]! * A[r * n + j]!;
+    scale = Math.max(scale, Q[r]! * sum);
+  }
   const e = REGULARIZER * scale;
-  const H = Array.from({ length: n }, (_, i) => Array.from({ length: n }, (_, j) =>
-    A.reduce((sum, row, r) => sum + Q[r]! * row[i]! * row[j]!, 0) + (i === j ? e * D[i]! : 0)));
-  const g = Array.from({ length: n }, (_, i) => -A.reduce((sum, row, r) => sum + Q[r]! * row[i]! * b[r]!, 0));
-  // The limits, C x >= 0. A limit is a sum of a patch's components, each a combination of the
-  // world ones it is written in.
-  const C: number[][] = [];
+  for (let i = 0; i < n; i++) {
+    for (let j = 0; j < n; j++) {
+      let sum = 0;
+      for (let r = 0; r < 6; r++) sum = sum + Q[r]! * A[r * n + i]! * A[r * n + j]!;
+      H[i * n + j] = sum + (i === j ? e * D[i]! : 0);
+    }
+    let sum = 0;
+    for (let r = 0; r < 6; r++) sum = sum + Q[r]! * A[r * n + i]! * b[r]!;
+    g[i] = -sum;
+  }
+  // The limits, C x >= 0, a row each, in the order written. A limit is a sum of a patch's
+  // components, each a combination of the world ones it is written in, each column's terms
+  // summed from 0 in the order they come.
+  C.fill(0, 0, limits * n);
   const mu = friction / Math.SQRT2;
-  patches.forEach((patch, s) => {
-    const o = first[s]!;
-    const limit = (...parts: [number, Term][]) => {
-      const r = new Array<number>(n).fill(0);
-      for (const [k, term] of parts) for (const [i, v] of term) r[o + i] += k * v;
-      C.push(r);
-    };
+  let row = 0;
+  for (let s = 0; s < patches.length; s++) {
+    const patch = patches[s]!, o = first[s]!;
     switch (patch.kind) {
       case "sole": {
-        // In the sole's frame: 1 along it, 2 across (up x along), 3 up.
-        const u = patch.along, X = patch.length, Y = patch.width;
-        // Local components as world columns: [column, weight] pairs.
-        const f1: Term = [[0, u.x], [2, u.z]], f2: Term = [[0, u.z], [2, -u.x]], f3: Term = [[1, 1]];
-        const t1: Term = [[3, u.x], [5, u.z]], t2: Term = [[3, u.z], [5, -u.x]], t3: Term = [[4, 1]];
-        limit([1, f3]);
-        for (const a of [1, -1]) {
+        // In the sole's frame: 1 along it, 2 across (up x along), 3 up; as world columns, f1 is
+        // (0: u.x, 2: u.z), f2 (0: u.z, 2: -u.x), f3 (1: 1), and t1, t2, t3 the same on 3, 5 and 4.
+        const ux = patch.along.x, uz = patch.along.z, across = -patch.along.x, X = patch.length, Y = patch.width;
+        let at = row++ * n + o;
+        C[at + 1] += 1 * 1;
+        for (let k = 0; k < 2; k++) {
+          const a = k === 0 ? 1 : -1;
           // Friction: |f1|, |f2| <= mu f3.
-          limit([mu, f3], [-a, f1]);
-          limit([mu, f3], [-a, f2]);
+          at = row++ * n + o; C[at + 1] += mu * 1; C[at] += -a * ux; C[at + 2] += -a * uz;
+          at = row++ * n + o; C[at + 1] += mu * 1; C[at] += -a * uz; C[at + 2] += -a * across;
           // Centre of pressure: |t1| <= Y f3 across, |t2| <= X f3 along.
-          limit([Y, f3], [-a, t1]);
-          limit([X, f3], [-a, t2]);
+          at = row++ * n + o; C[at + 1] += Y * 1; C[at + 3] += -a * ux; C[at + 5] += -a * uz;
+          at = row++ * n + o; C[at + 1] += X * 1; C[at + 3] += -a * uz; C[at + 5] += -a * across;
           // Twist, Caron et al. 2015 eq. 8: t_min <= t3 <= t_max, each absolute value in them opened
           // both ways, t_min = -mu (X + Y) f3 + |Y f1 - mu t1| + |X f2 - mu t2| and
-          // t_max = mu (X + Y) f3 - |Y f1 + mu t1| - |X f2 + mu t2|.
-          for (const b of [1, -1]) {
-            limit([1, t3], [mu * (X + Y), f3], [-a * Y, f1], [a * mu, t1], [-b * X, f2], [b * mu, t2]);
-            limit([-1, t3], [mu * (X + Y), f3], [-a * Y, f1], [-a * mu, t1], [-b * X, f2], [-b * mu, t2]);
+          // t_max = mu (X + Y) f3 - |Y f1 + mu t1| - |X f2 + mu t2|: the terms t3, f3, f1, t1, f2, t2.
+          for (let l = 0; l < 2; l++) {
+            const bb = l === 0 ? 1 : -1;
+            for (let side = 0; side < 2; side++) {
+              const k3 = side === 0 ? 1 : -1, k1 = -a * Y, kt1 = side === 0 ? a * mu : -a * mu, k2 = -bb * X, kt2 = side === 0 ? bb * mu : -bb * mu;
+              at = row++ * n + o;
+              C[at + 4] += k3 * 1;
+              C[at + 1] += mu * (X + Y) * 1;
+              C[at] += k1 * ux; C[at + 2] += k1 * uz;
+              C[at + 3] += kt1 * ux; C[at + 5] += kt1 * uz;
+              C[at] += k2 * uz; C[at + 2] += k2 * across;
+              C[at + 3] += kt2 * uz; C[at + 5] += kt2 * across;
+            }
           }
         }
         break;
       }
       case "point": {
         // In the world's frame: no pull, and friction along x and along z, |f.x|, |f.z| <= mu f.y.
-        const fx: Term = [[0, 1]], fy: Term = [[1, 1]], fz: Term = [[2, 1]];
-        limit([1, fy]);
-        for (const a of [1, -1]) {
-          limit([mu, fy], [-a, fx]);
-          limit([mu, fy], [-a, fz]);
+        let at = row++ * n + o;
+        C[at + 1] += 1 * 1;
+        for (let k = 0; k < 2; k++) {
+          const a = k === 0 ? 1 : -1;
+          at = row++ * n + o; C[at + 1] += mu * 1; C[at] += -a * 1;
+          at = row++ * n + o; C[at + 1] += mu * 1; C[at + 2] += -a * 1;
         }
         break;
       }
       default: unknownKind(patch);
     }
-  });
-  const x = new Array<number>(n).fill(0);
+  }
+  x.fill(0, 0, n);
   // Strictly inside every limit: a light press at each patch's place.
-  for (const o of first) x[o + 1] = START;
-  activeSet(H, g, C, x);
-  patches.forEach((patch, s) => {
-    const o = first[s]!;
+  for (let s = 0; s < patches.length; s++) x[first[s]! + 1] = START;
+  activeSet(work, n, limits);
+  for (let s = 0; s < patches.length; s++) {
+    const patch = patches[s]!, o = first[s]!;
     out[s]!.force.set(x[o]!, x[o + 1]!, x[o + 2]!);
     switch (patch.kind) {
       case "sole": out[s]!.moment.set(x[o + 3]!, x[o + 4]!, x[o + 5]!); break;
       case "point": out[s]!.moment.setAll(0); break;
       default: unknownKind(patch);
     }
-  });
+  }
   if (miss) {
-    const r = A.map((row, i) => row.reduce((sum, v, j) => sum + v * x[j]!, 0) - b[i]!);
+    const r = work.miss;
+    for (let i = 0; i < 6; i++) {
+      let sum = 0;
+      for (let j = 0; j < n; j++) sum = sum + A[i * n + j]! * x[j]!;
+      r[i] = sum - b[i]!;
+    }
     miss.force.set(r[0]!, r[1]!, r[2]!);
     miss.moment.set(r[3]!, r[4]!, r[5]!);
   }
 }
 
-/** How many unknowns `patch` has: a sole's force and moment, a point's force. */
-function widthOf(patch: Patch): number {
-  switch (patch.kind) {
+/** How many unknowns a patch of `kind` has: a sole's force and moment, a point's force. */
+function unknownsOf(kind: Patch["kind"]): number {
+  switch (kind) {
     case "sole": return 6;
     case "point": return 3;
-    default: return unknownKind(patch);
+    default: return unknownKind(kind);
+  }
+}
+
+/** How many limits a patch of `kind` has: the rows `shareGroundWrench` writes for it. */
+function limitsOf(kind: Patch["kind"]): number {
+  switch (kind) {
+    case "sole": return 17;
+    case "point": return 5;
+    default: return unknownKind(kind);
   }
 }
 
@@ -216,40 +314,42 @@ function unknownKind(patch: never): never {
 
 /** The regularizer's weight against the problem's largest, a numeric setting: small enough not to move a share the soles can give by a measurable amount. */
 const REGULARIZER = 1e-6;
-/** A component of a patch's wrench, as weights on its world columns. */
-type Term = readonly (readonly [number, number])[];
 /** The part of a limit's normal outside the working limits' span, relative to the normal, below which the limit is taken to depend on them: rounding, a numeric setting. */
 const DEPENDENT = 1e-9;
 /** The press each patch starts from, N: strictly inside every limit, and far below any share. A numeric setting. */
 const START = 1e-3;
 
 /**
- * Minimize 1/2 x' H x + g' x subject to C x >= 0, from `x`, feasible, into `x`: a primal
- * active-set method, the working set added to at a blocking limit and dropped from at the most
- * negative multiplier.
+ * Minimize 1/2 x' H x + g' x subject to C x >= 0, from `x`, feasible, into `x`, with `n` unknowns
+ * and `limits` limits: a primal active-set method, the working set added to at a blocking limit
+ * and dropped from at the most negative multiplier.
  */
-function activeSet(H: readonly number[][], g: readonly number[], C: readonly number[][], x: number[]): void {
-  const n = x.length, working: number[] = [];
+function activeSet(work: GroundWrenchWork, n: number, limits: number): void {
+  const { H, g, C, x, K, order, solution, p, working } = work;
+  let m = 0;
   // After a full step x is the least in the working set's subspace, and the next solve's step is
   // rounding: its multipliers decide.
   let settled = false;
-  for (let iteration = 0; iteration < 8 * (n + C.length); iteration++) {
-    // The step to the least in the working set's subspace: [H -C_W'; C_W 0] [p; l] = [-(H x + g); 0].
-    const m = working.length, K = Array.from({ length: n + m }, () => new Array<number>(n + m).fill(0));
-    const rhs = new Array<number>(n + m).fill(0);
+  for (let iteration = 0; iteration < 8 * (n + limits); iteration++) {
+    // The step to the least in the working set's subspace: [H -C_W'; C_W 0] [p; l] = [-(H x + g); 0],
+    // a row of K the system's and its right-hand side's.
+    const size = n + m, width = size + 1;
+    K.fill(0, 0, size * width);
     for (let i = 0; i < n; i++) {
       let q = g[i]!;
-      for (let j = 0; j < n; j++) { K[i]![j] = H[i]![j]!; q += H[i]![j]! * x[j]!; }
-      rhs[i] = -q;
-      working.forEach((c, r) => { K[i]![n + r] = -C[c]![i]!; K[n + r]![i] = C[c]![i]!; });
+      for (let j = 0; j < n; j++) { K[i * width + j] = H[i * n + j]!; q += H[i * n + j]! * x[j]!; }
+      K[i * width + size] = -q;
+      for (let r = 0; r < m; r++) { const c = working[r]!; K[i * width + n + r] = -C[c * n + i]!; K[(n + r) * width + i] = C[c * n + i]!; }
     }
-    const solution = solveLinear(K, rhs), p = solution.slice(0, n), multipliers = solution.slice(n);
-    if (settled || norm(p) <= 1e-12 * (1 + norm(x))) {
+    eliminate(K, order, solution, size);
+    for (let j = 0; j < n; j++) p[j] = solution[j]!;
+    if (settled || normIn(p, 0, n) <= 1e-12 * (1 + normIn(x, 0, n))) {
       settled = false;
       let worst = -1, least = -1e-12;
-      multipliers.forEach((l, r) => { if (l < least) { least = l; worst = r; } });
+      for (let r = 0; r < m; r++) { const l = solution[n + r]!; if (l < least) { least = l; worst = r; } }
       if (worst < 0) return;
-      working.splice(worst, 1);
+      for (let r = worst; r < m - 1; r++) working[r] = working[r + 1]!;
+      m--;
       continue;
     }
     // As far along p as the limits outside the working set allow. p lies in the working limits'
@@ -258,46 +358,89 @@ function activeSet(H: readonly number[][], g: readonly number[], C: readonly num
     // combination of the working ones; taken into the working set, it makes the next solve
     // singular. So a limit blocks only if it is independent of the working limits, which is
     // decided from the limits alone, whatever the step's size.
-    let step = 1, blocking = -1, basis: number[][] | undefined;
-    C.forEach((row, c) => {
-      if (working.includes(c)) return;
+    let step = 1, blocking = -1, based = -1;
+    for (let c = 0; c < limits; c++) {
+      if (holds(working, m, c)) continue;
       let along = 0, at = 0;
-      for (let j = 0; j < n; j++) { along += row[j]! * p[j]!; at += row[j]! * x[j]!; }
-      if (along >= 0) return;
+      for (let j = 0; j < n; j++) { along += C[c * n + j]! * p[j]!; at += C[c * n + j]! * x[j]!; }
+      if (along >= 0) continue;
       const t = Math.max(0, -at / along);
-      if (t >= step) return;
-      basis ??= orthonormal(working.map((w) => C[w]!));
-      if (!independent(basis, row)) return;
+      if (t >= step) continue;
+      if (based < 0) based = orthonormal(work, n, m);
+      if (!independent(work, n, based, c)) continue;
       step = t; blocking = c;
-    });
+    }
     for (let j = 0; j < n; j++) x[j] = x[j]! + step * p[j]!;
-    if (blocking >= 0) working.push(blocking);
+    if (blocking >= 0) working[m++] = blocking;
     else settled = true;
   }
 }
 
-/** An orthonormal basis of the span of `rows` (modified Gram-Schmidt; a row dependent on those before adds nothing). */
-function orthonormal(rows: readonly (readonly number[])[]): number[][] {
-  const basis: number[][] = [];
-  for (const row of rows) {
-    const rest = remainder(basis, row), size = norm(rest);
-    if (size > DEPENDENT * norm(row)) basis.push(rest.map((v) => v / size));
-  }
-  return basis;
+/** Whether limit `c` is among the first `m` of `working`. */
+function holds(working: Int32Array, m: number, c: number): boolean {
+  for (let r = 0; r < m; r++) if (working[r] === c) return true;
+  return false;
 }
 
-/** `row` less its projection on the orthonormal `basis`. */
-function remainder(basis: readonly (readonly number[])[], row: readonly number[]): number[] {
-  const rest = [...row];
-  for (const e of basis) {
+/**
+ * Solve the system of `size` rows in `K`, each row its `size` columns and its right-hand side, by
+ * elimination with partial pivoting, into `solution`: `solveLinear`'s operations, a row swap a swap
+ * in `order`. `K` is left eliminated.
+ */
+function eliminate(K: Float64Array, order: Int32Array, solution: Float64Array, size: number): void {
+  const width = size + 1;
+  for (let i = 0; i < size; i++) order[i] = i;
+  for (let c = 0; c < size; c++) {
+    let pivot = c;
+    for (let r = c + 1; r < size; r++) if (Math.abs(K[order[r]! * width + c]!) > Math.abs(K[order[pivot]! * width + c]!)) pivot = r;
+    const swapped = order[c]!; order[c] = order[pivot]!; order[pivot] = swapped;
+    const top = order[c]! * width;
+    for (let r = c + 1; r < size; r++) {
+      const at = order[r]! * width, f = K[at + c]! / K[top + c]!;
+      if (f !== 0) for (let k = c; k <= size; k++) K[at + k] = K[at + k]! - f * K[top + k]!;
+    }
+  }
+  for (let r = size - 1; r >= 0; r--) {
+    const at = order[r]! * width;
+    let sum = K[at + size]!;
+    for (let k = r + 1; k < size; k++) sum -= K[at + k]! * solution[k]!;
+    solution[r] = sum / K[at + r]!;
+  }
+}
+
+/**
+ * An orthonormal basis of the span of the first `m` working limits, into `work.basis`, a row a
+ * vector of `n` (modified Gram-Schmidt; a limit dependent on those before adds nothing): returns
+ * how many it has.
+ */
+function orthonormal(work: GroundWrenchWork, n: number, m: number): number {
+  const { C, working, basis, rest } = work;
+  let count = 0;
+  for (let r = 0; r < m; r++) {
+    const c = working[r]!;
+    remainder(work, n, count, c);
+    const size = normIn(rest, 0, n);
+    if (size > DEPENDENT * normIn(C, c * n, n)) {
+      for (let j = 0; j < n; j++) basis[count * n + j] = rest[j]! / size;
+      count++;
+    }
+  }
+  return count;
+}
+
+/** Limit `c` less its projection on the first `count` vectors of the orthonormal basis, into `work.rest`. */
+function remainder(work: GroundWrenchWork, n: number, count: number, c: number): void {
+  const { C, basis, rest } = work;
+  for (let j = 0; j < n; j++) rest[j] = C[c * n + j]!;
+  for (let e = 0; e < count; e++) {
     let dot = 0;
-    for (let j = 0; j < rest.length; j++) dot += e[j]! * rest[j]!;
-    for (let j = 0; j < rest.length; j++) rest[j] = rest[j]! - dot * e[j]!;
+    for (let j = 0; j < n; j++) dot += basis[e * n + j]! * rest[j]!;
+    for (let j = 0; j < n; j++) rest[j] = rest[j]! - dot * basis[e * n + j]!;
   }
-  return rest;
 }
 
-/** Whether `row` has a part outside the span of the orthonormal `basis`, beyond rounding. */
-function independent(basis: readonly (readonly number[])[], row: readonly number[]): boolean {
-  return norm(remainder(basis, row)) > DEPENDENT * norm(row);
+/** Whether limit `c` has a part outside the span of the basis's first `count` vectors, beyond rounding. */
+function independent(work: GroundWrenchWork, n: number, count: number, c: number): boolean {
+  remainder(work, n, count, c);
+  return normIn(work.rest, 0, n) > DEPENDENT * normIn(work.C, c * n, n);
 }

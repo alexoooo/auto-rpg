@@ -294,24 +294,33 @@ What is allocated is small arrays: a matrix as an array of row arrays made for e
 as a three-number array returned from each cross product, a closure for each loop written as
 `map` or `forEach`, and a wrapper object for each vector read from the engine.
 
-### Control written into arrays made once, tried
+### Control written into arrays made once
 
-Two functions rewritten to do the same operations in the same order on the same numbers, with
-nothing made in a call: flat `Float64Array`s made once, loops for `map` and `reduce`, no closure.
-Each in a scratch copy, taken out again.
+The step's dearest functions are written to do the same operations in the same order on the same
+numbers as the readable form they replace, in arrays made once with the body's control (a matrix
+its rows end to end), with loops for `map` and `reduce` and no closure: every bout, run and
+fingerprint is the same to the bit (`node scripts/fingerprint.mjs`, the bout's digest
+`c7bab8ed0472a94d`). A row is a change landed, read before and after it: the bout
+(`research/step-time.mjs`, the least of three playings, read twice), one and eight skeletons
+standing (`research/step-garbage.mjs --bodies 1,8`), and what a body's step allocates, the
+highest of five readings each in a process of its own (`tests/harness/step-allocation.mjs`, the
+fixtures `tests/core-step-cost.test.mjs` holds under a ceiling).
 
-| The function | Read on | As it is | Rewritten | The answers |
-|---|---|---|---|---|
-| `shareGroundWrench` with its `activeSet` (`src/core/control/contact-wrench.ts@8d783172`) | the bout's own 4576 calls (four a step: two a body), each taken from the bout as it was asked and answered alone; the least of nine passes over them | 61.1 us a call | 17.3 us a call | all 68544 numbers the same to the bit |
-| `bodyDynamics.update`, the loop that sums the mass matrix alone (`src/core/build/dynamics.ts@fda2945b`) | the bout as it was then, 2434 steps, the least of three playings, twice | 72 and 74 us a step | 59 and 58 us a step | the bout's digest the same; 157 KiB a step fewer |
+| | A bout's step, mean ms | Its median, ms | One body standing, ms | Eight, ms | Standing, KiB a body a step | The bout, KiB a body a step |
+|---|---|---|---|---|---|---|
+| Before | 1.447, 1.441 | 1.192, 1.184 | 0.62 | 4.41 | 603 | 654 |
+| The ground's wrench (`shareGroundWrench`, `activeSet`) | 1.168, 1.194 | 1.012, 1.039 | 0.53 | 3.66 | 379 | 437 |
 
-- The ground's wrench is the largest function of a bout's control (16 % of its time). It takes
-  3.5 active-set iterations a call in the mean, each a dense solve of the system built afresh;
-  most of what the rewrite saves is the building. At four calls a step that is 0.24 ms of a
-  two-body step as it is and 0.07 rewritten: **0.09 ms a body a step, of its 0.59.**
+- **The ground's wrench**: on the bout's own 4576 calls, each asked as the bout asked it and
+  answered alone, the least of nine passes, 57.2 us a call before and 12.5 after, all 68544
+  numbers the same. Under the CPU profiler it was 20.7 % of the bout and is 5.4 %: 0.33 ms of a
+  two-body step to 0.07. The bout from 2 s to its verdict allocates 1137 KiB a step against
+  1856 (`--sites`).
+- `bodyDynamics.update`'s loop that sums the mass matrix, tried alone in a scratch copy
+  (`src/core/build/dynamics.ts@fda2945b`), on the bout as it was then, 2434 steps: 72 and 74 us a
+  step to 59 and 58, the digest the same, 157 KiB a step fewer.
 - So the cost of allocating shows where the collector's pauses do not: in the code that
-  allocates. How much a rewrite pays differs by function, from a fifth of its time to nearly
-  three quarters, and is read function by function.
+  allocates.
 
 ## The crypt's plan in the step
 

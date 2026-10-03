@@ -629,9 +629,14 @@ export function hypot(a: number, b: number, c?: number): number {
 
 /** The length of the vector of `parts`, however many: `hypot`'s sum, each part less what the sum before it lost. */
 export function norm(parts: readonly number[]): number {
+  return normIn(parts, 0, parts.length);
+}
+
+/** `norm` of the `count` parts of `parts` from `from`. */
+export function normIn(parts: ArrayLike<number>, from: number, count: number): number {
   let largest = 0, unknown = false;
-  for (const part of parts) {
-    const size = Math.abs(part);
+  for (let i = from; i < from + count; i++) {
+    const size = Math.abs(parts[i]!);
     if (size !== size) unknown = true;
     else if (size > largest) largest = size;
   }
@@ -639,8 +644,8 @@ export function norm(parts: readonly number[]): number {
   if (unknown) return NaN;
   if (largest === 0) return 0;
   let sum = 0, compensation = 0;
-  for (const part of parts) {
-    const n = Math.abs(part) / largest, summand = n * n - compensation, next = sum + summand;
+  for (let i = from; i < from + count; i++) {
+    const n = Math.abs(parts[i]!) / largest, summand = n * n - compensation, next = sum + summand;
     compensation = (next - sum) - summand;
     sum = next;
   }

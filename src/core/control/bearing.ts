@@ -15,7 +15,7 @@ import type { BodyDynamics } from "../build/dynamics.ts";
 import { boundedLeastSquares, fixedSolve, solveLinear } from "../math/linalg.ts";
 import type { MuscleDriver } from "../muscle/driver.ts";
 import type { Assist } from "./assist.ts";
-import { shareGroundWrench, type Patch } from "./contact-wrench.ts";
+import { groundWrenchWork, shareGroundWrench, type GroundWrenchWork, type Patch } from "./contact-wrench.ts";
 import type { ServoWork } from "./servo.ts";
 import { LEG_DAMPING } from "./stance-tuning.ts";
 import { GROUND_FRICTION } from "./support.ts";
@@ -85,6 +85,10 @@ interface BearingScratch {
   /** The ground's wrench as the bearing limbs' patches share it, in the bearing limbs' order, and what of it they cannot give. */
   readonly shares: { readonly force: Vector3; readonly moment: Vector3 }[];
   readonly missed: { readonly force: Vector3; readonly moment: Vector3 };
+  /** What the share works in, made for every limb bearing on a sole, and the bearing limbs' patches and parts as it is handed them. */
+  readonly wrench: GroundWrenchWork;
+  readonly patches: Patch[];
+  readonly parts: number[];
   /** Each limb's stem's freedoms' accelerations as the servo asked them (`carryRoot`), in the limbs' order. */
   readonly stems: number[][];
   readonly lin: Vector3;
@@ -117,6 +121,7 @@ export function makeBearing(assist: Assist | null, limbs: readonly Limb[],
     scratch: {
       shares: limbs.map(() => ({ force: new Vector3(), moment: new Vector3() })),
       missed: { force: new Vector3(), moment: new Vector3() },
+      wrench: groundWrenchWork(limbs.length, 0), patches: [], parts: [],
       stems: limbs.map((limb) => limb.stem.map(() => 0)),
       lin: new Vector3(), ang: new Vector3(), at: new Vector3(), force: new Vector3(), moment: new Vector3(),
     },
@@ -277,20 +282,28 @@ function rootAim(b: Bearing, aim: { readonly spin: Vector3; readonly centre: Vec
   return root;
 }
 
+/** `bearing`'s patches' shares of `force` and `moment` about `at` (`shareGroundWrench`), into the scratch's `shares` and `missed`. */
+function shareAmong(b: Bearing, bearing: readonly Limb[], at: Vector3, force: Vector3, moment: Vector3, lever: number): void {
+  const { wrench, patches, parts, shares, missed } = b.scratch;
+  for (let k = 0; k < bearing.length; k++) { patches[k] = bearing[k]!.work.patch!; parts[k] = bearing[k]!.work.share; }
+  patches.length = bearing.length;
+  parts.length = bearing.length;
+  shareGroundWrench(wrench, patches, at, force, moment, GROUND_FRICTION, lever, shares, missed, parts);
+}
+
 /**
  * What the bearing limbs' patches can give of the wrench the root's acceleration asks; where they
  * cannot give it all, the root's acceleration is the one the wrench they can give makes, with what
  * the assist gives of the rest.
  */
 function limitToPatches(b: Bearing, solved: readonly Solved[], P: number[][], w0: number[], p0: readonly [number, number, number], lever: number): void {
-  const { assist, root, shortfall, helped } = b, { at, force, moment, shares, missed } = b.scratch;
+  const { assist, root, shortfall, helped } = b, { at, force, moment, missed } = b.scratch;
   const bearing = solved.filter(({ limb }) => limb.task.bearing).map(({ limb }) => limb);
   const W = [0, 1, 2, 3, 4, 5].map((r) => w0[r]! + P[r]!.reduce((sum, v, c) => sum + v * root[c]!, 0));
   if (bearing.length) {
     force.set(W[3]!, W[4]!, W[5]!);
     moment.set(W[0]!, W[1]!, W[2]!);
-    shareGroundWrench(bearing.map((limb) => limb.work.patch!), at.set(p0[0], p0[1], p0[2]), force, moment, GROUND_FRICTION, lever, shares, missed,
-      bearing.map((limb) => limb.work.share));
+    shareAmong(b, bearing, at.set(p0[0], p0[1], p0[2]), force, moment, lever);
     // `missed` is what the patches give beyond what was asked; the shortfall is its opposite.
     shortfall.force.copyFrom(missed.force).scaleInPlace(-1);
     shortfall.moment.copyFrom(missed.moment).scaleInPlace(-1);
@@ -463,7 +476,7 @@ function limbTorques(b: Bearing, muscles: MuscleDriver, accel: Float64Array, bea
  * (`boundFree`).
  */
 export function bearLimbs(b: Bearing, muscles: MuscleDriver, work: ServoWork, lever: number, bounded: boolean): void {
-  const { assist, limbs, held, helped, root } = b, { at, force, moment, shares, missed } = b.scratch;
+  const { assist, limbs, held, helped, root } = b, { at, force, moment } = b.scratch;
   const R = muscles.dynamics.root, n = muscles.channels.length;
   // Every freedom's acceleration: the limbs' from their tasks, the rest as the servo left them:
   // a stem's as it was asked (`limbMotion` marks it moved), the others' as solved.
@@ -481,8 +494,7 @@ export function bearLimbs(b: Bearing, muscles: MuscleDriver, work: ServoWork, le
     // The ground is asked for the wrench less what the assist gives.
     if (assist?.on) { force.subtractInPlace(helped.force); moment.subtractInPlace(helped.moment); }
     at.set(R.centre[0], R.centre[1], R.centre[2]);
-    shareGroundWrench(bearing.map((limb) => limb.work.patch!), at, force, moment, GROUND_FRICTION, lever, shares, missed,
-      bearing.map((limb) => limb.work.share));
+    shareAmong(b, bearing, at, force, moment, lever);
   }
   limbTorques(b, muscles, accel, bearing);
   if (assist?.on) assist.ask(helped.force, helped.moment);
