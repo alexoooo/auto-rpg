@@ -311,6 +311,7 @@ fixtures `tests/core-step-cost.test.mjs` holds under a ceiling).
 | Before | 1.447, 1.441 | 1.192, 1.184 | 0.62 | 4.41 | 603 | 654 |
 | The ground's wrench (`shareGroundWrench`, `activeSet`) | 1.168, 1.194 | 1.012, 1.039 | 0.53 | 3.66 | 379 | 437 |
 | Bearing on limbs (`carryRoot`, `bearLimbs`; `src/core/math/flat.ts`) | 1.045, 1.068 | 0.890, 0.911 | 0.48 | 3.16 | 267 | 319 |
+| The body's dynamics and its joints (`bodyDynamics`, `joint-state.ts`) | 0.997, 1.018 | 0.851, 0.870 | 0.45 | 2.98 | 80 | 128 |
 
 - **The ground's wrench**: on the bout's own 4576 calls, each asked as the bout asked it and
   answered alone, the least of nine passes, 57.2 us a call before and 12.5 after, all 68544
@@ -321,11 +322,13 @@ fixtures `tests/core-step-cost.test.mjs` holds under a ceiling).
   CPU profiler and is 6.1 and 6.3 %: 0.17 ms of a two-body step to 0.07. Its solves are
   `flat.ts`'s, each the twin of one in `linalg.ts` (`tests/core-flat.test.mjs`). The bout from 2 s
   to its verdict allocates 933 KiB a step against 1137 (`--sites`).
-- `bodyDynamics.update`'s loop that sums the mass matrix, tried alone in a scratch copy
-  (`src/core/build/dynamics.ts@fda2945b`), on the bout as it was then, 2434 steps: 72 and 74 us a
-  step to 59 and 58, the digest the same, 157 KiB a step fewer.
-- So the cost of allocating shows where the collector's pauses do not: in the code that
-  allocates.
+- **The body's dynamics and its joints**: the bout from 2 s to its verdict allocates 495 KiB a step
+  against 933 (`--sites`): `dynamics.ts` 280 KiB of it to none, `joint-state.ts` 146 to 16. Under
+  the CPU profiler the joints' trackers were 4.9 and 4.0 % of the bout and are 2.6 and 2.7; the
+  dynamics' update was 6.5 and 6.7 % and is 6.8 and 7.4, its time the same. The rest of the step's
+  gain is the collector's: a scavenge every 33 and 30 steps of the bout to every 63 and 67, its
+  99th per cent step 7.47 and 7.45 ms to 6.50 and 6.54, and the collector's share of one body
+  standing 0.9 % to 0.3.
 
 ## The crypt's plan in the step
 

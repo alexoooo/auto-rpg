@@ -147,7 +147,7 @@ export function bodyDynamics(built: BuiltBody, gravity: Vec3): BodyDynamics {
   const composite = joints.map(() => ({ mass: 0, centre: [0, 0, 0] as Point, inertia: new Float64Array(6) }));
   const pivots = joints.map((): Point => [0, 0, 0]);
   const axes = joints.map((joint) => joint.dofs.map((): Point => [0, 0, 0]));
-  const bodyAxes: Vec3[] = [];
+  const bodyAxes: [number, number, number][] = [];
   const scratch = { v: new Vector3(), q: new Quaternion(), carry: new Quaternion() };
   const toWorld = (rotation: Quaternion, a: Vec3, out: Point): Point => {
     scratch.v.set(a[0], a[1], a[2]).applyRotationQuaternionToRef(rotation, scratch.v);
@@ -155,50 +155,55 @@ export function bodyDynamics(built: BuiltBody, gravity: Vec3): BodyDynamics {
     return out;
   };
   const turned: Point[] = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
+  // What the reads below work in, each point written before it is read.
+  const work = {
+    a: [0, 0, 0] as Point, b: [0, 0, 0] as Point, c: [0, 0, 0] as Point, d: [0, 0, 0] as Point, e: [0, 0, 0] as Point,
+    full: [[0, 0, 0], [0, 0, 0], [0, 0, 0]] as Point[], skew: [[0, 0, 0], [0, 0, 0], [0, 0, 0]] as Point[],
+  };
 
   const velocityProducts = ({ spin }: BodyMotion): void => {
-    segments.forEach((segment, i) => {
-      const w = spin(segment), o = spins[i]!;
-      o[0] = w.x; o[1] = w.y; o[2] = w.z;
-    });
+    const { a: u, b: v, c: w, d: x, e: y } = work;
+    for (let i = 0; i < segments.length; i++) {
+      const s = spin(segments[i]!), o = spins[i]!;
+      o[0] = s.x; o[1] = s.y; o[2] = s.z;
+    }
     for (const i of roots) { alpha[i]!.fill(0); accel[i]!.fill(0); }
     for (const j of outward) {
       const p = parentOf[j]!, c = childOf[j]!, P = pivots[j]!;
       const wp = spins[p]!, wc = spins[c]!;
       // The child's spin changes as the parent carries the joint's axes round.
-      const turn = cross3(wp, sub3(wc, wp));
+      const turn = crossTo(wp, subTo(wc, wp, u), v);
       const a = alpha[c]!, ap = alpha[p]!;
       a[0] = ap[0] + turn[0]; a[1] = ap[1] + turn[1]; a[2] = ap[2] + turn[2];
       // The joint centre as the parent swings it, then the child's centre about it.
-      const fromParent = sub3(P, centres[p]!), toChild = sub3(centres[c]!, P);
-      const at = add3(accel[p]!, add3(cross3(ap, fromParent), cross3(wp, cross3(wp, fromParent))));
-      const own = add3(at, add3(cross3(a, toChild), cross3(wc, cross3(wc, toChild))));
-      const out = accel[c]!;
-      out[0] = own[0]; out[1] = own[1]; out[2] = own[2];
+      const fromParent = subTo(P, centres[p]!, u);
+      const at = addTo(accel[p]!, addTo(crossTo(ap, fromParent, v), crossTo(wp, crossTo(wp, fromParent, w), x), y), w);
+      const toChild = subTo(centres[c]!, P, u);
+      addTo(at, addTo(crossTo(a, toChild, v), crossTo(wc, crossTo(wc, toChild, x), y), x), accel[c]!);
     }
-    segments.forEach((segment, i) => {
-      const m = segment.rigid.mass, a = accel[i]!, F = force[i]!, N = moment[i]!;
+    for (let i = 0; i < segments.length; i++) {
+      const m = segments[i]!.rigid.mass, a = accel[i]!, F = force[i]!, N = moment[i]!;
       F[0] = m * a[0]; F[1] = m * a[1]; F[2] = m * a[2];
       // I a + w x I w: the engine's bodies keep their angular momentum.
-      const Ia = inertiaTimes(inertias[i]!, alpha[i]!), w = spins[i]!, gyro = cross3(w, inertiaTimes(inertias[i]!, w));
+      const Ia = inertiaTimesTo(inertias[i]!, alpha[i]!, u), s = spins[i]!, gyro = crossTo(s, inertiaTimesTo(inertias[i]!, s, v), w);
       N[0] = Ia[0] + gyro[0]; N[1] = Ia[1] + gyro[1]; N[2] = Ia[2] + gyro[2];
-    });
+    }
     for (let f = 0; f < n; f++) {
       const { joint: j, k } = freedoms[f]!, mf = axes[j]![k]!, P = pivots[j]!;
       let wx = 0, wy = 0, wz = 0;
       for (const i of beyond[j]!) {
-        const rf = cross3(sub3(centres[i]!, P), force[i]!), N = moment[i]!;
+        const rf = crossTo(subTo(centres[i]!, P, u), force[i]!, v), N = moment[i]!;
         wx += rf[0] + N[0]; wy += rf[1] + N[1]; wz += rf[2] + N[2];
       }
       bias[f] = mf[0] * wx + mf[1] * wy + mf[2] * wz;
     }
     const b = root.bias, p0 = root.centre;
     b.fill(0);
-    segments.forEach((_, i) => {
-      const F = force[i]!, rf = cross3(sub3(centres[i]!, p0), F), N = moment[i]!;
+    for (let i = 0; i < segments.length; i++) {
+      const F = force[i]!, rf = crossTo(subTo(centres[i]!, p0, u), F, v), N = moment[i]!;
       b[0] += rf[0] + N[0]; b[1] += rf[1] + N[1]; b[2] += rf[2] + N[2];
       b[3] += F[0]; b[4] += F[1]; b[5] += F[2];
-    });
+    }
   };
 
   return {
@@ -209,15 +214,15 @@ export function bodyDynamics(built: BuiltBody, gravity: Vec3): BodyDynamics {
     axis: (f) => axes[freedoms[f]!.joint]![freedoms[f]!.k]!,
     pivot: (f) => pivots[freedoms[f]!.joint]!,
     driftToRef(segment, point, linear, angular) {
-      const i = index.get(segment)!, c = centres[i]!, a = accel[i]!, al = alpha[i]!, w = spins[i]!;
-      const r: Vec3 = [point.x - c[0], point.y - c[1], point.z - c[2]];
-      const turn = add3(cross3(al, r), cross3(w, cross3(w, r)));
+      const i = index.get(segment)!, c = centres[i]!, a = accel[i]!, al = alpha[i]!, w = spins[i]!, r = work.a;
+      r[0] = point.x - c[0]; r[1] = point.y - c[1]; r[2] = point.z - c[2];
+      const turn = addTo(crossTo(al, r, work.b), crossTo(w, crossTo(w, r, work.c), work.d), work.e);
       linear.set(a[0] + turn[0], a[1] + turn[1], a[2] + turn[2]);
       angular.set(al[0], al[1], al[2]);
     },
     update(angles, motion) {
-      segments.forEach((segment, i) => {
-        const rotation = segment.node.rotationQuaternion!, p = segment.node.position;
+      for (let i = 0; i < segments.length; i++) {
+        const segment = segments[i]!, rotation = segment.node.rotationQuaternion!, p = segment.node.position;
         const c = toWorld(rotation, centreOfMass[i]!, centres[i]!);
         c[0] += p.x; c[1] += p.y; c[2] += p.z;
         // R T R' from the segment frame's axes as they are now: each entry's two axes' outer product.
@@ -237,9 +242,9 @@ export function bodyDynamics(built: BuiltBody, gravity: Vec3): BodyDynamics {
             I[3] += m * (a[0] * b[1] + b[0] * a[1]); I[4] += m * (a[0] * b[2] + b[0] * a[2]); I[5] += m * (a[1] * b[2] + b[1] * a[2]);
           }
         }
-      });
-      joints.forEach((joint, j) => {
-        const body = composite[j]!, C = body.centre, I = body.inertia;
+      }
+      for (let j = 0; j < joints.length; j++) {
+        const joint = joints[j]!, body = composite[j]!, C = body.centre, I = body.inertia;
         body.mass = 0; C.fill(0); I.fill(0);
         for (const i of beyond[j]!) {
           const m = segments[i]!.rigid.mass, c = centres[i]!;
@@ -258,41 +263,47 @@ export function bodyDynamics(built: BuiltBody, gravity: Vec3): BodyDynamics {
         // A body-frame axis as the parent now carries it: P P0^-1 (`joint-state.ts` turns the other way).
         Quaternion.InverseToRef(joint.parent.rest, scratch.q);
         joint.parent.node.rotationQuaternion!.multiplyToRef(scratch.q, scratch.carry);
-        motionAxesToRef(joint, angles[j]!, bodyAxes).forEach((a, k) => toWorld(scratch.carry, a, axes[j]![k]!));
-      });
+        motionAxesToRef(joint, angles[j]!, bodyAxes);
+        for (let k = 0; k < bodyAxes.length; k++) toWorld(scratch.carry, bodyAxes[k]!, axes[j]![k]!);
+      }
       // The whole body about its centre of mass, and the root's rows about the root's centre.
       {
         const C = whole.centre, I = whole.inertia;
         C.fill(0); I.fill(0);
-        segments.forEach((segment, i) => { const m = segment.rigid.mass, c = centres[i]!; C[0] += m * c[0]; C[1] += m * c[1]; C[2] += m * c[2]; });
+        for (let i = 0; i < segments.length; i++) { const m = segments[i]!.rigid.mass, c = centres[i]!; C[0] += m * c[0]; C[1] += m * c[1]; C[2] += m * c[2]; }
         C[0] /= whole.mass; C[1] /= whole.mass; C[2] /= whole.mass;
-        segments.forEach((segment, i) => {
-          const m = segment.rigid.mass, c = centres[i]!, own = inertias[i]!;
+        for (let i = 0; i < segments.length; i++) {
+          const m = segments[i]!.rigid.mass, c = centres[i]!, own = inertias[i]!;
           const d0 = c[0] - C[0], d1 = c[1] - C[1], d2 = c[2] - C[2], dd = d0 * d0 + d1 * d1 + d2 * d2;
           I[0] += own[0] + m * (dd - d0 * d0); I[1] += own[1] + m * (dd - d1 * d1); I[2] += own[2] + m * (dd - d2 * d2);
           I[3] += own[3] - m * d0 * d1; I[4] += own[4] - m * d0 * d2; I[5] += own[5] - m * d1 * d2;
-        });
+        }
         const p0 = root.centre, c0 = centres[rootIndex]!, M = whole.mass;
         p0[0] = c0[0]; p0[1] = c0[1]; p0[2] = c0[2];
-        const d = sub3(C, p0), dd = dot3(d, d), A = root.mass;
+        const d = subTo(C, p0, work.a), dd = dot3(d, d), A = root.mass;
         // The spin's rows: the inertia about the root's centre, and M [d]x against the velocity.
-        const full = [[I[0], I[3], I[4]], [I[3], I[1], I[5]], [I[4], I[5], I[2]]];
-        const skew = [[0, -d[2], d[1]], [d[2], 0, -d[0]], [-d[1], d[0], 0]];
+        const { full, skew } = work;
+        full[0]![0] = I[0]!; full[0]![1] = I[3]!; full[0]![2] = I[4]!;
+        full[1]![0] = I[3]!; full[1]![1] = I[1]!; full[1]![2] = I[5]!;
+        full[2]![0] = I[4]!; full[2]![1] = I[5]!; full[2]![2] = I[2]!;
+        skew[0]![0] = 0; skew[0]![1] = -d[2]; skew[0]![2] = d[1];
+        skew[1]![0] = d[2]; skew[1]![1] = 0; skew[1]![2] = -d[0];
+        skew[2]![0] = -d[1]; skew[2]![1] = d[0]; skew[2]![2] = 0;
         for (let r = 0; r < 3; r++) for (let s = 0; s < 3; s++) {
           A[r]![s] = full[r]![s]! + M * ((r === s ? dd : 0) - d[r]! * d[s]!);
           A[r]![3 + s] = M * skew[r]![s]!;
           A[3 + s]![r] = M * skew[r]![s]!;
           A[3 + r]![3 + s] = r === s ? M : 0;
         }
-        const weightMoment = cross3(d, gravity);
+        const weightMoment = crossTo(d, gravity, work.b);
         for (let r = 0; r < 3; r++) { root.gravity[r] = M * weightMoment[r]!; root.gravity[3 + r] = M * gravity[r]!; }
         for (let f = 0; f < n; f++) {
           // What freedom f moves, as one body: its momentum per unit speed, and that momentum's moment
           // about the root's centre with the body's own spin.
-          const { joint: j, k } = freedoms[f]!, mf = axes[j]![k]!, body = composite[j]!, J = body.inertia;
-          const swept = cross3(mf, sub3(body.centre, pivots[j]!)), lin: Vec3 = [body.mass * swept[0], body.mass * swept[1], body.mass * swept[2]];
-          const ang = add3([J[0] * mf[0] + J[3] * mf[1] + J[4] * mf[2], J[3] * mf[0] + J[1] * mf[1] + J[5] * mf[2],
-            J[4] * mf[0] + J[5] * mf[1] + J[2] * mf[2]], cross3(sub3(body.centre, p0), lin));
+          const { joint: j, k } = freedoms[f]!, mf = axes[j]![k]!, body = composite[j]!;
+          const swept = crossTo(mf, subTo(body.centre, pivots[j]!, work.c), work.d), lin = work.c;
+          lin[0] = body.mass * swept[0]; lin[1] = body.mass * swept[1]; lin[2] = body.mass * swept[2];
+          const ang = addTo(inertiaTimesTo(body.inertia, mf, work.a), crossTo(subTo(body.centre, p0, work.d), lin, work.e), work.d);
           for (let r = 0; r < 3; r++) { root.coupling[r]![f] = ang[r]!; root.coupling[3 + r]![f] = lin[r]!; }
         }
       }
@@ -301,18 +312,14 @@ export function bodyDynamics(built: BuiltBody, gravity: Vec3): BodyDynamics {
       for (let f = 0; f < n; f++) {
         const { joint: a, k } = freedoms[f]!, mf = axes[a]![k]!, pf = pivots[a]!;
         const own = composite[a]!;
-        weight[f] = own.mass * tripleProduct(gravity, mf, sub3(own.centre, pf));
+        weight[f] = own.mass * dot3(gravity, crossTo(mf, subTo(own.centre, pf, work.a), work.b));
         for (let g = f; g < n; g++) {
           const { joint: b, k: l } = freedoms[g]!, D = shared[a]![b]!;
           let value = 0;
           if (D >= 0) {
-            const body = composite[D]!, mg = axes[b]![l]!, pg = pivots[b]!, I = body.inertia;
-            const Img: Vec3 = [
-              I[0] * mg[0] + I[3] * mg[1] + I[4] * mg[2],
-              I[3] * mg[0] + I[1] * mg[1] + I[5] * mg[2],
-              I[4] * mg[0] + I[5] * mg[1] + I[2] * mg[2],
-            ];
-            value = dot3(mf, Img) + body.mass * dot3(cross3(mf, sub3(body.centre, pf)), cross3(mg, sub3(body.centre, pg)));
+            const body = composite[D]!, mg = axes[b]![l]!, pg = pivots[b]!;
+            const Img = inertiaTimesTo(body.inertia, mg, work.a);
+            value = dot3(mf, Img) + body.mass * dot3(crossTo(mf, subTo(body.centre, pf, work.b), work.c), crossTo(mg, subTo(body.centre, pg, work.b), work.d));
           }
           mass[f]![g] = value; mass[g]![f] = value;
         }
@@ -335,15 +342,28 @@ function local(segment: BuiltSegment, point: Vec3): Vec3 {
   return [dot3(d, x), dot3(d, y), dot3(d, z)];
 }
 
-const add3 = (a: Vec3, b: Vec3): Vec3 => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
-/** A symmetric inertia (xx, yy, zz, xy, xz, yz) times a vector. */
-const inertiaTimes = (I: Float64Array, v: Vec3): Vec3 => [
-  I[0]! * v[0] + I[3]! * v[1] + I[4]! * v[2],
-  I[3]! * v[0] + I[1]! * v[1] + I[5]! * v[2],
-  I[4]! * v[0] + I[5]! * v[1] + I[2]! * v[2],
-];
 const dot3 = (a: Vec3, b: Vec3): number => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-const sub3 = (a: Vec3, b: Vec3): Vec3 => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
-const cross3 = (a: Vec3, b: Vec3): Vec3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
-/** g . (m x d): the weight's component along the velocity turning about m gives a point d from the axis. */
-const tripleProduct = (g: Vec3, m: Vec3, d: Vec3): number => dot3(g, cross3(m, d));
+/** a + b, into `out`. */
+function addTo(a: Vec3, b: Vec3, out: Point): Point {
+  const x = a[0] + b[0], y = a[1] + b[1], z = a[2] + b[2];
+  out[0] = x; out[1] = y; out[2] = z;
+  return out;
+}
+/** a - b, into `out`. */
+function subTo(a: Vec3, b: Vec3, out: Point): Point {
+  const x = a[0] - b[0], y = a[1] - b[1], z = a[2] - b[2];
+  out[0] = x; out[1] = y; out[2] = z;
+  return out;
+}
+/** a x b, into `out`. */
+function crossTo(a: Vec3, b: Vec3, out: Point): Point {
+  const x = a[1] * b[2] - a[2] * b[1], y = a[2] * b[0] - a[0] * b[2], z = a[0] * b[1] - a[1] * b[0];
+  out[0] = x; out[1] = y; out[2] = z;
+  return out;
+}
+/** A symmetric inertia (xx, yy, zz, xy, xz, yz) times a vector, into `out`. */
+function inertiaTimesTo(I: Float64Array, v: Vec3, out: Point): Point {
+  const x = I[0]! * v[0] + I[3]! * v[1] + I[4]! * v[2], y = I[3]! * v[0] + I[1]! * v[1] + I[5]! * v[2], z = I[4]! * v[0] + I[5]! * v[1] + I[2]! * v[2];
+  out[0] = x; out[1] = y; out[2] = z;
+  return out;
+}

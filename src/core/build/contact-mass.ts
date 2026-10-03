@@ -74,7 +74,7 @@ export function contactMass(built: BuiltBody): ContactMass {
   const axes: Vec3[][] = joints.map(() => []);
   const origin: [number, number, number] = [0, 0, 0];
   let factor: number[][] = [];
-  const v = new Vector3(), q = new Quaternion(), carry = new Quaternion(), bodyAxes: Vec3[] = [];
+  const v = new Vector3(), q = new Quaternion(), carry = new Quaternion(), bodyAxes: [number, number, number][] = [];
 
   /** The rows of J at `point` on segment `i`: its velocity in the speeds, and (with `spin`) its segment's spin. */
   const jacobian = (i: number, point: Vec3, spin: boolean): number[][] => {

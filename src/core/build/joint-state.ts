@@ -73,8 +73,9 @@ export function rotationOfToRef(axes: BuiltJoint["axes"], a: number, b: number, 
 /** Each freedom's angle, in its own sense, from the reference pose: `out[k]` is `joint.dofs[k]`'s. */
 export function jointAngles(joint: BuiltJoint, out: number[] = []): number[] {
   const angles = anglesOf(relativeRotationToRef(joint, scratch.relative), joint.axes, abc);
-  joint.dofs.forEach((dof, k) => { out[k] = dof.sign * angles[k]!; });
-  out.length = joint.dofs.length;
+  const { dofs } = joint;
+  for (let k = 0; k < dofs.length; k++) out[k] = dofs[k]!.sign * angles[k]!;
+  out.length = dofs.length;
   return out;
 }
 
@@ -91,26 +92,26 @@ const abc: [number, number, number] = [0, 0, 0];
  * leading rows and columns: of two, the diagonal w^2 (1 + t_k^2). At no angles this is the identity.
  */
 export function turningToRef(joint: BuiltJoint, angles: readonly number[], out: number[][]): number[][] {
-  const { dofs } = joint, count = dofs.length, m = turningMatrix(engineAngles(joint, angles));
+  const { dofs } = joint, count = dofs.length;
+  const x = halfTan(joint, angles, 0), y = halfTan(joint, angles, 1), z = halfTan(joint, angles, 2);
+  const w2 = 1 / (1 + x * x + y * y + z * z);
   out.length = count;
   for (let k = 0; k < count; k++) {
     const row = (out[k] ??= []);
     row.length = count;
-    for (let j = 0; j < count; j++) row[j] = dofs[k]!.sign * dofs[j]!.sign * m[k]![j]!;
+    for (let j = 0; j < count; j++) {
+      // E + [t]x, row k the axis, column j the angle.
+      const v = k === j ? 1 : k === 0 ? (j === 1 ? -z : y) : k === 1 ? (j === 0 ? z : -x) : (j === 0 ? -y : x);
+      const t = j === 0 ? x : j === 1 ? y : z;
+      row[j] = dofs[k]!.sign * dofs[j]!.sign * (w2 * v * (1 + t * t));
+    }
   }
   return out;
 }
 
-/** Each of `angles` (own senses) in the engine's sense, a locked freedom at zero. */
-const engineAngles = (joint: BuiltJoint, angles: readonly number[]): [number, number, number] =>
-  [0, 1, 2].map((k) => (k < joint.dofs.length ? joint.dofs[k]!.sign * angles[k]! : 0)) as [number, number, number];
-
-/** The table in `turningToRef`'s note at angles (a, b, c), the engine's senses: row k the axis, column j the angle. */
-function turningMatrix(angles: readonly [number, number, number]): number[][] {
-  const t = angles.map((a) => tan(a / 2)), [x, y, z] = t as [number, number, number];
-  const w2 = 1 / (1 + x * x + y * y + z * z);
-  const cross = [[1, -z, y], [z, 1, -x], [-y, x, 1]];
-  return cross.map((row) => row.map((v, j) => w2 * v * (1 + t[j]! * t[j]!)));
+/** tan(a_k / 2) of freedom `k`'s angle in `angles` (own senses) in the engine's sense, a locked freedom's at zero. */
+function halfTan(joint: BuiltJoint, angles: readonly number[], k: number): number {
+  return tan((k < joint.dofs.length ? joint.dofs[k]!.sign * angles[k]! : 0) / 2);
 }
 
 /**
@@ -121,15 +122,18 @@ function turningMatrix(angles: readonly [number, number, number]): number[][] {
  */
 export function ratesToRef(joint: BuiltJoint, angles: readonly number[], speeds: readonly number[], out: number[]): number[] {
   const { dofs } = joint, count = dofs.length;
-  const t = engineAngles(joint, angles).map((a) => tan(a / 2)), [x, y, z] = t as [number, number, number];
-  const u = [0, 1, 2].map((k) => (k < count ? dofs[k]!.sign * speeds[k]! : 0));
+  const x = halfTan(joint, angles, 0), y = halfTan(joint, angles, 1), z = halfTan(joint, angles, 2);
+  const u0 = 0 < count ? dofs[0]!.sign * speeds[0]! : 0, u1 = 1 < count ? dofs[1]!.sign * speeds[1]! : 0;
   // Two freedoms: the lock on Z turns the child about Z too (`motionAxesToRef`).
-  if (count === 2) u[2] = u[1]! * x - u[0]! * y;
-  const inverse = [[1 + x * x, z + x * y, -y + x * z], [-z + y * x, 1 + y * y, x + y * z], [y + z * x, -x + z * y, 1 + z * z]];
+  const u2 = count === 2 ? u1 * x - u0 * y : 2 < count ? dofs[2]!.sign * speeds[2]! : 0;
   out.length = count;
   for (let k = 0; k < count; k++) {
-    const row = inverse[k]!;
-    out[k] = dofs[k]!.sign * (row[0]! * u[0]! + row[1]! * u[1]! + row[2]! * u[2]!) / (1 + t[k]! * t[k]!);
+    // Row k of E - [t]x + t t'.
+    const r0 = k === 0 ? 1 + x * x : k === 1 ? -z + y * x : y + z * x;
+    const r1 = k === 0 ? z + x * y : k === 1 ? 1 + y * y : -x + z * y;
+    const r2 = k === 0 ? -y + x * z : k === 1 ? x + y * z : 1 + z * z;
+    const t = k === 0 ? x : k === 1 ? y : z;
+    out[k] = dofs[k]!.sign * (r0 * u0 + r1 * u1 + r2 * u2) / (1 + t * t);
   }
   return out;
 }
@@ -142,17 +146,27 @@ export function ratesToRef(joint: BuiltJoint, angles: readonly number[], speeds:
  * second's about Y + tan(a / 2) Z. As the angles turn, these axes lean along Z at rates whose sum
  * over the speeds cancels, so a joint's axes add nothing to the motion's bias (`dynamics.ts`).
  */
-export function motionAxesToRef(joint: BuiltJoint, angles: readonly number[], out: Vec3[]): Vec3[] {
+export function motionAxesToRef(joint: BuiltJoint, angles: readonly number[], out: [number, number, number][]): [number, number, number][] {
   const { dofs, axes } = joint;
   out.length = dofs.length;
-  dofs.forEach((dof, k) => { out[k] = signed([axes.x, axes.y, axes.z][k]!, dof.sign); });
   if (dofs.length === 2) {
-    const [a, b] = engineAngles(joint, angles), leanX = -tan(b / 2), leanY = tan(a / 2);
+    const leanX = -halfTan(joint, angles, 1), leanY = halfTan(joint, angles, 0);
     const sx = dofs[0]!.sign, sy = dofs[1]!.sign, Z = axes.z;
-    out[0] = [sx * (axes.x[0] + leanX * Z[0]), sx * (axes.x[1] + leanX * Z[1]), sx * (axes.x[2] + leanX * Z[2])];
-    out[1] = [sy * (axes.y[0] + leanY * Z[0]), sy * (axes.y[1] + leanY * Z[1]), sy * (axes.y[2] + leanY * Z[2])];
+    setTo(out, 0, sx * (axes.x[0] + leanX * Z[0]), sx * (axes.x[1] + leanX * Z[1]), sx * (axes.x[2] + leanX * Z[2]));
+    setTo(out, 1, sy * (axes.y[0] + leanY * Z[0]), sy * (axes.y[1] + leanY * Z[1]), sy * (axes.y[2] + leanY * Z[2]));
+    return out;
+  }
+  for (let k = 0; k < dofs.length; k++) {
+    const a = k === 0 ? axes.x : k === 1 ? axes.y : axes.z, sign = dofs[k]!.sign;
+    setTo(out, k, a[0] * sign, a[1] * sign, a[2] * sign);
   }
   return out;
+}
+
+/** `out[k]` set to (x, y, z), made where it is missing. */
+function setTo(out: [number, number, number][], k: number, x: number, y: number, z: number): void {
+  const v = (out[k] ??= [0, 0, 0]);
+  v[0] = x; v[1] = y; v[2] = z;
 }
 const along = (v: Vector3, a: Vec3): number => v.x * a[0] + v.y * a[1] + v.z * a[2];
 
@@ -197,7 +211,7 @@ export function jointTracker(joint: BuiltJoint): JointTracker {
       Quaternion.InverseToRef(joint.parent.node.rotationQuaternion!, scratch.inverse);
       joint.parent.rest.multiplyToRef(scratch.inverse, scratch.t);
       world.applyRotationQuaternionToRef(scratch.t, scratch.w);
-      axes.forEach((axis, k) => { out[k] = along(scratch.w, axis); });
+      for (let k = 0; k < axes.length; k++) out[k] = along(scratch.w, axes[k]!);
       out.length = axes.length;
       return out;
     },

@@ -63,7 +63,7 @@ export function pointAtToRef(chain: readonly BuiltJoint[], angles: readonly (rea
  */
 const walked = {
   before: [] as Quaternion[], centre: [] as Vector3[], last: new Quaternion(), spin: [] as Vector3[],
-  axes: [] as Vec3[], turning: [] as number[][],
+  axes: [] as [number, number, number][], turning: [] as number[][],
 };
 
 /**
