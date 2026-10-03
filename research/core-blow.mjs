@@ -90,7 +90,8 @@ const RULES = rulebook("arena");
  * Returns what the rule read: `done`, the hit points the target lost; `cost`, those the thrower
  * lost; `nearest`, m, how near the striking hand, with what it holds, came to the target from
  * the beginning of the pushes, null with no target; `fell`; `stood`, whether it stood on both
- * feet at the end of that time; and `blows`, every blow between the two.
+ * feet at the end of that time; `recoveries`, the steps its stance took to catch the body
+ * (`StanceReading.recoveries`); and `blows`, every blow between the two.
  */
 export async function evaluateBlow({ model = "workshop-fighter", held = FIST, hand = "right", band = "high", unit, guard = false,
   strike, ahead, hz = 120, ground = 20, dummy = true, perturbation, off, seen = false, steer, recover = RECOVER, trace }) {
@@ -115,7 +116,7 @@ export async function evaluateBlow({ model = "workshop-fighter", held = FIST, ha
       if (ended !== null && blow.time - ended >= recover) break;
     }
     const { done, cost, nearest, blows } = watch.reading;
-    return { done, cost, nearest, fell, stood: !fell && view.stance.phase === "stand", blows };
+    return { done, cost, nearest, fell, stood: !fell && view.stance.phase === "stand", recoveries: view.stance.recoveries, blows };
   } finally { watch.dispose(); blow.dispose(); stand.dispose(); }
 }
 
@@ -189,11 +190,21 @@ export function scoreOf({ done, cost, nearest, fell, stood }) {
 }
 
 /**
- * A candidate's score from its trials' readings and the one thrown at nothing: its mean over the
- * trials; `FELL` where the blow thrown at nothing left the body down or not standing, whatever it
- * does when it lands.
+ * What a step taken to catch a body thrown at nothing costs a candidate searched still, HP: more
+ * than any blow of the repertoire does, so that a candidate that steps less ranks above one that
+ * does more.
  */
-export function candidateScore(trials, atNothing) {
-  if (scoreOf(atNothing) === FELL) return FELL;
-  return trials.reduce((sum, reading) => sum + scoreOf(reading), 0) / trials.length;
+export const STEPPED = 10;
+
+/**
+ * A candidate's score from its trials' readings and those thrown at nothing: its mean over the
+ * trials; `FELL` where a blow thrown at nothing left the body down or not standing, whatever it
+ * does when it lands; and, `still`, less `STEPPED` for each step its stance took at nothing, on
+ * the mean.
+ */
+export function candidateScore(trials, atNothing, still = false) {
+  const nothing = [atNothing].flat();
+  if (nothing.some((reading) => scoreOf(reading) === FELL)) return FELL;
+  const mean = trials.reduce((sum, reading) => sum + scoreOf(reading), 0) / trials.length;
+  return still ? mean - STEPPED * nothing.reduce((sum, reading) => sum + reading.recoveries, 0) / nothing.length : mean;
 }

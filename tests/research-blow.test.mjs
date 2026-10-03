@@ -15,7 +15,7 @@ import { woundedIn } from "../src/core/rules/blows.ts";
 import { BANDS, FIST, REPERTOIRE } from "../src/core/skills/strikes.ts";
 import { bandRise } from "../src/lab/blow.ts";
 import { dummySpec } from "../src/lab/targets.ts";
-import { balanceTrace, candidateScore, decodeHeld, dimensionsHeld, encodeHeld, evaluateBlow, FELL, heldSpec, scoreOf } from "../research/core-blow.mjs";
+import { balanceTrace, candidateScore, decodeHeld, dimensionsHeld, encodeHeld, evaluateBlow, FELL, heldSpec, scoreOf, STEPPED } from "../research/core-blow.mjs";
 import { keeps } from "../research/core-strike-repertoire.mjs";
 import { specProvenanceFaults } from "./fixtures/spec.mjs";
 import { WARRIOR_STRAIGHT } from "./fixtures/strikes.mjs";
@@ -39,7 +39,7 @@ const THROWN_DOWN = {
 test("a_blow_is_scored_by_what_it_does_less_what_it_costs", async () => {
   // The Warrior's club recipe at its place: the club is rigid and takes none of it.
   const hit = await club();
-  assert.deepEqual(Object.keys(hit), ["done", "cost", "nearest", "fell", "stood", "blows"]);
+  assert.deepEqual(Object.keys(hit), ["done", "cost", "nearest", "fell", "stood", "recoveries", "blows"]);
   assert.deepEqual({ cost: hit.cost, nearest: hit.nearest, fell: hit.fell, stood: hit.stood }, { cost: 0, nearest: 0, fell: false, stood: true });
   assert.ok(hit.done > 0.5 && hit.blows.length > 0, `${hit.done} HP in ${hit.blows.length} blows`);
   assert.ok(near(hit.done, takenBy(hit.blows, "dummy")) && takenBy(hit.blows, "attacker") === 0, `${hit.done} HP of ${takenBy(hit.blows, "dummy")}`);
@@ -57,7 +57,7 @@ test("a_blow_is_scored_by_what_it_does_less_what_it_costs", async () => {
 
 test("a_blow_thrown_at_nothing_does_nothing_and_is_read", async () => {
   const nothing = await straight({ dummy: false });
-  assert.deepEqual(nothing, { done: 0, cost: 0, nearest: null, fell: false, stood: true, blows: [] });
+  assert.deepEqual(nothing, { done: 0, cost: 0, nearest: null, fell: false, stood: true, recoveries: 0, blows: [] });
   // Beyond reach it misses, and is scored under any hit, by how near it passed: a body has fewer hit points than a miss is under.
   const [short, shorter] = [await straight({ ahead: WARRIOR_STRAIGHT.place.ahead + 0.5 }), await straight({ ahead: WARRIOR_STRAIGHT.place.ahead + 0.8 })];
   for (const miss of [short, shorter]) assert.deepEqual({ done: miss.done, cost: miss.cost, fell: miss.fell, stood: miss.stood, blows: miss.blows }, { done: 0, cost: 0, fell: false, stood: true, blows: [] });
@@ -79,7 +79,16 @@ test("a_blow_that_leaves_the_body_down_scores_a_fall", async () => {
   // A candidate that lands and stands, and goes down when it misses, scores a fall whatever its trials read.
   const lands = { done: 1, cost: 0, nearest: 0, fell: false, stood: true };
   assert.equal(candidateScore([lands, lands], atNothing), FELL);
-  assert.equal(candidateScore([lands, { ...lands, done: 0.5 }], { done: 0, cost: 0, nearest: null, fell: false, stood: true }), 0.75);
+  const still = { done: 0, cost: 0, nearest: null, fell: false, stood: true, recoveries: 0 };
+  assert.equal(candidateScore([lands, { ...lands, done: 0.5 }], still), 0.75);
+  // Searched still, each step at nothing costs `STEPPED` on the mean, and any throw at nothing that falls is a fall.
+  const stepped = { ...still, recoveries: 3 };
+  assert.equal(candidateScore([lands], [still, stepped], false), 1);
+  assert.equal(candidateScore([lands], [still, stepped], true), 1 - STEPPED * 1.5);
+  assert.equal(candidateScore([lands], [still, still], true), 1);
+  assert.equal(candidateScore([lands], [still, atNothing], true), FELL);
+  // Fewer steps rank first, whatever the blows do.
+  assert.ok(candidateScore([{ ...lands, done: 0.1 }], [still], true) > candidateScore([{ ...lands, done: 5 }], [{ ...still, recoveries: 1 }], true));
 });
 
 test("a_blow_traced_reads_the_same_and_says_how_its_body_kept_its_feet", async () => {
@@ -99,6 +108,7 @@ test("a_blow_traced_reads_the_same_and_says_how_its_body_kept_its_feet", async (
   assert.ok(down.balance.out > 0.1 && down.balance.inner > down.balance.out, `${down.balance.out}, ${down.balance.inner} m`);
   assert.ok(down.balance.left >= 0 && down.balance.left < 0.5, `${down.balance.left} s`);
   assert.ok(down.balance.recoveries > 0 && down.balance.stepped);
+  assert.equal(down.result.recoveries, down.balance.recoveries);
   // Its trunk turned right and leaned right: the capture point runs right.
   assert.ok(down.balance.aside[1] > 0.1 && down.balance.aside[1] > -down.balance.aside[0], `${down.balance.aside} m`);
 });

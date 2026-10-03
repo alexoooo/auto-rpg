@@ -10,7 +10,7 @@
  *
  *   node research/core-strike-search.mjs [--model workshop-rogue] [--held fist|"wooden club"] [--band high|middle] [--hand right]
  *     [--hz 120] [--guard] [--generations 30] [--population 64] [--elite 10] [--workers 14] [--seed 1] [--trials 4] [--grounds 20]
- *     [--from <model>:<band>|<file>] [--sigma 0.6] [--jitter <along>,<across>,<up>]
+ *     [--from <model>:<band>|<file>] [--sigma 0.6] [--jitter <along>,<across>,<up>] [--still]
  *
  * With `--guard` the strike has no chamber: it is thrown from the lab's guard, as a straight is.
  *
@@ -32,6 +32,11 @@
  * unreasonable effectiveness of quasirandom sequences"), carried on from one generation to the
  * next, so that no candidate is scored on the same four; the best is the last generation's. The
  * replay reads the best at its place.
+ *
+ * With `--still` each trial is thrown at nothing as well, and a candidate's score is less
+ * `STEPPED` for each step its stance took to catch it there, on the mean: a recipe searched against
+ * a target, which stops its arm, is not otherwise scored on what a miss does to its feet. The
+ * replay reads the steps of its throw at nothing.
  *
  * `--from` starts the search centred on a strike, which is its first generation's first
  * candidate, with every spread `--sigma` (0.6, the fresh search's, unless given): a recipe of the
@@ -55,7 +60,7 @@ const { values } = parseArgs({ options: {
   elite: { type: "string", default: "10" }, workers: { type: "string" }, seed: { type: "string", default: "1" },
   trials: { type: "string", default: "4" }, replay: { type: "string", default: "120,480,1920" },
   from: { type: "string" }, sigma: { type: "string", default: "0.6" }, grounds: { type: "string", default: "20" },
-  jitter: { type: "string" },
+  jitter: { type: "string" }, still: { type: "boolean", default: false },
 } });
 const { model, hand, held, band } = values, hz = Number(values.hz);
 const WAYS = ["along", "across", "up"], jitter = values.jitter ? values.jitter.split(",").map(Number) : null;
@@ -145,10 +150,11 @@ function run1(unit, perturbation, { dummy = true, rate = hz } = {}) {
   });
 }
 const AS_WRITTEN = { shift: 0, scale: 1 };
-/** A candidate's score over `perturbations` and one thrown at nothing, with its unperturbed run's reading beside it. */
+/** A candidate's score over `perturbations` and thrown at nothing (each perturbation `--still`, else once as written), with its unperturbed run's reading beside it. */
 async function evaluate(unit, perturbations) {
-  const [nothing, ...runs] = await Promise.all([run1(unit, { ...AS_WRITTEN, ground: GROUNDS[0] }, { dummy: false }), ...perturbations.map((p) => run1(unit, p))]);
-  return { ...runs[0], score: candidateScore(runs, nothing), runs: runs.map((r) => +scoreOf(r).toFixed(3)) };
+  const empty = values.still ? perturbations : [{ ...AS_WRITTEN, ground: GROUNDS[0] }];
+  const [nothing, runs] = await Promise.all([Promise.all(empty.map((p) => run1(unit, p, { dummy: false }))), Promise.all(perturbations.map((p) => run1(unit, p)))]);
+  return { ...runs[0], score: candidateScore(runs, nothing, values.still), runs: runs.map((r) => +scoreOf(r).toFixed(3)) };
 }
 /** Trials for one generation, shared by every candidate in it; the first is the strike as written. */
 const draw = () => Array.from({ length: trials }, (_, k) => ({ ...(k === 0 ? AS_WRITTEN
@@ -190,12 +196,12 @@ for (const rate of values.replay.split(",").map(Number)) {
   readings[`at${rate}`] = {
     net: +average(runs.map((r) => r.done - r.cost)).toFixed(4), done: +average(runs.map((r) => r.done)).toFixed(4), cost: +average(runs.map((r) => r.cost)).toFixed(4),
     runs: runs.map((r) => +(r.done - r.cost).toFixed(3)), noise: noise.map((r) => +(r.done - r.cost).toFixed(3)),
-    landed: runs.filter((r) => r.done > 0).length, stood: runs.filter((r) => !r.fell && r.stood).length, stoodAtNothing: !nothing.fell && nothing.stood,
+    landed: runs.filter((r) => r.done > 0).length, stood: runs.filter((r) => !r.fell && r.stood).length, stoodAtNothing: !nothing.fell && nothing.stood, stepsAtNothing: nothing.recoveries,
   };
 }
 await Promise.all(pool.map((w) => w.terminate()));
 const found = decodeHeld(held, best.unit, spec, hand, guard);
 console.log(JSON.stringify({ harness: CORE_BLOW_HARNESS, held, band, model, hand, guard, seed: Number(values.seed), hz, trials,
-  generations, population, ...(values.from ? { from: values.from, sigma: Number(values.sigma) } : {}), ...(values.grounds !== "20" ? { grounds: GROUNDS } : {}), ...(jitter ? { jitter } : {}),
+  generations, population, ...(values.from ? { from: values.from, sigma: Number(values.sigma) } : {}), ...(values.grounds !== "20" ? { grounds: GROUNDS } : {}), ...(jitter ? { jitter } : {}), ...(values.still ? { still: true } : {}),
   searched: { mean: +best.score.toFixed(3), runs: best.runs }, ...readings,
   place: { ahead: found.distance, up: bandRise(spec, band) }, strike: found.strike, unit: best.unit }));
