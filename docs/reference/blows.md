@@ -954,7 +954,9 @@ Three searches a cell, 36 in all, each going on from a recipe of the repertoire 
 straight) with a spread of its own, or from nothing. A search is 9600 throws and its replay:
 4 to 10 minutes on 24 worker threads of a 16-core desktop, and the 36 took 4 h 5 min one after
 another, other measurements sharing the machine. The windows after them are 18,800 throws more,
-about 2 h on 8 threads.
+about 2 h on 8 threads. The skeleton's twelve were searched again once its thighs and upper arms
+were built clear of each other (`eb1865a1`), each going on from its own cell's recipe of
+`assets/core/strikes.json@f25369bf`, at spreads 0.2, 0.4 and 0.6; its rows are those.
 
 ### The searches
 
@@ -988,34 +990,34 @@ how many its body stood a second after, and whether it stands thrown once at not
 | Rogue | fist | middle | 1 | Rogue's, high | 0.3 | 0.304 | 0.225 | 0.252 | 0.027 | 8 | 8 | 0.132 | 0.144 | 0.012 | 8 | 8 | 0.146 | 0.160 | 0.014 | 8 | 8 | stands, stands, stands | yes |
 | Rogue | fist | middle | 2 | Rogue's, high | 0.6 | 0.122 | 0.120 | 0.131 | 0.011 | 8 | 8 | 0.000 | 0.000 | 0.000 | 0 | 8 | 0.000 | 0.000 | 0.000 | 0 | 8 | stands, stands, stands |  |
 | Rogue | fist | middle | 3 | nothing | - | 0.127 | 0.125 | 0.137 | 0.012 | 8 | 8 | 0.103 | 0.113 | 0.009 | 8 | 8 | 0.070 | 0.077 | 0.006 | 8 | 8 | stands, stands, stands |  |
-| skeleton | wooden club | high | 1 | Warrior's, high | 0.2 | 0.862 | 0.558 | 0.558 | 0.000 | 8 | 8 | 0.716 | 0.716 | 0.000 | 8 | 8 | 0.385 | 0.385 | 0.000 | 8 | 8 | stands, stands, stands |  |
-| skeleton | wooden club | high | 2 | Warrior's, high | 0.4 | 0.780 | 0.755 | 0.755 | 0.000 | 8 | 8 | 0.740 | 0.740 | 0.000 | 8 | 8 | 0.728 | 0.728 | 0.000 | 8 | 8 | stands, stands, stands |  |
-| skeleton | wooden club | high | 3 | Warrior's, high | 0.6 | 0.700 | 0.660 | 0.660 | 0.000 | 8 | 8 | 0.702 | 0.702 | 0.000 | 8 | 8 | 0.684 | 0.684 | 0.000 | 8 | 8 | stands, stands, stands | yes |
-| skeleton | wooden club | middle | 1 | Warrior's, high | 0.2 | 1.088 | 1.075 | 1.075 | 0.000 | 8 | 8 | 1.127 | 1.127 | 0.000 | 8 | 8 | 1.054 | 1.054 | 0.000 | 8 | 8 | stands, stands, stands | yes |
-| skeleton | wooden club | middle | 2 | Warrior's, high | 0.4 | 1.057 | 1.030 | 1.030 | 0.000 | 8 | 8 | 1.047 | 1.047 | 0.000 | 8 | 8 | 1.015 | 1.015 | 0.000 | 8 | 8 | stands, stands, stands |  |
-| skeleton | wooden club | middle | 3 | Warrior's, high | 0.6 | 0.739 | 0.740 | 0.740 | 0.000 | 8 | 8 | 0.728 | 0.728 | 0.000 | 8 | 8 | 0.632 | 0.632 | 0.000 | 8 | 8 | stands, stands, stands |  |
-| skeleton | fist | high | 1 | Warrior's, high | 0.3 | 0.029 | 0.026 | 0.154 | 0.128 | 8 | 8 | 0.014 | 0.149 | 0.135 | 8 | 8 | 0.018 | 0.104 | 0.086 | 8 | 8 | stands, stands, stands | yes |
-| skeleton | fist | high | 2 | Warrior's, high | 0.6 | 0.031 | 0.025 | 0.173 | 0.148 | 8 | 7 | 0.008 | 0.179 | 0.170 | 8 | 8 | 0.018 | 0.155 | 0.138 | 8 | 8 | stands, stands, stands |  |
-| skeleton | fist | high | 3 | nothing | - | 0.000 | 0.000 | 0.041 | 0.041 | 8 | 8 | 0.000 | 0.043 | 0.043 | 8 | 8 | 0.000 | 0.043 | 0.043 | 8 | 8 | stands, stands, stands |  |
-| skeleton | fist | middle | 1 | Warrior's, high | 0.3 | 0.630 | 0.646 | 0.725 | 0.079 | 8 | 8 | 0.523 | 0.586 | 0.063 | 8 | 8 | 0.419 | 0.461 | 0.042 | 8 | 8 | stands, stands, stands | yes |
-| skeleton | fist | middle | 2 | Warrior's, high | 0.6 | 0.483 | 0.469 | 0.525 | 0.056 | 8 | 8 | 0.378 | 0.424 | 0.046 | 8 | 8 | 0.303 | 0.341 | 0.038 | 8 | 8 | stands, stands, stands |  |
-| skeleton | fist | middle | 3 | nothing | - | 0.568 | 0.513 | 0.571 | 0.058 | 8 | 7 | 0.316 | 0.355 | 0.039 | 8 | 8 | 0.269 | 0.301 | 0.032 | 8 | 8 | stands, stands, stands |  |
+| skeleton | wooden club | high | 1 | skeleton's, high | 0.2 | 0.798 | 0.735 | 0.735 | 0.000 | 8 | 8 | 0.827 | 0.827 | 0.000 | 8 | 8 | 0.822 | 0.822 | 0.000 | 8 | 8 | stands, stands, stands | yes |
+| skeleton | wooden club | high | 2 | skeleton's, high | 0.4 | 0.873 | 0.872 | 0.872 | 0.000 | 8 | 8 | 0.549 | 0.549 | 0.000 | 8 | 3 | 0.566 | 0.566 | 0.000 | 8 | 3 | stands, stands, falls |  |
+| skeleton | wooden club | high | 3 | skeleton's, high | 0.6 | 0.721 | 0.670 | 0.670 | 0.000 | 8 | 8 | 0.487 | 0.487 | 0.000 | 8 | 1 | 0.491 | 0.491 | 0.000 | 8 | 1 | stands, falls, stands |  |
+| skeleton | wooden club | middle | 1 | skeleton's, middle | 0.2 | 1.095 | 1.061 | 1.061 | 0.000 | 8 | 8 | 1.046 | 1.046 | 0.000 | 8 | 8 | 1.053 | 1.053 | 0.000 | 8 | 8 | stands, stands, stands |  |
+| skeleton | wooden club | middle | 2 | skeleton's, middle | 0.4 | 1.087 | 0.958 | 0.958 | 0.000 | 8 | 6 | 1.075 | 1.075 | 0.000 | 8 | 3 | 1.083 | 1.083 | 0.000 | 8 | 5 | stands, stands, stands |  |
+| skeleton | wooden club | middle | 3 | skeleton's, middle | 0.6 | 1.119 | 1.112 | 1.112 | 0.000 | 8 | 8 | 1.011 | 1.011 | 0.000 | 8 | 8 | 0.938 | 0.938 | 0.000 | 8 | 8 | stands, stands, stands | yes |
+| skeleton | fist | high | 1 | skeleton's, high | 0.2 | 0.036 | 0.034 | 0.183 | 0.149 | 8 | 8 | 0.031 | 0.171 | 0.140 | 8 | 8 | 0.032 | 0.173 | 0.142 | 8 | 8 | stands, stands, stands | yes |
+| skeleton | fist | high | 2 | skeleton's, high | 0.4 | 0.031 | 0.010 | 0.143 | 0.133 | 8 | 8 | 0.011 | 0.197 | 0.187 | 8 | 8 | 0.020 | 0.191 | 0.171 | 8 | 8 | stands, stands, stands |  |
+| skeleton | fist | high | 3 | skeleton's, high | 0.6 | 0.031 | 0.027 | 0.146 | 0.119 | 8 | 8 | 0.027 | 0.150 | 0.123 | 8 | 8 | 0.026 | 0.152 | 0.126 | 8 | 8 | stands, stands, stands |  |
+| skeleton | fist | middle | 1 | skeleton's, middle | 0.2 | 0.774 | 0.674 | 0.754 | 0.079 | 8 | 8 | 0.382 | 0.415 | 0.033 | 8 | 8 | 0.354 | 0.382 | 0.028 | 8 | 8 | stands, stands, stands | yes |
+| skeleton | fist | middle | 2 | skeleton's, middle | 0.4 | 0.687 | 0.587 | 0.653 | 0.067 | 8 | 8 | 0.423 | 0.465 | 0.042 | 8 | 8 | 0.416 | 0.456 | 0.041 | 8 | 8 | stands, stands, stands |  |
+| skeleton | fist | middle | 3 | skeleton's, middle | 0.6 | 0.658 | 0.580 | 0.647 | 0.067 | 8 | 8 | 0.373 | 0.409 | 0.036 | 8 | 8 | 0.380 | 0.416 | 0.036 | 8 | 8 | stands, stands, stands |  |
 
 - **A fist at a head nets about nothing.** A head is stiffer than a hand
   ([wounds.md](wounds.md#shares)), and every one of the nine searches costs its hand 0.8 to
-  0.9 of what it does the head, or all of it: they net 0.000 to 0.026 HP. The hardest of them
+  0.9 of what it does the head, or all of it: they net 0.000 to 0.034 HP. The hardest of them
   cost their hands more than the hands hold: the Warrior's does a head 0.121 HP and its own
-  hand 0.099, and its hand holds 0.088; the skeleton's 0.154 and 0.128.
-- **At an upper trunk the same hands net 0.12 to 0.65 HP**, a tenth of what they do coming back
+  hand 0.099, and its hand holds 0.088; the skeleton's 0.183 and 0.149.
+- **At an upper trunk the same hands net 0.12 to 0.67 HP**, a tenth of what they do coming back
   on them.
 - **A blow found at 120 Hz is another blow at a finer step.** The Rogue's club at a trunk,
   seed 1, nets 0.500 HP at 120 Hz, 0.058 at 480 (5 of 8 landing) and 0.185 at 1920; its fist
   at a trunk, seed 2, lands 8 of 8 at 120 Hz and none at 480 or 1920. The other fists at a
   trunk net at 480 Hz 0.55 to 0.82 of what they net at 120.
-- **Thrown at nothing, five stand at 120 Hz and fall at a finer step**: the Warrior's club at a
+- **Thrown at nothing, seven stand at 120 Hz and fall at a finer step**: the Warrior's club at a
   head (seed 1) and at a trunk (seed 2), the Rogue's at a head (seeds 1 and 2) and at a trunk
-  (seed 2). A search throws at nothing at its own rate alone. Four of the five are their cells'
-  recipes.
+  (seed 2), and the skeleton's at a head (seeds 2 and 3). A search throws at nothing at its own
+  rate alone. Four of the seven are their cells' recipes.
 
 ### The repertoire
 
@@ -1035,14 +1037,15 @@ A cell with no recipe is thrown at by placement.
 | Rogue | wooden club | middle | 0.884 | -0.231 | 0.528 | 0.563 | 0.585 | 0.119 | -10 to 10 | -6 to 6 | -40 to 24 |
 | Rogue | fist | high | 0.437 | 0.000 | 0.007 | 0.007 | 0.007 | -0.001 | -6 to 8 | -2 to 6 | -12 to 6 |
 | Rogue | fist | middle | 0.575 | -0.231 | 0.225 | 0.132 | 0.146 | 0.001 | -4 to 2 | -6 to 2 | -14 to 20 |
-| skeleton | wooden club | high | 0.770 | 0.000 | 0.660 | 0.702 | 0.684 | 0.000 | -4 to 4 | -2 to 2 | -14 to 26 |
-| skeleton | wooden club | middle | 1.047 | -0.248 | 1.075 | 1.127 | 1.054 | 0.000 | -8 to 6 | -4 to 6 | -18 to 14 |
-| skeleton | fist | high | 0.499 | 0.000 | 0.026 | 0.014 | 0.018 | -0.000 | 0 to 6 | -4 to 2 | -28 to 18 |
-| skeleton | fist | middle | 0.625 | -0.248 | 0.646 | 0.523 | 0.419 | 0.008 | -4 to 0 | 0 to 8 | -14 to 24 |
+| skeleton | wooden club | high | 0.819 | 0.000 | 0.735 | 0.827 | 0.822 | 0.000 | -2 to 2 | -4 to 4 | -14 to 20 |
+| skeleton | wooden club | middle | 1.060 | -0.248 | 1.112 | 1.011 | 0.938 | 0.000 | -18 to 6 | -2 to 4 | -14 to 14 |
+| skeleton | fist | high | 0.530 | 0.000 | 0.034 | 0.031 | 0.032 | 0.000 | -2 to 6 | -4 to 4 | -28 to 18 |
+| skeleton | fist | middle | 0.645 | -0.248 | 0.674 | 0.382 | 0.354 | 0.024 | -2 to 6 | 0 to 6 | -28 to 36 |
 
-Every cell has a recipe. The skeleton's club blow at a head is its search of seed 3: seed 2's
-nets more (0.755 HP), and at its own place leaves the skeleton down in one throw of four at
-120 Hz, so it has no window (`assets/core/strikes.json`, `passed`).
+Every cell has a recipe. The skeleton's club blow at a head is its search of seed 1: seed 2's
+nets more (0.872 HP), and leaves the skeleton down in throws about its own place, most at
+480 Hz, so its window is narrower than the 4 cm the feet are set to (`assets/core/strikes.json`,
+`passed`).
 
 ### Another body's recipe
 
@@ -1096,37 +1099,38 @@ and the hardest blow of the three. Nobody went down in any of the 72.
 | Rogue | fist | head | Rogue | 0.00 | high recipe | 0.060 | 0.032 | forearm.right on head, 3.8 J |
 | Rogue | fist | upper trunk | Warrior | -0.10 | high recipe | 0.031 | 0.010 | forearm.right on upperTrunk, 2.1 J |
 | Rogue | fist | upper trunk | Rogue | -0.23 | middle recipe | 0.054 | 0.057 | hand.right on head, 7.3 J |
-| skeleton | club | head | Warrior | 0.19 | high recipe | 0.089 | 0.159 | hand.right on upperArm.left, 36.6 J |
-| skeleton | club | head | Rogue | 0.06 | high recipe | 0.079 | 0.109 | hand.right on upperArm.left, 24.8 J |
-| skeleton | club | upper trunk | Warrior | -0.05 | high recipe | 0.087 | 0.160 | hand.right on upperArm.left, 37.2 J |
-| skeleton | club | upper trunk | Rogue | -0.17 | middle recipe | 0.582 | 0.000 | club on upperTrunk, 96.5 J |
-| skeleton | fist | head | Warrior | 0.19 | high recipe; high recipe; placed | 0.118 | 0.128 | hand.right on head, 31.4 J |
-| skeleton | fist | head | Rogue | 0.06 | high recipe; not thrown; not thrown | 0.001 | 0.000 | hand.right on upperTrunk, 0.5 J |
-| skeleton | fist | upper trunk | Warrior | -0.05 | high recipe; high recipe; not thrown | 0.052 | 0.061 | hand.right on head, 12.0 J |
-| skeleton | fist | upper trunk | Rogue | -0.18 | middle recipe; middle recipe; not thrown | 0.135 | 0.140 | hand.right on head, 37.5 J |
+| skeleton | club | head | Warrior | 0.18 | high recipe | 0.083 | 0.036 | hand.right on upperTrunk, 6.5 J |
+| skeleton | club | head | Rogue | 0.04 | high recipe | 0.106 | 0.104 | hand.right on upperArm.left, 23.7 J |
+| skeleton | club | upper trunk | Warrior | -0.06 | high recipe | 0.092 | 0.036 | hand.right on upperTrunk, 8.0 J |
+| skeleton | club | upper trunk | Rogue | -0.19 | middle recipe | 0.313 | 0.000 | club on head, 32.3 J |
+| skeleton | fist | head | Warrior | 0.18 | high recipe | 0.216 | 0.190 | hand.right on head, 21.8 J |
+| skeleton | fist | head | Rogue | 0.04 | high recipe | 0.203 | 0.190 | hand.right on head, 31.9 J |
+| skeleton | fist | upper trunk | Warrior | -0.06 | high recipe | 0.208 | 0.195 | hand.right on head, 26.4 J |
+| skeleton | fist | upper trunk | Rogue | -0.19 | middle recipe | 0.149 | 0.091 | hand.right on head, 10.9 J |
 
 - **The head is in a middle blow's way.** The Warrior's club blow at a trunk lands on the head
   of either foe, 0.69 and 1.14 HP, and its fist's on the Rogue's; the Rogue's and the skeleton's
   fists at a Rogue's trunk land on its head too. The Rogue's club blow at a trunk lands on the
   trunk, or on the arm before it.
-- **A club blow does a standing body 0.4 to 1.1 HP and costs nothing**, where its club lands:
+- **A club blow does a standing body 0.3 to 1.1 HP and costs nothing**, where its club lands:
   the Warrior's four, the Rogue's at a Rogue's head and at either trunk, the skeleton's at a
   Rogue's trunk. A Warrior's head stands 15 cm over the Rogue's own, over its window, and its
   club is placed there, 0.14 HP.
 - **The skeleton's club blow at a head lands its hand and not its club.** A Warrior's head
-  (19 cm over its own), a Rogue's (6 cm over) and a Warrior's upper trunk (5 cm under) are in
-  its window, and at each the club passes and the hand meets the foe's upper arm (its upper
-  trunk in one bout of the nine), at 5 to 37 J: 0.08 to 0.09 HP to the foe and 0.11 to 0.16 to the skeleton. At the ball of a head
-  hung alone the same blow nets 0.660 HP ([The repertoire](#the-repertoire)).
+  (18 cm over its own), a Rogue's (4 cm over) and a Warrior's upper trunk (6 cm under) are in
+  its window, and at each the club passes and the hand meets the foe's upper trunk (a
+  Warrior's) or upper arm (a Rogue's), at 6 to 24 J: 0.08 to 0.13 HP to the foe and 0.04 to 0.10
+  to the skeleton. At the ball of a head hung alone the same blow nets 0.735 HP
+  ([The repertoire](#the-repertoire)).
 - **A fist costs its thrower about what it does a standing body**: 0.12 against 0.17 HP for
-  the Warrior's at a Rogue's head, 0.05 against 0.06 for the Rogue's at a Rogue's trunk, 0.14
-  against 0.14 for the skeleton's. The Warrior's at a Warrior's trunk is the one that pays:
+  the Warrior's at a Rogue's head, 0.05 against 0.06 for the Rogue's at a Rogue's trunk, 0.09 to
+  0.20 against 0.15 to 0.22 for the skeleton's. The Warrior's at a Warrior's trunk is the one that pays:
   its forearm on the trunk at 24 J, 0.28 HP against 0.08.
 - **A fist's place at a head is among a standing foe's feet.** The Warrior's has its target
   0.378 m ahead of the head. Ordered at a standing Warrior's head from 2 m, the bare Warrior
   walks into its foe, sets its feet twice and throws 15 s after the order, a forearm on an
-  upper arm at 0.6 J; from 2.5 and 3 m it has not thrown in 20 s. The skeleton's, 0.499 m
-  ahead, is thrown at a Rogue's head from 2 m and not from further in that time.
+  upper arm at 0.6 J; from 2.5 and 3 m it has not thrown in 20 s. The skeleton's, 0.530 m
+  ahead, is thrown at either foe's head from each gap.
 - **A height at a window's edge reads either side of it.** The Warrior's fist at a head has
   a window from the head's own height up, and a standing Warrior's head stood 6.3 mm under
   the attacker's to 0.8 mm over from one stand to the next of that bout. The skill chooses a
@@ -1291,10 +1295,10 @@ the upper trunk, with a fist and with the club:
 |---|---|---|---|---|
 | club | Warrior | 1.107 | 1.417 | the upper trunk |
 | club | Rogue | 0.433 | 0.528 | the upper trunk |
-| club | skeleton | 0.660 | 1.075 | the upper trunk |
+| club | skeleton | 0.735 | 1.112 | the upper trunk |
 | fist | Warrior | 0.022 | 0.507 | the upper trunk |
 | fist | Rogue | 0.007 | 0.225 | the upper trunk |
-| fist | skeleton | 0.026 | 0.646 | the upper trunk |
+| fist | skeleton | 0.034 | 0.674 | the upper trunk |
 
 `node research/core-aim.mjs --bouts 32`: arena bouts (Node, core world, Rapier, 120 Hz, each
 side's balance its character's) from 32 starting gaps, 3.03 to 4.99 m, the first set. At each gap, for each
@@ -1545,7 +1549,8 @@ end of its pushes the stance's heading is turned by as much as the target's bear
 since the commit, read from where the feet's middle stood then, up to 0.3 rad either way; and the
 fighter aims at the foe's head itself once a blow is committed (`fighterTactics`).
 
-**On the stand.** `node research/strike-robustness.mjs --seen` (Node core stand, Rapier, 120 Hz,
+**On the stand.** `node research/strike-robustness.mjs --seen --offsets 0.06,0.12 --hz 120`, and
+with `--steer 0` for none (Node core stand, Rapier, 120 Hz,
 each throw as its search threw it, four throws a reading): the target moved from its place, and the
 skill told so, once the blow is committed, as a head that moved under the blow. A cell is the mean
 done as a share of the done at its place; where fewer than four landed, how many did and how many
@@ -1562,10 +1567,10 @@ is the [off its place](#robustness) table's.
 | club | Rogue | high | 0.3 rad | 0.42 | 0.77 | 0.74 | 0.80 | 0.46 | 0.89 | 0.06 (3/4) |
 | club | Rogue | middle | none | 0.54 | 0.35 | 0.81 | 0.86 | 0.47 | 0.79 | 0.78 |
 | club | Rogue | middle | 0.3 rad | 0.54 | 0.89 | 0.98 | 0.87 | 0.83 | 0.83 | 0.41 |
-| club | skeleton | high | none | 0.67 | 0.10 | 0.71 | 0.67 (3/4, 1 fell) | 0.00 (1/4) | 0.48 | 0.82 |
-| club | skeleton | high | 0.3 rad | 0.67 | 0.12 | 0.82 | 0.72 | 0.00 (0/4, 1 fell) | 0.50 | 0.82 |
-| club | skeleton | middle | none | 1.08 | 0.35 | 0.62 | 0.85 | 0.51 | 0.88 | 0.25 |
-| club | skeleton | middle | 0.3 rad | 1.08 | 0.52 | 0.89 | 0.88 | 0.78 | 0.89 | 0.47 |
+| club | skeleton | high | none | 0.79 | 0.05 | 0.62 | 0.68 | 0.14 (2/4, 1 fell) | 0.58 | 0.72 (3/4, 1 fell) |
+| club | skeleton | high | 0.3 rad | 0.79 | 0.98 | 1.04 | 1.02 | 1.02 | 0.55 | 0.74 |
+| club | skeleton | middle | none | 1.12 | 0.31 | 0.52 | 0.76 | 0.36 | 0.92 | 0.53 |
+| club | skeleton | middle | 0.3 rad | 1.12 | 0.99 | 1.00 | 0.98 | 0.93 | 0.88 | 0.54 |
 | fist | Warrior | high | none | 0.12 | 0.61 | 0.91 | 1.07 | 0.92 | 0.50 | 0.54 |
 | fist | Warrior | high | 0.3 rad | 0.12 | 0.80 | 0.84 | 1.06 | 1.15 | 0.49 | 0.45 |
 | fist | Warrior | middle | none | 0.53 | 0.60 | 1.12 | 0.54 | 0.18 | 0.21 (2/4, 2 fell) | 0.41 |
@@ -1574,24 +1579,16 @@ is the [off its place](#robustness) table's.
 | fist | Rogue | high | 0.3 rad | 0.05 | 0.59 | 0.82 | 1.04 | 1.02 | 0.50 | 0.96 |
 | fist | Rogue | middle | none | 0.31 | 0.45 | 0.84 | 0.56 | 0.10 | 0.34 | 0.10 |
 | fist | Rogue | middle | 0.3 rad | 0.31 | 0.70 | 0.77 | 0.71 | 0.47 | 0.38 | 0.12 |
-| fist | skeleton | high | none | 0.18 | 0.19 | 0.74 | 0.68 | 0.12 (3/4) | 0.09 | 1.07 |
-| fist | skeleton | high | 0.3 rad | 0.18 | 0.55 | 0.84 | 0.80 | 0.45 | 0.10 | 0.99 |
-| fist | skeleton | middle | none | 0.54 | 0.62 | 1.07 | 0.96 | 0.53 | 0.40 | 0.36 |
-| fist | skeleton | middle | 0.3 rad | 0.54 | 0.82 (3/4, 1 fell) | 1.07 | 1.05 | 0.49 | 0.39 | 0.36 |
+| fist | skeleton | high | none | 0.18 | 0.24 (3/4) | 0.72 | 0.68 | 0.07 (2/4) | 0.11 | 1.21 |
+| fist | skeleton | high | 0.3 rad | 0.18 | 1.21 | 1.13 | 1.01 | 0.98 | 0.11 | 1.18 |
+| fist | skeleton | middle | none | 0.70 | 0.43 | 0.86 | 1.05 | 0.39 | 0.10 (3/4, 1 fell) | 0.54 |
+| fist | skeleton | middle | 0.3 rad | 0.70 | 0.56 | 0.64 | 0.92 | 1.11 | 0.13 (3/4, 1 fell) | 0.53 |
 
 - **Across, a turned blow keeps what it does.** Twelve centimetres across, the clubs keep 0.46 to
-  0.99 of their done where unturned they kept 0.02 to 0.51, and the fists 0.45 to 1.15 where 0.00
-  to 0.92; at its place every recipe reads as it did, to the bit.
-- **But for the skeleton's club at a head**, 0.12 and 0.00 at twelve: its pelvis does not turn
-  under the chamber. Asked 0.155 rad of turn, it faces within 0.01 rad of where it faced through
-  the chamber; the Warrior's, asked about 0.13, has turned 0.11 by the chamber's end. The
-  skeleton's pelvis turns under no recipe, nor standing: its thighs' capsules (0.101 m, the
-  placeholder typical man's thigh at its density, on axes 0.18 m apart) overlap by 2.2 cm as
-  built, and press on each other with about 690 N as it stands, its feet pushed apart unevenly
-  (soles at x -0.179 and 0.102) and its centre of mass 1.3 cm under its asked height. Asked
-  0.15 rad either way standing (Node core stand, Rapier, 120 Hz), it faces -0.035 and -0.048;
-  with its thighs at 0.088 m, which clear, 0.150 and -0.151, at its asked height. Its upper arms
-  overlap its trunk by 0.9 cm too. The art's bones are 0.028 m across the thigh.
+  1.02 of their done where unturned they kept 0.02 to 0.47, and the fists 0.47 to 1.21 where 0.00
+  to 0.92; at its place every recipe reads as it did, to the bit. The skeleton's club at a head
+  keeps 0.98 to 1.04 of it turned, its thighs clear of each other (`skeleton-limbs-clear`), so
+  its pelvis turns under the chamber.
 - **Along, the turn changes little**, and a club twelve centimetres beyond its place keeps less
   turned in three recipes (the Warrior's at a head, 0.91 to 0.71; the Rogue's at a head, 0.24 to
   0.06; its club at a trunk, 0.78 to 0.41).
@@ -1605,7 +1602,8 @@ is the [off its place](#robustness) table's.
   stood at the commit.
 
 **In bouts.** `node research/strike-bouts.mjs --gaps 2.5,3,3.5,4,4.5,5,5.5 --held club,empty`
-(Node core world, Rapier, 120 Hz, the arena's rulebook): 63 bouts each. The placebo is the same
+(Node core world, Rapier, 120 Hz, the arena's rulebook): 63 bouts each, read at `3667afc3`, the
+skeleton's thighs not yet clear and its recipes those searched before. The placebo is the same
 bouts with the turn held under 0.001 rad, which turns nothing and moves every bout; struck is a
 thrower down within 2 s of its commit that its foe's hand or held item had taken hit points from
 since.
@@ -1777,3 +1775,26 @@ Thrown at nothing, 16 throws each rate:
   replay's eight throws at 120 Hz land little, 0.02 and 0.08.
 - **Its window is the recipe's across, and 2 cm narrower along**, set nearer the body: from 12 cm
   nearer than its place to its place.
+
+### The skeleton searched again
+
+With its thighs and upper arms clear (`skeleton-limbs-clear`) the skeleton's recipes were searched
+again ([the searches](#the-searches)): each cell's nets as much as it did or more, at 120 Hz 0.735
+HP where 0.660 with the club at a head, 1.112 where 1.075 at a trunk, 0.034 where 0.026 with a fist
+at a head, and 0.674 where 0.646 at a trunk. On the stand its club at a head now follows a target
+twelve centimetres across ([steered](#steered)).
+
+In bouts, `node research/strike-bouts.mjs --gaps 2.5,3,3.5,4,4.5,5,5.5 --held club,empty` (Node
+core world, Rapier, 120 Hz, the arena's rulebook), 63 bouts each, the skeleton's attempts, with
+the recipes before and after:
+
+| Held | Recipes | Bout s, all | Committed | Landed | On the head | Done, HP | Stepped to catch itself | Down within 2 s | struck first |
+|---|---|---|---|---|---|---|---|---|---|
+| club | before | 819 | 50 | 42 | 27 | 8.87 | 23 | 4 | 2 |
+| club | searched again | 863 | 36 | 30 | 20 | 10.47 | 17 | 0 | 0 |
+| empty | before | 2170 | 251 | 132 | 64 | 2.51 | 139 | 2 | 2 |
+| empty | searched again | 1506 | 133 | 72 | 41 | 1.80 | 77 | 8 | 6 |
+
+- **With the club it does more in fewer throws** and is not down after one, where it was in four.
+- **Bare-handed its bouts are shorter** and it throws half as often; of its eight downs six follow
+  a foe's blow.

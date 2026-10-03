@@ -221,9 +221,9 @@ set to is thrown at by placement. The asset says which recipes were passed over 
 which cells are placed (`placed`), and why.
 
 One recipe of the 12 was passed over: the skeleton's club blow at a head of seed 2, which nets
-0.755 HP and at its own place, at 120 Hz, leaves the skeleton down in one throw of the four, so
-that no stand-off is in its window. Its cell has seed 3's, 0.660 HP, with a window 8 cm along
-and 4 cm across.
+0.872 HP and leaves the skeleton down in throws about its own place, most at 480 Hz, so that no
+stand-off is in its window. Its cell has seed 1's, 0.735 HP, with a window 4 cm along and 8 cm
+across.
 
 ## IK
 
