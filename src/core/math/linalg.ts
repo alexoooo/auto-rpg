@@ -1,7 +1,9 @@
 /**
  * Dense linear algebra for the small systems motor control solves: a few rows and columns, row
- * arrays. The servo's per-step Cholesky works in place on flat typed arrays, and stays beside the
- * servo (`src/core/control/servo.ts`).
+ * arrays. A step's dear loops solve on flat arrays in a work made once (`flat.ts`), each solve
+ * there the twin of one here and held to its answers to the bit (`tests/core-flat.test.mjs`). The
+ * servo's per-step Cholesky works in place on flat typed arrays, and stays beside the servo
+ * (`src/core/control/servo.ts`).
  */
 
 /** A matrix as its rows. */
@@ -82,7 +84,7 @@ export function fixedSolve(J: Rows, y: readonly number[], fixed: readonly number
 }
 
 /** The regularizer's weight against the problem's largest, a numeric setting. */
-const REGULARIZER = 1e-6;
+export const REGULARIZER = 1e-6;
 
 /**
  * The least of (x - y)' A (x - y) over lo <= x <= hi, A symmetric and positive semidefinite: a

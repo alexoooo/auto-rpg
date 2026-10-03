@@ -45,7 +45,8 @@ const TOWARD = [3, -2, 1, -4, 5, 2];
  *
  * `probe`, if given, is called each step before the solve with the limbs, their tasks set, and
  * `carry`: the solve's first half run on them as they then are, answering each limb's freedoms'
- * accelerations. What it changes is set again before the step's own solve.
+ * accelerations, and `fresh`: the same, by a solve made then. What it changes is set again before
+ * the step's own solve.
  */
 const bearing = (bears, found, probe = null) => (own) => {
   const { built, muscles } = own, feet = footStatesOf(built), pelvis = muscles.dynamics.root.segment, e = 1 / SECONDS;
@@ -90,7 +91,8 @@ const bearing = (bears, found, probe = null) => (own) => {
       const lever = Math.max(feet[0].reach, muscles.dynamics.root.centre[1] - support.y);
       const work = servoAsk(muscles, (i) => inLeg[i] ? undefined : 0, SECONDS, dt);
       if (probe) {
-        probe({ limbs, feet, carry: () => { carryRoot(solve, muscles, work, aim, lever); return limbs.map((limb) => Array.from(limb.task.accel)); } });
+        const answer = (by) => { carryRoot(by, muscles, work, aim, lever); return limbs.map((limb) => Array.from(limb.task.accel)); };
+        probe({ limbs, feet, carry: () => answer(solve), fresh: () => answer(makeBearing(null, limbs, records())) });
         ask();
       }
       const root = carryRoot(solve, muscles, work, aim, lever);
@@ -100,6 +102,12 @@ const bearing = (bears, found, probe = null) => (own) => {
   };
 };
 
+/** Where a solve leaves what it finds (`makeBearing`). */
+const records = () => ({
+  root: new Float64Array(6), helped: { force: new Vector3(), moment: new Vector3() },
+  held: { channels: [], z0: [], Z: [] }, shortfall: { force: new Vector3(), moment: new Vector3() },
+});
+
 /**
  * The Warrior on the ground under `bearing(bears)` for `seconds`; from `pull.from` s, for `pull.for`
  * s, pulled at its root's centre of mass by a steady tenth of its weight along z. `each` is called
@@ -108,10 +116,7 @@ const bearing = (bears, found, probe = null) => (own) => {
  */
 async function borne(bears, seconds, each, pull = null, probe = null) {
   const stand = await coreStand(spec);
-  const found = {
-    root: new Float64Array(6), helped: { force: new Vector3(), moment: new Vector3() },
-    held: { channels: [], z0: [], Z: [] }, shortfall: { force: new Vector3(), moment: new Vector3() },
-  };
+  const found = records();
   const { own, dispose } = embody(stand.built, stand.world, bearing(bears, found, probe));
   try {
     const built = stand.built, weight = massOf(built) * Math.hypot(...built.physics.gravity), root = own.muscles.dynamics.root.segment;
@@ -225,6 +230,24 @@ test("a limb's task asks the rows it names and no other, around the freedoms ask
   assert.ok(from(read.pointToward) < from(read.point) - 1 && most(read.point, read.pointToward) > 1, `asked toward it, the freedoms are ${from(read.pointToward)} rad/s2 from it, and unasked ${from(read.point)}`);
   assert.equal(read.pointToward[read.ankle], 0);
   assert.ok(most(read.whole, read.wholeToward) < 0.1 * most(read.point, read.pointToward), `with every row asked the ask moved the freedoms ${most(read.whole, read.wholeToward)} rad/s2`);
+});
+
+test("a limb taken off is out of the solve, as it is out of one made without it", async () => {
+  // The body stood half a second on both legs, each a limb; on its last step the right is taken
+  // off, and the solve that had it answers for the left as one made then.
+  const steps = 60;
+  let step = 0, read = null;
+  await borne(true, steps / 120, () => {}, null, ({ limbs, carry, fresh }) => {
+    if (++step < steps) return;
+    const both = carry()[0];
+    limbs[1].task.on = false;
+    read = { both, made: fresh()[0], kept: carry()[0] };
+    limbs[1].task.on = true;
+  });
+  assert.deepEqual(read.kept, read.made);
+  // The control: the right limb's going is felt in the left's answer.
+  const moved = Math.max(...read.both.map((v, k) => Math.abs(v - read.made[k])));
+  assert.ok(moved > 1, `the right limb off moved the left's freedoms ${moved} rad/s2`);
 });
 
 test("the servo is told which freedoms a driven limb moves, and how", () => {

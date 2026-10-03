@@ -310,12 +310,17 @@ fixtures `tests/core-step-cost.test.mjs` holds under a ceiling).
 |---|---|---|---|---|---|---|
 | Before | 1.447, 1.441 | 1.192, 1.184 | 0.62 | 4.41 | 603 | 654 |
 | The ground's wrench (`shareGroundWrench`, `activeSet`) | 1.168, 1.194 | 1.012, 1.039 | 0.53 | 3.66 | 379 | 437 |
+| Bearing on limbs (`carryRoot`, `bearLimbs`; `src/core/math/flat.ts`) | 1.045, 1.068 | 0.890, 0.911 | 0.48 | 3.16 | 267 | 319 |
 
 - **The ground's wrench**: on the bout's own 4576 calls, each asked as the bout asked it and
   answered alone, the least of nine passes, 57.2 us a call before and 12.5 after, all 68544
   numbers the same. Under the CPU profiler it was 20.7 % of the bout and is 5.4 %: 0.33 ms of a
   two-body step to 0.07. The bout from 2 s to its verdict allocates 1137 KiB a step against
   1856 (`--sites`).
+- **Bearing on limbs**: `carryRoot` with what it calls was 14.9 and 14.4 % of the bout under the
+  CPU profiler and is 6.1 and 6.3 %: 0.17 ms of a two-body step to 0.07. Its solves are
+  `flat.ts`'s, each the twin of one in `linalg.ts` (`tests/core-flat.test.mjs`). The bout from 2 s
+  to its verdict allocates 933 KiB a step against 1137 (`--sites`).
 - `bodyDynamics.update`'s loop that sums the mass matrix, tried alone in a scratch copy
   (`src/core/build/dynamics.ts@fda2945b`), on the bout as it was then, 2434 steps: 72 and 74 us a
   step to 59 and 58, the digest the same, 157 KiB a step fewer.

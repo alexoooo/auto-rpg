@@ -14,7 +14,7 @@ import { stepAllocation } from "./harness/garbage.mjs";
  * last set, and a quarter. A change that goes over it takes its allocation out of the step or,
  * where the allocation is the feature's, raises the ceiling and says why in its commit.
  */
-const CEILING = { standing: 474, bout: 546 };
+const CEILING = { standing: 334, bout: 400 };
 
 test("a_standing_body_s_step_allocates_no_more_than_its_ceiling", () => {
   const kib = stepAllocation("standing");
