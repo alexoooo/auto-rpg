@@ -30,86 +30,88 @@ layers with an order to stand, as `research/body-cost.mjs` stands them
 ([play.md](play.md#bodies-in-the-step)). A row is one count in a process of its own: 1200 steps
 timed after 3 s, with every collection inside them (`PerformanceObserver`), then 240 steps under
 V8's sampling heap profiler (`allocatedIn`, `tests/harness/garbage.mjs`). Nobody fell in any row.
+The step's control works in arrays made once
+([below](#control-written-into-arrays-made-once)).
 
-| Bodies | A step, ms | Its 99th per cent, ms | The longest, ms | Of real time, % | Allocated a step, MiB | A body, KiB | Steps to a scavenge | A scavenge, ms | The longest pause, ms | Collections of the whole heap | The collector, % of the step |
-|---|---|---|---|---|---|---|---|---|---|---|---|
-| 1 | 0.64 | 1.19 | 2.39 | 8 | 0.66 | 675 | 27 | 0.24 | 0.70 | 0 | 1.4 |
-| 2 | 1.17 | 1.71 | 2.16 | 14 | 1.20 | 612 | 14 | 0.23 | 0.36 | 0 | 1.4 |
-| 4 | 2.30 | 3.34 | 4.63 | 28 | 2.09 | 535 | 7 | 0.23 | 0.50 | 0 | 1.4 |
-| 8 | 4.73 | 6.55 | 8.51 | 57 | 4.31 | 552 | 4 | 0.26 | 1.05 | 0 | 1.3 |
-| 10 | 5.73 | 9.00 | 11.60 | 69 | 5.39 | 552 | 4 | 0.27 | 1.15 | 0 | 1.1 |
-| 12 | 7.12 | 8.68 | 12.63 | 85 | 6.30 | 537 | 4 | 0.29 | 1.22 | 0 | 1.1 |
-| 16 | 9.22 | 12.11 | 18.09 | 111 | 8.56 | 548 | 4 | 0.31 | 1.90 | 2 (2 ms) | 0.9 |
-| 24 | 14.45 | 20.12 | 25.66 | 173 | 12.68 | 541 | 3 | 0.33 | 3.01 | 4 (6 ms) | 0.9 |
-| 32 | 18.82 | 25.17 | 30.86 | 226 | 16.92 | 541 | 3 | 0.38 | 2.86 | 4 (5 ms) | 0.8 |
-| 48 | 29.40 | 36.05 | 44.67 | 353 | 25.36 | 541 | 2 | 0.46 | 7.42 | 6 (14 ms) | 0.7 |
+| Bodies | A step, ms | Its 99th per cent, ms | The longest, ms | Of real time, % | Allocated a step, MiB | A body, KiB | The young generation, MiB | Steps to a scavenge | A scavenge, ms | The longest pause, ms | Collections of the whole heap | The collector, % of the step |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | 0.46 | 0.71 | 1.16 | 6 | 0.07 | 71 | 32 | 200 | 0.26 | 0.31 | 0 | 0.3 |
+| 2 | 0.80 | 1.08 | 1.22 | 10 | 0.12 | 63 | 32 | 120 | 0.25 | 0.30 | 0 | 0.3 |
+| 4 | 1.52 | 1.94 | 2.52 | 18 | 0.23 | 58 | 32 | 67 | 0.26 | 0.32 | 0 | 0.3 |
+| 8 | 3.05 | 4.62 | 6.19 | 37 | 0.43 | 55 | 32 | 35 | 0.26 | 0.41 | 0 | 0.2 |
+| 10 | 3.56 | 5.39 | 7.60 | 43 | 0.54 | 55 | 32 | 29 | 0.24 | 0.28 | 0 | 0.2 |
+| 12 | 4.30 | 7.22 | 8.12 | 52 | 0.64 | 55 | 32 | 24 | 0.24 | 0.31 | 0 | 0.2 |
+| 16 | 5.77 | 8.38 | 11.55 | 69 | 0.86 | 55 | 64 | 19 | 0.28 | 1.02 | 0 | 0.3 |
+| 24 | 9.39 | 11.33 | 16.81 | 113 | 1.28 | 55 | 64 | 24 | 0.31 | 0.40 | 0 | 0.1 |
+| 32 | 12.94 | 17.57 | 21.41 | 155 | 1.71 | 55 | 64 | 18 | 0.33 | 0.46 | 0 | 0.1 |
+| 48 | 20.99 | 26.42 | 32.78 | 252 | 2.56 | 55 | 64 | 12 | 0.39 | 0.64 | 0 | 0.1 |
 
-- **A body under control costs 0.58 to 0.61 ms a step**, and the step is the bodies' sum: nothing
-  in it grows faster than the count. Fourteen bodies are real time with nothing drawn; eight are
-  57 % of it.
-- **A body allocates about 0.54 MiB a step**: 65 MiB a second for one body, half a gigabyte a
-  second for eight.
-- **The collector takes about 1 % of the step at every count.** What a step allocates dies in the
-  step, so a scavenge finds almost nothing alive and takes 0.2 to 0.5 ms whatever was allocated.
-  V8 grows the young generation with the rate, so a scavenge comes every 2 to 4 steps from eight
-  bodies on. Its longest pause is 1.2 ms or less to twelve bodies, 3 ms at 24 to 32, and 7.4 ms at
-  48, where the whole heap is collected six times in ten seconds.
-- So what bounds the bodies in a step is the work each takes, not the collector. The allocation
-  costs the code that makes it, which a collector's pause does not show
-  ([Where a bout allocates](#where-a-bout-allocates)).
+- **A body under control costs 0.36 to 0.46 ms a step**, and the step is the bodies' sum. A body
+  added to twelve or fewer costs 0.31 to 0.38 ms; from sixteen on, 0.44 to 0.50, which is not read
+  further. About 21 bodies are real time with nothing drawn; eight are 37 % of it.
+- **A body allocates about 55 KiB a step**, 6.6 MiB a second.
+- **The collector takes 0.3 % of the step or less at every count.** What a step allocates dies in
+  the step, so a scavenge finds almost nothing alive and takes 0.2 to 0.4 ms. A scavenge comes
+  every 12 steps at 48 bodies, its longest pause 1 ms or less, and the whole heap is not collected
+  in any row.
+- So what bounds the bodies in a step is the work each takes, of which the solver's is about
+  0.25 ms in a bout ([A bout's step](#a-bouts-step)).
 
 ## A bout's step
 
 `research/step-time.mjs`. One arena bout, the Warrior against the Rogue, each with the club, to
-its verdict at 1145 steps (9.54 s), played four times in one process, a world each. This section,
-with its profile and what it allocates, is the bout as it was before the reach's Jacobian was in
-closed form (`src/core/control/kinematics.ts@889b3c3d`); the bout with it is read in
-[The reach solver at its cap](#the-reach-solver-at-its-cap). A bout plays
-the same to the bit each time, so step k is the same work in every playing: the least of its times
-over the last three playings is what that work takes, and what a playing took beyond it was the
-machine's or the collector's.
+its verdict at 1244 steps (10.37 s), played four times in one process, a world each, and read
+twice. A bout plays the same to the bit each time, so step k is the same work in every playing:
+the least of its times over the last three playings is what that work takes, and what a playing
+took beyond it was the machine's or the collector's. The bout before its reach was solved in
+closed form is read in [The reach solver at its cap](#the-reach-solver-at-its-cap), and before
+its control worked in arrays made once in
+[Control written into arrays made once](#control-written-into-arrays-made-once).
 
-| | Mean, ms | Median | 99th per cent | 99.9th | The longest |
+| The least over three playings, two readings | Mean, ms | Median | 99th per cent | 99.9th | The longest |
 |---|---|---|---|---|---|
-| A step, the least over three playings | 1.487 | 1.167 | 9.306 | 10.787 | 11.290 |
-| The solver's part (`PhysicsWorld.step`) | 0.511 | 0.507 | 0.641 | 0.693 | 0.723 |
-| The rest: senses, minds, motor control, blows | 0.973 | 0.669 | 8.659 | 10.142 | 10.589 |
+| A step | 0.883, 0.901 | 0.796, 0.814 | 2.902, 2.917 | 4.066, 4.139 | 4.097, 4.189 |
+| The solver's part (`PhysicsWorld.step`) | 0.496, 0.507 | 0.491, 0.504 | 0.552, 0.553 | 0.567, 0.569 | 0.737, 0.682 |
+| The rest: senses, minds, motor control, blows | 0.385, 0.392 | 0.298, 0.303 | 2.367, 2.395 | 3.532, 3.585 | 3.536, 3.632 |
 
-- The solver's step is even: its longest is 1.4 times its mean.
-- The rest is not. Its median is 0.67 ms and **42 steps in a row, a third of a second, take 6 to
-  11 ms each**: steps 1028 to 1069, every one over the step's 8.33 ms from step 1037 on. The
-  eight dearest are 9.8 to 11.3 ms with the solver's part 0.61 to 0.69. They are the same steps in
-  every playing, so they are the work, and the work is the reach solver's
-  ([The reach solver at its cap](#the-reach-solver-at-its-cap)).
-- The collector, over the 3435 steps read: 232 scavenges, one every 15 steps, 0.28 ms each and
-  1.37 ms the longest; one mark-compact of 1.74 ms; one incremental marking step of 0.26 ms. Of
-  the 145 steps over 3 ms, 67 had a collection inside: they are the reach solver's steps, which
-  allocate most.
+- **The solver is more than half the step**, and even: its longest is 1.3 to 1.5 times its mean.
+- The rest's median is 0.30 ms for two bodies. Its longest steps are the hand's reach out of
+  reach: the eight dearest, steps 1057 to 1068, take 3.1 to 4.2 ms, each with the solver's 0.52
+  to 0.56. No step's least is over the step's 8.33 ms; a single playing's longest is 8.2 to
+  8.5 ms in three of the six, which is the machine's or the collector's.
+- The collector, over the 3732 steps read: 31 scavenges, one every 120 steps, 0.53 and 0.55 ms
+  each and 2.07 and 2.48 the longest; one mark-compact of 1.69 and 1.99 ms; one incremental
+  marking step of 0.23 and 0.38 ms. Of the 33 and 36 steps over 3 ms, 4 and 7 had a collection
+  inside.
 
 ### Where a bout's time goes
 
-The same bout once more under V8's CPU profiler at 100 us (`--profile`), each function with
-everything it calls, as a share of the profile (1975 ms, of which the profiler's own calls are
-5 %).
+The same bout once more under V8's CPU profiler at 100 us (`--profile`), read twice, each
+function with everything it calls, as a share of the profile (1275 and 1312 ms, of which the
+profiler's own calls are 8.2 and 8.5 %).
 
 | Of the bout, % | What |
 |---|---|
-| 93.3 | `World.step` |
-| 55.7 | the two bodies' muscle hooks (`driveMuscles`): reading the joints, the mind, the motors |
-| 47.7 | the minds' steps (`embody`), of which motor control (`motor.ts`'s `control`) is 45.0 |
-| 32.1 | the solver (`PhysicsWorld.step`), 30.7 inside Rapier's wasm |
-| 17.0 | the stance's root solve (`stance.carry`, `carryRoot`), of which `shareGroundWrench` is 16.0 and its `activeSet` 8.9 |
-| 15.0 | the hands' reach (`solveAt`, `solveReach`), in 48 of the 1145 steps |
-| 9.0 | the stance's limbs (`stance.bear`, `bearLimbs`) |
-| 4.0 | the body's dynamics (`bodyDynamics.update`) |
-| 3.2 | the joints' angles (`jointTracker.update`) |
-| 3.1 | the senses' read of every segment (`createSenses`) |
-| 2.2 | the touches the sound is made from (`src/core/touches.ts`) |
+| 91.1, 90.9 | `World.step` |
+| 51.4, 52.4 | the solver (`PhysicsWorld.step`), 49.0 and 49.7 inside Rapier's wasm |
+| 35.0, 34.6 | the two bodies' muscle hooks: reading the joints, the mind, the motors |
+| 25.4, 25.7 | the minds' steps, of which motor control (`motor.ts`'s `control`) is 22.4 and 22.2 |
+| 8.7, 7.5 | the ground's wrench (`shareAmong`, `shareGroundWrench`), of which its `activeSet` is 7.5 and 6.5 |
+| 7.7, 8.0 | the stance's root solve (`stance.carry`, `carryRoot`), of which `limitToPatches` is 5.2 and 4.3 |
+| 5.0, 4.6 | the stance's limbs (`stance.bear`, `bearLimbs`) |
+| 4.9, 4.9 | the body's dynamics (`bodyDynamics.update`) |
+| 3.3, 2.7 | the touches the sound is made from (`src/core/touches.ts`) |
+| 3.1, 2.9 | the hands' reach (`solveAt`, `solveReach`), in 48 of the 1244 steps |
+| 3.1, 2.3 | the joints' angles (`jointTracker.update`) |
+| 2.7, 2.6 | the stance's command (`stance.command`) |
+| 2.2, 2.5 | the servo's solve (`servoSolve`) |
+| 1.9, 2.2 | the body's view of itself, its angles, hands and stance (`look`, `src/core/body.ts`) |
 
-By file, each function's own body: Rapier's wasm 31.6, `math/linalg.ts` 12.9,
-`control/contact-wrench.ts` 11.9, `control/kinematics.ts` 7.3, `build/joint-state.ts` 4.6,
-`math/real.ts` 4.0, `build/dynamics.ts` 3.7, `control/bearing.ts` 2.8, `mind/senses.ts` 2.6,
-`control/servo.ts` 1.9.
+By file, each function's own body: Rapier's wasm 50.2 and 50.4, `control/contact-wrench.ts` 7.8
+and 6.9, `build/dynamics.ts` 4.5 and 4.6, `control/servo.ts` 3.0 and 3.3, `build/joint-state.ts`
+3.8 and 2.5, `math/flat.ts` 1.7 and 2.6, `control/support.ts` 2.0 and 2.3, `math/real.ts` 2.2
+and 1.8, `control/bearing.ts` 1.9 and 2.0, `control/kinematics.ts` 1.8 and 1.7. The senses are
+under 1 %.
 
 Tactics and skills are under 1 %: deciding what to do costs a step nothing next to carrying it out.
 
@@ -254,45 +256,43 @@ In the bout, each a bout of its own, read with the counter in scratch copies:
 
 ### Where a bout allocates
 
-`research/step-garbage.mjs --sites`: the same bout from 2 s to its verdict, 905 steps, under the
-sampling heap profiler: **1905 KiB a step**, 0.93 MiB a body.
+`research/step-garbage.mjs --sites`: the same bout from 2 s to its verdict, 1004 steps, under the
+sampling heap profiler: **248 KiB a step**, 124 KiB a body.
 
 By file, each function's own body:
 
 | KiB a step | Of all, % | Where |
 |---|---|---|
-| 361 | 18.9 | `src/core/math/linalg.ts` |
-| 346 | 18.1 | native: `Array.prototype.map`, array iterators, `Array.from` |
-| 280 | 14.7 | `src/core/build/dynamics.ts` |
-| 263 | 13.8 | `src/core/control/contact-wrench.ts` |
-| 235 | 12.3 | `src/core/control/kinematics.ts` |
-| 117 | 6.1 | `src/core/build/joint-state.ts` |
-| 60 | 3.2 | Rapier's JavaScript binding |
-| 59 | 3.1 | `src/core/control/bearing.ts` |
-| 47 | 2.5 | `src/core/math/real.ts` |
-| 34 | 1.8 | `src/core/engine/rapier.ts` |
-| 22 | 1.2 | `src/core/control/support.ts` |
-| 18 | 1.0 | Babylon's vectors |
+| 55 | 22.1 | Rapier's JavaScript binding |
+| 36 | 14.5 | native: array iterators, `sort`, `map` |
+| 21 | 8.6 | `src/core/control/support.ts` |
+| 20 | 7.9 | `src/core/engine/rapier.ts` |
+| 16 | 6.5 | `src/core/build/joint-state.ts` |
+| 15 | 6.0 | Babylon's vectors |
+| 14 | 5.8 | `src/core/math/real.ts` |
+| 12 | 4.6 | `src/core/build/contact-mass.ts` |
+| 11 | 4.5 | `src/core/control/stance.ts` |
+| 10 | 3.9 | `src/core/control/servo.ts` |
 
 By function, with everything it calls:
 
 | KiB a step | Of all, % | What |
 |---|---|---|
-| 1778 | 93.3 | the two bodies' muscle hooks |
-| 1358 | 71.3 | motor control (`motor.ts`'s `control`) |
-| 550 | 28.9 | `shareGroundWrench`, of which `activeSet` 297 |
-| 514 | 27.0 | `solveReach`, in the steps a hand reaches |
-| 495 | 26.0 | `carryRoot`, of which `limitToPatches` 303 |
-| 292 | 15.3 | `bodyDynamics.update` |
-| 274 | 14.4 | `bearLimbs`, of which `solveLimb` 168 |
-| 80 | 4.2 | the senses and the minds above motor control |
-| 64 | 3.4 | the touches |
-| 42 | 2.2 | the engine's step: its binding's wrappers for each body's pose |
+| 147 | 59.1 | the two bodies' muscle hooks |
+| 110 | 44.4 | motor control (`motor.ts`'s `control`) |
+| 54 | 21.8 | the touches, of which `contactsOf` 29 |
+| 45 | 18.3 | the stance's command, of which its plan of steps 21 |
+| 42 | 17.0 | the engine's step: its binding's wrappers for each body's pose |
+| 24 | 9.6 | the hands' reach (`solveAt`), in the steps a hand reaches |
+| 20 | 7.9 | whether a point is within the support (`withinSupport`) |
+| 18 | 7.1 | the stance's root solve (`stance.carry`) |
+| 13 | 5.3 | the blows |
+| 12 | 5.0 | the contact mass a blow reads (`contact-mass.ts`) |
+| 11 | 4.6 | `turningToRef` |
 
-What is allocated is small arrays: a matrix as an array of row arrays made for each solve
-(`solveLinear` copies its matrix; `activeSet` builds its system afresh every iteration), a vector
-as a three-number array returned from each cross product, a closure for each loop written as
-`map` or `forEach`, and a wrapper object for each vector read from the engine.
+What is left is Rapier's binding (a call back from wasm, the object it drops, a wrapper for each
+velocity and pose read), small arrays made where a step runs once (the support's outline, the
+stance's plan, the blows), and a double boxed where it crosses a call.
 
 ### Control written into arrays made once
 
@@ -304,7 +304,14 @@ fingerprint is the same to the bit (`node scripts/fingerprint.mjs`, the bout's d
 (`research/step-time.mjs`, the least of three playings, read twice), one and eight skeletons
 standing (`research/step-garbage.mjs --bodies 1,8`), and what a body's step allocates, the
 highest of five readings each in a process of its own (`tests/harness/step-allocation.mjs`, the
-fixtures `tests/core-step-cost.test.mjs` holds under a ceiling).
+fixtures `tests/core-step-cost.test.mjs` holds under a ceiling: the highest of the last row's
+five readings and a quarter, 100 KiB standing and 139 in the bout).
+
+A ceiling sees a copy put back in a dear loop and not one in a small one. With each pivot's row
+copied to a plain array (`[...row]`) in the ground wrench's elimination (`eliminate`,
+`contact-wrench.ts`), a step allocates 137 KiB a body standing and 196 in the bout, over both,
+with the bout's digest the same. With each row copied in `solveLinearTo` (`flat.ts`), whose
+systems are a few rows each, it allocates 82 and 114, against 79 and 110 landed: under both.
 
 | | A bout's step, mean ms | Its median, ms | One body standing, ms | Eight, ms | Standing, KiB a body a step | The bout, KiB a body a step |
 |---|---|---|---|---|---|---|
@@ -364,6 +371,14 @@ fixtures `tests/core-step-cost.test.mjs` holds under a ceiling).
   the CPU profiler and are 3.5 and 2.8, the bout's step 0.909 and 0.919 ms to 0.886 and 0.900.
   The rest of the reads' cost is Rapier calling back for each pair offered. The bout from 2 s to
   its verdict allocates 248 KiB a step against 258 (`--sites`).
+- **Read and not landed: the joints' turning tables.** `turningToRef` (`joint-state.ts`) is 2.1 % of
+  the bout with what it calls (1.4 to 2.1 % in the profiles above), and boxes the doubles it works
+  with: a pass of a skeleton's 15 joints at its standing angles allocates 2010 bytes, 563 of them
+  in `tan`'s kernel. Read twice in Node, the least of five timings of 20000 passes each: carried
+  through a `Float64Array`, the tangents allocate 1124 to 1127 bytes a pass with every number the
+  same, and the pass takes 278 and 289 ns a joint against 287 and 283, the same within the spread;
+  written out by a `switch` in place of the ternary, 2804 to 2811 bytes and 309 and 318 ns. Neither is
+  kept. What is left is what a double costs crossing a call.
 
 ## The crypt's plan in the step
 

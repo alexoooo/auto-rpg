@@ -88,6 +88,16 @@ holds the core, and the arena's modules that build a bout's world, to the exact 
 and to the members of Babylon's math that are arithmetic alone; `tests/core-math.test.mjs` holds
 each function's values to a record ([reference/real-functions.md](reference/real-functions.md)).
 
+The solves a step works are `linalg.ts`'s written into flat arrays made once
+(`src/core/math/flat.ts`): a matrix its rows end to end, the same operations in the same order,
+so the same doubles; `tests/core-flat.test.mjs` holds each to its twin. The step's dear functions
+work so: the arrays a body's control works in (a **work**) are made with it, in the closure of
+what uses them (the stance's bearing solve, `bodyDynamics`, the joint trackers, each hand's
+reach), sized from the body's spec, and a function writes every entry of one before it reads it.
+A work carries nothing from one call to the next, so it is not state and no two bodies share one;
+what a step allocates is held under a ceiling (`tests/core-step-cost.test.mjs`,
+[reference/step-cost.md](reference/step-cost.md#control-written-into-arrays-made-once)).
+
 ### Build
 
 `buildBody` (`src/core/build/build-body.ts`) makes one engine body per segment, with the spec's
@@ -122,7 +132,9 @@ is what costs ([reference/play.md](reference/play.md#hearing-in-the-step)). A
 world saves its whole physical state and loads it in place (`PhysicsWorld.save`, `load`); a body,
 joint or collider the core holds survives a load as the object it was, and a save of a world with
 other bodies, joints or colliders is refused. `rapier.ts` implements it,
-with the solver's own settings in `SOLVER`, which are conditioning and not anatomy. `engines.ts`
+with the solver's own settings in `SOLVER`, which are conditioning and not anatomy; it keeps a
+body's velocities as read until the next step, or an impulse, new mass or a hold, since control
+reads each a few times a step and every read through Rapier's binding makes an object. `engines.ts`
 lists the engines and is the only module in `src/core/` or the lab that imports one. A candidate
 is tried on the physics bench (`src/physics-bench/engines/`) first, then added to `ENGINES` and run
 under the core's tests with `CORE_ENGINE=<name> npm test`.

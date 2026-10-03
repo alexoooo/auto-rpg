@@ -71,11 +71,14 @@ All of it on a physically based core, humans first ([architecture](architecture.
 - Thinking that takes longer than a step has no place yet, and nothing in the game needs one
   yet: tactics are under 1 % of a bout, and the crypt's planning is sight, which is made cheap
   where it stands. A rollout in play, a planner or a learned mind's slow part will. Designed, and
-  planned with the first of them
-  ([plans/2026-10-02-step-00-design.md](plans/2026-10-02-step-00-design.md#thinking-that-takes-longer-than-a-step)):
-  a thought is a pure function of a question asked at one step and answered at a step the asker
-  names, so it may be thought in a worker and the game is the same to the bit; when an answer is
-  late the world waits (the owner's choice).
+  planned with the first of them (`docs/plans/2026-10-02-step-00-design.md@6220a997`, "Thinking
+  that takes longer than a step"): a thought is a pure function of a question asked at one step
+  and answered at a step the asker names, both plain data, so it may be thought in the step, in a
+  worker or on a server and the game is the same to the bit. Its budget is a count in the
+  question; what is out (each thought's kind, question and due step) is state, and its answers
+  are not. When an answer is late the world waits (the owner's choice): `World.advance` takes no
+  step while one due at it is out, and `World.step` thinks whatever has not come. It would live in
+  `src/core/think/`, taken in `World.step` between the sensing hooks and the step hooks.
 - The tactics (`fighterTactics`) cannot yet attack a moving body.
 - A fighter can cover its head against a blow it sees coming (`guard: "cover"`,
   `&guard=cover`), and does not unless asked: the cover is late, and saves no more of the head
@@ -331,7 +334,7 @@ All of it on a physically based core, humans first ([architecture](architecture.
 - Set, and to measure on the core ([reference/play.md](reference/play.md)): how long a hero
   facing the cursor stands being hit from behind, with `SET_UPON` and `AIM_COSINE` and without.
 - How many bodies a step carries ([reference/step-cost.md](reference/step-cost.md#bodies-in-a-step)):
-  a body under control costs 0.58 to 0.61 ms of a step's 8.33, so fourteen are real time in Node
+  a body under control costs 0.36 to 0.46 ms of a step's 8.33, so about 21 are real time in Node
   with nothing drawn. The owner's choices: only the near ones have control, there is no cap on
   them, and the dead are fixed where they lie once nobody is near. One rule for a body's level
   does all three (`levelsOf`, [reference/play.md](reference/play.md#levels)): the crypt holds an
@@ -339,17 +342,14 @@ All of it on a physically based core, humans first ([architecture](architecture.
   near. With more near than a machine carries the game plays slower; what raises the count is
   what a body costs. The owner's to shape: how the dead disappear in time, which would be a
   fight disposing of a body it has held for long.
-- What a body costs: the solver is 0.25 to 0.28 ms of it, and the rest is control, much of it
-  written with a matrix made for every solve (the collector is 1 % of the step, and the cost is
-  in the code that allocates). The dearest function, the stance's share of the ground's wrench,
-  does the same arithmetic in arrays made once: 57 us a call to 12.5 with every number the same,
-  and a body standing 0.62 ms a step to 0.53, allocating 379 KiB a step against 603
-  ([reference/step-cost.md](reference/step-cost.md#control-written-into-arrays-made-once)). The
-  rest is planned function by function, each landing only if it pays
-  ([plans/2026-10-02-step-04-cost.md](plans/2026-10-02-step-04-cost.md)); a body at 0.42 to
-  0.47 ms is the estimate. Under that floor, not planned: the solver itself; the wrench's active
-  set started from the last step's (3.5 iterations a call today), which is another bout; and
-  control on other threads, which is a design of its own.
+- What a body costs: 0.46 ms a step standing alone and about 0.44 in a bout, of which the solver
+  is 0.25 to 0.28; a body's control works in arrays made once, and a step allocates about 55 KiB
+  a body standing, 124 in a bout, and the collector takes 0.3 % of it or less
+  ([reference/step-cost.md](reference/step-cost.md#control-written-into-arrays-made-once)). Two
+  levers are left, neither planned: the ground's wrench started from the last step's working set
+  (3.5 iterations a call today, each from nothing), which is another bout; and control on
+  other threads, which would multiply bodies by cores and is a design of its own. Rapier's own
+  step is not planned. Every figure is Node's: the step is not read on a page.
 - What is left over 1 ms of a crypt run's own planning is an enemy's body built in the step as
   the party comes near, 2.8 to 4.2 ms three or four times a run
   ([reference/step-cost.md](reference/step-cost.md#sight-read-through-an-index)); its sight,

@@ -198,6 +198,11 @@ screens build on it; it never imports them.
 - **What changes from step to step is plain data in one `state` object** per module
   (`src/core/state.ts`), hung on the bout's; `tests/arena-fork.test.mjs` forks a bout to prove
   it. A body, a node or a function is not state, and a constant a state points at is frozen.
+- **The step's dear functions work in arrays made once**: a rewrite for speed does the same
+  operations in the same order and moves no fingerprint, a work array carries nothing between
+  calls and no two bodies share one, and it lands with its time read before and after
+  (`docs/reference/step-cost.md`). `tests/core-step-cost.test.mjs` holds what a step allocates
+  under a ceiling.
 - **A screen is an explicit argument, never inferred from a state machine.** Pause freezes the
   world, not the camera, and opens nothing but its own panel.
 - **Two watchers on one body: set a flag in the callback and act on it at the next control step.**
