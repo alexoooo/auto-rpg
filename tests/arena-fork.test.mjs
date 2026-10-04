@@ -30,7 +30,7 @@ import { freshEngine } from "./harness/core-stand.mjs";
 import { assertForks, fieldsOf, forgetting, forks, PHYSICS_ALONE, shows, STATE_ALONE, unsorted } from "./harness/fork.mjs";
 import { traceOf } from "./harness/trace.mjs";
 
-const RECIPE = deepFreeze({ left: "workshop-fighter", right: "workshop-rogue", gap: 4.5, balance: { left: 25, right: 25 }, senseDelay: 1 });
+const RECIPE = deepFreeze({ left: "workshop-fighter", right: "workshop-rogue", gap: 3.75, balance: { left: 25, right: 25 }, senseDelay: 1 });
 /** The same bout with both sides covering what threatens them (`FighterMindConfig.guard`). */
 const COVERING = deepFreeze({ ...RECIPE, minds: { left: { ...FIGHTER, guard: "cover" }, right: { ...FIGHTER, guard: "cover" } } });
 const BACK = { move: { x: -1, z: 0 }, face: null, attack: null };
@@ -103,7 +103,7 @@ const UNSHOWN = { load: (stand, saved) => { stand.world.physics.load(saved.physi
 
 /** The fields of the bout's own state a fork is shown to need, under the run that shows it. */
 const NEEDED = {
-  // Saved every second to its verdict: the orders, the wounds and the end.
+  // Saved every half second to its verdict: the orders, the wounds and the end.
   bout: [
     "start", "startStep", "verdict", "given", "tape", "queued",
     "senses > left > frames", "senses > right > frames",
@@ -122,7 +122,7 @@ const SORTED_ELSEWHERE = ["world", "left > body", "left > mind", "right > body",
 
 test("a_bout_forks_at_any_step", async () => {
   const controls = { physics: PHYSICS_ALONE, state: STATE_ALONE, unshown: UNSHOWN, ...forgetting(NEEDED.bout) };
-  const run = await forks(bout, 120, 240, (trunk) => trunk.duel.verdict !== null, controls);
+  const run = await forks(bout, 60, 240, (trunk) => trunk.duel.verdict !== null, controls);
   assertForks(run, ["physics", "state", "unshown", ...NEEDED.bout]);
   // The fixture reaches a bout's whole course: both orders given, blows of both kinds thrown, landed and clashed, a part taken off, the verdict, and the assists withdrawn at it.
   const { landed, clashes, severed, swung, orders, withdrawn, verdict, heard } = run.seen;

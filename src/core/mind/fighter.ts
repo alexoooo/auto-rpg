@@ -34,7 +34,8 @@ export const STRAFE = { share: 0.5, turned: 0.3 } as const;
  * `src/core/skills/strike.ts`). It holds the point it aims at while the ordered one stays within
  * `APPROACH.reach` of it, and aims again after each blow, since the skill sets the feet for the
  * point it is given and a point that followed a swaying head would move under every placing.
- * Back from another mind (`BodyView.resumed`), it aims afresh.
+ * Once the blow is committed (its chamber and its swing) it aims at the ordered point itself,
+ * which the skill turns the body to follow (`STEER`). Back from another mind (`BodyView.resumed`), it aims afresh.
  *
  * A hand that does not attack guards as `guard` says (`FighterMindConfig.guard`): in the pose,
  * or covering what threatens the head (`threatOf`, by `threat`) while anything does.
@@ -68,7 +69,8 @@ export function fighterTactics(name: string, orders: (sight: Sight) => Orders, s
       if (attack) {
         const thrown = report.strike.thrown.right;
         let aim = state.aim;
-        if (!aim || aim.thrown !== thrown
+        const phase = report.strike.phase;
+        if (!aim || aim.thrown !== thrown || phase === "chamber" || phase === "swing"
           || hypot(attack[0] - aim.point[0], attack[1] - aim.point[1], attack[2] - aim.point[2]) > APPROACH.reach) {
           aim = state.aim = { point: [attack[0], attack[1], attack[2]], thrown };
         }

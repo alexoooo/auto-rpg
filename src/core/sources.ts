@@ -89,6 +89,14 @@ export const SOURCES = Object.freeze({
       + "Warrior's 6 HP), its fists held thumb up as its art's guard shows them.",
     record: "docs/plans/2026-09-30-old-path-removal.md@2e99105f",
   },
+  "skeleton-limbs-clear": {
+    kind: "decision", date: "2026-10-03",
+    decided: "The skeleton's thighs and upper arms, the placeholder typical man's at his densities, overlap "
+      + "each other and its trunk as built, which holds its pelvis from turning. The owner chose 'just clear' "
+      + "over the art's thin bones for now: they are no wider than leaves 4 mm between them and what they "
+      + "share no joint with, the room its forearms have from its trunk as built.",
+    record: "docs/reference/blows.md#steered",
+  },
   "owner-hp-pool": {
     kind: "decision", date: "2026-09-27",
     decided: "Hit points: reptile 1, Rogue 4, Warrior 6. One HP pool per body; excess damage spreads to "

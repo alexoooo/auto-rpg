@@ -26,7 +26,7 @@ import { createBody } from "../src/core/body.ts";
 import { makeStance } from "../src/core/control/stance-state.ts";
 import { SOLE_MARGIN, SUPPORT_INSET, STANCE_ANKLE_SPARE } from "../src/core/control/stance-tuning.ts";
 import { withinSupport } from "../src/core/control/support.ts";
-import { humanSpec } from "../src/core/human/spec.ts";
+import { humanSpec, modelSpec } from "../src/core/human/spec.ts";
 import { shove } from "../research/core-stance-trials.mjs";
 import { coreStand } from "./harness/core-stand.mjs";
 
@@ -42,7 +42,7 @@ const GUARD = {
  * their travel over the last 2 s; and the pelvis's heading.
  */
 async function standing(model, seconds, ask, { posture = {}, stance } = {}) {
-  const stand = await coreStand(humanSpec(model), { ground: true, hz: 120 });
+  const stand = await coreStand(modelSpec(model), { ground: true, hz: 120 });
   const body = createBody(stand.built, stand.world, { servoSeconds: 0.1, stance });
   const feet = ["left", "right"].map((side) => stand.built.segments.get(`foot.${side}`));
   const pelvis = stand.built.joints.get("hip.left").parent;
@@ -71,7 +71,7 @@ async function standing(model, seconds, ask, { posture = {}, stance } = {}) {
     const turn = pelvis.node.rotationQuaternion.multiply(Quaternion.Inverse(pelvis.rest));
     const forward = new Vector3(0, 0, 1).applyRotationQuaternion(turn);
     const heading = Math.atan2(forward.x, forward.z);
-    const inertia = feet.map((foot) => foot.body.massProperties.moments[0] / humanSpec(model).segments.find((s) => s.name === foot.spec.name).inertia.value[0]);
+    const inertia = feet.map((foot) => foot.body.massProperties.moments[0] / modelSpec(model).segments.find((s) => s.name === foot.spec.name).inertia.value[0]);
     return { goal, before, after, slide, sink, still, heading, inertia, angles: { ...body.view.angles }, place: body.view.stance.place.clone() };
   } finally { body.dispose(); stand.dispose(); }
 }
@@ -178,15 +178,18 @@ for (const model of ["workshop-fighter", "workshop-rogue"]) {
   });
 }
 
-test("the stance goes where it is asked: a place, a height, a heading", async () => {
-  const r = await standing("workshop-rogue", 5, (first) => ({ feet: ["left", "right"],
-    centre: [first.support.x + 0.02, first.support.z + 0.03], height: first.height - 0.03, heading: 0.2 }));
-  const off = Math.hypot(r.after.centre.x - r.goal.centre[0], r.after.centre.z - r.goal.centre[1]);
-  const low = Math.abs(r.after.height - r.goal.height), turned = Math.abs(r.heading - r.goal.heading);
-  assert.ok(off < 0.005, `the centre of mass stopped ${(1000 * off).toFixed(1)} mm from its place`);
-  assert.ok(low < 0.005, `the centre of mass stood ${(1000 * low).toFixed(1)} mm off its height`);
-  assert.ok(turned < 0.02, `the pelvis faced ${turned.toFixed(3)} rad off its heading`);
-  assert.ok(r.slide < 0.005, `the feet slid ${(1000 * r.slide).toFixed(1)} mm`);
+// The skeleton's thighs, built inside each other, held its pelvis from turning at all.
+test("the stance goes where it is asked: a place, a height, a heading, the Rogue and the skeleton", async () => {
+  for (const model of ["workshop-rogue", "crypt-skeleton"]) {
+    const r = await standing(model, 5, (first) => ({ feet: ["left", "right"],
+      centre: [first.support.x + 0.02, first.support.z + 0.03], height: first.height - 0.03, heading: 0.2 }));
+    const off = Math.hypot(r.after.centre.x - r.goal.centre[0], r.after.centre.z - r.goal.centre[1]);
+    const low = Math.abs(r.after.height - r.goal.height), turned = Math.abs(r.heading - r.goal.heading);
+    assert.ok(off < 0.005, `${model}: the centre of mass stopped ${(1000 * off).toFixed(1)} mm from its place`);
+    assert.ok(low < 0.005, `${model}: the centre of mass stood ${(1000 * low).toFixed(1)} mm off its height`);
+    assert.ok(turned < 0.02, `${model}: the pelvis faced ${turned.toFixed(3)} rad off its heading`);
+    assert.ok(r.slide < 0.005, `${model}: the feet slid ${(1000 * r.slide).toFixed(1)} mm`);
+  }
 });
 
 test("a height beyond the ankles' range is not reached: each human sinks to their reach less the spare and stands, and asked for it does not", async () => {

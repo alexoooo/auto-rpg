@@ -9,7 +9,7 @@ import type { Vec3 } from "../spec/quantity.ts";
 import { distance, sub } from "../spec/vec.ts";
 import { deepFreeze } from "../state.ts";
 import { GUARD } from "./guard.ts";
-import { PLACING, type Footing } from "./locomotion.ts";
+import { PLACING, wrap, type Footing } from "./locomotion.ts";
 import type { Skill } from "./skill.ts";
 import { aimOf, netsOf, recipeAt, recipesFor, type Band, type Chosen, type Repertoire, type StrikeWindow } from "./strikes.ts";
 import { sin, cos, asin, atan2, hypot } from "../math/real.ts";
@@ -21,6 +21,15 @@ import { sin, cos, asin, atan2, hypot } from "../math/real.ts";
  * `docs/reference/human-and-strikes.md#stand-time`.
  */
 export const STAND = 1.5;
+
+/**
+ * **The most a blow turns the pelvis to follow its target**, rad either way. From the commit to the
+ * end of the pushes the stance's heading is turned by how far the target's bearing has turned
+ * since the commit, seen from where the feet's middle stood then, so a target that moves across
+ * the heading under a blow stays where the recipe's window had it. Read on the stand at 0.15 and
+ * 0.3 against a target 6 and 12 cm across: `docs/reference/blows.md#steered`.
+ */
+export const STEER = 0.3;
 
 /**
  * **How the body comes to a recipe's place**: its centre of mass walks toward the place at the
@@ -157,6 +166,8 @@ interface StrikeCommand {
   readonly pushes: readonly MusclePush[];
   /** A placed blow's goal for its hand, made for the step; null for a hand with none. */
   readonly hands: Readonly<Record<Hand, HandGoal | null>>;
+  /** How far the stance's heading is turned to follow the target, rad (`STEER`). */
+  readonly steer: number;
 }
 
 /**
@@ -170,7 +181,7 @@ interface StrikeCommand {
  * attacked (from one stand to the next a height at a window's edge reads either side of it), and
  * asks the window of it, standing again for another blow or setting the feet again if it is out.
  * A recipe
- * holds its chamber and pushes. A placed blow has no chamber: it carries its point through the
+ * holds its chamber and pushes, the pelvis turned to follow its target across (`STEER`). A placed blow has no chamber: it carries its point through the
  * target by a hand goal that follows the target in the body frame (`BodyView.root`), each step.
  * While it works the skill has the legs (a blow is thrown standing) and the trunk; the other hand
  * guards. One strike at a time: the right hand's first when both attack. An attack given up
@@ -210,6 +221,13 @@ interface StrikeState {
   /** When the throw began, and when the body first stood for it, in `still`'s count. */
   begun: number | null;
   readyAt: number | null;
+  /**
+   * Where the feet's middle stood as the recipe's throw was committed, and the target's bearing
+   * from there then; the heading's turn to follow the target since (`STEER`).
+   */
+  origin: [number, number] | null;
+  bearing: number | null;
+  steer: number;
   /** The feet's width apart as built, m, and the head over their middle as the body last stood: along the heading and across it. */
   width: number | null;
   over: [number, number] | null;
@@ -219,7 +237,7 @@ interface StrikeState {
   readonly pushes: MusclePush[];
 }
 
-export function strikeSkill(spec: BodySpec, repertoire: Repertoire, placing: Placed = PLACED): StrikeSkill {
+export function strikeSkill(spec: BodySpec, repertoire: Repertoire, placing: Placed = PLACED, steering = STEER): StrikeSkill {
   const blows = (hand: Hand) => {
     const chosen = recipesFor(repertoire, spec, hand), aim = aimOf(spec, hand);
     return deepFreeze({
@@ -261,7 +279,7 @@ export function strikeSkill(spec: BodySpec, repertoire: Repertoire, placing: Pla
   };
   const state: StrikeState = {
     hand: null, phase: null, blow: null, recipe: null, distance: null, stoodFor: null,
-    still: 0, since: -Infinity, begun: null, readyAt: null, width: null, over: null,
+    still: 0, since: -Infinity, begun: null, readyAt: null, origin: null, bearing: null, steer: 0, width: null, over: null,
     thrown: { left: 0, right: 0 }, pushes: [],
   };
   const report: StrikeReport = {
@@ -279,6 +297,7 @@ export function strikeSkill(spec: BodySpec, repertoire: Repertoire, placing: Pla
   const end = (): void => {
     state.hand = null; state.phase = null; state.blow = null; state.recipe = null; state.distance = null; state.stoodFor = null;
     state.begun = null; state.readyAt = null; state.since = -Infinity;
+    state.origin = null; state.bearing = null; state.steer = 0;
   };
   const place = new Vector3();
   return {
@@ -374,7 +393,14 @@ export function strikeSkill(spec: BodySpec, repertoire: Repertoire, placing: Pla
           }
         }
       } else state.still += dt;
-      const { pushes } = state;
+      // A recipe thrown follows its target across: the heading turned as its bearing has, while its hand attacks.
+      if (state.begun !== null && state.blow === "recipe" && steering > 0 && action.kind === "attack") {
+        const origin = state.origin ??= [feetX, feetZ];
+        const bearing = atan2(action.target[0] - origin[0], action.target[2] - origin[1]);
+        state.bearing ??= bearing;
+        state.steer = Math.max(-steering, Math.min(steering, wrap(bearing - state.bearing)));
+      }
+      const { pushes, steer } = state;
       pushes.length = 0;
       let posture = GUARD, goals = NO_HANDS;
       if (state.begun !== null) {
@@ -416,7 +442,7 @@ export function strikeSkill(spec: BodySpec, repertoire: Repertoire, placing: Pla
           state.still = 0;
         }
       }
-      return { walk, face, footing, posture, pushes, hands: goals };
+      return { walk, face, footing, posture, pushes, hands: goals, steer };
     },
   };
 }

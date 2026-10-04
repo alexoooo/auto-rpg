@@ -1,6 +1,6 @@
 import bind from "../../../assets/skeleton/bind.json" with { type: "json" };
 import { derive, sourced, type Quantity, type Vec3 } from "../spec/quantity.ts";
-import { add, midpoint, normalize, scale, sub } from "../spec/vec.ts";
+import { add, distance, midpoint, normalize, scale, sub } from "../spec/vec.ts";
 import type { Extent, Extents, TrunkSegment } from "./envelope.ts";
 import type { HumanFigure, LimbFigure } from "./figure.ts";
 import { dividedTrunk, type Side } from "./landmarks.ts";
@@ -26,6 +26,10 @@ import { dividedTrunk, type Side } from "./landmarks.ts";
  * - **What the art does not give** is a placeholder (`skeleton-placeholders`): a typical man in the
  *   skeleton's shape, with men's tables, the typical man's mass and the Warrior's hit points; and
  *   the fists thumb up, which the bind's guard shows but no number states.
+ * - **Its thighs and upper arms are no wider than clears them** (`skeleton-limbs-clear`): the
+ *   typical man's at his densities, on the art's narrower hips and beside its trunk, would overlap
+ *   each other and the trunk as built. Its thighs hang straight from its hips and its upper arms
+ *   from its shoulders, so the room is read across, in x.
  *
  * Posture angles are measured from a body's reference pose, so a posture written for the humans
  * (`GUARD`) bends the skeleton's elbows past its stop from here. A posture written from each
@@ -171,17 +175,27 @@ export function skeletonFigure(): HumanFigure {
   const MIDH = derive("m", "MIDH: between the hip joint centres", [limbs.left.HJC, limbs.right.HJC], (l, r) => midpoint(l, r));
   const trunk = dividedTrunk("male", VERT, CERV, MIDH);
   const boxes = [part("trunk.core"), part("legs.pelvis")];
+  const hulls = {
+    upper: slice(boxes, "upper", trunk.XYPH),
+    middle: slice(boxes, "middle", trunk.OMPH, trunk.XYPH),
+    lower: slice(boxes, "lower", undefined, trunk.OMPH),
+  };
+  const room = sourced(0.004, "m", "skeleton-limbs-clear", "the room a limb keeps from what it shares no joint with");
   return {
     family: "skeleton", model: SKELETON_MODEL, substance: "bone", sex: "male",
     mass: placeholder(79, "kg", "the typical man's mass"),
     stature: derive("m", "the vertex's height over the soles", [VERT], (v) => v[1]),
     trunk, limbs,
-    hulls: {
-      upper: slice(boxes, "upper", trunk.XYPH),
-      middle: slice(boxes, "middle", trunk.OMPH, trunk.XYPH),
-      lower: slice(boxes, "lower", undefined, trunk.OMPH),
-    },
+    hulls,
     feet: { left: boxExtents(part("legs.footL"), "the left foot"), right: boxExtents(part("legs.footR"), "the right foot") },
+    widest: {
+      thigh: derive("m", "half the distance between the hip joint centres, less half the room",
+        [limbs.left.HJC, limbs.right.HJC, room], (l, r, gap) => (distance(l, r) - gap) / 2),
+      // The upper arm's parent is the upper trunk; the middle and lower trunks share no joint with it.
+      upperArm: derive("m", "the nearer shoulder's distance out from the middle and lower trunks' widest, less the room",
+        [limbs.left.SJC, limbs.right.SJC, room, ...hulls.middle, ...hulls.lower],
+        (l, r, gap, ...corners) => Math.min(Math.abs(l[0]), Math.abs(r[0])) - Math.max(...corners.map((c) => Math.abs(c[0]))) - gap),
+    },
     hp: placeholder(6, "HP", "the Warrior's hit points"),
     balance: placeholder(0, "%", "the Warrior's balance"),
   };

@@ -2,9 +2,11 @@
  * **Where each recipe misses, and what a miss does to its body.** Each recipe of
  * `assets/core/strikes.json` thrown as its search threw it (`evaluateBlow`, `core-blow.mjs`):
  *
- * - at its target body moved from its place along the heading and across it by each of `--offsets`
- *   (m, either way), as a body whose feet stood that far off its place throws: the skill aims where
- *   the place is and the target is not there. A stand-off's reading is how many of `--trials`
+ * - at its target body moved from its place each of `--ways` (along the heading, across it, up) by
+ *   each of `--offsets` (m, either way), as a body whose feet stood that far off its place throws: the skill aims where
+ *   the place is and the target is not there; with `--seen`, as a target that moved under the blow
+ *   once it was committed, the skill told so (`Throw.moved`) and turning after it (`STEER`, or
+ *   `--steer`). A stand-off's reading is how many of `--trials`
  *   throws landed (the first as written, the rest perturbed as a search's are) and the mean of what
  *   they did, HP;
  * - at nothing, each throw traced (`balanceTrace`): how far the capture point ran and which way,
@@ -13,8 +15,8 @@
  *
  * Node core stand, Rapier; each throw on a worker of its own stand.
  *
- *   node research/strike-robustness.mjs [--offsets 0.06,0.1,0.12] [--hz 120,480] [--trials 4] [--only <model>/<held>/<band>]
- *     [--workers 14] [--save rows.json] [--load rows.json,...]
+ *   node research/strike-robustness.mjs [--offsets 0.06,0.1,0.12] [--ways along,across] [--hz 120,480] [--trials 4] [--only <model>/<held>/<band>]
+ *     [--seen] [--steer <rad>] [--workers 14] [--save rows.json] [--load rows.json,...]
  *
  * Prints, for each recipe, a line of its offsets' readings each way, and a line of its throws at
  * nothing at each rate. `--save` keeps every throw's reading, and `--load` reads those it has in
@@ -33,14 +35,15 @@ const WATCH = 3;
 
 if (isMainThread) {
   const { values } = parseArgs({ options: {
-    offsets: { type: "string", default: "0.06,0.1,0.12" }, hz: { type: "string", default: "120,480" }, trials: { type: "string", default: "4" },
-    only: { type: "string" }, workers: { type: "string" }, save: { type: "string" }, load: { type: "string" },
+    offsets: { type: "string", default: "0.06,0.1,0.12" }, ways: { type: "string", default: "along,across" }, hz: { type: "string", default: "120,480" }, trials: { type: "string", default: "4" },
+    only: { type: "string" }, seen: { type: "boolean", default: false }, steer: { type: "string" }, workers: { type: "string" }, save: { type: "string" }, load: { type: "string" },
   } });
-  const sizes = values.offsets.split(",").map(Number), rates = values.hz.split(",").map(Number), trials = Number(values.trials);
+  const ways = values.ways.split(","), sizes = values.offsets.split(",").map(Number), rates = values.hz.split(",").map(Number), trials = Number(values.trials);
   const offsets = [0, ...sizes.flatMap((d) => [-d, d])].sort((a, b) => a - b);
   const asset = JSON.parse(await readFile(ASSET, "utf8"));
   const cell = (recipe) => `${recipe.model}/${recipe.held}/${recipe.band}`;
   const recipes = asset.recipes.filter((recipe) => !values.only || cell(recipe) === values.only);
+  for (const way of ways) if (!["along", "across", "up"].includes(way)) throw new Error(`--ways ${way}: along, across or up`);
   if (!recipes.length) throw new Error(`--only ${values.only} names no recipe: one of ${asset.recipes.map(cell).join(", ")}`);
   // The trials' draws, the same for every throw: the first is the strike as written.
   let seed = 1;
@@ -49,9 +52,10 @@ if (isMainThread) {
   const jobs = [];
   recipes.forEach((recipe, r) => {
     draws.forEach((perturbation, trial) => {
-      for (const way of ["along", "across"]) for (const d of offsets) {
-        if (way === "across" && d === 0) continue;
-        jobs.push({ r, kind: "off", hz: rates[0], way, d, trial, perturbation, recipe });
+      // The throw at the place is read once, as the first way's.
+      for (const way of ways) for (const d of offsets) {
+        if (way !== ways[0] && d === 0) continue;
+        jobs.push({ r, kind: "off", hz: rates[0], way, d, trial, perturbation, recipe, seen: values.seen, ...(values.steer === undefined ? {} : { steer: Number(values.steer) }) });
       }
       for (const hz of rates) jobs.push({ r, kind: "nothing", hz, way: null, d: null, trial, perturbation, recipe });
     });
@@ -86,10 +90,10 @@ if (isMainThread) {
   console.log("  how far past the outline the stance steps from (cm), when it first left it (s from the pushes), the most the soles fell short (weights, N m), and falls");
   const cm = (v) => (100 * v).toFixed(0);
   recipes.forEach((recipe, r) => {
-    console.log(`${cell(recipe)} (window along ${recipe.window.along.map(cm).join(" to ")}, across ${recipe.window.across.map(cm).join(" to ")} cm)`);
-    for (const way of ["along", "across"]) {
+    console.log(`${cell(recipe)} (window ${ways.map((way) => `${way} ${recipe.window[way].map(cm).join(" to ")}`).join(", ")} cm)`);
+    for (const way of ways) {
       console.log(`  ${way.padEnd(7)}${offsets.map((d) => {
-        const runs = jobs.filter((j) => j.r === r && j.kind === "off" && j.way === (d === 0 ? "along" : way) && j.d === d).map((j) => j.result);
+        const runs = jobs.filter((j) => j.r === r && j.kind === "off" && j.way === (d === 0 ? ways[0] : way) && j.d === d).map((j) => j.result);
         const landed = runs.filter((run) => run.done > 0 && !run.fell).length, fell = runs.filter((run) => run.fell).length;
         return `${landed}/${runs.length}${fell ? `f${fell}` : ""} ${(runs.reduce((sum, run) => sum + run.done, 0) / runs.length).toFixed(2)}`.padStart(11);
       }).join("")}`);
@@ -110,11 +114,11 @@ if (isMainThread) {
   if (values.save) await writeFile(values.save, JSON.stringify(jobs.map((job) => [key(job), job.result])));
 } else {
   const { balanceTrace, evaluateBlow } = await import("./core-blow.mjs");
-  parentPort.on("message", async ({ kind, hz, way, d, perturbation, recipe }) => {
+  parentPort.on("message", async ({ kind, hz, way, d, perturbation, recipe, seen, steer }) => {
     try {
       let trace = null;
       const r = await evaluateBlow({ model: recipe.model, held: recipe.held, hand: recipe.strike.hand, band: recipe.band, strike: recipe.strike,
-        ahead: recipe.place.ahead, hz, perturbation, recover: WATCH,
+        ahead: recipe.place.ahead, hz, perturbation, recover: WATCH, seen, steer,
         ...(kind === "off" ? { off: { [way]: d } } : { dummy: false, trace: (body, blow) => (trace ??= balanceTrace(body)).take(body, blow) }) });
       parentPort.postMessage({ result: { done: r.done, fell: r.fell, stood: r.stood, balance: trace?.reading ?? null } });
     } catch (error) { parentPort.postMessage({ error: String(error?.stack ?? error) }); }

@@ -435,13 +435,14 @@ is given up. The skeleton is given up at the three lower heights, moving 0.10 to
 done after 12 steps at 0.4.
 
 **Its left limbs let go.** Under a stage that bears on the shins (0.4 each) and the right hand
-(0.2) and leaves the left hand, 3 s at most, neither the skeleton nor the Warrior lets the hand
-go: on three limbs the centre of mass stops still 0.07 m (skeleton) and 0.12 m (Warrior) short
-of the place, never over the three limbs' outline, and the stage is given up. A stage that
-leaves nothing is done at its place alone: `fours` with the shins bearing 0.38 each and the
-hands 0.12 is done on the skeleton after 1.0 s with its centre of mass nearer its knees than
-that outline; with the shins at 0.4 each its pelvis stays short of its pitch and the stage is
-given up at its limit. That a body on three limbs stops short of its place is open.
+(0.2), leaves the left hand and pitches the pelvis 0.9 rad, 3 s at most, the Warrior does not
+let the hand go: on three limbs its centre of mass stops still 0.12 m short of the place and
+0.015 m outside the three limbs' outline drawn in, and the stage is given up. A stage that
+leaves nothing is done at its place alone: `fours` pitched 1.4 rad with the shins bearing 0.38
+each and the hands 0.12 is done on the skeleton after 17 steps with its centre of mass nearer
+its knees than that outline; at `fours`' own pitch the same shares are done after 71 steps over
+it. That a body on three limbs stops short of its place is open, and
+`tests/core-rise.test.mjs` holds the hand's case as a `todo`.
 
 ### The abort
 

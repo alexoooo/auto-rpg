@@ -190,10 +190,10 @@ test("a fighter aims at a foe's head, or at the part its right hand's recipe net
   assert.throws(() => aimed("heart", fist), /aims at the head or at what pays/);
 });
 
-test("a fighter holds the point it aims at until the plan's leaves it or a blow is thrown", () => {
-  let attack = [1, 1.6, 0], thrown = 0, resumed = false;
+test("a fighter holds the point it aims at until the plan's leaves it, a blow is thrown or one is under way", () => {
+  let attack = [1, 1.6, 0], thrown = 0, resumed = false, phase = "settle";
   const tactics = fighterTactics("aim", () => ({ move: null, face: null, attack }));
-  const decide = () => tactics.decide({ view: { resumed }, report: { heading: 0.25, strike: { thrown: { right: thrown } } }, envelope: null }, 1 / 120);
+  const decide = () => tactics.decide({ view: { resumed }, report: { heading: 0.25, strike: { thrown: { right: thrown }, phase } }, envelope: null }, 1 / 120);
   const reach = APPROACH.reach;
   assert.deepEqual(decide().hands.right, { kind: "attack", target: [1, 1.6, 0] });
   // A point that sways inside the reach is not followed, though the plan moves its own array.
@@ -219,4 +219,13 @@ test("a fighter holds the point it aims at until the plan's leaves it or a blow 
   assert.deepEqual(decide().hands.right.target, aimed);
   resumed = true;
   assert.deepEqual(decide().hands.right.target, attack);
+  // A blow committed, it aims at the point itself, step by step, and holds it again before the next.
+  resumed = false;
+  let aim = attack;
+  for (const [now, followed] of [["approach", false], ["place", false], ["settle", false], ["chamber", true], ["swing", true], [null, false]]) {
+    phase = now;
+    attack = [attack[0] + 0.1 * reach, 1.6, 0];
+    if (followed) aim = attack;
+    assert.deepEqual(decide().hands.right.target, aim, `${now}`);
+  }
 });

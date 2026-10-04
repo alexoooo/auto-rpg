@@ -231,7 +231,11 @@ and driven afresh to change what it costs.
   window holds the target's height over the head, the nearest its place where two do
   (`recipeAt`), and a placed blow where none does; walks the body to where the target sits in
   the blow's window, sets the feet, stands `STAND` seconds, chooses again by the head as it
-  stands, once for a point attacked, and throws. It reports what each hand's recipes net by band (`StrikeReport.nets`).
+  stands, once for a point attacked, and throws. From the commit to the end of its pushes a
+  recipe turns the stance's heading by as much as its target's bearing has turned, read from
+  where the feet stood at the commit, up to `STEER`, so a target that moves across under the
+  blow stays where its window had it ([reference/blows.md](reference/blows.md#steered)). It
+  reports what each hand's recipes net by band (`StrikeReport.nets`).
   While a strike runs it owns the legs and trunk, and the other hand guards.
 - **Guard** (`guard.ts`) is a skill in the one list, and has the hands the strike has not. Its
   pose (`GUARD`) is the arms' posture when nothing else owns them. A guarding hand told what to
@@ -340,8 +344,9 @@ walk, turning to it. Ordered to face another way as it walks, it walks at half t
 it has turned to its facing, and from then at half plus the other half times the cosine of the
 angle between its heading and its walk (`STRAFE`, [reference/orders.md](reference/orders.md)).
 Given a point it attacks it with its right hand, the strike skill closing the distance, while the
-left guards. The stance turns only while it walks, so a standing body ordered to face does not
-turn.
+left guards: it holds the point while the strike skill walks and sets the feet for it, and aims
+at the ordered point itself once a blow is committed. The stance turns only while it walks or
+follows a blow's target, so a standing body ordered to face does not turn.
 
 A hand that does not attack guards as the mind's config says (`FighterMindConfig.guard`): in the
 pose, or by a cover of what threatens its head. The threat is read from the senses (`threatOf`,

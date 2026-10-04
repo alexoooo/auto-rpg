@@ -1496,8 +1496,200 @@ the commit to a quarter second after the throw.
   foe's head is `APPROACH.reach`, 25 cm, from it (`fighterTactics`), so the skill sets the feet
   for, and throws at, a point a median 11 cm from the head, more than a window's width across.
   The foe's head is in the window at a third of the committed club throws and a seventh of the
-  bare ones.
+  bare ones. Aiming at the head as it is does not make more of them land
+  ([aiming afresh](#aiming-afresh)).
 - **A thrower steps to catch itself after more than a third of its throws**, as it does at
   nothing; it is down after four of 384.
 - **Setting up is most of a bout**: placing the feet and standing are half a club side's time and
   three quarters of a bare one's, and a throw is four seconds in the making.
+
+### Aiming afresh
+
+The same bouts (`node research/strike-bouts.mjs --held club,empty`, Node core world, Rapier,
+120 Hz, the arena's rulebook) with the tactics' point following the foe's head while the skill
+stands for the blow (`settle`), so a throw is committed only with the head in its window. With
+that alone a stand whose head has left the window sets its feet again at once ("wait 0"); the
+other rows choose the recipe once a stand and keep standing up to that many seconds for the head
+to come back into the window before setting the feet again. Neither change is in the code.
+
+| Held | Aim | Bout s | Committed | Landed | On the head | Done, HP | HP a minute | Feet set again a throw | Thrower down |
+|---|---|---|---|---|---|---|---|---|---|
+| club | held point | 431 | 66 | 60 (91 %) | 42 (64 %) | 17.94 | 2.49 | 0.30 | 2 |
+| club | fresh, wait 0 | 698 | 53 | 49 (92 %) | 29 (55 %) | 12.35 | 1.06 | 1.51 | 7 |
+| club | fresh, wait 0.5 | 837 | 78 | 73 (94 %) | 46 (59 %) | 18.29 | 1.31 | 1.56 | 2 |
+| club | fresh, wait 1 | 614 | 69 | 66 (96 %) | 42 (61 %) | 20.39 | 1.99 | 1.10 | 2 |
+| club | fresh, wait 2 | 610 | 73 | 65 (89 %) | 41 (56 %) | 20.16 | 1.98 | 0.89 | 3 |
+| empty | held point | 1137 | 318 | 223 (70 %) | 99 (31 %) | 2.82 | 0.15 | 0.44 | 2 |
+| empty | fresh, wait 0 | 1456 | 185 | 170 (92 %) | 113 (61 %) | 1.79 | 0.07 | 1.46 | 2 |
+| empty | fresh, wait 0.5 | 1468 | 216 | 180 (83 %) | 113 (52 %) | 2.27 | 0.09 | 1.53 | 5 |
+| empty | fresh, wait 1 | 1380 | 205 | 171 (83 %) | 98 (48 %) | 2.08 | 0.09 | 1.01 | 3 |
+| empty | fresh, wait 2 | 1369 | 211 | 187 (89 %) | 113 (54 %) | 1.95 | 0.09 | 0.89 | 3 |
+
+- **A club throw committed in the window has left it by the pushes.** The head is in the window
+  at every commit, and as the pushes begin at 11 of 41 to 19 of 60 (held point, 10 of 57): the
+  head moves a median 5 to 7 cm in the club's chamber. A club throw on the head is 55 to 61 %
+  of them (held point, 64 %).
+- **Bare, more throws land and fewer recipes are thrown.** On the head rises from 31 % to 48 to
+  61 %, but the throws that are recipes fall from 227 of 318 to 74 to 119 of 185 to 216, the rest
+  placed blows, which land a tenth of a recipe's energy. The Warrior, with no placed blow, commits
+  7 to 19 throws in place of 88: its head is seldom in a window while it stands.
+- **The feet are set again three to five times as often, the bouts run longer, and the hit
+  points a minute fall** in every variant, club and bare.
+- So a point held stale is not what makes a blow in a bout miss: an open-loop throw with a window
+  of centimetres cannot follow a head that sways, and the body spends its bout standing for one.
+
+### Steered
+
+A recipe follows its target across (`STEER`, `src/core/skills/strike.ts`): from the commit to the
+end of its pushes the stance's heading is turned by as much as the target's bearing has turned
+since the commit, read from where the feet's middle stood then, up to 0.3 rad either way; and the
+fighter aims at the foe's head itself once a blow is committed (`fighterTactics`).
+
+**On the stand.** `node research/strike-robustness.mjs --seen` (Node core stand, Rapier, 120 Hz,
+each throw as its search threw it, four throws a reading): the target moved from its place, and the
+skill told so, once the blow is committed, as a head that moved under the blow. A cell is the mean
+done as a share of the done at its place; where fewer than four landed, how many did and how many
+left their thrower down. Unturned, a recipe never reads its target after the commit, and its row
+is the [off its place](#robustness) table's.
+
+| Held | Body | Band | Turn | At its place, HP | Across -12 | -6 | +6 | +12 | Along -12 | +12 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| club | Warrior | high | none | 1.02 | 0.17 (3/4, 1 fell) | 0.61 | 0.49 | 0.09 (2/4) | 0.73 | 0.91 |
+| club | Warrior | high | 0.3 rad | 1.02 | 0.56 (3/4, 1 fell) | 0.57 | 1.01 | 0.91 | 0.77 | 0.71 (3/4) |
+| club | Warrior | middle | none | 1.37 | 0.34 (3/4) | 0.84 | 0.72 | 0.42 | 0.86 | 0.74 |
+| club | Warrior | middle | 0.3 rad | 1.37 | 0.95 | 0.91 | 1.02 | 0.99 | 0.89 | 0.76 |
+| club | Rogue | high | none | 0.42 | 0.02 (1/4) | 0.46 | 0.84 | 0.09 | 0.87 | 0.24 |
+| club | Rogue | high | 0.3 rad | 0.42 | 0.77 | 0.74 | 0.80 | 0.46 | 0.89 | 0.06 (3/4) |
+| club | Rogue | middle | none | 0.54 | 0.35 | 0.81 | 0.86 | 0.47 | 0.79 | 0.78 |
+| club | Rogue | middle | 0.3 rad | 0.54 | 0.89 | 0.98 | 0.87 | 0.83 | 0.83 | 0.41 |
+| club | skeleton | high | none | 0.67 | 0.10 | 0.71 | 0.67 (3/4, 1 fell) | 0.00 (1/4) | 0.48 | 0.82 |
+| club | skeleton | high | 0.3 rad | 0.67 | 0.12 | 0.82 | 0.72 | 0.00 (0/4, 1 fell) | 0.50 | 0.82 |
+| club | skeleton | middle | none | 1.08 | 0.35 | 0.62 | 0.85 | 0.51 | 0.88 | 0.25 |
+| club | skeleton | middle | 0.3 rad | 1.08 | 0.52 | 0.89 | 0.88 | 0.78 | 0.89 | 0.47 |
+| fist | Warrior | high | none | 0.12 | 0.61 | 0.91 | 1.07 | 0.92 | 0.50 | 0.54 |
+| fist | Warrior | high | 0.3 rad | 0.12 | 0.80 | 0.84 | 1.06 | 1.15 | 0.49 | 0.45 |
+| fist | Warrior | middle | none | 0.53 | 0.60 | 1.12 | 0.54 | 0.18 | 0.21 (2/4, 2 fell) | 0.41 |
+| fist | Warrior | middle | 0.3 rad | 0.53 | 1.04 | 1.13 | 0.81 | 0.73 | 0.21 | 0.40 |
+| fist | Rogue | high | none | 0.05 | 0.00 (0/4) | 0.48 | 0.95 | 0.30 | 0.49 | 0.72 |
+| fist | Rogue | high | 0.3 rad | 0.05 | 0.59 | 0.82 | 1.04 | 1.02 | 0.50 | 0.96 |
+| fist | Rogue | middle | none | 0.31 | 0.45 | 0.84 | 0.56 | 0.10 | 0.34 | 0.10 |
+| fist | Rogue | middle | 0.3 rad | 0.31 | 0.70 | 0.77 | 0.71 | 0.47 | 0.38 | 0.12 |
+| fist | skeleton | high | none | 0.18 | 0.19 | 0.74 | 0.68 | 0.12 (3/4) | 0.09 | 1.07 |
+| fist | skeleton | high | 0.3 rad | 0.18 | 0.55 | 0.84 | 0.80 | 0.45 | 0.10 | 0.99 |
+| fist | skeleton | middle | none | 0.54 | 0.62 | 1.07 | 0.96 | 0.53 | 0.40 | 0.36 |
+| fist | skeleton | middle | 0.3 rad | 0.54 | 0.82 (3/4, 1 fell) | 1.07 | 1.05 | 0.49 | 0.39 | 0.36 |
+
+- **Across, a turned blow keeps what it does.** Twelve centimetres across, the clubs keep 0.46 to
+  0.99 of their done where unturned they kept 0.02 to 0.51, and the fists 0.45 to 1.15 where 0.00
+  to 0.92; at its place every recipe reads as it did, to the bit.
+- **But for the skeleton's club at a head**, 0.12 and 0.00 at twelve: its pelvis does not turn
+  under the chamber. Asked 0.155 rad of turn, it faces within 0.01 rad of where it faced through
+  the chamber; the Warrior's, asked about 0.13, has turned 0.11 by the chamber's end. The
+  skeleton's pelvis turns under no recipe, nor standing: its thighs' capsules (0.101 m, the
+  placeholder typical man's thigh at its density, on axes 0.18 m apart) overlap by 2.2 cm as
+  built, and press on each other with about 690 N as it stands, its feet pushed apart unevenly
+  (soles at x -0.179 and 0.102) and its centre of mass 1.3 cm under its asked height. Asked
+  0.15 rad either way standing (Node core stand, Rapier, 120 Hz), it faces -0.035 and -0.048;
+  with its thighs at 0.088 m, which clear, 0.150 and -0.151, at its asked height. Its upper arms
+  overlap its trunk by 0.9 cm too. The art's bones are 0.028 m across the thigh.
+- **Along, the turn changes little**, and a club twelve centimetres beyond its place keeps less
+  turned in three recipes (the Warrior's at a head, 0.91 to 0.71; the Rogue's at a head, 0.24 to
+  0.06; its club at a trunk, 0.78 to 0.41).
+- **No throw is put down by its turn**: the Rogue's three recipes moved 12, 18 and 24 cm across,
+  eight throws a cell, stand turned; unturned its club at a trunk falls in three of four at
+  24 cm to the left.
+- **The limit**: at 0.15 rad every club keeps as much at twelve centimetres as at 0.3, and the
+  fists keep less (the Rogue's at a head, 0.14 where 0.53); at 18 and 24 cm the Rogue's club at a
+  trunk keeps less, and its fist at a trunk lands none of four at 24 cm to the left where at 0.3
+  it lands four. Read on a turn taken from the feet's middle as it stood each step, not as it
+  stood at the commit.
+
+**In bouts.** `node research/strike-bouts.mjs --gaps 2.5,3,3.5,4,4.5,5,5.5 --held club,empty`
+(Node core world, Rapier, 120 Hz, the arena's rulebook): 63 bouts each. The placebo is the same
+bouts with the turn held under 0.001 rad, which turns nothing and moves every bout; struck is a
+thrower down within 2 s of its commit that its foe's hand or held item had taken hit points from
+since.
+
+| Held | Turn | Bout s | Committed | Landed | On the head | HP a minute | Thrower down | not struck first |
+|---|---|---|---|---|---|---|---|---|
+| club | none | 992 | 150 | 139 (93 %) | 95 (63 %) | 2.53 | 9 | 2 |
+| club | placebo | 948 | 145 | 133 (92 %) | 90 (62 %) | 2.64 | 10 | 8 |
+| club | 0.3 rad | 890 | 137 | 129 (94 %) | 87 (64 %) | 2.71 | 15 | 3 |
+| empty | none | 2947 | 782 | 517 (66 %) | 232 (30 %) | 0.14 | 8 | 0 |
+| empty | placebo | 2634 | 612 | 462 (75 %) | 240 (39 %) | 0.14 | 9 | 2 |
+| empty | 0.3 rad | 2197 | 541 | 359 (66 %) | 186 (34 %) | 0.12 | 14 | 5 |
+
+- **In bouts the turn shows nothing a placebo does not.** Every column moves by as much under
+  the placebo as under the turn. A club throw landed 93 % of the time unturned; at the commit the
+  foe's head is a median 7 cm short of the window along and as far either way across as along
+  (the middle 80 %, 19 cm short to 7 beyond, and 9 cm either way), so the turn takes up half of
+  what the feet leave.
+- **The bare Rogue goes down unstruck after more throws**: none of 7 downs unturned, 1 of 5
+  under the placebo, 4 of 12 turned, against the skeleton or another Rogue. Its fists thrown on
+  the stand at a head 4 to 16 cm beyond the window and up to 24 cm across, turned, stand in every
+  throw. Not explained.
+
+### Up
+
+`node research/strike-robustness.mjs --ways up --offsets 0.04,0.08,0.12` and
+`--offsets 0.14,0.18,0.22` (Node core stand, Rapier, 120 Hz, each throw as its search threw it,
+four throws a reading): the target moved from its place up or down, unseen, as its own throws
+read it; a cell is the mean done as a share of the done at its place, and where fewer than four
+landed, how many did.
+
+| Held | Body | Band | Window up, cm | At its place, HP | -18 | -14 | -8 | -4 | +4 | +8 | +14 | +18 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| club | Warrior | high | -6 to 12 | 1.02 | 0.95 | 0.88 | 0.99 (3/4, 1 fell) | 1.01 | 0.87 | 0.75 | 0.72 (3/4) | 0.82 |
+| club | Warrior | middle | -30 to 26 | 1.37 | 0.68 | 0.82 | 0.96 | 0.97 | 0.99 | 0.96 | 0.90 | 0.70 |
+| club | Rogue | high | -8 to 8 | 0.42 | 0.31 | 0.48 | 0.81 | 0.95 | 1.02 | 0.79 | 0.50 (3/4) | 0.14 (2/4) |
+| club | Rogue | middle | -40 to 24 | 0.54 | 0.85 | 0.85 | 0.91 | 0.98 | 1.00 | 0.98 | 0.93 | 0.85 |
+| club | skeleton | high | -14 to 26 | 0.67 | 0.43 | 0.52 | 0.69 | 0.76 | 1.03 | 0.90 | 0.87 | 0.81 |
+| club | skeleton | middle | -18 to 14 | 1.08 | 0.54 | 0.85 | 0.88 | 0.85 | 0.99 | 0.91 | 0.54 | 0.67 |
+| fist | Warrior | high | 0 to 8 | 0.12 | 0.00 (1/4) | 0.17 (3/4) | 0.58 | 0.92 | 1.00 | 0.67 | 0.25 | 0.00 (1/4) |
+| fist | Warrior | middle | -36 to 20 | 0.53 | 1.09 | 1.13 | 1.11 | 0.79 | 0.81 | 1.00 | 0.85 | 0.66 |
+| fist | Rogue | high | -12 to 6 | 0.05 | 0.20 | 0.40 | 0.80 | 0.80 | 1.40 | 1.40 | 0.40 | 0.20 |
+| fist | Rogue | middle | -14 to 20 | 0.31 | 0.48 | 0.52 | 0.77 | 0.77 | 0.68 | 0.90 | 0.81 | 0.61 |
+| fist | skeleton | high | -28 to 18 | 0.18 | 0.83 | 0.78 | 0.89 | 0.89 | 0.83 | 1.11 | 1.11 | 0.94 |
+| fist | skeleton | middle | -14 to 24 | 0.54 | 0.61 | 0.76 | 1.20 | 1.15 | 1.17 | 0.93 | 0.89 | 0.80 |
+
+**What a bout asks up.** A blow at a head is placed from the thrower's own head, and a head
+stands still up and down while a fight sets its feet: at the commits of the 126 bouts of
+[steered](#steered), unturned, the foe's head stood at 1.582 to 1.603 m for the Warrior, 1.443 to
+1.462 for the Rogue and 1.407 to 1.422 for the skeleton (the middle 80 %). The offset up is the
+matchup's: the Warrior's blow at the Rogue's head is 14 cm under its place and at the skeleton's
+18 cm, theirs at its head as far over, and between the Rogue and the skeleton 4 cm.
+
+- **Up, the clubs at a head miss little in the matchups that ask it**: the Warrior's keeps 0.88
+  at the Rogue's head and 0.95 at the skeleton's, the skeleton's 0.81 at the Warrior's and about
+  all of it at the Rogue's. The Rogue's at the Warrior's head is the one loss, 0.50, with one of
+  four missing.
+- **The fists at a head lose more, and do least**: the Warrior's lands one of four at the
+  skeleton's head, but does 0.12 HP at its place.
+- **The offset is known at the commit and does not move under the blow**: what it asks is the
+  recipe aimed for it, not steered after it.
+
+### Searched with jitter
+
+`node research/core-strike-search.mjs --held "wooden club" --band high --from workshop-fighter:high --sigma 0.2 --jitter 0.08,0.08,0`
+(Node core stand, Rapier, 120 Hz, 30 generations of 64, four trials, seed 1), and the same search
+without `--jitter` as its control: the Warrior's club at a head searched from its recipe with
+each trial's target within 8 cm of its place along and across, told to the skill once committed
+(`--seen`'s steered blow), against a search that throws at the place. The replay reads the best
+at its place, eight throws at each rate.
+
+| Search | Mean searched | 120 Hz net | Landed | 480 Hz net | Landed | 1920 Hz net | Landed | Ahead, m |
+|---|---|---|---|---|---|---|---|---|
+| jittered | 1.004 | 0.82 | 8/8 | 0.01 | 1/8 | 0.02 | 4/8, 4 not standing | 0.951 |
+| control | 1.181 | 1.11 | 8/8 | 1.12 | 8/8 | 0.86 | 8/8 | 0.932 |
+
+The control's best is the recipe it started from: thirty generations found nothing better at the
+place. Both thrown at the same sixteen targets within 8 cm along and across (the plastic number's
+sequence, seen once committed; 120 Hz), the recipe does a mean 1.06 HP and lands all sixteen, the
+jittered search's best 0.97 and lands all sixteen.
+
+- **The recipe as it is keeps its blow over the jitter**: steered, it lands every throw within
+  8 cm and does 0.81 to 1.20 HP; the search had no window to widen.
+- **The jittered search's best is a blow of the one rate**: it does 0.82 at its place at 120 Hz
+  and nearly nothing at 480 and 1920, where the recipe keeps 1.12 and 0.86. A score averaged over
+  offsets that move every generation rewards what the noise favours, not what converges.
+- The 36 searches with jitter are not run.

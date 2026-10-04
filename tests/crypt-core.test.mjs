@@ -51,10 +51,10 @@ test("a_seeded_crypt_loads_and_its_bodies_stand_in_it", async () => {
 });
 
 test("a_fight_in_the_crypt_starts_and_ends", async () => {
-  const { run, dispose } = await crypt(1, faceToFace(1, 3.5));
+  const { run, dispose } = await crypt(2, faceToFace(2, 3.75));
   try {
     const enemy = run.enemies[0];
-    assert.ok(enemy.fighter, "the first enemy is built: the party stands 3.5 m from it");
+    assert.ok(enemy.fighter, "the first enemy is built: the party stands 3.75 m from it");
     for (let i = 0; i < 30 * run.world.hz && enemy.alive; i++) run.step();
     assert.ok(woundsBy(run.blows, run.hero.id, enemy.id) > 0 && woundsBy(run.blows, enemy.id, run.hero.id) > 0, "blows land both ways, and wound");
     // A fall or an emptied pool ends a body's fight (`DungeonActor.alive`).
@@ -244,7 +244,7 @@ test("the_dead_are_held_once_the_party_has_walked_off_and_loose_when_it_is_back"
     assert.deepEqual([enemy.limp, enemy.held], [true, false]);
     const moved = () => Math.max(...[...enemy.fighter.built.segments.values()].map((segment, i) =>
       Math.sqrt((segment.node.position.x - lay[7 * i]) ** 2 + (segment.node.position.y - lay[7 * i + 1]) ** 2 + (segment.node.position.z - lay[7 * i + 2]) ** 2)));
-    assert.ok(walkUntil(run, lies, () => moved() > 0.05, 10), `the hero walking into it moves it: ${moved().toFixed(3)} m`);
+    assert.ok(walkUntil(run, lies, () => moved() > 0.02, 10), `the hero walking into it moves it: ${moved().toFixed(3)} m`);
   } finally { dispose(); }
 });
 

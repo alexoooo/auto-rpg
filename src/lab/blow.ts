@@ -35,9 +35,11 @@ import { ballOf, dummySpec, hangDummy, TARGET_CLEAR, type Dummy } from "./target
  * **Tactics that attack once**: `hand` attacks `target` (world) until the skills report the strike
  * thrown, then guards. `target` is read from the head each step until `time`, s, is `STAND`, then held: the
  * searches place their target from the head as the body stands then, after it has settled a few
- * centimetres forward and down from the pose it was built in.
+ * centimetres forward and down from the pose it was built in. With `moved`, the point attacked is
+ * moved by it (`StandOff`) once the blow is committed (its chamber and its swing): a target that
+ * moved under the blow, as its tactics see it.
  */
-function attackOnce(hand: Hand, target: (head: Vector3) => Vec3, time: () => number): Tactics {
+function attackOnce(hand: Hand, target: (head: Vector3) => Vec3, time: () => number, moved?: Partial<StandOff>): Tactics {
   let aim: Vec3 | null = null;
   const guarding: Intent = { move: null, face: 0, hands: { left: GUARD_ACTION, right: GUARD_ACTION } };
   return {
@@ -45,7 +47,9 @@ function attackOnce(hand: Hand, target: (head: Vector3) => Vec3, time: () => num
     decide({ view, report }) {
       if (!aim || time() < STAND) aim = target(view.head);
       if (report.strike.thrown[hand] > 0) return guarding;
-      return { ...guarding, hands: { ...guarding.hands, [hand]: { kind: "attack", target: aim } } };
+      const thrown = moved && (report.strike.phase === "chamber" || report.strike.phase === "swing");
+      const at: Vec3 = thrown ? [aim[0] + (moved.across ?? 0), aim[1] + (moved.up ?? 0), aim[2] + (moved.along ?? 0)] : aim;
+      return { ...guarding, hands: { ...guarding.hands, [hand]: { kind: "attack", target: at } } };
     },
   };
 }
@@ -75,6 +79,10 @@ interface Throw {
   readonly strike: Strike | null;
   readonly place: BlowPlace;
   readonly band: Band;
+  /** How far the target moves once the blow is committed, as its tactics see it (`attackOnce`); none if not given. */
+  readonly moved?: Partial<StandOff>;
+  /** An experiment's most a blow turns the pelvis (`SkillOptions.steer`); the skill's own if not given. */
+  readonly steer?: number;
 }
 
 interface ThrownBlow extends Throw {
@@ -104,9 +112,10 @@ export function throwBlow(actor: Actor, thrown: Throw): ThrownBlow {
   if (strike && strike.hand !== hand) throw new Error(`${strike.name} is the ${strike.hand} hand's, not the ${hand}'s`);
   const recipe: Repertoire[number] | null = strike && { model: built.spec.model, held: heldIn(built.spec, hand), band, strike, place, found: "an experiment's", window: AT_ITS_PLACE, net: 0 };
   let time = 0;
-  const tactics = attackOnce(hand, (head) => [head.x, head.y + place.up, head.z + place.ahead], () => time);
+  const tactics = attackOnce(hand, (head) => [head.x, head.y + place.up, head.z + place.ahead], () => time, thrown.moved);
   // The clock counts the step under way, whatever mind decides it.
-  const { report } = actor.drive(tactics, { skills: { repertoire: recipe ? [recipe] : [] }, watch: (_, dt) => { time += dt; } });
+  const skills = { repertoire: recipe ? [recipe] : [], ...(thrown.steer === undefined ? {} : { steer: thrown.steer }) };
+  const { report } = actor.drive(tactics, { skills, watch: (_, dt) => { time += dt; } });
   return {
     hand, strike, place, band, body, report, pushing: STAND + (strike?.chamber?.seconds ?? 0),
     get time() { return time; },
