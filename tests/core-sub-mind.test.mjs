@@ -8,6 +8,7 @@ import assert from "node:assert/strict";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { createBody, SERVO_SECONDS } from "../src/core/body.ts";
 import { centreOfToRef } from "../src/core/control/support.ts";
+import { atan2 } from "../src/core/math/real.ts";
 import { armed } from "../src/core/human/grip.ts";
 import { modelSpec } from "../src/core/human/spec.ts";
 import { woodenClub } from "../src/core/items/club.ts";
@@ -238,7 +239,7 @@ test("what was asked is given up with the body, and asked again when it is back"
   } finally { body.dispose(); stand.dispose(); }
 });
 
-test("a body taken in the middle of a step forgets the step, and walks on", async () => {
+test("a body taken in the middle of a step forgets the step, steps its feet apart, and walks on", async () => {
   const stand = await coreStand(warrior);
   /** How long the body is held, in steps: stiff on one foot for four times this, it falls. */
   const HELD = 6;
@@ -256,7 +257,7 @@ test("a body taken in the middle of a step forgets the step, and walks on", asyn
   const body = createBody(stand.built, stand.world, { servoSeconds: SERVO_SECONDS, subs: [hold] });
   const stance = body.state.mind.host.motor.stance;
   try {
-    driveBy(body, fighterTactics("walk", () => ({ move: { x: 0, z: 1 }, face: null, attack: null })));
+    const skills = driveBy(body, fighterTactics("walk", () => ({ move: { x: 0, z: 1 }, face: null, attack: null })));
     /** The stance's memory of the step under way. */
     const memory = () => ({
       plan: stance.plan.on, last: stance.last, stride: stance.stride, striding: stance.striding, pace: [...stance.pace],
@@ -273,9 +274,15 @@ test("a body taken in the middle of a step forgets the step, and walks on", asyn
     assert.deepEqual(memory(), blank);
     stand.step(HELD - 1);
     assert.deepEqual([body.has, memory()], ["hold", blank]);
-    // Back, it walks on from where it stands: 3 s later it has not gone down, and has gone a metre further.
-    const { strides, centre } = body.view.stance, at = centre.z;
+    // Back, its swinging foot held within its stance's width of the other, that foot steps out to its side first.
+    stand.step();
+    const squaring = skills.state.legs.squaring, soles = body.view.stance.soles;
+    assert.ok(squaring !== null && squaring.left[0] === soles.left.x && squaring.right[0] !== soles.right.x, `it squares ${JSON.stringify(squaring)}`);
     let down = false;
+    while (skills.state.legs.squaring !== null && stand.world.steps < stand.seconds(8)) { stand.step(); down ||= body.view.down; }
+    assert.equal(skills.state.legs.squaring, null, "its feet were placed");
+    // Then it walks on from where it stands: 3 s later it has not gone down, and has gone a metre further.
+    const { strides, centre } = body.view.stance, at = centre.z;
     for (let i = 0; i < stand.seconds(3); i++) { stand.step(); down ||= body.view.down; }
     assert.equal(body.has, "command");
     assert.ok(!down && body.view.stance.strides >= strides + 6 && body.view.stance.centre.z > at + 1,
@@ -305,7 +312,9 @@ test("a body handed back goes on from where it is", async () => {
     // What the tactics see each step they decide: the driver's own view, as the skills have been resumed on it.
     const decided = [];
     skills = driveBy(body, fighterTactics("back", ({ view, report }) => {
-      decided.push({ time: view.time, resumed: view.resumed, phase: report.strike.phase, heading: report.heading, facing: view.stance.facing, thrown: report.strike.thrown.right });
+      // The way the pelvis faces, read from its left-to-right axis, (cos h, 0, -sin h).
+      const across = new Vector3(1, 0, 0).applyRotationQuaternion(view.root.rotation);
+      decided.push({ time: view.time, resumed: view.resumed, phase: report.strike.phase, heading: report.heading, facing: view.stance.facing, across: atan2(-across.z, across.x), thrown: report.strike.thrown.right });
       return ATTACK;
     }));
     const had = [];
@@ -324,8 +333,9 @@ test("a body handed back goes on from where it is", async () => {
     const back = decided.findIndex((step) => step.resumed), at = decided[back], before = decided[back - 1];
     assert.equal(decided.filter((step) => step.resumed).length, 1);
     assert.ok(Math.abs(at.time - before.time - (HELD + 1) * stand.world.dt) < 0.5 * stand.world.dt, `nothing decided from ${before.time} s to ${at.time} s`);
-    // The strike in hand is over, unthrown, and the legs' heading is the way the body faces.
-    assert.deepEqual({ phase: at.phase, thrown: at.thrown, heading: at.heading }, { phase: null, thrown: 0, heading: at.facing });
+    // The strike in hand is over, unthrown, and the legs' heading is the way the pelvis faces, as its left-to-right axis says it.
+    assert.deepEqual({ phase: at.phase, thrown: at.thrown, heading: at.heading }, { phase: null, thrown: 0, heading: at.across });
+    assert.ok(Math.abs(at.across - at.facing) < 0.01, `its left-to-right axis faces it ${at.across} rad, its forward ${at.facing}`);
     assert.ok(at.facing > 1 && Math.abs(at.facing - before.heading) < 0.1, `the fixture turned it to its right: it faces ${at.facing} rad, and was asked ${before.heading}`);
     // It goes on: within 4 s it has thrown a strike begun since, and has not gone down.
     const from = stand.world.steps;

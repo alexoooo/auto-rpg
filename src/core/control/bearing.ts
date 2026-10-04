@@ -19,7 +19,7 @@ import { boundedLeastSquaresTo, boundedWork, fixedSolveTo, fixedWork, linearWork
 import { solveLinear } from "../math/linalg.ts";
 import type { MuscleDriver } from "../muscle/driver.ts";
 import type { Assist } from "./assist.ts";
-import { groundWrenchWork, shareGroundWrench, type GroundWrenchWork, type Patch } from "./contact-wrench.ts";
+import { groundWrenchWork, shareGroundWrench, type GroundWrenchWork, type Patch, type ShareEffort } from "./contact-wrench.ts";
 import type { ServoWork } from "./servo.ts";
 import { LEG_DAMPING } from "./stance-tuning.ts";
 import { GROUND_FRICTION } from "./support.ts";
@@ -159,6 +159,13 @@ interface BearingScratch {
   readonly linear: LinearWork;
   /** The freedoms a driven limb moves, one a freedom of the body, made at the first call. */
   inLimb: Uint8Array;
+  /**
+   * What the bearing limbs' shares ask of the muscles that carry them (`weighEffort`), where the
+   * solve weighs it, and the freedoms it has a row for, one a freedom of the body, made at the
+   * first call.
+   */
+  readonly effort: ShareEffort | null;
+  rowed: Uint8Array;
   readonly lin: Vector3;
   readonly ang: Vector3;
   readonly at: Vector3;
@@ -181,9 +188,14 @@ export interface Bearing {
   readonly scratch: BearingScratch;
 }
 
-/** The solve of `limbs`, with `assist` giving what their patches miss, leaving what it finds in `out`'s records. */
+/**
+ * The solve of `limbs`, with `assist` giving what their patches miss, leaving what it finds in
+ * `out`'s records. With `effort`, the ground's wrench is shared among the bearing limbs as the
+ * muscles that carry it can most easily give it (`weighEffort`), besides as their shares ask.
+ */
 export function makeBearing(assist: Assist | null, limbs: readonly Limb[],
-  out: Pick<Bearing, "root" | "helped" | "held" | "shortfall">): Bearing {
+  out: Pick<Bearing, "root" | "helped" | "held" | "shortfall">, { effort = false }: { readonly effort?: boolean } = {}): Bearing {
+  const carriers = new Set(limbs.flatMap((limb) => [...limb.memory.channels, ...limb.stem])).size;
   return {
     assist, limbs, root: out.root, helped: out.helped, held: out.held, shortfall: out.shortfall,
     scratch: {
@@ -195,6 +207,8 @@ export function makeBearing(assist: Assist | null, limbs: readonly Limb[],
       P: new Float64Array(36), w0: new Float64Array(6), W: new Float64Array(6), given: new Float64Array(6),
       P3: new Float64Array(9), y3: new Float64Array(3), x3: new Float64Array(3), linear: linearWork(6),
       inLimb: new Uint8Array(0),
+      effort: effort ? { count: 0, C: new Float64Array(carriers * 6 * limbs.length), t0: new Float64Array(carriers) } : null,
+      rowed: new Uint8Array(0),
       lin: new Vector3(), ang: new Vector3(), at: new Vector3(), force: new Vector3(), moment: new Vector3(),
     },
   };
@@ -389,13 +403,63 @@ function bearingLimbs(b: Bearing): Limb[] {
   return bearing;
 }
 
-/** `bearing`'s patches' shares of `force` and `moment` about `at` (`shareGroundWrench`), into the scratch's `shares` and `missed`. */
-function shareAmong(b: Bearing, bearing: readonly Limb[], at: Vector3, force: Vector3, moment: Vector3, lever: number): void {
+/**
+ * `bearing`'s patches' shares of `force` and `moment` about `at` (`shareGroundWrench`), into the
+ * scratch's `shares` and `missed`, weighing what they ask of the muscles where `effort` says it.
+ */
+function shareAmong(b: Bearing, bearing: readonly Limb[], at: Vector3, force: Vector3, moment: Vector3, lever: number, effort?: ShareEffort): void {
   const { wrench, patches, parts, shares, missed } = b.scratch;
   for (let k = 0; k < bearing.length; k++) { patches[k] = bearing[k]!.work.patch!; parts[k] = bearing[k]!.work.share; }
   patches.length = bearing.length;
   parts.length = bearing.length;
-  shareGroundWrench(wrench, patches, at, force, moment, GROUND_FRICTION, lever, shares, missed, parts);
+  shareGroundWrench(wrench, patches, at, force, moment, GROUND_FRICTION, lever, shares, missed, parts, effort);
+}
+
+/**
+ * What `bearing`'s shares ask of the muscles that carry them, into the scratch's `effort`: a row
+ * for each freedom of their chains and stems, its torque for the body's motion (`b.root`,
+ * `accel`) less the ground's wrench on each bearing limb it carries (`limbTorques`' rule), over
+ * its strength (the two sides' geometric mean), times the body's weight: a freedom asked its
+ * strength weighs as the body's weight borne on a patch does. A freedom with no strength either
+ * way has no row.
+ */
+function weighEffort(b: Bearing, muscles: MuscleDriver, accel: Float64Array, bearing: readonly Limb[]): ShareEffort {
+  const effort = b.scratch.effort!, n = muscles.channels.length;
+  if (b.scratch.rowed.length !== n) b.scratch.rowed = new Uint8Array(n);
+  const rowed = b.scratch.rowed.fill(0);
+  effort.count = 0;
+  for (const limb of bearing) {
+    for (const i of limb.memory.channels) effortRow(b, muscles, accel, bearing, rowed, i);
+    for (const i of limb.stem) effortRow(b, muscles, accel, bearing, rowed, i);
+  }
+  return effort;
+}
+
+/** Freedom `i`'s row of `weighEffort`, the next of the scratch's `effort`, unless `rowed` has it or it has no strength. */
+function effortRow(b: Bearing, muscles: MuscleDriver, accel: Float64Array, bearing: readonly Limb[], rowed: Uint8Array, i: number): void {
+  if (rowed[i]) return;
+  rowed[i] = 1;
+  const strong = Math.sqrt(muscles.strength(i, 1) * muscles.strength(i, -1));
+  if (!(strong > 0)) return;
+  const effort = b.scratch.effort!, { C, t0 } = effort, dynamics = muscles.dynamics, width = 6 * bearing.length;
+  const g = dynamics.root.gravity, weight = Math.sqrt(g[3]! * g[3]! + g[4]! * g[4]! + g[5]! * g[5]!);
+  const k = weight / strong, r = effort.count++, axis = dynamics.axis(i), pivot = dynamics.pivot(i);
+  t0[r] = k * inverseTorque(dynamics, b.root, accel, muscles.channels.length, i);
+  for (let s = 0; s < bearing.length; s++) {
+    const limb = bearing[s]!, at = r * width + 6 * s;
+    if (!limb.memory.channels.includes(i) && !limb.stem.includes(i)) {
+      C.fill(0, at, at + 6);
+      continue;
+    }
+    // The wrench's carry along the freedom (`carried`): (axis x (x - pivot)) . force + axis . moment.
+    const x = limb.work.at, d0 = x.x - pivot[0], d1 = x.y - pivot[1], d2 = x.z - pivot[2];
+    C[at] = k * (axis[1] * d2 - axis[2] * d1);
+    C[at + 1] = k * (axis[2] * d0 - axis[0] * d2);
+    C[at + 2] = k * (axis[0] * d1 - axis[1] * d0);
+    C[at + 3] = k * axis[0];
+    C[at + 4] = k * axis[1];
+    C[at + 5] = k * axis[2];
+  }
 }
 
 /**
@@ -667,7 +731,7 @@ export function bearLimbs(b: Bearing, muscles: MuscleDriver, work: ServoWork, le
     // The ground is asked for the wrench less what the assist gives.
     if (assist?.on) { force.subtractInPlace(helped.force); moment.subtractInPlace(helped.moment); }
     at.set(R.centre[0], R.centre[1], R.centre[2]);
-    shareAmong(b, bearing, at, force, moment, lever);
+    shareAmong(b, bearing, at, force, moment, lever, b.scratch.effort ? weighEffort(b, muscles, accel, bearing) : undefined);
   }
   limbTorques(b, muscles, accel, bearing);
   if (assist?.on) assist.ask(helped.force, helped.moment);

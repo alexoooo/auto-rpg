@@ -6,12 +6,12 @@ import { bearLimbs, carryRoot, limbMotion, makeBearing } from "../../control/bea
 import { patchCorners } from "../../control/contact-wrench.ts";
 import { uprightness } from "../../control/ground.ts";
 import { servoAsk, servoSolve } from "../../control/servo.ts";
-import { turnOfToRef, withinSupport } from "../../control/support.ts";
+import { footStatesOf, readSupport, turnOfToRef, withinSupport } from "../../control/support.ts";
 import { atan2 } from "../../math/real.ts";
 import { spinBetweenToRef, turnAboutToRef } from "../../math/turn.ts";
 import type { OwnBody } from "../mind.ts";
 import type { SubMind } from "../sub-mind.ts";
-import { riseLimbs } from "./limbs.ts";
+import { DOWN, riseLimbs } from "./limbs.ts";
 import { RISE, stageFaults, stagesOf, type BearStage, type Lie, type PoseStage, type Recipe, type Stage } from "./stages.ts";
 
 /**
@@ -46,6 +46,12 @@ const TURNED = 0.15;
  * (`docs/reference/rising.md#stages`).
  */
 const LEFT = 0.01;
+/**
+ * How far over the ground, m, every segment of the trunk (`Recipe.trunk`) is for the rise to have
+ * raised it: from then, one of them down again (within `DOWN`) ends the attempt
+ * (`docs/reference/rising.md#the-abort`).
+ */
+const RAISED = 0.1;
 
 const scratch = { turn: new Quaternion(), way: new Vector3() };
 
@@ -64,19 +70,23 @@ export function lieOf(root: BuiltSegment): Lie {
 /**
  * **Rising by stages.** It wants the body from the step it is down until it stands or is taken
  * from it. It lies slack until it is still; reads how it lies; if not on its front, plays that
- * lie's roll and lies slack again; on its front, plays the rise. A rise that ends with the body
- * still down, or a bearing stage that runs out of time, is followed by another attempt, from the
- * body as it is, as often as it takes.
+ * lie's roll and lies slack again; on its front, plays the rise to its last stage. Its host's
+ * stance has the body from there if it is up, or stands on its feet alone (`onFeet`). A rise that
+ * ends with the body still down, a bearing stage that runs out of time, or the trunk down again
+ * once the rise had raised it (`RAISED`), is followed by another attempt, from the body as it
+ * is, as often as it takes.
  *
- * A pose stage drives every freedom toward its posture for its time. A bearing stage is a step of
+ * A pose stage drives every freedom toward its posture for its time, at its drive or the pose
+ * drive (`POSE_SECONDS`, `POSE_SPEED`). A bearing stage is a step of
  * motor control's shape on the recipe's limbs (`riseLimbs`): the centre of mass asked toward the
  * place over the limbs it bears on, the pelvis toward its pitch, the bearing solve
  * (`src/core/control/bearing.ts`) for the root's acceleration and those limbs' torques, and the
  * servo for the rest of the body toward the stage's posture. A limb bears once it is down, where
- * it is, and until then is the servo's, which brings it down. The place is the middle of where
+ * it is, and until then is brought straight down onto the ground. The place is the middle of where
  * the body is held over the limbs that bear (`RiseLimbs.over`), weighed by their shares, and the
  * same shares weigh how the ground's wrench is split among them, so the load each is asked is
- * the one that holds the body there. A limb the stage leaves bears too, a small part (`LEFT`),
+ * the one that holds the body there, as far as the muscles that carry it can give it
+ * (`makeBearing`'s `effort`). A limb the stage leaves bears too, a small part (`LEFT`),
  * until the centre of mass is over the others. The stage is done when every limb it bears on is
  * down, those it leaves are let go, the centre of mass is at the place and slow, and the pelvis
  * is at its pitch. What its patches cannot give it asks of its assist, within the body's ceiling.
@@ -91,6 +101,21 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
   if (faults.length > 0) throw new Error(`${own.spec.model} cannot play this rise: ${faults.join("; ")}`);
   const muscles = own.muscles, root = muscles.dynamics.root.segment, count = muscles.channels.length;
   const upright = uprightness(own.built), made = riseLimbs(own, recipe);
+  const feet = footStatesOf(own.built), footSegments: ReadonlySet<BuiltSegment> = new Set(feet.map((foot) => foot.segment)), soles = new Vector3();
+  /**
+   * Whether the body stands on its feet alone: every other segment more than `DOWN` over the
+   * ground, and its centre of mass over the outline of its soles.
+   */
+  const onFeet = (): boolean => {
+    if (upright.clearance(footSegments) <= DOWN) return false;
+    readSupport(feet, feet, soles);
+    const c = view.stance.centre, [x, z] = withinSupport(feet, c.x, c.z, 0);
+    return x === c.x && z === c.z;
+  };
+  /** Whether the body is down and not on its feet alone. */
+  const fallen = (): boolean => view.down && !onFeet();
+  /** Every segment but the trunk's: the trunk's clearance is the ground's gap under the rest of the body's complement. */
+  const notTrunk: ReadonlySet<BuiltSegment> = new Set([...own.built.segments.entries()].filter(([name]) => !recipe.trunk.includes(name)).map(([, segment]) => segment));
   /** A stage's goal by channel, from the reference pose, as the muscles read their angles. */
   const goalsOf = new Map<Stage, Float64Array>();
   /**
@@ -116,6 +141,8 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
     tries: 0, furthest: -1,
     /** Whether the bearing stage under way has let go the limbs it leaves: the centre of mass has been over the others. */
     lifted: false,
+    /** Whether this attempt has had every segment of the trunk `RAISED` over the ground. */
+    raised: false,
     /**
      * A bearing stage's records, each written by a step before it reads it: each limb's task, the
      * aims and the root's acceleration found for them, what the assist is asked, the freedoms held
@@ -129,7 +156,7 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
       shortfall: { force: new Vector3(), moment: new Vector3() },
     },
   };
-  const solve = makeBearing(own.assist, made.limbs, { root: state.bear.aim.root, helped: state.bear.helped, held: state.bear.held, shortfall: state.bear.shortfall });
+  const solve = makeBearing(own.assist, made.limbs, { root: state.bear.aim.root, helped: state.bear.helped, held: state.bear.held, shortfall: state.bear.shortfall }, { effort: true });
   /** What a bearing step works in: each written by the step before it reads it. */
   const work = {
     place: new Vector3(), target: new Vector3(), across: new Vector3(), spin: new Vector3(), rootSpin: new Vector3(),
@@ -143,6 +170,7 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
   const settle = (): void => {
     state.phase = "settle";
     state.still = 0;
+    state.raised = false;
   };
   /** The stages the phase plays. */
   const playing = (phase: "roll" | "rise"): readonly Stage[] => (phase === "rise" ? recipe.rise : state.lie === "front" ? [] : recipe.roll[state.lie]);
@@ -160,9 +188,9 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
     if (phase === "rise" && index > state.furthest) state.furthest = index;
   };
   const pose = (stage: PoseStage): void => {
-    const goals = goalsOf.get(stage)!;
+    const goals = goalsOf.get(stage)!, top = stage.drive?.speed ?? POSE_SPEED, within = stage.drive?.within ?? POSE_SECONDS;
     for (let i = 0; i < goals.length; i++) {
-      muscles.velocity[i] = Math.max(-POSE_SPEED, Math.min(POSE_SPEED, (goals[i]! - muscles.angle(i)) / POSE_SECONDS));
+      muscles.velocity[i] = Math.max(-top, Math.min(top, (goals[i]! - muscles.angle(i)) / within));
       muscles.activation[i] = 1;
     }
   };
@@ -178,7 +206,7 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
     // servo's until then; the place is the middle of where the body is held over those that
     // bear, by their shares, and with none down, where the centre of mass is.
     const c = view.stance.centre, v = view.stance.velocity;
-    made.read(ground);
+    made.read(ground, stage.overProp);
     place.setAll(0);
     let borne = 0, down = true;
     made.over.forEach((over, l) => {
@@ -196,17 +224,20 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
       const [x, z] = withinSupport(made.limbs.filter((limb, l) => on[l] && limb.task.on).map((limb) => ({ corners: patchCorners(limb.work.patch!) })), c.x, c.z);
       state.lifted = x === c.x && z === c.z;
     }
-    made.limbs.forEach((_, l) => {
+    for (let l = 0; l < made.limbs.length; l++) {
       if (!on[l] && !(leaves[l] && !state.lifted && made.bear(l, goals, n, ground, LEFT))) made.rest(l);
-    });
+    }
     // The centre of mass: toward the place, at the stage's height over the ground if it has one, critically damped.
     target.set(place.x, stage.height === null ? c.y : ground + stage.height * standing, place.z);
     aim.centre.set(n * n * (target.x - c.x) - 2 * n * v.x, n * n * (target.y - c.y) - 2 * n * v.y, n * n * (target.z - c.z) - 2 * n * v.z);
     // The pelvis: toward its reference turn pitched forward, then turned about up to the way it faces now.
-    turnAboutToRef(across.set(1, 0, 0), stage.pitch, pitch);
-    yaw.multiplyToRef(pitch, turn).multiplyInPlace(root.rest);
-    spinBetweenToRef(root.node.rotationQuaternion!, turn, stage.seconds, spin);
     root.body.angularVelocityToRef(rootSpin);
+    if (stage.pitch === null) spin.setAll(0);
+    else {
+      turnAboutToRef(across.set(1, 0, 0), stage.pitch, pitch);
+      yaw.multiplyToRef(pitch, turn).multiplyInPlace(root.rest);
+      spinBetweenToRef(root.node.rotationQuaternion!, turn, stage.seconds, spin);
+    }
     aim.spin.copyFrom(spin).scaleInPlace(n).subtractInPlace(rootSpin.scaleInPlace(2 * n));
     // Motor control's order: the servo's asks, the root's acceleration, the servo's solve around
     // the limbs' motion, and the limbs' torques. Every freedom is asked toward the posture: a
@@ -226,7 +257,8 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
 
   return {
     name: "staged-rise", state,
-    wants: () => state.phase !== "idle" || view.down,
+    // Lying slack, rolling or rising; or, its rise over, down and off its feet.
+    wants: () => state.phase !== "idle" || fallen(),
     begin() {
       settle();
       state.tries = 0;
@@ -253,6 +285,15 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
         case "roll":
         case "rise": {
           const stage = playing(state.phase)[state.stage]!;
+          if (state.phase === "rise") {
+            const gap = upright.clearance(notTrunk);
+            if (gap > RAISED) state.raised = true;
+            else if (state.raised && gap <= DOWN) {
+              settle();
+              slack();
+              return;
+            }
+          }
           // A time summed from steps falls a rounding short of a whole number of them: to the nearest step.
           switch (stage.kind) {
             case "pose":

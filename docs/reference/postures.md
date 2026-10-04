@@ -3,8 +3,8 @@
 Which postures between knees and hands and standing the Warrior can hold still, by its muscles,
 on the ground, with nothing moving; and where it cannot, which stop or muscle closes the way.
 No controller is in it: the readings say what the body allows, not what a riser does. The
-staged rise stops at `fours` ([rising.md](rising.md#where-the-rise-stops)), and these are the
-readings its next route and any change to the body rest on.
+staged rise's route on from `fours` ([rising.md](rising.md#the-step)) and any change to the body
+rest on them.
 
 Body `workshop-fighter`, nothing in its hands, no assist (balance 0 %).
 
@@ -394,8 +394,7 @@ engine holds both at 0.04 to 0.05 on either solver.
 
 - **S, sitting back, is closed by the knee's stop at its first step.** `fours, hands light` is
   unbalanced by 2 cm: the knees on their stop (2.57 rad) and the centre of mass 2 cm ahead of
-  what the shins and insteps bear, the stall the staged rise reads on the stand
-  ([rising.md](rising.md#where-the-rise-stops)). With the knee's stop stripped it is held at 0.68,
+  what the shins and insteps bear. With the knee's stop stripped it is held at 0.68,
   the knees at 2.81 rad (161°); stripping the ankle, the hip or the lumbar spine leaves it
   unbalanced. Past it, `kneel` is held at 0.03 at zero margin and `kneel, left knee light` at 0.70
   at 1 mm (one seed of nine): balances, which the engine topples even held at ten times.

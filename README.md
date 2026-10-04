@@ -116,8 +116,8 @@ without resuming on its own.
   what the blow cost each of the two.
 
 Its sections, each of which folds away, choose the body and its balance, what each hand holds,
-boots and armour, its mind, whether it lies or tries to rise once it is down (**Down**: a rise
-ends on knees and hands) and the strikes it may throw, the camera (Free, Isometric or Chase), the
+boots and armour, its mind, whether it lies or tries to rise once it is down (**Down**: the
+Warrior with nothing in its hands gets up from most falls) and the strikes it may throw, the camera (Free, Isometric or Chase), the
 view, and 120 or 480 Hz; one logs what the mind decides. The transport pauses (Space), steps one
 physics step at a time, scrubs, and slows time to 1/4 or 1/10.
 

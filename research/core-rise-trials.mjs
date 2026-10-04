@@ -52,7 +52,7 @@ export function risenAt(downs, hz) {
 }
 
 /**
- * Watch a body that is down for `WATCH_SECONDS` of `world`'s steps, and give its row: whether it
+ * Watch a body that is down for `watch` s of `world`'s steps, and give its row: whether it
  * rose and when (`risenAt`), the fastest any of its segments' centres of mass moved from
  * `LYING_SECONDS` after the fall, m/s, the most its stance asked of the ground beyond what its
  * soles gave over the same span, in its weights (`Infinity` once it is not finite), the
@@ -60,14 +60,14 @@ export function risenAt(downs, hz) {
  * after the fall (`lieOf`), the furthest stage of the game's rise (`RISE`) its last attempt's
  * fall reached: its name, "none" if it began none, and null under a mind with no riser; and
  * whether its riser played the rise to its end, its last stage done, within the watch (null
- * under a mind with none).
+ * under a mind with none); and whether it is up at the watch's last step.
  */
-function watched(world, built, body) {
+function watched(world, built, body, watch = WATCH_SECONDS) {
   const hz = world.hz, segments = [...built.segments.values()];
   const weight = segments.reduce((sum, segment) => sum + segment.rigid.mass, 0) * Math.hypot(...world.physics.gravity);
   const downs = [body.view.down], velocity = new Vector3(), riser = riserOf(body);
   let peak = 0, asked = 0, last = 0, lie = null, was = riser?.phase, ended = riser ? false : null;
-  for (let i = 1; i < Math.round(WATCH_SECONDS * hz); i++) {
+  for (let i = 1; i < Math.round(watch * hz); i++) {
     world.step();
     downs.push(body.view.down);
     // A rise whose last stage is done leaves its riser idle; one given up leaves it lying slack.
@@ -85,7 +85,7 @@ function watched(world, built, body) {
   const seconds = risenAt(downs, hz);
   return {
     fell: true, risen: seconds !== null, seconds, peak, asked, moved: last / hz, lie,
-    stage: riser ? RISE.rise[riser.furthest]?.name ?? "none" : null, ended,
+    stage: riser ? RISE.rise[riser.furthest]?.name ?? "none" : null, ended, up: !downs.at(-1),
   };
 }
 
@@ -93,7 +93,7 @@ function watched(world, built, body) {
 export const riserOf = (body) => (body.state.mind.subs ?? []).find((sub) => sub && "furthest" in sub) ?? null;
 
 /** The row of a body that did not fall. */
-const HELD = Object.freeze({ fell: false, risen: false, seconds: null, peak: null, asked: null, moved: null, lie: null, stage: null, ended: null });
+const HELD = Object.freeze({ fell: false, risen: false, seconds: null, peak: null, asked: null, moved: null, lie: null, stage: null, ended: null, up: null });
 
 /** The side of a floor raised over the arena's ground, m: wider than a fall and a rise cross. */
 const FLOOR = 12;
@@ -152,22 +152,22 @@ export async function toppled(shove, subs) {
 
 /**
  * `felled`, under `mind` (a `MindConfig`; the game's, `FIGHTER`, unless given) ordered to stand in
- * guard, and watched.
+ * guard, and watched `watch` s.
  */
-export async function shoved({ mind = FIGHTER, ...shove }) {
+export async function shoved({ mind = FIGHTER, watch = WATCH_SECONDS, ...shove }) {
   const { world, built, body, dispose } = await felled(shove,
     (made, into) => createMind(made, into, mind, { name: "battery", orders: () => STAND_ORDERS }).body);
   try {
-    return body.view.down ? watched(world, built, body) : HELD;
+    return body.view.down ? watched(world, built, body, watch) : HELD;
   } finally { dispose(); }
 }
 
 /**
  * `recipe`'s bout played to the first step a side is down; the other side is ordered to stand
- * (`STAND_ORDERS`), and the fallen one is watched. With `mind` (a `MindConfig`) both sides have
- * it, in place of the recipe's. Null if nobody falls.
+ * (`STAND_ORDERS`), and the fallen one is watched `watch` s. With `mind` (a `MindConfig`) both
+ * sides have it, in place of the recipe's. Null if nobody falls.
  */
-export async function boutFall({ recipe, mind }) {
+export async function boutFall({ recipe, mind, watch = WATCH_SECONDS }) {
   const { world, duel, dispose } = await buildBout(mind ? { ...recipe, minds: { left: mind, right: mind } } : recipe);
   try {
     const fallen = () => SIDES.find((side) => duel.duelists[side].body.view.down);
@@ -176,7 +176,7 @@ export async function boutFall({ recipe, mind }) {
     if (!side) return null;
     duel.order(side === "left" ? "right" : "left", STAND_ORDERS);
     const { built, body } = duel.duelists[side];
-    return watched(world, built, body);
+    return watched(world, built, body, watch);
   } finally { dispose(); }
 }
 

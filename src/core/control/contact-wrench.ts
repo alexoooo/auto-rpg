@@ -87,6 +87,18 @@ export interface GroundWrenchWork {
   readonly miss: Float64Array;
 }
 
+/**
+ * **What a share asks of the muscles** (`shareGroundWrench`'s `effort`): `count` freedoms' torques,
+ * each `t0 - C x` in x, the patches' wrenches, already weighed by its caller. A row is a freedom;
+ * its columns are six a patch, in the patches' order: the patch's force, world, then its moment,
+ * which a point has none of.
+ */
+export interface ShareEffort {
+  count: number;
+  readonly C: Float64Array;
+  readonly t0: Float64Array;
+}
+
 /** A work for up to `soles` soles and `points` points bearing at once; a sole's room holds a point. */
 export function groundWrenchWork(soles: number, points: number): GroundWrenchWork {
   const unknowns = unknownsOf("sole") * soles + unknownsOf("point") * points, limits = limitsOf("sole") * soles + limitsOf("point") * points;
@@ -140,10 +152,15 @@ export function groundWrenchWork(soles: number, points: number): GroundWrenchWor
  * weighs a patch's wrench by its inverse, so among the shares that give the wrench the patches'
  * forces are as their parts, as nearly as the wrench lets them be. Without it they bear alike.
  *
+ * `effort`, where given, is what each share asks of the muscles that carry it: the regularizer
+ * weighs, besides the patches' wrenches, the sum of the squares of those torques as the caller has
+ * weighed them, so that among the shares that give the wrench the one the muscles carry most
+ * easily is taken: a share the limbs' parts favour but a weak freedom cannot carry is not.
+ *
  * It works in `work` (`groundWrenchWork`), made for at least as many patches.
  */
 export function shareGroundWrench(work: GroundWrenchWork, patches: readonly Patch[], centre: Vector3, force: Vector3, moment: Vector3,
-  friction: number, lever: number, out: PatchWrench[], miss?: { force: Vector3; moment: Vector3 }, parts?: readonly number[]): void {
+  friction: number, lever: number, out: PatchWrench[], miss?: { force: Vector3; moment: Vector3 }, parts?: readonly number[], effort?: ShareEffort): void {
   const { first, A, b, Q, D, H, g, C, x } = work;
   // Each patch's first column: the widths before it; and the count of limits.
   let n = 0, limits = 0;
@@ -199,6 +216,27 @@ export function shareGroundWrench(work: GroundWrenchWork, patches: readonly Patc
     let sum = 0;
     for (let r = 0; r < 6; r++) sum = sum + Q[r]! * A[r * n + i]! * b[r]!;
     g[i] = -sum;
+  }
+  // The muscles' torques, t0 - C x, weighed at the same e: H += e C'C, g -= e C't0, C's columns
+  // mapped onto the unknowns, a patch's first six on its own.
+  if (effort) {
+    const width = 6 * patches.length, { C, t0 } = effort;
+    for (let s = 0; s < patches.length; s++) {
+      const o = first[s]!, k = unknownsOf(patches[s]!.kind);
+      for (let a = 0; a < k; a++) {
+        const i = o + a, ci = 6 * s + a;
+        for (let r = 0; r < effort.count; r++) g[i] = g[i]! - e * C[r * width + ci]! * t0[r]!;
+        for (let u = 0; u < patches.length; u++) {
+          const ou = first[u]!, ku = unknownsOf(patches[u]!.kind);
+          for (let c = 0; c < ku; c++) {
+            const cj = 6 * u + c;
+            let sum = 0;
+            for (let r = 0; r < effort.count; r++) sum = sum + C[r * width + ci]! * C[r * width + cj]!;
+            H[i * n + ou + c] = H[i * n + ou + c]! + e * sum;
+          }
+        }
+      }
+    }
   }
   // The limits, C x >= 0, a row each, in the order written. A limit is a sum of a patch's
   // components, each a combination of the world ones it is written in, each column's terms

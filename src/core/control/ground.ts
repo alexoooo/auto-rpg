@@ -31,6 +31,11 @@ interface Uprightness {
    * to stand taller than it can is not down for failing to.
    */
   down(asked?: number): boolean;
+  /**
+   * How far over the body's lowest point the lowest point of its segments but `except` is, m, now:
+   * a body that touches the ground with those alone holds the rest this far clear of it.
+   */
+  clearance(except: ReadonlySet<BuiltSegment>): number;
 }
 
 /** A point of a segment's shape, body frame, reference pose, and how far the shape reaches around it, m. */
@@ -106,5 +111,18 @@ export function uprightness(built: BuiltBody): Uprightness {
     height, standing,
     lowest: () => read().low,
     down: (asked = standing) => Math.min(asked, standing) - height() > FALLEN,
+    clearance(except) {
+      let low = Infinity, rest = Infinity;
+      for (const part of parts) {
+        const node = part.segment.node, others = !except.has(part.segment);
+        turnOfToRef(part.segment, turn);
+        for (const point of part.lows) {
+          const y = point.from.applyRotationQuaternionToRef(turn, at).y + node.position.y - point.radius;
+          low = Math.min(low, y);
+          if (others) rest = Math.min(rest, y);
+        }
+      }
+      return rest - low;
+    },
   };
 }

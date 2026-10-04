@@ -8,7 +8,8 @@ struck. Each fight says why a side is out in one function, which is where a cont
 goes if it ever has one.
 
 It needs the battery's bar met (`docs/reference/rising.md#staged`), which the staged riser
-misses: its rise ends on knees and hands. The standing bout tables are void once this lands and
+misses: it stands the Warrior with nothing in its hands from three falls of four, and not the
+club, the Rogue or the skeleton. The standing bout tables are void once this lands and
 are measured again in it.
 
 ## The owner's answers, 2026-10-01

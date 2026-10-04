@@ -3,8 +3,7 @@
 This is the design of what a body does once it is down, and the index of the plans that build it.
 Each plan lands green by itself and is deleted as it lands; this file is deleted with the last of
 them. Down as a reading of the body, sub-minds with lying still, and the bearing solve split from
-the stance have landed; so has the staged riser, as far as knees and hands, with the lab's choice
-of it. It misses the battery's bar (`docs/reference/rising.md#staged`), so the rules wait on a
+the stance have landed; so has the staged riser, to the feet, with the lab's choice of it. It misses the battery's bar (`docs/reference/rising.md#staged`), so the rules wait on a
 riser that meets it.
 
 ## Why
@@ -109,8 +108,9 @@ first have those readings split from them.
 |---|---|---|---|---|
 | 05 | [rules](2026-10-01-rising-05-rules.md) | the riser in the default config; a fall no longer takes a body out | a riser that meets the battery's bar | the owner watches a bout with a fall in it, and a crypt fight |
 
-The staged riser landed under its bar: its rise ends on knees and hands, and none of the
-battery's falls rises (`docs/reference/rising.md#staged`, `#where-the-rise-stops`). So bodies
+The staged riser is under its bar: it stands the Warrior with nothing in its hands from three
+falls of four, and not the club, the Rogue or the skeleton (`docs/reference/rising.md#staged`,
+`#where-the-rise-stops`). So bodies
 go on lying still in a fight, and 05 does not land until a riser meets the bar. The eye gate
 left of the riser: the owner watches lab bodies try to get up (the lab's Stance, "Down" set to
 "Rises", shoved from the front, the back and a side, each human).

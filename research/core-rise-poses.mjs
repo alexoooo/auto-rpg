@@ -7,9 +7,10 @@
  * freedoms furthest from the stage's posture, each angle less the posture's, rad.
  *
  *   node research/core-rise-poses.mjs [--model workshop-fighter] [--lie front|back|left|right]
- *     [--held empty] [--stages '<PoseStage[] JSON>']
+ *     [--held empty] [--stages '<PoseStage[] JSON>'] [--degrees <about up>]
  *
- * `--lie` is the shove's way: forward, backward, or to that side. Without `--stages`, the game's
+ * `--lie` is the shove's way: forward, backward, or to that side; `--degrees`, if given, is the
+ * shove's way about up from the way the body faces in its place. Without `--stages`, the game's
  * rise (`RISE.rise`).
  */
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
@@ -25,13 +26,13 @@ const FURTHEST = 4;
 export const SHOVE = Object.freeze({ front: 0, right: 90, back: 180, left: 270 });
 
 /**
- * `model` holding `held`, toppled by `SHOVE[lie]`, then under a riser playing `stages`, on the
- * game's limbs, however it lies: a row a stage, read at its last step, with one before them for
+ * `model` holding `held`, toppled by `degrees` (`SHOVE[lie]` unless given), then under a riser playing `stages`, on the
+ * game's limbs and trunk, however it lies: a row a stage, read at its last step, with one before them for
  * the body as it lay when the first began. Null if the shove did not fell it.
  */
-export async function posed({ model, held = "empty", lie, stages }) {
-  const recipe = { limbs: RISE.limbs, roll: { back: stages, left: stages, right: stages }, rise: stages };
-  const { world, built, body, dispose } = await toppled({ model, held, degrees: SHOVE[lie] }, [(own, view) => stagedRise(own, view, recipe)]);
+export async function posed({ model, held = "empty", lie, degrees = SHOVE[lie], stages }) {
+  const recipe = { limbs: RISE.limbs, trunk: RISE.trunk, roll: { back: stages, left: stages, right: stages }, rise: stages };
+  const { world, built, body, dispose } = await toppled({ model, held, degrees }, [(own, view) => stagedRise(own, view, recipe)]);
   try {
     if (!body.view.down) return null;
     const riser = riserOf(body), muscles = body.muscles, root = muscles.dynamics.root.segment, head = built.segments.get("head"), chest = built.segments.get("upperTrunk"), at = new Vector3();
@@ -65,8 +66,9 @@ if (import.meta.url === `file:///${process.argv[1]?.replaceAll("\\", "/")}` || i
   const model = option("model", "workshop-fighter"), lie = option("lie", "front"), held = option("held", "empty");
   if (!(lie in SHOVE)) throw new Error(`--lie is one of ${Object.keys(SHOVE).join(", ")}`);
   const given = option("stages", null), stages = given === null ? RISE.rise : JSON.parse(given);
-  const rows = await posed({ model, held, lie, stages });
-  console.log(`${RISE_HARNESS}; ${model}, ${held}, shoved to fall on its ${lie}; stages ${given === null ? "the game's" : given}`);
+  const degrees = Number(option("degrees", SHOVE[lie]));
+  const rows = await posed({ model, held, lie, degrees, stages });
+  console.log(`${RISE_HARNESS}; ${model}, ${held}, shoved ${degrees} degrees about up; stages ${given === null ? "the game's" : given}`);
   if (rows === null) console.log("the shove did not fell it");
   else {
     console.log("| stage | lies on its | centre, m | pelvis, m | chest, m | head, m | furthest from its posture, rad |");

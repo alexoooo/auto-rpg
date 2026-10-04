@@ -8,13 +8,14 @@ import assert from "node:assert/strict";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { createBody, SERVO_SECONDS } from "../src/core/body.ts";
 import { FALLEN, uprightness } from "../src/core/control/ground.ts";
-import { centreOfToRef } from "../src/core/control/support.ts";
+import { centreOfToRef, footStatesOf } from "../src/core/control/support.ts";
 import { armed } from "../src/core/human/grip.ts";
 import { BODY_MODELS, modelSpec } from "../src/core/human/spec.ts";
 import { woodenClub } from "../src/core/items/club.ts";
 import { FIGHTER } from "../src/core/mind/config.ts";
 import { standIntent } from "../src/core/mind/intent.ts";
 import { embody } from "../src/core/mind/mind.ts";
+import { DOWN } from "../src/core/mind/rise/limbs.ts";
 import { subMindsOf } from "../src/core/mind/sub-minds.ts";
 import { driveBy } from "../src/core/mind/tactics.ts";
 import { GUARD } from "../src/core/skills/guard.ts";
@@ -65,6 +66,24 @@ test("a limp body's height is its centre of mass's over the ground it lies on", 
       const lowest = upright.lowest();
       assert.ok(lowest < 0 && lowest > -5e-3 && Math.abs(over - lowest - height) < 1e-12, `${spec.model}: its lowest point is at ${lowest} m, its centre of mass ${over} m up and ${height} over it`);
       assert.equal(upright.down(), true);
+    } finally { stand.dispose(); }
+  }
+});
+
+test("standing, only the feet are near the ground; lying, more than the feet are", async () => {
+  for (const spec of BODIES) {
+    const stand = await coreStand(spec);
+    try {
+      const upright = uprightness(stand.built), feet = new Set(footStatesOf(stand.built).map((foot) => foot.segment));
+      assert.equal(feet.size, 2);
+      // As built, the lowest point but the feet's is the ankles' capsules', clear of the soles.
+      const standing = upright.clearance(feet);
+      assert.ok(standing > DOWN && standing < 0.2, `${spec.model} standing: the rest ${standing} m over its lowest point`);
+      assert.equal(upright.clearance(new Set()), 0);
+      stand.step(stand.seconds(5));
+      const lying = upright.clearance(feet);
+      assert.ok(lying >= 0 && lying < 5e-3, `${spec.model} lying: the rest ${lying} m over its lowest point`);
+      assert.equal(upright.clearance(new Set()), 0);
     } finally { stand.dispose(); }
   }
 });

@@ -9,18 +9,26 @@ import type { Limb, LimbTask, Row } from "../../control/bearing.ts";
 import type { BearingPoint } from "../../control/contact-wrench.ts";
 import { chainTo } from "../../control/kinematics.ts";
 import { SOLE_MARGIN } from "../../control/stance-tuning.ts";
-import { footStatesOf, motionAtToRef, pointOfToRef, readSupport, type FootState } from "../../control/support.ts";
+import { bearingSole, footStatesOf, motionAtToRef, pointOfToRef, readSupport, rolledRows, type FootState } from "../../control/support.ts";
 import { hypot } from "../../math/real.ts";
 import type { Vec3 } from "../../spec/quantity.ts";
 import type { OwnBody } from "../mind.ts";
-import { limbChannels, type EndLimb, type ProppedLimb, type Recipe } from "./stages.ts";
+import { limbChannels, type EndLimb, type FootLimb, type ProppedLimb, type Recipe } from "./stages.ts";
 
 /**
  * How near the ground a limb's point is, m, for the limb to be down and bear, and a corner of a
  * foot's sole for the foot to prop what it hangs from: a tolerance on a reading
  * (`docs/reference/rising.md#stages`).
  */
-const DOWN = 0.03;
+export const DOWN = 0.03;
+
+/**
+ * The time constant, s, at which the freedoms of an end's or a propped limb's chain that take its
+ * point's task are drawn toward the posture, within what the task leaves them: shorter than a
+ * stage's own, so that a hip carrying a knee keeps the turn the posture gives it while the point
+ * holds (`docs/reference/rising.md#stages`).
+ */
+const TAKES_SECONDS = 0.1;
 
 /** A point's task: its velocity's three rows, which come after its segment's spin's three; the spin is left free. */
 const POINT_ROWS: readonly Row[] = [0, 1, 2].map((axis): Row => [[3 + axis, 1]]);
@@ -33,12 +41,17 @@ interface RiseLimbs {
   readonly tasks: readonly LimbTask[];
   /**
    * Where the body is held over each limb while it bears, world, in the recipe's order, as last
-   * read: its point, which for a limb propped on a foot is its patch's middle. Forces shared as
-   * a stage's shares are then the forces that hold the body at the stage's place.
+   * read: its point, which for a limb propped on a foot is its patch's middle, or where the foot
+   * stands. Forces shared as a stage's shares are then the forces that hold the body at the
+   * stage's place.
    */
   readonly over: readonly Vector3[];
-  /** Read where each limb would bear, world, into its work's point, the ground's level being `ground`, world. */
-  read(ground: number): void;
+  /**
+   * Read where each limb would bear, world, into its work's point, the ground's level being
+   * `ground`, world; a limb propped on a foot holds the body over where the foot stands if
+   * `overProp`, and otherwise over its patch's middle.
+   */
+  read(ground: number, overProp: boolean): void;
   /**
    * Limb `index` bears this step, if the point last read is down (within `DOWN` of the ground,
    * `ground`, world), which is returned: its task is that point held where it is across the
@@ -46,8 +59,9 @@ interface RiseLimbs {
    * damped; the freedoms of its chain that do not take the task are asked toward `goal`, each
    * channel's angle as the muscles read it, at the same rate, and those that take it are as near
    * `goal` as the task lets them be; and it bears `share` of the load against the other limbs'
-   * (`LimbWork.share`). A limb whose point is over the ground bears nothing and is the servo's
-   * (`rest`): the posture it is asked brings it down.
+   * (`LimbWork.share`). A limb whose point is over the ground bears nothing: its task is the same,
+   * which brings the point down onto the ground where it is over it, its muscles kept within their
+   * strength as a free limb's are.
    */
   bear(index: number, goal: ArrayLike<number>, rate: number, ground: number, share: number): boolean;
   /** Limb `index` is not the solve's this step: the servo has its freedoms. */
@@ -58,19 +72,20 @@ interface RiseLimbs {
 interface Part {
   readonly limb: Limb;
   readonly over: Vector3;
-  read(ground: number): void;
+  read(ground: number, overProp: boolean): void;
   bear(goal: ArrayLike<number>, rate: number, ground: number): void;
 }
 
 /** `recipe`'s limbs made of `own`'s body, which can play it (`stageFaults`). */
 export function riseLimbs(own: OwnBody, recipe: Recipe): RiseLimbs {
-  const feet = recipe.limbs.some((limb) => limb.kind === "propped") ? footStatesOf(own.built) : [];
+  const feet = recipe.limbs.some((limb) => limb.kind === "propped" || limb.kind === "foot") ? footStatesOf(own.built) : [];
   const footOf = (segment: string): FootState => feet.find((foot) => foot.segment.spec.name === segment)!;
   const support = new Vector3();
   const parts = recipe.limbs.map((limb): Part => {
     switch (limb.kind) {
       case "end": return endLimb(own, limb);
       case "propped": return proppedLimb(own, limb, footOf(limb.prop));
+      case "foot": return footLimb(own, limb, footOf(limb.segment));
       default: return unknownLimb(limb);
     }
   });
@@ -83,19 +98,16 @@ export function riseLimbs(own: OwnBody, recipe: Recipe): RiseLimbs {
     limbs: parts.map((part) => part.limb),
     tasks: parts.map((part) => part.limb.task),
     over: parts.map((part) => part.over),
-    read(ground) {
+    read(ground, overProp) {
       readSupport(feet, feet, support);
-      for (const part of parts) part.read(ground);
+      for (const part of parts) part.read(ground, overProp);
     },
     bear(index, goal, rate, ground, share) {
-      const part = parts[index]!;
-      if (part.limb.work.at.y - ground >= DOWN) {
-        rest(index);
-        return false;
-      }
+      const part = parts[index]!, down = part.limb.work.at.y - ground < DOWN;
       part.bear(goal, rate, ground);
+      part.limb.task.bearing = down;
       part.limb.work.share = share;
-      return true;
+      return down;
     },
     rest,
   };
@@ -130,21 +142,23 @@ function endOf(built: BuiltBody, segment: BuiltSegment, which: ProppedLimb["end"
 }
 
 /**
- * The chain of a limb that bears on a capsule: its channels, root outward, and its stem's; and
- * `ask`, which asks its freedoms toward a posture: those that do not take its task ahead of it
- * (`LimbWork.ahead`), those that do beneath it (`LimbWork.toward`).
+ * The chain of a limb: its channels, root outward, and its stem's; and `ask`, which asks its
+ * freedoms toward a posture: those that do not take its task ahead of it (`LimbWork.ahead`), at
+ * the rate it is given, and those that do beneath it (`LimbWork.toward`), at `TAKES_SECONDS`'s,
+ * or a foot's, whose every freedom takes it, at the rate it is given.
  */
-function chainOf(own: OwnBody, spec: EndLimb | ProppedLimb) {
+function chainOf(own: OwnBody, spec: EndLimb | ProppedLimb | FootLimb) {
   const { muscles } = own, names = limbChannels(spec, own.spec)!;
-  const channels = names.chain.map((name) => muscles.channel(name)), takes = names.chain.map((name) => spec.takes.includes(name));
-  const ahead = channels.map(() => NaN), toward = channels.map(() => 0);
+  const channels = names.chain.map((name) => muscles.channel(name)), takes = names.chain.map((name) => spec.kind === "foot" || spec.takes.includes(name));
+  const ahead = channels.map(() => NaN), toward = channels.map(() => 0), within = spec.kind === "foot" ? 0 : 1 / TAKES_SECONDS;
   return {
     channels, stem: names.stem.map((name) => muscles.channel(name)), ahead, toward,
     ask(goal: ArrayLike<number>, rate: number): void {
-      channels.forEach((i, k) => {
-        toward[k] = rate * rate * (goal[i]! - muscles.angle(i)) - 2 * rate * muscles.rate(i);
+      for (let k = 0; k < channels.length; k++) {
+        const i = channels[k]!, r = takes[k] && within > 0 ? within : rate;
+        toward[k] = r * r * (goal[i]! - muscles.angle(i)) - 2 * r * muscles.rate(i);
         ahead[k] = takes[k] ? NaN : toward[k]!;
-      });
+      }
     },
   };
 }
@@ -204,7 +218,7 @@ function proppedLimb(own: OwnBody, spec: ProppedLimb, prop: FootState): Part {
   };
   return {
     limb, over,
-    read(ground) {
+    read(ground, overProp) {
       pointOfToRef(segment, end.at, at).y -= end.radius;
       over.copyFrom(at);
       // Where the foot stands: the middle of its sole's corners on the ground, or, none there, its lowest.
@@ -231,7 +245,7 @@ function proppedLimb(own: OwnBody, spec: ProppedLimb, prop: FootState): Part {
         at.addInPlace(stands).scaleInPlace(0.5);
         sole.length = (1 - SOLE_MARGIN) * lies.span / 2;
         limb.work.patch = sole;
-        over.copyFrom(at);
+        over.copyFrom(overProp ? stands : at);
       }
     },
     bear(goal, rate, ground) {
@@ -239,6 +253,33 @@ function proppedLimb(own: OwnBody, spec: ProppedLimb, prop: FootState): Part {
       // A turn about up x along brings the foot down: asked by how far up it is, critically damped.
       const down = lies.span > 0 ? rate * rate * lies.up / lies.span : 0;
       limb.task.angular.scaleInPlace(2).addInPlaceFromFloats(down * along.z, 0, -down * along.x);
+      chain.ask(goal, rate);
+    },
+  };
+}
+
+/**
+ * A foot as the stance bears on it: on its sole, held flat, or, its heel more than `DOWN` over the
+ * ground, on its sole's front edge, its turn about the edge free. Its point is the sole's middle,
+ * or the edge's; its patch the sole, or the band of it at the edge (`bearingSole`). Every freedom
+ * of its chain takes the task.
+ */
+function footLimb(own: OwnBody, spec: FootLimb, foot: FootState): Part {
+  const chain = chainOf(own, spec), at = new Vector3();
+  const limb: Limb = {
+    segment: foot.segment, memory: { channels: chain.channels }, stem: chain.stem, reach: foot.reach, task: taskOf(chain.channels.length),
+    work: { at, rows: null, ahead: chain.ahead, toward: chain.toward, patch: null, share: 1 },
+  };
+  return {
+    limb, over: at,
+    read(ground) {
+      foot.memory.rolled = foot.edge.y + foot.heel - ground >= DOWN;
+      at.copyFrom(foot.memory.rolled ? foot.edge : foot.middle);
+    },
+    bear(goal, rate, ground) {
+      hold(limb, rate, ground);
+      limb.work.rows = foot.memory.rolled ? rolledRows(foot) : null;
+      limb.work.patch = bearingSole(foot, 1 - SOLE_MARGIN);
       chain.ask(goal, rate);
     },
   };

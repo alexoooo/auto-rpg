@@ -220,29 +220,35 @@ All of it on a physically based core, humans first ([architecture](architecture.
   where a person's preferred walk is near 1.4 m/s. The next step is a controller that holds the
   pelvis against the moment the soles miss, or one whole-body solve. The assist supplies the
   moment the soles miss, as a cheat with a ceiling (`docs/reference/assist.md`).
-- Rising after a fall is built as far as knees and hands, and for the lab alone (its
-  Character section's "Down"). A fallen body rolls onto its front, draws its knees under, props
-  itself and bears on its shins and hands; nothing stands it up, so on the battery of falls
-  none rises ([reference/rising.md](reference/rising.md#staged)), and in a fight a fallen body
-  still lies (`lie`) and is out of it. Open, each with its readings in the record:
-  - the way on from knees and hands is a limb moved to a place (a foot planted, a hand walked
-    back), which a stage of a rise does not have
-    ([reference/rising.md](reference/rising.md#where-the-rise-stops)). Held still, the Warrior's
-    body allows every waypoint but four lift-offs: sitting back (the knee's stop), the hands
-    leaving a half kneel, the front foot alone (balance), the knees leaving a kneel on the toes
-    (the ankle, and a foot with no toe joint); every squat holds, and the bear's rows hold to a
-    straight-legged fold ([reference/postures.md](reference/postures.md#the-verdict-by-route)).
-    The candidates for the body, a toe joint, the ankle's range bearing weight, the knee folded
-    on the calf, are each to be read in a source first;
+- Rising after a fall is built to the feet, and for the lab alone (its Character section's
+  "Down"). A fallen body rolls onto its front, comes onto knees and hands, kneels up, steps to a
+  half kneel and lunges onto both feet, where its stance has it. On the battery of falls the
+  Warrior with nothing in its hands rises from three falls of four (96 of 127 shoves, 97 up at
+  the end of 40 s), with the club from 8 of 121, and the Rogue and the skeleton from none
+  ([reference/rising.md](reference/rising.md#staged)). In a fight a fallen body still lies
+  (`lie`) and is out of it. Open, each with its readings in the record
+  ([reference/rising.md](reference/rising.md#where-the-rise-stops)):
+  - the kneel-up goes down forward out of `arms` or `hold` in six of the nine forward topples
+    read;
+  - the club stalls at the half kneel: a slower step lifts it five times as often, and costs the
+    empty hand a third of its rises;
+  - the Warrior lying on its left rises from 2 falls of 10;
+  - on three limbs the centre of mass stops short of its place;
+  - the Rogue comes into the kneel-up and no further, and on a stiff topple its arms do not raise
+    its chest: it wants a recipe of its own;
+  - the skeleton is not turned over by the humans' roll, and from its front goes down in the
+    half kneel;
+  - held still, the Warrior's body allows every waypoint but four lift-offs: sitting back (the
+    knee's stop), the hands leaving a half kneel, the front foot alone (balance), the knees
+    leaving a kneel on the toes (the ankle, and a foot with no toe joint); every squat holds, and
+    the bear's rows hold to a straight-legged fold
+    ([reference/postures.md](reference/postures.md#the-verdict-by-route)). The candidates for the
+    body, a toe joint, the ankle's range bearing weight, the knee folded on the calf, are each to
+    be read in a source first;
   - on the game's solver iterations (`SOLVER`) a body held stiffly on its own stops does not
     stay: the standing body held at 5000 N m falls, and four times the iterations keep it within
     3 cm ([reference/postures.md](reference/postures.md#the-games-solver)). A riser's loaded
     postures are read again there, with the step's cost;
-  - the Rogue plays the Warrior's recipe and its arms do not raise its chest: it wants a recipe
-    of its own;
-  - the skeleton is not turned over by the humans' roll;
-  - a body shoved onto its front lies twisted, and gives the rise up from there;
-  - the club in the Warrior's hand costs it rises its empty hand plays to the end;
   - a recipe found by search and a learned riser, each a row of the same battery;
   - the fights take rising up once the battery's bar is met: the design and the rules' plan
     are `docs/plans/2026-10-01-rising-00-design.md` and `2026-10-01-rising-05-rules.md`.
