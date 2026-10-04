@@ -1,0 +1,402 @@
+{
+  "manifest": {
+    "protocol": 2,
+    "started": "2026-10-04T19:10:23.956Z",
+    "options": {
+      "suite": "reach",
+      "split": "development",
+      "samples": 1,
+      "from": 42,
+      "hz": 120,
+      "actuation": "directional"
+    },
+    "workers": 4,
+    "harness": "Node, core world, per-task arena/stand fixtures",
+    "node": "v24.19.0",
+    "engine": "rapier",
+    "package": {
+      "version": "0.21.0-auto-rpg.2",
+      "resolved": "file:vendor/rapier/dimforge-rapier3d-simd-compat-0.21.0-auto-rpg.2.tgz",
+      "integrity": "sha512-yN/jdD73UFXmrMiiixo+5XAyEzhd1twGtXCRcer/ziuU2jyBSYMXutlTrj2ZaAmOZs5K4WtkCvwepsMpPPNfkA==",
+      "entrySha256": "2ad42975e67269064349ce1fb0499df7075aef1768ce30c8f20160463788371c"
+    },
+    "source": {
+      "git": "d98a79f432498705d27277ef0e8ace5b0b9d8465",
+      "content": "bb99d0e76d963a5c7f262fb41c3ab537845ff4b7223795893630317e45b88ae2",
+      "archive": "source.json.gz",
+      "archiveSha256": "74da2452d4d17c008339f35c553f76051a100a9ff367d77d23f7d5f0479f3bc4"
+    },
+    "sensing": "detached body observations and task goal; no privileged model",
+    "action": "actuator velocities or layered posture targets, declared per job",
+    "policyPeriodSteps": 4,
+    "assists": {
+      "rootBalancePercent": 0,
+      "weapon": false
+    },
+    "unavailable": [
+      "two-handed items",
+      "grip release",
+      "integrated recovery/combat",
+      "moving isolated targets",
+      "actuator work",
+      "contact penetration"
+    ],
+    "jobs": [
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "workshop-fighter",
+        "held": "empty",
+        "seed": 42,
+        "task": "reach",
+        "controller": "actuator",
+        "channel": "elbow.right flexion",
+        "target": [
+          0.5,
+          0.7
+        ],
+        "pin": "lowerTrunk",
+        "gravity": true,
+        "servoSeconds": 0.1,
+        "tolerance": 0.025,
+        "holdSteps": 120,
+        "policyPeriodSteps": 4,
+        "maxSteps": 360,
+        "speed": 3,
+        "id": "67abdc30a47a873bc9418bbf71bf66ca45685817ebbad1403ae4b671a05921d9"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "workshop-fighter",
+        "held": "empty",
+        "seed": 42,
+        "task": "reach",
+        "controller": "layered",
+        "channel": "elbow.right flexion",
+        "target": [
+          0.5,
+          0.7
+        ],
+        "pin": "lowerTrunk",
+        "gravity": true,
+        "servoSeconds": 0.1,
+        "tolerance": 0.025,
+        "holdSteps": 120,
+        "policyPeriodSteps": 4,
+        "maxSteps": 360,
+        "speed": 3,
+        "id": "bfa39ec0d754792d0aa610bb382252c2b8f029841dad05d8ee8564dadaf1ddcb"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "workshop-rogue",
+        "held": "empty",
+        "seed": 42,
+        "task": "reach",
+        "controller": "actuator",
+        "channel": "elbow.right flexion",
+        "target": [
+          0.5,
+          0.7
+        ],
+        "pin": "lowerTrunk",
+        "gravity": true,
+        "servoSeconds": 0.1,
+        "tolerance": 0.025,
+        "holdSteps": 120,
+        "policyPeriodSteps": 4,
+        "maxSteps": 360,
+        "speed": 3,
+        "id": "5eb271618bb8b9b6a0dfbae25ae25227c94872554940e827b64a06ca08192e01"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "workshop-rogue",
+        "held": "empty",
+        "seed": 42,
+        "task": "reach",
+        "controller": "layered",
+        "channel": "elbow.right flexion",
+        "target": [
+          0.5,
+          0.7
+        ],
+        "pin": "lowerTrunk",
+        "gravity": true,
+        "servoSeconds": 0.1,
+        "tolerance": 0.025,
+        "holdSteps": 120,
+        "policyPeriodSteps": 4,
+        "maxSteps": 360,
+        "speed": 3,
+        "id": "239e847a5cf41e7c630171f1bc1080a1ddfa5124f49922c371b7aa52cdb5ed53"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "crypt-skeleton",
+        "held": "empty",
+        "seed": 42,
+        "task": "reach",
+        "controller": "actuator",
+        "channel": "elbow.right flexion",
+        "target": [
+          0.5,
+          0.7
+        ],
+        "pin": "lowerTrunk",
+        "gravity": true,
+        "servoSeconds": 0.1,
+        "tolerance": 0.025,
+        "holdSteps": 120,
+        "policyPeriodSteps": 4,
+        "maxSteps": 360,
+        "speed": 3,
+        "id": "f7bdd6a5aeeb3669145754f13a5fa117e716be50864b9f3c276b76db5de2facb"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "crypt-skeleton",
+        "held": "empty",
+        "seed": 42,
+        "task": "reach",
+        "controller": "layered",
+        "channel": "elbow.right flexion",
+        "target": [
+          0.5,
+          0.7
+        ],
+        "pin": "lowerTrunk",
+        "gravity": true,
+        "servoSeconds": 0.1,
+        "tolerance": 0.025,
+        "holdSteps": 120,
+        "policyPeriodSteps": 4,
+        "maxSteps": 360,
+        "speed": 3,
+        "id": "1f2aa1cd1fe4f402877da455657b3775faca21078867f76ec4b9bb0d466d71e3"
+      }
+    ]
+  },
+  "rows": [
+    {
+      "id": "67abdc30a47a873bc9418bbf71bf66ca45685817ebbad1403ae4b671a05921d9",
+      "result": {
+        "status": "measured",
+        "outcome": {
+          "goal": {
+            "channel": "elbow.right flexion",
+            "angle": 0.6202207503840327
+          },
+          "seconds": 1.3416666666666666,
+          "steps": 161,
+          "terminated": true,
+          "truncated": false,
+          "invalid": null,
+          "error": 0.01007195603809996,
+          "heldSteps": 120,
+          "observationDigest": "3e41072fb20711e879bafa165c8afc4aba0398a1b7f6548fd4547d433bdd19a7"
+        },
+        "physical": {
+          "steps": 161,
+          "digest": "c82758df710aec93",
+          "maxJointAnchorSeparationMetres": 0.00001226237621302987,
+          "peakSegmentSpeed": 0.9961306911526957,
+          "groundNormalImpulseNs": 0,
+          "assistForceIntegralNs": 0,
+          "assistMomentIntegralNms": 0
+        },
+        "limits": [
+          "pinned lower trunk: no standing or combat claim",
+          "pin reactions and actuator work are not measured"
+        ]
+      }
+    },
+    {
+      "id": "5eb271618bb8b9b6a0dfbae25ae25227c94872554940e827b64a06ca08192e01",
+      "result": {
+        "status": "measured",
+        "outcome": {
+          "goal": {
+            "channel": "elbow.right flexion",
+            "angle": 0.6202207503840327
+          },
+          "seconds": 1.35,
+          "steps": 162,
+          "terminated": true,
+          "truncated": false,
+          "invalid": null,
+          "error": 0.011749862288783053,
+          "heldSteps": 120,
+          "observationDigest": "7e42e9475ec0ac38de9d7ffff65c42be71c7554779bd2842a388fe46ab05dadc"
+        },
+        "physical": {
+          "steps": 162,
+          "digest": "eb93fbcf7ac71443",
+          "maxJointAnchorSeparationMetres": 0.00000868091279324217,
+          "peakSegmentSpeed": 0.818542468242985,
+          "groundNormalImpulseNs": 0,
+          "assistForceIntegralNs": 0,
+          "assistMomentIntegralNms": 0
+        },
+        "limits": [
+          "pinned lower trunk: no standing or combat claim",
+          "pin reactions and actuator work are not measured"
+        ]
+      }
+    },
+    {
+      "id": "bfa39ec0d754792d0aa610bb382252c2b8f029841dad05d8ee8564dadaf1ddcb",
+      "result": {
+        "status": "measured",
+        "outcome": {
+          "goal": {
+            "channel": "elbow.right flexion",
+            "angle": 0.6202207503840327
+          },
+          "seconds": 1.4916666666666667,
+          "steps": 179,
+          "terminated": true,
+          "truncated": false,
+          "invalid": null,
+          "error": 0.00002852665440655766,
+          "heldSteps": 120,
+          "observationDigest": "d5b7ef7d89f0006e720290f8b32f113388dcba9f95b92ff3c8372904dafe8651"
+        },
+        "physical": {
+          "steps": 179,
+          "digest": "f9c3f9b3e21e8ff7",
+          "maxJointAnchorSeparationMetres": 0.0000036786221861652845,
+          "peakSegmentSpeed": 0.7911567582981427,
+          "groundNormalImpulseNs": 0,
+          "assistForceIntegralNs": 0,
+          "assistMomentIntegralNms": 0
+        },
+        "limits": [
+          "pinned lower trunk: no standing or combat claim",
+          "pin reactions and actuator work are not measured"
+        ]
+      }
+    },
+    {
+      "id": "239e847a5cf41e7c630171f1bc1080a1ddfa5124f49922c371b7aa52cdb5ed53",
+      "result": {
+        "status": "measured",
+        "outcome": {
+          "goal": {
+            "channel": "elbow.right flexion",
+            "angle": 0.6202207503840327
+          },
+          "seconds": 1.5,
+          "steps": 180,
+          "terminated": true,
+          "truncated": false,
+          "invalid": null,
+          "error": 0.00005701205261487985,
+          "heldSteps": 120,
+          "observationDigest": "b43f201c672ce3ba06116fe9103a94b46f267a193a585e1eafdd4f5f2ed5bf1c"
+        },
+        "physical": {
+          "steps": 180,
+          "digest": "1ec86fcc23e2b135",
+          "maxJointAnchorSeparationMetres": 0.000003905235766128282,
+          "peakSegmentSpeed": 0.6487899238838293,
+          "groundNormalImpulseNs": 0,
+          "assistForceIntegralNs": 0,
+          "assistMomentIntegralNms": 0
+        },
+        "limits": [
+          "pinned lower trunk: no standing or combat claim",
+          "pin reactions and actuator work are not measured"
+        ]
+      }
+    },
+    {
+      "id": "f7bdd6a5aeeb3669145754f13a5fa117e716be50864b9f3c276b76db5de2facb",
+      "result": {
+        "status": "measured",
+        "outcome": {
+          "goal": {
+            "channel": "elbow.right flexion",
+            "angle": 0.6202207503840327
+          },
+          "seconds": 1.3416666666666666,
+          "steps": 161,
+          "terminated": true,
+          "truncated": false,
+          "invalid": null,
+          "error": 0.009854880213131634,
+          "heldSteps": 120,
+          "observationDigest": "fdbd3c53ae22119802cc198782658fbc5f1c9fb3de9b30733baf2121b78985c8"
+        },
+        "physical": {
+          "steps": 161,
+          "digest": "823e0b4920f16ceb",
+          "maxJointAnchorSeparationMetres": 0.000011315085780394267,
+          "peakSegmentSpeed": 1.0580249857526491,
+          "groundNormalImpulseNs": 0,
+          "assistForceIntegralNs": 0,
+          "assistMomentIntegralNms": 0
+        },
+        "limits": [
+          "pinned lower trunk: no standing or combat claim",
+          "pin reactions and actuator work are not measured"
+        ]
+      }
+    },
+    {
+      "id": "1f2aa1cd1fe4f402877da455657b3775faca21078867f76ec4b9bb0d466d71e3",
+      "result": {
+        "status": "measured",
+        "outcome": {
+          "goal": {
+            "channel": "elbow.right flexion",
+            "angle": 0.6202207503840327
+          },
+          "seconds": 1.4916666666666667,
+          "steps": 179,
+          "terminated": true,
+          "truncated": false,
+          "invalid": null,
+          "error": 0.000004410196511095421,
+          "heldSteps": 120,
+          "observationDigest": "a38550ae9268b35035953e7b9c6b0c7fd6d09d85ed23aa5bde0f626acd884c18"
+        },
+        "physical": {
+          "steps": 179,
+          "digest": "8663653eb2e9808d",
+          "maxJointAnchorSeparationMetres": 0.000005816904356049305,
+          "peakSegmentSpeed": 0.8572802703811966,
+          "groundNormalImpulseNs": 0,
+          "assistForceIntegralNs": 0,
+          "assistMomentIntegralNms": 0
+        },
+        "limits": [
+          "pinned lower trunk: no standing or combat claim",
+          "pin reactions and actuator work are not measured"
+        ]
+      }
+    }
+  ],
+  "browser": {
+    "harness": "Chrome, visible built preview, same task builder, seed 42",
+    "replay": "checkpoint after step 14",
+    "digestsMatchNode": true
+  }
+}

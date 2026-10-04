@@ -76,7 +76,8 @@ export function summarizeFoundation(rows) {
   const groups = new Map(), bouts = new Map();
   for (const row of rows) {
     const { job, result } = row;
-    const key = [job.actuation ?? "symmetric", job.task, job.model, job.held, job.hand ?? "", job.target ?? "", job.recovery ?? "", job.guard ?? ""].join("/");
+    const key = [job.actuation ?? "symmetric", job.task, job.model, job.held, job.hand ?? "", job.target ?? "", job.recovery ?? "", job.guard ?? "",
+      ...(job.controller ? [job.controller] : [])].join("/");
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(row);
     if (job.task === "bout" && result.status === "measured") {
@@ -88,11 +89,12 @@ export function summarizeFoundation(rows) {
   const cells = [...groups].map(([cell, members]) => {
     const measured = members.filter((r) => r.result.status === "measured");
     const outcomes = measured.map((r) => r.result.outcome), task = members[0].job.task;
-    const eligible = task === "recovery" ? outcomes.filter((o) => o.fell) : task === "strike" ? outcomes : [];
+    const eligible = task === "recovery" ? outcomes.filter((o) => o.fell) : ["strike", "reach"].includes(task) ? outcomes : [];
     const successes = eligible.filter((o) => task === "recovery" ? o.risen && o.up
+      : task === "reach" ? o.terminated && !o.truncated && o.invalid === null
       : members[0].job.target === "miss" ? !o.fell && o.stood : o.usefulHit && !o.fell).length;
     return { cell, trials: members.length, measured: measured.length, unsupported: members.length - measured.length,
-      success: ["recovery", "strike"].includes(task) ? proportion(successes, eligible.length) : null };
+      success: ["recovery", "strike", "reach"].includes(task) ? proportion(successes, eligible.length) : null };
   });
   const pairedGuard = [];
   for (const [pair, variants] of bouts) for (const [guard, side] of [["left-cover", 0], ["right-cover", 1]]) {
@@ -124,8 +126,9 @@ async function main() {
     package: { version: pkg.version, resolved: pkg.resolved, integrity: pkg.integrity },
     source: { git: execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim(), content: source.content,
       archive: "source.json.gz", archiveSha256: digest(archive) },
-    sensing: "existing fighter senses; stationary blow offset disclosed at commitment", action: "existing fighter skills and staged-rise/lie",
-    policyPeriodSteps: 1, assists: { rootBalancePercent: 0, weapon: false },
+    sensing: values.suite === "reach" ? "detached body observations and task goal; no privileged model" : "existing fighter senses; stationary blow offset disclosed at commitment",
+    action: values.suite === "reach" ? "actuator velocities or layered posture targets, declared per job" : "existing fighter skills and staged-rise/lie",
+    policyPeriodSteps: values.suite === "reach" ? 4 : 1, assists: { rootBalancePercent: 0, weapon: false },
     unavailable: ["two-handed items", "grip release", "integrated recovery/combat", "moving isolated targets", "actuator work", "contact penetration"],
     jobs };
   const installed = JSON.parse(await readFile(resolve(root, "node_modules/@dimforge/rapier3d-simd-compat/package.json"), "utf8"));

@@ -41,6 +41,8 @@ export const CONTACT_FRICTION = 0.5;
 export interface PhysicsEngine {
   /** The engine's name, as `engines.ts` lists it. */
   readonly name: string;
+  /** Installed solver artifact and adapter revision, for replay compatibility. */
+  readonly revision: string;
   /** A world of this engine's, with the core's gravity. */
   createPhysics(options: PhysicsOptions): PhysicsWorld;
 }
@@ -169,6 +171,7 @@ export interface FixedCollider {
 export interface PhysicsWorld {
   /** The engine's name. */
   readonly engine: string;
+  readonly revision: string;
   readonly gravity: Vec3;
   /** A dynamic body at its node's pose, its colliders massless: its mass is `mass`. */
   addBody(node: TransformNode, shapes: readonly ColliderShape[], mass: MassProperties): SegmentBody;

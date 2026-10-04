@@ -33,6 +33,19 @@ test("preparation counts commitments, not frames in a swing or aborted approache
   assert.throws(() => proportion(2, 1), /counts/);
 });
 
+test("the common runner hosts both reach controllers and keeps their denominators separate", async () => {
+  const jobs = foundationJobs({ suite: "reach", models: ["workshop-fighter"], samples: 1, actuation: "directional" });
+  assert.deepEqual(jobs.map((j) => [j.controller, j.policyPeriodSteps, j.hz, j.held]), [["actuator", 4, 120, "empty"], ["layered", 4, 120, "empty"]]);
+  assert.throws(() => foundationJobs({ suite: "reach", hz: 480 }), /120/);
+  const rows = await runFoundation(jobs, { workers: 2 });
+  assert.ok(rows.every((r) => r.result.outcome.terminated && !r.result.outcome.truncated && r.result.outcome.invalid === null));
+  assert.deepEqual(rows[0].result.outcome.goal, rows[1].result.outcome.goal);
+  assert.notEqual(rows[0].result.outcome.observationDigest, rows[1].result.outcome.observationDigest);
+  const summary = summarizeFoundation(rows);
+  assert.equal(summary.cells.length, 2);
+  assert.ok(summary.cells.every((c) => c.success.successes === 1 && c.success.count === 1));
+});
+
 test("a physical strike repeats on fresh worlds and a missing target does not score a hit", async () => {
   const jobs = foundationJobs({ models: ["workshop-fighter"], samples: 1 });
   const at = jobs.find((j) => j.task === "strike" && j.held === "club" && j.hand === "right" && j.target === "place");

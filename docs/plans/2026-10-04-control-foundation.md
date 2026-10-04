@@ -136,6 +136,13 @@ actuation, saves/restores, idles/resumes and runs alongside a fighter in an aren
 This does not claim independent standing, fighting or recovery. The richer optional model
 capability and equipment observations grow with the physical fixtures in subsequent chunks.
 
+Chunk 3's reusable environment and shared pinned-reach fixture are implemented. Reset, policy
+clock/action holding, task endings, RNG, controller state and physics restore together, with
+configuration mismatch rejected transactionally. The common runner's `reach` suite and the
+visible control-foundation page use the same builder. All six seed-42 body/controller cells
+match Node and Chrome observation digests and replay through a checkpoint between decisions.
+The fixture proves the seam, not the combat/recovery gates still below.
+
 ### 0. Define the common task battery and baseline
 
 **Files:** `research/control-foundation.mjs`, `research/control-foundation-trials.mjs`,

@@ -3,6 +3,12 @@ import { createHash } from "node:crypto";
 import { performance } from "node:perf_hooks";
 import { Logger } from "@babylonjs/core/Misc/logger.js";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
+import { Scene } from "@babylonjs/core/scene.js";
+import { freshEngine } from "../tests/harness/core-stand.mjs";
+import { createEnvironment } from "../src/core/tasks/environment.ts";
+import { createReachTask } from "../src/core/tasks/reach.ts";
+import { reachAction, reachFrame } from "../src/core/tasks/reach-policy.ts";
 import { BODY_MODELS } from "../src/core/human/spec.ts";
 import { FIGHTER } from "../src/core/mind/config.ts";
 import { createMind } from "../src/core/mind/minds.ts";
@@ -22,7 +28,7 @@ export const FOUNDATION = Object.freeze({ version: 2, samples: 2, watch: 40, bou
 const hash = (value) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
 const heldName = (held) => held === "club" ? "wooden club" : "fist";
 const riseMind = { ...FIGHTER, subs: [{ kind: "staged-rise" }] };
-const suites = ["baseline", "recovery", "strike-block", "bar", "integrated"];
+const suites = ["baseline", "recovery", "strike-block", "bar", "integrated", "reach"];
 
 /** Fully specified starts; a seed selects geometry, not a hidden source of simulation noise. */
 export function foundationJobs({ suite = "baseline", split = "development", samples = FOUNDATION.samples,
@@ -33,6 +39,7 @@ export function foundationJobs({ suite = "baseline", split = "development", samp
   if (!Number.isSafeInteger(samples) || samples < 1 || !Number.isSafeInteger(from) || from < 0
     || from + samples > FOUNDATION.maximumSamples) throw new Error("sample range must stay within its split");
   if (!Number.isSafeInteger(hz) || hz < 120 || hz % 120 !== 0) throw new Error("hz must be a positive multiple of 120");
+  if (suite === "reach" && hz !== 120) throw new Error("the reach environment runs at 120 Hz");
   if (!models.length || new Set(models).size !== models.length || models.some((m) => !BODY_MODELS.includes(m))) throw new Error("models must name distinct known bodies");
   const jobs = [];
   const add = (job) => {
@@ -46,6 +53,10 @@ export function foundationJobs({ suite = "baseline", split = "development", samp
       const degrees = fraction * 360;
       const gap = 3 + fraction * 2;
       const common = { model, held, seed };
+      if (suite === "reach" && held === "empty") for (const controller of ["actuator", "layered"])
+        add({ ...common, task: "reach", controller, channel: "elbow.right flexion", target: [0.5, 0.7],
+          pin: "lowerTrunk", gravity: true, servoSeconds: 0.1, tolerance: 0.025, holdSteps: 120,
+          policyPeriodSteps: 4, maxSteps: 360, speed: 3 });
       if (["baseline", "recovery"].includes(suite)) for (const recovery of ["lie", "staged-rise"])
         add({ ...common, task: "recovery", recovery, degrees, impulse: 1.5, watch: FOUNDATION.watch });
       if (["baseline", "strike-block"].includes(suite)) {
@@ -213,7 +224,35 @@ export async function foundationTrial(job) {
     case "recovery": return recoveryTrial(job);
     case "strike": return strikeTrial(job);
     case "bout": return boutTrial(job);
+    case "reach": return reachTrial(job);
     case "unsupported": return { status: "unsupported", reason: job.capability };
     default: throw new Error(`unknown foundation task ${job.task}`);
   }
+}
+
+async function reachTrial(job) {
+  const engine = await freshEngine(), rendering = new NullEngine(), scene = new Scene(rendering);
+  let readings;
+  const config = { model: job.model, controller: job.controller, actuation: job.actuation, gravity: job.gravity,
+    pin: job.pin, channel: job.channel, target: job.target, servoSeconds: job.servoSeconds,
+    tolerance: job.tolerance, holdSteps: job.holdSteps, engineRevision: engine.revision };
+  const environment = createEnvironment(config, (settings, random) => {
+    const task = createReachTask(scene, engine, settings, random);
+    readings = meter([task.body.built], [task.body]);
+    instrument(task.world, readings);
+    return task;
+  }, { policyPeriodSteps: job.policyPeriodSteps, maxSteps: job.maxSteps });
+  try {
+    let result = environment.reset(job.seed);
+    const goal = result.observation.goal, frames = [];
+    while (!result.terminated && !result.truncated && result.invalid === null) {
+      if (result.decisionDue) environment.act(reachAction(result.observation, job.controller, job.servoSeconds, job.speed));
+      result = environment.step(1);
+      frames.push(reachFrame(result));
+    }
+    return { status: "measured", outcome: { goal, seconds: result.steps / 120, steps: result.steps,
+      terminated: result.terminated, truncated: result.truncated, invalid: result.invalid, ...result.metrics,
+      observationDigest: createHash("sha256").update(frames.join("\n")).digest("hex") }, ...readings.row(),
+      limits: ["pinned lower trunk: no standing or combat claim", "pin reactions and actuator work are not measured"] };
+  } finally { environment.dispose(); scene.dispose(); rendering.dispose(); }
 }

@@ -28,6 +28,9 @@ import { turnAboutToRef } from "../math/turn.ts";
  */
 type Rapier = typeof RAPIER;
 
+/** Vendor archive identity (`docs/reference/rapier-vendor.md`) and the adapter's snapshot contract. */
+const REVISION = "rapier/adapter-1/sha256:2787130f67465fa8fb07bf4217b0b2fab1681a416b99668ac831e1129b810122";
+
 /**
  * Rapier's wasm, loading or loaded: one instance a realm. Rapier's own `init` asked again while
  * its first call is still loading makes a second instance and turns the module to it, and a world
@@ -44,7 +47,7 @@ export function rapierModule(): Promise<Rapier> {
 /** **Rapier as the core's engine**, its wasm loaded. */
 export async function loadRapier(): Promise<PhysicsEngine> {
   const R = await rapierModule();
-  return { name: "rapier", createPhysics: (options) => createRapierPhysics(R, options) };
+  return { name: "rapier", revision: REVISION, createPhysics: (options) => createRapierPhysics(R, options, REVISION) };
 }
 
 /**
@@ -98,7 +101,7 @@ interface RapierPhysics extends PhysicsWorld {
 }
 
 /** A Rapier world with the core's gravity and solver settings. */
-export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions): RapierPhysics {
+export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, revision = "unidentified-rapier"): RapierPhysics {
   const g: Vec3 = gravity ? [0, -STANDARD_GRAVITY.value, 0] : [0, 0, 0];
   let raw = new R.World({ x: g[0], y: g[1], z: g[2] });
   raw.timestep = 1 / hz;
@@ -227,7 +230,7 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions):
   };
 
   const physics: RapierPhysics = {
-    engine: "rapier", rapier: R, get raw() { return raw; }, gravity: g,
+    engine: "rapier", revision, rapier: R, get raw() { return raw; }, gravity: g,
     save() {
       // Rapier's snapshot, after the count of bodies and each node's pose as it stands: the solver
       // holds a pose in single precision, and a node before its first step is as it was built.

@@ -182,3 +182,48 @@ not implicit in replacing a body interface. Under the adapter, all 138 screening
 stock exactly, excluding timing and task-ID metadata. Harness: Node 24.19.0, core world,
 Rapier 0.21.0-auto-rpg.2, symmetric actuation, 120 Hz, four workers, balance 0%, no weapon
 assist; source SHA256 `f9298bba5c42a69248feeb172eee5100825f65a2559fd0a0b6c2400dfe8f8844`.
+
+## Shared environment and browser parity
+
+`createEnvironment` supplies seeded reset, detached observation, checked actions, fixed 120 Hz
+physics with integer policy periods, save/load and disposal. Actions are held between decisions.
+Termination means the task succeeded or ended by its rules; truncation means the declared step
+budget expired; invalid simulation has a separate reason and is not either success or timeout.
+Replay restores RNG, held actions, decision phase and task/controller/physics state, including
+after a reset to another seed. A snapshot of a different solver artifact, actuator law, anatomy
+or task/controller configuration is refused without replacing the live episode.
+
+The shared `tasks/reach.ts` fixture pins the lower trunk, with gravity and no ground. Its
+goal is right-elbow flexion uniformly selected in [0.5, 0.7) rad by the seeded stream. The
+criterion, fixed before this screening, is error at most 0.025 rad for 120 consecutive steps
+within 360 steps. These are engineering fixture settings, not anatomy or gameplay timing.
+Policy decisions are every 4 steps (30 Hz). Direct feedback asks for at most 3 rad/s with
+0.1 s error decay and full activation. Layered control accepts posture goals and uses the
+0.1 s joint servo. Both use directional actuation and no root/weapon assist. Pin reactions
+are external constraints and are not metered; this fixture makes no standing claim.
+
+```powershell
+node research/control-foundation.mjs --suite reach --actuation directional --from 42 --samples 1 --workers 4
+```
+
+Harness: Node 24.19.0 and Chrome on the visible built `/control-foundation.html` page,
+Rapier 0.21.0-auto-rpg.2, 120 Hz, development seed 42. The target is
+0.6202207503840327 rad. The browser's **Verify replay** saves at step 14, between policy
+decisions, and repeats the rest of the trial from that state. Every cell matches both its
+own replay and Node's full observation SHA256, including negative zero. The page's step,
+save and restore controls also restore a single-step branch. No browser errors or warnings
+were reported. [Manifest and physical rows](control-foundation-reach.json); source SHA256
+`bb99d0e76d963a5c7f262fb41c3ab537845ff4b7223795893630317e45b88ae2`.
+
+| Body | Controller | Success step | Full observation SHA256 in Node and Chrome |
+|---|---|---|---|
+| Warrior | actuator | 161 | `3e41072fb20711e879bafa165c8afc4aba0398a1b7f6548fd4547d433bdd19a7` |
+| Warrior | layered | 179 | `d5b7ef7d89f0006e720290f8b32f113388dcba9f95b92ff3c8372904dafe8651` |
+| Rogue | actuator | 162 | `7e42e9475ec0ac38de9d7ffff65c42be71c7554779bd2842a388fe46ab05dadc` |
+| Rogue | layered | 180 | `b43f201c672ce3ba06116fe9103a94b46f267a193a585e1eafdd4f5f2ed5bf1c` |
+| Skeleton | actuator | 161 | `fdbd3c53ae22119802cc198782658fbc5f1c9fb3de9b30733baf2121b78985c8` |
+| Skeleton | layered | 179 | `a38550ae9268b35035953e7b9c6b0c7fd6d09d85ed23aa5bde0f626acd884c18` |
+
+This is a reproducibility and replaceability check, not a ranking of controllers. The skeleton
+still has placeholder anatomy. Held-out starts remain unused; recovery, shared equipment and
+integrated gameplay gates remain open.

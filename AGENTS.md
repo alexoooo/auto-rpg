@@ -30,6 +30,7 @@ works in dev and is absent from `dist`.
   (`src/dungeon/`); the lab at `?play=lab` (`&scenario=` runs one, `src/lab/scenarios.ts`).
   Each screen is a `<template>` mounted once per page load; changing screen is a navigation.
 - `/character-lab.html`: the character workshop viewer.
+- `/control-foundation.html`: shared pinned-reach task and environment replay (`src/control-foundation/`, `src/core/tasks/`).
 - `/physics-bench.html`: the physics bake-off's cases on MuJoCo and Rapier (`src/physics-bench/`,
   `research/physics-bakeoff/`).
 

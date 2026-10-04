@@ -40,7 +40,7 @@ shared two-handed items are its capability gates; the reference control stack re
   the muscles, sub-minds, a mind made from its config, senses, a person's orders, an assist whose ceiling is the character's balance, a
   bout that saves, loads and forks ([architecture](architecture.md#state)), and an oracle. Not
   built: a learned mind (a recipe names each side's mind by its config, `DuelRecipe.minds`, and
-  the fighter is the one kind there is); sight that is blocked (the senses pass
+  the fighter and an independent joint-feedback mind are available); sight that is blocked (the senses pass
   every body whatever stands between); a library for a body of another shape behind the same
   seam.
 - The owner's to choose, each landed at its default:

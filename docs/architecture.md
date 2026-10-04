@@ -411,6 +411,33 @@ The lab
 has tactics of its own:
 `stanceTactics` (the keys), `trackTactics` (the Run), `routineTactics` and `attackOnce`.
 
+## Research environments
+
+`createEnvironment` (`src/core/tasks/environment.ts`) wraps a `WorldTask` factory over the
+same core world. Its configuration is copied, frozen finite JSON. `reset(seed)` builds an
+episode with an explicit Mulberry32 word; `observe()` returns measurements and task metrics;
+`act(action)` accepts a copied, validated action only at an integer policy boundary. Physics
+remains 120 Hz. `step()` advances to the next boundary; an explicit step count can stop between
+boundaries or cross them while holding the last action. Rewards belong to consumers.
+
+Task termination, time-limit truncation and invalid simulation are separate results. Ended
+episodes refuse further actions/steps but still allow observation, save, reset and disposal.
+Snapshots include the task, controller, world clock, RNG, elapsed policy clock and held action,
+plus physics bytes. Load constructs a candidate from the saved seed, verifies the complete
+configuration identity, restores it and only then replaces the live episode. A fresh environment
+can load directly; a rejected load leaves the current episode intact. The identity includes
+resolved anatomy, task/controller settings, rate, actuation, gravity and solver artifact/adapter
+revision. The snapshot is structured data and bytes, not a JSON-only serialization format.
+
+`createReachTask` (`tasks/reach.ts`) is the Node/browser builder for a pinned joint reach. It
+supports actuator actions through the detached policy port or posture actions through the
+layered body, with the same task goal and hold criterion. The optional `reachAction` demonstration
+policy consumes observations alone. `research/control-foundation.mjs --suite reach` and
+`/control-foundation.html` use this builder and the same environment. The page renders task
+bodies through the trusted factory; its policy gets no physical handles. The visible Chrome
+and Node observation traces match for the recorded six fixtures
+([record](reference/control-foundation.md#shared-environment-and-browser-parity)).
+
 ## One world step
 
 `createWorld(scene, engine)` (`src/core/world.ts`) makes the world: one fixed step at 120 Hz

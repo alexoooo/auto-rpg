@@ -129,6 +129,10 @@ had a click or a key.
 
 ## The other pages
 
+- **Control foundation** (`/control-foundation.html`, linked from the Lab): compare direct
+  actuator feedback with the layered servo on a pinned reach task. Step, save, restore and
+  verify replay on any of the three bodies. This is a controller/research fixture, not a test
+  of standing or combat.
 - **The character workshop** (`/character-lab.html`): the Warrior's and Rogue's workshop models
   with every loadout and their authored preview motion. Drag to orbit, right-drag to pan, scroll
   to zoom; **Inspect grip** frames the equipped hand.
