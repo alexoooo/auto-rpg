@@ -223,19 +223,18 @@ All of it on a physically based core, humans first ([architecture](architecture.
 - Rising after a fall is built to the feet, and for the lab alone (its Character section's
   "Down"). A fallen body rolls onto its front, comes onto knees and hands, kneels up, steps to a
   half kneel and lunges onto both feet, where its stance has it. On the battery of falls the
-  Warrior with nothing in its hands rises from three falls of four (96 of 127 shoves, 97 up at
-  the end of 40 s), with the club from 8 of 121, and the Rogue and the skeleton from none
+  Warrior rises from seven falls of eight with nothing in its hands (112 of 127 shoves, 110 up at
+  the end of 40 s) and from more than three of four with the club (94 of 121, 97 up), every way
+  of lying at half or more; the Rogue from 6 of 32 falls and the skeleton from 1
   ([reference/rising.md](reference/rising.md#staged)). In a fight a fallen body still lies
   (`lie`) and is out of it. Open, each with its readings in the record
   ([reference/rising.md](reference/rising.md#where-the-rise-stops)):
-  - the kneel-up goes down forward out of `arms` or `hold` in six of the nine forward topples
-    read;
-  - the club stalls at the half kneel: a slower step lifts it five times as often, and costs the
-    empty hand a third of its rises;
-  - the Warrior lying on its left rises from 2 falls of 10;
-  - on three limbs the centre of mass stops short of its place;
-  - the Rogue comes into the kneel-up and no further, and on a stiff topple its arms do not raise
-    its chest: it wants a recipe of its own;
+  - the kneel-up goes down forward in two of the nine forward topples read: the body rocks onto
+    its knees, the shins lifting, as the hips straighten over the line of the knees;
+  - on three limbs the centre of mass stops short of its place, and a stage on both shins goes
+    no further;
+  - the Rogue's arms do not raise its chest, so fallen forward it is given up at `fours`, and
+    with no `fours` its trunk stays down: it wants a recipe of its own;
   - the skeleton is not turned over by the humans' roll, and from its front goes down in the
     half kneel;
   - held still, the Warrior's body allows every waypoint but four lift-offs: sitting back (the

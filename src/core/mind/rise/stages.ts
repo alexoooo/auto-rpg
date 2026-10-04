@@ -223,10 +223,13 @@ const FOURS = {
   "elbow.@ flexion": 0.3, "wrist.@ flexion": -0.8, "hip.@ flexion": 1.9, "knee.@ flexion": 2.4, "ankle.@ dorsiflexion": 0.38,
 };
 
-/** Sat back on the heels from the knees, the hands off the ground (`docs/reference/rising.md#the-kneel-up`). */
+/**
+ * Sat back on the heels from the knees, the hands off the ground, and the toes let a little out
+ * from under the feet, which the tall stages tuck again (`docs/reference/rising.md#the-kneel-up`).
+ */
 const SIT = {
   "lumbar flexion": -0.2, "shoulder.@ flexion": 0.6, "shoulder.@ abduction": 0.2, "wrist.@ flexion": -1, "hip.@ flexion": 2, "knee.@ flexion": 2.55,
-  "ankle.@ dorsiflexion": 0.389,
+  "ankle.@ dorsiflexion": -0.4,
 };
 /** Upright on the knees, the trunk over them (`docs/reference/rising.md#the-kneel-up`). */
 const KNEEL = { ...SIT, "neck flexion": -0.29, "thoracic flexion": 0.12, "lumbar flexion": 0.18, "hip.@ flexion": 0.4 };
@@ -243,10 +246,11 @@ const SHIFT = { ...TALL, "lumbar lateral flexion right": 0.05, "hip.left abducti
 const LIFT = { ...SHIFT, "lumbar flexion": -0.2, "hip.left flexion": 0.35, "hip.left abduction": 0.17, "knee.left flexion": 2.56, "ankle.left dorsiflexion": -0.85 };
 /** The left thigh swung forward (`docs/reference/rising.md#the-step`). */
 const SWING_THROUGH = { ...LIFT, "hip.left flexion": 1.8, "hip.left abduction": 0.1 };
-/** The left foot turned up to land on its sole (`docs/reference/rising.md#the-step`). */
-const FLIP = { ...SWING_THROUGH, "ankle.left dorsiflexion": 0.38 };
-/** The left foot reached out and down ahead, onto its sole (`docs/reference/rising.md#the-step`). */
-const REACH = { ...FLIP, "hip.left abduction": 0.56, "knee.left flexion": 2, "ankle.left dorsiflexion": 0.389, "ankle.left inversion": 0.56 };
+/**
+ * The left foot reached out and down ahead, still pointed, so that it comes down on its toes
+ * (`docs/reference/rising.md#the-step`).
+ */
+const REACH = { ...SWING_THROUGH, "hip.left abduction": 0.56, "knee.left flexion": 2, "ankle.left inversion": 0.56 };
 /**
  * Half kneeling, on the right knee and the left sole: the posture the statics find holds it at the
  * least share of its strength, but the left ankle, which is asked toward where the stand leaves it
@@ -369,8 +373,7 @@ export const RISE: Recipe = deepFreeze({
     // The step: the weight onto the right knee, and the left foot brought through and set down ahead.
     { kind: "pose", name: "shift", posture: bothSides(SHIFT), seconds: 0.6 },
     { kind: "pose", name: "lift", posture: bothSides(LIFT), seconds: 0.35, drive: QUICK },
-    { kind: "pose", name: "swing", posture: bothSides(SWING_THROUGH), seconds: 0.3, drive: QUICK },
-    { kind: "pose", name: "flip", posture: bothSides(FLIP), seconds: 0.12, drive: QUICK },
+    { kind: "pose", name: "swing", posture: bothSides(SWING_THROUGH), seconds: 0.42, drive: QUICK },
     { kind: "pose", name: "reach", posture: bothSides(REACH), seconds: 0.25, drive: QUICK },
     // Half kneeling, borne on the right shin and the left foot; then the weight onto the right
     // toes. Neither leaves the body a height or the pelvis a pitch of its own.

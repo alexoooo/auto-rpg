@@ -328,12 +328,15 @@ watch. In brackets: the falls up at the end that the game's numbers leave down, 
 it has up that the changed number leaves down. One fall of the 128 with nothing in its hands,
 and seven with the club, do not go down.
 
-| `TAKES_SECONDS` | empty, of 127 | club, of 121 | the worst asked of the ground beyond the soles, weights |
+| `TAKES_SECONDS` | empty, of 127 | club, of 121 | the worst asked of the ground beyond the soles, weights, empty and club |
 |---|---|---|---|
-| none drawn | 60, 60 (+6 -43) | 7, 9 (+7 -6) | 4.7 |
-| 0.05 | 75, 72 (+10 -35) | 7, 6 (+4 -6) | 9.6 |
-| **0.1** | 96, 97 | 8, 8 | 6.9 |
-| 0.2 | 88, 90 (+8 -15) | 17, 15 (+12 -5) | 0.8 |
+| none drawn | 113, 114 (+12 -8) | 89, 96 (+10 -11) | 0.9, 0.8 |
+| 0.05 | 88, 74 (+8 -44) | 87, 82 (+9 -24) | 6.8, 4.6 |
+| **0.1** | 112, 110 | 94, 97 | 5.2, 0.8 |
+| 0.2 | 111, 112 (+9 -7) | 100, 100 (+11 -8) | 0.9, 2.8 |
+
+0.05 s loses a third of the falls with nothing in the hands; from 0.1 s to none drawn, the cells
+differ by a few falls each way, which these falls cannot tell from none, so 0.1 s stays.
 
 Read on the Warrior, on its knees and hands: each shin is propped (it bears from the knee back
 0.41 m) and each hand lies flat. The skeleton's feet do not prop its shins there (no corner of
@@ -450,15 +453,14 @@ and the riser lies slack and begins another from the body as it is. On the batte
 
 | `RAISED`, m | empty, of 127 | club, of 121 |
 |---|---|---|
-| no abort | 89, 91 (+2 -8) | 9, 8 (+5 -5) |
-| 0.05 | 3, 3 (+0 -94) | 1, 1 (+0 -7) |
-| **0.1** | 96, 97 | 8, 8 |
-| 0.2 | 97, 99 (+2 -0) | 11, 9 (+5 -4) |
+| no abort | 110, 110 (+2 -2) | 94, 95 (+7 -9) |
+| 0.05 | 4, 4 (+0 -106) | 6, 6 (+0 -91) |
+| **0.1** | 112, 110 | 94, 97 |
+| 0.2 | 111, 110 (+1 -1) | 96, 97 (+7 -7) |
 
 At 0.05 m the attempts end in `tuck`: 77 of the 80 falls on the back with nothing in the hands
-get no further. With no abort, a body down again at the half kneel stays there until the stage's
-limit: 17 of those 80 falls end at `half kneel`, against 8 with it. 0.2 m differs from 0.1 m by two
-falls with nothing in the hands, which these falls cannot tell from none, so 0.1 m stays.
+get no further, and 66 of the 74 with the club. With no abort and at 0.2 m the cells differ from
+0.1 m by a few falls each way, which these falls cannot tell from none, so 0.1 m stays.
 
 ### The kneel-up
 
@@ -469,35 +471,88 @@ not name goes to its zero:
 
 | Stage | Posture | Seconds |
 |---|---|---|
-| `sit` | `SIT`: lumbar flexion -0.2, shoulder flexion 0.6, shoulder abduction 0.2, wrist flexion -1, hip flexion 2, knee flexion 2.55, ankle dorsiflexion 0.389 (its stop) | 1 |
+| `sit` | `SIT`: lumbar flexion -0.2, shoulder flexion 0.6, shoulder abduction 0.2, wrist flexion -1, hip flexion 2, knee flexion 2.55, ankle dorsiflexion -0.4 | 1 |
 | `kneel 0` to `kneel 2` | three even steps from `SIT` to `KNEEL`: as `SIT`, but neck flexion -0.29, thoracic flexion 0.12, lumbar flexion 0.18, hip flexion 0.4 | 0.25 each |
 | `arms`, `hold` | `KNEEL_ARMS`: as `KNEEL`, and shoulder flexion -0.09, shoulder abduction 0.28, shoulder internal rotation 0.54, elbow flexion 1.17, wrist flexion -0.04 | 0.3, then 1 |
-| `tall 0` to `tall 2`, `tall` | three even steps from `KNEEL_ARMS` to `TALL`, then `TALL` held: shoulder abduction 0.28, shoulder internal rotation 0.54, elbow flexion 0.3, wrist flexion -0.04, hip flexion 0.25, knee flexion 2.2, ankle dorsiflexion 0.389 | 0.5 each, then 1 |
+| `tall 0` to `tall 2`, `tall` | three even steps from `KNEEL_ARMS` to `TALL`, then `TALL` held: shoulder abduction 0.28, shoulder internal rotation 0.54, elbow flexion 0.3, wrist flexion -0.04, hip flexion 0.25, knee flexion 2.2, ankle dorsiflexion 0.389 (its stop) | 0.5 each, then 1 |
 
-Each number was set by hand and read on the stand, not swept. The Warrior shoved 350 degrees
-about up (a forward topple a little to its left), at each stage's last step: how it lies, and the
-heights of the centre of mass and of the pelvis's, the upper trunk's and the head's centres of
-mass, m:
+Each number but the ankle's was set by hand and read on the stand, not swept.
+
+**The ankle.** On knees and toes, sat back with the trunk over the thighs, the body has its centre
+of mass over the knees: the front edge of what it stands on. The statics read the stages' angles
+as they are (`statics` and `recordOf`, `research/core-posture-trials.mjs`, on the audit's row
+`kneel`, the posture put on the ground by its height and pitch alone, which leaves `SIT` 4 cm
+off its contacts, so the figures are a rough reading), how far inside its support the centre of
+mass stands, m:
+
+| `SIT`'s ankle, rad | `sit` | `kneel 0` | `kneel 1` | `kneel 2` |
+|---|---|---|---|---|
+| 0.389, the toes tucked under | 0.006 | 0.007 | 0.073 | 0.156 |
+| -0.3 | 0.020 | 0.034 | 0.104 | 0.169 |
+| **-0.4** | 0.025 | 0.043 | 0.114 | 0.168 |
+
+With the toes tucked, the trunk raised from `sit` (`kneel 0` to `kneel 2`) took the centre of
+mass back over the shins in some forward topples and on over the knees in others, at the same
+joint angles to a few hundredths of a radian: the body pitched forward about its knees, and went
+down on its face out of `arms` or `hold`. A slower raise (each `kneel` 0.5 or 0.75 s, or six
+steps of 0.25 or 0.5 s) went down sooner, in the raise itself. The ankle was swept on the battery
+([Staged](#staged), the 128 shoves, as [The limbs](#the-limbs) reads it):
+
+| `SIT`'s ankle, rad | empty, of 127 | club, of 121 |
+|---|---|---|
+| 0.389 | 94, 95 (+7 -22) | 27, 30 (+2 -69) |
+| 0.2 | 96, 97 (+6 -19) | 30, 30 (+1 -68) |
+| 0 | 104, 105 (+8 -13) | 43, 46 (+4 -55) |
+| -0.1 | 102, 103 (+7 -14) | 61, 63 (+4 -38) |
+| -0.2 | 109, 108 (+9 -11) | 79, 78 (+5 -24) |
+| -0.3 | 107, 103 (+6 -13) | 81, 82 (+4 -19) |
+| -0.35 | 106, 103 (+8 -15) | 88, 85 (+4 -16) |
+| **-0.4** | 112, 110 | 94, 97 |
+| -0.45 | 98, 91 (+6 -25) | 98, 101 (+8 -4) |
+| -0.5 | 101, 100 (+7 -17) | 75, 76 (+6 -27) |
+| -0.85 | 35, 36 (+3 -77) | 105, 103 (+11 -5) |
+
+The cells next to a maximum differ from it by a few falls each way, and a sweep's best of
+eleven is partly chance, so the run from -0.3 to -0.45 was read again on 128 other falls: every
+shove turned half a step further (`--turn 1.40625`), of which three with each loadout do not go
+down:
+
+| `SIT`'s ankle, rad | empty, of 125 | club, of 125 |
+|---|---|---|
+| -0.3 | 108, 109 (+6 -8) | 96, 94 (+3 -12) |
+| -0.35 | 114, 110 (+6 -7) | 97, 94 (+4 -13) |
+| **-0.4** | 114, 111 | 102, 103 |
+| -0.45 | 107, 103 (+4 -12) | 111, 107 (+13 -9) |
+
+-0.4 is best or level for the body with nothing in its hands on both sets, and the club's best
+but -0.45, which costs the other loadout eight and seven falls. The club rises more often the
+further the toes are let out, down to -0.85, where the body with nothing in its hands does not;
+why has not been read.
+
+The Warrior shoved 350 degrees about up (a forward topple a little to its left), at each stage's
+last step: how it lies, and the heights of the centre of mass and of the pelvis's, the upper
+trunk's and the head's centres of mass, m:
 
 | Stage | Warrior | skeleton |
 |---|---|---|
 | `fours` | front; 0.34, 0.45, 0.45, 0.38 | front; 0.33, 0.43, 0.44, 0.39 |
-| `sit` | front; 0.38, 0.41, 0.58, 0.72 | front; 0.36, 0.37, 0.56, 0.73 |
-| `kneel 2` | left; 0.52, 0.48, 0.84, 1.06 | right; 0.44, 0.40, 0.73, 0.97 |
-| `arms` | left; 0.53, 0.48, 0.86, 1.09 | left; 0.44, 0.40, 0.73, 0.97 |
-| `hold` | right; 0.51, 0.45, 0.85, 1.09 | right; 0.44, 0.39, 0.73, 0.96 |
-| `tall` | left; 0.55, 0.51, 0.91, 1.15 | right; 0.48, 0.45, 0.78, 1.02 |
+| `sit` | front; 0.38, 0.39, 0.60, 0.75 | front; 0.35, 0.35, 0.56, 0.76 |
+| `kneel 2` | left; 0.51, 0.45, 0.84, 1.07 | right; 0.42, 0.37, 0.71, 0.95 |
+| `arms` | left; 0.49, 0.42, 0.82, 1.06 | right; 0.41, 0.37, 0.70, 0.93 |
+| `hold` | right; 0.48, 0.42, 0.81, 1.05 | right; 0.41, 0.36, 0.69, 0.92 |
+| `tall` | right; 0.55, 0.51, 0.91, 1.15 | right; 0.48, 0.45, 0.78, 1.02 |
 
 The skeleton was read toppled straight forward. A body tall on its knees lies on a side by
 `lieOf`'s reading, since its pelvis's forward is level. **The kneel-up does not hold every forward
-topple.** The Warrior shoved 330, 340, 345, 350, 355, 0, 5, 10 and 15 degrees plays every stage at
-340, 350 and 15. At the other six it goes down on its front out of `arms` (355, 5) or `hold`
-(330, 345, 0, 10), with the centre of mass 0.20 to 0.21 m up at the stage's end.
+topple.** The Warrior shoved 330, 340, 345, 350, 355, 0, 5, 10 and 15 degrees plays every stage of
+the rise in its first attempt, to `even`, at all but 355 and 5, where it goes down on its front
+out of `tall 0` and `hold`.
 
 ### The step
 
 From tall on the knees to a half kneel: the weight goes onto the right knee, the left knee lifts
-and swings through, and the left foot lands flat ahead. Then two bearing stages carry the body on
+and swings through, and the left foot comes down ahead on its toes, still pointed. Then two
+bearing stages carry the body on
 the right shin and the left foot. The step's poses (from the anatomical zero, rad; `@` either side
 where the posture is both sides'):
 
@@ -505,9 +560,8 @@ where the posture is both sides'):
 |---|---|---|---|
 | `shift` | `SHIFT`: as `TALL`, and lumbar lateral flexion right 0.05, left hip abduction 0.15, right hip abduction -0.15 | 0.6 | the pose drive |
 | `lift` | `LIFT`: as `SHIFT`, and lumbar flexion -0.2, left hip flexion 0.35, left hip abduction 0.17, left knee flexion 2.56, left ankle dorsiflexion -0.85 | 0.35 | `QUICK` |
-| `swing` | `SWING_THROUGH`: as `LIFT`, but left hip flexion 1.8, left hip abduction 0.1 | 0.3 | `QUICK` |
-| `flip` | `FLIP`: as `SWING_THROUGH`, but left ankle dorsiflexion 0.38 | 0.12 | `QUICK` |
-| `reach` | `REACH`: as `FLIP`, but left hip abduction 0.56, left knee flexion 2, left ankle dorsiflexion 0.389, left ankle inversion 0.56 | 0.25 | `QUICK` |
+| `swing` | `SWING_THROUGH`: as `LIFT`, but left hip flexion 1.8, left hip abduction 0.1 | 0.42 | `QUICK` |
+| `reach` | `REACH`: as `SWING_THROUGH`, but left hip abduction 0.56, left knee flexion 2, left ankle inversion 0.56 | 0.25 | `QUICK` |
 
 The poses were set by hand and read on the stand, not swept. `QUICK` asks each freedom the speed
 that closes its error in 0.1 s, no faster than 6 rad/s, where the pose drive asks 0.2 s and
@@ -515,14 +569,41 @@ that closes its error in 0.1 s, no faster than 6 rad/s, where the pose drive ask
 
 | `QUICK` | empty, of 127 | club, of 121 |
 |---|---|---|
-| the pose drive | 8, 9 (+7 -95) | 9, 9 (+9 -8) |
-| 4 rad/s, 0.15 s | 60, 62 (+11 -46) | 40, 39 (+35 -4) |
-| 5 rad/s, 0.12 s | 97, 98 (+6 -5) | 18, 15 (+11 -4) |
-| **6 rad/s, 0.1 s** | 96, 97 | 8, 8 |
+| the pose drive | 1, 2 (+0 -108) | 55, 51 (+1 -47) |
+| 4 rad/s, 0.15 s | 45, 55 (+3 -58) | 94, 95 (+4 -6) |
+| 5 rad/s, 0.12 s | 98, 100 (+7 -17) | 96, 95 (+4 -6) |
+| **6 rad/s, 0.1 s** | 112, 110 | 94, 97 |
 
-The slower step lifts the club five times as often, and costs the body with nothing in its hands
-a third of its rises: the step that suits one loadout does not suit the other, and is open
-([Where the rise stops](#where-the-rise-stops)).
+**Toes first.** The left foot comes down pointed, as `LIFT` left it: on its toes, under the
+knee, and it bears on them through `half kneel` (`bearingSole`'s front edge), the ankle ending
+the stage at -0.84 to -0.87 rad (its stop -0.874) in the four topples read for the half kneel's
+ankle below. Turned up in the air to land on its sole (a stage `flip` of 0.12 s between `swing`
+and `reach`, the left ankle dorsiflexed 0.38, and `reach`'s 0.389), the foot with the club in
+the hands came down flat ahead in most topples, and every one that landed it flat went down; with
+nothing in the hands it came down on its toes all the same. The left sole's middle (Node, core
+world, Rapier, 120 Hz), 0.2 s into each `half kneel` begun, the Warrior toppled 180, 170, 160,
+190, 200, 135, 225, 150, 210, 90, 270, 0, 20, 340, 30, 330, 120 and 240 degrees (`half kneel`
+begun once in each topple that reached it; under 0.04 m up is flat, the toes' landing reads 0.14):
+
+| | empty: on its toes, of them to `even` | club: on its toes, of them to `even`; flat, to `even` |
+|---|---|---|
+| `flip` | 17 of 17, 17 | 6 of 16, 3; 10, 0 |
+| **toes first** | 17 of 17, 15 | 16 of 16, 14; none |
+
+On the battery, against the game's step (`swing` takes `flip`'s time):
+
+| The step | empty, of 127 | club, of 121 |
+|---|---|---|
+| `flip` | 110, 109 (+7 -8) | 24, 28 (+1 -70) |
+| `swing` 0.3 s | 100, 102 (+7 -15) | 77, 79 (+1 -19) |
+| **`swing` 0.42 s** | 112, 110 | 94, 97 |
+| `swing` 0.55 s | 92, 92 (+7 -25) | 87, 89 (+7 -15) |
+| `reach`'s left ankle -0.55 | 105, 99 (+4 -15) | 93, 90 (+2 -9) |
+| `reach`'s left ankle -0.2 | 102, 100 (+2 -12) | 93, 92 (+1 -6) |
+
+`reach` asks the left ankle nothing, so it stays at `LIFT`'s -0.85; asked less pointed, it loses
+falls with both loadouts. With the foot on its toes, the step that suits one loadout suits the
+other: the slower `QUICK` lifts the club no higher and costs the body with nothing in its hands.
 
 The bearing stages:
 
@@ -541,31 +622,33 @@ rounded to 0.01 rad, the stops given whole (the right knee's 2.567, the right an
 again by the statics (`statics` and `recordOf`, snapped), the answer holds at 0.034 of the body's
 strength, 0.13 m inside its support. One angle is not the answer's: the left ankle is asked
 -0.55 rad, not 0.389. While the left foot bears, the posture's ankle is read: asked 0.389, the
-ankle stays 1.26 rad short of it on the stand, and on the battery 91 falls with nothing in the
-hands are up at the end, against 97 (+2 -8; club 9 against 8, +4 -3). With -0.55 the statics hold
-the recipe's posture at 0.146.
+ankle ends the stage at -0.86 or -0.87, 1.26 rad short, in three of the four topples read
+(shoved 350, 0, 180 and 170 degrees; at 350 it reads -0.18), and on the battery 94 falls with
+nothing in the hands are up at the end, against 110 (rose 103 against 112, +3 -19; club 88
+against 97, +1 -10). With -0.55 the statics hold the recipe's posture at 0.146.
 
 The shares were read on the battery, as the other numbers:
 
 | `onto the toes`, shin and foot | empty, of 127 | club, of 121 |
 |---|---|---|
-| 0.5, 0.5 | 25, 19 (+2 -80) | 11, 10 (+6 -4) |
-| **0.4, 0.6** | 96, 97 | 8, 8 |
+| 0.5, 0.5 | 26, 13 (+1 -98) | 37, 29 (+2 -70) |
+| **0.4, 0.6** | 112, 110 | 94, 97 |
 
 `BEAR_SECONDS` is the time constant of every bearing stage from the half kneel up, 0.35 s.
 `BEAR_LIMIT`, 4 s, is the longest any of them may take before the attempt is given up:
 
-| `BEAR_SECONDS`, s | empty, of 127 | club, of 121 | the worst asked, weights |
+| `BEAR_SECONDS`, s | empty, of 127 | club, of 121 | the worst asked, weights, empty and club |
 |---|---|---|---|
-| 0.25 | 85, 79 (+3 -21) | 8, 8 (+4 -4) | 14.9 |
-| 0.3 | 95, 89 (+2 -10) | 10, 9 (+3 -2) | 3.7 |
-| 0.325 | 96, 96 (+2 -3) | 10, 9 (+3 -2) | 3.3 |
-| **0.35** | 96, 97 | 8, 8 | 6.9 |
-| 0.375 | 92, 97 (+2 -2) | 6, 7 (+3 -4) | 0.8 |
-| 0.4 | 83, 85 (+0 -12) | 5, 6 (+2 -4) | 3.0 |
-| 0.6 | 6, 4 (+0 -93) | 3, 3 (+2 -7) | 3.0 |
+| 0.25 | 99, 86 (+7 -31) | 62, 65 (+1 -33) | 7.5, 0.8 |
+| 0.3 | 114, 106 (+5 -9) | 88, 87 (+1 -11) | 7.8, 3.5 |
+| 0.325 | 115, 111 (+7 -6) | 93, 90 (+1 -8) | 12.2, 3.0 |
+| **0.35** | 112, 110 | 94, 97 | 5.2, 0.8 |
+| 0.375 | 96, 94 (+5 -21) | 93, 94 (+0 -3) | 3.7, 3.4 |
+| 0.4 | 90, 90 (+5 -25) | 87, 88 (+0 -9) | 9.3, 1.0 |
+| 0.6 | 6, 3 (+0 -107) | 6, 6 (+4 -95) | 0.5, 1.1 |
 
-With `BEAR_LIMIT` at 3 s every fall reads as at 4 s.
+With `BEAR_LIMIT` at 3 s every fall reads as at 4 s. 0.325 s is level with 0.35 s with nothing
+in the hands and loses seven with the club, so 0.35 s stays.
 
 ### The lunge
 
@@ -598,8 +681,8 @@ recipe's rounded postures hold at:
 | `lunge 3` | 0.29 | 0.076 | 554, 221 |
 
 `lunge 0`'s share is not its answer's (0.342): it is `onto the toes`'s, the centre of mass held
-where the stage before left it. On the battery, at its answer's 0.34, 70 falls with nothing in the
-hands are up at the end against 97 (+1 -28; club 8, +1 -1).
+where the stage before left it. On the battery, at its answer's 0.34, 78 falls with nothing in the
+hands are up at the end against 110 (+3 -35; club 77 against 97, +5 -25).
 
 The step, the lunge and the hand-over, read on the Warrior shoved 350 degrees (as
 [The kneel-up](#the-kneel-up)), at each stage's last step:
@@ -607,18 +690,18 @@ The step, the lunge and the hand-over, read on the Warrior shoved 350 degrees (a
 | Stage | lies on its | centre of mass, pelvis, chest, head up, m |
 |---|---|---|
 | `shift` | right | 0.55, 0.50, 0.90, 1.14 |
-| `reach` | left | 0.59, 0.50, 0.90, 1.13 |
-| `half kneel` | left | 0.58, 0.48, 0.88, 1.12 |
-| `onto the toes` | back | 0.56, 0.47, 0.84, 1.07 |
-| `lunge 0` | back | 0.56, 0.47, 0.83, 1.07 |
-| `lunge 1` | back | 0.66, 0.61, 0.90, 1.10 |
-| `lunge 2` | right | 0.76, 0.73, 1.04, 1.21 |
-| `lunge 3` | right | 0.84, 0.82, 1.14, 1.31 |
-| `even` | right | 0.88, 0.87, 1.18, 1.35 |
+| `reach` | left | 0.59, 0.50, 0.89, 1.13 |
+| `half kneel` | back | 0.57, 0.48, 0.87, 1.10 |
+| `onto the toes` | back | 0.57, 0.48, 0.84, 1.07 |
+| `lunge 0` | back | 0.57, 0.48, 0.84, 1.06 |
+| `lunge 1` | back | 0.65, 0.62, 0.90, 1.08 |
+| `lunge 2` | right | 0.76, 0.74, 1.03, 1.20 |
+| `lunge 3` | right | 0.84, 0.83, 1.13, 1.30 |
+| `even` | right | 0.88, 0.87, 1.17, 1.33 |
 
 Standing as built, the Warrior's centre of mass is 1.01 m up and the stance holds it 0.03 m lower
-(`STANCE_LOWER`). The skeleton toppled straight forward plays the step and goes down in
-`half kneel`, its centre of mass 0.32 m up at the stage's end.
+(`STANCE_LOWER`). The skeleton toppled straight forward goes down in the step: its centre of
+mass is 0.47 m up at the end of `reach` and 0.33 m at the end of `half kneel`.
 
 ### The handover
 
@@ -652,23 +735,28 @@ read does better than 0.1 m.
 
 ### Where the rise stops
 
-The Warrior with nothing in its hands stands up. Of 127 shoved falls, watched 40 s, 96 rise and 97
-are up at the end ([Staged](#staged)); of the 30 left down, 12 end their last attempt at the half
-kneel and 10 in the kneel-up. What is open, each read on the stand or the battery above:
+The Warrior stands up with either loadout. Of 127 shoved falls with nothing in its hands, watched
+40 s, 112 rise and 110 are up at the end; with the club, 94 of 121 rise and 97 are up
+([Staged](#staged)). The falls left down end their last attempt at no one stage. What is open,
+each read on the stand or the battery above:
 
-- **The kneel-up falls forward** out of `arms` or `hold` in six of the nine forward topples read
-  ([The kneel-up](#the-kneel-up)): the trunk raised over the knees, with the forearms brought in,
-  is not held over them.
-- **The club stalls at the half kneel**: 8 of 121 falls rise, and 74 of the 113 left down end their
-  last attempt at `half kneel`. A slower step lifts it five times as often and costs the body with
-  nothing a third of its rises ([The step](#the-step)).
+- **The kneel-up does not hold every forward topple**: of the nine read
+  ([The kneel-up](#the-kneel-up)), two go down on the front out of `tall 0` and `hold` in their
+  first attempt. Read at 355 degrees, the body has rocked forward onto its knees by `hold`, the
+  shins up off the ground behind them and the centre of mass over the knees, where at 350 degrees
+  the shins lie on the ground and the centre of mass is 0.24 m behind the knees: the hips
+  straighten while the centre of mass is on the line of the knees, 0.4 cm behind it at the end of
+  `sit`. Asked the arms back in the kneel-up, those two play to `even` and the other seven go
+  down out of `arms` or `hold`.
 - **On three limbs the centre of mass stops short of its place**
-  ([What a bearing stage is done by](#what-a-bearing-stage-is-done-by)), so no stage leaves a hand
-  or a shin by bearing on the other three.
-- **The Rogue and the skeleton do not rise.** The Rogue's arms do not raise its chest
-  ([The pose stages](#the-pose-stages)); on the battery it gets as far as the kneel-up, and once
-  into the step. The skeleton plays the step and goes down in the half kneel, and its roll does not
-  turn it ([Staged](#staged)).
+  ([What a bearing stage is done by](#what-a-bearing-stage-is-done-by)), and a bearing stage on
+  both shins after `kneel 2`, after `hold` or in place of `arms` and `hold` is the furthest any
+  of the nine forward topples gets: no stage leaves a hand or a shin by bearing on the others.
+- **The Rogue rises from 6 of its 32 falls, and the skeleton from 1.** The Rogue's arms do not
+  raise its chest ([The pose stages](#the-pose-stages)): fallen forward, it is given up at `fours`;
+  without `fours`, from `prop` to `sit`, its trunk stays on the ground and the kneel-up lowers its
+  pelvis to 0.22 m. The skeleton plays the step and goes down in the half kneel, and its roll does
+  not turn it ([Staged](#staged)).
 
 What the Warrior's body allows on each way from knees and hands, held still with no controller in
 it, is read in [postures.md](postures.md#the-verdict-by-route).
@@ -806,19 +894,19 @@ over its row of [Driven](#driven).
 
 | falls | of | fell | rose | median s to rise | median peak, m/s | worst asked, weights | median s it last moved | the longest, s | up at the end |
 |---|---|---|---|---|---|---|---|---|---|
-| workshop-fighter, club, shoved | 16 | 15 | 2 | 23.67 | 8.55 | 2.6 | 39.99 | 39.99 | 1 |
-| workshop-fighter, empty, shoved | 16 | 16 | 12 | 23.00 | 4.55 | 2.9 | 30.22 | 39.99 | 11 |
-| workshop-rogue, club, shoved | 16 | 16 | 0 | - | 5.57 | 0.0 | 39.99 | 39.99 | 0 |
-| workshop-rogue, empty, shoved | 16 | 16 | 0 | - | 4.31 | 0.0 | 39.99 | 39.99 | 0 |
+| workshop-fighter, club, shoved | 16 | 15 | 13 | 26.52 | 4.76 | 0.7 | 30.88 | 39.99 | 13 |
+| workshop-fighter, empty, shoved | 16 | 16 | 13 | 23.15 | 4.10 | 5.2 | 28.52 | 39.99 | 11 |
+| workshop-rogue, club, shoved | 16 | 16 | 2 | 29.91 | 6.07 | 0.2 | 39.99 | 39.99 | 2 |
+| workshop-rogue, empty, shoved | 16 | 16 | 4 | 21.27 | 5.88 | 0.2 | 39.99 | 39.99 | 3 |
 | crypt-skeleton, club, shoved | 16 | 16 | 0 | - | 7.37 | 0.0 | 39.99 | 39.99 | 0 |
-| crypt-skeleton, empty, shoved | 16 | 16 | 0 | - | 4.97 | 0.0 | 39.99 | 39.99 | 0 |
-| bouts | 9 | 6 | 1 | 23.32 | 6.16 | 0.4 | 39.99 | 39.99 | 1 |
+| crypt-skeleton, empty, shoved | 16 | 16 | 1 | 19.98 | 4.76 | 0.2 | 39.99 | 39.99 | 1 |
+| bouts | 9 | 6 | 2 | 23.32 | 5.91 | 0.3 | 39.99 | 39.99 | 2 |
 
 | falls, as the body lay | fell | rose | the furthest stage reached | played to the rise's end |
 |---|---|---|---|---|
-| bouts, on its back | 3 | 0 | none: 1, hold: 2 | 0 |
+| bouts, on its back | 3 | 1 | none: 1, hold: 1, even: 1 | 1 |
 | bouts, on its front | 1 | 0 | hold: 1 | 0 |
-| bouts, on its right | 2 | 1 | hold: 1, even: 1 | 1 |
+| bouts, on its right | 2 | 1 | half kneel: 1, even: 1 | 1 |
 | crypt-skeleton, club, shoved, on its back | 12 | 0 | none: 6, tuck: 3, fours: 2, sit: 1 | 0 |
 | crypt-skeleton, club, shoved, on its front | 2 | 0 | none: 1, half kneel: 1 | 0 |
 | crypt-skeleton, club, shoved, on its left | 1 | 0 | none: 1 | 0 |
@@ -826,26 +914,28 @@ over its row of [Driven](#driven).
 | crypt-skeleton, empty, shoved, on its back | 9 | 0 | none: 9 | 0 |
 | crypt-skeleton, empty, shoved, on its front | 3 | 0 | tuck: 1, half kneel: 2 | 0 |
 | crypt-skeleton, empty, shoved, on its left | 2 | 0 | none: 2 | 0 |
-| crypt-skeleton, empty, shoved, on its right | 2 | 0 | none: 1, half kneel: 1 | 0 |
-| workshop-fighter, club, shoved, on its back | 11 | 2 | hold: 1, tall 0: 1, half kneel: 6, lunge 1: 1, lunge 2: 1, even: 1 | 2 |
-| workshop-fighter, club, shoved, on its front | 4 | 0 | half kneel: 4 | 0 |
-| workshop-fighter, empty, shoved, on its back | 10 | 10 | none: 1, even: 9 | 10 |
+| crypt-skeleton, empty, shoved, on its right | 2 | 1 | none: 1, even: 1 | 1 |
+| workshop-fighter, club, shoved, on its back | 11 | 9 | half kneel: 1, lunge 1: 1, even: 9 | 9 |
+| workshop-fighter, club, shoved, on its front | 4 | 4 | even: 4 | 4 |
+| workshop-fighter, empty, shoved, on its back | 10 | 10 | prop: 1, even: 9 | 10 |
 | workshop-fighter, empty, shoved, on its front | 3 | 1 | fours: 1, half kneel: 1, even: 1 | 1 |
 | workshop-fighter, empty, shoved, on its left | 1 | 0 | fours: 1 | 0 |
-| workshop-fighter, empty, shoved, on its right | 2 | 1 | hold: 1, even: 1 | 1 |
-| workshop-rogue, club, shoved, on its back | 12 | 0 | none: 1, fours: 1, hold: 9, tall 0: 1 | 0 |
-| workshop-rogue, club, shoved, on its front | 3 | 0 | hold: 2, reach: 1 | 0 |
+| workshop-fighter, empty, shoved, on its right | 2 | 2 | prop: 1, even: 1 | 2 |
+| workshop-rogue, club, shoved, on its back | 12 | 1 | none: 1, fours: 1, tall 0: 1, half kneel: 5, lunge 1: 2, lunge 2: 1, even: 1 | 1 |
+| workshop-rogue, club, shoved, on its front | 3 | 1 | half kneel: 1, lunge 1: 1, even: 1 | 1 |
 | workshop-rogue, club, shoved, on its left | 1 | 0 | hold: 1 | 0 |
-| workshop-rogue, empty, shoved, on its back | 14 | 0 | none: 1, fours: 3, hold: 10 | 0 |
-| workshop-rogue, empty, shoved, on its front | 1 | 0 | hold: 1 | 0 |
-| workshop-rogue, empty, shoved, on its left | 1 | 0 | hold: 1 | 0 |
+| workshop-rogue, empty, shoved, on its back | 14 | 4 | none: 1, fours: 3, hold: 1, half kneel: 4, lunge 1: 1, lunge 3: 1, even: 3 | 3 |
+| workshop-rogue, empty, shoved, on its front | 1 | 0 | lunge 2: 1 | 0 |
+| workshop-rogue, empty, shoved, on its left | 1 | 0 | shift: 1 | 0 |
 
 "The furthest stage" is the last attempt's, as the watch ends; a body that rose and went down
 again may have begun another.
 
-**The bar is missed.** The Warrior with nothing in its hands meets it: 12 of 16 falls rise and 11
-are up at the end. With the club 2 of 15 rise, the Rogue and the skeleton none, and 1 of the 6
-bouts' falls. Nothing is flung: the median peaks are 4.3 to 8.6 m/s where the driven body's are
+**The bar is missed**, by the Rogue and the bouts. The Warrior meets it with each loadout: 13 of
+16 falls rise with nothing in its hands (11 up at the end) and 13 of 15 with the club. Its one
+fall on its left with nothing in its hands does not rise, which the 128 shoves below read as 8 of
+10. The Rogue rises from 4 and 2 of its 16 falls, the skeleton from 1 of 32, and 2 of the 6 bouts'
+falls rise. Nothing is flung: the median peaks are 4.1 to 7.4 m/s where the driven body's are
 10 to 15.
 
 The Warrior's 16 falls a loadout tell little, so the battery was read with 128 shoves a loadout,
@@ -857,32 +947,34 @@ node research/core-rise.mjs --workers 30 --watch 40 --shoves 128 --only workshop
 
 | falls | of | fell | rose | median s to rise | median peak, m/s | worst asked, weights | median s it last moved | the longest, s | up at the end |
 |---|---|---|---|---|---|---|---|---|---|
-| workshop-fighter, club, shoved | 128 | 121 | 8 | 25.15 | 8.32 | 3.5 | 39.99 | 39.99 | 8 |
-| workshop-fighter, empty, shoved | 128 | 127 | 96 | 22.74 | 4.47 | 6.9 | 28.85 | 39.99 | 97 |
+| workshop-fighter, club, shoved | 128 | 121 | 94 | 25.30 | 4.75 | 0.8 | 30.57 | 39.99 | 97 |
+| workshop-fighter, empty, shoved | 128 | 127 | 112 | 22.58 | 4.09 | 5.2 | 27.53 | 39.99 | 110 |
 
 | falls, as the body lay | fell | rose | the furthest stage reached | played to the rise's end |
 |---|---|---|---|---|
-| workshop-fighter, club, shoved, on its back | 74 | 5 | none: 2, arms: 1, hold: 9, tall 0: 2, tall 1: 3, tall: 1, swing: 1, half kneel: 47, onto the toes: 1, lunge 1: 2, lunge 2: 1, even: 4 | 5 |
-| workshop-fighter, club, shoved, on its front | 35 | 2 | fours: 1, kneel 2: 1, arms: 1, hold: 5, tall: 1, half kneel: 22, lunge 1: 1, lunge 3: 1, even: 2 | 2 |
-| workshop-fighter, club, shoved, on its left | 8 | 1 | fours: 1, hold: 3, half kneel: 3, even: 1 | 1 |
-| workshop-fighter, club, shoved, on its right | 4 | 0 | hold: 1, shift: 1, half kneel: 2 | 0 |
-| workshop-fighter, empty, shoved, on its back | 80 | 66 | none: 1, fold: 1, hold: 2, tall 0: 1, half kneel: 8, lunge 1: 1, lunge 3: 1, even: 65 | 66 |
-| workshop-fighter, empty, shoved, on its front | 27 | 21 | fours: 1, hold: 2, half kneel: 2, lunge 2: 1, even: 21 | 21 |
-| workshop-fighter, empty, shoved, on its left | 10 | 2 | none: 1, fours: 1, hold: 1, tall 0: 1, tall: 1, half kneel: 1, lunge 3: 1, even: 3 | 2 |
-| workshop-fighter, empty, shoved, on its right | 10 | 7 | hold: 2, half kneel: 1, even: 7 | 7 |
+| workshop-fighter, club, shoved, on its back | 74 | 59 | none: 2, arms: 1, tall 1: 1, swing: 1, half kneel: 2, lunge 1: 5, lunge 2: 1, lunge 3: 1, even: 60 | 59 |
+| workshop-fighter, club, shoved, on its front | 35 | 26 | fours: 1, arms: 2, hold: 1, half kneel: 3, lunge 1: 1, even: 27 | 26 |
+| workshop-fighter, club, shoved, on its left | 8 | 7 | fours: 1, even: 7 | 7 |
+| workshop-fighter, club, shoved, on its right | 4 | 2 | hold: 1, tall: 1, even: 2 | 2 |
+| workshop-fighter, empty, shoved, on its back | 80 | 72 | prop: 2, fours: 1, half kneel: 3, lunge 1: 1, lunge 2: 1, lunge 3: 1, even: 71 | 72 |
+| workshop-fighter, empty, shoved, on its front | 27 | 24 | fours: 1, half kneel: 1, lunge 2: 1, even: 24 | 24 |
+| workshop-fighter, empty, shoved, on its left | 10 | 8 | none: 1, prop: 1, fours: 1, even: 7 | 8 |
+| workshop-fighter, empty, shoved, on its right | 10 | 8 | prop: 1, swing: 1, half kneel: 1, even: 7 | 8 |
 
 What the rows say of the falls:
 
-- **The Warrior with nothing in its hands rises from three falls of four**: 96 of 127, 97 up at
-  the end, in a median 22.7 s from the fall. From its back 66 of 80 rise, from its front 21 of 27,
-  from its right 7 of 10, from its left 2 of 10: **its left side is under half**, so the bar's
-  "no way of lying under half" is missed by this body too.
-- **With the club it stalls at the half kneel**: 74 of the 113 falls left down end their last
-  attempt there ([Where the rise stops](#where-the-rise-stops)).
-- **The Rogue** comes to its knees and hands and into the kneel-up, and once into the step: 29 of
-  its 32 falls end their last attempt at `fours` or in the kneel-up.
+- **The Warrior rises from seven falls of eight with nothing in its hands, and from more than
+  three of four with the club**: 112 of 127 and 94 of 121, 110 and 97 up at the end, in a median
+  22.6 and 25.3 s from the fall. Every way of lying rises at half or more: with nothing in its
+  hands, from its back 72 of 80, its front 24 of 27, its left 8 of 10 and its right 8 of 10; with
+  the club 59 of 74, 26 of 35, 7 of 8 and 2 of 4.
+- **The falls it does not rise from** end their last attempt anywhere from `prop` to `lunge 3`;
+  the most at one stage are 5 of the 15 with nothing in its hands at `half kneel`, and 6 of the
+  27 with the club at `lunge 1` ([Where the rise stops](#where-the-rise-stops)).
+- **The Rogue** rises from 6 of its 32 falls. Of the others, 10 end their last attempt at the half
+  kneel and 7 in the lunge.
 - **The skeleton**: its roll does not turn it (15 of its 21 falls on the back begin no stage of the
   rise), and from its front it goes down in the half kneel.
-- **The bouts**: 1 of 6 falls rises, from its right side; four of the other five end at `hold`.
+- **The bouts**: 2 of 6 falls rise; of the others, two end at `hold`.
 
 What a rising body costs a step is in `play.md#bodies-in-the-step`.

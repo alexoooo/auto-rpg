@@ -321,8 +321,9 @@ a riser refuses such a recipe as it is made. What a riser remembers (its phase, 
 stage, its attempts and the furthest it got) is its state under its mind's. The game's recipe
 goes from the front to the feet: onto knees and hands, a kneel-up, a step to a half kneel and a
 lunge onto both feet, where its host's stance has the body and the locomotion skill, resumed,
-stands it at the stance's height and squares its feet. It stands the Warrior with nothing in its
-hands from three falls of four, and not the Rogue or the skeleton
+stands it at the stance's height and squares its feet. It stands the Warrior from seven falls of
+eight with nothing in its hands and more than three of four with the club, the Rogue from one
+fall of five and the skeleton from almost none
 ([reference/rising.md](reference/rising.md#where-the-rise-stops)).
 
 `Tactics` (`tactics.ts`) are `decide(sight, dt)`: from their `Sight` (the body's view, the

@@ -10,11 +10,12 @@
  * reached, and how many played the rise to its end.
  *
  *   node research/core-rise.mjs [--workers 12] [--mind '<MindConfig JSON>'] [--watch 15] [--only <text>]
- *     [--shoves 16] [--falls]
+ *     [--shoves 16] [--turn 0] [--falls]
  *
  * With `--mind` every body has that mind in place of the game's (`FIGHTER`); with `--watch` each
  * fall is watched that many seconds in place of `WATCH_SECONDS`; with `--only`, only the cells
- * whose name holds the text are run; with `--shoves`, each model is shoved that many ways; with `--falls`, a last table
+ * whose name holds the text are run; with `--shoves`, each model is shoved that many ways; with `--turn`, every shove is
+ * turned that many degrees further, a fresh set of falls to replicate a reading on; with `--falls`, a last table
  * has a line for each fall.
  */
 import { Worker } from "node:worker_threads";
@@ -31,12 +32,14 @@ const watch = Number(option("watch", WATCH_SECONDS)), only = option("only", null
 
 /** How many ways a body is shoved, evenly about up, unless `--shoves` says. */
 const SHOVES = Number(option("shoves", 16));
+/** Degrees every shove is turned by, unless `--turn` says. */
+const TURN = Number(option("turn", 0));
 /** How far apart a bout's two stand, m: the arena's. */
 const GAP = 4;
 
 const cells = [];
 for (const model of BODY_MODELS) for (const held of Object.keys(LOADOUTS)) {
-  cells.push({ name: `${model}, ${held}, shoved`, jobs: Array.from({ length: SHOVES }, (_, k) => ({ trial: "shoved", model, held, degrees: k * 360 / SHOVES })) });
+  cells.push({ name: `${model}, ${held}, shoved`, jobs: Array.from({ length: SHOVES }, (_, k) => ({ trial: "shoved", model, held, degrees: TURN + k * 360 / SHOVES })) });
 }
 cells.push({
   name: "bouts",
@@ -74,7 +77,7 @@ const fixed = (value, digits) => value === null ? "-" : Number.isFinite(value) ?
 if (only !== null) cells.splice(0, cells.length, ...cells.filter((cell) => cell.name.includes(only)));
 const jobs = cells.flatMap((cell) => cell.jobs);
 const rows = await run(jobs);
-console.log(`${RISE_HARNESS}; watched ${watch} s from the fall, risen is ${UP_SECONDS} s up running; mind ${given ?? "the game's"}; ${only === null ? "" : `cells holding "${only}"; `}${lanes} workers`);
+console.log(`${RISE_HARNESS}; watched ${watch} s from the fall, risen is ${UP_SECONDS} s up running; mind ${given ?? "the game's"}; ${only === null ? "" : `cells holding "${only}"; `}${TURN === 0 ? "" : `shoves turned ${TURN} degrees; `}${lanes} workers`);
 console.log("| falls | of | fell | rose | median s to rise | median peak, m/s | worst asked, weights | median s it last moved | the longest, s | up at the end |");
 console.log("|---|---|---|---|---|---|---|---|---|---|");
 let at = 0;
