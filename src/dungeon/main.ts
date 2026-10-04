@@ -34,6 +34,7 @@ import { generateCryptDungeon } from "./crypt-dungeon.ts";
 import { referenceChamber, REFERENCE_CAMERA, REFERENCE_TORCHES } from "./reference.ts";
 import { dressReference, type ReferenceQuality } from "./reference-look.ts";
 import { need } from "../dom.ts";
+import { showHeroLineup } from "./hero-lineup.ts";
 
 type DungeonScenario = "generated" | "reference" | "random-crypt";
 
@@ -69,9 +70,10 @@ function pauseTitle(status: RunStatus, party: number): string {
 }
 
 const canvas = need<HTMLCanvasElement>("dungeon"), start = need<HTMLButtonElement>("start");
-const heroBuild = need<HTMLSelectElement>("hero-build"), seedInput = need<HTMLInputElement>("seed");
+const heroChoices = need("hero-choices"), seedInput = need<HTMLInputElement>("seed");
 const keyboard = need<HTMLInputElement>("keyboard"), facing = need<HTMLInputElement>("facing");
-const companionCount = need<HTMLSelectElement>("companions"), partyList = need<HTMLOListElement>("party-list");
+const companionCount = need<HTMLFieldSetElement>("companions"), partyList = need<HTMLOListElement>("party-list");
+const choice = (group: HTMLElement): string => group.querySelector<HTMLInputElement>("input:checked")!.value;
 const randomSeed = () => crypto.getRandomValues(new Uint32Array(1))[0];
 // `?pitch=` in degrees, to compare the camera's elevation against the concept art's steeper view.
 const pitchQuery = Number(new URLSearchParams(location.search).get("pitch"));
@@ -98,31 +100,24 @@ const companionModels = (hero: BodyModel, count: number): BodyModel[] => {
   return Array.from({ length: count }, (_, i) => HEROES[(at + 1 + i) % HEROES.length].model);
 };
 for (const hero of HEROES) {
-  const option = document.createElement("option"); option.value = hero.model; option.textContent = hero.label; heroBuild.append(option);
+  const label = document.createElement("label"), input = document.createElement("input"), name = document.createElement("span");
+  input.type = "radio"; input.name = "hero"; input.value = hero.model; input.checked = hero.model === "workshop-fighter";
+  name.textContent = hero.label;
+  label.append(input, name); heroChoices.append(label);
 }
-// The Warrior leads unless somebody picks another hero.
-heroBuild.value = "workshop-fighter";
 const heroLabel = (model: BodyModel) => HEROES.find(h => h.model === model)?.label ?? model;
 
-// What a workshop hero's skin wears; the skin is appearance only.
-const heroEquipment = need("hero-equipment");
-const worn = (): Clothing => ({ boots: heroEquipment.querySelector<HTMLInputElement>('[data-workshop="boots"]')!.checked,
-  armour: heroEquipment.querySelector<HTMLInputElement>('[data-workshop="armour"]')!.checked });
-const updateEquipment = () => { heroEquipment.hidden = heroBuild.value === "crypt-skeleton"; };
-heroBuild.addEventListener("change", updateEquipment);
-const scenario = need<HTMLSelectElement>("dungeon-scene"), quality = need<HTMLSelectElement>("dungeon-quality");
+const scenario = need<HTMLFieldSetElement>("dungeon-scene"), quality = need<HTMLSelectElement>("dungeon-quality");
 const requestedScene = new URLSearchParams(location.search).get("scene");
-scenario.value = requestedScene === "reference" || requestedScene === "random-crypt" ? requestedScene : "generated";
+const initialScene = requestedScene === "reference" || requestedScene === "random-crypt" ? requestedScene : "generated";
+scenario.querySelector<HTMLInputElement>(`input[value="${initialScene}"]`)!.checked = true;
 quality.value = new URLSearchParams(location.search).get("quality") === "reduced" ? "reduced" : "high";
 const chooseScenario = () => {
-  const reference = usesReferenceLook(scenarioOf(scenario.value));
+  const reference = usesReferenceLook(scenarioOf(choice(scenario)));
   quality.parentElement!.hidden = !reference;
-  if (reference) { companionCount.value = "0"; heroBuild.value = "workshop-fighter"; }
-  updateEquipment();
 };
 scenario.addEventListener("change", chooseScenario);
 chooseScenario();
-updateEquipment();
 
 /** The most real time one frame steps the world through, s: a page that falls behind runs slow rather than in a burst.
  * A numeric setting. */
@@ -201,7 +196,7 @@ interface DungeonPage {
 function createPage(physicsEngine: PhysicsEngine, skeletonArt: Promise<SkeletonArt>): DungeonPage {
   const engine = new Engine(canvas, true, { stencil: true, antialias: true });
   engine.setHardwareScalingLevel(1 / Math.min(devicePixelRatio, 1.5));
-  const hover = new EnemyHover(), audio = new GameAudio(true);
+  const hover = new EnemyHover(), audio = new GameAudio(true, need("dungeon-sound"));
   const meterElement = need("frame-meter");
   const diagnostics = document.createElement("details"), summary = document.createElement("summary");
   summary.textContent = "Performance";
@@ -385,7 +380,6 @@ async function buildRun(page: DungeonPage, nextSeed: number): Promise<void> {
   if (run.level.solids.length !== solids) {
     throw new Error(`The dungeon's look added ${run.level.solids.length - solids} colliders; cosmetics carry none.`);
   }
-  need("start-panel").hidden = true;
   need("seed-label").textContent = `SEED ${seed}`;
   need("hero-name").textContent = heroLabel(page.selectedHero);
   page.party!.partyRows();
@@ -393,6 +387,9 @@ async function buildRun(page: DungeonPage, nextSeed: number): Promise<void> {
   framing(page);
   run.present();
   lighting.refreshFog(run.explored);
+  showScreen("playing");
+  engine.resize();
+  framing(page);
   scene.render();
   canvas.focus();
   Object.assign(window, { __dungeon: {
@@ -401,23 +398,36 @@ async function buildRun(page: DungeonPage, nextSeed: number): Promise<void> {
   } });
 }
 
+/** Setup and gameplay are separate screens, including the sound controls and keyboard focus. */
+function showScreen(screen: "setup" | "playing"): void {
+  need("start-panel").hidden = screen !== "setup";
+  need("dungeon-play").hidden = screen !== "playing";
+}
+
 /** Builds a run of `nextSeed`, one build at a time. A build that fails leaves the start panel, with the reason. */
 async function launch(page: DungeonPage, nextSeed: number): Promise<void> {
   if (page.launching) return;
   page.launching = true;
   start.disabled = true;
+  start.textContent = "Loading…";
+  need("setup-error").hidden = true;
+  need("start-panel").inert = true;
   try {
     await buildRun(page, nextSeed);
   } catch (error) {
     page.audio.setActive(false);
     teardownRun(page);
-    need("start-panel").hidden = false;
+    showScreen("setup");
     need("pause-panel").hidden = true;
-    need("notice").textContent = `Could not build this dungeon: ${String(error)}`;
+    need("help").hidden = true;
+    need("setup-error").hidden = false;
+    need("setup-error").textContent = `Could not load level: ${String(error)}`;
     console.error(error);
   } finally {
     page.launching = false;
     start.disabled = false;
+    start.textContent = "Start";
+    need("start-panel").inert = false;
   }
 }
 
@@ -435,16 +445,17 @@ function wireControls(page: DungeonPage): void {
   keyboard.addEventListener("change", modeChanged, { signal });
   facing.addEventListener("change", modeChanged, { signal });
   start.disabled = false;
-  start.textContent = "Enter the dungeon →";
+  start.textContent = "Start";
   start.addEventListener("click", () => {
     if (!/^\d{1,10}$/.test(seedInput.value) || Number(seedInput.value) > 0xffffffff) {
+      need<HTMLDetailsElement>("setup-options").open = true;
       seedInput.setCustomValidity("Enter a seed from 0 to 4294967295.");
       seedInput.reportValidity();
       return;
     }
     seedInput.setCustomValidity("");
-    page.selectedHero = heroBuild.value as BodyModel;
-    page.selectedScenario = scenarioOf(scenario.value);
+    page.selectedHero = choice(heroChoices) as BodyModel;
+    page.selectedScenario = scenarioOf(choice(scenario));
     page.reference = usesReferenceLook(page.selectedScenario);
     page.selectedQuality = quality.value === "reduced" ? "reduced" : "high";
     // The address keeps the scenario, so that a reload opens the same one.
@@ -457,8 +468,7 @@ function wireControls(page: DungeonPage): void {
       url.searchParams.delete("quality");
     }
     history.replaceState(null, "", url);
-    page.companions = companionModels(page.selectedHero, Number(companionCount.value));
-    page.clothing = worn();
+    page.companions = companionModels(page.selectedHero, Number(choice(companionCount)));
     void launch(page, Number(seedInput.value));
   }, { signal });
   seedInput.addEventListener("input", () => seedInput.setCustomValidity(""), { signal });
@@ -518,6 +528,7 @@ function wireParty(page: DungeonPage): Party {
 function wireKeys(page: DungeonPage, party: Party): void {
   const { signal, held } = page;
   window.addEventListener("keydown", (event) => {
+    if (!need("start-panel").hidden || page.launching) return;
     if ((event.target as HTMLElement).matches("input, select, textarea")) return;
     if (event.code === "Escape" || event.code === "Space") {
       event.preventDefault();
@@ -718,21 +729,23 @@ function disposePage(page: DungeonPage): void {
 
 async function boot(): Promise<void> {
   const page = createPage(await loadEngine(), loadSkeletonArt());
+  const dispose = () => disposePage(page);
+  window.addEventListener("pagehide", dispose, { once: true, signal: page.signal });
+  import.meta.hot?.dispose(dispose);
+  await showHeroLineup(need<HTMLCanvasElement>("hero-preview"), page.physicsEngine, HEROES.map(h => h.model), page.signal);
+  if (page.signal.aborted) return;
   wireControls(page);
   const party = page.party = wireParty(page);
   wireKeys(page, party);
   wirePointer(page, party);
   page.engine.runRenderLoop(() => page.meter.frame(() => frame(page, party)));
-  const dispose = () => disposePage(page);
-  window.addEventListener("pagehide", dispose, { once: true, signal: page.signal });
-  import.meta.hot?.dispose(dispose);
-  need("notice").textContent = "Choose your hero and enter the depths.";
 }
 
 /** Called by `src/app.ts` after the dungeon's screen is mounted: this module's top level reads it. */
 export function bootDungeon(): Promise<void> {
   return boot().catch((error) => {
-    need("notice").textContent = `Dungeon could not start: ${String(error)}`;
+    need("setup-error").hidden = false;
+    need("setup-error").textContent = `Could not load characters: ${String(error)}`;
     start.textContent = "Unable to start";
     console.error(error);
   });

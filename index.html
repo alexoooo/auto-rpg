@@ -102,6 +102,7 @@
       </div>
     </template>
     <template id="dungeon-screen">
+      <div id="dungeon-play" hidden>
       <canvas id="dungeon" aria-label="Dungeon game" tabindex="0"></canvas>
       <header class="topbar">
         <a href="./" class="brand">AUTO-RPG <span>/ THE DEPTHS</span></a>
@@ -123,19 +124,6 @@
         </section>
         <button id="help-button" type="button" aria-expanded="false">Controls <kbd>?</kbd></button>
       </footer>
-      <section id="start-panel" class="dialog" aria-labelledby="start-title">
-        <span class="eyebrow">A DUNGEON RUN</span><h1 id="start-title">Into the depths.</h1>
-        <p>Stone corridors. Unfamiliar enemies.<br />One way out. Your hero fights — you choose the way.</p>
-        <label class="field">Dungeon <select id="dungeon-scene"><option value="generated">Generated depths</option><option value="reference">The Rootbound Crypt</option><option value="random-crypt">Random Crypt</option></select></label>
-        <label class="field" hidden>Quality <select id="dungeon-quality"><option value="high">High</option><option value="reduced">Reduced</option></select></label>
-        <label class="field">Your hero <select id="hero-build"></select></label>
-        <div id="hero-equipment"><label><input type="checkbox" data-workshop="boots" checked> Boots</label> <label><input type="checkbox" data-workshop="armour" checked> Armour</label><p>Appearance only. Every body carries a club.</p></div>
-        <label class="field">Companions <select id="companions"><option value="0">None</option><option value="1">One</option><option value="2" selected>Two</option><option value="3">Three</option></select></label>
-        <label class="field">Dungeon seed <input id="seed" type="text" inputmode="numeric" maxlength="10" /></label>
-        <button id="start" class="primary" disabled>Preparing…</button>
-        <small>Physical combat · one floor · no upgrades or saved progress</small>
-        <a class="back" href="./">← Main menu</a>
-      </section>
       <section id="pause-panel" class="dialog compact" hidden aria-labelledby="pause-title">
         <span class="eyebrow">THE DEPTHS</span><h2 id="pause-title">Paused</h2><p id="pause-copy">Your run is frozen.</p>
         <button id="resume" class="primary">Resume</button><button id="retry">Retry same seed</button><button id="new-run">New dungeon</button>
@@ -149,6 +137,36 @@
         <p>Attacks and counters are always automatic. Brief dodges may adjust movement. Doors open on approach. Reach the green exit circle to escape.</p>
         <p><b>Wheel</b> zooms · <b>Space / Esc</b> pauses · <b>?</b> closes this help.</p><button id="close-help">Got it</button>
       </section>
+      <div id="dungeon-sound"></div>
+      </div>
+      <main id="start-panel" aria-labelledby="start-title">
+        <header class="setup-heading"><a href="./">← Main menu</a><h1 id="start-title">Choose character</h1></header>
+        <fieldset class="hero-lineup" aria-label="Character">
+          <div id="hero-choices"></div>
+          <canvas id="hero-preview" aria-hidden="true"></canvas>
+        </fieldset>
+        <div class="setup-controls">
+          <fieldset id="dungeon-scene" class="setup-choice level-choice"><legend>Level</legend>
+            <label><input type="radio" name="level" value="generated" checked /><span>Generated depths</span></label>
+            <label><input type="radio" name="level" value="reference" /><span>The Rootbound Crypt</span></label>
+            <label><input type="radio" name="level" value="random-crypt" /><span>Random Crypt</span></label>
+          </fieldset>
+          <div class="setup-bottom">
+            <fieldset id="companions" class="setup-choice"><legend>Companions</legend>
+              <label><input type="radio" name="companions" value="0" checked /><span>None</span></label>
+              <label><input type="radio" name="companions" value="1" /><span>1</span></label>
+              <label><input type="radio" name="companions" value="2" /><span>2</span></label>
+              <label><input type="radio" name="companions" value="3" /><span>3</span></label>
+            </fieldset>
+            <details id="setup-options"><summary>Options</summary><div class="setup-options-fields">
+              <label class="field">Seed <input id="seed" type="text" inputmode="numeric" maxlength="10" /></label>
+              <label class="field" hidden>Quality <select id="dungeon-quality"><option value="high">High</option><option value="reduced">Reduced</option></select></label>
+            </div></details>
+            <button id="start" type="button" disabled>Loading…</button>
+          </div>
+          <p id="setup-error" role="alert" hidden></p>
+        </div>
+      </main>
     </template>
     <!-- The lab, in two templates: its scenario menu (`?play=lab`, src/lab/setup.ts) and a
          scenario running (`?play=lab&scenario=...`, src/lab/main.ts). -->

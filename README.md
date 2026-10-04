@@ -76,8 +76,9 @@ again by itself.
 
 ## The Crypt
 
-Choose **Dungeon**, then the dungeon, your hero (Warrior, Rogue or Skeleton), up to three
-companions and a seed, and walk to the exit's green ring. Everybody carries a club; the enemies are
+Choose **Dungeon**, click a standing character (Warrior, Rogue or Skeleton), choose a **Level**,
+and press **Start**. Companions default to **None**; up to three can join. **Options** holds the seed
+and the crypt levels' rendering quality. Walk to the exit's green ring. Everybody carries a club; the enemies are
 skeletons, built and woken as the party comes near. The run is won when anybody standing reaches
 the exit and lost when the whole party is down. What the party sees it hears: footfalls, swings,
 blows and falls, nearer ones louder, over the torches and the drips.
