@@ -192,6 +192,12 @@ free motions. Common-point attachment rows fix spurious constraints from solver 
 This supplies a diagnostic model for chunk 5; contact-force selection and bounded whole-body
 tracking, including the recovery support correction, remain to be implemented and measured.
 
+`math/quadratic.ts` supplies a deterministic constrained-quadratic component for that combined
+solve, with explicit warm-start state, fixed iteration budgets and residual reports. Analytic
+KKT, coupled-bound and replay checks are recorded in [quadratic tasks](../reference/quadratic-tasks.md).
+It is optional controller machinery, not a new policy requirement; physical tracking and contact
+selection have not yet adopted it.
+
 ### 0. Define the common task battery and baseline
 
 **Files:** `research/control-foundation.mjs`, `research/control-foundation-trials.mjs`,
