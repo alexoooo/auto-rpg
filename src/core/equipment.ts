@@ -84,6 +84,14 @@ export function createEquipment(world: World, definition: EquipmentDefinition) {
     const grips = definitions.map((g) => ({ ...g, joint: world.physics.addGrip(g.body, body, {
       anchorParent: tuple(g.hand.at), anchorChild: tuple(g.item.at), frameParent: g.hand.turn, frameChild: g.item.turn,
     }) }));
+    const rotation = (q: Quaternion) => [q.x, q.y, q.z, q.w] as const;
+    const model = deepFreeze({ id, name: item.name, mass: item.mass.value,
+      centre: [...item.centreOfMass.value] as Vec3, inertia: [...item.inertia.value] as Vec3,
+      capture: { distance, rotationError },
+      grips: grips.map((g) => ({ name: g.name, body: g.body.node.name,
+        bodyFrame: { position: tuple(g.hand.at), rotation: rotation(g.hand.turn) },
+        itemFrame: { position: tuple(g.item.at), rotation: rotation(g.item.turn) } })),
+    });
     const grip = (name: string) => {
       live();
       const result = grips.find((g) => g.name === name);
@@ -101,7 +109,7 @@ export function createEquipment(world: World, definition: EquipmentDefinition) {
         rotationError: Math.max(0, 1 - Math.abs(qa.x * qb.x + qa.y * qb.y + qa.z * qb.z + qa.w * qb.w)) };
     };
     return {
-      id, spec: item, body, node,
+      id, spec: item, model, body, node,
       tryGrip(name: string): boolean {
         const g = grip(name);
         if (g.joint.attached) return true;

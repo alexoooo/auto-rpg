@@ -162,6 +162,12 @@ motion rows preserve sliding/rolling/lift-off. [Contact motion](../reference/con
 records the failing-before/passing-after invariant and mechanical geometry fixtures. The staged
 support model has not yet adopted them; flat-hand/shin recovery improvement remains unproven.
 
+Independent policy bodies now receive granted equipment observations/models and can combine
+actuator commands with capture/release requests. Validation is atomic and replay includes the
+grip lifecycle and policy memory. Either-hand independent-item requests are tested on all three
+models in short pinned fixtures. This advances chunk 4(a)'s controller port; it does not prove
+anatomical grasp placement, shared-item muscle loads or reference-fighter/game integration.
+
 ### 0. Define the common task battery and baseline
 
 **Files:** `research/control-foundation.mjs`, `research/control-foundation-trials.mjs`,

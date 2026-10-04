@@ -421,7 +421,7 @@ including after release and regrip. Detached item observations retain identity a
 indices. The trusted construction handle carries rendering and physics resources.
 
 This representation is exercised by mechanical fixtures, including a closed loop, and does not
-replace the game's compound held items. Character controls, damage attribution and the comparison
+replace the game's compound held items. Reference-fighter controls, damage attribution and the comparison
 against compound release are still open. See [the grip record](reference/equipment-grips.md).
 Separate equipment can explicitly request moving-body CCD at construction. The default is
 unchanged; [collision probes](reference/collision-ccd.md) exercise linear and rotational sweeps
@@ -432,6 +432,14 @@ normal-motion rows distinguish predicted contact, penetration, sliding and separ
 controller carries ground wrenches from the patch's force reference independently of the point
 whose motion it tracks. [Contact motion](reference/contact-motion.md) records the invariant and
 geometry checks; the staged riser's predicted support model still needs replacement.
+
+An independent policy can control separate equipment through an explicitly granted
+`mind/equipment-port.ts` capability. It receives immutable item/grip descriptions and detached
+observations. `BodyAction` combines actuator commands with capture/release requests; the host
+validates and copies the whole request before applying any component. Unknown or ungranted grips
+cannot partially apply an action, and capture still requires geometric reachability. Physics
+snapshots own attachment state, while the body's saved policy state owns its decisions. The
+reference fighter's equipment integration is still separate work.
 
 ## Research environments
 

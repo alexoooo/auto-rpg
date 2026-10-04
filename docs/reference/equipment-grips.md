@@ -7,8 +7,8 @@ detached pose, velocity, spin, attachment errors and collider-pair contact readi
 no mutable engine handles. The trusted construction result also carries the body and node.
 
 This is an experimental representation, not the game's equipment default. Existing compound
-holdings remain unchanged. Character observation/actions, surface damage attribution for free
-items, rendering, compound splitting and the representation comparison remain open.
+holdings remain unchanged. Reference-fighter equipment control, surface damage attribution for
+free items, rendering, compound splitting and the representation comparison remain open.
 
 ## Attachment and replay
 
@@ -61,3 +61,26 @@ equipment tests fail. This checks physical release, not merely a changed attachm
 These tests do not validate tree-only inverse dynamics for a closed loop, effective contact mass,
 muscle load distribution, CCD, compound release or standing two-handed use. Those are subsequent
 physical gates in the control foundation.
+
+## Policy commands
+
+`equipmentPort` grants a host's controller named grips on explicit items. Its model contains
+detached item mass/inertia, local grip frames and capture tolerances. Its observations include
+only granted items and grip names. Duplicate grants or two different items with the same identity
+are refused. A task owns this identity namespace and gives each grip one command owner.
+
+`createPolicyBody` accepts the trusted port at construction and gives the policy its immutable
+description and observations, not the port or physical handles. Existing actuator actions still
+work. A `BodyAction` can combine an actuator action and grip requests. `checkedBodyAction` copies
+and validates every component before any physical command is applied. An ungranted, duplicate
+or malformed grip request rejects the whole action, including any otherwise valid release or
+actuation. Geometrically unreachable capture leaves the item detached; permission alone does
+not make it reachable. Idle policies issue no grip requests; existing rigid attachments remain.
+
+`tests/core-equipment-policy.test.mjs` checks capture/release through an independent policy,
+detached observations, immutable construction options, invalid-action atomicity, duplicate
+identities, and exact physics/controller replay. It also captures independent items at both
+hands on all three body models and releases only the left. These are short, gravity-free,
+pinned-body port fixtures with synthetic attachment placement. They establish neither a usable
+anatomical grasp nor standing equipment control. Shared-item load dynamics and game integration
+remain open. The separate CCD path is recorded in [collision CCD](collision-ccd.md).
