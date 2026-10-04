@@ -20,7 +20,7 @@ import { woodenClub } from "../src/core/items/club.ts";
 import { GUARD_ACTION } from "../src/core/mind/intent.ts";
 import { GUARD } from "../src/core/skills/guard.ts";
 import { PLACING } from "../src/core/skills/locomotion.ts";
-import { APPROACH, PLACED, STAND, STEER, strikeSkill } from "../src/core/skills/strike.ts";
+import { APPROACH, PLACED, rangeOf, STAND, STEER, strikeSkill } from "../src/core/skills/strike.ts";
 import { BAND_NAMES, BANDS, FIST, heldIn, mirrored, mirroredWindow, netsOf, recipeFor, recipesFor, REPERTOIRE } from "../src/core/skills/strikes.ts";
 import { bandRise } from "../src/lab/blow.ts";
 import { CORE_BLOW_HARNESS, evaluateBlow, heldSpec } from "../research/core-blow.mjs";
@@ -273,6 +273,24 @@ function armOf(spec, hand, point) {
     toes: Math.max(segment("foot.left").distal.value[2], segment("foot.right").distal.value[2]) - head[2],
   };
 }
+
+test("what_a_body_knows_of_anothers_range_is_what_its_strike_skill_throws", () => {
+  // Through a recipe's window in height and out of it, both hands, with and without the club, each body.
+  const ups = [-0.6, -0.24, -0.05, 0, 0.04, 0.3];
+  for (const [model, held] of [["workshop-fighter", "wooden club"], ["workshop-fighter", "fist"], ["workshop-rogue", "wooden club"], ["crypt-skeleton", "fist"]]) {
+    const spec = heldSpec(model, held), report = strikeSkill(spec, REPERTOIRE).report;
+    for (const hand of ["left", "right"]) for (const up of ups) {
+      assert.deepEqual(rangeOf(spec, hand, up), report.rangeAt(hand, up), `${model} with ${held}, ${hand} hand, ${up} m over the head`);
+    }
+  }
+  // The club at a head reaches its recipe's place, and lands across its window along.
+  const club = rangeOf(heldSpec("workshop-fighter", "wooden club"), "right", 0);
+  assert.deepEqual(club, { reach: CLUB.place.ahead, along: CLUB.window.along });
+  // Under an experiment's repertoire, that repertoire's blow.
+  const spec = humanSpec("workshop-fighter");
+  assert.deepEqual(rangeOf(spec, "right", 0, STRAIGHTS), strikeSkill(spec, STRAIGHTS).report.rangeAt("right", 0));
+  assert.notDeepEqual(rangeOf(spec, "right", 0, STRAIGHTS), rangeOf(spec, "right", 0));
+});
 
 test("a_target_in_a_recipes_window_is_thrown_at_with_it_and_one_out_of_its_height_is_placed", () => {
   const spec = humanSpec("workshop-fighter");

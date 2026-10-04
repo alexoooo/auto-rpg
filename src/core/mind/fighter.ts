@@ -1,6 +1,6 @@
 import type { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { wrap } from "../skills/locomotion.ts";
-import { APPROACH, type StrikeReport } from "../skills/strike.ts";
+import { APPROACH, rangeOf, type StrikeReport } from "../skills/strike.ts";
 import { BAND_NAMES, BANDS, type Band } from "../skills/strikes.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { FIGHTER, type FighterMindConfig } from "./config.ts";
@@ -24,6 +24,13 @@ export const ATTACK_METRES = 1.8;
  * it walks any faster. Measured with the club in hand: `docs/reference/orders.md#the-rule`.
  */
 export const STRAFE = { share: 0.5, turned: 0.3 } as const;
+
+/**
+ * **Holding at the edge of a foe's reach** (`FighterMindConfig.range`, `"edge"`): how far past the
+ * foe's reach a fighter stands before it walks in again, m; and how long it stands still there,
+ * s, before it walks in to attack all the same. Set: `docs/reference/human-and-strikes.md#the-edge`.
+ */
+export const EDGE: NonNullable<FighterMindConfig["edge"]> = Object.freeze({ band: 0.25, patience: 4 });
 
 /**
  * **A fighter's tactics** carry out `Orders`, asked for every control step with what the body
@@ -118,12 +125,23 @@ function bandAimed(aim: FighterMindConfig["aim"], nets: StrikeReport["nets"]): B
 
 /**
  * **The orders of a fighter that picks its own fight**, from what it sees: the nearest body of
- * another side, one still in the fight before one that is out. It walks at it, facing its walk,
- * until their centres of mass are within `ATTACK_METRES` across the ground, then attacks the
- * part its `aim` names (`bandAimed`, `BANDS`), its head where it has not that part; once either
- * is out it stands, facing it; and with nobody to fight it stands as it is.
+ * another side, one still in the fight before one that is out. It attacks the part its `aim`
+ * names (`bandAimed`, `BANDS`), its head where it has not that part, coming to it as its `range`
+ * says:
+ *
+ * - **close**: it walks at the foe, facing its walk, until their centres of mass are within
+ *   `ATTACK_METRES` across the ground, then attacks.
+ * - **edge**: it stands where the foe's blow at its head reaches it from where the foe stands
+ *   (`rangeOf`, by what it sees of the foe), and no more than `edge.band` further: walking in,
+ *   facing its walk, from further, and backing out, facing the foe, from nearer. It attacks when
+ *   the part stands in its own blow's window along from where it stands (`StrikeReport.rangeAt`),
+ *   which the strike skill throws from there; or when it has stood still `edge.patience`, and
+ *   the skill walks it in. An attack under way goes on to its end.
+ *
+ * Once either is out it stands, facing the foe; and with nobody to fight it stands as it is.
  */
-export function seekFoe({ view, report }: Sight, aim: FighterMindConfig["aim"] = FIGHTER.aim): Orders {
+export function seekFoe({ view, report }: Sight, aim: FighterMindConfig["aim"] = FIGHTER.aim,
+  range: FighterMindConfig["range"] = FIGHTER.range, edge: NonNullable<FighterMindConfig["edge"]> = EDGE): Orders {
   const { senses, stance } = view, from = stance.centre;
   let foe: BodySense | null = null, near = Infinity;
   for (const other of senses.others) {
@@ -135,8 +153,25 @@ export function seekFoe({ view, report }: Sight, aim: FighterMindConfig["aim"] =
   const d = Math.max(0.001, near);
   const toward = { x: (foe.centre.x - from.x) / d, z: (foe.centre.z - from.z) / d };
   if (senses.out || foe.out) return { move: null, face: toward, attack: null };
-  if (d > ATTACK_METRES) return { move: toward, face: null, attack: null };
   const head: Vector3 = foe.segments.get("head")?.centre ?? foe.centre;
   const part = aim === "head" ? head : foe.segments.get(BANDS[bandAimed(aim, report.strike.nets)])?.centre ?? head;
-  return { move: null, face: toward, attack: [part.x, part.y, part.z] };
+  const attack: Orders = { move: null, face: toward, attack: [part.x, part.y, part.z] };
+  switch (range) {
+    case "close": return d > ATTACK_METRES ? { move: toward, face: null, attack: null } : attack;
+    case "edge": {
+      const strike = report.strike, me = view.head;
+      if (strike.phase !== null) return attack;
+      const mine = strike.rangeAt("right", part.y - me.y), off = hypot(part.x - me.x, part.z - me.z) - mine.reach;
+      if ((mine.along[0] <= off && off <= mine.along[1]) || strike.still >= edge.patience) return attack;
+      const theirs = rangeOf(foe.spec, "right", me.y - head.y), outside = theirs.reach + theirs.along[1];
+      const apart = hypot(head.x - me.x, head.z - me.z);
+      if (apart > outside + edge.band) return { move: toward, face: null, attack: null };
+      if (apart < outside) return { move: { x: -toward.x, z: -toward.z }, face: toward, attack: null };
+      return { move: null, face: toward, attack: null };
+    }
+    default: {
+      const never: never = range;
+      throw new Error(`a fighter comes close or holds at the edge, not ${JSON.stringify(never)}`);
+    }
+  }
 }

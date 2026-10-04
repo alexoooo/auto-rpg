@@ -27,7 +27,8 @@ import type { Hook, World } from "../core/world.ts";
  *   centre, both facing +z as every body is built; each turns a quarter to the other, so neither
  *   starts ahead.
  * - **Each side, left to itself** (a fighter's `seekFoe`), walks at the body it sees of the other
- *   side until within `ATTACK_METRES` of it, then attacks its head. What each sees of the other is the bout's senses'
+ *   side until within `ATTACK_METRES` of it, then attacks its head; or, its mind's config saying
+ *   so, holds at the edge of that body's reach (`FighterMindConfig.range`). What each sees of the other is the bout's senses'
  *   (`createSenses`): both see the same step, `DuelRecipe.senseDelay` steps old.
  * - **A side given orders** (`Duel.order`) does what it is ordered and nothing else, until it is
  *   handed back to itself or is out of the fight. Every order is kept with the step it was given

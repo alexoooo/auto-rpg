@@ -369,7 +369,7 @@ test("on a side, a body goes on over that side onto its front", async () => {
   assert.deepEqual(Object.keys(RISE.roll.right[0].posture).sort(), ["hip.left abduction", "hip.left flexion", "shoulder.right flexion"], "the fixture: the roll's postures are of one side and the other");
   // Two of the battery's shoves that leave a body on a side, under the fighter's mind as the battery has it: it reads the side, rolls, and reads its front.
   for (const [model, held, degrees, side] of [["workshop-fighter", "empty", 45, "right"], ["workshop-rogue", "club", 315, "left"]]) {
-    const mind = { kind: "fighter", subs: [{ kind: "staged-rise" }], guard: "pose", aim: "head" };
+    const mind = { kind: "fighter", subs: [{ kind: "staged-rise" }], guard: "pose", aim: "head", range: "close" };
     const { world, body, dispose } = await felled({ model, held, degrees }, (made, into) => createMind(made, into, mind, { name: "shoved", orders: () => STAND_ORDERS }).body);
     try {
       const riser = riserOf(body), reads = [];

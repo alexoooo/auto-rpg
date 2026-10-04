@@ -67,11 +67,14 @@ test("a_lab_body_stands_under_the_stance_tuning_its_actor_is_given", async () =>
   } finally { stand.dispose(); }
 });
 
+/** How far ahead of the head each hand strikes at a target as high as the head, as a strike skill's report has it. */
+const reachesOf = (strike) => ({ left: strike.rangeAt("left", 0).reach, right: strike.rangeAt("right", 0).reach });
+
 /** Which hands of `loadout`'s body may strike, and the reach the skills report for each, its actor given `options`. */
 async function strikes(loadout, options) {
   const stand = await coreStand(loadoutSpec(loadout), { ground: true });
   const actor = labActor(stand.built, stand.world, options);
-  try { return { may: { ...actor.strikes }, reach: { ...actor.drive({ name: "stand", decide: () => standIntent(0) }).report.strike.reach } }; }
+  try { return { may: { ...actor.strikes }, reach: reachesOf(actor.drive({ name: "stand", decide: () => standIntent(0) }).report.strike) }; }
   finally { actor.dispose(); stand.dispose(); }
 }
 
@@ -102,7 +105,7 @@ test("a_hand_with_no_recipe_reaches_as_far_as_its_placed_blow", async () => {
   const stand = await coreStand(loadoutSpec({ model: stored.model, right: "club", left: "empty" }), { ground: true });
   const blow = throwBlow(labActor(stand.built, stand.world), { hand: stored.hand, strike: stored.strike, place: { ahead: distance, up: 0 }, band: stored.band });
   try {
-    const { left, right } = blow.report.strike.reach;
+    const { left, right } = reachesOf(blow.report.strike);
     assert.equal(right, distance);
     // A placed blow is thrown with the arm out, from farther off than the Warrior's straight
     // (`tests/fixtures/strikes.mjs`); and from nearer than the club's.

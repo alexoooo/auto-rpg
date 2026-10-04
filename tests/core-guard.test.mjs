@@ -283,7 +283,7 @@ test("the_guard_has_the_hands_the_strike_has_not", async () => {
     assert.ok(held.seen.every(({ left, right }) => left === null && right === null), "with no cover asked, no hand has a goal");
     // A target the fist's recipe is thrown at: straight ahead, at the height of the head.
     const { head } = body.view;
-    held.target = [head.x, head.y + 0.04, head.z + skills.report.strike.reach.right];
+    held.target = [head.x, head.y + 0.04, head.z + skills.report.strike.rangeAt("right", 0).reach];
     held.seen.length = 0;
     stand.step(stand.seconds(6));
     const { seen } = held;

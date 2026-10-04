@@ -92,7 +92,7 @@ interface RoutineTactics extends Tactics {
 /**
  * **The Routine's tactics**: round `track` as the Run goes (`trackTactics`), and at its targets,
  * the hands of `hands` that have a blow attack them in turn, a target each. They hand their walk
- * to the attack once the first target is within the hand's reach (`StrikeReport.reach`) and the
+ * to the attack once the first target is within the hand's reach (`StrikeReport.rangeAt`) and the
  * distance the strike skill closes at its own fastest (`APPROACH`'s pace over its seconds); they
  * stand in guard from the end of a strike's pushes until the instrument closes its target's
  * reading (`done`), and take the walk back after the last; with no blow in either hand, or no
@@ -128,7 +128,7 @@ function routineTactics(track: Track, envelope: StanceEnvelope, drawing: Drawing
       const hand = handOf(next), first = targets[drawing.from]?.at ?? place;
       if (leg === "out") {
         // It walks out to where its first blow reaches its first target; with none to throw, to the targets' place.
-        const reach = hand ? report.strike.reach[hand] : 0;
+        const reach = hand ? report.strike.rangeAt(hand, 0).reach : 0;
         if (Math.hypot(first[0] - view.head.x, first[2] - view.head.z) <= reach + closing) { leg = "post"; counted = thrown; }
       }
       if (leg === "post" && (!hand || next >= targets.length)) leg = "back";

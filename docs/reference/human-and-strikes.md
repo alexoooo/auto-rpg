@@ -143,6 +143,18 @@ their target 0.93 m (a head) and 1.12 m (a trunk) ahead of its own head (`Recipe
 `assets/core/strikes.json`), and the strike skill closes what is left itself (`APPROACH`), so
 1.8 m is a blow's distance and about a step.
 
+## The edge
+
+`EDGE` is a band of 0.25 m and a patience of 4 s: a fighter that holds at the edge of its foe's
+reach (`FighterMindConfig.range`, `"edge"`) stands no more than 0.25 m beyond where the foe's blow
+at its head would reach it, and after standing still 4 s walks in to attack all the same. Set,
+not swept. The band is the strike skill's own slack about a blow's place (`APPROACH.reach`), so
+a foe that comes on by that much brings itself into the window; the patience is more than twice
+`STAND`, so a fighter is not drawn in by a foe that stands only to settle a throw. Whether a fighter
+gains by holding at the edge, and at what patience, is read in arena bouts against one that walks
+in, paired by starting gap (`research/core-range.mjs`); until that sweep is recorded here, `"close"`
+is every fighter's range.
+
 ## Windows
 
 A recipe's window is where its target may stand from its place for the recipe to be thrown at

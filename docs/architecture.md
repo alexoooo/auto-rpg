@@ -357,7 +357,12 @@ its senses it picks the nearest body of another side still in the fight, walks a
 it once their centres are within `ATTACK_METRES` (1.8 m): at its head, or, where its config says
 to aim at what pays (`FighterMindConfig.aim`, `bandAimed`), at the part of the band its hand's
 recipe nets most on (`StrikeReport.nets`, `BANDS`). Every body's fighter aims at the head
-(`FIGHTER`; [reference/blows.md](reference/blows.md#aim)). A side a person has taken is
+(`FIGHTER`; [reference/blows.md](reference/blows.md#aim)). Where its config says to hold at the
+edge (`FighterMindConfig.range`, `EDGE`), it reads the foe's reach from what it sees of the foe
+(`rangeOf`, by `BodySense.spec`, the rule its own strike skill throws by, `StrikeReport.rangeAt`):
+it stands just outside it, backing out from inside it, and attacks when the part it aims at
+stands in its own blow's window from where it stands, or when it has stood there its patience.
+Every body's fighter walks in (`FIGHTER.range`). A side a person has taken is
 given the person's (`Duel.order`) and does only what it is ordered, until it is handed back or is
 out of the fight. In the crypt the run plans for its fighters with the map (`DungeonRun`) and
 hands each its plan as orders, with its target's head; its bodies sense the clock alone. Each

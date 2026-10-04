@@ -11,13 +11,13 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { createBody, SERVO_SECONDS } from "../src/core/body.ts";
 import { buildBody } from "../src/core/build/build-body.ts";
 import { centreOfToRef } from "../src/core/control/support.ts";
-import { humanSpec } from "../src/core/human/spec.ts";
+import { humanSpec, modelSpec } from "../src/core/human/spec.ts";
 import { FIGHTER } from "../src/core/mind/config.ts";
-import { fighterTactics, seekFoe } from "../src/core/mind/fighter.ts";
+import { EDGE, fighterTactics, seekFoe } from "../src/core/mind/fighter.ts";
 import { GUARD_ACTION } from "../src/core/mind/intent.ts";
 import { embody } from "../src/core/mind/mind.ts";
 import { createSenses } from "../src/core/mind/senses.ts";
-import { APPROACH } from "../src/core/skills/strike.ts";
+import { APPROACH, rangeOf } from "../src/core/skills/strike.ts";
 import { coreStand } from "./harness/core-stand.mjs";
 
 const spec = humanSpec("workshop-fighter");
@@ -188,6 +188,38 @@ test("a fighter aims at a foe's head, or at the part its right hand's recipe net
   assert.deepEqual(aimed("pays", fist, none, new Map([["head", { centre: at(...head) }]])), head);
   assert.deepEqual(aimed("pays", fist, none, new Map()), [0, 1, 1.5]);
   assert.throws(() => aimed("heart", fist), /aims at the head or at what pays/);
+});
+
+test("a fighter at the edge stands just outside its foe's reach and attacks when the foe is in its window", () => {
+  const at = (x, y, z) => new Vector3(x, y, z);
+  // Its own blow reaches 0.3 m ahead of its head, and lands from 5 cm nearer to 5 cm further.
+  const mine = { reach: 0.3, along: [-0.05, 0.05] }, spec = modelSpec("workshop-rogue");
+  const theirs = rangeOf(spec, "right", 0), outside = theirs.reach + theirs.along[1];
+  const sight = (apart, strike = {}) => ({
+    view: { head: at(0, 1.6, 0), stance: { centre: at(0, 1, 0) }, senses: { side: "left", out: false,
+      others: [{ side: "right", out: false, spec, centre: at(apart, 1, 0), segments: new Map([["head", { centre: at(apart, 1.6, 0) }]]) }] } },
+    report: { strike: { phase: null, still: 0, rangeAt: (hand, up) => { assert.deepEqual([hand, up], ["right", 0]); return mine; }, ...strike } },
+  });
+  // Backing out is the way to the foe turned round, a zero across it negated.
+  const east = { x: 1, z: 0 }, west = { x: -1, z: -0 };
+  const orders = (apart, strike, edge) => seekFoe(sight(apart, strike), "head", "edge", edge);
+  // The fixture's foe outreaches it, so the edge is outside its own window.
+  assert.ok(outside > mine.reach + mine.along[1] + 0.1, `the foe reaches ${outside} m`);
+  assert.deepEqual(orders(outside + EDGE.band + 0.01), { move: east, face: null, attack: null }, "beyond the edge it walks in");
+  assert.deepEqual(orders(outside + EDGE.band - 0.01), { move: null, face: east, attack: null }, "at the edge it stands, facing the foe");
+  assert.deepEqual(orders(outside + 0.01), { move: null, face: east, attack: null });
+  assert.deepEqual(orders(outside - 0.01), { move: west, face: east, attack: null }, "inside the foe's reach it backs out");
+  // The foe's head in its window, from either side of the window: it attacks from where it stands.
+  for (const apart of [0.25, 0.3, 0.35]) assert.deepEqual(orders(apart), { move: null, face: east, attack: [apart, 1.6, 0] }, `in its window at ${apart} m`);
+  assert.deepEqual(orders(0.24), { move: west, face: east, attack: null }, "nearer than its window, and inside the foe's reach");
+  // Stood still its patience, it attacks all the same; and a blow under way goes on to its end.
+  assert.deepEqual(orders(outside + 0.1, { still: EDGE.patience }), { move: null, face: east, attack: [outside + 0.1, 1.6, 0] });
+  assert.deepEqual(orders(outside + 0.1, { still: EDGE.patience - 0.01 }).attack, null);
+  assert.deepEqual(orders(outside + 0.1, { still: 1 }, { band: 0.25, patience: 1 }).attack, [outside + 0.1, 1.6, 0], "an experiment's edge");
+  assert.deepEqual(orders(outside + 1, { phase: "approach" }).attack, [outside + 1, 1.6, 0]);
+  assert.deepEqual(orders(outside + 0.3, {}, { band: 0.5, patience: 4 }).move, null, "a wider band stands further out");
+  // Walking in is the fighter's way unless it is told otherwise.
+  assert.equal(FIGHTER.range, "close");
 });
 
 test("a fighter holds the point it aims at until the plan's leaves it, a blow is thrown or one is under way", () => {

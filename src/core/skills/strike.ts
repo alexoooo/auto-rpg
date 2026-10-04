@@ -11,7 +11,7 @@ import { deepFreeze } from "../state.ts";
 import { GUARD } from "./guard.ts";
 import { PLACING, wrap, type Footing } from "./locomotion.ts";
 import type { Skill } from "./skill.ts";
-import { aimOf, netsOf, recipeAt, recipesFor, type Band, type Chosen, type Repertoire, type StrikeWindow } from "./strikes.ts";
+import { aimOf, netsOf, recipeAt, recipesFor, REPERTOIRE, type Band, type Chosen, type Repertoire, type StrikeWindow } from "./strikes.ts";
 import { sin, cos, asin, atan2, hypot } from "../math/real.ts";
 
 /**
@@ -119,6 +119,85 @@ type Blow =
 /** Where a placed blow is thrown from about its place: wherever the approach leaves the body (`APPROACH.reach`), each way. */
 type Standing = Pick<StrikeWindow, "along" | "across">;
 
+/** What a hand of a body may throw with what it holds: its recipes (`recipesFor`), each as a blow, and its placed blow. */
+interface Blows {
+  readonly chosen: readonly Chosen[];
+  readonly recipes: readonly Blow[];
+  readonly placed: Blow;
+}
+
+function blowsOf(spec: BodySpec, repertoire: Repertoire, hand: Hand): Blows {
+  const chosen = recipesFor(repertoire, spec, hand), aim = aimOf(spec, hand);
+  return deepFreeze({
+    chosen,
+    recipes: chosen.map((one) => ({ kind: "recipe", chosen: one } as const)),
+    placed: { kind: "placed", aim, arm: armOf(spec, hand, aim) } as const,
+  });
+}
+
+/** Of `blows`, the recipe thrown at a target `up` m over the head, by its place among them; null where no window holds that height, and the blow is placed. */
+function chooseIn(blows: Blows, up: number): number | null {
+  const at = recipeAt(blows.chosen, up);
+  return at < 0 ? null : at;
+}
+
+/** How far ahead of the head `blow`'s target stands as it is thrown, m, the target `up` m over the head. */
+function standOff(blow: Blow, up: number, placing: Placed): number {
+  switch (blow.kind) {
+    case "recipe": return blow.chosen.recipe.place.ahead;
+    case "placed": return placedDistance(blow.arm, placing.stretch, up);
+    default: {
+      const never: never = blow;
+      throw new Error(`unknown blow ${JSON.stringify(never)}`);
+    }
+  }
+}
+
+const WITHIN: Standing = deepFreeze({ along: [-APPROACH.reach, APPROACH.reach], across: [-APPROACH.reach, APPROACH.reach] });
+
+/** Where about its place `blow` is thrown from. */
+function windowOf(blow: Blow): Standing {
+  switch (blow.kind) {
+    case "recipe": return blow.chosen.window;
+    case "placed": return WITHIN;
+    default: {
+      const never: never = blow;
+      throw new Error(`unknown blow ${JSON.stringify(never)}`);
+    }
+  }
+}
+
+/**
+ * **How far a hand's blow reaches** at a target some height over the head: how far ahead of the
+ * head the blow has its target (`StrikeReport.distance`), and how much nearer or further than that
+ * the target may stand along the heading for the blow to be thrown from where the body stands, m.
+ */
+interface Range {
+  readonly reach: number;
+  readonly along: readonly [number, number];
+}
+
+/** The range of `blows`' blow at a target `up` m over the head: the one the strike skill chooses there. */
+function rangeIn(blows: Blows, up: number, placing: Placed): Range {
+  const recipe = chooseIn(blows, up), blow = recipe === null ? blows.placed : blows.recipes[recipe]!;
+  return { reach: standOff(blow, up, placing), along: windowOf(blow).along };
+}
+
+/**
+ * **The range of `spec`'s `hand`** with what it holds, at a target `up` m over its head, as its
+ * strike skill throws (`strikeSkill`, the game's repertoire and placed blow unless an experiment
+ * passes others): what one body knows of another's blow by what it sees of it (`BodySense.spec`).
+ */
+export function rangeOf(spec: BodySpec, hand: Hand, up: number, repertoire: Repertoire = REPERTOIRE, placing: Placed = PLACED): Range {
+  if (repertoire !== REPERTOIRE) return rangeIn(blowsOf(spec, repertoire, hand), up, placing);
+  let blows = GAME_BLOWS.get(spec);
+  if (!blows) GAME_BLOWS.set(spec, blows = { left: blowsOf(spec, REPERTOIRE, "left"), right: blowsOf(spec, REPERTOIRE, "right") });
+  return rangeIn(blows[hand], up, placing);
+}
+
+/** Each body's blows under the game's repertoire, read once a spec: a body's are the same every step. */
+const GAME_BLOWS = new WeakMap<BodySpec, Readonly<Record<Hand, Blows>>>();
+
 /** No hand given a goal. */
 const NO_HANDS: Readonly<Record<Hand, HandGoal | null>> = Object.freeze({ left: null, right: null });
 
@@ -146,11 +225,10 @@ export interface StrikeReport {
    */
   readonly still: number;
   /**
-   * How far ahead of the head each hand strikes at a target as high as the head, m: its place
-   * in the recipe whose window holds that height, or a placed blow's with none. The tactics
-   * close to it; the skill brings the body the rest of the way (`Chosen.window`, `APPROACH`).
+   * The range of `hand`'s blow at a target `up` m over the head (`rangeOf`): its place in the
+   * recipe whose window holds that height, or a placed blow's with none, and the window along.
    */
-  readonly reach: Readonly<Record<Hand, number>>;
+  rangeAt(hand: Hand, up: number): Range;
   /** What each hand's recipe nets in each band (`netsOf`): null for a band it has none in. */
   readonly nets: Readonly<Record<Hand, Readonly<Record<Band, number | null>>>>;
 }
@@ -239,45 +317,11 @@ interface StrikeState {
 }
 
 export function strikeSkill(spec: BodySpec, repertoire: Repertoire, placing: Placed = PLACED, steering = STEER): StrikeSkill {
-  const blows = (hand: Hand) => {
-    const chosen = recipesFor(repertoire, spec, hand), aim = aimOf(spec, hand);
-    return deepFreeze({
-      chosen,
-      recipes: chosen.map((one) => ({ kind: "recipe", chosen: one } as const)),
-      placed: { kind: "placed", aim, arm: armOf(spec, hand, aim) } as const,
-    });
-  };
-  const known = { left: blows("left"), right: blows("right") };
+  const known = { left: blowsOf(spec, repertoire, "left"), right: blowsOf(spec, repertoire, "right") };
   /** The recipe `hand` throws at a target `up` m over the head, by its place among the hand's; null where no window holds that height, and the blow is placed. */
-  const choose = (hand: Hand, up: number): number | null => {
-    const at = recipeAt(known[hand].chosen, up);
-    return at < 0 ? null : at;
-  };
+  const choose = (hand: Hand, up: number): number | null => chooseIn(known[hand], up);
   /** The blow `hand` throws with its recipe at `recipe`, or placed with none. */
   const blowOf = (hand: Hand, recipe: number | null): Blow => recipe === null ? known[hand].placed : known[hand].recipes[recipe]!;
-  /** How far ahead of the head `blow`'s target stands as it is thrown, m, the target `up` m over the head. */
-  const standOff = (blow: Blow, up: number): number => {
-    switch (blow.kind) {
-      case "recipe": return blow.chosen.recipe.place.ahead;
-      case "placed": return placedDistance(blow.arm, placing.stretch, up);
-      default: {
-        const never: never = blow;
-        throw new Error(`unknown blow ${JSON.stringify(never)}`);
-      }
-    }
-  };
-  const within: Standing = { along: [-APPROACH.reach, APPROACH.reach], across: [-APPROACH.reach, APPROACH.reach] };
-  /** Where about its place `blow` is thrown from. */
-  const windowOf = (blow: Blow): Standing => {
-    switch (blow.kind) {
-      case "recipe": return blow.chosen.window;
-      case "placed": return within;
-      default: {
-        const never: never = blow;
-        throw new Error(`unknown blow ${JSON.stringify(never)}`);
-      }
-    }
-  };
   const state: StrikeState = {
     hand: null, phase: null, blow: null, recipe: null, distance: null, stoodFor: null,
     still: 0, since: -Infinity, begun: null, readyAt: null, origin: null, bearing: null, steer: 0, width: null, over: null,
@@ -292,7 +336,7 @@ export function strikeSkill(spec: BodySpec, repertoire: Repertoire, placing: Pla
     get since() { return state.since; },
     get thrown() { return state.thrown; },
     get still() { return state.still; },
-    reach: { left: standOff(blowOf("left", choose("left", 0)), 0), right: standOff(blowOf("right", choose("right", 0)), 0) },
+    rangeAt: (hand, up) => rangeIn(known[hand], up, placing),
     nets: { left: netsOf(known.left.chosen), right: netsOf(known.right.chosen) },
   };
   const end = (): void => {
@@ -337,7 +381,7 @@ export function strikeSkill(spec: BodySpec, repertoire: Repertoire, placing: Pla
           const recipe = choose(hand, up), taken = blowOf(hand, recipe);
           state.blow = taken.kind;
           state.recipe = recipe;
-          state.distance = standOff(taken, up);
+          state.distance = standOff(taken, up, placing);
         }
         const window = windowOf(blowOf(hand, state.recipe)), reach = state.distance!;
         const middle = [(window.along[0] + window.along[1]) / 2, (window.across[0] + window.across[1]) / 2] as const;
@@ -392,7 +436,7 @@ export function strikeSkill(spec: BodySpec, repertoire: Repertoire, placing: Pla
               state.phase = same ? "place" : "approach";
               state.blow = stood.kind;
               state.recipe = recipe;
-              state.distance = standOff(stood, up);
+              state.distance = standOff(stood, up, placing);
               state.still = 0;
               state.readyAt = null;
             }

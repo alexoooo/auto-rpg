@@ -24,8 +24,9 @@ export interface Senses {
 /**
  * **Another body, as sensed**: everything physical of it, and whether it is still in the fight.
  * Not its hit points. `seekFoe` (`fighter.ts`) reads `side`, `out`, `centre` and the centre
- * of the part it attacks; the segments' poses, velocities and spins, and the spec with what the body holds, are
- * what a mind that attacks a moving body, blocks or parries reads (`docs/roadmap.md`, The AI).
+ * of the part it attacks, and at the edge of a foe's reach the spec with what the body holds
+ * (`rangeOf`); the segments' poses, velocities and spins are what a mind that attacks a moving
+ * body, blocks or parries reads (`docs/roadmap.md`, The AI).
  */
 export interface BodySense {
   readonly id: string;

@@ -51,7 +51,7 @@ export function createMind(built: BuiltBody, world: World, config: MindConfig, w
 /** A fighter left to itself seeks its foe (`seekFoe`): the one conduct there is. */
 function createFighter(built: BuiltBody, world: World, config: FighterMindConfig, wiring: MindWiring): FighterMind {
   const body = createBody(built, world, { servoSeconds: SERVO_SECONDS, senses: wiring.senses, assist: wiring.assist, subs: subMindsOf(config.subs) });
-  const skills = driveBy(body, fighterTactics(wiring.name, (sight) => wiring.orders(sight.view.senses) ?? seekFoe(sight, config.aim), STRAFE, config.guard, config.threat),
+  const skills = driveBy(body, fighterTactics(wiring.name, (sight) => wiring.orders(sight.view.senses) ?? seekFoe(sight, config.aim, config.range, config.edge), STRAFE, config.guard, config.threat),
     { cover: config.covering });
   return { kind: "fighter", body, skills, state: skills.state };
 }
