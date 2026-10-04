@@ -1,0 +1,218 @@
+/** Shared physical tasks, measured without changing the commands their controllers produce. */
+import { createHash } from "node:crypto";
+import { performance } from "node:perf_hooks";
+import { Logger } from "@babylonjs/core/Misc/logger.js";
+import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { BODY_MODELS } from "../src/core/human/spec.ts";
+import { FIGHTER } from "../src/core/mind/config.ts";
+import { createMind } from "../src/core/mind/minds.ts";
+import { STAND_ORDERS } from "../src/core/mind/orders.ts";
+import { REPERTOIRE, recipesFor } from "../src/core/skills/strikes.ts";
+import { traceOf } from "../tests/harness/trace.mjs";
+import { felled, watchFall } from "./core-rise-trials.mjs";
+import { evaluateBlow, heldSpec } from "./core-blow.mjs";
+import { buildBout } from "./bout.mjs";
+
+Logger.LogLevels = Logger.ErrorLogLevel;
+
+/** The task protocol: rates are declared, and split indices occupy disjoint bounded ranges. */
+export const FOUNDATION = Object.freeze({ version: 1, samples: 2, watch: 40, bout: 20, recovery: 3,
+  split: Object.freeze({ development: 0, "held-out": 1000000 }), maximumSamples: 1000000 });
+
+const hash = (value) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
+const heldName = (held) => held === "club" ? "wooden club" : "fist";
+const riseMind = { ...FIGHTER, subs: [{ kind: "staged-rise" }] };
+const suites = ["baseline", "recovery", "strike-block", "bar", "integrated"];
+
+/** Fully specified starts; a seed selects geometry, not a hidden source of simulation noise. */
+export function foundationJobs({ suite = "baseline", split = "development", samples = FOUNDATION.samples,
+  hz = 120, models = BODY_MODELS, from = 0 } = {}) {
+  if (!suites.includes(suite)) throw new Error(`unknown suite ${suite}`);
+  if (!Object.hasOwn(FOUNDATION.split, split)) throw new Error(`unknown split ${split}`);
+  if (!Number.isSafeInteger(samples) || samples < 1 || !Number.isSafeInteger(from) || from < 0
+    || from + samples > FOUNDATION.maximumSamples) throw new Error("sample range must stay within its split");
+  if (!Number.isSafeInteger(hz) || hz < 120 || hz % 120 !== 0) throw new Error("hz must be a positive multiple of 120");
+  if (!models.length || new Set(models).size !== models.length || models.some((m) => !BODY_MODELS.includes(m))) throw new Error("models must name distinct known bodies");
+  const jobs = [];
+  const add = (job) => {
+    const config = { protocol: FOUNDATION.version, split, hz, ...job };
+    jobs.push({ ...config, id: hash(config) });
+  };
+  for (const model of models) for (const held of ["empty", "club"]) {
+    for (let index = from; index < from + samples; index++) {
+      const seed = FOUNDATION.split[split] + index;
+      const fraction = (((seed + 1) * 2654435761) >>> 0) / 4294967296;
+      const degrees = fraction * 360;
+      const gap = 3 + fraction * 2;
+      const common = { model, held, seed };
+      if (["baseline", "recovery"].includes(suite)) for (const recovery of ["lie", "staged-rise"])
+        add({ ...common, task: "recovery", recovery, degrees, impulse: 1.5, watch: FOUNDATION.watch });
+      if (["baseline", "strike-block"].includes(suite)) {
+        for (const hand of ["left", "right"]) for (const target of ["place", "offset", "miss"])
+          add({ ...common, task: "strike", hand, target, across: target === "offset" ? (fraction * 2 - 1) * 0.12 : 0,
+            perturbation: { shift: (fraction * 2 - 1) / 240, scale: 1 + (fraction * 2 - 1) * 0.02 }, recover: FOUNDATION.recovery });
+        for (const guard of ["pose", "left-cover", "right-cover"])
+          add({ ...common, task: "bout", guard, gap, cap: FOUNDATION.bout });
+      }
+    }
+    if (["baseline", "bar", "integrated"].includes(suite)) add({ model, held, task: "unsupported",
+      capability: suite === "integrated" ? "integrated recovery and combat" : "shared two-handed item and grip release" });
+  }
+  return jobs;
+}
+
+/** Count over its own denominator, with a Wilson 95% interval; no observations has no rate. */
+export function proportion(successes, count) {
+  if (!Number.isInteger(count) || !Number.isInteger(successes) || count < 0 || successes < 0 || successes > count) throw new Error("invalid counts");
+  if (!count) return { successes, count, rate: null, interval95: null };
+  const p = successes / count, z = 1.959963984540054, d = 1 + z * z / count;
+  const centre = (p + z * z / (2 * count)) / d, radius = z * Math.sqrt(p * (1 - p) / count + z * z / (4 * count * count)) / d;
+  return { successes, count, rate: p, interval95: [Math.max(0, centre - radius), Math.min(1, centre + radius)] };
+}
+
+/** Physical readings after a step. Timing is separate from reproducible simulation metrics. */
+function meter(builts, bodies) {
+  const trace = traceOf(builts), p = new Vector3(), q = new Vector3(), velocity = new Vector3();
+  const anchors = builts.flatMap((built) => [...built.joints.values()].map((joint) => {
+    const local = (segment) => {
+      const frame = segment.frame, d = joint.spec.centre.value.map((v, i) => v - frame.origin[i]);
+      return new Vector3(...[frame.x, frame.y, frame.z].map((axis) => axis.reduce((sum, v, i) => sum + v * d[i], 0)));
+    };
+    return { joint, a: local(joint.parent), b: local(joint.child) };
+  }));
+  let steps = 0, separation = 0, fastest = 0, contactImpulse = 0, forceIntegral = 0, momentIntegral = 0;
+  const samples = [];
+  return {
+    take(dt) {
+      steps++;
+      trace.take();
+      for (const { joint, a, b } of anchors) {
+        a.applyRotationQuaternionToRef(joint.parent.node.rotationQuaternion, p).addInPlace(joint.parent.node.position);
+        b.applyRotationQuaternionToRef(joint.child.node.rotationQuaternion, q).addInPlace(joint.child.node.position);
+        separation = Math.max(separation, Vector3.Distance(p, q));
+      }
+      for (const built of builts) for (const segment of built.segments.values()) {
+        fastest = Math.max(fastest, segment.body.linearVelocityToRef(velocity).length());
+        for (const contact of built.physics.contactsOf(segment.body, (other) => other === null)) contactImpulse += contact.impulse;
+      }
+      for (const body of bodies) {
+        forceIntegral += body.assist.given.force.length() * dt;
+        momentIntegral += body.assist.given.moment.length() * dt;
+      }
+      if (![separation, fastest, contactImpulse, forceIntegral, momentIntegral].every(Number.isFinite)) throw new Error("invalid physical reading");
+    },
+    time(milliseconds) { samples.push(milliseconds); },
+    row() {
+      const sorted = [...samples].sort((a, b) => a - b);
+      return { physical: { steps, digest: trace.digest(), maxJointAnchorSeparationMetres: separation,
+        peakSegmentSpeed: fastest, groundNormalImpulseNs: contactImpulse,
+        assistForceIntegralNs: forceIntegral, assistMomentIntegralNms: momentIntegral },
+      timing: { instrumented: true, steps: samples.length, meanStepMs: samples.length ? samples.reduce((a, b) => a + b, 0) / samples.length : null,
+        p99StepMs: sorted.length ? sorted[Math.ceil(sorted.length * 0.99) - 1] : null } };
+    },
+  };
+}
+
+/** Instrument world steps while preserving the original call order and each completed step. */
+function instrument(world, readings) {
+  const step = world.step;
+  world.step = (n = 1) => {
+    for (let i = 0; i < n; i++) {
+      const start = performance.now();
+      step(1);
+      readings.time(performance.now() - start);
+      readings.take(world.dt);
+    }
+  };
+}
+
+async function recoveryTrial(job) {
+  let readings;
+  const fall = await felled(job, (built, world) => {
+    const body = createMind(built, world, job.recovery === "staged-rise" ? riseMind : FIGHTER,
+      { name: "foundation", orders: () => STAND_ORDERS }).body;
+    readings = meter([built], [body]);
+    instrument(world, readings);
+    return body;
+  });
+  try {
+    const outcome = fall.body.view.down ? watchFall(fall.world, fall.built, fall.body, job.watch)
+      : { fell: false, risen: false, seconds: null, up: null };
+    return { status: "measured", outcome, ...readings.row(), limits: ["standing is not proof of useful control", "no penetrating-depth or motor-work measurement"] };
+  } finally { fall.dispose(); }
+}
+
+async function strikeTrial(job) {
+  const held = heldName(job.held), spec = heldSpec(job.model, held, job.hand);
+  const chosen = recipesFor(REPERTOIRE, spec, job.hand).find((c) => c.recipe.band === "high");
+  if (!chosen) return { status: "unsupported", reason: "no high-band recipe for this loadout" };
+  let readings, first = null, commit = null, thrown = null, steps = 0;
+  const outcome = await evaluateBlow({ model: job.model, held, hand: job.hand, hz: job.hz,
+    strike: chosen.strike, ahead: chosen.recipe.place.ahead, dummy: job.target !== "miss",
+    off: { along: 0, across: job.across, up: 0 }, seen: true, perturbation: job.perturbation, recover: job.recover,
+    trace(body, blow) {
+      readings ??= meter([body.built], [body]);
+      readings.take(1 / job.hz); steps++;
+      first ??= blow.time;
+      if (blow.report.strike.phase === "chamber" || blow.report.strike.phase === "swing") commit ??= blow.time;
+      if (blow.report.strike.thrown[job.hand] > 0) thrown ??= blow.time;
+    } });
+  return { status: "measured", outcome: { ...outcome, preparedSeconds: commit === null ? null : commit - first,
+    threwAt: thrown, usefulHit: outcome.done > 0, watchedSeconds: steps / job.hz }, ...readings.row(),
+    limits: ["offset is a fixed target disclosed at commitment, not a moving target", "no per-step cost in the blow adapter"] };
+}
+
+/** Track preparation from the first active phase to chamber/swing; count each commitment once. */
+export function attackAccounting() {
+  let active = null;
+  const preparations = [];
+  return {
+    take(phase, time) {
+      if (!phase) { active = null; return; }
+      active ??= { start: time, committed: false };
+      if (!active.committed && (phase === "chamber" || phase === "swing")) {
+        active.committed = true;
+        preparations.push(time - active.start);
+      }
+    },
+    preparations,
+  };
+}
+
+async function boutTrial(job) {
+  const cover = { ...FIGHTER, guard: "cover" };
+  const recipe = { left: job.model, right: job.model, gap: job.gap, cap: job.cap,
+    held: { left: job.held, right: job.held },
+    minds: { left: job.guard === "left-cover" ? cover : FIGHTER, right: job.guard === "right-cover" ? cover : FIGHTER } };
+  const bout = await buildBout(recipe, { hz: job.hz });
+  const sides = [bout.duel.duelists.left, bout.duel.duelists.right];
+  const readings = meter(sides.map((s) => s.built), sides.map((s) => s.body));
+  const attacks = sides.map(() => attackAccounting());
+  instrument(bout.world, readings);
+  try {
+    while (!bout.duel.verdict && bout.world.time < job.cap) {
+      bout.world.step();
+      sides.forEach((s, i) => attacks[i].take(s.minded.skills.report.strike.phase, bout.world.time));
+    }
+    const outcome = { seconds: bout.duel.clock, ending: bout.duel.verdict?.ending ?? "time-limit",
+      sides: sides.map((s, i) => {
+        const contacts = bout.duel.blows.map((b) => b.sides.find((p) => p.fighter === s.id)).filter(Boolean);
+        return { fallen: s.body.view.down, preparations: attacks[i].preparations,
+          thrown: { ...s.minded.skills.report.strike.thrown },
+          headDamage: contacts.filter((p) => p.segment === "head").reduce((sum, p) => sum + p.damage, 0),
+          damage: contacts.reduce((sum, p) => sum + p.damage, 0) };
+      }) };
+    return { status: "measured", outcome, ...readings.row(), limits: ["falls are not classified as caused by an impact or unforced"] };
+  } finally { bout.dispose(); }
+}
+
+/** A whole trial in one world; unavailable capabilities are explicit rows, never successes. */
+export async function foundationTrial(job) {
+  switch (job.task) {
+    case "recovery": return recoveryTrial(job);
+    case "strike": return strikeTrial(job);
+    case "bout": return boutTrial(job);
+    case "unsupported": return { status: "unsupported", reason: job.capability };
+    default: throw new Error(`unknown foundation task ${job.task}`);
+  }
+}

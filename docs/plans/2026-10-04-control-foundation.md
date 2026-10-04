@@ -112,6 +112,11 @@ callback order. A direct policy may instead produce the whole action itself.
 
 ## Execution, in independently landable chunks
 
+Chunk 0's runner and stock screening record are implemented in
+[control-foundation](../reference/control-foundation.md), including explicit missing capabilities
+and measurement limits. Its held-out split remains unused. The next implementation is chunk 1;
+later task fixtures extend this same runner rather than replacing its baseline.
+
 Paths marked **new** are proposed modules/scripts, not existing capabilities. Each numbered chunk
 may take the listed smaller commits. Every commit passes the common checks below. Keep experimental
 choices in immutable configuration outside environment variables in the core. A failed technique

@@ -62,7 +62,7 @@ export function risenAt(downs, hz) {
  * whether its riser played the rise to its end, its last stage done, within the watch (null
  * under a mind with none); and whether it is up at the watch's last step.
  */
-function watched(world, built, body, watch = WATCH_SECONDS) {
+export function watchFall(world, built, body, watch = WATCH_SECONDS) {
   const hz = world.hz, segments = [...built.segments.values()];
   const weight = segments.reduce((sum, segment) => sum + segment.rigid.mass, 0) * Math.hypot(...world.physics.gravity);
   const downs = [body.view.down], velocity = new Vector3(), riser = riserOf(body);
@@ -106,14 +106,14 @@ const FLOOR = 12;
  * `FALL_SECONDS` if it holds. With `level`, m, it is built on a floor that high over the arena's
  * ground, `FLOOR` m square. The caller disposes.
  */
-export async function felled({ model, held, degrees, impulse = 1.5, level = 0 }, minded) {
-  const scene = new Scene(new NullEngine());
-  const world = createWorld(scene, await freshEngine());
+export async function felled({ model, held, degrees, impulse = 1.5, level = 0, hz = 120 }, minded) {
+  const engine = new NullEngine(), scene = new Scene(engine);
+  const world = createWorld(scene, await freshEngine(), { hz });
   addArenaSolids(world.physics);
   if (level > 0) world.physics.addFixedBox([0, level / 2, 0], [FLOOR, level, FLOOR]);
   const built = buildBody(LOADOUTS[held](modelSpec(model)), world, { position: [0, level, 0] });
   const body = minded(built, world);
-  const dispose = () => { body.dispose(); built.dispose(); world.dispose(); scene.dispose(); };
+  const dispose = () => { body.dispose(); built.dispose(); world.dispose(); scene.dispose(); engine.dispose(); };
   try {
     world.step(Math.round(STAND_SECONDS * world.hz));
     const mass = [...built.segments.values()].reduce((sum, segment) => sum + segment.rigid.mass, 0);
@@ -158,7 +158,7 @@ export async function shoved({ mind = FIGHTER, watch = WATCH_SECONDS, ...shove }
   const { world, built, body, dispose } = await felled(shove,
     (made, into) => createMind(made, into, mind, { name: "battery", orders: () => STAND_ORDERS }).body);
   try {
-    return body.view.down ? watched(world, built, body, watch) : HELD;
+    return body.view.down ? watchFall(world, built, body, watch) : HELD;
   } finally { dispose(); }
 }
 
@@ -176,7 +176,7 @@ export async function boutFall({ recipe, mind, watch = WATCH_SECONDS }) {
     if (!side) return null;
     duel.order(side === "left" ? "right" : "left", STAND_ORDERS);
     const { built, body } = duel.duelists[side];
-    return watched(world, built, body, watch);
+    return watchFall(world, built, body, watch);
   } finally { dispose(); }
 }
 

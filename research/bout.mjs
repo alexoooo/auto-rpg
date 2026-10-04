@@ -11,12 +11,12 @@ import { traceOf } from "../tests/harness/trace.mjs";
 export const BOUT_HARNESS = "Node, core world (src/core/world.ts), Rapier, 120 Hz";
 
 /** A world with the arena's solids and `recipe`'s bout in it. */
-export async function buildBout(recipe) {
-  const scene = new Scene(new NullEngine());
-  const world = createWorld(scene, await freshEngine());
+export async function buildBout(recipe, { hz = 120 } = {}) {
+  const engine = new NullEngine(), scene = new Scene(engine);
+  const world = createWorld(scene, await freshEngine(), { hz });
   addArenaSolids(world.physics);
   const duel = new Duel(world, recipe);
-  return { world, duel, dispose() { duel.dispose(); world.dispose(); scene.dispose(); } };
+  return { world, duel, dispose() { duel.dispose(); world.dispose(); scene.dispose(); engine.dispose(); } };
 }
 
 /** A built body's weight in `world`, N: its segments' rigid masses, what they hold included, times gravity. */
