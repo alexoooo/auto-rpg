@@ -2,8 +2,9 @@
 
 The core installs `@dimforge/rapier3d-simd-compat` from the committed archive in `vendor/rapier`.
 The plain package used by the bench remains npm's. The engine adapter exposes directional motor
-bounds and accumulated effort. The muscle driver still commands symmetric bounds, so these
-additions measure behavior without changing the reference controller's actuation.
+bounds and accumulated effort. The muscle driver selects symmetric reference or directional
+bounds from immutable world configuration. Gameplay retains the reference while corrected-law
+control is measured separately in the [common battery](control-foundation.md).
 
 ## Source and installation
 

@@ -30,7 +30,7 @@ function motionOf(builts) {
 export const shows = ({ view, muscles, assist }) => ({
   view: { ...view, senses: null },
   muscles: {
-    activation: muscles.activation, velocity: muscles.velocity, ceiling: muscles.ceiling, pulled: muscles.pulled,
+    activation: muscles.activation, velocity: muscles.velocity, ceiling: muscles.ceiling, pulled: muscles.pulled, bounds: muscles.bounds,
     joints: muscles.channels.map((_, i) => [muscles.angle(i), muscles.rate(i), muscles.speed(i), muscles.turning(i, 0), muscles.turning(i, 1), muscles.turning(i, 2)]),
   },
   assist: { on: assist.on, withdrawn: assist.withdrawn, given: assist.given, meter: assist.meter },

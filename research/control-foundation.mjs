@@ -6,6 +6,7 @@ import { resolve, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { Worker } from "node:worker_threads";
+import { gzipSync } from "node:zlib";
 import { foundationJobs, FOUNDATION, proportion } from "./control-foundation-trials.mjs";
 import { CORE_ENGINE } from "../tests/harness/core-stand.mjs";
 
@@ -25,14 +26,17 @@ async function contentRevision() {
   }
   for (const folder of ["src", "assets", "tests/harness"]) await visit(resolve(root, folder));
   for (const entry of await readdir(resolve(root, "research"))) if (entry.endsWith(".mjs")) files.push(resolve(root, "research", entry));
-  files.push(resolve(root, "package-lock.json"));
+  files.push(resolve(root, "package.json"), resolve(root, "package-lock.json"));
   const hash = createHash("sha256");
+  const sources = [];
   for (const file of files.sort()) {
-    hash.update(relative(root, file).replaceAll("\\", "/") + "\0");
-    hash.update((await readFile(file, "utf8")).replaceAll("\r\n", "\n"));
+    const path = relative(root, file).replaceAll("\\", "/"), text = (await readFile(file, "utf8")).replaceAll("\r\n", "\n");
+    sources.push([path, text]);
+    hash.update(path + "\0");
+    hash.update(text);
     hash.update("\0");
   }
-  return hash.digest("hex");
+  return { content: hash.digest("hex"), sources };
 }
 
 /** Results remain ordered by task, independent of worker completion order; all workers are joined. */
@@ -72,11 +76,11 @@ export function summarizeFoundation(rows) {
   const groups = new Map(), bouts = new Map();
   for (const row of rows) {
     const { job, result } = row;
-    const key = [job.task, job.model, job.held, job.hand ?? "", job.target ?? "", job.recovery ?? "", job.guard ?? ""].join("/");
+    const key = [job.actuation ?? "symmetric", job.task, job.model, job.held, job.hand ?? "", job.target ?? "", job.recovery ?? "", job.guard ?? ""].join("/");
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(row);
     if (job.task === "bout" && result.status === "measured") {
-      const pair = `${job.model}/${job.held}/${job.seed}/${job.hz}`;
+      const pair = `${job.model}/${job.held}/${job.seed}/${job.hz}/${job.actuation ?? "symmetric"}`;
       if (!bouts.has(pair)) bouts.set(pair, {});
       bouts.get(pair)[job.guard] = result.outcome;
     }
@@ -106,17 +110,20 @@ async function main() {
     suite: { type: "string", default: "baseline" }, split: { type: "string", default: "development" },
     samples: { type: "string", default: String(FOUNDATION.samples) }, from: { type: "string", default: "0" },
     hz: { type: "string", default: "120" }, workers: { type: "string", default: "4" }, models: { type: "string" }, out: { type: "string" },
+    actuation: { type: "string", default: "symmetric" },
   } });
   const options = { suite: values.suite, split: values.split, samples: Number(values.samples), from: Number(values.from), hz: Number(values.hz),
-    ...(values.models ? { models: values.models.split(",") } : {}) };
+    actuation: values.actuation, ...(values.models ? { models: values.models.split(",") } : {}) };
   const jobs = foundationJobs(options), started = new Date().toISOString();
   const directory = resolve(values.out ?? resolve(root, "research/runs/control-foundation", `${started.replaceAll(":", "-")}-${randomUUID()}`));
   const lock = JSON.parse(await readFile(resolve(root, "package-lock.json"), "utf8"));
   const pkg = lock.packages["node_modules/@dimforge/rapier3d-simd-compat"];
+  const source = await contentRevision(), archive = gzipSync(JSON.stringify(source.sources));
   const manifest = { protocol: FOUNDATION.version, started, options, workers: Number(values.workers),
     harness: "Node, core world, per-task arena/stand fixtures", node: process.version, engine: CORE_ENGINE,
     package: { version: pkg.version, resolved: pkg.resolved, integrity: pkg.integrity },
-    source: { git: execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim(), content: await contentRevision() },
+    source: { git: execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim(), content: source.content,
+      archive: "source.json.gz", archiveSha256: digest(archive) },
     sensing: "existing fighter senses; stationary blow offset disclosed at commitment", action: "existing fighter skills and staged-rise/lie",
     policyPeriodSteps: 1, assists: { rootBalancePercent: 0, weapon: false },
     unavailable: ["two-handed items", "grip release", "integrated recovery/combat", "moving isolated targets", "actuator work", "contact penetration"],
@@ -126,6 +133,7 @@ async function main() {
   manifest.package.entrySha256 = digest(await readFile(resolve(root, "node_modules/@dimforge/rapier3d-simd-compat", installed.main)));
   await mkdir(directory, { recursive: true });
   await writeFile(resolve(directory, "manifest.json"), json(manifest), { flag: "wx" });
+  await writeFile(resolve(directory, "source.json.gz"), archive, { flag: "wx" });
   await writeFile(resolve(directory, "rows.jsonl"), "", { flag: "wx" });
   console.log(`${jobs.length} tasks; ${directory}`);
   let completed = 0, writes = Promise.resolve();
@@ -136,6 +144,7 @@ async function main() {
       return writes;
     } });
     await writes;
+    if ((await contentRevision()).content !== source.content) throw new Error("source changed during the experiment; results are invalid");
     await writeFile(resolve(directory, "summary.json"), json(summarizeFoundation(rows)), { flag: "wx" });
     console.log(`Completed ${rows.length} tasks; manifest SHA256 ${digest(json(manifest))}`);
   } catch (error) {

@@ -16,6 +16,9 @@ test("foundation starts are reproducible, split-disjoint and explicit about unsu
   assert.throws(() => foundationJobs({ from: 999999, samples: 2 }), /split/);
   assert.throws(() => foundationJobs({ hz: 0 }), /hz/);
   assert.throws(() => foundationJobs({ suite: "typo" }), /suite/);
+  assert.throws(() => foundationJobs({ actuation: "typo" }), /actuation/);
+  const directional = foundationJobs({ ...options, actuation: "directional" });
+  assert.ok(directional.every((j, i) => j.actuation === "directional" && j.id !== a[i].id));
 });
 
 test("preparation counts commitments, not frames in a swing or aborted approaches", () => {
@@ -43,6 +46,8 @@ test("a physical strike repeats on fresh worlds and a missing target does not sc
   assert.notEqual(a.physical.digest, absent.physical.digest);
   assert.ok(a.physical.maxJointAnchorSeparationMetres > 0);
   assert.equal(a.physical.assistForceIntegralNs, 0);
+  const directional = await foundationTrial({ ...at, actuation: "directional" });
+  assert.notEqual(directional.physical.digest, a.physical.digest, "the selected actuator law reaches the physical fixture");
 });
 
 test("workers preserve task order, report unsupported tasks and terminate on a failed job", async () => {
@@ -61,11 +66,12 @@ test("guard differences compare the same side and start and recovery excludes sh
   const rows = [
     { job: { ...job, guard: "pose" }, result: { status: "measured", outcome: outcome(4) } },
     { job: { ...job, guard: "left-cover" }, result: { status: "measured", outcome: outcome(1) } },
+    { job: { ...job, guard: "pose", actuation: "directional" }, result: { status: "measured", outcome: outcome(19) } },
     ...[{ fell: true, risen: true, up: true }, { fell: true, risen: true, up: false }, { fell: false }].map((o) =>
       ({ job: { ...job, task: "recovery" }, result: { status: "measured", outcome: o } })),
   ];
   const summary = summarizeFoundation(rows);
-  assert.deepEqual(summary.pairedGuard, [{ pair: "workshop-fighter/club/4/120", guard: "left-cover", headDamageSaved: 3,
+  assert.deepEqual(summary.pairedGuard, [{ pair: "workshop-fighter/club/4/120/symmetric", guard: "left-cover", headDamageSaved: 3,
     damageSaved: 3, poseFallen: false, coverFallen: false, poseSeconds: 10, coverSeconds: 10 }]);
   assert.equal(summary.cells.at(-1).success.count, 2);
   assert.equal(summary.cells.at(-1).success.successes, 1);

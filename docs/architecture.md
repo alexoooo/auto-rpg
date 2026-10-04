@@ -148,9 +148,12 @@ under the core's tests with `CORE_ENGINE=<name> npm test`.
 velocity, into a motor target and a torque ceiling: activation times the peak torque of the side
 pushed toward, times the force-velocity factor at the joint's speed (`force-velocity.ts`: Hill's
 curve shortening, and an eccentric branch lengthening that rises toward 1.4 times isometric, for
-braking and blocking). The driver still uses that ceiling symmetrically, so a load that reverses
-the motor can receive the wrong side's braking strength; corrected directional actuation remains
-an open control-foundation gate. `pulled` records the mean torque actually delivered over the
+braking and blocking). Immutable `World.actuation` selects the symmetric gameplay reference or
+directional research law. The latter bounds each side independently; an infinite-speed torque
+command gives the opposite side zero activation, while a finite-speed command may brake.
+The symmetric reference can give a reversing motor the wrong side's braking strength. Default
+migration remains gated on corrected contact/control capability. Both directional bounds and
+the command are saved with the muscles. `pulled` records the mean torque actually delivered over the
 last world step, from accumulated motor impulse divided by that step's duration, in the channel's
 positive sense. It is saved state and a diagnostic, not a work measurement.
 

@@ -29,10 +29,10 @@ export const freshEngine = () => loadEngine(CORE_ENGINE);
  * mannequin's stand holds its pelvis. `groundSize` is the ground's side, m (the lab's is 40). `hz` runs physics and control at another rate than the
  * game's, as a finer reference; a figure read at one names it.
  */
-export async function coreStand(spec, { gravity = true, ground = true, position = [0, 0, 0], pinned, groundSize = 20, hz = PHYSICS_HZ.value } = {}) {
+export async function coreStand(spec, { gravity = true, ground = true, position = [0, 0, 0], pinned, groundSize = 20, hz = PHYSICS_HZ.value, actuation } = {}) {
   const engine = new NullEngine();
   const scene = new Scene(engine);
-  const world = createWorld(scene, await freshEngine(), { hz, gravity });
+  const world = createWorld(scene, await freshEngine(), { hz, gravity, actuation });
   const floor = ground ? world.physics.addFixedBox([0, -0.5, 0], [groundSize, 1, groundSize]) : null;
   const built = buildBody(spec, world, { position });
   if (pinned !== undefined) {

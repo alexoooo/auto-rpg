@@ -8,7 +8,7 @@ import { forceVelocityFactor, forceVelocityReach, type ForceVelocityCurve } from
 
 /**
  * **The muscle actuator**: each freedom's muscles as a velocity motor on its joint's axis
- * (`EngineJoint.setMotor`) whose ceiling is what the muscles can do at the speed the joint is turning.
+ * (`EngineJoint.setMotorBounds`) whose directional ceilings are what each side can do at the joint's speed.
  *
  * A controller commands, for each freedom, an activation (0-1) and a speed it would like the joint
  * to turn at. Every world step the driver reads each joint (`jointTracker`: angles from the
@@ -22,14 +22,15 @@ import { forceVelocityFactor, forceVelocityReach, type ForceVelocityCurve } from
  * its ceiling until the joint gets there; a speed of zero is a hold; a speed toward a pose is a
  * servo. The driver reads its step from the world (`src/core/world.ts`).
  *
- * **Which muscles pull is chosen before the step**, and a motor's ceiling is one number for both
- * directions, so the choice bounds the motor whichever way it then pushes: the side pushed toward
- * (the sign of target minus speed), and with no push the weaker. **A known defect:** that gives the
- * braking muscles' work to the other side whenever a load outweighs the change asked, and a servo
- * asks for small changes, the smaller the finer the step. The right choice is the sign of the
- * torque the step needs. The engine exposes separate directional bounds and a motor's
- * whole-step impulse; this driver uses its symmetric ceiling and reads delivered torque afterward.
- * `tests/core-muscle.test.mjs` holds the choice as a todo.
+ * **Under directional actuation each side has its own ceiling.** A finite-speed command permits the solver to pull or brake
+ * within those bounds as the load requires. Both sides share the commanded activation, but keep
+ * their own strength and force-velocity curve. `pulled` is the measured mean torque over the step;
+ * `ceiling` reports the bound in that torque's sense (the requested sense when no torque was given).
+ * An infinite-speed command is a torque source in that sense: it gives the opposite side no
+ * activation. Its finite speed limit still prevents a light limb outrunning the muscle's curve.
+ * `World.actuation` also names the symmetric reference law: it uses the requested side's ceiling
+ * in both directions, including when the opposite side supplies the braking. That law is a
+ * comparison control, not a guarantee of each side's anatomical bound.
  *
  * **The curve is read at the speed the step begins with, and the motor's target is held to where
  * the curve's tangent there reaches zero** (`forceVelocityReach`). A light limb's own time
@@ -117,6 +118,8 @@ export interface MuscleDriver {
   strength(channel: number, sense: 1 | -1): number;
   /** The ceiling last given to the channel's motor, N m. */
   readonly ceiling: Float64Array;
+  /** The nonnegative directional torque ceilings given to the solver, N m, in the channel's senses. */
+  readonly bounds: { readonly negative: Float64Array; readonly positive: Float64Array };
   /** Mean torque delivered over the last world step, N m, positive in the channel's positive sense. */
   readonly pulled: Float64Array;
   /** Its memory (`src/core/state.ts`): its level, command, ceilings, delivered torque, and each joint as last read. */
@@ -166,6 +169,14 @@ export function driveMuscles(built: BuiltBody, world: World, control?: MuscleCon
   const byName = new Map(channels.map((c, i) => [c.name, i]));
   const n = channels.length;
   const dt = world.dt;
+  const directional = (() => {
+    const law = world.actuation;
+    switch (law) {
+      case "symmetric": return false;
+      case "directional": return true;
+      default: throw new Error(`unknown actuation ${law satisfies never}`);
+    }
+  })();
   const dynamics = bodyDynamics(built, world.physics.gravity);
   const angles = trackers.map((tracker) => tracker.angles);
   const motion = { spin: angularVelocity };
@@ -174,6 +185,7 @@ export function driveMuscles(built: BuiltBody, world: World, control?: MuscleCon
   const state = {
     level: "full" as BodyLevel,
     activation: new Float64Array(n), velocity: new Float64Array(n), ceiling: new Float64Array(n), pulled: new Float64Array(n),
+    bounds: { negative: new Float64Array(n), positive: new Float64Array(n) },
     trackers: trackers.map(({ angles, speeds, rates, turning }) => ({ angles, speeds, rates, turning })),
   };
   const driver: MuscleDriver = {
@@ -182,6 +194,7 @@ export function driveMuscles(built: BuiltBody, world: World, control?: MuscleCon
     velocity: state.velocity,
     ceiling: state.ceiling,
     pulled: state.pulled,
+    bounds: state.bounds,
     angle: (i) => trackerOf[i]!.angles[channels[i]!.index]!,
     rate: (i) => trackerOf[i]!.rates[channels[i]!.index]!,
     speed: (i) => trackerOf[i]!.speeds[channels[i]!.index]!,
@@ -193,6 +206,7 @@ export function driveMuscles(built: BuiltBody, world: World, control?: MuscleCon
       if (state.level === "full") {
         idle?.();
         state.activation.fill(0); state.velocity.fill(0); state.ceiling.fill(0);
+        state.bounds.negative.fill(0); state.bounds.positive.fill(0);
         for (const c of channels) c.joint.joint.setMotor(c.index, 0, 0);
       }
       if (fixedAt(next) !== fixedAt(state.level)) for (const segment of built.segments.values()) segment.body.setFixed(fixedAt(next));
@@ -230,16 +244,23 @@ export function driveMuscles(built: BuiltBody, world: World, control?: MuscleCon
       // Within a step the muscles turn the joint no further than their curve's tangent reaches.
       const reach = forceVelocityReach(toward * speed, (toward > 0 ? c.positive : c.negative).curve);
       const beyond = toward * target > reach;
-      // The muscles that pull: the side pushed toward (the module's note has the defect).
-      const ceiling = activation * driver.strength(i, toward);
-      driver.ceiling[i] = ceiling;
-      c.joint.joint.setMotor(c.index, c.dof.sign * (beyond ? toward * reach : target), ceiling);
+      const reference = directional ? 0 : activation * driver.strength(i, toward);
+      const positive = directional ? target === -Infinity ? 0 : activation * driver.strength(i, 1) : reference;
+      const negative = directional ? target === Infinity ? 0 : activation * driver.strength(i, -1) : reference;
+      state.bounds.positive[i] = positive; state.bounds.negative[i] = negative;
+      driver.ceiling[i] = toward > 0 ? positive : negative;
+      // The motor's axis may run against the freedom's positive sense.
+      const along = c.dof.sign > 0;
+      const commanded = c.dof.sign * (beyond ? toward * reach : target);
+      if (directional) c.joint.joint.setMotorBounds(c.index, commanded, along ? negative : positive, along ? positive : negative);
+      else c.joint.joint.setMotor(c.index, commanded, reference);
     }
   });
   after = world.afterStep(() => {
     for (let i = 0; i < n; i++) {
       const c = channels[i]!;
       state.pulled[i] = c.dof.sign * c.joint.joint.motorStepImpulse(c.index) / dt;
+      if (state.pulled[i] !== 0) state.ceiling[i] = state.pulled[i]! > 0 ? state.bounds.positive[i]! : state.bounds.negative[i]!;
     }
   });
   return driver;

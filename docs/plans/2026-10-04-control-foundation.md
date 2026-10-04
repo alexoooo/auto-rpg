@@ -117,7 +117,12 @@ Chunk 0's runner and stock screening record are implemented in
 and measurement limits. Its held-out split remains unused. Chunk 1's behavior-preserving
 vendoring is implemented and reproduced ([engine record](../reference/rapier-vendor.md));
 directional engine APIs, accumulated effort and its saved state are implemented. The 138 baseline
-rows still equal stock. Corrected muscle actuation and control retuning are next. Later task
+rows still equal stock. Corrected muscle actuation is available as an explicit world configuration;
+the game retains the symmetric reference pending physical capability gates. Loaded braking and
+one-way torque commands pass, but recovery exposes a discontinuous predicted shin support and
+the existing contact-motion mismatch. Bring the body/observation seam and contact correction
+forward before completing chunk 1(c)'s default migration. This is a dependency change, not a
+passed recovery gate. Later task
 fixtures extend this same runner rather than replacing its baseline.
 
 Paths marked **new** are proposed modules/scripts, not existing capabilities. Each numbered chunk
@@ -168,7 +173,10 @@ both directional limits, finite/infinite command semantics and rate dependence.
 
 **Gate:** motor invariants and replay pass; stance/recovery/strike changes have before/after
 tables under the corrected bounds. Tests that assumed an old trajectory get a meaningful
-replacement fixture, not deletion of their assertion. Finish this baseline before new searches.
+replacement fixture, not deletion of their assertion. Keep symmetric and directional results
+separate, with immutable world configuration and archived source. Finish the corrected baseline
+and contact fixes before new controller searches; chunks 2 and 3 may establish their interfaces
+while chunk 4 supplies the contact correction needed to finish this gate.
 
 ### 2. Decouple the body and prove controller replacement
 

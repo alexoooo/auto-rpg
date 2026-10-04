@@ -106,9 +106,9 @@ const FLOOR = 12;
  * `FALL_SECONDS` if it holds. With `level`, m, it is built on a floor that high over the arena's
  * ground, `FLOOR` m square. The caller disposes.
  */
-export async function felled({ model, held, degrees, impulse = 1.5, level = 0, hz = 120 }, minded) {
+export async function felled({ model, held, degrees, impulse = 1.5, level = 0, hz = 120, actuation }, minded) {
   const engine = new NullEngine(), scene = new Scene(engine);
-  const world = createWorld(scene, await freshEngine(), { hz });
+  const world = createWorld(scene, await freshEngine(), { hz, actuation });
   addArenaSolids(world.physics);
   if (level > 0) world.physics.addFixedBox([0, level / 2, 0], [FLOOR, level, FLOOR]);
   const built = buildBody(LOADOUTS[held](modelSpec(model)), world, { position: [0, level, 0] });

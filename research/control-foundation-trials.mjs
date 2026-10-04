@@ -16,7 +16,7 @@ import { buildBout } from "./bout.mjs";
 Logger.LogLevels = Logger.ErrorLogLevel;
 
 /** The task protocol: rates are declared, and split indices occupy disjoint bounded ranges. */
-export const FOUNDATION = Object.freeze({ version: 1, samples: 2, watch: 40, bout: 20, recovery: 3,
+export const FOUNDATION = Object.freeze({ version: 2, samples: 2, watch: 40, bout: 20, recovery: 3,
   split: Object.freeze({ development: 0, "held-out": 1000000 }), maximumSamples: 1000000 });
 
 const hash = (value) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
@@ -26,8 +26,9 @@ const suites = ["baseline", "recovery", "strike-block", "bar", "integrated"];
 
 /** Fully specified starts; a seed selects geometry, not a hidden source of simulation noise. */
 export function foundationJobs({ suite = "baseline", split = "development", samples = FOUNDATION.samples,
-  hz = 120, models = BODY_MODELS, from = 0 } = {}) {
+  hz = 120, models = BODY_MODELS, from = 0, actuation = "symmetric" } = {}) {
   if (!suites.includes(suite)) throw new Error(`unknown suite ${suite}`);
+  if (!["symmetric", "directional"].includes(actuation)) throw new Error(`unknown actuation ${actuation}`);
   if (!Object.hasOwn(FOUNDATION.split, split)) throw new Error(`unknown split ${split}`);
   if (!Number.isSafeInteger(samples) || samples < 1 || !Number.isSafeInteger(from) || from < 0
     || from + samples > FOUNDATION.maximumSamples) throw new Error("sample range must stay within its split");
@@ -35,7 +36,7 @@ export function foundationJobs({ suite = "baseline", split = "development", samp
   if (!models.length || new Set(models).size !== models.length || models.some((m) => !BODY_MODELS.includes(m))) throw new Error("models must name distinct known bodies");
   const jobs = [];
   const add = (job) => {
-    const config = { protocol: FOUNDATION.version, split, hz, ...job };
+    const config = { protocol: FOUNDATION.version, split, hz, actuation, ...job };
     jobs.push({ ...config, id: hash(config) });
   };
   for (const model of models) for (const held of ["empty", "club"]) {
@@ -147,7 +148,7 @@ async function strikeTrial(job) {
   const chosen = recipesFor(REPERTOIRE, spec, job.hand).find((c) => c.recipe.band === "high");
   if (!chosen) return { status: "unsupported", reason: "no high-band recipe for this loadout" };
   let readings, first = null, commit = null, thrown = null, steps = 0;
-  const outcome = await evaluateBlow({ model: job.model, held, hand: job.hand, hz: job.hz,
+  const outcome = await evaluateBlow({ model: job.model, held, hand: job.hand, hz: job.hz, actuation: job.actuation,
     strike: chosen.strike, ahead: chosen.recipe.place.ahead, dummy: job.target !== "miss",
     off: { along: 0, across: job.across, up: 0 }, seen: true, perturbation: job.perturbation, recover: job.recover,
     trace(body, blow) {
@@ -184,7 +185,7 @@ async function boutTrial(job) {
   const recipe = { left: job.model, right: job.model, gap: job.gap, cap: job.cap,
     held: { left: job.held, right: job.held },
     minds: { left: job.guard === "left-cover" ? cover : FIGHTER, right: job.guard === "right-cover" ? cover : FIGHTER } };
-  const bout = await buildBout(recipe, { hz: job.hz });
+  const bout = await buildBout(recipe, { hz: job.hz, actuation: job.actuation });
   const sides = [bout.duel.duelists.left, bout.duel.duelists.right];
   const readings = meter(sides.map((s) => s.built), sides.map((s) => s.body));
   const attacks = sides.map(() => attackAccounting());

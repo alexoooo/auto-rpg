@@ -1,6 +1,6 @@
 # Control foundation: common tasks
 
-## Protocol 1
+## Protocol 2
 
 The runner is `research/control-foundation.mjs`, with the fixtures in
 `control-foundation-trials.mjs` and one sequential job stream per worker in
@@ -17,6 +17,14 @@ Every run writes an exclusive `manifest.json`, an append-only `rows.jsonl` and a
 under a new directory in `research/runs/control-foundation/`. `--out` selects a directory;
 existing manifests cannot be overwritten. Failed runs leave completed rows and `failure.json`,
 and terminate all workers. Row order on disk is completion order; stable task IDs identify rows.
+
+`--actuation symmetric` preserves the gameplay reference; `--actuation directional` selects
+separate anatomical bounds for each torque direction. Both use the same installed engine.
+The law belongs to immutable world configuration, not to a policy's action. Protocol 2 includes
+it in every task ID, summary cell and guard pairing. Protocol 1 records below predate this field.
+Each run also writes `source.json.gz`: normalized source/JSON path-and-content pairs, including
+the package manifests, with its hash in the manifest. Source changes during a run invalidate it.
+The archive preserves dirty experimental code as well as its fingerprint.
 
 The manifest carries the actual source/JSON content hash (including dirty and untracked research
 code), Git revision, Node version, package lock identity and installed package entry hash. Body,
@@ -120,3 +128,39 @@ records retain both hands, targets, paired guard variants and per-cell uncertain
 The prepared strikes work in these starts while recovery and bouts expose failures. This does
 not establish moving-target accuracy, robust recovery, or effective defense; two seeds are too
 few for those conclusions. The held-out split has not been evaluated or used for tuning.
+
+## Directional actuator screening
+
+Harness: Node 24.19.0, core world, vendored Rapier 0.21.0-auto-rpg.2, 120 Hz, four
+workers, balance 0%, no weapon assist, the same development starts and watches as stock.
+Run the baseline command with `--actuation symmetric` and `--actuation directional`.
+Both runs used source SHA256
+`8071ac63169f1858129c8065dc5d4f5e2f83da3bef92eb66380ed4329d9cba22`.
+The symmetric run reproduces all 138 stock physical rows exactly, excluding task-ID changes
+and wall-clock timing. [Directional rows and manifest](control-foundation-directional.json)
+preserve the corrected-law comparison.
+
+| Model | Held | Staged: rose and remained up / fell | Hit and stayed up / targeted throws | Stood after miss / misses | Fallen sides / 6 bouts |
+|---|---|---|---|---|---|
+| Warrior | empty | 2/2 | 8/8 | 4/4 | 4 |
+| Warrior | club | 2/2 | 8/8 | 4/4 | 2 |
+| Rogue | empty | 0/2 | 8/8 | 4/4 | 2 |
+| Rogue | club | 0/2 | 8/8 | 4/4 | 6 |
+| Skeleton | empty | 0/2 | 8/8 | 4/4 | 4 |
+| Skeleton | club | 0/2 | 8/8 | 2/4 | 4 |
+
+Finite velocity commands can pull or brake, each under that direction's anatomical envelope.
+Infinite velocity commands mean one-way torque: the opposing bound is zero. Allowing the
+opposing muscles to brake an infinite command changed its meaning under an external load;
+the external-load regression in `core-muscle.test.mjs` checks both command forms and signs.
+The delivered mean torque and both applied bounds are saved with the muscle state.
+
+Corrected actuation does not yet pass the recovery and integrated capability gates. In the
+Warrior fours diagnostic (Node stand, directional law, empty, pinned rate 120 Hz, balance 0%),
+`riseLimbs` changes a predicted right-shin support from the knee to the knee–foot midpoint
+as a foot corner enters its 3 cm proximity band. At consecutive steps 1019/1020 the support's
+z coordinate changes from 1.279402 to 1.059866 m, while COM changes only about 0.1 mm.
+This is a discontinuity in a desired support estimate, not measured contact motion. Together
+with the flat-hand motion mismatch in the rising record, it blocks treating a controller
+residual or a completed stage as proof of a stable handover. The body/contact work precedes
+default migration; no anatomical strength or capability assertion has been relaxed.

@@ -95,7 +95,7 @@ function inertiaAboutPin(spec) {
 }
 
 async function onStand(spec, control, hz) {
-  const stand = await coreStand(spec, { gravity: false, ground: false, pinned: "post", hz });
+  const stand = await coreStand(spec, { gravity: false, ground: false, pinned: "post", hz, actuation: "directional" });
   const driver = driveMuscles(stand.built, stand.world, control);
   return { stand, driver };
 }
@@ -107,6 +107,25 @@ function integrate(inertia, torque, seconds) {
   for (let t = 0; t < seconds; t += h) w += (h * torque(w)) / inertia;
   return w;
 }
+
+test("a torque command cannot activate the opposite muscles when an external load outruns its speed limit", async () => {
+  for (const sense of [-1, 1]) {
+    const run = async (target) => {
+      const spec = rod(CURVES[0], { positive: 6, negative: 4 });
+      const { stand, driver } = await onStand(spec, (d) => { d.activation[0] = 1; d.velocity[0] = target; }, 120);
+      try {
+        const axis = new Vector3(...spec.joints[0].dofs[0].axis.value);
+        stand.built.segments.get("rod").body.applyTorque(axis.scale(500 * sense));
+        stand.step(1);
+        return { pulled: driver.pulled[0], negative: driver.bounds.negative[0], positive: driver.bounds.positive[0] };
+      } finally { driver.dispose(); stand.dispose(); }
+    };
+    const torque = await run(sense * Infinity), velocity = await run(sense * 1e3);
+    assert.equal(sense > 0 ? torque.negative : torque.positive, 0);
+    assert.ok(sense * torque.pulled >= -1e-8, `torque command ${sense}: ${torque.pulled}`);
+    assert.ok(sense * velocity.pulled < -1, `the finite-speed control brakes: ${velocity.pulled}`);
+  }
+});
 
 /**
  * Driven flat out from rest, the rod's speed follows I dw/dt = activation T0 fv(w), integrated here
@@ -278,13 +297,12 @@ test("the driver reads the torque its motor applied, and its sign is the side th
  * side pulls from the first step.
  *
  * The command is a speed within a step's reach, each step a damped move toward a goal (`ask`),
- * written out here since the servo gives torques (`servo.ts`). A todo: the driver chooses by the
- * change asked (`driver.ts` has the defect).
+ * written out here since the servo gives torques (`servo.ts`).
  */
-test("a command lowering a weight is bounded by the muscles braking it, not those it turns toward", { todo: "The driver still uses symmetric bounds instead of the vendored directional bounds" }, async () => {
+test("a command lowering a weight is bounded by the muscles braking it, not those it turns toward", async () => {
   const peak = { positive: 0.02, negative: 6 };
   const spec = rod(CURVES[0], peak);
-  const stand = await coreStand(spec, { gravity: true, ground: false, pinned: "post", hz: 120 });
+  const stand = await coreStand(spec, { gravity: true, ground: false, pinned: "post", hz: 120, actuation: "directional" });
   let goal = 0, timeConstant = 0.1;
   const ask = (d, dt) => {
     const n = 1 / timeConstant, speed = d.speed(0);

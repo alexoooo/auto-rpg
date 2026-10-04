@@ -94,13 +94,13 @@ const RULES = rulebook("arena");
  * (`StanceReading.recoveries`); and `blows`, every blow between the two.
  */
 export async function evaluateBlow({ model = "workshop-fighter", held = FIST, hand = "right", band = "high", unit, guard = false,
-  strike, ahead, hz = 120, ground = 20, dummy = true, perturbation, off, seen = false, steer, recover = RECOVER, trace }) {
+  strike, ahead, hz = 120, ground = 20, dummy = true, perturbation, off, seen = false, steer, recover = RECOVER, trace, actuation }) {
   const spec = heldSpec(model, held, hand), up = bandRise(spec, band);
   const given = unit ? decodeHeld(held, unit, spec, hand, guard)
     : strike === null ? { strike: null, distance: ahead ?? placedReach(spec, hand, up) } : { strike, distance: ahead };
   if (given.strike === undefined || !(given.distance > 0)) throw new Error("a blow is a unit, or a strike and how far ahead its target stands");
   const thrown = given.strike && perturbation ? perturbed(given.strike, perturbation) : given.strike;
-  const stand = await coreStand(spec, { ground: true, groundSize: ground, hz });
+  const stand = await coreStand(spec, { ground: true, groundSize: ground, hz, actuation });
   const actor = labActor(stand.built, stand.world);
   const blow = throwBlow(actor, { hand, strike: thrown, place: { ahead: given.distance, up }, band,
     ...(seen && off ? { moved: off } : {}), ...(steer === undefined ? {} : { steer }) });

@@ -28,6 +28,8 @@ export interface World {
   readonly hz: number;
   /** The step, s. */
   readonly dt: number;
+  /** The actuator law shared by every body: symmetric reference bounds or each side's own muscle bounds. */
+  readonly actuation: "symmetric" | "directional";
   /** Steps taken since the world was made. */
   readonly steps: number;
   /** Seconds since the world was made: `steps / hz`. */
@@ -67,10 +69,12 @@ interface WorldOptions {
   readonly hz?: number;
   /** Standard gravity, or none, for reading a body alone. */
   readonly gravity?: boolean;
+  readonly actuation?: World["actuation"];
 }
 
 /** The world on `scene`, with a physics of `engine`'s own: make it before any body. The caller loads the engine (`loadEngine`). */
-export function createWorld(scene: Scene, engine: PhysicsEngine, { hz = PHYSICS_HZ.value, gravity = true }: WorldOptions = {}): World {
+export function createWorld(scene: Scene, engine: PhysicsEngine, { hz = PHYSICS_HZ.value, gravity = true, actuation = "symmetric" }: WorldOptions = {}): World {
+  if (actuation !== "symmetric" && actuation !== "directional") throw new Error(`unknown actuation ${String(actuation)}`);
   const physics = engine.createPhysics({ hz, gravity });
   const dt = 1 / hz;
   const sensing: HookEntry[] = [], before: HookEntry[] = [], after: HookEntry[] = [];
@@ -89,6 +93,7 @@ export function createWorld(scene: Scene, engine: PhysicsEngine, { hz = PHYSICS_
 
   const world: World = {
     scene, physics, hz, dt, state,
+    get actuation() { return actuation; },
     get steps() { return state.steps; },
     get time() { return state.steps / hz; },
     sense: (hook) => add(sensing, hook),
