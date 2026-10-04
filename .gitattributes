@@ -1,0 +1,4 @@
+# Files whose bytes another tool reads as LF: bash runs a script, and `git apply` applies a patch
+# to a clone with LF sources. They stay LF in every working copy, whatever core.autocrlf says.
+*.sh text eol=lf
+*.patch text eol=lf

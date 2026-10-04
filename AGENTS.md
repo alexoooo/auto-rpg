@@ -227,6 +227,7 @@ A document that is wrong is corrected or deleted, not annotated.
 
 ## Line endings
 
-This clone has `core.autocrlf = true` and the repository has no `.gitattributes`, so the working
-copy is not the committed file. Gate a commit on `git diff --numstat` equalling
-`git diff --ignore-cr-at-eol --numstat`; a file where they differ has had its endings rewritten.
+This clone has `core.autocrlf = true`, so the working copy is not the committed file. Gate a commit
+on `git diff --numstat` equalling `git diff --ignore-cr-at-eol --numstat`; a file where they differ
+has had its endings rewritten. `.gitattributes` keeps only shell scripts and patches LF in every
+working copy, since bash and `git apply` read their bytes.
