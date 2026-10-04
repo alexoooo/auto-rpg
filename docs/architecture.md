@@ -436,6 +436,9 @@ reaction loads, and changes no physical state. Contact-force signs and friction 
 remain the controller's responsibility; redundant rows return one possible load distribution.
 The allocating diagnostic model serves the experimental equipment tracker; the game's reference
 fighter retains its existing per-step solve.
+Optional constrained quadratic components include ADMM and a cold-start dual active-set solver.
+They share input validation and report residuals and work exhaustion explicitly. Their choice
+belongs to a controller, independently of the physical observation/action interface.
 Separate equipment can explicitly request moving-body CCD at construction. The default is
 unchanged; [collision probes](reference/collision-ccd.md) exercise linear and rotational sweeps
 against a thin moving defense. The pinned engine's automatic fixed-collider CCD is distinct. Joint and active-grip exclusions

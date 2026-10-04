@@ -207,6 +207,10 @@ solve, with explicit warm-start state, fixed iteration budgets and residual repo
 KKT, coupled-bound and replay checks are recorded in [quadratic tasks](../reference/quadratic-tasks.md).
 It is optional controller machinery, not a new policy requirement; contact selection has not yet
 adopted it.
+`math/active-quadratic.ts` adds a bounded-work, cold-start dual active-set alternative, adapted
+from the pinned MIT quadprog kernel within the exact arithmetic boundary. It shares input
+validation with ADMM and independently checks KKT residuals. The reference controller's contact
+formulation can select it without changing the policy/action contract.
 
 The [motion-objective and pinned bar fixtures](../reference/motion-tracking.md) provide joint,
 point and optional orientation trajectories with one owner of bounded actuator commands. They
