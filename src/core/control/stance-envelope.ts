@@ -8,7 +8,8 @@ import { sourced, type Quantity } from "../spec/quantity.ts";
  * `assets/core/stance-envelope.json`, which `research/core-stance-envelope.mjs --write` writes from
  * the gait battery (`research/core-stance-trials.mjs`' walk, five ways at each speed) and the turn
  * battery (its turn: half round each way at each rate, walking at each of the gait battery's speeds
- * up to the fastest walk), and which names the harness and rate it was measured on;
+ * up to the fastest walk, from the walk's setting off and through its first strides as well as
+ * under way), and which names the harness and rate it was measured on;
  * `tests/core-stance-envelope.test.mjs` fails when the harness it names is not the core's, so a
  * change of engine or rate re-measures it.
  *
@@ -16,8 +17,9 @@ import { sourced, type Quantity } from "../spec/quantity.ts";
  * little below its fastest walk than at it, so one turn for all speeds would make a run crawl round
  * a bend.
  *
- * Measured on the body unarmed, at the rate the asset names: a held club, or another rate, is a
- * body the table did not see.
+ * Measured on the body as a fight plays it, at the rate the asset names: in the guard, under its
+ * character's balance, with each thing a fight puts in its right hand. Another rate, or another
+ * thing held, is a body the table did not see.
  */
 export interface StanceEnvelope {
   /** The fastest walk the stance held, m/s (`fastestHeld`). */

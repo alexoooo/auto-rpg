@@ -103,8 +103,8 @@ export interface DungeonActor {
 const TRAIL_METRES = 2.5;
 /**
  * A body with a route that has not moved 50 mm in a second has the route replanned from where it
- * is. The slowest walker, the skeleton, walks at 0.2 m/s (`assets/core/stance-envelope.json`), so a body that
- * has not is stuck or held up; a replan that finds no route keeps the one it had (`docs/reference/play.md#following`).
+ * is. The slowest walkers, the Rogue and the skeleton, walk at 0.4 m/s (`assets/core/stance-envelope.json`),
+ * so a body that has not is stuck or held up; a replan that finds no route keeps the one it had (`docs/reference/play.md#following`).
  */
 const STALL = { seconds: 1, metres: 0.05 } as const;
 /** How far an enemy sees the party along a clear line (`canSee`), m (`docs/reference/play.md#sight`). */

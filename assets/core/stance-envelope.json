@@ -1,42 +1,49 @@
 {
   "harness": "Node core stand (tests/harness/core-stand.mjs), Rapier",
+  "played": "each body in the guard, under its character's balance (the rulebook's per cent), with each of `holds` in its right hand",
   "hz": 120,
-  "measured": "2026-09-30",
+  "measured": "2026-10-04",
   "speeds": [0.2, 0.3, 0.4, 0.5, 0.7],
   "ways": [0, 90, 180, 270, 45],
   "rates": [0.25, 0.5, 1, 2, 4],
   "senses": [1, -1],
+  "holds": [
+    "club",
+    "empty"
+  ],
+  "afters": [0, 0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875, 1, 1.125, 1.25, 1.375, 1.5, 3],
   "models": {
     "workshop-fighter": {
-      "held": [5, 5, 5, 5, 5],
-      "walk": 0.7,
-      "turnHeld": [
-        [2, 2, 2, 2, 2],
-        [2, 2, 2, 2, 2],
-        [2, 2, 2, 2, 2],
-        [2, 2, 2, 2, 0],
-        [2, 2, 2, 2, 1]
-      ],
-      "turns": [4, 4, 4, 2, 2]
-    },
-    "workshop-rogue": {
-      "held": [5, 5, 5, 5, 4],
+      "held": [10, 10, 10, 10, 7],
       "walk": 0.5,
       "turnHeld": [
-        [2, 2, 2, 2, 2],
-        [2, 2, 2, 2, 2],
-        [2, 2, 2, 2, 2],
-        [2, 2, 2, 2, 1]
+        [56, 56, 56, 56, 56],
+        [56, 56, 56, 56, 54],
+        [56, 56, 56, 56, 53],
+        [56, 56, 56, 56, 45]
       ],
-      "turns": [4, 4, 4, 2]
+      "turns": [4, 2, 2, 2]
+    },
+    "workshop-rogue": {
+      "held": [10, 10, 10, 8, 5],
+      "walk": 0.4,
+      "turnHeld": [
+        [56, 56, 56, 56, 53],
+        [56, 56, 56, 56, 50],
+        [56, 56, 56, 56, 36]
+      ],
+      "turns": [2, 2, 2]
     },
     "crypt-skeleton": {
-      "held": [5, 2, 2, 2, 2],
-      "walk": 0.2,
+      "held": [10, 10, 10, 7, 4],
+      "walk": 0.4,
       "turnHeld": [
-        [2, 2, 2, 2, 1]
+        [56, 56, 56, 56, 50],
+        [56, 56, 56, 56, 47],
+        [56, 56, 56, 56, 36]
       ],
-      "turns": [2]
+      "turns": [2, 2, 2]
     }
   }
 }
+

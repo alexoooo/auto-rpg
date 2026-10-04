@@ -14,14 +14,6 @@ import type { Skill } from "./skill.ts";
 export const STANCE_LOWER = 0.03;
 
 /**
- * How long a walk goes straight after it sets off from standing before its heading turns, s. A
- * heading turned over feet still planted for the walk's first weight shift runs the shift away
- * sideways until the body falls; the envelope's turn rates are a walk's already under way. Set,
- * not swept (`docs/reference/human-and-strikes.md#turn-lead`).
- */
-export const TURN_LEAD = 1;
-
-/**
  * **A body's legs, under the stance**: both feet bearing, the centre of mass held `lower` under
  * the height it was built standing at, the pelvis facing a heading, and walking at a velocity or
  * standing. What it remembers (`LegsMemory`) it keeps in the state it is made with.
@@ -79,7 +71,8 @@ export const PLACING = { near: 0.02 } as const;
  * - **The heading** turns toward the intent's facing only while the body walks, as the stance
  *   turns (each step lands its foot facing the heading; standing, a pelvis turned a quarter over
  *   planted feet falls), no faster than the envelope turns at the pace the body was last asked to
- *   walk (`turnAt`), and not for `TURN_LEAD` after it sets off.
+ *   walk (`turnAt`): the envelope's turns were measured from the walk's setting off as well as
+ *   under way.
  *
  * Without an envelope (a body under an experiment's stance tuning, which the envelope did not
  * measure) nothing is capped: the walk and the turn are the intent's.
@@ -111,8 +104,6 @@ interface Locomotion extends Skill {
 interface LocomotionState extends LegsMemory {
   heading: number;
   pace: number;
-  /** When the walk under way set off, s of the world's clock; null standing. */
-  setOff: number | null;
   placing: Placing | null;
   placed: boolean;
 }
@@ -126,7 +117,7 @@ interface Placing {
 }
 
 export function locomotion(envelope: StanceEnvelope | null): Locomotion {
-  const state: LocomotionState = { reference: null, heading: 0, pace: 0, setOff: null, placing: null, placed: false };
+  const state: LocomotionState = { reference: null, heading: 0, pace: 0, placing: null, placed: false };
   const legs = stanceLegs(state);
   const apart = (a: readonly [number, number], b: readonly [number, number]): number => hypot(a[0] - b[0], a[1] - b[1]);
   return {
@@ -138,12 +129,10 @@ export function locomotion(envelope: StanceEnvelope | null): Locomotion {
     resume(view) {
       state.heading = view.stance.facing;
       state.pace = 0;
-      state.setOff = null;
       state.placing = null;
       state.placed = false;
     },
     place(view, footing, lower) {
-      state.setOff = null;
       state.pace = 0;
       const base = legs.goal(view, state.heading, null, lower);
       if (!base) return null;
@@ -169,18 +158,13 @@ export function locomotion(envelope: StanceEnvelope | null): Locomotion {
     goal(view, walk, face, dt, lower) {
       state.placing = null;
       state.placed = false;
-      if (!walk) {
-        state.setOff = null;
-        state.pace = 0;
-      } else if (view.time > 0) {
-        state.setOff ??= view.time;
-        if (view.time - state.setOff >= TURN_LEAD) {
-          const turn = wrap(face - state.heading);
-          if (envelope) {
-            const rate = turnAt(envelope, state.pace) * dt;
-            state.heading += Math.max(-rate, Math.min(rate, turn));
-          } else state.heading += turn;
-        }
+      if (!walk) state.pace = 0;
+      else if (view.time > 0) {
+        const turn = wrap(face - state.heading);
+        if (envelope) {
+          const rate = turnAt(envelope, state.pace) * dt;
+          state.heading += Math.max(-rate, Math.min(rate, turn));
+        } else state.heading += turn;
         const speed = hypot(walk[0], walk[1]), most = envelope?.walk.value ?? Infinity;
         if (speed > most) walk = [walk[0] * most / speed, walk[1] * most / speed];
         state.pace = Math.min(speed, most);

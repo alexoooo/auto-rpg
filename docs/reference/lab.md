@@ -95,8 +95,8 @@ hung. Set, and not measured: a body made inside another is thrown out of it by t
 
 ## Routine gait
 
-The Routine sets off from standing at its targets into its half-turn, where the envelope's turns,
-measured on a walk under way, do not hold: a second after setting off the walk is at 0.1 m/s.
+The Routine sets off from standing at its targets into its half-turn: a second after setting off
+the walk is at 0.1 m/s.
 `research/core-routine-battery.mjs` ran each human through 6 runs of 10 loops, pushed 3 N s at
 the start, at 120 and at 480 Hz (Node core stand, Rapier). The Routine these rows read struck
 three times in the air at one place.
@@ -104,7 +104,7 @@ three times in the air at one place.
 | Pace, m/s | Turn, rad/s | What happened |
 |-----------|-------------|---------------|
 | 0.5 (the Rogue's fastest walk) | 2 | fell in the second loop of every run |
-| 0.3 | 4 (the envelope's turn at that pace) | the Warrior pivoted half round nearly where it stood and ran off sideways, in 1 run of 6 at 120 Hz and 1 of 6 at 480 Hz |
+| 0.3 | 4 | the Warrior pivoted half round nearly where it stood and ran off sideways, in 1 run of 6 at 120 Hz and 1 of 6 at 480 Hz |
 | 0.3 | 1 | each human held all 60 loops, at 120 and 480 Hz |
 
 Standing still after each strike before walking on changed nothing: the turn is the cause.
@@ -174,17 +174,16 @@ now, where the run test below holds a walker facing 1 m ahead within 0.4 m of ea
 ## Run tolerance
 
 `tests/lab-run.test.mjs`: each human round each track for 30 s, asked its fastest walk
-(Warrior 0.7 m/s, Rogue 0.5) and round the shuttle's 0.3 m half-turns at what its turn carries
-(`paceRound`: 0.6 and 0.5). Node core stand, Rapier, 120 Hz. None fell.
+(Warrior 0.5 m/s, Rogue 0.4), which each one's turn carries round the shuttle's 0.3 m half-turns
+as well (`paceRound`). Node core stand, Rapier, 120 Hz. None fell.
 
 | Track   | Mean speed along it, m/s (Warrior, Rogue) | Farthest off after the first second, cm (Warrior, Rogue) |
 |---------|-------------------------------------------|-----------------------------------------------------------|
-| Circle  | 0.543, 0.388                              | 12.0, 12.5                                                |
-| Shuttle | 0.543, 0.398                              | 26.0, 28.2                                                |
+| Circle  | 0.463, 0.347                              | 11.4, 11.9                                                |
+| Shuttle | 0.480, 0.364                              | 26.5, 28.0                                                |
 
 Command: `node --test tests/lab-run.test.mjs`, which reports each run's two readings as its
-diagnostic; the speed is the distance gone along the track over the 30 s. The walker read is
-`e4ec0709`'s.
+diagnostic; the speed is the distance gone along the track over the 30 s.
 
 On the circle, pursuing a point 1 m on cuts inside a 4 m circle by about 1 / (2 * 4) m, 12 cm.
 A walker that speeds up at a bend's end instead of keeping the bend's pace a metre past it

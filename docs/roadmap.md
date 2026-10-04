@@ -215,8 +215,8 @@ All of it on a physically based core, humans first ([architecture](architecture.
 
 ### Body and motor control
 
-- Walking: the fastest walk held every way is 0.7 m/s for the Warrior, 0.5 for the Rogue and 0.2 for
-  the skeleton (`assets/core/stance-envelope.json`). Fast walks run at 0.82-0.94 of the pace asked,
+- Walking: the fastest walk held every way, as a fight plays each body, is 0.5 m/s for the Warrior
+  and 0.4 for the Rogue and the skeleton (`assets/core/stance-envelope.json`). Fast walks run at 0.82-0.94 of the pace asked,
   where a person's preferred walk is near 1.4 m/s. The next step is a controller that holds the
   pelvis against the moment the soles miss, or one whole-body solve. The assist supplies the
   moment the soles miss, as a cheat with a ceiling (`docs/reference/assist.md`).
@@ -264,8 +264,8 @@ All of it on a physically based core, humans first ([architecture](architecture.
 - A two-handed grip: a hand holds its own item and nothing holds one item with both.
 - The envelope does not measure a turn from standing; the Routine walks and turns at 0.3 m/s and
   1 rad/s to stay up.
-- Set and not swept, each said so in its record: the least lead a walk needs before it turns
-  (`TURN_LEAD`), where a placed foot lands beside its place (`PLACING.near`), how near a fighter
+- Set and not swept, each said so in its record: where a placed foot lands beside its place
+  (`PLACING.near`), how near a fighter
   attacks (`ATTACK_METRES`) and the shaping of an arm's path (`IK_POSTURE_PULL`, `IK_TURN`)
   ([human and strikes](reference/human-and-strikes.md)); the stance's height and its fall bar
   (`STANCE_LOWER`, `FALLEN`, [stance tuning](reference/stance-tuning.md#stance-height)).

@@ -56,9 +56,8 @@ const POST_BEYOND = 0.45;
  * **How the Routine walks and turns**: at `TURN_PACE` (m/s) and `LAB_TURN_RATE` (rad/s), the pair
  * whose ratio is its half-turns' radius (`SHUTTLE_TURN_RADIUS`). The Run takes the same half-turns
  * at the body's fastest walk and turn, but it comes to them walking. The Routine sets off into its
- * turn from standing at its targets, where the envelope's turns, measured on a walk under way, do not
- * hold: a second after setting off (`TURN_LEAD`) the walk is barely moving, and the fastest turn
- * falls. Battery: `docs/reference/lab.md#routine-gait`.
+ * turn from standing at its targets, where a faster turn fell. Battery:
+ * `docs/reference/lab.md#routine-gait`.
  */
 const ROUTINE_GAIT = { pace: TURN_PACE, turn: LAB_TURN_RATE } as const;
 

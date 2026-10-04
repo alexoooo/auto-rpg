@@ -2,8 +2,8 @@
 
 What the tuned constants of the skills and the tactics rest on: how long a body stands before it
 throws (`STAND`) and how it comes to a recipe's place (`APPROACH`), both in
-`src/core/skills/strike.ts`; how its feet are placed and when a walk may turn (`PLACING`,
-`TURN_LEAD`, `src/core/skills/locomotion.ts`); the guard (`GUARD`, `src/core/skills/guard.ts`);
+`src/core/skills/strike.ts`; how its feet are placed (`PLACING`, `src/core/skills/locomotion.ts`)
+and how fast a walk turns (the stance's envelope); the guard (`GUARD`, `src/core/skills/guard.ts`);
 how near a fighter attacks (`ATTACK_METRES`, `src/core/mind/fighter.ts`); what shapes an
 arm's path to a place (`IK_POSTURE_PULL`, `IK_TURN`, `src/core/control/kinematics.ts`); and
 where about its place a recipe is thrown (`StrikeWindow`, `src/core/skills/strikes.ts`). Each
@@ -85,13 +85,46 @@ the heading and across it ([Windows](#a-recipe-the-feet-cannot-be-set-to)). Wher
 lands beside its place has not been measured; the Routine's strikes above stood inside their
 windows with it.
 
-## Turn lead
+## Turning
 
-`TURN_LEAD` is 1 s: how long a walk goes straight after it sets off from standing before its
-heading turns. Set. The argument for a lead: a heading turned over feet still planted for the
-walk's first weight shift runs the shift away sideways until the body falls, and the envelope's
-turn rates (`assets/core/stance-envelope.json`) are of a walk already under way, so they say
-nothing of a turn from standing. The least lead that holds has not been swept.
+A walk's heading turns from the step the walk sets off, no faster than the stance's envelope turns
+at the pace (`turnAt`, `assets/core/stance-envelope.json`). The envelope is measured on each body
+as a fight plays it: in the guard, under its character's balance, with a club in its right hand
+and empty-handed; and its turns are begun at every eighth of a second from the walk's setting off
+to 1.5 s, and under way (`research/core-stance-envelope.mjs`, Node core stand, Rapier, 120 Hz).
+Measured unarmed, out of the guard, with no assist and on a walk already under way, it let the
+Warrior walk 0.7 m/s and turn 2 rad/s there; a heading turned that fast from standing runs the
+walk away sideways until the body falls, which a straight walk of a set lead before the turn hid
+in some phases of the first strides and not in others.
+
+| Body | Fastest walk, unarmed | as played | Turn at each speed to it, rad/s, unarmed | as played |
+|---|---|---|---|---|
+| Warrior | 0.7 | 0.5 | 4, 4, 4, 2, 2 | 4, 2, 2, 2 |
+| Rogue | 0.5 | 0.4 | 4, 4, 4, 2 | 2, 2, 2 |
+| skeleton | 0.2 | 0.4 | 2 | 2, 2, 2 |
+
+The skeleton walks faster as played than on its muscles alone: its balance holds it at 0.3 and
+0.4 m/s, where unarmed and unassisted it fell three ways of five.
+
+The game with no lead, against the envelope measured unarmed with a lead of 1 s:
+
+| Harness | Read | Unarmed, a lead of 1 s | As played, no lead |
+|---|---|---|---|
+| A Warrior with a club or empty-handed, its fighter mind and balance, alone on a ground, ordered from standing or after walking 1 or 3 s to walk 0.5 to 3.14 rad off its heading, both ways, from three stand times: 126 a hand (Node core world, Rapier, 120 Hz) | falls, club and empty | 10 and 33 | 0 and 0 |
+| `node research/strike-bouts.mjs --gaps 2.5,3,3.5,4,4.5,5,5.5 --held club,empty`: 126 arena bouts (Node core world, Rapier, 120 Hz, each side's balance its character's) | bouts with a side down inside 5 s; with one down at all | 24; 89 | 0; 82 |
+| The crypt's hero alone against an enemy (`tests/crypt-core.test.mjs`' layout), seeds 1 to 24, 3, 3.75 and 4.5 m apart, 30 s (DungeonRun, Node, Rapier, 120 Hz) | the hero down with no blow on it inside 5 s; at all | 11; 28 of 72 | 2; 14 of 72 |
+| The crypt, the hero and two Warriors, seeds 1 to 24, 150 s (DungeonRun, Node, Rapier, 120 Hz) | a body down with no blow on it within 1 s; of them, while its heading swept 1.5 rad in 3 s | 39 in 2622 s; 9 | 21 in 3215 s; 0 |
+
+A placebo of the unarmed envelope, every turn 0.999 of its rate, read 80 arena bouts with a side
+down and, in the crypt, 28 walking falls in 2833 s, 5 of them turning: a small change moves
+those counts by about as much again, and the turns' share, and the falls inside 5 s, by less.
+The two early falls left in the crypt's layout are the hero turned half round from standing at
+2 rad/s, whose walk gathers speed past 1 m/s once the turn is done (seeds 3 and 11, 3 and 3.75
+m); turned at 1 rad/s it keeps its feet there, and the stance battery's turn, the same half turn
+at the same pace from the same start, keeps them at 2. The enemy does the same: on seed 1, where
+the hero stands 2.75 rad from the skeleton's heading, the skeleton walks off sideways as it turns,
+gathers speed to 1.6 m/s and is down with no blow on it at 2.6 to 2.7 s, at 3.5, 4 and 4.25 m of
+the five gaps from 3.5 to 4.5 m; it does not with a lead of 1 s, nor on any other seed of 1 to 8.
 
 ## Guard
 

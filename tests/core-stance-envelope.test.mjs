@@ -5,10 +5,8 @@
  * walk and its turn at each speed are the rule's reading of its own tables; the rules, sampled both
  * sides; a body carries its envelope, and none under another stance tuning or while it is measured;
  * the lab's turn rate is inside every body's at the Routine's pace; and at its fastest walk each
- * human holds all five ways again, and its fastest turn there both ways (Node core stand, Rapier,
- * 120 Hz). The control, run by
- * hand: the Rogue's last turn set to 1 in the asset fails the rule's check, and walking 0.5 m/s it
- * falls turning 1 rad/s.
+ * body, as a fight plays it with each thing it holds, holds all five ways again, and its fastest
+ * turn there both ways, begun as the walk sets off and under way (Node core stand, Rapier, 120 Hz).
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -31,11 +29,12 @@ test("the_envelope_was_measured_on_the_cores_harness_at_the_games_rate", () => {
 
 test("each_bodys_fastest_walk_and_its_turns_are_the_rules_reading_of_its_tables", () => {
   for (const [model, entry] of Object.entries(asset.models)) {
-    assert.equal(entry.walk, fastestHeld({ speeds: asset.speeds, ways: asset.ways.length, held: entry.held }), model);
+    assert.equal(entry.walk, fastestHeld({ speeds: asset.speeds, ways: asset.ways.length * asset.holds.length, held: entry.held }), model);
     // A turn at every speed up to the fastest walk, and none past it.
     const upTo = asset.speeds.filter((speed) => speed <= entry.walk);
     assert.equal(entry.turnHeld.length, upTo.length, model);
-    assert.deepEqual(entry.turns, entry.turnHeld.map((held) => fastestHeld({ speeds: asset.rates, ways: asset.senses.length, held })), model);
+    const ways = asset.senses.length * asset.holds.length * asset.afters.length;
+    assert.deepEqual(entry.turns, entry.turnHeld.map((held) => fastestHeld({ speeds: asset.rates, ways, held })), model);
     const at = (where) => ({ kind: "source", source: "core-stance-envelope", where });
     assert.deepEqual(stanceEnvelope(modelSpec(model)), {
       walk: { value: entry.walk, unit: "m/s", provenance: at(`/models/${model}/walk`) },
@@ -98,14 +97,16 @@ for (const model of Object.keys(asset.models)) {
   test(`${model}_holds_every_way_at_its_fastest_walk`, async () => {
     const speed = asset.models[model].walk;
     const fell = [];
-    for (const degrees of asset.ways) if ((await walk({ model, degrees, speed, stance: {}, hz: asset.hz })).fell) fell.push(degrees);
+    for (const held of asset.holds) for (const degrees of asset.ways) if ((await walk({ model, degrees, speed, held, stance: {}, hz: asset.hz })).fell) fell.push(`${held} ${degrees}`);
     assert.deepEqual(fell, [], `${model} at ${speed} m/s`);
   });
 
-  test(`${model}_turns_both_ways_at_its_fastest_turn_at_its_fastest_walk`, async () => {
+  test(`${model}_turns_both_ways_at_its_fastest_turn_at_its_fastest_walk_from_setting_off_and_under_way`, async () => {
     const { walk: speed, turns } = asset.models[model], rate = turns[turns.length - 1];
     const fell = [];
-    for (const sense of asset.senses) if ((await turn({ model, speed, rate, sense, stance: {}, hz: asset.hz })).fell) fell.push(sense);
+    for (const held of asset.holds) for (const after of [asset.afters[0], asset.afters.at(-1)]) for (const sense of asset.senses) {
+      if ((await turn({ model, speed, rate, sense, held, after, stance: {}, hz: asset.hz })).fell) fell.push(`${held} ${after} ${sense}`);
+    }
     assert.deepEqual(fell, [], `${model} walking ${speed} m/s, turning ${rate} rad/s`);
   });
 }

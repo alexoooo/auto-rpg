@@ -51,10 +51,10 @@ test("a_seeded_crypt_loads_and_its_bodies_stand_in_it", async () => {
 });
 
 test("a_fight_in_the_crypt_starts_and_ends", async () => {
-  const { run, dispose } = await crypt(3, faceToFace(3, 3.75));
+  const { run, dispose } = await crypt(2, faceToFace(2, 4));
   try {
     const enemy = run.enemies[0];
-    assert.ok(enemy.fighter, "the first enemy is built: the party stands 3.75 m from it");
+    assert.ok(enemy.fighter, "the first enemy is built: the party stands 4 m from it");
     for (let i = 0; i < 30 * run.world.hz && enemy.alive; i++) run.step();
     assert.ok(woundsBy(run.blows, run.hero.id, enemy.id) > 0 && woundsBy(run.blows, enemy.id, run.hero.id) > 0, "blows land both ways, and wound");
     // A fall or an emptied pool ends a body's fight (`DungeonActor.alive`).
@@ -225,7 +225,7 @@ test("the_dead_are_held_once_the_party_has_walked_off_and_loose_when_it_is_back"
     run.step();
     assert.deepEqual([enemy.limp, enemy.held], [true, false], "it is let go limp at the next step");
     const beside = floorBetween(run.map, enemy.feet(), run.hero.feet(), 2, 3.5, 1.2);
-    assert.ok(walkUntil(run, beside, () => distance(run.hero.feet(), beside) < 0.5, 30), `the hero walks up beside it: ${apart().toFixed(2)} m`);
+    assert.ok(walkUntil(run, beside, () => distance(run.hero.feet(), beside) < 0.5, 45), `the hero walks up beside it: ${apart().toFixed(2)} m`);
     assert.ok(apart() < LEVELS.company, `the hero stands beside it: ${apart().toFixed(2)} m`);
     seconds(run, LEVELS.settle);
     assert.deepEqual([enemy.limp, enemy.held], [true, false], `and it lies loose ${LEVELS.settle} s on: out for ${(run.clock - enemy.outAt).toFixed(1)} s`);

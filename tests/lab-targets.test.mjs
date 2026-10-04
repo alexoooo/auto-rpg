@@ -260,10 +260,12 @@ test("a_middle_target_is_struck_by_a_placed_blow", async () => {
   const { readings: [ended] } = await strikeAt(BARE, [() => middle], { placed: { ...PLACED, through: 0 } });
   assert.ok(PLACED.through > 0 && ended.blow && fist.blow.closing > 1.2 * ended.blow.closing, `closing at ${fist.blow.closing} m/s, and ${ended.blow?.closing} on a path that ends at the target`);
 
-  // With the club that height is in its blow's window, and the recipe is thrown; half the stature
-  // up is under it, and the swell is carried there: the club's is the surface.
-  const club = await strikeAt(CLUB, [() => middle]);
-  assert.deepEqual(record(club.readings[0]), { target: { at: middle, stratum: "control" }, hand: "right", strike: "searched right club blow", hung: true, fell: false, ...CLUBBED });
+  // With the club a middle target is in its blow's window, and the recipe is thrown: read at 0.62
+  // of the stature up, where the window holds it once the feet are set where they stand, with no
+  // walk to it, so the blow is the recipe's own from its place. Half the stature up is under the
+  // window, and the swell is carried there: the club's is the surface.
+  const clubbed = [0, 0.62 * stature, 1.3], club = await strikeAt(CLUB, [() => clubbed]);
+  assert.deepEqual(record(club.readings[0]), { target: { at: clubbed, stratum: "control" }, hand: "right", strike: "searched right club blow", hung: true, fell: false, ...CLUBBED });
   const half = [0, 0.5 * stature, 1.3], under = await strikeAt(CLUB, [() => half]);
   assert.equal(under.down, false);
   const [swell] = under.readings;
@@ -280,12 +282,15 @@ test("a_middle_target_is_struck_by_a_placed_blow", async () => {
 
 test("a_placed_blow_lands_whichever_way_the_body_faces", async () => {
   // A target a quarter turn to the body's right: it turns to it, and the hand's goal is the
-  // target in the body's own frame, turned with it.
+  // target in the body's own frame, turned with it. It turns as it walks to its place, so it
+  // faces the target from there: nearer the quarter turn than square to it either way, and the
+  // target where a placed blow stands it.
   const stature = WARRIOR.stature.value;
   for (const [loadout, up, struck] of [[BARE, 0.6, FISTED], [CLUB, 0.5, CLUBBED]]) {
     const at = [1.3, up * stature, 0], { readings: [reading], down } = await strikeAt(loadout, [() => at]);
     assert.equal(down, false);
-    assert.ok(Math.abs(reading.heading - Math.PI / 2) < 0.2, `it faces ${reading.heading} rad`);
+    const { off } = reading.strike;
+    assert.ok(Math.abs(reading.heading - Math.PI / 2) < Math.PI / 4 && Math.abs(off.along) < 0.05 && Math.abs(off.across) < 0.05, `it faces ${reading.heading} rad, the target ${JSON.stringify(off)} off`);
     assert.deepEqual(record(reading), { target: { at, stratum: "control" }, hand: "right", strike: "placed", hung: true, fell: false, ...struck });
     assert.ok(reading.nearest === 0 && reading.took.damage > 0, `${reading.took.damage} HP`);
   }

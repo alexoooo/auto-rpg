@@ -327,9 +327,11 @@ export const SOURCES = Object.freeze({
   },
   "core-stance-envelope": {
     kind: "asset", file: "assets/core/stance-envelope.json",
-    what: "What the core stance held with each human, unarmed, at the game's rate: the gait battery's walks at "
+    what: "What the core stance held with each body as a fight plays it (in the guard, under its character's "
+      + "balance, with a club and empty-handed) at the game's rate: the gait battery's walks at "
       + "0.2-0.7 m/s five ways and the turn battery's half-turns at 0.25-4 rad/s both ways, walking at each "
-      + "speed up to the fastest walk; how many held at each, and the fastest held by the rule of "
+      + "speed up to the fastest walk, begun from 0 to 1.5 s after the walk sets off and under way; how many "
+      + "held at each, and the fastest held by the rule of "
       + "src/core/control/stance-envelope.ts; written by research/core-stance-envelope.mjs --write, whose "
       + "harness it names, and held to the rule by tests/core-stance-envelope.test.mjs.",
   },

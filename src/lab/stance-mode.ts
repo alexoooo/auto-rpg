@@ -15,8 +15,7 @@ import type { Actor } from "./actor.ts";
  * carry out (`src/core/skills/skills.ts`). The stance does the rest: its steps, and the steps that
  * catch a push.
  *
- * **It turns only while it walks**, at `LAB_TURN_RATE`, and not for `TURN_LEAD` after it sets
- * off, as the locomotion skill turns any body: each step of a walk lands its foot facing the
+ * **It turns only while it walks**, at `LAB_TURN_RATE`, as the locomotion skill turns any body: each step of a walk lands its foot facing the
  * heading, so the feet come round with the pelvis. Standing, the heading holds: the stance has no
  * step that turns it on the spot, and a pelvis turned a quarter over planted feet falls.
  *
@@ -84,7 +83,7 @@ export const LAB_TURN_RATE = 1;
  * **The page's keys as tactics**: `orders`, as the page last wrote them, made an intent each
  * control step. Walking, it asks to face `LAB_TURN_RATE` a second further round than the body's
  * heading, the way the keys turn; the locomotion skill turns no faster than the body's envelope at
- * its walk, and not for `TURN_LEAD` after it sets off.
+ * its walk.
  */
 function stanceTactics(orders: StanceOrders): Tactics {
   const hands = { left: GUARD_ACTION, right: GUARD_ACTION };

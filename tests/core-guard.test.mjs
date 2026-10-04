@@ -238,7 +238,9 @@ async function firstBlow(gap, guard, experiment = {}) {
 }
 
 test("a_clubs_blow_at_the_head_is_met_by_the_club_that_covers", async () => {
-  for (const gap of [3, 4, 5]) {
+  // Gaps from which the first blow the pose takes is at the head: from 3, 4 or 5.5 m it lands on the
+  // upper arm or the trunk instead.
+  for (const gap of [3.5, 4.5, 5]) {
     const { segment, item } = await firstBlow(gap, "pose");
     assert.deepEqual({ segment, item }, { segment: "head", item: null }, `in the pose, from ${gap} m`);
     const met = await firstBlow(gap, "cover");

@@ -5,6 +5,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { paceRound, stanceEnvelope } from "../src/core/control/stance-envelope.ts";
 import { centreOfToRef } from "../src/core/control/support.ts";
 import { humanSpec } from "../src/core/human/spec.ts";
 import { GUARD_ACTION, standIntent } from "../src/core/mind/intent.ts";
@@ -15,7 +16,7 @@ import { LAB_BLOWS } from "../src/lab/blows.ts";
 import { loadoutSpec } from "../src/lab/loadout.ts";
 import { createMindLog, logged, watchHas } from "../src/lab/mind-log.ts";
 import { startRun } from "../src/lab/run-mode.ts";
-import { TRACKS, trackOf } from "../src/lab/track.ts";
+import { CIRCLE_RADIUS, TRACKS, trackOf } from "../src/lab/track.ts";
 import { coreStand } from "./harness/core-stand.mjs";
 
 const texts = (notes) => notes.map((note) => note.text);
@@ -68,13 +69,14 @@ test("logged_tactics_decide_as_their_own_and_note_each_thing_as_it_changes", () 
 test("the_log_of_a_run_and_of_a_blow_is_what_their_scripts_decide", async () => {
   const dt = 1 / 120;
   {
-    const stand = await coreStand(humanSpec("workshop-fighter"), { ground: true }), log = createMindLog();
+    const spec = humanSpec("workshop-fighter"), stand = await coreStand(spec, { ground: true }), log = createMindLog();
     const run = startRun(labActor(stand.built, stand.world, { mind: (script) => logged(script, log) }), trackOf(TRACKS.circle.pieces));
     try {
       stand.step(stand.seconds(20));
-      // It sets off on its second step, at the one pace the circle lets it walk, and asks nothing else all the way round.
-      const { pace } = run.frame();
-      assert.ok(pace > 0.5, `it walks at ${pace} m/s`);
+      // It sets off on its second step, at the one pace the circle lets it walk (its fastest walk, or
+      // what its turns carry round the circle, whichever is less), and asks nothing else all the way round.
+      const { pace } = run.frame(), envelope = stanceEnvelope(spec);
+      assert.ok(pace > 0 && pace === Math.min(envelope.walk.value, paceRound(envelope, CIRCLE_RADIUS)), `it walks at ${pace} m/s`);
       assert.deepEqual(log.upTo(Infinity, 100), [
         { time: 0, text: "move 0.00 0.00" }, { time: 0, text: "left guard" }, { time: 0, text: "right guard" },
         { time: dt, text: `move ${pace.toFixed(2)} 0.00` },

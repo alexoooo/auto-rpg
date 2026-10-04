@@ -343,8 +343,8 @@ the rule and without, is a measurement to make.
   the shoulder's outer face is 0.28 m from the body's middle, and 0.07 m is left for the stance's
   sway. In that pose the elbows stand 0.38 m out, wider than the footprint.
 - `STALL`: a body with a route that has not moved 0.05 m in 1 s has its route planned again
-  from where it is. The slowest walker, the skeleton, walks at 0.2 m/s
-  (`assets/core/stance-envelope.json`): four times that in a second.
+  from where it is. The slowest walkers, the Rogue and the skeleton, walk at 0.4 m/s
+  (`assets/core/stance-envelope.json`): eight times that in a second.
 - `TRAIL_METRES`: a companion with no post walks after the hero once it is 2.5 m behind, which
   is clear of the 1.8 m the hero attacks from.
 - `SLOTS`: several members sent to one floor point take slots about it, no two within 1.3 m: the

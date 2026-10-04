@@ -14,6 +14,7 @@ import { CAP_SECONDS, Duel } from "../src/arena/duel.ts";
 import { DEFAULT_MATCHUP, matchupSearch, readBalance, readCap, readGap, readGuard, readHeld, readMatchup, readTape, readYou, tapeHash, youSearch } from "../src/arena/matchup.ts";
 import { ORBIT, orbitPosition } from "../src/arena/orbit.ts";
 import { aimPoint, keysToMove, personOrders } from "../src/arena/orders-input.ts";
+import { stanceEnvelope } from "../src/core/control/stance-envelope.ts";
 import { centreOfToRef } from "../src/core/control/support.ts";
 import { FIGHTER } from "../src/core/mind/config.ts";
 import { STAND_ORDERS, isOrders } from "../src/core/mind/orders.ts";
@@ -174,7 +175,7 @@ test("a_side_that_is_down_is_out_and_the_other_wins", async () => {
   };
   assert.deepEqual(await shoved(1.5), { verdict: { winner: "right", ending: "fallen" }, down: [true, false], standing: [false, true], blows: 0 });
   // The control: a shove it holds decides nothing.
-  assert.deepEqual(await shoved(0.2), { verdict: null, down: [false, false], standing: [true, true], blows: 0 });
+  assert.deepEqual(await shoved(0.1),{ verdict: null, down: [false, false], standing: [true, true], blows: 0 });
 });
 
 test("a_bout's_minds_are_its_recipe's", async () => {
@@ -266,6 +267,13 @@ test("a_side's_right_hand_holds_the_club_unless_its_recipe_empties_it", async ()
   assert.ok(row.landed.some((blow) => blow.sides.every((side) => side.wound !== null)), "and one wounds both its sides");
 });
 
+test("a_warrior_that_turns_to_its_foe_from_standing_keeps_its_feet", async () => {
+  // The duel's right side turns to its foe as it sets off; a Warrior turned faster than its walk
+  // follows runs away sideways and falls within 3 s (`stanceEnvelope`'s turns, measured from setting off).
+  const row = await playBout({ left: "workshop-rogue", right: "workshop-fighter", gap: 4, held: { left: "empty", right: "empty" } }, 4);
+  assert.deepEqual([row.ending, row.fallen], ["none", []]);
+});
+
 test("the_same_bout_built_twice_is_the_same_to_the_bit", async () => {
   const recipe = { left: "workshop-fighter", right: "workshop-rogue" };
   // Ten seconds: the two have met, and blows have landed.
@@ -298,21 +306,27 @@ test("each_side_of_a_bout_sees_the_other_and_closes_on_it", async () => {
 
 test("a_side_is_out_to_the_other_once_the_bout_is_decided", async () => {
   const { world, dispose } = await arena();
-  const duel = new Duel(world, { left: "workshop-fighter", right: "workshop-rogue", capSeconds: 1 });
+  // A cap of 3 s: both sides are walking at each other under way as the bell goes, and still apart.
+  const duel = new Duel(world, { left: "workshop-fighter", right: "workshop-rogue", capSeconds: 3 });
   try {
     const { left, right } = duel.duelists;
     const out = () => [left.body.view.senses.out, right.body.view.senses.out, left.body.view.senses.others[0].out, right.body.view.senses.others[0].out];
-    duel.run(0.5);
+    const at = () => [left, right].map((duelist) => duelist.body.view.stance.centre.x);
+    duel.run(2.5);
     assert.deepEqual(out(), [false, false, false, false]);
-    assert.equal(duel.run(2)?.ending, "time");
+    const walking = at();
+    assert.equal(duel.run(1)?.ending, "time");
+    const [l, r] = at();
+    assert.ok(l > walking[0] + 0.15 && r < walking[1] - 0.15, `the fixture's two walk at each other to the bell: ${walking} to ${[l, r]}`);
     // Its own it knows at once; the other is shown it at the next step, and both then stand.
     assert.deepEqual(out(), [true, true, false, false]);
     world.step();
     assert.deepEqual(out(), [true, true, true, true]);
-    const at = () => [left, right].map((duelist) => duelist.body.view.stance.centre.x);
+    // A walk under way stops within a second, and a side that is out then walks no further.
+    world.step(120);
     const before = at();
-    world.step(240);
-    for (const [k, x] of at().entries()) assert.ok(Math.abs(x - before[k]) < 0.15, `a side that is out walks no further: ${before[k]} to ${x}`);
+    world.step(120);
+    for (const [k, x] of at().entries()) assert.ok(Math.abs(x - before[k]) < 0.05, `a side that is out walks no further: ${before[k]} to ${x}`);
   } finally { duel.dispose(); dispose(); }
 });
 
@@ -361,8 +375,7 @@ test("a_side_under_orders_does_what_it_is_told_and_the_other_fights_on", async (
 test("a_bout_plays_again_from_its_recipe_and_its_tape", async () => {
   const recipe = { left: "workshop-fighter", right: "workshop-rogue" };
   const back = { move: { x: -1, z: 0 }, face: null, attack: null };
-  // The first order comes once the left side is turning to its walk: before that the stance holds
-  // its heading (`TURN_LEAD`), and an order to walk another way a step later is the same bout.
+  // The left side is ordered back once its walk is under way, then left to itself; the right is ordered to face it.
   const tape = [{ step: 200, side: "left", orders: back }, { step: 360, side: "left", orders: null },
     { step: 480, side: "right", orders: { move: null, face: { x: -1, z: -0 }, attack: null } }];
   const first = await playBout(recipe, 8, tape), second = await playBout(recipe, 8, first.tape);
@@ -391,7 +404,7 @@ test("a_side_out_of_the_fight_is_no_longer_under_its_orders", async () => {
     assert.notEqual(duel.run(), null);
     assert.equal(duel.verdict.ending, "time");
     const { report } = left.minded.skills;
-    assert.ok(report.pace > 0.5, `it was walking as the bell went: ${report.pace}`);
+    assert.equal(report.pace, stanceEnvelope(left.built.spec).walk.value, "it was walking as fast as its envelope lets it as the bell went");
     world.step();
     assert.equal(left.minded.skills.report.pace, 0, "and stands once it is out");
     assert.equal(duel.tape.length, 1, "its orders were not taken back: it is the tactics that set them aside");

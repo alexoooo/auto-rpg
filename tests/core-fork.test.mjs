@@ -277,7 +277,7 @@ const NEEDED = {
   felled: ["body > mind > has"],
   levelled: ["body > muscles > level"],
   rising: ["body > mind > subs"],
-  ordered: ["heading", "pace", "setOff"].map((field) => `skills > legs > ${field}`),
+  ordered: ["heading", "pace"].map((field) => `skills > legs > ${field}`),
   striker: [
     ...["reference", "placing"].map((field) => `skills > legs > ${field}`),
     ...["hand", "phase", "blow", "recipe", "distance", "stoodFor", "still", "since", "begun", "readyAt", "origin", "bearing", "steer", "width", "over", "thrown"].map((field) => `skills > strikes > ${field}`),

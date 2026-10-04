@@ -14,7 +14,7 @@ import type { Track } from "./track.ts";
  * Each control step the tactics find the body on the track (`Track.nearest`, from where it last
  * was), face the track's point `AIM_AHEAD` ahead of that, and walk forward. The locomotion skill
  * (`src/core/skills/locomotion.ts`) turns the heading toward it no faster than the body turns at
- * the pace it walks, and not for its first `TURN_LEAD`. Its pace is the body's fastest walk, but no
+ * the pace it walks. Its pace is the body's fastest walk, but no
  * faster than its turn carries it round the tightest bend within `AIM_AHEAD` either way. Both
  * are the body's own (`Body.envelope`, what the stance was measured to hold with it, its turn
  * at each speed of walk, `turnAt` and `paceRound`).

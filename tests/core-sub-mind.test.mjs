@@ -267,18 +267,19 @@ test("a body taken in the middle of a step forgets the step, and walks on", asyn
     while (body.has === "command" && stand.world.steps < stand.seconds(5)) { before = memory(); stand.step(); }
     assert.equal(body.has, "hold");
     // The fixture takes it with a step under way: a foot in the air, a plan, a walk's pace.
-    assert.ok(before.plan && before.last.length === 1 && before.stride !== null && before.striding !== null && before.pace[1] > 0.5
+    assert.ok(before.plan && before.last.length === 1 && before.stride !== null && before.striding !== null && before.pace[1] > 0.4
       && before.swing !== null && before.lifted && before.time > 0.1 && before.held > 0 && before.phase === "swing" && before.own !== null, JSON.stringify(before));
     const blank = { plan: false, last: null, stride: null, striding: null, pace: [0, 0], swing: null, lifted: false, time: 0, held: 0, phase: "stand", own: null, rolled: [false, false] };
     assert.deepEqual(memory(), blank);
     stand.step(HELD - 1);
     assert.deepEqual([body.has, memory()], ["hold", blank]);
-    // Back, it walks on from where it stands: 3 s later it has not gone down, and has gone a metre further.
+    // Back, it walks on from where it stands: 3 s later it has not gone down, and has gone on 0.7 m or
+    // more (1.04 m on this stand).
     const { strides, centre } = body.view.stance, at = centre.z;
     let down = false;
     for (let i = 0; i < stand.seconds(3); i++) { stand.step(); down ||= body.view.down; }
     assert.equal(body.has, "command");
-    assert.ok(!down && body.view.stance.strides >= strides + 6 && body.view.stance.centre.z > at + 1,
+    assert.ok(!down && body.view.stance.strides >= strides + 6 && body.view.stance.centre.z > at + 0.7,
       `down ${down}, ${body.view.stance.strides - strides} strides, ${body.view.stance.centre.z - at} m on`);
   } finally { body.dispose(); stand.dispose(); }
 });

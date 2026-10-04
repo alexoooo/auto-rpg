@@ -73,8 +73,9 @@ node research/orders-walk.mjs --workers 14 --shares 1,0.7,0.5,0.4,0.3
 | 0.3 | crypt-skeleton | a quarter turn | 0 |  | 0.17 to 0.99 | 0.21 | 0.14 |
 | 0.3 | crypt-skeleton | a half turn | 0 |  | -0.04 to 1.01 | 0.39 | 0.15 |
 
-The fastest walks are 0.7, 0.5 and 0.2 m/s (`assets/core/stance-envelope.json`), measured
-unarmed and walking forward.
+The rows were read at fastest walks of 0.7, 0.5 and 0.2 m/s, the envelope measured unarmed and
+walking forward; measured as a fight plays each body they are 0.5, 0.4 and 0.4
+(`assets/core/stance-envelope.json`).
 
 - **At the whole pace** the Warrior falls on 1, 5 and 7 of 8 walks facing ahead, a quarter turn
   and a half turn off, and the Rogue on 1, 1 and 4; the skeleton, at 0.2 m/s, on none.

@@ -1,8 +1,7 @@
 /**
  * **The locomotion skill's limits** (`src/core/skills/locomotion.ts`), on views built by hand: a
- * walk is capped at the envelope's fastest, the heading turns only while walking, not for
- * `TURN_LEAD` after the body sets off, and then no faster than the envelope turns at the pace it
- * walked the step before; and placed, the feet step to a footing each once, the farther first. The
+ * walk is capped at the envelope's fastest, the heading turns only while walking, from the step
+ * the body sets off, no faster than the envelope turns at the pace it walked the step before; and placed, the feet step to a footing each once, the farther first. The
  * whole path, tactics to body, is `tests/lab-run.test.mjs`'s and `tests/lab-routine.test.mjs`'s.
  */
 import test from "node:test";
@@ -11,7 +10,7 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { humanSpec } from "../src/core/human/spec.ts";
 import { stanceEnvelope, turnAt } from "../src/core/control/stance-envelope.ts";
 import { STANCE_GAIT } from "../src/core/control/stance-tuning.ts";
-import { locomotion, PLACING, TURN_LEAD, wrap } from "../src/core/skills/locomotion.ts";
+import { locomotion, PLACING, wrap } from "../src/core/skills/locomotion.ts";
 
 const DT = 1 / 120;
 const envelope = stanceEnvelope(humanSpec("workshop-rogue"));
@@ -30,32 +29,22 @@ test("a_walk_is_capped_at_the_envelopes_fastest_and_keeps_its_direction", () => 
   assert.deepEqual([...slow.walk], [0, 0.1]);
 });
 
-test("the_heading_holds_standing_and_for_the_lead_then_turns_at_the_envelopes_rate", () => {
+test("the_heading_holds_standing_then_turns_at_the_envelopes_rate_from_the_step_it_sets_off", () => {
   // The clock as a body's: steps over the rate.
   const legs = locomotion(envelope), face = 2, time = (step) => step / 120;
   let step = 0;
   for (; step <= 120; step++) legs.goal(viewAt(time(step)), null, face, DT);
   assert.equal(legs.heading, 0, "standing, it turned");
-  const pace = 0.3, setOff = time(step);
-  for (; time(step) - setOff < TURN_LEAD; step++) legs.goal(viewAt(time(step)), [pace, 0], face, DT);
-  assert.ok(step - 120 > 100, `the lead ended after ${step - 120} steps`);
-  assert.equal(legs.heading, 0, "it turned inside the lead");
+  const pace = 0.3;
+  // Setting off it turns at the envelope's rate standing, the pace it was asked the step before; then at its walk's.
   legs.goal(viewAt(time(step++)), [pace, 0], face, DT);
-  assert.ok(Math.abs(legs.heading - turnAt(envelope, pace) * DT) < 1e-12, `turned ${legs.heading}`);
+  const first = turnAt(envelope, 0) * DT;
+  assert.ok(Math.abs(legs.heading - first) < 1e-12, `turned ${legs.heading} setting off`);
+  legs.goal(viewAt(time(step++)), [pace, 0], face, DT);
+  assert.ok(Math.abs(legs.heading - first - turnAt(envelope, pace) * DT) < 1e-12, `turned ${legs.heading}`);
   // It gets there, and stops there.
   for (let i = 0; i < 1200; i++) legs.goal(viewAt(time(step++)), [pace, 0], face, DT);
   assert.ok(Math.abs(wrap(legs.heading - face)) < 1e-12, `heading ${legs.heading}`);
-});
-
-test("stopping_starts_the_lead_again", () => {
-  const legs = locomotion(envelope);
-  let t = 0;
-  legs.goal(viewAt(t), null, 0, DT);
-  for (let i = 0; i < 240; i++) legs.goal(viewAt(t += DT), [0.3, 0], 0, DT);
-  legs.goal(viewAt(t += DT), null, 1, DT);
-  assert.equal(legs.pace, 0);
-  legs.goal(viewAt(t += DT), [0.3, 0], 1, DT);
-  assert.equal(legs.heading, 0, "it turned as it set off again");
 });
 
 test("placed_the_farther_foot_steps_then_the_other_each_once_and_a_near_foot_stays", () => {

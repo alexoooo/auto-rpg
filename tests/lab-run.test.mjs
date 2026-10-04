@@ -3,7 +3,7 @@
  * each human round each track for 30 s, at 120 Hz. It stays on its feet, gets round -- past the
  * shuttle's first half-turn, a quarter of the way round the circle -- and stays near the track. It
  * asks for the body's fastest walk (`Body.envelope`) except where its turns cannot carry that
- * round a bend: the shuttle's half-turns. Pursuing a point 1 m on cuts inside the 4 m circle by
+ * round a bend. Pursuing a point 1 m on cuts inside the 4 m circle by
  * about 1 / (2 * 4) m, 12 cm. Readings: `docs/reference/lab.md#run-tolerance`.
  */
 import test from "node:test";

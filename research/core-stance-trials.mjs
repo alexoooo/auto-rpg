@@ -5,20 +5,28 @@
  */
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { createBody } from "../src/core/body.ts";
+import { armed } from "../src/core/human/grip.ts";
 import { modelSpec } from "../src/core/human/spec.ts";
+import { woodenClub } from "../src/core/items/club.ts";
+import { balanceCeiling, balancePercent, rulebook } from "../src/core/rules/rulebook.ts";
+import { GUARD } from "../src/core/skills/guard.ts";
 import { coreStand } from "../tests/harness/core-stand.mjs";
 
 export const CORE_STANCE_HARNESS = "Node core stand (tests/harness/core-stand.mjs), Rapier";
 
-const GUARD = {
-  "shoulder.right flexion": 0.5, "shoulder.right abduction": -0.2, "elbow.right flexion": 1.3,
-  "shoulder.left flexion": 0.5, "shoulder.left abduction": -0.2, "elbow.left flexion": 1.3,
-};
 const across = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 
-async function body(model, stance, hz) {
-  const stand = await coreStand(modelSpec(model), { ground: true, hz });
-  const built = createBody(stand.built, stand.world, { servoSeconds: 0.1, stance, measuring: true });
+/**
+ * `model` on the stand: unarmed, its arms as the stance leaves them and nothing holding it up but its
+ * muscles; or, given what its right hand holds (`held`, of `DUEL_HELD`: "club" or "empty"), as a
+ * fight plays it: the club in that hand, the arms in the guard (`GUARD`), and its character's balance
+ * under it (`balanceCeiling`, the rulebook's per cent).
+ */
+async function body(model, stance, hz, held = null) {
+  const spec = held === "club" ? armed(modelSpec(model), "right", woodenClub()) : modelSpec(model);
+  const stand = await coreStand(spec, { ground: true, hz });
+  const assist = held === null ? undefined : balanceCeiling(stand.built.spec.attributes.balance.value, balancePercent(rulebook("arena")));
+  const built = createBody(stand.built, stand.world, { servoSeconds: 0.1, stance, measuring: true, assist });
   return { stand, body: built, feet: ["left", "right"].map((side) => stand.built.segments.get(`foot.${side}`)) };
 }
 
@@ -146,15 +154,18 @@ export async function shove({ model, impulse, degrees, stance, hz = 120, walked 
   } finally { b.dispose(); stand.dispose(); }
 }
 
-/** Walk at `speed` m/s `degrees` from forward for 8 s after 1 s, then walk nowhere 4 s (`walking` in the tests). */
-export async function walk({ model, degrees, speed, stance, hz = 120 }) {
-  const { stand, body: b } = await body(model, stance, hz);
+/**
+ * Walk at `speed` m/s `degrees` from forward for 8 s after 1 s, then walk nowhere 4 s (`walking` in
+ * the tests); as a fight plays the body with `held` (`body`).
+ */
+export async function walk({ model, degrees, speed, stance, hz = 120, held = null }) {
+  const { stand, body: b } = await body(model, stance, hz, held);
   const way = degrees * Math.PI / 180, ux = Math.sin(way), uz = Math.cos(way);
   let goal = null, pace = null;
   b.drive((view) => {
     const s = view.stance;
     if (!goal && view.time > 0) goal = { feet: ["left", "right"], centre: null, height: s.centre.y - s.support.y - 0.03, heading: 0 };
-    return { posture: {}, hands: { left: null, right: null }, pushes: [], stance: goal && { ...goal, walk: pace } };
+    return { posture: held === null ? {} : GUARD, hands: { left: null, right: null }, pushes: [], stance: goal && { ...goal, walk: pace } };
   });
   try {
     stand.step(stand.seconds(1));
@@ -184,12 +195,14 @@ export async function walk({ model, degrees, speed, stance, hz = 120 }) {
 }
 
 /**
- * Walk forward at `speed` m/s for 3 s after 1 s, then turn the heading half round at `rate` rad/s
- * (`sense` 1 to the right, -1 to the left) still walking, walk on 3 s and stop for 2: whether it
- * fell, and how far the walk's direction was off the new heading over the last second of walking, rad.
+ * Walk forward at `speed` m/s for `after` s after 1 s, then turn the heading half round at `rate`
+ * rad/s (`sense` 1 to the right, -1 to the left) still walking, walk on 3 s and stop for 2: whether
+ * it fell, and how far the walk's direction was off the new heading over the last second of walking,
+ * rad. At an `after` of 0 the heading turns as the walk sets off. As a fight plays the body with
+ * `held` (`body`).
  */
-export async function turn({ model, speed, rate, sense, stance, hz = 120 }) {
-  const { stand, body: b } = await body(model, stance, hz);
+export async function turn({ model, speed, rate, sense, stance, hz = 120, after = 3, held = null }) {
+  const { stand, body: b } = await body(model, stance, hz, held);
   let goal = null, heading = 0, turning = false, walking = false, turned = 0;
   b.drive((view, dt) => {
     const s = view.stance;
@@ -200,7 +213,7 @@ export async function turn({ model, speed, rate, sense, stance, hz = 120 }) {
       heading += sense * d;
     }
     const walk = walking ? [speed * Math.sin(heading), speed * Math.cos(heading)] : null;
-    return { posture: {}, hands: { left: null, right: null }, pushes: [], stance: goal && { ...goal, heading, walk } };
+    return { posture: held === null ? {} : GUARD, hands: { left: null, right: null }, pushes: [], stance: goal && { ...goal, heading, walk } };
   });
   try {
     let low = -Infinity;
@@ -214,7 +227,7 @@ export async function turn({ model, speed, rate, sense, stance, hz = 120 }) {
     };
     run(1);
     walking = true;
-    run(3);
+    run(after);
     turning = true;
     run(Math.PI / rate);
     run(2);

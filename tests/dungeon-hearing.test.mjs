@@ -49,8 +49,8 @@ function everyTouch(run, actors, into) {
 }
 
 test("a_run_is_heard_while_the_party_sees_where_a_body_stands_and_at_no_other_time_and_is_the_same_run", async () => {
-  // The enemy starts 0.8 m beyond the party's sight, and 0.7 m short of the cell it is seen in.
-  const heard = await crypt(hall(12.8)), deaf = await crypt(hall(12.8));
+  // The enemy starts 1.5 m beyond the party's sight, and 1.4 m short of the cell it is seen in.
+  const heard = await crypt(hall(13.5)), deaf = await crypt(hall(13.5));
   try {
     const { run } = heard, [hero, enemy] = run.actors;
     assert.deepEqual([hero.id, enemy.id, enemy.fighter !== null], ["hero", "enemy-0", true], "the enemy is built from the start");
@@ -89,7 +89,7 @@ test("a_body_thrown_at_a_wall_in_sight_is_heard_on_the_wall", async () => {
     const [hero, enemy] = run.actors, seen = sees(run), cues = [], all = [];
     const hearing = hearRun(run, (cue) => cues.push({ time: run.clock, ...cue }));
     const every = everyTouch(run, [hero, enemy], all);
-    seconds(run, 1);
+    seconds(run, 1.2);
     // 60 N s at the skeleton's upper trunk, at a side wall 1.5 m off.
     const trunk = enemy.fighter.built.segments.get("upperTrunk");
     trunk.body.applyImpulse(new Vector3(0, 0, 60), centreOfToRef(trunk, new Vector3()));
