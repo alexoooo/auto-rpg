@@ -164,3 +164,21 @@ This is a discontinuity in a desired support estimate, not measured contact moti
 with the flat-hand motion mismatch in the rising record, it blocks treating a controller
 residual or a completed stage as proof of a stable handover. The body/contact work precedes
 default migration; no anatomical strength or capability assertion has been relaxed.
+
+## Controller replacement
+
+`tests/core-direct.test.mjs` uses the Node core stand, Rapier 0.21.0-auto-rpg.2 at 120 Hz,
+directional actuation, zero assist, no ground and a pinned lower trunk. Warrior, Rogue and
+skeleton each reach 0.6 rad right-elbow flexion within 0.025 rad after 2 s and remain within
+that band for another second. Experiment gains are explicit: 0.1 s error decay, maximum
+3 rad/s requested velocity, full activation. This is a bounded joint reach and hold, not free
+standing. The policy uses detached observations and validated actions, without constructing
+the fighter's motor/stance/skill stack. It also passes replay, idle/resume and disposal checks;
+an arena fixture runs this mind alongside the fighter and restores both together.
+
+The common body adapter retains the game's stance-height fall allowance separately from the
+unconditional physical standing-height reading. Removing that allowance is a rule migration,
+not implicit in replacing a body interface. Under the adapter, all 138 screening rows equal
+stock exactly, excluding timing and task-ID metadata. Harness: Node 24.19.0, core world,
+Rapier 0.21.0-auto-rpg.2, symmetric actuation, 120 Hz, four workers, balance 0%, no weapon
+assist; source SHA256 `f9298bba5c42a69248feeb172eee5100825f65a2559fd0a0b6c2400dfe8f8844`.

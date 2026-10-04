@@ -37,7 +37,16 @@ export interface FighterMindConfig {
  * **A mind's config**, by kind: plain data, so it rides in a recipe, a save and a link. Each kind
  * of mind declares its own; a fight passes one through and reads nothing in it.
  */
-export type MindConfig = FighterMindConfig;
+export type MindConfig = FighterMindConfig | DirectMindConfig;
+
+/** Joint-feedback experiment: targets in radians and explicit time, speed and activation bounds. */
+export interface DirectMindConfig {
+  readonly kind: "direct";
+  readonly targets: Readonly<Record<string, number>>;
+  readonly seconds: number;
+  readonly speed: number;
+  readonly activation: number;
+}
 
 /** The mind every body has unless its fight says otherwise. */
 export const FIGHTER: FighterMindConfig = deepFreeze({ kind: "fighter", subs: [{ kind: "lie" }], guard: "pose", aim: "head", range: "close" });

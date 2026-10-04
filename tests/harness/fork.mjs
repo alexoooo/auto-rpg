@@ -27,7 +27,8 @@ function motionOf(builts) {
  * on a stand they are the clock's, an object the step writes as it reads it, so between a load
  * and a step they tell the time of whatever step that stand took last.
  */
-export const shows = ({ view, muscles, assist }) => ({
+export const shows = ({ view, muscles, assist, physical }) => ({
+  physical,
   view: { ...view, senses: null },
   muscles: {
     activation: muscles.activation, velocity: muscles.velocity, ceiling: muscles.ceiling, pulled: muscles.pulled, bounds: muscles.bounds,

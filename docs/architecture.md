@@ -281,9 +281,32 @@ in a step sees the same moment; it shows each body to the others a whole number 
 none unless given (`DuelRecipe.senseDelay`). A body alone senses the clock (`clockSenses`). Under
 the command layers the senses are in the view (`BodyView.senses`).
 
-Every body the game has runs one mind, written with the layers above: `commandMind`
-(`src/core/body.ts`) is motor control under a driver that hands it goals, and the driver is the
-skills carrying out what the tactics decide.
+The default fighter uses `commandMind` (`src/core/body.ts`): motor control under a driver
+that hands it goals, with skills carrying out what tactics decide. `Minded.body` is the common
+`PhysicalBody` lifecycle (`physical-body.ts`), which requires no stance, envelope, skill or
+recovery controller. Its `physical` reading is sampled before physics at each full control-step
+boundary and saved with the body; below full it retains that last sample. Game positioning reads it; the fighter's predicted supports
+and readiness stay in its own `BodyView`. The common `down` rule adapter preserves the fighter's
+intentional stance-height allowance. Independent policies default to the anatomical standing
+height. Both use `uprightness`; unconditional standing-height `physical.down` and `observe().down`
+remain separate measurements. Common recovery task scoring must name its height rule explicitly;
+removing the game's controller-dependent stance allowance belongs to the recovery-rule migration.
+
+Replacement policies use `createPolicyBody` (`mind/direct.ts`). They receive a frozen actuator
+description and detached, frozen `BodyObservation` snapshots (`observation.ts`), including joint
+angles/rates/speeds, delivered effort and bounds, segment motion, actual solver contacts and
+permitted external senses. `observe()` reads current physics even while the muscles are idle;
+it does not expose another controller's goals or memory. The builder and trusted legacy
+model-based controllers retain physical handles; a policy receives none of them.
+
+Actions (`mind/actions.ts`) are whole arrays in declared channel order: activation plus velocity,
+or signed requested torque. Validation rejects malformed arrays before applying any channel.
+Torque requests are converted to one-way commands within the same muscle envelope; saturation
+does not raise strength. Action representations and the world's actuator law belong in experiment
+manifests. `DirectMindConfig` supplies explicit joint targets, time constant, maximum speed and
+activation to an independent joint-feedback policy. It shares the game's construction, level,
+disposal and replay paths, and has no fighter view. Its pinned reach/hold test is a replacement
+proof, not a standing or fighting claim.
 
 **A mind may hand its body to a sub-mind** (`sub-mind.ts`). A `SubMind` is a mind that also says
 each step whether it wants the body (`wants`), and is told when it has it and when it has it no

@@ -14,6 +14,8 @@ import { hosting, type HostMind } from "./mind/sub-mind.ts";
 import type { SubMindMaker } from "./mind/sub-minds.ts";
 import type { BodyLevel, MuscleDriver } from "./muscle/driver.ts";
 import type { World } from "./world.ts";
+import { physicalBody, type PhysicalBody } from "./physical-body.ts";
+import { centreReading } from "./observation.ts";
 
 /**
  * **A body, commanded and seen.** One class for every body assembled from a spec: its muscles
@@ -29,7 +31,7 @@ import type { World } from "./world.ts";
  * them wants the body the view is read all the same, the driver is not asked, and the sub-mind
  * writes the muscles.
  */
-export interface Body {
+export interface Body extends PhysicalBody {
   readonly built: BuiltBody;
   /** The muscles, for readings (a view of the torques); a driver commands through `drive`. */
   readonly muscles: MuscleDriver;
@@ -173,7 +175,7 @@ export function commandMind(own: OwnBody, { servoSeconds, stance }: BodyOptions)
   const { built, muscles } = own;
   const motor: MotorControl = motorControl(built, servoSeconds, {}, stance, own.assist);
   const fists = { left: fistOf(built, "left"), right: fistOf(built, "right") };
-  const head = centreOf(built, "head");
+  const head = centreReading(built, "head");
   const angles: Record<string, number> = {};
   const goals: Record<Hand, HandGoal | null> = { left: null, right: null };
   const upright = uprightness(built);
@@ -259,15 +261,11 @@ export function createBody(built: BuiltBody, world: World, options: BodyOptions)
   }, sense, options.assist);
   // Before its first step the view is the body as built, where a driver or a run first finds it.
   command.look(sense());
-  return {
-    built, muscles: own.muscles, view: command.view, assist: own.assist, state,
-    get has() { return mind.has; },
-    get level() { return own.muscles.level; },
-    setLevel: (level) => own.muscles.setLevel(level),
+  return Object.assign(physicalBody(own, world, sense, () => mind.has, state, dispose, () => command.view.down), {
+    view: command.view,
     envelope: !options.measuring && Object.keys(options.stance ?? {}).length === 0 ? stanceEnvelope(built.spec) : null,
-    drive: (next) => command.drive(next),
-    dispose,
-  };
+    drive: (next: BodyDriver | null) => command.drive(next),
+  });
 }
 
 const sameGoal = (a: HandGoal, b: HandGoal): boolean =>
@@ -279,20 +277,6 @@ function pointsOf(built: BuiltBody, hand: Hand): Record<string, Vector3> {
   const segment = built.segments.get(`hand.${hand}`);
   if (!segment) throw new Error(`${built.spec.model} has no ${hand} hand`);
   return Object.fromEntries([...rigidPoints(built.spec, segment.spec).keys()].map((name) => [name, new Vector3()]));
-}
-
-/** Where `name`'s rigid body's centre of mass is, world, as the last step left it. */
-function centreOf(built: BuiltBody, name: string): { centre: Vector3; update(): void } {
-  const segment = built.segments.get(name);
-  if (!segment) throw new Error(`${built.spec.model} has no ${name}`);
-  const { origin, x, y, z } = segment.frame, c = segment.rigid.centre;
-  const d = [c[0] - origin[0], c[1] - origin[1], c[2] - origin[2]];
-  const local = new Vector3(...[x, y, z].map((a) => d[0]! * a[0]! + d[1]! * a[1]! + d[2]! * a[2]!) as [number, number, number]);
-  const centre = new Vector3();
-  return {
-    centre,
-    update() { local.applyRotationQuaternionToRef(segment.node.rotationQuaternion!, centre).addInPlace(segment.node.position); },
-  };
 }
 
 /**

@@ -130,6 +130,12 @@ may take the listed smaller commits. Every commit passes the common checks below
 choices in immutable configuration outside environment variables in the core. A failed technique
 lands only its reproducible evidence, not a new default or a disabled invariant test.
 
+Chunk 2's common lifecycle, detached observation/action port and independent joint-feedback mind
+are implemented. The direct mind reaches and holds on all three pinned bodies under corrected
+actuation, saves/restores, idles/resumes and runs alongside a fighter in an arena fixture.
+This does not claim independent standing, fighting or recovery. The richer optional model
+capability and equipment observations grow with the physical fixtures in subsequent chunks.
+
 ### 0. Define the common task battery and baseline
 
 **Files:** `research/control-foundation.mjs`, `research/control-foundation-trials.mjs`,

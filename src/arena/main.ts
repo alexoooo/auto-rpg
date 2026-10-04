@@ -225,7 +225,7 @@ export async function bootArena(): Promise<void> {
   /** The person's orders for this frame, from the keys and the pointer as the camera has them. */
   const giveOrders = () => {
     if (!duel || !you || replaying || paused || duel.verdict) return;
-    const centre = duel.duelists[you].body.view.stance.centre;
+    const centre = duel.duelists[you].body.physical.centre;
     const ray = pointer ? scene.createPickingRay(pointer.x, pointer.y, null, camera) : null;
     const point = ray ? aimPoint(ray.origin.asArray(), ray.direction.asArray(), centre.y) : null;
     duel.order(you, personOrders(keysToMove(keys, azimuth), point, attacking, centre));
@@ -233,13 +233,13 @@ export async function bootArena(): Promise<void> {
   const target = new Vector3(0, 1, 0), airAt = new Vector3();
   const frame = () => {
     if (duel) {
-      const a = duel.duelists.left.body.view.stance.centre, b = duel.duelists.right.body.view.stance.centre;
+      const a = duel.duelists.left.body.physical.centre, b = duel.duelists.right.body.physical.centre;
       target.set((a.x + b.x) / 2, 1, (a.z + b.z) / 2);
     }
     camera.position.set(...orbitPosition(target, azimuth, pitch, distance));
     camera.setTarget(target);
     audio.setView({ x: camera.position.x, z: camera.position.z }, { x: Math.sin(azimuth), z: Math.cos(azimuth) });
-    arena.updateRoomOcclusion(duel ? SIDES.map((side) => ({ point: duel!.duelists[side].body.view.head })) : []);
+    arena.updateRoomOcclusion(duel ? SIDES.map((side) => ({ point: duel!.duelists[side].body.physical.head })) : []);
   };
   const readout = () => {
     if (!duel) return;

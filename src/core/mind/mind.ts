@@ -74,6 +74,7 @@ export function embody<M extends Mind>(built: BuiltBody, world: World, make: Min
   const muscles = driveMuscles(built, world, (_, dt) => { mind!.step(sense(), dt); help!.apply(); }, () => mind!.idle?.());
   help = createAssist(built, muscles.dynamics.root.segment, ceiling);
   const own: OwnBody = { spec: built.spec, built, muscles, assist: help.assist };
-  mind = make(own);
+  try { mind = make(own); }
+  catch (error) { muscles.dispose(); throw error; }
   return { own, mind, state: { muscles: muscles.state, assist: help.state, mind: mind.state ?? null }, dispose: () => muscles.dispose() };
 }

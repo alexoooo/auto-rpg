@@ -1,6 +1,6 @@
 import type { Scene } from "@babylonjs/core/scene.js";
 import type { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh.js";
-import type { Body } from "../core/body.ts";
+import type { PhysicalBody } from "../core/physical-body.ts";
 import { buildBody, type BuiltBody } from "../core/build/build-body.ts";
 import type { PhysicsEngine } from "../core/engine/engine.ts";
 import { armed } from "../core/human/grip.ts";
@@ -61,7 +61,7 @@ export interface DungeonActor {
   readonly model: BodyModel;
   readonly side: "party" | "enemy";
   /** The body, its mind (`minded`) and its pool, once built; an enemy waits unbuilt until the party is near (`WAKE_METRES`). */
-  fighter: (Fighter & { minded: Minded; body: Body }) | null;
+  fighter: (Fighter & { minded: Minded; body: PhysicalBody }) | null;
   /**
    * Where the body stands on the ground: its centre of mass over the floor; where its root lies,
    * limp; or where it waits unbuilt. A living body that is held reads where it stood, which is
@@ -247,10 +247,10 @@ export class DungeonRun {
         feet() {
           if (!this.fighter) return { x: this.home.x, z: this.home.z };
           // A limp body's view is of the step its control left at; its root is where it lies now.
-          const c = this.limp ? this.fighter.body.muscles.dynamics.root.segment.node.position : this.fighter.body.view.stance.centre;
+          const c = this.limp ? this.fighter.body.muscles.dynamics.root.segment.node.position : this.fighter.body.physical.centre;
           return { x: c.x, z: c.z };
         },
-        get alive() { return this.fighter === null || this.fighter.pool.ending() === null && !this.fighter.body.view.down; },
+        get alive() { return this.fighter === null || this.fighter.pool.ending() === null && !this.fighter.body.down; },
         get limp() { return !this.alive && this.fighter!.body.level !== "full"; },
         get held() { return this.fighter?.body.level === "held"; },
         get vitality() { return this.fighter?.pool.bar() ?? 1; },
@@ -296,12 +296,12 @@ export class DungeonRun {
    * facing is for a fighter that stands, and one that walks faces its walk. It is asked only while
    * its body is at `full` (`levels`).
    */
-  private drive(actor: DungeonActor, built: BuiltBody): { minded: Minded; body: Body } {
+  private drive(actor: DungeonActor, built: BuiltBody): { minded: Minded; body: PhysicalBody } {
     const assist = balanceCeiling(built.spec.attributes.balance.value, balancePercent(this.rules));
     const minded = createMind(built, this.world, FIGHTER, {
       name: `crypt ${actor.side}`, assist,
       orders: () => {
-        const { move, face, attack } = actor.plan, head = attack?.fighter?.body.view.head;
+        const { move, face, attack } = actor.plan, head = attack?.fighter?.body.physical.head;
         return { move, face: move ? null : face, attack: head ? [head.x, head.y, head.z] : null };
       },
     });

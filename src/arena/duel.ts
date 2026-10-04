@@ -1,4 +1,4 @@
-import type { Body } from "../core/body.ts";
+import type { PhysicalBody } from "../core/physical-body.ts";
 import { buildBody } from "../core/build/build-body.ts";
 import type { AssistCeiling } from "../core/control/assist.ts";
 import { armed } from "../core/human/grip.ts";
@@ -78,7 +78,7 @@ interface Duelist extends Fighter {
   readonly model: BodyModel;
   /** Its body under its mind, whatever kind the mind is; a reader of a kind's own narrows on `minded.kind`. */
   readonly minded: Minded;
-  readonly body: Body;
+  readonly body: PhysicalBody;
   /** Its pool not ended and its body not down. */
   readonly standing: boolean;
 }
@@ -241,7 +241,7 @@ export class Duel {
       const { body } = minded;
       duelists[side] = {
         id: side, side, model, built, pool, minded, body,
-        get standing() { return pool.ending() === null && !body.view.down; },
+        get standing() { return pool.ending() === null && !body.down; },
       };
     }
     this.duelists = duelists;
