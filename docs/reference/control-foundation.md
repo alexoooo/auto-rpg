@@ -59,7 +59,8 @@ sample set describe that set, not all possible falls or encounters.
 | Strike offset | Same, with target offset disclosed at commitment | A stationary displaced target, not a moving-target test; same success definition. |
 | Strike at nothing | Same throw without the target | No fall and back in stance phase `stand`; no damage is required for success. |
 | Guard comparison | Mirror arena bouts capped at 20 s, both in pose versus either side covering at the identical gap | Head/total damage, falls, duration and preparation times; guard changes are paired by model, loadout, seed and rate. |
-| Shared items / integrated sequence | No fixture yet | Explicit unsupported rows, never successful trials or excluded cells. |
+| Pinned shared bar | `tasks/bar.ts`: one item, both anatomical hands, obstacle, either release | Capture, movement, contact, release continuity and exact replay; each release has its own denominator. See [motion tracking](motion-tracking.md). |
+| Standing shared items / integrated sequence | No completed fixture yet | Explicit unsupported rows in the baseline/integrated suites, never successful trials or excluded cells. |
 
 Strike follow-through is watched for 3 s after the throw ends, with the evaluator's overall 8 s
 cap and immediate stop on falling. A trace records commitment/preparation and whether a throw
@@ -225,5 +226,6 @@ were reported. [Manifest and physical rows](control-foundation-reach.json); sour
 | Skeleton | layered | 179 | `a38550ae9268b35035953e7b9c6b0c7fd6d09d85ed23aa5bde0f626acd884c18` |
 
 This is a reproducibility and replaceability check, not a ranking of controllers. The skeleton
-still has placeholder anatomy. Held-out starts remain unused; recovery, shared equipment and
-integrated gameplay gates remain open.
+still has placeholder anatomy. Held-out starts remain unused; recovery, standing shared equipment
+and integrated gameplay gates remain open. The separate pinned bar suite tests anatomical shared
+load paths without claiming these standing capabilities.

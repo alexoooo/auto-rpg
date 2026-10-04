@@ -183,7 +183,7 @@ and makes CCD honor connected-pair exclusions. Both defects fail before the fix.
 includes the clearance interval; later collisions return once the pair separates. Anatomical
 placement now shares the compound grasp frame through `equipHands`. A pinned two-item fixture
 moves both loaded arms under gravity on all three models through independent actuator feedback.
-Standing use, second-hand capture, rendering and damage integration remain open.
+Standing use, rendering and damage integration remain open.
 Capture now preserves the accepted pose instead of asking the joint to correct the tolerance
 error. Actual captured frames are observed, replayed and used by both dynamic models. Reading
 the native geometry exposed a rank defect; shared strongest-row pivoting fixes the redundant
@@ -199,8 +199,17 @@ tracking, including the recovery support correction, remain to be implemented an
 `math/quadratic.ts` supplies a deterministic constrained-quadratic component for that combined
 solve, with explicit warm-start state, fixed iteration budgets and residual reports. Analytic
 KKT, coupled-bound and replay checks are recorded in [quadratic tasks](../reference/quadratic-tasks.md).
-It is optional controller machinery, not a new policy requirement; physical tracking and contact
-selection have not yet adopted it.
+It is optional controller machinery, not a new policy requirement; contact selection has not yet
+adopted it.
+
+The [motion-objective and pinned bar fixtures](../reference/motion-tracking.md) provide joint,
+point and optional orientation trajectories with one owner of bounded actuator commands. They
+track two independent items and capture/move/swing a shared item into an obstacle before either
+grip release. Capture geometry, model state, impact and release replay exactly. The common bar
+runner measures these pinned anatomical load paths; the integrated standing rows remain open.
+The initial tracker uses a weighted bounded solve and the allocating coupled model. Ground-force
+selection, joint-stop prediction, hot-path optimization and standing/recovery integration remain
+required. Failed contact-QP prototypes are not the game controller.
 
 ### 0. Define the common task battery and baseline
 
@@ -296,7 +305,7 @@ and asynchronous planning are consumers to add when needed, not prerequisites fo
 ### 4. Test equipment, contacts and solver representation
 
 **Files:** `src/core/spec/body.ts`, `human/grip.ts`, `build/rigid.ts`, `build/build-body.ts`,
-`build/dynamics.ts`, `engine/engine.ts`, `engine/rapier.ts`, `rules/contact-mass.ts`,
+`build/dynamics.ts`, `engine/engine.ts`, `engine/rapier.ts`, `build/contact-mass.ts`,
 `rules/blows.ts`, `touches.ts`; `src/core/equipment.ts` (**new**);
 `control/bearing.ts`, `mind/rise/limbs.ts`; `tests/core-equipment.test.mjs` (**new**),
 `core-engine.test.mjs`, `core-rise.test.mjs`, `core-blows.test.mjs`, `core-fork.test.mjs`.

@@ -78,7 +78,7 @@ export function summarizeFoundation(rows) {
     const { job, result } = row;
     const key = [job.actuation ?? "symmetric", job.task, job.model, job.held, job.hand ?? "", job.target ?? "", job.recovery ?? "", job.guard ?? "",
       ...(job.controller ? [job.controller] : []), ...(job.task === "ccd" ? [job.mode, `ccd=${job.ccd}`] : []),
-      ...(job.task === "solver" ? [job.representation, job.sense] : [])].join("/");
+      ...(job.task === "solver" ? [job.representation, job.sense] : []), ...(job.task === "bar" ? [job.release] : [])].join("/");
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(row);
     if (job.task === "bout" && result.status === "measured") {
@@ -90,13 +90,14 @@ export function summarizeFoundation(rows) {
   const cells = [...groups].map(([cell, members]) => {
     const measured = members.filter((r) => r.result.status === "measured");
     const outcomes = measured.map((r) => r.result.outcome), task = members[0].job.task;
-    const eligible = task === "recovery" ? outcomes.filter((o) => o.fell) : ["strike", "reach", "ccd"].includes(task) ? outcomes : [];
+    const eligible = task === "recovery" ? outcomes.filter((o) => o.fell) : ["strike", "reach", "ccd", "bar"].includes(task) ? outcomes : [];
     const successes = eligible.filter((o) => task === "recovery" ? o.risen && o.up
       : task === "reach" ? o.terminated && !o.truncated && o.invalid === null
       : task === "ccd" ? o.contacted && o.replayExact
+      : task === "bar" ? o.success
       : members[0].job.target === "miss" ? !o.fell && o.stood : o.usefulHit && !o.fell).length;
     return { cell, trials: members.length, measured: measured.length, unsupported: members.length - measured.length,
-      success: ["recovery", "strike", "reach", "ccd"].includes(task) ? proportion(successes, eligible.length) : null };
+      success: ["recovery", "strike", "reach", "ccd", "bar"].includes(task) ? proportion(successes, eligible.length) : null };
   });
   const pairedGuard = [];
   for (const [pair, variants] of bouts) for (const [guard, side] of [["left-cover", 0], ["right-cover", 1]]) {

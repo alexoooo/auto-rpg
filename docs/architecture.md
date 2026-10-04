@@ -432,7 +432,8 @@ cover both grips and either release. The game damage path retains the existing t
 `build/coupled-dynamics.ts` extends floating-tree acceleration dynamics with independent item
 coordinates, active grips and item gyroscopic loads. It accepts explicit external wrenches and
 fixed-body constraints, reports constraint rank/residual, and changes no physical state.
-The allocating diagnostic model is separate from the reference controller's per-step solve.
+The allocating diagnostic model serves the experimental equipment tracker; the game's reference
+fighter retains its existing per-step solve.
 Separate equipment can explicitly request moving-body CCD at construction. The default is
 unchanged; [collision probes](reference/collision-ccd.md) exercise linear and rotational sweeps
 against a thin moving defense. The pinned engine's automatic fixed-collider CCD is distinct. Joint and active-grip exclusions
@@ -456,6 +457,16 @@ validates and copies the whole request before applying any component. Unknown or
 cannot partially apply an action, and capture still requires geometric reachability. Physics
 snapshots own attachment state, while the body's saved policy state owns its decisions. The
 reference fighter's equipment integration is still separate work.
+
+`control/tasks.ts` describes joint trajectories and named segment/item point and orientation
+objectives with velocity and acceleration. Position alone adds no orientation constraint.
+`mind/motion.ts` validates a policy's full request before grip actions and supplies one owner of
+actuator output. Its optional `wholeBodyTracking` uses the coupled model and bounded weighted
+acceleration tracking, with explicit residual and observed-error reports. Contact and joint-stop
+reactions are not predicted. The [pinned fixtures](reference/motion-tracking.md) exercise independent
+items and a shared bar through capture, motion, obstacle contact and either release. They use no
+assist and replay through the body's ordinary saved state. This tracker is not the standing or
+recovery controller, and its allocating model path still needs optimization before game adoption.
 
 ## Research environments
 
