@@ -299,6 +299,20 @@ export const ROWS = Object.freeze([
   { name: "hands and toes", route: "B", touch: [...both("ball"), ...both("hand")], symmetric: true, seed: "bear" },
   { name: "hands and feet", route: "B", touch: [...both("sole"), ...both("hand")], symmetric: true, seed: "bear" },
   { name: "hands and feet, hands light", route: "B", touch: [...both("sole"), ...both("hand")], bear: both("sole"), symmetric: true, seed: "bear" },
+  { name: "squat, hands", route: "B", touch: [...both("sole"), ...both("hand")], symmetric: true, heights: [0.5, 0.6, 0.7, 0.8], seed: "squat" },
+  { name: "squat, hands light", route: "B", touch: [...both("sole"), ...both("hand")], bear: both("sole"), symmetric: true, heights: [0.5, 0.6, 0.7, 0.8], seed: "squat" },
+  { name: "hands and toes, left foot light", route: "B", touch: [...both("ball"), ...both("hand")], bear: ["ball.right", ...both("hand")], seed: "bear" },
+  { name: "hands and toes, left hand light", route: "B", touch: [...both("ball"), ...both("hand")], bear: [...both("ball"), "hand.right"], seed: "bear" },
+  { name: "squat on toes, hands", route: "B", touch: [...both("ball"), ...both("hand")], symmetric: true, heights: [0.3, 0.35, 0.4, 0.45, 0.5], seed: "squat on toes" },
+  { name: "squat on toes, hands light", route: "B", touch: [...both("ball"), ...both("hand")], bear: both("ball"), symmetric: true, heights: [0.3, 0.35, 0.4, 0.45, 0.5], seed: "squat on toes" },
+  { name: "kneel on toes, left knee light", route: "K", touch: [...both("knee"), ...both("ball")], bear: ["knee.right", ...both("ball")], seed: "kneel" },
+  { name: "kneel on toes, left leg light", route: "K", touch: [...both("knee"), ...both("ball")], bear: ["knee.right", "ball.right"], seed: "kneel" },
+  { name: "half kneel on toes", route: "K", touch: ["knee.right", "ball.right", "sole.left"], seed: "half kneel" },
+  { name: "half kneel on toes, knee light", route: "K", touch: ["knee.right", "ball.right", "sole.left"], bear: ["ball.right", "sole.left"], seed: "half kneel" },
+  { name: "lunge", route: "K", touch: ["ball.right", "sole.left"], heights: [0.6, 0.7, 0.8], seed: "half kneel" },
+  { name: "half kneel on toes, hands", route: "K", touch: ["knee.right", "ball.right", "sole.left", ...both("hand")], seed: "half kneel, hands" },
+  { name: "lunge, hands", route: "K", touch: ["ball.right", "sole.left", ...both("hand")], heights: [0.4, 0.5, 0.6], seed: "half kneel, hands" },
+  { name: "lunge, hands light", route: "K", touch: ["ball.right", "sole.left", ...both("hand")], bear: ["ball.right", "sole.left"], heights: [0.4, 0.5, 0.6], seed: "half kneel, hands" },
 ]);
 
 /** A row and its height, if it scans one, as one name. */

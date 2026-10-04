@@ -144,23 +144,63 @@ const levelled = pulled({ until: 0, levels: LEVELLED.levels });
  */
 const RISING = { from: 560, every: 10, count: 30 };
 
+/** The game's rise (`RISE`) as far as its knees and hands (`fours`), and over there. */
+const TO_FOURS = { ...RISE, rise: RISE.rise.slice(0, RISE.rise.findIndex((stage) => stage.name === "fours") + 1) };
+
 /**
  * The Warrior, unarmed, toppled stiff onto its front on the arena's ground (`toppled`), under the
- * game's rise (`stagedRise`, `RISE`): it lies slack until it is still, plays the pose stages,
- * comes to its knees and hands in `fours`, and lies slack again.
+ * game's rise to its knees and hands (`stagedRise`, `TO_FOURS`): it lies slack until it is
+ * still, plays the pose stages, comes to its knees and hands in `fours`, and lies slack again.
  */
 async function rising() {
-  const { world, built, body, dispose } = await toppled({ model: "workshop-fighter", held: "empty", degrees: 0 }, [(own, view) => stagedRise(own, view, RISE)]);
+  const { world, built, body, dispose } = await toppled({ model: "workshop-fighter", held: "empty", degrees: 0 }, [(own, view) => stagedRise(own, view, TO_FOURS)]);
   const riser = riserOf(body), seen = { stages: [], bore: 0, tries: 0 };
   return {
     world, builts: [built], states: { body: body.state }, seen, dispose,
     advance: () => world.step(), read: () => ({ ...shows(body), has: body.has }),
     watch() {
-      const stage = riser.phase === "rise" ? RISE.rise[riser.stage].name : riser.phase;
+      const stage = riser.phase === "rise" ? TO_FOURS.rise[riser.stage].name : riser.phase;
       if (seen.stages.at(-1) !== stage) seen.stages.push(stage);
-      if (riser.bear.tasks.every((task) => task.bearing)) seen.bore += 1;
+      if (riser.bear.tasks.some((task) => task.on) && riser.bear.tasks.every((task) => task.bearing || !task.on)) seen.bore += 1;
       seen.tries = riser.tries;
     },
+  };
+}
+
+/**
+ * The world's steps through which `taken`'s sub-mind holds its body, a foot in the air; and how
+ * often it is saved, from when, and how many times: through the step its feet are squared by and
+ * the rise to the stance's height.
+ */
+const TAKEN = { held: [249, 255], every: 10, from: 230, count: 20 };
+
+/**
+ * The Warrior, unarmed, walking forward under a fighter's tactics, whose body a sub-mind holds
+ * stiff where it is for the steps `TAKEN.held`, mid-step; handed back with its feet closer than
+ * its stance's width, it steps them apart and walks on (`locomotion`'s resume).
+ */
+async function taken() {
+  const stand = await coreStand(modelSpec("workshop-fighter"));
+  const [from, to] = TAKEN.held;
+  const hold = (own) => ({
+    name: "hold",
+    wants: () => stand.world.steps >= from && stand.world.steps < to,
+    begin() {}, end() {},
+    step() { own.muscles.activation.fill(1); own.muscles.velocity.fill(0); },
+  });
+  const body = createBody(stand.built, stand.world, { servoSeconds: SERVO_SECONDS, subs: [hold] });
+  const skills = driveBy(body, fighterTactics("walk", () => ({ move: { x: 0, z: 1 }, face: null, attack: null })));
+  const seen = { has: [], squared: 0, rose: 0, fallen: false };
+  return {
+    world: stand.world, builts: [stand.built], states: { body: body.state, skills: skills.state }, seen,
+    advance: () => stand.step(), read: () => ({ ...shows(body), report: skills.report }),
+    watch() {
+      if (seen.has.at(-1) !== body.has) seen.has.push(body.has);
+      if (skills.state.legs.squaring) seen.squared += 1;
+      if (skills.state.legs.rising) seen.rose += 1;
+      seen.fallen ||= body.view.down;
+    },
+    dispose() { body.dispose(); stand.dispose(); },
   };
 }
 
@@ -278,6 +318,7 @@ const NEEDED = {
   levelled: ["body > muscles > level"],
   rising: ["body > mind > subs"],
   ordered: ["heading", "pace"].map((field) => `skills > legs > ${field}`),
+  taken: ["width", "squaring", "rising"].map((field) => `skills > legs > ${field}`),
   striker: [
     ...["reference", "placing"].map((field) => `skills > legs > ${field}`),
     ...["hand", "phase", "blow", "recipe", "distance", "stoodFor", "still", "since", "begun", "readyAt", "origin", "bearing", "steer", "width", "over", "thrown"].map((field) => `skills > strikes > ${field}`),
@@ -341,11 +382,20 @@ test("a_body_forks_as_its_level_changes", async () => {
 test("a_body_forks_as_it_rises", async () => {
   const run = await forks(rising, RISING.every, 20, RISING.count, forgetting(NEEDED.rising), RISING.from);
   assertForks(run, NEEDED.rising);
-  // The fixture reaches the bearing stage from the pose before it, the stage's end, and the slack after: every limb bore, and one attempt was
+  // The fixture reaches the bearing stage from the pose before it, the stage's end, and the slack after: every limb it bears on bore, and one attempt was
   // played. Its riser does nothing until the body is its own, and again for the step its rise is over.
   const { stages, bore, tries } = run.seen;
   assert.deepEqual(stages, ["idle", "settle", "fold", "tuck", "prop", "fours", "idle", "settle"]);
   assert.ok(bore > 100 && tries === 1, `every limb bore in ${bore} steps, in ${tries} attempts`);
+});
+
+test("a_body_handed_back_mid_step_forks_as_it_squares_its_feet_and_rises", async () => {
+  const run = await forks(taken, TAKEN.every, 20, TAKEN.count, forgetting(NEEDED.taken), TAKEN.from);
+  assertForks(run, NEEDED.taken);
+  // The fixture is saved before the hold, through the step that squares its feet, and through its rise, and stays up.
+  const { has, squared, rose, fallen } = run.seen;
+  assert.deepEqual(has, ["command", "hold", "command"]);
+  assert.ok(squared > 30 && rose > 100 && !fallen, `squaring ${squared} steps, rising ${rose}`);
 });
 
 test("a_body_under_orders_forks_through_its_turns", async () => {

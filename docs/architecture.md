@@ -319,11 +319,15 @@ freedom's own zero, `DofSpec.bind`, so one posture is one shape on every body) o
 centre of mass held over them by their shares; a step of motor control's shape on the bearing
 solve). On its back or a side it plays that lie's roll, which turns it onto its front, lies
 slack and reads again; on its front it plays the rise. A bearing stage is done when the body is
-where the stage asks and slow, and is given up at its limit, which ends the attempt: the riser
-lies slack and begins again. `stageFaults` says what of a recipe a body's spec cannot play, and
+where the stage asks and slow, and is given up at its limit, which ends the attempt, as does the
+trunk back on the ground once the rise has raised it: the riser lies slack and begins again. `stageFaults` says what of a recipe a body's spec cannot play, and
 a riser refuses such a recipe as it is made. What a riser remembers (its phase, how it lies, its
 stage, its attempts and the furthest it got) is its state under its mind's. The game's recipe
-ends on knees and hands: nothing in it stands a body up
+goes from the front to the feet: onto knees and hands, a kneel-up, a step to a half kneel and a
+lunge onto both feet, where its host's stance has the body and the locomotion skill, resumed,
+stands it at the stance's height and squares its feet. It stands the Warrior from seven falls of
+eight with nothing in its hands and more than three of four with the club, the Rogue from one
+fall of five and the skeleton from almost none
 ([reference/rising.md](reference/rising.md#where-the-rise-stops)).
 
 `Tactics` (`tactics.ts`) are `decide(sight, dt)`: from their `Sight` (the body's view, the
@@ -486,7 +490,7 @@ The rules of a fight are `src/core/rules/`, free of any page so they can be argu
 
 A body that is down (`BodyView.down`: its centre of mass a quarter metre under the height it is
 asked to hold, over its lowest point, `src/core/control/ground.ts`) is out of the fight, and lies still (`lie`): the
-riser ends on knees and hands, and no fight gives its bodies one. The arena's verdict (`Duel.judge`, `src/arena/duel.ts`): a side is out when its
+riser is the lab's alone, and no fight gives its bodies one. The arena's verdict (`Duel.judge`, `src/arena/duel.ts`): a side is out when its
 pool ends or its body is down; both out on one step is a draw; at 120 s the fuller bar wins.
 
 A bout is built from a recipe (`DuelRecipe`): the two bodies, how far apart they start, the
