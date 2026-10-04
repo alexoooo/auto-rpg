@@ -218,6 +218,9 @@ screens build on it; it never imports them.
   lands; code and comments never cite a plan.
 - `docs/reference/`: records that code and `SOURCES` cite: sweep tables, measurements, reference
   data.
+- `docs/analysis/`: studies behind a decision still open, named by date: what was tried, measured
+  and found. Code never cites one. Once the decision is made, what lasts moves to the
+  architecture, the roadmap or a reference record, and the study is deleted.
 - `docs/art/`: how the art is made and rebuilt: `crypt.md`, `characters.md`, `skeleton.md`.
 
 A document that is wrong is corrected or deleted, not annotated.
