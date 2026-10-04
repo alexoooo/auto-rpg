@@ -1030,11 +1030,11 @@ A cell with no recipe is thrown at by placement.
 | Body | Held | Band | Target ahead, m | up, m | Net at 120 Hz, HP | at 480 | at 1920 | The placed blow's net, HP | Window along, cm | across | up |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | Warrior | wooden club | high | 0.932 | 0.000 | 1.107 | 1.117 | 0.864 | 0.118 | -2 to 12 | -4 to 2 | -6 to 12 |
-| Warrior | wooden club | middle | 1.117 | -0.240 | 1.417 | 1.315 | 1.323 | 0.165 | -16 to 8 | -6 to 4 | -30 to 26 |
-| Warrior | fist | high | 0.378 | 0.000 | 0.022 | 0.020 | 0.021 | -0.002 | -6 to 2 | -2 to 14 | 0 to 8 |
+| Warrior | wooden club | middle | 1.071 | -0.240 | 1.249 | 1.349 | 1.370 | 0.165 | -14 to 12 | -6 to 6 | -30 to 26 |
+| Warrior | fist | high | 0.372 | 0.000 | 0.024 | 0.024 | 0.024 | -0.002 | -4 to 4 | -10 to 14 | -8 to 10 |
 | Warrior | fist | middle | 0.617 | -0.240 | 0.507 | 0.325 | 0.336 | 0.003 | -2 to 2 | -8 to 2 | -36 to 20 |
 | Rogue | wooden club | high | 0.938 | 0.000 | 0.433 | 0.466 | 0.458 | 0.116 | -14 to 6 | -2 to 6 | -8 to 8 |
-| Rogue | wooden club | middle | 0.884 | -0.231 | 0.528 | 0.563 | 0.585 | 0.119 | -10 to 10 | -6 to 6 | -40 to 24 |
+| Rogue | wooden club | middle | 0.850 | -0.231 | 0.503 | 0.380 | 0.434 | 0.119 | -10 to 12 | -6 to 2 | -46 to 26 |
 | Rogue | fist | high | 0.437 | 0.000 | 0.007 | 0.007 | 0.007 | -0.001 | -6 to 8 | -2 to 6 | -12 to 6 |
 | Rogue | fist | middle | 0.575 | -0.231 | 0.225 | 0.132 | 0.146 | 0.001 | -4 to 2 | -6 to 2 | -14 to 20 |
 | skeleton | wooden club | high | 0.819 | 0.000 | 0.735 | 0.827 | 0.822 | 0.000 | -2 to 2 | -4 to 4 | -14 to 20 |
@@ -1127,7 +1127,7 @@ and the hardest blow of the three. Nobody went down in any of the 72.
   0.20 against 0.15 to 0.22 for the skeleton's. The Warrior's at a Warrior's trunk is the one that pays:
   its forearm on the trunk at 24 J, 0.28 HP against 0.08.
 - **A fist's place at a head is among a standing foe's feet.** The Warrior's has its target
-  0.378 m ahead of the head. Ordered at a standing Warrior's head from 2 m, the bare Warrior
+  0.372 m ahead of the head. Ordered at a standing Warrior's head from 2 m, the bare Warrior
   walks into its foe, sets its feet twice and throws 15 s after the order, a forearm on an
   upper arm at 0.6 J; from 2.5 and 3 m it has not thrown in 20 s. The skeleton's, 0.530 m
   ahead, is thrown at either foe's head from each gap.
@@ -1740,7 +1740,7 @@ approach ends.
 | the thrower down within 2 s of the commit | 16 | 18 | 11 | 6 |
 
 - **Standing where it is takes a few points off placing, and nothing off the set-up.** The
-  approach walks to within `APPROACH.reach`, 25 cm, of the place, and a window is 4 to 24 cm wide,
+  approach walks to within `APPROACH.reach`, 25 cm, of the place, and a window is 4 to 26 cm wide,
   so it seldom ends with the target in the window; the feet are set as before.
 - What is landed of what is committed is the same within the bouts' spread: club 0.90 and 0.87,
   empty 0.60 and 0.65.
@@ -1775,6 +1775,36 @@ Thrown at nothing, 16 throws each rate:
   replay's eight throws at 120 Hz land little, 0.02 and 0.08.
 - **Its window is the recipe's across, and 2 cm narrower along**, set nearer the body: from 12 cm
   nearer than its place to its place.
+- **It is not kept**: it does less at its place, and its window lies nearer than its place.
+
+The same search of the Warrior's and the Rogue's other cells, each from its recipe (`--model`,
+`--held`, `--band`, `--guard` for a fist, `--from <body>:<band>`; the Rogue's fists were not
+searched), read the same way, `--hz 120,480` on the robustness script. A best is kept where at the
+game's rate it steps less at nothing than its recipe, does 0.8 of what its recipe does at its
+place or more, and has a window the feet can be set to; it is written in its recipe's place
+(`research/core-strike-repertoire.mjs`) and its window measured again (`core-strike-window.mjs
+--write --only`).
+
+| Body | Held | Band | Searched, recipe / still | Replay 120 / 480 / 1920 Hz net, recipe | still | At its place, 16 throws, recipe / still | At nothing, 120 Hz: steps (throws that stepped, down), recipe | still | 480 Hz, recipe | still | Window along, across, up, recipe | still | Kept |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Warrior | wooden club | middle | 1.428 / 1.367 | 1.42 / 1.32 / 1.32 | 1.25 / 1.35 / 1.37 | 1.34 / 1.29 | 13 (6, 0) | 7 (4, 0) | 21 (12, 0) | 2 (1, 0) | -16 to 8, -6 to 4, -30 to 26 | -14 to 12, -6 to 6, -30 to 26 | yes |
+| Rogue | wooden club | high | 0.467 / 0.378 | 0.43 / 0.47 / 0.46 | 0.39 / 0.32 / 0.33 | 0.43 / 0.38 | 3 (2, 0) | 12 (7, 0) | 61 (16, 4) | 2 (1, 0) | -14 to 6, -2 to 6, -8 to 8 | -6 to 4, -4 to 4, -14 to 6 | no |
+| Rogue | wooden club | middle | 0.554 / 0.494 | 0.53 / 0.56 / 0.59 | 0.50 / 0.38 / 0.43 | 0.52 / 0.49 | 44 (13, 6) | 6 (4, 0) | 26 (13, 0) | 22 (11, 0) | -10 to 10, -6 to 6, -40 to 24 | -10 to 12, -6 to 2, -46 to 26 | yes |
+| Warrior | fist | high | 0.023 / 0.025 | 0.023 / 0.020 / 0.021 | 0.024 / 0.024 / 0.024 | 0.12 / 0.13 | 21 (16, 0) | 0 (0, 0) | 26 (16, 0) | 0 (0, 0) | -6 to 2, -2 to 14, 0 to 8 | -4 to 4, -10 to 14, -8 to 10 | yes |
+| Warrior | fist | middle | 0.550 / 0.665 | 0.51 / 0.32 / 0.34 | 0.56 / 0.48 / 0.45 | 0.52 / 0.61 | 1 (1, 0) | 0 (0, 0) | 6 (6, 0) | 0 (0, 0) | -2 to 2, -8 to 2, -36 to 20 | 0 to 0, -2 to 4, -38 to 14 | no |
+
+- **Three are kept, and each keeps its feet better at the game's rate**: the Warrior's club at a
+  trunk steps 7 times where its recipe stepped 13, the Rogue's club at a trunk 6 where its recipe
+  stepped 44 and was down after 6 throws, and the Warrior's fist at a head never where its recipe
+  stepped in every throw. Each does 0.94 to 1.08 of what its recipe does at its place, and its
+  window is as wide or wider but across the Rogue's club, 8 cm where 12.
+- **The Rogue's club at a head is not kept**: it steps more at 120 Hz, 12 where 3, though at
+  480 Hz it steps twice where its recipe stepped 61 times and was down after 4; and its window
+  along is half its recipe's.
+- **The Warrior's fist at a trunk is not kept**: it does more at its place and never steps, but
+  its window along is nothing, narrower than the 4 cm the feet are set to.
+- **The Rogue's club at a trunk converges with the rate worse than its recipe**: 0.38 at 480 Hz
+  where 0.56. Its window holds 0.8 of what it does at 120 and 480 Hz alike.
 
 ### The skeleton searched again
 

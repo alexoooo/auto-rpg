@@ -176,20 +176,20 @@ place, the mean of four throws, and its window.
 | Body | Held | Band | Does at its place, HP: 120 Hz | 480 Hz | Window along, cm | across | up |
 |---|---|---|---|---|---|---|---|
 | Warrior | wooden club | high | 1.02 | 1.11 | -2 to 12 | -4 to 2 | -6 to 12 |
-| Warrior | wooden club | middle | 1.37 | 1.31 | -16 to 8 | -6 to 4 | -30 to 26 |
-| Warrior | fist | high | 0.12 | 0.11 | -6 to 2 | -2 to 14 | 0 to 8 |
+| Warrior | wooden club | middle | 1.29 | 1.36 | -14 to 12 | -6 to 6 | -30 to 26 |
+| Warrior | fist | high | 0.13 | 0.13 | -4 to 4 | -10 to 14 | -8 to 10 |
 | Warrior | fist | middle | 0.53 | 0.36 | -2 to 2 | -8 to 2 | -36 to 20 |
 | Rogue | wooden club | high | 0.42 | 0.46 | -14 to 6 | -2 to 6 | -8 to 8 |
-| Rogue | wooden club | middle | 0.54 | 0.57 | -10 to 10 | -6 to 6 | -40 to 24 |
+| Rogue | wooden club | middle | 0.49 | 0.37 | -10 to 12 | -6 to 2 | -46 to 26 |
 | Rogue | fist | high | 0.05 | 0.05 | -6 to 8 | -2 to 6 | -12 to 6 |
 | Rogue | fist | middle | 0.31 | 0.15 | -4 to 2 | -6 to 2 | -14 to 20 |
-| skeleton | wooden club | high | 0.67 | 0.70 | -4 to 4 | -2 to 2 | -14 to 26 |
-| skeleton | wooden club | middle | 1.08 | 1.14 | -8 to 6 | -4 to 6 | -18 to 14 |
-| skeleton | fist | high | 0.18 | 0.15 | 0 to 6 | -4 to 2 | -28 to 18 |
-| skeleton | fist | middle | 0.54 | 0.50 | -4 to 0 | 0 to 8 | -14 to 24 |
+| skeleton | wooden club | high | 0.79 | 0.84 | -2 to 2 | -4 to 4 | -14 to 20 |
+| skeleton | wooden club | middle | 1.12 | 1.01 | -18 to 6 | -2 to 4 | -14 to 14 |
+| skeleton | fist | high | 0.19 | 0.17 | -2 to 6 | -4 to 4 | -28 to 18 |
+| skeleton | fist | middle | 0.70 | 0.41 | -2 to 6 | 0 to 6 | -28 to 36 |
 
 No window comes to the 60 cm the ball is moved to. The fists' are 4 to 14 cm wide along the
-heading and 6 to 16 across; the clubs' 8 to 24 and 4 to 12.
+heading and 6 to 24 across; the clubs' 4 to 26 and 6 to 12.
 
 ### Four throws
 

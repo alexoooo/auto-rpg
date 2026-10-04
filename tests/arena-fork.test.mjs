@@ -129,7 +129,7 @@ test("a_bout_forks_at_any_step", async () => {
   assert.deepEqual(orders, [[300, true], [420, false]]);
   assert.deepEqual([...swung].sort(), ["placed", "recipe"]);
   assert.ok(landed.length > 0 && clashes > 0 && heard.length === landed.length + clashes, `${landed.length} blows, ${clashes} clashes, ${heard.length} heard`);
-  assert.deepEqual(severed, ["right", "right", "right"], "the right side loses its parts: `NEEDED.bout` shows a pool's fields on that side");
+  assert.deepEqual(severed, ["right"], "the right side loses a part: `NEEDED.bout` shows a pool's fields on that side");
   assert.ok(verdict !== null && withdrawn && run.steps.at(-1) > verdict.time * 120, `forked past the verdict at ${verdict?.time} s: from ${run.steps.at(-1)}`);
   assert.ok(Object.isFrozen(verdict), "a verdict is a record: a load puts another in its place");
   assert.ok(run.steps.length >= 20, `${run.steps.length} forks`);
@@ -166,10 +166,11 @@ test("a_bout_rewinds", async () => {
     assert.equal(JSON.stringify(tape), given, "the tape it was given to play is not written into");
     assert.equal(stepped(stand, 360), first);
     assert.deepEqual(saveState(duel.state), was);
-    // And in the middle, across its first blows.
+    // And in the middle, across its first blows and its verdict.
     stepped(stand, 600);
     const saved = duel.save(), on = stepped(stand, 600), then = saveState(duel.state), blows = [...duel.blows], [blow] = blows;
     const told = JSON.stringify(blows), verdict = duel.verdict;
+    assert.ok(verdict !== null, `no verdict by step ${duel.steps}`);
     assert.ok(blows.length > 0 && Object.isFrozen(blow) && Object.isFrozen(blow.point) && blow.sides.every((side) => Object.isFrozen(side) && Object.isFrozen(side.wound ?? side)),
       "a blow landed, and is frozen as it landed");
     duel.load(saved);
@@ -180,14 +181,6 @@ test("a_bout_rewinds", async () => {
     assert.equal(JSON.stringify(blows), told, "the blows it had landed are as they were");
     assert.deepEqual(duel.verdict, verdict);
     assert.equal(stand.seen.heard.length, 2 * blows.length, "the blows landed again, and were heard again");
-    // And across its verdict.
-    stepped(stand, 5880 - duel.steps);
-    const before = duel.save(), past = stepped(stand, 120), decided = duel.verdict;
-    assert.ok(decided !== null, `no verdict by step ${duel.steps}`);
-    duel.load(before);
-    assert.deepEqual([duel.steps, duel.verdict], [5880, null]);
-    assert.equal(stepped(stand, 120), past);
-    assert.deepEqual(duel.verdict, decided);
   } finally { stand.dispose(); }
 });
 

@@ -52,7 +52,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
     if (record.hand !== "right") throw new Error(`${file}: a recipe is the right hand's, not the ${record.hand}'s`);
     const readings = Object.fromEntries(Object.entries(record).filter(([k]) => /^at\d+$/.test(k)));
     if (!readings[GAME]) throw new Error(`${file}: no replay at the game's rate`);
-    const found = `research/core-strike-search.mjs --model ${record.model} --held "${record.held}" --band ${record.band}${record.guard ? " --guard" : ""} --seed ${record.seed} `
+    const found = `research/core-strike-search.mjs --model ${record.model} --held "${record.held}" --band ${record.band}${record.guard ? " --guard" : ""}${record.still ? " --still" : ""} --seed ${record.seed} `
       + `--hz ${record.hz}${record.from ? ` --from ${fromOf(record.from)} --sigma ${record.sigma}` : ""}, ${record.generations} generations of ${record.population}, `
       + `${record.trials} trials a candidate and one at nothing; searched mean ${record.searched.mean} HP (${record.harness})`;
     const recipe = { model: record.model, held: record.held, band: record.band, strike: record.strike, place: record.place, found, readings, net: readings[GAME].net };
