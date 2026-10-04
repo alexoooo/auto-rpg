@@ -753,6 +753,18 @@ each read on the stand or the battery above:
   ([What a bearing stage is done by](#what-a-bearing-stage-is-done-by)), and a bearing stage on
   both shins after `kneel 2`, after `hold` or in place of `arms` and `hold` is the furthest any
   of the nine forward topples gets: no stage leaves a hand or a shin by bearing on the others.
+  Read in the Node stand (core world, Rapier, 120 Hz) under the hand-leaving stage of
+  `tests/core-rise.test.mjs`, at rest 1.5 s in: the bearing solve's patches give what it asks
+  (its shortfall is under 1 N), yet the freedoms of the bearing right arm are planned to turn at
+  up to 9 rad/s² (shoulder flexion and abduction, the wrist's pronation) and the engine turns
+  them at none. An end limb's task holds its point and leaves its spin free, and the chain's
+  pull toward the posture spends that spin turning the hand about its middle, which a hand
+  lying flat cannot do without driving an end into the ground. Asked for the spin about the
+  level line across a flat hand and about up as well, the Warrior lets the hand go, and the
+  Rogue's trunk, given up at `fours`, moves at 2.1 m/s where the test holds it under 1.5: the
+  rows are the defect's place, not yet its cure. The Rogue's one-shin shift stalls the same way
+  (the hips' planned turn of 4 to 10 rad/s² not made), and neither slack ankles nor 64 or 200
+  solver iterations moves it.
 - **The Rogue rises from 6 of its 32 falls, and the skeleton from 1.** The Rogue's arms do not
   raise its chest ([The pose stages](#the-pose-stages)): fallen forward, it is given up at `fours`;
   without `fours`, from `prop` to `sit`, its trunk stays on the ground and the kneel-up lowers its
