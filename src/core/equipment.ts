@@ -126,7 +126,7 @@ export function createEquipment(world: World, definition: EquipmentDefinition) {
         return deepFreeze({ id, name: item.name, substance: item.substance, mass: item.mass.value,
           position: tuple(node.position), rotation: [q.x, q.y, q.z, q.w] as const,
           velocity: tuple(body.linearVelocityToRef(velocity)), spin: tuple(body.angularVelocityToRef(spin)),
-          grips: grips.map((g) => ({ name: g.name, body: g.body.node.name, attached: g.joint.attached, ...error(g) })),
+          grips: grips.map((g) => ({ name: g.name, body: g.body.node.name, attached: g.joint.attached, collisionSuppressed: g.joint.collisionSuppressed, ...error(g) })),
           contacts: world.physics.contactsOf(body).map((c) => ({ other: c.other?.node.name ?? null, fixed: c.fixed,
             point: [...c.point] as Vec3, normal: [...c.normal] as Vec3, impulse: c.impulse,
             pairs: c.pairs.map((p) => ({ ...p, point: [...p.point] as Vec3, normal: [...p.normal] as Vec3 })),

@@ -415,8 +415,8 @@ has tactics of its own:
 
 `core/equipment.ts` constructs one separately simulated item with named rigid grip frames.
 It owns no controller. Capture checks current position/orientation error against explicit task
-tolerances; it never places a hand or item. Release preserves body motion and restores collision
-eligibility. The engine's persistent grip slots restore attachments with physics snapshots,
+tolerances; it never places a hand or item. Release preserves body motion. A former grip pair
+that still overlaps stays excluded until its shapes clear; its saved exclusion then ends. The engine's persistent grip slots restore attachments with physics snapshots,
 including after release and regrip. Detached item observations retain identity and collider
 indices. The trusted construction handle carries rendering and physics resources.
 
@@ -429,7 +429,13 @@ and recomputes attachment rank after release. [Mechanical checks](reference/cons
 cover both grips and either release. The game damage path retains the existing tree model.
 Separate equipment can explicitly request moving-body CCD at construction. The default is
 unchanged; [collision probes](reference/collision-ccd.md) exercise linear and rotational sweeps
-against a thin moving defense. The pinned engine's automatic fixed-collider CCD is distinct.
+against a thin moving defense. The pinned engine's automatic fixed-collider CCD is distinct. Joint and active-grip exclusions
+also pass through the contact hook so continuous sweeps honor them. The pinned JavaScript
+binding invokes hooks only through an event queue, which the adapter owns and disposes.
+The vendor's CCD-only hook flag preserves ordinary contact recycling on anatomical joints;
+separate items also enable discrete filtering for release clearance.
+`human/equipment.ts` places initial separate equipment in the same anatomical frame as
+compound holdings. It attaches only the initial hand; subsequent grips require physical reach.
 
 The engine also exposes unaveraged contact manifolds for model/diagnostic use. Signed gaps and
 normal-motion rows distinguish predicted contact, penetration, sliding and separation. The bearing

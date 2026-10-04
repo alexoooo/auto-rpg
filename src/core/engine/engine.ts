@@ -127,6 +127,8 @@ export interface EngineJoint {
 /** A registered rigid attachment; releasing it preserves both bodies and their velocities. */
 export interface EngineGrip {
   readonly attached: boolean;
+  /** The pair is excluded while attached, or after release until its shapes clear one another. */
+  readonly collisionSuppressed: boolean;
   /** Join the declared local frames. The caller first establishes geometric reachability. */
   attach(): void;
   release(): void;

@@ -178,6 +178,13 @@ redundant closed loops. Its impulse responses match the engine with both grips, 
 and both released; it agrees with the tree model on all three anatomies. This establishes
 instantaneous impact mobility, not loaded actuator dynamics or game damage integration.
 
+[Grip clearance](../reference/grip-clearance.md) fixes release from overlapping grasp colliders
+and makes CCD honor connected-pair exclusions. Both defects fail before the fix. Saved state
+includes the clearance interval; later collisions return once the pair separates. Anatomical
+placement now shares the compound grasp frame through `equipHands`. A pinned two-item fixture
+moves both loaded arms under gravity on all three models through independent actuator feedback.
+Standing use, second-hand capture, rendering and damage integration remain open.
+
 ### 0. Define the common task battery and baseline
 
 **Files:** `research/control-foundation.mjs`, `research/control-foundation-trials.mjs`,

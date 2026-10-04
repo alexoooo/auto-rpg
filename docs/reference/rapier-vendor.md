@@ -10,9 +10,10 @@ control is measured separately in the [common battery](control-foundation.md).
 
 - Upstream commit: `b716d375efc0201003f0cd9ef7168eee0b62c177`, tag `js-v0.21.0`.
 - Patch: `vendor/rapier/auto-rpg.patch`. It adds signed motor bounds with symmetric defaults,
-  last-substep motor/limit/locked-axis impulse reads, whole-step motor impulse, and multibody setters.
-- Package version: `0.21.0-auto-rpg.2`.
-- Archive SHA256: `2787130f67465fa8fb07bf4217b0b2fab1681a416b99668ac831e1129b810122`.
+  last-substep motor/limit/locked-axis impulse reads, whole-step motor impulse, multibody setters,
+  and CCD-only pair filtering that preserves ordinary contact recycling.
+- Package version: `0.21.0-auto-rpg.3`.
+- Archive SHA256: `31ca414ad12dff1d55d8c0ad7a954238d62043d5041e34c03bb95d3b83ac4d3d`.
 - Build toolchain: Rust 1.97.1, Node 24.19.0; wasm-pack 0.12.1 and wasm-bindgen 0.2.129 from
   the upstream lockfiles. The build remaps source/cache paths and writes declarations with LF.
 - Installation: package metadata and lockfile name the same archive; SHA512 integrity is
@@ -98,6 +99,23 @@ The fresh build used the existing local upstream mirror, `CARGO_BUILD_JOBS=4`, a
 patch. Its source, generated files and Rust output all lived in the new managed directory.
 This establishes path-independent reproduction on that toolchain, not across arbitrary compilers.
 The `.2` package uses the same build pipeline with the accumulated-impulse patch and regression.
+
+The `.3` archive reproduces byte for byte in `.tools/rapier-rebuild-a` and
+`.tools/rapier-rebuild-b`. Path remapping alone left 76 differing WASM bytes: three data objects
+changed order and their references changed with them. Single-threaded linking did not change
+that result. The build's compiler wrapper replaces Cargo's checkout-dependent crate metadata
+with a hash of package/version, crate name/type, target and selected features. Both the raw
+linked WASM and the final archives then match. This is scoped to the pinned release pipeline;
+it does not assert reproducibility across toolchains or configurations.
+
+The `.3` collision change and native regression are recorded in [grip clearance](grip-clearance.md).
+Validation of `.3`: offline `npm ci`, type checking, production build, and 721 tests (719 pass,
+zero failures, two existing TODOs). The three package-parity bouts retain the digests above.
+All 138 physical baseline rows equal stock, excluding wall-clock timing, in
+`research/runs/control-foundation/ccd-filter-baseline-v3`; archived source SHA256
+`12c96f36b94ff0b9418fae42f88c6cf249e1c4a2f6d8d33ad4bd4dbe2f70cd84`.
+The installed CJS entry SHA256 is
+`a1fa07eb651dfa34a44ff68fa1059ac32c8d366fb18efcf0e9b965d9f051d618`.
 
 Validation of `.2`: `npm ci --offline --no-audit --no-fund`, `npm run check`, `npm run build`,
 and the full suite (679 tests: 676 pass, no failures, three existing TODOs). The baseline replay

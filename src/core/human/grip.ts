@@ -10,13 +10,13 @@ import type { Side } from "./landmarks.ts";
  * the palm: the hand's half-thickness (its capsule's radius) from the knuckle. The grip ends (the
  * item's origin) where the little finger's knuckle lies along it. The item's x is the hand's own
  * length, wrist to fingers. The hand's capsule is an open hand's, fingers out, so the haft runs
- * through its fingers as a closed hand's fingers run round a haft; the two are one rigid body and
- * never collide.
+ * through its fingers as a closed hand's fingers run round a haft; the gripping pair must not
+ * collide, whether simulated as one compound body or joined separate bodies.
  *
  * The palm's side is the hand frame's -z: the rig holds the hands thumb up with the palms toward
  * the body, and z = x cross y points away from it on both hands (`tests/core-club.test.mjs`).
  */
-function inHand(spec: BodySpec, side: Side, item: ItemSpec): HeldSpec {
+export function handHolding(spec: BodySpec, side: Side, item: ItemSpec): HeldSpec {
   const name = `hand.${side}`;
   const hand = spec.segments.find((segment) => segment.name === name);
   if (!hand || hand.shape.kind !== "capsule") throw new Error(`${spec.model} has no ${side} hand with a capsule`);
@@ -39,4 +39,4 @@ function inHand(spec: BodySpec, side: Side, item: ItemSpec): HeldSpec {
 
 /** `spec` holding `item` in its `side` hand, beside whatever it held. */
 export const armed = (spec: BodySpec, side: Side, item: ItemSpec): BodySpec =>
-  ({ ...spec, held: [...(spec.held ?? []), inHand(spec, side, item)] });
+  ({ ...spec, held: [...(spec.held ?? []), handHolding(spec, side, item)] });

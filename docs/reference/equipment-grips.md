@@ -13,26 +13,30 @@ free items, rendering, compound splitting and the representation comparison rema
 ## Attachment and replay
 
 The engine registers a grip slot independently of whether its fixed joint exists. Attaching
-creates the joint; releasing removes it and restores collision eligibility between those bodies.
+creates the joint; releasing removes it. If their shapes overlap, that pair remains excluded
+until a geometric query finds clearance at the beginning of a later step. Otherwise collision
+eligibility returns immediately.
 Neither operation writes pose, velocity or mass. Equipment capture first checks world-space
 anchor distance and orientation error, `1 - abs(dot(q1, q2))`, against explicit task tolerances.
 An out-of-range request returns false. Capturing bodies with different velocities can produce
 a physical constraint impulse on the next step; this is not an energy-free capture guarantee.
 
 A grip is ideal and rigid, like the existing compound holding. It has no authored break force
-or disarm rule. It is not an external weapon assist. Collision eligibility after release does
-not guarantee geometric clearance; overlapped shapes may subsequently produce contact impulses.
+or disarm rule. It is not an external weapon assist. The observation reports
+`collisionSuppressed`, including the clearance interval after release. It applies to the former
+grip pair only, has no timer, and cannot suppress a later impact after clearance.
 
-Rapier adapter revision 2 saves node poses, registered grip handles and the solver snapshot.
+Rapier adapter revision 3 saves node poses, registered grip handles, release exclusions and the
+solver snapshot.
 Loading validates body/constraint membership and grip endpoints before replacing the live world.
 The caller retains the same grip objects through release, reattachment and load. A registered
 slot's deletion or addition changes topology and invalidates an older snapshot. Engine/task
 configuration still has to match; the research environment enforces its complete identity.
-The vendor artifact is unchanged. Adapter-1 environment snapshots are intentionally incompatible.
+The vendor artifact is unchanged. Older adapter environment snapshots are intentionally incompatible.
 
 ## Mechanical fixtures
 
-Harness: Node, NullEngine scene, core World, vendored Rapier `.2`, adapter 2, 120 Hz, directional
+Harness: Node, NullEngine scene, core World, vendored Rapier `.2`, adapter 3, 120 Hz, directional
 actuation configuration, no assists. The fixtures contain two synthetic 1 kg holders and the
 sourced `woodenClub()`. They do not model anatomical hands or claim actuator feasibility.
 
@@ -84,3 +88,26 @@ hands on all three body models and releases only the left. These are short, grav
 pinned-body port fixtures with synthetic attachment placement. They establish neither a usable
 anatomical grasp nor standing equipment control. Shared-item load dynamics and game integration
 remain open. The separate CCD path is recorded in [collision CCD](collision-ccd.md).
+
+## Anatomical placement
+
+`human/equipment.ts` supplies `equipHands` for initial separate equipment. It uses the same
+`handHolding` frame as compound equipment: the item's origin is the little-finger end of the
+grasp, with explicit item-local offsets for each registered hand. Only the primary hand starts
+attached. Registering the other hand neither moves it nor captures an unreachable item.
+Construction requires stationary hands in the body's initial world and refuses a hand that
+already contains compound equipment. Subsequent capture uses the existing physical grip API.
+
+`tests/core-hand-equipment.test.mjs` checks both hands of all three models against the compound
+club's anatomical tip position, total mass, release continuity and replay. Its loaded fixture
+uses two separate clubs, gravity, a pinned pelvis and independent actuator feedback, under
+directional actuation at 120 Hz. Left/right elbow goals are 0.6/0.4 rad; both reach within
+0.025 rad at 2 s and remain within that tolerance at 3 s, with grip errors below 2 mm. These
+are declared fixture tolerances, not game timing requirements. The feedback time constant is
+0.05 s, speed cap 3 rad/s and full activation; anatomical muscle limits remain unchanged.
+The bare reach fixture's 0.1 s constant leaves Warrior's loaded left elbow 0.027 rad short.
+
+This is not a collision-free trajectory: the Rogue's clubs meet during the hold, and the
+skeleton can have speculative head contact. Meaningful self-collision remains enabled. The
+fixture demonstrates physically loaded independent items, not standing combat, a second-hand
+capture route or a whole-body inverse-dynamics solution.

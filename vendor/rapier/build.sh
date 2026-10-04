@@ -10,7 +10,7 @@ set -euo pipefail
 
 TAG=js-v0.21.0
 REVISION=b716d375efc0201003f0cd9ef7168eee0b62c177
-VERSION=0.21.0-auto-rpg.2
+VERSION=0.21.0-auto-rpg.3
 
 here="$(cd "$(dirname "$0")" && pwd)"
 work="${RAPIER_WORK:-$here/../../.tools/rapier-build}"
@@ -68,8 +68,17 @@ flags=(-C target-feature=+simd128
   "--remap-path-prefix=$(native "$src")=/rapier"
   "--remap-path-prefix=$(native "${CARGO_HOME:-$HOME/.cargo}")=/cargo")
 cargo clean --quiet --manifest-path ../Cargo.toml
+# Cargo's package-path hashes otherwise reorder anonymous constants between checkouts.
+if command -v cygpath >/dev/null 2>&1; then
+  wrapper="$work/rustc-wrapper.cmd"
+  printf '@echo off\r\nnode "%s" %%*\r\n' "$(native "$here/rustc-wrapper.cjs")" > "$wrapper"
+else
+  wrapper="$work/rustc-wrapper.sh"
+  printf '#!/usr/bin/env bash\nexec node %q "$@"\n' "$here/rustc-wrapper.cjs" > "$wrapper"
+  chmod +x "$wrapper"
+fi
 # Working dir in wasm-pack is the crate's, hence "../../".
-CARGO_ENCODED_RUSTFLAGS="$(IFS=$'\x1f'; printf '%s' "${flags[*]}")" PATH="$ts/node_modules/.bin:$PATH" \
+RUSTC_WRAPPER="$(native "$wrapper")" CARGO_ENCODED_RUSTFLAGS="$(IFS=$'\x1f'; printf '%s' "${flags[*]}")" PATH="$ts/node_modules/.bin:$PATH" \
   wasm-pack build --target web --out-dir ../../rapier-compat/builds/3d-simd/wasm-build ../builds/rapier3d-simd
 
 # gen_src.sh, for 3D alone: the shared sources with the compat overrides, 2D's sections cut.
