@@ -262,12 +262,14 @@ All of it on a physically based core, humans first ([architecture](architecture.
   stance also needs the hip to hinge; in the lab's Stance a lower centre of mass stands only about
   1 cm lower, and walking from there falls.
 - A two-handed grip: a hand holds its own item and nothing holds one item with both.
-- The envelope does not measure a turn from standing; the Routine walks and turns at 0.3 m/s and
-  1 rad/s to stay up.
+- A walk turned half round from standing at the envelope's 2 rad/s, in a fight, now and then runs
+  away sideways once it is turned and falls with no blow on it, the crypt's hero on two layouts of
+  72 and the skeleton on three of 48 (`tests/crypt-core.test.mjs`' layout); the stance battery's
+  same turn holds ([human and strikes](reference/human-and-strikes.md#turning)). The Routine walks and
+  turns at 0.3 m/s and 1 rad/s, under the envelope, and is not read at the envelope's.
 - Set and not swept, each said so in its record: where a placed foot lands beside its place
-  (`PLACING.near`), how near a fighter
-  attacks (`ATTACK_METRES`) and the shaping of an arm's path (`IK_POSTURE_PULL`, `IK_TURN`)
-  ([human and strikes](reference/human-and-strikes.md)); the stance's height and its fall bar
+  (`PLACING.near`), how near a fighter attacks (`ATTACK_METRES`) and the shaping of an arm's path
+  (`IK_POSTURE_PULL`, `IK_TURN`) ([human and strikes](reference/human-and-strikes.md)); the stance's height and its fall bar
   (`STANCE_LOWER`, `FALLEN`, [stance tuning](reference/stance-tuning.md#stance-height)).
 - Set on readings from an engine that is gone, to read again on this one: how long a body stands
   before it throws (`STAND`: the Warrior reads 6 mm/s at 1.5 s where it read 5,
