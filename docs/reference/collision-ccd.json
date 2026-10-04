@@ -1,0 +1,4625 @@
+[
+  {
+    "manifest": {
+      "protocol": 2,
+      "started": "2026-10-04T19:36:42.800Z",
+      "options": {
+        "suite": "ccd",
+        "split": "development",
+        "samples": 2,
+        "from": 0,
+        "hz": 120,
+        "actuation": "directional"
+      },
+      "workers": 2,
+      "harness": "Node, core world, per-task arena/stand fixtures",
+      "node": "v24.19.0",
+      "engine": "rapier",
+      "package": {
+        "version": "0.21.0-auto-rpg.2",
+        "resolved": "file:vendor/rapier/dimforge-rapier3d-simd-compat-0.21.0-auto-rpg.2.tgz",
+        "integrity": "sha512-yN/jdD73UFXmrMiiixo+5XAyEzhd1twGtXCRcer/ziuU2jyBSYMXutlTrj2ZaAmOZs5K4WtkCvwepsMpPPNfkA==",
+        "entrySha256": "2ad42975e67269064349ce1fb0499df7075aef1768ce30c8f20160463788371c"
+      },
+      "source": {
+        "git": "d4267bf0c2e9f1bffc13edbc483d7ef22f4173e7",
+        "content": "a8dbcbababe7e25be25462745ea0f358e0d944a161e4c59fbc7a5352073e3d3e",
+        "archive": "source.json.gz",
+        "archiveSha256": "03948e821fa9b99e89845b4d7849a1b60722aa4fdc228ed5e3cf0e2dc94bd412"
+      },
+      "sensing": "diagnostic poses, velocities and contacts; no policy",
+      "action": "initial impulses, then free dynamics; no held action",
+      "policyPeriodSteps": 1,
+      "assists": {
+        "rootBalancePercent": 0,
+        "weapon": false
+      },
+      "unavailable": [
+        "two-handed items",
+        "grip release",
+        "integrated recovery/combat",
+        "moving isolated targets",
+        "actuator work",
+        "contact penetration"
+      ],
+      "jobs": [
+        {
+          "protocol": 2,
+          "split": "development",
+          "hz": 120,
+          "actuation": "directional",
+          "task": "ccd",
+          "model": "synthetic-bar",
+          "held": "free",
+          "seed": 0,
+          "mode": "linear",
+          "ccd": false,
+          "shieldHeight": 0.2504721359470859,
+          "shieldSpeed": -1,
+          "watchSeconds": 0.041666666666666664,
+          "sampleHz": 120,
+          "id": "2fb0b71de1397650cafbcf7095b2bbc4de20fc488f6372e62f7f5ddbd7420e28"
+        },
+        {
+          "protocol": 2,
+          "split": "development",
+          "hz": 120,
+          "actuation": "directional",
+          "task": "ccd",
+          "model": "synthetic-bar",
+          "held": "free",
+          "seed": 0,
+          "mode": "linear",
+          "ccd": true,
+          "shieldHeight": 0.2504721359470859,
+          "shieldSpeed": -1,
+          "watchSeconds": 0.041666666666666664,
+          "sampleHz": 120,
+          "id": "069e1f921898fea85d9d37ff24df528f94c5f43af0159713187212d2f4b2a112"
+        },
+        {
+          "protocol": 2,
+          "split": "development",
+          "hz": 120,
+          "actuation": "directional",
+          "task": "ccd",
+          "model": "synthetic-bar",
+          "held": "free",
+          "seed": 0,
+          "mode": "rotate",
+          "ccd": false,
+          "shieldHeight": 0.2504721359470859,
+          "shieldSpeed": -1,
+          "watchSeconds": 0.041666666666666664,
+          "sampleHz": 120,
+          "id": "2c702c0174a8c7999e561224bfe505eaf254c883f5af8211c25c20ef16a440d3"
+        },
+        {
+          "protocol": 2,
+          "split": "development",
+          "hz": 120,
+          "actuation": "directional",
+          "task": "ccd",
+          "model": "synthetic-bar",
+          "held": "free",
+          "seed": 0,
+          "mode": "rotate",
+          "ccd": true,
+          "shieldHeight": 0.2504721359470859,
+          "shieldSpeed": -1,
+          "watchSeconds": 0.041666666666666664,
+          "sampleHz": 120,
+          "id": "609b161db01198d6708e145a86018ce7d2a45c01d2d5c39471fa7726d9e6a47f"
+        },
+        {
+          "protocol": 2,
+          "split": "development",
+          "hz": 120,
+          "actuation": "directional",
+          "task": "ccd",
+          "model": "synthetic-bar",
+          "held": "free",
+          "seed": 1,
+          "mode": "linear",
+          "ccd": false,
+          "shieldHeight": 0.24894427189417184,
+          "shieldSpeed": -1,
+          "watchSeconds": 0.041666666666666664,
+          "sampleHz": 120,
+          "id": "f85a4bcaa345f19eea94c77e70940e175e638a93d599ca866f911c961b997f93"
+        },
+        {
+          "protocol": 2,
+          "split": "development",
+          "hz": 120,
+          "actuation": "directional",
+          "task": "ccd",
+          "model": "synthetic-bar",
+          "held": "free",
+          "seed": 1,
+          "mode": "linear",
+          "ccd": true,
+          "shieldHeight": 0.24894427189417184,
+          "shieldSpeed": -1,
+          "watchSeconds": 0.041666666666666664,
+          "sampleHz": 120,
+          "id": "7f4b6aa6d267295ee0db4858060abd40a985dcb51aeb156fbd320bec848d9d0a"
+        },
+        {
+          "protocol": 2,
+          "split": "development",
+          "hz": 120,
+          "actuation": "directional",
+          "task": "ccd",
+          "model": "synthetic-bar",
+          "held": "free",
+          "seed": 1,
+          "mode": "rotate",
+          "ccd": false,
+          "shieldHeight": 0.24894427189417184,
+          "shieldSpeed": -1,
+          "watchSeconds": 0.041666666666666664,
+          "sampleHz": 120,
+          "id": "88e3ce6eccf43a624998b49414e70e474a9f6589e94bb873083d3fdaf269cc08"
+        },
+        {
+          "protocol": 2,
+          "split": "development",
+          "hz": 120,
+          "actuation": "directional",
+          "task": "ccd",
+          "model": "synthetic-bar",
+          "held": "free",
+          "seed": 1,
+          "mode": "rotate",
+          "ccd": true,
+          "shieldHeight": 0.24894427189417184,
+          "shieldSpeed": -1,
+          "watchSeconds": 0.041666666666666664,
+          "sampleHz": 120,
+          "id": "a40c2c5d7941804733c0b7f4faac28d76323cd83598de55a2ab9f4c40f4b6099"
+        }
+      ]
+    },
+    "rows": [
+      {
+        "job": {
+          "protocol": 2,
+          "split": "development",
+          "hz": 120,
+          "actuation": "directional",
+          "task": "ccd",
+          "model": "synthetic-bar",
+          "held": "free",
+          "seed": 0,
+          "mode": "linear",
+          "ccd": false,
+          "shieldHeight": 0.2504721359470859,
+          "shieldSpeed": -1,
+          "watchSeconds": 0.041666666666666664,
+          "sampleHz": 120,
+          "id": "2fb0b71de1397650cafbcf7095b2bbc4de20fc488f6372e62f7f5ddbd7420e28"
+        },
+        "result": {
+          "status": "measured",
+          "outcome": {
+            "contacted": false,
+            "firstContactStep": null,
+            "firstContactSeconds": null,
+            "replayExact": true,
+            "digest": "85ebda4123aefc9a5841384f7f77ce6d60863b071032a3db8cb428ef5e2c92c6",
+            "end": {
+              "steps": 5,
+              "bar": [
+                5,
+                0,
+                0
+              ],
+              "rotation": [
+                0,
+                0,
+                0,
+                1
+              ],
+              "velocity": [
+                120,
+                0,
+                0
+              ],
+              "spin": [
+                0,
+                0,
+                0
+              ],
+              "shield": [
+                0.3583339750766754,
+                0.25047212839126587,
+                0
+              ],
+              "shieldVelocity": [
+                -1,
+                0,
+                0
+              ],
+              "contacts": []
+            },
+            "frames": [
+              {
+                "steps": 1,
+                "bar": [
+                  1,
+                  0,
+                  0
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "velocity": [
+                  120,
+                  0,
+                  0
+                ],
+                "spin": [
+                  0,
+                  0,
+                  0
+                ],
+                "shield": [
+                  0.39166679978370667,
+                  0.25047212839126587,
+                  0
+                ],
+                "shieldVelocity": [
+                  -1,
+                  0,
+                  0
+                ],
+                "contacts": []
+              },
+              {
+                "steps": 2,
+                "bar": [
+                  2,
+                  0,
+                  0
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "velocity": [
+                  120,
+                  0,
+                  0
+                ],
+                "spin": [
+                  0,
+                  0,
+                  0
+                ],
+                "shield": [
+                  0.38333359360694885,
+                  0.25047212839126587,
+                  0
+                ],
+                "shieldVelocity": [
+                  -1,
+                  0,
+                  0
+                ],
+                "contacts": []
+              },
+              {
+                "steps": 3,
+                "bar": [
+                  3,
+                  0,
+                  0
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "velocity": [
+                  120,
+                  0,
+                  0
+                ],
+                "spin": [
+                  0,
+                  0,
+                  0
+                ],
+                "shield": [
+                  0.37500038743019104,
+                  0.25047212839126587,
+                  0
+                ],
+                "shieldVelocity": [
+                  -1,
+                  0,
+                  0
+                ],
+                "contacts": []
+              },
+              {
+                "steps": 4,
+                "bar": [
+                  4,
+                  0,
+                  0
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "velocity": [
+                  120,
+                  0,
+                  0
+                ],
+                "spin": [
+                  0,
+                  0,
+                  0
+                ],
+                "shield": [
+                  0.3666671812534332,
+                  0.25047212839126587,
+                  0
+                ],
+                "shieldVelocity": [
+                  -1,
+                  0,
+                  0
+                ],
+                "contacts": []
+              },
+              {
+                "steps": 5,
+                "bar": [
+                  5,
+                  0,
+                  0
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "velocity": [
+                  120,
+                  0,
+                  0
+                ],
+                "spin": [
+                  0,
+                  0,
+                  0
+                ],
+                "shield": [
+                  0.3583339750766754,
+                  0.25047212839126587,
+                  0
+                ],
+                "shieldVelocity": [
+                  -1,
+                  0,
+                  0
+                ],
+                "contacts": []
+              }
+            ]
+          },
+          "limits": [
+            "synthetic free bodies, no character/controller claim",
+            "contact impulse reads are not integrated contact work",
+            "CCD clamping may lose motion before the next step reports a contact",
+            "traces sampled at 120 Hz; contact onset checked each physics step"
+          ]
+        }
+      },
+      {
+        "job": {
+          "protocol": 2,
+          "split": "development",
+          "hz": 120,
+          "actuation": "directional",
+          "task": "ccd",
+          "model": "synthetic-bar",
+          "held": "free",
+          "seed": 0,
+          "mode": "linear",
+          "ccd": true,
+          "shieldHeight": 0.2504721359470859,
+          "shieldSpeed": -1,
+          "watchSeconds": 0.041666666666666664,
+          "sampleHz": 120,
+          "id": "069e1f921898fea85d9d37ff24df528f94c5f43af0159713187212d2f4b2a112"
+        },
+        "result": {
+          "status": "measured",
+          "outcome": {
+            "contacted": true,
+            "firstContactStep": 2,
+            "firstContactSeconds": 0.016666666666666666,
+            "replayExact": true,
+            "digest": "ab292ca22901c43d6da3f139eb6a966fb31205a834240c0c8335010013adad39",
+            "end": {
+              "steps": 5,
+              "bar": [
+                1.4084159135818481,
+                -0.03371089696884155,
+                6.954376772227988e-7
+              ],
+              "rotation": [
+                -0.00001998015977733303,
+                9.576265256328043e-7,
+                0.9999837875366211,
+                0.00568524980917573
+              ],
+              "velocity": [
+                30.269420623779297,
+                -1.006062626838684,
+                0.000022733416699338704
+              ],
+              "spin": [
+                0.0009623636724427342,
+                -0.0013734858948737383,
+                93.81791687011719
+              ],
+              "shield": [
+                0.6551591753959656,
+                0.253842830657959,
+                -6.954374498491234e-8
+              ],
+              "shieldVelocity": [
+                7.973057746887207,
+                0.10060624778270721,
+                -0.000002273340442116023
+              ],
+              "contacts": []
+            },
+            "frames": [
+              {
+                "steps": 1,
+                "bar": [
+                  0.3766668140888214,
+                  0,
+                  0
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "velocity": [
+                  120,
+                  0,
+                  0
+                ],
+                "spin": [
+                  0,
+                  0,
+                  0
+                ],
+                "shield": [
+                  0.39166679978370667,
+                  0.25047212839126587,
+                  0
+                ],
+                "shieldVelocity": [
+                  -1,
+                  0,
+                  0
+                ],
+                "contacts": []
+              },
+              {
+                "steps": 2,
+                "bar": [
+                  0.6516810059547424,
+                  -0.00855929870158434,
+                  1.2710249563951947e-7
+                ],
+                "rotation": [
+                  -0.0000010828130143636372,
+                  0.000011226473361602984,
+                  0.38261061906814575,
+                  0.9239096641540527
+                ],
+                "velocity": [
+                  30.269420623779297,
+                  -1.006062626838684,
+                  0.000022733416699338704
+                ],
+                "spin": [
+                  -0.000030897219403414056,
+                  0.001245378516614437,
+                  93.81790924072266
+                ],
+                "shield": [
+                  0.45583203434944153,
+                  0.2513279914855957,
+                  -1.2710244412517113e-8
+                ],
+                "shieldVelocity": [
+                  7.973057746887207,
+                  0.10060624778270721,
+                  -0.000002273340442116023
+                ],
+                "contacts": [
+                  {
+                    "shield": true,
+                    "impulse": 89.73058032989502,
+                    "point": [
+                      0.46888296802838636,
+                      0.21302605668703714,
+                      6.972029874911337e-7
+                    ],
+                    "normal": [
+                      0.9999999999988898,
+                      0,
+                      -0.000001490118279433028
+                    ],
+                    "pairs": [
+                      {
+                        "mine": 0,
+                        "theirs": 0
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "steps": 3,
+                "bar": [
+                  0.9039259552955627,
+                  -0.016943156719207764,
+                  3.1654764143240754e-7
+                ],
+                "rotation": [
+                  -0.000005704866907763062,
+                  0.000013415365174296312,
+                  0.7057282328605652,
+                  0.7084826231002808
+                ],
+                "velocity": [
+                  30.269420623779297,
+                  -1.006062626838684,
+                  0.000022733416699338704
+                ],
+                "spin": [
+                  -0.0005020197713747621,
+                  0.00018794054631143808,
+                  93.81792449951172
+                ],
+                "shield": [
+                  0.5222741961479187,
+                  0.2521662712097168,
+                  -3.1654735721531324e-8
+                ],
+                "shieldVelocity": [
+                  7.973057746887207,
+                  0.10060624778270721,
+                  -0.000002273340442116023
+                ],
+                "contacts": [
+                  {
+                    "shield": true,
+                    "impulse": 0,
+                    "point": [
+                      0.5480814178784689,
+                      0.12232561409473419,
+                      0.0000029296259829910314
+                    ],
+                    "normal": [
+                      0.7072182628900142,
+                      0.7069952819034673,
+                      -0.0000010332751600835672
+                    ],
+                    "pairs": []
+                  }
+                ]
+              },
+              {
+                "steps": 4,
+                "bar": [
+                  1.1561709642410278,
+                  -0.025327026844024658,
+                  5.059926593276032e-7
+                ],
+                "rotation": [
+                  -0.000012882823284598999,
+                  0.000010177916919928975,
+                  0.9224122166633606,
+                  0.38620659708976746
+                ],
+                "velocity": [
+                  30.269420623779297,
+                  -1.006062626838684,
+                  0.000022733416699338704
+                ],
+                "spin": [
+                  -0.00009149467223323882,
+                  -0.0008944513974711299,
+                  93.81793212890625
+                ],
+                "shield": [
+                  0.5887166857719421,
+                  0.2530045509338379,
+                  -5.0599226142367115e-8
+                ],
+                "shieldVelocity": [
+                  7.973057746887207,
+                  0.10060624778270721,
+                  -0.000002273340442116023
+                ],
+                "contacts": []
+              },
+              {
+                "steps": 5,
+                "bar": [
+                  1.4084159135818481,
+                  -0.03371089696884155,
+                  6.954376772227988e-7
+                ],
+                "rotation": [
+                  -0.00001998015977733303,
+                  9.576265256328043e-7,
+                  0.9999837875366211,
+                  0.00568524980917573
+                ],
+                "velocity": [
+                  30.269420623779297,
+                  -1.006062626838684,
+                  0.000022733416699338704
+                ],
+                "spin": [
+                  0.0009623636724427342,
+                  -0.0013734858948737383,
+                  93.81791687011719
+                ],
+                "shield": [
+                  0.6551591753959656,
+                  0.253842830657959,
+                  -6.954374498491234e-8
+                ],
+                "shieldVelocity": [
+                  7.973057746887207,
+                  0.10060624778270721,
+                  -0.000002273340442116023
+                ],
+                "contacts": []
+              }
+            ]
+          },
+          "limits": [
+            "synthetic free bodies, no character/controller claim",
+            "contact impulse reads are not integrated contact work",
+            "CCD clamping may lose motion before the next step reports a contact",
+            "traces sampled at 120 Hz; contact onset checked each physics step"
+          ]
+        }
+      },
+      {
+        "job": {
+          "protocol": 2,
+          "split": "development",
+          "hz": 120,
+          "actuation": "directional",
+          "task": "ccd",
+          "model": "synthetic-bar",
+          "held": "free",
+          "seed": 0,
+          "mode": "rotate",
+          "ccd": false,
+          "shieldHeight": 0.2504721359470859,
+          "shieldSpeed": -1,
+          "watchSeconds": 0.041666666666666664,
+          "sampleHz": 120,
+          "id": "2c702c0174a8c7999e561224bfe505eaf254c883f5af8211c25c20ef16a440d3"
+        },
+        "result": {
+          "status": "measured",
+          "outcome": {
+            "contacted": false,
+            "firstContactStep": null,
+            "firstContactSeconds": null,
+            "replayExact": true,
+            "digest": "8a4a9cc39f325b8c41dbbf9bf9204face7b3c971bb850800a7b96433b6119467",
+            "end": {
+              "steps": 5,
+              "bar": [
+                0,
+                0,
+                0
+              ],
+              "rotation": [
+                0,
+                0,
+                0.9954310059547424,
+                -0.09548407793045044
+              ],
+              "velocity": [
+                0,
+                0,
+                0
+              ],
+              "spin": [
+                0,
+                0,
+                79.99998474121094
+              ],
+              "shield": [
+                0.3583339750766754,
+                0.25047212839126587,
+                0
+              ],
+              "shieldVelocity": [
+                -1,
+                0,
+                0
+              ],
+              "contacts": []
+            },
+            "frames": [
+              {
+                "steps": 1,
+                "bar": [
+                  0,
+                  0,
+                  0
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  0.3271491825580597,
+                  0.9449726343154907
+                ],
+                "velocity": [
+                  0,
+                  0,
+                  0
+                ],
+                "spin": [
+                  0,
+                  0,
+                  80.0000228881836
+                ],
+                "shield": [
+                  0.39166679978370667,
+                  0.25047212839126587,
+                  0
+                ],
+                "shieldVelocity": [
+                  -1,
+                  0,
+                  0
+                ],
+                "contacts": []
+              },
+              {
+                "steps": 2,
+                "bar": [
+                  0,
+                  0,
+                  0
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  0.6182940602302551,
+                  0.7859468460083008
+                ],
+                "velocity": [
+                  0,
+                  0,
+                  0
+                ],
+                "spin": [
+                  0,
+                  0,
+                  80.00006103515625
+                ],
+                "shield": [
+                  0.38333359360694885,
+                  0.25047212839126587,
+                  0
+                ],
+                "shieldVelocity": [
+                  -1,
+                  0,
+                  0
+                ],
+                "contacts": []
+              },
+              {
+                "steps": 3,
+                "bar": [
+                  0,
+                  0,
+                  0
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  0.8413928747177124,
+                  0.5404239296913147
+                ],
+                "velocity": [
+                  0,
+                  0,
+                  0
+                ],
+                "spin": [
+                  0,
+                  0,
+                  80.0000228881836
+                ],
+                "shield": [
+                  0.37500038743019104,
+                  0.25047212839126587,
+                  0
+                ],
+                "shieldVelocity": [
+                  -1,
+                  0,
+                  0
+                ],
+                "contacts": []
+              },
+              {
+                "steps": 4,
+                "bar": [
+                  0,
+                  0,
+                  0
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  0.9718925356864929,
+                  0.23542465269565582
+                ],
+                "velocity": [
+                  0,
+                  0,
+                  0
+                ],
+                "spin": [
+                  0,
+                  0,
+                  80.00006103515625
+                ],
+                "shield": [
+                  0.3666671812534332,
+                  0.25047212839126587,
+                  0
+                ],
+                "shieldVelocity": [
+                  -1,
+                  0,
+                  0
+                ],
+                "contacts": []
+              },
+              {
+                "steps": 5,
+                "bar": [
+                  0,
+                  0,
+                  0
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  0.9954310059547424,
+                  -0.09548407793045044
+                ],
+                "velocity": [
+                  0,
+                  0,
+                  0
+                ],
+                "spin": [
+                  0,
+                  0,
+                  79.99998474121094
+                ],
+                "shield": [
+                  0.3583339750766754,
+                  0.25047212839126587,
+                  0
+                ],
+                "shieldVelocity": [
+                  -1,
+                  0,
+                  0
+                ],
+                "contacts": []
+              }
+            ]
+          },
+          "limits": [
+            "synthetic free bodies, no character/controller claim",
+            "contact impulse reads are not integrated contact work",
+            "CCD clamping may lose motion before the next step reports a contact",
+            "traces sampled at 120 Hz; contact onset checked each physics step"
+          ]
+        }
+      },
+      {
+        "job": {
+          "protocol": 2,
+          "split": "development",
+          "hz": 120,
+          "actuation": "directional",
+          "task": "ccd",
+          "model": "synthetic-bar",
+          "held": "free",
+          "seed": 0,
+          "mode": "rotate",
+          "ccd": true,
+          "shieldHeight": 0.2504721359470859,
+          "shieldSpeed": -1,
+          "watchSeconds": 0.041666666666666664,
+          "sampleHz": 120,
+          "id": "609b161db01198d6708e145a86018ce7d2a45c01d2d5c39471fa7726d9e6a47f"
+        },
+        "result": {
+          "status": "measured",
+          "outcome": {
+            "contacted": true,
+            "firstContactStep": 5,
+            "firstContactSeconds": 0.041666666666666664,
+            "replayExact": true,
+            "digest": "fdfdbe2b6e88203a039c7791620e0cd4a0eed3be3f9d9370f8f7b1f89a5aa362",
+            "end": {
+              "steps": 5,
+              "bar": [
+                0.04014112055301666,
+                -0.07957373559474945,
+                -2.0861415350736934e-7
+              ],
+              "rotation": [
+                -0.0000073873352448572405,
+                0.00000270981900030165,
+                0.9238390326499939,
+                0.38278141617774963
+              ],
+              "velocity": [
+                4.84956693649292,
+                -9.605043411254883,
+                -0.0000252860536420485
+              ],
+              "spin": [
+                -0.0013148827711120248,
+                -0.0014023863477632403,
+                27.831302642822266
+              ],
+              "shield": [
+                0.3543195426464081,
+                0.25842946767807007,
+                2.08614157060083e-8
+              ],
+              "shieldVelocity": [
+                -1.4849567413330078,
+                0.9605044722557068,
+                0.000002528605818952201
+              ],
+              "contacts": [
+                {
+                  "shield": true,
+                  "impulse": 10.722819328308105,
+                  "point": [
+                    0.34282034635543823,
+                    0.24558667341868082,
+                    -5.348309647009349e-8
+                  ],
+                  "normal": [
+                    -0.523188239254145,
+                    0.8522171473891657,
+                    0.0000014215170427285
+                  ],
+                  "pairs": [
+                    {
+                      "mine": 0,
+                      "theirs": 0
+                    }
+                  ]
+                }
+              ]
+            },
+            "frames": [
+              {
+                "steps": 1,
+                "bar": [
+                  0,
+                  0,
+                  0
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  0.3271491825580597,
+                  0.9449726343154907
+                ],
+                "velocity": [
+                  0,
+                  0,
+                  0
+                ],
+                "spin": [
+                  0,
+                  0,
+                  80.0000228881836
+                ],
+                "shield": [
+                  0.39166679978370667,
+                  0.25047212839126587,
+                  0
+                ],
+                "shieldVelocity": [
+                  -1,
+                  0,
+                  0
+                ],
+                "contacts": []
+              },
+              {
+                "steps": 2,
+                "bar": [
+                  0,
+                  0,
+                  0
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  0.6182940602302551,
+                  0.7859468460083008
+                ],
+                "velocity": [
+                  0,
+                  0,
+                  0
+                ],
+                "spin": [
+                  0,
+                  0,
+                  80.00006103515625
+                ],
+                "shield": [
+                  0.38333359360694885,
+                  0.25047212839126587,
+                  0
+                ],
+                "shieldVelocity": [
+                  -1,
+                  0,
+                  0
+                ],
+                "contacts": []
+              },
+              {
+                "steps": 3,
+                "bar": [
+                  0,
+                  0,
+                  0
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  0.8413928747177124,
+                  0.5404239296913147
+                ],
+                "velocity": [
+                  0,
+                  0,
+                  0
+                ],
+                "spin": [
+                  0,
+                  0,
+                  80.0000228881836
+                ],
+                "shield": [
+                  0.37500038743019104,
+                  0.25047212839126587,
+                  0
+                ],
+                "shieldVelocity": [
+                  -1,
+                  0,
+                  0
+                ],
+                "contacts": []
+              },
+              {
+                "steps": 4,
+                "bar": [
+                  0,
+                  0,
+                  0
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  0.8726935982704163,
+                  0.48826825618743896
+                ],
+                "velocity": [
+                  0,
+                  0,
+                  0
+                ],
+                "spin": [
+                  0,
+                  0,
+                  80.00006103515625
+                ],
+                "shield": [
+                  0.3666671812534332,
+                  0.25047212839126587,
+                  0
+                ],
+                "shieldVelocity": [
+                  -1,
+                  0,
+                  0
+                ],
+                "contacts": []
+              },
+              {
+                "steps": 5,
+                "bar": [
+                  0.04014112055301666,
+                  -0.07957373559474945,
+                  -2.0861415350736934e-7
+                ],
+                "rotation": [
+                  -0.0000073873352448572405,
+                  0.00000270981900030165,
+                  0.9238390326499939,
+                  0.38278141617774963
+                ],
+                "velocity": [
+                  4.84956693649292,
+                  -9.605043411254883,
+                  -0.0000252860536420485
+                ],
+                "spin": [
+                  -0.0013148827711120248,
+                  -0.0014023863477632403,
+                  27.831302642822266
+                ],
+                "shield": [
+                  0.3543195426464081,
+                  0.25842946767807007,
+                  2.08614157060083e-8
+                ],
+                "shieldVelocity": [
+                  -1.4849567413330078,
+                  0.9605044722557068,
+                  0.000002528605818952201
+                ],
+                "contacts": [
+                  {
+                    "shield": true,
+                    "impulse": 10.722819328308105,
+                    "point": [
+                      0.34282034635543823,
+                      0.24558667341868082,
+                      -5.348309647009349e-8
+                    ],
+                    "normal": [
+                      -0.523188239254145,
+                      0.8522171473891657,
+                      0.0000014215170427285
+                    ],
+                    "pairs": [
+                      {
+                        "mine": 0,
+                        "theirs": 0
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          "limits": [
+            "synthetic free bodies, no character/controller claim",
+            "contact impulse reads are not integrated contact work",
+            "CCD clamping may lose motion before the next step reports a contact",
+            "traces sampled at 120 Hz; contact onset checked each physics step"
+          ]
+        }
+      },
+      {
+        "job": {
+          "protocol": 2,
+          "split": "development",
+          "hz": 120,
+          "actuation": "directional",
+          "task": "ccd",
+          "model": "synthetic-bar",
+          "held": "free",
+          "seed": 1,
+          "mode": "linear",
+          "ccd": false,
+          "shieldHeight": 0.24894427189417184,
+          "shieldSpeed": -1,
+          "watchSeconds": 0.041666666666666664,
+          "sampleHz": 120,
+          "id": "f85a4bcaa345f19eea94c77e70940e175e638a93d599ca866f911c961b997f93"
+        },
+        "result": {
+          "status": "measured",
+          "outcome": {
+            "contacted": false,
+            "firstContactStep": null,
+            "firstContactSeconds": null,
+            "replayExact": true,
+            "digest": "22c7c30cadade12df7ea604b5d654df8f12fd188bff541c4f28f18c6f90ddad5",
+            "end": {
+              "steps": 5,
+              "bar": [
+                5,
+                0,
+                0
+              ],
+              "rotation": [
+                0,
+                0,
+                0,
+                1
+              ],
+              "velocity": [
+                120,
+                0,
+                0
+              ],
+              "spin": [
+                0,
+                0,
+                0
+              ],
+              "shield": [
+                0.3583339750766754,
+                0.2489442676305771,
+                0
+              ],
+              "shieldVelocity": [
+                -1,
+                0,
+                0
+              ],
+              "contacts": []
+            },
+            "frames": [
+              {
+                "steps": 1,
+                "bar": [
+                  1,
+                  0,
+                  0
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "velocity": [
+                  120,
+                  0,
+                  0
+                ],
+                "spin": [
+                  0,
+                  0,
+                  0
+                ],
+                "shield": [
+                  0.39166679978370667,
+                  0.2489442676305771,
+                  0
+                ],
+                "shieldVelocity": [
+                  -1,
+                  0,
+                  0
+                ],
+                "contacts": []
+              },
+              {
+                "steps": 2,
+                "bar": [
+                  2,
+                  0,
+                  0
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "velocity": [
+                  120,
+                  0,
+                  0
+                ],
+                "spin": [
+                  0,
+                  0,
+                  0
+                ],
+                "shield": [
+                  0.38333359360694885,
+                  0.2489442676305771,
+                  0
+                ],
+                "shieldVelocity": [
+                  -1,
+                  0,
+                  0
+                ],
+                "contacts": []
+              },
+              {
+                "steps": 3,
+                "bar": [
+                  3,
+                  0,
+                  0
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "velocity": [
+                  120,
+                  0,
+                  0
+                ],
+                "spin": [
+                  0,
+                  0,
+                  0
+                ],
+                "shield": [
+                  0.37500038743019104,
+                  0.2489442676305771,
+                  0
+                ],
+                "shieldVelocity": [
+                  -1,
+                  0,
+                  0
+                ],
+                "contacts": []
+              },
+              {
+                "steps": 4,
+                "bar": [
+                  4,
+                  0,
+                  0
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "velocity": [
+                  120,
+                  0,
+                  0
+                ],
+                "spin": [
+                  0,
+                  0,
+                  0
+                ],
+                "shield": [
+                  0.3666671812534332,
+                  0.2489442676305771,
+                  0
+                ],
+                "shieldVelocity": [
+                  -1,
+                  0,
+                  0
+                ],
+                "contacts": []
+              },
+              {
+                "steps": 5,
+                "bar": [
+                  5,
+                  0,
+                  0
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "velocity": [
+                  120,
+                  0,
+                  0
+                ],
+                "spin": [
+                  0,
+                  0,
+                  0
+                ],
+                "shield": [
+                  0.3583339750766754,
+                  0.2489442676305771,
+                  0
+                ],
+                "shieldVelocity": [
+                  -1,
+                  0,
+                  0
+                ],
+                "contacts": []
+              }
+            ]
+          },
+          "limits": [
+            "synthetic free bodies, no character/controller claim",
+            "contact impulse reads are not integrated contact work",
+            "CCD clamping may lose motion before the next step reports a contact",
+            "traces sampled at 120 Hz; contact onset checked each physics step"
+          ]
+        }
+      },
+      {
+        "job": {
+          "protocol": 2,
+          "split": "development",
+          "hz": 120,
+          "actuation": "directional",
+          "task": "ccd",
+          "model": "synthetic-bar",
+          "held": "free",
+          "seed": 1,
+          "mode": "linear",
+          "ccd": true,
+          "shieldHeight": 0.24894427189417184,
+          "shieldSpeed": -1,
+          "watchSeconds": 0.041666666666666664,
+          "sampleHz": 120,
+          "id": "7f4b6aa6d267295ee0db4858060abd40a985dcb51aeb156fbd320bec848d9d0a"
+        },
+        "result": {
+          "status": "measured",
+          "outcome": {
+            "contacted": true,
+            "firstContactStep": 2,
+            "firstContactSeconds": 0.016666666666666666,
+            "replayExact": true,
+            "digest": "48505d53e217a83d54270f03a668915130747d5a300409edc77bca553200ff77",
+            "end": {
+              "steps": 5,
+              "bar": [
+                1.4038867950439453,
+                -0.033711932599544525,
+                9.959302360584843e-7
+              ],
+              "rotation": [
+                -0.000033833308407338336,
+                0.000002607763235573657,
+                0.9999841451644897,
+                0.005633744411170483
+              ],
+              "velocity": [
+                30.140155792236328,
+                -1.0061399936676025,
+                0.00003243201717850752
+              ],
+              "spin": [
+                0.0017287357477471232,
+                -0.0022296379320323467,
+                93.8218765258789
+              ],
+              "shield": [
+                0.6556122303009033,
+                0.2523150146007538,
+                -9.959284597016449e-8
+              ],
+              "shieldVelocity": [
+                7.9859843254089355,
+                0.10061399638652802,
+                -0.0000032431978524982696
+              ],
+              "contacts": []
+            },
+            "frames": [
+              {
+                "steps": 1,
+                "bar": [
+                  0.3766668140888214,
+                  0,
+                  0
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "velocity": [
+                  120,
+                  0,
+                  0
+                ],
+                "spin": [
+                  0,
+                  0,
+                  0
+                ],
+                "shield": [
+                  0.39166679978370667,
+                  0.2489442676305771,
+                  0
+                ],
+                "shieldVelocity": [
+                  -1,
+                  0,
+                  0
+                ],
+                "contacts": []
+              },
+              {
+                "steps": 2,
+                "bar": [
+                  0.6503835916519165,
+                  -0.00855843536555767,
+                  1.8512902499878692e-7
+                ],
+                "rotation": [
+                  -0.0000023163056539488025,
+                  0.00001936567969096359,
+                  0.38261058926582336,
+                  0.9239096641540527
+                ],
+                "velocity": [
+                  30.140155792236328,
+                  -1.0061399936676025,
+                  0.00003243201717850752
+                ],
+                "spin": [
+                  -0.000011209709555259906,
+                  0.0023571462370455265,
+                  93.82219696044922
+                ],
+                "shield": [
+                  0.45596176385879517,
+                  0.24980011582374573,
+                  -1.8512873012355158e-8
+                ],
+                "shieldVelocity": [
+                  7.9859843254089355,
+                  0.10061399638652802,
+                  -0.0000032431978524982696
+                ],
+                "contacts": [
+                  {
+                    "shield": true,
+                    "impulse": 89.85984516143799,
+                    "point": [
+                      0.468840092420578,
+                      0.21172000467777252,
+                      0.000001073122386211859
+                    ],
+                    "normal": [
+                      0.9999999999955591,
+                      0,
+                      -0.0000029802365588561298
+                    ],
+                    "pairs": [
+                      {
+                        "mine": 0,
+                        "theirs": 0
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "steps": 3,
+                "bar": [
+                  0.9015518426895142,
+                  -0.016942931339144707,
+                  4.553958206088282e-7
+                ],
+                "rotation": [
+                  -0.000009832983778323978,
+                  0.00002365480577282142,
+                  0.705740749835968,
+                  0.7084701061248779
+                ],
+                "velocity": [
+                  30.140155792236328,
+                  -1.0061399936676025,
+                  0.00003243201717850752
+                ],
+                "spin": [
+                  -0.0008363385568372905,
+                  0.0005049759056419134,
+                  93.8221664428711
+                ],
+                "shield": [
+                  0.5225117206573486,
+                  0.2506384551525116,
+                  -4.5539529480720375e-8
+                ],
+                "shieldVelocity": [
+                  7.9859843254089355,
+                  0.10061399638652802,
+                  -0.0000032431978524982696
+                ],
+                "contacts": [
+                  {
+                    "shield": true,
+                    "impulse": 0,
+                    "point": [
+                      0.5480655431747437,
+                      0.12154801189899445,
+                      0.00000500024816574296
+                    ],
+                    "normal": [
+                      0.7072180245088422,
+                      0.7069955203594639,
+                      -0.0000012089440700216277
+                    ],
+                    "pairs": []
+                  }
+                ]
+              },
+              {
+                "steps": 4,
+                "bar": [
+                  1.152719497680664,
+                  -0.025327427312731743,
+                  7.256629714902374e-7
+                ],
+                "rotation": [
+                  -0.00002185031189583242,
+                  0.00001841545417846646,
+                  0.9224256873130798,
+                  0.3861744999885559
+                ],
+                "velocity": [
+                  30.140155792236328,
+                  -1.0061399936676025,
+                  0.00003243201717850752
+                ],
+                "spin": [
+                  -0.00011723354691639543,
+                  -0.0013908548280596733,
+                  93.82194519042969
+                ],
+                "shield": [
+                  0.589061975479126,
+                  0.2514767348766327,
+                  -7.256618772544243e-8
+                ],
+                "shieldVelocity": [
+                  7.9859843254089355,
+                  0.10061399638652802,
+                  -0.0000032431978524982696
+                ],
+                "contacts": []
+              },
+              {
+                "steps": 5,
+                "bar": [
+                  1.4038867950439453,
+                  -0.033711932599544525,
+                  9.959302360584843e-7
+                ],
+                "rotation": [
+                  -0.000033833308407338336,
+                  0.000002607763235573657,
+                  0.9999841451644897,
+                  0.005633744411170483
+                ],
+                "velocity": [
+                  30.140155792236328,
+                  -1.0061399936676025,
+                  0.00003243201717850752
+                ],
+                "spin": [
+                  0.0017287357477471232,
+                  -0.0022296379320323467,
+                  93.8218765258789
+                ],
+                "shield": [
+                  0.6556122303009033,
+                  0.2523150146007538,
+                  -9.959284597016449e-8
+                ],
+                "shieldVelocity": [
+                  7.9859843254089355,
+                  0.10061399638652802,
+                  -0.0000032431978524982696
+                ],
+                "contacts": []
+              }
+            ]
+          },
+          "limits": [
+            "synthetic free bodies, no character/controller claim",
+            "contact impulse reads are not integrated contact work",
+            "CCD clamping may lose motion before the next step reports a contact",
+            "traces sampled at 120 Hz; contact onset checked each physics step"
+          ]
+        }
+      },
+      {
+        "job": {
+          "protocol": 2,
+          "split": "development",
+          "hz": 120,
+          "actuation": "directional",
+          "task": "ccd",
+          "model": "synthetic-bar",
+          "held": "free",
+          "seed": 1,
+          "mode": "rotate",
+          "ccd": false,
+          "shieldHeight": 0.24894427189417184,
+          "shieldSpeed": -1,
+          "watchSeconds": 0.041666666666666664,
+          "sampleHz": 120,
+          "id": "88e3ce6eccf43a624998b49414e70e474a9f6589e94bb873083d3fdaf269cc08"
+        },
+        "result": {
+          "status": "measured",
+          "outcome": {
+            "contacted": false,
+            "firstContactStep": null,
+            "firstContactSeconds": null,
+            "replayExact": true,
+            "digest": "28301bf4f832120981847d785d77bee5836c4af31d10ade4839e6701e7dcd213",
+            "end": {
+              "steps": 5,
+              "bar": [
+                0,
+                0,
+                0
+              ],
+              "rotation": [
+                0,
+                0,
+                0.9954310059547424,
+                -0.09548407793045044
+              ],
+              "velocity": [
+                0,
+                0,
+                0
+              ],
+              "spin": [
+                0,
+                0,
+                79.99998474121094
+              ],
+              "shield": [
+                0.3583339750766754,
+                0.2489442676305771,
+                0
+              ],
+              "shieldVelocity": [
+                -1,
+                0,
+                0
+              ],
+              "contacts": []
+            },
+            "frames": [
+              {
+                "steps": 1,
+                "bar": [
+                  0,
+                  0,
+                  0
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  0.3271491825580597,
+                  0.9449726343154907
+                ],
+                "velocity": [
+                  0,
+                  0,
+                  0
+                ],
+                "spin": [
+                  0,
+                  0,
+                  80.0000228881836
+                ],
+                "shield": [
+                  0.39166679978370667,
+                  0.2489442676305771,
+                  0
+                ],
+                "shieldVelocity": [
+                  -1,
+                  0,
+                  0
+                ],
+                "contacts": []
+              },
+              {
+                "steps": 2,
+                "bar": [
+                  0,
+                  0,
+                  0
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  0.6182940602302551,
+                  0.7859468460083008
+                ],
+                "velocity": [
+                  0,
+                  0,
+                  0
+                ],
+                "spin": [
+                  0,
+                  0,
+                  80.00006103515625
+                ],
+                "shield": [
+                  0.38333359360694885,
+                  0.2489442676305771,
+                  0
+                ],
+                "shieldVelocity": [
+                  -1,
+                  0,
+                  0
+                ],
+                "contacts": []
+              },
+              {
+                "steps": 3,
+                "bar": [
+                  0,
+                  0,
+                  0
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  0.8413928747177124,
+                  0.5404239296913147
+                ],
+                "velocity": [
+                  0,
+                  0,
+                  0
+                ],
+                "spin": [
+                  0,
+                  0,
+                  80.0000228881836
+                ],
+                "shield": [
+                  0.37500038743019104,
+                  0.2489442676305771,
+                  0
+                ],
+                "shieldVelocity": [
+                  -1,
+                  0,
+                  0
+                ],
+                "contacts": []
+              },
+              {
+                "steps": 4,
+                "bar": [
+                  0,
+                  0,
+                  0
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  0.9718925356864929,
+                  0.23542465269565582
+                ],
+                "velocity": [
+                  0,
+                  0,
+                  0
+                ],
+                "spin": [
+                  0,
+                  0,
+                  80.00006103515625
+                ],
+                "shield": [
+                  0.3666671812534332,
+                  0.2489442676305771,
+                  0
+                ],
+                "shieldVelocity": [
+                  -1,
+                  0,
+                  0
+                ],
+                "contacts": []
+              },
+              {
+                "steps": 5,
+                "bar": [
+                  0,
+                  0,
+                  0
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  0.9954310059547424,
+                  -0.09548407793045044
+                ],
+                "velocity": [
+                  0,
+                  0,
+                  0
+                ],
+                "spin": [
+                  0,
+                  0,
+                  79.99998474121094
+                ],
+                "shield": [
+                  0.3583339750766754,
+                  0.2489442676305771,
+                  0
+                ],
+                "shieldVelocity": [
+                  -1,
+                  0,
+                  0
+                ],
+                "contacts": []
+              }
+            ]
+          },
+          "limits": [
+            "synthetic free bodies, no character/controller claim",
+            "contact impulse reads are not integrated contact work",
+            "CCD clamping may lose motion before the next step reports a contact",
+            "traces sampled at 120 Hz; contact onset checked each physics step"
+          ]
+        }
+      },
+      {
+        "job": {
+          "protocol": 2,
+          "split": "development",
+          "hz": 120,
+          "actuation": "directional",
+          "task": "ccd",
+          "model": "synthetic-bar",
+          "held": "free",
+          "seed": 1,
+          "mode": "rotate",
+          "ccd": true,
+          "shieldHeight": 0.24894427189417184,
+          "shieldSpeed": -1,
+          "watchSeconds": 0.041666666666666664,
+          "sampleHz": 120,
+          "id": "a40c2c5d7941804733c0b7f4faac28d76323cd83598de55a2ab9f4c40f4b6099"
+        },
+        "result": {
+          "status": "measured",
+          "outcome": {
+            "contacted": true,
+            "firstContactStep": 5,
+            "firstContactSeconds": 0.041666666666666664,
+            "replayExact": true,
+            "digest": "fc9f8498b2f08e813fea47a1d14f54568d34ecb3cfe4e463e2a253f202b74362",
+            "end": {
+              "steps": 5,
+              "bar": [
+                0.03994137793779373,
+                -0.0805826187133789,
+                -2.6448050860494732e-8
+              ],
+              "rotation": [
+                8.486187539347156e-7,
+                -3.4966356565746537e-7,
+                0.9234341382980347,
+                0.38375699520111084
+              ],
+              "velocity": [
+                4.814362525939941,
+                -9.705424308776855,
+                -0.000003248453140258789
+              ],
+              "spin": [
+                0.00015064686886034906,
+                0.00014831603039056063,
+                28.046161651611328
+              ],
+              "shield": [
+                0.35433968901634216,
+                0.2570023536682129,
+                2.6448041534621325e-9
+              ],
+              "shieldVelocity": [
+                -1.4814362525939941,
+                0.9705427885055542,
+                3.2484530265719513e-7
+              ],
+              "contacts": [
+                {
+                  "shield": true,
+                  "impulse": 10.792744173289748,
+                  "point": [
+                    0.3425566057364146,
+                    0.24398702383041382,
+                    1.3107886924027904e-8
+                  ],
+                  "normal": [
+                    -0.5207012495256116,
+                    0.8537389581965127,
+                    0
+                  ],
+                  "pairs": [
+                    {
+                      "mine": 0,
+                      "theirs": 0
+                    }
+                  ]
+                }
+              ]
+            },
+            "frames": [
+              {
+                "steps": 1,
+                "bar": [
+                  0,
+                  0,
+                  0
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  0.3271491825580597,
+                  0.9449726343154907
+                ],
+                "velocity": [
+                  0,
+                  0,
+                  0
+                ],
+                "spin": [
+                  0,
+                  0,
+                  80.0000228881836
+                ],
+                "shield": [
+                  0.39166679978370667,
+                  0.2489442676305771,
+                  0
+                ],
+                "shieldVelocity": [
+                  -1,
+                  0,
+                  0
+                ],
+                "contacts": []
+              },
+              {
+                "steps": 2,
+                "bar": [
+                  0,
+                  0,
+                  0
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  0.6182940602302551,
+                  0.7859468460083008
+                ],
+                "velocity": [
+                  0,
+                  0,
+                  0
+                ],
+                "spin": [
+                  0,
+                  0,
+                  80.00006103515625
+                ],
+                "shield": [
+                  0.38333359360694885,
+                  0.2489442676305771,
+                  0
+                ],
+                "shieldVelocity": [
+                  -1,
+                  0,
+                  0
+                ],
+                "contacts": []
+              },
+              {
+                "steps": 3,
+                "bar": [
+                  0,
+                  0,
+                  0
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  0.8413928747177124,
+                  0.5404239296913147
+                ],
+                "velocity": [
+                  0,
+                  0,
+                  0
+                ],
+                "spin": [
+                  0,
+                  0,
+                  80.0000228881836
+                ],
+                "shield": [
+                  0.37500038743019104,
+                  0.2489442676305771,
+                  0
+                ],
+                "shieldVelocity": [
+                  -1,
+                  0,
+                  0
+                ],
+                "contacts": []
+              },
+              {
+                "steps": 4,
+                "bar": [
+                  0,
+                  0,
+                  0
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  0.8719808459281921,
+                  0.48954007029533386
+                ],
+                "velocity": [
+                  0,
+                  0,
+                  0
+                ],
+                "spin": [
+                  0,
+                  0,
+                  80.00006103515625
+                ],
+                "shield": [
+                  0.3666671812534332,
+                  0.2489442676305771,
+                  0
+                ],
+                "shieldVelocity": [
+                  -1,
+                  0,
+                  0
+                ],
+                "contacts": []
+              },
+              {
+                "steps": 5,
+                "bar": [
+                  0.03994137793779373,
+                  -0.0805826187133789,
+                  -2.6448050860494732e-8
+                ],
+                "rotation": [
+                  8.486187539347156e-7,
+                  -3.4966356565746537e-7,
+                  0.9234341382980347,
+                  0.38375699520111084
+                ],
+                "velocity": [
+                  4.814362525939941,
+                  -9.705424308776855,
+                  -0.000003248453140258789
+                ],
+                "spin": [
+                  0.00015064686886034906,
+                  0.00014831603039056063,
+                  28.046161651611328
+                ],
+                "shield": [
+                  0.35433968901634216,
+                  0.2570023536682129,
+                  2.6448041534621325e-9
+                ],
+                "shieldVelocity": [
+                  -1.4814362525939941,
+                  0.9705427885055542,
+                  3.2484530265719513e-7
+                ],
+                "contacts": [
+                  {
+                    "shield": true,
+                    "impulse": 10.792744173289748,
+                    "point": [
+                      0.3425566057364146,
+                      0.24398702383041382,
+                      1.3107886924027904e-8
+                    ],
+                    "normal": [
+                      -0.5207012495256116,
+                      0.8537389581965127,
+                      0
+                    ],
+                    "pairs": [
+                      {
+                        "mine": 0,
+                        "theirs": 0
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          "limits": [
+            "synthetic free bodies, no character/controller claim",
+            "contact impulse reads are not integrated contact work",
+            "CCD clamping may lose motion before the next step reports a contact",
+            "traces sampled at 120 Hz; contact onset checked each physics step"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "manifest": {
+      "protocol": 2,
+      "started": "2026-10-04T19:36:42.795Z",
+      "options": {
+        "suite": "ccd",
+        "split": "development",
+        "samples": 2,
+        "from": 0,
+        "hz": 480,
+        "actuation": "directional"
+      },
+      "workers": 2,
+      "harness": "Node, core world, per-task arena/stand fixtures",
+      "node": "v24.19.0",
+      "engine": "rapier",
+      "package": {
+        "version": "0.21.0-auto-rpg.2",
+        "resolved": "file:vendor/rapier/dimforge-rapier3d-simd-compat-0.21.0-auto-rpg.2.tgz",
+        "integrity": "sha512-yN/jdD73UFXmrMiiixo+5XAyEzhd1twGtXCRcer/ziuU2jyBSYMXutlTrj2ZaAmOZs5K4WtkCvwepsMpPPNfkA==",
+        "entrySha256": "2ad42975e67269064349ce1fb0499df7075aef1768ce30c8f20160463788371c"
+      },
+      "source": {
+        "git": "d4267bf0c2e9f1bffc13edbc483d7ef22f4173e7",
+        "content": "a8dbcbababe7e25be25462745ea0f358e0d944a161e4c59fbc7a5352073e3d3e",
+        "archive": "source.json.gz",
+        "archiveSha256": "03948e821fa9b99e89845b4d7849a1b60722aa4fdc228ed5e3cf0e2dc94bd412"
+      },
+      "sensing": "diagnostic poses, velocities and contacts; no policy",
+      "action": "initial impulses, then free dynamics; no held action",
+      "policyPeriodSteps": 1,
+      "assists": {
+        "rootBalancePercent": 0,
+        "weapon": false
+      },
+      "unavailable": [
+        "two-handed items",
+        "grip release",
+        "integrated recovery/combat",
+        "moving isolated targets",
+        "actuator work",
+        "contact penetration"
+      ],
+      "jobs": [
+        {
+          "protocol": 2,
+          "split": "development",
+          "hz": 480,
+          "actuation": "directional",
+          "task": "ccd",
+          "model": "synthetic-bar",
+          "held": "free",
+          "seed": 0,
+          "mode": "linear",
+          "ccd": false,
+          "shieldHeight": 0.2504721359470859,
+          "shieldSpeed": -1,
+          "watchSeconds": 0.041666666666666664,
+          "sampleHz": 120,
+          "id": "19b86ded343825f1e2af10ed0aba9fcaa42c87c4e7e86011aa895714dde6f064"
+        },
+        {
+          "protocol": 2,
+          "split": "development",
+          "hz": 480,
+          "actuation": "directional",
+          "task": "ccd",
+          "model": "synthetic-bar",
+          "held": "free",
+          "seed": 0,
+          "mode": "linear",
+          "ccd": true,
+          "shieldHeight": 0.2504721359470859,
+          "shieldSpeed": -1,
+          "watchSeconds": 0.041666666666666664,
+          "sampleHz": 120,
+          "id": "6680fb4fdf8d822e232a4c191f4380225c0ff01b0a75bd0dbc5e00624475203c"
+        },
+        {
+          "protocol": 2,
+          "split": "development",
+          "hz": 480,
+          "actuation": "directional",
+          "task": "ccd",
+          "model": "synthetic-bar",
+          "held": "free",
+          "seed": 0,
+          "mode": "rotate",
+          "ccd": false,
+          "shieldHeight": 0.2504721359470859,
+          "shieldSpeed": -1,
+          "watchSeconds": 0.041666666666666664,
+          "sampleHz": 120,
+          "id": "c808999311be6b49ac57795f40e8455f10dd45defee87c0edeb8da68e0dc04d1"
+        },
+        {
+          "protocol": 2,
+          "split": "development",
+          "hz": 480,
+          "actuation": "directional",
+          "task": "ccd",
+          "model": "synthetic-bar",
+          "held": "free",
+          "seed": 0,
+          "mode": "rotate",
+          "ccd": true,
+          "shieldHeight": 0.2504721359470859,
+          "shieldSpeed": -1,
+          "watchSeconds": 0.041666666666666664,
+          "sampleHz": 120,
+          "id": "353ccb08c336e28e3ffff6c6325bf91cb3aca6f0761c4ee55bbfe3faa5fa7888"
+        },
+        {
+          "protocol": 2,
+          "split": "development",
+          "hz": 480,
+          "actuation": "directional",
+          "task": "ccd",
+          "model": "synthetic-bar",
+          "held": "free",
+          "seed": 1,
+          "mode": "linear",
+          "ccd": false,
+          "shieldHeight": 0.24894427189417184,
+          "shieldSpeed": -1,
+          "watchSeconds": 0.041666666666666664,
+          "sampleHz": 120,
+          "id": "3e3823fd5f85c428fe982cf9283f49639e5ba83460687d9e7e6a94eff5dc8d1a"
+        },
+        {
+          "protocol": 2,
+          "split": "development",
+          "hz": 480,
+          "actuation": "directional",
+          "task": "ccd",
+          "model": "synthetic-bar",
+          "held": "free",
+          "seed": 1,
+          "mode": "linear",
+          "ccd": true,
+          "shieldHeight": 0.24894427189417184,
+          "shieldSpeed": -1,
+          "watchSeconds": 0.041666666666666664,
+          "sampleHz": 120,
+          "id": "163677fa4092fa4c9e741fcb79c6e08f124ca685a3354d9e124c8a00b411704e"
+        },
+        {
+          "protocol": 2,
+          "split": "development",
+          "hz": 480,
+          "actuation": "directional",
+          "task": "ccd",
+          "model": "synthetic-bar",
+          "held": "free",
+          "seed": 1,
+          "mode": "rotate",
+          "ccd": false,
+          "shieldHeight": 0.24894427189417184,
+          "shieldSpeed": -1,
+          "watchSeconds": 0.041666666666666664,
+          "sampleHz": 120,
+          "id": "33610401fd54fab804faa9ecd40c32f9420d9d88468b393b7b8edc56e82938fa"
+        },
+        {
+          "protocol": 2,
+          "split": "development",
+          "hz": 480,
+          "actuation": "directional",
+          "task": "ccd",
+          "model": "synthetic-bar",
+          "held": "free",
+          "seed": 1,
+          "mode": "rotate",
+          "ccd": true,
+          "shieldHeight": 0.24894427189417184,
+          "shieldSpeed": -1,
+          "watchSeconds": 0.041666666666666664,
+          "sampleHz": 120,
+          "id": "6c6b8e43f715f5def2d1663b9520c4b1c07c3137760f936dbc73b9d64ed854c0"
+        }
+      ]
+    },
+    "rows": [
+      {
+        "job": {
+          "protocol": 2,
+          "split": "development",
+          "hz": 480,
+          "actuation": "directional",
+          "task": "ccd",
+          "model": "synthetic-bar",
+          "held": "free",
+          "seed": 0,
+          "mode": "linear",
+          "ccd": false,
+          "shieldHeight": 0.2504721359470859,
+          "shieldSpeed": -1,
+          "watchSeconds": 0.041666666666666664,
+          "sampleHz": 120,
+          "id": "19b86ded343825f1e2af10ed0aba9fcaa42c87c4e7e86011aa895714dde6f064"
+        },
+        "result": {
+          "status": "measured",
+          "outcome": {
+            "contacted": false,
+            "firstContactStep": null,
+            "firstContactSeconds": null,
+            "replayExact": true,
+            "digest": "4f380bdc8bfcf6bbe026b09cbdc6dc1882228280a362fa530cd9ba9997dcc523",
+            "end": {
+              "steps": 20,
+              "bar": [
+                5,
+                0,
+                0
+              ],
+              "rotation": [
+                0,
+                0,
+                0,
+                1
+              ],
+              "velocity": [
+                120,
+                0,
+                0
+              ],
+              "spin": [
+                0,
+                0,
+                0
+              ],
+              "shield": [
+                0.3583339750766754,
+                0.25047212839126587,
+                0
+              ],
+              "shieldVelocity": [
+                -1,
+                0,
+                0
+              ],
+              "contacts": []
+            },
+            "frames": [
+              {
+                "steps": 4,
+                "bar": [
+                  1,
+                  0,
+                  0
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "velocity": [
+                  120,
+                  0,
+                  0
+                ],
+                "spin": [
+                  0,
+                  0,
+                  0
+                ],
+                "shield": [
+                  0.39166679978370667,
+                  0.25047212839126587,
+                  0
+                ],
+                "shieldVelocity": [
+                  -1,
+                  0,
+                  0
+                ],
+                "contacts": []
+              },
+              {
+                "steps": 8,
+                "bar": [
+                  2,
+                  0,
+                  0
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "velocity": [
+                  120,
+                  0,
+                  0
+                ],
+                "spin": [
+                  0,
+                  0,
+                  0
+                ],
+                "shield": [
+                  0.38333359360694885,
+                  0.25047212839126587,
+                  0
+                ],
+                "shieldVelocity": [
+                  -1,
+                  0,
+                  0
+                ],
+                "contacts": []
+              },
+              {
+                "steps": 12,
+                "bar": [
+                  3,
+                  0,
+                  0
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "velocity": [
+                  120,
+                  0,
+                  0
+                ],
+                "spin": [
+                  0,
+                  0,
+                  0
+                ],
+                "shield": [
+                  0.37500038743019104,
+                  0.25047212839126587,
+                  0
+                ],
+                "shieldVelocity": [
+                  -1,
+                  0,
+                  0
+                ],
+                "contacts": []
+              },
+              {
+                "steps": 16,
+                "bar": [
+                  4,
+                  0,
+                  0
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "velocity": [
+                  120,
+                  0,
+                  0
+                ],
+                "spin": [
+                  0,
+                  0,
+                  0
+                ],
+                "shield": [
+                  0.3666671812534332,
+                  0.25047212839126587,
+                  0
+                ],
+                "shieldVelocity": [
+                  -1,
+                  0,
+                  0
+                ],
+                "contacts": []
+              },
+              {
+                "steps": 20,
+                "bar": [
+                  5,
+                  0,
+                  0
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "velocity": [
+                  120,
+                  0,
+                  0
+                ],
+                "spin": [
+                  0,
+                  0,
+                  0
+                ],
+                "shield": [
+                  0.3583339750766754,
+                  0.25047212839126587,
+                  0
+                ],
+                "shieldVelocity": [
+                  -1,
+                  0,
+                  0
+                ],
+                "contacts": []
+              }
+            ]
+          },
+          "limits": [
+            "synthetic free bodies, no character/controller claim",
+            "contact impulse reads are not integrated contact work",
+            "CCD clamping may lose motion before the next step reports a contact",
+            "traces sampled at 120 Hz; contact onset checked each physics step"
+          ]
+        }
+      },
+      {
+        "job": {
+          "protocol": 2,
+          "split": "development",
+          "hz": 480,
+          "actuation": "directional",
+          "task": "ccd",
+          "model": "synthetic-bar",
+          "held": "free",
+          "seed": 0,
+          "mode": "linear",
+          "ccd": true,
+          "shieldHeight": 0.2504721359470859,
+          "shieldSpeed": -1,
+          "watchSeconds": 0.041666666666666664,
+          "sampleHz": 120,
+          "id": "6680fb4fdf8d822e232a4c191f4380225c0ff01b0a75bd0dbc5e00624475203c"
+        },
+        "result": {
+          "status": "measured",
+          "outcome": {
+            "contacted": true,
+            "firstContactStep": 3,
+            "firstContactSeconds": 0.00625,
+            "replayExact": true,
+            "digest": "087b10e8e565b4c68160c35b70ff5026faa903a17701e9a744e97c75fa31d747",
+            "end": {
+              "steps": 20,
+              "bar": [
+                2.2543506622314453,
+                -0.05582033097743988,
+                -0.0000011005787428075564
+              ],
+              "rotation": [
+                0.00012556026922538877,
+                -0.0002163271274184808,
+                -0.5112788081169128,
+                -0.8594148755073547
+              ],
+              "velocity": [
+                49.853092193603516,
+                -1.4885777235031128,
+                -0.000029318554879864678
+              ],
+              "spin": [
+                -0.010528583079576492,
+                0.006576284766197205,
+                196.4938201904297
+              ],
+              "shield": [
+                0.6209805607795715,
+                0.2560510039329529,
+                1.1005792543983262e-7
+              ],
+              "shieldVelocity": [
+                6.01469087600708,
+                0.14885775744915009,
+                0.0000029318568977032555
+              ],
+              "contacts": []
+            },
+            "frames": [
+              {
+                "steps": 4,
+                "bar": [
+                  0.5925817489624023,
+                  -0.006200894713401794,
+                  -1.232914286219966e-7
+                ],
+                "rotation": [
+                  -0.000008524089025740977,
+                  0.000025592398742446676,
+                  0.3927121162414551,
+                  0.9196614623069763
+                ],
+                "velocity": [
+                  49.853092193603516,
+                  -1.4885777235031128,
+                  -0.000029318554879864678
+                ],
+                "spin": [
+                  -0.008389283902943134,
+                  0.009428424760699272,
+                  196.4892120361328
+                ],
+                "shield": [
+                  0.4204923212528229,
+                  0.2510918974876404,
+                  1.232915547433322e-8
+                ],
+                "shieldVelocity": [
+                  6.01469087600708,
+                  0.14885775744915009,
+                  0.0000029318568977032555
+                ],
+                "contacts": [
+                  {
+                    "shield": true,
+                    "impulse": 19.453304290771484,
+                    "point": [
+                      0.41224223375320435,
+                      0.21774735053380329,
+                      5.908826021065277e-7
+                    ],
+                    "normal": [
+                      0.9219043890232272,
+                      0.38741747185561737,
+                      8.436435964404252e-7
+                    ],
+                    "pairs": [
+                      {
+                        "mine": 0,
+                        "theirs": 0
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "steps": 8,
+                "bar": [
+                  1.0080251693725586,
+                  -0.01860569790005684,
+                  -3.676126425489201e-7
+                ],
+                "rotation": [
+                  -0.00007300981087610126,
+                  0.000028684158678515814,
+                  0.9398674964904785,
+                  0.3415394425392151
+                ],
+                "velocity": [
+                  49.853092193603516,
+                  -1.4885777235031128,
+                  -0.000029318554879864678
+                ],
+                "spin": [
+                  -0.007560922298580408,
+                  -0.01017292495816946,
+                  196.49034118652344
+                ],
+                "shield": [
+                  0.47061553597450256,
+                  0.2523316740989685,
+                  3.676129267660144e-8
+                ],
+                "shieldVelocity": [
+                  6.01469087600708,
+                  0.14885775744915009,
+                  0.0000029318568977032555
+                ],
+                "contacts": []
+              },
+              {
+                "steps": 12,
+                "bar": [
+                  1.4234685897827148,
+                  -0.031010497361421585,
+                  -6.119348654465284e-7
+                ],
+                "rotation": [
+                  -0.00011915312643395737,
+                  -0.00006322252011159435,
+                  0.8915168046951294,
+                  -0.45298781991004944
+                ],
+                "velocity": [
+                  49.853092193603516,
+                  -1.4885777235031128,
+                  -0.000029318554879864678
+                ],
+                "spin": [
+                  0.011942153796553612,
+                  -0.00804329477250576,
+                  196.49191284179688
+                ],
+                "shield": [
+                  0.5207379460334778,
+                  0.25357145071029663,
+                  6.11935035976785e-8
+                ],
+                "shieldVelocity": [
+                  6.01469087600708,
+                  0.14885775744915009,
+                  0.0000029318568977032555
+                ],
+                "contacts": []
+              },
+              {
+                "steps": 16,
+                "bar": [
+                  1.838912010192871,
+                  -0.043415412306785583,
+                  -8.562578841520008e-7
+                ],
+                "rotation": [
+                  -0.000052771785703953356,
+                  -0.00018794331117533147,
+                  0.27828389406204224,
+                  -0.9604988098144531
+                ],
+                "velocity": [
+                  49.853092193603516,
+                  -1.4885777235031128,
+                  -0.000029318554879864678
+                ],
+                "spin": [
+                  0.008520282804965973,
+                  0.011275420896708965,
+                  196.49330139160156
+                ],
+                "shield": [
+                  0.5708592534065247,
+                  0.25481122732162476,
+                  8.562571451875556e-8
+                ],
+                "shieldVelocity": [
+                  6.01469087600708,
+                  0.14885775744915009,
+                  0.0000029318568977032555
+                ],
+                "contacts": []
+              },
+              {
+                "steps": 20,
+                "bar": [
+                  2.2543506622314453,
+                  -0.05582033097743988,
+                  -0.0000011005787428075564
+                ],
+                "rotation": [
+                  0.00012556026922538877,
+                  -0.0002163271274184808,
+                  -0.5112788081169128,
+                  -0.8594148755073547
+                ],
+                "velocity": [
+                  49.853092193603516,
+                  -1.4885777235031128,
+                  -0.000029318554879864678
+                ],
+                "spin": [
+                  -0.010528583079576492,
+                  0.006576284766197205,
+                  196.4938201904297
+                ],
+                "shield": [
+                  0.6209805607795715,
+                  0.2560510039329529,
+                  1.1005792543983262e-7
+                ],
+                "shieldVelocity": [
+                  6.01469087600708,
+                  0.14885775744915009,
+                  0.0000029318568977032555
+                ],
+                "contacts": []
+              }
+            ]
+          },
+          "limits": [
+            "synthetic free bodies, no character/controller claim",
+            "contact impulse reads are not integrated contact work",
+            "CCD clamping may lose motion before the next step reports a contact",
+            "traces sampled at 120 Hz; contact onset checked each physics step"
+          ]
+        }
+      },
+      {
+        "job": {
+          "protocol": 2,
+          "split": "development",
+          "hz": 480,
+          "actuation": "directional",
+          "task": "ccd",
+          "model": "synthetic-bar",
+          "held": "free",
+          "seed": 0,
+          "mode": "rotate",
+          "ccd": false,
+          "shieldHeight": 0.2504721359470859,
+          "shieldSpeed": -1,
+          "watchSeconds": 0.041666666666666664,
+          "sampleHz": 120,
+          "id": "c808999311be6b49ac57795f40e8455f10dd45defee87c0edeb8da68e0dc04d1"
+        },
+        "result": {
+          "status": "measured",
+          "outcome": {
+            "contacted": false,
+            "firstContactStep": null,
+            "firstContactSeconds": null,
+            "replayExact": true,
+            "digest": "05c6983bc63c9a96614e6fee6634b396a664a68474479b13851362280b4e4c3a",
+            "end": {
+              "steps": 20,
+              "bar": [
+                0,
+                0,
+                0
+              ],
+              "rotation": [
+                0,
+                0,
+                0.9954069256782532,
+                -0.09573443233966827
+              ],
+              "velocity": [
+                0,
+                0,
+                0
+              ],
+              "spin": [
+                0,
+                0,
+                80.00276184082031
+              ],
+              "shield": [
+                0.3583339750766754,
+                0.25047212839126587,
+                0
+              ],
+              "shieldVelocity": [
+                -1,
+                0,
+                0
+              ],
+              "contacts": []
+            },
+            "frames": [
+              {
+                "steps": 4,
+                "bar": [
+                  0,
+                  0,
+                  0
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  0.3271929919719696,
+                  0.9449576139450073
+                ],
+                "velocity": [
+                  0,
+                  0,
+                  0
+                ],
+                "spin": [
+                  0,
+                  0,
+                  80.00059509277344
+                ],
+                "shield": [
+                  0.39166679978370667,
+                  0.25047212839126587,
+                  0
+                ],
+                "shieldVelocity": [
+                  -1,
+                  0,
+                  0
+                ],
+                "contacts": []
+              },
+              {
+                "steps": 8,
+                "bar": [
+                  0,
+                  0,
+                  0
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  0.6183685064315796,
+                  0.7858883142471313
+                ],
+                "velocity": [
+                  0,
+                  0,
+                  0
+                ],
+                "spin": [
+                  0,
+                  0,
+                  80.00091552734375
+                ],
+                "shield": [
+                  0.38333359360694885,
+                  0.25047212839126587,
+                  0
+                ],
+                "shieldVelocity": [
+                  -1,
+                  0,
+                  0
+                ],
+                "contacts": []
+              },
+              {
+                "steps": 12,
+                "bar": [
+                  0,
+                  0,
+                  0
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  0.8414710760116577,
+                  0.5403023362159729
+                ],
+                "velocity": [
+                  0,
+                  0,
+                  0
+                ],
+                "spin": [
+                  0,
+                  0,
+                  80.00133514404297
+                ],
+                "shield": [
+                  0.37500038743019104,
+                  0.25047212839126587,
+                  0
+                ],
+                "shieldVelocity": [
+                  -1,
+                  0,
+                  0
+                ],
+                "contacts": []
+              },
+              {
+                "steps": 16,
+                "bar": [
+                  0,
+                  0,
+                  0
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  0.9719389081001282,
+                  0.23523367941379547
+                ],
+                "velocity": [
+                  0,
+                  0,
+                  0
+                ],
+                "spin": [
+                  0,
+                  0,
+                  80.00196838378906
+                ],
+                "shield": [
+                  0.3666671812534332,
+                  0.25047212839126587,
+                  0
+                ],
+                "shieldVelocity": [
+                  -1,
+                  0,
+                  0
+                ],
+                "contacts": []
+              },
+              {
+                "steps": 20,
+                "bar": [
+                  0,
+                  0,
+                  0
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  0.9954069256782532,
+                  -0.09573443233966827
+                ],
+                "velocity": [
+                  0,
+                  0,
+                  0
+                ],
+                "spin": [
+                  0,
+                  0,
+                  80.00276184082031
+                ],
+                "shield": [
+                  0.3583339750766754,
+                  0.25047212839126587,
+                  0
+                ],
+                "shieldVelocity": [
+                  -1,
+                  0,
+                  0
+                ],
+                "contacts": []
+              }
+            ]
+          },
+          "limits": [
+            "synthetic free bodies, no character/controller claim",
+            "contact impulse reads are not integrated contact work",
+            "CCD clamping may lose motion before the next step reports a contact",
+            "traces sampled at 120 Hz; contact onset checked each physics step"
+          ]
+        }
+      },
+      {
+        "job": {
+          "protocol": 2,
+          "split": "development",
+          "hz": 480,
+          "actuation": "directional",
+          "task": "ccd",
+          "model": "synthetic-bar",
+          "held": "free",
+          "seed": 0,
+          "mode": "rotate",
+          "ccd": true,
+          "shieldHeight": 0.2504721359470859,
+          "shieldSpeed": -1,
+          "watchSeconds": 0.041666666666666664,
+          "sampleHz": 120,
+          "id": "353ccb08c336e28e3ffff6c6325bf91cb3aca6f0761c4ee55bbfe3faa5fa7888"
+        },
+        "result": {
+          "status": "measured",
+          "outcome": {
+            "contacted": true,
+            "firstContactStep": 14,
+            "firstContactSeconds": 0.029166666666666667,
+            "replayExact": true,
+            "digest": "26fb67b26064647357b711fe4e0e5cdfbf8310bdf590391cf7dd0016f5bd66df",
+            "end": {
+              "steps": 20,
+              "bar": [
+                0.06841804832220078,
+                -0.14979442954063416,
+                -6.824969887020416e-7
+              ],
+              "rotation": [
+                -0.00002888620292651467,
+                0.000010095145626110025,
+                0.945797860622406,
+                0.3247559070587158
+              ],
+              "velocity": [
+                4.918380260467529,
+                -10.38934326171875,
+                -0.000044628057366935536
+              ],
+              "spin": [
+                -0.002490899059921503,
+                -0.002968973945826292,
+                23.79970359802246
+              ],
+              "shield": [
+                0.35149210691452026,
+                0.2654516100883484,
+                6.824988929565734e-8
+              ],
+              "shieldVelocity": [
+                -1.491837978363037,
+                1.0389341115951538,
+                0.000004462805918592494
+              ],
+              "contacts": [
+                {
+                  "shield": true,
+                  "impulse": 0,
+                  "point": [
+                    0.35825048883756,
+                    0.2525050938129425,
+                    -7.708424239657082e-7
+                  ],
+                  "normal": [
+                    -0.7576501920263965,
+                    0.6526608510710402,
+                    0.0000012608214844104453
+                  ],
+                  "pairs": []
+                }
+              ]
+            },
+            "frames": [
+              {
+                "steps": 4,
+                "bar": [
+                  0,
+                  0,
+                  0
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  0.3271929919719696,
+                  0.9449576139450073
+                ],
+                "velocity": [
+                  0,
+                  0,
+                  0
+                ],
+                "spin": [
+                  0,
+                  0,
+                  80.00059509277344
+                ],
+                "shield": [
+                  0.39166679978370667,
+                  0.25047212839126587,
+                  0
+                ],
+                "shieldVelocity": [
+                  -1,
+                  0,
+                  0
+                ],
+                "contacts": []
+              },
+              {
+                "steps": 8,
+                "bar": [
+                  0,
+                  0,
+                  0
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  0.6183685064315796,
+                  0.7858883142471313
+                ],
+                "velocity": [
+                  0,
+                  0,
+                  0
+                ],
+                "spin": [
+                  0,
+                  0,
+                  80.00091552734375
+                ],
+                "shield": [
+                  0.38333359360694885,
+                  0.25047212839126587,
+                  0
+                ],
+                "shieldVelocity": [
+                  -1,
+                  0,
+                  0
+                ],
+                "contacts": []
+              },
+              {
+                "steps": 12,
+                "bar": [
+                  0,
+                  0,
+                  0
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  0.8414710760116577,
+                  0.5403023362159729
+                ],
+                "velocity": [
+                  0,
+                  0,
+                  0
+                ],
+                "spin": [
+                  0,
+                  0,
+                  80.00133514404297
+                ],
+                "shield": [
+                  0.37500038743019104,
+                  0.25047212839126587,
+                  0
+                ],
+                "shieldVelocity": [
+                  -1,
+                  0,
+                  0
+                ],
+                "contacts": []
+              },
+              {
+                "steps": 16,
+                "bar": [
+                  0.027431515976786613,
+                  -0.0632166787981987,
+                  -3.105973007677676e-7
+                ],
+                "rotation": [
+                  -0.000013259978913993109,
+                  0.000005644731572829187,
+                  0.9089996814727783,
+                  0.41679680347442627
+                ],
+                "velocity": [
+                  4.918380260467529,
+                  -10.38934326171875,
+                  -0.000044628057366935536
+                ],
+                "spin": [
+                  -0.0030459859408438206,
+                  -0.0024389938917011023,
+                  23.799503326416016
+                ],
+                "shield": [
+                  0.36392420530319214,
+                  0.25679415464401245,
+                  3.105974499817421e-8
+                ],
+                "shieldVelocity": [
+                  -1.491837978363037,
+                  1.0389341115951538,
+                  0.000004462805918592494
+                ],
+                "contacts": [
+                  {
+                    "shield": true,
+                    "impulse": 0.7278773806045251,
+                    "point": [
+                      0.3626958131790161,
+                      0.24803878863652543,
+                      9.734394742129857e-8
+                    ],
+                    "normal": [
+                      -0.6133130880070872,
+                      0.7898398926865554,
+                      -3.188668318125763e-7
+                    ],
+                    "pairs": [
+                      {
+                        "mine": 0,
+                        "theirs": 0
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "steps": 20,
+                "bar": [
+                  0.06841804832220078,
+                  -0.14979442954063416,
+                  -6.824969887020416e-7
+                ],
+                "rotation": [
+                  -0.00002888620292651467,
+                  0.000010095145626110025,
+                  0.945797860622406,
+                  0.3247559070587158
+                ],
+                "velocity": [
+                  4.918380260467529,
+                  -10.38934326171875,
+                  -0.000044628057366935536
+                ],
+                "spin": [
+                  -0.002490899059921503,
+                  -0.002968973945826292,
+                  23.79970359802246
+                ],
+                "shield": [
+                  0.35149210691452026,
+                  0.2654516100883484,
+                  6.824988929565734e-8
+                ],
+                "shieldVelocity": [
+                  -1.491837978363037,
+                  1.0389341115951538,
+                  0.000004462805918592494
+                ],
+                "contacts": [
+                  {
+                    "shield": true,
+                    "impulse": 0,
+                    "point": [
+                      0.35825048883756,
+                      0.2525050938129425,
+                      -7.708424239657082e-7
+                    ],
+                    "normal": [
+                      -0.7576501920263965,
+                      0.6526608510710402,
+                      0.0000012608214844104453
+                    ],
+                    "pairs": []
+                  }
+                ]
+              }
+            ]
+          },
+          "limits": [
+            "synthetic free bodies, no character/controller claim",
+            "contact impulse reads are not integrated contact work",
+            "CCD clamping may lose motion before the next step reports a contact",
+            "traces sampled at 120 Hz; contact onset checked each physics step"
+          ]
+        }
+      },
+      {
+        "job": {
+          "protocol": 2,
+          "split": "development",
+          "hz": 480,
+          "actuation": "directional",
+          "task": "ccd",
+          "model": "synthetic-bar",
+          "held": "free",
+          "seed": 1,
+          "mode": "linear",
+          "ccd": false,
+          "shieldHeight": 0.24894427189417184,
+          "shieldSpeed": -1,
+          "watchSeconds": 0.041666666666666664,
+          "sampleHz": 120,
+          "id": "3e3823fd5f85c428fe982cf9283f49639e5ba83460687d9e7e6a94eff5dc8d1a"
+        },
+        "result": {
+          "status": "measured",
+          "outcome": {
+            "contacted": false,
+            "firstContactStep": null,
+            "firstContactSeconds": null,
+            "replayExact": true,
+            "digest": "2a9f199c0556eba8e10eb89a9757fd5e53df5ece66052045a69a41260c04cd18",
+            "end": {
+              "steps": 20,
+              "bar": [
+                5,
+                0,
+                0
+              ],
+              "rotation": [
+                0,
+                0,
+                0,
+                1
+              ],
+              "velocity": [
+                120,
+                0,
+                0
+              ],
+              "spin": [
+                0,
+                0,
+                0
+              ],
+              "shield": [
+                0.3583339750766754,
+                0.2489442676305771,
+                0
+              ],
+              "shieldVelocity": [
+                -1,
+                0,
+                0
+              ],
+              "contacts": []
+            },
+            "frames": [
+              {
+                "steps": 4,
+                "bar": [
+                  1,
+                  0,
+                  0
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "velocity": [
+                  120,
+                  0,
+                  0
+                ],
+                "spin": [
+                  0,
+                  0,
+                  0
+                ],
+                "shield": [
+                  0.39166679978370667,
+                  0.2489442676305771,
+                  0
+                ],
+                "shieldVelocity": [
+                  -1,
+                  0,
+                  0
+                ],
+                "contacts": []
+              },
+              {
+                "steps": 8,
+                "bar": [
+                  2,
+                  0,
+                  0
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "velocity": [
+                  120,
+                  0,
+                  0
+                ],
+                "spin": [
+                  0,
+                  0,
+                  0
+                ],
+                "shield": [
+                  0.38333359360694885,
+                  0.2489442676305771,
+                  0
+                ],
+                "shieldVelocity": [
+                  -1,
+                  0,
+                  0
+                ],
+                "contacts": []
+              },
+              {
+                "steps": 12,
+                "bar": [
+                  3,
+                  0,
+                  0
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "velocity": [
+                  120,
+                  0,
+                  0
+                ],
+                "spin": [
+                  0,
+                  0,
+                  0
+                ],
+                "shield": [
+                  0.37500038743019104,
+                  0.2489442676305771,
+                  0
+                ],
+                "shieldVelocity": [
+                  -1,
+                  0,
+                  0
+                ],
+                "contacts": []
+              },
+              {
+                "steps": 16,
+                "bar": [
+                  4,
+                  0,
+                  0
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "velocity": [
+                  120,
+                  0,
+                  0
+                ],
+                "spin": [
+                  0,
+                  0,
+                  0
+                ],
+                "shield": [
+                  0.3666671812534332,
+                  0.2489442676305771,
+                  0
+                ],
+                "shieldVelocity": [
+                  -1,
+                  0,
+                  0
+                ],
+                "contacts": []
+              },
+              {
+                "steps": 20,
+                "bar": [
+                  5,
+                  0,
+                  0
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "velocity": [
+                  120,
+                  0,
+                  0
+                ],
+                "spin": [
+                  0,
+                  0,
+                  0
+                ],
+                "shield": [
+                  0.3583339750766754,
+                  0.2489442676305771,
+                  0
+                ],
+                "shieldVelocity": [
+                  -1,
+                  0,
+                  0
+                ],
+                "contacts": []
+              }
+            ]
+          },
+          "limits": [
+            "synthetic free bodies, no character/controller claim",
+            "contact impulse reads are not integrated contact work",
+            "CCD clamping may lose motion before the next step reports a contact",
+            "traces sampled at 120 Hz; contact onset checked each physics step"
+          ]
+        }
+      },
+      {
+        "job": {
+          "protocol": 2,
+          "split": "development",
+          "hz": 480,
+          "actuation": "directional",
+          "task": "ccd",
+          "model": "synthetic-bar",
+          "held": "free",
+          "seed": 1,
+          "mode": "linear",
+          "ccd": true,
+          "shieldHeight": 0.24894427189417184,
+          "shieldSpeed": -1,
+          "watchSeconds": 0.041666666666666664,
+          "sampleHz": 120,
+          "id": "163677fa4092fa4c9e741fcb79c6e08f124ca685a3354d9e124c8a00b411704e"
+        },
+        "result": {
+          "status": "measured",
+          "outcome": {
+            "contacted": true,
+            "firstContactStep": 3,
+            "firstContactSeconds": 0.00625,
+            "replayExact": true,
+            "digest": "e907882b3ea08beeb0f5edaf49967af0a7eb4be9001008965a352510e67bbf36",
+            "end": {
+              "steps": 20,
+              "bar": [
+                2.2659850120544434,
+                -0.06583362817764282,
+                1.0981654696706755e-7
+              ],
+              "rotation": [
+                0.00020810529531445354,
+                -0.0004026099340990186,
+                -0.4671683609485626,
+                -0.8841683268547058
+              ],
+              "velocity": [
+                50.16281509399414,
+                -1.755610466003418,
+                0.0000030531809898093343
+              ],
+              "spin": [
+                -0.017999283969402313,
+                0.01397654414176941,
+                193.79519653320312
+              ],
+              "shield": [
+                0.6198204755783081,
+                0.2555273175239563,
+                -1.0981475284665976e-8
+              ],
+              "shieldVelocity": [
+                5.983717918395996,
+                0.17556104063987732,
+                -3.053137334063649e-7
+              ],
+              "contacts": []
+            },
+            "frames": [
+              {
+                "steps": 4,
+                "bar": [
+                  0.5938915610313416,
+                  -0.007313256151974201,
+                  8.044003685370171e-9
+                ],
+                "rotation": [
+                  -0.000015682808225392364,
+                  0.000046410343202296644,
+                  0.3875412046909332,
+                  0.9218523502349854
+                ],
+                "velocity": [
+                  50.16281509399414,
+                  -1.755610466003418,
+                  0.0000030531809898093343
+                ],
+                "spin": [
+                  -0.01524611096829176,
+                  0.017249908298254013,
+                  193.79090881347656
+                ],
+                "shield": [
+                  0.42036065459251404,
+                  0.24967555701732635,
+                  -8.04383004648912e-10
+                ],
+                "shieldVelocity": [
+                  5.983717918395996,
+                  0.17556104063987732,
+                  -3.053137334063649e-7
+                ],
+                "contacts": [
+                  {
+                    "shield": true,
+                    "impulse": 0,
+                    "point": [
+                      0.41445259253183997,
+                      0.22001493970553082,
+                      0.0000010777492889246787
+                    ],
+                    "normal": [
+                      0.9240642870538733,
+                      0.38223709054918165,
+                      -3.370368682070857e-7
+                    ],
+                    "pairs": []
+                  }
+                ]
+              },
+              {
+                "steps": 8,
+                "bar": [
+                  1.011913776397705,
+                  -0.021943336352705956,
+                  3.348720056806087e-8
+                ],
+                "rotation": [
+                  -0.00013235826918389648,
+                  0.00005429264638223685,
+                  0.9339762330055237,
+                  0.35733532905578613
+                ],
+                "velocity": [
+                  50.16281509399414,
+                  -1.755610466003418,
+                  0.0000030531809898093343
+                ],
+                "spin": [
+                  -0.014546534977853298,
+                  -0.017858905717730522,
+                  193.7918243408203
+                ],
+                "shield": [
+                  0.4702244699001312,
+                  0.25113850831985474,
+                  -3.3486660111492483e-9
+                ],
+                "shieldVelocity": [
+                  5.983717918395996,
+                  0.17556104063987732,
+                  -3.053137334063649e-7
+                ],
+                "contacts": []
+              },
+              {
+                "steps": 12,
+                "bar": [
+                  1.4299359321594238,
+                  -0.036573417484760284,
+                  5.893031485015854e-8
+                ],
+                "rotation": [
+                  -0.0002196120040025562,
+                  -0.0001079849898815155,
+                  0.9038916230201721,
+                  -0.42776140570640564
+                ],
+                "velocity": [
+                  50.16281509399414,
+                  -1.755610466003418,
+                  0.0000030531809898093343
+                ],
+                "spin": [
+                  0.020497895777225494,
+                  -0.015613343566656113,
+                  193.79359436035156
+                ],
+                "shield": [
+                  0.5200890302658081,
+                  0.2526014447212219,
+                  -5.89294879560498e-9
+                ],
+                "shieldVelocity": [
+                  5.983717918395996,
+                  0.17556104063987732,
+                  -3.053137334063649e-7
+                ],
+                "contacts": []
+              },
+              {
+                "steps": 16,
+                "bar": [
+                  1.8479580879211426,
+                  -0.051203496754169464,
+                  8.437343268496988e-8
+                ],
+                "rotation": [
+                  -0.00010871782433241606,
+                  -0.00033585133496671915,
+                  0.31584763526916504,
+                  -0.9488098621368408
+                ],
+                "velocity": [
+                  50.16281509399414,
+                  -1.755610466003418,
+                  0.0000030531809898093343
+                ],
+                "spin": [
+                  0.01671108603477478,
+                  0.019298167899250984,
+                  193.7943572998047
+                ],
+                "shield": [
+                  0.5699547529220581,
+                  0.2540643811225891,
+                  -8.43722069987507e-9
+                ],
+                "shieldVelocity": [
+                  5.983717918395996,
+                  0.17556104063987732,
+                  -3.053137334063649e-7
+                ],
+                "contacts": []
+              },
+              {
+                "steps": 20,
+                "bar": [
+                  2.2659850120544434,
+                  -0.06583362817764282,
+                  1.0981654696706755e-7
+                ],
+                "rotation": [
+                  0.00020810529531445354,
+                  -0.0004026099340990186,
+                  -0.4671683609485626,
+                  -0.8841683268547058
+                ],
+                "velocity": [
+                  50.16281509399414,
+                  -1.755610466003418,
+                  0.0000030531809898093343
+                ],
+                "spin": [
+                  -0.017999283969402313,
+                  0.01397654414176941,
+                  193.79519653320312
+                ],
+                "shield": [
+                  0.6198204755783081,
+                  0.2555273175239563,
+                  -1.0981475284665976e-8
+                ],
+                "shieldVelocity": [
+                  5.983717918395996,
+                  0.17556104063987732,
+                  -3.053137334063649e-7
+                ],
+                "contacts": []
+              }
+            ]
+          },
+          "limits": [
+            "synthetic free bodies, no character/controller claim",
+            "contact impulse reads are not integrated contact work",
+            "CCD clamping may lose motion before the next step reports a contact",
+            "traces sampled at 120 Hz; contact onset checked each physics step"
+          ]
+        }
+      },
+      {
+        "job": {
+          "protocol": 2,
+          "split": "development",
+          "hz": 480,
+          "actuation": "directional",
+          "task": "ccd",
+          "model": "synthetic-bar",
+          "held": "free",
+          "seed": 1,
+          "mode": "rotate",
+          "ccd": false,
+          "shieldHeight": 0.24894427189417184,
+          "shieldSpeed": -1,
+          "watchSeconds": 0.041666666666666664,
+          "sampleHz": 120,
+          "id": "33610401fd54fab804faa9ecd40c32f9420d9d88468b393b7b8edc56e82938fa"
+        },
+        "result": {
+          "status": "measured",
+          "outcome": {
+            "contacted": false,
+            "firstContactStep": null,
+            "firstContactSeconds": null,
+            "replayExact": true,
+            "digest": "80a7c3a178e72f4043a478e4b96e6de21f1162b99c990b90b6b408d085d787a7",
+            "end": {
+              "steps": 20,
+              "bar": [
+                0,
+                0,
+                0
+              ],
+              "rotation": [
+                0,
+                0,
+                0.9954069256782532,
+                -0.09573443233966827
+              ],
+              "velocity": [
+                0,
+                0,
+                0
+              ],
+              "spin": [
+                0,
+                0,
+                80.00276184082031
+              ],
+              "shield": [
+                0.3583339750766754,
+                0.2489442676305771,
+                0
+              ],
+              "shieldVelocity": [
+                -1,
+                0,
+                0
+              ],
+              "contacts": []
+            },
+            "frames": [
+              {
+                "steps": 4,
+                "bar": [
+                  0,
+                  0,
+                  0
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  0.3271929919719696,
+                  0.9449576139450073
+                ],
+                "velocity": [
+                  0,
+                  0,
+                  0
+                ],
+                "spin": [
+                  0,
+                  0,
+                  80.00059509277344
+                ],
+                "shield": [
+                  0.39166679978370667,
+                  0.2489442676305771,
+                  0
+                ],
+                "shieldVelocity": [
+                  -1,
+                  0,
+                  0
+                ],
+                "contacts": []
+              },
+              {
+                "steps": 8,
+                "bar": [
+                  0,
+                  0,
+                  0
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  0.6183685064315796,
+                  0.7858883142471313
+                ],
+                "velocity": [
+                  0,
+                  0,
+                  0
+                ],
+                "spin": [
+                  0,
+                  0,
+                  80.00091552734375
+                ],
+                "shield": [
+                  0.38333359360694885,
+                  0.2489442676305771,
+                  0
+                ],
+                "shieldVelocity": [
+                  -1,
+                  0,
+                  0
+                ],
+                "contacts": []
+              },
+              {
+                "steps": 12,
+                "bar": [
+                  0,
+                  0,
+                  0
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  0.8414710760116577,
+                  0.5403023362159729
+                ],
+                "velocity": [
+                  0,
+                  0,
+                  0
+                ],
+                "spin": [
+                  0,
+                  0,
+                  80.00133514404297
+                ],
+                "shield": [
+                  0.37500038743019104,
+                  0.2489442676305771,
+                  0
+                ],
+                "shieldVelocity": [
+                  -1,
+                  0,
+                  0
+                ],
+                "contacts": []
+              },
+              {
+                "steps": 16,
+                "bar": [
+                  0,
+                  0,
+                  0
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  0.9719389081001282,
+                  0.23523367941379547
+                ],
+                "velocity": [
+                  0,
+                  0,
+                  0
+                ],
+                "spin": [
+                  0,
+                  0,
+                  80.00196838378906
+                ],
+                "shield": [
+                  0.3666671812534332,
+                  0.2489442676305771,
+                  0
+                ],
+                "shieldVelocity": [
+                  -1,
+                  0,
+                  0
+                ],
+                "contacts": []
+              },
+              {
+                "steps": 20,
+                "bar": [
+                  0,
+                  0,
+                  0
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  0.9954069256782532,
+                  -0.09573443233966827
+                ],
+                "velocity": [
+                  0,
+                  0,
+                  0
+                ],
+                "spin": [
+                  0,
+                  0,
+                  80.00276184082031
+                ],
+                "shield": [
+                  0.3583339750766754,
+                  0.2489442676305771,
+                  0
+                ],
+                "shieldVelocity": [
+                  -1,
+                  0,
+                  0
+                ],
+                "contacts": []
+              }
+            ]
+          },
+          "limits": [
+            "synthetic free bodies, no character/controller claim",
+            "contact impulse reads are not integrated contact work",
+            "CCD clamping may lose motion before the next step reports a contact",
+            "traces sampled at 120 Hz; contact onset checked each physics step"
+          ]
+        }
+      },
+      {
+        "job": {
+          "protocol": 2,
+          "split": "development",
+          "hz": 480,
+          "actuation": "directional",
+          "task": "ccd",
+          "model": "synthetic-bar",
+          "held": "free",
+          "seed": 1,
+          "mode": "rotate",
+          "ccd": true,
+          "shieldHeight": 0.24894427189417184,
+          "shieldSpeed": -1,
+          "watchSeconds": 0.041666666666666664,
+          "sampleHz": 120,
+          "id": "6c6b8e43f715f5def2d1663b9520c4b1c07c3137760f936dbc73b9d64ed854c0"
+        },
+        "result": {
+          "status": "measured",
+          "outcome": {
+            "contacted": true,
+            "firstContactStep": 14,
+            "firstContactSeconds": 0.029166666666666667,
+            "replayExact": true,
+            "digest": "56178d787a910d2206f5ff9b203588703223d5018c40e78a3a4a6618ef1285fb",
+            "end": {
+              "steps": 20,
+              "bar": [
+                0.06798839569091797,
+                -0.1501314491033554,
+                6.265791512305441e-7
+              ],
+              "rotation": [
+                0.00003123538408544846,
+                -0.000010703352018026635,
+                0.9454804062843323,
+                0.3256789445877075
+              ],
+              "velocity": [
+                4.889456748962402,
+                -10.413223266601562,
+                0.00004064872700837441
+              ],
+              "spin": [
+                0.002726074308156967,
+                0.0033055513631552458,
+                23.86480712890625
+              ],
+              "shield": [
+                0.351535826921463,
+                0.2639581561088562,
+                -6.265788954351592e-8
+              ],
+              "shieldVelocity": [
+                -1.488945722579956,
+                1.0413223505020142,
+                -0.000004064874246978434
+              ],
+              "contacts": [
+                {
+                  "shield": true,
+                  "impulse": 0,
+                  "point": [
+                    0.35821394125620526,
+                    0.25101544459660846,
+                    5.317152348046268e-7
+                  ],
+                  "normal": [
+                    -0.7562868143771749,
+                    0.6542402115424447,
+                    -3.484228519818439e-7
+                  ],
+                  "pairs": []
+                }
+              ]
+            },
+            "frames": [
+              {
+                "steps": 4,
+                "bar": [
+                  0,
+                  0,
+                  0
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  0.3271929919719696,
+                  0.9449576139450073
+                ],
+                "velocity": [
+                  0,
+                  0,
+                  0
+                ],
+                "spin": [
+                  0,
+                  0,
+                  80.00059509277344
+                ],
+                "shield": [
+                  0.39166679978370667,
+                  0.2489442676305771,
+                  0
+                ],
+                "shieldVelocity": [
+                  -1,
+                  0,
+                  0
+                ],
+                "contacts": []
+              },
+              {
+                "steps": 8,
+                "bar": [
+                  0,
+                  0,
+                  0
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  0.6183685064315796,
+                  0.7858883142471313
+                ],
+                "velocity": [
+                  0,
+                  0,
+                  0
+                ],
+                "spin": [
+                  0,
+                  0,
+                  80.00091552734375
+                ],
+                "shield": [
+                  0.38333359360694885,
+                  0.2489442676305771,
+                  0
+                ],
+                "shieldVelocity": [
+                  -1,
+                  0,
+                  0
+                ],
+                "contacts": []
+              },
+              {
+                "steps": 12,
+                "bar": [
+                  0,
+                  0,
+                  0
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  0.8414710760116577,
+                  0.5403023362159729
+                ],
+                "velocity": [
+                  0,
+                  0,
+                  0
+                ],
+                "spin": [
+                  0,
+                  0,
+                  80.00133514404297
+                ],
+                "shield": [
+                  0.37500038743019104,
+                  0.2489442676305771,
+                  0
+                ],
+                "shieldVelocity": [
+                  -1,
+                  0,
+                  0
+                ],
+                "contacts": []
+              },
+              {
+                "steps": 16,
+                "bar": [
+                  0.027242934331297874,
+                  -0.06335471570491791,
+                  2.878396685446205e-7
+                ],
+                "rotation": [
+                  0.000013947038496553432,
+                  -0.00000588108832744183,
+                  0.9084791541099548,
+                  0.41793033480644226
+                ],
+                "velocity": [
+                  4.889456748962402,
+                  -10.413223266601562,
+                  0.00004064872700837441
+                ],
+                "spin": [
+                  0.0033387052826583385,
+                  0.0027180095203220844,
+                  23.864604949951172
+                ],
+                "shield": [
+                  0.3639431297779083,
+                  0.2552797198295593,
+                  -2.878396720973342e-8
+                ],
+                "shieldVelocity": [
+                  -1.488945722579956,
+                  1.0413223505020142,
+                  -0.000004064874246978434
+                ],
+                "contacts": [
+                  {
+                    "shield": true,
+                    "impulse": 0.7274692240042668,
+                    "point": [
+                      0.3626814285914103,
+                      0.24652934074401853,
+                      -1.6554966938050106e-7
+                    ],
+                    "normal": [
+                      -0.6111627002911302,
+                      0.7915049928919073,
+                      1.8915986610471294e-7
+                    ],
+                    "pairs": [
+                      {
+                        "mine": 0,
+                        "theirs": 0
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "steps": 20,
+                "bar": [
+                  0.06798839569091797,
+                  -0.1501314491033554,
+                  6.265791512305441e-7
+                ],
+                "rotation": [
+                  0.00003123538408544846,
+                  -0.000010703352018026635,
+                  0.9454804062843323,
+                  0.3256789445877075
+                ],
+                "velocity": [
+                  4.889456748962402,
+                  -10.413223266601562,
+                  0.00004064872700837441
+                ],
+                "spin": [
+                  0.002726074308156967,
+                  0.0033055513631552458,
+                  23.86480712890625
+                ],
+                "shield": [
+                  0.351535826921463,
+                  0.2639581561088562,
+                  -6.265788954351592e-8
+                ],
+                "shieldVelocity": [
+                  -1.488945722579956,
+                  1.0413223505020142,
+                  -0.000004064874246978434
+                ],
+                "contacts": [
+                  {
+                    "shield": true,
+                    "impulse": 0,
+                    "point": [
+                      0.35821394125620526,
+                      0.25101544459660846,
+                      5.317152348046268e-7
+                    ],
+                    "normal": [
+                      -0.7562868143771749,
+                      0.6542402115424447,
+                      -3.484228519818439e-7
+                    ],
+                    "pairs": []
+                  }
+                ]
+              }
+            ]
+          },
+          "limits": [
+            "synthetic free bodies, no character/controller claim",
+            "contact impulse reads are not integrated contact work",
+            "CCD clamping may lose motion before the next step reports a contact",
+            "traces sampled at 120 Hz; contact onset checked each physics step"
+          ]
+        }
+      }
+    ]
+  }
+]

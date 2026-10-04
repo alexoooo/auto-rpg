@@ -8,6 +8,8 @@ import { Scene } from "@babylonjs/core/scene.js";
 import { freshEngine } from "../tests/harness/core-stand.mjs";
 import { createEnvironment } from "../src/core/tasks/environment.ts";
 import { createReachTask } from "../src/core/tasks/reach.ts";
+import { createCollisionProbe } from "../src/core/tasks/collision.ts";
+import { saveState, loadState } from "../src/core/state.ts";
 import { reachAction, reachFrame } from "../src/core/tasks/reach-policy.ts";
 import { BODY_MODELS } from "../src/core/human/spec.ts";
 import { FIGHTER } from "../src/core/mind/config.ts";
@@ -28,7 +30,7 @@ export const FOUNDATION = Object.freeze({ version: 2, samples: 2, watch: 40, bou
 const hash = (value) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
 const heldName = (held) => held === "club" ? "wooden club" : "fist";
 const riseMind = { ...FIGHTER, subs: [{ kind: "staged-rise" }] };
-const suites = ["baseline", "recovery", "strike-block", "bar", "integrated", "reach"];
+const suites = ["baseline", "recovery", "strike-block", "bar", "integrated", "reach", "ccd"];
 
 /** Fully specified starts; a seed selects geometry, not a hidden source of simulation noise. */
 export function foundationJobs({ suite = "baseline", split = "development", samples = FOUNDATION.samples,
@@ -46,6 +48,18 @@ export function foundationJobs({ suite = "baseline", split = "development", samp
     const config = { protocol: FOUNDATION.version, split, hz, actuation, ...job };
     jobs.push({ ...config, id: hash(config) });
   };
+  if (suite === "ccd") {
+    for (let index = from; index < from + samples; index++) {
+      const seed = FOUNDATION.split[split] + index;
+      const fraction = (((seed + 1) * 2654435761) >>> 0) / 4294967296;
+      for (const mode of ["linear", "rotate"]) for (const ccd of [false, true]) add({
+        task: "ccd", model: "synthetic-bar", held: "free", seed, mode, ccd,
+        shieldHeight: 0.25 + (fraction * 2 - 1) * 0.002, shieldSpeed: -1,
+        watchSeconds: 5 / 120, sampleHz: 120,
+      });
+    }
+    return jobs;
+  }
   for (const model of models) for (const held of ["empty", "club"]) {
     for (let index = from; index < from + samples; index++) {
       const seed = FOUNDATION.split[split] + index;
@@ -225,9 +239,41 @@ export async function foundationTrial(job) {
     case "strike": return strikeTrial(job);
     case "bout": return boutTrial(job);
     case "reach": return reachTrial(job);
+    case "ccd": return collisionTrial(job);
     case "unsupported": return { status: "unsupported", reason: job.capability };
     default: throw new Error(`unknown foundation task ${job.task}`);
   }
+}
+
+async function collisionTrial(job) {
+  const engine = await freshEngine(), rendering = new NullEngine(), scene = new Scene(rendering);
+  const probe = createCollisionProbe(scene, engine, job), frames = [], timings = [];
+  let firstContactStep = null;
+  try {
+    const saved = { physics: probe.world.physics.save(), state: saveState(probe.world.state) };
+    const observe = () => {
+      const row = probe.observe();
+      if (firstContactStep === null && row.contacts.some((c) => c.shield && c.impulse > 0)) firstContactStep = row.steps;
+      return row;
+    };
+    const steps = Math.round(job.watchSeconds * job.hz), spacing = job.hz / job.sampleHz;
+    for (let i = 0; i < steps; i++) {
+      const start = performance.now(); probe.world.step(); timings.push(performance.now() - start);
+      const row = observe();
+      if ((i + 1) % spacing === 0) frames.push(row);
+    }
+    const end = probe.observe();
+    probe.world.physics.load(saved.physics);
+    loadState(probe.world.state, saved.state);
+    const replay = [];
+    for (let i = 0; i < steps; i++) { probe.world.step(); if ((i + 1) % spacing === 0) replay.push(probe.observe()); }
+    return { status: "measured", outcome: { contacted: firstContactStep !== null, firstContactStep,
+      firstContactSeconds: firstContactStep === null ? null : firstContactStep / job.hz,
+      replayExact: hash(frames) === hash(replay), digest: hash(frames), end, frames },
+      timing: { steps, meanStepMs: timings.reduce((sum, t) => sum + t, 0) / steps },
+      limits: ["synthetic free bodies, no character/controller claim", "contact impulse reads are not integrated contact work",
+        "CCD clamping may lose motion before the next step reports a contact", "traces sampled at 120 Hz; contact onset checked each physics step"] };
+  } finally { probe.dispose(); scene.dispose(); rendering.dispose(); }
 }
 
 async function reachTrial(job) {

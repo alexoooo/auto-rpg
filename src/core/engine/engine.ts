@@ -183,8 +183,13 @@ export interface PhysicsWorld {
   readonly engine: string;
   readonly revision: string;
   readonly gravity: Vec3;
-  /** A dynamic body at its node's pose, its colliders massless: its mass is `mass`. */
-  addBody(node: TransformNode, shapes: readonly ColliderShape[], mass: MassProperties): SegmentBody;
+  /**
+   * A dynamic body at its node's pose, its colliders massless: its mass is `mass`.
+   * `ccd` requests continuous collision detection including moving colliders; false retains
+   * the engine's default behavior against fixed colliders (`docs/reference/collision-ccd.md`).
+   */
+  addBody(node: TransformNode, shapes: readonly ColliderShape[], mass: MassProperties,
+    options?: { readonly ccd?: boolean }): SegmentBody;
   addJoint(parent: SegmentBody, child: SegmentBody, frames: JointFrames): EngineJoint;
   /** Register a detached grip slot. Slots persist across release and snapshot restoration. */
   addGrip(parent: SegmentBody, child: SegmentBody, frames: Omit<JointFrames, "limits">): EngineGrip;

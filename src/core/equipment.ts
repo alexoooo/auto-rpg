@@ -16,6 +16,8 @@ interface EquipmentDefinition {
   readonly id: string;
   readonly item: ItemSpec;
   readonly pose: Frame;
+  /** Sweep against moving colliders too; a task declares this numerical setting. */
+  readonly ccd?: boolean;
   readonly grips: readonly {
     readonly name: string;
     readonly body: SegmentBody;
@@ -67,7 +69,7 @@ export function createEquipment(world: World, definition: EquipmentDefinition) {
   node.rotationQuaternion = pose.turn;
   const body = world.physics.addBody(node, item.shapes.map(collider), {
     mass: item.mass.value, centre: item.centreOfMass.value, moments: item.inertia.value, orientation: Quaternion.Identity(),
-  });
+  }, { ccd: definition.ccd });
   let disposed = false;
   const dispose = () => {
     if (disposed) return;

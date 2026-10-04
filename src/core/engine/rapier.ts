@@ -96,7 +96,7 @@ interface RapierPhysics extends PhysicsWorld {
   readonly rapier: Rapier;
   /** Rapier's world as it is now: a load replaces it, so read it afresh. */
   readonly raw: RAPIER.World;
-  addBody(node: TransformNode, shapes: readonly ColliderShape[], mass: MassProperties): RapierBody;
+  addBody(node: TransformNode, shapes: readonly ColliderShape[], mass: MassProperties, options?: { readonly ccd?: boolean }): RapierBody;
   addJoint(parent: SegmentBody, child: SegmentBody, frames: JointFrames): RapierJoint;
 }
 
@@ -297,11 +297,13 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
         (node.rotationQuaternion ??= new Quaternion()).set(poses[k++]!, poses[k++]!, poses[k++]!, poses[k++]!);
       }
     },
-    addBody(node, shapes, mass) {
+    addBody(node, shapes, mass, { ccd = false } = {}) {
+      if (typeof ccd !== "boolean") throw new Error("CCD must be a boolean");
       const q = node.rotationQuaternion ?? Quaternion.Identity();
       let rigid = raw.createRigidBody(R.RigidBodyDesc.dynamic()
         .setTranslation(node.position.x, node.position.y, node.position.z)
         .setRotation(xyzw(q))
+        .setCcdEnabled(ccd)
         .setCanSleep(false));
       const colliders = shapes.map((shape, k) => {
         const handle = raw.createCollider(contact(colliderOf(shape)).setDensity(0), rigid).handle;

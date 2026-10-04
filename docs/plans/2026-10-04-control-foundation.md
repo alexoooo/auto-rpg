@@ -150,6 +150,12 @@ recorded in [equipment grips](../reference/equipment-grips.md). Character equipm
 damage/rendering identity, compound splitting and the representation choice remain open; this
 does not complete chunk 4(a) or its physical capability gate.
 
+The common runner's `ccd` suite now demonstrates translating and rotating bars against a thin
+moving defense, with moving-body CCD on/off, replay and 120/480 Hz traces sampled at 120 Hz.
+The [collision record](../reference/collision-ccd.md) distinguishes the engine's automatic
+fixed-collider sweep from its explicit moving-body flag. Character-held collision coverage,
+contact-motion correction and solver/representation comparisons remain open.
+
 ### 0. Define the common task battery and baseline
 
 **Files:** `research/control-foundation.mjs`, `research/control-foundation-trials.mjs`,

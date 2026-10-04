@@ -186,3 +186,25 @@ test("incompatible grip topology is refused without modifying the live world", a
     assert.deepEqual(f.item.observe().grips.map((g) => g.attached), [true, true]);
   } finally { f.dispose(); }
 });
+
+test("equipment forwards CCD through the physical path against a moving defense", () => {
+  for (const ccd of [false, true]) {
+    const rendering = new NullEngine(), scene = new Scene(rendering);
+    const world = createWorld(scene, engine, { gravity: false });
+    const spec = woodenClub();
+    const item = createEquipment(world, { id: "projectile", item: spec, pose: frame([0, 1, 0]),
+      ccd, grips: [], capture: { distance: 0, rotationError: 0 } });
+    try {
+      const node = new TransformNode("moving-defense", scene);
+      node.position.set(0.4, 1.35, 0); node.rotationQuaternion = Quaternion.Identity();
+      const defense = world.physics.addBody(node, [{ kind: "box", centre: [0, 0, 0], size: [0.01, 0.8, 1] }], {
+        mass: 10, centre: [0, 0, 0], moments: [1, 1, 1], orientation: Quaternion.Identity(),
+      });
+      defense.applyImpulse(new Vector3(-10, 0, 0), node.position);
+      item.body.applyImpulse(new Vector3(120 * spec.mass.value, 0, 0), new Vector3(0, 1 + spec.centreOfMass.value[1], 0));
+      let hit = false;
+      for (let i = 0; i < 5; i++) { world.step(); hit ||= item.observe().contacts.some((c) => c.other === "moving-defense" && c.impulse > 0); }
+      assert.equal(hit, ccd);
+    } finally { item.dispose(); world.dispose(); scene.dispose(); rendering.dispose(); }
+  }
+});

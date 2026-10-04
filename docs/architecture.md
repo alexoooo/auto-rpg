@@ -423,6 +423,9 @@ indices. The trusted construction handle carries rendering and physics resources
 This representation is exercised by mechanical fixtures, including a closed loop, and does not
 replace the game's compound held items. Character controls, damage attribution and the comparison
 against compound release are still open. See [the grip record](reference/equipment-grips.md).
+Separate equipment can explicitly request moving-body CCD at construction. The default is
+unchanged; [collision probes](reference/collision-ccd.md) exercise linear and rotational sweeps
+against a thin moving defense. The pinned engine's automatic fixed-collider CCD is distinct.
 
 ## Research environments
 
