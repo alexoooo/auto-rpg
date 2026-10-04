@@ -27,8 +27,8 @@ import { forceVelocityFactor, forceVelocityReach, type ForceVelocityCurve } from
  * (the sign of target minus speed), and with no push the weaker. **A known defect:** that gives the
  * braking muscles' work to the other side whenever a load outweighs the change asked, and a servo
  * asks for small changes, the smaller the finer the step. The right choice is the sign of the
- * torque the step needs. The vendored binding exposes separate directional bounds and a motor's
- * last-substep impulse; this driver uses the engine contract's symmetric ceiling.
+ * torque the step needs. The engine exposes separate directional bounds and a motor's
+ * whole-step impulse; this driver uses its symmetric ceiling and reads delivered torque afterward.
  * `tests/core-muscle.test.mjs` holds the choice as a todo.
  *
  * **The curve is read at the speed the step begins with, and the motor's target is held to where
@@ -117,7 +117,9 @@ export interface MuscleDriver {
   strength(channel: number, sense: 1 | -1): number;
   /** The ceiling last given to the channel's motor, N m. */
   readonly ceiling: Float64Array;
-  /** Its memory (`src/core/state.ts`): its level, the command, the ceilings, and each joint as last read. */
+  /** Mean torque delivered over the last world step, N m, positive in the channel's positive sense. */
+  readonly pulled: Float64Array;
+  /** Its memory (`src/core/state.ts`): its level, command, ceilings, delivered torque, and each joint as last read. */
   readonly state: object;
   /** Its level (`BodyLevel`), `full` as made. */
   readonly level: BodyLevel;
@@ -168,9 +170,10 @@ export function driveMuscles(built: BuiltBody, world: World, control?: MuscleCon
   const angles = trackers.map((tracker) => tracker.angles);
   const motion = { spin: angularVelocity };
   let hook: Hook | null = null;
+  let after: Hook | null = null;
   const state = {
     level: "full" as BodyLevel,
-    activation: new Float64Array(n), velocity: new Float64Array(n), ceiling: new Float64Array(n),
+    activation: new Float64Array(n), velocity: new Float64Array(n), ceiling: new Float64Array(n), pulled: new Float64Array(n),
     trackers: trackers.map(({ angles, speeds, rates, turning }) => ({ angles, speeds, rates, turning })),
   };
   const driver: MuscleDriver = {
@@ -178,6 +181,7 @@ export function driveMuscles(built: BuiltBody, world: World, control?: MuscleCon
     activation: state.activation,
     velocity: state.velocity,
     ceiling: state.ceiling,
+    pulled: state.pulled,
     angle: (i) => trackerOf[i]!.angles[channels[i]!.index]!,
     rate: (i) => trackerOf[i]!.rates[channels[i]!.index]!,
     speed: (i) => trackerOf[i]!.speeds[channels[i]!.index]!,
@@ -206,6 +210,8 @@ export function driveMuscles(built: BuiltBody, world: World, control?: MuscleCon
     dispose() {
       hook?.dispose();
       hook = null;
+      after?.dispose();
+      after = null;
       for (const c of channels) c.joint.joint.setMotor(c.index, 0, 0);
     },
   };
@@ -228,6 +234,12 @@ export function driveMuscles(built: BuiltBody, world: World, control?: MuscleCon
       const ceiling = activation * driver.strength(i, toward);
       driver.ceiling[i] = ceiling;
       c.joint.joint.setMotor(c.index, c.dof.sign * (beyond ? toward * reach : target), ceiling);
+    }
+  });
+  after = world.afterStep(() => {
+    for (let i = 0; i < n; i++) {
+      const c = channels[i]!;
+      state.pulled[i] = c.dof.sign * c.joint.joint.motorStepImpulse(c.index) / dt;
     }
   });
   return driver;

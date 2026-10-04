@@ -26,6 +26,11 @@ uses this vendored package. The package layout remains compatible with the bench
   (`jointLockedImpulse`); and it sets an impulse joint's motor bounds
   (`jointSetMotorForceBounds`). A multibody joint gains `jointSetLimits`, `jointConfigureMotor` and
   `jointSetMotorForceBounds`.
+- **Whole-step motor impulse** (`jointMotorStepImpulse`) sums every solver substep, including
+  CCD subdivisions, and resets once per pipeline step even for inactive impulse joints. It is
+  serialized with the joint, and never used as a warm-start seed. Scalar, SIMD (without duplicate
+  padding lanes) and external multibody constraint rows contribute; internal multibody motors
+  have no effort readback. This is signed impulse, not work or an absolute effort integral.
 - A motor's force and impulse are the ones applied to the joint's first body, the parent: a
   negative force turns the child toward the axis's positive sense.
 - Rapier's own test of the bounds (`motor_force_bounds_are_signed_and_max_force_keeps_them_symmetric`,

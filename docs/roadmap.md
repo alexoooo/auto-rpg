@@ -330,8 +330,9 @@ shared two-handed items are its capability gates; the reference control stack re
   change of rule, which moves every bout, and comes with its table.
 - Rapier's limits, held as `todo` tests: a limit pushes along its parent's axis, so a pressed angle
   can pass its stop by up to 0.046 rad; the vendored binding exposes directional motor bounds and
-  last-substep impulses, but the driver still uses a symmetric ceiling and guesses which side
-  pulls. Corrected actuation and accumulated effort are part of the control-foundation phase.
+  whole-step accumulated impulses, but the driver still uses a symmetric ceiling and guesses which
+  side pulls. Delivered torque is readable and replayable; corrected actuation and the affected
+  control retuning remain part of the control-foundation phase.
 
 ### The Arena
 

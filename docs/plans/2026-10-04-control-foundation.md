@@ -24,8 +24,8 @@ Keep the current fighter usable while each replacement lands and is measured.
 - [The Rapier experiment](../analysis/2026-10-04-rapier-fork.md) reproduces the tested bouts
   with the old bounds. Correct directional bounds fix two muscle tests but leave eleven other
   failures after the added state is included in replay. Vendoring and enabling those bounds
-  are separate changes; the current package is still npm's. The exposed impulse is the last
-  solver substep's, not an accumulation over the world step.
+  are separate changes. The pinned package is vendored and whole-step effort is validated;
+  corrected bounds have not yet changed the reference controller.
 - [Recovery](../reference/rising.md#where-the-rise-stops) identifies a mismatch between the
   bearing controller and actual contacts: a held point at the middle of a flat hand leaves
   rotations free that the ground prevents. The related shin stall survives more iterations.
@@ -116,8 +116,9 @@ Chunk 0's runner and stock screening record are implemented in
 [control-foundation](../reference/control-foundation.md), including explicit missing capabilities
 and measurement limits. Its held-out split remains unused. Chunk 1's behavior-preserving
 vendoring is implemented and reproduced ([engine record](../reference/rapier-vendor.md));
-directional actuation and accumulated effort follow. Later task fixtures extend this same runner
-rather than replacing its baseline.
+directional engine APIs, accumulated effort and its saved state are implemented. The 138 baseline
+rows still equal stock. Corrected muscle actuation and control retuning are next. Later task
+fixtures extend this same runner rather than replacing its baseline.
 
 Paths marked **new** are proposed modules/scripts, not existing capabilities. Each numbered chunk
 may take the listed smaller commits. Every commit passes the common checks below. Keep experimental

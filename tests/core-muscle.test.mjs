@@ -230,9 +230,9 @@ test("a light limb on a heavy one speeds up at 120 Hz as it does at a fine rate"
  * positive when the positive muscles pulled. Driven flat out it is the ceiling the step was given,
  * either way; holding the rod still it is its weight's moment about the pin, opposed, roughly. The
  * pairs are read in the controller, where `pulled` and `ceiling` both still belong to the step just
- * run. A todo: the vendored binding exposes impulses, but the driver has no effort readback.
+ * run. The reading includes every solver substep's impulse.
  */
-test("the driver reads the torque its motor applied, and its sign is the side that pulled", { todo: "The driver has no `pulled` readback from the vendored binding" }, async () => {
+test("the driver reads the torque its motor applied, and its sign is the side that pulled", async () => {
   const peak = { positive: 6, negative: 4 };
   const spec = rod(CURVES[0], peak);
   const stand = await coreStand(spec, { gravity: true, ground: false, pinned: "post", hz: 120 });

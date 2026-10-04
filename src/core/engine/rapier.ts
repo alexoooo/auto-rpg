@@ -365,6 +365,17 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions):
           joints.jointConfigureMotorVelocity(handle, axes[k]! as never, speed, Infinity);
           joints.jointSetMotorMaxForce(handle, axes[k]! as never, ceiling);
         },
+        setMotorBounds(k, speed, negative, positive) {
+          if (!Number.isInteger(k) || k < 0 || k >= n || !Number.isFinite(speed)
+            || !(negative >= 0) || !(positive >= 0)) throw new Error("invalid directional motor command");
+          joints.jointConfigureMotorVelocity(handle, axes[k]! as never, speed, Infinity);
+          // Rapier bounds the impulse on the parent; the contract names torque on the child.
+          joints.jointSetMotorForceBounds(handle, axes[k]! as never, -positive, negative);
+        },
+        motorStepImpulse(k) {
+          if (!Number.isInteger(k) || k < 0 || k >= n) throw new Error("invalid motor freedom");
+          return -joints.jointMotorStepImpulse(handle, axes[k]! as never);
+        },
       };
     },
     addFixedBox(centre, size, turn = 0) {

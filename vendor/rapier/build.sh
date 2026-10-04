@@ -10,7 +10,7 @@ set -euo pipefail
 
 TAG=js-v0.21.0
 REVISION=b716d375efc0201003f0cd9ef7168eee0b62c177
-VERSION=0.21.0-auto-rpg.1
+VERSION=0.21.0-auto-rpg.2
 
 here="$(cd "$(dirname "$0")" && pwd)"
 work="${RAPIER_WORK:-$here/../../.tools/rapier-build}"

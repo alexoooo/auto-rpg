@@ -23,7 +23,8 @@ import type { Vec3 } from "../spec/quantity.ts";
  *   measured as `jointAngles` reads it (`src/core/build/joint-state.ts`) and limited there; every
  *   other axis, linear and angular, is locked, and the two bodies it joins do not collide.
  * - **A motor is a velocity constraint bounded by a torque**: freedom k driven at a speed, with at
- *   most a ceiling of torque either way, as a hard constraint (no softness) the step enforces.
+ *   most a ceiling of torque either way, or separate directional ceilings, as a hard constraint
+ *   (no softness) the step enforces. Its delivered impulse includes every substep of the step.
  * - **A contact says whether the step pushed on it**: `contactsOf` names every body and every fixed
  *   collider a body is in contact with, and the impulse the solver gave the touch between them in
  *   the last step, which is 0 for two that are in contact and were not pushed apart. A blow is read
@@ -115,6 +116,10 @@ export interface EngineJoint {
    * (rad/s), with at most `ceiling` (N m) either way.
    */
   setMotor(k: number, speed: number, ceiling: number): void;
+  /** The same velocity motor, bounded separately in the child's negative and positive senses (nonnegative N m). */
+  setMotorBounds(k: number, speed: number, negative: number, positive: number): void;
+  /** Signed impulse delivered to the child over the entire last physics step, N m s; zero before stepping. */
+  motorStepImpulse(k: number): number;
 }
 
 /** One pair of shapes the solver pushed apart: this body's and the other's. */

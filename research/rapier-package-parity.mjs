@@ -16,10 +16,21 @@ assert.equal(manifest.name, "@dimforge/rapier3d-simd-compat");
 assert.equal(manifest.version, "0.21.0");
 const entry = resolve(directory, manifest.module), R = (await import(pathToFileURL(entry).href)).default;
 await R.init();
-const reference = { name: "rapier", createPhysics: (options) => createRapierPhysics(R, options) };
+const reference = { name: "rapier", createPhysics: (options) => {
+  const physics = createRapierPhysics(R, options), addJoint = physics.addJoint;
+  physics.addJoint = (...args) => {
+    const joint = addJoint(...args);
+    // Stock lacks whole-step effort. These recipes never read effort to choose an action;
+    // mark that diagnostic unavailable, without substituting a last-substep measurement.
+    joint.motorStepImpulse = () => NaN;
+    return joint;
+  };
+  return physics;
+} };
 Logger.LogLevels = Logger.ErrorLogLevel;
 console.log(JSON.stringify({ harness: "Node arena core world, Rapier SIMD, 120 Hz, 12 s cap, no assists",
-  reference: manifest.version, referenceEntrySha256: createHash("sha256").update(await readFile(entry)).digest("hex") }));
+  reference: manifest.version, stockMotorEffort: "unavailable; not used by the compared policies",
+  referenceEntrySha256: createHash("sha256").update(await readFile(entry)).digest("hex") }));
 for (const recipe of [
   { left: "workshop-fighter", right: "workshop-rogue" },
   { left: "workshop-fighter", right: "workshop-fighter", gap: 3 },

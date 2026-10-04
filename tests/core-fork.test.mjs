@@ -304,7 +304,7 @@ const STANCE = "body > mind > host > motor > stance";
 const NEEDED = {
   walker: [
     "world > steps",
-    ...["activation", "velocity", "ceiling", "trackers"].map((field) => `body > muscles > ${field}`),
+    ...["activation", "velocity", "ceiling", "pulled", "trackers"].map((field) => `body > muscles > ${field}`),
     ...["goals", "time", "angles", "fists", "points", "root > position", "root > rotation", "head"].map((field) => `body > mind > host > ${field}`),
     ...["pose", "pushes", "standing", "reach"].map((field) => `body > mind > host > motor > ${field}`),
     ...["left", "right"].flatMap((hand) => HAND.map((field) => `body > mind > host > motor > hands > ${hand} > ${field}`)),

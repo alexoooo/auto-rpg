@@ -99,8 +99,9 @@ screens build on it; it never imports them.
 
 - **The core's Rapier is vendored** in `vendor/rapier`, built from its pinned source and patch;
   `npm ci` installs the committed tarball. Do not replace it with the npm SIMD package. A motor's
-  impulse is applied to its first body (the parent); the exposed impulse is the last solver
-  substep's, not a sum over the world step. The plain bench package remains npm's.
+  impulse is applied to its first body (the parent). `jointMotorImpulse` reads the last solver
+  substep; `jointMotorStepImpulse` sums the whole step. The engine contract converts to the
+  child's sign. Neither is a work measurement. The plain bench package remains npm's.
 
 - **Side-effect imports are load-bearing.** The tree-shaken build omits prototype patches, so an
   "unused" import removed here compiles and breaks at runtime, sometimes silently: the shadow,

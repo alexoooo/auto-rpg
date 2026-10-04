@@ -121,7 +121,8 @@ free axes are the spec's freedoms. The body is built in the pose its joints dema
 writes each node's `position` and `rotationQuaternion`; bodies that never sleep; the spec's mass,
 whole; velocities of the centre of mass; one friction (`CONTACT_FRICTION`, 0.5) and no bounce on
 every contact; freedom k as axis k of the joint's frame; a motor as a velocity constraint bounded
-by a torque; a force and a moment on a body through one step, integrated as gravity is, beside
+by separately available negative and positive torque ceilings, with its signed whole-step impulse
+on the child (`setMotorBounds`, `motorStepImpulse`); a force and a moment on a body through one step, integrated as gravity is, beside
 the impulse that is whole before it; every body and every fixed collider a body is in contact
 with as the last step left it (`contactsOf`), each with the impulse the solver pushed the two apart
 with, which is 0 for two in contact that it did not push on, and naming the pairs of shapes it
@@ -147,7 +148,11 @@ under the core's tests with `CORE_ENGINE=<name> npm test`.
 velocity, into a motor target and a torque ceiling: activation times the peak torque of the side
 pushed toward, times the force-velocity factor at the joint's speed (`force-velocity.ts`: Hill's
 curve shortening, and an eccentric branch lengthening that rises toward 1.4 times isometric, for
-braking and blocking). A muscle can never exceed its source's strength at its speed.
+braking and blocking). The driver still uses that ceiling symmetrically, so a load that reverses
+the motor can receive the wrong side's braking strength; corrected directional actuation remains
+an open control-foundation gate. `pulled` records the mean torque actually delivered over the
+last world step, from accumulated motor impulse divided by that step's duration, in the channel's
+positive sense. It is saved state and a diagnostic, not a work measurement.
 
 **A body runs at a level** (`BodyLevel`, `MuscleDriver.level`), data in its muscles' state:
 `full`, its joints read, its mind stepped and its motors driven; `limp`, none of the three, its

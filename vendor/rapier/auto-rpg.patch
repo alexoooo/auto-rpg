@@ -1,8 +1,22 @@
+diff --git a/bindings/typescript/package.json b/bindings/typescript/package.json
+index ce0eec04..c397c2cf 100644
+--- a/bindings/typescript/package.json
++++ b/bindings/typescript/package.json
+@@ -8,5 +8,9 @@
+         "typescript": "4.8.4",
+         "wasm-opt": "1.4.0",
+         "wasm-pack": "0.12.1"
++    },
++    "allowScripts": {
++        "wasm-pack@0.12.1": true,
++        "wasm-opt@1.4.0": true
+     }
+ }
 diff --git a/bindings/typescript/src/dynamics/impulse_joint.rs b/bindings/typescript/src/dynamics/impulse_joint.rs
-index d74c6aeb..ad9c4561 100644
+index d74c6aeb..0e60dced 100644
 --- a/bindings/typescript/src/dynamics/impulse_joint.rs
 +++ b/bindings/typescript/src/dynamics/impulse_joint.rs
-@@ -309,4 +309,36 @@ impl RawImpulseJointSet {
+@@ -309,4 +309,42 @@ impl RawImpulseJointSet {
                  .set_motor(axis.into(), targetPos, targetVel, stiffness, damping);
          })
      }
@@ -27,6 +41,12 @@ index d74c6aeb..ad9c4561 100644
 +    /// (its force times the substep): the second body was given its negative.
 +    pub fn jointMotorImpulse(&self, handle: FlatHandle, axis: RawJointAxis) -> f32 {
 +        self.map(handle, |j| j.data.motors[axis as usize].impulse)
++    }
++
++    /// Signed motor impulse on the first body, summed over every solver and CCD substep
++    /// of the last pipeline step. Divide by the outer timestep for mean force or torque.
++    pub fn jointMotorStepImpulse(&self, handle: FlatHandle, axis: RawJointAxis) -> f32 {
++        self.map(handle, |j| j.data.motors[axis as usize].step_impulse)
 +    }
 +
 +    /// The impulse the limit along `axis` applied to the first body in the last solver substep.
@@ -90,26 +110,36 @@ index 9a95f0d5..4a7e1264 100644
      //     &mut self,
      //     handle: FlatHandle,
 diff --git a/src/dynamics/joint/generic_joint.rs b/src/dynamics/joint/generic_joint.rs
-index b1c6d265..7e0dbf8f 100644
+index b1c6d265..8b9e7fb9 100644
 --- a/src/dynamics/joint/generic_joint.rs
 +++ b/src/dynamics/joint/generic_joint.rs
-@@ -211,6 +211,10 @@ pub struct JointMotor {
+@@ -211,8 +211,19 @@ pub struct JointMotor {
      pub damping: Real,
      /// Maximum force the motor can apply (Newtons for prismatic, Nm for revolute).
      pub max_force: Real,
 +    /// The signed lower bound of the motor's force, whose upper bound is `max_force`:
 +    /// `-max_force` unless set apart from it (`set_motor_force_bounds`).
-+    #[cfg_attr(feature = "serde-serialize", serde(default = "JointMotor::default_min_force"))]
++    #[cfg_attr(
++        feature = "serde-serialize",
++        serde(default = "JointMotor::default_min_force")
++    )]
 +    pub min_force: Real,
      /// Internal: current impulse being applied.
      pub impulse: Real,
++    /// Signed motor impulse on the first body, summed over the entire pipeline step.
++    /// This is an observation, never a warm-start seed.
++    #[cfg_attr(feature = "serde-serialize", serde(default))]
++    pub step_impulse: Real,
      /// Force-based or acceleration-based motor model.
-@@ -225,12 +229,20 @@ impl Default for JointMotor {
+     pub model: MotorModel,
+ }
+@@ -225,12 +236,21 @@ impl Default for JointMotor {
              stiffness: 0.0,
              damping: 0.0,
              max_force: Real::MAX,
 +            min_force: -Real::MAX,
              impulse: 0.0,
++            step_impulse: 0.0,
              model: MotorModel::AccelerationBased,
          }
      }
@@ -125,7 +155,7 @@ index b1c6d265..7e0dbf8f 100644
  #[cfg(feature = "alloc")]
  impl JointMotor {
      pub(crate) fn motor_params(&self, dt: Real) -> MotorParameters<Real> {
-@@ -245,6 +257,7 @@ impl JointMotor {
+@@ -245,6 +265,7 @@ impl JointMotor {
              target_pos: self.target_pos,
              target_vel: self.target_vel,
              max_impulse: Self::max_impulse(self.max_force, dt),
@@ -133,7 +163,7 @@ index b1c6d265..7e0dbf8f 100644
          }
      }
  
-@@ -577,6 +590,21 @@ impl GenericJoint {
+@@ -577,6 +598,21 @@ impl GenericJoint {
  
      /// Sets the maximum force the motor can deliver along the specified axis.
      pub fn set_motor_max_force(&mut self, axis: JointAxis, max_force: Real) -> &mut Self {
@@ -155,7 +185,7 @@ index b1c6d265..7e0dbf8f 100644
          self.motors[axis as usize].max_force = max_force;
          self
      }
-@@ -885,4 +913,17 @@ mod test {
+@@ -885,4 +921,60 @@ mod test {
          assert_eq!(motor.motor_params(0.0).max_impulse, 0.0);
          assert_eq!(motor.motor_params(0.5).max_impulse, Real::MAX * 0.5);
      }
@@ -170,7 +200,50 @@ index b1c6d265..7e0dbf8f 100644
 +        joint.set_motor_max_force(axis, 6.0);
 +        let params = joint.motors[axis as usize].motor_params(0.5);
 +        assert_eq!((params.min_impulse, params.max_impulse), (-3.0, 3.0));
-+        assert_eq!(joint.motors[axis as usize].motor_params(0.0).min_impulse, 0.0);
++        assert_eq!(
++            joint.motors[axis as usize].motor_params(0.0).min_impulse,
++            0.0
++        );
++    }
++
++    #[cfg(feature = "dim3")]
++    #[test]
++    fn step_motor_impulse_includes_every_substep_and_resets() {
++        use crate::prelude::*;
++        let mut world = PhysicsWorld::default();
++        world.gravity = Vector::ZERO;
++        world.integration_parameters.num_solver_iterations = 16;
++        let (parent, _) = world.insert(RigidBodyBuilder::fixed(), ColliderBuilder::ball(0.5));
++        let (child, _) = world.insert(
++            RigidBodyBuilder::dynamic().can_sleep(false),
++            ColliderBuilder::ball(0.5).mass(1.0),
++        );
++        let axis = JointAxis::AngX;
++        let mut data = GenericJoint::new(JointAxesMask::LOCKED_REVOLUTE_AXES);
++        data.set_contacts_enabled(false);
++        data.set_motor_velocity(axis, 10.0, Real::INFINITY);
++        data.set_motor_max_force(axis, 0.1);
++        let joint = world.insert_impulse_joint(parent, child, data);
++        world.step();
++        let first = world.impulse_joints.get(joint).unwrap().data.motors[axis as usize];
++        assert!((first.step_impulse + 0.1 * world.integration_parameters.dt).abs() < 1.0e-8);
++        assert!((first.step_impulse + world.bodies[child].angvel().x * 0.1).abs() < 1.0e-8);
++        assert!(first.step_impulse.abs() > 8.0 * first.impulse.abs());
++        world
++            .impulse_joints
++            .get_mut(joint, true)
++            .unwrap()
++            .data
++            .set_motor_velocity(axis, 0.005, Real::INFINITY);
++        world.step();
++        let next = world.impulse_joints.get(joint).unwrap().data.motors[axis as usize];
++        assert!(next.step_impulse > 0.001 && next.impulse.abs() < 1.0e-8);
++        world.bodies[child].set_body_type(RigidBodyType::Fixed, true);
++        world.step();
++        assert_eq!(
++            world.impulse_joints.get(joint).unwrap().data.motors[axis as usize].step_impulse,
++            0.0
++        );
 +    }
  }
 diff --git a/src/dynamics/joint/multibody_joint/unit_multibody_joint.rs b/src/dynamics/joint/multibody_joint/unit_multibody_joint.rs
@@ -186,6 +259,24 @@ index fde5573e..9845b81f 100644
      let cfm_gain = lhs * motor_params.cfm_coeff + motor_params.cfm_gain;
  
      let mut rhs_wo_bias = 0.0;
+diff --git a/src/dynamics/solver/joint_constraint/generic_joint_constraint.rs b/src/dynamics/solver/joint_constraint/generic_joint_constraint.rs
+index 7ffb5285..fb94e73c 100644
+--- a/src/dynamics/solver/joint_constraint/generic_joint_constraint.rs
++++ b/src/dynamics/solver/joint_constraint/generic_joint_constraint.rs
+@@ -322,4 +322,13 @@ impl GenericJointConstraint {
+     pub fn remove_bias_from_rhs(&mut self) {
+         self.rhs = self.rhs_wo_bias;
+     }
++
++    pub fn accumulate_motor_impulses(&self, joints_all: &mut [JointGraphEdge]) {
++        // Internal multibody constraints have no impulse-joint identity or public effort read.
++        if self.joint_id != JointIndex::MAX {
++            if let WritebackId::Motor(i) = self.writeback_id {
++                joints_all[self.joint_id].weight.data.motors[i].step_impulse += self.impulse;
++            }
++        }
++    }
+ }
 diff --git a/src/dynamics/solver/joint_constraint/generic_joint_constraint_builder.rs b/src/dynamics/solver/joint_constraint/generic_joint_constraint_builder.rs
 index 3eddbe61..82cbd439 100644
 --- a/src/dynamics/solver/joint_constraint/generic_joint_constraint_builder.rs
@@ -209,10 +300,21 @@ index 3eddbe61..82cbd439 100644
      }
  
 diff --git a/src/dynamics/solver/joint_constraint/joint_constraint_builder.rs b/src/dynamics/solver/joint_constraint/joint_constraint_builder.rs
-index 924f52c8..33c55a85 100644
+index 924f52c8..94697ea2 100644
 --- a/src/dynamics/solver/joint_constraint/joint_constraint_builder.rs
 +++ b/src/dynamics/solver/joint_constraint/joint_constraint_builder.rs
-@@ -186,6 +186,8 @@ pub struct JointConstraintBuilderSimd {
+@@ -31,6 +31,10 @@ pub struct JointConstraintBuilder {
+ }
+ 
+ impl JointConstraintBuilder {
++    pub fn constraint_range(&self) -> core::ops::Range<usize> {
++        self.constraint_id..self.constraint_id + joint_data_num_constraints(&self.joint)
++    }
++
+     pub fn generate(
+         joint: &ImpulseJoint,
+         bodies: &RigidBodySet,
+@@ -186,6 +190,8 @@ pub struct JointConstraintBuilderSimd {
      motor_target_vel: SimdReal,
      #[cfg(feature = "dim2")]
      motor_max_force: SimdReal,
@@ -221,7 +323,23 @@ index 924f52c8..33c55a85 100644
      /// Like `prev_dof_impulses`, for the 2D angular motor row.
      #[cfg(feature = "dim2")]
      prev_motor_impulse: SimdReal,
-@@ -284,6 +286,8 @@ impl JointConstraintBuilderSimd {
+@@ -213,6 +219,15 @@ pub struct JointConstraintBuilderSimd {
+ }
+ 
+ impl JointConstraintBuilderSimd {
++    pub fn constraint_range(&self) -> core::ops::Range<usize> {
++        #[cfg(feature = "dim2")]
++        let motors = (self.motor_axes & (1 << DIM) != 0) as usize;
++        #[cfg(feature = "dim3")]
++        let motors = 0;
++        let count = (self.locked_axes | self.limit_axes).count_ones() as usize + motors;
++        self.constraint_id..self.constraint_id + count
++    }
++
+     pub fn generate(
+         joint: [&ImpulseJoint; SIMD_WIDTH],
+         bodies: &RigidBodySet,
+@@ -284,6 +299,8 @@ impl JointConstraintBuilderSimd {
              #[cfg(feature = "dim2")]
              motor_max_force: array![|ii| ang_motor(ii).max_force].into(),
              #[cfg(feature = "dim2")]
@@ -230,7 +348,7 @@ index 924f52c8..33c55a85 100644
              prev_motor_impulse: array![|ii| ang_motor(ii).impulse].into(),
              limits: core::array::from_fn(|axis| {
                  if limit_axes & (1 << axis) != 0 {
-@@ -446,6 +450,11 @@ impl JointConstraintBuilderSimd {
+@@ -446,6 +463,11 @@ impl JointConstraintBuilderSimd {
                  } else {
                      self.motor_max_force * dt
                  },
@@ -274,7 +392,7 @@ index d1e4123c..6d6ee2de 100644
              ang_jac1: ang_jac,
              ang_jac2: ang_jac,
 diff --git a/src/dynamics/solver/joint_constraint/joint_velocity_constraint.rs b/src/dynamics/solver/joint_constraint/joint_velocity_constraint.rs
-index 1c47839b..cac04272 100644
+index 1c47839b..8f1bbfd9 100644
 --- a/src/dynamics/solver/joint_constraint/joint_velocity_constraint.rs
 +++ b/src/dynamics/solver/joint_constraint/joint_velocity_constraint.rs
 @@ -19,6 +19,7 @@ pub struct MotorParameters<N: SimdRealCopy> {
@@ -293,3 +411,92 @@ index 1c47839b..cac04272 100644
          }
      }
  }
+@@ -386,6 +388,12 @@ impl JointConstraint<Real, 1> {
+             WritebackId::Friction(_) => {}
+         }
+     }
++
++    pub fn accumulate_motor_impulses(&self, joints_all: &mut [JointGraphEdge]) {
++        if let WritebackId::Motor(i) = self.writeback_id {
++            joints_all[self.joint_id[0]].weight.data.motors[i].step_impulse += self.impulse;
++        }
++    }
+ }
+ 
+ impl JointConstraint<SimdReal, SIMD_WIDTH> {
+@@ -540,4 +548,17 @@ impl JointConstraint<SimdReal, SIMD_WIDTH> {
+             }
+         }
+     }
++
++    pub fn accumulate_motor_impulses(&self, joints_all: &mut [JointGraphEdge]) {
++        if let WritebackId::Motor(i) = self.writeback_id {
++            let impulses: [_; SIMD_WIDTH] = self.impulse.into();
++            for lane in 0..SIMD_WIDTH {
++                // Padding repeats a joint: its impulse is applied only once.
++                if !self.joint_id[..lane].contains(&self.joint_id[lane]) {
++                    joints_all[self.joint_id[lane]].weight.data.motors[i].step_impulse +=
++                        impulses[lane];
++                }
++            }
++        }
++    }
+ }
+diff --git a/src/dynamics/solver/staged_island_solver/worker.rs b/src/dynamics/solver/staged_island_solver/worker.rs
+index f38c2e54..5e37b028 100644
+--- a/src/dynamics/solver/staged_island_solver/worker.rs
++++ b/src/dynamics/solver/staged_island_solver/worker.rs
+@@ -726,6 +726,35 @@ pub(super) unsafe fn run_worker(ctx: &SharedCtx, worker_id: usize) {
+                     )
+                 };
+             }
++
++            // Each row's final impulse includes warmstarting and all velocity corrections.
++            // Sum once per substep, after every solve, before the rows are rebuilt.
++            if worker_id == 0 {
++                let joints_all =
++                    unsafe { core::slice::from_raw_parts_mut(ctx.joints, ctx.num_joints) };
++                let constraints = unsafe { &*ctx.joint_constraints };
++                for builder in
++                    &constraints.velocity_constraints_builder[group.joint_builders.clone()]
++                {
++                    for row in &constraints.velocity_constraints[builder.constraint_range()] {
++                        row.accumulate_motor_impulses(joints_all);
++                    }
++                }
++                for builder in
++                    &constraints.simd_velocity_constraints_builder[group.joint_chunks.clone()]
++                {
++                    for row in &constraints.simd_velocity_constraints[builder.constraint_range()] {
++                        row.accumulate_motor_impulses(joints_all);
++                    }
++                }
++                if ctx.groups.len() == 1 {
++                    for row in &constraints.generic_velocity_constraints {
++                        row.accumulate_motor_impulses(joints_all);
++                    }
++                }
++                sync.complete(stage, 1, 1);
++            }
++            stage = sync.sync(stage, 1);
+         }
+ 
+         /*
+diff --git a/src/pipeline/physics_pipeline/substep.rs b/src/pipeline/physics_pipeline/substep.rs
+index 913cc7ac..3906fbc5 100644
+--- a/src/pipeline/physics_pipeline/substep.rs
++++ b/src/pipeline/physics_pipeline/substep.rs
+@@ -326,6 +326,13 @@ impl PhysicsPipeline {
+         self.counters.step_started();
+         self.quarantine.clear();
+ 
++        // Reset once for the outer step, including inactive joints, without marking user changes.
++        for edge in impulse_joints.joints_mut() {
++            for motor in &mut edge.weight.data.motors {
++                motor.step_impulse = 0.0;
++            }
++        }
++
+         // Apply some of delayed wake-ups.
+         self.counters.stages.user_changes.start();
+         #[cfg(feature = "enhanced-determinism")]

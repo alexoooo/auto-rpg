@@ -34,8 +34,10 @@ Rapier's motor impulse is the one applied to the joint's first body, the parent:
 impulse slows the child's rotation about the axis. A child's torque is therefore minus the
 impulse, and a ceiling of `positive` toward the axis's positive sense and `negative` toward its
 negative sense is the impulse range `[-positive, negative]`. The impulse kept is the last solver
-substep's: `numSolverIterations` substeps of `timestep / numSolverIterations` each, so the torque
-of the step is `-impulse * numSolverIterations / timestep`.
+substep's. Dividing it by that substep's duration estimates the last substep's torque, not the
+mean torque or impulse over the world step. Additional per-body iterations and CCD also change
+substep durations. The experiment below used that last-substep estimate; its effort figures
+must not be interpreted as whole-step measurements.
 
 ## Built from source, nothing moves
 
@@ -159,7 +161,9 @@ bout recipes and the common task battery are recorded in
 [the engine record](../reference/rapier-vendor.md); the earlier digests above belong to the
 experiment's game revision. The plain bench package remains npm's.
 
-Directional actuator bounds, accumulated world-step effort and control retuning remain the
-next work of [the foundation phase](../plans/2026-10-04-control-foundation.md). The experimental
+The engine contract exposes directional bounds and accumulated world-step impulse; the muscle
+driver reads delivered mean torque and saves it. The stock baseline still matches exactly.
+Corrected muscle actuation and control retuning remain the next work of
+[the foundation phase](../plans/2026-10-04-control-foundation.md). The experimental
 driver with last-substep `pulled` state is on branch `rapier-motor-bounds` in the sibling
 `auto-rpg-rapier-lab` checkout. Its temporary `MOTOR_OPPOSITE` environment switch must not land.

@@ -52,6 +52,78 @@ const add = (b, name, at) => {
 };
 const FRAMES = { anchorParent: [0, 0, 0], anchorChild: [0, 0, 0], frameParent: Quaternion.Identity(), frameChild: Quaternion.Identity(), limits: [[-1, 1]] };
 
+/** A rotor at its fixed parent's centre: only the motor changes its angular momentum. */
+async function rotor() {
+  const b = await box({ ground: false, gravity: false });
+  b.body.setFixed(true);
+  const child = add(b, "rotor", b.node.position.asArray());
+  const joint = b.physics.addJoint(b.body, child, FRAMES);
+  return { ...b, child, joint, spin: () => child.angularVelocityToRef(new Vector3()).x };
+}
+
+test("directional motor bounds and whole-step impulse agree with the child's angular momentum", async () => {
+  for (const hz of [120, 240, 960]) for (const sense of [-1, 1]) {
+    const r = await rotor(), negative = 0.12, positive = 0.24;
+    try {
+      assert.equal(Math.abs(r.joint.motorStepImpulse(0)), 0);
+      r.joint.setMotorBounds(0, sense * 10, negative, positive);
+      for (let step = 0; step < 3; step++) {
+        const before = r.spin();
+        r.physics.step(1 / hz);
+        const impulse = r.joint.motorStepImpulse(0), want = sense * (sense > 0 ? positive : negative) / hz;
+        assert.ok(Math.abs(impulse - want) < Math.abs(want) * 2e-6, `${hz} Hz: impulse ${impulse}, bound ${want}`);
+        const momentum = (r.spin() - before) * MASS.moments[0];
+        assert.ok(Math.abs(impulse - momentum) < Math.abs(want) * 1e-5, `impulse ${impulse}, momentum change ${momentum}`);
+      }
+      r.joint.setMotorBounds(0, 0, 0, 0);
+      r.physics.step(1 / hz);
+      assert.equal(Math.abs(r.joint.motorStepImpulse(0)), 0, "a disabled motor reports no stale impulse");
+      r.child.setFixed(true);
+      r.physics.step(1 / hz);
+      assert.equal(Math.abs(r.joint.motorStepImpulse(0)), 0, "an inactive joint reports no stale impulse");
+    } finally { r.dispose(); }
+  }
+});
+
+test("motor effort includes early substeps after the motor reaches its target, and restores with a snapshot", async () => {
+  const r = await rotor();
+  try {
+    r.joint.setMotorBounds(0, 0.07, 0.12, 0.12);
+    r.step(1);
+    const impulse = r.joint.motorStepImpulse(0), momentum = r.spin() * MASS.moments[0];
+    assert.ok(Math.abs(r.spin() - 0.07) < 1e-6, `reached target: ${r.spin()}`);
+    assert.ok(impulse > 0.0004 && Math.abs(impulse - momentum) < 1e-9, `${impulse}, momentum ${momentum}`);
+    const bytes = r.physics.save();
+    r.joint.setMotorBounds(0, -0.04, Infinity, Infinity);
+    r.step(1);
+    const next = [r.spin(), r.joint.motorStepImpulse(0)];
+    assert.ok(next[1] < 0 && Math.abs(next[0] + 0.04) < 1e-6);
+    r.physics.load(bytes);
+    assert.equal(r.joint.motorStepImpulse(0), impulse, "effort is readable immediately after load");
+    r.joint.setMotorBounds(0, -0.04, Infinity, Infinity);
+    r.step(1);
+    assert.deepEqual([r.spin(), r.joint.motorStepImpulse(0)], next);
+    r.physics.load(bytes);
+    r.step(1);
+    // Single-precision inertia and integration leave a small correction at an otherwise held speed.
+    assert.ok(Math.abs(r.joint.motorStepImpulse(0)) < impulse * 1e-5, `holding an unloaded rotor: ${r.joint.motorStepImpulse(0)}`);
+  } finally { r.dispose(); }
+});
+
+test("directional motor commands reject invalid values before changing the motor", async () => {
+  const r = await rotor();
+  try {
+    r.joint.setMotorBounds(0, 0.05, 0.12, 0.24);
+    for (const args of [[-1, 0, 1, 1], [1, 0, 1, 1], [0.5, 0, 1, 1], [0, NaN, 1, 1],
+      [0, Infinity, 1, 1], [0, 0, -1, 1], [0, 0, 1, NaN]]) {
+      assert.throws(() => r.joint.setMotorBounds(...args), /invalid directional motor/);
+    }
+    assert.throws(() => r.joint.motorStepImpulse(1), /invalid motor freedom/);
+    r.step(1);
+    assert.ok(Math.abs(r.spin() - 0.05) < 1e-6);
+  } finally { r.dispose(); }
+});
+
 test(`the ${CORE_ENGINE} world names its engine and holds the mass the core set`, async () => {
   const b = await box();
   try {
