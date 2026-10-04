@@ -411,6 +411,19 @@ The lab
 has tactics of its own:
 `stanceTactics` (the keys), `trackTactics` (the Run), `routineTactics` and `attackOnce`.
 
+## Experimental separate equipment
+
+`core/equipment.ts` constructs one separately simulated item with named rigid grip frames.
+It owns no controller. Capture checks current position/orientation error against explicit task
+tolerances; it never places a hand or item. Release preserves body motion and restores collision
+eligibility. The engine's persistent grip slots restore attachments with physics snapshots,
+including after release and regrip. Detached item observations retain identity and collider
+indices. The trusted construction handle carries rendering and physics resources.
+
+This representation is exercised by mechanical fixtures, including a closed loop, and does not
+replace the game's compound held items. Character controls, damage attribution and the comparison
+against compound release are still open. See [the grip record](reference/equipment-grips.md).
+
 ## Research environments
 
 `createEnvironment` (`src/core/tasks/environment.ts`) wraps a `WorldTask` factory over the

@@ -3,7 +3,7 @@ import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { TransformNode } from "@babylonjs/core/Meshes/transformNode.js";
 import { STANDARD_GRAVITY } from "../spec/constants.ts";
 import { sourced, type Vec3 } from "../spec/quantity.ts";
-import { CONTACT_FRICTION, type ColliderShape, type Contact, type EngineJoint, type FixedCollider, type JointFrames, type MassProperties,
+import { CONTACT_FRICTION, type ColliderShape, type Contact, type EngineGrip, type EngineJoint, type FixedCollider, type JointFrames, type MassProperties,
   type PhysicsEngine, type PhysicsOptions, type PhysicsWorld, type SegmentBody } from "./engine.ts";
 import { sin, cos, hypot } from "../math/real.ts";
 import { turnAboutToRef } from "../math/turn.ts";
@@ -29,7 +29,7 @@ import { turnAboutToRef } from "../math/turn.ts";
 type Rapier = typeof RAPIER;
 
 /** Vendor archive identity (`docs/reference/rapier-vendor.md`) and the adapter's snapshot contract. */
-const REVISION = "rapier/adapter-1/sha256:2787130f67465fa8fb07bf4217b0b2fab1681a416b99668ac831e1129b810122";
+const REVISION = "rapier/adapter-2/sha256:2787130f67465fa8fb07bf4217b0b2fab1681a416b99668ac831e1129b810122";
 
 /**
  * Rapier's wasm, loading or loaded: one instance a realm. Rapier's own `init` asked again while
@@ -110,6 +110,7 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
   /** The world's joints, which every joint's limits and motor are set through. */
   let joints = raw.impulseJoints.raw;
   const bodies = new Set<RapierBody>();
+  const grips: { parent: RapierBody; child: RapierBody; handle: number | null }[] = [];
   /** What each body does to find its rigid body again in a world just loaded. */
   const rebinds = new Map<RapierBody, () => void>();
   /** Each body by its colliders' handles, for a contact's other side: a collider not here is a fixed one. */
@@ -232,30 +233,51 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
   const physics: RapierPhysics = {
     engine: "rapier", revision, rapier: R, get raw() { return raw; }, gravity: g,
     save() {
-      // Rapier's snapshot, after the count of bodies and each node's pose as it stands: the solver
+      // Rapier's snapshot follows a version, body/grip counts, node poses and grip handles: the solver
       // holds a pose in single precision, and a node before its first step is as it was built.
-      const snapshot = raw.takeSnapshot(), poses = new Float64Array(1 + NODE_POSE * bodies.size);
-      poses[0] = bodies.size;
-      let k = 1;
+      const snapshot = raw.takeSnapshot(), poses = new Float64Array(3 + NODE_POSE * bodies.size + grips.length);
+      poses[0] = -2; poses[1] = bodies.size; poses[2] = grips.length;
+      let k = 3;
       for (const { node } of bodies) {
         const p = node.position, q = node.rotationQuaternion ?? Quaternion.Identity();
         poses[k++] = p.x; poses[k++] = p.y; poses[k++] = p.z;
         poses[k++] = q.x; poses[k++] = q.y; poses[k++] = q.z; poses[k++] = q.w;
       }
+      for (const grip of grips) poses[k++] = grip.handle ?? -1;
       const bytes = new Uint8Array(poses.byteLength + snapshot.length);
       bytes.set(new Uint8Array(poses.buffer));
       bytes.set(snapshot, poses.byteLength);
       return bytes;
     },
     load(bytes) {
-      const count = bytes.length >= 8 ? new Float64Array(bytes.slice(0, 8).buffer)[0]! : NaN;
-      const head = 8 * (1 + NODE_POSE * count);
-      const next = Number.isInteger(count) && count >= 0 && head < bytes.length ? R.World.restoreSnapshot(bytes.subarray(head)) : null;
+      const header = bytes.length >= 24 ? new Float64Array(bytes.slice(0, 24).buffer) : [];
+      const count = header[1] ?? NaN, gripCount = header[2] ?? NaN;
+      const head = 8 * (3 + NODE_POSE * count + gripCount);
+      const next = header[0] === -2 && Number.isInteger(count) && count >= 0
+        && Number.isInteger(gripCount) && gripCount >= 0 && head < bytes.length ? R.World.restoreSnapshot(bytes.subarray(head)) : null;
       if (!next) throw new Error("these bytes are not a Rapier world");
+      const gripHandles = new Float64Array(bytes.slice(8 * (3 + NODE_POSE * count), head).buffer);
+      const present = new Set(grips.flatMap((g) => g.handle === null ? [] : [g.handle]));
+      const restored = new Set([...gripHandles].filter((h) => h !== -1));
       let same = next.bodies.len() === raw.bodies.len() && next.colliders.len() === raw.colliders.len()
-        && next.impulseJoints.len() === raw.impulseJoints.len();
+        && count === bodies.size && gripCount === grips.length
+        && restored.size === [...gripHandles].filter((h) => h !== -1).length
+        && next.impulseJoints.len() - restored.size === raw.impulseJoints.len() - present.size;
       // Rapier's own set reads a handle whole; its JavaScript set reads the index alone, and takes a body made in a removed one's place for it.
       for (const body of bodies) same &&= next.bodies.raw.contains(body.rigid.handle);
+      raw.impulseJoints.forEach((joint) => {
+        if (!present.has(joint.handle)) same &&= !restored.has(joint.handle) && next.impulseJoints.raw.contains(joint.handle);
+      });
+      for (let i = 0; same && i < grips.length; i++) {
+        const handle = gripHandles[i]!, grip = grips[i]!;
+        if (handle === -1) continue;
+        same &&= next.impulseJoints.raw.contains(handle);
+        if (same) {
+          const joint = next.getImpulseJoint(handle);
+          same &&= joint.type() === R.JointType.Fixed && joint.body1().handle === grip.parent.rigid.handle
+            && joint.body2().handle === grip.child.rigid.handle;
+        }
+      }
       if (!same) {
         next.free();
         throw new Error("that save is of a world with other bodies, joints or colliders");
@@ -265,9 +287,10 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
       moment += 1;
       joints = raw.impulseJoints.raw;
       for (const rebind of rebinds.values()) rebind();
+      for (let i = 0; i < grips.length; i++) grips[i]!.handle = gripHandles[i] === -1 ? null : gripHandles[i]!;
       // A save may hold a force asked for its next step; every body's is reset after that step.
       for (const body of bodies) forced.add(body);
-      const poses = new Float64Array(bytes.slice(8, head).buffer);
+      const poses = new Float64Array(bytes.slice(24, 8 * (3 + NODE_POSE * count)).buffer);
       let k = 0;
       for (const { node } of bodies) {
         node.position.set(poses[k++]!, poses[k++]!, poses[k++]!);
@@ -381,6 +404,38 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
         },
       };
     },
+    addGrip(parentBody, childBody, frames): EngineGrip {
+      const parent = own(parentBody), child = own(childBody);
+      if (parent === child) throw new Error("a grip needs two distinct bodies");
+      const a = xyz(frames.anchorParent), b = xyz(frames.anchorChild);
+      const qa = xyzw(frames.frameParent), qb = xyzw(frames.frameChild);
+      if (![...Object.values(a), ...Object.values(b), ...Object.values(qa), ...Object.values(qb)].every(Number.isFinite)) {
+        throw new Error("invalid grip frame");
+      }
+      const slot = { parent, child, handle: null as number | null };
+      grips.push(slot);
+      return {
+        get attached() { return slot.handle !== null; },
+        attach() {
+          own(parent); own(child);
+          if (!grips.includes(slot)) throw new Error("grip is disposed");
+          if (slot.handle !== null) return;
+          const joint = raw.createImpulseJoint(R.JointData.fixed(a, qa, b, qb), parent.rigid, child.rigid, true);
+          joint.setContactsEnabled(false);
+          slot.handle = joint.handle;
+        },
+        release() {
+          if (slot.handle === null || freed) return;
+          raw.removeImpulseJoint(raw.getImpulseJoint(slot.handle), true);
+          slot.handle = null;
+        },
+        dispose() {
+          this.release();
+          const index = grips.indexOf(slot);
+          if (index >= 0) grips.splice(index, 1);
+        },
+      };
+    },
     addFixedBox(centre, size, turn = 0) {
       return fixed(R.ColliderDesc.cuboid(size[0] / 2, size[1] / 2, size[2] / 2).setTranslation(...centre)
         .setRotation({ x: 0, y: sin(turn / 2), z: 0, w: cos(turn / 2) }));
@@ -445,6 +500,10 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
       colliderHandles.delete(body);
       forced.delete(body);
       rebinds.delete(body);
+      for (let i = grips.length - 1; i >= 0; i--) {
+        const grip = grips[i]!;
+        if (grip.parent === body || grip.child === body) { grip.handle = null; grips.splice(i, 1); }
+      }
       raw.removeRigidBody(body.rigid);
     },
     dispose() {
@@ -456,6 +515,7 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
       colliderHandles.clear();
       forced.clear();
       rebinds.clear();
+      for (const grip of grips) grip.handle = null;
       raw.free();
     },
   };

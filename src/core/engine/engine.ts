@@ -124,6 +124,16 @@ export interface EngineJoint {
   motorStepImpulse(k: number): number;
 }
 
+/** A registered rigid attachment; releasing it preserves both bodies and their velocities. */
+export interface EngineGrip {
+  readonly attached: boolean;
+  /** Join the declared local frames. The caller first establishes geometric reachability. */
+  attach(): void;
+  release(): void;
+  /** Remove the slot as well as its attachment; invalidates snapshots with that slot. */
+  dispose(): void;
+}
+
 /** One pair of shapes the solver pushed apart: this body's and the other's. */
 export interface ContactPair {
   /** Which of this body's shapes, and which of the other's, in the order `addBody` was given them; a fixed collider is one shape, 0. */
@@ -176,6 +186,8 @@ export interface PhysicsWorld {
   /** A dynamic body at its node's pose, its colliders massless: its mass is `mass`. */
   addBody(node: TransformNode, shapes: readonly ColliderShape[], mass: MassProperties): SegmentBody;
   addJoint(parent: SegmentBody, child: SegmentBody, frames: JointFrames): EngineJoint;
+  /** Register a detached grip slot. Slots persist across release and snapshot restoration. */
+  addGrip(parent: SegmentBody, child: SegmentBody, frames: Omit<JointFrames, "limits">): EngineGrip;
   /** A fixed box, centre and full size, world, turned `turn` about up (rad; 0 unturned). */
   addFixedBox(centre: Vec3, size: Vec3, turn?: number): FixedCollider;
   /** A fixed collider of any shape a body takes (`ColliderShape`), its coordinates world. */
@@ -196,8 +208,9 @@ export interface PhysicsWorld {
    * The world's whole physical state as it stands: every body's pose and velocity, every joint's
    * motor, the last step's contacts, a force asked for the next, and every body's node, which
    * before its first step is as it was built and not as the solver holds it. Opaque, the engine's own, and
-   * good only for `load` on a world of this engine with the same bodies, joints and fixed
-   * colliders, made in the same order.
+   * good only for `load` on a world of this engine with the same bodies, anatomical joints,
+   * registered grip slots and fixed colliders, made in the same order. Each grip's attached or
+   * released state restores with the snapshot; registering or disposing a slot changes topology.
    */
   save(): Uint8Array;
   /**

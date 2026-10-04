@@ -143,6 +143,13 @@ visible control-foundation page use the same builder. All six seed-42 body/contr
 match Node and Chrome observation digests and replay through a checkpoint between decisions.
 The fixture proves the seam, not the combat/recovery gates still below.
 
+The first part of chunk 4(a) supplies experimental separate items and persistent engine grip
+slots. Mechanical tests prove one-item mass, either-hand release, reachable capture, detached
+contact identity and exact replay through topology changes, including a closed loop. This is
+recorded in [equipment grips](../reference/equipment-grips.md). Character equipment integration,
+damage/rendering identity, compound splitting and the representation choice remain open; this
+does not complete chunk 4(a) or its physical capability gate.
+
 ### 0. Define the common task battery and baseline
 
 **Files:** `research/control-foundation.mjs`, `research/control-foundation-trials.mjs`,
