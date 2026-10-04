@@ -28,7 +28,8 @@ export const STRAFE = { share: 0.5, turned: 0.3 } as const;
 /**
  * **Holding at the edge of a foe's reach** (`FighterMindConfig.range`, `"edge"`): how far past the
  * foe's reach a fighter stands before it walks in again, m; and how long it stands still there,
- * s, before it walks in to attack all the same. Set: `docs/reference/human-and-strikes.md#the-edge`.
+ * s, before it walks in to attack all the same. The band is set, the patience read in bouts:
+ * `docs/reference/human-and-strikes.md#the-edge`.
  */
 export const EDGE: NonNullable<FighterMindConfig["edge"]> = Object.freeze({ band: 0.25, patience: 4 });
 

@@ -126,6 +126,22 @@ the hero stands 2.75 rad from the skeleton's heading, the skeleton walks off sid
 gathers speed to 1.6 m/s and is down with no blow on it at 2.6 to 2.7 s, at 3.5, 4 and 4.25 m of
 the five gaps from 3.5 to 4.5 m; it does not with a lead of 1 s, nor on any other seed of 1 to 8.
 
+The game sets a walk off on the body's first step after it is built, while it still settles; the
+battery stands it first. The pelvis, turned toward the heading critically damped and not told the
+turn's rate, lags a 2 rad/s turn by 0.6 rad; in each swing the one bearing sole cannot give the
+yaw moment the swing leg's turn takes, and from the build the lag grows to 1.5 to 1.6 rad, past
+the hips' rotation stops. The steps then land 12 to 16 cm short of where the capture point needs
+them, the capture point leaves the support sideways, and the walk runs off at 1.1 to 1.6 m/s
+(the battery's turn begun from the build, Node core stand, Rapier, 120 Hz).
+
+A heading held to lead the pelvis by no more than the lesser of the hips' rotation stops (0.65
+rad for the Warrior and the skeleton, 0.71 for the Rogue) keeps the battery's half turns from the
+build: falls of 200 a body, Warrior, Rogue and skeleton, 0, 4 and 2 become 0, 0 and 0 at 2 rad/s,
+and 53, 82 and 59 become 4, 2 and 0 at 4 rad/s. Measured against the pelvis's facing step by step,
+which a swing whips a radian either way, the bound holds the heading still while the body walks
+to its next place, and the crypt's skeleton goes down with no blow on it on 19 to 21 layouts of
+72 where it goes down on 10, and on 9 under a placebo; the bound is not in the game.
+
 ## Guard
 
 `GUARD` is the arms' posture when no skill owns them: each shoulder flexed 0.5 rad and drawn in
@@ -147,13 +163,32 @@ their target 0.93 m (a head) and 1.12 m (a trunk) ahead of its own head (`Recipe
 
 `EDGE` is a band of 0.25 m and a patience of 4 s: a fighter that holds at the edge of its foe's
 reach (`FighterMindConfig.range`, `"edge"`) stands no more than 0.25 m beyond where the foe's blow
-at its head would reach it, and after standing still 4 s walks in to attack all the same. Set,
-not swept. The band is the strike skill's own slack about a blow's place (`APPROACH.reach`), so
-a foe that comes on by that much brings itself into the window; the patience is more than twice
-`STAND`, so a fighter is not drawn in by a foe that stands only to settle a throw. Whether a fighter
-gains by holding at the edge, and at what patience, is read in arena bouts against one that walks
-in, paired by starting gap (`research/core-range.mjs`); until that sweep is recorded here, `"close"`
-is every fighter's range.
+at its head would reach it, and after standing still 4 s walks in to attack all the same. The
+band is set, not swept: it is the strike skill's own slack about a blow's place
+(`APPROACH.reach`), so a foe that comes on by that much brings itself into the window. The
+patience is more than twice `STAND`, so a fighter is not drawn in by a foe that stands only to
+settle a throw.
+
+A fighter does not gain by holding at the edge, so `"close"` is every fighter's range.
+`node research/core-range.mjs --bouts 48 --patience 2,4,8` plays each pair of bodies, club and
+empty-handed, at 48 starting gaps from 3 to 5 m, each side holding at the edge in turn against
+one that walks in, paired with the bout where both walk in: 6048 bouts (Node core world, Rapier,
+120 Hz, each side's balance its character's). The side at the edge, pooled over every pair and
+both sides:
+
+| Held | Patience, s | Margin gained (its bar less its foe's) | d | Won, close / edge | Fell, close / edge | Foe's HP lost, close / edge |
+|---|---|---|---|---|---|---|
+| club | 2 | -0.019 | -0.12 | 0.50 / 0.44 | 0.29 / 0.35 | 0.400 / 0.274 |
+| club | 4 | -0.025 | -0.15 | 0.50 / 0.45 | 0.29 / 0.34 | 0.400 / 0.267 |
+| club | 8 | -0.026 | -0.16 | 0.50 / 0.44 | 0.29 / 0.34 | 0.400 / 0.264 |
+| empty | 2 | -0.002 | -0.03 | 0.50 / 0.52 | 0.30 / 0.23 | 0.475 / 0.500 |
+| empty | 4 | -0.001 | -0.01 | 0.50 / 0.52 | 0.30 / 0.22 | 0.475 / 0.504 |
+| empty | 8 | -0.000 | -0.01 | 0.50 / 0.52 | 0.30 / 0.22 | 0.475 / 0.502 |
+
+Of the 108 cells (what is held, the pair, the side at the edge, its patience), the edge gains
+margin at d over 0.2 in 26 and loses it at d under -0.2 in 30. With a club, a fighter at the
+edge takes off its foe about a third less; empty-handed it falls less and does as much, and
+gains nothing in margin.
 
 ## Windows
 

@@ -270,11 +270,14 @@ All of it on a physically based core, humans first ([architecture](architecture.
 - A walk turned half round from standing at the envelope's 2 rad/s, in a fight, now and then runs
   away sideways once it is turned and falls with no blow on it, the crypt's hero on two layouts of
   72 and the skeleton on three of 48 (`tests/crypt-core.test.mjs`' layout); the stance battery's
-  same turn holds ([human and strikes](reference/human-and-strikes.md#turning)). The Routine walks
-  and turns at 0.3 m/s and 1 rad/s, under the envelope, and is not read at the envelope's.
+  same turn holds. The cause is read: the pelvis falls behind the heading past the hips' turn; a
+  heading bounded by the hips' turn against the pelvis's facing step by step keeps the battery's
+  turns and fells the crypt's skeleton more
+  ([human and strikes](reference/human-and-strikes.md#turning)). The Routine walks and turns at
+  0.3 m/s and 1 rad/s, under the envelope, and is not read at the envelope's.
 - Set and not swept, each said so in its record: where a placed foot lands beside its place
-  (`PLACING.near`), how near a fighter attacks (`ATTACK_METRES`) and holds at the edge of a foe's
-  reach (`EDGE`), the shaping of an arm's path (`IK_POSTURE_PULL`, `IK_TURN`)
+  (`PLACING.near`), how near a fighter attacks (`ATTACK_METRES`), the band a fighter holds at the
+  edge of a foe's reach (`EDGE`), the shaping of an arm's path (`IK_POSTURE_PULL`, `IK_TURN`)
   ([human and strikes](reference/human-and-strikes.md)); the stance's height and its fall bar
   (`STANCE_LOWER`, `FALLEN`, [stance tuning](reference/stance-tuning.md#stance-height)).
 - Set on readings from an engine that is gone, to read again on this one: how long a body stands
