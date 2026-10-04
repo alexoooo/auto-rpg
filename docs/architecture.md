@@ -423,6 +423,10 @@ indices. The trusted construction handle carries rendering and physics resources
 This representation is exercised by mechanical fixtures, including a closed loop, and does not
 replace the game's compound held items. Reference-fighter controls, damage attribution and the comparison
 against compound release are still open. See [the grip record](reference/equipment-grips.md).
+`build/articulated-mass.ts` supplies floating-body impact mobility with separate items and
+active grips. It projects mass-whitened velocity constraints, including redundant loops,
+and recomputes attachment rank after release. [Mechanical checks](reference/constraint-mass.md)
+cover both grips and either release. The game damage path retains the existing tree model.
 Separate equipment can explicitly request moving-body CCD at construction. The default is
 unchanged; [collision probes](reference/collision-ccd.md) exercise linear and rotational sweeps
 against a thin moving defense. The pinned engine's automatic fixed-collider CCD is distinct.

@@ -4,6 +4,7 @@ import type { ColliderShape, SegmentBody } from "./engine/engine.ts";
 import type { ItemShape, ItemSpec } from "./spec/body.ts";
 import type { Vec3 } from "./spec/quantity.ts";
 import { deepFreeze } from "./state.ts";
+import { attachmentRows } from "./build/constrained-mass.ts";
 import type { World } from "./world.ts";
 
 interface Frame {
@@ -130,6 +131,16 @@ export function createEquipment(world: World, definition: EquipmentDefinition) {
             point: [...c.point] as Vec3, normal: [...c.normal] as Vec3, impulse: c.impulse,
             pairs: c.pairs.map((p) => ({ ...p, point: [...p.point] as Vec3, normal: [...p.normal] as Vec3 })),
           })),
+        });
+      },
+      /** Trusted model reading; policies receive the detached model and observation instead. */
+      motionConstraints() {
+        live();
+        return grips.flatMap((g) => {
+          if (!g.joint.attached) return [];
+          g.hand.at.applyRotationQuaternionToRef(g.body.node.rotationQuaternion!, position).addInPlace(g.body.node.position);
+          g.item.at.applyRotationQuaternionToRef(node.rotationQuaternion!, other).addInPlace(node.position);
+          return attachmentRows(g.body, body, tuple(position), tuple(other), true);
         });
       },
       dispose,

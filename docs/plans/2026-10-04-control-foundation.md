@@ -173,6 +173,11 @@ multibody binding lacks accumulated effort and generic frame setters, and its un
 damping changes the free rotor response. Both signs press limits and replay. This is a contract
 screen, not the still-required anatomical contact/loop/performance comparison.
 
+The [constraint-mass model](../reference/constraint-mass.md) now accounts for active grips and
+redundant closed loops. Its impulse responses match the engine with both grips, either release
+and both released; it agrees with the tree model on all three anatomies. This establishes
+instantaneous impact mobility, not loaded actuator dynamics or game damage integration.
+
 ### 0. Define the common task battery and baseline
 
 **Files:** `research/control-foundation.mjs`, `research/control-foundation-trials.mjs`,
