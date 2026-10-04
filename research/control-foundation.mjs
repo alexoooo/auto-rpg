@@ -78,7 +78,7 @@ export function summarizeFoundation(rows) {
     const { job, result } = row;
     const key = [job.actuation ?? "symmetric", job.task, job.model, job.held, job.hand ?? "", job.target ?? "", job.recovery ?? "", job.guard ?? "",
       ...(job.controller ? [job.controller] : []), ...(job.task === "ccd" ? [job.mode, `ccd=${job.ccd}`] : []),
-      ...(job.task === "solver" ? [job.representation, job.sense] : []), ...(job.task === "bar" ? [job.release] : [])].join("/");
+      ...(job.task === "solver" ? [job.representation, job.sense] : []), ...(job.task === "bar" ? [job.release, job.support ?? "pinned"] : [])].join("/");
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(row);
     if (job.task === "bout" && result.status === "measured") {
@@ -116,9 +116,10 @@ async function main() {
     samples: { type: "string", default: String(FOUNDATION.samples) }, from: { type: "string", default: "0" },
     hz: { type: "string", default: "120" }, workers: { type: "string", default: "4" }, models: { type: "string" }, out: { type: "string" },
     actuation: { type: "string", default: "symmetric" },
+    support: { type: "string", default: "pinned" },
   } });
   const options = { suite: values.suite, split: values.split, samples: Number(values.samples), from: Number(values.from), hz: Number(values.hz),
-    actuation: values.actuation, ...(values.models ? { models: values.models.split(",") } : {}) };
+    actuation: values.actuation, support: values.support, ...(values.models ? { models: values.models.split(",") } : {}) };
   const jobs = foundationJobs(options), started = new Date().toISOString();
   const directory = resolve(values.out ?? resolve(root, "research/runs/control-foundation", `${started.replaceAll(":", "-")}-${randomUUID()}`));
   const lock = JSON.parse(await readFile(resolve(root, "package-lock.json"), "utf8"));
@@ -129,11 +130,13 @@ async function main() {
     package: { version: pkg.version, resolved: pkg.resolved, integrity: pkg.integrity },
     source: { git: execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim(), content: source.content,
       archive: "source.json.gz", archiveSha256: digest(archive) },
-    sensing: ["ccd", "solver"].includes(values.suite) ? "diagnostic physics readings; no policy" : values.suite === "reach" ? "detached body observations and task goal; no privileged model" : "existing fighter senses; stationary blow offset disclosed at commitment",
+    sensing: values.suite === "bar" ? "detached body/item observations, coupled dynamics and measured fixed contacts"
+      : ["ccd", "solver"].includes(values.suite) ? "diagnostic physics readings; no policy" : values.suite === "reach" ? "detached body observations and task goal; no privileged model" : "existing fighter senses; stationary blow offset disclosed at commitment",
     action: values.suite === "solver" ? "fixed raw velocity motor with directional bounds; adapter-contract screening"
+      : values.suite === "bar" ? "whole-body motion objectives and granted grip requests; bounded muscle torques"
       : values.suite === "ccd" ? "initial impulses, then free dynamics; no held action" : values.suite === "reach" ? "actuator velocities or layered posture targets, declared per job" : "existing fighter skills and staged-rise/lie",
     policyPeriodSteps: values.suite === "reach" ? 4 : 1, assists: { rootBalancePercent: 0, weapon: false },
-    unavailable: ["two-handed items", "grip release", "integrated recovery/combat", "moving isolated targets", "actuator work", "contact penetration"],
+    unavailable: ["integrated recovery/combat", "moving isolated targets", "actuator work", "contact penetration"],
     jobs };
   const installed = JSON.parse(await readFile(resolve(root, "node_modules/@dimforge/rapier3d-simd-compat/package.json"), "utf8"));
   if (installed.version !== pkg.version || CORE_ENGINE !== "rapier") throw new Error("manifest requires the locked Rapier package; run npm ci");

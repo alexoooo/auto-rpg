@@ -250,7 +250,7 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
   const fixed = (desc: RAPIER.ColliderDesc): FixedCollider => {
     const handle = raw.createCollider(contact(desc)).handle;
     let gone = false;
-    return { dispose() { if (gone || freed) return; gone = true; raw.removeCollider(raw.getCollider(handle), false); } };
+    return { id: handle, dispose() { if (gone || freed) return; gone = true; raw.removeCollider(raw.getCollider(handle), false); } };
   };
   /** Every body's node, from its body. */
   const writeNodes = () => {

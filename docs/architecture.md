@@ -468,11 +468,15 @@ reference fighter's equipment integration is still separate work.
 objectives with velocity and acceleration. Position alone adds no orientation constraint.
 `mind/motion.ts` validates a policy's full request before grip actions and supplies one owner of
 actuator output. Its optional `wholeBodyTracking` uses the coupled model and bounded weighted
-acceleration tracking, with explicit residual and observed-error reports. Contact and joint-stop
-reactions are not predicted. The [pinned fixtures](reference/motion-tracking.md) exercise independent
+acceleration tracking, with explicit residual and observed-error reports. Optional measured sticking
+contacts add unilateral and friction constraints through an active-set solve. Desired supports
+are separate from measured contacts; a free support request changes no collider. Rejected solves
+produce zero torque. Joint-stop reactions and sliding contacts are not predicted.
+The [pinned fixtures](reference/motion-tracking.md) exercise independent
 items and a shared bar through capture, motion, obstacle contact and either release. They use no
-assist and replay through the body's ordinary saved state. This tracker is not the standing or
-recovery controller, and its allocating model path still needs optimization before game adoption.
+assist and replay through the body's ordinary saved state. The [standing shared-bar fixture](reference/standing-bar.md)
+adds ordinary ground and an unpinned pelvis. Support transitions and recovery remain experimental,
+and the allocating model path still needs optimization before game adoption.
 
 ## Research environments
 

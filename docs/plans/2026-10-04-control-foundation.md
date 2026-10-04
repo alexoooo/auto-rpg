@@ -196,8 +196,8 @@ The [coupled acceleration model](../reference/coupled-dynamics.md) extends the f
 with separate item mass, gyroscopic bias and closed grip constraints. Mechanical force/torque
 responses survive either release; a moving loop matches engine acceleration and retains six
 free motions. Common-point attachment rows fix spurious constraints from solver anchor gaps.
-This supplies a diagnostic model for chunk 5; contact-force selection and bounded whole-body
-tracking, including the recovery support correction, remain to be implemented and measured.
+This supplies a diagnostic model for chunk 5; general contact-mode selection and the recovery
+support correction remain to be implemented and measured.
 The model now accepts explicit motion rows and reports their equivalent reaction loads, with
 redundancy and release checks. This lets a controller inspect tensile or excessive-friction
 predictions; choosing admissible contact modes remains open.
@@ -216,10 +216,12 @@ The [motion-objective and pinned bar fixtures](../reference/motion-tracking.md) 
 point and optional orientation trajectories with one owner of bounded actuator commands. They
 track two independent items and capture/move/swing a shared item into an obstacle before either
 grip release. Capture geometry, model state, impact and release replay exactly. The common bar
-runner measures these pinned anatomical load paths; the integrated standing rows remain open.
-The initial tracker uses a weighted bounded solve and the allocating coupled model. Ground-force
-selection, joint-stop prediction, hot-path optimization and standing/recovery integration remain
-required. Failed contact-QP prototypes are not the game controller.
+runner measures pinned and standing anatomical load paths separately. The
+[standing fixture](../reference/standing-bar.md) uses measured sticking contacts, unilateral and
+friction constraints, and bounded muscle torques without a pelvis pin or assistance. Desired
+support never changes physical collision. Rejected solves are explicit zero-torque failures.
+General support transitions, joint-stop prediction, hot-path optimization and recovery/combat
+integration remain required. The allocating experimental tracker is not the game's default.
 
 ### 0. Define the common task battery and baseline
 

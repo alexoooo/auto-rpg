@@ -102,6 +102,19 @@ export function coupledDynamics(built: BuiltBody, gravity: Vec3, items: readonly
     return forward(total);
   };
 
+  const reactionMultipliers = (torque: ArrayLike<number>, loads: readonly Load[] = []): number[] => {
+  const free = freeMotion(torque, loads), weights = basis.map((b, k) => targets[k]! - dot(b, free));
+  for (let r = 0; r < weights.length; r++) {
+    for (let c = 0; c < r; c++) weights[r]! -= reactionFactor[r]![c]! * weights[c]!;
+    weights[r]! /= reactionFactor[r]![r]!;
+  }
+  for (let r = weights.length - 1; r >= 0; r--) {
+    for (let c = r + 1; c < weights.length; c++) weights[r]! -= reactionFactor[c]![r]! * weights[c]!;
+    weights[r]! /= reactionFactor[r]![r]!;
+  }
+    return reactionRows.map((row) => row.length === 0 ? 0 : dot(row.coefficients, weights) / row.length);
+  };
+
   return {
     channels: count,
     update(motionRows: readonly MotionConstraint[] = []): void {
@@ -204,23 +217,15 @@ export function coupledDynamics(built: BuiltBody, gravity: Vec3, items: readonly
       return backward(motion);
     },
     /**
-     * Loads equivalent to the chosen motion constraints, in equipment/pin/supplied-row order.
+     * Reaction multipliers for the chosen constraints, in equipment/pin/supplied-row order.
      * Redundant rows use the minimum norm of mass-whitened row contributions. This is one
      * distribution, not a unilateral/friction feasibility certificate. Negative normal loads
      * remain negative; a contact controller must reject or change an inadmissible assumption.
      */
+    reactionMultipliers,
+    /** Equivalent body loads for each constraint's reaction multiplier. */
     reactions(torque: ArrayLike<number>, loads: readonly Load[] = []) {
-      const free = freeMotion(torque, loads), weights = basis.map((b, k) => targets[k]! - dot(b, free));
-      for (let r = 0; r < weights.length; r++) {
-        for (let c = 0; c < r; c++) weights[r]! -= reactionFactor[r]![c]! * weights[c]!;
-        weights[r]! /= reactionFactor[r]![r]!;
-      }
-      for (let r = weights.length - 1; r >= 0; r--) {
-        for (let c = r + 1; c < weights.length; c++) weights[r]! -= reactionFactor[c]![r]! * weights[c]!;
-        weights[r]! /= reactionFactor[r]![r]!;
-      }
-      return reactionRows.map((row, i) => {
-        const multiplier = row.length === 0 ? 0 : dot(row.coefficients, weights) / row.length;
+      return reactionMultipliers(torque, loads).map((multiplier, i) => {
         return { multiplier, loads: reactionConstraints[i]!.map((e): Load => ({ body: e.body, point: [...e.point] as Vec3,
           force: e.linear.map((v) => v * multiplier) as unknown as Vec3,
           moment: e.angular.map((v) => v * multiplier) as unknown as Vec3 })) };

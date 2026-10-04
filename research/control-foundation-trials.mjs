@@ -36,9 +36,10 @@ const suites = ["baseline", "recovery", "strike-block", "bar", "integrated", "re
 
 /** Fully specified starts; a seed selects geometry, not a hidden source of simulation noise. */
 export function foundationJobs({ suite = "baseline", split = "development", samples = FOUNDATION.samples,
-  hz = 120, models = BODY_MODELS, from = 0, actuation = "symmetric" } = {}) {
+  hz = 120, models = BODY_MODELS, from = 0, actuation = "symmetric", support = "pinned" } = {}) {
   if (!suites.includes(suite)) throw new Error(`unknown suite ${suite}`);
   if (!["symmetric", "directional"].includes(actuation)) throw new Error(`unknown actuation ${actuation}`);
+  if (!["pinned", "standing"].includes(support)) throw new Error(`unknown support ${support}`);
   if (!Object.hasOwn(FOUNDATION.split, split)) throw new Error(`unknown split ${split}`);
   if (!Number.isSafeInteger(samples) || samples < 1 || !Number.isSafeInteger(from) || from < 0
     || from + samples > FOUNDATION.maximumSamples) throw new Error("sample range must stay within its split");
@@ -75,7 +76,8 @@ export function foundationJobs({ suite = "baseline", split = "development", samp
       const seed = FOUNDATION.split[split] + index, fraction = (((seed + 1) * 2654435761) >>> 0) / 4294967296;
       for (const release of ["left", "right"]) add({ model, held: "shared-club", task: "bar", seed, release,
         offset: (fraction * 2 - 1) * 0.005, watchSeconds: 12, checkpointSeconds: 2, sampleHz: 120,
-        captureSeconds: 2, trackingTolerance: 0.03, gripTolerance: 0.002 });
+        captureSeconds: 2, trackingTolerance: 0.03, gripTolerance: 0.002,
+        ...(support === "standing" ? { support, forceTolerance: 1e-5 } : {}) });
     }
     return jobs;
   }
@@ -288,14 +290,17 @@ async function barTrial(job) {
     const success = outcome.complete && outcome.captured >= 0 && outcome.captured < job.captureSeconds * job.hz
       && outcome.movedError !== null && outcome.movedError < job.trackingTolerance
       && outcome.finalError < job.trackingTolerance && outcome.peakGripGap < job.gripTolerance
-      && outcome.contactSteps > 0 && outcome.releaseContinuous && replayExact;
+      && outcome.contactSteps > 0 && outcome.releaseContinuous && replayExact
+      && (job.support !== "standing" || (!outcome.fell && outcome.supportSteps > 0 && outcome.rejectedSteps === 0
+        && outcome.peakTension <= job.forceTolerance && outcome.peakFrictionViolation <= job.forceTolerance));
     timings.sort((a, b) => a - b);
     return { status: "measured", configuration: probe.configuration,
       outcome: { ...outcome, replayExact, success, digest: measured.digest, stateDigest: measured.stateDigest },
       physical: { assistForceIntegralNs: probe.body.assist.meter.force / job.hz, assistMomentIntegralNms: probe.body.assist.meter.moment / job.hz },
       timing: { meanStepMs: timings.reduce((sum, v) => sum + v, 0) / timings.length,
         p95StepMs: timings[Math.floor(timings.length * 0.95)], p99StepMs: timings[Math.floor(timings.length * 0.99)] },
-      limits: ["pelvis pinned; not standing or combat", "return tracks position alone", "contact and joint-stop reactions are not predicted", "allocating diagnostic dynamics path"] };
+      limits: [job.support === "standing" ? "measured fixed sticking contacts; no sliding or contact acquisition model" : "pelvis pinned; not standing",
+        "not recovery or combat", "return tracks position alone", "joint-stop reactions are not predicted", "allocating diagnostic dynamics path"] };
   } finally { probe.dispose(); scene.dispose(); rendering.dispose(); }
 }
 

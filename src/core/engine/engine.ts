@@ -192,6 +192,8 @@ export interface ContactManifold {
 
 /** Something fixed in the world: the ground, a wall. */
 export interface FixedCollider {
+  /** Stable within this world and its snapshots; the same identity appears in contact readings. */
+  readonly id: number;
   /** Take it out of the world; nothing once the world is disposed. */
   dispose(): void;
 }

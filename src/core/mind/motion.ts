@@ -1,6 +1,7 @@
 import type { BuiltBody } from "../build/build-body.ts";
 import { checkedMotionCommand, type MotionCommand, type MotionModel } from "../control/tasks.ts";
 import { wholeBodyTracking } from "../control/whole-body.ts";
+import type { ContactTrackingSettings } from "../control/contact-tracking.ts";
 import type { SegmentBody } from "../engine/engine.ts";
 import type { createEquipment } from "../equipment.ts";
 import { observeBody, type BodyObservation } from "../observation.ts";
@@ -26,6 +27,8 @@ interface MotionOptions {
   readonly fixed: readonly SegmentBody[];
   readonly capacity: number;
   readonly effortCost: number;
+  /** Optional measured sticking support; the controller checks predicted force admissibility. */
+  readonly contact?: ContactTrackingSettings;
 }
 
 /** Optional reference tracker; an independent policy can still use the actuator host directly. */
@@ -34,8 +37,10 @@ export function createMotionBody(built: BuiltBody, world: World,
   const items = [...options.items], fixed = [...options.fixed];
   if (options.grants.some((g) => !items.includes(g.item))) throw new Error("motion grip grant names an unmodeled item");
   const port = equipmentPort(options.grants), senses = clockSenses(world);
+  let tracking!: ReturnType<typeof wholeBodyTracking>;
   const embodied = embody(built, world, (own) => {
-    const tracking = wholeBodyTracking(built, own.muscles, world.physics.gravity, items, fixed, options);
+    tracking = wholeBodyTracking(built, own.muscles, world.physics.gravity, items, fixed, { capacity: options.capacity,
+      effortCost: options.effortCost, ...(options.contact ? { contact: { physics: world.physics, settings: options.contact } } : {}) });
     const description = deepFreeze({ channels: own.muscles.channels.map((c) => ({ name: c.name, min: c.dof.spec.min.value, max: c.dof.spec.max.value })),
       frames: [...[...built.segments.keys()].map((name) => ({ kind: "segment" as const, name })),
         ...items.map((item) => ({ kind: "item" as const, id: item.id }))], equipment: port.model });
@@ -50,5 +55,6 @@ export function createMotionBody(built: BuiltBody, world: World,
       applyAction(own.muscles, { kind: "torque", torque: Array.from(torque) });
     } };
   }, senses);
-  return physicalBody(embodied.own, world, senses, () => embodied.mind.name, embodied.state, embodied.dispose, undefined, port);
+  return Object.assign(physicalBody(embodied.own, world, senses, () => embodied.mind.name, embodied.state, embodied.dispose, undefined, port),
+    { report: () => tracking.report() });
 }
