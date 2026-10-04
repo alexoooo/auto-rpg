@@ -129,3 +129,7 @@ node research/physics-bakeoff/summarize-perf.mjs
 `case-c.mjs` (a whole human standing), `candidates.mjs` (passing settings ranked by cost),
 `load-cost.mjs` (download, start-up and memory) and `mujoco-armature.mjs` (MuJoCo's conditioning
 for piles) answer narrower questions; `thresholds.mjs` holds the pass bars.
+
+The fixed `control-foundation.mjs --suite solver --actuation directional` rotor probes screen
+impulse/multibody bindings, effort, zero-cap coast, limits and replay. They have no held-out
+seed split; see [the contract record](../docs/reference/solver-contract.md).

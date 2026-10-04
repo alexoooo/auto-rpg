@@ -168,6 +168,11 @@ grip lifecycle and policy memory. Either-hand independent-item requests are test
 models in short pinned fixtures. This advances chunk 4(a)'s controller port; it does not prove
 anatomical grasp placement, shared-item muscle loads or reference-fighter/game integration.
 
+The [solver contract screen](../reference/solver-contract.md) retains impulse joints: the pinned
+multibody binding lacks accumulated effort and generic frame setters, and its unexposed native
+damping changes the free rotor response. Both signs press limits and replay. This is a contract
+screen, not the still-required anatomical contact/loop/performance comparison.
+
 ### 0. Define the common task battery and baseline
 
 **Files:** `research/control-foundation.mjs`, `research/control-foundation-trials.mjs`,

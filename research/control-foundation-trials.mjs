@@ -20,6 +20,7 @@ import { traceOf } from "../tests/harness/trace.mjs";
 import { felled, watchFall } from "./core-rise-trials.mjs";
 import { evaluateBlow, heldSpec } from "./core-blow.mjs";
 import { buildBout } from "./bout.mjs";
+import { solverTrial } from "./control-foundation-solvers.mjs";
 
 Logger.LogLevels = Logger.ErrorLogLevel;
 
@@ -30,7 +31,7 @@ export const FOUNDATION = Object.freeze({ version: 2, samples: 2, watch: 40, bou
 const hash = (value) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
 const heldName = (held) => held === "club" ? "wooden club" : "fist";
 const riseMind = { ...FIGHTER, subs: [{ kind: "staged-rise" }] };
-const suites = ["baseline", "recovery", "strike-block", "bar", "integrated", "reach", "ccd"];
+const suites = ["baseline", "recovery", "strike-block", "bar", "integrated", "reach", "ccd", "solver"];
 
 /** Fully specified starts; a seed selects geometry, not a hidden source of simulation noise. */
 export function foundationJobs({ suite = "baseline", split = "development", samples = FOUNDATION.samples,
@@ -48,6 +49,14 @@ export function foundationJobs({ suite = "baseline", split = "development", samp
     const config = { protocol: FOUNDATION.version, split, hz, actuation, ...job };
     jobs.push({ ...config, id: hash(config) });
   };
+  if (suite === "solver") {
+    if (split !== "development") throw new Error("the fixed solver probes have no held-out dataset");
+    for (const representation of ["impulse", "multibody"]) for (const sense of [-1, 1]) add({
+      task: "solver", model: "synthetic-rotor", held: "none", representation, sense,
+      inertia: 0.02, negative: 0.12, positive: 0.24, speed: 1000, limit: 0.6, steps: hz, coastSteps: hz / 10,
+    });
+    return jobs;
+  }
   if (suite === "ccd") {
     for (let index = from; index < from + samples; index++) {
       const seed = FOUNDATION.split[split] + index;
@@ -240,6 +249,7 @@ export async function foundationTrial(job) {
     case "bout": return boutTrial(job);
     case "reach": return reachTrial(job);
     case "ccd": return collisionTrial(job);
+    case "solver": return solverTrial(job);
     case "unsupported": return { status: "unsupported", reason: job.capability };
     default: throw new Error(`unknown foundation task ${job.task}`);
   }
