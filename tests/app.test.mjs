@@ -37,7 +37,7 @@ test("index_html_is_one_document_holding_four_screens", async () => {
   const menu = template(html, "menu-screen"), arena = template(html, "arena-screen");
   const dungeon = template(html, "dungeon-screen");
   const labMenu = template(html, "lab-select-screen"), lab = template(html, "lab-screen");
-  assert.match(menu, /id="menu-new-game"/); assert.match(menu, /id="menu-arena"/); assert.match(menu, /id="menu-lab"/);
+  assert.match(menu, /id="menu-dungeon"/); assert.match(menu, /id="menu-arena"/); assert.match(menu, /id="menu-lab"/);
   assert.match(arena, /<canvas id="stage">/); assert.match(dungeon, /<canvas id="dungeon"/);
   assert.match(lab, /<canvas id="stage"/);
   assert.ok(ids(labMenu).includes("lab-scenarios"), "the lab's menu has #lab-scenarios");
@@ -83,7 +83,7 @@ test("the_app_mounts_the_templates_index_html_holds_and_the_buttons_go_where_the
     assert.match(app, new RegExp(`mount\\("${id}"\\)`), `app.ts mounts #${id}`);
     assert.match(html, new RegExp(`<template id="${id}">`));
   }
-  assert.match(app, /need\("menu-new-game"\)\.addEventListener\("click", go\("dungeon"\)\)/);
+  assert.match(app, /need\("menu-dungeon"\)\.addEventListener\("click", go\("dungeon"\)\)/);
   assert.match(app, /need\("menu-arena"\)\.addEventListener\("click", go\("arena"\)\)/);
   assert.match(app, /need\("menu-lab"\)\.addEventListener\("click", go\("lab"\)\)/);
   assert.match(app, /window\.location\.assign\(playHref\(to, window\.location\.search\)\)/, "the menu keeps the address's dials");

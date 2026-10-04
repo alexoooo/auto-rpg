@@ -30,10 +30,10 @@ async function open(route: Route): Promise<void> {
       document.title = "Auto-RPG";
       mount("menu-screen");
       const go = (to: Exclude<Route, "menu">) => () => window.location.assign(playHref(to, window.location.search));
-      need("menu-new-game").addEventListener("click", go("dungeon"));
+      need("menu-dungeon").addEventListener("click", go("dungeon"));
       need("menu-arena").addEventListener("click", go("arena"));
       need("menu-lab").addEventListener("click", go("lab"));
-      need<HTMLButtonElement>("menu-new-game").focus();
+      need<HTMLButtonElement>("menu-dungeon").focus();
       return;
     }
     case "arena": {

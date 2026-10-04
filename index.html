@@ -14,12 +14,14 @@
          the arena, the dungeon and the lab may share ids (#help, #resume, #stage) and never meet. -->
     <template id="menu-screen">
       <main id="title-screen">
-        <h1>Auto-RPG</h1>
-        <nav aria-label="Main menu">
-          <button id="menu-new-game" type="button">New Game</button>
-          <button id="menu-arena" type="button">Arena</button>
-          <button id="menu-lab" type="button">Lab</button>
-        </nav>
+        <div class="menu-content">
+          <h1>Auto-RPG</h1>
+          <nav aria-label="Main menu">
+            <button id="menu-dungeon" type="button">Dungeon</button>
+            <button id="menu-arena" type="button">Arena</button>
+            <button id="menu-lab" type="button">Lab</button>
+          </nav>
+        </div>
       </main>
     </template>
     <template id="arena-screen">

@@ -12,7 +12,7 @@ and the crypt's skeleton.
 ## Play online
 
 [Play Auto-RPG](https://alexoooo.github.io/auto-rpg/) in your browser: the link opens the main
-menu, with **New Game** (the crypt), **Arena** and **Lab**.
+menu, with **Dungeon** (the crypt), **Arena** and **Lab**.
 
 GitHub Actions tests and builds each push to `main` and publishes `dist/` to GitHub Pages
 (`.github/workflows/pages.yml`), building with `npm run build -- --base=/auto-rpg/`.
@@ -76,7 +76,7 @@ again by itself.
 
 ## The Crypt
 
-Choose **New Game**, then the dungeon, your hero (Warrior, Rogue or Skeleton), up to three
+Choose **Dungeon**, then the dungeon, your hero (Warrior, Rogue or Skeleton), up to three
 companions and a seed, and walk to the exit's green ring. Everybody carries a club; the enemies are
 skeletons, built and woken as the party comes near. The run is won when anybody standing reaches
 the exit and lost when the whole party is down. What the party sees it hears: footfalls, swings,
