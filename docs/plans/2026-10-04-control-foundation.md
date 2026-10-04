@@ -161,6 +161,9 @@ both torque and effort calculations. The engine exposes unaveraged contact manif
 motion rows preserve sliding/rolling/lift-off. [Contact motion](../reference/contact-motion.md)
 records the failing-before/passing-after invariant and mechanical geometry fixtures. The staged
 support model has not yet adopted them; flat-hand/shin recovery improvement remains unproven.
+The manifold port now reconstructs current-pose separation from native solver anchors; the
+upstream distance field is cached at the last full contact update. Settling and lift-off expose
+the difference. This read-only vendor extension preserves the physical solver.
 
 Independent policy bodies now receive granted equipment observations/models and can combine
 actuator commands with capture/release requests. Validation is atomic and replay includes the

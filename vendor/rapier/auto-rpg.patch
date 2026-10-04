@@ -12,6 +12,22 @@ index ce0eec04..c397c2cf 100644
 +        "wasm-opt@1.4.0": true
      }
  }
+diff --git a/bindings/typescript/src.ts/geometry/narrow_phase.ts b/bindings/typescript/src.ts/geometry/narrow_phase.ts
+index 6163053b..9924376d 100644
+--- a/bindings/typescript/src.ts/geometry/narrow_phase.ts
++++ b/bindings/typescript/src.ts/geometry/narrow_phase.ts
+@@ -246,6 +246,11 @@ export class TempContactManifold {
+         return this.raw.solver_contact_dist(i);
+     }
+ 
++    /** Signed gap at current body poses, including skins, along the solver normal. */
++    public solverContactSeparation(i: number): number {
++        return this.raw.solver_contact_separation(this.bodies.raw, i);
++    }
++
+     /**
+      * The friction coefficient applied to this manifold's solver contacts. It is combined
+      * once per manifold, so every solver contact of this manifold shares it.
 diff --git a/bindings/typescript/src.ts/pipeline/physics_hooks.ts b/bindings/typescript/src.ts/pipeline/physics_hooks.ts
 index 20e12ad9..c6fb352b 100644
 --- a/bindings/typescript/src.ts/pipeline/physics_hooks.ts
@@ -122,6 +138,28 @@ index 9a95f0d5..4a7e1264 100644
      // pub fn jointConfigureMotorModel(
      //     &mut self,
      //     handle: FlatHandle,
+diff --git a/bindings/typescript/src/geometry/narrow_phase.rs b/bindings/typescript/src/geometry/narrow_phase.rs
+index 22d78a5c..7b97a8f9 100644
+--- a/bindings/typescript/src/geometry/narrow_phase.rs
++++ b/bindings/typescript/src/geometry/narrow_phase.rs
+@@ -324,6 +324,17 @@ impl RawContactManifold {
+         }
+     }
+ 
++    /// Signed separation at the bodies' current poses, including contact skins.
++    pub fn solver_contact_separation(&self, bodies: &RawRigidBodySet, i: usize) -> Real {
++        unsafe {
++            let data = &(*self.0).data;
++            data.solver_contacts.get(i).map_or(0.0, |c| {
++                let (p1, p2) = data.solver_contact_world_points(c, &bodies.0);
++                (p2 - p1).dot(data.normal)
++            })
++        }
++    }
++
+     // Friction and restitution are combined once per manifold, so they are read for the
+     // whole manifold rather than per solver contact.
+     pub fn friction(&self) -> Real {
 diff --git a/crates/rapier3d/tests/ccd_default_vs_fixed.rs b/crates/rapier3d/tests/ccd_default_vs_fixed.rs
 index 1158fc90..cd56108f 100644
 --- a/crates/rapier3d/tests/ccd_default_vs_fixed.rs

@@ -444,8 +444,9 @@ separate items also enable discrete filtering for release clearance.
 `human/equipment.ts` places initial separate equipment in the same anatomical frame as
 compound holdings. It attaches only the initial hand; subsequent grips require physical reach.
 
-The engine also exposes unaveraged contact manifolds for model/diagnostic use. Signed gaps and
-normal-motion rows distinguish predicted contact, penetration, sliding and separation. The bearing
+The engine also exposes unaveraged contact manifolds for model/diagnostic use. Signed gaps are
+reconstructed from current body poses and solver anchors, rather than the narrow phase's cached
+distance. Normal-motion rows distinguish predicted contact, penetration, sliding and separation. The bearing
 controller carries ground wrenches from the patch's force reference independently of the point
 whose motion it tracks. [Contact motion](reference/contact-motion.md) records the invariant and
 geometry checks; the staged riser's predicted support model still needs replacement.

@@ -11,9 +11,10 @@ control is measured separately in the [common battery](control-foundation.md).
 - Upstream commit: `b716d375efc0201003f0cd9ef7168eee0b62c177`, tag `js-v0.21.0`.
 - Patch: `vendor/rapier/auto-rpg.patch`. It adds signed motor bounds with symmetric defaults,
   last-substep motor/limit/locked-axis impulse reads, whole-step motor impulse, multibody setters,
-  and CCD-only pair filtering that preserves ordinary contact recycling.
-- Package version: `0.21.0-auto-rpg.3`.
-- Archive SHA256: `31ca414ad12dff1d55d8c0ad7a954238d62043d5041e34c03bb95d3b83ac4d3d`.
+  CCD-only pair filtering that preserves ordinary contact recycling, and current-pose
+  solver contact separation.
+- Package version: `0.21.0-auto-rpg.4`.
+- Archive SHA256: `58ff3f5e80911ceefd46ff7d03fb77858d54d6c0062fb3c44229fb7b045e8676`.
 - Build toolchain: Rust 1.97.1, Node 24.19.0; wasm-pack 0.12.1 and wasm-bindgen 0.2.129 from
   the upstream lockfiles. The build remaps source/cache paths and writes declarations with LF.
 - Installation: package metadata and lockfile name the same archive; SHA512 integrity is
@@ -121,3 +122,14 @@ Validation of `.2`: `npm ci --offline --no-audit --no-fund`, `npm run check`, `n
 and the full suite (679 tests: 676 pass, no failures, three existing TODOs). The baseline replay
 at `research/runs/control-foundation/effort-baseline-v2` matches all 138 preserved stock physical
 records, excluding wall-clock timing. The previously pending delivered-torque regression passes.
+
+The `.4` read-only binding corrects the model port?s cached gap, as recorded in
+[contact motion](contact-motion.md#current-pose-separation). Two managed rebuild directories
+produce the identical archive above; offline `npm ci` installs it. Adapter revision 5 exposes
+the current-pose reading. The installed CJS entry SHA256 is
+`b606f739d3b53c5e774308dc4c566d83616951e08063e81a18a8d798f9c64762`.
+Validation of `.4`: 738 tests (736 pass, no failures, two existing TODOs), type checking and
+production build pass. The three package-parity bouts retain the digests above. All 138
+baseline records equal stock after excluding timing, in
+`research/runs/control-foundation/contact-gap-baseline-v4`; archived source content SHA256
+`7d674f595a32705decd1b5b11d9623011f02ffeef1450b6b9461b7f624e978ae`.

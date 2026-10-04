@@ -3,18 +3,19 @@ import assert from "node:assert/strict";
 import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { Scene } from "@babylonjs/core/scene.js";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode.js";
-import { Quaternion } from "@babylonjs/core/Maths/math.vector.js";
+import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { contactMotionRows } from "../src/core/control/contact-motion.ts";
 import { freshEngine } from "./harness/core-stand.mjs";
 
-async function capsule({ gap = 0, gravity = true } = {}) {
+async function capsule({ gap = 0, gravity = true, sphere = false } = {}) {
   const rendering = new NullEngine(), scene = new Scene(rendering);
   const physics = (await freshEngine()).createPhysics({ hz: 120, gravity });
   physics.addFixedBox([0, -0.5, 0], [5, 1, 5]);
   const node = new TransformNode("capsule", scene);
   node.position.set(0, 0.05 + gap, 0); node.rotationQuaternion = Quaternion.Identity();
-  const body = physics.addBody(node, [{ kind: "capsule", from: [0, 0, -0.3], to: [0, 0, 0.3], radius: 0.05 }], {
-    mass: 1, centre: [0, 0, 0], moments: [0.04, 0.04, 0.0005], orientation: Quaternion.Identity(),
+  const body = physics.addBody(node, [sphere ? { kind: "sphere", centre: [0, 0, 0], radius: 0.05 }
+    : { kind: "capsule", from: [0, 0, -0.3], to: [0, 0, 0.3], radius: 0.05 }], {
+    mass: 1, centre: [0, 0, 0], moments: sphere ? [0.001, 0.001, 0.001] : [0.04, 0.04, 0.0005], orientation: Quaternion.Identity(),
   });
   return { body, physics, node, dispose() { physics.dispose(); scene.dispose(); rendering.dispose(); } };
 }
@@ -93,5 +94,26 @@ test("dynamic contact manifolds retain body identity and opposite normal convent
     assert.deepEqual(lowerRead[0].points, upperRead[0].points);
     assert.equal(lowerRead[0].impulse, upperRead[0].impulse);
     assert.ok(lowerRead[0].impulse > 0);
+  } finally { f.dispose(); }
+});
+
+test("solver contact gaps follow current motion through settling and lift-off", async () => {
+  const f = await capsule({ gap: 0.01, sphere: true });
+  try {
+    let readings = 0;
+    let lifted = false;
+    for (let step = 0; step < 130; step++) {
+      if (step === 120) f.body.applyImpulse(new Vector3(0, 0.1, 0), f.node.position);
+      f.physics.step(1 / 120);
+      for (const manifold of f.physics.contactManifoldsOf(f.body)) for (const point of manifold.points) {
+        const gap = f.node.position.y - 0.05;
+        assert.ok(Math.abs(point.distance - gap) < 2e-6,
+          `step ${step}: reported gap ${point.distance}, current surface height ${gap}`);
+        readings++;
+        if (step > 120 && point.distance > 0) lifted = true;
+      }
+    }
+    assert.ok(readings > 100);
+    assert.ok(lifted, "a retained contact reports separation while lifting");
   } finally { f.dispose(); }
 });

@@ -39,6 +39,10 @@ uses this vendored package. The package layout remains compatible with the bench
 - **CCD-only pair filtering** (`ActiveHooks.FILTER_CCD_PAIRS`) calls the pair filter for sweeps
   without disabling ordinary contact recycling. It lets the adapter apply connected-pair
   exclusions to continuous collision detection; see [grip clearance](../../docs/reference/grip-clearance.md).
+- **Current-pose contact separation** (`solverContactSeparation`) resolves the solver's two
+  anchors through the current body poses and projects their separation onto its normal.
+  `solverContactDist` retains its upstream meaning: a cached distance from the last full
+  contact update. Neither reading changes contact solving.
 - Rapier's own test of the bounds (`motor_force_bounds_are_signed_and_max_force_keeps_them_symmetric`,
   `generic_joint.rs`) passes.
 
