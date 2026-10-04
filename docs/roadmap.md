@@ -23,6 +23,15 @@ building on it.
 
 All of it on a physically based core, humans first ([architecture](architecture.md)).
 
+## Next phase
+
+[A shared physical foundation for AI and gameplay](plans/2026-10-04-control-foundation.md):
+establish the corrected actuator baseline, separate the physical body from its controller,
+and prove that different controllers can use the same research and gameplay environment.
+Early demonstrations exercise a two-handed bar and a weapon-space strike/block before expanding
+the reference controller. Recovery, either-hand attack/defense, independent two-item use and
+shared two-handed items are its capability gates; the reference control stack remains optional.
+
 ## Open items
 
 ### The AI

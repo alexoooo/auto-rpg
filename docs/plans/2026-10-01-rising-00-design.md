@@ -1,6 +1,8 @@
 # Rising: the design, and the order it lands in
 
 This is the design of what a body does once it is down, and the index of the plans that build it.
+The [control-foundation phase](2026-10-04-control-foundation.md) governs the next work: recovery
+uses its shared physical and motion contracts, while staged rising is one replaceable controller.
 Each plan lands green by itself and is deleted as it lands; this file is deleted with the last of
 them. Down as a reading of the body, sub-minds with lying still, and the bearing solve split from
 the stance have landed; so has the staged riser, to the feet, with the lab's choice of it. It misses the battery's bar (`docs/reference/rising.md#staged`), so the rules wait on a
