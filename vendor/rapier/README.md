@@ -10,6 +10,9 @@ The reproduction and parity results are in
   bindings 0.21.0).
 - `build.sh`: Rapier's own build pipeline for the one variant the core uses, from a clone of
   Rapier at the tag with the patch applied, to the tarball.
+- `rustc-wrapper.cjs`: gives crates stable package/version/target/feature identities instead of
+  Cargo's checkout-dependent metadata. This affects symbol names and constant layout, not
+  compiler optimization or the physics configuration. It is scoped to this pinned build.
 - `dimforge-rapier3d-simd-compat-<version>.tgz`: the built package. `npm ci` installs it, so
   nothing here needs Rust unless the patch or the tag changes.
 
@@ -33,6 +36,9 @@ uses this vendored package. The package layout remains compatible with the bench
   have no effort readback. This is signed impulse, not work or an absolute effort integral.
 - A motor's force and impulse are the ones applied to the joint's first body, the parent: a
   negative force turns the child toward the axis's positive sense.
+- **CCD-only pair filtering** (`ActiveHooks.FILTER_CCD_PAIRS`) calls the pair filter for sweeps
+  without disabling ordinary contact recycling. It lets the adapter apply connected-pair
+  exclusions to continuous collision detection; see [grip clearance](../../docs/reference/grip-clearance.md).
 - Rapier's own test of the bounds (`motor_force_bounds_are_signed_and_max_force_keeps_them_symmetric`,
   `generic_joint.rs`) passes.
 
@@ -51,6 +57,8 @@ The work tree (Rapier's source, its packages and its Rust target, a few GB) defa
 `RAPIER_SOURCE` can name a local source mirror instead of GitHub. The tag must resolve to the
 pinned commit. The script resets only a work tree bearing its own marker and refuses a symlinked
 source directory or an existing unmanaged tree. Do not use a development checkout as its work tree.
+The script remaps diagnostic source paths and uses the metadata wrapper for the WASM build;
+both are needed to reproduce its bytes in another directory.
 
 ## Changing it
 

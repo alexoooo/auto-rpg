@@ -415,23 +415,58 @@ has tactics of its own:
 
 `core/equipment.ts` constructs one separately simulated item with named rigid grip frames.
 It owns no controller. Capture checks current position/orientation error against explicit task
-tolerances; it never places a hand or item. Release preserves body motion and restores collision
-eligibility. The engine's persistent grip slots restore attachments with physics snapshots,
+tolerances; it joins the current pose without alignment correction. The desired frames remain
+in the model, while observation and dynamics read actual captured frames from the saved joint.
+Release preserves body motion. A former grip pair
+that still overlaps stays excluded until its shapes clear; its saved exclusion then ends. The engine's persistent grip slots restore attachments with physics snapshots,
 including after release and regrip. Detached item observations retain identity and collider
 indices. The trusted construction handle carries rendering and physics resources.
 
 This representation is exercised by mechanical fixtures, including a closed loop, and does not
-replace the game's compound held items. Character controls, damage attribution and the comparison
+replace the game's compound held items. Reference-fighter controls, damage attribution and the comparison
 against compound release are still open. See [the grip record](reference/equipment-grips.md).
+`build/articulated-mass.ts` supplies floating-body impact mobility with separate items and
+active grips. It projects mass-whitened velocity constraints, including redundant loops,
+and recomputes attachment rank after release. [Mechanical checks](reference/constraint-mass.md)
+cover both grips and either release. The game damage path retains the existing tree model.
+`build/coupled-dynamics.ts` extends floating-tree acceleration dynamics with independent item
+coordinates, active grips and item gyroscopic loads. It accepts explicit external wrenches and
+fixed-body constraints, reports constraint rank/residual, and changes no physical state.
+The allocating diagnostic model serves the experimental equipment tracker; the game's reference
+fighter retains its existing per-step solve.
 Separate equipment can explicitly request moving-body CCD at construction. The default is
 unchanged; [collision probes](reference/collision-ccd.md) exercise linear and rotational sweeps
-against a thin moving defense. The pinned engine's automatic fixed-collider CCD is distinct.
+against a thin moving defense. The pinned engine's automatic fixed-collider CCD is distinct. Joint and active-grip exclusions
+also pass through the contact hook so continuous sweeps honor them. The pinned JavaScript
+binding invokes hooks only through an event queue, which the adapter owns and disposes.
+The vendor's CCD-only hook flag preserves ordinary contact recycling on anatomical joints;
+separate items also enable discrete filtering for release clearance.
+`human/equipment.ts` places initial separate equipment in the same anatomical frame as
+compound holdings. It attaches only the initial hand; subsequent grips require physical reach.
 
 The engine also exposes unaveraged contact manifolds for model/diagnostic use. Signed gaps and
 normal-motion rows distinguish predicted contact, penetration, sliding and separation. The bearing
 controller carries ground wrenches from the patch's force reference independently of the point
 whose motion it tracks. [Contact motion](reference/contact-motion.md) records the invariant and
 geometry checks; the staged riser's predicted support model still needs replacement.
+
+An independent policy can control separate equipment through an explicitly granted
+`mind/equipment-port.ts` capability. It receives immutable item/grip descriptions and detached
+observations. `BodyAction` combines actuator commands with capture/release requests; the host
+validates and copies the whole request before applying any component. Unknown or ungranted grips
+cannot partially apply an action, and capture still requires geometric reachability. Physics
+snapshots own attachment state, while the body's saved policy state owns its decisions. The
+reference fighter's equipment integration is still separate work.
+
+`control/tasks.ts` describes joint trajectories and named segment/item point and orientation
+objectives with velocity and acceleration. Position alone adds no orientation constraint.
+`mind/motion.ts` validates a policy's full request before grip actions and supplies one owner of
+actuator output. Its optional `wholeBodyTracking` uses the coupled model and bounded weighted
+acceleration tracking, with explicit residual and observed-error reports. Contact and joint-stop
+reactions are not predicted. The [pinned fixtures](reference/motion-tracking.md) exercise independent
+items and a shared bar through capture, motion, obstacle contact and either release. They use no
+assist and replay through the body's ordinary saved state. This tracker is not the standing or
+recovery controller, and its allocating model path still needs optimization before game adoption.
 
 ## Research environments
 

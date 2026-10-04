@@ -5,6 +5,7 @@ import { uprightness } from "./control/ground.ts";
 import { centreOfToRef } from "./control/support.ts";
 import type { MuscleDriver } from "./muscle/driver.ts";
 import type { Senses } from "./mind/senses.ts";
+import type { EquipmentObservation } from "./mind/equipment-port.ts";
 import type { Vec3 } from "./spec/quantity.ts";
 import { deepFreeze } from "./state.ts";
 import type { World } from "./world.ts";
@@ -23,6 +24,8 @@ export interface BodyObservation {
   readonly time: number;
   readonly level: MuscleDriver["level"];
   readonly model: string;
+  /** Only equipment granted to this controller; absent when no equipment port is configured. */
+  readonly equipment?: readonly EquipmentObservation[];
   readonly centre: Vec3;
   readonly head: Vec3 | null;
   readonly height: number;
@@ -80,7 +83,8 @@ export function centreReading(built: BuiltBody, name: string): { centre: Vector3
 const tuple = (v: { readonly x: number; readonly y: number; readonly z: number }): Vec3 => [v.x, v.y, v.z];
 
 /** Snapshot on demand, including current joint motion even while the muscles are idle. */
-export function observeBody(built: BuiltBody, muscles: MuscleDriver, world: World, senses: () => Senses): () => BodyObservation {
+export function observeBody(built: BuiltBody, muscles: MuscleDriver, world: World, senses: () => Senses,
+  equipment?: () => readonly EquipmentObservation[]): () => BodyObservation {
   const read = physicalReading(built), p = new Vector3(), v = new Vector3();
   const spins = new Map([...built.segments.values()].map((part) => [part, new Vector3()]));
   const trackers = [...built.joints.values()].map((joint) => ({ joint, tracker: jointTracker(joint) }));
@@ -107,6 +111,7 @@ export function observeBody(built: BuiltBody, muscles: MuscleDriver, world: Worl
       pairs: contact.pairs.map((pair) => ({ ...pair, point: [...pair.point] as Vec3, normal: [...pair.normal] as Vec3 })),
     })));
     return deepFreeze({ time: world.time, level: muscles.level, model: built.spec.model,
+      ...(equipment ? { equipment: equipment() } : {}),
       centre: tuple(physical.centre), head: built.segments.has("head") ? tuple(physical.head) : null,
       height: physical.height, down: physical.down, segments, joints, contacts,
       senses: { time: external.time, side: external.side, out: external.out, others: external.others.map((other) => ({

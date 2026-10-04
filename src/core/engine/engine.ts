@@ -127,8 +127,12 @@ export interface EngineJoint {
 /** A registered rigid attachment; releasing it preserves both bodies and their velocities. */
 export interface EngineGrip {
   readonly attached: boolean;
-  /** Join the declared local frames. The caller first establishes geometric reachability. */
-  attach(): void;
+  /** The pair is excluded while attached, or after release until its shapes clear one another. */
+  readonly collisionSuppressed: boolean;
+  /** Join the supplied local frames, or the registered ones. The caller establishes reachability. */
+  attach(frames?: Omit<JointFrames, "limits">): void;
+  /** Actual local attachment geometry, read from the saved physics joint; null when detached. */
+  frames(): Omit<JointFrames, "limits"> | null;
   release(): void;
   /** Remove the slot as well as its attachment; invalidates snapshots with that slot. */
   dispose(): void;

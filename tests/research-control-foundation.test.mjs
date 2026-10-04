@@ -64,13 +64,22 @@ test("a physical strike repeats on fresh worlds and a missing target does not sc
 });
 
 test("workers preserve task order, report unsupported tasks and terminate on a failed job", async () => {
-  const jobs = foundationJobs({ suite: "bar", models: ["workshop-fighter"], samples: 1 });
+  const jobs = foundationJobs({ suite: "integrated", models: ["workshop-fighter"], samples: 1 });
   const rows = await runFoundation(jobs, { workers: 2 });
   assert.deepEqual(rows.map((r) => r.job), jobs);
   assert.ok(rows.every((r) => r.result.status === "unsupported"));
   const summary = summarizeFoundation(rows);
   assert.deepEqual(summary.cells.map((c) => [c.measured, c.unsupported, c.success]), [[0, 1, null], [0, 1, null]]);
   await assert.rejects(runFoundation([{ task: "unknown" }], { workers: 1 }), /unknown foundation task/);
+});
+
+test("the common bar runner measures each release separately and replays its loaded branch", async () => {
+  const jobs = foundationJobs({ suite: "bar", models: ["workshop-fighter"], samples: 1, actuation: "directional" });
+  assert.deepEqual(jobs.map((j) => [j.held, j.release]), [["shared-club", "left"], ["shared-club", "right"]]);
+  const rows = await runFoundation(jobs, { workers: 2 });
+  assert.ok(rows.every((r) => r.result.outcome.success && r.result.outcome.replayExact));
+  assert.ok(rows.every((r) => r.result.physical.assistForceIntegralNs === 0));
+  assert.deepEqual(summarizeFoundation(rows).cells.map((c) => [c.success.successes, c.success.count]), [[1, 1], [1, 1]]);
 });
 
 test("guard differences compare the same side and start and recovery excludes shoves held", () => {

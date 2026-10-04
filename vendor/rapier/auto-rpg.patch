@@ -12,6 +12,19 @@ index ce0eec04..c397c2cf 100644
 +        "wasm-opt@1.4.0": true
      }
  }
+diff --git a/bindings/typescript/src.ts/pipeline/physics_hooks.ts b/bindings/typescript/src.ts/pipeline/physics_hooks.ts
+index 20e12ad9..c6fb352b 100644
+--- a/bindings/typescript/src.ts/pipeline/physics_hooks.ts
++++ b/bindings/typescript/src.ts/pipeline/physics_hooks.ts
+@@ -5,6 +5,8 @@ export enum ActiveHooks {
+     NONE = 0,
+     FILTER_CONTACT_PAIRS = 0b0001,
+     FILTER_INTERSECTION_PAIRS = 0b0010,
++    /** Contact-pair filtering for continuous sweeps only, preserving ordinary contact recycling. */
++    FILTER_CCD_PAIRS = 0b1000,
+     // MODIFY_SOLVER_CONTACTS = 0b0100, /* Not supported yet in JS. */
+ }
+ 
 diff --git a/bindings/typescript/src/dynamics/impulse_joint.rs b/bindings/typescript/src/dynamics/impulse_joint.rs
 index d74c6aeb..0e60dced 100644
 --- a/bindings/typescript/src/dynamics/impulse_joint.rs
@@ -109,6 +122,94 @@ index 9a95f0d5..4a7e1264 100644
      // pub fn jointConfigureMotorModel(
      //     &mut self,
      //     handle: FlatHandle,
+diff --git a/crates/rapier3d/tests/ccd_default_vs_fixed.rs b/crates/rapier3d/tests/ccd_default_vs_fixed.rs
+index 1158fc90..cd56108f 100644
+--- a/crates/rapier3d/tests/ccd_default_vs_fixed.rs
++++ b/crates/rapier3d/tests/ccd_default_vs_fixed.rs
+@@ -39,7 +39,9 @@ impl Harness {
+         }
+     }
+ 
+-    fn step(&mut self) {
++    fn step(&mut self) { self.step_with_hooks(&()); }
++
++    fn step_with_hooks(&mut self, hooks: &dyn PhysicsHooks) {
+         self.pipeline.step(
+             self.gravity,
+             &self.params,
+@@ -52,7 +54,7 @@ impl Harness {
+             &mut self.multibody_joints,
+             &mut self.soft_bodies,
+             &mut self.ccd,
+-            &(),
++            hooks,
+             &(),
+         );
+     }
+@@ -372,3 +374,50 @@ fn kinematic_not_a_default_target() {
+         h.x(body)
+     );
+ }
++
++#[derive(Default)]
++struct RejectSweep(std::sync::atomic::AtomicUsize);
++impl PhysicsHooks for RejectSweep {
++    fn filter_contact_pair(&self, _: &PairFilterContext) -> Option<SolverFlags> {
++        self.0.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
++        None
++    }
++}
++
++#[test]
++fn ccd_only_hook_filters_sweeps() {
++    let mut h = Harness::new();
++    insert_thin_fixed_wall(&mut h);
++    let body = insert_fast_dynamic(&mut h, false);
++    let collider = h.bodies[body].colliders()[0];
++    h.colliders[collider].set_active_hooks(ActiveHooks::FILTER_CCD_PAIRS);
++    let hooks = RejectSweep::default();
++    h.step_with_hooks(&hooks);
++    assert!(hooks.0.load(std::sync::atomic::Ordering::Relaxed) > 0);
++    assert!(h.x(body) > 0.0, "the excluded wall clamped the sweep");
++}
++
++#[test]
++fn ccd_only_hook_preserves_discrete_contacts_and_recycling() {
++    let run = |flags| {
++        let mut h = Harness::new();
++        h.gravity = Vector::new(0.0, -9.81, 0.0);
++        h.colliders.insert(ColliderBuilder::cuboid(5.0, 0.5, 5.0)
++            .translation(Vector::new(0.0, -0.5, 0.0)));
++        let body = h.bodies.insert(RigidBodyBuilder::dynamic()
++            .translation(Vector::new(0.0, 1.0, 0.0)).can_sleep(false));
++        h.colliders.insert_with_parent(ColliderBuilder::cuboid(0.5, 0.5, 0.5)
++            .active_hooks(flags), body, &mut h.bodies);
++        let hooks = RejectSweep::default();
++        let mut trace = Vec::new();
++        for _ in 0..240 {
++            h.step_with_hooks(&hooks);
++            trace.push((*h.bodies[body].position(), h.bodies[body].linvel()));
++        }
++        assert_eq!(hooks.0.load(std::sync::atomic::Ordering::Relaxed), 0,
++            "a CCD-only hook was called for a discrete contact");
++        assert!((h.bodies[body].translation().y - 0.5).abs() < 0.01);
++        trace
++    };
++    assert_eq!(run(ActiveHooks::empty()), run(ActiveHooks::FILTER_CCD_PAIRS));
++}
+diff --git a/src/dynamics/ccd/sweeps.rs b/src/dynamics/ccd/sweeps.rs
+index 3f576afd..6a112080 100644
+--- a/src/dynamics/ccd/sweeps.rs
++++ b/src/dynamics/ccd/sweeps.rs
+@@ -66,7 +66,7 @@ fn pair_filtered_out_by_hooks(
+     bh2: Option<RigidBodyHandle>,
+ ) -> bool {
+     let active_hooks = co1.flags.active_hooks | co2.flags.active_hooks;
+-    if !active_hooks.contains(ActiveHooks::FILTER_CONTACT_PAIRS) {
++    if !active_hooks.intersects(ActiveHooks::FILTER_CONTACT_PAIRS | ActiveHooks::FILTER_CCD_PAIRS) {
+         return false;
+     }
+     let context = PairFilterContext {
 diff --git a/src/dynamics/joint/generic_joint.rs b/src/dynamics/joint/generic_joint.rs
 index b1c6d265..8b9e7fb9 100644
 --- a/src/dynamics/joint/generic_joint.rs
@@ -482,6 +583,35 @@ index f38c2e54..5e37b028 100644
          }
  
          /*
+diff --git a/src/geometry/narrow_phase/pair_update.rs b/src/geometry/narrow_phase/pair_update.rs
+index f4cc5de4..8e999d3e 100644
+--- a/src/geometry/narrow_phase/pair_update.rs
++++ b/src/geometry/narrow_phase/pair_update.rs
+@@ -120,7 +120,8 @@ pub(super) fn process_pair(
+             let recycle_safe = ColliderChanges::IN_MODIFIED_SET
+                 | ColliderChanges::POSITION
+                 | ColliderChanges::LOCAL_MASS_PROPERTIES;
+-            let hooks_involved = !(co1.flags.active_hooks | co2.flags.active_hooks).is_empty();
++            let hooks_involved = !((co1.flags.active_hooks | co2.flags.active_hooks)
++                & !ActiveHooks::FILTER_CCD_PAIRS).is_empty();
+ 
+             if ((co1.changes | co2.changes) & !recycle_safe).is_empty() && !hooks_involved {
+                 let pos12 = co1.pos.inv_mul(&co2.pos);
+diff --git a/src/pipeline/physics_hooks.rs b/src/pipeline/physics_hooks.rs
+index a4178e46..065482b5 100644
+--- a/src/pipeline/physics_hooks.rs
++++ b/src/pipeline/physics_hooks.rs
+@@ -224,6 +224,10 @@ bitflags::bitflags! {
+         ///
+         /// Lets you modify contact properties (friction, restitution, etc.) before solving.
+         const MODIFY_SOLVER_CONTACTS = 0b0100;
++
++        /// Calls the contact-pair filter for continuous sweeps only.
++        /// Ordinary contacts and their recycling retain their default behavior.
++        const FILTER_CCD_PAIRS = 0b1000;
+     }
+ }
+ impl Default for ActiveHooks {
 diff --git a/src/pipeline/physics_pipeline/substep.rs b/src/pipeline/physics_pipeline/substep.rs
 index 913cc7ac..3906fbc5 100644
 --- a/src/pipeline/physics_pipeline/substep.rs

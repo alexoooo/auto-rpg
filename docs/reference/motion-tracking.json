@@ -1,0 +1,1597 @@
+{
+  "manifest": {
+    "protocol": 2,
+    "started": "2026-10-04T22:43:40.792Z",
+    "options": {
+      "suite": "bar",
+      "split": "development",
+      "samples": 2,
+      "from": 0,
+      "hz": 120,
+      "actuation": "directional"
+    },
+    "workers": 1,
+    "harness": "Node, core world, per-task arena/stand fixtures",
+    "node": "v24.19.0",
+    "engine": "rapier",
+    "package": {
+      "version": "0.21.0-auto-rpg.3",
+      "resolved": "file:vendor/rapier/dimforge-rapier3d-simd-compat-0.21.0-auto-rpg.3.tgz",
+      "integrity": "sha512-vyBcr3nHAhMgzW2jDTdOLs08pymbGmcoxDQgS5HlrUEs7MDQ+kGzkf9Mrz6cA68u8YcFISqhdljMZBNdlrlGpw==",
+      "entrySha256": "a1fa07eb651dfa34a44ff68fa1059ac32c8d366fb18efcf0e9b965d9f051d618"
+    },
+    "source": {
+      "git": "5aa5c8457ccd1017ab2cf20c272c29a00b644a25",
+      "content": "503c393fe2f44d3b0912f6815de6431851e8df4d455bcc5fa16fd9034e964a50",
+      "archive": "source.json.gz",
+      "archiveSha256": "bc8b68ce2d333d4a6090b6e871718feddff9b9b403b4813194c11586b7f0aa44"
+    },
+    "sensing": "existing fighter senses; stationary blow offset disclosed at commitment",
+    "action": "existing fighter skills and staged-rise/lie",
+    "policyPeriodSteps": 1,
+    "assists": {
+      "rootBalancePercent": 0,
+      "weapon": false
+    },
+    "unavailable": [
+      "two-handed items",
+      "grip release",
+      "integrated recovery/combat",
+      "moving isolated targets",
+      "actuator work",
+      "contact penetration"
+    ],
+    "jobs": [
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "workshop-fighter",
+        "held": "shared-club",
+        "task": "bar",
+        "seed": 0,
+        "release": "left",
+        "offset": 0.0011803398677147925,
+        "watchSeconds": 12,
+        "checkpointSeconds": 2,
+        "sampleHz": 120,
+        "captureSeconds": 2,
+        "trackingTolerance": 0.03,
+        "gripTolerance": 0.002,
+        "id": "e54679c128e66b54a2efe8551844dd3531b8b1053b6a9eea84ecd5ae1878d086"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "workshop-fighter",
+        "held": "shared-club",
+        "task": "bar",
+        "seed": 0,
+        "release": "right",
+        "offset": 0.0011803398677147925,
+        "watchSeconds": 12,
+        "checkpointSeconds": 2,
+        "sampleHz": 120,
+        "captureSeconds": 2,
+        "trackingTolerance": 0.03,
+        "gripTolerance": 0.002,
+        "id": "6f3c32fe708045f2814bfe4b5c69b7fe0fead4ea274b104c95c3706bb7006cea"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "workshop-fighter",
+        "held": "shared-club",
+        "task": "bar",
+        "seed": 1,
+        "release": "left",
+        "offset": -0.002639320264570415,
+        "watchSeconds": 12,
+        "checkpointSeconds": 2,
+        "sampleHz": 120,
+        "captureSeconds": 2,
+        "trackingTolerance": 0.03,
+        "gripTolerance": 0.002,
+        "id": "89969a8a2a77286ab2b4d05df52a1d82010338003966b7beed41e877d5d4e415"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "workshop-fighter",
+        "held": "shared-club",
+        "task": "bar",
+        "seed": 1,
+        "release": "right",
+        "offset": -0.002639320264570415,
+        "watchSeconds": 12,
+        "checkpointSeconds": 2,
+        "sampleHz": 120,
+        "captureSeconds": 2,
+        "trackingTolerance": 0.03,
+        "gripTolerance": 0.002,
+        "id": "1fffe4d4f372380cde7da37cc654a7fb5275ad4d908d1c5a5a25189ab913323f"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "workshop-rogue",
+        "held": "shared-club",
+        "task": "bar",
+        "seed": 0,
+        "release": "left",
+        "offset": 0.0011803398677147925,
+        "watchSeconds": 12,
+        "checkpointSeconds": 2,
+        "sampleHz": 120,
+        "captureSeconds": 2,
+        "trackingTolerance": 0.03,
+        "gripTolerance": 0.002,
+        "id": "756c476812f31a8006e11b0fe663513d54718ec1a2475daeabb0a6e6b864b0c1"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "workshop-rogue",
+        "held": "shared-club",
+        "task": "bar",
+        "seed": 0,
+        "release": "right",
+        "offset": 0.0011803398677147925,
+        "watchSeconds": 12,
+        "checkpointSeconds": 2,
+        "sampleHz": 120,
+        "captureSeconds": 2,
+        "trackingTolerance": 0.03,
+        "gripTolerance": 0.002,
+        "id": "2efefc027f8a56d9a562d354ceda15a04479d8676e6c5fad568c29793d83534a"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "workshop-rogue",
+        "held": "shared-club",
+        "task": "bar",
+        "seed": 1,
+        "release": "left",
+        "offset": -0.002639320264570415,
+        "watchSeconds": 12,
+        "checkpointSeconds": 2,
+        "sampleHz": 120,
+        "captureSeconds": 2,
+        "trackingTolerance": 0.03,
+        "gripTolerance": 0.002,
+        "id": "874e62cae617016b398d91bc7a9e8c81c63734fefe22806625d8917dcac0c9ea"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "workshop-rogue",
+        "held": "shared-club",
+        "task": "bar",
+        "seed": 1,
+        "release": "right",
+        "offset": -0.002639320264570415,
+        "watchSeconds": 12,
+        "checkpointSeconds": 2,
+        "sampleHz": 120,
+        "captureSeconds": 2,
+        "trackingTolerance": 0.03,
+        "gripTolerance": 0.002,
+        "id": "ce5d99ce2246e0cd7ab91a61d1666c42fb6b1a86965c0a171ffbcede92f90444"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "crypt-skeleton",
+        "held": "shared-club",
+        "task": "bar",
+        "seed": 0,
+        "release": "left",
+        "offset": 0.0011803398677147925,
+        "watchSeconds": 12,
+        "checkpointSeconds": 2,
+        "sampleHz": 120,
+        "captureSeconds": 2,
+        "trackingTolerance": 0.03,
+        "gripTolerance": 0.002,
+        "id": "76326031a210e81740d9b593d357686a1ec88000217580e68d07770270e44085"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "crypt-skeleton",
+        "held": "shared-club",
+        "task": "bar",
+        "seed": 0,
+        "release": "right",
+        "offset": 0.0011803398677147925,
+        "watchSeconds": 12,
+        "checkpointSeconds": 2,
+        "sampleHz": 120,
+        "captureSeconds": 2,
+        "trackingTolerance": 0.03,
+        "gripTolerance": 0.002,
+        "id": "42c6d57d89a840f71481edb9a00904c371deb735cd24928fb95dbf0d1880934c"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "crypt-skeleton",
+        "held": "shared-club",
+        "task": "bar",
+        "seed": 1,
+        "release": "left",
+        "offset": -0.002639320264570415,
+        "watchSeconds": 12,
+        "checkpointSeconds": 2,
+        "sampleHz": 120,
+        "captureSeconds": 2,
+        "trackingTolerance": 0.03,
+        "gripTolerance": 0.002,
+        "id": "620edc714f9d7d49a789a0c817fc058534f171c88cb68953b33136850e31a374"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "crypt-skeleton",
+        "held": "shared-club",
+        "task": "bar",
+        "seed": 1,
+        "release": "right",
+        "offset": -0.002639320264570415,
+        "watchSeconds": 12,
+        "checkpointSeconds": 2,
+        "sampleHz": 120,
+        "captureSeconds": 2,
+        "trackingTolerance": 0.03,
+        "gripTolerance": 0.002,
+        "id": "04f22c0ccef1098a258e35c7cb6e0cc35182742e8e8abbfde8f2b6ca81e21d89"
+      }
+    ]
+  },
+  "rows": [
+    {
+      "id": "e54679c128e66b54a2efe8551844dd3531b8b1053b6a9eea84ecd5ae1878d086",
+      "result": {
+        "status": "measured",
+        "configuration": {
+          "protocol": 1,
+          "split": "development",
+          "hz": 120,
+          "actuation": "directional",
+          "model": "workshop-fighter",
+          "held": "shared-club",
+          "task": "shared-bar",
+          "seed": 0,
+          "release": "left",
+          "offset": 0.0011803398677147925,
+          "watchSeconds": 12,
+          "checkpointSeconds": 2,
+          "sampleHz": 120,
+          "captureSeconds": 2,
+          "trackingTolerance": 0.03,
+          "gripTolerance": 0.002,
+          "id": "e54679c128e66b54a2efe8551844dd3531b8b1053b6a9eea84ecd5ae1878d086",
+          "settings": {
+            "capture": {
+              "distance": 0.03,
+              "rotationError": 0.02
+            },
+            "secondary": [
+              0,
+              0.12,
+              0
+            ],
+            "pose": [
+              0,
+              0.1,
+              0.4
+            ],
+            "travel": [
+              0,
+              0.08,
+              0.08
+            ],
+            "swing": 0.45,
+            "obstacle": {
+              "offset": [
+                0,
+                0.8,
+                0.75
+              ],
+              "size": [
+                0.2,
+                0.2,
+                0.05
+              ]
+            },
+            "seconds": {
+              "move": 1,
+              "swing": 2,
+              "release": 4,
+              "return": 5,
+              "finish": 7.5
+            },
+            "postureSeconds": 0.2,
+            "trackingSeconds": 0.15,
+            "armWeight": 0.03,
+            "bodyWeight": 0.3,
+            "positionWeight": 1,
+            "rotationWeight": 0.2,
+            "effortCost": 0.000001,
+            "capacity": 2
+          },
+          "engineRevision": "rapier/adapter-4/sha256:31ca414ad12dff1d55d8c0ad7a954238d62043d5041e34c03bb95d3b83ac4d3d",
+          "pin": "lowerTrunk",
+          "gravity": true,
+          "ccd": true,
+          "assists": {
+            "root": 0,
+            "weapon": false
+          },
+          "modelAccess": "coupled dynamics, anatomy and registered equipment"
+        },
+        "outcome": {
+          "steps": 1003,
+          "captured": 102,
+          "released": true,
+          "complete": true,
+          "contactSteps": 315,
+          "peakImpulse": 0.28229208290576935,
+          "movedError": 0.021023830651524987,
+          "finalError": 0.001214628166244862,
+          "peakGripGap": 0.000030634052119495716,
+          "releaseContinuous": true,
+          "pendingRelease": null,
+          "replayExact": true,
+          "success": true,
+          "digest": "3e9a140db507f462720d267eed953a5e2497f74d1b6aefe127d8a9bc78151969",
+          "stateDigest": "0d371b440a7a9641999e32eb092c53f269ee1058ee56609cc61aa143263e1958"
+        },
+        "physical": {
+          "assistForceIntegralNs": 0,
+          "assistMomentIntegralNms": 0
+        },
+        "limits": [
+          "pelvis pinned; not standing or combat",
+          "return tracks position alone",
+          "contact and joint-stop reactions are not predicted",
+          "allocating diagnostic dynamics path"
+        ]
+      }
+    },
+    {
+      "id": "6f3c32fe708045f2814bfe4b5c69b7fe0fead4ea274b104c95c3706bb7006cea",
+      "result": {
+        "status": "measured",
+        "configuration": {
+          "protocol": 1,
+          "split": "development",
+          "hz": 120,
+          "actuation": "directional",
+          "model": "workshop-fighter",
+          "held": "shared-club",
+          "task": "shared-bar",
+          "seed": 0,
+          "release": "right",
+          "offset": 0.0011803398677147925,
+          "watchSeconds": 12,
+          "checkpointSeconds": 2,
+          "sampleHz": 120,
+          "captureSeconds": 2,
+          "trackingTolerance": 0.03,
+          "gripTolerance": 0.002,
+          "id": "6f3c32fe708045f2814bfe4b5c69b7fe0fead4ea274b104c95c3706bb7006cea",
+          "settings": {
+            "capture": {
+              "distance": 0.03,
+              "rotationError": 0.02
+            },
+            "secondary": [
+              0,
+              0.12,
+              0
+            ],
+            "pose": [
+              0,
+              0.1,
+              0.4
+            ],
+            "travel": [
+              0,
+              0.08,
+              0.08
+            ],
+            "swing": 0.45,
+            "obstacle": {
+              "offset": [
+                0,
+                0.8,
+                0.75
+              ],
+              "size": [
+                0.2,
+                0.2,
+                0.05
+              ]
+            },
+            "seconds": {
+              "move": 1,
+              "swing": 2,
+              "release": 4,
+              "return": 5,
+              "finish": 7.5
+            },
+            "postureSeconds": 0.2,
+            "trackingSeconds": 0.15,
+            "armWeight": 0.03,
+            "bodyWeight": 0.3,
+            "positionWeight": 1,
+            "rotationWeight": 0.2,
+            "effortCost": 0.000001,
+            "capacity": 2
+          },
+          "engineRevision": "rapier/adapter-4/sha256:31ca414ad12dff1d55d8c0ad7a954238d62043d5041e34c03bb95d3b83ac4d3d",
+          "pin": "lowerTrunk",
+          "gravity": true,
+          "ccd": true,
+          "assists": {
+            "root": 0,
+            "weapon": false
+          },
+          "modelAccess": "coupled dynamics, anatomy and registered equipment"
+        },
+        "outcome": {
+          "steps": 1003,
+          "captured": 102,
+          "released": true,
+          "complete": true,
+          "contactSteps": 315,
+          "peakImpulse": 0.28229208290576935,
+          "movedError": 0.021023830651524987,
+          "finalError": 0.002561448993886882,
+          "peakGripGap": 0.000030634052119495716,
+          "releaseContinuous": true,
+          "pendingRelease": null,
+          "replayExact": true,
+          "success": true,
+          "digest": "48c4f2f09d1461f55aca74ea81e05be6f9594ad318bc55d506a57f8c004c1216",
+          "stateDigest": "ab25d4391660e65986bf0416ff6dc2ceaaaa68b860c1646e6397f41537a16dba"
+        },
+        "physical": {
+          "assistForceIntegralNs": 0,
+          "assistMomentIntegralNms": 0
+        },
+        "limits": [
+          "pelvis pinned; not standing or combat",
+          "return tracks position alone",
+          "contact and joint-stop reactions are not predicted",
+          "allocating diagnostic dynamics path"
+        ]
+      }
+    },
+    {
+      "id": "89969a8a2a77286ab2b4d05df52a1d82010338003966b7beed41e877d5d4e415",
+      "result": {
+        "status": "measured",
+        "configuration": {
+          "protocol": 1,
+          "split": "development",
+          "hz": 120,
+          "actuation": "directional",
+          "model": "workshop-fighter",
+          "held": "shared-club",
+          "task": "shared-bar",
+          "seed": 1,
+          "release": "left",
+          "offset": -0.002639320264570415,
+          "watchSeconds": 12,
+          "checkpointSeconds": 2,
+          "sampleHz": 120,
+          "captureSeconds": 2,
+          "trackingTolerance": 0.03,
+          "gripTolerance": 0.002,
+          "id": "89969a8a2a77286ab2b4d05df52a1d82010338003966b7beed41e877d5d4e415",
+          "settings": {
+            "capture": {
+              "distance": 0.03,
+              "rotationError": 0.02
+            },
+            "secondary": [
+              0,
+              0.12,
+              0
+            ],
+            "pose": [
+              0,
+              0.1,
+              0.4
+            ],
+            "travel": [
+              0,
+              0.08,
+              0.08
+            ],
+            "swing": 0.45,
+            "obstacle": {
+              "offset": [
+                0,
+                0.8,
+                0.75
+              ],
+              "size": [
+                0.2,
+                0.2,
+                0.05
+              ]
+            },
+            "seconds": {
+              "move": 1,
+              "swing": 2,
+              "release": 4,
+              "return": 5,
+              "finish": 7.5
+            },
+            "postureSeconds": 0.2,
+            "trackingSeconds": 0.15,
+            "armWeight": 0.03,
+            "bodyWeight": 0.3,
+            "positionWeight": 1,
+            "rotationWeight": 0.2,
+            "effortCost": 0.000001,
+            "capacity": 2
+          },
+          "engineRevision": "rapier/adapter-4/sha256:31ca414ad12dff1d55d8c0ad7a954238d62043d5041e34c03bb95d3b83ac4d3d",
+          "pin": "lowerTrunk",
+          "gravity": true,
+          "ccd": true,
+          "assists": {
+            "root": 0,
+            "weapon": false
+          },
+          "modelAccess": "coupled dynamics, anatomy and registered equipment"
+        },
+        "outcome": {
+          "steps": 1003,
+          "captured": 102,
+          "released": true,
+          "complete": true,
+          "contactSteps": 315,
+          "peakImpulse": 0.2767369765788317,
+          "movedError": 0.02115486522875014,
+          "finalError": 0.0011846316407751007,
+          "peakGripGap": 0.000030172705100318148,
+          "releaseContinuous": true,
+          "pendingRelease": null,
+          "replayExact": true,
+          "success": true,
+          "digest": "19fecc3d7f3fdadeaadf4b772f13330c9d1b2d61629c90d7dde24e3ead8ea89b",
+          "stateDigest": "6bd69d0c1f076daf974709eaa26387052ba5ea0517df1ed24d1ee7cd520c453c"
+        },
+        "physical": {
+          "assistForceIntegralNs": 0,
+          "assistMomentIntegralNms": 0
+        },
+        "limits": [
+          "pelvis pinned; not standing or combat",
+          "return tracks position alone",
+          "contact and joint-stop reactions are not predicted",
+          "allocating diagnostic dynamics path"
+        ]
+      }
+    },
+    {
+      "id": "1fffe4d4f372380cde7da37cc654a7fb5275ad4d908d1c5a5a25189ab913323f",
+      "result": {
+        "status": "measured",
+        "configuration": {
+          "protocol": 1,
+          "split": "development",
+          "hz": 120,
+          "actuation": "directional",
+          "model": "workshop-fighter",
+          "held": "shared-club",
+          "task": "shared-bar",
+          "seed": 1,
+          "release": "right",
+          "offset": -0.002639320264570415,
+          "watchSeconds": 12,
+          "checkpointSeconds": 2,
+          "sampleHz": 120,
+          "captureSeconds": 2,
+          "trackingTolerance": 0.03,
+          "gripTolerance": 0.002,
+          "id": "1fffe4d4f372380cde7da37cc654a7fb5275ad4d908d1c5a5a25189ab913323f",
+          "settings": {
+            "capture": {
+              "distance": 0.03,
+              "rotationError": 0.02
+            },
+            "secondary": [
+              0,
+              0.12,
+              0
+            ],
+            "pose": [
+              0,
+              0.1,
+              0.4
+            ],
+            "travel": [
+              0,
+              0.08,
+              0.08
+            ],
+            "swing": 0.45,
+            "obstacle": {
+              "offset": [
+                0,
+                0.8,
+                0.75
+              ],
+              "size": [
+                0.2,
+                0.2,
+                0.05
+              ]
+            },
+            "seconds": {
+              "move": 1,
+              "swing": 2,
+              "release": 4,
+              "return": 5,
+              "finish": 7.5
+            },
+            "postureSeconds": 0.2,
+            "trackingSeconds": 0.15,
+            "armWeight": 0.03,
+            "bodyWeight": 0.3,
+            "positionWeight": 1,
+            "rotationWeight": 0.2,
+            "effortCost": 0.000001,
+            "capacity": 2
+          },
+          "engineRevision": "rapier/adapter-4/sha256:31ca414ad12dff1d55d8c0ad7a954238d62043d5041e34c03bb95d3b83ac4d3d",
+          "pin": "lowerTrunk",
+          "gravity": true,
+          "ccd": true,
+          "assists": {
+            "root": 0,
+            "weapon": false
+          },
+          "modelAccess": "coupled dynamics, anatomy and registered equipment"
+        },
+        "outcome": {
+          "steps": 1003,
+          "captured": 102,
+          "released": true,
+          "complete": true,
+          "contactSteps": 315,
+          "peakImpulse": 0.2767369765788317,
+          "movedError": 0.02115486522875014,
+          "finalError": 0.0022587581848305615,
+          "peakGripGap": 0.000030172705100318148,
+          "releaseContinuous": true,
+          "pendingRelease": null,
+          "replayExact": true,
+          "success": true,
+          "digest": "8c54936e105d68865483c53485b8e019ead4d9a3299f66b2e16c52ca4ab459e2",
+          "stateDigest": "9d25dbc856ba9992a6888cca1e41d4febb08cd58ef858b7e080aeb4fc365dc68"
+        },
+        "physical": {
+          "assistForceIntegralNs": 0,
+          "assistMomentIntegralNms": 0
+        },
+        "limits": [
+          "pelvis pinned; not standing or combat",
+          "return tracks position alone",
+          "contact and joint-stop reactions are not predicted",
+          "allocating diagnostic dynamics path"
+        ]
+      }
+    },
+    {
+      "id": "756c476812f31a8006e11b0fe663513d54718ec1a2475daeabb0a6e6b864b0c1",
+      "result": {
+        "status": "measured",
+        "configuration": {
+          "protocol": 1,
+          "split": "development",
+          "hz": 120,
+          "actuation": "directional",
+          "model": "workshop-rogue",
+          "held": "shared-club",
+          "task": "shared-bar",
+          "seed": 0,
+          "release": "left",
+          "offset": 0.0011803398677147925,
+          "watchSeconds": 12,
+          "checkpointSeconds": 2,
+          "sampleHz": 120,
+          "captureSeconds": 2,
+          "trackingTolerance": 0.03,
+          "gripTolerance": 0.002,
+          "id": "756c476812f31a8006e11b0fe663513d54718ec1a2475daeabb0a6e6b864b0c1",
+          "settings": {
+            "capture": {
+              "distance": 0.03,
+              "rotationError": 0.02
+            },
+            "secondary": [
+              0,
+              0.12,
+              0
+            ],
+            "pose": [
+              0,
+              0.1,
+              0.4
+            ],
+            "travel": [
+              0,
+              0.08,
+              0.08
+            ],
+            "swing": 0.45,
+            "obstacle": {
+              "offset": [
+                0,
+                0.8,
+                0.75
+              ],
+              "size": [
+                0.2,
+                0.2,
+                0.05
+              ]
+            },
+            "seconds": {
+              "move": 1,
+              "swing": 2,
+              "release": 4,
+              "return": 5,
+              "finish": 7.5
+            },
+            "postureSeconds": 0.2,
+            "trackingSeconds": 0.15,
+            "armWeight": 0.03,
+            "bodyWeight": 0.3,
+            "positionWeight": 1,
+            "rotationWeight": 0.2,
+            "effortCost": 0.000001,
+            "capacity": 2
+          },
+          "engineRevision": "rapier/adapter-4/sha256:31ca414ad12dff1d55d8c0ad7a954238d62043d5041e34c03bb95d3b83ac4d3d",
+          "pin": "lowerTrunk",
+          "gravity": true,
+          "ccd": true,
+          "assists": {
+            "root": 0,
+            "weapon": false
+          },
+          "modelAccess": "coupled dynamics, anatomy and registered equipment"
+        },
+        "outcome": {
+          "steps": 996,
+          "captured": 95,
+          "released": true,
+          "complete": true,
+          "contactSteps": 314,
+          "peakImpulse": 0.22697771806269884,
+          "movedError": 0.017586979492311562,
+          "finalError": 0.0030134298974123733,
+          "peakGripGap": 0.00009236969583569993,
+          "releaseContinuous": true,
+          "pendingRelease": null,
+          "replayExact": true,
+          "success": true,
+          "digest": "559878bdb78dd9b77c99374ab2c1efbf8573d50dedb7fe8205f344c4007976b1",
+          "stateDigest": "71b02243ab267aad7383c13e6d70eb6a43e7eaa07d2dd355e5de2817f341c7a1"
+        },
+        "physical": {
+          "assistForceIntegralNs": 0,
+          "assistMomentIntegralNms": 0
+        },
+        "limits": [
+          "pelvis pinned; not standing or combat",
+          "return tracks position alone",
+          "contact and joint-stop reactions are not predicted",
+          "allocating diagnostic dynamics path"
+        ]
+      }
+    },
+    {
+      "id": "2efefc027f8a56d9a562d354ceda15a04479d8676e6c5fad568c29793d83534a",
+      "result": {
+        "status": "measured",
+        "configuration": {
+          "protocol": 1,
+          "split": "development",
+          "hz": 120,
+          "actuation": "directional",
+          "model": "workshop-rogue",
+          "held": "shared-club",
+          "task": "shared-bar",
+          "seed": 0,
+          "release": "right",
+          "offset": 0.0011803398677147925,
+          "watchSeconds": 12,
+          "checkpointSeconds": 2,
+          "sampleHz": 120,
+          "captureSeconds": 2,
+          "trackingTolerance": 0.03,
+          "gripTolerance": 0.002,
+          "id": "2efefc027f8a56d9a562d354ceda15a04479d8676e6c5fad568c29793d83534a",
+          "settings": {
+            "capture": {
+              "distance": 0.03,
+              "rotationError": 0.02
+            },
+            "secondary": [
+              0,
+              0.12,
+              0
+            ],
+            "pose": [
+              0,
+              0.1,
+              0.4
+            ],
+            "travel": [
+              0,
+              0.08,
+              0.08
+            ],
+            "swing": 0.45,
+            "obstacle": {
+              "offset": [
+                0,
+                0.8,
+                0.75
+              ],
+              "size": [
+                0.2,
+                0.2,
+                0.05
+              ]
+            },
+            "seconds": {
+              "move": 1,
+              "swing": 2,
+              "release": 4,
+              "return": 5,
+              "finish": 7.5
+            },
+            "postureSeconds": 0.2,
+            "trackingSeconds": 0.15,
+            "armWeight": 0.03,
+            "bodyWeight": 0.3,
+            "positionWeight": 1,
+            "rotationWeight": 0.2,
+            "effortCost": 0.000001,
+            "capacity": 2
+          },
+          "engineRevision": "rapier/adapter-4/sha256:31ca414ad12dff1d55d8c0ad7a954238d62043d5041e34c03bb95d3b83ac4d3d",
+          "pin": "lowerTrunk",
+          "gravity": true,
+          "ccd": true,
+          "assists": {
+            "root": 0,
+            "weapon": false
+          },
+          "modelAccess": "coupled dynamics, anatomy and registered equipment"
+        },
+        "outcome": {
+          "steps": 996,
+          "captured": 95,
+          "released": true,
+          "complete": true,
+          "contactSteps": 321,
+          "peakImpulse": 0.22697771806269884,
+          "movedError": 0.017586979492311562,
+          "finalError": 0.015600449349983258,
+          "peakGripGap": 0.00009236969583569993,
+          "releaseContinuous": true,
+          "pendingRelease": null,
+          "replayExact": true,
+          "success": true,
+          "digest": "0e34c93fcc7262d0a92c76447bb5babe97a0b74118cdafd136b5e1efdd4b9094",
+          "stateDigest": "494467c772b867bb5bfc78a3cfe0556e1c11f56a6deb36b7f21d7f2a3372c6a7"
+        },
+        "physical": {
+          "assistForceIntegralNs": 0,
+          "assistMomentIntegralNms": 0
+        },
+        "limits": [
+          "pelvis pinned; not standing or combat",
+          "return tracks position alone",
+          "contact and joint-stop reactions are not predicted",
+          "allocating diagnostic dynamics path"
+        ]
+      }
+    },
+    {
+      "id": "874e62cae617016b398d91bc7a9e8c81c63734fefe22806625d8917dcac0c9ea",
+      "result": {
+        "status": "measured",
+        "configuration": {
+          "protocol": 1,
+          "split": "development",
+          "hz": 120,
+          "actuation": "directional",
+          "model": "workshop-rogue",
+          "held": "shared-club",
+          "task": "shared-bar",
+          "seed": 1,
+          "release": "left",
+          "offset": -0.002639320264570415,
+          "watchSeconds": 12,
+          "checkpointSeconds": 2,
+          "sampleHz": 120,
+          "captureSeconds": 2,
+          "trackingTolerance": 0.03,
+          "gripTolerance": 0.002,
+          "id": "874e62cae617016b398d91bc7a9e8c81c63734fefe22806625d8917dcac0c9ea",
+          "settings": {
+            "capture": {
+              "distance": 0.03,
+              "rotationError": 0.02
+            },
+            "secondary": [
+              0,
+              0.12,
+              0
+            ],
+            "pose": [
+              0,
+              0.1,
+              0.4
+            ],
+            "travel": [
+              0,
+              0.08,
+              0.08
+            ],
+            "swing": 0.45,
+            "obstacle": {
+              "offset": [
+                0,
+                0.8,
+                0.75
+              ],
+              "size": [
+                0.2,
+                0.2,
+                0.05
+              ]
+            },
+            "seconds": {
+              "move": 1,
+              "swing": 2,
+              "release": 4,
+              "return": 5,
+              "finish": 7.5
+            },
+            "postureSeconds": 0.2,
+            "trackingSeconds": 0.15,
+            "armWeight": 0.03,
+            "bodyWeight": 0.3,
+            "positionWeight": 1,
+            "rotationWeight": 0.2,
+            "effortCost": 0.000001,
+            "capacity": 2
+          },
+          "engineRevision": "rapier/adapter-4/sha256:31ca414ad12dff1d55d8c0ad7a954238d62043d5041e34c03bb95d3b83ac4d3d",
+          "pin": "lowerTrunk",
+          "gravity": true,
+          "ccd": true,
+          "assists": {
+            "root": 0,
+            "weapon": false
+          },
+          "modelAccess": "coupled dynamics, anatomy and registered equipment"
+        },
+        "outcome": {
+          "steps": 997,
+          "captured": 96,
+          "released": true,
+          "complete": true,
+          "contactSteps": 314,
+          "peakImpulse": 0.23491672659292817,
+          "movedError": 0.018169246973375252,
+          "finalError": 0.003392670646274823,
+          "peakGripGap": 0.00005544206736606242,
+          "releaseContinuous": true,
+          "pendingRelease": null,
+          "replayExact": true,
+          "success": true,
+          "digest": "33a5437550fb02102ee15537c9dee00d6291a4dfe94d715459f9239c7ba69d8f",
+          "stateDigest": "68910374e40b78abe60fa82853f70cf4956554727053e154e5244ca6bfa27cca"
+        },
+        "physical": {
+          "assistForceIntegralNs": 0,
+          "assistMomentIntegralNms": 0
+        },
+        "limits": [
+          "pelvis pinned; not standing or combat",
+          "return tracks position alone",
+          "contact and joint-stop reactions are not predicted",
+          "allocating diagnostic dynamics path"
+        ]
+      }
+    },
+    {
+      "id": "ce5d99ce2246e0cd7ab91a61d1666c42fb6b1a86965c0a171ffbcede92f90444",
+      "result": {
+        "status": "measured",
+        "configuration": {
+          "protocol": 1,
+          "split": "development",
+          "hz": 120,
+          "actuation": "directional",
+          "model": "workshop-rogue",
+          "held": "shared-club",
+          "task": "shared-bar",
+          "seed": 1,
+          "release": "right",
+          "offset": -0.002639320264570415,
+          "watchSeconds": 12,
+          "checkpointSeconds": 2,
+          "sampleHz": 120,
+          "captureSeconds": 2,
+          "trackingTolerance": 0.03,
+          "gripTolerance": 0.002,
+          "id": "ce5d99ce2246e0cd7ab91a61d1666c42fb6b1a86965c0a171ffbcede92f90444",
+          "settings": {
+            "capture": {
+              "distance": 0.03,
+              "rotationError": 0.02
+            },
+            "secondary": [
+              0,
+              0.12,
+              0
+            ],
+            "pose": [
+              0,
+              0.1,
+              0.4
+            ],
+            "travel": [
+              0,
+              0.08,
+              0.08
+            ],
+            "swing": 0.45,
+            "obstacle": {
+              "offset": [
+                0,
+                0.8,
+                0.75
+              ],
+              "size": [
+                0.2,
+                0.2,
+                0.05
+              ]
+            },
+            "seconds": {
+              "move": 1,
+              "swing": 2,
+              "release": 4,
+              "return": 5,
+              "finish": 7.5
+            },
+            "postureSeconds": 0.2,
+            "trackingSeconds": 0.15,
+            "armWeight": 0.03,
+            "bodyWeight": 0.3,
+            "positionWeight": 1,
+            "rotationWeight": 0.2,
+            "effortCost": 0.000001,
+            "capacity": 2
+          },
+          "engineRevision": "rapier/adapter-4/sha256:31ca414ad12dff1d55d8c0ad7a954238d62043d5041e34c03bb95d3b83ac4d3d",
+          "pin": "lowerTrunk",
+          "gravity": true,
+          "ccd": true,
+          "assists": {
+            "root": 0,
+            "weapon": false
+          },
+          "modelAccess": "coupled dynamics, anatomy and registered equipment"
+        },
+        "outcome": {
+          "steps": 997,
+          "captured": 96,
+          "released": true,
+          "complete": true,
+          "contactSteps": 320,
+          "peakImpulse": 0.23491672659292817,
+          "movedError": 0.018169246973375252,
+          "finalError": 0.013494154960468147,
+          "peakGripGap": 0.00005544206736606242,
+          "releaseContinuous": true,
+          "pendingRelease": null,
+          "replayExact": true,
+          "success": true,
+          "digest": "6da327d78cd5c5e98d0b8a3e45f453437ec42518f61ba4a873139b5279eff6df",
+          "stateDigest": "422eb304e0a269b66707588617306c15bdad5accca915104ae322a511104e79d"
+        },
+        "physical": {
+          "assistForceIntegralNs": 0,
+          "assistMomentIntegralNms": 0
+        },
+        "limits": [
+          "pelvis pinned; not standing or combat",
+          "return tracks position alone",
+          "contact and joint-stop reactions are not predicted",
+          "allocating diagnostic dynamics path"
+        ]
+      }
+    },
+    {
+      "id": "76326031a210e81740d9b593d357686a1ec88000217580e68d07770270e44085",
+      "result": {
+        "status": "measured",
+        "configuration": {
+          "protocol": 1,
+          "split": "development",
+          "hz": 120,
+          "actuation": "directional",
+          "model": "crypt-skeleton",
+          "held": "shared-club",
+          "task": "shared-bar",
+          "seed": 0,
+          "release": "left",
+          "offset": 0.0011803398677147925,
+          "watchSeconds": 12,
+          "checkpointSeconds": 2,
+          "sampleHz": 120,
+          "captureSeconds": 2,
+          "trackingTolerance": 0.03,
+          "gripTolerance": 0.002,
+          "id": "76326031a210e81740d9b593d357686a1ec88000217580e68d07770270e44085",
+          "settings": {
+            "capture": {
+              "distance": 0.03,
+              "rotationError": 0.02
+            },
+            "secondary": [
+              0,
+              0.12,
+              0
+            ],
+            "pose": [
+              0,
+              0.1,
+              0.4
+            ],
+            "travel": [
+              0,
+              0.08,
+              0.08
+            ],
+            "swing": 0.45,
+            "obstacle": {
+              "offset": [
+                0,
+                0.8,
+                0.75
+              ],
+              "size": [
+                0.2,
+                0.2,
+                0.05
+              ]
+            },
+            "seconds": {
+              "move": 1,
+              "swing": 2,
+              "release": 4,
+              "return": 5,
+              "finish": 7.5
+            },
+            "postureSeconds": 0.2,
+            "trackingSeconds": 0.15,
+            "armWeight": 0.03,
+            "bodyWeight": 0.3,
+            "positionWeight": 1,
+            "rotationWeight": 0.2,
+            "effortCost": 0.000001,
+            "capacity": 2
+          },
+          "engineRevision": "rapier/adapter-4/sha256:31ca414ad12dff1d55d8c0ad7a954238d62043d5041e34c03bb95d3b83ac4d3d",
+          "pin": "lowerTrunk",
+          "gravity": true,
+          "ccd": true,
+          "assists": {
+            "root": 0,
+            "weapon": false
+          },
+          "modelAccess": "coupled dynamics, anatomy and registered equipment"
+        },
+        "outcome": {
+          "steps": 1001,
+          "captured": 100,
+          "released": true,
+          "complete": true,
+          "contactSteps": 292,
+          "peakImpulse": 0.10086658294312656,
+          "movedError": 0.02693813379565443,
+          "finalError": 0.01943869932491318,
+          "peakGripGap": 0.00009931084777743598,
+          "releaseContinuous": true,
+          "pendingRelease": null,
+          "replayExact": true,
+          "success": true,
+          "digest": "4dec324ca19f400af601030985a9be7d4567018d95741b397cd322a44ea87a3b",
+          "stateDigest": "42601007b0eb521dffcd35187f020021397dcbb3916218c673085d2bed5060b5"
+        },
+        "physical": {
+          "assistForceIntegralNs": 0,
+          "assistMomentIntegralNms": 0
+        },
+        "limits": [
+          "pelvis pinned; not standing or combat",
+          "return tracks position alone",
+          "contact and joint-stop reactions are not predicted",
+          "allocating diagnostic dynamics path"
+        ]
+      }
+    },
+    {
+      "id": "42c6d57d89a840f71481edb9a00904c371deb735cd24928fb95dbf0d1880934c",
+      "result": {
+        "status": "measured",
+        "configuration": {
+          "protocol": 1,
+          "split": "development",
+          "hz": 120,
+          "actuation": "directional",
+          "model": "crypt-skeleton",
+          "held": "shared-club",
+          "task": "shared-bar",
+          "seed": 0,
+          "release": "right",
+          "offset": 0.0011803398677147925,
+          "watchSeconds": 12,
+          "checkpointSeconds": 2,
+          "sampleHz": 120,
+          "captureSeconds": 2,
+          "trackingTolerance": 0.03,
+          "gripTolerance": 0.002,
+          "id": "42c6d57d89a840f71481edb9a00904c371deb735cd24928fb95dbf0d1880934c",
+          "settings": {
+            "capture": {
+              "distance": 0.03,
+              "rotationError": 0.02
+            },
+            "secondary": [
+              0,
+              0.12,
+              0
+            ],
+            "pose": [
+              0,
+              0.1,
+              0.4
+            ],
+            "travel": [
+              0,
+              0.08,
+              0.08
+            ],
+            "swing": 0.45,
+            "obstacle": {
+              "offset": [
+                0,
+                0.8,
+                0.75
+              ],
+              "size": [
+                0.2,
+                0.2,
+                0.05
+              ]
+            },
+            "seconds": {
+              "move": 1,
+              "swing": 2,
+              "release": 4,
+              "return": 5,
+              "finish": 7.5
+            },
+            "postureSeconds": 0.2,
+            "trackingSeconds": 0.15,
+            "armWeight": 0.03,
+            "bodyWeight": 0.3,
+            "positionWeight": 1,
+            "rotationWeight": 0.2,
+            "effortCost": 0.000001,
+            "capacity": 2
+          },
+          "engineRevision": "rapier/adapter-4/sha256:31ca414ad12dff1d55d8c0ad7a954238d62043d5041e34c03bb95d3b83ac4d3d",
+          "pin": "lowerTrunk",
+          "gravity": true,
+          "ccd": true,
+          "assists": {
+            "root": 0,
+            "weapon": false
+          },
+          "modelAccess": "coupled dynamics, anatomy and registered equipment"
+        },
+        "outcome": {
+          "steps": 1001,
+          "captured": 100,
+          "released": true,
+          "complete": true,
+          "contactSteps": 292,
+          "peakImpulse": 0.10086658294312656,
+          "movedError": 0.02693813379565443,
+          "finalError": 0.006616391046925318,
+          "peakGripGap": 0.00009931084777743598,
+          "releaseContinuous": true,
+          "pendingRelease": null,
+          "replayExact": true,
+          "success": true,
+          "digest": "9032ca8dc54deb5852a9fd5e85062333d6dd23827bbf950b8c4b756de884d6a4",
+          "stateDigest": "f2228ed9da2f7420e506e52135b76c5b990d0834b03f3dc8e69759c58832b14d"
+        },
+        "physical": {
+          "assistForceIntegralNs": 0,
+          "assistMomentIntegralNms": 0
+        },
+        "limits": [
+          "pelvis pinned; not standing or combat",
+          "return tracks position alone",
+          "contact and joint-stop reactions are not predicted",
+          "allocating diagnostic dynamics path"
+        ]
+      }
+    },
+    {
+      "id": "620edc714f9d7d49a789a0c817fc058534f171c88cb68953b33136850e31a374",
+      "result": {
+        "status": "measured",
+        "configuration": {
+          "protocol": 1,
+          "split": "development",
+          "hz": 120,
+          "actuation": "directional",
+          "model": "crypt-skeleton",
+          "held": "shared-club",
+          "task": "shared-bar",
+          "seed": 1,
+          "release": "left",
+          "offset": -0.002639320264570415,
+          "watchSeconds": 12,
+          "checkpointSeconds": 2,
+          "sampleHz": 120,
+          "captureSeconds": 2,
+          "trackingTolerance": 0.03,
+          "gripTolerance": 0.002,
+          "id": "620edc714f9d7d49a789a0c817fc058534f171c88cb68953b33136850e31a374",
+          "settings": {
+            "capture": {
+              "distance": 0.03,
+              "rotationError": 0.02
+            },
+            "secondary": [
+              0,
+              0.12,
+              0
+            ],
+            "pose": [
+              0,
+              0.1,
+              0.4
+            ],
+            "travel": [
+              0,
+              0.08,
+              0.08
+            ],
+            "swing": 0.45,
+            "obstacle": {
+              "offset": [
+                0,
+                0.8,
+                0.75
+              ],
+              "size": [
+                0.2,
+                0.2,
+                0.05
+              ]
+            },
+            "seconds": {
+              "move": 1,
+              "swing": 2,
+              "release": 4,
+              "return": 5,
+              "finish": 7.5
+            },
+            "postureSeconds": 0.2,
+            "trackingSeconds": 0.15,
+            "armWeight": 0.03,
+            "bodyWeight": 0.3,
+            "positionWeight": 1,
+            "rotationWeight": 0.2,
+            "effortCost": 0.000001,
+            "capacity": 2
+          },
+          "engineRevision": "rapier/adapter-4/sha256:31ca414ad12dff1d55d8c0ad7a954238d62043d5041e34c03bb95d3b83ac4d3d",
+          "pin": "lowerTrunk",
+          "gravity": true,
+          "ccd": true,
+          "assists": {
+            "root": 0,
+            "weapon": false
+          },
+          "modelAccess": "coupled dynamics, anatomy and registered equipment"
+        },
+        "outcome": {
+          "steps": 1003,
+          "captured": 102,
+          "released": true,
+          "complete": true,
+          "contactSteps": 293,
+          "peakImpulse": 0.10671139927580953,
+          "movedError": 0.02774809696229886,
+          "finalError": 0.026457284699958877,
+          "peakGripGap": 0.00004651294054107502,
+          "releaseContinuous": true,
+          "pendingRelease": null,
+          "replayExact": true,
+          "success": true,
+          "digest": "f515d246c95e716ec3f6e8d5137e02c1b4d45bd6b0fd9157d54edac23dba2cae",
+          "stateDigest": "f2caf13f085f74d655b4dca13294a4932d91673c8f5205a84865dbe59f10638a"
+        },
+        "physical": {
+          "assistForceIntegralNs": 0,
+          "assistMomentIntegralNms": 0
+        },
+        "limits": [
+          "pelvis pinned; not standing or combat",
+          "return tracks position alone",
+          "contact and joint-stop reactions are not predicted",
+          "allocating diagnostic dynamics path"
+        ]
+      }
+    },
+    {
+      "id": "04f22c0ccef1098a258e35c7cb6e0cc35182742e8e8abbfde8f2b6ca81e21d89",
+      "result": {
+        "status": "measured",
+        "configuration": {
+          "protocol": 1,
+          "split": "development",
+          "hz": 120,
+          "actuation": "directional",
+          "model": "crypt-skeleton",
+          "held": "shared-club",
+          "task": "shared-bar",
+          "seed": 1,
+          "release": "right",
+          "offset": -0.002639320264570415,
+          "watchSeconds": 12,
+          "checkpointSeconds": 2,
+          "sampleHz": 120,
+          "captureSeconds": 2,
+          "trackingTolerance": 0.03,
+          "gripTolerance": 0.002,
+          "id": "04f22c0ccef1098a258e35c7cb6e0cc35182742e8e8abbfde8f2b6ca81e21d89",
+          "settings": {
+            "capture": {
+              "distance": 0.03,
+              "rotationError": 0.02
+            },
+            "secondary": [
+              0,
+              0.12,
+              0
+            ],
+            "pose": [
+              0,
+              0.1,
+              0.4
+            ],
+            "travel": [
+              0,
+              0.08,
+              0.08
+            ],
+            "swing": 0.45,
+            "obstacle": {
+              "offset": [
+                0,
+                0.8,
+                0.75
+              ],
+              "size": [
+                0.2,
+                0.2,
+                0.05
+              ]
+            },
+            "seconds": {
+              "move": 1,
+              "swing": 2,
+              "release": 4,
+              "return": 5,
+              "finish": 7.5
+            },
+            "postureSeconds": 0.2,
+            "trackingSeconds": 0.15,
+            "armWeight": 0.03,
+            "bodyWeight": 0.3,
+            "positionWeight": 1,
+            "rotationWeight": 0.2,
+            "effortCost": 0.000001,
+            "capacity": 2
+          },
+          "engineRevision": "rapier/adapter-4/sha256:31ca414ad12dff1d55d8c0ad7a954238d62043d5041e34c03bb95d3b83ac4d3d",
+          "pin": "lowerTrunk",
+          "gravity": true,
+          "ccd": true,
+          "assists": {
+            "root": 0,
+            "weapon": false
+          },
+          "modelAccess": "coupled dynamics, anatomy and registered equipment"
+        },
+        "outcome": {
+          "steps": 1003,
+          "captured": 102,
+          "released": true,
+          "complete": true,
+          "contactSteps": 293,
+          "peakImpulse": 0.10671139927580953,
+          "movedError": 0.02774809696229886,
+          "finalError": 0.006178531928326653,
+          "peakGripGap": 0.00004651294054107502,
+          "releaseContinuous": true,
+          "pendingRelease": null,
+          "replayExact": true,
+          "success": true,
+          "digest": "06e3063748329033984ee6c8b7ebd1638a3ad5c39deb64590ebcbe65a70da238",
+          "stateDigest": "df78fc9247c891dc7fac39c3e5f3f21060d3af036a0bbceda7057ebdeabce89d"
+        },
+        "physical": {
+          "assistForceIntegralNs": 0,
+          "assistMomentIntegralNms": 0
+        },
+        "limits": [
+          "pelvis pinned; not standing or combat",
+          "return tracks position alone",
+          "contact and joint-stop reactions are not predicted",
+          "allocating diagnostic dynamics path"
+        ]
+      }
+    }
+  ]
+}

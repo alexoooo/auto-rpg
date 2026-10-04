@@ -77,7 +77,9 @@ screens build on it; it never imports them.
   change to one carries its measured before/after table.
 - **A mind reaches the world only through its body.** It learns of it through its senses
   (`Senses`, `src/core/mind/senses.ts`) and its own body (`OwnBody`), and moves it through its
-  muscles' command and nothing else (`Mind.step`, `src/core/mind/mind.ts`). Camera state never
+  muscles' command and explicitly granted grip requests (`Mind.step`, `src/core/mind/mind.ts`,
+  `src/core/mind/equipment-port.ts`). A grip request changes no pose or velocity and must pass
+  geometric capture; policies receive no engine handles. Camera state never
   reaches a mind. A person gives orders (`Orders`); a body's own mind carries them out while it
   defends itself.
 - **A mind may hand its body to a sub-mind.** A sub-mind (`SubMind`, `src/core/mind/sub-mind.ts`)

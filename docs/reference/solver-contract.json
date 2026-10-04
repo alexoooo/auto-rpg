@@ -1,0 +1,3425 @@
+{
+  "manifest": {
+    "protocol": 2,
+    "started": "2026-10-04T20:09:19.829Z",
+    "options": {
+      "suite": "solver",
+      "split": "development",
+      "samples": 2,
+      "from": 0,
+      "hz": 120,
+      "actuation": "directional"
+    },
+    "workers": 2,
+    "harness": "Node, core world, per-task arena/stand fixtures",
+    "node": "v24.19.0",
+    "engine": "rapier",
+    "package": {
+      "version": "0.21.0-auto-rpg.2",
+      "resolved": "file:vendor/rapier/dimforge-rapier3d-simd-compat-0.21.0-auto-rpg.2.tgz",
+      "integrity": "sha512-yN/jdD73UFXmrMiiixo+5XAyEzhd1twGtXCRcer/ziuU2jyBSYMXutlTrj2ZaAmOZs5K4WtkCvwepsMpPPNfkA==",
+      "entrySha256": "2ad42975e67269064349ce1fb0499df7075aef1768ce30c8f20160463788371c"
+    },
+    "source": {
+      "git": "a03530e4cfa3abf7bee45664ac5b2573878e28b0",
+      "content": "5cfe0ee20085a83082bb7a86368ecc38f008fcfb5d0316769d61309743aa857a",
+      "archive": "source.json.gz",
+      "archiveSha256": "f60e18649f5597e3182a4ff1f73290fef5b5c2d234af8828317f0750b679fb74"
+    },
+    "sensing": "diagnostic physics readings; no policy",
+    "action": "fixed raw velocity motor with directional bounds; adapter-contract screening",
+    "policyPeriodSteps": 1,
+    "assists": {
+      "rootBalancePercent": 0,
+      "weapon": false
+    },
+    "unavailable": [
+      "two-handed items",
+      "grip release",
+      "integrated recovery/combat",
+      "moving isolated targets",
+      "actuator work",
+      "contact penetration"
+    ],
+    "jobs": [
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "task": "solver",
+        "model": "synthetic-rotor",
+        "held": "none",
+        "representation": "impulse",
+        "sense": -1,
+        "inertia": 0.02,
+        "negative": 0.12,
+        "positive": 0.24,
+        "speed": 1000,
+        "limit": 0.6,
+        "steps": 120,
+        "coastSteps": 12,
+        "id": "fedcf8aa5d03d22492580545aa5387a0ab6c87cadd11c16859cbd1a5e3958cf2"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "task": "solver",
+        "model": "synthetic-rotor",
+        "held": "none",
+        "representation": "impulse",
+        "sense": 1,
+        "inertia": 0.02,
+        "negative": 0.12,
+        "positive": 0.24,
+        "speed": 1000,
+        "limit": 0.6,
+        "steps": 120,
+        "coastSteps": 12,
+        "id": "03b0c7e3467e46622a59d03d03453ddb87ca1ee845919702321058d69ca222a8"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "task": "solver",
+        "model": "synthetic-rotor",
+        "held": "none",
+        "representation": "multibody",
+        "sense": -1,
+        "inertia": 0.02,
+        "negative": 0.12,
+        "positive": 0.24,
+        "speed": 1000,
+        "limit": 0.6,
+        "steps": 120,
+        "coastSteps": 12,
+        "id": "07f4d99615edbb80fd7227bd64e6890076cf3b5c58e6b159f838de1fb8800333"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "task": "solver",
+        "model": "synthetic-rotor",
+        "held": "none",
+        "representation": "multibody",
+        "sense": 1,
+        "inertia": 0.02,
+        "negative": 0.12,
+        "positive": 0.24,
+        "speed": 1000,
+        "limit": 0.6,
+        "steps": 120,
+        "coastSteps": 12,
+        "id": "44d7a38615643f3fc4eb63aaca64cc7da7cddb925e34ba1ed64d3d2b946f410b"
+      }
+    ]
+  },
+  "rows": [
+    {
+      "id": "fedcf8aa5d03d22492580545aa5387a0ab6c87cadd11c16859cbd1a5e3958cf2",
+      "result": {
+        "status": "measured",
+        "outcome": {
+          "bindings": {
+            "jointSetLimits": true,
+            "jointConfigureMotor": true,
+            "jointSetMotorForceBounds": true,
+            "jointMotorStepImpulse": true,
+            "jointSetLocalFrame1": true,
+            "jointSetLocalFrame2": true
+          },
+          "adapterBindingsAvailable": true,
+          "first": {
+            "angle": -0.00022135418749370667,
+            "speed": -0.05000000074505806,
+            "effortImpulse": -0.0010000000474974513
+          },
+          "nominalImpulse": -0.001,
+          "firstAngularMomentum": -0.0010000000149011613,
+          "end": {
+            "phase": "driven",
+            "angle": -0.6000016266873096,
+            "speed": -0.0031250002793967724,
+            "effortImpulse": -0.0010000000474974513
+          },
+          "maxAbsoluteAngle": 0.6000016266873096,
+          "replayExact": true,
+          "rows": [
+            {
+              "phase": "coast",
+              "angle": -0.0006380210763408466,
+              "speed": -0.05000005289912224,
+              "effortImpulse": 0
+            },
+            {
+              "phase": "coast",
+              "angle": -0.0010546886711602283,
+              "speed": -0.050000183284282684,
+              "effortImpulse": 0
+            },
+            {
+              "phase": "coast",
+              "angle": -0.001471356806949827,
+              "speed": -0.050000257790088654,
+              "effortImpulse": 0
+            },
+            {
+              "phase": "coast",
+              "angle": -0.0018880261281813912,
+              "speed": -0.050000373274087906,
+              "effortImpulse": 0
+            },
+            {
+              "phase": "coast",
+              "angle": -0.002304695804733294,
+              "speed": -0.050000451505184174,
+              "effortImpulse": 0
+            },
+            {
+              "phase": "coast",
+              "angle": -0.0027213655963207414,
+              "speed": -0.05000054091215134,
+              "effortImpulse": 0
+            },
+            {
+              "phase": "coast",
+              "angle": -0.003138035025950407,
+              "speed": -0.05000067502260208,
+              "effortImpulse": 0
+            },
+            {
+              "phase": "coast",
+              "angle": -0.003554707084242705,
+              "speed": -0.050000742077827454,
+              "effortImpulse": 0
+            },
+            {
+              "phase": "coast",
+              "angle": -0.003971379979493359,
+              "speed": -0.050000835210084915,
+              "effortImpulse": 0
+            },
+            {
+              "phase": "coast",
+              "angle": -0.004388052869930321,
+              "speed": -0.05000091716647148,
+              "effortImpulse": 0
+            },
+            {
+              "phase": "coast",
+              "angle": -0.00480472839926712,
+              "speed": -0.05000096932053566,
+              "effortImpulse": 0
+            },
+            {
+              "phase": "coast",
+              "angle": -0.005221406752512031,
+              "speed": -0.05000099539756775,
+              "effortImpulse": 0
+            },
+            {
+              "phase": "driven",
+              "angle": -0.0058594365834506714,
+              "speed": -0.1000010073184967,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.0069141320255635885,
+              "speed": -0.15000107884407043,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.008385495404554993,
+              "speed": -0.2000012993812561,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.010273526688514239,
+              "speed": -0.25000134110450745,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.012578226061123821,
+              "speed": -0.3000016510486603,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.015299599942160291,
+              "speed": -0.3500027060508728,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.018437649436592485,
+              "speed": -0.40000393986701965,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.021992377978100056,
+              "speed": -0.4500051438808441,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.02596378314509289,
+              "speed": -0.5000063180923462,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.03035185964335456,
+              "speed": -0.5500074625015259,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.03515661885864365,
+              "speed": -0.6000092625617981,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.04037805373677914,
+              "speed": -0.6500107049942017,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.046016169479581946,
+              "speed": -0.7000123858451843,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.052070969141036705,
+              "speed": -0.750014066696167,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.05854244966151801,
+              "speed": -0.800015389919281,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.06543059066591277,
+              "speed": -0.8500171303749084,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.07273543221721272,
+              "speed": -0.9000194668769836,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.08045696440655871,
+              "speed": -0.9500211477279663,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.08859516296985853,
+              "speed": -1.000022530555725,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.09715004948803387,
+              "speed": -1.0500236749649048,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.10612156636018784,
+              "speed": -1.1000244617462158,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.11550978564734886,
+              "speed": -1.1500258445739746,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.12531470343869858,
+              "speed": -1.2000271081924438,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.1355362885996655,
+              "speed": -1.2500300407409668,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.1461745372353746,
+              "speed": -1.300032138824463,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.15722954836057423,
+              "speed": -1.350032925605774,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.16870119659170257,
+              "speed": -1.4000333547592163,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.1805895375195207,
+              "speed": -1.450032114982605,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.19289454843813134,
+              "speed": -1.5000349283218384,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.20561612503400897,
+              "speed": -1.550036907196045,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.21875440433362542,
+              "speed": -1.6000385284423828,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.23230941166117067,
+              "speed": -1.6500414609909058,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.24628109196830258,
+              "speed": -1.7000441551208496,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.2606694809286724,
+              "speed": -1.7500439882278442,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.2754745921267777,
+              "speed": -1.8000457286834717,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.2906963059051943,
+              "speed": -1.8500466346740723,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.3063347612647856,
+              "speed": -1.900046944618225,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.32238998906326827,
+              "speed": -1.950047492980957,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.3388619121811071,
+              "speed": -2.0000486373901367,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.35575054183171095,
+              "speed": -2.050050973892212,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.373055800246387,
+              "speed": -2.100053310394287,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.3907775506844687,
+              "speed": -2.1500589847564697,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.40891599870373474,
+              "speed": -2.200061321258545,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.4274712080525947,
+              "speed": -2.25006365776062,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.44644309588829,
+              "speed": -2.300065517425537,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.46583154337344324,
+              "speed": -2.350064992904663,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.4856367547033052,
+              "speed": -2.400066375732422,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.5058586451081103,
+              "speed": -2.450068235397339,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.5264972107545997,
+              "speed": -2.500067710876465,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.5475526830873282,
+              "speed": -2.5500705242156982,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.5690250099114705,
+              "speed": -2.6000735759735107,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.5909140083566339,
+              "speed": -2.6500751972198486,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000016266873096,
+              "speed": -0.0031250002793967724,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000016266873096,
+              "speed": -0.0031250002793967724,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000016266873096,
+              "speed": -0.0031250002793967724,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000016266873096,
+              "speed": -0.0031250002793967724,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000016266873096,
+              "speed": -0.0031250002793967724,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000016266873096,
+              "speed": -0.0031250002793967724,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000016266873096,
+              "speed": -0.0031250002793967724,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000016266873096,
+              "speed": -0.0031250002793967724,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000016266873096,
+              "speed": -0.0031250002793967724,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000016266873096,
+              "speed": -0.0031250002793967724,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000016266873096,
+              "speed": -0.0031250002793967724,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000016266873096,
+              "speed": -0.0031250002793967724,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000016266873096,
+              "speed": -0.0031250002793967724,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000016266873096,
+              "speed": -0.0031250002793967724,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000016266873096,
+              "speed": -0.0031250002793967724,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000016266873096,
+              "speed": -0.0031250002793967724,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000016266873096,
+              "speed": -0.0031250002793967724,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000016266873096,
+              "speed": -0.0031250002793967724,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000016266873096,
+              "speed": -0.0031250002793967724,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000016266873096,
+              "speed": -0.0031250002793967724,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000016266873096,
+              "speed": -0.0031250002793967724,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000016266873096,
+              "speed": -0.0031250002793967724,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000016266873096,
+              "speed": -0.0031250002793967724,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000016266873096,
+              "speed": -0.0031250002793967724,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000016266873096,
+              "speed": -0.0031250002793967724,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000016266873096,
+              "speed": -0.0031250002793967724,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000016266873096,
+              "speed": -0.0031250002793967724,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000016266873096,
+              "speed": -0.0031250002793967724,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000016266873096,
+              "speed": -0.0031250002793967724,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000016266873096,
+              "speed": -0.0031250002793967724,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000016266873096,
+              "speed": -0.0031250002793967724,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000016266873096,
+              "speed": -0.0031250002793967724,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000016266873096,
+              "speed": -0.0031250002793967724,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000016266873096,
+              "speed": -0.0031250002793967724,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000016266873096,
+              "speed": -0.0031250002793967724,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000016266873096,
+              "speed": -0.0031250002793967724,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000016266873096,
+              "speed": -0.0031250002793967724,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000016266873096,
+              "speed": -0.0031250002793967724,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000016266873096,
+              "speed": -0.0031250002793967724,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000016266873096,
+              "speed": -0.0031250002793967724,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000016266873096,
+              "speed": -0.0031250002793967724,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000016266873096,
+              "speed": -0.0031250002793967724,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000016266873096,
+              "speed": -0.0031250002793967724,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000016266873096,
+              "speed": -0.0031250002793967724,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000016266873096,
+              "speed": -0.0031250002793967724,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000016266873096,
+              "speed": -0.0031250002793967724,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000016266873096,
+              "speed": -0.0031250002793967724,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000016266873096,
+              "speed": -0.0031250002793967724,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000016266873096,
+              "speed": -0.0031250002793967724,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000016266873096,
+              "speed": -0.0031250002793967724,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000016266873096,
+              "speed": -0.0031250002793967724,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000016266873096,
+              "speed": -0.0031250002793967724,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000016266873096,
+              "speed": -0.0031250002793967724,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000016266873096,
+              "speed": -0.0031250002793967724,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000016266873096,
+              "speed": -0.0031250002793967724,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000016266873096,
+              "speed": -0.0031250002793967724,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000016266873096,
+              "speed": -0.0031250002793967724,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000016266873096,
+              "speed": -0.0031250002793967724,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000016266873096,
+              "speed": -0.0031250002793967724,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000016266873096,
+              "speed": -0.0031250002793967724,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000016266873096,
+              "speed": -0.0031250002793967724,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000016266873096,
+              "speed": -0.0031250002793967724,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000016266873096,
+              "speed": -0.0031250002793967724,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000016266873096,
+              "speed": -0.0031250002793967724,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000016266873096,
+              "speed": -0.0031250002793967724,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000016266873096,
+              "speed": -0.0031250002793967724,
+              "effortImpulse": -0.0010000000474974513
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000016266873096,
+              "speed": -0.0031250002793967724,
+              "effortImpulse": -0.0010000000474974513
+            }
+          ]
+        },
+        "limits": [
+          "aligned single hinge only; no arbitrary joint frames, contacts or closed-loop proof",
+          "multibody native angular damping remains at its unexposed default",
+          "net angular momentum is not a substitute for an accumulated motor-effort read"
+        ]
+      }
+    },
+    {
+      "id": "03b0c7e3467e46622a59d03d03453ddb87ca1ee845919702321058d69ca222a8",
+      "result": {
+        "status": "measured",
+        "outcome": {
+          "bindings": {
+            "jointSetLimits": true,
+            "jointConfigureMotor": true,
+            "jointSetMotorForceBounds": true,
+            "jointMotorStepImpulse": true,
+            "jointSetLocalFrame1": true,
+            "jointSetLocalFrame2": true
+          },
+          "adapterBindingsAvailable": true,
+          "first": {
+            "angle": 0.00044270836956449304,
+            "speed": 0.10000002384185791,
+            "effortImpulse": 0.0020000000949949026
+          },
+          "nominalImpulse": 0.002,
+          "firstAngularMomentum": 0.0020000004768371583,
+          "end": {
+            "phase": "driven",
+            "angle": 0.6000000052675408,
+            "speed": 0,
+            "effortImpulse": 0.0020000000949949026
+          },
+          "maxAbsoluteAngle": 0.6000000052675408,
+          "replayExact": true,
+          "rows": [
+            {
+              "phase": "coast",
+              "angle": 0.0012760423674111833,
+              "speed": 0.10000013560056686,
+              "effortImpulse": 0
+            },
+            {
+              "phase": "coast",
+              "angle": 0.0021093770630572,
+              "speed": 0.10000032186508179,
+              "effortImpulse": 0
+            },
+            {
+              "phase": "coast",
+              "angle": 0.0029427149424880667,
+              "speed": 0.10000033676624298,
+              "effortImpulse": 0
+            },
+            {
+              "phase": "coast",
+              "angle": 0.003776053369417019,
+              "speed": 0.10000037401914597,
+              "effortImpulse": 0
+            },
+            {
+              "phase": "coast",
+              "angle": 0.004609388967162653,
+              "speed": 0.10000049322843552,
+              "effortImpulse": 0
+            },
+            {
+              "phase": "coast",
+              "angle": 0.00544272658416122,
+              "speed": 0.10000073909759521,
+              "effortImpulse": 0
+            },
+            {
+              "phase": "coast",
+              "angle": 0.006276068572890952,
+              "speed": 0.10000089555978775,
+              "effortImpulse": 0
+            },
+            {
+              "phase": "coast",
+              "angle": 0.007109411598583398,
+              "speed": 0.1000010073184967,
+              "effortImpulse": 0
+            },
+            {
+              "phase": "coast",
+              "angle": 0.007942755952396137,
+              "speed": 0.1000010222196579,
+              "effortImpulse": 0
+            },
+            {
+              "phase": "coast",
+              "angle": 0.008776098440829027,
+              "speed": 0.10000111907720566,
+              "effortImpulse": 0
+            },
+            {
+              "phase": "coast",
+              "angle": 0.009609439687229491,
+              "speed": 0.10000116378068924,
+              "effortImpulse": 0
+            },
+            {
+              "phase": "coast",
+              "angle": 0.010442781403033102,
+              "speed": 0.10000143200159073,
+              "effortImpulse": 0
+            },
+            {
+              "phase": "driven",
+              "angle": 0.01171883591347999,
+              "speed": 0.20000164210796356,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.013828226739439196,
+              "speed": 0.30000221729278564,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.016770958152417668,
+              "speed": 0.40000322461128235,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.020547028901976936,
+              "speed": 0.5000039935112,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.02515644802310478,
+              "speed": 0.6000058054924011,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.03059920738226169,
+              "speed": 0.7000072002410889,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.03687531676313021,
+              "speed": 0.8000085949897766,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.043984778118365625,
+              "speed": 0.9000108242034912,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.0519275872501283,
+              "speed": 1.0000120401382446,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.060703741382829614,
+              "speed": 1.1000136137008667,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.0703132588793236,
+              "speed": 1.2000164985656738,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.08075611662690507,
+              "speed": 1.3000178337097168,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.09203235355454893,
+              "speed": 1.4000200033187866,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.10414189939005689,
+              "speed": 1.5000226497650146,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.11708481985098573,
+              "speed": 1.6000267267227173,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.13086109952801017,
+              "speed": 1.7000290155410767,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.14547074013738528,
+              "speed": 1.8000324964523315,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.16091377032314857,
+              "speed": 1.9000338315963745,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.17719018306764725,
+              "speed": 2.000037431716919,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.19429989172875103,
+              "speed": 2.1000404357910156,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.21224290590763853,
+              "speed": 2.200042963027954,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.23101926471025108,
+              "speed": 2.300046920776367,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.2506290318582083,
+              "speed": 2.4000494480133057,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.2710721414064963,
+              "speed": 2.5000510215759277,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.2923486722247009,
+              "speed": 2.6000547409057617,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.3144586864646997,
+              "speed": 2.7000579833984375,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.3374016228692077,
+              "speed": 2.8000566959381104,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.36117821672698275,
+              "speed": 2.9000606536865234,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.38578805816610096,
+              "speed": 3.000061273574829,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.4112312224558741,
+              "speed": 3.1000657081604004,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.4375078283305919,
+              "speed": 3.200070381164551,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.46461793537762575,
+              "speed": 3.300075054168701,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.49256118667241716,
+              "speed": 3.400073528289795,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.5213378980091089,
+              "speed": 3.5000743865966797,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.5509482373294166,
+              "speed": 3.6000735759735107,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.5813918195740944,
+              "speed": 3.700073480606079,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": 0.0020000000949949026
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": 0.0020000000949949026
+            }
+          ]
+        },
+        "limits": [
+          "aligned single hinge only; no arbitrary joint frames, contacts or closed-loop proof",
+          "multibody native angular damping remains at its unexposed default",
+          "net angular momentum is not a substitute for an accumulated motor-effort read"
+        ]
+      }
+    },
+    {
+      "id": "07f4d99615edbb80fd7227bd64e6890076cf3b5c58e6b159f838de1fb8800333",
+      "result": {
+        "status": "measured",
+        "outcome": {
+          "bindings": {
+            "jointSetLimits": true,
+            "jointConfigureMotor": true,
+            "jointSetMotorForceBounds": true,
+            "jointMotorStepImpulse": false,
+            "jointSetLocalFrame1": false,
+            "jointSetLocalFrame2": false
+          },
+          "adapterBindingsAvailable": false,
+          "first": {
+            "angle": -0.00021793786350057887,
+            "speed": -0.04591268673539162,
+            "effortImpulse": null
+          },
+          "nominalImpulse": -0.001,
+          "firstAngularMomentum": -0.0009182537347078324,
+          "end": {
+            "phase": "driven",
+            "angle": -0.6000000052675408,
+            "speed": 0,
+            "effortImpulse": null
+          },
+          "maxAbsoluteAngle": 0.6000000052675408,
+          "replayExact": true,
+          "rows": [
+            {
+              "phase": "coast",
+              "angle": -0.0006166411503073942,
+              "speed": -0.047038983553647995,
+              "effortImpulse": null
+            },
+            {
+              "phase": "coast",
+              "angle": -0.000999093790211305,
+              "speed": -0.04512174800038338,
+              "effortImpulse": null
+            },
+            {
+              "phase": "coast",
+              "angle": -0.0013659581277844692,
+              "speed": -0.0432826429605484,
+              "effortImpulse": null
+            },
+            {
+              "phase": "coast",
+              "angle": -0.001717869500671621,
+              "speed": -0.041518498212099075,
+              "effortImpulse": null
+            },
+            {
+              "phase": "coast",
+              "angle": -0.002055437450216573,
+              "speed": -0.03982625901699066,
+              "effortImpulse": null
+            },
+            {
+              "phase": "coast",
+              "angle": -0.0023792468683074878,
+              "speed": -0.038203004747629166,
+              "effortImpulse": null
+            },
+            {
+              "phase": "coast",
+              "angle": -0.002689858517451965,
+              "speed": -0.03664591163396835,
+              "effortImpulse": null
+            },
+            {
+              "phase": "coast",
+              "angle": -0.0029878094760604178,
+              "speed": -0.03515227884054184,
+              "effortImpulse": null
+            },
+            {
+              "phase": "coast",
+              "angle": -0.0032736167499562703,
+              "speed": -0.03371952101588249,
+              "effortImpulse": null
+            },
+            {
+              "phase": "coast",
+              "angle": -0.0035477750076487137,
+              "speed": -0.03234516456723213,
+              "effortImpulse": null
+            },
+            {
+              "phase": "coast",
+              "angle": -0.0038107592751948547,
+              "speed": -0.031026821583509445,
+              "effortImpulse": null
+            },
+            {
+              "phase": "coast",
+              "angle": -0.004063023812678061,
+              "speed": -0.029762208461761475,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.004522944957073947,
+              "speed": -0.07446182519197464,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.005371705723764892,
+              "speed": -0.12033718079328537,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.006593459520518428,
+              "speed": -0.1643427312374115,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.008173002284302977,
+              "speed": -0.2065546214580536,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.010095750166272755,
+              "speed": -0.24704599380493164,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.01234771537498592,
+              "speed": -0.2858869433403015,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.014915478305718929,
+              "speed": -0.323144793510437,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.017786166859552362,
+              "speed": -0.3588840961456299,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.020947429296701806,
+              "speed": -0.393166720867157,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.02438743645697334,
+              "speed": -0.4260519742965698,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.028094818431945882,
+              "speed": -0.45759689807891846,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.03205867243878863,
+              "speed": -0.48785609006881714,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.03626855412673512,
+              "speed": -0.5168821811676025,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.04071443412702557,
+              "speed": -0.5447254180908203,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.04538669363213117,
+              "speed": -0.5714336633682251,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.050276114103851,
+              "speed": -0.5970534682273865,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.055373821406912146,
+              "speed": -0.6216291785240173,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.06067135468512335,
+              "speed": -0.6452030539512634,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.06616057114661658,
+              "speed": -0.6678162217140198,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.07183363004124271,
+              "speed": -0.6895074844360352,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.07768305739567745,
+              "speed": -0.7103148698806763,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.08370164686125395,
+              "speed": -0.7302741408348083,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.08988252044310151,
+              "speed": -0.7494199275970459,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.09621907203098198,
+              "speed": -0.7677852511405945,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.10270492873073368,
+              "speed": -0.7854019999504089,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.10933401476193792,
+              "speed": -0.8023006916046143,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.11610049871106012,
+              "speed": -0.8185106515884399,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.12299878345650055,
+              "speed": -0.83406001329422,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.1300235120335485,
+              "speed": -0.8489755988121033,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.13716950721445084,
+              "speed": -0.8632831573486328,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.1444318102769252,
+              "speed": -0.8770076632499695,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.15180570688117903,
+              "speed": -0.8901727795600891,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.15928663246250907,
+              "speed": -0.9028012752532959,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.16687027388197798,
+              "speed": -0.9149149656295776,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.17455237833466739,
+              "speed": -0.9265349507331848,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.18232894738308084,
+              "speed": -0.9376813173294067,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.190196150420455,
+              "speed": -0.9483733177185059,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.19815030377482518,
+              "speed": -0.9586296677589417,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.20618780940282297,
+              "speed": -0.9684680104255676,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.2143053138182539,
+              "speed": -0.9779052734375,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.22249958809832612,
+              "speed": -0.986957848072052,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.23076744615175465,
+              "speed": -0.9956414699554443,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.23910589702290294,
+              "speed": -1.0039710998535156,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.24751206418020485,
+              "speed": -1.011960506439209,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.25598323951105506,
+              "speed": -1.01962411403656,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.2645167231480288,
+              "speed": -1.0269752740859985,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.2731099247674401,
+              "speed": -1.034026861190796,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.2817604054626385,
+              "speed": -1.0407912731170654,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.29046603513293806,
+              "speed": -1.0472800731658936,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.29922431211142414,
+              "speed": -1.0535041093826294,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.30803324538814286,
+              "speed": -1.0594747066497803,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.3168906735775002,
+              "speed": -1.065201759338379,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.3257946583380199,
+              "speed": -1.070695400238037,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.3347433153412404,
+              "speed": -1.0759649276733398,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.3437348057797529,
+              "speed": -1.081019639968872,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.35276745125763803,
+              "speed": -1.08586847782135,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.36183942190730867,
+              "speed": -1.0905197858810425,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.37094929667096277,
+              "speed": -1.0949815511703491,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.38009544787069033,
+              "speed": -1.0992612838745117,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.3892764125800444,
+              "speed": -1.103366732597351,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.39849076297597136,
+              "speed": -1.1073048114776611,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.40773708745520665,
+              "speed": -1.1110821962356567,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.41701417593132944,
+              "speed": -1.1147056818008423,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.426320672444485,
+              "speed": -1.1181814670562744,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.4356554091340022,
+              "speed": -1.1215157508850098,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.44501733349071315,
+              "speed": -1.1247141361236572,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.45440525173270974,
+              "speed": -1.1277821063995361,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.46381806349660293,
+              "speed": -1.1307251453399658,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.47325481463108793,
+              "speed": -1.1335480213165283,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.48271452678473636,
+              "speed": -1.1362558603286743,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.4921962239435499,
+              "speed": -1.1388533115386963,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.5016990199950461,
+              "speed": -1.1413450241088867,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.5112221475782518,
+              "speed": -1.1437350511550903,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.5207646109759978,
+              "speed": -1.1460278034210205,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.5303257629997913,
+              "speed": -1.1482270956039429,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.539904900854041,
+              "speed": -1.150336742401123,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.5495010945781963,
+              "speed": -1.152360439300537,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.5591136142271472,
+              "speed": -1.154301643371582,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.5687424028019451,
+              "speed": -1.1561635732650757,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.5783860716503504,
+              "speed": -1.1579495668411255,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.5880441591361832,
+              "speed": -1.1596628427505493,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.5977162625090194,
+              "speed": -1.1613062620162964,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": -0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            }
+          ]
+        },
+        "limits": [
+          "aligned single hinge only; no arbitrary joint frames, contacts or closed-loop proof",
+          "multibody native angular damping remains at its unexposed default",
+          "net angular momentum is not a substitute for an accumulated motor-effort read"
+        ]
+      }
+    },
+    {
+      "id": "44d7a38615643f3fc4eb63aaca64cc7da7cddb925e34ba1ed64d3d2b946f410b",
+      "result": {
+        "status": "measured",
+        "outcome": {
+          "bindings": {
+            "jointSetLimits": true,
+            "jointConfigureMotor": true,
+            "jointSetMotorForceBounds": true,
+            "jointMotorStepImpulse": false,
+            "jointSetLocalFrame1": false,
+            "jointSetLocalFrame2": false
+          },
+          "adapterBindingsAvailable": false,
+          "first": {
+            "angle": 0.00043587572182547007,
+            "speed": 0.09182537347078323,
+            "effortImpulse": null
+          },
+          "nominalImpulse": 0.002,
+          "firstAngularMomentum": 0.0018365074694156648,
+          "end": {
+            "phase": "driven",
+            "angle": 0.6000000052675408,
+            "speed": 0,
+            "effortImpulse": null
+          },
+          "maxAbsoluteAngle": 0.6000000052675408,
+          "replayExact": true,
+          "rows": [
+            {
+              "phase": "coast",
+              "angle": 0.0012332822139804339,
+              "speed": 0.09407796710729599,
+              "effortImpulse": null
+            },
+            {
+              "phase": "coast",
+              "angle": 0.0019981875635576725,
+              "speed": 0.09024349600076675,
+              "effortImpulse": null
+            },
+            {
+              "phase": "coast",
+              "angle": 0.0027319162367653764,
+              "speed": 0.0865652859210968,
+              "effortImpulse": null
+            },
+            {
+              "phase": "coast",
+              "angle": 0.0034357391933433866,
+              "speed": 0.08303699642419815,
+              "effortImpulse": null
+            },
+            {
+              "phase": "coast",
+              "angle": 0.00411087506656814,
+              "speed": 0.07965251803398132,
+              "effortImpulse": null
+            },
+            {
+              "phase": "coast",
+              "angle": 0.00475849320408323,
+              "speed": 0.07640600949525833,
+              "effortImpulse": null
+            },
+            {
+              "phase": "coast",
+              "angle": 0.005379716931801955,
+              "speed": 0.0732918232679367,
+              "effortImpulse": null
+            },
+            {
+              "phase": "coast",
+              "angle": 0.005975619042561696,
+              "speed": 0.07030455768108368,
+              "effortImpulse": null
+            },
+            {
+              "phase": "coast",
+              "angle": 0.006547233648100928,
+              "speed": 0.06743904203176498,
+              "effortImpulse": null
+            },
+            {
+              "phase": "coast",
+              "angle": 0.007095550346276392,
+              "speed": 0.06469032913446426,
+              "effortImpulse": null
+            },
+            {
+              "phase": "coast",
+              "angle": 0.00762151870446182,
+              "speed": 0.06205364316701889,
+              "effortImpulse": null
+            },
+            {
+              "phase": "coast",
+              "angle": 0.008126047213160946,
+              "speed": 0.05952441692352295,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.009045889922030413,
+              "speed": 0.14892365038394928,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.01074341166735525,
+              "speed": 0.24067436158657074,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.013186919373351185,
+              "speed": 0.3286854028701782,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.016346002970299162,
+              "speed": 0.41310930252075195,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.020191500241705185,
+              "speed": 0.49409204721450806,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.024695429826827868,
+              "speed": 0.5717739462852478,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.029830954294630507,
+              "speed": 0.6462896466255188,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.03557233755877803,
+              "speed": 0.7177682518959045,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.04189486654970939,
+              "speed": 0.7863335013389587,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.04877487534297667,
+              "speed": 0.8521040081977844,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.05618964623362609,
+              "speed": 0.9151938557624817,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.06411735831797778,
+              "speed": 0.9757121801376343,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.0725371177576138,
+              "speed": 1.033764362335205,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.08142888182515237,
+              "speed": 1.0894508361816406,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.0907733985630334,
+              "speed": 1.1428673267364502,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.10055222805183836,
+              "speed": 1.194106936454773,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.11074765072060962,
+              "speed": 1.2432583570480347,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.1213427168360822,
+              "speed": 1.2904061079025269,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.13232112828053605,
+              "speed": 1.3356324434280396,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.14366725711200787,
+              "speed": 1.3790149688720703,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.15536610120475544,
+              "speed": 1.4206297397613525,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.1674032985602717,
+              "speed": 1.4605482816696167,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.179765049087115,
+              "speed": 1.4988398551940918,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.19243814017378513,
+              "speed": 1.535570502281189,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.20540985143547666,
+              "speed": 1.5708039999008179,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.21866802891035406,
+              "speed": 1.6046013832092285,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.2322009959899898,
+              "speed": 1.6370213031768799,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.24599756826444152,
+              "speed": 1.66812002658844,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.26004700532886543,
+              "speed": 1.6979511976242065,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.27433901032481833,
+              "speed": 1.7265663146972656,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.28886362609157873,
+              "speed": 1.754015326499939,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.3036114050752305,
+              "speed": 1.7803455591201782,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.31857325389082125,
+              "speed": 1.8056025505065918,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.33374053859791264,
+              "speed": 1.8298299312591553,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.3491047630388462,
+              "speed": 1.8530699014663696,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.3646579129060288,
+              "speed": 1.8753626346588135,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.38039233192807315,
+              "speed": 1.8967466354370117,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.39630061131971517,
+              "speed": 1.9172593355178833,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.41237563723505216,
+              "speed": 1.9369360208511353,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.42861062135314626,
+              "speed": 1.955810546875,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.4449991701430839,
+              "speed": 1.973915696144104,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.4615348905387241,
+              "speed": 1.9912829399108887,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.47821178696158523,
+              "speed": 2.0079421997070312,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.49502416060600185,
+              "speed": 2.023921012878418,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.511966457022605,
+              "speed": 2.03924822807312,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.5290334077254426,
+              "speed": 2.053950548171997,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.5462198274837526,
+              "speed": 2.068053722381592,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.5635208329106184,
+              "speed": 2.081582546234131,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.5809320664191729,
+              "speed": 2.094560146331787,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.5984486456120492,
+              "speed": 2.107008218765259,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            },
+            {
+              "phase": "driven",
+              "angle": 0.6000000052675408,
+              "speed": 0,
+              "effortImpulse": null
+            }
+          ]
+        },
+        "limits": [
+          "aligned single hinge only; no arbitrary joint frames, contacts or closed-loop proof",
+          "multibody native angular damping remains at its unexposed default",
+          "net angular momentum is not a substitute for an accumulated motor-effort read"
+        ]
+      }
+    }
+  ]
+}

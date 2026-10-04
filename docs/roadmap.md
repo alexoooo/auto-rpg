@@ -31,6 +31,10 @@ and prove that different controllers can use the same research and gameplay envi
 Early demonstrations exercise a two-handed bar and a weapon-space strike/block before expanding
 the reference controller. Recovery, either-hand attack/defense, independent two-item use and
 shared two-handed items are its capability gates; the reference control stack remains optional.
+The vendored engine, detached policy interface, replayable environments and
+[pinned equipment tracking](reference/motion-tracking.md) are implemented. Shared support forces,
+recovery, standing strike/block, equipment rendering/damage and the held-out integrated sequence
+remain open; pinned load-path results do not close those gates.
 
 ## Open items
 
