@@ -3,7 +3,7 @@ import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { TransformNode } from "@babylonjs/core/Meshes/transformNode.js";
 import { STANDARD_GRAVITY } from "../spec/constants.ts";
 import { sourced, type Vec3 } from "../spec/quantity.ts";
-import { CONTACT_FRICTION, type ColliderShape, type Contact, type EngineGrip, type EngineJoint, type FixedCollider, type JointFrames, type MassProperties,
+import { CONTACT_FRICTION, type ColliderShape, type Contact, type ContactManifold, type EngineGrip, type EngineJoint, type FixedCollider, type JointFrames, type MassProperties,
   type PhysicsEngine, type PhysicsOptions, type PhysicsWorld, type SegmentBody } from "./engine.ts";
 import { sin, cos, hypot } from "../math/real.ts";
 import { turnAboutToRef } from "../math/turn.ts";
@@ -443,6 +443,37 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
         .setRotation({ x: 0, y: sin(turn / 2), z: 0, w: cos(turn / 2) }));
     },
     addFixedShape(shape) { return fixed(colliderOf(shape)); },
+    contactManifoldsOf(segment, wanted) {
+      const body = own(segment);
+      if (scan.body) throw new Error("a body's contacts are read while another's are");
+      scan.body = body;
+      const out: ContactManifold[] = [];
+      let fault: { error: unknown } | null = null;
+      try {
+        for (const mine of colliderHandles.get(body)!) raw.narrowPhase.contactPairsWith(mine, (theirs) => {
+          if (fault) return;
+          try {
+            const other = bodyOf.get(theirs) ?? null;
+            if (wanted && !wanted(other)) return;
+            raw.narrowPhase.contactPair(mine, theirs, raw.bodies, (manifold, flipped) => {
+              const points: { point: Vec3; distance: number }[] = [];
+              for (let k = 0; k < manifold.numSolverContacts(); k++) {
+                const p = manifold.solverContactPoint(k)!;
+                points.push({ point: [p.x, p.y, p.z], distance: manifold.solverContactDist(k) });
+              }
+              if (!points.length) return;
+              const n = manifold.normal(), sign = flipped ? -1 : 1;
+              let impulse = 0;
+              for (let k = 0; k < manifold.numContacts(); k++) impulse += manifold.contactImpulse(k);
+              out.push({ other, fixed: other === null ? theirs : null, mine: shapeOf.get(mine)!,
+                theirs: other === null ? 0 : shapeOf.get(theirs)!, normal: [sign * n.x, sign * n.y, sign * n.z], points, impulse });
+            });
+          } catch (error) { fault = { error }; }
+        });
+      } finally { scan.body = null; }
+      if (fault) throw (fault as { error: unknown }).error;
+      return out;
+    },
     contactsOf(segment, wanted) {
       const body = own(segment);
       if (scan.body) throw new Error("a body's contacts are read while another's are");

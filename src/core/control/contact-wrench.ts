@@ -175,7 +175,7 @@ export function shareGroundWrench(work: GroundWrenchWork, patches: readonly Patc
   A.fill(0, 0, 6 * n);
   D.fill(1, 0, n);
   for (let s = 0; s < patches.length; s++) {
-    const patch = patches[s]!, o = first[s]!, at = placeOf(patch);
+    const patch = patches[s]!, o = first[s]!, at = patchPlace(patch);
     const d0 = at.x - centre.x, d1 = at.y - centre.y, d2 = at.z - centre.z;
     const part = parts ? parts[s]! : 1;
     for (let a = 0; a < 3; a++) {
@@ -338,7 +338,7 @@ function limitsOf(kind: Patch["kind"]): number {
 }
 
 /** Where `patch`'s force is given: a sole's middle, a point itself. */
-function placeOf(patch: Patch): Vector3 {
+export function patchPlace(patch: Patch): Vector3 {
   switch (patch.kind) {
     case "sole": return patch.middle;
     case "point": return patch.at;

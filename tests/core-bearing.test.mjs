@@ -261,3 +261,40 @@ test("the servo is told which freedoms a driven limb moves, and how", () => {
   assert.deepEqual({ moved: [...moved], fixed: [...work.fixed], accel: [...work.accel] },
     { moved: [1, 0, 1, 1, 0, 0], fixed: [1, 1, 0, 0, 1, 1], accel: [9, 9, 5, 6, 9, 9] });
 });
+
+test("ground effort acts at its patch even when a different point of the rigid limb is tracked", async () => {
+  for (const effort of [false, true]) {
+    const stand = await coreStand(spec, { actuation: "directional" });
+    let result;
+    const driven = embody(stand.built, stand.world, ({ built, muscles }) => {
+      const feet = footStatesOf(built);
+      return { name: "offset-bearing-probe", step() {
+        readSupport(feet, feet, new Vector3());
+        const limbs = feet.map((foot) => {
+          const channels = foot.chain.flatMap((joint) => joint.dofs.map((dof) => muscles.channel(`${joint.spec.name} ${dof.spec.positive}`)));
+          return { segment: foot.segment, memory: { channels }, stem: [], reach: foot.reach,
+            task: { on: true, bearing: true, linear: new Vector3(), angular: new Vector3(), accel: new Float64Array(channels.length) },
+            work: { at: foot.middle.clone(), rows: null, ahead: channels.map(() => NaN), toward: null,
+              patch: bearingSole(foot, KEEP), share: 1 } };
+        });
+        const solve = makeBearing(null, limbs, records(), { effort });
+        const work = { accel: new Float64Array(muscles.channels.length) };
+        const read = () => {
+          bearLimbs(solve, muscles, work, 1, false);
+          return { velocity: [...muscles.velocity], activation: [...muscles.activation],
+            shares: solve.scratch.shares.map((s) => [s.force.asArray(), s.moment.asArray()]),
+            effort: solve.scratch.effort ? [...solve.scratch.effort.C] : null };
+        };
+        const atPatch = read();
+        for (const limb of limbs) limb.work.at.addInPlaceFromFloats(0.12, 0.03, -0.17);
+        result = { atPatch, atOffset: read() };
+      } };
+    });
+    try {
+      stand.step();
+      assert.ok(result.atPatch.shares.every(([force]) => force[1] > 100), "both feet actually bear load");
+      assert.ok(result.atPatch.activation.some((a) => a > 0 && a < 1), "unsaturated effort can expose a changed lever");
+      assert.deepEqual(result.atOffset, result.atPatch, `effort weighting ${effort}: the same patch has the same load path`);
+    } finally { driven.dispose(); stand.dispose(); }
+  }
+});

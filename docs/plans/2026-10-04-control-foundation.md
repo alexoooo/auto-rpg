@@ -156,6 +156,12 @@ The [collision record](../reference/collision-ccd.md) distinguishes the engine's
 fixed-collider sweep from its explicit moving-body flag. Character-held collision coverage,
 contact-motion correction and solver/representation comparisons remain open.
 
+The bearing solve now separates its tracked motion point from the patch's force reference in
+both torque and effort calculations. The engine exposes unaveraged contact manifolds, and normal
+motion rows preserve sliding/rolling/lift-off. [Contact motion](../reference/contact-motion.md)
+records the failing-before/passing-after invariant and mechanical geometry fixtures. The staged
+support model has not yet adopted them; flat-hand/shin recovery improvement remains unproven.
+
 ### 0. Define the common task battery and baseline
 
 **Files:** `research/control-foundation.mjs`, `research/control-foundation-trials.mjs`,

@@ -172,6 +172,20 @@ export interface Contact {
   readonly pairs: readonly ContactPair[];
 }
 
+/** A narrow-phase manifold before contact points are averaged; a diagnostic/model reading. */
+export interface ContactManifold {
+  readonly other: SegmentBody | null;
+  readonly fixed: number | null;
+  readonly mine: number;
+  readonly theirs: number;
+  /** Unit normal from this body into the other. */
+  readonly normal: Vec3;
+  /** Solver points in world space, with signed gap: positive is separated/predicted contact. */
+  readonly points: readonly { readonly point: Vec3; readonly distance: number }[];
+  /** Sum of manifold normal impulses as stored by the narrow phase, not substep-integrated work. */
+  readonly impulse: number;
+}
+
 /** Something fixed in the world: the ground, a wall. */
 export interface FixedCollider {
   /** Take it out of the world; nothing once the world is disposed. */
@@ -207,6 +221,8 @@ export interface PhysicsWorld {
    * contacts itself.
    */
   contactsOf(body: SegmentBody, wanted?: (other: SegmentBody | null) => boolean): readonly Contact[];
+  /** Unaveraged solver geometry. A predicted point or zero impulse is not proof of load-bearing contact. */
+  contactManifoldsOf(body: SegmentBody, wanted?: (other: SegmentBody | null) => boolean): readonly ContactManifold[];
   /** One solver step of `dt`, then every body's node written from its body. */
   step(dt: number): void;
   /**

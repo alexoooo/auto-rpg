@@ -427,6 +427,12 @@ Separate equipment can explicitly request moving-body CCD at construction. The d
 unchanged; [collision probes](reference/collision-ccd.md) exercise linear and rotational sweeps
 against a thin moving defense. The pinned engine's automatic fixed-collider CCD is distinct.
 
+The engine also exposes unaveraged contact manifolds for model/diagnostic use. Signed gaps and
+normal-motion rows distinguish predicted contact, penetration, sliding and separation. The bearing
+controller carries ground wrenches from the patch's force reference independently of the point
+whose motion it tracks. [Contact motion](reference/contact-motion.md) records the invariant and
+geometry checks; the staged riser's predicted support model still needs replacement.
+
 ## Research environments
 
 `createEnvironment` (`src/core/tasks/environment.ts`) wraps a `WorldTask` factory over the

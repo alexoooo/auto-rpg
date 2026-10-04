@@ -19,7 +19,7 @@ import { boundedLeastSquaresTo, boundedWork, fixedSolveTo, fixedWork, linearWork
 import { solveLinear } from "../math/linalg.ts";
 import type { MuscleDriver } from "../muscle/driver.ts";
 import type { Assist } from "./assist.ts";
-import { groundWrenchWork, shareGroundWrench, type GroundWrenchWork, type Patch, type ShareEffort } from "./contact-wrench.ts";
+import { groundWrenchWork, patchPlace, shareGroundWrench, type GroundWrenchWork, type Patch, type ShareEffort } from "./contact-wrench.ts";
 import type { ServoWork } from "./servo.ts";
 import { LEG_DAMPING } from "./stance-tuning.ts";
 import { GROUND_FRICTION } from "./support.ts";
@@ -45,7 +45,7 @@ export interface LimbTask {
 
 /** **What a step's task is solved with**: written by the plan before the solve reads it, and no memory. */
 interface LimbWork {
-  /** The point of the segment the task is asked at, world. */
+  /** The point of the segment the motion task is asked at, world; the patch's force may act elsewhere. */
   readonly at: Vector3;
   /** The rows of the six that are asked; null, all six as they are. */
   rows: readonly Row[] | null;
@@ -452,7 +452,7 @@ function effortRow(b: Bearing, muscles: MuscleDriver, accel: Float64Array, beari
       continue;
     }
     // The wrench's carry along the freedom (`carried`): (axis x (x - pivot)) . force + axis . moment.
-    const x = limb.work.at, d0 = x.x - pivot[0], d1 = x.y - pivot[1], d2 = x.z - pivot[2];
+    const x = patchPlace(limb.work.patch!), d0 = x.x - pivot[0], d1 = x.y - pivot[1], d2 = x.z - pivot[2];
     C[at] = k * (axis[1] * d2 - axis[2] * d1);
     C[at + 1] = k * (axis[2] * d0 - axis[0] * d2);
     C[at + 2] = k * (axis[0] * d1 - axis[1] * d0);
@@ -640,9 +640,9 @@ function inverseTorque(dynamics: BodyDynamics, root: Float64Array, accel: Float6
   return torque;
 }
 
-/** The ground's wrench on `limb` (`share`, at its point), carried along freedom `i`'s motion. */
+/** The ground's wrench on `limb` (`share`, at its patch), carried along freedom `i`'s motion. */
 function carried(dynamics: BodyDynamics, i: number, limb: Limb, share: { readonly force: Vector3; readonly moment: Vector3 }): number {
-  const m = dynamics.axis(i), p = dynamics.pivot(i), x = limb.work.at;
+  const m = dynamics.axis(i), p = dynamics.pivot(i), x = patchPlace(limb.work.patch!);
   const d0 = x.x - p[0], d1 = x.y - p[1], d2 = x.z - p[2];
   const s0 = m[1] * d2 - m[2] * d1, s1 = m[2] * d0 - m[0] * d2, s2 = m[0] * d1 - m[1] * d0;
   return m[0] * share.moment.x + m[1] * share.moment.y + m[2] * share.moment.z
@@ -659,7 +659,7 @@ function give(muscles: MuscleDriver, i: number, torque: number): void {
 /**
  * Each driven limb's freedoms' torques, given to the muscles as torque sources: its inverse dynamics
  * at `accel` and the root's acceleration, less, for a bearing limb, the ground's wrench on it (its
- * patch's share, in `bearing`'s order), carried from its point. A stem's freedoms' likewise, less
+ * patch's share, in `bearing`'s order), carried from its patch. A stem's freedoms' likewise, less
  * the share of every bearing limb that hangs from them.
  */
 function limbTorques(b: Bearing, muscles: MuscleDriver, accel: Float64Array, bearing: readonly Limb[]): void {
