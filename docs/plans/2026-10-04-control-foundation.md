@@ -185,6 +185,13 @@ placement now shares the compound grasp frame through `equipHands`. A pinned two
 moves both loaded arms under gravity on all three models through independent actuator feedback.
 Standing use, second-hand capture, rendering and damage integration remain open.
 
+The [coupled acceleration model](../reference/coupled-dynamics.md) extends the floating tree
+with separate item mass, gyroscopic bias and closed grip constraints. Mechanical force/torque
+responses survive either release; a moving loop matches engine acceleration and retains six
+free motions. Common-point attachment rows fix spurious constraints from solver anchor gaps.
+This supplies a diagnostic model for chunk 5; contact-force selection and bounded whole-body
+tracking, including the recovery support correction, remain to be implemented and measured.
+
 ### 0. Define the common task battery and baseline
 
 **Files:** `research/control-foundation.mjs`, `research/control-foundation-trials.mjs`,

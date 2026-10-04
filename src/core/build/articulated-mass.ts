@@ -13,7 +13,8 @@ interface AttachedItem {
 /**
  * Floating anatomical joints plus independent items and their active grips. Joint freedoms,
  * limits and ground contacts have the same free-impact interpretation as `contactMass`.
- * Both arms constrain a shared item; release changes the next update's constraint set.
+ * Both arms constrain a shared item at common joint points; release changes the next update's
+ * constraint set. Small solver anchor gaps do not constrain a common rigid rotation.
  */
 export function articulatedMass(built: BuiltBody, items: readonly AttachedItem[] = []) {
   const registered = [...items], joints = [...built.joints.values()];

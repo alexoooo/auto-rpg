@@ -113,11 +113,16 @@ export function constrainedMass(bodies: readonly SegmentBody[], constraints: () 
   };
 }
 
-/** Three point-coincidence rows, and optionally three equal-spin rows, at two world anchors. */
+/**
+ * Three common-point velocity rows, and optionally three equal-spin rows. The mean of the two
+ * world anchors is the ideal joint's force reference. Solver stretch must not turn a common
+ * rigid rotation into relative velocity and add spurious constraints to a closed loop.
+ */
 export function attachmentRows(parent: SegmentBody, child: SegmentBody, a: Vec3, b: Vec3, rigid: boolean): MotionConstraint[] {
   const opposite = (v: Vec3): Vec3 => [-v[0], -v[1], -v[2]];
+  const point: Vec3 = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2];
   const rows: MotionConstraint[] = XYZ.map((linear) => [
-    { body: parent, point: a, linear, angular: ZERO }, { body: child, point: b, linear: opposite(linear), angular: ZERO },
+    { body: parent, point, linear, angular: ZERO }, { body: child, point, linear: opposite(linear), angular: ZERO },
   ]);
   if (rigid) for (const angular of XYZ) rows.push([
     { body: parent, point: a, linear: ZERO, angular }, { body: child, point: b, linear: ZERO, angular: opposite(angular) },

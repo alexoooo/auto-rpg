@@ -427,6 +427,10 @@ against compound release are still open. See [the grip record](reference/equipme
 active grips. It projects mass-whitened velocity constraints, including redundant loops,
 and recomputes attachment rank after release. [Mechanical checks](reference/constraint-mass.md)
 cover both grips and either release. The game damage path retains the existing tree model.
+`build/coupled-dynamics.ts` extends floating-tree acceleration dynamics with independent item
+coordinates, active grips and item gyroscopic loads. It accepts explicit external wrenches and
+fixed-body constraints, reports constraint rank/residual, and changes no physical state.
+The allocating diagnostic model is separate from the reference controller's per-step solve.
 Separate equipment can explicitly request moving-body CCD at construction. The default is
 unchanged; [collision probes](reference/collision-ccd.md) exercise linear and rotational sweeps
 against a thin moving defense. The pinned engine's automatic fixed-collider CCD is distinct. Joint and active-grip exclusions

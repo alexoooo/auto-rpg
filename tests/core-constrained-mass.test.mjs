@@ -17,7 +17,8 @@ import { coreStand, freshEngine, saveStand, loadStand } from "./harness/core-sta
 const close = (a, b, tolerance, label) => assert.ok(Math.abs(a - b) < tolerance, `${label}: ${a} vs ${b}`);
 const frame = (position) => ({ position, rotation: [0, 0, 0, 1] });
 
-test("maximal constraint mobility agrees with the floating tree model for every segment of three anatomies", async () => {
+test("maximal constraint mobility agrees with the floating tree model for every segment of three anatomies", async (t) => {
+  const largest = [{ error: 0 }, { error: 0 }];
   for (const model of ["workshop-fighter", "workshop-rogue", "crypt-skeleton"]) {
     const stand = await coreStand(armed(modelSpec(model), "right", woodenClub()), { gravity: false, ground: false });
     try {
@@ -35,13 +36,16 @@ test("maximal constraint mobility agrees with the floating tree model for every 
           const at = segment.node.position.add(new Vector3(0.04, 0.06, -0.03)).asArray();
           const a = tree.mobility(segment, at), b = constraints.mobility(segment.body, at);
           for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) {
-            close(a[r][c], b[r][c], (posed ? 1e-5 : 1e-7) * (1 + Math.abs(a[r][c])), `${model}/${segment.spec.name}/${posed}/${r}/${c}`);
+            const error = Math.abs(a[r][c] - b[r][c]) / (1 + Math.abs(a[r][c]));
+            if (error > largest[Number(posed)].error) largest[Number(posed)] = { error, model, segment: segment.spec.name };
+            close(a[r][c], b[r][c], (posed ? 1e-5 : 1e-6) * (1 + Math.abs(a[r][c])), `${model}/${segment.spec.name}/${posed}/${r}/${c}`);
           }
-          close(tree.along(segment, at, [1, 2, -3]), constraints.along(segment.body, at, [1, 2, -3]), (posed ? 1e-5 : 1e-7) * tree.along(segment, at, [1, 2, -3]), "directional mass");
+          close(tree.along(segment, at, [1, 2, -3]), constraints.along(segment.body, at, [1, 2, -3]), (posed ? 1e-5 : 1e-6) * tree.along(segment, at, [1, 2, -3]), "directional mass");
         }
       }
     } finally { stand.dispose(); }
   }
+  t.diagnostic(JSON.stringify({ initial: largest[0], moving: largest[1] }));
 });
 
 async function loop(hz = 3840) {

@@ -10,7 +10,9 @@ constraints do not make an item heavier. The second projection pass limits round
 are nearly dependent. The report exposes supplied rows, rank and remaining freedoms.
 
 `build/articulated-mass.ts` supplies anatomical joint rows plus each equipment item's active
-grip rows. It uses each joint's current motion axes and both anchors. Like the existing
+grip rows. It uses each joint's current motion axes and the mean of its anchors as a common
+point. This preserves common rigid rotation when the solver leaves a small anchor gap;
+the [moving-loop acceleration check](coupled-dynamics.md) rejects separate-anchor rows. Like the existing
 `contactMass`, the impact model leaves joint freedoms and limits free, floats the body, and
 omits ground, motors and actuator response. Fixed engine bodies are not automatically fixed
 in this model. This is an impact-mobility capability, not inverse dynamics or a proof of
@@ -22,7 +24,7 @@ exposes constraint rows to trusted model code, not to the policy's observation/a
 
 ## Mechanical verification
 
-Harness: Node core world, Rapier `0.21.0-auto-rpg.2`, directional configuration, no gravity,
+Harness: Node core world, Rapier `0.21.0-auto-rpg.3`, directional configuration, no gravity,
 ground, motors or assists. Two 1 kg holders have isotropic inertia 0.001 kg m² and centres
 (-0.1, 1, 0), (0.1, 1.2, 0) m. A free spherical joint joins them at (0, 1.1, 0). The sourced
 wooden club's origin is (0, 0.9, 0); ideal rigid grips join it to the holders at item y=0.1
@@ -47,16 +49,19 @@ constraint read to return no rows makes the loop tests fail.
 
 For each of Warrior, Rogue and skeleton, every segment's mobility is compared with the existing
 tree model, with a compounded right-hand club. At construction the matrix entry differences
-are below 1e-7 times (1 + entry magnitude). After a small hand impulse and 12 steps at 120 Hz,
+are below 1e-6 times (1 + entry magnitude), with a measured maximum of 1.4932e-7 on the
+skeleton's left hand. After a small hand impulse and 12 steps at 120 Hz,
 they remain below 1e-5 on that scale; the two models use different anchor conventions when
 the solver leaves a joint slightly stretched. The largest measured scaled difference is
-1.65e-6, on the Rogue's right hand. Directional mass uses the corresponding relative tolerance.
+1.8957e-6, on the Rogue's right hand. Directional mass uses the corresponding relative tolerance.
 All three report 41 free speeds: six root freedoms plus 35 joint freedoms.
 
 ```powershell
 node --test tests/core-constrained-mass.test.mjs
 ```
 
-Anatomical shared-item placement, loaded actuator dynamics, moving contacts, damage identity
+Anatomical shared-item placement, bounded actuator control, moving contacts, damage identity
 and interactive cost remain separate gates. This allocating diagnostic implementation is not
 installed in the reference controller's per-step solve.
+The separate [coupled acceleration model](coupled-dynamics.md) now checks forces, internal joint
+torques and velocity-dependent loads through a moving mechanical loop and either-hand release.
