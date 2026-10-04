@@ -431,7 +431,9 @@ and recomputes attachment rank after release. [Mechanical checks](reference/cons
 cover both grips and either release. The game damage path retains the existing tree model.
 `build/coupled-dynamics.ts` extends floating-tree acceleration dynamics with independent item
 coordinates, active grips and item gyroscopic loads. It accepts explicit external wrenches and
-fixed-body constraints, reports constraint rank/residual, and changes no physical state.
+fixed-body constraints and explicit motion rows, reports constraint rank/residual and equivalent
+reaction loads, and changes no physical state. Contact-force signs and friction admissibility
+remain the controller's responsibility; redundant rows return one possible load distribution.
 The allocating diagnostic model serves the experimental equipment tracker; the game's reference
 fighter retains its existing per-step solve.
 Separate equipment can explicitly request moving-body CCD at construction. The default is

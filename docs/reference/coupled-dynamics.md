@@ -82,3 +82,42 @@ Joint stops, measured contact reactions and solver position stabilization are no
 An experiment must declare fixed bodies; a fixed pin supplies external reaction. Whole-body
 control must still choose compatible tasks, admissible contact forces and bounded actuator
 effort. Moving anatomical two-hand capture, support transitions and gameplay remain separate gates.
+
+## Explicit motion rows and reaction loads
+
+`coupledDynamics.update(motionRows)` optionally adds controller-supplied velocity constraints
+to the model after equipment and fixture pins. An update copies their geometry; omitting them
+on the next update removes them. It installs nothing in the engine. Normal-only rows allow
+tangential motion; sticking requires additional rows and a separately justified contact mode.
+
+`reactions(torque, loads)` returns each row's multiplier and equivalent body forces/moments.
+It uses the same mass-whitened projection as `solve`. For redundant rows it chooses the
+minimum norm of their normalized contributions, using the already factored row Gram matrix.
+That is one force distribution; it is not proof that all possible distributions violate or
+satisfy a friction cone. Signs follow the supplied row directions. An upward normal row can
+report a negative multiplier when holding contact would require tension. Nothing clamps that
+diagnostic into a plausible-looking support force.
+
+Tests use the mechanical two-body/shared-item fixture above. Adding the reported reactions to
+the unconstrained model reproduces every constrained acceleration coordinate within
+`1e-8 * (1 + abs(predicted))`, including asymmetric external forces, torques, the shared grip
+loop and successive releases. Returned force arrays cannot mutate the model.
+
+Two normal-only supports on the two 1 kg centres bear 19.6133 N in total under gravity.
+Applying 1 N horizontally to each produces 1 m/s2 tangential acceleration: the model has not
+welded the supports. Applying 20 N upward to each makes the assumed supports require tension.
+Duplicating the support rows does not duplicate the total reaction. Removing them restores
+free-fall acceleration. These are model checks; the existing force/torque and moving-loop tests
+remain the model's comparisons with actual physics. Contact selection and friction feasibility
+still belong to a controller, and are not established by this API.
+
+The reaction-force sign mutation fails the equivalence test. The twelve development pinned-bar
+trials retain identical outcomes and physical digests, including exact replay, in
+`research/runs/control-foundation/pinned-bar-reaction-model`; archived source content SHA256
+`d753deac77a30e52c44fb5b40cf6eb80826a5e0b76904a8b7c49ca030a02ebc0`.
+On the same Windows/Node 24.19 stand with one quiet worker, their mean step costs range from
+1.871 to 1.997 ms, p95 from 2.091 to 2.500 ms, and p99 from 2.490 to 3.486 ms.
+The preceding pinned-bar run ranged from 1.813 to 1.952 ms mean, 2.011 to 2.405 ms p95,
+and 2.351 to 2.943 ms p99. These single-run ranges include the extra diagnostic model setup;
+they are not a speedup or a statistical performance bound. The game controller does not use
+this allocating model.

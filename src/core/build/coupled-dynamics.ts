@@ -23,7 +23,8 @@ const tuple = (v: Vector3): Vec3 => [v.x, v.y, v.z];
  * constrained by every active grip. The tree supplies its full root/joint mass and velocity bias;
  * items supply world inertia and gyroscopic bias. Mass-whitened constraints retain closed loops
  * without adding penalty springs or counting an item's mass twice. Contacts are explicit loads,
- * not assumed welds. Fixed bodies must be declared by the experiment.
+ * not assumed welds. Fixed bodies must be declared by the experiment. Additional motion rows
+ * are predictions supplied at update, not constraints installed in the physical world.
  *
  * This model predicts acceleration at the current pose; it does not apply commands or stabilize
  * position error. Returned arrays are detached. Its allocating diagnostic path is not a step-cost
@@ -48,6 +49,7 @@ export function coupledDynamics(built: BuiltBody, gravity: Vec3, items: readonly
   const centres = new Map<SegmentBody, Vec3>(), spins = new Map(segments.map((s) => [s, new Vector3()]));
   const drift = new Map<SegmentBody, { centre: Vec3; angular: Vec3; spin: Vec3 }>();
   const basis: number[][] = [], targets: number[] = [];
+  let reactionFactor: number[][] = [], reactionRows: { length: number; coefficients: number[] }[] = [], reactionConstraints: MotionConstraint[] = [];
   let lower: number[][] = [], force: number[] = [], constraints: { row: number[]; target: number }[] = [], ready = false;
   const point = new Vector3(), linear = new Vector3(), angular = new Vector3(), rotation = new Quaternion();
 
@@ -88,10 +90,21 @@ export function coupledDynamics(built: BuiltBody, gravity: Vec3, items: readonly
     return { linear: [d.centre[0] + turn[0] + swing[0], d.centre[1] + turn[1] + swing[1], d.centre[2] + turn[2] + swing[2]], angular: d.angular };
   };
   const requireReady = () => { if (!ready) throw new Error("coupled dynamics needs update before a query"); };
+  const freeMotion = (torque: ArrayLike<number>, loads: readonly Load[]): number[] => {
+    requireReady();
+    if (torque.length !== count || !Array.from(torque).every(Number.isFinite)) throw new Error("invalid coupled actuator torques");
+    const total = [...force];
+    for (let i = 0; i < count; i++) total[6 + i]! += torque[i]!;
+    for (const load of loads) {
+      const row = rowOf([{ body: load.body, point: load.point, linear: load.force, angular: load.moment }]);
+      for (let i = 0; i < size; i++) total[i]! += row[i]!;
+    }
+    return forward(total);
+  };
 
   return {
     channels: count,
-    update(): void {
+    update(motionRows: readonly MotionConstraint[] = []): void {
       ready = false; basis.length = 0; targets.length = 0; drift.clear(); centres.clear();
       for (const s of segments) s.body.angularVelocityToRef(spins.get(s)!);
       tree.update(joints.map((joint) => jointAngles(joint)), { spin: (s) => spins.get(s)! });
@@ -144,6 +157,9 @@ export function coupledDynamics(built: BuiltBody, gravity: Vec3, items: readonly
         // A fixed body's three translations and three spins are explicit external constraints.
         for (const axis of XYZ) rows.push([{ body, point: at, linear: axis, angular: ZERO }], [{ body, point: at, linear: ZERO, angular: axis }]);
       }
+      rows.push(...motionRows);
+      reactionConstraints = rows.map((row) => row.map((e) => ({ body: e.body, point: [...e.point] as Vec3,
+        linear: [...e.linear] as Vec3, angular: [...e.angular] as Vec3 })));
       constraints = rows.map((entries) => ({ row: rowOf(entries), target: -entries.reduce((sum, e) => {
         const d = driftAt(e.body, e.point); return sum + dot(e.linear, d.linear) + dot(e.angular, d.angular);
       }, 0) }));
@@ -153,9 +169,13 @@ export function coupledDynamics(built: BuiltBody, gravity: Vec3, items: readonly
       // joints retain small relative-velocity errors. Fit all normalized rows, rather than giving
       // whichever rows arrived first authority over the loop's acceleration bias.
       const rank = basis.length, normal = Array.from({ length: rank }, () => new Array<number>(rank).fill(0)), rhs = new Array<number>(rank).fill(0);
+      reactionRows = [];
       whitened.forEach((row, index) => {
-        const length = Math.sqrt(dot(row, row)); if (length === 0) return;
-        const coefficients = basis.map((b) => dot(row, b) / length), target = constraints[index]!.target / length;
+        const length = Math.sqrt(dot(row, row));
+        const coefficients = basis.map((b) => length === 0 ? 0 : dot(row, b) / length);
+        reactionRows.push({ length, coefficients });
+        if (length === 0) return;
+        const target = constraints[index]!.target / length;
         for (let r = 0; r < rank; r++) {
           rhs[r]! += coefficients[r]! * target;
           for (let c = 0; c < rank; c++) normal[r]![c]! += coefficients[r]! * coefficients[c]!;
@@ -173,23 +193,38 @@ export function coupledDynamics(built: BuiltBody, gravity: Vec3, items: readonly
         let value = targets[r]!; for (let c = r + 1; c < rank; c++) value -= normal[c]![r]! * targets[c]!;
         targets[r] = value / normal[r]![r]!;
       }
-      ready = true;
+      reactionFactor = normal; ready = true;
     },
     solve(torque: ArrayLike<number>, loads: readonly Load[] = []): number[] {
-      requireReady();
-      if (torque.length !== count || !Array.from(torque).every(Number.isFinite)) throw new Error("invalid coupled actuator torques");
-      const total = [...force];
-      for (let i = 0; i < count; i++) total[6 + i]! += torque[i]!;
-      for (const load of loads) {
-        const row = rowOf([{ body: load.body, point: load.point, linear: load.force, angular: load.moment }]);
-        for (let i = 0; i < size; i++) total[i]! += row[i]!;
-      }
-      const motion = forward(total);
+      const motion = freeMotion(torque, loads);
       for (let pass = 0; pass < 2; pass++) for (let k = 0; k < basis.length; k++) {
         const weight = targets[k]! - dot(motion, basis[k]!);
         for (let i = 0; i < size; i++) motion[i]! += weight * basis[k]![i]!;
       }
       return backward(motion);
+    },
+    /**
+     * Loads equivalent to the chosen motion constraints, in equipment/pin/supplied-row order.
+     * Redundant rows use the minimum norm of mass-whitened row contributions. This is one
+     * distribution, not a unilateral/friction feasibility certificate. Negative normal loads
+     * remain negative; a contact controller must reject or change an inadmissible assumption.
+     */
+    reactions(torque: ArrayLike<number>, loads: readonly Load[] = []) {
+      const free = freeMotion(torque, loads), weights = basis.map((b, k) => targets[k]! - dot(b, free));
+      for (let r = 0; r < weights.length; r++) {
+        for (let c = 0; c < r; c++) weights[r]! -= reactionFactor[r]![c]! * weights[c]!;
+        weights[r]! /= reactionFactor[r]![r]!;
+      }
+      for (let r = weights.length - 1; r >= 0; r--) {
+        for (let c = r + 1; c < weights.length; c++) weights[r]! -= reactionFactor[c]![r]! * weights[c]!;
+        weights[r]! /= reactionFactor[r]![r]!;
+      }
+      return reactionRows.map((row, i) => {
+        const multiplier = row.length === 0 ? 0 : dot(row.coefficients, weights) / row.length;
+        return { multiplier, loads: reactionConstraints[i]!.map((e): Load => ({ body: e.body, point: [...e.point] as Vec3,
+          force: e.linear.map((v) => v * multiplier) as unknown as Vec3,
+          moment: e.angular.map((v) => v * multiplier) as unknown as Vec3 })) };
+      });
     },
     pointAcceleration(body: SegmentBody, at: Vec3, acceleration: ArrayLike<number>) {
       requireReady();

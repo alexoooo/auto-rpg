@@ -198,6 +198,9 @@ responses survive either release; a moving loop matches engine acceleration and 
 free motions. Common-point attachment rows fix spurious constraints from solver anchor gaps.
 This supplies a diagnostic model for chunk 5; contact-force selection and bounded whole-body
 tracking, including the recovery support correction, remain to be implemented and measured.
+The model now accepts explicit motion rows and reports their equivalent reaction loads, with
+redundancy and release checks. This lets a controller inspect tensile or excessive-friction
+predictions; choosing admissible contact modes remains open.
 
 `math/quadratic.ts` supplies a deterministic constrained-quadratic component for that combined
 solve, with explicit warm-start state, fixed iteration budgets and residual reports. Analytic
