@@ -5,7 +5,9 @@ joints, driven by muscles with the strength and speed of their anatomy; a blow i
 body carries into another body, and it wounds by the energy it brings. There is no attack
 animation and no hit box: the pages draw what the physics did.
 
-Babylon.js 9 draws; Rapier (its SIMD build, WebAssembly) simulates. Everything that fights is the
+Babylon.js 9 draws; Rapier (its SIMD build, WebAssembly) simulates. The SIMD package is built from
+the pinned source and patch in `vendor/rapier` and installed from its committed tarball; ordinary
+installs need no Rust toolchain ([engine record](reference/rapier-vendor.md)). Everything that fights is the
 core's (`src/core/`). The screens (`src/arena/`, `src/dungeon/`, `src/lab/`) build on the core
 and the core never imports them: `tests/core-boundary.test.mjs` walks the core's imports and allows
 only the core itself, `@babylonjs/core`, the engine's package and JSON under `assets/`.

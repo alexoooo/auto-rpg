@@ -11,9 +11,9 @@ import { traceOf } from "../tests/harness/trace.mjs";
 export const BOUT_HARNESS = "Node, core world (src/core/world.ts), Rapier, 120 Hz";
 
 /** A world with the arena's solids and `recipe`'s bout in it. */
-export async function buildBout(recipe, { hz = 120 } = {}) {
+export async function buildBout(recipe, { hz = 120, physicsEngine } = {}) {
   const engine = new NullEngine(), scene = new Scene(engine);
-  const world = createWorld(scene, await freshEngine(), { hz });
+  const world = createWorld(scene, physicsEngine ?? await freshEngine(), { hz });
   addArenaSolids(world.physics);
   const duel = new Duel(world, recipe);
   return { world, duel, dispose() { duel.dispose(); world.dispose(); scene.dispose(); engine.dispose(); } };
@@ -87,8 +87,8 @@ function costOf(blows, duelist) {
  * trace's digest. With `shortfall`, the row gains what each side's soles missed (`shortfallMeter`); with `blows`, each blow's
  * energy and its two sides.
  */
-export async function playBout(recipe, seconds = Infinity, tape = [], { shortfall = false, blows = false } = {}) {
-  const { world, duel, dispose } = await buildBout(recipe);
+export async function playBout(recipe, seconds = Infinity, tape = [], { shortfall = false, blows = false, physicsEngine } = {}) {
+  const { world, duel, dispose } = await buildBout(recipe, { physicsEngine });
   try {
     duel.play(tape);
     const trace = traceOf(SIDES.map((side) => duel.duelists[side].built));

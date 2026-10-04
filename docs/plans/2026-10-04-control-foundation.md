@@ -114,8 +114,10 @@ callback order. A direct policy may instead produce the whole action itself.
 
 Chunk 0's runner and stock screening record are implemented in
 [control-foundation](../reference/control-foundation.md), including explicit missing capabilities
-and measurement limits. Its held-out split remains unused. The next implementation is chunk 1;
-later task fixtures extend this same runner rather than replacing its baseline.
+and measurement limits. Its held-out split remains unused. Chunk 1's behavior-preserving
+vendoring is implemented and reproduced ([engine record](../reference/rapier-vendor.md));
+directional actuation and accumulated effort follow. Later task fixtures extend this same runner
+rather than replacing its baseline.
 
 Paths marked **new** are proposed modules/scripts, not existing capabilities. Each numbered chunk
 may take the listed smaller commits. Every commit passes the common checks below. Keep experimental
@@ -157,8 +159,8 @@ effort reads and complete saved state; (c) corrected behavior with the affected 
 and measured. Package metadata and the lockfile change together; validate with `npm ci`. Preserve
 the installed package layout used by the bench. Do not land the experiment's environment switch.
 
-Prove the vendor-only change against the existing three recorded bout digests and a rebuild from
-another work directory. Add per-world-step accumulated motor impulses; name last-substep reads
+Prove the vendor-only change against stock on the same code for the three recorded bout recipes,
+the common baseline, and a rebuild from another work directory. Add per-world-step accumulated motor impulses; name last-substep reads
 accurately. If work is measured, accumulate torque times motion over substeps rather than
 calling a last-substep torque the step average. Check impulse signs, saturated loaded braking,
 both directional limits, finite/infinite command semantics and rate dependence.

@@ -97,6 +97,11 @@ screens build on it; it never imports them.
 
 ## Babylon and Rapier
 
+- **The core's Rapier is vendored** in `vendor/rapier`, built from its pinned source and patch;
+  `npm ci` installs the committed tarball. Do not replace it with the npm SIMD package. A motor's
+  impulse is applied to its first body (the parent); the exposed impulse is the last solver
+  substep's, not a sum over the world step. The plain bench package remains npm's.
+
 - **Side-effect imports are load-bearing.** The tree-shaken build omits prototype patches, so an
   "unused" import removed here compiles and breaks at runtime, sometimes silently: the shadow,
   depth-renderer, post-process and HDR-loader imports in `src/arena/scene.ts` and

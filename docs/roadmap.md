@@ -329,8 +329,9 @@ shared two-handed items are its capability gates; the reference control stack re
   (`src/core/touches.ts`) lands again only once the two have parted. Whether a blow should is a
   change of rule, which moves every bout, and comes with its table.
 - Rapier's limits, held as `todo` tests: a limit pushes along its parent's axis, so a pressed angle
-  can pass its stop by up to 0.046 rad; and the JavaScript binding does not read joint impulses,
-  so the muscle driver guesses which side pulled.
+  can pass its stop by up to 0.046 rad; the vendored binding exposes directional motor bounds and
+  last-substep impulses, but the driver still uses a symmetric ceiling and guesses which side
+  pulls. Corrected actuation and accumulated effort are part of the control-foundation phase.
 
 ### The Arena
 

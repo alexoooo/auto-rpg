@@ -27,9 +27,9 @@ import { forceVelocityFactor, forceVelocityReach, type ForceVelocityCurve } from
  * (the sign of target minus speed), and with no push the weaker. **A known defect:** that gives the
  * braking muscles' work to the other side whenever a load outweighs the change asked, and a servo
  * asks for small changes, the smaller the finer the step. The right choice is the sign of the
- * torque the step needs, which takes the torque the motor last applied; Rapier keeps each motor's
- * impulse, but its JavaScript binding does not read it. `tests/core-muscle.test.mjs` holds the
- * choice as a todo.
+ * torque the step needs. The vendored binding exposes separate directional bounds and a motor's
+ * last-substep impulse; this driver uses the engine contract's symmetric ceiling.
+ * `tests/core-muscle.test.mjs` holds the choice as a todo.
  *
  * **The curve is read at the speed the step begins with, and the motor's target is held to where
  * the curve's tangent there reaches zero** (`forceVelocityReach`). A light limb's own time

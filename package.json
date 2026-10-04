@@ -17,7 +17,7 @@
     "@babylonjs/core": "9.18.1",
     "@babylonjs/loaders": "9.18.1",
     "@dimforge/rapier3d-compat": "0.21.0",
-    "@dimforge/rapier3d-simd-compat": "0.21.0",
+    "@dimforge/rapier3d-simd-compat": "file:vendor/rapier/dimforge-rapier3d-simd-compat-0.21.0-auto-rpg.1.tgz",
     "@mujoco/mujoco": "3.14.0"
   },
   "devDependencies": {

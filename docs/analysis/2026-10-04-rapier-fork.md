@@ -153,54 +153,13 @@ club. That the two share a cause is likely and not measured; the setting-off tur
 
 ## State of the work
 
-The owner chose to vendor the fork: Rapier built here from source with our patch, in the
-repository, and installed from there. It is not to be sent upstream.
+The pinned source build and package are installed from `vendor/rapier`. Rebuilding in a new
+work directory produces the same tarball bytes. Current-code stock/package parity, the three
+bout recipes and the common task battery are recorded in
+[the engine record](../reference/rapier-vendor.md); the earlier digests above belong to the
+experiment's game revision. The plain bench package remains npm's.
 
-**Done and verified**
-
-- The patch, [2026-10-04-rapier-fork.patch](2026-10-04-rapier-fork.patch), against `js-v0.21.0`
-  (`git apply` at the root of a `dimforge/rapier` clone). Rapier's own test of the bounds passes.
-- Bit-identity of the fork used as Rapier is used today, and every result above.
-
-**Built, not yet landed.** The vendoring is drafted and the package builds, but it has not been
-installed and tested. It is in `vendor/rapier/` on branch `vendor-rapier` of a clone of this
-repository on the development machine (`RustroverProjects/auto-rpg-rapier-lab`):
-
-- `auto-rpg.patch`: this record's patch.
-- `build.sh`: Rapier's compat pipeline for the 3D SIMD variant alone, from a fresh clone of the
-  tag. It runs end to end in about five minutes (`CARGO_BUILD_JOBS=4`). Its work tree is outside
-  the repository (`~/.cache/auto-rpg/rapier`). It:
-  - approves wasm-pack's and wasm-opt's install scripts (npm 11 holds them back);
-  - runs wasm-pack itself, with the build's folders remapped out of the paths the wasm keeps for
-    its panics, so that no home folder is in it and the bytes do not depend on the folder;
-  - writes the declarations with LF (the TypeScript Rapier pins writes the platform's);
-  - packs `dimforge-rapier3d-simd-compat-0.21.0-auto-rpg.1.tgz` (5.0 MB).
-- `README.md`: what the patch does, the toolchain (rustc 1.97.1 with `wasm32-unknown-unknown`,
-  Node 24; wasm-pack 0.12.1 and wasm-bindgen 0.2.129 pinned by Rapier), how to rebuild, and how to
-  take a new Rapier.
-- `package.json` names the tarball (`file:vendor/rapier/...tgz`); the lockfile is not yet written.
-- Corrections the vendoring makes true:
-  - `AGENTS.md` gains a rule (Rapier is built here and never taken from npm; a motor's impulse is
-    the parent's);
-  - `docs/architecture.md`'s engine line, `src/core/engine/rapier.ts`'s module doc, and the
-    driver's defect note (`src/core/muscle/driver.ts`);
-  - the two muscle todos' reasons (`tests/core-muscle.test.mjs`);
-  - the roadmap's open item, which says the binding does not read joint impulses.
-
-**To land it**
-
-1. `npm install` to write the lockfile, then `npm ci` from it.
-2. `npm test`, `npm run check`, `npm run build`.
-3. Check the installed package against npm's to the bit: the three bouts above
-   (`playBout(recipe, 12).digest`, `research/bout.mjs`) give the digests in the first table.
-4. Build a second time from another `RAPIER_WORK` and compare the tarballs. They are expected to
-   be byte-identical; that is not yet shown.
-5. The physics bench and the bake-off scripts take the SIMD package by name
-   (`research/physics-bakeoff/load-cost.mjs` reads its `dist/` files by path). The vendored
-   package keeps npm's layout, so they read ours. The plain package (`@dimforge/rapier3d-compat`)
-   stays npm's.
-
-**Then, the owner's to schedule:** the solver's choice of side, as measured above. The driver
-change, and `pulled` sorted for forking, are on branch `rapier-motor-bounds` of the same clone.
-They carry a temporary `MOTOR_OPPOSITE` switch (`same`, `own`, `zero`, `max`) that reads the
-environment from the core and must not land.
+Directional actuator bounds, accumulated world-step effort and control retuning remain the
+next work of [the foundation phase](../plans/2026-10-04-control-foundation.md). The experimental
+driver with last-substep `pulled` state is on branch `rapier-motor-bounds` in the sibling
+`auto-rpg-rapier-lab` checkout. Its temporary `MOTOR_OPPOSITE` environment switch must not land.

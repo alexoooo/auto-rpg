@@ -11,7 +11,8 @@ import { turnAboutToRef } from "../math/turn.ts";
 /**
  * **The core's physics engine: Rapier**, the SIMD build of its WebAssembly (`@dimforge/rapier3d-simd-compat`,
  * the owner's choice after the bake-off, `owner-physics-engine`), meeting the contract of `engine.ts`.
- * The compat build carries its wasm inline, so a browser and Node load it alike (`loadRapier`).
+ * It is built from the pinned source and patch in `vendor/rapier`. The compat build carries its
+ * wasm inline, so a browser and Node load it alike (`loadRapier`).
  *
  * Rapier's clock is set to the world's fixed step. Its generic joint measures a limited angle as
  * `jointAngles` reads it (`src/core/build/joint-state.ts`), and its velocity motor with infinite

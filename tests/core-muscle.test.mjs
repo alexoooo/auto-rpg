@@ -230,9 +230,9 @@ test("a light limb on a heavy one speeds up at 120 Hz as it does at a fine rate"
  * positive when the positive muscles pulled. Driven flat out it is the ceiling the step was given,
  * either way; holding the rod still it is its weight's moment about the pin, opposed, roughly. The
  * pairs are read in the controller, where `pulled` and `ceiling` both still belong to the step just
- * run. A todo: Rapier keeps each motor's impulse, but its JavaScript binding does not read it.
+ * run. A todo: the vendored binding exposes impulses, but the driver has no effort readback.
  */
-test("the driver reads the torque its motor applied, and its sign is the side that pulled", { todo: "Rapier's JavaScript binding does not read a joint's impulses, so the driver has no `pulled`" }, async () => {
+test("the driver reads the torque its motor applied, and its sign is the side that pulled", { todo: "The driver has no `pulled` readback from the vendored binding" }, async () => {
   const peak = { positive: 6, negative: 4 };
   const spec = rod(CURVES[0], peak);
   const stand = await coreStand(spec, { gravity: true, ground: false, pinned: "post", hz: 120 });
@@ -281,7 +281,7 @@ test("the driver reads the torque its motor applied, and its sign is the side th
  * written out here since the servo gives torques (`servo.ts`). A todo: the driver chooses by the
  * change asked (`driver.ts` has the defect).
  */
-test("a command lowering a weight is bounded by the muscles braking it, not those it turns toward", { todo: "Rapier's JavaScript binding does not read a joint's impulses, so the driver has no `pulled`" }, async () => {
+test("a command lowering a weight is bounded by the muscles braking it, not those it turns toward", { todo: "The driver still uses symmetric bounds instead of the vendored directional bounds" }, async () => {
   const peak = { positive: 0.02, negative: 6 };
   const spec = rod(CURVES[0], peak);
   const stand = await coreStand(spec, { gravity: true, ground: false, pinned: "post", hz: 120 });
