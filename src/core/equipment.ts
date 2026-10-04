@@ -50,7 +50,7 @@ const tuple = (v: Vector3): Vec3 => [v.x, v.y, v.z];
 /**
  * One independently simulated item, with persistent identity and any number of registered grips.
  * A grip is an ideal rigid attachment, like a compound holding: it has no break-strength rule.
- * Capture checks both local frames in the current world pose; it never moves either body.
+ * Capture checks the desired frames, then joins the actual pose without alignment correction.
  * Grip attachments live in the engine snapshot, including releases and reattachments.
  */
 export function createEquipment(world: World, definition: EquipmentDefinition) {
@@ -116,7 +116,13 @@ export function createEquipment(world: World, definition: EquipmentDefinition) {
         if (g.joint.attached) return true;
         const e = error(g);
         if (e.distance > distance || e.rotationError > rotationError) return false;
-        g.joint.attach();
+        const inverse = new Quaternion();
+        Quaternion.InverseToRef(node.rotationQuaternion!, inverse);
+        position.subtractToRef(node.position, other);
+        other.applyRotationQuaternionToRef(inverse, other);
+        inverse.multiplyToRef(qa, qb);
+        g.joint.attach({ anchorParent: tuple(g.hand.at), anchorChild: tuple(other),
+          frameParent: g.hand.turn, frameChild: qb });
         return true;
       },
       release(name: string): void { grip(name).joint.release(); },
@@ -126,7 +132,15 @@ export function createEquipment(world: World, definition: EquipmentDefinition) {
         return deepFreeze({ id, name: item.name, substance: item.substance, mass: item.mass.value,
           position: tuple(node.position), rotation: [q.x, q.y, q.z, q.w] as const,
           velocity: tuple(body.linearVelocityToRef(velocity)), spin: tuple(body.angularVelocityToRef(spin)),
-          grips: grips.map((g) => ({ name: g.name, body: g.body.node.name, attached: g.joint.attached, collisionSuppressed: g.joint.collisionSuppressed, ...error(g) })),
+          grips: grips.map((g) => {
+            const frames = g.joint.frames();
+            return { name: g.name, body: g.body.node.name, attached: g.joint.attached,
+              collisionSuppressed: g.joint.collisionSuppressed, ...error(g),
+              attachment: frames ? {
+                bodyFrame: { position: frames.anchorParent, rotation: rotation(frames.frameParent) },
+                itemFrame: { position: frames.anchorChild, rotation: rotation(frames.frameChild) },
+              } : null };
+          }),
           contacts: world.physics.contactsOf(body).map((c) => ({ other: c.other?.node.name ?? null, fixed: c.fixed,
             point: [...c.point] as Vec3, normal: [...c.normal] as Vec3, impulse: c.impulse,
             pairs: c.pairs.map((p) => ({ ...p, point: [...p.point] as Vec3, normal: [...p.normal] as Vec3 })),
@@ -137,9 +151,10 @@ export function createEquipment(world: World, definition: EquipmentDefinition) {
       motionConstraints() {
         live();
         return grips.flatMap((g) => {
-          if (!g.joint.attached) return [];
-          g.hand.at.applyRotationQuaternionToRef(g.body.node.rotationQuaternion!, position).addInPlace(g.body.node.position);
-          g.item.at.applyRotationQuaternionToRef(node.rotationQuaternion!, other).addInPlace(node.position);
+          const frames = g.joint.frames();
+          if (!frames) return [];
+          position.set(...frames.anchorParent).applyRotationQuaternionToRef(g.body.node.rotationQuaternion!, position).addInPlace(g.body.node.position);
+          other.set(...frames.anchorChild).applyRotationQuaternionToRef(node.rotationQuaternion!, other).addInPlace(node.position);
           return attachmentRows(g.body, body, tuple(position), tuple(other), true);
         });
       },

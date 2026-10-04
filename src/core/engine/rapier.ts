@@ -29,7 +29,7 @@ import { turnAboutToRef } from "../math/turn.ts";
 type Rapier = typeof RAPIER;
 
 /** Vendor archive identity (`docs/reference/rapier-vendor.md`) and the adapter's snapshot contract. */
-const REVISION = "rapier/adapter-3/sha256:31ca414ad12dff1d55d8c0ad7a954238d62043d5041e34c03bb95d3b83ac4d3d";
+const REVISION = "rapier/adapter-4/sha256:31ca414ad12dff1d55d8c0ad7a954238d62043d5041e34c03bb95d3b83ac4d3d";
 
 /**
  * Rapier's wasm, loading or loaded: one instance a realm. Rapier's own `init` asked again while
@@ -461,11 +461,23 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
       return {
         get attached() { return slot.handle !== null; },
         get collisionSuppressed() { return slot.handle !== null || slot.suppressed; },
-        attach() {
+        frames() {
+          if (slot.handle === null) return null;
+          const joint = raw.getImpulseJoint(slot.handle);
+          const a = joint.anchor1(), b = joint.anchor2(), qa = joint.frameX1(), qb = joint.frameX2();
+          return { anchorParent: [a.x, a.y, a.z], anchorChild: [b.x, b.y, b.z],
+            frameParent: new Quaternion(qa.x, qa.y, qa.z, qa.w), frameChild: new Quaternion(qb.x, qb.y, qb.z, qb.w) };
+        },
+        attach(captured) {
           own(parent); own(child);
           if (!grips.includes(slot)) throw new Error("grip is disposed");
           if (slot.handle !== null) return;
-          const joint = raw.createImpulseJoint(R.JointData.fixed(a, qa, b, qb), parent.rigid, child.rigid, true);
+          const ca = captured ? xyz(captured.anchorParent) : a, cb = captured ? xyz(captured.anchorChild) : b;
+          const cqa = captured ? xyzw(captured.frameParent) : qa, cqb = captured ? xyzw(captured.frameChild) : qb;
+          if (![...Object.values(ca), ...Object.values(cb), ...Object.values(cqa), ...Object.values(cqb)].every(Number.isFinite)
+            || cqa.x * cqa.x + cqa.y * cqa.y + cqa.z * cqa.z + cqa.w * cqa.w === 0
+            || cqb.x * cqb.x + cqb.y * cqb.y + cqb.z * cqb.z + cqb.w * cqb.w === 0) throw new Error("invalid grip frame");
+          const joint = raw.createImpulseJoint(R.JointData.fixed(ca, cqa, cb, cqb), parent.rigid, child.rigid, true);
           joint.setContactsEnabled(false);
           slot.handle = joint.handle;
           slot.suppressed = false;

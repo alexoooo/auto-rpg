@@ -184,6 +184,10 @@ includes the clearance interval; later collisions return once the pair separates
 placement now shares the compound grasp frame through `equipHands`. A pinned two-item fixture
 moves both loaded arms under gravity on all three models through independent actuator feedback.
 Standing use, second-hand capture, rendering and damage integration remain open.
+Capture now preserves the accepted pose instead of asking the joint to correct the tolerance
+error. Actual captured frames are observed, replayed and used by both dynamic models. Reading
+the native geometry exposed a rank defect; shared strongest-row pivoting fixes the redundant
+loop without changing the numerical tolerance or its physical acceptance gates.
 
 The [coupled acceleration model](../reference/coupled-dynamics.md) extends the floating tree
 with separate item mass, gyroscopic bias and closed grip constraints. Mechanical force/torque

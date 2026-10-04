@@ -2,7 +2,7 @@ import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { SegmentBody } from "../engine/engine.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import type { BuiltBody } from "./build-body.ts";
-import type { MotionConstraint } from "./constrained-mass.ts";
+import { constraintBasis, type MotionConstraint } from "./constrained-mass.ts";
 import { bodyDynamics } from "./dynamics.ts";
 import { jointAngles } from "./joint-state.ts";
 
@@ -148,16 +148,7 @@ export function coupledDynamics(built: BuiltBody, gravity: Vec3, items: readonly
         const d = driftAt(e.body, e.point); return sum + dot(e.linear, d.linear) + dot(e.angular, d.angular);
       }, 0) }));
       const whitened = constraints.map((c) => forward(c.row));
-      for (const original of whitened) {
-        const row = [...original], before = dot(row, row);
-        for (let pass = 0; pass < 2; pass++) for (let k = 0; k < basis.length; k++) {
-          const w = dot(row, basis[k]!);
-          for (let i = 0; i < size; i++) row[i]! -= w * basis[k]![i]!;
-        }
-        const length2 = dot(row, row);
-        if (length2 <= RANK_TOLERANCE * RANK_TOLERANCE * before || length2 === 0) continue;
-        const scale = 1 / Math.sqrt(length2); basis.push(row.map((v) => v * scale));
-      }
+      basis.push(...constraintBasis(whitened, RANK_TOLERANCE));
       // Redundant rows can have slightly inconsistent acceleration targets because the engine's
       // joints retain small relative-velocity errors. Fit all normalized rows, rather than giving
       // whichever rows arrived first authority over the loop's acceleration bias.

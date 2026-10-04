@@ -415,7 +415,9 @@ has tactics of its own:
 
 `core/equipment.ts` constructs one separately simulated item with named rigid grip frames.
 It owns no controller. Capture checks current position/orientation error against explicit task
-tolerances; it never places a hand or item. Release preserves body motion. A former grip pair
+tolerances; it joins the current pose without alignment correction. The desired frames remain
+in the model, while observation and dynamics read actual captured frames from the saved joint.
+Release preserves body motion. A former grip pair
 that still overlaps stays excluded until its shapes clear; its saved exclusion then ends. The engine's persistent grip slots restore attachments with physics snapshots,
 including after release and regrip. Detached item observations retain identity and collider
 indices. The trusted construction handle carries rendering and physics resources.

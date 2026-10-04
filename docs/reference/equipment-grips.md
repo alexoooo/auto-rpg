@@ -20,14 +20,18 @@ Neither operation writes pose, velocity or mass. Equipment capture first checks 
 anchor distance and orientation error, `1 - abs(dot(q1, q2))`, against explicit task tolerances.
 An out-of-range request returns false. Capturing bodies with different velocities can produce
 a physical constraint impulse on the next step; this is not an energy-free capture guarantee.
+An accepted capture keeps the hand's desired local frame and derives the item's attachment
+frame from the current world pose. The immutable model retains the desired frames; observation
+reports both their error and the actual `attachment` frames (null when detached). Dynamics
+uses the actual anchors. Accepting a tolerance never requests alignment correction.
 
 A grip is ideal and rigid, like the existing compound holding. It has no authored break force
 or disarm rule. It is not an external weapon assist. The observation reports
 `collisionSuppressed`, including the clearance interval after release. It applies to the former
 grip pair only, has no timer, and cannot suppress a later impact after clearance.
 
-Rapier adapter revision 3 saves node poses, registered grip handles, release exclusions and the
-solver snapshot.
+Rapier adapter revision 4 saves node poses, registered grip handles, release exclusions and the
+solver snapshot, including actual captured frames in its native joints.
 Loading validates body/constraint membership and grip endpoints before replacing the live world.
 The caller retains the same grip objects through release, reattachment and load. A registered
 slot's deletion or addition changes topology and invalidates an older snapshot. Engine/task
@@ -36,7 +40,7 @@ The vendor artifact is unchanged. Older adapter environment snapshots are intent
 
 ## Mechanical fixtures
 
-Harness: Node, NullEngine scene, core World, vendored Rapier `.2`, adapter 3, 120 Hz, directional
+Harness: Node, NullEngine scene, core World, vendored Rapier `.3`, adapter 4, 120 Hz, directional
 actuation configuration, no assists. The fixtures contain two synthetic 1 kg holders and the
 sourced `woodenClub()`. They do not model anatomical hands or claim actuator feasibility.
 
@@ -48,19 +52,23 @@ free holder excites motion before release. The closed-loop case joins the holder
 midpoint with three limited angular freedoms, fixes the left holder, enables gravity and
 applies 0.2 N s to the item after releasing either grip.
 
-`node --test tests/core-equipment.test.mjs` passes these six checks:
+`node --test tests/core-equipment.test.mjs` includes these checks:
 
 | Check | Result |
 |---|---|
 | One item, two holders, either release | Total mass within 1e-6 kg; total linear momentum within 1e-5 N s; remaining grip within 1 mm after 120 steps; released holder separates |
 | Release and regrip replay | Exact observations in place, through handle reuse, and in a fresh equivalent world |
 | Unreachable capture | Position and orientation refusals leave pose and velocity unchanged |
+| Pose-preserving capture | A stationary grip with 0.02 m and 0.05 rad desired-frame error retains pose and zero velocity within 1e-6 through 120 steps; native captured frames survive release/restore and fresh-world replay |
 | Free item contact | Released club contacts the floor with stable item identity and valid original shape indices |
 | Closed loop | Both attachments within 1 mm; after either release the remaining attachment stays within 1 mm; exact branch replay |
 | Incompatible topology | Refused without modifying the live snapshot; disposing the extra slot restores compatibility |
 
 Removing the engine's actual joint-removal call while retaining the logical release makes the
 equipment tests fail. This checks physical release, not merely a changed attachment flag.
+The pose-preserving fixture declares 0.03 m and 0.001 quaternion-error capture tolerances.
+Joining the desired frames instead moves the holder's x coordinate from 0.1 to 0.107210085 m;
+the regression fails before reaching the attachment-observation assertions.
 
 These tests do not validate tree-only inverse dynamics for a closed loop, effective contact mass,
 muscle load distribution, CCD, compound release or standing two-handed use. Those are subsequent

@@ -14,7 +14,7 @@ const engine = await freshEngine(), identity = [0, 0, 0, 1];
 const frame = (position, rotation = identity) => ({ position, rotation });
 
 // Node stand, Rapier, 120 Hz. Two free 1 kg holders and the sourced wooden club.
-async function fixture({ gravity = false, secondFrame = frame([0, 0.3, 0]) } = {}) {
+async function fixture({ gravity = false, secondFrame = frame([0, 0.3, 0]), capture = { distance: 0.002, rotationError: 0.00001 } } = {}) {
   const rendering = new NullEngine(), scene = new Scene(rendering);
   const world = createWorld(scene, engine, { gravity, actuation: "directional" });
   const holder = (name, position) => {
@@ -26,7 +26,7 @@ async function fixture({ gravity = false, secondFrame = frame([0, 0.3, 0]) } = {
   };
   const left = holder("left", [-0.1, 1, 0]), right = holder("right", [0.1, 1.2, 0]);
   const item = createEquipment(world, { id: "club-1", item: woodenClub(), pose: frame([0, 0.9, 0]),
-    capture: { distance: 0.002, rotationError: 0.00001 },
+    capture,
     grips: [
       { name: "left", body: left, bodyFrame: frame([0.1, 0, 0]), itemFrame: frame([0, 0.1, 0]) },
       { name: "right", body: right, bodyFrame: frame([-0.1, 0, 0]), itemFrame: secondFrame },
@@ -40,6 +40,43 @@ async function fixture({ gravity = false, secondFrame = frame([0, 0.3, 0]) } = {
     dispose() { item.dispose(); world.dispose(); scene.dispose(); rendering.dispose(); } };
 }
 const close = (a, b, tolerance, message) => assert.ok(Math.abs(a - b) < tolerance, `${message}: ${a} vs ${b}`);
+
+test("capture within tolerance preserves the actual pose instead of correcting to the requested grip", async () => {
+  const f = await fixture({ secondFrame: frame([0.02, 0.3, 0], [0, 0, Math.sin(0.025), Math.cos(0.025)]),
+    capture: { distance: 0.03, rotationError: 0.001 } });
+  try {
+    const before = f.bodies.map((b) => [...b.node.position.asArray(), ...b.node.rotationQuaternion.asArray()]);
+    assert.equal(f.item.tryGrip("right"), true);
+    assert.deepEqual(f.velocities().flat(2), Array(18).fill(0));
+    f.world.step(120);
+    f.bodies.forEach((b, i) => [...b.node.position.asArray(), ...b.node.rotationQuaternion.asArray()]
+      .forEach((v, k) => close(v, before[i][k], 1e-6, "capture adds no pose correction")));
+    assert.ok(f.velocities().flat(2).every((v) => Math.abs(v) < 1e-6));
+    const grip = f.item.observe().grips[1];
+    close(grip.distance, 0.02, 1e-6, "desired frame remains offset");
+    close(grip.attachment.itemFrame.position[0], 0, 1e-6, "captured frame meets the hand");
+    assert.deepEqual(grip.attachment.itemFrame.rotation, identity);
+    const rows = f.item.motionConstraints();
+    assert.equal(rows.length, 6);
+    for (const entry of rows[0]) entry.point.forEach((v, k) => close(v, [0, 1.2, 0][k], 1e-6, "model uses captured anchor"));
+    assert.throws(() => { grip.attachment.itemFrame.position[0] = 1; }, TypeError);
+    const saved = f.save();
+    f.item.release("right");
+    assert.equal(f.item.observe().grips[1].attachment, null);
+    f.load(saved);
+    assert.deepEqual(f.item.observe().grips[1], grip);
+    const other = await fixture();
+    try {
+      other.load(saved);
+      assert.deepEqual(other.item.observe().grips[1].attachment, grip.attachment);
+      for (let i = 0; i < 10; i++) {
+        f.world.step(); other.world.step();
+        assert.deepEqual(other.velocities(), f.velocities());
+        assert.deepEqual(other.item.observe().position, f.item.observe().position);
+      }
+    } finally { other.dispose(); }
+  } finally { f.dispose(); }
+});
 
 test("one item has one mass with two grips, and release of either grip preserves motion", async () => {
   for (const released of ["left", "right"]) {

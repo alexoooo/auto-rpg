@@ -24,6 +24,25 @@ function reject(row: number[], basis: readonly number[][]): void {
   }
 }
 
+/** Rank-revealing orthonormal rows; pivoting prevents a weak row from amplifying roundoff. */
+export function constraintBasis(rows: readonly (readonly number[])[], tolerance: number): number[][] {
+  const remaining = rows.map((row) => [...row]), basis: number[][] = [];
+  const largest = remaining.reduce((max, row) => Math.max(max, dot(row, row)), 0);
+  while (remaining.length) {
+    let selected = 0, length2 = 0;
+    for (let r = 0; r < remaining.length; r++) {
+      const row = remaining[r]!;
+      reject(row, basis);
+      const norm = dot(row, row);
+      if (norm > length2) { selected = r; length2 = norm; }
+    }
+    if (length2 <= tolerance * tolerance * largest) break;
+    const row = remaining.splice(selected, 1)[0]!, scale = 1 / Math.sqrt(length2);
+    basis.push(row.map((v) => v * scale));
+  }
+  return basis;
+}
+
 /**
  * Instantaneous mobility of rigid bodies joined by homogeneous velocity constraints, including
  * redundant closed loops. Mass-whitened constraint rows form an orthonormal basis Q; the free
@@ -81,16 +100,7 @@ export function constrainedMass(bodies: readonly SegmentBody[], constraints: () 
         angularScale[i] = p.moments.map((v) => 1 / Math.sqrt(v));
       });
       const supplied = constraints(); rows = supplied.length;
-      for (const entries of supplied) {
-        const row = rowOf(entries), before = dot(row, row);
-        if (before === 0) continue;
-        reject(row, basis);
-        const after = dot(row, row);
-        if (after <= RANK_TOLERANCE * RANK_TOLERANCE * before) continue;
-        const inverseLength = 1 / Math.sqrt(after);
-        for (let i = 0; i < size; i++) row[i]! *= inverseLength;
-        basis.push(row);
-      }
+      basis.push(...constraintBasis(supplied.map(rowOf), RANK_TOLERANCE));
       ready = true;
     },
     /** Independent constraint count and remaining velocity freedoms, from the last update. */

@@ -3,9 +3,9 @@
 `build/constrained-mass.ts` computes instantaneous mobility in maximal coordinates: six
 velocity freedoms per rigid body, with explicit homogeneous velocity constraints. It whitens
 each constraint by inverse square-root mass and principal inertia, removes dependent rows by
-two-pass modified Gram–Schmidt, and projects impulses onto the remaining freedoms. This is
+two-pass modified Gram–Schmidt with strongest-row pivoting, and projects impulses onto the remaining freedoms. This is
 the constrained inverse mass, not a penalty spring. A shared item contributes its mass once.
-The relative rank tolerance is 1e-10 on whitened row length, a numerical setting; duplicate
+The relative rank tolerance is 1e-10 against the largest original whitened row length, a numerical setting; duplicate
 constraints do not make an item heavier. The second projection pass limits roundoff when rows
 are nearly dependent. The report exposes supplied rows, rank and remaining freedoms.
 

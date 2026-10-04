@@ -9,8 +9,12 @@ forces and moments are explicit inputs. The model applies no forces and changes 
 For mass matrix `M = L L'`, the model whitens forces with `L^-1` and acceleration with `L'`.
 Constraint rows `J` become `J L^-T`. Their orthonormal row basis projects out forbidden
 acceleration, while their targets include the relative centripetal/angular drift at each
-constraint point. The relative rank tolerance is 1e-10 on whitened row length, a numerical
-setting shared with the impact model. Two projection passes reduce roundoff.
+constraint point. The relative rank tolerance is 1e-10 against the largest original whitened
+row length, a numerical setting shared with the impact model. The shared `constraintBasis`
+pivots on the strongest remaining row before normalization; two projection passes reduce roundoff.
+Native captured-frame rounding exposes why pivoting matters: processing the mechanical loop's
+rows in supplied order admitted a tenth constraint and produced a nonfinite acceleration.
+Pivoting restores rank nine and agreement with the independently formulated impact model.
 
 Real solver states retain small relative-velocity errors, so redundant acceleration targets
 need not agree exactly. The particular acceleration fits all normalized whitened rows by
@@ -26,7 +30,7 @@ rows preserve the rigid assembly's six motions. This also corrects the impact mo
 
 ## Checks
 
-Harness: Node core world, Rapier `0.21.0-auto-rpg.3`, adapter 3. No assists. The anatomical
+Harness: Node core world, Rapier `0.21.0-auto-rpg.3`, adapter 4. No assists. The anatomical
 comparison uses gravity and all three bodies with a right-hand wooden club, both floating and
 with an explicitly declared fixed pelvis. The same asymmetric channel torques are applied to
 the model with compound equipment and to the model with a separate item and one grip. Generalized
