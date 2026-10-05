@@ -317,6 +317,13 @@ Warrior all-fours pose on ordinary ground for ten seconds within 2 cm, without a
 `buildBody` accepts optional initial joint angles and a root quaternion, aligns joint anchors
 before creating physics, and preserves anatomical reference frames. Initialization belongs to
 the task; policies receive no authority to reposition a live body.
+The optional `supportEntry` policy (`control/support-entry.ts`) runs configured settling,
+rolling and preparation poses through that same detached observation/action host. Required
+and forbidden contacts are measured independently by `supportEntryReading`; stage completion
+is not task success. The [support-entry fixture](reference/support-entry.md) physically fells
+a Warrior, changes controller without changing the body, and scores acquisition followed by
+ten seconds of quiet support. Some development starts pass and some drift or acquire too late;
+this does not establish kneeling, standing or a gameplay handover.
 
 **A mind may hand its body to a sub-mind** (`sub-mind.ts`). A `SubMind` is a mind that also says
 each step whether it wants the body (`wants`), and is told when it has it and when it has it no

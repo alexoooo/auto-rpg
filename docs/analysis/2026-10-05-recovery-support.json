@@ -9050,5 +9050,924 @@
         ]
       }
     ]
-  }
+  },
+  "transferFollowups": [
+    {
+      "name": "prepared-fours-entry",
+      "source": "﻿import fs from 'node:fs';\nimport {Quaternion,Vector3} from '@babylonjs/core/Maths/math.vector.js';\nimport {felled} from '../research/core-rise-trials.mjs';\nimport {createMind} from '../src/core/mind/minds.ts';\nimport {FIGHTER} from '../src/core/mind/config.ts';\nimport {STAND_ORDERS} from '../src/core/mind/orders.ts';\nimport {createPolicyBody} from '../src/core/mind/direct.ts';\nimport {RISE} from '../src/core/mind/rise/stages.ts';\nconst pose=JSON.parse(fs.readFileSync('assets/research/posture-holds.json','utf8'))[0];\nfor(const seconds of [.2,.01])for(const degrees of [0,90,180,270]){\n const fall=await felled({model:'workshop-fighter',held:'empty',degrees,actuation:'directional'},(b,w)=>createMind(b,w,FIGHTER,{name:'fall-start',orders:()=>STAND_ORDERS}).body);\n const wasDown=fall.body.view.down;fall.body.dispose();\n const rest=fall.built.segments.get('lowerTrunk').rest.clone();\n const targets=Object.fromEntries([...fall.built.joints].flatMap(([name,j])=>j.dofs.map((d,i)=>[`${name} ${d.spec.positive}`,pose.placement.joints[name][i]])));\n const bind=Object.fromEntries(fall.built.spec.joints.flatMap(j=>j.dofs.map(d=>[j.name+' '+d.positive,d.bind.value])));\n const state={phase:'settle',time:0,still:0,stage:0,lie:'front',attempts:0,holdSteps:0,peakHold:0};\n const body=createPolicyBody(fall.built,fall.world,m=>({name:'direct-entry',state,step(o,dt){\n state.time+=dt;const relative=new Quaternion(...o.segments.find(s=>s.name==='lowerTrunk').rotation).multiply(Quaternion.Inverse(rest));const forward=new Vector3(0,0,1).applyRotationQuaternion(relative),left=new Vector3(-1,0,0).applyRotationQuaternion(relative);\n const lie=forward.y>.5?'back':forward.y<-.5?'front':left.y<0?'left':'right';\n const contacts=new Set(o.contacts.filter(c=>c.fixed!==null&&c.impulse>0).map(c=>c.segment));\n if(state.phase==='settle'){state.still=Math.max(...o.segments.map(s=>Math.hypot(...s.velocity)))<.1?state.still+dt:0;if(state.still>.5||state.time>3){state.lie=lie;state.phase=lie==='front'?'prepare':'roll';state.time=0;state.stage=0;state.attempts++;}}\n const sequence=state.phase==='roll'?RISE.roll[state.lie]:state.phase==='prepare'?RISE.rise.slice(0,3):null; let stage=sequence?.[state.stage];\n if(stage&&state.time>=stage.seconds){state.stage++;state.time=0;if(state.stage===sequence.length){state.phase=state.phase==='prepare'?'fours':'settle';state.still=0;}stage=state.phase==='roll'||state.phase==='prepare'?sequence[state.stage]:null;}\n const holds=lie==='front'&&['hand.left','hand.right','shank.left','shank.right'].every(n=>contacts.has(n))&&!['upperTrunk','middleTrunk','lowerTrunk','head'].some(n=>contacts.has(n));state.holdSteps=holds?state.holdSteps+1:0;state.peakHold=Math.max(state.peakHold,state.holdSteps);\n if(state.phase==='fours'&&state.time>6&&!holds){state.phase='settle';state.time=0;state.still=0;}\n return {kind:'velocity',activation:m.channels.map(()=>state.phase==='settle'?0:1),velocity:m.channels.map((c,i)=>{const target=stage?Math.max(c.min,Math.min(c.max,(stage.posture[c.name]??0)-bind[c.name])):targets[c.name];const speed=seconds===.01?10:stage?.drive?.speed??3,within=seconds===.01?.01:stage?.drive?.within??seconds;return Math.max(-speed,Math.min(speed,(target-o.joints[i].angle)/within));})};\n }}));\n try{for(let i=0;i<4800;i++){fall.world.step();if(i===4799){const o=body.observe();console.log(JSON.stringify({degrees,response:seconds,wasDown,seconds:(i+1)/120,state,height:o.height,contacts:[...new Set(o.contacts.filter(c=>c.fixed!==null&&c.impulse>0).map(c=>c.segment))]}));}}}\n finally{body.dispose();fall.dispose();}\n}\r\n",
+      "rows": [
+        {
+          "degrees": 0,
+          "response": 0.2,
+          "wasDown": true,
+          "seconds": 40,
+          "state": {
+            "phase": "fours",
+            "time": 22.383333333332704,
+            "still": 0,
+            "stage": 3,
+            "lie": "front",
+            "attempts": 3,
+            "holdSteps": 2842,
+            "peakHold": 2842
+          },
+          "height": 0.3539879796815931,
+          "contacts": [
+            "hand.left",
+            "shank.left",
+            "hand.right",
+            "shank.right"
+          ]
+        },
+        {
+          "degrees": 90,
+          "response": 0.2,
+          "wasDown": true,
+          "seconds": 40,
+          "state": {
+            "phase": "fours",
+            "time": 33.42499999999875,
+            "still": 0,
+            "stage": 3,
+            "lie": "front",
+            "attempts": 1,
+            "holdSteps": 4189,
+            "peakHold": 4189
+          },
+          "height": 0.35284622335921795,
+          "contacts": [
+            "hand.left",
+            "shank.left",
+            "hand.right",
+            "shank.right"
+          ]
+        },
+        {
+          "degrees": 180,
+          "response": 0.2,
+          "wasDown": true,
+          "seconds": 40,
+          "state": {
+            "phase": "fours",
+            "time": 0.26666666666666666,
+            "still": 0,
+            "stage": 3,
+            "lie": "front",
+            "attempts": 6,
+            "holdSteps": 5,
+            "peakHold": 203
+          },
+          "height": 0.35979474162910113,
+          "contacts": [
+            "hand.left",
+            "shank.left",
+            "hand.right",
+            "shank.right",
+            "foot.right"
+          ]
+        },
+        {
+          "degrees": 270,
+          "response": 0.2,
+          "wasDown": true,
+          "seconds": 40,
+          "state": {
+            "phase": "fours",
+            "time": 3.4249999999999905,
+            "still": 0,
+            "stage": 3,
+            "lie": "front",
+            "attempts": 5,
+            "holdSteps": 0,
+            "peakHold": 0
+          },
+          "height": 0.22185171689459043,
+          "contacts": [
+            "head",
+            "upperTrunk",
+            "lowerTrunk"
+          ]
+        },
+        {
+          "degrees": 0,
+          "response": 0.01,
+          "wasDown": true,
+          "seconds": 40,
+          "state": {
+            "phase": "fours",
+            "time": 28.624999999999016,
+            "still": 0,
+            "stage": 3,
+            "lie": "front",
+            "attempts": 2,
+            "holdSteps": 3392,
+            "peakHold": 3392
+          },
+          "height": 0.3629781777334978,
+          "contacts": [
+            "hand.left",
+            "shank.left",
+            "hand.right",
+            "shank.right",
+            "foot.right"
+          ]
+        },
+        {
+          "degrees": 90,
+          "response": 0.01,
+          "wasDown": true,
+          "seconds": 40,
+          "state": {
+            "phase": "fours",
+            "time": 33.42499999999875,
+            "still": 0,
+            "stage": 3,
+            "lie": "front",
+            "attempts": 1,
+            "holdSteps": 3973,
+            "peakHold": 3973
+          },
+          "height": 0.3629879511385126,
+          "contacts": [
+            "hand.left",
+            "shank.left",
+            "hand.right",
+            "shank.right"
+          ]
+        },
+        {
+          "degrees": 180,
+          "response": 0.01,
+          "wasDown": true,
+          "seconds": 40,
+          "state": {
+            "phase": "fours",
+            "time": 28.033333333332383,
+            "still": 0,
+            "stage": 3,
+            "lie": "front",
+            "attempts": 2,
+            "holdSteps": 3325,
+            "peakHold": 3325
+          },
+          "height": 0.36308616012584904,
+          "contacts": [
+            "hand.left",
+            "shank.left",
+            "foot.left",
+            "hand.right",
+            "shank.right",
+            "foot.right"
+          ]
+        },
+        {
+          "degrees": 270,
+          "response": 0.01,
+          "wasDown": true,
+          "seconds": 40,
+          "state": {
+            "phase": "fours",
+            "time": 28.449999999999026,
+            "still": 0,
+            "stage": 3,
+            "lie": "front",
+            "attempts": 2,
+            "holdSteps": 3374,
+            "peakHold": 3374
+          },
+          "height": 0.362870794874653,
+          "contacts": [
+            "hand.left",
+            "shank.left",
+            "hand.right",
+            "shank.right"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "direct-kneel-transfer",
+      "source": "﻿import fs from 'node:fs';\nimport {NullEngine} from '@babylonjs/core/Engines/nullEngine.js';\nimport {Scene} from '@babylonjs/core/scene.js';\nimport {Vector3,Quaternion} from '@babylonjs/core/Maths/math.vector.js';\nimport {freshEngine} from '../tests/harness/core-stand.mjs';\nimport {createWorld} from '../src/core/world.ts';\nimport {buildBody} from '../src/core/build/build-body.ts';\nimport {modelSpec} from '../src/core/human/spec.ts';\nimport {createPolicyBody} from '../src/core/mind/direct.ts';\nimport {RISE} from '../src/core/mind/rise/stages.ts';\nconst pose=JSON.parse(fs.readFileSync('assets/research/posture-holds.json','utf8'))[0];\nfor(const seconds of [.2,.03,.01])for(const end of ['hold','tall','reach']){\n const render=new NullEngine(),scene=new Scene(render),world=createWorld(scene,await freshEngine('rapier-coordinate-coulomb'),{hz:120,actuation:'directional'});world.physics.addFixedBox([0,-.5,0],[20,1,20]);const spec=modelSpec('workshop-fighter'),built=buildBody(spec,world,pose.placement);\n const initial=Object.fromEntries([...built.joints].flatMap(([name,j])=>j.dofs.map((d,i)=>[`${name} ${d.spec.positive}`,pose.placement.joints[name][i]]))),bind=Object.fromEntries(spec.joints.flatMap(j=>j.dofs.map(d=>[j.name+' '+d.positive,d.bind.value])));\n const sequence=RISE.rise.slice(4,RISE.rise.findIndex(s=>s.name===end)+1);const state={steps:0,stage:-1,time:0};\n const body=createPolicyBody(built,world,m=>({name:'direct-transfer',state,step(o,dt){state.steps++;state.time+=dt;if(state.stage<0&&state.time>=2){state.stage=0;state.time=0;}let stage=sequence[state.stage];if(stage&&state.time>=stage.seconds&&state.stage<sequence.length-1){state.stage++;state.time=0;stage=sequence[state.stage];}return {kind:'velocity',activation:m.channels.map(()=>1),velocity:m.channels.map((c,i)=>{const target=stage?Math.max(c.min,Math.min(c.max,(stage.posture[c.name]??0)-bind[c.name])):initial[c.name];return Math.max(-10,Math.min(10,(target-o.joints[i].angle)/seconds));})};}}));\n try{for(let i=0;i<2400;i++){world.step();if(i%600===599){const o=body.observe(),root=built.segments.get('lowerTrunk'),q=root.node.rotationQuaternion.multiply(Quaternion.Inverse(root.rest)),up=new Vector3(0,1,0).applyRotationQuaternion(q);console.log(JSON.stringify({response:seconds,end,time:(i+1)/120,state,height:o.height,up:up.y,contacts:[...new Set(o.contacts.filter(c=>c.fixed!==null&&c.impulse>0).map(c=>c.segment))]}));}}}finally{body.dispose();built.dispose();world.dispose();scene.dispose();render.dispose();}\n}\r\n",
+      "rows": [
+        {
+          "response": 0.2,
+          "end": "hold",
+          "time": 5,
+          "state": {
+            "steps": 600,
+            "stage": 5,
+            "time": 0.9083333333333325
+          },
+          "height": 0.17257302355799148,
+          "up": 0.005334779269308476,
+          "contacts": [
+            "head",
+            "hand.left",
+            "thigh.left",
+            "hand.right",
+            "thigh.right"
+          ]
+        },
+        {
+          "response": 0.2,
+          "end": "hold",
+          "time": 10,
+          "state": {
+            "steps": 1200,
+            "stage": 5,
+            "time": 5.908333333333417
+          },
+          "height": 0.170935942065628,
+          "up": 0.014916334740544213,
+          "contacts": [
+            "head",
+            "upperTrunk",
+            "hand.left",
+            "thigh.left",
+            "hand.right",
+            "thigh.right"
+          ]
+        },
+        {
+          "response": 0.2,
+          "end": "hold",
+          "time": 15,
+          "state": {
+            "steps": 1800,
+            "stage": 5,
+            "time": 10.908333333333355
+          },
+          "height": 0.17104179274785386,
+          "up": 0.014796830836080854,
+          "contacts": [
+            "head",
+            "upperTrunk",
+            "hand.left",
+            "thigh.left",
+            "hand.right",
+            "thigh.right"
+          ]
+        },
+        {
+          "response": 0.2,
+          "end": "hold",
+          "time": 20,
+          "state": {
+            "steps": 2400,
+            "stage": 5,
+            "time": 15.90833333333307
+          },
+          "height": 0.1710151608691573,
+          "up": 0.015396533852084837,
+          "contacts": [
+            "head",
+            "upperTrunk",
+            "hand.left",
+            "thigh.left",
+            "hand.right",
+            "thigh.right"
+          ]
+        },
+        {
+          "response": 0.2,
+          "end": "tall",
+          "time": 5,
+          "state": {
+            "steps": 600,
+            "stage": 5,
+            "time": 0.9083333333333325
+          },
+          "height": 0.17257302355799148,
+          "up": 0.005334779269308476,
+          "contacts": [
+            "head",
+            "hand.left",
+            "thigh.left",
+            "hand.right",
+            "thigh.right"
+          ]
+        },
+        {
+          "response": 0.2,
+          "end": "tall",
+          "time": 10,
+          "state": {
+            "steps": 1200,
+            "stage": 9,
+            "time": 3.3999999999999906
+          },
+          "height": 0.17179975795932603,
+          "up": 0.011753162119824356,
+          "contacts": [
+            "upperTrunk",
+            "middleTrunk",
+            "thigh.left",
+            "thigh.right"
+          ]
+        },
+        {
+          "response": 0.2,
+          "end": "tall",
+          "time": 15,
+          "state": {
+            "steps": 1800,
+            "stage": 9,
+            "time": 8.400000000000164
+          },
+          "height": 0.17163929795595068,
+          "up": 0.011845660006371106,
+          "contacts": [
+            "upperTrunk",
+            "middleTrunk",
+            "thigh.left",
+            "thigh.right"
+          ]
+        },
+        {
+          "response": 0.2,
+          "end": "tall",
+          "time": 20,
+          "state": {
+            "steps": 2400,
+            "stage": 9,
+            "time": 13.39999999999988
+          },
+          "height": 0.17163622598045727,
+          "up": 0.011839961235254104,
+          "contacts": [
+            "upperTrunk",
+            "middleTrunk",
+            "thigh.left",
+            "thigh.right"
+          ]
+        },
+        {
+          "response": 0.2,
+          "end": "reach",
+          "time": 5,
+          "state": {
+            "steps": 600,
+            "stage": 5,
+            "time": 0.9083333333333325
+          },
+          "height": 0.17257302355799148,
+          "up": 0.005334779269308476,
+          "contacts": [
+            "head",
+            "hand.left",
+            "thigh.left",
+            "hand.right",
+            "thigh.right"
+          ]
+        },
+        {
+          "response": 0.2,
+          "end": "reach",
+          "time": 10,
+          "state": {
+            "steps": 1200,
+            "stage": 13,
+            "time": 1.0166666666666655
+          },
+          "height": 0.19130670754777862,
+          "up": -0.08894781619570313,
+          "contacts": [
+            "upperTrunk",
+            "thigh.left",
+            "forearm.right"
+          ]
+        },
+        {
+          "response": 0.2,
+          "end": "reach",
+          "time": 15,
+          "state": {
+            "steps": 1800,
+            "stage": 13,
+            "time": 6.016666666666755
+          },
+          "height": 0.1823577803689746,
+          "up": -0.03649335003587306,
+          "contacts": [
+            "upperTrunk",
+            "lowerTrunk",
+            "thigh.left",
+            "forearm.right"
+          ]
+        },
+        {
+          "response": 0.2,
+          "end": "reach",
+          "time": 20,
+          "state": {
+            "steps": 2400,
+            "stage": 13,
+            "time": 11.016666666666682
+          },
+          "height": 0.18200165470185342,
+          "up": -0.0344473982481297,
+          "contacts": [
+            "upperTrunk",
+            "lowerTrunk",
+            "thigh.left",
+            "forearm.right"
+          ]
+        },
+        {
+          "response": 0.03,
+          "end": "hold",
+          "time": 5,
+          "state": {
+            "steps": 600,
+            "stage": 5,
+            "time": 0.9083333333333325
+          },
+          "height": 0.17892988397928145,
+          "up": 0.008015273973837611,
+          "contacts": [
+            "head",
+            "thigh.left",
+            "thigh.right"
+          ]
+        },
+        {
+          "response": 0.03,
+          "end": "hold",
+          "time": 10,
+          "state": {
+            "steps": 1200,
+            "stage": 5,
+            "time": 5.908333333333417
+          },
+          "height": 0.17276160983149885,
+          "up": -0.010834644043851482,
+          "contacts": [
+            "head",
+            "upperTrunk",
+            "thigh.left",
+            "thigh.right"
+          ]
+        },
+        {
+          "response": 0.03,
+          "end": "hold",
+          "time": 15,
+          "state": {
+            "steps": 1800,
+            "stage": 5,
+            "time": 10.908333333333355
+          },
+          "height": 0.1727533835717387,
+          "up": -0.010933766181011606,
+          "contacts": [
+            "head",
+            "upperTrunk",
+            "thigh.left",
+            "thigh.right"
+          ]
+        },
+        {
+          "response": 0.03,
+          "end": "hold",
+          "time": 20,
+          "state": {
+            "steps": 2400,
+            "stage": 5,
+            "time": 15.90833333333307
+          },
+          "height": 0.17275168889162434,
+          "up": -0.010969798159546018,
+          "contacts": [
+            "head",
+            "upperTrunk",
+            "thigh.left",
+            "thigh.right"
+          ]
+        },
+        {
+          "response": 0.03,
+          "end": "tall",
+          "time": 5,
+          "state": {
+            "steps": 600,
+            "stage": 5,
+            "time": 0.9083333333333325
+          },
+          "height": 0.17892988397928145,
+          "up": 0.008015273973837611,
+          "contacts": [
+            "head",
+            "thigh.left",
+            "thigh.right"
+          ]
+        },
+        {
+          "response": 0.03,
+          "end": "tall",
+          "time": 10,
+          "state": {
+            "steps": 1200,
+            "stage": 9,
+            "time": 3.3999999999999906
+          },
+          "height": 0.17318059816355005,
+          "up": 0.008508480574184962,
+          "contacts": [
+            "upperTrunk",
+            "thigh.left",
+            "thigh.right"
+          ]
+        },
+        {
+          "response": 0.03,
+          "end": "tall",
+          "time": 15,
+          "state": {
+            "steps": 1800,
+            "stage": 9,
+            "time": 8.400000000000164
+          },
+          "height": 0.17310304668180257,
+          "up": 0.008471486960282992,
+          "contacts": [
+            "upperTrunk",
+            "middleTrunk",
+            "thigh.left",
+            "thigh.right"
+          ]
+        },
+        {
+          "response": 0.03,
+          "end": "tall",
+          "time": 20,
+          "state": {
+            "steps": 2400,
+            "stage": 9,
+            "time": 13.39999999999988
+          },
+          "height": 0.17325500902676436,
+          "up": 0.008187640341667635,
+          "contacts": [
+            "upperTrunk",
+            "middleTrunk",
+            "thigh.left",
+            "thigh.right"
+          ]
+        },
+        {
+          "response": 0.03,
+          "end": "reach",
+          "time": 5,
+          "state": {
+            "steps": 600,
+            "stage": 5,
+            "time": 0.9083333333333325
+          },
+          "height": 0.17892988397928145,
+          "up": 0.008015273973837611,
+          "contacts": [
+            "head",
+            "thigh.left",
+            "thigh.right"
+          ]
+        },
+        {
+          "response": 0.03,
+          "end": "reach",
+          "time": 10,
+          "state": {
+            "steps": 1200,
+            "stage": 13,
+            "time": 1.0166666666666655
+          },
+          "height": 0.20143368029455744,
+          "up": -0.13667502070780702,
+          "contacts": [
+            "upperTrunk",
+            "thigh.left",
+            "forearm.right"
+          ]
+        },
+        {
+          "response": 0.03,
+          "end": "reach",
+          "time": 15,
+          "state": {
+            "steps": 1800,
+            "stage": 13,
+            "time": 6.016666666666755
+          },
+          "height": 0.18499606650687098,
+          "up": -0.03998482160698835,
+          "contacts": [
+            "upperTrunk",
+            "lowerTrunk",
+            "thigh.left",
+            "forearm.right"
+          ]
+        },
+        {
+          "response": 0.03,
+          "end": "reach",
+          "time": 20,
+          "state": {
+            "steps": 2400,
+            "stage": 13,
+            "time": 11.016666666666682
+          },
+          "height": 0.18481177305482,
+          "up": -0.03952980446918608,
+          "contacts": [
+            "upperTrunk",
+            "lowerTrunk",
+            "thigh.left",
+            "forearm.right"
+          ]
+        },
+        {
+          "response": 0.01,
+          "end": "hold",
+          "time": 5,
+          "state": {
+            "steps": 600,
+            "stage": 5,
+            "time": 0.9083333333333325
+          },
+          "height": 0.17322025434744973,
+          "up": -0.014323451093466333,
+          "contacts": [
+            "head",
+            "upperTrunk",
+            "thigh.left",
+            "thigh.right"
+          ]
+        },
+        {
+          "response": 0.01,
+          "end": "hold",
+          "time": 10,
+          "state": {
+            "steps": 1200,
+            "stage": 5,
+            "time": 5.908333333333417
+          },
+          "height": 0.17310569406429854,
+          "up": -0.015205543303436153,
+          "contacts": [
+            "head",
+            "upperTrunk",
+            "thigh.left",
+            "thigh.right"
+          ]
+        },
+        {
+          "response": 0.01,
+          "end": "hold",
+          "time": 15,
+          "state": {
+            "steps": 1800,
+            "stage": 5,
+            "time": 10.908333333333355
+          },
+          "height": 0.17310125426208745,
+          "up": -0.01523837630801761,
+          "contacts": [
+            "head",
+            "upperTrunk",
+            "thigh.left",
+            "thigh.right"
+          ]
+        },
+        {
+          "response": 0.01,
+          "end": "hold",
+          "time": 20,
+          "state": {
+            "steps": 2400,
+            "stage": 5,
+            "time": 15.90833333333307
+          },
+          "height": 0.17309658098958133,
+          "up": -0.015269563048130208,
+          "contacts": [
+            "head",
+            "upperTrunk",
+            "thigh.left",
+            "thigh.right"
+          ]
+        },
+        {
+          "response": 0.01,
+          "end": "tall",
+          "time": 5,
+          "state": {
+            "steps": 600,
+            "stage": 5,
+            "time": 0.9083333333333325
+          },
+          "height": 0.17322025434744973,
+          "up": -0.014323451093466333,
+          "contacts": [
+            "head",
+            "upperTrunk",
+            "thigh.left",
+            "thigh.right"
+          ]
+        },
+        {
+          "response": 0.01,
+          "end": "tall",
+          "time": 10,
+          "state": {
+            "steps": 1200,
+            "stage": 9,
+            "time": 3.3999999999999906
+          },
+          "height": 0.17340334618621844,
+          "up": 0.008774658792623624,
+          "contacts": [
+            "upperTrunk",
+            "middleTrunk",
+            "thigh.left",
+            "thigh.right"
+          ]
+        },
+        {
+          "response": 0.01,
+          "end": "tall",
+          "time": 15,
+          "state": {
+            "steps": 1800,
+            "stage": 9,
+            "time": 8.400000000000164
+          },
+          "height": 0.1734047630604785,
+          "up": 0.008788139235276105,
+          "contacts": [
+            "upperTrunk",
+            "middleTrunk",
+            "thigh.left",
+            "thigh.right"
+          ]
+        },
+        {
+          "response": 0.01,
+          "end": "tall",
+          "time": 20,
+          "state": {
+            "steps": 2400,
+            "stage": 9,
+            "time": 13.39999999999988
+          },
+          "height": 0.1733639359797367,
+          "up": 0.007882646737787047,
+          "contacts": [
+            "upperTrunk",
+            "middleTrunk",
+            "thigh.left",
+            "thigh.right"
+          ]
+        },
+        {
+          "response": 0.01,
+          "end": "reach",
+          "time": 5,
+          "state": {
+            "steps": 600,
+            "stage": 5,
+            "time": 0.9083333333333325
+          },
+          "height": 0.17322025434744973,
+          "up": -0.014323451093466333,
+          "contacts": [
+            "head",
+            "upperTrunk",
+            "thigh.left",
+            "thigh.right"
+          ]
+        },
+        {
+          "response": 0.01,
+          "end": "reach",
+          "time": 10,
+          "state": {
+            "steps": 1200,
+            "stage": 13,
+            "time": 1.0166666666666655
+          },
+          "height": 0.18668461887540883,
+          "up": -0.034049500908624464,
+          "contacts": [
+            "upperTrunk",
+            "thigh.left",
+            "forearm.right"
+          ]
+        },
+        {
+          "response": 0.01,
+          "end": "reach",
+          "time": 15,
+          "state": {
+            "steps": 1800,
+            "stage": 13,
+            "time": 6.016666666666755
+          },
+          "height": 0.1842603834885754,
+          "up": -0.04807968856222422,
+          "contacts": [
+            "upperTrunk",
+            "thigh.left",
+            "forearm.right"
+          ]
+        },
+        {
+          "response": 0.01,
+          "end": "reach",
+          "time": 20,
+          "state": {
+            "steps": 2400,
+            "stage": 13,
+            "time": 11.016666666666682
+          },
+          "height": 0.18392690106961535,
+          "up": -0.0490767080249479,
+          "contacts": [
+            "upperTrunk",
+            "lowerTrunk",
+            "thigh.left",
+            "forearm.right"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "kinematic-hold",
+      "source": "﻿import fs from 'node:fs';\nimport {NullEngine} from '@babylonjs/core/Engines/nullEngine.js';\nimport {Scene} from '@babylonjs/core/scene.js';\nimport {Vector3,Quaternion} from '@babylonjs/core/Maths/math.vector.js';\nimport {freshEngine} from '../tests/harness/core-stand.mjs';\nimport {createWorld} from '../src/core/world.ts';\nimport {buildBody} from '../src/core/build/build-body.ts';\nimport {coupledDynamics} from '../src/core/build/coupled-dynamics.ts';\nimport {modelSpec} from '../src/core/human/spec.ts';\nimport {createPolicyBody} from '../src/core/mind/direct.ts';\nimport {spinBetweenToRef} from '../src/core/math/turn.ts';\nimport {activeQuadratic} from '../src/core/math/active-quadratic.ts';\nconst poses=JSON.parse(fs.readFileSync('assets/research/posture-holds.json','utf8')),XYZ=[[1,0,0],[0,1,0],[0,0,1]],ZERO=[0,0,0];\nfor(const pose of poses)for(const jointWeight of [.01,.1,1]){\n const render=new NullEngine(),scene=new Scene(render),world=createWorld(scene,await freshEngine('rapier-coordinate-coulomb'),{hz:120,actuation:'directional'});world.physics.addFixedBox([0,-.5,0],[20,1,20]);const built=buildBody(modelSpec('workshop-fighter'),world,pose.placement),parts=[...built.segments.values()],root=built.segments.get('lowerTrunk'),rootQ=root.node.rotationQuaternion.clone(),model=coupledDynamics(built,world.physics.gravity),initial=parts.map(s=>s.node.position.clone());\n const targets=Object.fromEntries([...built.joints].flatMap(([name,j])=>j.dofs.map((d,i)=>[`${name} ${d.spec.positive}`,pose.placement.joints[name][i]])));\n let first,peak=0,reject=0;const count=Object.keys(targets).length,size=6+count,solver=activeQuadratic(size,count,{iterations:1024,absoluteTolerance:1e-7,relativeTolerance:1e-6});\n const body=createPolicyBody(built,world,m=>({name:'kinematic-hold',state:{},step(o){first??=o;model.update();const H=Array(size*size).fill(0),g=Array(size).fill(0),A=Array(count*size).fill(0),lo=Array(count).fill(-10),hi=Array(count).fill(10);for(let i=0;i<size;i++)H[i*size+i]=1e-6;\n const add=(a,b,w)=>{for(let i=0;i<size;i++){g[i]-=w*a[i]*b;for(let j=0;j<size;j++)H[i*size+j]+=w*(a[i]*a[j]);}};\n for(let i=0;i<count;i++){const a=Array(size).fill(0);a[6+i]=1;A[i*size+6+i]=1;add(a,Math.max(-10,Math.min(10,(targets[m.channels[i].name]-o.joints[i].angle)/.01)),jointWeight);}\n const spin=spinBetweenToRef(root.node.rotationQuaternion,rootQ,.3,new Vector3()).asArray();for(let k=0;k<3;k++)add(model.motionRow([{body:root.body,point:root.node.position.asArray(),linear:ZERO,angular:XYZ[k]}]).coefficients,spin[k],1);\n const total=parts.reduce((s,p)=>s+p.rigid.mass,0);for(let k=0;k<3;k++){const row=Array(size).fill(0);for(let i=0;i<parts.length;i++){const p=parts[i],a=model.motionRow([{body:p.body,point:o.segments[i].centre,linear:XYZ[k],angular:ZERO}]).coefficients;for(let j=0;j<size;j++)row[j]+=a[j]*p.rigid.mass/total;}add(row,(first.centre[k]-o.centre[k])/.3,10);}\n for(const c of o.contacts.filter(c=>c.fixed!==null&&c.impulse>0)){const part=built.segments.get(c.segment);for(let k=0;k<3;k++)add(model.motionRow([{body:part.body,point:c.point,linear:XYZ[k],angular:ZERO}]).coefficients,0,100);}\n const report=solver.solve({hessian:H,gradient:g,matrix:A,lower:lo,upper:hi,rows:count});if(report.status!=='converged'){reject++;return{kind:'velocity',activation:m.channels.map(()=>1),velocity:m.channels.map(()=>0)};}return{kind:'velocity',activation:m.channels.map(()=>1),velocity:Array.from(solver.state.x.slice(6))};\n }}));\n try{for(let i=0;i<1200;i++){world.step();peak=Math.max(peak,...parts.map((p,j)=>Vector3.Distance(p.node.position,initial[j])));}console.log(JSON.stringify({pose:pose.id,jointWeight,peak,reject,height:body.observe().height}));}finally{body.dispose();built.dispose();world.dispose();scene.dispose();render.dispose();}\n}\r\n",
+      "rows": [
+        {
+          "pose": "fours",
+          "jointWeight": 0.01,
+          "peak": 0.11129862629627,
+          "reject": 0,
+          "height": 0.3838791107524069
+        },
+        {
+          "pose": "fours",
+          "jointWeight": 0.1,
+          "peak": 0.09345147896338092,
+          "reject": 0,
+          "height": 0.36748181017523
+        },
+        {
+          "pose": "fours",
+          "jointWeight": 1,
+          "peak": 0.058076505367103806,
+          "reject": 0,
+          "height": 0.3639822896229002
+        },
+        {
+          "pose": "half-kneel",
+          "jointWeight": 0.01,
+          "peak": 1.9301364424161964,
+          "reject": 0,
+          "height": 0.20808833265055113
+        },
+        {
+          "pose": "half-kneel",
+          "jointWeight": 0.1,
+          "peak": 1.6645588667627442,
+          "reject": 0,
+          "height": 0.24164060591398262
+        },
+        {
+          "pose": "half-kneel",
+          "jointWeight": 1,
+          "peak": 0.13071777403354792,
+          "reject": 0,
+          "height": 0.5715750487137112
+        },
+        {
+          "pose": "squat",
+          "jointWeight": 0.01,
+          "peak": 1.6726701041135115,
+          "reject": 0,
+          "height": 0.22712875527835374
+        },
+        {
+          "pose": "squat",
+          "jointWeight": 0.1,
+          "peak": 1.6577128382552582,
+          "reject": 0,
+          "height": 0.23204855231455027
+        },
+        {
+          "pose": "squat",
+          "jointWeight": 1,
+          "peak": 1.665134006603935,
+          "reject": 0,
+          "height": 0.23297414879809242
+        }
+      ]
+    }
+  ]
 }

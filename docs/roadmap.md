@@ -85,6 +85,10 @@ displacement gate under their static torque controller. Independent joint feedba
 [holds installed all fours](reference/posture-hold.md) for ten seconds within 2 cm on both
 corrected-limit friction profiles. Half-kneel and squat fail; recovery still needs demonstrated
 entry, balance and transfer between supports.
+The [independent support-entry task](reference/support-entry.md) now passes acquisition plus
+a ten-second hold in 2/4 patch-friction and 3/4 per-point development shove directions.
+All eight reach support, but late acquisition and excess drift remain failures. Other bodies,
+loads, broader falls and transfer from hands/shins to useful standing control remain open.
 
 ## Open items
 

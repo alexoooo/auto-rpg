@@ -132,3 +132,34 @@ runs are 1,841, 1, 3,727 and 3,700 steps respectively. The 90-degree case remain
 on its head as well as hands and shins. With the old 0.2 s response and 3 rad/s default cap,
 only the zero-degree case sustains support (3,082 steps). These four selected directions are
 not a robustness estimate. Holding all fours still leaves kneeling, standing and handover open.
+
+Adding the existing fold/tuck/prop preparation before the final pose produces sustained
+support in all four directions with the fast response in that prototype. The installed
+[support-entry task](../reference/support-entry.md) supplies the durable contract and stronger
+acceptance: a separate floor/fall fixture, two seconds of quiet support and ten seconds with
+at most 2 cm drift. Its results differ and are the reference for that task; the prototype's
+four successful contact runs do not imply four task passes.
+
+## Transfer and kinematic feedback checks
+
+The `transferFollowups` archive retains two unsuccessful alternatives, both Node core world,
+corrected-limit per-point .6 / adapter 7, 120 Hz, directional bounds, empty-handed Warrior,
+zero assistance and unchanged native iterations. No replay or browser proof is claimed for
+these diagnostic scripts.
+
+From the shared builder's installed all-fours pose, after two seconds of direct holding,
+playing the old sit/kneel pose sequence fails to retain an upright trunk. Stopping at the
+kneeling hold, tall kneel or foot reach all collapses, at response times 0.2, 0.03 and 0.01 s
+with a 10 rad/s cap. At twenty seconds the pelvis up-axis y is between -0.0491 and 0.0154,
+with head/trunk/thigh ground contacts. These nine cells do not validate a support transfer.
+
+A separate velocity-level least-squares controller combines current contact-point zero-velocity
+rows (weight 100), initial pelvis orientation (weight 1), initial combined centre (weight 10),
+and joint feedback (weights 0.01, 0.1 or 1). Root/centre response is 0.3 s, joint response
+0.01 s, speed bounds are +/-10 rad/s, and regularization is 1e-6. It computes kinematic rows
+from the coupled model and sends only muscle velocity commands; the floating root receives
+no force. All solves converge, but all nine ten-second installed-pose trials fail the 2 cm
+gate: all-fours drift is 0.1113, 0.09345 and 0.05808 m; half-kneel drift is 1.9301, 1.6646
+and 0.13072 m; squat drift is 1.6727, 1.6577 and 1.6651 m. This weighting does not improve the
+independent direct hold. Contact-compatible requested velocities alone do not establish
+dynamic balance or a feasible support transfer.

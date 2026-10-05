@@ -284,8 +284,13 @@ for ten seconds within 2 cm on both corrected-limit friction profiles, with zero
 exact replay and matching Node/browser traces. The shared builder initializes a legal joint
 pose before constructing physics. Half-kneel and squat still fail; Rogue and skeleton fixtures
 are explicitly unsupported. This closes a limited installed-pose hold gate, not entry, balance
-or recovery. Next establish reachable support entry and transfer, keeping direct feedback and
-model-based control as replaceable alternatives.
+or recovery. The [support-entry task](../reference/support-entry.md) now reaches measured
+hand/shin support after physical development falls, using an optional observation/action
+pose-sequence policy. Its ten-second, 2 cm hold gate passes 2/4 patch and 3/4 per-point cells;
+all eight replay, with selected Node/browser traces matching. Quiet support, drift and elapsed
+time are scored independently of policy stages. Broader starts, other bodies, loaded hands,
+hand unloading and transfer to standing remain open. Direct feedback and model-based control
+remain replaceable alternatives.
 
 The [upright support task](../reference/support-transition.md) now transfers load, lifts either
 foot, verifies placement contact and regains two-foot support on all three bodies in the
