@@ -40,6 +40,27 @@ read (`src/core/skills/skills.ts`).
 reads the body's `BodyView` (time, joint angles, fists, knuckles, head, stance), asks its driver,
 and obeys the `BodyCommand` it gets back: a posture, hand goals, timed pushes and a stance goal.
 
+The arena also selects `PointFighterConfig` through `createMind`. It uses the shared locomotion
+and placement skill, but selects no searched torque recipes: attacks use `pointPath` through
+`HandGoal.initialVelocity`, measured in the body's frame, and the existing IK/servo follows them.
+`threatOf` optionally calls `predictIntercept` to place a cover at a predicted plane crossing.
+Both controllers reach the same physical body, damage and orders interfaces. This hybrid does
+not run the experimental whole-body optimization solver in the frame loop.
+
+`supportEntryPolicy` is the common factory for the support-entry research task and the point
+fighter's recovery sub-mind. The sub-mind acquires control from the host's down reading, supplies
+detached observations to the policy, and applies checked muscle actions. It reports acquisition
+or hand/shin support; it has no standing transition. Bodies with held items or no measured pose
+use the staged riser. Recovery takeover resets the host's pending commands; returning resumes
+its skills. All policy and trajectory memory is saved under the body/bout state.
+
+`DuelRecipe.recoverySeconds` optionally permits a continuous interval down. Its per-side clocks
+are saved only when enabled. Damage elimination remains immediate, opponents continue sensing
+and attacking a fallen side during its allowance, and standing clears its clock. The default
+still ends the bout on a fall. Controller, hand, equipment and recovery choices are explicit
+recipe/link inputs. Changing those choices suppresses a linked orders tape from another recipe.
+See [the integration record](reference/arena-point-control.md) for checks and limits.
+
 ### Spec
 
 A `BodySpec` (`src/core/spec/body.ts`) holds a body in its reference pose, in metres, with +x

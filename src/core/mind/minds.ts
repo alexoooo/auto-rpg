@@ -10,6 +10,7 @@ import type { Senses } from "./senses.ts";
 import { subMindsOf } from "./sub-minds.ts";
 import { driveBy } from "./tactics.ts";
 import type { PhysicalBody } from "../physical-body.ts";
+import { pointFighter } from "./point-fighter.ts";
 import { createDirectBody } from "./direct.ts";
 
 /** **What a fight gives the mind it makes**, beside the body and the config. */
@@ -32,7 +33,7 @@ interface MindedBody {
 
 /** A body under a fighter's mind: its skills, for whoever knows it is a fighter and reads their report. */
 interface FighterMind extends MindedBody {
-  readonly kind: "fighter";
+  readonly kind: "fighter" | "point-fighter";
   readonly body: Body;
   readonly skills: Skills;
 }
@@ -46,6 +47,7 @@ export type Minded = FighterMind | (MindedBody & { readonly kind: "direct" });
 /** `built` under the mind `config` names, wired to its fight. */
 export function createMind(built: BuiltBody, world: World, config: MindConfig, wiring: MindWiring): Minded {
   switch (config.kind) {
+    case "point-fighter": return pointFighter(built, world, config, wiring);
     case "fighter": return createFighter(built, world, config, wiring);
     case "direct": {
       const body = createDirectBody(built, world, config, wiring);

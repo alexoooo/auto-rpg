@@ -13,6 +13,10 @@ the actual fallen body; it does not require the support it is trying to restore.
 
 ## Fixture and acceptance
 
+`SUPPORT_ENTRY` in `src/core/mind/rise/support-recovery.ts` owns the shared acquisition
+settings below. `supportEntryPolicy` constructs the same policy for the task and the arena
+recovery sub-mind; task-only fall and acceptance settings remain in the fixture.
+
 Harness: Node core world and visible `/control-tasks.html`, 120 Hz, Rapier
 0.21.0-auto-rpg.6 / adapter 7, corrected angular limits, directional muscle bounds, native
 16 solver iterations, empty-handed Warrior, zero root and weapon assistance. Anatomical strength

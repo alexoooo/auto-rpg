@@ -2,7 +2,7 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { Scene } from "@babylonjs/core/scene.js";
 import poses from "../../../assets/research/posture-holds.json" with { type: "json" };
 import { buildBody } from "../build/build-body.ts";
-import { supportEntry, supportEntryReading } from "../control/support-entry.ts";
+import { supportEntryReading } from "../control/support-entry.ts";
 import { centreOfToRef } from "../control/support.ts";
 import type { PhysicsEngine } from "../engine/engine.ts";
 import { modelSpec, type BodyModel } from "../human/spec.ts";
@@ -10,6 +10,7 @@ import { FIGHTER } from "../mind/config.ts";
 import { createPolicyBody } from "../mind/direct.ts";
 import { createMind } from "../mind/minds.ts";
 import { STAND_ORDERS } from "../mind/orders.ts";
+import { SUPPORT_ENTRY, supportEntryPolicy } from "../mind/rise/support-recovery.ts";
 import { RISE } from "../mind/rise/stages.ts";
 import { deepFreeze } from "../state.ts";
 import { createWorld } from "../world.ts";
@@ -17,9 +18,7 @@ import { createWorld } from "../world.ts";
 /** Development acquisition settings: `docs/reference/support-entry.md#fixture-and-acceptance`. */
 const SETTINGS = deepFreeze({ seconds: 40, standSeconds: 1, fallSeconds: 3, impulsePerMass: 1.5,
   floor: { centre: [0, -.5, 0] as const, size: [20, 1, 20] as const },
-  root: "lowerTrunk", facing: .5, required: ["hand.left", "hand.right", "shank.left", "shank.right"],
-  forbidden: ["head", "upperTrunk", "middleTrunk", "lowerTrunk"], slow: .1, stillSeconds: .5,
-  settleLimit: 3, holdLimit: 6, response: .01, speed: 10, acquireSeconds: 2, continueSeconds: 10,
+  ...SUPPORT_ENTRY, acquireSeconds: 2, continueSeconds: 10,
   tolerance: .02, effortTolerance: .0001 });
 
 /** Fall, acquire measured hand/shin support, and retain it under an independent policy. */
@@ -48,18 +47,10 @@ export function createSupportEntryProbe(scene: Scene, engine: PhysicsEngine, con
   boot.dispose();
   const reference = built.segments.get(SETTINGS.root)!.rest;
   const reading = { ...SETTINGS, reference: [reference.x, reference.y, reference.z, reference.w] as const };
-  const bind = Object.fromEntries(spec.joints.flatMap((j) => j.dofs.map((d) => [`${j.name} ${d.positive}`, d.bind.value])));
-  const targets = Object.fromEntries([...built.joints].flatMap(([name, j]) => j.dofs.map((d, i) =>
-    [`${name} ${d.spec.positive}`, (pose.placement.joints as Record<string, number[]>)[name]![i]!] as const)));
   const body = createPolicyBody(built, world, (model) => {
-    const convert = (stage: { readonly posture: Readonly<Record<string, number>>; readonly seconds: number }) => ({ seconds: stage.seconds,
-      targets: Object.fromEntries(model.channels.map((c) => [c.name, Math.max(c.min, Math.min(c.max, (stage.posture[c.name] ?? 0) - bind[c.name]!))])) });
-    return supportEntry(model, { ...reading, targets,
-      roll: { back: RISE.roll.back.map(convert), left: RISE.roll.left.map(convert), right: RISE.roll.right.map(convert) },
-      prepare: RISE.rise.slice(0, 3).map((stage) => {
-        if (stage.kind !== "pose") throw new Error("support entry preparation must be a pose sequence");
-        return convert(stage);
-      }) });
+    const entry = supportEntryPolicy(built, model);
+    if (!entry) throw new Error("no support entry witness for that body");
+    return entry.policy;
   });
   const state = { steps: 0, fell, supportedSteps: 0, peakSupportSteps: 0, quietSteps: 0, acquiredAt: -1,
     continuedSteps: 0, lostSupport: false, peakDrift: 0, peakEffortViolation: 0, reference: [] as number[][] };

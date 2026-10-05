@@ -552,6 +552,31 @@ they block phase completion rather than disappearing from the aggregate. Report 
 placeholder anatomy explicitly. Compare time to useful control and survival after handover,
 not just standing once within 40 seconds. Show the same controllers in the lab and in fights.
 
+## Playable arena integration
+
+The selectable point fighter now connects `pointPath`, `predictIntercept` and the shared
+`supportEntryPolicy` to the actual `Duel`, through `createMind`. Controller/equipment selectors,
+recovery windows, status, player orders and replay use the same game lifecycle. See
+[the integration record](../reference/arena-point-control.md).
+
+Remaining integration chunks must keep the classic comparison option:
+
+1. In `src/core/mind/point-fighter.ts` and `src/core/skills/strike.ts`, improve the measured
+   attack/return cycle and contact response without increasing muscle strength. Extend
+   `tests/arena-point-control.test.mjs` with moving targets, interrupted strikes and frozen
+   multi-bout evaluation cases; measure driven contact quality, misses and falls separately.
+2. Complete the support-to-standing transition in `src/core/mind/rise/`, then replace the
+   acquisition-only end state. Test fall directions, held items, repeated falls and resumption
+   in the real arena with `DuelRecipe.recoverySeconds`.
+3. Adapt separate equipment to `Duel`'s damage ownership and the arena dresser before exposing
+   shared two-hand grips. Reuse `equipment-port.ts` capture and equipment snapshot state;
+   assert release/re-grasp continuity and damage identity in whole-bout replay.
+4. Measure and integrate the optional whole-body motion controller only after it meets browser
+   step budgets with two active fighters. Keep the observation/action policy route independent
+   of the reference stance/IK stack.
+
+This playable slice does not complete the physical gates below or warrant deleting this plan.
+
 ## Common checks, commands and completion
 
 Each chunk lands with relevant existing tests plus a fixture that fails under the defect it

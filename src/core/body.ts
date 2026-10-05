@@ -269,7 +269,9 @@ export function createBody(built: BuiltBody, world: World, options: BodyOptions)
 }
 
 const sameGoal = (a: HandGoal, b: HandGoal): boolean =>
-  a.seconds === b.seconds && a.through === b.through && a.follows === b.follows && a.places.length === b.places.length
+  (a.initialVelocity === b.initialVelocity || (a.initialVelocity !== undefined && b.initialVelocity !== undefined
+    && a.initialVelocity.every((v, k) => v === b.initialVelocity![k])))
+  && a.seconds === b.seconds && a.through === b.through && a.follows === b.follows && a.places.length === b.places.length
   && a.places.every((place, i) => place.point === b.places[i]!.point && place.position.every((v, k) => v === b.places[i]!.position[k]));
 
 /** A vector for each named point of `hand`'s rigid body (`rigidPoints`). */

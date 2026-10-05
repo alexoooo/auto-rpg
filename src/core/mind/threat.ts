@@ -1,3 +1,4 @@
+import { predictIntercept } from "../control/intercept.ts";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { BodyView } from "../body.ts";
 import { rigidPoints } from "../build/rigid.ts";
@@ -46,9 +47,11 @@ const point = new Vector3(), velocity = new Vector3(), lever = new Vector3();
  * velocity and spin) that closes fastest on this body's head, if it is a threat (`counts`:
  * `THREAT`, unless an experiment passes another); guarded, the head. Null with none. The closing
  * speed is the point's own toward the head as the head stands. What is sensed is as old as the
- * senses' delay, and nothing here corrects for it.
+ * senses' delay, and nothing here corrects for it. With `prediction`, a constant-velocity
+ * crossing of the plane ahead of the head replaces the current point; a threat already inside
+ * the plane is covered immediately. No crossing in the horizon means no candidate.
  */
-export function threatOf(view: BodyView, counts: Threat = THREAT): Cover | null {
+export function threatOf(view: BodyView, counts: Threat = THREAT, prediction?: { readonly out: number; readonly horizon: number }): Cover | null {
   const { senses, head } = view;
   let threat: Vec3 | null = null, fastest = counts.closing;
   for (const other of senses.others) {
@@ -65,7 +68,17 @@ export function threatOf(view: BodyView, counts: Threat = THREAT): Cover | null 
       const dx = point.x - head.x, dy = point.y - head.y, dz = point.z - head.z, far = hypot(dx, dy, dz);
       if (far > counts.within || far === 0) continue;
       const closing = -(dx * velocity.x + dy * velocity.y + dz * velocity.z) / far;
-      if (closing > fastest) { fastest = closing; threat = [point.x, point.y, point.z]; }
+      if (closing <= fastest) continue;
+      let candidate: Vec3 = [point.x, point.y, point.z];
+      if (prediction && far > prediction.out) {
+        const normal: Vec3 = [dx / far, dy / far, dz / far];
+        const crossing = predictIntercept({ time: senses.time, position: candidate, velocity: [velocity.x, velocity.y, velocity.z] },
+          [0, 0, 0], { normal, point: [head.x + normal[0] * prediction.out, head.y + normal[1] * prediction.out,
+            head.z + normal[2] * prediction.out] }, senses.time, prediction.horizon);
+        if (!crossing) continue;
+        candidate = crossing.position;
+      }
+      fastest = closing; threat = candidate;
     }
   }
   return threat && { threat, guarded: [head.x, head.y, head.z] };

@@ -102,6 +102,8 @@ interface DuelRecipe {
   readonly balancePercent?: AssistCeiling;
   /** Each side's mind, in place of the fighter every body has (`FIGHTER`): an experiment's, or a table's row. */
   readonly minds?: Readonly<Record<Side, MindConfig>>;
+  /** Seconds continuously down before a fall ends the bout; zero by default. */
+  readonly recoverySeconds?: number;
   /** What each side's right hand holds; the wooden club unless given. */
   readonly held?: Readonly<Record<Side, DuelHeld>>;
   /** The arena's rules with these in their place (`rulebook`'s override): an experiment's. */
@@ -164,6 +166,7 @@ interface DuelState {
   readonly start: number;
   readonly startStep: number;
   verdict: Verdict | null;
+  readonly recovery?: Record<Side, number>;
   /** What each side is ordered; null leaves it to itself. */
   readonly given: Record<Side, Orders | null>;
   readonly tape: OrdersEntry[];
@@ -206,6 +209,8 @@ export class Duel {
   private readonly judging: Hook;
 
   constructor(world: World, recipe: DuelRecipe, hooks: DuelHooks = {}) {
+    if (recipe.recoverySeconds !== undefined && (!Number.isFinite(recipe.recoverySeconds) || recipe.recoverySeconds < 0))
+      throw new Error("invalid recovery window");
     this.world = world;
     this.recipe = Object.freeze({ ...recipe });
     this.rules = rulebook("arena", recipe.rules);
@@ -230,8 +235,8 @@ export class Duel {
       const x = (side === "left" ? -1 : 1) * gap / 2;
       const built = buildBody(spec, world, { position: [x, 0, 0] });
       const pool = createPool(spec, this.rules);
-      // Out to the other side once the bout is decided, its pool has ended or it is down.
-      const senses = this.senses.add({ id: side, side, built, out: () => this.verdict !== null || !duelists[side].standing });
+      // A downed side remains in the fight while its recovery allowance lasts.
+      const senses = this.senses.add({ id: side, side, built, out: () => this.verdict !== null || this.eliminated(side) });
       const assist = balanceCeiling(recipe.balance?.[side] ?? spec.attributes.balance.value, recipe.balancePercent ?? balancePercent(this.rules));
       const minded = createMind(built, world, recipe.minds?.[side] ?? FIGHTER, {
         name: `arena ${side}`, senses, assist,
@@ -249,6 +254,7 @@ export class Duel {
     const sideState = ({ body, minded, pool }: Duelist): SideState => ({ body: body.state, mind: minded.state, pool: pool.state });
     this.state = {
       start, startStep, verdict: null, given, tape: [], queued: [],
+      ...((recipe.recoverySeconds ?? 0) > 0 ? { recovery: { left: 0, right: 0 } } : {}),
       world: world.state, senses: this.senses.state, watch: this.watch.state,
       left: sideState(duelists.left), right: sideState(duelists.right),
     };
@@ -313,8 +319,17 @@ export class Duel {
     return this.verdict;
   }
 
+  /** Whether the side is out under this bout's damage and continuous-down rules. */
+  eliminated(side: Side): boolean {
+    const duelist = this.duelists[side];
+    return duelist.pool.ending() !== null || (duelist.body.down
+      && (!this.state.recovery || this.state.recovery[side] >= this.recipe.recoverySeconds!));
+  }
+
   private judge(): void {
     if (this.verdict) return;
+    if (this.state.recovery) for (const side of SIDES)
+      this.state.recovery[side] = this.duelists[side].body.down ? this.state.recovery[side] + this.world.dt : 0;
     this.state.verdict = this.decide();
     // The bout is over: neither body is given anything more.
     if (this.verdict) for (const side of SIDES) this.duelists[side].body.assist.withdraw();
@@ -322,7 +337,7 @@ export class Duel {
 
   /** The verdict, if this step decides the bout: frozen, so one a page holds is a record no load writes into. */
   private decide(): Verdict | null {
-    const out = SIDES.filter((side) => !this.duelists[side].standing);
+    const out = SIDES.filter((side) => this.eliminated(side));
     if (out.length === 2) return Object.freeze({ winner: null, ending: this.ending("left"), time: this.clock });
     if (out.length === 1) {
       const loser = out[0];

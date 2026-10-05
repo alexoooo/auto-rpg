@@ -101,6 +101,15 @@ retains impulse joints: the pinned multibody engine traps on two-axis ankles and
 internal limits use incompatible coordinates. A faithful multibody comparison needs more than
 new bindings; it remains a separate engine-extension experiment.
 
+The arena exposes an [experimental point fighter](reference/arena-point-control.md): either
+hand or alternating attacks, predictive covers, player orders, equipment selection, and an
+optional recovery window. The support-entry policy is shared with research, not copied into a
+page controller. This makes the work playable, but does not close the foundation's physical
+gates. Reliable rise-to-standing, simultaneous coordinated attacks, separate/two-hand item
+rendering and damage, impact-aware re-planning, and a practical real-time whole-body solver
+remain open. Current point attacks can be weak or miss; contact counts do not establish combat
+quality. The classic fighter remains available for comparison.
+
 ## Open items
 
 ### The AI
@@ -109,7 +118,7 @@ new bindings; it remains a separate engine-extension experiment.
   the muscles, sub-minds, a mind made from its config, senses, a person's orders, an assist whose ceiling is the character's balance, a
   bout that saves, loads and forks ([architecture](architecture.md#state)), and an oracle. Not
   built: a learned mind (a recipe names each side's mind by its config, `DuelRecipe.minds`, and
-  the fighter and an independent joint-feedback mind are available); sight that is blocked (the senses pass
+  the classic fighter, an experimental point fighter and an independent joint-feedback mind are available); sight that is blocked (the senses pass
   every body whatever stands between); a library for a body of another shape behind the same
   seam.
 - The owner's to choose, each landed at its default:

@@ -40,10 +40,23 @@ robot shells keep the Warrior's physics and abilities. The Lab offers the same c
 switch skins during playback without restarting the scenario. Arena links keep each side's
 appearance in `&appearance=industrial,relic`; Lab links use, for example, `&appearance=duelist`.
 
-The circular stone arena is enclosed by a low parapet, with eight braziers around its edge. Each side carries a
-wooden club in its right hand and is driven by its own mind: it walks at the other and, once within
-reach, attacks the head. A side is out when its wounds end it or its body falls; at the two-minute
-bell the fuller bar wins, and equal bars draw.
+Each contender has a **Controller** choice: Classic fighter, or experimental **Point control**
+with the right hand, left hand, or alternating hands. Choose a wooden club or empty hands.
+Point control plans the striking point's path and predicts defensive intercepts, using the same
+body, muscles, walking, balance and damage rules as Classic. It is a playable comparison,
+not yet a stronger fighter.
+
+The **Recovery window** can allow 15, 30 or 60 seconds down before defeat. The HUD names the
+current controller or recovery attempt. Point control uses hand/shin acquisition for empty-handed
+bodies with a measured support pose, and the staged riser otherwise. Neither is reliable standing
+recovery. Classic retains its passive response to a fall.
+Try `?play=arena&matchup=workshop-fighter,workshop-rogue&control=point-alternate,classic&held=empty&recovery=30`.
+These choices travel in links and replays (`control`, `held`, `recovery`).
+
+The circular stone arena is enclosed by a low parapet, with eight braziers around its edge. Each
+side starts with a wooden club unless selected otherwise. Its mind walks at the opponent and
+attacks its head. A side is out when its wounds end it or it stays down for the chosen recovery
+window (immediately by default). At the two-minute bell the fuller bar wins; equal bars draw.
 
 A blow costs both who meet in it. Any two parts of the two bodies that come together closing
 have met in a blow, and the two surfaces share its energy: the softer takes the more. A fist

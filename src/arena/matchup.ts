@@ -1,5 +1,5 @@
 import { BODY_MODELS, type BodyModel } from "../core/human/spec.ts";
-import { FIGHTER, type MindConfig } from "../core/mind/config.ts";
+import { FIGHTER, POINT_FIGHTER, type MindConfig } from "../core/mind/config.ts";
 import { isOrders } from "../core/mind/orders.ts";
 import { balanceFrom } from "../core/rules/rulebook.ts";
 import { DUEL_HELD, type OrdersEntry, type Side } from "./duel.ts";
@@ -152,3 +152,34 @@ export function readTape(hash: string): OrdersEntry[] {
 
 /** The fragment that carries `tape` (`readTape`). */
 export const tapeHash = (tape: readonly OrdersEntry[]): string => `#${TAPE_KEY}=${encodeURIComponent(JSON.stringify(tape))}`;
+
+/** Selectable controllers; separate from anatomy, equipment and appearance. */
+export const CONTROLS = Object.freeze({ classic: "Classic fighter", "point-right": "Point control: right hand",
+  "point-left": "Point control: left hand", "point-alternate": "Point control: alternate hands" });
+type Control = keyof typeof CONTROLS;
+
+/** Per-side controller choices in a shareable arena recipe. */
+export function readControls(search: string): Readonly<Record<Side, Control>> {
+  const parts = (new URLSearchParams(search).get("control") ?? "").split(",");
+  const read = (s: string | undefined): Control => s && Object.hasOwn(CONTROLS, s) ? s as Control : "classic";
+  return { left: read(parts[0]), right: read(parts[1] ?? parts[0]) };
+}
+
+/** The selected controllers, retaining the classic fighter's guard option. */
+export function readMinds(search: string): Readonly<Record<Side, MindConfig>> {
+  const controls = readControls(search), guards = readGuard(search);
+  const mind = (side: Side): MindConfig => {
+    const control = controls[side];
+    switch (control) {
+      case "classic": return guards?.[side] ?? FIGHTER;
+      case "point-right": return POINT_FIGHTER;
+      case "point-left": return { ...POINT_FIGHTER, hand: "left" };
+      case "point-alternate": return { ...POINT_FIGHTER, hand: "alternate" };
+      default: { const never: never = control; throw new Error(`unknown controller ${never}`); }
+    }
+  };
+  return { left: mind("left"), right: mind("right") };
+}
+
+/** Optional continuous-down allowance, in seconds, for recovery bouts. */
+export const readRecovery = (search: string): number | undefined => readWithin(search, "recovery", [0, 60]);

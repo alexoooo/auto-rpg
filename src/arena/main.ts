@@ -18,7 +18,7 @@ import { loadSkeletonArt, type SkeletonArt } from "../render/skeleton-skin.ts";
 import { drawHeld, type BodyShapes } from "../render/body-shapes.ts";
 import { dresserFor, type Dresser } from "../render/dress.ts";
 import { Duel, SIDES, type DuelEnding, type Side, type Verdict } from "./duel.ts";
-import { MATCHUP_PARAM, MODEL_LABELS, appearanceSearch, readAppearances, matchupSearch, readBalance, readCap, readGap, readGuard, readHeld, readMatchup, readTape, readYou, youSearch, type Matchup } from "./matchup.ts";
+import { MATCHUP_PARAM, MODEL_LABELS, appearanceSearch, readAppearances, matchupSearch, readBalance, readCap, readGap, CONTROLS, readControls, readMinds, readRecovery, readHeld, readMatchup, readTape, readYou, youSearch, type Matchup } from "./matchup.ts";
 import { ORBIT, orbitPosition } from "./orbit.ts";
 import { aimPoint, keysToMove, personOrders } from "./orders-input.ts";
 
@@ -75,6 +75,10 @@ export async function bootArena(): Promise<void> {
   let replaying = false;
   const youPicker = need<HTMLSelectElement>("you");
   youPicker.value = you ?? "";
+  const controlPickers = {} as Record<Side, HTMLSelectElement>, heldPickers = {} as Record<Side, HTMLSelectElement>;
+  const controls = readControls(location.search), heldChoices = readHeld(location.search);
+  const linkedControl = JSON.stringify(readMinds(location.search)), linkedRecovery = readRecovery(location.search);
+  const linkedHeld = JSON.stringify(heldChoices);
   const pickers = {} as Record<Side, HTMLSelectElement>;
   const refreshChoices = {} as Record<Side, () => void>;
   const previews = {} as Record<Side, Awaited<ReturnType<typeof showHeroLineup>>>;
@@ -107,6 +111,18 @@ export async function bootArena(): Promise<void> {
     appearanceField.append(appearanceName, appearancePicker);
     const choices = document.createElement("div"); choices.className = "contender-choices";
     field.append(name, select); choices.append(field, appearanceField); panel.append(head, preview, choices);
+    const controller = document.createElement("label"), control = document.createElement("select");
+    controller.className = "field"; controller.textContent = "Controller (experimental point mode)";
+    control.setAttribute("aria-label", `${side} controller`);
+    for (const [value, textContent] of Object.entries(CONTROLS)) control.append(Object.assign(document.createElement("option"), { value, textContent }));
+    control.value = controls[side]; control.addEventListener("change", () => control.blur());
+    controller.append(control); choices.append(controller); controlPickers[side] = control;
+    const equipment = document.createElement("label"), held = document.createElement("select");
+    equipment.className = "field"; equipment.textContent = "Right hand"; held.setAttribute("aria-label", `${side} equipment`);
+    for (const [value, textContent] of [["club", "Wooden club"], ["empty", "Empty hands"]])
+      held.append(Object.assign(document.createElement("option"), { value, textContent }));
+    held.value = heldChoices?.[side] ?? "club"; held.addEventListener("change", () => held.blur());
+    equipment.append(held); choices.append(equipment); heldPickers[side] = held;
     need("matchup").append(panel);
     pickers[side] = select;
     previewLoads.push(showHeroLineup(preview, physicsEngine, [matchup[side]], lifetime.signal, [appearances[side]]).then(view => {
@@ -127,6 +143,14 @@ export async function bootArena(): Promise<void> {
       }, { signal: lifetime.signal });
     }));
   }
+
+  const recoveryField = document.createElement("label"), recoveryPicker = document.createElement("select");
+  recoveryField.className = "field recovery"; recoveryField.textContent = "Recovery window (standing recovery remains experimental)";
+  recoveryPicker.setAttribute("aria-label", "Recovery window");
+  for (const seconds of new Set([0, 15, 30, 60, linkedRecovery ?? 0])) recoveryPicker.append(Object.assign(document.createElement("option"),
+    { value: String(seconds), textContent: seconds === 0 ? "Fall ends bout" : `${seconds} seconds down before defeat` }));
+  recoveryPicker.value = String(linkedRecovery ?? 0); recoveryPicker.addEventListener("change", () => recoveryPicker.blur());
+  recoveryField.append(recoveryPicker); need("matchup").after(recoveryField);
 
   // Each model's dresser, loaded once: its skin, or its shapes if the skin does not load.
   let skeletonArt: Promise<SkeletonArt> | null = null;
@@ -156,8 +180,9 @@ export async function bootArena(): Promise<void> {
   const rows = SIDES.map((side) => {
     const column = document.createElement("div"), label = document.createElement("strong"), bar = document.createElement("progress");
     column.className = "hud-col"; column.dataset.side = side; bar.max = 1; bar.value = 1;
-    column.append(label, bar); hud.append(column);
-    return { side, label, bar };
+    const status = document.createElement("small");
+    column.append(label, bar, status); hud.append(column);
+    return { side, label, bar, status };
   });
   const clock = document.createElement("div"); clock.className = "hud-col"; hud.insertBefore(clock, rows[1].label.parentElement);
 
@@ -181,15 +206,23 @@ export async function bootArena(): Promise<void> {
     try {
       appearances = { left: appearanceFor(next.left, appearances.left), right: appearanceFor(next.right, appearances.right) };
       matchup = next;
-      const tape = matchup.left === linked.matchup.left && matchup.right === linked.matchup.right ? linked.tape : [];
+      const query = new URLSearchParams(location.search);
+      query.set("control", SIDES.map((side) => controlPickers[side].value).join(","));
+      query.set("held", SIDES.map((side) => heldPickers[side].value).join(","));
+      query.set("recovery", recoveryPicker.value);
+      const search = `?${query}`;
+      const sameControllers = linkedControl === JSON.stringify(readMinds(search));
+      const sameRecovery = (linkedRecovery ?? 0) === (readRecovery(search) ?? 0);
+      const sameHeld = (linkedHeld ?? JSON.stringify({ left: "club", right: "club" })) === JSON.stringify(readHeld(search));
+      const tape = matchup.left === linked.matchup.left && matchup.right === linked.matchup.right && sameControllers && sameRecovery && sameHeld ? linked.tape : [];
       replaying = tape.length > 0;
-      history.replaceState(null, "", youSearch(appearanceSearch(matchupSearch(location.search, matchup), matchup, appearances), you) + (replaying ? linked.hash : ""));
+      history.replaceState(null, "", youSearch(appearanceSearch(matchupSearch(search, matchup), matchup, appearances), you) + (replaying ? linked.hash : ""));
       const dress = new Map(await Promise.all(SIDES.map(async (side) => [side, await dresser(matchup[side], appearances[side])] as const)));
       end();
       audio.reset();
-      const balance = readBalance(location.search), gap = readGap(location.search), capSeconds = readCap(location.search), held = readHeld(location.search), minds = readGuard(location.search);
+      const balance = readBalance(location.search), gap = readGap(location.search), capSeconds = readCap(location.search), held = readHeld(location.search), minds = readMinds(location.search), recoverySeconds = readRecovery(location.search);
       const bout = duel = new Duel(world, {
-        left: matchup.left, right: matchup.right,
+        left: matchup.left, right: matchup.right, recoverySeconds,
         ...(gap !== undefined ? { gap } : {}), ...(capSeconds !== undefined ? { capSeconds } : {}), ...(balance ? { balance } : {}), ...(held ? { held } : {}), ...(minds ? { minds } : {}),
       }, {
         onBuilt: (duelist, built) => {
@@ -310,7 +343,16 @@ export async function bootArena(): Promise<void> {
   };
   const readout = () => {
     if (!duel) return;
-    for (const row of rows) row.bar.value = duel.duelists[row.side].pool.bar();
+    for (const row of rows) {
+      const fighter = duel.duelists[row.side];
+      row.bar.value = fighter.pool.bar();
+      const mind = fighter.minded;
+      const phase = mind.kind === "direct" ? "joint control" : mind.skills.report.strike.phase ?? "guard / move";
+      const down = duel.state.recovery?.[row.side];
+      row.status.textContent = fighter.body.down
+        ? `${fighter.body.has}${down !== undefined ? ` - ${Math.max(0, duel.recipe.recoverySeconds! - down).toFixed(1)} s recovery left` : " - down"}`
+        : `${mind.kind === "point-fighter" ? "Point control" : "Classic"} - ${phase}`;
+    }
     // While either side is helped, each side's balance, per cent of its weight: the link's, or its character's.
     const helped = SIDES.some((side) => duel!.duelists[side].body.assist.on);
     const balance = SIDES.map((side) => duel!.recipe.balance?.[side] ?? duel!.duelists[side].built.spec.attributes.balance.value);

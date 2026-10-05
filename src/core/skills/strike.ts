@@ -314,9 +314,11 @@ interface StrikeState {
   readonly thrown: Record<Hand, number>;
   /** The pushes of the command last made: the one list, written again by each. */
   readonly pushes: MusclePush[];
+  /** Measured body-frame point motion for the optional Hermite trajectory. */
+  readonly motion?: { previous: Record<Hand, Vec3 | null>; velocity: Vec3 | null };
 }
 
-export function strikeSkill(spec: BodySpec, repertoire: Repertoire, placing: Placed = PLACED, steering = STEER): StrikeSkill {
+export function strikeSkill(spec: BodySpec, repertoire: Repertoire, placing: Placed = PLACED, steering = STEER, pointMotion = false): StrikeSkill {
   const known = { left: blowsOf(spec, repertoire, "left"), right: blowsOf(spec, repertoire, "right") };
   /** The recipe `hand` throws at a target `up` m over the head, by its place among the hand's; null where no window holds that height, and the blow is placed. */
   const choose = (hand: Hand, up: number): number | null => chooseIn(known[hand], up);
@@ -326,6 +328,7 @@ export function strikeSkill(spec: BodySpec, repertoire: Repertoire, placing: Pla
     hand: null, phase: null, blow: null, recipe: null, distance: null, stoodFor: null,
     still: 0, since: -Infinity, begun: null, readyAt: null, origin: null, bearing: null, steer: 0, width: null, over: null,
     thrown: { left: 0, right: 0 }, pushes: [],
+    ...(pointMotion ? { motion: { previous: { left: null, right: null }, velocity: null } } : {}),
   };
   const report: StrikeReport = {
     get hand() { return state.hand; },
@@ -343,6 +346,7 @@ export function strikeSkill(spec: BodySpec, repertoire: Repertoire, placing: Pla
     state.hand = null; state.phase = null; state.blow = null; state.recipe = null; state.distance = null; state.stoodFor = null;
     state.begun = null; state.readyAt = null; state.since = -Infinity;
     state.origin = null; state.bearing = null; state.steer = 0;
+    if (state.motion) state.motion.velocity = null;
   };
   const place = new Vector3();
   return {
@@ -350,12 +354,20 @@ export function strikeSkill(spec: BodySpec, repertoire: Repertoire, placing: Pla
     resume() {
       if (state.hand) end();
       state.still = 0;
+      if (state.motion) { state.motion.previous.left = null; state.motion.previous.right = null; }
     },
     idle(walking, dt) {
       if (state.hand) end();
       state.still = walking ? 0 : state.still + dt;
     },
     command(view, hands, heading, placed, dt) {
+      const velocities: Partial<Record<Hand, Vec3>> | null = state.motion ? {} : null;
+      if (state.motion) for (const hand of ["left", "right"] as const) {
+        const at = view.points[hand][aimOf(spec, hand)]!, previous = state.motion.previous[hand];
+        const position: Vec3 = [at.x, at.y, at.z];
+        velocities![hand] = previous ? position.map((v, k) => (v - previous[k]!) / dt) as unknown as Vec3 : [0, 0, 0];
+        state.motion.previous[hand] = position;
+      }
       const s = view.stance, fx = sin(heading), fz = cos(heading);
       // Across the ground, forward is (fx, fz) and the right (fz, -fx).
       const inFrame = (x: number, z: number): [number, number] => [x * fx + z * fz, x * fz - z * fx];
@@ -476,7 +488,8 @@ export function strikeSkill(spec: BodySpec, repertoire: Repertoire, placing: Pla
             if (!over) {
               // The target in the body frame as the body now stands: the path's end moves with it.
               intoFrameToRef(view.root, action.target, place);
-              const goal: HandGoal = { places: [{ point: blow.aim, position: [place.x, place.y, place.z] }], seconds: placing.seconds, through: placing.through, follows: true };
+              const goal: HandGoal = { places: [{ point: blow.aim, position: [place.x, place.y, place.z] }], seconds: placing.seconds, through: placing.through, follows: true,
+                ...(state.motion ? { initialVelocity: state.motion.velocity ??= velocities![hand]! } : {}) };
               goals = hand === "left" ? { left: goal, right: null } : { left: null, right: goal };
             }
             break;

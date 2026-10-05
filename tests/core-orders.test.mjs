@@ -93,6 +93,12 @@ test("a_fighter_told_to_cover_gives_the_cover_to_the_hand_that_does_not_attack",
   assert.ok(cover && Math.hypot(cover.threat[0], cover.threat[1] - 1.6, cover.threat[2] - 0.6) < 0.2, `the sight's threat: ${JSON.stringify(cover)}`);
   assert.deepEqual(cover.guarded, [0, 1.6, 0]);
   assert.equal(threatOf(sight(1).view), null, "a hand that comes slowly is no threat");
+  const predicted = threatOf(sight(5).view, undefined, { out: .3, horizon: .75 });
+  assert.ok(predicted && predicted.threat[2] < cover.threat[2], "the cover follows the future plane crossing");
+  const from = cover.threat.map((v, k) => v - [head.x, head.y, head.z][k]), length = Math.hypot(...from);
+  const projection = predicted.threat.reduce((sum, v, k) => sum + (v - [head.x, head.y, head.z][k]) * from[k] / length, 0);
+  assert.ok(Math.abs(projection - .3) < 1e-12);
+  assert.equal(threatOf(sight(5).view, undefined, { out: .3, horizon: .001 }), null, "a crossing beyond the planning horizon is refused");
   // Told to cover: the hand that does not attack covers, and both do when neither attacks.
   assert.deepEqual(hands("cover", attack, 5), { left: { kind: "guard", cover }, right: struck });
   assert.deepEqual(hands("cover", STAND_ORDERS, 5), { left: { kind: "guard", cover }, right: { kind: "guard", cover } });

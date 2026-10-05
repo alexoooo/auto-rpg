@@ -1,6 +1,7 @@
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { BuiltBody, BuiltJoint, BuiltSegment } from "../build/build-body.ts";
 import { rigidPoints } from "../build/rigid.ts";
+import { pointPath } from "./point-path.ts";
 import { hypot } from "../math/real.ts";
 import type { MuscleController, MuscleDriver } from "../muscle/driver.ts";
 import type { Vec3 } from "../spec/quantity.ts";
@@ -48,6 +49,8 @@ export interface HandGoal {
    * a new path from where the points are.
    */
   readonly follows?: boolean;
+  /** Initial point velocity in the body frame, m/s, for a measured Hermite path. One point only. */
+  readonly initialVelocity?: Vec3;
 }
 
 /**
@@ -174,9 +177,17 @@ export function motorControl(built: BuiltBody, seconds: number, posture: Pose = 
   /**
    * Where the path of place `i` is at `time`: minimum jerk, 10 s^3 - 15 s^4 + 6 s^5 of the way
    * from where the point began to its place, and on `through` beyond it along that line.
+   * A supplied initial velocity uses the shared quintic Hermite path instead.
    */
   const along = (m: HandMemory, i: number, time: number, out: Vector3): Vector3 => {
     const { places, seconds: length, through = 0 } = m.goal!, position = places[i]!.position, from = m.from[i]!;
+    if (m.goal!.initialVelocity) {
+      const way = hypot(position[0] - from[0], position[1] - from[1], position[2] - from[2]);
+      const scale = way > 0 ? 1 + through / way : 1;
+      const finish = position.map((v, k) => from[k]! + scale * (v - from[k]!)) as unknown as Vec3;
+      const path = pointPath({ position: from, velocity: m.goal!.initialVelocity }, finish, Math.max(0, time), length);
+      return out.set(...path.target);
+    }
     const s = Math.max(0, Math.min(1, time / length));
     let f = s * s * s * (10 - 15 * s + 6 * s * s);
     if (through !== 0) {
@@ -257,6 +268,7 @@ export function motorControl(built: BuiltBody, seconds: number, posture: Pose = 
     setPosture(next) { state.pose = next; },
     reach(hand, goal) {
       const { memory: m, points } = arms[hand], { places } = goal;
+      if (goal.initialVelocity && places.length !== 1) throw new Error("a measured point path requires one point");
       if (places.length !== 1 && places.length !== 2) throw new Error(`a hand goal is one place or two, not ${places.length}`);
       for (const place of places) {
         if (!points.has(place.point)) throw new Error(`the ${hand} hand has no point ${place.point}: it has ${[...points.keys()].join(", ")}`);
