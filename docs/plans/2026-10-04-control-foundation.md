@@ -258,6 +258,10 @@ Those witnesses do not close the recovery gate; entering and holding supports re
 The [recovery support diagnostics](../analysis/2026-10-05-recovery-support.md) retain failed
 entry and installed-pose experiments. Active contact acceleration compatibility is checked;
 sliding/rolling alternatives and the installed all-fours hold are the next controller gates.
+[Geometric planar support](../reference/planar-support.md) supplies current sphere, capsule and
+polyhedral features; a fine-step sliding-sphere check agrees with the engine and replays.
+The controller still uses measured midpoint contacts. Geometric contact integration and
+multi-contact sliding/sticking selection remain open.
 
 The [upright support task](../reference/support-transition.md) now transfers load, lifts either
 foot, verifies placement contact and regains two-foot support on all three bodies in the

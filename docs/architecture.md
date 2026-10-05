@@ -501,6 +501,10 @@ the engine profile. Corrected coordinate stops can load multiple actuator axes, 
 channels with no ground contact; the programme solves those loads together and records the
 engine artifact and limit model with each witness. Static feasibility is separate from the
 engine hold and controller-entry measurements.
+`build/planar-support.ts` separately queries current geometric support features for spheres,
+capsules, boxes and hulls. It neither detects contacts nor applies loads. A
+[sliding-sphere check](reference/planar-support.md) uses those points with the coupled model;
+the reference tracker's integration still uses measured midpoint contacts.
 Optional [contact redistribution](reference/contact-distribution.md) searches point-force
 distributions that preserve each contacted body's wrench; the measured task configurations
 keep this experimental option disabled.
