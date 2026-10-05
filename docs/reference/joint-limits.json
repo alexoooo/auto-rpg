@@ -1,0 +1,1237 @@
+{
+  "harness": {
+    "runtime": "v24.19.0",
+    "world": "core stand",
+    "enginePackage": "0.21.0-auto-rpg.5",
+    "adapter": 6,
+    "archiveSha256": "2970fabe1650f5fb5eb0a55b28b72a729095fcddb98e58ed82b2d25861cebcc4",
+    "gravity": false,
+    "ground": false,
+    "assists": 0,
+    "actuation": "symmetric",
+    "test": "tests/core-joint-state.test.mjs"
+  },
+  "symmetric": [
+    {
+      "engine": "rapier",
+      "stopped": 0.04594285688344435,
+      "euler": 1.0422391787539387,
+      "reached": 0.00006536244248556144
+    },
+    {
+      "engine": "rapier-coordinate",
+      "stopped": 0.0000016614668520986697,
+      "euler": 0.617475775793289,
+      "reached": 0.00006536244248556144
+    }
+  ],
+  "asymmetric": [
+    {
+      "engine": "rapier",
+      "hz": 120,
+      "centre": -0.4,
+      "limited": 0,
+      "sense": -1,
+      "got": [
+        -1.002768734617467,
+        1.1179865677881051,
+        -1.6461031611513777
+      ],
+      "error": 0.0027687346174669614
+    },
+    {
+      "engine": "rapier",
+      "hz": 120,
+      "centre": -0.4,
+      "limited": 0,
+      "sense": 1,
+      "got": [
+        0.20000712090597314,
+        1.6201525036034872,
+        1.2187801134206993
+      ],
+      "error": 0.00000712090597318471
+    },
+    {
+      "engine": "rapier",
+      "hz": 120,
+      "centre": -0.4,
+      "limited": 1,
+      "sense": -1,
+      "got": [
+        1.8166587104497365,
+        -0.9999966508620959,
+        -0.3944720078845889
+      ],
+      "error": 0.0000033491379041183933
+    },
+    {
+      "engine": "rapier",
+      "hz": 120,
+      "centre": -0.4,
+      "limited": 1,
+      "sense": 1,
+      "got": [
+        1.2582551098224986,
+        0.19999963243083788,
+        -1.247737499445247
+      ],
+      "error": 3.6756916207969503e-7
+    },
+    {
+      "engine": "rapier",
+      "hz": 120,
+      "centre": -0.4,
+      "limited": 2,
+      "sense": -1,
+      "got": [
+        0.4625740385028625,
+        -1.151313935547297,
+        -1.0011808051344355
+      ],
+      "error": 0.0011808051344355253
+    },
+    {
+      "engine": "rapier",
+      "hz": 120,
+      "centre": -0.4,
+      "limited": 2,
+      "sense": 1,
+      "got": [
+        1.440717954926436,
+        -0.39851035622149994,
+        0.19970648376952477
+      ],
+      "error": 0.00029351623047518816
+    },
+    {
+      "engine": "rapier",
+      "hz": 120,
+      "centre": 0.4,
+      "limited": 0,
+      "sense": -1,
+      "got": [
+        -1.3814915715087959,
+        1.6327726296598777,
+        -1.0714807206243406
+      ],
+      "error": 1.181491571508796
+    },
+    {
+      "engine": "rapier",
+      "hz": 120,
+      "centre": 0.4,
+      "limited": 0,
+      "sense": 1,
+      "got": [
+        0.1945804227142728,
+        2.0248164307099064,
+        0.2683996859350818
+      ],
+      "error": 0.8054195772857272
+    },
+    {
+      "engine": "rapier",
+      "hz": 120,
+      "centre": 0.4,
+      "limited": 1,
+      "sense": -1,
+      "got": [
+        1.6697074133681193,
+        -0.19999684441612667,
+        -0.4126174668574621
+      ],
+      "error": 0.0000031555838732877373
+    },
+    {
+      "engine": "rapier",
+      "hz": 120,
+      "centre": 0.4,
+      "limited": 1,
+      "sense": 1,
+      "got": [
+        1.379424658366142,
+        1.0000248312692632,
+        -1.382148676642729
+      ],
+      "error": 0.000024831269263225764
+    },
+    {
+      "engine": "rapier",
+      "hz": 120,
+      "centre": 0.4,
+      "limited": 2,
+      "sense": -1,
+      "got": [
+        -0.12467501663467406,
+        -0.9703345888969492,
+        -0.19001091665404654
+      ],
+      "error": 0.009989083345953415
+    },
+    {
+      "engine": "rapier",
+      "hz": 120,
+      "centre": 0.4,
+      "limited": 2,
+      "sense": 1,
+      "got": [
+        0.8359690412377302,
+        -0.689300742953483,
+        1.0000473342648424
+      ],
+      "error": 0.000047334264842380236
+    },
+    {
+      "engine": "rapier",
+      "hz": 480,
+      "centre": -0.4,
+      "limited": 0,
+      "sense": -1,
+      "got": [
+        -1.000308162570762,
+        1.1214391424023935,
+        -1.5382559509997373
+      ],
+      "error": 0.0003081625707619384
+    },
+    {
+      "engine": "rapier",
+      "hz": 480,
+      "centre": -0.4,
+      "limited": 0,
+      "sense": 1,
+      "got": [
+        0.19999699990631856,
+        1.6200874417473035,
+        1.219452423076095
+      ],
+      "error": 0.0000030000936813989743
+    },
+    {
+      "engine": "rapier",
+      "hz": 480,
+      "centre": -0.4,
+      "limited": 1,
+      "sense": -1,
+      "got": [
+        1.8165337714963572,
+        -1.0000011973564094,
+        -0.3944119203052674
+      ],
+      "error": 0.0000011973564093548106
+    },
+    {
+      "engine": "rapier",
+      "hz": 480,
+      "centre": -0.4,
+      "limited": 1,
+      "sense": 1,
+      "got": [
+        1.2583023288331867,
+        0.20000015673150998,
+        -1.2477546146267278
+      ],
+      "error": 1.5673151002038033e-7
+    },
+    {
+      "engine": "rapier",
+      "hz": 480,
+      "centre": -0.4,
+      "limited": 2,
+      "sense": -1,
+      "got": [
+        0.5379219363483478,
+        -1.1188206490825743,
+        -1.0002532291758752
+      ],
+      "error": 0.00025322917587522475
+    },
+    {
+      "engine": "rapier",
+      "hz": 480,
+      "centre": -0.4,
+      "limited": 2,
+      "sense": 1,
+      "got": [
+        1.4430519647668572,
+        -0.3988977730185347,
+        0.19963006034257355
+      ],
+      "error": 0.00036993965742640467
+    },
+    {
+      "engine": "rapier",
+      "hz": 480,
+      "centre": 0.4,
+      "limited": 0,
+      "sense": -1,
+      "got": [
+        -0.7650281699495228,
+        0.9238985480048604,
+        -0.7869210640384647
+      ],
+      "error": 0.5650281699495229
+    },
+    {
+      "engine": "rapier",
+      "hz": 480,
+      "centre": 0.4,
+      "limited": 0,
+      "sense": 1,
+      "got": [
+        1.7412014373497542,
+        1.2915190435448487,
+        -1.0086608326139697
+      ],
+      "error": 0.7412014373497542
+    },
+    {
+      "engine": "rapier",
+      "hz": 480,
+      "centre": 0.4,
+      "limited": 1,
+      "sense": -1,
+      "got": [
+        1.6696846694311387,
+        -0.2000010940020178,
+        -0.41262275620888034
+      ],
+      "error": 0.000001094002017837381
+    },
+    {
+      "engine": "rapier",
+      "hz": 480,
+      "centre": 0.4,
+      "limited": 1,
+      "sense": 1,
+      "got": [
+        1.379428327122689,
+        1.0000002637824479,
+        -1.3821657295005756
+      ],
+      "error": 2.6378244788460847e-7
+    },
+    {
+      "engine": "rapier",
+      "hz": 480,
+      "centre": 0.4,
+      "limited": 2,
+      "sense": -1,
+      "got": [
+        0.05325334239201735,
+        -0.9787331102516321,
+        -0.19024923431706683
+      ],
+      "error": 0.009750765682933121
+    },
+    {
+      "engine": "rapier",
+      "hz": 480,
+      "centre": 0.4,
+      "limited": 2,
+      "sense": 1,
+      "got": [
+        0.8359234824694816,
+        -0.6892815363481278,
+        1.0000011979801857
+      ],
+      "error": 0.0000011979801857187056
+    },
+    {
+      "engine": "rapier-coordinate",
+      "hz": 120,
+      "centre": -0.4,
+      "limited": 0,
+      "sense": -1,
+      "got": [
+        -1.0000000232994313,
+        0.9519600979592056,
+        0.009642852985144668
+      ],
+      "error": 2.3299431273215987e-8
+    },
+    {
+      "engine": "rapier-coordinate",
+      "hz": 120,
+      "centre": -0.4,
+      "limited": 0,
+      "sense": 1,
+      "got": [
+        0.19999994101581575,
+        1.4069796854572123,
+        -0.19356718304522347
+      ],
+      "error": 5.898418420358098e-8
+    },
+    {
+      "engine": "rapier-coordinate",
+      "hz": 120,
+      "centre": -0.4,
+      "limited": 1,
+      "sense": -1,
+      "got": [
+        1.7301512151082428,
+        -1.0000252565176082,
+        -0.5581463677002038
+      ],
+      "error": 0.000025256517608207574
+    },
+    {
+      "engine": "rapier-coordinate",
+      "hz": 120,
+      "centre": -0.4,
+      "limited": 1,
+      "sense": 1,
+      "got": [
+        1.2801485702070856,
+        0.2000255781410964,
+        -1.1960538057501902
+      ],
+      "error": 0.00002557814109643841
+    },
+    {
+      "engine": "rapier-coordinate",
+      "hz": 120,
+      "centre": -0.4,
+      "limited": 2,
+      "sense": -1,
+      "got": [
+        1.5607404517355472,
+        -0.05434289996924882,
+        -0.9999998841353402
+      ],
+      "error": 1.1586465975543803e-7
+    },
+    {
+      "engine": "rapier-coordinate",
+      "hz": 120,
+      "centre": -0.4,
+      "limited": 2,
+      "sense": 1,
+      "got": [
+        0.7182023552633796,
+        -0.9135820619082634,
+        0.20002540191462173
+      ],
+      "error": 0.000025401914621775434
+    },
+    {
+      "engine": "rapier-coordinate",
+      "hz": 120,
+      "centre": 0.4,
+      "limited": 0,
+      "sense": -1,
+      "got": [
+        -0.1999999444794693,
+        1.4642360089711361,
+        -1.2469478329885244
+      ],
+      "error": 5.552053064517004e-8
+    },
+    {
+      "engine": "rapier-coordinate",
+      "hz": 120,
+      "centre": 0.4,
+      "limited": 0,
+      "sense": 1,
+      "got": [
+        1.000000148775922,
+        1.3491587608335505,
+        -0.4944997798547844
+      ],
+      "error": 1.4877592202644507e-7
+    },
+    {
+      "engine": "rapier-coordinate",
+      "hz": 120,
+      "centre": 0.4,
+      "limited": 1,
+      "sense": -1,
+      "got": [
+        1.6341644484995441,
+        -0.20002495250962782,
+        -0.502377946013415
+      ],
+      "error": 0.00002495250962786244
+    },
+    {
+      "engine": "rapier-coordinate",
+      "hz": 120,
+      "centre": 0.4,
+      "limited": 1,
+      "sense": 1,
+      "got": [
+        1.3806226566303332,
+        1.000000127656709,
+        -1.2943584718356145
+      ],
+      "error": 1.2765670898140513e-7
+    },
+    {
+      "engine": "rapier-coordinate",
+      "hz": 120,
+      "centre": 0.4,
+      "limited": 2,
+      "sense": -1,
+      "got": [
+        1.7140739388446464,
+        -0.2616801519072092,
+        -0.20000006654183233
+      ],
+      "error": 6.654183237753131e-8
+    },
+    {
+      "engine": "rapier-coordinate",
+      "hz": 120,
+      "centre": 0.4,
+      "limited": 2,
+      "sense": 1,
+      "got": [
+        0.7538976982343426,
+        -0.7086787025871036,
+        1.0000250932214112
+      ],
+      "error": 0.00002509322141119874
+    },
+    {
+      "engine": "rapier-coordinate",
+      "hz": 480,
+      "centre": -0.4,
+      "limited": 0,
+      "sense": -1,
+      "got": [
+        -0.9999999852234035,
+        0.9520159626256639,
+        0.009650741987721803
+      ],
+      "error": 1.4776596501953065e-8
+    },
+    {
+      "engine": "rapier-coordinate",
+      "hz": 480,
+      "centre": -0.4,
+      "limited": 0,
+      "sense": 1,
+      "got": [
+        0.20000006443010948,
+        1.4069854050156088,
+        -0.19347932554124397
+      ],
+      "error": 6.443010952539296e-8
+    },
+    {
+      "engine": "rapier-coordinate",
+      "hz": 480,
+      "centre": -0.4,
+      "limited": 1,
+      "sense": -1,
+      "got": [
+        1.7301105686487808,
+        -1.0000015769981008,
+        -0.5580451376131288
+      ],
+      "error": 0.0000015769981007718314
+    },
+    {
+      "engine": "rapier-coordinate",
+      "hz": 480,
+      "centre": -0.4,
+      "limited": 1,
+      "sense": 1,
+      "got": [
+        1.2801879074819205,
+        0.20000165076582097,
+        -1.1960807866689895
+      ],
+      "error": 0.0000016507658210096476
+    },
+    {
+      "engine": "rapier-coordinate",
+      "hz": 480,
+      "centre": -0.4,
+      "limited": 2,
+      "sense": -1,
+      "got": [
+        1.5607321540266064,
+        -0.054351243992356746,
+        -1.0000000210588251
+      ],
+      "error": 2.1058825128150715e-8
+    },
+    {
+      "engine": "rapier-coordinate",
+      "hz": 480,
+      "centre": -0.4,
+      "limited": 2,
+      "sense": 1,
+      "got": [
+        0.7181710643850656,
+        -0.9135930413311034,
+        0.19999998533911315
+      ],
+      "error": 1.4660886810125007e-8
+    },
+    {
+      "engine": "rapier-coordinate",
+      "hz": 480,
+      "centre": 0.4,
+      "limited": 0,
+      "sense": -1,
+      "got": [
+        -0.20000000369576557,
+        1.4642353628174498,
+        -1.2469786679234445
+      ],
+      "error": 3.6957656102121206e-9
+    },
+    {
+      "engine": "rapier-coordinate",
+      "hz": 480,
+      "centre": 0.4,
+      "limited": 0,
+      "sense": 1,
+      "got": [
+        0.9999999425267558,
+        1.34913333074311,
+        -0.4944957839360762
+      ],
+      "error": 5.747324416383037e-8
+    },
+    {
+      "engine": "rapier-coordinate",
+      "hz": 480,
+      "centre": 0.4,
+      "limited": 1,
+      "sense": -1,
+      "got": [
+        1.634173538584475,
+        -0.2000016408893607,
+        -0.5023888628167212
+      ],
+      "error": 0.0000016408893607489095
+    },
+    {
+      "engine": "rapier-coordinate",
+      "hz": 480,
+      "centre": 0.4,
+      "limited": 1,
+      "sense": 1,
+      "got": [
+        1.380664281406408,
+        1.0000000054902543,
+        -1.2943827249680369
+      ],
+      "error": 5.490254251228066e-9
+    },
+    {
+      "engine": "rapier-coordinate",
+      "hz": 480,
+      "centre": 0.4,
+      "limited": 2,
+      "sense": -1,
+      "got": [
+        1.7141083148035436,
+        -0.2616296095798289,
+        -0.1999999703640575
+      ],
+      "error": 2.963594245009027e-8
+    },
+    {
+      "engine": "rapier-coordinate",
+      "hz": 480,
+      "centre": 0.4,
+      "limited": 2,
+      "sense": 1,
+      "got": [
+        0.7538628117957139,
+        -0.7086698751008029,
+        0.9999998936337187
+      ],
+      "error": 1.0636628133831039e-7
+    }
+  ],
+  "prototype": {
+    "description": "Unconditional gradient before the optional integration parameter; installed package remained .4",
+    "esmSha256": "5a349961d584c0bebb228bd55cd237e18fbf469fe8112a21a9773ca770512cf1",
+    "tests": 789,
+    "pass": 769,
+    "fail": 18,
+    "todo": 2,
+    "failures": [
+      {
+        "location": "tests\\arena-fork.test.mjs:123:1",
+        "name": "a_bout_forks_at_any_step (61355.2381ms)"
+      },
+      {
+        "location": "tests\\core-bar.test.mjs:55:1",
+        "name": "ordinary ground supports every anatomical bar trial through obstacle contact and either release (24949.547ms)"
+      },
+      {
+        "location": "tests\\core-defense.test.mjs:16:1",
+        "name": "either-hand defense intercepts real clubs and sustains protected-region clearance (67535.5603ms)"
+      },
+      {
+        "location": "tests\\core-fork.test.mjs:410:1",
+        "name": "a_body_forks_in_the_middle_of_a_blow (16271.5287ms)"
+      },
+      {
+        "location": "tests\\core-guard.test.mjs:240:1",
+        "name": "a_clubs_blow_at_the_head_is_met_by_the_club_that_covers (6965.0294ms)"
+      },
+      {
+        "location": "tests\\core-rise.test.mjs:194:1",
+        "name": "fallen forward, a body draws its knees under and props itself (3652.0124ms)"
+      },
+      {
+        "location": "tests\\core-rise.test.mjs:285:1",
+        "name": "fallen forward, a body comes to its knees and hands (3396.3146ms)"
+      },
+      {
+        "location": "tests\\core-rise.test.mjs:335:1",
+        "name": "fallen backward, a body rolls over its right side onto its front, and rises from there (745.3886ms)"
+      },
+      {
+        "location": "tests\\core-rise.test.mjs:379:1",
+        "name": "on a side, a body goes on over that side onto its front (862.6451ms)"
+      },
+      {
+        "location": "tests\\core-rise.test.mjs:402:1",
+        "name": "a bearing stage that is not reached is given up at its limit, and the rise begins again (3282.4779ms)"
+      },
+      {
+        "location": "tests\\core-rise.test.mjs:485:1",
+        "name": "the ground a rise reads is the one its body is on (1992.7902ms)"
+      },
+      {
+        "location": "tests\\core-rise.test.mjs:555:1",
+        "name": "a limb a stage leaves bears until the centre of mass is over the others (1299.6363ms)"
+      },
+      {
+        "location": "tests\\core-strike-skill.test.mjs:134:1",
+        "name": "the_repertoires_club_blow_reads_at_its_place_what_its_record_says (2258.1666ms)"
+      },
+      {
+        "location": "tests\\crypt-core.test.mjs:215:1",
+        "name": "the_dead_are_held_once_the_party_has_walked_off_and_loose_when_it_is_back (8152.1648ms)"
+      },
+      {
+        "location": "tests\\lab-actor.test.mjs:43:1",
+        "name": "a_lab_bodys_balance_holds_it_through_a_shove_that_fells_it_without (4182.0427ms)"
+      },
+      {
+        "location": "tests\\research-blow.test.mjs:58:1",
+        "name": "a_blow_thrown_at_nothing_does_nothing_and_is_read (2007.3646ms)"
+      },
+      {
+        "location": "tests\\research-rise.test.mjs:24:1",
+        "name": "a shove of the battery fells the Warrior, and it does not rise (10200.279ms)"
+      },
+      {
+        "location": "tests\\research-rise.test.mjs:49:1",
+        "name": "a row says how the body lay, and how far a riser got (7465.0533ms)"
+      }
+    ],
+    "shared": [
+      {
+        "model": "workshop-fighter",
+        "miss": false,
+        "complete": true,
+        "time": 13.533333333333333,
+        "shared": {
+          "captured": 101,
+          "releasedAt": -1,
+          "sharedHits": 1,
+          "peakGripGap": 0.00003018070000389127,
+          "releaseContinuous": null,
+          "pendingRelease": null,
+          "guardPosture": [
+            0.015985124136883726,
+            0.004596399954010387,
+            0.0013979015436750145,
+            -0.028915039949823258,
+            -0.0021274982866119944,
+            -0.013153646799754039,
+            0.05785113407975996,
+            0.01860061092974241,
+            0.013448454600830386,
+            1.131898158922075,
+            -0.41648982860055217,
+            0.3869825907372758,
+            0.4475757540805858,
+            -0.8999683944230055,
+            -0.012949969741545194,
+            -0.22507739039535324,
+            0.17689178707880124,
+            -0.002957406277024629,
+            0.020429714647266794,
+            0.38579893505577334,
+            0.18966094136377193,
+            0.011464710311130229,
+            0.9530151731519447,
+            -0.3912948041542221,
+            0.3749258572225969,
+            0.3685500541690684,
+            -0.764451626711508,
+            -0.04769158619612003,
+            -0.20226140389168196,
+            0.17250508153131378,
+            0.0033509015630911795,
+            0.021370993148191395,
+            0.37688472814808266,
+            0.1852237131650493,
+            0.011443696227168645
+          ]
+        },
+        "phase": "complete",
+        "fell": false,
+        "rejected": 0,
+        "strikes": [
+          {
+            "side": "right",
+            "contacts": 1,
+            "peakImpulse": 0.5226943756643685,
+            "closing": 0.7480424925072212,
+            "firstHit": 224,
+            "returnError": 0.0003412726937782782,
+            "targetTravel": 0,
+            "targetSpeed": 0,
+            "firstTargetContact": -1
+          }
+        ],
+        "grips": [
+          {
+            "name": "right",
+            "attached": true,
+            "distance": 3.491955387836289e-8
+          },
+          {
+            "name": "left",
+            "attached": true,
+            "distance": 0.02929063113255896
+          }
+        ]
+      },
+      {
+        "model": "workshop-fighter",
+        "miss": true,
+        "complete": true,
+        "time": 13.533333333333333,
+        "shared": {
+          "captured": 101,
+          "releasedAt": -1,
+          "sharedHits": 0,
+          "peakGripGap": 0.00003018070000389127,
+          "releaseContinuous": null,
+          "pendingRelease": null,
+          "guardPosture": [
+            0.015985124136883726,
+            0.004596399954010387,
+            0.0013979015436750145,
+            -0.028915039949823258,
+            -0.0021274982866119944,
+            -0.013153646799754039,
+            0.05785113407975996,
+            0.01860061092974241,
+            0.013448454600830386,
+            1.131898158922075,
+            -0.41648982860055217,
+            0.3869825907372758,
+            0.4475757540805858,
+            -0.8999683944230055,
+            -0.012949969741545194,
+            -0.22507739039535324,
+            0.17689178707880124,
+            -0.002957406277024629,
+            0.020429714647266794,
+            0.38579893505577334,
+            0.18966094136377193,
+            0.011464710311130229,
+            0.9530151731519447,
+            -0.3912948041542221,
+            0.3749258572225969,
+            0.3685500541690684,
+            -0.764451626711508,
+            -0.04769158619612003,
+            -0.20226140389168196,
+            0.17250508153131378,
+            0.0033509015630911795,
+            0.021370993148191395,
+            0.37688472814808266,
+            0.1852237131650493,
+            0.011443696227168645
+          ]
+        },
+        "phase": "complete",
+        "fell": false,
+        "rejected": 0,
+        "strikes": [
+          {
+            "side": "right",
+            "contacts": 0,
+            "peakImpulse": 0,
+            "closing": 0,
+            "firstHit": -1,
+            "returnError": 0.00034079102420996016,
+            "targetTravel": 0,
+            "targetSpeed": 0,
+            "firstTargetContact": -1
+          }
+        ],
+        "grips": [
+          {
+            "name": "right",
+            "attached": true,
+            "distance": 6.675327417416127e-8
+          },
+          {
+            "name": "left",
+            "attached": true,
+            "distance": 0.029290664530456863
+          }
+        ]
+      },
+      {
+        "model": "workshop-rogue",
+        "miss": false,
+        "complete": true,
+        "time": 13.558333333333334,
+        "shared": {
+          "captured": 95,
+          "releasedAt": -1,
+          "sharedHits": 1,
+          "peakGripGap": 0.00005785256308839378,
+          "releaseContinuous": null,
+          "pendingRelease": null,
+          "guardPosture": [
+            0.04937766682164468,
+            -0.013705176840450887,
+            -0.0009294234630708225,
+            -0.08425887359543709,
+            0.02158108110897387,
+            0.042779079141194866,
+            0.06401888956222944,
+            0.008395544112085743,
+            -0.039644999675319835,
+            1.1910636451455034,
+            -0.39889985985827947,
+            0.21932678231902936,
+            0.4345175815005692,
+            -0.8471298294721583,
+            -0.2017843422293875,
+            -0.3770357793718138,
+            0.19137213217936938,
+            -0.00468060609709146,
+            0.02152919491948141,
+            0.39759019935273815,
+            0.17430672513439188,
+            0.011074496976152384,
+            0.9761221950624875,
+            -0.2660359326910799,
+            0.3114851195324306,
+            0.43309377331289045,
+            -0.7407466428936612,
+            -0.3630945172321338,
+            -0.3596092402455217,
+            0.18835741102395454,
+            0.005019170595103902,
+            0.026614030883498462,
+            0.38981882080615554,
+            0.17177952900765925,
+            0.007815816937309865
+          ]
+        },
+        "phase": "complete",
+        "fell": false,
+        "rejected": 0,
+        "strikes": [
+          {
+            "side": "right",
+            "contacts": 1,
+            "peakImpulse": 0.7377458373084664,
+            "closing": 0.8645471978219762,
+            "firstHit": 226,
+            "returnError": 0.0002847085455475852,
+            "targetTravel": 0,
+            "targetSpeed": 0,
+            "firstTargetContact": -1
+          }
+        ],
+        "grips": [
+          {
+            "name": "right",
+            "attached": true,
+            "distance": 4.213057273374138e-8
+          },
+          {
+            "name": "left",
+            "attached": true,
+            "distance": 0.029688120385802583
+          }
+        ]
+      },
+      {
+        "model": "workshop-rogue",
+        "miss": true,
+        "complete": true,
+        "time": 13.558333333333334,
+        "shared": {
+          "captured": 95,
+          "releasedAt": -1,
+          "sharedHits": 0,
+          "peakGripGap": 0.00005785256308839378,
+          "releaseContinuous": null,
+          "pendingRelease": null,
+          "guardPosture": [
+            0.04937766682164468,
+            -0.013705176840450887,
+            -0.0009294234630708225,
+            -0.08425887359543709,
+            0.02158108110897387,
+            0.042779079141194866,
+            0.06401888956222944,
+            0.008395544112085743,
+            -0.039644999675319835,
+            1.1910636451455034,
+            -0.39889985985827947,
+            0.21932678231902936,
+            0.4345175815005692,
+            -0.8471298294721583,
+            -0.2017843422293875,
+            -0.3770357793718138,
+            0.19137213217936938,
+            -0.00468060609709146,
+            0.02152919491948141,
+            0.39759019935273815,
+            0.17430672513439188,
+            0.011074496976152384,
+            0.9761221950624875,
+            -0.2660359326910799,
+            0.3114851195324306,
+            0.43309377331289045,
+            -0.7407466428936612,
+            -0.3630945172321338,
+            -0.3596092402455217,
+            0.18835741102395454,
+            0.005019170595103902,
+            0.026614030883498462,
+            0.38981882080615554,
+            0.17177952900765925,
+            0.007815816937309865
+          ]
+        },
+        "phase": "complete",
+        "fell": false,
+        "rejected": 0,
+        "strikes": [
+          {
+            "side": "right",
+            "contacts": 0,
+            "peakImpulse": 0,
+            "closing": 0,
+            "firstHit": -1,
+            "returnError": 0.0002876924769429973,
+            "targetTravel": 0,
+            "targetSpeed": 0,
+            "firstTargetContact": -1
+          }
+        ],
+        "grips": [
+          {
+            "name": "right",
+            "attached": true,
+            "distance": 2.1091854034388556e-8
+          },
+          {
+            "name": "left",
+            "attached": true,
+            "distance": 0.0296881357626976
+          }
+        ]
+      },
+      {
+        "model": "crypt-skeleton",
+        "miss": false,
+        "complete": true,
+        "time": 13.825,
+        "shared": {
+          "captured": 109,
+          "releasedAt": -1,
+          "sharedHits": 1,
+          "peakGripGap": 0.00012799446587126188,
+          "releaseContinuous": null,
+          "pendingRelease": null,
+          "guardPosture": [
+            -0.029517040386518922,
+            0.03853241955200779,
+            -0.010899067213176109,
+            0.07987696515467846,
+            -0.06801531549226904,
+            -0.05409068680848273,
+            -0.19655892962968385,
+            0.07504298238856037,
+            0.03276778281668231,
+            0.9718621440401897,
+            0.19125155081965045,
+            0.52443875459515,
+            -0.03393385639029867,
+            -0.5129878812911779,
+            -0.5559419446598916,
+            -0.25779972320459915,
+            0.2284561132696328,
+            0.054175385062056734,
+            -0.020709871456524167,
+            0.30452253317876676,
+            0.15715929628692057,
+            0.008012381808850343,
+            0.6638952524804288,
+            0.09053038456247427,
+            0.2723773749451909,
+            0.050685145071869435,
+            -0.166966966556533,
+            -0.6409399312561062,
+            -0.025493805880966353,
+            0.06576820246070335,
+            -0.047056786149382676,
+            0.02589516143460896,
+            -0.03490658503988659,
+            -0.015233428763831191,
+            -0.003365649622599761
+          ]
+        },
+        "phase": "complete",
+        "fell": false,
+        "rejected": 0,
+        "strikes": [
+          {
+            "side": "right",
+            "contacts": 1,
+            "peakImpulse": 0.5072752274572849,
+            "closing": 0.6152102766899131,
+            "firstHit": 262,
+            "returnError": 0.03200585295396584,
+            "targetTravel": 0,
+            "targetSpeed": 0,
+            "firstTargetContact": -1
+          }
+        ],
+        "grips": [
+          {
+            "name": "right",
+            "attached": true,
+            "distance": 0.00002511297464840513
+          },
+          {
+            "name": "left",
+            "attached": true,
+            "distance": 0.02950468238032329
+          }
+        ]
+      },
+      {
+        "model": "crypt-skeleton",
+        "miss": true,
+        "complete": true,
+        "time": 13.825,
+        "shared": {
+          "captured": 109,
+          "releasedAt": -1,
+          "sharedHits": 0,
+          "peakGripGap": 0.00012799446587126188,
+          "releaseContinuous": null,
+          "pendingRelease": null,
+          "guardPosture": [
+            -0.029517040386518922,
+            0.03853241955200779,
+            -0.010899067213176109,
+            0.07987696515467846,
+            -0.06801531549226904,
+            -0.05409068680848273,
+            -0.19655892962968385,
+            0.07504298238856037,
+            0.03276778281668231,
+            0.9718621440401897,
+            0.19125155081965045,
+            0.52443875459515,
+            -0.03393385639029867,
+            -0.5129878812911779,
+            -0.5559419446598916,
+            -0.25779972320459915,
+            0.2284561132696328,
+            0.054175385062056734,
+            -0.020709871456524167,
+            0.30452253317876676,
+            0.15715929628692057,
+            0.008012381808850343,
+            0.6638952524804288,
+            0.09053038456247427,
+            0.2723773749451909,
+            0.050685145071869435,
+            -0.166966966556533,
+            -0.6409399312561062,
+            -0.025493805880966353,
+            0.06576820246070335,
+            -0.047056786149382676,
+            0.02589516143460896,
+            -0.03490658503988659,
+            -0.015233428763831191,
+            -0.003365649622599761
+          ]
+        },
+        "phase": "complete",
+        "fell": false,
+        "rejected": 0,
+        "strikes": [
+          {
+            "side": "right",
+            "contacts": 0,
+            "peakImpulse": 0,
+            "closing": 0,
+            "firstHit": -1,
+            "returnError": 0.03188770193254128,
+            "targetTravel": 0,
+            "targetSpeed": 0,
+            "firstTargetContact": -1
+          }
+        ],
+        "grips": [
+          {
+            "name": "right",
+            "attached": true,
+            "distance": 0.000025044388525632927
+          },
+          {
+            "name": "left",
+            "attached": true,
+            "distance": 0.02950470078592463
+          }
+        ]
+      }
+    ]
+  },
+  "referenceParity": {
+    "rows": 138,
+    "comparedWith": "contact-gap-baseline-v4",
+    "excluded": [
+      "timing"
+    ],
+    "manifestSha256": "06010421afbb85f731ce5af4418942bb3c940686c05593869804e59314ea04e8",
+    "source": {
+      "git": "e8c46e79cbb9e85785427290ae00d1c5352462e5",
+      "content": "cd8a1186cfc93f6f1fd0283e84fce96d24f3e9ec92169a1574d96d22ddcd6d19",
+      "archive": "source.json.gz",
+      "archiveSha256": "725bcfd3e32c8d2f4b2411f3c952c724f9d13f5150884f9ac3b18d1e55563c26"
+    },
+    "package": {
+      "version": "0.21.0-auto-rpg.5",
+      "resolved": "file:vendor/rapier/dimforge-rapier3d-simd-compat-0.21.0-auto-rpg.5.tgz",
+      "integrity": "sha512-sB9vIiTUNHTuTgt4lK0ktBJCy0GkFFOk11yLvMNDwhuylmOD1ooYJx9JhbDTC8vm01zLbQqDzWwl2XXUoZcz1w==",
+      "entrySha256": "db4bb690d953983eae032de094f67bb49674def40757f0d7b55e5f77d831eb3a"
+    },
+    "boutDigests": [
+      "e71c657a6924a58c",
+      "dfbe30c2743645db",
+      "a4c192dbe518bc26"
+    ]
+  }
+}

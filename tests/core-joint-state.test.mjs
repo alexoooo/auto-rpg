@@ -10,7 +10,7 @@ import { servo } from "../src/core/control/servo.ts";
 import { humanSpec } from "../src/core/human/spec.ts";
 import { driveMuscles } from "../src/core/muscle/driver.ts";
 import { sourced } from "../src/core/spec/quantity.ts";
-import { coreStand } from "./harness/core-stand.mjs";
+import { coreStand, CORE_ENGINE } from "./harness/core-stand.mjs";
 
 const q = (value, unit = "m") => sourced(value, unit, "de-leva-1996", "a stand-in leaf for the joint-state tests");
 
@@ -142,7 +142,7 @@ function rods(dofs) {
  * axis), one freedom limited to +-`limit` rad and the others free to +-3.1, weightless, servoed
  * toward `goal` over 1.5 s and held a second more at 480 Hz: the angles it ends at.
  */
-async function pressed(limited, limit, goal) {
+async function pressed(limited, limit, goal, { engine = CORE_ENGINE, centre = 0, hz = 480 } = {}) {
   const shoulder = humanSpec("workshop-rogue").joints.find((j) => j.name === "shoulder.right"), c0 = shoulder.centre.value;
   const speed = { unloadedSpeed: q(60, "rad/s"), curvature: q(0.25, "1"), eccentricCeiling: q(1.4, "1"), eccentricSlopeRatio: q(2, "1") };
   const segment = (name, p, d, mass) => ({ name, proximal: q(p), distal: q(d), mass: q(mass, "kg"), centreOfMass: q(p.map((v, i) => (v + d[i]) / 2)),
@@ -150,9 +150,9 @@ async function pressed(limited, limit, goal) {
   const spec = { family: "test", model: "rods", mass: q(3, "kg"), stature: q(1.5),
     segments: [segment("post", [c0[0], c0[1] + 0.4, c0[2]], c0, 2), segment("arm", c0, [c0[0] + 0.05, c0[1] - 0.3, c0[2]], 1)],
     joints: [{ name: "shoulder", parent: "post", child: "arm", centre: q(c0),
-      dofs: shoulder.dofs.map((dof, k) => ({ ...dof, min: q(k === limited ? -limit : -3.1, "rad"), max: q(k === limited ? limit : 3.1, "rad"),
+      dofs: shoulder.dofs.map((dof, k) => ({ ...dof, min: q(k === limited ? centre - limit : -3.1, "rad"), max: q(k === limited ? centre + limit : 3.1, "rad"),
         muscle: { peakPositive: q(100, "N m"), peakNegative: q(100, "N m"), speedPositive: speed, speedNegative: speed } })) }] };
-  const stand = await coreStand(spec, { ground: false, pinned: "post", gravity: false, hz: 480 });
+  const stand = await coreStand(spec, { ground: false, pinned: "post", gravity: false, hz, engine });
   let time = 0;
   const driver = driveMuscles(stand.built, stand.world, (d, dt) => {
     time += dt;
@@ -176,7 +176,8 @@ async function pressed(limited, limit, goal) {
  * (`ratesToRef`), so the other freedoms' turning carries the limited angle past its stop while the
  * limit sees no motion.
  */
-test("a joint pressed against its limit stops where its reading says the range ends", { todo: "Rapier's limit pushes along the parent's axis, not the angle's gradient, so a freedom turned off its axes passes its limit" }, async () => {
+for (const engineName of ["rapier", "rapier-coordinate"]) test(`${engineName}: a joint pressed against its limit stops where its reading says the range ends`,
+  { todo: engineName === "rapier" ? "parent-axis limits remain the gameplay reference pending controller migration" : false }, async (t) => {
   const limit = 0.6;
   let stopped = 0, euler = 0, reached = 0;
   for (const limited of [0, 1, 2]) {
@@ -184,7 +185,7 @@ test("a joint pressed against its limit stops where its reading says the range e
     for (const other of [0, 1.4]) for (const sense of [1, -1]) {
       const goal = [0, 0, 0];
       goal[limited] = 1.2 * sense; goal[others[0]] = other; goal[others[1]] = -0.6 * other;
-      const got = await pressed(limited, limit, goal);
+      const got = await pressed(limited, limit, goal, { engine: engineName });
       stopped = Math.max(stopped, Math.abs(Math.abs(got[limited]) - limit));
       // The Euler angle of the same pose, the Rogue's third freedom running against its axis.
       const engine = got.map((v, k) => (k === 2 ? -v : v)), rotation = rotationOfToRef({ x: [1, 0, 0], y: [0, 1, 0], z: [0, 0, 1] }, ...engine, new Quaternion());
@@ -192,14 +193,29 @@ test("a joint pressed against its limit stops where its reading says the range e
       euler = Math.max(euler, Math.abs(Math.abs(eulerAngles[limited]) - limit));
       goal[limited] = 0.5 * sense;
       if (sense > 0 && other > 0) {
-        const within = await pressed(limited, limit, goal);
+        const within = await pressed(limited, limit, goal, { engine: engineName });
         reached = Math.max(reached, ...within.map((v, k) => Math.abs(v - goal[k])));
       }
     }
   }
+  t.diagnostic(JSON.stringify({ engine: engineName, stopped, euler, reached }));
   assert.ok(euler > 0.3, `the Euler angles would read these stops at the limit too: ${euler}`);
   assert.ok(stopped < 0.015, `a freedom stopped ${stopped} rad off its limit`);
   assert.ok(reached < 0.012, `a pose within the limit was missed by ${reached} rad`);
+});
+
+test("coordinate limits stop at asymmetric bounds at gameplay and fine rates", async (t) => {
+  const rows = [];
+  for (const engine of ["rapier", "rapier-coordinate"]) for (const hz of [120, 480]) for (const centre of [-0.4, 0.4]) for (const limited of [0, 1, 2]) for (const sense of [-1, 1]) {
+    const others = [0, 1, 2].filter((k) => k !== limited), goal = [0, 0, 0];
+    goal[limited] = centre + 1.2 * sense; goal[others[0]] = 1.4; goal[others[1]] = -0.84;
+    const got = await pressed(limited, 0.6, goal, { engine, centre, hz });
+    rows.push({ engine, hz, centre, limited, sense, got, error: Math.abs(got[limited] - (centre + 0.6 * sense)) });
+  }
+  t.diagnostic(JSON.stringify(rows));
+  const corrected = rows.filter((row) => row.engine === "rapier-coordinate");
+  assert.equal(rows.length, 48); assert.equal(corrected.length, 24);
+  assert.ok(corrected.every((row) => row.error < 0.015), JSON.stringify(rows));
 });
 
 /** The Euler angles (a, b, c) of `rotation` = Rx(a) Ry(b) Rz(c) about the world's axes. */

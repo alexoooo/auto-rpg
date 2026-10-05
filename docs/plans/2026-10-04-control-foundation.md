@@ -125,6 +125,12 @@ forward before completing chunk 1(c)'s default migration. This is a dependency c
 passed recovery gate. Later task
 fixtures extend this same runner rather than replacing its baseline.
 
+The [angular-limit correction](../reference/joint-limits.md) is available explicitly as
+`rapier-coordinate`, with mandatory mechanical and replay checks. Its unconditional screen
+breaks existing defense, standing-bar and recovery behavior, so gameplay retains parent-axis
+limits. Retune and measure the reference controller under corrected limits before default
+migration; tables measured on the parent-axis configuration do not satisfy that gate.
+
 Paths marked **new** are proposed modules/scripts, not existing capabilities. Each numbered chunk
 may take the listed smaller commits. Every commit passes the common checks below. Keep experimental
 choices in immutable configuration outside environment variables in the core. A failed technique

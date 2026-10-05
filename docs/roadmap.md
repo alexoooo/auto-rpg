@@ -54,6 +54,11 @@ Loaded support transitions, recovery, standing strike/block against an opponent,
 integration with fight rendering/damage and the held-out integrated sequence remain open. These controlled fixtures
 do not close the gameplay gates or replace the game's controller.
 
+The experimental [angular-limit correction](reference/joint-limits.md), `rapier-coordinate`,
+makes limit reactions follow their reported coordinates. Mechanical stop tests pass, but
+controller regressions prevent default migration. The task results above use the parent-axis
+reference and must be measured again under corrected limits.
+
 ## Open items
 
 ### The AI
@@ -350,8 +355,9 @@ do not close the gameplay gates or replace the game's controller.
   lets go of for a single step lands again; a touch read with `lasts: "contact"`
   (`src/core/touches.ts`) lands again only once the two have parted. Whether a blow should is a
   change of rule, which moves every bout, and comes with its table.
-- Rapier's limits, held as `todo` tests: a limit pushes along its parent's axis, so a pressed angle
-  can pass its stop by up to 0.046 rad; the vendored binding exposes directional motor bounds and
+- Rapier's default limits retain a `todo` test: a parent-axis row allows a pressed angle to pass
+  its stop. The optional `rapier-coordinate` configuration fixes the measured-angle gradient
+  ([record](reference/joint-limits.md)), but control migration remains open. The vendored binding exposes directional motor bounds and
   whole-step accumulated impulses. Directional muscle actuation is an explicit world configuration;
   gameplay retains the symmetric reference pending contact and recovery correction. Delivered
   torque and both bounds are readable and replayable. Default migration and control retuning

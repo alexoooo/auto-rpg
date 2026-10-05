@@ -8,6 +8,8 @@ import type { PhysicsEngine } from "./engine.ts";
  */
 const ENGINES = {
   rapier: () => import("./rapier.ts").then((m) => m.loadRapier()),
+  // Measured-angle limit rows; controller migration is recorded in docs/reference/joint-limits.md.
+  "rapier-coordinate": () => import("./rapier.ts").then((m) => m.loadRapier(true)),
 } as const satisfies Readonly<Record<string, () => Promise<PhysicsEngine>>>;
 
 type EngineName = keyof typeof ENGINES;

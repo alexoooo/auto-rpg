@@ -12,6 +12,11 @@ core's (`src/core/`). The screens (`src/arena/`, `src/dungeon/`, `src/lab/`) bui
 and the core never imports them: `tests/core-boundary.test.mjs` walks the core's imports and allows
 only the core itself, `@babylonjs/core`, the engine's package and JSON under `assets/`.
 
+`rapier-coordinate` selects experimental measured-angle gradients for angular-limit rows;
+`rapier` retains gameplay's parent-axis formulation. Both load the same WASM module and use
+the same interfaces. The choice is immutable per engine instance, identified in experiments,
+and checked when restoring physics snapshots ([limit record](reference/joint-limits.md)).
+
 ## The layers
 
 Each layer imports only the layers listed before it, except that skills and tactics share a

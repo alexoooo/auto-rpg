@@ -22,6 +22,10 @@ and terminate all workers. Row order on disk is completion order; stable task ID
 separate anatomical bounds for each torque direction. Both use the same installed engine.
 The law belongs to immutable world configuration, not to a policy's action. Protocol 2 includes
 it in every task ID, summary cell and guard pairing. Protocol 1 records below predate this field.
+`CORE_ENGINE=rapier-coordinate` selects the experimental measured-angle limit correction;
+the default `rapier` retains parent-axis limit rows. The manifest identifies the selected engine
+and revision. The [limit record](joint-limits.md) distinguishes mechanical correctness from
+the controller migration still required; the historical tables below keep their stated engine.
 Each run also writes `source.json.gz`: normalized source/JSON path-and-content pairs, including
 the package manifests, with its hash in the manifest. Source changes during a run invalidate it.
 The archive preserves dirty experimental code as well as its fingerprint.

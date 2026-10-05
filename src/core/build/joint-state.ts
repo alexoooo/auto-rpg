@@ -15,7 +15,7 @@ import { tan, atan2 } from "../math/real.ts";
  * ranges mean one thing to the solver, the body's readings and whoever sets a goal.
  *
  * A velocity motor drives the relative angular velocity's component along its axis as fixed in
- * the parent (the motor's row and the limit's are both the parent frame's axis), so that component
+ * the parent, so that component
  * is a joint's speed here: the speed a muscle's force-velocity relation reads, and the one its
  * torque does work against.
  *

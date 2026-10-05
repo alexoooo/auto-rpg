@@ -6,7 +6,7 @@ import { Color3, Color4 } from "@babylonjs/core/Maths/math.color.js";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder.js";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial.js";
-import { loadEngine } from "../core/engine/engines.ts";
+import { isEngineName, loadEngine } from "../core/engine/engines.ts";
 import { BODY_MODELS, type BodyModel } from "../core/human/spec.ts";
 import { createBarProbe } from "../core/tasks/bar.ts";
 import { createSupportProbe } from "../core/tasks/support.ts";
@@ -21,7 +21,10 @@ scene.clearColor = new Color4(0.07, 0.1, 0.13, 1);
 const camera = new ArcRotateCamera("camera", Math.PI / 3, Math.PI / 2.4, 3.6, new Vector3(0, 0.95, 0.15), scene);
 camera.attachControl(canvas, true); camera.lowerRadiusLimit = 1; camera.upperRadiusLimit = 8; camera.wheelPrecision = 60;
 new HemisphericLight("light", new Vector3(0.4, 1, 0.2), scene);
-const engine = await loadEngine();
+const query = new URLSearchParams(location.search), engineName = query.get("engine") ?? "rapier";
+if (!isEngineName(engineName)) throw new Error("Unknown physical configuration");
+const engine = await loadEngine(engineName);
+const physics = element<HTMLSelectElement>("engine"); physics.value = engineName;
 const task = element<HTMLSelectElement>("task"), model = element<HTMLSelectElement>("model"), side = element<HTMLSelectElement>("side");
 const support = element<HTMLSelectElement>("support"), seed = element<HTMLInputElement>("seed");
 const held = element<HTMLSelectElement>("held"), target = element<HTMLSelectElement>("target");
@@ -29,7 +32,6 @@ const release = element<HTMLSelectElement>("release");
 const motion = element<HTMLSelectElement>("motion");
 const defense = element<HTMLSelectElement>("defense");
 const balance = element<HTMLSelectElement>("balance"), continuation = element<HTMLSelectElement>("continuation");
-const query = new URLSearchParams(location.search);
 for (const select of [task, model, side, support, held, target, motion, balance, continuation, defense, release]) {
   const value = query.get(select.id);
   if (value && [...select.options].some((o) => o.value === value)) select.value = value;
@@ -163,7 +165,13 @@ for (const [id, action] of Object.entries(actions)) element<HTMLButtonElement>(i
   try { await action(); } catch (error) { playing = false; element("verification").textContent = String(error); }
   finally { busy = false; show(); }
 });
-for (const input of [task, model, side, support, seed, held, target, motion, balance, continuation, defense, release]) input.addEventListener("change", () => {
+const inputs = [task, model, side, support, seed, held, target, motion, balance, continuation, defense, release];
+physics.addEventListener("change", () => {
+  const next = new URLSearchParams(location.search);
+  for (const input of [...inputs, physics]) next.set(input.id, input.value);
+  location.search = next.toString();
+});
+for (const input of inputs) input.addEventListener("change", () => {
   if (task.value !== "point-strike" && held.value === "shared") held.value = "club";
   if (task.value !== "point-strike" && task.value !== "defense" && side.value === "both") side.value = "left";
   try { restart(); } catch (error) { element("verification").textContent = String(error); }

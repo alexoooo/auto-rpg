@@ -12,6 +12,26 @@ index ce0eec04..c397c2cf 100644
 +        "wasm-opt@1.4.0": true
      }
  }
+diff --git a/bindings/typescript/src.ts/dynamics/integration_parameters.ts b/bindings/typescript/src.ts/dynamics/integration_parameters.ts
+index 9ebb61c4..bca609c2 100644
+--- a/bindings/typescript/src.ts/dynamics/integration_parameters.ts
++++ b/bindings/typescript/src.ts/dynamics/integration_parameters.ts
+@@ -4,6 +4,15 @@ import {SoftRecoverySettings} from "./soft_body";
+ export class IntegrationParameters {
+     raw: RawIntegrationParameters;
+ 
++    /** Use measured-angle gradients for angular limits; false retains parent-axis rows. */
++    get coordinateAngularLimits(): boolean {
++        return this.raw.coordinateAngularLimits;
++    }
++
++    set coordinateAngularLimits(value: boolean) {
++        this.raw.coordinateAngularLimits = value;
++    }
++
+     constructor(raw?: RawIntegrationParameters) {
+         this.raw = raw || new RawIntegrationParameters();
+     }
 diff --git a/bindings/typescript/src.ts/geometry/narrow_phase.ts b/bindings/typescript/src.ts/geometry/narrow_phase.ts
 index 6163053b..9924376d 100644
 --- a/bindings/typescript/src.ts/geometry/narrow_phase.ts
@@ -88,6 +108,27 @@ index d74c6aeb..0e60dced 100644
 +        self.map(handle, |j| j.impulses[axis as usize])
 +    }
  }
+diff --git a/bindings/typescript/src/dynamics/integration_parameters.rs b/bindings/typescript/src/dynamics/integration_parameters.rs
+index 9c603068..21c8a9f4 100644
+--- a/bindings/typescript/src/dynamics/integration_parameters.rs
++++ b/bindings/typescript/src/dynamics/integration_parameters.rs
+@@ -7,6 +7,16 @@ pub struct RawIntegrationParameters(pub(crate) IntegrationParameters);
+ 
+ #[wasm_bindgen]
+ impl RawIntegrationParameters {
++    #[wasm_bindgen(getter)]
++    pub fn coordinateAngularLimits(&self) -> bool {
++        self.0.coordinate_angular_limits
++    }
++
++    #[wasm_bindgen(setter)]
++    pub fn set_coordinateAngularLimits(&mut self, value: bool) {
++        self.0.coordinate_angular_limits = value;
++    }
++
+     #[wasm_bindgen(constructor)]
+     pub fn new() -> Self {
+         RawIntegrationParameters(IntegrationParameters::default())
 diff --git a/bindings/typescript/src/dynamics/multibody_joint.rs b/bindings/typescript/src/dynamics/multibody_joint.rs
 index 9a95f0d5..4a7e1264 100644
 --- a/bindings/typescript/src/dynamics/multibody_joint.rs
@@ -248,6 +289,28 @@ index 3f576afd..6a112080 100644
          return false;
      }
      let context = PairFilterContext {
+diff --git a/src/dynamics/integration_parameters.rs b/src/dynamics/integration_parameters.rs
+index 8aa20eb0..68f90da2 100644
+--- a/src/dynamics/integration_parameters.rs
++++ b/src/dynamics/integration_parameters.rs
+@@ -193,6 +193,9 @@ impl<N: SimdRealField<Element = Real> + Copy> SpringCoefficients<N> {
+ #[derive(Copy, Clone, Debug, PartialEq)]
+ #[cfg_attr(feature = "serde-serialize", derive(Serialize, Deserialize))]
+ pub struct IntegrationParameters {
++    /// Use the spatial gradient of the measured angular coordinate for joint limit rows.
++    /// False retains the parent-axis formulation for existing controller comparisons.
++    pub coordinate_angular_limits: bool,
+     /// The timestep length - how much simulated time passes per physics step (default: `1.0 / 60.0`).
+     ///
+     /// Set this to `1.0 / your_target_fps`. For example:
+@@ -406,6 +409,7 @@ impl IntegrationParameters {
+ impl Default for IntegrationParameters {
+     fn default() -> Self {
+         Self {
++            coordinate_angular_limits: false,
+             dt: 1.0 / 60.0,
+             min_ccd_dt: 1.0 / 60.0 / 100.0,
+             contact_softness: SpringCoefficients::contact_defaults(),
 diff --git a/src/dynamics/joint/generic_joint.rs b/src/dynamics/joint/generic_joint.rs
 index b1c6d265..8b9e7fb9 100644
 --- a/src/dynamics/joint/generic_joint.rs
@@ -417,7 +480,7 @@ index 7ffb5285..fb94e73c 100644
 +    }
  }
 diff --git a/src/dynamics/solver/joint_constraint/generic_joint_constraint_builder.rs b/src/dynamics/solver/joint_constraint/generic_joint_constraint_builder.rs
-index 3eddbe61..82cbd439 100644
+index 3eddbe61..e4c5f1e7 100644
 --- a/src/dynamics/solver/joint_constraint/generic_joint_constraint_builder.rs
 +++ b/src/dynamics/solver/joint_constraint/generic_joint_constraint_builder.rs
 @@ -619,7 +619,7 @@ impl JointConstraintHelper<Real> {
@@ -429,7 +492,35 @@ index 3eddbe61..82cbd439 100644
          constraint.rhs = rhs_wo_bias;
          constraint.rhs_wo_bias = rhs_wo_bias;
          constraint.cfm_coeff = motor_params.cfm_coeff;
-@@ -777,7 +777,7 @@ impl JointConstraintHelper<Real> {
+@@ -684,14 +684,20 @@ impl JointConstraintHelper<Real> {
+         softness: SpringCoefficients<Real>,
+         writeback_id: WritebackId,
+     ) -> GenericJointConstraint {
+-        // See `AngularLimitParams`: the row measures the wrapped angle from the middle of
+-        // the allowed range; the measure's gradient is the plain joint axis (like the
+-        // angular motor row).
++        // The wrapped coordinate and its spatial gradient use the same relative rotation.
+         let limit = AngularLimitParams::new(limits[0], limits[1]);
+-        #[cfg(feature = "dim2")]
+-        let ang_jac: AngVector = 1.0;
+-        #[cfg(feature = "dim3")]
+-        let ang_jac = self.basis.col(_limited_axis);
++        let ang_jac = if params.coordinate_angular_limits {
++            self.angular_limit_jacobian(_limited_axis)
++        } else {
++            #[cfg(feature = "dim2")]
++            {
++                1.0
++            }
++            #[cfg(feature = "dim3")]
++            {
++                self.basis.col(_limited_axis)
++            }
++        };
+ 
+         let mut constraint = self.lock_jacobians_generic(
+             jacobians,
+@@ -777,7 +783,7 @@ impl JointConstraintHelper<Real> {
          constraint.rhs = rhs_wo_bias;
          constraint.cfm_coeff = motor_params.cfm_coeff;
          constraint.cfm_gain = motor_params.cfm_gain;
@@ -500,7 +591,7 @@ index 924f52c8..94697ea2 100644
          });
          #[cfg(feature = "dim3")]
 diff --git a/src/dynamics/solver/joint_constraint/joint_constraint_helper.rs b/src/dynamics/solver/joint_constraint/joint_constraint_helper.rs
-index d1e4123c..6d6ee2de 100644
+index d1e4123c..9e4192a8 100644
 --- a/src/dynamics/solver/joint_constraint/joint_constraint_helper.rs
 +++ b/src/dynamics/solver/joint_constraint/joint_constraint_helper.rs
 @@ -324,7 +324,7 @@ impl<N: ScalarType> JointConstraintHelper<N> {
@@ -521,7 +612,77 @@ index d1e4123c..6d6ee2de 100644
              lin_jac,
              ang_jac1,
              ang_jac2,
-@@ -610,7 +610,7 @@ impl<N: ScalarType> JointConstraintHelper<N> {
+@@ -461,10 +461,9 @@ impl<N: ScalarType> JointConstraintHelper<N> {
+     /// and wrapped to (-π, π] — the quantity an angular limit row compares against
+     /// [`AngularLimitParams::half_range`].
+     ///
+-    /// Measuring the angle itself (rather than a sine of it) keeps the row's gradient with
+-    /// respect to the joint angle equal to one everywhere on the circle, so the plain joint
+-    /// axis is an exact jacobian for the row: a sine-space measure has a vanishing gradient
+-    /// at the antipode of the range's center, where a limit row would degenerate.
++    /// The angle's slope with respect to its own coordinate is one away from the wrap.
++    /// Its gradient with respect to spatial angular velocity also includes the other
++    /// quaternion components; `angular_limit_jacobian` supplies that gradient.
+     pub fn recentered_angle(&self, _limited_axis: usize, limit: &AngularLimitParams<N>) -> N {
+         let [c_cos, c_sin] = limit.center;
+ 
+@@ -498,6 +497,31 @@ impl<N: ScalarType> JointConstraintHelper<N> {
+         }
+     }
+ 
++    /// World gradient of 2 atan2(q_axis, q_w) with respect to relative angular velocity.
++    /// Re-centering changes the angle but not this gradient away from its wrap.
++    pub fn angular_limit_jacobian(&self, axis: usize) -> N::AngVector {
++        #[cfg(feature = "dim2")]
++        {
++            let _ = axis;
++            N::AngVector::one()
++        }
++        #[cfg(feature = "dim3")]
++        {
++            let q = self.ang_err.imag();
++            let w = self.ang_err.real();
++            let j = (axis + 1) % 3;
++            let k = (axis + 2) % 3;
++            let denominator = w * w + q[axis] * q[axis];
++            // At q_axis = q_w = 0 this coordinate is undefined. A finite plain-axis
++            // fallback retains a usable row without dividing by zero in any SIMD lane.
++            let inverse = N::one() / denominator.select(denominator.simd_gt(N::zero()), N::one());
++            (self.basis.column(axis)
++                + self.basis.column(j) * ((q[axis] * q[j] + w * q[k]) * inverse)
++                + self.basis.column(k) * ((q[axis] * q[k] - w * q[j]) * inverse))
++                .into()
++        }
++    }
++
+     /// The limit is measured as the wrapped joint angle relative to the middle of the
+     /// allowed range (see [`AngularLimitParams`]).
+     pub fn limit_angular<const LANES: usize>(
+@@ -523,11 +547,18 @@ impl<N: ScalarType> JointConstraintHelper<N> {
+             N::splat(Real::INFINITY).select(max_enabled, zero),
+         ];
+ 
+-        // The angle measure's gradient is the plain joint axis (like the angular motor row).
+-        #[cfg(feature = "dim2")]
+-        let ang_jac = N::AngVector::one();
+-        #[cfg(feature = "dim3")]
+-        let ang_jac = self.basis.column(_limited_axis).into();
++        let ang_jac = if _params.coordinate_angular_limits {
++            self.angular_limit_jacobian(_limited_axis)
++        } else {
++            #[cfg(feature = "dim2")]
++            {
++                N::AngVector::one()
++            }
++            #[cfg(feature = "dim3")]
++            {
++                self.basis.column(_limited_axis).into()
++            }
++        };
+         let rhs_wo_bias = N::zero();
+         // Like the contact solver, cap the bias so a deep limit violation recovers over a
+         // few steps instead of catapulting the bodies (the erp gain is ~1/dt and the wrapped
+@@ -610,7 +641,7 @@ impl<N: ScalarType> JointConstraintHelper<N> {
              im1: body1.im,
              im2: body2.im,
              impulse: N::zero(),
@@ -530,6 +691,92 @@ index d1e4123c..6d6ee2de 100644
              lin_jac: Default::default(),
              ang_jac1: ang_jac,
              ang_jac2: ang_jac,
+@@ -794,12 +825,79 @@ mod test {
+     use super::*;
+     use crate::math::{Pose, Real, Rotation, Vector};
+ 
+-    /// The limit row measures the wrapped re-centered joint angle with the plain joint
+-    /// axis as its jacobian; for that pair to be consistent, the measure's slope with
+-    /// respect to the joint angle must be exactly one everywhere on the circle (away from
+-    /// the wrap discontinuity at the antipode of the range's center). A sine-space
+-    /// measure fails this: its gradient vanishes at the antipode, degenerating the row
+-    /// (issue #499 follow-up).
++    #[test]
++    fn angular_limit_gradient_matches_spatial_rotation() {
++        let axes = [Vector::X, Vector::Y, Vector::Z];
++        let parents = [
++            Rotation::IDENTITY,
++            Rotation::from_axis_angle(Vector::new(1.0, 2.0, 3.0).normalize(), 0.7),
++        ];
++        let relative = [
++            Rotation::IDENTITY,
++            Rotation::from_axis_angle(Vector::X, 0.8)
++                * Rotation::from_axis_angle(Vector::Y, -1.1)
++                * Rotation::from_axis_angle(Vector::Z, 0.5),
++            Rotation::from_axis_angle(Vector::X, -2.7)
++                * Rotation::from_axis_angle(Vector::Y, 0.4)
++                * Rotation::from_axis_angle(Vector::Z, -0.7),
++        ];
++        let eps = 1.0e-3;
++        let mut coupled: Real = 0.0;
++        for parent in parents {
++            for relative in relative {
++                let child = parent * relative;
++                let helper = |rotation| {
++                    JointConstraintHelper::<Real>::new(
++                        &Pose::from_rotation(parent),
++                        &Pose::from_rotation(rotation),
++                        &Vector::ZERO,
++                        &Vector::ZERO,
++                        0,
++                    )
++                };
++                for limited in 0..3 {
++                    let gradient = helper(child).angular_limit_jacobian(limited);
++                    coupled = coupled.max((gradient - parent * axes[limited]).length());
++                    for center in [0.0, 0.7] {
++                        let limit = AngularLimitParams::<Real>::new(center - 0.6, center + 0.6);
++                        for axis in axes {
++                            let a = helper(Rotation::from_axis_angle(axis, -eps) * child)
++                                .recentered_angle(limited, &limit);
++                            let b = helper(Rotation::from_axis_angle(axis, eps) * child)
++                                .recentered_angle(limited, &limit);
++                            let measured = (b - a) / (2.0 * eps);
++                            assert!(
++                                (gradient.dot(axis) - measured).abs() < 0.003,
++                                "axis {limited}, gradient {gradient:?}, measured {measured}"
++                            );
++                        }
++                    }
++                }
++            }
++        }
++        assert!(coupled > 0.5);
++    }
++
++    #[test]
++    fn undefined_angular_coordinate_has_a_finite_limit_row() {
++        let helper = JointConstraintHelper::<Real>::new(
++            &Pose::IDENTITY,
++            &Pose::from_rotation(Rotation::from_xyzw(0.0, 1.0, 0.0, 0.0)),
++            &Vector::ZERO,
++            &Vector::ZERO,
++            0,
++        );
++        for axis in 0..3 {
++            assert!(
++                helper
++                    .angular_limit_jacobian(axis)
++                    .length_squared()
++                    .is_finite()
++            );
++        }
++    }
++
++    /// A single-axis rotation's coordinate slope is one away from the wrap discontinuity.
+     #[test]
+     fn recentered_angle_slope_is_one_everywhere() {
+         let helper_at = |theta: Real| {
 diff --git a/src/dynamics/solver/joint_constraint/joint_velocity_constraint.rs b/src/dynamics/solver/joint_constraint/joint_velocity_constraint.rs
 index 1c47839b..8f1bbfd9 100644
 --- a/src/dynamics/solver/joint_constraint/joint_velocity_constraint.rs
