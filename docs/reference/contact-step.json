@@ -1,0 +1,3280 @@
+{
+  "sampleSpacingSeconds": 0.25,
+  "rows": [
+    {
+      "harness": "Node core stand",
+      "engine": "rapier-coordinate-coulomb",
+      "revision": "rapier/adapter-7/sha256:07af259dc277cac77daa9c95eaded0ed2bc8aeb5feac08bfd9e58d23e58feebd/coordinate-limits/point-friction",
+      "hz": 120,
+      "sense": -1,
+      "spin": 0,
+      "settings": {
+        "dt": 0.008333333333333333,
+        "friction": 0.5,
+        "iterations": 2048,
+        "impulseTolerance": 1e-10,
+        "velocityTolerance": 1e-7
+      },
+      "replay": true,
+      "phases": {
+        "drive": {
+          "steps": 120,
+          "rejected": 0,
+          "work": 14,
+          "linearError": 0.0003116021503721302,
+          "angularError": 0.00006030122419734933,
+          "normalViolation": 8.475507665486881e-11,
+          "impulseResidual": 1.0888512314011223e-12,
+          "acceptedNormalViolation": 8.475507665486881e-11,
+          "acceptedImpulseResidual": 1.0888512314011223e-12,
+          "modes": {
+            "free": 0,
+            "sticking": 0,
+            "sliding": 480
+          },
+          "final": {
+            "height": 0.04990966318833336,
+            "velocity": [
+              -2.519299030303955,
+              -5.968613550066948e-7,
+              -0.00005826322012580931
+            ],
+            "spin": [
+              0.000002330769120817422,
+              0.00001733212047838606,
+              0.000003534969891916262
+            ]
+          }
+        },
+        "coast": {
+          "steps": 120,
+          "rejected": 0,
+          "work": 14,
+          "linearError": 0.00031155002168778656,
+          "angularError": 0.00007189214502234203,
+          "normalViolation": 8.474951426404309e-11,
+          "impulseResidual": 3.2734036473184718e-12,
+          "acceptedNormalViolation": 8.474951426404309e-11,
+          "acceptedImpulseResidual": 3.2734036473184718e-12,
+          "modes": {
+            "free": 0,
+            "sticking": 212,
+            "sliding": 268
+          },
+          "final": {
+            "height": 0.04990947691219013,
+            "velocity": [
+              -2.820161171257496e-8,
+              -9.976793080568314e-8,
+              1.733133103698492e-8
+            ],
+            "spin": [
+              3.472311504992831e-7,
+              -7.98604654628221e-11,
+              5.644099587698292e-7
+            ]
+          }
+        },
+        "hold": {
+          "steps": 120,
+          "rejected": 0,
+          "work": 12,
+          "linearError": 0.000009809826502464129,
+          "angularError": 0.00004220217514363839,
+          "normalViolation": 4.121908933965579e-11,
+          "impulseResidual": 2.356352959975716e-12,
+          "acceptedNormalViolation": 4.121908933965579e-11,
+          "acceptedImpulseResidual": 2.356352959975716e-12,
+          "modes": {
+            "free": 0,
+            "sticking": 480,
+            "sliding": 0
+          },
+          "final": {
+            "height": 0.04990948436259626,
+            "velocity": [
+              -3.153400029987097e-8,
+              -1.023290678858757e-7,
+              2.132583176717162e-8
+            ],
+            "spin": [
+              4.17133833252592e-7,
+              1.6427601501334266e-9,
+              6.244376891118009e-7
+            ]
+          }
+        },
+        "lift": {
+          "steps": 30,
+          "rejected": 0,
+          "work": 1,
+          "linearError": 1.7618815104786245e-7,
+          "angularError": 6.272671299729604e-10,
+          "normalViolation": 0,
+          "impulseResidual": 0,
+          "acceptedNormalViolation": 0,
+          "acceptedImpulseResidual": 0,
+          "modes": {
+            "free": 24,
+            "sticking": 0,
+            "sliding": 0
+          },
+          "final": {
+            "height": 0.2125395059347093,
+            "velocity": [
+              -3.1548552215099335e-8,
+              1.2983334064483643,
+              2.1333107724785805e-8
+            ],
+            "spin": [
+              4.17331079916039e-7,
+              1.6300131244761928e-9,
+              6.251531772250019e-7
+            ]
+          }
+        },
+        "fall": {
+          "steps": 90,
+          "rejected": 0,
+          "work": 14,
+          "linearError": 0.006910887550088951,
+          "angularError": 0.041421189862518894,
+          "normalViolation": 4.5552697706283526e-11,
+          "impulseResidual": 3.2731199713786946e-12,
+          "acceptedNormalViolation": 4.5552697706283526e-11,
+          "acceptedImpulseResidual": 3.2731199713786946e-12,
+          "modes": {
+            "free": 0,
+            "sticking": 188,
+            "sliding": 0
+          },
+          "final": {
+            "height": 0.04990137813474051,
+            "velocity": [
+              0.000007256778189912438,
+              0.000026513589546084404,
+              -0.00000443936005467549
+            ],
+            "spin": [
+              -0.00009129788668360561,
+              4.993793711882688e-10,
+              -0.0001492357114329934
+            ]
+          }
+        }
+      },
+      "failures": [],
+      "samples": [
+        {
+          "time": 0,
+          "phase": "drive",
+          "height": 0.049909663200378394,
+          "velocity": [
+            -0.020987411960959435,
+            0.000014192541129887104,
+            -0.000025859801098704338
+          ],
+          "spin": [
+            0.000019485873053781688,
+            0.00000661316107652965,
+            -0.00006030110671417788
+          ],
+          "status": "converged",
+          "modes": [
+            "sliding",
+            "sliding",
+            "sliding",
+            "sliding"
+          ],
+          "linearError": 0.0001655651257801751,
+          "angularError": 0.00006030122419734933
+        },
+        {
+          "time": 0.25,
+          "phase": "drive",
+          "height": 0.049909663199133134,
+          "velocity": [
+            -0.6508188843727112,
+            -3.1420495361089706e-7,
+            -0.00010917236795648932
+          ],
+          "spin": [
+            0.000001859238068391278,
+            0.000028440903406590223,
+            0.0000022872118279337883
+          ],
+          "status": "converged",
+          "modes": [
+            "sliding",
+            "sliding",
+            "sliding",
+            "sliding"
+          ],
+          "linearError": 0.0003062239731138653,
+          "angularError": 0.00005952209833911369
+        },
+        {
+          "time": 0.5,
+          "phase": "drive",
+          "height": 0.049909663196146654,
+          "velocity": [
+            -1.2806482315063477,
+            -6.010523065924644e-7,
+            -0.00007268828630913049
+          ],
+          "spin": [
+            0.000002309154297108762,
+            0.00002042891355813481,
+            0.0000035367656892049126
+          ],
+          "status": "converged",
+          "modes": [
+            "sliding",
+            "sliding",
+            "sliding",
+            "sliding"
+          ],
+          "linearError": 0.00031001078642148896,
+          "angularError": 0.00005977844740350389
+        },
+        {
+          "time": 0.75,
+          "phase": "drive",
+          "height": 0.049909663192515774,
+          "velocity": [
+            -1.9104276895523071,
+            -6.055925041437149e-7,
+            -0.00006123314960859716
+          ],
+          "spin": [
+            0.000002295474814673071,
+            0.000017798749468056485,
+            0.00000355267980012286
+          ],
+          "status": "converged",
+          "modes": [
+            "sliding",
+            "sliding",
+            "sliding",
+            "sliding"
+          ],
+          "linearError": 0.00031107011664961807,
+          "angularError": 0.000059811795270663756
+        },
+        {
+          "time": 1,
+          "phase": "coast",
+          "height": 0.049909663188174296,
+          "velocity": [
+            -2.4819607734680176,
+            -6.017507985234261e-7,
+            -0.00005827318818774074
+          ],
+          "spin": [
+            0.0000023621048512723064,
+            0.000017334425137960352,
+            0.0000035859429772244766
+          ],
+          "status": "converged",
+          "modes": [
+            "sliding",
+            "sliding",
+            "sliding",
+            "sliding"
+          ],
+          "linearError": 0.00031155002168778656,
+          "angularError": 0.00005982635598132069
+        },
+        {
+          "time": 1.25,
+          "phase": "coast",
+          "height": 0.04990966318289726,
+          "velocity": [
+            -1.3617806434631348,
+            -6.057089194655418e-7,
+            -0.00005672611587215215
+          ],
+          "spin": [
+            0.000002295649437655811,
+            0.000017179359929286875,
+            0.000003552971293174778
+          ],
+          "status": "converged",
+          "modes": [
+            "sliding",
+            "sliding",
+            "sliding",
+            "sliding"
+          ],
+          "linearError": 0.0003101894956298437,
+          "angularError": 0.00005978193265413766
+        },
+        {
+          "time": 1.5,
+          "phase": "coast",
+          "height": 0.049909663177349156,
+          "velocity": [
+            -0.24160729348659515,
+            -5.948822945356369e-7,
+            -0.00004095151962246746
+          ],
+          "spin": [
+            0.0000022754850306228036,
+            0.000012139853424741887,
+            0.0000035185021260986105
+          ],
+          "status": "converged",
+          "modes": [
+            "sliding",
+            "sliding",
+            "sliding",
+            "sliding"
+          ],
+          "linearError": 0.00029633675028320944,
+          "angularError": 0.000059134342651178244
+        },
+        {
+          "time": 1.75,
+          "phase": "coast",
+          "height": 0.04990947691219013,
+          "velocity": [
+            -1.8352875486016273e-7,
+            -8.171191439032555e-7,
+            7.143535185605288e-8
+          ],
+          "spin": [
+            0.0000014342249414767139,
+            -6.84963530339644e-10,
+            0.0000036768396967090666
+          ],
+          "status": "converged",
+          "modes": [
+            "sticking",
+            "sticking",
+            "sticking",
+            "sticking"
+          ],
+          "linearError": 8.171428623489814e-7,
+          "angularError": 0.0000036768681753176803
+        },
+        {
+          "time": 2,
+          "phase": "hold",
+          "height": 0.04990948436259586,
+          "velocity": [
+            0.000002107859472744167,
+            0.000009809853509068489,
+            -7.12101609678939e-7
+          ],
+          "spin": [
+            -0.000014261651813285425,
+            8.400895534776964e-10,
+            -0.00004220222035655752
+          ],
+          "status": "converged",
+          "modes": [
+            "sticking",
+            "sticking",
+            "sticking",
+            "sticking"
+          ],
+          "linearError": 0.000009809826502464129,
+          "angularError": 0.00004220217514363839
+        },
+        {
+          "time": 2.25,
+          "phase": "hold",
+          "height": 0.049909484362595846,
+          "velocity": [
+            6.024492904543877e-9,
+            6.647314876317978e-8,
+            7.53789208829403e-9
+          ],
+          "spin": [
+            1.507504805431381e-7,
+            -3.6389211088838636e-11,
+            -1.205849855523411e-7
+          ],
+          "status": "converged",
+          "modes": [
+            "sticking",
+            "sticking",
+            "sticking",
+            "sticking"
+          ],
+          "linearError": 6.644614322463364e-8,
+          "angularError": 1.5075371668195385e-7
+        },
+        {
+          "time": 2.5,
+          "phase": "hold",
+          "height": 0.04990948436259589,
+          "velocity": [
+            -3.13448254019022e-8,
+            -1.0221265256404877e-7,
+            2.108936314471066e-8
+          ],
+          "spin": [
+            4.1518151761010813e-7,
+            1.1784988540597396e-9,
+            6.22572144948208e-7
+          ],
+          "status": "converged",
+          "modes": [
+            "sticking",
+            "sticking",
+            "sticking",
+            "sticking"
+          ],
+          "linearError": 1.0223965809149267e-7,
+          "angularError": 6.226173667636297e-7
+        },
+        {
+          "time": 2.75,
+          "phase": "hold",
+          "height": 0.049909484362596054,
+          "velocity": [
+            -3.13884811475873e-8,
+            -1.0209623724222183e-7,
+            2.1140294848009944e-8
+          ],
+          "spin": [
+            4.161160234161798e-7,
+            1.2404195448567634e-9,
+            6.239068852664786e-7
+          ],
+          "status": "converged",
+          "modes": [
+            "sticking",
+            "sticking",
+            "sticking",
+            "sticking"
+          ],
+          "linearError": 1.02123242765965e-7,
+          "angularError": 6.239521071869213e-7
+        },
+        {
+          "time": 3,
+          "phase": "lift",
+          "height": 0.05010108349322675,
+          "velocity": [
+            -3.1548552215099335e-8,
+            0.043277814984321594,
+            2.1333107724785805e-8
+          ],
+          "spin": [
+            4.1729222743924765e-7,
+            1.6298207228260253e-9,
+            6.250649562389299e-7
+          ],
+          "status": "converged",
+          "modes": [
+            "free",
+            "free",
+            "free",
+            "free"
+          ],
+          "linearError": 6.467228072515319e-10,
+          "angularError": 6.272671299729604e-10
+        },
+        {
+          "time": 3.25,
+          "phase": "fall",
+          "height": 0.22299717066287397,
+          "velocity": [
+            -3.1548552215099335e-8,
+            1.2166111469268799,
+            2.1333107724785805e-8
+          ],
+          "spin": [
+            4.1733130728971446e-7,
+            1.630019896836643e-9,
+            6.251555078051751e-7
+          ],
+          "status": "converged",
+          "modes": [],
+          "linearError": 1.7618815104092356e-7,
+          "angularError": 2.3305829955611167e-12
+        },
+        {
+          "time": 3.5,
+          "phase": "fall",
+          "height": 0.22005323765277265,
+          "velocity": [
+            -3.1548552215099335e-8,
+            -1.2350554466247559,
+            2.1333107724785805e-8
+          ],
+          "spin": [
+            4.173456318312674e-7,
+            1.6302206251594953e-9,
+            6.252186608435295e-7
+          ],
+          "status": "converged",
+          "modes": [],
+          "linearError": 1.7618815104092356e-7,
+          "angularError": 3.29692111651946e-12
+        },
+        {
+          "time": 3.75,
+          "phase": "fall",
+          "height": 0.04959910807991341,
+          "velocity": [
+            0.00025612988974899054,
+            0.0009045506594702601,
+            -0.00016428381786681712
+          ],
+          "spin": [
+            -0.0033785568084567785,
+            1.788267312008429e-8,
+            -0.0052673062309622765
+          ],
+          "status": "converged",
+          "modes": [
+            "sticking",
+            "sticking",
+            "sticking",
+            "sticking"
+          ],
+          "linearError": 0.0009045506358887716,
+          "angularError": 0.0052673062031996
+        }
+      ],
+      "observationSha256": "c52ad863bfed5914dc430f4ce0dd5329d81cd583d5a71b41907ab9c8f033b056"
+    },
+    {
+      "harness": "Node core stand",
+      "engine": "rapier-coordinate-coulomb",
+      "revision": "rapier/adapter-7/sha256:07af259dc277cac77daa9c95eaded0ed2bc8aeb5feac08bfd9e58d23e58feebd/coordinate-limits/point-friction",
+      "hz": 120,
+      "sense": 1,
+      "spin": 0,
+      "settings": {
+        "dt": 0.008333333333333333,
+        "friction": 0.5,
+        "iterations": 2048,
+        "impulseTolerance": 1e-10,
+        "velocityTolerance": 1e-7
+      },
+      "replay": true,
+      "phases": {
+        "drive": {
+          "steps": 120,
+          "rejected": 0,
+          "work": 13,
+          "linearError": 0.00028930056964284655,
+          "angularError": 0.00006712860432761063,
+          "normalViolation": 7.710219268597385e-11,
+          "impulseResidual": 6.6420272060163654e-12,
+          "acceptedNormalViolation": 7.710219268597385e-11,
+          "acceptedImpulseResidual": 6.6420272060163654e-12,
+          "modes": {
+            "free": 0,
+            "sticking": 0,
+            "sliding": 480
+          },
+          "final": {
+            "height": 0.04990947692016295,
+            "velocity": [
+              2.519331932067871,
+              -8.009374141693115e-8,
+              -0.00008233763219323009
+            ],
+            "spin": [
+              -2.8390056172611366e-7,
+              -0.000023309659809456207,
+              4.567411622247164e-7
+            ]
+          }
+        },
+        "coast": {
+          "steps": 120,
+          "rejected": 0,
+          "work": 14,
+          "linearError": 0.00028828965641483997,
+          "angularError": 0.00006803246213107896,
+          "normalViolation": 1.0517178057264931e-10,
+          "impulseResidual": 4.933497620845939e-12,
+          "acceptedNormalViolation": 1.0517178057264931e-10,
+          "acceptedImpulseResidual": 4.933497620845939e-12,
+          "modes": {
+            "free": 0,
+            "sticking": 212,
+            "sliding": 268
+          },
+          "final": {
+            "height": 0.04990949180029241,
+            "velocity": [
+              -3.9173755794763565e-8,
+              -1.2293457984924316e-7,
+              -2.773595042526722e-8
+            ],
+            "spin": [
+              -5.563941272157535e-7,
+              1.886602818412797e-10,
+              7.849711778362689e-7
+            ]
+          }
+        },
+        "hold": {
+          "steps": 120,
+          "rejected": 0,
+          "work": 12,
+          "linearError": 0.000010019298954884921,
+          "angularError": 0.0000434412636189351,
+          "normalViolation": 3.75770658079394e-11,
+          "impulseResidual": 2.829446746344111e-12,
+          "acceptedNormalViolation": 3.75770658079394e-11,
+          "acceptedImpulseResidual": 2.829446746344111e-12,
+          "modes": {
+            "free": 0,
+            "sticking": 480,
+            "sliding": 0
+          },
+          "final": {
+            "height": 0.04990947689927081,
+            "velocity": [
+              -3.4269760362803936e-8,
+              -1.2584496289491653e-7,
+              -2.0583684090524912e-8
+            ],
+            "spin": [
+              -4.186881028545031e-7,
+              1.068797494951923e-9,
+              6.905505642862408e-7
+            ]
+          }
+        },
+        "lift": {
+          "steps": 30,
+          "rejected": 0,
+          "work": 1,
+          "linearError": 1.7618815104786245e-7,
+          "angularError": 3.18948421374777e-10,
+          "normalViolation": 0,
+          "impulseResidual": 0,
+          "acceptedNormalViolation": 0,
+          "acceptedImpulseResidual": 0,
+          "modes": {
+            "free": 24,
+            "sticking": 0,
+            "sliding": 0
+          },
+          "final": {
+            "height": 0.21253944631731966,
+            "velocity": [
+              -3.4226104617118835e-8,
+              1.2983334064483643,
+              -2.057640813291073e-8
+            ],
+            "spin": [
+              -4.1891280488925986e-7,
+              1.047823050548402e-9,
+              6.90955630489043e-7
+            ]
+          }
+        },
+        "fall": {
+          "steps": 90,
+          "rejected": 0,
+          "work": 14,
+          "linearError": 0.006932015534016234,
+          "angularError": 0.04151227321031413,
+          "normalViolation": 4.5538575730323337e-11,
+          "impulseResidual": 3.2722091744793853e-12,
+          "acceptedNormalViolation": 4.5538575730323337e-11,
+          "acceptedImpulseResidual": 3.2722091744793853e-12,
+          "modes": {
+            "free": 0,
+            "sticking": 188,
+            "sliding": 0
+          },
+          "final": {
+            "height": 0.04990139302415718,
+            "velocity": [
+              0.000007263413863256574,
+              0.00002654490526765585,
+              0.000004440516931936145
+            ],
+            "spin": [
+              0.00009130538819590583,
+              3.5114422480830854e-10,
+              -0.00014935275248717517
+            ]
+          }
+        }
+      },
+      "failures": [],
+      "samples": [
+        {
+          "time": 0,
+          "phase": "drive",
+          "height": 0.04990961849689479,
+          "velocity": [
+            0.02100052498281002,
+            -0.000015361118130385876,
+            -0.00002720746851991862
+          ],
+          "spin": [
+            -0.000023893626348581165,
+            -0.000005928327027504565,
+            0.00006712861068081111
+          ],
+          "status": "converged",
+          "modes": [
+            "sliding",
+            "sliding",
+            "sliding",
+            "sliding"
+          ],
+          "linearError": 0.00015526385717290017,
+          "angularError": 0.00006712860432761063
+        },
+        {
+          "time": 0.25,
+          "phase": "drive",
+          "height": 0.04990947693467442,
+          "velocity": [
+            0.6508204936981201,
+            -3.5855919122695923e-7,
+            -0.00012124744534958154
+          ],
+          "spin": [
+            -7.579875500596245e-7,
+            -0.00003053630643989891,
+            0.000001701512132967764
+          ],
+          "status": "converged",
+          "modes": [
+            "sliding",
+            "sliding",
+            "sliding",
+            "sliding"
+          ],
+          "linearError": 0.00028234682841753086,
+          "angularError": 0.00005470434337975998
+        },
+        {
+          "time": 0.5,
+          "phase": "drive",
+          "height": 0.04990947693117704,
+          "velocity": [
+            1.2806453704833984,
+            -1.327134668827057e-7,
+            -0.00008444268314633518
+          ],
+          "spin": [
+            -4.1836042896647996e-7,
+            -0.000023249383957590908,
+            7.205819656519452e-7
+          ],
+          "status": "converged",
+          "modes": [
+            "sliding",
+            "sliding",
+            "sliding",
+            "sliding"
+          ],
+          "linearError": 0.00028714181261112653,
+          "angularError": 0.00005518152847165058
+        },
+        {
+          "time": 0.75,
+          "phase": "drive",
+          "height": 0.049909476926354536,
+          "velocity": [
+            1.9104554653167725,
+            -8.009374141693115e-8,
+            -0.00008567742770537734
+          ],
+          "spin": [
+            -2.849702127605269e-7,
+            -0.00002348887392145116,
+            4.565808353618195e-7
+          ],
+          "status": "converged",
+          "modes": [
+            "sliding",
+            "sliding",
+            "sliding",
+            "sliding"
+          ],
+          "linearError": 0.0002878199867174599,
+          "angularError": 0.0000551481402855415
+        },
+        {
+          "time": 1,
+          "phase": "coast",
+          "height": 0.04990947691991822,
+          "velocity": [
+            2.4819936752319336,
+            -8.009374141693115e-8,
+            -0.00008253524720203131
+          ],
+          "spin": [
+            -2.852102340966667e-7,
+            -0.000023379276171908714,
+            4.564644768834114e-7
+          ],
+          "status": "converged",
+          "modes": [
+            "sliding",
+            "sliding",
+            "sliding",
+            "sliding"
+          ],
+          "linearError": 0.00028823451288608284,
+          "angularError": 0.00005514418927411276
+        },
+        {
+          "time": 1.25,
+          "phase": "coast",
+          "height": 0.04990947691129045,
+          "velocity": [
+            1.361845850944519,
+            -9.522773325443268e-8,
+            -0.00009231080184690654
+          ],
+          "spin": [
+            -3.40325470915559e-7,
+            -0.00002580588625278324,
+            5.451146307677845e-7
+          ],
+          "status": "converged",
+          "modes": [
+            "sliding",
+            "sliding",
+            "sliding",
+            "sliding"
+          ],
+          "linearError": 0.0002858233036476754,
+          "angularError": 0.00005490138372444817
+        },
+        {
+          "time": 1.5,
+          "phase": "coast",
+          "height": 0.04990947690065675,
+          "velocity": [
+            0.24168288707733154,
+            -1.3154931366443634e-7,
+            -0.00006930607196409255
+          ],
+          "spin": [
+            -4.2379892306598776e-7,
+            -0.0000198234265553765,
+            7.18078695172153e-7
+          ],
+          "status": "converged",
+          "modes": [
+            "sliding",
+            "sliding",
+            "sliding",
+            "sliding"
+          ],
+          "linearError": 0.0002757366254671249,
+          "angularError": 0.00005483362107825507
+        },
+        {
+          "time": 1.75,
+          "phase": "coast",
+          "height": 0.04990949180029241,
+          "velocity": [
+            1.1245720088481903e-7,
+            5.764886736869812e-7,
+            2.491287887096405e-8
+          ],
+          "spin": [
+            5.027137603974552e-7,
+            -6.997009638354257e-10,
+            -0.000002254180344607448
+          ],
+          "status": "converged",
+          "modes": [
+            "sticking",
+            "sticking",
+            "sticking",
+            "sticking"
+          ],
+          "linearError": 5.764649555965266e-7,
+          "angularError": 0.000002254151862369004
+        },
+        {
+          "time": 2,
+          "phase": "hold",
+          "height": 0.0499094768992701,
+          "velocity": [
+            -0.0000021701125660911202,
+            -0.000010019284673035145,
+            -7.527123671025038e-7
+          ],
+          "spin": [
+            -0.000015071212146722246,
+            8.236402671002452e-10,
+            0.000043441279558464885
+          ],
+          "status": "converged",
+          "modes": [
+            "sticking",
+            "sticking",
+            "sticking",
+            "sticking"
+          ],
+          "linearError": 0.000010019298954884921,
+          "angularError": 0.0000434412636189351
+        },
+        {
+          "time": 2.25,
+          "phase": "hold",
+          "height": 0.04990947689927009,
+          "velocity": [
+            -7.101334631443024e-8,
+            -2.8579961508512497e-7,
+            -3.4880940802395344e-8
+          ],
+          "spin": [
+            -6.99075883403566e-7,
+            2.7617522158074337e-10,
+            0.00000142192277508002
+          ],
+          "status": "converged",
+          "modes": [
+            "sticking",
+            "sticking",
+            "sticking",
+            "sticking"
+          ],
+          "linearError": 2.858138965537253e-7,
+          "angularError": 0.0000014219068374678252
+        },
+        {
+          "time": 2.5,
+          "phase": "hold",
+          "height": 0.04990947689927009,
+          "velocity": [
+            -3.255263436585665e-8,
+            -1.1257361620664597e-7,
+            -2.08965502679348e-8
+          ],
+          "spin": [
+            -4.1748546664166497e-7,
+            -1.0884312895420578e-10,
+            6.507538614641817e-7
+          ],
+          "status": "converged",
+          "modes": [
+            "sticking",
+            "sticking",
+            "sticking",
+            "sticking"
+          ],
+          "linearError": 1.1258789759012918e-7,
+          "angularError": 6.507379239132763e-7
+        },
+        {
+          "time": 2.75,
+          "phase": "hold",
+          "height": 0.04990947689927045,
+          "velocity": [
+            -3.39350663125515e-8,
+            -1.1723022907972336e-7,
+            -2.1871528588235378e-8
+          ],
+          "spin": [
+            -4.378654523407022e-7,
+            2.9722314887070667e-11,
+            6.793010811634304e-7
+          ],
+          "status": "converged",
+          "modes": [
+            "sticking",
+            "sticking",
+            "sticking",
+            "sticking"
+          ],
+          "linearError": 1.1724451046320657e-7,
+          "angularError": 6.792851436529484e-7
+        },
+        {
+          "time": 3,
+          "phase": "lift",
+          "height": 0.05010106857932071,
+          "velocity": [
+            -3.4226104617118835e-8,
+            0.0432777926325798,
+            -2.057640813291073e-8
+          ],
+          "spin": [
+            -4.1886448798322817e-7,
+            1.0477403389330675e-9,
+            6.908695127094688e-7
+          ],
+          "status": "converged",
+          "modes": [
+            "free",
+            "free",
+            "free",
+            "free"
+          ],
+          "linearError": 1.81087602552088e-9,
+          "angularError": 3.18948421374777e-10
+        },
+        {
+          "time": 3.25,
+          "phase": "fall",
+          "height": 0.22299711104548434,
+          "velocity": [
+            -3.4226104617118835e-8,
+            1.2166111469268799,
+            -2.057640813291073e-8
+          ],
+          "spin": [
+            -4.1891473756550113e-7,
+            1.0478256040613587e-9,
+            6.909585863468237e-7
+          ],
+          "status": "converged",
+          "modes": [],
+          "linearError": 1.7618815104092356e-7,
+          "angularError": 2.955855963781323e-12
+        },
+        {
+          "time": 3.5,
+          "phase": "fall",
+          "height": 0.22005317803538302,
+          "velocity": [
+            -3.4226104617118835e-8,
+            -1.2350554466247559,
+            -2.057640813291073e-8
+          ],
+          "spin": [
+            -4.1898150016095315e-7,
+            1.0479097589666253e-9,
+            6.910383945069043e-7
+          ],
+          "status": "converged",
+          "modes": [],
+          "linearError": 1.7618815104092356e-7,
+          "angularError": 3.1263862198064474e-12
+        },
+        {
+          "time": 3.75,
+          "phase": "fall",
+          "height": 0.049599190024550044,
+          "velocity": [
+            0.0002565583272371441,
+            0.0009065218036994338,
+            0.00016442641208413988
+          ],
+          "spin": [
+            0.0033810148015618324,
+            4.0563268299820265e-9,
+            -0.005275498144328594
+          ],
+          "status": "converged",
+          "modes": [
+            "sticking",
+            "sticking",
+            "sticking",
+            "sticking"
+          ],
+          "linearError": 0.0009065217802710819,
+          "angularError": 0.005275498117316402
+        }
+      ],
+      "observationSha256": "8b67b1db6c6abf39af42a4aba379db484029c00c3045d139936798d1a7d9653b"
+    },
+    {
+      "harness": "Node core stand",
+      "engine": "rapier-coordinate-coulomb",
+      "revision": "rapier/adapter-7/sha256:07af259dc277cac77daa9c95eaded0ed2bc8aeb5feac08bfd9e58d23e58feebd/coordinate-limits/point-friction",
+      "hz": 1920,
+      "sense": -1,
+      "spin": 0,
+      "settings": {
+        "dt": 0.0005208333333333333,
+        "friction": 0.5,
+        "iterations": 2048,
+        "impulseTolerance": 1e-10,
+        "velocityTolerance": 1e-7
+      },
+      "replay": true,
+      "phases": {
+        "drive": {
+          "steps": 1920,
+          "rejected": 0,
+          "work": 13,
+          "linearError": 0.000024158647222065894,
+          "angularError": 0.00005980338278613148,
+          "normalViolation": 5.681330660914016e-11,
+          "impulseResidual": 1.8518490777288954e-12,
+          "acceptedNormalViolation": 5.681330660914016e-11,
+          "acceptedImpulseResidual": 1.8518490777288954e-12,
+          "modes": {
+            "free": 0,
+            "sticking": 0,
+            "sliding": 7680
+          },
+          "final": {
+            "height": 0.04992514998258487,
+            "velocity": [
+              -2.519043445587158,
+              -0.000010101917723659426,
+              0.0008775088936090469
+            ],
+            "spin": [
+              0.000039237074815900996,
+              -0.00007709621422691271,
+              0.00005980344212730415
+            ]
+          }
+        },
+        "coast": {
+          "steps": 1920,
+          "rejected": 0,
+          "work": 14,
+          "linearError": 0.00009203781934545737,
+          "angularError": 0.0000851724303437114,
+          "normalViolation": 1.3809080833762999e-10,
+          "impulseResidual": 2.2372293958811823e-11,
+          "acceptedNormalViolation": 1.3809080833762999e-10,
+          "acceptedImpulseResidual": 2.2372293958811823e-11,
+          "modes": {
+            "free": 0,
+            "sticking": 3364,
+            "sliding": 4316
+          },
+          "final": {
+            "height": 0.04992437013322919,
+            "velocity": [
+              -0.00000301462750940118,
+              -0.00001039169728755951,
+              0.0000019271851670055185
+            ],
+            "spin": [
+              0.000038575639337068424,
+              7.30127069914488e-12,
+              0.000060342525102896616
+            ]
+          }
+        },
+        "hold": {
+          "steps": 1920,
+          "rejected": 0,
+          "work": 10,
+          "linearError": 0.00000964363138864291,
+          "angularError": 0.00005701705505327732,
+          "normalViolation": 1.952955665024056e-10,
+          "impulseResidual": 9.577836841776627e-12,
+          "acceptedNormalViolation": 1.952955665024056e-10,
+          "acceptedImpulseResidual": 9.577836841776627e-12,
+          "modes": {
+            "free": 0,
+            "sticking": 7680,
+            "sliding": 0
+          },
+          "final": {
+            "height": 0.049924370133227314,
+            "velocity": [
+              -0.0000028478941658249823,
+              -0.000009639203199185431,
+              0.0000018650134734343737
+            ],
+            "spin": [
+              0.00003732334516826086,
+              1.3196562731465633e-9,
+              0.000056999931985046715
+            ]
+          }
+        },
+        "lift": {
+          "steps": 480,
+          "rejected": 0,
+          "work": 1,
+          "linearError": 0.000001458629815217962,
+          "angularError": 0.000015268404240474624,
+          "normalViolation": 0,
+          "impulseResidual": 0,
+          "acceptedNormalViolation": 0,
+          "acceptedImpulseResidual": 0,
+          "modes": {
+            "free": 340,
+            "sticking": 0,
+            "sliding": 0
+          },
+          "final": {
+            "height": 0.21223444887574638,
+            "velocity": [
+              -0.000003524964995449409,
+              1.2982758283615112,
+              0.0000021363621272030286
+            ],
+            "spin": [
+              0.000022096339307609014,
+              -0.0000013528859881262179,
+              0.00004529857687884942
+            ]
+          }
+        },
+        "fall": {
+          "steps": 1440,
+          "rejected": 1,
+          "work": 2048,
+          "linearError": 0.17359686260734142,
+          "angularError": 0.3977770556593974,
+          "normalViolation": 1.3707037171961645e-9,
+          "impulseResidual": 0.000003247278709473528,
+          "acceptedNormalViolation": 1.199188351774679e-10,
+          "acceptedImpulseResidual": 8.676783537541269e-11,
+          "modes": {
+            "free": 40,
+            "sticking": 2976,
+            "sliding": 12
+          },
+          "final": {
+            "height": 0.04993375833256069,
+            "velocity": [
+              -0.00000588950661040144,
+              -0.000017355716408928856,
+              0.0000037111976780579425
+            ],
+            "spin": [
+              0.00006284911796683446,
+              -1.3780017127373867e-9,
+              0.00009973234409699216
+            ]
+          }
+        }
+      },
+      "failures": [
+        {
+          "time": 3.607291666666667,
+          "status": "iteration-limit",
+          "work": 2048,
+          "linearError": 0.17359686260734142,
+          "angularError": 0.07373417612023814,
+          "normalViolation": 1.3707037171961645e-9,
+          "impulseResidual": 0.000003247278709473528
+        }
+      ],
+      "samples": [
+        {
+          "time": 0,
+          "phase": "drive",
+          "height": 0.04992515295743942,
+          "velocity": [
+            -0.0013125801924616098,
+            -0.000004824112693313509,
+            -0.000012462171071092598
+          ],
+          "spin": [
+            -0.000029495588023564778,
+            0.000002507101726223482,
+            0.00003574615766410716
+          ],
+          "status": "converged",
+          "modes": [
+            "sliding",
+            "sliding",
+            "sliding",
+            "sliding"
+          ],
+          "linearError": 0.0000048241117867683,
+          "angularError": 0.00003574631153387398
+        },
+        {
+          "time": 0.25,
+          "phase": "drive",
+          "height": 0.049925152699711206,
+          "velocity": [
+            -0.6311479210853577,
+            -0.000007870490662753582,
+            -0.0025864855851978064
+          ],
+          "spin": [
+            0.000037159643397899345,
+            0.0006226599216461182,
+            0.000051003262342419475
+          ],
+          "status": "converged",
+          "modes": [
+            "sliding",
+            "sliding",
+            "sliding",
+            "sliding"
+          ],
+          "linearError": 0.000017555961267177376,
+          "angularError": 0.00005100320305447168
+        },
+        {
+          "time": 0.5,
+          "phase": "drive",
+          "height": 0.04992515146420772,
+          "velocity": [
+            -1.2608041763305664,
+            -0.000009469986252952367,
+            -0.001728270435705781
+          ],
+          "spin": [
+            0.000038616704841842875,
+            0.00047497532796114683,
+            0.00005729251279262826
+          ],
+          "status": "converged",
+          "modes": [
+            "sliding",
+            "sliding",
+            "sliding",
+            "sliding"
+          ],
+          "linearError": 0.00002242483414472765,
+          "angularError": 0.000057292453466089284
+        },
+        {
+          "time": 0.75,
+          "phase": "drive",
+          "height": 0.04992515024082925,
+          "velocity": [
+            -1.890553593635559,
+            -0.000009957366273738444,
+            -0.0004118165234103799
+          ],
+          "spin": [
+            0.00003911047679139301,
+            0.00020150233467575163,
+            0.0000592387659708038
+          ],
+          "status": "converged",
+          "modes": [
+            "sliding",
+            "sliding",
+            "sliding",
+            "sliding"
+          ],
+          "linearError": 0.00002362118367381889,
+          "angularError": 0.00005923870663333017
+        },
+        {
+          "time": 1,
+          "phase": "coast",
+          "height": 0.04992514998328057,
+          "velocity": [
+            -2.5167088508605957,
+            -0.000010101917723659426,
+            0.0008802367374300957
+          ],
+          "spin": [
+            0.00003923704207409173,
+            -0.00007769095100229606,
+            0.00005980338391964324
+          ],
+          "status": "converged",
+          "modes": [
+            "sliding",
+            "sliding",
+            "sliding",
+            "sliding"
+          ],
+          "linearError": 0.000024160092701127484,
+          "angularError": 0.00005980332457841227
+        },
+        {
+          "time": 1.25,
+          "phase": "coast",
+          "height": 0.049925150852801047,
+          "velocity": [
+            -1.3962101936340332,
+            -0.000010162912076339126,
+            0.0020235541742295027
+          ],
+          "spin": [
+            0.00003933828338631429,
+            -0.0003605735255405307,
+            0.000060077811212977394
+          ],
+          "status": "converged",
+          "modes": [
+            "sliding",
+            "sliding",
+            "sliding",
+            "sliding"
+          ],
+          "linearError": 0.000024191688016525983,
+          "angularError": 0.00006007775189914423
+        },
+        {
+          "time": 1.5,
+          "phase": "coast",
+          "height": 0.04992515222436885,
+          "velocity": [
+            -0.2759303152561188,
+            -0.000010162802936974913,
+            0.0022449232637882233
+          ],
+          "spin": [
+            0.00003934888445655815,
+            -0.0005333689623512328,
+            0.00006009031130815856
+          ],
+          "status": "converged",
+          "modes": [
+            "sliding",
+            "sliding",
+            "sliding",
+            "sliding"
+          ],
+          "linearError": 0.000024268733847362715,
+          "angularError": 0.00006009025221209103
+        },
+        {
+          "time": 1.75,
+          "phase": "coast",
+          "height": 0.04992437013322919,
+          "velocity": [
+            -0.0000033781398087739944,
+            -0.000012004966265521944,
+            0.0000020695574676210526
+          ],
+          "spin": [
+            0.00004142809848417528,
+            -4.3514822301027323e-10,
+            0.00006762058910680935
+          ],
+          "status": "converged",
+          "modes": [
+            "sticking",
+            "sticking",
+            "sticking",
+            "sticking"
+          ],
+          "linearError": 0.000012004906371057788,
+          "angularError": 0.00006762044055151047
+        },
+        {
+          "time": 2,
+          "phase": "hold",
+          "height": 0.049924370133227314,
+          "velocity": [
+            -0.0000021723185454902705,
+            -0.000006676644261460751,
+            0.0000015914869209154858
+          ],
+          "spin": [
+            0.00003185756577295251,
+            -2.369764662280005e-10,
+            0.000043483385525178164
+          ],
+          "status": "converged",
+          "modes": [
+            "sticking",
+            "sticking",
+            "sticking",
+            "sticking"
+          ],
+          "linearError": 0.000006676554056693252,
+          "angularError": 0.00004348306805765558
+        },
+        {
+          "time": 2.25,
+          "phase": "hold",
+          "height": 0.049924370133227314,
+          "velocity": [
+            -0.0000026458196771272924,
+            -0.000008743874786887318,
+            0.0000017854815723694628
+          ],
+          "spin": [
+            0.000035741108149522915,
+            -3.0080249402431036e-10,
+            0.00005296152812661603
+          ],
+          "status": "converged",
+          "modes": [
+            "sticking",
+            "sticking",
+            "sticking",
+            "sticking"
+          ],
+          "linearError": 0.000008743784619090015,
+          "angularError": 0.00005296121075831095
+        },
+        {
+          "time": 2.5,
+          "phase": "hold",
+          "height": 0.049924370133227314,
+          "velocity": [
+            -0.000002789543486869661,
+            -0.000009377836249768734,
+            0.0000018427531358611304
+          ],
+          "spin": [
+            0.000036878165701637045,
+            1.2459704379352843e-9,
+            0.00005583218080573715
+          ],
+          "status": "converged",
+          "modes": [
+            "sticking",
+            "sticking",
+            "sticking",
+            "sticking"
+          ],
+          "linearError": 0.000009377746073201827,
+          "angularError": 0.00005583186341341067
+        },
+        {
+          "time": 2.75,
+          "phase": "hold",
+          "height": 0.049924370133227314,
+          "velocity": [
+            -0.0000028338931770122144,
+            -0.000009576113370712847,
+            0.0000018597638700157404
+          ],
+          "spin": [
+            0.0000372184076695703,
+            1.286973083658438e-9,
+            0.000056719716667430475
+          ],
+          "status": "converged",
+          "modes": [
+            "sticking",
+            "sticking",
+            "sticking",
+            "sticking"
+          ],
+          "linearError": 0.000009576023191441388,
+          "angularError": 0.00005671939926777735
+        },
+        {
+          "time": 3,
+          "phase": "lift",
+          "height": 0.0499251449936144,
+          "velocity": [
+            -0.000003524964995449409,
+            0.0026966892182826996,
+            0.0000021363621272030286
+          ],
+          "spin": [
+            0.000022054940927773714,
+            -0.000001350204456684878,
+            0.00004521533992374316
+          ],
+          "status": "converged",
+          "modes": [
+            "free",
+            "free",
+            "free",
+            "free"
+          ],
+          "linearError": 0.000001458629815217962,
+          "angularError": 0.000015268404240474624
+        },
+        {
+          "time": 3.25,
+          "phase": "fall",
+          "height": 0.21290923305925358,
+          "velocity": [
+            -0.000003524964995449409,
+            1.2931679487228394,
+            0.0000021363621272030286
+          ],
+          "spin": [
+            0.000022096437533036806,
+            -0.0000013528915587812662,
+            0.000045298740587895736
+          ],
+          "status": "converged",
+          "modes": [],
+          "linearError": 2.494303385416202e-7,
+          "angularError": 1.637012594596477e-10
+        },
+        {
+          "time": 3.5,
+          "phase": "fall",
+          "height": 0.22969759651837318,
+          "velocity": [
+            -0.000003524964995449409,
+            -1.1585441827774048,
+            0.0000021363621272030286
+          ],
+          "spin": [
+            0.000022139540305943228,
+            -0.0000013555679743149085,
+            0.0000453866487077903
+          ],
+          "status": "converged",
+          "modes": [],
+          "linearError": 2.494303385416202e-7,
+          "angularError": 2.692026128001128e-10
+        },
+        {
+          "time": 3.75,
+          "phase": "fall",
+          "height": 0.049965982093642385,
+          "velocity": [
+            -0.000011953647117479704,
+            -0.00003323212149553001,
+            0.000008121347491396591
+          ],
+          "spin": [
+            0.0001375348656438291,
+            -2.9934350553872946e-9,
+            0.00020242255413904786
+          ],
+          "status": "converged",
+          "modes": [
+            "sticking",
+            "sticking",
+            "sticking",
+            "sticking"
+          ],
+          "linearError": 0.000033232061461096564,
+          "angularError": 0.00020242240449457903
+        }
+      ],
+      "observationSha256": "7c07f63f3fa0c122e157967b40902f8ebf066321355bf830e13fad434e2e6a6d"
+    },
+    {
+      "harness": "Node core stand",
+      "engine": "rapier-coordinate-coulomb",
+      "revision": "rapier/adapter-7/sha256:07af259dc277cac77daa9c95eaded0ed2bc8aeb5feac08bfd9e58d23e58feebd/coordinate-limits/point-friction",
+      "hz": 1920,
+      "sense": 1,
+      "spin": 0,
+      "settings": {
+        "dt": 0.0005208333333333333,
+        "friction": 0.5,
+        "iterations": 2048,
+        "impulseTolerance": 1e-10,
+        "velocityTolerance": 1e-7
+      },
+      "replay": true,
+      "phases": {
+        "drive": {
+          "steps": 1920,
+          "rejected": 0,
+          "work": 11,
+          "linearError": 0.000027525451053315708,
+          "angularError": 0.00008591280143179643,
+          "normalViolation": 7.237354612095112e-11,
+          "impulseResidual": 9.27590838341319e-12,
+          "acceptedNormalViolation": 7.237354612095112e-11,
+          "acceptedImpulseResidual": 9.27590838341319e-12,
+          "modes": {
+            "free": 0,
+            "sticking": 0,
+            "sliding": 7680
+          },
+          "final": {
+            "height": 0.049924310878183296,
+            "velocity": [
+              2.5192010402679443,
+              -0.000009218078048434108,
+              0.0033040884882211685
+            ],
+            "spin": [
+              0.00003782422572840005,
+              0.0007010202389210463,
+              0.00005593715832219459
+            ]
+          }
+        },
+        "coast": {
+          "steps": 1920,
+          "rejected": 0,
+          "work": 12,
+          "linearError": 0.000023127759869514516,
+          "angularError": 0.00005682282390870854,
+          "normalViolation": 1.192504904307271e-10,
+          "impulseResidual": 7.045018810946518e-12,
+          "acceptedNormalViolation": 1.192504904307271e-10,
+          "acceptedImpulseResidual": 7.045018810946518e-12,
+          "modes": {
+            "free": 0,
+            "sticking": 3364,
+            "sliding": 4316
+          },
+          "final": {
+            "height": 0.04992430661838745,
+            "velocity": [
+              -0.0000026833840820472687,
+              -0.000008917588274925947,
+              0.0000017994261725107208
+            ],
+            "spin": [
+              0.000036014316719956696,
+              -9.926733046672354e-11,
+              0.00005370565122575499
+            ]
+          }
+        },
+        "hold": {
+          "steps": 1920,
+          "rejected": 0,
+          "work": 11,
+          "linearError": 0.000012624988337023995,
+          "angularError": 0.0000705290524693195,
+          "normalViolation": 2.2915517207855625e-11,
+          "impulseResidual": 9.034873543756206e-15,
+          "acceptedNormalViolation": 2.2915517207855625e-11,
+          "acceptedImpulseResidual": 9.034873543756206e-15,
+          "modes": {
+            "free": 0,
+            "sticking": 7680,
+            "sliding": 0
+          },
+          "final": {
+            "height": 0.049924306618392346,
+            "velocity": [
+              -0.0000028453841878217645,
+              -0.000009646239050198346,
+              0.0000018604965816848562
+            ],
+            "spin": [
+              0.000037239438825054094,
+              -5.791204182870047e-10,
+              0.00005694984065485187
+            ]
+          }
+        },
+        "lift": {
+          "steps": 480,
+          "rejected": 0,
+          "work": 1,
+          "linearError": 2.494303385420539e-7,
+          "angularError": 4.0017766578718643e-10,
+          "normalViolation": 0,
+          "impulseResidual": 0,
+          "acceptedNormalViolation": 0,
+          "acceptedImpulseResidual": 0,
+          "modes": {
+            "free": 340,
+            "sticking": 0,
+            "sliding": 0
+          },
+          "final": {
+            "height": 0.2122340873352884,
+            "velocity": [
+              -0.0000028453850973164663,
+              1.2982743978500366,
+              0.0000018604960132506676
+            ],
+            "spin": [
+              0.00003736399230547249,
+              -3.047824215229866e-10,
+              0.00005709868128178641
+            ]
+          }
+        },
+        "fall": {
+          "steps": 1440,
+          "rejected": 2,
+          "work": 2048,
+          "linearError": 0.16126388355975108,
+          "angularError": 0.2509082455399039,
+          "normalViolation": 4.840034206754495e-10,
+          "impulseResidual": 0.0000015721703809229437,
+          "acceptedNormalViolation": 1.8683279402742503e-10,
+          "acceptedImpulseResidual": 1.0640906775508108e-11,
+          "modes": {
+            "free": 26,
+            "sticking": 2992,
+            "sliding": 6
+          },
+          "final": {
+            "height": 0.04993354578468839,
+            "velocity": [
+              -0.00000583876135351602,
+              -0.000017216458218172193,
+              0.0000036789670048165135
+            ],
+            "spin": [
+              0.00006228482379810885,
+              1.4406220660845293e-9,
+              0.00009885688632493839
+            ]
+          }
+        }
+      },
+      "failures": [
+        {
+          "time": 3.607291666666667,
+          "status": "iteration-limit",
+          "work": 2048,
+          "linearError": 0.16126388355975108,
+          "angularError": 0.0465940498240216,
+          "normalViolation": 4.840034206754495e-10,
+          "impulseResidual": 0.0000015721703809229437
+        },
+        {
+          "time": 3.6098958333333333,
+          "status": "iteration-limit",
+          "work": 2048,
+          "linearError": 0.00023342965382463653,
+          "angularError": 0.004728870732157919,
+          "normalViolation": 8.562291500813224e-14,
+          "impulseResidual": 3.856877882064784e-9
+        }
+      ],
+      "samples": [
+        {
+          "time": 0,
+          "phase": "drive",
+          "height": 0.04992510080337524,
+          "velocity": [
+            0.0013115948531776667,
+            -0.000015885270840954036,
+            -0.000008285264812002424
+          ],
+          "spin": [
+            -0.000049450358346803114,
+            -0.0000013611945632874267,
+            0.00008591273217462003
+          ],
+          "status": "converged",
+          "modes": [
+            "sliding",
+            "sliding",
+            "sliding",
+            "sliding"
+          ],
+          "linearError": 0.000015885302027645923,
+          "angularError": 0.00008591280143179643
+        },
+        {
+          "time": 0.25,
+          "phase": "drive",
+          "height": 0.049924311003967624,
+          "velocity": [
+            0.6311150789260864,
+            -0.000011435418855398893,
+            -0.0007666281890124083
+          ],
+          "spin": [
+            -0.00004031056960229762,
+            -0.00019233819330111146,
+            0.00006498942093458027
+          ],
+          "status": "converged",
+          "modes": [
+            "sliding",
+            "sliding",
+            "sliding",
+            "sliding"
+          ],
+          "linearError": 0.000018385329971972764,
+          "angularError": 0.00006498936636002223
+        },
+        {
+          "time": 0.5,
+          "phase": "drive",
+          "height": 0.049924310931256564,
+          "velocity": [
+            1.2609535455703735,
+            -0.000010191331966780126,
+            0.0001397225132677704
+          ],
+          "spin": [
+            -0.000038170044717844576,
+            -0.0000013881290215067565,
+            0.000059412770497146994
+          ],
+          "status": "converged",
+          "modes": [
+            "sliding",
+            "sliding",
+            "sliding",
+            "sliding"
+          ],
+          "linearError": 0.00002085938290547068,
+          "angularError": 0.000059412715830103614
+        },
+        {
+          "time": 0.75,
+          "phase": "drive",
+          "height": 0.04992431101270904,
+          "velocity": [
+            1.8905154466629028,
+            -0.00000980352342594415,
+            0.0013385489583015442
+          ],
+          "spin": [
+            -0.00003747915252461098,
+            0.0002662995830178261,
+            0.000057661931350594386
+          ],
+          "status": "converged",
+          "modes": [
+            "sliding",
+            "sliding",
+            "sliding",
+            "sliding"
+          ],
+          "linearError": 0.000021556321254382534,
+          "angularError": 0.00005766187664155867
+        },
+        {
+          "time": 1,
+          "phase": "coast",
+          "height": 0.04992431087670224,
+          "velocity": [
+            2.516866445541382,
+            -0.000009218078048434108,
+            0.003306640312075615
+          ],
+          "spin": [
+            0.00003782421481446363,
+            0.000701648707035929,
+            0.00005593717651208863
+          ],
+          "status": "converged",
+          "modes": [
+            "sliding",
+            "sliding",
+            "sliding",
+            "sliding"
+          ],
+          "linearError": 0.000020661617844775285,
+          "angularError": 0.000055937121737203885
+        },
+        {
+          "time": 1.25,
+          "phase": "coast",
+          "height": 0.04992430924476838,
+          "velocity": [
+            1.3967444896697998,
+            -0.000009497271094005555,
+            0.0029969257302582264
+          ],
+          "spin": [
+            0.00003737153019756079,
+            0.0007128563011065125,
+            0.000056553395552327856
+          ],
+          "status": "converged",
+          "modes": [
+            "sliding",
+            "sliding",
+            "sliding",
+            "sliding"
+          ],
+          "linearError": 0.00001573919388335217,
+          "angularError": 0.00005655334072287123
+        },
+        {
+          "time": 1.5,
+          "phase": "coast",
+          "height": 0.04992430689735274,
+          "velocity": [
+            0.2764195501804352,
+            -0.000009591662092134356,
+            0.0010868043173104525
+          ],
+          "spin": [
+            0.00003726177237695083,
+            0.0003270294691901654,
+            0.000056782799219945446
+          ],
+          "status": "converged",
+          "modes": [
+            "sliding",
+            "sliding",
+            "sliding",
+            "sliding"
+          ],
+          "linearError": 0.000014139307821635302,
+          "angularError": 0.00005678274431079898
+        },
+        {
+          "time": 1.75,
+          "phase": "coast",
+          "height": 0.04992430661838745,
+          "velocity": [
+            -0.0000023233787942444906,
+            -0.000007320835720747709,
+            0.0000016580925148446113
+          ],
+          "spin": [
+            0.000033185242500621825,
+            -3.178549090598892e-11,
+            0.000046500230382662266
+          ],
+          "status": "converged",
+          "modes": [
+            "sticking",
+            "sticking",
+            "sticking",
+            "sticking"
+          ],
+          "linearError": 0.000007320775858247798,
+          "angularError": 0.000046500081990152364
+        },
+        {
+          "time": 2,
+          "phase": "hold",
+          "height": 0.049924306618392346,
+          "velocity": [
+            -0.0000035239809221820906,
+            -0.000012624994269572198,
+            0.0000021346604626160115
+          ],
+          "spin": [
+            0.000042723273509182036,
+            -3.36757288721401e-11,
+            0.00007052908767946064
+          ],
+          "status": "converged",
+          "modes": [
+            "sticking",
+            "sticking",
+            "sticking",
+            "sticking"
+          ],
+          "linearError": 0.000012624988337023995,
+          "angularError": 0.0000705290524693195
+        },
+        {
+          "time": 2.25,
+          "phase": "hold",
+          "height": 0.049924306618392346,
+          "velocity": [
+            -0.0000030486025934806094,
+            -0.000010547490091994405,
+            0.000001940296897373628
+          ],
+          "spin": [
+            0.00003883321551256813,
+            -2.2735424654030112e-11,
+            0.000061014809034531936
+          ],
+          "status": "converged",
+          "modes": [
+            "sticking",
+            "sticking",
+            "sticking",
+            "sticking"
+          ],
+          "linearError": 0.000010547484157476943,
+          "angularError": 0.00006101477381463929
+        },
+        {
+          "time": 2.5,
+          "phase": "hold",
+          "height": 0.049924306618392346,
+          "velocity": [
+            -0.00000290494517685147,
+            -0.000009912269888445735,
+            0.0000018834126649380778
+          ],
+          "spin": [
+            0.00003769815157284029,
+            -5.884236431441536e-10,
+            0.000058141929912380874
+          ],
+          "status": "converged",
+          "modes": [
+            "sticking",
+            "sticking",
+            "sticking",
+            "sticking"
+          ],
+          "linearError": 0.000009912263954734112,
+          "angularError": 0.00005814189469650333
+        },
+        {
+          "time": 2.75,
+          "phase": "hold",
+          "height": 0.049924306618392346,
+          "velocity": [
+            -0.0000028601189114851877,
+            -0.000009712501196190715,
+            0.0000018660482510313159
+          ],
+          "spin": [
+            0.00003735052814590745,
+            -5.682414538910052e-10,
+            0.00005724471338908188
+          ],
+          "status": "converged",
+          "modes": [
+            "sticking",
+            "sticking",
+            "sticking",
+            "sticking"
+          ],
+          "linearError": 0.000009712495262729585,
+          "angularError": 0.000057244678174475944
+        },
+        {
+          "time": 3,
+          "phase": "lift",
+          "height": 0.049925081478774426,
+          "velocity": [
+            -0.0000028453850973164663,
+            0.002695223782211542,
+            0.0000018604960132506676
+          ],
+          "spin": [
+            0.00003723963163793087,
+            -5.742681885578804e-10,
+            0.000056950120779220015
+          ],
+          "status": "converged",
+          "modes": [
+            "free",
+            "free",
+            "free",
+            "free"
+          ],
+          "linearError": 2.2959507342198981e-10,
+          "angularError": 2.801243654245969e-10
+        },
+        {
+          "time": 3.25,
+          "phase": "fall",
+          "height": 0.2129088715187906,
+          "velocity": [
+            -0.0000028453850973164663,
+            1.2931665182113647,
+            0.0000018604960132506676
+          ],
+          "spin": [
+            0.00003736428334377706,
+            -3.04221536850946e-10,
+            0.000057099077821476385
+          ],
+          "status": "converged",
+          "modes": [],
+          "linearError": 2.494303385416202e-7,
+          "angularError": 3.965396847370556e-10
+        },
+        {
+          "time": 3.5,
+          "phase": "fall",
+          "height": 0.22969678794068085,
+          "velocity": [
+            -0.0000028453850973164663,
+            -1.1585456132888794,
+            0.0000018604960132506676
+          ],
+          "spin": [
+            0.000037488152884179726,
+            -3.175193441506963e-11,
+            0.00005724850052502006
+          ],
+          "status": "converged",
+          "modes": [],
+          "linearError": 2.494303385416202e-7,
+          "angularError": 3.456079788424824e-10
+        },
+        {
+          "time": 3.75,
+          "phase": "fall",
+          "height": 0.04996553112719099,
+          "velocity": [
+            -0.000011857259778480511,
+            -0.000032992993510561064,
+            0.000008053279088926502
+          ],
+          "spin": [
+            0.00013637317169923335,
+            -2.997130765791667e-9,
+            0.00020077697990927845
+          ],
+          "status": "converged",
+          "modes": [
+            "sticking",
+            "sticking",
+            "sticking",
+            "sticking"
+          ],
+          "linearError": 0.000032992933477659264,
+          "angularError": 0.00020077683025008573
+        }
+      ],
+      "observationSha256": "d0c0e9adfdea2d146d1745485661f37c7e1907988e5598bd108df56b136013dc"
+    },
+    {
+      "harness": "Node core stand",
+      "engine": "rapier-coordinate-coulomb",
+      "revision": "rapier/adapter-7/sha256:07af259dc277cac77daa9c95eaded0ed2bc8aeb5feac08bfd9e58d23e58feebd/coordinate-limits/point-friction",
+      "hz": 120,
+      "sense": -1,
+      "spin": 3,
+      "settings": {
+        "dt": 0.008333333333333333,
+        "friction": 0.5,
+        "iterations": 2048,
+        "impulseTolerance": 1e-10,
+        "velocityTolerance": 1e-7
+      },
+      "replay": true,
+      "phases": {
+        "drive": {
+          "steps": 120,
+          "rejected": 0,
+          "work": 14,
+          "linearError": 0.003162605149176101,
+          "angularError": 0.02015467518201794,
+          "normalViolation": 9.367344313421233e-11,
+          "impulseResidual": 8.261421061139806e-13,
+          "acceptedNormalViolation": 9.367344313421233e-11,
+          "acceptedImpulseResidual": 8.261421061139806e-13,
+          "modes": {
+            "free": 0,
+            "sticking": 0,
+            "sliding": 480
+          },
+          "final": {
+            "height": 0.04990965060720427,
+            "velocity": [
+              -2.6037254333496094,
+              -5.818437784910202e-7,
+              0.37562739849090576
+            ],
+            "spin": [
+              -0.0000026368079488747753,
+              -0.12286431342363358,
+              0.0000026273494313500123
+            ]
+          }
+        },
+        "coast": {
+          "steps": 120,
+          "rejected": 0,
+          "work": 14,
+          "linearError": 0.0007526571451751769,
+          "angularError": 0.001919970451696415,
+          "normalViolation": 2.7544727609907227e-10,
+          "impulseResidual": 2.0060462839477378e-11,
+          "acceptedNormalViolation": 2.7544727609907227e-10,
+          "acceptedImpulseResidual": 2.0060462839477378e-11,
+          "modes": {
+            "free": 0,
+            "sticking": 204,
+            "sliding": 276
+          },
+          "final": {
+            "height": 0.049909602966202345,
+            "velocity": [
+              -8.807910489849746e-8,
+              -3.98256815969944e-7,
+              -1.131265889853239e-7
+            ],
+            "spin": [
+              -0.000002265091552544618,
+              -4.839434408765442e-12,
+              0.00000176344724422961
+            ]
+          }
+        },
+        "hold": {
+          "steps": 120,
+          "rejected": 0,
+          "work": 12,
+          "linearError": 0.0000066963003610420735,
+          "angularError": 0.000026300490116482286,
+          "normalViolation": 4.254778807380975e-11,
+          "impulseResidual": 2.064868241669071e-12,
+          "acceptedNormalViolation": 4.254778807380975e-11,
+          "acceptedImpulseResidual": 2.064868241669071e-12,
+          "modes": {
+            "free": 0,
+            "sticking": 480,
+            "sliding": 0
+          },
+          "final": {
+            "height": 0.049909602485847034,
+            "velocity": [
+              -8.154893293976784e-8,
+              -3.718305379152298e-7,
+              -1.035150489769876e-7
+            ],
+            "spin": [
+              -0.000002074901431114995,
+              2.830116141439021e-10,
+              0.00000163339655046002
+            ]
+          }
+        },
+        "lift": {
+          "steps": 30,
+          "rejected": 0,
+          "work": 1,
+          "linearError": 1.7618815104786245e-7,
+          "angularError": 8.542428968369569e-10,
+          "normalViolation": 0,
+          "impulseResidual": 0,
+          "acceptedNormalViolation": 0,
+          "acceptedImpulseResidual": 0,
+          "modes": {
+            "free": 24,
+            "sticking": 0,
+            "sliding": 0
+          },
+          "final": {
+            "height": 0.2125392887818332,
+            "velocity": [
+              -8.154893293976784e-8,
+              1.2983331680297852,
+              -1.0352232493460178e-7
+            ],
+            "spin": [
+              -0.0000020761735868291,
+              2.368096829741262e-10,
+              0.0000016346430129487999
+            ]
+          }
+        },
+        "fall": {
+          "steps": 90,
+          "rejected": 0,
+          "work": 14,
+          "linearError": 0.0069146268102247,
+          "angularError": 0.03930915890435184,
+          "normalViolation": 4.553850379478636e-11,
+          "impulseResidual": 3.537112836242591e-12,
+          "acceptedNormalViolation": 4.553850379478636e-11,
+          "acceptedImpulseResidual": 3.537112836242591e-12,
+          "modes": {
+            "free": 0,
+            "sticking": 188,
+            "sliding": 0
+          },
+          "final": {
+            "height": 0.049901418786322344,
+            "velocity": [
+              0.000005474081262946129,
+              0.00002652744296938181,
+              0.000006514077540487051
+            ],
+            "spin": [
+              0.00013396491704043,
+              -4.396982777876701e-11,
+              -0.00011257636651862413
+            ]
+          }
+        }
+      },
+      "failures": [],
+      "samples": [
+        {
+          "time": 0,
+          "phase": "drive",
+          "height": 0.04990964970334519,
+          "velocity": [
+            -0.054532986134290695,
+            0.0000025246990844607353,
+            0.0002944451698567718
+          ],
+          "spin": [
+            -0.0000027197847884963267,
+            -2.2667739391326904,
+            0.000027935551770497113
+          ],
+          "status": "converged",
+          "modes": [
+            "sliding",
+            "sliding",
+            "sliding",
+            "sliding"
+          ],
+          "linearError": 0.0030811959275864956,
+          "angularError": 0.004703786820245304
+        },
+        {
+          "time": 0.25,
+          "phase": "drive",
+          "height": 0.049909649856672546,
+          "velocity": [
+            -0.7614120841026306,
+            -2.1047890186309814e-7,
+            0.08051843196153641
+          ],
+          "spin": [
+            -0.0000010418841611681273,
+            -0.1414075791835785,
+            0.0000011997134379271301
+          ],
+          "status": "converged",
+          "modes": [
+            "sliding",
+            "sliding",
+            "sliding",
+            "sliding"
+          ],
+          "linearError": 0.00040972140422945247,
+          "angularError": 0.00015777992042415555
+        },
+        {
+          "time": 0.5,
+          "phase": "drive",
+          "height": 0.049909653762385965,
+          "velocity": [
+            -1.3845630884170532,
+            -5.507608875632286e-7,
+            0.17100998759269714
+          ],
+          "spin": [
+            -0.0000024009361823118525,
+            -0.08852768689393997,
+            0.000002679471208466566
+          ],
+          "status": "converged",
+          "modes": [
+            "sliding",
+            "sliding",
+            "sliding",
+            "sliding"
+          ],
+          "linearError": 0.0004459009273193237,
+          "angularError": 0.00006333369902213401
+        },
+        {
+          "time": 0.75,
+          "phase": "drive",
+          "height": 0.04990965152841683,
+          "velocity": [
+            -2.00549054145813,
+            -5.332985892891884e-7,
+            0.2699885070323944
+          ],
+          "spin": [
+            -0.000002388056827840046,
+            -0.09861592948436737,
+            0.0000025489523522992386
+          ],
+          "status": "converged",
+          "modes": [
+            "sliding",
+            "sliding",
+            "sliding",
+            "sliding"
+          ],
+          "linearError": 0.000479975840738946,
+          "angularError": 0.00009597613089559005
+        },
+        {
+          "time": 1,
+          "phase": "coast",
+          "height": 0.04990964817413328,
+          "velocity": [
+            -2.565969944000244,
+            -6.662448868155479e-7,
+            0.3794512450695038
+          ],
+          "spin": [
+            -0.000002350949671381386,
+            -0.12384431064128876,
+            0.0000031971512726158835
+          ],
+          "status": "converged",
+          "modes": [
+            "sliding",
+            "sliding",
+            "sliding",
+            "sliding"
+          ],
+          "linearError": 0.0005225433163873667,
+          "angularError": 0.00011694294280683649
+        },
+        {
+          "time": 1.25,
+          "phase": "coast",
+          "height": 0.04990965616537452,
+          "velocity": [
+            -1.4192382097244263,
+            -9.657815098762512e-7,
+            0.4584008753299713
+          ],
+          "spin": [
+            4.483826501200383e-7,
+            -0.1431683450937271,
+            0.0000040157342482416425
+          ],
+          "status": "converged",
+          "modes": [
+            "sliding",
+            "sliding",
+            "sliding",
+            "sliding"
+          ],
+          "linearError": 0.0006423193901186119,
+          "angularError": 0.00016806286880489455
+        },
+        {
+          "time": 1.5,
+          "phase": "coast",
+          "height": 0.04990959980246019,
+          "velocity": [
+            -0.26095402240753174,
+            -0.000005002133548259735,
+            0.22048234939575195
+          ],
+          "spin": [
+            -3.7577265743493626e-7,
+            -0.06620468199253082,
+            0.000013305495485838037
+          ],
+          "status": "converged",
+          "modes": [
+            "sliding",
+            "sliding",
+            "sliding",
+            "sliding"
+          ],
+          "linearError": 0.00010399322062986174,
+          "angularError": 0.0002585228685518682
+        },
+        {
+          "time": 1.75,
+          "phase": "coast",
+          "height": 0.049909602966202345,
+          "velocity": [
+            -1.2811869964934886e-7,
+            -4.568137228488922e-7,
+            -2.296874299645424e-7
+          ],
+          "spin": [
+            -0.000004601773980539292,
+            4.2102832331636364e-10,
+            0.000002565847353253048
+          ],
+          "status": "converged",
+          "modes": [
+            "sticking",
+            "sticking",
+            "sticking",
+            "sticking"
+          ],
+          "linearError": 4.5683744123170553e-7,
+          "angularError": 0.000004601719976141474
+        },
+        {
+          "time": 2,
+          "phase": "hold",
+          "height": 0.049909602485847034,
+          "velocity": [
+            0.0000013137832866050303,
+            0.0000066963257268071175,
+            0.0000012888667697552592
+          ],
+          "spin": [
+            0.000025796285626711324,
+            1.1070139249724775e-9,
+            -0.000026300531317247078
+          ],
+          "status": "converged",
+          "modes": [
+            "sticking",
+            "sticking",
+            "sticking",
+            "sticking"
+          ],
+          "linearError": 0.0000066963003610420735,
+          "angularError": 0.000026300490116482286
+        },
+        {
+          "time": 2.25,
+          "phase": "hold",
+          "height": 0.049909602485847034,
+          "velocity": [
+            -5.848414730280638e-8,
+            -2.541346475481987e-7,
+            -8.068309398368001e-8
+          ],
+          "spin": [
+            -0.0000016148422901096637,
+            -6.428939325342498e-11,
+            0.0000011709452110153507
+          ],
+          "status": "converged",
+          "modes": [
+            "sticking",
+            "sticking",
+            "sticking",
+            "sticking"
+          ],
+          "linearError": 2.5416001319851963e-7,
+          "angularError": 0.0000016148706210627813
+        },
+        {
+          "time": 2.5,
+          "phase": "hold",
+          "height": 0.049909602485847034,
+          "velocity": [
+            -8.171627996489406e-8,
+            -3.7206336855888367e-7,
+            -1.0362055036239326e-7
+          ],
+          "spin": [
+            -0.000002074771145998966,
+            6.38417305132144e-11,
+            0.0000016357673757738667
+          ],
+          "status": "converged",
+          "modes": [
+            "sticking",
+            "sticking",
+            "sticking",
+            "sticking"
+          ],
+          "linearError": 3.720887342166061e-7,
+          "angularError": 0.000002074799477234665
+        },
+        {
+          "time": 2.75,
+          "phase": "hold",
+          "height": 0.049909602485847034,
+          "velocity": [
+            -8.398637874051929e-8,
+            -3.855675458908081e-7,
+            -1.0473377187736332e-7
+          ],
+          "spin": [
+            -0.0000020963857423339505,
+            -1.344079292309175e-10,
+            0.0000016812280136946356
+          ],
+          "status": "converged",
+          "modes": [
+            "sticking",
+            "sticking",
+            "sticking",
+            "sticking"
+          ],
+          "linearError": 3.8559291158553797e-7,
+          "angularError": 0.000002096414073354804
+        },
+        {
+          "time": 3,
+          "phase": "lift",
+          "height": 0.05010119416589693,
+          "velocity": [
+            -8.154893293976784e-8,
+            0.043277546763420105,
+            -1.0352232493460178e-7
+          ],
+          "spin": [
+            -0.0000020756428966706153,
+            2.3273116767086321e-10,
+            0.0000016342507933586603
+          ],
+          "status": "converged",
+          "modes": [
+            "free",
+            "free",
+            "free",
+            "free"
+          ],
+          "linearError": 1.927291347347815e-9,
+          "angularError": 8.542428968369569e-10
+        },
+        {
+          "time": 3.25,
+          "phase": "fall",
+          "height": 0.2229969237076755,
+          "velocity": [
+            -8.154893293976784e-8,
+            1.2166109085083008,
+            -1.0352232493460178e-7
+          ],
+          "spin": [
+            -0.0000020761908672284335,
+            2.3663915271754377e-10,
+            0.000001634656882743002
+          ],
+          "status": "converged",
+          "modes": [],
+          "linearError": 1.7618815104092356e-7,
+          "angularError": 1.7280399038775043e-11
+        },
+        {
+          "time": 3.5,
+          "phase": "fall",
+          "height": 0.22005278208131746,
+          "velocity": [
+            -8.154893293976784e-8,
+            -1.235055685043335,
+            -1.0352232493460178e-7
+          ],
+          "spin": [
+            -0.0000020766976831509965,
+            2.3494806100643473e-10,
+            0.000001635067292227177
+          ],
+          "status": "converged",
+          "modes": [],
+          "linearError": 1.7618815104092356e-7,
+          "angularError": 1.7507772723382053e-11
+        },
+        {
+          "time": 3.75,
+          "phase": "fall",
+          "height": 0.04959908912686037,
+          "velocity": [
+            0.00019079074263572693,
+            0.0009049654472619295,
+            0.0002371373411733657
+          ],
+          "spin": [
+            0.004876749124377966,
+            6.794525830855491e-9,
+            -0.003923653159290552
+          ],
+          "status": "converged",
+          "modes": [
+            "sticking",
+            "sticking",
+            "sticking",
+            "sticking"
+          ],
+          "linearError": 0.0009049654238330669,
+          "angularError": 0.004876749178725534
+        }
+      ],
+      "observationSha256": "97494cf3a6d8fe7696f773e29bc59b29e7d922e5b2d5178bb4a47994daa38dd4"
+    },
+    {
+      "harness": "Node core stand",
+      "engine": "rapier-coordinate-coulomb",
+      "revision": "rapier/adapter-7/sha256:07af259dc277cac77daa9c95eaded0ed2bc8aeb5feac08bfd9e58d23e58feebd/coordinate-limits/point-friction",
+      "hz": 120,
+      "sense": 1,
+      "spin": 3,
+      "settings": {
+        "dt": 0.008333333333333333,
+        "friction": 0.5,
+        "iterations": 2048,
+        "impulseTolerance": 1e-10,
+        "velocityTolerance": 1e-7
+      },
+      "replay": true,
+      "phases": {
+        "drive": {
+          "steps": 120,
+          "rejected": 0,
+          "work": 12,
+          "linearError": 0.003169752459422262,
+          "angularError": 0.02012729968257576,
+          "normalViolation": 6.595080124377484e-11,
+          "impulseResidual": 1.0109682188619296e-12,
+          "acceptedNormalViolation": 6.595080124377484e-11,
+          "acceptedImpulseResidual": 1.0109682188619296e-12,
+          "modes": {
+            "free": 0,
+            "sticking": 0,
+            "sliding": 480
+          },
+          "final": {
+            "height": 0.04990950011516817,
+            "velocity": [
+              2.603649616241455,
+              -3.876630216836929e-8,
+              0.3759936988353729
+            ],
+            "spin": [
+              5.020778530706593e-7,
+              0.12295466661453247,
+              3.0128589401101635e-7
+            ]
+          }
+        },
+        "coast": {
+          "steps": 120,
+          "rejected": 0,
+          "work": 15,
+          "linearError": 0.0007218176607979368,
+          "angularError": 0.0010702351019494234,
+          "normalViolation": 5.66348799455052e-11,
+          "impulseResidual": 9.25232026410816e-12,
+          "acceptedNormalViolation": 5.66348799455052e-11,
+          "acceptedImpulseResidual": 9.25232026410816e-12,
+          "modes": {
+            "free": 0,
+            "sticking": 204,
+            "sliding": 276
+          },
+          "final": {
+            "height": 0.04990949518339951,
+            "velocity": [
+              6.51925802230835e-9,
+              3.096647560596466e-8,
+              -7.596099749207497e-9
+            ],
+            "spin": [
+              -1.5215283610814367e-7,
+              -2.5886907201178033e-11,
+              -1.3065800885669887e-7
+            ]
+          }
+        },
+        "hold": {
+          "steps": 120,
+          "rejected": 0,
+          "work": 12,
+          "linearError": 0.000007058970931424676,
+          "angularError": 0.000027905323961383816,
+          "normalViolation": 2.00160031778307e-11,
+          "impulseResidual": 1.65013315511775e-12,
+          "acceptedNormalViolation": 2.00160031778307e-11,
+          "acceptedImpulseResidual": 1.65013315511775e-12,
+          "modes": {
+            "free": 0,
+            "sticking": 480,
+            "sliding": 0
+          },
+          "final": {
+            "height": 0.04990949134727946,
+            "velocity": [
+              1.0644725989550352e-8,
+              4.598405212163925e-8,
+              -1.4842953532934189e-8
+            ],
+            "spin": [
+              -2.972602999307128e-7,
+              6.162553106703328e-12,
+              -2.1297634589245718e-7
+            ]
+          }
+        },
+        "lift": {
+          "steps": 30,
+          "rejected": 0,
+          "work": 1,
+          "linearError": 1.7618815104786245e-7,
+          "angularError": 1.3878320714821065e-9,
+          "normalViolation": 0,
+          "impulseResidual": 0,
+          "acceptedNormalViolation": 0,
+          "acceptedImpulseResidual": 0,
+          "modes": {
+            "free": 24,
+            "sticking": 0,
+            "sliding": 0
+          },
+          "final": {
+            "height": 0.2125395203699731,
+            "velocity": [
+              1.0593794286251068e-8,
+              1.2983336448669434,
+              -1.4872057363390923e-8
+            ],
+            "spin": [
+              -2.959678511160746e-7,
+              4.938272013532696e-13,
+              -2.1189242715990986e-7
+            ]
+          }
+        },
+        "fall": {
+          "steps": 90,
+          "rejected": 0,
+          "work": 14,
+          "linearError": 0.006929815750094992,
+          "angularError": 0.03936830907100519,
+          "normalViolation": 4.5552642500813375e-11,
+          "impulseResidual": 3.5656340489626496e-12,
+          "acceptedNormalViolation": 4.5552642500813375e-11,
+          "acceptedImpulseResidual": 3.5656340489626496e-12,
+          "modes": {
+            "free": 0,
+            "sticking": 188,
+            "sliding": 0
+          },
+          "final": {
+            "height": 0.04990139441290386,
+            "velocity": [
+              0.000005476293154060841,
+              0.000026542460545897484,
+              -0.000006515852874144912
+            ],
+            "spin": [
+              -0.0001339857408311218,
+              8.683389562946786e-10,
+              -0.00011260587052674964
+            ]
+          }
+        }
+      },
+      "failures": [],
+      "samples": [
+        {
+          "time": 0,
+          "phase": "drive",
+          "height": 0.04990961961621103,
+          "velocity": [
+            0.054533686488866806,
+            -0.0000037956051528453827,
+            0.00029937142971903086
+          ],
+          "spin": [
+            0.000002135267095582094,
+            2.2668044567108154,
+            -0.000020583214791258797
+          ],
+          "status": "converged",
+          "modes": [
+            "sliding",
+            "sliding",
+            "sliding",
+            "sliding"
+          ],
+          "linearError": 0.0030829007183948015,
+          "angularError": 0.004671638909904241
+        },
+        {
+          "time": 0.25,
+          "phase": "drive",
+          "height": 0.0499095008107643,
+          "velocity": [
+            0.761422872543335,
+            -4.0617305785417557e-7,
+            0.08102525770664215
+          ],
+          "spin": [
+            0.000001992568513742299,
+            0.14145968854427338,
+            0.0000019805945612461073
+          ],
+          "status": "converged",
+          "modes": [
+            "sliding",
+            "sliding",
+            "sliding",
+            "sliding"
+          ],
+          "linearError": 0.00011715139929015673,
+          "angularError": 0.0002040017730024794
+        },
+        {
+          "time": 0.5,
+          "phase": "drive",
+          "height": 0.049909508680043214,
+          "velocity": [
+            1.3845305442810059,
+            -1.9301660358905792e-7,
+            0.17141149938106537
+          ],
+          "spin": [
+            0.000001381809170197812,
+            0.08860452473163605,
+            0.0000010865211379496031
+          ],
+          "status": "converged",
+          "modes": [
+            "sliding",
+            "sliding",
+            "sliding",
+            "sliding"
+          ],
+          "linearError": 0.00009694957508142891,
+          "angularError": 0.0000071382460407479
+        },
+        {
+          "time": 0.75,
+          "phase": "drive",
+          "height": 0.049909495363852314,
+          "velocity": [
+            2.0054354667663574,
+            6.51925802230835e-8,
+            0.2703550159931183
+          ],
+          "spin": [
+            6.216782111323482e-8,
+            0.09869936108589172,
+            -2.268427579110721e-7
+          ],
+          "status": "converged",
+          "modes": [
+            "sliding",
+            "sliding",
+            "sliding",
+            "sliding"
+          ],
+          "linearError": 0.00009515607925789094,
+          "angularError": 0.000013707134524829057
+        },
+        {
+          "time": 1,
+          "phase": "coast",
+          "height": 0.04990949575333709,
+          "velocity": [
+            2.565892457962036,
+            -2.7939677238464355e-9,
+            0.3798190653324127
+          ],
+          "spin": [
+            0.0000010920924751189887,
+            0.1239352822303772,
+            1.3044513025306514e-8
+          ],
+          "status": "converged",
+          "modes": [
+            "sliding",
+            "sliding",
+            "sliding",
+            "sliding"
+          ],
+          "linearError": 0.00009765742875026675,
+          "angularError": 0.000022325539464267
+        },
+        {
+          "time": 1.25,
+          "phase": "coast",
+          "height": 0.04990949812364034,
+          "velocity": [
+            1.419121503829956,
+            5.578622221946716e-7,
+            0.4588775932788849
+          ],
+          "spin": [
+            0.0000026229899958707392,
+            0.14329387247562408,
+            -0.0000021387115793913836
+          ],
+          "status": "converged",
+          "modes": [
+            "sliding",
+            "sliding",
+            "sliding",
+            "sliding"
+          ],
+          "linearError": 0.000041812230064294776,
+          "angularError": 0.000010659649723146426
+        },
+        {
+          "time": 1.5,
+          "phase": "coast",
+          "height": 0.0499094971698671,
+          "velocity": [
+            0.26095816493034363,
+            0.0000046532368287444115,
+            0.2204779088497162
+          ],
+          "spin": [
+            0.0000014146202147458098,
+            0.06620322912931442,
+            -0.000011698373782564886
+          ],
+          "status": "converged",
+          "modes": [
+            "sliding",
+            "sliding",
+            "sliding",
+            "sliding"
+          ],
+          "linearError": 0.0007218176607979368,
+          "angularError": 0.0003996618439961151
+        },
+        {
+          "time": 1.75,
+          "phase": "coast",
+          "height": 0.04990949518339951,
+          "velocity": [
+            4.621688276529312e-8,
+            8.335337042808533e-8,
+            -1.249791239388287e-7
+          ],
+          "spin": [
+            -0.000002507383442207356,
+            9.228797170912628e-10,
+            -9.26657833133504e-7
+          ],
+          "status": "converged",
+          "modes": [
+            "sticking",
+            "sticking",
+            "sticking",
+            "sticking"
+          ],
+          "linearError": 1.2497299572635164e-7,
+          "angularError": 0.0000025073113510588966
+        },
+        {
+          "time": 2,
+          "phase": "hold",
+          "height": 0.04990949134727946,
+          "velocity": [
+            -0.0000013940807548351586,
+            -0.000007058959454298019,
+            0.0000013916214811615646
+          ],
+          "spin": [
+            0.00002786103868857026,
+            -1.1046480397070013e-9,
+            0.00002790534017549362
+          ],
+          "status": "converged",
+          "modes": [
+            "sticking",
+            "sticking",
+            "sticking",
+            "sticking"
+          ],
+          "linearError": 0.000007058970931424676,
+          "angularError": 0.000027905323961383816
+        },
+        {
+          "time": 2.25,
+          "phase": "hold",
+          "height": 0.04990949134727946,
+          "velocity": [
+            -1.1314114090055227e-8,
+            -6.193295121192932e-8,
+            9.204086381942034e-9
+          ],
+          "spin": [
+            1.8629496878475038e-7,
+            -9.739201112246576e-11,
+            2.2750569428353629e-7
+          ],
+          "status": "converged",
+          "modes": [
+            "sticking",
+            "sticking",
+            "sticking",
+            "sticking"
+          ],
+          "linearError": 6.194442807953374e-8,
+          "angularError": 2.274894799791327e-7
+        },
+        {
+          "time": 2.5,
+          "phase": "hold",
+          "height": 0.04990949134727946,
+          "velocity": [
+            1.282751327380538e-8,
+            5.948822945356369e-8,
+            -1.590524334460497e-8
+          ],
+          "spin": [
+            -3.1805706157683744e-7,
+            -1.0769210523342565e-10,
+            -2.5723252861098445e-7
+          ],
+          "status": "converged",
+          "modes": [
+            "sticking",
+            "sticking",
+            "sticking",
+            "sticking"
+          ],
+          "linearError": 5.947675265627339e-8,
+          "angularError": 3.180264374529453e-7
+        },
+        {
+          "time": 2.75,
+          "phase": "hold",
+          "height": 0.04990949134727946,
+          "velocity": [
+            1.6189005691558123e-8,
+            7.764901965856552e-8,
+            -1.8342689145356417e-8
+          ],
+          "spin": [
+            -3.672794832709769e-7,
+            -1.0457260057883389e-12,
+            -3.2397286986451945e-7
+          ],
+          "status": "converged",
+          "modes": [
+            "sticking",
+            "sticking",
+            "sticking",
+            "sticking"
+          ],
+          "linearError": 7.76375428168663e-8,
+          "angularError": 3.6724885920690124e-7
+        },
+        {
+          "time": 3,
+          "phase": "lift",
+          "height": 0.050101090477909956,
+          "velocity": [
+            1.0593794286251068e-8,
+            0.04327796399593353,
+            -1.4872057363390923e-8
+          ],
+          "spin": [
+            -2.9587246785922616e-7,
+            7.105427357601002e-15,
+            -2.1182005127684533e-7
+          ],
+          "status": "converged",
+          "modes": [
+            "free",
+            "free",
+            "free",
+            "free"
+          ],
+          "linearError": 1.3452147382131407e-9,
+          "angularError": 1.3878320714821065e-9
+        },
+        {
+          "time": 3.25,
+          "phase": "fall",
+          "height": 0.22299715529581537,
+          "velocity": [
+            1.0593794286251068e-8,
+            1.216611385345459,
+            -1.4872057363390923e-8
+          ],
+          "spin": [
+            -2.9597126172120625e-7,
+            4.902744876744691e-13,
+            -2.1189485721606616e-7
+          ],
+          "status": "converged",
+          "modes": [],
+          "linearError": 1.7618815104092356e-7,
+          "angularError": 3.4106051347319574e-12
+        },
+        {
+          "time": 3.5,
+          "phase": "fall",
+          "height": 0.22005319248339167,
+          "velocity": [
+            1.0593794286251068e-8,
+            -1.2350552082061768,
+            -1.4872057363390923e-8
+          ],
+          "spin": [
+            -2.960727556455822e-7,
+            5.186961971048731e-13,
+            -2.1197021737862087e-7
+          ],
+          "status": "converged",
+          "modes": [],
+          "linearError": 1.7618815104092356e-7,
+          "angularError": 3.5811353913414744e-12
+        },
+        {
+          "time": 3.75,
+          "phase": "fall",
+          "height": 0.04959916906157024,
+          "velocity": [
+            0.00019104190869256854,
+            0.0009063335601240396,
+            -0.00023740777396596968
+          ],
+          "spin": [
+            -0.00488178851082921,
+            2.350103756043609e-8,
+            -0.00392828369513154
+          ],
+          "status": "converged",
+          "modes": [
+            "sticking",
+            "sticking",
+            "sticking",
+            "sticking"
+          ],
+          "linearError": 0.0009063335365428879,
+          "angularError": 0.004881788438400054
+        }
+      ],
+      "observationSha256": "2cc1d2933963ad5bee62fa644e6dd531354dda1ec219693509c68e382b2d80e8"
+    }
+  ]
+}

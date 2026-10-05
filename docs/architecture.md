@@ -512,6 +512,11 @@ patch, opposing-slip and projected per-point predictions without applying them t
 Optional `rapier-coulomb` and `rapier-coordinate-coulomb` profiles expose native per-point friction
 with reference or corrected limits; snapshots reject crossing these settings. No general
 sliding controller is selected.
+`build/contact-step.ts` adds a diagnostic [per-point impulse predictor](reference/contact-step.md).
+It uses coupled mobility, unilateral normal impulses and projected tangent impulses, with a
+finite budget and independent residual checks. A loaded slab slides, sticks and unloads under
+known forces; fine-step landing remains unvalidated. It does not yet optimize actuator commands
+or replace the reference tracker's contact model.
 Optional [contact redistribution](reference/contact-distribution.md) searches point-force
 distributions that preserve each contacted body's wrench; the measured task configurations
 keep this experimental option disabled.

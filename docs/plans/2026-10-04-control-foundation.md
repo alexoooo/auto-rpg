@@ -269,6 +269,11 @@ identified profiles. Both patch and projected per-point sustained-sliding predic
 mechanical checks; neither is a general mode selector. Select and validate
 the matching sliding/sticking predictor before repeating the installed-pose hold. Multibody
 comparisons must name this distinction because native multibody contacts already use Coulomb.
+The [local contact-step predictor](../reference/contact-step.md) now validates sliding, stopping,
+holding and unloading on a loaded slab, including initial spin and exact replay. Its finite
+solve rejects uncertified candidates; fine-step landing remains unvalidated. Next add coupled
+support/stop fixtures and combine contact variables with bounded actuator objectives before
+repeating the installed all-fours hold. This diagnostic forward model is not yet in the tracker.
 
 The [upright support task](../reference/support-transition.md) now transfers load, lifts either
 foot, verifies placement contact and regains two-foot support on all three bodies in the

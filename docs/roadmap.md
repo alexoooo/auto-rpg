@@ -75,6 +75,9 @@ sliding and choices among multiple supports remain unresolved.
 The [friction-law comparison](reference/contact-friction.md) identifies patch versus per-point
 solver behavior and validates sustained-sliding predictions for each. Explicit per-point engine
 profiles are experimental; contact-mode selection and the installed-pose hold remain gates.
+The [local impulse predictor](reference/contact-step.md) passes slab sliding/sticking/unloading
+checks with exact replay, but fine-step landing remains unvalidated. It still needs coupled
+support/stop validation and integration with the bounded actuator solve.
 The [posture audit](reference/posture-limit-models.md) accounts for corrected limit directions.
 Its three development witnesses remain statically feasible, but their engine holds fail the
 displacement gate. Recovery needs demonstrated entry, holding and transfer between supports.
