@@ -184,7 +184,7 @@ export interface ContactManifold {
   readonly theirs: number;
   /** Unit normal from this body into the other. */
   readonly normal: Vec3;
-  /** Solver points in world space, with signed gap: positive is separated/predicted contact. */
+  /** Solver points and signed anchor gaps at current body poses; positive is separated/predicted contact. */
   readonly points: readonly { readonly point: Vec3; readonly distance: number }[];
   /** Sum of manifold normal impulses as stored by the narrow phase, not substep-integrated work. */
   readonly impulse: number;
@@ -192,6 +192,8 @@ export interface ContactManifold {
 
 /** Something fixed in the world: the ground, a wall. */
 export interface FixedCollider {
+  /** Stable within this world and its snapshots; the same identity appears in contact readings. */
+  readonly id: number;
   /** Take it out of the world; nothing once the world is disposed. */
   dispose(): void;
 }

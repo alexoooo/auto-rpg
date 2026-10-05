@@ -23,6 +23,7 @@ export default defineConfig({
     // Every page is named here: Vite's default is `index.html` alone, so another page works in dev,
     // where every request is served from source, and is absent from `dist`.
     // `physics-bench.html` is the physics bake-off (`research/physics-bakeoff/REPORT.md`).
-    rollupOptions: { input: { index: "index.html", characterLab: "character-lab.html", physicsBench: "physics-bench.html", controlFoundation: "control-foundation.html" } },
+    rollupOptions: { input: { index: "index.html", characterLab: "character-lab.html", physicsBench: "physics-bench.html",
+      controlFoundation: "control-foundation.html", controlTasks: "control-tasks.html" } },
   },
 });

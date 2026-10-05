@@ -27,6 +27,8 @@ export interface MotionCommand {
     readonly orientation?: RotationGoal;
   }[];
   readonly grips: readonly GripAction[];
+  /** Desired support is separate from contact: free frames may still physically touch. */
+  readonly supports?: readonly { readonly frame: MotionFrame; readonly mode: "auto" | "free" }[];
 }
 
 export interface MotionModel {
@@ -80,5 +82,12 @@ export function checkedMotionCommand(command: MotionCommand, model: MotionModel)
     }
     return { id: goal.id, frame: { ...goal.frame }, at: vector(goal.at), ...(translation ? { translation } : {}), ...(orientation ? { orientation } : {}) };
   });
-  return deepFreeze({ joints, frames: goals, grips: command.grips.map((g) => ({ ...g })) });
+  if (command.supports !== undefined && !Array.isArray(command.supports)) throw new Error("invalid support requests");
+  const requested = new Set<string>();
+  const supports = command.supports?.map((s) => {
+    const key = motionFrameKey(s.frame);
+    if (requested.has(key) || !model.frames.some((f) => motionFrameKey(f) === key) || (s.mode !== "auto" && s.mode !== "free")) throw new Error("invalid support request");
+    requested.add(key); return { frame: { ...s.frame }, mode: s.mode };
+  });
+  return deepFreeze({ joints, frames: goals, grips: command.grips.map((g) => ({ ...g })), ...(supports ? { supports } : {}) });
 }

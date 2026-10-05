@@ -2,25 +2,27 @@ import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { BuiltBody } from "../build/build-body.ts";
 import { coupledDynamics } from "../build/coupled-dynamics.ts";
 import { ratesToRef } from "../build/joint-state.ts";
-import type { SegmentBody } from "../engine/engine.ts";
+import type { PhysicsWorld, SegmentBody } from "../engine/engine.ts";
 import type { createEquipment } from "../equipment.ts";
 import { boundedLeastSquaresTo, boundedWork, linearWork, solveLinearTo } from "../math/flat.ts";
 import type { MuscleDriver } from "../muscle/driver.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { motionFrameKey, type MotionCommand } from "./tasks.ts";
+import { contactTracking, type ContactTrackingSettings } from "./contact-tracking.ts";
 
 interface TrackingSettings {
   readonly capacity: number;
   /** Regularization of normalized actuator effort; supplied by the experiment. */
   readonly effortCost: number;
+  readonly contact?: { readonly physics: PhysicsWorld; readonly settings: ContactTrackingSettings };
 }
 
 /**
  * Experimental weighted acceleration tracking through one bounded torque solve. Equipment
- * contributes its mass once and every captured grip constrains the prediction. Contact forces
- * and joint-stop reactions are not predicted; an obstructed objective remains a measured miss.
+ * contributes its mass once and every captured grip constrains the prediction. Optional measured
+ * sticking support checks unilateral/friction forces; joint-stop reactions are not predicted.
  * Fixed bodies are explicit fixture constraints, never external forces applied by this controller.
- * The coupled model uses its diagnostic allocation path; this is not the game's standing controller.
+ * The coupled model uses its diagnostic allocation path; this is not the game's default controller.
  */
 export function wholeBodyTracking(built: BuiltBody, muscles: MuscleDriver, gravity: Vec3,
   items: readonly ReturnType<typeof createEquipment>[], fixed: readonly SegmentBody[], settings: TrackingSettings) {
@@ -33,6 +35,7 @@ export function wholeBodyTracking(built: BuiltBody, muscles: MuscleDriver, gravi
     if (frames.has(key)) throw new Error("duplicate motion item");
     frames.set(key, item.body);
   }
+  const contacts = settings.contact ? contactTracking(settings.contact.physics, frames, count, settings.contact.settings) : null;
   const rowCapacity = count + 6 * capacity, A = new Float64Array(rowCapacity * count), target = new Float64Array(rowCapacity);
   const H = new Float64Array(count * count), rhs = new Float64Array(count), unconstrained = new Float64Array(count);
   const lower = new Float64Array(count), upper = new Float64Array(count), scaled = new Float64Array(count), scale = new Float64Array(count);
@@ -41,10 +44,12 @@ export function wholeBodyTracking(built: BuiltBody, muscles: MuscleDriver, gravi
   const position = new Vector3(), centre = new Vector3(), velocity = new Vector3(), spin = new Vector3(), lever = new Vector3();
   const inverse = new Quaternion(), error = new Quaternion(), goalTurn = new Quaternion();
   const channels = new Map(muscles.channels.map((c, i) => [c.name, i]));
-  const state = { steps: 0, residual: 0, saturated: 0,
+  const state = { steps: 0, residual: 0, saturated: 0, contact: contacts?.state ?? null,
     errors: [] as { id: string; position: number | null; orientation: number | null }[] };
   return {
     state,
+    report() { return { steps: state.steps, residual: state.residual, saturated: state.saturated,
+      errors: state.errors.map((e) => ({ ...e })), contact: contacts?.report() ?? null }; },
     /** Validate capacity and names before a host applies any associated grip action. */
     check(command: MotionCommand): void {
       if (command.frames.length > capacity || command.joints.length > count
@@ -52,14 +57,17 @@ export function wholeBodyTracking(built: BuiltBody, muscles: MuscleDriver, gravi
         || command.joints.some((g) => !channels.has(g.channel))) throw new Error("motion objectives exceed this controller's model or capacity");
     },
     track(command: MotionCommand): Float64Array {
-      dynamics.update();
+      const supportRows = contacts?.read(command) ?? [];
+      dynamics.update(supportRows);
       const base = dynamics.solve(zero), columns: number[][] = [];
+      if (supportRows.length) contacts!.base(dynamics.reactionMultipliers(zero));
       for (let i = 0; i < count; i++) {
         scale[i] = Math.max(muscles.strength(i, -1), muscles.strength(i, 1)) || 1;
         lower[i] = -muscles.strength(i, -1) / scale[i]!;
         upper[i] = muscles.strength(i, 1) / scale[i]!;
         unit[i] = 1;
         columns.push(dynamics.solve(unit).map((v, k) => v - base[k]!));
+        if (supportRows.length) contacts!.column(i, dynamics.reactionMultipliers(unit));
         unit[i] = 0;
       }
       let rows = 0;
@@ -121,12 +129,15 @@ export function wholeBodyTracking(built: BuiltBody, muscles: MuscleDriver, gravi
       }
       solveLinearTo(linear, H, rhs, count, unconstrained);
       boundedLeastSquaresTo(bounded, H, unconstrained, lower, upper, count, scaled);
+      contacts?.solve(H, rhs, scale, lower, upper, scaled);
       state.residual = 0; state.saturated = 0;
       for (let i = 0; i < count; i++) {
         scaled[i] = Math.max(lower[i]!, Math.min(upper[i]!, scaled[i]!));
         torque[i] = scaled[i]! * scale[i]!;
         if (scaled[i] === lower[i] || scaled[i] === upper[i]) state.saturated++;
       }
+      contacts?.verify(dynamics, torque);
+      if (contacts?.state.status === "rejected") { scaled.fill(0); state.saturated = 0; }
       for (let r = 0; r < rows; r++) {
         let miss = -target[r]!;
         for (let i = 0; i < count; i++) miss += A[r * count + i]! * scaled[i]!;

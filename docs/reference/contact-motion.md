@@ -60,6 +60,25 @@ fixed floor. These are synthetic fixture numbers, not anatomy. After one gravity
 A separate gravity-free capsule 0.01 m above the floor reports positive gaps and zero impulse.
 Filtering, reader exceptions and mutation of a returned array cannot change the physical world.
 
+## Current-pose separation
+
+The pinned native solver stores `SolverContact.dist` at the last full narrow-phase update.
+Contact recycling and substeps reconstruct live separation from body-local anchors instead.
+The upstream `solverContactDist` binding reads that cached field. Pairing it with a current-pose
+`solverContactPoint` therefore mixed two different times in the adapter's manifold record.
+
+The vendored `solverContactSeparation` binding reconstructs both surface anchors with
+`solver_contact_world_points`, including contact skins and world-attached sides, and returns
+`(point2 - point1) dot normal`. The adapter reads that API. This is the solver's current anchor
+separation along its normal, not a fresh closest-surface query. It changes no forces or state.
+
+In the Node core-engine fixture at 120 Hz, a sphere of radius 0.05 m starts with 0.01 m clearance.
+After the first gravity step the old binding reports 0.0099999979 m, while current geometric
+clearance is 0.0096382134 m. The regression requires agreement within 2e-6 m through settling
+and a later 0.1 N s upward impulse; a retained separated contact must report lift-off. The test
+fails on the cached reading. This corrects the model port, not the staged recovery controller,
+which does not yet consume it.
+
 The staged riser still builds predicted hand/shin supports from its existing geometric rules.
 The new manifold/model port is ready for the shared contact controller; it does not by itself
 correct its shin/foot load path, support transitions or the flat-hand stall. Those remain open

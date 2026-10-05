@@ -226,6 +226,7 @@ were reported. [Manifest and physical rows](control-foundation-reach.json); sour
 | Skeleton | layered | 179 | `a38550ae9268b35035953e7b9c6b0c7fd6d09d85ed23aa5bde0f626acd884c18` |
 
 This is a reproducibility and replaceability check, not a ranking of controllers. The skeleton
-still has placeholder anatomy. Held-out starts remain unused; recovery, standing shared equipment
-and integrated gameplay gates remain open. The separate pinned bar suite tests anatomical shared
-load paths without claiming these standing capabilities.
+still has placeholder anatomy. Held-out starts remain unused; recovery and integrated gameplay
+gates remain open. The bar suite separates pinned and `--support standing` experiments;
+[standing shared equipment](standing-bar.md) records its development successes and the remaining
+return miss without claiming support transitions or recovery.

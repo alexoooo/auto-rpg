@@ -161,6 +161,9 @@ both torque and effort calculations. The engine exposes unaveraged contact manif
 motion rows preserve sliding/rolling/lift-off. [Contact motion](../reference/contact-motion.md)
 records the failing-before/passing-after invariant and mechanical geometry fixtures. The staged
 support model has not yet adopted them; flat-hand/shin recovery improvement remains unproven.
+The manifold port now reconstructs current-pose separation from native solver anchors; the
+upstream distance field is cached at the last full contact update. Settling and lift-off expose
+the difference. This read-only vendor extension preserves the physical solver.
 
 Independent policy bodies now receive granted equipment observations/models and can combine
 actuator commands with capture/release requests. Validation is atomic and replay includes the
@@ -193,23 +196,47 @@ The [coupled acceleration model](../reference/coupled-dynamics.md) extends the f
 with separate item mass, gyroscopic bias and closed grip constraints. Mechanical force/torque
 responses survive either release; a moving loop matches engine acceleration and retains six
 free motions. Common-point attachment rows fix spurious constraints from solver anchor gaps.
-This supplies a diagnostic model for chunk 5; contact-force selection and bounded whole-body
-tracking, including the recovery support correction, remain to be implemented and measured.
+This supplies a diagnostic model for chunk 5; general contact-mode selection and the recovery
+support correction remain to be implemented and measured.
+The model now accepts explicit motion rows and reports their equivalent reaction loads, with
+redundancy and release checks. This lets a controller inspect tensile or excessive-friction
+predictions; choosing admissible contact modes remains open.
 
 `math/quadratic.ts` supplies a deterministic constrained-quadratic component for that combined
 solve, with explicit warm-start state, fixed iteration budgets and residual reports. Analytic
 KKT, coupled-bound and replay checks are recorded in [quadratic tasks](../reference/quadratic-tasks.md).
 It is optional controller machinery, not a new policy requirement; contact selection has not yet
 adopted it.
+`math/active-quadratic.ts` adds a bounded-work, cold-start dual active-set alternative, adapted
+from the pinned MIT quadprog kernel within the exact arithmetic boundary. It shares input
+validation with ADMM and independently checks KKT residuals. The reference controller's contact
+formulation can select it without changing the policy/action contract.
 
 The [motion-objective and pinned bar fixtures](../reference/motion-tracking.md) provide joint,
 point and optional orientation trajectories with one owner of bounded actuator commands. They
 track two independent items and capture/move/swing a shared item into an obstacle before either
 grip release. Capture geometry, model state, impact and release replay exactly. The common bar
-runner measures these pinned anatomical load paths; the integrated standing rows remain open.
-The initial tracker uses a weighted bounded solve and the allocating coupled model. Ground-force
-selection, joint-stop prediction, hot-path optimization and standing/recovery integration remain
-required. Failed contact-QP prototypes are not the game controller.
+runner measures pinned and standing anatomical load paths separately. The
+[standing fixture](../reference/standing-bar.md) uses measured sticking contacts, unilateral and
+friction constraints, and bounded muscle torques without a pelvis pin or assistance. Desired
+support never changes physical collision. Rejected solves are explicit zero-torque failures.
+An optional [contact force redistribution](../reference/contact-distribution.md) removes
+artificial tension while preserving each contacted body's wrench. Its isolated force-allocation
+and save/restore tests pass; it is not enabled in the measured reference tasks and does not
+establish a recovery improvement.
+General support transitions, joint-stop prediction, hot-path optimization and recovery/combat
+integration remain required. The allocating experimental tracker is not the game's default.
+
+The [upright support task](../reference/support-transition.md) now transfers load, lifts either
+foot, verifies placement contact and regains two-foot support on all three bodies in the
+zero-offset regression. Readiness is measured, policy state replays, and the task checks another
+second of control. This is a shallow empty-handed task; loaded transitions, stepping, recovery,
+joint-stop-aware planning and the integrated gameplay gates remain open. The bar fixture's
+position-only return now uses measured readiness within the existing deadline and tolerance.
+The built `/control-tasks.html` viewer runs those same builders and draws separate equipment
+through release. [Twelve browser cells](../reference/control-tasks-browser.md) match Node's
+observation hashes and replay their policy/task state. This closes the visual/replay checks for
+these controlled demonstrations, not the recovery or opponent-combat gates.
 
 ### 0. Define the common task battery and baseline
 

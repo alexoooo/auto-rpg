@@ -29,7 +29,7 @@ import { turnAboutToRef } from "../math/turn.ts";
 type Rapier = typeof RAPIER;
 
 /** Vendor archive identity (`docs/reference/rapier-vendor.md`) and the adapter's snapshot contract. */
-const REVISION = "rapier/adapter-4/sha256:31ca414ad12dff1d55d8c0ad7a954238d62043d5041e34c03bb95d3b83ac4d3d";
+const REVISION = "rapier/adapter-5/sha256:58ff3f5e80911ceefd46ff7d03fb77858d54d6c0062fb3c44229fb7b045e8676";
 
 /**
  * Rapier's wasm, loading or loaded: one instance a realm. Rapier's own `init` asked again while
@@ -250,7 +250,7 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
   const fixed = (desc: RAPIER.ColliderDesc): FixedCollider => {
     const handle = raw.createCollider(contact(desc)).handle;
     let gone = false;
-    return { dispose() { if (gone || freed) return; gone = true; raw.removeCollider(raw.getCollider(handle), false); } };
+    return { id: handle, dispose() { if (gone || freed) return; gone = true; raw.removeCollider(raw.getCollider(handle), false); } };
   };
   /** Every body's node, from its body. */
   const writeNodes = () => {
@@ -517,7 +517,7 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
               const points: { point: Vec3; distance: number }[] = [];
               for (let k = 0; k < manifold.numSolverContacts(); k++) {
                 const p = manifold.solverContactPoint(k)!;
-                points.push({ point: [p.x, p.y, p.z], distance: manifold.solverContactDist(k) });
+                points.push({ point: [p.x, p.y, p.z], distance: manifold.solverContactSeparation(k) });
               }
               if (!points.length) return;
               const n = manifold.normal(), sign = flipped ? -1 : 1;

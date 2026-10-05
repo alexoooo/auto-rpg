@@ -431,9 +431,14 @@ and recomputes attachment rank after release. [Mechanical checks](reference/cons
 cover both grips and either release. The game damage path retains the existing tree model.
 `build/coupled-dynamics.ts` extends floating-tree acceleration dynamics with independent item
 coordinates, active grips and item gyroscopic loads. It accepts explicit external wrenches and
-fixed-body constraints, reports constraint rank/residual, and changes no physical state.
+fixed-body constraints and explicit motion rows, reports constraint rank/residual and equivalent
+reaction loads, and changes no physical state. Contact-force signs and friction admissibility
+remain the controller's responsibility; redundant rows return one possible load distribution.
 The allocating diagnostic model serves the experimental equipment tracker; the game's reference
 fighter retains its existing per-step solve.
+Optional constrained quadratic components include ADMM and a cold-start dual active-set solver.
+They share input validation and report residuals and work exhaustion explicitly. Their choice
+belongs to a controller, independently of the physical observation/action interface.
 Separate equipment can explicitly request moving-body CCD at construction. The default is
 unchanged; [collision probes](reference/collision-ccd.md) exercise linear and rotational sweeps
 against a thin moving defense. The pinned engine's automatic fixed-collider CCD is distinct. Joint and active-grip exclusions
@@ -444,8 +449,9 @@ separate items also enable discrete filtering for release clearance.
 `human/equipment.ts` places initial separate equipment in the same anatomical frame as
 compound holdings. It attaches only the initial hand; subsequent grips require physical reach.
 
-The engine also exposes unaveraged contact manifolds for model/diagnostic use. Signed gaps and
-normal-motion rows distinguish predicted contact, penetration, sliding and separation. The bearing
+The engine also exposes unaveraged contact manifolds for model/diagnostic use. Signed gaps are
+reconstructed from current body poses and solver anchors, rather than the narrow phase's cached
+distance. Normal-motion rows distinguish predicted contact, penetration, sliding and separation. The bearing
 controller carries ground wrenches from the patch's force reference independently of the point
 whose motion it tracks. [Contact motion](reference/contact-motion.md) records the invariant and
 geometry checks; the staged riser's predicted support model still needs replacement.
@@ -462,11 +468,32 @@ reference fighter's equipment integration is still separate work.
 objectives with velocity and acceleration. Position alone adds no orientation constraint.
 `mind/motion.ts` validates a policy's full request before grip actions and supplies one owner of
 actuator output. Its optional `wholeBodyTracking` uses the coupled model and bounded weighted
-acceleration tracking, with explicit residual and observed-error reports. Contact and joint-stop
-reactions are not predicted. The [pinned fixtures](reference/motion-tracking.md) exercise independent
+acceleration tracking, with explicit residual and observed-error reports. Optional measured sticking
+contacts add unilateral and friction constraints through an active-set solve. Desired supports
+are separate from measured contacts; a free support request changes no collider. Rejected solves
+produce zero torque. Joint-stop reactions and sliding contacts are not predicted.
+Optional [contact redistribution](reference/contact-distribution.md) searches point-force
+distributions that preserve each contacted body's wrench; the measured task configurations
+keep this experimental option disabled.
+The [pinned fixtures](reference/motion-tracking.md) exercise independent
 items and a shared bar through capture, motion, obstacle contact and either release. They use no
-assist and replay through the body's ordinary saved state. This tracker is not the standing or
-recovery controller, and its allocating model path still needs optimization before game adoption.
+assist and replay through the body's ordinary saved state. The [standing shared-bar fixture](reference/standing-bar.md)
+adds ordinary ground and an unpinned pelvis. Support transitions and recovery remain experimental,
+and the allocating model path still needs optimization before game adoption.
+
+`control/support-transition.ts` is an optional upright reference policy over those motion
+objectives. It waits for measured unloading, foot flight, positive placement contact and a
+return to two-foot support. `tasks/support.ts` scores that sequence and continued standing
+independently of the policy, on either foot and all three bodies. It uses detached observations;
+its phase and readiness history save with the body. The [support record](reference/support-transition.md)
+declares its shallow horizontal-floor workspace and empty-handed scope. It does not recover
+from a fall or replace the game's locomotion and recovery controllers.
+
+`/control-tasks.html` (`src/control-foundation/tasks.ts`) exposes the same support and bar
+builders as the Node runner, with step, play, snapshot and replay controls. Separate items are
+drawn on their own physical nodes with `drawEquipment`; capture and release do not recreate
+their visuals. [Browser parity](reference/control-tasks-browser.md) checks both tasks on all
+three bodies and either side against the Node observation hashes.
 
 ## Research environments
 

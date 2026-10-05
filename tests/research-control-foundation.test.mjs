@@ -82,6 +82,27 @@ test("the common bar runner measures each release separately and replays its loa
   assert.deepEqual(summarizeFoundation(rows).cells.map((c) => [c.success.successes, c.success.count]), [[1, 1], [1, 1]]);
 });
 
+test("standing bar trials have separate denominators and enforce physical support gates", async () => {
+  const options = { suite: "bar", models: ["workshop-fighter"], samples: 1, actuation: "directional" };
+  const jobs = foundationJobs({ ...options, support: "standing" });
+  assert.throws(() => foundationJobs({ ...options, support: "unknown" }), /support/);
+  assert.ok(jobs.every((j, i) => j.support === "standing" && j.id !== foundationJobs(options)[i].id));
+  const rows = await runFoundation(jobs, { workers: 2 });
+  assert.ok(rows.every((r) => r.result.outcome.success && !r.result.outcome.fell && r.result.outcome.rejectedSteps === 0));
+  assert.ok(rows.every((r) => r.result.configuration.pin === null && r.result.outcome.replayExact));
+  const summary = summarizeFoundation([...rows, ...rows.map((r) => ({ ...r, job: { ...r.job, support: "pinned" } }))]);
+  assert.equal(summary.cells.length, 4);
+  assert.ok(summary.cells.every((c) => c.success.count === 1));
+});
+
+test("the common runner preserves side-specific support outcomes and replay", async () => {
+  const jobs = foundationJobs({ suite: "support", models: ["crypt-skeleton"], samples: 1, actuation: "directional" });
+  assert.deepEqual(jobs.map((j) => j.side), ["left", "right"]);
+  const rows = await runFoundation(jobs, { workers: 2 });
+  assert.ok(rows.every((r) => r.result.outcome.success && r.result.outcome.replayExact));
+  assert.deepEqual(summarizeFoundation(rows).cells.map((c) => [c.success.successes, c.success.count]), [[1, 1], [1, 1]]);
+});
+
 test("guard differences compare the same side and start and recovery excludes shoves held", () => {
   const outcome = (damage) => ({ seconds: 10, sides: [{ headDamage: damage, damage: damage + 1, fallen: false }, { headDamage: 8, damage: 9, fallen: true }] });
   const job = { model: "workshop-fighter", held: "club", seed: 4, hz: 120, task: "bout" };

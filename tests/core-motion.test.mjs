@@ -77,6 +77,11 @@ test("invalid motion requests cannot release a grip before validation finishes",
     assert.throws(() => f.stand.step(), /invalid motion vector/);
     assert.equal(f.items[0].observe().grips[0].attached, true);
     assert.deepEqual(f.stand.world.physics.save(), before);
+    f.setCommand({ ...command, supports: [{ frame: { kind: "segment", name: "unknown" }, mode: "free" }],
+      grips: [{ item: "left", grip: "left", attached: false }] });
+    assert.throws(() => f.stand.step(), /invalid support request/);
+    assert.equal(f.items[0].observe().grips[0].attached, true);
+    assert.deepEqual(f.stand.world.physics.save(), before);
     const twice = { ...command, frames: [command.frames[0], { ...command.frames[0], id: "another-point", at: [0, 0.2, 0] }] };
     assert.equal(checkedMotionCommand(twice, f.description).frames.length, 2, "multiple objectives may address the same frame");
   } finally { f.dispose(); }

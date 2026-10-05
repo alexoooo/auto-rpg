@@ -31,6 +31,7 @@ works in dev and is absent from `dist`.
   Each screen is a `<template>` mounted once per page load; changing screen is a navigation.
 - `/character-lab.html`: the character workshop viewer.
 - `/control-foundation.html`: shared pinned-reach task and environment replay (`src/control-foundation/`, `src/core/tasks/`).
+- `/control-tasks.html`: shared support-transition and two-hand bar tasks, with playback and replay (`src/control-foundation/tasks.ts`).
 - `/physics-bench.html`: the physics bake-off's cases on MuJoCo and Rapier (`src/physics-bench/`,
   `research/physics-bakeoff/`).
 

@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Physical control tasks · Auto-RPG</title>
+  <style>
+    :root { color-scheme: dark; font: 15px/1.5 system-ui, sans-serif; background: #121a20; color: #e6e9e7; }
+    body { margin: 0; } main { max-width: 1120px; margin: auto; padding: 24px; }
+    a { color: #b7d5dd; } h1 { margin: 12px 0 4px; font-size: 26px; } p { color: #b3c0c6; }
+    .controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; margin: 18px 0; }
+    label { display: grid; gap: 4px; font-size: 13px; color: #b3c0c6; }
+    button, select, input { font: inherit; background: #24323c; color: #eef2f1; border: 1px solid #51616b; border-radius: 5px; padding: 8px 12px; }
+    button { cursor: pointer; } button:hover { border-color: #dfa562; } button:disabled { opacity: .45; cursor: default; }
+    input { width: 90px; } canvas { width: 100%; height: 470px; display: block; border: 1px solid #36434c; border-radius: 8px; touch-action: none; }
+    .readings { display: flex; flex-wrap: wrap; gap: 28px; margin: 20px 0; }
+    dt { color: #b3c0c6; font-size: 13px; } dd { margin: 4px 0 0; font-size: 19px; font-variant-numeric: tabular-nums; }
+    #status { color: #edb56e; } output, pre { overflow-wrap: anywhere; white-space: pre-wrap; font-size: 12px; }
+    details { padding: 14px; background: #1a252d; border-radius: 6px; margin-top: 12px; } summary { cursor: pointer; }
+    @media (max-width: 600px) { main { padding: 16px; } canvas { height: 340px; } .readings { gap: 16px; } }
+  </style>
+</head>
+<body><main>
+  <nav><a href="/?play=lab">Lab</a> · <a href="/control-foundation.html">Controller replacement / reach</a></nav>
+  <h1>Physical control tasks</h1>
+  <p id="description">Measured support transitions and shared equipment, on the same body and physics.</p>
+  <div class="controls">
+    <label>Task<select id="task"><option value="support">Transfer foot support</option><option value="bar">Shared two-hand bar</option></select></label>
+    <label>Body<select id="model"><option value="workshop-fighter">Warrior</option><option value="workshop-rogue">Rogue</option><option value="crypt-skeleton">Skeleton</option></select></label>
+    <label><span id="side-label">Moving foot</span><select id="side"><option value="left">Left</option><option value="right">Right</option></select></label>
+    <label>Support<select id="support"><option value="standing">Ordinary ground</option><option value="pinned">Pinned pelvis</option></select></label>
+    <label>Development seed<input id="seed" type="number" min="0" max="999999" step="1" value="0"></label>
+  </div>
+  <div class="controls">
+    <button id="reset">Reset</button><button id="play">Play</button><button id="step">Step</button><button id="run">Run trial</button>
+    <button id="save">Save state</button><button id="load" disabled>Restore state</button><button id="verify">Verify replay</button>
+  </div>
+  <canvas id="view" aria-label="Physical control experiment"></canvas>
+  <dl class="readings">
+    <div><dt>Status</dt><dd id="status" role="status">Loading</dd></div>
+    <div><dt>Physics steps</dt><dd id="steps">0</dd></div>
+    <div><dt>Phase</dt><dd id="phase">—</dd></div>
+    <div><dt>Return error</dt><dd id="error">—</dd></div>
+    <div><dt>Rejected solves</dt><dd id="rejected">0</dd></div>
+  </dl>
+  <output id="verification" aria-live="polite"></output>
+  <details><summary>Task settings and results</summary><pre id="result"></pre></details>
+  <p>120 Hz, directional muscle limits, no root or weapon assistance. These are controlled experiments, not recovery or opponent combat. The skeleton has placeholder anatomy. Play shows real-time motion; Run trial and Verify replay advance the same fixed-step task.</p>
+</main><script type="module" src="/src/control-foundation/tasks.ts"></script></body>
+</html>

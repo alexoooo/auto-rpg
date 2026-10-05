@@ -154,3 +154,55 @@ test("a moving closed loop carries centripetal and gyroscopic acceleration throu
     assert.ok(Math.max(...residuals) < 0.02, `relative-motion error leaves acceleration residual ${Math.max(...residuals)}`);
   } finally { fixture.dispose(); }
 });
+
+test("constraint reactions reproduce the constrained acceleration as loads on the free model", async () => {
+  const fixture = await mechanicalFixture(120), { s, left, right, item } = fixture;
+  try {
+    const model = coupledDynamics(s.built, [0, -9.80665, 0], [item]);
+    const free = coupledDynamics(s.built, [0, -9.80665, 0], [{ body: item.body, motionConstraints: () => [] }]);
+    const rows = [left, right].flatMap((body) => xyz.map((axis) => [{ body, point: body.node.position.asArray(), linear: axis, angular: zero }]));
+    const torque = [0.4, -0.3, 0.2], loads = [{ body: item.body, point: [0.1, 1.4, 0.2], force: [4, 8, 10], moment: [0.1, 0.2, 0.3] }];
+    for (const release of [null, "left", "right"]) {
+      if (release) item.release(release);
+      model.update(rows); free.update();
+      const prediction = model.solve(torque, loads), reactions = model.reactions(torque, loads);
+      const equivalent = free.solve(torque, loads.concat(reactions.flatMap((r) => r.loads)));
+      prediction.forEach((v, i) => close(equivalent[i], v, 1e-8 * (1 + Math.abs(v)), `reaction ${release}/${i}`));
+      assert.ok(reactions.every((r) => Number.isFinite(r.multiplier)));
+      assert.equal(reactions.length, model.report(prediction).constraints);
+      const saved = model.reactions(torque, loads);
+      reactions[0].loads[0].force[0] = 999;
+      assert.deepEqual(model.reactions(torque, loads), saved, "returned loads are detached");
+    }
+  } finally { fixture.dispose(); }
+});
+
+test("normal-only support rows preserve tangential motion, expose tension and disappear on update", async () => {
+  const s = await coreStand(mechanicalSpec(), { ground: false });
+  try {
+    const bodies = [...s.built.segments.values()].map((seg) => seg.body), at = (b) => {
+      const p = new Vector3(...b.massProperties.centre);
+      return p.applyRotationQuaternionToRef(b.node.rotationQuaternion, p).addInPlace(b.node.position).asArray();
+    };
+    const model = coupledDynamics(s.built, s.world.physics.gravity);
+    const rows = bodies.map((body) => [{ body, point: at(body), linear: [0, 1, 0], angular: zero }]);
+    model.update(rows);
+    const prediction = model.solve(zero), reactions = model.reactions(zero);
+    for (const body of bodies) close(model.pointAcceleration(body, at(body), prediction).linear[1], 0, 1e-10, "normal support");
+    close(reactions.reduce((sum, r) => sum + r.loads[0].force[1], 0), 2 * 9.80665, 1e-9, "weight borne");
+    assert.ok(reactions.every((r) => r.multiplier > 0));
+    const pushed = model.solve(zero, bodies.map((body) => ({ body, point: at(body), force: [1, 0, 0], moment: zero })));
+    for (const body of bodies) close(model.pointAcceleration(body, at(body), pushed).linear[0], 1, 1e-9, "unwelded sliding");
+    const lifted = model.reactions(zero, bodies.map((body) => ({ body, point: at(body), force: [0, 20, 0], moment: zero })));
+    assert.ok(lifted.every((r) => r.multiplier < 0), "maintaining this assumed contact would require tension");
+    model.update([...rows, ...rows]);
+    const duplicate = model.reactions(zero);
+    close(duplicate.reduce((sum, r) => sum + r.loads[0].force[1], 0), 2 * 9.80665, 1e-9, "redundancy does not duplicate load");
+    const read = model.solve(zero);
+    rows[0][0].point[0] = 999;
+    assert.deepEqual(model.solve(zero), read, "an update freezes supplied geometry");
+    model.update();
+    assert.deepEqual(model.reactions(zero), []);
+    for (const body of bodies) close(model.pointAcceleration(body, at(body), model.solve(zero)).linear[1], -9.80665, 1e-9, "removed supports free-fall");
+  } finally { s.dispose(); }
+});

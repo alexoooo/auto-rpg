@@ -1,0 +1,133 @@
+{
+  "harness": "Chrome, visible built /control-tasks.html; Node/core world reference",
+  "hz": 120,
+  "actuation": "directional",
+  "support": "standing",
+  "checkpointSteps": 240,
+  "rows": [
+    {
+      "task": "support",
+      "model": "workshop-fighter",
+      "side": "left",
+      "seed": 0,
+      "steps": 1022,
+      "digest": "7a3b43fc37d4e3f4c85cb6059c2cf88f9b2dbcb67642a4cec82711779605c8eb",
+      "replay": true,
+      "nodeMatches": true
+    },
+    {
+      "task": "bar",
+      "model": "workshop-fighter",
+      "side": "left",
+      "seed": 0,
+      "steps": 1001,
+      "digest": "17354560691b3098fc48db9cf1a46a0fc095060d8347afc7d2af4835b6562c0e",
+      "replay": true,
+      "nodeMatches": true
+    },
+    {
+      "task": "support",
+      "model": "workshop-fighter",
+      "side": "right",
+      "seed": 0,
+      "steps": 1020,
+      "digest": "42d12efbbe9a298aeb644fc61e71086b6cf9bc027c53326ba9389669e9bb1442",
+      "replay": true,
+      "nodeMatches": true
+    },
+    {
+      "task": "support",
+      "model": "workshop-rogue",
+      "side": "left",
+      "seed": 0,
+      "steps": 976,
+      "digest": "a523fcf4c1fe104a4ded93ecfc19b23f74f04f129384b22625e8edfa618bc089",
+      "replay": true,
+      "nodeMatches": true
+    },
+    {
+      "task": "support",
+      "model": "workshop-rogue",
+      "side": "right",
+      "seed": 0,
+      "steps": 960,
+      "digest": "3f3197d7d183eb4daebf5461bd6ccaa20eefaa1aa27804203da41bdfb79fecb5",
+      "replay": true,
+      "nodeMatches": true
+    },
+    {
+      "task": "support",
+      "model": "crypt-skeleton",
+      "side": "left",
+      "seed": 0,
+      "steps": 893,
+      "digest": "abee173f2322354d82a3fd0a2d591375ca5c6717c10502f1a79e9824167c7527",
+      "replay": true,
+      "nodeMatches": true
+    },
+    {
+      "task": "support",
+      "model": "crypt-skeleton",
+      "side": "right",
+      "seed": 0,
+      "steps": 907,
+      "digest": "18a00b4268ccc180405fe138b97191c10c977daa20fafe947afa79740193d289",
+      "replay": true,
+      "nodeMatches": true
+    },
+    {
+      "task": "bar",
+      "model": "workshop-fighter",
+      "side": "right",
+      "seed": 0,
+      "steps": 1001,
+      "digest": "13a30870be1603881ed67a5ae3a7204756cd713a40e908a58bb79a43e7b7f9fc",
+      "replay": true,
+      "nodeMatches": true
+    },
+    {
+      "task": "bar",
+      "model": "workshop-rogue",
+      "side": "left",
+      "seed": 0,
+      "steps": 996,
+      "digest": "bbe1db4b678205ec24842a256fe3c4df5c1c03c1086c1171b369432a1d984897",
+      "replay": true,
+      "nodeMatches": true
+    },
+    {
+      "task": "bar",
+      "model": "workshop-rogue",
+      "side": "right",
+      "seed": 0,
+      "steps": 996,
+      "digest": "f62e0b0e6206009373a88285bf9f99a8525c9a38811e230d981dd7d3214e896b",
+      "replay": true,
+      "nodeMatches": true
+    },
+    {
+      "task": "bar",
+      "model": "crypt-skeleton",
+      "side": "left",
+      "seed": 0,
+      "steps": 1016,
+      "digest": "a706d27c83b6bd2e610aace87027b983b131b643624afc89364ef4dd414d1f56",
+      "replay": true,
+      "nodeMatches": true
+    },
+    {
+      "task": "bar",
+      "model": "crypt-skeleton",
+      "side": "right",
+      "seed": 0,
+      "steps": 1016,
+      "digest": "84f1c506e2446f8745b76514413419cf32be635b8a90ca7ddbf89807687f35b0",
+      "replay": true,
+      "nodeMatches": true
+    }
+  ],
+  "source": {
+    "viewerSha256": "3c77df3d96d71b578d8dcd1e648256ad765069913799ae55ee9a79d0774d0e15",
+    "nodeSourceContent": "434cc1412c2918736a5b257ac4e5f8ac9537109b36fbc1240ff837b8787beb73"
+  }
+}

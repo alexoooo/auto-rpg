@@ -1,0 +1,2099 @@
+{
+  "manifest": {
+    "protocol": 2,
+    "started": "2026-10-05T00:14:00.568Z",
+    "options": {
+      "suite": "support",
+      "split": "development",
+      "samples": 2,
+      "from": 0,
+      "hz": 120,
+      "actuation": "directional",
+      "support": "pinned"
+    },
+    "workers": 1,
+    "harness": "Node, core world, per-task arena/stand fixtures",
+    "node": "v24.19.0",
+    "engine": "rapier",
+    "package": {
+      "version": "0.21.0-auto-rpg.4",
+      "resolved": "file:vendor/rapier/dimforge-rapier3d-simd-compat-0.21.0-auto-rpg.4.tgz",
+      "integrity": "sha512-o9Iu7zbEz0zkvAfkhlXi3jeX0fLL1B+iRTjY9zA0cd+gX90cqsqhq2gRTJERKMnen2M602iG9ctCKfMaQ0MxcQ==",
+      "entrySha256": "b606f739d3b53c5e774308dc4c566d83616951e08063e81a18a8d798f9c64762"
+    },
+    "source": {
+      "git": "f40e1a1fb2046cb1efeeb4412f0cde75525c720c",
+      "content": "434cc1412c2918736a5b257ac4e5f8ac9537109b36fbc1240ff837b8787beb73",
+      "archive": "source.json.gz",
+      "archiveSha256": "1f57fc9f2ed7f68888228adbc49dc5b95ff94f83e52050a4ba19d578c052da42"
+    },
+    "sensing": "detached body/item observations, coupled dynamics and measured fixed contacts",
+    "action": "whole-body motion objectives and granted grip requests; bounded muscle torques",
+    "policyPeriodSteps": 1,
+    "assists": {
+      "rootBalancePercent": 0,
+      "weapon": false
+    },
+    "unavailable": [
+      "integrated recovery/combat",
+      "moving isolated targets",
+      "actuator work",
+      "contact penetration"
+    ],
+    "jobs": [
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "workshop-fighter",
+        "held": "empty",
+        "task": "support",
+        "seed": 0,
+        "side": "left",
+        "liftOffset": 0.000472135947085917,
+        "watchSeconds": 12,
+        "checkpointSeconds": 2,
+        "sampleHz": 120,
+        "returnTolerance": 0.01,
+        "id": "0eb71ab2111a1b2d72c1ce786ef34fcdcc2a0416b7435f725f96885b870dcd66"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "workshop-fighter",
+        "held": "empty",
+        "task": "support",
+        "seed": 0,
+        "side": "right",
+        "liftOffset": 0.000472135947085917,
+        "watchSeconds": 12,
+        "checkpointSeconds": 2,
+        "sampleHz": 120,
+        "returnTolerance": 0.01,
+        "id": "febe7c0dc204215989ae7fa04072f8bf98ee43c0b4c324e9c161fa1f1df56f2e"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "workshop-fighter",
+        "held": "empty",
+        "task": "support",
+        "seed": 1,
+        "side": "left",
+        "liftOffset": -0.001055728105828166,
+        "watchSeconds": 12,
+        "checkpointSeconds": 2,
+        "sampleHz": 120,
+        "returnTolerance": 0.01,
+        "id": "d97a6f88666b0e53cffdc3c7ab2ab51e1e23c809e6017ba40e7c1a7d9be22f54"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "workshop-fighter",
+        "held": "empty",
+        "task": "support",
+        "seed": 1,
+        "side": "right",
+        "liftOffset": -0.001055728105828166,
+        "watchSeconds": 12,
+        "checkpointSeconds": 2,
+        "sampleHz": 120,
+        "returnTolerance": 0.01,
+        "id": "588befe7669a6ec8d16abea5da7d87df49ff9411efcb6cb05f7f99eeef69943c"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "workshop-rogue",
+        "held": "empty",
+        "task": "support",
+        "seed": 0,
+        "side": "left",
+        "liftOffset": 0.000472135947085917,
+        "watchSeconds": 12,
+        "checkpointSeconds": 2,
+        "sampleHz": 120,
+        "returnTolerance": 0.01,
+        "id": "84c729790722eec21ea65fecf7eb9e297b119dd1ea7803a1ce2641a7c8e5b7db"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "workshop-rogue",
+        "held": "empty",
+        "task": "support",
+        "seed": 0,
+        "side": "right",
+        "liftOffset": 0.000472135947085917,
+        "watchSeconds": 12,
+        "checkpointSeconds": 2,
+        "sampleHz": 120,
+        "returnTolerance": 0.01,
+        "id": "df40a2a73e89c67decf629803238c6ef2d0e49d2217430e0d6a18f2efe28d3d1"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "workshop-rogue",
+        "held": "empty",
+        "task": "support",
+        "seed": 1,
+        "side": "left",
+        "liftOffset": -0.001055728105828166,
+        "watchSeconds": 12,
+        "checkpointSeconds": 2,
+        "sampleHz": 120,
+        "returnTolerance": 0.01,
+        "id": "6fe2fd2bb941e56c30ed9dd246dcc81eb8c70042ea2ad0174ebbca25c37ecef2"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "workshop-rogue",
+        "held": "empty",
+        "task": "support",
+        "seed": 1,
+        "side": "right",
+        "liftOffset": -0.001055728105828166,
+        "watchSeconds": 12,
+        "checkpointSeconds": 2,
+        "sampleHz": 120,
+        "returnTolerance": 0.01,
+        "id": "34ae4af36e8cddecc6504e2b1c880e6d72bbe36dcab9ee5862f220e5949789ea"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "crypt-skeleton",
+        "held": "empty",
+        "task": "support",
+        "seed": 0,
+        "side": "left",
+        "liftOffset": 0.000472135947085917,
+        "watchSeconds": 12,
+        "checkpointSeconds": 2,
+        "sampleHz": 120,
+        "returnTolerance": 0.01,
+        "id": "2c4ac113bdfde8baca09ddb9f7ac21e31a7c98c182cd7913dc8a62ffff11b89a"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "crypt-skeleton",
+        "held": "empty",
+        "task": "support",
+        "seed": 0,
+        "side": "right",
+        "liftOffset": 0.000472135947085917,
+        "watchSeconds": 12,
+        "checkpointSeconds": 2,
+        "sampleHz": 120,
+        "returnTolerance": 0.01,
+        "id": "af1b9499ef08191c930d28f9e35e42077be40638611a8c9be51a6c8c5a5a59e8"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "crypt-skeleton",
+        "held": "empty",
+        "task": "support",
+        "seed": 1,
+        "side": "left",
+        "liftOffset": -0.001055728105828166,
+        "watchSeconds": 12,
+        "checkpointSeconds": 2,
+        "sampleHz": 120,
+        "returnTolerance": 0.01,
+        "id": "cd69aff2b584ddc6a70b2b487e27b8981657285ed175467c156dea9cd918f41b"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "crypt-skeleton",
+        "held": "empty",
+        "task": "support",
+        "seed": 1,
+        "side": "right",
+        "liftOffset": -0.001055728105828166,
+        "watchSeconds": 12,
+        "checkpointSeconds": 2,
+        "sampleHz": 120,
+        "returnTolerance": 0.01,
+        "id": "ac8769a304ad8e31b5670df4796de6d05a6a25dbd9b0b6b181e15af15cfa9600"
+      }
+    ]
+  },
+  "summary": {
+    "cells": [
+      {
+        "cell": "directional/support/workshop-fighter/empty/////left",
+        "trials": 2,
+        "measured": 2,
+        "unsupported": 0,
+        "success": {
+          "successes": 2,
+          "count": 2,
+          "rate": 1,
+          "interval95": [
+            0.34238022750665303,
+            1
+          ]
+        }
+      },
+      {
+        "cell": "directional/support/workshop-fighter/empty/////right",
+        "trials": 2,
+        "measured": 2,
+        "unsupported": 0,
+        "success": {
+          "successes": 2,
+          "count": 2,
+          "rate": 1,
+          "interval95": [
+            0.34238022750665303,
+            1
+          ]
+        }
+      },
+      {
+        "cell": "directional/support/workshop-rogue/empty/////left",
+        "trials": 2,
+        "measured": 2,
+        "unsupported": 0,
+        "success": {
+          "successes": 2,
+          "count": 2,
+          "rate": 1,
+          "interval95": [
+            0.34238022750665303,
+            1
+          ]
+        }
+      },
+      {
+        "cell": "directional/support/workshop-rogue/empty/////right",
+        "trials": 2,
+        "measured": 2,
+        "unsupported": 0,
+        "success": {
+          "successes": 2,
+          "count": 2,
+          "rate": 1,
+          "interval95": [
+            0.34238022750665303,
+            1
+          ]
+        }
+      },
+      {
+        "cell": "directional/support/crypt-skeleton/empty/////left",
+        "trials": 2,
+        "measured": 2,
+        "unsupported": 0,
+        "success": {
+          "successes": 2,
+          "count": 2,
+          "rate": 1,
+          "interval95": [
+            0.34238022750665303,
+            1
+          ]
+        }
+      },
+      {
+        "cell": "directional/support/crypt-skeleton/empty/////right",
+        "trials": 2,
+        "measured": 2,
+        "unsupported": 0,
+        "success": {
+          "successes": 2,
+          "count": 2,
+          "rate": 1,
+          "interval95": [
+            0.34238022750665303,
+            1
+          ]
+        }
+      }
+    ],
+    "pairedGuard": []
+  },
+  "rows": [
+    {
+      "job": {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "workshop-fighter",
+        "held": "empty",
+        "task": "support",
+        "seed": 0,
+        "side": "left",
+        "liftOffset": 0.000472135947085917,
+        "watchSeconds": 12,
+        "checkpointSeconds": 2,
+        "sampleHz": 120,
+        "returnTolerance": 0.01,
+        "id": "0eb71ab2111a1b2d72c1ce786ef34fcdcc2a0416b7435f725f96885b870dcd66"
+      },
+      "result": {
+        "status": "measured",
+        "configuration": {
+          "protocol": 1,
+          "split": "development",
+          "hz": 120,
+          "actuation": "directional",
+          "model": "workshop-fighter",
+          "held": "empty",
+          "task": "support-transition",
+          "seed": 0,
+          "side": "left",
+          "liftOffset": 0.000472135947085917,
+          "watchSeconds": 12,
+          "checkpointSeconds": 2,
+          "sampleHz": 120,
+          "returnTolerance": 0.01,
+          "id": "0eb71ab2111a1b2d72c1ce786ef34fcdcc2a0416b7435f725f96885b870dcd66",
+          "settings": {
+            "lower": 0.04,
+            "lift": 0.04,
+            "placementMargin": 0.002,
+            "centreGain": 0.7,
+            "seconds": 0.25,
+            "rootWeight": 1,
+            "pointWeight": 3,
+            "rotationWeight": 1,
+            "minimumTransfer": 1,
+            "centreTolerance": 0.01,
+            "unloadFraction": 0.05,
+            "speedTolerance": 0.03,
+            "liftTolerance": 0.008,
+            "placementTolerance": 0.004,
+            "rotationTolerance": 0.00001,
+            "holdSeconds": 0.25,
+            "knee": 0.6,
+            "jointSeconds": 0.3,
+            "legWeight": 0.02,
+            "otherWeight": 0.1,
+            "effortCost": 0.000001,
+            "continueSeconds": 1,
+            "capacity": 2,
+            "floor": {
+              "centre": [
+                0,
+                -0.5,
+                0
+              ],
+              "size": [
+                20,
+                1,
+                20
+              ]
+            },
+            "contact": {
+              "maxPoints": 64,
+              "gap": 0.005,
+              "minUpNormal": 0.9,
+              "forceTolerance": 0.00001,
+              "iterations": 2048,
+              "absoluteTolerance": 1e-7,
+              "relativeTolerance": 0.000001
+            }
+          },
+          "engineRevision": "rapier/adapter-5/sha256:58ff3f5e80911ceefd46ff7d03fb77858d54d6c0062fb3c44229fb7b045e8676",
+          "gravity": true,
+          "pin": null,
+          "assists": {
+            "root": 0,
+            "weapon": false
+          }
+        },
+        "outcome": {
+          "steps": 1022,
+          "fell": false,
+          "completedAt": 902,
+          "continuedSteps": 121,
+          "peakLift": 0.0369826821882435,
+          "flightSteps": 118,
+          "returnError": 0.005981587186426301,
+          "rejectedSteps": 0,
+          "peakTension": 6.79013956044737e-12,
+          "peakFrictionViolation": 9.695065874887053e-12,
+          "phase": "complete",
+          "transitions": [
+            {
+              "phase": "lift",
+              "time": 2.56666666666666,
+              "loadFraction": 0.03365720616238548
+            },
+            {
+              "phase": "place",
+              "time": 3.5916666666666566,
+              "loadFraction": 0
+            },
+            {
+              "phase": "recenter",
+              "time": 5.325000000000054,
+              "loadFraction": 0.00041940389653427395
+            },
+            {
+              "phase": "complete",
+              "time": 7.51666666666683,
+              "loadFraction": 0.4891312865563661
+            }
+          ],
+          "replayExact": true,
+          "digest": "7a3b43fc37d4e3f4c85cb6059c2cf88f9b2dbcb67642a4cec82711779605c8eb",
+          "stateDigest": "b76b7c1f159feeb2d26255a3c0aad95b0a46b635713567f7324370b518e3b579",
+          "success": true
+        },
+        "physical": {
+          "assistForceIntegralNs": 0,
+          "assistMomentIntegralNms": 0
+        },
+        "timing": {
+          "meanStepMs": 2.3365175191815983,
+          "p95StepMs": 3.2332000000001244,
+          "p99StepMs": 3.965599999999995
+        },
+        "limits": [
+          "initially standing and empty handed; not recovery or locomotion",
+          "horizontal fixed ground",
+          "joint-stop reactions are not predicted",
+          "allocating diagnostic dynamics path"
+        ]
+      }
+    },
+    {
+      "job": {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "workshop-fighter",
+        "held": "empty",
+        "task": "support",
+        "seed": 0,
+        "side": "right",
+        "liftOffset": 0.000472135947085917,
+        "watchSeconds": 12,
+        "checkpointSeconds": 2,
+        "sampleHz": 120,
+        "returnTolerance": 0.01,
+        "id": "febe7c0dc204215989ae7fa04072f8bf98ee43c0b4c324e9c161fa1f1df56f2e"
+      },
+      "result": {
+        "status": "measured",
+        "configuration": {
+          "protocol": 1,
+          "split": "development",
+          "hz": 120,
+          "actuation": "directional",
+          "model": "workshop-fighter",
+          "held": "empty",
+          "task": "support-transition",
+          "seed": 0,
+          "side": "right",
+          "liftOffset": 0.000472135947085917,
+          "watchSeconds": 12,
+          "checkpointSeconds": 2,
+          "sampleHz": 120,
+          "returnTolerance": 0.01,
+          "id": "febe7c0dc204215989ae7fa04072f8bf98ee43c0b4c324e9c161fa1f1df56f2e",
+          "settings": {
+            "lower": 0.04,
+            "lift": 0.04,
+            "placementMargin": 0.002,
+            "centreGain": 0.7,
+            "seconds": 0.25,
+            "rootWeight": 1,
+            "pointWeight": 3,
+            "rotationWeight": 1,
+            "minimumTransfer": 1,
+            "centreTolerance": 0.01,
+            "unloadFraction": 0.05,
+            "speedTolerance": 0.03,
+            "liftTolerance": 0.008,
+            "placementTolerance": 0.004,
+            "rotationTolerance": 0.00001,
+            "holdSeconds": 0.25,
+            "knee": 0.6,
+            "jointSeconds": 0.3,
+            "legWeight": 0.02,
+            "otherWeight": 0.1,
+            "effortCost": 0.000001,
+            "continueSeconds": 1,
+            "capacity": 2,
+            "floor": {
+              "centre": [
+                0,
+                -0.5,
+                0
+              ],
+              "size": [
+                20,
+                1,
+                20
+              ]
+            },
+            "contact": {
+              "maxPoints": 64,
+              "gap": 0.005,
+              "minUpNormal": 0.9,
+              "forceTolerance": 0.00001,
+              "iterations": 2048,
+              "absoluteTolerance": 1e-7,
+              "relativeTolerance": 0.000001
+            }
+          },
+          "engineRevision": "rapier/adapter-5/sha256:58ff3f5e80911ceefd46ff7d03fb77858d54d6c0062fb3c44229fb7b045e8676",
+          "gravity": true,
+          "pin": null,
+          "assists": {
+            "root": 0,
+            "weapon": false
+          }
+        },
+        "outcome": {
+          "steps": 1020,
+          "fell": false,
+          "completedAt": 900,
+          "continuedSteps": 121,
+          "peakLift": 0.03696858941504442,
+          "flightSteps": 118,
+          "returnError": 0.0060271238181813696,
+          "rejectedSteps": 0,
+          "peakTension": 5.3253990033918825e-12,
+          "peakFrictionViolation": 4.009901376850719e-12,
+          "phase": "complete",
+          "transitions": [
+            {
+              "phase": "lift",
+              "time": 2.59166666666666,
+              "loadFraction": 0.03740531768391519
+            },
+            {
+              "phase": "place",
+              "time": 3.608333333333323,
+              "loadFraction": 0
+            },
+            {
+              "phase": "recenter",
+              "time": 5.325000000000054,
+              "loadFraction": 0.0004951162235279326
+            },
+            {
+              "phase": "complete",
+              "time": 7.5000000000001625,
+              "loadFraction": 0.49042044425036163
+            }
+          ],
+          "replayExact": true,
+          "digest": "42d12efbbe9a298aeb644fc61e71086b6cf9bc027c53326ba9389669e9bb1442",
+          "stateDigest": "c02476f3136810d259562ce58d9f32dbf9fc0d5560ad2cd2a9f392b5d56f0d23",
+          "success": true
+        },
+        "physical": {
+          "assistForceIntegralNs": 0,
+          "assistMomentIntegralNms": 0
+        },
+        "timing": {
+          "meanStepMs": 3.140901025641008,
+          "p95StepMs": 3.852500000000873,
+          "p99StepMs": 4.915100000000166
+        },
+        "limits": [
+          "initially standing and empty handed; not recovery or locomotion",
+          "horizontal fixed ground",
+          "joint-stop reactions are not predicted",
+          "allocating diagnostic dynamics path"
+        ]
+      }
+    },
+    {
+      "job": {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "workshop-fighter",
+        "held": "empty",
+        "task": "support",
+        "seed": 1,
+        "side": "left",
+        "liftOffset": -0.001055728105828166,
+        "watchSeconds": 12,
+        "checkpointSeconds": 2,
+        "sampleHz": 120,
+        "returnTolerance": 0.01,
+        "id": "d97a6f88666b0e53cffdc3c7ab2ab51e1e23c809e6017ba40e7c1a7d9be22f54"
+      },
+      "result": {
+        "status": "measured",
+        "configuration": {
+          "protocol": 1,
+          "split": "development",
+          "hz": 120,
+          "actuation": "directional",
+          "model": "workshop-fighter",
+          "held": "empty",
+          "task": "support-transition",
+          "seed": 1,
+          "side": "left",
+          "liftOffset": -0.001055728105828166,
+          "watchSeconds": 12,
+          "checkpointSeconds": 2,
+          "sampleHz": 120,
+          "returnTolerance": 0.01,
+          "id": "d97a6f88666b0e53cffdc3c7ab2ab51e1e23c809e6017ba40e7c1a7d9be22f54",
+          "settings": {
+            "lower": 0.04,
+            "lift": 0.04,
+            "placementMargin": 0.002,
+            "centreGain": 0.7,
+            "seconds": 0.25,
+            "rootWeight": 1,
+            "pointWeight": 3,
+            "rotationWeight": 1,
+            "minimumTransfer": 1,
+            "centreTolerance": 0.01,
+            "unloadFraction": 0.05,
+            "speedTolerance": 0.03,
+            "liftTolerance": 0.008,
+            "placementTolerance": 0.004,
+            "rotationTolerance": 0.00001,
+            "holdSeconds": 0.25,
+            "knee": 0.6,
+            "jointSeconds": 0.3,
+            "legWeight": 0.02,
+            "otherWeight": 0.1,
+            "effortCost": 0.000001,
+            "continueSeconds": 1,
+            "capacity": 2,
+            "floor": {
+              "centre": [
+                0,
+                -0.5,
+                0
+              ],
+              "size": [
+                20,
+                1,
+                20
+              ]
+            },
+            "contact": {
+              "maxPoints": 64,
+              "gap": 0.005,
+              "minUpNormal": 0.9,
+              "forceTolerance": 0.00001,
+              "iterations": 2048,
+              "absoluteTolerance": 1e-7,
+              "relativeTolerance": 0.000001
+            }
+          },
+          "engineRevision": "rapier/adapter-5/sha256:58ff3f5e80911ceefd46ff7d03fb77858d54d6c0062fb3c44229fb7b045e8676",
+          "gravity": true,
+          "pin": null,
+          "assists": {
+            "root": 0,
+            "weapon": false
+          }
+        },
+        "outcome": {
+          "steps": 1019,
+          "fell": false,
+          "completedAt": 899,
+          "continuedSteps": 121,
+          "peakLift": 0.03542308567950212,
+          "flightSteps": 117,
+          "returnError": 0.0059833397893223235,
+          "rejectedSteps": 0,
+          "peakTension": 3.843549335100414e-12,
+          "peakFrictionViolation": 6.350885787387435e-12,
+          "phase": "complete",
+          "transitions": [
+            {
+              "phase": "lift",
+              "time": 2.56666666666666,
+              "loadFraction": 0.03365720616238548
+            },
+            {
+              "phase": "place",
+              "time": 3.57499999999999,
+              "loadFraction": 0
+            },
+            {
+              "phase": "recenter",
+              "time": 5.300000000000053,
+              "loadFraction": 0.00036157916229426614
+            },
+            {
+              "phase": "complete",
+              "time": 7.491666666666829,
+              "loadFraction": 0.4890221425436114
+            }
+          ],
+          "replayExact": true,
+          "digest": "f1cc48007b57b80ee6bec8bf1d3ee78bf9cc1724bffb87edcf5bedc92539eff5",
+          "stateDigest": "5100618b5eb91010262c60919999e31a2fa40c92a1e98d9561f71d1c23aa2700",
+          "success": true
+        },
+        "physical": {
+          "assistForceIntegralNs": 0,
+          "assistMomentIntegralNms": 0
+        },
+        "timing": {
+          "meanStepMs": 3.115719383825414,
+          "p95StepMs": 3.903600000001461,
+          "p99StepMs": 4.809899999998379
+        },
+        "limits": [
+          "initially standing and empty handed; not recovery or locomotion",
+          "horizontal fixed ground",
+          "joint-stop reactions are not predicted",
+          "allocating diagnostic dynamics path"
+        ]
+      }
+    },
+    {
+      "job": {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "workshop-fighter",
+        "held": "empty",
+        "task": "support",
+        "seed": 1,
+        "side": "right",
+        "liftOffset": -0.001055728105828166,
+        "watchSeconds": 12,
+        "checkpointSeconds": 2,
+        "sampleHz": 120,
+        "returnTolerance": 0.01,
+        "id": "588befe7669a6ec8d16abea5da7d87df49ff9411efcb6cb05f7f99eeef69943c"
+      },
+      "result": {
+        "status": "measured",
+        "configuration": {
+          "protocol": 1,
+          "split": "development",
+          "hz": 120,
+          "actuation": "directional",
+          "model": "workshop-fighter",
+          "held": "empty",
+          "task": "support-transition",
+          "seed": 1,
+          "side": "right",
+          "liftOffset": -0.001055728105828166,
+          "watchSeconds": 12,
+          "checkpointSeconds": 2,
+          "sampleHz": 120,
+          "returnTolerance": 0.01,
+          "id": "588befe7669a6ec8d16abea5da7d87df49ff9411efcb6cb05f7f99eeef69943c",
+          "settings": {
+            "lower": 0.04,
+            "lift": 0.04,
+            "placementMargin": 0.002,
+            "centreGain": 0.7,
+            "seconds": 0.25,
+            "rootWeight": 1,
+            "pointWeight": 3,
+            "rotationWeight": 1,
+            "minimumTransfer": 1,
+            "centreTolerance": 0.01,
+            "unloadFraction": 0.05,
+            "speedTolerance": 0.03,
+            "liftTolerance": 0.008,
+            "placementTolerance": 0.004,
+            "rotationTolerance": 0.00001,
+            "holdSeconds": 0.25,
+            "knee": 0.6,
+            "jointSeconds": 0.3,
+            "legWeight": 0.02,
+            "otherWeight": 0.1,
+            "effortCost": 0.000001,
+            "continueSeconds": 1,
+            "capacity": 2,
+            "floor": {
+              "centre": [
+                0,
+                -0.5,
+                0
+              ],
+              "size": [
+                20,
+                1,
+                20
+              ]
+            },
+            "contact": {
+              "maxPoints": 64,
+              "gap": 0.005,
+              "minUpNormal": 0.9,
+              "forceTolerance": 0.00001,
+              "iterations": 2048,
+              "absoluteTolerance": 1e-7,
+              "relativeTolerance": 0.000001
+            }
+          },
+          "engineRevision": "rapier/adapter-5/sha256:58ff3f5e80911ceefd46ff7d03fb77858d54d6c0062fb3c44229fb7b045e8676",
+          "gravity": true,
+          "pin": null,
+          "assists": {
+            "root": 0,
+            "weapon": false
+          }
+        },
+        "outcome": {
+          "steps": 1017,
+          "fell": false,
+          "completedAt": 897,
+          "continuedSteps": 121,
+          "peakLift": 0.03540996520707094,
+          "flightSteps": 116,
+          "returnError": 0.006024626163828272,
+          "rejectedSteps": 0,
+          "peakTension": 9.373910394482146e-12,
+          "peakFrictionViolation": 8.454849842724453e-12,
+          "phase": "complete",
+          "transitions": [
+            {
+              "phase": "lift",
+              "time": 2.59166666666666,
+              "loadFraction": 0.03740531768391519
+            },
+            {
+              "phase": "place",
+              "time": 3.5916666666666566,
+              "loadFraction": 0
+            },
+            {
+              "phase": "recenter",
+              "time": 5.300000000000053,
+              "loadFraction": 0.00048205088252878354
+            },
+            {
+              "phase": "complete",
+              "time": 7.475000000000161,
+              "loadFraction": 0.4904689215581793
+            }
+          ],
+          "replayExact": true,
+          "digest": "46aedc9976cec13add589089ae2a61d98173af868fc81a9362cb37be2d486d6e",
+          "stateDigest": "2db5d13ac1dd22f6ca1c32a12f5ce68776e41daa65343c7deb7b928a247a2a2e",
+          "success": true
+        },
+        "physical": {
+          "assistForceIntegralNs": 0,
+          "assistMomentIntegralNms": 0
+        },
+        "timing": {
+          "meanStepMs": 3.1870037323037446,
+          "p95StepMs": 4.3192999999992026,
+          "p99StepMs": 5.383900000000722
+        },
+        "limits": [
+          "initially standing and empty handed; not recovery or locomotion",
+          "horizontal fixed ground",
+          "joint-stop reactions are not predicted",
+          "allocating diagnostic dynamics path"
+        ]
+      }
+    },
+    {
+      "job": {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "workshop-rogue",
+        "held": "empty",
+        "task": "support",
+        "seed": 0,
+        "side": "left",
+        "liftOffset": 0.000472135947085917,
+        "watchSeconds": 12,
+        "checkpointSeconds": 2,
+        "sampleHz": 120,
+        "returnTolerance": 0.01,
+        "id": "84c729790722eec21ea65fecf7eb9e297b119dd1ea7803a1ce2641a7c8e5b7db"
+      },
+      "result": {
+        "status": "measured",
+        "configuration": {
+          "protocol": 1,
+          "split": "development",
+          "hz": 120,
+          "actuation": "directional",
+          "model": "workshop-rogue",
+          "held": "empty",
+          "task": "support-transition",
+          "seed": 0,
+          "side": "left",
+          "liftOffset": 0.000472135947085917,
+          "watchSeconds": 12,
+          "checkpointSeconds": 2,
+          "sampleHz": 120,
+          "returnTolerance": 0.01,
+          "id": "84c729790722eec21ea65fecf7eb9e297b119dd1ea7803a1ce2641a7c8e5b7db",
+          "settings": {
+            "lower": 0.04,
+            "lift": 0.04,
+            "placementMargin": 0.002,
+            "centreGain": 0.7,
+            "seconds": 0.25,
+            "rootWeight": 1,
+            "pointWeight": 3,
+            "rotationWeight": 1,
+            "minimumTransfer": 1,
+            "centreTolerance": 0.01,
+            "unloadFraction": 0.05,
+            "speedTolerance": 0.03,
+            "liftTolerance": 0.008,
+            "placementTolerance": 0.004,
+            "rotationTolerance": 0.00001,
+            "holdSeconds": 0.25,
+            "knee": 0.6,
+            "jointSeconds": 0.3,
+            "legWeight": 0.02,
+            "otherWeight": 0.1,
+            "effortCost": 0.000001,
+            "continueSeconds": 1,
+            "capacity": 2,
+            "floor": {
+              "centre": [
+                0,
+                -0.5,
+                0
+              ],
+              "size": [
+                20,
+                1,
+                20
+              ]
+            },
+            "contact": {
+              "maxPoints": 64,
+              "gap": 0.005,
+              "minUpNormal": 0.9,
+              "forceTolerance": 0.00001,
+              "iterations": 2048,
+              "absoluteTolerance": 1e-7,
+              "relativeTolerance": 0.000001
+            }
+          },
+          "engineRevision": "rapier/adapter-5/sha256:58ff3f5e80911ceefd46ff7d03fb77858d54d6c0062fb3c44229fb7b045e8676",
+          "gravity": true,
+          "pin": null,
+          "assists": {
+            "root": 0,
+            "weapon": false
+          }
+        },
+        "outcome": {
+          "steps": 976,
+          "fell": false,
+          "completedAt": 856,
+          "continuedSteps": 121,
+          "peakLift": 0.03697439305499109,
+          "flightSteps": 118,
+          "returnError": 0.005547066056154456,
+          "rejectedSteps": 0,
+          "peakTension": 3.458695127297977e-12,
+          "peakFrictionViolation": 2.678999239863996e-12,
+          "phase": "complete",
+          "transitions": [
+            {
+              "phase": "lift",
+              "time": 2.366666666666661,
+              "loadFraction": 0.0408574224534363
+            },
+            {
+              "phase": "place",
+              "time": 3.383333333333324,
+              "loadFraction": 0
+            },
+            {
+              "phase": "recenter",
+              "time": 4.991666666666704,
+              "loadFraction": 0.0005406932244263155
+            },
+            {
+              "phase": "complete",
+              "time": 7.133333333333478,
+              "loadFraction": 0.4857683112381197
+            }
+          ],
+          "replayExact": true,
+          "digest": "a523fcf4c1fe104a4ded93ecfc19b23f74f04f129384b22625e8edfa618bc089",
+          "stateDigest": "2344e6e027759019ba79a8e11e71a0a1f64509df2d49257dad9db0a9a0447026",
+          "success": true
+        },
+        "physical": {
+          "assistForceIntegralNs": 0,
+          "assistMomentIntegralNms": 0
+        },
+        "timing": {
+          "meanStepMs": 3.200337635869598,
+          "p95StepMs": 4.167099999998754,
+          "p99StepMs": 5.5715000000018335
+        },
+        "limits": [
+          "initially standing and empty handed; not recovery or locomotion",
+          "horizontal fixed ground",
+          "joint-stop reactions are not predicted",
+          "allocating diagnostic dynamics path"
+        ]
+      }
+    },
+    {
+      "job": {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "workshop-rogue",
+        "held": "empty",
+        "task": "support",
+        "seed": 0,
+        "side": "right",
+        "liftOffset": 0.000472135947085917,
+        "watchSeconds": 12,
+        "checkpointSeconds": 2,
+        "sampleHz": 120,
+        "returnTolerance": 0.01,
+        "id": "df40a2a73e89c67decf629803238c6ef2d0e49d2217430e0d6a18f2efe28d3d1"
+      },
+      "result": {
+        "status": "measured",
+        "configuration": {
+          "protocol": 1,
+          "split": "development",
+          "hz": 120,
+          "actuation": "directional",
+          "model": "workshop-rogue",
+          "held": "empty",
+          "task": "support-transition",
+          "seed": 0,
+          "side": "right",
+          "liftOffset": 0.000472135947085917,
+          "watchSeconds": 12,
+          "checkpointSeconds": 2,
+          "sampleHz": 120,
+          "returnTolerance": 0.01,
+          "id": "df40a2a73e89c67decf629803238c6ef2d0e49d2217430e0d6a18f2efe28d3d1",
+          "settings": {
+            "lower": 0.04,
+            "lift": 0.04,
+            "placementMargin": 0.002,
+            "centreGain": 0.7,
+            "seconds": 0.25,
+            "rootWeight": 1,
+            "pointWeight": 3,
+            "rotationWeight": 1,
+            "minimumTransfer": 1,
+            "centreTolerance": 0.01,
+            "unloadFraction": 0.05,
+            "speedTolerance": 0.03,
+            "liftTolerance": 0.008,
+            "placementTolerance": 0.004,
+            "rotationTolerance": 0.00001,
+            "holdSeconds": 0.25,
+            "knee": 0.6,
+            "jointSeconds": 0.3,
+            "legWeight": 0.02,
+            "otherWeight": 0.1,
+            "effortCost": 0.000001,
+            "continueSeconds": 1,
+            "capacity": 2,
+            "floor": {
+              "centre": [
+                0,
+                -0.5,
+                0
+              ],
+              "size": [
+                20,
+                1,
+                20
+              ]
+            },
+            "contact": {
+              "maxPoints": 64,
+              "gap": 0.005,
+              "minUpNormal": 0.9,
+              "forceTolerance": 0.00001,
+              "iterations": 2048,
+              "absoluteTolerance": 1e-7,
+              "relativeTolerance": 0.000001
+            }
+          },
+          "engineRevision": "rapier/adapter-5/sha256:58ff3f5e80911ceefd46ff7d03fb77858d54d6c0062fb3c44229fb7b045e8676",
+          "gravity": true,
+          "pin": null,
+          "assists": {
+            "root": 0,
+            "weapon": false
+          }
+        },
+        "outcome": {
+          "steps": 960,
+          "fell": false,
+          "completedAt": 840,
+          "continuedSteps": 121,
+          "peakLift": 0.03702467702343973,
+          "flightSteps": 118,
+          "returnError": 0.005546839472892413,
+          "rejectedSteps": 0,
+          "peakTension": 1.3690528483263254e-12,
+          "peakFrictionViolation": 2.5859458705001754e-12,
+          "phase": "complete",
+          "transitions": [
+            {
+              "phase": "lift",
+              "time": 2.3749999999999942,
+              "loadFraction": 0.04278809167217594
+            },
+            {
+              "phase": "place",
+              "time": 3.3916666666666573,
+              "loadFraction": 0
+            },
+            {
+              "phase": "recenter",
+              "time": 4.8583333333333645,
+              "loadFraction": 0.000597369302421572
+            },
+            {
+              "phase": "complete",
+              "time": 7.000000000000138,
+              "loadFraction": 0.48762039825170395
+            }
+          ],
+          "replayExact": true,
+          "digest": "3f3197d7d183eb4daebf5461bd6ccaa20eefaa1aa27804203da41bdfb79fecb5",
+          "stateDigest": "067f19457203e3c7bf6a99dac17f9984c151902fe757d619c511fe1416d59018",
+          "success": true
+        },
+        "physical": {
+          "assistForceIntegralNs": 0,
+          "assistMomentIntegralNms": 0
+        },
+        "timing": {
+          "meanStepMs": 3.126469444444355,
+          "p95StepMs": 3.9013000000013562,
+          "p99StepMs": 4.712299999999232
+        },
+        "limits": [
+          "initially standing and empty handed; not recovery or locomotion",
+          "horizontal fixed ground",
+          "joint-stop reactions are not predicted",
+          "allocating diagnostic dynamics path"
+        ]
+      }
+    },
+    {
+      "job": {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "workshop-rogue",
+        "held": "empty",
+        "task": "support",
+        "seed": 1,
+        "side": "left",
+        "liftOffset": -0.001055728105828166,
+        "watchSeconds": 12,
+        "checkpointSeconds": 2,
+        "sampleHz": 120,
+        "returnTolerance": 0.01,
+        "id": "6fe2fd2bb941e56c30ed9dd246dcc81eb8c70042ea2ad0174ebbca25c37ecef2"
+      },
+      "result": {
+        "status": "measured",
+        "configuration": {
+          "protocol": 1,
+          "split": "development",
+          "hz": 120,
+          "actuation": "directional",
+          "model": "workshop-rogue",
+          "held": "empty",
+          "task": "support-transition",
+          "seed": 1,
+          "side": "left",
+          "liftOffset": -0.001055728105828166,
+          "watchSeconds": 12,
+          "checkpointSeconds": 2,
+          "sampleHz": 120,
+          "returnTolerance": 0.01,
+          "id": "6fe2fd2bb941e56c30ed9dd246dcc81eb8c70042ea2ad0174ebbca25c37ecef2",
+          "settings": {
+            "lower": 0.04,
+            "lift": 0.04,
+            "placementMargin": 0.002,
+            "centreGain": 0.7,
+            "seconds": 0.25,
+            "rootWeight": 1,
+            "pointWeight": 3,
+            "rotationWeight": 1,
+            "minimumTransfer": 1,
+            "centreTolerance": 0.01,
+            "unloadFraction": 0.05,
+            "speedTolerance": 0.03,
+            "liftTolerance": 0.008,
+            "placementTolerance": 0.004,
+            "rotationTolerance": 0.00001,
+            "holdSeconds": 0.25,
+            "knee": 0.6,
+            "jointSeconds": 0.3,
+            "legWeight": 0.02,
+            "otherWeight": 0.1,
+            "effortCost": 0.000001,
+            "continueSeconds": 1,
+            "capacity": 2,
+            "floor": {
+              "centre": [
+                0,
+                -0.5,
+                0
+              ],
+              "size": [
+                20,
+                1,
+                20
+              ]
+            },
+            "contact": {
+              "maxPoints": 64,
+              "gap": 0.005,
+              "minUpNormal": 0.9,
+              "forceTolerance": 0.00001,
+              "iterations": 2048,
+              "absoluteTolerance": 1e-7,
+              "relativeTolerance": 0.000001
+            }
+          },
+          "engineRevision": "rapier/adapter-5/sha256:58ff3f5e80911ceefd46ff7d03fb77858d54d6c0062fb3c44229fb7b045e8676",
+          "gravity": true,
+          "pin": null,
+          "assists": {
+            "root": 0,
+            "weapon": false
+          }
+        },
+        "outcome": {
+          "steps": 972,
+          "fell": false,
+          "completedAt": 852,
+          "continuedSteps": 121,
+          "peakLift": 0.03541283331826242,
+          "flightSteps": 116,
+          "returnError": 0.005546706837165106,
+          "rejectedSteps": 0,
+          "peakTension": 1.0106364436000582e-12,
+          "peakFrictionViolation": 5.0294410033447846e-12,
+          "phase": "complete",
+          "transitions": [
+            {
+              "phase": "lift",
+              "time": 2.366666666666661,
+              "loadFraction": 0.0408574224534363
+            },
+            {
+              "phase": "place",
+              "time": 3.3666666666666574,
+              "loadFraction": 0
+            },
+            {
+              "phase": "recenter",
+              "time": 4.9583333333333695,
+              "loadFraction": 0.0005355732070023053
+            },
+            {
+              "phase": "complete",
+              "time": 7.100000000000143,
+              "loadFraction": 0.48589304073300393
+            }
+          ],
+          "replayExact": true,
+          "digest": "9ef46884fa9994b4eef499a2a3e347323432f70ae61f71ab809e3c5d6cacfdb6",
+          "stateDigest": "a200ab46649aebfffc059169fe7cfc60c432df106fe3bdaeef9c63406340ef82",
+          "success": true
+        },
+        "physical": {
+          "assistForceIntegralNs": 0,
+          "assistMomentIntegralNms": 0
+        },
+        "timing": {
+          "meanStepMs": 3.105584153005658,
+          "p95StepMs": 3.8268000000025495,
+          "p99StepMs": 4.604299999999057
+        },
+        "limits": [
+          "initially standing and empty handed; not recovery or locomotion",
+          "horizontal fixed ground",
+          "joint-stop reactions are not predicted",
+          "allocating diagnostic dynamics path"
+        ]
+      }
+    },
+    {
+      "job": {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "workshop-rogue",
+        "held": "empty",
+        "task": "support",
+        "seed": 1,
+        "side": "right",
+        "liftOffset": -0.001055728105828166,
+        "watchSeconds": 12,
+        "checkpointSeconds": 2,
+        "sampleHz": 120,
+        "returnTolerance": 0.01,
+        "id": "34ae4af36e8cddecc6504e2b1c880e6d72bbe36dcab9ee5862f220e5949789ea"
+      },
+      "result": {
+        "status": "measured",
+        "configuration": {
+          "protocol": 1,
+          "split": "development",
+          "hz": 120,
+          "actuation": "directional",
+          "model": "workshop-rogue",
+          "held": "empty",
+          "task": "support-transition",
+          "seed": 1,
+          "side": "right",
+          "liftOffset": -0.001055728105828166,
+          "watchSeconds": 12,
+          "checkpointSeconds": 2,
+          "sampleHz": 120,
+          "returnTolerance": 0.01,
+          "id": "34ae4af36e8cddecc6504e2b1c880e6d72bbe36dcab9ee5862f220e5949789ea",
+          "settings": {
+            "lower": 0.04,
+            "lift": 0.04,
+            "placementMargin": 0.002,
+            "centreGain": 0.7,
+            "seconds": 0.25,
+            "rootWeight": 1,
+            "pointWeight": 3,
+            "rotationWeight": 1,
+            "minimumTransfer": 1,
+            "centreTolerance": 0.01,
+            "unloadFraction": 0.05,
+            "speedTolerance": 0.03,
+            "liftTolerance": 0.008,
+            "placementTolerance": 0.004,
+            "rotationTolerance": 0.00001,
+            "holdSeconds": 0.25,
+            "knee": 0.6,
+            "jointSeconds": 0.3,
+            "legWeight": 0.02,
+            "otherWeight": 0.1,
+            "effortCost": 0.000001,
+            "continueSeconds": 1,
+            "capacity": 2,
+            "floor": {
+              "centre": [
+                0,
+                -0.5,
+                0
+              ],
+              "size": [
+                20,
+                1,
+                20
+              ]
+            },
+            "contact": {
+              "maxPoints": 64,
+              "gap": 0.005,
+              "minUpNormal": 0.9,
+              "forceTolerance": 0.00001,
+              "iterations": 2048,
+              "absoluteTolerance": 1e-7,
+              "relativeTolerance": 0.000001
+            }
+          },
+          "engineRevision": "rapier/adapter-5/sha256:58ff3f5e80911ceefd46ff7d03fb77858d54d6c0062fb3c44229fb7b045e8676",
+          "gravity": true,
+          "pin": null,
+          "assists": {
+            "root": 0,
+            "weapon": false
+          }
+        },
+        "outcome": {
+          "steps": 964,
+          "fell": false,
+          "completedAt": 844,
+          "continuedSteps": 121,
+          "peakLift": 0.035463661179094635,
+          "flightSteps": 116,
+          "returnError": 0.005545260583014078,
+          "rejectedSteps": 0,
+          "peakTension": 4.7744509741920714e-12,
+          "peakFrictionViolation": 3.691870930562743e-12,
+          "phase": "complete",
+          "transitions": [
+            {
+              "phase": "lift",
+              "time": 2.3749999999999942,
+              "loadFraction": 0.04278809167217594
+            },
+            {
+              "phase": "place",
+              "time": 3.3749999999999907,
+              "loadFraction": 0
+            },
+            {
+              "phase": "recenter",
+              "time": 4.8916666666666995,
+              "loadFraction": 0.0006008872518676048
+            },
+            {
+              "phase": "complete",
+              "time": 7.033333333333473,
+              "loadFraction": 0.48750510354292254
+            }
+          ],
+          "replayExact": true,
+          "digest": "a5e215a3e67dd58d3ebf4d04534579961095488fc3b51c315b56f0be9206b9cc",
+          "stateDigest": "c798544a7a3e597a241b2ef324c59d595e155dc07c6f65fc9aef54f1821c5e79",
+          "success": true
+        },
+        "physical": {
+          "assistForceIntegralNs": 0,
+          "assistMomentIntegralNms": 0
+        },
+        "timing": {
+          "meanStepMs": 3.1228070441988396,
+          "p95StepMs": 3.844699999994191,
+          "p99StepMs": 5.236600000003818
+        },
+        "limits": [
+          "initially standing and empty handed; not recovery or locomotion",
+          "horizontal fixed ground",
+          "joint-stop reactions are not predicted",
+          "allocating diagnostic dynamics path"
+        ]
+      }
+    },
+    {
+      "job": {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "crypt-skeleton",
+        "held": "empty",
+        "task": "support",
+        "seed": 0,
+        "side": "left",
+        "liftOffset": 0.000472135947085917,
+        "watchSeconds": 12,
+        "checkpointSeconds": 2,
+        "sampleHz": 120,
+        "returnTolerance": 0.01,
+        "id": "2c4ac113bdfde8baca09ddb9f7ac21e31a7c98c182cd7913dc8a62ffff11b89a"
+      },
+      "result": {
+        "status": "measured",
+        "configuration": {
+          "protocol": 1,
+          "split": "development",
+          "hz": 120,
+          "actuation": "directional",
+          "model": "crypt-skeleton",
+          "held": "empty",
+          "task": "support-transition",
+          "seed": 0,
+          "side": "left",
+          "liftOffset": 0.000472135947085917,
+          "watchSeconds": 12,
+          "checkpointSeconds": 2,
+          "sampleHz": 120,
+          "returnTolerance": 0.01,
+          "id": "2c4ac113bdfde8baca09ddb9f7ac21e31a7c98c182cd7913dc8a62ffff11b89a",
+          "settings": {
+            "lower": 0.04,
+            "lift": 0.04,
+            "placementMargin": 0.002,
+            "centreGain": 0.7,
+            "seconds": 0.25,
+            "rootWeight": 1,
+            "pointWeight": 3,
+            "rotationWeight": 1,
+            "minimumTransfer": 1,
+            "centreTolerance": 0.01,
+            "unloadFraction": 0.05,
+            "speedTolerance": 0.03,
+            "liftTolerance": 0.008,
+            "placementTolerance": 0.004,
+            "rotationTolerance": 0.00001,
+            "holdSeconds": 0.25,
+            "knee": 0.6,
+            "jointSeconds": 0.3,
+            "legWeight": 0.02,
+            "otherWeight": 0.1,
+            "effortCost": 0.000001,
+            "continueSeconds": 1,
+            "capacity": 2,
+            "floor": {
+              "centre": [
+                0,
+                -0.5,
+                0
+              ],
+              "size": [
+                20,
+                1,
+                20
+              ]
+            },
+            "contact": {
+              "maxPoints": 64,
+              "gap": 0.005,
+              "minUpNormal": 0.9,
+              "forceTolerance": 0.00001,
+              "iterations": 2048,
+              "absoluteTolerance": 1e-7,
+              "relativeTolerance": 0.000001
+            }
+          },
+          "engineRevision": "rapier/adapter-5/sha256:58ff3f5e80911ceefd46ff7d03fb77858d54d6c0062fb3c44229fb7b045e8676",
+          "gravity": true,
+          "pin": null,
+          "assists": {
+            "root": 0,
+            "weapon": false
+          }
+        },
+        "outcome": {
+          "steps": 893,
+          "fell": false,
+          "completedAt": 773,
+          "continuedSteps": 121,
+          "peakLift": 0.0387598857283592,
+          "flightSteps": 115,
+          "returnError": 0.004718444665400305,
+          "rejectedSteps": 0,
+          "peakTension": 2.017257353062859e-12,
+          "peakFrictionViolation": 1.977591556061713e-12,
+          "phase": "complete",
+          "transitions": [
+            {
+              "phase": "lift",
+              "time": 2.258333333333328,
+              "loadFraction": 0.04595918581261282
+            },
+            {
+              "phase": "place",
+              "time": 3.2333333333333245,
+              "loadFraction": 0
+            },
+            {
+              "phase": "recenter",
+              "time": 4.650000000000021,
+              "loadFraction": 0.0004571199014020457
+            },
+            {
+              "phase": "complete",
+              "time": 6.441666666666777,
+              "loadFraction": 0.479092029091596
+            }
+          ],
+          "replayExact": true,
+          "digest": "abee173f2322354d82a3fd0a2d591375ca5c6717c10502f1a79e9824167c7527",
+          "stateDigest": "e75f2f1f116e4e1ab79f214db1400057c56e0ba49ad5806a6dd0205c47203d7a",
+          "success": true
+        },
+        "physical": {
+          "assistForceIntegralNs": 0,
+          "assistMomentIntegralNms": 0
+        },
+        "timing": {
+          "meanStepMs": 3.249516079632233,
+          "p95StepMs": 3.9839999999967404,
+          "p99StepMs": 4.629400000005262
+        },
+        "limits": [
+          "initially standing and empty handed; not recovery or locomotion",
+          "horizontal fixed ground",
+          "joint-stop reactions are not predicted",
+          "allocating diagnostic dynamics path"
+        ]
+      }
+    },
+    {
+      "job": {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "crypt-skeleton",
+        "held": "empty",
+        "task": "support",
+        "seed": 0,
+        "side": "right",
+        "liftOffset": 0.000472135947085917,
+        "watchSeconds": 12,
+        "checkpointSeconds": 2,
+        "sampleHz": 120,
+        "returnTolerance": 0.01,
+        "id": "af1b9499ef08191c930d28f9e35e42077be40638611a8c9be51a6c8c5a5a59e8"
+      },
+      "result": {
+        "status": "measured",
+        "configuration": {
+          "protocol": 1,
+          "split": "development",
+          "hz": 120,
+          "actuation": "directional",
+          "model": "crypt-skeleton",
+          "held": "empty",
+          "task": "support-transition",
+          "seed": 0,
+          "side": "right",
+          "liftOffset": 0.000472135947085917,
+          "watchSeconds": 12,
+          "checkpointSeconds": 2,
+          "sampleHz": 120,
+          "returnTolerance": 0.01,
+          "id": "af1b9499ef08191c930d28f9e35e42077be40638611a8c9be51a6c8c5a5a59e8",
+          "settings": {
+            "lower": 0.04,
+            "lift": 0.04,
+            "placementMargin": 0.002,
+            "centreGain": 0.7,
+            "seconds": 0.25,
+            "rootWeight": 1,
+            "pointWeight": 3,
+            "rotationWeight": 1,
+            "minimumTransfer": 1,
+            "centreTolerance": 0.01,
+            "unloadFraction": 0.05,
+            "speedTolerance": 0.03,
+            "liftTolerance": 0.008,
+            "placementTolerance": 0.004,
+            "rotationTolerance": 0.00001,
+            "holdSeconds": 0.25,
+            "knee": 0.6,
+            "jointSeconds": 0.3,
+            "legWeight": 0.02,
+            "otherWeight": 0.1,
+            "effortCost": 0.000001,
+            "continueSeconds": 1,
+            "capacity": 2,
+            "floor": {
+              "centre": [
+                0,
+                -0.5,
+                0
+              ],
+              "size": [
+                20,
+                1,
+                20
+              ]
+            },
+            "contact": {
+              "maxPoints": 64,
+              "gap": 0.005,
+              "minUpNormal": 0.9,
+              "forceTolerance": 0.00001,
+              "iterations": 2048,
+              "absoluteTolerance": 1e-7,
+              "relativeTolerance": 0.000001
+            }
+          },
+          "engineRevision": "rapier/adapter-5/sha256:58ff3f5e80911ceefd46ff7d03fb77858d54d6c0062fb3c44229fb7b045e8676",
+          "gravity": true,
+          "pin": null,
+          "assists": {
+            "root": 0,
+            "weapon": false
+          }
+        },
+        "outcome": {
+          "steps": 907,
+          "fell": false,
+          "completedAt": 787,
+          "continuedSteps": 121,
+          "peakLift": 0.038684865832328774,
+          "flightSteps": 115,
+          "returnError": 0.004862735319433724,
+          "rejectedSteps": 0,
+          "peakTension": 2.432509334894298e-12,
+          "peakFrictionViolation": 3.435876445042819e-12,
+          "phase": "complete",
+          "transitions": [
+            {
+              "phase": "lift",
+              "time": 2.366666666666661,
+              "loadFraction": 0.046544565294442744
+            },
+            {
+              "phase": "place",
+              "time": 3.3416666666666575,
+              "loadFraction": 0
+            },
+            {
+              "phase": "recenter",
+              "time": 4.766666666666693,
+              "loadFraction": 0.00043551118209228935
+            },
+            {
+              "phase": "complete",
+              "time": 6.558333333333449,
+              "loadFraction": 0.48044264661628805
+            }
+          ],
+          "replayExact": true,
+          "digest": "18a00b4268ccc180405fe138b97191c10c977daa20fafe947afa79740193d289",
+          "stateDigest": "bf48f7942784e2b8fcdd944c59f6bdf2759f64ef9f4743e9b63227d1348c4e58",
+          "success": true
+        },
+        "physical": {
+          "assistForceIntegralNs": 0,
+          "assistMomentIntegralNms": 0
+        },
+        "timing": {
+          "meanStepMs": 3.219690404797521,
+          "p95StepMs": 3.9527999999991152,
+          "p99StepMs": 4.627200000002631
+        },
+        "limits": [
+          "initially standing and empty handed; not recovery or locomotion",
+          "horizontal fixed ground",
+          "joint-stop reactions are not predicted",
+          "allocating diagnostic dynamics path"
+        ]
+      }
+    },
+    {
+      "job": {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "crypt-skeleton",
+        "held": "empty",
+        "task": "support",
+        "seed": 1,
+        "side": "left",
+        "liftOffset": -0.001055728105828166,
+        "watchSeconds": 12,
+        "checkpointSeconds": 2,
+        "sampleHz": 120,
+        "returnTolerance": 0.01,
+        "id": "cd69aff2b584ddc6a70b2b487e27b8981657285ed175467c156dea9cd918f41b"
+      },
+      "result": {
+        "status": "measured",
+        "configuration": {
+          "protocol": 1,
+          "split": "development",
+          "hz": 120,
+          "actuation": "directional",
+          "model": "crypt-skeleton",
+          "held": "empty",
+          "task": "support-transition",
+          "seed": 1,
+          "side": "left",
+          "liftOffset": -0.001055728105828166,
+          "watchSeconds": 12,
+          "checkpointSeconds": 2,
+          "sampleHz": 120,
+          "returnTolerance": 0.01,
+          "id": "cd69aff2b584ddc6a70b2b487e27b8981657285ed175467c156dea9cd918f41b",
+          "settings": {
+            "lower": 0.04,
+            "lift": 0.04,
+            "placementMargin": 0.002,
+            "centreGain": 0.7,
+            "seconds": 0.25,
+            "rootWeight": 1,
+            "pointWeight": 3,
+            "rotationWeight": 1,
+            "minimumTransfer": 1,
+            "centreTolerance": 0.01,
+            "unloadFraction": 0.05,
+            "speedTolerance": 0.03,
+            "liftTolerance": 0.008,
+            "placementTolerance": 0.004,
+            "rotationTolerance": 0.00001,
+            "holdSeconds": 0.25,
+            "knee": 0.6,
+            "jointSeconds": 0.3,
+            "legWeight": 0.02,
+            "otherWeight": 0.1,
+            "effortCost": 0.000001,
+            "continueSeconds": 1,
+            "capacity": 2,
+            "floor": {
+              "centre": [
+                0,
+                -0.5,
+                0
+              ],
+              "size": [
+                20,
+                1,
+                20
+              ]
+            },
+            "contact": {
+              "maxPoints": 64,
+              "gap": 0.005,
+              "minUpNormal": 0.9,
+              "forceTolerance": 0.00001,
+              "iterations": 2048,
+              "absoluteTolerance": 1e-7,
+              "relativeTolerance": 0.000001
+            }
+          },
+          "engineRevision": "rapier/adapter-5/sha256:58ff3f5e80911ceefd46ff7d03fb77858d54d6c0062fb3c44229fb7b045e8676",
+          "gravity": true,
+          "pin": null,
+          "assists": {
+            "root": 0,
+            "weapon": false
+          }
+        },
+        "outcome": {
+          "steps": 892,
+          "fell": false,
+          "completedAt": 772,
+          "continuedSteps": 121,
+          "peakLift": 0.036975225806236245,
+          "flightSteps": 114,
+          "returnError": 0.00471852071420707,
+          "rejectedSteps": 0,
+          "peakTension": 3.164579132637889e-12,
+          "peakFrictionViolation": 2.3795642969572465e-12,
+          "phase": "complete",
+          "transitions": [
+            {
+              "phase": "lift",
+              "time": 2.258333333333328,
+              "loadFraction": 0.04595918581261282
+            },
+            {
+              "phase": "place",
+              "time": 3.224999999999991,
+              "loadFraction": 0
+            },
+            {
+              "phase": "recenter",
+              "time": 4.641666666666687,
+              "loadFraction": 0.0004224939723317352
+            },
+            {
+              "phase": "complete",
+              "time": 6.433333333333443,
+              "loadFraction": 0.47907369194001714
+            }
+          ],
+          "replayExact": true,
+          "digest": "6c34e4163cd02d17131ac4fa99ab6c1a2a37a913c7ead101251e32e0017704b7",
+          "stateDigest": "31ba2a307acdecf00381b290902c43daada8a32c9d163277f0d6b9edab3ba25a",
+          "success": true
+        },
+        "physical": {
+          "assistForceIntegralNs": 0,
+          "assistMomentIntegralNms": 0
+        },
+        "timing": {
+          "meanStepMs": 3.2175685582821023,
+          "p95StepMs": 3.9615000000048894,
+          "p99StepMs": 4.930199999995239
+        },
+        "limits": [
+          "initially standing and empty handed; not recovery or locomotion",
+          "horizontal fixed ground",
+          "joint-stop reactions are not predicted",
+          "allocating diagnostic dynamics path"
+        ]
+      }
+    },
+    {
+      "job": {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "crypt-skeleton",
+        "held": "empty",
+        "task": "support",
+        "seed": 1,
+        "side": "right",
+        "liftOffset": -0.001055728105828166,
+        "watchSeconds": 12,
+        "checkpointSeconds": 2,
+        "sampleHz": 120,
+        "returnTolerance": 0.01,
+        "id": "ac8769a304ad8e31b5670df4796de6d05a6a25dbd9b0b6b181e15af15cfa9600"
+      },
+      "result": {
+        "status": "measured",
+        "configuration": {
+          "protocol": 1,
+          "split": "development",
+          "hz": 120,
+          "actuation": "directional",
+          "model": "crypt-skeleton",
+          "held": "empty",
+          "task": "support-transition",
+          "seed": 1,
+          "side": "right",
+          "liftOffset": -0.001055728105828166,
+          "watchSeconds": 12,
+          "checkpointSeconds": 2,
+          "sampleHz": 120,
+          "returnTolerance": 0.01,
+          "id": "ac8769a304ad8e31b5670df4796de6d05a6a25dbd9b0b6b181e15af15cfa9600",
+          "settings": {
+            "lower": 0.04,
+            "lift": 0.04,
+            "placementMargin": 0.002,
+            "centreGain": 0.7,
+            "seconds": 0.25,
+            "rootWeight": 1,
+            "pointWeight": 3,
+            "rotationWeight": 1,
+            "minimumTransfer": 1,
+            "centreTolerance": 0.01,
+            "unloadFraction": 0.05,
+            "speedTolerance": 0.03,
+            "liftTolerance": 0.008,
+            "placementTolerance": 0.004,
+            "rotationTolerance": 0.00001,
+            "holdSeconds": 0.25,
+            "knee": 0.6,
+            "jointSeconds": 0.3,
+            "legWeight": 0.02,
+            "otherWeight": 0.1,
+            "effortCost": 0.000001,
+            "continueSeconds": 1,
+            "capacity": 2,
+            "floor": {
+              "centre": [
+                0,
+                -0.5,
+                0
+              ],
+              "size": [
+                20,
+                1,
+                20
+              ]
+            },
+            "contact": {
+              "maxPoints": 64,
+              "gap": 0.005,
+              "minUpNormal": 0.9,
+              "forceTolerance": 0.00001,
+              "iterations": 2048,
+              "absoluteTolerance": 1e-7,
+              "relativeTolerance": 0.000001
+            }
+          },
+          "engineRevision": "rapier/adapter-5/sha256:58ff3f5e80911ceefd46ff7d03fb77858d54d6c0062fb3c44229fb7b045e8676",
+          "gravity": true,
+          "pin": null,
+          "assists": {
+            "root": 0,
+            "weapon": false
+          }
+        },
+        "outcome": {
+          "steps": 905,
+          "fell": false,
+          "completedAt": 785,
+          "continuedSteps": 121,
+          "peakLift": 0.037020421028137185,
+          "flightSteps": 115,
+          "returnError": 0.004863205024830418,
+          "rejectedSteps": 0,
+          "peakTension": 2.109493325654354e-12,
+          "peakFrictionViolation": 2.2253310305586638e-12,
+          "phase": "complete",
+          "transitions": [
+            {
+              "phase": "lift",
+              "time": 2.366666666666661,
+              "loadFraction": 0.046544565294442744
+            },
+            {
+              "phase": "place",
+              "time": 3.3416666666666575,
+              "loadFraction": 0
+            },
+            {
+              "phase": "recenter",
+              "time": 4.750000000000026,
+              "loadFraction": 0.0004150670287051427
+            },
+            {
+              "phase": "complete",
+              "time": 6.5416666666667815,
+              "loadFraction": 0.4804320701163747
+            }
+          ],
+          "replayExact": true,
+          "digest": "bd0a7fa1d440b04fd8acc038700d449fa7b30eb97dc645a4ad95e72d88aaac0e",
+          "stateDigest": "7f40c209eacb717c7186d16ec51bb296e4f2de9da0fe91a2c66158e80855cdc0",
+          "success": true
+        },
+        "physical": {
+          "assistForceIntegralNs": 0,
+          "assistMomentIntegralNms": 0
+        },
+        "timing": {
+          "meanStepMs": 3.217266917293559,
+          "p95StepMs": 3.9239999999990687,
+          "p99StepMs": 4.338300000003073
+        },
+        "limits": [
+          "initially standing and empty handed; not recovery or locomotion",
+          "horizontal fixed ground",
+          "joint-stop reactions are not predicted",
+          "allocating diagnostic dynamics path"
+        ]
+      }
+    }
+  ]
+}
