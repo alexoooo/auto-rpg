@@ -472,6 +472,9 @@ acceleration tracking, with explicit residual and observed-error reports. Option
 contacts add unilateral and friction constraints through an active-set solve. Desired supports
 are separate from measured contacts; a free support request changes no collider. Rejected solves
 produce zero torque. Joint-stop reactions and sliding contacts are not predicted.
+Optional [contact redistribution](reference/contact-distribution.md) searches point-force
+distributions that preserve each contacted body's wrench; the measured task configurations
+keep this experimental option disabled.
 The [pinned fixtures](reference/motion-tracking.md) exercise independent
 items and a shared bar through capture, motion, obstacle contact and either release. They use no
 assist and replay through the body's ordinary saved state. The [standing shared-bar fixture](reference/standing-bar.md)

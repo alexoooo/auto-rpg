@@ -220,6 +220,10 @@ runner measures pinned and standing anatomical load paths separately. The
 [standing fixture](../reference/standing-bar.md) uses measured sticking contacts, unilateral and
 friction constraints, and bounded muscle torques without a pelvis pin or assistance. Desired
 support never changes physical collision. Rejected solves are explicit zero-torque failures.
+An optional [contact force redistribution](../reference/contact-distribution.md) removes
+artificial tension while preserving each contacted body's wrench. Its isolated force-allocation
+and save/restore tests pass; it is not enabled in the measured reference tasks and does not
+establish a recovery improvement.
 General support transitions, joint-stop prediction, hot-path optimization and recovery/combat
 integration remain required. The allocating experimental tracker is not the game's default.
 
