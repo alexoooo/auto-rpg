@@ -34,7 +34,8 @@ Everything the pages need is committed, so a fresh clone runs with no download s
 
 ## The Arena
 
-Pick a body for each side (Warrior, Rogue or Skeleton) and press **Fight**. Each side carries a
+Choose the standing character on each side (Warrior, Rogue or Skeleton) and press **Fight**.
+The circular stone arena is enclosed by a low parapet, with eight braziers around its edge. Each side carries a
 wooden club in its right hand and is driven by its own mind: it walks at the other and, once within
 reach, attacks the head. A side is out when its wounds end it or its body falls; at the two-minute
 bell the fuller bar wins, and equal bars draw.
@@ -48,7 +49,7 @@ club takes all of it, and two clubs meeting wound nobody.
 The bout is heard until its verdict: footfalls, the air of a swing, a club on a body or on the
 other club, a body against a wall. The verdict silences it, the deciding blow included.
 
-You watch, or you take a side: pick it under **You fight as**, or open
+You watch, or you take a side: pick it under **Play as**, or open
 `?play=arena&matchup=workshop-fighter,workshop-rogue&you=left`. Your side then does what you
 order and nothing else: it does not attack unasked. It turns only while it walks, so walk to
 turn; across its heading or backward it walks at half pace.

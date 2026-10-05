@@ -2,6 +2,7 @@ import { Engine } from "@babylonjs/core/Engines/engine.js";
 // `scene.createPickingRay` is this module's patch: without it the build compiles and the ray is missing.
 import "@babylonjs/core/Culling/ray.js";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { showHeroLineup } from "../render/character-preview.ts";
 import { buildArena } from "./scene.ts";
 import { MENU_HREF } from "../app-route.ts";
 import { need } from "../dom.ts";
@@ -53,6 +54,8 @@ const ENDING_TEXT: Readonly<Record<DuelEnding, string>> = Object.freeze({
 const show = (id: string, shown: boolean) => need(id).classList.toggle("gone", !shown);
 
 export async function bootArena(): Promise<void> {
+  const lifetime = new AbortController();
+  window.addEventListener("pagehide", () => lifetime.abort(), { once: true });
   const canvas = need<HTMLCanvasElement>("stage");
   const engine = new Engine(canvas, true, { stencil: true, antialias: true });
   const physicsEngine = await loadEngine();
@@ -71,20 +74,33 @@ export async function bootArena(): Promise<void> {
   const youPicker = need<HTMLSelectElement>("you");
   youPicker.value = you ?? "";
   const pickers = {} as Record<Side, HTMLSelectElement>;
+  const previews = {} as Record<Side, Awaited<ReturnType<typeof showHeroLineup>>>;
+  const previewLoads: Promise<void>[] = [];
   for (const side of SIDES) {
     const panel = document.createElement("section");
     panel.className = "contender"; panel.dataset.side = side;
     const head = document.createElement("header"), title = document.createElement("h2");
     head.className = "contender-head"; title.textContent = side === "left" ? "Left" : "Right"; head.append(title);
     const field = document.createElement("label"), name = document.createElement("span"), select = document.createElement("select");
-    field.className = "field"; name.className = "field-name"; name.textContent = "Body";
+    field.className = "field"; name.className = "field-name"; name.textContent = "Character";
     for (const model of BODY_MODELS) {
       const option = document.createElement("option"); option.value = model; option.textContent = MODEL_LABELS[model]; select.append(option);
     }
-    select.value = matchup[side];
-    field.append(name, select); panel.append(head, field);
+    select.value = matchup[side]; select.disabled = true;
+    select.setAttribute("aria-label", `${side === "left" ? "Left" : "Right"} character`);
+    const preview = document.createElement("canvas");
+    preview.className = "contender-preview"; preview.setAttribute("aria-hidden", "true");
+    field.append(name, select); panel.append(head, preview, field);
     need("matchup").append(panel);
     pickers[side] = select;
+    previewLoads.push(showHeroLineup(preview, physicsEngine, [matchup[side]], lifetime.signal).then(view => {
+      previews[side] = view; select.disabled = false;
+      select.addEventListener("change", () => {
+        void view.setModel(0, select.value as BodyModel).catch(error => {
+          need("boot-note").textContent = `Preview unavailable: ${error.message}`;
+        });
+      }, { signal: lifetime.signal });
+    }));
   }
 
   // Each model's dresser, loaded once: its skin, or its shapes if the skin does not load.
@@ -124,36 +140,50 @@ export async function bootArena(): Promise<void> {
     show("pause-menu", paused);
     audio.setActive(!paused && duel !== null && !duel.verdict);
   };
-  const setup = () => { end(); setPaused(false); show("bout-end", false); show("curtain", true); };
+  let screen: "setup" | "fight" = "setup";
+  const setup = () => {
+    end(); setPaused(false); show("bout-end", false); show("curtain", true); screen = "setup";
+    for (const side of SIDES) {
+      pickers[side].value = matchup[side];
+      void previews[side].setModel(0, matchup[side]);
+    }
+  };
   const begin = async (next: Matchup) => {
-    matchup = next;
-    const tape = matchup.left === linked.matchup.left && matchup.right === linked.matchup.right ? linked.tape : [];
-    replaying = tape.length > 0;
-    history.replaceState(null, "", youSearch(matchupSearch(location.search, matchup), you) + (replaying ? linked.hash : ""));
-    const dress = new Map(await Promise.all(SIDES.map(async (side) => [side, await dresser(matchup[side])] as const)));
-    end();
-    audio.reset();
-    const balance = readBalance(location.search), gap = readGap(location.search), capSeconds = readCap(location.search), held = readHeld(location.search), minds = readGuard(location.search);
-    const bout = duel = new Duel(world, {
-      left: matchup.left, right: matchup.right,
-      ...(gap !== undefined ? { gap } : {}), ...(capSeconds !== undefined ? { capSeconds } : {}), ...(balance ? { balance } : {}), ...(held ? { held } : {}), ...(minds ? { minds } : {}),
-    }, {
-      onBuilt: (duelist, built) => {
-        for (const view of [dress.get(duelist.side)!(built), drawHeld(built, scene)]) {
-          for (const mesh of view.meshes) shadows.addShadowCaster(mesh);
-          drawn.push(view);
-        }
-      },
-      // A blow is a touch, and is heard as one; this is what it took off.
-      onBlow: (blow) => { for (const cue of debrisCues(blow)) audio.cue(cue); },
-    });
-    const sides = SIDES.map((side) => ({ id: side, built: bout.duelists[side].built }));
-    hearing = hearTouches(world, sides, (cue) => audio.cue(cue));
-    airs = sides.map(({ id, built }) => ({ side: id, air: airOf(built) }));
-    bout.play(tape);
-    for (const row of rows) row.label.textContent = `${MODEL_LABELS[matchup[row.side]]} (${row.side === you && !replaying ? "you" : row.side})`;
-    show("curtain", false); show("bout-end", false); setPaused(false);
-    canvas.focus();
+    if (beginButton.disabled) return;
+    beginButton.disabled = true;
+    try {
+      matchup = next;
+      const tape = matchup.left === linked.matchup.left && matchup.right === linked.matchup.right ? linked.tape : [];
+      replaying = tape.length > 0;
+      history.replaceState(null, "", youSearch(matchupSearch(location.search, matchup), you) + (replaying ? linked.hash : ""));
+      const dress = new Map(await Promise.all(SIDES.map(async (side) => [side, await dresser(matchup[side])] as const)));
+      end();
+      audio.reset();
+      const balance = readBalance(location.search), gap = readGap(location.search), capSeconds = readCap(location.search), held = readHeld(location.search), minds = readGuard(location.search);
+      const bout = duel = new Duel(world, {
+        left: matchup.left, right: matchup.right,
+        ...(gap !== undefined ? { gap } : {}), ...(capSeconds !== undefined ? { capSeconds } : {}), ...(balance ? { balance } : {}), ...(held ? { held } : {}), ...(minds ? { minds } : {}),
+      }, {
+        onBuilt: (duelist, built) => {
+          for (const view of [dress.get(duelist.side)!(built), drawHeld(built, scene)]) {
+            for (const mesh of view.meshes) shadows.addShadowCaster(mesh);
+            drawn.push(view);
+          }
+        },
+        // A blow is a touch, and is heard as one; this is what it took off.
+        onBlow: (blow) => { for (const cue of debrisCues(blow)) audio.cue(cue); },
+      });
+      const sides = SIDES.map((side) => ({ id: side, built: bout.duelists[side].built }));
+      hearing = hearTouches(world, sides, (cue) => audio.cue(cue));
+      airs = sides.map(({ id, built }) => ({ side: id, air: airOf(built) }));
+      bout.play(tape);
+      for (const row of rows) row.label.textContent = `${MODEL_LABELS[matchup[row.side]]} (${row.side === you && !replaying ? "you" : row.side})`;
+      show("curtain", false); show("bout-end", false); setPaused(false); screen = "fight";
+      canvas.focus();
+    } catch (error) {
+      setup();
+      need("boot-note").textContent = error instanceof Error ? error.message : String(error);
+    } finally { beginButton.disabled = false; }
   };
   const redrawn = (): Matchup => ({ ...matchup, right: BODY_MODELS[Math.floor(Math.random() * BODY_MODELS.length)] });
   const fromPickers = (): Matchup => ({ left: pickers.left.value as BodyModel, right: pickers.right.value as BodyModel });
@@ -232,6 +262,15 @@ export async function bootArena(): Promise<void> {
   };
   const target = new Vector3(0, 1, 0), airAt = new Vector3();
   const frame = () => {
+    if (screen === "setup") {
+      target.set(0, 0, 0);
+      // The full ring fits between the character niches (docs/reference/look.md#arena-camera).
+      const aspect = engine.getRenderWidth() / engine.getRenderHeight();
+      camera.position.set(...orbitPosition(target, 0, .78, Math.max(39, 31 / aspect)));
+      camera.setTarget(target);
+      arena.updateRoomOcclusion([]);
+      return;
+    }
     if (duel) {
       const a = duel.duelists.left.body.physical.centre, b = duel.duelists.right.body.physical.centre;
       target.set((a.x + b.x) / 2, 1, (a.z + b.z) / 2);
@@ -274,6 +313,7 @@ export async function bootArena(): Promise<void> {
   window.addEventListener("pagehide", () => { end(); audio.dispose(); engine.stopRenderLoop(); world.dispose(); scene.dispose(); engine.dispose(); });
   Object.assign(window, { __arena: { get duel() { return duel; }, world, scene, engine } });
 
+  await Promise.all(previewLoads);
   need("boot-note").textContent = "";
   beginButton.disabled = false;
   // A link that names its matchup opens the bout directly.

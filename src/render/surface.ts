@@ -92,19 +92,3 @@ export function surface(
   }
   return material;
 }
-
-const palettes = new WeakMap<Scene, Map<string, PBRMaterial>>();
-
-/** One descriptor name means one palette material for the lifetime of a scene. */
-export function sharedSurface(scene: Scene, descriptor: SurfaceDescriptor): PBRMaterial {
-  let palette = palettes.get(scene);
-  if (!palette) {
-    palette = new Map();
-    palettes.set(scene, palette);
-  }
-  const known = palette.get(descriptor.name);
-  if (known) return known;
-  const made = surface(scene, descriptor);
-  palette.set(descriptor.name, made);
-  return made;
-}

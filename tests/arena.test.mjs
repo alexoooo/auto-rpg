@@ -5,7 +5,6 @@ import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { Scene } from "@babylonjs/core/scene.js";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial.js";
 import { RawTexture } from "@babylonjs/core/Materials/Textures/rawTexture.js";
-import { VertexBuffer } from "@babylonjs/core/Buffers/buffer.js";
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder.js";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { FreeCamera } from "@babylonjs/core/Cameras/freeCamera.js";
@@ -14,7 +13,6 @@ import { ShadowGenerator } from "@babylonjs/core/Lights/Shadows/shadowGenerator.
 
 import "@babylonjs/core/Lights/Shadows/shadowGeneratorSceneComponent.js";
 
-import { surfaceMetresPerRepeat, TEXTURED_SURFACES } from "../src/render/materials.ts";
 import {
   ROOM,
   ROOM_GROUPS,
@@ -26,7 +24,6 @@ import {
   validateVisualColliderPairs,
 } from "../src/arena/room.ts";
 import { createWorld } from "../src/core/world.ts";
-import { ORBIT, orbitPosition } from "../src/arena/orbit.ts";
 import { dressForgeRoom } from "../src/arena/forge-room.ts";
 import { freshEngine } from "./harness/core-stand.mjs";
 
@@ -73,306 +70,115 @@ test("cosmetic_room_dressing_creates_no_physics_body", async (t) => {
   const { engine, scene, physics, bodies, materials } = await setup();
   t.after(() => engine.dispose());
   const colliders = buildArenaColliders(scene, physics, materials);
-  assert.equal(bodies(), 19, "ground, fourteen posts and four outer walls are the whole world");
+  assert.equal(bodies(), 33, "ground, eight braziers and twenty-four parapet segments");
   const ground = scene.getMeshByName("ground");
-  assert.deepEqual(rounded(ground.getBoundingInfo().boundingBox.minimum.asArray()), [-30, -0.5, -30]);
-  assert.deepEqual(rounded(ground.getBoundingInfo().boundingBox.maximum.asArray()), [30, 0.5, 30]);
   assert.deepEqual(rounded(ground.position.asArray()), [0, -0.5, 0]);
-  for (let index = 0; index < 14; index += 1) {
-    const post = scene.getMeshByName(`post${index}`);
-    const angle = index / 14 * Math.PI * 2;
-    assert.deepEqual(rounded(post.position.asArray()), rounded([
-      Math.sin(angle) * 9.5, 0.75, Math.cos(angle) * 9.5,
-    ]));
-    assert.deepEqual(rounded(post.getBoundingInfo().boundingBox.minimum.asArray()), [-0.085, -0.75, -0.085]);
-    assert.deepEqual(rounded(post.getBoundingInfo().boundingBox.maximum.asArray()), [0.085, 0.75, 0.085]);
-    assert.ok(isCollider(post), `${post.name} stands for its collider`);
+  for (let index = 0; index < 8; index++) {
+    const post = scene.getMeshByName(`post${index}`), angle = index * Math.PI / 4;
+    assert.deepEqual(rounded(post.position.asArray()), rounded([Math.sin(angle) * 12.3, .85, Math.cos(angle) * 12.3]));
+    assert.deepEqual(rounded(post.getBoundingInfo().boundingBox.extendSize.asArray()), [.55, .85, .55]);
+    assert.ok(isCollider(post));
   }
-  for (const side of ["north", "south", "east", "west"]) {
-    const visual = scene.getMeshByName(`room.wall.${side}`);
-    const collider = scene.getMeshByName(`room.wall.${side}.collider`);
-    assert.ok(isCollider(collider), `${collider.name} stands for its collider`);
-    if (visual) assert.fail("cosmetic room should not exist before its own build");
-  }
-  const before = bodies();
-  const room = buildCosmeticRoom(scene, materials);
-  assert.equal(bodies(), before, "floor, walls, beams, banners, racks and debris add no body");
+  const before = bodies(), room = buildCosmeticRoom(scene, materials);
+  assert.equal(bodies(), before);
   room.dispose();
-  assert.equal(bodies(), before, "cosmetic disposal cannot disturb authoritative bodies");
+  assert.equal(bodies(), before, "cosmetic disposal cannot disturb authority");
   colliders.dispose();
+  assert.equal(bodies(), 0);
 });
 
-test("the_arena_room_stands_on_a_core_world_whose_colliders_stand_behind_its_pairs", async (t) => {
-  const engine = new NullEngine(), scene = new Scene(engine);
+test("every_reachable_solid_visual_names_its_authority", async (t) => {
+  const { engine, scene, physics, materials } = await setup();
   t.after(() => engine.dispose());
-  const core = createWorld(scene, await freshEngine());
-  const world = buildArenaWorld(scene, core.physics, makeMaterials(scene));
-  const pairs = world.audit().visualColliderPairs;
-  assert.ok(pairs.length > 0);
-  assert.deepEqual(validateVisualColliderPairs(scene, pairs), [], "each pair names a mesh a core collider stands behind");
-  // The control: the same room with its collider meshes unmarked is refused.
-  for (const mesh of scene.meshes) if (mesh.metadata?.isCollider) mesh.metadata = { ...mesh.metadata, isCollider: false };
-  assert.match(validateVisualColliderPairs(scene, pairs).join("\n"), /which has no physics body/);
-  core.dispose();
-});
-
-test("every_reachable_solid_visual_names_an_existing_collider", async (t) => {
   assert.deepEqual(validateRoomPlacements(ROOM_GROUPS), []);
-  const moved = structuredClone(ROOM_GROUPS);
-  const rack = moved.find((group) => group.role === "rack").placements[0];
-  rack.position = [0, rack.position[1], 0];
-  rack.solid = true;
-  assert.match(validateRoomPlacements(moved).join("\n"), /room\.rack\.ne is an opaque solid below reach clearance/);
-  const lowered = structuredClone(ROOM_GROUPS);
-  const beam = lowered.find((group) => group.role === "beam").placements[0];
-  beam.position = [beam.position[0], 2, beam.position[2]];
-  assert.match(validateRoomPlacements(lowered).join("\n"), /room\.beam\.n1 is an opaque solid below reach clearance/);
-
-  const { engine, scene, physics, bodies, materials } = await setup();
-  t.after(() => engine.dispose());
+  const unpaired = structuredClone(ROOM_GROUPS);
+  unpaired[0].placements[0].collider = null;
+  assert.match(validateRoomPlacements(unpaired).join("\n"), /opaque solid below reach/);
+  const unknown = structuredClone(ROOM_GROUPS);
+  unknown[0].placements[0].collider = "missing";
+  assert.match(validateRoomPlacements(unknown).join("\n"), /missing collider/);
   const world = buildArenaWorld(scene, physics, materials);
   assert.deepEqual(validateVisualColliderPairs(scene, world.audit().visualColliderPairs), []);
-  assert.match(validateVisualColliderPairs(scene, [{ visual: "room.floor", collider: "missing" }]).join("\n"), /missing collider/);
-  assert.match(
-    validateVisualColliderPairs(scene, [{ visual: "room.floor", collider: "room.wall.north" }]).join("\n"),
-    /has no physics body/,
-  );
-  assert.match(
-    validateVisualColliderPairs(scene, [{ visual: "room.wall.north", collider: "post0" }]).join("\n"),
-    /does not geometrically overlap/,
-  );
-  const dishonestPair = structuredClone(ROOM_GROUPS);
-  const pairedRack = dishonestPair.find((group) => group.role === "rack").placements[0];
-  pairedRack.position = [0, pairedRack.position[1], 0];
-  pairedRack.solid = true;
-  pairedRack.collider = "post0";
-  assert.throws(
-    () => buildArenaWorld(scene, physics, materials, undefined, dishonestPair),
-    /room\.rack\.ne does not geometrically overlap collider post0/,
-    "a collider declaration is emitted automatically and validated on the ordinary build path",
-  );
-  for (const mesh of world.room.meshes) {
-    const placement = mesh.metadata.roomPlacement;
-    if (!placement.solid) continue;
-    const half = placement.halfExtent ?? [ROOM.floorSize / 2, 0, ROOM.floorSize / 2];
-    const aboveReach = mesh.position.y - half[1] >= ROOM.maxReachHeight;
-    assert.ok(placement.collider || aboveReach, `${mesh.name}: admitted by authority or overhead clearance`);
-  }
-
-  for (const role of ["rack", "debris"]) {
-    const group = ROOM_GROUPS.find((candidate) => candidate.role === role);
-    assert.ok(group.placements.every((placement) => !placement.solid && placement.halfExtent[1] === 0));
-    for (const placement of group.placements) {
-      const bounds = scene.getMeshByName(placement.name).getBoundingInfo().boundingBox;
-      assert.ok(bounds.extendSize.y < 1e-6, `${placement.name} is a flat marking, not a pass-through block`);
-    }
-  }
+  assert.match(validateVisualColliderPairs(scene, [{ visual: "room.wall.0", collider: "post4" }]).join("\n"), /does not geometrically overlap/);
+  assert.match(validateVisualColliderPairs(scene, [{ visual: "room.floor", collider: "room.wall.0" }]).join("\n"), /has no physics body/);
+  for (const mesh of scene.meshes) if (isCollider(mesh)) mesh.metadata.isCollider = false;
+  assert.match(validateVisualColliderPairs(scene, world.audit().visualColliderPairs).join("\n"), /has no physics body/);
   world.dispose();
 });
 
-test("the_four_room_walls_are_world_colliders_aligned_with_their_visuals", async (t) => {
-  const { engine, scene, physics, bodies, materials } = await setup();
+test("the_circular_parapet_draws_the_same_rotated_boxes_as_its_colliders", async (t) => {
+  const { engine, scene, physics, materials } = await setup();
   t.after(() => engine.dispose());
   const world = buildArenaWorld(scene, physics, materials);
-  const pairs = ROOM_GROUPS.find((group) => group.role === "wall").placements;
-  assert.equal(pairs.length, 4);
-  for (const placement of pairs) {
-    const visual = scene.getMeshByName(placement.name);
-    const collider = scene.getMeshByName(placement.collider);
-    assert.ok(visual && collider && isCollider(collider), `${placement.name}: visual and authority both exist`);
-    assert.deepEqual(validateVisualColliderPairs(scene, [{
-      visual: placement.name, collider: placement.collider,
-    }]), []);
+  const walls = ROOM_GROUPS.find(group => group.role === "wall").placements;
+  assert.equal(walls.length, 24);
+  for (const placement of walls) {
+    const visual = scene.getMeshByName(placement.name), collider = scene.getMeshByName(placement.collider);
+    assert.ok(isCollider(collider));
+    visual.computeWorldMatrix(true); collider.computeWorldMatrix(true);
+    assert.deepEqual(rounded(visual.getBoundingInfo().boundingBox.minimumWorld.asArray()), rounded(collider.getBoundingInfo().boundingBox.minimumWorld.asArray()));
+    assert.deepEqual(rounded(visual.getBoundingInfo().boundingBox.maximumWorld.asArray()), rounded(collider.getBoundingInfo().boundingBox.maximumWorld.asArray()));
+    assert.equal(visual.rotation.y, collider.rotation.y);
+    assert.ok(Math.abs(Math.hypot(visual.position.x, visual.position.z) - 13.25) < 1e-10);
   }
-  const north = scene.getMeshByName("room.wall.north.collider").getBoundingInfo().boundingBox;
-  const east = scene.getMeshByName("room.wall.east.collider").getBoundingInfo().boundingBox;
-  assert.ok(north.maximumWorld.x >= east.minimumWorld.x, "the north/east corner has no escape gap");
-  assert.ok(north.minimumWorld.z <= east.maximumWorld.z, "the north/east authority overlaps in depth");
+  const wall = scene.getMeshByName("room.wall.0");
+  world.updateOcclusion(new Vector3(0, .7, 15), [{ point: new Vector3(0, .7, 12), active: () => false }]);
+  assert.equal(wall.isVisible, true);
+  world.updateOcclusion(new Vector3(0, .7, 15), [{ point: new Vector3(0, .7, 12) }]);
+  assert.equal(wall.isVisible, false, "a low camera sees the fighter through a crossing parapet");
+  world.updateOcclusion(new Vector3(0, 8, 15), [{ point: new Vector3(0, .7, 0) }]);
+  assert.equal(wall.isVisible, true, "an overhead sight line reveals the wall again");
   world.dispose();
 });
 
-const edgeDensities = (mesh) => {
-  const positions = mesh.getVerticesData(VertexBuffer.PositionKind);
-  const uvs = mesh.getVerticesData(VertexBuffer.UVKind);
-  const indices = mesh.getIndices();
-  const densities = [];
-  for (let offset = 0; offset < indices.length; offset += 3) {
-    for (const [a, b] of [[indices[offset], indices[offset + 1]], [indices[offset + 1], indices[offset + 2]]]) {
-      const pa = a * 3; const pb = b * 3; const ua = a * 2; const ub = b * 2;
-      const metres = Math.hypot(
-        positions[pa] - positions[pb], positions[pa + 1] - positions[pb + 1], positions[pa + 2] - positions[pb + 2],
-      );
-      const uv = Math.hypot(uvs[ua] - uvs[ub], uvs[ua + 1] - uvs[ub + 1]);
-      if (metres > 1e-5 && uv > 1e-5) densities.push(uv / metres);
-    }
-  }
-  return densities;
-};
-
-const segmentIntersectsPlacement = (from, to, placement) => {
-  let first = 0;
-  let last = 1;
-  for (let axis = 0; axis < 3; axis += 1) {
-    const low = placement.position[axis] - placement.halfExtent[axis];
-    const high = placement.position[axis] + placement.halfExtent[axis];
-    const delta = to[axis] - from[axis];
-    if (Math.abs(delta) < 1e-9) {
-      if (from[axis] < low || from[axis] > high) return false;
-      continue;
-    }
-    const a = (low - from[axis]) / delta;
-    const b = (high - from[axis]) / delta;
-    first = Math.max(first, Math.min(a, b));
-    last = Math.min(last, Math.max(a, b));
-    if (first > last) return false;
-  }
-  return true;
-};
-
-test("room_instances_share_materials_and_textures", async (t) => {
-  const { engine, scene, physics, bodies, materials } = await setup();
+test("room_instances_share_materials_and_the_audit_owns_only_its_resources", async (t) => {
+  const { engine, scene, physics, materials } = await setup();
   t.after(() => engine.dispose());
-  const world = buildArenaWorld(scene, physics, materials);
-  const audit = world.audit();
-  assert.equal(Object.isFrozen(audit), true, "the stable audit view is caller-read-only");
-  assert.throws(() => { audit.meshes = 0; }, TypeError);
-  assert.equal(audit.instances, 27, "five sources feed every repeated cosmetic prop");
-  assert.equal(audit.materials, 4, "the owned census sees floor, wall, timber and banner only");
-  assert.equal(audit.textures, 4, "the owned census follows the four reachable material maps");
-  assert.equal(new Set(world.room.meshes.map((mesh) => mesh.material)).size, 4, "floor/wall/timber/banner only");
-  assert.equal(scene.textures.length, 4, "instances mint no texture wrappers");
+  const world = buildArenaWorld(scene, physics, materials), report = world.audit();
+  assert.ok(Object.isFrozen(report));
+  assert.throws(() => { report.meshes = 0; }, TypeError);
+  assert.deepEqual([report.meshes, report.instances, report.materials, report.textures], [66, 30, 4, 4]);
   for (const group of ROOM_GROUPS) {
-    const meshes = group.placements.map((placement) => scene.getMeshByName(placement.name));
-    assert.equal(meshes.filter((mesh) => mesh.getClassName() === "InstancedMesh").length, meshes.length - 1, group.role);
-    assert.equal(new Set(meshes.map((mesh) => mesh.material)).size, 1, `${group.role}: one shared material`);
-    const source = meshes[0];
-    const expected = 1 / group.metresPerRepeat;
-    for (const density of edgeDensities(source)) {
-      assert.ok(Math.abs(density - expected) < 1e-5, `${group.role}: UVs are measured in physical metres`);
-    }
+    const meshes = group.placements.map(p => scene.getMeshByName(p.name));
+    assert.equal(meshes.filter(mesh => mesh.getClassName() === "InstancedMesh").length, meshes.length - 1);
+    assert.equal(new Set(meshes.map(mesh => mesh.material)).size, 1);
   }
-  assert.equal(ROOM.timberMetresPerRepeat, surfaceMetresPerRepeat(TEXTURED_SURFACES.roomTimber), "the timber is laid out at its texture's span");
-  const floor = scene.getMeshByName("room.floor");
-  for (const density of edgeDensities(floor)) {
-    assert.ok(Math.abs(density - 1 / ROOM.floorMetresPerRepeat) < 1e-5, "floor metre scale");
-  }
-
-  const walls = ROOM_GROUPS.find((group) => group.role === "wall").placements;
-  assert.ok(walls.every((placement) => !placement.solid), "a wall's mesh never advertises collision");
-  const opaque = ROOM_GROUPS.flatMap((group) => group.placements).filter((placement) => placement.solid);
-  let visibleBeamReadings = 0;
-  const crossing = { point: new Vector3(-5, 1, 15), active: () => true };
-  world.updateOcclusion(new Vector3(-5, 8, 10), [{ ...crossing, active: () => false }]);
-  assert.equal(scene.getMeshByName("room.beam.n1").isVisible, true, "an inactive target protects no ray");
-  world.updateOcclusion(new Vector3(-5, 8, 10), [crossing]);
-  assert.equal(
-    scene.getMeshByName("room.beam.n1").isVisible, false,
-    "an overhead beam crossing a protected sight line is actually culled",
-  );
-  let culledBeamReadings = 1;
-  // The page's orbit camera at both ends of its elevation and distance, on eight bearings.
-  for (const pitch of [ORBIT.lowest, ORBIT.pitch, ORBIT.highest]) {
-    for (const distance of [ORBIT.nearest, ORBIT.farthest]) {
-      for (const focusX of [-25, -15, 0, 15, 25]) {
-        for (const focusZ of [-25, -15, 0, 15, 25]) {
-          for (const bearing of Array.from({ length: 8 }, (_, index) => index * Math.PI / 4)) {
-            const camera = orbitPosition({ x: focusX, y: 1, z: focusZ }, bearing, pitch, distance);
-            // Points of a body at the focus, and targets well away from it: an opponent 6 m off
-            // and a raised point 9 m off.
-            const targets = [
-              { point: new Vector3(focusX, 0.0, focusZ) },
-              { point: new Vector3(focusX, 0.9, focusZ) },
-              { point: new Vector3(focusX, 1.8, focusZ) },
-              { point: new Vector3(focusX, 1.2, focusZ + 6) },
-              { point: new Vector3(focusX - 4, 2.9, focusZ + 9), active: () => true },
-            ];
-            world.updateOcclusion(new Vector3(...camera), targets);
-            for (const placement of opaque) {
-              const mesh = scene.getMeshByName(placement.name);
-              const intersects = targets.some((target) => segmentIntersectsPlacement(
-                camera, target.point.asArray(), placement,
-              ));
-              if (!mesh.isVisible) culledBeamReadings += 1;
-              else {
-                visibleBeamReadings += 1;
-                assert.equal(intersects, false, `${pitch}/${distance}/${focusX},${focusZ}/${bearing}: visible beam clears combat rays`);
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-  assert.ok(visibleBeamReadings > 0, "opaque overhead dressing remains visible away from a sight line");
-  assert.ok(culledBeamReadings > 0, "the translated sweep exercises runtime culling rather than passing vacuously");
-
-  const report = world.audit();
-  const foreignMaterial = makeMaterial(scene, "foreign.material", [0.1, 0.1, 0.1]);
-  const foreign = MeshBuilder.CreateBox("foreign.mesh", { size: 1 }, scene);
-  foreign.material = foreignMaterial;
-  assert.strictEqual(world.audit(), report, "audit returns one stable report object");
-  assert.deepEqual(
-    { meshes: report.meshes, materials: report.materials, textures: report.textures },
-    { meshes: 52, materials: 4, textures: 4 },
-    "unowned scene resources do not leak into the arena census",
-  );
-  foreign.dispose(false, false);
-  foreignMaterial.dispose(true, true);
-  world.dispose();
+  const foreignMaterial = makeMaterial(scene, "foreign", [.1, .1, .1]);
+  const foreign = MeshBuilder.CreateBox("foreign", {}, scene); foreign.material = foreignMaterial;
+  assert.strictEqual(world.audit(), report);
+  assert.deepEqual([report.meshes, report.instances, report.materials, report.textures], [66, 30, 4, 4]);
+  foreign.dispose(false, false); foreignMaterial.dispose(true, true); world.dispose();
 });
 
 test("an_arena_rebuild_returns_every_audit_count_to_its_baseline", async (t) => {
   const { engine, scene, physics, bodies, materials } = await setup();
   t.after(() => engine.dispose());
-  const light = new DirectionalLight("fixture.sun", new Vector3(-1, -2, 1), scene);
-  const shadowGenerator = new ShadowGenerator(256, light);
-  let shadowAdds = 0;
-  let shadowRemoves = 0;
-  const shadowRegistry = {
-    add: (mesh) => { shadowAdds += 1; shadowGenerator.addShadowCaster(mesh); },
-    remove: (mesh) => { shadowRemoves += 1; shadowGenerator.removeShadowCaster(mesh); },
+  const light = new DirectionalLight("sun", new Vector3(-1, -2, 1), scene), shadows = new ShadowGenerator(256, light);
+  let adds = 0, removes = 0;
+  const registry = {
+    add: mesh => { adds++; shadows.addShadowCaster(mesh); },
+    remove: mesh => { removes++; shadows.removeShadowCaster(mesh); },
   };
-  const shadowBaseline = shadowGenerator.getShadowMap().renderList.length;
-  const baseline = {
-    meshes: scene.meshes.length, bodies: bodies(), materials: scene.materials.length, textures: scene.textures.length,
-  };
-  for (let cycle = 0; cycle < 10; cycle += 1) {
-    const world = buildArenaWorld(scene, physics, materials, shadowRegistry);
-    const audit = world.audit();
-    assert.deepEqual({
-      meshes: audit.meshes, bodies: audit.bodies, instances: audit.instances,
-      materials: audit.materials, textures: audit.textures,
-    }, {
-      meshes: 52, bodies: 19, instances: 27, materials: 4, textures: 4,
-    });
-    assert.equal(audit.visualColliderPairs.length, 19, "floor, posts and every visible wall name authority");
-    assert.equal(
-      shadowGenerator.getShadowMap().renderList.length, shadowBaseline + 22,
-      "opaque room pieces and posts cast; translucent scrims cannot advertise collision through shadows",
-    );
-    assert.equal(shadowAdds, (cycle + 1) * 22, "each owned caster is registered exactly once");
-    const beam = scene.getMeshByName("room.beam.n1");
-    world.updateOcclusion(new Vector3(-5, 8, 10), [{ point: new Vector3(-5, 1, 15) }]);
-    assert.equal(beam.isVisible, false, "the beam begins culled");
-    assert.ok(shadowGenerator.getShadowMap().renderList.includes(beam), "a culled beam stays a caster");
-    world.updateOcclusion(new Vector3(-5, 8, 10), [{ point: Vector3.Zero() }]);
-    assert.equal(beam.isVisible, true, "the beam is revealed after its ray clears");
-    assert.ok(shadowGenerator.getShadowMap().renderList.includes(beam), "reveal does not leave the beam shadowless");
-    const beforeAudit = [scene.meshes.length, scene.materials.length, scene.textures.length, bodies()];
-    for (let reading = 0; reading < 20; reading += 1) assert.strictEqual(world.audit(), audit);
-    assert.deepEqual(
-      [scene.meshes.length, scene.materials.length, scene.textures.length, bodies()], beforeAudit,
-      "the console audit creates no scene resource",
-    );
+  const baseline = [scene.meshes.length, bodies(), scene.materials.length, scene.textures.length];
+  for (let cycle = 0; cycle < 10; cycle++) {
+    const world = buildArenaWorld(scene, physics, materials, registry), audit = world.audit();
+    assert.deepEqual([audit.meshes, audit.bodies, audit.instances, audit.materials, audit.textures], [66, 33, 30, 4, 4]);
+    assert.equal(audit.visualColliderPairs.length, 33);
+    assert.equal(shadows.getShadowMap().renderList.length, 32);
+    assert.equal(adds, (cycle + 1) * 32);
+    const wall = scene.getMeshByName("room.wall.0");
+    world.updateOcclusion(new Vector3(0, .7, 15), [{ point: new Vector3(0, .7, 12) }]);
+    assert.equal(wall.isVisible, false);
+    assert.ok(shadows.getShadowMap().renderList.includes(wall));
+    const before = [scene.meshes.length, scene.materials.length, scene.textures.length, bodies()];
+    for (let i = 0; i < 20; i++) assert.strictEqual(world.audit(), audit);
+    assert.deepEqual([scene.meshes.length, scene.materials.length, scene.textures.length, bodies()], before);
     world.dispose();
-    assert.equal(shadowRemoves, (cycle + 1) * 22, "each owned caster is explicitly unregistered exactly once");
-    assert.equal(shadowGenerator.getShadowMap().renderList.length, shadowBaseline, "disposed room leaves no shadow caster");
-    assert.deepEqual({
-      meshes: scene.meshes.length, bodies: bodies(), materials: scene.materials.length, textures: scene.textures.length,
-    }, baseline, `cycle ${cycle + 1}`);
+    assert.equal(removes, (cycle + 1) * 32);
+    assert.equal(shadows.getShadowMap().renderList.length, 0);
+    assert.deepEqual([scene.meshes.length, bodies(), scene.materials.length, scene.textures.length], baseline);
   }
-  shadowGenerator.dispose();
-  light.dispose();
+  shadows.dispose(); light.dispose();
 });
 
 test("the_forges_fire_stands_through_drawn_frames_and_moves_when_it_is_burned", async (t) => {

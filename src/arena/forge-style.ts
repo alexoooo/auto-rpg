@@ -1,6 +1,9 @@
-import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Mesh } from "@babylonjs/core/Meshes/mesh.js";
+import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder.js";
+import { VertexData } from "@babylonjs/core/Meshes/mesh.vertexData.js";
 import type { Scene } from "@babylonjs/core/scene.js";
-import type { Mesh } from "@babylonjs/core/Meshes/mesh.js";
+import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial.js";
+import { Color3 } from "@babylonjs/core/Maths/math.color.js";
 import type { PBRMaterial } from "@babylonjs/core/Materials/PBR/pbrMaterial.js";
 import { loadTemplates, forgeMaterials } from "./forge-assets.ts";
 // These materials are always on screen. Register their shaders with the initial
@@ -32,28 +35,54 @@ export async function loadForgeStyle(scene: Scene) {
 }
 export type ForgeStyle = Awaited<ReturnType<typeof loadForgeStyle>>;
 
-/** Lay the forge's paving and its glowing seams on the ground slab; they add no collider. */
-export function paveForge(scene: Scene, kit: Map<string, Mesh>, material: PBRMaterial, ember: PBRMaterial): void {
-  const template = kit.get("pavement")!;
-  template.material = material;
-  template.receiveShadows = true;
-  const size = template.getBoundingInfo().boundingBox.extendSize.scale(2);
-  for (const x of [-.5, .5]) for (const z of [-.5, .5]) {
-    const pavement = template.createInstance(`forge.paving.${x}.${z}`);
-    pavement.position.set(x * size.x, -.003, z * size.z);
-    pavement.rotationQuaternion = Quaternion.Identity();
-    pavement.scaling.copyFrom(Vector3.One());
-    pavement.setEnabled(true); pavement.isVisible = true; pavement.isPickable = false;
-    pavement.metadata = { roomPlacement: { role: "floor", solid: true, collider: "ground" } };
-    const seams = kit.get("fissures")!;
-    seams.material = ember;
-    const glow = seams.createInstance(`forge.seams.${x}.${z}`);
-    glow.position.copyFrom(pavement.position);
-    glow.setEnabled(true); glow.isVisible = true; glow.isPickable = false;
+/** Concentric stone courses and bronze inlay, flush with the collision slab (docs/art/arena.md). */
+export function paveForge(scene: Scene, material: PBRMaterial, bronze: PBRMaterial, ember: PBRMaterial): void {
+  const positions: number[] = [], normals: number[] = [], uvs: number[] = [], indices: number[] = [];
+  const radii = [.06, 3.4, 6.4, 9.5, 13.2], counts = [12, 24, 36, 48];
+  for (let ring = 0; ring < counts.length; ring++) {
+    const inner = radii[ring] + .04, outer = radii[ring + 1] - .04, count = counts[ring];
+    for (let stone = 0; stone < count; stone++) {
+      const start = (stone + (ring % 2) / 2) * Math.PI * 2 / count;
+      for (let arc = 0; arc < 4; arc++) {
+        const offset = positions.length / 3;
+        for (const [radius, step] of [[inner, arc], [outer, arc], [inner, arc + 1], [outer, arc + 1]]) {
+          const angle = start + .04 / radius + (Math.PI * 2 / count - .08 / radius) * step / 4;
+          const x = Math.sin(angle) * radius, z = Math.cos(angle) * radius;
+          positions.push(x, .006, z); normals.push(0, 1, 0); uvs.push(x / 2.4, z / 2.4);
+        }
+        indices.push(offset, offset + 2, offset + 1, offset + 1, offset + 2, offset + 3);
+      }
+    }
   }
-  // The underlay reaches the slab's edge; it sits just below the paving and its modelled joints.
+  const mesh = new Mesh("forge.circular-paving", scene), data = new VertexData();
+  data.positions = positions; data.normals = normals; data.uvs = uvs; data.indices = indices; data.applyToMesh(mesh);
+  mesh.material = material; mesh.receiveShadows = true;
+  mesh.metadata = { roomPlacement: { role: "floor", solid: true, collider: "ground" } };
+  const ring = (name: string, radius: number, thickness: number, surface: PBRMaterial) => {
+    const line = MeshBuilder.CreateTorus(name, { diameter: radius * 2, thickness, tessellation: 128 }, scene);
+    line.position.y = .009; line.scaling.y = .12; line.material = surface; line.isPickable = false;
+  };
+  for (const radius of [1.25, 3.4, 6.4, 9.5, 12.8]) ring(`forge.inlay.${radius}`, radius, .055, bronze);
+  ring("forge.ember-ring", 12.87, .025, ember);
+  const rays: number[] = [], faces: number[] = [];
+  for (let i = 0; i < 8; i++) {
+    const angle = i * Math.PI / 4, length = i % 2 ? 2.4 : 4.5;
+    const offset = rays.length / 3;
+    for (const [radius, turn] of [[.75, angle - .18], [length, angle], [.75, angle + .18], [1.4, angle]]) {
+      rays.push(Math.sin(turn) * radius, .014, Math.cos(turn) * radius);
+    }
+    faces.push(offset, offset + 3, offset + 1, offset + 1, offset + 3, offset + 2);
+  }
+  const sigil = new Mesh("forge.compass", scene), carved = new VertexData();
+  carved.positions = rays; carved.indices = faces; carved.normals = rays.map((_, i) => i % 3 === 1 ? 1 : 0);
+  carved.applyToMesh(sigil); sigil.material = bronze; sigil.isPickable = false;
+  const skirt = MeshBuilder.CreateCylinder("forge.foundation", { diameter: 27, height: 2.4, tessellation: 96 }, scene);
+  skirt.position.y = -1.21; skirt.material = material;
   const floor = scene.getMeshByName("room.floor");
-  if (floor) floor.position.y = -.015;
+  if (floor) {
+    floor.position.y = -.01;
+    const mortar = new StandardMaterial("forge.mortar", scene);
+    mortar.diffuseColor = Color3.FromHexString("#171313"); mortar.specularColor = Color3.Black();
+    floor.material = mortar;
+  }
 }
-
-

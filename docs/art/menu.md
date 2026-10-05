@@ -15,7 +15,7 @@ The Dungeon setup uses the same painting under dark charcoal overlays, with crim
 ivory type and bronze borders. Its text is limited to the character names, choices and actions.
 `src/dungeon/style.css` draws the niches and the selection marks; no additional raster art is used.
 
-`src/dungeon/hero-lineup.ts` renders the Warrior, Rogue and Skeleton with the game's own skins,
+`src/render/character-preview.ts` renders the Warrior, Rogue and Skeleton with the game's own skins,
 on bodies built from `modelSpec`. The preview world never steps. Three orthographic cameras
 have separate layer masks and equal-width viewports, aligned with the three native radio labels.
 The models wear their default boots and armour; equipment has no setup control.

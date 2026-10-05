@@ -14,15 +14,15 @@ import { buildBody, type BuiltBody } from "../core/build/build-body.ts";
 import { modelSpec, type BodyModel } from "../core/human/spec.ts";
 import type { PhysicsEngine } from "../core/engine/engine.ts";
 import { createWorld } from "../core/world.ts";
-import { dresserFor, type Dresser } from "../render/dress.ts";
-import { loadSkeletonArt } from "../render/skeleton-skin.ts";
+import { dresserFor, type Dresser } from "./dress.ts";
+import { loadSkeletonArt } from "./skeleton-skin.ts";
 import { publicAssetUrl } from "../asset-url.ts";
 
-/** The game's skins on unstepped bodies. Each radio's column has its own camera, so resizing
- * keeps the characters centred on their hit areas. This scene draws only on load and resize;
+/** The game's skins on unstepped bodies. Each column has its own camera, so resizing
+ * keeps the characters centred. This scene draws on load, selection and resize;
  * its lighting, framing and plinth sizes are art choices in `docs/art/menu.md`. */
 export async function showHeroLineup(canvas: HTMLCanvasElement, physics: PhysicsEngine,
-  models: readonly BodyModel[], signal: AbortSignal): Promise<void> {
+  models: readonly BodyModel[], signal: AbortSignal): Promise<{ setModel(index: number, model: BodyModel): Promise<void> }> {
   const engine = new Engine(canvas, true, { alpha: true, preserveDrawingBuffer: true });
   engine.setHardwareScalingLevel(1 / Math.min(devicePixelRatio, 1.5));
   const scene = new Scene(engine), world = createWorld(scene, physics, { gravity: false });
@@ -38,6 +38,8 @@ export async function showHeroLineup(canvas: HTMLCanvasElement, physics: Physics
   rim.diffuse = Color3.FromHexString("#d76b52"); rim.intensity = 1.4;
   const stone = new StandardMaterial("lineup plinth", scene);
   stone.diffuseColor = Color3.FromHexString("#292321"); stone.specularColor = Color3.Black();
+  const revisions = models.map(() => 0);
+  const dressers = new Map<BodyModel, Promise<Dresser>>();
   const bodies: BuiltBody[] = [], skins: ReturnType<Dresser>[] = [], cameras: FreeCamera[] = [];
   let ready = false;
   const draw = () => {
@@ -56,21 +58,31 @@ export async function showHeroLineup(canvas: HTMLCanvasElement, physics: Physics
   resize.observe(canvas);
   const dispose = () => {
     resize.disconnect();
-    for (const skin of skins) skin.dispose();
-    for (const body of bodies) body.dispose();
+    for (const skin of skins) skin?.dispose();
+    for (const body of bodies) body?.dispose();
     world.dispose(); scene.dispose(); engine.dispose();
   };
   signal.addEventListener("abort", dispose, { once: true });
+  const setModel = async (index: number, model: BodyModel) => {
+    const revision = ++revisions[index];
+    let loading = dressers.get(model);
+    if (!loading) {
+      loading = dresserFor(model, scene, { boots: true, armour: true }, loadSkeletonArt);
+      dressers.set(model, loading);
+    }
+    const dress = await loading;
+    if (signal.aborted || revision !== revisions[index]) return;
+    skins[index]?.dispose(); bodies[index]?.dispose();
+    const body = buildBody(modelSpec(model), world, { position: [index * 4, 0, 0] });
+    bodies[index] = body;
+    const skin = skins[index] = dress(body);
+    for (const mesh of skin.meshes) mesh.layerMask = 1 << index;
+    await scene.whenReadyAsync();
+    if (!signal.aborted && revision === revisions[index]) draw();
+  };
   try {
-    const dressers = await Promise.all(models.map(model => dresserFor(model, scene, { boots: true, armour: true }, loadSkeletonArt)));
-    if (signal.aborted) return;
-    models.forEach((model, index) => {
+    models.forEach((_, index) => {
       const x = index * 4, mask = 1 << index;
-      const body = buildBody(modelSpec(model), world, { position: [x, 0, 0] });
-      bodies.push(body);
-      const skin = dressers[index](body);
-      skins.push(skin);
-      for (const mesh of skin.meshes) mesh.layerMask = mask;
       const plinth = MeshBuilder.CreateCylinder(`plinth ${index}`, { diameter: 1.15, height: .06, tessellation: 64 }, scene);
       plinth.position.set(x, -.04, 0); plinth.material = stone; plinth.layerMask = mask;
       const camera = new FreeCamera(`hero ${index}`, new Vector3(x + .2, 1.05, 6), scene);
@@ -81,9 +93,10 @@ export async function showHeroLineup(canvas: HTMLCanvasElement, physics: Physics
       cameras.push(camera);
     });
     scene.activeCameras = cameras;
-    await scene.whenReadyAsync();
+    await Promise.all(models.map((model, index) => setModel(index, model)));
     ready = true;
     draw();
+    return { setModel };
   } catch (error) {
     if (!signal.aborted) { signal.removeEventListener("abort", dispose); dispose(); }
     throw error;

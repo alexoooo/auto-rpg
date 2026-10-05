@@ -34,7 +34,7 @@ import { generateCryptDungeon } from "./crypt-dungeon.ts";
 import { referenceChamber, REFERENCE_CAMERA, REFERENCE_TORCHES } from "./reference.ts";
 import { dressReference, type ReferenceQuality } from "./reference-look.ts";
 import { need } from "../dom.ts";
-import { showHeroLineup } from "./hero-lineup.ts";
+import { showHeroLineup } from "../render/character-preview.ts";
 
 type DungeonScenario = "generated" | "reference" | "random-crypt";
 

@@ -35,24 +35,23 @@
       <div id="curtain">
         <header class="duel-title">
           <h1>Arena</h1>
-          <p>Two bodies, a club each, and a fight that is only physics.</p>
         </header>
         <!-- Filled by src/arena/main.ts from the core's models, so an option that is offered is
              one the core has. Its children are laid straight into this grid. -->
         <div id="matchup"></div>
         <!-- The side the person fights; nobody, and both sides fight for themselves. -->
         <label class="field you">
-          <span class="field-name">You fight as</span>
+          <span class="field-name">Play as</span>
           <select id="you">
-            <option value="">nobody</option>
-            <option value="left">left</option>
-            <option value="right">right</option>
+            <option value="">Spectator</option>
+            <option value="left">Left</option>
+            <option value="right">Right</option>
           </select>
         </label>
         <button id="begin" class="action" type="button" disabled>Fight</button>
         <footer class="duel-footer">
           <button id="help-open" class="link" type="button">How to play</button>
-          <p class="note" id="boot-note">Loading the physics&hellip;</p>
+          <p class="note" id="boot-note">Loading&hellip;</p>
           <a href="./">&larr; Main menu</a>
         </footer>
       </div>

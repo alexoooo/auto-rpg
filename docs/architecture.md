@@ -656,7 +656,10 @@ arena, crypt and lab screens at `?play=arena`, `?play=dungeon` and `?play=lab`, 
   the ground, and the pointer's ray, where it crosses the level of the body's centre of mass,
   into world directions (`src/arena/orders-input.ts`) and gives them as orders (`Duel.order`),
   so nothing of the camera reaches a mind. The room's
-  solids (`arenaSolids`) are what bodies meet; the visible room is dressed from the forge kit
+  solids (`arenaSolids`) are a floor slab, twenty-four rotated parapet boxes and eight brazier
+  pedestals enclosing a circular floor. Setup uses two unstepped character previews
+  (`src/render/character-preview.ts`) and an overview camera; Fight switches explicitly to the
+  combat camera and HUD. The solids are what bodies meet; the visible room is dressed from the forge kit
   (`src/arena/forge-style.ts`, `src/arena/forge-room.ts`). `validateRoomPlacements` refuses a
   piece that names a collider the arena lacks, or one of the wrong role, and a solid-looking piece
   within reach (below `ROOM.maxReachHeight`) that names none.

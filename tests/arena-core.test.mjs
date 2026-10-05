@@ -111,6 +111,30 @@ test("each_arena_post_is_the_prism_its_mesh_draws", () => {
   } finally { scene.dispose(); }
 });
 
+test("the_circular_wall_stops_outward_motion_at_every_face_and_join", async () => {
+  const run = async (walls) => {
+    const scene = new Scene(new NullEngine()), world = createWorld(scene, await freshEngine(), { gravity: false });
+    try {
+      addArenaSolids(world.physics, arenaSolids().filter(solid => walls ? solid.name.includes(".wall.") : false));
+      const nodes = [];
+      for (let i = 0; i < 48; i++) {
+        const angle = i * Math.PI * 2 / 48, x = Math.sin(angle), z = Math.cos(angle);
+        const node = new TransformNode(`probe ${i}`, scene);
+        node.position.set(x * 12.8, .65, z * 12.8); node.rotationQuaternion = Quaternion.Identity();
+        const body = world.physics.addBody(node, [{ kind: "sphere", centre: [0, 0, 0], radius: .06 }],
+          { mass: 1, centre: [0, 0, 0], moments: [.00144, .00144, .00144], orientation: Quaternion.Identity() });
+        body.applyImpulse(new Vector3(x * 4, 0, z * 4), node.position);
+        nodes.push(node);
+      }
+      world.step(60);
+      return nodes.map(node => Math.hypot(node.position.x, node.position.z));
+    } finally { world.dispose(); scene.dispose(); }
+  };
+  const contained = await run(true), open = await run(false);
+  assert.ok(contained.every(radius => radius < 13.2), `a wall admitted a probe: ${contained}`);
+  assert.ok(open.every(radius => radius > 14), "the control must cross the absent boundary");
+});
+
 test("a_ball_dropped_on_an_arena_post_rests_on_its_top", async () => {
   const { scene, world, dispose } = await arena();
   try {

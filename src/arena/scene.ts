@@ -9,11 +9,9 @@ import { Color3, Color4 } from "@babylonjs/core/Maths/math.color.js";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { Engine } from "@babylonjs/core/Engines/engine.js";
 
-import { dressForgeRoom, type ForgeFire } from "./forge-room.ts";
+import { dressForgeRoom, paintArenaBanners, type ForgeFire } from "./forge-room.ts";
 import { loadForgeStyle, paveForge } from "./forge-style.ts";
-import { TEXTURED_SURFACES } from "../render/materials.ts";
 import { postPipeline } from "../render/post.ts";
-import { sharedSurface } from "../render/surface.ts";
 import { buildArenaWorld, type ArenaAudit, type RoomMaterials, type RoomOcclusionTarget } from "./room.ts";
 import type { PhysicsWorld } from "../core/engine/engine.ts";
 
@@ -30,7 +28,7 @@ interface Arena {
   shadows: ShadowGenerator;
   /** A read-only scene census; calling it creates no Babylon object. */
   audit(): ArenaAudit;
-  /** Hide an overhead prop only while it crosses the protected combat sight lines. */
+  /** Hide a parapet section only while it crosses the protected combat sight lines. */
   updateRoomOcclusion(targets: readonly RoomOcclusionTarget[]): void;
   /** The posts' fire, which the page burns each frame it is not paused. */
   fire: ForgeFire;
@@ -44,7 +42,7 @@ interface Arena {
  */
 const ARENA_LIGHT = Object.freeze({
   /** What shows where nothing is drawn, with its alpha, and the ambient colour. */
-  clear: [0.055, 0.062, 0.078, 1],
+  clear: [0.026, 0.017, 0.021, 1],
   ambient: [0.14, 0.15, 0.18],
   /** Where the camera is made, before the page's orbit places it; its vertical field of view, rad; its near and far planes, m. */
   camera: { start: [0, 2, -4], fov: 0.95, near: 0.05, far: 220 },
@@ -104,9 +102,8 @@ export async function buildArena(engine: Engine, physicsFor: (scene: Scene) => P
   const materials: RoomMaterials = {
     ground: forge.materials.basalt,
     wall: forge.materials.basalt,
-    timber: sharedSurface(scene, TEXTURED_SURFACES.roomTimber),
     banner: forge.materials.banner,
-    wood: sharedSurface(scene, TEXTURED_SURFACES.wood),
+    wood: forge.materials.basalt,
   };
 
   // The floor slab and the posts are colliders; the visible floor and the room's dressing are
@@ -116,7 +113,8 @@ export async function buildArena(engine: Engine, physicsFor: (scene: Scene) => P
     remove: (mesh) => shadows.removeShadowCaster(mesh),
   });
 
-  paveForge(scene, forge.kit, forge.materials.pavement, forge.materials.lava);
+  paveForge(scene, forge.materials.pavement, forge.materials.brazierBronze, forge.materials.lava);
+  paintArenaBanners(scene, forge);
   const fire = dressForgeRoom(scene, forge);
   postPipeline(scene, camera);
 

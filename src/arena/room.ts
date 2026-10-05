@@ -11,12 +11,10 @@ import "@babylonjs/core/Meshes/instancedMesh.js";
 import type { FixedCollider, PhysicsWorld } from "../core/engine/engine.ts";
 import { cos, sin } from "../core/math/real.ts";
 import type { Vec3 } from "../core/spec/quantity.ts";
-import { surfaceMetresPerRepeat, TEXTURED_SURFACES } from "../render/materials.ts";
 
 export interface RoomMaterials {
   ground: Material;
   wall: Material;
-  timber: Material;
   banner: Material;
   /** The posts. */
   wood: Material;
@@ -38,7 +36,7 @@ export interface ArenaAudit {
 
 interface RoomPlacement {
   name: string;
-  role: "wall" | "beam" | "banner" | "rack" | "debris";
+  role: "wall" | "banner";
   position: readonly [number, number, number];
   rotationY: number;
   /** Axis-aligned half extent after rotation, used by the admission check. */
@@ -82,50 +80,30 @@ export const ROOM = Object.freeze({
   /** The highest a fighter can reach, m: crown, raised arm and the longest carried object, with margin. */
   maxReachHeight: 3.6,
   floorSize: 60,
-  /** Metres one image repeat spans on the floor, walls, timber and banners; the timber's is its texture's. */
+  /** Metres one image repeat spans on the floor, walls and banners. */
   floorMetresPerRepeat: 2.4,
-  wallWidth: 26.24,
-  wallHeight: 4.2,
-  /** Depth of the wall colliders, whose inner faces meet the scrims, m. */
-  wallThickness: 0.24,
+  wallCount: 24,
+  wallWidth: 2 * 13 * sin(Math.PI / 24) / cos(Math.PI / 24) + .08,
+  wallHeight: 1.25,
+  /** Depth of the parapet, shared by its visible masonry and collider, m. */
+  wallThickness: 0.5,
   wallHalfExtent: 13,
   wallMetresPerRepeat: 2.1,
-  timberMetresPerRepeat: surfaceMetresPerRepeat(TEXTURED_SURFACES.roomTimber),
   bannerMetresPerRepeat: 0.4,
 });
 
-const wall = (name: string, x: number, z: number, rotationY: number, halfExtent: readonly [number, number, number]): RoomPlacement => ({
-  name, role: "wall", position: [x, ROOM.wallHeight / 2, z], rotationY, halfExtent,
-  // A drawn wall is a translucent scrim, not solid; its collider is a box behind it
-  // (`ROOM_WALL_COLLIDERS`).
-  solid: false, collider: `${name}.collider`,
+const roomWalls = (): readonly RoomPlacement[] => Array.from({ length: ROOM.wallCount }, (_, index) => {
+  const angle = index * Math.PI * 2 / ROOM.wallCount;
+  const radius = ROOM.wallHalfExtent + ROOM.wallThickness / 2;
+  const c = cos(angle), s = sin(angle);
+  return {
+    name: `room.wall.${index}`, role: "wall", solid: true, collider: `room.wall.${index}.collider`,
+    position: [s * radius, ROOM.wallHeight / 2, c * radius], rotationY: angle,
+    halfExtent: [Math.abs(c) * ROOM.wallWidth / 2 + Math.abs(s) * ROOM.wallThickness / 2,
+      ROOM.wallHeight / 2, Math.abs(s) * ROOM.wallWidth / 2 + Math.abs(c) * ROOM.wallThickness / 2],
+  };
 });
 
-const roomWalls = (): readonly RoomPlacement[] => {
-  const H = ROOM.wallHalfExtent;
-  const W = ROOM.wallWidth / 2;
-  const Y = ROOM.wallHeight / 2;
-  return [
-    wall("room.wall.north", 0, H, 0, [W, Y, 0]),
-    wall("room.wall.south", 0, -H, Math.PI, [W, Y, 0]),
-    wall("room.wall.east", H, 0, -Math.PI / 2, [0, Y, W]),
-    wall("room.wall.west", -H, 0, Math.PI / 2, [0, Y, W]),
-  ];
-};
-
-/** The walls' colliders, boxes whose inner faces meet the scrims; the page and headless bouts share them. */
-const ROOM_WALL_COLLIDERS = Object.freeze(roomWalls().map((placement) => {
-  const northSouth = placement.name.endsWith("north") || placement.name.endsWith("south");
-  const depth = ROOM.wallThickness; const centre = ROOM.wallHalfExtent + depth / 2;
-  return Object.freeze({ name: placement.collider as string,
-    width: northSouth ? ROOM.wallWidth : depth, height: ROOM.wallHeight,
-    depth: northSouth ? depth : ROOM.wallWidth,
-    position: Object.freeze([
-      placement.position[0] === 0 ? 0 : Math.sign(placement.position[0]) * centre,
-      ROOM.wallHeight / 2,
-      placement.position[2] === 0 ? 0 : Math.sign(placement.position[2]) * centre,
-    ] as const) });
-}));
 const placed = (
   name: string,
   role: RoomRole,
@@ -143,52 +121,13 @@ const placed = (
  * eye (`docs/reference/look.md#arena-room`).
  */
 export const ROOM_GROUPS: readonly RoomGroup[] = Object.freeze([
-  {
-    role: "wall", metresPerRepeat: ROOM.wallMetresPerRepeat, placements: roomWalls(),
-  },
-  {
-    role: "beam", metresPerRepeat: ROOM.timberMetresPerRepeat, placements: [
-      placed("room.beam.n1", "beam", [-5.0, 4.1, 12.82], [2.1, 0.12, 0.12]),
-      placed("room.beam.n2", "beam", [5.0, 4.1, 12.82], [2.1, 0.12, 0.12]),
-      placed("room.beam.s1", "beam", [-5.0, 4.1, -12.82], [2.1, 0.12, 0.12]),
-      placed("room.beam.s2", "beam", [5.0, 4.1, -12.82], [2.1, 0.12, 0.12]),
-      placed("room.beam.e1", "beam", [12.82, 4.1, -5.0], [0.12, 0.12, 2.1], true, Math.PI / 2),
-      placed("room.beam.e2", "beam", [12.82, 4.1, 5.0], [0.12, 0.12, 2.1], true, Math.PI / 2),
-      placed("room.beam.w1", "beam", [-12.82, 4.1, -5.0], [0.12, 0.12, 2.1], true, Math.PI / 2),
-      placed("room.beam.w2", "beam", [-12.82, 4.1, 5.0], [0.12, 0.12, 2.1], true, Math.PI / 2),
-    ],
-  },
-  {
-    role: "banner", metresPerRepeat: ROOM.bannerMetresPerRepeat, placements: [
-      placed("room.banner.n1", "banner", [-7.2, 2.55, 12.96], [0.6, 0.9, 0], false),
-      placed("room.banner.n2", "banner", [7.2, 2.55, 12.96], [0.6, 0.9, 0], false),
-      placed("room.banner.s1", "banner", [-7.2, 2.55, -12.96], [0.6, 0.9, 0], false, Math.PI),
-      placed("room.banner.s2", "banner", [7.2, 2.55, -12.96], [0.6, 0.9, 0], false, Math.PI),
-      placed("room.banner.e1", "banner", [12.96, 2.55, -7.2], [0, 0.9, 0.6], false, -Math.PI / 2),
-      placed("room.banner.e2", "banner", [12.96, 2.55, 7.2], [0, 0.9, 0.6], false, -Math.PI / 2),
-      placed("room.banner.w1", "banner", [-12.96, 2.55, -7.2], [0, 0.9, 0.6], false, Math.PI / 2),
-      placed("room.banner.w2", "banner", [-12.96, 2.55, 7.2], [0, 0.9, 0.6], false, Math.PI / 2),
-    ],
-  },
-  {
-    role: "rack", metresPerRepeat: ROOM.timberMetresPerRepeat, placements: [
-      placed("room.rack.ne", "rack", [11.0, 0.006, 7], [0.8, 0, 0.2], false, 0),
-      placed("room.rack.nw", "rack", [-11.0, 0.006, 7], [0.8, 0, 0.2], false, 0),
-      placed("room.rack.se", "rack", [11.0, 0.006, -7], [0.8, 0, 0.2], false, 0),
-      placed("room.rack.sw", "rack", [-11.0, 0.006, -7], [0.8, 0, 0.2], false, 0),
-    ],
-  },
-  {
-    role: "debris", metresPerRepeat: ROOM.timberMetresPerRepeat, placements: [
-      placed("room.debris.n1", "debris", [-7.5, 0.006, 10.8], [0.4, 0, 0.13], false, 0.3),
-      placed("room.debris.n2", "debris", [7.5, 0.006, 10.8], [0.4, 0, 0.13], false, -0.4),
-      placed("room.debris.s1", "debris", [-7.5, 0.006, -10.8], [0.4, 0, 0.13], false, -0.2),
-      placed("room.debris.s2", "debris", [7.5, 0.006, -10.8], [0.4, 0, 0.13], false, 0.5),
-      placed("room.debris.e1", "debris", [10.8, 0.006, -7.5], [0.13, 0, 0.4], false, 1.2),
-      placed("room.debris.e2", "debris", [10.8, 0.006, 7.5], [0.13, 0, 0.4], false, 1.7),
-      placed("room.debris.w1", "debris", [-10.8, 0.006, -7.5], [0.13, 0, 0.4], false, 1.4),
-      placed("room.debris.w2", "debris", [-10.8, 0.006, 7.5], [0.13, 0, 0.4], false, 1.9),
-    ],
+  { role: "wall", metresPerRepeat: ROOM.wallMetresPerRepeat, placements: roomWalls() },
+  { role: "banner", metresPerRepeat: ROOM.bannerMetresPerRepeat,
+    placements: Array.from({ length: 8 }, (_, index) => {
+      const angle = (index + .5) * Math.PI / 4;
+      return placed(`room.banner.${index}`, "banner",
+        [sin(angle) * 13.55, -.15, cos(angle) * 13.55], [.6, .9, .6], false, angle);
+    }),
   },
 ]);
 
@@ -196,7 +135,7 @@ export const ROOM_GROUPS: readonly RoomGroup[] = Object.freeze([
  * The ring of posts round the fighting floor: how many, the ring's radius, and each post's size and
  * sides, m (`docs/reference/look.md#arena-room`).
  */
-export const ARENA_POSTS = Object.freeze({ count: 14, ring: 9.5, height: 1.5, diameter: 0.17, sides: 8 });
+export const ARENA_POSTS = Object.freeze({ count: 8, ring: 12.3, height: 1.7, diameter: 1.1, sides: 8 });
 
 /** The name of every collider the arena has (`arenaSolids`). */
 const existingColliders = new Set([
@@ -287,12 +226,9 @@ function roomSource(scene: Scene, group: RoomGroup): Mesh {
   let mesh: Mesh;
   switch (group.role) {
     case "wall":
-      mesh = MeshBuilder.CreatePlane(name, { width: ROOM.wallWidth, height: ROOM.wallHeight, sideOrientation: 2 }, scene);
+      mesh = MeshBuilder.CreateBox(name, { width: ROOM.wallWidth, height: ROOM.wallHeight, depth: ROOM.wallThickness }, scene);
       break;
-    case "beam": mesh = MeshBuilder.CreateBox(name, { width: 4.2, height: 0.24, depth: 0.24 }, scene); break;
     case "banner": mesh = MeshBuilder.CreatePlane(name, { width: 1.2, height: 1.8, sideOrientation: 2 }, scene); break;
-    case "rack": mesh = MeshBuilder.CreateGround(name, { width: 1.6, height: 0.4 }, scene); break;
-    case "debris": mesh = MeshBuilder.CreateGround(name, { width: 0.8, height: 0.26 }, scene); break;
     default: {
       const never: never = group.role;
       throw new Error(`unknown room role ${JSON.stringify(never)}`);
@@ -351,19 +287,20 @@ function segmentIntersectsMesh(
 
 /** One of the arena's fixed colliders, world, m: a box by its centre and full size, or a post by its corners. */
 type ArenaSolid =
-  | { readonly name: string; readonly kind: "box"; readonly centre: Vec3; readonly size: Vec3 }
+  | { readonly name: string; readonly kind: "box"; readonly centre: Vec3; readonly size: Vec3; readonly turn?: number }
   | { readonly name: string; readonly kind: "hull"; readonly centre: Vec3; readonly points: readonly Vec3[] };
 
 /**
- * What a body meets in the arena: the ground's slab, the four walls (`ROOM_WALL_COLLIDERS`) and the ring of posts
+ * What a body meets in the arena: the ground's slab, the circular parapet (`roomWalls`) and the ring of posts
  * (`ARENA_POSTS`). A post is the prism its mesh draws, `CreateCylinder` of `sides` sides, corner for corner.
  * Its corners are the world's, so their sines and cosines are the core's own: a bout is the same in every
  * JavaScript engine only if its arena is.
  */
 export function arenaSolids(): readonly ArenaSolid[] {
-  const solids: ArenaSolid[] = [{ name: "ground", kind: "box", centre: [0, -0.5, 0], size: [60, 1, 60] }];
-  for (const wall of ROOM_WALL_COLLIDERS) {
-    solids.push({ name: wall.name, kind: "box", centre: [...wall.position], size: [wall.width, wall.height, wall.depth] });
+  const solids: ArenaSolid[] = [{ name: "ground", kind: "box", centre: [0, -0.5, 0], size: [ROOM.floorSize, 1, ROOM.floorSize] }];
+  for (const wall of roomWalls()) {
+    solids.push({ name: wall.collider!, kind: "box", centre: [...wall.position],
+      size: [ROOM.wallWidth, ROOM.wallHeight, ROOM.wallThickness], turn: wall.rotationY });
   }
   const { count, ring, height, diameter, sides } = ARENA_POSTS;
   for (let index = 0; index < count; index += 1) {
@@ -383,7 +320,7 @@ export function arenaSolids(): readonly ArenaSolid[] {
 export function addArenaSolids(physics: PhysicsWorld, solids: readonly ArenaSolid[] = arenaSolids()): FixedCollider[] {
   return solids.map((solid) => {
     switch (solid.kind) {
-      case "box": return physics.addFixedBox(solid.centre, solid.size);
+      case "box": return physics.addFixedBox(solid.centre, solid.size, solid.turn);
       case "hull": return physics.addFixedShape({ kind: "hull", points: solid.points });
       default: {
         const never: never = solid;
@@ -401,7 +338,7 @@ interface ArenaColliders {
 
 /**
  * The arena's solids (`arenaSolids`) as fixed colliders in `physics`, and as meshes: the ground and walls invisible,
- * the posts drawn.
+ * the brazier pedestals drawn.
  */
 export function buildArenaColliders(
   scene: Scene,
@@ -419,6 +356,7 @@ export function buildArenaColliders(
     if (solid.kind === "box") {
       const box = MeshBuilder.CreateBox(solid.name, { width: solid.size[0], height: solid.size[1], depth: solid.size[2] }, scene);
       box.position.set(...solid.centre);
+      box.rotation.y = solid.turn ?? 0;
       box.isVisible = false;
       if (solid.name === "ground") box.material = materials.ground;
       mark(box);
@@ -465,7 +403,8 @@ export function buildCosmeticRoom(
   const refused = validateRoomPlacements(groups);
   if (refused.length) throw new Error(refused.join("\n"));
   const meshes: AbstractMesh[] = [];
-  const floor = MeshBuilder.CreateGround("room.floor", { width: ROOM.floorSize, height: ROOM.floorSize }, scene);
+  const floor = MeshBuilder.CreateDisc("room.floor", { radius: ROOM.wallHalfExtent + ROOM.wallThickness, tessellation: 96, sideOrientation: 2 }, scene);
+  floor.rotation.x = Math.PI / 2;
   floor.position.y = 0.003;
   floor.material = materials.ground;
   floor.receiveShadows = true;
@@ -475,7 +414,7 @@ export function buildCosmeticRoom(
   const pairs: VisualColliderPair[] = [{ visual: floor.name, collider: "ground" }];
 
   const dressed: Readonly<Record<RoomRole, Material>> = {
-    wall: materials.wall, banner: materials.banner, beam: materials.timber, rack: materials.timber, debris: materials.timber,
+    wall: materials.wall, banner: materials.banner,
   };
   for (const group of groups) {
     const source = roomSource(scene, group);
@@ -578,7 +517,7 @@ export function buildArenaWorld(
   ): void => {
     for (const mesh of room.meshes) {
       const placement = mesh.metadata?.roomPlacement as { role?: string } | undefined;
-      if (placement?.role !== "beam" && !mesh.metadata?.forgeOpaqueWall) continue;
+      if (placement?.role !== "wall") continue;
       mesh.isVisible = true;
       for (const target of targets) {
         if (target.active && !target.active()) continue;

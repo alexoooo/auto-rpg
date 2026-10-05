@@ -18,7 +18,7 @@ blue from 0 to 1.
 
 | Field | Value |
 |---|---|
-| `clear` | 0.055, 0.062, 0.078, alpha 1: what shows where nothing is drawn |
+| `clear` | 0.026, 0.017, 0.021, alpha 1: what shows where nothing is drawn |
 | `ambient` | 0.14, 0.15, 0.18 |
 | `camera` | made at (0, 2, -4) before the orbit places it; field of view 0.95 rad; near plane 0.05 m, far 220 m |
 | `environment` | the reflected image, a cube of 256 px, at strength 0.85 |
@@ -35,55 +35,42 @@ it go FXAA and ACES tone mapping, which are switches and not strengths.
 ## Arena camera
 
 `ORBIT` (`src/arena/orbit.ts`): the camera starts at bearing 0, raised 0.32 rad, 7 m from what it
-looks at. A person moves it between 2.5 m and 16 m away, and between 0.05 rad and 1.35 rad up.
+looks at. Setup uses a separate bearing 0, pitch 0.78 rad overview, at distance max(39,
+31 / viewport aspect) m, so the whole ring fits between the previews. A person moves the fight camera between 2.5 m and 16 m away, and between 0.05 rad and 1.35 rad up.
 
 ## Arena room
 
-The room `buildArenaWorld` builds (`src/arena/room.ts`). The floor's slab, the four walls and the
-posts are colliders (`arenaSolids`): a body meets them, so `ROOM`'s wall sizes and `ARENA_POSTS`
-are in every bout, and changing one changes bouts. The rest is drawn only.
+The room `buildArenaWorld` builds (`src/arena/room.ts`) is a circular fighting floor, following
+the owner's arena concepts. The floor slab, twenty-four parapet sections and eight brazier
+pedestals are colliders (`arenaSolids`). Their dimensions affect bouts; the page and headless
+stand use the same solids. These dimensions are an implementation art choice, not anatomy.
 
 `ROOM`, m:
 
 | Field | Value |
 |---|---|
-| `groundHalfExtent`, `floorSize` | 30, 60: the floor is 60 m square |
-| `maxReachHeight` | 3.6: the highest a fighter reaches; a solid piece below it must name a collider |
-| `wallHalfExtent` | 13: a wall's face stands this far from the centre |
-| `wallWidth`, `wallHeight`, `wallThickness` | 26.24, 4.2, 0.24 |
-| `floorMetresPerRepeat`, `wallMetresPerRepeat`, `bannerMetresPerRepeat` | 2.4, 2.1, 0.4: what one repeat of the image spans |
+| `groundHalfExtent`, `floorSize` | 30, 60: the supporting collision slab is 60 m square; the drawn floor is a disc of radius 13.5 |
+| `maxReachHeight` | 3.6: a solid piece below this must name a collider |
+| `wallHalfExtent`, `wallCount` | 13, 24: the inner apothem and number of sides |
+| `wallWidth`, `wallHeight`, `wallThickness` | width is twice 13 times tan(pi/24), plus 0.08 m joint overlap; height 1.25, depth 0.5 |
+| `floorMetresPerRepeat`, `wallMetresPerRepeat`, `bannerMetresPerRepeat` | 2.4, 2.1, 0.4 |
 
-`ARENA_POSTS`: 14 posts on a ring of 9.5 m, each 1.5 m tall, 0.17 m across, with 8 sides.
-
-`ROOM_GROUPS`, the cosmetic pieces, as a centre and a half extent, m:
-
-| Role | Pieces | Where | Half extent |
-|---|---|---|---|
-| beam | 8, two a wall | 4.1 up, 12.82 from the centre, 5.0 either side of the wall's middle | 2.1 along, 0.12, 0.12 |
-| banner | 8, two a wall | 2.55 up, 12.96 from the centre, 7.2 either side | 0.6 across, 0.9 up |
-| rack | 4, one a corner | on the floor (0.006 up) at 11.0 by 7 | 0.8 by 0.2 |
-| debris | 8, two a wall | on the floor (0.006 up) at 7.5 by 10.8 | 0.4 by 0.13, turned 0.3, -0.4, -0.2, 0.5, 1.2, 1.7, 1.4 and 1.9 rad |
+`ARENA_POSTS`: 8 pedestals on a ring of 12.3 m, each 1.7 m tall, 1.1 m across, with 8 sides.
+Their bronze bands and bowls stay within their collision envelopes. `ROOM_GROUPS` places the
+parapet and eight banners. Banners are cloth planes
+on radius 13.55 m, hanging down the outside; they carry no solid authority. Wall placements,
+colliders and visuals share the same rotation. The core's sine and cosine place the solids.
 
 ## Forge
 
-What `dressForgeRoom` adds to the room (`src/arena/forge-room.ts`).
+`dressForgeRoom` (`src/arena/forge-room.ts`) fills each parapet collider with three courses of
+four masonry blocks, alternating a half-block offset. `FORGE_MASONRY` leaves joints of 0.008 m
+across, 0.006 m up and 0.008 m in depth. A crossing parapet is hidden while it obscures a fighter.
 
-`FORGE_MASONRY`: each wall is 9 courses of 26 blocks, every other course shifted half a block,
-with a joint of 0.008 m across, 0.006 m up and 0.008 m through the wall left round each block.
-The blocks fill the wall's collider and stand nowhere outside it.
-
-`FORGE_FIRE`:
-
-| Field | Value |
-|---|---|
-| `every`, `lit` | a flame on every 2nd post; a light as well on posts 2 and 10 |
-| `width`, `height`, `lift` | a flame is a plane 0.38 m by 0.72 m, 1.07 m above its post's centre |
-| `colour`, `range` | a light is 1, 0.42, 0.12, reaching 16 m |
-| `mean`, `swing`, `rate` | the flicker: 13, by 0.8 either way, at 8 rad/s; a light is made at 13 |
-| `frameCap` | one frame burns the flames by at most 50 ms |
-
-The fire has a time of its own, which only the page moves (`ForgeFire.burn`), each frame it is
-not paused: a paused bout's flames stand still, as the owner chose.
+`FORGE_FIRE` burns on all eight braziers. Each flame is 1.05 by 1.6 m, its centre 1.35 m above
+the pedestal centre. Posts 1 and 5 carry lights of colour (1, 0.42, 0.12), range 16 m and mean
+intensity 13. Flicker varies by 0.8 at 8 rad/s; `burn` caps one frame at 50 ms. Paused frames
+never advance fire. The art geometry, palette and reconstruction are in `docs/art/arena.md`.
 
 ## Sound
 
