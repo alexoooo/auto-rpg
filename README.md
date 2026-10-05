@@ -133,6 +133,10 @@ had a click or a key.
   actuator feedback with the layered servo on a pinned reach task. Step, save, restore and
   verify replay on any of the three bodies. This is a controller/research fixture, not a test
   of standing or combat.
+- **Physical control tasks** (`/control-tasks.html`, linked from Control foundation): watch any
+  body transfer support between its feet, or move one shared bar and release either hand.
+  Play, step, save and verify replay use the same tasks as the research runner. These controlled
+  experiments do not yet demonstrate getting up or fighting an opponent.
 - **The character workshop** (`/character-lab.html`): the Warrior's and Rogue's workshop models
   with every loadout and their authored preview motion. Drag to orbit, right-drag to pan, scroll
   to zoom; **Inspect grip** frames the equipped hand.

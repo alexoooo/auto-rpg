@@ -486,6 +486,12 @@ its phase and readiness history save with the body. The [support record](referen
 declares its shallow horizontal-floor workspace and empty-handed scope. It does not recover
 from a fall or replace the game's locomotion and recovery controllers.
 
+`/control-tasks.html` (`src/control-foundation/tasks.ts`) exposes the same support and bar
+builders as the Node runner, with step, play, snapshot and replay controls. Separate items are
+drawn on their own physical nodes with `drawEquipment`; capture and release do not recreate
+their visuals. [Browser parity](reference/control-tasks-browser.md) checks both tasks on all
+three bodies and either side against the Node observation hashes.
+
 ## Research environments
 
 `createEnvironment` (`src/core/tasks/environment.ts`) wraps a `WorldTask` factory over the

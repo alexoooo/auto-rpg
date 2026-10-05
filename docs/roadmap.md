@@ -35,7 +35,7 @@ The vendored engine, detached policy interface, replayable environments and
 [equipment tracking](reference/motion-tracking.md), measured sticking support and an
 [upright foot-transfer task](reference/support-transition.md) are implemented experimentally.
 Loaded support transitions, recovery, standing strike/block against an opponent, equipment
-rendering/damage and the held-out integrated sequence remain open. These controlled fixtures
+integration with fight rendering/damage and the held-out integrated sequence remain open. These controlled fixtures
 do not close the gameplay gates or replace the game's controller.
 
 ## Open items

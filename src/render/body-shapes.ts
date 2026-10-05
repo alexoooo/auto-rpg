@@ -6,6 +6,8 @@ import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder.js";
 import { VertexData } from "@babylonjs/core/Meshes/mesh.vertexData.js";
 import type { Scene } from "@babylonjs/core/scene.js";
 import type { BuiltBody } from "../core/build/build-body.ts";
+import type { createEquipment } from "../core/equipment.ts";
+import { segmentFrame } from "../core/spec/body.ts";
 import type { SegmentFrame, ShapeSpec } from "../core/spec/body.ts";
 import { convexHull } from "../core/spec/hull.ts";
 import type { Vec3 } from "../core/spec/quantity.ts";
@@ -119,6 +121,20 @@ export function drawBody(built: BuiltBody, scene: Scene, tint: Color3): BodyShap
 
 /** Wood, for what a hand holds (`docs/reference/look.md#bodies`). */
 const WOOD = new Color3(0.45, 0.3, 0.17);
+
+/** One visual item follows its physical node through capture and release; meshes carry no authority. */
+export function drawEquipment(item: ReturnType<typeof createEquipment>, scene: Scene): BodyShapes {
+  const material = new StandardMaterial(`${item.id}.view`, scene);
+  material.diffuseColor = WOOD;
+  material.specularColor = new Color3(SHAPE_TINT.sheen, SHAPE_TINT.sheen, SHAPE_TINT.sheen);
+  const frame = segmentFrame([0, 0, 0], [0, 1, 0]);
+  const meshes = item.spec.shapes.map((shape, i) => {
+    const mesh = shapeMesh(`${item.id}.view.${i}`, frame, shape, scene);
+    mesh.parent = item.node; mesh.material = material;
+    return mesh;
+  });
+  return { meshes, dispose() { for (const mesh of meshes) mesh.dispose(false, false); material.dispose(); } };
+}
 
 /**
  * Draw what `built`'s hands hold, as the solver has it: each segment's rigid body is its own shape

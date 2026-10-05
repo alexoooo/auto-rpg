@@ -144,7 +144,8 @@ export function createBarProbe(scene: Scene, engine: PhysicsEngine, config: {
       state.maxSolveWork = Math.max(state.maxSolveWork, report.solve?.work ?? 0);
     }
   });
-  return { world, built, body, item, configuration, state: { body: body.state }, get complete() { return state.complete; },
+  return { world, built, body, item, configuration, geometry: { obstacle: obstacleGeometry, floor: standing ? STANDING.floor : null },
+    state: { body: body.state }, get complete() { return state.complete; },
     observe: () => ({ task: { ...state, pendingRelease: state.pendingRelease ? [...state.pendingRelease] : null }, body: body.observe() }),
     dispose() { before.dispose(); after.dispose(); body.dispose(); item.dispose(); built.dispose(); world.dispose(); } };
 }
