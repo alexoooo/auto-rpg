@@ -9,7 +9,7 @@ import { PHYSICS_HZ } from "../src/core/world.ts";
 import { CHARACTERS } from "../src/character-lab/catalog.ts";
 import { labAddress, labHref, LAB_CAMERAS, LAB_DOWN_IDS, LAB_HELD, LAB_MIND_IDS, LAB_PROJECTIONS, LAB_RATES, LAB_VIEWS, MODELS, SCENARIOS } from "../src/lab/scenarios.ts";
 
-const DEFAULTS = { scenario: null, model: "workshop-fighter", right: "empty", left: "empty", boots: true, armour: true, balance: null, mind: "script", down: "lie", barred: [], hz: 120,
+const DEFAULTS = { appearance: "default", scenario: null, model: "workshop-fighter", right: "empty", left: "empty", boots: true, armour: true, balance: null, mind: "script", down: "lie", barred: [], hz: 120,
   view: "world", camera: "free", projection: "orthographic", targets: 10, seed: 1 };
 /** The Rogue as the workshop dresses it: boots, no armour. */
 const ROGUE = { model: "workshop-rogue", boots: true, armour: false };
@@ -17,7 +17,7 @@ const ROGUE = { model: "workshop-rogue", boots: true, armour: false };
 test("the_lab_address_names_a_scenario_a_character_a_rate_a_view_and_a_camera_or_falls_back", () => {
   assert.deepEqual(labAddress("?play=lab"), DEFAULTS);
   assert.deepEqual(labAddress("?play=lab&scenario=routine&model=workshop-rogue&right=club&left=club&boots=0&armour=1&balance=2.5&mind=guard&down=rise&barred=club,empty&hz=480&view=tactical&camera=chase&projection=perspective&targets=4&seed=7"),
-    { scenario: "routine", model: "workshop-rogue", right: "club", left: "club", boots: false, armour: true, balance: 2.5, mind: "guard", down: "rise",
+    { appearance: "default", scenario: "routine", model: "workshop-rogue", right: "club", left: "club", boots: false, armour: true, balance: 2.5, mind: "guard", down: "rise",
       barred: ["empty", "club"], hz: 480, view: "tactical",
       camera: "chase", projection: "perspective", targets: 4, seed: 7 });
   // Each field falls back alone; a known value beside an unknown one is kept.
@@ -55,7 +55,7 @@ test("every_choice_the_lab_offers_reads_back_from_the_address_it_writes", () => 
                       // The Routine's targets and their seed ride with the scenario, so that each is met with every choice; what a body does once down rides with its armour.
                       const [targets, seed] = scenario === null ? [10, 1] : [SCENARIOS.findIndex((s) => s.id === scenario), 4294967295];
                       const down = LAB_DOWN_IDS[Number(armour)];
-                      const address = { scenario, model, right, left, boots, armour, balance, mind, down, barred, hz, view, camera, projection, targets, seed }, href = labHref(address);
+                      const address = { appearance: "default", scenario, model, right, left, boots, armour, balance, mind, down, barred, hz, view, camera, projection, targets, seed }, href = labHref(address);
                       assert.equal(routeFor(href), "lab", href);
                       assert.deepEqual(labAddress(href), address, href);
                     }

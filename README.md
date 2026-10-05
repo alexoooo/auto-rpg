@@ -35,6 +35,11 @@ Everything the pages need is committed, so a fresh clone runs with no download s
 ## The Arena
 
 Choose the standing character on each side (Warrior, Rogue or Skeleton) and press **Fight**.
+The Warrior also has an **Appearance** selector: Original, Industrial, Relic or Duelist. The three
+robot shells keep the Warrior's physics and abilities. The Lab offers the same choices and can
+switch skins during playback without restarting the scenario. Arena links keep each side's
+appearance in `&appearance=industrial,relic`; Lab links use, for example, `&appearance=duelist`.
+
 The circular stone arena is enclosed by a low parapet, with eight braziers around its edge. Each side carries a
 wooden club in its right hand and is driven by its own mind: it walks at the other and, once within
 reach, attacks the head. A side is out when its wounds end it or its body falls; at the two-minute

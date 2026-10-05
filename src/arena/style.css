@@ -208,6 +208,7 @@ body:has(#curtain:not(.gone)) #hud { visibility: hidden; }
   margin: 4px 0 0; font-size: 13px; font-weight: 400; letter-spacing: .24em;
   text-transform: uppercase; color: #bca98c;
 }
+.contender-choices { display: grid; gap: 8px; }
 .contender-preview { width: 100%; height: 100%; min-height: 0; display: block; pointer-events: none; }
 #curtain .field { display: grid; gap: 8px; margin: 0; }
 #curtain .contender .field-name { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }

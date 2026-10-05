@@ -2,6 +2,7 @@ import { Engine } from "@babylonjs/core/Engines/engine.js";
 // `scene.createPickingRay` is this module's patch: without it the build compiles and the ray is missing.
 import "@babylonjs/core/Culling/ray.js";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { appearanceFor, appearancesFor, type Appearance } from "../render/appearance.ts";
 import { showHeroLineup } from "../render/character-preview.ts";
 import { buildArena } from "./scene.ts";
 import { MENU_HREF } from "../app-route.ts";
@@ -17,7 +18,7 @@ import { loadSkeletonArt, type SkeletonArt } from "../render/skeleton-skin.ts";
 import { drawHeld, type BodyShapes } from "../render/body-shapes.ts";
 import { dresserFor, type Dresser } from "../render/dress.ts";
 import { Duel, SIDES, type DuelEnding, type Side, type Verdict } from "./duel.ts";
-import { MATCHUP_PARAM, MODEL_LABELS, matchupSearch, readBalance, readCap, readGap, readGuard, readHeld, readMatchup, readTape, readYou, youSearch, type Matchup } from "./matchup.ts";
+import { MATCHUP_PARAM, MODEL_LABELS, appearanceSearch, readAppearances, matchupSearch, readBalance, readCap, readGap, readGuard, readHeld, readMatchup, readTape, readYou, youSearch, type Matchup } from "./matchup.ts";
 import { ORBIT, orbitPosition } from "./orbit.ts";
 import { aimPoint, keysToMove, personOrders } from "./orders-input.ts";
 
@@ -67,6 +68,7 @@ export async function bootArena(): Promise<void> {
 
   // Setup: a contender panel on each side, each with its model.
   let matchup: Matchup = readMatchup(location.search), you: Side | null = readYou(location.search);
+  let appearances = readAppearances(location.search, matchup);
   // A link's tape is of the link's matchup: a bout of another matchup begun from the page plays none.
   const linked = { matchup, tape: readTape(location.hash), hash: location.hash };
   /** Whether the bout under way plays a tape: it then takes no orders from a person. */
@@ -74,6 +76,7 @@ export async function bootArena(): Promise<void> {
   const youPicker = need<HTMLSelectElement>("you");
   youPicker.value = you ?? "";
   const pickers = {} as Record<Side, HTMLSelectElement>;
+  const refreshChoices = {} as Record<Side, () => void>;
   const previews = {} as Record<Side, Awaited<ReturnType<typeof showHeroLineup>>>;
   const previewLoads: Promise<void>[] = [];
   for (const side of SIDES) {
@@ -90,27 +93,50 @@ export async function bootArena(): Promise<void> {
     select.setAttribute("aria-label", `${side === "left" ? "Left" : "Right"} character`);
     const preview = document.createElement("canvas");
     preview.className = "contender-preview"; preview.setAttribute("aria-hidden", "true");
-    field.append(name, select); panel.append(head, preview, field);
+    const appearanceField = document.createElement("label"), appearanceName = document.createElement("span"), appearancePicker = document.createElement("select");
+    appearanceField.className = "field"; appearanceName.className = "field-name"; appearanceName.textContent = "Appearance";
+    appearancePicker.setAttribute("aria-label", `${side === "left" ? "Left" : "Right"} appearance`);
+    appearancePicker.disabled = true;
+    const refresh = refreshChoices[side] = () => {
+      const model = select.value as BodyModel, choices = appearancesFor(model);
+      appearancePicker.replaceChildren(...choices.map(row => Object.assign(document.createElement("option"), { value: row.id, textContent: row.name })));
+      appearancePicker.value = appearanceFor(model, appearances[side]);
+      appearanceField.hidden = choices.length < 2;
+    };
+    refresh();
+    appearanceField.append(appearanceName, appearancePicker);
+    const choices = document.createElement("div"); choices.className = "contender-choices";
+    field.append(name, select); choices.append(field, appearanceField); panel.append(head, preview, choices);
     need("matchup").append(panel);
     pickers[side] = select;
-    previewLoads.push(showHeroLineup(preview, physicsEngine, [matchup[side]], lifetime.signal).then(view => {
-      previews[side] = view; select.disabled = false;
+    previewLoads.push(showHeroLineup(preview, physicsEngine, [matchup[side]], lifetime.signal, [appearances[side]]).then(view => {
+      previews[side] = view; select.disabled = false; appearancePicker.disabled = false;
       select.addEventListener("change", () => {
+        appearances = { ...appearances, [side]: "default" };
+        refresh();
+        select.blur();
         void view.setModel(0, select.value as BodyModel).catch(error => {
           need("boot-note").textContent = `Preview unavailable: ${error.message}`;
         });
+      }, { signal: lifetime.signal });
+      appearancePicker.addEventListener("change", () => {
+        const appearance = appearanceFor(select.value as BodyModel, appearancePicker.value);
+        appearances = { ...appearances, [side]: appearance };
+        appearancePicker.blur();
+        void view.setAppearance(0, appearance).catch(error => { need("boot-note").textContent = `Preview unavailable: ${error.message}`; });
       }, { signal: lifetime.signal });
     }));
   }
 
   // Each model's dresser, loaded once: its skin, or its shapes if the skin does not load.
   let skeletonArt: Promise<SkeletonArt> | null = null;
-  const dressers = new Map<BodyModel, Promise<Dresser>>();
-  const dresser = (model: BodyModel): Promise<Dresser> => {
-    let found = dressers.get(model);
+  const dressers = new Map<string, Promise<Dresser>>();
+  const dresser = (model: BodyModel, appearance: Appearance): Promise<Dresser> => {
+    const key = `${model}:${appearance}`;
+    let found = dressers.get(key);
     if (!found) {
-      found = dresserFor(model, scene, { skeletonArt: () => skeletonArt ??= loadSkeletonArt() });
-      dressers.set(model, found);
+      found = dresserFor(model, scene, { appearance, skeletonArt: () => skeletonArt ??= loadSkeletonArt() });
+      dressers.set(key, found);
     }
     return found;
   };
@@ -145,18 +171,20 @@ export async function bootArena(): Promise<void> {
     end(); setPaused(false); show("bout-end", false); show("curtain", true); screen = "setup";
     for (const side of SIDES) {
       pickers[side].value = matchup[side];
-      void previews[side].setModel(0, matchup[side]);
+      refreshChoices[side]();
+      void previews[side].setModel(0, matchup[side], appearances[side]);
     }
   };
   const begin = async (next: Matchup) => {
     if (beginButton.disabled) return;
     beginButton.disabled = true;
     try {
+      appearances = { left: appearanceFor(next.left, appearances.left), right: appearanceFor(next.right, appearances.right) };
       matchup = next;
       const tape = matchup.left === linked.matchup.left && matchup.right === linked.matchup.right ? linked.tape : [];
       replaying = tape.length > 0;
-      history.replaceState(null, "", youSearch(matchupSearch(location.search, matchup), you) + (replaying ? linked.hash : ""));
-      const dress = new Map(await Promise.all(SIDES.map(async (side) => [side, await dresser(matchup[side])] as const)));
+      history.replaceState(null, "", youSearch(appearanceSearch(matchupSearch(location.search, matchup), matchup, appearances), you) + (replaying ? linked.hash : ""));
+      const dress = new Map(await Promise.all(SIDES.map(async (side) => [side, await dresser(matchup[side], appearances[side])] as const)));
       end();
       audio.reset();
       const balance = readBalance(location.search), gap = readGap(location.search), capSeconds = readCap(location.search), held = readHeld(location.search), minds = readGuard(location.search);

@@ -83,7 +83,6 @@ const FIST: Readonly<Record<WorkshopModel, FistPose>> = {
 /** A grip's turn, which the rig stores w first, as a Babylon quaternion. */
 const gripQuaternion = (pose: readonly number[]) => new Quaternion(pose[1]!, pose[2]!, pose[3]!, pose[0]!);
 
-
 /**
  * The rig's hosts, the asset's own names for the body's parts, as core segments. The rig's primary
  * side is its right. The trunk and pelvis hosts are split among the three trunk segments by
@@ -105,7 +104,10 @@ export function loadSkin(model: WorkshopModel, scene: Scene): Promise<AssetConta
   let load = byModel.get(model);
   if (!load) {
     load = LoadAssetContainerAsync(publicAssetUrl(`/assets/humanoid/${model}.glb`), scene);
-    load.then((container) => scene.onDisposeObservable.addOnce(() => container.dispose()), () => byModel.delete(model));
+    load.then((container) => {
+      if (scene.isDisposed) container.dispose();
+      else scene.onDisposeObservable.addOnce(() => container.dispose());
+    }, () => byModel.delete(model));
     byModel.set(model, load);
   }
   return load;

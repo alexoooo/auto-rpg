@@ -1,3 +1,4 @@
+import { appearancesFor, wearsClothing } from "../../render/appearance.ts";
 import { isBalance } from "../../core/rules/rulebook.ts";
 import { balanceAddress, loadoutBalance, strikesOf } from "../loadout.ts";
 import { LAB_DOWN, LAB_MINDS } from "../minds.ts";
@@ -19,14 +20,18 @@ const BALANCE_STEP = 5;
 export function characterSection(page: LabPage): readonly Control[] {
   return [
     group("Body", [
-      choice("Type", MODELS.map(({ id, name }) => ({ value: id, name })), () => page.shown.model, (model) => page.load({ ...page.shown, model })),
+      choice("Type", MODELS.map(({ id, name }) => ({ value: id, name })), () => page.shown.model, (model) => page.load({ ...page.shown, model, appearance: "default" })),
+      when(() => appearancesFor(page.shown.model).length > 1,
+        following(() => page.shown.model, model => choice("Appearance", appearancesFor(model).map(row => ({ value: row.id, name: row.name })),
+          () => page.shown.appearance, appearance => page.show({ ...page.shown, appearance })))),
       quantity("Balance, %", BALANCE_STEP, isBalance, () => loadoutBalance(page.shown.balance, page.spec),
         (balance) => page.load({ ...page.shown, balance: balanceAddress(balance, page.spec) })),
     ]),
     group("Items", [
       ...LAB_HANDS.map((hand) =>
         choice(HANDS[hand], entries(LAB_HELD, HELD), () => page.shown[hand], (held) => page.load({ ...page.shown, [hand]: held }))),
-      switches("Wears", entries(LAB_WORN, WORN), (part) => page.shown[part], (part) => page.show({ ...page.shown, [part]: !page.shown[part] })),
+      when(() => wearsClothing(page.shown.model, page.shown.appearance),
+        switches("Wears", entries(LAB_WORN, WORN), (part) => page.shown[part], (part) => page.show({ ...page.shown, [part]: !page.shown[part] }))),
     ]),
     group("Mind", [
       choice("Type", LAB_MIND_IDS.map((id) => ({ value: id, name: LAB_MINDS[id].name })), () => page.shown.mind, (mind) => page.load({ ...page.shown, mind })),

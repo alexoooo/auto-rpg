@@ -841,6 +841,17 @@ of its two sides until the verdict, the crypt of every body the party sees. A bl
 and is heard as one; what it takes off a side is a cue of its own (`debrisCues`)
 ([reference/look.md](reference/look.md#sound)).
 
+Body identity and appearance are separate. The appearance catalog owns compatible skins and labels;
+`dresserFor` loads assets and returns a factory taking per-body clothing and hand closure. Its
+uniform `SkinView` contract includes collision-shape fallback. The Arena, Dungeon, Lab and
+character previews all use this factory. `skinSlot` replaces a body's view without replacing its
+physics, rejecting stale asynchronous loads and preserving current clothing and visibility.
+
+The Warrior's Industrial, Relic and Duelist shells are procedural rigid pieces parented to its
+segments, with cosmetic finger articulation driven by the same closure input as the human skin
+([robot art](art/robots.md)). Arena and Lab selectors store appearance in the address, outside
+physical loadouts, duel recipes and tapes. They do not change collisions, sounds, damage or control.
+
 ## What the seams are for
 
 An attack is a function of its target: the tactics say what to attack (`HandAction`: a point,

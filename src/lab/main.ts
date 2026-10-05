@@ -35,7 +35,8 @@ import { runScenario } from "./run-scenario.ts";
 import { createSoundLog, LAB_BODY, logSounds, type SoundLog } from "./sound-log.ts";
 import { labHref, SCENARIOS, type LabAddress, type ScenarioId } from "./scenarios.ts";
 import { dresserFor } from "../render/dress.ts";
-import type { SkinView } from "../render/skin-view.ts";
+import { skinSlot, type SkinSlot } from "../render/skin-slot.ts";
+import { appearanceFor, type Appearance } from "../render/appearance.ts";
 import { stanceScenario } from "./stance-scenario.ts";
 import { drawBody, drawHeld, type BodyShapes } from "../render/body-shapes.ts";
 import { need } from "../dom.ts";
@@ -106,6 +107,7 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
   const canvas = need<HTMLCanvasElement>("stage");
   const engine = new Engine(canvas, true, { stencil: true });
   const scene = new Scene(engine);
+  let disposed = false;
   scene.clearColor = new Color4(0.082, 0.098, 0.11, 1);
   /** The world a body is loaded into; each load makes a new one, at the chosen rate. */
   let world: World | null = null;
@@ -145,7 +147,7 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
   const back = need<HTMLAnchorElement>("to-scenarios");
 
   interface Loaded {
-    readonly built: BuiltBody; readonly view: BodyShapes; readonly held: BodyShapes; skin: SkinView | null; readonly run: ScenarioRun;
+    readonly built: BuiltBody; readonly view: BodyShapes; readonly held: BodyShapes; readonly skin: SkinSlot; appearance: Appearance | null; readonly run: ScenarioRun;
     /** The pelvis's rotation as built, facing +z: the chase camera reads the body's facing from it. */
     readonly rest: Quaternion;
     /** Its balance, per cent of its weight, if its assist has one: every figure read under it is read beside it. */
@@ -177,28 +179,31 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
   /** Draw the body as `shown.view` says; until the skin has loaded, World shows the shapes. */
   function showView(): void {
     if (!current) return;
-    const skinned = shown.view === "world" && current.skin !== null;
+    const skinned = shown.view === "world" && current.skin.meshes.length > 0;
     for (const mesh of current.view.meshes) mesh.setEnabled(!skinned);
     current.skin?.setEnabled(skinned);
   }
 
   /** Show the body under way as `to` says, and keep `to` in the address and in the way back to the menu. */
   function show(to: LabAddress): void {
+    to = { ...to, appearance: appearanceFor(to.model, to.appearance) };
     shown = to;
     history.replaceState(null, "", labHref(to, location.search));
     back.href = labHref({ ...to, scenario: null }, location.search);
     rig.choose(to.camera, to.projection);
     // Clothing is the skin's alone: it changes no body, so nothing is rebuilt.
-    current?.skin?.wear(to);
+    current?.skin.wear(to);
+    if (current && current.appearance !== to.appearance) {
+      const loaded = current;
+      loaded.appearance = to.appearance;
+      void loaded.skin.replace(dresserFor(to.model, scene, { appearance: to.appearance }),
+        { clothing: to, closure: hand => loaded.run.closure(hand) }).catch(error => console.error(error));
+    }
     showView();
     for (const control of Object.values(controls).flat()) control.refresh();
   }
 
-  /** Load `to`'s loadout at `to`'s rate, in a new world, and start the scenario on it. */
-  function load(to: LabAddress): void {
-    // Until the physics engine has loaded there is no world to make: `to` is what is loaded then.
-    if (!physicsEngine) { show(to); return; }
-    audio.reset();
+  function unload(): void {
     if (current) {
       current.has.dispose();
       current.logging.dispose();
@@ -208,7 +213,17 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
       current.held.dispose();
       current.built.dispose();
     }
-    world?.dispose();
+    current = null;
+    world?.dispose(); world = null;
+  }
+
+  /** Load `to`'s loadout at `to`'s rate, in a new world, and start the scenario on it. */
+  function load(to: LabAddress): void {
+    if (disposed) return;
+    // Until the physics engine has loaded there is no world to make: `to` is what is loaded then.
+    if (!physicsEngine) { show(to); return; }
+    audio.reset();
+    unload();
     world = createWorld(scene, physicsEngine, { hz: to.hz });
     world.physics.addFixedBox([0, -0.5, 0], [40, 1, 40]);
     const built = buildBody(loadoutSpec(to), world, { position: [0, 0, 0] }), balance = loadoutBalance(to.balance, built.spec);
@@ -223,17 +238,11 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
     // A new body starts live: nothing of the last one's recording is shown.
     const run = scenario.start({ scene, actor, address: to, changed: transport.showPlayhead, clock: () => performance.now(), heard: logging.heard, hears: logging.hears });
     const loaded: Loaded = {
-      built, view, held: heldView, skin: null, run, rest, helped: actor.body.assist.on ? balance : null, log, has: watchHas(world, actor.body, log),
+      built, view, held: heldView, skin: skinSlot(built, showView), appearance: null, run, rest, helped: actor.body.assist.on ? balance : null, log, has: watchHas(world, actor.body, log),
       sounds, logging, heardTo: -Infinity,
     };
     current = loaded;
     show(to);
-    const dressed = dresserFor(to.model, scene);
-    dressed.then((dress) => {
-      if (current !== loaded) return;
-      loaded.skin = dress(built, { clothing: shown, closure: (hand) => run.closure(hand) });
-      showView();
-    }, (error: unknown) => console.error(`${to.model}: the skin did not load`, error));
   }
 
   function readout(): void {
@@ -275,8 +284,13 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
   window.addEventListener("blur", () => held.clear());
   document.addEventListener("visibilitychange", () => held.clear());
 
+  window.addEventListener("pagehide", () => {
+    disposed = true; engine.stopRenderLoop(); unload(); audio.dispose(); scene.dispose(); engine.dispose();
+  }, { once: true });
+
   // The HUD is filled before the wait for the physics engine, so it never shows empty.
   physicsEngine = await loadEngine();
+  if (disposed) return;
   load(shown);
   engine.runRenderLoop(() => {
     current?.run.drive(held);

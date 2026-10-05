@@ -3,6 +3,7 @@ import { FIGHTER, type MindConfig } from "../core/mind/config.ts";
 import { isOrders } from "../core/mind/orders.ts";
 import { balanceFrom } from "../core/rules/rulebook.ts";
 import { DUEL_HELD, type OrdersEntry, type Side } from "./duel.ts";
+import { appearanceFor, type Appearance } from "../render/appearance.ts";
 
 /** The arena link's parameter: `?matchup=left,right`, each a core model. */
 export const MATCHUP_PARAM = "matchup";
@@ -29,6 +30,20 @@ export function readMatchup(search: string): Matchup {
 export function matchupSearch(search: string, matchup: Matchup): string {
   const query = new URLSearchParams(search);
   query.set(MATCHUP_PARAM, `${matchup.left},${matchup.right}`);
+  return `?${query.toString().replace(/%2C/g, ",")}`;
+}
+
+/** Each side's cosmetic choice, independent of the bout's recipe and orders. */
+export function readAppearances(search: string, matchup: Matchup): Readonly<Record<Side, Appearance>> {
+  const [left, right] = (new URLSearchParams(search).get("appearance") ?? "").split(",");
+  return { left: appearanceFor(matchup.left, left), right: appearanceFor(matchup.right, right) };
+}
+
+/** Keep compatible appearances in a shareable address; an ordinary pair needs no extra parameter. */
+export function appearanceSearch(search: string, matchup: Matchup, appearances: Readonly<Record<Side, Appearance>>): string {
+  const query = new URLSearchParams(search), left = appearanceFor(matchup.left, appearances.left), right = appearanceFor(matchup.right, appearances.right);
+  if (left === "default" && right === "default") query.delete("appearance");
+  else query.set("appearance", `${left},${right}`);
   return `?${query.toString().replace(/%2C/g, ",")}`;
 }
 

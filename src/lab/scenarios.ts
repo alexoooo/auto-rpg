@@ -1,3 +1,4 @@
+import { appearanceFor, type Appearance } from "../render/appearance.ts";
 import { playHref } from "../app-route.ts";
 import { CHARACTERS } from "../character-lab/catalog.ts";
 import type { BodyModel } from "../core/human/spec.ts";
@@ -98,6 +99,7 @@ export type LabProjection = (typeof LAB_PROJECTIONS)[number];
 export const LAB_TARGETS = { most: 30, count: 10, seed: 1 } as const;
 
 export interface LabAddress extends LabLoadout {
+  readonly appearance: Appearance;
   /** The scenario to run; none is the menu. */
   readonly scenario: ScenarioId | null;
   /** The body's balance, per cent of its weight, in place of its character's (`AttributeSpec.balance`); null is the character's. */
@@ -115,7 +117,7 @@ export interface LabAddress extends LabLoadout {
   readonly seed: number;
 }
 
-const KEYS = ["scenario", "model", "right", "left", "boots", "armour", "balance", "mind", "down", "barred", "hz", "view", "camera", "projection", "targets", "seed"] as const;
+const KEYS = ["scenario", "model", "appearance", "right", "left", "boots", "armour", "balance", "mind", "down", "barred", "hz", "view", "camera", "projection", "targets", "seed"] as const;
 
 /** A switch in the address: `1` on, `0` off, anything else `fallback`. */
 /** A whole number in the address, from `least` to `most`: plain digits, anything else `fallback`. */
@@ -135,6 +137,7 @@ export function labAddress(search: string): LabAddress {
   return {
     scenario: SCENARIOS.find((s) => s.id === query.get("scenario"))?.id ?? null,
     model,
+    appearance: appearanceFor(model, query.get("appearance")),
     right: LAB_HELD.find((h) => h === query.get("right")) ?? LAB_HELD[0],
     left: LAB_HELD.find((h) => h === query.get("left")) ?? LAB_HELD[0],
     boots: flag(query.get("boots"), worn.boots),
@@ -162,6 +165,8 @@ export function labHref(address: LabAddress, search = ""): string {
   for (const key of KEYS) query.delete(key);
   if (address.scenario) query.set("scenario", address.scenario);
   query.set("model", address.model);
+  const appearance = appearanceFor(address.model, address.appearance);
+  if (appearance !== "default") query.set("appearance", appearance);
   query.set("right", address.right);
   query.set("left", address.left);
   query.set("boots", address.boots ? "1" : "0");
