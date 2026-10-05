@@ -5,6 +5,7 @@ import { uprightness } from "./control/ground.ts";
 import { centreOfToRef } from "./control/support.ts";
 import type { MuscleDriver } from "./muscle/driver.ts";
 import type { Senses } from "./mind/senses.ts";
+import type { ObjectSense } from "./mind/object-senses.ts";
 import type { EquipmentObservation } from "./mind/equipment-port.ts";
 import type { Vec3 } from "./spec/quantity.ts";
 import { deepFreeze } from "./state.ts";
@@ -42,6 +43,7 @@ export interface BodyObservation {
   }[];
   readonly senses: {
     readonly time: number; readonly side: string; readonly out: boolean;
+    readonly objects?: readonly ObjectSense[];
     readonly others: readonly {
       readonly id: string; readonly side: string; readonly model: string; readonly out: boolean;
       readonly centre: Vec3; readonly velocity: Vec3; readonly segments: readonly SegmentObservation[];
@@ -114,7 +116,8 @@ export function observeBody(built: BuiltBody, muscles: MuscleDriver, world: Worl
       ...(equipment ? { equipment: equipment() } : {}),
       centre: tuple(physical.centre), head: built.segments.has("head") ? tuple(physical.head) : null,
       height: physical.height, down: physical.down, segments, joints, contacts,
-      senses: { time: external.time, side: external.side, out: external.out, others: external.others.map((other) => ({
+      senses: { time: external.time, side: external.side, out: external.out,
+        ...(external.objects ? { objects: structuredClone(external.objects) } : {}), others: external.others.map((other) => ({
         id: other.id, side: other.side, model: other.spec.model, out: other.out, centre: tuple(other.centre), velocity: tuple(other.velocity),
         segments: [...other.segments].map(([name, s]) => ({ name, position: tuple(s.position),
           rotation: [s.rotation.x, s.rotation.y, s.rotation.z, s.rotation.w] as const,

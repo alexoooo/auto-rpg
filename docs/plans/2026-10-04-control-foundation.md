@@ -243,8 +243,11 @@ readiness, a quintic strike, follow-through and return from the observed point. 
 addresses named segment/item points, either hand or independent items. The physical fixture
 scores closing contact against its intended collider and includes deliberate misses, continued
 standing and replay. The shared viewer exposes it. The motion host also accepts delayed external
-senses. Moving-target planning, defense, shared-item strikes and impact-driven replanning remain
-open; static contact alone does not close the strike/block gate.
+senses. The [moving-target variant](../reference/moving-strike.md) adds detached delayed object
+measurements, constant-velocity point prediction and optional per-effector impact braking.
+The shared fixture and runner compare tracked and fixed aim against freely swinging targets,
+with relative contact-velocity scoring. Defense and shared-item strikes remain open; isolated
+target contact alone does not close the strike/block gate.
 
 ### 0. Define the common task battery and baseline
 

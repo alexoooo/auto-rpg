@@ -483,7 +483,12 @@ adds ordinary ground and an unpinned pelvis. Support transitions and recovery re
 and the allocating model path still needs optimization before game adoption.
 The [point-strike reference](reference/point-strike.md) plans named hand/item point paths and
 measured guard/return readiness. Its standing fixture measures contact and deliberate misses
-with either hand or independent clubs. It does not yet plan against moving opponents or defend.
+with either hand or independent clubs. Its [moving variant](reference/moving-strike.md) tracks
+named points from delayed detached object measurements and can brake each effector on impact.
+`createObjectSenses` keeps permitted engine handles inside a trusted observer; policies receive
+plain measurements with sample times, and delay buffers replay with the world. The swinging
+target fixture scores relative closing contact independently of the policy. Opponent defense
+and shared-item combat remain open.
 
 `control/support-transition.ts` is an optional upright reference policy over those motion
 objectives. It waits for measured unloading, foot flight, positive placement contact and a

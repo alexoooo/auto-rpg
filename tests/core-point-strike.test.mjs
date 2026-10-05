@@ -40,6 +40,36 @@ test("a rotating point's initial velocity includes the lever from the centre of 
   }
 });
 
+test("a sensed strike compensates sample age and returns from observation when its target disappears", () => {
+  const policy = pointStrike({ ...settings, effectors: [{ ...settings.effectors[0], targetObject: { id: "moving", point: "aim" } }] });
+  const target = { id: "moving", time: 0, position: [2, 0, 0], rotation: identity, centre: [2, 0, 0],
+    velocity: [0.2, 0, 0], spin: zero, points: { aim: zero } };
+  const seen = (time, objects, at = [1, 0, 0], velocity = zero) => ({ ...observation(at, velocity), time, senses: { objects } });
+  policy.step(seen(0.1, []), 0.5); assert.equal(policy.state.phase, "prepare");
+  policy.step(seen(0.1, [target]), 0.5); assert.equal(policy.state.phase, "strike");
+  const middle = policy.step(seen(0.6, [target]), 0.5).frames[0].translation;
+  assert.ok(Math.abs(middle.target[0] - 1.57875) < 1e-12, JSON.stringify(middle));
+  assert.ok(Math.abs(middle.velocity[0] - 2.2) < 1e-12);
+  const lost = policy.step(seen(1.1, [], [1.4, 0, 0], [0.3, 0, 0]), 0.1).frames[0].translation;
+  assert.equal(policy.state.phase, "return");
+  assert.deepEqual(lost.target, [1.4, 0, 0]); assert.deepEqual(lost.velocity, [0.3, 0, 0]);
+});
+
+test("impact braking replans only the contacted effector from its measured motion", () => {
+  const effectors = ["left", "right"].map((side) => ({ ...settings.effectors[0], id: side, frame: { kind: "segment", name: side } }));
+  const policy = pointStrike({ ...settings, effectors, impact: { impulse: 0.005, seconds: 0.15 } });
+  const seen = (time, contacts = [], position = [1, 0, 0], velocity = zero) => ({ time, contacts,
+    segments: ["left", "right"].map((name) => ({ ...observation(position, velocity).segments[0], name })) });
+  policy.step(seen(0), 0.25);
+  const impacted = policy.step(seen(0.25, [{ segment: "left", impulse: 0.01 }], [1.2, 0, 0], [0.5, 0, 0]), 0.25);
+  assert.deepEqual(impacted.frames[0].translation.target, [1.2, 0, 0]);
+  assert.deepEqual(impacted.frames[0].translation.velocity, [0.5, 0, 0]);
+  assert.notDeepEqual(impacted.frames[1].translation.target, [1.2, 0, 0]);
+  assert.equal(policy.state.impacts[1], null);
+  const held = policy.step(seen(0.5), 0.25).frames[0].translation;
+  assert.deepEqual(held.target, [1.2, 0, 0]); assert.deepEqual(held.velocity, zero);
+});
+
 async function fixture(config) {
   const render = new NullEngine(), scene = new Scene(render);
   const task = createPointStrikeProbe(scene, await freshEngine(), { hz: 120, actuation: "directional", offset: 0, held: "empty", miss: false, ...config });
@@ -79,4 +109,36 @@ test("a missed target scores no hit and the strike's continuation replays in ano
     loadStand(other.task.world, other.task.state, saved); assert.deepEqual(run(other.task), expected);
   } finally { f.dispose(); other.dispose(); }
   }
+});
+
+test("sensed swinging targets are struck and the body returns with either hand or independent items", async () => {
+  for (const held of ["empty", "club"]) for (const model of ["workshop-fighter", "workshop-rogue", "crypt-skeleton"]) for (const hands of ["left", "right", "both"]) {
+    const f = await fixture({ model, hands, held, swing: { angle: 0, speed: 0.7, delay: 3, tracking: true, braking: true } });
+    try {
+      while (!f.task.complete && f.task.world.time < 8) f.task.world.step();
+      const result = f.task.observe().task;
+      assert.ok(f.task.complete && !result.fell && result.rejectedSteps === 0, `${model}/${hands}/${held}: ${JSON.stringify(result)}`);
+      for (const row of result.strikes) {
+        assert.ok(row.contacts > 0 && row.closing > 0.05 && row.peakImpulse > 0);
+        assert.ok(row.targetTravel > 0.15 && row.targetSpeed > 0.6, "target motion is measured before any contact");
+        assert.ok(row.returnError < 0.02);
+      }
+      assert.ok(f.task.body.state.mind.policy.impacts.every((p) => p !== null));
+      assert.equal(f.task.body.assist.meter.force, 0); assert.equal(f.task.body.assist.meter.moment, 0);
+    } finally { f.dispose(); }
+  }
+});
+
+test("moving targets, delayed senses and impact replanning replay in another world", async () => {
+  const config = { model: "crypt-skeleton", hands: "both", held: "club", swing: { angle: 0.1, speed: 0.7, delay: 3, tracking: true, braking: true } };
+  const f = await fixture(config), other = await fixture(config);
+  try {
+    f.task.world.step(120);
+    const saved = saveStand(f.task.world, f.task.state);
+    const run = (task) => { while (!task.complete && task.world.time < 8) task.world.step(); return { observation: task.observe(), state: saveStand(task.world, task.state).state }; };
+    const expected = run(f.task);
+    assert.ok(f.task.complete && !expected.observation.task.fell);
+    loadStand(f.task.world, f.task.state, saved); assert.deepEqual(run(f.task), expected);
+    loadStand(other.task.world, other.task.state, saved); assert.deepEqual(run(other.task), expected);
+  } finally { f.dispose(); other.dispose(); }
 });

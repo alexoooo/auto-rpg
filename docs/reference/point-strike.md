@@ -8,7 +8,7 @@ equipment without this planner or tracker.
 The policy measures guard readiness, plans a quintic point trajectory, follows through, then
 returns from the measured effector position and velocity. Initial point velocity includes
 angular velocity crossed with the lever from the centre of mass, including separately held
-items. The polynomial has zero initial acceleration and zero terminal velocity/acceleration.
+items. The polynomial has zero endpoint accelerations and, for fixed goals, zero terminal velocity.
 Readiness and return require position tolerance to hold for the configured interval. They do
 not certify zero residual spin. Idle interruption restarts preparation; completion is absorbing.
 
@@ -20,8 +20,9 @@ the intended collider, during strike/follow-through, with pre-step closing speed
 count. Startup, return, floor and sustained resting contacts cannot satisfy that gate.
 
 These are contact-and-return demonstrations, not injury-energy, opponent-combat or defense
-gates. A slow late contact can pass; impulse and closing speed are reported. Shared-item strikes,
-moving targets, contact-triggered replanning and damage attribution remain separate work.
+gates. A slow late contact can pass; impulse and closing speed are reported. The optional
+[moving-target variant](moving-strike.md) adds delayed tracking and per-effector impact braking.
+Shared-item strikes, defense and damage attribution remain separate work.
 
 ## Engineering inputs
 
@@ -65,7 +66,7 @@ its policy receives detached observations, and target-driven commands replay wit
 
 ## Development screen
 
-[The source-frozen run](point-strike.json) passes 72/72 trials: two starts in each body, hand
+[The protocol-1 source-frozen run](point-strike.json) passes 72/72 trials: two starts in each body, hand
 selection, loadout and hit/miss cell. Every branch replays exactly; no body falls and no support
 solve rejects. Root and weapon assistance remain zero. Completion, including the extra second
 of control, takes 3.600–4.442 s. Maximum final point error is 0.005449 m.

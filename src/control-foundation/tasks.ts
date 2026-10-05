@@ -24,8 +24,9 @@ const engine = await loadEngine();
 const task = element<HTMLSelectElement>("task"), model = element<HTMLSelectElement>("model"), side = element<HTMLSelectElement>("side");
 const support = element<HTMLSelectElement>("support"), seed = element<HTMLInputElement>("seed");
 const held = element<HTMLSelectElement>("held"), target = element<HTMLSelectElement>("target");
+const motion = element<HTMLSelectElement>("motion");
 const query = new URLSearchParams(location.search);
-for (const select of [task, model, side, support, held, target]) {
+for (const select of [task, model, side, support, held, target, motion]) {
   const value = query.get(select.id);
   if (value && [...select.options].some((o) => o.value === value)) select.value = value;
 }
@@ -42,7 +43,9 @@ function make() {
     case "point-strike": {
       const item = held.value;
       if (item !== "empty" && item !== "club") throw new Error("Invalid strike equipment");
-      probe = createPointStrikeProbe(scene, engine, { ...common, hands: selectedSide, held: item, miss: target.value === "miss", offset: (fraction * 2 - 1) * 0.002 });
+      probe = createPointStrikeProbe(scene, engine, { ...common, hands: selectedSide, held: item, miss: target.value === "miss", offset: (fraction * 2 - 1) * 0.002,
+        ...(motion.value !== "static" ? { swing: { angle: (fraction * 2 - 1) * 0.12, speed: 0.7, delay: 3,
+          tracking: motion.value === "tracked", braking: true } } : {}) });
       break;
     }
     case "bar":
@@ -67,6 +70,10 @@ function make() {
     mesh.position.set(box.centre[0]!, box.centre[1]!, box.centre[2]!); mesh.material = name === "floor" ? ground : obstacle;
     return [mesh];
   });
+  if ("targets" in probe) for (const rig of probe.targets) {
+    const mesh = MeshBuilder.CreateBox("swing-target", { width: rig.size[0], height: rig.size[1], depth: rig.size[2] }, scene);
+    mesh.parent = rig.body.node; mesh.material = obstacle; boxes.push(mesh);
+  }
   return { probe, dispose() { shapes.forEach((s) => s.dispose()); boxes.forEach((b) => b.dispose(false, false)); ground.dispose(); obstacle.dispose(); probe.dispose(); } };
 }
 
@@ -91,7 +98,7 @@ function show() {
       : "Shift weight, lift either foot, verify placement contact, and regain two-foot support.";
   for (const control of document.querySelectorAll<HTMLButtonElement | HTMLInputElement | HTMLSelectElement>("button, input, select")) control.disabled = busy;
   support.disabled = busy || task.value !== "bar";
-  held.disabled = target.disabled = busy || task.value !== "point-strike";
+  held.disabled = target.disabled = motion.disabled = busy || task.value !== "point-strike";
   side.querySelector<HTMLOptionElement>('option[value="both"]')!.disabled = task.value !== "point-strike";
   for (const id of ["step", "run", "play"]) element<HTMLButtonElement>(id).disabled = busy || ended();
   element<HTMLButtonElement>("load").disabled = busy || saved === null;
@@ -129,7 +136,7 @@ for (const [id, action] of Object.entries(actions)) element<HTMLButtonElement>(i
   try { await action(); } catch (error) { playing = false; element("verification").textContent = String(error); }
   finally { busy = false; show(); }
 });
-for (const input of [task, model, side, support, seed, held, target]) input.addEventListener("change", () => {
+for (const input of [task, model, side, support, seed, held, target, motion]) input.addEventListener("change", () => {
   if (task.value !== "point-strike" && side.value === "both") side.value = "left";
   try { restart(); } catch (error) { element("verification").textContent = String(error); }
 });

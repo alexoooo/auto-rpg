@@ -115,6 +115,20 @@ test("point-strike trials separate hands, loadouts and intentional misses", asyn
   assert.deepEqual(summarizeFoundation(rows).cells.map((c) => [c.success.successes, c.success.count]), [[1, 1], [1, 1]]);
 });
 
+test("moving strikes keep tracked, fixed-aim and miss outcomes separate", async () => {
+  const jobs = foundationJobs({ suite: "moving-strike", models: ["workshop-fighter"], samples: 1, actuation: "directional" });
+  assert.equal(jobs.length, 18);
+  assert.equal(new Set(jobs.map((j) => j.id)).size, 18);
+  const selected = jobs.filter((j) => j.hands === "left" && j.held === "empty");
+  assert.deepEqual(selected.map((j) => [j.miss, j.swing.tracking, j.swing.delay]), [[false, true, 3], [false, false, 3], [true, true, 3]]);
+  const rows = await runFoundation(selected, { workers: 2 });
+  assert.ok(rows.every((r) => r.result.outcome.replayExact));
+  assert.ok(rows.every((r) => r.result.outcome.strikes.every((s) => s.targetTravel > 0.1 && s.targetSpeed > 0.5)));
+  assert.equal(rows[2].result.outcome.strikes[0].contacts, 0);
+  assert.equal(summarizeFoundation(rows).cells.length, 3);
+  assert.ok(summarizeFoundation(rows).cells.every((c) => c.success.count === 1));
+});
+
 test("guard differences compare the same side and start and recovery excludes shoves held", () => {
   const outcome = (damage) => ({ seconds: 10, sides: [{ headDamage: damage, damage: damage + 1, fallen: false }, { headDamage: 8, damage: 9, fallen: true }] });
   const job = { model: "workshop-fighter", held: "club", seed: 4, hz: 120, task: "bout" };
