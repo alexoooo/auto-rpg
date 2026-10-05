@@ -15,7 +15,6 @@ import { modelSpec, type BodyModel } from "../core/human/spec.ts";
 import type { PhysicsEngine } from "../core/engine/engine.ts";
 import { createWorld } from "../core/world.ts";
 import { dresserFor, type Dresser } from "./dress.ts";
-import { loadSkeletonArt } from "./skeleton-skin.ts";
 import { publicAssetUrl } from "../asset-url.ts";
 
 /** The game's skins on unstepped bodies. Each column has its own camera, so resizing
@@ -67,7 +66,7 @@ export async function showHeroLineup(canvas: HTMLCanvasElement, physics: Physics
     const revision = ++revisions[index];
     let loading = dressers.get(model);
     if (!loading) {
-      loading = dresserFor(model, scene, { boots: true, armour: true }, loadSkeletonArt);
+      loading = dresserFor(model, scene);
       dressers.set(model, loading);
     }
     const dress = await loading;
@@ -75,7 +74,7 @@ export async function showHeroLineup(canvas: HTMLCanvasElement, physics: Physics
     skins[index]?.dispose(); bodies[index]?.dispose();
     const body = buildBody(modelSpec(model), world, { position: [index * 4, 0, 0] });
     bodies[index] = body;
-    const skin = skins[index] = dress(body);
+    const skin = skins[index] = dress(body, { clothing: { boots: true, armour: true } });
     for (const mesh of skin.meshes) mesh.layerMask = 1 << index;
     await scene.whenReadyAsync();
     if (!signal.aborted && revision === revisions[index]) draw();

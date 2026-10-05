@@ -34,8 +34,8 @@ import { routineScenario } from "./routine-scenario.ts";
 import { runScenario } from "./run-scenario.ts";
 import { createSoundLog, LAB_BODY, logSounds, type SoundLog } from "./sound-log.ts";
 import { labHref, SCENARIOS, type LabAddress, type ScenarioId } from "./scenarios.ts";
-import { dressSkeleton, loadSkeletonArt } from "../render/skeleton-skin.ts";
-import { dressBody, loadSkin, type SkinView } from "../render/skin.ts";
+import { dresserFor } from "../render/dress.ts";
+import type { SkinView } from "../render/skin-view.ts";
 import { stanceScenario } from "./stance-scenario.ts";
 import { drawBody, drawHeld, type BodyShapes } from "../render/body-shapes.ts";
 import { need } from "../dom.ts";
@@ -228,13 +228,10 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
     };
     current = loaded;
     show(to);
-    const model = to.model;
-    const dressed: Promise<(built: BuiltBody) => SkinView> = model === "crypt-skeleton"
-      ? loadSkeletonArt().then((art) => (b) => dressSkeleton(b, art, scene))
-      : loadSkin(model, scene).then((container) => (b) => dressBody(b, container, scene, shown, (hand) => run.closure(hand)));
+    const dressed = dresserFor(to.model, scene);
     dressed.then((dress) => {
       if (current !== loaded) return;
-      loaded.skin = dress(built);
+      loaded.skin = dress(built, { clothing: shown, closure: (hand) => run.closure(hand) });
       showView();
     }, (error: unknown) => console.error(`${to.model}: the skin did not load`, error));
   }

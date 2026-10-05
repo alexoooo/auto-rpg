@@ -1,3 +1,5 @@
+import type { Hand } from "../core/control/motor.ts";
+import type { Clothing, SkinView } from "./skin-view.ts";
 import type { AssetContainer } from "@babylonjs/core/assetContainer.js";
 import { LoadAssetContainerAsync } from "@babylonjs/core/Loading/sceneLoader.js";
 // The glTF loader registers itself on import; without it the load finds no plugin for `.glb`.
@@ -30,18 +32,6 @@ import { fistTurns, type FistPose, type RestBone } from "../lab/fist.ts";
  * twist helpers follow their own segment, with no share of the next one's twist; a wrist turned far
  * shows a pinch.
  */
-export interface SkinView {
-  /** Every mesh it draws, worn or not: what a page picks or hides. */
-  readonly meshes: readonly Mesh[];
-  setEnabled(enabled: boolean): void;
-  /** Wear `clothing`: the model's boots and armour meshes shown or hidden. */
-  wear(clothing: Clothing): void;
-  dispose(): void;
-}
-
-/** What the skin wears. The core has no clothing: this is the model's meshes alone. */
-export interface Clothing { readonly boots: boolean; readonly armour: boolean }
-
 interface RigBone { readonly host: string; readonly head: readonly number[] }
 type Grip = Readonly<Record<string, readonly number[]>>;
 interface Rig { readonly bones: Readonly<Record<string, RigBone>>; readonly grips: { readonly empty: Grip } }
@@ -93,7 +83,7 @@ const FIST: Readonly<Record<WorkshopModel, FistPose>> = {
 /** A grip's turn, which the rig stores w first, as a Babylon quaternion. */
 const gripQuaternion = (pose: readonly number[]) => new Quaternion(pose[1]!, pose[2]!, pose[3]!, pose[0]!);
 
-export type Hand = "left" | "right";
+
 /**
  * The rig's hosts, the asset's own names for the body's parts, as core segments. The rig's primary
  * side is its right. The trunk and pelvis hosts are split among the three trunk segments by

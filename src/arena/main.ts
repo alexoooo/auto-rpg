@@ -12,7 +12,7 @@ import { GameAudio } from "../audio/game-audio.ts";
 import { loadEngine } from "../core/engine/engines.ts";
 import { BODY_MODELS, type BodyModel } from "../core/human/spec.ts";
 import { createWorld, type World } from "../core/world.ts";
-import type { SkinView } from "../render/skin.ts";
+import type { SkinView } from "../render/skin-view.ts";
 import { loadSkeletonArt, type SkeletonArt } from "../render/skeleton-skin.ts";
 import { drawHeld, type BodyShapes } from "../render/body-shapes.ts";
 import { dresserFor, type Dresser } from "../render/dress.ts";
@@ -109,7 +109,7 @@ export async function bootArena(): Promise<void> {
   const dresser = (model: BodyModel): Promise<Dresser> => {
     let found = dressers.get(model);
     if (!found) {
-      found = dresserFor(model, scene, { boots: true, armour: true }, () => skeletonArt ??= loadSkeletonArt());
+      found = dresserFor(model, scene, { skeletonArt: () => skeletonArt ??= loadSkeletonArt() });
       dressers.set(model, found);
     }
     return found;
@@ -165,7 +165,7 @@ export async function bootArena(): Promise<void> {
         ...(gap !== undefined ? { gap } : {}), ...(capSeconds !== undefined ? { capSeconds } : {}), ...(balance ? { balance } : {}), ...(held ? { held } : {}), ...(minds ? { minds } : {}),
       }, {
         onBuilt: (duelist, built) => {
-          for (const view of [dress.get(duelist.side)!(built), drawHeld(built, scene)]) {
+          for (const view of [dress.get(duelist.side)!(built, { clothing: { boots: true, armour: true } }), drawHeld(built, scene)]) {
             for (const mesh of view.meshes) shadows.addShadowCaster(mesh);
             drawn.push(view);
           }

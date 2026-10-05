@@ -11,7 +11,7 @@ import "@babylonjs/core/Culling/ray.js";
 import type { PhysicsEngine } from "../core/engine/engine.ts";
 import { loadEngine } from "../core/engine/engines.ts";
 import type { BodyModel } from "../core/human/spec.ts";
-import type { Clothing, SkinView } from "../render/skin.ts";
+import type { Clothing, SkinView } from "../render/skin-view.ts";
 import { loadSkeletonArt, type SkeletonArt } from "../render/skeleton-skin.ts";
 import { drawHeld, type BodyShapes } from "../render/body-shapes.ts";
 import { dresserFor, type Dresser } from "../render/dress.ts";
@@ -343,10 +343,10 @@ async function buildRun(page: DungeonPage, nextSeed: number): Promise<void> {
   // Each model's skin, loaded once a scene; a body whose skin did not load is drawn as its shapes.
   const dressers = new Map<BodyModel, Dresser>();
   await Promise.all([...new Set<BodyModel>([page.selectedHero, ...page.companions, "crypt-skeleton"])].map((model) =>
-    dresserFor(model, scene, page.clothing, () => page.skeletonArt).then((dress) => { dressers.set(model, dress); })));
+    dresserFor(model, scene, { skeletonArt: () => page.skeletonArt }).then((dress) => { dressers.set(model, dress); })));
   stillShown();
   const dress = (actor: DungeonActor) => {
-    const built = actor.fighter!.built, skin = dressers.get(actor.model)!(built), club = drawHeld(built, scene);
+    const built = actor.fighter!.built, skin = dressers.get(actor.model)!(built, { clothing: page.clothing }), club = drawHeld(built, scene);
     page.drawn.push(skin, club);
     actor.meshes.push(...skin.meshes, ...club.meshes);
   };

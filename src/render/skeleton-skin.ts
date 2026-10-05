@@ -8,7 +8,7 @@ import type { Scene } from "@babylonjs/core/scene.js";
 import bind from "../../assets/skeleton/bind.json" with { type: "json" };
 import { publicAssetUrl } from "../asset-url.ts";
 import type { BuiltBody, BuiltSegment } from "../core/build/build-body.ts";
-import type { SkinView } from "./skin.ts";
+import type { SkinView } from "./skin-view.ts";
 
 /**
  * **The crypt skeleton as the world sees it**: the pieces of `public/assets/skeleton/skeleton.glb`
