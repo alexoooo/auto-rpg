@@ -72,6 +72,9 @@ An optional [contact lift-off primitive](reference/contact-liftoff.md) passes re
 lift/recontact cycles on both engine profiles, with exact replay and no assistance. It avoids
 freezing a lift objective into an existing sticking contact. Anatomical recovery still fails;
 sliding and choices among multiple supports remain unresolved.
+The [friction-law comparison](reference/contact-friction.md) identifies patch versus per-point
+solver behavior and validates sustained-sliding predictions for each. Explicit per-point engine
+profiles are experimental; contact-mode selection and the installed-pose hold remain gates.
 The [posture audit](reference/posture-limit-models.md) accounts for corrected limit directions.
 Its three development witnesses remain statically feasible, but their engine holds fail the
 displacement gate. Recovery needs demonstrated entry, holding and transfer between supports.

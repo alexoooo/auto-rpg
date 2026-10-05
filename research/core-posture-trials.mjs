@@ -89,8 +89,8 @@ export async function staticBody(spec = modelSpec(AUDITED), engineName) {
   const world = createWorld(scene, engine);
   let limitModel;
   switch (engine.name) {
-    case "rapier": limitModel = "parent-axis"; break;
-    case "rapier-coordinate": limitModel = "coordinate"; break;
+    case "rapier": case "rapier-coulomb": limitModel = "parent-axis"; break;
+    case "rapier-coordinate": case "rapier-coordinate-coulomb": limitModel = "coordinate"; break;
     default: throw new Error(`posture audit has no limit model for ${engine.name}`);
   }
   const built = buildBody(spec, world, { position: [0, 0, 0] });

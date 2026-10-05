@@ -264,8 +264,9 @@ The controller still uses measured midpoint contacts. Geometric contact integrat
 multi-contact sliding/sticking selection remain open.
 [Patch-friction measurements](../reference/contact-friction.md) identify another mismatch:
 the pinned rigid-body engine uses central friction plus independent twist resistance, whereas
-the controller assumes per-point friction. First expose and compare the native Coulomb option
-as an explicitly identified profile, preserving existing behavior. Then select and validate
+the controller assumes per-point friction. The native Coulomb option is exposed in separately
+identified profiles. Both patch and projected per-point sustained-sliding predictors have
+mechanical checks; neither is a general mode selector. Select and validate
 the matching sliding/sticking predictor before repeating the installed-pose hold. Multibody
 comparisons must name this distinction because native multibody contacts already use Coulomb.
 

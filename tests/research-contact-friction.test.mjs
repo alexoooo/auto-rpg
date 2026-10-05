@@ -28,3 +28,22 @@ test("the installed rigid-body engine uses patch translation and independent twi
   }
   t.diagnostic(JSON.stringify(rows));
 });
+
+test("per-point friction follows the installed solver's effective-mass projection", async (t) => {
+  const reference = new Map(), readings = [];
+  for (const engine of ["rapier-coulomb", "rapier-coordinate-coulomb"]) for (const hz of [120, 1920]) {
+    for (const spin of [-3, 0, 3]) for (const sense of [-1, 1]) {
+      const row = await slidingSlab({ engine, hz, spin, sense }), model = row.projectedPoint;
+      assert.ok(model.linear < .05 && model.angular < .25, JSON.stringify(row));
+      assert.ok(model.normalResidual < 2e-8 && model.minLoad > 2 && model.minSlip > .1);
+      assert.ok(row.point.linear > .4, "opposing slip alone does not model the two-axis impulse projection");
+      if (spin) assert.ok(row.point.angular > 18 && row.patch.angular > 30);
+      const { engine: name, revision, ...physical } = row, key = JSON.stringify([hz, spin, sense]);
+      if (name === "rapier-coulomb") reference.set(key, physical);
+      else assert.deepEqual(physical, reference.get(key));
+      assert.equal(row.replay, true);
+      readings.push({ engine, hz, spin, sense, projectedPoint: model });
+    }
+  }
+  t.diagnostic(JSON.stringify(readings));
+});

@@ -11,7 +11,8 @@ Source: pinned upstream `b716d375efc0201003f0cd9ef7168eee0b62c177`,
 `src/dynamics/integration_parameters.rs::FrictionModel`,
 `src/dynamics/solver/staged_island_solver/init.rs` and
 `src/dynamics/solver/contact_constraint/contact_with_twist_friction.rs`.
-The adapter leaves this default unchanged. The TypeScript binding does not expose its selector.
+The adapter leaves this default unchanged. The vendored TypeScript binding exposes its selector
+as `pointContactFriction` in package `.6`; the upstream binding does not expose it.
 This is an upstream modeling choice, not an anatomy or motor-strength defect.
 
 For positive normal loads `N_i`, coefficient `mu`, patch centre `c` and contact positions `p_i`,
@@ -65,11 +66,55 @@ The regression requires patch errors below 0.03 m/s² and 0.25 rad/s², and subs
 error on the spinning trials. Suppressing the patch's twist moment must fail it. These are
 measured validation tolerances, not tuned body properties.
 
+## Per-point profile and projected impulses
+
+Package `0.21.0-auto-rpg.6`, adapter 7, exposes the native selector without changing either
+native solver. `rapier-coulomb` uses reference limits and per-point friction;
+`rapier-coordinate-coulomb` combines corrected limits and per-point friction. `rapier` and
+`rapier-coordinate` retain patch friction. All four share one WASM instance, identify themselves
+in task/replay records, and reject snapshots from another configuration without changing the
+destination. The task viewer offers all four; gameplay remains on `rapier`.
+
+Per-point friction also differs from the simple kinetic-force model. Rapier's
+`ContactConstraintTangentPartSlim::solve` solves the two-axis effective-mass system for a
+stopping impulse and projects that impulse onto the friction disk. For anisotropic point
+mobility, its direction need not oppose slip exactly. The research fixture's `projectedPoint`
+prediction computes this two-axis mobility through the coupled model and caps the resulting
+direction. It approximates sustained fast sliding; it does not reproduce iterative warmstarts,
+frozen lever arms or the finite-step sticking transition.
+
+The same 12-case slab battery on each per-point profile gives identical physical records across
+the two limit choices. The [coordinate-profile records](contact-friction-coulomb.json) include
+all three predictions. Maximum projected-point errors across signs and spins are 0.005827 m/s²
+and 0.008795 rad/s² at 120 Hz, and 0.041652 m/s² and 0.189211 rad/s² at 1920 Hz. Simple opposing-slip
+friction has linear error above 0.4 m/s² even without spin; its spinning angular error exceeds
+18 rad/s². The patch prediction's spinning angular error exceeds 30 rad/s² on this profile.
+No between-rate physical conclusion is inferred from these maxima.
+
+Tests require projected-point errors below 0.05 m/s² and 0.25 rad/s², positive support loads,
+compatible normal/tilt accelerations and exact physical replay on both profiles. Removing the
+effective-mass direction calculation fails the regression. Removing the snapshot friction check
+fails the configuration-isolation test. Physical replay compares every segment pose, velocity,
+ground-contact record and world state at every step; raw serialized cache bytes need not be
+canonical after restoring a world.
+
+```powershell
+node research/contact-friction.mjs --engine rapier-coordinate-coulomb
+node --test tests/core-friction-profile.test.mjs tests/research-contact-friction.test.mjs
+```
+
+The built task viewer also passes three standing shared-bar checks at 120 Hz with directional
+actuation and no assists: Warrior/corrected-limit per-point, Rogue/reference-limit per-point,
+and skeleton/gameplay reference, each releasing its left hand at development seed 0. All return
+upright without rejected solves, contact the obstacle, and replay exactly. Node reproduces the
+complete observation hash and outcome for each [browser record](contact-friction-browser.json).
+They establish profile integration, not a comparative capability result across bodies.
+
 ## Consequence for control
 
-Before relying on sliding predictions, make the engine's friction law explicit and compare an
-opt-in per-point Coulomb profile against the patch model. Preserve the existing profile's replay
-identity and measured behavior. A new model must include sticking, sliding, release and contact
+The engine's friction law is now explicit and both sustained-sliding predictors have a measured
+mechanical fixture. Neither experimental profile is selected as the gameplay default. A general
+controller model must include sticking, sliding, release and contact
 acquisition, then pass the installed all-fours hold before recovery entry is attempted again.
 This record establishes a friction-model mismatch; it does not establish that changing the
 engine's friction law will repair recovery. It also matters to any impulse-joint versus

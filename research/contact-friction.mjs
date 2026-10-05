@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
 import { pathToFileURL } from "node:url";
+import { parseArgs } from "node:util";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { coreStand, saveStand, loadStand } from "../tests/harness/core-stand.mjs";
 import { sourced } from "../src/core/spec/quantity.ts";
 import { CONTACT_FRICTION } from "../src/core/engine/engine.ts";
+import { isEngineName } from "../src/core/engine/engines.ts";
 import { planarSupportPoints } from "../src/core/build/planar-support.ts";
 import { coupledDynamics } from "../src/core/build/coupled-dynamics.ts";
 import { activeQuadratic } from "../src/core/math/active-quadratic.ts";
@@ -29,7 +31,7 @@ export async function slidingSlab({ hz = 120, spin = 3, sense = 1, engine = "rap
     const snapshot = saveStand(stand.world, {});
     const branch = () => {
       const errors = () => ({ linear: 0, angular: 0, normalResidual: 0, minLoad: Infinity, minSlip: Infinity });
-      const result = { patch: errors(), point: errors(), samples: [] };
+      const result = { patch: errors(), point: errors(), projectedPoint: errors(), samples: [] };
       for (let k = 0; k < hz / 30; k++) {
         const velocity = body.linearVelocityToRef(new Vector3()), angular = body.angularVelocityToRef(new Vector3()), com = centre();
         const manifolds = stand.world.physics.contactManifoldsOf(body, (other) => other === null);
@@ -42,13 +44,23 @@ export async function slidingSlab({ hz = 120, spin = 3, sense = 1, engine = "rap
         const read = (a) => { const p = model.pointAcceleration(body, com.asArray(), a); return [p.linear[1], p.angular[0], p.angular[2]]; };
         const base = read(free), predictions = {};
         const before = saveStand(stand.world, {});
-        for (const mode of ["point", "patch"]) {
+        for (const mode of ["point", "patch", "projectedPoint"]) {
           const stats = result[mode];
           const columns = points.map((point) => {
-            const at = mode === "point" ? new Vector3(...point) : patchCentre;
+            const at = mode === "patch" ? patchCentre : new Vector3(...point);
             const local = Vector3.Cross(angular, at.subtract(com)).add(velocity), speed = Math.hypot(local.x, local.z);
             assert.ok(speed > .1, "kinetic friction requires continuing tangential slip"); stats.minSlip = Math.min(stats.minSlip, speed);
-            const tangent = [-CONTACT_FRICTION * local.x / speed, 0, -CONTACT_FRICTION * local.z / speed];
+            let x = local.x, z = local.z;
+            if (mode === "projectedPoint") {
+              const unloaded = model.pointAcceleration(body, point, free).linear;
+              const response = (force) => model.pointAcceleration(body, point, model.solve([], [{ body, point, force, moment: zero }])).linear.map((v, i) => v - unloaded[i]);
+              const rx = response([1, 0, 0]), rz = response([0, 0, 1]), determinant = rx[0] * rz[2] - rz[0] * rx[2];
+              assert.ok(determinant > 0);
+              x = (rz[2] * local.x - rz[0] * local.z) / determinant;
+              z = (rx[0] * local.z - rx[2] * local.x) / determinant;
+            }
+            const directionLength = Math.hypot(x, z);
+            const tangent = [-CONTACT_FRICTION * x / directionLength, 0, -CONTACT_FRICTION * z / directionLength];
             const loads = [{ body, point, force: up, moment: zero }, { body, point: at.asArray(), force: tangent, moment: zero }];
             if (mode === "patch" && spin !== 0) {
               assert.ok(Math.abs(angular.y) > .1, "the measured window excludes twist stopping");
@@ -79,7 +91,7 @@ export async function slidingSlab({ hz = 120, spin = 3, sense = 1, engine = "rap
         stand.step();
         const measured = { linear: body.linearVelocityToRef(new Vector3()).subtract(velocity).scale(hz).asArray(),
           angular: body.angularVelocityToRef(new Vector3()).subtract(angular).scale(hz).asArray() };
-        for (const mode of ["point", "patch"]) for (const field of ["linear", "angular"]) {
+        for (const mode of ["point", "patch", "projectedPoint"]) for (const field of ["linear", "angular"]) {
           result[mode][field] = Math.max(result[mode][field], ...measured[field].map((v, i) => Math.abs(v - predictions[mode][field][i])));
         }
         // Both rates retain records at the game rate's spacing, starting before each step.
@@ -93,5 +105,7 @@ export async function slidingSlab({ hz = 120, spin = 3, sense = 1, engine = "rap
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  for (const hz of [120, 1920]) for (const spin of [-3, 0, 3]) for (const sense of [-1, 1]) console.log(JSON.stringify(await slidingSlab({ hz, spin, sense })));
+  const { values } = parseArgs({ options: { engine: { type: "string", default: "rapier-coordinate" } } });
+  if (!isEngineName(values.engine)) throw new Error("unknown sliding slab engine");
+  for (const hz of [120, 1920]) for (const spin of [-3, 0, 3]) for (const sense of [-1, 1]) console.log(JSON.stringify(await slidingSlab({ hz, spin, sense, engine: values.engine })));
 }

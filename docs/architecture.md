@@ -508,7 +508,10 @@ the reference tracker's integration still uses measured midpoint contacts.
 The installed rigid-body engine uses [patch friction](reference/contact-friction.md): a central
 tangential constraint and independent twist resistance. The reference controller's per-point
 friction model does not reproduce sliding patches. The sliding-slab research fixture measures
-both predictions without applying either to physics; no general sliding controller is selected.
+patch, opposing-slip and projected per-point predictions without applying them to physics.
+Optional `rapier-coulomb` and `rapier-coordinate-coulomb` profiles expose native per-point friction
+with reference or corrected limits; snapshots reject crossing these settings. No general
+sliding controller is selected.
 Optional [contact redistribution](reference/contact-distribution.md) searches point-force
 distributions that preserve each contacted body's wrench; the measured task configurations
 keep this experimental option disabled.

@@ -12,9 +12,10 @@ control is measured separately in the [common battery](control-foundation.md).
 - Patch: `vendor/rapier/auto-rpg.patch`. It adds signed motor bounds with symmetric defaults,
   last-substep motor/limit/locked-axis impulse reads, whole-step motor impulse, multibody setters,
   CCD-only pair filtering that preserves ordinary contact recycling, and current-pose
-  solver contact separation, and an opt-in measured-angle gradient for angular limits.
-- Package version: `0.21.0-auto-rpg.5`.
-- Archive SHA256: `2970fabe1650f5fb5eb0a55b28b72a729095fcddb98e58ed82b2d25861cebcc4`.
+  solver contact separation, an opt-in measured-angle gradient for angular limits, and accessors
+  for the native rigid-body friction-model selector.
+- Package version: `0.21.0-auto-rpg.6`.
+- Archive SHA256: `07af259dc277cac77daa9c95eaded0ed2bc8aeb5feac08bfd9e58d23e58feebd`.
 - Build toolchain: Rust 1.97.1, Node 24.19.0; wasm-pack 0.12.1 and wasm-bindgen 0.2.129 from
   the upstream lockfiles. The build remaps source/cache paths and writes declarations with LF.
 - Installation: package metadata and lockfile name the same archive; SHA512 integrity is
@@ -142,7 +143,8 @@ default remains parent-axis limits, as does gameplay. Corrected limits pass mech
 but require controller migration; their task outcomes are not parity claims.
 
 The `.5` archives from `.tools/rapier-rebuild-a` and `.tools/rapier-rebuild-b` are byte-identical
-at the SHA256 above. Offline installation, type checking and production build pass; the suite
+at SHA256 `2970fabe1650f5fb5eb0a55b28b72a729095fcddb98e58ed82b2d25861cebcc4`.
+Offline installation, type checking and production build pass; the suite
 reads 792 tests, 790 pass, zero failures and two existing TODOs. The installed CJS entry SHA256
 is `db4bb690d953983eae032de094f67bb49674def40757f0d7b55e5f77d831eb3a`.
 All 138 default physical rows equal `.4`, excluding timing, in
@@ -151,3 +153,26 @@ All 138 default physical rows equal `.4`, excluding timing, in
 `06010421afbb85f731ce5af4418942bb3c940686c05593869804e59314ea04e8`.
 The three stock-package parity bout hashes above are unchanged. Browser and Node checks of both
 configurations are recorded with the [limit measurements](joint-limits.md#package-and-browser-validation).
+
+The `.6` package exposes native [friction-model selection](contact-friction.md), with no change
+to either native solver or its default. Adapter revision 7 identifies the two additional
+per-point profiles and checks friction selection when loading snapshots. Its archives from
+`.tools/rapier-rebuild-a` and `.tools/rapier-rebuild-b` are byte-identical at the current SHA256
+in the source section. The installed CJS entry SHA256 is
+`d0e9b190bd0ec74136918a4268a00b4a3cb3e19e28bc8ab5d2fb055af01a7054`.
+
+Offline installation, type checking and production build pass. The full suite reads 814 tests,
+812 pass, zero failures and two existing TODOs. All 138 default physical rows equal a matched
+`.5` run after excluding timing (`friction-v5-reference` and `friction-v6-reference` under
+`research/runs/control-foundation`). The three stock-package parity bout hashes remain unchanged.
+The friction fixture covers 48 cases across all four profiles, both translation/spin signs,
+zero spin and both physics rates, with exact physical replay. The common CLI also records
+the corrected-limit per-point profile and exact replay in two Warrior standing-bar trials,
+releasing either hand, under `friction-v6-coulomb-bar`.
+
+Built-browser and Node observation hashes and outcomes match for three standing-bar cases:
+Warrior/corrected-limit per-point, Rogue/reference-limit per-point, and skeleton/gameplay
+reference. All three return upright, contact the obstacle and replay exactly. Their full
+configurations and results are in [the browser record](contact-friction-browser.json).
+These development checks establish package/configuration behavior, not general recovery or a
+reason to migrate gameplay to per-point friction.

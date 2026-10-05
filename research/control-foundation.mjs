@@ -160,7 +160,7 @@ async function main() {
     unavailable: ["integrated recovery/combat", "opponent defense", "actuator work", "contact penetration"],
     jobs };
   const installed = JSON.parse(await readFile(resolve(root, "node_modules/@dimforge/rapier3d-simd-compat/package.json"), "utf8"));
-  if (installed.version !== pkg.version || !["rapier", "rapier-coordinate"].includes(CORE_ENGINE)) throw new Error("manifest requires the locked Rapier package; run npm ci");
+  if (installed.version !== pkg.version || !engine.revision.startsWith("rapier/")) throw new Error("manifest requires the locked Rapier package; run npm ci");
   manifest.package.entrySha256 = digest(await readFile(resolve(root, "node_modules/@dimforge/rapier3d-simd-compat", installed.main)));
   await mkdir(directory, { recursive: true });
   await writeFile(resolve(directory, "manifest.json"), json(manifest), { flag: "wx" });

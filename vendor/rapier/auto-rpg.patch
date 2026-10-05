@@ -13,13 +13,24 @@ index ce0eec04..c397c2cf 100644
      }
  }
 diff --git a/bindings/typescript/src.ts/dynamics/integration_parameters.ts b/bindings/typescript/src.ts/dynamics/integration_parameters.ts
-index 9ebb61c4..bca609c2 100644
+index 9ebb61c4..0df00e98 100644
 --- a/bindings/typescript/src.ts/dynamics/integration_parameters.ts
 +++ b/bindings/typescript/src.ts/dynamics/integration_parameters.ts
-@@ -4,6 +4,15 @@ import {SoftRecoverySettings} from "./soft_body";
+@@ -4,6 +4,26 @@ import {SoftRecoverySettings} from "./soft_body";
  export class IntegrationParameters {
      raw: RawIntegrationParameters;
  
++    // #if DIM3
++    /** Per-point Coulomb friction for rigid bodies; false selects central and twist friction. Multibodies always use per-point friction. */
++    get pointContactFriction(): boolean {
++        return this.raw.pointContactFriction;
++    }
++
++    set pointContactFriction(value: boolean) {
++        this.raw.pointContactFriction = value;
++    }
++    // #endif
++
 +    /** Use measured-angle gradients for angular limits; false retains parent-axis rows. */
 +    get coordinateAngularLimits(): boolean {
 +        return this.raw.coordinateAngularLimits;
@@ -109,13 +120,29 @@ index d74c6aeb..0e60dced 100644
 +    }
  }
 diff --git a/bindings/typescript/src/dynamics/integration_parameters.rs b/bindings/typescript/src/dynamics/integration_parameters.rs
-index 9c603068..21c8a9f4 100644
+index 9c603068..143efe8c 100644
 --- a/bindings/typescript/src/dynamics/integration_parameters.rs
 +++ b/bindings/typescript/src/dynamics/integration_parameters.rs
-@@ -7,6 +7,16 @@ pub struct RawIntegrationParameters(pub(crate) IntegrationParameters);
+@@ -7,6 +7,32 @@ pub struct RawIntegrationParameters(pub(crate) IntegrationParameters);
  
  #[wasm_bindgen]
  impl RawIntegrationParameters {
++    #[cfg(feature = "dim3")]
++    #[wasm_bindgen(getter)]
++    pub fn pointContactFriction(&self) -> bool {
++        matches!(self.0.friction_model, rapier::dynamics::FrictionModel::Coulomb)
++    }
++
++    #[cfg(feature = "dim3")]
++    #[wasm_bindgen(setter)]
++    pub fn set_pointContactFriction(&mut self, value: bool) {
++        self.0.friction_model = if value {
++            rapier::dynamics::FrictionModel::Coulomb
++        } else {
++            rapier::dynamics::FrictionModel::Simplified
++        };
++    }
++
 +    #[wasm_bindgen(getter)]
 +    pub fn coordinateAngularLimits(&self) -> bool {
 +        self.0.coordinate_angular_limits

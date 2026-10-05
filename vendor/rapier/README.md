@@ -48,6 +48,11 @@ uses this vendored package. The package layout remains compatible with the bench
   reported coordinate. False retains parent-axis rows; motor rows are unchanged. The setting
   is serialized. The adapter exposes it as `rapier-coordinate`, with migration gates in
   [the limit record](../../docs/reference/joint-limits.md).
+- **Friction selection** (`pointContactFriction` on integration parameters) exposes the native
+  per-point Coulomb model for rigid bodies. False retains central and twist friction; multibody
+  contacts always use the per-point model. The native serialized setting already exists; the
+  patch adds only Rust/TypeScript accessors. The adapter identifies the configurations separately
+  and refuses cross-configuration snapshots; see [the friction record](../../docs/reference/contact-friction.md).
 - Rapier's own test of the bounds (`motor_force_bounds_are_signed_and_max_force_keeps_them_symmetric`,
   `generic_joint.rs`) passes.
 
