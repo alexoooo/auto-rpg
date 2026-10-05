@@ -496,6 +496,11 @@ bounds in the same torque solve. Shape curvature supplies active material-point 
 rejected force or acceleration predictions produce zero torque. This option is independent of
 joint-stop prediction and disabled by default. Repeated mechanical lift/recontact is measured;
 sliding, general support selection and anatomical recovery remain open.
+The [posture audit](reference/posture-limit-models.md) selects static reaction directions from
+the engine profile. Corrected coordinate stops can load multiple actuator axes, including
+channels with no ground contact; the programme solves those loads together and records the
+engine artifact and limit model with each witness. Static feasibility is separate from the
+engine hold and controller-entry measurements.
 Optional [contact redistribution](reference/contact-distribution.md) searches point-force
 distributions that preserve each contacted body's wrench; the measured task configurations
 keep this experimental option disabled.

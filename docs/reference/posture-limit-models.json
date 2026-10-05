@@ -1,0 +1,1130 @@
+{
+  "harness": "Node statics, Warrior, no world step; Rapier .5 adapter 6 profile named per row; no assist; 300-evaluation development witnesses, seed 0",
+  "rows": [
+    {
+      "job": {
+        "engine": "rapier",
+        "row": "fours",
+        "trial": "audit",
+        "seed": 0,
+        "evals": 300,
+        "variant": "built",
+        "friction": "box"
+      },
+      "result": {
+        "row": "fours",
+        "route": "control",
+        "variant": "built",
+        "friction": "box",
+        "seed": 0,
+        "engine": {
+          "name": "rapier",
+          "revision": "rapier/adapter-6/sha256:2970fabe1650f5fb5eb0a55b28b72a729095fcddb98e58ed82b2d25861cebcc4"
+        },
+        "limitModel": "parent-axis",
+        "found": true,
+        "balanced": true,
+        "held": true,
+        "share": 0.122,
+        "miss": 0,
+        "binds": [
+          "neck flexion",
+          "lumbar flexion",
+          "shoulder.left internal rotation",
+          "elbow.left flexion",
+          "shoulder.right internal rotation",
+          "elbow.right flexion"
+        ],
+        "ratios": [
+          {
+            "channel": "neck flexion",
+            "ratio": -0.122
+          },
+          {
+            "channel": "lumbar flexion",
+            "ratio": -0.122
+          },
+          {
+            "channel": "shoulder.left internal rotation",
+            "ratio": 0.122
+          },
+          {
+            "channel": "elbow.left flexion",
+            "ratio": -0.122
+          },
+          {
+            "channel": "shoulder.right internal rotation",
+            "ratio": 0.122
+          }
+        ],
+        "stops": [
+          {
+            "channel": "ankle.left dorsiflexion",
+            "at": "hi",
+            "torque": -1.1
+          },
+          {
+            "channel": "ankle.right dorsiflexion",
+            "at": "hi",
+            "torque": -0.8
+          }
+        ],
+        "forces": {
+          "knee.left": 211.3,
+          "knee.right": 210.1,
+          "toes.left": 29.4,
+          "toes.right": 30.4,
+          "hand.left": 146.8,
+          "hand.right": 146.8
+        },
+        "margin": 0.367,
+        "off": 0.0002,
+        "overlap": {
+          "depth": 0,
+          "between": null
+        },
+        "height": 0.362,
+        "pitch": 1.36,
+        "roll": 0,
+        "angles": {
+          "neck flexion": -0.398,
+          "neck lateral flexion right": 0,
+          "neck rotation right": 0,
+          "thoracic flexion": -0.006,
+          "thoracic lateral flexion right": 0,
+          "thoracic rotation right": 0,
+          "lumbar flexion": 0.238,
+          "lumbar lateral flexion right": 0,
+          "lumbar rotation right": 0,
+          "shoulder.left flexion": 1.141,
+          "shoulder.left abduction": 1.148,
+          "shoulder.left internal rotation": -0.449,
+          "elbow.left flexion": 0.674,
+          "wrist.left flexion": -1.286,
+          "hip.left flexion": 1.489,
+          "hip.left abduction": 0.207,
+          "hip.left internal rotation": 0.151,
+          "knee.left flexion": 2.06,
+          "ankle.left dorsiflexion": 0.389,
+          "ankle.left inversion": -0.332,
+          "shoulder.right flexion": 1.141,
+          "shoulder.right abduction": 1.148,
+          "shoulder.right internal rotation": -0.449,
+          "elbow.right flexion": 0.674,
+          "wrist.right flexion": -1.286,
+          "hip.right flexion": 1.489,
+          "hip.right abduction": 0.207,
+          "hip.right internal rotation": 0.151,
+          "knee.right flexion": 2.06,
+          "ankle.right dorsiflexion": 0.389,
+          "ankle.right inversion": -0.332
+        },
+        "posture": {
+          "height": 0.26451273999221475,
+          "pitch": 1.3601755713847312,
+          "roll": 0,
+          "angles": [
+            -0.3983012178094657,
+            0,
+            0,
+            -0.006380570020799927,
+            0,
+            0,
+            0.2375632084700492,
+            0,
+            0,
+            1.1138090206172806,
+            0.42936783689919267,
+            -0.3579707789748904,
+            -0.13136497448167458,
+            -1.3392217196243485,
+            0,
+            0,
+            1.378540714353551,
+            0.11260254667004446,
+            0.1513420399133224,
+            1.9499168162478369,
+            0.3570589024706539,
+            -0.3324852225049198,
+            1.1138090206172806,
+            0.42936783689919267,
+            -0.3579707789748904,
+            -0.13136497448167458,
+            -1.3392217196243485,
+            0,
+            0,
+            1.378540714353551,
+            0.11260254667004446,
+            0.1513420399133224,
+            1.9499168162478369,
+            0.3570589024706539,
+            -0.3324852225049198
+          ]
+        },
+        "evals": 289
+      },
+      "hold": {
+        "row": "fours",
+        "variant": "built",
+        "drive": "side",
+        "solver": "game",
+        "k": 1,
+        "stayed": false,
+        "drift": 0.0506,
+        "worst": {
+          "channel": "elbow.right flexion",
+          "error": 0.184
+        },
+        "peak": 0.019,
+        "touched": [
+          "hand.left",
+          "hand.right",
+          "shank.left",
+          "shank.right"
+        ],
+        "leant": []
+      }
+    },
+    {
+      "job": {
+        "engine": "rapier",
+        "row": "half kneel, knee light",
+        "trial": "audit",
+        "seed": 0,
+        "evals": 300,
+        "variant": "built",
+        "friction": "box"
+      },
+      "result": {
+        "row": "half kneel, knee light",
+        "route": "K",
+        "variant": "built",
+        "friction": "box",
+        "seed": 0,
+        "engine": {
+          "name": "rapier",
+          "revision": "rapier/adapter-6/sha256:2970fabe1650f5fb5eb0a55b28b72a729095fcddb98e58ed82b2d25861cebcc4"
+        },
+        "limitModel": "parent-axis",
+        "found": true,
+        "balanced": true,
+        "held": true,
+        "share": 0.2,
+        "miss": 0,
+        "binds": [
+          "knee.left flexion",
+          "ankle.left inversion",
+          "hip.right flexion"
+        ],
+        "ratios": [
+          {
+            "channel": "knee.left flexion",
+            "ratio": -0.2
+          },
+          {
+            "channel": "ankle.left inversion",
+            "ratio": 0.2
+          },
+          {
+            "channel": "hip.right flexion",
+            "ratio": 0.2
+          },
+          {
+            "channel": "ankle.right inversion",
+            "ratio": -0.191
+          },
+          {
+            "channel": "hip.left flexion",
+            "ratio": -0.189
+          }
+        ],
+        "stops": [
+          {
+            "channel": "knee.right flexion",
+            "at": "hi",
+            "torque": -173.3
+          },
+          {
+            "channel": "ankle.right dorsiflexion",
+            "at": "hi",
+            "torque": -35.4
+          }
+        ],
+        "forces": {
+          "toes.right": 490.1,
+          "sole.left": 284.6
+        },
+        "margin": 0.077,
+        "off": 0.0001,
+        "overlap": {
+          "depth": 0,
+          "between": null
+        },
+        "height": 0.559,
+        "pitch": 0.028,
+        "roll": -0.146,
+        "angles": {
+          "neck flexion": 0.506,
+          "neck lateral flexion right": -0.178,
+          "neck rotation right": -0.009,
+          "thoracic flexion": 0.14,
+          "thoracic lateral flexion right": 0.044,
+          "thoracic rotation right": 0.089,
+          "lumbar flexion": 0.073,
+          "lumbar lateral flexion right": 0.004,
+          "lumbar rotation right": -0.013,
+          "shoulder.left flexion": -1.147,
+          "shoulder.left abduction": 0.41,
+          "shoulder.left internal rotation": 0.206,
+          "elbow.left flexion": 0.428,
+          "wrist.left flexion": 0.738,
+          "hip.left flexion": 1.758,
+          "hip.left abduction": 0.078,
+          "hip.left internal rotation": 0.008,
+          "knee.left flexion": 2.03,
+          "ankle.left dorsiflexion": 0.329,
+          "ankle.left inversion": 0.148,
+          "shoulder.right flexion": -0.508,
+          "shoulder.right abduction": 0.239,
+          "shoulder.right internal rotation": 0.304,
+          "elbow.right flexion": 0.216,
+          "wrist.right flexion": -0.091,
+          "hip.right flexion": 0.657,
+          "hip.right abduction": 0.088,
+          "hip.right internal rotation": 0.305,
+          "knee.right flexion": 2.567,
+          "ankle.right dorsiflexion": 0.389,
+          "ankle.right inversion": -0.332
+        },
+        "posture": {
+          "height": -0.5302158242125269,
+          "pitch": 0.02771524216708428,
+          "roll": -0.14570550269142957,
+          "angles": [
+            0.5056226616742896,
+            -0.17820520890658997,
+            -0.009156760465226066,
+            0.13958918497781958,
+            0.043753716424822675,
+            0.0889021984714981,
+            0.07272923797686398,
+            0.0037250609498603038,
+            -0.013246271608787719,
+            -1.174090634769606,
+            -0.3090986179400034,
+            0.2964195910917362,
+            -0.37798800905765295,
+            0.6851629926480607,
+            0,
+            0,
+            1.647340054955181,
+            -0.015782186701956837,
+            0.0075121800249294685,
+            1.919590738388751,
+            0.2965423545298129,
+            0.1481095405649975,
+            -0.5353725500048762,
+            -0.4800375939885769,
+            0.3947753898260631,
+            -0.589598185568541,
+            -0.14383923599424975,
+            0,
+            0,
+            0.5465013588089888,
+            -0.006767226234260277,
+            0.3054494826913833,
+            2.4574188591217414,
+            0.3570589024706539,
+            -0.3324852225049198
+          ]
+        },
+        "evals": 295
+      },
+      "hold": {
+        "row": "half kneel, knee light",
+        "variant": "built",
+        "drive": "side",
+        "solver": "game",
+        "k": 1,
+        "stayed": false,
+        "drift": 1.6438,
+        "worst": {
+          "channel": "hip.left internal rotation",
+          "error": 0.64
+        },
+        "peak": 4.096,
+        "touched": [
+          "foot.left",
+          "head",
+          "upperArm.left",
+          "upperTrunk"
+        ],
+        "leant": [
+          "middleTrunk on upperArm.right",
+          "thigh.left on thigh.right"
+        ]
+      }
+    },
+    {
+      "job": {
+        "engine": "rapier",
+        "row": "squat",
+        "height": 0.5,
+        "trial": "audit",
+        "seed": 0,
+        "evals": 300,
+        "variant": "built",
+        "friction": "box"
+      },
+      "result": {
+        "row": "squat @ 0.50 m",
+        "route": "Q",
+        "variant": "built",
+        "friction": "box",
+        "seed": 0,
+        "engine": {
+          "name": "rapier",
+          "revision": "rapier/adapter-6/sha256:2970fabe1650f5fb5eb0a55b28b72a729095fcddb98e58ed82b2d25861cebcc4"
+        },
+        "limitModel": "parent-axis",
+        "found": true,
+        "balanced": true,
+        "held": true,
+        "share": 0.644,
+        "miss": 0,
+        "binds": [
+          "ankle.left dorsiflexion",
+          "ankle.left inversion",
+          "ankle.right dorsiflexion",
+          "ankle.right inversion"
+        ],
+        "ratios": [
+          {
+            "channel": "ankle.left dorsiflexion",
+            "ratio": 0.644
+          },
+          {
+            "channel": "ankle.left inversion",
+            "ratio": 0.644
+          },
+          {
+            "channel": "ankle.right dorsiflexion",
+            "ratio": 0.644
+          },
+          {
+            "channel": "ankle.right inversion",
+            "ratio": 0.644
+          },
+          {
+            "channel": "lumbar flexion",
+            "ratio": -0.235
+          }
+        ],
+        "stops": [
+          {
+            "channel": "hip.left abduction",
+            "at": "hi",
+            "torque": -93.2
+          },
+          {
+            "channel": "hip.left internal rotation",
+            "at": "hi",
+            "torque": -35.8
+          },
+          {
+            "channel": "hip.right abduction",
+            "at": "hi",
+            "torque": -93.2
+          },
+          {
+            "channel": "hip.right internal rotation",
+            "at": "hi",
+            "torque": -35.8
+          },
+          {
+            "channel": "thoracic flexion",
+            "at": "hi",
+            "torque": -28.3
+          }
+        ],
+        "forces": {
+          "sole.left": 387.4,
+          "sole.right": 387.4
+        },
+        "margin": 0.009,
+        "off": 0,
+        "overlap": {
+          "depth": 0,
+          "between": [
+            "thigh.left",
+            "thigh.right"
+          ]
+        },
+        "height": 0.5,
+        "pitch": -0.322,
+        "roll": 0,
+        "angles": {
+          "neck flexion": 0.066,
+          "neck lateral flexion right": 0,
+          "neck rotation right": 0,
+          "thoracic flexion": 0.368,
+          "thoracic lateral flexion right": 0,
+          "thoracic rotation right": 0,
+          "lumbar flexion": 0.313,
+          "lumbar lateral flexion right": 0,
+          "lumbar rotation right": 0,
+          "shoulder.left flexion": 0.321,
+          "shoulder.left abduction": 3.138,
+          "shoulder.left internal rotation": -0.455,
+          "elbow.left flexion": 1.265,
+          "wrist.left flexion": 0.051,
+          "hip.left flexion": 1.562,
+          "hip.left abduction": 0.56,
+          "hip.left internal rotation": 0.648,
+          "knee.left flexion": 2.347,
+          "ankle.left dorsiflexion": 0.389,
+          "ankle.left inversion": 0.603,
+          "shoulder.right flexion": 0.321,
+          "shoulder.right abduction": 3.138,
+          "shoulder.right internal rotation": -0.455,
+          "elbow.right flexion": 1.265,
+          "wrist.right flexion": 0.051,
+          "hip.right flexion": 1.562,
+          "hip.right abduction": 0.56,
+          "hip.right internal rotation": 0.648,
+          "knee.right flexion": 2.347,
+          "ankle.right dorsiflexion": 0.389,
+          "ankle.right inversion": 0.603
+        },
+        "posture": {
+          "height": -0.6287199436303665,
+          "pitch": -0.32154988876919144,
+          "roll": 0,
+          "angles": [
+            0.06563508160141328,
+            0,
+            0,
+            0.36826447217080355,
+            0,
+            0,
+            0.31345480982706697,
+            0,
+            0,
+            0.29316848574210763,
+            2.4189860451350045,
+            -0.3647347293506349,
+            0.4597174927364504,
+            -0.0021592383893336044,
+            0,
+            0,
+            1.451330129778294,
+            0.46596862474520234,
+            0.6475171524898963,
+            2.236847742064474,
+            0.3570589024706539,
+            0.6031857894892403,
+            0.29316848574210763,
+            2.4189860451350045,
+            -0.3647347293506349,
+            0.4597174927364504,
+            -0.0021592383893336044,
+            0,
+            0,
+            1.451330129778294,
+            0.46596862474520234,
+            0.6475171524898963,
+            2.236847742064474,
+            0.3570589024706539,
+            0.6031857894892403
+          ]
+        },
+        "evals": 289
+      },
+      "hold": {
+        "row": "squat",
+        "variant": "built",
+        "drive": "side",
+        "solver": "game",
+        "k": 1,
+        "stayed": false,
+        "drift": 1.3563,
+        "worst": {
+          "channel": "shoulder.left flexion",
+          "error": 0.036
+        },
+        "peak": 0.013,
+        "touched": [
+          "lowerTrunk",
+          "middleTrunk"
+        ],
+        "leant": [
+          "thigh.left on thigh.right"
+        ]
+      }
+    },
+    {
+      "job": {
+        "engine": "rapier-coordinate",
+        "row": "fours",
+        "trial": "audit",
+        "seed": 0,
+        "evals": 300,
+        "variant": "built",
+        "friction": "box"
+      },
+      "result": {
+        "row": "fours",
+        "route": "control",
+        "variant": "built",
+        "friction": "box",
+        "seed": 0,
+        "engine": {
+          "name": "rapier-coordinate",
+          "revision": "rapier/adapter-6/sha256:2970fabe1650f5fb5eb0a55b28b72a729095fcddb98e58ed82b2d25861cebcc4/coordinate-limits"
+        },
+        "limitModel": "coordinate",
+        "found": true,
+        "balanced": true,
+        "held": true,
+        "share": 0.122,
+        "miss": 0,
+        "binds": [
+          "neck flexion",
+          "lumbar flexion",
+          "shoulder.left internal rotation",
+          "elbow.left flexion",
+          "shoulder.right internal rotation",
+          "elbow.right flexion"
+        ],
+        "ratios": [
+          {
+            "channel": "neck flexion",
+            "ratio": -0.122
+          },
+          {
+            "channel": "lumbar flexion",
+            "ratio": -0.122
+          },
+          {
+            "channel": "shoulder.left internal rotation",
+            "ratio": 0.122
+          },
+          {
+            "channel": "elbow.left flexion",
+            "ratio": -0.122
+          },
+          {
+            "channel": "shoulder.right internal rotation",
+            "ratio": 0.122
+          }
+        ],
+        "stops": [
+          {
+            "channel": "ankle.left dorsiflexion",
+            "at": "hi",
+            "torque": -1.1
+          },
+          {
+            "channel": "ankle.right dorsiflexion",
+            "at": "hi",
+            "torque": -0.8
+          }
+        ],
+        "forces": {
+          "knee.left": 211.3,
+          "knee.right": 210.1,
+          "toes.left": 29.4,
+          "toes.right": 30.4,
+          "hand.left": 146.8,
+          "hand.right": 146.8
+        },
+        "margin": 0.367,
+        "off": 0.0002,
+        "overlap": {
+          "depth": 0,
+          "between": null
+        },
+        "height": 0.362,
+        "pitch": 1.36,
+        "roll": 0,
+        "angles": {
+          "neck flexion": -0.398,
+          "neck lateral flexion right": 0,
+          "neck rotation right": 0,
+          "thoracic flexion": -0.006,
+          "thoracic lateral flexion right": 0,
+          "thoracic rotation right": 0,
+          "lumbar flexion": 0.238,
+          "lumbar lateral flexion right": 0,
+          "lumbar rotation right": 0,
+          "shoulder.left flexion": 1.141,
+          "shoulder.left abduction": 1.148,
+          "shoulder.left internal rotation": -0.449,
+          "elbow.left flexion": 0.674,
+          "wrist.left flexion": -1.286,
+          "hip.left flexion": 1.489,
+          "hip.left abduction": 0.207,
+          "hip.left internal rotation": 0.151,
+          "knee.left flexion": 2.06,
+          "ankle.left dorsiflexion": 0.389,
+          "ankle.left inversion": -0.332,
+          "shoulder.right flexion": 1.141,
+          "shoulder.right abduction": 1.148,
+          "shoulder.right internal rotation": -0.449,
+          "elbow.right flexion": 0.674,
+          "wrist.right flexion": -1.286,
+          "hip.right flexion": 1.489,
+          "hip.right abduction": 0.207,
+          "hip.right internal rotation": 0.151,
+          "knee.right flexion": 2.06,
+          "ankle.right dorsiflexion": 0.389,
+          "ankle.right inversion": -0.332
+        },
+        "posture": {
+          "height": 0.26451273999221475,
+          "pitch": 1.3601755713847312,
+          "roll": 0,
+          "angles": [
+            -0.3983012178094657,
+            0,
+            0,
+            -0.006380570020799927,
+            0,
+            0,
+            0.2375632084700492,
+            0,
+            0,
+            1.1138090206172806,
+            0.42936783689919267,
+            -0.3579707789748904,
+            -0.13136497448167458,
+            -1.3392217196243485,
+            0,
+            0,
+            1.378540714353551,
+            0.11260254667004446,
+            0.1513420399133224,
+            1.9499168162478369,
+            0.3570589024706539,
+            -0.3324852225049198,
+            1.1138090206172806,
+            0.42936783689919267,
+            -0.3579707789748904,
+            -0.13136497448167458,
+            -1.3392217196243485,
+            0,
+            0,
+            1.378540714353551,
+            0.11260254667004446,
+            0.1513420399133224,
+            1.9499168162478369,
+            0.3570589024706539,
+            -0.3324852225049198
+          ]
+        },
+        "evals": 289
+      },
+      "hold": {
+        "row": "fours",
+        "variant": "built",
+        "drive": "side",
+        "solver": "game",
+        "k": 1,
+        "stayed": false,
+        "drift": 0.0493,
+        "worst": {
+          "channel": "elbow.right flexion",
+          "error": 0.181
+        },
+        "peak": 0.015,
+        "touched": [
+          "hand.left",
+          "hand.right",
+          "shank.left",
+          "shank.right"
+        ],
+        "leant": []
+      }
+    },
+    {
+      "job": {
+        "engine": "rapier-coordinate",
+        "row": "half kneel, knee light",
+        "trial": "audit",
+        "seed": 0,
+        "evals": 300,
+        "variant": "built",
+        "friction": "box"
+      },
+      "result": {
+        "row": "half kneel, knee light",
+        "route": "K",
+        "variant": "built",
+        "friction": "box",
+        "seed": 0,
+        "engine": {
+          "name": "rapier-coordinate",
+          "revision": "rapier/adapter-6/sha256:2970fabe1650f5fb5eb0a55b28b72a729095fcddb98e58ed82b2d25861cebcc4/coordinate-limits"
+        },
+        "limitModel": "coordinate",
+        "found": true,
+        "balanced": true,
+        "held": true,
+        "share": 0.232,
+        "miss": 0,
+        "binds": [
+          "lumbar lateral flexion right",
+          "knee.left flexion",
+          "ankle.left dorsiflexion",
+          "hip.right flexion"
+        ],
+        "ratios": [
+          {
+            "channel": "lumbar lateral flexion right",
+            "ratio": -0.232
+          },
+          {
+            "channel": "knee.left flexion",
+            "ratio": -0.232
+          },
+          {
+            "channel": "ankle.left dorsiflexion",
+            "ratio": 0.232
+          },
+          {
+            "channel": "hip.right flexion",
+            "ratio": 0.232
+          },
+          {
+            "channel": "hip.left flexion",
+            "ratio": -0.182
+          }
+        ],
+        "stops": [
+          {
+            "channel": "knee.right flexion",
+            "at": "hi",
+            "torque": -171.8
+          },
+          {
+            "channel": "ankle.right dorsiflexion",
+            "at": "hi",
+            "torque": -31.4
+          }
+        ],
+        "forces": {
+          "toes.right": 478.3,
+          "sole.left": 296.4
+        },
+        "margin": 0.085,
+        "off": 0,
+        "overlap": {
+          "depth": 0.0024,
+          "between": [
+            "middleTrunk",
+            "thigh.left"
+          ]
+        },
+        "height": 0.57,
+        "pitch": -0.128,
+        "roll": -0.196,
+        "angles": {
+          "neck flexion": 0.159,
+          "neck lateral flexion right": -0.072,
+          "neck rotation right": 0.142,
+          "thoracic flexion": 0.144,
+          "thoracic lateral flexion right": 0.023,
+          "thoracic rotation right": -0.028,
+          "lumbar flexion": 0.243,
+          "lumbar lateral flexion right": 0,
+          "lumbar rotation right": -0.036,
+          "shoulder.left flexion": -0.472,
+          "shoulder.left abduction": 0.962,
+          "shoulder.left internal rotation": 0.215,
+          "elbow.left flexion": 0.076,
+          "wrist.left flexion": 0.577,
+          "hip.left flexion": 1.669,
+          "hip.left abduction": -0.165,
+          "hip.left internal rotation": -0.009,
+          "knee.left flexion": 1.786,
+          "ankle.left dorsiflexion": 0.051,
+          "ankle.left inversion": 0.083,
+          "shoulder.right flexion": -0.879,
+          "shoulder.right abduction": 0.795,
+          "shoulder.right internal rotation": 0.491,
+          "elbow.right flexion": 0.436,
+          "wrist.right flexion": -0.392,
+          "hip.right flexion": 0.493,
+          "hip.right abduction": 0.099,
+          "hip.right internal rotation": 0.132,
+          "knee.right flexion": 2.567,
+          "ankle.right dorsiflexion": 0.389,
+          "ankle.right inversion": 0.109
+        },
+        "posture": {
+          "height": -0.5088299162806461,
+          "pitch": -0.12758106749280893,
+          "roll": -0.19561320758507003,
+          "angles": [
+            0.15886281043698913,
+            -0.07192130790122486,
+            0.1420647835872304,
+            0.14442904434853965,
+            0.02289836683277252,
+            -0.028025699607443444,
+            0.24280202714078308,
+            -0.00023451133222701648,
+            -0.03622245234170641,
+            -0.4989467077553128,
+            0.24294339166122847,
+            0.30583665148092765,
+            -0.7297754374497443,
+            0.5238878454677958,
+            0,
+            0,
+            1.558956439294817,
+            -0.25900612740600204,
+            -0.008829799591627857,
+            1.6762221745138046,
+            0.018399752000592094,
+            0.08305144576678256,
+            -0.9066782753360586,
+            0.07593081830788895,
+            0.5813171541950992,
+            -0.3693064038468303,
+            -0.44515033255008474,
+            0,
+            0,
+            0.38305371293614543,
+            0.004551865064557218,
+            0.13223557493693486,
+            2.4574188591217414,
+            0.3570589024706539,
+            0.10871784657073817
+          ]
+        },
+        "evals": 295
+      },
+      "hold": {
+        "row": "half kneel, knee light",
+        "variant": "built",
+        "drive": "side",
+        "solver": "game",
+        "k": 1,
+        "stayed": false,
+        "drift": 0.1463,
+        "worst": {
+          "channel": "ankle.right dorsiflexion",
+          "error": -0.172
+        },
+        "peak": 0.045,
+        "touched": [
+          "foot.left",
+          "foot.right",
+          "shank.right"
+        ],
+        "leant": [
+          "middleTrunk on thigh.left"
+        ]
+      }
+    },
+    {
+      "job": {
+        "engine": "rapier-coordinate",
+        "row": "squat",
+        "height": 0.5,
+        "trial": "audit",
+        "seed": 0,
+        "evals": 300,
+        "variant": "built",
+        "friction": "box"
+      },
+      "result": {
+        "row": "squat @ 0.50 m",
+        "route": "Q",
+        "variant": "built",
+        "friction": "box",
+        "seed": 0,
+        "engine": {
+          "name": "rapier-coordinate",
+          "revision": "rapier/adapter-6/sha256:2970fabe1650f5fb5eb0a55b28b72a729095fcddb98e58ed82b2d25861cebcc4/coordinate-limits"
+        },
+        "limitModel": "coordinate",
+        "found": true,
+        "balanced": true,
+        "held": true,
+        "share": 0.644,
+        "miss": 0,
+        "binds": [
+          "ankle.left dorsiflexion",
+          "ankle.left inversion",
+          "ankle.right dorsiflexion",
+          "ankle.right inversion"
+        ],
+        "ratios": [
+          {
+            "channel": "ankle.left dorsiflexion",
+            "ratio": 0.644
+          },
+          {
+            "channel": "ankle.left inversion",
+            "ratio": 0.644
+          },
+          {
+            "channel": "ankle.right dorsiflexion",
+            "ratio": 0.644
+          },
+          {
+            "channel": "ankle.right inversion",
+            "ratio": 0.644
+          },
+          {
+            "channel": "lumbar flexion",
+            "ratio": -0.235
+          }
+        ],
+        "stops": [
+          {
+            "channel": "thoracic flexion",
+            "at": "hi",
+            "torque": -28.3
+          },
+          {
+            "channel": "hip.left abduction",
+            "at": "hi",
+            "torque": -37.3
+          },
+          {
+            "channel": "hip.left internal rotation",
+            "at": "hi",
+            "torque": -64.3
+          },
+          {
+            "channel": "hip.right abduction",
+            "at": "hi",
+            "torque": -37.3
+          },
+          {
+            "channel": "hip.right internal rotation",
+            "at": "hi",
+            "torque": -64.3
+          }
+        ],
+        "forces": {
+          "sole.left": 387.4,
+          "sole.right": 387.4
+        },
+        "margin": 0.009,
+        "off": 0,
+        "overlap": {
+          "depth": 0,
+          "between": [
+            "thigh.left",
+            "thigh.right"
+          ]
+        },
+        "height": 0.5,
+        "pitch": -0.322,
+        "roll": 0,
+        "angles": {
+          "neck flexion": 0.066,
+          "neck lateral flexion right": 0,
+          "neck rotation right": 0,
+          "thoracic flexion": 0.368,
+          "thoracic lateral flexion right": 0,
+          "thoracic rotation right": 0,
+          "lumbar flexion": 0.313,
+          "lumbar lateral flexion right": 0,
+          "lumbar rotation right": 0,
+          "shoulder.left flexion": 0.321,
+          "shoulder.left abduction": 3.138,
+          "shoulder.left internal rotation": -0.455,
+          "elbow.left flexion": 1.265,
+          "wrist.left flexion": 0.051,
+          "hip.left flexion": 1.562,
+          "hip.left abduction": 0.56,
+          "hip.left internal rotation": 0.648,
+          "knee.left flexion": 2.347,
+          "ankle.left dorsiflexion": 0.389,
+          "ankle.left inversion": 0.603,
+          "shoulder.right flexion": 0.321,
+          "shoulder.right abduction": 3.138,
+          "shoulder.right internal rotation": -0.455,
+          "elbow.right flexion": 1.265,
+          "wrist.right flexion": 0.051,
+          "hip.right flexion": 1.562,
+          "hip.right abduction": 0.56,
+          "hip.right internal rotation": 0.648,
+          "knee.right flexion": 2.347,
+          "ankle.right dorsiflexion": 0.389,
+          "ankle.right inversion": 0.603
+        },
+        "posture": {
+          "height": -0.6287199436303665,
+          "pitch": -0.32154988876919144,
+          "roll": 0,
+          "angles": [
+            0.06563508160141328,
+            0,
+            0,
+            0.36826447217080355,
+            0,
+            0,
+            0.31345480982706697,
+            0,
+            0,
+            0.29316848574210763,
+            2.4189860451350045,
+            -0.3647347293506349,
+            0.4597174927364504,
+            -0.0021592383893336044,
+            0,
+            0,
+            1.451330129778294,
+            0.46596862474520234,
+            0.6475171524898963,
+            2.236847742064474,
+            0.3570589024706539,
+            0.6031857894892403,
+            0.29316848574210763,
+            2.4189860451350045,
+            -0.3647347293506349,
+            0.4597174927364504,
+            -0.0021592383893336044,
+            0,
+            0,
+            1.451330129778294,
+            0.46596862474520234,
+            0.6475171524898963,
+            2.236847742064474,
+            0.3570589024706539,
+            0.6031857894892403
+          ]
+        },
+        "evals": 289
+      },
+      "hold": {
+        "row": "squat",
+        "variant": "built",
+        "drive": "side",
+        "solver": "game",
+        "k": 1,
+        "stayed": false,
+        "drift": 1.3247,
+        "worst": {
+          "channel": "shoulder.left flexion",
+          "error": 0.036
+        },
+        "peak": 0.013,
+        "touched": [
+          "lowerTrunk",
+          "middleTrunk"
+        ],
+        "leant": [
+          "thigh.left on thigh.right"
+        ]
+      }
+    }
+  ],
+  "holdHarness": "Node core world, Rapier profile named per row, 120 Hz game solver, side-selected velocity-motor ceilings at 1x anatomical peak, five seconds; no assistance; poses installed by the stand, not reached by a controller"
+}

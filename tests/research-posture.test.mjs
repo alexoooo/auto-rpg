@@ -185,7 +185,7 @@ function answer(row, { height, evals = 300, variant } = {}) {
 test("the controls: standing and on all fours held, a deep squat at a tenth of its strength not", () => {
   const stand = answer(rowNamed("stand")), fours = answer(rowNamed("fours")), squat = answer(rowNamed("squat"), { height: 0.5 });
   assert.deepEqual(Object.keys(stand), [
-    "row", "route", "variant", "friction", "seed", "found", "balanced", "held", "share", "miss", "binds", "ratios", "stops", "forces", "margin",
+    "row", "route", "variant", "friction", "seed", "engine", "limitModel", "found", "balanced", "held", "share", "miss", "binds", "ratios", "stops", "forces", "margin",
     "off", "overlap", "height", "pitch", "roll", "angles", "posture",
   ]);
   for (const record of [stand, fours, squat]) assert.deepEqual([record.found, record.balanced, record.held], [true, true, true], record.row);

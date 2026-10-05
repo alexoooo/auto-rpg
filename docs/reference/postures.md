@@ -6,7 +6,10 @@ No controller is in it: the readings say what the body allows, not what a riser 
 staged rise's route on from `fours` ([rising.md](rising.md#the-step)) and any change to the body
 rest on them.
 
-Body `workshop-fighter`, nothing in its hands, no assist (balance 0 %).
+Body `workshop-fighter`, nothing in its hands, no assist (balance 0 %). These tables use the
+parent-axis limit model. The audit selects the current engine profile explicitly; the
+[corrected-profile comparison](posture-limit-models.md) remeasures three development witnesses
+and engine holds. These parent-axis tables do not establish corrected-profile feasibility.
 
 ```
 node research/core-posture.mjs --workers 22

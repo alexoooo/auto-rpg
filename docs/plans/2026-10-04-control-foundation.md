@@ -251,6 +251,10 @@ radius-derived active contact acceleration and normal no-crossing bounds after r
 Repeated mechanical lift/recontact works on both profiles, independently of near-stop
 prediction, with exact replay. This does not close general contact-mode selection: the
 anatomical recovery prototype remains unsuccessful, and sliding is still unmodeled.
+The [posture audit](../reference/posture-limit-models.md) now selects the engine's reaction
+directions and includes coupled stop loads on otherwise unsupported channels. Three corrected
+development witnesses are statically feasible, but all miss the five-second engine hold gate.
+Those witnesses do not close the recovery gate; entering and holding supports remain required.
 
 The [upright support task](../reference/support-transition.md) now transfers load, lifts either
 foot, verifies placement contact and regains two-foot support on all three bodies in the

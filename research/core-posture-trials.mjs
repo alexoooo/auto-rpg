@@ -22,7 +22,7 @@ import { addArenaSolids } from "../src/arena/room.ts";
 import { createBody, SERVO_SECONDS } from "../src/core/body.ts";
 import { buildBody } from "../src/core/build/build-body.ts";
 import { bodyDynamics } from "../src/core/build/dynamics.ts";
-import { jointAngles } from "../src/core/build/joint-state.ts";
+import { jointAngles, ratesToRef } from "../src/core/build/joint-state.ts";
 import { lowsOf } from "../src/core/control/ground.ts";
 import { chainTo, pointAtToRef, rotationAtToRef } from "../src/core/control/kinematics.ts";
 import { pointOfToRef } from "../src/core/control/support.ts";
@@ -83,9 +83,16 @@ export const STRIPPED = 3;
  * lowest point of every shape (`lowsOf`), and the contacts a row may name (`contactsOf`). The
  * caller disposes.
  */
-export async function staticBody(spec = modelSpec(AUDITED)) {
+export async function staticBody(spec = modelSpec(AUDITED), engineName) {
   const scene = new Scene(new NullEngine());
-  const world = createWorld(scene, await freshEngine());
+  const engine = await freshEngine(engineName);
+  const world = createWorld(scene, engine);
+  let limitModel;
+  switch (engine.name) {
+    case "rapier": limitModel = "parent-axis"; break;
+    case "rapier-coordinate": limitModel = "coordinate"; break;
+    default: throw new Error(`posture audit has no limit model for ${engine.name}`);
+  }
   const built = buildBody(spec, world, { position: [0, 0, 0] });
   const segments = [...built.segments.values()], joints = [...built.joints.values()];
   const root = segments.find((segment) => !joints.some((joint) => joint.child === segment));
@@ -101,6 +108,7 @@ export async function staticBody(spec = modelSpec(AUDITED)) {
   const lows = segments.flatMap((segment) => lowsOf(segment.spec.shape, segment.frame).map((low) => ({ segment, at: low.at, radius: low.radius })));
   const body = {
     built, segments, joints, root, chains, jointIndex, freedoms, mass, gravity, lows,
+    engine: { name: engine.name, revision: engine.revision }, limitModel,
     weight: mass * Math.hypot(...gravity),
     moves: freedoms.map((f) => new Set(segments.filter((segment) => chains.get(segment).includes(f.joint)))),
     dynamics: bodyDynamics(built, gravity),
@@ -400,6 +408,19 @@ export function knobsOf(body, row) {
 
 // --- The inner solve
 
+/** Generalized force per unit upper/lower coordinate reaction, before its inward sign. */
+export function postureStopDirections(body, posture) {
+  switch (body.limitModel) {
+    case "parent-axis": return body.freedoms.map((_, f) => body.freedoms.map((_, k) => Number(k === f)));
+    case "coordinate": {
+      const angles = byJoint(body, posture.angles);
+      return body.freedoms.map((freedom) => body.freedoms.map((other) => other.joint !== freedom.joint ? 0
+        : ratesToRef(freedom.joint, angles[freedom.j], freedom.joint.dofs.map((_, k) => Number(k === other.k)), [])[freedom.k]));
+    }
+    default: throw new Error(`unknown posture limit model ${body.limitModel}`);
+  }
+}
+
 /**
  * **The least share of its strength that holds `body` still as it stands** on the row's bearing
  * touches: the least s such that the ground's forces at those points (each a non-negative sum of
@@ -419,8 +440,9 @@ export function leastShare(body, row, posture, { friction = "box", ranges = body
   dynamics.update(byJoint(body, posture.angles));
   const bearing = (row.bear ?? row.touch).flatMap((name) => body.contacts[name].map((touch) => ({ name, touch, point: touchPointToRef(touch, new Vector3()) })));
   // A freedom that moves no bearing point asks a torque no ground force changes: its share is a
-  // floor under s, and it is no row of the programme.
-  const reached = freedoms.map((_, f) => bearing.some((b) => body.moves[f].has(b.touch.segment)));
+  // floor under s, and it is no row of the parent-axis programme. Coordinate reactions can
+  // couple such freedoms, so that model keeps every muscle and stop in the programme.
+  const reached = freedoms.map((_, f) => body.limitModel === "coordinate" || bearing.some((b) => body.moves[f].has(b.touch.segment)));
   const W = body.weight, c = dynamics.root.centre;
   // A column per edge of each bearing point: its generalized force per newton along the edge.
   const columns = [];
@@ -440,11 +462,12 @@ export function leastShare(body, row, posture, { friction = "box", ranges = body
   // Each stop's bearing: 1 on it, ramped to 0 a `RAMP` short, or 0 or 1 snapped.
   const near = (gap) => (snap ? (gap <= 1e-9 ? 1 : 0) : Math.max(0, Math.min(1, 1 - gap / RAMP)));
   const stops = freedoms.map((_, f) => ({ hi: near(ranges[f].hi - posture.angles[f]), lo: near(posture.angles[f] - ranges[f].lo) }));
+  const directions = postureStopDirections(body, posture);
   const stopColumns = [];
   stops.forEach((s, f) => {
     if (!reached[f]) return;
-    if (s.hi > 0) stopColumns.push({ f, sign: 1, most: s.hi * STOP_BEARS });
-    if (s.lo > 0) stopColumns.push({ f, sign: -1, most: s.lo * STOP_BEARS });
+    if (s.hi > 0) stopColumns.push({ f, direction: directions[f], sign: 1, most: s.hi * STOP_BEARS });
+    if (s.lo > 0) stopColumns.push({ f, direction: directions[f], sign: -1, most: s.lo * STOP_BEARS });
   });
   // An unreached freedom's muscles: its gravity's torque, less what a stop it leans on bears.
   const fixedTorque = freedoms.map((_, f) => {
@@ -469,7 +492,7 @@ export function leastShare(body, row, posture, { friction = "box", ranges = body
   const torqueRow = (f, sign, P) => {
     const a = new Array(v).fill(0);
     columns.forEach((col, e) => { a[e] = (-sign * col.joints[f]) / P; });
-    stopColumns.forEach((st, k) => { if (st.f === f) a[E + k] = (sign * st.sign * STOP_BEARS) / P; });
+    stopColumns.forEach((st, k) => { if (st.direction[f] !== 0) a[E + k] = (sign * st.sign * STOP_BEARS * st.direction[f]) / P; });
     return a;
   };
   const Aub = [], bub = [];
@@ -512,7 +535,7 @@ export function leastShare(body, row, posture, { friction = "box", ranges = body
     if (!reached[f]) return fixedTorque[f];
     let t = -dynamics.gravity[f];
     columns.forEach((col, e) => { t -= col.joints[f] * x[e]; });
-    stopColumns.forEach((st, k) => { if (st.f === f) t += st.sign * STOP_BEARS * x[E + k]; });
+    stopColumns.forEach((st, k) => { if (st.direction[f] !== 0) t += st.sign * STOP_BEARS * x[E + k] * st.direction[f]; });
     return t;
   });
   const stopTorques = [
@@ -898,6 +921,7 @@ export function recordOf(body, row, reading, { variant = "built", friction = "bo
   const share = solved.balanced ? solved.share : null;
   return {
     row: rowName(row, height), route: row.route, variant, friction, seed,
+    engine: { ...body.engine }, limitModel: body.limitModel,
     found, balanced: solved.balanced, held: found && solved.balanced && share <= 1,
     share: share === null ? null : round(share), miss: round(solved.miss),
     binds: solved.balanced ? body.freedoms.flatMap((f, i) => (Math.abs(solved.ratios[i]) >= 0.98 * solved.share ? [f.name] : [])) : [],
