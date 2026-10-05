@@ -201,6 +201,11 @@ support correction remain to be implemented and measured.
 The model now accepts explicit motion rows and reports their equivalent reaction loads, with
 redundancy and release checks. This lets a controller inspect tensile or excessive-friction
 predictions; choosing admissible contact modes remains open.
+Optional material-acceleration targets now distinguish rolling from a fixed material pivot.
+The [rolling-contact stand](../reference/contact-curvature.md) removes a fictitious downward
+acceleration on spheres and capsules and isolates a separate cached-contact-point error.
+The reference tracker has not adopted the correction: current support geometry, capsule
+contact modes and the anatomical recovery remeasurement are the next integration requirements.
 
 `math/quadratic.ts` supplies a deterministic constrained-quadratic component for that combined
 solve, with explicit warm-start state, fixed iteration budgets and residual reports. Analytic

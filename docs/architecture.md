@@ -434,6 +434,9 @@ coordinates, active grips and item gyroscopic loads. It accepts explicit externa
 fixed-body constraints and explicit motion rows, reports constraint rank/residual and equivalent
 reaction loads, and changes no physical state. Contact-force signs and friction admissibility
 remain the controller's responsibility; redundant rows return one possible load distribution.
+Supplied motion rows may carry [material-acceleration targets](reference/contact-curvature.md),
+including the centripetal term for rolling on a fixed plane. The optional sticking tracker
+still uses zero targets and measured contact midpoints; general rolling/sliding modes remain open.
 The allocating diagnostic model serves the experimental equipment tracker; the game's reference
 fighter retains its existing per-step solve.
 Optional constrained quadratic components include ADMM and a cold-start dual active-set solver.
