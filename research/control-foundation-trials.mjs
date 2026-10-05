@@ -11,6 +11,7 @@ import { createReachTask } from "../src/core/tasks/reach.ts";
 import { createCollisionProbe } from "../src/core/tasks/collision.ts";
 import { createBarProbe } from "../src/core/tasks/bar.ts";
 import { createSupportProbe } from "../src/core/tasks/support.ts";
+import { createPointStrikeProbe } from "../src/core/tasks/point-strike.ts";
 import { saveState, loadState } from "../src/core/state.ts";
 import { reachAction, reachFrame } from "../src/core/tasks/reach-policy.ts";
 import { BODY_MODELS } from "../src/core/human/spec.ts";
@@ -33,7 +34,7 @@ export const FOUNDATION = Object.freeze({ version: 2, samples: 2, watch: 40, bou
 const hash = (value) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
 const heldName = (held) => held === "club" ? "wooden club" : "fist";
 const riseMind = { ...FIGHTER, subs: [{ kind: "staged-rise" }] };
-const suites = ["baseline", "recovery", "strike-block", "bar", "support", "integrated", "reach", "ccd", "solver"];
+const suites = ["baseline", "recovery", "strike-block", "point-strike", "bar", "support", "integrated", "reach", "ccd", "solver"];
 
 /** Fully specified starts; a seed selects geometry, not a hidden source of simulation noise. */
 export function foundationJobs({ suite = "baseline", split = "development", samples = FOUNDATION.samples,
@@ -69,6 +70,14 @@ export function foundationJobs({ suite = "baseline", split = "development", samp
         shieldHeight: 0.25 + (fraction * 2 - 1) * 0.002, shieldSpeed: -1,
         watchSeconds: 5 / 120, sampleHz: 120,
       });
+    }
+    return jobs;
+  }
+  if (suite === "point-strike") {
+    for (const model of models) for (const held of ["empty", "club"]) for (let index = from; index < from + samples; index++) {
+      const seed = FOUNDATION.split[split] + index, fraction = (((seed + 1) * 2654435761) >>> 0) / 4294967296;
+      for (const hands of ["left", "right", "both"]) for (const miss of [false, true]) add({ model, held, task: "point-strike", seed, hands, miss,
+        offset: (fraction * 2 - 1) * 0.002, watchSeconds: 8, checkpointSeconds: 0.5, sampleHz: 120 });
     }
     return jobs;
   }
@@ -273,6 +282,7 @@ export async function foundationTrial(job) {
     case "solver": return solverTrial(job);
     case "bar": return barTrial(job);
     case "support": return supportTrial(job);
+    case "point-strike": return pointStrikeTrial(job);
     case "unsupported": return { status: "unsupported", reason: job.capability };
     default: throw new Error(`unknown foundation task ${job.task}`);
   }
@@ -300,6 +310,20 @@ function replayedProbe(probe, job) {
       physical: { assistForceIntegralNs: probe.body.assist.meter.force / job.hz, assistMomentIntegralNms: probe.body.assist.meter.moment / job.hz },
       timing: { meanStepMs: timings.reduce((sum, v) => sum + v, 0) / timings.length,
         p95StepMs: timings[Math.floor(timings.length * 0.95)], p99StepMs: timings[Math.floor(timings.length * 0.99)] } };
+}
+
+async function pointStrikeTrial(job) {
+  const engine = await freshEngine(), rendering = new NullEngine(), scene = new Scene(rendering);
+  const probe = createPointStrikeProbe(scene, engine, job);
+  try {
+    const result = replayedProbe(probe, job), o = result.outcome, settings = probe.configuration.settings;
+    const success = probe.complete && !o.fell && o.rejectedSteps === 0 && o.replayExact
+      && o.strikes.every((s) => s.returnError < settings.tolerance && (job.miss ? s.contacts === 0
+        : s.contacts > 0 && s.peakImpulse > 0 && s.closing > settings.closing));
+    return { status: "measured", configuration: probe.configuration, ...result, outcome: { ...o, success },
+      limits: ["stationary rigid targets; not defense or opponent combat", "position-only guard and return", "no damage or minimum injury-energy gate",
+        "no joint-stop reaction or sliding prediction", "allocating diagnostic dynamics path"] };
+  } finally { probe.dispose(); scene.dispose(); rendering.dispose(); }
 }
 
 async function supportTrial(job) {

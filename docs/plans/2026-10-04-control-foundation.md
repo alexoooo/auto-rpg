@@ -238,6 +238,14 @@ through release. [Twelve browser cells](../reference/control-tasks-browser.md) m
 observation hashes and replay their policy/task state. This closes the visual/replay checks for
 these controlled demonstrations, not the recovery or opponent-combat gates.
 
+The [point-space strike](../reference/point-strike.md) reference now supplies measured guard
+readiness, a quintic strike, follow-through and return from the observed point. The same policy
+addresses named segment/item points, either hand or independent items. The physical fixture
+scores closing contact against its intended collider and includes deliberate misses, continued
+standing and replay. The shared viewer exposes it. The motion host also accepts delayed external
+senses. Moving-target planning, defense, shared-item strikes and impact-driven replanning remain
+open; static contact alone does not close the strike/block gate.
+
 ### 0. Define the common task battery and baseline
 
 **Files:** `research/control-foundation.mjs`, `research/control-foundation-trials.mjs`,

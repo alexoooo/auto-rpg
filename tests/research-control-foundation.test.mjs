@@ -103,6 +103,18 @@ test("the common runner preserves side-specific support outcomes and replay", as
   assert.deepEqual(summarizeFoundation(rows).cells.map((c) => [c.success.successes, c.success.count]), [[1, 1], [1, 1]]);
 });
 
+test("point-strike trials separate hands, loadouts and intentional misses", async () => {
+  const jobs = foundationJobs({ suite: "point-strike", models: ["workshop-fighter"], samples: 1, actuation: "directional" });
+  assert.equal(jobs.length, 12);
+  assert.equal(new Set(jobs.map((j) => j.id)).size, 12);
+  const selected = jobs.filter((j) => j.hands === "both" && j.held === "club");
+  const rows = await runFoundation(selected, { workers: 2 });
+  assert.ok(rows.every((r) => r.result.outcome.success && r.result.outcome.replayExact));
+  assert.ok(rows[0].result.outcome.strikes.every((s) => s.contacts > 0));
+  assert.ok(rows[1].result.outcome.strikes.every((s) => s.contacts === 0));
+  assert.deepEqual(summarizeFoundation(rows).cells.map((c) => [c.success.successes, c.success.count]), [[1, 1], [1, 1]]);
+});
+
 test("guard differences compare the same side and start and recovery excludes shoves held", () => {
   const outcome = (damage) => ({ seconds: 10, sides: [{ headDamage: damage, damage: damage + 1, fallen: false }, { headDamage: 8, damage: 9, fallen: true }] });
   const job = { model: "workshop-fighter", held: "club", seed: 4, hz: 120, task: "bout" };

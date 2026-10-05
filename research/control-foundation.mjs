@@ -79,6 +79,7 @@ export function summarizeFoundation(rows) {
     const key = [job.actuation ?? "symmetric", job.task, job.model, job.held, job.hand ?? "", job.target ?? "", job.recovery ?? "", job.guard ?? "",
       ...(job.controller ? [job.controller] : []), ...(job.task === "ccd" ? [job.mode, `ccd=${job.ccd}`] : []),
       ...(job.task === "solver" ? [job.representation, job.sense] : []), ...(job.task === "support" ? [job.side] : []),
+      ...(job.task === "point-strike" ? [job.hands, job.miss ? "miss" : "hit"] : []),
       ...(job.task === "bar" ? [job.release, job.support ?? "pinned"] : [])].join("/");
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(row);
@@ -91,14 +92,14 @@ export function summarizeFoundation(rows) {
   const cells = [...groups].map(([cell, members]) => {
     const measured = members.filter((r) => r.result.status === "measured");
     const outcomes = measured.map((r) => r.result.outcome), task = members[0].job.task;
-    const eligible = task === "recovery" ? outcomes.filter((o) => o.fell) : ["strike", "reach", "ccd", "bar", "support"].includes(task) ? outcomes : [];
+    const eligible = task === "recovery" ? outcomes.filter((o) => o.fell) : ["strike", "reach", "ccd", "bar", "support", "point-strike"].includes(task) ? outcomes : [];
     const successes = eligible.filter((o) => task === "recovery" ? o.risen && o.up
       : task === "reach" ? o.terminated && !o.truncated && o.invalid === null
       : task === "ccd" ? o.contacted && o.replayExact
-      : task === "bar" || task === "support" ? o.success
+      : task === "bar" || task === "support" || task === "point-strike" ? o.success
       : members[0].job.target === "miss" ? !o.fell && o.stood : o.usefulHit && !o.fell).length;
     return { cell, trials: members.length, measured: measured.length, unsupported: members.length - measured.length,
-      success: ["recovery", "strike", "reach", "ccd", "bar", "support"].includes(task) ? proportion(successes, eligible.length) : null };
+      success: ["recovery", "strike", "reach", "ccd", "bar", "support", "point-strike"].includes(task) ? proportion(successes, eligible.length) : null };
   });
   const pairedGuard = [];
   for (const [pair, variants] of bouts) for (const [guard, side] of [["left-cover", 0], ["right-cover", 1]]) {
@@ -131,10 +132,10 @@ async function main() {
     package: { version: pkg.version, resolved: pkg.resolved, integrity: pkg.integrity },
     source: { git: execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim(), content: source.content,
       archive: "source.json.gz", archiveSha256: digest(archive) },
-    sensing: ["bar", "support"].includes(values.suite) ? "detached body/item observations, coupled dynamics and measured fixed contacts"
+    sensing: ["bar", "support", "point-strike"].includes(values.suite) ? "detached body/item observations, coupled dynamics and measured fixed contacts"
       : ["ccd", "solver"].includes(values.suite) ? "diagnostic physics readings; no policy" : values.suite === "reach" ? "detached body observations and task goal; no privileged model" : "existing fighter senses; stationary blow offset disclosed at commitment",
     action: values.suite === "solver" ? "fixed raw velocity motor with directional bounds; adapter-contract screening"
-      : ["bar", "support"].includes(values.suite) ? "whole-body motion objectives and granted grip requests; bounded muscle torques"
+      : ["bar", "support", "point-strike"].includes(values.suite) ? "whole-body motion objectives and granted grip requests; bounded muscle torques"
       : values.suite === "ccd" ? "initial impulses, then free dynamics; no held action" : values.suite === "reach" ? "actuator velocities or layered posture targets, declared per job" : "existing fighter skills and staged-rise/lie",
     policyPeriodSteps: values.suite === "reach" ? 4 : 1, assists: { rootBalancePercent: 0, weapon: false },
     unavailable: ["integrated recovery/combat", "moving isolated targets", "actuator work", "contact penetration"],

@@ -11,7 +11,7 @@ import type { World } from "../world.ts";
 import { applyAction } from "./actions.ts";
 import { equipmentPort } from "./equipment-port.ts";
 import { embody } from "./mind.ts";
-import { clockSenses } from "./senses.ts";
+import { clockSenses, type Senses } from "./senses.ts";
 
 type Equipment = ReturnType<typeof createEquipment>;
 interface MotionPolicy {
@@ -21,6 +21,7 @@ interface MotionPolicy {
   idle?(): void;
 }
 interface MotionOptions {
+  readonly senses?: () => Senses;
   readonly items: readonly Equipment[];
   readonly grants: readonly { readonly item: Equipment; readonly grip: string }[];
   /** Physical fixture pins, declared by the task rather than requested by a policy. */
@@ -36,7 +37,7 @@ export function createMotionBody(built: BuiltBody, world: World,
   make: (model: MotionModel & { readonly equipment: readonly Equipment["model"][] }) => MotionPolicy, options: MotionOptions) {
   const items = [...options.items], fixed = [...options.fixed];
   if (options.grants.some((g) => !items.includes(g.item))) throw new Error("motion grip grant names an unmodeled item");
-  const port = equipmentPort(options.grants), senses = clockSenses(world);
+  const port = equipmentPort(options.grants), senses = options.senses ?? clockSenses(world);
   let tracking!: ReturnType<typeof wholeBodyTracking>;
   const embodied = embody(built, world, (own) => {
     tracking = wholeBodyTracking(built, own.muscles, world.physics.gravity, items, fixed, { capacity: options.capacity,

@@ -467,7 +467,8 @@ reference fighter's equipment integration is still separate work.
 `control/tasks.ts` describes joint trajectories and named segment/item point and orientation
 objectives with velocity and acceleration. Position alone adds no orientation constraint.
 `mind/motion.ts` validates a policy's full request before grip actions and supplies one owner of
-actuator output. Its optional `wholeBodyTracking` uses the coupled model and bounded weighted
+actuator output. It accepts the same external senses provider as the actuator host; policies
+receive detached observations, including the provider's delay. Its optional `wholeBodyTracking` uses the coupled model and bounded weighted
 acceleration tracking, with explicit residual and observed-error reports. Optional measured sticking
 contacts add unilateral and friction constraints through an active-set solve. Desired supports
 are separate from measured contacts; a free support request changes no collider. Rejected solves
@@ -480,6 +481,9 @@ items and a shared bar through capture, motion, obstacle contact and either rele
 assist and replay through the body's ordinary saved state. The [standing shared-bar fixture](reference/standing-bar.md)
 adds ordinary ground and an unpinned pelvis. Support transitions and recovery remain experimental,
 and the allocating model path still needs optimization before game adoption.
+The [point-strike reference](reference/point-strike.md) plans named hand/item point paths and
+measured guard/return readiness. Its standing fixture measures contact and deliberate misses
+with either hand or independent clubs. It does not yet plan against moving opponents or defend.
 
 `control/support-transition.ts` is an optional upright reference policy over those motion
 objectives. It waits for measured unloading, foot flight, positive placement contact and a

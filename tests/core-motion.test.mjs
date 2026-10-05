@@ -6,12 +6,45 @@ import { woodenClub } from "../src/core/items/club.ts";
 import { equipHands } from "../src/core/human/equipment.ts";
 import { createMotionBody } from "../src/core/mind/motion.ts";
 import { checkedMotionCommand } from "../src/core/control/tasks.ts";
+import { buildBody } from "../src/core/build/build-body.ts";
+import { createSenses } from "../src/core/mind/senses.ts";
 import { coreStand, saveStand, loadStand } from "./harness/core-stand.mjs";
 
 const zero = [0, 0, 0], models = ["workshop-fighter", "workshop-rogue", "crypt-skeleton"];
 const posture = (model) => model.channels.map((c) => ({ channel: c.name, angle: Math.max(c.min, Math.min(c.max, 0)),
   rate: 0, acceleration: 0, seconds: 0.2, weight: 0.03 }));
 const feedback = (target, weight = 1) => ({ target, velocity: zero, acceleration: zero, seconds: 0.15, weight });
+
+test("motion policies act on detached delayed senses and replay the observed target", async () => {
+  const stand = await coreStand(modelSpec(models[0]), { pinned: "lowerTrunk", actuation: "directional" });
+  const second = buildBody(modelSpec(models[1]), stand.world, { position: [2, 0, 0] });
+  const hub = createSenses(stand.world, 3);
+  const senses = hub.add({ id: "self", side: "a", built: stand.built, out: () => false });
+  hub.add({ id: "target", side: "b", built: second, out: () => false });
+  const state = { seen: null, targets: [] };
+  const body = createMotionBody(stand.built, stand.world, (model) => ({ name: "sensed-motion", state,
+    step(observation) {
+      const target = observation.senses.others[0];
+      assert.equal(target.id, "target");
+      assert.equal(target.model, second.spec.model);
+      assert.throws(() => { target.centre[1] = 99; }, TypeError);
+      const position = [0.3, target.centre[1] + 0.2, 0.3];
+      state.seen = observation.senses; state.targets.push(position);
+      return { joints: posture(model), frames: [{ id: "track", frame: { kind: "segment", name: "hand.right" },
+        at: zero, translation: feedback(position) }], grips: [] };
+    },
+  }), { items: [], grants: [], fixed: [stand.built.segments.get("lowerTrunk").body], capacity: 1, effortCost: 1e-6, senses });
+  try {
+    stand.step(8);
+    const states = { body: body.state, senses: hub.state }, saved = saveStand(stand.world, states);
+    const branch = () => { stand.step(24); return { observation: body.observe(), state: saveStand(stand.world, states).state }; };
+    const first = branch();
+    assert.notDeepEqual(state.targets[0], state.targets.at(-1), "the falling target changes the requested hand path");
+    assert.ok(body.muscles.activation.some((v) => v > 0));
+    loadStand(stand.world, states, saved); hub.show();
+    assert.deepEqual(branch(), first);
+  } finally { body.dispose(); hub.dispose(); second.dispose(); stand.dispose(); }
+});
 
 async function fixture(name) {
   const stand = await coreStand(modelSpec(name), { ground: false, pinned: "lowerTrunk", actuation: "directional" });
