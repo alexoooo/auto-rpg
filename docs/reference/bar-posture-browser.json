@@ -1,0 +1,483 @@
+{
+  "harness": "Visible built control-tasks.html, Chromium, Rapier 0.21.0-auto-rpg.5, 120 Hz, directional actuation, zero assists",
+  "checkpointSteps": 240,
+  "rows": [
+    {
+      "configuration": {
+        "model": "workshop-fighter",
+        "hz": 120,
+        "actuation": "directional",
+        "release": "right",
+        "offset": 0.0011803398677147925,
+        "support": "standing",
+        "task": "shared-bar",
+        "protocol": 4,
+        "returnPosture": "captured-arm-angles",
+        "settings": {
+          "capture": {
+            "distance": 0.03,
+            "rotationError": 0.02
+          },
+          "secondary": [
+            0,
+            0.12,
+            0
+          ],
+          "pose": [
+            0,
+            0.1,
+            0.4
+          ],
+          "travel": [
+            0,
+            0.08,
+            0.08
+          ],
+          "swing": 0.45,
+          "obstacle": {
+            "offset": [
+              0,
+              0.8,
+              0.75
+            ],
+            "size": [
+              0.2,
+              0.2,
+              0.05
+            ]
+          },
+          "seconds": {
+            "move": 1,
+            "swing": 2,
+            "release": 4,
+            "return": 5,
+            "finish": 7.5
+          },
+          "postureSeconds": 0.2,
+          "trackingSeconds": 0.15,
+          "armWeight": 0.03,
+          "bodyWeight": 0.3,
+          "positionWeight": 1,
+          "rotationWeight": 0.2,
+          "effortCost": 0.000001,
+          "capacity": 2,
+          "returnTolerance": 0.03,
+          "returnHoldSeconds": 0.25
+        },
+        "contact": {
+          "maxPoints": 64,
+          "gap": 0.005,
+          "minUpNormal": 0.9,
+          "forceTolerance": 0.00001,
+          "iterations": 2048,
+          "absoluteTolerance": 1e-7,
+          "relativeTolerance": 0.000001,
+          "rootSeconds": 0.2,
+          "rootWeight": 1,
+          "floor": {
+            "centre": [
+              0,
+              -0.1,
+              0
+            ],
+            "size": [
+              5,
+              0.2,
+              5
+            ]
+          }
+        },
+        "engineRevision": "rapier/adapter-6/sha256:2970fabe1650f5fb5eb0a55b28b72a729095fcddb98e58ed82b2d25861cebcc4",
+        "pin": null,
+        "gravity": true,
+        "ccd": true,
+        "assists": {
+          "root": 0,
+          "weapon": false
+        },
+        "modelAccess": "coupled dynamics, anatomy and registered equipment"
+      },
+      "outcome": {
+        "steps": 1001,
+        "captured": 100,
+        "released": true,
+        "complete": true,
+        "returnHeld": 235,
+        "contactSteps": 315,
+        "peakImpulse": 0.2366738847094947,
+        "movedError": 0.009295221901744104,
+        "finalError": 0.0015268070435345274,
+        "peakGripGap": 0.00003031165867568815,
+        "fell": false,
+        "minRootHeight": 1.0792216062545776,
+        "supportSteps": 1000,
+        "rejectedSteps": 0,
+        "peakTension": 9.189207317263622e-12,
+        "peakFrictionViolation": 3.765787681686561e-11,
+        "maxSolveWork": 129,
+        "releaseContinuous": true,
+        "pendingRelease": null,
+        "guardPosture": [
+          0.16573253639792032,
+          -0.0014643279176123707,
+          0.003066898319436292,
+          -0.21260911431606766,
+          -0.020872999519792008,
+          -0.029437277105845382,
+          0.11032338518985847,
+          0.0015951942390548936,
+          0.03468003912247511,
+          0.7037979527427027,
+          -0.22809595125756976,
+          0.8483976063907035,
+          0.925539869587546,
+          -1.2242762808652716,
+          -0.48426549490305765,
+          -0.24094788806602585,
+          -0.006610830939687101,
+          -0.0058288410266046815,
+          0.013695526034385473,
+          0.04181983298814183,
+          0.023434255794355645,
+          0.03024571353522986,
+          0.506005592981472,
+          -0.2708857388307211,
+          0.9264610613297161,
+          0.8047595133755271,
+          -1.145948128996852,
+          -0.353324924899104,
+          -0.47009288770808255,
+          -0.028606610286221336,
+          0.009547712430897281,
+          -0.004992568986327535,
+          0.0049386085837425904,
+          0.0008765078200914433,
+          0.027323625724106005
+        ]
+      },
+      "verification": "Replay matched · Observation SHA256 d386c23fdb9dcbbbe369caba18e6bf0be8b8f18e5c21456d963073a75ada1743",
+      "node": {
+        "hash": "d386c23fdb9dcbbbe369caba18e6bf0be8b8f18e5c21456d963073a75ada1743",
+        "outcomeMatches": true
+      }
+    },
+    {
+      "configuration": {
+        "model": "crypt-skeleton",
+        "hz": 120,
+        "actuation": "directional",
+        "release": "right",
+        "offset": 0.0011803398677147925,
+        "support": "standing",
+        "task": "shared-bar",
+        "protocol": 4,
+        "returnPosture": "captured-arm-angles",
+        "settings": {
+          "capture": {
+            "distance": 0.03,
+            "rotationError": 0.02
+          },
+          "secondary": [
+            0,
+            0.12,
+            0
+          ],
+          "pose": [
+            0,
+            0.1,
+            0.4
+          ],
+          "travel": [
+            0,
+            0.08,
+            0.08
+          ],
+          "swing": 0.45,
+          "obstacle": {
+            "offset": [
+              0,
+              0.8,
+              0.75
+            ],
+            "size": [
+              0.2,
+              0.2,
+              0.05
+            ]
+          },
+          "seconds": {
+            "move": 1,
+            "swing": 2,
+            "release": 4,
+            "return": 5,
+            "finish": 7.5
+          },
+          "postureSeconds": 0.2,
+          "trackingSeconds": 0.15,
+          "armWeight": 0.03,
+          "bodyWeight": 0.3,
+          "positionWeight": 1,
+          "rotationWeight": 0.2,
+          "effortCost": 0.000001,
+          "capacity": 2,
+          "returnTolerance": 0.03,
+          "returnHoldSeconds": 0.25
+        },
+        "contact": {
+          "maxPoints": 64,
+          "gap": 0.005,
+          "minUpNormal": 0.9,
+          "forceTolerance": 0.00001,
+          "iterations": 2048,
+          "absoluteTolerance": 1e-7,
+          "relativeTolerance": 0.000001,
+          "rootSeconds": 0.2,
+          "rootWeight": 1,
+          "floor": {
+            "centre": [
+              0,
+              -0.1,
+              0
+            ],
+            "size": [
+              5,
+              0.2,
+              5
+            ]
+          }
+        },
+        "engineRevision": "rapier/adapter-6/sha256:2970fabe1650f5fb5eb0a55b28b72a729095fcddb98e58ed82b2d25861cebcc4/coordinate-limits",
+        "pin": null,
+        "gravity": true,
+        "ccd": true,
+        "assists": {
+          "root": 0,
+          "weapon": false
+        },
+        "modelAccess": "coupled dynamics, anatomy and registered equipment"
+      },
+      "outcome": {
+        "steps": 1015,
+        "captured": 114,
+        "released": true,
+        "complete": true,
+        "returnHeld": 225,
+        "contactSteps": 289,
+        "peakImpulse": 0.10021595377475023,
+        "movedError": 0.023489901462683257,
+        "finalError": 0.00999726237398533,
+        "peakGripGap": 0.000029556225624564113,
+        "fell": false,
+        "minRootHeight": 0.9494195580482483,
+        "supportSteps": 1014,
+        "rejectedSteps": 0,
+        "peakTension": 8.09910261804184e-12,
+        "peakFrictionViolation": 3.9579469092790553e-11,
+        "maxSolveWork": 122,
+        "releaseContinuous": true,
+        "pendingRelease": null,
+        "guardPosture": [
+          -0.05024762352985277,
+          -0.005850969413761687,
+          0.0031034991019216404,
+          0.13437276006723345,
+          -0.006916122552253125,
+          0.013761602506859405,
+          -0.20345572738375184,
+          0.01801692133954255,
+          -0.014108908429258726,
+          0.6601505425394931,
+          0.16592527858499465,
+          0.5094742541689732,
+          0.30926262958722983,
+          -0.5867397599648501,
+          -0.6907804785824739,
+          -0.10501068785305787,
+          0.08211519952616288,
+          -0.0019875776787889356,
+          0.004282287906754441,
+          -0.009978729572515757,
+          -0.0017052711132718834,
+          0.04588361776283753,
+          0.3850935177171439,
+          0.13690338506387573,
+          0.402449944445925,
+          0.2680919937542166,
+          -0.2227673713297933,
+          -0.6609083239574508,
+          -0.0995393889745223,
+          0.0801808127408979,
+          0.009233714443145314,
+          -0.0031121674421801695,
+          -0.010655923769009786,
+          0.0031164663506329637,
+          0.061904053815299925
+        ]
+      },
+      "verification": "Replay matched · Observation SHA256 adf963351afcdc924c63bf234c6ff3bad84235cd9c04f0929aca3fded1e98f31",
+      "node": {
+        "hash": "adf963351afcdc924c63bf234c6ff3bad84235cd9c04f0929aca3fded1e98f31",
+        "outcomeMatches": true
+      }
+    },
+    {
+      "configuration": {
+        "model": "workshop-rogue",
+        "hz": 120,
+        "actuation": "directional",
+        "release": "left",
+        "offset": 0.0011803398677147925,
+        "support": "standing",
+        "task": "shared-bar",
+        "protocol": 4,
+        "returnPosture": "captured-arm-angles",
+        "settings": {
+          "capture": {
+            "distance": 0.03,
+            "rotationError": 0.02
+          },
+          "secondary": [
+            0,
+            0.12,
+            0
+          ],
+          "pose": [
+            0,
+            0.1,
+            0.4
+          ],
+          "travel": [
+            0,
+            0.08,
+            0.08
+          ],
+          "swing": 0.45,
+          "obstacle": {
+            "offset": [
+              0,
+              0.8,
+              0.75
+            ],
+            "size": [
+              0.2,
+              0.2,
+              0.05
+            ]
+          },
+          "seconds": {
+            "move": 1,
+            "swing": 2,
+            "release": 4,
+            "return": 5,
+            "finish": 7.5
+          },
+          "postureSeconds": 0.2,
+          "trackingSeconds": 0.15,
+          "armWeight": 0.03,
+          "bodyWeight": 0.3,
+          "positionWeight": 1,
+          "rotationWeight": 0.2,
+          "effortCost": 0.000001,
+          "capacity": 2,
+          "returnTolerance": 0.03,
+          "returnHoldSeconds": 0.25
+        },
+        "contact": {
+          "maxPoints": 64,
+          "gap": 0.005,
+          "minUpNormal": 0.9,
+          "forceTolerance": 0.00001,
+          "iterations": 2048,
+          "absoluteTolerance": 1e-7,
+          "relativeTolerance": 0.000001,
+          "rootSeconds": 0.2,
+          "rootWeight": 1,
+          "floor": {
+            "centre": [
+              0,
+              -0.1,
+              0
+            ],
+            "size": [
+              5,
+              0.2,
+              5
+            ]
+          }
+        },
+        "engineRevision": "rapier/adapter-6/sha256:2970fabe1650f5fb5eb0a55b28b72a729095fcddb98e58ed82b2d25861cebcc4/coordinate-limits",
+        "pin": null,
+        "gravity": true,
+        "ccd": true,
+        "assists": {
+          "root": 0,
+          "weapon": false
+        },
+        "modelAccess": "coupled dynamics, anatomy and registered equipment"
+      },
+      "outcome": {
+        "steps": 995,
+        "captured": 94,
+        "released": true,
+        "complete": true,
+        "returnHeld": 242,
+        "contactSteps": 313,
+        "peakImpulse": 0.2432680050842464,
+        "movedError": 0.0048013054110321645,
+        "finalError": 0.001089717438944157,
+        "peakGripGap": 0.00008885951200157342,
+        "fell": false,
+        "minRootHeight": 0.9919226169586182,
+        "supportSteps": 994,
+        "rejectedSteps": 0,
+        "peakTension": 3.532668532690647e-12,
+        "peakFrictionViolation": 1.923644996601429e-11,
+        "maxSolveWork": 133,
+        "releaseContinuous": true,
+        "pendingRelease": null,
+        "guardPosture": [
+          0.15341178420034274,
+          -0.005355323354751742,
+          0.0020966434695169423,
+          -0.23939148472103008,
+          -0.021074310335613387,
+          -0.016447790494311235,
+          0.15510730902946995,
+          0.005595222990606592,
+          0.02016963894451776,
+          0.8150502249537024,
+          -0.1979478190574867,
+          0.6197924774966077,
+          0.8663738070378838,
+          -1.1515780678899572,
+          -0.5061180389397569,
+          -0.3843900660648901,
+          -0.03484844225078048,
+          -0.005541575296622712,
+          0.01263360174461717,
+          0.03811513392787234,
+          0.022087837321103854,
+          0.025444593525281497,
+          0.6308687500723434,
+          -0.21114806174904316,
+          0.739268068193525,
+          0.7475047956646504,
+          -1.007451207208454,
+          -0.46347336487506896,
+          -0.6096009515677655,
+          -0.05693171330304377,
+          0.008752555437835445,
+          0.0025243479076262412,
+          -0.003649779050229418,
+          -0.008076029137100668,
+          0.02206422651865365
+        ]
+      },
+      "verification": "Replay matched · Observation SHA256 8b269002522ac81350f1d2d7a2919c811b24d37bedec3460ef3dea14e63c3023",
+      "node": {
+        "hash": "8b269002522ac81350f1d2d7a2919c811b24d37bedec3460ef3dea14e63c3023",
+        "outcomeMatches": true
+      }
+    }
+  ]
+}

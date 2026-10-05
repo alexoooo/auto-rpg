@@ -12,6 +12,11 @@ core's (`src/core/`). The screens (`src/arena/`, `src/dungeon/`, `src/lab/`) bui
 and the core never imports them: `tests/core-boundary.test.mjs` walks the core's imports and allows
 only the core itself, `@babylonjs/core`, the engine's package and JSON under `assets/`.
 
+`rapier-coordinate` selects experimental measured-angle gradients for angular-limit rows;
+`rapier` retains gameplay's parent-axis formulation. Both load the same WASM module and use
+the same interfaces. The choice is immutable per engine instance, identified in experiments,
+and checked when restoring physics snapshots ([limit record](reference/joint-limits.md)).
+
 ## The layers
 
 Each layer imports only the layers listed before it, except that skills and tactics share a
@@ -434,6 +439,12 @@ coordinates, active grips and item gyroscopic loads. It accepts explicit externa
 fixed-body constraints and explicit motion rows, reports constraint rank/residual and equivalent
 reaction loads, and changes no physical state. Contact-force signs and friction admissibility
 remain the controller's responsibility; redundant rows return one possible load distribution.
+Supplied motion rows may carry [material-acceleration targets](reference/contact-curvature.md),
+including the centripetal term for rolling on a fixed plane. The optional sticking tracker
+still uses zero targets and measured contact midpoints; general rolling/sliding modes remain open.
+The diagnostic [joint-coordinate model](reference/joint-coordinate.md) reads world angular rows
+and their changing gradients from actual poses and spins. It supplies acceleration targets for
+measured-angle constraints; unilateral stop selection is not part of this primitive.
 The allocating diagnostic model serves the experimental equipment tracker; the game's reference
 fighter retains its existing per-step solve.
 Optional constrained quadratic components include ADMM and a cold-start dual active-set solver.
@@ -466,20 +477,40 @@ reference fighter's equipment integration is still separate work.
 
 `control/tasks.ts` describes joint trajectories and named segment/item point and orientation
 objectives with velocity and acceleration. Position alone adds no orientation constraint.
+Translations can select world axes. Optional [centre objectives](reference/centre-control.md)
+track the mass-weighted position of explicitly selected segment/item frames through the same
+bounded muscle solve. Each group counts its members once; grip release does not change membership.
 `mind/motion.ts` validates a policy's full request before grip actions and supplies one owner of
-actuator output. Its optional `wholeBodyTracking` uses the coupled model and bounded weighted
+actuator output. It accepts the same external senses provider as the actuator host; policies
+receive detached observations, including the provider's delay. Its optional `wholeBodyTracking` uses the coupled model and bounded weighted
 acceleration tracking, with explicit residual and observed-error reports. Optional measured sticking
 contacts add unilateral and friction constraints through an active-set solve. Desired supports
 are separate from measured contacts; a free support request changes no collider. Rejected solves
-produce zero torque. Joint-stop reactions and sliding contacts are not predicted.
+produce zero torque. Optional [near-stop prediction](reference/joint-stop-tracking.md) selects
+unilateral reactions using actual joint-coordinate motion and retains no-crossing effort bounds
+when a stop releases. It works with ground contacts or pinned fixtures and reports rejected modes.
+Sliding contacts and distant stop impacts are not predicted.
 Optional [contact redistribution](reference/contact-distribution.md) searches point-force
 distributions that preserve each contacted body's wrench; the measured task configurations
 keep this experimental option disabled.
 The [pinned fixtures](reference/motion-tracking.md) exercise independent
 items and a shared bar through capture, motion, obstacle contact and either release. They use no
 assist and replay through the body's ordinary saved state. The [standing shared-bar fixture](reference/standing-bar.md)
-adds ordinary ground and an unpinned pelvis. Support transitions and recovery remain experimental,
+adds ordinary ground and an unpinned pelvis. Its [return posture](reference/bar-posture.md) uses the
+legal arm angles measured at grip capture, stored in replayable state. Support transitions and recovery remain experimental,
 and the allocating model path still needs optimization before game adoption.
+The [point-strike reference](reference/point-strike.md) plans named hand/item point paths and
+measured guard/return readiness. Its standing fixture measures contact and deliberate misses
+with either hand or independent clubs. Its [moving variant](reference/moving-strike.md) tracks
+named points from delayed detached object measurements and can brake each effector on impact.
+`createObjectSenses` keeps permitted engine handles inside a trusted observer; policies receive
+plain measurements with sample times, and delay buffers replay with the world. The swinging
+target fixture scores relative closing contact independently of the policy.
+The optional [shared strike](reference/shared-strike.md) uses one item, physically acquires its
+second grip before starting the point path, and can release either hand for return. It retains
+the measured guard arm posture and scores actual attachment gaps, shared impact and release
+continuity through the existing equipment grant interface. The runner and viewer expose the
+same builder. Reliable shared-item return across bodies and opponent combat remain open.
 
 `control/support-transition.ts` is an optional upright reference policy over those motion
 objectives. It waits for measured unloading, foot flight, positive placement contact and a
@@ -489,7 +520,21 @@ its phase and readiness history save with the body. The [support record](referen
 declares its shallow horizontal-floor workspace and empty-handed scope. It does not recover
 from a fall or replace the game's locomotion and recovery controllers.
 
-`/control-tasks.html` (`src/control-foundation/tasks.ts`) exposes the same support and bar
+The optional [interception reference](reference/point-defense.md) predicts a named point's plane
+crossing from delayed pose/velocity samples and measured acceleration. Explicit reach/time
+filters screen candidates; bounded muscles remain authoritative. Matched closing contact can
+brace an item's measured orientation, while retreat or missing observations starts a return.
+The mechanical defense fixture releases hinged clubs under gravity and independently records
+guard readiness, qualifying blocks and every body contact. Protected-region contact remains a
+failure even after a block. Its pose baseline shares the same body, sensing and actuator limits;
+development failures keep sustained defense open.
+
+Joint-angle acceleration objectives include the [changing speed-to-rate map](reference/joint-acceleration.md).
+The coupled model predicts motor-axis speed derivatives; the tracker converts them to angle
+accelerations and includes the coordinate bias. Independent quaternion and physical-rotor
+tests distinguish this from treating the conversion as constant.
+
+`/control-tasks.html` (`src/control-foundation/tasks.ts`) exposes the same support, bar, strike and defense
 builders as the Node runner, with step, play, snapshot and replay controls. Separate items are
 drawn on their own physical nodes with `drawEquipment`; capture and release do not recreate
 their visuals. [Browser parity](reference/control-tasks-browser.md) checks both tasks on all

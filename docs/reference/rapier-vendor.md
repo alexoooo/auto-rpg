@@ -12,9 +12,9 @@ control is measured separately in the [common battery](control-foundation.md).
 - Patch: `vendor/rapier/auto-rpg.patch`. It adds signed motor bounds with symmetric defaults,
   last-substep motor/limit/locked-axis impulse reads, whole-step motor impulse, multibody setters,
   CCD-only pair filtering that preserves ordinary contact recycling, and current-pose
-  solver contact separation.
-- Package version: `0.21.0-auto-rpg.4`.
-- Archive SHA256: `58ff3f5e80911ceefd46ff7d03fb77858d54d6c0062fb3c44229fb7b045e8676`.
+  solver contact separation, and an opt-in measured-angle gradient for angular limits.
+- Package version: `0.21.0-auto-rpg.5`.
+- Archive SHA256: `2970fabe1650f5fb5eb0a55b28b72a729095fcddb98e58ed82b2d25861cebcc4`.
 - Build toolchain: Rust 1.97.1, Node 24.19.0; wasm-pack 0.12.1 and wasm-bindgen 0.2.129 from
   the upstream lockfiles. The build remaps source/cache paths and writes declarations with LF.
 - Installation: package metadata and lockfile name the same archive; SHA512 integrity is
@@ -123,9 +123,11 @@ and the full suite (679 tests: 676 pass, no failures, three existing TODOs). The
 at `research/runs/control-foundation/effort-baseline-v2` matches all 138 preserved stock physical
 records, excluding wall-clock timing. The previously pending delivered-torque regression passes.
 
-The `.4` read-only binding corrects the model port?s cached gap, as recorded in
+The `.4` read-only binding corrects the model port's cached gap, as recorded in
 [contact motion](contact-motion.md#current-pose-separation). Two managed rebuild directories
-produce the identical archive above; offline `npm ci` installs it. Adapter revision 5 exposes
+produce the identical archive, SHA256
+`58ff3f5e80911ceefd46ff7d03fb77858d54d6c0062fb3c44229fb7b045e8676`;
+offline `npm ci` installs it. Adapter revision 5 exposes
 the current-pose reading. The installed CJS entry SHA256 is
 `b606f739d3b53c5e774308dc4c566d83616951e08063e81a18a8d798f9c64762`.
 Validation of `.4`: 738 tests (736 pass, no failures, two existing TODOs), type checking and
@@ -133,3 +135,19 @@ production build pass. The three package-parity bouts retain the digests above. 
 baseline records equal stock after excluding timing, in
 `research/runs/control-foundation/contact-gap-baseline-v4`; archived source content SHA256
 `7d674f595a32705decd1b5b11d9623011f02ffeef1450b6b9461b7f624e978ae`.
+
+The `.5` package adds the opt-in [angular-limit correction](joint-limits.md). Adapter revision 6
+identifies `rapier-coordinate` separately and rejects cross-configuration snapshots. The native
+default remains parent-axis limits, as does gameplay. Corrected limits pass mechanical checks
+but require controller migration; their task outcomes are not parity claims.
+
+The `.5` archives from `.tools/rapier-rebuild-a` and `.tools/rapier-rebuild-b` are byte-identical
+at the SHA256 above. Offline installation, type checking and production build pass; the suite
+reads 792 tests, 790 pass, zero failures and two existing TODOs. The installed CJS entry SHA256
+is `db4bb690d953983eae032de094f67bb49674def40757f0d7b55e5f77d831eb3a`.
+All 138 default physical rows equal `.4`, excluding timing, in
+`research/runs/control-foundation/limit-reference-baseline-v5`; source content SHA256
+`cd8a1186cfc93f6f1fd0283e84fce96d24f3e9ec92169a1574d96d22ddcd6d19`, manifest SHA256
+`06010421afbb85f731ce5af4418942bb3c940686c05593869804e59314ea04e8`.
+The three stock-package parity bout hashes above are unchanged. Browser and Node checks of both
+configurations are recorded with the [limit measurements](joint-limits.md#package-and-browser-validation).

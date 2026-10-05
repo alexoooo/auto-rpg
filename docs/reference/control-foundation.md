@@ -22,9 +22,25 @@ and terminate all workers. Row order on disk is completion order; stable task ID
 separate anatomical bounds for each torque direction. Both use the same installed engine.
 The law belongs to immutable world configuration, not to a policy's action. Protocol 2 includes
 it in every task ID, summary cell and guard pairing. Protocol 1 records below predate this field.
+`CORE_ENGINE=rapier-coordinate` selects the experimental measured-angle limit correction;
+the default `rapier` retains parent-axis limit rows. The manifest identifies the selected engine
+and revision. The [limit record](joint-limits.md) distinguishes mechanical correctness from
+the controller migration still required; the historical tables below keep their stated engine.
 Each run also writes `source.json.gz`: normalized source/JSON path-and-content pairs, including
 the package manifests, with its hash in the manifest. Source changes during a run invalidate it.
 The archive preserves dirty experimental code as well as its fingerprint.
+
+For point-strike and moving-strike suites, `--shared` replaces independent hand loadouts with
+one club held by both hands and preserves separate keep-both, release-left and release-right
+cells. The [shared-strike record](shared-strike.md) defines acquisition, attachment-gap,
+shared-impact and release-continuity gates alongside the existing return and replay gates.
+
+The bar, point-strike, moving-strike and defense suites accept experimental `--joint-stops`.
+It selects [near-stop prediction](joint-stop-tracking.md) without changing physics, anatomy or
+task gates. Task IDs, summary cells and defense pairs distinguish the option. Reports include
+selection work and residuals over the whole trial, including the replay checkpoint prefix.
+The meter is restored with the branch and included in replay comparison; timing excludes
+report sampling. Other suites reject the flag.
 
 The manifest carries the actual source/JSON content hash (including dirty and untracked research
 code), Git revision, Node version, package lock identity and installed package entry hash. Body,
@@ -228,5 +244,6 @@ were reported. [Manifest and physical rows](control-foundation-reach.json); sour
 This is a reproducibility and replaceability check, not a ranking of controllers. The skeleton
 still has placeholder anatomy. Held-out starts remain unused; recovery and integrated gameplay
 gates remain open. The bar suite separates pinned and `--support standing` experiments;
-[standing shared equipment](standing-bar.md) records its development successes and the remaining
-return miss without claiming support transitions or recovery.
+[standing shared equipment](standing-bar.md) records its support and readiness experiments.
+The [captured-posture comparison](bar-posture.md) retains 12/12 development successes on each
+Rapier profile without claiming recovery or corrected-limit gameplay readiness.

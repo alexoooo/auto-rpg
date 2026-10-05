@@ -3,6 +3,7 @@ import type { BuiltBody, BuiltSegment } from "../build/build-body.ts";
 import { centreOfToRef } from "../control/support.ts";
 import type { BodySpec } from "../spec/body.ts";
 import type { World } from "../world.ts";
+import type { ObjectSense } from "./object-senses.ts";
 
 /**
  * **What a mind is told of the world**, each control step, as the last solver step left it. A
@@ -19,6 +20,8 @@ export interface Senses {
   readonly out: boolean;
   /** Every other body the senses carry, as they pass it (`createSenses`): in the order added. */
   readonly others: readonly BodySense[];
+  /** Explicitly permitted external objects, including separate equipment and research targets. */
+  readonly objects?: readonly ObjectSense[];
 }
 
 /**

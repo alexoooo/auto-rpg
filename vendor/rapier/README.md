@@ -43,6 +43,11 @@ uses this vendored package. The package layout remains compatible with the bench
   anchors through the current body poses and projects their separation onto its normal.
   `solverContactDist` retains its upstream meaning: a cached distance from the last full
   contact update. Neither reading changes contact solving.
+- **Optional angular-limit gradients** (`coordinateAngularLimits` on integration parameters)
+  make impulse-joint and generic external limit rows follow the spatial gradient of their
+  reported coordinate. False retains parent-axis rows; motor rows are unchanged. The setting
+  is serialized. The adapter exposes it as `rapier-coordinate`, with migration gates in
+  [the limit record](../../docs/reference/joint-limits.md).
 - Rapier's own test of the bounds (`motor_force_bounds_are_signed_and_max_force_keeps_them_symmetric`,
   `generic_joint.rs`) passes.
 

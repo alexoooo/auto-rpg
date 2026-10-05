@@ -1,0 +1,2426 @@
+{
+  "manifest": {
+    "protocol": 2,
+    "started": "2026-10-05T03:37:58.167Z",
+    "options": {
+      "suite": "point-strike",
+      "split": "development",
+      "samples": 2,
+      "from": 0,
+      "hz": 120,
+      "actuation": "directional",
+      "support": "pinned",
+      "centreControl": true,
+      "continueSeconds": 10
+    },
+    "workers": 3,
+    "harness": "Node, core world, per-task arena/stand fixtures",
+    "node": "v24.19.0",
+    "engine": "rapier",
+    "package": {
+      "version": "0.21.0-auto-rpg.4",
+      "resolved": "file:vendor/rapier/dimforge-rapier3d-simd-compat-0.21.0-auto-rpg.4.tgz",
+      "integrity": "sha512-o9Iu7zbEz0zkvAfkhlXi3jeX0fLL1B+iRTjY9zA0cd+gX90cqsqhq2gRTJERKMnen2M602iG9ctCKfMaQ0MxcQ==",
+      "entrySha256": "b606f739d3b53c5e774308dc4c566d83616951e08063e81a18a8d798f9c64762"
+    },
+    "source": {
+      "git": "97dcc844452c8e5b7c194cfb309bea7602498305",
+      "content": "dbdb7b923fb8f213b8eeefaa4fec6c46c0d08a93d9f021d2dd26e64432374416",
+      "archive": "source.json.gz",
+      "archiveSha256": "f0801b22d2a315c934faf60d67f214b6c3956f3db2244f7052a3579cc76eba47"
+    },
+    "sensing": "detached body/item observations, coupled dynamics and measured fixed contacts",
+    "action": "whole-body motion objectives and granted grip requests; bounded muscle torques",
+    "policyPeriodSteps": 1,
+    "assists": {
+      "rootBalancePercent": 0,
+      "weapon": false
+    },
+    "unavailable": [
+      "integrated recovery/combat",
+      "predictive defense",
+      "actuator work",
+      "contact penetration"
+    ],
+    "jobs": [
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "workshop-fighter",
+        "held": "empty",
+        "task": "point-strike",
+        "seed": 0,
+        "hands": "left",
+        "miss": false,
+        "offset": 0.000472135947085917,
+        "watchSeconds": 17,
+        "checkpointSeconds": 0.5,
+        "sampleHz": 120,
+        "centreControl": true,
+        "continueSeconds": 10,
+        "id": "4ea98b65f90f91132f87a22c1d5ef95313d1a3f3b19ad31913fc03d0f713deed"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "workshop-fighter",
+        "held": "empty",
+        "task": "point-strike",
+        "seed": 0,
+        "hands": "left",
+        "miss": true,
+        "offset": 0.000472135947085917,
+        "watchSeconds": 17,
+        "checkpointSeconds": 0.5,
+        "sampleHz": 120,
+        "centreControl": true,
+        "continueSeconds": 10,
+        "id": "9961eaf922de4fdf9f93972e52f1052c3a79fb2c13e798a8a223fc301838d57d"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "workshop-fighter",
+        "held": "empty",
+        "task": "point-strike",
+        "seed": 0,
+        "hands": "right",
+        "miss": false,
+        "offset": 0.000472135947085917,
+        "watchSeconds": 17,
+        "checkpointSeconds": 0.5,
+        "sampleHz": 120,
+        "centreControl": true,
+        "continueSeconds": 10,
+        "id": "2adb4852ee148f0b36a1a9c8276fa96023b2195a3d2e8b866fdddc5bc3f30d6d"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "workshop-fighter",
+        "held": "empty",
+        "task": "point-strike",
+        "seed": 0,
+        "hands": "right",
+        "miss": true,
+        "offset": 0.000472135947085917,
+        "watchSeconds": 17,
+        "checkpointSeconds": 0.5,
+        "sampleHz": 120,
+        "centreControl": true,
+        "continueSeconds": 10,
+        "id": "524795d886e71a1342475d26f2653233ad0a41367aa797452ed357cab0fd9727"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "workshop-fighter",
+        "held": "empty",
+        "task": "point-strike",
+        "seed": 0,
+        "hands": "both",
+        "miss": false,
+        "offset": 0.000472135947085917,
+        "watchSeconds": 17,
+        "checkpointSeconds": 0.5,
+        "sampleHz": 120,
+        "centreControl": true,
+        "continueSeconds": 10,
+        "id": "89c15534109b877483df29eab1e7da06ffa121cd64ab223683a9db096255ed38"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "workshop-fighter",
+        "held": "empty",
+        "task": "point-strike",
+        "seed": 0,
+        "hands": "both",
+        "miss": true,
+        "offset": 0.000472135947085917,
+        "watchSeconds": 17,
+        "checkpointSeconds": 0.5,
+        "sampleHz": 120,
+        "centreControl": true,
+        "continueSeconds": 10,
+        "id": "e7b148129cb72804f3ad50ad7c8c517a264dabbef54fc69d852796f112fded76"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "workshop-fighter",
+        "held": "empty",
+        "task": "point-strike",
+        "seed": 1,
+        "hands": "left",
+        "miss": false,
+        "offset": -0.001055728105828166,
+        "watchSeconds": 17,
+        "checkpointSeconds": 0.5,
+        "sampleHz": 120,
+        "centreControl": true,
+        "continueSeconds": 10,
+        "id": "b7cf81a00cdf9fe3696f1fea498f3f4c41aa8490b79ae994ab84793a58933f84"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "workshop-fighter",
+        "held": "empty",
+        "task": "point-strike",
+        "seed": 1,
+        "hands": "left",
+        "miss": true,
+        "offset": -0.001055728105828166,
+        "watchSeconds": 17,
+        "checkpointSeconds": 0.5,
+        "sampleHz": 120,
+        "centreControl": true,
+        "continueSeconds": 10,
+        "id": "5ecd268d44089e89127a11b3a999a7b4de8a0ac56d1edb636488398bf34d23ed"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "workshop-fighter",
+        "held": "empty",
+        "task": "point-strike",
+        "seed": 1,
+        "hands": "right",
+        "miss": false,
+        "offset": -0.001055728105828166,
+        "watchSeconds": 17,
+        "checkpointSeconds": 0.5,
+        "sampleHz": 120,
+        "centreControl": true,
+        "continueSeconds": 10,
+        "id": "ce977c547f73e5fe6e370913a31ab440f040ad42498fd0ac146d65d3febbc39d"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "workshop-fighter",
+        "held": "empty",
+        "task": "point-strike",
+        "seed": 1,
+        "hands": "right",
+        "miss": true,
+        "offset": -0.001055728105828166,
+        "watchSeconds": 17,
+        "checkpointSeconds": 0.5,
+        "sampleHz": 120,
+        "centreControl": true,
+        "continueSeconds": 10,
+        "id": "756d3f96e3e83113d4045f8795811f24aeae768c42c8a1dd162786b658be824c"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "workshop-fighter",
+        "held": "empty",
+        "task": "point-strike",
+        "seed": 1,
+        "hands": "both",
+        "miss": false,
+        "offset": -0.001055728105828166,
+        "watchSeconds": 17,
+        "checkpointSeconds": 0.5,
+        "sampleHz": 120,
+        "centreControl": true,
+        "continueSeconds": 10,
+        "id": "267ca04f0faaeb15d0b6719b45d08e05578083c4c3214a773d43650ecebe22b6"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "workshop-fighter",
+        "held": "empty",
+        "task": "point-strike",
+        "seed": 1,
+        "hands": "both",
+        "miss": true,
+        "offset": -0.001055728105828166,
+        "watchSeconds": 17,
+        "checkpointSeconds": 0.5,
+        "sampleHz": 120,
+        "centreControl": true,
+        "continueSeconds": 10,
+        "id": "10e6946e9a49947624daf27d87167ad870832f87d842879dbe9639c6166cfd7a"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "workshop-fighter",
+        "held": "club",
+        "task": "point-strike",
+        "seed": 0,
+        "hands": "left",
+        "miss": false,
+        "offset": 0.000472135947085917,
+        "watchSeconds": 17,
+        "checkpointSeconds": 0.5,
+        "sampleHz": 120,
+        "centreControl": true,
+        "continueSeconds": 10,
+        "id": "9201cd7082207b8c52f181a3407b79802b5cfb0541af543b8f8deebb69cf9bc8"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "workshop-fighter",
+        "held": "club",
+        "task": "point-strike",
+        "seed": 0,
+        "hands": "left",
+        "miss": true,
+        "offset": 0.000472135947085917,
+        "watchSeconds": 17,
+        "checkpointSeconds": 0.5,
+        "sampleHz": 120,
+        "centreControl": true,
+        "continueSeconds": 10,
+        "id": "a8c81a7c974680a25bc169bac7213597a83b33f5fae5f544bbadcb30430dac07"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "workshop-fighter",
+        "held": "club",
+        "task": "point-strike",
+        "seed": 0,
+        "hands": "right",
+        "miss": false,
+        "offset": 0.000472135947085917,
+        "watchSeconds": 17,
+        "checkpointSeconds": 0.5,
+        "sampleHz": 120,
+        "centreControl": true,
+        "continueSeconds": 10,
+        "id": "1847cd94408523d37e87aa289a3c0100e9342964371c25786d7e0defdb8f884b"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "workshop-fighter",
+        "held": "club",
+        "task": "point-strike",
+        "seed": 0,
+        "hands": "right",
+        "miss": true,
+        "offset": 0.000472135947085917,
+        "watchSeconds": 17,
+        "checkpointSeconds": 0.5,
+        "sampleHz": 120,
+        "centreControl": true,
+        "continueSeconds": 10,
+        "id": "134551c58b32018f61e2aa1c29aa6514a953f207090484a0ffd50318e2cde7e8"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "workshop-fighter",
+        "held": "club",
+        "task": "point-strike",
+        "seed": 0,
+        "hands": "both",
+        "miss": false,
+        "offset": 0.000472135947085917,
+        "watchSeconds": 17,
+        "checkpointSeconds": 0.5,
+        "sampleHz": 120,
+        "centreControl": true,
+        "continueSeconds": 10,
+        "id": "39b48f70a027d47c513be8c35bf27cdf4a59b1a433cfca96cc97c137be49ae81"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "workshop-fighter",
+        "held": "club",
+        "task": "point-strike",
+        "seed": 0,
+        "hands": "both",
+        "miss": true,
+        "offset": 0.000472135947085917,
+        "watchSeconds": 17,
+        "checkpointSeconds": 0.5,
+        "sampleHz": 120,
+        "centreControl": true,
+        "continueSeconds": 10,
+        "id": "97f41c8cd4f2ac4c9e137d925b15b9de1db6520212d04d33d793d9293f83b3e1"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "workshop-fighter",
+        "held": "club",
+        "task": "point-strike",
+        "seed": 1,
+        "hands": "left",
+        "miss": false,
+        "offset": -0.001055728105828166,
+        "watchSeconds": 17,
+        "checkpointSeconds": 0.5,
+        "sampleHz": 120,
+        "centreControl": true,
+        "continueSeconds": 10,
+        "id": "5ba97873bad7145c793ff31abee8897e193c3dcb2b5f4050666777155848b51e"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "workshop-fighter",
+        "held": "club",
+        "task": "point-strike",
+        "seed": 1,
+        "hands": "left",
+        "miss": true,
+        "offset": -0.001055728105828166,
+        "watchSeconds": 17,
+        "checkpointSeconds": 0.5,
+        "sampleHz": 120,
+        "centreControl": true,
+        "continueSeconds": 10,
+        "id": "5aad56dd074a545ba350b2d2647567c4039279a926b41d447945ae898f69d01c"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "workshop-fighter",
+        "held": "club",
+        "task": "point-strike",
+        "seed": 1,
+        "hands": "right",
+        "miss": false,
+        "offset": -0.001055728105828166,
+        "watchSeconds": 17,
+        "checkpointSeconds": 0.5,
+        "sampleHz": 120,
+        "centreControl": true,
+        "continueSeconds": 10,
+        "id": "16e93f7e90876ddc6df77eb5e2816591e40d9f22dc6f5b490c1f9a33029313d8"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "workshop-fighter",
+        "held": "club",
+        "task": "point-strike",
+        "seed": 1,
+        "hands": "right",
+        "miss": true,
+        "offset": -0.001055728105828166,
+        "watchSeconds": 17,
+        "checkpointSeconds": 0.5,
+        "sampleHz": 120,
+        "centreControl": true,
+        "continueSeconds": 10,
+        "id": "7543e318ace8f0606c67e274a08ec10fd84429c2c6bc8d84973f6bc62e3fc16a"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "workshop-fighter",
+        "held": "club",
+        "task": "point-strike",
+        "seed": 1,
+        "hands": "both",
+        "miss": false,
+        "offset": -0.001055728105828166,
+        "watchSeconds": 17,
+        "checkpointSeconds": 0.5,
+        "sampleHz": 120,
+        "centreControl": true,
+        "continueSeconds": 10,
+        "id": "3220494c243d4372fbdd6405bc09fb23ac772dc0411955aa4bdabe0011f45c35"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "workshop-fighter",
+        "held": "club",
+        "task": "point-strike",
+        "seed": 1,
+        "hands": "both",
+        "miss": true,
+        "offset": -0.001055728105828166,
+        "watchSeconds": 17,
+        "checkpointSeconds": 0.5,
+        "sampleHz": 120,
+        "centreControl": true,
+        "continueSeconds": 10,
+        "id": "f021ae5febebfa2fcd5b4fa572dbf6e5b2f031494b0f4fed52198e3a32ddff38"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "workshop-rogue",
+        "held": "empty",
+        "task": "point-strike",
+        "seed": 0,
+        "hands": "left",
+        "miss": false,
+        "offset": 0.000472135947085917,
+        "watchSeconds": 17,
+        "checkpointSeconds": 0.5,
+        "sampleHz": 120,
+        "centreControl": true,
+        "continueSeconds": 10,
+        "id": "41b5c0e93d212466af45a2e0e09b1788d1f57bc7f94d469ca29804dc2e0fd0f6"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "workshop-rogue",
+        "held": "empty",
+        "task": "point-strike",
+        "seed": 0,
+        "hands": "left",
+        "miss": true,
+        "offset": 0.000472135947085917,
+        "watchSeconds": 17,
+        "checkpointSeconds": 0.5,
+        "sampleHz": 120,
+        "centreControl": true,
+        "continueSeconds": 10,
+        "id": "33e6d325a6b87b6208d906e3318e37dd48e9848cec7eef8e96df6bdcd8778ce2"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "workshop-rogue",
+        "held": "empty",
+        "task": "point-strike",
+        "seed": 0,
+        "hands": "right",
+        "miss": false,
+        "offset": 0.000472135947085917,
+        "watchSeconds": 17,
+        "checkpointSeconds": 0.5,
+        "sampleHz": 120,
+        "centreControl": true,
+        "continueSeconds": 10,
+        "id": "ed953fe235fafe082b2f176e2b44ff49b65b2748da75089e24ea5bc09f1c25de"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "workshop-rogue",
+        "held": "empty",
+        "task": "point-strike",
+        "seed": 0,
+        "hands": "right",
+        "miss": true,
+        "offset": 0.000472135947085917,
+        "watchSeconds": 17,
+        "checkpointSeconds": 0.5,
+        "sampleHz": 120,
+        "centreControl": true,
+        "continueSeconds": 10,
+        "id": "37e668ff8eb245501baaa8a601dba3d255ad2f73b5b508a687be2adfce4231de"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "workshop-rogue",
+        "held": "empty",
+        "task": "point-strike",
+        "seed": 0,
+        "hands": "both",
+        "miss": false,
+        "offset": 0.000472135947085917,
+        "watchSeconds": 17,
+        "checkpointSeconds": 0.5,
+        "sampleHz": 120,
+        "centreControl": true,
+        "continueSeconds": 10,
+        "id": "53cfb4d2cfe3bf12dec463013e5cd2807a885cc20e729d320917080ec4bc7369"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "workshop-rogue",
+        "held": "empty",
+        "task": "point-strike",
+        "seed": 0,
+        "hands": "both",
+        "miss": true,
+        "offset": 0.000472135947085917,
+        "watchSeconds": 17,
+        "checkpointSeconds": 0.5,
+        "sampleHz": 120,
+        "centreControl": true,
+        "continueSeconds": 10,
+        "id": "8e4dc3ed3e5bec30c469d54f2d1c63dddfb92d2d462a03019d020c8be15f36a2"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "workshop-rogue",
+        "held": "empty",
+        "task": "point-strike",
+        "seed": 1,
+        "hands": "left",
+        "miss": false,
+        "offset": -0.001055728105828166,
+        "watchSeconds": 17,
+        "checkpointSeconds": 0.5,
+        "sampleHz": 120,
+        "centreControl": true,
+        "continueSeconds": 10,
+        "id": "d0e7b6816fa73931645e0a8e5353b62fe678b63bb0f88fa85995117af18d5597"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "workshop-rogue",
+        "held": "empty",
+        "task": "point-strike",
+        "seed": 1,
+        "hands": "left",
+        "miss": true,
+        "offset": -0.001055728105828166,
+        "watchSeconds": 17,
+        "checkpointSeconds": 0.5,
+        "sampleHz": 120,
+        "centreControl": true,
+        "continueSeconds": 10,
+        "id": "3113c833e6f02c0d5c278c33a50b71924be3a0c9f1fc8cbe1e90a2ba64417b73"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "workshop-rogue",
+        "held": "empty",
+        "task": "point-strike",
+        "seed": 1,
+        "hands": "right",
+        "miss": false,
+        "offset": -0.001055728105828166,
+        "watchSeconds": 17,
+        "checkpointSeconds": 0.5,
+        "sampleHz": 120,
+        "centreControl": true,
+        "continueSeconds": 10,
+        "id": "7e335b1f6f62c1296e78524e841d77553ee1772612fc988d18f5b8f486abd0a0"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "workshop-rogue",
+        "held": "empty",
+        "task": "point-strike",
+        "seed": 1,
+        "hands": "right",
+        "miss": true,
+        "offset": -0.001055728105828166,
+        "watchSeconds": 17,
+        "checkpointSeconds": 0.5,
+        "sampleHz": 120,
+        "centreControl": true,
+        "continueSeconds": 10,
+        "id": "a9238f36cfd5207772e52393df66636c20f30ab98b0796165be5c0b924466618"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "workshop-rogue",
+        "held": "empty",
+        "task": "point-strike",
+        "seed": 1,
+        "hands": "both",
+        "miss": false,
+        "offset": -0.001055728105828166,
+        "watchSeconds": 17,
+        "checkpointSeconds": 0.5,
+        "sampleHz": 120,
+        "centreControl": true,
+        "continueSeconds": 10,
+        "id": "2114ce57107e81eda04ee1932959430ff456a795d87b48c41143e9945e045abc"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "workshop-rogue",
+        "held": "empty",
+        "task": "point-strike",
+        "seed": 1,
+        "hands": "both",
+        "miss": true,
+        "offset": -0.001055728105828166,
+        "watchSeconds": 17,
+        "checkpointSeconds": 0.5,
+        "sampleHz": 120,
+        "centreControl": true,
+        "continueSeconds": 10,
+        "id": "a08a43b2f75a50c3bb87342f1eda87611c30d74f74bfa5be8273617232339f1e"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "workshop-rogue",
+        "held": "club",
+        "task": "point-strike",
+        "seed": 0,
+        "hands": "left",
+        "miss": false,
+        "offset": 0.000472135947085917,
+        "watchSeconds": 17,
+        "checkpointSeconds": 0.5,
+        "sampleHz": 120,
+        "centreControl": true,
+        "continueSeconds": 10,
+        "id": "1f112337182197ec92886df5472750a3ddc5c6ef664f350d440260fba95368b6"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "workshop-rogue",
+        "held": "club",
+        "task": "point-strike",
+        "seed": 0,
+        "hands": "left",
+        "miss": true,
+        "offset": 0.000472135947085917,
+        "watchSeconds": 17,
+        "checkpointSeconds": 0.5,
+        "sampleHz": 120,
+        "centreControl": true,
+        "continueSeconds": 10,
+        "id": "3b64eebc605cda3ecca2309d9fbc153f948e331d5efc7318116b12511acd4390"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "workshop-rogue",
+        "held": "club",
+        "task": "point-strike",
+        "seed": 0,
+        "hands": "right",
+        "miss": false,
+        "offset": 0.000472135947085917,
+        "watchSeconds": 17,
+        "checkpointSeconds": 0.5,
+        "sampleHz": 120,
+        "centreControl": true,
+        "continueSeconds": 10,
+        "id": "e3d9e55ee391df7ad3c568f5e273840e2127d3540d40b87de19022ba9b890a69"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "workshop-rogue",
+        "held": "club",
+        "task": "point-strike",
+        "seed": 0,
+        "hands": "right",
+        "miss": true,
+        "offset": 0.000472135947085917,
+        "watchSeconds": 17,
+        "checkpointSeconds": 0.5,
+        "sampleHz": 120,
+        "centreControl": true,
+        "continueSeconds": 10,
+        "id": "c521364ced68cc21e745336ac418e304a33763de9da37ef49c815b5f6630d015"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "workshop-rogue",
+        "held": "club",
+        "task": "point-strike",
+        "seed": 0,
+        "hands": "both",
+        "miss": false,
+        "offset": 0.000472135947085917,
+        "watchSeconds": 17,
+        "checkpointSeconds": 0.5,
+        "sampleHz": 120,
+        "centreControl": true,
+        "continueSeconds": 10,
+        "id": "8da51cff3a59eef5e51907554da00fdf3463c614511ca58df464e33f5ced14a8"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "workshop-rogue",
+        "held": "club",
+        "task": "point-strike",
+        "seed": 0,
+        "hands": "both",
+        "miss": true,
+        "offset": 0.000472135947085917,
+        "watchSeconds": 17,
+        "checkpointSeconds": 0.5,
+        "sampleHz": 120,
+        "centreControl": true,
+        "continueSeconds": 10,
+        "id": "706467d36a5e8c0e0f2a940d5272d229c7fe19ceccfc33136003c470d474985c"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "workshop-rogue",
+        "held": "club",
+        "task": "point-strike",
+        "seed": 1,
+        "hands": "left",
+        "miss": false,
+        "offset": -0.001055728105828166,
+        "watchSeconds": 17,
+        "checkpointSeconds": 0.5,
+        "sampleHz": 120,
+        "centreControl": true,
+        "continueSeconds": 10,
+        "id": "e9ebac269f0deaf9f8e470fb713cf6886dfeb128dca56a09fbce08f4489a4cfc"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "workshop-rogue",
+        "held": "club",
+        "task": "point-strike",
+        "seed": 1,
+        "hands": "left",
+        "miss": true,
+        "offset": -0.001055728105828166,
+        "watchSeconds": 17,
+        "checkpointSeconds": 0.5,
+        "sampleHz": 120,
+        "centreControl": true,
+        "continueSeconds": 10,
+        "id": "412c9cb8b3148d0abd44b4d1ff8a88a0fa0113c1bf88762ad776e228c77b0340"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "workshop-rogue",
+        "held": "club",
+        "task": "point-strike",
+        "seed": 1,
+        "hands": "right",
+        "miss": false,
+        "offset": -0.001055728105828166,
+        "watchSeconds": 17,
+        "checkpointSeconds": 0.5,
+        "sampleHz": 120,
+        "centreControl": true,
+        "continueSeconds": 10,
+        "id": "8e30a2d4ad1d0b4569bbc7baa02a50ded434bbbf3be482d03c787d769d571a3c"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "workshop-rogue",
+        "held": "club",
+        "task": "point-strike",
+        "seed": 1,
+        "hands": "right",
+        "miss": true,
+        "offset": -0.001055728105828166,
+        "watchSeconds": 17,
+        "checkpointSeconds": 0.5,
+        "sampleHz": 120,
+        "centreControl": true,
+        "continueSeconds": 10,
+        "id": "784f0a00383d966ff1d5c6e6491536f74890bc5d58068ab45cd18e80cdd9ba0b"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "workshop-rogue",
+        "held": "club",
+        "task": "point-strike",
+        "seed": 1,
+        "hands": "both",
+        "miss": false,
+        "offset": -0.001055728105828166,
+        "watchSeconds": 17,
+        "checkpointSeconds": 0.5,
+        "sampleHz": 120,
+        "centreControl": true,
+        "continueSeconds": 10,
+        "id": "c3ac1f68267f4171039416416c2e3605e0fc8bc8e8082287fc5dadccc462476a"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "workshop-rogue",
+        "held": "club",
+        "task": "point-strike",
+        "seed": 1,
+        "hands": "both",
+        "miss": true,
+        "offset": -0.001055728105828166,
+        "watchSeconds": 17,
+        "checkpointSeconds": 0.5,
+        "sampleHz": 120,
+        "centreControl": true,
+        "continueSeconds": 10,
+        "id": "d4d65ac67d60c2ce293c5d7337d2b2e11ead9847d33d6d84ffc7324191ec312f"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "crypt-skeleton",
+        "held": "empty",
+        "task": "point-strike",
+        "seed": 0,
+        "hands": "left",
+        "miss": false,
+        "offset": 0.000472135947085917,
+        "watchSeconds": 17,
+        "checkpointSeconds": 0.5,
+        "sampleHz": 120,
+        "centreControl": true,
+        "continueSeconds": 10,
+        "id": "34b588052189386e5c43af851b58409a1b8810eb2d71e1338be0cce482102e29"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "crypt-skeleton",
+        "held": "empty",
+        "task": "point-strike",
+        "seed": 0,
+        "hands": "left",
+        "miss": true,
+        "offset": 0.000472135947085917,
+        "watchSeconds": 17,
+        "checkpointSeconds": 0.5,
+        "sampleHz": 120,
+        "centreControl": true,
+        "continueSeconds": 10,
+        "id": "4a63125d72e3536ef92e8dfb22781eb406c85436de69ed6231987bbf12f8fe3e"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "crypt-skeleton",
+        "held": "empty",
+        "task": "point-strike",
+        "seed": 0,
+        "hands": "right",
+        "miss": false,
+        "offset": 0.000472135947085917,
+        "watchSeconds": 17,
+        "checkpointSeconds": 0.5,
+        "sampleHz": 120,
+        "centreControl": true,
+        "continueSeconds": 10,
+        "id": "8e8e72aeb34257ec8816e357a5ef020422220836e0a331724cb40c8517b575e3"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "crypt-skeleton",
+        "held": "empty",
+        "task": "point-strike",
+        "seed": 0,
+        "hands": "right",
+        "miss": true,
+        "offset": 0.000472135947085917,
+        "watchSeconds": 17,
+        "checkpointSeconds": 0.5,
+        "sampleHz": 120,
+        "centreControl": true,
+        "continueSeconds": 10,
+        "id": "afe8603fa273f57fd9b2d8d823606765bcb690c5c088f9abeca406b2b65b8b02"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "crypt-skeleton",
+        "held": "empty",
+        "task": "point-strike",
+        "seed": 0,
+        "hands": "both",
+        "miss": false,
+        "offset": 0.000472135947085917,
+        "watchSeconds": 17,
+        "checkpointSeconds": 0.5,
+        "sampleHz": 120,
+        "centreControl": true,
+        "continueSeconds": 10,
+        "id": "d4690eedd662763016bac27bb6799f64bf367a97eae8471efb8cc6b91f4d52cd"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "crypt-skeleton",
+        "held": "empty",
+        "task": "point-strike",
+        "seed": 0,
+        "hands": "both",
+        "miss": true,
+        "offset": 0.000472135947085917,
+        "watchSeconds": 17,
+        "checkpointSeconds": 0.5,
+        "sampleHz": 120,
+        "centreControl": true,
+        "continueSeconds": 10,
+        "id": "30369b9edd0df50a1b9d2ae71e949bd9c822cefdc70ec913c7a726b5e496b390"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "crypt-skeleton",
+        "held": "empty",
+        "task": "point-strike",
+        "seed": 1,
+        "hands": "left",
+        "miss": false,
+        "offset": -0.001055728105828166,
+        "watchSeconds": 17,
+        "checkpointSeconds": 0.5,
+        "sampleHz": 120,
+        "centreControl": true,
+        "continueSeconds": 10,
+        "id": "12d832e9a804b4b41714de4f8737aa62e0b08b0912188012e9bdda75ceb63c06"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "crypt-skeleton",
+        "held": "empty",
+        "task": "point-strike",
+        "seed": 1,
+        "hands": "left",
+        "miss": true,
+        "offset": -0.001055728105828166,
+        "watchSeconds": 17,
+        "checkpointSeconds": 0.5,
+        "sampleHz": 120,
+        "centreControl": true,
+        "continueSeconds": 10,
+        "id": "f17af6d5cad7335ebd15ea83576aa0fbe1cf6e82f46cb41d9e04868c649bd075"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "crypt-skeleton",
+        "held": "empty",
+        "task": "point-strike",
+        "seed": 1,
+        "hands": "right",
+        "miss": false,
+        "offset": -0.001055728105828166,
+        "watchSeconds": 17,
+        "checkpointSeconds": 0.5,
+        "sampleHz": 120,
+        "centreControl": true,
+        "continueSeconds": 10,
+        "id": "88891f448eb7139c92b5d364feac7f4159d89b8b25eee38dce897af3c4c05007"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "crypt-skeleton",
+        "held": "empty",
+        "task": "point-strike",
+        "seed": 1,
+        "hands": "right",
+        "miss": true,
+        "offset": -0.001055728105828166,
+        "watchSeconds": 17,
+        "checkpointSeconds": 0.5,
+        "sampleHz": 120,
+        "centreControl": true,
+        "continueSeconds": 10,
+        "id": "25a7804a0cc5a9d5948ec392d9f589744ff1bdc7bf68ae5311d53c8c3fa99f99"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "crypt-skeleton",
+        "held": "empty",
+        "task": "point-strike",
+        "seed": 1,
+        "hands": "both",
+        "miss": false,
+        "offset": -0.001055728105828166,
+        "watchSeconds": 17,
+        "checkpointSeconds": 0.5,
+        "sampleHz": 120,
+        "centreControl": true,
+        "continueSeconds": 10,
+        "id": "4f4cc9517363aa905774316c9a217e1fc36de6b3fc2f0dbe1e28c3645d4fe99a"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "crypt-skeleton",
+        "held": "empty",
+        "task": "point-strike",
+        "seed": 1,
+        "hands": "both",
+        "miss": true,
+        "offset": -0.001055728105828166,
+        "watchSeconds": 17,
+        "checkpointSeconds": 0.5,
+        "sampleHz": 120,
+        "centreControl": true,
+        "continueSeconds": 10,
+        "id": "d9a2baeb9a6e042ece46cba69ac80d8a1ab6f5a63595c95c00933161e4c67a94"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "crypt-skeleton",
+        "held": "club",
+        "task": "point-strike",
+        "seed": 0,
+        "hands": "left",
+        "miss": false,
+        "offset": 0.000472135947085917,
+        "watchSeconds": 17,
+        "checkpointSeconds": 0.5,
+        "sampleHz": 120,
+        "centreControl": true,
+        "continueSeconds": 10,
+        "id": "dbf3c731701ad2ab02c8c3641119a7adcfd384c289f1e9aea23abf952dfcabbf"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "crypt-skeleton",
+        "held": "club",
+        "task": "point-strike",
+        "seed": 0,
+        "hands": "left",
+        "miss": true,
+        "offset": 0.000472135947085917,
+        "watchSeconds": 17,
+        "checkpointSeconds": 0.5,
+        "sampleHz": 120,
+        "centreControl": true,
+        "continueSeconds": 10,
+        "id": "f9c73c0f4035ce8a6ac04b98a8f2f24e16f19a3e01d9e592a238f953b90dd592"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "crypt-skeleton",
+        "held": "club",
+        "task": "point-strike",
+        "seed": 0,
+        "hands": "right",
+        "miss": false,
+        "offset": 0.000472135947085917,
+        "watchSeconds": 17,
+        "checkpointSeconds": 0.5,
+        "sampleHz": 120,
+        "centreControl": true,
+        "continueSeconds": 10,
+        "id": "5e91adbb3221a17a5e72700ab12074a1e3ec3016639beab7b68b2c03a6ddd16c"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "crypt-skeleton",
+        "held": "club",
+        "task": "point-strike",
+        "seed": 0,
+        "hands": "right",
+        "miss": true,
+        "offset": 0.000472135947085917,
+        "watchSeconds": 17,
+        "checkpointSeconds": 0.5,
+        "sampleHz": 120,
+        "centreControl": true,
+        "continueSeconds": 10,
+        "id": "74c0aebadab99cb709071ee84334fadcfca857ecbf8656174253620843d24327"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "crypt-skeleton",
+        "held": "club",
+        "task": "point-strike",
+        "seed": 0,
+        "hands": "both",
+        "miss": false,
+        "offset": 0.000472135947085917,
+        "watchSeconds": 17,
+        "checkpointSeconds": 0.5,
+        "sampleHz": 120,
+        "centreControl": true,
+        "continueSeconds": 10,
+        "id": "2f4168e67793a00db1bb4501204f312ba72e45a25d860a2b03dd77de993ca4c8"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "crypt-skeleton",
+        "held": "club",
+        "task": "point-strike",
+        "seed": 0,
+        "hands": "both",
+        "miss": true,
+        "offset": 0.000472135947085917,
+        "watchSeconds": 17,
+        "checkpointSeconds": 0.5,
+        "sampleHz": 120,
+        "centreControl": true,
+        "continueSeconds": 10,
+        "id": "52d9421b637f27d21370db5cc7306d86570908d92d8a237eb910cac7deac54d9"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "crypt-skeleton",
+        "held": "club",
+        "task": "point-strike",
+        "seed": 1,
+        "hands": "left",
+        "miss": false,
+        "offset": -0.001055728105828166,
+        "watchSeconds": 17,
+        "checkpointSeconds": 0.5,
+        "sampleHz": 120,
+        "centreControl": true,
+        "continueSeconds": 10,
+        "id": "ab3de218cfb495fe573e890f60ea6e660c19c800c5865fd94b35f78f5663ad94"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "crypt-skeleton",
+        "held": "club",
+        "task": "point-strike",
+        "seed": 1,
+        "hands": "left",
+        "miss": true,
+        "offset": -0.001055728105828166,
+        "watchSeconds": 17,
+        "checkpointSeconds": 0.5,
+        "sampleHz": 120,
+        "centreControl": true,
+        "continueSeconds": 10,
+        "id": "19a64638cc5efaec1820debb638e8f3596d523fb56381cfeb7d812704786d0dd"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "crypt-skeleton",
+        "held": "club",
+        "task": "point-strike",
+        "seed": 1,
+        "hands": "right",
+        "miss": false,
+        "offset": -0.001055728105828166,
+        "watchSeconds": 17,
+        "checkpointSeconds": 0.5,
+        "sampleHz": 120,
+        "centreControl": true,
+        "continueSeconds": 10,
+        "id": "edf1c4b17182d318cccb05aa7da50962fd89c9d144fe15685d773afaca0e05f0"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "crypt-skeleton",
+        "held": "club",
+        "task": "point-strike",
+        "seed": 1,
+        "hands": "right",
+        "miss": true,
+        "offset": -0.001055728105828166,
+        "watchSeconds": 17,
+        "checkpointSeconds": 0.5,
+        "sampleHz": 120,
+        "centreControl": true,
+        "continueSeconds": 10,
+        "id": "19141f2669a5ee803a7c8102569eb014eef12c73ed34191160c27caeb601020b"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "crypt-skeleton",
+        "held": "club",
+        "task": "point-strike",
+        "seed": 1,
+        "hands": "both",
+        "miss": false,
+        "offset": -0.001055728105828166,
+        "watchSeconds": 17,
+        "checkpointSeconds": 0.5,
+        "sampleHz": 120,
+        "centreControl": true,
+        "continueSeconds": 10,
+        "id": "4fb4f27fb3f8edde357f7b34835fdf8847cde9559efc6e04535eebf994528727"
+      },
+      {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "crypt-skeleton",
+        "held": "club",
+        "task": "point-strike",
+        "seed": 1,
+        "hands": "both",
+        "miss": true,
+        "offset": -0.001055728105828166,
+        "watchSeconds": 17,
+        "checkpointSeconds": 0.5,
+        "sampleHz": 120,
+        "centreControl": true,
+        "continueSeconds": 10,
+        "id": "89309990f489e35fc347b12f6612b9b8d0062db4e561f2115f608b698939cbc4"
+      }
+    ]
+  },
+  "manifestSha256": "cd668640517c79b2401293539820bbe0303f81e53700445b56eddfe7b21cdd65",
+  "summary": {
+    "cells": [
+      {
+        "cell": "directional/point-strike/workshop-fighter/empty/////left/hit/centre-control/continue=10",
+        "trials": 2,
+        "measured": 2,
+        "unsupported": 0,
+        "success": {
+          "successes": 2,
+          "count": 2,
+          "rate": 1,
+          "interval95": [
+            0.34238022750665303,
+            1
+          ]
+        }
+      },
+      {
+        "cell": "directional/point-strike/workshop-fighter/empty/////left/miss/centre-control/continue=10",
+        "trials": 2,
+        "measured": 2,
+        "unsupported": 0,
+        "success": {
+          "successes": 2,
+          "count": 2,
+          "rate": 1,
+          "interval95": [
+            0.34238022750665303,
+            1
+          ]
+        }
+      },
+      {
+        "cell": "directional/point-strike/workshop-fighter/empty/////right/hit/centre-control/continue=10",
+        "trials": 2,
+        "measured": 2,
+        "unsupported": 0,
+        "success": {
+          "successes": 2,
+          "count": 2,
+          "rate": 1,
+          "interval95": [
+            0.34238022750665303,
+            1
+          ]
+        }
+      },
+      {
+        "cell": "directional/point-strike/workshop-fighter/empty/////right/miss/centre-control/continue=10",
+        "trials": 2,
+        "measured": 2,
+        "unsupported": 0,
+        "success": {
+          "successes": 2,
+          "count": 2,
+          "rate": 1,
+          "interval95": [
+            0.34238022750665303,
+            1
+          ]
+        }
+      },
+      {
+        "cell": "directional/point-strike/workshop-fighter/empty/////both/hit/centre-control/continue=10",
+        "trials": 2,
+        "measured": 2,
+        "unsupported": 0,
+        "success": {
+          "successes": 2,
+          "count": 2,
+          "rate": 1,
+          "interval95": [
+            0.34238022750665303,
+            1
+          ]
+        }
+      },
+      {
+        "cell": "directional/point-strike/workshop-fighter/empty/////both/miss/centre-control/continue=10",
+        "trials": 2,
+        "measured": 2,
+        "unsupported": 0,
+        "success": {
+          "successes": 2,
+          "count": 2,
+          "rate": 1,
+          "interval95": [
+            0.34238022750665303,
+            1
+          ]
+        }
+      },
+      {
+        "cell": "directional/point-strike/workshop-fighter/club/////left/hit/centre-control/continue=10",
+        "trials": 2,
+        "measured": 2,
+        "unsupported": 0,
+        "success": {
+          "successes": 2,
+          "count": 2,
+          "rate": 1,
+          "interval95": [
+            0.34238022750665303,
+            1
+          ]
+        }
+      },
+      {
+        "cell": "directional/point-strike/workshop-fighter/club/////left/miss/centre-control/continue=10",
+        "trials": 2,
+        "measured": 2,
+        "unsupported": 0,
+        "success": {
+          "successes": 2,
+          "count": 2,
+          "rate": 1,
+          "interval95": [
+            0.34238022750665303,
+            1
+          ]
+        }
+      },
+      {
+        "cell": "directional/point-strike/workshop-fighter/club/////right/hit/centre-control/continue=10",
+        "trials": 2,
+        "measured": 2,
+        "unsupported": 0,
+        "success": {
+          "successes": 2,
+          "count": 2,
+          "rate": 1,
+          "interval95": [
+            0.34238022750665303,
+            1
+          ]
+        }
+      },
+      {
+        "cell": "directional/point-strike/workshop-fighter/club/////right/miss/centre-control/continue=10",
+        "trials": 2,
+        "measured": 2,
+        "unsupported": 0,
+        "success": {
+          "successes": 2,
+          "count": 2,
+          "rate": 1,
+          "interval95": [
+            0.34238022750665303,
+            1
+          ]
+        }
+      },
+      {
+        "cell": "directional/point-strike/workshop-fighter/club/////both/hit/centre-control/continue=10",
+        "trials": 2,
+        "measured": 2,
+        "unsupported": 0,
+        "success": {
+          "successes": 2,
+          "count": 2,
+          "rate": 1,
+          "interval95": [
+            0.34238022750665303,
+            1
+          ]
+        }
+      },
+      {
+        "cell": "directional/point-strike/workshop-fighter/club/////both/miss/centre-control/continue=10",
+        "trials": 2,
+        "measured": 2,
+        "unsupported": 0,
+        "success": {
+          "successes": 2,
+          "count": 2,
+          "rate": 1,
+          "interval95": [
+            0.34238022750665303,
+            1
+          ]
+        }
+      },
+      {
+        "cell": "directional/point-strike/workshop-rogue/empty/////left/hit/centre-control/continue=10",
+        "trials": 2,
+        "measured": 2,
+        "unsupported": 0,
+        "success": {
+          "successes": 2,
+          "count": 2,
+          "rate": 1,
+          "interval95": [
+            0.34238022750665303,
+            1
+          ]
+        }
+      },
+      {
+        "cell": "directional/point-strike/workshop-rogue/empty/////left/miss/centre-control/continue=10",
+        "trials": 2,
+        "measured": 2,
+        "unsupported": 0,
+        "success": {
+          "successes": 2,
+          "count": 2,
+          "rate": 1,
+          "interval95": [
+            0.34238022750665303,
+            1
+          ]
+        }
+      },
+      {
+        "cell": "directional/point-strike/workshop-rogue/empty/////right/hit/centre-control/continue=10",
+        "trials": 2,
+        "measured": 2,
+        "unsupported": 0,
+        "success": {
+          "successes": 2,
+          "count": 2,
+          "rate": 1,
+          "interval95": [
+            0.34238022750665303,
+            1
+          ]
+        }
+      },
+      {
+        "cell": "directional/point-strike/workshop-rogue/empty/////right/miss/centre-control/continue=10",
+        "trials": 2,
+        "measured": 2,
+        "unsupported": 0,
+        "success": {
+          "successes": 2,
+          "count": 2,
+          "rate": 1,
+          "interval95": [
+            0.34238022750665303,
+            1
+          ]
+        }
+      },
+      {
+        "cell": "directional/point-strike/workshop-rogue/empty/////both/hit/centre-control/continue=10",
+        "trials": 2,
+        "measured": 2,
+        "unsupported": 0,
+        "success": {
+          "successes": 2,
+          "count": 2,
+          "rate": 1,
+          "interval95": [
+            0.34238022750665303,
+            1
+          ]
+        }
+      },
+      {
+        "cell": "directional/point-strike/workshop-rogue/empty/////both/miss/centre-control/continue=10",
+        "trials": 2,
+        "measured": 2,
+        "unsupported": 0,
+        "success": {
+          "successes": 2,
+          "count": 2,
+          "rate": 1,
+          "interval95": [
+            0.34238022750665303,
+            1
+          ]
+        }
+      },
+      {
+        "cell": "directional/point-strike/workshop-rogue/club/////left/hit/centre-control/continue=10",
+        "trials": 2,
+        "measured": 2,
+        "unsupported": 0,
+        "success": {
+          "successes": 2,
+          "count": 2,
+          "rate": 1,
+          "interval95": [
+            0.34238022750665303,
+            1
+          ]
+        }
+      },
+      {
+        "cell": "directional/point-strike/workshop-rogue/club/////left/miss/centre-control/continue=10",
+        "trials": 2,
+        "measured": 2,
+        "unsupported": 0,
+        "success": {
+          "successes": 2,
+          "count": 2,
+          "rate": 1,
+          "interval95": [
+            0.34238022750665303,
+            1
+          ]
+        }
+      },
+      {
+        "cell": "directional/point-strike/workshop-rogue/club/////right/hit/centre-control/continue=10",
+        "trials": 2,
+        "measured": 2,
+        "unsupported": 0,
+        "success": {
+          "successes": 2,
+          "count": 2,
+          "rate": 1,
+          "interval95": [
+            0.34238022750665303,
+            1
+          ]
+        }
+      },
+      {
+        "cell": "directional/point-strike/workshop-rogue/club/////right/miss/centre-control/continue=10",
+        "trials": 2,
+        "measured": 2,
+        "unsupported": 0,
+        "success": {
+          "successes": 2,
+          "count": 2,
+          "rate": 1,
+          "interval95": [
+            0.34238022750665303,
+            1
+          ]
+        }
+      },
+      {
+        "cell": "directional/point-strike/workshop-rogue/club/////both/hit/centre-control/continue=10",
+        "trials": 2,
+        "measured": 2,
+        "unsupported": 0,
+        "success": {
+          "successes": 2,
+          "count": 2,
+          "rate": 1,
+          "interval95": [
+            0.34238022750665303,
+            1
+          ]
+        }
+      },
+      {
+        "cell": "directional/point-strike/workshop-rogue/club/////both/miss/centre-control/continue=10",
+        "trials": 2,
+        "measured": 2,
+        "unsupported": 0,
+        "success": {
+          "successes": 2,
+          "count": 2,
+          "rate": 1,
+          "interval95": [
+            0.34238022750665303,
+            1
+          ]
+        }
+      },
+      {
+        "cell": "directional/point-strike/crypt-skeleton/empty/////left/hit/centre-control/continue=10",
+        "trials": 2,
+        "measured": 2,
+        "unsupported": 0,
+        "success": {
+          "successes": 2,
+          "count": 2,
+          "rate": 1,
+          "interval95": [
+            0.34238022750665303,
+            1
+          ]
+        }
+      },
+      {
+        "cell": "directional/point-strike/crypt-skeleton/empty/////left/miss/centre-control/continue=10",
+        "trials": 2,
+        "measured": 2,
+        "unsupported": 0,
+        "success": {
+          "successes": 2,
+          "count": 2,
+          "rate": 1,
+          "interval95": [
+            0.34238022750665303,
+            1
+          ]
+        }
+      },
+      {
+        "cell": "directional/point-strike/crypt-skeleton/empty/////right/hit/centre-control/continue=10",
+        "trials": 2,
+        "measured": 2,
+        "unsupported": 0,
+        "success": {
+          "successes": 2,
+          "count": 2,
+          "rate": 1,
+          "interval95": [
+            0.34238022750665303,
+            1
+          ]
+        }
+      },
+      {
+        "cell": "directional/point-strike/crypt-skeleton/empty/////right/miss/centre-control/continue=10",
+        "trials": 2,
+        "measured": 2,
+        "unsupported": 0,
+        "success": {
+          "successes": 2,
+          "count": 2,
+          "rate": 1,
+          "interval95": [
+            0.34238022750665303,
+            1
+          ]
+        }
+      },
+      {
+        "cell": "directional/point-strike/crypt-skeleton/empty/////both/hit/centre-control/continue=10",
+        "trials": 2,
+        "measured": 2,
+        "unsupported": 0,
+        "success": {
+          "successes": 0,
+          "count": 2,
+          "rate": 0,
+          "interval95": [
+            0,
+            0.6576197724933469
+          ]
+        }
+      },
+      {
+        "cell": "directional/point-strike/crypt-skeleton/empty/////both/miss/centre-control/continue=10",
+        "trials": 2,
+        "measured": 2,
+        "unsupported": 0,
+        "success": {
+          "successes": 2,
+          "count": 2,
+          "rate": 1,
+          "interval95": [
+            0.34238022750665303,
+            1
+          ]
+        }
+      },
+      {
+        "cell": "directional/point-strike/crypt-skeleton/club/////left/hit/centre-control/continue=10",
+        "trials": 2,
+        "measured": 2,
+        "unsupported": 0,
+        "success": {
+          "successes": 2,
+          "count": 2,
+          "rate": 1,
+          "interval95": [
+            0.34238022750665303,
+            1
+          ]
+        }
+      },
+      {
+        "cell": "directional/point-strike/crypt-skeleton/club/////left/miss/centre-control/continue=10",
+        "trials": 2,
+        "measured": 2,
+        "unsupported": 0,
+        "success": {
+          "successes": 2,
+          "count": 2,
+          "rate": 1,
+          "interval95": [
+            0.34238022750665303,
+            1
+          ]
+        }
+      },
+      {
+        "cell": "directional/point-strike/crypt-skeleton/club/////right/hit/centre-control/continue=10",
+        "trials": 2,
+        "measured": 2,
+        "unsupported": 0,
+        "success": {
+          "successes": 2,
+          "count": 2,
+          "rate": 1,
+          "interval95": [
+            0.34238022750665303,
+            1
+          ]
+        }
+      },
+      {
+        "cell": "directional/point-strike/crypt-skeleton/club/////right/miss/centre-control/continue=10",
+        "trials": 2,
+        "measured": 2,
+        "unsupported": 0,
+        "success": {
+          "successes": 2,
+          "count": 2,
+          "rate": 1,
+          "interval95": [
+            0.34238022750665303,
+            1
+          ]
+        }
+      },
+      {
+        "cell": "directional/point-strike/crypt-skeleton/club/////both/hit/centre-control/continue=10",
+        "trials": 2,
+        "measured": 2,
+        "unsupported": 0,
+        "success": {
+          "successes": 2,
+          "count": 2,
+          "rate": 1,
+          "interval95": [
+            0.34238022750665303,
+            1
+          ]
+        }
+      },
+      {
+        "cell": "directional/point-strike/crypt-skeleton/club/////both/miss/centre-control/continue=10",
+        "trials": 2,
+        "measured": 2,
+        "unsupported": 0,
+        "success": {
+          "successes": 2,
+          "count": 2,
+          "rate": 1,
+          "interval95": [
+            0.34238022750665303,
+            1
+          ]
+        }
+      }
+    ],
+    "pairedGuard": []
+  },
+  "failures": [
+    {
+      "job": {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "crypt-skeleton",
+        "held": "empty",
+        "task": "point-strike",
+        "seed": 0,
+        "hands": "both",
+        "miss": false,
+        "offset": 0.000472135947085917,
+        "watchSeconds": 17,
+        "checkpointSeconds": 0.5,
+        "sampleHz": 120,
+        "centreControl": true,
+        "continueSeconds": 10,
+        "id": "d4690eedd662763016bac27bb6799f64bf367a97eae8471efb8cc6b91f4d52cd"
+      },
+      "result": {
+        "status": "measured",
+        "configuration": {
+          "protocol": 3,
+          "split": "development",
+          "hz": 120,
+          "actuation": "directional",
+          "model": "crypt-skeleton",
+          "held": "empty",
+          "task": "point-strike",
+          "seed": 0,
+          "hands": "both",
+          "miss": false,
+          "offset": 0.000472135947085917,
+          "watchSeconds": 17,
+          "checkpointSeconds": 0.5,
+          "sampleHz": 120,
+          "centreControl": true,
+          "continueSeconds": 10,
+          "id": "d4690eedd662763016bac27bb6799f64bf367a97eae8471efb8cc6b91f4d52cd",
+          "settings": {
+            "lateral": 0.25,
+            "height": 0.15,
+            "clubHeight": 0.75,
+            "guard": 0.25,
+            "target": 0.65,
+            "obstacle": 0.7,
+            "missOffset": 0.7,
+            "obstacleSize": [
+              0.2,
+              0.2,
+              0.08
+            ],
+            "floor": {
+              "centre": [
+                0,
+                -0.5,
+                0
+              ],
+              "size": [
+                20,
+                1,
+                20
+              ]
+            },
+            "seconds": 0.15,
+            "weight": 1,
+            "tolerance": 0.02,
+            "readySeconds": 0.25,
+            "strikeSeconds": 0.5,
+            "followSeconds": 0.75,
+            "returnSeconds": 0.5,
+            "postureSeconds": 0.2,
+            "armWeight": 0.03,
+            "bodyWeight": 0.3,
+            "effortCost": 0.000001,
+            "continueSeconds": 10,
+            "closing": 0.05,
+            "capture": {
+              "distance": 0.002,
+              "rotationError": 0.00001
+            },
+            "contact": {
+              "maxPoints": 64,
+              "gap": 0.005,
+              "minUpNormal": 0.9,
+              "forceTolerance": 0.00001,
+              "iterations": 2048,
+              "absoluteTolerance": 1e-7,
+              "relativeTolerance": 0.000001
+            }
+          },
+          "centreSettings": {
+            "lower": 0.04,
+            "positionWeight": 10,
+            "centreWeight": 10,
+            "followSeconds": 0.75
+          },
+          "engineRevision": "rapier/adapter-5/sha256:58ff3f5e80911ceefd46ff7d03fb77858d54d6c0062fb3c44229fb7b045e8676",
+          "gravity": true,
+          "pin": null,
+          "assists": {
+            "root": 0,
+            "weapon": false
+          }
+        },
+        "outcome": {
+          "fell": true,
+          "completeAt": -1,
+          "steps": 2040,
+          "rejectedSteps": 1730,
+          "strikes": [
+            {
+              "side": "left",
+              "contacts": 2,
+              "peakImpulse": 6.454560279846191,
+              "closing": 1.6406433283995565,
+              "firstHit": 137,
+              "returnError": 1.814042394893475,
+              "targetTravel": 0,
+              "targetSpeed": 0,
+              "firstTargetContact": -1
+            },
+            {
+              "side": "right",
+              "contacts": 1,
+              "peakImpulse": 6.450357913970947,
+              "closing": 1.6437703213960146,
+              "firstHit": 137,
+              "returnError": 1.2779705961860799,
+              "targetTravel": 0,
+              "targetSpeed": 0,
+              "firstTargetContact": -1
+            }
+          ],
+          "before": [
+            {
+              "centre": [
+                0.20476484917610904,
+                0.04174337701420099,
+                -1.180552815018987
+              ],
+              "velocity": [
+                0.004305405076593161,
+                -0.0005830599111504853,
+                -0.00530365202575922
+              ],
+              "spin": [
+                -0.16077055037021637,
+                0.13849452137947083,
+                -0.21062502264976501
+              ]
+            },
+            {
+              "centre": [
+                0.8631225953252204,
+                0.03381056061052452,
+                -0.03686551380153956
+              ],
+              "velocity": [
+                -0.00011638775322353467,
+                0.00023794920707587153,
+                -0.0007955897599458694
+              ],
+              "spin": [
+                0.000895641976967454,
+                0.019339675083756447,
+                -0.02368168719112873
+              ]
+            }
+          ],
+          "targetBefore": [
+            {
+              "centre": [
+                0,
+                0,
+                0
+              ],
+              "velocity": [
+                0,
+                0,
+                0
+              ],
+              "spin": [
+                0,
+                0,
+                0
+              ]
+            },
+            {
+              "centre": [
+                0,
+                0,
+                0
+              ],
+              "velocity": [
+                0,
+                0,
+                0
+              ],
+              "spin": [
+                0,
+                0,
+                0
+              ]
+            }
+          ],
+          "phase": "return",
+          "replayExact": true,
+          "digest": "c2c68379be0ba13a2ef7ac7ce4a576364819fd96e9839fdb6979ee3f022d7698",
+          "stateDigest": "3a287a3a9dae7b0c781da1c4e390f18f3ce413c1e29fbc6d5bd42c7751dbc9b7",
+          "success": false
+        },
+        "physical": {
+          "assistForceIntegralNs": 0,
+          "assistMomentIntegralNms": 0
+        },
+        "timing": {
+          "meanStepMs": 13.36511030303055,
+          "p95StepMs": 17.621199999994133,
+          "p99StepMs": 19.369800000014948
+        },
+        "limits": [
+          "stationary rigid targets; not defense or opponent combat",
+          "position-only guard and return",
+          "no damage or minimum injury-energy gate",
+          "no joint-stop reaction or sliding prediction",
+          "allocating diagnostic dynamics path"
+        ]
+      }
+    },
+    {
+      "job": {
+        "protocol": 2,
+        "split": "development",
+        "hz": 120,
+        "actuation": "directional",
+        "model": "crypt-skeleton",
+        "held": "empty",
+        "task": "point-strike",
+        "seed": 1,
+        "hands": "both",
+        "miss": false,
+        "offset": -0.001055728105828166,
+        "watchSeconds": 17,
+        "checkpointSeconds": 0.5,
+        "sampleHz": 120,
+        "centreControl": true,
+        "continueSeconds": 10,
+        "id": "4f4cc9517363aa905774316c9a217e1fc36de6b3fc2f0dbe1e28c3645d4fe99a"
+      },
+      "result": {
+        "status": "measured",
+        "configuration": {
+          "protocol": 3,
+          "split": "development",
+          "hz": 120,
+          "actuation": "directional",
+          "model": "crypt-skeleton",
+          "held": "empty",
+          "task": "point-strike",
+          "seed": 1,
+          "hands": "both",
+          "miss": false,
+          "offset": -0.001055728105828166,
+          "watchSeconds": 17,
+          "checkpointSeconds": 0.5,
+          "sampleHz": 120,
+          "centreControl": true,
+          "continueSeconds": 10,
+          "id": "4f4cc9517363aa905774316c9a217e1fc36de6b3fc2f0dbe1e28c3645d4fe99a",
+          "settings": {
+            "lateral": 0.25,
+            "height": 0.15,
+            "clubHeight": 0.75,
+            "guard": 0.25,
+            "target": 0.65,
+            "obstacle": 0.7,
+            "missOffset": 0.7,
+            "obstacleSize": [
+              0.2,
+              0.2,
+              0.08
+            ],
+            "floor": {
+              "centre": [
+                0,
+                -0.5,
+                0
+              ],
+              "size": [
+                20,
+                1,
+                20
+              ]
+            },
+            "seconds": 0.15,
+            "weight": 1,
+            "tolerance": 0.02,
+            "readySeconds": 0.25,
+            "strikeSeconds": 0.5,
+            "followSeconds": 0.75,
+            "returnSeconds": 0.5,
+            "postureSeconds": 0.2,
+            "armWeight": 0.03,
+            "bodyWeight": 0.3,
+            "effortCost": 0.000001,
+            "continueSeconds": 10,
+            "closing": 0.05,
+            "capture": {
+              "distance": 0.002,
+              "rotationError": 0.00001
+            },
+            "contact": {
+              "maxPoints": 64,
+              "gap": 0.005,
+              "minUpNormal": 0.9,
+              "forceTolerance": 0.00001,
+              "iterations": 2048,
+              "absoluteTolerance": 1e-7,
+              "relativeTolerance": 0.000001
+            }
+          },
+          "centreSettings": {
+            "lower": 0.04,
+            "positionWeight": 10,
+            "centreWeight": 10,
+            "followSeconds": 0.75
+          },
+          "engineRevision": "rapier/adapter-5/sha256:58ff3f5e80911ceefd46ff7d03fb77858d54d6c0062fb3c44229fb7b045e8676",
+          "gravity": true,
+          "pin": null,
+          "assists": {
+            "root": 0,
+            "weapon": false
+          }
+        },
+        "outcome": {
+          "fell": true,
+          "completeAt": -1,
+          "steps": 2040,
+          "rejectedSteps": 788,
+          "strikes": [
+            {
+              "side": "left",
+              "contacts": 3,
+              "peakImpulse": 6.453392744064331,
+              "closing": 1.63931289865054,
+              "firstHit": 137,
+              "returnError": 1.136687721171444,
+              "targetTravel": 0,
+              "targetSpeed": 0,
+              "firstTargetContact": -1
+            },
+            {
+              "side": "right",
+              "contacts": 1,
+              "peakImpulse": 6.436764240264893,
+              "closing": 1.6449497086293872,
+              "firstHit": 137,
+              "returnError": 1.3677030297523327,
+              "targetTravel": 0,
+              "targetSpeed": 0,
+              "firstTargetContact": -1
+            }
+          ],
+          "before": [
+            {
+              "centre": [
+                -0.5224823063120312,
+                0.03036564405721847,
+                0.10344712299120562
+              ],
+              "velocity": [
+                0.00009131352271651849,
+                0.00007359394658124074,
+                -0.00005683004201273434
+              ],
+              "spin": [
+                -0.0018299489747732878,
+                -0.000058922814787365496,
+                -0.002981651108711958
+              ]
+            },
+            {
+              "centre": [
+                -0.02257602772135934,
+                0.03273276855407321,
+                -0.48985240445262374
+              ],
+              "velocity": [
+                -0.000020626957848435268,
+                -0.00001717807572276797,
+                -0.00001898266600619536
+              ],
+              "spin": [
+                -0.0006091691902838647,
+                0.000052295006753411144,
+                0.0005773829761892557
+              ]
+            }
+          ],
+          "targetBefore": [
+            {
+              "centre": [
+                0,
+                0,
+                0
+              ],
+              "velocity": [
+                0,
+                0,
+                0
+              ],
+              "spin": [
+                0,
+                0,
+                0
+              ]
+            },
+            {
+              "centre": [
+                0,
+                0,
+                0
+              ],
+              "velocity": [
+                0,
+                0,
+                0
+              ],
+              "spin": [
+                0,
+                0,
+                0
+              ]
+            }
+          ],
+          "phase": "return",
+          "replayExact": true,
+          "digest": "683ef95e063695cf636a2a80af7d2d5bc41e6fa4deeb39bba6b37d768a8b4845",
+          "stateDigest": "c3ea21108d565c18848a9e101dbc71d69c4d527fff40bd82cf75d626473e2fbb",
+          "success": false
+        },
+        "physical": {
+          "assistForceIntegralNs": 0,
+          "assistMomentIntegralNms": 0
+        },
+        "timing": {
+          "meanStepMs": 8.800690858585776,
+          "p95StepMs": 11.95920000001206,
+          "p99StepMs": 14.36710000000312
+        },
+        "limits": [
+          "stationary rigid targets; not defense or opponent combat",
+          "position-only guard and return",
+          "no damage or minimum injury-energy gate",
+          "no joint-stop reaction or sliding prediction",
+          "allocating diagnostic dynamics path"
+        ]
+      }
+    }
+  ]
+}

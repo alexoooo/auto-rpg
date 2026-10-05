@@ -15,7 +15,7 @@ import { tan, atan2 } from "../math/real.ts";
  * ranges mean one thing to the solver, the body's readings and whoever sets a goal.
  *
  * A velocity motor drives the relative angular velocity's component along its axis as fixed in
- * the parent (the motor's row and the limit's are both the parent frame's axis), so that component
+ * the parent, so that component
  * is a joint's speed here: the speed a muscle's force-velocity relation reads, and the one its
  * torque does work against.
  *
@@ -134,6 +134,33 @@ export function ratesToRef(joint: BuiltJoint, angles: readonly number[], speeds:
     const r2 = k === 0 ? -y + x * z : k === 1 ? x + y * z : 1 + z * z;
     const t = k === 0 ? x : k === 1 ? y : z;
     out[k] = dofs[k]!.sign * (r0 * u0 + r1 * u1 + r2 * u2) / (1 + t * t);
+  }
+  return out;
+}
+
+/**
+ * Angle acceleration with the parent-axis motor speeds held constant: dG/dt u, where
+ * `ratesToRef` is a' = G(a) u. For t = tan(a/2), t' = (u - t x u + t (t·u))/2.
+ * A two-axis joint also has u_z = t_x u_y - t_y u_x; its derivative belongs to this bias.
+ * Thus an angle-acceleration goal subtracts this term as well as G times the dynamics' bias.
+ */
+export function rateBiasToRef(joint: BuiltJoint, angles: readonly number[], speeds: readonly number[], out: number[]): number[] {
+  const count = joint.dofs.length; out.length = count;
+  if (count < 2) { if (count === 1) out[0] = 0; return out; }
+  const x = halfTan(joint, angles, 0), y = halfTan(joint, angles, 1), z = halfTan(joint, angles, 2);
+  const u = joint.dofs[0]!.sign * speeds[0]!, v = joint.dofs[1]!.sign * speeds[1]!;
+  const w = count === 2 ? x * v - y * u : joint.dofs[2]!.sign * speeds[2]!;
+  const along = x * u + y * v + z * w;
+  const nx = u + z * v - y * w + x * along, ny = v + x * w - z * u + y * along, nz = w + y * u - x * v + z * along;
+  const dx = nx / 2, dy = ny / 2, dz = count === 2 ? 0 : nz / 2, dw = count === 2 ? dx * v - dy * u : 0;
+  const change = dx * u + dy * v + dz * w + z * dw;
+  const dnx = dz * v - dy * w - y * dw + dx * along + x * change;
+  const dny = dx * w + x * dw - dz * u + dy * along + y * change;
+  out[0] = joint.dofs[0]!.sign * (dnx - nx * 2 * x * dx / (1 + x * x)) / (1 + x * x);
+  out[1] = joint.dofs[1]!.sign * (dny - ny * 2 * y * dy / (1 + y * y)) / (1 + y * y);
+  if (count === 3) {
+    const dnz = dw + dy * u - dx * v + dz * along + z * change;
+    out[2] = joint.dofs[2]!.sign * (dnz - nz * 2 * z * dz / (1 + z * z)) / (1 + z * z);
   }
   return out;
 }

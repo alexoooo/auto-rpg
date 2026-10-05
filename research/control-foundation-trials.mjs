@@ -11,6 +11,8 @@ import { createReachTask } from "../src/core/tasks/reach.ts";
 import { createCollisionProbe } from "../src/core/tasks/collision.ts";
 import { createBarProbe } from "../src/core/tasks/bar.ts";
 import { createSupportProbe } from "../src/core/tasks/support.ts";
+import { createPointStrikeProbe } from "../src/core/tasks/point-strike.ts";
+import { createDefenseProbe } from "../src/core/tasks/defense.ts";
 import { saveState, loadState } from "../src/core/state.ts";
 import { reachAction, reachFrame } from "../src/core/tasks/reach-policy.ts";
 import { BODY_MODELS } from "../src/core/human/spec.ts";
@@ -33,14 +35,18 @@ export const FOUNDATION = Object.freeze({ version: 2, samples: 2, watch: 40, bou
 const hash = (value) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
 const heldName = (held) => held === "club" ? "wooden club" : "fist";
 const riseMind = { ...FIGHTER, subs: [{ kind: "staged-rise" }] };
-const suites = ["baseline", "recovery", "strike-block", "bar", "support", "integrated", "reach", "ccd", "solver"];
+const suites = ["baseline", "recovery", "strike-block", "point-strike", "moving-strike", "defense", "bar", "support", "integrated", "reach", "ccd", "solver"];
 
 /** Fully specified starts; a seed selects geometry, not a hidden source of simulation noise. */
 export function foundationJobs({ suite = "baseline", split = "development", samples = FOUNDATION.samples,
-  hz = 120, models = BODY_MODELS, from = 0, actuation = "symmetric", support = "pinned" } = {}) {
+  hz = 120, models = BODY_MODELS, from = 0, actuation = "symmetric", support = "pinned", centreControl = false, continueSeconds = 1, shared = false, jointStops = false } = {}) {
+  if (typeof jointStops !== "boolean" || jointStops && !["bar", "point-strike", "moving-strike", "defense"].includes(suite)) throw new Error("joint-stop prediction requires a motion probe suite");
   if (!suites.includes(suite)) throw new Error(`unknown suite ${suite}`);
   if (!["symmetric", "directional"].includes(actuation)) throw new Error(`unknown actuation ${actuation}`);
   if (!["pinned", "standing"].includes(support)) throw new Error(`unknown support ${support}`);
+  if (typeof centreControl !== "boolean" || !(Number.isFinite(continueSeconds) && continueSeconds > 0)) throw new Error("invalid centre control or continuation");
+  if ((centreControl || continueSeconds !== 1) && suite !== "point-strike" && suite !== "moving-strike") throw new Error("centre control and continuation require a point-strike suite");
+  if (typeof shared !== "boolean" || (shared && suite !== "point-strike" && suite !== "moving-strike")) throw new Error("shared equipment requires a point-strike suite");
   if (!Object.hasOwn(FOUNDATION.split, split)) throw new Error(`unknown split ${split}`);
   if (!Number.isSafeInteger(samples) || samples < 1 || !Number.isSafeInteger(from) || from < 0
     || from + samples > FOUNDATION.maximumSamples) throw new Error("sample range must stay within its split");
@@ -49,7 +55,7 @@ export function foundationJobs({ suite = "baseline", split = "development", samp
   if (!models.length || new Set(models).size !== models.length || models.some((m) => !BODY_MODELS.includes(m))) throw new Error("models must name distinct known bodies");
   const jobs = [];
   const add = (job) => {
-    const config = { protocol: FOUNDATION.version, split, hz, actuation, ...job };
+    const config = { protocol: FOUNDATION.version, split, hz, actuation, ...(jointStops ? { jointStops } : {}), ...job };
     jobs.push({ ...config, id: hash(config) });
   };
   if (suite === "solver") {
@@ -69,6 +75,30 @@ export function foundationJobs({ suite = "baseline", split = "development", samp
         shieldHeight: 0.25 + (fraction * 2 - 1) * 0.002, shieldSpeed: -1,
         watchSeconds: 5 / 120, sampleHz: 120,
       });
+    }
+    return jobs;
+  }
+  if (suite === "defense") {
+    for (const model of models) for (const held of ["empty", "club"]) for (let index = from; index < from + samples; index++) {
+      const seed = FOUNDATION.split[split] + index, fraction = (((seed + 1) * 2654435761) >>> 0) / 4294967296;
+      for (const hands of ["left", "right", "both"]) for (const variant of ["predict", "pose"]) add({
+        model, held, task: "defense", seed, hands, variant, offset: (fraction * 2 - 1) * 0.04,
+        angleOffset: (fraction * 2 - 1) * 0.1, watchSeconds: 10, checkpointSeconds: 2.5, sampleHz: 120,
+      });
+    }
+    return jobs;
+  }
+  if (suite === "point-strike" || suite === "moving-strike") {
+    for (const model of models) for (const held of shared ? ["club"] : ["empty", "club"]) for (let index = from; index < from + samples; index++) {
+      const seed = FOUNDATION.split[split] + index, fraction = (((seed + 1) * 2654435761) >>> 0) / 4294967296;
+      for (const hands of shared ? ["both"] : ["left", "right", "both"]) for (const miss of [false, true]) {
+        const variants = suite === "moving-strike" && !miss ? [true, false] : [true];
+        for (const tracking of variants) for (const release of shared ? [undefined, "left", "right"] : [undefined]) add({ model, held, task: "point-strike", seed, hands, miss,
+          offset: (fraction * 2 - 1) * 0.002, watchSeconds: 7 + continueSeconds, checkpointSeconds: 0.5, sampleHz: 120,
+          ...(centreControl ? { centreControl } : {}), ...(continueSeconds !== 1 ? { continueSeconds } : {}),
+          ...(shared ? { shared: release ? { release } : {} } : {}),
+          ...(suite === "moving-strike" ? { swing: { angle: (fraction * 2 - 1) * 0.12, speed: 0.7, delay: 3 * hz / 120, tracking, braking: true } } : {}) });
+      }
     }
     return jobs;
   }
@@ -273,6 +303,8 @@ export async function foundationTrial(job) {
     case "solver": return solverTrial(job);
     case "bar": return barTrial(job);
     case "support": return supportTrial(job);
+    case "point-strike": return pointStrikeTrial(job);
+    case "defense": return defenseTrial(job);
     case "unsupported": return { status: "unsupported", reason: job.capability };
     default: throw new Error(`unknown foundation task ${job.task}`);
   }
@@ -280,14 +312,28 @@ export async function foundationTrial(job) {
 
 function replayedProbe(probe, job) {
   const timings = [];
-  const state = { world: probe.world.state, ...probe.state };
-    probe.world.step(job.checkpointSeconds * job.hz);
+  const stopMeter = job.jointStops ? { steps: 0, nearSteps: 0, activeSteps: 0, rejectedSteps: 0, maxWork: 0, peakForceViolation: 0, peakAccelerationViolation: 0 } : null;
+  const sampleStops = () => {
+    if (!stopMeter) return;
+    const report = probe.body.report().stops;
+    stopMeter.steps++;
+    if (report.near) stopMeter.nearSteps++;
+    if (report.active.length) stopMeter.activeSteps++;
+    if (report.status === "rejected") stopMeter.rejectedSteps++;
+    stopMeter.maxWork = Math.max(stopMeter.maxWork, report.work);
+    stopMeter.peakForceViolation = Math.max(stopMeter.peakForceViolation, report.forceViolation);
+    stopMeter.peakAccelerationViolation = Math.max(stopMeter.peakAccelerationViolation, report.accelerationViolation);
+  };
+  const state = { world: probe.world.state, ...probe.state, ...(stopMeter ? { stopMeter } : {}) };
+    if (stopMeter) for (let i = 0; i < job.checkpointSeconds * job.hz; i++) { probe.world.step(); sampleStops(); }
+    else probe.world.step(job.checkpointSeconds * job.hz);
     const saved = { physics: probe.world.physics.save(), state: saveState(state) };
     const branch = (timed) => {
       const trace = createHash("sha256");
       while (!probe.complete && probe.world.steps < job.watchSeconds * job.hz) {
         const start = performance.now(); probe.world.step();
         if (timed) timings.push(performance.now() - start);
+        sampleStops();
         if (probe.world.steps % (job.hz / job.sampleHz) === 0) trace.update(JSON.stringify(probe.body.observe()));
       }
       return { digest: trace.digest("hex"), observation: probe.observe(), stateDigest: hash(saveState(state)) };
@@ -297,9 +343,39 @@ function replayedProbe(probe, job) {
     const replay = branch(false), replayExact = hash(replay) === hash(measured), outcome = measured.observation.task;
     timings.sort((a, b) => a - b);
     return { outcome: { ...outcome, replayExact, digest: measured.digest, stateDigest: measured.stateDigest },
-      physical: { assistForceIntegralNs: probe.body.assist.meter.force / job.hz, assistMomentIntegralNms: probe.body.assist.meter.moment / job.hz },
+      physical: { assistForceIntegralNs: probe.body.assist.meter.force / job.hz, assistMomentIntegralNms: probe.body.assist.meter.moment / job.hz, ...(stopMeter ? { stops: { ...stopMeter } } : {}) },
       timing: { meanStepMs: timings.reduce((sum, v) => sum + v, 0) / timings.length,
         p95StepMs: timings[Math.floor(timings.length * 0.95)], p99StepMs: timings[Math.floor(timings.length * 0.99)] } };
+}
+
+async function defenseTrial(job) {
+  const engine = await freshEngine(), rendering = new NullEngine(), scene = new Scene(rendering);
+  const probe = createDefenseProbe(scene, engine, job);
+  try {
+    const result = replayedProbe(probe, job), o = result.outcome;
+    const success = probe.complete && o.prepared && !o.fell && o.rejectedSteps === 0 && o.replayExact
+      && o.protectedImpulse === 0 && o.guards.every((g) => g.qualifyingContacts > 0);
+    return { status: "measured", configuration: probe.configuration, ...result, outcome: { ...o, success },
+      limits: ["gravity-driven hinged clubs; not opponent combat", "protected head and upper trunk; other contacts remain reported",
+        "summed impulses include sustained loading and are not damage", "necessary reach/time filters do not certify feasibility",
+        job.jointStops ? "local near-stop end-step prediction; no distant-impact or sliding model" : "no joint-stop reaction or sliding prediction", "allocating diagnostic dynamics path"] };
+  } finally { probe.dispose(); scene.dispose(); rendering.dispose(); }
+}
+
+async function pointStrikeTrial(job) {
+  const engine = await freshEngine(), rendering = new NullEngine(), scene = new Scene(rendering);
+  const probe = createPointStrikeProbe(scene, engine, job);
+  try {
+    const result = replayedProbe(probe, job), o = result.outcome, settings = probe.configuration.settings;
+    const success = probe.complete && !o.fell && o.rejectedSteps === 0 && o.replayExact
+      && (!job.shared || o.shared.captured >= 0 && o.shared.peakGripGap < probe.configuration.sharedSettings.gripTolerance && (job.miss || o.shared.sharedHits > 0)
+        && (!job.shared.release || o.shared.releasedAt >= 0 && o.shared.releaseContinuous))
+      && o.strikes.every((s) => s.returnError < settings.tolerance && (!job.swing || s.targetTravel > 0.1 && s.targetSpeed > 0.5) && (job.miss ? s.contacts === 0
+        : s.contacts > 0 && s.peakImpulse > 0 && s.closing > settings.closing));
+    return { status: "measured", configuration: probe.configuration, ...result, outcome: { ...o, success },
+      limits: [job.swing ? "freely swinging targets; not defense or opponent combat" : "stationary rigid targets; not defense or opponent combat", "position-only guard and return", "no damage or minimum injury-energy gate",
+        job.jointStops ? "local near-stop end-step prediction; no distant-impact or sliding model" : "no joint-stop reaction or sliding prediction", "allocating diagnostic dynamics path"] };
+  } finally { probe.dispose(); scene.dispose(); rendering.dispose(); }
 }
 
 async function supportTrial(job) {
@@ -324,13 +400,13 @@ async function barTrial(job) {
     const success = outcome.complete && outcome.captured >= 0 && outcome.captured < job.captureSeconds * job.hz
       && outcome.movedError !== null && outcome.movedError < job.trackingTolerance
       && outcome.finalError < job.trackingTolerance && outcome.peakGripGap < job.gripTolerance
-      && outcome.contactSteps > 0 && outcome.releaseContinuous && outcome.replayExact
-      && (job.support !== "standing" || (!outcome.fell && outcome.supportSteps > 0 && outcome.rejectedSteps === 0
+      && outcome.contactSteps > 0 && outcome.releaseContinuous && outcome.replayExact && outcome.rejectedSteps === 0
+      && (job.support !== "standing" || (!outcome.fell && outcome.supportSteps > 0
         && outcome.peakTension <= job.forceTolerance && outcome.peakFrictionViolation <= job.forceTolerance));
     return { status: "measured", configuration: probe.configuration, ...result,
       outcome: { ...outcome, success },
       limits: [job.support === "standing" ? "measured fixed sticking contacts; no sliding or contact acquisition model" : "pelvis pinned; not standing",
-        "not recovery or combat", "return tracks position alone", "joint-stop reactions are not predicted", "allocating diagnostic dynamics path"] };
+        "not recovery or combat", "return tracks position alone", job.jointStops ? "local near-stop end-step prediction; no distant-impact model" : "joint-stop reactions are not predicted", "allocating diagnostic dynamics path"] };
   } finally { probe.dispose(); scene.dispose(); rendering.dispose(); }
 }
 

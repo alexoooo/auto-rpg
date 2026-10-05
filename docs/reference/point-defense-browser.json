@@ -1,0 +1,264 @@
+{
+  "harness": "Visible Chromium, built control-tasks viewer, Rapier, 120 Hz, directional, zero assist",
+  "rows": [
+    {
+      "model": "workshop-fighter",
+      "hands": "left",
+      "held": "empty",
+      "seed": 0,
+      "variant": "predict",
+      "steps": 1200,
+      "replayExact": true,
+      "observationSha256": "37bad70fb724f666ca66c75c348ec111a980ee6cbebde2b2297b849bf14a788c",
+      "protectedImpulse": 0,
+      "prepared": true,
+      "fell": false,
+      "rejectedSteps": 0,
+      "guards": [
+        {
+          "closing": 1.3965265034248049,
+          "error": 0.25091957304121554,
+          "firstBlock": 386,
+          "peakImpulse": 0.26260387897491455,
+          "qualifyingContacts": 4,
+          "side": "left"
+        }
+      ],
+      "nodeExact": true
+    },
+    {
+      "model": "workshop-rogue",
+      "hands": "both",
+      "held": "club",
+      "seed": 0,
+      "variant": "predict",
+      "steps": 1200,
+      "replayExact": true,
+      "observationSha256": "a95c697bae4afcf14969316867132ed416848afe1a74f2f7315dc3213bd3f84f",
+      "protectedImpulse": 13.362609368607082,
+      "prepared": true,
+      "fell": false,
+      "rejectedSteps": 0,
+      "guards": [
+        {
+          "closing": 1.761979104839106,
+          "error": 0.19756599029870311,
+          "firstBlock": 379,
+          "peakImpulse": 1.618449091911316,
+          "qualifyingContacts": 1,
+          "side": "left"
+        },
+        {
+          "closing": 1.5722663107292072,
+          "error": 0.1545620868940972,
+          "firstBlock": 380,
+          "peakImpulse": 1.2648595571517944,
+          "qualifyingContacts": 1,
+          "side": "right"
+        }
+      ],
+      "nodeExact": true
+    },
+    {
+      "model": "crypt-skeleton",
+      "hands": "both",
+      "held": "empty",
+      "seed": 0,
+      "variant": "predict",
+      "steps": 1200,
+      "replayExact": true,
+      "observationSha256": "309e2292d334b30659e5c982f3ac151a7fcddc3c66f54f3bbb50ad020deec233",
+      "protectedImpulse": 0,
+      "prepared": true,
+      "fell": false,
+      "rejectedSteps": 0,
+      "guards": [
+        {
+          "closing": 1.1734620738005688,
+          "error": 0.16232448804427044,
+          "firstBlock": 385,
+          "peakImpulse": 0.29164934158325195,
+          "qualifyingContacts": 6,
+          "side": "left"
+        },
+        {
+          "closing": 1.3052480446496624,
+          "error": 0.1653345790836988,
+          "firstBlock": 385,
+          "peakImpulse": 0.39105695486068726,
+          "qualifyingContacts": 8,
+          "side": "right"
+        }
+      ],
+      "nodeExact": true
+    },
+    {
+      "model": "crypt-skeleton",
+      "hands": "both",
+      "held": "club",
+      "seed": 0,
+      "variant": "predict",
+      "steps": 1200,
+      "replayExact": true,
+      "observationSha256": "b3c1c7e33094c9aeffbd6dc5f8c9562809dc6645051130962ee14067328ce111",
+      "protectedImpulse": 0,
+      "prepared": true,
+      "fell": false,
+      "rejectedSteps": 0,
+      "guards": [
+        {
+          "closing": 1.6183876686918093,
+          "error": 0.15143584062834736,
+          "firstBlock": 383,
+          "peakImpulse": 0.5463260412216187,
+          "qualifyingContacts": 2,
+          "side": "left"
+        },
+        {
+          "closing": 1.6134590202830963,
+          "error": 0.13080362423510158,
+          "firstBlock": 383,
+          "peakImpulse": 0.7310613393783569,
+          "qualifyingContacts": 1,
+          "side": "right"
+        }
+      ],
+      "nodeExact": true
+    },
+    {
+      "model": "workshop-fighter",
+      "hands": "right",
+      "held": "club",
+      "seed": 1,
+      "variant": "predict",
+      "steps": 1200,
+      "replayExact": true,
+      "observationSha256": "eb5f87e07c68bb226bf3cf39839a10143b50b7a6444cdb03ff0eba1d13b6f870",
+      "protectedImpulse": 0,
+      "prepared": true,
+      "fell": false,
+      "rejectedSteps": 0,
+      "guards": [
+        {
+          "closing": 2.024534875148353,
+          "error": 0.27836687804309956,
+          "firstBlock": 381,
+          "peakImpulse": 2.7967097759246826,
+          "qualifyingContacts": 2,
+          "side": "right"
+        }
+      ],
+      "nodeExact": true
+    },
+    {
+      "model": "workshop-rogue",
+      "hands": "left",
+      "held": "empty",
+      "seed": 1,
+      "variant": "predict",
+      "steps": 1200,
+      "replayExact": true,
+      "observationSha256": "585a87343ad5f1493d0946267ae3322771710e75f496c74bc3d919451d1bd0fa",
+      "protectedImpulse": 0,
+      "prepared": true,
+      "fell": false,
+      "rejectedSteps": 0,
+      "guards": [
+        {
+          "closing": 1.2144752558697367,
+          "error": 0.22910817260689895,
+          "firstBlock": 381,
+          "peakImpulse": 0.23446454107761383,
+          "qualifyingContacts": 4,
+          "side": "left"
+        }
+      ],
+      "nodeExact": true
+    },
+    {
+      "model": "crypt-skeleton",
+      "hands": "left",
+      "held": "empty",
+      "seed": 0,
+      "variant": "predict",
+      "steps": 1200,
+      "replayExact": true,
+      "observationSha256": "205b2ba12c68a1118019b6ff3c57d824c9c5ce8ef44670765a2621dceab5cdd3",
+      "protectedImpulse": 11.774942765754531,
+      "prepared": true,
+      "fell": false,
+      "rejectedSteps": 0,
+      "guards": [
+        {
+          "closing": 1.6603248137849036,
+          "error": 0.25886295337611354,
+          "firstBlock": 386,
+          "peakImpulse": 0.4616398215293884,
+          "qualifyingContacts": 8,
+          "side": "left"
+        }
+      ],
+      "nodeExact": true
+    },
+    {
+      "model": "workshop-fighter",
+      "hands": "left",
+      "held": "empty",
+      "seed": 0,
+      "variant": "pose",
+      "steps": 1200,
+      "replayExact": true,
+      "observationSha256": "02fc370ca8ce116bf27b9e07be0134eb3cacf34ff87766c66652d8bc2ed2e9ef",
+      "protectedImpulse": 26.30725180916488,
+      "prepared": true,
+      "fell": false,
+      "rejectedSteps": 0,
+      "guards": [
+        {
+          "closing": 0,
+          "error": 0.0011569108150263395,
+          "firstBlock": -1,
+          "peakImpulse": 0,
+          "qualifyingContacts": 0,
+          "side": "left"
+        }
+      ],
+      "nodeExact": true
+    },
+    {
+      "model": "workshop-fighter",
+      "hands": "both",
+      "held": "club",
+      "seed": 1,
+      "variant": "predict",
+      "steps": 1200,
+      "replayExact": true,
+      "observationSha256": "a153f8ef307c4433c04d6ed96d729ad417378381ce9bfc008f7e9916aa1d01e6",
+      "protectedImpulse": 11.473383795601876,
+      "prepared": true,
+      "fell": false,
+      "rejectedSteps": 0,
+      "guards": [
+        {
+          "closing": 1.7262169616388294,
+          "error": 0.12860815895198094,
+          "firstBlock": 378,
+          "peakImpulse": 1.0823689699172974,
+          "qualifyingContacts": 2,
+          "side": "left"
+        },
+        {
+          "closing": 1.878937804082637,
+          "error": 0.1874109767042701,
+          "firstBlock": 378,
+          "peakImpulse": 1.824249267578125,
+          "qualifyingContacts": 2,
+          "side": "right"
+        }
+      ],
+      "nodeExact": true
+    }
+  ],
+  "sourceContent": "05c78e3c2739f371775a98426a4bc574f249d7f825dcb4da2e9292ec7992fb8d",
+  "manifestSha256": "b90e069f474659f80452712591c303de11f996660cf1d666b60476681e060352"
+}

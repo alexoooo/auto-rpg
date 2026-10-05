@@ -5,12 +5,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import { anglesOf, jointTracker, motionAxesToRef, ratesToRef, relativeRotationToRef, rotationOfToRef, turningToRef } from "../src/core/build/joint-state.ts";
+import { anglesOf, jointTracker, motionAxesToRef, ratesToRef, rateBiasToRef, relativeRotationToRef, rotationOfToRef, turningToRef } from "../src/core/build/joint-state.ts";
 import { servo } from "../src/core/control/servo.ts";
 import { humanSpec } from "../src/core/human/spec.ts";
 import { driveMuscles } from "../src/core/muscle/driver.ts";
 import { sourced } from "../src/core/spec/quantity.ts";
-import { coreStand } from "./harness/core-stand.mjs";
+import { coreStand, CORE_ENGINE } from "./harness/core-stand.mjs";
 
 const q = (value, unit = "m") => sourced(value, unit, "de-leva-1996", "a stand-in leaf for the joint-state tests");
 
@@ -87,6 +87,40 @@ test("a joint's speeds are its angles' rates turned through where it stands, and
   assert.ok(worst < 1e-4, `turning, rates and motion axes against the composed rotation: ${worst} rad/s off`);
 });
 
+test("angle acceleration includes the changing speed-to-rate map on one, two and three axes", (t) => {
+  const h = 1e-4, axes = { x: X, y: Y, z: Z };
+  let worst = 0, omitted = 0;
+  for (const count of [1, 2, 3]) for (const signs of [[1, 1, 1], [-1, 1, -1]]) {
+    const joint = { axes, dofs: signs.slice(0, count).map((sign) => ({ sign })) };
+    for (const pose of [[0.7, -0.4, 0.8], [2.2, -1.2, 1.5], [-2, 1.3, -2.2]]) {
+      const rates = [2, -3, 4], accelerations = [-0.4, 0.6, -0.2];
+      const orientation = (time) => {
+        const tangent = pose.map((a, k) => k < count ? Math.tan(signs[k] * (a + rates[k] * time + accelerations[k] * time * time / 2) / 2) : 0);
+        const w = 1 / Math.sqrt(1 + tangent.reduce((sum, v) => sum + v * v, 0));
+        const p = [0, 1, 2].map((k) => [X, Y, Z].reduce((sum, axis, j) => sum + axis[k] * tangent[j] * w, 0));
+        return new Quaternion(...p, w);
+      };
+      const speedsAt = (time) => {
+        const turn = orientation(time + h).multiply(Quaternion.Inverse(orientation(time - h)));
+        const length = Math.hypot(turn.x, turn.y, turn.z), scale = 2 * Math.atan2(length, turn.w) / (length * 2 * h);
+        const spin = [turn.x * scale, turn.y * scale, turn.z * scale];
+        return [X, Y, Z].slice(0, count).map((axis, k) => signs[k] * dot(axis, spin));
+      };
+      const speeds = speedsAt(0), before = speedsAt(-h), after = speedsAt(h);
+      const changing = after.map((v, k) => (v - before[k]) / (2 * h));
+      const mapped = ratesToRef(joint, pose, changing, []), bias = rateBiasToRef(joint, pose, speeds, []);
+      mapped.forEach((value, k) => {
+        worst = Math.max(worst, Math.abs(value + bias[k] - accelerations[k]));
+        omitted = Math.max(omitted, Math.abs(value - accelerations[k]));
+      });
+      assert.ok(rateBiasToRef(joint, pose, new Array(count).fill(0), []).every((v) => v === 0));
+    }
+  }
+  t.diagnostic(JSON.stringify({ worst, omitted }));
+  assert.ok(worst < 1e-4, `mapped speed acceleration plus coordinate bias: ${worst}`);
+  assert.ok(omitted > 1, "the fixture must distinguish omitting the coordinate bias");
+});
+
 function rods(dofs) {
   const segment = (name, proximal, distal, mass) => ({
     name, proximal: q(proximal), distal: q(distal), mass: q(mass, "kg"),
@@ -108,7 +142,7 @@ function rods(dofs) {
  * axis), one freedom limited to +-`limit` rad and the others free to +-3.1, weightless, servoed
  * toward `goal` over 1.5 s and held a second more at 480 Hz: the angles it ends at.
  */
-async function pressed(limited, limit, goal) {
+async function pressed(limited, limit, goal, { engine = CORE_ENGINE, centre = 0, hz = 480 } = {}) {
   const shoulder = humanSpec("workshop-rogue").joints.find((j) => j.name === "shoulder.right"), c0 = shoulder.centre.value;
   const speed = { unloadedSpeed: q(60, "rad/s"), curvature: q(0.25, "1"), eccentricCeiling: q(1.4, "1"), eccentricSlopeRatio: q(2, "1") };
   const segment = (name, p, d, mass) => ({ name, proximal: q(p), distal: q(d), mass: q(mass, "kg"), centreOfMass: q(p.map((v, i) => (v + d[i]) / 2)),
@@ -116,9 +150,9 @@ async function pressed(limited, limit, goal) {
   const spec = { family: "test", model: "rods", mass: q(3, "kg"), stature: q(1.5),
     segments: [segment("post", [c0[0], c0[1] + 0.4, c0[2]], c0, 2), segment("arm", c0, [c0[0] + 0.05, c0[1] - 0.3, c0[2]], 1)],
     joints: [{ name: "shoulder", parent: "post", child: "arm", centre: q(c0),
-      dofs: shoulder.dofs.map((dof, k) => ({ ...dof, min: q(k === limited ? -limit : -3.1, "rad"), max: q(k === limited ? limit : 3.1, "rad"),
+      dofs: shoulder.dofs.map((dof, k) => ({ ...dof, min: q(k === limited ? centre - limit : -3.1, "rad"), max: q(k === limited ? centre + limit : 3.1, "rad"),
         muscle: { peakPositive: q(100, "N m"), peakNegative: q(100, "N m"), speedPositive: speed, speedNegative: speed } })) }] };
-  const stand = await coreStand(spec, { ground: false, pinned: "post", gravity: false, hz: 480 });
+  const stand = await coreStand(spec, { ground: false, pinned: "post", gravity: false, hz, engine });
   let time = 0;
   const driver = driveMuscles(stand.built, stand.world, (d, dt) => {
     time += dt;
@@ -142,7 +176,8 @@ async function pressed(limited, limit, goal) {
  * (`ratesToRef`), so the other freedoms' turning carries the limited angle past its stop while the
  * limit sees no motion.
  */
-test("a joint pressed against its limit stops where its reading says the range ends", { todo: "Rapier's limit pushes along the parent's axis, not the angle's gradient, so a freedom turned off its axes passes its limit" }, async () => {
+for (const engineName of ["rapier", "rapier-coordinate"]) test(`${engineName}: a joint pressed against its limit stops where its reading says the range ends`,
+  { todo: engineName === "rapier" ? "parent-axis limits remain the gameplay reference pending controller migration" : false }, async (t) => {
   const limit = 0.6;
   let stopped = 0, euler = 0, reached = 0;
   for (const limited of [0, 1, 2]) {
@@ -150,7 +185,7 @@ test("a joint pressed against its limit stops where its reading says the range e
     for (const other of [0, 1.4]) for (const sense of [1, -1]) {
       const goal = [0, 0, 0];
       goal[limited] = 1.2 * sense; goal[others[0]] = other; goal[others[1]] = -0.6 * other;
-      const got = await pressed(limited, limit, goal);
+      const got = await pressed(limited, limit, goal, { engine: engineName });
       stopped = Math.max(stopped, Math.abs(Math.abs(got[limited]) - limit));
       // The Euler angle of the same pose, the Rogue's third freedom running against its axis.
       const engine = got.map((v, k) => (k === 2 ? -v : v)), rotation = rotationOfToRef({ x: [1, 0, 0], y: [0, 1, 0], z: [0, 0, 1] }, ...engine, new Quaternion());
@@ -158,14 +193,29 @@ test("a joint pressed against its limit stops where its reading says the range e
       euler = Math.max(euler, Math.abs(Math.abs(eulerAngles[limited]) - limit));
       goal[limited] = 0.5 * sense;
       if (sense > 0 && other > 0) {
-        const within = await pressed(limited, limit, goal);
+        const within = await pressed(limited, limit, goal, { engine: engineName });
         reached = Math.max(reached, ...within.map((v, k) => Math.abs(v - goal[k])));
       }
     }
   }
+  t.diagnostic(JSON.stringify({ engine: engineName, stopped, euler, reached }));
   assert.ok(euler > 0.3, `the Euler angles would read these stops at the limit too: ${euler}`);
   assert.ok(stopped < 0.015, `a freedom stopped ${stopped} rad off its limit`);
   assert.ok(reached < 0.012, `a pose within the limit was missed by ${reached} rad`);
+});
+
+test("coordinate limits stop at asymmetric bounds at gameplay and fine rates", async (t) => {
+  const rows = [];
+  for (const engine of ["rapier", "rapier-coordinate"]) for (const hz of [120, 480]) for (const centre of [-0.4, 0.4]) for (const limited of [0, 1, 2]) for (const sense of [-1, 1]) {
+    const others = [0, 1, 2].filter((k) => k !== limited), goal = [0, 0, 0];
+    goal[limited] = centre + 1.2 * sense; goal[others[0]] = 1.4; goal[others[1]] = -0.84;
+    const got = await pressed(limited, 0.6, goal, { engine, centre, hz });
+    rows.push({ engine, hz, centre, limited, sense, got, error: Math.abs(got[limited] - (centre + 0.6 * sense)) });
+  }
+  t.diagnostic(JSON.stringify(rows));
+  const corrected = rows.filter((row) => row.engine === "rapier-coordinate");
+  assert.equal(rows.length, 48); assert.equal(corrected.length, 24);
+  assert.ok(corrected.every((row) => row.error < 0.015), JSON.stringify(rows));
 });
 
 /** The Euler angles (a, b, c) of `rotation` = Rx(a) Ry(b) Rz(c) about the world's axes. */

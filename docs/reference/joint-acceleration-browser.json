@@ -1,0 +1,226 @@
+{
+  "harness": "Visible Chromium, built shared task viewer, Rapier .4 / adapter 5, 120 Hz, directional, zero assist",
+  "readings": "Strike metrics parsed from raw DOM JSON text to preserve binary64 round trips across the tool transport",
+  "rows": [
+    {
+      "model": "crypt-skeleton",
+      "hands": "left",
+      "held": "empty",
+      "seed": 0,
+      "variant": "predict",
+      "task": "defense",
+      "steps": 1200,
+      "replayExact": true,
+      "observationSha256": "f67602b4649ca9afa3ee2259102927c3a7496573fd82b7b54be9df844251d1cb",
+      "protectedImpulse": 0,
+      "nodeExact": true,
+      "manifestSha256": "6e12b54e238b30fe85ba731b14c652cfedcf78b44f22752c91ba2a0462505fd6"
+    },
+    {
+      "model": "workshop-rogue",
+      "hands": "both",
+      "held": "club",
+      "seed": 0,
+      "variant": "predict",
+      "task": "defense",
+      "steps": 1200,
+      "replayExact": true,
+      "observationSha256": "b8e137bfce031349aa7d58c0d6d58a1a39e59ba16cb6b29c47f2bc9cfb05aa30",
+      "protectedImpulse": 11.922227428810857,
+      "nodeExact": true,
+      "manifestSha256": "6e12b54e238b30fe85ba731b14c652cfedcf78b44f22752c91ba2a0462505fd6"
+    },
+    {
+      "model": "workshop-fighter",
+      "hands": "both",
+      "held": "club",
+      "seed": 1,
+      "variant": "predict",
+      "task": "defense",
+      "steps": 1200,
+      "replayExact": true,
+      "observationSha256": "7b0ee63aef4212e4ddb78a74c05f1a6b6cabdd268035df94448d8c8692293e37",
+      "protectedImpulse": 13.03534988980391,
+      "nodeExact": true,
+      "manifestSha256": "6e12b54e238b30fe85ba731b14c652cfedcf78b44f22752c91ba2a0462505fd6"
+    },
+    {
+      "model": "workshop-fighter",
+      "hands": "left",
+      "held": "empty",
+      "seed": 0,
+      "variant": "pose",
+      "task": "defense",
+      "steps": 1200,
+      "replayExact": true,
+      "observationSha256": "27e67f7f7f34e1cd25c1e1be6bca500065b1cabafe8467315c010e24543945f0",
+      "protectedImpulse": 26.310973197221756,
+      "nodeExact": true,
+      "manifestSha256": "6e12b54e238b30fe85ba731b14c652cfedcf78b44f22752c91ba2a0462505fd6"
+    },
+    {
+      "model": "crypt-skeleton",
+      "hands": "both",
+      "held": "club",
+      "seed": 1,
+      "variant": "predict",
+      "task": "defense",
+      "steps": 1200,
+      "replayExact": true,
+      "observationSha256": "c9c118ef43b74ff4cd079d22ef69c9b4b40ae99a8525fbe3ece13f74e357e0d0",
+      "protectedImpulse": 0,
+      "nodeExact": true,
+      "manifestSha256": "6e12b54e238b30fe85ba731b14c652cfedcf78b44f22752c91ba2a0462505fd6"
+    },
+    {
+      "model": "workshop-fighter",
+      "hands": "right",
+      "held": "empty",
+      "seed": 0,
+      "miss": false,
+      "tracking": true,
+      "task": "point-strike",
+      "steps": 1557,
+      "replayExact": true,
+      "observationSha256": "7579e491214c097422122157c3c1221155edac7143fa20a38cc313e32447b096",
+      "fell": false,
+      "rejectedSteps": 0,
+      "strikes": [
+        {
+          "side": "right",
+          "contacts": 1,
+          "peakImpulse": 2.1780158281326294,
+          "closing": 1.5980810723947687,
+          "firstHit": 150,
+          "returnError": 0.004132656486903579,
+          "targetTravel": 0.22313045699801298,
+          "targetSpeed": 0.7008363103465817,
+          "firstTargetContact": 150
+        }
+      ],
+      "nodeExact": true,
+      "manifestSha256": "55d31e94c9114c9300152660f94c6f4c78f02e785d1f1d0cdfef6e0b788cd2d4"
+    },
+    {
+      "model": "crypt-skeleton",
+      "hands": "both",
+      "held": "club",
+      "seed": 0,
+      "miss": false,
+      "tracking": true,
+      "task": "point-strike",
+      "steps": 1577,
+      "replayExact": true,
+      "observationSha256": "c67450ac0145e9079b41814fc66a3b52a404d0a005593b2cc336a87585b8d5ef",
+      "fell": false,
+      "rejectedSteps": 0,
+      "strikes": [
+        {
+          "side": "left",
+          "contacts": 1,
+          "peakImpulse": 0.10412982851266861,
+          "closing": 0.12338031336306113,
+          "firstHit": 192,
+          "returnError": 0.01333432610914943,
+          "targetTravel": 0.22313030798640102,
+          "targetSpeed": 0.7008345818524078,
+          "firstTargetContact": 192
+        },
+        {
+          "side": "right",
+          "contacts": 1,
+          "peakImpulse": 1.0104675143957138,
+          "closing": 0.8369992322441367,
+          "firstHit": 158,
+          "returnError": 0.006359359867064397,
+          "targetTravel": 0.22313057620730253,
+          "targetSpeed": 0.7008364293764457,
+          "firstTargetContact": 158
+        }
+      ],
+      "nodeExact": true,
+      "manifestSha256": "55d31e94c9114c9300152660f94c6f4c78f02e785d1f1d0cdfef6e0b788cd2d4"
+    },
+    {
+      "model": "crypt-skeleton",
+      "hands": "both",
+      "held": "empty",
+      "seed": 1,
+      "miss": false,
+      "tracking": null,
+      "task": "point-strike",
+      "steps": 1544,
+      "replayExact": true,
+      "observationSha256": "21f74565e86090dc7dea019ce132f056cef4e9766d95674a2df3e0ed4e65d2c0",
+      "fell": false,
+      "rejectedSteps": 0,
+      "strikes": [
+        {
+          "side": "left",
+          "contacts": 1,
+          "peakImpulse": 6.451884746551514,
+          "closing": 1.6391398394200891,
+          "firstHit": 137,
+          "returnError": 0.0037924489188122775,
+          "targetTravel": 0,
+          "targetSpeed": 0,
+          "firstTargetContact": -1
+        },
+        {
+          "side": "right",
+          "contacts": 2,
+          "peakImpulse": 6.43531346321106,
+          "closing": 1.6447834360259757,
+          "firstHit": 137,
+          "returnError": 0.003788785911892606,
+          "targetTravel": 0,
+          "targetSpeed": 0,
+          "firstTargetContact": -1
+        }
+      ],
+      "nodeExact": true,
+      "manifestSha256": "eb5072fff29244678f2c46b3d9362854b737c2d8dd612252f9c6bcc6bbfeff25"
+    },
+    {
+      "model": "workshop-rogue",
+      "hands": "both",
+      "held": "club",
+      "seed": 1,
+      "miss": true,
+      "tracking": true,
+      "task": "point-strike",
+      "steps": 1635,
+      "replayExact": true,
+      "observationSha256": "9328849277cd9d1e19c1fe2368dd3244481126ca79266fda2e419b74ed1b3759",
+      "fell": false,
+      "rejectedSteps": 0,
+      "strikes": [
+        {
+          "side": "left",
+          "contacts": 0,
+          "peakImpulse": 0,
+          "closing": 0,
+          "firstHit": -1,
+          "returnError": 0.0015845434840199993,
+          "targetTravel": 0.23009406721405684,
+          "targetSpeed": 0.7230364945488488,
+          "firstTargetContact": -1
+        },
+        {
+          "side": "right",
+          "contacts": 0,
+          "peakImpulse": 0,
+          "closing": 0,
+          "firstHit": -1,
+          "returnError": 0.0016007058076954594,
+          "targetTravel": 0.23009405603818595,
+          "targetSpeed": 0.7230361964130028,
+          "firstTargetContact": -1
+        }
+      ],
+      "nodeExact": true,
+      "manifestSha256": "55d31e94c9114c9300152660f94c6f4c78f02e785d1f1d0cdfef6e0b788cd2d4"
+    }
+  ],
+  "sourceContent": "5deb835bbaa05ca39fa3d7e298c9971d5bb43d6919172d0f41a36365b3d86467"
+}

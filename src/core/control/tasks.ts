@@ -6,7 +6,11 @@ import { deepFreeze } from "../state.ts";
 type MotionFrame = { readonly kind: "segment"; readonly name: string } | { readonly kind: "item"; readonly id: string };
 
 interface Feedback { readonly seconds: number; readonly weight: number }
-interface VectorGoal extends Feedback { readonly target: Vec3; readonly velocity: Vec3; readonly acceleration: Vec3 }
+interface VectorGoal extends Feedback {
+  readonly target: Vec3; readonly velocity: Vec3; readonly acceleration: Vec3;
+  /** World components to track; omitted means all three. */
+  readonly axes?: readonly ("x" | "y" | "z")[];
+}
 interface RotationGoal extends Feedback {
   readonly target: readonly [number, number, number, number];
   /** World angular velocity and acceleration. */
@@ -27,8 +31,24 @@ export interface MotionCommand {
     readonly orientation?: RotationGoal;
   }[];
   readonly grips: readonly GripAction[];
+  /** Mass-weighted centres of explicitly selected physical frames, each counted once. */
+  readonly centres?: readonly { readonly id: string; readonly frames: readonly MotionFrame[]; readonly translation: VectorGoal }[];
   /** Desired support is separate from contact: free frames may still physically touch. */
   readonly supports?: readonly { readonly frame: MotionFrame; readonly mode: "auto" | "free" }[];
+}
+
+/** World component indices shared by validation and the acceleration tracker. */
+export function motionAxes(axes?: readonly ("x" | "y" | "z")[]): readonly number[] {
+  if (axes === undefined) return [0, 1, 2];
+  if (!Array.isArray(axes) || !axes.length || new Set(axes).size !== axes.length) throw new Error("invalid motion axes");
+  return axes.map((axis: "x" | "y" | "z") => {
+    switch (axis) {
+      case "x": return 0;
+      case "y": return 1;
+      case "z": return 2;
+      default: { const never: never = axis; throw new Error(`invalid motion axis ${never}`); }
+    }
+  });
 }
 
 export interface MotionModel {
@@ -57,6 +77,11 @@ export function checkedMotionCommand(command: MotionCommand, model: MotionModel)
     if (!finite(goal.seconds) || goal.seconds <= 0 || !finite(goal.weight) || goal.weight <= 0) throw new Error("invalid motion feedback");
     return { seconds: goal.seconds, weight: goal.weight };
   };
+  const translationOf = (goal: VectorGoal): VectorGoal => {
+    motionAxes(goal.axes);
+    return { target: vector(goal.target), velocity: vector(goal.velocity), acceleration: vector(goal.acceleration),
+      ...feedback(goal), ...(goal.axes ? { axes: [...goal.axes] } : {}) };
+  };
   const channels = new Set<string>(), frames = new Set<string>();
   const joints = command.joints.map((goal) => {
     const channel = model.channels.find((c) => c.name === goal.channel);
@@ -69,8 +94,7 @@ export function checkedMotionCommand(command: MotionCommand, model: MotionModel)
     const key = motionFrameKey(goal.frame);
     if (typeof goal.id !== "string" || !goal.id || frames.has(goal.id) || !model.frames.some((f) => motionFrameKey(f) === key) || (!goal.translation && !goal.orientation)) throw new Error("invalid motion frame goal");
     frames.add(goal.id);
-    const translation = goal.translation ? { target: vector(goal.translation.target), velocity: vector(goal.translation.velocity),
-      acceleration: vector(goal.translation.acceleration), ...feedback(goal.translation) } : undefined;
+    const translation = goal.translation ? translationOf(goal.translation) : undefined;
     let orientation: RotationGoal | undefined;
     if (goal.orientation) {
       const g = goal.orientation, q = g.target;
@@ -82,6 +106,18 @@ export function checkedMotionCommand(command: MotionCommand, model: MotionModel)
     }
     return { id: goal.id, frame: { ...goal.frame }, at: vector(goal.at), ...(translation ? { translation } : {}), ...(orientation ? { orientation } : {}) };
   });
+  if (command.centres !== undefined && !Array.isArray(command.centres)) throw new Error("invalid motion centres");
+  const centres = command.centres?.map((goal) => {
+    if (typeof goal.id !== "string" || !goal.id || frames.has(goal.id) || !Array.isArray(goal.frames) || !goal.frames.length) throw new Error("invalid motion centre goal");
+    frames.add(goal.id);
+    const members = new Set<string>();
+    for (const frame of goal.frames) {
+      const key = motionFrameKey(frame);
+      if (members.has(key) || !model.frames.some((f) => motionFrameKey(f) === key)) throw new Error("invalid motion centre membership");
+      members.add(key);
+    }
+    return { id: goal.id, frames: goal.frames.map((f: MotionFrame) => ({ ...f })), translation: translationOf(goal.translation) };
+  });
   if (command.supports !== undefined && !Array.isArray(command.supports)) throw new Error("invalid support requests");
   const requested = new Set<string>();
   const supports = command.supports?.map((s) => {
@@ -89,5 +125,6 @@ export function checkedMotionCommand(command: MotionCommand, model: MotionModel)
     if (requested.has(key) || !model.frames.some((f) => motionFrameKey(f) === key) || (s.mode !== "auto" && s.mode !== "free")) throw new Error("invalid support request");
     requested.add(key); return { frame: { ...s.frame }, mode: s.mode };
   });
-  return deepFreeze({ joints, frames: goals, grips: command.grips.map((g) => ({ ...g })), ...(supports ? { supports } : {}) });
+  return deepFreeze({ joints, frames: goals, grips: command.grips.map((g) => ({ ...g })),
+    ...(centres ? { centres } : {}), ...(supports ? { supports } : {}) });
 }

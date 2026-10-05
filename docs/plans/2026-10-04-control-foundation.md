@@ -125,6 +125,12 @@ forward before completing chunk 1(c)'s default migration. This is a dependency c
 passed recovery gate. Later task
 fixtures extend this same runner rather than replacing its baseline.
 
+The [angular-limit correction](../reference/joint-limits.md) is available explicitly as
+`rapier-coordinate`, with mandatory mechanical and replay checks. Its unconditional screen
+breaks existing defense, standing-bar and recovery behavior, so gameplay retains parent-axis
+limits. Retune and measure the reference controller under corrected limits before default
+migration; tables measured on the parent-axis configuration do not satisfy that gate.
+
 Paths marked **new** are proposed modules/scripts, not existing capabilities. Each numbered chunk
 may take the listed smaller commits. Every commit passes the common checks below. Keep experimental
 choices in immutable configuration outside environment variables in the core. A failed technique
@@ -201,6 +207,11 @@ support correction remain to be implemented and measured.
 The model now accepts explicit motion rows and reports their equivalent reaction loads, with
 redundancy and release checks. This lets a controller inspect tensile or excessive-friction
 predictions; choosing admissible contact modes remains open.
+Optional material-acceleration targets now distinguish rolling from a fixed material pivot.
+The [rolling-contact stand](../reference/contact-curvature.md) removes a fictitious downward
+acceleration on spheres and capsules and isolates a separate cached-contact-point error.
+The reference tracker has not adopted the correction: current support geometry, capsule
+contact modes and the anatomical recovery remeasurement are the next integration requirements.
 
 `math/quadratic.ts` supplies a deterministic constrained-quadratic component for that combined
 solve, with explicit warm-start state, fixed iteration budgets and residual reports. Analytic
@@ -224,19 +235,65 @@ An optional [contact force redistribution](../reference/contact-distribution.md)
 artificial tension while preserving each contacted body's wrench. Its isolated force-allocation
 and save/restore tests pass; it is not enabled in the measured reference tasks and does not
 establish a recovery improvement.
-General support transitions, joint-stop prediction, hot-path optimization and recovery/combat
-integration remain required. The allocating experimental tracker is not the game's default.
+Optional [near-stop prediction](../reference/joint-stop-tracking.md) supplies local unilateral
+reaction selection and end-step effort bounds. Its single-joint regression verifies pressing
+and releasing either loaded limit through bounded actuators. Its corrected-profile development
+comparison improves shared static/moving strikes to 34/36 and 51/54, but bar and defense
+regressions keep it optional. All 348 comparison rows replay. General support transitions,
+stop-aware planning, hot-path optimization and recovery/combat integration remain required. The allocating experimental tracker is not the game's default.
 
 The [upright support task](../reference/support-transition.md) now transfers load, lifts either
 foot, verifies placement contact and regains two-foot support on all three bodies in the
 zero-offset regression. Readiness is measured, policy state replays, and the task checks another
 second of control. This is a shallow empty-handed task; loaded transitions, stepping, recovery,
 joint-stop-aware planning and the integrated gameplay gates remain open. The bar fixture's
-position-only return now uses measured readiness within the existing deadline and tolerance.
+position-only return uses measured readiness within the existing deadline and tolerance. Its
+[captured arm posture](../reference/bar-posture.md) reduces the largest return error in both
+Rapier-profile development screens, which each retain 12/12 successes. Near-stop prediction
+is available as a separate experimental configuration; complete task reliability and
+corrected-limit gameplay migration remain open.
 The built `/control-tasks.html` viewer runs those same builders and draws separate equipment
 through release. [Twelve browser cells](../reference/control-tasks-browser.md) match Node's
 observation hashes and replay their policy/task state. This closes the visual/replay checks for
 these controlled demonstrations, not the recovery or opponent-combat gates.
+
+The [point-space strike](../reference/point-strike.md) reference now supplies measured guard
+readiness, a quintic strike, follow-through and return from the observed point. The same policy
+addresses named segment/item points, either hand or independent items. The physical fixture
+scores closing contact against its intended collider and includes deliberate misses, continued
+standing and replay. The shared viewer exposes it. The motion host also accepts delayed external
+senses. The [moving-target variant](../reference/moving-strike.md) adds detached delayed object
+measurements, constant-velocity point prediction and optional per-effector impact braking.
+The shared fixture and runner compare tracked and fixed aim against freely swinging targets,
+with relative contact-velocity scoring. The [shared-item variant](../reference/shared-strike.md)
+physically captures a second grip, strikes with both hands and optionally releases either hand
+for return. Its static extended development screen passes 28/36: all human trials pass, while
+eight skeleton returns exceed the unchanged error tolerance. The moving shared screen passes
+40/54, again with only skeleton return failures. All stay upright and replay.
+Shared-item reliability and defense remain open; isolated target contact alone does not close
+the strike/block gate.
+
+The optional [interception reference and defense fixture](../reference/point-defense.md) now
+use measured point acceleration, explicit reach/time filters and contact bracing. The shared
+runner and viewer compare it with pose-only defense against gravity-driven hinged clubs. The
+development gate with corrected joint-angle acceleration passes 33/36 predicted starts and 0/36 pose starts; three post-block coverage
+failures remain. All trials prepare, stay upright, avoid rejected solves and replay. Initial
+blocking is demonstrated, but sustained protection across starts, shared-item defense and
+coordinated attack/guard remain open. The held-out split is still unused.
+
+The optional motion interface also supplies [centre objectives](../reference/centre-control.md)
+over explicit mass-weighted groups, and selected world axes for translation. The standing
+strike fixture can control horizontal combined centre separately from root height and continue
+for ten seconds after return. Mechanical conservation, unequal-mass tracking, command validation
+and replay are tested independently of the strike's success score. This does not supply support
+planning or recovery.
+
+The [joint-acceleration correction](../reference/joint-acceleration.md) includes the changing
+motor-speed-to-angle-rate map in joint objectives. Quaternion trajectories and a physical
+bounded-actuator rotor distinguish the missing term. This corrects the optional tracker without
+changing anatomy or actuator limits. The [measured joint-coordinate primitive](../reference/joint-coordinate.md)
+supplies world motion rows and their curvature, with finite-rotation and loaded/released hinge
+checks. Consistent unilateral stop selection, whole-body adoption and recovery remain open.
 
 ### 0. Define the common task battery and baseline
 

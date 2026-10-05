@@ -117,7 +117,11 @@ export function coupledDynamics(built: BuiltBody, gravity: Vec3, items: readonly
 
   return {
     channels: count,
-    update(motionRows: readonly MotionConstraint[] = []): void {
+    /** Additional rows may request nonzero material-point acceleration, such as a rolling curved surface. */
+    update(motionRows: readonly MotionConstraint[] = [], accelerationTargets?: readonly number[]): void {
+      if (accelerationTargets && (accelerationTargets.length !== motionRows.length || !Array.from(accelerationTargets).every(Number.isFinite))) {
+        throw new Error("motion constraints require one finite acceleration target per row");
+      }
       ready = false; basis.length = 0; targets.length = 0; drift.clear(); centres.clear();
       for (const s of segments) s.body.angularVelocityToRef(spins.get(s)!);
       tree.update(joints.map((joint) => jointAngles(joint)), { spin: (s) => spins.get(s)! });
@@ -170,12 +174,16 @@ export function coupledDynamics(built: BuiltBody, gravity: Vec3, items: readonly
         // A fixed body's three translations and three spins are explicit external constraints.
         for (const axis of XYZ) rows.push([{ body, point: at, linear: axis, angular: ZERO }], [{ body, point: at, linear: ZERO, angular: axis }]);
       }
+      const externalStart = rows.length;
       rows.push(...motionRows);
       reactionConstraints = rows.map((row) => row.map((e) => ({ body: e.body, point: [...e.point] as Vec3,
         linear: [...e.linear] as Vec3, angular: [...e.angular] as Vec3 })));
-      constraints = rows.map((entries) => ({ row: rowOf(entries), target: -entries.reduce((sum, e) => {
-        const d = driftAt(e.body, e.point); return sum + dot(e.linear, d.linear) + dot(e.angular, d.angular);
-      }, 0) }));
+      constraints = rows.map((entries, index) => {
+        const bias = entries.reduce((sum, e) => {
+          const d = driftAt(e.body, e.point); return sum + dot(e.linear, d.linear) + dot(e.angular, d.angular);
+        }, 0);
+        return { row: rowOf(entries), target: index >= externalStart && accelerationTargets ? accelerationTargets[index - externalStart]! - bias : -bias };
+      });
       const whitened = constraints.map((c) => forward(c.row));
       basis.push(...constraintBasis(whitened, RANK_TOLERANCE));
       // Redundant rows can have slightly inconsistent acceleration targets because the engine's
@@ -230,6 +238,13 @@ export function coupledDynamics(built: BuiltBody, gravity: Vec3, items: readonly
           force: e.linear.map((v) => v * multiplier) as unknown as Vec3,
           moment: e.angular.map((v) => v * multiplier) as unknown as Vec3 })) };
       });
+    },
+    /** A detached acceleration row and its velocity bias at the current model pose. */
+    motionRow(entries: MotionConstraint) {
+      requireReady();
+      return { coefficients: rowOf(entries), bias: entries.reduce((sum, e) => {
+        const d = driftAt(e.body, e.point); return sum + dot(e.linear, d.linear) + dot(e.angular, d.angular);
+      }, 0) };
     },
     pointAcceleration(body: SegmentBody, at: Vec3, acceleration: ArrayLike<number>) {
       requireReady();

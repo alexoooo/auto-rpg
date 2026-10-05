@@ -34,9 +34,37 @@ shared two-handed items are its capability gates; the reference control stack re
 The vendored engine, detached policy interface, replayable environments and
 [equipment tracking](reference/motion-tracking.md), measured sticking support and an
 [upright foot-transfer task](reference/support-transition.md) are implemented experimentally.
+The shared bar uses a [measured captured posture](reference/bar-posture.md) for return; both
+Rapier profiles retain 12/12 development successes, with smaller overall maximum return errors.
+The [point-space strike fixture](reference/point-strike.md) adds static contacts and return after
+misses with either hand or independent clubs, through the same optional motion interface.
+The [moving variant](reference/moving-strike.md) adds delayed object sensing, point prediction
+and per-effector impact braking against freely swinging physical targets.
+Optional [combined-centre objectives](reference/centre-control.md) separate horizontal balance
+from root height and let strike trials watch ten seconds beyond measured return.
+The [shared-item strike task](reference/shared-strike.md) adds physical second-grip acquisition
+and either-hand release. Its extended static screen passes 28/36; all human trials pass, while
+eight skeleton returns exceed the unchanged tolerance. Moving shared trials pass 40/54, with
+fourteen skeleton return failures. All remain upright and replay exactly.
+The [mechanical defense fixture](reference/point-defense.md) compares predicted interception
+against the same guard pose. With the [joint-acceleration correction](reference/joint-acceleration.md),
+it passes 33/36 predictive development starts versus 0/36 pose starts; three post-block coverage
+failures keep sustained defense open. All replay and remain
+upright, so initial contact alone is not the missing gate. Shared-item defense and coordinated
+attack/guard still require demonstrations.
 Loaded support transitions, recovery, standing strike/block against an opponent, equipment
 integration with fight rendering/damage and the held-out integrated sequence remain open. These controlled fixtures
 do not close the gameplay gates or replace the game's controller.
+
+The experimental [angular-limit correction](reference/joint-limits.md), `rapier-coordinate`,
+makes limit reactions follow their reported coordinates. Mechanical stop tests pass, but
+controller regressions prevent default migration. The task results above use the parent-axis
+reference and must be measured again under corrected limits.
+An optional [near-stop controller model](reference/joint-stop-tracking.md) improves corrected-profile
+shared static strikes from 26/36 to 34/36 and moving strikes from 39/54 to 51/54. It also
+regresses the bar screen from 12/12 to 11/12 and predictive defense from 33/36 to 32/36,
+including a defense fall. All trials replay. It remains experimental: release clearance,
+preparation, sustained defense and contact-mode failures block default adoption.
 
 ## Open items
 
@@ -334,8 +362,9 @@ do not close the gameplay gates or replace the game's controller.
   lets go of for a single step lands again; a touch read with `lasts: "contact"`
   (`src/core/touches.ts`) lands again only once the two have parted. Whether a blow should is a
   change of rule, which moves every bout, and comes with its table.
-- Rapier's limits, held as `todo` tests: a limit pushes along its parent's axis, so a pressed angle
-  can pass its stop by up to 0.046 rad; the vendored binding exposes directional motor bounds and
+- Rapier's default limits retain a `todo` test: a parent-axis row allows a pressed angle to pass
+  its stop. The optional `rapier-coordinate` configuration fixes the measured-angle gradient
+  ([record](reference/joint-limits.md)), but control migration remains open. The vendored binding exposes directional motor bounds and
   whole-step accumulated impulses. Directional muscle actuation is an explicit world configuration;
   gameplay retains the symmetric reference pending contact and recovery correction. Delivered
   torque and both bounds are readable and replayable. Default migration and control retuning

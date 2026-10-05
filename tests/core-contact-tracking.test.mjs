@@ -118,3 +118,30 @@ test("reaction inequalities change a bounded candidate and rejected solves produ
     }
   } finally { f.dispose(); }
 });
+
+
+test("additional effort bounds share the contact solve and apply before contacts exist", async () => {
+  const f = await fixture();
+  try {
+    const tracker = contactTracking(f.physics, f.frames, 1, settings, 1);
+    const H = new Float64Array([1]), rhs = new Float64Array([1]), scale = new Float64Array([20]);
+    const lo = new Float64Array([-1]), hi = new Float64Array([1]), candidate = new Float64Array([1]);
+    tracker.read(command);
+    tracker.solve(H, rhs, scale, lo, hi, candidate, [{ coefficients: [1], lower: -Infinity, upper: 2 }]);
+    assert.equal(tracker.report().points, 0); assert.equal(tracker.report().status, "accepted");
+    assert.ok(Math.abs(20 * candidate[0] - 2) < 1e-7);
+    f.physics.step(1 / 120); const saved = f.physics.save();
+    const prepare = () => {
+      assert.equal(tracker.read(command).length, 3);
+      tracker.base([0, 10, 0]); tracker.column(0, [1, 10, 0]); candidate[0] = 1;
+    };
+    prepare(); tracker.solve(H, rhs, scale, lo, hi, candidate, [{ coefficients: [1], lower: -Infinity, upper: 2 }]);
+    assert.equal(tracker.report().status, "accepted"); assert.ok(Math.abs(20 * candidate[0] - 2) < 1e-7);
+    prepare(); tracker.solve(H, rhs, scale, lo, hi, candidate, [{ coefficients: [1], lower: 20, upper: Infinity }]);
+    assert.equal(tracker.report().status, "rejected", "a required tangential load cannot bypass contact friction");
+    assert.equal(candidate[0], 0); assert.deepEqual(f.physics.save(), saved);
+    const before = [...candidate];
+    assert.throws(() => tracker.solve(H, rhs, scale, lo, hi, candidate, new Array(2)), /invalid additional effort bounds/);
+    assert.deepEqual([...candidate], before);
+  } finally { f.dispose(); }
+});

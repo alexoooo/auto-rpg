@@ -1,7 +1,27 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
+import { mkdtempSync, readFileSync, realpathSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { basename, dirname, join } from "node:path";
 import { foundationJobs, foundationTrial, attackAccounting, proportion } from "../research/control-foundation-trials.mjs";
 import { runFoundation, summarizeFoundation } from "../research/control-foundation.mjs";
+
+test("defense trials keep hand/loadout denominators and pair physical protection against pose", async () => {
+  const jobs = foundationJobs({ suite: "defense", models: ["workshop-fighter"], samples: 1, actuation: "directional" });
+  assert.equal(jobs.length, 12);
+  assert.deepEqual([...new Set(jobs.map((j) => j.hands))], ["left", "right", "both"]);
+  assert.deepEqual([...new Set(jobs.map((j) => j.held))], ["empty", "club"]);
+  const rows = await runFoundation(jobs.slice(0, 2), { workers: 2 });
+  assert.ok(rows.every((r) => r.result.outcome.replayExact && r.result.outcome.steps === 1200));
+  const [prediction, pose] = rows.map((r) => r.result.outcome);
+  assert.equal(prediction.success, true); assert.ok(pose.protectedImpulse > prediction.protectedImpulse);
+  const summary = summarizeFoundation(rows);
+  assert.equal(summary.cells.length, 2);
+  assert.ok(summary.cells.every((c) => c.success.count === 1));
+  assert.equal(summary.pairedDefense.length, 1);
+  assert.equal(summary.pairedDefense[0].protectedImpulseSavedNs, pose.protectedImpulse - prediction.protectedImpulse);
+});
 
 test("foundation starts are reproducible, split-disjoint and explicit about unsupported equipment", () => {
   const options = { models: ["workshop-fighter"], samples: 3 };
@@ -103,6 +123,53 @@ test("the common runner preserves side-specific support outcomes and replay", as
   assert.deepEqual(summarizeFoundation(rows).cells.map((c) => [c.success.successes, c.success.count]), [[1, 1], [1, 1]]);
 });
 
+test("point-strike trials separate hands, loadouts and intentional misses", async () => {
+  const jobs = foundationJobs({ suite: "point-strike", models: ["workshop-fighter"], samples: 1, actuation: "directional" });
+  assert.equal(jobs.length, 12);
+  assert.equal(new Set(jobs.map((j) => j.id)).size, 12);
+  const selected = jobs.filter((j) => j.hands === "both" && j.held === "club");
+  const rows = await runFoundation(selected, { workers: 2 });
+  assert.ok(rows.every((r) => r.result.outcome.success && r.result.outcome.replayExact));
+  assert.ok(rows[0].result.outcome.strikes.every((s) => s.contacts > 0));
+  assert.ok(rows[1].result.outcome.strikes.every((s) => s.contacts === 0));
+  assert.deepEqual(summarizeFoundation(rows).cells.map((c) => [c.success.successes, c.success.count]), [[1, 1], [1, 1]]);
+});
+
+test("shared strike jobs retain hold/release and hit/miss denominators", () => {
+  const config = { suite: "point-strike", models: ["workshop-fighter"], samples: 1, actuation: "directional" };
+  const shared = foundationJobs({ ...config, shared: true, centreControl: true, continueSeconds: 10 });
+  assert.deepEqual(shared.map((j) => [j.hands, j.held, j.miss, j.shared]), [
+    ["both", "club", false, {}], ["both", "club", false, { release: "left" }], ["both", "club", false, { release: "right" }],
+    ["both", "club", true, {}], ["both", "club", true, { release: "left" }], ["both", "club", true, { release: "right" }],
+  ]);
+  assert.equal(new Set(shared.map((j) => j.id)).size, 6);
+  const independent = foundationJobs(config);
+  assert.ok(shared.every((j) => independent.every((other) => j.id !== other.id)));
+  const rows = shared.map((job) => ({ job, result: { status: "measured", outcome: { success: false } } }));
+  assert.equal(summarizeFoundation(rows).cells.length, 6);
+  assert.throws(() => foundationJobs({ suite: "bar", shared: true }), /shared equipment/);
+});
+
+test("moving strikes keep tracked, fixed-aim and miss outcomes separate", async () => {
+  const jobs = foundationJobs({ suite: "moving-strike", models: ["workshop-fighter"], samples: 1, actuation: "directional" });
+  assert.equal(jobs.length, 18);
+  assert.equal(new Set(jobs.map((j) => j.id)).size, 18);
+  const selected = jobs.filter((j) => j.hands === "left" && j.held === "empty");
+  assert.deepEqual(selected.map((j) => [j.miss, j.swing.tracking, j.swing.delay]), [[false, true, 3], [false, false, 3], [true, true, 3]]);
+  const rows = await runFoundation(selected, { workers: 2 });
+  assert.ok(rows.every((r) => r.result.outcome.replayExact));
+  assert.ok(rows.every((r) => r.result.outcome.strikes.every((s) => s.targetTravel > 0.1 && s.targetSpeed > 0.5)));
+  assert.equal(rows[2].result.outcome.strikes[0].contacts, 0);
+  assert.equal(summarizeFoundation(rows).cells.length, 3);
+  assert.ok(summarizeFoundation(rows).cells.every((c) => c.success.count === 1));
+  const extended = foundationJobs({ suite: "moving-strike", models: ["workshop-fighter"], samples: 1, actuation: "directional", centreControl: true, continueSeconds: 10 });
+  assert.ok(extended.every((j, i) => j.centreControl && j.continueSeconds === 10 && j.watchSeconds === 17 && j.id !== jobs[i].id));
+  const compared = [...rows, ...rows.map((r) => ({ ...r, job: { ...r.job, centreControl: true, continueSeconds: 10 } }))];
+  assert.equal(summarizeFoundation(compared).cells.length, 6);
+  assert.throws(() => foundationJobs({ suite: "bar", centreControl: true }), /point-strike suite/);
+  assert.throws(() => foundationJobs({ suite: "point-strike", continueSeconds: NaN }), /continuation/);
+});
+
 test("guard differences compare the same side and start and recovery excludes shoves held", () => {
   const outcome = (damage) => ({ seconds: 10, sides: [{ headDamage: damage, damage: damage + 1, fallen: false }, { headDamage: 8, damage: 9, fallen: true }] });
   const job = { model: "workshop-fighter", held: "club", seed: 4, hz: 120, task: "bout" };
@@ -118,4 +185,49 @@ test("guard differences compare the same side and start and recovery excludes sh
     damageSaved: 3, poseFallen: false, coverFallen: false, poseSeconds: 10, coverSeconds: 10 }]);
   assert.equal(summary.cells.at(-1).success.count, 2);
   assert.equal(summary.cells.at(-1).success.successes, 1);
+});
+
+
+test("the CLI records the corrected Rapier profile used by its physical workers", () => {
+  const directory = mkdtempSync(join(tmpdir(), "foundation-coordinate-"));
+  try {
+    execFileSync(process.execPath, ["research/control-foundation.mjs", "--suite", "bar", "--models", "crypt-skeleton",
+      "--samples", "1", "--workers", "1", "--support", "standing", "--actuation", "directional", "--joint-stops", "--out", directory],
+    { env: { ...process.env, CORE_ENGINE: "rapier-coordinate" }, timeout: 120000, stdio: "pipe" });
+    const manifest = JSON.parse(readFileSync(join(directory, "manifest.json"), "utf8"));
+    const rows = readFileSync(join(directory, "rows.jsonl"), "utf8").trim().split("\n").map(JSON.parse);
+    assert.equal(manifest.engine, "rapier-coordinate");
+    assert.ok(manifest.engineRevision.endsWith("/coordinate-limits"));
+    assert.equal(rows.length, 2);
+    for (const row of rows) {
+      assert.equal(row.result.configuration.engineRevision, manifest.engineRevision);
+      assert.equal(row.result.outcome.replayExact, true);
+      assert.equal(row.result.outcome.releaseContinuous, true);
+      assert.equal(row.result.outcome.success, true);
+      assert.equal(row.result.configuration.jointStops, true);
+      assert.equal(row.result.physical.stops.steps, row.result.outcome.steps);
+      assert.equal(row.result.physical.stops.rejectedSteps, 0);
+      assert.ok(row.result.physical.stops.nearSteps > 0);
+      assert.ok(row.result.physical.stops.peakAccelerationViolation < row.result.configuration.stopPrediction.accelerationTolerance);
+    }
+  } finally {
+    const target = realpathSync(directory);
+    assert.equal(dirname(target), realpathSync(tmpdir()));
+    assert.ok(basename(target).startsWith("foundation-coordinate-"));
+    rmSync(target, { recursive: true, force: true });
+  }
+});
+
+
+test("joint-stop comparisons retain distinct manifests and defense denominators", () => {
+  const options = { suite: "defense", models: ["workshop-fighter"], samples: 1 };
+  const base = foundationJobs(options), stopped = foundationJobs({ ...options, jointStops: true });
+  assert.deepEqual(base, foundationJobs({ ...options, jointStops: false }));
+  assert.ok(stopped.every((job, i) => job.jointStops && job.id !== base[i].id));
+  for (const suite of ["support", "recovery", "baseline", "integrated", "reach"]) assert.throws(() => foundationJobs({ suite, jointStops: true }), /motion probe/);
+  assert.throws(() => foundationJobs({ ...options, jointStops: "yes" }), /motion probe/);
+  const rows = [...base, ...stopped].map((job) => ({ job, result: { status: "measured", outcome: { success: true, protectedImpulse: job.variant === "pose" ? 2 : 0, fell: false } } }));
+  const summary = summarizeFoundation(rows);
+  assert.equal(summary.cells.length, 24); assert.equal(summary.pairedDefense.length, 12);
+  assert.ok(summary.pairedDefense.every((pair) => pair.protectedImpulseSavedNs === 2));
 });

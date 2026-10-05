@@ -1,7 +1,8 @@
 # Shared physical tasks in the browser
 
-`/control-tasks.html` uses `createSupportProbe` and `createBarProbe`, the same builders as the
-Node runner. It exposes body, moving foot/released hand, development seed and bar support mode,
+`/control-tasks.html` uses `createSupportProbe`, `createBarProbe` and `createPointStrikeProbe`,
+the same builders as the Node runner. It exposes body, selected hands/foot, development seed,
+bar support mode, strike equipment and hit/miss target placement,
 plus play, single-step, run, save, restore and replay. Real-time play uses `World.advance`;
 batch runs call `World.step` and yield through timers independently of rendering. Rendering
 never steps the physics. The reach/replacement page remains `/control-foundation.html`.
@@ -30,3 +31,16 @@ These are reproducibility and visual checks, not browser performance measurement
 batch implementation yielded through animation frames and was delayed by render scheduling;
 timer-based yields remove that dependency without changing the simulation hashes. The tested
 capabilities remain controlled upright support and equipment tasks, not recovery or opponent combat.
+
+## Point-strike extension
+
+[The strike parity matrix](point-strike-browser.json) covers all 36 development-seed-0
+body/hand/loadout/hit-or-miss combinations from [the Node strike record](point-strike.json).
+Every observation hash and ending step matches, and each browser replay matches its policy
+and task state. The strike checkpoint is step 60; support and shared-bar checkpoints remain
+step 240. The harness is the same built-preview Chrome/Rapier/rate/actuation/assist setup above.
+
+Screenshots were inspected before and after the two-club task. Visible playback advanced
+through strike/follow-through and recorded contact. Manual save at step 1, step to 2 and restore
+returned to 1. Warrior/left support and shared-bar rechecks also reproduce their archived
+hashes. Browser logs contain no errors or warnings. The owned tab and preview were closed.
