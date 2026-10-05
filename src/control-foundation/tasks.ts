@@ -25,8 +25,9 @@ const task = element<HTMLSelectElement>("task"), model = element<HTMLSelectEleme
 const support = element<HTMLSelectElement>("support"), seed = element<HTMLInputElement>("seed");
 const held = element<HTMLSelectElement>("held"), target = element<HTMLSelectElement>("target");
 const motion = element<HTMLSelectElement>("motion");
+const balance = element<HTMLSelectElement>("balance"), continuation = element<HTMLSelectElement>("continuation");
 const query = new URLSearchParams(location.search);
-for (const select of [task, model, side, support, held, target, motion]) {
+for (const select of [task, model, side, support, held, target, motion, balance, continuation]) {
   const value = query.get(select.id);
   if (value && [...select.options].some((o) => o.value === value)) select.value = value;
 }
@@ -44,6 +45,7 @@ function make() {
       const item = held.value;
       if (item !== "empty" && item !== "club") throw new Error("Invalid strike equipment");
       probe = createPointStrikeProbe(scene, engine, { ...common, hands: selectedSide, held: item, miss: target.value === "miss", offset: (fraction * 2 - 1) * 0.002,
+        centreControl: balance.value === "centre", continueSeconds: Number(continuation.value),
         ...(motion.value !== "static" ? { swing: { angle: (fraction * 2 - 1) * 0.12, speed: 0.7, delay: 3,
           tracking: motion.value === "tracked", braking: true } } : {}) });
       break;
@@ -82,7 +84,8 @@ const state = () => ({ world: live.probe.world.state, ...live.probe.state });
 const save = () => ({ physics: live.probe.world.physics.save(), state: saveState(state()) });
 let saved: ReturnType<typeof save> | null = null;
 const restore = (snapshot: ReturnType<typeof save>) => { live.probe.world.physics.load(snapshot.physics); loadState(state(), snapshot.state); };
-const ended = () => live.probe.complete || live.probe.world.steps >= (live.probe.configuration.task === "point-strike" ? 960 : 1440);
+const ended = () => live.probe.complete || live.probe.world.steps >= 120 * ("continueSeconds" in live.probe.configuration.settings
+  ? 7 + live.probe.configuration.settings.continueSeconds : 12);
 function show() {
   const p = live.probe, r = p.observe().task;
   element("status").textContent = r.fell ? "Fell" : p.complete ? "Task complete" : ended() ? "Time limit" : p.world.steps ? "In progress" : "Ready";
@@ -99,6 +102,7 @@ function show() {
   for (const control of document.querySelectorAll<HTMLButtonElement | HTMLInputElement | HTMLSelectElement>("button, input, select")) control.disabled = busy;
   support.disabled = busy || task.value !== "bar";
   held.disabled = target.disabled = motion.disabled = busy || task.value !== "point-strike";
+  balance.disabled = continuation.disabled = busy || task.value !== "point-strike";
   side.querySelector<HTMLOptionElement>('option[value="both"]')!.disabled = task.value !== "point-strike";
   for (const id of ["step", "run", "play"]) element<HTMLButtonElement>(id).disabled = busy || ended();
   element<HTMLButtonElement>("load").disabled = busy || saved === null;
@@ -136,7 +140,7 @@ for (const [id, action] of Object.entries(actions)) element<HTMLButtonElement>(i
   try { await action(); } catch (error) { playing = false; element("verification").textContent = String(error); }
   finally { busy = false; show(); }
 });
-for (const input of [task, model, side, support, seed, held, target, motion]) input.addEventListener("change", () => {
+for (const input of [task, model, side, support, seed, held, target, motion, balance, continuation]) input.addEventListener("change", () => {
   if (task.value !== "point-strike" && side.value === "both") side.value = "left";
   try { restart(); } catch (error) { element("verification").textContent = String(error); }
 });

@@ -249,6 +249,13 @@ The shared fixture and runner compare tracked and fixed aim against freely swing
 with relative contact-velocity scoring. Defense and shared-item strikes remain open; isolated
 target contact alone does not close the strike/block gate.
 
+The optional motion interface also supplies [centre objectives](../reference/centre-control.md)
+over explicit mass-weighted groups, and selected world axes for translation. The standing
+strike fixture can control horizontal combined centre separately from root height and continue
+for ten seconds after return. Mechanical conservation, unequal-mass tracking, command validation
+and replay are tested independently of the strike's success score. This does not supply support
+planning or recovery.
+
 ### 0. Define the common task battery and baseline
 
 **Files:** `research/control-foundation.mjs`, `research/control-foundation-trials.mjs`,

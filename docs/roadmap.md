@@ -38,6 +38,8 @@ The [point-space strike fixture](reference/point-strike.md) adds static contacts
 misses with either hand or independent clubs, through the same optional motion interface.
 The [moving variant](reference/moving-strike.md) adds delayed object sensing, point prediction
 and per-effector impact braking against freely swinging physical targets.
+Optional [combined-centre objectives](reference/centre-control.md) separate horizontal balance
+from root height and let strike trials watch ten seconds beyond measured return.
 Loaded support transitions, recovery, standing strike/block against an opponent, equipment
 integration with fight rendering/damage and the held-out integrated sequence remain open. These controlled fixtures
 do not close the gameplay gates or replace the game's controller.

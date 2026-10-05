@@ -80,6 +80,7 @@ export function summarizeFoundation(rows) {
       ...(job.controller ? [job.controller] : []), ...(job.task === "ccd" ? [job.mode, `ccd=${job.ccd}`] : []),
       ...(job.task === "solver" ? [job.representation, job.sense] : []), ...(job.task === "support" ? [job.side] : []),
       ...(job.task === "point-strike" ? [job.hands, job.miss ? "miss" : "hit", ...(job.swing ? ["swing", job.swing.tracking ? "tracked" : "fixed-aim", job.swing.braking ? "brake" : "continue"] : [])] : []),
+      ...(job.centreControl ? ["centre-control"] : []), ...(job.continueSeconds ? [`continue=${job.continueSeconds}`] : []),
       ...(job.task === "bar" ? [job.release, job.support ?? "pinned"] : [])].join("/");
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(row);
@@ -119,9 +120,11 @@ async function main() {
     hz: { type: "string", default: "120" }, workers: { type: "string", default: "4" }, models: { type: "string" }, out: { type: "string" },
     actuation: { type: "string", default: "symmetric" },
     support: { type: "string", default: "pinned" },
+    "centre-control": { type: "boolean", default: false }, "continue-seconds": { type: "string", default: "1" },
   } });
   const options = { suite: values.suite, split: values.split, samples: Number(values.samples), from: Number(values.from), hz: Number(values.hz),
-    actuation: values.actuation, support: values.support, ...(values.models ? { models: values.models.split(",") } : {}) };
+    actuation: values.actuation, support: values.support, centreControl: values["centre-control"], continueSeconds: Number(values["continue-seconds"]),
+    ...(values.models ? { models: values.models.split(",") } : {}) };
   const jobs = foundationJobs(options), started = new Date().toISOString();
   const directory = resolve(values.out ?? resolve(root, "research/runs/control-foundation", `${started.replaceAll(":", "-")}-${randomUUID()}`));
   const lock = JSON.parse(await readFile(resolve(root, "package-lock.json"), "utf8"));

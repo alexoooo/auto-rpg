@@ -78,6 +78,30 @@ async function mechanicalFixture(hz) {
   return { s, left, right, item, dispose() { item.dispose(); s.dispose(); } };
 }
 
+test("a mass-weighted motion row conserves linear momentum through either grip release", async () => {
+  const f = await mechanicalFixture(3840), { s, item } = f;
+  const parts = [...s.built.segments.values()].map((p) => p.body).concat(item.body);
+  const mass = parts.reduce((sum, p) => sum + p.massProperties.mass, 0);
+  const centre = (body) => new Vector3(...body.massProperties.centre).applyRotationQuaternion(body.node.rotationQuaternion).addInPlace(body.node.position).asArray();
+  const model = coupledDynamics(s.built, s.world.physics.gravity, [item]);
+  try {
+    assert.throws(() => model.motionRow([]), /update/);
+    item.body.applyTorqueImpulse(new Vector3(0.003, 0.005, -0.002)); s.step(3);
+    for (const release of [null, "left", "right"]) {
+      if (release) item.release(release);
+      model.update();
+      const force = [0.4, -0.7, 0.2], acceleration = model.solve([0.2, -0.1, 0.3], [{ body: item.body, point: centre(item.body), force, moment: [0.1, 0, -0.2] }]);
+      for (let k = 0; k < 3; k++) {
+        const entries = parts.map((body) => ({ body, point: centre(body), linear: xyz[k].map((v) => v * body.massProperties.mass / mass), angular: zero }));
+        const row = model.motionRow(entries), projected = row.bias + row.coefficients.reduce((sum, v, i) => sum + v * acceleration[i], 0);
+        close(projected, force[k] / mass, 1e-9, `centre acceleration/${release}/${k}`);
+        const saved = structuredClone(row); entries[0].linear[k] = 99; entries[0].point[0] = 99;
+        assert.deepEqual(row, saved, "query coefficients do not retain caller arrays");
+      }
+    }
+  } finally { f.dispose(); }
+});
+
 test("coupled loop predicts physical force and joint-torque response through either release and replay", async (t) => {
   const readings = [];
   for (const release of [[], ["left"], ["right"], ["left", "right"]]) {

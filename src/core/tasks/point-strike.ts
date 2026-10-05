@@ -28,6 +28,8 @@ const SETTINGS = deepFreeze({
 /** Moving-target fixture inputs, numeric settings (`docs/reference/moving-strike.md`). */
 const SWING = deepFreeze({ mass: 2, length: 1, limit: 0.3, anchorRadius: 0.02, anchorMass: 1, anchorMoment: 0.001,
   aim: [0, 0, -0.05] as Vec3, impact: { impulse: 0.005, seconds: 0.15 } });
+/** Centre-control experiment inputs, numeric settings (`docs/reference/centre-control.md`). */
+const CENTRE = deepFreeze({ lower: 0.04, positionWeight: 10, centreWeight: 10, followSeconds: 0.75 });
 const ZERO: Vec3 = Object.freeze([0, 0, 0]);
 const tuple = (v: Vector3): Vec3 => [v.x, v.y, v.z];
 
@@ -35,20 +37,33 @@ const tuple = (v: Vector3): Vec3 => [v.x, v.y, v.z];
 export function createPointStrikeProbe(scene: Scene, engine: PhysicsEngine, config: {
   readonly model: BodyModel; readonly hands: Side | "both"; readonly held: "empty" | "club";
   readonly hz: number; readonly actuation: "symmetric" | "directional"; readonly offset: number; readonly miss: boolean;
+  readonly centreControl?: boolean; readonly continueSeconds?: number;
   readonly swing?: { readonly angle: number; readonly speed: number; readonly delay: number; readonly tracking: boolean; readonly braking: boolean };
 }) {
   if (!Number.isSafeInteger(config.hz) || config.hz < 120 || config.hz % 120 !== 0 || !Number.isFinite(config.offset)
     || !["left", "right", "both"].includes(config.hands) || !["empty", "club"].includes(config.held)) throw new Error("invalid point strike fixture");
   const swing = config.swing ? deepFreeze({ ...config.swing }) : null;
+  const continueSeconds = config.continueSeconds ?? SETTINGS.continueSeconds;
+  if (!(Number.isFinite(continueSeconds) && continueSeconds > 0)
+    || (config.centreControl !== undefined && typeof config.centreControl !== "boolean")) throw new Error("invalid strike continuation or centre control");
   if (swing && (!Number.isSafeInteger(swing.delay) || swing.delay < 0 || !Number.isFinite(swing.angle) || Math.abs(swing.angle) > SWING.limit
     || !Number.isFinite(swing.speed) || typeof swing.tracking !== "boolean" || typeof swing.braking !== "boolean")) throw new Error("invalid moving strike configuration");
-  const configuration = deepFreeze({ ...config, ...(swing ? { swing } : {}), task: "point-strike", protocol: 2, settings: SETTINGS,
+  const impact = swing?.braking || (!swing && config.centreControl) ? SWING.impact : null;
+  const configuration = deepFreeze({ ...config, ...(swing ? { swing } : {}), task: "point-strike", protocol: 3,
+    settings: { ...SETTINGS, continueSeconds, ...(config.centreControl ? { followSeconds: CENTRE.followSeconds } : {}) },
+    ...(config.centreControl ? { centreSettings: CENTRE } : {}),
+    ...(impact ? { impactResponse: impact } : {}),
     ...(swing ? { targetRig: SWING } : {}),
     engineRevision: engine.revision, gravity: true, pin: null, assists: { root: 0, weapon: false } });
   const world = createWorld(scene, engine, { gravity: true, hz: config.hz, actuation: config.actuation });
   world.physics.addFixedBox(SETTINGS.floor.centre, SETTINGS.floor.size);
   const built = buildBody(modelSpec(config.model), world, { position: ZERO }), root = built.segments.get("lowerTrunk")!;
   const rootPosition = tuple(root.node.position), q = root.node.rotationQuaternion!, rootRotation = [q.x, q.y, q.z, q.w] as const;
+  const centreGoal = tuple(["left", "right"].map((side) => {
+    const body = built.segments.get(`foot.${side}`)!.body;
+    const point = new Vector3(...body.massProperties.centre);
+    return point.applyRotationQuaternionToRef(body.node.rotationQuaternion!, point).addInPlace(body.node.position);
+  }).reduce((a, b) => a.add(b)).scale(0.5));
   const sides: readonly Side[] = config.hands === "both" ? ["left", "right"] : [config.hands];
   const spec = woodenClub();
   const items = config.held === "empty" ? [] : sides.map((side) => equipHands(world, built, { id: side, item: spec,
@@ -75,17 +90,27 @@ export function createPointStrikeProbe(scene: Scene, engine: PhysicsEngine, conf
   const feedback = (target: Vec3) => ({ target, velocity: ZERO, acceleration: ZERO, seconds: SETTINGS.seconds, weight: SETTINGS.weight });
   let policy!: ReturnType<typeof pointStrike>;
   const body = createMotionBody(built, world, (model) => {
-    policy = pointStrike({ ...SETTINGS, ...(swing?.braking ? { impact: SWING.impact } : {}),
+    const joints = model.channels.map((c) => ({ channel: c.name, angle: Math.max(c.min, Math.min(c.max, 0)), rate: 0, acceleration: 0,
+      seconds: SETTINGS.postureSeconds, weight: /shoulder|elbow|wrist/.test(c.name) ? SETTINGS.armWeight : SETTINGS.bodyWeight }));
+    const returnJoints = joints.map((goal, i) => /shoulder|elbow|wrist/.test(goal.channel)
+      ? { ...goal, angle: (model.channels[i]!.min + model.channels[i]!.max) / 2 } : goal);
+    policy = pointStrike({ ...configuration.settings, ...(impact ? { impact } : {}),
       effectors: effectors.map((e) => ({ id: e.side, frame: e.frame, at: e.at, guard: e.guard, target: e.target,
         ...(swing?.tracking && !config.miss ? { targetObject: { id: e.rig!.body.node.name, point: "strike" } } : {}) })),
-      joints: model.channels.map((c) => ({ channel: c.name, angle: Math.max(c.min, Math.min(c.max, 0)), rate: 0, acceleration: 0,
-        seconds: SETTINGS.postureSeconds, weight: /shoulder|elbow|wrist/.test(c.name) ? SETTINGS.armWeight : SETTINGS.bodyWeight })),
+      joints,
       hold: [{ id: "root", frame: { kind: "segment", name: "lowerTrunk" }, at: ZERO, translation: feedback(rootPosition),
         orientation: { ...feedback(ZERO), target: rootRotation } }],
     }, model.equipment);
-    return policy;
+    if (!configuration.centreControl) return policy;
+    return { ...policy, step(observation, dt) {
+      const command = policy.step(observation, dt);
+      return { ...command, joints: policy.state.phase === "return" || policy.state.phase === "complete" ? returnJoints : command.joints,
+        frames: command.frames.map((goal) => goal.id !== "root" ? goal : { ...goal,
+        translation: { ...feedback([rootPosition[0], rootPosition[1] - CENTRE.lower, rootPosition[2]]), axes: ["y"] as const, weight: CENTRE.positionWeight } }),
+        centres: [{ id: "centre", frames: model.frames, translation: { ...feedback(centreGoal), axes: ["x", "z"] as const, weight: CENTRE.centreWeight } }] };
+    } };
   }, { ...(observer ? { senses: () => ({ ...clock(), objects: observer.read() }) } : {}),
-    items, grants: items.map((item) => ({ item, grip: item.id })), fixed: [], capacity: 1 + effectors.length,
+    items, grants: items.map((item) => ({ item, grip: item.id })), fixed: [], capacity: 1 + effectors.length + (configuration.centreControl ? 1 : 0),
     effortCost: SETTINGS.effortCost, contact: SETTINGS.contact });
   const point = new Vector3(), v = new Vector3(), spin = new Vector3();
   const motion = (part: SegmentBody) => {
@@ -133,7 +158,7 @@ export function createPointStrikeProbe(scene: Scene, engine: PhysicsEngine, conf
   return { world, built, body, items, targets: effectors.flatMap((e) => e.rig ? [e.rig] : []), configuration,
     geometry: { floor: SETTINGS.floor, obstacles: effectors.flatMap((e) => e.rig ? [] : [e.geometry]) },
     state: { body: body.state, task: state, ...(observer ? { objects: observer.state } : {}) },
-    get complete() { return state.completeAt >= 0 && state.steps - state.completeAt >= SETTINGS.continueSeconds * configuration.hz; },
+    get complete() { return state.completeAt >= 0 && state.steps - state.completeAt >= configuration.settings.continueSeconds * configuration.hz; },
     observe: () => deepFreeze({ body: body.observe(), task: { ...structuredClone(state), phase: policy.state.phase } }),
     dispose() { before.dispose(); after.dispose(); observer?.dispose(); body.dispose(); for (const item of items) item.dispose();
       for (const e of effectors) e.rig?.dispose(); built.dispose(); world.dispose(); } };

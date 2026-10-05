@@ -231,6 +231,13 @@ export function coupledDynamics(built: BuiltBody, gravity: Vec3, items: readonly
           moment: e.angular.map((v) => v * multiplier) as unknown as Vec3 })) };
       });
     },
+    /** A detached acceleration row and its velocity bias at the current model pose. */
+    motionRow(entries: MotionConstraint) {
+      requireReady();
+      return { coefficients: rowOf(entries), bias: entries.reduce((sum, e) => {
+        const d = driftAt(e.body, e.point); return sum + dot(e.linear, d.linear) + dot(e.angular, d.angular);
+      }, 0) };
+    },
     pointAcceleration(body: SegmentBody, at: Vec3, acceleration: ArrayLike<number>) {
       requireReady();
       if (acceleration.length !== size || !Array.from(acceleration).every(Number.isFinite)) throw new Error("invalid coupled acceleration");

@@ -95,8 +95,14 @@ Tracking's failure is Warrior / bare right hand / seed 0. It makes qualifying co
 reaches its guard, but ends the extra control second 0.197027 m from the guard. A diagnostic
 replay shows the root error growing from 0.0464 m at policy completion (step 323) to 0.3049 m
 at step 440 while the hand error grows. The policy's phase name is therefore insufficient:
-the independent return gate correctly fails it. Stable post-impact balance remains open.
+the independent return gate correctly fails it. This controller's post-impact balance fails
+the gate.
 This record does not establish a passed moving-strike capability gate.
+
+The optional [centre-controlled fixture](centre-control.md) measures a separate candidate with
+combined-centre balance, a longer follow-through and a different return posture preference.
+It passes these development starts with a ten-second continuation; the frozen results above
+remain the pose-controlled comparison.
 
 Completion takes 3.600–4.550 s, including the extra second. Instrumented mean step cost ranges
 from 2.812 to 4.777 ms, p95 from 3.117 to 5.489 ms and p99 from 3.481 to 8.003 ms. These include

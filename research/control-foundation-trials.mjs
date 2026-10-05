@@ -38,10 +38,12 @@ const suites = ["baseline", "recovery", "strike-block", "point-strike", "moving-
 
 /** Fully specified starts; a seed selects geometry, not a hidden source of simulation noise. */
 export function foundationJobs({ suite = "baseline", split = "development", samples = FOUNDATION.samples,
-  hz = 120, models = BODY_MODELS, from = 0, actuation = "symmetric", support = "pinned" } = {}) {
+  hz = 120, models = BODY_MODELS, from = 0, actuation = "symmetric", support = "pinned", centreControl = false, continueSeconds = 1 } = {}) {
   if (!suites.includes(suite)) throw new Error(`unknown suite ${suite}`);
   if (!["symmetric", "directional"].includes(actuation)) throw new Error(`unknown actuation ${actuation}`);
   if (!["pinned", "standing"].includes(support)) throw new Error(`unknown support ${support}`);
+  if (typeof centreControl !== "boolean" || !(Number.isFinite(continueSeconds) && continueSeconds > 0)) throw new Error("invalid centre control or continuation");
+  if ((centreControl || continueSeconds !== 1) && suite !== "point-strike" && suite !== "moving-strike") throw new Error("centre control and continuation require a point-strike suite");
   if (!Object.hasOwn(FOUNDATION.split, split)) throw new Error(`unknown split ${split}`);
   if (!Number.isSafeInteger(samples) || samples < 1 || !Number.isSafeInteger(from) || from < 0
     || from + samples > FOUNDATION.maximumSamples) throw new Error("sample range must stay within its split");
@@ -79,7 +81,8 @@ export function foundationJobs({ suite = "baseline", split = "development", samp
       for (const hands of ["left", "right", "both"]) for (const miss of [false, true]) {
         const variants = suite === "moving-strike" && !miss ? [true, false] : [true];
         for (const tracking of variants) add({ model, held, task: "point-strike", seed, hands, miss,
-          offset: (fraction * 2 - 1) * 0.002, watchSeconds: 8, checkpointSeconds: 0.5, sampleHz: 120,
+          offset: (fraction * 2 - 1) * 0.002, watchSeconds: 7 + continueSeconds, checkpointSeconds: 0.5, sampleHz: 120,
+          ...(centreControl ? { centreControl } : {}), ...(continueSeconds !== 1 ? { continueSeconds } : {}),
           ...(suite === "moving-strike" ? { swing: { angle: (fraction * 2 - 1) * 0.12, speed: 0.7, delay: 3 * hz / 120, tracking, braking: true } } : {}) });
       }
     }

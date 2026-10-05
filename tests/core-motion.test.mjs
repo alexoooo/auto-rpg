@@ -7,6 +7,7 @@ import { equipHands } from "../src/core/human/equipment.ts";
 import { createMotionBody } from "../src/core/mind/motion.ts";
 import { checkedMotionCommand } from "../src/core/control/tasks.ts";
 import { buildBody } from "../src/core/build/build-body.ts";
+import { coupledDynamics } from "../src/core/build/coupled-dynamics.ts";
 import { createSenses } from "../src/core/mind/senses.ts";
 import { coreStand, saveStand, loadStand } from "./harness/core-stand.mjs";
 
@@ -117,7 +118,77 @@ test("invalid motion requests cannot release a grip before validation finishes",
     assert.deepEqual(f.stand.world.physics.save(), before);
     const twice = { ...command, frames: [command.frames[0], { ...command.frames[0], id: "another-point", at: [0, 0.2, 0] }] };
     assert.equal(checkedMotionCommand(twice, f.description).frames.length, 2, "multiple objectives may address the same frame");
+    for (const centres of [
+      [{ id: "centre", frames: [{ kind: "segment", name: "absent" }], translation: feedback(zero) }],
+      [{ id: "centre", frames: [command.frames[0].frame, command.frames[0].frame], translation: feedback(zero) }],
+      [{ id: command.frames[0].id, frames: [command.frames[0].frame], translation: feedback(zero) }],
+      [{ id: "centre", frames: [command.frames[0].frame], translation: { ...feedback(zero), axes: ["x", "x"] } }],
+    ]) {
+      f.setCommand({ ...command, centres, grips: [{ item: "left", grip: "left", attached: false }] });
+      assert.throws(() => f.stand.step(), /invalid motion/);
+      assert.equal(f.items[0].observe().grips[0].attached, true);
+      assert.deepEqual(f.stand.world.physics.save(), before);
+    }
   } finally { f.dispose(); }
+});
+
+test("a centre objective tracks unequal physical masses on selected axes and replays", async () => {
+  const f = await fixture(models[0]);
+  const members = [f.stand.built.segments.get("hand.left").body, f.items[0].body];
+  const centre = () => {
+    const sum = new Vector3(), total = members.reduce((s, b) => s + b.massProperties.mass, 0);
+    for (const b of members) sum.addInPlace(new Vector3(...b.massProperties.centre).applyRotationQuaternion(b.node.rotationQuaternion).addInPlace(b.node.position).scale(b.massProperties.mass / total));
+    return sum.asArray();
+  };
+  try {
+    assert.notEqual(members[0].massProperties.mass, members[1].massProperties.mass);
+    const target = [centre()[0] - 0.04, 1000, -1000];
+    const goal = { id: "loaded-hand", frames: [{ kind: "segment", name: "hand.left" }, { kind: "item", id: "left" }],
+      translation: { ...feedback(target), axes: ["x"] } };
+    const command = checkedMotionCommand({ joints: posture(f.description), frames: [], centres: [goal], grips: [] }, f.description);
+    goal.frames[0].name = "absent"; goal.translation.axes[0] = "z"; target[0] = 99;
+    f.setCommand(command); f.stand.step(240);
+    assert.ok(Math.abs(centre()[0] - command.centres[0].translation.target[0]) < 0.005);
+    assert.ok(Math.abs(centre()[1]) < 10 && Math.abs(centre()[2]) < 10, "unselected axes do not chase the distant targets");
+    assert.ok(f.body.report().errors.find((e) => e.id === "loaded-hand").position < 0.005);
+    assert.equal(f.body.assist.meter.force, 0); assert.equal(f.body.assist.meter.moment, 0);
+    const states = { body: f.body.state }, saved = saveStand(f.stand.world, states);
+    const branch = () => { f.stand.step(60); return { observation: f.body.observe(), state: saveStand(f.stand.world, states).state }; };
+    const expected = branch(); loadStand(f.stand.world, states, saved); assert.deepEqual(branch(), expected);
+  } finally { f.dispose(); }
+});
+
+test("a whole free body's centre goal remains unreachable without external thrust", async () => {
+  const stand = await coreStand(modelSpec(models[0]), { ground: false, gravity: false, actuation: "directional" });
+  const state = { target: null };
+  const body = createMotionBody(stand.built, stand.world, (model) => ({ name: "unreachable-centre", state, step(observation) {
+    state.target ??= observation.centre.map((v) => v + 1);
+    return { joints: [], frames: [], grips: [], centres: [{ id: "whole", frames: model.frames, translation: feedback(state.target) }] };
+  } }), { items: [], grants: [], fixed: [], capacity: 1, effortCost: 1e-6 });
+  try {
+    const dynamics = coupledDynamics(stand.built, zero), members = [...stand.built.segments.values()].map((s) => s.body);
+    const mass = members.reduce((sum, b) => sum + b.massProperties.mass, 0);
+    const before = body.observe().centre;
+    for (let step = 0; step < 20; step++) {
+      dynamics.update();
+      const torque = Array(dynamics.channels).fill(0), base = dynamics.solve(torque);
+      for (let axis = 0; axis < 3; axis++) {
+        const row = dynamics.motionRow(members.map((b) => ({ body: b,
+          point: new Vector3(...b.massProperties.centre).applyRotationQuaternion(b.node.rotationQuaternion).addInPlace(b.node.position).asArray(),
+          linear: [0, 1, 2].map((k) => k === axis ? b.massProperties.mass / mass : 0), angular: zero })));
+        for (let i = 0; i < torque.length; i++) {
+          torque[i] = 1; const acceleration = dynamics.solve(torque); torque[i] = 0;
+          const response = row.coefficients.reduce((sum, v, k) => sum + v * (acceleration[k] - base[k]), 0);
+          assert.ok(Math.abs(response) < 1e-12, `internal torque ${i}, axis ${axis}: ${response}`);
+        }
+      }
+      stand.step();
+    }
+    const after = body.observe().centre;
+    assert.ok(after.every((v, k) => Math.abs(v - before[k]) < 1e-5), JSON.stringify({ before, after }));
+    assert.ok(Math.abs(body.report().errors[0].position - Math.sqrt(3)) < 1e-5);
+    assert.equal(body.assist.meter.force, 0); assert.equal(body.assist.meter.moment, 0);
+  } finally { body.dispose(); stand.dispose(); }
 });
 
 test("an unreachable frame objective remains a bounded measured miss", async () => {

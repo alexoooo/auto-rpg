@@ -466,6 +466,9 @@ reference fighter's equipment integration is still separate work.
 
 `control/tasks.ts` describes joint trajectories and named segment/item point and orientation
 objectives with velocity and acceleration. Position alone adds no orientation constraint.
+Translations can select world axes. Optional [centre objectives](reference/centre-control.md)
+track the mass-weighted position of explicitly selected segment/item frames through the same
+bounded muscle solve. Each group counts its members once; grip release does not change membership.
 `mind/motion.ts` validates a policy's full request before grip actions and supplies one owner of
 actuator output. It accepts the same external senses provider as the actuator host; policies
 receive detached observations, including the provider's delay. Its optional `wholeBodyTracking` uses the coupled model and bounded weighted

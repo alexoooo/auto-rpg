@@ -7,7 +7,7 @@ import type { createEquipment } from "../equipment.ts";
 import { boundedLeastSquaresTo, boundedWork, linearWork, solveLinearTo } from "../math/flat.ts";
 import type { MuscleDriver } from "../muscle/driver.ts";
 import type { Vec3 } from "../spec/quantity.ts";
-import { motionFrameKey, type MotionCommand } from "./tasks.ts";
+import { motionAxes, motionFrameKey, type MotionCommand } from "./tasks.ts";
 import { contactTracking, type ContactTrackingSettings } from "./contact-tracking.ts";
 
 interface TrackingSettings {
@@ -52,8 +52,9 @@ export function wholeBodyTracking(built: BuiltBody, muscles: MuscleDriver, gravi
       errors: state.errors.map((e) => ({ ...e })), contact: contacts?.report() ?? null }; },
     /** Validate capacity and names before a host applies any associated grip action. */
     check(command: MotionCommand): void {
-      if (command.frames.length > capacity || command.joints.length > count
+      if (command.frames.length + (command.centres?.length ?? 0) > capacity || command.joints.length > count
         || command.frames.some((g) => !frames.has(motionFrameKey(g.frame)))
+        || command.centres?.some((g) => g.frames.some((f) => !frames.has(motionFrameKey(f))))
         || command.joints.some((g) => !channels.has(g.channel))) throw new Error("motion objectives exceed this controller's model or capacity");
     },
     track(command: MotionCommand): Float64Array {
@@ -103,7 +104,7 @@ export function wholeBodyTracking(built: BuiltBody, muscles: MuscleDriver, gravi
         if (goal.translation) {
           const g = goal.translation, rate = 1 / g.seconds, speed = [velocity.x, velocity.y, velocity.z];
           positionError = 0;
-          for (let k = 0; k < 3; k++) {
+          for (const k of motionAxes(g.axes)) {
             const miss = g.target[k]! - at[k]!;
             positionError += miss * miss;
             add(jacobian.map((j) => j[3 + k]!), g.acceleration[k]! + rate * rate * miss + 2 * rate * (g.velocity[k]! - speed[k]!) - b.linear[k]!, g.weight);
@@ -120,6 +121,29 @@ export function wholeBodyTracking(built: BuiltBody, muscles: MuscleDriver, gravi
             + 2 * rate * (g.velocity[k]! - speed[k]!) - b.angular[k]!, g.weight);
         }
         state.errors.push({ id: goal.id, position: positionError, orientation: orientationError });
+      }
+      for (const goal of command.centres ?? []) {
+        const members = goal.frames.map((frame) => frames.get(motionFrameKey(frame))!);
+        const mass = members.reduce((sum, body) => sum + body.massProperties.mass, 0);
+        const position = [0, 0, 0], speed = [0, 0, 0];
+        const points = members.map((body) => {
+          const weight = body.massProperties.mass / mass;
+          centre.set(...body.massProperties.centre).applyRotationQuaternionToRef(body.node.rotationQuaternion!, centre).addInPlace(body.node.position);
+          body.linearVelocityToRef(velocity);
+          const point: Vec3 = [centre.x, centre.y, centre.z], motion = [velocity.x, velocity.y, velocity.z];
+          for (let k = 0; k < 3; k++) { position[k]! += weight * point[k]!; speed[k]! += weight * motion[k]!; }
+          return { body, weight, point };
+        });
+        const g = goal.translation, rate = 1 / g.seconds;
+        let positionError = 0;
+        for (const k of motionAxes(g.axes)) {
+          const row = dynamics.motionRow(points.map((p) => ({ body: p.body, point: p.point,
+            linear: [k === 0 ? p.weight : 0, k === 1 ? p.weight : 0, k === 2 ? p.weight : 0], angular: [0, 0, 0] })));
+          const along = (values: readonly number[]) => row.coefficients.reduce((sum, v, i) => sum + v * values[i]!, 0);
+          const miss = g.target[k]! - position[k]!; positionError += miss * miss;
+          add(columns.map(along), g.acceleration[k]! + rate * rate * miss + 2 * rate * (g.velocity[k]! - speed[k]!) - along(base) - row.bias, g.weight);
+        }
+        state.errors.push({ id: goal.id, position: Math.sqrt(positionError), orientation: null });
       }
       H.fill(0); rhs.fill(0);
       for (let i = 0; i < count; i++) {

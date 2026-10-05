@@ -130,7 +130,8 @@ test("sensed swinging targets are struck and the body returns with either hand o
 });
 
 test("moving targets, delayed senses and impact replanning replay in another world", async () => {
-  const config = { model: "crypt-skeleton", hands: "both", held: "club", swing: { angle: 0.1, speed: 0.7, delay: 3, tracking: true, braking: true } };
+  for (const centreControl of [false, true]) {
+  const config = { model: "crypt-skeleton", hands: "both", held: "club", centreControl, swing: { angle: 0.1, speed: 0.7, delay: 3, tracking: true, braking: true } };
   const f = await fixture(config), other = await fixture(config);
   try {
     f.task.world.step(120);
@@ -141,4 +142,23 @@ test("moving targets, delayed senses and impact replanning replay in another wor
     loadStand(f.task.world, f.task.state, saved); assert.deepEqual(run(f.task), expected);
     loadStand(other.task.world, other.task.state, saved); assert.deepEqual(run(other.task), expected);
   } finally { f.dispose(); other.dispose(); }
+  }
+});
+
+test("combined-centre control sustains two-hand strikes and misses for ten seconds after return", async () => {
+  const fraction = 2654435761 / 4294967296;
+  for (const moving of [false, true]) for (const model of ["workshop-fighter", "workshop-rogue", "crypt-skeleton"]) for (const miss of [false, true]) {
+    const f = await fixture({ model, hands: "both", held: "empty", miss, centreControl: true, continueSeconds: 10,
+      offset: (fraction * 2 - 1) * 0.002,
+      ...(moving ? { swing: { angle: (fraction * 2 - 1) * 0.12, speed: 0.7, delay: 3, tracking: true, braking: true } } : {}) });
+    try {
+      while (!f.task.complete && f.task.world.time < 17) f.task.world.step();
+      const result = f.task.observe().task;
+      assert.ok(f.task.complete && !result.fell && result.rejectedSteps === 0, `${model}/${miss}: ${JSON.stringify(result)}`);
+      assert.ok(result.steps - result.completeAt >= 1200);
+      assert.ok(result.strikes.every((s) => s.returnError < 0.02));
+      assert.ok(result.strikes.every((s) => miss ? s.contacts === 0 : s.contacts > 0));
+      assert.equal(f.task.body.assist.meter.force, 0); assert.equal(f.task.body.assist.meter.moment, 0);
+    } finally { f.dispose(); }
+  }
 });

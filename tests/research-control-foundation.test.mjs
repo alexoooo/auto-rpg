@@ -127,6 +127,12 @@ test("moving strikes keep tracked, fixed-aim and miss outcomes separate", async 
   assert.equal(rows[2].result.outcome.strikes[0].contacts, 0);
   assert.equal(summarizeFoundation(rows).cells.length, 3);
   assert.ok(summarizeFoundation(rows).cells.every((c) => c.success.count === 1));
+  const extended = foundationJobs({ suite: "moving-strike", models: ["workshop-fighter"], samples: 1, actuation: "directional", centreControl: true, continueSeconds: 10 });
+  assert.ok(extended.every((j, i) => j.centreControl && j.continueSeconds === 10 && j.watchSeconds === 17 && j.id !== jobs[i].id));
+  const compared = [...rows, ...rows.map((r) => ({ ...r, job: { ...r.job, centreControl: true, continueSeconds: 10 } }))];
+  assert.equal(summarizeFoundation(compared).cells.length, 6);
+  assert.throws(() => foundationJobs({ suite: "bar", centreControl: true }), /point-strike suite/);
+  assert.throws(() => foundationJobs({ suite: "point-strike", continueSeconds: NaN }), /continuation/);
 });
 
 test("guard differences compare the same side and start and recovery excludes shoves held", () => {
