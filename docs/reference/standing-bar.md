@@ -66,3 +66,22 @@ revision 5, one worker, 120 Hz, no concurrent test runs: per-trial mean step cos
 3.358–5.591 ms, p95 4.145–6.903 ms and p99 4.731–10.097 ms. These include observation and
 fixture hooks but exclude the runner's trace hashing. They are not a browser capacity claim
 or a speedup over the pinned fixture, which solves a different problem. Held-out starts are unused.
+
+## Measured return readiness
+
+Protocol 3 waits for the same 3 cm position tolerance to hold for 0.25 s before ending, no earlier
+than the existing 7.5 s after capture and still within the runner's 12 s deadline. The controller's
+torques and trajectory are unchanged; it continues the position-only return instead of being
+scored at a fixed ending time. This does not claim that the item's orientation or spin has settled.
+
+[The source-frozen readiness screen](standing-bar-readiness.json) passes 12/12 development trials,
+2/2 in each body/release cell, with exact replay, no falls, zero rejected solves and zero assists.
+The largest ending position error is 0.028081 m and the latest ending is 8.792 s from initialization.
+The earlier 11/12 result remains an honest fixed-time measurement of the same motion.
+
+Run `research/runs/control-foundation/standing-bar-readiness-v1`, source content SHA256
+`434cc1412c2918736a5b257ac4e5f8ac9537109b36fbc1240ff837b8787beb73`, manifest SHA256
+`eb47abbf4959cac9ed0949fafa0b943556b491578bc99190fb629307d78bf5a9`.
+Same Node/Rapier/rate/one-worker harness as above: mean step cost 3.515–5.738 ms,
+p95 4.379–6.824 ms, p99 4.976–8.675 ms. The changed stopping rule changes the sampled interval;
+this is not a performance comparison. Held-out starts remain unused.

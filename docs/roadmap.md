@@ -32,9 +32,11 @@ Early demonstrations exercise a two-handed bar and a weapon-space strike/block b
 the reference controller. Recovery, either-hand attack/defense, independent two-item use and
 shared two-handed items are its capability gates; the reference control stack remains optional.
 The vendored engine, detached policy interface, replayable environments and
-[pinned equipment tracking](reference/motion-tracking.md) are implemented. Shared support forces,
-recovery, standing strike/block, equipment rendering/damage and the held-out integrated sequence
-remain open; pinned load-path results do not close those gates.
+[equipment tracking](reference/motion-tracking.md), measured sticking support and an
+[upright foot-transfer task](reference/support-transition.md) are implemented experimentally.
+Loaded support transitions, recovery, standing strike/block against an opponent, equipment
+rendering/damage and the held-out integrated sequence remain open. These controlled fixtures
+do not close the gameplay gates or replace the game's controller.
 
 ## Open items
 

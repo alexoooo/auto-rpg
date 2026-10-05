@@ -10,6 +10,7 @@ import { createEnvironment } from "../src/core/tasks/environment.ts";
 import { createReachTask } from "../src/core/tasks/reach.ts";
 import { createCollisionProbe } from "../src/core/tasks/collision.ts";
 import { createBarProbe } from "../src/core/tasks/bar.ts";
+import { createSupportProbe } from "../src/core/tasks/support.ts";
 import { saveState, loadState } from "../src/core/state.ts";
 import { reachAction, reachFrame } from "../src/core/tasks/reach-policy.ts";
 import { BODY_MODELS } from "../src/core/human/spec.ts";
@@ -32,7 +33,7 @@ export const FOUNDATION = Object.freeze({ version: 2, samples: 2, watch: 40, bou
 const hash = (value) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
 const heldName = (held) => held === "club" ? "wooden club" : "fist";
 const riseMind = { ...FIGHTER, subs: [{ kind: "staged-rise" }] };
-const suites = ["baseline", "recovery", "strike-block", "bar", "integrated", "reach", "ccd", "solver"];
+const suites = ["baseline", "recovery", "strike-block", "bar", "support", "integrated", "reach", "ccd", "solver"];
 
 /** Fully specified starts; a seed selects geometry, not a hidden source of simulation noise. */
 export function foundationJobs({ suite = "baseline", split = "development", samples = FOUNDATION.samples,
@@ -68,6 +69,14 @@ export function foundationJobs({ suite = "baseline", split = "development", samp
         shieldHeight: 0.25 + (fraction * 2 - 1) * 0.002, shieldSpeed: -1,
         watchSeconds: 5 / 120, sampleHz: 120,
       });
+    }
+    return jobs;
+  }
+  if (suite === "support") {
+    for (const model of models) for (let index = from; index < from + samples; index++) {
+      const seed = FOUNDATION.split[split] + index, fraction = (((seed + 1) * 2654435761) >>> 0) / 4294967296;
+      for (const side of ["left", "right"]) add({ model, held: "empty", task: "support", seed, side,
+        liftOffset: (fraction * 2 - 1) * 0.002, watchSeconds: 12, checkpointSeconds: 2, sampleHz: 120, returnTolerance: 0.01 });
     }
     return jobs;
   }
@@ -263,16 +272,15 @@ export async function foundationTrial(job) {
     case "ccd": return collisionTrial(job);
     case "solver": return solverTrial(job);
     case "bar": return barTrial(job);
+    case "support": return supportTrial(job);
     case "unsupported": return { status: "unsupported", reason: job.capability };
     default: throw new Error(`unknown foundation task ${job.task}`);
   }
 }
 
-async function barTrial(job) {
-  const engine = await freshEngine(), rendering = new NullEngine(), scene = new Scene(rendering);
-  const probe = createBarProbe(scene, engine, job), timings = [];
+function replayedProbe(probe, job) {
+  const timings = [];
   const state = { world: probe.world.state, ...probe.state };
-  try {
     probe.world.step(job.checkpointSeconds * job.hz);
     const saved = { physics: probe.world.physics.save(), state: saveState(state) };
     const branch = (timed) => {
@@ -287,18 +295,40 @@ async function barTrial(job) {
     const measured = branch(true);
     probe.world.physics.load(saved.physics); loadState(state, saved.state);
     const replay = branch(false), replayExact = hash(replay) === hash(measured), outcome = measured.observation.task;
+    timings.sort((a, b) => a - b);
+    return { outcome: { ...outcome, replayExact, digest: measured.digest, stateDigest: measured.stateDigest },
+      physical: { assistForceIntegralNs: probe.body.assist.meter.force / job.hz, assistMomentIntegralNms: probe.body.assist.meter.moment / job.hz },
+      timing: { meanStepMs: timings.reduce((sum, v) => sum + v, 0) / timings.length,
+        p95StepMs: timings[Math.floor(timings.length * 0.95)], p99StepMs: timings[Math.floor(timings.length * 0.99)] } };
+}
+
+async function supportTrial(job) {
+  const engine = await freshEngine(), rendering = new NullEngine(), scene = new Scene(rendering);
+  const probe = createSupportProbe(scene, engine, job);
+  try {
+    const result = replayedProbe(probe, job), o = result.outcome, settings = probe.configuration.settings;
+    const success = probe.complete && !o.fell && o.rejectedSteps === 0 && o.replayExact
+      && o.peakLift > settings.lift + job.liftOffset - settings.liftTolerance
+      && o.flightSteps >= settings.holdSeconds * job.hz && o.returnError < job.returnTolerance
+      && o.peakTension <= settings.contact.forceTolerance && o.peakFrictionViolation <= settings.contact.forceTolerance;
+    return { status: "measured", configuration: probe.configuration, ...result, outcome: { ...o, success },
+      limits: ["initially standing and empty handed; not recovery or locomotion", "horizontal fixed ground", "joint-stop reactions are not predicted", "allocating diagnostic dynamics path"] };
+  } finally { probe.dispose(); scene.dispose(); rendering.dispose(); }
+}
+
+async function barTrial(job) {
+  const engine = await freshEngine(), rendering = new NullEngine(), scene = new Scene(rendering);
+  const probe = createBarProbe(scene, engine, job);
+  try {
+    const result = replayedProbe(probe, job), outcome = result.outcome;
     const success = outcome.complete && outcome.captured >= 0 && outcome.captured < job.captureSeconds * job.hz
       && outcome.movedError !== null && outcome.movedError < job.trackingTolerance
       && outcome.finalError < job.trackingTolerance && outcome.peakGripGap < job.gripTolerance
-      && outcome.contactSteps > 0 && outcome.releaseContinuous && replayExact
+      && outcome.contactSteps > 0 && outcome.releaseContinuous && outcome.replayExact
       && (job.support !== "standing" || (!outcome.fell && outcome.supportSteps > 0 && outcome.rejectedSteps === 0
         && outcome.peakTension <= job.forceTolerance && outcome.peakFrictionViolation <= job.forceTolerance));
-    timings.sort((a, b) => a - b);
-    return { status: "measured", configuration: probe.configuration,
-      outcome: { ...outcome, replayExact, success, digest: measured.digest, stateDigest: measured.stateDigest },
-      physical: { assistForceIntegralNs: probe.body.assist.meter.force / job.hz, assistMomentIntegralNms: probe.body.assist.meter.moment / job.hz },
-      timing: { meanStepMs: timings.reduce((sum, v) => sum + v, 0) / timings.length,
-        p95StepMs: timings[Math.floor(timings.length * 0.95)], p99StepMs: timings[Math.floor(timings.length * 0.99)] },
+    return { status: "measured", configuration: probe.configuration, ...result,
+      outcome: { ...outcome, success },
       limits: [job.support === "standing" ? "measured fixed sticking contacts; no sliding or contact acquisition model" : "pelvis pinned; not standing",
         "not recovery or combat", "return tracks position alone", "joint-stop reactions are not predicted", "allocating diagnostic dynamics path"] };
   } finally { probe.dispose(); scene.dispose(); rendering.dispose(); }

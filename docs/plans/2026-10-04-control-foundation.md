@@ -223,6 +223,13 @@ support never changes physical collision. Rejected solves are explicit zero-torq
 General support transitions, joint-stop prediction, hot-path optimization and recovery/combat
 integration remain required. The allocating experimental tracker is not the game's default.
 
+The [upright support task](../reference/support-transition.md) now transfers load, lifts either
+foot, verifies placement contact and regains two-foot support on all three bodies in the
+zero-offset regression. Readiness is measured, policy state replays, and the task checks another
+second of control. This is a shallow empty-handed task; loaded transitions, stepping, recovery,
+joint-stop-aware planning and the integrated gameplay gates remain open. The bar fixture's
+position-only return now uses measured readiness within the existing deadline and tolerance.
+
 ### 0. Define the common task battery and baseline
 
 **Files:** `research/control-foundation.mjs`, `research/control-foundation-trials.mjs`,

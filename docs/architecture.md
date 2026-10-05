@@ -478,6 +478,14 @@ assist and replay through the body's ordinary saved state. The [standing shared-
 adds ordinary ground and an unpinned pelvis. Support transitions and recovery remain experimental,
 and the allocating model path still needs optimization before game adoption.
 
+`control/support-transition.ts` is an optional upright reference policy over those motion
+objectives. It waits for measured unloading, foot flight, positive placement contact and a
+return to two-foot support. `tasks/support.ts` scores that sequence and continued standing
+independently of the policy, on either foot and all three bodies. It uses detached observations;
+its phase and readiness history save with the body. The [support record](reference/support-transition.md)
+declares its shallow horizontal-floor workspace and empty-handed scope. It does not recover
+from a fall or replace the game's locomotion and recovery controllers.
+
 ## Research environments
 
 `createEnvironment` (`src/core/tasks/environment.ts`) wraps a `WorldTask` factory over the

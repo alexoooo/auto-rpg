@@ -87,6 +87,12 @@ is capture within 2 s, shared movement and position-only return within 0.03 m, a
 below 0.002 m, positive obstacle contact impulse, continuous release and exact replay. Contact
 impulse here is the engine's stored normal impulse; it is not delivered work or damage.
 
+The fixture ends only after the returning item origin stays within the same 0.03 m position
+gate for 0.25 s, and no earlier than the declared 7.5 s after capture. The common runner retains
+its 12 s deadline. This is position-only readiness, not an orientation or centre-of-mass speed
+gate. Completion is absorbing. The archived development screen below uses the earlier fixed
+ending time; its configuration preserves that protocol.
+
 The common runner's `bar` suite perturbs the target's x coordinate by up to 0.005 m on its
 declared development seeds and keeps left/right release denominators separate:
 

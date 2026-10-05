@@ -22,6 +22,7 @@ const SETTINGS = deepFreeze({
   seconds: { move: 1, swing: 2, release: 4, return: 5, finish: 7.5 },
   postureSeconds: 0.2, trackingSeconds: 0.15, armWeight: 0.03, bodyWeight: 0.3,
   positionWeight: 1, rotationWeight: 0.2, effortCost: 1e-6, capacity: 2,
+  returnTolerance: 0.03, returnHoldSeconds: 0.25,
 });
 /** Measured sticking-support experiment inputs, numeric settings (`docs/reference/standing-bar.md`). */
 const STANDING = deepFreeze({ maxPoints: 64, gap: 0.005, minUpNormal: 0.9, forceTolerance: 1e-5,
@@ -47,7 +48,7 @@ export function createBarProbe(scene: Scene, engine: PhysicsEngine, config: {
   const support = config.support ?? "pinned";
   if (support !== "pinned" && support !== "standing") throw new Error("invalid bar support configuration");
   const standing = support === "standing";
-  const configuration = deepFreeze({ ...config, task: "shared-bar", protocol: 2, support, settings: SETTINGS,
+  const configuration = deepFreeze({ ...config, task: "shared-bar", protocol: 3, support, settings: SETTINGS,
     contact: standing ? STANDING : null, engineRevision: engine.revision, pin: standing ? null : "lowerTrunk", gravity: true, ccd: true,
     assists: { root: 0, weapon: false }, modelAccess: "coupled dynamics, anatomy and registered equipment" });
   const spec = modelSpec(config.model);
@@ -64,7 +65,7 @@ export function createBarProbe(scene: Scene, engine: PhysicsEngine, config: {
   const turn = new Quaternion(0, -Math.sqrt(0.5), 0, Math.sqrt(0.5));
   const swing = new Quaternion(sin(SETTINGS.swing / 2), 0, 0, cos(SETTINGS.swing / 2));
   swing.multiplyToRef(turn, swing);
-  const state = { steps: 0, captured: -1, released: false, complete: false, contactSteps: 0, peakImpulse: 0,
+  const state = { steps: 0, captured: -1, released: false, complete: false, returnHeld: 0, contactSteps: 0, peakImpulse: 0,
     movedError: null as number | null, finalError: Vector3.Distance(item.node.position, base), peakGripGap: 0,
     fell: false, minRootHeight: root.node.position.y, supportSteps: 0, rejectedSteps: 0, peakTension: 0, peakFrictionViolation: 0, maxSolveWork: 0,
     releaseContinuous: null as boolean | null, pendingRelease: null as readonly number[] | null };
@@ -103,7 +104,10 @@ export function createBarProbe(scene: Scene, engine: PhysicsEngine, config: {
         const dx = position[0] - reading.position[0], dy = position[1] - reading.position[1], dz = position[2] - reading.position[2];
         state.movedError = Math.sqrt(dx * dx + dy * dy + dz * dz);
       }
-      state.complete = elapsed >= SETTINGS.seconds.finish; state.steps++;
+      const dx = base.x - reading.position[0], dy = base.y - reading.position[1], dz = base.z - reading.position[2];
+      state.returnHeld = returning && dx * dx + dy * dy + dz * dz < SETTINGS.returnTolerance * SETTINGS.returnTolerance ? state.returnHeld + 1 : 0;
+      state.complete ||= elapsed >= SETTINGS.seconds.finish && state.returnHeld >= SETTINGS.returnHoldSeconds * configuration.hz;
+      state.steps++;
       if (standing) frames.push({ id: "root", frame: { kind: "segment", name: "lowerTrunk" }, at: ZERO,
         translation: { target: rootPosition, velocity: ZERO, acceleration: ZERO, seconds: STANDING.rootSeconds, weight: STANDING.rootWeight },
         orientation: { target: rootRotation, velocity: ZERO, acceleration: ZERO, seconds: STANDING.rootSeconds, weight: STANDING.rootWeight } });

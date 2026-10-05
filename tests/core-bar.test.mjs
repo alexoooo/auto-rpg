@@ -6,9 +6,9 @@ import { createBarProbe } from "../src/core/tasks/bar.ts";
 import { freshEngine, saveStand, loadStand } from "./harness/core-stand.mjs";
 
 const engine = await freshEngine();
-function fixture(model, release, support = "pinned") {
+function fixture(model, release, support = "pinned", offset = 0) {
   const rendering = new NullEngine(), scene = new Scene(rendering);
-  const probe = createBarProbe(scene, engine, { model, release, hz: 120, actuation: "directional", offset: 0, support });
+  const probe = createBarProbe(scene, engine, { model, release, hz: 120, actuation: "directional", offset, support });
   return { probe, dispose() { probe.dispose(); scene.dispose(); rendering.dispose(); } };
 }
 
@@ -75,4 +75,20 @@ test("ordinary ground supports every anatomical bar trial through obstacle conta
     } finally { f.dispose(); }
   }
   t.diagnostic(JSON.stringify(rows));
+});
+
+test("the shared bar waits for measured return readiness within the original deadline", () => {
+  const seed = 1, fraction = (((seed + 1) * 2654435761) >>> 0) / 4294967296;
+  const f = fixture("crypt-skeleton", "right", "standing", (fraction * 2 - 1) * 0.005), p = f.probe;
+  try {
+    p.world.step(240);
+    p.world.step(p.observe().task.captured + 901 - p.world.steps);
+    assert.equal(p.complete, false, "the old fixed ending arrives before the position-only return is ready");
+    assert.ok(p.observe().task.finalError > 0.03);
+    while (!p.complete && p.world.steps < 1440) p.world.step();
+    assert.equal(p.complete, true);
+    assert.ok(p.observe().task.returnHeld >= 30);
+    assert.ok(p.observe().task.finalError < 0.03);
+    assert.equal(p.observe().task.fell, false);
+  } finally { f.dispose(); }
 });
