@@ -89,6 +89,10 @@ The [independent support-entry task](reference/support-entry.md) now passes acqu
 a ten-second hold in 2/4 patch-friction and 3/4 per-point development shove directions.
 All eight reach support, but late acquisition and excess drift remain failures. Other bodies,
 loads, broader falls and transfer from hands/shins to useful standing control remain open.
+The [joint-shape comparison](reference/solver-contract.md#anatomical-joint-shape-compatibility)
+retains impulse joints: the pinned multibody engine traps on two-axis ankles and its three-axis
+internal limits use incompatible coordinates. A faithful multibody comparison needs more than
+new bindings; it remains a separate engine-extension experiment.
 
 ## Open items
 

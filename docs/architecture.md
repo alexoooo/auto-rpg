@@ -111,6 +111,11 @@ what a step allocates is held under a ceiling (`tests/core-step-cost.test.mjs`,
 mass and inertia (a held item's are folded in by `rigidOf`, which says whose each of the rigid
 body's shapes is: the segment's own, or an item it holds), and one joint per spec joint, whose
 free axes are the spec's freedoms. The body is built in the pose its joints demand.
+Rapier uses impulse joints. The pinned multibody implementation cannot represent the same
+anatomy unchanged: two-angular-DOF joints trap and three-axis internal limits accumulate
+angular motion rather than reading the current anatomical quaternion coordinates
+([solver contract](reference/solver-contract.md#anatomical-joint-shape-compatibility)).
+The shared body/controller interfaces do not depend on that engine-specific choice.
 
 - `jointAngles` and `jointTracker` (`joint-state.ts`) read each freedom's angle as the engine's
   limit reads it: about axes fixed in the parent.

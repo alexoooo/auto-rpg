@@ -179,8 +179,10 @@ anatomical grasp placement, shared-item muscle loads or reference-fighter/game i
 
 The [solver contract screen](../reference/solver-contract.md) retains impulse joints: the pinned
 multibody binding lacks accumulated effort and generic frame setters, and its unexposed native
-damping changes the free rotor response. Both signs press limits and replay. This is a contract
-screen, not the still-required anatomical contact/loop/performance comparison.
+damping changes the free rotor response. Both hinge signs press limits and replay. The expanded
+joint-shape screen traps on two-angular-DOF multibody motion and finds three-axis internal
+limits incompatible with anatomical coordinates. Retain impulse joints; a faithful multibody
+anatomical/contact/loop comparison needs an engine extension or validated hybrid first.
 
 The [constraint-mass model](../reference/constraint-mass.md) now accounts for active grips and
 redundant closed loops. Its impulse responses match the engine with both grips, either release
@@ -461,7 +463,12 @@ allowing legitimate rolling/sliding/lift-off rather than welding every contact. 
 versus actual accelerations and load transfer through removal of a support. Add thin moving
 shield/fast rotating bar cases with CCD on/off and collision pairs explicitly audited.
 
-Compare impulse-joint and multibody trees with identical anatomy, actuator semantics and tasks,
+The [joint-shape screen](../reference/solver-contract.md#anatomical-joint-shape-compatibility)
+now rejects a drop-in multibody tree: the pinned engine traps on two-angular-DOF joints and
+its three-axis internal limits use different coordinates from the anatomy. Retain impulse
+joints for the current foundation. A multibody comparison therefore requires an explicit
+engine extension or faithfully validated hybrid representation first, not just missing bindings.
+Once that exists, compare impulse-joint and multibody trees with identical anatomy, actuator semantics and tasks,
 including loop closure, limit pressing, falling, release and save/load. Verify the fork's actual
 binding support; a motor API on one joint type is not proof it exists on another. Measure cost
 on Node and a visible browser. Adopt a new solver representation only after this whole path holds.
