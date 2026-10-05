@@ -10,6 +10,8 @@ import { isEngineName, loadEngine } from "../core/engine/engines.ts";
 import { BODY_MODELS, type BodyModel } from "../core/human/spec.ts";
 import { createBarProbe } from "../core/tasks/bar.ts";
 import { createSupportProbe } from "../core/tasks/support.ts";
+import { createSupportEntryProbe } from "../core/tasks/support-entry.ts";
+import { createPostureHoldProbe } from "../core/tasks/posture-hold.ts";
 import { createPointStrikeProbe } from "../core/tasks/point-strike.ts";
 import { createDefenseProbe } from "../core/tasks/defense.ts";
 import { loadState, saveState } from "../core/state.ts";
@@ -32,22 +34,38 @@ const release = element<HTMLSelectElement>("release");
 const motion = element<HTMLSelectElement>("motion");
 const defense = element<HTMLSelectElement>("defense"), stops = element<HTMLSelectElement>("stops");
 const balance = element<HTMLSelectElement>("balance"), continuation = element<HTMLSelectElement>("continuation");
-for (const select of [task, model, side, support, held, target, motion, balance, continuation, defense, release, stops]) {
+const posture = element<HTMLSelectElement>("posture"), servo = element<HTMLSelectElement>("servo"), direction = element<HTMLSelectElement>("direction");
+for (const select of [task, model, side, support, held, target, motion, balance, continuation, defense, release, stops, posture, servo, direction]) {
   const value = query.get(select.id);
   if (value && [...select.options].some((o) => o.value === value)) select.value = value;
 }
 if (query.has("seed")) seed.value = query.get("seed")!;
 
 function make() {
-  if (task.value === "support") stops.value = "off";
+  if (task.value === "support" || task.value === "posture-hold" || task.value === "support-entry") stops.value = "off";
+  if (task.value === "posture-hold" || task.value === "support-entry") model.value = "workshop-fighter";
   if (task.value === "point-strike" && held.value === "shared") side.value = "both";
   const chosen = model.value as BodyModel, selectedSide = side.value, selectedSupport = support.value, number = Number(seed.value);
   if (!BODY_MODELS.includes(chosen) || (selectedSide !== "left" && selectedSide !== "right" && selectedSide !== "both")
     || (selectedSupport !== "standing" && selectedSupport !== "pinned") || !Number.isInteger(number) || number < 0 || number >= 1000000) throw new Error("Invalid development configuration");
   const fraction = (((number + 1) * 2654435761) >>> 0) / 4294967296;
   const common = { model: chosen, hz: 120, actuation: "directional" as const, ...(stops.value === "on" ? { jointStops: true } : {}) };
-  let probe: ReturnType<typeof createBarProbe> | ReturnType<typeof createSupportProbe> | ReturnType<typeof createPointStrikeProbe> | ReturnType<typeof createDefenseProbe>;
+  let probe: ReturnType<typeof createBarProbe> | ReturnType<typeof createSupportProbe> | ReturnType<typeof createPointStrikeProbe> | ReturnType<typeof createDefenseProbe> | ReturnType<typeof createPostureHoldProbe> | ReturnType<typeof createSupportEntryProbe>;
   switch (task.value) {
+    case "support-entry": {
+      const chosenDirection = Number(direction.value);
+      if (chosenDirection !== 0 && chosenDirection !== 1 && chosenDirection !== 2 && chosenDirection !== 3) throw new Error("Unknown shove direction");
+      probe = createSupportEntryProbe(scene, engine, { ...common, direction: chosenDirection });
+      camera.target.set(...probe.body.observe().centre);
+      break;
+    }
+    case "posture-hold": {
+      const installed = posture.value;
+      if (installed !== "fours" && installed !== "half-kneel" && installed !== "squat") throw new Error("Unknown installed posture");
+      probe = createPostureHoldProbe(scene, engine, { ...common, posture: installed, servoSeconds: Number(servo.value), speed: 10, activation: 1 });
+      camera.target.set(...probe.body.observe().centre);
+      break;
+    }
     case "defense": {
       const item = held.value, variant = defense.value;
       if ((item !== "empty" && item !== "club") || (variant !== "predict" && variant !== "pose")) throw new Error("Invalid defense configuration");
@@ -101,32 +119,37 @@ const state = () => ({ world: live.probe.world.state, ...live.probe.state });
 const save = () => ({ physics: live.probe.world.physics.save(), state: saveState(state()) });
 let saved: ReturnType<typeof save> | null = null;
 const restore = (snapshot: ReturnType<typeof save>) => { live.probe.world.physics.load(snapshot.physics); loadState(state(), snapshot.state); };
-const ended = () => live.probe.complete || live.probe.world.steps >= 120 * ("continueSeconds" in live.probe.configuration.settings
+const ended = () => live.probe.configuration.task === "support-entry" ? live.probe.complete : live.probe.complete || live.probe.world.steps >= 120 * ("continueSeconds" in live.probe.configuration.settings
   ? 7 + live.probe.configuration.settings.continueSeconds : 12);
 function show() {
   const p = live.probe, r = p.observe().task;
-  element("status").textContent = r.fell ? "Fell" : p.complete ? "Task complete" : ended() ? "Time limit" : p.world.steps ? "In progress" : "Ready";
-  element("steps").textContent = String(p.world.steps);
-  element("phase").textContent = "phase" in r ? r.phase : r.captured < 0 ? "Capture" : r.released ? "Return" : "Shared motion";
-  element("error-label").textContent = "guards" in r ? "Protected-region impulse" : "Return error";
+  element("status").textContent = "acquiredAt" in r ? p.complete ? r.success ? "Entry passed" : "Entry failed" : "Acquiring support" : "fell" in r && r.fell ? "Fell" : p.complete ? "success" in r ? r.success ? "Hold passed" : "Hold failed" : "Task complete" : ended() ? "Time limit" : p.world.steps ? "In progress" : "Ready";
+  element("steps").textContent = String("steps" in r ? r.steps : p.world.steps);
+  element("phase").textContent = "acquiredAt" in r ? r.acquiredAt < 0 ? "Acquire" : "Hold" : "peakDrift" in r ? "Hold" : "phase" in r ? r.phase : r.captured < 0 ? "Capture" : r.released ? "Return" : "Shared motion";
+  element("error-label").textContent = "peakDrift" in r ? "Maximum segment drift" : "guards" in r ? "Protected-region impulse" : "Return error";
   element("error").textContent = "guards" in r ? `${r.protectedImpulse.toFixed(3)} N·s`
-    : `${(100 * ("strikes" in r ? Math.max(...r.strikes.map((s) => s.returnError)) : "returnError" in r ? r.returnError : r.finalError)).toFixed(3)} cm`;
-  element("rejected").textContent = String(r.rejectedSteps);
+    : `${(100 * ("peakDrift" in r ? r.peakDrift : "strikes" in r ? Math.max(...r.strikes.map((s) => s.returnError)) : "returnError" in r ? r.returnError : r.finalError)).toFixed(3)} cm`;
+  element("rejected").textContent = "rejectedSteps" in r ? String(r.rejectedSteps) : "—";
   element("contacts").textContent = "guards" in r ? String(r.guards.reduce((sum, g) => sum + g.qualifyingContacts, 0))
-    : "strikes" in r ? String(r.strikes.reduce((sum, s) => sum + s.contacts, 0)) : "contactSteps" in r ? String(r.contactSteps) : "—";
+    : "supportedSteps" in r ? String(r.supportedSteps) : "strikes" in r ? String(r.strikes.reduce((sum, s) => sum + s.contacts, 0)) : "contactSteps" in r ? String(r.contactSteps) : "—";
   element("result").textContent = JSON.stringify({ configuration: p.configuration, outcome: r }, null, 2);
   element("side-label").textContent = task.value === "defense" ? "Defending hands" : task.value === "point-strike" ? "Striking hands" : task.value === "bar" ? "Released hand" : "Moving foot";
-  element("description").textContent = task.value === "bar" ? "Capture, move and swing one shared item against an obstacle, release either hand, and return."
+  element("description").textContent = task.value === "support-entry" ? "Acquire hand-and-shin support after a shove, settle for two seconds, then hold for ten seconds within 2 cm. Head or trunk support fails. Kneeling and standing are not tested."
+    : task.value === "posture-hold" ? "Hold an installed Warrior pose for ten seconds using independent joint feedback. Pass: every segment stays within 2 cm. Entry and recovery are not tested."
+    : task.value === "bar" ? "Capture, move and swing one shared item against an obstacle, release either hand, and return."
     : task.value === "defense" ? "Prepare, intercept gravity-driven clubs, and sustain defense. Head and upper-trunk contact is scored separately from blocks."
     : task.value === "point-strike" ? "Prepare a guard, strike with either hand, independent items or one shared item, and return after contact or a miss."
       : "Shift weight, lift either foot, verify placement contact, and regain two-foot support.";
   for (const control of document.querySelectorAll<HTMLButtonElement | HTMLInputElement | HTMLSelectElement>("button, input, select")) control.disabled = busy;
-  stops.disabled = busy || task.value === "support";
+  stops.disabled = busy || task.value === "support" || task.value === "posture-hold" || task.value === "support-entry";
+  direction.disabled = busy || task.value !== "support-entry";
+  posture.disabled = servo.disabled = busy || task.value !== "posture-hold";
+  model.disabled = seed.disabled = busy || task.value === "posture-hold" || task.value === "support-entry";
   support.disabled = busy || task.value !== "bar";
   held.disabled = busy || (task.value !== "point-strike" && task.value !== "defense");
   held.querySelector<HTMLOptionElement>('option[value="shared"]')!.disabled = task.value !== "point-strike";
   release.disabled = busy || task.value !== "point-strike" || held.value !== "shared";
-  side.disabled = busy || (task.value === "point-strike" && held.value === "shared");
+  side.disabled = busy || task.value === "posture-hold" || task.value === "support-entry" || (task.value === "point-strike" && held.value === "shared");
   defense.disabled = busy || task.value !== "defense";
   target.disabled = motion.disabled = busy || task.value !== "point-strike";
   balance.disabled = continuation.disabled = busy || task.value !== "point-strike";
@@ -167,7 +190,7 @@ for (const [id, action] of Object.entries(actions)) element<HTMLButtonElement>(i
   try { await action(); } catch (error) { playing = false; element("verification").textContent = String(error); }
   finally { busy = false; show(); }
 });
-const inputs = [task, model, side, support, seed, held, target, motion, balance, continuation, defense, release, stops];
+const inputs = [task, model, side, support, seed, held, target, motion, balance, continuation, defense, release, stops, posture, servo, direction];
 physics.addEventListener("change", () => {
   const next = new URLSearchParams(location.search);
   for (const input of [...inputs, physics]) next.set(input.id, input.value);

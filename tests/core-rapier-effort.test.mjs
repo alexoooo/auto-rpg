@@ -6,6 +6,36 @@ import { TransformNode } from "@babylonjs/core/Meshes/transformNode.js";
 import { Scene } from "@babylonjs/core/scene.js";
 import { createRapierPhysics, rapierModule } from "../src/core/engine/rapier.ts";
 
+test("Rapier's effort sum retains each saturated impulse at high substep counts", async () => {
+  const R = await rapierModule();
+  for (const count of [16, 32, 64, 128, 256, 512]) for (const sense of [-1, 1]) {
+    const engine = new NullEngine(), scene = new Scene(engine);
+    const physics = createRapierPhysics(R, { hz: 120, gravity: false });
+    try {
+      physics.raw.numSolverIterations = count;
+      const bodies = ["parent", "rotor"].map((name) => {
+        const node = new TransformNode(name, scene);
+        node.rotationQuaternion = Quaternion.Identity();
+        return physics.addBody(node, [], { mass: 1, centre: [0, 0, 0], moments: [.02, .02, .02], orientation: Quaternion.Identity() });
+      });
+      bodies[0].setFixed(true);
+      const joint = physics.raw.createImpulseJoint(R.JointData.revolute(
+        { x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: 0 }, { x: 1, y: 0, z: 0 }), bodies[0].rigid, bodies[1].rigid, true);
+      const raw = physics.raw.impulseJoints.raw, axis = R.JointAxis.AngX;
+      raw.jointConfigureMotor(joint.handle, axis, 0, sense * 1e6, 0, Infinity);
+      raw.jointSetMotorForceBounds(joint.handle, axis, -149.3, 149.3);
+      physics.step(1 / 120);
+      const last = raw.jointMotorImpulse(joint.handle, axis), sum = raw.jointMotorStepImpulse(joint.handle, axis);
+      assert.ok(Math.abs(last) > 0, "a driven rotor saturates every substep");
+      assert.equal(sum, last * count, `${count} substeps, sense ${sense}`);
+      const saved = physics.save();
+      physics.step(1 / 120);
+      physics.load(saved);
+      assert.equal(physics.raw.impulseJoints.raw.jointMotorStepImpulse(joint.handle, axis), sum, "the precise sum survives serialization");
+    } finally { physics.dispose(); scene.dispose(); engine.dispose(); }
+  }
+});
+
 test("Rapier sums motor effort across islands with different substep counts, including a CCD collision", async () => {
   const R = await rapierModule(), engine = new NullEngine(), scene = new Scene(engine);
   const physics = createRapierPhysics(R, { hz: 120, gravity: false });

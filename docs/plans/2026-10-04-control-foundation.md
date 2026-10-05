@@ -179,8 +179,10 @@ anatomical grasp placement, shared-item muscle loads or reference-fighter/game i
 
 The [solver contract screen](../reference/solver-contract.md) retains impulse joints: the pinned
 multibody binding lacks accumulated effort and generic frame setters, and its unexposed native
-damping changes the free rotor response. Both signs press limits and replay. This is a contract
-screen, not the still-required anatomical contact/loop/performance comparison.
+damping changes the free rotor response. Both hinge signs press limits and replay. The expanded
+joint-shape screen traps on two-angular-DOF multibody motion and finds three-axis internal
+limits incompatible with anatomical coordinates. Retain impulse joints; a faithful multibody
+anatomical/contact/loop comparison needs an engine extension or validated hybrid first.
 
 The [constraint-mass model](../reference/constraint-mass.md) now accounts for active grips and
 redundant closed loops. Its impulse responses match the engine with both grips, either release
@@ -257,7 +259,7 @@ development witnesses are statically feasible, but all miss the five-second engi
 Those witnesses do not close the recovery gate; entering and holding supports remain required.
 The [recovery support diagnostics](../analysis/2026-10-05-recovery-support.md) retain failed
 entry and installed-pose experiments. Active contact acceleration compatibility is checked;
-sliding/rolling alternatives and the installed all-fours hold are the next controller gates.
+sliding/rolling alternatives and entry into a demonstrated hold remain controller gates.
 [Geometric planar support](../reference/planar-support.md) supplies current sphere, capsule and
 polyhedral features; a fine-step sliding-sphere check agrees with the engine and replays.
 The controller still uses measured midpoint contacts. Geometric contact integration and
@@ -267,7 +269,7 @@ the pinned rigid-body engine uses central friction plus independent twist resist
 the controller assumes per-point friction. The native Coulomb option is exposed in separately
 identified profiles. Both patch and projected per-point sustained-sliding predictors have
 mechanical checks; neither is a general mode selector. Select and validate
-the matching sliding/sticking predictor before repeating the installed-pose hold. Multibody
+the matching sliding/sticking predictor for model-based control. Multibody
 comparisons must name this distinction because native multibody contacts already use Coulomb.
 The [local contact-step predictor](../reference/contact-step.md) now validates sliding, stopping,
 holding and unloading on a loaded slab, including initial spin and exact replay. Its finite
@@ -276,9 +278,36 @@ measured velocities resolves incompatible contact demands on linked bodies witho
 physics. Linked slabs now slide and stop with exact replay; prescribed joint torque still
 exposes rejected stopping predictions. Optional [angular-stop impulse rows](../reference/contact-stops.md)
 now validate established support and release on a grounded hinge, at either limit with sticking
-or sliding ground contact. Hard stop arrivals remain unvalidated. Next combine contact/stop
-variables with bounded actuator objectives before
-repeating the installed all-fours hold. This diagnostic forward model is not yet in the tracker.
+or sliding ground contact. Hard stop arrivals remain unvalidated. Bounded inverse-control
+prototypes converge but miss anatomical next-step motion and the hold gate; the diagnostic
+forward model is not yet in the tracker.
+The optional [rigid-body friction metric](../reference/contact-projection.md) now matches
+native per-point sliding direction on a welded-load fixture at both declared rates and signs,
+with exact replay. Joint elimination changes saturated friction direction when the coupled
+metric is used instead. This fixes a model-law distinction, not the anatomical acquisition gap;
+matched-load first-contact diagnostics still miss all-fours motion.
+The independent joint-feedback policy now [holds installed Warrior all fours](../reference/posture-hold.md)
+for ten seconds within 2 cm on both corrected-limit friction profiles, with zero assistance,
+exact replay and matching Node/browser traces. The shared builder initializes a legal joint
+pose before constructing physics. Direct joint feedback still fails half-kneel and squat at the default solver count; Rogue and skeleton fixtures
+are explicitly unsupported. This closes a limited installed-pose hold gate, not entry, balance
+or recovery. An [offline native-rollout controller](../reference/native-posture-control.md)
+now holds installed half-kneel within 5.59 mm at the default solver count. It uses the same
+task's external actuator interface, with explicit privileged snapshot access and replay of the
+selected action tape. This closes a second installed-pose feasibility gate but neither runtime
+cost nor entry/transfer. The [support-entry task](../reference/support-entry.md) now reaches measured
+hand/shin support after physical development falls, using an optional observation/action
+pose-sequence policy. Its ten-second, 2 cm hold gate passes 2/4 patch and 3/4 per-point cells;
+all eight replay, with selected Node/browser traces matching. Quiet support, drift and elapsed
+time are scored independently of policy stages. Broader starts, other bodies, loaded hands,
+hand unloading and transfer to standing remain open. Direct feedback and model-based control
+remain replaceable alternatives.
+
+The [effort precision correction](../reference/effort-precision.md) removes rounding growth in
+the whole-step motor ledger without changing physical traces. The installed half-kneel passes
+at 256 native iterations, with 18.19 mm drift, but squat still collapses. This is diagnostic
+evidence about solver resolution; the default remains 16. Entry, support transfer, loaded
+control and browser cost still require their own gates.
 
 The [upright support task](../reference/support-transition.md) now transfers load, lifts either
 foot, verifies placement contact and regains two-foot support on all three bodies in the
@@ -449,7 +478,12 @@ allowing legitimate rolling/sliding/lift-off rather than welding every contact. 
 versus actual accelerations and load transfer through removal of a support. Add thin moving
 shield/fast rotating bar cases with CCD on/off and collision pairs explicitly audited.
 
-Compare impulse-joint and multibody trees with identical anatomy, actuator semantics and tasks,
+The [joint-shape screen](../reference/solver-contract.md#anatomical-joint-shape-compatibility)
+now rejects a drop-in multibody tree: the pinned engine traps on two-angular-DOF joints and
+its three-axis internal limits use different coordinates from the anatomy. Retain impulse
+joints for the current foundation. A multibody comparison therefore requires an explicit
+engine extension or faithfully validated hybrid representation first, not just missing bindings.
+Once that exists, compare impulse-joint and multibody trees with identical anatomy, actuator semantics and tasks,
 including loop closure, limit pressing, falling, release and save/load. Verify the fork's actual
 binding support; a motor API on one joint type is not proof it exists on another. Measure cost
 on Node and a visible browser. Adopt a new solver representation only after this whole path holds.

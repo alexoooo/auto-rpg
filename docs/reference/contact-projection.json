@@ -1,0 +1,513 @@
+{
+  "command": "node research/contact-projection.mjs",
+  "results": [
+    {
+      "harness": "Node core stand",
+      "hz": 120,
+      "sense": -1,
+      "seconds": 0.008333333333333333,
+      "engine": "rapier-coordinate-coulomb",
+      "revision": "rapier/adapter-8/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits/point-friction",
+      "fixture": {
+        "root": {
+          "mass": 1,
+          "stature": 0.1,
+          "proximal": [
+            0,
+            0.1,
+            0
+          ],
+          "distal": [
+            0,
+            0,
+            0
+          ],
+          "centre": [
+            0,
+            0.05,
+            0
+          ],
+          "inertia": [
+            0.001,
+            0.001,
+            0.001
+          ],
+          "radius": 0.05,
+          "surfaceStiffness": 100000
+        },
+        "load": {
+          "mass": 3,
+          "centre": [
+            0,
+            0,
+            0
+          ],
+          "inertia": [
+            0.02,
+            0.02,
+            0.02
+          ],
+          "radius": 0.02,
+          "position": [
+            0.08,
+            0.3,
+            0.11
+          ]
+        },
+        "velocity": [
+          30,
+          0,
+          10
+        ],
+        "rates": [
+          120,
+          1920
+        ],
+        "referenceHz": 120,
+        "referenceSteps": 1,
+        "capture": {
+          "distance": 1e-7,
+          "rotationError": 1e-7
+        },
+        "solve": {
+          "iterations": 4096,
+          "impulseTolerance": 1e-10,
+          "velocityTolerance": 1e-7
+        }
+      },
+      "settings": {
+        "iterations": 4096,
+        "impulseTolerance": 1e-10,
+        "velocityTolerance": 1e-7,
+        "dt": 0.008333333333333333,
+        "friction": 0.5
+      },
+      "replay": true,
+      "actualImpulse": [
+        0.1467132568359375,
+        0.30942297915709516,
+        0.049091339111328125
+      ],
+      "direction": [
+        0.9483202123810757,
+        0.3173149457392632
+      ],
+      "metrics": {
+        "coupled": {
+          "impulse": [
+            0.1504878838107161,
+            0.32548513031105564,
+            0.06195594676521081
+          ],
+          "rejected": 0,
+          "work": 21,
+          "linearError": 0.006864320378895172,
+          "angularError": 0.01880524159906552,
+          "direction": [
+            0.9246989788252363,
+            0.38069909188171824
+          ],
+          "directionError": 0.06764253585509347
+        },
+        "rigid-body": {
+          "impulse": [
+            0.15100188725859884,
+            0.3185616068280186,
+            0.05068337380792333
+          ],
+          "rejected": 0,
+          "work": 20,
+          "linearError": 0.0030462089944086595,
+          "angularError": 0.009142515342053292,
+          "direction": [
+            0.9480231391482151,
+            0.3182013947794135
+          ],
+          "directionError": 0.0009349034209294426
+        }
+      },
+      "physicalDigest": "6a4bd82cbae829dd8e7bb210f4f4720727e4aa514e3126c2128feb79b0da3f7e"
+    },
+    {
+      "harness": "Node core stand",
+      "hz": 120,
+      "sense": 1,
+      "seconds": 0.008333333333333333,
+      "engine": "rapier-coordinate-coulomb",
+      "revision": "rapier/adapter-8/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits/point-friction",
+      "fixture": {
+        "root": {
+          "mass": 1,
+          "stature": 0.1,
+          "proximal": [
+            0,
+            0.1,
+            0
+          ],
+          "distal": [
+            0,
+            0,
+            0
+          ],
+          "centre": [
+            0,
+            0.05,
+            0
+          ],
+          "inertia": [
+            0.001,
+            0.001,
+            0.001
+          ],
+          "radius": 0.05,
+          "surfaceStiffness": 100000
+        },
+        "load": {
+          "mass": 3,
+          "centre": [
+            0,
+            0,
+            0
+          ],
+          "inertia": [
+            0.02,
+            0.02,
+            0.02
+          ],
+          "radius": 0.02,
+          "position": [
+            0.08,
+            0.3,
+            0.11
+          ]
+        },
+        "velocity": [
+          30,
+          0,
+          10
+        ],
+        "rates": [
+          120,
+          1920
+        ],
+        "referenceHz": 120,
+        "referenceSteps": 1,
+        "capture": {
+          "distance": 1e-7,
+          "rotationError": 1e-7
+        },
+        "solve": {
+          "iterations": 4096,
+          "impulseTolerance": 1e-10,
+          "velocityTolerance": 1e-7
+        }
+      },
+      "settings": {
+        "iterations": 4096,
+        "impulseTolerance": 1e-10,
+        "velocityTolerance": 1e-7,
+        "dt": 0.008333333333333333,
+        "friction": 0.5
+      },
+      "replay": true,
+      "actualImpulse": [
+        -0.07664871215820312,
+        0.1615504988261064,
+        -0.025508880615234375
+      ],
+      "direction": [
+        -0.9488343005598189,
+        -0.31577439744406055
+      ],
+      "metrics": {
+        "coupled": {
+          "impulse": [
+            -0.07514800258153236,
+            0.16236790829109154,
+            -0.030718270112623236
+          ],
+          "rejected": 0,
+          "work": 21,
+          "linearError": 0.004997537174114441,
+          "angularError": 0.01889034652403368,
+          "direction": [
+            -0.9256509290839394,
+            -0.37837859015282554
+          ],
+          "directionError": 0.06675892193336262
+        },
+        "rigid-body": {
+          "impulse": [
+            -0.07788763919927259,
+            0.16416253432614225,
+            -0.025900773715458653
+          ],
+          "rejected": 0,
+          "work": 20,
+          "linearError": 0.0016973619250748584,
+          "angularError": 0.007255179114976529,
+          "direction": [
+            -0.9489088301296928,
+            -0.3155503638120194
+          ],
+          "directionError": 0.00023610532622359525
+        }
+      },
+      "physicalDigest": "1712fa7b16e456f121c6bb149f4949bd42b6ebee7068d90c1b85d76eb0a066ea"
+    },
+    {
+      "harness": "Node core stand",
+      "hz": 1920,
+      "sense": -1,
+      "seconds": 0.008333333333333333,
+      "engine": "rapier-coordinate-coulomb",
+      "revision": "rapier/adapter-8/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits/point-friction",
+      "fixture": {
+        "root": {
+          "mass": 1,
+          "stature": 0.1,
+          "proximal": [
+            0,
+            0.1,
+            0
+          ],
+          "distal": [
+            0,
+            0,
+            0
+          ],
+          "centre": [
+            0,
+            0.05,
+            0
+          ],
+          "inertia": [
+            0.001,
+            0.001,
+            0.001
+          ],
+          "radius": 0.05,
+          "surfaceStiffness": 100000
+        },
+        "load": {
+          "mass": 3,
+          "centre": [
+            0,
+            0,
+            0
+          ],
+          "inertia": [
+            0.02,
+            0.02,
+            0.02
+          ],
+          "radius": 0.02,
+          "position": [
+            0.08,
+            0.3,
+            0.11
+          ]
+        },
+        "velocity": [
+          30,
+          0,
+          10
+        ],
+        "rates": [
+          120,
+          1920
+        ],
+        "referenceHz": 120,
+        "referenceSteps": 1,
+        "capture": {
+          "distance": 1e-7,
+          "rotationError": 1e-7
+        },
+        "solve": {
+          "iterations": 4096,
+          "impulseTolerance": 1e-10,
+          "velocityTolerance": 1e-7
+        }
+      },
+      "settings": {
+        "iterations": 4096,
+        "impulseTolerance": 1e-10,
+        "velocityTolerance": 1e-7,
+        "dt": 0.0005208333333333333,
+        "friction": 0.5
+      },
+      "replay": true,
+      "actualImpulse": [
+        0.14979934692382812,
+        0.3157676949888963,
+        0.05004119873046875
+      ],
+      "direction": [
+        0.9484777946658736,
+        0.3168436097284608
+      ],
+      "metrics": {
+        "coupled": {
+          "impulse": [
+            0.16734637317702072,
+            0.361859673869354,
+            0.06878070382722136
+          ],
+          "rejected": 0,
+          "work": 19,
+          "linearError": 0.0010020370178350619,
+          "angularError": 0.0036067341508610185,
+          "direction": [
+            0.9249243067628647,
+            0.38015132087003745
+          ],
+          "directionError": 0.06754726554334001
+        },
+        "rigid-body": {
+          "impulse": [
+            0.16790455431580742,
+            0.35410557429175904,
+            0.05617596366391615
+          ],
+          "rejected": 0,
+          "work": 18,
+          "linearError": 0.0008391347982740634,
+          "angularError": 0.004227114760247341,
+          "direction": [
+            0.9483306474329054,
+            0.3172837580770347
+          ],
+          "directionError": 0.00046409360793107967
+        }
+      },
+      "physicalDigest": "abfb385accb9efb79ace9d6e51295fe036486f46d0f87429bff368da9f506f5c"
+    },
+    {
+      "harness": "Node core stand",
+      "hz": 1920,
+      "sense": 1,
+      "seconds": 0.008333333333333333,
+      "engine": "rapier-coordinate-coulomb",
+      "revision": "rapier/adapter-8/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits/point-friction",
+      "fixture": {
+        "root": {
+          "mass": 1,
+          "stature": 0.1,
+          "proximal": [
+            0,
+            0.1,
+            0
+          ],
+          "distal": [
+            0,
+            0,
+            0
+          ],
+          "centre": [
+            0,
+            0.05,
+            0
+          ],
+          "inertia": [
+            0.001,
+            0.001,
+            0.001
+          ],
+          "radius": 0.05,
+          "surfaceStiffness": 100000
+        },
+        "load": {
+          "mass": 3,
+          "centre": [
+            0,
+            0,
+            0
+          ],
+          "inertia": [
+            0.02,
+            0.02,
+            0.02
+          ],
+          "radius": 0.02,
+          "position": [
+            0.08,
+            0.3,
+            0.11
+          ]
+        },
+        "velocity": [
+          30,
+          0,
+          10
+        ],
+        "rates": [
+          120,
+          1920
+        ],
+        "referenceHz": 120,
+        "referenceSteps": 1,
+        "capture": {
+          "distance": 1e-7,
+          "rotationError": 1e-7
+        },
+        "solve": {
+          "iterations": 4096,
+          "impulseTolerance": 1e-10,
+          "velocityTolerance": 1e-7
+        }
+      },
+      "settings": {
+        "iterations": 4096,
+        "impulseTolerance": 1e-10,
+        "velocityTolerance": 1e-7,
+        "dt": 0.0005208333333333333,
+        "friction": 0.5
+      },
+      "replay": true,
+      "actualImpulse": [
+        -0.07747459411621094,
+        0.16326714612325036,
+        -0.025757789611816406
+      ],
+      "direction": [
+        -0.9489294759957163,
+        -0.3154882717098932
+      ],
+      "metrics": {
+        "coupled": {
+          "impulse": [
+            -0.07925796028260176,
+            0.17128839275027888,
+            -0.03245156437958271
+          ],
+          "rejected": 0,
+          "work": 19,
+          "linearError": 0.0005545480395099389,
+          "angularError": 0.0032226651043774646,
+          "direction": [
+            -0.9254329427614164,
+            -0.3789114256022707
+          ],
+          "directionError": 0.06763566754077882
+        },
+        "rigid-body": {
+          "impulse": [
+            -0.08215968724147382,
+            0.17318590378712143,
+            -0.02735187004776728
+          ],
+          "rejected": 0,
+          "work": 18,
+          "linearError": 0.0004419648191351655,
+          "angularError": 0.003948817998276621,
+          "direction": [
+            -0.9488034207186632,
+            -0.3158671696022928
+          ],
+          "directionError": 0.00039931634794707267
+        }
+      },
+      "physicalDigest": "bc23ff48b9bb102f259564c568bb9d09083b6fca1478eac7ed7aabc6513beff2"
+    }
+  ]
+}

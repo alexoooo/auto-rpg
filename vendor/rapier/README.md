@@ -31,7 +31,8 @@ uses this vendored package. The package layout remains compatible with the bench
   `jointSetMotorForceBounds`.
 - **Whole-step motor impulse** (`jointMotorStepImpulse`) sums every solver substep, including
   CCD subdivisions, and resets once per pipeline step even for inactive impulse joints. It is
-  serialized with the joint, and never used as a warm-start seed. Scalar, SIMD (without duplicate
+  accumulated and returned in double precision, serialized with the joint, and never used as a
+  warm-start seed. Constraint solving remains single precision. Scalar, SIMD (without duplicate
   padding lanes) and external multibody constraint rows contribute; internal multibody motors
   have no effort readback. This is signed impulse, not work or an absolute effort integral.
 - A motor's force and impulse are the ones applied to the joint's first body, the parent: a

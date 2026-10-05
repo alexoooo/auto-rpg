@@ -223,8 +223,8 @@ test("the core, and what builds a bout's world, compute with IEEE's operations a
  * (`src/core/math/turn.ts`).
  */
 const EXACT_BABYLON = new Set([
-  "Quaternion.Identity", "Quaternion.InverseToRef", "Quaternion.RotationQuaternionFromAxis", "Quaternion.clone", "Quaternion.copyFrom",
-  "Quaternion.copyFromFloats", "Quaternion.multiplyInPlace", "Quaternion.multiplyToRef", "Quaternion.normalize",
+  "Quaternion.Identity", "Quaternion.Inverse", "Quaternion.InverseToRef", "Quaternion.RotationQuaternionFromAxis", "Quaternion.clone", "Quaternion.copyFrom",
+  "Quaternion.copyFromFloats", "Quaternion.multiply", "Quaternion.multiplyInPlace", "Quaternion.multiplyToRef", "Quaternion.normalize",
   "Quaternion.scaleInPlace", "Quaternion.set", "Quaternion.w", "Quaternion.x", "Quaternion.y", "Quaternion.z",
   "Vector3.Cross", "Vector3.CrossToRef", "Vector3.Distance", "Vector3.Dot", "Vector3.Forward", "Vector3.Right", "Vector3.Up",
   "Vector3.UpReadOnly", "Vector3.add", "Vector3.addInPlace", "Vector3.addInPlaceFromFloats", "Vector3.applyRotationQuaternionToRef",

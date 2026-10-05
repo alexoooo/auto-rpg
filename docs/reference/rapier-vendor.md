@@ -14,8 +14,8 @@ control is measured separately in the [common battery](control-foundation.md).
   CCD-only pair filtering that preserves ordinary contact recycling, and current-pose
   solver contact separation, an opt-in measured-angle gradient for angular limits, and accessors
   for the native rigid-body friction-model selector.
-- Package version: `0.21.0-auto-rpg.6`.
-- Archive SHA256: `07af259dc277cac77daa9c95eaded0ed2bc8aeb5feac08bfd9e58d23e58feebd`.
+- Package version: `0.21.0-auto-rpg.7`.
+- Archive SHA256: `1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde`.
 - Build toolchain: Rust 1.97.1, Node 24.19.0; wasm-pack 0.12.1 and wasm-bindgen 0.2.129 from
   the upstream lockfiles. The build remaps source/cache paths and writes declarations with LF.
 - Installation: package metadata and lockfile name the same archive; SHA512 integrity is
@@ -26,7 +26,9 @@ control is measured separately in the [common battery](control-foundation.md).
 substep, including CCD subdivisions, with one reset at the start of the pipeline step, including
 inactive joints. Its force acts on the parent; the engine contract's `motorStepImpulse` converts
 to the child's sign. The muscle driver's `pulled` divides that impulse by the world step's
-duration and converts to the channel's sign. Both readings survive save/load.
+duration and converts to the channel's sign. Both readings survive save/load. The accumulated
+reading uses double precision; constraint solving remains single precision. The
+[precision record](effort-precision.md) reproduces the rounding defect at high substep counts.
 
 The sum includes each substep's final motor impulse, including warmstarting and solver
 corrections, without changing constraint solving. SIMD padding lanes count once. External
@@ -157,8 +159,8 @@ configurations are recorded with the [limit measurements](joint-limits.md#packag
 The `.6` package exposes native [friction-model selection](contact-friction.md), with no change
 to either native solver or its default. Adapter revision 7 identifies the two additional
 per-point profiles and checks friction selection when loading snapshots. Its archives from
-`.tools/rapier-rebuild-a` and `.tools/rapier-rebuild-b` are byte-identical at the current SHA256
-in the source section. The installed CJS entry SHA256 is
+`.tools/rapier-rebuild-a` and `.tools/rapier-rebuild-b` are byte-identical at SHA256
+`07af259dc277cac77daa9c95eaded0ed2bc8aeb5feac08bfd9e58d23e58feebd`. The installed CJS entry SHA256 is
 `d0e9b190bd0ec74136918a4268a00b4a3cb3e19e28bc8ab5d2fb055af01a7054`.
 
 Offline installation, type checking and production build pass. The full suite reads 814 tests,
@@ -176,3 +178,20 @@ reference. All three return upright, contact the obstacle and replay exactly. Th
 configurations and results are in [the browser record](contact-friction-browser.json).
 These development checks establish package/configuration behavior, not general recovery or a
 reason to migrate gameplay to per-point friction.
+
+The `.7` package changes only the whole-step motor-impulse accumulator and its binding to
+double precision. Adapter revision 8 identifies the changed serialized representation.
+The two managed builds produce identical archives at the SHA256 in the source section;
+offline `npm ci` installs it. The installed CJS entry SHA256 is
+`c8f3d8f0f2ddac056a9cde27755951c081b53ec23bcd82d517a92bb15320e89c`.
+
+The [precision record](effort-precision.md) gives the failing-before regression, native tests,
+15 exact anatomical physical comparisons and 30 exact replays, and matching Node/Chrome
+observations. All 138 baseline rows equal `.6` after excluding timing, and the three stock
+bout records retain their digests above. Solver defaults, muscle strength and motor caps do
+not change. Internal multibody motors still lack effort readback.
+
+Validation of `.7`: 830 tests, 828 pass, no failures and two existing TODOs; type checking and
+production build pass. The first suite caught a stale adapter-version expectation, which now
+names revision 8. A subsequent runner check correctly refused a source edit during measurement;
+the final suite ran with its measured sources fixed and passed.

@@ -7,6 +7,43 @@ import { basename, dirname, join } from "node:path";
 import { foundationJobs, foundationTrial, attackAccounting, proportion } from "../research/control-foundation-trials.mjs";
 import { runFoundation, summarizeFoundation } from "../research/control-foundation.mjs";
 
+test("support entry jobs keep missing bodies explicit and reject inapplicable prediction settings", async () => {
+  const jobs = foundationJobs({ suite: "support-entry", actuation: "directional" });
+  assert.equal(jobs.length, 12); assert.equal(new Set(jobs.map((j) => j.id)).size, 12);
+  assert.throws(() => foundationJobs({ suite: "support-entry", split: "held-out" }), /held-out/);
+  for (const suite of ["support-entry", "posture-hold"]) assert.throws(() => foundationJobs({ suite, jointStops: true }), /motion probe suite/);
+  const rows = await Promise.all(jobs.filter((j) => j.model !== "workshop-fighter").map(async (job) => ({ job, result: await foundationTrial(job) })));
+  const cells = summarizeFoundation(rows).cells;
+  assert.equal(cells.length, 8); assert.ok(cells.every((c) => c.unsupported === 1 && c.measured === 0 && c.success.count === 0));
+});
+
+test("support entry's worker watch starts after its physical fall bootstrap", () => {
+  const directory = mkdtempSync(join(tmpdir(), "foundation-entry-"));
+  try {
+    execFileSync(process.execPath, ["research/control-foundation.mjs", "--suite", "support-entry", "--models", "workshop-fighter",
+      "--workers", "1", "--actuation", "directional", "--out", directory],
+    { env: { ...process.env, CORE_ENGINE: "rapier-coordinate-coulomb" }, timeout: 120000, stdio: "pipe" });
+    const rows = readFileSync(join(directory, "rows.jsonl"), "utf8").trim().split("\n").map(JSON.parse);
+    assert.equal(rows.length, 4);
+    const failed = rows.find((r) => r.job.direction === 1).result.outcome;
+    assert.equal(failed.complete, true); assert.equal(failed.steps, 4800); assert.equal(failed.success, false);
+    assert.ok(rows.every((r) => r.result.outcome.replayExact));
+    assert.equal(rows.filter((r) => r.result.outcome.success).length, 3);
+  } finally { rmSync(directory, { recursive: true, force: true }); }
+});
+
+test("installed posture jobs keep gain/posture cells and missing body witnesses explicit", async () => {
+  const jobs = foundationJobs({ suite: "posture-hold", actuation: "directional" });
+  assert.equal(jobs.length, 27); assert.equal(new Set(jobs.map((j) => j.id)).size, 27);
+  assert.throws(() => foundationJobs({ suite: "posture-hold", split: "held-out" }), /held-out/);
+  const missing = jobs.filter((j) => j.model !== "workshop-fighter");
+  const rows = await Promise.all(missing.map(async (job) => ({ job, result: await foundationTrial(job) })));
+  assert.ok(rows.every((r) => r.result.status === "unsupported"));
+  const summary = summarizeFoundation(rows);
+  assert.equal(summary.cells.length, 18);
+  assert.ok(summary.cells.every((c) => c.unsupported === 1 && c.measured === 0 && c.success.count === 0));
+});
+
 test("defense trials keep hand/loadout denominators and pair physical protection against pose", async () => {
   const jobs = foundationJobs({ suite: "defense", models: ["workshop-fighter"], samples: 1, actuation: "directional" });
   assert.equal(jobs.length, 12);

@@ -111,6 +111,11 @@ what a step allocates is held under a ceiling (`tests/core-step-cost.test.mjs`,
 mass and inertia (a held item's are folded in by `rigidOf`, which says whose each of the rigid
 body's shapes is: the segment's own, or an item it holds), and one joint per spec joint, whose
 free axes are the spec's freedoms. The body is built in the pose its joints demand.
+Rapier uses impulse joints. The pinned multibody implementation cannot represent the same
+anatomy unchanged: two-angular-DOF joints trap and three-axis internal limits accumulate
+angular motion rather than reading the current anatomical quaternion coordinates
+([solver contract](reference/solver-contract.md#anatomical-joint-shape-compatibility)).
+The shared body/controller interfaces do not depend on that engine-specific choice.
 
 - `jointAngles` and `jointTracker` (`joint-state.ts`) read each freedom's angle as the engine's
   limit reads it: about axes fixed in the parent.
@@ -160,7 +165,9 @@ The symmetric reference can give a reversing motor the wrong side's braking stre
 migration remains gated on corrected contact/control capability. Both directional bounds and
 the command are saved with the muscles. `pulled` records the mean torque actually delivered over the
 last world step, from accumulated motor impulse divided by that step's duration, in the channel's
-positive sense. It is saved state and a diagnostic, not a work measurement.
+positive sense. Rapier accumulates and returns this diagnostic in double precision, while its
+constraint solving remains single precision; see [effort precision](reference/effort-precision.md).
+It is saved state and a diagnostic, not a work measurement.
 
 **A body runs at a level** (`BodyLevel`, `MuscleDriver.level`), data in its muscles' state:
 `full`, its joints read, its mind stepped and its motors driven; `limp`, none of the three, its
@@ -311,7 +318,25 @@ does not raise strength. Action representations and the world's actuator law bel
 manifests. `DirectMindConfig` supplies explicit joint targets, time constant, maximum speed and
 activation to an independent joint-feedback policy. It shares the game's construction, level,
 disposal and replay paths, and has no fighter view. Its pinned reach/hold test is a replacement
-proof, not a standing or fighting claim.
+proof, not a standing or fighting claim. The same independent policy also holds an installed
+Warrior all-fours pose on ordinary ground for ten seconds within 2 cm, without assistance
+([posture hold](reference/posture-hold.md)); half-kneel and squat fail that gate.
+The posture task also exposes checked external actions, immutable actuator descriptions and
+the common environment interface. Its held command is replayable controller state; the physical
+fixture and scoring are independent of controller choice. An explicitly privileged
+[offline native-rollout controller](reference/native-posture-control.md) holds installed
+half-kneel within 5.59 mm at the default solver count. It searches candidate torque actions
+through snapshots and the normal world step; it is not installed in gameplay.
+`buildBody` accepts optional initial joint angles and a root quaternion, aligns joint anchors
+before creating physics, and preserves anatomical reference frames. Initialization belongs to
+the task; policies receive no authority to reposition a live body.
+The optional `supportEntry` policy (`control/support-entry.ts`) runs configured settling,
+rolling and preparation poses through that same detached observation/action host. Required
+and forbidden contacts are measured independently by `supportEntryReading`; stage completion
+is not task success. The [support-entry fixture](reference/support-entry.md) physically fells
+a Warrior, changes controller without changing the body, and scores acquisition followed by
+ten seconds of quiet support. Some development starts pass and some drift or acquire too late;
+this does not establish kneeling, standing or a gameplay handover.
 
 **A mind may hand its body to a sub-mind** (`sub-mind.ts`). A `SubMind` is a mind that also says
 each step whether it wants the body (`wants`), and is told when it has it and when it has it no
@@ -518,6 +543,10 @@ mobility, unilateral normal impulses and projected tangent impulses, with a fini
 independent residual checks. Projection changes no physical velocities. A loaded slab slides,
 sticks and unloads under known forces; linked slabs slide and stop. Prescribed joint torque
 still exposes rejected stopping predictions, and fine-step landing remains unvalidated.
+An explicit [friction projection metric](reference/contact-projection.md) distinguishes the
+contacting rigid body's mobility from the articulated mobility. The native per-point law uses
+the former; a welded sliding load validates its impulse direction. Impulse propagation still
+uses the full coupled model. This option does not resolve anatomical first-contact errors.
 It does not yet optimize actuator commands
 or replace the reference tracker's contact model.
 Optional [angular-stop rows](reference/contact-stops.md) exchange unilateral impulses with

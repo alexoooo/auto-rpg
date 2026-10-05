@@ -6,6 +6,7 @@ import assert from "node:assert/strict";
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { sourced } from "../src/core/spec/quantity.ts";
 import { jointAngles } from "../src/core/build/joint-state.ts";
+import { buildBody } from "../src/core/build/build-body.ts";
 import { coreStand, relativeRotation, spinOnce } from "./harness/core-stand.mjs";
 
 const q = (value, unit = "m") => sourced(value, unit, "de-leva-1996", "a stand-in leaf for the builder's tests");
@@ -30,6 +31,46 @@ function rods(dofs, range = [-1, 1]) {
 }
 
 const close = (a, b, tolerance, what) => assert.ok(Math.abs(a - b) <= tolerance, `${what}: ${a} against ${b}`);
+
+test("initial poses preserve anatomical zeros and construct coincident anchors at signed joint angles", async () => {
+  for (const freedoms of [[['bend', [-1, 0, 0]]], [['bend', [-1, 0, 0]], ['lean', [0, 0, 1]]],
+    [['bend', [-1, 0, 0]], ['lean', [0, 0, 1]], ['turn', [0, -1, 0]]]]) {
+    const spec = rods(freedoms), stand = await coreStand(spec, { gravity: false, ground: false });
+    let posed;
+    try {
+      const angles = [.4, -.3, .2].slice(0, freedoms.length), placement = { position: [2, 3, -1], rotation: [.2, -.3, .4, .8], joints: { middle: angles } };
+      const copy = structuredClone(placement);
+      posed = buildBody({ ...spec, segments: [...spec.segments].reverse() }, stand.world, placement);
+      const joint = posed.joints.get('middle');
+      jointAngles(joint).forEach((angle, i) => close(angle, angles[i], 1e-12, 'initial angle'));
+      const anchor = (segment) => {
+        const delta = new Vector3(...joint.spec.centre.value).subtract(new Vector3(...segment.frame.origin));
+        const p = new Vector3(...['x', 'y', 'z'].map((axis) => Vector3.Dot(delta, new Vector3(...segment.frame[axis]))));
+        return p.applyRotationQuaternion(segment.node.rotationQuaternion).add(segment.node.position);
+      };
+      assert.ok(anchor(joint.parent).subtract(anchor(joint.child)).length() < 1e-12);
+      const original = new Map([...posed.segments].map(([name, s]) => [name, s.node.position.clone()]));
+      const rotation = new Quaternion(...placement.rotation).normalize(), root = joint.parent;
+      const expected = new Vector3(...root.frame.origin).applyRotationQuaternion(rotation).add(new Vector3(...placement.position));
+      assert.ok(root.node.position.subtract(expected).length() < 1e-12);
+      for (const [name, s] of posed.segments) assert.deepEqual(s.rest.asArray(), stand.built.segments.get(name).rest.asArray());
+      stand.step(10);
+      for (const [name, s] of posed.segments) {
+        assert.ok(s.node.position.subtract(original.get(name)).length() < .00001, name);
+        assert.ok(s.body.angularVelocityToRef(new Vector3()).length() < .001, name);
+      }
+      jointAngles(joint).forEach((angle, i) => close(angle, angles[i], .00001, 'unforced angle'));
+      assert.deepEqual(placement, copy);
+      const count = stand.world.scene.transformNodes.length;
+      for (const invalid of [{ position: [NaN, 0, 0] }, { rotation: [0, 0, 0, 0] }, { rotation: [1e308, 0, 0, 1] },
+        { joints: { missing: [0] } }, { joints: { middle: [NaN] } }, { joints: { middle: angles.map(() => 2) } },
+        { joints: { middle: [] } }]) {
+        assert.throws(() => buildBody(spec, stand.world, { ...placement, ...invalid }), /invalid/);
+        assert.equal(stand.world.scene.transformNodes.length, count, 'validation precedes physical construction');
+      }
+    } finally { posed?.dispose(); stand.dispose(); }
+  }
+});
 
 test("a built segment's mass, centre of mass and inertia are the spec's, and its node sits on its frame", async () => {
   const stand = await coreStand(rods([["bend", [1, 0, 0]]]), { gravity: false, ground: false });

@@ -73,7 +73,7 @@ index 20e12ad9..c6fb352b 100644
  }
  
 diff --git a/bindings/typescript/src/dynamics/impulse_joint.rs b/bindings/typescript/src/dynamics/impulse_joint.rs
-index d74c6aeb..0e60dced 100644
+index d74c6aeb..9f98eaa9 100644
 --- a/bindings/typescript/src/dynamics/impulse_joint.rs
 +++ b/bindings/typescript/src/dynamics/impulse_joint.rs
 @@ -309,4 +309,42 @@ impl RawImpulseJointSet {
@@ -105,7 +105,7 @@ index d74c6aeb..0e60dced 100644
 +
 +    /// Signed motor impulse on the first body, summed over every solver and CCD substep
 +    /// of the last pipeline step. Divide by the outer timestep for mean force or torque.
-+    pub fn jointMotorStepImpulse(&self, handle: FlatHandle, axis: RawJointAxis) -> f32 {
++    pub fn jointMotorStepImpulse(&self, handle: FlatHandle, axis: RawJointAxis) -> f64 {
 +        self.map(handle, |j| j.data.motors[axis as usize].step_impulse)
 +    }
 +
@@ -339,10 +339,10 @@ index 8aa20eb0..68f90da2 100644
              min_ccd_dt: 1.0 / 60.0 / 100.0,
              contact_softness: SpringCoefficients::contact_defaults(),
 diff --git a/src/dynamics/joint/generic_joint.rs b/src/dynamics/joint/generic_joint.rs
-index b1c6d265..8b9e7fb9 100644
+index b1c6d265..d20a1e30 100644
 --- a/src/dynamics/joint/generic_joint.rs
 +++ b/src/dynamics/joint/generic_joint.rs
-@@ -211,8 +211,19 @@ pub struct JointMotor {
+@@ -211,8 +211,20 @@ pub struct JointMotor {
      pub damping: Real,
      /// Maximum force the motor can apply (Newtons for prismatic, Nm for revolute).
      pub max_force: Real,
@@ -356,13 +356,14 @@ index b1c6d265..8b9e7fb9 100644
      /// Internal: current impulse being applied.
      pub impulse: Real,
 +    /// Signed motor impulse on the first body, summed over the entire pipeline step.
++    /// The f64 accumulator avoids rounding growth across many f32 solver substeps.
 +    /// This is an observation, never a warm-start seed.
 +    #[cfg_attr(feature = "serde-serialize", serde(default))]
-+    pub step_impulse: Real,
++    pub step_impulse: f64,
      /// Force-based or acceleration-based motor model.
      pub model: MotorModel,
  }
-@@ -225,12 +236,21 @@ impl Default for JointMotor {
+@@ -225,12 +237,21 @@ impl Default for JointMotor {
              stiffness: 0.0,
              damping: 0.0,
              max_force: Real::MAX,
@@ -384,7 +385,7 @@ index b1c6d265..8b9e7fb9 100644
  #[cfg(feature = "alloc")]
  impl JointMotor {
      pub(crate) fn motor_params(&self, dt: Real) -> MotorParameters<Real> {
-@@ -245,6 +265,7 @@ impl JointMotor {
+@@ -245,6 +266,7 @@ impl JointMotor {
              target_pos: self.target_pos,
              target_vel: self.target_vel,
              max_impulse: Self::max_impulse(self.max_force, dt),
@@ -392,7 +393,7 @@ index b1c6d265..8b9e7fb9 100644
          }
      }
  
-@@ -577,6 +598,21 @@ impl GenericJoint {
+@@ -577,6 +599,21 @@ impl GenericJoint {
  
      /// Sets the maximum force the motor can deliver along the specified axis.
      pub fn set_motor_max_force(&mut self, axis: JointAxis, max_force: Real) -> &mut Self {
@@ -414,7 +415,7 @@ index b1c6d265..8b9e7fb9 100644
          self.motors[axis as usize].max_force = max_force;
          self
      }
-@@ -885,4 +921,60 @@ mod test {
+@@ -885,4 +922,85 @@ mod test {
          assert_eq!(motor.motor_params(0.0).max_impulse, 0.0);
          assert_eq!(motor.motor_params(0.5).max_impulse, Real::MAX * 0.5);
      }
@@ -455,9 +456,9 @@ index b1c6d265..8b9e7fb9 100644
 +        let joint = world.insert_impulse_joint(parent, child, data);
 +        world.step();
 +        let first = world.impulse_joints.get(joint).unwrap().data.motors[axis as usize];
-+        assert!((first.step_impulse + 0.1 * world.integration_parameters.dt).abs() < 1.0e-8);
-+        assert!((first.step_impulse + world.bodies[child].angvel().x * 0.1).abs() < 1.0e-8);
-+        assert!(first.step_impulse.abs() > 8.0 * first.impulse.abs());
++        assert!((first.step_impulse + 0.1 * world.integration_parameters.dt as f64).abs() < 1.0e-8);
++        assert!((first.step_impulse + world.bodies[child].angvel().x as f64 * 0.1).abs() < 1.0e-8);
++        assert!(first.step_impulse.abs() > 8.0 * first.impulse.abs() as f64);
 +        world
 +            .impulse_joints
 +            .get_mut(joint, true)
@@ -474,6 +475,31 @@ index b1c6d265..8b9e7fb9 100644
 +            0.0
 +        );
 +    }
++    #[cfg(feature = "dim3")]
++    #[test]
++    fn step_motor_impulse_preserves_precision_across_substeps() {
++        use crate::prelude::*;
++        for count in [16, 32, 64, 128, 256, 512] {
++            let mut world = PhysicsWorld::default();
++            world.gravity = Vector::ZERO;
++            world.integration_parameters.num_solver_iterations = count;
++            let (parent, _) = world.insert(RigidBodyBuilder::fixed(), ColliderBuilder::ball(0.5));
++            let (child, _) = world.insert(
++                RigidBodyBuilder::dynamic().can_sleep(false),
++                ColliderBuilder::ball(0.5).mass(1.0),
++            );
++            let axis = JointAxis::AngX;
++            let mut data = GenericJoint::new(JointAxesMask::LOCKED_REVOLUTE_AXES);
++            data.set_contacts_enabled(false);
++            data.set_motor_velocity(axis, 1.0e6, Real::INFINITY);
++            data.set_motor_max_force(axis, 149.3);
++            let joint = world.insert_impulse_joint(parent, child, data);
++            world.step();
++            let motor = world.impulse_joints.get(joint).unwrap().data.motors[axis as usize];
++            assert_eq!(motor.step_impulse, motor.impulse as f64 * count as f64);
++        }
++    }
++
  }
 diff --git a/src/dynamics/joint/multibody_joint/unit_multibody_joint.rs b/src/dynamics/joint/multibody_joint/unit_multibody_joint.rs
 index fde5573e..9845b81f 100644
@@ -489,7 +515,7 @@ index fde5573e..9845b81f 100644
  
      let mut rhs_wo_bias = 0.0;
 diff --git a/src/dynamics/solver/joint_constraint/generic_joint_constraint.rs b/src/dynamics/solver/joint_constraint/generic_joint_constraint.rs
-index 7ffb5285..fb94e73c 100644
+index 7ffb5285..624bea3f 100644
 --- a/src/dynamics/solver/joint_constraint/generic_joint_constraint.rs
 +++ b/src/dynamics/solver/joint_constraint/generic_joint_constraint.rs
 @@ -322,4 +322,13 @@ impl GenericJointConstraint {
@@ -501,7 +527,7 @@ index 7ffb5285..fb94e73c 100644
 +        // Internal multibody constraints have no impulse-joint identity or public effort read.
 +        if self.joint_id != JointIndex::MAX {
 +            if let WritebackId::Motor(i) = self.writeback_id {
-+                joints_all[self.joint_id].weight.data.motors[i].step_impulse += self.impulse;
++                joints_all[self.joint_id].weight.data.motors[i].step_impulse += self.impulse as f64;
 +            }
 +        }
 +    }
@@ -805,7 +831,7 @@ index d1e4123c..9e4192a8 100644
      fn recentered_angle_slope_is_one_everywhere() {
          let helper_at = |theta: Real| {
 diff --git a/src/dynamics/solver/joint_constraint/joint_velocity_constraint.rs b/src/dynamics/solver/joint_constraint/joint_velocity_constraint.rs
-index 1c47839b..8f1bbfd9 100644
+index 1c47839b..ecce93e4 100644
 --- a/src/dynamics/solver/joint_constraint/joint_velocity_constraint.rs
 +++ b/src/dynamics/solver/joint_constraint/joint_velocity_constraint.rs
 @@ -19,6 +19,7 @@ pub struct MotorParameters<N: SimdRealCopy> {
@@ -831,7 +857,7 @@ index 1c47839b..8f1bbfd9 100644
 +
 +    pub fn accumulate_motor_impulses(&self, joints_all: &mut [JointGraphEdge]) {
 +        if let WritebackId::Motor(i) = self.writeback_id {
-+            joints_all[self.joint_id[0]].weight.data.motors[i].step_impulse += self.impulse;
++            joints_all[self.joint_id[0]].weight.data.motors[i].step_impulse += self.impulse as f64;
 +        }
 +    }
  }
@@ -849,7 +875,7 @@ index 1c47839b..8f1bbfd9 100644
 +                // Padding repeats a joint: its impulse is applied only once.
 +                if !self.joint_id[..lane].contains(&self.joint_id[lane]) {
 +                    joints_all[self.joint_id[lane]].weight.data.motors[i].step_impulse +=
-+                        impulses[lane];
++                        impulses[lane] as f64;
 +                }
 +            }
 +        }

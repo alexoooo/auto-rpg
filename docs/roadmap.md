@@ -74,13 +74,32 @@ freezing a lift objective into an existing sticking contact. Anatomical recovery
 sliding and choices among multiple supports remain unresolved.
 The [friction-law comparison](reference/contact-friction.md) identifies patch versus per-point
 solver behavior and validates sustained-sliding predictions for each. Explicit per-point engine
-profiles are experimental; contact-mode selection and the installed-pose hold remain gates.
+profiles are experimental; anatomical contact-mode selection remains open.
 The [local impulse predictor](reference/contact-step.md) passes slab sliding/sticking/unloading
-checks with exact replay, but fine-step landing remains unvalidated. It still needs coupled
-support/stop validation and integration with the bounded actuator solve.
+checks with exact replay, but fine-step landing remains unvalidated. Coupled contact/stop
+support and release pass a grounded-hinge check; integration with bounded actuator objectives
+and anatomical forward agreement remain open.
+The optional [rigid-body friction metric](reference/contact-projection.md) matches native
+sliding direction on a welded load; the articulated projection gives a different saturated
+friction law. This distinction does not close the anatomical first-contact prediction gap.
 The [posture audit](reference/posture-limit-models.md) accounts for corrected limit directions.
 Its three development witnesses remain statically feasible, but their engine holds fail the
-displacement gate. Recovery needs demonstrated entry, holding and transfer between supports.
+displacement gate under their static torque controller. Independent joint feedback now
+[holds installed all fours](reference/posture-hold.md) for ten seconds within 2 cm on both
+corrected-limit friction profiles. Direct feedback fails half-kneel and squat; recovery still needs demonstrated
+entry, balance and transfer between supports.
+An [offline native-rollout controller](reference/native-posture-control.md) passes the same
+installed half-kneel hold at the default solver count, through the task's external actuator
+interface. Its privileged snapshot search and recorded action tape establish physical
+feasibility, not a real-time recovery policy or a support-transfer route.
+The [independent support-entry task](reference/support-entry.md) now passes acquisition plus
+a ten-second hold in 2/4 patch-friction and 3/4 per-point development shove directions.
+All eight reach support, but late acquisition and excess drift remain failures. Other bodies,
+loads, broader falls and transfer from hands/shins to useful standing control remain open.
+The [joint-shape comparison](reference/solver-contract.md#anatomical-joint-shape-compatibility)
+retains impulse joints: the pinned multibody engine traps on two-axis ankles and its three-axis
+internal limits use incompatible coordinates. A faithful multibody comparison needs more than
+new bindings; it remains a separate engine-extension experiment.
 
 ## Open items
 

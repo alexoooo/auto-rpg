@@ -11,6 +11,8 @@ import { createReachTask } from "../src/core/tasks/reach.ts";
 import { createCollisionProbe } from "../src/core/tasks/collision.ts";
 import { createBarProbe } from "../src/core/tasks/bar.ts";
 import { createSupportProbe } from "../src/core/tasks/support.ts";
+import { createPostureHoldProbe } from "../src/core/tasks/posture-hold.ts";
+import { createSupportEntryProbe } from "../src/core/tasks/support-entry.ts";
 import { createPointStrikeProbe } from "../src/core/tasks/point-strike.ts";
 import { createDefenseProbe } from "../src/core/tasks/defense.ts";
 import { saveState, loadState } from "../src/core/state.ts";
@@ -35,7 +37,7 @@ export const FOUNDATION = Object.freeze({ version: 2, samples: 2, watch: 40, bou
 const hash = (value) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
 const heldName = (held) => held === "club" ? "wooden club" : "fist";
 const riseMind = { ...FIGHTER, subs: [{ kind: "staged-rise" }] };
-const suites = ["baseline", "recovery", "strike-block", "point-strike", "moving-strike", "defense", "bar", "support", "integrated", "reach", "ccd", "solver"];
+const suites = ["baseline", "recovery", "strike-block", "point-strike", "moving-strike", "defense", "bar", "support", "posture-hold", "support-entry", "integrated", "reach", "ccd", "solver"];
 
 /** Fully specified starts; a seed selects geometry, not a hidden source of simulation noise. */
 export function foundationJobs({ suite = "baseline", split = "development", samples = FOUNDATION.samples,
@@ -58,6 +60,20 @@ export function foundationJobs({ suite = "baseline", split = "development", samp
     const config = { protocol: FOUNDATION.version, split, hz, actuation, ...(jointStops ? { jointStops } : {}), ...job };
     jobs.push({ ...config, id: hash(config) });
   };
+  if (suite === "support-entry") {
+    if (split !== "development") throw new Error("support entry witnesses have no held-out dataset");
+    for (const model of models) for (const direction of [0, 1, 2, 3]) add({ task: "support-entry", model, direction,
+      held: "empty", controller: "support-entry", checkpointSeconds: 2, watchSeconds: 40, sampleHz: 120 });
+    return jobs;
+  }
+  if (suite === "posture-hold") {
+    if (split !== "development") throw new Error("installed posture holds have no held-out dataset");
+    for (const model of models) for (const posture of ["fours", "half-kneel", "squat"]) for (const servoSeconds of [.1, .03, .01]) {
+      add({ task: "posture-hold", model, posture, servoSeconds, speed: 10, activation: 1, held: "empty", controller: "direct",
+        checkpointSeconds: 2, watchSeconds: 10, sampleHz: 120 });
+    }
+    return jobs;
+  }
   if (suite === "solver") {
     if (split !== "development") throw new Error("the fixed solver probes have no held-out dataset");
     for (const representation of ["impulse", "multibody"]) for (const sense of [-1, 1]) add({
@@ -303,6 +319,8 @@ export async function foundationTrial(job) {
     case "solver": return solverTrial(job);
     case "bar": return barTrial(job);
     case "support": return supportTrial(job);
+    case "posture-hold": return postureHoldTrial(job);
+    case "support-entry": return supportEntryTrial(job);
     case "point-strike": return pointStrikeTrial(job);
     case "defense": return defenseTrial(job);
     case "unsupported": return { status: "unsupported", reason: job.capability };
@@ -312,6 +330,7 @@ export async function foundationTrial(job) {
 
 function replayedProbe(probe, job) {
   const timings = [];
+  const startStep = probe.world.steps;
   const stopMeter = job.jointStops ? { steps: 0, nearSteps: 0, activeSteps: 0, rejectedSteps: 0, maxWork: 0, peakForceViolation: 0, peakAccelerationViolation: 0 } : null;
   const sampleStops = () => {
     if (!stopMeter) return;
@@ -330,7 +349,7 @@ function replayedProbe(probe, job) {
     const saved = { physics: probe.world.physics.save(), state: saveState(state) };
     const branch = (timed) => {
       const trace = createHash("sha256");
-      while (!probe.complete && probe.world.steps < job.watchSeconds * job.hz) {
+      while (!probe.complete && probe.world.steps < startStep + job.watchSeconds * job.hz) {
         const start = performance.now(); probe.world.step();
         if (timed) timings.push(performance.now() - start);
         sampleStops();
@@ -389,6 +408,30 @@ async function supportTrial(job) {
       && o.peakTension <= settings.contact.forceTolerance && o.peakFrictionViolation <= settings.contact.forceTolerance;
     return { status: "measured", configuration: probe.configuration, ...result, outcome: { ...o, success },
       limits: ["initially standing and empty handed; not recovery or locomotion", "horizontal fixed ground", "joint-stop reactions are not predicted", "allocating diagnostic dynamics path"] };
+  } finally { probe.dispose(); scene.dispose(); rendering.dispose(); }
+}
+
+async function postureHoldTrial(job) {
+  if (job.model !== "workshop-fighter") return { status: "unsupported", reason: "no installed posture witness for this body" };
+  const engine = await freshEngine(), rendering = new NullEngine(), scene = new Scene(rendering);
+  const probe = createPostureHoldProbe(scene, engine, job);
+  try {
+    const result = replayedProbe(probe, job), outcome = result.outcome;
+    return { status: "measured", configuration: probe.configuration, ...result, outcome: { ...outcome, success: outcome.success && outcome.replayExact },
+      limits: ["installed empty-handed Warrior pose; no entry, recovery or disturbance", "direct joint feedback without root or contact planning",
+        "maximum segment drift includes startup", "fixed development witnesses; no held-out evaluation"] };
+  } finally { probe.dispose(); scene.dispose(); rendering.dispose(); }
+}
+
+async function supportEntryTrial(job) {
+  if (job.model !== "workshop-fighter") return { status: "unsupported", reason: "no support entry witness for this body" };
+  const engine = await freshEngine(), rendering = new NullEngine(), scene = new Scene(rendering);
+  const probe = createSupportEntryProbe(scene, engine, job);
+  try {
+    const result = replayedProbe(probe, job), outcome = result.outcome;
+    return { status: "measured", configuration: probe.configuration, ...result, outcome: { ...outcome, success: outcome.success && outcome.replayExact },
+      limits: ["empty-handed Warrior; no kneeling, standing or useful-control handover", "four fixed development shove directions; no held-out evaluation",
+        "forty-second watch starts after the physical fall bootstrap", "ten-second drift gate begins after two seconds of quiet measured support"] };
   } finally { probe.dispose(); scene.dispose(); rendering.dispose(); }
 }
 
