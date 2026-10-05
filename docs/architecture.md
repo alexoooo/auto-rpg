@@ -442,6 +442,9 @@ remain the controller's responsibility; redundant rows return one possible load 
 Supplied motion rows may carry [material-acceleration targets](reference/contact-curvature.md),
 including the centripetal term for rolling on a fixed plane. The optional sticking tracker
 still uses zero targets and measured contact midpoints; general rolling/sliding modes remain open.
+The diagnostic [joint-coordinate model](reference/joint-coordinate.md) reads world angular rows
+and their changing gradients from actual poses and spins. It supplies acceleration targets for
+measured-angle constraints; unilateral stop selection is not part of this primitive.
 The allocating diagnostic model serves the experimental equipment tracker; the game's reference
 fighter retains its existing per-step solve.
 Optional constrained quadratic components include ADMM and a cold-start dual active-set solver.

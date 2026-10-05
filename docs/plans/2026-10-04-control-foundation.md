@@ -283,7 +283,9 @@ planning or recovery.
 The [joint-acceleration correction](../reference/joint-acceleration.md) includes the changing
 motor-speed-to-angle-rate map in joint objectives. Quaternion trajectories and a physical
 bounded-actuator rotor distinguish the missing term. This corrects the optional tracker without
-changing anatomy or actuator limits; joint-stop prediction and recovery remain open.
+changing anatomy or actuator limits. The [measured joint-coordinate primitive](../reference/joint-coordinate.md)
+supplies world motion rows and their curvature, with finite-rotation and loaded/released hinge
+checks. Consistent unilateral stop selection, whole-body adoption and recovery remain open.
 
 ### 0. Define the common task battery and baseline
 
