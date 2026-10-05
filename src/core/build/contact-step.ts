@@ -2,7 +2,7 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { SegmentBody } from "../engine/engine.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import type { coupledDynamics } from "./coupled-dynamics.ts";
-import type { MotionConstraint } from "./constrained-mass.ts";
+import { constrainedMass, type MotionConstraint } from "./constrained-mass.ts";
 
 interface AngularStop {
   /** Inward angle-rate row; only angular entries are admitted. */
@@ -30,6 +30,8 @@ interface Settings {
   readonly iterations: number;
   readonly impulseTolerance: number;
   readonly velocityTolerance: number;
+  /** Tangent projection metric: coupled response, or the contacting rigid body's unconstrained mobility. */
+  readonly frictionMetric?: "coupled" | "rigid-body";
 }
 const ZERO: Vec3 = [0, 0, 0];
 const dot = (a: ArrayLike<number>, b: ArrayLike<number>) => a[0]! * b[0]! + a[1]! * b[1]! + a[2]! * b[2]!;
@@ -40,7 +42,10 @@ const tuple = (v: Vector3): Vec3 => [v.x, v.y, v.z];
 /**
  * Diagnostic fixed-plane contact impulse prediction through an updated coupled model. Normal
  * impulses are unilateral; the two-axis stopping impulse is projected onto a friction disk.
- * This is the per-point projected solver law, not a patch/twist model or opposing-slip force.
+ * This is a per-point projected solver law, not a patch/twist model or opposing-slip force.
+ * The explicit rigid-body friction metric matches Rapier's local contact update; eliminating
+ * joints before choosing a saturated friction direction changes that law. The default coupled
+ * metric retains the articulated projection experiment (`docs/reference/contact-projection.md`).
  * Measured velocities are first projected into the model's joint/constraint tangent space.
  * Optional angular stops exchange impulses with contacts in the same coupled solve. Their
  * inward rows may push but never pull; each has its own angular impulse and velocity tolerances.
@@ -56,7 +61,8 @@ export function predictPointContacts(model: Model, torque: ArrayLike<number>, co
   const { dt, friction, iterations, impulseTolerance, velocityTolerance } = settings;
   if (!(dt > 0) || !Number.isFinite(dt) || !(friction >= 0) || !Number.isFinite(friction)
     || !Number.isSafeInteger(iterations) || iterations < 1
-    || ![impulseTolerance, velocityTolerance].every((v) => v > 0 && Number.isFinite(v))) throw new Error("invalid contact-step settings");
+    || ![impulseTolerance, velocityTolerance].every((v) => v > 0 && Number.isFinite(v))
+    || (settings.frictionMetric !== undefined && settings.frictionMetric !== "coupled" && settings.frictionMetric !== "rigid-body")) throw new Error("invalid contact-step settings");
   const stopRows = stops.map((stop) => {
     if (!Number.isFinite(stop.minimumVelocity) || ![stop.impulseTolerance, stop.velocityTolerance].every((v) => v > 0 && Number.isFinite(v))
       || stop.row.length === 0 || stop.row.some((entry) => entry.linear.length !== 3 || entry.angular.length !== 3
@@ -77,6 +83,16 @@ export function predictPointContacts(model: Model, torque: ArrayLike<number>, co
     return { ...c, point: [...c.point] as Vec3, axes: [normal, tangent, cross(normal, tangent)] };
   });
   const free = model.solve(torque, loads), unloaded = model.solve(new Array<number>(model.channels).fill(0));
+  const localMass = new Map<SegmentBody, ReturnType<typeof constrainedMass>>();
+  if (settings.frictionMetric === "rigid-body") for (const { body } of geometry) {
+    if (localMass.has(body)) continue;
+    const mass = constrainedMass([body], () => []); mass.update(); localMass.set(body, mass);
+  }
+  const tangentMetrics = settings.frictionMetric === "rigid-body" ? geometry.map((contact) => {
+    const mobility = localMass.get(contact.body)!.mobility(contact.body, contact.point), tangents = contact.axes.slice(1);
+    return tangents.map((a) => tangents.map((b) => a.reduce((sum, v, i) =>
+      sum + v * mobility[i]!.reduce((s, x, j) => s + x * b[j]!, 0), 0)));
+  }) : null;
   const projection = model.projectVelocity();
   const rows = geometry.flatMap((contact) => contact.axes.map((axis) => ({ contact, axis }))), contactSize = rows.length, size = contactSize + stops.length;
   const response = Array.from({ length: size }, () => new Float64Array(size)), impulses = new Float64Array(size);
@@ -114,10 +130,16 @@ export function predictPointContacts(model: Model, torque: ArrayLike<number>, co
     const i = 3 * p, a = i + 1, b = i + 2;
     const determinant = response[a]![a]! * response[b]![b]! - response[a]![b]! * response[b]![a]!;
     if (!(response[i]![i]! > 0) || !(determinant > 0) || !Number.isFinite(determinant)) throw new Error("singular contact-step mobility");
+    if (tangentMetrics) {
+      const m = tangentMetrics[p]!, localDeterminant = m[0]![0]! * m[1]![1]! - m[0]![1]! * m[1]![0]!;
+      if (!(localDeterminant > 0) || !Number.isFinite(localDeterminant)) throw new Error("singular friction metric");
+    }
   }
   const velocity = [...initial];
   const tangentCandidate = (i: number) => {
-    const a = i + 1, b = i + 2, aa = response[a]![a]!, ab = response[a]![b]!, ba = response[b]![a]!, bb = response[b]![b]!;
+    const a = i + 1, b = i + 2, metric = tangentMetrics?.[i / 3];
+    const aa = metric ? metric[0]![0]! : response[a]![a]!, ab = metric ? metric[0]![1]! : response[a]![b]!;
+    const ba = metric ? metric[1]![0]! : response[b]![a]!, bb = metric ? metric[1]![1]! : response[b]![b]!;
     const determinant = aa * bb - ab * ba;
     let x = impulses[a]! - (bb * velocity[a]! - ab * velocity[b]!) / determinant;
     let y = impulses[b]! - (aa * velocity[b]! - ba * velocity[a]!) / determinant;

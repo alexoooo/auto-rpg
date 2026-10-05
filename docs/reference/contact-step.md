@@ -136,6 +136,11 @@ node --test tests/core-contact-step.test.mjs
 
 ## Integration gate
 
+The optional [rigid-body tangent metric](contact-projection.md) reproduces native per-point
+friction direction on a welded sliding load. The default coupled metric remains explicit and
+unchanged. Both propagate impulses through articulated dynamics; choosing the local projection
+metric is a separate physical-law choice from eliminating joint constraints.
+
 The predictor remains allocating and outside `wholeBodyTracking`. It does not select candidate
 surfaces, optimize muscle torques or predict moving-body impacts. Established ground/stop
 support and release are validated in a separate mechanical fixture. Next combine validated

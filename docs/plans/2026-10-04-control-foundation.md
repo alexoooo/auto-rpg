@@ -281,6 +281,11 @@ now validate established support and release on a grounded hinge, at either limi
 or sliding ground contact. Hard stop arrivals remain unvalidated. Bounded inverse-control
 prototypes converge but miss anatomical next-step motion and the hold gate; the diagnostic
 forward model is not yet in the tracker.
+The optional [rigid-body friction metric](../reference/contact-projection.md) now matches
+native per-point sliding direction on a welded-load fixture at both declared rates and signs,
+with exact replay. Joint elimination changes saturated friction direction when the coupled
+metric is used instead. This fixes a model-law distinction, not the anatomical acquisition gap;
+matched-load first-contact diagnostics still miss all-fours motion.
 The independent joint-feedback policy now [holds installed Warrior all fours](../reference/posture-hold.md)
 for ten seconds within 2 cm on both corrected-limit friction profiles, with zero assistance,
 exact replay and matching Node/browser traces. The shared builder initializes a legal joint

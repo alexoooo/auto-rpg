@@ -73,33 +73,36 @@ test("contact impulses are covariant, detached and diagnostic, with explicit emp
   try {
     const body = stand.built.segments.get("ball").body, model = coupledDynamics(stand.built, zero), saved = saveStand(stand.world, {});
     const rotation = new Quaternion(.2, -.3, .4, .5).normalize(), rotate = (v) => new Vector3(...v).applyRotationQuaternion(rotation).asArray();
-    const trial = (turn) => {
+    const trial = (turn, frictionMetric) => {
+      const options = { ...settings, frictionMetric };
       loadStand(stand.world, {}, saved);
       const centre = new Vector3(...body.massProperties.centre).applyRotationQuaternion(body.node.rotationQuaternion).add(body.node.position);
       const contact = { body, point: centre.add(new Vector3(...turn([0, -.05, 0]))).asArray(), normal: turn([0, 1, 0]), normalVelocity: 0 };
       const loads = [{ body, point: centre.asArray(), force: turn([20, -10, 30]), moment: zero }];
       model.update(); const before = saveStand(stand.world, {});
-      const result = predictPointContacts(model, [], [contact], loads, settings);
+      const result = predictPointContacts(model, [], [contact], loads, options);
       assert.equal(result.status, "converged"); assert.equal(result.contacts[0].mode, "sliding");
       assert.deepEqual(saveStand(stand.world, {}), before);
       const detached = structuredClone(result); result.contacts[0].impulse[0] = 999; result.acceleration[0] = 999;
-      assert.deepEqual(predictPointContacts(model, [], [contact], loads, settings), detached);
-      const empty = predictPointContacts(model, [], [], loads, settings);
+      assert.deepEqual(predictPointContacts(model, [], [contact], loads, options), detached);
+      const empty = predictPointContacts(model, [], [], loads, options);
       assert.equal(empty.status, "converged"); assert.equal(empty.work, 0); assert.deepEqual(empty.contacts, []);
       assert.deepEqual(empty.acceleration, model.solve([], loads));
       for (const config of [{ dt: 0 }, { dt: Infinity }, { friction: -1 }, { friction: NaN }, { iterations: 0 },
-        { iterations: 1.5 }, { impulseTolerance: 0 }, { velocityTolerance: Infinity }]) {
-        assert.throws(() => predictPointContacts(model, [], [contact], loads, { ...settings, ...config }), /settings/);
+        { iterations: 1.5 }, { impulseTolerance: 0 }, { velocityTolerance: Infinity }, { frictionMetric: "unknown" }]) {
+        assert.throws(() => predictPointContacts(model, [], [contact], loads, { ...options, ...config }), /settings/);
       }
       for (const invalid of [{ normal: zero }, { point: [NaN, 0, 0] }, { normalVelocity: Infinity }]) {
-        assert.throws(() => predictPointContacts(model, [], [{ ...contact, ...invalid }], loads, settings), /geometry|normal/);
+        assert.throws(() => predictPointContacts(model, [], [{ ...contact, ...invalid }], loads, options), /geometry|normal/);
       }
       return detached;
     };
-    const first = trial((v) => v), second = trial(rotate);
-    for (const field of ["impulse", "velocity"]) {
-      const expected = rotate(first.contacts[0][field]);
-      assert.ok(second.contacts[0][field].every((v, k) => Math.abs(v - expected[k]) < 1e-10), field);
+    for (const frictionMetric of [undefined, "coupled", "rigid-body"]) {
+      const first = trial((v) => v, frictionMetric), second = trial(rotate, frictionMetric);
+      for (const field of ["impulse", "velocity"]) {
+        const expected = rotate(first.contacts[0][field]);
+        assert.ok(second.contacts[0][field].every((v, k) => Math.abs(v - expected[k]) < 1e-10), field);
+      }
     }
     const fixed = coupledDynamics(stand.built, zero, [], [body]); fixed.update();
     assert.throws(() => predictPointContacts(fixed, [], [{ body, point: zero, normal: [0, 1, 0], normalVelocity: 0 }], [], settings), /singular/);

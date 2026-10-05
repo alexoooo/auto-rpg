@@ -537,6 +537,10 @@ mobility, unilateral normal impulses and projected tangent impulses, with a fini
 independent residual checks. Projection changes no physical velocities. A loaded slab slides,
 sticks and unloads under known forces; linked slabs slide and stop. Prescribed joint torque
 still exposes rejected stopping predictions, and fine-step landing remains unvalidated.
+An explicit [friction projection metric](reference/contact-projection.md) distinguishes the
+contacting rigid body's mobility from the articulated mobility. The native per-point law uses
+the former; a welded sliding load validates its impulse direction. Impulse propagation still
+uses the full coupled model. This option does not resolve anatomical first-contact errors.
 It does not yet optimize actuator commands
 or replace the reference tracker's contact model.
 Optional [angular-stop rows](reference/contact-stops.md) exchange unilateral impulses with

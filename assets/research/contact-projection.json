@@ -1,0 +1,25 @@
+{
+  "root": {
+    "mass": 1,
+    "stature": 0.1,
+    "proximal": [0, 0.1, 0],
+    "distal": [0, 0, 0],
+    "centre": [0, 0.05, 0],
+    "inertia": [0.001, 0.001, 0.001],
+    "radius": 0.05,
+    "surfaceStiffness": 100000
+  },
+  "load": {
+    "mass": 3,
+    "centre": [0, 0, 0],
+    "inertia": [0.02, 0.02, 0.02],
+    "radius": 0.02,
+    "position": [0.08, 0.3, 0.11]
+  },
+  "velocity": [30, 0, 10],
+  "rates": [120, 1920],
+  "referenceHz": 120,
+  "referenceSteps": 1,
+  "capture": { "distance": 1e-7, "rotationError": 1e-7 },
+  "solve": { "iterations": 4096, "impulseTolerance": 1e-10, "velocityTolerance": 1e-7 }
+}

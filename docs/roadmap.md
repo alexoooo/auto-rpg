@@ -79,6 +79,9 @@ The [local impulse predictor](reference/contact-step.md) passes slab sliding/sti
 checks with exact replay, but fine-step landing remains unvalidated. Coupled contact/stop
 support and release pass a grounded-hinge check; integration with bounded actuator objectives
 and anatomical forward agreement remain open.
+The optional [rigid-body friction metric](reference/contact-projection.md) matches native
+sliding direction on a welded load; the articulated projection gives a different saturated
+friction law. This distinction does not close the anatomical first-contact prediction gap.
 The [posture audit](reference/posture-limit-models.md) accounts for corrected limit directions.
 Its three development witnesses remain statically feasible, but their engine holds fail the
 displacement gate under their static torque controller. Independent joint feedback now

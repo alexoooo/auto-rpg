@@ -163,3 +163,56 @@ gate: all-fours drift is 0.1113, 0.09345 and 0.05808 m; half-kneel drift is 1.93
 and 0.13072 m; squat drift is 1.6727, 1.6577 and 1.6651 m. This weighting does not improve the
 independent direct hold. Contact-compatible requested velocities alone do not establish
 dynamic balance or a feasible support transfer.
+
+## Legal-pose transfer and matched first-contact followups
+
+The `preciseEffortFollowups` archive records Node core world diagnostics on Rapier .7 / adapter
+8, corrected limits, per-point friction, 120 Hz, directional bounds, empty Warrior and zero
+assistance. These scripts do not establish replay or browser parity. Their shared pose builder
+starts from legal joint angles. Native solver iterations are 16 except where stated.
+
+Direct smooth joint interpolation from installed all fours to installed half-kneel fails at
+durations 1, 3 and 6 seconds, with both 16 and 256 native iterations. After two seconds of
+initial holding, interpolation and ten seconds of final holding, every trial rests with head,
+foot, upper-arm and thigh contacts. Final pelvis heights are 0.2089–0.2102 m and up-axis y is
+-0.0635 to -0.0598. More solver resolution and slower interpolation do not supply the missing
+support transfer.
+
+Using individual native manifold points in the velocity least-squares hold also fails the
+2 cm gate. Contact weight is 10000, root/centre weights 100, joint weight 1, regularization
+1e-6, and root/centre response 0.03 or 0.1 s. Joint response is 0.01 s and speed cap 10 rad/s.
+All solves converge. All-fours drift is 0.09827/0.10108 m; half-kneel drift is
+0.12562/0.12912 m. Replacing identity joint-rate rows with the actual angle-coordinate
+gradients gives 0.10179/0.10138 m and 0.13468/0.13369 m respectively. This correction does
+not make the kinematic controller dynamically feasible.
+
+Interpolating root orientation, centre and joint targets toward half-kneel over 3 or 6 seconds,
+at contact weights 100 or 10000, likewise collapses in all four cases despite converged solves.
+Peak segment drift is 0.6573–1.7291 m; final height is 0.1920–0.1998 m. No transfer controller
+from these probes is installed.
+
+The inverse contact predictor still misses next-step motion with the legal all-fours builder:
+the first accepted prediction differs by up to 0.140476 m/s and 2.025308 rad/s. The applied
+torque matches its request to about 1.98e-6 N m. A matched-load probe fixes that same initial
+35-channel torque vector, then subdivides only the diagnostic prediction. The actual engine
+still takes one 120 Hz step with its normal 16 iterations. Geometry and mass stay frozen;
+normal and angular gaps advance with predicted velocity.
+
+| Model subdivisions | Maximum linear component error, m/s | Maximum angular component error, rad/s |
+|---:|---:|---:|
+| 1 | 0.140476 | 2.025308 |
+| 2 | 0.083655 | 2.032234 |
+| 4 | 0.080600 | 1.857802 |
+| 8 | 0.080510 | 1.853611 |
+| 16 | 0.065713 | 1.241290 |
+| 32 | 0.063611 | 1.279374 |
+
+All these solves converge, but they do not validate anatomical prediction. Removing ground
+from both the model and engine while keeping exactly those torques gives 0.004495 m/s and
+0.086653 rad/s at every subdivision count. Contact handling is therefore a substantial part
+of this discrepancy; the remaining free-motion error is not zero. Selecting the rigid-body
+friction metric changes the 16-subdivision result only to 0.065710 m/s / 1.241745 rad/s.
+Its separate [welded-load mechanical proof](../reference/contact-projection.md) resolves a
+friction-law distinction, not this acquisition problem. Native stabilization, evolving contact
+geometry and coupled motor/contact iteration still require isolation before model-based
+recovery can rely on this predictor.

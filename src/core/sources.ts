@@ -17,6 +17,10 @@ type Source =
   | { readonly kind: "measurement"; readonly how: string; readonly record: string };
 
 export const SOURCES = Object.freeze({
+  "contact-projection-fixture": {
+    kind: "asset", file: "assets/research/contact-projection.json",
+    what: "Synthetic sphere and welded offset load for the friction-projection comparison; fixture inputs, not anatomical measurements.",
+  },
   "de-leva-1996": {
     kind: "literature",
     cite: "de Leva P (1996). Adjustments to Zatsiorsky-Seluyanov's segment inertia parameters. "
