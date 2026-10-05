@@ -5,7 +5,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import { anglesOf, jointTracker, motionAxesToRef, ratesToRef, relativeRotationToRef, rotationOfToRef, turningToRef } from "../src/core/build/joint-state.ts";
+import { anglesOf, jointTracker, motionAxesToRef, ratesToRef, rateBiasToRef, relativeRotationToRef, rotationOfToRef, turningToRef } from "../src/core/build/joint-state.ts";
 import { servo } from "../src/core/control/servo.ts";
 import { humanSpec } from "../src/core/human/spec.ts";
 import { driveMuscles } from "../src/core/muscle/driver.ts";
@@ -85,6 +85,40 @@ test("a joint's speeds are its angles' rates turned through where it stands, and
   }
   assert.ok(apart > 1, `the poses turn speeds off the rates: at most ${apart} rad/s apart`);
   assert.ok(worst < 1e-4, `turning, rates and motion axes against the composed rotation: ${worst} rad/s off`);
+});
+
+test("angle acceleration includes the changing speed-to-rate map on one, two and three axes", (t) => {
+  const h = 1e-4, axes = { x: X, y: Y, z: Z };
+  let worst = 0, omitted = 0;
+  for (const count of [1, 2, 3]) for (const signs of [[1, 1, 1], [-1, 1, -1]]) {
+    const joint = { axes, dofs: signs.slice(0, count).map((sign) => ({ sign })) };
+    for (const pose of [[0.7, -0.4, 0.8], [2.2, -1.2, 1.5], [-2, 1.3, -2.2]]) {
+      const rates = [2, -3, 4], accelerations = [-0.4, 0.6, -0.2];
+      const orientation = (time) => {
+        const tangent = pose.map((a, k) => k < count ? Math.tan(signs[k] * (a + rates[k] * time + accelerations[k] * time * time / 2) / 2) : 0);
+        const w = 1 / Math.sqrt(1 + tangent.reduce((sum, v) => sum + v * v, 0));
+        const p = [0, 1, 2].map((k) => [X, Y, Z].reduce((sum, axis, j) => sum + axis[k] * tangent[j] * w, 0));
+        return new Quaternion(...p, w);
+      };
+      const speedsAt = (time) => {
+        const turn = orientation(time + h).multiply(Quaternion.Inverse(orientation(time - h)));
+        const length = Math.hypot(turn.x, turn.y, turn.z), scale = 2 * Math.atan2(length, turn.w) / (length * 2 * h);
+        const spin = [turn.x * scale, turn.y * scale, turn.z * scale];
+        return [X, Y, Z].slice(0, count).map((axis, k) => signs[k] * dot(axis, spin));
+      };
+      const speeds = speedsAt(0), before = speedsAt(-h), after = speedsAt(h);
+      const changing = after.map((v, k) => (v - before[k]) / (2 * h));
+      const mapped = ratesToRef(joint, pose, changing, []), bias = rateBiasToRef(joint, pose, speeds, []);
+      mapped.forEach((value, k) => {
+        worst = Math.max(worst, Math.abs(value + bias[k] - accelerations[k]));
+        omitted = Math.max(omitted, Math.abs(value - accelerations[k]));
+      });
+      assert.ok(rateBiasToRef(joint, pose, new Array(count).fill(0), []).every((v) => v === 0));
+    }
+  }
+  t.diagnostic(JSON.stringify({ worst, omitted }));
+  assert.ok(worst < 1e-4, `mapped speed acceleration plus coordinate bias: ${worst}`);
+  assert.ok(omitted > 1, "the fixture must distinguish omitting the coordinate bias");
 });
 
 function rods(dofs) {

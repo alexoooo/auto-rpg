@@ -252,7 +252,7 @@ alone does not close the strike/block gate.
 The optional [interception reference and defense fixture](../reference/point-defense.md) now
 use measured point acceleration, explicit reach/time filters and contact bracing. The shared
 runner and viewer compare it with pose-only defense against gravity-driven hinged clubs. The
-development gate passes 32/36 predicted starts and 0/36 pose starts; four post-block coverage
+development gate with corrected joint-angle acceleration passes 33/36 predicted starts and 0/36 pose starts; three post-block coverage
 failures remain. All trials prepare, stay upright, avoid rejected solves and replay. Initial
 blocking is demonstrated, but sustained protection across starts, shared-item defense and
 coordinated attack/guard remain open. The held-out split is still unused.
@@ -263,6 +263,11 @@ strike fixture can control horizontal combined centre separately from root heigh
 for ten seconds after return. Mechanical conservation, unequal-mass tracking, command validation
 and replay are tested independently of the strike's success score. This does not supply support
 planning or recovery.
+
+The [joint-acceleration correction](../reference/joint-acceleration.md) includes the changing
+motor-speed-to-angle-rate map in joint objectives. Quaternion trajectories and a physical
+bounded-actuator rotor distinguish the missing term. This corrects the optional tracker without
+changing anatomy or actuator limits; joint-stop prediction and recovery remain open.
 
 ### 0. Define the common task battery and baseline
 

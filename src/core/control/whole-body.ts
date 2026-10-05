@@ -1,7 +1,7 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { BuiltBody } from "../build/build-body.ts";
 import { coupledDynamics } from "../build/coupled-dynamics.ts";
-import { ratesToRef } from "../build/joint-state.ts";
+import { rateBiasToRef, ratesToRef } from "../build/joint-state.ts";
 import type { PhysicsWorld, SegmentBody } from "../engine/engine.ts";
 import type { createEquipment } from "../equipment.ts";
 import { boundedLeastSquaresTo, boundedWork, linearWork, solveLinearTo } from "../math/flat.ts";
@@ -79,12 +79,13 @@ export function wholeBodyTracking(built: BuiltBody, muscles: MuscleDriver, gravi
       for (const goal of command.joints) {
         const i = channels.get(goal.channel)!, c = muscles.channels[i]!, first = i - c.index, length = c.joint.dofs.length;
         const angles = Array.from({ length }, (_, k) => muscles.angle(first + k));
+        const rateBias = rateBiasToRef(c.joint, angles, Array.from({ length }, (_, k) => muscles.speed(first + k)), [])[c.index]!;
         const coefficients = Array.from({ length }, (_, k) => ratesToRef(c.joint, angles,
           Array.from({ length }, (_, j) => k === j ? 1 : 0), [])[c.index]!);
         const baseRate = coefficients.reduce((sum, v, k) => sum + v * base[6 + first + k]!, 0);
         const row = columns.map((column) => coefficients.reduce((sum, v, k) => sum + v * column[6 + first + k]!, 0));
         const rate = 1 / goal.seconds;
-        add(row, goal.acceleration + rate * rate * (goal.angle - muscles.angle(i)) + 2 * rate * (goal.rate - muscles.rate(i)) - baseRate, goal.weight);
+        add(row, goal.acceleration + rate * rate * (goal.angle - muscles.angle(i)) + 2 * rate * (goal.rate - muscles.rate(i)) - baseRate - rateBias, goal.weight);
       }
       state.errors.length = 0;
       const noAcceleration = base.map(() => 0);

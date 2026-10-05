@@ -1,5 +1,10 @@
 # Centre-of-mass motion objectives
 
+The [joint-angle acceleration correction](joint-acceleration.md#capability-remeasurement)
+remeasures the long-watch strike gates on the present tracker: moving targets 108/108 and
+static targets 72/72, all replaying, upright and without rejected solves. The records below
+preserve the original centre-control experiments and their frozen source revisions.
+
 The optional motion interface accepts `centres`: named groups of physical segment/item frames.
 Each frame contributes its mass once. A centre goal requests position, velocity and acceleration
 on selected world axes, through the same bounded muscle solve as joint and point objectives.

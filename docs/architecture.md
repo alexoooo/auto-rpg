@@ -510,6 +510,11 @@ guard readiness, qualifying blocks and every body contact. Protected-region cont
 failure even after a block. Its pose baseline shares the same body, sensing and actuator limits;
 development failures keep sustained defense open.
 
+Joint-angle acceleration objectives include the [changing speed-to-rate map](reference/joint-acceleration.md).
+The coupled model predicts motor-axis speed derivatives; the tracker converts them to angle
+accelerations and includes the coordinate bias. Independent quaternion and physical-rotor
+tests distinguish this from treating the conversion as constant.
+
 `/control-tasks.html` (`src/control-foundation/tasks.ts`) exposes the same support, bar, strike and defense
 builders as the Node runner, with step, play, snapshot and replay controls. Separate items are
 drawn on their own physical nodes with `drawEquipment`; capture and release do not recreate

@@ -106,6 +106,12 @@ node research/control-foundation.mjs --suite defense --actuation directional --s
 
 ## Development measurement
 
+The [corrected joint-angle acceleration map](joint-acceleration.md#capability-remeasurement)
+remeasures the identical starts at 33/36 predictive and 0/36 pose successes. Warrior with two
+clubs at seed 1 and Rogue with two clubs at both seeds still fail after initial blocks. All
+remain upright and replay. The record below preserves the original 32/36 comparison and its
+frozen source; use the corrected record for the present tracker.
+
 [The complete record](point-defense.json) contains all 72 starts and outcomes, cell denominators,
 paired comparisons and the frozen manifest. Harness: Node 24.19, core world, vendored Rapier
 0.21.0-auto-rpg.4 / adapter 5, 120 Hz, directional bounds, zero root/weapon assistance, seeds 0

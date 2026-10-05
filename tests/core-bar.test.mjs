@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { Scene } from "@babylonjs/core/scene.js";
 import { createBarProbe } from "../src/core/tasks/bar.ts";
@@ -82,9 +83,15 @@ test("the shared bar waits for measured return readiness within the original dea
   const f = fixture("crypt-skeleton", "right", "standing", (fraction * 2 - 1) * 0.005), p = f.probe;
   try {
     p.world.step(240);
-    p.world.step(p.observe().task.captured + 901 - p.world.steps);
-    assert.equal(p.complete, false, "the old fixed ending arrives before the position-only return is ready");
-    assert.ok(p.observe().task.finalError > 0.03);
+    const captured = p.observe().task.captured;
+    p.world.step(captured + 875 - p.world.steps);
+    const centre = new Vector3(...p.item.body.massProperties.centre).applyRotationQuaternion(p.item.node.rotationQuaternion).addInPlace(p.item.node.position);
+    p.item.body.applyImpulse(new Vector3(2, 0, 0), centre);
+    let peakError = 0;
+    while (p.world.steps < captured + 901) { p.world.step(); peakError = Math.max(peakError, p.observe().task.finalError); }
+    assert.ok(peakError > 0.03, "the physical disturbance interrupts return readiness");
+    assert.equal(p.complete, false, "the finish time alone cannot complete an unready return");
+    assert.ok(p.observe().task.returnHeld < 30);
     while (!p.complete && p.world.steps < 1440) p.world.step();
     assert.equal(p.complete, true);
     assert.ok(p.observe().task.returnHeld >= 30);
