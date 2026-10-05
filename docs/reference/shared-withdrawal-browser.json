@@ -1,0 +1,722 @@
+{
+  "harness": "Built preview, Rapier .5, 120 Hz, directional, no assistance",
+  "rows": [
+    {
+      "url": "http://127.0.0.1:5192/control-tasks.html?engine=rapier-coordinate&task=point-strike&model=crypt-skeleton&held=shared&side=both&release=right&target=miss&stops=on&continuation=10&balance=centre&seed=1",
+      "configuration": {
+        "model": "crypt-skeleton",
+        "hz": 120,
+        "actuation": "directional",
+        "jointStops": true,
+        "hands": "both",
+        "held": "club",
+        "shared": {
+          "release": "right"
+        },
+        "miss": true,
+        "offset": -0.001055728105828166,
+        "centreControl": true,
+        "continueSeconds": 10,
+        "stopPrediction": {
+          "margin": 0.001,
+          "forceTolerance": 0.00001,
+          "accelerationTolerance": 0.0001,
+          "iterations": 2048,
+          "absoluteTolerance": 1e-7,
+          "relativeTolerance": 0.000001
+        },
+        "task": "point-strike",
+        "protocol": 4,
+        "settings": {
+          "lateral": 0.25,
+          "height": 0.15,
+          "clubHeight": 0.75,
+          "guard": 0.25,
+          "target": 0.65,
+          "obstacle": 0.7,
+          "missOffset": 0.7,
+          "obstacleSize": [
+            0.2,
+            0.2,
+            0.08
+          ],
+          "floor": {
+            "centre": [
+              0,
+              -0.5,
+              0
+            ],
+            "size": [
+              20,
+              1,
+              20
+            ]
+          },
+          "seconds": 0.15,
+          "weight": 1,
+          "tolerance": 0.02,
+          "readySeconds": 0.25,
+          "strikeSeconds": 0.5,
+          "followSeconds": 0.75,
+          "returnSeconds": 0.5,
+          "postureSeconds": 0.2,
+          "armWeight": 0.03,
+          "bodyWeight": 0.3,
+          "effortCost": 0.000001,
+          "continueSeconds": 10,
+          "closing": 0.05,
+          "capture": {
+            "distance": 0.002,
+            "rotationError": 0.00001
+          },
+          "contact": {
+            "maxPoints": 64,
+            "gap": 0.005,
+            "minUpNormal": 0.9,
+            "forceTolerance": 0.00001,
+            "iterations": 2048,
+            "absoluteTolerance": 1e-7,
+            "relativeTolerance": 0.000001
+          }
+        },
+        "centreSettings": {
+          "lower": 0.04,
+          "positionWeight": 10,
+          "centreWeight": 10,
+          "followSeconds": 0.75
+        },
+        "sharedSettings": {
+          "capture": {
+            "distance": 0.03,
+            "rotationError": 0.02
+          },
+          "secondary": [
+            0,
+            0.12,
+            0
+          ],
+          "pose": [
+            0,
+            0.1,
+            0.4
+          ],
+          "guard": 0.4,
+          "rotationWeight": 0.2,
+          "gripTolerance": 0.001
+        },
+        "releaseReturn": "reference-hand-position",
+        "impactResponse": {
+          "impulse": 0.005,
+          "seconds": 0.15
+        },
+        "engineRevision": "rapier/adapter-6/sha256:2970fabe1650f5fb5eb0a55b28b72a729095fcddb98e58ed82b2d25861cebcc4/coordinate-limits",
+        "gravity": true,
+        "pin": null,
+        "assists": {
+          "root": 0,
+          "weapon": false
+        }
+      },
+      "outcome": {
+        "fell": false,
+        "completeAt": 443,
+        "steps": 1643,
+        "rejectedSteps": 0,
+        "shared": {
+          "captured": 106,
+          "releasedAt": 352,
+          "sharedHits": 0,
+          "peakGripGap": 0.00011405722087360525,
+          "releaseContinuous": true,
+          "pendingRelease": null,
+          "guardPosture": [
+            0.012034226883330017,
+            -0.010862904634654462,
+            0.0018711559168478288,
+            0.04513630338454032,
+            0.017071284644096966,
+            0.09251226243944459,
+            -0.029913721114351546,
+            -0.011913670966742656,
+            -0.08136962017704454,
+            1.1022428430731273,
+            0.07611879788312206,
+            0.37436294761354066,
+            -0.13567516472872956,
+            -0.19966562598153723,
+            -0.4823103014379623,
+            -0.08511165618307534,
+            0.2433883129141387,
+            0.10600186171867965,
+            0.017923096592027565,
+            0.38693214785649743,
+            0.1751414622872566,
+            0.029247108867450244,
+            0.8697889613832211,
+            0.08784435214500656,
+            0.3959623770325093,
+            -0.1537794176091184,
+            -0.3908279115288596,
+            -0.4676064149425526,
+            -0.11947275242658642,
+            0.03391526787198604,
+            -0.10152238887233003,
+            -0.003545318311486746,
+            -0.03490658503988659,
+            -0.034273060424916055,
+            -0.02416612301381059
+          ]
+        },
+        "strikes": [
+          {
+            "side": "right",
+            "contacts": 0,
+            "peakImpulse": 0,
+            "closing": 0,
+            "firstHit": -1,
+            "returnError": 0.0002670817049583833,
+            "targetTravel": 0,
+            "targetSpeed": 0,
+            "firstTargetContact": -1
+          }
+        ],
+        "before": [
+          {
+            "centre": [
+              -0.0012160307519490099,
+              1.6147325511759654,
+              0.42045005179255934
+            ],
+            "velocity": [
+              0.0000026528934995440068,
+              0.000006476565431512427,
+              0.0000012602238257386489
+            ],
+            "spin": [
+              -0.00004552655082079582,
+              0.0002287007519043982,
+              -0.000039972568629309535
+            ]
+          }
+        ],
+        "targetBefore": [
+          {
+            "centre": [
+              0,
+              0,
+              0
+            ],
+            "velocity": [
+              0,
+              0,
+              0
+            ],
+            "spin": [
+              0,
+              0,
+              0
+            ]
+          }
+        ],
+        "phase": "complete"
+      },
+      "verification": "Replay matched · Observation SHA256 000ec4e2bae24abb41e4bb1b8fd405e6450ed8b6a442d910f93fa1bac83caae4",
+      "node": {
+        "hash": "000ec4e2bae24abb41e4bb1b8fd405e6450ed8b6a442d910f93fa1bac83caae4",
+        "outcomeMatches": true,
+        "checkpointSteps": 60
+      }
+    },
+    {
+      "url": "http://127.0.0.1:5192/control-tasks.html?engine=rapier-coordinate&task=point-strike&model=crypt-skeleton&held=shared&side=both&release=right&motion=tracked&stops=on&continuation=10&balance=centre&seed=1",
+      "configuration": {
+        "model": "crypt-skeleton",
+        "hz": 120,
+        "actuation": "directional",
+        "jointStops": true,
+        "hands": "both",
+        "held": "club",
+        "shared": {
+          "release": "right"
+        },
+        "miss": false,
+        "offset": -0.001055728105828166,
+        "centreControl": true,
+        "continueSeconds": 10,
+        "swing": {
+          "angle": -0.06334368634968995,
+          "speed": 0.7,
+          "delay": 3,
+          "tracking": true,
+          "braking": true
+        },
+        "stopPrediction": {
+          "margin": 0.001,
+          "forceTolerance": 0.00001,
+          "accelerationTolerance": 0.0001,
+          "iterations": 2048,
+          "absoluteTolerance": 1e-7,
+          "relativeTolerance": 0.000001
+        },
+        "task": "point-strike",
+        "protocol": 4,
+        "settings": {
+          "lateral": 0.25,
+          "height": 0.15,
+          "clubHeight": 0.75,
+          "guard": 0.25,
+          "target": 0.65,
+          "obstacle": 0.7,
+          "missOffset": 0.7,
+          "obstacleSize": [
+            0.2,
+            0.2,
+            0.08
+          ],
+          "floor": {
+            "centre": [
+              0,
+              -0.5,
+              0
+            ],
+            "size": [
+              20,
+              1,
+              20
+            ]
+          },
+          "seconds": 0.15,
+          "weight": 1,
+          "tolerance": 0.02,
+          "readySeconds": 0.25,
+          "strikeSeconds": 0.5,
+          "followSeconds": 0.75,
+          "returnSeconds": 0.5,
+          "postureSeconds": 0.2,
+          "armWeight": 0.03,
+          "bodyWeight": 0.3,
+          "effortCost": 0.000001,
+          "continueSeconds": 10,
+          "closing": 0.05,
+          "capture": {
+            "distance": 0.002,
+            "rotationError": 0.00001
+          },
+          "contact": {
+            "maxPoints": 64,
+            "gap": 0.005,
+            "minUpNormal": 0.9,
+            "forceTolerance": 0.00001,
+            "iterations": 2048,
+            "absoluteTolerance": 1e-7,
+            "relativeTolerance": 0.000001
+          }
+        },
+        "centreSettings": {
+          "lower": 0.04,
+          "positionWeight": 10,
+          "centreWeight": 10,
+          "followSeconds": 0.75
+        },
+        "sharedSettings": {
+          "capture": {
+            "distance": 0.03,
+            "rotationError": 0.02
+          },
+          "secondary": [
+            0,
+            0.12,
+            0
+          ],
+          "pose": [
+            0,
+            0.1,
+            0.4
+          ],
+          "guard": 0.4,
+          "rotationWeight": 0.2,
+          "gripTolerance": 0.001
+        },
+        "releaseReturn": "reference-hand-position",
+        "impactResponse": {
+          "impulse": 0.005,
+          "seconds": 0.15
+        },
+        "targetRig": {
+          "mass": 2,
+          "length": 1,
+          "limit": 0.3,
+          "anchorRadius": 0.02,
+          "anchorMass": 1,
+          "anchorMoment": 0.001,
+          "aim": [
+            0,
+            0,
+            -0.05
+          ],
+          "impact": {
+            "impulse": 0.005,
+            "seconds": 0.15
+          }
+        },
+        "engineRevision": "rapier/adapter-6/sha256:2970fabe1650f5fb5eb0a55b28b72a729095fcddb98e58ed82b2d25861cebcc4/coordinate-limits",
+        "gravity": true,
+        "pin": null,
+        "assists": {
+          "root": 0,
+          "weapon": false
+        }
+      },
+      "outcome": {
+        "fell": false,
+        "completeAt": 443,
+        "steps": 1643,
+        "rejectedSteps": 0,
+        "shared": {
+          "captured": 106,
+          "releasedAt": 352,
+          "sharedHits": 1,
+          "peakGripGap": 0.00003104723262118995,
+          "releaseContinuous": true,
+          "pendingRelease": null,
+          "guardPosture": [
+            0.012034226883330017,
+            -0.010862904634654462,
+            0.0018711559168478288,
+            0.04513630338454032,
+            0.017071284644096966,
+            0.09251226243944459,
+            -0.029913721114351546,
+            -0.011913670966742656,
+            -0.08136962017704454,
+            1.1022428430731273,
+            0.07611879788312206,
+            0.37436294761354066,
+            -0.13567516472872956,
+            -0.19966562598153723,
+            -0.4823103014379623,
+            -0.08511165618307534,
+            0.2433883129141387,
+            0.10600186171867965,
+            0.017923096592027565,
+            0.38693214785649743,
+            0.1751414622872566,
+            0.029247108867450244,
+            0.8697889613832211,
+            0.08784435214500656,
+            0.3959623770325093,
+            -0.1537794176091184,
+            -0.3908279115288596,
+            -0.4676064149425526,
+            -0.11947275242658642,
+            0.03391526787198604,
+            -0.10152238887233003,
+            -0.003545318311486746,
+            -0.03490658503988659,
+            -0.034273060424916055,
+            -0.02416612301381059
+          ]
+        },
+        "strikes": [
+          {
+            "side": "right",
+            "contacts": 1,
+            "peakImpulse": 0.5515377531295229,
+            "closing": 0.8207842213069034,
+            "firstHit": 243,
+            "returnError": 0.0002720242273637453,
+            "targetTravel": 0.2300941752474755,
+            "targetSpeed": 0.7230366136830466,
+            "firstTargetContact": 243
+          }
+        ],
+        "before": [
+          {
+            "centre": [
+              -0.001213742754931954,
+              1.6147361175162764,
+              0.4204483403592579
+            ],
+            "velocity": [
+              -0.00000538983840669971,
+              -0.0000033660030567261856,
+              -0.0000020825682440772653
+            ],
+            "spin": [
+              -0.00003325656507513486,
+              -0.00006834154919488356,
+              -0.00004559653461910784
+            ]
+          }
+        ],
+        "targetBefore": [
+          {
+            "centre": [
+              -0.20081104338169098,
+              1.7260762453079224,
+              0.699999988079071
+            ],
+            "velocity": [
+              -0.08445774018764496,
+              0.017213935032486916,
+              1.734723475976807e-16
+            ],
+            "spin": [
+              -1.303049545672006e-16,
+              2.011761483244087e-17,
+              -0.08619411289691925
+            ]
+          }
+        ],
+        "phase": "complete"
+      },
+      "verification": "Replay matched · Observation SHA256 965aaba1b6c004e165233123ad9fec9ba66c706c11e439a16166d698c5c70e83",
+      "node": {
+        "hash": "965aaba1b6c004e165233123ad9fec9ba66c706c11e439a16166d698c5c70e83",
+        "outcomeMatches": true,
+        "checkpointSteps": 60
+      }
+    },
+    {
+      "url": "http://127.0.0.1:5192/control-tasks.html?engine=rapier&task=point-strike&model=workshop-rogue&held=shared&side=both&release=left&motion=tracked&stops=off&continuation=10&balance=centre&seed=1",
+      "configuration": {
+        "model": "workshop-rogue",
+        "hz": 120,
+        "actuation": "directional",
+        "hands": "both",
+        "held": "club",
+        "shared": {
+          "release": "left"
+        },
+        "miss": false,
+        "offset": -0.001055728105828166,
+        "centreControl": true,
+        "continueSeconds": 10,
+        "swing": {
+          "angle": -0.06334368634968995,
+          "speed": 0.7,
+          "delay": 3,
+          "tracking": true,
+          "braking": true
+        },
+        "task": "point-strike",
+        "protocol": 4,
+        "settings": {
+          "lateral": 0.25,
+          "height": 0.15,
+          "clubHeight": 0.75,
+          "guard": 0.25,
+          "target": 0.65,
+          "obstacle": 0.7,
+          "missOffset": 0.7,
+          "obstacleSize": [
+            0.2,
+            0.2,
+            0.08
+          ],
+          "floor": {
+            "centre": [
+              0,
+              -0.5,
+              0
+            ],
+            "size": [
+              20,
+              1,
+              20
+            ]
+          },
+          "seconds": 0.15,
+          "weight": 1,
+          "tolerance": 0.02,
+          "readySeconds": 0.25,
+          "strikeSeconds": 0.5,
+          "followSeconds": 0.75,
+          "returnSeconds": 0.5,
+          "postureSeconds": 0.2,
+          "armWeight": 0.03,
+          "bodyWeight": 0.3,
+          "effortCost": 0.000001,
+          "continueSeconds": 10,
+          "closing": 0.05,
+          "capture": {
+            "distance": 0.002,
+            "rotationError": 0.00001
+          },
+          "contact": {
+            "maxPoints": 64,
+            "gap": 0.005,
+            "minUpNormal": 0.9,
+            "forceTolerance": 0.00001,
+            "iterations": 2048,
+            "absoluteTolerance": 1e-7,
+            "relativeTolerance": 0.000001
+          }
+        },
+        "centreSettings": {
+          "lower": 0.04,
+          "positionWeight": 10,
+          "centreWeight": 10,
+          "followSeconds": 0.75
+        },
+        "sharedSettings": {
+          "capture": {
+            "distance": 0.03,
+            "rotationError": 0.02
+          },
+          "secondary": [
+            0,
+            0.12,
+            0
+          ],
+          "pose": [
+            0,
+            0.1,
+            0.4
+          ],
+          "guard": 0.4,
+          "rotationWeight": 0.2,
+          "gripTolerance": 0.001
+        },
+        "releaseReturn": "reference-hand-position",
+        "impactResponse": {
+          "impulse": 0.005,
+          "seconds": 0.15
+        },
+        "targetRig": {
+          "mass": 2,
+          "length": 1,
+          "limit": 0.3,
+          "anchorRadius": 0.02,
+          "anchorMass": 1,
+          "anchorMoment": 0.001,
+          "aim": [
+            0,
+            0,
+            -0.05
+          ],
+          "impact": {
+            "impulse": 0.005,
+            "seconds": 0.15
+          }
+        },
+        "engineRevision": "rapier/adapter-6/sha256:2970fabe1650f5fb5eb0a55b28b72a729095fcddb98e58ed82b2d25861cebcc4",
+        "gravity": true,
+        "pin": null,
+        "assists": {
+          "root": 0,
+          "weapon": false
+        }
+      },
+      "outcome": {
+        "fell": false,
+        "completeAt": 428,
+        "steps": 1628,
+        "rejectedSteps": 0,
+        "shared": {
+          "captured": 96,
+          "releasedAt": 337,
+          "sharedHits": 1,
+          "peakGripGap": 0.000057797498275383996,
+          "releaseContinuous": true,
+          "pendingRelease": null,
+          "guardPosture": [
+            0.047716673213826714,
+            -0.024040264963651727,
+            -0.0011032217445032658,
+            -0.08174609463285805,
+            0.03225962729178533,
+            0.04836172644231756,
+            0.06154208091294922,
+            0.0004958762209644556,
+            -0.045916111154622415,
+            1.1874308163475307,
+            -0.40048480907970985,
+            0.20811001991725164,
+            0.4358487833126698,
+            -0.8294475236924569,
+            -0.20919513127983863,
+            -0.37900400323405375,
+            0.19144990370684714,
+            -0.0039709376037430485,
+            0.02120815265166875,
+            0.3964819368686996,
+            0.173888171947284,
+            0.012098007649225726,
+            0.9847915649940363,
+            -0.25355090728229085,
+            0.3275448442311027,
+            0.4326017816602953,
+            -0.7589526319460979,
+            -0.3725492633800652,
+            -0.37329050415137077,
+            0.18977650572611263,
+            0.004358667949012853,
+            0.02671599938288404,
+            0.3910149719110222,
+            0.1723390514101612,
+            0.006805939792784377
+          ]
+        },
+        "strikes": [
+          {
+            "side": "right",
+            "contacts": 1,
+            "peakImpulse": 0.7252521067857742,
+            "closing": 0.8685386111910686,
+            "firstHit": 227,
+            "returnError": 0.0003282970324203195,
+            "targetTravel": 0.23009444346837699,
+            "targetSpeed": 0.7230365540831616,
+            "firstTargetContact": 227
+          }
+        ],
+        "before": [
+          {
+            "centre": [
+              0.00403410540170028,
+              1.6576382612149305,
+              0.4098139321396665
+            ],
+            "velocity": [
+              -5.169790711079258e-7,
+              -0.000009232095180777833,
+              -0.000007916107279015705
+            ],
+            "spin": [
+              -0.000014837986782367807,
+              -0.000003929341801267583,
+              0.000008601115041528828
+            ]
+          }
+        ],
+        "targetBefore": [
+          {
+            "centre": [
+              -0.16080811619758606,
+              1.7630969285964966,
+              0.699999988079071
+            ],
+            "velocity": [
+              -0.3597094416618347,
+              0.05814199149608612,
+              -1.7558654183402744e-16
+            ],
+            "spin": [
+              3.269577097075319e-20,
+              1.5057954511884688e-19,
+              -0.3643780052661896
+            ]
+          }
+        ],
+        "phase": "complete"
+      },
+      "verification": "Replay matched · Observation SHA256 d76ea8293c4177b0516f4f8029d037500e7db46b51409540d726a99933c03399",
+      "node": {
+        "hash": "d76ea8293c4177b0516f4f8029d037500e7db46b51409540d726a99933c03399",
+        "outcomeMatches": true,
+        "checkpointSteps": 60
+      }
+    }
+  ]
+}

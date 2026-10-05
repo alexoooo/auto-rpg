@@ -240,7 +240,12 @@ reaction selection and end-step effort bounds. Its single-joint regression verif
 and releasing either loaded limit through bounded actuators. Its corrected-profile development
 comparison improves shared static/moving strikes to 34/36 and 51/54, but bar and defense
 regressions keep it optional. All 348 comparison rows replay. General support transitions,
-stop-aware planning, hot-path optimization and recovery/combat integration remain required. The allocating experimental tracker is not the game's default.
+stop-aware planning, hot-path optimization and recovery/combat integration remain required.
+[Released-hand withdrawal](../reference/shared-withdrawal.md) subsequently closes the corrected,
+stop-aware shared static and moving screens at 36/36 and 54/54. The 270-row comparison retains
+reference and stop-disabled failures; all replay and remain upright. This is a reference policy
+over existing frame objectives, not a change to release mechanics. The allocating experimental
+tracker is not the game's default.
 
 The [upright support task](../reference/support-transition.md) now transfers load, lifts either
 foot, verifies placement contact and regains two-foot support on all three bodies in the

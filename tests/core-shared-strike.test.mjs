@@ -6,9 +6,9 @@ import { Scene } from "@babylonjs/core/scene.js";
 import { createPointStrikeProbe } from "../src/core/tasks/point-strike.ts";
 import { freshEngine, saveStand, loadStand } from "./harness/core-stand.mjs";
 
-async function fixture(config = {}) {
+async function fixture(config = {}, engineName) {
   const render = new NullEngine(), scene = new Scene(render);
-  const task = createPointStrikeProbe(scene, await freshEngine(), { model: "workshop-fighter", hands: "both", held: "club",
+  const task = createPointStrikeProbe(scene, await freshEngine(engineName), { model: "workshop-fighter", hands: "both", held: "club",
     hz: 120, actuation: "directional", offset: 0, miss: false, centreControl: true, continueSeconds: 10, shared: {}, ...config });
   return { task, dispose() { task.dispose(); scene.dispose(); render.dispose(); } };
 }
@@ -57,4 +57,35 @@ test("shared capture, a miss, and return after release replay in another physica
     loadStand(f.task.world, f.task.state, checkpoint); assert.deepEqual(run(f.task), expected);
     loadStand(other.task.world, other.task.state, checkpoint); assert.deepEqual(run(other.task), expected);
   } finally { f.dispose(); other.dispose(); }
+});
+
+
+test("a released hand clears the shared item during sustained return after a miss or moving hit", async (t) => {
+  const fraction = ((2 * 2654435761) >>> 0) / 4294967296, readings = [];
+  for (const moving of [false, true]) {
+    const f = await fixture({ model: "crypt-skeleton", shared: { release: "right" }, jointStops: true,
+      offset: (fraction * 2 - 1) * 0.002, miss: !moving,
+      ...(moving ? { swing: { angle: (fraction * 2 - 1) * 0.12, speed: 0.7, delay: 3, tracking: true, braking: true } } : {}) }, "rapier-coordinate");
+    try {
+      const p = f.task, released = p.built.segments.get("hand.right").body;
+      let lastContact = -1, count = 0, impulse = 0;
+      while (!p.complete && p.world.steps < 17 * 120) {
+        p.world.step();
+        if (p.observe().task.shared.releasedAt >= 0) for (const c of p.world.physics.contactsOf(p.items[0].body)) {
+          if (c.other === released && c.impulse > 0) { lastContact = p.world.steps; count++; impulse += c.impulse; }
+        }
+      }
+      const r = p.observe().task;
+      assert.ok(p.complete && !r.fell && r.rejectedSteps === 0, JSON.stringify(r));
+      assert.ok(r.strikes[0].returnError < p.configuration.settings.tolerance);
+      assert.ok(r.shared.peakGripGap < p.configuration.sharedSettings.gripTolerance);
+      assert.equal(r.shared.releaseContinuous, true);
+      assert.ok(r.steps - r.completeAt >= 1200);
+      assert.ok(lastContact < r.steps - 120, "the withdrawn hand does not press the item during the last second");
+      assert.ok(moving ? r.strikes[0].contacts > 0 : r.strikes[0].contacts === 0);
+      assert.equal(p.body.assist.meter.force, 0); assert.equal(p.body.assist.meter.moment, 0);
+      readings.push({ moving, count, impulse, lastContact, error: r.strikes[0].returnError });
+    } finally { f.dispose(); }
+  }
+  t.diagnostic(JSON.stringify(readings));
 });

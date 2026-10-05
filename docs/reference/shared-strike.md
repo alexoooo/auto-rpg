@@ -13,7 +13,9 @@ poses as the standing bar fixture. After capture, the optional centre-control ob
 over and `pointStrike` prepares, strikes, follows through and returns the shared club's swell
 point. Both arms and the rest of the body participate in the same bounded torque solve.
 In centre-control trials, the arm posture measured at strike readiness, clamped to legal joint
-ranges, supplies the shared return's posture objective. Independent-item strikes retain their midpoint return.
+ranges, supplies attached arms' shared return posture. A released arm instead uses its initial
+reference posture and a hand-position withdrawal objective; see the current
+[withdrawal measurements](shared-withdrawal.md). Independent-item strikes retain their midpoint return.
 The frozen readiness posture and grip lifecycle measurements are plain replayable task state.
 
 ## Fixture inputs and scoring

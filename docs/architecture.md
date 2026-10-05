@@ -508,9 +508,12 @@ plain measurements with sample times, and delay buffers replay with the world. T
 target fixture scores relative closing contact independently of the policy.
 The optional [shared strike](reference/shared-strike.md) uses one item, physically acquires its
 second grip before starting the point path, and can release either hand for return. It retains
-the measured guard arm posture and scores actual attachment gaps, shared impact and release
-continuity through the existing equipment grant interface. The runner and viewer expose the
-same builder. Reliable shared-item return across bodies and opponent combat remain open.
+the measured guard posture for attached arms; a released arm instead returns toward its initial
+reference hand position and joint posture ([withdrawal record](reference/shared-withdrawal.md)).
+It scores actual attachment gaps, shared impact and release continuity through the existing
+equipment grant interface. The runner and viewer expose the same builder. Corrected limits,
+near-stop prediction and withdrawal pass the current development return screen across bodies;
+opponent combat and held-out reliability remain open.
 
 `control/support-transition.ts` is an optional upright reference policy over those motion
 objectives. It waits for measured unloading, foot flight, positive placement contact and a
