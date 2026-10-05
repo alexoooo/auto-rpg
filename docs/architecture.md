@@ -165,7 +165,9 @@ The symmetric reference can give a reversing motor the wrong side's braking stre
 migration remains gated on corrected contact/control capability. Both directional bounds and
 the command are saved with the muscles. `pulled` records the mean torque actually delivered over the
 last world step, from accumulated motor impulse divided by that step's duration, in the channel's
-positive sense. It is saved state and a diagnostic, not a work measurement.
+positive sense. Rapier accumulates and returns this diagnostic in double precision, while its
+constraint solving remains single precision; see [effort precision](reference/effort-precision.md).
+It is saved state and a diagnostic, not a work measurement.
 
 **A body runs at a level** (`BodyLevel`, `MuscleDriver.level`), data in its muscles' state:
 `full`, its joints read, its mind stepped and its motors driven; `limp`, none of the three, its

@@ -1,0 +1,680 @@
+{
+  "protocol": {
+    "harness": "Node core World, 120 Hz, corrected limits, per-point friction, Warrior, empty hands, no assists",
+    "reference": "0.21.0-auto-rpg.6",
+    "referenceEntrySha256": "d9ab4cf14caafc58aed8652706513144950fe09de93df25a116b330e35ac8b76",
+    "installed": "rapier/adapter-8/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits/point-friction",
+    "servoSeconds": 0.01,
+    "speed": 10,
+    "activation": 1,
+    "physicalTrace": "all body observations, omitting only joints.effort",
+    "checkpointStep": 240
+  },
+  "rows": [
+    {
+      "iterations": 16,
+      "posture": "fours",
+      "before": {
+        "outcome": {
+          "steps": 1200,
+          "peakDrift": 0.015454903634809853,
+          "finalDrift": 0.015454903634809853,
+          "peakAngleError": 0.01653262980098802,
+          "peakEffort": 51.22232794761658,
+          "peakEffortViolation": 0,
+          "contactSteps": 1200,
+          "complete": true,
+          "success": true
+        },
+        "physicalDigest": "43d0817670f85243db6e3c2c0427e7000abea8820b378c5e82c3cff48edcd0a4",
+        "replayDigest": "b8942a1226c8851f89692635775b20f3462f213bc05cc489c44e283dd084eff6",
+        "replay": true
+      },
+      "after": {
+        "outcome": {
+          "steps": 1200,
+          "peakDrift": 0.015454903634809853,
+          "finalDrift": 0.015454903634809853,
+          "peakAngleError": 0.01653262980098802,
+          "peakEffort": 51.22233308851719,
+          "peakEffortViolation": 0,
+          "contactSteps": 1200,
+          "complete": true,
+          "success": true
+        },
+        "physicalDigest": "43d0817670f85243db6e3c2c0427e7000abea8820b378c5e82c3cff48edcd0a4",
+        "replayDigest": "ffd709214323c5d270e4c6c135c0af3447567014f91213f55d10bfad9fdfe7cc",
+        "replay": true
+      }
+    },
+    {
+      "iterations": 16,
+      "posture": "half-kneel",
+      "before": {
+        "outcome": {
+          "steps": 1200,
+          "peakDrift": 0.1270722896087563,
+          "finalDrift": 0.1270722896087563,
+          "peakAngleError": 0.010209165603662418,
+          "peakEffort": 114.09274578094482,
+          "peakEffortViolation": 0.000007385288490979747,
+          "contactSteps": 1200,
+          "complete": true,
+          "success": false
+        },
+        "physicalDigest": "2b3417e47c63bb8a514044bd1295016e9246884a5890571f722bdcb70cfc4746",
+        "replayDigest": "1ba4d0c2dde9cbe273108be6fb8487f9fa97bc183dc5d78c85577570cc8d6ecc",
+        "replay": true
+      },
+      "after": {
+        "outcome": {
+          "steps": 1200,
+          "peakDrift": 0.1270722896087563,
+          "finalDrift": 0.1270722896087563,
+          "peakAngleError": 0.010209165603662418,
+          "peakEffort": 114.09273996949196,
+          "peakEffortViolation": 0.000004875208738042147,
+          "contactSteps": 1200,
+          "complete": true,
+          "success": false
+        },
+        "physicalDigest": "2b3417e47c63bb8a514044bd1295016e9246884a5890571f722bdcb70cfc4746",
+        "replayDigest": "383b2e7dfde70ffc7f8459a717336367a719195aac11b9e7cc7a1f4df66c4629",
+        "replay": true
+      }
+    },
+    {
+      "iterations": 16,
+      "posture": "squat",
+      "before": {
+        "outcome": {
+          "steps": 1200,
+          "peakDrift": 1.6790420488575735,
+          "finalDrift": 1.3211892527166795,
+          "peakAngleError": 1.2544825586154158,
+          "peakEffort": 184.5646333694458,
+          "peakEffortViolation": 0.00004365577905218743,
+          "contactSteps": 1136,
+          "complete": true,
+          "success": false
+        },
+        "physicalDigest": "9044fc5432886694e9f8348aa7edfb5ce93eb84db63ea034ad7d2fca99a288f9",
+        "replayDigest": "8d96bfe85e0443d022d559cc1f868408a4e164b097a4d48fa6664a0434340ab5",
+        "replay": true
+      },
+      "after": {
+        "outcome": {
+          "steps": 1200,
+          "peakDrift": 1.6790420488575735,
+          "finalDrift": 1.3211892527166795,
+          "peakAngleError": 1.2544825586154158,
+          "peakEffort": 184.56464141607285,
+          "peakEffortViolation": 0.000020266489286768774,
+          "contactSteps": 1136,
+          "complete": true,
+          "success": false
+        },
+        "physicalDigest": "9044fc5432886694e9f8348aa7edfb5ce93eb84db63ea034ad7d2fca99a288f9",
+        "replayDigest": "7f091b2736b3667b23f9f7a122b27301c0b0991d4998676a20ac115af083c5a7",
+        "replay": true
+      }
+    },
+    {
+      "iterations": 32,
+      "posture": "fours",
+      "before": {
+        "outcome": {
+          "steps": 1200,
+          "peakDrift": 0.007326044791088156,
+          "finalDrift": 0.007326044791088156,
+          "peakAngleError": 0.008072573265913485,
+          "peakEffort": 46.937663555145264,
+          "peakEffortViolation": 0,
+          "contactSteps": 1200,
+          "complete": true,
+          "success": true
+        },
+        "physicalDigest": "9db6240de4c38a95ac8bb2ea9b932e42df171acf36419451eb4a501f3f3f0423",
+        "replayDigest": "2979eb2e7eeef6d7751263e9da9246d6ca90639883e36302558d73219c2a0a46",
+        "replay": true
+      },
+      "after": {
+        "outcome": {
+          "steps": 1200,
+          "peakDrift": 0.007326044791088156,
+          "finalDrift": 0.007326044791088156,
+          "peakAngleError": 0.008072573265913485,
+          "peakEffort": 46.93766623735428,
+          "peakEffortViolation": 0,
+          "contactSteps": 1200,
+          "complete": true,
+          "success": true
+        },
+        "physicalDigest": "9db6240de4c38a95ac8bb2ea9b932e42df171acf36419451eb4a501f3f3f0423",
+        "replayDigest": "2c3b960d0f90935b066965034b00beb1d6e4db0d792c0fabd5d48cde45b07425",
+        "replay": true
+      }
+    },
+    {
+      "iterations": 32,
+      "posture": "half-kneel",
+      "before": {
+        "outcome": {
+          "steps": 1200,
+          "peakDrift": 0.0724797759615725,
+          "finalDrift": 0.0724797759615725,
+          "peakAngleError": 0.0047531070145970244,
+          "peakEffort": 152.87333965301514,
+          "peakEffortViolation": 0.00008566162017586976,
+          "contactSteps": 1200,
+          "complete": true,
+          "success": false
+        },
+        "physicalDigest": "8397dfce9e3cf66aaec7f8ffb02164c8215cc88fb4c43cd31c689f749668d08c",
+        "replayDigest": "d4c41d5f65f96c6db4391c9d3ced22e91f769dd7d3a728bd7e0e66b797510acd",
+        "replay": true
+      },
+      "after": {
+        "outcome": {
+          "steps": 1200,
+          "peakDrift": 0.0724797759615725,
+          "finalDrift": 0.0724797759615725,
+          "peakAngleError": 0.0047531070145970244,
+          "peakEffort": 152.8732967376709,
+          "peakEffortViolation": 0.000019258176962466678,
+          "contactSteps": 1200,
+          "complete": true,
+          "success": false
+        },
+        "physicalDigest": "8397dfce9e3cf66aaec7f8ffb02164c8215cc88fb4c43cd31c689f749668d08c",
+        "replayDigest": "50d6e7c66617f1852c52b301fb9d7d84c47cd72bf6e61c2278a38c55c9edd684",
+        "replay": true
+      }
+    },
+    {
+      "iterations": 32,
+      "posture": "squat",
+      "before": {
+        "outcome": {
+          "steps": 1200,
+          "peakDrift": 1.6755901643994597,
+          "finalDrift": 1.357635804477386,
+          "peakAngleError": 1.468662024177559,
+          "peakEffort": 193.93858909606934,
+          "peakEffortViolation": 0.00007597576976081655,
+          "contactSteps": 1121,
+          "complete": true,
+          "success": false
+        },
+        "physicalDigest": "d98111bc674d2b5c12765765910020d577946a2eb2f4bb1488ccc2a7aec94dce",
+        "replayDigest": "21262e4fbbed4cfb44f07253f667ec8df5a08f14703f84a424ec64ebb6eb869e",
+        "replay": true
+      },
+      "after": {
+        "outcome": {
+          "steps": 1200,
+          "peakDrift": 1.6755901643994597,
+          "finalDrift": 1.357635804477386,
+          "peakAngleError": 1.468662024177559,
+          "peakEffort": 193.93855690956116,
+          "peakEffortViolation": 0.00002065508326154486,
+          "contactSteps": 1121,
+          "complete": true,
+          "success": false
+        },
+        "physicalDigest": "d98111bc674d2b5c12765765910020d577946a2eb2f4bb1488ccc2a7aec94dce",
+        "replayDigest": "20fc4510604ffa75bb69e1ec84b8c92d10f5bf598428d8edf6c565d5b66f62bc",
+        "replay": true
+      }
+    },
+    {
+      "iterations": 64,
+      "posture": "fours",
+      "before": {
+        "outcome": {
+          "steps": 1200,
+          "peakDrift": 0.0048557599861949255,
+          "finalDrift": 0.0048557599861949255,
+          "peakAngleError": 0.003815676798545331,
+          "peakEffort": 48.00194978713989,
+          "peakEffortViolation": 0,
+          "contactSteps": 1200,
+          "complete": true,
+          "success": true
+        },
+        "physicalDigest": "1b84e96efbfb293ca81ade041e0fbbf42c8a35e5dc2e3df3e21438688a83fabe",
+        "replayDigest": "ba6e7bd302c9caa0b7a2bbb3caa83ade09e2a870e1e3dca7b82a78c067f29f90",
+        "replay": true
+      },
+      "after": {
+        "outcome": {
+          "steps": 1200,
+          "peakDrift": 0.0048557599861949255,
+          "finalDrift": 0.0048557599861949255,
+          "peakAngleError": 0.003815676798545331,
+          "peakEffort": 48.001950178295374,
+          "peakEffortViolation": 0,
+          "contactSteps": 1200,
+          "complete": true,
+          "success": true
+        },
+        "physicalDigest": "1b84e96efbfb293ca81ade041e0fbbf42c8a35e5dc2e3df3e21438688a83fabe",
+        "replayDigest": "0ad6fa4eaf6e0a6bb2c6b6ec7be4ca48601ec460d0d988d30d67006e50c3ba68",
+        "replay": true
+      }
+    },
+    {
+      "iterations": 64,
+      "posture": "half-kneel",
+      "before": {
+        "outcome": {
+          "steps": 1200,
+          "peakDrift": 0.050104760318706656,
+          "finalDrift": 0.050104760318706656,
+          "peakAngleError": 0.006771830948477229,
+          "peakEffort": 147.26394653320312,
+          "peakEffortViolation": 0.00007531947728978139,
+          "contactSteps": 1200,
+          "complete": true,
+          "success": false
+        },
+        "physicalDigest": "061f22848038076953a3359034560cb0008a62a69ffe2e03405b6a2589b9bf39",
+        "replayDigest": "11cf47a9f7b8aff503649712b7f5a555c0f7fc65f4c2c91830974d840be49e33",
+        "replay": true
+      },
+      "after": {
+        "outcome": {
+          "steps": 1200,
+          "peakDrift": 0.050104760318706656,
+          "finalDrift": 0.050104760318706656,
+          "peakAngleError": 0.006771830948477229,
+          "peakEffort": 147.26393893361092,
+          "peakEffortViolation": 0.000010946460932359514,
+          "contactSteps": 1200,
+          "complete": true,
+          "success": false
+        },
+        "physicalDigest": "061f22848038076953a3359034560cb0008a62a69ffe2e03405b6a2589b9bf39",
+        "replayDigest": "fccb938d164d2d02691866456d369eeee95bf75731d5c6a7a406365f1c2f36f0",
+        "replay": true
+      }
+    },
+    {
+      "iterations": 64,
+      "posture": "squat",
+      "before": {
+        "outcome": {
+          "steps": 1200,
+          "peakDrift": 1.6795452593223843,
+          "finalDrift": 1.3902039148269627,
+          "peakAngleError": 1.3943927347129639,
+          "peakEffort": 208.89063835144043,
+          "peakEffortViolation": 0.0001361205929129028,
+          "contactSteps": 1142,
+          "complete": true,
+          "success": false
+        },
+        "physicalDigest": "bf175af47664262a56c94155c80a5728ba89b56106efafd0c6716eba20fa103c",
+        "replayDigest": "6065e821bbcef39961a64831101d8b2c9b07d210ce817b3983a111ced36cae96",
+        "replay": true
+      },
+      "after": {
+        "outcome": {
+          "steps": 1200,
+          "peakDrift": 1.6795452593223843,
+          "finalDrift": 1.3902039148269627,
+          "peakAngleError": 1.3943927347129639,
+          "peakEffort": 208.89064751565456,
+          "peakEffortViolation": 0.000020273172708584752,
+          "contactSteps": 1142,
+          "complete": true,
+          "success": false
+        },
+        "physicalDigest": "bf175af47664262a56c94155c80a5728ba89b56106efafd0c6716eba20fa103c",
+        "replayDigest": "191317f5e553e63512213ca597bf48e4c56d5fc39742ecc7f779710b7a2cc156",
+        "replay": true
+      }
+    },
+    {
+      "iterations": 128,
+      "posture": "fours",
+      "before": {
+        "outcome": {
+          "steps": 1200,
+          "peakDrift": 0.002640092403342371,
+          "finalDrift": 0.002640092403342371,
+          "peakAngleError": 0.002237103611509861,
+          "peakEffort": 37.07073211669922,
+          "peakEffortViolation": 0,
+          "contactSteps": 1200,
+          "complete": true,
+          "success": true
+        },
+        "physicalDigest": "265f88d22d0bd7b72f446ab610d615e3ffd6507fbb0db331bf885458c07ea25c",
+        "replayDigest": "8936c346ca733f2f0aab349ca21ac2bfd387ca872ddb3cdfbf94f68f56e8329d",
+        "replay": true
+      },
+      "after": {
+        "outcome": {
+          "steps": 1200,
+          "peakDrift": 0.002640092403342371,
+          "finalDrift": 0.002640092403342371,
+          "peakAngleError": 0.002237103611509861,
+          "peakEffort": 37.070731446146965,
+          "peakEffortViolation": 0,
+          "contactSteps": 1200,
+          "complete": true,
+          "success": true
+        },
+        "physicalDigest": "265f88d22d0bd7b72f446ab610d615e3ffd6507fbb0db331bf885458c07ea25c",
+        "replayDigest": "44507a36ab4b9cc1b62759bb2cd520f1a64c1101370473cf814b91684b5de3c1",
+        "replay": true
+      }
+    },
+    {
+      "iterations": 128,
+      "posture": "half-kneel",
+      "before": {
+        "outcome": {
+          "steps": 1200,
+          "peakDrift": 0.02746163923114799,
+          "finalDrift": 0.02746163923114799,
+          "peakAngleError": 0.009040652985593806,
+          "peakEffort": 149.3138551712036,
+          "peakEffortViolation": 0.0001421450649417011,
+          "contactSteps": 1199,
+          "complete": true,
+          "success": false
+        },
+        "physicalDigest": "5e09150192fb71a3879a233ff8e9f8fe62c33d80ec94de6d2320065af11ec197",
+        "replayDigest": "06692f463466cb0e6dfac934bfa54427e9d85dd22ee640eb2bc47f605998012d",
+        "replay": true
+      },
+      "after": {
+        "outcome": {
+          "steps": 1200,
+          "peakDrift": 0.02746163923114799,
+          "finalDrift": 0.02746163923114799,
+          "peakAngleError": 0.009040652985593806,
+          "peakEffort": 149.31387059390545,
+          "peakEffortViolation": 0.000010956376044646277,
+          "contactSteps": 1199,
+          "complete": true,
+          "success": false
+        },
+        "physicalDigest": "5e09150192fb71a3879a233ff8e9f8fe62c33d80ec94de6d2320065af11ec197",
+        "replayDigest": "9186ccbe7a04a51d8a2091e88eb3c23f4dc4ad20dd99ee785645e97cfe8dd02e",
+        "replay": true
+      }
+    },
+    {
+      "iterations": 128,
+      "posture": "squat",
+      "before": {
+        "outcome": {
+          "steps": 1200,
+          "peakDrift": 1.655413272930934,
+          "finalDrift": 1.3388566993228956,
+          "peakAngleError": 1.402787315621879,
+          "peakEffort": 176.84298992156982,
+          "peakEffortViolation": 0.0002698680063417669,
+          "contactSteps": 1125,
+          "complete": true,
+          "success": false
+        },
+        "physicalDigest": "9352215f91e9e443d96a190e3f1a1ac0ae410a69f511f0aa077d277eb42f9342",
+        "replayDigest": "3327bf5b668c6dc47c926046b71136dede10dc55609298ea1873a30c6569b580",
+        "replay": true
+      },
+      "after": {
+        "outcome": {
+          "steps": 1200,
+          "peakDrift": 1.655413272930934,
+          "finalDrift": 1.3388566993228956,
+          "peakAngleError": 1.402787315621879,
+          "peakEffort": 176.84300042688847,
+          "peakEffortViolation": 0.000020917426695632457,
+          "contactSteps": 1125,
+          "complete": true,
+          "success": false
+        },
+        "physicalDigest": "9352215f91e9e443d96a190e3f1a1ac0ae410a69f511f0aa077d277eb42f9342",
+        "replayDigest": "c8115de8105d564dace9eb74627c5ad75a9ef8e1ce9f900aacfa624981579b0b",
+        "replay": true
+      }
+    },
+    {
+      "iterations": 256,
+      "posture": "fours",
+      "before": {
+        "outcome": {
+          "steps": 1200,
+          "peakDrift": 0.001597618148292403,
+          "finalDrift": 0.0015975101970879609,
+          "peakAngleError": 0.0016959177519515478,
+          "peakEffort": 51.385159492492676,
+          "peakEffortViolation": 0,
+          "contactSteps": 1200,
+          "complete": true,
+          "success": true
+        },
+        "physicalDigest": "9f81b0968a72717b9e85ed109cc52614a68adff8c6eea453880b94ffbce7014b",
+        "replayDigest": "6727b7a350fe2353e905ce93750f59229d735299a44db4a299a4e1ae9394d222",
+        "replay": true
+      },
+      "after": {
+        "outcome": {
+          "steps": 1200,
+          "peakDrift": 0.001597618148292403,
+          "finalDrift": 0.0015975101970879609,
+          "peakAngleError": 0.0016959177519515478,
+          "peakEffort": 51.38514515943825,
+          "peakEffortViolation": 0,
+          "contactSteps": 1200,
+          "complete": true,
+          "success": true
+        },
+        "physicalDigest": "9f81b0968a72717b9e85ed109cc52614a68adff8c6eea453880b94ffbce7014b",
+        "replayDigest": "41f74ee8d6766c54cba3d5a53a40b528cb3308664d797f5e2d2ada0c4b9ab0a9",
+        "replay": true
+      }
+    },
+    {
+      "iterations": 256,
+      "posture": "half-kneel",
+      "before": {
+        "outcome": {
+          "steps": 1200,
+          "peakDrift": 0.018194014667082065,
+          "finalDrift": 0.018193056716421782,
+          "peakAngleError": 0.010151091407560918,
+          "peakEffort": 145.96182346343994,
+          "peakEffortViolation": 0.00027705237458519605,
+          "contactSteps": 1199,
+          "complete": true,
+          "success": false
+        },
+        "physicalDigest": "9fa4292ff523cb64c38185f67da6b60260035a81f5f39d62f09f3ecc696c0a41",
+        "replayDigest": "33f2b56999c798cccc4881ed069f3474f21f8ac1ecd696ef9e3ee8cdc2aa6353",
+        "replay": true
+      },
+      "after": {
+        "outcome": {
+          "steps": 1200,
+          "peakDrift": 0.018194014667082065,
+          "finalDrift": 0.018193056716421782,
+          "peakAngleError": 0.010151091407560918,
+          "peakEffort": 145.96185866743326,
+          "peakEffortViolation": 0.000010679394861767832,
+          "contactSteps": 1199,
+          "complete": true,
+          "success": true
+        },
+        "physicalDigest": "9fa4292ff523cb64c38185f67da6b60260035a81f5f39d62f09f3ecc696c0a41",
+        "replayDigest": "80de875600f6b8305abf92471921726957914096849b01179965441c82734967",
+        "replay": true
+      }
+    },
+    {
+      "iterations": 256,
+      "posture": "squat",
+      "before": {
+        "outcome": {
+          "steps": 1200,
+          "peakDrift": 1.6919280294506729,
+          "finalDrift": 1.426631228864518,
+          "peakAngleError": 1.4740295210690386,
+          "peakEffort": 185.81225395202637,
+          "peakEffortViolation": 0.0005344281237000814,
+          "contactSteps": 1125,
+          "complete": true,
+          "success": false
+        },
+        "physicalDigest": "26a4a55b40fdc908085486ee52910ba1c47405380dfb9fb94d2e46340a578947",
+        "replayDigest": "47bf0693758101dead9718ae60601acccacddd1c9e3e29b00a8f15fb2dca831a",
+        "replay": true
+      },
+      "after": {
+        "outcome": {
+          "steps": 1200,
+          "peakDrift": 1.6919280294506729,
+          "finalDrift": 1.426631228864518,
+          "peakAngleError": 1.4740295210690386,
+          "peakEffort": 185.81225065514445,
+          "peakEffortViolation": 0.000021694960167906174,
+          "contactSteps": 1125,
+          "complete": true,
+          "success": false
+        },
+        "physicalDigest": "26a4a55b40fdc908085486ee52910ba1c47405380dfb9fb94d2e46340a578947",
+        "replayDigest": "47b427b48dd224d2678e776e26fa1399731db11b960b98473fd43237a4ac0df4",
+        "replay": true
+      }
+    }
+  ],
+  "baseline": {
+    "equalRows": 138,
+    "records": [
+      {
+        "folder": "effort-v6-reference",
+        "manifest": {
+          "protocol": 2,
+          "started": "2026-10-05T16:09:29.602Z",
+          "options": {
+            "suite": "baseline",
+            "split": "development",
+            "samples": 2,
+            "from": 0,
+            "hz": 120,
+            "actuation": "symmetric",
+            "support": "pinned",
+            "centreControl": false,
+            "continueSeconds": 1,
+            "shared": false,
+            "jointStops": false
+          },
+          "workers": 4,
+          "harness": "Node, core world, per-task arena/stand fixtures",
+          "node": "v24.19.0",
+          "engine": "rapier",
+          "engineRevision": "rapier/adapter-7/sha256:07af259dc277cac77daa9c95eaded0ed2bc8aeb5feac08bfd9e58d23e58feebd",
+          "package": {
+            "version": "0.21.0-auto-rpg.6",
+            "resolved": "file:vendor/rapier/dimforge-rapier3d-simd-compat-0.21.0-auto-rpg.6.tgz",
+            "integrity": "sha512-s7G2mXQcXedR6BBxki1vym9EjoTTnzWmNxt2QWdxHogJ8RhC5T0EAWPWxNKsi7kqHzT1+T0UAXSHTgbyY6CUww==",
+            "entrySha256": "d0e9b190bd0ec74136918a4268a00b4a3cb3e19e28bc8ab5d2fb055af01a7054"
+          },
+          "source": {
+            "git": "53b07fd8f3f35cbc0ac4366937a976db85f71550",
+            "content": "66bffd2d7c1a35b755963c40a2815dae475b0fc0fd1a003574f3651fcf91a683",
+            "archive": "source.json.gz",
+            "archiveSha256": "f7bc696391da57ca029aadd0ded9066edf2c508ea41b891dfd33f162d6ad6935"
+          },
+          "sensing": "existing fighter senses; stationary blow offset disclosed at commitment",
+          "action": "existing fighter skills and staged-rise/lie",
+          "policyPeriodSteps": 1,
+          "assists": {
+            "rootBalancePercent": 0,
+            "weapon": false
+          },
+          "unavailable": [
+            "integrated recovery/combat",
+            "opponent defense",
+            "actuator work",
+            "contact penetration"
+          ]
+        },
+        "jobCount": 138,
+        "manifestSha256": "83523f88eda4202326c41f9c546a2f0152b158c66628cd9766743d3359cec261"
+      },
+      {
+        "folder": "effort-v7-reference",
+        "manifest": {
+          "protocol": 2,
+          "started": "2026-10-05T16:13:46.149Z",
+          "options": {
+            "suite": "baseline",
+            "split": "development",
+            "samples": 2,
+            "from": 0,
+            "hz": 120,
+            "actuation": "symmetric",
+            "support": "pinned",
+            "centreControl": false,
+            "continueSeconds": 1,
+            "shared": false,
+            "jointStops": false
+          },
+          "workers": 2,
+          "harness": "Node, core world, per-task arena/stand fixtures",
+          "node": "v24.19.0",
+          "engine": "rapier",
+          "engineRevision": "rapier/adapter-8/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde",
+          "package": {
+            "version": "0.21.0-auto-rpg.7",
+            "resolved": "file:vendor/rapier/dimforge-rapier3d-simd-compat-0.21.0-auto-rpg.7.tgz",
+            "integrity": "sha512-uQD03MLVg5/vBElDxkPBzfqIjOiYfva7mOekERHFFZ4lIRE/CIAdMBpt13JW08kMYL5n04qsomN5pzjgZ1IiAw==",
+            "entrySha256": "c8f3d8f0f2ddac056a9cde27755951c081b53ec23bcd82d517a92bb15320e89c"
+          },
+          "source": {
+            "git": "53b07fd8f3f35cbc0ac4366937a976db85f71550",
+            "content": "9554b40dbff98ef5bb75830b1cf5daaa7e0e6b716471f8e9136705d3023bfca1",
+            "archive": "source.json.gz",
+            "archiveSha256": "36cebd6ab91c9d4b412bf30b7b03fb9bdfc519067af62f3f945f6962dd6e84ae"
+          },
+          "sensing": "existing fighter senses; stationary blow offset disclosed at commitment",
+          "action": "existing fighter skills and staged-rise/lie",
+          "policyPeriodSteps": 1,
+          "assists": {
+            "rootBalancePercent": 0,
+            "weapon": false
+          },
+          "unavailable": [
+            "integrated recovery/combat",
+            "opponent defense",
+            "actuator work",
+            "contact penetration"
+          ]
+        },
+        "jobCount": 138,
+        "manifestSha256": "6a3facec46fe48b7428ef699da10aa28ff97130f40a5ad5e34848572d2e504f2"
+      }
+    ]
+  },
+  "browser": {
+    "harness": "Built Chrome viewer, core World 120 Hz, corrected limits/per-point friction, Warrior, all fours, empty hands, no assists, default 16 native iterations",
+    "replay": true,
+    "digest": "ffd709214323c5d270e4c6c135c0af3447567014f91213f55d10bfad9fdfe7cc",
+    "outcome": {
+      "steps": 1200,
+      "peakDrift": 0.015454903634809853,
+      "finalDrift": 0.015454903634809853,
+      "peakAngleError": 0.01653262980098802,
+      "peakEffort": 51.22233308851719,
+      "peakEffortViolation": 0,
+      "contactSteps": 1200,
+      "complete": true,
+      "success": true
+    }
+  }
+}

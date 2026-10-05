@@ -284,7 +284,7 @@ forward model is not yet in the tracker.
 The independent joint-feedback policy now [holds installed Warrior all fours](../reference/posture-hold.md)
 for ten seconds within 2 cm on both corrected-limit friction profiles, with zero assistance,
 exact replay and matching Node/browser traces. The shared builder initializes a legal joint
-pose before constructing physics. Half-kneel and squat still fail; Rogue and skeleton fixtures
+pose before constructing physics. Half-kneel and squat still fail at the default solver count; Rogue and skeleton fixtures
 are explicitly unsupported. This closes a limited installed-pose hold gate, not entry, balance
 or recovery. The [support-entry task](../reference/support-entry.md) now reaches measured
 hand/shin support after physical development falls, using an optional observation/action
@@ -293,6 +293,12 @@ all eight replay, with selected Node/browser traces matching. Quiet support, dri
 time are scored independently of policy stages. Broader starts, other bodies, loaded hands,
 hand unloading and transfer to standing remain open. Direct feedback and model-based control
 remain replaceable alternatives.
+
+The [effort precision correction](../reference/effort-precision.md) removes rounding growth in
+the whole-step motor ledger without changing physical traces. The installed half-kneel passes
+at 256 native iterations, with 18.19 mm drift, but squat still collapses. This is diagnostic
+evidence about solver resolution; the default remains 16. Entry, support transfer, loaded
+control and browser cost still require their own gates.
 
 The [upright support task](../reference/support-transition.md) now transfers load, lifts either
 foot, verifies placement contact and regains two-foot support on all three bodies in the
