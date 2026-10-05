@@ -6,6 +6,14 @@ known external loads, candidate points, inward normals, desired lower normal vel
 the step duration. It returns detached data and applies no forces or impulses to physics.
 It is a diagnostic model, not a controller or collision detector.
 
+The model first mass-projects measured body velocities into the anatomical/grip constraint
+space (`coupledDynamics.projectVelocity`). Raw solver velocities contain small joint errors;
+asking a reduced-coordinate contact solve to remove those independent errors can make its
+equations incompatible. The projection returns detached generalized velocity and before/after
+kinetic energy. It changes no physical body. Call `update` without predicted contacts/stops
+when those should remain free for this solve; every installed model row is homogeneous in
+the velocity projection. Acceleration targets do not become velocity targets.
+
 The model freezes contact lever arms during one velocity step. It removes each point's
 centripetal material acceleration when predicting the velocity at that fixed lever arm.
 Unit loads through the coupled model provide the contact mobility, retaining the body's mass,
@@ -57,9 +65,9 @@ Maximum component error in **next-step velocity**, aggregated over signs:
 
 | Rate and initial spin | Driven/coast/hold/lift linear, m/s | Angular, rad/s | Landing linear, m/s | Angular, rad/s | Landing rejected steps |
 |---|---:|---:|---:|---:|---:|
-| 120 Hz, zero | 0.000312 | 0.000072 | 0.006933 | 0.041513 | 0 / 0 |
-| 120 Hz, ±3 rad/s | 0.003170 | 0.020155 | 0.006930 | 0.039369 | 0 / 0 |
-| 1920 Hz, zero | 0.000093 | 0.000086 | 0.173597 | 0.397778 | 1 / 2 |
+| 120 Hz, zero | 0.000312 | 0.000072 | 0.006932 | 0.041512 | 0 / 0 |
+| 120 Hz, ±3 rad/s | 0.003170 | 0.020155 | 0.006930 | 0.039368 | 0 / 0 |
+| 1920 Hz, zero | 0.000092 | 0.000086 | 0.173597 | 0.397777 | 1 / 2 |
 
 All pre-landing solves converge. Established-contact and lift validation requires error below
 0.005 m/s and 0.025 rad/s, positive admissible support, the expected mode changes and the
@@ -78,8 +86,49 @@ Suppressing friction fails the physical transition checks. Accepting every finit
 fails the reported-residual checks. The tests do not require an unsupported landing to remain
 inaccurate if a future model improves it.
 
+## Linked supports and velocity consistency
+
+`research/contact-linked.mjs` uses the same Node stand, engine profile, rates, contact geometry
+selection and numerical settings. Two copies of the slab sit at x = ±0.35 m, joined by a
+z-axis hinge at (0, 0.05, 0), with limits ±1 rad. After one second settling, a ±14 N force acts
+at the left slab's centre for one second, followed by one second coasting. A second variant
+also applies ±0.4 N m about the parent-carried hinge axis, equal and opposite on the two bodies,
+during the driven interval. Both loads enter the model and physics. The prescribed couple
+tests coupled dynamics; it is not a bounded muscle controller or a character assist.
+
+Before velocity projection, the positive-force, zero-torque prototype rejected 240/240 steps
+at 120 Hz and 1,732/3,840 at 1920 Hz (`contact-step.ts` at `7c1a2cf9`). Its first 120 Hz normal
+residual was 1.93e-6 m/s, exceeding the 1e-7 tolerance despite only tiny joint inconsistency.
+With projection, both signs at both rates converge throughout the zero-torque case. Replacing
+projected initial contact velocities with raw velocities in the current regression test again
+fails: all 120 driven steps of its first case reject. Tolerances are unchanged.
+
+Maximum next-step velocity component errors over both directions:
+
+| Rate | Prescribed torque magnitude, N m | Linear, m/s | Angular, rad/s | Rejected steps, negative / positive drive |
+|---|---:|---:|---:|---:|
+| 120 Hz | 0 | 0.003057 | 0.001768 | 0 / 0 |
+| 120 Hz | 0.4 | 0.003115 | 0.002637 | 0 / 1 |
+| 1920 Hz | 0 | 0.000358 | 0.000332 | 0 / 0 |
+| 1920 Hz | 0.4 | 0.000455 | 0.000399 | 0 / 1 |
+
+All eight physical branches replay exactly, slide above 2 m/s in the driven direction and stop
+with both centres within 1 mm of their original height. Queries leave saves unchanged. The
+zero-torque gate requires no rejected solve, linear error below 0.004 m/s and angular error
+below 0.003 rad/s. Accepted results in every case must satisfy the independent certificate.
+The two torque-case failures occur at stopping, at 1.55833 and 1.5625 s: tangent impulse
+residuals are 1.54e-9 and 1.97e-10 N s, respectively. They remain rejected despite small
+velocity errors. The 1920 Hz positive torque case can consume the full budget even on accepted
+steps. This does not establish a general articulated contact controller or acceptable step cost.
+
+The [linked record](contact-linked.json) retains phase maxima, failures, quarter-second samples
+and physical hashes; the runner emits samples at common 120 Hz spacing. No between-rate
+physical conclusion is drawn from error maxima. Repeating the original six slab branches with
+projection preserves their physical hashes exactly; only diagnostic predictions change.
+
 ```powershell
 node research/contact-step.mjs
+node research/contact-linked.mjs
 node --test tests/core-contact-step.test.mjs
 ```
 

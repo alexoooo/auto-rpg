@@ -6,6 +6,7 @@ import { coupledDynamics } from "../src/core/build/coupled-dynamics.ts";
 import { coreStand, saveStand, loadStand } from "./harness/core-stand.mjs";
 import { lone } from "./fixtures/lone.mjs";
 import { contactTransitions } from "../research/contact-step.mjs";
+import { linkedContacts } from "../research/contact-linked.mjs";
 
 const settings = { dt: 1 / 120, friction: .5, iterations: 64, impulseTolerance: 1e-10, velocityTolerance: 1e-7 };
 const zero = [0, 0, 0];
@@ -46,6 +47,35 @@ test("contact impulses are covariant, detached and diagnostic, with explicit emp
     const fixed = coupledDynamics(stand.built, zero, [], [body]); fixed.update();
     assert.throws(() => predictPointContacts(fixed, [], [{ body, point: zero, normal: [0, 1, 0], normalVelocity: 0 }], [], settings), /singular/);
   } finally { stand.dispose(); }
+});
+
+test("linked supports use compatible velocities through sliding and stopping under prescribed loads", async (t) => {
+  const readings = [];
+  for (const hz of [120, 1920]) for (const sense of [-1, 1]) for (const torque of hz === 120 ? [0, .4] : [0]) {
+    const row = await linkedContacts({ hz, sense, torque });
+    assert.equal(row.replay, true);
+    for (const phase of Object.values(row.phases)) {
+      assert.ok(phase.linearError < .004 && phase.angularError < .003, JSON.stringify(row.phases));
+      assert.ok(phase.acceptedNormalViolation <= row.settings.velocityTolerance);
+      assert.ok(phase.acceptedImpulseResidual <= row.settings.impulseTolerance);
+      assert.ok(phase.acceptedConeViolation <= row.settings.impulseTolerance);
+      if (torque === 0) assert.equal(phase.rejected, 0);
+    }
+    assert.equal(row.phases.drive.rejected, 0);
+    assert.ok(row.phases.drive.modes.sliding > 0 && row.phases.coast.modes.sticking > 0);
+    for (const body of row.phases.drive.final) assert.ok(sense * body.velocity[0] > 2);
+    for (const body of row.phases.coast.final) {
+      assert.ok(Math.hypot(...body.velocity) < .001);
+      assert.ok(Math.abs(body.height - .05) < .001);
+    }
+    for (const failure of row.failures) {
+      assert.ok(torque !== 0 && failure.time >= 1 && failure.time < 2);
+      assert.ok(failure.normalViolation > row.settings.velocityTolerance || failure.impulseResidual > row.settings.impulseTolerance
+        || failure.coneViolation > row.settings.impulseTolerance);
+    }
+    readings.push({ hz, sense, torque, phases: row.phases, failures: row.failures, observationSha256: row.observationSha256 });
+  }
+  t.diagnostic(JSON.stringify(readings));
 });
 
 test("measured contact transitions validate established modes and expose uncertified fine-step landings", async (t) => {

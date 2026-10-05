@@ -30,6 +30,25 @@ rows preserve the rigid assembly's six motions. This also corrects the impact mo
 
 ## Checks
 
+`impulseResponse` uses the same mass and constraint basis with homogeneous targets to return
+velocity change from linear/angular impulses. `pointVelocity` evaluates that generalized
+velocity at a world point. `projectVelocity` assembles every body's measured linear and angular
+momentum, including separate items, and maps it through this impulse response. This is the
+mass-metric closest admissible motion; it never applies an impulse to physics. Every installed
+row is stationary in this query, including caller-supplied rows. Acceleration targets are
+deliberately excluded. Pose and attachment membership must still match the last `update`.
+
+The velocity-projection regression uses the mechanical loop below on package `.6`, adapter 7,
+at 120 Hz, with distinct deliberately incompatible body impulses. It checks preservation of
+total linear/angular momentum within 1e-9, energy against an independent principal-frame
+calculation within 1e-10 J, idempotence, joint/grip compatibility, detached results and unchanged
+physical saves. Initial energy is 0.7646515023 J; projected energies are 0.2774078220 J with
+both grips, 0.5177196390 J with left released, 0.2892601431 J with right released and
+0.6665564020 J with both released. This is energy removed by a diagnostic projection, not
+measured engine dissipation. A nonzero acceleration target also verifies that impulse response
+does not inherit acceleration units. The [linked contact fixture](contact-step.md#linked-supports-and-velocity-consistency)
+demonstrates why compatible initial velocities matter for local contact prediction.
+
 Harness: Node core world, Rapier `0.21.0-auto-rpg.3`, adapter 4. No assists. The anatomical
 comparison uses gravity and all three bodies with a right-hand wooden club, both floating and
 with an explicitly declared fixed pelvis. The same asymmetric channel torques are applied to

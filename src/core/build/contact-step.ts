@@ -29,6 +29,7 @@ const tuple = (v: Vector3): Vec3 => [v.x, v.y, v.z];
  * Diagnostic fixed-plane contact impulse prediction through an updated coupled model. Normal
  * impulses are unilateral; the two-axis stopping impulse is projected onto a friction disk.
  * This is the per-point projected solver law, not a patch/twist model or opposing-slip force.
+ * Measured velocities are first projected into the model's joint/constraint tangent space.
  * Point lever arms stay fixed during the predicted step. The caller chooses candidate contacts
  * and normal velocity bounds; this function neither discovers contacts nor applies forces.
  *
@@ -53,17 +54,19 @@ export function predictPointContacts(model: Model, torque: ArrayLike<number>, co
     return { ...c, point: [...c.point] as Vec3, axes: [normal, tangent, cross(normal, tangent)] };
   });
   const free = model.solve(torque, loads), unloaded = model.solve(new Array<number>(model.channels).fill(0));
+  const projection = model.projectVelocity();
   const rows = geometry.flatMap((contact) => contact.axes.map((axis) => ({ contact, axis }))), size = rows.length;
   const response = Array.from({ length: size }, () => new Float64Array(size)), impulses = new Float64Array(size);
   const baseline = rows.map(({ contact, axis }) => dot(model.pointAcceleration(contact.body, contact.point, unloaded).linear, axis));
-  const centre = new Vector3(), linear = new Vector3(), angular = new Vector3();
+  const centre = new Vector3(), angular = new Vector3();
   const initial = geometry.flatMap((contact) => {
     const { body, point } = contact;
     centre.set(...body.massProperties.centre).applyRotationQuaternionToRef(body.node.rotationQuaternion!, centre).addInPlace(body.node.position);
-    body.linearVelocityToRef(linear); body.angularVelocityToRef(angular);
+    body.angularVelocityToRef(angular);
     const offset = subtract(point, tuple(centre)), turn = cross(tuple(angular), offset), centripetal = cross(tuple(angular), turn);
     const acceleration = model.pointAcceleration(body, point, free).linear;
-    const next = tuple(linear).map((v, k) => v + turn[k]! + dt * (acceleration[k]! - centripetal[k]!));
+    const compatible = model.pointVelocity(body, point, projection.velocity).linear;
+    const next = compatible.map((v, k) => v + dt * (acceleration[k]! - centripetal[k]!));
     return contact.axes.map((axis) => dot(next, axis));
   });
   const zeroTorque = new Array<number>(model.channels).fill(0);
@@ -123,6 +126,6 @@ export function predictPointContacts(model: Model, torque: ArrayLike<number>, co
   const status = !finite ? "nonfinite" as const : accepted ? "converged" as const : work >= iterations ? "iteration-limit" as const : "residual" as const;
   const contactLoads = geometry.map((contact, i): Load => ({ body: contact.body, point: contact.point,
     force: predictions[i]!.impulse.map((v) => v / dt) as unknown as Vec3, moment: ZERO }));
-  return { status, work, normalViolation, impulseResidual, coneViolation, contacts: predictions,
+  return { status, work, normalViolation, impulseResidual, coneViolation, projection, contacts: predictions,
     acceleration: finite ? model.solve(torque, [...loads, ...contactLoads]) : null };
 }

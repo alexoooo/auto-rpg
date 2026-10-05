@@ -36,7 +36,7 @@ export async function contactTransitions({ hz = 120, sense = 1, spin = 0 } = {})
       for (let k = 0; k < 4 * hz; k++) {
         const time = k / hz, name = time < 1 ? "drive" : time < 2 ? "coast" : time < 3 ? "hold" : time < 3.25 ? "lift" : "fall";
         const force = name === "drive" ? [sense * 7, 0, 0] : name === "hold" ? [sense * 3, 0, 0] : name === "lift" ? [0, 15, 0] : zero;
-        const com = centre(), velocity = body.linearVelocityToRef(new Vector3()).asArray(), spin = body.angularVelocityToRef(new Vector3()).asArray();
+        const com = centre();
         const supports = planarSupportPoints({ kind: "box", centre: body.massProperties.centre, size: [.6, .1, .4] },
           body.node.position.asArray(), body.node.rotationQuaternion, [0, 1, 0], .001);
         const contacts = supports.filter((point) => point[1] < .005).map((point) => ({ body, point, normal: [0, 1, 0], normalVelocity: -Math.max(point[1], 0) * hz }));
@@ -46,12 +46,13 @@ export async function contactTransitions({ hz = 120, sense = 1, spin = 0 } = {})
         assert.deepEqual(saveStand(stand.world, {}), before, "predicted contacts do not move the physical world");
         assert.ok(prediction.acceleration && prediction.status !== "nonfinite");
         const motion = model.pointAcceleration(body, com.asArray(), prediction.acceleration);
+        const start = model.pointVelocity(body, com.asArray(), prediction.projection.velocity);
         body.applyForce(new Vector3(...force), com); stand.step();
         const actual = { position: body.node.position.asArray(), rotation: body.node.rotationQuaternion.asArray(),
           velocity: body.linearVelocityToRef(new Vector3()).asArray(), spin: body.angularVelocityToRef(new Vector3()).asArray(),
           contacts: stand.world.physics.contactsOf(body, (other) => other === null), state: saveStand(stand.world, {}).state };
-        const linearError = Math.max(...actual.velocity.map((v, i) => Math.abs(v - velocity[i] - motion.linear[i] / hz)));
-        const angularError = Math.max(...actual.spin.map((v, i) => Math.abs(v - spin[i] - motion.angular[i] / hz)));
+        const linearError = Math.max(...actual.velocity.map((v, i) => Math.abs(v - start.linear[i] - motion.linear[i] / hz)));
+        const angularError = Math.max(...actual.spin.map((v, i) => Math.abs(v - start.angular[i] - motion.angular[i] / hz)));
         const phase = phases[name]; phase.steps++;
         phase.linearError = Math.max(phase.linearError, linearError); phase.angularError = Math.max(phase.angularError, angularError);
         phase.work = Math.max(phase.work, prediction.work); phase.normalViolation = Math.max(phase.normalViolation, prediction.normalViolation);

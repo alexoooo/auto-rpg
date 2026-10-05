@@ -8,6 +8,7 @@ import { jointAngles } from "./joint-state.ts";
 
 interface AttachedItem { readonly body: SegmentBody; motionConstraints(): readonly MotionConstraint[] }
 interface Load { readonly body: SegmentBody; readonly point: Vec3; readonly force: Vec3; readonly moment: Vec3 }
+interface ImpulseLoad { readonly body: SegmentBody; readonly point: Vec3; readonly impulse: Vec3; readonly angularImpulse: Vec3 }
 const XYZ: readonly Vec3[] = [[1, 0, 0], [0, 1, 0], [0, 0, 1]], ZERO: Vec3 = [0, 0, 0];
 /** Relative rank tolerance after mass whitening, a numeric setting (`docs/reference/coupled-dynamics.md`). */
 const RANK_TOLERANCE = 1e-10;
@@ -28,7 +29,8 @@ const tuple = (v: Vector3): Vec3 => [v.x, v.y, v.z];
  *
  * This model predicts acceleration at the current pose; it does not apply commands or stabilize
  * position error. Returned arrays are detached. Its allocating diagnostic path is not a step-cost
- * optimized controller. `update` freezes the pose, velocities and attachment set for queries.
+ * optimized controller. `update` freezes the acceleration model's pose, velocity bias and attachment
+ * set. Current-velocity projection reads the bodies and requires that same pose and attachment set.
  */
 export function coupledDynamics(built: BuiltBody, gravity: Vec3, items: readonly AttachedItem[] = [], fixed: readonly SegmentBody[] = []) {
   if (gravity.length !== 3 || !gravity.every(Number.isFinite)) throw new Error("invalid coupled gravity");
@@ -115,8 +117,58 @@ export function coupledDynamics(built: BuiltBody, gravity: Vec3, items: readonly
     return reactionRows.map((row) => row.length === 0 ? 0 : dot(row.coefficients, weights) / row.length);
   };
 
+  const impulseResponse = (loads: readonly ImpulseLoad[]): number[] => {
+    requireReady(); const total = new Array<number>(size).fill(0);
+    for (const load of loads) {
+      const row = rowOf([{ body: load.body, point: load.point, linear: load.impulse, angular: load.angularImpulse }]);
+      for (let i = 0; i < size; i++) total[i]! += row[i]!;
+    }
+    const response = forward(total);
+    for (let pass = 0; pass < 2; pass++) for (const axis of basis) {
+      const weight = dot(response, axis);
+      for (let i = 0; i < size; i++) response[i]! -= weight * axis[i]!;
+    }
+    return backward(response);
+  };
+  const pointVelocity = (body: SegmentBody, at: Vec3, velocity: ArrayLike<number>) => {
+    requireReady();
+    if (velocity.length !== size || !Array.from(velocity).every(Number.isFinite)) throw new Error("invalid coupled velocity");
+    return { linear: XYZ.map((axis) => dot(rowOf([{ body, point: at, linear: axis, angular: ZERO }]), velocity)),
+      angular: XYZ.map((axis) => dot(rowOf([{ body, point: at, linear: ZERO, angular: axis }]), velocity)) };
+  };
+
   return {
     channels: count,
+    /** Velocity change from impulses, with every current model row homogeneous; acceleration targets do not enter. */
+    impulseResponse,
+    pointVelocity,
+    /**
+     * Mass-metric projection of the bodies' current motion into the model's admissible velocities.
+     * Every current row is stationary here, including any caller-supplied rows. Call before adding
+     * predicted contacts/stops when only anatomical, grip and pin consistency is desired. The
+     * bodies are never changed. Reported energy measures the model projection, not physical loss.
+     */
+    projectVelocity() {
+      requireReady(); let kineticBefore = 0;
+      const measurements = members.map((body) => {
+        const properties = body.massProperties, at = centres.get(body)!;
+        body.linearVelocityToRef(linear); body.angularVelocityToRef(angular);
+        const v = tuple(linear), w = tuple(angular);
+        body.node.rotationQuaternion!.multiplyToRef(properties.orientation, rotation);
+        const axes = XYZ.map((axis) => tuple(new Vector3(...axis).applyRotationQuaternionToRef(rotation, point)));
+        const momentum = axes.map((axis, i) => properties.moments[i]! * dot(axis, w));
+        const moment = XYZ.map((_, k) => axes.reduce((sum, axis, i) => sum + axis[k]! * momentum[i]!, 0)) as unknown as Vec3;
+        kineticBefore += (properties.mass * dot(v, v) + dot(w, moment)) / 2;
+        return { body, point: at, impulse: v.map((x) => x * properties.mass) as unknown as Vec3, angularImpulse: moment };
+      });
+      const velocity = impulseResponse(measurements);
+      let kineticAfter = 0;
+      for (let c = 0; c < size; c++) {
+        let value = 0; for (let r = c; r < size; r++) value += lower[r]![c]! * velocity[r]!;
+        kineticAfter += value * value / 2;
+      }
+      return { velocity, kineticBefore, kineticAfter };
+    },
     /** Additional rows may request nonzero material-point acceleration, such as a rolling curved surface. */
     update(motionRows: readonly MotionConstraint[] = [], accelerationTargets?: readonly number[]): void {
       if (accelerationTargets && (accelerationTargets.length !== motionRows.length || !Array.from(accelerationTargets).every(Number.isFinite))) {
