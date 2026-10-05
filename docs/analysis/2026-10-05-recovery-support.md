@@ -68,8 +68,13 @@ establishes that admissible forces alone do not prove compatible sticking motion
 contacts on a spinning flat body cannot all have zero material acceleration. Rejecting such
 a prediction is necessary but leaves the controller without a useful alternative.
 
-Before adding more recovery postures, isolate a sliding/rolling support with known load and
-motion, predict its tangential friction and normal support together, and compare against the
-engine. Then rerun the installed all-fours hold, followed by hand/shin entry and unloading.
+The [sliding-sphere check](../reference/planar-support.md) validates one geometric support.
+The [free sliding/sliding-and-spinning slab](../reference/contact-friction.md) identifies a
+separate engine/controller mismatch: Rapier's default rigid-body friction uses a central
+tangential constraint and independent twist resistance, rather than friction at each corner.
+Its patch prediction matches both spin directions much better than the per-point prediction.
+Before adding more recovery postures, expose and compare the native per-point option, name the
+chosen friction law, and validate sticking/sliding selection against it. Then rerun the
+installed all-fours hold, followed by hand/shin entry and unloading.
 Keep posture feasibility, static hold, transition and useful control after rising as separate
 gates. Do not tune strengths or discard contacts to turn a failed gate green.

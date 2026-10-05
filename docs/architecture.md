@@ -505,6 +505,10 @@ engine hold and controller-entry measurements.
 capsules, boxes and hulls. It neither detects contacts nor applies loads. A
 [sliding-sphere check](reference/planar-support.md) uses those points with the coupled model;
 the reference tracker's integration still uses measured midpoint contacts.
+The installed rigid-body engine uses [patch friction](reference/contact-friction.md): a central
+tangential constraint and independent twist resistance. The reference controller's per-point
+friction model does not reproduce sliding patches. The sliding-slab research fixture measures
+both predictions without applying either to physics; no general sliding controller is selected.
 Optional [contact redistribution](reference/contact-distribution.md) searches point-force
 distributions that preserve each contacted body's wrench; the measured task configurations
 keep this experimental option disabled.

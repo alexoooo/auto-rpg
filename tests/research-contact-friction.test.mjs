@@ -1,0 +1,30 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { slidingSlab } from "../research/contact-friction.mjs";
+
+test("the installed rigid-body engine uses patch translation and independent twist friction", async (t) => {
+  const rows = [], reference = new Map();
+  for (const engine of ["rapier", "rapier-coordinate"]) for (const hz of [120, 1920]) {
+    for (const spin of [-3, 0, 3]) for (const sense of [-1, 1]) {
+      const row = await slidingSlab({ engine, hz, spin, sense });
+      const { engine: name, revision, ...physical } = row, key = JSON.stringify([hz, spin, sense]);
+      if (name === "rapier") reference.set(key, physical);
+      else assert.deepEqual(physical, reference.get(key), "angular-limit selection cannot change this jointless fixture");
+      assert.equal(row.replay, true);
+      assert.ok(row.patch.linear < .03 && row.patch.angular < .25, JSON.stringify(row));
+      for (const model of [row.patch, row.point]) {
+        assert.ok(model.minLoad > 2, "all four supports carry positive load");
+        assert.ok(model.normalResidual < 2e-8 && model.minSlip > .1);
+      }
+      if (spin) {
+        assert.ok(row.point.linear > 1 && row.point.angular > 20, "per-point friction cannot stand in for patch friction");
+        assert.equal(Math.sign(row.finalSpin[1]), Math.sign(spin), "the measurement excludes twist stopping");
+      } else {
+        assert.ok(row.point.linear < .001 && row.point.angular < .002);
+      }
+      assert.deepEqual(row.samples.map((sample) => sample.time), [0, 1 / 120, 2 / 120, 3 / 120]);
+      rows.push({ engine, hz, spin, sense, patch: row.patch, point: row.point });
+    }
+  }
+  t.diagnostic(JSON.stringify(rows));
+});

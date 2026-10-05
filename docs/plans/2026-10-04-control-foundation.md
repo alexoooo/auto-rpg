@@ -262,6 +262,12 @@ sliding/rolling alternatives and the installed all-fours hold are the next contr
 polyhedral features; a fine-step sliding-sphere check agrees with the engine and replays.
 The controller still uses measured midpoint contacts. Geometric contact integration and
 multi-contact sliding/sticking selection remain open.
+[Patch-friction measurements](../reference/contact-friction.md) identify another mismatch:
+the pinned rigid-body engine uses central friction plus independent twist resistance, whereas
+the controller assumes per-point friction. First expose and compare the native Coulomb option
+as an explicitly identified profile, preserving existing behavior. Then select and validate
+the matching sliding/sticking predictor before repeating the installed-pose hold. Multibody
+comparisons must name this distinction because native multibody contacts already use Coulomb.
 
 The [upright support task](../reference/support-transition.md) now transfers load, lifts either
 foot, verifies placement contact and regains two-foot support on all three bodies in the
