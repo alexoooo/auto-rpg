@@ -141,7 +141,7 @@ const verdict = (r) => (r.held ? "held" : !r.found ? "none found" : !r.balanced 
 const stopsOf = (r) => r.stops.filter((s) => Math.abs(s.torque) >= 5).map((s) => `${s.channel} ${s.torque.toFixed(0)}`).join("; ") || "-";
 const bindsOf = (r) => r.binds.slice(0, 4).join(", ") + (r.binds.length > 4 ? ", ..." : "");
 
-console.log(`Harness: ${STATICS_HARNESS}. Body ${AUDITED}, nothing in its hands, no assist. ${rows.length} rows, ${seeds} random seeds where a seed posture holds nothing, ${evals} evaluations a search. ${((Date.now() - started) / 1000).toFixed(0)} s on ${lanes} workers.\n`);
+console.log(`Harness: ${STATICS_HARNESS}. Engine ${witness[0]?.engine.name}, ${witness[0]?.engine.revision}; limits ${witness[0]?.limitModel}. Body ${AUDITED}, nothing in its hands, no assist. ${rows.length} rows, ${seeds} random seeds where a seed posture holds nothing, ${evals} evaluations a search. ${((Date.now() - started) / 1000).toFixed(0)} s on ${lanes} workers.\n`);
 console.log("### As built (friction: the bearing solve's box)\n");
 console.log("| row | route | verdict | share | binds | stops bearing, N m | margin, m | centre, m | forces, N | seeds agree |");
 console.log("|---|---|---|---|---|---|---|---|---|---|");

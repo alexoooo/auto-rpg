@@ -6,6 +6,7 @@ import type { PhysicsWorld, SegmentBody } from "../engine/engine.ts";
 import type { createEquipment } from "../equipment.ts";
 import { boundedLeastSquaresTo, boundedWork, linearWork, solveLinearTo } from "../math/flat.ts";
 import type { MuscleDriver } from "../muscle/driver.ts";
+import type { ShapeSpec } from "../spec/body.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { motionAxes, motionFrameKey, type MotionCommand } from "./tasks.ts";
 import { contactTracking, type ContactTrackingSettings } from "./contact-tracking.ts";
@@ -16,7 +17,7 @@ interface TrackingSettings {
   readonly capacity: number;
   /** Regularization of normalized actuator effort; supplied by the experiment. */
   readonly effortCost: number;
-  readonly contact?: { readonly physics: PhysicsWorld; readonly settings: ContactTrackingSettings };
+  readonly contact?: { readonly physics: PhysicsWorld; readonly settings: ContactTrackingSettings; readonly dt?: number };
   readonly jointStops?: { readonly settings: JointStopSettings; readonly dt: number };
 }
 
@@ -42,7 +43,19 @@ export function wholeBodyTracking(built: BuiltBody, muscles: MuscleDriver, gravi
     if (frames.has(key)) throw new Error("duplicate motion item");
     frames.set(key, item.body);
   }
-  const contacts = settings.contact ? contactTracking(settings.contact.physics, frames, count, settings.contact.settings, stopSettings ? count : 0) : null;
+  const liftOff = settings.contact?.settings.liftOff ? { ...settings.contact.settings.liftOff } : null;
+  const contactPasses = liftOff ? settings.contact!.settings.maxPoints + 1 : 0;
+  const radius = (shapes: readonly ShapeSpec[]) => shapes.map((shape) => {
+    switch (shape.kind) {
+      case "capsule": case "sphere": return shape.radius.value;
+      case "box": case "hull": return 0;
+      default: { const never: never = shape; throw new Error(`unknown contact shape ${JSON.stringify(never)}`); }
+    }
+  });
+  const radii = new Map([...built.segments].map(([name, s]) => [motionFrameKey({ kind: "segment", name }), radius(s.rigid.shapes)]));
+  for (const item of items) radii.set(motionFrameKey({ kind: "item", id: item.id }), radius(item.spec.shapes));
+  const contacts = settings.contact ? contactTracking(settings.contact.physics, frames, count, settings.contact.settings,
+    (stopSettings ? count : 0) + (liftOff ? settings.contact.settings.maxPoints : 0), { dt: settings.contact.dt ?? 0, radii }) : null;
   const stopEffort = stopSettings && !contacts && count > 0 ? effortBounds(count, count, stopSettings) : null;
   const rowCapacity = count + 6 * capacity, A = new Float64Array(rowCapacity * count), target = new Float64Array(rowCapacity);
   const H = new Float64Array(count * count), rhs = new Float64Array(count), unconstrained = new Float64Array(count);
@@ -72,18 +85,20 @@ export function wholeBodyTracking(built: BuiltBody, muscles: MuscleDriver, gravi
         || command.joints.some((g) => !channels.has(g.channel))) throw new Error("motion objectives exceed this controller's model or capacity");
     },
     track(command: MotionCommand): Float64Array {
+      const releasedContacts = new Set<string>(); let stopSeeded = false, contactSeeded = !liftOff;
+      contacts?.begin();
       const candidates = stopSettings ? nearJointStops(built, stopSettings.margin, stopDt) : [], released = new Set<string>();
       if (state.stops) {
         state.stops.status = "unconstrained"; state.stops.work = 0; state.stops.near = candidates.length;
         state.stops.active.length = 0; state.stops.released.length = 0;
         state.stops.forceViolation = 0; state.stops.accelerationViolation = 0;
       }
-      // The free prediction selects stops; each retry releases a row and retains its no-crossing bound.
-      for (let pass = 0; pass <= candidates.length + 1; pass++) {
-        const supportRows = contacts?.read(command) ?? [];
-        const active = pass === 0 ? [] : candidates.filter((s) => !released.has(s.id));
-        if (active.length) dynamics.update([...active.map((s) => s.row), ...supportRows], [...active.map((s) => s.target), ...supportRows.map(() => 0)]);
-        else dynamics.update(supportRows);
+      // Free predictions select support and stop rows; retries release rows but retain no-crossing bounds.
+      for (let pass = 0; pass <= candidates.length + contactPasses + 1; pass++) {
+        const supportRows = contacts?.read(command, releasedContacts, !contactSeeded) ?? [];
+        const active = !stopSeeded ? [] : candidates.filter((s) => !released.has(s.id));
+        if (active.length) dynamics.update([...active.map((s) => s.row), ...supportRows], [...active.map((s) => s.target), ...(contacts?.targets() ?? [])]);
+        else dynamics.update(supportRows, contacts?.targets());
         const base = dynamics.solve(zero), columns: number[][] = [];
         if (supportRows.length) contacts!.base(dynamics.reactionMultipliers(zero));
         for (let i = 0; i < count; i++) {
@@ -182,6 +197,14 @@ export function wholeBodyTracking(built: BuiltBody, muscles: MuscleDriver, gravi
           const row = dynamics.motionRow(stop.row), along = (a: readonly number[]) => row.coefficients.reduce((sum, v, i) => sum + v * a[i]!, 0);
           return { coefficients: columns.map(along), lower: stop.target - row.bias - along(base), upper: Infinity };
         });
+        if (contacts && liftOff && contactSeeded) {
+          const pulling = contacts.pulling(dynamics.reactionMultipliers(Array.from(scaled, (v, i) => v * scale[i]!)));
+          if (pulling.length) { for (const id of pulling) releasedContacts.add(id); continue; }
+          for (const constraint of contacts.releasedRows()) {
+            const row = dynamics.motionRow(constraint.row), along = (a: readonly number[]) => row.coefficients.reduce((sum, v, i) => sum + v * a[i]!, 0);
+            extra.push({ coefficients: columns.map(along), lower: constraint.target - row.bias - along(base), upper: Infinity });
+          }
+        }
         contacts?.solve(H, rhs, scale, lower, upper, scaled, extra);
         stopEffort?.solve(H, rhs, scale, lower, upper, scaled, extra);
         state.residual = 0; state.saturated = 0;
@@ -190,10 +213,21 @@ export function wholeBodyTracking(built: BuiltBody, muscles: MuscleDriver, gravi
           torque[i] = scaled[i]! * scale[i]!;
           if (scaled[i] === lower[i] || scaled[i] === upper[i]) state.saturated++;
         }
-        contacts?.verify(dynamics, torque);
+        contacts?.verify(dynamics, torque, contactSeeded);
+        if (contacts && !contactSeeded) {
+          contactSeeded = true; let needsContact = false;
+          const acceleration = dynamics.solve(torque);
+          for (const constraint of contacts.releasedRows()) {
+            const row = dynamics.motionRow(constraint.row), value = row.coefficients.reduce((sum, v, i) => sum + v * acceleration[i]!, row.bias) - constraint.target;
+            if (value >= -liftOff!.accelerationTolerance) releasedContacts.add(constraint.id); else needsContact = true;
+          }
+          if (needsContact) continue;
+          contacts.verify(dynamics, torque);
+        }
         if (state.stops) {
           const report = state.stops; report.work++;
-          if (pass === 0 && candidates.length) {
+          if (!stopSeeded && candidates.length) {
+            stopSeeded = true;
             const free = dynamics.solve(torque);
             for (const stop of candidates) {
               const row = dynamics.motionRow(stop.row), value = row.coefficients.reduce((sum, v, i) => sum + v * free[i]!, row.bias) - stop.target;
@@ -227,7 +261,7 @@ export function wholeBodyTracking(built: BuiltBody, muscles: MuscleDriver, gravi
         if (!Number.isFinite(state.residual) || !torque.every(Number.isFinite)) throw new Error("nonfinite motion tracking result");
         return torque;
       }
-      throw new Error("joint-stop selection exceeded its finite row bound");
+      throw new Error("contact/stop selection exceeded its finite row bound");
     },
   };
 }

@@ -24,7 +24,7 @@
   <h1>Physical control tasks</h1>
   <p id="description">Measured support transitions and shared equipment, on the same body and physics.</p>
   <div class="controls">
-    <label>Joint limits<select id="engine"><option value="rapier">Gameplay reference</option><option value="rapier-coordinate">Measured-angle correction (experimental)</option></select></label>
+    <label>Physics profile<select id="engine"><option value="rapier">Gameplay reference</option><option value="rapier-coordinate">Corrected limits / patch friction</option><option value="rapier-coulomb">Reference limits / per-point friction</option><option value="rapier-coordinate-coulomb">Corrected limits / per-point friction</option></select></label>
     <label>Joint-stop prediction<select id="stops"><option value="off">Off</option><option value="on">On (experimental)</option></select></label>
     <label>Task<select id="task"><option value="support">Transfer foot support</option><option value="bar">Shared two-hand bar</option><option value="point-strike">Point-space strike</option><option value="defense">Incoming club defense</option></select></label>
     <label>Body<select id="model"><option value="workshop-fighter">Warrior</option><option value="workshop-rogue">Rogue</option><option value="crypt-skeleton">Skeleton</option></select></label>

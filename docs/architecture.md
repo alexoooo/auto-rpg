@@ -490,6 +490,40 @@ produce zero torque. Optional [near-stop prediction](reference/joint-stop-tracki
 unilateral reactions using actual joint-coordinate motion and retains no-crossing effort bounds
 when a stop releases. It works with ground contacts or pinned fixtures and reports rejected modes.
 Sliding contacts and distant stop impacts are not predicted.
+Optional [local contact lift-off](reference/contact-liftoff.md) first predicts motion without
+sticking support, then selects measured contacts. Released contacts retain normal end-step
+bounds in the same torque solve. Shape curvature supplies active material-point acceleration;
+rejected force or acceleration predictions produce zero torque. This option is independent of
+joint-stop prediction and disabled by default. Repeated mechanical lift/recontact is measured;
+sliding, general support selection and anatomical recovery remain open.
+The [posture audit](reference/posture-limit-models.md) selects static reaction directions from
+the engine profile. Corrected coordinate stops can load multiple actuator axes, including
+channels with no ground contact; the programme solves those loads together and records the
+engine artifact and limit model with each witness. Static feasibility is separate from the
+engine hold and controller-entry measurements.
+`build/planar-support.ts` separately queries current geometric support features for spheres,
+capsules, boxes and hulls. It neither detects contacts nor applies loads. A
+[sliding-sphere check](reference/planar-support.md) uses those points with the coupled model;
+the reference tracker's integration still uses measured midpoint contacts.
+The installed rigid-body engine uses [patch friction](reference/contact-friction.md): a central
+tangential constraint and independent twist resistance. The reference controller's per-point
+friction model does not reproduce sliding patches. The sliding-slab research fixture measures
+patch, opposing-slip and projected per-point predictions without applying them to physics.
+Optional `rapier-coulomb` and `rapier-coordinate-coulomb` profiles expose native per-point friction
+with reference or corrected limits; snapshots reject crossing these settings. No general
+sliding controller is selected.
+`build/contact-step.ts` adds a diagnostic [per-point impulse predictor](reference/contact-step.md).
+It mass-projects measured velocities into joint/grip-compatible motion, then uses coupled
+mobility, unilateral normal impulses and projected tangent impulses, with a finite budget and
+independent residual checks. Projection changes no physical velocities. A loaded slab slides,
+sticks and unloads under known forces; linked slabs slide and stop. Prescribed joint torque
+still exposes rejected stopping predictions, and fine-step landing remains unvalidated.
+It does not yet optimize actuator commands
+or replace the reference tracker's contact model.
+Optional [angular-stop rows](reference/contact-stops.md) exchange unilateral impulses with
+point contacts in that same prediction. A free grounded base and hinged arm hold or release
+either angular limit while the base sticks or slides. Angular tolerances have their own units;
+hard stop arrivals and anatomical controller integration remain unvalidated.
 Optional [contact redistribution](reference/contact-distribution.md) searches point-force
 distributions that preserve each contacted body's wrench; the measured task configurations
 keep this experimental option disabled.
@@ -508,9 +542,12 @@ plain measurements with sample times, and delay buffers replay with the world. T
 target fixture scores relative closing contact independently of the policy.
 The optional [shared strike](reference/shared-strike.md) uses one item, physically acquires its
 second grip before starting the point path, and can release either hand for return. It retains
-the measured guard arm posture and scores actual attachment gaps, shared impact and release
-continuity through the existing equipment grant interface. The runner and viewer expose the
-same builder. Reliable shared-item return across bodies and opponent combat remain open.
+the measured guard posture for attached arms; a released arm instead returns toward its initial
+reference hand position and joint posture ([withdrawal record](reference/shared-withdrawal.md)).
+It scores actual attachment gaps, shared impact and release continuity through the existing
+equipment grant interface. The runner and viewer expose the same builder. Corrected limits,
+near-stop prediction and withdrawal pass the current development return screen across bodies;
+opponent combat and held-out reliability remain open.
 
 `control/support-transition.ts` is an optional upright reference policy over those motion
 objectives. It waits for measured unloading, foot flight, positive placement contact and a

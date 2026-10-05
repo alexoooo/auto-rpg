@@ -29,7 +29,7 @@ import { turnAboutToRef } from "../math/turn.ts";
 type Rapier = typeof RAPIER;
 
 /** Vendor archive identity (`docs/reference/rapier-vendor.md`) and the adapter's snapshot contract. */
-const REVISION = "rapier/adapter-6/sha256:2970fabe1650f5fb5eb0a55b28b72a729095fcddb98e58ed82b2d25861cebcc4";
+const REVISION = "rapier/adapter-7/sha256:07af259dc277cac77daa9c95eaded0ed2bc8aeb5feac08bfd9e58d23e58feebd";
 
 /**
  * Rapier's wasm, loading or loaded: one instance a realm. Rapier's own `init` asked again while
@@ -44,13 +44,15 @@ export function rapierModule(): Promise<Rapier> {
   return loading;
 }
 
-/** Rapier with immutable angular-limit selection (`docs/reference/joint-limits.md`), its WASM loaded once. */
-export async function loadRapier(coordinateAngularLimits = false): Promise<PhysicsEngine> {
+/** Rapier with immutable limit/friction selection, its WASM loaded once. The measured profiles are in docs/reference/contact-friction.md. */
+export async function loadRapier(coordinateAngularLimits = false, pointContactFriction = false): Promise<PhysicsEngine> {
   const R = await rapierModule();
-  const name = coordinateAngularLimits ? "rapier-coordinate" : "rapier";
-  const revision = REVISION + (coordinateAngularLimits ? "/coordinate-limits" : "");
-  return { name, revision, createPhysics: (options) => createRapierPhysics(R, options, revision, coordinateAngularLimits) };
+  const name = profileName(coordinateAngularLimits, pointContactFriction);
+  const revision = REVISION + (coordinateAngularLimits ? "/coordinate-limits" : "") + (pointContactFriction ? "/point-friction" : "");
+  return { name, revision, createPhysics: (options) => createRapierPhysics(R, options, revision, coordinateAngularLimits, pointContactFriction) };
 }
+
+const profileName = (coordinate: boolean, point: boolean): string => `rapier${coordinate ? "-coordinate" : ""}${point ? "-coulomb" : ""}`;
 
 /**
  * The solver's iterations a step (`numSolverIterations`) and the PGS passes within each
@@ -103,10 +105,11 @@ interface RapierPhysics extends PhysicsWorld {
 }
 
 /** A Rapier world with the core's gravity and solver settings. */
-export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, revision = "unidentified-rapier", coordinateAngularLimits = false): RapierPhysics {
+export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, revision = "unidentified-rapier", coordinateAngularLimits = false, pointContactFriction = false): RapierPhysics {
   const g: Vec3 = gravity ? [0, -STANDARD_GRAVITY.value, 0] : [0, 0, 0];
   let raw = new R.World({ x: g[0], y: g[1], z: g[2] });
   raw.integrationParameters.coordinateAngularLimits = coordinateAngularLimits;
+  raw.integrationParameters.pointContactFriction = pointContactFriction;
   raw.timestep = 1 / hz;
   raw.numSolverIterations = SOLVER.iterations.value;
   raw.numInternalPgsIterations = SOLVER.pgs.value;
@@ -265,7 +268,7 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
   };
 
   const physics: RapierPhysics = {
-    engine: coordinateAngularLimits ? "rapier-coordinate" : "rapier", revision, rapier: R, get raw() { return raw; }, gravity: g,
+    engine: profileName(coordinateAngularLimits, pointContactFriction), revision, rapier: R, get raw() { return raw; }, gravity: g,
     save() {
       // Rapier's snapshot follows a version, body/grip counts, node poses, grip handles and release exclusions: the solver
       // holds a pose in single precision, and a node before its first step is as it was built.
@@ -297,6 +300,7 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
       const restored = new Set([...gripHandles].filter((h) => h !== -1));
       let same = next.bodies.len() === raw.bodies.len() && next.colliders.len() === raw.colliders.len()
         && next.integrationParameters.coordinateAngularLimits === coordinateAngularLimits
+        && next.integrationParameters.pointContactFriction === pointContactFriction
         && count === bodies.size && gripCount === grips.length
         && restored.size === [...gripHandles].filter((h) => h !== -1).length
         && next.impulseJoints.len() - restored.size === raw.impulseJoints.len() - present.size;
@@ -318,7 +322,7 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
       }
       if (!same) {
         next.free();
-        throw new Error("that save is of a world with other bodies, joints or colliders");
+        throw new Error("that save has other bodies, joints or colliders, or a different physics configuration");
       }
       raw.free();
       raw = next;

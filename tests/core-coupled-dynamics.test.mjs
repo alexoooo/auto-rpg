@@ -78,6 +78,68 @@ async function mechanicalFixture(hz) {
   return { s, left, right, item, dispose() { item.dispose(); s.dispose(); } };
 }
 
+test("velocity projection preserves free-system momentum while removing joint and grip inconsistency", async (t) => {
+  const readings = [];
+  for (const release of [[], ["left"], ["right"], ["left", "right"]]) {
+    const fixture = await mechanicalFixture(120), { s, left, right, item } = fixture;
+    try {
+      for (const hand of release) item.release(hand);
+      const parts = [left, right, item.body], model = coupledDynamics(s.built, zero, [item]);
+      const centre = (body) => new Vector3(...body.massProperties.centre).applyRotationQuaternion(body.node.rotationQuaternion).add(body.node.position).asArray();
+      assert.throws(() => model.projectVelocity(), /update/);
+      parts.forEach((body, i) => {
+        body.applyImpulse(new Vector3(.4 - i * .3, -.7 + i * .6, .2 - i * .4), new Vector3(...centre(body)));
+        body.applyTorqueImpulse(new Vector3(.003 * (i + 1), -.007, .002));
+      });
+      model.update(); const before = saveStand(s.world, {}), projection = model.projectVelocity();
+      const original = parts.map((body) => ({ linear: body.linearVelocityToRef(new Vector3()).asArray(), angular: body.angularVelocityToRef(new Vector3()).asArray() }));
+      const projected = parts.map((body) => model.pointVelocity(body, centre(body), projection.velocity));
+      const measure = (motions) => {
+        const linear = Vector3.Zero(), angular = Vector3.Zero(), impulses = []; let energy = 0;
+        parts.forEach((body, i) => {
+          const properties = body.massProperties, motion = motions[i], turn = body.node.rotationQuaternion.multiply(properties.orientation);
+          const v = new Vector3(...motion.linear), w = new Vector3(...motion.angular), p = v.scale(properties.mass);
+          const localSpin = w.applyRotationQuaternion(Quaternion.Inverse(turn));
+          const moment = localSpin.multiply(new Vector3(...properties.moments)).applyRotationQuaternion(turn);
+          linear.addInPlace(p); angular.addInPlace(moment).addInPlace(Vector3.Cross(new Vector3(...centre(body)), p));
+          energy += (properties.mass * v.lengthSquared() + Vector3.Dot(w, moment)) / 2;
+          impulses.push({ body, point: centre(body), impulse: p.asArray(), angularImpulse: moment.asArray() });
+        });
+        return { linear: linear.asArray(), angular: angular.asArray(), energy, impulses };
+      };
+      const measured = measure(original), consistent = measure(projected);
+      for (const field of ["linear", "angular"]) consistent[field].forEach((value, k) => close(value, measured[field][k], 1e-9, `${release}/${field}`));
+      close(projection.kineticBefore, measured.energy, 1e-10, "original energy");
+      close(projection.kineticAfter, consistent.energy, 1e-10, "projected energy");
+      assert.ok(projection.kineticAfter < projection.kineticBefore - .001);
+      const repeated = model.impulseResponse(consistent.impulses);
+      repeated.forEach((value, k) => close(value, projection.velocity[k], 1e-9, "idempotent projection"));
+      const pivot = [0, 1.1, 0], first = model.pointVelocity(left, pivot, projection.velocity).linear, second = model.pointVelocity(right, pivot, projection.velocity).linear;
+      first.forEach((value, k) => close(value, second[k], 1e-10, "joint pivot velocity"));
+      const rawFirst = pointVelocity(left, pivot), rawSecond = pointVelocity(right, pivot);
+      assert.ok(Math.hypot(...rawFirst.map((value, k) => value - rawSecond[k])) > .1, "the physical fixture contains incompatible initial velocities");
+      for (const row of item.motionConstraints()) {
+        const value = row.reduce((sum, entry) => {
+          const at = model.pointVelocity(entry.body, entry.point, projection.velocity);
+          return sum + entry.linear.reduce((s, value, k) => s + value * at.linear[k], 0) + entry.angular.reduce((s, value, k) => s + value * at.angular[k], 0);
+        }, 0);
+        close(value, 0, 1e-9, "grip velocity");
+      }
+      const detached = structuredClone(projection); projection.velocity[0] = 999;
+      assert.deepEqual(model.projectVelocity(), detached);
+      assert.deepEqual(saveStand(s.world, {}), before, "projection is not a physical impulse");
+      const row = parts.map((body) => ({ body, point: centre(body), linear: [body.massProperties.mass, 0, 0], angular: zero }));
+      model.update([row], [100]);
+      const constrained = model.impulseResponse(measured.impulses), coefficients = model.motionRow(row).coefficients;
+      close(coefficients.reduce((sum, value, k) => sum + value * constrained[k], 0), 0, 1e-9, "impulse response excludes acceleration targets");
+      assert.throws(() => model.pointVelocity(left, pivot, []), /velocity/);
+      assert.throws(() => model.impulseResponse([{ body: left, point: pivot, impulse: [NaN, 0, 0], angularImpulse: zero }]), /motion row/);
+      readings.push({ release, kineticBefore: detached.kineticBefore, kineticAfter: detached.kineticAfter });
+    } finally { fixture.dispose(); }
+  }
+  t.diagnostic(JSON.stringify(readings));
+});
+
 test("a mass-weighted motion row conserves linear momentum through either grip release", async () => {
   const f = await mechanicalFixture(3840), { s, item } = f;
   const parts = [...s.built.segments.values()].map((p) => p.body).concat(item.body);

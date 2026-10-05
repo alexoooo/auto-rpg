@@ -59,10 +59,11 @@ export function createPointStrikeProbe(scene: Scene, engine: PhysicsEngine, conf
   if (swing && (!Number.isSafeInteger(swing.delay) || swing.delay < 0 || !Number.isFinite(swing.angle) || Math.abs(swing.angle) > SWING.limit
     || !Number.isFinite(swing.speed) || typeof swing.tracking !== "boolean" || typeof swing.braking !== "boolean")) throw new Error("invalid moving strike configuration");
   const impact = swing?.braking || (!swing && config.centreControl) ? SWING.impact : null;
-  const configuration = deepFreeze({ ...config, ...(stopSettings ? { stopPrediction: stopSettings } : {}), ...(swing ? { swing } : {}), task: "point-strike", protocol: 3,
+  const configuration = deepFreeze({ ...config, ...(stopSettings ? { stopPrediction: stopSettings } : {}), ...(swing ? { swing } : {}), task: "point-strike", protocol: 4,
     settings: { ...SETTINGS, continueSeconds, ...(config.centreControl ? { followSeconds: CENTRE.followSeconds } : {}) },
     ...(config.centreControl ? { centreSettings: CENTRE } : {}),
     ...(config.shared ? { shared: { ...config.shared }, sharedSettings: SHARED } : {}),
+    ...(config.shared?.release ? { releaseReturn: "reference-hand-position" } : {}),
     ...(impact ? { impactResponse: impact } : {}),
     ...(swing ? { targetRig: SWING } : {}),
     engineRevision: engine.revision, gravity: true, pin: null, assists: { root: 0, weapon: false } });
@@ -103,6 +104,8 @@ export function createPointStrikeProbe(scene: Scene, engine: PhysicsEngine, conf
     before: effectors.map(() => ({ centre: ZERO, velocity: ZERO, spin: ZERO })),
     targetBefore: effectors.map(() => ({ centre: ZERO, velocity: ZERO, spin: ZERO })) };
   const feedback = (target: Vec3) => ({ target, velocity: ZERO, acceleration: ZERO, seconds: SETTINGS.seconds, weight: SETTINGS.weight });
+  const releasedFrame = configuration.shared?.release ? { kind: "segment" as const, name: `hand.${configuration.shared.release}` } : null;
+  const releasedGuard = releasedFrame ? tuple(built.segments.get(releasedFrame.name)!.node.position) : null;
   let policy!: ReturnType<typeof pointStrike>;
   const body = createMotionBody(built, world, (model) => {
     const joints = model.channels.map((c) => ({ channel: c.name, angle: Math.max(c.min, Math.min(c.max, 0)), rate: 0, acceleration: 0,
@@ -149,10 +152,15 @@ export function createPointStrikeProbe(scene: Scene, engine: PhysicsEngine, conf
         state.shared!.releasedAt = state.steps;
         command = { ...command, grips: [{ item: items[0]!.id, grip: configuration.shared.release, attached: false }] };
       }
+      const returning = policy.state.phase === "return" || policy.state.phase === "complete";
+      // The released hand withdraws to its reference location instead of pressing the item it left.
+      if (releasedFrame && releasedGuard && returning) command = { ...command, frames: [...command.frames,
+        { id: "released-hand", frame: releasedFrame, at: ZERO, translation: feedback(releasedGuard) }] };
       if (!configuration.centreControl) return command;
       const measuredReturn = state.shared?.guardPosture;
-      return { ...command, joints: policy.state.phase === "return" || policy.state.phase === "complete"
-        ? measuredReturn ? joints.map((goal, i) => /shoulder|elbow|wrist/.test(goal.channel) ? { ...goal, angle: measuredReturn[i]! } : goal) : returnJoints
+      return { ...command, joints: returning
+        ? measuredReturn ? joints.map((goal, i) => /shoulder|elbow|wrist/.test(goal.channel)
+          && !(configuration.shared?.release && goal.channel.includes(`.${configuration.shared.release} `)) ? { ...goal, angle: measuredReturn[i]! } : goal) : returnJoints
         : command.joints,
         frames: command.frames.map((goal) => goal.id !== "root" ? goal : { ...goal,
         translation: { ...feedback([rootPosition[0], rootPosition[1] - CENTRE.lower, rootPosition[2]]), axes: ["y"] as const, weight: CENTRE.positionWeight } }),

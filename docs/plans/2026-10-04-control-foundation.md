@@ -240,7 +240,45 @@ reaction selection and end-step effort bounds. Its single-joint regression verif
 and releasing either loaded limit through bounded actuators. Its corrected-profile development
 comparison improves shared static/moving strikes to 34/36 and 51/54, but bar and defense
 regressions keep it optional. All 348 comparison rows replay. General support transitions,
-stop-aware planning, hot-path optimization and recovery/combat integration remain required. The allocating experimental tracker is not the game's default.
+stop-aware planning, hot-path optimization and recovery/combat integration remain required.
+[Released-hand withdrawal](../reference/shared-withdrawal.md) subsequently closes the corrected,
+stop-aware shared static and moving screens at 36/36 and 54/54. The 270-row comparison retains
+reference and stop-disabled failures; all replay and remain upright. This is a reference policy
+over existing frame objectives, not a change to release mechanics. The allocating experimental
+tracker is not the game's default.
+Optional [local contact lift-off](../reference/contact-liftoff.md) adds free-motion seeding,
+radius-derived active contact acceleration and normal no-crossing bounds after release.
+Repeated mechanical lift/recontact works on both profiles, independently of near-stop
+prediction, with exact replay. This does not close general contact-mode selection: the
+anatomical recovery prototype remains unsuccessful, and sliding is still unmodeled.
+The [posture audit](../reference/posture-limit-models.md) now selects the engine's reaction
+directions and includes coupled stop loads on otherwise unsupported channels. Three corrected
+development witnesses are statically feasible, but all miss the five-second engine hold gate.
+Those witnesses do not close the recovery gate; entering and holding supports remain required.
+The [recovery support diagnostics](../analysis/2026-10-05-recovery-support.md) retain failed
+entry and installed-pose experiments. Active contact acceleration compatibility is checked;
+sliding/rolling alternatives and the installed all-fours hold are the next controller gates.
+[Geometric planar support](../reference/planar-support.md) supplies current sphere, capsule and
+polyhedral features; a fine-step sliding-sphere check agrees with the engine and replays.
+The controller still uses measured midpoint contacts. Geometric contact integration and
+multi-contact sliding/sticking selection remain open.
+[Patch-friction measurements](../reference/contact-friction.md) identify another mismatch:
+the pinned rigid-body engine uses central friction plus independent twist resistance, whereas
+the controller assumes per-point friction. The native Coulomb option is exposed in separately
+identified profiles. Both patch and projected per-point sustained-sliding predictors have
+mechanical checks; neither is a general mode selector. Select and validate
+the matching sliding/sticking predictor before repeating the installed-pose hold. Multibody
+comparisons must name this distinction because native multibody contacts already use Coulomb.
+The [local contact-step predictor](../reference/contact-step.md) now validates sliding, stopping,
+holding and unloading on a loaded slab, including initial spin and exact replay. Its finite
+solve rejects uncertified candidates; fine-step landing remains unvalidated. Mass-projecting
+measured velocities resolves incompatible contact demands on linked bodies without changing
+physics. Linked slabs now slide and stop with exact replay; prescribed joint torque still
+exposes rejected stopping predictions. Optional [angular-stop impulse rows](../reference/contact-stops.md)
+now validate established support and release on a grounded hinge, at either limit with sticking
+or sliding ground contact. Hard stop arrivals remain unvalidated. Next combine contact/stop
+variables with bounded actuator objectives before
+repeating the installed all-fours hold. This diagnostic forward model is not yet in the tracker.
 
 The [upright support task](../reference/support-transition.md) now transfers load, lifts either
 foot, verifies placement contact and regains two-foot support on all three bodies in the

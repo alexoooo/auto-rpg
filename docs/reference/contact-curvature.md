@@ -58,6 +58,8 @@ measured components within 0.002 m/s2. This isolates the contact-point error fro
 acceleration-target error. Capsule support geometry, line/end transitions, curved or moving
 other surfaces, slip, lift-off, contact acquisition and joint stops still require modeling.
 
-The reference motion tracker still uses zero-target measured midpoint rows. These isolated
-checks establish a model capability and identify its integration requirements; they do not
-establish improved anatomical recovery or change the frozen strike/defense measurements.
+The default motion tracker uses zero-target measured midpoint rows. Optional
+[local lift-off](contact-liftoff.md) uses curvature targets and verifies their compatibility.
+[Geometric support](planar-support.md) separately checks current shape features and a sliding
+sphere. These isolated checks do not establish improved anatomical recovery or change the
+frozen strike/defense measurements.

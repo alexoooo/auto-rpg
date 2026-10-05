@@ -43,9 +43,11 @@ and per-effector impact braking against freely swinging physical targets.
 Optional [combined-centre objectives](reference/centre-control.md) separate horizontal balance
 from root height and let strike trials watch ten seconds beyond measured return.
 The [shared-item strike task](reference/shared-strike.md) adds physical second-grip acquisition
-and either-hand release. Its extended static screen passes 28/36; all human trials pass, while
-eight skeleton returns exceed the unchanged tolerance. Moving shared trials pass 40/54, with
-fourteen skeleton return failures. All remain upright and replay exactly.
+and either-hand release. With [released-hand withdrawal](reference/shared-withdrawal.md),
+corrected limits and near-stop prediction, static trials pass 36/36 and moving trials 54/54.
+Without near-stop prediction, corrected limits pass 32/36 and 48/54; the reference engine passes
+28/36 and 42/54. Remaining failures are skeleton returns. All 270 trials remain upright and
+replay exactly; these are development screens, not held-out gameplay results.
 The [mechanical defense fixture](reference/point-defense.md) compares predicted interception
 against the same guard pose. With the [joint-acceleration correction](reference/joint-acceleration.md),
 it passes 33/36 predictive development starts versus 0/36 pose starts; three post-block coverage
@@ -59,12 +61,26 @@ do not close the gameplay gates or replace the game's controller.
 The experimental [angular-limit correction](reference/joint-limits.md), `rapier-coordinate`,
 makes limit reactions follow their reported coordinates. Mechanical stop tests pass, but
 controller regressions prevent default migration. The task results above use the parent-axis
-reference and must be measured again under corrected limits.
+reference except the shared-strike comparison explicitly labelled above.
 An optional [near-stop controller model](reference/joint-stop-tracking.md) improves corrected-profile
 shared static strikes from 26/36 to 34/36 and moving strikes from 39/54 to 51/54. It also
 regresses the bar screen from 12/12 to 11/12 and predictive defense from 33/36 to 32/36,
-including a defense fall. All trials replay. It remains experimental: release clearance,
-preparation, sustained defense and contact-mode failures block default adoption.
+including a defense fall. Subsequent hand withdrawal closes that shared-strike screen's five
+remaining failures. It remains experimental: preparation, sustained defense and contact-mode
+failures still block default adoption.
+An optional [contact lift-off primitive](reference/contact-liftoff.md) passes repeated bounded
+lift/recontact cycles on both engine profiles, with exact replay and no assistance. It avoids
+freezing a lift objective into an existing sticking contact. Anatomical recovery still fails;
+sliding and choices among multiple supports remain unresolved.
+The [friction-law comparison](reference/contact-friction.md) identifies patch versus per-point
+solver behavior and validates sustained-sliding predictions for each. Explicit per-point engine
+profiles are experimental; contact-mode selection and the installed-pose hold remain gates.
+The [local impulse predictor](reference/contact-step.md) passes slab sliding/sticking/unloading
+checks with exact replay, but fine-step landing remains unvalidated. It still needs coupled
+support/stop validation and integration with the bounded actuator solve.
+The [posture audit](reference/posture-limit-models.md) accounts for corrected limit directions.
+Its three development witnesses remain statically feasible, but their engine holds fail the
+displacement gate. Recovery needs demonstrated entry, holding and transfer between supports.
 
 ## Open items
 

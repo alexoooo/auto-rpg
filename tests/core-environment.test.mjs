@@ -14,7 +14,7 @@ test("the declared solver revision identifies the locked vendor artifact", () =>
   const lock = JSON.parse(readFileSync(new URL("../package-lock.json", import.meta.url)));
   const archive = lock.packages["node_modules/@dimforge/rapier3d-simd-compat"].resolved.replace(/^file:/, "");
   const hash = createHash("sha256").update(readFileSync(new URL(`../${archive}`, import.meta.url))).digest("hex");
-  assert.equal(engine.revision, `rapier/adapter-6/sha256:${hash}${engine.name === "rapier-coordinate" ? "/coordinate-limits" : ""}`);
+  assert.equal(engine.revision, `rapier/adapter-7/sha256:${hash}${engine.name.includes("-coordinate") ? "/coordinate-limits" : ""}${engine.name.endsWith("-coulomb") ? "/point-friction" : ""}`);
 });
 // This task tests a pinned reach, with gains/tolerances from the controller replacement record.
 const configuration = { model: "workshop-fighter", controller: "actuator", actuation: "directional", gravity: true,
