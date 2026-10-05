@@ -26,6 +26,11 @@ Each run also writes `source.json.gz`: normalized source/JSON path-and-content p
 the package manifests, with its hash in the manifest. Source changes during a run invalidate it.
 The archive preserves dirty experimental code as well as its fingerprint.
 
+For point-strike and moving-strike suites, `--shared` replaces independent hand loadouts with
+one club held by both hands and preserves separate keep-both, release-left and release-right
+cells. The [shared-strike record](shared-strike.md) defines acquisition, attachment-gap,
+shared-impact and release-continuity gates alongside the existing return and replay gates.
+
 The manifest carries the actual source/JSON content hash (including dirty and untracked research
 code), Git revision, Node version, package lock identity and installed package entry hash. Body,
 item and controller content share that source hash. Each job declares the model, loadout, initial

@@ -40,6 +40,10 @@ The [moving variant](reference/moving-strike.md) adds delayed object sensing, po
 and per-effector impact braking against freely swinging physical targets.
 Optional [combined-centre objectives](reference/centre-control.md) separate horizontal balance
 from root height and let strike trials watch ten seconds beyond measured return.
+The [shared-item strike task](reference/shared-strike.md) adds physical second-grip acquisition
+and either-hand release. Its extended static screen passes 28/36; all human trials pass, while
+eight skeleton returns exceed the unchanged tolerance. Moving shared trials pass 40/54, with
+fourteen skeleton return failures. All remain upright and replay exactly.
 The [mechanical defense fixture](reference/point-defense.md) compares predicted interception
 against the same guard pose. With the [joint-acceleration correction](reference/joint-acceleration.md),
 it passes 33/36 predictive development starts versus 0/36 pose starts; three post-block coverage

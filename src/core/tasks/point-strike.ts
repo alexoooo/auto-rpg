@@ -1,4 +1,4 @@
-import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { Scene } from "@babylonjs/core/scene.js";
 import { buildBody } from "../build/build-body.ts";
 import { pointStrike } from "../control/point-strike.ts";
@@ -30,6 +30,9 @@ const SWING = deepFreeze({ mass: 2, length: 1, limit: 0.3, anchorRadius: 0.02, a
   aim: [0, 0, -0.05] as Vec3, impact: { impulse: 0.005, seconds: 0.15 } });
 /** Centre-control experiment inputs, numeric settings (`docs/reference/centre-control.md`). */
 const CENTRE = deepFreeze({ lower: 0.04, positionWeight: 10, centreWeight: 10, followSeconds: 0.75 });
+/** Shared grip preparation and guard geometry, numeric settings (`docs/reference/shared-strike.md`). */
+const SHARED = deepFreeze({ capture: { distance: 0.03, rotationError: 0.02 }, secondary: [0, 0.12, 0] as Vec3,
+  pose: [0, 0.1, 0.4] as Vec3, guard: 0.4, rotationWeight: 0.2, gripTolerance: 0.001 });
 const ZERO: Vec3 = Object.freeze([0, 0, 0]);
 const tuple = (v: Vector3): Vec3 => [v.x, v.y, v.z];
 
@@ -38,10 +41,13 @@ export function createPointStrikeProbe(scene: Scene, engine: PhysicsEngine, conf
   readonly model: BodyModel; readonly hands: Side | "both"; readonly held: "empty" | "club";
   readonly hz: number; readonly actuation: "symmetric" | "directional"; readonly offset: number; readonly miss: boolean;
   readonly centreControl?: boolean; readonly continueSeconds?: number;
+  readonly shared?: { readonly release?: Side };
   readonly swing?: { readonly angle: number; readonly speed: number; readonly delay: number; readonly tracking: boolean; readonly braking: boolean };
 }) {
   if (!Number.isSafeInteger(config.hz) || config.hz < 120 || config.hz % 120 !== 0 || !Number.isFinite(config.offset)
     || !["left", "right", "both"].includes(config.hands) || !["empty", "club"].includes(config.held)) throw new Error("invalid point strike fixture");
+  if (config.shared && (config.hands !== "both" || config.held !== "club"
+    || (config.shared.release !== undefined && config.shared.release !== "left" && config.shared.release !== "right"))) throw new Error("shared strike requires both hands and one club");
   const swing = config.swing ? deepFreeze({ ...config.swing }) : null;
   const continueSeconds = config.continueSeconds ?? SETTINGS.continueSeconds;
   if (!(Number.isFinite(continueSeconds) && continueSeconds > 0)
@@ -52,6 +58,7 @@ export function createPointStrikeProbe(scene: Scene, engine: PhysicsEngine, conf
   const configuration = deepFreeze({ ...config, ...(swing ? { swing } : {}), task: "point-strike", protocol: 3,
     settings: { ...SETTINGS, continueSeconds, ...(config.centreControl ? { followSeconds: CENTRE.followSeconds } : {}) },
     ...(config.centreControl ? { centreSettings: CENTRE } : {}),
+    ...(config.shared ? { shared: { ...config.shared }, sharedSettings: SHARED } : {}),
     ...(impact ? { impactResponse: impact } : {}),
     ...(swing ? { targetRig: SWING } : {}),
     engineRevision: engine.revision, gravity: true, pin: null, assists: { root: 0, weapon: false } });
@@ -64,25 +71,29 @@ export function createPointStrikeProbe(scene: Scene, engine: PhysicsEngine, conf
     const point = new Vector3(...body.massProperties.centre);
     return point.applyRotationQuaternionToRef(body.node.rotationQuaternion!, point).addInPlace(body.node.position);
   }).reduce((a, b) => a.add(b)).scale(0.5));
-  const sides: readonly Side[] = config.hands === "both" ? ["left", "right"] : [config.hands];
+  const sides: readonly Side[] = config.shared ? ["right"] : config.hands === "both" ? ["left", "right"] : [config.hands];
   const spec = woodenClub();
   const items = config.held === "empty" ? [] : sides.map((side) => equipHands(world, built, { id: side, item: spec,
-    primary: side, grips: [{ side, at: ZERO }], capture: SETTINGS.capture, ccd: true }));
+    primary: side, grips: [{ side, at: ZERO }, ...(config.shared ? [{ side: "left" as const, at: SHARED.secondary }] : [])],
+    capture: config.shared ? SHARED.capture : SETTINGS.capture, ccd: true }));
   const effectors = sides.map((side) => {
     const item = items.find((i) => i.id === side), body = item?.body ?? built.segments.get(`hand.${side}`)!.body;
-    const x = (side === "left" ? -SETTINGS.lateral : SETTINGS.lateral) + config.offset;
+    const x = (config.shared ? 0 : side === "left" ? -SETTINGS.lateral : SETTINGS.lateral) + config.offset;
     const y = rootPosition[1] + (config.held === "club" ? SETTINGS.clubHeight : SETTINGS.height);
     const geometry = { centre: [x + (config.miss && !swing ? SETTINGS.missOffset : 0), y,
       SETTINGS.obstacle + (config.miss && swing ? SETTINGS.missOffset : 0)] as Vec3, size: SETTINGS.obstacleSize };
     const rig = swing ? createSwingTarget(world, { ...SWING, ...swing, id: `target.${side}`, ...geometry }) : null;
     return { side, body, rig, obstacle: rig ? null : world.physics.addFixedBox(geometry.centre, geometry.size), geometry,
       frame: item ? { kind: "item" as const, id: item.id } : { kind: "segment" as const, name: `hand.${side}` },
-      at: item ? spec.points[spec.aim!]!.value : ZERO, guard: [x, y, SETTINGS.guard] as Vec3, target: [x, y, SETTINGS.target] as Vec3 };
+      at: item ? spec.points[spec.aim!]!.value : ZERO, guard: [x, y, config.shared ? SHARED.guard : SETTINGS.guard] as Vec3, target: [x, y, SETTINGS.target] as Vec3 };
   });
   const observer = swing ? createObjectSenses(world, effectors.map((e) => ({ id: e.rig!.body.node.name,
     owner: null, body: e.rig!.body, points: { strike: SWING.aim } })), swing.delay) : null;
   const clock = clockSenses(world);
   const state = { fell: false, completeAt: -1, steps: 0, rejectedSteps: 0,
+    ...(config.shared ? { shared: { captured: -1, releasedAt: -1, sharedHits: 0, peakGripGap: 0,
+      releaseContinuous: null as boolean | null, pendingRelease: null as readonly number[] | null,
+      guardPosture: null as readonly number[] | null } } : {}),
     strikes: effectors.map((e) => ({ side: e.side, contacts: 0, peakImpulse: 0, closing: 0, firstHit: -1, returnError: 0,
       targetTravel: 0, targetSpeed: 0, firstTargetContact: -1 })),
     before: effectors.map(() => ({ centre: ZERO, velocity: ZERO, spin: ZERO })),
@@ -101,16 +112,51 @@ export function createPointStrikeProbe(scene: Scene, engine: PhysicsEngine, conf
       hold: [{ id: "root", frame: { kind: "segment", name: "lowerTrunk" }, at: ZERO, translation: feedback(rootPosition),
         orientation: { ...feedback(ZERO), target: rootRotation } }],
     }, model.equipment);
-    if (!configuration.centreControl) return policy;
+    const approach = config.shared ? (() => {
+      const grip = model.equipment[0]!.grips.find((g) => g.name === "left")!;
+      const turn = new Quaternion(0, -Math.sqrt(0.5), 0, Math.sqrt(0.5)), inverse = new Quaternion();
+      const base = new Vector3(config.offset, rootPosition[1] + SHARED.pose[1], SHARED.pose[2]);
+      Quaternion.InverseToRef(new Quaternion(...grip.bodyFrame.rotation), inverse);
+      const handTurn = new Quaternion(...grip.itemFrame.rotation);
+      turn.multiplyToRef(handTurn, handTurn); handTurn.multiplyToRef(inverse, handTurn);
+      const handAt = new Vector3(...grip.itemFrame.position), offset = new Vector3(...grip.bodyFrame.position);
+      handAt.applyRotationQuaternionToRef(turn, handAt).addInPlace(base);
+      offset.applyRotationQuaternionToRef(handTurn, offset); handAt.subtractInPlace(offset);
+      const rotation = (q: Quaternion) => [q.x, q.y, q.z, q.w] as const;
+      return [{ id: "item-capture", frame: { kind: "item" as const, id: items[0]!.id }, at: ZERO,
+        translation: feedback(tuple(base)), orientation: { ...feedback(ZERO), target: rotation(turn), weight: SHARED.rotationWeight } },
+      { id: "hand-capture", frame: { kind: "segment" as const, name: "hand.left" }, at: ZERO,
+        translation: feedback(tuple(handAt)), orientation: { ...feedback(ZERO), target: rotation(handTurn), weight: SHARED.rotationWeight } }];
+    })() : null;
+    if (!configuration.centreControl && !approach) return policy;
     return { ...policy, step(observation, dt) {
-      const command = policy.step(observation, dt);
-      return { ...command, joints: policy.state.phase === "return" || policy.state.phase === "complete" ? returnJoints : command.joints,
+      if (approach && state.shared!.captured < 0) {
+        if (observation.equipment![0]!.grips.every((g) => g.attached)) state.shared!.captured = state.steps;
+        else return { joints, grips: [{ item: items[0]!.id, grip: "left", attached: true }], frames: [
+          { id: "root", frame: { kind: "segment", name: "lowerTrunk" }, at: ZERO, translation: feedback(rootPosition),
+            orientation: { ...feedback(ZERO), target: rootRotation } }, ...approach] };
+      }
+      let command = policy.step(observation, dt);
+      if (state.shared && !state.shared.guardPosture && policy.state.phase === "strike") state.shared.guardPosture = observation.joints
+        .map((j, i) => Math.max(model.channels[i]!.min, Math.min(model.channels[i]!.max, j.angle)));
+      if (configuration.shared?.release && state.shared!.releasedAt < 0 && policy.state.phase === "return") {
+        const reading = observation.equipment![0]!;
+        state.shared!.pendingRelease = [...reading.position, ...reading.rotation, ...reading.velocity, ...reading.spin];
+        state.shared!.releasedAt = state.steps;
+        command = { ...command, grips: [{ item: items[0]!.id, grip: configuration.shared.release, attached: false }] };
+      }
+      if (!configuration.centreControl) return command;
+      const measuredReturn = state.shared?.guardPosture;
+      return { ...command, joints: policy.state.phase === "return" || policy.state.phase === "complete"
+        ? measuredReturn ? joints.map((goal, i) => /shoulder|elbow|wrist/.test(goal.channel) ? { ...goal, angle: measuredReturn[i]! } : goal) : returnJoints
+        : command.joints,
         frames: command.frames.map((goal) => goal.id !== "root" ? goal : { ...goal,
         translation: { ...feedback([rootPosition[0], rootPosition[1] - CENTRE.lower, rootPosition[2]]), axes: ["y"] as const, weight: CENTRE.positionWeight } }),
         centres: [{ id: "centre", frames: model.frames, translation: { ...feedback(centreGoal), axes: ["x", "z"] as const, weight: CENTRE.centreWeight } }] };
     } };
   }, { ...(observer ? { senses: () => ({ ...clock(), objects: observer.read() }) } : {}),
-    items, grants: items.map((item) => ({ item, grip: item.id })), fixed: [], capacity: 1 + effectors.length + (configuration.centreControl ? 1 : 0),
+    items, grants: items.flatMap((item) => (config.shared ? ["left", "right"] : [item.id]).map((grip) => ({ item, grip }))),
+    fixed: [], capacity: (config.shared ? 3 : 1 + effectors.length) + (configuration.centreControl ? 1 : 0),
     effortCost: SETTINGS.effortCost, contact: SETTINGS.contact });
   const point = new Vector3(), v = new Vector3(), spin = new Vector3();
   const motion = (part: SegmentBody) => {
@@ -118,6 +164,11 @@ export function createPointStrikeProbe(scene: Scene, engine: PhysicsEngine, conf
     return { centre: tuple(point), velocity: tuple(part.linearVelocityToRef(v)), spin: tuple(part.angularVelocityToRef(spin)) };
   };
   const before = world.beforeStep(() => {
+    if (state.shared?.pendingRelease) {
+      const reading = items[0]!.observe(), now = [...reading.position, ...reading.rotation, ...reading.velocity, ...reading.spin];
+      state.shared.releaseContinuous = now.every((v, i) => v === state.shared!.pendingRelease![i]);
+      state.shared.pendingRelease = null;
+    }
     effectors.forEach((e, i) => {
       state.before[i] = motion(e.body);
       if (e.rig) state.targetBefore[i] = motion(e.rig.body);
@@ -125,6 +176,12 @@ export function createPointStrikeProbe(scene: Scene, engine: PhysicsEngine, conf
   });
   const after = world.afterStep(() => {
     state.steps++; state.fell ||= body.observe().down;
+    if (state.shared) for (const grip of items[0]!.observe().grips) if (grip.attachment) {
+      const hand = built.segments.get(`hand.${grip.name}`)!;
+      point.set(...grip.attachment.bodyFrame.position).applyRotationQuaternionToRef(hand.node.rotationQuaternion!, point).addInPlace(hand.node.position);
+      v.set(...grip.attachment.itemFrame.position).applyRotationQuaternionToRef(items[0]!.node.rotationQuaternion!, v).addInPlace(items[0]!.node.position);
+      state.shared.peakGripGap = Math.max(state.shared.peakGripGap, Vector3.Distance(point, v));
+    }
     if (body.report().contact?.status === "rejected") state.rejectedSteps++;
     if (policy.state.phase === "complete" && state.completeAt < 0) state.completeAt = state.steps;
     effectors.forEach((e, i) => {
@@ -150,6 +207,7 @@ export function createPointStrikeProbe(scene: Scene, engine: PhysicsEngine, conf
         }
         const closing = v.x * contact.normal[0] + v.y * contact.normal[1] + v.z * contact.normal[2];
         if (closing <= SETTINGS.closing) continue;
+        if (state.shared && items[0]!.observe().grips.every((g) => g.attached)) state.shared.sharedHits++;
         row.contacts++; row.peakImpulse = Math.max(row.peakImpulse, contact.impulse); row.closing = Math.max(row.closing, closing);
         if (row.firstHit < 0) row.firstHit = state.steps;
       }

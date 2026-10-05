@@ -251,8 +251,13 @@ standing and replay. The shared viewer exposes it. The motion host also accepts 
 senses. The [moving-target variant](../reference/moving-strike.md) adds detached delayed object
 measurements, constant-velocity point prediction and optional per-effector impact braking.
 The shared fixture and runner compare tracked and fixed aim against freely swinging targets,
-with relative contact-velocity scoring. Shared-item strikes remain open; isolated target contact
-alone does not close the strike/block gate.
+with relative contact-velocity scoring. The [shared-item variant](../reference/shared-strike.md)
+physically captures a second grip, strikes with both hands and optionally releases either hand
+for return. Its static extended development screen passes 28/36: all human trials pass, while
+eight skeleton returns exceed the unchanged error tolerance. The moving shared screen passes
+40/54, again with only skeleton return failures. All stay upright and replay.
+Shared-item reliability and defense remain open; isolated target contact alone does not close
+the strike/block gate.
 
 The optional [interception reference and defense fixture](../reference/point-defense.md) now
 use measured point acceleration, explicit reach/time filters and contact bracing. The shared

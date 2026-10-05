@@ -25,17 +25,19 @@ const engine = await loadEngine();
 const task = element<HTMLSelectElement>("task"), model = element<HTMLSelectElement>("model"), side = element<HTMLSelectElement>("side");
 const support = element<HTMLSelectElement>("support"), seed = element<HTMLInputElement>("seed");
 const held = element<HTMLSelectElement>("held"), target = element<HTMLSelectElement>("target");
+const release = element<HTMLSelectElement>("release");
 const motion = element<HTMLSelectElement>("motion");
 const defense = element<HTMLSelectElement>("defense");
 const balance = element<HTMLSelectElement>("balance"), continuation = element<HTMLSelectElement>("continuation");
 const query = new URLSearchParams(location.search);
-for (const select of [task, model, side, support, held, target, motion, balance, continuation, defense]) {
+for (const select of [task, model, side, support, held, target, motion, balance, continuation, defense, release]) {
   const value = query.get(select.id);
   if (value && [...select.options].some((o) => o.value === value)) select.value = value;
 }
 if (query.has("seed")) seed.value = query.get("seed")!;
 
 function make() {
+  if (task.value === "point-strike" && held.value === "shared") side.value = "both";
   const chosen = model.value as BodyModel, selectedSide = side.value, selectedSupport = support.value, number = Number(seed.value);
   if (!BODY_MODELS.includes(chosen) || (selectedSide !== "left" && selectedSide !== "right" && selectedSide !== "both")
     || (selectedSupport !== "standing" && selectedSupport !== "pinned") || !Number.isInteger(number) || number < 0 || number >= 1000000) throw new Error("Invalid development configuration");
@@ -51,8 +53,11 @@ function make() {
     }
     case "point-strike": {
       const item = held.value;
-      if (item !== "empty" && item !== "club") throw new Error("Invalid strike equipment");
-      probe = createPointStrikeProbe(scene, engine, { ...common, hands: selectedSide, held: item, miss: target.value === "miss", offset: (fraction * 2 - 1) * 0.002,
+      const released = release.value;
+      if ((item !== "empty" && item !== "club" && item !== "shared") || !["none", "left", "right"].includes(released)) throw new Error("Invalid strike equipment");
+      probe = createPointStrikeProbe(scene, engine, { ...common, hands: selectedSide, held: item === "shared" ? "club" : item,
+        ...(item === "shared" ? { shared: released === "left" || released === "right" ? { release: released } : {} } : {}),
+        miss: target.value === "miss", offset: (fraction * 2 - 1) * 0.002,
         centreControl: balance.value === "centre", continueSeconds: Number(continuation.value),
         ...(motion.value !== "static" ? { swing: { angle: (fraction * 2 - 1) * 0.12, speed: 0.7, delay: 3,
           tracking: motion.value === "tracked", braking: true } } : {}) });
@@ -110,11 +115,14 @@ function show() {
   element("side-label").textContent = task.value === "defense" ? "Defending hands" : task.value === "point-strike" ? "Striking hands" : task.value === "bar" ? "Released hand" : "Moving foot";
   element("description").textContent = task.value === "bar" ? "Capture, move and swing one shared item against an obstacle, release either hand, and return."
     : task.value === "defense" ? "Prepare, intercept gravity-driven clubs, and sustain defense. Head and upper-trunk contact is scored separately from blocks."
-    : task.value === "point-strike" ? "Prepare a guard, strike a point with either hand or independent items, and return after contact or a miss."
+    : task.value === "point-strike" ? "Prepare a guard, strike with either hand, independent items or one shared item, and return after contact or a miss."
       : "Shift weight, lift either foot, verify placement contact, and regain two-foot support.";
   for (const control of document.querySelectorAll<HTMLButtonElement | HTMLInputElement | HTMLSelectElement>("button, input, select")) control.disabled = busy;
   support.disabled = busy || task.value !== "bar";
   held.disabled = busy || (task.value !== "point-strike" && task.value !== "defense");
+  held.querySelector<HTMLOptionElement>('option[value="shared"]')!.disabled = task.value !== "point-strike";
+  release.disabled = busy || task.value !== "point-strike" || held.value !== "shared";
+  side.disabled = busy || (task.value === "point-strike" && held.value === "shared");
   defense.disabled = busy || task.value !== "defense";
   target.disabled = motion.disabled = busy || task.value !== "point-strike";
   balance.disabled = continuation.disabled = busy || task.value !== "point-strike";
@@ -155,7 +163,8 @@ for (const [id, action] of Object.entries(actions)) element<HTMLButtonElement>(i
   try { await action(); } catch (error) { playing = false; element("verification").textContent = String(error); }
   finally { busy = false; show(); }
 });
-for (const input of [task, model, side, support, seed, held, target, motion, balance, continuation, defense]) input.addEventListener("change", () => {
+for (const input of [task, model, side, support, seed, held, target, motion, balance, continuation, defense, release]) input.addEventListener("change", () => {
+  if (task.value !== "point-strike" && held.value === "shared") held.value = "club";
   if (task.value !== "point-strike" && task.value !== "defense" && side.value === "both") side.value = "left";
   try { restart(); } catch (error) { element("verification").textContent = String(error); }
 });

@@ -82,6 +82,7 @@ export function summarizeFoundation(rows) {
       ...(job.task === "point-strike" ? [job.hands, job.miss ? "miss" : "hit", ...(job.swing ? ["swing", job.swing.tracking ? "tracked" : "fixed-aim", job.swing.braking ? "brake" : "continue"] : [])] : []),
       ...(job.task === "defense" ? [job.hands, job.variant] : []),
       ...(job.centreControl ? ["centre-control"] : []), ...(job.continueSeconds ? [`continue=${job.continueSeconds}`] : []),
+      ...(job.shared ? [`shared=${job.shared.release ?? "keep"}`] : []),
       ...(job.task === "bar" ? [job.release, job.support ?? "pinned"] : [])].join("/");
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(row);
@@ -133,9 +134,11 @@ async function main() {
     actuation: { type: "string", default: "symmetric" },
     support: { type: "string", default: "pinned" },
     "centre-control": { type: "boolean", default: false }, "continue-seconds": { type: "string", default: "1" },
+    shared: { type: "boolean", default: false },
   } });
   const options = { suite: values.suite, split: values.split, samples: Number(values.samples), from: Number(values.from), hz: Number(values.hz),
     actuation: values.actuation, support: values.support, centreControl: values["centre-control"], continueSeconds: Number(values["continue-seconds"]),
+    shared: values.shared,
     ...(values.models ? { models: values.models.split(",") } : {}) };
   const jobs = foundationJobs(options), started = new Date().toISOString();
   const directory = resolve(values.out ?? resolve(root, "research/runs/control-foundation", `${started.replaceAll(":", "-")}-${randomUUID()}`));

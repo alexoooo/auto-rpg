@@ -131,6 +131,21 @@ test("point-strike trials separate hands, loadouts and intentional misses", asyn
   assert.deepEqual(summarizeFoundation(rows).cells.map((c) => [c.success.successes, c.success.count]), [[1, 1], [1, 1]]);
 });
 
+test("shared strike jobs retain hold/release and hit/miss denominators", () => {
+  const config = { suite: "point-strike", models: ["workshop-fighter"], samples: 1, actuation: "directional" };
+  const shared = foundationJobs({ ...config, shared: true, centreControl: true, continueSeconds: 10 });
+  assert.deepEqual(shared.map((j) => [j.hands, j.held, j.miss, j.shared]), [
+    ["both", "club", false, {}], ["both", "club", false, { release: "left" }], ["both", "club", false, { release: "right" }],
+    ["both", "club", true, {}], ["both", "club", true, { release: "left" }], ["both", "club", true, { release: "right" }],
+  ]);
+  assert.equal(new Set(shared.map((j) => j.id)).size, 6);
+  const independent = foundationJobs(config);
+  assert.ok(shared.every((j) => independent.every((other) => j.id !== other.id)));
+  const rows = shared.map((job) => ({ job, result: { status: "measured", outcome: { success: false } } }));
+  assert.equal(summarizeFoundation(rows).cells.length, 6);
+  assert.throws(() => foundationJobs({ suite: "bar", shared: true }), /shared equipment/);
+});
+
 test("moving strikes keep tracked, fixed-aim and miss outcomes separate", async () => {
   const jobs = foundationJobs({ suite: "moving-strike", models: ["workshop-fighter"], samples: 1, actuation: "directional" });
   assert.equal(jobs.length, 18);

@@ -39,12 +39,13 @@ const suites = ["baseline", "recovery", "strike-block", "point-strike", "moving-
 
 /** Fully specified starts; a seed selects geometry, not a hidden source of simulation noise. */
 export function foundationJobs({ suite = "baseline", split = "development", samples = FOUNDATION.samples,
-  hz = 120, models = BODY_MODELS, from = 0, actuation = "symmetric", support = "pinned", centreControl = false, continueSeconds = 1 } = {}) {
+  hz = 120, models = BODY_MODELS, from = 0, actuation = "symmetric", support = "pinned", centreControl = false, continueSeconds = 1, shared = false } = {}) {
   if (!suites.includes(suite)) throw new Error(`unknown suite ${suite}`);
   if (!["symmetric", "directional"].includes(actuation)) throw new Error(`unknown actuation ${actuation}`);
   if (!["pinned", "standing"].includes(support)) throw new Error(`unknown support ${support}`);
   if (typeof centreControl !== "boolean" || !(Number.isFinite(continueSeconds) && continueSeconds > 0)) throw new Error("invalid centre control or continuation");
   if ((centreControl || continueSeconds !== 1) && suite !== "point-strike" && suite !== "moving-strike") throw new Error("centre control and continuation require a point-strike suite");
+  if (typeof shared !== "boolean" || (shared && suite !== "point-strike" && suite !== "moving-strike")) throw new Error("shared equipment requires a point-strike suite");
   if (!Object.hasOwn(FOUNDATION.split, split)) throw new Error(`unknown split ${split}`);
   if (!Number.isSafeInteger(samples) || samples < 1 || !Number.isSafeInteger(from) || from < 0
     || from + samples > FOUNDATION.maximumSamples) throw new Error("sample range must stay within its split");
@@ -87,13 +88,14 @@ export function foundationJobs({ suite = "baseline", split = "development", samp
     return jobs;
   }
   if (suite === "point-strike" || suite === "moving-strike") {
-    for (const model of models) for (const held of ["empty", "club"]) for (let index = from; index < from + samples; index++) {
+    for (const model of models) for (const held of shared ? ["club"] : ["empty", "club"]) for (let index = from; index < from + samples; index++) {
       const seed = FOUNDATION.split[split] + index, fraction = (((seed + 1) * 2654435761) >>> 0) / 4294967296;
-      for (const hands of ["left", "right", "both"]) for (const miss of [false, true]) {
+      for (const hands of shared ? ["both"] : ["left", "right", "both"]) for (const miss of [false, true]) {
         const variants = suite === "moving-strike" && !miss ? [true, false] : [true];
-        for (const tracking of variants) add({ model, held, task: "point-strike", seed, hands, miss,
+        for (const tracking of variants) for (const release of shared ? [undefined, "left", "right"] : [undefined]) add({ model, held, task: "point-strike", seed, hands, miss,
           offset: (fraction * 2 - 1) * 0.002, watchSeconds: 7 + continueSeconds, checkpointSeconds: 0.5, sampleHz: 120,
           ...(centreControl ? { centreControl } : {}), ...(continueSeconds !== 1 ? { continueSeconds } : {}),
+          ...(shared ? { shared: release ? { release } : {} } : {}),
           ...(suite === "moving-strike" ? { swing: { angle: (fraction * 2 - 1) * 0.12, speed: 0.7, delay: 3 * hz / 120, tracking, braking: true } } : {}) });
       }
     }
@@ -351,6 +353,8 @@ async function pointStrikeTrial(job) {
   try {
     const result = replayedProbe(probe, job), o = result.outcome, settings = probe.configuration.settings;
     const success = probe.complete && !o.fell && o.rejectedSteps === 0 && o.replayExact
+      && (!job.shared || o.shared.captured >= 0 && o.shared.peakGripGap < probe.configuration.sharedSettings.gripTolerance && (job.miss || o.shared.sharedHits > 0)
+        && (!job.shared.release || o.shared.releasedAt >= 0 && o.shared.releaseContinuous))
       && o.strikes.every((s) => s.returnError < settings.tolerance && (!job.swing || s.targetTravel > 0.1 && s.targetSpeed > 0.5) && (job.miss ? s.contacts === 0
         : s.contacts > 0 && s.peakImpulse > 0 && s.closing > settings.closing));
     return { status: "measured", configuration: probe.configuration, ...result, outcome: { ...o, success },
