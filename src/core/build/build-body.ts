@@ -6,9 +6,10 @@ import { frameOf, type BodySpec, type DofSpec, type JointSpec, type SegmentFrame
 import type { Vec3 } from "../spec/quantity.ts";
 import { cross, dot, normalize, orthogonalTo, sub } from "../spec/vec.ts";
 import { hasProducts, principalOf, rigidOf, type Rigid } from "./rigid.ts";
+import { rotationOfToRef } from "./joint-state.ts";
 
 /**
- * **`buildBody`: bodies and joints from a spec, and from nothing else.**
+ * **`buildBody`: bodies and joints from a spec and an initial placement.**
  *
  * Each segment is a dynamic body whose node sits at the segment frame's origin, turned to its
  * frame (`frameOf`). Its mass, centre of mass and inertia are set from the spec explicitly, so its
@@ -18,8 +19,9 @@ import { hasProducts, principalOf, rigidOf, type Rigid } from "./rigid.ts";
  * angular axes are the spec's freedoms, limited to their ranges; every other axis is locked, and
  * the two segments it joins do not collide with each other (`src/core/engine/engine.ts`).
  *
- * The body is built in its reference pose, where every joint's angle is zero, so no joint disagrees
- * with its bodies at construction; a joint that disagrees is cleared by flinging the body.
+ * Placement may supply joint angles and a root rotation; otherwise the reference pose applies.
+ * Forward kinematics aligns the anchors before construction, preserving anatomical reference
+ * frames. A joint that disagrees with its bodies is cleared by flinging the body.
  *
  * Nothing here drives a joint: the muscles do (`src/core/muscle/driver.ts`). A segment has the
  * engine's default contact material and collides with everything but its joint partners.
@@ -69,7 +71,12 @@ export interface BuiltBody {
 interface Placement {
   /** Where the body frame's origin, between the soles, is put in the world. */
   readonly position: Vec3;
+  /** Initial rotation of the body frame about its origin, xyzw; normalized during construction. */
+  readonly rotation?: readonly [number, number, number, number];
+  /** Initial angles by joint, in each freedom's declared sense; omitted joints start at zero. */
+  readonly joints?: Readonly<Record<string, readonly number[]>>;
 }
+interface InitialPose { readonly position: Vector3; readonly rotation: Quaternion }
 
 const v3 = (v: Vec3): Vector3 => new Vector3(v[0], v[1], v[2]);
 
@@ -100,12 +107,14 @@ function colliderOf(frame: SegmentFrame, spec: ShapeSpec): ColliderShape {
   }
 }
 
-function buildSegment(body: BodySpec, spec: SegmentSpec, placement: Placement, world: World): BuiltSegment {
+function buildSegment(body: BodySpec, spec: SegmentSpec, placement: Placement, world: World, pose?: InitialPose): BuiltSegment {
   const frame = frameOf(spec);
   const rigid = rigidOf(body, spec);
   const node = new TransformNode(`${body.model}.${spec.name}`, world.scene);
   node.position = v3(frame.origin).addInPlace(v3(placement.position));
   node.rotationQuaternion = Quaternion.RotationQuaternionFromAxis(v3(frame.x), v3(frame.y), v3(frame.z));
+  const rest = node.rotationQuaternion.clone();
+  if (pose) { node.position.copyFrom(pose.position); node.rotationQuaternion.copyFrom(pose.rotation); }
   const [xx, yy, zz] = rigid.tensor;
   const principal = hasProducts(rigid.tensor) ? principalOf(rigid.tensor) : null;
   const physics = world.physics.addBody(node, rigid.shapes.map((shape) => colliderOf(frame, shape)), {
@@ -116,7 +125,7 @@ function buildSegment(body: BodySpec, spec: SegmentSpec, placement: Placement, w
       ? Quaternion.RotationQuaternionFromAxis(v3(principal.axes[0]), v3(principal.axes[1]), v3(principal.axes[2]))
       : Quaternion.Identity(),
   });
-  return { spec, frame, node, body: physics, rest: node.rotationQuaternion.clone(), rigid };
+  return { spec, frame, node, body: physics, rest, rigid };
 }
 
 /**
@@ -159,12 +168,59 @@ function buildJoint(spec: JointSpec, parent: BuiltSegment, child: BuiltSegment, 
   return { spec, parent, child, joint, dofs, axes: { x, y, z } };
 }
 
-/** Build `spec` in its reference pose at `placement`, in `world`. */
+/** Compute a connected tree's initial pose before creating any physical segment or joint. */
+function initialPoses(spec: BodySpec, placement: Placement): ReadonlyMap<string, InitialPose> | undefined {
+  if (placement.position.length !== 3 || !Array.from(placement.position).every(Number.isFinite)) throw new Error("invalid body placement");
+  if (!placement.rotation && !placement.joints) return undefined;
+  const components = placement.rotation ?? [0, 0, 0, 1];
+  const lengthSquared = components.reduce((sum, v) => sum + v * v, 0);
+  if (components.length !== 4 || !Array.from(components).every(Number.isFinite)
+    || !(lengthSquared > 0) || !Number.isFinite(lengthSquared)) throw new Error("invalid initial body rotation");
+  const rotation = new Quaternion(...components).normalize();
+  const segments = new Map(spec.segments.map((s) => [s.name, s])), joints = new Map(spec.joints.map((j) => [j.name, j]));
+  const parent = new Map(spec.joints.map((j) => [j.child, j]));
+  if (segments.size !== spec.segments.length || joints.size !== spec.joints.length || parent.size !== spec.joints.length
+    || spec.joints.some((j) => !segments.has(j.parent) || !segments.has(j.child))) throw new Error("initial pose requires a body tree");
+  const roots = spec.segments.filter((s) => !parent.has(s.name));
+  if (roots.length !== 1) throw new Error("initial pose requires one root");
+  for (const [name, angles] of Object.entries(placement.joints ?? {})) {
+    const joint = joints.get(name);
+    if (!joint || !Array.isArray(angles) || angles.length !== joint.dofs.length
+      || !angles.every((v, i) => Number.isFinite(v) && v >= joint.dofs[i]!.min.value && v <= joint.dofs[i]!.max.value)) throw new Error(`invalid initial angles for ${name}`);
+  }
+  const frames = new Map(spec.segments.map((s) => [s.name, frameOf(s)]));
+  const poses = new Map<string, InitialPose>(), visiting = new Set<string>();
+  const poseOf = (name: string): InitialPose => {
+    const existing = poses.get(name); if (existing) return existing;
+    if (visiting.has(name)) throw new Error("initial pose contains a joint cycle");
+    visiting.add(name);
+    const frame = frames.get(name)!, rest = frameRotation(frame.x, frame.y, frame.z), joint = parent.get(name);
+    let position: Vector3, turn: Quaternion;
+    if (!joint) {
+      position = v3(frame.origin).applyRotationQuaternionToRef(rotation, new Vector3()).addInPlace(v3(placement.position));
+      turn = rotation.multiply(rest);
+    } else {
+      const above = poseOf(joint.parent), parentFrame = frames.get(joint.parent)!;
+      const carry = above.rotation.multiply(Quaternion.Inverse(frameRotation(parentFrame.x, parentFrame.y, parentFrame.z)));
+      const axes = constraintAxes(joint.dofs), angles = placement.joints?.[joint.name] ?? joint.dofs.map(() => 0);
+      const native = [0, 1, 2].map((i) => i < angles.length ? axes.signs[i]! * angles[i]! : 0);
+      turn = carry.multiply(rotationOfToRef(axes, native[0]!, native[1]!, native[2]!, new Quaternion())).multiply(rest);
+      position = v3(local(parentFrame, joint.centre.value)).applyRotationQuaternionToRef(above.rotation, new Vector3()).addInPlace(above.position);
+      position.subtractInPlace(v3(local(frame, joint.centre.value)).applyRotationQuaternionToRef(turn, new Vector3()));
+    }
+    const result = { position, rotation: turn }; poses.set(name, result); visiting.delete(name); return result;
+  };
+  for (const segment of spec.segments) poseOf(segment.name);
+  return poses;
+}
+
+/** Build `spec` at its declared initial pose, with coincident joint anchors before physics starts. */
 export function buildBody(spec: BodySpec, world: World, placement: Placement): BuiltBody {
+  const poses = initialPoses(spec, placement);
   const segments = new Map<string, BuiltSegment>();
   for (const segment of spec.segments) {
     if (segments.has(segment.name)) throw new Error(`${spec.model} names ${segment.name} twice`);
-    segments.set(segment.name, buildSegment(spec, segment, placement, world));
+    segments.set(segment.name, buildSegment(spec, segment, placement, world, poses?.get(segment.name)));
   }
   for (const held of spec.held ?? []) if (!segments.has(held.segment)) throw new Error(`${spec.model} has no ${held.segment} to hold ${held.item.name}`);
   const joints = new Map<string, BuiltJoint>();

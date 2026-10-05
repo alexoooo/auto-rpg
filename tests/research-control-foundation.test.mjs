@@ -7,6 +7,18 @@ import { basename, dirname, join } from "node:path";
 import { foundationJobs, foundationTrial, attackAccounting, proportion } from "../research/control-foundation-trials.mjs";
 import { runFoundation, summarizeFoundation } from "../research/control-foundation.mjs";
 
+test("installed posture jobs keep gain/posture cells and missing body witnesses explicit", async () => {
+  const jobs = foundationJobs({ suite: "posture-hold", actuation: "directional" });
+  assert.equal(jobs.length, 27); assert.equal(new Set(jobs.map((j) => j.id)).size, 27);
+  assert.throws(() => foundationJobs({ suite: "posture-hold", split: "held-out" }), /held-out/);
+  const missing = jobs.filter((j) => j.model !== "workshop-fighter");
+  const rows = await Promise.all(missing.map(async (job) => ({ job, result: await foundationTrial(job) })));
+  assert.ok(rows.every((r) => r.result.status === "unsupported"));
+  const summary = summarizeFoundation(rows);
+  assert.equal(summary.cells.length, 18);
+  assert.ok(summary.cells.every((c) => c.unsupported === 1 && c.measured === 0 && c.success.count === 0));
+});
+
 test("defense trials keep hand/loadout denominators and pair physical protection against pose", async () => {
   const jobs = foundationJobs({ suite: "defense", models: ["workshop-fighter"], samples: 1, actuation: "directional" });
   assert.equal(jobs.length, 12);

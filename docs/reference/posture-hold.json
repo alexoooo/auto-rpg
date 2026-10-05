@@ -1,0 +1,5298 @@
+{
+  "harness": "Node core world, 120 Hz; browser checks recorded in posture-hold.md",
+  "generator": "﻿import fs from 'node:fs';\nimport {Quaternion} from '@babylonjs/core/Maths/math.vector.js';\nimport {modelSpec} from '../src/core/human/spec.ts';\nconst source='docs/reference/posture-limit-models.json',rows=JSON.parse(fs.readFileSync(source,'utf8')).rows,spec=modelSpec('workshop-fighter');\nconst records=[['fours','fours'],['half-kneel','half kneel, knee light'],['squat','squat']].map(([id,name])=>{\n const row=rows.find(r=>r.job.engine==='rapier-coordinate'&&r.job.row===name),posture=row.result.posture;let offset=0;\n const joints=Object.fromEntries(spec.joints.map(j=>[j.name,j.dofs.map(d=>{const a=posture.angles[offset++];return Math.max(d.min.value,Math.min(d.max.value,a));})]));\n return {id,model:spec.model,source:{path:source,engine:row.job.engine,row:name,seed:row.job.seed},placement:{position:[0,posture.height+.0005,0],rotation:Quaternion.RotationYawPitchRoll(0,posture.pitch,posture.roll).asArray(),joints}};\n});\nfs.mkdirSync('assets/research',{recursive:true});fs.writeFileSync('assets/research/posture-holds.json',JSON.stringify(records,null,2)+'\\n');\nconsole.log(records.map(r=>({id:r.id,joints:Object.keys(r.placement.joints).length})));\r\n",
+  "runs": [
+    {
+      "engine": "rapier-coordinate",
+      "manifest": {
+        "protocol": 2,
+        "started": "2026-10-05T14:57:46.619Z",
+        "options": {
+          "suite": "posture-hold",
+          "split": "development",
+          "samples": 2,
+          "from": 0,
+          "hz": 120,
+          "actuation": "directional",
+          "support": "pinned",
+          "centreControl": false,
+          "continueSeconds": 1,
+          "shared": false,
+          "jointStops": false
+        },
+        "workers": 2,
+        "harness": "Node, core world, per-task arena/stand fixtures",
+        "node": "v24.19.0",
+        "engine": "rapier-coordinate",
+        "engineRevision": "rapier/adapter-7/sha256:07af259dc277cac77daa9c95eaded0ed2bc8aeb5feac08bfd9e58d23e58feebd/coordinate-limits",
+        "package": {
+          "version": "0.21.0-auto-rpg.6",
+          "resolved": "file:vendor/rapier/dimforge-rapier3d-simd-compat-0.21.0-auto-rpg.6.tgz",
+          "integrity": "sha512-s7G2mXQcXedR6BBxki1vym9EjoTTnzWmNxt2QWdxHogJ8RhC5T0EAWPWxNKsi7kqHzT1+T0UAXSHTgbyY6CUww==",
+          "entrySha256": "d0e9b190bd0ec74136918a4268a00b4a3cb3e19e28bc8ab5d2fb055af01a7054"
+        },
+        "source": {
+          "git": "afabc97c78861a7e80b5451fbdd06435eb1cde16",
+          "content": "a672d9adefe20e3e93358ba6209d5621403185ff3ccb57ce972b205c4264caf1",
+          "archive": "source.json.gz",
+          "archiveSha256": "51967a4d5301b0a1296ff07b58e495559b242acf47536e3c64bdb81d80cc9052"
+        },
+        "sensing": "detached body observations; actuator descriptions only",
+        "action": "independent joint-feedback actuator velocities; bounded directional muscles",
+        "policyPeriodSteps": 1,
+        "assists": {
+          "rootBalancePercent": 0,
+          "weapon": false
+        },
+        "unavailable": [
+          "integrated recovery/combat",
+          "opponent defense",
+          "actuator work",
+          "contact penetration"
+        ],
+        "jobs": [
+          {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "workshop-fighter",
+            "posture": "fours",
+            "servoSeconds": 0.1,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "b426617e071ff5266b854c035694bba8eca3224ec88722879e81fa730bbdba1f"
+          },
+          {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "workshop-fighter",
+            "posture": "fours",
+            "servoSeconds": 0.03,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "09d6c9b1feff5bc2e6fa5ed420c8efe5c34f23b1804cb2255d2bac1d5fbf4a99"
+          },
+          {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "workshop-fighter",
+            "posture": "fours",
+            "servoSeconds": 0.01,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "7a39beef0ce49b3804177c6dd4f7d70b730a3343e7c9140ad597f6d3daefb3c5"
+          },
+          {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "workshop-fighter",
+            "posture": "half-kneel",
+            "servoSeconds": 0.1,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "6e89e64b7f337b57b461a7f4f039ab62c17fb888ce22b08bafa7462ed662c84b"
+          },
+          {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "workshop-fighter",
+            "posture": "half-kneel",
+            "servoSeconds": 0.03,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "ac4a3b354b2737147d2192c9c062884325bd96888f870d41acabd14b29a23748"
+          },
+          {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "workshop-fighter",
+            "posture": "half-kneel",
+            "servoSeconds": 0.01,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "83b509e25701267aba23062235538c0fb1bc3cc334676f8d982c0d8f1b165955"
+          },
+          {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "workshop-fighter",
+            "posture": "squat",
+            "servoSeconds": 0.1,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "97c2282cebeb3ec14f1fa91eaa24e0dcbd705c07e6c0a7ce5ae0942068ee27f7"
+          },
+          {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "workshop-fighter",
+            "posture": "squat",
+            "servoSeconds": 0.03,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "10325ba540e2bf80c7f755c7a66dbcf610c5c293ee2165f3fe996bcb397f49d5"
+          },
+          {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "workshop-fighter",
+            "posture": "squat",
+            "servoSeconds": 0.01,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "3e9e051dd953369fe814ae1b945363c73c5c9d289ed7b1983ff89ce9ce6c182f"
+          },
+          {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "workshop-rogue",
+            "posture": "fours",
+            "servoSeconds": 0.1,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "b9efec8cdbff8dee6fc5fb041c2f1bec9eda5da8da01f1255affcb8f4fbb77db"
+          },
+          {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "workshop-rogue",
+            "posture": "fours",
+            "servoSeconds": 0.03,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "a98b7d873c69576753b6a15c5121fd59b96daf5014c641d7300e69ddbd0d39f8"
+          },
+          {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "workshop-rogue",
+            "posture": "fours",
+            "servoSeconds": 0.01,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "8d16cfb4e49b2717fe6141b70381a560305fcfaa0e5d281a8cfe388c65eedb62"
+          },
+          {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "workshop-rogue",
+            "posture": "half-kneel",
+            "servoSeconds": 0.1,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "4b93412e356673f50c9af16e00e0105a23d388be65de6cfa30b519c403aaeba8"
+          },
+          {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "workshop-rogue",
+            "posture": "half-kneel",
+            "servoSeconds": 0.03,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "be074a3b482a51988809ddefade452affba618724e6f343433f4a9d243f3c57b"
+          },
+          {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "workshop-rogue",
+            "posture": "half-kneel",
+            "servoSeconds": 0.01,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "037a89831683c2e32c9e785cee4ba4b0c19fdfc11ac854387549265e4a6bc5fe"
+          },
+          {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "workshop-rogue",
+            "posture": "squat",
+            "servoSeconds": 0.1,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "c845d20ea3812a69a82fd9ce0c7b66923a3b1860eef530a887811fc37fa78099"
+          },
+          {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "workshop-rogue",
+            "posture": "squat",
+            "servoSeconds": 0.03,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "8c6b465cf4ce4d3194e14bdc23e467311d9f279b5971ab17fc8fcda4b7fdaf2e"
+          },
+          {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "workshop-rogue",
+            "posture": "squat",
+            "servoSeconds": 0.01,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "5309b0a1016caa1fe0591881532c8577aa3b5a66feca7354eea5fdcf694e852d"
+          },
+          {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "crypt-skeleton",
+            "posture": "fours",
+            "servoSeconds": 0.1,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "56d7951bba64c9adc67d7ebfb095eeccd096b83b2791ecf8de789e2c742bd4f9"
+          },
+          {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "crypt-skeleton",
+            "posture": "fours",
+            "servoSeconds": 0.03,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "d01dd6f76b8928c381493d487f758ad226aecc5cd6dde41f2d8152dfab9db7c2"
+          },
+          {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "crypt-skeleton",
+            "posture": "fours",
+            "servoSeconds": 0.01,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "619b361ce2ab8e1efac265e460908c953f032ff84fd392532e9002579f33c666"
+          },
+          {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "crypt-skeleton",
+            "posture": "half-kneel",
+            "servoSeconds": 0.1,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "9150f2d75110e72b332a44d81d0c888fddb59b9b12b03ab607b1f2fc573c037e"
+          },
+          {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "crypt-skeleton",
+            "posture": "half-kneel",
+            "servoSeconds": 0.03,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "a60e64e514f7c18e8a5a8ec5f0a2e5509a63d4e198ffc1d160d80839af74d2a4"
+          },
+          {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "crypt-skeleton",
+            "posture": "half-kneel",
+            "servoSeconds": 0.01,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "dae138053d0bb528f7e84c95bb4a8e7c02fc549e523f661df1901e6c1147258d"
+          },
+          {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "crypt-skeleton",
+            "posture": "squat",
+            "servoSeconds": 0.1,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "f5cb4e69bfa233617698a34b71014f1b32b7fbe12593865116b2a6640731c083"
+          },
+          {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "crypt-skeleton",
+            "posture": "squat",
+            "servoSeconds": 0.03,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "27b367a8e3b41b588560c00bcbdaca3464a8adb100a8d9b55cf9b57c88f730dc"
+          },
+          {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "crypt-skeleton",
+            "posture": "squat",
+            "servoSeconds": 0.01,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "7928656787926982f79d0335d11095c82dafc27f86711c10cbff45d1cd20dca2"
+          }
+        ]
+      },
+      "rows": [
+        {
+          "job": {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "workshop-rogue",
+            "posture": "half-kneel",
+            "servoSeconds": 0.01,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "037a89831683c2e32c9e785cee4ba4b0c19fdfc11ac854387549265e4a6bc5fe"
+          },
+          "result": {
+            "status": "unsupported",
+            "reason": "no installed posture witness for this body"
+          }
+        },
+        {
+          "job": {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "workshop-fighter",
+            "posture": "fours",
+            "servoSeconds": 0.03,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "09d6c9b1feff5bc2e6fa5ed420c8efe5c34f23b1804cb2255d2bac1d5fbf4a99"
+          },
+          "result": {
+            "status": "measured",
+            "configuration": {
+              "protocol": 1,
+              "split": "development",
+              "hz": 120,
+              "actuation": "directional",
+              "task": "posture-hold",
+              "model": "workshop-fighter",
+              "posture": "fours",
+              "servoSeconds": 0.03,
+              "speed": 10,
+              "activation": 1,
+              "held": "empty",
+              "controller": "direct",
+              "checkpointSeconds": 2,
+              "watchSeconds": 10,
+              "sampleHz": 120,
+              "id": "09d6c9b1feff5bc2e6fa5ed420c8efe5c34f23b1804cb2255d2bac1d5fbf4a99",
+              "settings": {
+                "seconds": 10,
+                "tolerance": 0.02,
+                "effortTolerance": 0.0001,
+                "floor": {
+                  "centre": [
+                    0,
+                    -0.5,
+                    0
+                  ],
+                  "size": [
+                    20,
+                    1,
+                    20
+                  ]
+                }
+              },
+              "pose": {
+                "id": "fours",
+                "model": "workshop-fighter",
+                "source": {
+                  "path": "docs/reference/posture-limit-models.json",
+                  "engine": "rapier-coordinate",
+                  "row": "fours",
+                  "seed": 0
+                },
+                "placement": {
+                  "position": [
+                    0,
+                    0.26501273999221475,
+                    0
+                  ],
+                  "rotation": [
+                    0.6288612813550184,
+                    0,
+                    0,
+                    0.7775175167239156
+                  ],
+                  "joints": {
+                    "neck": [
+                      -0.3983012178094657,
+                      0,
+                      0
+                    ],
+                    "thoracic": [
+                      -0.006380570020799927,
+                      0,
+                      0
+                    ],
+                    "lumbar": [
+                      0.2375632084700492,
+                      0,
+                      0
+                    ],
+                    "shoulder.left": [
+                      1.1138090206172806,
+                      0.42936783689919267,
+                      -0.3579707789748904
+                    ],
+                    "elbow.left": [
+                      -0.13136497448167458
+                    ],
+                    "wrist.left": [
+                      -1.3392217196243485,
+                      0,
+                      0
+                    ],
+                    "hip.left": [
+                      1.378540714353551,
+                      0.11260254667004446,
+                      0.1513420399133224
+                    ],
+                    "knee.left": [
+                      1.9499168162478369
+                    ],
+                    "ankle.left": [
+                      0.3570589024706539,
+                      -0.3324852225049198
+                    ],
+                    "shoulder.right": [
+                      1.1138090206172806,
+                      0.42936783689919267,
+                      -0.3579707789748904
+                    ],
+                    "elbow.right": [
+                      -0.13136497448167458
+                    ],
+                    "wrist.right": [
+                      -1.3392217196243485,
+                      0,
+                      0
+                    ],
+                    "hip.right": [
+                      1.378540714353551,
+                      0.11260254667004446,
+                      0.1513420399133224
+                    ],
+                    "knee.right": [
+                      1.9499168162478369
+                    ],
+                    "ankle.right": [
+                      0.3570589024706539,
+                      -0.3324852225049198
+                    ]
+                  }
+                }
+              },
+              "engineRevision": "rapier/adapter-7/sha256:07af259dc277cac77daa9c95eaded0ed2bc8aeb5feac08bfd9e58d23e58feebd/coordinate-limits",
+              "gravity": true,
+              "pin": null,
+              "assists": {
+                "root": 0,
+                "weapon": false
+              },
+              "sensing": "detached body observations",
+              "modelAccess": "actuator descriptions"
+            },
+            "outcome": {
+              "steps": 1200,
+              "peakDrift": 0.023037862601039825,
+              "finalDrift": 0.023037862601039825,
+              "peakAngleError": 0.04114789273391595,
+              "peakEffort": 53.64189147949219,
+              "peakEffortViolation": 0.000018068505539758917,
+              "contactSteps": 1200,
+              "complete": true,
+              "success": false,
+              "replayExact": true,
+              "digest": "6e4fc5761210d26e1c494c4c782481cf19137e4b4f2ffc09311d1d2e634f5cb6",
+              "stateDigest": "5fc87005d0b90d17f565181070c34fed36ed68e42059ec19b31d627855541097"
+            },
+            "physical": {
+              "assistForceIntegralNs": 0,
+              "assistMomentIntegralNms": 0
+            },
+            "timing": {
+              "meanStepMs": 0.7027169791666689,
+              "p95StepMs": 0.8317000000001826,
+              "p99StepMs": 1.1757000000002336
+            },
+            "limits": [
+              "installed empty-handed Warrior pose; no entry, recovery or disturbance",
+              "direct joint feedback without root or contact planning",
+              "maximum segment drift includes startup",
+              "fixed development witnesses; no held-out evaluation"
+            ]
+          }
+        },
+        {
+          "job": {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "workshop-fighter",
+            "posture": "squat",
+            "servoSeconds": 0.03,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "10325ba540e2bf80c7f755c7a66dbcf610c5c293ee2165f3fe996bcb397f49d5"
+          },
+          "result": {
+            "status": "measured",
+            "configuration": {
+              "protocol": 1,
+              "split": "development",
+              "hz": 120,
+              "actuation": "directional",
+              "task": "posture-hold",
+              "model": "workshop-fighter",
+              "posture": "squat",
+              "servoSeconds": 0.03,
+              "speed": 10,
+              "activation": 1,
+              "held": "empty",
+              "controller": "direct",
+              "checkpointSeconds": 2,
+              "watchSeconds": 10,
+              "sampleHz": 120,
+              "id": "10325ba540e2bf80c7f755c7a66dbcf610c5c293ee2165f3fe996bcb397f49d5",
+              "settings": {
+                "seconds": 10,
+                "tolerance": 0.02,
+                "effortTolerance": 0.0001,
+                "floor": {
+                  "centre": [
+                    0,
+                    -0.5,
+                    0
+                  ],
+                  "size": [
+                    20,
+                    1,
+                    20
+                  ]
+                }
+              },
+              "pose": {
+                "id": "squat",
+                "model": "workshop-fighter",
+                "source": {
+                  "path": "docs/reference/posture-limit-models.json",
+                  "engine": "rapier-coordinate",
+                  "row": "squat",
+                  "seed": 0
+                },
+                "placement": {
+                  "position": [
+                    0,
+                    -0.6282199436303666,
+                    0
+                  ],
+                  "rotation": [
+                    -0.1600832049388644,
+                    0,
+                    0,
+                    0.9871035242042759
+                  ],
+                  "joints": {
+                    "neck": [
+                      0.06563508160141328,
+                      0,
+                      0
+                    ],
+                    "thoracic": [
+                      0.36826447217080355,
+                      0,
+                      0
+                    ],
+                    "lumbar": [
+                      0.31345480982706697,
+                      0,
+                      0
+                    ],
+                    "shoulder.left": [
+                      0.29316848574210763,
+                      2.4189860451350045,
+                      -0.3647347293506349
+                    ],
+                    "elbow.left": [
+                      0.4597174927364504
+                    ],
+                    "wrist.left": [
+                      -0.0021592383893336044,
+                      0,
+                      0
+                    ],
+                    "hip.left": [
+                      1.451330129778294,
+                      0.46596862474520234,
+                      0.6475171524898963
+                    ],
+                    "knee.left": [
+                      2.236847742064474
+                    ],
+                    "ankle.left": [
+                      0.3570589024706539,
+                      0.6031857894892403
+                    ],
+                    "shoulder.right": [
+                      0.29316848574210763,
+                      2.4189860451350045,
+                      -0.3647347293506349
+                    ],
+                    "elbow.right": [
+                      0.4597174927364504
+                    ],
+                    "wrist.right": [
+                      -0.0021592383893336044,
+                      0,
+                      0
+                    ],
+                    "hip.right": [
+                      1.451330129778294,
+                      0.46596862474520234,
+                      0.6475171524898963
+                    ],
+                    "knee.right": [
+                      2.236847742064474
+                    ],
+                    "ankle.right": [
+                      0.3570589024706539,
+                      0.6031857894892403
+                    ]
+                  }
+                }
+              },
+              "engineRevision": "rapier/adapter-7/sha256:07af259dc277cac77daa9c95eaded0ed2bc8aeb5feac08bfd9e58d23e58feebd/coordinate-limits",
+              "gravity": true,
+              "pin": null,
+              "assists": {
+                "root": 0,
+                "weapon": false
+              },
+              "sensing": "detached body observations",
+              "modelAccess": "actuator descriptions"
+            },
+            "outcome": {
+              "steps": 1200,
+              "peakDrift": 1.6736273882889747,
+              "finalDrift": 1.339908620153507,
+              "peakAngleError": 0.47763434487730627,
+              "peakEffort": 219.66137409210205,
+              "peakEffortViolation": 0.00003494767474876426,
+              "contactSteps": 1195,
+              "complete": true,
+              "success": false,
+              "replayExact": true,
+              "digest": "d9df48eaaf7ca00addcf9b2d11e7d82515ae131d6e5ea818f9e01c8ade4eea81",
+              "stateDigest": "167bb407126da3398e88b89c05f88364d2e0c44175c456cb906d19a7b01f8a08"
+            },
+            "physical": {
+              "assistForceIntegralNs": 0,
+              "assistMomentIntegralNms": 0
+            },
+            "timing": {
+              "meanStepMs": 0.7000489583333244,
+              "p95StepMs": 0.7204000000001543,
+              "p99StepMs": 1.0927999999985332
+            },
+            "limits": [
+              "installed empty-handed Warrior pose; no entry, recovery or disturbance",
+              "direct joint feedback without root or contact planning",
+              "maximum segment drift includes startup",
+              "fixed development witnesses; no held-out evaluation"
+            ]
+          }
+        },
+        {
+          "job": {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "crypt-skeleton",
+            "posture": "squat",
+            "servoSeconds": 0.03,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "27b367a8e3b41b588560c00bcbdaca3464a8adb100a8d9b55cf9b57c88f730dc"
+          },
+          "result": {
+            "status": "unsupported",
+            "reason": "no installed posture witness for this body"
+          }
+        },
+        {
+          "job": {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "workshop-fighter",
+            "posture": "squat",
+            "servoSeconds": 0.01,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "3e9e051dd953369fe814ae1b945363c73c5c9d289ed7b1983ff89ce9ce6c182f"
+          },
+          "result": {
+            "status": "measured",
+            "configuration": {
+              "protocol": 1,
+              "split": "development",
+              "hz": 120,
+              "actuation": "directional",
+              "task": "posture-hold",
+              "model": "workshop-fighter",
+              "posture": "squat",
+              "servoSeconds": 0.01,
+              "speed": 10,
+              "activation": 1,
+              "held": "empty",
+              "controller": "direct",
+              "checkpointSeconds": 2,
+              "watchSeconds": 10,
+              "sampleHz": 120,
+              "id": "3e9e051dd953369fe814ae1b945363c73c5c9d289ed7b1983ff89ce9ce6c182f",
+              "settings": {
+                "seconds": 10,
+                "tolerance": 0.02,
+                "effortTolerance": 0.0001,
+                "floor": {
+                  "centre": [
+                    0,
+                    -0.5,
+                    0
+                  ],
+                  "size": [
+                    20,
+                    1,
+                    20
+                  ]
+                }
+              },
+              "pose": {
+                "id": "squat",
+                "model": "workshop-fighter",
+                "source": {
+                  "path": "docs/reference/posture-limit-models.json",
+                  "engine": "rapier-coordinate",
+                  "row": "squat",
+                  "seed": 0
+                },
+                "placement": {
+                  "position": [
+                    0,
+                    -0.6282199436303666,
+                    0
+                  ],
+                  "rotation": [
+                    -0.1600832049388644,
+                    0,
+                    0,
+                    0.9871035242042759
+                  ],
+                  "joints": {
+                    "neck": [
+                      0.06563508160141328,
+                      0,
+                      0
+                    ],
+                    "thoracic": [
+                      0.36826447217080355,
+                      0,
+                      0
+                    ],
+                    "lumbar": [
+                      0.31345480982706697,
+                      0,
+                      0
+                    ],
+                    "shoulder.left": [
+                      0.29316848574210763,
+                      2.4189860451350045,
+                      -0.3647347293506349
+                    ],
+                    "elbow.left": [
+                      0.4597174927364504
+                    ],
+                    "wrist.left": [
+                      -0.0021592383893336044,
+                      0,
+                      0
+                    ],
+                    "hip.left": [
+                      1.451330129778294,
+                      0.46596862474520234,
+                      0.6475171524898963
+                    ],
+                    "knee.left": [
+                      2.236847742064474
+                    ],
+                    "ankle.left": [
+                      0.3570589024706539,
+                      0.6031857894892403
+                    ],
+                    "shoulder.right": [
+                      0.29316848574210763,
+                      2.4189860451350045,
+                      -0.3647347293506349
+                    ],
+                    "elbow.right": [
+                      0.4597174927364504
+                    ],
+                    "wrist.right": [
+                      -0.0021592383893336044,
+                      0,
+                      0
+                    ],
+                    "hip.right": [
+                      1.451330129778294,
+                      0.46596862474520234,
+                      0.6475171524898963
+                    ],
+                    "knee.right": [
+                      2.236847742064474
+                    ],
+                    "ankle.right": [
+                      0.3570589024706539,
+                      0.6031857894892403
+                    ]
+                  }
+                }
+              },
+              "engineRevision": "rapier/adapter-7/sha256:07af259dc277cac77daa9c95eaded0ed2bc8aeb5feac08bfd9e58d23e58feebd/coordinate-limits",
+              "gravity": true,
+              "pin": null,
+              "assists": {
+                "root": 0,
+                "weapon": false
+              },
+              "sensing": "detached body observations",
+              "modelAccess": "actuator descriptions"
+            },
+            "outcome": {
+              "steps": 1200,
+              "peakDrift": 1.6869394421322144,
+              "finalDrift": 1.3654305051310072,
+              "peakAngleError": 1.3133470146678619,
+              "peakEffort": 210.04533290863037,
+              "peakEffortViolation": 0.00004163495007958318,
+              "contactSteps": 1128,
+              "complete": true,
+              "success": false,
+              "replayExact": true,
+              "digest": "6775ea57718a4c3ac21d159c8330d9e082067ccab24cd42d50b00193a457b905",
+              "stateDigest": "d3c98f0e1b0ff6dbfab49fd61735706b8bb6c6805ef6ae010b6a15fe390ab0b1"
+            },
+            "physical": {
+              "assistForceIntegralNs": 0,
+              "assistMomentIntegralNms": 0
+            },
+            "timing": {
+              "meanStepMs": 0.6992295833333231,
+              "p95StepMs": 0.7255999999997584,
+              "p99StepMs": 0.8106000000007043
+            },
+            "limits": [
+              "installed empty-handed Warrior pose; no entry, recovery or disturbance",
+              "direct joint feedback without root or contact planning",
+              "maximum segment drift includes startup",
+              "fixed development witnesses; no held-out evaluation"
+            ]
+          }
+        },
+        {
+          "job": {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "workshop-rogue",
+            "posture": "half-kneel",
+            "servoSeconds": 0.1,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "4b93412e356673f50c9af16e00e0105a23d388be65de6cfa30b519c403aaeba8"
+          },
+          "result": {
+            "status": "unsupported",
+            "reason": "no installed posture witness for this body"
+          }
+        },
+        {
+          "job": {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "workshop-rogue",
+            "posture": "squat",
+            "servoSeconds": 0.01,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "5309b0a1016caa1fe0591881532c8577aa3b5a66feca7354eea5fdcf694e852d"
+          },
+          "result": {
+            "status": "unsupported",
+            "reason": "no installed posture witness for this body"
+          }
+        },
+        {
+          "job": {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "crypt-skeleton",
+            "posture": "fours",
+            "servoSeconds": 0.1,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "56d7951bba64c9adc67d7ebfb095eeccd096b83b2791ecf8de789e2c742bd4f9"
+          },
+          "result": {
+            "status": "unsupported",
+            "reason": "no installed posture witness for this body"
+          }
+        },
+        {
+          "job": {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "crypt-skeleton",
+            "posture": "fours",
+            "servoSeconds": 0.01,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "619b361ce2ab8e1efac265e460908c953f032ff84fd392532e9002579f33c666"
+          },
+          "result": {
+            "status": "unsupported",
+            "reason": "no installed posture witness for this body"
+          }
+        },
+        {
+          "job": {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "workshop-fighter",
+            "posture": "half-kneel",
+            "servoSeconds": 0.1,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "6e89e64b7f337b57b461a7f4f039ab62c17fb888ce22b08bafa7462ed662c84b"
+          },
+          "result": {
+            "status": "measured",
+            "configuration": {
+              "protocol": 1,
+              "split": "development",
+              "hz": 120,
+              "actuation": "directional",
+              "task": "posture-hold",
+              "model": "workshop-fighter",
+              "posture": "half-kneel",
+              "servoSeconds": 0.1,
+              "speed": 10,
+              "activation": 1,
+              "held": "empty",
+              "controller": "direct",
+              "checkpointSeconds": 2,
+              "watchSeconds": 10,
+              "sampleHz": 120,
+              "id": "6e89e64b7f337b57b461a7f4f039ab62c17fb888ce22b08bafa7462ed662c84b",
+              "settings": {
+                "seconds": 10,
+                "tolerance": 0.02,
+                "effortTolerance": 0.0001,
+                "floor": {
+                  "centre": [
+                    0,
+                    -0.5,
+                    0
+                  ],
+                  "size": [
+                    20,
+                    1,
+                    20
+                  ]
+                }
+              },
+              "pose": {
+                "id": "half-kneel",
+                "model": "workshop-fighter",
+                "source": {
+                  "path": "docs/reference/posture-limit-models.json",
+                  "engine": "rapier-coordinate",
+                  "row": "half kneel, knee light",
+                  "seed": 0
+                },
+                "placement": {
+                  "position": [
+                    0,
+                    -0.5083299162806462,
+                    0
+                  ],
+                  "rotation": [
+                    -0.06344261501665374,
+                    -0.006224969005521192,
+                    -0.0974521254827538,
+                    0.9931965402676465
+                  ],
+                  "joints": {
+                    "neck": [
+                      0.15886281043698913,
+                      -0.07192130790122486,
+                      0.1420647835872304
+                    ],
+                    "thoracic": [
+                      0.14442904434853965,
+                      0.02289836683277252,
+                      -0.028025699607443444
+                    ],
+                    "lumbar": [
+                      0.24280202714078308,
+                      -0.00023451133222701648,
+                      -0.03622245234170641
+                    ],
+                    "shoulder.left": [
+                      -0.4989467077553128,
+                      0.24294339166122847,
+                      0.30583665148092765
+                    ],
+                    "elbow.left": [
+                      -0.7297754374497443
+                    ],
+                    "wrist.left": [
+                      0.5238878454677958,
+                      0,
+                      0
+                    ],
+                    "hip.left": [
+                      1.558956439294817,
+                      -0.25900612740600204,
+                      -0.008829799591627857
+                    ],
+                    "knee.left": [
+                      1.6762221745138046
+                    ],
+                    "ankle.left": [
+                      0.018399752000592094,
+                      0.08305144576678256
+                    ],
+                    "shoulder.right": [
+                      -0.9066782753360586,
+                      0.07593081830788895,
+                      0.5813171541950992
+                    ],
+                    "elbow.right": [
+                      -0.3693064038468303
+                    ],
+                    "wrist.right": [
+                      -0.44515033255008474,
+                      0,
+                      0
+                    ],
+                    "hip.right": [
+                      0.38305371293614543,
+                      0.004551865064557218,
+                      0.13223557493693486
+                    ],
+                    "knee.right": [
+                      2.4574188591217414
+                    ],
+                    "ankle.right": [
+                      0.3570589024706539,
+                      0.10871784657073817
+                    ]
+                  }
+                }
+              },
+              "engineRevision": "rapier/adapter-7/sha256:07af259dc277cac77daa9c95eaded0ed2bc8aeb5feac08bfd9e58d23e58feebd/coordinate-limits",
+              "gravity": true,
+              "pin": null,
+              "assists": {
+                "root": 0,
+                "weapon": false
+              },
+              "sensing": "detached body observations",
+              "modelAccess": "actuator descriptions"
+            },
+            "outcome": {
+              "steps": 1200,
+              "peakDrift": 0.21358816793266397,
+              "finalDrift": 0.21358816793266397,
+              "peakAngleError": 0.09522986048628224,
+              "peakEffort": 81.42439126968384,
+              "peakEffortViolation": 0,
+              "contactSteps": 1200,
+              "complete": true,
+              "success": false,
+              "replayExact": true,
+              "digest": "0d232d1da259b9de03c0036c88aedd7c654d764fbb30c1fec2ae87a4ee1afc02",
+              "stateDigest": "f914d815b4bf5898ab21740c498052a4a5d5ae41a0ee56eb91fe6b12b4390d96"
+            },
+            "physical": {
+              "assistForceIntegralNs": 0,
+              "assistMomentIntegralNms": 0
+            },
+            "timing": {
+              "meanStepMs": 0.6624622916666544,
+              "p95StepMs": 0.7622999999998683,
+              "p99StepMs": 0.9873999999999796
+            },
+            "limits": [
+              "installed empty-handed Warrior pose; no entry, recovery or disturbance",
+              "direct joint feedback without root or contact planning",
+              "maximum segment drift includes startup",
+              "fixed development witnesses; no held-out evaluation"
+            ]
+          }
+        },
+        {
+          "job": {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "crypt-skeleton",
+            "posture": "squat",
+            "servoSeconds": 0.01,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "7928656787926982f79d0335d11095c82dafc27f86711c10cbff45d1cd20dca2"
+          },
+          "result": {
+            "status": "unsupported",
+            "reason": "no installed posture witness for this body"
+          }
+        },
+        {
+          "job": {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "workshop-fighter",
+            "posture": "fours",
+            "servoSeconds": 0.01,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "7a39beef0ce49b3804177c6dd4f7d70b730a3343e7c9140ad597f6d3daefb3c5"
+          },
+          "result": {
+            "status": "measured",
+            "configuration": {
+              "protocol": 1,
+              "split": "development",
+              "hz": 120,
+              "actuation": "directional",
+              "task": "posture-hold",
+              "model": "workshop-fighter",
+              "posture": "fours",
+              "servoSeconds": 0.01,
+              "speed": 10,
+              "activation": 1,
+              "held": "empty",
+              "controller": "direct",
+              "checkpointSeconds": 2,
+              "watchSeconds": 10,
+              "sampleHz": 120,
+              "id": "7a39beef0ce49b3804177c6dd4f7d70b730a3343e7c9140ad597f6d3daefb3c5",
+              "settings": {
+                "seconds": 10,
+                "tolerance": 0.02,
+                "effortTolerance": 0.0001,
+                "floor": {
+                  "centre": [
+                    0,
+                    -0.5,
+                    0
+                  ],
+                  "size": [
+                    20,
+                    1,
+                    20
+                  ]
+                }
+              },
+              "pose": {
+                "id": "fours",
+                "model": "workshop-fighter",
+                "source": {
+                  "path": "docs/reference/posture-limit-models.json",
+                  "engine": "rapier-coordinate",
+                  "row": "fours",
+                  "seed": 0
+                },
+                "placement": {
+                  "position": [
+                    0,
+                    0.26501273999221475,
+                    0
+                  ],
+                  "rotation": [
+                    0.6288612813550184,
+                    0,
+                    0,
+                    0.7775175167239156
+                  ],
+                  "joints": {
+                    "neck": [
+                      -0.3983012178094657,
+                      0,
+                      0
+                    ],
+                    "thoracic": [
+                      -0.006380570020799927,
+                      0,
+                      0
+                    ],
+                    "lumbar": [
+                      0.2375632084700492,
+                      0,
+                      0
+                    ],
+                    "shoulder.left": [
+                      1.1138090206172806,
+                      0.42936783689919267,
+                      -0.3579707789748904
+                    ],
+                    "elbow.left": [
+                      -0.13136497448167458
+                    ],
+                    "wrist.left": [
+                      -1.3392217196243485,
+                      0,
+                      0
+                    ],
+                    "hip.left": [
+                      1.378540714353551,
+                      0.11260254667004446,
+                      0.1513420399133224
+                    ],
+                    "knee.left": [
+                      1.9499168162478369
+                    ],
+                    "ankle.left": [
+                      0.3570589024706539,
+                      -0.3324852225049198
+                    ],
+                    "shoulder.right": [
+                      1.1138090206172806,
+                      0.42936783689919267,
+                      -0.3579707789748904
+                    ],
+                    "elbow.right": [
+                      -0.13136497448167458
+                    ],
+                    "wrist.right": [
+                      -1.3392217196243485,
+                      0,
+                      0
+                    ],
+                    "hip.right": [
+                      1.378540714353551,
+                      0.11260254667004446,
+                      0.1513420399133224
+                    ],
+                    "knee.right": [
+                      1.9499168162478369
+                    ],
+                    "ankle.right": [
+                      0.3570589024706539,
+                      -0.3324852225049198
+                    ]
+                  }
+                }
+              },
+              "engineRevision": "rapier/adapter-7/sha256:07af259dc277cac77daa9c95eaded0ed2bc8aeb5feac08bfd9e58d23e58feebd/coordinate-limits",
+              "gravity": true,
+              "pin": null,
+              "assists": {
+                "root": 0,
+                "weapon": false
+              },
+              "sensing": "detached body observations",
+              "modelAccess": "actuator descriptions"
+            },
+            "outcome": {
+              "steps": 1200,
+              "peakDrift": 0.01486670590304321,
+              "finalDrift": 0.01486670590304321,
+              "peakAngleError": 0.015840990504621733,
+              "peakEffort": 52.97475814819336,
+              "peakEffortViolation": 0,
+              "contactSteps": 1200,
+              "complete": true,
+              "success": true,
+              "replayExact": true,
+              "digest": "6f7df4c5ec8cfd01347d7d7012c62085705cf7bad07666dfbd203555c5311049",
+              "stateDigest": "3b772d33f17d6b87c249a77e3db2a64500b701926dc1bf4965d97a7a689fa315"
+            },
+            "physical": {
+              "assistForceIntegralNs": 0,
+              "assistMomentIntegralNms": 0
+            },
+            "timing": {
+              "meanStepMs": 0.6666962499999854,
+              "p95StepMs": 0.7364999999999782,
+              "p99StepMs": 0.8721000000000458
+            },
+            "limits": [
+              "installed empty-handed Warrior pose; no entry, recovery or disturbance",
+              "direct joint feedback without root or contact planning",
+              "maximum segment drift includes startup",
+              "fixed development witnesses; no held-out evaluation"
+            ]
+          }
+        },
+        {
+          "job": {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "workshop-fighter",
+            "posture": "half-kneel",
+            "servoSeconds": 0.01,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "83b509e25701267aba23062235538c0fb1bc3cc334676f8d982c0d8f1b165955"
+          },
+          "result": {
+            "status": "measured",
+            "configuration": {
+              "protocol": 1,
+              "split": "development",
+              "hz": 120,
+              "actuation": "directional",
+              "task": "posture-hold",
+              "model": "workshop-fighter",
+              "posture": "half-kneel",
+              "servoSeconds": 0.01,
+              "speed": 10,
+              "activation": 1,
+              "held": "empty",
+              "controller": "direct",
+              "checkpointSeconds": 2,
+              "watchSeconds": 10,
+              "sampleHz": 120,
+              "id": "83b509e25701267aba23062235538c0fb1bc3cc334676f8d982c0d8f1b165955",
+              "settings": {
+                "seconds": 10,
+                "tolerance": 0.02,
+                "effortTolerance": 0.0001,
+                "floor": {
+                  "centre": [
+                    0,
+                    -0.5,
+                    0
+                  ],
+                  "size": [
+                    20,
+                    1,
+                    20
+                  ]
+                }
+              },
+              "pose": {
+                "id": "half-kneel",
+                "model": "workshop-fighter",
+                "source": {
+                  "path": "docs/reference/posture-limit-models.json",
+                  "engine": "rapier-coordinate",
+                  "row": "half kneel, knee light",
+                  "seed": 0
+                },
+                "placement": {
+                  "position": [
+                    0,
+                    -0.5083299162806462,
+                    0
+                  ],
+                  "rotation": [
+                    -0.06344261501665374,
+                    -0.006224969005521192,
+                    -0.0974521254827538,
+                    0.9931965402676465
+                  ],
+                  "joints": {
+                    "neck": [
+                      0.15886281043698913,
+                      -0.07192130790122486,
+                      0.1420647835872304
+                    ],
+                    "thoracic": [
+                      0.14442904434853965,
+                      0.02289836683277252,
+                      -0.028025699607443444
+                    ],
+                    "lumbar": [
+                      0.24280202714078308,
+                      -0.00023451133222701648,
+                      -0.03622245234170641
+                    ],
+                    "shoulder.left": [
+                      -0.4989467077553128,
+                      0.24294339166122847,
+                      0.30583665148092765
+                    ],
+                    "elbow.left": [
+                      -0.7297754374497443
+                    ],
+                    "wrist.left": [
+                      0.5238878454677958,
+                      0,
+                      0
+                    ],
+                    "hip.left": [
+                      1.558956439294817,
+                      -0.25900612740600204,
+                      -0.008829799591627857
+                    ],
+                    "knee.left": [
+                      1.6762221745138046
+                    ],
+                    "ankle.left": [
+                      0.018399752000592094,
+                      0.08305144576678256
+                    ],
+                    "shoulder.right": [
+                      -0.9066782753360586,
+                      0.07593081830788895,
+                      0.5813171541950992
+                    ],
+                    "elbow.right": [
+                      -0.3693064038468303
+                    ],
+                    "wrist.right": [
+                      -0.44515033255008474,
+                      0,
+                      0
+                    ],
+                    "hip.right": [
+                      0.38305371293614543,
+                      0.004551865064557218,
+                      0.13223557493693486
+                    ],
+                    "knee.right": [
+                      2.4574188591217414
+                    ],
+                    "ankle.right": [
+                      0.3570589024706539,
+                      0.10871784657073817
+                    ]
+                  }
+                }
+              },
+              "engineRevision": "rapier/adapter-7/sha256:07af259dc277cac77daa9c95eaded0ed2bc8aeb5feac08bfd9e58d23e58feebd/coordinate-limits",
+              "gravity": true,
+              "pin": null,
+              "assists": {
+                "root": 0,
+                "weapon": false
+              },
+              "sensing": "detached body observations",
+              "modelAccess": "actuator descriptions"
+            },
+            "outcome": {
+              "steps": 1200,
+              "peakDrift": 0.10597565362531268,
+              "finalDrift": 0.10597565362531268,
+              "peakAngleError": 0.010522481636847936,
+              "peakEffort": 110.13414859771729,
+              "peakEffortViolation": 0.000010711716434741447,
+              "contactSteps": 1200,
+              "complete": true,
+              "success": false,
+              "replayExact": true,
+              "digest": "2b581db64186c34531bee9c069649894a4f6f5c1bbebc685d735b3051e6e55a2",
+              "stateDigest": "f3ff4b8d7d02d0a626b51e3e705b5504d37e2b26568777e762b52afaeaa81a8e"
+            },
+            "physical": {
+              "assistForceIntegralNs": 0,
+              "assistMomentIntegralNms": 0
+            },
+            "timing": {
+              "meanStepMs": 0.6327168750000122,
+              "p95StepMs": 0.6530999999995402,
+              "p99StepMs": 0.7778000000007523
+            },
+            "limits": [
+              "installed empty-handed Warrior pose; no entry, recovery or disturbance",
+              "direct joint feedback without root or contact planning",
+              "maximum segment drift includes startup",
+              "fixed development witnesses; no held-out evaluation"
+            ]
+          }
+        },
+        {
+          "job": {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "workshop-rogue",
+            "posture": "squat",
+            "servoSeconds": 0.03,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "8c6b465cf4ce4d3194e14bdc23e467311d9f279b5971ab17fc8fcda4b7fdaf2e"
+          },
+          "result": {
+            "status": "unsupported",
+            "reason": "no installed posture witness for this body"
+          }
+        },
+        {
+          "job": {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "workshop-rogue",
+            "posture": "fours",
+            "servoSeconds": 0.01,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "8d16cfb4e49b2717fe6141b70381a560305fcfaa0e5d281a8cfe388c65eedb62"
+          },
+          "result": {
+            "status": "unsupported",
+            "reason": "no installed posture witness for this body"
+          }
+        },
+        {
+          "job": {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "crypt-skeleton",
+            "posture": "half-kneel",
+            "servoSeconds": 0.1,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "9150f2d75110e72b332a44d81d0c888fddb59b9b12b03ab607b1f2fc573c037e"
+          },
+          "result": {
+            "status": "unsupported",
+            "reason": "no installed posture witness for this body"
+          }
+        },
+        {
+          "job": {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "workshop-fighter",
+            "posture": "squat",
+            "servoSeconds": 0.1,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "97c2282cebeb3ec14f1fa91eaa24e0dcbd705c07e6c0a7ce5ae0942068ee27f7"
+          },
+          "result": {
+            "status": "measured",
+            "configuration": {
+              "protocol": 1,
+              "split": "development",
+              "hz": 120,
+              "actuation": "directional",
+              "task": "posture-hold",
+              "model": "workshop-fighter",
+              "posture": "squat",
+              "servoSeconds": 0.1,
+              "speed": 10,
+              "activation": 1,
+              "held": "empty",
+              "controller": "direct",
+              "checkpointSeconds": 2,
+              "watchSeconds": 10,
+              "sampleHz": 120,
+              "id": "97c2282cebeb3ec14f1fa91eaa24e0dcbd705c07e6c0a7ce5ae0942068ee27f7",
+              "settings": {
+                "seconds": 10,
+                "tolerance": 0.02,
+                "effortTolerance": 0.0001,
+                "floor": {
+                  "centre": [
+                    0,
+                    -0.5,
+                    0
+                  ],
+                  "size": [
+                    20,
+                    1,
+                    20
+                  ]
+                }
+              },
+              "pose": {
+                "id": "squat",
+                "model": "workshop-fighter",
+                "source": {
+                  "path": "docs/reference/posture-limit-models.json",
+                  "engine": "rapier-coordinate",
+                  "row": "squat",
+                  "seed": 0
+                },
+                "placement": {
+                  "position": [
+                    0,
+                    -0.6282199436303666,
+                    0
+                  ],
+                  "rotation": [
+                    -0.1600832049388644,
+                    0,
+                    0,
+                    0.9871035242042759
+                  ],
+                  "joints": {
+                    "neck": [
+                      0.06563508160141328,
+                      0,
+                      0
+                    ],
+                    "thoracic": [
+                      0.36826447217080355,
+                      0,
+                      0
+                    ],
+                    "lumbar": [
+                      0.31345480982706697,
+                      0,
+                      0
+                    ],
+                    "shoulder.left": [
+                      0.29316848574210763,
+                      2.4189860451350045,
+                      -0.3647347293506349
+                    ],
+                    "elbow.left": [
+                      0.4597174927364504
+                    ],
+                    "wrist.left": [
+                      -0.0021592383893336044,
+                      0,
+                      0
+                    ],
+                    "hip.left": [
+                      1.451330129778294,
+                      0.46596862474520234,
+                      0.6475171524898963
+                    ],
+                    "knee.left": [
+                      2.236847742064474
+                    ],
+                    "ankle.left": [
+                      0.3570589024706539,
+                      0.6031857894892403
+                    ],
+                    "shoulder.right": [
+                      0.29316848574210763,
+                      2.4189860451350045,
+                      -0.3647347293506349
+                    ],
+                    "elbow.right": [
+                      0.4597174927364504
+                    ],
+                    "wrist.right": [
+                      -0.0021592383893336044,
+                      0,
+                      0
+                    ],
+                    "hip.right": [
+                      1.451330129778294,
+                      0.46596862474520234,
+                      0.6475171524898963
+                    ],
+                    "knee.right": [
+                      2.236847742064474
+                    ],
+                    "ankle.right": [
+                      0.3570589024706539,
+                      0.6031857894892403
+                    ]
+                  }
+                }
+              },
+              "engineRevision": "rapier/adapter-7/sha256:07af259dc277cac77daa9c95eaded0ed2bc8aeb5feac08bfd9e58d23e58feebd/coordinate-limits",
+              "gravity": true,
+              "pin": null,
+              "assists": {
+                "root": 0,
+                "weapon": false
+              },
+              "sensing": "detached body observations",
+              "modelAccess": "actuator descriptions"
+            },
+            "outcome": {
+              "steps": 1200,
+              "peakDrift": 1.679971668424317,
+              "finalDrift": 1.3273206224547018,
+              "peakAngleError": 0.5175463211043297,
+              "peakEffort": 194.565110206604,
+              "peakEffortViolation": 0.00004336434044205362,
+              "contactSteps": 1199,
+              "complete": true,
+              "success": false,
+              "replayExact": true,
+              "digest": "5a083692b3a751f75a73d7d68d8d40cb00a3d99f0797c3ca2cd5125bb73fe0df",
+              "stateDigest": "c16ec2e4a0d064bb0ca353771d5c5ae6d669fb2dc6db42265ca38fb2289b0150"
+            },
+            "physical": {
+              "assistForceIntegralNs": 0,
+              "assistMomentIntegralNms": 0
+            },
+            "timing": {
+              "meanStepMs": 0.6865527083333433,
+              "p95StepMs": 0.7137999999995372,
+              "p99StepMs": 0.8122999999995955
+            },
+            "limits": [
+              "installed empty-handed Warrior pose; no entry, recovery or disturbance",
+              "direct joint feedback without root or contact planning",
+              "maximum segment drift includes startup",
+              "fixed development witnesses; no held-out evaluation"
+            ]
+          }
+        },
+        {
+          "job": {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "crypt-skeleton",
+            "posture": "half-kneel",
+            "servoSeconds": 0.03,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "a60e64e514f7c18e8a5a8ec5f0a2e5509a63d4e198ffc1d160d80839af74d2a4"
+          },
+          "result": {
+            "status": "unsupported",
+            "reason": "no installed posture witness for this body"
+          }
+        },
+        {
+          "job": {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "workshop-rogue",
+            "posture": "fours",
+            "servoSeconds": 0.03,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "a98b7d873c69576753b6a15c5121fd59b96daf5014c641d7300e69ddbd0d39f8"
+          },
+          "result": {
+            "status": "unsupported",
+            "reason": "no installed posture witness for this body"
+          }
+        },
+        {
+          "job": {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "workshop-fighter",
+            "posture": "half-kneel",
+            "servoSeconds": 0.03,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "ac4a3b354b2737147d2192c9c062884325bd96888f870d41acabd14b29a23748"
+          },
+          "result": {
+            "status": "measured",
+            "configuration": {
+              "protocol": 1,
+              "split": "development",
+              "hz": 120,
+              "actuation": "directional",
+              "task": "posture-hold",
+              "model": "workshop-fighter",
+              "posture": "half-kneel",
+              "servoSeconds": 0.03,
+              "speed": 10,
+              "activation": 1,
+              "held": "empty",
+              "controller": "direct",
+              "checkpointSeconds": 2,
+              "watchSeconds": 10,
+              "sampleHz": 120,
+              "id": "ac4a3b354b2737147d2192c9c062884325bd96888f870d41acabd14b29a23748",
+              "settings": {
+                "seconds": 10,
+                "tolerance": 0.02,
+                "effortTolerance": 0.0001,
+                "floor": {
+                  "centre": [
+                    0,
+                    -0.5,
+                    0
+                  ],
+                  "size": [
+                    20,
+                    1,
+                    20
+                  ]
+                }
+              },
+              "pose": {
+                "id": "half-kneel",
+                "model": "workshop-fighter",
+                "source": {
+                  "path": "docs/reference/posture-limit-models.json",
+                  "engine": "rapier-coordinate",
+                  "row": "half kneel, knee light",
+                  "seed": 0
+                },
+                "placement": {
+                  "position": [
+                    0,
+                    -0.5083299162806462,
+                    0
+                  ],
+                  "rotation": [
+                    -0.06344261501665374,
+                    -0.006224969005521192,
+                    -0.0974521254827538,
+                    0.9931965402676465
+                  ],
+                  "joints": {
+                    "neck": [
+                      0.15886281043698913,
+                      -0.07192130790122486,
+                      0.1420647835872304
+                    ],
+                    "thoracic": [
+                      0.14442904434853965,
+                      0.02289836683277252,
+                      -0.028025699607443444
+                    ],
+                    "lumbar": [
+                      0.24280202714078308,
+                      -0.00023451133222701648,
+                      -0.03622245234170641
+                    ],
+                    "shoulder.left": [
+                      -0.4989467077553128,
+                      0.24294339166122847,
+                      0.30583665148092765
+                    ],
+                    "elbow.left": [
+                      -0.7297754374497443
+                    ],
+                    "wrist.left": [
+                      0.5238878454677958,
+                      0,
+                      0
+                    ],
+                    "hip.left": [
+                      1.558956439294817,
+                      -0.25900612740600204,
+                      -0.008829799591627857
+                    ],
+                    "knee.left": [
+                      1.6762221745138046
+                    ],
+                    "ankle.left": [
+                      0.018399752000592094,
+                      0.08305144576678256
+                    ],
+                    "shoulder.right": [
+                      -0.9066782753360586,
+                      0.07593081830788895,
+                      0.5813171541950992
+                    ],
+                    "elbow.right": [
+                      -0.3693064038468303
+                    ],
+                    "wrist.right": [
+                      -0.44515033255008474,
+                      0,
+                      0
+                    ],
+                    "hip.right": [
+                      0.38305371293614543,
+                      0.004551865064557218,
+                      0.13223557493693486
+                    ],
+                    "knee.right": [
+                      2.4574188591217414
+                    ],
+                    "ankle.right": [
+                      0.3570589024706539,
+                      0.10871784657073817
+                    ]
+                  }
+                }
+              },
+              "engineRevision": "rapier/adapter-7/sha256:07af259dc277cac77daa9c95eaded0ed2bc8aeb5feac08bfd9e58d23e58feebd/coordinate-limits",
+              "gravity": true,
+              "pin": null,
+              "assists": {
+                "root": 0,
+                "weapon": false
+              },
+              "sensing": "detached body observations",
+              "modelAccess": "actuator descriptions"
+            },
+            "outcome": {
+              "steps": 1200,
+              "peakDrift": 0.08360764672058187,
+              "finalDrift": 0.08360764672058187,
+              "peakAngleError": 0.02600976692887924,
+              "peakEffort": 73.26846599578857,
+              "peakEffortViolation": 0,
+              "contactSteps": 1200,
+              "complete": true,
+              "success": false,
+              "replayExact": true,
+              "digest": "a00d1143400abe777126600abb88674b407375e0cd0e56bc446969f305e92dab",
+              "stateDigest": "f99fa71b48d2fced868578c86b996fb7b553c704befecfa062a4c0995ba3029e"
+            },
+            "physical": {
+              "assistForceIntegralNs": 0,
+              "assistMomentIntegralNms": 0
+            },
+            "timing": {
+              "meanStepMs": 0.6327159375000103,
+              "p95StepMs": 0.6595999999999549,
+              "p99StepMs": 1.02179999999953
+            },
+            "limits": [
+              "installed empty-handed Warrior pose; no entry, recovery or disturbance",
+              "direct joint feedback without root or contact planning",
+              "maximum segment drift includes startup",
+              "fixed development witnesses; no held-out evaluation"
+            ]
+          }
+        },
+        {
+          "job": {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "workshop-fighter",
+            "posture": "fours",
+            "servoSeconds": 0.1,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "b426617e071ff5266b854c035694bba8eca3224ec88722879e81fa730bbdba1f"
+          },
+          "result": {
+            "status": "measured",
+            "configuration": {
+              "protocol": 1,
+              "split": "development",
+              "hz": 120,
+              "actuation": "directional",
+              "task": "posture-hold",
+              "model": "workshop-fighter",
+              "posture": "fours",
+              "servoSeconds": 0.1,
+              "speed": 10,
+              "activation": 1,
+              "held": "empty",
+              "controller": "direct",
+              "checkpointSeconds": 2,
+              "watchSeconds": 10,
+              "sampleHz": 120,
+              "id": "b426617e071ff5266b854c035694bba8eca3224ec88722879e81fa730bbdba1f",
+              "settings": {
+                "seconds": 10,
+                "tolerance": 0.02,
+                "effortTolerance": 0.0001,
+                "floor": {
+                  "centre": [
+                    0,
+                    -0.5,
+                    0
+                  ],
+                  "size": [
+                    20,
+                    1,
+                    20
+                  ]
+                }
+              },
+              "pose": {
+                "id": "fours",
+                "model": "workshop-fighter",
+                "source": {
+                  "path": "docs/reference/posture-limit-models.json",
+                  "engine": "rapier-coordinate",
+                  "row": "fours",
+                  "seed": 0
+                },
+                "placement": {
+                  "position": [
+                    0,
+                    0.26501273999221475,
+                    0
+                  ],
+                  "rotation": [
+                    0.6288612813550184,
+                    0,
+                    0,
+                    0.7775175167239156
+                  ],
+                  "joints": {
+                    "neck": [
+                      -0.3983012178094657,
+                      0,
+                      0
+                    ],
+                    "thoracic": [
+                      -0.006380570020799927,
+                      0,
+                      0
+                    ],
+                    "lumbar": [
+                      0.2375632084700492,
+                      0,
+                      0
+                    ],
+                    "shoulder.left": [
+                      1.1138090206172806,
+                      0.42936783689919267,
+                      -0.3579707789748904
+                    ],
+                    "elbow.left": [
+                      -0.13136497448167458
+                    ],
+                    "wrist.left": [
+                      -1.3392217196243485,
+                      0,
+                      0
+                    ],
+                    "hip.left": [
+                      1.378540714353551,
+                      0.11260254667004446,
+                      0.1513420399133224
+                    ],
+                    "knee.left": [
+                      1.9499168162478369
+                    ],
+                    "ankle.left": [
+                      0.3570589024706539,
+                      -0.3324852225049198
+                    ],
+                    "shoulder.right": [
+                      1.1138090206172806,
+                      0.42936783689919267,
+                      -0.3579707789748904
+                    ],
+                    "elbow.right": [
+                      -0.13136497448167458
+                    ],
+                    "wrist.right": [
+                      -1.3392217196243485,
+                      0,
+                      0
+                    ],
+                    "hip.right": [
+                      1.378540714353551,
+                      0.11260254667004446,
+                      0.1513420399133224
+                    ],
+                    "knee.right": [
+                      1.9499168162478369
+                    ],
+                    "ankle.right": [
+                      0.3570589024706539,
+                      -0.3324852225049198
+                    ]
+                  }
+                }
+              },
+              "engineRevision": "rapier/adapter-7/sha256:07af259dc277cac77daa9c95eaded0ed2bc8aeb5feac08bfd9e58d23e58feebd/coordinate-limits",
+              "gravity": true,
+              "pin": null,
+              "assists": {
+                "root": 0,
+                "weapon": false
+              },
+              "sensing": "detached body observations",
+              "modelAccess": "actuator descriptions"
+            },
+            "outcome": {
+              "steps": 1200,
+              "peakDrift": 0.05564392365575268,
+              "finalDrift": 0.05564392365575268,
+              "peakAngleError": 0.11388113635205302,
+              "peakEffort": 53.604798316955566,
+              "peakEffortViolation": 0.000017924891771770035,
+              "contactSteps": 1200,
+              "complete": true,
+              "success": false,
+              "replayExact": true,
+              "digest": "b5b2e688215b8101fa094a5b6c3cfcab1b171e9ae5a0ac33e6e5d4ed29bf728f",
+              "stateDigest": "a020927613ccf5f57b101c4668018d81b7acafd24f6012f8edea20562e71a2e3"
+            },
+            "physical": {
+              "assistForceIntegralNs": 0,
+              "assistMomentIntegralNms": 0
+            },
+            "timing": {
+              "meanStepMs": 0.7177588541666583,
+              "p95StepMs": 0.9370000000001255,
+              "p99StepMs": 1.3636000000001332
+            },
+            "limits": [
+              "installed empty-handed Warrior pose; no entry, recovery or disturbance",
+              "direct joint feedback without root or contact planning",
+              "maximum segment drift includes startup",
+              "fixed development witnesses; no held-out evaluation"
+            ]
+          }
+        },
+        {
+          "job": {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "workshop-rogue",
+            "posture": "fours",
+            "servoSeconds": 0.1,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "b9efec8cdbff8dee6fc5fb041c2f1bec9eda5da8da01f1255affcb8f4fbb77db"
+          },
+          "result": {
+            "status": "unsupported",
+            "reason": "no installed posture witness for this body"
+          }
+        },
+        {
+          "job": {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "workshop-rogue",
+            "posture": "half-kneel",
+            "servoSeconds": 0.03,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "be074a3b482a51988809ddefade452affba618724e6f343433f4a9d243f3c57b"
+          },
+          "result": {
+            "status": "unsupported",
+            "reason": "no installed posture witness for this body"
+          }
+        },
+        {
+          "job": {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "workshop-rogue",
+            "posture": "squat",
+            "servoSeconds": 0.1,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "c845d20ea3812a69a82fd9ce0c7b66923a3b1860eef530a887811fc37fa78099"
+          },
+          "result": {
+            "status": "unsupported",
+            "reason": "no installed posture witness for this body"
+          }
+        },
+        {
+          "job": {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "crypt-skeleton",
+            "posture": "fours",
+            "servoSeconds": 0.03,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "d01dd6f76b8928c381493d487f758ad226aecc5cd6dde41f2d8152dfab9db7c2"
+          },
+          "result": {
+            "status": "unsupported",
+            "reason": "no installed posture witness for this body"
+          }
+        },
+        {
+          "job": {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "crypt-skeleton",
+            "posture": "half-kneel",
+            "servoSeconds": 0.01,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "dae138053d0bb528f7e84c95bb4a8e7c02fc549e523f661df1901e6c1147258d"
+          },
+          "result": {
+            "status": "unsupported",
+            "reason": "no installed posture witness for this body"
+          }
+        },
+        {
+          "job": {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "crypt-skeleton",
+            "posture": "squat",
+            "servoSeconds": 0.1,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "f5cb4e69bfa233617698a34b71014f1b32b7fbe12593865116b2a6640731c083"
+          },
+          "result": {
+            "status": "unsupported",
+            "reason": "no installed posture witness for this body"
+          }
+        }
+      ]
+    },
+    {
+      "engine": "rapier-coordinate-coulomb",
+      "manifest": {
+        "protocol": 2,
+        "started": "2026-10-05T14:57:46.956Z",
+        "options": {
+          "suite": "posture-hold",
+          "split": "development",
+          "samples": 2,
+          "from": 0,
+          "hz": 120,
+          "actuation": "directional",
+          "support": "pinned",
+          "centreControl": false,
+          "continueSeconds": 1,
+          "shared": false,
+          "jointStops": false
+        },
+        "workers": 2,
+        "harness": "Node, core world, per-task arena/stand fixtures",
+        "node": "v24.19.0",
+        "engine": "rapier-coordinate-coulomb",
+        "engineRevision": "rapier/adapter-7/sha256:07af259dc277cac77daa9c95eaded0ed2bc8aeb5feac08bfd9e58d23e58feebd/coordinate-limits/point-friction",
+        "package": {
+          "version": "0.21.0-auto-rpg.6",
+          "resolved": "file:vendor/rapier/dimforge-rapier3d-simd-compat-0.21.0-auto-rpg.6.tgz",
+          "integrity": "sha512-s7G2mXQcXedR6BBxki1vym9EjoTTnzWmNxt2QWdxHogJ8RhC5T0EAWPWxNKsi7kqHzT1+T0UAXSHTgbyY6CUww==",
+          "entrySha256": "d0e9b190bd0ec74136918a4268a00b4a3cb3e19e28bc8ab5d2fb055af01a7054"
+        },
+        "source": {
+          "git": "afabc97c78861a7e80b5451fbdd06435eb1cde16",
+          "content": "a672d9adefe20e3e93358ba6209d5621403185ff3ccb57ce972b205c4264caf1",
+          "archive": "source.json.gz",
+          "archiveSha256": "51967a4d5301b0a1296ff07b58e495559b242acf47536e3c64bdb81d80cc9052"
+        },
+        "sensing": "detached body observations; actuator descriptions only",
+        "action": "independent joint-feedback actuator velocities; bounded directional muscles",
+        "policyPeriodSteps": 1,
+        "assists": {
+          "rootBalancePercent": 0,
+          "weapon": false
+        },
+        "unavailable": [
+          "integrated recovery/combat",
+          "opponent defense",
+          "actuator work",
+          "contact penetration"
+        ],
+        "jobs": [
+          {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "workshop-fighter",
+            "posture": "fours",
+            "servoSeconds": 0.1,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "b426617e071ff5266b854c035694bba8eca3224ec88722879e81fa730bbdba1f"
+          },
+          {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "workshop-fighter",
+            "posture": "fours",
+            "servoSeconds": 0.03,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "09d6c9b1feff5bc2e6fa5ed420c8efe5c34f23b1804cb2255d2bac1d5fbf4a99"
+          },
+          {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "workshop-fighter",
+            "posture": "fours",
+            "servoSeconds": 0.01,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "7a39beef0ce49b3804177c6dd4f7d70b730a3343e7c9140ad597f6d3daefb3c5"
+          },
+          {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "workshop-fighter",
+            "posture": "half-kneel",
+            "servoSeconds": 0.1,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "6e89e64b7f337b57b461a7f4f039ab62c17fb888ce22b08bafa7462ed662c84b"
+          },
+          {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "workshop-fighter",
+            "posture": "half-kneel",
+            "servoSeconds": 0.03,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "ac4a3b354b2737147d2192c9c062884325bd96888f870d41acabd14b29a23748"
+          },
+          {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "workshop-fighter",
+            "posture": "half-kneel",
+            "servoSeconds": 0.01,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "83b509e25701267aba23062235538c0fb1bc3cc334676f8d982c0d8f1b165955"
+          },
+          {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "workshop-fighter",
+            "posture": "squat",
+            "servoSeconds": 0.1,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "97c2282cebeb3ec14f1fa91eaa24e0dcbd705c07e6c0a7ce5ae0942068ee27f7"
+          },
+          {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "workshop-fighter",
+            "posture": "squat",
+            "servoSeconds": 0.03,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "10325ba540e2bf80c7f755c7a66dbcf610c5c293ee2165f3fe996bcb397f49d5"
+          },
+          {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "workshop-fighter",
+            "posture": "squat",
+            "servoSeconds": 0.01,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "3e9e051dd953369fe814ae1b945363c73c5c9d289ed7b1983ff89ce9ce6c182f"
+          },
+          {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "workshop-rogue",
+            "posture": "fours",
+            "servoSeconds": 0.1,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "b9efec8cdbff8dee6fc5fb041c2f1bec9eda5da8da01f1255affcb8f4fbb77db"
+          },
+          {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "workshop-rogue",
+            "posture": "fours",
+            "servoSeconds": 0.03,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "a98b7d873c69576753b6a15c5121fd59b96daf5014c641d7300e69ddbd0d39f8"
+          },
+          {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "workshop-rogue",
+            "posture": "fours",
+            "servoSeconds": 0.01,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "8d16cfb4e49b2717fe6141b70381a560305fcfaa0e5d281a8cfe388c65eedb62"
+          },
+          {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "workshop-rogue",
+            "posture": "half-kneel",
+            "servoSeconds": 0.1,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "4b93412e356673f50c9af16e00e0105a23d388be65de6cfa30b519c403aaeba8"
+          },
+          {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "workshop-rogue",
+            "posture": "half-kneel",
+            "servoSeconds": 0.03,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "be074a3b482a51988809ddefade452affba618724e6f343433f4a9d243f3c57b"
+          },
+          {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "workshop-rogue",
+            "posture": "half-kneel",
+            "servoSeconds": 0.01,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "037a89831683c2e32c9e785cee4ba4b0c19fdfc11ac854387549265e4a6bc5fe"
+          },
+          {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "workshop-rogue",
+            "posture": "squat",
+            "servoSeconds": 0.1,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "c845d20ea3812a69a82fd9ce0c7b66923a3b1860eef530a887811fc37fa78099"
+          },
+          {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "workshop-rogue",
+            "posture": "squat",
+            "servoSeconds": 0.03,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "8c6b465cf4ce4d3194e14bdc23e467311d9f279b5971ab17fc8fcda4b7fdaf2e"
+          },
+          {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "workshop-rogue",
+            "posture": "squat",
+            "servoSeconds": 0.01,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "5309b0a1016caa1fe0591881532c8577aa3b5a66feca7354eea5fdcf694e852d"
+          },
+          {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "crypt-skeleton",
+            "posture": "fours",
+            "servoSeconds": 0.1,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "56d7951bba64c9adc67d7ebfb095eeccd096b83b2791ecf8de789e2c742bd4f9"
+          },
+          {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "crypt-skeleton",
+            "posture": "fours",
+            "servoSeconds": 0.03,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "d01dd6f76b8928c381493d487f758ad226aecc5cd6dde41f2d8152dfab9db7c2"
+          },
+          {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "crypt-skeleton",
+            "posture": "fours",
+            "servoSeconds": 0.01,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "619b361ce2ab8e1efac265e460908c953f032ff84fd392532e9002579f33c666"
+          },
+          {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "crypt-skeleton",
+            "posture": "half-kneel",
+            "servoSeconds": 0.1,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "9150f2d75110e72b332a44d81d0c888fddb59b9b12b03ab607b1f2fc573c037e"
+          },
+          {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "crypt-skeleton",
+            "posture": "half-kneel",
+            "servoSeconds": 0.03,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "a60e64e514f7c18e8a5a8ec5f0a2e5509a63d4e198ffc1d160d80839af74d2a4"
+          },
+          {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "crypt-skeleton",
+            "posture": "half-kneel",
+            "servoSeconds": 0.01,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "dae138053d0bb528f7e84c95bb4a8e7c02fc549e523f661df1901e6c1147258d"
+          },
+          {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "crypt-skeleton",
+            "posture": "squat",
+            "servoSeconds": 0.1,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "f5cb4e69bfa233617698a34b71014f1b32b7fbe12593865116b2a6640731c083"
+          },
+          {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "crypt-skeleton",
+            "posture": "squat",
+            "servoSeconds": 0.03,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "27b367a8e3b41b588560c00bcbdaca3464a8adb100a8d9b55cf9b57c88f730dc"
+          },
+          {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "crypt-skeleton",
+            "posture": "squat",
+            "servoSeconds": 0.01,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "7928656787926982f79d0335d11095c82dafc27f86711c10cbff45d1cd20dca2"
+          }
+        ]
+      },
+      "rows": [
+        {
+          "job": {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "workshop-rogue",
+            "posture": "half-kneel",
+            "servoSeconds": 0.01,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "037a89831683c2e32c9e785cee4ba4b0c19fdfc11ac854387549265e4a6bc5fe"
+          },
+          "result": {
+            "status": "unsupported",
+            "reason": "no installed posture witness for this body"
+          }
+        },
+        {
+          "job": {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "workshop-fighter",
+            "posture": "fours",
+            "servoSeconds": 0.03,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "09d6c9b1feff5bc2e6fa5ed420c8efe5c34f23b1804cb2255d2bac1d5fbf4a99"
+          },
+          "result": {
+            "status": "measured",
+            "configuration": {
+              "protocol": 1,
+              "split": "development",
+              "hz": 120,
+              "actuation": "directional",
+              "task": "posture-hold",
+              "model": "workshop-fighter",
+              "posture": "fours",
+              "servoSeconds": 0.03,
+              "speed": 10,
+              "activation": 1,
+              "held": "empty",
+              "controller": "direct",
+              "checkpointSeconds": 2,
+              "watchSeconds": 10,
+              "sampleHz": 120,
+              "id": "09d6c9b1feff5bc2e6fa5ed420c8efe5c34f23b1804cb2255d2bac1d5fbf4a99",
+              "settings": {
+                "seconds": 10,
+                "tolerance": 0.02,
+                "effortTolerance": 0.0001,
+                "floor": {
+                  "centre": [
+                    0,
+                    -0.5,
+                    0
+                  ],
+                  "size": [
+                    20,
+                    1,
+                    20
+                  ]
+                }
+              },
+              "pose": {
+                "id": "fours",
+                "model": "workshop-fighter",
+                "source": {
+                  "path": "docs/reference/posture-limit-models.json",
+                  "engine": "rapier-coordinate",
+                  "row": "fours",
+                  "seed": 0
+                },
+                "placement": {
+                  "position": [
+                    0,
+                    0.26501273999221475,
+                    0
+                  ],
+                  "rotation": [
+                    0.6288612813550184,
+                    0,
+                    0,
+                    0.7775175167239156
+                  ],
+                  "joints": {
+                    "neck": [
+                      -0.3983012178094657,
+                      0,
+                      0
+                    ],
+                    "thoracic": [
+                      -0.006380570020799927,
+                      0,
+                      0
+                    ],
+                    "lumbar": [
+                      0.2375632084700492,
+                      0,
+                      0
+                    ],
+                    "shoulder.left": [
+                      1.1138090206172806,
+                      0.42936783689919267,
+                      -0.3579707789748904
+                    ],
+                    "elbow.left": [
+                      -0.13136497448167458
+                    ],
+                    "wrist.left": [
+                      -1.3392217196243485,
+                      0,
+                      0
+                    ],
+                    "hip.left": [
+                      1.378540714353551,
+                      0.11260254667004446,
+                      0.1513420399133224
+                    ],
+                    "knee.left": [
+                      1.9499168162478369
+                    ],
+                    "ankle.left": [
+                      0.3570589024706539,
+                      -0.3324852225049198
+                    ],
+                    "shoulder.right": [
+                      1.1138090206172806,
+                      0.42936783689919267,
+                      -0.3579707789748904
+                    ],
+                    "elbow.right": [
+                      -0.13136497448167458
+                    ],
+                    "wrist.right": [
+                      -1.3392217196243485,
+                      0,
+                      0
+                    ],
+                    "hip.right": [
+                      1.378540714353551,
+                      0.11260254667004446,
+                      0.1513420399133224
+                    ],
+                    "knee.right": [
+                      1.9499168162478369
+                    ],
+                    "ankle.right": [
+                      0.3570589024706539,
+                      -0.3324852225049198
+                    ]
+                  }
+                }
+              },
+              "engineRevision": "rapier/adapter-7/sha256:07af259dc277cac77daa9c95eaded0ed2bc8aeb5feac08bfd9e58d23e58feebd/coordinate-limits/point-friction",
+              "gravity": true,
+              "pin": null,
+              "assists": {
+                "root": 0,
+                "weapon": false
+              },
+              "sensing": "detached body observations",
+              "modelAccess": "actuator descriptions"
+            },
+            "outcome": {
+              "steps": 1200,
+              "peakDrift": 0.02265419658368783,
+              "finalDrift": 0.02265419658368783,
+              "peakAngleError": 0.04105219288889539,
+              "peakEffort": 53.66854190826416,
+              "peakEffortViolation": 0.000017864233043951572,
+              "contactSteps": 1200,
+              "complete": true,
+              "success": false,
+              "replayExact": true,
+              "digest": "0b5b68c3758a2c0375c708b3e786bba0c698cad5836ace42bcf708bab56d763a",
+              "stateDigest": "fc14956091c79317d5362d49944e9353dbd38566583d30b120b7be7dbfe8a632"
+            },
+            "physical": {
+              "assistForceIntegralNs": 0,
+              "assistMomentIntegralNms": 0
+            },
+            "timing": {
+              "meanStepMs": 0.6972214583333326,
+              "p95StepMs": 0.864699999999857,
+              "p99StepMs": 1.2012999999999465
+            },
+            "limits": [
+              "installed empty-handed Warrior pose; no entry, recovery or disturbance",
+              "direct joint feedback without root or contact planning",
+              "maximum segment drift includes startup",
+              "fixed development witnesses; no held-out evaluation"
+            ]
+          }
+        },
+        {
+          "job": {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "workshop-fighter",
+            "posture": "squat",
+            "servoSeconds": 0.03,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "10325ba540e2bf80c7f755c7a66dbcf610c5c293ee2165f3fe996bcb397f49d5"
+          },
+          "result": {
+            "status": "measured",
+            "configuration": {
+              "protocol": 1,
+              "split": "development",
+              "hz": 120,
+              "actuation": "directional",
+              "task": "posture-hold",
+              "model": "workshop-fighter",
+              "posture": "squat",
+              "servoSeconds": 0.03,
+              "speed": 10,
+              "activation": 1,
+              "held": "empty",
+              "controller": "direct",
+              "checkpointSeconds": 2,
+              "watchSeconds": 10,
+              "sampleHz": 120,
+              "id": "10325ba540e2bf80c7f755c7a66dbcf610c5c293ee2165f3fe996bcb397f49d5",
+              "settings": {
+                "seconds": 10,
+                "tolerance": 0.02,
+                "effortTolerance": 0.0001,
+                "floor": {
+                  "centre": [
+                    0,
+                    -0.5,
+                    0
+                  ],
+                  "size": [
+                    20,
+                    1,
+                    20
+                  ]
+                }
+              },
+              "pose": {
+                "id": "squat",
+                "model": "workshop-fighter",
+                "source": {
+                  "path": "docs/reference/posture-limit-models.json",
+                  "engine": "rapier-coordinate",
+                  "row": "squat",
+                  "seed": 0
+                },
+                "placement": {
+                  "position": [
+                    0,
+                    -0.6282199436303666,
+                    0
+                  ],
+                  "rotation": [
+                    -0.1600832049388644,
+                    0,
+                    0,
+                    0.9871035242042759
+                  ],
+                  "joints": {
+                    "neck": [
+                      0.06563508160141328,
+                      0,
+                      0
+                    ],
+                    "thoracic": [
+                      0.36826447217080355,
+                      0,
+                      0
+                    ],
+                    "lumbar": [
+                      0.31345480982706697,
+                      0,
+                      0
+                    ],
+                    "shoulder.left": [
+                      0.29316848574210763,
+                      2.4189860451350045,
+                      -0.3647347293506349
+                    ],
+                    "elbow.left": [
+                      0.4597174927364504
+                    ],
+                    "wrist.left": [
+                      -0.0021592383893336044,
+                      0,
+                      0
+                    ],
+                    "hip.left": [
+                      1.451330129778294,
+                      0.46596862474520234,
+                      0.6475171524898963
+                    ],
+                    "knee.left": [
+                      2.236847742064474
+                    ],
+                    "ankle.left": [
+                      0.3570589024706539,
+                      0.6031857894892403
+                    ],
+                    "shoulder.right": [
+                      0.29316848574210763,
+                      2.4189860451350045,
+                      -0.3647347293506349
+                    ],
+                    "elbow.right": [
+                      0.4597174927364504
+                    ],
+                    "wrist.right": [
+                      -0.0021592383893336044,
+                      0,
+                      0
+                    ],
+                    "hip.right": [
+                      1.451330129778294,
+                      0.46596862474520234,
+                      0.6475171524898963
+                    ],
+                    "knee.right": [
+                      2.236847742064474
+                    ],
+                    "ankle.right": [
+                      0.3570589024706539,
+                      0.6031857894892403
+                    ]
+                  }
+                }
+              },
+              "engineRevision": "rapier/adapter-7/sha256:07af259dc277cac77daa9c95eaded0ed2bc8aeb5feac08bfd9e58d23e58feebd/coordinate-limits/point-friction",
+              "gravity": true,
+              "pin": null,
+              "assists": {
+                "root": 0,
+                "weapon": false
+              },
+              "sensing": "detached body observations",
+              "modelAccess": "actuator descriptions"
+            },
+            "outcome": {
+              "steps": 1200,
+              "peakDrift": 1.6736275506904341,
+              "finalDrift": 1.357065819421747,
+              "peakAngleError": 0.485638968017445,
+              "peakEffort": 206.89218521118164,
+              "peakEffortViolation": 0.000039584643204193526,
+              "contactSteps": 1194,
+              "complete": true,
+              "success": false,
+              "replayExact": true,
+              "digest": "b94baf563fea85f9fd4439f8391d88fb8a289586af43ea5a03b6d54897153bd1",
+              "stateDigest": "0874f10b62036472176090e1328b0cd466495402b80254393ee76711b9b78af6"
+            },
+            "physical": {
+              "assistForceIntegralNs": 0,
+              "assistMomentIntegralNms": 0
+            },
+            "timing": {
+              "meanStepMs": 0.7028214583333275,
+              "p95StepMs": 0.7273999999997613,
+              "p99StepMs": 1.1048000000000684
+            },
+            "limits": [
+              "installed empty-handed Warrior pose; no entry, recovery or disturbance",
+              "direct joint feedback without root or contact planning",
+              "maximum segment drift includes startup",
+              "fixed development witnesses; no held-out evaluation"
+            ]
+          }
+        },
+        {
+          "job": {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "crypt-skeleton",
+            "posture": "squat",
+            "servoSeconds": 0.03,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "27b367a8e3b41b588560c00bcbdaca3464a8adb100a8d9b55cf9b57c88f730dc"
+          },
+          "result": {
+            "status": "unsupported",
+            "reason": "no installed posture witness for this body"
+          }
+        },
+        {
+          "job": {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "workshop-fighter",
+            "posture": "squat",
+            "servoSeconds": 0.01,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "3e9e051dd953369fe814ae1b945363c73c5c9d289ed7b1983ff89ce9ce6c182f"
+          },
+          "result": {
+            "status": "measured",
+            "configuration": {
+              "protocol": 1,
+              "split": "development",
+              "hz": 120,
+              "actuation": "directional",
+              "task": "posture-hold",
+              "model": "workshop-fighter",
+              "posture": "squat",
+              "servoSeconds": 0.01,
+              "speed": 10,
+              "activation": 1,
+              "held": "empty",
+              "controller": "direct",
+              "checkpointSeconds": 2,
+              "watchSeconds": 10,
+              "sampleHz": 120,
+              "id": "3e9e051dd953369fe814ae1b945363c73c5c9d289ed7b1983ff89ce9ce6c182f",
+              "settings": {
+                "seconds": 10,
+                "tolerance": 0.02,
+                "effortTolerance": 0.0001,
+                "floor": {
+                  "centre": [
+                    0,
+                    -0.5,
+                    0
+                  ],
+                  "size": [
+                    20,
+                    1,
+                    20
+                  ]
+                }
+              },
+              "pose": {
+                "id": "squat",
+                "model": "workshop-fighter",
+                "source": {
+                  "path": "docs/reference/posture-limit-models.json",
+                  "engine": "rapier-coordinate",
+                  "row": "squat",
+                  "seed": 0
+                },
+                "placement": {
+                  "position": [
+                    0,
+                    -0.6282199436303666,
+                    0
+                  ],
+                  "rotation": [
+                    -0.1600832049388644,
+                    0,
+                    0,
+                    0.9871035242042759
+                  ],
+                  "joints": {
+                    "neck": [
+                      0.06563508160141328,
+                      0,
+                      0
+                    ],
+                    "thoracic": [
+                      0.36826447217080355,
+                      0,
+                      0
+                    ],
+                    "lumbar": [
+                      0.31345480982706697,
+                      0,
+                      0
+                    ],
+                    "shoulder.left": [
+                      0.29316848574210763,
+                      2.4189860451350045,
+                      -0.3647347293506349
+                    ],
+                    "elbow.left": [
+                      0.4597174927364504
+                    ],
+                    "wrist.left": [
+                      -0.0021592383893336044,
+                      0,
+                      0
+                    ],
+                    "hip.left": [
+                      1.451330129778294,
+                      0.46596862474520234,
+                      0.6475171524898963
+                    ],
+                    "knee.left": [
+                      2.236847742064474
+                    ],
+                    "ankle.left": [
+                      0.3570589024706539,
+                      0.6031857894892403
+                    ],
+                    "shoulder.right": [
+                      0.29316848574210763,
+                      2.4189860451350045,
+                      -0.3647347293506349
+                    ],
+                    "elbow.right": [
+                      0.4597174927364504
+                    ],
+                    "wrist.right": [
+                      -0.0021592383893336044,
+                      0,
+                      0
+                    ],
+                    "hip.right": [
+                      1.451330129778294,
+                      0.46596862474520234,
+                      0.6475171524898963
+                    ],
+                    "knee.right": [
+                      2.236847742064474
+                    ],
+                    "ankle.right": [
+                      0.3570589024706539,
+                      0.6031857894892403
+                    ]
+                  }
+                }
+              },
+              "engineRevision": "rapier/adapter-7/sha256:07af259dc277cac77daa9c95eaded0ed2bc8aeb5feac08bfd9e58d23e58feebd/coordinate-limits/point-friction",
+              "gravity": true,
+              "pin": null,
+              "assists": {
+                "root": 0,
+                "weapon": false
+              },
+              "sensing": "detached body observations",
+              "modelAccess": "actuator descriptions"
+            },
+            "outcome": {
+              "steps": 1200,
+              "peakDrift": 1.6790420488575735,
+              "finalDrift": 1.3211892527166795,
+              "peakAngleError": 1.2544825586154158,
+              "peakEffort": 184.5646333694458,
+              "peakEffortViolation": 0.00004365577905218743,
+              "contactSteps": 1136,
+              "complete": true,
+              "success": false,
+              "replayExact": true,
+              "digest": "8d96bfe85e0443d022d559cc1f868408a4e164b097a4d48fa6664a0434340ab5",
+              "stateDigest": "96e680a4c619b56a8b1a9758c767e3dfc69a342e04dcf763cbcf2becce6d3998"
+            },
+            "physical": {
+              "assistForceIntegralNs": 0,
+              "assistMomentIntegralNms": 0
+            },
+            "timing": {
+              "meanStepMs": 0.6995749999999741,
+              "p95StepMs": 0.7350000000005821,
+              "p99StepMs": 0.9678000000003522
+            },
+            "limits": [
+              "installed empty-handed Warrior pose; no entry, recovery or disturbance",
+              "direct joint feedback without root or contact planning",
+              "maximum segment drift includes startup",
+              "fixed development witnesses; no held-out evaluation"
+            ]
+          }
+        },
+        {
+          "job": {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "workshop-rogue",
+            "posture": "half-kneel",
+            "servoSeconds": 0.1,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "4b93412e356673f50c9af16e00e0105a23d388be65de6cfa30b519c403aaeba8"
+          },
+          "result": {
+            "status": "unsupported",
+            "reason": "no installed posture witness for this body"
+          }
+        },
+        {
+          "job": {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "workshop-rogue",
+            "posture": "squat",
+            "servoSeconds": 0.01,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "5309b0a1016caa1fe0591881532c8577aa3b5a66feca7354eea5fdcf694e852d"
+          },
+          "result": {
+            "status": "unsupported",
+            "reason": "no installed posture witness for this body"
+          }
+        },
+        {
+          "job": {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "crypt-skeleton",
+            "posture": "fours",
+            "servoSeconds": 0.1,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "56d7951bba64c9adc67d7ebfb095eeccd096b83b2791ecf8de789e2c742bd4f9"
+          },
+          "result": {
+            "status": "unsupported",
+            "reason": "no installed posture witness for this body"
+          }
+        },
+        {
+          "job": {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "crypt-skeleton",
+            "posture": "fours",
+            "servoSeconds": 0.01,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "619b361ce2ab8e1efac265e460908c953f032ff84fd392532e9002579f33c666"
+          },
+          "result": {
+            "status": "unsupported",
+            "reason": "no installed posture witness for this body"
+          }
+        },
+        {
+          "job": {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "workshop-fighter",
+            "posture": "half-kneel",
+            "servoSeconds": 0.1,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "6e89e64b7f337b57b461a7f4f039ab62c17fb888ce22b08bafa7462ed662c84b"
+          },
+          "result": {
+            "status": "measured",
+            "configuration": {
+              "protocol": 1,
+              "split": "development",
+              "hz": 120,
+              "actuation": "directional",
+              "task": "posture-hold",
+              "model": "workshop-fighter",
+              "posture": "half-kneel",
+              "servoSeconds": 0.1,
+              "speed": 10,
+              "activation": 1,
+              "held": "empty",
+              "controller": "direct",
+              "checkpointSeconds": 2,
+              "watchSeconds": 10,
+              "sampleHz": 120,
+              "id": "6e89e64b7f337b57b461a7f4f039ab62c17fb888ce22b08bafa7462ed662c84b",
+              "settings": {
+                "seconds": 10,
+                "tolerance": 0.02,
+                "effortTolerance": 0.0001,
+                "floor": {
+                  "centre": [
+                    0,
+                    -0.5,
+                    0
+                  ],
+                  "size": [
+                    20,
+                    1,
+                    20
+                  ]
+                }
+              },
+              "pose": {
+                "id": "half-kneel",
+                "model": "workshop-fighter",
+                "source": {
+                  "path": "docs/reference/posture-limit-models.json",
+                  "engine": "rapier-coordinate",
+                  "row": "half kneel, knee light",
+                  "seed": 0
+                },
+                "placement": {
+                  "position": [
+                    0,
+                    -0.5083299162806462,
+                    0
+                  ],
+                  "rotation": [
+                    -0.06344261501665374,
+                    -0.006224969005521192,
+                    -0.0974521254827538,
+                    0.9931965402676465
+                  ],
+                  "joints": {
+                    "neck": [
+                      0.15886281043698913,
+                      -0.07192130790122486,
+                      0.1420647835872304
+                    ],
+                    "thoracic": [
+                      0.14442904434853965,
+                      0.02289836683277252,
+                      -0.028025699607443444
+                    ],
+                    "lumbar": [
+                      0.24280202714078308,
+                      -0.00023451133222701648,
+                      -0.03622245234170641
+                    ],
+                    "shoulder.left": [
+                      -0.4989467077553128,
+                      0.24294339166122847,
+                      0.30583665148092765
+                    ],
+                    "elbow.left": [
+                      -0.7297754374497443
+                    ],
+                    "wrist.left": [
+                      0.5238878454677958,
+                      0,
+                      0
+                    ],
+                    "hip.left": [
+                      1.558956439294817,
+                      -0.25900612740600204,
+                      -0.008829799591627857
+                    ],
+                    "knee.left": [
+                      1.6762221745138046
+                    ],
+                    "ankle.left": [
+                      0.018399752000592094,
+                      0.08305144576678256
+                    ],
+                    "shoulder.right": [
+                      -0.9066782753360586,
+                      0.07593081830788895,
+                      0.5813171541950992
+                    ],
+                    "elbow.right": [
+                      -0.3693064038468303
+                    ],
+                    "wrist.right": [
+                      -0.44515033255008474,
+                      0,
+                      0
+                    ],
+                    "hip.right": [
+                      0.38305371293614543,
+                      0.004551865064557218,
+                      0.13223557493693486
+                    ],
+                    "knee.right": [
+                      2.4574188591217414
+                    ],
+                    "ankle.right": [
+                      0.3570589024706539,
+                      0.10871784657073817
+                    ]
+                  }
+                }
+              },
+              "engineRevision": "rapier/adapter-7/sha256:07af259dc277cac77daa9c95eaded0ed2bc8aeb5feac08bfd9e58d23e58feebd/coordinate-limits/point-friction",
+              "gravity": true,
+              "pin": null,
+              "assists": {
+                "root": 0,
+                "weapon": false
+              },
+              "sensing": "detached body observations",
+              "modelAccess": "actuator descriptions"
+            },
+            "outcome": {
+              "steps": 1200,
+              "peakDrift": 0.10057794817847487,
+              "finalDrift": 0.10057794817847487,
+              "peakAngleError": 0.09541944773147132,
+              "peakEffort": 83.03418159484863,
+              "peakEffortViolation": 0,
+              "contactSteps": 1200,
+              "complete": true,
+              "success": false,
+              "replayExact": true,
+              "digest": "268b76f3e7afa9781ef1fb064cba37c31b69390837f31d34b02a786eca1d76b3",
+              "stateDigest": "656dcae42e1ffc638ac8e3f9c721f34f7156e5b2cacf00c4eeb3ece13305854a"
+            },
+            "physical": {
+              "assistForceIntegralNs": 0,
+              "assistMomentIntegralNms": 0
+            },
+            "timing": {
+              "meanStepMs": 0.6471452083333323,
+              "p95StepMs": 0.7130999999999403,
+              "p99StepMs": 0.9512000000004264
+            },
+            "limits": [
+              "installed empty-handed Warrior pose; no entry, recovery or disturbance",
+              "direct joint feedback without root or contact planning",
+              "maximum segment drift includes startup",
+              "fixed development witnesses; no held-out evaluation"
+            ]
+          }
+        },
+        {
+          "job": {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "crypt-skeleton",
+            "posture": "squat",
+            "servoSeconds": 0.01,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "7928656787926982f79d0335d11095c82dafc27f86711c10cbff45d1cd20dca2"
+          },
+          "result": {
+            "status": "unsupported",
+            "reason": "no installed posture witness for this body"
+          }
+        },
+        {
+          "job": {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "workshop-fighter",
+            "posture": "fours",
+            "servoSeconds": 0.01,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "7a39beef0ce49b3804177c6dd4f7d70b730a3343e7c9140ad597f6d3daefb3c5"
+          },
+          "result": {
+            "status": "measured",
+            "configuration": {
+              "protocol": 1,
+              "split": "development",
+              "hz": 120,
+              "actuation": "directional",
+              "task": "posture-hold",
+              "model": "workshop-fighter",
+              "posture": "fours",
+              "servoSeconds": 0.01,
+              "speed": 10,
+              "activation": 1,
+              "held": "empty",
+              "controller": "direct",
+              "checkpointSeconds": 2,
+              "watchSeconds": 10,
+              "sampleHz": 120,
+              "id": "7a39beef0ce49b3804177c6dd4f7d70b730a3343e7c9140ad597f6d3daefb3c5",
+              "settings": {
+                "seconds": 10,
+                "tolerance": 0.02,
+                "effortTolerance": 0.0001,
+                "floor": {
+                  "centre": [
+                    0,
+                    -0.5,
+                    0
+                  ],
+                  "size": [
+                    20,
+                    1,
+                    20
+                  ]
+                }
+              },
+              "pose": {
+                "id": "fours",
+                "model": "workshop-fighter",
+                "source": {
+                  "path": "docs/reference/posture-limit-models.json",
+                  "engine": "rapier-coordinate",
+                  "row": "fours",
+                  "seed": 0
+                },
+                "placement": {
+                  "position": [
+                    0,
+                    0.26501273999221475,
+                    0
+                  ],
+                  "rotation": [
+                    0.6288612813550184,
+                    0,
+                    0,
+                    0.7775175167239156
+                  ],
+                  "joints": {
+                    "neck": [
+                      -0.3983012178094657,
+                      0,
+                      0
+                    ],
+                    "thoracic": [
+                      -0.006380570020799927,
+                      0,
+                      0
+                    ],
+                    "lumbar": [
+                      0.2375632084700492,
+                      0,
+                      0
+                    ],
+                    "shoulder.left": [
+                      1.1138090206172806,
+                      0.42936783689919267,
+                      -0.3579707789748904
+                    ],
+                    "elbow.left": [
+                      -0.13136497448167458
+                    ],
+                    "wrist.left": [
+                      -1.3392217196243485,
+                      0,
+                      0
+                    ],
+                    "hip.left": [
+                      1.378540714353551,
+                      0.11260254667004446,
+                      0.1513420399133224
+                    ],
+                    "knee.left": [
+                      1.9499168162478369
+                    ],
+                    "ankle.left": [
+                      0.3570589024706539,
+                      -0.3324852225049198
+                    ],
+                    "shoulder.right": [
+                      1.1138090206172806,
+                      0.42936783689919267,
+                      -0.3579707789748904
+                    ],
+                    "elbow.right": [
+                      -0.13136497448167458
+                    ],
+                    "wrist.right": [
+                      -1.3392217196243485,
+                      0,
+                      0
+                    ],
+                    "hip.right": [
+                      1.378540714353551,
+                      0.11260254667004446,
+                      0.1513420399133224
+                    ],
+                    "knee.right": [
+                      1.9499168162478369
+                    ],
+                    "ankle.right": [
+                      0.3570589024706539,
+                      -0.3324852225049198
+                    ]
+                  }
+                }
+              },
+              "engineRevision": "rapier/adapter-7/sha256:07af259dc277cac77daa9c95eaded0ed2bc8aeb5feac08bfd9e58d23e58feebd/coordinate-limits/point-friction",
+              "gravity": true,
+              "pin": null,
+              "assists": {
+                "root": 0,
+                "weapon": false
+              },
+              "sensing": "detached body observations",
+              "modelAccess": "actuator descriptions"
+            },
+            "outcome": {
+              "steps": 1200,
+              "peakDrift": 0.015454903634809853,
+              "finalDrift": 0.015454903634809853,
+              "peakAngleError": 0.01653262980098802,
+              "peakEffort": 51.22232794761658,
+              "peakEffortViolation": 0,
+              "contactSteps": 1200,
+              "complete": true,
+              "success": true,
+              "replayExact": true,
+              "digest": "b8942a1226c8851f89692635775b20f3462f213bc05cc489c44e283dd084eff6",
+              "stateDigest": "53d13a2fbb068e1273a1312fb33f8a3aa2f0f67ab9efb0b71a122e5b8e7b5804"
+            },
+            "physical": {
+              "assistForceIntegralNs": 0,
+              "assistMomentIntegralNms": 0
+            },
+            "timing": {
+              "meanStepMs": 0.6677064583333215,
+              "p95StepMs": 0.7207000000003063,
+              "p99StepMs": 1.0138999999999214
+            },
+            "limits": [
+              "installed empty-handed Warrior pose; no entry, recovery or disturbance",
+              "direct joint feedback without root or contact planning",
+              "maximum segment drift includes startup",
+              "fixed development witnesses; no held-out evaluation"
+            ]
+          }
+        },
+        {
+          "job": {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "workshop-fighter",
+            "posture": "half-kneel",
+            "servoSeconds": 0.01,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "83b509e25701267aba23062235538c0fb1bc3cc334676f8d982c0d8f1b165955"
+          },
+          "result": {
+            "status": "measured",
+            "configuration": {
+              "protocol": 1,
+              "split": "development",
+              "hz": 120,
+              "actuation": "directional",
+              "task": "posture-hold",
+              "model": "workshop-fighter",
+              "posture": "half-kneel",
+              "servoSeconds": 0.01,
+              "speed": 10,
+              "activation": 1,
+              "held": "empty",
+              "controller": "direct",
+              "checkpointSeconds": 2,
+              "watchSeconds": 10,
+              "sampleHz": 120,
+              "id": "83b509e25701267aba23062235538c0fb1bc3cc334676f8d982c0d8f1b165955",
+              "settings": {
+                "seconds": 10,
+                "tolerance": 0.02,
+                "effortTolerance": 0.0001,
+                "floor": {
+                  "centre": [
+                    0,
+                    -0.5,
+                    0
+                  ],
+                  "size": [
+                    20,
+                    1,
+                    20
+                  ]
+                }
+              },
+              "pose": {
+                "id": "half-kneel",
+                "model": "workshop-fighter",
+                "source": {
+                  "path": "docs/reference/posture-limit-models.json",
+                  "engine": "rapier-coordinate",
+                  "row": "half kneel, knee light",
+                  "seed": 0
+                },
+                "placement": {
+                  "position": [
+                    0,
+                    -0.5083299162806462,
+                    0
+                  ],
+                  "rotation": [
+                    -0.06344261501665374,
+                    -0.006224969005521192,
+                    -0.0974521254827538,
+                    0.9931965402676465
+                  ],
+                  "joints": {
+                    "neck": [
+                      0.15886281043698913,
+                      -0.07192130790122486,
+                      0.1420647835872304
+                    ],
+                    "thoracic": [
+                      0.14442904434853965,
+                      0.02289836683277252,
+                      -0.028025699607443444
+                    ],
+                    "lumbar": [
+                      0.24280202714078308,
+                      -0.00023451133222701648,
+                      -0.03622245234170641
+                    ],
+                    "shoulder.left": [
+                      -0.4989467077553128,
+                      0.24294339166122847,
+                      0.30583665148092765
+                    ],
+                    "elbow.left": [
+                      -0.7297754374497443
+                    ],
+                    "wrist.left": [
+                      0.5238878454677958,
+                      0,
+                      0
+                    ],
+                    "hip.left": [
+                      1.558956439294817,
+                      -0.25900612740600204,
+                      -0.008829799591627857
+                    ],
+                    "knee.left": [
+                      1.6762221745138046
+                    ],
+                    "ankle.left": [
+                      0.018399752000592094,
+                      0.08305144576678256
+                    ],
+                    "shoulder.right": [
+                      -0.9066782753360586,
+                      0.07593081830788895,
+                      0.5813171541950992
+                    ],
+                    "elbow.right": [
+                      -0.3693064038468303
+                    ],
+                    "wrist.right": [
+                      -0.44515033255008474,
+                      0,
+                      0
+                    ],
+                    "hip.right": [
+                      0.38305371293614543,
+                      0.004551865064557218,
+                      0.13223557493693486
+                    ],
+                    "knee.right": [
+                      2.4574188591217414
+                    ],
+                    "ankle.right": [
+                      0.3570589024706539,
+                      0.10871784657073817
+                    ]
+                  }
+                }
+              },
+              "engineRevision": "rapier/adapter-7/sha256:07af259dc277cac77daa9c95eaded0ed2bc8aeb5feac08bfd9e58d23e58feebd/coordinate-limits/point-friction",
+              "gravity": true,
+              "pin": null,
+              "assists": {
+                "root": 0,
+                "weapon": false
+              },
+              "sensing": "detached body observations",
+              "modelAccess": "actuator descriptions"
+            },
+            "outcome": {
+              "steps": 1200,
+              "peakDrift": 0.1270722896087563,
+              "finalDrift": 0.1270722896087563,
+              "peakAngleError": 0.010209165603662418,
+              "peakEffort": 114.09274578094482,
+              "peakEffortViolation": 0.000007385288490979747,
+              "contactSteps": 1200,
+              "complete": true,
+              "success": false,
+              "replayExact": true,
+              "digest": "1ba4d0c2dde9cbe273108be6fb8487f9fa97bc183dc5d78c85577570cc8d6ecc",
+              "stateDigest": "2070c94fccc15e19e341f6a166c18b8089ff7a41c07e923b7b2cdee182c09e73"
+            },
+            "physical": {
+              "assistForceIntegralNs": 0,
+              "assistMomentIntegralNms": 0
+            },
+            "timing": {
+              "meanStepMs": 0.6335433333333166,
+              "p95StepMs": 0.6596999999992477,
+              "p99StepMs": 0.9634999999998399
+            },
+            "limits": [
+              "installed empty-handed Warrior pose; no entry, recovery or disturbance",
+              "direct joint feedback without root or contact planning",
+              "maximum segment drift includes startup",
+              "fixed development witnesses; no held-out evaluation"
+            ]
+          }
+        },
+        {
+          "job": {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "workshop-rogue",
+            "posture": "squat",
+            "servoSeconds": 0.03,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "8c6b465cf4ce4d3194e14bdc23e467311d9f279b5971ab17fc8fcda4b7fdaf2e"
+          },
+          "result": {
+            "status": "unsupported",
+            "reason": "no installed posture witness for this body"
+          }
+        },
+        {
+          "job": {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "workshop-rogue",
+            "posture": "fours",
+            "servoSeconds": 0.01,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "8d16cfb4e49b2717fe6141b70381a560305fcfaa0e5d281a8cfe388c65eedb62"
+          },
+          "result": {
+            "status": "unsupported",
+            "reason": "no installed posture witness for this body"
+          }
+        },
+        {
+          "job": {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "crypt-skeleton",
+            "posture": "half-kneel",
+            "servoSeconds": 0.1,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "9150f2d75110e72b332a44d81d0c888fddb59b9b12b03ab607b1f2fc573c037e"
+          },
+          "result": {
+            "status": "unsupported",
+            "reason": "no installed posture witness for this body"
+          }
+        },
+        {
+          "job": {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "workshop-fighter",
+            "posture": "squat",
+            "servoSeconds": 0.1,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "97c2282cebeb3ec14f1fa91eaa24e0dcbd705c07e6c0a7ce5ae0942068ee27f7"
+          },
+          "result": {
+            "status": "measured",
+            "configuration": {
+              "protocol": 1,
+              "split": "development",
+              "hz": 120,
+              "actuation": "directional",
+              "task": "posture-hold",
+              "model": "workshop-fighter",
+              "posture": "squat",
+              "servoSeconds": 0.1,
+              "speed": 10,
+              "activation": 1,
+              "held": "empty",
+              "controller": "direct",
+              "checkpointSeconds": 2,
+              "watchSeconds": 10,
+              "sampleHz": 120,
+              "id": "97c2282cebeb3ec14f1fa91eaa24e0dcbd705c07e6c0a7ce5ae0942068ee27f7",
+              "settings": {
+                "seconds": 10,
+                "tolerance": 0.02,
+                "effortTolerance": 0.0001,
+                "floor": {
+                  "centre": [
+                    0,
+                    -0.5,
+                    0
+                  ],
+                  "size": [
+                    20,
+                    1,
+                    20
+                  ]
+                }
+              },
+              "pose": {
+                "id": "squat",
+                "model": "workshop-fighter",
+                "source": {
+                  "path": "docs/reference/posture-limit-models.json",
+                  "engine": "rapier-coordinate",
+                  "row": "squat",
+                  "seed": 0
+                },
+                "placement": {
+                  "position": [
+                    0,
+                    -0.6282199436303666,
+                    0
+                  ],
+                  "rotation": [
+                    -0.1600832049388644,
+                    0,
+                    0,
+                    0.9871035242042759
+                  ],
+                  "joints": {
+                    "neck": [
+                      0.06563508160141328,
+                      0,
+                      0
+                    ],
+                    "thoracic": [
+                      0.36826447217080355,
+                      0,
+                      0
+                    ],
+                    "lumbar": [
+                      0.31345480982706697,
+                      0,
+                      0
+                    ],
+                    "shoulder.left": [
+                      0.29316848574210763,
+                      2.4189860451350045,
+                      -0.3647347293506349
+                    ],
+                    "elbow.left": [
+                      0.4597174927364504
+                    ],
+                    "wrist.left": [
+                      -0.0021592383893336044,
+                      0,
+                      0
+                    ],
+                    "hip.left": [
+                      1.451330129778294,
+                      0.46596862474520234,
+                      0.6475171524898963
+                    ],
+                    "knee.left": [
+                      2.236847742064474
+                    ],
+                    "ankle.left": [
+                      0.3570589024706539,
+                      0.6031857894892403
+                    ],
+                    "shoulder.right": [
+                      0.29316848574210763,
+                      2.4189860451350045,
+                      -0.3647347293506349
+                    ],
+                    "elbow.right": [
+                      0.4597174927364504
+                    ],
+                    "wrist.right": [
+                      -0.0021592383893336044,
+                      0,
+                      0
+                    ],
+                    "hip.right": [
+                      1.451330129778294,
+                      0.46596862474520234,
+                      0.6475171524898963
+                    ],
+                    "knee.right": [
+                      2.236847742064474
+                    ],
+                    "ankle.right": [
+                      0.3570589024706539,
+                      0.6031857894892403
+                    ]
+                  }
+                }
+              },
+              "engineRevision": "rapier/adapter-7/sha256:07af259dc277cac77daa9c95eaded0ed2bc8aeb5feac08bfd9e58d23e58feebd/coordinate-limits/point-friction",
+              "gravity": true,
+              "pin": null,
+              "assists": {
+                "root": 0,
+                "weapon": false
+              },
+              "sensing": "detached body observations",
+              "modelAccess": "actuator descriptions"
+            },
+            "outcome": {
+              "steps": 1200,
+              "peakDrift": 1.6815002843604112,
+              "finalDrift": 1.3301727931460638,
+              "peakAngleError": 0.5112153484213625,
+              "peakEffort": 203.03858757019043,
+              "peakEffortViolation": 0.00004089161396336749,
+              "contactSteps": 1198,
+              "complete": true,
+              "success": false,
+              "replayExact": true,
+              "digest": "6fa926eb390ef551dec6810fffff914f2c571b1a9f9ee1d5fe216a8849b86922",
+              "stateDigest": "8029b67d8f1a7af2dd44613dc6647b438c05ecedeb536fec30a87fe2600fbef2"
+            },
+            "physical": {
+              "assistForceIntegralNs": 0,
+              "assistMomentIntegralNms": 0
+            },
+            "timing": {
+              "meanStepMs": 0.6873273958333234,
+              "p95StepMs": 0.7161000000005515,
+              "p99StepMs": 1.0646999999999025
+            },
+            "limits": [
+              "installed empty-handed Warrior pose; no entry, recovery or disturbance",
+              "direct joint feedback without root or contact planning",
+              "maximum segment drift includes startup",
+              "fixed development witnesses; no held-out evaluation"
+            ]
+          }
+        },
+        {
+          "job": {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "crypt-skeleton",
+            "posture": "half-kneel",
+            "servoSeconds": 0.03,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "a60e64e514f7c18e8a5a8ec5f0a2e5509a63d4e198ffc1d160d80839af74d2a4"
+          },
+          "result": {
+            "status": "unsupported",
+            "reason": "no installed posture witness for this body"
+          }
+        },
+        {
+          "job": {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "workshop-rogue",
+            "posture": "fours",
+            "servoSeconds": 0.03,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "a98b7d873c69576753b6a15c5121fd59b96daf5014c641d7300e69ddbd0d39f8"
+          },
+          "result": {
+            "status": "unsupported",
+            "reason": "no installed posture witness for this body"
+          }
+        },
+        {
+          "job": {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "workshop-fighter",
+            "posture": "half-kneel",
+            "servoSeconds": 0.03,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "ac4a3b354b2737147d2192c9c062884325bd96888f870d41acabd14b29a23748"
+          },
+          "result": {
+            "status": "measured",
+            "configuration": {
+              "protocol": 1,
+              "split": "development",
+              "hz": 120,
+              "actuation": "directional",
+              "task": "posture-hold",
+              "model": "workshop-fighter",
+              "posture": "half-kneel",
+              "servoSeconds": 0.03,
+              "speed": 10,
+              "activation": 1,
+              "held": "empty",
+              "controller": "direct",
+              "checkpointSeconds": 2,
+              "watchSeconds": 10,
+              "sampleHz": 120,
+              "id": "ac4a3b354b2737147d2192c9c062884325bd96888f870d41acabd14b29a23748",
+              "settings": {
+                "seconds": 10,
+                "tolerance": 0.02,
+                "effortTolerance": 0.0001,
+                "floor": {
+                  "centre": [
+                    0,
+                    -0.5,
+                    0
+                  ],
+                  "size": [
+                    20,
+                    1,
+                    20
+                  ]
+                }
+              },
+              "pose": {
+                "id": "half-kneel",
+                "model": "workshop-fighter",
+                "source": {
+                  "path": "docs/reference/posture-limit-models.json",
+                  "engine": "rapier-coordinate",
+                  "row": "half kneel, knee light",
+                  "seed": 0
+                },
+                "placement": {
+                  "position": [
+                    0,
+                    -0.5083299162806462,
+                    0
+                  ],
+                  "rotation": [
+                    -0.06344261501665374,
+                    -0.006224969005521192,
+                    -0.0974521254827538,
+                    0.9931965402676465
+                  ],
+                  "joints": {
+                    "neck": [
+                      0.15886281043698913,
+                      -0.07192130790122486,
+                      0.1420647835872304
+                    ],
+                    "thoracic": [
+                      0.14442904434853965,
+                      0.02289836683277252,
+                      -0.028025699607443444
+                    ],
+                    "lumbar": [
+                      0.24280202714078308,
+                      -0.00023451133222701648,
+                      -0.03622245234170641
+                    ],
+                    "shoulder.left": [
+                      -0.4989467077553128,
+                      0.24294339166122847,
+                      0.30583665148092765
+                    ],
+                    "elbow.left": [
+                      -0.7297754374497443
+                    ],
+                    "wrist.left": [
+                      0.5238878454677958,
+                      0,
+                      0
+                    ],
+                    "hip.left": [
+                      1.558956439294817,
+                      -0.25900612740600204,
+                      -0.008829799591627857
+                    ],
+                    "knee.left": [
+                      1.6762221745138046
+                    ],
+                    "ankle.left": [
+                      0.018399752000592094,
+                      0.08305144576678256
+                    ],
+                    "shoulder.right": [
+                      -0.9066782753360586,
+                      0.07593081830788895,
+                      0.5813171541950992
+                    ],
+                    "elbow.right": [
+                      -0.3693064038468303
+                    ],
+                    "wrist.right": [
+                      -0.44515033255008474,
+                      0,
+                      0
+                    ],
+                    "hip.right": [
+                      0.38305371293614543,
+                      0.004551865064557218,
+                      0.13223557493693486
+                    ],
+                    "knee.right": [
+                      2.4574188591217414
+                    ],
+                    "ankle.right": [
+                      0.3570589024706539,
+                      0.10871784657073817
+                    ]
+                  }
+                }
+              },
+              "engineRevision": "rapier/adapter-7/sha256:07af259dc277cac77daa9c95eaded0ed2bc8aeb5feac08bfd9e58d23e58feebd/coordinate-limits/point-friction",
+              "gravity": true,
+              "pin": null,
+              "assists": {
+                "root": 0,
+                "weapon": false
+              },
+              "sensing": "detached body observations",
+              "modelAccess": "actuator descriptions"
+            },
+            "outcome": {
+              "steps": 1200,
+              "peakDrift": 0.09830510290903545,
+              "finalDrift": 0.09830510290903545,
+              "peakAngleError": 0.026289909182463378,
+              "peakEffort": 73.95467519760132,
+              "peakEffortViolation": 0,
+              "contactSteps": 1200,
+              "complete": true,
+              "success": false,
+              "replayExact": true,
+              "digest": "c203633179941e996eb9e4324dffc77dd6941fe3857191ea7191d40486b4aafb",
+              "stateDigest": "389994084446cf2303152c7be536981a4b3392720851e0232f6668473bd71d12"
+            },
+            "physical": {
+              "assistForceIntegralNs": 0,
+              "assistMomentIntegralNms": 0
+            },
+            "timing": {
+              "meanStepMs": 0.6396612499999758,
+              "p95StepMs": 0.6792999999997846,
+              "p99StepMs": 0.7568999999994048
+            },
+            "limits": [
+              "installed empty-handed Warrior pose; no entry, recovery or disturbance",
+              "direct joint feedback without root or contact planning",
+              "maximum segment drift includes startup",
+              "fixed development witnesses; no held-out evaluation"
+            ]
+          }
+        },
+        {
+          "job": {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "workshop-fighter",
+            "posture": "fours",
+            "servoSeconds": 0.1,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "b426617e071ff5266b854c035694bba8eca3224ec88722879e81fa730bbdba1f"
+          },
+          "result": {
+            "status": "measured",
+            "configuration": {
+              "protocol": 1,
+              "split": "development",
+              "hz": 120,
+              "actuation": "directional",
+              "task": "posture-hold",
+              "model": "workshop-fighter",
+              "posture": "fours",
+              "servoSeconds": 0.1,
+              "speed": 10,
+              "activation": 1,
+              "held": "empty",
+              "controller": "direct",
+              "checkpointSeconds": 2,
+              "watchSeconds": 10,
+              "sampleHz": 120,
+              "id": "b426617e071ff5266b854c035694bba8eca3224ec88722879e81fa730bbdba1f",
+              "settings": {
+                "seconds": 10,
+                "tolerance": 0.02,
+                "effortTolerance": 0.0001,
+                "floor": {
+                  "centre": [
+                    0,
+                    -0.5,
+                    0
+                  ],
+                  "size": [
+                    20,
+                    1,
+                    20
+                  ]
+                }
+              },
+              "pose": {
+                "id": "fours",
+                "model": "workshop-fighter",
+                "source": {
+                  "path": "docs/reference/posture-limit-models.json",
+                  "engine": "rapier-coordinate",
+                  "row": "fours",
+                  "seed": 0
+                },
+                "placement": {
+                  "position": [
+                    0,
+                    0.26501273999221475,
+                    0
+                  ],
+                  "rotation": [
+                    0.6288612813550184,
+                    0,
+                    0,
+                    0.7775175167239156
+                  ],
+                  "joints": {
+                    "neck": [
+                      -0.3983012178094657,
+                      0,
+                      0
+                    ],
+                    "thoracic": [
+                      -0.006380570020799927,
+                      0,
+                      0
+                    ],
+                    "lumbar": [
+                      0.2375632084700492,
+                      0,
+                      0
+                    ],
+                    "shoulder.left": [
+                      1.1138090206172806,
+                      0.42936783689919267,
+                      -0.3579707789748904
+                    ],
+                    "elbow.left": [
+                      -0.13136497448167458
+                    ],
+                    "wrist.left": [
+                      -1.3392217196243485,
+                      0,
+                      0
+                    ],
+                    "hip.left": [
+                      1.378540714353551,
+                      0.11260254667004446,
+                      0.1513420399133224
+                    ],
+                    "knee.left": [
+                      1.9499168162478369
+                    ],
+                    "ankle.left": [
+                      0.3570589024706539,
+                      -0.3324852225049198
+                    ],
+                    "shoulder.right": [
+                      1.1138090206172806,
+                      0.42936783689919267,
+                      -0.3579707789748904
+                    ],
+                    "elbow.right": [
+                      -0.13136497448167458
+                    ],
+                    "wrist.right": [
+                      -1.3392217196243485,
+                      0,
+                      0
+                    ],
+                    "hip.right": [
+                      1.378540714353551,
+                      0.11260254667004446,
+                      0.1513420399133224
+                    ],
+                    "knee.right": [
+                      1.9499168162478369
+                    ],
+                    "ankle.right": [
+                      0.3570589024706539,
+                      -0.3324852225049198
+                    ]
+                  }
+                }
+              },
+              "engineRevision": "rapier/adapter-7/sha256:07af259dc277cac77daa9c95eaded0ed2bc8aeb5feac08bfd9e58d23e58feebd/coordinate-limits/point-friction",
+              "gravity": true,
+              "pin": null,
+              "assists": {
+                "root": 0,
+                "weapon": false
+              },
+              "sensing": "detached body observations",
+              "modelAccess": "actuator descriptions"
+            },
+            "outcome": {
+              "steps": 1200,
+              "peakDrift": 0.0567653162787796,
+              "finalDrift": 0.0567653162787796,
+              "peakAngleError": 0.1150254262641116,
+              "peakEffort": 53.60565662384033,
+              "peakEffortViolation": 0.000017354309925110556,
+              "contactSteps": 1200,
+              "complete": true,
+              "success": false,
+              "replayExact": true,
+              "digest": "90c5f12f9cffa136b308b2e1f8f04bc65593910a6ba919d6b980712c0e88ed13",
+              "stateDigest": "510858d57c7092c5ee13fbb8e94907a6d584a03539bf4f85cbe554925d4be825"
+            },
+            "physical": {
+              "assistForceIntegralNs": 0,
+              "assistMomentIntegralNms": 0
+            },
+            "timing": {
+              "meanStepMs": 0.6978118750000005,
+              "p95StepMs": 0.8360000000000127,
+              "p99StepMs": 1.1262000000001535
+            },
+            "limits": [
+              "installed empty-handed Warrior pose; no entry, recovery or disturbance",
+              "direct joint feedback without root or contact planning",
+              "maximum segment drift includes startup",
+              "fixed development witnesses; no held-out evaluation"
+            ]
+          }
+        },
+        {
+          "job": {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "workshop-rogue",
+            "posture": "fours",
+            "servoSeconds": 0.1,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "b9efec8cdbff8dee6fc5fb041c2f1bec9eda5da8da01f1255affcb8f4fbb77db"
+          },
+          "result": {
+            "status": "unsupported",
+            "reason": "no installed posture witness for this body"
+          }
+        },
+        {
+          "job": {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "workshop-rogue",
+            "posture": "half-kneel",
+            "servoSeconds": 0.03,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "be074a3b482a51988809ddefade452affba618724e6f343433f4a9d243f3c57b"
+          },
+          "result": {
+            "status": "unsupported",
+            "reason": "no installed posture witness for this body"
+          }
+        },
+        {
+          "job": {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "workshop-rogue",
+            "posture": "squat",
+            "servoSeconds": 0.1,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "c845d20ea3812a69a82fd9ce0c7b66923a3b1860eef530a887811fc37fa78099"
+          },
+          "result": {
+            "status": "unsupported",
+            "reason": "no installed posture witness for this body"
+          }
+        },
+        {
+          "job": {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "crypt-skeleton",
+            "posture": "fours",
+            "servoSeconds": 0.03,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "d01dd6f76b8928c381493d487f758ad226aecc5cd6dde41f2d8152dfab9db7c2"
+          },
+          "result": {
+            "status": "unsupported",
+            "reason": "no installed posture witness for this body"
+          }
+        },
+        {
+          "job": {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "crypt-skeleton",
+            "posture": "half-kneel",
+            "servoSeconds": 0.01,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "dae138053d0bb528f7e84c95bb4a8e7c02fc549e523f661df1901e6c1147258d"
+          },
+          "result": {
+            "status": "unsupported",
+            "reason": "no installed posture witness for this body"
+          }
+        },
+        {
+          "job": {
+            "protocol": 2,
+            "split": "development",
+            "hz": 120,
+            "actuation": "directional",
+            "task": "posture-hold",
+            "model": "crypt-skeleton",
+            "posture": "squat",
+            "servoSeconds": 0.1,
+            "speed": 10,
+            "activation": 1,
+            "held": "empty",
+            "controller": "direct",
+            "checkpointSeconds": 2,
+            "watchSeconds": 10,
+            "sampleHz": 120,
+            "id": "f5cb4e69bfa233617698a34b71014f1b32b7fbe12593865116b2a6640731c083"
+          },
+          "result": {
+            "status": "unsupported",
+            "reason": "no installed posture witness for this body"
+          }
+        }
+      ]
+    }
+  ]
+}

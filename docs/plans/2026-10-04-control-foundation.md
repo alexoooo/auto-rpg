@@ -257,7 +257,7 @@ development witnesses are statically feasible, but all miss the five-second engi
 Those witnesses do not close the recovery gate; entering and holding supports remain required.
 The [recovery support diagnostics](../analysis/2026-10-05-recovery-support.md) retain failed
 entry and installed-pose experiments. Active contact acceleration compatibility is checked;
-sliding/rolling alternatives and the installed all-fours hold are the next controller gates.
+sliding/rolling alternatives and entry into a demonstrated hold remain controller gates.
 [Geometric planar support](../reference/planar-support.md) supplies current sphere, capsule and
 polyhedral features; a fine-step sliding-sphere check agrees with the engine and replays.
 The controller still uses measured midpoint contacts. Geometric contact integration and
@@ -267,7 +267,7 @@ the pinned rigid-body engine uses central friction plus independent twist resist
 the controller assumes per-point friction. The native Coulomb option is exposed in separately
 identified profiles. Both patch and projected per-point sustained-sliding predictors have
 mechanical checks; neither is a general mode selector. Select and validate
-the matching sliding/sticking predictor before repeating the installed-pose hold. Multibody
+the matching sliding/sticking predictor for model-based control. Multibody
 comparisons must name this distinction because native multibody contacts already use Coulomb.
 The [local contact-step predictor](../reference/contact-step.md) now validates sliding, stopping,
 holding and unloading on a loaded slab, including initial spin and exact replay. Its finite
@@ -276,9 +276,16 @@ measured velocities resolves incompatible contact demands on linked bodies witho
 physics. Linked slabs now slide and stop with exact replay; prescribed joint torque still
 exposes rejected stopping predictions. Optional [angular-stop impulse rows](../reference/contact-stops.md)
 now validate established support and release on a grounded hinge, at either limit with sticking
-or sliding ground contact. Hard stop arrivals remain unvalidated. Next combine contact/stop
-variables with bounded actuator objectives before
-repeating the installed all-fours hold. This diagnostic forward model is not yet in the tracker.
+or sliding ground contact. Hard stop arrivals remain unvalidated. Bounded inverse-control
+prototypes converge but miss anatomical next-step motion and the hold gate; the diagnostic
+forward model is not yet in the tracker.
+The independent joint-feedback policy now [holds installed Warrior all fours](../reference/posture-hold.md)
+for ten seconds within 2 cm on both corrected-limit friction profiles, with zero assistance,
+exact replay and matching Node/browser traces. The shared builder initializes a legal joint
+pose before constructing physics. Half-kneel and squat still fail; Rogue and skeleton fixtures
+are explicitly unsupported. This closes a limited installed-pose hold gate, not entry, balance
+or recovery. Next establish reachable support entry and transfer, keeping direct feedback and
+model-based control as replaceable alternatives.
 
 The [upright support task](../reference/support-transition.md) now transfers load, lifts either
 foot, verifies placement contact and regains two-foot support on all three bodies in the

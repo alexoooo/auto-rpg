@@ -74,13 +74,17 @@ freezing a lift objective into an existing sticking contact. Anatomical recovery
 sliding and choices among multiple supports remain unresolved.
 The [friction-law comparison](reference/contact-friction.md) identifies patch versus per-point
 solver behavior and validates sustained-sliding predictions for each. Explicit per-point engine
-profiles are experimental; contact-mode selection and the installed-pose hold remain gates.
+profiles are experimental; anatomical contact-mode selection remains open.
 The [local impulse predictor](reference/contact-step.md) passes slab sliding/sticking/unloading
-checks with exact replay, but fine-step landing remains unvalidated. It still needs coupled
-support/stop validation and integration with the bounded actuator solve.
+checks with exact replay, but fine-step landing remains unvalidated. Coupled contact/stop
+support and release pass a grounded-hinge check; integration with bounded actuator objectives
+and anatomical forward agreement remain open.
 The [posture audit](reference/posture-limit-models.md) accounts for corrected limit directions.
 Its three development witnesses remain statically feasible, but their engine holds fail the
-displacement gate. Recovery needs demonstrated entry, holding and transfer between supports.
+displacement gate under their static torque controller. Independent joint feedback now
+[holds installed all fours](reference/posture-hold.md) for ten seconds within 2 cm on both
+corrected-limit friction profiles. Half-kneel and squat fail; recovery still needs demonstrated
+entry, balance and transfer between supports.
 
 ## Open items
 

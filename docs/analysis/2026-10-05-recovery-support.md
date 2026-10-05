@@ -74,8 +74,61 @@ separate engine/controller mismatch: Rapier's default rigid-body friction uses a
 tangential constraint and independent twist resistance, rather than friction at each corner.
 Its patch prediction matches both spin directions much better than the per-point prediction.
 The native per-point option is exposed separately and its projected-impulse sliding response
-is measured. Before adding more recovery postures, select the modeled friction law and
-validate sticking/sliding selection against it. Then rerun the
-installed all-fours hold, followed by hand/shin entry and unloading.
+is measured. Mechanical sticking/sliding and combined ground/stop checks now pass for selected
+fixtures, but anatomical forward agreement remains open. The independent installed hold below
+establishes another control option before hand/shin entry and unloading.
 Keep posture feasibility, static hold, transition and useful control after rising as separate
 gates. Do not tune strengths or discard contacts to turn a failed gate green.
+
+## Bounded inverse prediction and independent feedback
+
+An allocating inverse-control prototype uses the local contact/stop forward model on the
+Warrior's teleport-installed all-fours witness. Harness: Node core world, 120 Hz,
+`rapier-coordinate-coulomb`, package .6 / adapter 7, directional actuation, empty hands,
+ordinary ground and no assists. Its sources and selected results are archived in the study's
+JSON under `forwardHold`; this prototype has no replay proof and is not an installed policy.
+
+The prototype freezes mobility for each step and searches bounded muscle torques by numerical
+Gauss-Newton updates. It targets all segment positions and rotations (0.3 s feedback,
+linear/angular weights 1/0.1, root multiplier 3, regularization 1e-6, three updates,
+normalized finite difference 0.001, update cap 0.25, line-search factors 1/0.5/0.25/0.125).
+It applies only a final certified prediction. Over one second it rejects none, yet drifts
+90.157 mm. At the first step its largest next-velocity errors are 0.140457 m/s and
+2.025060 rad/s. Raising native iterations to 64 or 256, or internal iterations to 16,
+does not reduce that first-step disagreement. Torque delivery closely matches the request.
+Convergence therefore does not certify anatomical physical accuracy.
+
+Initial clearance and static gravity-torque seeding do not close the hold gate. Removing
+negative-gap positional correction from stop bounds also fails. The hands are capsules;
+their initial geometric endpoint candidates differ from the native manifold's three points
+and contact acquisition. This is a lead for comparison, not an established engine defect.
+
+The existing independent velocity-feedback policy supplies a separate positive result.
+With joint response 0.01 s, full activation, a 10 rad/s speed cap and unchanged native
+iterations, it holds all fours. The durable [installed-pose task](../reference/posture-hold.md)
+uses the shared pose builder, not the teleport helper, and measures ten seconds including
+startup. It passes on both corrected-limit friction profiles and replays in Node and browser.
+Half-kneel and squat fail. No recovery entry, disturbance rejection or useful standing
+handover is established. Continue support entry/transfer experiments while keeping the
+independent feedback and model-based options behind the same physical enforcement path.
+
+## Entering all fours after a shove
+
+Node core world, corrected-limit per-point profile .6 / adapter 7, 120 Hz, directional bounds,
+Warrior with empty hands and zero assistance. Four development shoves at 0, 90, 180 and 270
+degrees use the existing fallen-body harness. The independent policy takes over from the
+fallen body without changing its physics. Sources and readings are archived under
+`independentEntry`; these prototypes have not yet established replay or cross-browser parity.
+
+Direct all-fours joint targets alone fail all four twenty-second trials. In two, joint error
+falls below 0.006 rad while the trunk remains grounded. Joint-angle convergence does not
+establish the intended world orientation or support.
+
+Adding the existing rolling poses, a stillness wait and retries before all-fours acquisition
+produces sustained support in three of four forty-second trials with 0.01 s joint response
+and a 10 rad/s cap. The criterion requires both hands and both shins in positive ground
+contact, pelvis facing down, and no head or trunk contact. The longest uninterrupted measured
+runs are 1,841, 1, 3,727 and 3,700 steps respectively. The 90-degree case remains supported
+on its head as well as hands and shins. With the old 0.2 s response and 3 rad/s default cap,
+only the zero-degree case sustains support (3,082 steps). These four selected directions are
+not a robustness estimate. Holding all fours still leaves kneeling, standing and handover open.

@@ -7553,5 +7553,1502 @@
         }
       ]
     }
-  ]
+  ],
+  "forwardHold": {
+    "base": "afabc97c78861a7e80b5451fbdd06435eb1cde16",
+    "harness": "Node core world, rapier-coordinate-coulomb .6 adapter 7, 120 Hz, directional bounds, zero assists; teleport-installed Warrior fours",
+    "sources": {
+      ".tools/contact-prepare.ts": "import { Vector3 } from \"@babylonjs/core/Maths/math.vector.js\";\nimport type { SegmentBody } from \"../src/core/engine/engine.ts\";\nimport type { Vec3 } from \"../src/core/spec/quantity.ts\";\nimport type { coupledDynamics } from \"../src/core/build/coupled-dynamics.ts\";\nimport type { MotionConstraint } from \"../src/core/build/constrained-mass.ts\";\n\ninterface AngularStop {\n  /** Inward angle-rate row; only angular entries are admitted. */\n  readonly row: MotionConstraint;\n  /** Lower bound on this row's end-step velocity, rad/s, including coordinate curvature. */\n  readonly minimumVelocity: number;\n  /** Angular impulse threshold, N m s, independent of point-contact impulse units. */\n  readonly impulseTolerance: number;\n  /** Angle-rate residual tolerance, rad/s. */\n  readonly velocityTolerance: number;\n}\n\ntype Model = ReturnType<typeof coupledDynamics>;\ntype Load = NonNullable<Parameters<Model[\"solve\"]>[1]>[number];\ninterface Contact {\n  readonly body: SegmentBody;\n  readonly point: Vec3;\n  readonly normal: Vec3;\n  /** Lower bound on end-step relative normal velocity against a fixed plane, m/s. */\n  readonly normalVelocity: number;\n}\ninterface Settings {\n  readonly dt: number;\n  readonly friction: number;\n  readonly iterations: number;\n  readonly impulseTolerance: number;\n  readonly velocityTolerance: number;\n}\nconst ZERO: Vec3 = [0, 0, 0];\nconst dot = (a: ArrayLike<number>, b: ArrayLike<number>) => a[0]! * b[0]! + a[1]! * b[1]! + a[2]! * b[2]!;\nconst cross = (a: Vec3, b: Vec3): Vec3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];\nconst subtract = (a: Vec3, b: Vec3): Vec3 => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];\nconst tuple = (v: Vector3): Vec3 => [v.x, v.y, v.z];\n\n/**\n * Diagnostic fixed-plane contact impulse prediction through an updated coupled model. Normal\n * impulses are unilateral; the two-axis stopping impulse is projected onto a friction disk.\n * This is the per-point projected solver law, not a patch/twist model or opposing-slip force.\n * Measured velocities are first projected into the model's joint/constraint tangent space.\n * Optional angular stops exchange impulses with contacts in the same coupled solve. Their\n * inward rows may push but never pull; each has its own angular impulse and velocity tolerances.\n * Point lever arms stay fixed during the predicted step. The caller chooses candidate contacts\n * and normal velocity bounds; this function neither discovers contacts nor applies forces.\n *\n * The allocating cold solve has a finite iteration budget and independently checks its fixed\n * point. A non-converged candidate cannot justify a controller action. Distant impacts,\n * acquisition timing and geometry changes within the step remain outside this local model.\n */\nexport function preparePointContacts(model: Model, contacts: readonly Contact[], settings: Settings, stops: readonly AngularStop[] = []) {\n  const { dt, friction, iterations, impulseTolerance, velocityTolerance } = settings;\n  if (!(dt > 0) || !Number.isFinite(dt) || !(friction >= 0) || !Number.isFinite(friction)\n    || !Number.isSafeInteger(iterations) || iterations < 1\n    || ![impulseTolerance, velocityTolerance].every((v) => v > 0 && Number.isFinite(v))) throw new Error(\"invalid contact-step settings\");\n  const stopRows = stops.map((stop) => {\n    if (!Number.isFinite(stop.minimumVelocity) || ![stop.impulseTolerance, stop.velocityTolerance].every((v) => v > 0 && Number.isFinite(v))\n      || stop.row.length === 0 || stop.row.some((entry) => entry.linear.length !== 3 || entry.angular.length !== 3\n        || entry.point.length !== 3 || entry.linear.some((v) => v !== 0))) throw new Error(\"invalid angular contact-step stop\");\n    return model.motionRow(stop.row);\n  });\n  const along = (row: ArrayLike<number>, value: ArrayLike<number>) => {\n    let sum = 0; for (let i = 0; i < row.length; i++) sum += row[i]! * value[i]!; return sum;\n  };\n  const geometry = contacts.map((c) => {\n    if (c.point.length !== 3 || c.normal.length !== 3 || ![...c.point, ...c.normal, c.normalVelocity].every(Number.isFinite)) throw new Error(\"invalid contact-step geometry\");\n    const length = Math.sqrt(dot(c.normal, c.normal));\n    if (!(length > 0) || !Number.isFinite(length)) throw new Error(\"invalid contact-step normal\");\n    const normal = c.normal.map((v) => v / length) as unknown as Vec3;\n    const reference: Vec3 = Math.abs(normal[0]) < Math.abs(normal[1]) ? [1, 0, 0] : [0, 1, 0];\n    const along = dot(reference, normal), raw = reference.map((v, k) => v - along * normal[k]!) as unknown as Vec3;\n    const span = Math.sqrt(dot(raw, raw)), tangent = raw.map((v) => v / span) as unknown as Vec3;\n    return { ...c, point: [...c.point] as Vec3, axes: [normal, tangent, cross(normal, tangent)] };\n  });\n  const unloaded = model.solve(new Array<number>(model.channels).fill(0));\n  const projection = model.projectVelocity();\n  const rows = geometry.flatMap((contact) => contact.axes.map((axis) => ({ contact, axis }))), contactSize = rows.length, size = contactSize + stops.length;\n  const response = Array.from({ length: size }, () => new Float64Array(size));\n  const baseline = rows.map(({ contact, axis }) => dot(model.pointAcceleration(contact.body, contact.point, unloaded).linear, axis));\n  const zeroTorque = new Array<number>(model.channels).fill(0);\n  const column = (col: number, motion: readonly number[]) => {\n    rows.forEach(({ contact: at, axis: direction }, row) => {\n      response[row]![col] = dot(model.pointAcceleration(at.body, at.point, motion).linear, direction) - baseline[row]!;\n    });\n    const delta = motion.map((v, i) => v - unloaded[i]!);\n    stopRows.forEach((row, i) => { response[contactSize + i]![col] = along(row.coefficients, delta); });\n  };\n  rows.forEach(({ contact, axis }, col) => {\n    const motion = model.solve(zeroTorque, [{ body: contact.body, point: contact.point, force: axis, moment: ZERO }]);\n    column(col, motion);\n  });\n  stops.forEach((stop, i) => {\n    column(contactSize + i, model.solve(zeroTorque, stop.row.map((entry) => ({ body: entry.body, point: entry.point, force: entry.linear, moment: entry.angular }))));\n    const mobility = response[contactSize + i]![contactSize + i]!;\n    if (!(mobility > 0) || !Number.isFinite(mobility)) throw new Error(\"singular angular contact-step mobility\");\n  });\n  for (let p = 0; p < geometry.length; p++) {\n    const i = 3 * p, a = i + 1, b = i + 2;\n    const determinant = response[a]![a]! * response[b]![b]! - response[a]![b]! * response[b]![a]!;\n    if (!(response[i]![i]! > 0) || !(determinant > 0) || !Number.isFinite(determinant)) throw new Error(\"singular contact-step mobility\");\n  }\n  return { predict(torque: ArrayLike<number>, loads: readonly Load[] = []) {\n  const free = model.solve(torque, loads), impulses = new Float64Array(size);\n  const centre = new Vector3(), angular = new Vector3();\n  const initial = geometry.flatMap((contact) => {\n    const { body, point } = contact;\n    centre.set(...body.massProperties.centre).applyRotationQuaternionToRef(body.node.rotationQuaternion!, centre).addInPlace(body.node.position);\n    body.angularVelocityToRef(angular);\n    const offset = subtract(point, tuple(centre)), turn = cross(tuple(angular), offset), centripetal = cross(tuple(angular), turn);\n    const acceleration = model.pointAcceleration(body, point, free).linear;\n    const compatible = model.pointVelocity(body, point, projection.velocity).linear;\n    const next = compatible.map((v, k) => v + dt * (acceleration[k]! - centripetal[k]!));\n    return contact.axes.map((axis) => dot(next, axis));\n  });\n  stopRows.forEach((row) => initial.push(along(row.coefficients, projection.velocity) + dt * (along(row.coefficients, free) + row.bias)));\n  const velocity = [...initial];\n  const tangentCandidate = (i: number) => {\n    const a = i + 1, b = i + 2, aa = response[a]![a]!, ab = response[a]![b]!, ba = response[b]![a]!, bb = response[b]![b]!;\n    const determinant = aa * bb - ab * ba;\n    let x = impulses[a]! - (bb * velocity[a]! - ab * velocity[b]!) / determinant;\n    let y = impulses[b]! - (aa * velocity[b]! - ba * velocity[a]!) / determinant;\n    const length = Math.sqrt(x * x + y * y), cap = friction * impulses[i]!;\n    if (length > cap) { x *= cap / length; y *= cap / length; }\n    return [x, y];\n  };\n  let change = 0, work = 0;\n  const add = (col: number, value: number) => {\n    const delta = value - impulses[col]!; impulses[col] = value;\n    for (let row = 0; row < size; row++) velocity[row]! += response[row]![col]! * delta;\n    change = Math.max(change, Math.abs(delta) / (col < contactSize ? impulseTolerance : stops[col - contactSize]!.impulseTolerance));\n  };\n  for (; work < iterations && size > 0;) {\n    change = 0; work++;\n    geometry.forEach((contact, p) => {\n      const i = 3 * p;\n      add(i, Math.max(0, impulses[i]! - (velocity[i]! - contact.normalVelocity) / response[i]![i]!));\n    });\n    stops.forEach((stop, p) => {\n      const i = contactSize + p;\n      add(i, Math.max(0, impulses[i]! - (velocity[i]! - stop.minimumVelocity) / response[i]![i]!));\n    });\n    geometry.forEach((_, p) => { const i = 3 * p, [x, y] = tangentCandidate(i); add(i + 1, x!); add(i + 2, y!); });\n    if (change <= 1) break;\n  }\n  for (let r = 0; r < size; r++) {\n    velocity[r] = initial[r]!;\n    for (let c = 0; c < size; c++) velocity[r]! += response[r]![c]! * impulses[c]!;\n  }\n  let normalViolation = 0, impulseResidual = 0, coneViolation = 0;\n  const predictions = geometry.map((contact, p) => {\n    const i = 3 * p, normal = impulses[i]!, gapVelocity = velocity[i]! - contact.normalVelocity;\n    const [x, y] = tangentCandidate(i);\n    impulseResidual = Math.max(impulseResidual, Math.abs(x! - impulses[i + 1]!), Math.abs(y! - impulses[i + 2]!));\n    normalViolation = Math.max(normalViolation, -gapVelocity, normal > impulseTolerance ? Math.abs(gapVelocity) : 0);\n    coneViolation = Math.max(coneViolation, -normal, Math.sqrt(impulses[i + 1]! * impulses[i + 1]! + impulses[i + 2]! * impulses[i + 2]!) - friction * normal);\n    const world = (values: ArrayLike<number>): Vec3 => [0, 1, 2].map((k) => contact.axes.reduce((sum, axis, j) => sum + axis[k]! * values[i + j]!, 0)) as unknown as Vec3;\n    const slip = Math.sqrt(velocity[i + 1]! * velocity[i + 1]! + velocity[i + 2]! * velocity[i + 2]!);\n    return { impulse: world(impulses), velocity: world(velocity), mode: normal <= impulseTolerance ? \"free\" as const : slip <= velocityTolerance ? \"sticking\" as const : \"sliding\" as const };\n  });\n  const stopPredictions = stops.map((stop, p) => {\n    const i = contactSize + p, impulse = impulses[i]!, gapVelocity = velocity[i]! - stop.minimumVelocity;\n    const violation = Math.max(0, -gapVelocity, impulse > stop.impulseTolerance ? Math.abs(gapVelocity) : 0);\n    return { impulse, velocity: velocity[i]!, violation, mode: impulse > stop.impulseTolerance ? \"holding\" as const : \"free\" as const };\n  });\n  const stopsAccepted = stopPredictions.every((stop, i) => stop.impulse >= -stops[i]!.impulseTolerance && stop.violation <= stops[i]!.velocityTolerance);\n  const finite = [...impulses, ...velocity, normalViolation, impulseResidual, coneViolation, ...stopPredictions.map((stop) => stop.violation)].every(Number.isFinite);\n  const accepted = finite && stopsAccepted && normalViolation <= velocityTolerance && impulseResidual <= impulseTolerance && coneViolation <= impulseTolerance;\n  const status = !finite ? \"nonfinite\" as const : accepted ? \"converged\" as const : work >= iterations ? \"iteration-limit\" as const : \"residual\" as const;\n  const contactLoads = geometry.map((contact, i): Load => ({ body: contact.body, point: contact.point,\n    force: predictions[i]!.impulse.map((v) => v / dt) as unknown as Vec3, moment: ZERO }));\n  const stopLoads = stops.flatMap((stop, i) => stop.row.map((entry): Load => ({ body: entry.body, point: entry.point,\n    force: ZERO, moment: entry.angular.map((v) => v * stopPredictions[i]!.impulse / dt) as unknown as Vec3 })));\n  return { status, work, normalViolation, impulseResidual, coneViolation, projection, contacts: predictions, stops: stopPredictions,\n    acceleration: finite ? model.solve(torque, [...loads, ...contactLoads, ...stopLoads]) : null };\n  }};\n}\n",
+      ".tools/fours-inverse-probe.mjs": "﻿import fs from 'node:fs';\nimport {Vector3} from '@babylonjs/core/Maths/math.vector.js';\nimport {staticBody,posed,placeLike} from '../research/core-posture-trials.mjs';\nimport {coreStand} from '../tests/harness/core-stand.mjs';\nimport {modelSpec} from '../src/core/human/spec.ts';\nimport {coupledDynamics} from '../src/core/build/coupled-dynamics.ts';\nimport {planarSupportPoints} from '../src/core/build/planar-support.ts';\nimport {preparePointContacts} from './contact-prepare.ts';\nimport {Quaternion} from '@babylonjs/core/Maths/math.vector.js';\nimport {embody} from '../src/core/mind/mind.ts';\nimport {applyAction} from '../src/core/mind/actions.ts';\nimport {boundedWork,linearWork,solveLinearTo,boundedLeastSquaresTo} from '../src/core/math/flat.ts';\nimport {nearJointStops} from '../src/core/control/joint-stops.ts';\nconst record=JSON.parse(fs.readFileSync('docs/reference/posture-limit-models.json','utf8')).rows.find(r=>r.job.engine==='rapier-coordinate'&&r.job.row==='fours').result;\nconst statics=await staticBody(undefined,'rapier-coordinate-coulomb');posed(statics,record.posture);\nconst stand=await coreStand(modelSpec('workshop-fighter'),{engine:'rapier-coordinate-coulomb',actuation:'directional'});\ntry{\n placeLike(statics,stand.built);\n const model=coupledDynamics(stand.built,stand.world.physics.gravity);\n const local=(s,p)=>{const d=p.map((v,i)=>v-s.frame.origin[i]);return ['x','y','z'].map(a=>s.frame[a].reduce((sum,v,i)=>sum+v*d[i],0));};\n const shapes=[...stand.built.segments.values()].flatMap(s=>s.rigid.shapes.map(shape=>{\n  let converted;switch(shape.kind){\n   case 'capsule': converted={kind:shape.kind,from:local(s,shape.from.value),to:local(s,shape.to.value),radius:shape.radius.value};break;\n   case 'sphere': converted={kind:shape.kind,centre:local(s,shape.centre.value),radius:shape.radius.value};break;\n   case 'box': converted={kind:shape.kind,centre:local(s,shape.centre.value),size:shape.size.value};break;\n   case 'hull': converted={kind:shape.kind,points:shape.points.map(p=>local(s,p.value))};break;\n  }return {segment:s,shape:converted};\n }));\n\n const segments=[...stand.built.segments.values()],com=s=>new Vector3(...s.body.massProperties.centre).applyRotationQuaternion(s.node.rotationQuaternion).add(s.node.position);\n const reference=segments.map(s=>({com:com(s),rotation:s.node.rotationQuaternion.clone(),position:s.node.position.clone()}));\n const n=model.channels,linear=linearWork(n),bounded=boundedWork(n),state={torque:new Array(n).fill(0),steps:0,rejected:0,drift:0};\n const body=embody(stand.built,stand.world,own=>({name:'forward-inverse-probe',state,step(){\n   const contacts=shapes.flatMap(({segment:s,shape})=>planarSupportPoints(shape,s.node.position.asArray(),s.node.rotationQuaternion,[0,1,0],.001).filter(p=>p[1]<.005).map(point=>({body:s.body,point,normal:[0,1,0],normalVelocity:-Math.max(point[1],0)*120})));\n  const stops=nearJointStops(stand.built,.001,1/120).map(s=>({row:s.row,minimumVelocity:s.rate+s.target/120,impulseTolerance:1e-10,velocityTolerance:1e-7}));\n\n model.update();const clock=performance.now(),prepared=preparePointContacts(model,contacts,{dt:1/120,friction:.5,iterations:2048,impulseTolerance:1e-10,velocityTolerance:1e-7},stops);\n const scale=own.muscles.channels.map((c,i)=>Math.max(own.muscles.strength(i,-1),own.muscles.strength(i,1),1));\n const lower=scale.map((v,i)=>-own.muscles.strength(i,-1)/v),upper=scale.map((v,i)=>own.muscles.strength(i,1)/v);\n const targets=segments.map((s,i)=>{const p=com(s),v=s.body.linearVelocityToRef(new Vector3()).asArray(),w=s.body.angularVelocityToRef(new Vector3()).asArray(),q=reference[i].rotation.multiply(Quaternion.Inverse(s.node.rotationQuaternion)),sign=q.w<0?-1:1,rate=1/.3;\n return {point:p.asArray(),linear:v.map((x,k)=>x+(rate*rate*(reference[i].com.asArray()[k]-p.asArray()[k])-2*rate*x)/120),angular:w.map((x,k)=>x+(2*rate*rate*sign*[q.x,q.y,q.z][k]-2*rate*x)/120)};});\n const evaluate=x=>{const prediction=prepared.predict(x.map((v,i)=>v*scale[i]));\n const residual=segments.flatMap((s,i)=>{const start=model.pointVelocity(s.body,targets[i].point,prediction.projection.velocity),a=model.pointAcceleration(s.body,targets[i].point,prediction.acceleration),weight=s.spec.name==='lowerTrunk'?3:1;return [...a.linear.map((v,k)=>(start.linear[k]+v/120-targets[i].linear[k])*weight),...a.angular.map((v,k)=>(start.angular[k]+v/120-targets[i].angular[k])*.1*weight)];});\n return {prediction,residual,cost:residual.reduce((sum,v)=>sum+v*v,0)+1e-6*x.reduce((sum,v)=>sum+v*v,0)};};\n let x=state.torque.map((v,i)=>Math.max(lower[i],Math.min(upper[i],v/scale[i]))),current=evaluate(x),evaluations=1;\n for(let iteration=0;iteration<3;iteration++){\n  const columns=[];for(let i=0;i<n;i++){const z=[...x],epsilon=.001;z[i]+=epsilon;const r=evaluate(z);evaluations++;columns.push(r.residual.map((v,k)=>(v-current.residual[k])/epsilon));}\n  const H=new Float64Array(n*n),rhs=new Float64Array(n),unconstrained=new Float64Array(n),delta=new Float64Array(n);\n  for(let i=0;i<n;i++){for(let j=0;j<n;j++)H[i*n+j]=columns[i].reduce((sum,v,k)=>sum+v*columns[j][k],0)+(i===j?1e-6:0);rhs[i]=-columns[i].reduce((sum,v,k)=>sum+v*current.residual[k],0)-1e-6*x[i];}\n  solveLinearTo(linear,H,rhs,n,unconstrained);boundedLeastSquaresTo(bounded,H,unconstrained,lower.map((v,i)=>Math.max(v-x[i],-.25)),upper.map((v,i)=>Math.min(v-x[i],.25)),n,delta);\n  let accepted=false;for(const length of [1,.5,.25,.125]){const z=x.map((v,i)=>v+length*delta[i]),candidate=evaluate(z);evaluations++;if(candidate.cost<current.cost){x=z;current=candidate;accepted=true;break;}}\n  if(!accepted)break;\n }\n const accepted=current.prediction.status==='converged';if(!accepted)state.rejected++;\n state.torque=x.map((v,i)=>accepted?v*scale[i]:0);applyAction(own.muscles,{kind:'torque',torque:state.torque});state.steps++;\n state.drift=Math.max(state.drift,...segments.map((s,i)=>s.node.position.subtract(reference[i].position).length()));\n console.log(JSON.stringify({step:state.steps,milliseconds:performance.now()-clock,evaluations,cost:current.cost,status:current.prediction.status,work:current.prediction.work,rejected:state.rejected,drift:state.drift,normalViolation:current.prediction.normalViolation,impulseResidual:current.prediction.impulseResidual,stopViolation:Math.max(0,...current.prediction.stops.map(s=>s.violation))}));\n }}));\n try{stand.step(60);}finally{body.dispose();}\n\n}finally{stand.dispose();statics.dispose();}\r\n",
+      ".tools/fours-inverse-measured.mjs": "﻿import fs from 'node:fs';\nimport {Vector3} from '@babylonjs/core/Maths/math.vector.js';\nimport {staticBody,posed,placeLike} from '../research/core-posture-trials.mjs';\nimport {coreStand} from '../tests/harness/core-stand.mjs';\nimport {modelSpec} from '../src/core/human/spec.ts';\nimport {coupledDynamics} from '../src/core/build/coupled-dynamics.ts';\nimport {planarSupportPoints} from '../src/core/build/planar-support.ts';\nimport {preparePointContacts} from './contact-prepare.ts';\nimport {Quaternion} from '@babylonjs/core/Maths/math.vector.js';\nimport {embody} from '../src/core/mind/mind.ts';\nimport {applyAction} from '../src/core/mind/actions.ts';\nimport {boundedWork,linearWork,solveLinearTo,boundedLeastSquaresTo} from '../src/core/math/flat.ts';\nimport {nearJointStops} from '../src/core/control/joint-stops.ts';\nconst record=JSON.parse(fs.readFileSync('docs/reference/posture-limit-models.json','utf8')).rows.find(r=>r.job.engine==='rapier-coordinate'&&r.job.row==='fours').result;\nconst statics=await staticBody(undefined,'rapier-coordinate-coulomb');posed(statics,record.posture);\nconst stand=await coreStand(modelSpec('workshop-fighter'),{engine:'rapier-coordinate-coulomb',actuation:'directional'});\ntry{\n placeLike(statics,stand.built);\n const model=coupledDynamics(stand.built,stand.world.physics.gravity);\n const local=(s,p)=>{const d=p.map((v,i)=>v-s.frame.origin[i]);return ['x','y','z'].map(a=>s.frame[a].reduce((sum,v,i)=>sum+v*d[i],0));};\n const shapes=[...stand.built.segments.values()].flatMap(s=>s.rigid.shapes.map(shape=>{\n  let converted;switch(shape.kind){\n   case 'capsule': converted={kind:shape.kind,from:local(s,shape.from.value),to:local(s,shape.to.value),radius:shape.radius.value};break;\n   case 'sphere': converted={kind:shape.kind,centre:local(s,shape.centre.value),radius:shape.radius.value};break;\n   case 'box': converted={kind:shape.kind,centre:local(s,shape.centre.value),size:shape.size.value};break;\n   case 'hull': converted={kind:shape.kind,points:shape.points.map(p=>local(s,p.value))};break;\n  }return {segment:s,shape:converted};\n }));\n\n const segments=[...stand.built.segments.values()],com=s=>new Vector3(...s.body.massProperties.centre).applyRotationQuaternion(s.node.rotationQuaternion).add(s.node.position);\n const reference=segments.map(s=>({com:com(s),rotation:s.node.rotationQuaternion.clone(),position:s.node.position.clone()}));\n const n=model.channels,linear=linearWork(n),bounded=boundedWork(n),state={torque:new Array(n).fill(0),steps:0,rejected:0,drift:0};\n const body=embody(stand.built,stand.world,own=>({name:'forward-inverse-probe',state,step(){\n   const contacts=shapes.flatMap(({segment:s,shape})=>planarSupportPoints(shape,s.node.position.asArray(),s.node.rotationQuaternion,[0,1,0],.001).filter(p=>p[1]<.005).map(point=>({body:s.body,point,normal:[0,1,0],normalVelocity:-Math.max(point[1],0)*120})));\n  const stops=nearJointStops(stand.built,.001,1/120).map(s=>({row:s.row,minimumVelocity:s.rate+s.target/120,impulseTolerance:1e-10,velocityTolerance:1e-7}));\n\n const measured=state.predicted?segments.map((s,i)=>{const v=s.body.linearVelocityToRef(new Vector3()).asArray(),w=s.body.angularVelocityToRef(new Vector3()).asArray();return {name:s.spec.name,linear:Math.max(...v.map((v,k)=>Math.abs(v-state.predicted[i].linear[k]))),angular:Math.max(...w.map((v,k)=>Math.abs(v-state.predicted[i].angular[k])))}}):[];\n const torqueError=state.steps?Math.max(...state.torque.map((v,i)=>Math.abs(v-own.muscles.pulled[i]))):0;\n model.update();const clock=performance.now(),prepared=preparePointContacts(model,contacts,{dt:1/120,friction:.5,iterations:2048,impulseTolerance:1e-10,velocityTolerance:1e-7},stops);\n const scale=own.muscles.channels.map((c,i)=>Math.max(own.muscles.strength(i,-1),own.muscles.strength(i,1),1));\n const lower=scale.map((v,i)=>-own.muscles.strength(i,-1)/v),upper=scale.map((v,i)=>own.muscles.strength(i,1)/v);\n const targets=segments.map((s,i)=>{const p=com(s),v=s.body.linearVelocityToRef(new Vector3()).asArray(),w=s.body.angularVelocityToRef(new Vector3()).asArray(),q=reference[i].rotation.multiply(Quaternion.Inverse(s.node.rotationQuaternion)),sign=q.w<0?-1:1,rate=1/.3;\n return {point:p.asArray(),linear:v.map((x,k)=>x+(rate*rate*(reference[i].com.asArray()[k]-p.asArray()[k])-2*rate*x)/120),angular:w.map((x,k)=>x+(2*rate*rate*sign*[q.x,q.y,q.z][k]-2*rate*x)/120)};});\n const evaluate=x=>{const prediction=prepared.predict(x.map((v,i)=>v*scale[i]));\n const residual=segments.flatMap((s,i)=>{const start=model.pointVelocity(s.body,targets[i].point,prediction.projection.velocity),a=model.pointAcceleration(s.body,targets[i].point,prediction.acceleration),weight=s.spec.name==='lowerTrunk'?3:1;return [...a.linear.map((v,k)=>(start.linear[k]+v/120-targets[i].linear[k])*weight),...a.angular.map((v,k)=>(start.angular[k]+v/120-targets[i].angular[k])*.1*weight)];});\n return {prediction,residual,cost:residual.reduce((sum,v)=>sum+v*v,0)+1e-6*x.reduce((sum,v)=>sum+v*v,0)};};\n let x=state.torque.map((v,i)=>Math.max(lower[i],Math.min(upper[i],v/scale[i]))),current=evaluate(x),evaluations=1;\n for(let iteration=0;iteration<3;iteration++){\n  const columns=[];for(let i=0;i<n;i++){const z=[...x],epsilon=.001;z[i]+=epsilon;const r=evaluate(z);evaluations++;columns.push(r.residual.map((v,k)=>(v-current.residual[k])/epsilon));}\n  const H=new Float64Array(n*n),rhs=new Float64Array(n),unconstrained=new Float64Array(n),delta=new Float64Array(n);\n  for(let i=0;i<n;i++){for(let j=0;j<n;j++)H[i*n+j]=columns[i].reduce((sum,v,k)=>sum+v*columns[j][k],0)+(i===j?1e-6:0);rhs[i]=-columns[i].reduce((sum,v,k)=>sum+v*current.residual[k],0)-1e-6*x[i];}\n  solveLinearTo(linear,H,rhs,n,unconstrained);boundedLeastSquaresTo(bounded,H,unconstrained,lower.map((v,i)=>Math.max(v-x[i],-.25)),upper.map((v,i)=>Math.min(v-x[i],.25)),n,delta);\n  let accepted=false;for(const length of [1,.5,.25,.125]){const z=x.map((v,i)=>v+length*delta[i]),candidate=evaluate(z);evaluations++;if(candidate.cost<current.cost){x=z;current=candidate;accepted=true;break;}}\n  if(!accepted)break;\n }\n const accepted=current.prediction.status==='converged';if(!accepted)state.rejected++;\n state.predicted=segments.map((s,i)=>{const start=model.pointVelocity(s.body,targets[i].point,current.prediction.projection.velocity),a=model.pointAcceleration(s.body,targets[i].point,current.prediction.acceleration);return {linear:a.linear.map((v,k)=>start.linear[k]+v/120),angular:a.angular.map((v,k)=>start.angular[k]+v/120)};});\n state.torque=x.map((v,i)=>accepted?v*scale[i]:0);applyAction(own.muscles,{kind:'torque',torque:state.torque});state.steps++;\n state.drift=Math.max(state.drift,...segments.map((s,i)=>s.node.position.subtract(reference[i].position).length()));\n console.log(JSON.stringify({step:state.steps,torqueError,modelLinearError:Math.max(0,...measured.map(m=>m.linear)),modelAngularError:Math.max(0,...measured.map(m=>m.angular)),milliseconds:performance.now()-clock,evaluations,cost:current.cost,status:current.prediction.status,work:current.prediction.work,rejected:state.rejected,drift:state.drift,normalViolation:current.prediction.normalViolation,impulseResidual:current.prediction.impulseResidual,stopViolation:Math.max(0,...current.prediction.stops.map(s=>s.violation))}));\n }}));\n try{stand.step(120);console.log(JSON.stringify({final:segments.map((s,i)=>({name:s.spec.name,drift:s.node.position.subtract(reference[i].position).length()})).sort((a,b)=>b.drift-a.drift)}));}finally{body.dispose();}\n\n}finally{stand.dispose();statics.dispose();}\r\n",
+      ".tools/fours-inverse-errors.mjs": "﻿import fs from 'node:fs';\nimport {Vector3} from '@babylonjs/core/Maths/math.vector.js';\nimport {staticBody,posed,placeLike} from '../research/core-posture-trials.mjs';\nimport {coreStand} from '../tests/harness/core-stand.mjs';\nimport {modelSpec} from '../src/core/human/spec.ts';\nimport {coupledDynamics} from '../src/core/build/coupled-dynamics.ts';\nimport {planarSupportPoints} from '../src/core/build/planar-support.ts';\nimport {preparePointContacts} from './contact-prepare.ts';\nimport {Quaternion} from '@babylonjs/core/Maths/math.vector.js';\nimport {embody} from '../src/core/mind/mind.ts';\nimport {applyAction} from '../src/core/mind/actions.ts';\nimport {boundedWork,linearWork,solveLinearTo,boundedLeastSquaresTo} from '../src/core/math/flat.ts';\nimport {nearJointStops} from '../src/core/control/joint-stops.ts';\nconst record=JSON.parse(fs.readFileSync('docs/reference/posture-limit-models.json','utf8')).rows.find(r=>r.job.engine==='rapier-coordinate'&&r.job.row==='fours').result;\nconst statics=await staticBody(undefined,'rapier-coordinate-coulomb');posed(statics,record.posture);\nconst stand=await coreStand(modelSpec('workshop-fighter'),{engine:'rapier-coordinate-coulomb',actuation:'directional'});\ntry{\n placeLike(statics,stand.built);\n const model=coupledDynamics(stand.built,stand.world.physics.gravity);\n const local=(s,p)=>{const d=p.map((v,i)=>v-s.frame.origin[i]);return ['x','y','z'].map(a=>s.frame[a].reduce((sum,v,i)=>sum+v*d[i],0));};\n const shapes=[...stand.built.segments.values()].flatMap(s=>s.rigid.shapes.map(shape=>{\n  let converted;switch(shape.kind){\n   case 'capsule': converted={kind:shape.kind,from:local(s,shape.from.value),to:local(s,shape.to.value),radius:shape.radius.value};break;\n   case 'sphere': converted={kind:shape.kind,centre:local(s,shape.centre.value),radius:shape.radius.value};break;\n   case 'box': converted={kind:shape.kind,centre:local(s,shape.centre.value),size:shape.size.value};break;\n   case 'hull': converted={kind:shape.kind,points:shape.points.map(p=>local(s,p.value))};break;\n  }return {segment:s,shape:converted};\n }));\n\n const segments=[...stand.built.segments.values()],com=s=>new Vector3(...s.body.massProperties.centre).applyRotationQuaternion(s.node.rotationQuaternion).add(s.node.position);\n const reference=segments.map(s=>({com:com(s),rotation:s.node.rotationQuaternion.clone(),position:s.node.position.clone()}));\n const n=model.channels,linear=linearWork(n),bounded=boundedWork(n),state={torque:new Array(n).fill(0),steps:0,rejected:0,drift:0};\n const body=embody(stand.built,stand.world,own=>({name:'forward-inverse-probe',state,step(){\n   const contacts=shapes.flatMap(({segment:s,shape})=>planarSupportPoints(shape,s.node.position.asArray(),s.node.rotationQuaternion,[0,1,0],.001).filter(p=>p[1]<.005).map(point=>({body:s.body,point,normal:[0,1,0],normalVelocity:-Math.max(point[1],0)*120})));\n  const stops=nearJointStops(stand.built,.001,1/120).map(s=>({row:s.row,minimumVelocity:s.rate+s.target/120,impulseTolerance:1e-10,velocityTolerance:1e-7}));\n\n const measured=state.predicted?segments.map((s,i)=>{const v=s.body.linearVelocityToRef(new Vector3()).asArray(),w=s.body.angularVelocityToRef(new Vector3()).asArray();return {name:s.spec.name,linear:Math.max(...v.map((v,k)=>Math.abs(v-state.predicted[i].linear[k]))),angular:Math.max(...w.map((v,k)=>Math.abs(v-state.predicted[i].angular[k])))}}):[];\n const torqueError=state.steps?Math.max(...state.torque.map((v,i)=>Math.abs(v-own.muscles.pulled[i]))):0;\n model.update();const clock=performance.now(),prepared=preparePointContacts(model,contacts,{dt:1/120,friction:.5,iterations:2048,impulseTolerance:1e-10,velocityTolerance:1e-7},stops);\n const scale=own.muscles.channels.map((c,i)=>Math.max(own.muscles.strength(i,-1),own.muscles.strength(i,1),1));\n const lower=scale.map((v,i)=>-own.muscles.strength(i,-1)/v),upper=scale.map((v,i)=>own.muscles.strength(i,1)/v);\n const targets=segments.map((s,i)=>{const p=com(s),v=s.body.linearVelocityToRef(new Vector3()).asArray(),w=s.body.angularVelocityToRef(new Vector3()).asArray(),q=reference[i].rotation.multiply(Quaternion.Inverse(s.node.rotationQuaternion)),sign=q.w<0?-1:1,rate=1/.3;\n return {point:p.asArray(),linear:v.map((x,k)=>x+(rate*rate*(reference[i].com.asArray()[k]-p.asArray()[k])-2*rate*x)/120),angular:w.map((x,k)=>x+(2*rate*rate*sign*[q.x,q.y,q.z][k]-2*rate*x)/120)};});\n const evaluate=x=>{const prediction=prepared.predict(x.map((v,i)=>v*scale[i]));\n const residual=segments.flatMap((s,i)=>{const start=model.pointVelocity(s.body,targets[i].point,prediction.projection.velocity),a=model.pointAcceleration(s.body,targets[i].point,prediction.acceleration),weight=s.spec.name==='lowerTrunk'?3:1;return [...a.linear.map((v,k)=>(start.linear[k]+v/120-targets[i].linear[k])*weight),...a.angular.map((v,k)=>(start.angular[k]+v/120-targets[i].angular[k])*.1*weight)];});\n return {prediction,residual,cost:residual.reduce((sum,v)=>sum+v*v,0)+1e-6*x.reduce((sum,v)=>sum+v*v,0)};};\n let x=state.torque.map((v,i)=>Math.max(lower[i],Math.min(upper[i],v/scale[i]))),current=evaluate(x),evaluations=1;\n for(let iteration=0;iteration<3;iteration++){\n  const columns=[];for(let i=0;i<n;i++){const z=[...x],epsilon=.001;z[i]+=epsilon;const r=evaluate(z);evaluations++;columns.push(r.residual.map((v,k)=>(v-current.residual[k])/epsilon));}\n  const H=new Float64Array(n*n),rhs=new Float64Array(n),unconstrained=new Float64Array(n),delta=new Float64Array(n);\n  for(let i=0;i<n;i++){for(let j=0;j<n;j++)H[i*n+j]=columns[i].reduce((sum,v,k)=>sum+v*columns[j][k],0)+(i===j?1e-6:0);rhs[i]=-columns[i].reduce((sum,v,k)=>sum+v*current.residual[k],0)-1e-6*x[i];}\n  solveLinearTo(linear,H,rhs,n,unconstrained);boundedLeastSquaresTo(bounded,H,unconstrained,lower.map((v,i)=>Math.max(v-x[i],-.25)),upper.map((v,i)=>Math.min(v-x[i],.25)),n,delta);\n  let accepted=false;for(const length of [1,.5,.25,.125]){const z=x.map((v,i)=>v+length*delta[i]),candidate=evaluate(z);evaluations++;if(candidate.cost<current.cost){x=z;current=candidate;accepted=true;break;}}\n  if(!accepted)break;\n }\n const accepted=current.prediction.status==='converged';if(!accepted)state.rejected++;\n state.predicted=segments.map((s,i)=>{const start=model.pointVelocity(s.body,targets[i].point,current.prediction.projection.velocity),a=model.pointAcceleration(s.body,targets[i].point,current.prediction.acceleration);return {linear:a.linear.map((v,k)=>start.linear[k]+v/120),angular:a.angular.map((v,k)=>start.angular[k]+v/120)};});\n state.torque=x.map((v,i)=>accepted?v*scale[i]:0);applyAction(own.muscles,{kind:'torque',torque:state.torque});state.steps++;\n state.drift=Math.max(state.drift,...segments.map((s,i)=>s.node.position.subtract(reference[i].position).length()));\n console.log(JSON.stringify({step:state.steps,worst:measured.sort((a,b)=>b.angular-a.angular).slice(0,3),torqueError,modelLinearError:Math.max(0,...measured.map(m=>m.linear)),modelAngularError:Math.max(0,...measured.map(m=>m.angular)),milliseconds:performance.now()-clock,evaluations,cost:current.cost,status:current.prediction.status,work:current.prediction.work,rejected:state.rejected,drift:state.drift,normalViolation:current.prediction.normalViolation,impulseResidual:current.prediction.impulseResidual,stopViolation:Math.max(0,...current.prediction.stops.map(s=>s.violation))}));\n }}));\n try{stand.step(10);console.log(JSON.stringify({final:segments.map((s,i)=>({name:s.spec.name,drift:s.node.position.subtract(reference[i].position).length()})).sort((a,b)=>b.drift-a.drift)}));}finally{body.dispose();}\n\n}finally{stand.dispose();statics.dispose();}\r\n",
+      ".tools/fours-hand-contact.mjs": "﻿import fs from 'node:fs';\nimport {Vector3} from '@babylonjs/core/Maths/math.vector.js';\nimport {staticBody,posed,placeLike} from '../research/core-posture-trials.mjs';\nimport {coreStand} from '../tests/harness/core-stand.mjs';\nimport {modelSpec} from '../src/core/human/spec.ts';\nimport {coupledDynamics} from '../src/core/build/coupled-dynamics.ts';\nimport {planarSupportPoints} from '../src/core/build/planar-support.ts';\nimport {preparePointContacts} from './contact-prepare.ts';\nimport {Quaternion} from '@babylonjs/core/Maths/math.vector.js';\nimport {embody} from '../src/core/mind/mind.ts';\nimport {applyAction} from '../src/core/mind/actions.ts';\nimport {boundedWork,linearWork,solveLinearTo,boundedLeastSquaresTo} from '../src/core/math/flat.ts';\nimport {nearJointStops} from '../src/core/control/joint-stops.ts';\nconst record=JSON.parse(fs.readFileSync('docs/reference/posture-limit-models.json','utf8')).rows.find(r=>r.job.engine==='rapier-coordinate'&&r.job.row==='fours').result;\nconst statics=await staticBody(undefined,'rapier-coordinate-coulomb');posed(statics,record.posture);\nconst stand=await coreStand(modelSpec('workshop-fighter'),{engine:'rapier-coordinate-coulomb',actuation:'directional'});\ntry{\n placeLike(statics,stand.built);\n const model=coupledDynamics(stand.built,stand.world.physics.gravity);\n const local=(s,p)=>{const d=p.map((v,i)=>v-s.frame.origin[i]);return ['x','y','z'].map(a=>s.frame[a].reduce((sum,v,i)=>sum+v*d[i],0));};\n const shapes=[...stand.built.segments.values()].flatMap(s=>s.rigid.shapes.map(shape=>{\n  let converted;switch(shape.kind){\n   case 'capsule': converted={kind:shape.kind,from:local(s,shape.from.value),to:local(s,shape.to.value),radius:shape.radius.value};break;\n   case 'sphere': converted={kind:shape.kind,centre:local(s,shape.centre.value),radius:shape.radius.value};break;\n   case 'box': converted={kind:shape.kind,centre:local(s,shape.centre.value),size:shape.size.value};break;\n   case 'hull': converted={kind:shape.kind,points:shape.points.map(p=>local(s,p.value))};break;\n  }return {segment:s,shape:converted};\n }));\n\n console.log(JSON.stringify({handGeometry:shapes.filter(s=>s.segment.spec.name.startsWith('hand')).map(({segment:s,shape})=>({name:s.spec.name,shape,points:planarSupportPoints(shape,s.node.position.asArray(),s.node.rotationQuaternion,[0,1,0],1)}))}));\n const segments=[...stand.built.segments.values()],com=s=>new Vector3(...s.body.massProperties.centre).applyRotationQuaternion(s.node.rotationQuaternion).add(s.node.position);\n const reference=segments.map(s=>({com:com(s),rotation:s.node.rotationQuaternion.clone(),position:s.node.position.clone()}));\n const n=model.channels,linear=linearWork(n),bounded=boundedWork(n),state={torque:new Array(n).fill(0),steps:0,rejected:0,drift:0};\n const body=embody(stand.built,stand.world,own=>({name:'forward-inverse-probe',state,step(){\n   const contacts=shapes.flatMap(({segment:s,shape})=>planarSupportPoints(shape,s.node.position.asArray(),s.node.rotationQuaternion,[0,1,0],.001).filter(p=>p[1]<.005).map(point=>({body:s.body,point,normal:[0,1,0],normalVelocity:-Math.max(point[1],0)*120})));\n  const stops=nearJointStops(stand.built,.001,1/120).map(s=>({row:s.row,minimumVelocity:s.rate+s.target/120,impulseTolerance:1e-10,velocityTolerance:1e-7}));\n\n const measured=state.predicted?segments.map((s,i)=>{const v=s.body.linearVelocityToRef(new Vector3()).asArray(),w=s.body.angularVelocityToRef(new Vector3()).asArray();return {name:s.spec.name,linear:Math.max(...v.map((v,k)=>Math.abs(v-state.predicted[i].linear[k]))),angular:Math.max(...w.map((v,k)=>Math.abs(v-state.predicted[i].angular[k])))}}):[];\n const torqueError=state.steps?Math.max(...state.torque.map((v,i)=>Math.abs(v-own.muscles.pulled[i]))):0;\n model.update();const clock=performance.now(),prepared=preparePointContacts(model,contacts,{dt:1/120,friction:.5,iterations:2048,impulseTolerance:1e-10,velocityTolerance:1e-7},stops);\n const scale=own.muscles.channels.map((c,i)=>Math.max(own.muscles.strength(i,-1),own.muscles.strength(i,1),1));\n const lower=scale.map((v,i)=>-own.muscles.strength(i,-1)/v),upper=scale.map((v,i)=>own.muscles.strength(i,1)/v);\n const targets=segments.map((s,i)=>{const p=com(s),v=s.body.linearVelocityToRef(new Vector3()).asArray(),w=s.body.angularVelocityToRef(new Vector3()).asArray(),q=reference[i].rotation.multiply(Quaternion.Inverse(s.node.rotationQuaternion)),sign=q.w<0?-1:1,rate=1/.3;\n return {point:p.asArray(),linear:v.map((x,k)=>x+(rate*rate*(reference[i].com.asArray()[k]-p.asArray()[k])-2*rate*x)/120),angular:w.map((x,k)=>x+(2*rate*rate*sign*[q.x,q.y,q.z][k]-2*rate*x)/120)};});\n const evaluate=x=>{const prediction=prepared.predict(x.map((v,i)=>v*scale[i]));\n const residual=segments.flatMap((s,i)=>{const start=model.pointVelocity(s.body,targets[i].point,prediction.projection.velocity),a=model.pointAcceleration(s.body,targets[i].point,prediction.acceleration),weight=s.spec.name==='lowerTrunk'?3:1;return [...a.linear.map((v,k)=>(start.linear[k]+v/120-targets[i].linear[k])*weight),...a.angular.map((v,k)=>(start.angular[k]+v/120-targets[i].angular[k])*.1*weight)];});\n return {prediction,residual,cost:residual.reduce((sum,v)=>sum+v*v,0)+1e-6*x.reduce((sum,v)=>sum+v*v,0)};};\n let x=state.torque.map((v,i)=>Math.max(lower[i],Math.min(upper[i],v/scale[i]))),current=evaluate(x),evaluations=1;\n for(let iteration=0;iteration<3;iteration++){\n  const columns=[];for(let i=0;i<n;i++){const z=[...x],epsilon=.001;z[i]+=epsilon;const r=evaluate(z);evaluations++;columns.push(r.residual.map((v,k)=>(v-current.residual[k])/epsilon));}\n  const H=new Float64Array(n*n),rhs=new Float64Array(n),unconstrained=new Float64Array(n),delta=new Float64Array(n);\n  for(let i=0;i<n;i++){for(let j=0;j<n;j++)H[i*n+j]=columns[i].reduce((sum,v,k)=>sum+v*columns[j][k],0)+(i===j?1e-6:0);rhs[i]=-columns[i].reduce((sum,v,k)=>sum+v*current.residual[k],0)-1e-6*x[i];}\n  solveLinearTo(linear,H,rhs,n,unconstrained);boundedLeastSquaresTo(bounded,H,unconstrained,lower.map((v,i)=>Math.max(v-x[i],-.25)),upper.map((v,i)=>Math.min(v-x[i],.25)),n,delta);\n  let accepted=false;for(const length of [1,.5,.25,.125]){const z=x.map((v,i)=>v+length*delta[i]),candidate=evaluate(z);evaluations++;if(candidate.cost<current.cost){x=z;current=candidate;accepted=true;break;}}\n  if(!accepted)break;\n }\n const accepted=current.prediction.status==='converged';if(!accepted)state.rejected++;\n state.predicted=segments.map((s,i)=>{const start=model.pointVelocity(s.body,targets[i].point,current.prediction.projection.velocity),a=model.pointAcceleration(s.body,targets[i].point,current.prediction.acceleration);return {linear:a.linear.map((v,k)=>start.linear[k]+v/120),angular:a.angular.map((v,k)=>start.angular[k]+v/120)};});\n state.torque=x.map((v,i)=>accepted?v*scale[i]:0);applyAction(own.muscles,{kind:'torque',torque:state.torque});state.steps++;\n state.drift=Math.max(state.drift,...segments.map((s,i)=>s.node.position.subtract(reference[i].position).length()));\n console.log(JSON.stringify({step:state.steps,handMotion:segments.flatMap((s,i)=>s.spec.name.startsWith('hand')?[{name:s.spec.name,predicted:state.predicted[i],actual:s.body.angularVelocityToRef(new Vector3()).asArray(),contacts:stand.world.physics.contactManifoldsOf(s.body,o=>o===null)}]:[]),worst:measured.sort((a,b)=>b.angular-a.angular).slice(0,3),torqueError,modelLinearError:Math.max(0,...measured.map(m=>m.linear)),modelAngularError:Math.max(0,...measured.map(m=>m.angular)),milliseconds:performance.now()-clock,evaluations,cost:current.cost,status:current.prediction.status,work:current.prediction.work,rejected:state.rejected,drift:state.drift,normalViolation:current.prediction.normalViolation,impulseResidual:current.prediction.impulseResidual,stopViolation:Math.max(0,...current.prediction.stops.map(s=>s.violation))}));\n }}));\n try{stand.step(2);console.log(JSON.stringify({final:segments.map((s,i)=>({name:s.spec.name,drift:s.node.position.subtract(reference[i].position).length()})).sort((a,b)=>b.drift-a.drift)}));}finally{body.dispose();}\n\n}finally{stand.dispose();statics.dispose();}\r\n",
+      ".tools/fours-inverse-64-2.mjs": "﻿import fs from 'node:fs';\nimport {Vector3} from '@babylonjs/core/Maths/math.vector.js';\nimport {staticBody,posed,placeLike} from '../research/core-posture-trials.mjs';\nimport {coreStand} from '../tests/harness/core-stand.mjs';\nimport {modelSpec} from '../src/core/human/spec.ts';\nimport {coupledDynamics} from '../src/core/build/coupled-dynamics.ts';\nimport {planarSupportPoints} from '../src/core/build/planar-support.ts';\nimport {preparePointContacts} from './contact-prepare.ts';\nimport {Quaternion} from '@babylonjs/core/Maths/math.vector.js';\nimport {embody} from '../src/core/mind/mind.ts';\nimport {applyAction} from '../src/core/mind/actions.ts';\nimport {boundedWork,linearWork,solveLinearTo,boundedLeastSquaresTo} from '../src/core/math/flat.ts';\nimport {nearJointStops} from '../src/core/control/joint-stops.ts';\nconst record=JSON.parse(fs.readFileSync('docs/reference/posture-limit-models.json','utf8')).rows.find(r=>r.job.engine==='rapier-coordinate'&&r.job.row==='fours').result;\nconst statics=await staticBody(undefined,'rapier-coordinate-coulomb');posed(statics,record.posture);\nconst stand=await coreStand(modelSpec('workshop-fighter'),{engine:'rapier-coordinate-coulomb',actuation:'directional'});\ntry{\n stand.world.physics.raw.numSolverIterations=64; stand.world.physics.raw.numInternalPgsIterations=2;\n placeLike(statics,stand.built);\n const model=coupledDynamics(stand.built,stand.world.physics.gravity);\n const local=(s,p)=>{const d=p.map((v,i)=>v-s.frame.origin[i]);return ['x','y','z'].map(a=>s.frame[a].reduce((sum,v,i)=>sum+v*d[i],0));};\n const shapes=[...stand.built.segments.values()].flatMap(s=>s.rigid.shapes.map(shape=>{\n  let converted;switch(shape.kind){\n   case 'capsule': converted={kind:shape.kind,from:local(s,shape.from.value),to:local(s,shape.to.value),radius:shape.radius.value};break;\n   case 'sphere': converted={kind:shape.kind,centre:local(s,shape.centre.value),radius:shape.radius.value};break;\n   case 'box': converted={kind:shape.kind,centre:local(s,shape.centre.value),size:shape.size.value};break;\n   case 'hull': converted={kind:shape.kind,points:shape.points.map(p=>local(s,p.value))};break;\n  }return {segment:s,shape:converted};\n }));\n\n const segments=[...stand.built.segments.values()],com=s=>new Vector3(...s.body.massProperties.centre).applyRotationQuaternion(s.node.rotationQuaternion).add(s.node.position);\n const reference=segments.map(s=>({com:com(s),rotation:s.node.rotationQuaternion.clone(),position:s.node.position.clone()}));\n const n=model.channels,linear=linearWork(n),bounded=boundedWork(n),state={torque:new Array(n).fill(0),steps:0,rejected:0,drift:0};\n const body=embody(stand.built,stand.world,own=>({name:'forward-inverse-probe',state,step(){\n   const contacts=shapes.flatMap(({segment:s,shape})=>planarSupportPoints(shape,s.node.position.asArray(),s.node.rotationQuaternion,[0,1,0],.001).filter(p=>p[1]<.005).map(point=>({body:s.body,point,normal:[0,1,0],normalVelocity:-Math.max(point[1],0)*120})));\n  const stops=nearJointStops(stand.built,.001,1/120).map(s=>({row:s.row,minimumVelocity:s.rate+s.target/120,impulseTolerance:1e-10,velocityTolerance:1e-7}));\n\n const measured=state.predicted?segments.map((s,i)=>{const v=s.body.linearVelocityToRef(new Vector3()).asArray(),w=s.body.angularVelocityToRef(new Vector3()).asArray();return {name:s.spec.name,linear:Math.max(...v.map((v,k)=>Math.abs(v-state.predicted[i].linear[k]))),angular:Math.max(...w.map((v,k)=>Math.abs(v-state.predicted[i].angular[k])))}}):[];\n const torqueError=state.steps?Math.max(...state.torque.map((v,i)=>Math.abs(v-own.muscles.pulled[i]))):0;\n model.update();const clock=performance.now(),prepared=preparePointContacts(model,contacts,{dt:1/120,friction:.5,iterations:2048,impulseTolerance:1e-10,velocityTolerance:1e-7},stops);\n const scale=own.muscles.channels.map((c,i)=>Math.max(own.muscles.strength(i,-1),own.muscles.strength(i,1),1));\n const lower=scale.map((v,i)=>-own.muscles.strength(i,-1)/v),upper=scale.map((v,i)=>own.muscles.strength(i,1)/v);\n const targets=segments.map((s,i)=>{const p=com(s),v=s.body.linearVelocityToRef(new Vector3()).asArray(),w=s.body.angularVelocityToRef(new Vector3()).asArray(),q=reference[i].rotation.multiply(Quaternion.Inverse(s.node.rotationQuaternion)),sign=q.w<0?-1:1,rate=1/.3;\n return {point:p.asArray(),linear:v.map((x,k)=>x+(rate*rate*(reference[i].com.asArray()[k]-p.asArray()[k])-2*rate*x)/120),angular:w.map((x,k)=>x+(2*rate*rate*sign*[q.x,q.y,q.z][k]-2*rate*x)/120)};});\n const evaluate=x=>{const prediction=prepared.predict(x.map((v,i)=>v*scale[i]));\n const residual=segments.flatMap((s,i)=>{const start=model.pointVelocity(s.body,targets[i].point,prediction.projection.velocity),a=model.pointAcceleration(s.body,targets[i].point,prediction.acceleration),weight=s.spec.name==='lowerTrunk'?3:1;return [...a.linear.map((v,k)=>(start.linear[k]+v/120-targets[i].linear[k])*weight),...a.angular.map((v,k)=>(start.angular[k]+v/120-targets[i].angular[k])*.1*weight)];});\n return {prediction,residual,cost:residual.reduce((sum,v)=>sum+v*v,0)+1e-6*x.reduce((sum,v)=>sum+v*v,0)};};\n let x=state.torque.map((v,i)=>Math.max(lower[i],Math.min(upper[i],v/scale[i]))),current=evaluate(x),evaluations=1;\n for(let iteration=0;iteration<3;iteration++){\n  const columns=[];for(let i=0;i<n;i++){const z=[...x],epsilon=.001;z[i]+=epsilon;const r=evaluate(z);evaluations++;columns.push(r.residual.map((v,k)=>(v-current.residual[k])/epsilon));}\n  const H=new Float64Array(n*n),rhs=new Float64Array(n),unconstrained=new Float64Array(n),delta=new Float64Array(n);\n  for(let i=0;i<n;i++){for(let j=0;j<n;j++)H[i*n+j]=columns[i].reduce((sum,v,k)=>sum+v*columns[j][k],0)+(i===j?1e-6:0);rhs[i]=-columns[i].reduce((sum,v,k)=>sum+v*current.residual[k],0)-1e-6*x[i];}\n  solveLinearTo(linear,H,rhs,n,unconstrained);boundedLeastSquaresTo(bounded,H,unconstrained,lower.map((v,i)=>Math.max(v-x[i],-.25)),upper.map((v,i)=>Math.min(v-x[i],.25)),n,delta);\n  let accepted=false;for(const length of [1,.5,.25,.125]){const z=x.map((v,i)=>v+length*delta[i]),candidate=evaluate(z);evaluations++;if(candidate.cost<current.cost){x=z;current=candidate;accepted=true;break;}}\n  if(!accepted)break;\n }\n const accepted=current.prediction.status==='converged';if(!accepted)state.rejected++;\n state.predicted=segments.map((s,i)=>{const start=model.pointVelocity(s.body,targets[i].point,current.prediction.projection.velocity),a=model.pointAcceleration(s.body,targets[i].point,current.prediction.acceleration);return {linear:a.linear.map((v,k)=>start.linear[k]+v/120),angular:a.angular.map((v,k)=>start.angular[k]+v/120)};});\n state.torque=x.map((v,i)=>accepted?v*scale[i]:0);applyAction(own.muscles,{kind:'torque',torque:state.torque});state.steps++;\n state.drift=Math.max(state.drift,...segments.map((s,i)=>s.node.position.subtract(reference[i].position).length()));\n console.log(JSON.stringify({step:state.steps,worst:measured.sort((a,b)=>b.angular-a.angular).slice(0,3),torqueError,modelLinearError:Math.max(0,...measured.map(m=>m.linear)),modelAngularError:Math.max(0,...measured.map(m=>m.angular)),milliseconds:performance.now()-clock,evaluations,cost:current.cost,status:current.prediction.status,work:current.prediction.work,rejected:state.rejected,drift:state.drift,normalViolation:current.prediction.normalViolation,impulseResidual:current.prediction.impulseResidual,stopViolation:Math.max(0,...current.prediction.stops.map(s=>s.violation))}));\n }}));\n try{stand.step(10);console.log(JSON.stringify({final:segments.map((s,i)=>({name:s.spec.name,drift:s.node.position.subtract(reference[i].position).length()})).sort((a,b)=>b.drift-a.drift)}));}finally{body.dispose();}\n\n}finally{stand.dispose();statics.dispose();}\r\n",
+      ".tools/fours-inverse-256-2.mjs": "﻿import fs from 'node:fs';\nimport {Vector3} from '@babylonjs/core/Maths/math.vector.js';\nimport {staticBody,posed,placeLike} from '../research/core-posture-trials.mjs';\nimport {coreStand} from '../tests/harness/core-stand.mjs';\nimport {modelSpec} from '../src/core/human/spec.ts';\nimport {coupledDynamics} from '../src/core/build/coupled-dynamics.ts';\nimport {planarSupportPoints} from '../src/core/build/planar-support.ts';\nimport {preparePointContacts} from './contact-prepare.ts';\nimport {Quaternion} from '@babylonjs/core/Maths/math.vector.js';\nimport {embody} from '../src/core/mind/mind.ts';\nimport {applyAction} from '../src/core/mind/actions.ts';\nimport {boundedWork,linearWork,solveLinearTo,boundedLeastSquaresTo} from '../src/core/math/flat.ts';\nimport {nearJointStops} from '../src/core/control/joint-stops.ts';\nconst record=JSON.parse(fs.readFileSync('docs/reference/posture-limit-models.json','utf8')).rows.find(r=>r.job.engine==='rapier-coordinate'&&r.job.row==='fours').result;\nconst statics=await staticBody(undefined,'rapier-coordinate-coulomb');posed(statics,record.posture);\nconst stand=await coreStand(modelSpec('workshop-fighter'),{engine:'rapier-coordinate-coulomb',actuation:'directional'});\ntry{\n stand.world.physics.raw.numSolverIterations=256; stand.world.physics.raw.numInternalPgsIterations=2;\n placeLike(statics,stand.built);\n const model=coupledDynamics(stand.built,stand.world.physics.gravity);\n const local=(s,p)=>{const d=p.map((v,i)=>v-s.frame.origin[i]);return ['x','y','z'].map(a=>s.frame[a].reduce((sum,v,i)=>sum+v*d[i],0));};\n const shapes=[...stand.built.segments.values()].flatMap(s=>s.rigid.shapes.map(shape=>{\n  let converted;switch(shape.kind){\n   case 'capsule': converted={kind:shape.kind,from:local(s,shape.from.value),to:local(s,shape.to.value),radius:shape.radius.value};break;\n   case 'sphere': converted={kind:shape.kind,centre:local(s,shape.centre.value),radius:shape.radius.value};break;\n   case 'box': converted={kind:shape.kind,centre:local(s,shape.centre.value),size:shape.size.value};break;\n   case 'hull': converted={kind:shape.kind,points:shape.points.map(p=>local(s,p.value))};break;\n  }return {segment:s,shape:converted};\n }));\n\n const segments=[...stand.built.segments.values()],com=s=>new Vector3(...s.body.massProperties.centre).applyRotationQuaternion(s.node.rotationQuaternion).add(s.node.position);\n const reference=segments.map(s=>({com:com(s),rotation:s.node.rotationQuaternion.clone(),position:s.node.position.clone()}));\n const n=model.channels,linear=linearWork(n),bounded=boundedWork(n),state={torque:new Array(n).fill(0),steps:0,rejected:0,drift:0};\n const body=embody(stand.built,stand.world,own=>({name:'forward-inverse-probe',state,step(){\n   const contacts=shapes.flatMap(({segment:s,shape})=>planarSupportPoints(shape,s.node.position.asArray(),s.node.rotationQuaternion,[0,1,0],.001).filter(p=>p[1]<.005).map(point=>({body:s.body,point,normal:[0,1,0],normalVelocity:-Math.max(point[1],0)*120})));\n  const stops=nearJointStops(stand.built,.001,1/120).map(s=>({row:s.row,minimumVelocity:s.rate+s.target/120,impulseTolerance:1e-10,velocityTolerance:1e-7}));\n\n const measured=state.predicted?segments.map((s,i)=>{const v=s.body.linearVelocityToRef(new Vector3()).asArray(),w=s.body.angularVelocityToRef(new Vector3()).asArray();return {name:s.spec.name,linear:Math.max(...v.map((v,k)=>Math.abs(v-state.predicted[i].linear[k]))),angular:Math.max(...w.map((v,k)=>Math.abs(v-state.predicted[i].angular[k])))}}):[];\n const torqueError=state.steps?Math.max(...state.torque.map((v,i)=>Math.abs(v-own.muscles.pulled[i]))):0;\n model.update();const clock=performance.now(),prepared=preparePointContacts(model,contacts,{dt:1/120,friction:.5,iterations:2048,impulseTolerance:1e-10,velocityTolerance:1e-7},stops);\n const scale=own.muscles.channels.map((c,i)=>Math.max(own.muscles.strength(i,-1),own.muscles.strength(i,1),1));\n const lower=scale.map((v,i)=>-own.muscles.strength(i,-1)/v),upper=scale.map((v,i)=>own.muscles.strength(i,1)/v);\n const targets=segments.map((s,i)=>{const p=com(s),v=s.body.linearVelocityToRef(new Vector3()).asArray(),w=s.body.angularVelocityToRef(new Vector3()).asArray(),q=reference[i].rotation.multiply(Quaternion.Inverse(s.node.rotationQuaternion)),sign=q.w<0?-1:1,rate=1/.3;\n return {point:p.asArray(),linear:v.map((x,k)=>x+(rate*rate*(reference[i].com.asArray()[k]-p.asArray()[k])-2*rate*x)/120),angular:w.map((x,k)=>x+(2*rate*rate*sign*[q.x,q.y,q.z][k]-2*rate*x)/120)};});\n const evaluate=x=>{const prediction=prepared.predict(x.map((v,i)=>v*scale[i]));\n const residual=segments.flatMap((s,i)=>{const start=model.pointVelocity(s.body,targets[i].point,prediction.projection.velocity),a=model.pointAcceleration(s.body,targets[i].point,prediction.acceleration),weight=s.spec.name==='lowerTrunk'?3:1;return [...a.linear.map((v,k)=>(start.linear[k]+v/120-targets[i].linear[k])*weight),...a.angular.map((v,k)=>(start.angular[k]+v/120-targets[i].angular[k])*.1*weight)];});\n return {prediction,residual,cost:residual.reduce((sum,v)=>sum+v*v,0)+1e-6*x.reduce((sum,v)=>sum+v*v,0)};};\n let x=state.torque.map((v,i)=>Math.max(lower[i],Math.min(upper[i],v/scale[i]))),current=evaluate(x),evaluations=1;\n for(let iteration=0;iteration<3;iteration++){\n  const columns=[];for(let i=0;i<n;i++){const z=[...x],epsilon=.001;z[i]+=epsilon;const r=evaluate(z);evaluations++;columns.push(r.residual.map((v,k)=>(v-current.residual[k])/epsilon));}\n  const H=new Float64Array(n*n),rhs=new Float64Array(n),unconstrained=new Float64Array(n),delta=new Float64Array(n);\n  for(let i=0;i<n;i++){for(let j=0;j<n;j++)H[i*n+j]=columns[i].reduce((sum,v,k)=>sum+v*columns[j][k],0)+(i===j?1e-6:0);rhs[i]=-columns[i].reduce((sum,v,k)=>sum+v*current.residual[k],0)-1e-6*x[i];}\n  solveLinearTo(linear,H,rhs,n,unconstrained);boundedLeastSquaresTo(bounded,H,unconstrained,lower.map((v,i)=>Math.max(v-x[i],-.25)),upper.map((v,i)=>Math.min(v-x[i],.25)),n,delta);\n  let accepted=false;for(const length of [1,.5,.25,.125]){const z=x.map((v,i)=>v+length*delta[i]),candidate=evaluate(z);evaluations++;if(candidate.cost<current.cost){x=z;current=candidate;accepted=true;break;}}\n  if(!accepted)break;\n }\n const accepted=current.prediction.status==='converged';if(!accepted)state.rejected++;\n state.predicted=segments.map((s,i)=>{const start=model.pointVelocity(s.body,targets[i].point,current.prediction.projection.velocity),a=model.pointAcceleration(s.body,targets[i].point,current.prediction.acceleration);return {linear:a.linear.map((v,k)=>start.linear[k]+v/120),angular:a.angular.map((v,k)=>start.angular[k]+v/120)};});\n state.torque=x.map((v,i)=>accepted?v*scale[i]:0);applyAction(own.muscles,{kind:'torque',torque:state.torque});state.steps++;\n state.drift=Math.max(state.drift,...segments.map((s,i)=>s.node.position.subtract(reference[i].position).length()));\n console.log(JSON.stringify({step:state.steps,worst:measured.sort((a,b)=>b.angular-a.angular).slice(0,3),torqueError,modelLinearError:Math.max(0,...measured.map(m=>m.linear)),modelAngularError:Math.max(0,...measured.map(m=>m.angular)),milliseconds:performance.now()-clock,evaluations,cost:current.cost,status:current.prediction.status,work:current.prediction.work,rejected:state.rejected,drift:state.drift,normalViolation:current.prediction.normalViolation,impulseResidual:current.prediction.impulseResidual,stopViolation:Math.max(0,...current.prediction.stops.map(s=>s.violation))}));\n }}));\n try{stand.step(10);console.log(JSON.stringify({final:segments.map((s,i)=>({name:s.spec.name,drift:s.node.position.subtract(reference[i].position).length()})).sort((a,b)=>b.drift-a.drift)}));}finally{body.dispose();}\n\n}finally{stand.dispose();statics.dispose();}\r\n",
+      ".tools/fours-inverse-16-16.mjs": "﻿import fs from 'node:fs';\nimport {Vector3} from '@babylonjs/core/Maths/math.vector.js';\nimport {staticBody,posed,placeLike} from '../research/core-posture-trials.mjs';\nimport {coreStand} from '../tests/harness/core-stand.mjs';\nimport {modelSpec} from '../src/core/human/spec.ts';\nimport {coupledDynamics} from '../src/core/build/coupled-dynamics.ts';\nimport {planarSupportPoints} from '../src/core/build/planar-support.ts';\nimport {preparePointContacts} from './contact-prepare.ts';\nimport {Quaternion} from '@babylonjs/core/Maths/math.vector.js';\nimport {embody} from '../src/core/mind/mind.ts';\nimport {applyAction} from '../src/core/mind/actions.ts';\nimport {boundedWork,linearWork,solveLinearTo,boundedLeastSquaresTo} from '../src/core/math/flat.ts';\nimport {nearJointStops} from '../src/core/control/joint-stops.ts';\nconst record=JSON.parse(fs.readFileSync('docs/reference/posture-limit-models.json','utf8')).rows.find(r=>r.job.engine==='rapier-coordinate'&&r.job.row==='fours').result;\nconst statics=await staticBody(undefined,'rapier-coordinate-coulomb');posed(statics,record.posture);\nconst stand=await coreStand(modelSpec('workshop-fighter'),{engine:'rapier-coordinate-coulomb',actuation:'directional'});\ntry{\n stand.world.physics.raw.numSolverIterations=16; stand.world.physics.raw.numInternalPgsIterations=16;\n placeLike(statics,stand.built);\n const model=coupledDynamics(stand.built,stand.world.physics.gravity);\n const local=(s,p)=>{const d=p.map((v,i)=>v-s.frame.origin[i]);return ['x','y','z'].map(a=>s.frame[a].reduce((sum,v,i)=>sum+v*d[i],0));};\n const shapes=[...stand.built.segments.values()].flatMap(s=>s.rigid.shapes.map(shape=>{\n  let converted;switch(shape.kind){\n   case 'capsule': converted={kind:shape.kind,from:local(s,shape.from.value),to:local(s,shape.to.value),radius:shape.radius.value};break;\n   case 'sphere': converted={kind:shape.kind,centre:local(s,shape.centre.value),radius:shape.radius.value};break;\n   case 'box': converted={kind:shape.kind,centre:local(s,shape.centre.value),size:shape.size.value};break;\n   case 'hull': converted={kind:shape.kind,points:shape.points.map(p=>local(s,p.value))};break;\n  }return {segment:s,shape:converted};\n }));\n\n const segments=[...stand.built.segments.values()],com=s=>new Vector3(...s.body.massProperties.centre).applyRotationQuaternion(s.node.rotationQuaternion).add(s.node.position);\n const reference=segments.map(s=>({com:com(s),rotation:s.node.rotationQuaternion.clone(),position:s.node.position.clone()}));\n const n=model.channels,linear=linearWork(n),bounded=boundedWork(n),state={torque:new Array(n).fill(0),steps:0,rejected:0,drift:0};\n const body=embody(stand.built,stand.world,own=>({name:'forward-inverse-probe',state,step(){\n   const contacts=shapes.flatMap(({segment:s,shape})=>planarSupportPoints(shape,s.node.position.asArray(),s.node.rotationQuaternion,[0,1,0],.001).filter(p=>p[1]<.005).map(point=>({body:s.body,point,normal:[0,1,0],normalVelocity:-Math.max(point[1],0)*120})));\n  const stops=nearJointStops(stand.built,.001,1/120).map(s=>({row:s.row,minimumVelocity:s.rate+s.target/120,impulseTolerance:1e-10,velocityTolerance:1e-7}));\n\n const measured=state.predicted?segments.map((s,i)=>{const v=s.body.linearVelocityToRef(new Vector3()).asArray(),w=s.body.angularVelocityToRef(new Vector3()).asArray();return {name:s.spec.name,linear:Math.max(...v.map((v,k)=>Math.abs(v-state.predicted[i].linear[k]))),angular:Math.max(...w.map((v,k)=>Math.abs(v-state.predicted[i].angular[k])))}}):[];\n const torqueError=state.steps?Math.max(...state.torque.map((v,i)=>Math.abs(v-own.muscles.pulled[i]))):0;\n model.update();const clock=performance.now(),prepared=preparePointContacts(model,contacts,{dt:1/120,friction:.5,iterations:2048,impulseTolerance:1e-10,velocityTolerance:1e-7},stops);\n const scale=own.muscles.channels.map((c,i)=>Math.max(own.muscles.strength(i,-1),own.muscles.strength(i,1),1));\n const lower=scale.map((v,i)=>-own.muscles.strength(i,-1)/v),upper=scale.map((v,i)=>own.muscles.strength(i,1)/v);\n const targets=segments.map((s,i)=>{const p=com(s),v=s.body.linearVelocityToRef(new Vector3()).asArray(),w=s.body.angularVelocityToRef(new Vector3()).asArray(),q=reference[i].rotation.multiply(Quaternion.Inverse(s.node.rotationQuaternion)),sign=q.w<0?-1:1,rate=1/.3;\n return {point:p.asArray(),linear:v.map((x,k)=>x+(rate*rate*(reference[i].com.asArray()[k]-p.asArray()[k])-2*rate*x)/120),angular:w.map((x,k)=>x+(2*rate*rate*sign*[q.x,q.y,q.z][k]-2*rate*x)/120)};});\n const evaluate=x=>{const prediction=prepared.predict(x.map((v,i)=>v*scale[i]));\n const residual=segments.flatMap((s,i)=>{const start=model.pointVelocity(s.body,targets[i].point,prediction.projection.velocity),a=model.pointAcceleration(s.body,targets[i].point,prediction.acceleration),weight=s.spec.name==='lowerTrunk'?3:1;return [...a.linear.map((v,k)=>(start.linear[k]+v/120-targets[i].linear[k])*weight),...a.angular.map((v,k)=>(start.angular[k]+v/120-targets[i].angular[k])*.1*weight)];});\n return {prediction,residual,cost:residual.reduce((sum,v)=>sum+v*v,0)+1e-6*x.reduce((sum,v)=>sum+v*v,0)};};\n let x=state.torque.map((v,i)=>Math.max(lower[i],Math.min(upper[i],v/scale[i]))),current=evaluate(x),evaluations=1;\n for(let iteration=0;iteration<3;iteration++){\n  const columns=[];for(let i=0;i<n;i++){const z=[...x],epsilon=.001;z[i]+=epsilon;const r=evaluate(z);evaluations++;columns.push(r.residual.map((v,k)=>(v-current.residual[k])/epsilon));}\n  const H=new Float64Array(n*n),rhs=new Float64Array(n),unconstrained=new Float64Array(n),delta=new Float64Array(n);\n  for(let i=0;i<n;i++){for(let j=0;j<n;j++)H[i*n+j]=columns[i].reduce((sum,v,k)=>sum+v*columns[j][k],0)+(i===j?1e-6:0);rhs[i]=-columns[i].reduce((sum,v,k)=>sum+v*current.residual[k],0)-1e-6*x[i];}\n  solveLinearTo(linear,H,rhs,n,unconstrained);boundedLeastSquaresTo(bounded,H,unconstrained,lower.map((v,i)=>Math.max(v-x[i],-.25)),upper.map((v,i)=>Math.min(v-x[i],.25)),n,delta);\n  let accepted=false;for(const length of [1,.5,.25,.125]){const z=x.map((v,i)=>v+length*delta[i]),candidate=evaluate(z);evaluations++;if(candidate.cost<current.cost){x=z;current=candidate;accepted=true;break;}}\n  if(!accepted)break;\n }\n const accepted=current.prediction.status==='converged';if(!accepted)state.rejected++;\n state.predicted=segments.map((s,i)=>{const start=model.pointVelocity(s.body,targets[i].point,current.prediction.projection.velocity),a=model.pointAcceleration(s.body,targets[i].point,current.prediction.acceleration);return {linear:a.linear.map((v,k)=>start.linear[k]+v/120),angular:a.angular.map((v,k)=>start.angular[k]+v/120)};});\n state.torque=x.map((v,i)=>accepted?v*scale[i]:0);applyAction(own.muscles,{kind:'torque',torque:state.torque});state.steps++;\n state.drift=Math.max(state.drift,...segments.map((s,i)=>s.node.position.subtract(reference[i].position).length()));\n console.log(JSON.stringify({step:state.steps,worst:measured.sort((a,b)=>b.angular-a.angular).slice(0,3),torqueError,modelLinearError:Math.max(0,...measured.map(m=>m.linear)),modelAngularError:Math.max(0,...measured.map(m=>m.angular)),milliseconds:performance.now()-clock,evaluations,cost:current.cost,status:current.prediction.status,work:current.prediction.work,rejected:state.rejected,drift:state.drift,normalViolation:current.prediction.normalViolation,impulseResidual:current.prediction.impulseResidual,stopViolation:Math.max(0,...current.prediction.stops.map(s=>s.violation))}));\n }}));\n try{stand.step(10);console.log(JSON.stringify({final:segments.map((s,i)=>({name:s.spec.name,drift:s.node.position.subtract(reference[i].position).length()})).sort((a,b)=>b.drift-a.drift)}));}finally{body.dispose();}\n\n}finally{stand.dispose();statics.dispose();}\r\n",
+      ".tools/fours-inverse-lift-0-false.mjs": "﻿import fs from 'node:fs';\nimport {Vector3} from '@babylonjs/core/Maths/math.vector.js';\nimport {staticBody,posed,placeLike,leastShare,ROWS} from '../research/core-posture-trials.mjs';\nimport {coreStand} from '../tests/harness/core-stand.mjs';\nimport {modelSpec} from '../src/core/human/spec.ts';\nimport {coupledDynamics} from '../src/core/build/coupled-dynamics.ts';\nimport {planarSupportPoints} from '../src/core/build/planar-support.ts';\nimport {preparePointContacts} from './contact-prepare.ts';\nimport {Quaternion} from '@babylonjs/core/Maths/math.vector.js';\nimport {embody} from '../src/core/mind/mind.ts';\nimport {applyAction} from '../src/core/mind/actions.ts';\nimport {boundedWork,linearWork,solveLinearTo,boundedLeastSquaresTo} from '../src/core/math/flat.ts';\nimport {nearJointStops} from '../src/core/control/joint-stops.ts';\nconst record=JSON.parse(fs.readFileSync('docs/reference/posture-limit-models.json','utf8')).rows.find(r=>r.job.engine==='rapier-coordinate'&&r.job.row==='fours').result;\nconst statics=await staticBody(undefined,'rapier-coordinate-coulomb');posed(statics,record.posture);\nconst stand=await coreStand(modelSpec('workshop-fighter'),{engine:'rapier-coordinate-coulomb',actuation:'directional'});\ntry{\n placeLike(statics,stand.built,0);\n const model=coupledDynamics(stand.built,stand.world.physics.gravity);\n const local=(s,p)=>{const d=p.map((v,i)=>v-s.frame.origin[i]);return ['x','y','z'].map(a=>s.frame[a].reduce((sum,v,i)=>sum+v*d[i],0));};\n const shapes=[...stand.built.segments.values()].flatMap(s=>s.rigid.shapes.map(shape=>{\n  let converted;switch(shape.kind){\n   case 'capsule': converted={kind:shape.kind,from:local(s,shape.from.value),to:local(s,shape.to.value),radius:shape.radius.value};break;\n   case 'sphere': converted={kind:shape.kind,centre:local(s,shape.centre.value),radius:shape.radius.value};break;\n   case 'box': converted={kind:shape.kind,centre:local(s,shape.centre.value),size:shape.size.value};break;\n   case 'hull': converted={kind:shape.kind,points:shape.points.map(p=>local(s,p.value))};break;\n  }return {segment:s,shape:converted};\n }));\n\n const segments=[...stand.built.segments.values()],com=s=>new Vector3(...s.body.massProperties.centre).applyRotationQuaternion(s.node.rotationQuaternion).add(s.node.position);\n const reference=segments.map(s=>({com:com(s),rotation:s.node.rotationQuaternion.clone(),position:s.node.position.clone()}));\n const n=model.channels,linear=linearWork(n),bounded=boundedWork(n),state={torque:new Array(n).fill(0),steps:0,rejected:0,drift:0};\n const body=embody(stand.built,stand.world,own=>({name:'forward-inverse-probe',state,step(){\n   const contacts=shapes.flatMap(({segment:s,shape})=>planarSupportPoints(shape,s.node.position.asArray(),s.node.rotationQuaternion,[0,1,0],.001).filter(p=>p[1]<.005).map(point=>({body:s.body,point,normal:[0,1,0],normalVelocity:-Math.max(point[1],0)*120})));\n  const stops=nearJointStops(stand.built,.001,1/120).map(s=>({row:s.row,minimumVelocity:s.rate+s.target/120,impulseTolerance:1e-10,velocityTolerance:1e-7}));\n\n const measured=state.predicted?segments.map((s,i)=>{const v=s.body.linearVelocityToRef(new Vector3()).asArray(),w=s.body.angularVelocityToRef(new Vector3()).asArray();return {name:s.spec.name,linear:Math.max(...v.map((v,k)=>Math.abs(v-state.predicted[i].linear[k]))),angular:Math.max(...w.map((v,k)=>Math.abs(v-state.predicted[i].angular[k])))}}):[];\n const torqueError=state.steps?Math.max(...state.torque.map((v,i)=>Math.abs(v-own.muscles.pulled[i]))):0;\n model.update();const clock=performance.now(),prepared=preparePointContacts(model,contacts,{dt:1/120,friction:.5,iterations:2048,impulseTolerance:1e-10,velocityTolerance:1e-7},stops);\n const scale=own.muscles.channels.map((c,i)=>Math.max(own.muscles.strength(i,-1),own.muscles.strength(i,1),1));\n const lower=scale.map((v,i)=>-own.muscles.strength(i,-1)/v),upper=scale.map((v,i)=>own.muscles.strength(i,1)/v);\n const targets=segments.map((s,i)=>{const p=com(s),v=s.body.linearVelocityToRef(new Vector3()).asArray(),w=s.body.angularVelocityToRef(new Vector3()).asArray(),q=reference[i].rotation.multiply(Quaternion.Inverse(s.node.rotationQuaternion)),sign=q.w<0?-1:1,rate=1/.3;\n return {point:p.asArray(),linear:v.map((x,k)=>x+(rate*rate*(reference[i].com.asArray()[k]-p.asArray()[k])-2*rate*x)/120),angular:w.map((x,k)=>x+(2*rate*rate*sign*[q.x,q.y,q.z][k]-2*rate*x)/120)};});\n const evaluate=x=>{const prediction=prepared.predict(x.map((v,i)=>v*scale[i]));\n const residual=segments.flatMap((s,i)=>{const start=model.pointVelocity(s.body,targets[i].point,prediction.projection.velocity),a=model.pointAcceleration(s.body,targets[i].point,prediction.acceleration),weight=s.spec.name==='lowerTrunk'?3:1;return [...a.linear.map((v,k)=>(start.linear[k]+v/120-targets[i].linear[k])*weight),...a.angular.map((v,k)=>(start.angular[k]+v/120-targets[i].angular[k])*.1*weight)];});\n return {prediction,residual,cost:residual.reduce((sum,v)=>sum+v*v,0)+1e-6*x.reduce((sum,v)=>sum+v*v,0)};};\n let x=state.torque.map((v,i)=>Math.max(lower[i],Math.min(upper[i],v/scale[i]))),current=evaluate(x),evaluations=1;\n for(let iteration=0;iteration<3;iteration++){\n  const columns=[];for(let i=0;i<n;i++){const z=[...x],epsilon=.001;z[i]+=epsilon;const r=evaluate(z);evaluations++;columns.push(r.residual.map((v,k)=>(v-current.residual[k])/epsilon));}\n  const H=new Float64Array(n*n),rhs=new Float64Array(n),unconstrained=new Float64Array(n),delta=new Float64Array(n);\n  for(let i=0;i<n;i++){for(let j=0;j<n;j++)H[i*n+j]=columns[i].reduce((sum,v,k)=>sum+v*columns[j][k],0)+(i===j?1e-6:0);rhs[i]=-columns[i].reduce((sum,v,k)=>sum+v*current.residual[k],0)-1e-6*x[i];}\n  solveLinearTo(linear,H,rhs,n,unconstrained);boundedLeastSquaresTo(bounded,H,unconstrained,lower.map((v,i)=>Math.max(v-x[i],-.25)),upper.map((v,i)=>Math.min(v-x[i],.25)),n,delta);\n  let accepted=false;for(const length of [1,.5,.25,.125]){const z=x.map((v,i)=>v+length*delta[i]),candidate=evaluate(z);evaluations++;if(candidate.cost<current.cost){x=z;current=candidate;accepted=true;break;}}\n  if(!accepted)break;\n }\n const accepted=current.prediction.status==='converged';if(!accepted)state.rejected++;\n state.predicted=segments.map((s,i)=>{const start=model.pointVelocity(s.body,targets[i].point,current.prediction.projection.velocity),a=model.pointAcceleration(s.body,targets[i].point,current.prediction.acceleration);return {linear:a.linear.map((v,k)=>start.linear[k]+v/120),angular:a.angular.map((v,k)=>start.angular[k]+v/120)};});\n state.torque=x.map((v,i)=>accepted?v*scale[i]:0);applyAction(own.muscles,{kind:'torque',torque:state.torque});state.steps++;\n state.drift=Math.max(state.drift,...segments.map((s,i)=>s.node.position.subtract(reference[i].position).length()));\n console.log(JSON.stringify({step:state.steps,torqueError,modelLinearError:Math.max(0,...measured.map(m=>m.linear)),modelAngularError:Math.max(0,...measured.map(m=>m.angular)),milliseconds:performance.now()-clock,evaluations,cost:current.cost,status:current.prediction.status,work:current.prediction.work,rejected:state.rejected,drift:state.drift,normalViolation:current.prediction.normalViolation,impulseResidual:current.prediction.impulseResidual,stopViolation:Math.max(0,...current.prediction.stops.map(s=>s.violation))}));\n }}));\n try{stand.step(120);console.log(JSON.stringify({final:segments.map((s,i)=>({name:s.spec.name,drift:s.node.position.subtract(reference[i].position).length()})).sort((a,b)=>b.drift-a.drift)}));}finally{body.dispose();}\n\n}finally{stand.dispose();statics.dispose();}\r\n",
+      ".tools/fours-inverse-lift-0-true.mjs": "﻿import fs from 'node:fs';\nimport {Vector3} from '@babylonjs/core/Maths/math.vector.js';\nimport {staticBody,posed,placeLike,leastShare,ROWS} from '../research/core-posture-trials.mjs';\nimport {coreStand} from '../tests/harness/core-stand.mjs';\nimport {modelSpec} from '../src/core/human/spec.ts';\nimport {coupledDynamics} from '../src/core/build/coupled-dynamics.ts';\nimport {planarSupportPoints} from '../src/core/build/planar-support.ts';\nimport {preparePointContacts} from './contact-prepare.ts';\nimport {Quaternion} from '@babylonjs/core/Maths/math.vector.js';\nimport {embody} from '../src/core/mind/mind.ts';\nimport {applyAction} from '../src/core/mind/actions.ts';\nimport {boundedWork,linearWork,solveLinearTo,boundedLeastSquaresTo} from '../src/core/math/flat.ts';\nimport {nearJointStops} from '../src/core/control/joint-stops.ts';\nconst record=JSON.parse(fs.readFileSync('docs/reference/posture-limit-models.json','utf8')).rows.find(r=>r.job.engine==='rapier-coordinate'&&r.job.row==='fours').result;\nconst statics=await staticBody(undefined,'rapier-coordinate-coulomb');posed(statics,record.posture);\nconst stand=await coreStand(modelSpec('workshop-fighter'),{engine:'rapier-coordinate-coulomb',actuation:'directional'});\ntry{\n placeLike(statics,stand.built,0);\n const model=coupledDynamics(stand.built,stand.world.physics.gravity);\n const local=(s,p)=>{const d=p.map((v,i)=>v-s.frame.origin[i]);return ['x','y','z'].map(a=>s.frame[a].reduce((sum,v,i)=>sum+v*d[i],0));};\n const shapes=[...stand.built.segments.values()].flatMap(s=>s.rigid.shapes.map(shape=>{\n  let converted;switch(shape.kind){\n   case 'capsule': converted={kind:shape.kind,from:local(s,shape.from.value),to:local(s,shape.to.value),radius:shape.radius.value};break;\n   case 'sphere': converted={kind:shape.kind,centre:local(s,shape.centre.value),radius:shape.radius.value};break;\n   case 'box': converted={kind:shape.kind,centre:local(s,shape.centre.value),size:shape.size.value};break;\n   case 'hull': converted={kind:shape.kind,points:shape.points.map(p=>local(s,p.value))};break;\n  }return {segment:s,shape:converted};\n }));\n\n const segments=[...stand.built.segments.values()],com=s=>new Vector3(...s.body.massProperties.centre).applyRotationQuaternion(s.node.rotationQuaternion).add(s.node.position);\n const reference=segments.map(s=>({com:com(s),rotation:s.node.rotationQuaternion.clone(),position:s.node.position.clone()}));\n const n=model.channels,linear=linearWork(n),bounded=boundedWork(n),state={torque:leastShare(statics,ROWS.find(r=>r.name===\"fours\"),record.posture).torques,steps:0,rejected:0,drift:0};\n const body=embody(stand.built,stand.world,own=>({name:'forward-inverse-probe',state,step(){\n   const contacts=shapes.flatMap(({segment:s,shape})=>planarSupportPoints(shape,s.node.position.asArray(),s.node.rotationQuaternion,[0,1,0],.001).filter(p=>p[1]<.005).map(point=>({body:s.body,point,normal:[0,1,0],normalVelocity:-Math.max(point[1],0)*120})));\n  const stops=nearJointStops(stand.built,.001,1/120).map(s=>({row:s.row,minimumVelocity:s.rate+s.target/120,impulseTolerance:1e-10,velocityTolerance:1e-7}));\n\n const measured=state.predicted?segments.map((s,i)=>{const v=s.body.linearVelocityToRef(new Vector3()).asArray(),w=s.body.angularVelocityToRef(new Vector3()).asArray();return {name:s.spec.name,linear:Math.max(...v.map((v,k)=>Math.abs(v-state.predicted[i].linear[k]))),angular:Math.max(...w.map((v,k)=>Math.abs(v-state.predicted[i].angular[k])))}}):[];\n const torqueError=state.steps?Math.max(...state.torque.map((v,i)=>Math.abs(v-own.muscles.pulled[i]))):0;\n model.update();const clock=performance.now(),prepared=preparePointContacts(model,contacts,{dt:1/120,friction:.5,iterations:2048,impulseTolerance:1e-10,velocityTolerance:1e-7},stops);\n const scale=own.muscles.channels.map((c,i)=>Math.max(own.muscles.strength(i,-1),own.muscles.strength(i,1),1));\n const lower=scale.map((v,i)=>-own.muscles.strength(i,-1)/v),upper=scale.map((v,i)=>own.muscles.strength(i,1)/v);\n const targets=segments.map((s,i)=>{const p=com(s),v=s.body.linearVelocityToRef(new Vector3()).asArray(),w=s.body.angularVelocityToRef(new Vector3()).asArray(),q=reference[i].rotation.multiply(Quaternion.Inverse(s.node.rotationQuaternion)),sign=q.w<0?-1:1,rate=1/.3;\n return {point:p.asArray(),linear:v.map((x,k)=>x+(rate*rate*(reference[i].com.asArray()[k]-p.asArray()[k])-2*rate*x)/120),angular:w.map((x,k)=>x+(2*rate*rate*sign*[q.x,q.y,q.z][k]-2*rate*x)/120)};});\n const evaluate=x=>{const prediction=prepared.predict(x.map((v,i)=>v*scale[i]));\n const residual=segments.flatMap((s,i)=>{const start=model.pointVelocity(s.body,targets[i].point,prediction.projection.velocity),a=model.pointAcceleration(s.body,targets[i].point,prediction.acceleration),weight=s.spec.name==='lowerTrunk'?3:1;return [...a.linear.map((v,k)=>(start.linear[k]+v/120-targets[i].linear[k])*weight),...a.angular.map((v,k)=>(start.angular[k]+v/120-targets[i].angular[k])*.1*weight)];});\n return {prediction,residual,cost:residual.reduce((sum,v)=>sum+v*v,0)+1e-6*x.reduce((sum,v)=>sum+v*v,0)};};\n let x=state.torque.map((v,i)=>Math.max(lower[i],Math.min(upper[i],v/scale[i]))),current=evaluate(x),evaluations=1;\n for(let iteration=0;iteration<3;iteration++){\n  const columns=[];for(let i=0;i<n;i++){const z=[...x],epsilon=.001;z[i]+=epsilon;const r=evaluate(z);evaluations++;columns.push(r.residual.map((v,k)=>(v-current.residual[k])/epsilon));}\n  const H=new Float64Array(n*n),rhs=new Float64Array(n),unconstrained=new Float64Array(n),delta=new Float64Array(n);\n  for(let i=0;i<n;i++){for(let j=0;j<n;j++)H[i*n+j]=columns[i].reduce((sum,v,k)=>sum+v*columns[j][k],0)+(i===j?1e-6:0);rhs[i]=-columns[i].reduce((sum,v,k)=>sum+v*current.residual[k],0)-1e-6*x[i];}\n  solveLinearTo(linear,H,rhs,n,unconstrained);boundedLeastSquaresTo(bounded,H,unconstrained,lower.map((v,i)=>Math.max(v-x[i],-.25)),upper.map((v,i)=>Math.min(v-x[i],.25)),n,delta);\n  let accepted=false;for(const length of [1,.5,.25,.125]){const z=x.map((v,i)=>v+length*delta[i]),candidate=evaluate(z);evaluations++;if(candidate.cost<current.cost){x=z;current=candidate;accepted=true;break;}}\n  if(!accepted)break;\n }\n const accepted=current.prediction.status==='converged';if(!accepted)state.rejected++;\n state.predicted=segments.map((s,i)=>{const start=model.pointVelocity(s.body,targets[i].point,current.prediction.projection.velocity),a=model.pointAcceleration(s.body,targets[i].point,current.prediction.acceleration);return {linear:a.linear.map((v,k)=>start.linear[k]+v/120),angular:a.angular.map((v,k)=>start.angular[k]+v/120)};});\n state.torque=x.map((v,i)=>accepted?v*scale[i]:0);applyAction(own.muscles,{kind:'torque',torque:state.torque});state.steps++;\n state.drift=Math.max(state.drift,...segments.map((s,i)=>s.node.position.subtract(reference[i].position).length()));\n console.log(JSON.stringify({step:state.steps,torqueError,modelLinearError:Math.max(0,...measured.map(m=>m.linear)),modelAngularError:Math.max(0,...measured.map(m=>m.angular)),milliseconds:performance.now()-clock,evaluations,cost:current.cost,status:current.prediction.status,work:current.prediction.work,rejected:state.rejected,drift:state.drift,normalViolation:current.prediction.normalViolation,impulseResidual:current.prediction.impulseResidual,stopViolation:Math.max(0,...current.prediction.stops.map(s=>s.violation))}));\n }}));\n try{stand.step(120);console.log(JSON.stringify({final:segments.map((s,i)=>({name:s.spec.name,drift:s.node.position.subtract(reference[i].position).length()})).sort((a,b)=>b.drift-a.drift)}));}finally{body.dispose();}\n\n}finally{stand.dispose();statics.dispose();}\r\n",
+      ".tools/fours-inverse-lift-0.0005-true.mjs": "﻿import fs from 'node:fs';\nimport {Vector3} from '@babylonjs/core/Maths/math.vector.js';\nimport {staticBody,posed,placeLike,leastShare,ROWS} from '../research/core-posture-trials.mjs';\nimport {coreStand} from '../tests/harness/core-stand.mjs';\nimport {modelSpec} from '../src/core/human/spec.ts';\nimport {coupledDynamics} from '../src/core/build/coupled-dynamics.ts';\nimport {planarSupportPoints} from '../src/core/build/planar-support.ts';\nimport {preparePointContacts} from './contact-prepare.ts';\nimport {Quaternion} from '@babylonjs/core/Maths/math.vector.js';\nimport {embody} from '../src/core/mind/mind.ts';\nimport {applyAction} from '../src/core/mind/actions.ts';\nimport {boundedWork,linearWork,solveLinearTo,boundedLeastSquaresTo} from '../src/core/math/flat.ts';\nimport {nearJointStops} from '../src/core/control/joint-stops.ts';\nconst record=JSON.parse(fs.readFileSync('docs/reference/posture-limit-models.json','utf8')).rows.find(r=>r.job.engine==='rapier-coordinate'&&r.job.row==='fours').result;\nconst statics=await staticBody(undefined,'rapier-coordinate-coulomb');posed(statics,record.posture);\nconst stand=await coreStand(modelSpec('workshop-fighter'),{engine:'rapier-coordinate-coulomb',actuation:'directional'});\ntry{\n placeLike(statics,stand.built,0.0005);\n const model=coupledDynamics(stand.built,stand.world.physics.gravity);\n const local=(s,p)=>{const d=p.map((v,i)=>v-s.frame.origin[i]);return ['x','y','z'].map(a=>s.frame[a].reduce((sum,v,i)=>sum+v*d[i],0));};\n const shapes=[...stand.built.segments.values()].flatMap(s=>s.rigid.shapes.map(shape=>{\n  let converted;switch(shape.kind){\n   case 'capsule': converted={kind:shape.kind,from:local(s,shape.from.value),to:local(s,shape.to.value),radius:shape.radius.value};break;\n   case 'sphere': converted={kind:shape.kind,centre:local(s,shape.centre.value),radius:shape.radius.value};break;\n   case 'box': converted={kind:shape.kind,centre:local(s,shape.centre.value),size:shape.size.value};break;\n   case 'hull': converted={kind:shape.kind,points:shape.points.map(p=>local(s,p.value))};break;\n  }return {segment:s,shape:converted};\n }));\n\n const segments=[...stand.built.segments.values()],com=s=>new Vector3(...s.body.massProperties.centre).applyRotationQuaternion(s.node.rotationQuaternion).add(s.node.position);\n const reference=segments.map(s=>({com:com(s),rotation:s.node.rotationQuaternion.clone(),position:s.node.position.clone()}));\n const n=model.channels,linear=linearWork(n),bounded=boundedWork(n),state={torque:leastShare(statics,ROWS.find(r=>r.name===\"fours\"),record.posture).torques,steps:0,rejected:0,drift:0};\n const body=embody(stand.built,stand.world,own=>({name:'forward-inverse-probe',state,step(){\n   const contacts=shapes.flatMap(({segment:s,shape})=>planarSupportPoints(shape,s.node.position.asArray(),s.node.rotationQuaternion,[0,1,0],.001).filter(p=>p[1]<.005).map(point=>({body:s.body,point,normal:[0,1,0],normalVelocity:-Math.max(point[1],0)*120})));\n  const stops=nearJointStops(stand.built,.001,1/120).map(s=>({row:s.row,minimumVelocity:s.rate+s.target/120,impulseTolerance:1e-10,velocityTolerance:1e-7}));\n\n const measured=state.predicted?segments.map((s,i)=>{const v=s.body.linearVelocityToRef(new Vector3()).asArray(),w=s.body.angularVelocityToRef(new Vector3()).asArray();return {name:s.spec.name,linear:Math.max(...v.map((v,k)=>Math.abs(v-state.predicted[i].linear[k]))),angular:Math.max(...w.map((v,k)=>Math.abs(v-state.predicted[i].angular[k])))}}):[];\n const torqueError=state.steps?Math.max(...state.torque.map((v,i)=>Math.abs(v-own.muscles.pulled[i]))):0;\n model.update();const clock=performance.now(),prepared=preparePointContacts(model,contacts,{dt:1/120,friction:.5,iterations:2048,impulseTolerance:1e-10,velocityTolerance:1e-7},stops);\n const scale=own.muscles.channels.map((c,i)=>Math.max(own.muscles.strength(i,-1),own.muscles.strength(i,1),1));\n const lower=scale.map((v,i)=>-own.muscles.strength(i,-1)/v),upper=scale.map((v,i)=>own.muscles.strength(i,1)/v);\n const targets=segments.map((s,i)=>{const p=com(s),v=s.body.linearVelocityToRef(new Vector3()).asArray(),w=s.body.angularVelocityToRef(new Vector3()).asArray(),q=reference[i].rotation.multiply(Quaternion.Inverse(s.node.rotationQuaternion)),sign=q.w<0?-1:1,rate=1/.3;\n return {point:p.asArray(),linear:v.map((x,k)=>x+(rate*rate*(reference[i].com.asArray()[k]-p.asArray()[k])-2*rate*x)/120),angular:w.map((x,k)=>x+(2*rate*rate*sign*[q.x,q.y,q.z][k]-2*rate*x)/120)};});\n const evaluate=x=>{const prediction=prepared.predict(x.map((v,i)=>v*scale[i]));\n const residual=segments.flatMap((s,i)=>{const start=model.pointVelocity(s.body,targets[i].point,prediction.projection.velocity),a=model.pointAcceleration(s.body,targets[i].point,prediction.acceleration),weight=s.spec.name==='lowerTrunk'?3:1;return [...a.linear.map((v,k)=>(start.linear[k]+v/120-targets[i].linear[k])*weight),...a.angular.map((v,k)=>(start.angular[k]+v/120-targets[i].angular[k])*.1*weight)];});\n return {prediction,residual,cost:residual.reduce((sum,v)=>sum+v*v,0)+1e-6*x.reduce((sum,v)=>sum+v*v,0)};};\n let x=state.torque.map((v,i)=>Math.max(lower[i],Math.min(upper[i],v/scale[i]))),current=evaluate(x),evaluations=1;\n for(let iteration=0;iteration<3;iteration++){\n  const columns=[];for(let i=0;i<n;i++){const z=[...x],epsilon=.001;z[i]+=epsilon;const r=evaluate(z);evaluations++;columns.push(r.residual.map((v,k)=>(v-current.residual[k])/epsilon));}\n  const H=new Float64Array(n*n),rhs=new Float64Array(n),unconstrained=new Float64Array(n),delta=new Float64Array(n);\n  for(let i=0;i<n;i++){for(let j=0;j<n;j++)H[i*n+j]=columns[i].reduce((sum,v,k)=>sum+v*columns[j][k],0)+(i===j?1e-6:0);rhs[i]=-columns[i].reduce((sum,v,k)=>sum+v*current.residual[k],0)-1e-6*x[i];}\n  solveLinearTo(linear,H,rhs,n,unconstrained);boundedLeastSquaresTo(bounded,H,unconstrained,lower.map((v,i)=>Math.max(v-x[i],-.25)),upper.map((v,i)=>Math.min(v-x[i],.25)),n,delta);\n  let accepted=false;for(const length of [1,.5,.25,.125]){const z=x.map((v,i)=>v+length*delta[i]),candidate=evaluate(z);evaluations++;if(candidate.cost<current.cost){x=z;current=candidate;accepted=true;break;}}\n  if(!accepted)break;\n }\n const accepted=current.prediction.status==='converged';if(!accepted)state.rejected++;\n state.predicted=segments.map((s,i)=>{const start=model.pointVelocity(s.body,targets[i].point,current.prediction.projection.velocity),a=model.pointAcceleration(s.body,targets[i].point,current.prediction.acceleration);return {linear:a.linear.map((v,k)=>start.linear[k]+v/120),angular:a.angular.map((v,k)=>start.angular[k]+v/120)};});\n state.torque=x.map((v,i)=>accepted?v*scale[i]:0);applyAction(own.muscles,{kind:'torque',torque:state.torque});state.steps++;\n state.drift=Math.max(state.drift,...segments.map((s,i)=>s.node.position.subtract(reference[i].position).length()));\n console.log(JSON.stringify({step:state.steps,torqueError,modelLinearError:Math.max(0,...measured.map(m=>m.linear)),modelAngularError:Math.max(0,...measured.map(m=>m.angular)),milliseconds:performance.now()-clock,evaluations,cost:current.cost,status:current.prediction.status,work:current.prediction.work,rejected:state.rejected,drift:state.drift,normalViolation:current.prediction.normalViolation,impulseResidual:current.prediction.impulseResidual,stopViolation:Math.max(0,...current.prediction.stops.map(s=>s.violation))}));\n }}));\n try{stand.step(120);console.log(JSON.stringify({final:segments.map((s,i)=>({name:s.spec.name,drift:s.node.position.subtract(reference[i].position).length()})).sort((a,b)=>b.drift-a.drift)}));}finally{body.dispose();}\n\n}finally{stand.dispose();statics.dispose();}\r\n",
+      ".tools/fours-inverse-clamped-0.mjs": "﻿import fs from 'node:fs';\nimport {Vector3} from '@babylonjs/core/Maths/math.vector.js';\nimport {staticBody,posed,placeLike,leastShare,ROWS} from '../research/core-posture-trials.mjs';\nimport {coreStand} from '../tests/harness/core-stand.mjs';\nimport {modelSpec} from '../src/core/human/spec.ts';\nimport {coupledDynamics} from '../src/core/build/coupled-dynamics.ts';\nimport {planarSupportPoints} from '../src/core/build/planar-support.ts';\nimport {preparePointContacts} from './contact-prepare.ts';\nimport {Quaternion} from '@babylonjs/core/Maths/math.vector.js';\nimport {embody} from '../src/core/mind/mind.ts';\nimport {applyAction} from '../src/core/mind/actions.ts';\nimport {boundedWork,linearWork,solveLinearTo,boundedLeastSquaresTo} from '../src/core/math/flat.ts';\nimport {nearJointStops} from '../src/core/control/joint-stops.ts';\nconst record=JSON.parse(fs.readFileSync('docs/reference/posture-limit-models.json','utf8')).rows.find(r=>r.job.engine==='rapier-coordinate'&&r.job.row==='fours').result;\nconst statics=await staticBody(undefined,'rapier-coordinate-coulomb');posed(statics,record.posture);\nconst stand=await coreStand(modelSpec('workshop-fighter'),{engine:'rapier-coordinate-coulomb',actuation:'directional'});\ntry{\n placeLike(statics,stand.built,0);\n const model=coupledDynamics(stand.built,stand.world.physics.gravity);\n const local=(s,p)=>{const d=p.map((v,i)=>v-s.frame.origin[i]);return ['x','y','z'].map(a=>s.frame[a].reduce((sum,v,i)=>sum+v*d[i],0));};\n const shapes=[...stand.built.segments.values()].flatMap(s=>s.rigid.shapes.map(shape=>{\n  let converted;switch(shape.kind){\n   case 'capsule': converted={kind:shape.kind,from:local(s,shape.from.value),to:local(s,shape.to.value),radius:shape.radius.value};break;\n   case 'sphere': converted={kind:shape.kind,centre:local(s,shape.centre.value),radius:shape.radius.value};break;\n   case 'box': converted={kind:shape.kind,centre:local(s,shape.centre.value),size:shape.size.value};break;\n   case 'hull': converted={kind:shape.kind,points:shape.points.map(p=>local(s,p.value))};break;\n  }return {segment:s,shape:converted};\n }));\n\n const segments=[...stand.built.segments.values()],com=s=>new Vector3(...s.body.massProperties.centre).applyRotationQuaternion(s.node.rotationQuaternion).add(s.node.position);\n const reference=segments.map(s=>({com:com(s),rotation:s.node.rotationQuaternion.clone(),position:s.node.position.clone()}));\n const n=model.channels,linear=linearWork(n),bounded=boundedWork(n),state={torque:leastShare(statics,ROWS.find(r=>r.name===\"fours\"),record.posture).torques,steps:0,rejected:0,drift:0};\n const body=embody(stand.built,stand.world,own=>({name:'forward-inverse-probe',state,step(){\n   const contacts=shapes.flatMap(({segment:s,shape})=>planarSupportPoints(shape,s.node.position.asArray(),s.node.rotationQuaternion,[0,1,0],.001).filter(p=>p[1]<.005).map(point=>({body:s.body,point,normal:[0,1,0],normalVelocity:-Math.max(point[1],0)*120})));\n  const stops=nearJointStops(stand.built,.001,1/120).map(s=>({row:s.row,minimumVelocity:s.rate+s.target/120+Math.min(s.gap,0)*120,impulseTolerance:1e-10,velocityTolerance:1e-7}));\n\n const measured=state.predicted?segments.map((s,i)=>{const v=s.body.linearVelocityToRef(new Vector3()).asArray(),w=s.body.angularVelocityToRef(new Vector3()).asArray();return {name:s.spec.name,linear:Math.max(...v.map((v,k)=>Math.abs(v-state.predicted[i].linear[k]))),angular:Math.max(...w.map((v,k)=>Math.abs(v-state.predicted[i].angular[k])))}}):[];\n const torqueError=state.steps?Math.max(...state.torque.map((v,i)=>Math.abs(v-own.muscles.pulled[i]))):0;\n model.update();const clock=performance.now(),prepared=preparePointContacts(model,contacts,{dt:1/120,friction:.5,iterations:2048,impulseTolerance:1e-10,velocityTolerance:1e-7},stops);\n const scale=own.muscles.channels.map((c,i)=>Math.max(own.muscles.strength(i,-1),own.muscles.strength(i,1),1));\n const lower=scale.map((v,i)=>-own.muscles.strength(i,-1)/v),upper=scale.map((v,i)=>own.muscles.strength(i,1)/v);\n const targets=segments.map((s,i)=>{const p=com(s),v=s.body.linearVelocityToRef(new Vector3()).asArray(),w=s.body.angularVelocityToRef(new Vector3()).asArray(),q=reference[i].rotation.multiply(Quaternion.Inverse(s.node.rotationQuaternion)),sign=q.w<0?-1:1,rate=1/.3;\n return {point:p.asArray(),linear:v.map((x,k)=>x+(rate*rate*(reference[i].com.asArray()[k]-p.asArray()[k])-2*rate*x)/120),angular:w.map((x,k)=>x+(2*rate*rate*sign*[q.x,q.y,q.z][k]-2*rate*x)/120)};});\n const evaluate=x=>{const prediction=prepared.predict(x.map((v,i)=>v*scale[i]));\n const residual=segments.flatMap((s,i)=>{const start=model.pointVelocity(s.body,targets[i].point,prediction.projection.velocity),a=model.pointAcceleration(s.body,targets[i].point,prediction.acceleration),weight=s.spec.name==='lowerTrunk'?3:1;return [...a.linear.map((v,k)=>(start.linear[k]+v/120-targets[i].linear[k])*weight),...a.angular.map((v,k)=>(start.angular[k]+v/120-targets[i].angular[k])*.1*weight)];});\n return {prediction,residual,cost:residual.reduce((sum,v)=>sum+v*v,0)+1e-6*x.reduce((sum,v)=>sum+v*v,0)};};\n let x=state.torque.map((v,i)=>Math.max(lower[i],Math.min(upper[i],v/scale[i]))),current=evaluate(x),evaluations=1;\n for(let iteration=0;iteration<3;iteration++){\n  const columns=[];for(let i=0;i<n;i++){const z=[...x],epsilon=.001;z[i]+=epsilon;const r=evaluate(z);evaluations++;columns.push(r.residual.map((v,k)=>(v-current.residual[k])/epsilon));}\n  const H=new Float64Array(n*n),rhs=new Float64Array(n),unconstrained=new Float64Array(n),delta=new Float64Array(n);\n  for(let i=0;i<n;i++){for(let j=0;j<n;j++)H[i*n+j]=columns[i].reduce((sum,v,k)=>sum+v*columns[j][k],0)+(i===j?1e-6:0);rhs[i]=-columns[i].reduce((sum,v,k)=>sum+v*current.residual[k],0)-1e-6*x[i];}\n  solveLinearTo(linear,H,rhs,n,unconstrained);boundedLeastSquaresTo(bounded,H,unconstrained,lower.map((v,i)=>Math.max(v-x[i],-.25)),upper.map((v,i)=>Math.min(v-x[i],.25)),n,delta);\n  let accepted=false;for(const length of [1,.5,.25,.125]){const z=x.map((v,i)=>v+length*delta[i]),candidate=evaluate(z);evaluations++;if(candidate.cost<current.cost){x=z;current=candidate;accepted=true;break;}}\n  if(!accepted)break;\n }\n const accepted=current.prediction.status==='converged';if(!accepted)state.rejected++;\n state.predicted=segments.map((s,i)=>{const start=model.pointVelocity(s.body,targets[i].point,current.prediction.projection.velocity),a=model.pointAcceleration(s.body,targets[i].point,current.prediction.acceleration);return {linear:a.linear.map((v,k)=>start.linear[k]+v/120),angular:a.angular.map((v,k)=>start.angular[k]+v/120)};});\n state.torque=x.map((v,i)=>accepted?v*scale[i]:0);applyAction(own.muscles,{kind:'torque',torque:state.torque});state.steps++;\n state.drift=Math.max(state.drift,...segments.map((s,i)=>s.node.position.subtract(reference[i].position).length()));\n console.log(JSON.stringify({step:state.steps,torqueError,modelLinearError:Math.max(0,...measured.map(m=>m.linear)),modelAngularError:Math.max(0,...measured.map(m=>m.angular)),milliseconds:performance.now()-clock,evaluations,cost:current.cost,status:current.prediction.status,work:current.prediction.work,rejected:state.rejected,drift:state.drift,normalViolation:current.prediction.normalViolation,impulseResidual:current.prediction.impulseResidual,stopViolation:Math.max(0,...current.prediction.stops.map(s=>s.violation))}));\n }}));\n try{stand.step(120);console.log(JSON.stringify({final:segments.map((s,i)=>({name:s.spec.name,drift:s.node.position.subtract(reference[i].position).length()})).sort((a,b)=>b.drift-a.drift)}));}finally{body.dispose();}\n\n}finally{stand.dispose();statics.dispose();}\r\n",
+      ".tools/fours-inverse-clamped-0.0005.mjs": "﻿import fs from 'node:fs';\nimport {Vector3} from '@babylonjs/core/Maths/math.vector.js';\nimport {staticBody,posed,placeLike,leastShare,ROWS} from '../research/core-posture-trials.mjs';\nimport {coreStand} from '../tests/harness/core-stand.mjs';\nimport {modelSpec} from '../src/core/human/spec.ts';\nimport {coupledDynamics} from '../src/core/build/coupled-dynamics.ts';\nimport {planarSupportPoints} from '../src/core/build/planar-support.ts';\nimport {preparePointContacts} from './contact-prepare.ts';\nimport {Quaternion} from '@babylonjs/core/Maths/math.vector.js';\nimport {embody} from '../src/core/mind/mind.ts';\nimport {applyAction} from '../src/core/mind/actions.ts';\nimport {boundedWork,linearWork,solveLinearTo,boundedLeastSquaresTo} from '../src/core/math/flat.ts';\nimport {nearJointStops} from '../src/core/control/joint-stops.ts';\nconst record=JSON.parse(fs.readFileSync('docs/reference/posture-limit-models.json','utf8')).rows.find(r=>r.job.engine==='rapier-coordinate'&&r.job.row==='fours').result;\nconst statics=await staticBody(undefined,'rapier-coordinate-coulomb');posed(statics,record.posture);\nconst stand=await coreStand(modelSpec('workshop-fighter'),{engine:'rapier-coordinate-coulomb',actuation:'directional'});\ntry{\n placeLike(statics,stand.built,0.0005);\n const model=coupledDynamics(stand.built,stand.world.physics.gravity);\n const local=(s,p)=>{const d=p.map((v,i)=>v-s.frame.origin[i]);return ['x','y','z'].map(a=>s.frame[a].reduce((sum,v,i)=>sum+v*d[i],0));};\n const shapes=[...stand.built.segments.values()].flatMap(s=>s.rigid.shapes.map(shape=>{\n  let converted;switch(shape.kind){\n   case 'capsule': converted={kind:shape.kind,from:local(s,shape.from.value),to:local(s,shape.to.value),radius:shape.radius.value};break;\n   case 'sphere': converted={kind:shape.kind,centre:local(s,shape.centre.value),radius:shape.radius.value};break;\n   case 'box': converted={kind:shape.kind,centre:local(s,shape.centre.value),size:shape.size.value};break;\n   case 'hull': converted={kind:shape.kind,points:shape.points.map(p=>local(s,p.value))};break;\n  }return {segment:s,shape:converted};\n }));\n\n const segments=[...stand.built.segments.values()],com=s=>new Vector3(...s.body.massProperties.centre).applyRotationQuaternion(s.node.rotationQuaternion).add(s.node.position);\n const reference=segments.map(s=>({com:com(s),rotation:s.node.rotationQuaternion.clone(),position:s.node.position.clone()}));\n const n=model.channels,linear=linearWork(n),bounded=boundedWork(n),state={torque:leastShare(statics,ROWS.find(r=>r.name===\"fours\"),record.posture).torques,steps:0,rejected:0,drift:0};\n const body=embody(stand.built,stand.world,own=>({name:'forward-inverse-probe',state,step(){\n   const contacts=shapes.flatMap(({segment:s,shape})=>planarSupportPoints(shape,s.node.position.asArray(),s.node.rotationQuaternion,[0,1,0],.001).filter(p=>p[1]<.005).map(point=>({body:s.body,point,normal:[0,1,0],normalVelocity:-Math.max(point[1],0)*120})));\n  const stops=nearJointStops(stand.built,.001,1/120).map(s=>({row:s.row,minimumVelocity:s.rate+s.target/120+Math.min(s.gap,0)*120,impulseTolerance:1e-10,velocityTolerance:1e-7}));\n\n const measured=state.predicted?segments.map((s,i)=>{const v=s.body.linearVelocityToRef(new Vector3()).asArray(),w=s.body.angularVelocityToRef(new Vector3()).asArray();return {name:s.spec.name,linear:Math.max(...v.map((v,k)=>Math.abs(v-state.predicted[i].linear[k]))),angular:Math.max(...w.map((v,k)=>Math.abs(v-state.predicted[i].angular[k])))}}):[];\n const torqueError=state.steps?Math.max(...state.torque.map((v,i)=>Math.abs(v-own.muscles.pulled[i]))):0;\n model.update();const clock=performance.now(),prepared=preparePointContacts(model,contacts,{dt:1/120,friction:.5,iterations:2048,impulseTolerance:1e-10,velocityTolerance:1e-7},stops);\n const scale=own.muscles.channels.map((c,i)=>Math.max(own.muscles.strength(i,-1),own.muscles.strength(i,1),1));\n const lower=scale.map((v,i)=>-own.muscles.strength(i,-1)/v),upper=scale.map((v,i)=>own.muscles.strength(i,1)/v);\n const targets=segments.map((s,i)=>{const p=com(s),v=s.body.linearVelocityToRef(new Vector3()).asArray(),w=s.body.angularVelocityToRef(new Vector3()).asArray(),q=reference[i].rotation.multiply(Quaternion.Inverse(s.node.rotationQuaternion)),sign=q.w<0?-1:1,rate=1/.3;\n return {point:p.asArray(),linear:v.map((x,k)=>x+(rate*rate*(reference[i].com.asArray()[k]-p.asArray()[k])-2*rate*x)/120),angular:w.map((x,k)=>x+(2*rate*rate*sign*[q.x,q.y,q.z][k]-2*rate*x)/120)};});\n const evaluate=x=>{const prediction=prepared.predict(x.map((v,i)=>v*scale[i]));\n const residual=segments.flatMap((s,i)=>{const start=model.pointVelocity(s.body,targets[i].point,prediction.projection.velocity),a=model.pointAcceleration(s.body,targets[i].point,prediction.acceleration),weight=s.spec.name==='lowerTrunk'?3:1;return [...a.linear.map((v,k)=>(start.linear[k]+v/120-targets[i].linear[k])*weight),...a.angular.map((v,k)=>(start.angular[k]+v/120-targets[i].angular[k])*.1*weight)];});\n return {prediction,residual,cost:residual.reduce((sum,v)=>sum+v*v,0)+1e-6*x.reduce((sum,v)=>sum+v*v,0)};};\n let x=state.torque.map((v,i)=>Math.max(lower[i],Math.min(upper[i],v/scale[i]))),current=evaluate(x),evaluations=1;\n for(let iteration=0;iteration<3;iteration++){\n  const columns=[];for(let i=0;i<n;i++){const z=[...x],epsilon=.001;z[i]+=epsilon;const r=evaluate(z);evaluations++;columns.push(r.residual.map((v,k)=>(v-current.residual[k])/epsilon));}\n  const H=new Float64Array(n*n),rhs=new Float64Array(n),unconstrained=new Float64Array(n),delta=new Float64Array(n);\n  for(let i=0;i<n;i++){for(let j=0;j<n;j++)H[i*n+j]=columns[i].reduce((sum,v,k)=>sum+v*columns[j][k],0)+(i===j?1e-6:0);rhs[i]=-columns[i].reduce((sum,v,k)=>sum+v*current.residual[k],0)-1e-6*x[i];}\n  solveLinearTo(linear,H,rhs,n,unconstrained);boundedLeastSquaresTo(bounded,H,unconstrained,lower.map((v,i)=>Math.max(v-x[i],-.25)),upper.map((v,i)=>Math.min(v-x[i],.25)),n,delta);\n  let accepted=false;for(const length of [1,.5,.25,.125]){const z=x.map((v,i)=>v+length*delta[i]),candidate=evaluate(z);evaluations++;if(candidate.cost<current.cost){x=z;current=candidate;accepted=true;break;}}\n  if(!accepted)break;\n }\n const accepted=current.prediction.status==='converged';if(!accepted)state.rejected++;\n state.predicted=segments.map((s,i)=>{const start=model.pointVelocity(s.body,targets[i].point,current.prediction.projection.velocity),a=model.pointAcceleration(s.body,targets[i].point,current.prediction.acceleration);return {linear:a.linear.map((v,k)=>start.linear[k]+v/120),angular:a.angular.map((v,k)=>start.angular[k]+v/120)};});\n state.torque=x.map((v,i)=>accepted?v*scale[i]:0);applyAction(own.muscles,{kind:'torque',torque:state.torque});state.steps++;\n state.drift=Math.max(state.drift,...segments.map((s,i)=>s.node.position.subtract(reference[i].position).length()));\n console.log(JSON.stringify({step:state.steps,torqueError,modelLinearError:Math.max(0,...measured.map(m=>m.linear)),modelAngularError:Math.max(0,...measured.map(m=>m.angular)),milliseconds:performance.now()-clock,evaluations,cost:current.cost,status:current.prediction.status,work:current.prediction.work,rejected:state.rejected,drift:state.drift,normalViolation:current.prediction.normalViolation,impulseResidual:current.prediction.impulseResidual,stopViolation:Math.max(0,...current.prediction.stops.map(s=>s.violation))}));\n }}));\n try{stand.step(120);console.log(JSON.stringify({final:segments.map((s,i)=>({name:s.spec.name,drift:s.node.position.subtract(reference[i].position).length()})).sort((a,b)=>b.drift-a.drift)}));}finally{body.dispose();}\n\n}finally{stand.dispose();statics.dispose();}\r\n"
+    },
+    "results": {
+      "seconds": 1,
+      "maximumDrift": 0.09015736722919969,
+      "rejectedFinalPredictions": 0,
+      "initialVelocityError": {
+        "linear": 0.14045694967715666,
+        "angular": 2.0250604515579456
+      },
+      "nativeIterationAblation": [
+        {
+          "solver": 16,
+          "internal": 2,
+          "linear": 0.14045694967715666,
+          "angular": 2.0250604515579456
+        },
+        {
+          "solver": 64,
+          "internal": 2,
+          "linear": 0.160543,
+          "angular": 2.177879
+        },
+        {
+          "solver": 256,
+          "internal": 2,
+          "linear": 0.18111,
+          "angular": 2.352205
+        },
+        {
+          "solver": 16,
+          "internal": 16,
+          "linear": 0.150145,
+          "angular": 2.1095
+        }
+      ]
+    }
+  },
+  "independentEntry": {
+    "harness": "Node core world, rapier-coordinate-coulomb .6 adapter 7, 120 Hz, directional bounds, zero assists; Warrior, empty hands, development shoves 0/90/180/270 degrees",
+    "entries": [
+      {
+        "source": "﻿import fs from 'node:fs';\nimport {felled} from '../research/core-rise-trials.mjs';\nimport {createMind} from '../src/core/mind/minds.ts';\nimport {FIGHTER} from '../src/core/mind/config.ts';\nimport {STAND_ORDERS} from '../src/core/mind/orders.ts';\nimport {createDirectBody} from '../src/core/mind/direct.ts';\nconst pose=JSON.parse(fs.readFileSync('assets/research/posture-holds.json','utf8'))[0];\nfor(const degrees of [0,90,180,270]){\n const fall=await felled({model:'workshop-fighter',held:'empty',degrees,actuation:'directional'},(b,w)=>createMind(b,w,FIGHTER,{name:'fall-start',orders:()=>STAND_ORDERS}).body);\n const wasDown=fall.body.view.down;fall.body.dispose();\n const targets=Object.fromEntries([...fall.built.joints].flatMap(([name,j])=>j.dofs.map((d,i)=>[`${name} ${d.spec.positive}`,pose.placement.joints[name][i]])));\n const body=createDirectBody(fall.built,fall.world,{kind:'direct',targets,seconds:.01,speed:10,activation:1});\n try{for(let i=0;i<2400;i++){fall.world.step();if(i%600===599){const o=body.observe();console.log(JSON.stringify({degrees,wasDown,seconds:(i+1)/120,height:o.height,root:o.segments.find(s=>s.name==='lowerTrunk'),contacts:[...new Set(o.contacts.filter(c=>c.fixed!==null&&c.impulse>0).map(c=>c.segment))],maxAngleError:Math.max(...o.joints.map(j=>Math.abs(j.angle-targets[j.name])))}));}}}\n finally{body.dispose();fall.dispose();}\n}\r\n",
+        "rows": [
+          {
+            "degrees": 0,
+            "wasDown": true,
+            "seconds": 5,
+            "height": 0.2573844235214719,
+            "root": {
+              "name": "lowerTrunk",
+              "position": [
+                -0.041653648018836975,
+                0.36346161365509033,
+                0.8617548942565918
+              ],
+              "rotation": [
+                0.5353118777275085,
+                -0.669151782989502,
+                -0.19774459302425385,
+                -0.4759981632232666
+              ],
+              "centre": [
+                -0.11815267432482536,
+                0.39294603148498414,
+                0.8410397870212935
+              ],
+              "velocity": [
+                -0.009377434849739075,
+                0.0050575267523527145,
+                -0.04003801569342613
+              ],
+              "spin": [
+                -0.03534189239144325,
+                0.17382964491844177,
+                -0.048003967851400375
+              ]
+            },
+            "contacts": [
+              "head",
+              "hand.left",
+              "upperArm.right",
+              "hand.right",
+              "thigh.right"
+            ],
+            "maxAngleError": 1.4678515352724544
+          },
+          {
+            "degrees": 0,
+            "wasDown": true,
+            "seconds": 10,
+            "height": 0.25738197765990045,
+            "root": {
+              "name": "lowerTrunk",
+              "position": [
+                -0.1811150312423706,
+                0.36346200108528137,
+                0.64986252784729
+              ],
+              "rotation": [
+                0.4145634174346924,
+                -0.8023605942726135,
+                -0.39217185974121094,
+                -0.17480255663394928
+              ],
+              "centre": [
+                -0.24896365218145916,
+                0.3929464353178277,
+                0.6908232363011392
+              ],
+              "velocity": [
+                -0.03540527820587158,
+                0.005071584600955248,
+                -0.020879629999399185
+              ],
+              "spin": [
+                -0.059278760105371475,
+                0.17410673201084137,
+                -0.0077509586699306965
+              ]
+            },
+            "contacts": [
+              "head",
+              "hand.left",
+              "upperArm.right",
+              "hand.right",
+              "thigh.right"
+            ],
+            "maxAngleError": 1.4678517543059217
+          },
+          {
+            "degrees": 0,
+            "wasDown": true,
+            "seconds": 15,
+            "height": 0.2573813883576178,
+            "root": {
+              "name": "lowerTrunk",
+              "position": [
+                -0.43076857924461365,
+                0.3634621798992157,
+                0.6042286157608032
+              ],
+              "rotation": [
+                0.22701990604400635,
+                -0.806484043598175,
+                -0.523566484451294,
+                0.15467268228530884
+              ],
+              "centre": [
+                -0.44803701417910524,
+                0.39294690065390653,
+                0.6815784657204909
+              ],
+              "velocity": [
+                -0.03964336961507797,
+                0.005074864253401756,
+                0.011002757586538792
+              ],
+              "spin": [
+                -0.04647425562143326,
+                0.1737263798713684,
+                0.037882521748542786
+              ]
+            },
+            "contacts": [
+              "head",
+              "hand.left",
+              "upperArm.right",
+              "hand.right",
+              "thigh.right"
+            ],
+            "maxAngleError": 1.4678518008461312
+          },
+          {
+            "degrees": 0,
+            "wasDown": true,
+            "seconds": 20,
+            "height": 0.25737820832320185,
+            "root": {
+              "name": "lowerTrunk",
+              "position": [
+                -0.6362060308456421,
+                0.36346226930618286,
+                0.7530658841133118
+              ],
+              "rotation": [
+                0.003024408593773842,
+                -0.6808290481567383,
+                -0.5706593990325928,
+                0.4591410458087921
+              ],
+              "centre": [
+                -0.5922421342596031,
+                0.39294674340563707,
+                0.8190081864163723
+              ],
+              "velocity": [
+                -0.019228089600801468,
+                0.005019694566726685,
+                0.03643191233277321
+              ],
+              "spin": [
+                -0.005094899330288172,
+                0.17332622408866882,
+                0.05927673727273941
+              ]
+            },
+            "contacts": [
+              "head",
+              "hand.left",
+              "upperArm.right",
+              "hand.right",
+              "thigh.right"
+            ],
+            "maxAngleError": 1.4678519162887915
+          },
+          {
+            "degrees": 90,
+            "wasDown": true,
+            "seconds": 5,
+            "height": 0.2573534073455439,
+            "root": {
+              "name": "lowerTrunk",
+              "position": [
+                1.5018078088760376,
+                0.36338841915130615,
+                0.034527622163295746
+              ],
+              "rotation": [
+                0.41384318470954895,
+                -0.8028767704963684,
+                -0.392984539270401,
+                -0.17229625582695007
+              ],
+              "centre": [
+                1.4341633432088405,
+                0.3928658604182285,
+                0.07582962292741427
+              ],
+              "velocity": [
+                -0.040137894451618195,
+                0.003149361116811633,
+                -0.01976160891354084
+              ],
+              "spin": [
+                -0.03224410116672516,
+                0.17693547904491425,
+                -0.02700957842171192
+              ]
+            },
+            "contacts": [
+              "head",
+              "hand.left",
+              "upperArm.right",
+              "hand.right",
+              "thigh.right"
+            ],
+            "maxAngleError": 1.4684020428016051
+          },
+          {
+            "degrees": 90,
+            "wasDown": true,
+            "seconds": 10,
+            "height": 0.25731456611984665,
+            "root": {
+              "name": "lowerTrunk",
+              "position": [
+                1.2323758602142334,
+                0.3633747100830078,
+                -0.0009635686874389648
+              ],
+              "rotation": [
+                0.2097136229276657,
+                -0.8006687760353088,
+                -0.5307876467704773,
+                0.18224728107452393
+              ],
+              "centre": [
+                1.2203383549417275,
+                0.39285002922065726,
+                0.07737446623778631
+              ],
+              "velocity": [
+                -0.04025318846106529,
+                0.0023730876855552197,
+                0.017695454880595207
+              ],
+              "spin": [
+                -0.03886768966913223,
+                0.16716688871383667,
+                0.00570702226832509
+              ]
+            },
+            "contacts": [
+              "head",
+              "hand.left",
+              "upperArm.right",
+              "hand.right",
+              "thigh.right"
+            ],
+            "maxAngleError": 1.468387683522642
+          },
+          {
+            "degrees": 90,
+            "wasDown": true,
+            "seconds": 15,
+            "height": 0.25739268953255906,
+            "root": {
+              "name": "lowerTrunk",
+              "position": [
+                1.0318775177001953,
+                0.3633754253387451,
+                0.18194463849067688
+              ],
+              "rotation": [
+                -0.03323762118816376,
+                -0.6495348811149597,
+                -0.5697426795959473,
+                0.5023874044418335
+              ],
+              "centre": [
+                1.0839366816243414,
+                0.3928514388042013,
+                0.2417071385514531
+              ],
+              "velocity": [
+                -0.01269728783518076,
+                0.002942863618955016,
+                0.04299372434616089
+              ],
+              "spin": [
+                -0.021040741354227066,
+                0.17740748822689056,
+                0.035074636340141296
+              ]
+            },
+            "contacts": [
+              "head",
+              "hand.left",
+              "upperArm.right",
+              "hand.right",
+              "thigh.right"
+            ],
+            "maxAngleError": 1.4684061945231348
+          },
+          {
+            "degrees": 90,
+            "wasDown": true,
+            "seconds": 20,
+            "height": 0.2573551817278771,
+            "root": {
+              "name": "lowerTrunk",
+              "position": [
+                1.0422569513320923,
+                0.36338678002357483,
+                0.4534216523170471
+              ],
+              "rotation": [
+                -0.27041095495224,
+                -0.3772262930870056,
+                -0.5025749802589417,
+                0.7293810844421387
+              ],
+              "centre": [
+                1.1215031660645087,
+                0.39286410868303423,
+                0.45212818567902513
+              ],
+              "velocity": [
+                0.024471797049045563,
+                0.0031258189119398594,
+                0.037381794303655624
+              ],
+              "spin": [
+                0.014297334477305412,
+                0.17684052884578705,
+                0.039475493133068085
+              ]
+            },
+            "contacts": [
+              "head",
+              "hand.left",
+              "upperArm.right",
+              "hand.right",
+              "thigh.right"
+            ],
+            "maxAngleError": 1.4684052847718698
+          },
+          {
+            "degrees": 180,
+            "wasDown": true,
+            "seconds": 5,
+            "height": 0.24581169809108241,
+            "root": {
+              "name": "lowerTrunk",
+              "position": [
+                -0.2882511019706726,
+                0.15262721478939056,
+                -1.104197382926941
+              ],
+              "rotation": [
+                0.6658334136009216,
+                -0.34604236483573914,
+                -0.2328580617904663,
+                0.6186256408691406
+              ],
+              "centre": [
+                -0.3028555475496045,
+                0.1530403802884154,
+                -1.0209082150645794
+              ],
+              "velocity": [
+                0.0014560706913471222,
+                -0.0002873652265407145,
+                -0.006336328107863665
+              ],
+              "spin": [
+                -0.006344351451843977,
+                -0.000674389477353543,
+                -0.005882549099624157
+              ]
+            },
+            "contacts": [
+              "upperTrunk",
+              "lowerTrunk",
+              "foot.right"
+            ],
+            "maxAngleError": 0.004830128927160615
+          },
+          {
+            "degrees": 180,
+            "wasDown": true,
+            "seconds": 10,
+            "height": 0.24584357969054169,
+            "root": {
+              "name": "lowerTrunk",
+              "position": [
+                -0.28580501675605774,
+                0.15264266729354858,
+                -1.1315470933914185
+              ],
+              "rotation": [
+                0.6716258525848389,
+                -0.3618711233139038,
+                -0.21558988094329834,
+                0.6094990372657776
+              ],
+              "centre": [
+                -0.30468580438389925,
+                0.15305528898148918,
+                -1.0491220216951076
+              ],
+              "velocity": [
+                0.0008375011966563761,
+                -0.0006625643000006676,
+                -0.0066014849580824375
+              ],
+              "spin": [
+                -0.01092535350471735,
+                -0.0001729979267111048,
+                -0.0005520816193893552
+              ]
+            },
+            "contacts": [
+              "upperTrunk",
+              "lowerTrunk",
+              "foot.right"
+            ],
+            "maxAngleError": 0.00464321188545419
+          },
+          {
+            "degrees": 180,
+            "wasDown": true,
+            "seconds": 15,
+            "height": 0.24579341038728048,
+            "root": {
+              "name": "lowerTrunk",
+              "position": [
+                -0.2819383144378662,
+                0.15262475609779358,
+                -1.1587926149368286
+              ],
+              "rotation": [
+                0.6768789887428284,
+                -0.37751397490501404,
+                -0.19827747344970703,
+                0.6000034809112549
+              ],
+              "centre": [
+                -0.3050342813766548,
+                0.15305110912797046,
+                -1.077448027902827
+              ],
+              "velocity": [
+                0.0015357506927102804,
+                -0.0006597188767045736,
+                -0.006841888185590506
+              ],
+              "spin": [
+                -0.01189861074090004,
+                0.002311147516593337,
+                -0.004929886199533939
+              ]
+            },
+            "contacts": [
+              "upperTrunk",
+              "lowerTrunk",
+              "foot.right"
+            ],
+            "maxAngleError": 0.004673270349235981
+          },
+          {
+            "degrees": 180,
+            "wasDown": true,
+            "seconds": 20,
+            "height": 0.2458463647278943,
+            "root": {
+              "name": "lowerTrunk",
+              "position": [
+                -0.27668678760528564,
+                0.15264412760734558,
+                -1.1857097148895264
+              ],
+              "rotation": [
+                0.6818551421165466,
+                -0.39284399151802063,
+                -0.180654376745224,
+                0.5900095105171204
+              ],
+              "centre": [
+                -0.3039618881622324,
+                0.1530563836298774,
+                -1.1056694394931577
+              ],
+              "velocity": [
+                0.0013867777306586504,
+                -0.0006981056649237871,
+                -0.00649691978469491
+              ],
+              "spin": [
+                -0.011331137269735336,
+                -0.00022911354608368129,
+                -0.001117910840548575
+              ]
+            },
+            "contacts": [
+              "upperTrunk",
+              "lowerTrunk",
+              "foot.right"
+            ],
+            "maxAngleError": 0.004671505339470083
+          },
+          {
+            "degrees": 270,
+            "wasDown": true,
+            "seconds": 5,
+            "height": 0.24580624809750157,
+            "root": {
+              "name": "lowerTrunk",
+              "position": [
+                -1.7306801080703735,
+                0.15245163440704346,
+                -0.12131524831056595
+              ],
+              "rotation": [
+                0.38678714632987976,
+                0.10284152626991272,
+                -0.5894904732704163,
+                0.701655387878418
+              ],
+              "centre": [
+                -1.6540008001917115,
+                0.1529415238832167,
+                -0.08566992263083115
+              ],
+              "velocity": [
+                -0.002642345381900668,
+                0.0004199267423246056,
+                0.00030109783983789384
+              ],
+              "spin": [
+                0.00695060146972537,
+                0.001644123811274767,
+                -0.006870064418762922
+              ]
+            },
+            "contacts": [
+              "upperTrunk",
+              "lowerTrunk",
+              "foot.right"
+            ],
+            "maxAngleError": 0.005255918882973054
+          },
+          {
+            "degrees": 270,
+            "wasDown": true,
+            "seconds": 10,
+            "height": 0.24580666401027648,
+            "root": {
+              "name": "lowerTrunk",
+              "position": [
+                -1.7390390634536743,
+                0.15245182812213898,
+                -0.12114450335502625
+              ],
+              "rotation": [
+                0.3952213525772095,
+                0.0927433893084526,
+                -0.5838698148727417,
+                0.703061044216156
+              ],
+              "centre": [
+                -1.6634162015598195,
+                0.15294163392916493,
+                -0.08330947533256461
+              ],
+              "velocity": [
+                -0.0025879107415676117,
+                0.0004024412191938609,
+                0.00022704983712173998
+              ],
+              "spin": [
+                0.006971752271056175,
+                0.001787920598872006,
+                -0.0064725554548203945
+              ]
+            },
+            "contacts": [
+              "upperTrunk",
+              "lowerTrunk",
+              "foot.right"
+            ],
+            "maxAngleError": 0.00525520404877633
+          },
+          {
+            "degrees": 270,
+            "wasDown": true,
+            "seconds": 15,
+            "height": 0.24580757273808246,
+            "root": {
+              "name": "lowerTrunk",
+              "position": [
+                -1.747383952140808,
+                0.15245190262794495,
+                -0.12120809406042099
+              ],
+              "rotation": [
+                0.40357324481010437,
+                0.08262310922145844,
+                -0.5781281590461731,
+                0.7043222784996033
+              ],
+              "centre": [
+                -1.6728802150234756,
+                0.15294175613237013,
+                -0.0812143600374626
+              ],
+              "velocity": [
+                -0.002613369608297944,
+                0.0004045258101541549,
+                0.00012335399514995515
+              ],
+              "spin": [
+                0.00693548796698451,
+                0.0014735053991898894,
+                -0.0056535894982516766
+              ]
+            },
+            "contacts": [
+              "upperTrunk",
+              "lowerTrunk",
+              "foot.right"
+            ],
+            "maxAngleError": 0.005262571705122565
+          },
+          {
+            "degrees": 270,
+            "wasDown": true,
+            "seconds": 20,
+            "height": 0.24580872238617224,
+            "root": {
+              "name": "lowerTrunk",
+              "position": [
+                -1.7557084560394287,
+                0.15245217084884644,
+                -0.12150220572948456
+              ],
+              "rotation": [
+                0.411846786737442,
+                0.07248026877641678,
+                -0.5722638368606567,
+                0.7054381966590881
+              ],
+              "centre": [
+                -1.6823861164893106,
+                0.1529420224025977,
+                -0.07938164015248814
+              ],
+              "velocity": [
+                -0.0026486043352633715,
+                0.0003996131126768887,
+                0.00007416916923830286
+              ],
+              "spin": [
+                0.007339117582887411,
+                0.0016094407765194774,
+                -0.005661946255713701
+              ]
+            },
+            "contacts": [
+              "upperTrunk",
+              "lowerTrunk",
+              "foot.right"
+            ],
+            "maxAngleError": 0.005265722517291294
+          }
+        ]
+      },
+      {
+        "source": "﻿import fs from 'node:fs';\nimport {Quaternion,Vector3} from '@babylonjs/core/Maths/math.vector.js';\nimport {felled} from '../research/core-rise-trials.mjs';\nimport {createMind} from '../src/core/mind/minds.ts';\nimport {FIGHTER} from '../src/core/mind/config.ts';\nimport {STAND_ORDERS} from '../src/core/mind/orders.ts';\nimport {createPolicyBody} from '../src/core/mind/direct.ts';\nimport {RISE} from '../src/core/mind/rise/stages.ts';\nconst pose=JSON.parse(fs.readFileSync('assets/research/posture-holds.json','utf8'))[0];\nfor(const seconds of [.2,.01])for(const degrees of [0,90,180,270]){\n const fall=await felled({model:'workshop-fighter',held:'empty',degrees,actuation:'directional'},(b,w)=>createMind(b,w,FIGHTER,{name:'fall-start',orders:()=>STAND_ORDERS}).body);\n const wasDown=fall.body.view.down;fall.body.dispose();\n const rest=fall.built.segments.get('lowerTrunk').rest.clone();\n const targets=Object.fromEntries([...fall.built.joints].flatMap(([name,j])=>j.dofs.map((d,i)=>[`${name} ${d.spec.positive}`,pose.placement.joints[name][i]])));\n const bind=Object.fromEntries(fall.built.spec.joints.flatMap(j=>j.dofs.map(d=>[j.name+' '+d.positive,d.bind.value])));\n const state={phase:'settle',time:0,still:0,stage:0,lie:'front',attempts:0,holdSteps:0,peakHold:0};\n const body=createPolicyBody(fall.built,fall.world,m=>({name:'direct-entry',state,step(o,dt){\n state.time+=dt;const relative=new Quaternion(...o.segments.find(s=>s.name==='lowerTrunk').rotation).multiply(Quaternion.Inverse(rest));const forward=new Vector3(0,0,1).applyRotationQuaternion(relative),left=new Vector3(-1,0,0).applyRotationQuaternion(relative);\n const lie=forward.y>.5?'back':forward.y<-.5?'front':left.y<0?'left':'right';\n const contacts=new Set(o.contacts.filter(c=>c.fixed!==null&&c.impulse>0).map(c=>c.segment));\n if(state.phase==='settle'){state.still=Math.max(...o.segments.map(s=>Math.hypot(...s.velocity)))<.1?state.still+dt:0;if(state.still>.5||state.time>3){state.lie=lie;state.phase=lie==='front'?'fours':'roll';state.time=0;state.stage=0;state.attempts++;}}\n let stage=state.phase==='roll'?RISE.roll[state.lie][state.stage]:null;\n if(stage&&state.time>=stage.seconds){state.stage++;state.time=0;if(state.stage===RISE.roll[state.lie].length){state.phase='settle';state.still=0;}stage=state.phase==='roll'?RISE.roll[state.lie][state.stage]:null;}\n const holds=lie==='front'&&['hand.left','hand.right','shank.left','shank.right'].every(n=>contacts.has(n))&&!['upperTrunk','middleTrunk','lowerTrunk','head'].some(n=>contacts.has(n));state.holdSteps=holds?state.holdSteps+1:0;state.peakHold=Math.max(state.peakHold,state.holdSteps);\n if(state.phase==='fours'&&state.time>6&&!holds){state.phase='settle';state.time=0;state.still=0;}\n return {kind:'velocity',activation:m.channels.map(()=>state.phase==='settle'?0:1),velocity:m.channels.map((c,i)=>{const target=stage?Math.max(c.min,Math.min(c.max,(stage.posture[c.name]??0)-bind[c.name])):targets[c.name];const speed=seconds===.01?10:stage?.drive?.speed??3,within=seconds===.01?.01:stage?.drive?.within??seconds;return Math.max(-speed,Math.min(speed,(target-o.joints[i].angle)/within));})};\n }}));\n try{for(let i=0;i<4800;i++){fall.world.step();if(i%1200===1199){const o=body.observe();console.log(JSON.stringify({degrees,response:seconds,wasDown,seconds:(i+1)/120,state,height:o.height,contacts:[...new Set(o.contacts.filter(c=>c.fixed!==null&&c.impulse>0).map(c=>c.segment))]}));}}}\n finally{body.dispose();fall.dispose();}\n}\r\n",
+        "rows": [
+          {
+            "degrees": 0,
+            "response": 0.2,
+            "wasDown": true,
+            "seconds": 10,
+            "state": {
+              "phase": "roll",
+              "time": 0.8916666666666659,
+              "still": 0.5000000000000007,
+              "stage": 3,
+              "lie": "back",
+              "attempts": 2,
+              "holdSteps": 0,
+              "peakHold": 0
+            },
+            "height": 0.21975451651251712,
+            "contacts": [
+              "upperArm.right",
+              "thigh.right",
+              "foot.right"
+            ]
+          },
+          {
+            "degrees": 0,
+            "response": 0.2,
+            "wasDown": true,
+            "seconds": 20,
+            "state": {
+              "phase": "fours",
+              "time": 6.908333333333466,
+              "still": 0.5000000000000007,
+              "stage": 0,
+              "lie": "front",
+              "attempts": 3,
+              "holdSteps": 682,
+              "peakHold": 682
+            },
+            "height": 0.35191891606175235,
+            "contacts": [
+              "hand.left",
+              "shank.left",
+              "hand.right",
+              "shank.right"
+            ]
+          },
+          {
+            "degrees": 0,
+            "response": 0.2,
+            "wasDown": true,
+            "seconds": 30,
+            "state": {
+              "phase": "fours",
+              "time": 16.908333333333015,
+              "still": 0.5000000000000007,
+              "stage": 0,
+              "lie": "front",
+              "attempts": 3,
+              "holdSteps": 1882,
+              "peakHold": 1882
+            },
+            "height": 0.35331573249565595,
+            "contacts": [
+              "hand.left",
+              "shank.left",
+              "hand.right",
+              "shank.right"
+            ]
+          },
+          {
+            "degrees": 0,
+            "response": 0.2,
+            "wasDown": true,
+            "seconds": 40,
+            "state": {
+              "phase": "fours",
+              "time": 26.908333333332447,
+              "still": 0.5000000000000007,
+              "stage": 0,
+              "lie": "front",
+              "attempts": 3,
+              "holdSteps": 3082,
+              "peakHold": 3082
+            },
+            "height": 0.35313252064856604,
+            "contacts": [
+              "hand.left",
+              "shank.left",
+              "hand.right",
+              "shank.right"
+            ]
+          },
+          {
+            "degrees": 90,
+            "response": 0.2,
+            "wasDown": true,
+            "seconds": 10,
+            "state": {
+              "phase": "fours",
+              "time": 0.016666666666666666,
+              "still": 0.5000000000000007,
+              "stage": 0,
+              "lie": "front",
+              "attempts": 2,
+              "holdSteps": 0,
+              "peakHold": 1
+            },
+            "height": 0.1490417048899772,
+            "contacts": [
+              "middleTrunk",
+              "forearm.left",
+              "foot.left",
+              "hand.right"
+            ]
+          },
+          {
+            "degrees": 90,
+            "response": 0.2,
+            "wasDown": true,
+            "seconds": 20,
+            "state": {
+              "phase": "fours",
+              "time": 2.0333333333333288,
+              "still": 0.5000000000000007,
+              "stage": 0,
+              "lie": "front",
+              "attempts": 3,
+              "holdSteps": 0,
+              "peakHold": 1
+            },
+            "height": 0.23875923296029067,
+            "contacts": [
+              "head",
+              "hand.left",
+              "shank.left",
+              "hand.right",
+              "shank.right"
+            ]
+          },
+          {
+            "degrees": 90,
+            "response": 0.2,
+            "wasDown": true,
+            "seconds": 30,
+            "state": {
+              "phase": "fours",
+              "time": 4.116666666666661,
+              "still": 0.5000000000000007,
+              "stage": 0,
+              "lie": "front",
+              "attempts": 4,
+              "holdSteps": 0,
+              "peakHold": 1
+            },
+            "height": 0.24099819365372532,
+            "contacts": [
+              "head",
+              "hand.left",
+              "shank.left",
+              "hand.right",
+              "shank.right"
+            ]
+          },
+          {
+            "degrees": 90,
+            "response": 0.2,
+            "wasDown": true,
+            "seconds": 40,
+            "state": {
+              "phase": "settle",
+              "time": 0.175,
+              "still": 0,
+              "stage": 0,
+              "lie": "front",
+              "attempts": 5,
+              "holdSteps": 0,
+              "peakHold": 1
+            },
+            "height": 0.19698805437725972,
+            "contacts": [
+              "upperTrunk",
+              "forearm.left",
+              "hand.left",
+              "shank.left",
+              "forearm.right",
+              "hand.right",
+              "shank.right"
+            ]
+          },
+          {
+            "degrees": 180,
+            "response": 0.2,
+            "wasDown": true,
+            "seconds": 10,
+            "state": {
+              "phase": "roll",
+              "time": 0.16666666666666666,
+              "still": 0.5000000000000007,
+              "stage": 3,
+              "lie": "back",
+              "attempts": 2,
+              "holdSteps": 0,
+              "peakHold": 0
+            },
+            "height": 0.23653066769873543,
+            "contacts": [
+              "upperArm.right",
+              "thigh.right"
+            ]
+          },
+          {
+            "degrees": 180,
+            "response": 0.2,
+            "wasDown": true,
+            "seconds": 20,
+            "state": {
+              "phase": "settle",
+              "time": 0.41666666666666713,
+              "still": 0,
+              "stage": 0,
+              "lie": "front",
+              "attempts": 3,
+              "holdSteps": 0,
+              "peakHold": 0
+            },
+            "height": 0.14265968757143663,
+            "contacts": [
+              "head",
+              "middleTrunk",
+              "forearm.left",
+              "hand.left",
+              "thigh.left",
+              "foot.left",
+              "foot.right"
+            ]
+          },
+          {
+            "degrees": 180,
+            "response": 0.2,
+            "wasDown": true,
+            "seconds": 30,
+            "state": {
+              "phase": "settle",
+              "time": 0.5250000000000006,
+              "still": 0,
+              "stage": 4,
+              "lie": "back",
+              "attempts": 5,
+              "holdSteps": 0,
+              "peakHold": 0
+            },
+            "height": 0.181838574988402,
+            "contacts": [
+              "upperTrunk",
+              "lowerTrunk",
+              "forearm.left",
+              "hand.right",
+              "thigh.right",
+              "foot.right"
+            ]
+          },
+          {
+            "degrees": 180,
+            "response": 0.2,
+            "wasDown": true,
+            "seconds": 40,
+            "state": {
+              "phase": "roll",
+              "time": 0,
+              "still": 0.5000000000000007,
+              "stage": 0,
+              "lie": "back",
+              "attempts": 7,
+              "holdSteps": 0,
+              "peakHold": 0
+            },
+            "height": 0.15586288253664005,
+            "contacts": [
+              "upperTrunk",
+              "lowerTrunk",
+              "forearm.left",
+              "foot.left",
+              "hand.right",
+              "foot.right"
+            ]
+          },
+          {
+            "degrees": 270,
+            "response": 0.2,
+            "wasDown": true,
+            "seconds": 10,
+            "state": {
+              "phase": "fours",
+              "time": 1.441666666666664,
+              "still": 0.11666666666666665,
+              "stage": 0,
+              "lie": "front",
+              "attempts": 2,
+              "holdSteps": 0,
+              "peakHold": 0
+            },
+            "height": 0.24398799337143784,
+            "contacts": [
+              "upperTrunk",
+              "lowerTrunk",
+              "foot.right"
+            ]
+          },
+          {
+            "degrees": 270,
+            "response": 0.2,
+            "wasDown": true,
+            "seconds": 20,
+            "state": {
+              "phase": "settle",
+              "time": 0.6166666666666669,
+              "still": 0,
+              "stage": 4,
+              "lie": "back",
+              "attempts": 3,
+              "holdSteps": 0,
+              "peakHold": 0
+            },
+            "height": 0.1075654708575816,
+            "contacts": [
+              "head",
+              "upperTrunk",
+              "lowerTrunk",
+              "forearm.left",
+              "hand.left",
+              "thigh.left",
+              "foot.left",
+              "hand.right",
+              "thigh.right",
+              "foot.right"
+            ]
+          },
+          {
+            "degrees": 270,
+            "response": 0.2,
+            "wasDown": true,
+            "seconds": 30,
+            "state": {
+              "phase": "fours",
+              "time": 3.59999999999999,
+              "still": 0.5000000000000007,
+              "stage": 0,
+              "lie": "front",
+              "attempts": 5,
+              "holdSteps": 0,
+              "peakHold": 0
+            },
+            "height": 0.24341321737131996,
+            "contacts": [
+              "upperTrunk",
+              "lowerTrunk",
+              "foot.left"
+            ]
+          },
+          {
+            "degrees": 270,
+            "response": 0.2,
+            "wasDown": true,
+            "seconds": 40,
+            "state": {
+              "phase": "roll",
+              "time": 0.12499999999999999,
+              "still": 0.5000000000000007,
+              "stage": 1,
+              "lie": "back",
+              "attempts": 7,
+              "holdSteps": 0,
+              "peakHold": 0
+            },
+            "height": 0.2108310206719754,
+            "contacts": [
+              "upperTrunk",
+              "lowerTrunk"
+            ]
+          },
+          {
+            "degrees": 0,
+            "response": 0.01,
+            "wasDown": true,
+            "seconds": 10,
+            "state": {
+              "phase": "fours",
+              "time": 3.1499999999999915,
+              "still": 0.5000000000000007,
+              "stage": 0,
+              "lie": "front",
+              "attempts": 2,
+              "holdSteps": 0,
+              "peakHold": 0
+            },
+            "height": 0.23575438365082999,
+            "contacts": [
+              "upperTrunk",
+              "lowerTrunk"
+            ]
+          },
+          {
+            "degrees": 0,
+            "response": 0.01,
+            "wasDown": true,
+            "seconds": 20,
+            "state": {
+              "phase": "roll",
+              "time": 0.6333333333333335,
+              "still": 0.5000000000000007,
+              "stage": 1,
+              "lie": "back",
+              "attempts": 4,
+              "holdSteps": 0,
+              "peakHold": 0
+            },
+            "height": 0.24748419060828708,
+            "contacts": [
+              "lowerTrunk"
+            ]
+          },
+          {
+            "degrees": 0,
+            "response": 0.01,
+            "wasDown": true,
+            "seconds": 30,
+            "state": {
+              "phase": "fours",
+              "time": 6.758333333333459,
+              "still": 0.5000000000000007,
+              "stage": 0,
+              "lie": "front",
+              "attempts": 5,
+              "holdSteps": 641,
+              "peakHold": 641
+            },
+            "height": 0.3631990783566114,
+            "contacts": [
+              "hand.left",
+              "shank.left",
+              "hand.right",
+              "shank.right",
+              "foot.right"
+            ]
+          },
+          {
+            "degrees": 0,
+            "response": 0.01,
+            "wasDown": true,
+            "seconds": 40,
+            "state": {
+              "phase": "fours",
+              "time": 16.758333333333024,
+              "still": 0.5000000000000007,
+              "stage": 0,
+              "lie": "front",
+              "attempts": 5,
+              "holdSteps": 1841,
+              "peakHold": 1841
+            },
+            "height": 0.36321445149230097,
+            "contacts": [
+              "hand.left",
+              "shank.left",
+              "hand.right",
+              "shank.right",
+              "foot.right"
+            ]
+          },
+          {
+            "degrees": 90,
+            "response": 0.01,
+            "wasDown": true,
+            "seconds": 10,
+            "state": {
+              "phase": "settle",
+              "time": 1.9499999999999955,
+              "still": 0.26666666666666666,
+              "stage": 0,
+              "lie": "front",
+              "attempts": 1,
+              "holdSteps": 0,
+              "peakHold": 1
+            },
+            "height": 0.14169945191720423,
+            "contacts": [
+              "head",
+              "upperTrunk",
+              "middleTrunk",
+              "lowerTrunk",
+              "forearm.left",
+              "hand.left",
+              "thigh.left",
+              "foot.left",
+              "upperArm.right",
+              "forearm.right",
+              "hand.right",
+              "thigh.right",
+              "foot.right"
+            ]
+          },
+          {
+            "degrees": 90,
+            "response": 0.01,
+            "wasDown": true,
+            "seconds": 20,
+            "state": {
+              "phase": "fours",
+              "time": 1.60833333333333,
+              "still": 0.5000000000000007,
+              "stage": 0,
+              "lie": "front",
+              "attempts": 3,
+              "holdSteps": 0,
+              "peakHold": 1
+            },
+            "height": 0.24354879820815922,
+            "contacts": [
+              "head",
+              "hand.left",
+              "shank.left",
+              "hand.right",
+              "shank.right"
+            ]
+          },
+          {
+            "degrees": 90,
+            "response": 0.01,
+            "wasDown": true,
+            "seconds": 30,
+            "state": {
+              "phase": "fours",
+              "time": 3.4249999999999905,
+              "still": 0.5000000000000007,
+              "stage": 0,
+              "lie": "front",
+              "attempts": 4,
+              "holdSteps": 0,
+              "peakHold": 1
+            },
+            "height": 0.24341916702055003,
+            "contacts": [
+              "head",
+              "hand.left",
+              "shank.left",
+              "hand.right",
+              "shank.right"
+            ]
+          },
+          {
+            "degrees": 90,
+            "response": 0.01,
+            "wasDown": true,
+            "seconds": 40,
+            "state": {
+              "phase": "fours",
+              "time": 5.275000000000052,
+              "still": 0.5000000000000007,
+              "stage": 0,
+              "lie": "front",
+              "attempts": 5,
+              "holdSteps": 0,
+              "peakHold": 1
+            },
+            "height": 0.2433744652257238,
+            "contacts": [
+              "head",
+              "hand.left",
+              "shank.left",
+              "hand.right",
+              "shank.right"
+            ]
+          },
+          {
+            "degrees": 180,
+            "response": 0.01,
+            "wasDown": true,
+            "seconds": 10,
+            "state": {
+              "phase": "fours",
+              "time": 2.558333333333327,
+              "still": 0.5000000000000007,
+              "stage": 0,
+              "lie": "front",
+              "attempts": 2,
+              "holdSteps": 127,
+              "peakHold": 127
+            },
+            "height": 0.3631144864292929,
+            "contacts": [
+              "hand.left",
+              "shank.left",
+              "hand.right",
+              "shank.right"
+            ]
+          },
+          {
+            "degrees": 180,
+            "response": 0.01,
+            "wasDown": true,
+            "seconds": 20,
+            "state": {
+              "phase": "fours",
+              "time": 12.55833333333326,
+              "still": 0.5000000000000007,
+              "stage": 0,
+              "lie": "front",
+              "attempts": 2,
+              "holdSteps": 1327,
+              "peakHold": 1327
+            },
+            "height": 0.3631673963172122,
+            "contacts": [
+              "hand.left",
+              "shank.left",
+              "hand.right",
+              "shank.right"
+            ]
+          },
+          {
+            "degrees": 180,
+            "response": 0.01,
+            "wasDown": true,
+            "seconds": 30,
+            "state": {
+              "phase": "fours",
+              "time": 22.558333333332694,
+              "still": 0.5000000000000007,
+              "stage": 0,
+              "lie": "front",
+              "attempts": 2,
+              "holdSteps": 2527,
+              "peakHold": 2527
+            },
+            "height": 0.36316264796273173,
+            "contacts": [
+              "hand.left",
+              "shank.left",
+              "hand.right",
+              "shank.right"
+            ]
+          },
+          {
+            "degrees": 180,
+            "response": 0.01,
+            "wasDown": true,
+            "seconds": 40,
+            "state": {
+              "phase": "fours",
+              "time": 32.55833333333213,
+              "still": 0.5000000000000007,
+              "stage": 0,
+              "lie": "front",
+              "attempts": 2,
+              "holdSteps": 3727,
+              "peakHold": 3727
+            },
+            "height": 0.3631719562725119,
+            "contacts": [
+              "hand.left",
+              "shank.left",
+              "hand.right",
+              "shank.right"
+            ]
+          },
+          {
+            "degrees": 270,
+            "response": 0.01,
+            "wasDown": true,
+            "seconds": 10,
+            "state": {
+              "phase": "fours",
+              "time": 2.974999999999992,
+              "still": 0.5000000000000007,
+              "stage": 0,
+              "lie": "front",
+              "attempts": 2,
+              "holdSteps": 100,
+              "peakHold": 100
+            },
+            "height": 0.36300032747293265,
+            "contacts": [
+              "hand.left",
+              "shank.left",
+              "hand.right",
+              "shank.right"
+            ]
+          },
+          {
+            "degrees": 270,
+            "response": 0.01,
+            "wasDown": true,
+            "seconds": 20,
+            "state": {
+              "phase": "fours",
+              "time": 12.974999999999904,
+              "still": 0.5000000000000007,
+              "stage": 0,
+              "lie": "front",
+              "attempts": 2,
+              "holdSteps": 1300,
+              "peakHold": 1300
+            },
+            "height": 0.3629700469533559,
+            "contacts": [
+              "hand.left",
+              "shank.left",
+              "hand.right",
+              "shank.right"
+            ]
+          },
+          {
+            "degrees": 270,
+            "response": 0.01,
+            "wasDown": true,
+            "seconds": 30,
+            "state": {
+              "phase": "fours",
+              "time": 22.974999999999337,
+              "still": 0.5000000000000007,
+              "stage": 0,
+              "lie": "front",
+              "attempts": 2,
+              "holdSteps": 2500,
+              "peakHold": 2500
+            },
+            "height": 0.36295993333781873,
+            "contacts": [
+              "hand.left",
+              "shank.left",
+              "hand.right",
+              "shank.right"
+            ]
+          },
+          {
+            "degrees": 270,
+            "response": 0.01,
+            "wasDown": true,
+            "seconds": 40,
+            "state": {
+              "phase": "fours",
+              "time": 32.97499999999877,
+              "still": 0.5000000000000007,
+              "stage": 0,
+              "lie": "front",
+              "attempts": 2,
+              "holdSteps": 3700,
+              "peakHold": 3700
+            },
+            "height": 0.3629580287942299,
+            "contacts": [
+              "hand.left",
+              "shank.left",
+              "hand.right",
+              "shank.right"
+            ]
+          }
+        ]
+      }
+    ]
+  }
 }

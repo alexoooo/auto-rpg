@@ -311,7 +311,12 @@ does not raise strength. Action representations and the world's actuator law bel
 manifests. `DirectMindConfig` supplies explicit joint targets, time constant, maximum speed and
 activation to an independent joint-feedback policy. It shares the game's construction, level,
 disposal and replay paths, and has no fighter view. Its pinned reach/hold test is a replacement
-proof, not a standing or fighting claim.
+proof, not a standing or fighting claim. The same independent policy also holds an installed
+Warrior all-fours pose on ordinary ground for ten seconds within 2 cm, without assistance
+([posture hold](reference/posture-hold.md)); half-kneel and squat fail that gate.
+`buildBody` accepts optional initial joint angles and a root quaternion, aligns joint anchors
+before creating physics, and preserves anatomical reference frames. Initialization belongs to
+the task; policies receive no authority to reposition a live body.
 
 **A mind may hand its body to a sub-mind** (`sub-mind.ts`). A `SubMind` is a mind that also says
 each step whether it wants the body (`wants`), and is told when it has it and when it has it no
