@@ -493,7 +493,8 @@ keep this experimental option disabled.
 The [pinned fixtures](reference/motion-tracking.md) exercise independent
 items and a shared bar through capture, motion, obstacle contact and either release. They use no
 assist and replay through the body's ordinary saved state. The [standing shared-bar fixture](reference/standing-bar.md)
-adds ordinary ground and an unpinned pelvis. Support transitions and recovery remain experimental,
+adds ordinary ground and an unpinned pelvis. Its [return posture](reference/bar-posture.md) uses the
+legal arm angles measured at grip capture, stored in replayable state. Support transitions and recovery remain experimental,
 and the allocating model path still needs optimization before game adoption.
 The [point-strike reference](reference/point-strike.md) plans named hand/item point paths and
 measured guard/return readiness. Its standing fixture measures contact and deliberate misses

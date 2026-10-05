@@ -34,6 +34,8 @@ shared two-handed items are its capability gates; the reference control stack re
 The vendored engine, detached policy interface, replayable environments and
 [equipment tracking](reference/motion-tracking.md), measured sticking support and an
 [upright foot-transfer task](reference/support-transition.md) are implemented experimentally.
+The shared bar uses a [measured captured posture](reference/bar-posture.md) for return; both
+Rapier profiles retain 12/12 development successes, with smaller overall maximum return errors.
 The [point-space strike fixture](reference/point-strike.md) adds static contacts and return after
 misses with either hand or independent clubs, through the same optional motion interface.
 The [moving variant](reference/moving-strike.md) adds delayed object sensing, point prediction

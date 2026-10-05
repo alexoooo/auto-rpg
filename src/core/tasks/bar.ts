@@ -36,7 +36,7 @@ const rotation = (q: Quaternion) => [q.x, q.y, q.z, q.w] as const;
  * A shared Node/browser load-path fixture: anatomical hands, one club, gravity, and an explicit
  * pelvis pin or measured ground support. A reference policy captures, moves, swings against a fixed obstacle and releases
  * either grip. The return asks position alone; a fixed orientation can exceed a remaining wrist's
- * range. Recovery, moving targets and combat need their own tasks.
+ * range. Its arm posture comes from measured grip capture. Recovery, moving targets and combat need their own tasks.
  */
 export function createBarProbe(scene: Scene, engine: PhysicsEngine, config: {
   readonly model: BodyModel; readonly release: Side; readonly hz: number;
@@ -48,7 +48,7 @@ export function createBarProbe(scene: Scene, engine: PhysicsEngine, config: {
   const support = config.support ?? "pinned";
   if (support !== "pinned" && support !== "standing") throw new Error("invalid bar support configuration");
   const standing = support === "standing";
-  const configuration = deepFreeze({ ...config, task: "shared-bar", protocol: 3, support, settings: SETTINGS,
+  const configuration = deepFreeze({ ...config, task: "shared-bar", protocol: 4, support, returnPosture: "captured-arm-angles", settings: SETTINGS,
     contact: standing ? STANDING : null, engineRevision: engine.revision, pin: standing ? null : "lowerTrunk", gravity: true, ccd: true,
     assists: { root: 0, weapon: false }, modelAccess: "coupled dynamics, anatomy and registered equipment" });
   const spec = modelSpec(config.model);
@@ -68,7 +68,7 @@ export function createBarProbe(scene: Scene, engine: PhysicsEngine, config: {
   const state = { steps: 0, captured: -1, released: false, complete: false, returnHeld: 0, contactSteps: 0, peakImpulse: 0,
     movedError: null as number | null, finalError: Vector3.Distance(item.node.position, base), peakGripGap: 0,
     fell: false, minRootHeight: root.node.position.y, supportSteps: 0, rejectedSteps: 0, peakTension: 0, peakFrictionViolation: 0, maxSolveWork: 0,
-    releaseContinuous: null as boolean | null, pendingRelease: null as readonly number[] | null };
+    releaseContinuous: null as boolean | null, pendingRelease: null as readonly number[] | null, guardPosture: null as readonly number[] | null };
   const motion = (target: Vec3) => ({ target, velocity: ZERO, acceleration: ZERO, seconds: SETTINGS.trackingSeconds, weight: SETTINGS.positionWeight });
   const body = createMotionBody(built, world, (model) => {
     const grip = model.equipment[0]!.grips.find((g) => g.name === "left")!;
@@ -82,7 +82,10 @@ export function createBarProbe(scene: Scene, engine: PhysicsEngine, config: {
       seconds: SETTINGS.postureSeconds, weight: /shoulder|elbow|wrist/.test(c.name) ? SETTINGS.armWeight : SETTINGS.bodyWeight }));
     return { name: "bar-reference", state, step(observation): MotionCommand {
       const reading = observation.equipment![0]!;
-      if (state.captured < 0 && reading.grips.every((g) => g.attached)) state.captured = state.steps;
+      if (state.captured < 0 && reading.grips.every((g) => g.attached)) {
+        state.captured = state.steps;
+        state.guardPosture = observation.joints.map((joint, i) => Math.max(model.channels[i]!.min, Math.min(model.channels[i]!.max, joint.angle)));
+      }
       const elapsed = state.captured < 0 ? -1 : (state.steps - state.captured) / configuration.hz;
       const returning = elapsed >= SETTINGS.seconds.return;
       const position: Vec3 = elapsed >= SETTINGS.seconds.move && !returning
@@ -111,7 +114,9 @@ export function createBarProbe(scene: Scene, engine: PhysicsEngine, config: {
       if (standing) frames.push({ id: "root", frame: { kind: "segment", name: "lowerTrunk" }, at: ZERO,
         translation: { target: rootPosition, velocity: ZERO, acceleration: ZERO, seconds: STANDING.rootSeconds, weight: STANDING.rootWeight },
         orientation: { target: rootRotation, velocity: ZERO, acceleration: ZERO, seconds: STANDING.rootSeconds, weight: STANDING.rootWeight } });
-      return { joints, frames, grips };
+      const posture = state.guardPosture;
+      return { joints: returning && posture ? joints.map((goal, i) => /shoulder|elbow|wrist/.test(goal.channel)
+        ? { ...goal, angle: posture[i]! } : goal) : joints, frames, grips };
     } };
   }, { items: [item], grants: ["left", "right"].map((grip) => ({ item, grip })), fixed: standing ? [] : [root.body],
     capacity: SETTINGS.capacity + (standing ? 1 : 0), effortCost: SETTINGS.effortCost, ...(standing ? { contact: STANDING } : {}) });
@@ -146,6 +151,7 @@ export function createBarProbe(scene: Scene, engine: PhysicsEngine, config: {
   });
   return { world, built, body, item, configuration, geometry: { obstacle: obstacleGeometry, floor: standing ? STANDING.floor : null },
     state: { body: body.state }, get complete() { return state.complete; },
-    observe: () => ({ task: { ...state, pendingRelease: state.pendingRelease ? [...state.pendingRelease] : null }, body: body.observe() }),
+    observe: () => ({ task: { ...state, pendingRelease: state.pendingRelease ? [...state.pendingRelease] : null,
+      guardPosture: state.guardPosture ? [...state.guardPosture] : null }, body: body.observe() }),
     dispose() { before.dispose(); after.dispose(); body.dispose(); item.dispose(); built.dispose(); world.dispose(); } };
 }

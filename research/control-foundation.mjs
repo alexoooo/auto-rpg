@@ -8,7 +8,7 @@ import { parseArgs } from "node:util";
 import { Worker } from "node:worker_threads";
 import { gzipSync } from "node:zlib";
 import { foundationJobs, FOUNDATION, proportion } from "./control-foundation-trials.mjs";
-import { CORE_ENGINE } from "../tests/harness/core-stand.mjs";
+import { CORE_ENGINE, freshEngine } from "../tests/harness/core-stand.mjs";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const digest = (value) => createHash("sha256").update(value).digest("hex");
@@ -144,9 +144,9 @@ async function main() {
   const directory = resolve(values.out ?? resolve(root, "research/runs/control-foundation", `${started.replaceAll(":", "-")}-${randomUUID()}`));
   const lock = JSON.parse(await readFile(resolve(root, "package-lock.json"), "utf8"));
   const pkg = lock.packages["node_modules/@dimforge/rapier3d-simd-compat"];
-  const source = await contentRevision(), archive = gzipSync(JSON.stringify(source.sources));
+  const source = await contentRevision(), archive = gzipSync(JSON.stringify(source.sources)), engine = await freshEngine();
   const manifest = { protocol: FOUNDATION.version, started, options, workers: Number(values.workers),
-    harness: "Node, core world, per-task arena/stand fixtures", node: process.version, engine: CORE_ENGINE,
+    harness: "Node, core world, per-task arena/stand fixtures", node: process.version, engine: CORE_ENGINE, engineRevision: engine.revision,
     package: { version: pkg.version, resolved: pkg.resolved, integrity: pkg.integrity },
     source: { git: execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim(), content: source.content,
       archive: "source.json.gz", archiveSha256: digest(archive) },
@@ -160,7 +160,7 @@ async function main() {
     unavailable: ["integrated recovery/combat", "opponent defense", "actuator work", "contact penetration"],
     jobs };
   const installed = JSON.parse(await readFile(resolve(root, "node_modules/@dimforge/rapier3d-simd-compat/package.json"), "utf8"));
-  if (installed.version !== pkg.version || CORE_ENGINE !== "rapier") throw new Error("manifest requires the locked Rapier package; run npm ci");
+  if (installed.version !== pkg.version || !["rapier", "rapier-coordinate"].includes(CORE_ENGINE)) throw new Error("manifest requires the locked Rapier package; run npm ci");
   manifest.package.entrySha256 = digest(await readFile(resolve(root, "node_modules/@dimforge/rapier3d-simd-compat", installed.main)));
   await mkdir(directory, { recursive: true });
   await writeFile(resolve(directory, "manifest.json"), json(manifest), { flag: "wx" });

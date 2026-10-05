@@ -1,5 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
+import { mkdtempSync, readFileSync, realpathSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { basename, dirname, join } from "node:path";
 import { foundationJobs, foundationTrial, attackAccounting, proportion } from "../research/control-foundation-trials.mjs";
 import { runFoundation, summarizeFoundation } from "../research/control-foundation.mjs";
 
@@ -181,4 +185,29 @@ test("guard differences compare the same side and start and recovery excludes sh
     damageSaved: 3, poseFallen: false, coverFallen: false, poseSeconds: 10, coverSeconds: 10 }]);
   assert.equal(summary.cells.at(-1).success.count, 2);
   assert.equal(summary.cells.at(-1).success.successes, 1);
+});
+
+
+test("the CLI records the corrected Rapier profile used by its physical workers", () => {
+  const directory = mkdtempSync(join(tmpdir(), "foundation-coordinate-"));
+  try {
+    execFileSync(process.execPath, ["research/control-foundation.mjs", "--suite", "bar", "--models", "workshop-fighter",
+      "--samples", "1", "--workers", "1", "--support", "standing", "--actuation", "directional", "--out", directory],
+    { env: { ...process.env, CORE_ENGINE: "rapier-coordinate" }, timeout: 120000, stdio: "pipe" });
+    const manifest = JSON.parse(readFileSync(join(directory, "manifest.json"), "utf8"));
+    const rows = readFileSync(join(directory, "rows.jsonl"), "utf8").trim().split("\n").map(JSON.parse);
+    assert.equal(manifest.engine, "rapier-coordinate");
+    assert.ok(manifest.engineRevision.endsWith("/coordinate-limits"));
+    assert.equal(rows.length, 2);
+    for (const row of rows) {
+      assert.equal(row.result.configuration.engineRevision, manifest.engineRevision);
+      assert.equal(row.result.outcome.replayExact, true);
+      assert.equal(row.result.outcome.releaseContinuous, true);
+    }
+  } finally {
+    const target = realpathSync(directory);
+    assert.equal(dirname(target), realpathSync(tmpdir()));
+    assert.ok(basename(target).startsWith("foundation-coordinate-"));
+    rmSync(target, { recursive: true, force: true });
+  }
 });

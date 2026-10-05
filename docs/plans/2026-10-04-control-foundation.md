@@ -243,7 +243,10 @@ foot, verifies placement contact and regains two-foot support on all three bodie
 zero-offset regression. Readiness is measured, policy state replays, and the task checks another
 second of control. This is a shallow empty-handed task; loaded transitions, stepping, recovery,
 joint-stop-aware planning and the integrated gameplay gates remain open. The bar fixture's
-position-only return now uses measured readiness within the existing deadline and tolerance.
+position-only return uses measured readiness within the existing deadline and tolerance. Its
+[captured arm posture](../reference/bar-posture.md) reduces the largest return error in both
+Rapier-profile development screens, which each retain 12/12 successes. Stop-aware control and
+corrected-limit gameplay migration remain open.
 The built `/control-tasks.html` viewer runs those same builders and draws separate equipment
 through release. [Twelve browser cells](../reference/control-tasks-browser.md) match Node's
 observation hashes and replay their policy/task state. This closes the visual/replay checks for

@@ -237,5 +237,6 @@ were reported. [Manifest and physical rows](control-foundation-reach.json); sour
 This is a reproducibility and replaceability check, not a ranking of controllers. The skeleton
 still has placeholder anatomy. Held-out starts remain unused; recovery and integrated gameplay
 gates remain open. The bar suite separates pinned and `--support standing` experiments;
-[standing shared equipment](standing-bar.md) records its development successes and the remaining
-return miss without claiming support transitions or recovery.
+[standing shared equipment](standing-bar.md) records its support and readiness experiments.
+The [captured-posture comparison](bar-posture.md) retains 12/12 development successes on each
+Rapier profile without claiming recovery or corrected-limit gameplay readiness.

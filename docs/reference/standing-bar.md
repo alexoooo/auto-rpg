@@ -1,5 +1,9 @@
 # Standing shared-bar tracking
 
+The current captured-pose return and its two-profile comparison are recorded in
+[shared-bar return posture](bar-posture.md). The screens below establish sticking support and
+the measured-readiness rule under their archived controller configurations.
+
 The Node/core-world bar fixture uses Rapier at 120 Hz, directional muscle bounds, gravity,
 ordinary ground, and zero root or weapon assistance. The pelvis is free. Its anatomy, muscle
 strength and item inertia are unchanged. The pinned variant remains a separate diagnostic.
