@@ -17,6 +17,8 @@ import { clockSenses } from "../mind/senses.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { deepFreeze } from "../state.ts";
 import { createWorld } from "../world.ts";
+import { trackingRejected } from "../control/whole-body.ts";
+import { jointStopProbeSettings } from "./stop-settings.ts";
 
 /** Declared mechanical task and controller inputs (`docs/reference/point-defense.md#physical-fixture-and-declared-inputs`). */
 const SETTINGS = deepFreeze({
@@ -62,12 +64,14 @@ export function createDefenseProbe(scene: Scene, engine: PhysicsEngine, config: 
   readonly model: BodyModel; readonly hands: Side | "both"; readonly held: "empty" | "club";
   readonly hz: number; readonly actuation: "symmetric" | "directional"; readonly offset: number;
   readonly variant: "predict" | "pose"; readonly angleOffset?: number;
+  readonly jointStops?: boolean;
 }) {
+  const stopSettings = jointStopProbeSettings(config.jointStops);
   if (!Number.isSafeInteger(config.hz) || config.hz < 120 || config.hz % 120 !== 0 || !Number.isFinite(config.offset)
     || !["left", "right", "both"].includes(config.hands) || !["empty", "club"].includes(config.held)
     || !["predict", "pose"].includes(config.variant) || !Number.isFinite(config.angleOffset ?? 0)
     || Math.abs(config.angleOffset ?? 0) > 0.1) throw new Error("invalid defense fixture");
-  const configuration = deepFreeze({ ...config, task: "point-defense", protocol: 1, settings: SETTINGS,
+  const configuration = deepFreeze({ ...config, ...(stopSettings ? { stopPrediction: stopSettings } : {}), task: "point-defense", protocol: 1, settings: SETTINGS,
     protected: ["head", "upperTrunk"], engineRevision: engine.revision, gravity: true, pin: null,
     assists: { root: 0, weapon: false }, prediction: "sampled point acceleration; necessary reach and travel-time filters" });
   const world = createWorld(scene, engine, { gravity: true, hz: config.hz, actuation: config.actuation });
@@ -114,7 +118,7 @@ export function createDefenseProbe(scene: Scene, engine: PhysicsEngine, config: 
     }, model, model.equipment);
     return policy;
   }, { senses: () => ({ ...clock(), objects: sensing.read() }), items, grants: items.map((item) => ({ item, grip: item.id })),
-    fixed: [], capacity: effectors.length + 2, effortCost: SETTINGS.effortCost, contact: SETTINGS.contact });
+    fixed: [], capacity: effectors.length + 2, effortCost: SETTINGS.effortCost, ...(stopSettings ? { jointStops: stopSettings } : {}), contact: SETTINGS.contact });
   const ownParts = [...built.segments.values()], members = ownParts.map((p) => p.body).concat(items.map((i) => i.body), effectors.map((e) => e.rig.item.body));
   const index = new Map(members.map((part, i) => [part, i])), byBody = new Map(ownParts.map((part) => [part.body, part.spec.name]));
   const state = { steps: 0, released: false, ready: 0, prepared: false, fell: false, rejectedSteps: 0,
@@ -142,7 +146,7 @@ export function createDefenseProbe(scene: Scene, engine: PhysicsEngine, config: 
   });
   const after = world.afterStep(() => {
     state.steps++; const observation = body.observe(); state.fell ||= observation.down;
-    if (body.report().contact?.status === "rejected") state.rejectedSteps++;
+    if (trackingRejected(body.report())) state.rejectedSteps++;
     const readings = effectors.map((e, i) => {
       const reading = motion.own(observation, e.frame, e.at);
       state.guards[i]!.error = distance(reading.position, e.guard); return reading;

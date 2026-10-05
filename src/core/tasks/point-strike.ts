@@ -13,6 +13,8 @@ import { clockSenses } from "../mind/senses.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { deepFreeze } from "../state.ts";
 import { createWorld } from "../world.ts";
+import { trackingRejected } from "../control/whole-body.ts";
+import { jointStopProbeSettings } from "./stop-settings.ts";
 import { createSwingTarget } from "./swing-target.ts";
 
 /** Static point-strike experiment inputs, numeric settings (`docs/reference/point-strike.md`). */
@@ -43,7 +45,9 @@ export function createPointStrikeProbe(scene: Scene, engine: PhysicsEngine, conf
   readonly centreControl?: boolean; readonly continueSeconds?: number;
   readonly shared?: { readonly release?: Side };
   readonly swing?: { readonly angle: number; readonly speed: number; readonly delay: number; readonly tracking: boolean; readonly braking: boolean };
+  readonly jointStops?: boolean;
 }) {
+  const stopSettings = jointStopProbeSettings(config.jointStops);
   if (!Number.isSafeInteger(config.hz) || config.hz < 120 || config.hz % 120 !== 0 || !Number.isFinite(config.offset)
     || !["left", "right", "both"].includes(config.hands) || !["empty", "club"].includes(config.held)) throw new Error("invalid point strike fixture");
   if (config.shared && (config.hands !== "both" || config.held !== "club"
@@ -55,7 +59,7 @@ export function createPointStrikeProbe(scene: Scene, engine: PhysicsEngine, conf
   if (swing && (!Number.isSafeInteger(swing.delay) || swing.delay < 0 || !Number.isFinite(swing.angle) || Math.abs(swing.angle) > SWING.limit
     || !Number.isFinite(swing.speed) || typeof swing.tracking !== "boolean" || typeof swing.braking !== "boolean")) throw new Error("invalid moving strike configuration");
   const impact = swing?.braking || (!swing && config.centreControl) ? SWING.impact : null;
-  const configuration = deepFreeze({ ...config, ...(swing ? { swing } : {}), task: "point-strike", protocol: 3,
+  const configuration = deepFreeze({ ...config, ...(stopSettings ? { stopPrediction: stopSettings } : {}), ...(swing ? { swing } : {}), task: "point-strike", protocol: 3,
     settings: { ...SETTINGS, continueSeconds, ...(config.centreControl ? { followSeconds: CENTRE.followSeconds } : {}) },
     ...(config.centreControl ? { centreSettings: CENTRE } : {}),
     ...(config.shared ? { shared: { ...config.shared }, sharedSettings: SHARED } : {}),
@@ -157,7 +161,7 @@ export function createPointStrikeProbe(scene: Scene, engine: PhysicsEngine, conf
   }, { ...(observer ? { senses: () => ({ ...clock(), objects: observer.read() }) } : {}),
     items, grants: items.flatMap((item) => (config.shared ? ["left", "right"] : [item.id]).map((grip) => ({ item, grip }))),
     fixed: [], capacity: (config.shared ? 3 : 1 + effectors.length) + (configuration.centreControl ? 1 : 0),
-    effortCost: SETTINGS.effortCost, contact: SETTINGS.contact });
+    effortCost: SETTINGS.effortCost, ...(stopSettings ? { jointStops: stopSettings } : {}), contact: SETTINGS.contact });
   const point = new Vector3(), v = new Vector3(), spin = new Vector3();
   const motion = (part: SegmentBody) => {
     point.set(...part.massProperties.centre).applyRotationQuaternionToRef(part.node.rotationQuaternion!, point).addInPlace(part.node.position);
@@ -182,7 +186,7 @@ export function createPointStrikeProbe(scene: Scene, engine: PhysicsEngine, conf
       v.set(...grip.attachment.itemFrame.position).applyRotationQuaternionToRef(items[0]!.node.rotationQuaternion!, v).addInPlace(items[0]!.node.position);
       state.shared.peakGripGap = Math.max(state.shared.peakGripGap, Vector3.Distance(point, v));
     }
-    if (body.report().contact?.status === "rejected") state.rejectedSteps++;
+    if (trackingRejected(body.report())) state.rejectedSteps++;
     if (policy.state.phase === "complete" && state.completeAt < 0) state.completeAt = state.steps;
     effectors.forEach((e, i) => {
       const row = state.strikes[i]!, prior = state.before[i]!;

@@ -13,6 +13,8 @@ import type { Vec3 } from "../spec/quantity.ts";
 import { deepFreeze } from "../state.ts";
 import { physicalReading } from "../observation.ts";
 import { createWorld } from "../world.ts";
+import { trackingRejected } from "../control/whole-body.ts";
+import { jointStopProbeSettings } from "./stop-settings.ts";
 
 /** Pinned bar experiment inputs, numeric settings (`docs/reference/motion-tracking.md`). */
 const SETTINGS = deepFreeze({
@@ -42,13 +44,15 @@ export function createBarProbe(scene: Scene, engine: PhysicsEngine, config: {
   readonly model: BodyModel; readonly release: Side; readonly hz: number;
   readonly actuation: "symmetric" | "directional"; readonly offset: number;
   readonly support?: "pinned" | "standing";
+  readonly jointStops?: boolean;
 }) {
+  const stopSettings = jointStopProbeSettings(config.jointStops);
   if (!Number.isSafeInteger(config.hz) || config.hz < 120 || config.hz % 120 !== 0
     || !Number.isFinite(config.offset) || (config.release !== "left" && config.release !== "right")) throw new Error("invalid bar fixture configuration");
   const support = config.support ?? "pinned";
   if (support !== "pinned" && support !== "standing") throw new Error("invalid bar support configuration");
   const standing = support === "standing";
-  const configuration = deepFreeze({ ...config, task: "shared-bar", protocol: 4, support, returnPosture: "captured-arm-angles", settings: SETTINGS,
+  const configuration = deepFreeze({ ...config, ...(stopSettings ? { stopPrediction: stopSettings } : {}), task: "shared-bar", protocol: 4, support, returnPosture: "captured-arm-angles", settings: SETTINGS,
     contact: standing ? STANDING : null, engineRevision: engine.revision, pin: standing ? null : "lowerTrunk", gravity: true, ccd: true,
     assists: { root: 0, weapon: false }, modelAccess: "coupled dynamics, anatomy and registered equipment" });
   const spec = modelSpec(config.model);
@@ -119,7 +123,7 @@ export function createBarProbe(scene: Scene, engine: PhysicsEngine, config: {
         ? { ...goal, angle: posture[i]! } : goal) : joints, frames, grips };
     } };
   }, { items: [item], grants: ["left", "right"].map((grip) => ({ item, grip })), fixed: standing ? [] : [root.body],
-    capacity: SETTINGS.capacity + (standing ? 1 : 0), effortCost: SETTINGS.effortCost, ...(standing ? { contact: STANDING } : {}) });
+    capacity: SETTINGS.capacity + (standing ? 1 : 0), effortCost: SETTINGS.effortCost, ...(stopSettings ? { jointStops: stopSettings } : {}), ...(standing ? { contact: STANDING } : {}) });
   const a = new Vector3(), b = new Vector3(), physical = physicalReading(built);
   const before = world.beforeStep(() => {
     if (!state.pendingRelease) return;
@@ -140,10 +144,10 @@ export function createBarProbe(scene: Scene, engine: PhysicsEngine, config: {
     }
     state.finalError = Vector3.Distance(item.node.position, base);
     state.fell ||= physical().down; state.minRootHeight = Math.min(state.minRootHeight, root.node.position.y);
-    const report = body.report().contact;
+    const control = body.report(), report = control.contact;
+    if (trackingRejected(control)) state.rejectedSteps++;
     if (report) {
       if (report.points) state.supportSteps++;
-      if (report.status === "rejected") state.rejectedSteps++;
       state.peakTension = Math.max(state.peakTension, report.tension);
       state.peakFrictionViolation = Math.max(state.peakFrictionViolation, report.frictionViolation);
       state.maxSolveWork = Math.max(state.maxSolveWork, report.solve?.work ?? 0);

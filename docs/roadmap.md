@@ -60,6 +60,11 @@ The experimental [angular-limit correction](reference/joint-limits.md), `rapier-
 makes limit reactions follow their reported coordinates. Mechanical stop tests pass, but
 controller regressions prevent default migration. The task results above use the parent-axis
 reference and must be measured again under corrected limits.
+An optional [near-stop controller model](reference/joint-stop-tracking.md) improves corrected-profile
+shared static strikes from 26/36 to 34/36 and moving strikes from 39/54 to 51/54. It also
+regresses the bar screen from 12/12 to 11/12 and predictive defense from 33/36 to 32/36,
+including a defense fall. All trials replay. It remains experimental: release clearance,
+preparation, sustained defense and contact-mode failures block default adoption.
 
 ## Open items
 

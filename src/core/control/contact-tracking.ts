@@ -3,6 +3,7 @@ import { constraintBasis, type MotionConstraint } from "../build/constrained-mas
 import { CONTACT_FRICTION, type PhysicsWorld, type SegmentBody } from "../engine/engine.ts";
 import { activeQuadratic } from "../math/active-quadratic.ts";
 import type { Vec3 } from "../spec/quantity.ts";
+import { checkEffortBounds, type EffortBound } from "./effort-bounds.ts";
 import { motionFrameKey, type MotionCommand } from "./tasks.ts";
 
 export interface ContactTrackingSettings {
@@ -61,14 +62,15 @@ function distributionModes(points: readonly Point[]): number[][] {
  * constrain the model. The actual world receives muscle torques, never these predicted forces.
  * Optional force redistribution preserves each body's wrench. Cross-body load redistribution
  * remains restricted to the torque response, so rejection does not certify infeasibility.
- * Sliding friction, contact acquisition and joint stops need separate models or planning.
+ * Additional affine effort rows can share this solve. Sliding friction, contact acquisition and
+ * selection of joint stops need separate models or planning.
  */
-export function contactTracking(physics: PhysicsWorld, frames: ReadonlyMap<string, SegmentBody>, channels: number, settings: ContactTrackingSettings) {
-  if (!Number.isSafeInteger(settings.maxPoints) || settings.maxPoints < 1 || !(settings.gap >= 0) || !Number.isFinite(settings.gap)
+export function contactTracking(physics: PhysicsWorld, frames: ReadonlyMap<string, SegmentBody>, channels: number, settings: ContactTrackingSettings, extraCapacity = 0) {
+  if (!Number.isSafeInteger(extraCapacity) || extraCapacity < 0 || !Number.isSafeInteger(settings.maxPoints) || settings.maxPoints < 1 || !(settings.gap >= 0) || !Number.isFinite(settings.gap)
     || !(settings.minUpNormal > 0 && settings.minUpNormal <= 1) || !(settings.forceTolerance > 0) || !Number.isFinite(settings.forceTolerance)
     || !(dot(physics.gravity, physics.gravity) > 0)) throw new Error("invalid sticking contact settings");
   if (settings.redistributionCost !== undefined && !(Number.isFinite(settings.redistributionCost) && settings.redistributionCost > 0)) throw new Error("invalid contact redistribution cost");
-  const config = Object.freeze({ ...settings }), capacity = channels + 5 * config.maxPoints;
+  const config = Object.freeze({ ...settings }), capacity = channels + 5 * config.maxPoints + extraCapacity;
   let size = channels, solver = activeQuadratic(size, capacity, config);
   const up = normalized(physics.gravity.map((v) => -v) as unknown as Vec3);
   const forceScale = [...frames.values()].reduce((sum, body) => sum + body.massProperties.mass, 0) * Math.sqrt(dot(physics.gravity, physics.gravity));
@@ -128,8 +130,9 @@ export function contactTracking(physics: PhysicsWorld, frames: ReadonlyMap<strin
       const offset = multipliers.length - 3 * points.length;
       for (let r = 0; r < 3 * points.length; r++) response[r * channels + i] = multipliers[offset + r]! - base[r]!;
     },
-    solve(hessian: Float64Array, rhs: Float64Array, scale: Float64Array, lo: Float64Array, hi: Float64Array, candidate: Float64Array): void {
-      if (!points.length) return;
+    solve(hessian: Float64Array, rhs: Float64Array, scale: Float64Array, lo: Float64Array, hi: Float64Array, candidate: Float64Array, extra: readonly EffortBound[] = []): void {
+      checkEffortBounds(extra, channels, extraCapacity);
+      if (!points.length && !extra.length) return;
       matrix.fill(0);
       for (let i = 0; i < channels; i++) { matrix[i * size + i] = 1; lower[i] = lo[i]!; upper[i] = hi[i]!; }
       let rows = channels;
@@ -145,6 +148,10 @@ export function contactTracking(physics: PhysicsWorld, frames: ReadonlyMap<strin
         });
         lower[rows] = kind === 0 ? -offset : -Infinity; upper[rows] = kind === 0 ? Infinity : -offset; rows++;
       }));
+      for (const bound of extra) {
+        for (let i = 0; i < channels; i++) matrix[rows * size + i] = bound.coefficients[i]! * scale[i]!;
+        lower[rows] = bound.lower; upper[rows] = bound.upper; rows++;
+      }
       let valid = true;
       for (let r = 0; r < rows; r++) {
         let value = 0; for (let i = 0; i < channels; i++) value += matrix[r * size + i]! * candidate[i]!;
@@ -190,6 +197,8 @@ export function contactTracking(physics: PhysicsWorld, frames: ReadonlyMap<strin
         state.status = "rejected"; torque.fill(0);
       }
     },
+    /** A coupled physical constraint rejects the candidate after the contact solve. */
+    reject(): void { state.status = "rejected"; state.forces.length = 0; },
     report() { return { status: state.status, points: state.points, tension: state.tension, frictionViolation: state.frictionViolation,
       solve: state.solve ? { ...state.solve } : null, forces: state.forces.map((f) => ({ frame: f.frame, point: [...f.point] as Vec3, force: [...f.force] as Vec3 })) }; },
   };

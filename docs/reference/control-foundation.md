@@ -35,6 +35,13 @@ one club held by both hands and preserves separate keep-both, release-left and r
 cells. The [shared-strike record](shared-strike.md) defines acquisition, attachment-gap,
 shared-impact and release-continuity gates alongside the existing return and replay gates.
 
+The bar, point-strike, moving-strike and defense suites accept experimental `--joint-stops`.
+It selects [near-stop prediction](joint-stop-tracking.md) without changing physics, anatomy or
+task gates. Task IDs, summary cells and defense pairs distinguish the option. Reports include
+selection work and residuals over the whole trial, including the replay checkpoint prefix.
+The meter is restored with the branch and included in replay comparison; timing excludes
+report sampling. Other suites reject the flag.
+
 The manifest carries the actual source/JSON content hash (including dirty and untracked research
 code), Git revision, Node version, package lock identity and installed package entry hash. Body,
 item and controller content share that source hash. Each job declares the model, loadout, initial

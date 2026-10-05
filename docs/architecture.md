@@ -486,7 +486,10 @@ receive detached observations, including the provider's delay. Its optional `who
 acceleration tracking, with explicit residual and observed-error reports. Optional measured sticking
 contacts add unilateral and friction constraints through an active-set solve. Desired supports
 are separate from measured contacts; a free support request changes no collider. Rejected solves
-produce zero torque. Joint-stop reactions and sliding contacts are not predicted.
+produce zero torque. Optional [near-stop prediction](reference/joint-stop-tracking.md) selects
+unilateral reactions using actual joint-coordinate motion and retains no-crossing effort bounds
+when a stop releases. It works with ground contacts or pinned fixtures and reports rejected modes.
+Sliding contacts and distant stop impacts are not predicted.
 Optional [contact redistribution](reference/contact-distribution.md) searches point-force
 distributions that preserve each contacted body's wrench; the measured task configurations
 keep this experimental option disabled.

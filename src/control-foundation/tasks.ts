@@ -30,21 +30,22 @@ const support = element<HTMLSelectElement>("support"), seed = element<HTMLInputE
 const held = element<HTMLSelectElement>("held"), target = element<HTMLSelectElement>("target");
 const release = element<HTMLSelectElement>("release");
 const motion = element<HTMLSelectElement>("motion");
-const defense = element<HTMLSelectElement>("defense");
+const defense = element<HTMLSelectElement>("defense"), stops = element<HTMLSelectElement>("stops");
 const balance = element<HTMLSelectElement>("balance"), continuation = element<HTMLSelectElement>("continuation");
-for (const select of [task, model, side, support, held, target, motion, balance, continuation, defense, release]) {
+for (const select of [task, model, side, support, held, target, motion, balance, continuation, defense, release, stops]) {
   const value = query.get(select.id);
   if (value && [...select.options].some((o) => o.value === value)) select.value = value;
 }
 if (query.has("seed")) seed.value = query.get("seed")!;
 
 function make() {
+  if (task.value === "support") stops.value = "off";
   if (task.value === "point-strike" && held.value === "shared") side.value = "both";
   const chosen = model.value as BodyModel, selectedSide = side.value, selectedSupport = support.value, number = Number(seed.value);
   if (!BODY_MODELS.includes(chosen) || (selectedSide !== "left" && selectedSide !== "right" && selectedSide !== "both")
     || (selectedSupport !== "standing" && selectedSupport !== "pinned") || !Number.isInteger(number) || number < 0 || number >= 1000000) throw new Error("Invalid development configuration");
   const fraction = (((number + 1) * 2654435761) >>> 0) / 4294967296;
-  const common = { model: chosen, hz: 120, actuation: "directional" as const };
+  const common = { model: chosen, hz: 120, actuation: "directional" as const, ...(stops.value === "on" ? { jointStops: true } : {}) };
   let probe: ReturnType<typeof createBarProbe> | ReturnType<typeof createSupportProbe> | ReturnType<typeof createPointStrikeProbe> | ReturnType<typeof createDefenseProbe>;
   switch (task.value) {
     case "defense": {
@@ -120,6 +121,7 @@ function show() {
     : task.value === "point-strike" ? "Prepare a guard, strike with either hand, independent items or one shared item, and return after contact or a miss."
       : "Shift weight, lift either foot, verify placement contact, and regain two-foot support.";
   for (const control of document.querySelectorAll<HTMLButtonElement | HTMLInputElement | HTMLSelectElement>("button, input, select")) control.disabled = busy;
+  stops.disabled = busy || task.value === "support";
   support.disabled = busy || task.value !== "bar";
   held.disabled = busy || (task.value !== "point-strike" && task.value !== "defense");
   held.querySelector<HTMLOptionElement>('option[value="shared"]')!.disabled = task.value !== "point-strike";
@@ -165,7 +167,7 @@ for (const [id, action] of Object.entries(actions)) element<HTMLButtonElement>(i
   try { await action(); } catch (error) { playing = false; element("verification").textContent = String(error); }
   finally { busy = false; show(); }
 });
-const inputs = [task, model, side, support, seed, held, target, motion, balance, continuation, defense, release];
+const inputs = [task, model, side, support, seed, held, target, motion, balance, continuation, defense, release, stops];
 physics.addEventListener("change", () => {
   const next = new URLSearchParams(location.search);
   for (const input of [...inputs, physics]) next.set(input.id, input.value);

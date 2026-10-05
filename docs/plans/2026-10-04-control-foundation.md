@@ -235,8 +235,12 @@ An optional [contact force redistribution](../reference/contact-distribution.md)
 artificial tension while preserving each contacted body's wrench. Its isolated force-allocation
 and save/restore tests pass; it is not enabled in the measured reference tasks and does not
 establish a recovery improvement.
-General support transitions, joint-stop prediction, hot-path optimization and recovery/combat
-integration remain required. The allocating experimental tracker is not the game's default.
+Optional [near-stop prediction](../reference/joint-stop-tracking.md) supplies local unilateral
+reaction selection and end-step effort bounds. Its single-joint regression verifies pressing
+and releasing either loaded limit through bounded actuators. Its corrected-profile development
+comparison improves shared static/moving strikes to 34/36 and 51/54, but bar and defense
+regressions keep it optional. All 348 comparison rows replay. General support transitions,
+stop-aware planning, hot-path optimization and recovery/combat integration remain required. The allocating experimental tracker is not the game's default.
 
 The [upright support task](../reference/support-transition.md) now transfers load, lifts either
 foot, verifies placement contact and regains two-foot support on all three bodies in the
@@ -245,7 +249,8 @@ second of control. This is a shallow empty-handed task; loaded transitions, step
 joint-stop-aware planning and the integrated gameplay gates remain open. The bar fixture's
 position-only return uses measured readiness within the existing deadline and tolerance. Its
 [captured arm posture](../reference/bar-posture.md) reduces the largest return error in both
-Rapier-profile development screens, which each retain 12/12 successes. Stop-aware control and
+Rapier-profile development screens, which each retain 12/12 successes. Near-stop prediction
+is available as a separate experimental configuration; complete task reliability and
 corrected-limit gameplay migration remain open.
 The built `/control-tasks.html` viewer runs those same builders and draws separate equipment
 through release. [Twelve browser cells](../reference/control-tasks-browser.md) match Node's

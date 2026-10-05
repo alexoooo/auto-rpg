@@ -191,8 +191,8 @@ test("guard differences compare the same side and start and recovery excludes sh
 test("the CLI records the corrected Rapier profile used by its physical workers", () => {
   const directory = mkdtempSync(join(tmpdir(), "foundation-coordinate-"));
   try {
-    execFileSync(process.execPath, ["research/control-foundation.mjs", "--suite", "bar", "--models", "workshop-fighter",
-      "--samples", "1", "--workers", "1", "--support", "standing", "--actuation", "directional", "--out", directory],
+    execFileSync(process.execPath, ["research/control-foundation.mjs", "--suite", "bar", "--models", "crypt-skeleton",
+      "--samples", "1", "--workers", "1", "--support", "standing", "--actuation", "directional", "--joint-stops", "--out", directory],
     { env: { ...process.env, CORE_ENGINE: "rapier-coordinate" }, timeout: 120000, stdio: "pipe" });
     const manifest = JSON.parse(readFileSync(join(directory, "manifest.json"), "utf8"));
     const rows = readFileSync(join(directory, "rows.jsonl"), "utf8").trim().split("\n").map(JSON.parse);
@@ -203,6 +203,12 @@ test("the CLI records the corrected Rapier profile used by its physical workers"
       assert.equal(row.result.configuration.engineRevision, manifest.engineRevision);
       assert.equal(row.result.outcome.replayExact, true);
       assert.equal(row.result.outcome.releaseContinuous, true);
+      assert.equal(row.result.outcome.success, true);
+      assert.equal(row.result.configuration.jointStops, true);
+      assert.equal(row.result.physical.stops.steps, row.result.outcome.steps);
+      assert.equal(row.result.physical.stops.rejectedSteps, 0);
+      assert.ok(row.result.physical.stops.nearSteps > 0);
+      assert.ok(row.result.physical.stops.peakAccelerationViolation < row.result.configuration.stopPrediction.accelerationTolerance);
     }
   } finally {
     const target = realpathSync(directory);
@@ -210,4 +216,18 @@ test("the CLI records the corrected Rapier profile used by its physical workers"
     assert.ok(basename(target).startsWith("foundation-coordinate-"));
     rmSync(target, { recursive: true, force: true });
   }
+});
+
+
+test("joint-stop comparisons retain distinct manifests and defense denominators", () => {
+  const options = { suite: "defense", models: ["workshop-fighter"], samples: 1 };
+  const base = foundationJobs(options), stopped = foundationJobs({ ...options, jointStops: true });
+  assert.deepEqual(base, foundationJobs({ ...options, jointStops: false }));
+  assert.ok(stopped.every((job, i) => job.jointStops && job.id !== base[i].id));
+  for (const suite of ["support", "recovery", "baseline", "integrated", "reach"]) assert.throws(() => foundationJobs({ suite, jointStops: true }), /motion probe/);
+  assert.throws(() => foundationJobs({ ...options, jointStops: "yes" }), /motion probe/);
+  const rows = [...base, ...stopped].map((job) => ({ job, result: { status: "measured", outcome: { success: true, protectedImpulse: job.variant === "pose" ? 2 : 0, fell: false } } }));
+  const summary = summarizeFoundation(rows);
+  assert.equal(summary.cells.length, 24); assert.equal(summary.pairedDefense.length, 12);
+  assert.ok(summary.pairedDefense.every((pair) => pair.protectedImpulseSavedNs === 2));
 });
