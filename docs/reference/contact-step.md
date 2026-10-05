@@ -24,7 +24,9 @@ zero impulse up to the caller's finite budget.
 
 The final velocity is reconstructed independently from the mobility and accumulated impulses.
 The report checks normal nonpenetration, complementary support, friction-disk bounds and the
-tangent projection's fixed point. Status distinguishes convergence, iteration limit, residual
+tangent projection's fixed point. Optional [angular stops](contact-stops.md) share the same
+mobility and iteration, with separate angular impulse and velocity tolerances; they hold or
+release through unilateral impulses. Status distinguishes convergence, iteration limit, residual
 failure and nonfinite results. A failed candidate cannot justify an action. Convergence means
 the local equations passed their checks; it does **not** establish agreement with an engine
 during an impact or changing geometry. There is no implicit warmstart or state across queries.
@@ -135,7 +137,8 @@ node --test tests/core-contact-step.test.mjs
 ## Integration gate
 
 The predictor remains allocating and outside `wholeBodyTracking`. It does not select candidate
-surfaces, optimize muscle torques or predict moving-body impacts. Next combine validated
-contact modes and their force variables with bounded actuator objectives, test coupled supports
-and joint stops, and repeat the installed all-fours hold. Recovery entry follows that hold;
+surfaces, optimize muscle torques or predict moving-body impacts. Established ground/stop
+support and release are validated in a separate mechanical fixture. Next combine validated
+contact modes and their force variables with bounded actuator objectives and repeat the
+installed all-fours hold. Recovery entry follows that hold;
 general landing and support acquisition remain separate gates.

@@ -274,8 +274,10 @@ holding and unloading on a loaded slab, including initial spin and exact replay.
 solve rejects uncertified candidates; fine-step landing remains unvalidated. Mass-projecting
 measured velocities resolves incompatible contact demands on linked bodies without changing
 physics. Linked slabs now slide and stop with exact replay; prescribed joint torque still
-exposes rejected stopping predictions. Next validate combined support/stop fixtures and combine
-contact variables with bounded actuator objectives before
+exposes rejected stopping predictions. Optional [angular-stop impulse rows](../reference/contact-stops.md)
+now validate established support and release on a grounded hinge, at either limit with sticking
+or sliding ground contact. Hard stop arrivals remain unvalidated. Next combine contact/stop
+variables with bounded actuator objectives before
 repeating the installed all-fours hold. This diagnostic forward model is not yet in the tracker.
 
 The [upright support task](../reference/support-transition.md) now transfers load, lifts either

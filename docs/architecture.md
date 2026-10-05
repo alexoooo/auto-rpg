@@ -520,6 +520,10 @@ sticks and unloads under known forces; linked slabs slide and stop. Prescribed j
 still exposes rejected stopping predictions, and fine-step landing remains unvalidated.
 It does not yet optimize actuator commands
 or replace the reference tracker's contact model.
+Optional [angular-stop rows](reference/contact-stops.md) exchange unilateral impulses with
+point contacts in that same prediction. A free grounded base and hinged arm hold or release
+either angular limit while the base sticks or slides. Angular tolerances have their own units;
+hard stop arrivals and anatomical controller integration remain unvalidated.
 Optional [contact redistribution](reference/contact-distribution.md) searches point-force
 distributions that preserve each contacted body's wrench; the measured task configurations
 keep this experimental option disabled.

@@ -2,6 +2,18 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { SegmentBody } from "../engine/engine.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import type { coupledDynamics } from "./coupled-dynamics.ts";
+import type { MotionConstraint } from "./constrained-mass.ts";
+
+interface AngularStop {
+  /** Inward angle-rate row; only angular entries are admitted. */
+  readonly row: MotionConstraint;
+  /** Lower bound on this row's end-step velocity, rad/s, including coordinate curvature. */
+  readonly minimumVelocity: number;
+  /** Angular impulse threshold, N m s, independent of point-contact impulse units. */
+  readonly impulseTolerance: number;
+  /** Angle-rate residual tolerance, rad/s. */
+  readonly velocityTolerance: number;
+}
 
 type Model = ReturnType<typeof coupledDynamics>;
 type Load = NonNullable<Parameters<Model["solve"]>[1]>[number];
@@ -30,6 +42,8 @@ const tuple = (v: Vector3): Vec3 => [v.x, v.y, v.z];
  * impulses are unilateral; the two-axis stopping impulse is projected onto a friction disk.
  * This is the per-point projected solver law, not a patch/twist model or opposing-slip force.
  * Measured velocities are first projected into the model's joint/constraint tangent space.
+ * Optional angular stops exchange impulses with contacts in the same coupled solve. Their
+ * inward rows may push but never pull; each has its own angular impulse and velocity tolerances.
  * Point lever arms stay fixed during the predicted step. The caller chooses candidate contacts
  * and normal velocity bounds; this function neither discovers contacts nor applies forces.
  *
@@ -38,11 +52,20 @@ const tuple = (v: Vector3): Vec3 => [v.x, v.y, v.z];
  * acquisition timing and geometry changes within the step remain outside this local model.
  */
 export function predictPointContacts(model: Model, torque: ArrayLike<number>, contacts: readonly Contact[],
-  loads: readonly Load[], settings: Settings) {
+  loads: readonly Load[], settings: Settings, stops: readonly AngularStop[] = []) {
   const { dt, friction, iterations, impulseTolerance, velocityTolerance } = settings;
   if (!(dt > 0) || !Number.isFinite(dt) || !(friction >= 0) || !Number.isFinite(friction)
     || !Number.isSafeInteger(iterations) || iterations < 1
     || ![impulseTolerance, velocityTolerance].every((v) => v > 0 && Number.isFinite(v))) throw new Error("invalid contact-step settings");
+  const stopRows = stops.map((stop) => {
+    if (!Number.isFinite(stop.minimumVelocity) || ![stop.impulseTolerance, stop.velocityTolerance].every((v) => v > 0 && Number.isFinite(v))
+      || stop.row.length === 0 || stop.row.some((entry) => entry.linear.length !== 3 || entry.angular.length !== 3
+        || entry.point.length !== 3 || entry.linear.some((v) => v !== 0))) throw new Error("invalid angular contact-step stop");
+    return model.motionRow(stop.row);
+  });
+  const along = (row: ArrayLike<number>, value: ArrayLike<number>) => {
+    let sum = 0; for (let i = 0; i < row.length; i++) sum += row[i]! * value[i]!; return sum;
+  };
   const geometry = contacts.map((c) => {
     if (c.point.length !== 3 || c.normal.length !== 3 || ![...c.point, ...c.normal, c.normalVelocity].every(Number.isFinite)) throw new Error("invalid contact-step geometry");
     const length = Math.sqrt(dot(c.normal, c.normal));
@@ -55,7 +78,7 @@ export function predictPointContacts(model: Model, torque: ArrayLike<number>, co
   });
   const free = model.solve(torque, loads), unloaded = model.solve(new Array<number>(model.channels).fill(0));
   const projection = model.projectVelocity();
-  const rows = geometry.flatMap((contact) => contact.axes.map((axis) => ({ contact, axis }))), size = rows.length;
+  const rows = geometry.flatMap((contact) => contact.axes.map((axis) => ({ contact, axis }))), contactSize = rows.length, size = contactSize + stops.length;
   const response = Array.from({ length: size }, () => new Float64Array(size)), impulses = new Float64Array(size);
   const baseline = rows.map(({ contact, axis }) => dot(model.pointAcceleration(contact.body, contact.point, unloaded).linear, axis));
   const centre = new Vector3(), angular = new Vector3();
@@ -69,12 +92,23 @@ export function predictPointContacts(model: Model, torque: ArrayLike<number>, co
     const next = compatible.map((v, k) => v + dt * (acceleration[k]! - centripetal[k]!));
     return contact.axes.map((axis) => dot(next, axis));
   });
+  stopRows.forEach((row) => initial.push(along(row.coefficients, projection.velocity) + dt * (along(row.coefficients, free) + row.bias)));
   const zeroTorque = new Array<number>(model.channels).fill(0);
-  rows.forEach(({ contact, axis }, col) => {
-    const motion = model.solve(zeroTorque, [{ body: contact.body, point: contact.point, force: axis, moment: ZERO }]);
+  const column = (col: number, motion: readonly number[]) => {
     rows.forEach(({ contact: at, axis: direction }, row) => {
       response[row]![col] = dot(model.pointAcceleration(at.body, at.point, motion).linear, direction) - baseline[row]!;
     });
+    const delta = motion.map((v, i) => v - unloaded[i]!);
+    stopRows.forEach((row, i) => { response[contactSize + i]![col] = along(row.coefficients, delta); });
+  };
+  rows.forEach(({ contact, axis }, col) => {
+    const motion = model.solve(zeroTorque, [{ body: contact.body, point: contact.point, force: axis, moment: ZERO }]);
+    column(col, motion);
+  });
+  stops.forEach((stop, i) => {
+    column(contactSize + i, model.solve(zeroTorque, stop.row.map((entry) => ({ body: entry.body, point: entry.point, force: entry.linear, moment: entry.angular }))));
+    const mobility = response[contactSize + i]![contactSize + i]!;
+    if (!(mobility > 0) || !Number.isFinite(mobility)) throw new Error("singular angular contact-step mobility");
   });
   for (let p = 0; p < geometry.length; p++) {
     const i = 3 * p, a = i + 1, b = i + 2;
@@ -95,7 +129,7 @@ export function predictPointContacts(model: Model, torque: ArrayLike<number>, co
   const add = (col: number, value: number) => {
     const delta = value - impulses[col]!; impulses[col] = value;
     for (let row = 0; row < size; row++) velocity[row]! += response[row]![col]! * delta;
-    change = Math.max(change, Math.abs(delta));
+    change = Math.max(change, Math.abs(delta) / (col < contactSize ? impulseTolerance : stops[col - contactSize]!.impulseTolerance));
   };
   for (; work < iterations && size > 0;) {
     change = 0; work++;
@@ -103,8 +137,12 @@ export function predictPointContacts(model: Model, torque: ArrayLike<number>, co
       const i = 3 * p;
       add(i, Math.max(0, impulses[i]! - (velocity[i]! - contact.normalVelocity) / response[i]![i]!));
     });
+    stops.forEach((stop, p) => {
+      const i = contactSize + p;
+      add(i, Math.max(0, impulses[i]! - (velocity[i]! - stop.minimumVelocity) / response[i]![i]!));
+    });
     geometry.forEach((_, p) => { const i = 3 * p, [x, y] = tangentCandidate(i); add(i + 1, x!); add(i + 2, y!); });
-    if (change <= impulseTolerance) break;
+    if (change <= 1) break;
   }
   for (let r = 0; r < size; r++) {
     velocity[r] = initial[r]!;
@@ -121,11 +159,19 @@ export function predictPointContacts(model: Model, torque: ArrayLike<number>, co
     const slip = Math.sqrt(velocity[i + 1]! * velocity[i + 1]! + velocity[i + 2]! * velocity[i + 2]!);
     return { impulse: world(impulses), velocity: world(velocity), mode: normal <= impulseTolerance ? "free" as const : slip <= velocityTolerance ? "sticking" as const : "sliding" as const };
   });
-  const finite = [...impulses, ...velocity, normalViolation, impulseResidual, coneViolation].every(Number.isFinite);
-  const accepted = finite && normalViolation <= velocityTolerance && impulseResidual <= impulseTolerance && coneViolation <= impulseTolerance;
+  const stopPredictions = stops.map((stop, p) => {
+    const i = contactSize + p, impulse = impulses[i]!, gapVelocity = velocity[i]! - stop.minimumVelocity;
+    const violation = Math.max(0, -gapVelocity, impulse > stop.impulseTolerance ? Math.abs(gapVelocity) : 0);
+    return { impulse, velocity: velocity[i]!, violation, mode: impulse > stop.impulseTolerance ? "holding" as const : "free" as const };
+  });
+  const stopsAccepted = stopPredictions.every((stop, i) => stop.impulse >= -stops[i]!.impulseTolerance && stop.violation <= stops[i]!.velocityTolerance);
+  const finite = [...impulses, ...velocity, normalViolation, impulseResidual, coneViolation, ...stopPredictions.map((stop) => stop.violation)].every(Number.isFinite);
+  const accepted = finite && stopsAccepted && normalViolation <= velocityTolerance && impulseResidual <= impulseTolerance && coneViolation <= impulseTolerance;
   const status = !finite ? "nonfinite" as const : accepted ? "converged" as const : work >= iterations ? "iteration-limit" as const : "residual" as const;
   const contactLoads = geometry.map((contact, i): Load => ({ body: contact.body, point: contact.point,
     force: predictions[i]!.impulse.map((v) => v / dt) as unknown as Vec3, moment: ZERO }));
-  return { status, work, normalViolation, impulseResidual, coneViolation, projection, contacts: predictions,
-    acceleration: finite ? model.solve(torque, [...loads, ...contactLoads]) : null };
+  const stopLoads = stops.flatMap((stop, i) => stop.row.map((entry): Load => ({ body: entry.body, point: entry.point,
+    force: ZERO, moment: entry.angular.map((v) => v * stopPredictions[i]!.impulse / dt) as unknown as Vec3 })));
+  return { status, work, normalViolation, impulseResidual, coneViolation, projection, contacts: predictions, stops: stopPredictions,
+    acceleration: finite ? model.solve(torque, [...loads, ...contactLoads, ...stopLoads]) : null };
 }
