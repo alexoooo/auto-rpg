@@ -246,6 +246,11 @@ stop-aware shared static and moving screens at 36/36 and 54/54. The 270-row comp
 reference and stop-disabled failures; all replay and remain upright. This is a reference policy
 over existing frame objectives, not a change to release mechanics. The allocating experimental
 tracker is not the game's default.
+Optional [local contact lift-off](../reference/contact-liftoff.md) adds free-motion seeding,
+radius-derived active contact acceleration and normal no-crossing bounds after release.
+Repeated mechanical lift/recontact works on both profiles, independently of near-stop
+prediction, with exact replay. This does not close general contact-mode selection: the
+anatomical recovery prototype remains unsuccessful, and sliding is still unmodeled.
 
 The [upright support task](../reference/support-transition.md) now transfers load, lifts either
 foot, verifies placement contact and regains two-foot support on all three bodies in the

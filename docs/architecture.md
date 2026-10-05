@@ -490,6 +490,12 @@ produce zero torque. Optional [near-stop prediction](reference/joint-stop-tracki
 unilateral reactions using actual joint-coordinate motion and retains no-crossing effort bounds
 when a stop releases. It works with ground contacts or pinned fixtures and reports rejected modes.
 Sliding contacts and distant stop impacts are not predicted.
+Optional [local contact lift-off](reference/contact-liftoff.md) first predicts motion without
+sticking support, then selects measured contacts. Released contacts retain normal end-step
+bounds in the same torque solve. Shape curvature supplies active material-point acceleration;
+rejected force or acceleration predictions produce zero torque. This option is independent of
+joint-stop prediction and disabled by default. Repeated mechanical lift/recontact is measured;
+sliding, general support selection and anatomical recovery remain open.
 Optional [contact redistribution](reference/contact-distribution.md) searches point-force
 distributions that preserve each contacted body's wrench; the measured task configurations
 keep this experimental option disabled.

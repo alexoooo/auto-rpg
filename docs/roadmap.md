@@ -68,6 +68,10 @@ regresses the bar screen from 12/12 to 11/12 and predictive defense from 33/36 t
 including a defense fall. Subsequent hand withdrawal closes that shared-strike screen's five
 remaining failures. It remains experimental: preparation, sustained defense and contact-mode
 failures still block default adoption.
+An optional [contact lift-off primitive](reference/contact-liftoff.md) passes repeated bounded
+lift/recontact cycles on both engine profiles, with exact replay and no assistance. It avoids
+freezing a lift objective into an existing sticking contact. Anatomical recovery still fails;
+sliding and choices among multiple supports remain unresolved.
 
 ## Open items
 

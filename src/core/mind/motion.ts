@@ -43,7 +43,7 @@ export function createMotionBody(built: BuiltBody, world: World,
   let tracking!: ReturnType<typeof wholeBodyTracking>;
   const embodied = embody(built, world, (own) => {
     tracking = wholeBodyTracking(built, own.muscles, world.physics.gravity, items, fixed, { capacity: options.capacity,
-      effortCost: options.effortCost, ...(options.jointStops ? { jointStops: { settings: options.jointStops, dt: world.dt } } : {}), ...(options.contact ? { contact: { physics: world.physics, settings: options.contact } } : {}) });
+      effortCost: options.effortCost, ...(options.jointStops ? { jointStops: { settings: options.jointStops, dt: world.dt } } : {}), ...(options.contact ? { contact: { physics: world.physics, settings: options.contact, dt: world.dt } } : {}) });
     const description = deepFreeze({ channels: own.muscles.channels.map((c) => ({ name: c.name, min: c.dof.spec.min.value, max: c.dof.spec.max.value })),
       frames: [...[...built.segments.keys()].map((name) => ({ kind: "segment" as const, name })),
         ...items.map((item) => ({ kind: "item" as const, id: item.id }))], equipment: port.model });
