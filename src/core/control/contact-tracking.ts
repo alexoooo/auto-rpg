@@ -233,6 +233,10 @@ export function contactTracking(physics: PhysicsWorld, frames: ReadonlyMap<strin
       if (state.status === "rejected") return;
       if (checkMotion && mode && state.motion) {
         const acceleration = model.solve(torque);
+        for (const p of points) {
+          const actual = model.pointAcceleration(p.body, p.point, acceleration).linear;
+          for (let k = 0; k < 3; k++) state.motion.accelerationViolation = Math.max(state.motion.accelerationViolation, Math.abs(actual[k]! - p.curvature[k]!));
+        }
         for (const p of freed) {
           const actual = model.pointAcceleration(p.body, p.point, acceleration).linear;
           state.motion.accelerationViolation = Math.max(state.motion.accelerationViolation, p.target - actual.reduce((sum, v, k) => sum + v * p.normal[k]!, 0));

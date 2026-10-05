@@ -255,6 +255,9 @@ The [posture audit](../reference/posture-limit-models.md) now selects the engine
 directions and includes coupled stop loads on otherwise unsupported channels. Three corrected
 development witnesses are statically feasible, but all miss the five-second engine hold gate.
 Those witnesses do not close the recovery gate; entering and holding supports remain required.
+The [recovery support diagnostics](../analysis/2026-10-05-recovery-support.md) retain failed
+entry and installed-pose experiments. Active contact acceleration compatibility is checked;
+sliding/rolling alternatives and the installed all-fours hold are the next controller gates.
 
 The [upright support task](../reference/support-transition.md) now transfers load, lifts either
 foot, verifies placement contact and regains two-foot support on all three bodies in the

@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { sourced } from "../src/core/spec/quantity.ts";
 import { createMotionBody } from "../src/core/mind/motion.ts";
 import { contactTracking } from "../src/core/control/contact-tracking.ts";
@@ -43,16 +44,16 @@ test("a measured ground contact can lift, bear weight and lift again through bou
       const branch = () => {
         const rows = [];
         for (const goal of liftOff ? [.3, -.15, .3, -.15, .3] : [.3]) {
-          state.angle = goal; let contactSteps = 0, releasedSteps = 0, work = 0, peakEffort = 0;
+          state.angle = goal; let contactSteps = 0, releasedSteps = 0, rejectedSteps = 0, work = 0, peakEffort = 0;
           for (let i = 0; i < 240; i++) {
             stand.step(); const observation = body.observe(), report = body.report();
-            assert.equal(trackingRejected(report), false);
+            if (trackingRejected(report)) { rejectedSteps++; assert.ok(Math.abs(observation.joints[0].effort) < 1e-8); }
             assert.ok(observation.joints[0].angle > -.002, "the actual ground prevents penetration");
             peakEffort = Math.max(peakEffort, Math.abs(observation.joints[0].effort));
             contactSteps += Number(observation.contacts.some((c) => c.segment === "child"));
             releasedSteps += Number((report.contact.motion?.released.length ?? 0) > 0);
             work = Math.max(work, report.contact.motion?.work ?? 0);
-            if (report.contact.motion) assert.ok(report.contact.motion.accelerationViolation <= 1e-4);
+            if (report.contact.motion && !trackingRejected(report)) assert.ok(report.contact.motion.accelerationViolation <= 1e-4);
           }
           const angle = body.observe().joints[0].angle;
           if (liftOff && goal > 0) {
@@ -64,8 +65,9 @@ test("a measured ground contact can lift, bear weight and lift again through bou
           }
           assert.ok(peakEffort <= 14.0001, "fixture's 10 Nm muscle has a sourced 1.4 eccentric ceiling");
           assert.ok(work <= settings.maxPoints + 3);
+          assert.ok(rejectedSteps <= 1, "the measured landing transient must not become sustained rejection");
           assert.equal(body.assist.meter.force, 0); assert.equal(body.assist.meter.moment, 0);
-          rows.push({ goal, angle, contactSteps, releasedSteps, work, peakEffort });
+          rows.push({ goal, angle, contactSteps, releasedSteps, rejectedSteps, work, peakEffort });
         }
         return { rows, observation: body.observe(), state: saveStand(stand.world, { body: body.state }).state };
       };
@@ -118,5 +120,38 @@ test("released contact rejects a torque that accelerates through its measured no
       }
     }
     assert.deepEqual(stand.world.physics.save(), snapshot, "mode prediction cannot move the physical body");
+  } finally { stand.dispose(); }
+});
+
+test("a spinning flat support cannot claim mutually incompatible sticking accelerations", async (t) => {
+  const slab = { family: "test", model: "spinning-support", mass: q(3, "kg"), stature: q(1),
+    joints: [{ name: "spin", parent: "parent", child: "slab", centre: q([0, .05, 0]), dofs: [{
+      positive: "turn", negative: "return", axis: q([0, 1, 0], "1"), min: q(-1, "rad"), max: q(1, "rad"),
+      muscle: { peakPositive: q(10, "N m"), peakNegative: q(10, "N m"), speedPositive: speed, speedNegative: speed },
+    }] }], segments: [part("parent", [0, 1, 0], [0, .8, 0], 2, .03), {
+      name: "slab", proximal: q([0, .1, 0]), distal: q([0, 0, 0]), mass: q(1, "kg"), centreOfMass: q([0, .05, 0]),
+      inertia: q([.02, .04, .04], "kg m2"), shape: { kind: "box", centre: q([0, .05, 0]), size: q([.6, .1, .4]) },
+      surface: { stiffness: q(1e5, "N/m") },
+    }] };
+  const stand = await coreStand(slab, { pinned: "parent", ground: true, engine: "rapier-coordinate" });
+  try {
+    stand.step(120); const segment = stand.built.segments.get("slab").body;
+    const contacts = contactTracking(stand.world.physics, new Map([["segment:slab", segment]]), 1,
+      { ...settings, liftOff: { accelerationTolerance: 1e-4 } }, 8,
+      { dt: stand.world.dt, radii: new Map([["segment:slab", [0]]]) });
+    const model = coupledDynamics(stand.built, stand.world.physics.gravity, [], [stand.built.segments.get("parent").body]);
+    const check = () => {
+      contacts.begin(); const rows = contacts.read({ joints: [], frames: [], grips: [] });
+      assert.ok(rows.length >= 9, "several measured contacts constrain the same rigid body");
+      model.update(rows, contacts.targets()); const torque = new Float64Array([0]); contacts.verify(model, torque);
+      return contacts.report();
+    };
+    const resting = check(); assert.notEqual(resting.status, "rejected");
+    segment.applyTorque(new Vector3(0, 20, 0)); stand.step();
+    assert.ok(Math.abs(segment.angularVelocityToRef(new Vector3()).y) > 1);
+    const before = stand.world.physics.save(), spinning = check();
+    assert.equal(spinning.status, "rejected"); assert.ok(spinning.motion.accelerationViolation > .1);
+    assert.deepEqual(stand.world.physics.save(), before);
+    t.diagnostic(JSON.stringify({ resting: resting.motion, spinning: spinning.motion }));
   } finally { stand.dispose(); }
 });

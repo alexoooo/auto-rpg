@@ -15,9 +15,10 @@ use zero smooth curvature. The selected manifold point is still the engine's cac
 No proposed reaction force is applied to the engine: only bounded muscle torques move the body.
 
 The contact QP shares released-contact bounds with optional near-joint-stop bounds. A final
-check reads released normal acceleration after torque clamping; an invalid candidate produces
-zero torque. `report().contact.motion` reports solve work, released point IDs and the peak
-normal acceleration violation. IDs identify the measured frame and point enumeration within
+check reads released normal acceleration and active material-point acceleration after torque
+clamping; an invalid candidate produces zero torque. `report().contact.motion` reports solve
+work, released point IDs and the largest acceleration violation (released normal bound or
+active Cartesian component). IDs identify the measured frame and point enumeration within
 the solve, not persistent physical features across steps. Diagnostics are detached plain data.
 The option is disabled by default and does not require joint-stop prediction.
 
@@ -41,8 +42,9 @@ input of 1e-4 m/s2, not a universal body/controller setting.
 | Local lift-off, downward return | -0.000026979 rad | 204 | 2 |
 
 Corrected limits with stop prediction off/on and reference limits with stop prediction off
-produce the same measured cycle rows. All cycles have zero rejected solves, zero assistance
-and exact save/load replay. The largest actuator reading over a lift phase is 8.175867 N m,
+produce the same measured cycle rows. Lift phases have zero rejected solves; each landing
+rejects one transient solve and applies zero actuator torque for that step. All cycles have
+zero assistance and exact save/load replay. The largest actuator reading over a lift phase is 8.175867 N m,
 including its initial loaded ground contact; this is a force-cap check, not a free-swing peak.
 Each subsequent lift releases measured contact again. The loaded return retains
 positive predicted ground force and stays above the -0.002 rad penetration gate.
@@ -52,8 +54,8 @@ the stuck model can have a compressive gravity reaction and no available lifting
 
 Reproduce with `node --test tests/core-contact-liftoff.test.mjs`. Its diagnostics retain the
 whole measured records, including contact counts, effort, mode work and both engine profiles.
-The complete regression suite passes 803 tests with zero failures and two existing TODOs;
-the additional normal-bound rejection fixture also passes. Type checking and production build
+The complete regression suite passes 807 tests with zero failures and two existing TODOs,
+including normal-bound and active-contact compatibility fixtures. Type checking and production build
 pass. With lift-off disabled, the three previously browser-verified
 [withdrawal cases](shared-withdrawal-browser.json) retain identical Node observation hashes and
 task outcomes. The new diagnostic state is not an old-state-hash compatibility claim.
@@ -66,3 +68,21 @@ friction, or optimal selection among many supports. A frame explicitly requested
 still excluded from desired support. Unmeasured future contacts are not predicted.
 The staged anatomical recovery prototype remains unsuccessful; enabling this local model is
 not evidence that a character can get up. Its more general support choices still need work.
+
+## Compatibility of active contacts
+
+Redundant contact rows can request incompatible material accelerations. The constrained
+model's rank reduction alone does not establish compatibility of all original targets.
+The final check therefore compares every active point's predicted material acceleration with
+its curvature target, using the same explicit 1e-4 m/s2 fixture tolerance.
+
+The mechanical regression places a one-kilogram 0.6 x 0.1 x 0.4 m slab on the ground, attached
+to a pinned parent by a vertical hinge. At rest the largest component residual is below
+1.2e-48 m/s2. A 20 N m torque for one 120 Hz step starts it spinning; the multiple ground
+contacts cannot all stick with zero acceleration. The residual is 5.212564 m/s2, and the
+candidate is rejected without moving physics during prediction. Removing only the active
+point check makes this assertion fail. These are synthetic fixture inputs, not anatomy.
+
+The capsule cycle's landing transient similarly has a 0.310160 m/s2 mismatch at one step.
+Rejecting that step preserves the final angles, contact counts and subsequent lift. It does
+not solve sliding: a controller still needs an admissible alternative when sticking fails.
