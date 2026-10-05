@@ -135,6 +135,12 @@ and fixed aim against freely swinging targets, with separate deliberate-miss cel
 the point-strike builder with `/control-tasks.html`; [moving-strike](../docs/reference/moving-strike.md)
 declares sensing delay, launch conditions, contact scoring and return gates.
 
+The `control-foundation.mjs --suite defense --actuation directional` suite compares acceleration-based
+interception with a fixed guard using actual gravity-driven clubs. Either hand and independent
+two-hand loadouts have separate denominators. The shared viewer selects `task=defense` and
+`defense=predict` or `defense=pose`. [Point defense](../docs/reference/point-defense.md) declares
+the ten-second watch, protected-region gate, development failures and measurement limits.
+
 The fixed `control-foundation.mjs --suite solver --actuation directional` rotor probes screen
 impulse/multibody bindings, effort, zero-cap coast, limits and replay. They have no held-out
 seed split; see [the contract record](../docs/reference/solver-contract.md).

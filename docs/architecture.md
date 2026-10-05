@@ -501,7 +501,16 @@ its phase and readiness history save with the body. The [support record](referen
 declares its shallow horizontal-floor workspace and empty-handed scope. It does not recover
 from a fall or replace the game's locomotion and recovery controllers.
 
-`/control-tasks.html` (`src/control-foundation/tasks.ts`) exposes the same support and bar
+The optional [interception reference](reference/point-defense.md) predicts a named point's plane
+crossing from delayed pose/velocity samples and measured acceleration. Explicit reach/time
+filters screen candidates; bounded muscles remain authoritative. Matched closing contact can
+brace an item's measured orientation, while retreat or missing observations starts a return.
+The mechanical defense fixture releases hinged clubs under gravity and independently records
+guard readiness, qualifying blocks and every body contact. Protected-region contact remains a
+failure even after a block. Its pose baseline shares the same body, sensing and actuator limits;
+development failures keep sustained defense open.
+
+`/control-tasks.html` (`src/control-foundation/tasks.ts`) exposes the same support, bar, strike and defense
 builders as the Node runner, with step, play, snapshot and replay controls. Separate items are
 drawn on their own physical nodes with `drawEquipment`; capture and release do not recreate
 their visuals. [Browser parity](reference/control-tasks-browser.md) checks both tasks on all

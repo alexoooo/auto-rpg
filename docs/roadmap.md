@@ -40,6 +40,11 @@ The [moving variant](reference/moving-strike.md) adds delayed object sensing, po
 and per-effector impact braking against freely swinging physical targets.
 Optional [combined-centre objectives](reference/centre-control.md) separate horizontal balance
 from root height and let strike trials watch ten seconds beyond measured return.
+The [mechanical defense fixture](reference/point-defense.md) compares predicted interception
+against the same guard pose. It passes 32/36 predictive development starts versus 0/36 pose
+starts; four post-block coverage failures keep sustained defense open. All replay and remain
+upright, so initial contact alone is not the missing gate. Shared-item defense and coordinated
+attack/guard still require demonstrations.
 Loaded support transitions, recovery, standing strike/block against an opponent, equipment
 integration with fight rendering/damage and the held-out integrated sequence remain open. These controlled fixtures
 do not close the gameplay gates or replace the game's controller.

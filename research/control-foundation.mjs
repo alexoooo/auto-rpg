@@ -73,17 +73,23 @@ export async function runFoundation(jobs, { workers = 4, onResult = async () => 
 
 /** Each task/loadout/hand/controller has its own denominator; guard differences are paired. */
 export function summarizeFoundation(rows) {
-  const groups = new Map(), bouts = new Map();
+  const groups = new Map(), bouts = new Map(), defenses = new Map();
   for (const row of rows) {
     const { job, result } = row;
     const key = [job.actuation ?? "symmetric", job.task, job.model, job.held, job.hand ?? "", job.target ?? "", job.recovery ?? "", job.guard ?? "",
       ...(job.controller ? [job.controller] : []), ...(job.task === "ccd" ? [job.mode, `ccd=${job.ccd}`] : []),
       ...(job.task === "solver" ? [job.representation, job.sense] : []), ...(job.task === "support" ? [job.side] : []),
       ...(job.task === "point-strike" ? [job.hands, job.miss ? "miss" : "hit", ...(job.swing ? ["swing", job.swing.tracking ? "tracked" : "fixed-aim", job.swing.braking ? "brake" : "continue"] : [])] : []),
+      ...(job.task === "defense" ? [job.hands, job.variant] : []),
       ...(job.centreControl ? ["centre-control"] : []), ...(job.continueSeconds ? [`continue=${job.continueSeconds}`] : []),
       ...(job.task === "bar" ? [job.release, job.support ?? "pinned"] : [])].join("/");
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(row);
+    if (job.task === "defense" && result.status === "measured") {
+      const pair = `${job.model}/${job.held}/${job.hands}/${job.seed}/${job.hz}/${job.actuation ?? "symmetric"}`;
+      if (!defenses.has(pair)) defenses.set(pair, {});
+      defenses.get(pair)[job.variant] = result.outcome;
+    }
     if (job.task === "bout" && result.status === "measured") {
       const pair = `${job.model}/${job.held}/${job.seed}/${job.hz}/${job.actuation ?? "symmetric"}`;
       if (!bouts.has(pair)) bouts.set(pair, {});
@@ -93,14 +99,14 @@ export function summarizeFoundation(rows) {
   const cells = [...groups].map(([cell, members]) => {
     const measured = members.filter((r) => r.result.status === "measured");
     const outcomes = measured.map((r) => r.result.outcome), task = members[0].job.task;
-    const eligible = task === "recovery" ? outcomes.filter((o) => o.fell) : ["strike", "reach", "ccd", "bar", "support", "point-strike"].includes(task) ? outcomes : [];
+    const eligible = task === "recovery" ? outcomes.filter((o) => o.fell) : ["strike", "reach", "ccd", "bar", "support", "point-strike", "defense"].includes(task) ? outcomes : [];
     const successes = eligible.filter((o) => task === "recovery" ? o.risen && o.up
       : task === "reach" ? o.terminated && !o.truncated && o.invalid === null
       : task === "ccd" ? o.contacted && o.replayExact
-      : task === "bar" || task === "support" || task === "point-strike" ? o.success
+      : task === "bar" || task === "support" || task === "point-strike" || task === "defense" ? o.success
       : members[0].job.target === "miss" ? !o.fell && o.stood : o.usefulHit && !o.fell).length;
     return { cell, trials: members.length, measured: measured.length, unsupported: members.length - measured.length,
-      success: ["recovery", "strike", "reach", "ccd", "bar", "support", "point-strike"].includes(task) ? proportion(successes, eligible.length) : null };
+      success: ["recovery", "strike", "reach", "ccd", "bar", "support", "point-strike", "defense"].includes(task) ? proportion(successes, eligible.length) : null };
   });
   const pairedGuard = [];
   for (const [pair, variants] of bouts) for (const [guard, side] of [["left-cover", 0], ["right-cover", 1]]) {
@@ -110,7 +116,13 @@ export function summarizeFoundation(rows) {
       damageSaved: control.damage - cover.damage, poseFallen: control.fallen, coverFallen: cover.fallen,
       poseSeconds: variants.pose.seconds, coverSeconds: variants[guard].seconds });
   }
-  return { cells, pairedGuard };
+  const pairedDefense = [...defenses].flatMap(([pair, variants]) => variants.pose && variants.predict ? [{
+    pair, protectedImpulseSavedNs: variants.pose.protectedImpulse - variants.predict.protectedImpulse,
+    poseProtectedImpulseNs: variants.pose.protectedImpulse, predictProtectedImpulseNs: variants.predict.protectedImpulse,
+    poseFallen: variants.pose.fell, predictFallen: variants.predict.fell,
+    poseSuccess: variants.pose.success, predictSuccess: variants.predict.success,
+  }] : []);
+  return { cells, pairedGuard, ...(defenses.size ? { pairedDefense } : {}) };
 }
 
 async function main() {
@@ -135,14 +147,14 @@ async function main() {
     package: { version: pkg.version, resolved: pkg.resolved, integrity: pkg.integrity },
     source: { git: execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim(), content: source.content,
       archive: "source.json.gz", archiveSha256: digest(archive) },
-    sensing: values.suite === "moving-strike" ? "detached body/item observations, coupled dynamics, measured fixed contacts and target poses/velocities delayed 25 ms"
+    sensing: ["moving-strike", "defense"].includes(values.suite) ? "detached body/item observations, coupled dynamics, measured fixed contacts and target poses/velocities delayed 25 ms"
       : ["bar", "support", "point-strike"].includes(values.suite) ? "detached body/item observations, coupled dynamics and measured fixed contacts"
       : ["ccd", "solver"].includes(values.suite) ? "diagnostic physics readings; no policy" : values.suite === "reach" ? "detached body observations and task goal; no privileged model" : "existing fighter senses; stationary blow offset disclosed at commitment",
     action: values.suite === "solver" ? "fixed raw velocity motor with directional bounds; adapter-contract screening"
-      : ["bar", "support", "point-strike", "moving-strike"].includes(values.suite) ? "whole-body motion objectives and granted grip requests; bounded muscle torques"
+      : ["bar", "support", "point-strike", "moving-strike", "defense"].includes(values.suite) ? "whole-body motion objectives and granted grip requests; bounded muscle torques"
       : values.suite === "ccd" ? "initial impulses, then free dynamics; no held action" : values.suite === "reach" ? "actuator velocities or layered posture targets, declared per job" : "existing fighter skills and staged-rise/lie",
     policyPeriodSteps: values.suite === "reach" ? 4 : 1, assists: { rootBalancePercent: 0, weapon: false },
-    unavailable: ["integrated recovery/combat", "predictive defense", "actuator work", "contact penetration"],
+    unavailable: ["integrated recovery/combat", "opponent defense", "actuator work", "contact penetration"],
     jobs };
   const installed = JSON.parse(await readFile(resolve(root, "node_modules/@dimforge/rapier3d-simd-compat/package.json"), "utf8"));
   if (installed.version !== pkg.version || CORE_ENGINE !== "rapier") throw new Error("manifest requires the locked Rapier package; run npm ci");

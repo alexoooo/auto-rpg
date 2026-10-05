@@ -3,6 +3,22 @@ import assert from "node:assert/strict";
 import { foundationJobs, foundationTrial, attackAccounting, proportion } from "../research/control-foundation-trials.mjs";
 import { runFoundation, summarizeFoundation } from "../research/control-foundation.mjs";
 
+test("defense trials keep hand/loadout denominators and pair physical protection against pose", async () => {
+  const jobs = foundationJobs({ suite: "defense", models: ["workshop-fighter"], samples: 1, actuation: "directional" });
+  assert.equal(jobs.length, 12);
+  assert.deepEqual([...new Set(jobs.map((j) => j.hands))], ["left", "right", "both"]);
+  assert.deepEqual([...new Set(jobs.map((j) => j.held))], ["empty", "club"]);
+  const rows = await runFoundation(jobs.slice(0, 2), { workers: 2 });
+  assert.ok(rows.every((r) => r.result.outcome.replayExact && r.result.outcome.steps === 1200));
+  const [prediction, pose] = rows.map((r) => r.result.outcome);
+  assert.equal(prediction.success, true); assert.ok(pose.protectedImpulse > prediction.protectedImpulse);
+  const summary = summarizeFoundation(rows);
+  assert.equal(summary.cells.length, 2);
+  assert.ok(summary.cells.every((c) => c.success.count === 1));
+  assert.equal(summary.pairedDefense.length, 1);
+  assert.equal(summary.pairedDefense[0].protectedImpulseSavedNs, pose.protectedImpulse - prediction.protectedImpulse);
+});
+
 test("foundation starts are reproducible, split-disjoint and explicit about unsupported equipment", () => {
   const options = { models: ["workshop-fighter"], samples: 3 };
   const a = foundationJobs(options), b = foundationJobs({ ...options, split: "held-out" });

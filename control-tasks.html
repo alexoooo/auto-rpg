@@ -24,10 +24,11 @@
   <h1>Physical control tasks</h1>
   <p id="description">Measured support transitions and shared equipment, on the same body and physics.</p>
   <div class="controls">
-    <label>Task<select id="task"><option value="support">Transfer foot support</option><option value="bar">Shared two-hand bar</option><option value="point-strike">Point-space strike</option></select></label>
+    <label>Task<select id="task"><option value="support">Transfer foot support</option><option value="bar">Shared two-hand bar</option><option value="point-strike">Point-space strike</option><option value="defense">Incoming club defense</option></select></label>
     <label>Body<select id="model"><option value="workshop-fighter">Warrior</option><option value="workshop-rogue">Rogue</option><option value="crypt-skeleton">Skeleton</option></select></label>
     <label><span id="side-label">Moving foot</span><select id="side"><option value="left">Left</option><option value="right">Right</option><option value="both">Both</option></select></label>
     <label>Held<select id="held"><option value="empty">Empty hands</option><option value="club">Club in each selected hand</option></select></label>
+    <label>Defense policy<select id="defense"><option value="predict">Predict interception</option><option value="pose">Hold guard pose</option></select></label>
     <label>Target<select id="target"><option value="hit">On the strike path</option><option value="miss">Off the strike path</option></select></label>
     <label>Target motion<select id="motion"><option value="static">Stationary</option><option value="tracked">Swinging, tracked aim</option><option value="fixed">Swinging, fixed aim</option></select></label>
     <label>Balance objective<select id="balance"><option value="pose">Root pose</option><option value="centre">Centre of mass</option></select></label>
@@ -44,7 +45,7 @@
     <div><dt>Status</dt><dd id="status" role="status">Loading</dd></div>
     <div><dt>Physics steps</dt><dd id="steps">0</dd></div>
     <div><dt>Phase</dt><dd id="phase">—</dd></div>
-    <div><dt>Return error</dt><dd id="error">—</dd></div>
+    <div><dt id="error-label">Return error</dt><dd id="error">—</dd></div>
     <div><dt>Rejected solves</dt><dd id="rejected">0</dd></div>
     <div><dt>Qualifying contacts</dt><dd id="contacts">0</dd></div>
   </dl>

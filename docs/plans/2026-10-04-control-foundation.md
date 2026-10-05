@@ -246,8 +246,16 @@ standing and replay. The shared viewer exposes it. The motion host also accepts 
 senses. The [moving-target variant](../reference/moving-strike.md) adds detached delayed object
 measurements, constant-velocity point prediction and optional per-effector impact braking.
 The shared fixture and runner compare tracked and fixed aim against freely swinging targets,
-with relative contact-velocity scoring. Defense and shared-item strikes remain open; isolated
-target contact alone does not close the strike/block gate.
+with relative contact-velocity scoring. Shared-item strikes remain open; isolated target contact
+alone does not close the strike/block gate.
+
+The optional [interception reference and defense fixture](../reference/point-defense.md) now
+use measured point acceleration, explicit reach/time filters and contact bracing. The shared
+runner and viewer compare it with pose-only defense against gravity-driven hinged clubs. The
+development gate passes 32/36 predicted starts and 0/36 pose starts; four post-block coverage
+failures remain. All trials prepare, stay upright, avoid rejected solves and replay. Initial
+blocking is demonstrated, but sustained protection across starts, shared-item defense and
+coordinated attack/guard remain open. The held-out split is still unused.
 
 The optional motion interface also supplies [centre objectives](../reference/centre-control.md)
 over explicit mass-weighted groups, and selected world axes for translation. The standing

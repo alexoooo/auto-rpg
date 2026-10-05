@@ -12,6 +12,7 @@ import { createCollisionProbe } from "../src/core/tasks/collision.ts";
 import { createBarProbe } from "../src/core/tasks/bar.ts";
 import { createSupportProbe } from "../src/core/tasks/support.ts";
 import { createPointStrikeProbe } from "../src/core/tasks/point-strike.ts";
+import { createDefenseProbe } from "../src/core/tasks/defense.ts";
 import { saveState, loadState } from "../src/core/state.ts";
 import { reachAction, reachFrame } from "../src/core/tasks/reach-policy.ts";
 import { BODY_MODELS } from "../src/core/human/spec.ts";
@@ -34,7 +35,7 @@ export const FOUNDATION = Object.freeze({ version: 2, samples: 2, watch: 40, bou
 const hash = (value) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
 const heldName = (held) => held === "club" ? "wooden club" : "fist";
 const riseMind = { ...FIGHTER, subs: [{ kind: "staged-rise" }] };
-const suites = ["baseline", "recovery", "strike-block", "point-strike", "moving-strike", "bar", "support", "integrated", "reach", "ccd", "solver"];
+const suites = ["baseline", "recovery", "strike-block", "point-strike", "moving-strike", "defense", "bar", "support", "integrated", "reach", "ccd", "solver"];
 
 /** Fully specified starts; a seed selects geometry, not a hidden source of simulation noise. */
 export function foundationJobs({ suite = "baseline", split = "development", samples = FOUNDATION.samples,
@@ -71,6 +72,16 @@ export function foundationJobs({ suite = "baseline", split = "development", samp
         task: "ccd", model: "synthetic-bar", held: "free", seed, mode, ccd,
         shieldHeight: 0.25 + (fraction * 2 - 1) * 0.002, shieldSpeed: -1,
         watchSeconds: 5 / 120, sampleHz: 120,
+      });
+    }
+    return jobs;
+  }
+  if (suite === "defense") {
+    for (const model of models) for (const held of ["empty", "club"]) for (let index = from; index < from + samples; index++) {
+      const seed = FOUNDATION.split[split] + index, fraction = (((seed + 1) * 2654435761) >>> 0) / 4294967296;
+      for (const hands of ["left", "right", "both"]) for (const variant of ["predict", "pose"]) add({
+        model, held, task: "defense", seed, hands, variant, offset: (fraction * 2 - 1) * 0.04,
+        angleOffset: (fraction * 2 - 1) * 0.1, watchSeconds: 10, checkpointSeconds: 2.5, sampleHz: 120,
       });
     }
     return jobs;
@@ -290,6 +301,7 @@ export async function foundationTrial(job) {
     case "bar": return barTrial(job);
     case "support": return supportTrial(job);
     case "point-strike": return pointStrikeTrial(job);
+    case "defense": return defenseTrial(job);
     case "unsupported": return { status: "unsupported", reason: job.capability };
     default: throw new Error(`unknown foundation task ${job.task}`);
   }
@@ -317,6 +329,20 @@ function replayedProbe(probe, job) {
       physical: { assistForceIntegralNs: probe.body.assist.meter.force / job.hz, assistMomentIntegralNms: probe.body.assist.meter.moment / job.hz },
       timing: { meanStepMs: timings.reduce((sum, v) => sum + v, 0) / timings.length,
         p95StepMs: timings[Math.floor(timings.length * 0.95)], p99StepMs: timings[Math.floor(timings.length * 0.99)] } };
+}
+
+async function defenseTrial(job) {
+  const engine = await freshEngine(), rendering = new NullEngine(), scene = new Scene(rendering);
+  const probe = createDefenseProbe(scene, engine, job);
+  try {
+    const result = replayedProbe(probe, job), o = result.outcome;
+    const success = probe.complete && o.prepared && !o.fell && o.rejectedSteps === 0 && o.replayExact
+      && o.protectedImpulse === 0 && o.guards.every((g) => g.qualifyingContacts > 0);
+    return { status: "measured", configuration: probe.configuration, ...result, outcome: { ...o, success },
+      limits: ["gravity-driven hinged clubs; not opponent combat", "protected head and upper trunk; other contacts remain reported",
+        "summed impulses include sustained loading and are not damage", "necessary reach/time filters do not certify feasibility",
+        "no joint-stop reaction or sliding prediction", "allocating diagnostic dynamics path"] };
+  } finally { probe.dispose(); scene.dispose(); rendering.dispose(); }
 }
 
 async function pointStrikeTrial(job) {
