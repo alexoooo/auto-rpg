@@ -289,9 +289,13 @@ matched-load first-contact diagnostics still miss all-fours motion.
 The independent joint-feedback policy now [holds installed Warrior all fours](../reference/posture-hold.md)
 for ten seconds within 2 cm on both corrected-limit friction profiles, with zero assistance,
 exact replay and matching Node/browser traces. The shared builder initializes a legal joint
-pose before constructing physics. Half-kneel and squat still fail at the default solver count; Rogue and skeleton fixtures
+pose before constructing physics. Direct joint feedback still fails half-kneel and squat at the default solver count; Rogue and skeleton fixtures
 are explicitly unsupported. This closes a limited installed-pose hold gate, not entry, balance
-or recovery. The [support-entry task](../reference/support-entry.md) now reaches measured
+or recovery. An [offline native-rollout controller](../reference/native-posture-control.md)
+now holds installed half-kneel within 5.59 mm at the default solver count. It uses the same
+task's external actuator interface, with explicit privileged snapshot access and replay of the
+selected action tape. This closes a second installed-pose feasibility gate but neither runtime
+cost nor entry/transfer. The [support-entry task](../reference/support-entry.md) now reaches measured
 hand/shin support after physical development falls, using an optional observation/action
 pose-sequence policy. Its ten-second, 2 cm hold gate passes 2/4 patch and 3/4 per-point cells;
 all eight replay, with selected Node/browser traces matching. Quiet support, drift and elapsed

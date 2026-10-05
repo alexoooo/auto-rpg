@@ -15486,6 +15486,669 @@
             ]
           }
         ]
+      },
+      {
+        "name": "first-contact-iterations",
+        "source": "import fs from 'node:fs';\nimport {NullEngine} from '@babylonjs/core/Engines/nullEngine.js';\nimport {Scene} from '@babylonjs/core/scene.js';\nimport {Vector3} from '@babylonjs/core/Maths/math.vector.js';\nimport {freshEngine} from '../tests/harness/core-stand.mjs';\nimport {createWorld} from '../src/core/world.ts';\nimport {buildBody} from '../src/core/build/build-body.ts';\nimport {modelSpec} from '../src/core/human/spec.ts';\nimport {coupledDynamics} from '../src/core/build/coupled-dynamics.ts';\nimport {planarSupportPoints} from '../src/core/build/planar-support.ts';\nimport {predictPointContacts} from '../src/core/build/contact-step.ts';\nimport {nearJointStops} from '../src/core/control/joint-stops.ts';\nimport {embody} from '../src/core/mind/mind.ts';\nimport {applyAction} from '../src/core/mind/actions.ts';\nconst log=fs.readFileSync(process.env.TEMP+'/legal-inverse-inspect.log');\nconst row=log.toString(log[0]===255?'utf16le':'utf8').split(/\\r?\\n/).filter(s=>s.startsWith('{')).map(s=>JSON.parse(s)).find(r=>r.torques);\nconst pose=JSON.parse(fs.readFileSync('assets/research/posture-holds.json','utf8'))[0];\nconst rendering=new NullEngine(),scene=new Scene(rendering),world=createWorld(scene,await freshEngine('rapier-coordinate-coulomb'),{hz:120,actuation:'directional'});\nworld.physics.raw.numSolverIterations = Number(process.env.CONTACT_ITERATIONS ?? 16);\nworld.physics.addFixedBox([0,-.5,0],[20,1,20]);const built=buildBody(modelSpec('workshop-fighter'),world,pose.placement),segments=[...built.segments.values()];\nconst model=coupledDynamics(built,world.physics.gravity),dt=1/120,results=[];\nconst local=(s,p)=>{const d=p.map((v,i)=>v-s.frame.origin[i]);return ['x','y','z'].map(a=>s.frame[a].reduce((sum,v,i)=>sum+v*d[i],0));};\nconst shapes=segments.flatMap(s=>s.rigid.shapes.map(shape=>{let converted;switch(shape.kind){\ncase 'capsule':converted={kind:shape.kind,from:local(s,shape.from.value),to:local(s,shape.to.value),radius:shape.radius.value};break;\ncase 'sphere':converted={kind:shape.kind,centre:local(s,shape.centre.value),radius:shape.radius.value};break;\ncase 'box':converted={kind:shape.kind,centre:local(s,shape.centre.value),size:shape.size.value};break;\ncase 'hull':converted={kind:shape.kind,points:shape.points.map(p=>local(s,p.value))};break;\n}return {segment:s,shape:converted};}));\nconst contacts=shapes.flatMap(({segment:s,shape})=>planarSupportPoints(shape,s.node.position.asArray(),s.node.rotationQuaternion,[0,1,0],.001).filter(p=>p[1]<.005).map(point=>({body:s.body,point,normal:[0,1,0]})));\nconst stops=nearJointStops(built,.001,dt);model.update();\nconst initial=model.projectVelocity(),centres=segments.map(s=>new Vector3(...s.body.massProperties.centre).applyRotationQuaternion(s.node.rotationQuaternion).add(s.node.position).asArray());\nfor(const count of [16,64,256]){\n let velocity=[...initial.velocity],gaps=contacts.map(c=>c.point[1]),angles=stops.map(s=>s.gap),rejected=0,work=0;\n const h=dt/count,proxy={...model,projectVelocity:()=>({...initial,velocity:[...velocity]})};\n for(let k=0;k<count;k++){\n  const prediction=predictPointContacts(proxy,row.torques,contacts.map((c,i)=>({...c,normalVelocity:-Math.max(gaps[i],0)/h})),[],{dt:h,friction:.5,iterations:2048,impulseTolerance:1e-10,velocityTolerance:1e-7},stops.map((s,i)=>({row:s.row,minimumVelocity:-angles[i]/h,impulseTolerance:1e-10,velocityTolerance:1e-7})));\n  if(prediction.status!=='converged')rejected++;work+=prediction.work;\n  velocity=velocity.map((v,i)=>v+h*prediction.acceleration[i]);\n  gaps=gaps.map((v,i)=>v+h*model.pointVelocity(contacts[i].body,contacts[i].point,velocity).linear[1]);\n  angles=angles.map((v,i)=>v+h*model.motionRow(stops[i].row).coefficients.reduce((s,x,j)=>s+x*velocity[j],0));\n }\n results.push({count,rejected,work,velocity:segments.map((s,i)=>model.pointVelocity(s.body,centres[i],velocity))});\n}\nconst body=embody(built,world,own=>({name:'constant-torque',state:{},step(){applyAction(own.muscles,{kind:'torque',torque:row.torques});}}));\ntry{world.step();for(const r of results){const errors=segments.map((s,i)=>({name:s.spec.name,linear:Math.max(...s.body.linearVelocityToRef(new Vector3()).asArray().map((x,k)=>Math.abs(x-r.velocity[i].linear[k]))),angular:Math.max(...s.body.angularVelocityToRef(new Vector3()).asArray().map((x,k)=>Math.abs(x-r.velocity[i].angular[k])))}));console.log(JSON.stringify({nativeIterations:world.physics.raw.numSolverIterations,...r,linearError:Math.max(...errors.map(e=>e.linear)),angularError:Math.max(...errors.map(e=>e.angular)),worst:errors.sort((a,b)=>b.angular-a.angular).slice(0,3)}));}}\nfinally{body.dispose();built.dispose();world.dispose();scene.dispose();rendering.dispose();}\n",
+        "results": [
+          {
+            "nativeIterations": 256,
+            "count": 16,
+            "rejected": 0,
+            "work": 1369,
+            "velocity": [
+              {
+                "linear": [
+                  -0.000006966519853596762,
+                  -0.009232100325519493,
+                  0.0015797736528453234
+                ],
+                "angular": [
+                  -0.10492394617056744,
+                  -0.00011410868623552926,
+                  0.000030461597591355596
+                ]
+              },
+              {
+                "linear": [
+                  0.000009870796031705327,
+                  -0.01969512814985172,
+                  0.005029546167008126
+                ],
+                "angular": [
+                  0.018883331888822352,
+                  -0.00001558603534524989,
+                  -0.00004769915834621635
+                ]
+              },
+              {
+                "linear": [
+                  -0.00009104640039430436,
+                  -0.020442038243522108,
+                  0.004971847004876979
+                ],
+                "angular": [
+                  -0.031383687454483,
+                  0.0011191967874612059,
+                  0.000016256876875753515
+                ]
+              },
+              {
+                "linear": [
+                  0.00014329287590232994,
+                  -0.061347681710481494,
+                  0.011516569411646931
+                ],
+                "angular": [
+                  -0.44923297756372055,
+                  -0.00697152741258094,
+                  -0.01463969533845646
+                ]
+              },
+              {
+                "linear": [
+                  0.003249724985660332,
+                  -0.022271857356572868,
+                  0.0017395978844051575
+                ],
+                "angular": [
+                  0.16001221849303549,
+                  0.17518454378095932,
+                  0.033830660452202954
+                ]
+              },
+              {
+                "linear": [
+                  0.021438793772052038,
+                  -0.033003810090926664,
+                  -0.01197553543327342
+                ],
+                "angular": [
+                  0.14339520569087433,
+                  0.18725667462670528,
+                  0.05085613425943661
+                ]
+              },
+              {
+                "linear": [
+                  0.02481723483275366,
+                  0.07888282882619807,
+                  -0.03595007371367789
+                ],
+                "angular": [
+                  -1.102663375616335,
+                  -0.2493160010192866,
+                  -1.3082534333803695
+                ]
+              },
+              {
+                "linear": [
+                  0.0005905438264318195,
+                  -0.0864646885366655,
+                  -0.015800273042465552
+                ],
+                "angular": [
+                  0.1715814107916456,
+                  -0.04141644315529018,
+                  0.005224305621322749
+                ]
+              },
+              {
+                "linear": [
+                  0.009304562888577039,
+                  -0.049024658929286515,
+                  -0.04422727284575167
+                ],
+                "angular": [
+                  0.23662186980219985,
+                  -0.04362442358755271,
+                  -0.01037014820722091
+                ]
+              },
+              {
+                "linear": [
+                  0.04805912552483196,
+                  0.017145265849927278,
+                  -0.047637232067262475
+                ],
+                "angular": [
+                  0.187998975243433,
+                  -0.6101925129503561,
+                  -0.10977630171838515
+                ]
+              },
+              {
+                "linear": [
+                  -0.0033224278875924962,
+                  -0.022364294164037582,
+                  0.0018561291750602959
+                ],
+                "angular": [
+                  0.16194204160297532,
+                  -0.17892660548168757,
+                  -0.034737751617224574
+                ]
+              },
+              {
+                "linear": [
+                  -0.02150732525061246,
+                  -0.033363683220426356,
+                  -0.012211619960500058
+                ],
+                "angular": [
+                  0.1478399874138634,
+                  -0.18917163841219226,
+                  -0.04918644688414334
+                ]
+              },
+              {
+                "linear": [
+                  -0.025463959049183277,
+                  0.07998989665530302,
+                  -0.03625300957188009
+                ],
+                "angular": [
+                  -1.1249293764237456,
+                  0.23858204547636339,
+                  1.3165612813833232
+                ]
+              },
+              {
+                "linear": [
+                  -0.0008654520626785595,
+                  -0.09001921916530492,
+                  -0.01744755879308175
+                ],
+                "angular": [
+                  0.18949618594049264,
+                  0.02931121592776485,
+                  -0.009738462863036902
+                ]
+              },
+              {
+                "linear": [
+                  -0.008438717435944373,
+                  -0.051299407784907644,
+                  -0.04909594258916511
+                ],
+                "angular": [
+                  0.2480393324212632,
+                  0.03129862689993595,
+                  0.004298160012332084
+                ]
+              },
+              {
+                "linear": [
+                  -0.045241126604316825,
+                  0.017539695552836968,
+                  -0.05178310222073207
+                ],
+                "angular": [
+                  0.19609062845358483,
+                  0.6366200352439682,
+                  0.11050370582390369
+                ]
+              }
+            ],
+            "linearError": 0.045624181156864674,
+            "angularError": 1.350370310067869,
+            "worst": [
+              {
+                "name": "hand.left",
+                "linear": 0.045624181156864674,
+                "angular": 1.350370310067869
+              },
+              {
+                "name": "hand.right",
+                "linear": 0.02926628893591783,
+                "angular": 0.9896104852553316
+              },
+              {
+                "name": "forearm.left",
+                "linear": 0.03628685768136643,
+                "angular": 0.2818629502889852
+              }
+            ]
+          },
+          {
+            "nativeIterations": 256,
+            "count": 64,
+            "rejected": 0,
+            "work": 3375,
+            "velocity": [
+              {
+                "linear": [
+                  -0.00010720176072977639,
+                  -0.009385152891633108,
+                  0.0015467335412576964
+                ],
+                "angular": [
+                  -0.10774072778983507,
+                  0.0019998462382973484,
+                  -0.0005264065582422078
+                ]
+              },
+              {
+                "linear": [
+                  -0.00017214178572292076,
+                  -0.020032257379862986,
+                  0.00509420401772882
+                ],
+                "angular": [
+                  0.020223107704787358,
+                  -0.0018268795585492542,
+                  0.003162870914918724
+                ]
+              },
+              {
+                "linear": [
+                  -0.00006947462189803988,
+                  -0.020479898733874707,
+                  0.005053170026998755
+                ],
+                "angular": [
+                  -0.029778128210582677,
+                  0.0009282776851358204,
+                  0.000005005944187348732
+                ]
+              },
+              {
+                "linear": [
+                  0.00003759228920554755,
+                  -0.061383945408256195,
+                  0.011640780763033027
+                ],
+                "angular": [
+                  -0.45137970232568175,
+                  -0.005101137955688599,
+                  -0.014183007391024129
+                ]
+              },
+              {
+                "linear": [
+                  0.004438003191129913,
+                  -0.02439916563320021,
+                  0.00430404087978839
+                ],
+                "angular": [
+                  0.126048252917658,
+                  0.16239777376686418,
+                  0.04481254152184187
+                ]
+              },
+              {
+                "linear": [
+                  0.019104228940652463,
+                  -0.035466494135346124,
+                  -0.007989745987024956
+                ],
+                "angular": [
+                  0.14275709375256457,
+                  0.15025893056795292,
+                  0.027692982466863032
+                ]
+              },
+              {
+                "linear": [
+                  0.01924844095662472,
+                  0.08225138287764652,
+                  -0.031334954366475425
+                ],
+                "angular": [
+                  -1.1541267361235266,
+                  -0.2148690354961331,
+                  -1.3576422010937066
+                ]
+              },
+              {
+                "linear": [
+                  0.0004908522342235398,
+                  -0.08677866897137324,
+                  -0.016613999455196815
+                ],
+                "angular": [
+                  0.1780016467393161,
+                  -0.0488095722294561,
+                  0.006500144674481199
+                ]
+              },
+              {
+                "linear": [
+                  0.010408108039362884,
+                  -0.04948149830614728,
+                  -0.04696467138825012
+                ],
+                "angular": [
+                  0.23737256691049943,
+                  -0.05082508429652379,
+                  -0.007734949718340186
+                ]
+              },
+              {
+                "linear": [
+                  0.05305244730562715,
+                  0.01669034864733598,
+                  -0.0519414873011531
+                ],
+                "angular": [
+                  0.1849346192830833,
+                  -0.6618472747163618,
+                  -0.11494071495556292
+                ]
+              },
+              {
+                "linear": [
+                  -0.0037938452461619195,
+                  -0.022324315867379207,
+                  0.002422093018720952
+                ],
+                "angular": [
+                  0.16402538477392006,
+                  -0.18341854837644023,
+                  -0.03744298087921557
+                ]
+              },
+              {
+                "linear": [
+                  -0.021953600002592104,
+                  -0.03385023225075617,
+                  -0.012293095362035399
+                ],
+                "angular": [
+                  0.15516855388407536,
+                  -0.18985296728517115,
+                  -0.04651752057690041
+                ]
+              },
+              {
+                "linear": [
+                  -0.025913747000114354,
+                  0.08162598712876067,
+                  -0.03704251110709597
+                ],
+                "angular": [
+                  -1.1595115516189447,
+                  0.2338022199639315,
+                  1.326357866175863
+                ]
+              },
+              {
+                "linear": [
+                  -0.0009455634122675326,
+                  -0.09015230847631117,
+                  -0.0178723187833299
+                ],
+                "angular": [
+                  0.1914817416651797,
+                  0.03288005837424153,
+                  -0.009413545573194987
+                ]
+              },
+              {
+                "linear": [
+                  -0.008947370741267023,
+                  -0.05147338876707089,
+                  -0.050184184332184426
+                ],
+                "angular": [
+                  0.24811595229522362,
+                  0.034802665175763026,
+                  0.004165380471021905
+                ]
+              },
+              {
+                "linear": [
+                  -0.04730043119939324,
+                  0.017377785275904074,
+                  -0.0534450667762045
+                ],
+                "angular": [
+                  0.19506703255679228,
+                  0.6529440587136266,
+                  0.11262023172126066
+                ]
+              }
+            ],
+            "linearError": 0.04225562710541622,
+            "angularError": 1.2989069495606775,
+            "worst": [
+              {
+                "name": "hand.left",
+                "linear": 0.04225562710541622,
+                "angular": 1.2989069495606775
+              },
+              {
+                "name": "hand.right",
+                "linear": 0.028116326259145036,
+                "angular": 0.9550283100601324
+              },
+              {
+                "name": "forearm.left",
+                "linear": 0.033824173636946966,
+                "angular": 0.25869979849641167
+              }
+            ]
+          },
+          {
+            "nativeIterations": 256,
+            "count": 256,
+            "rejected": 0,
+            "work": 11278,
+            "velocity": [
+              {
+                "linear": [
+                  -0.00013138648194719487,
+                  -0.009436153586065366,
+                  0.0015302641992624207
+                ],
+                "angular": [
+                  -0.10865128080340825,
+                  0.002509900487373153,
+                  -0.0006607674974285407
+                ]
+              },
+              {
+                "linear": [
+                  -0.0002157844072946946,
+                  -0.020142367633378205,
+                  0.005109337278822094
+                ],
+                "angular": [
+                  0.02065960236233505,
+                  -0.0022663398107388207,
+                  0.003939056496248743
+                ]
+              },
+              {
+                "linear": [
+                  -0.00007562943290592553,
+                  -0.02049624035226228,
+                  0.0050735128099077785
+                ],
+                "angular": [
+                  -0.029295644087190043,
+                  0.001011214699231348,
+                  0.000009893452831663194
+                ]
+              },
+              {
+                "linear": [
+                  0.00005560195274221443,
+                  -0.06139228706257122,
+                  0.011672653510179333
+                ],
+                "angular": [
+                  -0.4519344408086731,
+                  -0.005526731725938382,
+                  -0.01430997564790651
+                ]
+              },
+              {
+                "linear": [
+                  0.004846118675839943,
+                  -0.025041746226131603,
+                  0.005089603596114737
+                ],
+                "angular": [
+                  0.12011328071584043,
+                  0.1641315304172305,
+                  0.04866275484037661
+                ]
+              },
+              {
+                "linear": [
+                  0.01877404793459315,
+                  -0.03649947869807554,
+                  -0.007182037991223959
+                ],
+                "angular": [
+                  0.1473591851877863,
+                  0.14433759225806586,
+                  0.02074712172001374
+                ]
+              },
+              {
+                "linear": [
+                  0.01826071233160174,
+                  0.08436433659459461,
+                  -0.030838178103168454
+                ],
+                "angular": [
+                  -1.1915435315979725,
+                  -0.20500866064031,
+                  -1.3810188562379218
+                ]
+              },
+              {
+                "linear": [
+                  0.0005174188710723292,
+                  -0.08681099895116887,
+                  -0.016715125569137092
+                ],
+                "angular": [
+                  0.17850024424402053,
+                  -0.049791893259143793,
+                  0.00652412548273653
+                ]
+              },
+              {
+                "linear": [
+                  0.010574558964086477,
+                  -0.049528289475008654,
+                  -0.04723603554617252
+                ],
+                "angular": [
+                  0.23739453075769573,
+                  -0.051791224662588474,
+                  -0.007596688634726801
+                ]
+              },
+              {
+                "linear": [
+                  0.05367250210153114,
+                  0.01663907947485616,
+                  -0.05238699275556026
+                ],
+                "angular": [
+                  0.18459417816275434,
+                  -0.6670362656437052,
+                  -0.11554336635640011
+                ]
+              },
+              {
+                "linear": [
+                  -0.004029387732500946,
+                  -0.02244404320034076,
+                  0.0027257551674963014
+                ],
+                "angular": [
+                  0.16686932856001752,
+                  -0.18942052760653255,
+                  -0.03930757911614485
+                ]
+              },
+              {
+                "linear": [
+                  -0.022300770116158546,
+                  -0.034412060969245664,
+                  -0.012474703163816594
+                ],
+                "angular": [
+                  0.16178361112397047,
+                  -0.1931152618565096,
+                  -0.04451830802568445
+                ]
+              },
+              {
+                "linear": [
+                  -0.026393452002250684,
+                  0.0833420179726056,
+                  -0.03786522435178227
+                ],
+                "angular": [
+                  -1.1932869891233837,
+                  0.2310585034166438,
+                  1.340328644174854
+                ]
+              },
+              {
+                "linear": [
+                  -0.0009154401469674538,
+                  -0.09023260042531965,
+                  -0.018082751814065486
+                ],
+                "angular": [
+                  0.19310657480015775,
+                  0.03462877216413381,
+                  -0.009633847202701183
+                ]
+              },
+              {
+                "linear": [
+                  -0.009183975582436069,
+                  -0.05159073966320953,
+                  -0.050878212317590495
+                ],
+                "angular": [
+                  0.24827632085744739,
+                  0.03650166361663142,
+                  0.003593950858860346
+                ]
+              },
+              {
+                "linear": [
+                  -0.048482308444273606,
+                  0.017260351186295847,
+                  -0.05452216162172004
+                ],
+                "angular": [
+                  0.19428137146737845,
+                  0.6656664934950136,
+                  0.11398289933174904
+                ]
+              }
+            ],
+            "linearError": 0.040142673388468136,
+            "angularError": 1.2614901540862316,
+            "worst": [
+              {
+                "name": "hand.left",
+                "linear": 0.040142673388468136,
+                "angular": 1.2614901540862316
+              },
+              {
+                "name": "hand.right",
+                "linear": 0.028939039503831337,
+                "angular": 0.9212528725556934
+              },
+              {
+                "name": "forearm.left",
+                "linear": 0.032791189074217554,
+                "angular": 0.2517539377495624
+              }
+            ]
+          }
+        ]
       }
     ],
     "helpers": [
@@ -15498,5 +16161,2344 @@
         "source": "import {constrainedMass} from '../src/core/build/constrained-mass.ts';\nimport { Vector3 } from \"@babylonjs/core/Maths/math.vector.js\";\nimport type { SegmentBody } from \"../src/core/engine/engine.ts\";\nimport type { Vec3 } from \"../src/core/spec/quantity.ts\";\nimport type { coupledDynamics } from \"../src/core/build/coupled-dynamics.ts\";\nimport type { MotionConstraint } from \"../src/core/build/constrained-mass.ts\";\n\ninterface AngularStop {\n  /** Inward angle-rate row; only angular entries are admitted. */\n  readonly row: MotionConstraint;\n  /** Lower bound on this row's end-step velocity, rad/s, including coordinate curvature. */\n  readonly minimumVelocity: number;\n  /** Angular impulse threshold, N m s, independent of point-contact impulse units. */\n  readonly impulseTolerance: number;\n  /** Angle-rate residual tolerance, rad/s. */\n  readonly velocityTolerance: number;\n}\n\ntype Model = ReturnType<typeof coupledDynamics>;\ntype Load = NonNullable<Parameters<Model[\"solve\"]>[1]>[number];\ninterface Contact {\n  readonly body: SegmentBody;\n  readonly point: Vec3;\n  readonly normal: Vec3;\n  /** Lower bound on end-step relative normal velocity against a fixed plane, m/s. */\n  readonly normalVelocity: number;\n}\ninterface Settings {\n  readonly dt: number;\n  readonly friction: number;\n  readonly iterations: number;\n  readonly impulseTolerance: number;\n  readonly velocityTolerance: number;\n}\nconst ZERO: Vec3 = [0, 0, 0];\nconst dot = (a: ArrayLike<number>, b: ArrayLike<number>) => a[0]! * b[0]! + a[1]! * b[1]! + a[2]! * b[2]!;\nconst cross = (a: Vec3, b: Vec3): Vec3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];\nconst subtract = (a: Vec3, b: Vec3): Vec3 => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];\nconst tuple = (v: Vector3): Vec3 => [v.x, v.y, v.z];\n\n/**\n * Diagnostic fixed-plane contact impulse prediction through an updated coupled model. Normal\n * impulses are unilateral; the two-axis stopping impulse is projected onto a friction disk.\n * This is the per-point projected solver law, not a patch/twist model or opposing-slip force.\n * Measured velocities are first projected into the model's joint/constraint tangent space.\n * Optional angular stops exchange impulses with contacts in the same coupled solve. Their\n * inward rows may push but never pull; each has its own angular impulse and velocity tolerances.\n * Point lever arms stay fixed during the predicted step. The caller chooses candidate contacts\n * and normal velocity bounds; this function neither discovers contacts nor applies forces.\n *\n * The allocating cold solve has a finite iteration budget and independently checks its fixed\n * point. A non-converged candidate cannot justify a controller action. Distant impacts,\n * acquisition timing and geometry changes within the step remain outside this local model.\n */\nexport function preparePointContacts(model: Model, contacts: readonly Contact[], settings: Settings, stops: readonly AngularStop[] = []) {\n  const { dt, friction, iterations, impulseTolerance, velocityTolerance } = settings;\n  if (!(dt > 0) || !Number.isFinite(dt) || !(friction >= 0) || !Number.isFinite(friction)\n    || !Number.isSafeInteger(iterations) || iterations < 1\n    || ![impulseTolerance, velocityTolerance].every((v) => v > 0 && Number.isFinite(v))) throw new Error(\"invalid contact-step settings\");\n  const stopRows = stops.map((stop) => {\n    if (!Number.isFinite(stop.minimumVelocity) || ![stop.impulseTolerance, stop.velocityTolerance].every((v) => v > 0 && Number.isFinite(v))\n      || stop.row.length === 0 || stop.row.some((entry) => entry.linear.length !== 3 || entry.angular.length !== 3\n        || entry.point.length !== 3 || entry.linear.some((v) => v !== 0))) throw new Error(\"invalid angular contact-step stop\");\n    return model.motionRow(stop.row);\n  });\n  const along = (row: ArrayLike<number>, value: ArrayLike<number>) => {\n    let sum = 0; for (let i = 0; i < row.length; i++) sum += row[i]! * value[i]!; return sum;\n  };\n  const geometry = contacts.map((c) => {\n    if (c.point.length !== 3 || c.normal.length !== 3 || ![...c.point, ...c.normal, c.normalVelocity].every(Number.isFinite)) throw new Error(\"invalid contact-step geometry\");\n    const length = Math.sqrt(dot(c.normal, c.normal));\n    if (!(length > 0) || !Number.isFinite(length)) throw new Error(\"invalid contact-step normal\");\n    const normal = c.normal.map((v) => v / length) as unknown as Vec3;\n    const reference: Vec3 = Math.abs(normal[0]) < Math.abs(normal[1]) ? [1, 0, 0] : [0, 1, 0];\n    const along = dot(reference, normal), raw = reference.map((v, k) => v - along * normal[k]!) as unknown as Vec3;\n    const span = Math.sqrt(dot(raw, raw)), tangent = raw.map((v) => v / span) as unknown as Vec3;\n    return { ...c, point: [...c.point] as Vec3, axes: [normal, tangent, cross(normal, tangent)] };\n  });\n  const unloaded = model.solve(new Array<number>(model.channels).fill(0));\n  const masses=new Map(geometry.map(c=>[c.body,constrainedMass([c.body],()=>[])]));for(const m of masses.values())m.update();\n const tangentMetrics=geometry.map(c=>{const M=masses.get(c.body)!.mobility(c.body,c.point),axes=c.axes.slice(1);return axes.map(a=>axes.map(b=>a.reduce((sum,v,i)=>sum+v*M[i]!.reduce((s,x,j)=>s+x*b[j]!,0),0)));});\n const projection = model.projectVelocity();\n  const rows = geometry.flatMap((contact) => contact.axes.map((axis) => ({ contact, axis }))), contactSize = rows.length, size = contactSize + stops.length;\n  const response = Array.from({ length: size }, () => new Float64Array(size));\n  const baseline = rows.map(({ contact, axis }) => dot(model.pointAcceleration(contact.body, contact.point, unloaded).linear, axis));\n  const zeroTorque = new Array<number>(model.channels).fill(0);\n  const column = (col: number, motion: readonly number[]) => {\n    rows.forEach(({ contact: at, axis: direction }, row) => {\n      response[row]![col] = dot(model.pointAcceleration(at.body, at.point, motion).linear, direction) - baseline[row]!;\n    });\n    const delta = motion.map((v, i) => v - unloaded[i]!);\n    stopRows.forEach((row, i) => { response[contactSize + i]![col] = along(row.coefficients, delta); });\n  };\n  rows.forEach(({ contact, axis }, col) => {\n    const motion = model.solve(zeroTorque, [{ body: contact.body, point: contact.point, force: axis, moment: ZERO }]);\n    column(col, motion);\n  });\n  stops.forEach((stop, i) => {\n    column(contactSize + i, model.solve(zeroTorque, stop.row.map((entry) => ({ body: entry.body, point: entry.point, force: entry.linear, moment: entry.angular }))));\n    const mobility = response[contactSize + i]![contactSize + i]!;\n    if (!(mobility > 0) || !Number.isFinite(mobility)) throw new Error(\"singular angular contact-step mobility\");\n  });\n  for (let p = 0; p < geometry.length; p++) {\n    const i = 3 * p, a = i + 1, b = i + 2;\n    const determinant = response[a]![a]! * response[b]![b]! - response[a]![b]! * response[b]![a]!;\n    if (!(response[i]![i]! > 0) || !(determinant > 0) || !Number.isFinite(determinant)) throw new Error(\"singular contact-step mobility\");\n  }\n  return { predict(torque: ArrayLike<number>, loads: readonly Load[] = []) {\n  const free = model.solve(torque, loads), impulses = new Float64Array(size);\n  const centre = new Vector3(), angular = new Vector3();\n  const initial = geometry.flatMap((contact) => {\n    const { body, point } = contact;\n    centre.set(...body.massProperties.centre).applyRotationQuaternionToRef(body.node.rotationQuaternion!, centre).addInPlace(body.node.position);\n    body.angularVelocityToRef(angular);\n    const offset = subtract(point, tuple(centre)), turn = cross(tuple(angular), offset), centripetal = cross(tuple(angular), turn);\n    const acceleration = model.pointAcceleration(body, point, free).linear;\n    const compatible = model.pointVelocity(body, point, projection.velocity).linear;\n    const next = compatible.map((v, k) => v + dt * (acceleration[k]! - centripetal[k]!));\n    return contact.axes.map((axis) => dot(next, axis));\n  });\n  stopRows.forEach((row) => initial.push(along(row.coefficients, projection.velocity) + dt * (along(row.coefficients, free) + row.bias)));\n  const velocity = [...initial];\n  const tangentCandidate = (i: number) => {\n    const a = i + 1, b = i + 2, aa = tangentMetrics[i/3]![0]![0]!, ab = tangentMetrics[i/3]![0]![1]!, ba = tangentMetrics[i/3]![1]![0]!, bb = tangentMetrics[i/3]![1]![1]!;\n    const determinant = aa * bb - ab * ba;\n    let x = impulses[a]! - (bb * velocity[a]! - ab * velocity[b]!) / determinant;\n    let y = impulses[b]! - (aa * velocity[b]! - ba * velocity[a]!) / determinant;\n    const length = Math.sqrt(x * x + y * y), cap = friction * impulses[i]!;\n    if (length > cap) { x *= cap / length; y *= cap / length; }\n    return [x, y];\n  };\n  let change = 0, work = 0;\n  const add = (col: number, value: number) => {\n    const delta = value - impulses[col]!; impulses[col] = value;\n    for (let row = 0; row < size; row++) velocity[row]! += response[row]![col]! * delta;\n    change = Math.max(change, Math.abs(delta) / (col < contactSize ? impulseTolerance : stops[col - contactSize]!.impulseTolerance));\n  };\n  for (; work < iterations && size > 0;) {\n    change = 0; work++;\n    geometry.forEach((contact, p) => {\n      const i = 3 * p;\n      add(i, Math.max(0, impulses[i]! - (velocity[i]! - contact.normalVelocity) / response[i]![i]!));\n    });\n    stops.forEach((stop, p) => {\n      const i = contactSize + p;\n      add(i, Math.max(0, impulses[i]! - (velocity[i]! - stop.minimumVelocity) / response[i]![i]!));\n    });\n    geometry.forEach((_, p) => { const i = 3 * p, [x, y] = tangentCandidate(i); add(i + 1, x!); add(i + 2, y!); });\n    if (change <= 1) break;\n  }\n  for (let r = 0; r < size; r++) {\n    velocity[r] = initial[r]!;\n    for (let c = 0; c < size; c++) velocity[r]! += response[r]![c]! * impulses[c]!;\n  }\n  let normalViolation = 0, impulseResidual = 0, coneViolation = 0;\n  const predictions = geometry.map((contact, p) => {\n    const i = 3 * p, normal = impulses[i]!, gapVelocity = velocity[i]! - contact.normalVelocity;\n    const [x, y] = tangentCandidate(i);\n    impulseResidual = Math.max(impulseResidual, Math.abs(x! - impulses[i + 1]!), Math.abs(y! - impulses[i + 2]!));\n    normalViolation = Math.max(normalViolation, -gapVelocity, normal > impulseTolerance ? Math.abs(gapVelocity) : 0);\n    coneViolation = Math.max(coneViolation, -normal, Math.sqrt(impulses[i + 1]! * impulses[i + 1]! + impulses[i + 2]! * impulses[i + 2]!) - friction * normal);\n    const world = (values: ArrayLike<number>): Vec3 => [0, 1, 2].map((k) => contact.axes.reduce((sum, axis, j) => sum + axis[k]! * values[i + j]!, 0)) as unknown as Vec3;\n    const slip = Math.sqrt(velocity[i + 1]! * velocity[i + 1]! + velocity[i + 2]! * velocity[i + 2]!);\n    return { impulse: world(impulses), velocity: world(velocity), mode: normal <= impulseTolerance ? \"free\" as const : slip <= velocityTolerance ? \"sticking\" as const : \"sliding\" as const };\n  });\n  const stopPredictions = stops.map((stop, p) => {\n    const i = contactSize + p, impulse = impulses[i]!, gapVelocity = velocity[i]! - stop.minimumVelocity;\n    const violation = Math.max(0, -gapVelocity, impulse > stop.impulseTolerance ? Math.abs(gapVelocity) : 0);\n    return { impulse, velocity: velocity[i]!, violation, mode: impulse > stop.impulseTolerance ? \"holding\" as const : \"free\" as const };\n  });\n  const stopsAccepted = stopPredictions.every((stop, i) => stop.impulse >= -stops[i]!.impulseTolerance && stop.violation <= stops[i]!.velocityTolerance);\n  const finite = [...impulses, ...velocity, normalViolation, impulseResidual, coneViolation, ...stopPredictions.map((stop) => stop.violation)].every(Number.isFinite);\n  const accepted = finite && stopsAccepted && normalViolation <= velocityTolerance && impulseResidual <= impulseTolerance && coneViolation <= impulseTolerance;\n  const status = !finite ? \"nonfinite\" as const : accepted ? \"converged\" as const : work >= iterations ? \"iteration-limit\" as const : \"residual\" as const;\n  const contactLoads = geometry.map((contact, i): Load => ({ body: contact.body, point: contact.point,\n    force: predictions[i]!.impulse.map((v) => v / dt) as unknown as Vec3, moment: ZERO }));\n  const stopLoads = stops.flatMap((stop, i) => stop.row.map((entry): Load => ({ body: entry.body, point: entry.point,\n    force: ZERO, moment: entry.angular.map((v) => v * stopPredictions[i]!.impulse / dt) as unknown as Vec3 })));\n  return { status, work, normalViolation, impulseResidual, coneViolation, projection, contacts: predictions, stops: stopPredictions,\n    acceleration: finite ? model.solve(torque, [...loads, ...contactLoads, ...stopLoads]) : null };\n  }};\n}\n"
       }
     ]
+  },
+  "nativeRolloutFollowups": {
+    "source": "import fs from 'node:fs';\nimport assert from 'node:assert/strict';\nimport { NullEngine } from '@babylonjs/core/Engines/nullEngine.js';\nimport { Scene } from '@babylonjs/core/scene.js';\nimport { Quaternion } from '@babylonjs/core/Maths/math.vector.js';\nimport { freshEngine, saveStand, loadStand } from '../tests/harness/core-stand.mjs';\nimport { createWorld } from '../src/core/world.ts';\nimport { buildBody } from '../src/core/build/build-body.ts';\nimport { modelSpec } from '../src/core/human/spec.ts';\nimport { createPolicyBody } from '../src/core/mind/direct.ts';\nimport { boundedWork, linearWork, solveLinearTo, boundedLeastSquaresTo } from '../src/core/math/flat.ts';\nconst poses = JSON.parse(fs.readFileSync('assets/research/posture-holds.json', 'utf8'));\nconst posture = process.env.NATIVE_POSTURE ?? 'fours', steps = Number(process.env.NATIVE_STEPS ?? 30);\nconst response = Number(process.env.NATIVE_RESPONSE ?? .3), iterations = Number(process.env.NATIVE_UPDATES ?? 3);\nconst rendering = new NullEngine(), scene = new Scene(rendering);\nconst world = createWorld(scene, await freshEngine('rapier-coordinate-coulomb'), { hz: 120, actuation: 'directional' });\nworld.physics.addFixedBox([0, -.5, 0], [20, 1, 20]);\nconst built = buildBody(modelSpec('workshop-fighter'), world, poses.find(p => p.id === posture).placement);\nconst command = { torque: [], steps: 0 };\nlet channels;\nconst body = createPolicyBody(built, world, m => {\n  channels = m.channels;\n  command.torque = m.channels.map(() => 0);\n  return { name: 'offline-native-hold', state: command, step() { command.steps++; return { kind: 'torque', torque: command.torque }; } };\n});\nconst states = { body: body.state }, reference = body.observe(), n = reference.joints.length;\nconst linear = linearWork(n), bounded = boundedWork(n), regularization = 1e-6;\nlet peakDrift = 0, peakEffortViolation = 0, totalEvaluations = 0;\ntry {\n  for (let step = 0; step < steps; step++) {\n    const started = performance.now(), before = body.observe(), saved = saveStand(world, states), dt = world.dt;\n    const scale = channels.map(j => Math.max(j.positive, j.negative, 1));\n    const lo = channels.map((j, i) => -j.negative / scale[i]), hi = channels.map((j, i) => j.positive / scale[i]);\n    const targets = before.segments.map((s, i) => {\n      const q = new Quaternion(...reference.segments[i].rotation).multiply(Quaternion.Inverse(new Quaternion(...s.rotation)));\n      const sign = q.w < 0 ? -1 : 1, rate = 1 / response;\n      return { linear: s.velocity.map((v, k) => v + dt * (rate * rate * (reference.segments[i].centre[k] - s.centre[k]) - 2 * rate * v)),\n        angular: s.spin.map((v, k) => v + dt * (2 * rate * rate * sign * [q.x, q.y, q.z][k] - 2 * rate * v)) };\n    });\n    let evaluations = 0;\n    const evaluate = x => {\n      loadStand(world, states, saved); command.torque = x.map((v, i) => v * scale[i]); world.step(); evaluations++;\n      const observation = body.observe();\n      const residual = observation.segments.flatMap((s, i) => {\n        const weight = s.name === 'lowerTrunk' ? 3 : 1;\n        return [...s.velocity.map((v, k) => weight * (v - targets[i].linear[k])), ...s.spin.map((v, k) => weight * .1 * (v - targets[i].angular[k]))];\n      });\n      return { residual, observation, cost: residual.reduce((sum, v) => sum + v * v, 0) + regularization * x.reduce((sum, v) => sum + v * v, 0) };\n    };\n    let x = command.torque.map((v, i) => Math.max(lo[i], Math.min(hi[i], v / scale[i]))), current = evaluate(x);\n    for (let iteration = 0; iteration < iterations; iteration++) {\n      const columns = [];\n      for (let i = 0; i < n; i++) {\n        const z = [...x], epsilon = x[i] + .001 <= hi[i] ? .001 : -.001; z[i] += epsilon;\n        const r = evaluate(z); columns.push(r.residual.map((v, k) => (v - current.residual[k]) / epsilon));\n      }\n      const H = new Float64Array(n * n), rhs = new Float64Array(n), free = new Float64Array(n), delta = new Float64Array(n);\n      for (let i = 0; i < n; i++) {\n        for (let j = 0; j < n; j++) H[i * n + j] = columns[i].reduce((sum, v, k) => sum + v * columns[j][k], 0) + (i === j ? regularization : 0);\n        rhs[i] = -columns[i].reduce((sum, v, k) => sum + v * current.residual[k], 0) - regularization * x[i];\n      }\n      solveLinearTo(linear, H, rhs, n, free);\n      boundedLeastSquaresTo(bounded, H, free, lo.map((v, i) => Math.max(v - x[i], -.25)), hi.map((v, i) => Math.min(v - x[i], .25)), n, delta);\n      let accepted = false;\n      for (const length of [1, .5, .25, .125]) {\n        const z = x.map((v, i) => v + length * delta[i]), candidate = evaluate(z);\n        if (candidate.cost < current.cost) { x = z; current = candidate; accepted = true; break; }\n      }\n      if (!accepted) break;\n    }\n    loadStand(world, states, saved); command.torque = x.map((v, i) => v * scale[i]); world.step();\n    const actual = body.observe(); assert.deepEqual(actual, current.observation);\n    const drift = Math.max(...actual.segments.map((s, i) => Math.hypot(...s.position.map((v, k) => v - reference.segments[i].position[k]))));\n    peakDrift = Math.max(peakDrift, drift);\n    peakEffortViolation = Math.max(peakEffortViolation, ...actual.joints.map(j => Math.max(j.effort - j.positive, -j.effort - j.negative)));\n    totalEvaluations += evaluations;\n    console.log(JSON.stringify({ posture, step: step + 1, response, iterations, evaluations, cost: current.cost, drift, peakDrift,\n      peakEffortViolation, milliseconds: performance.now() - started, height: actual.height,\n      contacts: [...new Set(actual.contacts.filter(c => c.fixed !== null && c.impulse > 0).map(c => c.segment))] }));\n  }\n  console.log(JSON.stringify({ posture, complete: true, steps, seconds: steps / 120, peakDrift, peakEffortViolation, totalEvaluations }));\n} finally { body.dispose(); built.dispose(); world.dispose(); scene.dispose(); rendering.dispose(); }\n",
+    "limitation": "Offline diagnostic with privileged snapshots. Early scratch runs assert selected-next-step replay but not full tape replay. The shared-task half-kneel record supersedes its scratch result.",
+    "results": [
+      {
+        "name": "native-hold-fours-peak-10s",
+        "rows": [
+          {
+            "posture": "fours",
+            "step": 1,
+            "response": 0.3,
+            "iterations": 3,
+            "evaluations": 114,
+            "cost": 0.1273683242135287,
+            "drift": 0.0007601150981563662,
+            "peakDrift": 0.0007601150981563662,
+            "peakEffortViolation": 0.000003015537203054919,
+            "milliseconds": 289.5528,
+            "height": 0.3629525308935295,
+            "contacts": [
+              "foot.left",
+              "foot.right"
+            ]
+          },
+          {
+            "posture": "fours",
+            "step": 2,
+            "response": 0.3,
+            "iterations": 3,
+            "evaluations": 112,
+            "cost": 0.13592382274363632,
+            "drift": 0.0020664777479176824,
+            "peakDrift": 0.0020664777479176824,
+            "peakEffortViolation": 0.0000032949830384154666,
+            "milliseconds": 130.15589999999997,
+            "height": 0.36247891539977695,
+            "contacts": [
+              "hand.left",
+              "shank.left",
+              "foot.left",
+              "hand.right",
+              "shank.right",
+              "foot.right"
+            ]
+          },
+          {
+            "posture": "fours",
+            "step": 3,
+            "response": 0.3,
+            "iterations": 3,
+            "evaluations": 110,
+            "cost": 0.010011445565363408,
+            "drift": 0.004003570430079436,
+            "peakDrift": 0.004003570430079436,
+            "peakEffortViolation": 0.0000032949830384154666,
+            "milliseconds": 121.18560000000002,
+            "height": 0.36189455952841587,
+            "contacts": [
+              "hand.left",
+              "shank.left",
+              "foot.left",
+              "hand.right",
+              "shank.right"
+            ]
+          },
+          {
+            "posture": "fours",
+            "step": 4,
+            "response": 0.3,
+            "iterations": 3,
+            "evaluations": 111,
+            "cost": 0.017827431249699183,
+            "drift": 0.005854533024614051,
+            "peakDrift": 0.005854533024614051,
+            "peakEffortViolation": 0.0000032949830384154666,
+            "milliseconds": 113.34929999999997,
+            "height": 0.36166890104006655,
+            "contacts": [
+              "hand.left",
+              "shank.left",
+              "foot.left",
+              "hand.right",
+              "shank.right"
+            ]
+          },
+          {
+            "posture": "fours",
+            "step": 5,
+            "response": 0.3,
+            "iterations": 3,
+            "evaluations": 111,
+            "cost": 0.005857118841183646,
+            "drift": 0.00782531144915867,
+            "peakDrift": 0.00782531144915867,
+            "peakEffortViolation": 0.000006123700032389934,
+            "milliseconds": 126.51600000000008,
+            "height": 0.3614430253283188,
+            "contacts": [
+              "hand.left",
+              "shank.left",
+              "foot.left",
+              "hand.right"
+            ]
+          },
+          {
+            "posture": "fours",
+            "step": 120,
+            "response": 0.3,
+            "iterations": 3,
+            "evaluations": 113,
+            "cost": 0.00015958346669344792,
+            "drift": 0.02629189348520356,
+            "peakDrift": 0.038929891930748514,
+            "peakEffortViolation": 0.00000955362563104245,
+            "milliseconds": 101.79249999999956,
+            "height": 0.3618865504157741,
+            "contacts": [
+              "hand.left",
+              "shank.left",
+              "foot.left",
+              "hand.right",
+              "foot.right"
+            ]
+          },
+          {
+            "posture": "fours",
+            "step": 240,
+            "response": 0.3,
+            "iterations": 3,
+            "evaluations": 112,
+            "cost": 0.000002982029568058971,
+            "drift": 0.007343990944427212,
+            "peakDrift": 0.038929891930748514,
+            "peakEffortViolation": 0.00000955362563104245,
+            "milliseconds": 100.21889999999985,
+            "height": 0.3642765752979227,
+            "contacts": [
+              "hand.left",
+              "shank.left",
+              "foot.left",
+              "hand.right",
+              "foot.right"
+            ]
+          },
+          {
+            "posture": "fours",
+            "step": 360,
+            "response": 0.3,
+            "iterations": 3,
+            "evaluations": 114,
+            "cost": 0.000008356163054498988,
+            "drift": 0.00726075370426674,
+            "peakDrift": 0.038929891930748514,
+            "peakEffortViolation": 0.00000955362563104245,
+            "milliseconds": 98.2670999999973,
+            "height": 0.36498638805294753,
+            "contacts": [
+              "hand.left",
+              "shank.left",
+              "hand.right",
+              "foot.right"
+            ]
+          },
+          {
+            "posture": "fours",
+            "step": 480,
+            "response": 0.3,
+            "iterations": 3,
+            "evaluations": 110,
+            "cost": 0.00029844677109089085,
+            "drift": 0.006842217794624914,
+            "peakDrift": 0.038929891930748514,
+            "peakEffortViolation": 0.00000955362563104245,
+            "milliseconds": 114.20750000000407,
+            "height": 0.36626588279448835,
+            "contacts": [
+              "hand.left",
+              "shank.left",
+              "hand.right",
+              "shank.right",
+              "foot.right"
+            ]
+          },
+          {
+            "posture": "fours",
+            "step": 600,
+            "response": 0.3,
+            "iterations": 3,
+            "evaluations": 112,
+            "cost": 0.00023755259432731558,
+            "drift": 0.013129192276410007,
+            "peakDrift": 0.038929891930748514,
+            "peakEffortViolation": 0.00000955362563104245,
+            "milliseconds": 129.15260000000126,
+            "height": 0.36624679037685515,
+            "contacts": [
+              "hand.left",
+              "shank.left",
+              "foot.left",
+              "hand.right",
+              "shank.right",
+              "foot.right"
+            ]
+          },
+          {
+            "posture": "fours",
+            "step": 720,
+            "response": 0.3,
+            "iterations": 3,
+            "evaluations": 111,
+            "cost": 0.00002482174398221413,
+            "drift": 0.015942405147218553,
+            "peakDrift": 0.038929891930748514,
+            "peakEffortViolation": 0.00000955362563104245,
+            "milliseconds": 135.81610000001092,
+            "height": 0.3671109127319712,
+            "contacts": [
+              "hand.left",
+              "shank.left",
+              "foot.left",
+              "hand.right",
+              "shank.right"
+            ]
+          },
+          {
+            "posture": "fours",
+            "step": 840,
+            "response": 0.3,
+            "iterations": 3,
+            "evaluations": 40,
+            "cost": 0.000044687639743156807,
+            "drift": 0.017661640520576963,
+            "peakDrift": 0.038929891930748514,
+            "peakEffortViolation": 0.00000955362563104245,
+            "milliseconds": 36.435799999992014,
+            "height": 0.3677897095605646,
+            "contacts": [
+              "hand.left",
+              "shank.left",
+              "foot.left",
+              "hand.right",
+              "shank.right"
+            ]
+          },
+          {
+            "posture": "fours",
+            "step": 960,
+            "response": 0.3,
+            "iterations": 3,
+            "evaluations": 112,
+            "cost": 0.00004600040695466915,
+            "drift": 0.018163716439493195,
+            "peakDrift": 0.038929891930748514,
+            "peakEffortViolation": 0.00000955362563104245,
+            "milliseconds": 150.29790000000503,
+            "height": 0.3678663212256934,
+            "contacts": [
+              "hand.left",
+              "shank.left",
+              "hand.right",
+              "shank.right"
+            ]
+          },
+          {
+            "posture": "fours",
+            "step": 1080,
+            "response": 0.3,
+            "iterations": 3,
+            "evaluations": 110,
+            "cost": 0.00012075557191998005,
+            "drift": 0.020560805466671078,
+            "peakDrift": 0.038929891930748514,
+            "peakEffortViolation": 0.00000955362563104245,
+            "milliseconds": 96.23420000000624,
+            "height": 0.3658185249973276,
+            "contacts": [
+              "hand.left",
+              "shank.left",
+              "hand.right",
+              "shank.right"
+            ]
+          },
+          {
+            "posture": "fours",
+            "step": 1200,
+            "response": 0.3,
+            "iterations": 3,
+            "evaluations": 110,
+            "cost": 0.0003749507369106067,
+            "drift": 0.02573602270954861,
+            "peakDrift": 0.038929891930748514,
+            "peakEffortViolation": 0.00000955362563104245,
+            "milliseconds": 96.42609999999695,
+            "height": 0.36583901684034226,
+            "contacts": [
+              "hand.left",
+              "shank.left",
+              "hand.right",
+              "shank.right"
+            ]
+          },
+          {
+            "posture": "fours",
+            "complete": true,
+            "steps": 1200,
+            "seconds": 10,
+            "peakDrift": 0.038929891930748514,
+            "peakEffortViolation": 0.00000955362563104245,
+            "totalEvaluations": 119187
+          }
+        ]
+      },
+      {
+        "name": "native-hold-fours-fast",
+        "rows": [
+          {
+            "posture": "fours",
+            "step": 1,
+            "response": 0.03,
+            "iterations": 3,
+            "evaluations": 114,
+            "cost": 0.1273683242135287,
+            "drift": 0.0007601150981563662,
+            "peakDrift": 0.0007601150981563662,
+            "peakEffortViolation": 0.000003015536549355602,
+            "milliseconds": 296.4654,
+            "height": 0.3629525308935295,
+            "contacts": [
+              "foot.left",
+              "foot.right"
+            ]
+          },
+          {
+            "posture": "fours",
+            "step": 2,
+            "response": 0.03,
+            "iterations": 3,
+            "evaluations": 112,
+            "cost": 0.2717515814440676,
+            "drift": 0.0017608185649086725,
+            "peakDrift": 0.0017608185649086725,
+            "peakEffortViolation": 0.000003015536549355602,
+            "milliseconds": 127.5068,
+            "height": 0.3625176446644909,
+            "contacts": [
+              "hand.left",
+              "shank.left",
+              "foot.left",
+              "hand.right",
+              "shank.right",
+              "foot.right"
+            ]
+          },
+          {
+            "posture": "fours",
+            "step": 3,
+            "response": 0.03,
+            "iterations": 3,
+            "evaluations": 109,
+            "cost": 0.034137154958849864,
+            "drift": 0.0027662096208442236,
+            "peakDrift": 0.0027662096208442236,
+            "peakEffortViolation": 0.000003015536549355602,
+            "milliseconds": 115.54109999999991,
+            "height": 0.3626816896215593,
+            "contacts": [
+              "hand.left",
+              "shank.left",
+              "hand.right",
+              "shank.right"
+            ]
+          },
+          {
+            "posture": "fours",
+            "step": 4,
+            "response": 0.03,
+            "iterations": 3,
+            "evaluations": 112,
+            "cost": 0.036336124205271866,
+            "drift": 0.0032074899297995616,
+            "peakDrift": 0.0032074899297995616,
+            "peakEffortViolation": 0.000003015536549355602,
+            "milliseconds": 113.6042000000001,
+            "height": 0.3628658980662436,
+            "contacts": [
+              "hand.left",
+              "shank.left",
+              "hand.right",
+              "shank.right"
+            ]
+          },
+          {
+            "posture": "fours",
+            "step": 5,
+            "response": 0.03,
+            "iterations": 3,
+            "evaluations": 111,
+            "cost": 0.009395870341007967,
+            "drift": 0.0032710467145591073,
+            "peakDrift": 0.0032710467145591073,
+            "peakEffortViolation": 0.000003039185898501273,
+            "milliseconds": 123.91190000000006,
+            "height": 0.36310372600881125,
+            "contacts": [
+              "hand.left",
+              "hand.right",
+              "shank.right"
+            ]
+          },
+          {
+            "posture": "fours",
+            "step": 120,
+            "response": 0.03,
+            "iterations": 3,
+            "evaluations": 112,
+            "cost": 0.0630664887038183,
+            "drift": 0.009401293478494666,
+            "peakDrift": 0.023180255643562873,
+            "peakEffortViolation": 0.000011295871175320826,
+            "milliseconds": 96.22320000000036,
+            "height": 0.36628512385277673,
+            "contacts": [
+              "hand.left",
+              "shank.left",
+              "foot.left",
+              "hand.right",
+              "shank.right",
+              "foot.right"
+            ]
+          },
+          {
+            "posture": "fours",
+            "complete": true,
+            "steps": 120,
+            "seconds": 1,
+            "peakDrift": 0.023180255643562873,
+            "peakEffortViolation": 0.000011295871175320826,
+            "totalEvaluations": 11422
+          }
+        ]
+      },
+      {
+        "name": "native-hold-kneel-10s",
+        "rows": [
+          {
+            "posture": "half-kneel",
+            "step": 1,
+            "response": 0.1,
+            "iterations": 3,
+            "evaluations": 112,
+            "cost": 0.13990294672195192,
+            "drift": 0.0006485070824514623,
+            "peakDrift": 0.0006485070824514623,
+            "peakEffortViolation": 0.0000014161430215153814,
+            "milliseconds": 285.6413,
+            "height": 0.5699138437788255,
+            "contacts": [
+              "foot.left",
+              "shank.right",
+              "foot.right"
+            ]
+          },
+          {
+            "posture": "half-kneel",
+            "step": 2,
+            "response": 0.1,
+            "iterations": 3,
+            "evaluations": 110,
+            "cost": 0.024586655702684052,
+            "drift": 0.0015326681345386886,
+            "peakDrift": 0.0015326681345386886,
+            "peakEffortViolation": 0.00000408138295426852,
+            "milliseconds": 129.79110000000003,
+            "height": 0.5704403284029655,
+            "contacts": [
+              "foot.left",
+              "shank.right",
+              "foot.right"
+            ]
+          },
+          {
+            "posture": "half-kneel",
+            "step": 3,
+            "response": 0.1,
+            "iterations": 3,
+            "evaluations": 114,
+            "cost": 0.006553115532426669,
+            "drift": 0.0023878680140863064,
+            "peakDrift": 0.0023878680140863064,
+            "peakEffortViolation": 0.000004495378746582901,
+            "milliseconds": 119.7396,
+            "height": 0.5710678693182771,
+            "contacts": [
+              "foot.left",
+              "shank.right",
+              "foot.right"
+            ]
+          },
+          {
+            "posture": "half-kneel",
+            "step": 4,
+            "response": 0.1,
+            "iterations": 3,
+            "evaluations": 76,
+            "cost": 0.002558268379572921,
+            "drift": 0.003170385953035295,
+            "peakDrift": 0.003170385953035295,
+            "peakEffortViolation": 0.000007773232482577441,
+            "milliseconds": 77.46220000000005,
+            "height": 0.571631127295505,
+            "contacts": [
+              "foot.left",
+              "shank.right",
+              "foot.right"
+            ]
+          },
+          {
+            "posture": "half-kneel",
+            "step": 5,
+            "response": 0.1,
+            "iterations": 3,
+            "evaluations": 40,
+            "cost": 0.002390084781895047,
+            "drift": 0.003802074150024113,
+            "peakDrift": 0.003802074150024113,
+            "peakEffortViolation": 0.000007773232482577441,
+            "milliseconds": 41.08090000000004,
+            "height": 0.5721362566447904,
+            "contacts": [
+              "foot.left",
+              "shank.right",
+              "foot.right"
+            ]
+          },
+          {
+            "posture": "half-kneel",
+            "step": 120,
+            "response": 0.1,
+            "iterations": 3,
+            "evaluations": 40,
+            "cost": 0.000037215752752061715,
+            "drift": 0.0051590442343279665,
+            "peakDrift": 0.005166373089780679,
+            "peakEffortViolation": 0.000020069864660854364,
+            "milliseconds": 33.58840000000055,
+            "height": 0.5755732412074489,
+            "contacts": [
+              "foot.left",
+              "shank.right",
+              "foot.right"
+            ]
+          },
+          {
+            "posture": "half-kneel",
+            "step": 240,
+            "response": 0.1,
+            "iterations": 3,
+            "evaluations": 113,
+            "cost": 0.0000363145049185099,
+            "drift": 0.005096819580830998,
+            "peakDrift": 0.005209364368157705,
+            "peakEffortViolation": 0.00002016995622966533,
+            "milliseconds": 93.6752000000015,
+            "height": 0.5757305627412714,
+            "contacts": [
+              "foot.left",
+              "shank.right",
+              "foot.right"
+            ]
+          },
+          {
+            "posture": "half-kneel",
+            "step": 360,
+            "response": 0.1,
+            "iterations": 3,
+            "evaluations": 117,
+            "cost": 0.00003980757784957387,
+            "drift": 0.005464816520638485,
+            "peakDrift": 0.005502924192854583,
+            "peakEffortViolation": 0.000020683368830987092,
+            "milliseconds": 121.46649999999863,
+            "height": 0.5762681656153348,
+            "contacts": [
+              "foot.left",
+              "shank.right",
+              "foot.right"
+            ]
+          },
+          {
+            "posture": "half-kneel",
+            "step": 480,
+            "response": 0.1,
+            "iterations": 3,
+            "evaluations": 40,
+            "cost": 0.00003534111407530478,
+            "drift": 0.005430221476102548,
+            "peakDrift": 0.005518685460550615,
+            "peakEffortViolation": 0.00002193418700358052,
+            "milliseconds": 35.760699999998906,
+            "height": 0.5760865859330496,
+            "contacts": [
+              "foot.left",
+              "shank.right",
+              "foot.right"
+            ]
+          },
+          {
+            "posture": "half-kneel",
+            "step": 600,
+            "response": 0.1,
+            "iterations": 3,
+            "evaluations": 115,
+            "cost": 0.00003797470619371571,
+            "drift": 0.0054434867253984505,
+            "peakDrift": 0.005518763851402388,
+            "peakEffortViolation": 0.00002193418700358052,
+            "milliseconds": 122.71250000000146,
+            "height": 0.5761405698634924,
+            "contacts": [
+              "foot.left",
+              "shank.right",
+              "foot.right"
+            ]
+          },
+          {
+            "posture": "half-kneel",
+            "step": 720,
+            "response": 0.1,
+            "iterations": 3,
+            "evaluations": 111,
+            "cost": 0.000036888657615937945,
+            "drift": 0.0054750348198921,
+            "peakDrift": 0.005518763851402388,
+            "peakEffortViolation": 0.00002193418700358052,
+            "milliseconds": 124.40120000000024,
+            "height": 0.5762045200851917,
+            "contacts": [
+              "foot.left",
+              "shank.right",
+              "foot.right"
+            ]
+          },
+          {
+            "posture": "half-kneel",
+            "step": 840,
+            "response": 0.1,
+            "iterations": 3,
+            "evaluations": 115,
+            "cost": 0.000034743841078664814,
+            "drift": 0.0054358735342408745,
+            "peakDrift": 0.005518763851402388,
+            "peakEffortViolation": 0.00002193418700358052,
+            "milliseconds": 115.60910000000149,
+            "height": 0.5761763686220097,
+            "contacts": [
+              "foot.left",
+              "shank.right",
+              "foot.right"
+            ]
+          },
+          {
+            "posture": "half-kneel",
+            "step": 960,
+            "response": 0.1,
+            "iterations": 3,
+            "evaluations": 115,
+            "cost": 0.00003845995243767793,
+            "drift": 0.005508486346119451,
+            "peakDrift": 0.005538539073186345,
+            "peakEffortViolation": 0.00002193418700358052,
+            "milliseconds": 137.73109999998996,
+            "height": 0.5764175878412766,
+            "contacts": [
+              "foot.left",
+              "shank.right",
+              "foot.right"
+            ]
+          },
+          {
+            "posture": "half-kneel",
+            "step": 1080,
+            "response": 0.1,
+            "iterations": 3,
+            "evaluations": 114,
+            "cost": 0.000037051581886038975,
+            "drift": 0.005467218712478133,
+            "peakDrift": 0.005538539073186345,
+            "peakEffortViolation": 0.00002193418700358052,
+            "milliseconds": 97.33950000000186,
+            "height": 0.5763798869526359,
+            "contacts": [
+              "foot.left",
+              "shank.right",
+              "foot.right"
+            ]
+          },
+          {
+            "posture": "half-kneel",
+            "step": 1200,
+            "response": 0.1,
+            "iterations": 3,
+            "evaluations": 114,
+            "cost": 0.00004132144974857586,
+            "drift": 0.005581752239393376,
+            "peakDrift": 0.005587674749624998,
+            "peakEffortViolation": 0.00002193418700358052,
+            "milliseconds": 149.41109999999753,
+            "height": 0.5769373858440343,
+            "contacts": [
+              "foot.left",
+              "shank.right",
+              "foot.right"
+            ]
+          },
+          {
+            "posture": "half-kneel",
+            "complete": true,
+            "steps": 1200,
+            "seconds": 10,
+            "peakDrift": 0.005587674749624998,
+            "peakEffortViolation": 0.00002193418700358052,
+            "totalEvaluations": 106085
+          }
+        ]
+      }
+    ],
+    "transfer": {
+      "source": "import fs from 'node:fs';\nimport assert from 'node:assert/strict';\nimport { NullEngine } from '@babylonjs/core/Engines/nullEngine.js';\nimport { Scene } from '@babylonjs/core/scene.js';\nimport { Quaternion } from '@babylonjs/core/Maths/math.vector.js';\nimport { freshEngine, saveStand, loadStand } from '../tests/harness/core-stand.mjs';\nimport { createWorld } from '../src/core/world.ts';\nimport { buildBody } from '../src/core/build/build-body.ts';\nimport { modelSpec } from '../src/core/human/spec.ts';\nimport { createPolicyBody } from '../src/core/mind/direct.ts';\nimport { boundedWork, linearWork, solveLinearTo, boundedLeastSquaresTo } from '../src/core/math/flat.ts';\nconst poses = JSON.parse(fs.readFileSync('assets/research/posture-holds.json', 'utf8'));\nconst posture = 'fours', duration = Number(process.env.NATIVE_DURATION ?? 6), steps = (2 + duration + 10) * 120;\nconst response = Number(process.env.NATIVE_RESPONSE ?? .1), iterations = Number(process.env.NATIVE_UPDATES ?? 3);\nconst rendering = new NullEngine(), scene = new Scene(rendering);\nconst world = createWorld(scene, await freshEngine('rapier-coordinate-coulomb'), { hz: 120, actuation: 'directional' });\nworld.physics.addFixedBox([0, -.5, 0], [20, 1, 20]);\nconst built = buildBody(modelSpec('workshop-fighter'), world, poses.find(p => p.id === posture).placement);\nconst command = { torque: [], steps: 0 };\nlet channels;\nconst body = createPolicyBody(built, world, m => {\n  channels = m.channels;\n  command.torque = m.channels.map(() => 0);\n  return { name: 'offline-native-hold', state: command, step() { command.steps++; return { kind: 'torque', torque: command.torque }; } };\n});\n\nconst endScene = new Scene(rendering), endWorld = createWorld(endScene, await freshEngine('rapier-coordinate-coulomb'), { hz: 120, actuation: 'directional' });\nconst endBuilt = buildBody(modelSpec('workshop-fighter'), endWorld, poses.find(p => p.id === 'half-kneel').placement);\nconst endBody = createPolicyBody(endBuilt, endWorld, m => ({ name: 'target-reading', state: {}, step() { return { kind: 'torque', torque: m.channels.map(() => 0) }; } }));\nconst startPose = body.observe(), endPose = endBody.observe();\nendBody.dispose(); endBuilt.dispose(); endWorld.dispose(); endScene.dispose();\nconst states = { body: body.state }, n = startPose.joints.length; let reference = startPose;\nconst linear = linearWork(n), bounded = boundedWork(n), regularization = 1e-6;\nlet peakDrift = 0, peakEffortViolation = 0, totalEvaluations = 0;\ntry {\n  for (let step = 0; step < steps; step++) {\n    const t = Math.max(0, Math.min(1, (step / 120 - 2) / duration)), u = t * t * (3 - 2 * t);\n    reference = { ...startPose, segments: startPose.segments.map((s, i) => {\n      const end = endPose.segments[i], sign = s.rotation.reduce((sum, v, k) => sum + v * end.rotation[k], 0) < 0 ? -1 : 1;\n      const q = new Quaternion(...s.rotation.map((v, k) => (1 - u) * v + u * sign * end.rotation[k])).normalize();\n      return { ...s, centre: s.centre.map((v, k) => (1 - u) * v + u * end.centre[k]), position: s.position.map((v, k) => (1 - u) * v + u * end.position[k]), rotation: q.asArray() };\n    }) };\n    const started = performance.now(), before = body.observe(), saved = saveStand(world, states), dt = world.dt;\n    const scale = channels.map(j => Math.max(j.positive, j.negative, 1));\n    const lo = channels.map((j, i) => -j.negative / scale[i]), hi = channels.map((j, i) => j.positive / scale[i]);\n    const targets = before.segments.map((s, i) => {\n      const q = new Quaternion(...reference.segments[i].rotation).multiply(Quaternion.Inverse(new Quaternion(...s.rotation)));\n      const sign = q.w < 0 ? -1 : 1, rate = 1 / response;\n      return { linear: s.velocity.map((v, k) => v + dt * (rate * rate * (reference.segments[i].centre[k] - s.centre[k]) - 2 * rate * v)),\n        angular: s.spin.map((v, k) => v + dt * (2 * rate * rate * sign * [q.x, q.y, q.z][k] - 2 * rate * v)) };\n    });\n    let evaluations = 0;\n    const evaluate = x => {\n      loadStand(world, states, saved); command.torque = x.map((v, i) => v * scale[i]); world.step(); evaluations++;\n      const observation = body.observe();\n      const residual = observation.segments.flatMap((s, i) => {\n        const weight = s.name === 'lowerTrunk' ? 3 : 1;\n        return [...s.velocity.map((v, k) => weight * (v - targets[i].linear[k])), ...s.spin.map((v, k) => weight * .1 * (v - targets[i].angular[k]))];\n      });\n      return { residual, observation, cost: residual.reduce((sum, v) => sum + v * v, 0) + regularization * x.reduce((sum, v) => sum + v * v, 0) };\n    };\n    let x = command.torque.map((v, i) => Math.max(lo[i], Math.min(hi[i], v / scale[i]))), current = evaluate(x);\n    for (let iteration = 0; iteration < iterations; iteration++) {\n      const columns = [];\n      for (let i = 0; i < n; i++) {\n        const z = [...x], epsilon = x[i] + .001 <= hi[i] ? .001 : -.001; z[i] += epsilon;\n        const r = evaluate(z); columns.push(r.residual.map((v, k) => (v - current.residual[k]) / epsilon));\n      }\n      const H = new Float64Array(n * n), rhs = new Float64Array(n), free = new Float64Array(n), delta = new Float64Array(n);\n      for (let i = 0; i < n; i++) {\n        for (let j = 0; j < n; j++) H[i * n + j] = columns[i].reduce((sum, v, k) => sum + v * columns[j][k], 0) + (i === j ? regularization : 0);\n        rhs[i] = -columns[i].reduce((sum, v, k) => sum + v * current.residual[k], 0) - regularization * x[i];\n      }\n      solveLinearTo(linear, H, rhs, n, free);\n      boundedLeastSquaresTo(bounded, H, free, lo.map((v, i) => Math.max(v - x[i], -.25)), hi.map((v, i) => Math.min(v - x[i], .25)), n, delta);\n      let accepted = false;\n      for (const length of [1, .5, .25, .125]) {\n        const z = x.map((v, i) => v + length * delta[i]), candidate = evaluate(z);\n        if (candidate.cost < current.cost) { x = z; current = candidate; accepted = true; break; }\n      }\n      if (!accepted) break;\n    }\n    loadStand(world, states, saved); command.torque = x.map((v, i) => v * scale[i]); world.step();\n    const actual = body.observe(); assert.deepEqual(actual, current.observation);\n    const drift = Math.max(...actual.segments.map((s, i) => Math.hypot(...s.position.map((v, k) => v - reference.segments[i].position[k]))));\n    peakDrift = Math.max(peakDrift, drift);\n    peakEffortViolation = Math.max(peakEffortViolation, ...actual.joints.map(j => Math.max(j.effort - j.positive, -j.effort - j.negative)));\n    totalEvaluations += evaluations;\n    if ((step + 1) % 120 === 0) console.log(JSON.stringify({ posture, duration, step: step + 1, response, iterations, evaluations, cost: current.cost, drift, peakDrift,\n      peakEffortViolation, milliseconds: performance.now() - started, height: actual.height,\n      contacts: [...new Set(actual.contacts.filter(c => c.fixed !== null && c.impulse > 0).map(c => c.segment))] }));\n  }\n  console.log(JSON.stringify({ posture, duration, complete: true, steps, seconds: steps / 120, peakDrift, peakEffortViolation, totalEvaluations, final: body.observe() }));\n} finally { body.dispose(); built.dispose(); world.dispose(); scene.dispose(); rendering.dispose(); }\n",
+      "rows": [
+        {
+          "posture": "fours",
+          "duration": 6,
+          "step": 120,
+          "response": 0.1,
+          "iterations": 3,
+          "evaluations": 40,
+          "cost": 0.0004501944265564422,
+          "drift": 0.0032196688736408816,
+          "peakDrift": 0.01028412778795291,
+          "peakEffortViolation": 0.000005423524441994232,
+          "milliseconds": 37.03770000000077,
+          "height": 0.366322274741422,
+          "contacts": [
+            "hand.left",
+            "shank.left",
+            "hand.right",
+            "shank.right"
+          ]
+        },
+        {
+          "posture": "fours",
+          "duration": 6,
+          "step": 240,
+          "response": 0.1,
+          "iterations": 3,
+          "evaluations": 115,
+          "cost": 0.00028882578113172114,
+          "drift": 0.005170306374170626,
+          "peakDrift": 0.01028412778795291,
+          "peakEffortViolation": 0.000005423524441994232,
+          "milliseconds": 98.86809999999969,
+          "height": 0.3668691441596832,
+          "contacts": [
+            "hand.left",
+            "shank.left",
+            "foot.left",
+            "hand.right",
+            "shank.right"
+          ]
+        },
+        {
+          "posture": "fours",
+          "duration": 6,
+          "step": 360,
+          "response": 0.1,
+          "iterations": 3,
+          "evaluations": 79,
+          "cost": 0.047017256034417275,
+          "drift": 0.12732457412713957,
+          "peakDrift": 0.12732457412713957,
+          "peakEffortViolation": 0.000005613694334272168,
+          "milliseconds": 74.4323000000004,
+          "height": 0.37147426361181496,
+          "contacts": [
+            "hand.left",
+            "shank.left",
+            "foot.left",
+            "hand.right",
+            "shank.right"
+          ]
+        },
+        {
+          "posture": "fours",
+          "duration": 6,
+          "step": 480,
+          "response": 0.1,
+          "iterations": 3,
+          "evaluations": 114,
+          "cost": 0.2969640823815986,
+          "drift": 0.22509746785175624,
+          "peakDrift": 0.26590552197597134,
+          "peakEffortViolation": 0.00001039338130226497,
+          "milliseconds": 126.04550000000017,
+          "height": 0.37947432420395305,
+          "contacts": [
+            "hand.left",
+            "shank.left",
+            "hand.right",
+            "shank.right",
+            "foot.right"
+          ]
+        },
+        {
+          "posture": "fours",
+          "duration": 6,
+          "step": 600,
+          "response": 0.1,
+          "iterations": 3,
+          "evaluations": 111,
+          "cost": 3.610326725388197,
+          "drift": 0.883813950782604,
+          "peakDrift": 0.883813950782604,
+          "peakEffortViolation": 0.000016584252790607934,
+          "milliseconds": 127.90299999999843,
+          "height": 0.24990777690294125,
+          "contacts": [
+            "head",
+            "shank.right"
+          ]
+        },
+        {
+          "posture": "fours",
+          "duration": 6,
+          "step": 720,
+          "response": 0.1,
+          "iterations": 3,
+          "evaluations": 114,
+          "cost": 9.450284683917019,
+          "drift": 1.1823954937103294,
+          "peakDrift": 1.1823954937103294,
+          "peakEffortViolation": 0.000016584252790607934,
+          "milliseconds": 165.41629999999714,
+          "height": 0.22654577266108178,
+          "contacts": [
+            "upperTrunk",
+            "shank.left",
+            "shank.right"
+          ]
+        },
+        {
+          "posture": "fours",
+          "duration": 6,
+          "step": 840,
+          "response": 0.1,
+          "iterations": 3,
+          "evaluations": 40,
+          "cost": 10.80937876243099,
+          "drift": 1.2457606135033585,
+          "peakDrift": 1.2664290693747908,
+          "peakEffortViolation": 0.000018748302238691394,
+          "milliseconds": 60.79009999999835,
+          "height": 0.23204435937288603,
+          "contacts": [
+            "upperTrunk",
+            "thigh.right"
+          ]
+        },
+        {
+          "posture": "fours",
+          "duration": 6,
+          "step": 960,
+          "response": 0.1,
+          "iterations": 3,
+          "evaluations": 114,
+          "cost": 9.746450373961249,
+          "drift": 1.2844960061597803,
+          "peakDrift": 1.3059544224128385,
+          "peakEffortViolation": 0.000021128511036749842,
+          "milliseconds": 175.80340000000433,
+          "height": 0.21539713288585208,
+          "contacts": [
+            "head",
+            "upperTrunk",
+            "thigh.right",
+            "foot.right"
+          ]
+        },
+        {
+          "posture": "fours",
+          "duration": 6,
+          "step": 1080,
+          "response": 0.1,
+          "iterations": 3,
+          "evaluations": 110,
+          "cost": 6.666010933799513,
+          "drift": 1.1945479453042036,
+          "peakDrift": 1.3059544224128385,
+          "peakEffortViolation": 0.000021893956983376484,
+          "milliseconds": 209.2612999999983,
+          "height": 0.21636250632118684,
+          "contacts": [
+            "head",
+            "thigh.right"
+          ]
+        },
+        {
+          "posture": "fours",
+          "duration": 6,
+          "step": 1200,
+          "response": 0.1,
+          "iterations": 3,
+          "evaluations": 115,
+          "cost": 4.454630717080003,
+          "drift": 1.0465992155920485,
+          "peakDrift": 1.3059544224128385,
+          "peakEffortViolation": 0.000021893956983376484,
+          "milliseconds": 149.3478999999934,
+          "height": 0.231550756242709,
+          "contacts": [
+            "upperTrunk",
+            "foot.right"
+          ]
+        },
+        {
+          "posture": "fours",
+          "duration": 6,
+          "step": 1320,
+          "response": 0.1,
+          "iterations": 3,
+          "evaluations": 114,
+          "cost": 4.676547807451387,
+          "drift": 0.9688007793280534,
+          "peakDrift": 1.3059544224128385,
+          "peakEffortViolation": 0.000021893956983376484,
+          "milliseconds": 159.0734999999986,
+          "height": 0.23692525456186894,
+          "contacts": [
+            "upperTrunk",
+            "thigh.right",
+            "foot.right"
+          ]
+        },
+        {
+          "posture": "fours",
+          "duration": 6,
+          "step": 1440,
+          "response": 0.1,
+          "iterations": 3,
+          "evaluations": 112,
+          "cost": 4.675224022647561,
+          "drift": 1.066627831714921,
+          "peakDrift": 1.3059544224128385,
+          "peakEffortViolation": 0.000021893956983376484,
+          "milliseconds": 1253.8322000000044,
+          "height": 0.23394897662441297,
+          "contacts": [
+            "head",
+            "thigh.right"
+          ]
+        },
+        {
+          "posture": "fours",
+          "duration": 6,
+          "step": 1560,
+          "response": 0.1,
+          "iterations": 3,
+          "evaluations": 111,
+          "cost": 4.844924270075819,
+          "drift": 1.0434361600217115,
+          "peakDrift": 1.3059544224128385,
+          "peakEffortViolation": 0.000021893956983376484,
+          "milliseconds": 265.0198000000091,
+          "height": 0.2369384576495682,
+          "contacts": [
+            "upperTrunk",
+            "thigh.right"
+          ]
+        },
+        {
+          "posture": "fours",
+          "duration": 6,
+          "step": 1680,
+          "response": 0.1,
+          "iterations": 3,
+          "evaluations": 115,
+          "cost": 6.736103782414961,
+          "drift": 1.0560437149907254,
+          "peakDrift": 1.3059544224128385,
+          "peakEffortViolation": 0.000021893956983376484,
+          "milliseconds": 355.0997999999672,
+          "height": 0.24048759142492604,
+          "contacts": [
+            "head",
+            "thigh.right",
+            "foot.right"
+          ]
+        },
+        {
+          "posture": "fours",
+          "duration": 6,
+          "step": 1800,
+          "response": 0.1,
+          "iterations": 3,
+          "evaluations": 114,
+          "cost": 5.226251673482915,
+          "drift": 1.095493046263275,
+          "peakDrift": 1.3059544224128385,
+          "peakEffortViolation": 0.000021893956983376484,
+          "milliseconds": 252.00260000000708,
+          "height": 0.2390212432841766,
+          "contacts": [
+            "head",
+            "thigh.right"
+          ]
+        },
+        {
+          "posture": "fours",
+          "duration": 6,
+          "step": 1920,
+          "response": 0.1,
+          "iterations": 3,
+          "evaluations": 113,
+          "cost": 4.820304197501489,
+          "drift": 1.0660632603242082,
+          "peakDrift": 1.3059544224128385,
+          "peakEffortViolation": 0.000021903366132391966,
+          "milliseconds": 225.4204000000027,
+          "height": 0.23554142716017998,
+          "contacts": [
+            "upperTrunk",
+            "thigh.right"
+          ]
+        },
+        {
+          "posture": "fours",
+          "duration": 6,
+          "step": 2040,
+          "response": 0.1,
+          "iterations": 3,
+          "evaluations": 79,
+          "cost": 4.521075983310409,
+          "drift": 1.0436589779529868,
+          "peakDrift": 1.3059544224128385,
+          "peakEffortViolation": 0.000021903366132391966,
+          "milliseconds": 134.66419999999925,
+          "height": 0.25171002607025916,
+          "contacts": [
+            "head",
+            "thigh.right"
+          ]
+        },
+        {
+          "posture": "fours",
+          "duration": 6,
+          "step": 2160,
+          "response": 0.1,
+          "iterations": 3,
+          "evaluations": 77,
+          "cost": 5.041278798003993,
+          "drift": 1.0451167088730005,
+          "peakDrift": 1.3059544224128385,
+          "peakEffortViolation": 0.000021903366132391966,
+          "milliseconds": 149.03159999998752,
+          "height": 0.24115615134284757,
+          "contacts": [
+            "head",
+            "thigh.right"
+          ]
+        },
+        {
+          "posture": "fours",
+          "duration": 6,
+          "complete": true,
+          "steps": 2160,
+          "seconds": 18,
+          "peakDrift": 1.3059544224128385,
+          "peakEffortViolation": 0.000021903366132391966,
+          "totalEvaluations": 217383,
+          "final": {
+            "time": 18,
+            "level": "full",
+            "model": "workshop-fighter",
+            "centre": [
+              0.15130309682319296,
+              0.24088483942593203,
+              0.20507380714621645
+            ],
+            "head": [
+              0.11450344916010356,
+              0.09205681809720428,
+              0.6120601925425564
+            ],
+            "height": 0.24115615134284757,
+            "down": true,
+            "segments": [
+              {
+                "name": "head",
+                "position": [
+                  0.20245005190372467,
+                  0.08851839601993561,
+                  0.5236459970474243
+                ],
+                "rotation": [
+                  0.5496261119842529,
+                  -0.08612687140703201,
+                  0.42863717675209045,
+                  0.7118731737136841
+                ],
+                "centre": [
+                  0.11450344993797877,
+                  0.09205681946409806,
+                  0.6120601925276709
+                ],
+                "velocity": [
+                  -0.5849472284317017,
+                  -0.07890569418668747,
+                  -0.13809147477149963
+                ],
+                "spin": [
+                  -3.91996169090271,
+                  -0.6300537586212158,
+                  7.080799102783203
+                ]
+              },
+              {
+                "name": "upperTrunk",
+                "position": [
+                  0.20245030522346497,
+                  0.08853012323379517,
+                  0.5236547589302063
+                ],
+                "rotation": [
+                  0.3683573305606842,
+                  -0.02877129800617695,
+                  0.10691898316144943,
+                  -0.9230673909187317
+                ],
+                "centre": [
+                  0.22295986477183946,
+                  0.1706847590436677,
+                  0.4437784958597445
+                ],
+                "velocity": [
+                  -0.40434789657592773,
+                  0.1645534485578537,
+                  -0.0784260705113411
+                ],
+                "spin": [
+                  -0.4986523389816284,
+                  -1.4469754695892334,
+                  0.05651329830288887
+                ]
+              },
+              {
+                "name": "middleTrunk",
+                "position": [
+                  0.2429405152797699,
+                  0.2507008910179138,
+                  0.3659743666648865
+                ],
+                "rotation": [
+                  0.49958693981170654,
+                  -0.2389034479856491,
+                  0.03329503908753395,
+                  -0.8320032954216003
+                ],
+                "centre": [
+                  0.22606194198141924,
+                  0.2966128888259039,
+                  0.2879617427207486
+                ],
+                "velocity": [
+                  -0.1945686638355255,
+                  0.08767878264188766,
+                  -0.12876160442829132
+                ],
+                "spin": [
+                  -0.7652531266212463,
+                  -0.8247280120849609,
+                  -0.6134659647941589
+                ]
+              },
+              {
+                "name": "lowerTrunk",
+                "position": [
+                  0.20545411109924316,
+                  0.3526742160320282,
+                  0.1926824450492859
+                ],
+                "rotation": [
+                  0.6939096450805664,
+                  -0.13167043030261993,
+                  0.07887669652700424,
+                  -0.7035132050514221
+                ],
+                "centre": [
+                  0.19938659861753258,
+                  0.3547489912972219,
+                  0.10836502527196303
+                ],
+                "velocity": [
+                  0.0057752700522542,
+                  0.01058945618569851,
+                  -0.18878673017024994
+                ],
+                "spin": [
+                  -0.5628913640975952,
+                  -0.9475427269935608,
+                  -0.5975572466850281
+                ]
+              },
+              {
+                "name": "upperArm.left",
+                "position": [
+                  0.028367986902594566,
+                  0.1982855200767517,
+                  0.44021403789520264
+                ],
+                "rotation": [
+                  0.3626457154750824,
+                  -0.1534520983695984,
+                  -0.09185643494129181,
+                  -0.9146053791046143
+                ],
+                "centre": [
+                  -0.013347244647326055,
+                  0.3058286405149138,
+                  0.34535575324981005
+                ],
+                "velocity": [
+                  -0.3119567930698395,
+                  0.10791192948818207,
+                  -0.4506720006465912
+                ],
+                "spin": [
+                  -0.02207041159272194,
+                  -2.0385489463806152,
+                  1.2275731563568115
+                ]
+              },
+              {
+                "name": "forearm.left",
+                "position": [
+                  -0.043887749314308167,
+                  0.3845967948436737,
+                  0.27585798501968384
+                ],
+                "rotation": [
+                  0.5084033012390137,
+                  -0.3908669352531433,
+                  0.027847910299897194,
+                  -0.7667943239212036
+                ],
+                "centre": [
+                  -0.08702266072034164,
+                  0.44314715364840596,
+                  0.17840180461784674
+                ],
+                "velocity": [
+                  -0.053318824619054794,
+                  0.2708882689476013,
+                  -0.4856823980808258
+                ],
+                "spin": [
+                  2.068066358566284,
+                  -2.084207773208618,
+                  0.07323721796274185
+                ]
+              },
+              {
+                "name": "hand.left",
+                "position": [
+                  -0.1381923258304596,
+                  0.5126037001609802,
+                  0.06279221177101135
+                ],
+                "rotation": [
+                  -0.4835717976093292,
+                  -0.1699008345603943,
+                  0.433273583650589,
+                  0.7413272261619568
+                ],
+                "centre": [
+                  -0.17378995139916736,
+                  0.5242838623007295,
+                  -0.0015559843098869597
+                ],
+                "velocity": [
+                  0.17820242047309875,
+                  0.4001215100288391,
+                  -0.46611925959587097
+                ],
+                "spin": [
+                  -1.4494777917861938,
+                  0.0022814569529145956,
+                  0.3617437779903412
+                ]
+              },
+              {
+                "name": "thigh.left",
+                "position": [
+                  0.09024657309055328,
+                  0.38852062821388245,
+                  0.06315093487501144
+                ],
+                "rotation": [
+                  0.9059990644454956,
+                  -0.37539610266685486,
+                  0.01094853412359953,
+                  0.19525277614593506
+                ],
+                "centre": [
+                  -0.03303057264856665,
+                  0.27291290854692085,
+                  0.1253894826091776
+                ],
+                "velocity": [
+                  -0.12540975213050842,
+                  0.2629965543746948,
+                  -0.3026282787322998
+                ],
+                "spin": [
+                  -0.4402942359447479,
+                  -0.326030969619751,
+                  -1.4465094804763794
+                ]
+              },
+              {
+                "name": "shank.left",
+                "position": [
+                  -0.21079567074775696,
+                  0.1062060296535492,
+                  0.21513858437538147
+                ],
+                "rotation": [
+                  0.4450504183769226,
+                  -0.09423065930604935,
+                  0.35596710443496704,
+                  -0.8162953853607178
+                ],
+                "centre": [
+                  -0.11396685569925638,
+                  0.17444251833894647,
+                  0.06059546935707938
+                ],
+                "velocity": [
+                  -0.23928897082805634,
+                  0.37345051765441895,
+                  -0.27030208706855774
+                ],
+                "spin": [
+                  -0.2601800858974457,
+                  -0.36007100343704224,
+                  -1.4784399271011353
+                ]
+              },
+              {
+                "name": "foot.left",
+                "position": [
+                  0.10725881159305573,
+                  0.2965982258319855,
+                  -0.14289003610610962
+                ],
+                "rotation": [
+                  0.8015580773353577,
+                  -0.4158119559288025,
+                  0.42965543270111084,
+                  -0.0011129822814837098
+                ],
+                "centre": [
+                  0.022809511578286104,
+                  0.21360033271972487,
+                  -0.18844840135898147
+                ],
+                "velocity": [
+                  0.3107983469963074,
+                  0.2777579128742218,
+                  -0.2905139625072479
+                ],
+                "spin": [
+                  2.3898704051971436,
+                  -5.649383544921875,
+                  1.2193684577941895
+                ]
+              },
+              {
+                "name": "upperArm.right",
+                "position": [
+                  0.41063836216926575,
+                  0.11262041330337524,
+                  0.450274258852005
+                ],
+                "rotation": [
+                  0.4819072186946869,
+                  0.2734721302986145,
+                  0.03876548632979393,
+                  -0.831550121307373
+                ],
+                "centre": [
+                  0.4596304167423011,
+                  0.19215011731408443,
+                  0.33374711558369763
+                ],
+                "velocity": [
+                  -0.27304381132125854,
+                  0.009311085566878319,
+                  0.15391138195991516
+                ],
+                "spin": [
+                  -1.5764163732528687,
+                  -1.2989535331726074,
+                  0.279723197221756
+                ]
+              },
+              {
+                "name": "forearm.right",
+                "position": [
+                  0.4955396056175232,
+                  0.2503896653652191,
+                  0.24840617179870605
+                ],
+                "rotation": [
+                  0.5398600101470947,
+                  0.4974130690097809,
+                  -0.0999174416065216,
+                  -0.6716755032539368
+                ],
+                "centre": [
+                  0.5445251307858838,
+                  0.29868119877930455,
+                  0.14813241945441036
+                ],
+                "velocity": [
+                  -0.20746088027954102,
+                  -0.049699246883392334,
+                  0.14709538221359253
+                ],
+                "spin": [
+                  -0.02366788685321808,
+                  -0.6229956150054932,
+                  1.1841691732406616
+                ]
+              },
+              {
+                "name": "hand.right",
+                "position": [
+                  0.6026353240013123,
+                  0.35596802830696106,
+                  0.02918063849210739
+                ],
+                "rotation": [
+                  0.28182661533355713,
+                  -0.2097015678882599,
+                  0.5757777094841003,
+                  -0.7382946610450745
+                ],
+                "centre": [
+                  0.6571392459168104,
+                  0.3692299334745016,
+                  -0.01978619478655045
+                ],
+                "velocity": [
+                  -0.24860836565494537,
+                  0.09903040528297424,
+                  0.15140362083911896
+                ],
+                "spin": [
+                  0.3380211889743805,
+                  0.6419649720191956,
+                  1.2138583660125732
+                ]
+              },
+              {
+                "name": "thigh.right",
+                "position": [
+                  0.3008217215538025,
+                  0.3236086964607239,
+                  0.04642605036497116
+                ],
+                "rotation": [
+                  0.9030295610427856,
+                  -0.4020191729068756,
+                  0.12838871777057648,
+                  -0.080215223133564
+                ],
+                "centre": [
+                  0.173765997595902,
+                  0.20404166324044493,
+                  0.001742704010064794
+                ],
+                "velocity": [
+                  0.02595553733408451,
+                  -0.03767600655555725,
+                  -0.15050554275512695
+                ],
+                "spin": [
+                  -0.67431640625,
+                  -1.2127909660339355,
+                  -0.563773512840271
+                ]
+              },
+              {
+                "name": "shank.right",
+                "position": [
+                  -0.009451210498809814,
+                  0.03162681311368942,
+                  -0.06268855929374695
+                ],
+                "rotation": [
+                  0.17682494223117828,
+                  0.005644558928906918,
+                  0.42814555764198303,
+                  -0.8862237930297852
+                ],
+                "centre": [
+                  0.1387032630159804,
+                  0.14278212357616651,
+                  -0.12277495658209425
+                ],
+                "velocity": [
+                  0.13750529289245605,
+                  -0.10159309953451157,
+                  -0.16067399084568024
+                ],
+                "spin": [
+                  -0.6572047472000122,
+                  -1.1280957460403442,
+                  -0.594276487827301
+                ]
+              },
+              {
+                "name": "foot.right",
+                "position": [
+                  0.39454853534698486,
+                  0.3560936748981476,
+                  -0.164289653301239
+                ],
+                "rotation": [
+                  0.8291136026382446,
+                  -0.31669390201568604,
+                  0.2378573715686798,
+                  -0.39458781480789185
+                ],
+                "centre": [
+                  0.35173775148868436,
+                  0.29417991383833975,
+                  -0.2664161807510601
+                ],
+                "velocity": [
+                  0.21438808739185333,
+                  -0.31335604190826416,
+                  -0.08250898122787476
+                ],
+                "spin": [
+                  -1.311874270439148,
+                  1.1332260370254517,
+                  1.2666810750961304
+                ]
+              }
+            ],
+            "joints": [
+              {
+                "name": "neck flexion",
+                "angle": -1.0632210203381842,
+                "rate": -0.5693389330496625,
+                "speed": -3.335793211840599,
+                "effort": -10.258976519107819,
+                "negative": 10.258975904164659,
+                "positive": 0
+              },
+              {
+                "name": "neck lateral flexion right",
+                "angle": -0.4694253029266842,
+                "rate": 4.084116141859282,
+                "speed": 5.612590702434068,
+                "effort": 4.65162456035614,
+                "negative": 0,
+                "positive": 4.651624392144876
+              },
+              {
+                "name": "neck rotation right",
+                "angle": 1.111114410200662,
+                "rate": 7.604550036159368,
+                "speed": 4.3685945370143635,
+                "effort": 1.1862672865390778,
+                "negative": 0,
+                "positive": 1.1862672222114055
+              },
+              {
+                "name": "thoracic flexion",
+                "angle": 0.3682923462969027,
+                "rate": 0.3066377199801707,
+                "speed": 0.17453310017494705,
+                "effort": 25.110161304473877,
+                "negative": 0,
+                "positive": 25.11016091401076
+              },
+              {
+                "name": "thoracic lateral flexion right",
+                "angle": -0.2722948408765057,
+                "rate": -0.016199500999839474,
+                "speed": -0.13346738996100388,
+                "effort": 15.642666220664978,
+                "negative": 0,
+                "positive": 15.642666291592349
+              },
+              {
+                "name": "thoracic rotation right",
+                "angle": 0.32023256526549165,
+                "rate": 0.9356688257669318,
+                "speed": 0.9267495844520197,
+                "effort": 1.4145394787192345,
+                "negative": 0,
+                "positive": 1.4145394931967736
+              },
+              {
+                "name": "lumbar flexion",
+                "angle": 0.4308734235399516,
+                "rate": -0.22333060194887486,
+                "speed": -0.22769388367412324,
+                "effort": 93.9604926109314,
+                "negative": 0,
+                "positive": 93.96049046321524
+              },
+              {
+                "name": "lumbar lateral flexion right",
+                "angle": 0.292285346195256,
+                "rate": 0.033818948846621205,
+                "speed": 0.05768018457340544,
+                "effort": 12.564021348953247,
+                "negative": 0,
+                "positive": 12.564021505137422
+              },
+              {
+                "name": "lumbar rotation right",
+                "angle": -0.08734845462629605,
+                "rate": -0.07764241667340092,
+                "speed": -0.033396375084543226,
+                "effort": -43.82376551628113,
+                "negative": 43.82376348222192,
+                "positive": 0
+              },
+              {
+                "name": "shoulder.left flexion",
+                "angle": -0.021362826498021324,
+                "rate": 0.14372065606373066,
+                "speed": 0.2881492227749289,
+                "effort": 0.5375863239169121,
+                "negative": 0,
+                "positive": 0.5375862752744326
+              },
+              {
+                "name": "shoulder.left abduction",
+                "angle": -0.2559764523716168,
+                "rate": 0.49327161310189466,
+                "speed": 0.48416976087187674,
+                "effort": -39.79406476020813,
+                "negative": 39.794061768908236,
+                "positive": 0
+              },
+              {
+                "name": "shoulder.left internal rotation",
+                "angle": -0.07727332142795212,
+                "rate": 1.3115008585478765,
+                "speed": 1.2771140673290307,
+                "effort": -16.016242504119873,
+                "negative": 16.016241184788782,
+                "positive": 0
+              },
+              {
+                "name": "elbow.left flexion",
+                "angle": -0.5040698231833969,
+                "rate": -2.3795386760029866,
+                "speed": -2.3795386760029866,
+                "effort": -4.006365537643433,
+                "negative": 4.006365308037209,
+                "positive": 0
+              },
+              {
+                "name": "wrist.left flexion",
+                "angle": -0.2446254993825398,
+                "rate": -0.6993552121212947,
+                "speed": -1.4621554426733674,
+                "effort": -0.01634473039302975,
+                "negative": 0.0163447301777962,
+                "positive": 0
+              },
+              {
+                "name": "wrist.left radial deviation",
+                "angle": 0.25955475283462204,
+                "rate": 3.648171389022342,
+                "speed": 3.253713669263588,
+                "effort": -0.5871778540313244,
+                "negative": 0.5871778040210531,
+                "positive": 0
+              },
+              {
+                "name": "wrist.left pronation",
+                "angle": -0.6960692906561327,
+                "rate": -2.3997780526700008,
+                "speed": -2.02119736638971,
+                "effort": -0.05796265904791653,
+                "negative": 0.057962654733573954,
+                "positive": 0
+              },
+              {
+                "name": "hip.left flexion",
+                "angle": 1.8191702204410733,
+                "rate": 0.21737265153052007,
+                "speed": -0.07148562931514857,
+                "effort": 90.19338369369507,
+                "negative": 0,
+                "positive": 90.19338151045204
+              },
+              {
+                "name": "hip.left abduction",
+                "angle": 0.34487284076425767,
+                "rate": 1.7563548092238683,
+                "speed": 0.7181811456858062,
+                "effort": -20.13192594051361,
+                "negative": 20.131926251166867,
+                "positive": 0
+              },
+              {
+                "name": "hip.left internal rotation",
+                "angle": -0.8151315001072234,
+                "rate": 0.0011144127044381497,
+                "speed": -0.7753274206950683,
+                "effort": -48.5597562789917,
+                "negative": 48.559754573694875,
+                "positive": 0
+              },
+              {
+                "name": "knee.left flexion",
+                "angle": 2.457497236971787,
+                "rate": 0.14700158716679743,
+                "speed": 0.14700158716679743,
+                "effort": 92.72866487503052,
+                "negative": 0,
+                "positive": 92.72865853658537
+              },
+              {
+                "name": "ankle.left dorsiflexion",
+                "angle": 0.28215122713284474,
+                "rate": -6.719961244738306,
+                "speed": -6.137037175752958,
+                "effort": -5.364359803497791,
+                "negative": 52.640929115419006,
+                "positive": 0
+              },
+              {
+                "name": "ankle.left inversion",
+                "angle": 0.6035611374613244,
+                "rate": 0.7384694813182486,
+                "speed": 0.7251359445702199,
+                "effort": 6.066298484802246,
+                "negative": 0,
+                "positive": 6.066297991860175
+              },
+              {
+                "name": "shoulder.right flexion",
+                "angle": -0.046013342901702274,
+                "rate": 0.8688189245025151,
+                "speed": 0.6519486168817011,
+                "effort": 28.061344027519226,
+                "negative": 0,
+                "positive": 28.06134271510271
+              },
+              {
+                "name": "shoulder.right abduction",
+                "angle": -0.5796352127096989,
+                "rate": -0.4317009533418815,
+                "speed": -0.11329259707621728,
+                "effort": -93.90490293502808,
+                "negative": 93.90490298752225,
+                "positive": 0
+              },
+              {
+                "name": "shoulder.right internal rotation",
+                "angle": -0.6915465481982267,
+                "rate": -0.723466969400418,
+                "speed": -0.891872330529896,
+                "effort": -18.957332968711853,
+                "negative": 18.95733170881195,
+                "positive": 0
+              },
+              {
+                "name": "elbow.right flexion",
+                "angle": -0.6445693125294536,
+                "rate": -1.9110424624408568,
+                "speed": -1.9110424624408566,
+                "effort": -2.3234640061855316,
+                "negative": 2.323463942065242,
+                "positive": 0
+              },
+              {
+                "name": "wrist.right flexion",
+                "angle": -0.5822840224694454,
+                "rate": 1.0884821991830218,
+                "speed": 0.998687938143168,
+                "effort": -0.057496726512908936,
+                "negative": 0.05749672415887319,
+                "positive": 0
+              },
+              {
+                "name": "wrist.right radial deviation",
+                "angle": 0.2688869916668056,
+                "rate": -0.4714784977818467,
+                "speed": -0.587872215779458,
+                "effort": -0.3137462865561247,
+                "negative": 0.3137462796635546,
+                "positive": 0
+              },
+              {
+                "name": "wrist.right pronation",
+                "angle": -0.05143545688374685,
+                "rate": 0.674370013501988,
+                "speed": 0.6235821101961948,
+                "effort": -0.13801671098917723,
+                "negative": 0.13801669993550844,
+                "positive": 0
+              },
+              {
+                "name": "hip.right flexion",
+                "angle": 1.2631161752122817,
+                "rate": -0.05529000921173323,
+                "speed": 0.03064716514662736,
+                "effort": 16.960405111312866,
+                "negative": 0,
+                "positive": 16.960403866460283
+              },
+              {
+                "name": "hip.right abduction",
+                "angle": -0.3290650146166613,
+                "rate": 0.297001679245831,
+                "speed": 0.28803284432229453,
+                "effort": 45.849058628082275,
+                "negative": 0,
+                "positive": 45.84905652430345
+              },
+              {
+                "name": "hip.right internal rotation",
+                "angle": 0.6476257736104372,
+                "rate": 0.18290689085832923,
+                "speed": -0.0033691670466216017,
+                "effort": -43.386640548706055,
+                "negative": 43.38663727002828,
+                "positive": 0
+              },
+              {
+                "name": "knee.right flexion",
+                "angle": 2.456737842979205,
+                "rate": -0.057328450245588115,
+                "speed": -0.057328450245588115,
+                "effort": -22.606928944587708,
+                "negative": 22.606927213555554,
+                "positive": 0
+              },
+              {
+                "name": "ankle.right dorsiflexion",
+                "angle": 0.260112983577722,
+                "rate": 1.793290440466252,
+                "speed": 1.7927448567816742,
+                "effort": 0.3758481703698635,
+                "negative": 0,
+                "positive": 0.37584814224939206
+              },
+              {
+                "name": "ankle.right inversion",
+                "angle": -0.03518357909353711,
+                "rate": 2.4242261346203087,
+                "speed": 2.383464178589332,
+                "effort": 0.47281790524721146,
+                "negative": 0,
+                "positive": 0.47281788388283646
+              }
+            ],
+            "contacts": [
+              {
+                "segment": "head",
+                "other": null,
+                "fixed": 0,
+                "point": [
+                  0.12746032575766245,
+                  0.00033515815933545423,
+                  0.6059794425964355
+                ],
+                "normal": [
+                  0,
+                  -0.999999999999786,
+                  6.543140784741317e-7
+                ],
+                "impulse": 1.482330560684204,
+                "pairs": [
+                  {
+                    "mine": 0,
+                    "theirs": 0,
+                    "impulse": 1.482330560684204,
+                    "point": [
+                      0.12746032575766245,
+                      0.00033515815933545423,
+                      0.6059794425964355
+                    ],
+                    "normal": [
+                      0,
+                      -0.999999999999786,
+                      6.543140784741317e-7
+                    ]
+                  }
+                ]
+              },
+              {
+                "segment": "middleTrunk",
+                "other": "workshop-fighter.upperArm.right",
+                "fixed": null,
+                "point": [
+                  0.41890019178390503,
+                  0.22289308533072472,
+                  0.3024843633174896
+                ],
+                "normal": [
+                  0.9385197072863861,
+                  -0.31319257317445076,
+                  0.145227997106075
+                ],
+                "impulse": 4.8704071044921875,
+                "pairs": [
+                  {
+                    "mine": 0,
+                    "theirs": 0,
+                    "impulse": 4.8704071044921875,
+                    "point": [
+                      0.41890019178390503,
+                      0.22289308533072472,
+                      0.3024843633174896
+                    ],
+                    "normal": [
+                      0.9385197072863861,
+                      -0.31319257317445076,
+                      0.145227997106075
+                    ]
+                  }
+                ]
+              },
+              {
+                "segment": "middleTrunk",
+                "other": "workshop-fighter.upperArm.left",
+                "fixed": null,
+                "point": [
+                  0.06034121289849281,
+                  0.24683420360088348,
+                  0.39324867725372314
+                ],
+                "normal": [
+                  -0.9436620283202134,
+                  -0.11364130391661202,
+                  0.3107855053742257
+                ],
+                "impulse": 5.011576294898987,
+                "pairs": [
+                  {
+                    "mine": 0,
+                    "theirs": 0,
+                    "impulse": 5.011576294898987,
+                    "point": [
+                      0.06034121289849281,
+                      0.24683420360088348,
+                      0.39324867725372314
+                    ],
+                    "normal": [
+                      -0.9436620283202134,
+                      -0.11364130391661202,
+                      0.3107855053742257
+                    ]
+                  }
+                ]
+              },
+              {
+                "segment": "middleTrunk",
+                "other": "workshop-fighter.thigh.left",
+                "fixed": null,
+                "point": [
+                  0.04581476002931595,
+                  0.2836783155798912,
+                  0.18994909152388573
+                ],
+                "normal": [
+                  -0.6177345239912475,
+                  0.19205888252710634,
+                  -0.7625729102923509
+                ],
+                "impulse": 8.468078553676605,
+                "pairs": [
+                  {
+                    "mine": 0,
+                    "theirs": 0,
+                    "impulse": 8.468078553676605,
+                    "point": [
+                      0.04581476002931595,
+                      0.2836783155798912,
+                      0.18994909152388573
+                    ],
+                    "normal": [
+                      -0.6177345239912475,
+                      0.19205888252710634,
+                      -0.7625729102923509
+                    ]
+                  }
+                ]
+              },
+              {
+                "segment": "middleTrunk",
+                "other": "workshop-fighter.thigh.right",
+                "fixed": null,
+                "point": [
+                  0.2577052116394043,
+                  0.21816220879554749,
+                  0.10362169146537781
+                ],
+                "normal": [
+                  -0.27461759042453143,
+                  0.48761849011763264,
+                  -0.8287420510175797
+                ],
+                "impulse": 4.834390640258789,
+                "pairs": [
+                  {
+                    "mine": 0,
+                    "theirs": 0,
+                    "impulse": 4.834390640258789,
+                    "point": [
+                      0.2577052116394043,
+                      0.21816220879554749,
+                      0.10362169146537781
+                    ],
+                    "normal": [
+                      -0.27461759042453143,
+                      0.48761849011763264,
+                      -0.8287420510175797
+                    ]
+                  }
+                ]
+              },
+              {
+                "segment": "upperArm.left",
+                "other": "workshop-fighter.middleTrunk",
+                "fixed": null,
+                "point": [
+                  0.06034121289849281,
+                  0.24683420360088348,
+                  0.39324867725372314
+                ],
+                "normal": [
+                  0.9436620283202134,
+                  0.11364130391661202,
+                  -0.3107855053742257
+                ],
+                "impulse": 5.011576294898987,
+                "pairs": [
+                  {
+                    "mine": 0,
+                    "theirs": 0,
+                    "impulse": 5.011576294898987,
+                    "point": [
+                      0.06034121289849281,
+                      0.24683420360088348,
+                      0.39324867725372314
+                    ],
+                    "normal": [
+                      0.9436620283202134,
+                      0.11364130391661202,
+                      -0.3107855053742257
+                    ]
+                  }
+                ]
+              },
+              {
+                "segment": "thigh.left",
+                "other": "workshop-fighter.middleTrunk",
+                "fixed": null,
+                "point": [
+                  0.04581476002931595,
+                  0.2836783155798912,
+                  0.18994909152388573
+                ],
+                "normal": [
+                  0.6177345239912475,
+                  -0.19205888252710634,
+                  0.7625729102923509
+                ],
+                "impulse": 8.468078553676605,
+                "pairs": [
+                  {
+                    "mine": 0,
+                    "theirs": 0,
+                    "impulse": 8.468078553676605,
+                    "point": [
+                      0.04581476002931595,
+                      0.2836783155798912,
+                      0.18994909152388573
+                    ],
+                    "normal": [
+                      0.6177345239912475,
+                      -0.19205888252710634,
+                      0.7625729102923509
+                    ]
+                  }
+                ]
+              },
+              {
+                "segment": "shank.left",
+                "other": "workshop-fighter.thigh.right",
+                "fixed": null,
+                "point": [
+                  -0.00235690176486969,
+                  0.18144816160202026,
+                  -0.04759930446743965
+                ],
+                "normal": [
+                  0.6766522351807369,
+                  -0.7362804275017591,
+                  -0.005734518527243045
+                ],
+                "impulse": 0,
+                "pairs": []
+              },
+              {
+                "segment": "foot.left",
+                "other": "workshop-fighter.thigh.right",
+                "fixed": null,
+                "point": [
+                  0.09553917031735182,
+                  0.22804944962263107,
+                  -0.08791293948888779
+                ],
+                "normal": [
+                  0.3861386527948328,
+                  -0.6619435634497418,
+                  0.6424388372641002
+                ],
+                "impulse": 0,
+                "pairs": []
+              },
+              {
+                "segment": "foot.left",
+                "other": "workshop-fighter.shank.right",
+                "fixed": null,
+                "point": [
+                  0.08159929017225902,
+                  0.17399342358112335,
+                  -0.1321040689945221
+                ],
+                "normal": [
+                  0.6637420569170449,
+                  -0.7348725701496773,
+                  0.13931542456288792
+                ],
+                "impulse": 0,
+                "pairs": []
+              },
+              {
+                "segment": "upperArm.right",
+                "other": "workshop-fighter.middleTrunk",
+                "fixed": null,
+                "point": [
+                  0.41890019178390503,
+                  0.22289308533072472,
+                  0.3024843633174896
+                ],
+                "normal": [
+                  -0.9385197072863861,
+                  0.31319257317445076,
+                  -0.145227997106075
+                ],
+                "impulse": 4.8704071044921875,
+                "pairs": [
+                  {
+                    "mine": 0,
+                    "theirs": 0,
+                    "impulse": 4.8704071044921875,
+                    "point": [
+                      0.41890019178390503,
+                      0.22289308533072472,
+                      0.3024843633174896
+                    ],
+                    "normal": [
+                      -0.9385197072863861,
+                      0.31319257317445076,
+                      -0.145227997106075
+                    ]
+                  }
+                ]
+              },
+              {
+                "segment": "thigh.right",
+                "other": null,
+                "fixed": 0,
+                "point": [
+                  0.05723102390766144,
+                  -0.00013451650738716125,
+                  -0.03811554051935673
+                ],
+                "normal": [
+                  0,
+                  -1,
+                  0
+                ],
+                "impulse": 3.625937342643738,
+                "pairs": [
+                  {
+                    "mine": 0,
+                    "theirs": 0,
+                    "impulse": 3.625937342643738,
+                    "point": [
+                      0.05723102390766144,
+                      -0.00013451650738716125,
+                      -0.03811554051935673
+                    ],
+                    "normal": [
+                      0,
+                      -1,
+                      0
+                    ]
+                  }
+                ]
+              },
+              {
+                "segment": "thigh.right",
+                "other": "workshop-fighter.middleTrunk",
+                "fixed": null,
+                "point": [
+                  0.2577052116394043,
+                  0.21816220879554749,
+                  0.10362169146537781
+                ],
+                "normal": [
+                  0.27461759042453143,
+                  -0.48761849011763264,
+                  0.8287420510175797
+                ],
+                "impulse": 4.834390640258789,
+                "pairs": [
+                  {
+                    "mine": 0,
+                    "theirs": 0,
+                    "impulse": 4.834390640258789,
+                    "point": [
+                      0.2577052116394043,
+                      0.21816220879554749,
+                      0.10362169146537781
+                    ],
+                    "normal": [
+                      0.27461759042453143,
+                      -0.48761849011763264,
+                      0.8287420510175797
+                    ]
+                  }
+                ]
+              },
+              {
+                "segment": "thigh.right",
+                "other": "workshop-fighter.foot.left",
+                "fixed": null,
+                "point": [
+                  0.09553917031735182,
+                  0.22804944962263107,
+                  -0.08791293948888779
+                ],
+                "normal": [
+                  -0.3861386527948328,
+                  0.6619435634497418,
+                  -0.6424388372641002
+                ],
+                "impulse": 0,
+                "pairs": []
+              },
+              {
+                "segment": "thigh.right",
+                "other": "workshop-fighter.shank.left",
+                "fixed": null,
+                "point": [
+                  -0.00235690176486969,
+                  0.18144816160202026,
+                  -0.04759930446743965
+                ],
+                "normal": [
+                  -0.6766522351807369,
+                  0.7362804275017591,
+                  0.005734518527243045
+                ],
+                "impulse": 0,
+                "pairs": []
+              },
+              {
+                "segment": "shank.right",
+                "other": "workshop-fighter.foot.left",
+                "fixed": null,
+                "point": [
+                  0.08159929017225902,
+                  0.17399342358112335,
+                  -0.1321040689945221
+                ],
+                "normal": [
+                  -0.6637420569170449,
+                  0.7348725701496773,
+                  -0.13931542456288792
+                ],
+                "impulse": 0,
+                "pairs": []
+              },
+              {
+                "segment": "shank.right",
+                "other": null,
+                "fixed": 0,
+                "point": [
+                  0.02784569561481476,
+                  0.005224150605499744,
+                  -0.07705703377723694
+                ],
+                "normal": [
+                  -0.00001917273402200293,
+                  -0.9999999996892286,
+                  -0.00001593577871476991
+                ],
+                "impulse": 0,
+                "pairs": []
+              }
+            ],
+            "senses": {
+              "time": 18,
+              "side": "",
+              "out": false,
+              "others": []
+            }
+          }
+        }
+      ]
+    }
   }
 }

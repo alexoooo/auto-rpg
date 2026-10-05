@@ -321,6 +321,12 @@ disposal and replay paths, and has no fighter view. Its pinned reach/hold test i
 proof, not a standing or fighting claim. The same independent policy also holds an installed
 Warrior all-fours pose on ordinary ground for ten seconds within 2 cm, without assistance
 ([posture hold](reference/posture-hold.md)); half-kneel and squat fail that gate.
+The posture task also exposes checked external actions, immutable actuator descriptions and
+the common environment interface. Its held command is replayable controller state; the physical
+fixture and scoring are independent of controller choice. An explicitly privileged
+[offline native-rollout controller](reference/native-posture-control.md) holds installed
+half-kneel within 5.59 mm at the default solver count. It searches candidate torque actions
+through snapshots and the normal world step; it is not installed in gameplay.
 `buildBody` accepts optional initial joint angles and a root quaternion, aligns joint anchors
 before creating physics, and preserves anatomical reference frames. Initialization belongs to
 the task; policies receive no authority to reposition a live body.

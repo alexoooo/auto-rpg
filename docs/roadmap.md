@@ -86,8 +86,12 @@ The [posture audit](reference/posture-limit-models.md) accounts for corrected li
 Its three development witnesses remain statically feasible, but their engine holds fail the
 displacement gate under their static torque controller. Independent joint feedback now
 [holds installed all fours](reference/posture-hold.md) for ten seconds within 2 cm on both
-corrected-limit friction profiles. Half-kneel and squat fail; recovery still needs demonstrated
+corrected-limit friction profiles. Direct feedback fails half-kneel and squat; recovery still needs demonstrated
 entry, balance and transfer between supports.
+An [offline native-rollout controller](reference/native-posture-control.md) passes the same
+installed half-kneel hold at the default solver count, through the task's external actuator
+interface. Its privileged snapshot search and recorded action tape establish physical
+feasibility, not a real-time recovery policy or a support-transfer route.
 The [independent support-entry task](reference/support-entry.md) now passes acquisition plus
 a ten-second hold in 2/4 patch-friction and 3/4 per-point development shove directions.
 All eight reach support, but late acquisition and excess drift remain failures. Other bodies,

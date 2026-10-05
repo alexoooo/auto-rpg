@@ -148,3 +148,8 @@ seed split; see [the contract record](../docs/reference/solver-contract.md).
 `node research/engine-adapter-cost.mjs --reference <commit> --runs 3` compares the current adapter
 against that commit on the same installed solver. Alternating paired bouts assert identical
 pose traces before reporting step/solver timings; run it on a quiet machine.
+
+`node research/native-posture-control.mjs` runs the offline native-rollout half-kneel diagnostic
+on the shared posture task's external actuator interface. It declares privileged snapshot access,
+records selected actions, and verifies their physical replay. The [record](../docs/reference/native-posture-control.md)
+distinguishes an installed hold from recovery and gives the search budget and unchanged gate.

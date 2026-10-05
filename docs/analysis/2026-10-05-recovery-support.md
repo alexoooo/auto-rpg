@@ -216,3 +216,44 @@ Its separate [welded-load mechanical proof](../reference/contact-projection.md) 
 friction-law distinction, not this acquisition problem. Native stabilization, evolving contact
 geometry and coupled motor/contact iteration still require isolation before model-based
 recovery can rely on this predictor.
+
+Increasing the native solver count to 256 does not remove that discrepancy. With 16, 64 and
+256 model subdivisions, the fixed-load first-contact errors are respectively 0.045624/1.350370,
+0.042256/1.298907 and 0.040143/1.261490 (m/s / rad/s). These are the same one-step diagnostic,
+not a changed-rate trajectory comparison. More native iterations alone are insufficient.
+
+## Native rollout diagnostic
+
+`nativeRolloutFollowups` records a separate approach: finite differences of actual engine
+rollouts choose bounded torques, with snapshot restoration before every candidate. It has
+privileged simulation access and is offline. Each selected action reproduces its predicted
+next-step observation. All trials use the same legal builder, default 16 native iterations,
+corrected-limit per-point .7 profile, Warrior and zero assistance at 120 Hz.
+
+An all-fours trial with a 0.3 s pose response runs ten seconds but reaches 0.038930 m peak
+drift; a 0.03 s response reaches 0.023180 m within one second. Both fail the existing 2 cm
+gate. Accurate next-step prediction alone is not sufficient; these local objectives and finite
+search budgets do not certify control feasibility or optimality. The early scratch script's
+duplicate displacement arithmetic is diagnostic; the durable task owns acceptance.
+
+Half-kneel with a 0.1 s response does hold. The [shared-task record](../reference/native-posture-control.md)
+is authoritative: 5.59 mm peak drift over ten seconds, bounded effort and exact selected-tape
+replay, including a subsequent zero-torque branch. It uses the same external actuator task now
+available to other research controllers. This demonstrates an achievable hold at the default
+solver setting and provides a native reference for improving approximate control. Recovery
+entry, unloading and transfer remain open; no gameplay policy is replaced by this diagnostic.
+
+The same native-rollout method also fails a simple transfer candidate. After two seconds of
+all-fours control, each segment's target centre and origin interpolate toward the installed
+half-kneel reference over six seconds using smoothstep; target quaternions use normalized
+shortest-sign linear interpolation. The target is then held for ten seconds. Response is
+0.1 s, with the same three-update search and no assist. The reference trajectory is not
+certified kinematically or dynamically feasible.
+
+At two seconds, the all-fours target error is 5.17 mm, with a 10.28 mm peak. By five seconds,
+the body has fallen onto its head and right shank. The eighteen-second trial ends down, at
+0.2412 m pelvis height, with head/right-thigh support. Maximum segment-origin distance from
+the moving target is 1.306 m; this is tracking error, not displacement from a fixed start.
+All 2,160 selected next steps reproduce their rollouts, with 217,383 candidate evaluations,
+but no full-tape replay or successful transfer is claimed for this scratch experiment.
+Accurate local prediction and a hold at each end do not supply a viable contact-transition path.

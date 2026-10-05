@@ -5,6 +5,11 @@ joint-feedback policy through detached observations and bounded muscle actions. 
 no root actuator, contact planner, coupled dynamics model or mutable physics handles. This is
 a hold test; it neither enters the pose nor demonstrates rising.
 
+The same task also accepts external actuator actions through the common environment. Its
+initial pose and scoring are identical. An [offline native-rollout diagnostic](native-posture-control.md)
+now holds half-kneel at the default solver count; that result uses a different controller from
+the direct-feedback measurements below.
+
 Harness: Node core world and visible `/control-tasks.html`, 120 Hz, Rapier
 0.21.0-auto-rpg.6 / adapter 7, corrected angular limits, directional muscle bounds, native
 16 solver iterations, ordinary ground, empty hands, zero root and weapon assistance.
