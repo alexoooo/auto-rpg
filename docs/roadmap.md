@@ -103,12 +103,14 @@ new bindings; it remains a separate engine-extension experiment.
 
 The arena exposes an [experimental point fighter](reference/arena-point-control.md): either
 hand or alternating attacks, predictive covers, player orders, equipment selection, and an
-optional recovery window. The support-entry policy is shared with research, not copied into a
-page controller. This makes the work playable, but does not close the foundation's physical
-gates. Reliable rise-to-standing, simultaneous coordinated attacks, separate/two-hand item
-rendering and damage, impact-aware re-planning, and a practical real-time whole-body solver
-remain open. Current point attacks can be weak or miss; contact counts do not establish combat
-quality. The classic fighter remains available for comparison.
+optional recovery window. Reference rising now has a measured standing handover, followed by
+walking and repeatable point preparation/strike/return cycles in the real Duel. The
+[development record](reference/recovery-cycle.md) retains a failed club fall direction and a
+post-recovery cycle timeout. Passing rises take 25-29 seconds; these fixtures establish neither
+general recovery nor combat quality. Faster contact-driven recovery across bodies, moving-target
+contact response, simultaneous coordinated attacks, separate/two-hand item rendering and damage,
+and a practical real-time whole-body solver remain open. The independent policy interface and
+classic fighter remain available for comparison.
 
 ## Open items
 

@@ -7,7 +7,6 @@ import { fighterTactics, seekFoe } from "./fighter.ts";
 import { GUARD_ACTION } from "./intent.ts";
 import type { createMind } from "./minds.ts";
 import { supportRecovery } from "./rise/support-recovery.ts";
-import { stagedRise } from "./rise/staged.ts";
 import { driveBy } from "./tactics.ts";
 import { THREAT, threatOf } from "./threat.ts";
 
@@ -15,7 +14,7 @@ import { THREAT, threatOf } from "./threat.ts";
 export function pointFighter(built: BuiltBody, world: World, config: PointFighterConfig, wiring: Parameters<typeof createMind>[3]) {
   const handMode = config.hand;
   const body = createBody(built, world, { servoSeconds: SERVO_SECONDS, senses: wiring.senses, assist: wiring.assist,
-    subs: [(own, view) => supportRecovery(own, view, world) ?? stagedRise(own, view)] });
+    subs: [(own, view) => supportRecovery(own, view, world)] });
   const tactics = fighterTactics(wiring.name, (sight) => wiring.orders(sight.view.senses) ?? seekFoe(sight));
   const skills = driveBy(body, { ...tactics, decide(sight, dt) {
     const intent = tactics.decide(sight, dt), attack = intent.hands.right;

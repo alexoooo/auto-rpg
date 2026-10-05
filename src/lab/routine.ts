@@ -260,6 +260,7 @@ export function startRoutine(actor: Actor, options: RoutineOptions = {}): Routin
             case "place": return "Setting its feet";
             case "chamber": return `Chambering: ${name}`;
             case "swing": return `Striking: ${name}`;
+            case "return": return "Returning to guard";
             case "settle": case null: return "Standing in guard";
             default: { const never: never = report.strike.phase; return String(never); }
           }

@@ -554,10 +554,17 @@ not just standing once within 40 seconds. Show the same controllers in the lab a
 
 ## Playable arena integration
 
-The selectable point fighter now connects `pointPath`, `predictIntercept` and the shared
-`supportEntryPolicy` to the actual `Duel`, through `createMind`. Controller/equipment selectors,
+The selectable point fighter connects `pointPath`, `predictIntercept` and reference recovery
+with a measured standing handover to the actual `Duel`, through `createMind`. Controller/equipment selectors,
 recovery windows, status, player orders and replay use the same game lifecycle. See
 [the integration record](../reference/arena-point-control.md).
+
+The first standing and strike/return slice is measured in
+[recovery-cycle](../reference/recovery-cycle.md): real falls, hand/shin support, rising,
+quiet handover, walking, repeated falls and subsequent attacks. `tests/arena-control-cycle.test.mjs`
+checks this path and fresh-world replay. Static strikes prepare and return with measured gates;
+contacts already pressing the target do not count as incoming impacts. The failed club direction
+and a cycle timeout remain in the development results.
 
 Remaining integration chunks must keep the classic comparison option:
 
@@ -565,9 +572,11 @@ Remaining integration chunks must keep the classic comparison option:
    attack/return cycle and contact response without increasing muscle strength. Extend
    `tests/arena-point-control.test.mjs` with moving targets, interrupted strikes and frozen
    multi-bout evaluation cases; measure driven contact quality, misses and falls separately.
-2. Complete the support-to-standing transition in `src/core/mind/rise/`, then replace the
-   acquisition-only end state. Test fall directions, held items, repeated falls and resumption
-   in the real arena with `DuelRecipe.recoverySeconds`.
+2. Generalize and accelerate the reference route in `src/core/mind/rise/`, starting with the
+   failed club direction in `research/arena-control-trials.mjs`. Replace timed pose transitions
+   only against measured contact/transfer gates. Extend `tests/arena-control-cycle.test.mjs`
+   across bodies, held items and disturbances; require walking and attack resumption, retain
+   failures in the runner, and re-evaluate held-out cases with `DuelRecipe.recoverySeconds`.
 3. Adapt separate equipment to `Duel`'s damage ownership and the arena dresser before exposing
    shared two-hand grips. Reuse `equipment-port.ts` capture and equipment snapshot state;
    assert release/re-grasp continuity and damage identity in whole-bout replay.

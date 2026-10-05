@@ -47,12 +47,22 @@ and placement skill, but selects no searched torque recipes: attacks use `pointP
 Both controllers reach the same physical body, damage and orders interfaces. This hybrid does
 not run the experimental whole-body optimization solver in the frame loop.
 
-`supportEntryPolicy` is the common factory for the support-entry research task and the point
-fighter's recovery sub-mind. The sub-mind acquires control from the host's down reading, supplies
-detached observations to the policy, and applies checked muscle actions. It reports acquisition
-or hand/shin support; it has no standing transition. Bodies with held items or no measured pose
-use the staged riser. Recovery takeover resets the host's pending commands; returning resumes
-its skills. All policy and trajectory memory is saved under the body/bout state.
+The point fighter's `supportRecovery` sub-mind takes control from the host's down reading,
+runs `stagedRise`, then uses locomotion's gradual height restoration and foot squaring to
+stabilize. `recoveryReady` independently requires loaded feet, no other fixed support, a centre
+of mass inside their support polygon, low segment speed and the host's upright reading for a
+continuous interval. A stabilization timeout retries from the actual body. The host releases
+pending commands on takeover and resumes its skills only after this handover. Recovery and
+trajectory memory are plain data under the body/bout state, including the standing reference.
+See [recovery measurements](reference/recovery-cycle.md) for the tested envelope and failures.
+The independent `supportEntryPolicy` remains available to the research task; it ends at hand/shin
+support and does not supply the arena's standing transition.
+
+Point attacks reserve reach for follow-through, prepare short strokes by retracting the striking
+point, and return it to its captured body-frame starting point. Preparation and return require
+measured proximity and low velocity; deadlines produce failure counts, not successful returns.
+A cancelled committed stroke returns, while recovery takeover discards it. Classic retains its
+existing strike execution. See [strike-cycle settings](reference/arena-point-control.md#strike-cycle).
 
 `DuelRecipe.recoverySeconds` optionally permits a continuous interval down. Its per-side clocks
 are saved only when enabled. Damage elimination remains immediate, opponents continue sensing
