@@ -79,6 +79,10 @@ preserves the comparison controller. See [settings and validation](reference/are
 
 `arena-fighter` selects collider-derived target surfaces and commits a hand trajectory through
 `combatSkills`. Terminal hand velocity and segment identity extend the common IK/muscle path; an optional, range-bounded elbow preference composes with trunk rotation and returns to guard. Optional lateral head-surface samples expand the same collider-based lane search; zero preserves the retained selector.
+Optional bounded combinations can overlap an opposite-hand strike with a contact-free, physically
+returning hand. One saved auxiliary return retains its own motion sequence and completion checks;
+both arms share the ordinary body command, muscles and locomotion. Recovery interrupts both.
+The overlap admission screen does not establish stronger combat; see [measurements](reference/combat-overlap.md).
 Classic and Point retain their own execution. Chamber and return permit locomotion. Actual
 contact feedback optionally carries trusted detached body/segment labels, point, normal and
 impulse; repeated guard blocks request a lateral escape. These labels affect tactics, not damage.

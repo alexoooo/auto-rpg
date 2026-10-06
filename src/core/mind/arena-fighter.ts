@@ -23,9 +23,10 @@ export function arenaFighter(built: BuiltBody, world: World, config: ArenaFighte
   if (!validOpeningTuning(config.openings ?? {})) throw new Error("opening preferences must be finite and headLateral must be in [0,1]");
   if (config.combinations && (config.hand !== "alternate" || config.targeting !== "openings"))
     throw new Error("combat combinations require alternate hands and opening selection");
+  if (config.overlap && !config.combinations) throw new Error("overlapping combat requires bounded combinations");
   const body = createBody(built, world, { servoSeconds: SERVO_SECONDS, senses: wiring.senses, assist: wiring.assist, handFeedback: true, contactIdentity: wiring.contactIdentity,
     subs: [(own, view) => supportRecovery(own, view, world)] });
   const tactics = combatTactics(built.spec, wiring.name, sight => wiring.orders(sight.view.senses), config);
-  const skills = driveBy(body, tactics, { combat: paths, lowCombat: config.groundGame === true, turnLimit: config.turnLimit, turnStartup: config.turnStartup });
+  const skills = driveBy(body, tactics, { combat: paths, lowCombat: config.groundGame === true, turnLimit: config.turnLimit, turnStartup: config.turnStartup, combatOverlap: config.overlap });
   return { kind: "arena-fighter" as const, body, skills, state: skills.state };
 }

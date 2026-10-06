@@ -89,6 +89,8 @@ export interface ArenaFighterConfig {
   readonly turnStartup?: TurnStartup;
   /** One opposite-hand follow-up after a target hit and verified return, with fresh lane and footing checks. */
   readonly combinations?: boolean;
+  /** Allow the other hand's follow-up while a contact-free hand moves home; each return is still verified. */
+  readonly overlap?: boolean;
   /** Enable observed low-opponent approach and supported strikes; omitted preserves the retained reference. */
   readonly groundGame?: boolean;
 }

@@ -84,6 +84,7 @@ export function combatTactics(spec: BodySpec, name: string, orders: (sight: Sigh
     state.previousHead = { time: view.time, at: head }; state.counter = Math.max(0, state.counter - dt); state.defense = null;
     if (view.resumed) { range?.cancel(); resetCombination(); ground?.reset(); state.action = null; state.escape = 0; state.pressure = 0; state.ready = 0; state.responded = false; state.blockedSurface = null; state.blocks = 0; state.threat = false; state.counter = 0; state.choice = null; state.nextSelection = 0; }
     const cycles = strike.thrown.left + strike.thrown.right + (strike.pointCycle?.failed ?? 0);
+    const overlapReady = () => !!config.overlap && !!state.combo.hand && strike.overlapHand === state.combo.hand;
     if (!strike.hand && cycles !== state.cycle) { state.cycle = cycles; state.action = null; state.ready = 0; state.responded = false; state.nextSelection = 0; }
     let hand: "left" | "right";
     switch (config.hand) {
@@ -94,8 +95,8 @@ export function combatTactics(spec: BodySpec, name: string, orders: (sight: Sigh
     if (state.combo.following && strike.hand === state.combo.hand && strike.hand) {
       state.combo.depth = 1; state.combo.hand = null; state.combo.until = 0; state.combo.returned = 0; state.combo.following = false;
     }
-    if (state.combo.hand && !strike.hand && (view.time >= state.combo.until
-      || (strike.pointCycle?.returned[state.combo.hand === "left" ? "right" : "left"] ?? 0) <= state.combo.returned)) resetCombination();
+    if (state.combo.hand && (view.time >= state.combo.until || (!strike.hand
+      && (strike.pointCycle?.returned[state.combo.hand === "left" ? "right" : "left"] ?? 0) <= state.combo.returned))) resetCombination();
     const given = orders(sight);
     if (given) {
       range?.cancel(); resetCombination(); ground?.reset();
@@ -151,7 +152,7 @@ export function combatTactics(spec: BodySpec, name: string, orders: (sight: Sigh
     if(openings) {
       if(!mixed) {
         opening = selectOpening(view,foe,hand,state.blockedSurface);
-        if (state.combo.hand && !strike.hand) {
+        if (state.combo.hand && (!strike.hand || overlapReady())) {
           const follow = selectOpening(view,foe,state.combo.hand,state.blockedSurface);
           state.combo.following = !!follow && !follow.blocked;
           if (state.combo.following) { opening = follow; hand = state.combo.hand; } else resetCombination();
@@ -170,6 +171,11 @@ export function combatTactics(spec: BodySpec, name: string, orders: (sight: Sigh
           state.nextSelection = view.time+COMBAT.prediction;
         }
         opening = state.choice;
+        if (overlapReady()) {
+          const follow = selectOpening(view,foe,state.combo.hand!,state.blockedSurface,repertoire);
+          state.combo.following = !!follow && !follow.blocked;
+          if (state.combo.following) opening = follow;
+        }
         if(opening)hand=opening.hand;
       }
     }
@@ -193,7 +199,7 @@ export function combatTactics(spec: BodySpec, name: string, orders: (sight: Sigh
       if (!threat && state.threat) state.counter = COMBAT.counter;
       state.threat = !!threat;
       if (threat) {
-        const available = (["left", "right"] as const).filter(h => h !== strike.hand && guardCanReach(view, spec, h, threat));
+        const available = (["left", "right"] as const).filter(h => h !== strike.hand && h !== strike.returning && guardCanReach(view, spec, h, threat));
         const defending = available.reduce<"left" | "right" | null>((near, h) => !near || hypot(view.fists[h].position.x - threat.cover.threat[0],
           view.fists[h].position.y - threat.cover.threat[1], view.fists[h].position.z - threat.cover.threat[2]) < hypot(view.fists[near].position.x - threat.cover.threat[0],
           view.fists[near].position.y - threat.cover.threat[1], view.fists[near].position.z - threat.cover.threat[2]) ? h : near, null);
@@ -210,9 +216,12 @@ export function combatTactics(spec: BodySpec, name: string, orders: (sight: Sigh
       const cover = threatOf(view, THREAT, { out: .3, horizon: .3 });
       if (cover) hands = { left: { kind: "guard", cover }, right: { kind: "guard", cover } };
     }
-    if (strike.hand) {
+    const follows = state.combo.following && Math.abs(delta) <= COMBAT.band && aligned
+      && view.stance.phase === "stand" && view.stance.velocity.length() <= COMBAT.readySpeed;
+    if (strike.hand && !(overlapReady() && follows && state.escape <= 0 && !state.threat)) {
       state.phase = state.combo.depth === 1 ? `followup ${strike.phase ?? "return"}` : strike.phase ?? "return";
       // Committed paths retain the observed aim; preparation and return keep locomotion available.
+      if (overlapReady()) return { move: null, face: report.heading, hands, combat: state.action };
       const speed = anticipated < -COMBAT.band ? -maximum * STRAFE.share : 0;
       return { move: strike.phase === "swing" ? null : moveClear(view, report.heading, [speed * cos(turn), speed * sin(turn)]), face,
         hands, combat: state.action };
@@ -224,10 +233,9 @@ export function combatTactics(spec: BodySpec, name: string, orders: (sight: Sigh
     }
     if (Math.abs(delta) <= COMBAT.band && aligned && view.stance.velocity.length() <= COMBAT.readySpeed) state.ready += dt;
     else state.ready = 0;
-    const follows = state.combo.following && Math.abs(delta) <= COMBAT.band && aligned
-      && view.stance.phase === "stand" && view.stance.velocity.length() <= COMBAT.readySpeed;
     if ((state.ready >= COMBAT.settle || follows || (state.counter > 0 && Math.abs(delta) <= COMBAT.band && aligned)) && view.time >= ATTACK_PATH.startup) {
       state.counter = 0;
+      if (strike.hand && overlapReady()) state.cycle = cycles;
       state.surface = opening?.segment ?? "head"; state.responded = false;
       if (!state.combo.following && !state.action) state.combo.depth = 0;
       state.phase = state.combo.following ? "combination" : "attack"; state.action = { ...(opening ? openingAction(opening) : { hand, target }),
