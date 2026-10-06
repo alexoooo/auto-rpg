@@ -1,3 +1,4 @@
+import { rangeLearning, validRangeLearning } from "./range-learning.ts";
 import { contactResponse } from "../control/hand-feedback.ts";
 import { atan2, cos, hypot, sin } from "../math/real.ts";
 import { ATTACK_PATH } from "../skills/attack-path.ts";
@@ -22,6 +23,8 @@ const COMBAT = Object.freeze({ band: .08, reserve: .08, braking: .5, prediction:
 
 /** Tactical selection uses detached sensed bodies; the common skill owns physical execution. */
 export function combatTactics(spec: BodySpec, name: string, orders: (sight: Sight) => Orders | null, config: ArenaFighterConfig): Tactics {
+  if (!validRangeLearning(config.spacing, config.spacingStep)) throw new Error("invalid combat range learning settings");
+  const range = (config.spacingStep ?? 0) > 0 ? rangeLearning(config.spacing ?? 0, config.spacingStep!) : null;
   const paths = { ...ATTACK_PATH, ...config.paths };
   const combinationWindow = paths.returnLimit + paths.chamberSeconds;
   const selectOpening = openingSelector(spec,config.openings,paths);
@@ -47,6 +50,7 @@ export function combatTactics(spec: BodySpec, name: string, orders: (sight: Sigh
     blockedSurface: null as string | null, blocks: 0, responded: false, previousHead: null as { time: number; at: Vec3 } | null, counter: 0,
     threat: false, defense: null as "guard" | "evade" | null,
     combo: { hand: null as "left" | "right" | null, until: 0, returned: 0, depth: 0, following: false },
+    range: range?.state ?? null,
     ground: null as ReturnType<typeof groundCombat>["state"] | null,
     choice: null as ReturnType<typeof selectOpening>, nextSelection: 0, ordered: ordered.state! };
   const resetCombination = () => { state.combo.hand = null; state.combo.until = 0; state.combo.returned = 0; state.combo.depth = 0; state.combo.following = false; };
@@ -78,7 +82,7 @@ export function combatTactics(spec: BodySpec, name: string, orders: (sight: Sigh
     const ownVelocity: Vec3 = previous && !view.resumed && view.time > previous.time
       ? head.map((v, k) => (v - previous.at[k]!) / (view.time - previous.time)) as unknown as Vec3 : [0, 0, 0];
     state.previousHead = { time: view.time, at: head }; state.counter = Math.max(0, state.counter - dt); state.defense = null;
-    if (view.resumed) { resetCombination(); ground?.reset(); state.action = null; state.escape = 0; state.pressure = 0; state.ready = 0; state.responded = false; state.blockedSurface = null; state.blocks = 0; state.threat = false; state.counter = 0; state.choice = null; state.nextSelection = 0; }
+    if (view.resumed) { range?.cancel(); resetCombination(); ground?.reset(); state.action = null; state.escape = 0; state.pressure = 0; state.ready = 0; state.responded = false; state.blockedSurface = null; state.blocks = 0; state.threat = false; state.counter = 0; state.choice = null; state.nextSelection = 0; }
     const cycles = strike.thrown.left + strike.thrown.right + (strike.pointCycle?.failed ?? 0);
     if (!strike.hand && cycles !== state.cycle) { state.cycle = cycles; state.action = null; state.ready = 0; state.responded = false; state.nextSelection = 0; }
     let hand: "left" | "right";
@@ -94,7 +98,7 @@ export function combatTactics(spec: BodySpec, name: string, orders: (sight: Sigh
       || (strike.pointCycle?.returned[state.combo.hand === "left" ? "right" : "left"] ?? 0) <= state.combo.returned)) resetCombination();
     const given = orders(sight);
     if (given) {
-      resetCombination(); ground?.reset();
+      range?.cancel(); resetCombination(); ground?.reset();
       state.action = null; state.foe = null; state.pressure = 0; state.escape = 0; state.ready = 0;
       state.choice = null; state.nextSelection = 0;
       const intent = ordered.decide(sight, dt);
@@ -105,11 +109,11 @@ export function combatTactics(spec: BodySpec, name: string, orders: (sight: Sigh
       .reduce<typeof view.senses.others[number] | null>((near, o) => !near || hypot(o.centre.x - view.head.x, o.centre.z - view.head.z)
         < hypot(near.centre.x - view.head.x, near.centre.z - view.head.z) ? o : near, null);
     if (!foe || view.down || view.senses.out) {
-      resetCombination(); ground?.reset();
+      range?.cancel(); resetCombination(); ground?.reset();
       state.action = null; state.phase = "guard";
       return { move: null, face: report.heading, hands: guard, combat: null };
     }
-    if(state.foe!==foe.id){resetCombination();state.choice=null;state.nextSelection=0;}
+    if(state.foe!==foe.id){range?.restart();resetCombination();state.choice=null;state.nextSelection=0;}
     state.foe = foe.id;
     const exit = view.senses.solids && clearanceExit([view.stance.centre.x, view.stance.centre.y, view.stance.centre.z], bodyRadius, view.senses.solids);
     if (exit && !strike.hand && (!report.support || report.support.stage === "stand")) {
@@ -119,11 +123,12 @@ export function combatTactics(spec: BodySpec, name: string, orders: (sight: Sigh
     }
     const lowIntent = ground?.decide(view, report, foe, hand, dt);
     if (lowIntent) {
-      resetCombination(); state.phase = ground!.state.phase; state.action = lowIntent.combat ?? null;
+      range?.cancel(); resetCombination(); state.phase = ground!.state.phase; state.action = lowIntent.combat ?? null;
       state.choice = null; state.nextSelection = 0; state.ready = 0; state.pressure = 0;
       state.surface = ground!.state.surface;
       return lowIntent;
     }
+    range?.observe(strike, view.handFeedback);
     const part = foe.segments.get("head"), at = part?.centre ?? foe.centre, velocity = part?.velocity ?? foe.velocity;
     if (!state.responded && strike.phase === "swing" && strike.hand) {
       const response = contactResponse(view.handFeedback?.[strike.hand], foe.id);
@@ -173,7 +178,7 @@ export function combatTactics(spec: BodySpec, name: string, orders: (sight: Sigh
     const turn = wrap(face - report.heading), aligned = Math.abs(wrap(face - view.stance.facing)) < STRAFE.turned;
     const radius = foe.spec.segments.find(s => s.name === "head")?.shape;
     const skin = radius?.kind === "sphere" || radius?.kind === "capsule" ? radius.radius.value : 0;
-    const distance = Math.max(0, (mixed&&opening?opening.reach:placedReach(spec, hand, target[1] - view.head.y)) - COMBAT.reserve + (opening ? 0 : skin) + (config.spacing ?? 0));
+    const distance = Math.max(0, (mixed&&opening?opening.reach:placedReach(spec, hand, target[1] - view.head.y)) - COMBAT.reserve + (opening ? 0 : skin) + (range?.state.offset ?? config.spacing ?? 0));
     const toward = far > 0 ? ((view.stance.velocity.x - velocity.x) * dx + (view.stance.velocity.z - velocity.z) * dz) / far : 0;
     const delta = far - distance, anticipated = delta - Math.max(0, toward) * COMBAT.braking;
     const maximum = envelope?.walk.value ?? COMBAT.lateral;

@@ -6,6 +6,7 @@ import { combatTactics } from "./combat.ts";
 import type { ArenaFighterConfig } from "./config.ts";
 import type { createMind } from "./minds.ts";
 import { supportRecovery } from "./rise/support-recovery.ts";
+import { validRangeLearning } from "./range-learning.ts";
 import { validTurnLimit } from "../skills/locomotion.ts";
 import { validOpeningTuning } from "./openings.ts";
 import { driveBy } from "./tactics.ts";
@@ -13,6 +14,7 @@ import { driveBy } from "./tactics.ts";
 /** Combat selection and execution share the ordinary physical body and recovery contract. */
 export function arenaFighter(built: BuiltBody, world: World, config: ArenaFighterConfig, wiring: Parameters<typeof createMind>[3]) {
   if (!validTurnLimit(config.turnLimit)) throw new Error("locomotion turn limit must be finite and positive");
+  if (!validRangeLearning(config.spacing, config.spacingStep)) throw new Error("invalid combat range learning settings");
   const paths = { ...ATTACK_PATH, ...config.paths };
   if (!validAttackTuning(paths))
     throw new Error("combat path settings need finite nonnegative values, positive durations and elbowExtension in [0,1]");

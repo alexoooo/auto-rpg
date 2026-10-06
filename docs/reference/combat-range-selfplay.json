@@ -1,0 +1,2073 @@
+{
+  "fingerprint": "56e3f9110cb150dd38fd9fc4cefd3bcca3b3dc8b8877b966f6a03b745770486a",
+  "jobs": [
+    {
+      "id": "step/0",
+      "config": {
+        "left": {
+          "kind": "arena-fighter",
+          "hand": "alternate",
+          "targeting": "openings",
+          "repertoire": "mixed",
+          "openings": {
+            "head": 0.3,
+            "upperTrunk": 0,
+            "middleTrunk": 0
+          },
+          "groundGame": true,
+          "spacing": 0.1
+        },
+        "right": {
+          "kind": "arena-fighter",
+          "hand": "alternate",
+          "targeting": "openings",
+          "repertoire": "mixed",
+          "openings": {
+            "head": 0.3,
+            "upperTrunk": 0,
+            "middleTrunk": 0
+          },
+          "groundGame": true,
+          "spacing": 0.1
+        },
+        "recipe": {
+          "capSeconds": 30
+        }
+      }
+    },
+    {
+      "id": "step/0.02",
+      "config": {
+        "left": {
+          "kind": "arena-fighter",
+          "hand": "alternate",
+          "targeting": "openings",
+          "repertoire": "mixed",
+          "openings": {
+            "head": 0.3,
+            "upperTrunk": 0,
+            "middleTrunk": 0
+          },
+          "groundGame": true,
+          "spacing": 0.1,
+          "spacingStep": 0.02
+        },
+        "right": {
+          "kind": "arena-fighter",
+          "hand": "alternate",
+          "targeting": "openings",
+          "repertoire": "mixed",
+          "openings": {
+            "head": 0.3,
+            "upperTrunk": 0,
+            "middleTrunk": 0
+          },
+          "groundGame": true,
+          "spacing": 0.1,
+          "spacingStep": 0.02
+        },
+        "recipe": {
+          "capSeconds": 30
+        }
+      }
+    },
+    {
+      "id": "step/0.05",
+      "config": {
+        "left": {
+          "kind": "arena-fighter",
+          "hand": "alternate",
+          "targeting": "openings",
+          "repertoire": "mixed",
+          "openings": {
+            "head": 0.3,
+            "upperTrunk": 0,
+            "middleTrunk": 0
+          },
+          "groundGame": true,
+          "spacing": 0.1,
+          "spacingStep": 0.05
+        },
+        "right": {
+          "kind": "arena-fighter",
+          "hand": "alternate",
+          "targeting": "openings",
+          "repertoire": "mixed",
+          "openings": {
+            "head": 0.3,
+            "upperTrunk": 0,
+            "middleTrunk": 0
+          },
+          "groundGame": true,
+          "spacing": 0.1,
+          "spacingStep": 0.05
+        },
+        "recipe": {
+          "capSeconds": 30
+        }
+      }
+    },
+    {
+      "id": "step/0.1",
+      "config": {
+        "left": {
+          "kind": "arena-fighter",
+          "hand": "alternate",
+          "targeting": "openings",
+          "repertoire": "mixed",
+          "openings": {
+            "head": 0.3,
+            "upperTrunk": 0,
+            "middleTrunk": 0
+          },
+          "groundGame": true,
+          "spacing": 0.1,
+          "spacingStep": 0.1
+        },
+        "right": {
+          "kind": "arena-fighter",
+          "hand": "alternate",
+          "targeting": "openings",
+          "repertoire": "mixed",
+          "openings": {
+            "head": 0.3,
+            "upperTrunk": 0,
+            "middleTrunk": 0
+          },
+          "groundGame": true,
+          "spacing": 0.1,
+          "spacingStep": 0.1
+        },
+        "recipe": {
+          "capSeconds": 30
+        }
+      }
+    },
+    {
+      "id": "combo-.05",
+      "config": {
+        "left": {
+          "kind": "arena-fighter",
+          "hand": "alternate",
+          "targeting": "openings",
+          "repertoire": "mixed",
+          "openings": {
+            "head": 0.3,
+            "upperTrunk": 0,
+            "middleTrunk": 0
+          },
+          "groundGame": true,
+          "spacing": 0.1,
+          "spacingStep": 0.05,
+          "combinations": true
+        },
+        "right": {
+          "kind": "arena-fighter",
+          "hand": "alternate",
+          "targeting": "openings",
+          "repertoire": "mixed",
+          "openings": {
+            "head": 0.3,
+            "upperTrunk": 0,
+            "middleTrunk": 0
+          },
+          "groundGame": true,
+          "spacing": 0.1,
+          "spacingStep": 0.05,
+          "combinations": true
+        },
+        "recipe": {
+          "capSeconds": 30
+        }
+      }
+    },
+    {
+      "id": "combo-.1",
+      "config": {
+        "left": {
+          "kind": "arena-fighter",
+          "hand": "alternate",
+          "targeting": "openings",
+          "repertoire": "mixed",
+          "openings": {
+            "head": 0.3,
+            "upperTrunk": 0,
+            "middleTrunk": 0
+          },
+          "groundGame": true,
+          "spacing": 0.1,
+          "spacingStep": 0.1,
+          "combinations": true
+        },
+        "right": {
+          "kind": "arena-fighter",
+          "hand": "alternate",
+          "targeting": "openings",
+          "repertoire": "mixed",
+          "openings": {
+            "head": 0.3,
+            "upperTrunk": 0,
+            "middleTrunk": 0
+          },
+          "groundGame": true,
+          "spacing": 0.1,
+          "spacingStep": 0.1,
+          "combinations": true
+        },
+        "recipe": {
+          "capSeconds": 30
+        }
+      }
+    },
+    {
+      "id": "elbow-.1",
+      "config": {
+        "left": {
+          "kind": "arena-fighter",
+          "hand": "alternate",
+          "targeting": "openings",
+          "repertoire": "mixed",
+          "openings": {
+            "head": 0.3,
+            "upperTrunk": 0,
+            "middleTrunk": 0
+          },
+          "groundGame": true,
+          "spacing": 0.1,
+          "spacingStep": 0.1,
+          "paths": {
+            "elbowExtension": 1
+          }
+        },
+        "right": {
+          "kind": "arena-fighter",
+          "hand": "alternate",
+          "targeting": "openings",
+          "repertoire": "mixed",
+          "openings": {
+            "head": 0.3,
+            "upperTrunk": 0,
+            "middleTrunk": 0
+          },
+          "groundGame": true,
+          "spacing": 0.1,
+          "spacingStep": 0.1,
+          "paths": {
+            "elbowExtension": 1
+          }
+        },
+        "recipe": {
+          "capSeconds": 30
+        }
+      }
+    }
+  ],
+  "rows": [
+    {
+      "id": "step/0",
+      "config": {
+        "left": {
+          "kind": "arena-fighter",
+          "hand": "alternate",
+          "targeting": "openings",
+          "repertoire": "mixed",
+          "openings": {
+            "head": 0.3,
+            "upperTrunk": 0,
+            "middleTrunk": 0
+          },
+          "groundGame": true,
+          "spacing": 0.1
+        },
+        "right": {
+          "kind": "arena-fighter",
+          "hand": "alternate",
+          "targeting": "openings",
+          "repertoire": "mixed",
+          "openings": {
+            "head": 0.3,
+            "upperTrunk": 0,
+            "middleTrunk": 0
+          },
+          "groundGame": true,
+          "spacing": 0.1
+        },
+        "recipe": {
+          "capSeconds": 30
+        }
+      },
+      "result": {
+        "config": {
+          "left": {
+            "kind": "arena-fighter",
+            "hand": "alternate",
+            "targeting": "openings",
+            "repertoire": "mixed",
+            "openings": {
+              "head": 0.3,
+              "upperTrunk": 0,
+              "middleTrunk": 0
+            },
+            "groundGame": true,
+            "spacing": 0.1
+          },
+          "right": {
+            "kind": "arena-fighter",
+            "hand": "alternate",
+            "targeting": "openings",
+            "repertoire": "mixed",
+            "openings": {
+              "head": 0.3,
+              "upperTrunk": 0,
+              "middleTrunk": 0
+            },
+            "groundGame": true,
+            "spacing": 0.1
+          },
+          "recipe": {
+            "capSeconds": 30
+          }
+        },
+        "recipe": {
+          "left": "workshop-fighter",
+          "right": "workshop-fighter",
+          "gap": 4,
+          "capSeconds": 30,
+          "recoverySeconds": null,
+          "balance": {
+            "left": 0,
+            "right": 0
+          },
+          "held": {
+            "left": "empty",
+            "right": "empty"
+          },
+          "minds": {
+            "left": {
+              "kind": "arena-fighter",
+              "hand": "alternate",
+              "targeting": "openings",
+              "repertoire": "mixed",
+              "openings": {
+                "head": 0.3,
+                "upperTrunk": 0,
+                "middleTrunk": 0
+              },
+              "groundGame": true,
+              "spacing": 0.1
+            },
+            "right": {
+              "kind": "arena-fighter",
+              "hand": "alternate",
+              "targeting": "openings",
+              "repertoire": "mixed",
+              "openings": {
+                "head": 0.3,
+                "upperTrunk": 0,
+                "middleTrunk": 0
+              },
+              "groundGame": true,
+              "spacing": 0.1
+            }
+          }
+        },
+        "protocol": {
+          "version": 1,
+          "drivenClosing": 1,
+          "relativeHandSpeed": 0.5,
+          "pressureEpisode": 2,
+          "lowHeadHeight": 0.8,
+          "startup": 2,
+          "capSeconds": 60
+        },
+        "harness": {
+          "kind": "Node Arena Duel",
+          "engine": "rapier-coordinate",
+          "revision": "rapier/adapter-8/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits",
+          "hz": 120,
+          "actuation": "symmetric"
+        },
+        "seconds": 30,
+        "verdict": {
+          "winner": "left",
+          "ending": "time",
+          "time": 30
+        },
+        "meanCentreGap": 0.9589711754767871,
+        "minimumCentreGap": 0.7544165356445462,
+        "sides": {
+          "left": {
+            "phases": {
+              "align": 0.6666666666666667,
+              "approach": 11.691666666666643,
+              "attack": 0.14166666666666666,
+              "chamber": 5.708333333333407,
+              "swing": 1.8166666666666627,
+              "return": 9.975000000000074
+            },
+            "falls": 0,
+            "downSeconds": 0,
+            "recoveries": 0,
+            "pressureSeconds": 1.7083333333333297,
+            "longestPressure": 0.21666666666666665,
+            "pressureEpisodes": 0,
+            "pressureOnly": {
+              "longest": 0.21666666666666665,
+              "episodes": 0
+            },
+            "driven": 7,
+            "blocks": 4,
+            "lowDriven": 0,
+            "drivenDamage": 0.07168928777033023,
+            "selfDamage": 0.0360342422852771,
+            "incidentalDamage": 0.13066191130645116,
+            "incomingDamage": 0.19437173918435469,
+            "maximumDrivenSpeed": 5.647040513206703,
+            "pathLaunches": {
+              "straight": 14
+            },
+            "intendedSurfaces": {
+              "upperTrunk": 10,
+              "middleTrunk": 4
+            },
+            "drivenTargets": {
+              "hand.left": 2,
+              "upperArm.right": 2,
+              "hand.right": 1,
+              "forearm.right": 1,
+              "upperTrunk": 1
+            },
+            "bar": 0.9676047101359412,
+            "assist": {
+              "force": 0,
+              "moment": 0
+            }
+          },
+          "right": {
+            "phases": {
+              "align": 0.6500000000000001,
+              "approach": 13.291666666666552,
+              "attack": 0.15833333333333333,
+              "chamber": 4.250000000000001,
+              "swing": 2.283333333333328,
+              "return": 8.166666666666844,
+              "escape": 1.1999999999999982
+            },
+            "falls": 0,
+            "downSeconds": 0,
+            "recoveries": 0,
+            "pressureSeconds": 1.691666666666663,
+            "longestPressure": 0.21666666666666665,
+            "pressureEpisodes": 0,
+            "pressureOnly": {
+              "longest": 0.21666666666666665,
+              "episodes": 0
+            },
+            "driven": 4,
+            "blocks": 4,
+            "lowDriven": 0,
+            "drivenDamage": 0.009438382445748838,
+            "selfDamage": 0.009438382445748838,
+            "incidentalDamage": 0.18493335673860586,
+            "incomingDamage": 0.2023511990767814,
+            "maximumDrivenSpeed": 4.883617590619912,
+            "pathLaunches": {
+              "straight": 18
+            },
+            "intendedSurfaces": {
+              "upperTrunk": 7,
+              "middleTrunk": 11
+            },
+            "drivenTargets": {
+              "hand.left": 2,
+              "hand.right": 2
+            },
+            "bar": 0.9662748001538697,
+            "assist": {
+              "force": 0,
+              "moment": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "step/0.02",
+      "config": {
+        "left": {
+          "kind": "arena-fighter",
+          "hand": "alternate",
+          "targeting": "openings",
+          "repertoire": "mixed",
+          "openings": {
+            "head": 0.3,
+            "upperTrunk": 0,
+            "middleTrunk": 0
+          },
+          "groundGame": true,
+          "spacing": 0.1,
+          "spacingStep": 0.02
+        },
+        "right": {
+          "kind": "arena-fighter",
+          "hand": "alternate",
+          "targeting": "openings",
+          "repertoire": "mixed",
+          "openings": {
+            "head": 0.3,
+            "upperTrunk": 0,
+            "middleTrunk": 0
+          },
+          "groundGame": true,
+          "spacing": 0.1,
+          "spacingStep": 0.02
+        },
+        "recipe": {
+          "capSeconds": 30
+        }
+      },
+      "result": {
+        "config": {
+          "left": {
+            "kind": "arena-fighter",
+            "hand": "alternate",
+            "targeting": "openings",
+            "repertoire": "mixed",
+            "openings": {
+              "head": 0.3,
+              "upperTrunk": 0,
+              "middleTrunk": 0
+            },
+            "groundGame": true,
+            "spacing": 0.1,
+            "spacingStep": 0.02
+          },
+          "right": {
+            "kind": "arena-fighter",
+            "hand": "alternate",
+            "targeting": "openings",
+            "repertoire": "mixed",
+            "openings": {
+              "head": 0.3,
+              "upperTrunk": 0,
+              "middleTrunk": 0
+            },
+            "groundGame": true,
+            "spacing": 0.1,
+            "spacingStep": 0.02
+          },
+          "recipe": {
+            "capSeconds": 30
+          }
+        },
+        "recipe": {
+          "left": "workshop-fighter",
+          "right": "workshop-fighter",
+          "gap": 4,
+          "capSeconds": 30,
+          "recoverySeconds": null,
+          "balance": {
+            "left": 0,
+            "right": 0
+          },
+          "held": {
+            "left": "empty",
+            "right": "empty"
+          },
+          "minds": {
+            "left": {
+              "kind": "arena-fighter",
+              "hand": "alternate",
+              "targeting": "openings",
+              "repertoire": "mixed",
+              "openings": {
+                "head": 0.3,
+                "upperTrunk": 0,
+                "middleTrunk": 0
+              },
+              "groundGame": true,
+              "spacing": 0.1,
+              "spacingStep": 0.02
+            },
+            "right": {
+              "kind": "arena-fighter",
+              "hand": "alternate",
+              "targeting": "openings",
+              "repertoire": "mixed",
+              "openings": {
+                "head": 0.3,
+                "upperTrunk": 0,
+                "middleTrunk": 0
+              },
+              "groundGame": true,
+              "spacing": 0.1,
+              "spacingStep": 0.02
+            }
+          }
+        },
+        "protocol": {
+          "version": 1,
+          "drivenClosing": 1,
+          "relativeHandSpeed": 0.5,
+          "pressureEpisode": 2,
+          "lowHeadHeight": 0.8,
+          "startup": 2,
+          "capSeconds": 60
+        },
+        "harness": {
+          "kind": "Node Arena Duel",
+          "engine": "rapier-coordinate",
+          "revision": "rapier/adapter-8/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits",
+          "hz": 120,
+          "actuation": "symmetric"
+        },
+        "seconds": 30,
+        "verdict": {
+          "winner": "right",
+          "ending": "time",
+          "time": 30
+        },
+        "meanCentreGap": 0.932569155576957,
+        "minimumCentreGap": 0.6747312112019141,
+        "sides": {
+          "left": {
+            "phases": {
+              "align": 0.6666666666666667,
+              "approach": 14.174999999999836,
+              "attack": 0.14166666666666666,
+              "chamber": 4.475000000000012,
+              "swing": 1.824999999999996,
+              "return": 7.51666666666683,
+              "escape": 1.1999999999999982
+            },
+            "falls": 0,
+            "downSeconds": 0,
+            "recoveries": 0,
+            "pressureSeconds": 1.5749999999999968,
+            "longestPressure": 0.33333333333333354,
+            "pressureEpisodes": 0,
+            "pressureOnly": {
+              "longest": 0.33333333333333354,
+              "episodes": 0
+            },
+            "driven": 11,
+            "blocks": 9,
+            "lowDriven": 0,
+            "drivenDamage": 0.11251809157404188,
+            "selfDamage": 0.07990080184967804,
+            "incidentalDamage": 0.19393144091324505,
+            "incomingDamage": 0.6269021094842064,
+            "maximumDrivenSpeed": 5.417425274759599,
+            "pathLaunches": {
+              "straight": 16
+            },
+            "intendedSurfaces": {
+              "upperTrunk": 9,
+              "middleTrunk": 7
+            },
+            "drivenTargets": {
+              "hand.left": 5,
+              "upperArm.left": 1,
+              "hand.right": 3,
+              "upperTrunk": 1,
+              "forearm.left": 1
+            },
+            "rangeLearning": {
+              "offset": 0.019999999999999993,
+              "hand": null,
+              "launched": false,
+              "touched": false,
+              "returned": 0,
+              "misses": 4,
+              "adjustments": 4
+            },
+            "bar": 0.8955163150859656,
+            "assist": {
+              "force": 0,
+              "moment": 0
+            }
+          },
+          "right": {
+            "phases": {
+              "align": 0.7083333333333333,
+              "approach": 13.74999999999986,
+              "attack": 0.15,
+              "chamber": 4.133333333333328,
+              "swing": 1.9416666666666622,
+              "return": 7.51666666666683,
+              "escape": 1.799999999999996
+            },
+            "falls": 0,
+            "downSeconds": 0,
+            "recoveries": 0,
+            "pressureSeconds": 1.6583333333333299,
+            "longestPressure": 0.33333333333333354,
+            "pressureEpisodes": 0,
+            "pressureOnly": {
+              "longest": 0.33333333333333354,
+              "episodes": 0
+            },
+            "driven": 15,
+            "blocks": 9,
+            "lowDriven": 0,
+            "drivenDamage": 0.3728339126020017,
+            "selfDamage": 0.08688658482854947,
+            "incidentalDamage": 0.2540681968822045,
+            "incomingDamage": 0.30644953248728696,
+            "maximumDrivenSpeed": 5.4439459172391516,
+            "pathLaunches": {
+              "straight": 18
+            },
+            "intendedSurfaces": {
+              "upperTrunk": 9,
+              "middleTrunk": 9
+            },
+            "drivenTargets": {
+              "hand.left": 4,
+              "upperTrunk": 3,
+              "middleTrunk": 3,
+              "hand.right": 3,
+              "forearm.left": 2
+            },
+            "rangeLearning": {
+              "offset": 0.039999999999999994,
+              "hand": null,
+              "launched": false,
+              "touched": false,
+              "returned": 0,
+              "misses": 3,
+              "adjustments": 3
+            },
+            "bar": 0.9489250779187856,
+            "assist": {
+              "force": 0,
+              "moment": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "step/0.05",
+      "config": {
+        "left": {
+          "kind": "arena-fighter",
+          "hand": "alternate",
+          "targeting": "openings",
+          "repertoire": "mixed",
+          "openings": {
+            "head": 0.3,
+            "upperTrunk": 0,
+            "middleTrunk": 0
+          },
+          "groundGame": true,
+          "spacing": 0.1,
+          "spacingStep": 0.05
+        },
+        "right": {
+          "kind": "arena-fighter",
+          "hand": "alternate",
+          "targeting": "openings",
+          "repertoire": "mixed",
+          "openings": {
+            "head": 0.3,
+            "upperTrunk": 0,
+            "middleTrunk": 0
+          },
+          "groundGame": true,
+          "spacing": 0.1,
+          "spacingStep": 0.05
+        },
+        "recipe": {
+          "capSeconds": 30
+        }
+      },
+      "result": {
+        "config": {
+          "left": {
+            "kind": "arena-fighter",
+            "hand": "alternate",
+            "targeting": "openings",
+            "repertoire": "mixed",
+            "openings": {
+              "head": 0.3,
+              "upperTrunk": 0,
+              "middleTrunk": 0
+            },
+            "groundGame": true,
+            "spacing": 0.1,
+            "spacingStep": 0.05
+          },
+          "right": {
+            "kind": "arena-fighter",
+            "hand": "alternate",
+            "targeting": "openings",
+            "repertoire": "mixed",
+            "openings": {
+              "head": 0.3,
+              "upperTrunk": 0,
+              "middleTrunk": 0
+            },
+            "groundGame": true,
+            "spacing": 0.1,
+            "spacingStep": 0.05
+          },
+          "recipe": {
+            "capSeconds": 30
+          }
+        },
+        "recipe": {
+          "left": "workshop-fighter",
+          "right": "workshop-fighter",
+          "gap": 4,
+          "capSeconds": 30,
+          "recoverySeconds": null,
+          "balance": {
+            "left": 0,
+            "right": 0
+          },
+          "held": {
+            "left": "empty",
+            "right": "empty"
+          },
+          "minds": {
+            "left": {
+              "kind": "arena-fighter",
+              "hand": "alternate",
+              "targeting": "openings",
+              "repertoire": "mixed",
+              "openings": {
+                "head": 0.3,
+                "upperTrunk": 0,
+                "middleTrunk": 0
+              },
+              "groundGame": true,
+              "spacing": 0.1,
+              "spacingStep": 0.05
+            },
+            "right": {
+              "kind": "arena-fighter",
+              "hand": "alternate",
+              "targeting": "openings",
+              "repertoire": "mixed",
+              "openings": {
+                "head": 0.3,
+                "upperTrunk": 0,
+                "middleTrunk": 0
+              },
+              "groundGame": true,
+              "spacing": 0.1,
+              "spacingStep": 0.05
+            }
+          }
+        },
+        "protocol": {
+          "version": 1,
+          "drivenClosing": 1,
+          "relativeHandSpeed": 0.5,
+          "pressureEpisode": 2,
+          "lowHeadHeight": 0.8,
+          "startup": 2,
+          "capSeconds": 60
+        },
+        "harness": {
+          "kind": "Node Arena Duel",
+          "engine": "rapier-coordinate",
+          "revision": "rapier/adapter-8/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits",
+          "hz": 120,
+          "actuation": "symmetric"
+        },
+        "seconds": 30,
+        "verdict": {
+          "winner": "left",
+          "ending": "time",
+          "time": 30
+        },
+        "meanCentreGap": 0.9247756629885091,
+        "minimumCentreGap": 0.6356464082867179,
+        "sides": {
+          "left": {
+            "phases": {
+              "align": 0.6500000000000001,
+              "approach": 9.64166666666676,
+              "attack": 0.20833333333333331,
+              "chamber": 5.600000000000068,
+              "swing": 2.783333333333326,
+              "return": 10.366666666666719,
+              "escape": 0.7499999999999998
+            },
+            "falls": 0,
+            "downSeconds": 0,
+            "recoveries": 0,
+            "pressureSeconds": 2.283333333333328,
+            "longestPressure": 0.3000000000000001,
+            "pressureEpisodes": 0,
+            "pressureOnly": {
+              "longest": 0.3000000000000001,
+              "episodes": 0
+            },
+            "driven": 22,
+            "blocks": 12,
+            "lowDriven": 0,
+            "drivenDamage": 0.39802940156132927,
+            "selfDamage": 0.10657256388692081,
+            "incidentalDamage": 0.1512929986644075,
+            "incomingDamage": 0.38721365425384485,
+            "maximumDrivenSpeed": 5.5873820088430035,
+            "pathLaunches": {
+              "straight": 25
+            },
+            "intendedSurfaces": {
+              "upperTrunk": 15,
+              "middleTrunk": 10
+            },
+            "drivenTargets": {
+              "hand.left": 6,
+              "upperTrunk": 6,
+              "middleTrunk": 4,
+              "forearm.right": 1,
+              "forearm.left": 2,
+              "hand.right": 3
+            },
+            "rangeLearning": {
+              "offset": 0,
+              "hand": null,
+              "launched": false,
+              "touched": false,
+              "returned": 0,
+              "misses": 2,
+              "adjustments": 2
+            },
+            "bar": 0.9354643909576925,
+            "assist": {
+              "force": 0,
+              "moment": 0
+            }
+          },
+          "right": {
+            "phases": {
+              "align": 0.6500000000000001,
+              "approach": 15.466666666666429,
+              "attack": 0.13333333333333333,
+              "chamber": 4.308333333333337,
+              "swing": 1.5999999999999968,
+              "return": 6.6416666666667865,
+              "escape": 1.1999999999999982
+            },
+            "falls": 0,
+            "downSeconds": 0,
+            "recoveries": 0,
+            "pressureSeconds": 2.0833333333333286,
+            "longestPressure": 0.3000000000000001,
+            "pressureEpisodes": 0,
+            "pressureOnly": {
+              "longest": 0.3000000000000001,
+              "episodes": 0
+            },
+            "driven": 10,
+            "blocks": 5,
+            "lowDriven": 0,
+            "drivenDamage": 0.17436790264827096,
+            "selfDamage": 0.06567235624392509,
+            "incidentalDamage": 0.21284575160557384,
+            "incomingDamage": 0.5493224002257368,
+            "maximumDrivenSpeed": 5.566544451874646,
+            "pathLaunches": {
+              "straight": 14
+            },
+            "intendedSurfaces": {
+              "upperTrunk": 8,
+              "middleTrunk": 6
+            },
+            "drivenTargets": {
+              "hand.left": 3,
+              "upperTrunk": 5,
+              "forearm.left": 1,
+              "hand.right": 1
+            },
+            "rangeLearning": {
+              "offset": 0.05,
+              "hand": "right",
+              "launched": false,
+              "touched": true,
+              "returned": 7,
+              "misses": 1,
+              "adjustments": 1
+            },
+            "bar": 0.9084462666290442,
+            "assist": {
+              "force": 0,
+              "moment": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "step/0.1",
+      "config": {
+        "left": {
+          "kind": "arena-fighter",
+          "hand": "alternate",
+          "targeting": "openings",
+          "repertoire": "mixed",
+          "openings": {
+            "head": 0.3,
+            "upperTrunk": 0,
+            "middleTrunk": 0
+          },
+          "groundGame": true,
+          "spacing": 0.1,
+          "spacingStep": 0.1
+        },
+        "right": {
+          "kind": "arena-fighter",
+          "hand": "alternate",
+          "targeting": "openings",
+          "repertoire": "mixed",
+          "openings": {
+            "head": 0.3,
+            "upperTrunk": 0,
+            "middleTrunk": 0
+          },
+          "groundGame": true,
+          "spacing": 0.1,
+          "spacingStep": 0.1
+        },
+        "recipe": {
+          "capSeconds": 30
+        }
+      },
+      "result": {
+        "config": {
+          "left": {
+            "kind": "arena-fighter",
+            "hand": "alternate",
+            "targeting": "openings",
+            "repertoire": "mixed",
+            "openings": {
+              "head": 0.3,
+              "upperTrunk": 0,
+              "middleTrunk": 0
+            },
+            "groundGame": true,
+            "spacing": 0.1,
+            "spacingStep": 0.1
+          },
+          "right": {
+            "kind": "arena-fighter",
+            "hand": "alternate",
+            "targeting": "openings",
+            "repertoire": "mixed",
+            "openings": {
+              "head": 0.3,
+              "upperTrunk": 0,
+              "middleTrunk": 0
+            },
+            "groundGame": true,
+            "spacing": 0.1,
+            "spacingStep": 0.1
+          },
+          "recipe": {
+            "capSeconds": 30
+          }
+        },
+        "recipe": {
+          "left": "workshop-fighter",
+          "right": "workshop-fighter",
+          "gap": 4,
+          "capSeconds": 30,
+          "recoverySeconds": null,
+          "balance": {
+            "left": 0,
+            "right": 0
+          },
+          "held": {
+            "left": "empty",
+            "right": "empty"
+          },
+          "minds": {
+            "left": {
+              "kind": "arena-fighter",
+              "hand": "alternate",
+              "targeting": "openings",
+              "repertoire": "mixed",
+              "openings": {
+                "head": 0.3,
+                "upperTrunk": 0,
+                "middleTrunk": 0
+              },
+              "groundGame": true,
+              "spacing": 0.1,
+              "spacingStep": 0.1
+            },
+            "right": {
+              "kind": "arena-fighter",
+              "hand": "alternate",
+              "targeting": "openings",
+              "repertoire": "mixed",
+              "openings": {
+                "head": 0.3,
+                "upperTrunk": 0,
+                "middleTrunk": 0
+              },
+              "groundGame": true,
+              "spacing": 0.1,
+              "spacingStep": 0.1
+            }
+          }
+        },
+        "protocol": {
+          "version": 1,
+          "drivenClosing": 1,
+          "relativeHandSpeed": 0.5,
+          "pressureEpisode": 2,
+          "lowHeadHeight": 0.8,
+          "startup": 2,
+          "capSeconds": 60
+        },
+        "harness": {
+          "kind": "Node Arena Duel",
+          "engine": "rapier-coordinate",
+          "revision": "rapier/adapter-8/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits",
+          "hz": 120,
+          "actuation": "symmetric"
+        },
+        "seconds": 30,
+        "verdict": {
+          "winner": "right",
+          "ending": "time",
+          "time": 30
+        },
+        "meanCentreGap": 0.8661474186890136,
+        "minimumCentreGap": 0.5614371390647456,
+        "sides": {
+          "left": {
+            "phases": {
+              "align": 0.6583333333333334,
+              "approach": 11.549999999999985,
+              "attack": 0.18333333333333332,
+              "chamber": 5.258333333333384,
+              "swing": 2.2499999999999947,
+              "return": 9.966666666666741,
+              "escape": 0.13333333333333333
+            },
+            "falls": 0,
+            "downSeconds": 0,
+            "recoveries": 0,
+            "pressureSeconds": 4.966666666666703,
+            "longestPressure": 0.5583333333333338,
+            "pressureEpisodes": 0,
+            "pressureOnly": {
+              "longest": 0.45000000000000057,
+              "episodes": 0
+            },
+            "driven": 19,
+            "blocks": 9,
+            "lowDriven": 0,
+            "drivenDamage": 0.25080605275334417,
+            "selfDamage": 0.05486553627843876,
+            "incidentalDamage": 0.15295092790388518,
+            "incomingDamage": 0.5164945070258186,
+            "maximumDrivenSpeed": 5.8246755566420045,
+            "pathLaunches": {
+              "straight": 22
+            },
+            "intendedSurfaces": {
+              "upperTrunk": 14,
+              "middleTrunk": 8
+            },
+            "drivenTargets": {
+              "hand.left": 6,
+              "upperTrunk": 9,
+              "middleTrunk": 1,
+              "hand.right": 3
+            },
+            "rangeLearning": {
+              "offset": 0,
+              "hand": null,
+              "launched": false,
+              "touched": false,
+              "returned": 0,
+              "misses": 1,
+              "adjustments": 1
+            },
+            "bar": 0.9139175821623636,
+            "assist": {
+              "force": 0,
+              "moment": 0
+            }
+          },
+          "right": {
+            "phases": {
+              "align": 0.6500000000000001,
+              "approach": 12.216666666666613,
+              "attack": 0.175,
+              "chamber": 4.975000000000037,
+              "swing": 2.008333333333329,
+              "return": 8.775000000000142,
+              "escape": 1.1999999999999982
+            },
+            "falls": 0,
+            "downSeconds": 0,
+            "recoveries": 0,
+            "pressureSeconds": 4.8916666666666995,
+            "longestPressure": 0.5750000000000004,
+            "pressureEpisodes": 0,
+            "pressureOnly": {
+              "longest": 0.5750000000000004,
+              "episodes": 0
+            },
+            "driven": 18,
+            "blocks": 11,
+            "lowDriven": 0,
+            "drivenDamage": 0.2830595700177337,
+            "selfDamage": 0.06218363209804327,
+            "incidentalDamage": 0.2334349370080852,
+            "incomingDamage": 0.40375698065722904,
+            "maximumDrivenSpeed": 5.553963759745586,
+            "pathLaunches": {
+              "straight": 21
+            },
+            "intendedSurfaces": {
+              "upperTrunk": 14,
+              "middleTrunk": 7
+            },
+            "drivenTargets": {
+              "hand.left": 4,
+              "upperTrunk": 6,
+              "hand.right": 7,
+              "middleTrunk": 1
+            },
+            "rangeLearning": {
+              "offset": 0,
+              "hand": null,
+              "launched": false,
+              "touched": false,
+              "returned": 0,
+              "misses": 2,
+              "adjustments": 1
+            },
+            "bar": 0.9327071698904618,
+            "assist": {
+              "force": 0,
+              "moment": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "combo-.05",
+      "config": {
+        "left": {
+          "kind": "arena-fighter",
+          "hand": "alternate",
+          "targeting": "openings",
+          "repertoire": "mixed",
+          "openings": {
+            "head": 0.3,
+            "upperTrunk": 0,
+            "middleTrunk": 0
+          },
+          "groundGame": true,
+          "spacing": 0.1,
+          "spacingStep": 0.05,
+          "combinations": true
+        },
+        "right": {
+          "kind": "arena-fighter",
+          "hand": "alternate",
+          "targeting": "openings",
+          "repertoire": "mixed",
+          "openings": {
+            "head": 0.3,
+            "upperTrunk": 0,
+            "middleTrunk": 0
+          },
+          "groundGame": true,
+          "spacing": 0.1,
+          "spacingStep": 0.05,
+          "combinations": true
+        },
+        "recipe": {
+          "capSeconds": 30
+        }
+      },
+      "result": {
+        "config": {
+          "left": {
+            "kind": "arena-fighter",
+            "hand": "alternate",
+            "targeting": "openings",
+            "repertoire": "mixed",
+            "openings": {
+              "head": 0.3,
+              "upperTrunk": 0,
+              "middleTrunk": 0
+            },
+            "groundGame": true,
+            "spacing": 0.1,
+            "spacingStep": 0.05,
+            "combinations": true
+          },
+          "right": {
+            "kind": "arena-fighter",
+            "hand": "alternate",
+            "targeting": "openings",
+            "repertoire": "mixed",
+            "openings": {
+              "head": 0.3,
+              "upperTrunk": 0,
+              "middleTrunk": 0
+            },
+            "groundGame": true,
+            "spacing": 0.1,
+            "spacingStep": 0.05,
+            "combinations": true
+          },
+          "recipe": {
+            "capSeconds": 30
+          }
+        },
+        "recipe": {
+          "left": "workshop-fighter",
+          "right": "workshop-fighter",
+          "gap": 4,
+          "capSeconds": 30,
+          "recoverySeconds": null,
+          "balance": {
+            "left": 0,
+            "right": 0
+          },
+          "held": {
+            "left": "empty",
+            "right": "empty"
+          },
+          "minds": {
+            "left": {
+              "kind": "arena-fighter",
+              "hand": "alternate",
+              "targeting": "openings",
+              "repertoire": "mixed",
+              "openings": {
+                "head": 0.3,
+                "upperTrunk": 0,
+                "middleTrunk": 0
+              },
+              "groundGame": true,
+              "spacing": 0.1,
+              "spacingStep": 0.05,
+              "combinations": true
+            },
+            "right": {
+              "kind": "arena-fighter",
+              "hand": "alternate",
+              "targeting": "openings",
+              "repertoire": "mixed",
+              "openings": {
+                "head": 0.3,
+                "upperTrunk": 0,
+                "middleTrunk": 0
+              },
+              "groundGame": true,
+              "spacing": 0.1,
+              "spacingStep": 0.05,
+              "combinations": true
+            }
+          }
+        },
+        "protocol": {
+          "version": 1,
+          "drivenClosing": 1,
+          "relativeHandSpeed": 0.5,
+          "pressureEpisode": 2,
+          "lowHeadHeight": 0.8,
+          "startup": 2,
+          "capSeconds": 60
+        },
+        "harness": {
+          "kind": "Node Arena Duel",
+          "engine": "rapier-coordinate",
+          "revision": "rapier/adapter-8/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits",
+          "hz": 120,
+          "actuation": "symmetric"
+        },
+        "seconds": 30,
+        "verdict": {
+          "winner": "right",
+          "ending": "time",
+          "time": 30
+        },
+        "meanCentreGap": 0.92635574184665,
+        "minimumCentreGap": 0.6940653859055363,
+        "sides": {
+          "left": {
+            "phases": {
+              "align": 0.6500000000000001,
+              "approach": 13.183333333333225,
+              "attack": 0.13333333333333333,
+              "chamber": 3.6166666666666565,
+              "swing": 1.6499999999999966,
+              "return": 6.966666666666803,
+              "combination": 0.08333333333333333,
+              "followup chamber": 0.6916666666666667,
+              "followup swing": 0.3000000000000001,
+              "followup return": 1.524999999999997,
+              "escape": 1.1999999999999982
+            },
+            "falls": 0,
+            "downSeconds": 0,
+            "recoveries": 0,
+            "pressureSeconds": 1.4999999999999971,
+            "longestPressure": 0.08333333333333333,
+            "pressureEpisodes": 0,
+            "pressureOnly": {
+              "longest": 0.08333333333333333,
+              "episodes": 0
+            },
+            "driven": 14,
+            "blocks": 9,
+            "lowDriven": 0,
+            "drivenDamage": 0.27890597194508593,
+            "selfDamage": 0.05763108568103034,
+            "incidentalDamage": 0.22325830567629928,
+            "incomingDamage": 0.5735975779573227,
+            "maximumDrivenSpeed": 5.405249943395345,
+            "pathLaunches": {
+              "straight": 19
+            },
+            "intendedSurfaces": {
+              "upperTrunk": 10,
+              "middleTrunk": 9
+            },
+            "drivenTargets": {
+              "hand.left": 6,
+              "upperTrunk": 3,
+              "middleTrunk": 2,
+              "forearm.right": 1,
+              "hand.right": 2
+            },
+            "rangeLearning": {
+              "offset": 0.05,
+              "hand": "right",
+              "launched": false,
+              "touched": false,
+              "returned": 10,
+              "misses": 1,
+              "adjustments": 1
+            },
+            "bar": 0.9044004036737796,
+            "assist": {
+              "force": 0,
+              "moment": 0
+            }
+          },
+          "right": {
+            "phases": {
+              "align": 0.6500000000000001,
+              "approach": 14.108333333333173,
+              "attack": 0.12499999999999999,
+              "chamber": 3.433333333333324,
+              "swing": 1.691666666666663,
+              "return": 6.525000000000114,
+              "escape": 1.1999999999999982,
+              "combination": 0.075,
+              "followup chamber": 0.6916666666666667,
+              "followup swing": 0.3250000000000002,
+              "followup return": 1.1749999999999983
+            },
+            "falls": 0,
+            "downSeconds": 0,
+            "recoveries": 0,
+            "pressureSeconds": 1.3083333333333311,
+            "longestPressure": 0.08333333333333333,
+            "pressureEpisodes": 0,
+            "pressureOnly": {
+              "longest": 0.08333333333333333,
+              "episodes": 0
+            },
+            "driven": 14,
+            "blocks": 7,
+            "lowDriven": 0,
+            "drivenDamage": 0.3130497359537075,
+            "selfDamage": 0.05390026308703374,
+            "incidentalDamage": 0.2605478420036151,
+            "incomingDamage": 0.5021642776213853,
+            "maximumDrivenSpeed": 5.735758820409406,
+            "pathLaunches": {
+              "straight": 18
+            },
+            "intendedSurfaces": {
+              "upperTrunk": 10,
+              "middleTrunk": 8
+            },
+            "drivenTargets": {
+              "hand.left": 3,
+              "upperTrunk": 5,
+              "hand.right": 3,
+              "middleTrunk": 2,
+              "forearm.right": 1
+            },
+            "rangeLearning": {
+              "offset": 0.05,
+              "hand": "left",
+              "launched": true,
+              "touched": true,
+              "returned": 10,
+              "misses": 1,
+              "adjustments": 1
+            },
+            "bar": 0.916305953729769,
+            "assist": {
+              "force": 0,
+              "moment": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "combo-.1",
+      "config": {
+        "left": {
+          "kind": "arena-fighter",
+          "hand": "alternate",
+          "targeting": "openings",
+          "repertoire": "mixed",
+          "openings": {
+            "head": 0.3,
+            "upperTrunk": 0,
+            "middleTrunk": 0
+          },
+          "groundGame": true,
+          "spacing": 0.1,
+          "spacingStep": 0.1,
+          "combinations": true
+        },
+        "right": {
+          "kind": "arena-fighter",
+          "hand": "alternate",
+          "targeting": "openings",
+          "repertoire": "mixed",
+          "openings": {
+            "head": 0.3,
+            "upperTrunk": 0,
+            "middleTrunk": 0
+          },
+          "groundGame": true,
+          "spacing": 0.1,
+          "spacingStep": 0.1,
+          "combinations": true
+        },
+        "recipe": {
+          "capSeconds": 30
+        }
+      },
+      "result": {
+        "config": {
+          "left": {
+            "kind": "arena-fighter",
+            "hand": "alternate",
+            "targeting": "openings",
+            "repertoire": "mixed",
+            "openings": {
+              "head": 0.3,
+              "upperTrunk": 0,
+              "middleTrunk": 0
+            },
+            "groundGame": true,
+            "spacing": 0.1,
+            "spacingStep": 0.1,
+            "combinations": true
+          },
+          "right": {
+            "kind": "arena-fighter",
+            "hand": "alternate",
+            "targeting": "openings",
+            "repertoire": "mixed",
+            "openings": {
+              "head": 0.3,
+              "upperTrunk": 0,
+              "middleTrunk": 0
+            },
+            "groundGame": true,
+            "spacing": 0.1,
+            "spacingStep": 0.1,
+            "combinations": true
+          },
+          "recipe": {
+            "capSeconds": 30
+          }
+        },
+        "recipe": {
+          "left": "workshop-fighter",
+          "right": "workshop-fighter",
+          "gap": 4,
+          "capSeconds": 30,
+          "recoverySeconds": null,
+          "balance": {
+            "left": 0,
+            "right": 0
+          },
+          "held": {
+            "left": "empty",
+            "right": "empty"
+          },
+          "minds": {
+            "left": {
+              "kind": "arena-fighter",
+              "hand": "alternate",
+              "targeting": "openings",
+              "repertoire": "mixed",
+              "openings": {
+                "head": 0.3,
+                "upperTrunk": 0,
+                "middleTrunk": 0
+              },
+              "groundGame": true,
+              "spacing": 0.1,
+              "spacingStep": 0.1,
+              "combinations": true
+            },
+            "right": {
+              "kind": "arena-fighter",
+              "hand": "alternate",
+              "targeting": "openings",
+              "repertoire": "mixed",
+              "openings": {
+                "head": 0.3,
+                "upperTrunk": 0,
+                "middleTrunk": 0
+              },
+              "groundGame": true,
+              "spacing": 0.1,
+              "spacingStep": 0.1,
+              "combinations": true
+            }
+          }
+        },
+        "protocol": {
+          "version": 1,
+          "drivenClosing": 1,
+          "relativeHandSpeed": 0.5,
+          "pressureEpisode": 2,
+          "lowHeadHeight": 0.8,
+          "startup": 2,
+          "capSeconds": 60
+        },
+        "harness": {
+          "kind": "Node Arena Duel",
+          "engine": "rapier-coordinate",
+          "revision": "rapier/adapter-8/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits",
+          "hz": 120,
+          "actuation": "symmetric"
+        },
+        "seconds": 30,
+        "verdict": {
+          "winner": "left",
+          "ending": "time",
+          "time": 30
+        },
+        "meanCentreGap": 0.8789589677434044,
+        "minimumCentreGap": 0.636359838206843,
+        "sides": {
+          "left": {
+            "phases": {
+              "align": 0.6583333333333334,
+              "approach": 13.449999999999877,
+              "attack": 0.13333333333333333,
+              "chamber": 3.658333333333323,
+              "swing": 1.6749999999999965,
+              "return": 6.158333333333429,
+              "combination": 0.15,
+              "followup chamber": 1.274999999999998,
+              "followup swing": 0.5250000000000006,
+              "followup return": 1.716666666666663,
+              "escape": 0.6000000000000003
+            },
+            "falls": 0,
+            "downSeconds": 0,
+            "recoveries": 0,
+            "pressureSeconds": 3.1249999999999916,
+            "longestPressure": 0.18333333333333332,
+            "pressureEpisodes": 0,
+            "pressureOnly": {
+              "longest": 0.18333333333333332,
+              "episodes": 0
+            },
+            "driven": 22,
+            "blocks": 9,
+            "lowDriven": 0,
+            "drivenDamage": 0.4779372271782225,
+            "selfDamage": 0.08387646673649289,
+            "incidentalDamage": 0.1288256671860707,
+            "incomingDamage": 0.312823498842978,
+            "maximumDrivenSpeed": 5.577125613227907,
+            "pathLaunches": {
+              "straight": 21
+            },
+            "intendedSurfaces": {
+              "upperTrunk": 13,
+              "middleTrunk": 8
+            },
+            "drivenTargets": {
+              "hand.left": 7,
+              "upperTrunk": 9,
+              "middleTrunk": 4,
+              "hand.right": 2
+            },
+            "rangeLearning": {
+              "offset": 0,
+              "hand": "left",
+              "launched": true,
+              "touched": true,
+              "returned": 8,
+              "misses": 1,
+              "adjustments": 1
+            },
+            "bar": 0.9478627501928368,
+            "assist": {
+              "force": 0,
+              "moment": 0
+            }
+          },
+          "right": {
+            "phases": {
+              "align": 0.675,
+              "approach": 12.924999999999907,
+              "attack": 0.14166666666666666,
+              "chamber": 4.350000000000006,
+              "swing": 1.4916666666666638,
+              "return": 7.291666666666819,
+              "escape": 1.799999999999996,
+              "combination": 0.016666666666666666,
+              "followup chamber": 0.4583333333333339,
+              "followup swing": 0.175,
+              "followup return": 0.675
+            },
+            "falls": 0,
+            "downSeconds": 0,
+            "recoveries": 0,
+            "pressureSeconds": 2.9583333333333255,
+            "longestPressure": 0.18333333333333332,
+            "pressureEpisodes": 0,
+            "pressureOnly": {
+              "longest": 0.18333333333333332,
+              "episodes": 0
+            },
+            "driven": 12,
+            "blocks": 9,
+            "lowDriven": 0,
+            "drivenDamage": 0.07318756320999954,
+            "selfDamage": 0.02695967314241859,
+            "incidentalDamage": 0.23963593563297847,
+            "incomingDamage": 0.6067628943642934,
+            "maximumDrivenSpeed": 5.490371128918487,
+            "pathLaunches": {
+              "straight": 17
+            },
+            "intendedSurfaces": {
+              "upperTrunk": 10,
+              "middleTrunk": 7
+            },
+            "drivenTargets": {
+              "hand.left": 6,
+              "hand.right": 2,
+              "upperTrunk": 2,
+              "forearm.left": 1,
+              "middleTrunk": 1
+            },
+            "rangeLearning": {
+              "offset": 0,
+              "hand": "left",
+              "launched": false,
+              "touched": true,
+              "returned": 7,
+              "misses": 2,
+              "adjustments": 1
+            },
+            "bar": 0.8988728509392846,
+            "assist": {
+              "force": 0,
+              "moment": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "elbow-.1",
+      "config": {
+        "left": {
+          "kind": "arena-fighter",
+          "hand": "alternate",
+          "targeting": "openings",
+          "repertoire": "mixed",
+          "openings": {
+            "head": 0.3,
+            "upperTrunk": 0,
+            "middleTrunk": 0
+          },
+          "groundGame": true,
+          "spacing": 0.1,
+          "spacingStep": 0.1,
+          "paths": {
+            "elbowExtension": 1
+          }
+        },
+        "right": {
+          "kind": "arena-fighter",
+          "hand": "alternate",
+          "targeting": "openings",
+          "repertoire": "mixed",
+          "openings": {
+            "head": 0.3,
+            "upperTrunk": 0,
+            "middleTrunk": 0
+          },
+          "groundGame": true,
+          "spacing": 0.1,
+          "spacingStep": 0.1,
+          "paths": {
+            "elbowExtension": 1
+          }
+        },
+        "recipe": {
+          "capSeconds": 30
+        }
+      },
+      "result": {
+        "config": {
+          "left": {
+            "kind": "arena-fighter",
+            "hand": "alternate",
+            "targeting": "openings",
+            "repertoire": "mixed",
+            "openings": {
+              "head": 0.3,
+              "upperTrunk": 0,
+              "middleTrunk": 0
+            },
+            "groundGame": true,
+            "spacing": 0.1,
+            "spacingStep": 0.1,
+            "paths": {
+              "elbowExtension": 1
+            }
+          },
+          "right": {
+            "kind": "arena-fighter",
+            "hand": "alternate",
+            "targeting": "openings",
+            "repertoire": "mixed",
+            "openings": {
+              "head": 0.3,
+              "upperTrunk": 0,
+              "middleTrunk": 0
+            },
+            "groundGame": true,
+            "spacing": 0.1,
+            "spacingStep": 0.1,
+            "paths": {
+              "elbowExtension": 1
+            }
+          },
+          "recipe": {
+            "capSeconds": 30
+          }
+        },
+        "recipe": {
+          "left": "workshop-fighter",
+          "right": "workshop-fighter",
+          "gap": 4,
+          "capSeconds": 30,
+          "recoverySeconds": null,
+          "balance": {
+            "left": 0,
+            "right": 0
+          },
+          "held": {
+            "left": "empty",
+            "right": "empty"
+          },
+          "minds": {
+            "left": {
+              "kind": "arena-fighter",
+              "hand": "alternate",
+              "targeting": "openings",
+              "repertoire": "mixed",
+              "openings": {
+                "head": 0.3,
+                "upperTrunk": 0,
+                "middleTrunk": 0
+              },
+              "groundGame": true,
+              "spacing": 0.1,
+              "spacingStep": 0.1,
+              "paths": {
+                "elbowExtension": 1
+              }
+            },
+            "right": {
+              "kind": "arena-fighter",
+              "hand": "alternate",
+              "targeting": "openings",
+              "repertoire": "mixed",
+              "openings": {
+                "head": 0.3,
+                "upperTrunk": 0,
+                "middleTrunk": 0
+              },
+              "groundGame": true,
+              "spacing": 0.1,
+              "spacingStep": 0.1,
+              "paths": {
+                "elbowExtension": 1
+              }
+            }
+          }
+        },
+        "protocol": {
+          "version": 1,
+          "drivenClosing": 1,
+          "relativeHandSpeed": 0.5,
+          "pressureEpisode": 2,
+          "lowHeadHeight": 0.8,
+          "startup": 2,
+          "capSeconds": 60
+        },
+        "harness": {
+          "kind": "Node Arena Duel",
+          "engine": "rapier-coordinate",
+          "revision": "rapier/adapter-8/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits",
+          "hz": 120,
+          "actuation": "symmetric"
+        },
+        "seconds": 30,
+        "verdict": {
+          "winner": "left",
+          "ending": "time",
+          "time": 30
+        },
+        "meanCentreGap": 0.8704370380659693,
+        "minimumCentreGap": 0.6102358382903803,
+        "sides": {
+          "left": {
+            "phases": {
+              "align": 0.6583333333333334,
+              "approach": 13.699999999999863,
+              "attack": 0.16666666666666666,
+              "chamber": 4.933333333333368,
+              "swing": 2.199999999999995,
+              "return": 8.341666666666834
+            },
+            "falls": 0,
+            "downSeconds": 0,
+            "recoveries": 0,
+            "pressureSeconds": 4.233333333333333,
+            "longestPressure": 0.3416666666666669,
+            "pressureEpisodes": 0,
+            "pressureOnly": {
+              "longest": 0.3416666666666669,
+              "episodes": 0
+            },
+            "driven": 22,
+            "blocks": 5,
+            "lowDriven": 0,
+            "drivenDamage": 0.5721435876577897,
+            "selfDamage": 0.13501079737224306,
+            "incidentalDamage": 0.19269547333050446,
+            "incomingDamage": 0.5785713959270931,
+            "maximumDrivenSpeed": 5.656605689293039,
+            "pathLaunches": {
+              "straight": 20
+            },
+            "intendedSurfaces": {
+              "upperTrunk": 13,
+              "middleTrunk": 7
+            },
+            "drivenTargets": {
+              "hand.left": 1,
+              "middleTrunk": 7,
+              "hand.right": 3,
+              "upperTrunk": 10,
+              "forearm.right": 1
+            },
+            "rangeLearning": {
+              "offset": 0,
+              "hand": "left",
+              "launched": true,
+              "touched": false,
+              "returned": 6,
+              "misses": 1,
+              "adjustments": 1
+            },
+            "bar": 0.903571434012151,
+            "assist": {
+              "force": 0,
+              "moment": 0
+            }
+          },
+          "right": {
+            "phases": {
+              "align": 0.6500000000000001,
+              "approach": 12.183333333333282,
+              "attack": 0.175,
+              "chamber": 4.766666666666693,
+              "swing": 2.0583333333333287,
+              "return": 9.566666666666764,
+              "escape": 0.6000000000000003
+            },
+            "falls": 0,
+            "downSeconds": 0,
+            "recoveries": 0,
+            "pressureSeconds": 4.508333333333347,
+            "longestPressure": 0.3416666666666669,
+            "pressureEpisodes": 0,
+            "pressureOnly": {
+              "longest": 0.3416666666666669,
+              "episodes": 0
+            },
+            "driven": 18,
+            "blocks": 8,
+            "lowDriven": 0,
+            "drivenDamage": 0.36367530078972615,
+            "selfDamage": 0.13756460432865547,
+            "incidentalDamage": 0.21489609513736707,
+            "incomingDamage": 0.7648390609882939,
+            "maximumDrivenSpeed": 5.950672042791791,
+            "pathLaunches": {
+              "straight": 21
+            },
+            "intendedSurfaces": {
+              "upperTrunk": 13,
+              "middleTrunk": 8
+            },
+            "drivenTargets": {
+              "hand.right": 4,
+              "middleTrunk": 3,
+              "upperArm.right": 1,
+              "forearm.right": 4,
+              "upperTrunk": 6
+            },
+            "rangeLearning": {
+              "offset": 0,
+              "hand": "right",
+              "launched": false,
+              "touched": false,
+              "returned": 8,
+              "misses": 1,
+              "adjustments": 1
+            },
+            "bar": 0.8725268231686177,
+            "assist": {
+              "force": 0,
+              "moment": 0
+            }
+          }
+        }
+      }
+    }
+  ]
+}
