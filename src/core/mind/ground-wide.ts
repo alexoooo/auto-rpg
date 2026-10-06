@@ -125,7 +125,7 @@ export function groundWide(spec: BodySpec, clearMove: (view: BodyView, heading: 
       return { move: null, face: state.face, hands, combat: null };
     }
     if (supported.ready) state.stage = "attack";
-    if (!report.strike.hand) state.action = state.stage === "attack" ? { hand, target, family: "downward" } : null;
+    if (!report.strike.hand) state.action = state.stage === "attack" ? { hand, target, family: "downward", armExtension: 0 } : null;
     state.phase = state.stage === "attack" ? report.strike.phase ?? "low-attack" : "low-prepare";
     return { move: null, face: state.face, hands, lower: GROUND_COMBAT.lower, combat: state.action };
   } };

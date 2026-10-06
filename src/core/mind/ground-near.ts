@@ -61,7 +61,7 @@ export function groundNear(clearMove:(view:BodyView,h:number,m:readonly[number,n
   }
   if(hypot(target[0]-c.x,target[2]-c.z)>tuning.reach){state.stage='rise';state.action=null;return {move:null,face:state.face,hands,combat:null};}
   if(support.ready)state.stage='attack';
-  if(!report.strike.hand)state.action=state.stage==='attack'?{hand,target,family:'downward'}:null;
+  if(!report.strike.hand)state.action=state.stage==='attack'?{hand,target,family:'downward',armExtension:0}:null;
   state.phase=state.stage==='attack'?report.strike.phase??'low-attack':'low-prepare';
   return {move:null,face:state.face,hands,lower:tuning.lower,combat:state.action};
  }};

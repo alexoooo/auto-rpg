@@ -1,6 +1,6 @@
 import type { Hand } from "../control/motor.ts";
 import { hypot } from "../math/real.ts";
-import type { CombatAction } from "../mind/intent.ts";
+import { validArmExtension, type CombatAction } from "../mind/intent.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 
 /** Experimental trajectory search cells and physical gates: `docs/reference/combat-strikes.md#trajectory-settings`. */
@@ -19,7 +19,7 @@ export type AttackTuning = { readonly [K in keyof typeof ATTACK_PATH]: number };
 export function validAttackTuning(tuning: AttackTuning): boolean {
   return Object.values(tuning).every(v => Number.isFinite(v) && v >= 0)
     && [tuning.chamberSeconds, tuning.swingSeconds, tuning.hookSeconds, tuning.returnSeconds, tuning.prepareLimit, tuning.returnLimit, tuning.hold].every(v => v > 0)
-    && tuning.elbowExtension <= 1;
+    && validArmExtension(tuning.elbowExtension);
 }
 
 /** A chamber and contact velocity from the actual guard and observed target, in the body frame. */

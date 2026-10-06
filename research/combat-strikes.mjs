@@ -16,7 +16,7 @@ import { intoFrameToRef } from '../src/core/control/kinematics.ts';
 
 /** Real, unpinned Warrior primitive: the policy supplies only a hand, target and family. */
 export async function combatStrike({ hand = 'right', family = 'straight', mode = 'miss', tuning = {}, seconds = 12,
-  ahead = .65, across = .15, up = 0, support = null, surface = 'front', direction, measureMass = false } = {}) {
+  ahead = .65, across = .15, up = 0, support = null, surface = 'front', direction, armExtension, measureMass = false } = {}) {
  const s = await coreStand(modelSpec('workshop-fighter'), { engine: DEFAULT_ENGINE });
  const body = createBody(s.built, s.world, { servoSeconds: SERVO_SECONDS, handFeedback: true });
  const skills = combatSkills(body, {...ATTACK_PATH, ...tuning}), target = [across*(hand==='right'?1:-1), 1.63+up, ahead];
@@ -40,7 +40,7 @@ export async function combatStrike({ hand = 'right', family = 'straight', mode =
  body.drive((view,dt)=>{
   if(view.resumed) skills.resume(view);
   const command=skills.command(view, {move:null,face:0,hands:{left:GUARD_ACTION,right:GUARD_ACTION},
-   combat:view.time>=(support?.attackAt??2)&&view.time<(support?.riseAt??Infinity)?{hand,target,family,...(direction?{direction}:{})}:null},dt);
+   combat:view.time>=(support?.attackAt??2)&&view.time<(support?.riseAt??Infinity)?{hand,target,family,...(direction?{direction}:{}),...(armExtension===undefined?{}:{armExtension})}:null},dt);
   return support? supportedStrikeCommand(view,command,support):command;
  });
  try {
@@ -68,7 +68,7 @@ export async function combatStrike({ hand = 'right', family = 'straight', mode =
   }
   const feet=footStatesOf(s.built); readSupport(feet,feet,new Vector3());
   return {...(support?{support,floorContacts,feet:feet.map(f=>({side:f.side,corners:f.corners.map(p=>p.asArray())}))}:{}),harness:{kind:'Node unpinned core stand',engine:DEFAULT_ENGINE,hz:s.world.hz,balance:0,model:'workshop-fighter',held:'empty'},
-   hand,family,mode,surface,...(direction?{direction}:{}),tuning:{...ATTACK_PATH,...tuning},target,fell,phases,contacts,peaks,
+   hand,family,mode,surface,...(direction?{direction}:{}),...(armExtension===undefined?{}:{armExtension}),tuning:{...ATTACK_PATH,...tuning},target,fell,phases,contacts,peaks,
    cycles:structuredClone(skills.report.strike.pointCycle),thrown:structuredClone(skills.report.strike.thrown),
    finalHand:body.view.fists[hand].position.asArray(),head:body.view.head.asArray(),support:body.view.stance.phase,
    meanTargetDistance:errors.length?errors.reduce((a,b)=>a+b,0)/errors.length:null,

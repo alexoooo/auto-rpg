@@ -3,7 +3,7 @@ import type { Body, BodyCommand, BodyView } from "../body.ts";
 import { intoFrameToRef } from "../control/kinematics.ts";
 import type { Hand, HandGoal, Pose } from "../control/motor.ts";
 import { hypot } from "../math/real.ts";
-import type { CombatAction } from "../mind/intent.ts";
+import { validArmExtension, type CombatAction } from "../mind/intent.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { attackPath, ATTACK_PATH, validAttackTuning, type AttackTuning } from "./attack-path.ts";
 import { GUARD, guardSkill } from "./guard.ts";
@@ -58,6 +58,7 @@ export function combatSkills(body: Body, tuning: AttackTuning = ATTACK_PATH, tac
     }
     state.cooldown += dt;
     const requested = intent.combat;
+    if (requested && !validArmExtension(requested.armExtension)) throw new Error("combat armExtension must be finite and in [0,1]");
     fold?.tick(view, state.hand ? state.lower : intent.lower ?? STANCE_LOWER, !!intent.move, dt);
     if (!state.hand && requested && view.time >= tuning.startup && state.cooldown >= tuning.hold && (!fold || fold.report.stage === "stand" || fold.report.ready)) {
       state.action = { ...requested, target: [...requested.target], ...(requested.direction ? { direction: [...requested.direction] as Vec3 } : {}) }; state.hand = requested.hand; state.lower = intent.lower ?? STANCE_LOWER;
@@ -111,8 +112,9 @@ export function combatSkills(body: Body, tuning: AttackTuning = ATTACK_PATH, tac
         goal = { places: [{ point: aims[hand], position: place }], seconds, follows: true,
           initialVelocity: state.velocity, sequence: state.sequence,
           ...(state.phase === "swing" ? { terminalVelocity: path.contactVelocity, ...(path.curve ? { curve: path.curve } : {}) } : {}) };
-        if (tuning.elbowExtension) {
-          const u = Math.min(1, state.time / seconds), amount = state.phase === "swing" ? tuning.elbowExtension : 0;
+        const extension = action.armExtension ?? tuning.elbowExtension;
+        if (extension || state.elbow) {
+          const u = Math.min(1, state.time / seconds), amount = state.phase === "swing" ? extension : 0;
           state.elbow = state.initialElbow + (amount - state.initialElbow) * u * u * (3 - 2 * u);
           const dof = elbows[hand], name = `elbow.${hand} flexion`, preferred = (1 - state.elbow) * GUARD[name]!;
           if (dof) posture = { ...posture, [name]: Math.max(dof.min.value, Math.min(dof.max.value, preferred)) };
