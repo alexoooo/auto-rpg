@@ -1,0 +1,668 @@
+{
+  "protocol": 1,
+  "results": [
+    {
+      "config": {
+        "left": "right",
+        "right": "right",
+        "gap": 4
+      },
+      "harness": {
+        "kind": "Node Arena Duel",
+        "engine": "rapier/adapter-8/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde",
+        "hz": 120,
+        "actuation": "symmetric",
+        "balance": {
+          "left": 0,
+          "right": 0
+        },
+        "models": [
+          "Warrior",
+          "Warrior"
+        ],
+        "held": "empty"
+      },
+      "seconds": 30,
+      "verdict": {
+        "winner": "right",
+        "ending": "time",
+        "time": 30
+      },
+      "afterStartup": {
+        "from": 5,
+        "meanHeadGap": 0.6156084020178876,
+        "minimumHeadGap": 0.5246172001627767
+      },
+      "sides": {
+        "left": {
+          "phases": {
+            "settle": 8.850000000000138,
+            "chamber": 3.8166666666666558,
+            "swing": 1.5666666666666635,
+            "return": 7.6333333333335025,
+            "approach": 3.0083333333333253,
+            "align": 0.13333333333333333
+          },
+          "handPressureSeconds": 20.233333333332826,
+          "falls": 0,
+          "bar": 0.98705189840742,
+          "cycles": {
+            "returned": {
+              "left": 0,
+              "right": 24
+            },
+            "failed": 0,
+            "interrupted": 0,
+            "response": {
+              "completed": {
+                "left": 0,
+                "right": 24
+              },
+              "reasons": {
+                "contact": 23,
+                "miss": 0,
+                "cancelled": 0,
+                "preparation-timeout": 0,
+                "return-timeout": 0,
+                "interrupted": 0,
+                "target-moved": 1
+              },
+              "last": {
+                "hand": "right",
+                "reason": "contact",
+                "returned": true,
+                "time": 28.208333333333332
+              }
+            }
+          },
+          "outgoingHandDamage": 0.026897729498298547,
+          "outgoingHandEnergy": 7.150487349296016,
+          "incomingDamage": 0.07735090740958546
+        },
+        "right": {
+          "phases": {
+            "settle": 8.075000000000182,
+            "chamber": 2.366666666666661,
+            "swing": 1.9999999999999953,
+            "return": 8.666666666666815,
+            "approach": 3.6999999999999895,
+            "align": 0.19999999999999998
+          },
+          "handPressureSeconds": 20.291666666666156,
+          "falls": 0,
+          "bar": 0.9884813565962952,
+          "cycles": {
+            "returned": {
+              "left": 0,
+              "right": 19
+            },
+            "failed": 0,
+            "interrupted": 0,
+            "response": {
+              "completed": {
+                "left": 0,
+                "right": 19
+              },
+              "reasons": {
+                "contact": 19,
+                "miss": 0,
+                "cancelled": 0,
+                "preparation-timeout": 0,
+                "return-timeout": 0,
+                "interrupted": 0,
+                "target-moved": 0
+              },
+              "last": {
+                "hand": "right",
+                "reason": "contact",
+                "returned": true,
+                "time": 27.758333333333333
+              }
+            }
+          },
+          "outgoingHandDamage": 0.035314978171482964,
+          "outgoingHandEnergy": 7.976262170607808,
+          "incomingDamage": 0.06877415827633448
+        }
+      }
+    },
+    {
+      "config": {
+        "left": "alternate",
+        "right": "alternate",
+        "gap": 4
+      },
+      "harness": {
+        "kind": "Node Arena Duel",
+        "engine": "rapier/adapter-8/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde",
+        "hz": 120,
+        "actuation": "symmetric",
+        "balance": {
+          "left": 0,
+          "right": 0
+        },
+        "models": [
+          "Warrior",
+          "Warrior"
+        ],
+        "held": "empty"
+      },
+      "seconds": 30,
+      "verdict": {
+        "winner": "right",
+        "ending": "time",
+        "time": 30
+      },
+      "afterStartup": {
+        "from": 5,
+        "meanHeadGap": 0.5719459675194887,
+        "minimumHeadGap": 0.5246172001627767
+      },
+      "sides": {
+        "left": {
+          "phases": {
+            "settle": 6.366666666666773,
+            "chamber": 4.35833333333334,
+            "swing": 2.424999999999994,
+            "return": 11.50833333333332,
+            "align": 0.05833333333333333,
+            "approach": 0.29166666666666674
+          },
+          "handPressureSeconds": 22.941666666666006,
+          "falls": 0,
+          "bar": 0.986127311472296,
+          "cycles": {
+            "returned": {
+              "left": 19,
+              "right": 19
+            },
+            "failed": 0,
+            "interrupted": 0,
+            "response": {
+              "completed": {
+                "left": 19,
+                "right": 19
+              },
+              "reasons": {
+                "contact": 38,
+                "miss": 0,
+                "cancelled": 0,
+                "preparation-timeout": 0,
+                "return-timeout": 0,
+                "interrupted": 0,
+                "target-moved": 0
+              },
+              "last": {
+                "hand": "left",
+                "reason": "contact",
+                "returned": true,
+                "time": 29.091666666666665
+              }
+            }
+          },
+          "outgoingHandDamage": 0.032776002720075505,
+          "outgoingHandEnergy": 8.562834430677265,
+          "incomingDamage": 0.08289842902032876
+        },
+        "right": {
+          "phases": {
+            "settle": 5.325000000000054,
+            "chamber": 4.199999999999998,
+            "swing": 2.1583333333333283,
+            "return": 13.033333333333234,
+            "align": 0.041666666666666664,
+            "approach": 0.24999999999999997
+          },
+          "handPressureSeconds": 23.108333333332663,
+          "falls": 0,
+          "bar": 0.9861432980456527,
+          "cycles": {
+            "returned": {
+              "left": 16,
+              "right": 17
+            },
+            "failed": 0,
+            "interrupted": 0,
+            "response": {
+              "completed": {
+                "left": 16,
+                "right": 17
+              },
+              "reasons": {
+                "contact": 33,
+                "miss": 0,
+                "cancelled": 0,
+                "preparation-timeout": 0,
+                "return-timeout": 0,
+                "interrupted": 0,
+                "target-moved": 0
+              },
+              "last": {
+                "hand": "right",
+                "reason": "contact",
+                "returned": true,
+                "time": 27.925
+              }
+            }
+          },
+          "outgoingHandDamage": 0.0311184109511138,
+          "outgoingHandEnergy": 8.221724132870943,
+          "incomingDamage": 0.08280250958018891
+        }
+      }
+    },
+    {
+      "config": {
+        "left": "alternate",
+        "right": "alternate",
+        "gap": 1.2
+      },
+      "harness": {
+        "kind": "Node Arena Duel",
+        "engine": "rapier/adapter-8/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde",
+        "hz": 120,
+        "actuation": "symmetric",
+        "balance": {
+          "left": 0,
+          "right": 0
+        },
+        "models": [
+          "Warrior",
+          "Warrior"
+        ],
+        "held": "empty"
+      },
+      "seconds": 30,
+      "verdict": {
+        "winner": "right",
+        "ending": "time",
+        "time": 30
+      },
+      "afterStartup": {
+        "from": 5,
+        "meanHeadGap": 0.6358249423498149,
+        "minimumHeadGap": 0.5428766001665507
+      },
+      "sides": {
+        "left": {
+          "phases": {
+            "settle": 8.450000000000161,
+            "chamber": 2.674999999999993,
+            "swing": 1.0749999999999986,
+            "return": 6.975000000000136,
+            "approach": 5.5833333333334005,
+            "align": 0.24999999999999997
+          },
+          "handPressureSeconds": 17.816666666666297,
+          "falls": 0,
+          "bar": 0.990818953298664,
+          "cycles": {
+            "returned": {
+              "left": 10,
+              "right": 11
+            },
+            "failed": 0,
+            "interrupted": 0,
+            "response": {
+              "completed": {
+                "left": 10,
+                "right": 11
+              },
+              "reasons": {
+                "contact": 20,
+                "miss": 0,
+                "cancelled": 0,
+                "preparation-timeout": 0,
+                "return-timeout": 0,
+                "interrupted": 0,
+                "target-moved": 1
+              },
+              "last": {
+                "hand": "right",
+                "reason": "contact",
+                "returned": true,
+                "time": 29.941666666666666
+              }
+            }
+          },
+          "outgoingHandDamage": 0.009514288034860813,
+          "outgoingHandEnergy": 2.4978416998925344,
+          "incomingDamage": 0.05484916166934352
+        },
+        "right": {
+          "phases": {
+            "settle": 8.233333333333507,
+            "chamber": 2.808333333333326,
+            "swing": 1.249999999999998,
+            "return": 6.133333333333428,
+            "align": 0.08333333333333333,
+            "approach": 6.500000000000113
+          },
+          "handPressureSeconds": 17.783333333332966,
+          "falls": 0,
+          "bar": 0.9919887498852255,
+          "cycles": {
+            "returned": {
+              "left": 9,
+              "right": 10
+            },
+            "failed": 0,
+            "interrupted": 0,
+            "response": {
+              "completed": {
+                "left": 9,
+                "right": 10
+              },
+              "reasons": {
+                "contact": 18,
+                "miss": 0,
+                "cancelled": 0,
+                "preparation-timeout": 0,
+                "return-timeout": 0,
+                "interrupted": 0,
+                "target-moved": 1
+              },
+              "last": {
+                "hand": "right",
+                "reason": "contact",
+                "returned": true,
+                "time": 29.9
+              }
+            }
+          },
+          "outgoingHandDamage": 0.029101577935215884,
+          "outgoingHandEnergy": 5.713421728026572,
+          "incomingDamage": 0.047830382149973774
+        }
+      }
+    },
+    {
+      "config": {
+        "left": "alternate",
+        "right": "alternate",
+        "gap": 2.4
+      },
+      "harness": {
+        "kind": "Node Arena Duel",
+        "engine": "rapier/adapter-8/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde",
+        "hz": 120,
+        "actuation": "symmetric",
+        "balance": {
+          "left": 0,
+          "right": 0
+        },
+        "models": [
+          "Warrior",
+          "Warrior"
+        ],
+        "held": "empty"
+      },
+      "seconds": 30,
+      "verdict": {
+        "winner": "right",
+        "ending": "time",
+        "time": 30
+      },
+      "afterStartup": {
+        "from": 5,
+        "meanHeadGap": 0.6009640602623191,
+        "minimumHeadGap": 0.5348002629105314
+      },
+      "sides": {
+        "left": {
+          "phases": {
+            "approach": 3.141666666666658,
+            "settle": 7.758333333333509,
+            "chamber": 3.108333333333325,
+            "swing": 1.4749999999999972,
+            "return": 9.400000000000107,
+            "align": 0.12499999999999999
+          },
+          "handPressureSeconds": 20.199999999999495,
+          "falls": 0,
+          "bar": 0.9849354540370442,
+          "cycles": {
+            "returned": {
+              "left": 13,
+              "right": 12
+            },
+            "failed": 1,
+            "interrupted": 0,
+            "response": {
+              "completed": {
+                "left": 13,
+                "right": 13
+              },
+              "reasons": {
+                "contact": 24,
+                "miss": 0,
+                "cancelled": 0,
+                "preparation-timeout": 0,
+                "return-timeout": 1,
+                "interrupted": 0,
+                "target-moved": 1
+              },
+              "last": {
+                "hand": "left",
+                "reason": "contact",
+                "returned": true,
+                "time": 29.666666666666668
+              }
+            }
+          },
+          "outgoingHandDamage": 0.02951118637871762,
+          "outgoingHandEnergy": 7.643320254939469,
+          "incomingDamage": 0.09023644511897763
+        },
+        "right": {
+          "phases": {
+            "return": 9.400000000000107,
+            "align": 0.175,
+            "approach": 3.883333333333322,
+            "settle": 6.908333333333466,
+            "chamber": 2.808333333333326,
+            "swing": 1.8333333333333293
+          },
+          "handPressureSeconds": 20.18333333333283,
+          "falls": 0,
+          "bar": 0.9870333591696335,
+          "cycles": {
+            "returned": {
+              "left": 12,
+              "right": 12
+            },
+            "failed": 1,
+            "interrupted": 0,
+            "response": {
+              "completed": {
+                "left": 12,
+                "right": 13
+              },
+              "reasons": {
+                "contact": 23,
+                "miss": 0,
+                "cancelled": 0,
+                "preparation-timeout": 0,
+                "return-timeout": 1,
+                "interrupted": 0,
+                "target-moved": 1
+              },
+              "last": {
+                "hand": "right",
+                "reason": "contact",
+                "returned": true,
+                "time": 29.466666666666665
+              }
+            }
+          },
+          "outgoingHandDamage": 0.044332990601463076,
+          "outgoingHandEnergy": 9.348938019934963,
+          "incomingDamage": 0.07764901432344164
+        }
+      }
+    },
+    {
+      "config": {
+        "left": "classic",
+        "right": "classic",
+        "gap": 4
+      },
+      "harness": {
+        "kind": "Node Arena Duel",
+        "engine": "rapier/adapter-8/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde",
+        "hz": 120,
+        "actuation": "symmetric",
+        "balance": {
+          "left": 0,
+          "right": 0
+        },
+        "models": [
+          "Warrior",
+          "Warrior"
+        ],
+        "held": "empty"
+      },
+      "seconds": 30,
+      "verdict": {
+        "winner": "left",
+        "ending": "time",
+        "time": 30
+      },
+      "afterStartup": {
+        "from": 5,
+        "meanHeadGap": 1.6141874834237169,
+        "minimumHeadGap": 0.29358189284024316
+      },
+      "sides": {
+        "left": {
+          "phases": {
+            "approach": 0.7,
+            "settle": 2.3249999999999944,
+            "swing": 0.47500000000000064,
+            "guard": 0.008333333333333333,
+            "place": 2.9249999999999923,
+            "lie": 18.574999999999587
+          },
+          "handPressureSeconds": 3.883333333333322,
+          "falls": 1,
+          "bar": 0.9832162945454564,
+          "cycles": null,
+          "outgoingHandDamage": 0.017170411346378266,
+          "outgoingHandEnergy": 2.6780527967152055,
+          "incomingDamage": 0.10070223272726192
+        },
+        "right": {
+          "phases": {
+            "approach": 0.7749999999999997,
+            "place": 5.450000000000061,
+            "settle": 1.4999999999999971,
+            "lie": 17.283333333332994
+          },
+          "handPressureSeconds": 4.783333333333361,
+          "falls": 1,
+          "bar": 0.9819741696075809,
+          "cycles": null,
+          "outgoingHandDamage": 0.009038622218126091,
+          "outgoingHandEnergy": 1.85125634465121,
+          "incomingDamage": 0.10815498235451437
+        }
+      }
+    },
+    {
+      "config": {
+        "left": "alternate",
+        "right": "classic",
+        "gap": 4
+      },
+      "harness": {
+        "kind": "Node Arena Duel",
+        "engine": "rapier/adapter-8/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde",
+        "hz": 120,
+        "actuation": "symmetric",
+        "balance": {
+          "left": 0,
+          "right": 0
+        },
+        "models": [
+          "Warrior",
+          "Warrior"
+        ],
+        "held": "empty"
+      },
+      "seconds": 30,
+      "verdict": {
+        "winner": "left",
+        "ending": "time",
+        "time": 30
+      },
+      "afterStartup": {
+        "from": 5,
+        "meanHeadGap": 1.1663318428926828,
+        "minimumHeadGap": 0.2429794041992227
+      },
+      "sides": {
+        "left": {
+          "phases": {
+            "settle": 2.0749999999999953,
+            "chamber": 2.008333333333329,
+            "return": 1.7916666666666627,
+            "approach": 5.025000000000039,
+            "align": 0.05833333333333333,
+            "retreat": 0.4583333333333339,
+            "recovery: rise": 13.591666666666535
+          },
+          "handPressureSeconds": 6.7083333333334565,
+          "falls": 1,
+          "bar": 0.9506380736700262,
+          "cycles": {
+            "returned": {
+              "left": 0,
+              "right": 1
+            },
+            "failed": 1,
+            "interrupted": 0,
+            "response": {
+              "completed": {
+                "left": 0,
+                "right": 1
+              },
+              "reasons": {
+                "contact": 0,
+                "miss": 0,
+                "cancelled": 0,
+                "preparation-timeout": 1,
+                "return-timeout": 0,
+                "interrupted": 0,
+                "target-moved": 0
+              },
+              "last": {
+                "hand": "right",
+                "reason": "preparation-timeout",
+                "returned": true,
+                "time": 9.65
+              }
+            }
+          },
+          "outgoingHandDamage": 0.05149635161626504,
+          "outgoingHandEnergy": 6.1963219859703695,
+          "incomingDamage": 0.2959894486196597
+        },
+        "right": {
+          "phases": {
+            "approach": 0.783333333333333,
+            "place": 3.216666666666658,
+            "settle": 4.408333333333342,
+            "lie": 16.5999999999997
+          },
+          "handPressureSeconds": 5.241666666666717,
+          "falls": 1,
+          "bar": 0.8344129643340548,
+          "cycles": null,
+          "outgoingHandDamage": 0.0017335575728289168,
+          "outgoingHandEnergy": 0.2629369763677684,
+          "incomingDamage": 0.9933401046354869
+        }
+      }
+    }
+  ]
+}

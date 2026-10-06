@@ -571,6 +571,9 @@ fresh mirrored gates; [the record](../reference/arena-engagement.md) retains the
 validation and the accepted measurements. Replay, explicit orders, interruption and static cycles
 are covered in `tests/arena-engagement.test.mjs`.
 
+The [Arena combat plan](2026-10-06-arena-combat.md) implements the next attack/tactics chunk
+and adds autonomous self-play acceptance before promotion.
+
 Remaining integration chunks must keep the classic comparison option:
 
 1. Extend `research/arena-engagement.mjs` with opponents that attack and more body/loadout

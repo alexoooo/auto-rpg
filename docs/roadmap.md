@@ -113,7 +113,11 @@ passes the documented useful-return, fall and timeout gates on development and f
 cases; pressure timeouts remain and no win-rate claim follows. Faster contact-driven recovery
 across bodies, simultaneous coordinated attacks, separate/two-hand item rendering and damage,
 and a practical real-time whole-body solver remain open. The independent policy interface and
-classic fighter remain available for comparison.
+classic fighter remain available for comparison. The
+[autonomous Warrior baseline](reference/arena-combat.md) exposes sustained hand pressure with
+little damage in Point self-play. The [next combat controller](plans/2026-10-06-arena-combat.md)
+prioritizes working distance, driven strike primitives, openings, defense and active-opponent
+win/damage gates. Repeated touch-and-return alone does not establish combat effectiveness.
 
 ## Open items
 
