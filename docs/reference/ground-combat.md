@@ -47,7 +47,9 @@ improve the tested cases, not every downed pose or approach direction.
 
 ## Arena integration
 
-`ARENA_SCRAPPER` extends retained `ARENA_BRAWLER` with `groundGame: true`. The selectable
+`ARENA_SCRAPPER_REFERENCE` extends retained `ARENA_BRAWLER` with `groundGame: true`;
+research names it `scrapper-v1`. Playable `ARENA_SCRAPPER` retains that profile after
+standing/low admission rejects the spacing and heading-ceiling candidates below. The selectable
 Scrapper controller, recipe links, snapshots and research runner all use `combatTactics`
 and the same supported executor. Its policy memory, route, deadlines and active hand are
 plain bout state. Orders reset the autonomous episode; recovery takeover clears execution,
@@ -84,3 +86,35 @@ physics steps (17.875 simulated seconds at 120 Hz): mean step 2.384 ms, batch-st
 1,008.2 ms despite a visible tab, and simulated/real time is 0.1004. Node checks overlap
 the early part of inspection. This checks built integration, not 60 FPS, GPU time, individual
 step p95 or visually demonstrated low combat. The owned preview and tab are stopped.
+
+## Profile admission
+
+`combat-profile-admission.json` retains twenty whole physical trials and their
+configurations/source identity. Node Arena Duel, rapier-coordinate, 120 Hz, Warrior
+fists, balance 0/0, continuing recovery. Each profile runs the same 30 s self-play
+recipe and four 45 s controlled knockdowns: each attacking hand, against a lying
+or recovering opponent. `groundFight` accepts an immutable candidate configuration
+for this matched comparison; it still uses the ordinary Arena mind and body path.
+
+| Profile | Self-play driven HP, left/right | Self-play trunk blows, left/right | Low driven blows: right lying/rising, left lying/rising | Low fixture gates passed / 4 |
+|---|---:|---:|---|---:|
+| Retained Scrapper | 0.269 / 0.415 | 10/11 | 15/2, 2/2 | 4 |
+| Additional spacing 0.10 m | 0.072 / 0.009 | 1/0 | 15/2, 2/2 | 4 |
+| Heading ceiling 2 rad/s | 0.362 / 0.248 | 10/6 | 6/0, 1/0 | 1 |
+| Both | 0.097 / 0.672 | 1/11 | 6/0, 1/0 | 1 |
+
+Every controlled low-fixture attacker stays upright, clear of the floor with its
+head/trunk, and uses zero assist. The low gates require acquisition before 15 s, more than 100 quiet-ready
+steps, at least two driven low blows, more than 0.015 HP damage, verified hand
+returns and standing return after the low episode. No proposed setting passes both
+the existing useful-self-play gate and all four low gates. Neither becomes the
+selected Scrapper profile. The earlier competitive results remain valid for their
+recorded configurations; they do not establish that two equal candidates fight
+effectively or that those configurations preserve the controlled low ability.
+
+The added selectable-Scrapper self-play regression rejects the combined proposed
+profile and keeps that gap visible alongside the low tests. Spacing admits a target
+farther out than the original reserve: two equal controllers can settle outside a
+useful stroke. This is a plausible geometric cause, not yet a measured workspace
+explanation. Target reach/launch admission and turn-aware low approach need physical
+validation before another profile is promoted.

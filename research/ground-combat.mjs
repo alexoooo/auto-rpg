@@ -9,7 +9,7 @@ import { motionAtToRef, centreOfToRef } from '../src/core/control/support.ts';
 /** An ordinary shove creates a low target in the actual Arena mind/skills/recovery path. */
 export async function groundFight(options = {}) {
  const side=options.side??'left',other=side==='left'?'right':'left',seconds=options.seconds??45;
- const candidate={...ARENA_SCRAPPER,hand:options.hand??'alternate'},recover=options.recover??true;
+ const candidate={...(options.candidate??ARENA_SCRAPPER),hand:options.hand??'alternate'},recover=options.recover??true;
  const config={left:'workshop-fighter',right:'workshop-fighter',held:{left:'empty',right:'empty'},balance:{left:0,right:0},
   minds:{[side]:candidate,[other]:recover?ARENA_FIGHTER:FIGHTER},gap:options.gap??.8,capSeconds:seconds,recoverySeconds:null};
  const fingerprint=combatFingerprint(),bout=await buildBout(config,{physicsEngine:await loadEngine(DEFAULT_ENGINE)});

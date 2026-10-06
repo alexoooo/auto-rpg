@@ -95,5 +95,8 @@ export const ARENA_FIGHTER: ArenaFighterConfig = deepFreeze({ kind: "arena-fight
 export const ARENA_BRAWLER: ArenaFighterConfig = deepFreeze({ kind: "arena-fighter", hand: "alternate",
   targeting: "openings", repertoire: "mixed", openings: { head: .3, upperTrunk: 0, middleTrunk: 0 } });
 
-/** Grounded extension of the retained standing candidate: `docs/reference/ground-combat.md#arena-integration`. */
-export const ARENA_SCRAPPER: ArenaFighterConfig = deepFreeze({ ...ARENA_BRAWLER, groundGame: true });
+/** Retained grounded comparison profile: `docs/reference/ground-combat.md#arena-integration`. */
+export const ARENA_SCRAPPER_REFERENCE: ArenaFighterConfig = deepFreeze({ ...ARENA_BRAWLER, groundGame: true });
+
+/** Playable grounded profile with both-hand low gates: `docs/reference/ground-combat.md#arena-integration`. */
+export const ARENA_SCRAPPER: ArenaFighterConfig = ARENA_SCRAPPER_REFERENCE;

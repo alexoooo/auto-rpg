@@ -277,7 +277,10 @@ and driven afresh to change what it costs.
   stance's legs and its records the stance's own state; what the soles miss is published
   (`StanceReading.shortfall`). Steps (to recover, to walk, to shift weight) are placed from the
   capture point. `stanceEnvelope` (`stance-envelope.ts`) reads what each body was measured to
-  hold (`assets/core/stance-envelope.json`).
+  hold on parent-axis Rapier under its character's balance allowance
+  (`assets/core/stance-envelope.json`). Unassisted coordinate-engine turns have a separate
+  [combat calibration](reference/combat-locomotion.md); the reference table alone does not
+  establish that gameplay capability.
 - **The assist** (`assist.ts`) is a force and a moment on the root that no muscle gives: an ask
   shortened to a ceiling in the body's own weight, given through the solver step, and metered. Its
   ceiling is given with the body from the character's balance, and none unless given
@@ -289,8 +292,8 @@ and driven afresh to change what it costs.
 `BodyCommand`, and it reports back (`SkillReport`: heading, pace, where a strike is).
 
 - **Locomotion** (`locomotion.ts`) walks at no more than the body's measured fastest walk, turns
-  only while walking and no faster than its envelope allows, and can set the feet at a chosen
-  place (`Locomotion.place`).
+  only while walking and no faster than its envelope and optional `turnLimit` allow, and can
+  set the feet at a chosen place (`Locomotion.place`).
 - **Strike** (`strike.ts`, `strikes.ts`) carries out a hand's attack by one of two blows. A
   searched recipe is a chamber pose and timed muscle pushes (`Strike`) for a body, a thing held
   and a height band (`BANDS`: high, where a foe of its own build has its head; middle, its

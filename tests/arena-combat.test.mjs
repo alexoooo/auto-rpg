@@ -82,3 +82,15 @@ test('the selectable Brawler pair launches repeated body blows without sustained
   assert.deepEqual(out.assist,{force:0,moment:0});
  }
 });
+
+test('the selected Scrapper pair lands body blows without sustained hugging on the real Arena body',async()=>{
+ const minds=readMinds('?control=scrapper,scrapper');
+ const row=await combatTrial({left:minds.left,right:minds.right,recipe:{capSeconds:30}});
+ for(const side of ['left','right']){
+  const out=row.sides[side];
+  assert.ok((out.drivenTargets.upperTrunk??0)+(out.drivenTargets.middleTrunk??0)>=8,JSON.stringify(out));
+  assert.ok(out.drivenDamage>.2,JSON.stringify(out));assert.equal(out.falls,0);
+  assert.ok(out.pressureOnly.longest<1);assert.equal(out.pressureOnly.episodes,0);
+  assert.deepEqual(out.assist,{force:0,moment:0});
+ }
+});

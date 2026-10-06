@@ -56,8 +56,8 @@ low striking remain under evaluation. Try
 Scrapper adds supported low attacks against fallen or rising opponents. Start with two
 empty-handed Warriors:
 `?play=arena&matchup=workshop-fighter,workshop-fighter&control=scrapper&held=empty&balance=0`.
-It approaches, acquires foot support, attacks low and returns to standing. The first checks
-cover both hands; unreachable placements time out and retry. Combat retains the earlier
+It creates room for punches, approaches low targets, acquires foot support and returns to
+standing. The checks cover both hands; unreachable placements time out and retry. Combat retains the earlier
 controller for comparison and replay.
 Point control plans the striking point's path and predicts defensive intercepts, using the same
 body, muscles, walking, balance and damage rules as Classic. It is a playable comparison,
@@ -189,10 +189,13 @@ had a click or a key.
 ## Status
 
 **Working**: the Arena and the Crypt on the core, with the Warrior, the Rogue and the skeleton,
-each armed with a club; the lab's scenarios; the character workshop; the physics bench.
+with empty hands or a club; the lab's scenarios; the character workshop; the physics bench.
+Arena bouts continue after falls by default: fighters attempt recovery, and Scrapper can
+attack low while an opponent is down or rising. Warrior fists are the measured low-combat scope.
 
-**Not yet**: rising after a fall (a fallen body is out), turning on the spot, weapons beyond the
-club, and the AI above a single fighter's mind. See
+**Not yet**: reliable recovery across every body and fallen pose, decisive finishing by the
+new combat controller, turning on the spot, weapons beyond the club, and the AI above a single
+fighter's mind. See
 [the roadmap](docs/roadmap.md).
 
 ## Where things are

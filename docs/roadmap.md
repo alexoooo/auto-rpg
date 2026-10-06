@@ -122,7 +122,12 @@ contract. Brawler wins 591/600 held-out Warrior fist cap bouts against Classic, 
 linear Combat. Scrapper lands low blows with either hand in controlled knockdowns, attempts
 recovery and restores standing, with fresh-world replay. Decisive finishing, low-target pose
 coverage, defense timing, broader loadouts and repeated league evaluation remain open. The
-standing benchmark does not rate the grounded extension.
+standing benchmark does not rate the grounded extension. The original grounded configuration
+is retained as `scrapper-v1`. Additional spacing passes held-out win-score gates but stalls
+self-play; a slower heading ceiling prevents a stand failure and reduces some Classic falls,
+but weakens recovering-target attacks. The [profile gates](reference/ground-combat.md#profile-admission)
+retain the rejected cases. Competitive promotion, stronger self-play and low-combat robustness
+remain open.
 
 ## Open items
 
@@ -321,14 +326,17 @@ standing benchmark does not rate the grounded extension.
   where a person's preferred walk is near 1.4 m/s. The next step is a controller that holds the
   pelvis against the moment the soles miss, or one whole-body solve. The assist supplies the
   moment the soles miss, as a cheat with a ceiling (`docs/reference/assist.md`).
-- Rising after a fall is built to the feet, and for the lab alone (its Character section's
-  "Down"). A fallen body rolls onto its front, comes onto knees and hands, kneels up, steps to a
+- Rising after a fall is built to the feet and integrated with continuing Arena bouts as well
+  as the lab's Character section ("Down"). A fallen body rolls onto its front, comes onto knees
+  and hands, kneels up, steps to a
   half kneel and lunges onto both feet, where its stance has it. On the battery of falls the
   Warrior rises from seven falls of eight with nothing in its hands (112 of 127 shoves, 110 up at
   the end of 40 s) and from more than three of four with the club (94 of 121, 97 up), every way
   of lying at half or more; the Rogue from 6 of 32 falls and the skeleton from 1
-  ([reference/rising.md](reference/rising.md#staged)). In a fight a fallen body still lies
-  (`lie`) and is out of it. Open, each with its readings in the record
+  ([reference/rising.md](reference/rising.md#staged)); this battery uses the parent-axis
+  reference engine. The Arena defaults to continuing after falls: Classic attempts its staged
+  rise, while Point and Combat verify standing support before handing control back. The Crypt
+  still uses the reference `lie` behavior. Open, each with its readings in the record
   ([reference/rising.md](reference/rising.md#where-the-rise-stops)):
   - the kneel-up goes down forward in two of the nine forward topples read: the body rocks onto
     its knees, the shins lifting, as the hips straighten over the line of the knees;
