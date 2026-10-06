@@ -987,3 +987,11 @@ Combat clearance reads hull and box torsos as well as round shapes. Detached col
 include held items; foot sweeps use exact round-collider distance and conservative polyhedral
 bounds. A body inside a fixed boundary margin backs away at its current heading before
 turning to fight. Existing margin penetration permits parallel or outward motion.
+
+Scrapper is an optional grounded extension of the retained standing Brawler. Its `groundCombat`
+policy observes head height, trunk motion and collider geometry, admits a close approach by
+foot clearance, and otherwise uses a wider route. `combatTactics` resolves the resulting neutral
+intent through the common executor. It retains a committed hand/aim, refreshes only between
+strokes, and requests standing return on movement, target displacement or a deadline. Its
+nested state forks with the bout. Ordinary orders and recovery resumption reset selection.
+The supported executor remains available to other policies independently of this heuristic.

@@ -54,13 +54,14 @@ it passes 33/36 predictive development starts versus 0/36 pose starts; three pos
 failures keep sustained defense open. All replay and remain
 upright, so initial contact alone is not the missing gate. Shared-item defense and coordinated
 attack/guard still require demonstrations.
-Loaded support transitions, recovery, standing strike/block against an opponent, equipment
-integration with fight rendering/damage and the held-out integrated sequence remain open. These controlled fixtures
-do not close the gameplay gates or replace the game's controller.
+Loaded support transitions and Warrior recovery have measured gates. Arena Brawler supplies
+driven standing fist combat and Scrapper adds supported low attacks and standing return.
+Coordinated shared-item defense, separate/two-hand equipment rendering and damage, broader
+bodies and the held-out integrated sequence remain open.
 
 The experimental [angular-limit correction](reference/joint-limits.md), `rapier-coordinate`,
-makes limit reactions follow their reported coordinates. Mechanical stop tests pass, but
-controller regressions prevent default migration. The task results above use the parent-axis
+makes limit reactions follow their reported coordinates and is now the gameplay default after
+the native coordinate-gradient correction and gameplay regressions pass. The task results above use the parent-axis
 reference except the shared-strike comparison explicitly labelled above.
 An optional [near-stop controller model](reference/joint-stop-tracking.md) improves corrected-profile
 shared static strikes from 26/36 to 34/36 and moving strikes from 39/54 to 51/54. It also
@@ -70,7 +71,7 @@ remaining failures. It remains experimental: preparation, sustained defense and 
 failures still block default adoption.
 An optional [contact lift-off primitive](reference/contact-liftoff.md) passes repeated bounded
 lift/recontact cycles on both engine profiles, with exact replay and no assistance. It avoids
-freezing a lift objective into an existing sticking contact. Anatomical recovery still fails;
+freezing a lift objective into an existing sticking contact. Pure contact-driven recovery acquisition remains incomplete;
 sliding and choices among multiple supports remain unresolved.
 The [friction-law comparison](reference/contact-friction.md) identifies patch versus per-point
 solver behavior and validates sustained-sliding predictions for each. Explicit per-point engine
@@ -116,8 +117,12 @@ and a practical real-time whole-body solver remain open. The independent policy 
 classic fighter remain available for comparison. The
 [autonomous Warrior baseline](reference/arena-combat.md) exposes sustained hand pressure with
 little damage in Point self-play. The [next combat controller](plans/2026-10-06-arena-combat.md)
-now exposes experimental Combat with driven punch primitives, collider openings and escapes
-after repeated blocks. Low support, defense timing and active-opponent win/damage gates remain. Repeated touch-and-return alone does not establish combat effectiveness.
+exposes Combat, retained Brawler and grounded Scrapper through the same body and muscle
+contract. Brawler wins 591/600 held-out Warrior fist cap bouts against Classic, Point and
+linear Combat. Scrapper lands low blows with either hand in controlled knockdowns, attempts
+recovery and restores standing, with fresh-world replay. Decisive finishing, low-target pose
+coverage, defense timing, broader loadouts and repeated league evaluation remain open. The
+standing benchmark does not rate the grounded extension.
 
 ## Open items
 

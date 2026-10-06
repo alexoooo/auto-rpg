@@ -10,6 +10,7 @@ import { fighterTactics, STRAFE } from "./fighter.ts";
 import { GUARD_ACTION, type CombatAction, type Intent } from "./intent.ts";
 import { STAND_ORDERS, type Orders } from "./orders.ts";
 import type { Sight, Tactics } from "./tactics.ts";
+import { groundCombat } from "./ground-combat.ts";
 import { bodyClearance } from "./sensed-bounds.ts";
 import { clearStep, clearanceExit } from "./clear-step.ts";
 import { openingAction, openingSelector } from "./openings.ts";
@@ -43,6 +44,7 @@ export function combatTactics(spec: BodySpec, name: string, orders: (sight: Sigh
     pressure: 0, escape: 0, angle: 1, cycle: 0, ready: 0, surface: "head",
     blockedSurface: null as string | null, blocks: 0, responded: false, previousHead: null as { time: number; at: Vec3 } | null, counter: 0,
     threat: false, defense: null as "guard" | "evade" | null,
+    ground: null as ReturnType<typeof groundCombat>["state"] | null,
     choice: null as ReturnType<typeof selectOpening>, nextSelection: 0, ordered: ordered.state! };
   const defenseMode = config.defenseMode ?? "reference";
   const predictive = (() => {
@@ -63,6 +65,8 @@ export function combatTactics(spec: BodySpec, name: string, orders: (sight: Sigh
     }
     return null;
   };
+  const ground = config.groundGame ? groundCombat(spec, moveClear, {}, config.hand === "alternate") : null;
+  state.ground = ground?.state ?? null;
   const guard = { left: GUARD_ACTION, right: GUARD_ACTION };
   return { name, state, engagement: state, decide(sight, dt): Intent {
     const { view, report, envelope } = sight, strike = report.strike;
@@ -70,7 +74,7 @@ export function combatTactics(spec: BodySpec, name: string, orders: (sight: Sigh
     const ownVelocity: Vec3 = previous && !view.resumed && view.time > previous.time
       ? head.map((v, k) => (v - previous.at[k]!) / (view.time - previous.time)) as unknown as Vec3 : [0, 0, 0];
     state.previousHead = { time: view.time, at: head }; state.counter = Math.max(0, state.counter - dt); state.defense = null;
-    if (view.resumed) { state.action = null; state.escape = 0; state.pressure = 0; state.ready = 0; state.responded = false; state.blockedSurface = null; state.blocks = 0; state.threat = false; state.counter = 0; state.choice = null; state.nextSelection = 0; }
+    if (view.resumed) { ground?.reset(); state.action = null; state.escape = 0; state.pressure = 0; state.ready = 0; state.responded = false; state.blockedSurface = null; state.blocks = 0; state.threat = false; state.counter = 0; state.choice = null; state.nextSelection = 0; }
     const cycles = strike.thrown.left + strike.thrown.right + (strike.pointCycle?.failed ?? 0);
     if (!strike.hand && cycles !== state.cycle) { state.cycle = cycles; state.action = null; state.ready = 0; state.responded = false; state.nextSelection = 0; }
     let hand: "left" | "right";
@@ -81,6 +85,7 @@ export function combatTactics(spec: BodySpec, name: string, orders: (sight: Sigh
     }
     const given = orders(sight);
     if (given) {
+      ground?.reset();
       state.action = null; state.foe = null; state.pressure = 0; state.escape = 0; state.ready = 0;
       state.choice = null; state.nextSelection = 0;
       const intent = ordered.decide(sight, dt);
@@ -91,6 +96,7 @@ export function combatTactics(spec: BodySpec, name: string, orders: (sight: Sigh
       .reduce<typeof view.senses.others[number] | null>((near, o) => !near || hypot(o.centre.x - view.head.x, o.centre.z - view.head.z)
         < hypot(near.centre.x - view.head.x, near.centre.z - view.head.z) ? o : near, null);
     if (!foe || view.down || view.senses.out) {
+      ground?.reset();
       state.action = null; state.phase = "guard";
       return { move: null, face: report.heading, hands: guard, combat: null };
     }
@@ -101,6 +107,13 @@ export function combatTactics(spec: BodySpec, name: string, orders: (sight: Sigh
       state.phase = "escape"; state.action = null; state.ready = 0;
       return { move: [COMBAT.boundarySpeed * (exit[0] * sin(report.heading) + exit[1] * cos(report.heading)),
         COMBAT.boundarySpeed * (exit[0] * cos(report.heading) - exit[1] * sin(report.heading))], face: report.heading, hands: guard, combat: null };
+    }
+    const lowIntent = ground?.decide(view, report, foe, hand, dt);
+    if (lowIntent) {
+      state.phase = ground!.state.phase; state.action = lowIntent.combat ?? null;
+      state.choice = null; state.nextSelection = 0; state.ready = 0; state.pressure = 0;
+      state.surface = ground!.state.surface;
+      return lowIntent;
     }
     const part = foe.segments.get("head"), at = part?.centre ?? foe.centre, velocity = part?.velocity ?? foe.velocity;
     if (!state.responded && strike.phase === "swing" && strike.hand) {

@@ -80,7 +80,7 @@ export interface ArenaFighterConfig {
   readonly openings?: OpeningTuning;
   readonly paths?: Partial<AttackTuning>;
   readonly spacing?: number;
-  /** Permit the shared executor to perform supported low strikes; omitted preserves the retained reference. */
+  /** Enable observed low-opponent approach and supported strikes; omitted preserves the retained reference. */
   readonly groundGame?: boolean;
 }
 
@@ -90,3 +90,6 @@ export const ARENA_FIGHTER: ArenaFighterConfig = deepFreeze({ kind: "arena-fight
 /** Body-targeting candidate and scope: `docs/reference/arena-combat-evaluation.md#body-targeting-held-out-evaluation`. */
 export const ARENA_BRAWLER: ArenaFighterConfig = deepFreeze({ kind: "arena-fighter", hand: "alternate",
   targeting: "openings", repertoire: "mixed", openings: { head: .3, upperTrunk: 0, middleTrunk: 0 } });
+
+/** Grounded extension of the retained standing candidate: `docs/reference/ground-combat.md#arena-integration`. */
+export const ARENA_SCRAPPER: ArenaFighterConfig = deepFreeze({ ...ARENA_BRAWLER, groundGame: true });
