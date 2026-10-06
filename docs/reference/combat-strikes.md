@@ -13,8 +13,10 @@ error below 0.05 m and body-relative speed below 0.6 m/s for 0.05 s. Preparation
 0.8 s and return at 1.2 s. Startup waits 2 s. The timing cell is retained from the physical
 sweep below; it does not establish competitive strength.
 
-Hook and downward actions currently select a chamber for a straight outbound segment. Curved
-and multi-segment paths remain research work; these labels do not establish an arc repertoire.
+Hook paths use a degree-six midpoint deviation with zero endpoint value, velocity and
+acceleration: 0.18 s, 0.05 m lateral curve and 0.15 m lateral terminal-direction component
+before normalization. The retained hook is a close-range primitive. Downward paths retain a
+straight outbound segment from a higher chamber. Low support remains research work.
 
 Terminal velocity uses the shared quintic Hermite path. Its continuation beyond the endpoint
 is linear, so the IK finite differences preserve the requested contact rate. A segment identity
@@ -27,30 +29,51 @@ separately in the autonomous combat evaluator.
 
 Node unpinned core stand, rapier-coordinate, 120 Hz, symmetric muscles, Warrior empty right
 hand, balance 0. Twelve cells run against a fixed obstruction and the same point in empty space
-for 8 s each. The target is (0.15, 1.63, 0.65) m. Peaks are driven forward velocity relative
-to own COM, sampled during the swing before contact. Contact columns use the preceding sample.
-These are commanded point trajectories, not measured muscle work.
+for 8 s each. The target is (0.15, 1.63, 0.65) m. The knuckles and relative COM velocity are read
+fresh before each solver step, after control. This replaces the earlier preceding-view sample.
+The settings below are measured again under the corrected reading.
 
 | Family | Swing (s) | Terminal ask (m/s) | Min. contact forward speed (m/s) | Verified returns hit/miss | Failures hit/miss | Falls hit/miss |
 |---|---:|---:|---:|---:|---:|---:|
-| straight | 0.12 | 3 | 3.439 | 7/7 | 0/0 | 0/0 |
-| straight | 0.12 | 5 | 4.604 | 7/7 | 0/0 | 0/0 |
-| straight | 0.15 | 3 | 3.951 | 7/7 | 0/0 | 0/0 |
-| straight | 0.15 | 5 | 4.393 | 7/7 | 0/0 | 0/0 |
-| straight | 0.18 | 3 | 3.163 | 7/7 | 0/0 | 0/0 |
-| straight | 0.18 | 5 | 4.244 | 7/6 | 0/0 | 0/0 |
-| cross | 0.12 | 3 | -0.173 | 7/7 | 0/0 | 0/0 |
-| cross | 0.12 | 5 | 4.679 | 7/7 | 0/0 | 0/0 |
-| cross | 0.15 | 3 | 4.421 | 7/7 | 0/0 | 0/0 |
-| cross | 0.15 | 5 | 4.308 | 7/6 | 0/0 | 0/0 |
-| cross | 0.18 | 3 | 3.558 | 7/6 | 0/0 | 0/0 |
-| cross | 0.18 | 5 | 3.833 | 6/7 | 0/0 | 0/0 |
+| straight | 0.12 | 3 | 3.335 | 7/7 | 0/0 | 0/0 |
+| straight | 0.12 | 5 | 4.493 | 7/7 | 0/0 | 0/0 |
+| straight | 0.15 | 3 | 3.923 | 7/7 | 0/0 | 0/0 |
+| straight | 0.15 | 5 | 4.348 | 7/7 | 0/0 | 0/0 |
+| straight | 0.18 | 3 | 3.197 | 7/7 | 0/0 | 0/0 |
+| straight | 0.18 | 5 | 4.243 | 7/6 | 0/0 | 0/0 |
+| cross | 0.12 | 3 | -0.227 | 7/7 | 0/0 | 0/0 |
+| cross | 0.12 | 5 | 4.644 | 7/7 | 0/0 | 0/0 |
+| cross | 0.15 | 3 | 4.419 | 7/7 | 0/0 | 0/0 |
+| cross | 0.15 | 5 | 4.303 | 7/6 | 0/0 | 0/0 |
+| cross | 0.18 | 3 | 3.596 | 7/6 | 0/0 | 0/0 |
+| cross | 0.18 | 5 | 3.840 | 6/7 | 0/0 | 0/0 |
 
-The retained initial cell is 0.12 s and 5 m/s: both straight and cross avoid the weak
-late contacts of the slower cells, while preserving repeated returns and balance on the miss.
-A separate left-hand straight probe returns seven times in 8 s with zero failures/falls and
-4.62?4.78 m/s forward contact speed. Neither this table nor the fixed obstruction measures
-autonomous target damage or competence against an attacking opponent.
+The retained straight/cross cell remains 0.12 s and 5 m/s: both avoid the weak late contacts
+of the slower cells while preserving returns and balance on misses. This does not establish
+competitive strength. The raw rows, path error and fraction of muscle channels at activation
+at least 0.999 are in `combat-strikes-physical.json`. These are command saturation readings,
+not delivered muscle work. Fixed-obstacle impulse is not damage.
+
+## Close hook
+
+The same Node stand at 120 Hz, balance 0, targets (?0.1, 1.63, 0.5) m.
+
+| Hand | Contacts | Min. forward / total speed (m/s) | Mean / max. driven path error (m) | Returns hit/miss | Failures/falls |
+|---|---:|---:|---:|---:|---:|
+| left | 8 | 2.724 / 3.042 | 0.0091 / 0.0625 | 7/6 | 0/0 |
+| right | 8 | 2.691 / 3.012 | 0.0086 / 0.0615 | 7/6 | 0/0 |
+
+Samples stop at first contact in each stroke. The hook also has a measured inward component
+greater than 1 m/s. Mean channel saturation is 2.3% on right-hand hits. Misses expose a large
+endpoint/follow-through error (maximum 0.43?0.45 m) when the desired extension exceeds arm
+reach; they return six times with no fall. Safe return does not establish path fidelity.
+The gate requires the measured close hit, its inward velocity and repeatable miss return.
+
+Rejected search cells are preserved in `combat-hook-search.json`: the initial 0.7 m lateral
+direction misses every fixed target, as do many wider/farther curves. At 0.5 m ahead, doubling
+the curve to 0.1 m misses at every searched time. The retained 0.05 m, 0.18 s cell produces
+eight contacts; 0.15 s also reaches but has a weaker first contact. This is a small arc around
+a local obstacle, not evidence of a sweeping hook or of defeating a raised guard.
 
 ## Tactical settings
 

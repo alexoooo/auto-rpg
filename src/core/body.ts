@@ -286,6 +286,7 @@ const sameGoal = (a: HandGoal, b: HandGoal): boolean =>
     && a.initialVelocity.every((v, k) => v === b.initialVelocity![k])))
   && (a.terminalVelocity === b.terminalVelocity || (a.terminalVelocity !== undefined && b.terminalVelocity !== undefined
     && a.terminalVelocity.every((v, k) => v === b.terminalVelocity![k])))
+  && (a.curve === b.curve || (a.curve !== undefined && b.curve !== undefined && a.curve.every((v, k) => v === b.curve![k])))
   && a.sequence === b.sequence
   && a.seconds === b.seconds && a.through === b.through && a.follows === b.follows && a.places.length === b.places.length
   && a.places.every((place, i) => place.point === b.places[i]!.point && place.position.every((v, k) => v === b.places[i]!.position[k]));

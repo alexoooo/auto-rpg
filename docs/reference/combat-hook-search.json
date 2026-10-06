@@ -1,0 +1,4628 @@
+[
+  {
+    "harness": {
+      "kind": "Node unpinned core stand",
+      "engine": "rapier-coordinate",
+      "hz": 120,
+      "balance": 0,
+      "model": "workshop-fighter",
+      "held": "empty"
+    },
+    "hand": "right",
+    "family": "hook",
+    "mode": "hit",
+    "tuning": {
+      "chamberSeconds": 0.22,
+      "swingSeconds": 0.12,
+      "returnSeconds": 0.32,
+      "contactSpeed": 5,
+      "windup": 0.12,
+      "across": 0.05,
+      "followSeconds": 0.04,
+      "torso": 0.2,
+      "hookSeconds": 0.18,
+      "curve": 0.05,
+      "hookAcross": 0.7,
+      "prepareLimit": 0.8,
+      "returnLimit": 1.2,
+      "near": 0.05,
+      "slow": 0.6,
+      "hold": 0.05,
+      "startup": 2
+    },
+    "target": [
+      0.15,
+      1.63,
+      0.65
+    ],
+    "fell": false,
+    "phases": [
+      {
+        "phase": "chamber",
+        "time": 2.0083333333333333
+      },
+      {
+        "phase": "swing",
+        "time": 2.2333333333333334
+      },
+      {
+        "phase": "return",
+        "time": 2.4583333333333335
+      },
+      {
+        "phase": null,
+        "time": 2.841666666666667
+      },
+      {
+        "phase": "chamber",
+        "time": 2.9
+      },
+      {
+        "phase": "swing",
+        "time": 3.125
+      },
+      {
+        "phase": "return",
+        "time": 3.35
+      },
+      {
+        "phase": null,
+        "time": 3.7
+      },
+      {
+        "phase": "chamber",
+        "time": 3.7583333333333333
+      },
+      {
+        "phase": "swing",
+        "time": 3.975
+      },
+      {
+        "phase": "return",
+        "time": 4.2
+      },
+      {
+        "phase": null,
+        "time": 4.55
+      },
+      {
+        "phase": "chamber",
+        "time": 4.608333333333333
+      },
+      {
+        "phase": "swing",
+        "time": 4.833333333333333
+      },
+      {
+        "phase": "return",
+        "time": 5.058333333333334
+      },
+      {
+        "phase": null,
+        "time": 5.541666666666667
+      },
+      {
+        "phase": "chamber",
+        "time": 5.6
+      },
+      {
+        "phase": "swing",
+        "time": 5.816666666666666
+      },
+      {
+        "phase": "return",
+        "time": 6.041666666666667
+      },
+      {
+        "phase": null,
+        "time": 6.375
+      },
+      {
+        "phase": "chamber",
+        "time": 6.433333333333334
+      },
+      {
+        "phase": "swing",
+        "time": 6.65
+      },
+      {
+        "phase": "return",
+        "time": 6.875
+      },
+      {
+        "phase": null,
+        "time": 7.275
+      },
+      {
+        "phase": "chamber",
+        "time": 7.333333333333333
+      },
+      {
+        "phase": "swing",
+        "time": 7.55
+      },
+      {
+        "phase": "return",
+        "time": 7.775
+      }
+    ],
+    "contacts": [],
+    "peaks": [
+      3.3498995887579146,
+      3.4366227452553675,
+      3.3315943568067987,
+      2.911901997345825,
+      3.134754723557063,
+      2.7924037786524685,
+      2.7818149460717443
+    ],
+    "cycles": {
+      "returned": {
+        "left": 0,
+        "right": 6
+      },
+      "failed": 0,
+      "interrupted": 0
+    },
+    "thrown": {
+      "left": 0,
+      "right": 7
+    },
+    "finalHand": [
+      0.020427011158102453,
+      1.3842627741462394,
+      0.4239364107212237
+    ],
+    "head": [
+      -0.01137955736478492,
+      1.5895126872568754,
+      0.08820998330541692
+    ],
+    "support": "stand",
+    "meanTargetDistance": 0.3079299656845548,
+    "assist": {
+      "force": 0,
+      "moment": 0
+    }
+  },
+  {
+    "harness": {
+      "kind": "Node unpinned core stand",
+      "engine": "rapier-coordinate",
+      "hz": 120,
+      "balance": 0,
+      "model": "workshop-fighter",
+      "held": "empty"
+    },
+    "hand": "right",
+    "family": "hook",
+    "mode": "miss",
+    "tuning": {
+      "chamberSeconds": 0.22,
+      "swingSeconds": 0.12,
+      "returnSeconds": 0.32,
+      "contactSpeed": 5,
+      "windup": 0.12,
+      "across": 0.05,
+      "followSeconds": 0.04,
+      "torso": 0.2,
+      "hookSeconds": 0.18,
+      "curve": 0.05,
+      "hookAcross": 0.7,
+      "prepareLimit": 0.8,
+      "returnLimit": 1.2,
+      "near": 0.05,
+      "slow": 0.6,
+      "hold": 0.05,
+      "startup": 2
+    },
+    "target": [
+      0.15,
+      1.63,
+      0.65
+    ],
+    "fell": false,
+    "phases": [
+      {
+        "phase": "chamber",
+        "time": 2.0083333333333333
+      },
+      {
+        "phase": "swing",
+        "time": 2.2333333333333334
+      },
+      {
+        "phase": "return",
+        "time": 2.4583333333333335
+      },
+      {
+        "phase": null,
+        "time": 2.841666666666667
+      },
+      {
+        "phase": "chamber",
+        "time": 2.9
+      },
+      {
+        "phase": "swing",
+        "time": 3.125
+      },
+      {
+        "phase": "return",
+        "time": 3.35
+      },
+      {
+        "phase": null,
+        "time": 3.7
+      },
+      {
+        "phase": "chamber",
+        "time": 3.7583333333333333
+      },
+      {
+        "phase": "swing",
+        "time": 3.975
+      },
+      {
+        "phase": "return",
+        "time": 4.2
+      },
+      {
+        "phase": null,
+        "time": 4.55
+      },
+      {
+        "phase": "chamber",
+        "time": 4.608333333333333
+      },
+      {
+        "phase": "swing",
+        "time": 4.833333333333333
+      },
+      {
+        "phase": "return",
+        "time": 5.058333333333334
+      },
+      {
+        "phase": null,
+        "time": 5.541666666666667
+      },
+      {
+        "phase": "chamber",
+        "time": 5.6
+      },
+      {
+        "phase": "swing",
+        "time": 5.816666666666666
+      },
+      {
+        "phase": "return",
+        "time": 6.041666666666667
+      },
+      {
+        "phase": null,
+        "time": 6.375
+      },
+      {
+        "phase": "chamber",
+        "time": 6.433333333333334
+      },
+      {
+        "phase": "swing",
+        "time": 6.65
+      },
+      {
+        "phase": "return",
+        "time": 6.875
+      },
+      {
+        "phase": null,
+        "time": 7.275
+      },
+      {
+        "phase": "chamber",
+        "time": 7.333333333333333
+      },
+      {
+        "phase": "swing",
+        "time": 7.55
+      },
+      {
+        "phase": "return",
+        "time": 7.775
+      }
+    ],
+    "contacts": [],
+    "peaks": [
+      3.3498995887579146,
+      3.4366227452553675,
+      3.3315943568067987,
+      2.911901997345825,
+      3.134754723557063,
+      2.7924037786524685,
+      2.7818149460717443
+    ],
+    "cycles": {
+      "returned": {
+        "left": 0,
+        "right": 6
+      },
+      "failed": 0,
+      "interrupted": 0
+    },
+    "thrown": {
+      "left": 0,
+      "right": 7
+    },
+    "finalHand": [
+      0.020427011158102453,
+      1.3842627741462394,
+      0.4239364107212237
+    ],
+    "head": [
+      -0.01137955736478492,
+      1.5895126872568754,
+      0.08820998330541692
+    ],
+    "support": "stand",
+    "meanTargetDistance": 0.3079299656845548,
+    "assist": {
+      "force": 0,
+      "moment": 0
+    }
+  },
+  {
+    "harness": {
+      "kind": "Node unpinned core stand",
+      "engine": "rapier-coordinate",
+      "hz": 120,
+      "balance": 0,
+      "model": "workshop-fighter",
+      "held": "empty"
+    },
+    "hand": "right",
+    "family": "hook",
+    "mode": "hit",
+    "tuning": {
+      "chamberSeconds": 0.22,
+      "swingSeconds": 0.12,
+      "returnSeconds": 0.32,
+      "contactSpeed": 5,
+      "windup": 0.12,
+      "across": 0.05,
+      "followSeconds": 0.04,
+      "torso": 0.2,
+      "hookSeconds": 0.18,
+      "curve": 0.1,
+      "hookAcross": 0.7,
+      "prepareLimit": 0.8,
+      "returnLimit": 1.2,
+      "near": 0.05,
+      "slow": 0.6,
+      "hold": 0.05,
+      "startup": 2
+    },
+    "target": [
+      0.15,
+      1.63,
+      0.65
+    ],
+    "fell": false,
+    "phases": [
+      {
+        "phase": "chamber",
+        "time": 2.0083333333333333
+      },
+      {
+        "phase": "swing",
+        "time": 2.2333333333333334
+      },
+      {
+        "phase": "return",
+        "time": 2.4583333333333335
+      },
+      {
+        "phase": null,
+        "time": 2.8666666666666667
+      },
+      {
+        "phase": "chamber",
+        "time": 2.925
+      },
+      {
+        "phase": "swing",
+        "time": 3.15
+      },
+      {
+        "phase": "return",
+        "time": 3.375
+      },
+      {
+        "phase": null,
+        "time": 3.75
+      },
+      {
+        "phase": "chamber",
+        "time": 3.808333333333333
+      },
+      {
+        "phase": "swing",
+        "time": 4.025
+      },
+      {
+        "phase": "return",
+        "time": 4.25
+      },
+      {
+        "phase": null,
+        "time": 4.691666666666666
+      },
+      {
+        "phase": "chamber",
+        "time": 4.75
+      },
+      {
+        "phase": "swing",
+        "time": 4.966666666666667
+      },
+      {
+        "phase": "return",
+        "time": 5.191666666666666
+      },
+      {
+        "phase": null,
+        "time": 6.4
+      },
+      {
+        "phase": "chamber",
+        "time": 6.458333333333333
+      },
+      {
+        "phase": "swing",
+        "time": 7.025
+      },
+      {
+        "phase": "return",
+        "time": 7.25
+      },
+      {
+        "phase": null,
+        "time": 7.733333333333333
+      },
+      {
+        "phase": "chamber",
+        "time": 7.791666666666667
+      },
+      {
+        "phase": "swing",
+        "time": 7.991666666666666
+      }
+    ],
+    "contacts": [],
+    "peaks": [
+      3.0724011910244773,
+      3.121944499922882,
+      3.386502894402867,
+      3.2238633771352387,
+      1.6682072968650214
+    ],
+    "cycles": {
+      "returned": {
+        "left": 0,
+        "right": 4
+      },
+      "failed": 1,
+      "interrupted": 0
+    },
+    "thrown": {
+      "left": 0,
+      "right": 5
+    },
+    "finalHand": [
+      0.18630514066057224,
+      1.4376487562834328,
+      0.5701579580690432
+    ],
+    "head": [
+      0.01779846154579632,
+      1.587810253593441,
+      0.06959709109892576
+    ],
+    "support": "stand",
+    "meanTargetDistance": 0.3241758635506407,
+    "assist": {
+      "force": 0,
+      "moment": 0
+    }
+  },
+  {
+    "harness": {
+      "kind": "Node unpinned core stand",
+      "engine": "rapier-coordinate",
+      "hz": 120,
+      "balance": 0,
+      "model": "workshop-fighter",
+      "held": "empty"
+    },
+    "hand": "right",
+    "family": "hook",
+    "mode": "miss",
+    "tuning": {
+      "chamberSeconds": 0.22,
+      "swingSeconds": 0.12,
+      "returnSeconds": 0.32,
+      "contactSpeed": 5,
+      "windup": 0.12,
+      "across": 0.05,
+      "followSeconds": 0.04,
+      "torso": 0.2,
+      "hookSeconds": 0.18,
+      "curve": 0.1,
+      "hookAcross": 0.7,
+      "prepareLimit": 0.8,
+      "returnLimit": 1.2,
+      "near": 0.05,
+      "slow": 0.6,
+      "hold": 0.05,
+      "startup": 2
+    },
+    "target": [
+      0.15,
+      1.63,
+      0.65
+    ],
+    "fell": false,
+    "phases": [
+      {
+        "phase": "chamber",
+        "time": 2.0083333333333333
+      },
+      {
+        "phase": "swing",
+        "time": 2.2333333333333334
+      },
+      {
+        "phase": "return",
+        "time": 2.4583333333333335
+      },
+      {
+        "phase": null,
+        "time": 2.8666666666666667
+      },
+      {
+        "phase": "chamber",
+        "time": 2.925
+      },
+      {
+        "phase": "swing",
+        "time": 3.15
+      },
+      {
+        "phase": "return",
+        "time": 3.375
+      },
+      {
+        "phase": null,
+        "time": 3.75
+      },
+      {
+        "phase": "chamber",
+        "time": 3.808333333333333
+      },
+      {
+        "phase": "swing",
+        "time": 4.025
+      },
+      {
+        "phase": "return",
+        "time": 4.25
+      },
+      {
+        "phase": null,
+        "time": 4.691666666666666
+      },
+      {
+        "phase": "chamber",
+        "time": 4.75
+      },
+      {
+        "phase": "swing",
+        "time": 4.966666666666667
+      },
+      {
+        "phase": "return",
+        "time": 5.191666666666666
+      },
+      {
+        "phase": null,
+        "time": 6.4
+      },
+      {
+        "phase": "chamber",
+        "time": 6.458333333333333
+      },
+      {
+        "phase": "swing",
+        "time": 7.025
+      },
+      {
+        "phase": "return",
+        "time": 7.25
+      },
+      {
+        "phase": null,
+        "time": 7.775
+      },
+      {
+        "phase": "chamber",
+        "time": 7.833333333333333
+      }
+    ],
+    "contacts": [],
+    "peaks": [
+      3.0724011910244773,
+      3.121944499922882,
+      3.386502894402867,
+      3.2238633771352387,
+      1.6684008496642586
+    ],
+    "cycles": {
+      "returned": {
+        "left": 0,
+        "right": 4
+      },
+      "failed": 1,
+      "interrupted": 0
+    },
+    "thrown": {
+      "left": 0,
+      "right": 5
+    },
+    "finalHand": [
+      0.18864905255448264,
+      1.4551904780146647,
+      0.5577036863539455
+    ],
+    "head": [
+      0.013512496355589177,
+      1.5946539956734138,
+      0.06981258835859233
+    ],
+    "support": "stand",
+    "meanTargetDistance": 0.32321904753087377,
+    "assist": {
+      "force": 0,
+      "moment": 0
+    }
+  },
+  {
+    "harness": {
+      "kind": "Node unpinned core stand",
+      "engine": "rapier-coordinate",
+      "hz": 120,
+      "balance": 0,
+      "model": "workshop-fighter",
+      "held": "empty"
+    },
+    "hand": "right",
+    "family": "hook",
+    "mode": "hit",
+    "tuning": {
+      "chamberSeconds": 0.22,
+      "swingSeconds": 0.12,
+      "returnSeconds": 0.32,
+      "contactSpeed": 5,
+      "windup": 0.12,
+      "across": 0.05,
+      "followSeconds": 0.04,
+      "torso": 0.2,
+      "hookSeconds": 0.18,
+      "curve": 0.15,
+      "hookAcross": 0.7,
+      "prepareLimit": 0.8,
+      "returnLimit": 1.2,
+      "near": 0.05,
+      "slow": 0.6,
+      "hold": 0.05,
+      "startup": 2
+    },
+    "target": [
+      0.15,
+      1.63,
+      0.65
+    ],
+    "fell": false,
+    "phases": [
+      {
+        "phase": "chamber",
+        "time": 2.0083333333333333
+      },
+      {
+        "phase": "swing",
+        "time": 2.2333333333333334
+      },
+      {
+        "phase": "return",
+        "time": 2.4583333333333335
+      },
+      {
+        "phase": null,
+        "time": 2.966666666666667
+      },
+      {
+        "phase": "chamber",
+        "time": 3.025
+      },
+      {
+        "phase": "swing",
+        "time": 3.2416666666666667
+      },
+      {
+        "phase": "return",
+        "time": 3.466666666666667
+      },
+      {
+        "phase": null,
+        "time": 3.875
+      },
+      {
+        "phase": "chamber",
+        "time": 3.933333333333333
+      },
+      {
+        "phase": "swing",
+        "time": 4.15
+      },
+      {
+        "phase": "return",
+        "time": 4.375
+      },
+      {
+        "phase": null,
+        "time": 4.708333333333333
+      },
+      {
+        "phase": "chamber",
+        "time": 4.766666666666667
+      },
+      {
+        "phase": "swing",
+        "time": 4.983333333333333
+      },
+      {
+        "phase": "return",
+        "time": 5.208333333333333
+      },
+      {
+        "phase": null,
+        "time": 5.575
+      },
+      {
+        "phase": "chamber",
+        "time": 5.633333333333334
+      },
+      {
+        "phase": "swing",
+        "time": 5.841666666666667
+      },
+      {
+        "phase": "return",
+        "time": 6.066666666666666
+      },
+      {
+        "phase": null,
+        "time": 6.45
+      },
+      {
+        "phase": "chamber",
+        "time": 6.508333333333334
+      },
+      {
+        "phase": "swing",
+        "time": 6.716666666666667
+      },
+      {
+        "phase": "return",
+        "time": 6.941666666666666
+      },
+      {
+        "phase": null,
+        "time": 7.458333333333333
+      },
+      {
+        "phase": "chamber",
+        "time": 7.516666666666667
+      },
+      {
+        "phase": "swing",
+        "time": 7.725
+      },
+      {
+        "phase": "return",
+        "time": 7.95
+      }
+    ],
+    "contacts": [],
+    "peaks": [
+      2.7086215545047696,
+      2.715233355939668,
+      2.7433312228947893,
+      2.7313888107659445,
+      2.7408484520878122,
+      2.7688255456777497,
+      2.7409272050867384
+    ],
+    "cycles": {
+      "returned": {
+        "left": 0,
+        "right": 6
+      },
+      "failed": 0,
+      "interrupted": 0
+    },
+    "thrown": {
+      "left": 0,
+      "right": 7
+    },
+    "finalHand": [
+      0.0505107384538687,
+      1.2579928780500724,
+      0.6461909240272246
+    ],
+    "head": [
+      -0.017252869992686982,
+      1.5785475145560683,
+      0.04703100371692133
+    ],
+    "support": "stand",
+    "meanTargetDistance": 0.37375777901056545,
+    "assist": {
+      "force": 0,
+      "moment": 0
+    }
+  },
+  {
+    "harness": {
+      "kind": "Node unpinned core stand",
+      "engine": "rapier-coordinate",
+      "hz": 120,
+      "balance": 0,
+      "model": "workshop-fighter",
+      "held": "empty"
+    },
+    "hand": "right",
+    "family": "hook",
+    "mode": "miss",
+    "tuning": {
+      "chamberSeconds": 0.22,
+      "swingSeconds": 0.12,
+      "returnSeconds": 0.32,
+      "contactSpeed": 5,
+      "windup": 0.12,
+      "across": 0.05,
+      "followSeconds": 0.04,
+      "torso": 0.2,
+      "hookSeconds": 0.18,
+      "curve": 0.15,
+      "hookAcross": 0.7,
+      "prepareLimit": 0.8,
+      "returnLimit": 1.2,
+      "near": 0.05,
+      "slow": 0.6,
+      "hold": 0.05,
+      "startup": 2
+    },
+    "target": [
+      0.15,
+      1.63,
+      0.65
+    ],
+    "fell": false,
+    "phases": [
+      {
+        "phase": "chamber",
+        "time": 2.0083333333333333
+      },
+      {
+        "phase": "swing",
+        "time": 2.2333333333333334
+      },
+      {
+        "phase": "return",
+        "time": 2.4583333333333335
+      },
+      {
+        "phase": null,
+        "time": 2.966666666666667
+      },
+      {
+        "phase": "chamber",
+        "time": 3.025
+      },
+      {
+        "phase": "swing",
+        "time": 3.2416666666666667
+      },
+      {
+        "phase": "return",
+        "time": 3.466666666666667
+      },
+      {
+        "phase": null,
+        "time": 3.875
+      },
+      {
+        "phase": "chamber",
+        "time": 3.933333333333333
+      },
+      {
+        "phase": "swing",
+        "time": 4.15
+      },
+      {
+        "phase": "return",
+        "time": 4.375
+      },
+      {
+        "phase": null,
+        "time": 4.708333333333333
+      },
+      {
+        "phase": "chamber",
+        "time": 4.766666666666667
+      },
+      {
+        "phase": "swing",
+        "time": 4.983333333333333
+      },
+      {
+        "phase": "return",
+        "time": 5.208333333333333
+      },
+      {
+        "phase": null,
+        "time": 5.575
+      },
+      {
+        "phase": "chamber",
+        "time": 5.633333333333334
+      },
+      {
+        "phase": "swing",
+        "time": 5.841666666666667
+      },
+      {
+        "phase": "return",
+        "time": 6.066666666666666
+      },
+      {
+        "phase": null,
+        "time": 6.45
+      },
+      {
+        "phase": "chamber",
+        "time": 6.508333333333334
+      },
+      {
+        "phase": "swing",
+        "time": 6.716666666666667
+      },
+      {
+        "phase": "return",
+        "time": 6.941666666666666
+      },
+      {
+        "phase": null,
+        "time": 7.458333333333333
+      },
+      {
+        "phase": "chamber",
+        "time": 7.516666666666667
+      },
+      {
+        "phase": "swing",
+        "time": 7.725
+      },
+      {
+        "phase": "return",
+        "time": 7.95
+      }
+    ],
+    "contacts": [],
+    "peaks": [
+      2.7086215545047696,
+      2.715233355939668,
+      2.7433312228947893,
+      2.7313888107659445,
+      2.7408484520878122,
+      2.7688255456777497,
+      2.7409272050867384
+    ],
+    "cycles": {
+      "returned": {
+        "left": 0,
+        "right": 6
+      },
+      "failed": 0,
+      "interrupted": 0
+    },
+    "thrown": {
+      "left": 0,
+      "right": 7
+    },
+    "finalHand": [
+      0.0505107384538687,
+      1.2579928780500724,
+      0.6461909240272246
+    ],
+    "head": [
+      -0.017252869992686982,
+      1.5785475145560683,
+      0.04703100371692133
+    ],
+    "support": "stand",
+    "meanTargetDistance": 0.37375777901056545,
+    "assist": {
+      "force": 0,
+      "moment": 0
+    }
+  },
+  {
+    "harness": {
+      "kind": "Node unpinned core stand",
+      "engine": "rapier-coordinate",
+      "hz": 120,
+      "balance": 0,
+      "model": "workshop-fighter",
+      "held": "empty"
+    },
+    "hand": "right",
+    "family": "hook",
+    "mode": "hit",
+    "tuning": {
+      "chamberSeconds": 0.22,
+      "swingSeconds": 0.12,
+      "returnSeconds": 0.32,
+      "contactSpeed": 5,
+      "windup": 0.12,
+      "across": 0.05,
+      "followSeconds": 0.04,
+      "torso": 0.2,
+      "hookSeconds": 0.12,
+      "curve": 0.025,
+      "hookAcross": 0.05,
+      "prepareLimit": 0.8,
+      "returnLimit": 1.2,
+      "near": 0.05,
+      "slow": 0.6,
+      "hold": 0.05,
+      "startup": 2
+    },
+    "target": [
+      0.15,
+      1.63,
+      0.65
+    ],
+    "fell": false,
+    "phases": [
+      {
+        "phase": "chamber",
+        "time": 2.0083333333333333
+      },
+      {
+        "phase": "swing",
+        "time": 2.2333333333333334
+      },
+      {
+        "phase": "return",
+        "time": 2.4
+      },
+      {
+        "phase": null,
+        "time": 2.9583333333333335
+      },
+      {
+        "phase": "chamber",
+        "time": 3.0166666666666666
+      },
+      {
+        "phase": "swing",
+        "time": 3.2416666666666667
+      },
+      {
+        "phase": "return",
+        "time": 3.408333333333333
+      },
+      {
+        "phase": null,
+        "time": 3.7333333333333334
+      },
+      {
+        "phase": "chamber",
+        "time": 3.7916666666666665
+      },
+      {
+        "phase": "swing",
+        "time": 4.016666666666667
+      },
+      {
+        "phase": "return",
+        "time": 4.183333333333334
+      },
+      {
+        "phase": null,
+        "time": 4.633333333333334
+      },
+      {
+        "phase": "chamber",
+        "time": 4.691666666666666
+      },
+      {
+        "phase": "swing",
+        "time": 4.916666666666667
+      },
+      {
+        "phase": "return",
+        "time": 5.083333333333333
+      },
+      {
+        "phase": null,
+        "time": 5.525
+      },
+      {
+        "phase": "chamber",
+        "time": 5.583333333333333
+      },
+      {
+        "phase": "swing",
+        "time": 5.808333333333334
+      },
+      {
+        "phase": "return",
+        "time": 5.975
+      },
+      {
+        "phase": null,
+        "time": 6.566666666666666
+      },
+      {
+        "phase": "chamber",
+        "time": 6.625
+      },
+      {
+        "phase": "swing",
+        "time": 6.85
+      },
+      {
+        "phase": "return",
+        "time": 7.016666666666667
+      },
+      {
+        "phase": null,
+        "time": 7.358333333333333
+      },
+      {
+        "phase": "chamber",
+        "time": 7.416666666666667
+      },
+      {
+        "phase": "swing",
+        "time": 7.65
+      },
+      {
+        "phase": "return",
+        "time": 7.816666666666666
+      }
+    ],
+    "contacts": [],
+    "peaks": [
+      4.478891599892357,
+      4.3568329253645635,
+      4.392710815825971,
+      4.293747331609974,
+      4.169293787793952,
+      4.038163795167667,
+      4.013057500870109
+    ],
+    "cycles": {
+      "returned": {
+        "left": 0,
+        "right": 6
+      },
+      "failed": 0,
+      "interrupted": 0
+    },
+    "thrown": {
+      "left": 0,
+      "right": 7
+    },
+    "finalHand": [
+      0.32633417583613544,
+      1.6758135297799748,
+      0.5835965815557546
+    ],
+    "head": [
+      -0.010459510539871042,
+      1.514439046957882,
+      0.06957354300171564
+    ],
+    "support": "stand",
+    "meanTargetDistance": 0.28081718505898073,
+    "assist": {
+      "force": 0,
+      "moment": 0
+    }
+  },
+  {
+    "harness": {
+      "kind": "Node unpinned core stand",
+      "engine": "rapier-coordinate",
+      "hz": 120,
+      "balance": 0,
+      "model": "workshop-fighter",
+      "held": "empty"
+    },
+    "hand": "right",
+    "family": "hook",
+    "mode": "hit",
+    "tuning": {
+      "chamberSeconds": 0.22,
+      "swingSeconds": 0.12,
+      "returnSeconds": 0.32,
+      "contactSpeed": 5,
+      "windup": 0.12,
+      "across": 0.05,
+      "followSeconds": 0.04,
+      "torso": 0.2,
+      "hookSeconds": 0.18,
+      "curve": 0.025,
+      "hookAcross": 0.05,
+      "prepareLimit": 0.8,
+      "returnLimit": 1.2,
+      "near": 0.05,
+      "slow": 0.6,
+      "hold": 0.05,
+      "startup": 2
+    },
+    "target": [
+      0.15,
+      1.63,
+      0.65
+    ],
+    "fell": false,
+    "phases": [
+      {
+        "phase": "chamber",
+        "time": 2.0083333333333333
+      },
+      {
+        "phase": "swing",
+        "time": 2.2333333333333334
+      },
+      {
+        "phase": "return",
+        "time": 2.4
+      },
+      {
+        "phase": null,
+        "time": 2.8583333333333334
+      },
+      {
+        "phase": "chamber",
+        "time": 2.9166666666666665
+      },
+      {
+        "phase": "swing",
+        "time": 3.1416666666666666
+      },
+      {
+        "phase": "return",
+        "time": 3.3666666666666667
+      },
+      {
+        "phase": null,
+        "time": 3.691666666666667
+      },
+      {
+        "phase": "chamber",
+        "time": 3.75
+      },
+      {
+        "phase": "swing",
+        "time": 3.975
+      },
+      {
+        "phase": "return",
+        "time": 4.2
+      },
+      {
+        "phase": null,
+        "time": 4.675
+      },
+      {
+        "phase": "chamber",
+        "time": 4.733333333333333
+      },
+      {
+        "phase": "swing",
+        "time": 4.958333333333333
+      },
+      {
+        "phase": "return",
+        "time": 5.183333333333334
+      },
+      {
+        "phase": null,
+        "time": 5.5
+      },
+      {
+        "phase": "chamber",
+        "time": 5.558333333333334
+      },
+      {
+        "phase": "swing",
+        "time": 5.783333333333333
+      },
+      {
+        "phase": "return",
+        "time": 6.008333333333334
+      },
+      {
+        "phase": null,
+        "time": 6.341666666666667
+      },
+      {
+        "phase": "chamber",
+        "time": 6.4
+      },
+      {
+        "phase": "swing",
+        "time": 6.625
+      },
+      {
+        "phase": "return",
+        "time": 6.85
+      },
+      {
+        "phase": null,
+        "time": 7.191666666666666
+      },
+      {
+        "phase": "chamber",
+        "time": 7.25
+      },
+      {
+        "phase": "swing",
+        "time": 7.475
+      },
+      {
+        "phase": "return",
+        "time": 7.7
+      }
+    ],
+    "contacts": [
+      {
+        "time": 2.3916666666666666,
+        "closing": 3.873465007685099,
+        "speed": 3.9100236733102864,
+        "impulse": 0.3377097726519489
+      }
+    ],
+    "peaks": [
+      3.873465007685099,
+      3.8842591465754155,
+      3.893237651481306,
+      3.799571435310311,
+      3.8479511962716164,
+      3.862115485672364,
+      3.880129849282838
+    ],
+    "cycles": {
+      "returned": {
+        "left": 0,
+        "right": 6
+      },
+      "failed": 0,
+      "interrupted": 0
+    },
+    "thrown": {
+      "left": 0,
+      "right": 7
+    },
+    "finalHand": [
+      0.1618719084575879,
+      1.271308916276328,
+      0.47863947313045
+    ],
+    "head": [
+      -0.010409317842131083,
+      1.5805303979606036,
+      0.06992991460241675
+    ],
+    "support": "stand",
+    "meanTargetDistance": 0.27935604751957144,
+    "assist": {
+      "force": 0,
+      "moment": 0
+    }
+  },
+  {
+    "harness": {
+      "kind": "Node unpinned core stand",
+      "engine": "rapier-coordinate",
+      "hz": 120,
+      "balance": 0,
+      "model": "workshop-fighter",
+      "held": "empty"
+    },
+    "hand": "right",
+    "family": "hook",
+    "mode": "hit",
+    "tuning": {
+      "chamberSeconds": 0.22,
+      "swingSeconds": 0.12,
+      "returnSeconds": 0.32,
+      "contactSpeed": 5,
+      "windup": 0.12,
+      "across": 0.05,
+      "followSeconds": 0.04,
+      "torso": 0.2,
+      "hookSeconds": 0.12,
+      "curve": 0.025,
+      "hookAcross": 0.15,
+      "prepareLimit": 0.8,
+      "returnLimit": 1.2,
+      "near": 0.05,
+      "slow": 0.6,
+      "hold": 0.05,
+      "startup": 2
+    },
+    "target": [
+      0.15,
+      1.63,
+      0.65
+    ],
+    "fell": false,
+    "phases": [
+      {
+        "phase": "chamber",
+        "time": 2.0083333333333333
+      },
+      {
+        "phase": "swing",
+        "time": 2.2333333333333334
+      },
+      {
+        "phase": "return",
+        "time": 2.4
+      },
+      {
+        "phase": null,
+        "time": 2.7916666666666665
+      },
+      {
+        "phase": "chamber",
+        "time": 2.85
+      },
+      {
+        "phase": "swing",
+        "time": 3.075
+      },
+      {
+        "phase": "return",
+        "time": 3.2416666666666667
+      },
+      {
+        "phase": null,
+        "time": 3.55
+      },
+      {
+        "phase": "chamber",
+        "time": 3.6083333333333334
+      },
+      {
+        "phase": "swing",
+        "time": 3.825
+      },
+      {
+        "phase": "return",
+        "time": 3.9916666666666667
+      },
+      {
+        "phase": null,
+        "time": 4.325
+      },
+      {
+        "phase": "chamber",
+        "time": 4.383333333333334
+      },
+      {
+        "phase": "swing",
+        "time": 4.608333333333333
+      },
+      {
+        "phase": "return",
+        "time": 4.775
+      },
+      {
+        "phase": null,
+        "time": 5.116666666666666
+      },
+      {
+        "phase": "chamber",
+        "time": 5.175
+      },
+      {
+        "phase": "swing",
+        "time": 5.391666666666667
+      },
+      {
+        "phase": "return",
+        "time": 5.558333333333334
+      },
+      {
+        "phase": null,
+        "time": 5.825
+      },
+      {
+        "phase": "chamber",
+        "time": 5.883333333333334
+      },
+      {
+        "phase": "swing",
+        "time": 6.1
+      },
+      {
+        "phase": "return",
+        "time": 6.266666666666667
+      },
+      {
+        "phase": null,
+        "time": 6.8
+      },
+      {
+        "phase": "chamber",
+        "time": 6.858333333333333
+      },
+      {
+        "phase": "swing",
+        "time": 7.083333333333333
+      },
+      {
+        "phase": "return",
+        "time": 7.25
+      },
+      {
+        "phase": null,
+        "time": 7.7
+      },
+      {
+        "phase": "chamber",
+        "time": 7.758333333333334
+      },
+      {
+        "phase": "swing",
+        "time": 7.975
+      }
+    ],
+    "contacts": [],
+    "peaks": [
+      4.540758293862657,
+      4.429282404430527,
+      4.317242731406592,
+      4.267461565835199,
+      4.116431996614227,
+      4.1458213923035006,
+      4.069698728770896
+    ],
+    "cycles": {
+      "returned": {
+        "left": 0,
+        "right": 7
+      },
+      "failed": 0,
+      "interrupted": 0
+    },
+    "thrown": {
+      "left": 0,
+      "right": 7
+    },
+    "finalHand": [
+      0.2499379558359795,
+      1.4438760829982233,
+      0.41046668464451164
+    ],
+    "head": [
+      0.0025960987181550426,
+      1.5905872713163127,
+      0.07348853999616209
+    ],
+    "support": "stand",
+    "meanTargetDistance": 0.26807612031136757,
+    "assist": {
+      "force": 0,
+      "moment": 0
+    }
+  },
+  {
+    "harness": {
+      "kind": "Node unpinned core stand",
+      "engine": "rapier-coordinate",
+      "hz": 120,
+      "balance": 0,
+      "model": "workshop-fighter",
+      "held": "empty"
+    },
+    "hand": "right",
+    "family": "hook",
+    "mode": "hit",
+    "tuning": {
+      "chamberSeconds": 0.22,
+      "swingSeconds": 0.12,
+      "returnSeconds": 0.32,
+      "contactSpeed": 5,
+      "windup": 0.12,
+      "across": 0.05,
+      "followSeconds": 0.04,
+      "torso": 0.2,
+      "hookSeconds": 0.18,
+      "curve": 0.025,
+      "hookAcross": 0.15,
+      "prepareLimit": 0.8,
+      "returnLimit": 1.2,
+      "near": 0.05,
+      "slow": 0.6,
+      "hold": 0.05,
+      "startup": 2
+    },
+    "target": [
+      0.15,
+      1.63,
+      0.65
+    ],
+    "fell": false,
+    "phases": [
+      {
+        "phase": "chamber",
+        "time": 2.0083333333333333
+      },
+      {
+        "phase": "swing",
+        "time": 2.2333333333333334
+      },
+      {
+        "phase": "return",
+        "time": 2.4583333333333335
+      },
+      {
+        "phase": null,
+        "time": 2.783333333333333
+      },
+      {
+        "phase": "chamber",
+        "time": 2.841666666666667
+      },
+      {
+        "phase": "swing",
+        "time": 3.066666666666667
+      },
+      {
+        "phase": "return",
+        "time": 3.225
+      },
+      {
+        "phase": null,
+        "time": 3.55
+      },
+      {
+        "phase": "chamber",
+        "time": 3.6083333333333334
+      },
+      {
+        "phase": "swing",
+        "time": 3.8333333333333335
+      },
+      {
+        "phase": "return",
+        "time": 3.9916666666666667
+      },
+      {
+        "phase": null,
+        "time": 4.4
+      },
+      {
+        "phase": "chamber",
+        "time": 4.458333333333333
+      },
+      {
+        "phase": "swing",
+        "time": 4.683333333333334
+      },
+      {
+        "phase": "return",
+        "time": 4.908333333333333
+      },
+      {
+        "phase": null,
+        "time": 5.325
+      },
+      {
+        "phase": "chamber",
+        "time": 5.383333333333334
+      },
+      {
+        "phase": "swing",
+        "time": 5.6
+      },
+      {
+        "phase": "return",
+        "time": 5.825
+      },
+      {
+        "phase": null,
+        "time": 6.25
+      },
+      {
+        "phase": "chamber",
+        "time": 6.308333333333334
+      },
+      {
+        "phase": "swing",
+        "time": 6.533333333333333
+      },
+      {
+        "phase": "return",
+        "time": 6.758333333333334
+      },
+      {
+        "phase": null,
+        "time": 7.325
+      },
+      {
+        "phase": "chamber",
+        "time": 7.383333333333334
+      },
+      {
+        "phase": "swing",
+        "time": 7.6
+      },
+      {
+        "phase": "return",
+        "time": 7.825
+      }
+    ],
+    "contacts": [
+      {
+        "time": 3.216666666666667,
+        "closing": 3.942783870188064,
+        "speed": 3.9638536228118855,
+        "impulse": 10.095942497253418
+      },
+      {
+        "time": 3.9833333333333334,
+        "closing": 4.078047805215951,
+        "speed": 4.10461970777807,
+        "impulse": 6.384005546569824
+      }
+    ],
+    "peaks": [
+      3.999296921323096,
+      3.942783870188064,
+      4.078047805215951,
+      4.0328935109511335,
+      3.9001044743560396,
+      3.802028746129133,
+      3.7628917638724775
+    ],
+    "cycles": {
+      "returned": {
+        "left": 0,
+        "right": 6
+      },
+      "failed": 0,
+      "interrupted": 0
+    },
+    "thrown": {
+      "left": 0,
+      "right": 7
+    },
+    "finalHand": [
+      0.14287731105495438,
+      1.3797296230988914,
+      0.5695077213278605
+    ],
+    "head": [
+      0.008680320958783343,
+      1.5766093928155631,
+      0.08444347220253037
+    ],
+    "support": "stand",
+    "meanTargetDistance": 0.2992478325100395,
+    "assist": {
+      "force": 0,
+      "moment": 0
+    }
+  },
+  {
+    "harness": {
+      "kind": "Node unpinned core stand",
+      "engine": "rapier-coordinate",
+      "hz": 120,
+      "balance": 0,
+      "model": "workshop-fighter",
+      "held": "empty"
+    },
+    "hand": "right",
+    "family": "hook",
+    "mode": "hit",
+    "tuning": {
+      "chamberSeconds": 0.22,
+      "swingSeconds": 0.12,
+      "returnSeconds": 0.32,
+      "contactSpeed": 5,
+      "windup": 0.12,
+      "across": 0.05,
+      "followSeconds": 0.04,
+      "torso": 0.2,
+      "hookSeconds": 0.12,
+      "curve": 0.025,
+      "hookAcross": 0.3,
+      "prepareLimit": 0.8,
+      "returnLimit": 1.2,
+      "near": 0.05,
+      "slow": 0.6,
+      "hold": 0.05,
+      "startup": 2
+    },
+    "target": [
+      0.15,
+      1.63,
+      0.65
+    ],
+    "fell": false,
+    "phases": [
+      {
+        "phase": "chamber",
+        "time": 2.0083333333333333
+      },
+      {
+        "phase": "swing",
+        "time": 2.2333333333333334
+      },
+      {
+        "phase": "return",
+        "time": 2.4
+      },
+      {
+        "phase": null,
+        "time": 2.8333333333333335
+      },
+      {
+        "phase": "chamber",
+        "time": 2.8916666666666666
+      },
+      {
+        "phase": "swing",
+        "time": 3.125
+      },
+      {
+        "phase": "return",
+        "time": 3.2916666666666665
+      },
+      {
+        "phase": null,
+        "time": 3.8333333333333335
+      },
+      {
+        "phase": "chamber",
+        "time": 3.8916666666666666
+      },
+      {
+        "phase": "swing",
+        "time": 4.116666666666666
+      },
+      {
+        "phase": "return",
+        "time": 4.283333333333333
+      },
+      {
+        "phase": null,
+        "time": 4.841666666666667
+      },
+      {
+        "phase": "chamber",
+        "time": 4.9
+      },
+      {
+        "phase": "swing",
+        "time": 5.133333333333334
+      },
+      {
+        "phase": "return",
+        "time": 5.3
+      },
+      {
+        "phase": null,
+        "time": 5.616666666666666
+      },
+      {
+        "phase": "chamber",
+        "time": 5.675
+      },
+      {
+        "phase": "swing",
+        "time": 5.9
+      },
+      {
+        "phase": "return",
+        "time": 6.066666666666666
+      },
+      {
+        "phase": null,
+        "time": 6.375
+      },
+      {
+        "phase": "chamber",
+        "time": 6.433333333333334
+      },
+      {
+        "phase": "swing",
+        "time": 6.658333333333333
+      },
+      {
+        "phase": "return",
+        "time": 6.825
+      },
+      {
+        "phase": null,
+        "time": 7.133333333333334
+      },
+      {
+        "phase": "chamber",
+        "time": 7.191666666666666
+      },
+      {
+        "phase": "swing",
+        "time": 7.416666666666667
+      },
+      {
+        "phase": "return",
+        "time": 7.583333333333333
+      },
+      {
+        "phase": null,
+        "time": 7.975
+      }
+    ],
+    "contacts": [],
+    "peaks": [
+      4.508178476668148,
+      4.314800241868623,
+      4.273409608623764,
+      4.0152362525003635,
+      4.089966963186735,
+      3.914707111909883,
+      4.030822328649106
+    ],
+    "cycles": {
+      "returned": {
+        "left": 0,
+        "right": 7
+      },
+      "failed": 0,
+      "interrupted": 0
+    },
+    "thrown": {
+      "left": 0,
+      "right": 7
+    },
+    "finalHand": [
+      0.15855704502073864,
+      1.4257065645635714,
+      0.45527652096951593
+    ],
+    "head": [
+      0.003975290154858728,
+      1.5918494167975388,
+      0.09684523381049609
+    ],
+    "support": "stand",
+    "meanTargetDistance": 0.3031152309992861,
+    "assist": {
+      "force": 0,
+      "moment": 0
+    }
+  },
+  {
+    "harness": {
+      "kind": "Node unpinned core stand",
+      "engine": "rapier-coordinate",
+      "hz": 120,
+      "balance": 0,
+      "model": "workshop-fighter",
+      "held": "empty"
+    },
+    "hand": "right",
+    "family": "hook",
+    "mode": "hit",
+    "tuning": {
+      "chamberSeconds": 0.22,
+      "swingSeconds": 0.12,
+      "returnSeconds": 0.32,
+      "contactSpeed": 5,
+      "windup": 0.12,
+      "across": 0.05,
+      "followSeconds": 0.04,
+      "torso": 0.2,
+      "hookSeconds": 0.18,
+      "curve": 0.025,
+      "hookAcross": 0.3,
+      "prepareLimit": 0.8,
+      "returnLimit": 1.2,
+      "near": 0.05,
+      "slow": 0.6,
+      "hold": 0.05,
+      "startup": 2
+    },
+    "target": [
+      0.15,
+      1.63,
+      0.65
+    ],
+    "fell": false,
+    "phases": [
+      {
+        "phase": "chamber",
+        "time": 2.0083333333333333
+      },
+      {
+        "phase": "swing",
+        "time": 2.2333333333333334
+      },
+      {
+        "phase": "return",
+        "time": 2.4583333333333335
+      },
+      {
+        "phase": null,
+        "time": 2.7916666666666665
+      },
+      {
+        "phase": "chamber",
+        "time": 2.85
+      },
+      {
+        "phase": "swing",
+        "time": 3.075
+      },
+      {
+        "phase": "return",
+        "time": 3.3
+      },
+      {
+        "phase": null,
+        "time": 3.6166666666666667
+      },
+      {
+        "phase": "chamber",
+        "time": 3.675
+      },
+      {
+        "phase": "swing",
+        "time": 3.9
+      },
+      {
+        "phase": "return",
+        "time": 4.125
+      },
+      {
+        "phase": null,
+        "time": 4.441666666666666
+      },
+      {
+        "phase": "chamber",
+        "time": 4.5
+      },
+      {
+        "phase": "swing",
+        "time": 4.725
+      },
+      {
+        "phase": "return",
+        "time": 4.95
+      },
+      {
+        "phase": null,
+        "time": 5.416666666666667
+      },
+      {
+        "phase": "chamber",
+        "time": 5.475
+      },
+      {
+        "phase": "swing",
+        "time": 5.691666666666666
+      },
+      {
+        "phase": "return",
+        "time": 5.916666666666667
+      },
+      {
+        "phase": null,
+        "time": 6.275
+      },
+      {
+        "phase": "chamber",
+        "time": 6.333333333333333
+      },
+      {
+        "phase": "swing",
+        "time": 6.558333333333334
+      },
+      {
+        "phase": "return",
+        "time": 6.783333333333333
+      },
+      {
+        "phase": null,
+        "time": 7.066666666666666
+      },
+      {
+        "phase": "chamber",
+        "time": 7.125
+      },
+      {
+        "phase": "swing",
+        "time": 7.35
+      },
+      {
+        "phase": "return",
+        "time": 7.575
+      },
+      {
+        "phase": null,
+        "time": 7.991666666666666
+      }
+    ],
+    "contacts": [],
+    "peaks": [
+      3.86126122292281,
+      3.6798069757693987,
+      3.7301357942243447,
+      3.8145288158500077,
+      3.7848984948991715,
+      3.690691621061531,
+      3.7220376865924014
+    ],
+    "cycles": {
+      "returned": {
+        "left": 0,
+        "right": 7
+      },
+      "failed": 0,
+      "interrupted": 0
+    },
+    "thrown": {
+      "left": 0,
+      "right": 7
+    },
+    "finalHand": [
+      0.11945305754457097,
+      1.4590305626301208,
+      0.4056706782902272
+    ],
+    "head": [
+      0.006564091265490228,
+      1.5968323083076943,
+      0.050103111250358025
+    ],
+    "support": "stand",
+    "meanTargetDistance": 0.2838216049814776,
+    "assist": {
+      "force": 0,
+      "moment": 0
+    }
+  },
+  {
+    "harness": {
+      "kind": "Node unpinned core stand",
+      "engine": "rapier-coordinate",
+      "hz": 120,
+      "balance": 0,
+      "model": "workshop-fighter",
+      "held": "empty"
+    },
+    "hand": "right",
+    "family": "hook",
+    "mode": "hit",
+    "tuning": {
+      "chamberSeconds": 0.22,
+      "swingSeconds": 0.12,
+      "returnSeconds": 0.32,
+      "contactSpeed": 5,
+      "windup": 0.12,
+      "across": 0.05,
+      "followSeconds": 0.04,
+      "torso": 0.2,
+      "hookSeconds": 0.12,
+      "curve": 0.05,
+      "hookAcross": 0.05,
+      "prepareLimit": 0.8,
+      "returnLimit": 1.2,
+      "near": 0.05,
+      "slow": 0.6,
+      "hold": 0.05,
+      "startup": 2
+    },
+    "target": [
+      0.15,
+      1.63,
+      0.65
+    ],
+    "fell": false,
+    "phases": [
+      {
+        "phase": "chamber",
+        "time": 2.0083333333333333
+      },
+      {
+        "phase": "swing",
+        "time": 2.2333333333333334
+      },
+      {
+        "phase": "return",
+        "time": 2.4
+      },
+      {
+        "phase": null,
+        "time": 2.7583333333333333
+      },
+      {
+        "phase": "chamber",
+        "time": 2.816666666666667
+      },
+      {
+        "phase": "swing",
+        "time": 3.0416666666666665
+      },
+      {
+        "phase": "return",
+        "time": 3.2083333333333335
+      },
+      {
+        "phase": null,
+        "time": 3.7666666666666666
+      },
+      {
+        "phase": "chamber",
+        "time": 3.825
+      },
+      {
+        "phase": "swing",
+        "time": 4.05
+      },
+      {
+        "phase": "return",
+        "time": 4.216666666666667
+      },
+      {
+        "phase": null,
+        "time": 4.691666666666666
+      },
+      {
+        "phase": "chamber",
+        "time": 4.75
+      },
+      {
+        "phase": "swing",
+        "time": 4.975
+      },
+      {
+        "phase": "return",
+        "time": 5.141666666666667
+      },
+      {
+        "phase": null,
+        "time": 6.35
+      },
+      {
+        "phase": "chamber",
+        "time": 6.408333333333333
+      },
+      {
+        "phase": "swing",
+        "time": 6.733333333333333
+      },
+      {
+        "phase": "return",
+        "time": 6.9
+      },
+      {
+        "phase": null,
+        "time": 7.391666666666667
+      },
+      {
+        "phase": "chamber",
+        "time": 7.45
+      },
+      {
+        "phase": "swing",
+        "time": 7.683333333333334
+      },
+      {
+        "phase": "return",
+        "time": 7.85
+      }
+    ],
+    "contacts": [],
+    "peaks": [
+      4.528754712113231,
+      4.327027985434494,
+      4.2000172298568055,
+      4.08483804655463,
+      1.3907514376591148,
+      2.083560943356861
+    ],
+    "cycles": {
+      "returned": {
+        "left": 0,
+        "right": 4
+      },
+      "failed": 1,
+      "interrupted": 0
+    },
+    "thrown": {
+      "left": 0,
+      "right": 6
+    },
+    "finalHand": [
+      0.29944164433555875,
+      1.4532920712560244,
+      0.6476342735270184
+    ],
+    "head": [
+      0.014541133975291914,
+      1.5405564124099818,
+      0.09750025716900354
+    ],
+    "support": "stand",
+    "meanTargetDistance": 0.27885258668140334,
+    "assist": {
+      "force": 0,
+      "moment": 0
+    }
+  },
+  {
+    "harness": {
+      "kind": "Node unpinned core stand",
+      "engine": "rapier-coordinate",
+      "hz": 120,
+      "balance": 0,
+      "model": "workshop-fighter",
+      "held": "empty"
+    },
+    "hand": "right",
+    "family": "hook",
+    "mode": "hit",
+    "tuning": {
+      "chamberSeconds": 0.22,
+      "swingSeconds": 0.12,
+      "returnSeconds": 0.32,
+      "contactSpeed": 5,
+      "windup": 0.12,
+      "across": 0.05,
+      "followSeconds": 0.04,
+      "torso": 0.2,
+      "hookSeconds": 0.18,
+      "curve": 0.05,
+      "hookAcross": 0.05,
+      "prepareLimit": 0.8,
+      "returnLimit": 1.2,
+      "near": 0.05,
+      "slow": 0.6,
+      "hold": 0.05,
+      "startup": 2
+    },
+    "target": [
+      0.15,
+      1.63,
+      0.65
+    ],
+    "fell": false,
+    "phases": [
+      {
+        "phase": "chamber",
+        "time": 2.0083333333333333
+      },
+      {
+        "phase": "swing",
+        "time": 2.2333333333333334
+      },
+      {
+        "phase": "return",
+        "time": 2.4583333333333335
+      },
+      {
+        "phase": null,
+        "time": 2.9
+      },
+      {
+        "phase": "chamber",
+        "time": 2.9583333333333335
+      },
+      {
+        "phase": "swing",
+        "time": 3.183333333333333
+      },
+      {
+        "phase": "return",
+        "time": 3.408333333333333
+      },
+      {
+        "phase": null,
+        "time": 4.041666666666667
+      },
+      {
+        "phase": "chamber",
+        "time": 4.1
+      },
+      {
+        "phase": "swing",
+        "time": 4.325
+      },
+      {
+        "phase": "return",
+        "time": 4.55
+      },
+      {
+        "phase": null,
+        "time": 5.158333333333333
+      },
+      {
+        "phase": "chamber",
+        "time": 5.216666666666667
+      },
+      {
+        "phase": "swing",
+        "time": 5.441666666666666
+      },
+      {
+        "phase": "return",
+        "time": 5.666666666666667
+      },
+      {
+        "phase": null,
+        "time": 6.283333333333333
+      },
+      {
+        "phase": "chamber",
+        "time": 6.341666666666667
+      },
+      {
+        "phase": "swing",
+        "time": 6.575
+      },
+      {
+        "phase": "return",
+        "time": 6.8
+      },
+      {
+        "phase": null,
+        "time": 7.216666666666667
+      },
+      {
+        "phase": "chamber",
+        "time": 7.275
+      },
+      {
+        "phase": "swing",
+        "time": 7.5
+      },
+      {
+        "phase": "return",
+        "time": 7.725
+      }
+    ],
+    "contacts": [
+      {
+        "time": 3.408333333333333,
+        "closing": -0.2937197208446165,
+        "speed": 2.8965784743644614,
+        "impulse": 0.8770748376846313
+      }
+    ],
+    "peaks": [
+      4.1007568351851384,
+      3.9499501374827535,
+      3.8917828321509544,
+      3.9079541539124,
+      3.8573733464548123,
+      3.757807067214172
+    ],
+    "cycles": {
+      "returned": {
+        "left": 0,
+        "right": 5
+      },
+      "failed": 0,
+      "interrupted": 0
+    },
+    "thrown": {
+      "left": 0,
+      "right": 6
+    },
+    "finalHand": [
+      0.17062895521569107,
+      1.4329543340071176,
+      0.44180214178240346
+    ],
+    "head": [
+      -0.012022556742430014,
+      1.597798292902445,
+      0.08340495367539795
+    ],
+    "support": "stand",
+    "meanTargetDistance": 0.2732988448269953,
+    "assist": {
+      "force": 0,
+      "moment": 0
+    }
+  },
+  {
+    "harness": {
+      "kind": "Node unpinned core stand",
+      "engine": "rapier-coordinate",
+      "hz": 120,
+      "balance": 0,
+      "model": "workshop-fighter",
+      "held": "empty"
+    },
+    "hand": "right",
+    "family": "hook",
+    "mode": "hit",
+    "tuning": {
+      "chamberSeconds": 0.22,
+      "swingSeconds": 0.12,
+      "returnSeconds": 0.32,
+      "contactSpeed": 5,
+      "windup": 0.12,
+      "across": 0.05,
+      "followSeconds": 0.04,
+      "torso": 0.2,
+      "hookSeconds": 0.12,
+      "curve": 0.05,
+      "hookAcross": 0.15,
+      "prepareLimit": 0.8,
+      "returnLimit": 1.2,
+      "near": 0.05,
+      "slow": 0.6,
+      "hold": 0.05,
+      "startup": 2
+    },
+    "target": [
+      0.15,
+      1.63,
+      0.65
+    ],
+    "fell": false,
+    "phases": [
+      {
+        "phase": "chamber",
+        "time": 2.0083333333333333
+      },
+      {
+        "phase": "swing",
+        "time": 2.2333333333333334
+      },
+      {
+        "phase": "return",
+        "time": 2.4
+      },
+      {
+        "phase": null,
+        "time": 2.825
+      },
+      {
+        "phase": "chamber",
+        "time": 2.8833333333333333
+      },
+      {
+        "phase": "swing",
+        "time": 3.1083333333333334
+      },
+      {
+        "phase": "return",
+        "time": 3.275
+      },
+      {
+        "phase": null,
+        "time": 3.75
+      },
+      {
+        "phase": "chamber",
+        "time": 3.808333333333333
+      },
+      {
+        "phase": "swing",
+        "time": 4.033333333333333
+      },
+      {
+        "phase": "return",
+        "time": 4.2
+      },
+      {
+        "phase": null,
+        "time": 4.533333333333333
+      },
+      {
+        "phase": "chamber",
+        "time": 4.591666666666667
+      },
+      {
+        "phase": "swing",
+        "time": 4.816666666666666
+      },
+      {
+        "phase": "return",
+        "time": 4.983333333333333
+      },
+      {
+        "phase": null,
+        "time": 5.3
+      },
+      {
+        "phase": "chamber",
+        "time": 5.358333333333333
+      },
+      {
+        "phase": "swing",
+        "time": 5.583333333333333
+      },
+      {
+        "phase": "return",
+        "time": 5.75
+      },
+      {
+        "phase": null,
+        "time": 6.225
+      },
+      {
+        "phase": "chamber",
+        "time": 6.283333333333333
+      },
+      {
+        "phase": "swing",
+        "time": 6.508333333333334
+      },
+      {
+        "phase": "return",
+        "time": 6.675
+      },
+      {
+        "phase": null,
+        "time": 7.15
+      },
+      {
+        "phase": "chamber",
+        "time": 7.208333333333333
+      },
+      {
+        "phase": "swing",
+        "time": 7.441666666666666
+      },
+      {
+        "phase": "return",
+        "time": 7.608333333333333
+      }
+    ],
+    "contacts": [],
+    "peaks": [
+      4.5806338263561095,
+      4.413444947891923,
+      4.211700198774595,
+      4.066214725194426,
+      4.24723277938285,
+      4.279180618510516,
+      4.250958206967428
+    ],
+    "cycles": {
+      "returned": {
+        "left": 0,
+        "right": 6
+      },
+      "failed": 0,
+      "interrupted": 0
+    },
+    "thrown": {
+      "left": 0,
+      "right": 7
+    },
+    "finalHand": [
+      0.1834617490031565,
+      1.4396119750877485,
+      0.47194408613021954
+    ],
+    "head": [
+      -0.012376466963105305,
+      1.5820987508843953,
+      0.09708044965242742
+    ],
+    "support": "stand",
+    "meanTargetDistance": 0.29630656579448983,
+    "assist": {
+      "force": 0,
+      "moment": 0
+    }
+  },
+  {
+    "harness": {
+      "kind": "Node unpinned core stand",
+      "engine": "rapier-coordinate",
+      "hz": 120,
+      "balance": 0,
+      "model": "workshop-fighter",
+      "held": "empty"
+    },
+    "hand": "right",
+    "family": "hook",
+    "mode": "hit",
+    "tuning": {
+      "chamberSeconds": 0.22,
+      "swingSeconds": 0.12,
+      "returnSeconds": 0.32,
+      "contactSpeed": 5,
+      "windup": 0.12,
+      "across": 0.05,
+      "followSeconds": 0.04,
+      "torso": 0.2,
+      "hookSeconds": 0.18,
+      "curve": 0.05,
+      "hookAcross": 0.15,
+      "prepareLimit": 0.8,
+      "returnLimit": 1.2,
+      "near": 0.05,
+      "slow": 0.6,
+      "hold": 0.05,
+      "startup": 2
+    },
+    "target": [
+      0.15,
+      1.63,
+      0.65
+    ],
+    "fell": false,
+    "phases": [
+      {
+        "phase": "chamber",
+        "time": 2.0083333333333333
+      },
+      {
+        "phase": "swing",
+        "time": 2.2333333333333334
+      },
+      {
+        "phase": "return",
+        "time": 2.4583333333333335
+      },
+      {
+        "phase": null,
+        "time": 3.0833333333333335
+      },
+      {
+        "phase": "chamber",
+        "time": 3.1416666666666666
+      },
+      {
+        "phase": "swing",
+        "time": 3.3666666666666667
+      },
+      {
+        "phase": "return",
+        "time": 3.591666666666667
+      },
+      {
+        "phase": null,
+        "time": 3.908333333333333
+      },
+      {
+        "phase": "chamber",
+        "time": 3.966666666666667
+      },
+      {
+        "phase": "swing",
+        "time": 4.191666666666666
+      },
+      {
+        "phase": "return",
+        "time": 4.416666666666667
+      },
+      {
+        "phase": null,
+        "time": 4.725
+      },
+      {
+        "phase": "chamber",
+        "time": 4.783333333333333
+      },
+      {
+        "phase": "swing",
+        "time": 5.008333333333334
+      },
+      {
+        "phase": "return",
+        "time": 5.233333333333333
+      },
+      {
+        "phase": null,
+        "time": 5.65
+      },
+      {
+        "phase": "chamber",
+        "time": 5.708333333333333
+      },
+      {
+        "phase": "swing",
+        "time": 5.933333333333334
+      },
+      {
+        "phase": "return",
+        "time": 6.158333333333333
+      },
+      {
+        "phase": null,
+        "time": 6.516666666666667
+      },
+      {
+        "phase": "chamber",
+        "time": 6.575
+      },
+      {
+        "phase": "swing",
+        "time": 6.8
+      },
+      {
+        "phase": "return",
+        "time": 7.025
+      },
+      {
+        "phase": null,
+        "time": 7.508333333333334
+      },
+      {
+        "phase": "chamber",
+        "time": 7.566666666666666
+      },
+      {
+        "phase": "swing",
+        "time": 7.783333333333333
+      }
+    ],
+    "contacts": [],
+    "peaks": [
+      4.077271619319432,
+      3.9765762603886743,
+      3.9381436232423512,
+      3.851252873947648,
+      3.788267740497915,
+      3.684530652509491
+    ],
+    "cycles": {
+      "returned": {
+        "left": 0,
+        "right": 6
+      },
+      "failed": 0,
+      "interrupted": 0
+    },
+    "thrown": {
+      "left": 0,
+      "right": 6
+    },
+    "finalHand": [
+      0.30864279139665035,
+      1.439652827192066,
+      0.6761403655660025
+    ],
+    "head": [
+      -0.018822749939785402,
+      1.570734683114767,
+      0.05525160238698604
+    ],
+    "support": "stand",
+    "meanTargetDistance": 0.2875260350286565,
+    "assist": {
+      "force": 0,
+      "moment": 0
+    }
+  },
+  {
+    "harness": {
+      "kind": "Node unpinned core stand",
+      "engine": "rapier-coordinate",
+      "hz": 120,
+      "balance": 0,
+      "model": "workshop-fighter",
+      "held": "empty"
+    },
+    "hand": "right",
+    "family": "hook",
+    "mode": "hit",
+    "tuning": {
+      "chamberSeconds": 0.22,
+      "swingSeconds": 0.12,
+      "returnSeconds": 0.32,
+      "contactSpeed": 5,
+      "windup": 0.12,
+      "across": 0.05,
+      "followSeconds": 0.04,
+      "torso": 0.2,
+      "hookSeconds": 0.12,
+      "curve": 0.05,
+      "hookAcross": 0.3,
+      "prepareLimit": 0.8,
+      "returnLimit": 1.2,
+      "near": 0.05,
+      "slow": 0.6,
+      "hold": 0.05,
+      "startup": 2
+    },
+    "target": [
+      0.15,
+      1.63,
+      0.65
+    ],
+    "fell": false,
+    "phases": [
+      {
+        "phase": "chamber",
+        "time": 2.0083333333333333
+      },
+      {
+        "phase": "swing",
+        "time": 2.2333333333333334
+      },
+      {
+        "phase": "return",
+        "time": 2.4
+      },
+      {
+        "phase": null,
+        "time": 2.7333333333333334
+      },
+      {
+        "phase": "chamber",
+        "time": 2.7916666666666665
+      },
+      {
+        "phase": "swing",
+        "time": 3.0083333333333333
+      },
+      {
+        "phase": "return",
+        "time": 3.175
+      },
+      {
+        "phase": null,
+        "time": 3.5166666666666666
+      },
+      {
+        "phase": "chamber",
+        "time": 3.575
+      },
+      {
+        "phase": "swing",
+        "time": 3.8
+      },
+      {
+        "phase": "return",
+        "time": 3.966666666666667
+      },
+      {
+        "phase": null,
+        "time": 4.391666666666667
+      },
+      {
+        "phase": "chamber",
+        "time": 4.45
+      },
+      {
+        "phase": "swing",
+        "time": 4.666666666666667
+      },
+      {
+        "phase": "return",
+        "time": 4.833333333333333
+      },
+      {
+        "phase": null,
+        "time": 5.158333333333333
+      },
+      {
+        "phase": "chamber",
+        "time": 5.216666666666667
+      },
+      {
+        "phase": "swing",
+        "time": 5.433333333333334
+      },
+      {
+        "phase": "return",
+        "time": 5.6
+      },
+      {
+        "phase": null,
+        "time": 6.016666666666667
+      },
+      {
+        "phase": "chamber",
+        "time": 6.075
+      },
+      {
+        "phase": "swing",
+        "time": 6.3
+      },
+      {
+        "phase": "return",
+        "time": 6.466666666666667
+      },
+      {
+        "phase": null,
+        "time": 6.808333333333334
+      },
+      {
+        "phase": "chamber",
+        "time": 6.866666666666666
+      },
+      {
+        "phase": "swing",
+        "time": 7.091666666666667
+      },
+      {
+        "phase": "return",
+        "time": 7.258333333333334
+      },
+      {
+        "phase": null,
+        "time": 7.6
+      },
+      {
+        "phase": "chamber",
+        "time": 7.658333333333333
+      },
+      {
+        "phase": "swing",
+        "time": 7.883333333333334
+      }
+    ],
+    "contacts": [],
+    "peaks": [
+      4.5856103116091935,
+      4.392834604781311,
+      4.184330757838241,
+      4.387097271778409,
+      4.1420215809219245,
+      4.0043550309379645,
+      3.9750722800201537
+    ],
+    "cycles": {
+      "returned": {
+        "left": 0,
+        "right": 7
+      },
+      "failed": 0,
+      "interrupted": 0
+    },
+    "thrown": {
+      "left": 0,
+      "right": 7
+    },
+    "finalHand": [
+      0.35220161655027216,
+      1.3846996265109086,
+      0.6832633951126806
+    ],
+    "head": [
+      -0.01495635671346324,
+      1.580873741579399,
+      0.0669168466933821
+    ],
+    "support": "stand",
+    "meanTargetDistance": 0.32095983491911806,
+    "assist": {
+      "force": 0,
+      "moment": 0
+    }
+  },
+  {
+    "harness": {
+      "kind": "Node unpinned core stand",
+      "engine": "rapier-coordinate",
+      "hz": 120,
+      "balance": 0,
+      "model": "workshop-fighter",
+      "held": "empty"
+    },
+    "hand": "right",
+    "family": "hook",
+    "mode": "hit",
+    "tuning": {
+      "chamberSeconds": 0.22,
+      "swingSeconds": 0.12,
+      "returnSeconds": 0.32,
+      "contactSpeed": 5,
+      "windup": 0.12,
+      "across": 0.05,
+      "followSeconds": 0.04,
+      "torso": 0.2,
+      "hookSeconds": 0.18,
+      "curve": 0.05,
+      "hookAcross": 0.3,
+      "prepareLimit": 0.8,
+      "returnLimit": 1.2,
+      "near": 0.05,
+      "slow": 0.6,
+      "hold": 0.05,
+      "startup": 2
+    },
+    "target": [
+      0.15,
+      1.63,
+      0.65
+    ],
+    "fell": false,
+    "phases": [
+      {
+        "phase": "chamber",
+        "time": 2.0083333333333333
+      },
+      {
+        "phase": "swing",
+        "time": 2.2333333333333334
+      },
+      {
+        "phase": "return",
+        "time": 2.4583333333333335
+      },
+      {
+        "phase": null,
+        "time": 2.7916666666666665
+      },
+      {
+        "phase": "chamber",
+        "time": 2.85
+      },
+      {
+        "phase": "swing",
+        "time": 3.075
+      },
+      {
+        "phase": "return",
+        "time": 3.3
+      },
+      {
+        "phase": null,
+        "time": 3.6333333333333333
+      },
+      {
+        "phase": "chamber",
+        "time": 3.691666666666667
+      },
+      {
+        "phase": "swing",
+        "time": 3.908333333333333
+      },
+      {
+        "phase": "return",
+        "time": 4.133333333333334
+      },
+      {
+        "phase": null,
+        "time": 4.55
+      },
+      {
+        "phase": "chamber",
+        "time": 4.608333333333333
+      },
+      {
+        "phase": "swing",
+        "time": 4.825
+      },
+      {
+        "phase": "return",
+        "time": 5.05
+      },
+      {
+        "phase": null,
+        "time": 5.45
+      },
+      {
+        "phase": "chamber",
+        "time": 5.508333333333334
+      },
+      {
+        "phase": "swing",
+        "time": 5.733333333333333
+      },
+      {
+        "phase": "return",
+        "time": 5.958333333333333
+      },
+      {
+        "phase": null,
+        "time": 6.6
+      },
+      {
+        "phase": "chamber",
+        "time": 6.658333333333333
+      },
+      {
+        "phase": "swing",
+        "time": 6.883333333333334
+      },
+      {
+        "phase": "return",
+        "time": 7.108333333333333
+      },
+      {
+        "phase": null,
+        "time": 7.45
+      },
+      {
+        "phase": "chamber",
+        "time": 7.508333333333334
+      },
+      {
+        "phase": "swing",
+        "time": 7.733333333333333
+      },
+      {
+        "phase": "return",
+        "time": 7.958333333333333
+      }
+    ],
+    "contacts": [],
+    "peaks": [
+      3.8738866292590117,
+      3.858569332603444,
+      3.906498813819454,
+      4.022162141590639,
+      3.938465946862322,
+      3.7846972306686566,
+      3.625924085592833
+    ],
+    "cycles": {
+      "returned": {
+        "left": 0,
+        "right": 6
+      },
+      "failed": 0,
+      "interrupted": 0
+    },
+    "thrown": {
+      "left": 0,
+      "right": 7
+    },
+    "finalHand": [
+      0.19506982457054378,
+      1.4709945432131886,
+      0.6911398634925446
+    ],
+    "head": [
+      -0.026816027744108163,
+      1.5748902709846624,
+      0.02584058635646802
+    ],
+    "support": "stand",
+    "meanTargetDistance": 0.291727654586313,
+    "assist": {
+      "force": 0,
+      "moment": 0
+    }
+  },
+  {
+    "harness": {
+      "kind": "Node unpinned core stand",
+      "engine": "rapier-coordinate",
+      "hz": 120,
+      "balance": 0,
+      "model": "workshop-fighter",
+      "held": "empty"
+    },
+    "hand": "right",
+    "family": "hook",
+    "mode": "hit",
+    "tuning": {
+      "chamberSeconds": 0.22,
+      "swingSeconds": 0.12,
+      "returnSeconds": 0.32,
+      "contactSpeed": 5,
+      "windup": 0.12,
+      "across": 0.05,
+      "followSeconds": 0.04,
+      "torso": 0.2,
+      "hookSeconds": 0.15,
+      "curve": 0.05,
+      "hookAcross": 0.15,
+      "prepareLimit": 0.8,
+      "returnLimit": 1.2,
+      "near": 0.05,
+      "slow": 0.6,
+      "hold": 0.05,
+      "startup": 2
+    },
+    "target": [
+      0.1,
+      1.63,
+      0.5
+    ],
+    "fell": false,
+    "phases": [
+      {
+        "phase": "chamber",
+        "time": 2.0083333333333333
+      },
+      {
+        "phase": "swing",
+        "time": 2.2333333333333334
+      },
+      {
+        "phase": "return",
+        "time": 2.35
+      },
+      {
+        "phase": null,
+        "time": 2.6666666666666665
+      },
+      {
+        "phase": "chamber",
+        "time": 2.725
+      },
+      {
+        "phase": "swing",
+        "time": 2.95
+      },
+      {
+        "phase": "return",
+        "time": 3.075
+      },
+      {
+        "phase": null,
+        "time": 3.3666666666666667
+      },
+      {
+        "phase": "chamber",
+        "time": 3.425
+      },
+      {
+        "phase": "swing",
+        "time": 3.65
+      },
+      {
+        "phase": "return",
+        "time": 3.775
+      },
+      {
+        "phase": null,
+        "time": 4.083333333333333
+      },
+      {
+        "phase": "chamber",
+        "time": 4.141666666666667
+      },
+      {
+        "phase": "swing",
+        "time": 4.366666666666666
+      },
+      {
+        "phase": "return",
+        "time": 4.491666666666666
+      },
+      {
+        "phase": null,
+        "time": 4.8
+      },
+      {
+        "phase": "chamber",
+        "time": 4.858333333333333
+      },
+      {
+        "phase": "swing",
+        "time": 5.083333333333333
+      },
+      {
+        "phase": "return",
+        "time": 5.216666666666667
+      },
+      {
+        "phase": null,
+        "time": 5.675
+      },
+      {
+        "phase": "chamber",
+        "time": 5.733333333333333
+      },
+      {
+        "phase": "swing",
+        "time": 5.966666666666667
+      },
+      {
+        "phase": "return",
+        "time": 6.091666666666667
+      },
+      {
+        "phase": null,
+        "time": 6.433333333333334
+      },
+      {
+        "phase": "chamber",
+        "time": 6.491666666666666
+      },
+      {
+        "phase": "swing",
+        "time": 6.716666666666667
+      },
+      {
+        "phase": "return",
+        "time": 6.841666666666667
+      },
+      {
+        "phase": null,
+        "time": 7.175
+      },
+      {
+        "phase": "chamber",
+        "time": 7.233333333333333
+      },
+      {
+        "phase": "swing",
+        "time": 7.458333333333333
+      },
+      {
+        "phase": "return",
+        "time": 7.583333333333333
+      },
+      {
+        "phase": null,
+        "time": 7.925
+      },
+      {
+        "phase": "chamber",
+        "time": 7.983333333333333
+      }
+    ],
+    "contacts": [
+      {
+        "time": 2.341666666666667,
+        "closing": 2.29620863483471,
+        "speed": 2.787905319046128,
+        "velocity": [
+          -1.5583920221356573,
+          0.2669387169747907,
+          2.29620863483471
+        ],
+        "impulse": 4.501088619232178
+      },
+      {
+        "time": 3.066666666666667,
+        "closing": 3.2965143443935716,
+        "speed": 3.629114977676419,
+        "velocity": [
+          -1.5168146968599734,
+          0.052362904735341026,
+          3.2965143443935716
+        ],
+        "impulse": 7.988879066224371
+      },
+      {
+        "time": 3.7666666666666666,
+        "closing": 3.2683630612456454,
+        "speed": 3.589693936656508,
+        "velocity": [
+          -1.4844404222729715,
+          0.011920212898031222,
+          3.2683630612456454
+        ],
+        "impulse": 6.458652019500732
+      },
+      {
+        "time": 4.483333333333333,
+        "closing": 3.1495539702436126,
+        "speed": 3.4892268238782274,
+        "velocity": [
+          -1.5013425321845981,
+          0.031372249641655164,
+          3.1495539702436126
+        ],
+        "impulse": 7.642229795455933
+      },
+      {
+        "time": 5.208333333333333,
+        "closing": 3.5939657710267787,
+        "speed": 3.7550099494429627,
+        "velocity": [
+          -1.0876681639863968,
+          -0.02208443239015892,
+          3.5939657710267787
+        ],
+        "impulse": 0.7126383830327541
+      },
+      {
+        "time": 6.083333333333333,
+        "closing": 2.929062842859265,
+        "speed": 3.3000401852071075,
+        "velocity": [
+          -1.5119400310857278,
+          0.15777651588068545,
+          2.929062842859265
+        ],
+        "impulse": 2.1122734546661377
+      },
+      {
+        "time": 6.833333333333333,
+        "closing": 3.015607906462778,
+        "speed": 3.42107808091766,
+        "velocity": [
+          -1.6154017495136626,
+          0.01900994167902853,
+          3.015607906462778
+        ],
+        "impulse": 1.7418994903564453
+      },
+      {
+        "time": 7.575,
+        "closing": 2.904992185624275,
+        "speed": 3.316200164964419,
+        "velocity": [
+          -1.5974939717233194,
+          0.07884761175577204,
+          2.904992185624275
+        ],
+        "impulse": 0.2138872742652893
+      }
+    ],
+    "peaks": [
+      2.29620863483471,
+      3.2965143443935716,
+      3.2683630612456454,
+      3.1495539702436126,
+      3.5939657710267787,
+      2.929062842859265,
+      3.015607906462778,
+      2.904992185624275
+    ],
+    "cycles": {
+      "returned": {
+        "left": 0,
+        "right": 8
+      },
+      "failed": 0,
+      "interrupted": 0
+    },
+    "thrown": {
+      "left": 0,
+      "right": 8
+    },
+    "finalHand": [
+      0.1865057045933062,
+      1.4196367891885484,
+      0.3884359980381861
+    ],
+    "head": [
+      -0.0023541838750429844,
+      1.5877578099964154,
+      0.08483036938840595
+    ],
+    "support": "stand",
+    "meanTargetDistance": 0.2959711091429649,
+    "pathError": {
+      "mean": 0.010171006429280219,
+      "maximum": 0.07221675271438091
+    },
+    "saturation": 0.03035714285714286,
+    "assist": {
+      "force": 0,
+      "moment": 0
+    }
+  },
+  {
+    "harness": {
+      "kind": "Node unpinned core stand",
+      "engine": "rapier-coordinate",
+      "hz": 120,
+      "balance": 0,
+      "model": "workshop-fighter",
+      "held": "empty"
+    },
+    "hand": "right",
+    "family": "hook",
+    "mode": "hit",
+    "tuning": {
+      "chamberSeconds": 0.22,
+      "swingSeconds": 0.12,
+      "returnSeconds": 0.32,
+      "contactSpeed": 5,
+      "windup": 0.12,
+      "across": 0.05,
+      "followSeconds": 0.04,
+      "torso": 0.2,
+      "hookSeconds": 0.18,
+      "curve": 0.05,
+      "hookAcross": 0.15,
+      "prepareLimit": 0.8,
+      "returnLimit": 1.2,
+      "near": 0.05,
+      "slow": 0.6,
+      "hold": 0.05,
+      "startup": 2
+    },
+    "target": [
+      0.1,
+      1.63,
+      0.5
+    ],
+    "fell": false,
+    "phases": [
+      {
+        "phase": "chamber",
+        "time": 2.0083333333333333
+      },
+      {
+        "phase": "swing",
+        "time": 2.2333333333333334
+      },
+      {
+        "phase": "return",
+        "time": 2.3833333333333333
+      },
+      {
+        "phase": null,
+        "time": 2.7
+      },
+      {
+        "phase": "chamber",
+        "time": 2.7583333333333333
+      },
+      {
+        "phase": "swing",
+        "time": 2.9833333333333334
+      },
+      {
+        "phase": "return",
+        "time": 3.1333333333333333
+      },
+      {
+        "phase": null,
+        "time": 3.45
+      },
+      {
+        "phase": "chamber",
+        "time": 3.5083333333333333
+      },
+      {
+        "phase": "swing",
+        "time": 3.7333333333333334
+      },
+      {
+        "phase": "return",
+        "time": 3.8833333333333333
+      },
+      {
+        "phase": null,
+        "time": 4.2
+      },
+      {
+        "phase": "chamber",
+        "time": 4.258333333333334
+      },
+      {
+        "phase": "swing",
+        "time": 4.491666666666666
+      },
+      {
+        "phase": "return",
+        "time": 4.641666666666667
+      },
+      {
+        "phase": null,
+        "time": 4.983333333333333
+      },
+      {
+        "phase": "chamber",
+        "time": 5.041666666666667
+      },
+      {
+        "phase": "swing",
+        "time": 5.275
+      },
+      {
+        "phase": "return",
+        "time": 5.433333333333334
+      },
+      {
+        "phase": null,
+        "time": 5.741666666666666
+      },
+      {
+        "phase": "chamber",
+        "time": 5.8
+      },
+      {
+        "phase": "swing",
+        "time": 6.033333333333333
+      },
+      {
+        "phase": "return",
+        "time": 6.183333333333334
+      },
+      {
+        "phase": null,
+        "time": 6.508333333333334
+      },
+      {
+        "phase": "chamber",
+        "time": 6.566666666666666
+      },
+      {
+        "phase": "swing",
+        "time": 6.8
+      },
+      {
+        "phase": "return",
+        "time": 6.958333333333333
+      },
+      {
+        "phase": null,
+        "time": 7.275
+      },
+      {
+        "phase": "chamber",
+        "time": 7.333333333333333
+      },
+      {
+        "phase": "swing",
+        "time": 7.566666666666666
+      },
+      {
+        "phase": "return",
+        "time": 7.716666666666667
+      }
+    ],
+    "contacts": [
+      {
+        "time": 2.375,
+        "closing": 2.690922557179882,
+        "speed": 3.012155117332379,
+        "velocity": [
+          -1.3364412070294893,
+          0.21433418366113383,
+          2.690922557179882
+        ],
+        "impulse": 6.267784118652344
+      },
+      {
+        "time": 3.125,
+        "closing": 2.817089887214959,
+        "speed": 3.139075914238189,
+        "velocity": [
+          -1.3705326367141204,
+          0.19860124471657825,
+          2.817089887214959
+        ],
+        "impulse": 7.0720438957214355
+      },
+      {
+        "time": 3.875,
+        "closing": 2.9427301948539437,
+        "speed": 3.2535656834448905,
+        "velocity": [
+          -1.3727668099207841,
+          0.2038134989763965,
+          2.9427301948539437
+        ],
+        "impulse": 6.712918281555176
+      },
+      {
+        "time": 4.633333333333334,
+        "closing": 3.115818223705933,
+        "speed": 3.408350941783667,
+        "velocity": [
+          -1.3701933431024886,
+          0.17636082812586004,
+          3.115818223705933
+        ],
+        "impulse": 7.051997184753418
+      },
+      {
+        "time": 5.425,
+        "closing": 3.7344160692580544,
+        "speed": 3.886195795253196,
+        "velocity": [
+          -1.0723611472701462,
+          0.08182878794348077,
+          3.7344160692580544
+        ],
+        "impulse": 7.825990200042725
+      },
+      {
+        "time": 6.175,
+        "closing": 3.126557703385118,
+        "speed": 3.4261609425925745,
+        "velocity": [
+          -1.391812639163917,
+          0.16147231779344262,
+          3.126557703385118
+        ],
+        "impulse": 7.392445087432861
+      },
+      {
+        "time": 6.95,
+        "closing": 3.731922787301344,
+        "speed": 3.8780300044661415,
+        "velocity": [
+          -1.0532226656931813,
+          0.050902275300600625,
+          3.731922787301344
+        ],
+        "impulse": 7.8372802734375
+      },
+      {
+        "time": 7.708333333333333,
+        "closing": 3.041347097891666,
+        "speed": 3.352803008466095,
+        "velocity": [
+          -1.4016846939997754,
+          0.16363331669313483,
+          3.041347097891666
+        ],
+        "impulse": 6.868640899658203
+      }
+    ],
+    "peaks": [
+      2.690922557179882,
+      2.817089887214959,
+      2.9427301948539437,
+      3.115818223705933,
+      3.7344160692580544,
+      3.126557703385118,
+      3.731922787301344,
+      3.041347097891666
+    ],
+    "cycles": {
+      "returned": {
+        "left": 0,
+        "right": 7
+      },
+      "failed": 0,
+      "interrupted": 0
+    },
+    "thrown": {
+      "left": 0,
+      "right": 8
+    },
+    "finalHand": [
+      0.2584438453966259,
+      1.386987960941333,
+      0.3232556527695562
+    ],
+    "head": [
+      0.016462364919581987,
+      1.5795139936695555,
+      0.08993644050058129
+    ],
+    "support": "stand",
+    "meanTargetDistance": 0.3139309324952816,
+    "pathError": {
+      "mean": 0.008634418417494854,
+      "maximum": 0.06150405654988631
+    },
+    "saturation": 0.02318840579710145,
+    "assist": {
+      "force": 0,
+      "moment": 0
+    }
+  },
+  {
+    "harness": {
+      "kind": "Node unpinned core stand",
+      "engine": "rapier-coordinate",
+      "hz": 120,
+      "balance": 0,
+      "model": "workshop-fighter",
+      "held": "empty"
+    },
+    "hand": "right",
+    "family": "hook",
+    "mode": "hit",
+    "tuning": {
+      "chamberSeconds": 0.22,
+      "swingSeconds": 0.12,
+      "returnSeconds": 0.32,
+      "contactSpeed": 5,
+      "windup": 0.12,
+      "across": 0.05,
+      "followSeconds": 0.04,
+      "torso": 0.2,
+      "hookSeconds": 0.24,
+      "curve": 0.05,
+      "hookAcross": 0.15,
+      "prepareLimit": 0.8,
+      "returnLimit": 1.2,
+      "near": 0.05,
+      "slow": 0.6,
+      "hold": 0.05,
+      "startup": 2
+    },
+    "target": [
+      0.1,
+      1.63,
+      0.5
+    ],
+    "fell": false,
+    "phases": [
+      {
+        "phase": "chamber",
+        "time": 2.0083333333333333
+      },
+      {
+        "phase": "swing",
+        "time": 2.2333333333333334
+      },
+      {
+        "phase": "return",
+        "time": 2.5166666666666666
+      },
+      {
+        "phase": null,
+        "time": 3.2
+      },
+      {
+        "phase": "chamber",
+        "time": 3.2583333333333333
+      },
+      {
+        "phase": "swing",
+        "time": 3.4833333333333334
+      },
+      {
+        "phase": "return",
+        "time": 3.7666666666666666
+      },
+      {
+        "phase": null,
+        "time": 4.258333333333334
+      },
+      {
+        "phase": "chamber",
+        "time": 4.316666666666666
+      },
+      {
+        "phase": "swing",
+        "time": 4.541666666666667
+      },
+      {
+        "phase": "return",
+        "time": 4.825
+      },
+      {
+        "phase": null,
+        "time": 5.325
+      },
+      {
+        "phase": "chamber",
+        "time": 5.383333333333334
+      },
+      {
+        "phase": "swing",
+        "time": 5.616666666666666
+      },
+      {
+        "phase": "return",
+        "time": 5.9
+      },
+      {
+        "phase": null,
+        "time": 6.525
+      },
+      {
+        "phase": "chamber",
+        "time": 6.583333333333333
+      },
+      {
+        "phase": "swing",
+        "time": 6.808333333333334
+      },
+      {
+        "phase": "return",
+        "time": 7.091666666666667
+      },
+      {
+        "phase": null,
+        "time": 7.416666666666667
+      },
+      {
+        "phase": "chamber",
+        "time": 7.475
+      },
+      {
+        "phase": "swing",
+        "time": 7.708333333333333
+      },
+      {
+        "phase": "return",
+        "time": 7.991666666666666
+      }
+    ],
+    "contacts": [],
+    "peaks": [
+      4.0964360284586885,
+      3.8808443235372327,
+      3.8705531404512765,
+      3.929012986150469,
+      3.7065166413074957,
+      3.872058118525216
+    ],
+    "cycles": {
+      "returned": {
+        "left": 0,
+        "right": 5
+      },
+      "failed": 0,
+      "interrupted": 0
+    },
+    "thrown": {
+      "left": 0,
+      "right": 6
+    },
+    "finalHand": [
+      0.2570360181654479,
+      1.4525186697096348,
+      0.6738767875833123
+    ],
+    "head": [
+      -0.02008807112621345,
+      1.5752770293470106,
+      0.046455529532330994
+    ],
+    "support": "stand",
+    "meanTargetDistance": 0.2858567134072991,
+    "pathError": {
+      "mean": 0.07171439886771301,
+      "maximum": 0.4392534544814741
+    },
+    "saturation": 0.04999999999999995,
+    "assist": {
+      "force": 0,
+      "moment": 0
+    }
+  },
+  {
+    "harness": {
+      "kind": "Node unpinned core stand",
+      "engine": "rapier-coordinate",
+      "hz": 120,
+      "balance": 0,
+      "model": "workshop-fighter",
+      "held": "empty"
+    },
+    "hand": "right",
+    "family": "hook",
+    "mode": "hit",
+    "tuning": {
+      "chamberSeconds": 0.22,
+      "swingSeconds": 0.12,
+      "returnSeconds": 0.32,
+      "contactSpeed": 5,
+      "windup": 0.12,
+      "across": 0.05,
+      "followSeconds": 0.04,
+      "torso": 0.2,
+      "hookSeconds": 0.15,
+      "curve": 0.1,
+      "hookAcross": 0.15,
+      "prepareLimit": 0.8,
+      "returnLimit": 1.2,
+      "near": 0.05,
+      "slow": 0.6,
+      "hold": 0.05,
+      "startup": 2
+    },
+    "target": [
+      0.1,
+      1.63,
+      0.5
+    ],
+    "fell": false,
+    "phases": [
+      {
+        "phase": "chamber",
+        "time": 2.0083333333333333
+      },
+      {
+        "phase": "swing",
+        "time": 2.2333333333333334
+      },
+      {
+        "phase": "return",
+        "time": 2.425
+      },
+      {
+        "phase": null,
+        "time": 2.7416666666666667
+      },
+      {
+        "phase": "chamber",
+        "time": 2.8
+      },
+      {
+        "phase": "swing",
+        "time": 3.025
+      },
+      {
+        "phase": "return",
+        "time": 3.216666666666667
+      },
+      {
+        "phase": null,
+        "time": 3.558333333333333
+      },
+      {
+        "phase": "chamber",
+        "time": 3.6166666666666667
+      },
+      {
+        "phase": "swing",
+        "time": 3.841666666666667
+      },
+      {
+        "phase": "return",
+        "time": 4.033333333333333
+      },
+      {
+        "phase": null,
+        "time": 4.458333333333333
+      },
+      {
+        "phase": "chamber",
+        "time": 4.516666666666667
+      },
+      {
+        "phase": "swing",
+        "time": 4.741666666666666
+      },
+      {
+        "phase": "return",
+        "time": 4.933333333333334
+      },
+      {
+        "phase": null,
+        "time": 5.525
+      },
+      {
+        "phase": "chamber",
+        "time": 5.583333333333333
+      },
+      {
+        "phase": "swing",
+        "time": 5.808333333333334
+      },
+      {
+        "phase": "return",
+        "time": 6
+      },
+      {
+        "phase": null,
+        "time": 6.641666666666667
+      },
+      {
+        "phase": "chamber",
+        "time": 6.7
+      },
+      {
+        "phase": "swing",
+        "time": 6.925
+      },
+      {
+        "phase": "return",
+        "time": 7.116666666666666
+      },
+      {
+        "phase": null,
+        "time": 7.816666666666666
+      },
+      {
+        "phase": "chamber",
+        "time": 7.875
+      }
+    ],
+    "contacts": [],
+    "peaks": [
+      4.1077919319524066,
+      3.6978624417833403,
+      3.7932347214448585,
+      3.7880254653377476,
+      3.57396704983236,
+      3.39786733189632
+    ],
+    "cycles": {
+      "returned": {
+        "left": 0,
+        "right": 6
+      },
+      "failed": 0,
+      "interrupted": 0
+    },
+    "thrown": {
+      "left": 0,
+      "right": 6
+    },
+    "finalHand": [
+      0.22701992789400063,
+      1.4481575450757034,
+      0.437487052427443
+    ],
+    "head": [
+      0.002259317378237404,
+      1.5978890748773267,
+      0.07695707667871408
+    ],
+    "support": "stand",
+    "meanTargetDistance": 0.27521176628263316,
+    "pathError": {
+      "mean": 0.10208071567554332,
+      "maximum": 0.4554487836625981
+    },
+    "saturation": 0.08633540372670799,
+    "assist": {
+      "force": 0,
+      "moment": 0
+    }
+  },
+  {
+    "harness": {
+      "kind": "Node unpinned core stand",
+      "engine": "rapier-coordinate",
+      "hz": 120,
+      "balance": 0,
+      "model": "workshop-fighter",
+      "held": "empty"
+    },
+    "hand": "right",
+    "family": "hook",
+    "mode": "hit",
+    "tuning": {
+      "chamberSeconds": 0.22,
+      "swingSeconds": 0.12,
+      "returnSeconds": 0.32,
+      "contactSpeed": 5,
+      "windup": 0.12,
+      "across": 0.05,
+      "followSeconds": 0.04,
+      "torso": 0.2,
+      "hookSeconds": 0.18,
+      "curve": 0.1,
+      "hookAcross": 0.15,
+      "prepareLimit": 0.8,
+      "returnLimit": 1.2,
+      "near": 0.05,
+      "slow": 0.6,
+      "hold": 0.05,
+      "startup": 2
+    },
+    "target": [
+      0.1,
+      1.63,
+      0.5
+    ],
+    "fell": false,
+    "phases": [
+      {
+        "phase": "chamber",
+        "time": 2.0083333333333333
+      },
+      {
+        "phase": "swing",
+        "time": 2.2333333333333334
+      },
+      {
+        "phase": "return",
+        "time": 2.4583333333333335
+      },
+      {
+        "phase": null,
+        "time": 2.841666666666667
+      },
+      {
+        "phase": "chamber",
+        "time": 2.9
+      },
+      {
+        "phase": "swing",
+        "time": 3.125
+      },
+      {
+        "phase": "return",
+        "time": 3.35
+      },
+      {
+        "phase": null,
+        "time": 3.8583333333333334
+      },
+      {
+        "phase": "chamber",
+        "time": 3.9166666666666665
+      },
+      {
+        "phase": "swing",
+        "time": 4.141666666666667
+      },
+      {
+        "phase": "return",
+        "time": 4.366666666666666
+      },
+      {
+        "phase": null,
+        "time": 4.75
+      },
+      {
+        "phase": "chamber",
+        "time": 4.808333333333334
+      },
+      {
+        "phase": "swing",
+        "time": 5.033333333333333
+      },
+      {
+        "phase": "return",
+        "time": 5.258333333333334
+      },
+      {
+        "phase": null,
+        "time": 5.891666666666667
+      },
+      {
+        "phase": "chamber",
+        "time": 5.95
+      },
+      {
+        "phase": "swing",
+        "time": 6.175
+      },
+      {
+        "phase": "return",
+        "time": 6.4
+      },
+      {
+        "phase": null,
+        "time": 6.941666666666666
+      },
+      {
+        "phase": "chamber",
+        "time": 7
+      },
+      {
+        "phase": "swing",
+        "time": 7.233333333333333
+      },
+      {
+        "phase": "return",
+        "time": 7.458333333333333
+      }
+    ],
+    "contacts": [],
+    "peaks": [
+      4.130314320117007,
+      3.9592095178351148,
+      3.8026818729217653,
+      3.805280020595593,
+      3.7181567461132814,
+      3.5862142274408386
+    ],
+    "cycles": {
+      "returned": {
+        "left": 0,
+        "right": 5
+      },
+      "failed": 0,
+      "interrupted": 0
+    },
+    "thrown": {
+      "left": 0,
+      "right": 6
+    },
+    "finalHand": [
+      0.19460855004072142,
+      1.4499496066411957,
+      0.4550808518805395
+    ],
+    "head": [
+      0.00652128940991128,
+      1.5929102242531537,
+      0.045484207725466685
+    ],
+    "support": "stand",
+    "meanTargetDistance": 0.28254889267552846,
+    "pathError": {
+      "mean": 0.09351212564968865,
+      "maximum": 0.44934903675840987
+    },
+    "saturation": 0.06772486772486766,
+    "assist": {
+      "force": 0,
+      "moment": 0
+    }
+  },
+  {
+    "harness": {
+      "kind": "Node unpinned core stand",
+      "engine": "rapier-coordinate",
+      "hz": 120,
+      "balance": 0,
+      "model": "workshop-fighter",
+      "held": "empty"
+    },
+    "hand": "right",
+    "family": "hook",
+    "mode": "hit",
+    "tuning": {
+      "chamberSeconds": 0.22,
+      "swingSeconds": 0.12,
+      "returnSeconds": 0.32,
+      "contactSpeed": 5,
+      "windup": 0.12,
+      "across": 0.05,
+      "followSeconds": 0.04,
+      "torso": 0.2,
+      "hookSeconds": 0.24,
+      "curve": 0.1,
+      "hookAcross": 0.15,
+      "prepareLimit": 0.8,
+      "returnLimit": 1.2,
+      "near": 0.05,
+      "slow": 0.6,
+      "hold": 0.05,
+      "startup": 2
+    },
+    "target": [
+      0.1,
+      1.63,
+      0.5
+    ],
+    "fell": false,
+    "phases": [
+      {
+        "phase": "chamber",
+        "time": 2.0083333333333333
+      },
+      {
+        "phase": "swing",
+        "time": 2.2333333333333334
+      },
+      {
+        "phase": "return",
+        "time": 2.5166666666666666
+      },
+      {
+        "phase": null,
+        "time": 2.8666666666666667
+      },
+      {
+        "phase": "chamber",
+        "time": 2.925
+      },
+      {
+        "phase": "swing",
+        "time": 3.15
+      },
+      {
+        "phase": "return",
+        "time": 3.433333333333333
+      },
+      {
+        "phase": null,
+        "time": 3.7583333333333333
+      },
+      {
+        "phase": "chamber",
+        "time": 3.816666666666667
+      },
+      {
+        "phase": "swing",
+        "time": 4.041666666666667
+      },
+      {
+        "phase": "return",
+        "time": 4.325
+      },
+      {
+        "phase": null,
+        "time": 4.908333333333333
+      },
+      {
+        "phase": "chamber",
+        "time": 4.966666666666667
+      },
+      {
+        "phase": "swing",
+        "time": 5.191666666666666
+      },
+      {
+        "phase": "return",
+        "time": 5.475
+      },
+      {
+        "phase": null,
+        "time": 5.925
+      },
+      {
+        "phase": "chamber",
+        "time": 5.983333333333333
+      },
+      {
+        "phase": "swing",
+        "time": 6.216666666666667
+      },
+      {
+        "phase": "return",
+        "time": 6.5
+      },
+      {
+        "phase": null,
+        "time": 7.133333333333334
+      },
+      {
+        "phase": "chamber",
+        "time": 7.191666666666666
+      },
+      {
+        "phase": "swing",
+        "time": 7.425
+      },
+      {
+        "phase": "return",
+        "time": 7.708333333333333
+      }
+    ],
+    "contacts": [],
+    "peaks": [
+      4.138273344078947,
+      4.240298179253115,
+      4.285919011439394,
+      4.102651694203169,
+      4.002837432322436,
+      3.8265919705357976
+    ],
+    "cycles": {
+      "returned": {
+        "left": 0,
+        "right": 5
+      },
+      "failed": 0,
+      "interrupted": 0
+    },
+    "thrown": {
+      "left": 0,
+      "right": 6
+    },
+    "finalHand": [
+      0.21739323198674126,
+      1.2081365346985853,
+      0.5210227266550359
+    ],
+    "head": [
+      0.02179219757173447,
+      1.5568011693489676,
+      0.11853626001863499
+    ],
+    "support": "stand",
+    "meanTargetDistance": 0.3053108908233987,
+    "pathError": {
+      "mean": 0.07561449867898798,
+      "maximum": 0.4489581847915083
+    },
+    "saturation": 0.05644257703081229,
+    "assist": {
+      "force": 0,
+      "moment": 0
+    }
+  }
+]

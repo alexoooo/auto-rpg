@@ -81,7 +81,7 @@ export function combatSkills(body: Body, tuning: AttackTuning = ATTACK_PATH, tac
           }
           break;
         case "swing":
-          if (!requested || (touching && !state.touching) || state.time >= tuning.swingSeconds + tuning.followSeconds) {
+          if (!requested || (touching && !state.touching) || state.time >= path.seconds + tuning.followSeconds) {
             state.thrown[hand]++; transition("return", velocities[hand]);
           }
           break;
@@ -98,10 +98,10 @@ export function combatSkills(body: Body, tuning: AttackTuning = ATTACK_PATH, tac
       state.touching = touching;
       if (state.phase) {
         const place: Vec3 = state.phase === "chamber" ? chamber : state.phase === "return" ? home : [target.x, target.y, target.z];
-        const seconds = state.phase === "chamber" ? tuning.chamberSeconds : state.phase === "return" ? tuning.returnSeconds : tuning.swingSeconds;
+        const seconds = state.phase === "chamber" ? tuning.chamberSeconds : state.phase === "return" ? tuning.returnSeconds : path.seconds;
         goal = { places: [{ point: aims[hand], position: place }], seconds, follows: true,
           initialVelocity: state.velocity, sequence: state.sequence,
-          ...(state.phase === "swing" ? { terminalVelocity: path.contactVelocity } : {}) };
+          ...(state.phase === "swing" ? { terminalVelocity: path.contactVelocity, ...(path.curve ? { curve: path.curve } : {}) } : {}) };
         const rotation = state.phase === "chamber" ? -path.torso : state.phase === "swing" ? path.torso : 0;
         if (rotation) {
           const dof = spec.joints.find(j => j.name === "thoracic")?.dofs.find(d => d.positive === "rotation right");

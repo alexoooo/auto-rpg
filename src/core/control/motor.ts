@@ -53,6 +53,8 @@ export interface HandGoal {
   readonly initialVelocity?: Vec3;
   /** Desired point velocity at the target, body frame, m/s; one-point Hermite paths only. */
   readonly terminalVelocity?: Vec3;
+  /** Midpath deviation from the Hermite chord, with unchanged endpoint motion; one point only. */
+  readonly curve?: Vec3;
   /** Identity of a moving path segment; changing it starts a new path. */
   readonly sequence?: number;
 }
@@ -185,12 +187,12 @@ export function motorControl(built: BuiltBody, seconds: number, posture: Pose = 
    */
   const along = (m: HandMemory, i: number, time: number, out: Vector3): Vector3 => {
     const { places, seconds: length, through = 0 } = m.goal!, position = places[i]!.position, from = m.from[i]!;
-    if (m.goal!.initialVelocity || m.goal!.terminalVelocity) {
+    if (m.goal!.initialVelocity || m.goal!.terminalVelocity || m.goal!.curve) {
       const way = hypot(position[0] - from[0], position[1] - from[1], position[2] - from[2]);
       const scale = way > 0 ? 1 + through / way : 1;
       const finish = position.map((v, k) => from[k]! + scale * (v - from[k]!)) as unknown as Vec3;
       const terminal = m.goal!.terminalVelocity;
-      const path = pointPath({ position: from, velocity: m.goal!.initialVelocity ?? [0, 0, 0] }, finish, Math.max(0, time), length, terminal);
+      const path = pointPath({ position: from, velocity: m.goal!.initialVelocity ?? [0, 0, 0] }, finish, Math.max(0, time), length, terminal, m.goal!.curve);
       // Linear continuation preserves the endpoint rate in the IK finite differences.
       const after = terminal ? Math.max(0, time - length) : 0;
       return out.set(path.target[0] + after * (terminal?.[0] ?? 0), path.target[1] + after * (terminal?.[1] ?? 0),
@@ -276,7 +278,7 @@ export function motorControl(built: BuiltBody, seconds: number, posture: Pose = 
     setPosture(next) { state.pose = next; },
     reach(hand, goal) {
       const { memory: m, points } = arms[hand], { places } = goal;
-      if ((goal.initialVelocity || goal.terminalVelocity) && places.length !== 1) throw new Error("a measured point path requires one point");
+      if ((goal.initialVelocity || goal.terminalVelocity || goal.curve) && places.length !== 1) throw new Error("a measured point path requires one point");
       if (places.length !== 1 && places.length !== 2) throw new Error(`a hand goal is one place or two, not ${places.length}`);
       for (const place of places) {
         if (!points.has(place.point)) throw new Error(`the ${hand} hand has no point ${place.point}: it has ${[...points.keys()].join(", ")}`);
