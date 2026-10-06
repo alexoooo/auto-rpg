@@ -1,7 +1,7 @@
 /**
  * **The stance's envelope** (`src/core/control/stance-envelope.ts`, `assets/core/stance-envelope.json`):
- * the asset was measured on the core's own harness at the game's rate, so a change of engine or rate
- * fails here until `research/core-stance-envelope.mjs --write` measures it again; each body's fastest
+ * the asset was measured on the parent-axis Rapier reference harness at the game's rate; this
+ * battery does not establish coordinate-engine or reduced-balance capability. Each body's fastest
  * walk and its turn at each speed are the rule's reading of its own tables; the rules, sampled both
  * sides; a body carries its envelope, and none under another stance tuning or while it is measured;
  * the lab's turn rate is inside every body's at the Routine's pace; and at its fastest walk each

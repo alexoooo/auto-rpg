@@ -6,11 +6,13 @@ import { combatTactics } from "./combat.ts";
 import type { ArenaFighterConfig } from "./config.ts";
 import type { createMind } from "./minds.ts";
 import { supportRecovery } from "./rise/support-recovery.ts";
+import { validTurnLimit } from "../skills/locomotion.ts";
 import { validOpeningTuning } from "./openings.ts";
 import { driveBy } from "./tactics.ts";
 
 /** Combat selection and execution share the ordinary physical body and recovery contract. */
 export function arenaFighter(built: BuiltBody, world: World, config: ArenaFighterConfig, wiring: Parameters<typeof createMind>[3]) {
+  if (!validTurnLimit(config.turnLimit)) throw new Error("locomotion turn limit must be finite and positive");
   const paths = { ...ATTACK_PATH, ...config.paths };
   if (!validAttackTuning(paths))
     throw new Error("combat path settings need finite nonnegative values, positive durations and elbowExtension in [0,1]");
@@ -21,6 +23,6 @@ export function arenaFighter(built: BuiltBody, world: World, config: ArenaFighte
   const body = createBody(built, world, { servoSeconds: SERVO_SECONDS, senses: wiring.senses, assist: wiring.assist, handFeedback: true, contactIdentity: wiring.contactIdentity,
     subs: [(own, view) => supportRecovery(own, view, world)] });
   const tactics = combatTactics(built.spec, wiring.name, sight => wiring.orders(sight.view.senses), config);
-  const skills = driveBy(body, tactics, { combat: paths, lowCombat: config.groundGame === true });
+  const skills = driveBy(body, tactics, { combat: paths, lowCombat: config.groundGame === true, turnLimit: config.turnLimit });
   return { kind: "arena-fighter" as const, body, skills, state: skills.state };
 }

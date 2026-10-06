@@ -80,6 +80,8 @@ export interface ArenaFighterConfig {
   readonly openings?: OpeningTuning;
   readonly paths?: Partial<AttackTuning>;
   readonly spacing?: number;
+  /** Optional heading-speed ceiling, rad/s: `docs/reference/combat-locomotion.md`. */
+  readonly turnLimit?: number;
   /** One opposite-hand follow-up after a target hit and verified return, with fresh lane and footing checks. */
   readonly combinations?: boolean;
   /** Enable observed low-opponent approach and supported strikes; omitted preserves the retained reference. */

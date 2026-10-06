@@ -228,4 +228,32 @@ ordinary escape with low combat inactive. No new blow is recorded in the precedi
 0.20 s of these snapshots. This limited event timing does not establish an unforced
 cause or prove the low controller caused every fall. The four complete snapshot
 records repeat exactly under the current optional-feature code with those features
-disabled. Matched low-enabled/disabled trials are the next attribution check.
+disabled. The matched low-enabled/disabled development comparison below tests this
+attribution without classifying every fall as self-caused.
+
+## Matched combinations and low-mode development
+
+`combat-combination-development.json` retains 96 frozen bouts at source `8ced3e48`,
+with the whole job manifest, physical rows and separate ratings. Node Arena Duel,
+rapier-coordinate, 120 Hz, Warrior fists, balance 0/0, continuing recovery, 60 s caps.
+Eight mirrored development recipes (indices 8-15) per setting compare optional
+combinations against Brawler and Point. Eight previously evaluated held-out-family
+recipes (100-107) compare low-mode enablement against Classic; these reused cases
+are development ablations, not fresh promotion evidence. All profiles add 0.10 m spacing.
+
+| Opponent | Setting | Wins/draws/losses / 16 | Driven/received driven HP per second | Candidate/opponent falls | Low driven blows |
+|---|---|---:|---:|---:|---:|
+| Brawler | Ordinary single attacks | 16/0/0 | 0.018593 / 0.010031 | 0/0 | 0 |
+| Brawler | Bounded combinations | 15/0/1 | 0.018858 / 0.010292 | 0/0 | 0 |
+| Point | Ordinary single attacks | 15/1/0 | 0.005597 / 0.000053 | 0/0 | 0 |
+| Point | Bounded combinations | 15/1/0 | 0.004678 / 0.000030 | 0/0 | 0 |
+| Classic | Low mode enabled | 15/0/1 | 0.003239 / 0.000091 | 5/15 | 9 |
+| Classic | Low mode disabled | 15/0/1 | 0.003012 / 0.000091 | 10/16 | 3 |
+
+All outcomes end at the cap. Combinations change Brawler damage advantage little
+and reduce outgoing Point damage in this sample; they remain optional. Low mode
+reduces candidate falls and adds low blows in these matched recipes. Its disabled
+variant still runs ordinary surface selection against low heads/bodies; it is not
+a passive-wait control. The result rejects attributing all falls to the dedicated
+low policy, but establishes neither universal low-combat safety nor a causal
+classification of individual falls. Finishing power and fall prevention remain open.

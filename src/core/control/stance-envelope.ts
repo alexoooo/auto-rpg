@@ -10,8 +10,8 @@ import { sourced, type Quantity } from "../spec/quantity.ts";
  * battery (its turn: half round each way at each rate, walking at each of the gait battery's speeds
  * up to the fastest walk, from the walk's setting off and through its first strides as well as
  * under way), and which names the harness and rate it was measured on;
- * `tests/core-stance-envelope.test.mjs` fails when the harness it names is not the core's, so a
- * change of engine or rate re-measures it.
+ * `tests/core-stance-envelope.test.mjs` holds this parent-axis Rapier reference to that harness
+ * and rate. It does not validate another gameplay engine or a reduced balance allowance.
  *
  * A turn is read at each speed because it depends on it: a body may turn several times faster a
  * little below its fastest walk than at it, so one turn for all speeds would make a run crawl round
@@ -19,7 +19,8 @@ import { sourced, type Quantity } from "../spec/quantity.ts";
  *
  * Measured on the body as a fight plays it, at the rate the asset names: in the guard, under its
  * character's balance, with each thing a fight puts in its right hand. Another rate, or another
- * thing held, is a body the table did not see.
+ * thing held, is a body the table did not see. Unassisted coordinate-engine Warrior turns are
+ * separately measured in `docs/reference/combat-locomotion.md`; callers may apply a lower ceiling.
  */
 export interface StanceEnvelope {
   /** The fastest walk the stance held, m/s (`fastestHeld`). */

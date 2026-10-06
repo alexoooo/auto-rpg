@@ -327,3 +327,8 @@ extended lateral head selection increases driven damage to 5.728 HP over sixteen
 bouts, versus 2.742 HP for the spacing/body reference. Hook preference reduces
 damage to 2.161 HP and increases received damage. The head-first Brawler profile has one fall; the other profiles have none. These development samples improve access diagnostics but establish neither
 held-out promotion nor ordinary-wound finishing; optional settings remain optional.
+
+The complete matched 96-bout development record and separate opponent rates are
+reported in `arena-combat-evaluation.md#matched-combinations-and-low-mode-development`.
+The combination remains optional after little change in Brawler damage advantage
+and lower Point damage in that sample.

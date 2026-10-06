@@ -102,8 +102,9 @@ const SQUARE_NEAR = 0.1;
  *   walk (`turnAt`): the envelope's turns were measured from the walk's setting off as well as
  *   under way.
  *
- * Without an envelope (a body under an experiment's stance tuning, which the envelope did not
- * measure) nothing is capped: the walk and the turn are the intent's.
+ * An optional `turnLimit` also bounds heading speed below the envelope's limit. Without an
+ * envelope, the walk is uncapped and the heading follows the intent within that optional limit.
+ * The unassisted Warrior calibration is recorded in `docs/reference/combat-locomotion.md`.
  *
  * Resumed (`Skill.resume`), it stands facing the way the pelvis faces (read from its left-to-right
  * axis, which says it however far forward the pelvis is pitched), with no footing asked, and
@@ -150,7 +151,13 @@ interface Placing {
   lifted: boolean;
 }
 
-export function locomotion(envelope: StanceEnvelope | null): Locomotion {
+/** An omitted ceiling retains the envelope; a granted ceiling is finite and positive. */
+export function validTurnLimit(turnLimit?: number): boolean {
+  return turnLimit === undefined || (Number.isFinite(turnLimit) && turnLimit > 0);
+}
+
+export function locomotion(envelope: StanceEnvelope | null, turnLimit?: number): Locomotion {
+  if (!validTurnLimit(turnLimit)) throw new Error("locomotion turn limit must be finite and positive");
   const state: LocomotionState = { reference: null, width: null, squaring: null, rising: null, heading: 0, pace: 0, placing: null, placed: false };
   const legs = stanceLegs(state);
   const acrossScratch = new Vector3();
@@ -223,8 +230,8 @@ export function locomotion(envelope: StanceEnvelope | null): Locomotion {
       if (!walk) state.pace = 0;
       else if (view.time > 0) {
         const turn = wrap(face - state.heading);
-        if (envelope) {
-          const rate = turnAt(envelope, state.pace) * dt;
+        if (envelope || turnLimit !== undefined) {
+          const rate = Math.min(envelope ? turnAt(envelope, state.pace) : Infinity, turnLimit ?? Infinity) * dt;
           state.heading += Math.max(-rate, Math.min(rate, turn));
         } else state.heading += turn;
         const speed = hypot(walk[0], walk[1]), most = envelope?.walk.value ?? Infinity;
