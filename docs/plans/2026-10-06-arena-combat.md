@@ -4,9 +4,10 @@
 
 A controller that creates room for driven attacks, lands useful blows against active opponents,
 protects itself, and wins substantially more often than Classic and tracked Point control on
-unchanged bodies, muscles, damage rules and gameplay physics. The first playable gate is two
-unarmed Warriors fighting each other. Extend to Rogue and club use before promotion; report
-Skeleton separately while its anatomy contains placeholders.
+unchanged bodies, muscles, damage rules and gameplay physics. The first playable gate is two unarmed Warriors fighting each other, with falls continuing
+into attempted recovery and with low strikes against grounded or rising opponents. The owner
+authorizes starting this entire improvement loop on Warrior fist fights. Extend evaluation to
+Rogue and club use afterwards; report Skeleton separately while its anatomy contains placeholders.
 
 This work follows the shared [control foundation](2026-10-04-control-foundation.md). The initial
 baseline is recorded in [autonomous combat](../reference/arena-combat.md). The remaining chunks

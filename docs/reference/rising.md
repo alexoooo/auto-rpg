@@ -434,15 +434,16 @@ m/s), and the stage is given up: its shins leave it no lower. Asked 0.4 it stays
 is given up. The skeleton is given up at the three lower heights, moving 0.10 to 0.24 m/s, and
 done after 12 steps at 0.4.
 
-**Its left limbs let go.** Under a stage that bears on the shins (0.4 each) and the right hand
-(0.2), leaves the left hand and pitches the pelvis 0.9 rad, 3 s at most, the Warrior does not
-let the hand go: on three limbs its centre of mass stops still 0.12 m short of the place and
-0.015 m outside the three limbs' outline drawn in, and the stage is given up. A stage that
-leaves nothing is done at its place alone: `fours` pitched 1.4 rad with the shins bearing 0.38
-each and the hands 0.12 is done on the skeleton after 17 steps with its centre of mass nearer
-its knees than that outline; at `fours`' own pitch the same shares are done after 71 steps over
-it. That a body on three limbs stops short of its place is open, and
-`tests/core-rise.test.mjs` holds the hand's case as a `todo`.
+**Its left limbs let go.** A stage that bears on the shins (0.4 each) and the right hand
+(0.2), leaves the left hand and pitches the pelvis 0.9 rad, 3 s at most, releases the
+Warrior's hand after 1.6833 s on Rapier and 1.8917 s on the coordinate-limit profile. Release
+requires actual weight transfer inside the retained supports; posture tracking relaxes and a
+bounded integral removes its steady error. [Recovery transfer](recovery-transfer.md) records
+both hands, the physical support measurement, conditioning choices and reproduction command.
+The deliberately incomplete posture still times out after release. A stage that leaves
+nothing is done at its place alone: `fours` pitched 1.4 rad with the shins bearing 0.38 each
+and the hands 0.12 is done on the skeleton after 17 steps with its center of mass nearer
+its knees than that outline.
 
 ### The abort
 
@@ -749,22 +750,6 @@ each read on the stand or the battery above:
   straighten while the centre of mass is on the line of the knees, 0.4 cm behind it at the end of
   `sit`. Asked the arms back in the kneel-up, those two play to `even` and the other seven go
   down out of `arms` or `hold`.
-- **On three limbs the centre of mass stops short of its place**
-  ([What a bearing stage is done by](#what-a-bearing-stage-is-done-by)), and a bearing stage on
-  both shins after `kneel 2`, after `hold` or in place of `arms` and `hold` is the furthest any
-  of the nine forward topples gets: no stage leaves a hand or a shin by bearing on the others.
-  Read in the Node stand (core world, Rapier, 120 Hz) under the hand-leaving stage of
-  `tests/core-rise.test.mjs`, at rest 1.5 s in: the bearing solve's patches give what it asks
-  (its shortfall is under 1 N), yet the freedoms of the bearing right arm are planned to turn at
-  up to 9 rad/s² (shoulder flexion and abduction, the wrist's pronation) and the engine turns
-  them at none. An end limb's task holds its point and leaves its spin free, and the chain's
-  pull toward the posture spends that spin turning the hand about its middle, which a hand
-  lying flat cannot do without driving an end into the ground. Asked for the spin about the
-  level line across a flat hand and about up as well, the Warrior lets the hand go, and the
-  Rogue's trunk, given up at `fours`, moves at 2.1 m/s where the test holds it under 1.5: the
-  rows are the defect's place, not yet its cure. The Rogue's one-shin shift stalls the same way
-  (the hips' planned turn of 4 to 10 rad/s² not made), and neither slack ankles nor 64 or 200
-  solver iterations moves it.
 - **The Rogue rises from 6 of its 32 falls, and the skeleton from 1.** The Rogue's arms do not
   raise its chest ([The pose stages](#the-pose-stages)): fallen forward, it is given up at `fours`;
   without `fours`, from `prop` to `sit`, its trunk stays on the ground and the kneel-up lowers its

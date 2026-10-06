@@ -61,9 +61,10 @@ interface RiseLimbs {
    * `goal` as the task lets them be; and it bears `share` of the load against the other limbs'
    * (`LimbWork.share`). A limb whose point is over the ground bears nothing: its task is the same,
    * which brings the point down onto the ground where it is over it, its muscles kept within their
-   * strength as a free limb's are.
+   * strength as a free limb's are. During `transfer`, posture redundancy uses the stage's rate
+   * (docs/reference/recovery-transfer.md), letting the root move over the retained supports.
    */
-  bear(index: number, goal: ArrayLike<number>, rate: number, ground: number, share: number): boolean;
+  bear(index: number, goal: ArrayLike<number>, rate: number, ground: number, share: number, transfer?: boolean): boolean;
   /** Limb `index` is not the solve's this step: the servo has its freedoms. */
   rest(index: number): void;
 }
@@ -73,7 +74,7 @@ interface Part {
   readonly limb: Limb;
   readonly over: Vector3;
   read(ground: number, overProp: boolean): void;
-  bear(goal: ArrayLike<number>, rate: number, ground: number): void;
+  bear(goal: ArrayLike<number>, rate: number, ground: number, transfer: boolean): void;
 }
 
 /** `recipe`'s limbs made of `own`'s body, which can play it (`stageFaults`). */
@@ -102,9 +103,9 @@ export function riseLimbs(own: OwnBody, recipe: Recipe): RiseLimbs {
       readSupport(feet, feet, support);
       for (const part of parts) part.read(ground, overProp);
     },
-    bear(index, goal, rate, ground, share) {
+    bear(index, goal, rate, ground, share, transfer = false) {
       const part = parts[index]!, down = part.limb.work.at.y - ground < DOWN;
-      part.bear(goal, rate, ground);
+      part.bear(goal, rate, ground, transfer);
       part.limb.task.bearing = down;
       part.limb.work.share = share;
       return down;
@@ -153,9 +154,9 @@ function chainOf(own: OwnBody, spec: EndLimb | ProppedLimb | FootLimb) {
   const ahead = channels.map(() => NaN), toward = channels.map(() => 0), within = spec.kind === "foot" ? 0 : 1 / TAKES_SECONDS;
   return {
     channels, stem: names.stem.map((name) => muscles.channel(name)), ahead, toward,
-    ask(goal: ArrayLike<number>, rate: number): void {
+    ask(goal: ArrayLike<number>, rate: number, transfer: boolean): void {
       for (let k = 0; k < channels.length; k++) {
-        const i = channels[k]!, r = takes[k] && within > 0 ? within : rate;
+        const i = channels[k]!, r = !transfer && takes[k] && within > 0 ? within : rate;
         toward[k] = r * r * (goal[i]! - muscles.angle(i)) - 2 * r * muscles.rate(i);
         ahead[k] = takes[k] ? NaN : toward[k]!;
       }
@@ -185,9 +186,9 @@ function endLimb(own: OwnBody, spec: EndLimb): Part {
       if (at.y - ground < DOWN && other.y - ground < DOWN) at.addInPlace(other).scaleInPlace(0.5);
       else if (other.y < at.y) at.copyFrom(other);
     },
-    bear(goal, rate, ground) {
+    bear(goal, rate, ground, transfer) {
       hold(limb, rate, ground);
-      chain.ask(goal, rate);
+      chain.ask(goal, rate, transfer);
     },
   };
 }
@@ -248,12 +249,12 @@ function proppedLimb(own: OwnBody, spec: ProppedLimb, prop: FootState): Part {
         over.copyFrom(overProp ? stands : at);
       }
     },
-    bear(goal, rate, ground) {
+    bear(goal, rate, ground, transfer) {
       hold(limb, rate, ground);
       // A turn about up x along brings the foot down: asked by how far up it is, critically damped.
       const down = lies.span > 0 ? rate * rate * lies.up / lies.span : 0;
       limb.task.angular.scaleInPlace(2).addInPlaceFromFloats(down * along.z, 0, -down * along.x);
-      chain.ask(goal, rate);
+      chain.ask(goal, rate, transfer);
     },
   };
 }
@@ -276,11 +277,11 @@ function footLimb(own: OwnBody, spec: FootLimb, foot: FootState): Part {
       foot.memory.rolled = foot.edge.y + foot.heel - ground >= DOWN;
       at.copyFrom(foot.memory.rolled ? foot.edge : foot.middle);
     },
-    bear(goal, rate, ground) {
+    bear(goal, rate, ground, transfer) {
       hold(limb, rate, ground);
       limb.work.rows = foot.memory.rolled ? rolledRows(foot) : null;
       limb.work.patch = bearingSole(foot, 1 - SOLE_MARGIN);
-      chain.ask(goal, rate);
+      chain.ask(goal, rate, transfer);
     },
   };
 }

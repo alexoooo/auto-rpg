@@ -34,7 +34,7 @@ const withStage = (recipe, stage) => ({ ...recipe, rise: recipe.rise.map((old) =
 const heightOf = (built, name) => centreOfToRef(built.segments.get(name), new Vector3()).y;
 const speedOf = (v) => Math.hypot(v.x, v.y, v.z);
 /** A riser's memory as a record to compare: its clocks left out, and of its bearing records each limb's task, on or off. */
-const seenOf = (riser) => ({ ...riser, time: null, still: null, bear: riser.bear.tasks.map((task) => (task.on ? (task.bearing ? "bears" : "moves") : "off")) });
+const seenOf = (riser) => { const { transfer, ...record } = riser; return { ...record, time: null, still: null, bear: riser.bear.tasks.map((task) => (task.on ? (task.bearing ? "bears" : "moves") : "off")) }; };
 /** `fours`, and its place among the stages. */
 const FOURS = RISE.rise[AT_FOURS], LAST = AT_FOURS;
 /** No limb of the game's recipe on; and every limb `fours` bears on bearing, the feet off. */
@@ -147,7 +147,7 @@ test("a riser lies slack until its body is still, and after a roll reads how it 
   const body = createBody(stand.built, stand.world, { servoSeconds: SERVO_SECONDS, subs: [(own, view) => stagedRise(own, view, { ...POSES, roll: { ...POSES.roll, back: [turn] } })] });
   try {
     const riser = riserOf(body), dt = stand.world.dt, seen = [];
-    assert.deepEqual({ ...riser, bear: seenOf(riser).bear }, { phase: "idle", lie: "front", stage: 0, time: 0, still: 0, tries: 0, furthest: -1, lifted: false, raised: false, bear: NONE });
+    assert.deepEqual({ ...riser, bear: seenOf(riser).bear }, { phase: "idle", lie: "front", stage: 0, time: 0, still: 0, tries: 0, furthest: -1, lifted: false, raised: false, transfer: new Vector3(), bear: NONE });
     assert.deepEqual(Object.keys(riser.bear), ["tasks", "aim", "helped", "held", "shortfall"]);
     for (let i = 0; i < stand.seconds(6) && riser.tries < 2; i++) {
       // The phase a step is played in is the one it begins with; taking the body, it begins slack.
@@ -574,9 +574,7 @@ test("a limb a stage leaves bears until the centre of mass is over the others", 
   } finally { dispose(); }
 });
 
-// Open: on three limbs the centre of mass stops short of its place, and the hand is never let go
-// (docs/reference/rising.md#what-a-bearing-stage-is-done-by).
-test("a hand a stage leaves bears until the centre of mass is over the other three limbs", { todo: "on three limbs the centre of mass stops short of its place" }, async () => {
+test("a hand a stage leaves bears until the centre of mass is over the other three limbs", async () => {
   // A stage that leaves the left hand, its trunk pitched less: the body comes over its other three limbs slowly, and the
   // hand bears more than a second and a half before it is let go.
   const hand = { ...FOURS, name: "hand", pitch: 0.9, on: [{ limb: "shin.left", share: 0.4 }, { limb: "shin.right", share: 0.4 }, { limb: "hand.right", share: 0.2 }], leave: ["hand.left"], limit: 3 };

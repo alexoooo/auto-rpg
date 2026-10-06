@@ -327,8 +327,7 @@ win/damage gates. Repeated touch-and-return alone does not establish combat effe
   ([reference/rising.md](reference/rising.md#where-the-rise-stops)):
   - the kneel-up goes down forward in two of the nine forward topples read: the body rocks onto
     its knees, the shins lifting, as the hips straighten over the line of the knees;
-  - on three limbs the centre of mass stops short of its place, and a stage on both shins goes
-    no further;
+
   - the Rogue's arms do not raise its chest, so fallen forward it is given up at `fours`, and
     with no `fours` its trunk stays down: it wants a recipe of its own;
   - the skeleton is not turned over by the humans' roll, and from its front goes down in the

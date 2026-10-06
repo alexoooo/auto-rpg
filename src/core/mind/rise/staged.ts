@@ -143,6 +143,8 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
     lifted: false,
     /** Whether this attempt has had every segment of the trunk `RAISED` over the ground. */
     raised: false,
+    /** Accumulated weight-transfer error, m, bounded by the body's standing height (docs/reference/recovery-transfer.md). */
+    transfer: new Vector3(),
     /**
      * A bearing stage's records, each written by a step before it reads it: each limb's task, the
      * aims and the root's acceleration found for them, what the assist is asked, the freedoms held
@@ -185,6 +187,7 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
     state.stage = index;
     state.time = 0;
     state.lifted = false;
+    state.transfer.setAll(0);
     if (phase === "rise" && index > state.furthest) state.furthest = index;
   };
   const pose = (stage: PoseStage): void => {
@@ -211,7 +214,7 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
     let borne = 0, down = true;
     made.over.forEach((over, l) => {
       if (!on[l]) return;
-      if (!made.bear(l, goals, n, ground, share[l]!)) { down = false; return; }
+      if (!made.bear(l, goals, n, ground, share[l]!, !keeps)) { down = false; return; }
       place.addInPlaceFromFloats(share[l]! * over.x, 0, share[l]! * over.z);
       borne += share[l]!;
     });
@@ -220,16 +223,23 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
     // Those it leaves bear where they are, while they are down, until the centre of mass is over
     // the others (within the outline of where they bear, drawn in as a stance's is); the rest
     // are the servo's.
-    if (!state.lifted && borne > 0) {
-      const [x, z] = withinSupport(made.limbs.filter((limb, l) => on[l] && limb.task.on).map((limb) => ({ corners: patchCorners(limb.work.patch!) })), c.x, c.z);
+    const supports = made.limbs.filter((limb, l) => on[l] && limb.task.bearing).map((limb) => ({ corners: patchCorners(limb.work.patch!) }));
+    if (!state.lifted && down && borne > 0) {
+      const [x, z] = withinSupport(supports, c.x, c.z);
       state.lifted = x === c.x && z === c.z;
     }
+    if (!keeps && !state.lifted && down && borne > 0) {
+      state.transfer.x += n * (place.x - c.x) * dt;
+      state.transfer.z += n * (place.z - c.z) * dt;
+      const accumulated = Math.sqrt(state.transfer.x * state.transfer.x + state.transfer.z * state.transfer.z);
+      if (accumulated > standing) state.transfer.scaleInPlace(standing / accumulated);
+    }
     for (let l = 0; l < made.limbs.length; l++) {
-      if (!on[l] && !(leaves[l] && !state.lifted && made.bear(l, goals, n, ground, LEFT))) made.rest(l);
+      if (!on[l] && !(leaves[l] && !state.lifted && made.bear(l, goals, n, ground, LEFT, !keeps))) made.rest(l);
     }
     // The centre of mass: toward the place, at the stage's height over the ground if it has one, critically damped.
     target.set(place.x, stage.height === null ? c.y : ground + stage.height * standing, place.z);
-    aim.centre.set(n * n * (target.x - c.x) - 2 * n * v.x, n * n * (target.y - c.y) - 2 * n * v.y, n * n * (target.z - c.z) - 2 * n * v.z);
+    aim.centre.set(n * n * (target.x - c.x + state.transfer.x) - 2 * n * v.x, n * n * (target.y - c.y) - 2 * n * v.y, n * n * (target.z - c.z + state.transfer.z) - 2 * n * v.z);
     // The pelvis: toward its reference turn pitched forward, then turned about up to the way it faces now.
     root.body.angularVelocityToRef(rootSpin);
     if (stage.pitch === null) spin.setAll(0);
@@ -249,7 +259,7 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
     limbMotion(solve, asked, moved);
     servoSolve(muscles, asked, carried, moved);
     bearLimbs(solve, muscles, asked, lever, true);
-    const dx = target.x - c.x, dy = target.y - c.y, dz = target.z - c.z;
+    const dx = place.x - c.x, dy = target.y - c.y, dz = place.z - c.z;
     // `spin` closes the pelvis's turn in the stage's time constant: the turn left is the two's product.
     const turned = (spin.x * spin.x + spin.y * spin.y + spin.z * spin.z) * stage.seconds * stage.seconds < TURNED * TURNED;
     return down && (keeps || state.lifted) && turned && v.x * v.x + v.y * v.y + v.z * v.z < SLOW * SLOW && dx * dx + dy * dy + dz * dz < NEAR * NEAR;
