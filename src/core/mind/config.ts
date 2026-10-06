@@ -75,8 +75,8 @@ export interface ArenaFighterConfig {
   readonly defenseMode?: "reference" | "predictive";
   /** Target selection variant, retained for reproducible opponents and ablations. */
   readonly targeting?: "head" | "openings";
-  /** Linear reference or geometry-ranked straight/close-hook paths. */
-  readonly repertoire?: "linear" | "mixed";
+  /** Linear reference, straight/close-hook ranking, or additional measured top-surface overhands. */
+  readonly repertoire?: "linear" | "mixed" | "vertical";
   readonly openings?: OpeningTuning;
   readonly paths?: Partial<AttackTuning>;
   readonly spacing?: number;

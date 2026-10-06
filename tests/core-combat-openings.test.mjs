@@ -116,3 +116,24 @@ test('hull-aware body selection lands driven torso blows against an active Point
  assert.ok((out.drivenTargets.middleTrunk??0)+(out.drivenTargets.upperTrunk??0)>=5,JSON.stringify(out));assert.ok(out.drivenDamage>.2,JSON.stringify(out));
  assert.equal(out.falls,0);assert.deepEqual(out.assist,{force:0,moment:0});assert.ok(out.pressureOnly.longest<2);
 });
+
+
+test('a selected overhand keeps its world contact direction through execution and fresh-world replay',async()=>{
+ const candidate={...ARENA_FIGHTER,repertoire:'vertical',openings:{overhand:-.6}};
+ const recipe={left:'workshop-fighter',right:'workshop-fighter',held:{left:'empty',right:'empty'},balance:{left:0,right:0},
+  minds:{left:candidate,right:ARENA_FIGHTER},recoverySeconds:null,capSeconds:30};
+ const a=await buildBout(recipe,{physicsEngine:await loadEngine(DEFAULT_ENGINE)}),b=await buildBout(recipe,{physicsEngine:await loadEngine(DEFAULT_ENGINE)});
+ try {
+  const d=a.duel.duelists.left,skills=d.minded.skills;
+  while(a.duel.clock<20&&!(skills.state.action?.family==='overhand'&&skills.report.strike.phase==='swing'))a.world.step();
+  assert.equal(skills.state.action?.family,'overhand');assert.equal(skills.report.strike.phase,'swing');
+  assert.deepEqual(skills.state.action.direction,[0,-1,0]);
+  const hand=skills.report.strike.hand,goal=skills.state.command.hands[hand];
+  const world=new Vector3(...goal.terminalVelocity).applyRotationQuaternionToRef(d.body.view.root.rotation,new Vector3());
+  assert.ok(Math.abs(world.x)<1e-8&&Math.abs(world.y+5)<1e-8&&Math.abs(world.z)<1e-8,JSON.stringify(world.asArray()));
+  b.duel.load(a.duel.save());const trace=s=>traceOf(Object.values(s.duel.duelists).map(d=>d.built)),ta=trace(a),tb=trace(b);
+  for(let i=0;i<240;i++){a.world.step();b.world.step();ta.take();tb.take();}
+  assert.deepEqual(a.duel.save().state,b.duel.save().state);assert.equal(ta.digest(),tb.digest());
+  assert.ok(skills.report.strike.pointCycle.returned[hand]>0);
+ }finally{a.dispose();b.dispose();}
+});

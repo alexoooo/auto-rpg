@@ -157,3 +157,55 @@ preview server and tab are stopped after inspection.
 The `COMBAT` boundary escape uses 0.18 m/s while retaining its current heading until the
 actual torso clearance leaves the parapet margin. This is the conservative side-approach
 speed from the grounded combat probes, applied to the geometry correction for hull torsos.
+
+
+## Overhand settings
+
+`ATTACK_PATH.overhandWindup` is 0.35 m, a vertical chamber above the actual guard for the
+optional overhand family. It retains 0.22 s preparation, 0.12 s swing, 5 m/s requested contact
+speed and the ordinary measured return/physical chamber gate. The chamber also retreats by the ordinary 0.12 m windup before lifting. An optional world
+contact direction passes through the neutral action and is transformed into the actual root
+frame each step. The vertical repertoire requests a downward velocity at top-surface targets.
+
+Node unpinned Warrior stand, gameplay Rapier coordinate engine, 120 Hz, empty hands, balance 0.
+This initial search lifts in place, before adding the backward chamber. The fixed box is 0.20 by 0.20 by 0.08 m, centred 0.04 m behind the target. Target height is
+1.73 m and lateral position is +/-0.10 m. Each cell runs eight simulated seconds with the
+first two seconds excluded. Contact speeds are driven pre-contact readings; returns use the
+shared actual-motion gate. No cell falls or uses assistance.
+
+| Vertical chamber (m) | Preparation (s) | Target ahead (m) | Right/left contacts | Right/left verified returns | Lowest right/left pre-contact axial speed (m/s) |
+|---|---|---|---|---|---|
+| 0.25 | 0.22 | 0.40 | 0/0 | 5/5 | - |
+| 0.25 | 0.22 | 0.50 | 8/8 | 7/7 | 3.447/3.423 |
+| 0.25 | 0.35 | 0.40 | 0/0 | 5/5 | - |
+| 0.25 | 0.35 | 0.50 | 7/7 | 6/6 | 3.261/3.357 |
+| 0.35 | 0.22 | 0.40 | 0/0 | 5/5 | - |
+| 0.35 | 0.22 | 0.50 | 8/8 | 7/7 | 3.441/3.450 |
+| 0.35 | 0.35 | 0.40 | 0/0 | 5/5 | - |
+| 0.35 | 0.35 | 0.50 | 7/7 | 6/6 | 3.392/3.389 |
+
+At 0.40 m the tall box obstructs preparation: five attempts fail the actual chamber gate
+on each side and return without launching. This is a chamber-clearance limit, not a successful
+strike. At 0.50 m there are no failed returns. The retained vertical chamber has later driven
+axial peaks near 4.1 m/s, versus about 3.9 m/s for the smaller chamber; these fixed-box readings
+do not establish guard penetration, game damage or competitive strength.
+
+
+`OPENINGS.overhand` defaults to zero additional ranking cost. An immutable opening override
+can vary this cost for selection ablations without changing the trajectory, muscles or physics.
+The high fixed-box miss returns at least five times per hand in eight seconds, with no failures,
+falls or assists; the contact case returns at least seven times.
+
+The backed chamber is measured separately against a horizontal top face, 0.20 by 0.08 by
+0.20 m, with its top at 1.73 m, target ahead 0.50 m and explicit world direction [0,-1,0].
+The right/left hands produce 6/7 swing contacts and 6/6 verified returns in eight seconds;
+misses return six times each. There are no failures, falls or assists. Actual downward closing
+speeds range from 0.746 to 3.112 m/s on the right and 1.408 to 4.409 m/s on the left.
+The physical hand can meet a surface before its named knuckle point reaches the requested
+5 m/s endpoint; requested velocity alone establishes neither impact speed nor effectiveness.
+
+Six 60 s Arena diagnostics of vertical selection with an overhand ranking cost of -0.6
+win both assignments against Classic, and lose both against Point and retained Brawler.
+All outcomes are at the cap. These single-recipe diagnostics are not rating evidence and
+do not promote vertical selection. Full diagnostic records are in
+`combat-overhand-diagnostics.json`; the unrecorded source fingerprint limits their use.

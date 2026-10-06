@@ -51,5 +51,7 @@ export const standIntent = (face = 0): Intent => ({ move: null, face, hands: { l
 export interface CombatAction {
   readonly hand: Hand;
   readonly target: Vec3;
-  readonly family: "straight" | "cross" | "hook" | "downward";
+  readonly family: "straight" | "cross" | "hook" | "downward" | "overhand";
+  /** Optional world direction at contact; the shared executor applies the measured speed. */
+  readonly direction?: Vec3;
 }

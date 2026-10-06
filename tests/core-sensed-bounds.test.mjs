@@ -7,7 +7,7 @@ import {buildBout} from '../research/bout.mjs';
 import {ARENA_FIGHTER} from '../src/core/mind/config.ts';
 import {DEFAULT_ENGINE,loadEngine} from '../src/core/engine/engines.ts';
 import {STAND_ORDERS} from '../src/core/mind/orders.ts';
-import {upperSurface} from '../src/core/mind/openings.ts';
+import {upperSurface,highestSurface} from '../src/core/mind/openings.ts';
 import {centreOfToRef} from '../src/core/control/support.ts';
 
 test('the physical Warrior hull and attached club contribute to detached bounds',async()=>{
@@ -27,6 +27,9 @@ test('the physical Warrior hull and attached club contribute to detached bounds'
   part.body.applyImpulse(new Vector3(0,0,90),centreOfToRef(part,new Vector3()));b.world.step(120);
   const top=upperSurface(left.body.view.senses.others[0],'upperTrunk');
   const torso=sensedBounds(left.body.view.senses.others[0]).find(s=>s.name.includes('/upperTrunk/'));
+  const highest=highestSurface(left.body.view.senses.others[0],'upperTrunk',left.body.view.stance.centre.asArray());
+  assert.ok(Math.abs(highest[1]-torso.centre[1]-torso.size[1]/2)<1e-12);
+  assert.ok(highest[1]>=top[1]);
   assert.ok(top[1]>torso.centre[1]);
   assert.ok(top.every((v,k)=>Math.abs(v-torso.centre[k])<=torso.size[k]/2+1e-12));
   assert.equal(lowOpponent(left.body.view,left.body.view.senses.others[0]),true,'actual shove supplies the low reading');

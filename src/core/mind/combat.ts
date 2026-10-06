@@ -12,7 +12,7 @@ import { STAND_ORDERS, type Orders } from "./orders.ts";
 import type { Sight, Tactics } from "./tactics.ts";
 import { bodyClearance } from "./sensed-bounds.ts";
 import { clearStep, clearanceExit } from "./clear-step.ts";
-import { openingSelector } from "./openings.ts";
+import { openingAction, openingSelector } from "./openings.ts";
 import { guardCanReach, incomingThreat, THREAT, threatOf } from "./threat.ts";
 
 /** Search cells for braking, chamber room and escape: `docs/reference/combat-strikes.md#tactical-settings`. */
@@ -26,7 +26,7 @@ export function combatTactics(spec: BodySpec, name: string, orders: (sight: Sigh
   const mixed = (()=>{
     switch(repertoire) {
       case "linear":return false;
-      case "mixed":return true;
+      case "mixed": case "vertical":return true;
       default:{const never:never=repertoire;throw new Error(`unknown repertoire ${never}`);}
     }
   })();
@@ -184,7 +184,8 @@ export function combatTactics(spec: BodySpec, name: string, orders: (sight: Sigh
     if ((state.ready >= COMBAT.settle || (state.counter > 0 && Math.abs(delta) <= COMBAT.band && aligned)) && view.time >= ATTACK_PATH.startup) {
       state.counter = 0;
       state.surface = opening?.segment ?? "head"; state.responded = false;
-      state.phase = "attack"; state.action = { hand, target, family: mixed&&opening?opening.family:cycles % 2 === 0 ? "straight" : "cross" };
+      state.phase = "attack"; state.action = { ...(opening ? openingAction(opening) : { hand, target }),
+        family: mixed&&opening?opening.family:cycles % 2 === 0 ? "straight" : "cross" };
       return { move: null, face, hands, combat: state.action };
     }
     const speed = Math.max(-maximum * STRAFE.share, Math.min(maximum, anticipated / COMBAT.braking));

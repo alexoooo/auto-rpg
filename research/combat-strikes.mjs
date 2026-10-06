@@ -15,11 +15,13 @@ import { intoFrameToRef } from '../src/core/control/kinematics.ts';
 
 /** Real, unpinned Warrior primitive: the policy supplies only a hand, target and family. */
 export async function combatStrike({ hand = 'right', family = 'straight', mode = 'miss', tuning = {}, seconds = 12,
-  ahead = .65, across = .15, up = 0, support = null } = {}) {
+  ahead = .65, across = .15, up = 0, support = null, surface = 'front', direction } = {}) {
  const s = await coreStand(modelSpec('workshop-fighter'), { engine: DEFAULT_ENGINE });
  const body = createBody(s.built, s.world, { servoSeconds: SERVO_SECONDS, handFeedback: true });
  const skills = combatSkills(body, {...ATTACK_PATH, ...tuning}), target = [across*(hand==='right'?1:-1), 1.63+up, ahead];
- const obstacle = mode==='hit' ? s.world.physics.addFixedBox([target[0],target[1],target[2]+.04], [.2,.2,.08]) : null;
+ if(!['front','top'].includes(surface))throw new Error('unknown stand surface');
+ const obstacle = mode==='hit' ? surface==='top' ? s.world.physics.addFixedBox([target[0],target[1]-.04,target[2]],[.2,.08,.2])
+  : s.world.physics.addFixedBox([target[0],target[1],target[2]+.04], [.2,.2,.08]) : null;
  const velocity = new Vector3(), spin = new Vector3(), point = new Vector3(), local = new Vector3();
  const limb = s.built.segments.get(`hand.${hand}`), knuckles = rigidPoints(s.built.spec,limb.spec).get('knuckles').value;
  let witness;
@@ -28,7 +30,7 @@ export async function combatStrike({ hand = 'right', family = 'straight', mode =
   velocity.subtractInPlace(body.view.stance.velocity);
   const memory = body.state.mind.host.motor.hands[hand];
   intoFrameToRef(body.view.root,point.asArray(),local);
-  witness = {phase:skills.report.strike.phase, closing:support?Vector3.Dot(velocity,new Vector3(...target).subtract(point).normalize()):velocity.z, speed:velocity.length(), velocity:velocity.asArray(),
+  witness = {phase:skills.report.strike.phase, closing:support?Vector3.Dot(velocity,new Vector3(...target).subtract(point).normalize()):surface==='top'?-velocity.y:velocity.z, speed:velocity.length(), velocity:velocity.asArray(),
    pathError:memory.goal?Vector3.Distance(local,memory.point):null,
    saturated:body.muscles.activation.filter(a=>a>=.999).length, channels:body.muscles.channels.length};
  });
@@ -36,7 +38,7 @@ export async function combatStrike({ hand = 'right', family = 'straight', mode =
  body.drive((view,dt)=>{
   if(view.resumed) skills.resume(view);
   const command=skills.command(view, {move:null,face:0,hands:{left:GUARD_ACTION,right:GUARD_ACTION},
-   combat:view.time>=(support?.attackAt??2)&&view.time<(support?.riseAt??Infinity)?{hand,target,family}:null},dt);
+   combat:view.time>=(support?.attackAt??2)&&view.time<(support?.riseAt??Infinity)?{hand,target,family,...(direction?{direction}:{})}:null},dt);
   return support? supportedStrikeCommand(view,command,support):command;
  });
  try {
@@ -60,7 +62,7 @@ export async function combatStrike({ hand = 'right', family = 'straight', mode =
   }
   const feet=footStatesOf(s.built); readSupport(feet,feet,new Vector3());
   return {...(support?{support,floorContacts,feet:feet.map(f=>({side:f.side,corners:f.corners.map(p=>p.asArray())}))}:{}),harness:{kind:'Node unpinned core stand',engine:DEFAULT_ENGINE,hz:s.world.hz,balance:0,model:'workshop-fighter',held:'empty'},
-   hand,family,mode,tuning:{...ATTACK_PATH,...tuning},target,fell,phases,contacts,peaks,
+   hand,family,mode,surface,...(direction?{direction}:{}),tuning:{...ATTACK_PATH,...tuning},target,fell,phases,contacts,peaks,
    cycles:structuredClone(skills.report.strike.pointCycle),thrown:structuredClone(skills.report.strike.thrown),
    finalHand:body.view.fists[hand].position.asArray(),head:body.view.head.asArray(),support:body.view.stance.phase,
    meanTargetDistance:errors.length?errors.reduce((a,b)=>a+b,0)/errors.length:null,

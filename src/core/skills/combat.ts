@@ -1,4 +1,4 @@
-import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { Body, BodyCommand, BodyView } from "../body.ts";
 import { intoFrameToRef } from "../control/kinematics.ts";
 import type { Hand, HandGoal, Pose } from "../control/motor.ts";
@@ -26,7 +26,7 @@ export function combatSkills(body: Body, tuning: AttackTuning = ATTACK_PATH, tac
     velocity: [0, 0, 0] as Vec3, previous: { left: null as Vec3 | null, right: null as Vec3 | null },
     time: 0, ready: 0, sequence: 0, touching: false, thrown: { left: 0, right: 0 },
     outcomes: { returned: { left: 0, right: 0 }, failed: 0, interrupted: 0 }, cooldown: 0 };
-  const target = new Vector3();
+  const target = new Vector3(), direction = new Vector3(), inverse = new Quaternion();
   const transition = (phase: typeof state.phase, velocity: Vec3) => {
     state.phase = phase; state.time = 0; state.ready = 0; state.sequence++; state.velocity = velocity;
   };
@@ -57,7 +57,7 @@ export function combatSkills(body: Body, tuning: AttackTuning = ATTACK_PATH, tac
     const requested = intent.combat;
     fold?.tick(view, state.hand ? state.lower : intent.lower ?? STANCE_LOWER, !!intent.move, dt);
     if (!state.hand && requested && view.time >= tuning.startup && state.cooldown >= tuning.hold && (!fold || fold.report.stage === "stand" || fold.report.ready)) {
-      state.action = { ...requested, target: [...requested.target] }; state.hand = requested.hand; state.lower = intent.lower ?? STANCE_LOWER;
+      state.action = { ...requested, target: [...requested.target], ...(requested.direction ? { direction: [...requested.direction] as Vec3 } : {}) }; state.hand = requested.hand; state.lower = intent.lower ?? STANCE_LOWER;
       state.home = [...state.previous[requested.hand]!];
       intoFrameToRef(view.root, requested.target, target);
       state.chamber = attackPath(state.home, [target.x, target.y, target.z], requested.hand, requested.family, tuning).chamber;
@@ -70,7 +70,10 @@ export function combatSkills(body: Body, tuning: AttackTuning = ATTACK_PATH, tac
       state.time += dt;
       const at = state.previous[hand]!, action = state.action!, home = state.home!, chamber = state.chamber!;
       intoFrameToRef(view.root, action.target, target);
-      const path = attackPath(home, [target.x, target.y, target.z], hand, action.family, tuning);
+      const contactDirection = action.direction ? direction.set(...action.direction)
+        .applyRotationQuaternionToRef(Quaternion.InverseToRef(view.root.rotation, inverse), direction) : null;
+      const path = attackPath(home, [target.x, target.y, target.z], hand, action.family, tuning,
+        contactDirection ? [contactDirection.x, contactDirection.y, contactDirection.z] : undefined);
       const touching = (view.handFeedback?.[hand].impulse ?? 0) > 0;
       const speed = hypot(...velocities[hand]);
       const distance = (to: Vec3) => hypot(at[0] - to[0], at[1] - to[1], at[2] - to[2]);

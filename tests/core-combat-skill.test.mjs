@@ -145,3 +145,21 @@ test('explicit orders suppress pursuit and a fresh-world combat fork preserves t
   assert.equal(a.duel.duelists.left.minded.skills.report.engagement.phase,'guard');
  } finally {a.dispose();b.dispose();}
 });
+
+
+test('either hand repeats an overhand to a high surface and survives the miss',async()=>{
+ for(const hand of ['left','right'])for(const mode of ['hit','miss']) {
+  const row=await combatStrike({hand,mode,family:'overhand',ahead:.5,across:.1,up:.1,seconds:8});
+  assert.equal(row.fell,false,JSON.stringify(row));assert.equal(row.cycles.failed,0);
+  assert.ok(row.cycles.returned[hand]>=(mode==='hit'?7:5),JSON.stringify(row));assert.deepEqual(row.assist,{force:0,moment:0});
+  if(mode==='hit') {
+   assert.equal(row.contacts.length,8);assert.ok(row.contacts.every(c=>c.closing>3.4&&c.speed>3.4),JSON.stringify(row.contacts));
+   assert.ok(row.contacts.every(c=>c.velocity[1]<0),JSON.stringify(row.contacts));
+  } else assert.deepEqual(row.contacts,[]);
+ }
+ const right=attackPath([.15,1.49,.3],[.1,1.73,.5],'right','overhand');
+ assert.deepEqual(right.chamber,[.15,1.49+ATTACK_PATH.overhandWindup,.3-ATTACK_PATH.windup]);assert.ok(right.contactVelocity[1]<0);
+ const left=attackPath([-.15,1.49,.3],[-.1,1.73,.5],'left','overhand');
+ assert.deepEqual(left.chamber,[-right.chamber[0],right.chamber[1],right.chamber[2]]);
+ assert.deepEqual(left.contactVelocity,[-right.contactVelocity[0],right.contactVelocity[1],right.contactVelocity[2]]);
+});
