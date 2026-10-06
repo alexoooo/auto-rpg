@@ -1,4 +1,5 @@
 import type { AttackTuning } from "../skills/attack-path.ts";
+import type { TurnStartup } from "../skills/locomotion.ts";
 import type { OpeningTuning } from "./openings.ts";
 import type { Covering } from "../skills/guard.ts";
 import { deepFreeze } from "../state.ts";
@@ -84,6 +85,8 @@ export interface ArenaFighterConfig {
   readonly spacingStep?: number;
   /** Optional heading-speed ceiling, rad/s: `docs/reference/combat-locomotion.md`. */
   readonly turnLimit?: number;
+  /** Optional brief heading-speed ceiling while setting off: `docs/reference/combat-turn-startup.md`. */
+  readonly turnStartup?: TurnStartup;
   /** One opposite-hand follow-up after a target hit and verified return, with fresh lane and footing checks. */
   readonly combinations?: boolean;
   /** Enable observed low-opponent approach and supported strikes; omitted preserves the retained reference. */

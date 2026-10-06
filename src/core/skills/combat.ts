@@ -8,16 +8,16 @@ import type { Vec3 } from "../spec/quantity.ts";
 import { attackPath, ATTACK_PATH, validAttackTuning, type AttackTuning } from "./attack-path.ts";
 import { GUARD, guardSkill } from "./guard.ts";
 import { supportFold } from "./support-fold.ts";
-import { locomotion, STANCE_LOWER } from "./locomotion.ts";
+import { locomotion, STANCE_LOWER, type TurnStartup } from "./locomotion.ts";
 import type { SkillReport, Skills } from "./skills.ts";
 import { placedReach, type StrikeReport } from "./strike.ts";
 import { aimOf } from "./strikes.ts";
 
 /** Shared strike executor: measured hand trajectories and supported locomotion with independent tactics. */
 export function combatSkills(body: Body, tuning: AttackTuning = ATTACK_PATH, tactics: object | null = null,
-  engagement?: { readonly phase: string }, lowCombat = false, turnLimit?: number): Skills {
+  engagement?: { readonly phase: string }, lowCombat = false, turnLimit?: number, turnStartup?: TurnStartup): Skills {
   if (!validAttackTuning(tuning)) throw new Error("combat path settings need finite nonnegative values, positive durations and elbowExtension in [0,1]");
-  const spec = body.built.spec, legs = locomotion(body.envelope, turnLimit), guard = guardSkill(spec);
+  const spec = body.built.spec, legs = locomotion(body.envelope, turnLimit, turnStartup), guard = guardSkill(spec);
   const elbowRange = (hand: Hand) => spec.joints.find(j => j.name === `elbow.${hand}`)?.dofs.find(d => d.positive === "flexion");
   const elbows = { left: elbowRange("left"), right: elbowRange("right") };
   const fold = lowCombat ? supportFold(body) : null;
