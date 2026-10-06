@@ -868,7 +868,9 @@ uniform `SkinView` contract includes collision-shape fallback. The Arena, Dungeo
 character previews all use this factory. `skinSlot` replaces a body's view without replacing its
 physics, rejecting stale asynchronous loads and preserving current clothing and visibility.
 
-The Warrior's Industrial, Relic and Duelist shells are procedural rigid pieces parented to its
+The Warrior's Industrial, Steampunk and Futuristic shells each have an independent procedural
+builder. They share segment-local geometry batching, attachment, materials and finger articulation
+through `robot-geometry.ts` and `robot-skin.ts`. Rigid pieces are parented to the simulated
 segments, with cosmetic finger articulation driven by the same closure input as the human skin
 ([robot art](art/robots.md)). Arena and Lab selectors store appearance in the address, outside
 physical loadouts, duel recipes and tapes. They do not change collisions, sounds, damage or control.
