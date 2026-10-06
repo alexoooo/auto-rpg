@@ -12,14 +12,15 @@ Rogue and club use afterwards; report Skeleton separately while its anatomy cont
 This work follows the shared [control foundation](2026-10-04-control-foundation.md). The initial
 baseline is recorded in [autonomous combat](../reference/arena-combat.md). The remaining chunks
 below are implementation work. The core has an experimental `arena-fighter` and measured
-straight trajectories; it is not yet exposed or competitively promoted.
+straight trajectories; it is exposed experimentally and is not competitively promoted.
 
 The current physical and autonomous prototype measurements are in
 [combat strikes](../reference/combat-strikes.md). Straight punches repeat with both hands and
 misses on the unpinned gameplay body. Terminal velocity, moving path identity, explicit-order
 priority and fresh-world strike/return replay are gated. Self-play takes initiative and breaks
-prolonged pressure, but most blows meet the guard. Opening selection, sensed boundaries, low
-support transitions, defense reach/timing, browser integration and competitive promotion remain.
+prolonged pressure, but most blows meet the guard. Collider opening selection and detached contact response are implemented, including lateral
+escape after repeated physical blocks. Sensed boundaries, low support transitions, defense
+reach/timing, browser verification and competitive promotion remain.
 
 ## Why the current controller fails
 

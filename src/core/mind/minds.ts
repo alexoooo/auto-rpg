@@ -1,5 +1,6 @@
 import { createBody, SERVO_SECONDS, type Body } from "../body.ts";
 import type { BuiltBody } from "../build/build-body.ts";
+import type { ContactIdentity } from "../control/hand-feedback.ts";
 import type { AssistCeiling } from "../control/assist.ts";
 import type { Skills } from "../skills/skills.ts";
 import type { World } from "../world.ts";
@@ -17,6 +18,8 @@ import { createDirectBody } from "./direct.ts";
 /** **What a fight gives the mind it makes**, beside the body and the config. */
 interface MindWiring {
   readonly name: string;
+  /** Trusted body adapter for permitted contact labels. */
+  readonly contactIdentity?: ContactIdentity;
   /** Its orders this step, or null when it is left to itself. `senses` are its own, this step's. */
   orders(senses: Senses): Orders | null;
   /** What it senses (`SensesHub.add`); the clock alone unless given. */

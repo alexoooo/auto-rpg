@@ -56,7 +56,7 @@ autonomous target damage or competence against an attacking opponent.
 
 `COMBAT` contains these tactical search cells: range band and arm reserve 0.08 m, braking horizon 0.5 s,
 target prediction 0.12 s, pressure threshold and escape duration 0.6 s, fallback/lateral
-pace 0.2 m/s, launch settle hold 0.08 s and COM launch speed below 0.35 m/s. They permit
+pace 0.2 m/s, three observed blocks before a lateral escape, launch settle hold 0.08 s and COM launch speed below 0.35 m/s. They permit
 experiments through immutable config overrides; competitive selection remains pending.
 
 ## Autonomous prototype
@@ -69,3 +69,29 @@ produces 25 and 19 driven contacts in the two assignments versus Point's 4 and 1
 both at the cap; this is two fixtures, not a rating or a decisive combat result. Against
 Classic the assignments split cap wins. Opening selection and stronger target contact remain
 required; more hand contacts alone do not satisfy promotion.
+
+## Opening selection
+
+`OPENINGS` ranks collider-derived head, upper-trunk and middle-trunk surfaces. Linear/spin
+prediction is 0.12 s. Blocked lanes cost 2, working-range error costs 2 per metre, and the
+hand-radius margin is half its sourced radius. Surface priorities are 0, 0.2 and 0.4 respectively.
+A repeated blocked surface adds 1 to the rank. Surface samples use elevations of -0.5, 0 and 0.5 radii. These are development search cells. The selector sees sensed poses, shapes and velocities;
+it receives no wounds, orders or opposing controller phase. Curved lanes, explicit sense-age
+compensation and general low support remain work to measure.
+
+
+The six 30 s Node Arena diagnostics in `combat-openings-bouts.json` use rapier-coordinate,
+120 Hz, empty Warriors, balance 0/0 and continuing recovery. At 4 m, self-play produces
+16/19 driven blows (15/19 blocks), 0.079/0.084 hp driven damage and no falls. At 1.2 m it
+produces 14/16 driven blows, mostly blocks. Both Point assignments end with a Combat cap
+win, while Classic assignments split. These fixtures demonstrate contact response and
+initiative, with mixed damage changes from the head-only prototype. They do not establish
+competitive promotion. The head-only variant remains reproducible through `targeting: "head"`.
+
+
+Built-browser inspection uses the selectable Combat mode on two empty-handed Warriors,
+rapier-coordinate at the shared 120 Hz world rate, balance 0/0, continuing recovery. The
+visible HUD advances through approach, chamber and return, and Tactical view displays both
+physical bodies. The check reaches 14 s of the bout and verifies the recipe choices. It is
+performed alongside the full Node suite and establishes no frame-time budget. The owned
+preview server and tab are stopped after inspection.

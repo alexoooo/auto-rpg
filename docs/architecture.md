@@ -47,13 +47,13 @@ and placement skill, but selects no searched torque recipes: attacks use `pointP
 Both controllers reach the same physical body, damage and orders interfaces. This hybrid does
 not run the experimental whole-body optimization solver in the frame loop.
 
-The point fighter's `supportRecovery` sub-mind takes control from the host's down reading,
+The Point and Combat fighters' `supportRecovery` sub-mind takes control from the host's down reading,
 runs `stagedRise`, then uses locomotion's gradual height restoration and foot squaring to
 stabilize. `recoveryReady` independently requires loaded feet, no other fixed support, a centre
 of mass inside their support polygon, low segment speed and the host's upright reading for a
 continuous interval. A stabilization timeout retries from the actual body. The host releases
 pending commands on takeover; Point control also clears pending skill cycles through its
-driver release callback, and resumes after this handover. Recovery and
+driver release callback, as does Combat, and resumes after this handover. Recovery and
 trajectory memory are plain data under the body/bout state, including the standing reference.
 See [recovery measurements](reference/recovery-cycle.md) for the tested envelope and failures.
 The independent `supportEntryPolicy` remains available to the research task; it ends at hand/shin
@@ -76,6 +76,15 @@ its completion accepts upright controlled gait, but the next attack must settle 
 Feedback, engagement and reaction memory are plain bout state. `engagement: "reference"`
 preserves the comparison controller. See [settings and validation](reference/arena-engagement.md).
 
+
+`arena-fighter` selects collider-derived target surfaces and commits a hand trajectory through
+`combatSkills`. Terminal hand velocity and segment identity extend the common IK/muscle path;
+Classic and Point retain their own execution. Chamber and return permit locomotion. Actual
+contact feedback optionally carries trusted detached body/segment labels, point, normal and
+impulse; repeated guard blocks request a lateral escape. These labels affect tactics, not damage.
+All selection, contact-response and trajectory memory belongs to the saved bout. The Arena
+exposes Combat as an experimental choice, with Warrior fist primitives measured in
+[combat strikes](reference/combat-strikes.md). Competitive promotion and low support remain open.
 
 `DuelRecipe.recoverySeconds` optionally permits a continuous interval down. Its per-side clocks
 are saved only when enabled; null allows unlimited time down until injury or the bout cap. Damage elimination remains immediate, opponents continue sensing

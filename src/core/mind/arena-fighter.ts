@@ -15,7 +15,7 @@ export function arenaFighter(built: BuiltBody, world: World, config: ArenaFighte
     || [paths.chamberSeconds, paths.swingSeconds, paths.returnSeconds, paths.prepareLimit, paths.returnLimit, paths.hold].some(v => v === 0))
     throw new Error("combat path settings need finite nonnegative values and positive durations");
   if (config.spacing !== undefined && !Number.isFinite(config.spacing)) throw new Error("combat spacing must be finite");
-  const body = createBody(built, world, { servoSeconds: SERVO_SECONDS, senses: wiring.senses, assist: wiring.assist, handFeedback: true,
+  const body = createBody(built, world, { servoSeconds: SERVO_SECONDS, senses: wiring.senses, assist: wiring.assist, handFeedback: true, contactIdentity: wiring.contactIdentity,
     subs: [(own, view) => supportRecovery(own, view, world)] });
   const tactics = combatTactics(built.spec, wiring.name, sight => wiring.orders(sight.view.senses), config);
   const skills = driveBy(body, tactics, { combat: paths });

@@ -116,8 +116,8 @@ and a practical real-time whole-body solver remain open. The independent policy 
 classic fighter remain available for comparison. The
 [autonomous Warrior baseline](reference/arena-combat.md) exposes sustained hand pressure with
 little damage in Point self-play. The [next combat controller](plans/2026-10-06-arena-combat.md)
-prioritizes working distance, driven strike primitives, openings, defense and active-opponent
-win/damage gates. Repeated touch-and-return alone does not establish combat effectiveness.
+now exposes experimental Combat with driven punch primitives, collider openings and escapes
+after repeated blocks. Low support, defense timing and active-opponent win/damage gates remain. Repeated touch-and-return alone does not establish combat effectiveness.
 
 ## Open items
 

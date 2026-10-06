@@ -1,3 +1,5 @@
+import type { ContactTarget } from "../core/control/hand-feedback.ts";
+import type { SegmentBody } from "../core/engine/engine.ts";
 import type { PhysicalBody } from "../core/physical-body.ts";
 import { buildBody } from "../core/build/build-body.ts";
 import type { AssistCeiling } from "../core/control/assist.ts";
@@ -34,9 +36,9 @@ import type { Hook, World } from "../core/world.ts";
  *   handed back to itself or is out of the fight. Every order is kept with the step it was given
  *   before (`Duel.tape`), so the recipe and the tape are the whole of what made a bout, and
  *   `Duel.play` gives a tape again as the bout steps.
- * - **A side is out** once its pool has ended, or while its body is down (`BodyView.down`): a
- *   body down lies where it fell. The other side wins; both out on one step is a
- *   draw.
+ * - **A side is out** once its pool has ended or its continuous-down allowance expires.
+ *   With unlimited recovery it remains a sensed opponent while its mind attempts to rise.
+ *   The other side wins; both out on one step is a draw.
  * - **At the cap** (`CAP_SECONDS`) the fuller bar wins, and equal bars draw.
  * - **Each side's assist** (`Assist`) has the ceiling its balance is: its character's per cent of
  *   its weight (`AttributeSpec.balance`), or the recipe's, at what the rulebook's per cent is, or the recipe's.
@@ -228,18 +230,21 @@ export class Duel {
         this.order(side, orders);
       }
     });
+    const contactLabels = new Map<SegmentBody, ContactTarget>();
     const duelists = {} as Record<Side, Duelist>;
     for (const side of SIDES) {
       const model = recipe[side];
       const spec = holding(recipe.surfaces ? stiffened(modelSpec(model), recipe.surfaces) : modelSpec(model), recipe.held?.[side] ?? "club");
       const x = (side === "left" ? -1 : 1) * gap / 2;
       const built = buildBody(spec, world, { position: [x, 0, 0] });
+      for (const [segment, part] of built.segments) contactLabels.set(part.body, Object.freeze({ kind: "body", body: side, segment }));
       const pool = createPool(spec, this.rules);
       // A downed side remains in the fight while its recovery allowance lasts.
       const senses = this.senses.add({ id: side, side, built, out: () => this.verdict !== null || this.eliminated(side) });
       const assist = balanceCeiling(recipe.balance?.[side] ?? spec.attributes.balance.value, recipe.balancePercent ?? balancePercent(this.rules));
       const minded = createMind(built, world, recipe.minds?.[side] ?? FIGHTER, {
         name: `arena ${side}`, senses, assist,
+        contactIdentity: other => other ? contactLabels.get(other) ?? null : { kind: "world" },
         // Out of the fight it is left to itself, as a side nobody orders is.
         orders: (sensed) => sensed.out ? null : given[side],
       });

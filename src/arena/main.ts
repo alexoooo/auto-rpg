@@ -118,7 +118,7 @@ export async function bootArena(): Promise<void> {
     const choices = document.createElement("div"); choices.className = "contender-choices";
     field.append(name, select); choices.append(field, appearanceField); panel.append(head, preview, choices);
     const controller = document.createElement("label"), control = document.createElement("select");
-    controller.className = "field"; controller.textContent = "Controller (experimental point mode)";
+    controller.className = "field"; controller.textContent = "Controller";
     control.setAttribute("aria-label", `${side} controller`);
     for (const [value, textContent] of Object.entries(CONTROLS)) control.append(Object.assign(document.createElement("option"), { value, textContent }));
     control.value = controls[side]; control.addEventListener("change", () => control.blur());
@@ -371,11 +371,20 @@ export async function bootArena(): Promise<void> {
       const fighter = duel.duelists[row.side];
       row.bar.value = fighter.pool.bar();
       const mind = fighter.minded;
+      const controller = (() => {
+        switch (mind.kind) {
+          case "fighter": return "Classic";
+          case "point-fighter": return "Point control";
+          case "arena-fighter": return "Combat";
+          case "direct": return "Joint control";
+          default: { const never: never = mind; throw new Error(`unknown mind ${never}`); }
+        }
+      })();
       const phase = mind.kind === "direct" ? "joint control" : mind.skills.report.strike.phase ?? mind.skills.report.engagement?.phase ?? "guard / move";
       const down = duel.state.recovery?.[row.side];
       row.status.textContent = fighter.body.down
         ? `${fighter.body.has}${duel.recipe.recoverySeconds === null ? " - getting up" : down !== undefined ? ` - ${Math.max(0, duel.recipe.recoverySeconds! - down).toFixed(1)} s recovery left` : " - down"}`
-        : `${mind.kind === "point-fighter" ? "Point control" : "Classic"} - ${phase}`;
+        : `${controller} - ${phase}`;
     }
     // While either side is helped, each side's balance, per cent of its weight: the link's, or its character's.
     const helped = SIDES.some((side) => duel!.duelists[side].body.assist.on);

@@ -70,9 +70,11 @@ export interface ArenaFighterConfig {
   readonly kind: "arena-fighter";
   readonly hand: "left" | "right" | "alternate";
   readonly defense?: boolean;
+  /** Target selection variant, retained for reproducible opponents and ablations. */
+  readonly targeting?: "head" | "openings";
   readonly paths?: Partial<AttackTuning>;
   readonly spacing?: number;
 }
 
 /** Experimental autonomous combat; promotion is measured by the paired combat harness. */
-export const ARENA_FIGHTER: ArenaFighterConfig = deepFreeze({ kind: "arena-fighter", hand: "alternate" });
+export const ARENA_FIGHTER: ArenaFighterConfig = deepFreeze({ kind: "arena-fighter", hand: "alternate", targeting: "openings" });

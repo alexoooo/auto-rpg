@@ -16,7 +16,7 @@ import type { BodyLevel, MuscleDriver } from "./muscle/driver.ts";
 import type { World } from "./world.ts";
 import { physicalBody, type PhysicalBody } from "./physical-body.ts";
 import { centreReading } from "./observation.ts";
-import { handFeedback, type HandFeedback } from "./control/hand-feedback.ts";
+import { handFeedback, type ContactIdentity, type HandFeedback } from "./control/hand-feedback.ts";
 
 /**
  * **A body, commanded and seen.** One class for every body assembled from a spec: its muscles
@@ -144,6 +144,8 @@ export const SERVO_SECONDS = 0.1;
 interface BodyOptions {
   /** Read external hand contacts and striking-point motion into the body's view. */
   readonly handFeedback?: boolean;
+  /** Trusted labeling for detached contact response; policies receive no engine body. */
+  readonly contactIdentity?: ContactIdentity;
   /**
    * The joint servo's time constant, s (`servo`): a goal's error decays as a critically damped
    * motion with natural frequency 1 / servoSeconds.
@@ -176,9 +178,9 @@ interface CommandMind extends HostMind {
 }
 
 /** The command layers over `own`, holding its reference pose until something drives them. */
-export function commandMind(own: OwnBody, { servoSeconds, stance, handFeedback: feedbackEnabled }: BodyOptions): CommandMind {
+export function commandMind(own: OwnBody, { servoSeconds, stance, handFeedback: feedbackEnabled, contactIdentity }: BodyOptions): CommandMind {
   const { built, muscles } = own;
-  const feedback = feedbackEnabled ? handFeedback(built) : null;
+  const feedback = feedbackEnabled ? handFeedback(built, contactIdentity) : null;
   const motor: MotorControl = motorControl(built, servoSeconds, {}, stance, own.assist);
   const fists = { left: fistOf(built, "left"), right: fistOf(built, "right") };
   const head = centreReading(built, "head");
