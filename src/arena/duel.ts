@@ -102,8 +102,8 @@ interface DuelRecipe {
   readonly balancePercent?: AssistCeiling;
   /** Each side's mind, in place of the fighter every body has (`FIGHTER`): an experiment's, or a table's row. */
   readonly minds?: Readonly<Record<Side, MindConfig>>;
-  /** Seconds continuously down before a fall ends the bout; zero by default. */
-  readonly recoverySeconds?: number;
+  /** Seconds continuously down before a fall ends the bout; null continues until injury or the cap. Zero is the reference fall rule. */
+  readonly recoverySeconds?: number | null;
   /** What each side's right hand holds; the wooden club unless given. */
   readonly held?: Readonly<Record<Side, DuelHeld>>;
   /** The arena's rules with these in their place (`rulebook`'s override): an experiment's. */
@@ -209,7 +209,7 @@ export class Duel {
   private readonly judging: Hook;
 
   constructor(world: World, recipe: DuelRecipe, hooks: DuelHooks = {}) {
-    if (recipe.recoverySeconds !== undefined && (!Number.isFinite(recipe.recoverySeconds) || recipe.recoverySeconds < 0))
+    if (recipe.recoverySeconds !== undefined && recipe.recoverySeconds !== null && (!Number.isFinite(recipe.recoverySeconds) || recipe.recoverySeconds < 0))
       throw new Error("invalid recovery window");
     this.world = world;
     this.recipe = Object.freeze({ ...recipe });
@@ -254,7 +254,7 @@ export class Duel {
     const sideState = ({ body, minded, pool }: Duelist): SideState => ({ body: body.state, mind: minded.state, pool: pool.state });
     this.state = {
       start, startStep, verdict: null, given, tape: [], queued: [],
-      ...((recipe.recoverySeconds ?? 0) > 0 ? { recovery: { left: 0, right: 0 } } : {}),
+      ...(recipe.recoverySeconds === null || (recipe.recoverySeconds ?? 0) > 0 ? { recovery: { left: 0, right: 0 } } : {}),
       world: world.state, senses: this.senses.state, watch: this.watch.state,
       left: sideState(duelists.left), right: sideState(duelists.right),
     };
@@ -323,7 +323,7 @@ export class Duel {
   eliminated(side: Side): boolean {
     const duelist = this.duelists[side];
     return duelist.pool.ending() !== null || (duelist.body.down
-      && (!this.state.recovery || this.state.recovery[side] >= this.recipe.recoverySeconds!));
+      && (!this.state.recovery || (this.recipe.recoverySeconds !== null && this.state.recovery[side] >= this.recipe.recoverySeconds!)));
   }
 
   private judge(): void {

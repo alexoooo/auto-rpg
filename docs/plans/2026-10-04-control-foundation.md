@@ -126,10 +126,12 @@ passed recovery gate. Later task
 fixtures extend this same runner rather than replacing its baseline.
 
 The [angular-limit correction](../reference/joint-limits.md) is available explicitly as
-`rapier-coordinate`, with mandatory mechanical and replay checks. Its unconditional screen
-breaks existing defense, standing-bar and recovery behavior, so gameplay retains parent-axis
-limits. Retune and measure the reference controller under corrected limits before default
-migration; tables measured on the parent-axis configuration do not satisfy that gate.
+`rapier-coordinate`, with mandatory mechanical and replay checks, and is now the gameplay
+default for the initial Warrior fist-fight scope. Historical batteries keep their parent-axis
+reference to reproduce cited measurements; dedicated gameplay tests select the actual default.
+The corrected-profile audit still exposes defense, standing-bar and repeated-recovery losses
+([profile record](../reference/joint-limits.md)). Retune and measure those cases before broader
+capability claims; parent-axis tables do not satisfy their physical gates.
 
 Paths marked **new** are proposed modules/scripts, not existing capabilities. Each numbered chunk
 may take the listed smaller commits. Every commit passes the common checks below. Keep experimental

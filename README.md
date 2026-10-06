@@ -54,19 +54,20 @@ not yet a stronger fighter. It tracks moving opponents, returns on new hand/item
 and can step back when crowded. [Moving-opponent checks](docs/reference/arena-engagement.md)
 measure useful contacts followed by verified returns; they do not establish a win-rate advantage.
 
-The **Recovery window** can allow 15, 30 or 60 seconds down before defeat. The HUD names the
+**After a fall** defaults to continuing the fight while players try to get up. It can also
+select defeat after 15, 30 or 60 seconds down, or on the first fall. The HUD names the
 current controller or recovery attempt. Point control rises with the reference pose sequence,
 then verifies quiet foot support before resuming walking or attacks. Its attacks prepare, strike,
 and return to the measured starting point. [Development checks](docs/reference/recovery-cycle.md)
 cover Warrior with empty hands and a club; recovery takes about 25-29 seconds in passing cases,
-and one tested club fall direction still fails. Classic retains its passive response to a fall.
+and one tested club fall direction still fails. Arena Classic also attempts the staged rise. Recovery remains imperfect and may need retries.
 Try `?play=arena&matchup=workshop-fighter,workshop-rogue&control=point-alternate,classic&held=empty&recovery=60`.
 These choices travel in links and replays (`control`, `held`, `recovery`).
 
 The circular stone arena is enclosed by a low parapet, with eight braziers around its edge. Each
 side starts with a wooden club unless selected otherwise. Its mind walks at the opponent and
 attacks its head. A side is out when its wounds end it or it stays down for the chosen recovery
-window (immediately by default). At the two-minute bell the fuller bar wins; equal bars draw.
+window, when one is selected. At the two-minute bell the fuller bar wins; equal bars draw.
 
 A blow costs both who meet in it. Any two parts of the two bodies that come together closing
 have met in a blow, and the two surfaces share its energy: the softer takes the more. A fist

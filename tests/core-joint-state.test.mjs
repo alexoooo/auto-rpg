@@ -9,6 +9,7 @@ import { anglesOf, jointTracker, motionAxesToRef, ratesToRef, rateBiasToRef, rel
 import { servo } from "../src/core/control/servo.ts";
 import { humanSpec } from "../src/core/human/spec.ts";
 import { driveMuscles } from "../src/core/muscle/driver.ts";
+import { DEFAULT_ENGINE, loadEngine } from "../src/core/engine/engines.ts";
 import { sourced } from "../src/core/spec/quantity.ts";
 import { coreStand, CORE_ENGINE } from "./harness/core-stand.mjs";
 
@@ -177,7 +178,7 @@ async function pressed(limited, limit, goal, { engine = CORE_ENGINE, centre = 0,
  * limit sees no motion.
  */
 for (const engineName of ["rapier", "rapier-coordinate"]) test(`${engineName}: a joint pressed against its limit stops where its reading says the range ends`,
-  { todo: engineName === "rapier" ? "parent-axis limits remain the gameplay reference pending controller migration" : false }, async (t) => {
+  async (t) => {
   const limit = 0.6;
   let stopped = 0, euler = 0, reached = 0;
   for (const limited of [0, 1, 2]) {
@@ -200,7 +201,8 @@ for (const engineName of ["rapier", "rapier-coordinate"]) test(`${engineName}: a
   }
   t.diagnostic(JSON.stringify({ engine: engineName, stopped, euler, reached }));
   assert.ok(euler > 0.3, `the Euler angles would read these stops at the limit too: ${euler}`);
-  assert.ok(stopped < 0.015, `a freedom stopped ${stopped} rad off its limit`);
+  if (engineName === "rapier") assert.ok(stopped > .04 && stopped < .06, "the retained parent-axis profile reproduces its measured limit error");
+  else assert.ok(stopped < 0.015, `a freedom stopped ${stopped} rad off its limit`);
   assert.ok(reached < 0.012, `a pose within the limit was missed by ${reached} rad`);
 });
 
@@ -306,4 +308,12 @@ test("a joint tumbling free reads the speed its relative rotation changes at", a
     assert.ok(parentSpin > 1 && largest > 1, `the pair tumbles: parent ${parentSpin}, joint ${largest} rad/s`);
     assert.ok(worst < 0.03 * largest, `tracker against the differenced rotation: ${worst} rad/s off, at up to ${largest}`);
   } finally { stand.dispose(); }
+});
+
+test("the gameplay engine selects the measured-coordinate limit solver", async () => {
+  assert.equal(DEFAULT_ENGINE, "rapier-coordinate");
+  const engine = await loadEngine();
+  const world = engine.createPhysics({ hz: 120, gravity: [0, -9.81, 0] });
+  try { assert.equal(world.raw.integrationParameters.coordinateAngularLimits, true); }
+  finally { world.dispose(); }
 });

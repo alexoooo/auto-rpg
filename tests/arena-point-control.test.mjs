@@ -27,10 +27,11 @@ test("controller and recovery links preserve independent choices and classic gua
   assert.deepEqual(readControls(""), { left: "classic", right: "classic" });
   assert.deepEqual(readControls("?control=unknown,point-left"), { left: "classic", right: "point-left" });
   assert.deepEqual(readMinds("?control=point-alternate,classic&guard=cover"), {
-    left: { ...POINT_FIGHTER, hand: "alternate" }, right: { ...FIGHTER, guard: "cover" },
+    left: { ...POINT_FIGHTER, hand: "alternate" }, right: { ...FIGHTER, guard: "cover", subs: [{ kind: "staged-rise" }] },
   });
   assert.deepEqual(readMinds("?control=point-right"), { left: POINT_FIGHTER, right: POINT_FIGHTER });
   assert.deepEqual(["", "?recovery=", "?recovery=-1", "?recovery=Infinity", "?recovery=61"].map(readRecovery), Array(5).fill(undefined));
+  assert.equal(readRecovery("?recovery=continue"), null);
   assert.deepEqual(["?recovery=0", "?recovery=15", "?recovery=60"].map(readRecovery), [0, 15, 60]);
 });
 

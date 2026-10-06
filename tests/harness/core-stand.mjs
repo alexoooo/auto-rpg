@@ -11,14 +11,14 @@
 import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { Scene } from "@babylonjs/core/scene.js";
 import { Vector3, Quaternion } from "@babylonjs/core/Maths/math.vector.js";
-import { DEFAULT_ENGINE, isEngineName, loadEngine } from "../../src/core/engine/engines.ts";
+import { isEngineName, loadEngine } from "../../src/core/engine/engines.ts";
 import { PHYSICS_HZ } from "../../src/core/world.ts";
 import { createWorld } from "../../src/core/world.ts";
 import { buildBody } from "../../src/core/build/build-body.ts";
 import { loadState, saveState } from "../../src/core/state.ts";
 
-/** The engine `CORE_ENGINE` names, or the game's. */
-export const CORE_ENGINE = process.env.CORE_ENGINE || DEFAULT_ENGINE;
+/** Published reference batteries use parent-axis Rapier; gameplay gates request their engine explicitly. */
+export const CORE_ENGINE = process.env.CORE_ENGINE || "rapier";
 if (!isEngineName(CORE_ENGINE)) throw new Error(`CORE_ENGINE names no engine: ${CORE_ENGINE}`);
 /** The stand's engine, loaded. Each stand is a world of its own; worlds in one realm do not share state. */
 export const freshEngine = (name = CORE_ENGINE) => loadEngine(name);

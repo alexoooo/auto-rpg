@@ -2,7 +2,8 @@
 
 The vendored engine offers an explicit `rapier-coordinate` configuration. Its angular limit
 rows use the spatial gradient of the angle the joint reports. The `rapier` configuration keeps
-the parent-axis rows used by gameplay. Both use one initialized WASM module, the same body and
+the parent-axis rows used by the published reference batteries. Gameplay selects
+`rapier-coordinate` through `DEFAULT_ENGINE`. Both use one initialized WASM module, the same body and
 equipment representation, and the same actuator and controller interfaces. Selection belongs
 to the environment, not to a policy. Neither configuration changes anatomy or muscle strength.
 
@@ -25,7 +26,7 @@ g_k = (q_i q_k - w q_j) / (w^2 + q_i^2)
 ```
 
 Rotating `g` through the parent's joint frame gives the world angular Jacobian. A range's
-center does not change this derivative away from the wrap. The default parent-axis row omits
+center does not change this derivative away from the wrap. The parent-axis reference row omits
 the two cross terms, allowing motion along other axes to carry the reported angle through a
 limit that sees no corresponding speed. At exactly `q_i = w = 0` the coordinate is undefined;
 the implementation retains a finite parent-axis row rather than dividing by zero. This does
@@ -65,10 +66,11 @@ The complete endpoint rows and prototype failure list are preserved in
 `tests/core-limit-profile.test.mjs` drives a complete body, saves it, and compares subsequent
 joint angles and velocities after restoration into the same and another corrected world.
 It checks serialized configuration and transactional rejection in both directions across
-configurations. `tests/core-joint-state.test.mjs` retains the reference configuration's TODO;
-the correction's tests are mandatory passes.
+configurations. `tests/core-joint-state.test.mjs` requires the gameplay default to select
+coordinate rows and pass the stop checks. The retained reference profile has an explicit
+measurement of its known error, rather than an outstanding gameplay TODO.
 
-## Migration remains open
+## Controller validation by profile
 
 An unconditional prototype of the same gradient passed the mechanical test but failed 18 of
 789 existing tests (769 pass, two existing TODOs). The failures include changed replay-fixture
@@ -85,13 +87,27 @@ Thus this coordinate fix alone does not solve shared-item return or general reco
 
 The existing task tables name their engine configuration. Their success rates do not transfer
 to `rapier-coordinate`. Corrected-limit control, directional-actuator migration, defense,
-recovery and integrated gameplay must pass their physical gates before gameplay switches.
+recovery and integrated gameplay require measurements on that configuration. The first
+gameplay gate is Warrior with empty hands and zero balance, matching the owner's requested
+initial scope. `tests/arena-gameplay-physics.test.mjs` requests the actual default explicitly:
+four physical shove directions recover and walk, and both hands repeatedly contact and return
+in the hit/miss fixtures. Unlimited-down bouts retain both sides in senses and replay.
+
+The full corrected-profile audit at this point has 22 failures among the 878 existing tests.
+Many are published parent-axis trajectory/measurement expectations; actual remaining losses
+include Rogue club defense, skeleton bar drift, assisted lab standing, and the Warrior's second
+recovery in the 60 s deadline. Removing the deadline allows continued attempts but does not
+establish repeat-recovery reliability. These are controller work, not failures of the mechanical
+stop check, and remain part of the combat/foundation work. Historical Node batteries explicitly
+default to `rapier` to reproduce their cited records; new gameplay gates explicitly use
+`DEFAULT_ENGINE`. A green reference battery is not evidence that those open cases pass under
+corrected limits.
 
 ## Package and browser validation
 
 The `.5` archive rebuilds to identical bytes in two managed directories. Offline installation,
-type checking and production build pass. The default suite reads 792 tests: 790 pass, zero
-failures and the two existing TODOs. All 138 default physical baseline rows equal `.4` after
+type checking and production build pass. The package validation suite at archive `.5` read 792 tests: 790 passed, zero
+failures and two outstanding controller checks. All 138 default physical baseline rows equal `.4` after
 excluding timing, and all three stock-package parity bouts retain their hashes. See the
 [engine record](rapier-vendor.md) for artifact and source identities.
 

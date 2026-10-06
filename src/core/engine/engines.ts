@@ -8,7 +8,7 @@ import type { PhysicsEngine } from "./engine.ts";
  */
 const ENGINES = {
   rapier: () => import("./rapier.ts").then((m) => m.loadRapier()),
-  // Measured-angle limit rows; controller migration is recorded in docs/reference/joint-limits.md.
+  // Measured-angle limit rows; profile measurements are in docs/reference/joint-limits.md.
   "rapier-coordinate": () => import("./rapier.ts").then((m) => m.loadRapier(true)),
   // Per-point friction profiles are measured in docs/reference/contact-friction.md.
   "rapier-coulomb": () => import("./rapier.ts").then((m) => m.loadRapier(false, true)),
@@ -17,8 +17,8 @@ const ENGINES = {
 
 type EngineName = keyof typeof ENGINES;
 
-/** The engine the game runs: Rapier, the owner's choice after the bake-off (`owner-physics-engine`). */
-export const DEFAULT_ENGINE: EngineName = "rapier";
+/** Gameplay uses measured-angle limit gradients (docs/reference/joint-limits.md). */
+export const DEFAULT_ENGINE: EngineName = "rapier-coordinate";
 
 export const isEngineName = (name: string): name is EngineName => Object.hasOwn(ENGINES, name);
 

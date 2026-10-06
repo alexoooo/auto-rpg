@@ -1,5 +1,5 @@
 import { BODY_MODELS, type BodyModel } from "../core/human/spec.ts";
-import { FIGHTER, POINT_FIGHTER, type MindConfig } from "../core/mind/config.ts";
+import { FIGHTER, POINT_FIGHTER, type FighterMindConfig, type MindConfig } from "../core/mind/config.ts";
 import { isOrders } from "../core/mind/orders.ts";
 import { balanceFrom } from "../core/rules/rulebook.ts";
 import { DUEL_HELD, type OrdersEntry, type Side } from "./duel.ts";
@@ -102,10 +102,10 @@ const GUARD_PARAM = "guard";
  * as it names (`FighterMindConfig.guard`); undefined for anything else, and each side's mind is
  * then the bout's own.
  */
-export function readGuard(search: string): Readonly<Record<Side, MindConfig>> | undefined {
+export function readGuard(search: string): Readonly<Record<Side, FighterMindConfig>> | undefined {
   const guard = new URLSearchParams(search).get(GUARD_PARAM);
   if (guard !== "cover" && guard !== "pose") return undefined;
-  const mind: MindConfig = { ...FIGHTER, guard };
+  const mind: FighterMindConfig = { ...FIGHTER, guard };
   return { left: mind, right: mind };
 }
 
@@ -171,7 +171,7 @@ export function readMinds(search: string): Readonly<Record<Side, MindConfig>> {
   const mind = (side: Side): MindConfig => {
     const control = controls[side];
     switch (control) {
-      case "classic": return guards?.[side] ?? FIGHTER;
+      case "classic": return { ...(guards?.[side] ?? FIGHTER), subs: [{ kind: "staged-rise" }] };
       case "point-right": return POINT_FIGHTER;
       case "point-left": return { ...POINT_FIGHTER, hand: "left" };
       case "point-alternate": return { ...POINT_FIGHTER, hand: "alternate" };
@@ -182,4 +182,5 @@ export function readMinds(search: string): Readonly<Record<Side, MindConfig>> {
 }
 
 /** Optional continuous-down allowance, in seconds, for recovery bouts. */
-export const readRecovery = (search: string): number | undefined => readWithin(search, "recovery", [0, 60]);
+export const readRecovery = (search: string): number | null | undefined =>
+  new URLSearchParams(search).get("recovery") === "continue" ? null : readWithin(search, "recovery", [0, 60]);

@@ -151,11 +151,12 @@ export async function bootArena(): Promise<void> {
   }
 
   const recoveryField = document.createElement("label"), recoveryPicker = document.createElement("select");
-  recoveryField.className = "field recovery"; recoveryField.textContent = "Recovery window (standing recovery remains experimental)";
+  recoveryField.className = "field recovery"; recoveryField.textContent = "After a fall";
   recoveryPicker.setAttribute("aria-label", "Recovery window");
-  for (const seconds of new Set([0, 15, 30, 60, linkedRecovery ?? 0])) recoveryPicker.append(Object.assign(document.createElement("option"),
+  recoveryPicker.append(Object.assign(document.createElement("option"), { value: "continue", textContent: "Continue fighting and attempt recovery" }));
+  for (const seconds of new Set([0, 15, 30, 60, linkedRecovery ?? 60])) recoveryPicker.append(Object.assign(document.createElement("option"),
     { value: String(seconds), textContent: seconds === 0 ? "Fall ends bout" : `${seconds} seconds down before defeat` }));
-  recoveryPicker.value = String(linkedRecovery ?? 0); recoveryPicker.addEventListener("change", () => recoveryPicker.blur());
+  recoveryPicker.value = linkedRecovery == null ? "continue" : String(linkedRecovery); recoveryPicker.addEventListener("change", () => recoveryPicker.blur());
   recoveryField.append(recoveryPicker); need("matchup").after(recoveryField);
 
   // Each model's dresser, loaded once: its skin, or its shapes if the skin does not load.
@@ -244,7 +245,7 @@ export async function bootArena(): Promise<void> {
       query.set("recovery", recoveryPicker.value);
       const search = `?${query}`;
       const sameControllers = linkedControl === JSON.stringify(readMinds(search));
-      const sameRecovery = (linkedRecovery ?? 0) === (readRecovery(search) ?? 0);
+      const sameRecovery = (linkedRecovery ?? null) === (readRecovery(search) ?? null);
       const sameHeld = (linkedHeld ?? JSON.stringify({ left: "club", right: "club" })) === JSON.stringify(readHeld(search));
       const tape = matchup.left === linked.matchup.left && matchup.right === linked.matchup.right && sameControllers && sameRecovery && sameHeld ? linked.tape : [];
       replaying = tape.length > 0;
@@ -252,7 +253,7 @@ export async function bootArena(): Promise<void> {
       const dress = new Map(await Promise.all(SIDES.map(async (side) => [side, await dresser(matchup[side], appearances[side])] as const)));
       end();
       audio.reset();
-      const balance = readBalance(location.search), gap = readGap(location.search), capSeconds = readCap(location.search), held = readHeld(location.search), minds = readMinds(location.search), recoverySeconds = readRecovery(location.search);
+      const balance = readBalance(location.search), gap = readGap(location.search), capSeconds = readCap(location.search), held = readHeld(location.search), minds = readMinds(location.search), recoverySeconds = readRecovery(location.search) ?? null;
       const bout = duel = new Duel(world, {
         left: matchup.left, right: matchup.right, recoverySeconds,
         ...(gap !== undefined ? { gap } : {}), ...(capSeconds !== undefined ? { capSeconds } : {}), ...(balance ? { balance } : {}), ...(held ? { held } : {}), ...(minds ? { minds } : {}),
@@ -373,13 +374,13 @@ export async function bootArena(): Promise<void> {
       const phase = mind.kind === "direct" ? "joint control" : mind.skills.report.strike.phase ?? mind.skills.report.engagement?.phase ?? "guard / move";
       const down = duel.state.recovery?.[row.side];
       row.status.textContent = fighter.body.down
-        ? `${fighter.body.has}${down !== undefined ? ` - ${Math.max(0, duel.recipe.recoverySeconds! - down).toFixed(1)} s recovery left` : " - down"}`
+        ? `${fighter.body.has}${duel.recipe.recoverySeconds === null ? " - getting up" : down !== undefined ? ` - ${Math.max(0, duel.recipe.recoverySeconds! - down).toFixed(1)} s recovery left` : " - down"}`
         : `${mind.kind === "point-fighter" ? "Point control" : "Classic"} - ${phase}`;
     }
     // While either side is helped, each side's balance, per cent of its weight: the link's, or its character's.
     const helped = SIDES.some((side) => duel!.duelists[side].body.assist.on);
     const balance = SIDES.map((side) => duel!.recipe.balance?.[side] ?? duel!.duelists[side].built.spec.attributes.balance.value);
-    clock.textContent = `${duel.clock.toFixed(1)} s${helped ? ` · balance ${balance.join(" / ")} %` : ""}${replaying ? " · replay" : ""}`;
+    clock.textContent = `${duel.clock.toFixed(1)} s${helped ? ` Â· balance ${balance.join(" / ")} %` : ""}${replaying ? " Â· replay" : ""}`;
     if (duel.verdict && shown !== duel.verdict) {
       shown = duel.verdict;
       const { winner, ending, time } = shown;

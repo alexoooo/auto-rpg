@@ -12,8 +12,8 @@ core's (`src/core/`). The screens (`src/arena/`, `src/dungeon/`, `src/lab/`) bui
 and the core never imports them: `tests/core-boundary.test.mjs` walks the core's imports and allows
 only the core itself, `@babylonjs/core`, the engine's package and JSON under `assets/`.
 
-`rapier-coordinate` selects experimental measured-angle gradients for angular-limit rows;
-`rapier` retains gameplay's parent-axis formulation. Both load the same WASM module and use
+`rapier-coordinate` is the gameplay default and selects measured-angle gradients for angular-limit
+rows; `rapier` retains the published reference batteries' parent-axis formulation. Both load the same WASM module and use
 the same interfaces. The choice is immutable per engine instance, identified in experiments,
 and checked when restoring physics snapshots ([limit record](reference/joint-limits.md)).
 
@@ -78,9 +78,10 @@ preserves the comparison controller. See [settings and validation](reference/are
 
 
 `DuelRecipe.recoverySeconds` optionally permits a continuous interval down. Its per-side clocks
-are saved only when enabled. Damage elimination remains immediate, opponents continue sensing
-and attacking a fallen side during its allowance, and standing clears its clock. The default
-still ends the bout on a fall. Controller, hand, equipment and recovery choices are explicit
+are saved only when enabled; null allows unlimited time down until injury or the bout cap. Damage elimination remains immediate, opponents continue sensing
+and attacking a fallen side during its allowance, and standing clears its clock. The Arena page defaults to continuing after falls, and its Classic
+selection uses staged recovery. An omitted recipe field retains the historical fall rule for
+explicit reference experiments. Controller, hand, equipment and recovery choices are explicit
 recipe/link inputs. Changing those choices suppresses a linked orders tape from another recipe.
 See [the integration record](reference/arena-point-control.md) for checks and limits.
 
