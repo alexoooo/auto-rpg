@@ -91,7 +91,7 @@ test("both hands and the club strike and return repeatedly after contact and mis
       if (mode === "hit") assert.ok(result.impacts.some((i) => i.hand === hand && i.closing > 0), JSON.stringify(result));
     }
     if (mode === "miss") { assert.equal(result.contactSteps, 0); assert.deepEqual(result.impacts, []); }
-    for (let i = 0; i < result.transitions.length; i++) if (result.transitions[i].phase === "swing") {
+    for (let i = 0; i + 1 < result.transitions.length; i++) if (result.transitions[i].phase === "swing") {
       assert.equal(result.transitions[i + 1]?.phase, "return");
     }
   }

@@ -41,14 +41,15 @@ test("a point fighter approaches, attacks with either hand, and wounds through a
     while (!duel.verdict) {
       world.step();
       phases.add(fighter.minded.skills.report.strike.phase);
+      phases.add(fighter.minded.skills.report.engagement?.phase);
       for (const hand of ["left", "right"]) {
         const goal = fighter.minded.state.command.hands[hand];
         if (goal?.initialVelocity?.some(v => v !== 0)) paths.add(hand);
       }
     }
     assert.deepEqual(paths, new Set(["left", "right"]), "both hands execute measured-velocity point trajectories");
-    for (const phase of ["approach", "place", "settle", "swing"]) assert.ok(phases.has(phase), phase);
-    for (const hand of ["left", "right"]) assert.ok(fighter.minded.skills.report.strike.thrown[hand] > 0, hand);
+    for (const phase of ["approach", "settle", "swing", "return"]) assert.ok(phases.has(phase), phase);
+    for (const hand of ["left", "right"]) assert.ok(fighter.minded.skills.report.strike.pointCycle.returned[hand] > 0, hand);
     assert.ok(duel.blows.some(b => b.sides[0].segment.startsWith("hand.") && b.sides[1].damage > 0));
     assert.ok(duel.duelists.right.pool.bar() < 1);
   } finally { stand.dispose(); }
@@ -69,7 +70,7 @@ test("a club point trajectory survives a fork in mid-swing with the whole bout s
     for (let i = 0; i < 900; i++) { world.step(); twin.world.step(); trace.take(); other.take(); }
     assert.deepEqual(saveState(duel.state), saveState(twin.duel.state));
     assert.equal(trace.digest(), other.digest(), "every segment pose agrees at every step");
-    assert.ok(duel.duelists.left.minded.skills.report.strike.thrown.right > 0);
+    assert.ok(duel.duelists.left.minded.skills.report.strike.pointCycle.returned.right > 0);
     assert.ok(duel.blows.some(b => b.sides[0].item === "wooden club" && b.sides[1].damage > 0));
   } finally { stand.dispose(); twin.dispose(); }
 });
@@ -118,7 +119,7 @@ test("point control obeys repeated orders to strike a static arena obstacle", as
       world.step();
       contact ||= world.physics.contactsOf(fighter.built.segments.get("hand.right").body).some(c => c.fixed === obstacle.id && c.impulse > 0);
     }
-    assert.ok(fighter.minded.skills.report.strike.thrown.right >= 2);
+    assert.ok(fighter.minded.skills.report.strike.pointCycle.returned.right >= 2);
     assert.ok(contact, "the commanded point meets the actual fixed collider");
     assert.deepEqual(duel.tape.at(-1).orders.attack, target);
   } finally { stand.dispose(); }

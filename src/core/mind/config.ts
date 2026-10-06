@@ -43,8 +43,10 @@ export type MindConfig = FighterMindConfig | PointFighterConfig | DirectMindConf
 export interface PointFighterConfig {
   readonly kind: "point-fighter";
   readonly hand: "left" | "right" | "alternate";
-  /** Reference comparison or range-aware engagement; reference until the physical promotion gates pass. */
+  /** Reference comparison or range-aware engagement; tracked engagement is the default. */
   readonly engagement?: "reference" | "tracked";
+  /** Immutable experimental placement, entry-band and target-prediction settings. */
+  readonly engagementTuning?: { readonly spacing?: number; readonly entry?: number; readonly prediction?: number };
 }
 
 /** Experimental point combat; the right hand can carry the arena club. */

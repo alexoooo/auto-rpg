@@ -1,0 +1,7735 @@
+{
+  "protocol": 1,
+  "split": "held-out",
+  "results": [
+    {
+      "harness": {
+        "kind": "Node arena Duel",
+        "engine": "rapier/adapter-8/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde",
+        "hz": 120,
+        "actuation": "symmetric",
+        "balance": {
+          "left": 0,
+          "right": 0
+        }
+      },
+      "config": {
+        "held": "empty",
+        "hand": "left",
+        "motion": "stationary",
+        "gap": 1.6,
+        "mirror": true,
+        "engagement": "reference",
+        "cadence": {
+          "walk": 1.5,
+          "rest": 2.5
+        }
+      },
+      "attempts": 6,
+      "impacts": 1,
+      "usefulReturns": 1,
+      "returns": 2,
+      "timeouts": 9,
+      "falls": 0,
+      "opponentFalls": 0,
+      "outsideSeconds": 4.816666666666696,
+      "firstContact": 8.533333333333333,
+      "simulatedSeconds": 40,
+      "transitions": [
+        {
+          "time": 0.008333333333333333,
+          "phase": "approach",
+          "hand": "left"
+        },
+        {
+          "time": 4.95,
+          "phase": "place",
+          "hand": "left"
+        },
+        {
+          "time": 6.433333333333334,
+          "phase": "settle",
+          "hand": "left"
+        },
+        {
+          "time": 7.933333333333334,
+          "phase": "chamber",
+          "hand": "left"
+        },
+        {
+          "time": 8.375,
+          "phase": "swing",
+          "hand": "left"
+        },
+        {
+          "time": 8.775,
+          "phase": "return",
+          "hand": "left"
+        },
+        {
+          "time": 9.225,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 9.233333333333333,
+          "phase": "place",
+          "hand": "left"
+        },
+        {
+          "time": 10.95,
+          "phase": "settle",
+          "hand": "left"
+        },
+        {
+          "time": 12.45,
+          "phase": "chamber",
+          "hand": "left"
+        },
+        {
+          "time": 14.458333333333334,
+          "phase": "return",
+          "hand": "left"
+        },
+        {
+          "time": 15.95,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 15.958333333333334,
+          "phase": "place",
+          "hand": "left"
+        },
+        {
+          "time": 17.55,
+          "phase": "settle",
+          "hand": "left"
+        },
+        {
+          "time": 19.05,
+          "phase": "chamber",
+          "hand": "left"
+        },
+        {
+          "time": 21.058333333333334,
+          "phase": "return",
+          "hand": "left"
+        },
+        {
+          "time": 23.058333333333334,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 23.066666666666666,
+          "phase": "settle",
+          "hand": "left"
+        },
+        {
+          "time": 24.566666666666666,
+          "phase": "chamber",
+          "hand": "left"
+        },
+        {
+          "time": 26.575,
+          "phase": "return",
+          "hand": "left"
+        },
+        {
+          "time": 28.575,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 28.583333333333332,
+          "phase": "settle",
+          "hand": "left"
+        },
+        {
+          "time": 30.083333333333332,
+          "phase": "chamber",
+          "hand": "left"
+        },
+        {
+          "time": 32.09166666666667,
+          "phase": "return",
+          "hand": "left"
+        },
+        {
+          "time": 34.09166666666667,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 34.1,
+          "phase": "settle",
+          "hand": "left"
+        },
+        {
+          "time": 35.6,
+          "phase": "chamber",
+          "hand": "left"
+        },
+        {
+          "time": 37.608333333333334,
+          "phase": "return",
+          "hand": "left"
+        },
+        {
+          "time": 39.608333333333334,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 39.61666666666667,
+          "phase": "settle",
+          "hand": "left"
+        }
+      ],
+      "verdict": null,
+      "outcomes": {
+        "returned": {
+          "left": 2,
+          "right": 0
+        },
+        "failed": 9,
+        "interrupted": 0
+      }
+    },
+    {
+      "harness": {
+        "kind": "Node arena Duel",
+        "engine": "rapier/adapter-8/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde",
+        "hz": 120,
+        "actuation": "symmetric",
+        "balance": {
+          "left": 0,
+          "right": 0
+        }
+      },
+      "config": {
+        "held": "empty",
+        "hand": "left",
+        "motion": "stationary",
+        "gap": 2.8,
+        "mirror": true,
+        "engagement": "reference",
+        "cadence": {
+          "walk": 1.5,
+          "rest": 2.5
+        }
+      },
+      "attempts": 9,
+      "impacts": 9,
+      "usefulReturns": 7,
+      "returns": 7,
+      "timeouts": 1,
+      "falls": 0,
+      "opponentFalls": 0,
+      "outsideSeconds": 6.6083333333334515,
+      "firstContact": 10.066666666666666,
+      "simulatedSeconds": 40,
+      "transitions": [
+        {
+          "time": 3.0166666666666666,
+          "phase": "approach",
+          "hand": "left"
+        },
+        {
+          "time": 6.758333333333334,
+          "phase": "place",
+          "hand": "left"
+        },
+        {
+          "time": 7.958333333333333,
+          "phase": "settle",
+          "hand": "left"
+        },
+        {
+          "time": 9.458333333333334,
+          "phase": "chamber",
+          "hand": "left"
+        },
+        {
+          "time": 9.908333333333333,
+          "phase": "swing",
+          "hand": "left"
+        },
+        {
+          "time": 10.308333333333334,
+          "phase": "return",
+          "hand": "left"
+        },
+        {
+          "time": 10.966666666666667,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 10.975,
+          "phase": "place",
+          "hand": "left"
+        },
+        {
+          "time": 12.683333333333334,
+          "phase": "settle",
+          "hand": "left"
+        },
+        {
+          "time": 14.183333333333334,
+          "phase": "chamber",
+          "hand": "left"
+        },
+        {
+          "time": 14.616666666666667,
+          "phase": "swing",
+          "hand": "left"
+        },
+        {
+          "time": 15.016666666666667,
+          "phase": "return",
+          "hand": "left"
+        },
+        {
+          "time": 15.558333333333334,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 15.566666666666666,
+          "phase": "place",
+          "hand": "left"
+        },
+        {
+          "time": 16.366666666666667,
+          "phase": "settle",
+          "hand": "left"
+        },
+        {
+          "time": 17.866666666666667,
+          "phase": "chamber",
+          "hand": "left"
+        },
+        {
+          "time": 18.308333333333334,
+          "phase": "swing",
+          "hand": "left"
+        },
+        {
+          "time": 18.708333333333332,
+          "phase": "return",
+          "hand": "left"
+        },
+        {
+          "time": 19.191666666666666,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 19.2,
+          "phase": "settle",
+          "hand": "left"
+        },
+        {
+          "time": 20.7,
+          "phase": "chamber",
+          "hand": "left"
+        },
+        {
+          "time": 21.133333333333333,
+          "phase": "swing",
+          "hand": "left"
+        },
+        {
+          "time": 21.533333333333335,
+          "phase": "return",
+          "hand": "left"
+        },
+        {
+          "time": 22.933333333333334,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 22.941666666666666,
+          "phase": "settle",
+          "hand": "left"
+        },
+        {
+          "time": 24.441666666666666,
+          "phase": "chamber",
+          "hand": "left"
+        },
+        {
+          "time": 24.875,
+          "phase": "swing",
+          "hand": "left"
+        },
+        {
+          "time": 25.275,
+          "phase": "return",
+          "hand": "left"
+        },
+        {
+          "time": 26.341666666666665,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 26.35,
+          "phase": "settle",
+          "hand": "left"
+        },
+        {
+          "time": 27.85,
+          "phase": "chamber",
+          "hand": "left"
+        },
+        {
+          "time": 28.283333333333335,
+          "phase": "swing",
+          "hand": "left"
+        },
+        {
+          "time": 28.683333333333334,
+          "phase": "return",
+          "hand": "left"
+        },
+        {
+          "time": 29.916666666666668,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 29.925,
+          "phase": "settle",
+          "hand": "left"
+        },
+        {
+          "time": 31.425,
+          "phase": "chamber",
+          "hand": "left"
+        },
+        {
+          "time": 31.858333333333334,
+          "phase": "swing",
+          "hand": "left"
+        },
+        {
+          "time": 32.25833333333333,
+          "phase": "return",
+          "hand": "left"
+        },
+        {
+          "time": 34.25833333333333,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 34.266666666666666,
+          "phase": "settle",
+          "hand": "left"
+        },
+        {
+          "time": 35.766666666666666,
+          "phase": "chamber",
+          "hand": "left"
+        },
+        {
+          "time": 36.2,
+          "phase": "swing",
+          "hand": "left"
+        },
+        {
+          "time": 36.6,
+          "phase": "return",
+          "hand": "left"
+        },
+        {
+          "time": 37.06666666666667,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 37.075,
+          "phase": "settle",
+          "hand": "left"
+        },
+        {
+          "time": 38.575,
+          "phase": "chamber",
+          "hand": "left"
+        },
+        {
+          "time": 39.00833333333333,
+          "phase": "swing",
+          "hand": "left"
+        },
+        {
+          "time": 39.40833333333333,
+          "phase": "return",
+          "hand": "left"
+        }
+      ],
+      "verdict": null,
+      "outcomes": {
+        "returned": {
+          "left": 7,
+          "right": 0
+        },
+        "failed": 1,
+        "interrupted": 0
+      }
+    },
+    {
+      "harness": {
+        "kind": "Node arena Duel",
+        "engine": "rapier/adapter-8/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde",
+        "hz": 120,
+        "actuation": "symmetric",
+        "balance": {
+          "left": 0,
+          "right": 0
+        }
+      },
+      "config": {
+        "held": "empty",
+        "hand": "right",
+        "motion": "stationary",
+        "gap": 1.6,
+        "mirror": true,
+        "engagement": "reference",
+        "cadence": {
+          "walk": 1.5,
+          "rest": 2.5
+        }
+      },
+      "attempts": 8,
+      "impacts": 7,
+      "usefulReturns": 6,
+      "returns": 7,
+      "timeouts": 2,
+      "falls": 0,
+      "opponentFalls": 0,
+      "outsideSeconds": 4.816666666666696,
+      "firstContact": 8.516666666666667,
+      "simulatedSeconds": 40,
+      "transitions": [
+        {
+          "time": 0.008333333333333333,
+          "phase": "approach",
+          "hand": "right"
+        },
+        {
+          "time": 4.95,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 6.433333333333334,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 7.933333333333334,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 8.375,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 8.775,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 9.533333333333333,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 9.541666666666666,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 11.158333333333333,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 12.658333333333333,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 13.091666666666667,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 13.491666666666667,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 14.191666666666666,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 14.2,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 14.991666666666667,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 16.491666666666667,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 16.925,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 17.325,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 18.208333333333332,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 18.216666666666665,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 19.008333333333333,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 20.508333333333333,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 20.941666666666666,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 21.341666666666665,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 21.766666666666666,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 21.775,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 22.566666666666666,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 24.066666666666666,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 24.5,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 24.9,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 25.516666666666666,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 25.525,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 26.316666666666666,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 27.816666666666666,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 28.25,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 28.65,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 29.183333333333334,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 29.191666666666666,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 29.983333333333334,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 31.483333333333334,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 31.916666666666668,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 32.31666666666667,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 34.31666666666667,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 34.325,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 35.13333333333333,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 36.63333333333333,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 38.641666666666666,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 39.25,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 39.25833333333333,
+          "phase": "place",
+          "hand": "right"
+        }
+      ],
+      "verdict": null,
+      "outcomes": {
+        "returned": {
+          "left": 0,
+          "right": 7
+        },
+        "failed": 2,
+        "interrupted": 0
+      }
+    },
+    {
+      "harness": {
+        "kind": "Node arena Duel",
+        "engine": "rapier/adapter-8/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde",
+        "hz": 120,
+        "actuation": "symmetric",
+        "balance": {
+          "left": 0,
+          "right": 0
+        }
+      },
+      "config": {
+        "held": "empty",
+        "hand": "right",
+        "motion": "stationary",
+        "gap": 2.8,
+        "mirror": true,
+        "engagement": "reference",
+        "cadence": {
+          "walk": 1.5,
+          "rest": 2.5
+        }
+      },
+      "attempts": 8,
+      "impacts": 8,
+      "usefulReturns": 8,
+      "returns": 8,
+      "timeouts": 0,
+      "falls": 0,
+      "opponentFalls": 0,
+      "outsideSeconds": 6.6083333333334515,
+      "firstContact": 10.066666666666666,
+      "simulatedSeconds": 40,
+      "transitions": [
+        {
+          "time": 3.0166666666666666,
+          "phase": "approach",
+          "hand": "right"
+        },
+        {
+          "time": 6.758333333333334,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 7.958333333333333,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 9.458333333333334,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 9.908333333333333,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 10.308333333333334,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 10.808333333333334,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 10.816666666666666,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 12.533333333333333,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 14.033333333333333,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 14.475,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 14.875,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 15.325,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 15.333333333333334,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 17.016666666666666,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 18.516666666666666,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 18.95,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 19.35,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 19.9,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 19.908333333333335,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 21.541666666666668,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 23.041666666666668,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 23.483333333333334,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 23.883333333333333,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 24.4,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 24.408333333333335,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 25.2,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 26.7,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 27.141666666666666,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 27.541666666666668,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 28.025,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 28.033333333333335,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 28.825,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 30.325,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 30.766666666666666,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 31.166666666666668,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 31.633333333333333,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 31.641666666666666,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 32.43333333333333,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 33.93333333333333,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 34.36666666666667,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 34.766666666666666,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 35.24166666666667,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 35.25,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 36.041666666666664,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 37.541666666666664,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 37.983333333333334,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 38.38333333333333,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 38.85,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 38.858333333333334,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 39.65,
+          "phase": "settle",
+          "hand": "right"
+        }
+      ],
+      "verdict": null,
+      "outcomes": {
+        "returned": {
+          "left": 0,
+          "right": 8
+        },
+        "failed": 0,
+        "interrupted": 0
+      }
+    },
+    {
+      "harness": {
+        "kind": "Node arena Duel",
+        "engine": "rapier/adapter-8/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde",
+        "hz": 120,
+        "actuation": "symmetric",
+        "balance": {
+          "left": 0,
+          "right": 0
+        }
+      },
+      "config": {
+        "held": "empty",
+        "hand": "alternate",
+        "motion": "stationary",
+        "gap": 1.6,
+        "mirror": true,
+        "engagement": "reference",
+        "cadence": {
+          "walk": 1.5,
+          "rest": 2.5
+        }
+      },
+      "attempts": 7,
+      "impacts": 5,
+      "usefulReturns": 3,
+      "returns": 4,
+      "timeouts": 4,
+      "falls": 0,
+      "opponentFalls": 0,
+      "outsideSeconds": 4.816666666666696,
+      "firstContact": 8.516666666666667,
+      "simulatedSeconds": 40,
+      "transitions": [
+        {
+          "time": 0.008333333333333333,
+          "phase": "approach",
+          "hand": "right"
+        },
+        {
+          "time": 4.95,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 6.433333333333334,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 7.933333333333334,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 8.375,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 8.775,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 9.533333333333333,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 9.541666666666666,
+          "phase": "place",
+          "hand": "left"
+        },
+        {
+          "time": 11.158333333333333,
+          "phase": "settle",
+          "hand": "left"
+        },
+        {
+          "time": 12.658333333333333,
+          "phase": "chamber",
+          "hand": "left"
+        },
+        {
+          "time": 13.1,
+          "phase": "swing",
+          "hand": "left"
+        },
+        {
+          "time": 13.5,
+          "phase": "return",
+          "hand": "left"
+        },
+        {
+          "time": 15.5,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 15.508333333333333,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 17.108333333333334,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 18.608333333333334,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 19.058333333333334,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 19.458333333333332,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 19.883333333333333,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 19.891666666666666,
+          "phase": "place",
+          "hand": "left"
+        },
+        {
+          "time": 21.55,
+          "phase": "settle",
+          "hand": "left"
+        },
+        {
+          "time": 23.05,
+          "phase": "chamber",
+          "hand": "left"
+        },
+        {
+          "time": 25.058333333333334,
+          "phase": "return",
+          "hand": "left"
+        },
+        {
+          "time": 27.058333333333334,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 27.066666666666666,
+          "phase": "place",
+          "hand": "left"
+        },
+        {
+          "time": 27.883333333333333,
+          "phase": "settle",
+          "hand": "left"
+        },
+        {
+          "time": 29.383333333333333,
+          "phase": "chamber",
+          "hand": "left"
+        },
+        {
+          "time": 31.391666666666666,
+          "phase": "return",
+          "hand": "left"
+        },
+        {
+          "time": 31.833333333333332,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 31.841666666666665,
+          "phase": "settle",
+          "hand": "left"
+        },
+        {
+          "time": 33.34166666666667,
+          "phase": "chamber",
+          "hand": "left"
+        },
+        {
+          "time": 33.78333333333333,
+          "phase": "swing",
+          "hand": "left"
+        },
+        {
+          "time": 34.18333333333333,
+          "phase": "return",
+          "hand": "left"
+        },
+        {
+          "time": 34.78333333333333,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 34.791666666666664,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 36.358333333333334,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 37.858333333333334,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 38.30833333333333,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 38.708333333333336,
+          "phase": "return",
+          "hand": "right"
+        }
+      ],
+      "verdict": null,
+      "outcomes": {
+        "returned": {
+          "left": 2,
+          "right": 2
+        },
+        "failed": 4,
+        "interrupted": 0
+      }
+    },
+    {
+      "harness": {
+        "kind": "Node arena Duel",
+        "engine": "rapier/adapter-8/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde",
+        "hz": 120,
+        "actuation": "symmetric",
+        "balance": {
+          "left": 0,
+          "right": 0
+        }
+      },
+      "config": {
+        "held": "empty",
+        "hand": "alternate",
+        "motion": "stationary",
+        "gap": 2.8,
+        "mirror": true,
+        "engagement": "reference",
+        "cadence": {
+          "walk": 1.5,
+          "rest": 2.5
+        }
+      },
+      "attempts": 7,
+      "impacts": 7,
+      "usefulReturns": 5,
+      "returns": 5,
+      "timeouts": 1,
+      "falls": 0,
+      "opponentFalls": 0,
+      "outsideSeconds": 6.6083333333334515,
+      "firstContact": 10.066666666666666,
+      "simulatedSeconds": 40,
+      "transitions": [
+        {
+          "time": 3.0166666666666666,
+          "phase": "approach",
+          "hand": "right"
+        },
+        {
+          "time": 6.758333333333334,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 7.958333333333333,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 9.458333333333334,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 9.908333333333333,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 10.308333333333334,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 10.808333333333334,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 10.816666666666666,
+          "phase": "place",
+          "hand": "left"
+        },
+        {
+          "time": 12.533333333333333,
+          "phase": "settle",
+          "hand": "left"
+        },
+        {
+          "time": 14.033333333333333,
+          "phase": "chamber",
+          "hand": "left"
+        },
+        {
+          "time": 14.483333333333333,
+          "phase": "swing",
+          "hand": "left"
+        },
+        {
+          "time": 14.883333333333333,
+          "phase": "return",
+          "hand": "left"
+        },
+        {
+          "time": 15.458333333333334,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 15.466666666666667,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 17.008333333333333,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 18.508333333333333,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 18.958333333333332,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 19.358333333333334,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 20.4,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 20.408333333333335,
+          "phase": "place",
+          "hand": "left"
+        },
+        {
+          "time": 22.05,
+          "phase": "settle",
+          "hand": "left"
+        },
+        {
+          "time": 23.55,
+          "phase": "chamber",
+          "hand": "left"
+        },
+        {
+          "time": 24.008333333333333,
+          "phase": "swing",
+          "hand": "left"
+        },
+        {
+          "time": 24.408333333333335,
+          "phase": "return",
+          "hand": "left"
+        },
+        {
+          "time": 24.875,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 24.883333333333333,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 26.55,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 28.05,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 28.5,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 28.9,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 30.9,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 30.908333333333335,
+          "phase": "place",
+          "hand": "left"
+        },
+        {
+          "time": 32.55833333333333,
+          "phase": "settle",
+          "hand": "left"
+        },
+        {
+          "time": 34.05833333333333,
+          "phase": "chamber",
+          "hand": "left"
+        },
+        {
+          "time": 34.50833333333333,
+          "phase": "swing",
+          "hand": "left"
+        },
+        {
+          "time": 34.90833333333333,
+          "phase": "return",
+          "hand": "left"
+        },
+        {
+          "time": 35.38333333333333,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 35.391666666666666,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 37.06666666666667,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 38.56666666666667,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 39.016666666666666,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 39.416666666666664,
+          "phase": "return",
+          "hand": "right"
+        }
+      ],
+      "verdict": null,
+      "outcomes": {
+        "returned": {
+          "left": 3,
+          "right": 2
+        },
+        "failed": 1,
+        "interrupted": 0
+      }
+    },
+    {
+      "harness": {
+        "kind": "Node arena Duel",
+        "engine": "rapier/adapter-8/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde",
+        "hz": 120,
+        "actuation": "symmetric",
+        "balance": {
+          "left": 0,
+          "right": 0
+        }
+      },
+      "config": {
+        "held": "club",
+        "hand": "right",
+        "motion": "stationary",
+        "gap": 1.6,
+        "mirror": true,
+        "engagement": "reference",
+        "cadence": {
+          "walk": 1.5,
+          "rest": 2.5
+        }
+      },
+      "attempts": 5,
+      "impacts": 5,
+      "usefulReturns": 4,
+      "returns": 4,
+      "timeouts": 0,
+      "falls": 0,
+      "opponentFalls": 0,
+      "outsideSeconds": 3.249999999999991,
+      "firstContact": 6.408333333333333,
+      "simulatedSeconds": 18.5,
+      "transitions": [
+        {
+          "time": 0.008333333333333333,
+          "phase": "approach",
+          "hand": "right"
+        },
+        {
+          "time": 3.35,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 4.55,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 6.05,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 6.158333333333333,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 6.558333333333334,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 7.266666666666667,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 7.275,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 8.825,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 10.325,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 10.433333333333334,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 10.833333333333334,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 11.4,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 11.408333333333333,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 12.908333333333333,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 13.016666666666667,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 13.416666666666666,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 14.025,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 14.033333333333333,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 15.533333333333333,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 15.641666666666667,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 16.041666666666668,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 16.633333333333333,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 16.641666666666666,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 18.141666666666666,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 18.25,
+          "phase": "swing",
+          "hand": "right"
+        }
+      ],
+      "verdict": {
+        "winner": "right",
+        "ending": "fatal",
+        "time": 18.5
+      },
+      "outcomes": {
+        "returned": {
+          "left": 0,
+          "right": 4
+        },
+        "failed": 0,
+        "interrupted": 0
+      }
+    },
+    {
+      "harness": {
+        "kind": "Node arena Duel",
+        "engine": "rapier/adapter-8/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde",
+        "hz": 120,
+        "actuation": "symmetric",
+        "balance": {
+          "left": 0,
+          "right": 0
+        }
+      },
+      "config": {
+        "held": "club",
+        "hand": "right",
+        "motion": "stationary",
+        "gap": 2.8,
+        "mirror": true,
+        "engagement": "reference",
+        "cadence": {
+          "walk": 1.5,
+          "rest": 2.5
+        }
+      },
+      "attempts": 5,
+      "impacts": 5,
+      "usefulReturns": 4,
+      "returns": 4,
+      "timeouts": 0,
+      "falls": 0,
+      "opponentFalls": 0,
+      "outsideSeconds": 5.050000000000041,
+      "firstContact": 8.341666666666667,
+      "simulatedSeconds": 20.375,
+      "transitions": [
+        {
+          "time": 3.075,
+          "phase": "approach",
+          "hand": "right"
+        },
+        {
+          "time": 5.183333333333334,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 6.483333333333333,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 7.983333333333333,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 8.091666666666667,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 8.491666666666667,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 9.216666666666667,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 9.225,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 10.8,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 12.3,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 12.408333333333333,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 12.808333333333334,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 13.466666666666667,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 13.475,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 14.975,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 15.083333333333334,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 15.483333333333333,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 15.966666666666667,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 15.975,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 17.475,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 17.583333333333332,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 17.983333333333334,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 18.508333333333333,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 18.516666666666666,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 20.016666666666666,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 20.125,
+          "phase": "swing",
+          "hand": "right"
+        }
+      ],
+      "verdict": {
+        "winner": "right",
+        "ending": "fatal",
+        "time": 20.375
+      },
+      "outcomes": {
+        "returned": {
+          "left": 0,
+          "right": 4
+        },
+        "failed": 0,
+        "interrupted": 0
+      }
+    },
+    {
+      "harness": {
+        "kind": "Node arena Duel",
+        "engine": "rapier/adapter-8/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde",
+        "hz": 120,
+        "actuation": "symmetric",
+        "balance": {
+          "left": 0,
+          "right": 0
+        }
+      },
+      "config": {
+        "held": "empty",
+        "hand": "left",
+        "motion": "lateral",
+        "gap": 1.6,
+        "mirror": true,
+        "engagement": "reference",
+        "cadence": {
+          "walk": 1.5,
+          "rest": 2.5
+        }
+      },
+      "attempts": 6,
+      "impacts": 6,
+      "usefulReturns": 6,
+      "returns": 6,
+      "timeouts": 0,
+      "falls": 0,
+      "opponentFalls": 0,
+      "outsideSeconds": 8.82500000000014,
+      "firstContact": 8.941666666666666,
+      "simulatedSeconds": 40,
+      "transitions": [
+        {
+          "time": 0.008333333333333333,
+          "phase": "approach",
+          "hand": "left"
+        },
+        {
+          "time": 0.575,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 0.7166666666666667,
+          "phase": "approach",
+          "hand": "left"
+        },
+        {
+          "time": 5.366666666666666,
+          "phase": "place",
+          "hand": "left"
+        },
+        {
+          "time": 6.8,
+          "phase": "settle",
+          "hand": "left"
+        },
+        {
+          "time": 8.3,
+          "phase": "chamber",
+          "hand": "left"
+        },
+        {
+          "time": 8.75,
+          "phase": "swing",
+          "hand": "left"
+        },
+        {
+          "time": 9.15,
+          "phase": "return",
+          "hand": "left"
+        },
+        {
+          "time": 9.633333333333333,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 9.641666666666667,
+          "phase": "place",
+          "hand": "left"
+        },
+        {
+          "time": 11.033333333333333,
+          "phase": "settle",
+          "hand": "left"
+        },
+        {
+          "time": 12.533333333333333,
+          "phase": "chamber",
+          "hand": "left"
+        },
+        {
+          "time": 12.983333333333333,
+          "phase": "swing",
+          "hand": "left"
+        },
+        {
+          "time": 13.383333333333333,
+          "phase": "return",
+          "hand": "left"
+        },
+        {
+          "time": 13.808333333333334,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 13.816666666666666,
+          "phase": "approach",
+          "hand": "left"
+        },
+        {
+          "time": 13.958333333333334,
+          "phase": "place",
+          "hand": "left"
+        },
+        {
+          "time": 16.225,
+          "phase": "settle",
+          "hand": "left"
+        },
+        {
+          "time": 17.725,
+          "phase": "chamber",
+          "hand": "left"
+        },
+        {
+          "time": 17.833333333333332,
+          "phase": "swing",
+          "hand": "left"
+        },
+        {
+          "time": 18.233333333333334,
+          "phase": "return",
+          "hand": "left"
+        },
+        {
+          "time": 18.7,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 18.708333333333332,
+          "phase": "approach",
+          "hand": "left"
+        },
+        {
+          "time": 19.675,
+          "phase": "place",
+          "hand": "left"
+        },
+        {
+          "time": 22.1,
+          "phase": "settle",
+          "hand": "left"
+        },
+        {
+          "time": 23.6,
+          "phase": "chamber",
+          "hand": "left"
+        },
+        {
+          "time": 23.708333333333332,
+          "phase": "swing",
+          "hand": "left"
+        },
+        {
+          "time": 24.108333333333334,
+          "phase": "return",
+          "hand": "left"
+        },
+        {
+          "time": 24.6,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 24.608333333333334,
+          "phase": "approach",
+          "hand": "left"
+        },
+        {
+          "time": 25.691666666666666,
+          "phase": "place",
+          "hand": "left"
+        },
+        {
+          "time": 26.9,
+          "phase": "settle",
+          "hand": "left"
+        },
+        {
+          "time": 28.4,
+          "phase": "place",
+          "hand": "left"
+        },
+        {
+          "time": 30.383333333333333,
+          "phase": "settle",
+          "hand": "left"
+        },
+        {
+          "time": 31.883333333333333,
+          "phase": "chamber",
+          "hand": "left"
+        },
+        {
+          "time": 32.333333333333336,
+          "phase": "swing",
+          "hand": "left"
+        },
+        {
+          "time": 32.733333333333334,
+          "phase": "return",
+          "hand": "left"
+        },
+        {
+          "time": 33.208333333333336,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 33.21666666666667,
+          "phase": "approach",
+          "hand": "left"
+        },
+        {
+          "time": 34.56666666666667,
+          "phase": "place",
+          "hand": "left"
+        },
+        {
+          "time": 35.96666666666667,
+          "phase": "settle",
+          "hand": "left"
+        },
+        {
+          "time": 37.46666666666667,
+          "phase": "chamber",
+          "hand": "left"
+        },
+        {
+          "time": 37.9,
+          "phase": "swing",
+          "hand": "left"
+        },
+        {
+          "time": 38.3,
+          "phase": "return",
+          "hand": "left"
+        },
+        {
+          "time": 39.041666666666664,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 39.05,
+          "phase": "place",
+          "hand": "left"
+        }
+      ],
+      "verdict": null,
+      "outcomes": {
+        "returned": {
+          "left": 6,
+          "right": 0
+        },
+        "failed": 0,
+        "interrupted": 0
+      }
+    },
+    {
+      "harness": {
+        "kind": "Node arena Duel",
+        "engine": "rapier/adapter-8/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde",
+        "hz": 120,
+        "actuation": "symmetric",
+        "balance": {
+          "left": 0,
+          "right": 0
+        }
+      },
+      "config": {
+        "held": "empty",
+        "hand": "left",
+        "motion": "lateral",
+        "gap": 2.8,
+        "mirror": true,
+        "engagement": "reference",
+        "cadence": {
+          "walk": 1.5,
+          "rest": 2.5
+        }
+      },
+      "attempts": 6,
+      "impacts": 6,
+      "usefulReturns": 6,
+      "returns": 6,
+      "timeouts": 0,
+      "falls": 0,
+      "opponentFalls": 0,
+      "outsideSeconds": 7.550000000000165,
+      "firstContact": 10.125,
+      "simulatedSeconds": 40,
+      "transitions": [
+        {
+          "time": 3.183333333333333,
+          "phase": "approach",
+          "hand": "left"
+        },
+        {
+          "time": 6.966666666666667,
+          "phase": "place",
+          "hand": "left"
+        },
+        {
+          "time": 8.35,
+          "phase": "settle",
+          "hand": "left"
+        },
+        {
+          "time": 9.85,
+          "phase": "chamber",
+          "hand": "left"
+        },
+        {
+          "time": 9.958333333333334,
+          "phase": "swing",
+          "hand": "left"
+        },
+        {
+          "time": 10.358333333333333,
+          "phase": "return",
+          "hand": "left"
+        },
+        {
+          "time": 10.833333333333334,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 10.841666666666667,
+          "phase": "approach",
+          "hand": "left"
+        },
+        {
+          "time": 10.85,
+          "phase": "place",
+          "hand": "left"
+        },
+        {
+          "time": 14,
+          "phase": "settle",
+          "hand": "left"
+        },
+        {
+          "time": 15.5,
+          "phase": "chamber",
+          "hand": "left"
+        },
+        {
+          "time": 15.958333333333334,
+          "phase": "swing",
+          "hand": "left"
+        },
+        {
+          "time": 16.358333333333334,
+          "phase": "return",
+          "hand": "left"
+        },
+        {
+          "time": 16.95,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 16.958333333333332,
+          "phase": "approach",
+          "hand": "left"
+        },
+        {
+          "time": 17.033333333333335,
+          "phase": "place",
+          "hand": "left"
+        },
+        {
+          "time": 20.966666666666665,
+          "phase": "settle",
+          "hand": "left"
+        },
+        {
+          "time": 22.466666666666665,
+          "phase": "chamber",
+          "hand": "left"
+        },
+        {
+          "time": 22.908333333333335,
+          "phase": "swing",
+          "hand": "left"
+        },
+        {
+          "time": 23.308333333333334,
+          "phase": "return",
+          "hand": "left"
+        },
+        {
+          "time": 23.783333333333335,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 23.791666666666668,
+          "phase": "place",
+          "hand": "left"
+        },
+        {
+          "time": 25.183333333333334,
+          "phase": "settle",
+          "hand": "left"
+        },
+        {
+          "time": 26.683333333333334,
+          "phase": "chamber",
+          "hand": "left"
+        },
+        {
+          "time": 27.133333333333333,
+          "phase": "swing",
+          "hand": "left"
+        },
+        {
+          "time": 27.533333333333335,
+          "phase": "return",
+          "hand": "left"
+        },
+        {
+          "time": 28.091666666666665,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 28.1,
+          "phase": "place",
+          "hand": "left"
+        },
+        {
+          "time": 29.516666666666666,
+          "phase": "settle",
+          "hand": "left"
+        },
+        {
+          "time": 31.016666666666666,
+          "phase": "chamber",
+          "hand": "left"
+        },
+        {
+          "time": 31.466666666666665,
+          "phase": "swing",
+          "hand": "left"
+        },
+        {
+          "time": 31.866666666666667,
+          "phase": "return",
+          "hand": "left"
+        },
+        {
+          "time": 32.35,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 32.358333333333334,
+          "phase": "place",
+          "hand": "left"
+        },
+        {
+          "time": 33.75833333333333,
+          "phase": "settle",
+          "hand": "left"
+        },
+        {
+          "time": 35.25833333333333,
+          "phase": "chamber",
+          "hand": "left"
+        },
+        {
+          "time": 35.708333333333336,
+          "phase": "swing",
+          "hand": "left"
+        },
+        {
+          "time": 36.108333333333334,
+          "phase": "return",
+          "hand": "left"
+        },
+        {
+          "time": 36.583333333333336,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 36.59166666666667,
+          "phase": "approach",
+          "hand": "left"
+        },
+        {
+          "time": 36.61666666666667,
+          "phase": "place",
+          "hand": "left"
+        },
+        {
+          "time": 38.96666666666667,
+          "phase": "settle",
+          "hand": "left"
+        }
+      ],
+      "verdict": null,
+      "outcomes": {
+        "returned": {
+          "left": 6,
+          "right": 0
+        },
+        "failed": 0,
+        "interrupted": 0
+      }
+    },
+    {
+      "harness": {
+        "kind": "Node arena Duel",
+        "engine": "rapier/adapter-8/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde",
+        "hz": 120,
+        "actuation": "symmetric",
+        "balance": {
+          "left": 0,
+          "right": 0
+        }
+      },
+      "config": {
+        "held": "empty",
+        "hand": "right",
+        "motion": "lateral",
+        "gap": 1.6,
+        "mirror": true,
+        "engagement": "reference",
+        "cadence": {
+          "walk": 1.5,
+          "rest": 2.5
+        }
+      },
+      "attempts": 6,
+      "impacts": 6,
+      "usefulReturns": 6,
+      "returns": 6,
+      "timeouts": 0,
+      "falls": 0,
+      "opponentFalls": 0,
+      "outsideSeconds": 7.925000000000184,
+      "firstContact": 8.908333333333333,
+      "simulatedSeconds": 40,
+      "transitions": [
+        {
+          "time": 0.008333333333333333,
+          "phase": "approach",
+          "hand": "right"
+        },
+        {
+          "time": 0.575,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 0.7166666666666667,
+          "phase": "approach",
+          "hand": "right"
+        },
+        {
+          "time": 5.366666666666666,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 6.8,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 8.3,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 8.75,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 9.15,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 9.625,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 9.633333333333333,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 11.225,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 12.725,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 12.833333333333334,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 13.233333333333333,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 13.725,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 13.733333333333333,
+          "phase": "approach",
+          "hand": "right"
+        },
+        {
+          "time": 13.766666666666667,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 16.183333333333334,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 17.683333333333334,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 17.791666666666668,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 18.191666666666666,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 18.666666666666668,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 18.675,
+          "phase": "approach",
+          "hand": "right"
+        },
+        {
+          "time": 19.866666666666667,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 21.35,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 22.85,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 23.3,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 23.7,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 24.191666666666666,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 24.2,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 25.841666666666665,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 27.341666666666665,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 27.791666666666668,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 28.191666666666666,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 28.658333333333335,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 28.666666666666668,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 30.416666666666668,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 31.916666666666668,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 32.275,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 32.675,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 33.15833333333333,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 33.166666666666664,
+          "phase": "approach",
+          "hand": "right"
+        },
+        {
+          "time": 34.525,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 35.975,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 37.475,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 38.78333333333333,
+          "phase": "settle",
+          "hand": "right"
+        }
+      ],
+      "verdict": null,
+      "outcomes": {
+        "returned": {
+          "left": 0,
+          "right": 6
+        },
+        "failed": 0,
+        "interrupted": 0
+      }
+    },
+    {
+      "harness": {
+        "kind": "Node arena Duel",
+        "engine": "rapier/adapter-8/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde",
+        "hz": 120,
+        "actuation": "symmetric",
+        "balance": {
+          "left": 0,
+          "right": 0
+        }
+      },
+      "config": {
+        "held": "empty",
+        "hand": "right",
+        "motion": "lateral",
+        "gap": 2.8,
+        "mirror": true,
+        "engagement": "reference",
+        "cadence": {
+          "walk": 1.5,
+          "rest": 2.5
+        }
+      },
+      "attempts": 7,
+      "impacts": 7,
+      "usefulReturns": 7,
+      "returns": 7,
+      "timeouts": 0,
+      "falls": 0,
+      "opponentFalls": 0,
+      "outsideSeconds": 7.041666666666806,
+      "firstContact": 10.483333333333333,
+      "simulatedSeconds": 40,
+      "transitions": [
+        {
+          "time": 3.183333333333333,
+          "phase": "approach",
+          "hand": "right"
+        },
+        {
+          "time": 6.966666666666667,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 8.35,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 9.85,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 10.3,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 10.7,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 11.175,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 11.183333333333334,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 12.816666666666666,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 14.316666666666666,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 14.766666666666667,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 15.166666666666666,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 15.641666666666667,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 15.65,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 17.416666666666668,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 18.916666666666668,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 20.85,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 21.25,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 21.808333333333334,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 21.816666666666666,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 23.45,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 24.95,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 25.391666666666666,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 25.791666666666668,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 26.591666666666665,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 26.6,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 28.275,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 29.775,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 30.225,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 30.625,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 31.1,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 31.108333333333334,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 32.666666666666664,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 34.166666666666664,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 34.61666666666667,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 35.016666666666666,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 35.483333333333334,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 35.49166666666667,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 37.041666666666664,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 38.541666666666664,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 38.96666666666667,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 39.36666666666667,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 39.85,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 39.858333333333334,
+          "phase": "place",
+          "hand": "right"
+        }
+      ],
+      "verdict": null,
+      "outcomes": {
+        "returned": {
+          "left": 0,
+          "right": 7
+        },
+        "failed": 0,
+        "interrupted": 0
+      }
+    },
+    {
+      "harness": {
+        "kind": "Node arena Duel",
+        "engine": "rapier/adapter-8/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde",
+        "hz": 120,
+        "actuation": "symmetric",
+        "balance": {
+          "left": 0,
+          "right": 0
+        }
+      },
+      "config": {
+        "held": "empty",
+        "hand": "alternate",
+        "motion": "lateral",
+        "gap": 1.6,
+        "mirror": true,
+        "engagement": "reference",
+        "cadence": {
+          "walk": 1.5,
+          "rest": 2.5
+        }
+      },
+      "attempts": 6,
+      "impacts": 3,
+      "usefulReturns": 2,
+      "returns": 2,
+      "timeouts": 5,
+      "falls": 0,
+      "opponentFalls": 0,
+      "outsideSeconds": 5.316666666666721,
+      "firstContact": 8.908333333333333,
+      "simulatedSeconds": 40,
+      "transitions": [
+        {
+          "time": 0.008333333333333333,
+          "phase": "approach",
+          "hand": "right"
+        },
+        {
+          "time": 0.575,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 0.7166666666666667,
+          "phase": "approach",
+          "hand": "right"
+        },
+        {
+          "time": 5.366666666666666,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 6.8,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 8.3,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 8.75,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 9.15,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 9.625,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 9.633333333333333,
+          "phase": "place",
+          "hand": "left"
+        },
+        {
+          "time": 11.225,
+          "phase": "settle",
+          "hand": "left"
+        },
+        {
+          "time": 12.725,
+          "phase": "chamber",
+          "hand": "left"
+        },
+        {
+          "time": 13.183333333333334,
+          "phase": "swing",
+          "hand": "left"
+        },
+        {
+          "time": 13.583333333333334,
+          "phase": "return",
+          "hand": "left"
+        },
+        {
+          "time": 15.583333333333334,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 15.591666666666667,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 16.941666666666666,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 18.441666666666666,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 18.891666666666666,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 19.291666666666668,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 19.758333333333333,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 19.766666666666666,
+          "phase": "place",
+          "hand": "left"
+        },
+        {
+          "time": 21.258333333333333,
+          "phase": "settle",
+          "hand": "left"
+        },
+        {
+          "time": 22.758333333333333,
+          "phase": "chamber",
+          "hand": "left"
+        },
+        {
+          "time": 24.766666666666666,
+          "phase": "return",
+          "hand": "left"
+        },
+        {
+          "time": 26.766666666666666,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 26.775,
+          "phase": "approach",
+          "hand": "left"
+        },
+        {
+          "time": 26.791666666666668,
+          "phase": "place",
+          "hand": "left"
+        },
+        {
+          "time": 29.033333333333335,
+          "phase": "settle",
+          "hand": "left"
+        },
+        {
+          "time": 30.533333333333335,
+          "phase": "chamber",
+          "hand": "left"
+        },
+        {
+          "time": 32.541666666666664,
+          "phase": "return",
+          "hand": "left"
+        },
+        {
+          "time": 34.541666666666664,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 34.55,
+          "phase": "approach",
+          "hand": "left"
+        },
+        {
+          "time": 34.56666666666667,
+          "phase": "place",
+          "hand": "left"
+        },
+        {
+          "time": 36.75833333333333,
+          "phase": "settle",
+          "hand": "left"
+        },
+        {
+          "time": 38.25833333333333,
+          "phase": "chamber",
+          "hand": "left"
+        }
+      ],
+      "verdict": null,
+      "outcomes": {
+        "returned": {
+          "left": 0,
+          "right": 2
+        },
+        "failed": 5,
+        "interrupted": 0
+      }
+    },
+    {
+      "harness": {
+        "kind": "Node arena Duel",
+        "engine": "rapier/adapter-8/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde",
+        "hz": 120,
+        "actuation": "symmetric",
+        "balance": {
+          "left": 0,
+          "right": 0
+        }
+      },
+      "config": {
+        "held": "empty",
+        "hand": "alternate",
+        "motion": "lateral",
+        "gap": 2.8,
+        "mirror": true,
+        "engagement": "reference",
+        "cadence": {
+          "walk": 1.5,
+          "rest": 2.5
+        }
+      },
+      "attempts": 6,
+      "impacts": 6,
+      "usefulReturns": 5,
+      "returns": 5,
+      "timeouts": 1,
+      "falls": 0,
+      "opponentFalls": 0,
+      "outsideSeconds": 11.474999999999989,
+      "firstContact": 10.483333333333333,
+      "simulatedSeconds": 40,
+      "transitions": [
+        {
+          "time": 3.183333333333333,
+          "phase": "approach",
+          "hand": "right"
+        },
+        {
+          "time": 6.966666666666667,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 8.35,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 9.85,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 10.3,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 10.7,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 11.175,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 11.183333333333334,
+          "phase": "place",
+          "hand": "left"
+        },
+        {
+          "time": 12.816666666666666,
+          "phase": "settle",
+          "hand": "left"
+        },
+        {
+          "time": 14.316666666666666,
+          "phase": "chamber",
+          "hand": "left"
+        },
+        {
+          "time": 14.766666666666667,
+          "phase": "swing",
+          "hand": "left"
+        },
+        {
+          "time": 15.166666666666666,
+          "phase": "return",
+          "hand": "left"
+        },
+        {
+          "time": 15.65,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 15.658333333333333,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 17.066666666666666,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 18.566666666666666,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 19.016666666666666,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 19.416666666666668,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 19.883333333333333,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 19.891666666666666,
+          "phase": "approach",
+          "hand": "left"
+        },
+        {
+          "time": 19.916666666666668,
+          "phase": "place",
+          "hand": "left"
+        },
+        {
+          "time": 22.291666666666668,
+          "phase": "settle",
+          "hand": "left"
+        },
+        {
+          "time": 23.791666666666668,
+          "phase": "chamber",
+          "hand": "left"
+        },
+        {
+          "time": 24.241666666666667,
+          "phase": "swing",
+          "hand": "left"
+        },
+        {
+          "time": 24.641666666666666,
+          "phase": "return",
+          "hand": "left"
+        },
+        {
+          "time": 25.125,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 25.133333333333333,
+          "phase": "approach",
+          "hand": "right"
+        },
+        {
+          "time": 26.516666666666666,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 27.808333333333334,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 29.308333333333334,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 29.758333333333333,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 30.158333333333335,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 32.15833333333333,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 32.166666666666664,
+          "phase": "place",
+          "hand": "left"
+        },
+        {
+          "time": 34.63333333333333,
+          "phase": "settle",
+          "hand": "left"
+        },
+        {
+          "time": 36.13333333333333,
+          "phase": "chamber",
+          "hand": "left"
+        },
+        {
+          "time": 36.24166666666667,
+          "phase": "swing",
+          "hand": "left"
+        },
+        {
+          "time": 36.641666666666666,
+          "phase": "return",
+          "hand": "left"
+        },
+        {
+          "time": 37.233333333333334,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 37.24166666666667,
+          "phase": "approach",
+          "hand": "right"
+        },
+        {
+          "time": 38.43333333333333,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 39.88333333333333,
+          "phase": "settle",
+          "hand": "right"
+        }
+      ],
+      "verdict": null,
+      "outcomes": {
+        "returned": {
+          "left": 3,
+          "right": 2
+        },
+        "failed": 1,
+        "interrupted": 0
+      }
+    },
+    {
+      "harness": {
+        "kind": "Node arena Duel",
+        "engine": "rapier/adapter-8/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde",
+        "hz": 120,
+        "actuation": "symmetric",
+        "balance": {
+          "left": 0,
+          "right": 0
+        }
+      },
+      "config": {
+        "held": "club",
+        "hand": "right",
+        "motion": "lateral",
+        "gap": 1.6,
+        "mirror": true,
+        "engagement": "reference",
+        "cadence": {
+          "walk": 1.5,
+          "rest": 2.5
+        }
+      },
+      "attempts": 4,
+      "impacts": 4,
+      "usefulReturns": 3,
+      "returns": 3,
+      "timeouts": 0,
+      "falls": 0,
+      "opponentFalls": 0,
+      "outsideSeconds": 3.5833333333333233,
+      "firstContact": 6.816666666666666,
+      "simulatedSeconds": 19.516666666666666,
+      "transitions": [
+        {
+          "time": 0.008333333333333333,
+          "phase": "approach",
+          "hand": "right"
+        },
+        {
+          "time": 0.5666666666666667,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 0.6916666666666667,
+          "phase": "approach",
+          "hand": "right"
+        },
+        {
+          "time": 3.7333333333333334,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 4.958333333333333,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 6.458333333333333,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 6.566666666666666,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 6.966666666666667,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 7.783333333333333,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 7.791666666666667,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 9.433333333333334,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 10.933333333333334,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 11.041666666666666,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 11.441666666666666,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 12.108333333333333,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 12.116666666666667,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 13.533333333333333,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 15.033333333333333,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 15.141666666666667,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 15.541666666666666,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 16.233333333333334,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 16.241666666666667,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 17.658333333333335,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 19.158333333333335,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 19.266666666666666,
+          "phase": "swing",
+          "hand": "right"
+        }
+      ],
+      "verdict": {
+        "winner": "right",
+        "ending": "fatal",
+        "time": 19.516666666666666
+      },
+      "outcomes": {
+        "returned": {
+          "left": 0,
+          "right": 3
+        },
+        "failed": 0,
+        "interrupted": 0
+      }
+    },
+    {
+      "harness": {
+        "kind": "Node arena Duel",
+        "engine": "rapier/adapter-8/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde",
+        "hz": 120,
+        "actuation": "symmetric",
+        "balance": {
+          "left": 0,
+          "right": 0
+        }
+      },
+      "config": {
+        "held": "club",
+        "hand": "right",
+        "motion": "lateral",
+        "gap": 2.8,
+        "mirror": true,
+        "engagement": "reference",
+        "cadence": {
+          "walk": 1.5,
+          "rest": 2.5
+        }
+      },
+      "attempts": 5,
+      "impacts": 5,
+      "usefulReturns": 4,
+      "returns": 4,
+      "timeouts": 0,
+      "falls": 0,
+      "opponentFalls": 0,
+      "outsideSeconds": 5.366666666666723,
+      "firstContact": 8.7,
+      "simulatedSeconds": 28.3,
+      "transitions": [
+        {
+          "time": 3.2583333333333333,
+          "phase": "approach",
+          "hand": "right"
+        },
+        {
+          "time": 5.4,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 6.85,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 8.35,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 8.458333333333334,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 8.858333333333333,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 9.65,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 9.658333333333333,
+          "phase": "approach",
+          "hand": "right"
+        },
+        {
+          "time": 9.675,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 12.983333333333333,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 14.483333333333333,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 14.591666666666667,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 14.991666666666667,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 15.983333333333333,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 15.991666666666667,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 17.716666666666665,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 19.216666666666665,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 19.325,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 19.725,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 20.625,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 20.633333333333333,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 22.016666666666666,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 23.516666666666666,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 23.625,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 24.025,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 24.7,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 24.708333333333332,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 26.441666666666666,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 27.941666666666666,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 28.05,
+          "phase": "swing",
+          "hand": "right"
+        }
+      ],
+      "verdict": {
+        "winner": "right",
+        "ending": "fatal",
+        "time": 28.3
+      },
+      "outcomes": {
+        "returned": {
+          "left": 0,
+          "right": 4
+        },
+        "failed": 0,
+        "interrupted": 0
+      }
+    },
+    {
+      "harness": {
+        "kind": "Node arena Duel",
+        "engine": "rapier/adapter-8/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde",
+        "hz": 120,
+        "actuation": "symmetric",
+        "balance": {
+          "left": 0,
+          "right": 0
+        }
+      },
+      "config": {
+        "held": "empty",
+        "hand": "left",
+        "motion": "advance",
+        "gap": 1.6,
+        "mirror": true,
+        "engagement": "reference",
+        "cadence": {
+          "walk": 1.5,
+          "rest": 2.5
+        }
+      },
+      "attempts": 7,
+      "impacts": 7,
+      "usefulReturns": 7,
+      "returns": 7,
+      "timeouts": 0,
+      "falls": 0,
+      "opponentFalls": 0,
+      "outsideSeconds": 4.450000000000011,
+      "firstContact": 8.533333333333333,
+      "simulatedSeconds": 40,
+      "transitions": [
+        {
+          "time": 0.008333333333333333,
+          "phase": "approach",
+          "hand": "left"
+        },
+        {
+          "time": 0.575,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 0.725,
+          "phase": "approach",
+          "hand": "left"
+        },
+        {
+          "time": 4.566666666666666,
+          "phase": "place",
+          "hand": "left"
+        },
+        {
+          "time": 6.575,
+          "phase": "settle",
+          "hand": "left"
+        },
+        {
+          "time": 8.075,
+          "phase": "chamber",
+          "hand": "left"
+        },
+        {
+          "time": 8.466666666666667,
+          "phase": "swing",
+          "hand": "left"
+        },
+        {
+          "time": 8.866666666666667,
+          "phase": "return",
+          "hand": "left"
+        },
+        {
+          "time": 9.408333333333333,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 9.416666666666666,
+          "phase": "place",
+          "hand": "left"
+        },
+        {
+          "time": 10.316666666666666,
+          "phase": "settle",
+          "hand": "left"
+        },
+        {
+          "time": 11.816666666666666,
+          "phase": "chamber",
+          "hand": "left"
+        },
+        {
+          "time": 12.275,
+          "phase": "swing",
+          "hand": "left"
+        },
+        {
+          "time": 12.675,
+          "phase": "return",
+          "hand": "left"
+        },
+        {
+          "time": 13.15,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 13.158333333333333,
+          "phase": "approach",
+          "hand": "left"
+        },
+        {
+          "time": 13.583333333333334,
+          "phase": "place",
+          "hand": "left"
+        },
+        {
+          "time": 15.533333333333333,
+          "phase": "settle",
+          "hand": "left"
+        },
+        {
+          "time": 17.033333333333335,
+          "phase": "chamber",
+          "hand": "left"
+        },
+        {
+          "time": 17.9,
+          "phase": "swing",
+          "hand": "left"
+        },
+        {
+          "time": 18.3,
+          "phase": "return",
+          "hand": "left"
+        },
+        {
+          "time": 18.808333333333334,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 18.816666666666666,
+          "phase": "place",
+          "hand": "left"
+        },
+        {
+          "time": 20.575,
+          "phase": "settle",
+          "hand": "left"
+        },
+        {
+          "time": 22.075,
+          "phase": "chamber",
+          "hand": "left"
+        },
+        {
+          "time": 23,
+          "phase": "swing",
+          "hand": "left"
+        },
+        {
+          "time": 23.4,
+          "phase": "return",
+          "hand": "left"
+        },
+        {
+          "time": 23.866666666666667,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 23.875,
+          "phase": "place",
+          "hand": "left"
+        },
+        {
+          "time": 25.333333333333332,
+          "phase": "settle",
+          "hand": "left"
+        },
+        {
+          "time": 26.833333333333332,
+          "phase": "chamber",
+          "hand": "left"
+        },
+        {
+          "time": 28.15,
+          "phase": "swing",
+          "hand": "left"
+        },
+        {
+          "time": 28.55,
+          "phase": "return",
+          "hand": "left"
+        },
+        {
+          "time": 29.358333333333334,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 29.366666666666667,
+          "phase": "place",
+          "hand": "left"
+        },
+        {
+          "time": 31.275,
+          "phase": "settle",
+          "hand": "left"
+        },
+        {
+          "time": 32.775,
+          "phase": "chamber",
+          "hand": "left"
+        },
+        {
+          "time": 33.225,
+          "phase": "swing",
+          "hand": "left"
+        },
+        {
+          "time": 33.625,
+          "phase": "return",
+          "hand": "left"
+        },
+        {
+          "time": 33.81666666666667,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 33.825,
+          "phase": "place",
+          "hand": "left"
+        },
+        {
+          "time": 35.208333333333336,
+          "phase": "settle",
+          "hand": "left"
+        },
+        {
+          "time": 36.708333333333336,
+          "phase": "chamber",
+          "hand": "left"
+        },
+        {
+          "time": 37.166666666666664,
+          "phase": "swing",
+          "hand": "left"
+        },
+        {
+          "time": 37.56666666666667,
+          "phase": "return",
+          "hand": "left"
+        },
+        {
+          "time": 38.083333333333336,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 38.09166666666667,
+          "phase": "place",
+          "hand": "left"
+        },
+        {
+          "time": 39.75833333333333,
+          "phase": "settle",
+          "hand": "left"
+        }
+      ],
+      "verdict": null,
+      "outcomes": {
+        "returned": {
+          "left": 7,
+          "right": 0
+        },
+        "failed": 0,
+        "interrupted": 0
+      }
+    },
+    {
+      "harness": {
+        "kind": "Node arena Duel",
+        "engine": "rapier/adapter-8/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde",
+        "hz": 120,
+        "actuation": "symmetric",
+        "balance": {
+          "left": 0,
+          "right": 0
+        }
+      },
+      "config": {
+        "held": "empty",
+        "hand": "left",
+        "motion": "advance",
+        "gap": 2.8,
+        "mirror": true,
+        "engagement": "reference",
+        "cadence": {
+          "walk": 1.5,
+          "rest": 2.5
+        }
+      },
+      "attempts": 7,
+      "impacts": 7,
+      "usefulReturns": 6,
+      "returns": 6,
+      "timeouts": 1,
+      "falls": 0,
+      "opponentFalls": 0,
+      "outsideSeconds": 5.500000000000063,
+      "firstContact": 9.433333333333334,
+      "simulatedSeconds": 40,
+      "transitions": [
+        {
+          "time": 2.55,
+          "phase": "approach",
+          "hand": "left"
+        },
+        {
+          "time": 5.833333333333333,
+          "phase": "place",
+          "hand": "left"
+        },
+        {
+          "time": 7.233333333333333,
+          "phase": "settle",
+          "hand": "left"
+        },
+        {
+          "time": 8.733333333333333,
+          "phase": "chamber",
+          "hand": "left"
+        },
+        {
+          "time": 9.291666666666666,
+          "phase": "swing",
+          "hand": "left"
+        },
+        {
+          "time": 9.691666666666666,
+          "phase": "return",
+          "hand": "left"
+        },
+        {
+          "time": 10.158333333333333,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 10.166666666666666,
+          "phase": "place",
+          "hand": "left"
+        },
+        {
+          "time": 11.808333333333334,
+          "phase": "settle",
+          "hand": "left"
+        },
+        {
+          "time": 13.308333333333334,
+          "phase": "chamber",
+          "hand": "left"
+        },
+        {
+          "time": 13.825,
+          "phase": "swing",
+          "hand": "left"
+        },
+        {
+          "time": 14.225,
+          "phase": "return",
+          "hand": "left"
+        },
+        {
+          "time": 14.683333333333334,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 14.691666666666666,
+          "phase": "place",
+          "hand": "left"
+        },
+        {
+          "time": 15.491666666666667,
+          "phase": "settle",
+          "hand": "left"
+        },
+        {
+          "time": 16.991666666666667,
+          "phase": "chamber",
+          "hand": "left"
+        },
+        {
+          "time": 17.466666666666665,
+          "phase": "swing",
+          "hand": "left"
+        },
+        {
+          "time": 17.866666666666667,
+          "phase": "return",
+          "hand": "left"
+        },
+        {
+          "time": 18.3,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 18.308333333333334,
+          "phase": "place",
+          "hand": "left"
+        },
+        {
+          "time": 20.008333333333333,
+          "phase": "settle",
+          "hand": "left"
+        },
+        {
+          "time": 21.508333333333333,
+          "phase": "chamber",
+          "hand": "left"
+        },
+        {
+          "time": 21.975,
+          "phase": "swing",
+          "hand": "left"
+        },
+        {
+          "time": 22.375,
+          "phase": "return",
+          "hand": "left"
+        },
+        {
+          "time": 22.816666666666666,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 22.825,
+          "phase": "place",
+          "hand": "left"
+        },
+        {
+          "time": 24.508333333333333,
+          "phase": "settle",
+          "hand": "left"
+        },
+        {
+          "time": 26.008333333333333,
+          "phase": "chamber",
+          "hand": "left"
+        },
+        {
+          "time": 26.475,
+          "phase": "swing",
+          "hand": "left"
+        },
+        {
+          "time": 26.875,
+          "phase": "return",
+          "hand": "left"
+        },
+        {
+          "time": 27.35,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 27.358333333333334,
+          "phase": "place",
+          "hand": "left"
+        },
+        {
+          "time": 28.966666666666665,
+          "phase": "settle",
+          "hand": "left"
+        },
+        {
+          "time": 30.466666666666665,
+          "phase": "chamber",
+          "hand": "left"
+        },
+        {
+          "time": 30.883333333333333,
+          "phase": "swing",
+          "hand": "left"
+        },
+        {
+          "time": 31.283333333333335,
+          "phase": "return",
+          "hand": "left"
+        },
+        {
+          "time": 33.28333333333333,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 33.291666666666664,
+          "phase": "place",
+          "hand": "left"
+        },
+        {
+          "time": 34.93333333333333,
+          "phase": "settle",
+          "hand": "left"
+        },
+        {
+          "time": 36.43333333333333,
+          "phase": "chamber",
+          "hand": "left"
+        },
+        {
+          "time": 36.891666666666666,
+          "phase": "swing",
+          "hand": "left"
+        },
+        {
+          "time": 37.291666666666664,
+          "phase": "return",
+          "hand": "left"
+        },
+        {
+          "time": 38.075,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 38.083333333333336,
+          "phase": "place",
+          "hand": "left"
+        },
+        {
+          "time": 38.825,
+          "phase": "settle",
+          "hand": "left"
+        }
+      ],
+      "verdict": null,
+      "outcomes": {
+        "returned": {
+          "left": 6,
+          "right": 0
+        },
+        "failed": 1,
+        "interrupted": 0
+      }
+    },
+    {
+      "harness": {
+        "kind": "Node arena Duel",
+        "engine": "rapier/adapter-8/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde",
+        "hz": 120,
+        "actuation": "symmetric",
+        "balance": {
+          "left": 0,
+          "right": 0
+        }
+      },
+      "config": {
+        "held": "empty",
+        "hand": "right",
+        "motion": "advance",
+        "gap": 1.6,
+        "mirror": true,
+        "engagement": "reference",
+        "cadence": {
+          "walk": 1.5,
+          "rest": 2.5
+        }
+      },
+      "attempts": 7,
+      "impacts": 7,
+      "usefulReturns": 6,
+      "returns": 6,
+      "timeouts": 1,
+      "falls": 0,
+      "opponentFalls": 0,
+      "outsideSeconds": 4.141666666666662,
+      "firstContact": 8.633333333333333,
+      "simulatedSeconds": 40,
+      "transitions": [
+        {
+          "time": 0.008333333333333333,
+          "phase": "approach",
+          "hand": "right"
+        },
+        {
+          "time": 0.575,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 0.725,
+          "phase": "approach",
+          "hand": "right"
+        },
+        {
+          "time": 4.566666666666666,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 6.575,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 8.075,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 8.491666666666667,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 8.891666666666667,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 9.825,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 9.833333333333334,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 11.558333333333334,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 13.058333333333334,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 13.966666666666667,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 14.366666666666667,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 14.825,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 14.833333333333334,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 16.35,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 17.85,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 18.283333333333335,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 18.683333333333334,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 19.116666666666667,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 19.125,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 20.716666666666665,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 22.216666666666665,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 22.675,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 23.075,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 23.55,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 23.558333333333334,
+          "phase": "approach",
+          "hand": "right"
+        },
+        {
+          "time": 23.575,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 26.158333333333335,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 27.658333333333335,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 27.766666666666666,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 28.166666666666668,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 28.641666666666666,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 28.65,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 30.116666666666667,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 31.616666666666667,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 31.875,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 32.275,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 34.275,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 34.28333333333333,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 36.05833333333333,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 37.55833333333333,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 38.03333333333333,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 38.43333333333333,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 39.3,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 39.30833333333333,
+          "phase": "place",
+          "hand": "right"
+        }
+      ],
+      "verdict": null,
+      "outcomes": {
+        "returned": {
+          "left": 0,
+          "right": 6
+        },
+        "failed": 1,
+        "interrupted": 0
+      }
+    },
+    {
+      "harness": {
+        "kind": "Node arena Duel",
+        "engine": "rapier/adapter-8/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde",
+        "hz": 120,
+        "actuation": "symmetric",
+        "balance": {
+          "left": 0,
+          "right": 0
+        }
+      },
+      "config": {
+        "held": "empty",
+        "hand": "right",
+        "motion": "advance",
+        "gap": 2.8,
+        "mirror": true,
+        "engagement": "reference",
+        "cadence": {
+          "walk": 1.5,
+          "rest": 2.5
+        }
+      },
+      "attempts": 7,
+      "impacts": 6,
+      "usefulReturns": 5,
+      "returns": 6,
+      "timeouts": 1,
+      "falls": 0,
+      "opponentFalls": 0,
+      "outsideSeconds": 5.500000000000063,
+      "firstContact": 9.008333333333333,
+      "simulatedSeconds": 40,
+      "transitions": [
+        {
+          "time": 2.55,
+          "phase": "approach",
+          "hand": "right"
+        },
+        {
+          "time": 5.833333333333333,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 7.233333333333333,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 8.733333333333333,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 8.916666666666666,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 9.316666666666666,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 9.775,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 9.783333333333333,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 11.483333333333333,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 12.983333333333333,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 13.483333333333333,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 13.883333333333333,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 14.35,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 14.358333333333333,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 15.875,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 17.375,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 18.108333333333334,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 18.508333333333333,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 18.966666666666665,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 18.975,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 20.558333333333334,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 22.058333333333334,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 22.533333333333335,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 22.933333333333334,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 24.933333333333334,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 24.941666666666666,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 26.566666666666666,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 28.066666666666666,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 28.516666666666666,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 28.916666666666668,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 29.383333333333333,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 29.391666666666666,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 30.875,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 32.375,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 32.8,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 33.2,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 33.9,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 33.90833333333333,
+          "phase": "approach",
+          "hand": "right"
+        },
+        {
+          "time": 33.99166666666667,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 36.425,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 37.925,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 38.516666666666666,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 38.916666666666664,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 39.36666666666667,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 39.375,
+          "phase": "place",
+          "hand": "right"
+        }
+      ],
+      "verdict": null,
+      "outcomes": {
+        "returned": {
+          "left": 0,
+          "right": 6
+        },
+        "failed": 1,
+        "interrupted": 0
+      }
+    },
+    {
+      "harness": {
+        "kind": "Node arena Duel",
+        "engine": "rapier/adapter-8/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde",
+        "hz": 120,
+        "actuation": "symmetric",
+        "balance": {
+          "left": 0,
+          "right": 0
+        }
+      },
+      "config": {
+        "held": "empty",
+        "hand": "alternate",
+        "motion": "advance",
+        "gap": 1.6,
+        "mirror": true,
+        "engagement": "reference",
+        "cadence": {
+          "walk": 1.5,
+          "rest": 2.5
+        }
+      },
+      "attempts": 7,
+      "impacts": 7,
+      "usefulReturns": 7,
+      "returns": 7,
+      "timeouts": 0,
+      "falls": 0,
+      "opponentFalls": 0,
+      "outsideSeconds": 4.141666666666662,
+      "firstContact": 8.633333333333333,
+      "simulatedSeconds": 40,
+      "transitions": [
+        {
+          "time": 0.008333333333333333,
+          "phase": "approach",
+          "hand": "right"
+        },
+        {
+          "time": 0.575,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 0.725,
+          "phase": "approach",
+          "hand": "right"
+        },
+        {
+          "time": 4.566666666666666,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 6.575,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 8.075,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 8.491666666666667,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 8.891666666666667,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 9.825,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 9.833333333333334,
+          "phase": "place",
+          "hand": "left"
+        },
+        {
+          "time": 11.558333333333334,
+          "phase": "settle",
+          "hand": "left"
+        },
+        {
+          "time": 13.058333333333334,
+          "phase": "chamber",
+          "hand": "left"
+        },
+        {
+          "time": 13.441666666666666,
+          "phase": "swing",
+          "hand": "left"
+        },
+        {
+          "time": 13.841666666666667,
+          "phase": "return",
+          "hand": "left"
+        },
+        {
+          "time": 14.241666666666667,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 14.25,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 15.883333333333333,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 17.383333333333333,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 18.041666666666668,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 18.441666666666666,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 19.183333333333334,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 19.191666666666666,
+          "phase": "place",
+          "hand": "left"
+        },
+        {
+          "time": 20.65,
+          "phase": "settle",
+          "hand": "left"
+        },
+        {
+          "time": 22.15,
+          "phase": "chamber",
+          "hand": "left"
+        },
+        {
+          "time": 22.708333333333332,
+          "phase": "swing",
+          "hand": "left"
+        },
+        {
+          "time": 23.108333333333334,
+          "phase": "return",
+          "hand": "left"
+        },
+        {
+          "time": 23.583333333333332,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 23.591666666666665,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 25.591666666666665,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 27.091666666666665,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 27.533333333333335,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 27.933333333333334,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 29.566666666666666,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 29.575,
+          "phase": "place",
+          "hand": "left"
+        },
+        {
+          "time": 31.258333333333333,
+          "phase": "settle",
+          "hand": "left"
+        },
+        {
+          "time": 32.75833333333333,
+          "phase": "chamber",
+          "hand": "left"
+        },
+        {
+          "time": 33.608333333333334,
+          "phase": "swing",
+          "hand": "left"
+        },
+        {
+          "time": 34.00833333333333,
+          "phase": "return",
+          "hand": "left"
+        },
+        {
+          "time": 34.46666666666667,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 34.475,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 36.13333333333333,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 37.63333333333333,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 38.108333333333334,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 38.50833333333333,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 39.19166666666667,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 39.2,
+          "phase": "place",
+          "hand": "left"
+        }
+      ],
+      "verdict": null,
+      "outcomes": {
+        "returned": {
+          "left": 3,
+          "right": 4
+        },
+        "failed": 0,
+        "interrupted": 0
+      }
+    },
+    {
+      "harness": {
+        "kind": "Node arena Duel",
+        "engine": "rapier/adapter-8/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde",
+        "hz": 120,
+        "actuation": "symmetric",
+        "balance": {
+          "left": 0,
+          "right": 0
+        }
+      },
+      "config": {
+        "held": "empty",
+        "hand": "alternate",
+        "motion": "advance",
+        "gap": 2.8,
+        "mirror": true,
+        "engagement": "reference",
+        "cadence": {
+          "walk": 1.5,
+          "rest": 2.5
+        }
+      },
+      "attempts": 7,
+      "impacts": 7,
+      "usefulReturns": 6,
+      "returns": 6,
+      "timeouts": 1,
+      "falls": 0,
+      "opponentFalls": 0,
+      "outsideSeconds": 5.500000000000063,
+      "firstContact": 9.008333333333333,
+      "simulatedSeconds": 40,
+      "transitions": [
+        {
+          "time": 2.55,
+          "phase": "approach",
+          "hand": "right"
+        },
+        {
+          "time": 5.833333333333333,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 7.233333333333333,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 8.733333333333333,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 8.916666666666666,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 9.316666666666666,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 9.775,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 9.783333333333333,
+          "phase": "place",
+          "hand": "left"
+        },
+        {
+          "time": 11.483333333333333,
+          "phase": "settle",
+          "hand": "left"
+        },
+        {
+          "time": 12.983333333333333,
+          "phase": "chamber",
+          "hand": "left"
+        },
+        {
+          "time": 13.5,
+          "phase": "swing",
+          "hand": "left"
+        },
+        {
+          "time": 13.9,
+          "phase": "return",
+          "hand": "left"
+        },
+        {
+          "time": 14.341666666666667,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 14.35,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 16.025,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 17.525,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 18.05,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 18.45,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 18.916666666666668,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 18.925,
+          "phase": "place",
+          "hand": "left"
+        },
+        {
+          "time": 20.366666666666667,
+          "phase": "settle",
+          "hand": "left"
+        },
+        {
+          "time": 21.866666666666667,
+          "phase": "chamber",
+          "hand": "left"
+        },
+        {
+          "time": 22.316666666666666,
+          "phase": "swing",
+          "hand": "left"
+        },
+        {
+          "time": 22.716666666666665,
+          "phase": "return",
+          "hand": "left"
+        },
+        {
+          "time": 23.183333333333334,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 23.191666666666666,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 25.033333333333335,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 26.533333333333335,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 26.95,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 27.35,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 29.35,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 29.358333333333334,
+          "phase": "place",
+          "hand": "left"
+        },
+        {
+          "time": 31.025,
+          "phase": "settle",
+          "hand": "left"
+        },
+        {
+          "time": 32.525,
+          "phase": "chamber",
+          "hand": "left"
+        },
+        {
+          "time": 32.96666666666667,
+          "phase": "swing",
+          "hand": "left"
+        },
+        {
+          "time": 33.36666666666667,
+          "phase": "return",
+          "hand": "left"
+        },
+        {
+          "time": 33.8,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 33.80833333333333,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 35.6,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 37.1,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 38.00833333333333,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 38.40833333333333,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 38.88333333333333,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 38.891666666666666,
+          "phase": "place",
+          "hand": "left"
+        }
+      ],
+      "verdict": null,
+      "outcomes": {
+        "returned": {
+          "left": 3,
+          "right": 3
+        },
+        "failed": 1,
+        "interrupted": 0
+      }
+    },
+    {
+      "harness": {
+        "kind": "Node arena Duel",
+        "engine": "rapier/adapter-8/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde",
+        "hz": 120,
+        "actuation": "symmetric",
+        "balance": {
+          "left": 0,
+          "right": 0
+        }
+      },
+      "config": {
+        "held": "club",
+        "hand": "right",
+        "motion": "advance",
+        "gap": 1.6,
+        "mirror": true,
+        "engagement": "reference",
+        "cadence": {
+          "walk": 1.5,
+          "rest": 2.5
+        }
+      },
+      "attempts": 2,
+      "impacts": 2,
+      "usefulReturns": 2,
+      "returns": 2,
+      "timeouts": 0,
+      "falls": 1,
+      "opponentFalls": 0,
+      "outsideSeconds": 30.24166666666559,
+      "firstContact": 9.008333333333333,
+      "simulatedSeconds": 40,
+      "transitions": [
+        {
+          "time": 0.008333333333333333,
+          "phase": "approach",
+          "hand": "right"
+        },
+        {
+          "time": 0.575,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 0.7,
+          "phase": "approach",
+          "hand": "right"
+        },
+        {
+          "time": 3.1416666666666666,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 7.158333333333333,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 8.658333333333333,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 8.766666666666667,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 9.166666666666666,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 9.791666666666666,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 9.8,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 11.283333333333333,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 12.783333333333333,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 12.891666666666667,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 13.291666666666666,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 13.908333333333333,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 13.916666666666666,
+          "phase": "approach",
+          "hand": "right"
+        },
+        {
+          "time": 15.966666666666667,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 17.358333333333334,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 18.858333333333334,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 20.391666666666666,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 22.475,
+          "phase": "place",
+          "hand": "right"
+        }
+      ],
+      "verdict": null,
+      "outcomes": {
+        "returned": {
+          "left": 0,
+          "right": 2
+        },
+        "failed": 0,
+        "interrupted": 0
+      }
+    },
+    {
+      "harness": {
+        "kind": "Node arena Duel",
+        "engine": "rapier/adapter-8/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde",
+        "hz": 120,
+        "actuation": "symmetric",
+        "balance": {
+          "left": 0,
+          "right": 0
+        }
+      },
+      "config": {
+        "held": "club",
+        "hand": "right",
+        "motion": "advance",
+        "gap": 2.8,
+        "mirror": true,
+        "engagement": "reference",
+        "cadence": {
+          "walk": 1.5,
+          "rest": 2.5
+        }
+      },
+      "attempts": 5,
+      "impacts": 4,
+      "usefulReturns": 4,
+      "returns": 5,
+      "timeouts": 0,
+      "falls": 1,
+      "opponentFalls": 0,
+      "outsideSeconds": 25.324999999999203,
+      "firstContact": 8.633333333333333,
+      "simulatedSeconds": 40,
+      "transitions": [
+        {
+          "time": 2.575,
+          "phase": "approach",
+          "hand": "right"
+        },
+        {
+          "time": 4.775,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 6.783333333333333,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 8.283333333333333,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 8.391666666666667,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 8.791666666666666,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 9.383333333333333,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 9.391666666666667,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 11.125,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 12.625,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 12.733333333333333,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 13.133333333333333,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 13.708333333333334,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 13.716666666666667,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 16.3,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 18.091666666666665,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 18.2,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 18.6,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 19.15,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 19.158333333333335,
+          "phase": "approach",
+          "hand": "right"
+        },
+        {
+          "time": 19.175,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 21.075,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 22.575,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 22.683333333333334,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 23.083333333333332,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 23.816666666666666,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 23.825,
+          "phase": "approach",
+          "hand": "right"
+        },
+        {
+          "time": 24.983333333333334,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 26.991666666666667,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 28.491666666666667,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 28.6,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 29,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 29.6,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 29.608333333333334,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 32.25833333333333,
+          "phase": "settle",
+          "hand": "right"
+        }
+      ],
+      "verdict": null,
+      "outcomes": {
+        "returned": {
+          "left": 0,
+          "right": 5
+        },
+        "failed": 0,
+        "interrupted": 0
+      }
+    },
+    {
+      "harness": {
+        "kind": "Node arena Duel",
+        "engine": "rapier/adapter-8/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde",
+        "hz": 120,
+        "actuation": "symmetric",
+        "balance": {
+          "left": 0,
+          "right": 0
+        }
+      },
+      "config": {
+        "held": "empty",
+        "hand": "left",
+        "motion": "retreat",
+        "gap": 1.6,
+        "mirror": true,
+        "engagement": "reference",
+        "cadence": {
+          "walk": 1.5,
+          "rest": 2.5
+        }
+      },
+      "attempts": 7,
+      "impacts": 7,
+      "usefulReturns": 6,
+      "returns": 6,
+      "timeouts": 0,
+      "falls": 0,
+      "opponentFalls": 0,
+      "outsideSeconds": 12.191666666666615,
+      "firstContact": 9.616666666666667,
+      "simulatedSeconds": 40,
+      "transitions": [
+        {
+          "time": 0.008333333333333333,
+          "phase": "approach",
+          "hand": "left"
+        },
+        {
+          "time": 4.95,
+          "phase": "place",
+          "hand": "left"
+        },
+        {
+          "time": 7.475,
+          "phase": "settle",
+          "hand": "left"
+        },
+        {
+          "time": 8.975,
+          "phase": "chamber",
+          "hand": "left"
+        },
+        {
+          "time": 9.425,
+          "phase": "swing",
+          "hand": "left"
+        },
+        {
+          "time": 9.825,
+          "phase": "return",
+          "hand": "left"
+        },
+        {
+          "time": 10.3,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 10.308333333333334,
+          "phase": "approach",
+          "hand": "left"
+        },
+        {
+          "time": 11.383333333333333,
+          "phase": "place",
+          "hand": "left"
+        },
+        {
+          "time": 12.65,
+          "phase": "settle",
+          "hand": "left"
+        },
+        {
+          "time": 14.15,
+          "phase": "chamber",
+          "hand": "left"
+        },
+        {
+          "time": 14.258333333333333,
+          "phase": "swing",
+          "hand": "left"
+        },
+        {
+          "time": 14.658333333333333,
+          "phase": "return",
+          "hand": "left"
+        },
+        {
+          "time": 15.141666666666667,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 15.15,
+          "phase": "approach",
+          "hand": "left"
+        },
+        {
+          "time": 15.25,
+          "phase": "place",
+          "hand": "left"
+        },
+        {
+          "time": 17.525,
+          "phase": "settle",
+          "hand": "left"
+        },
+        {
+          "time": 19.025,
+          "phase": "chamber",
+          "hand": "left"
+        },
+        {
+          "time": 19.133333333333333,
+          "phase": "swing",
+          "hand": "left"
+        },
+        {
+          "time": 19.533333333333335,
+          "phase": "return",
+          "hand": "left"
+        },
+        {
+          "time": 20.108333333333334,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 20.116666666666667,
+          "phase": "approach",
+          "hand": "left"
+        },
+        {
+          "time": 21.191666666666666,
+          "phase": "place",
+          "hand": "left"
+        },
+        {
+          "time": 22.441666666666666,
+          "phase": "settle",
+          "hand": "left"
+        },
+        {
+          "time": 23.941666666666666,
+          "phase": "chamber",
+          "hand": "left"
+        },
+        {
+          "time": 24.391666666666666,
+          "phase": "swing",
+          "hand": "left"
+        },
+        {
+          "time": 24.791666666666668,
+          "phase": "return",
+          "hand": "left"
+        },
+        {
+          "time": 25.275,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 25.283333333333335,
+          "phase": "place",
+          "hand": "left"
+        },
+        {
+          "time": 26.983333333333334,
+          "phase": "settle",
+          "hand": "left"
+        },
+        {
+          "time": 28.483333333333334,
+          "phase": "chamber",
+          "hand": "left"
+        },
+        {
+          "time": 28.925,
+          "phase": "swing",
+          "hand": "left"
+        },
+        {
+          "time": 29.325,
+          "phase": "return",
+          "hand": "left"
+        },
+        {
+          "time": 29.8,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 29.808333333333334,
+          "phase": "approach",
+          "hand": "left"
+        },
+        {
+          "time": 30.983333333333334,
+          "phase": "place",
+          "hand": "left"
+        },
+        {
+          "time": 32.475,
+          "phase": "settle",
+          "hand": "left"
+        },
+        {
+          "time": 33.975,
+          "phase": "chamber",
+          "hand": "left"
+        },
+        {
+          "time": 34.425,
+          "phase": "swing",
+          "hand": "left"
+        },
+        {
+          "time": 34.825,
+          "phase": "return",
+          "hand": "left"
+        },
+        {
+          "time": 35.291666666666664,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 35.3,
+          "phase": "approach",
+          "hand": "left"
+        },
+        {
+          "time": 36.416666666666664,
+          "phase": "place",
+          "hand": "left"
+        },
+        {
+          "time": 37.61666666666667,
+          "phase": "settle",
+          "hand": "left"
+        },
+        {
+          "time": 39.11666666666667,
+          "phase": "chamber",
+          "hand": "left"
+        },
+        {
+          "time": 39.56666666666667,
+          "phase": "swing",
+          "hand": "left"
+        },
+        {
+          "time": 39.96666666666667,
+          "phase": "return",
+          "hand": "left"
+        }
+      ],
+      "verdict": null,
+      "outcomes": {
+        "returned": {
+          "left": 6,
+          "right": 0
+        },
+        "failed": 0,
+        "interrupted": 0
+      }
+    },
+    {
+      "harness": {
+        "kind": "Node arena Duel",
+        "engine": "rapier/adapter-8/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde",
+        "hz": 120,
+        "actuation": "symmetric",
+        "balance": {
+          "left": 0,
+          "right": 0
+        }
+      },
+      "config": {
+        "held": "empty",
+        "hand": "left",
+        "motion": "retreat",
+        "gap": 2.8,
+        "mirror": true,
+        "engagement": "reference",
+        "cadence": {
+          "walk": 1.5,
+          "rest": 2.5
+        }
+      },
+      "attempts": 7,
+      "impacts": 6,
+      "usefulReturns": 5,
+      "returns": 6,
+      "timeouts": 0,
+      "falls": 0,
+      "opponentFalls": 0,
+      "outsideSeconds": 12.541666666666595,
+      "firstContact": 15.65,
+      "simulatedSeconds": 40,
+      "transitions": [
+        {
+          "time": 3.066666666666667,
+          "phase": "approach",
+          "hand": "left"
+        },
+        {
+          "time": 6.883333333333334,
+          "phase": "place",
+          "hand": "left"
+        },
+        {
+          "time": 8.316666666666666,
+          "phase": "settle",
+          "hand": "left"
+        },
+        {
+          "time": 9.816666666666666,
+          "phase": "chamber",
+          "hand": "left"
+        },
+        {
+          "time": 9.925,
+          "phase": "swing",
+          "hand": "left"
+        },
+        {
+          "time": 10.325,
+          "phase": "return",
+          "hand": "left"
+        },
+        {
+          "time": 10.808333333333334,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 10.816666666666666,
+          "phase": "approach",
+          "hand": "left"
+        },
+        {
+          "time": 12.158333333333333,
+          "phase": "place",
+          "hand": "left"
+        },
+        {
+          "time": 13.533333333333333,
+          "phase": "settle",
+          "hand": "left"
+        },
+        {
+          "time": 15.033333333333333,
+          "phase": "chamber",
+          "hand": "left"
+        },
+        {
+          "time": 15.466666666666667,
+          "phase": "swing",
+          "hand": "left"
+        },
+        {
+          "time": 15.866666666666667,
+          "phase": "return",
+          "hand": "left"
+        },
+        {
+          "time": 16.383333333333333,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 16.391666666666666,
+          "phase": "place",
+          "hand": "left"
+        },
+        {
+          "time": 18.125,
+          "phase": "settle",
+          "hand": "left"
+        },
+        {
+          "time": 19.625,
+          "phase": "chamber",
+          "hand": "left"
+        },
+        {
+          "time": 20.083333333333332,
+          "phase": "swing",
+          "hand": "left"
+        },
+        {
+          "time": 20.483333333333334,
+          "phase": "return",
+          "hand": "left"
+        },
+        {
+          "time": 20.966666666666665,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 20.975,
+          "phase": "place",
+          "hand": "left"
+        },
+        {
+          "time": 22.708333333333332,
+          "phase": "settle",
+          "hand": "left"
+        },
+        {
+          "time": 24.208333333333332,
+          "phase": "chamber",
+          "hand": "left"
+        },
+        {
+          "time": 24.658333333333335,
+          "phase": "swing",
+          "hand": "left"
+        },
+        {
+          "time": 25.058333333333334,
+          "phase": "return",
+          "hand": "left"
+        },
+        {
+          "time": 25.558333333333334,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 25.566666666666666,
+          "phase": "place",
+          "hand": "left"
+        },
+        {
+          "time": 27.175,
+          "phase": "settle",
+          "hand": "left"
+        },
+        {
+          "time": 28.675,
+          "phase": "chamber",
+          "hand": "left"
+        },
+        {
+          "time": 29.125,
+          "phase": "swing",
+          "hand": "left"
+        },
+        {
+          "time": 29.525,
+          "phase": "return",
+          "hand": "left"
+        },
+        {
+          "time": 30.008333333333333,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 30.016666666666666,
+          "phase": "approach",
+          "hand": "left"
+        },
+        {
+          "time": 31.116666666666667,
+          "phase": "place",
+          "hand": "left"
+        },
+        {
+          "time": 32.333333333333336,
+          "phase": "settle",
+          "hand": "left"
+        },
+        {
+          "time": 33.833333333333336,
+          "phase": "chamber",
+          "hand": "left"
+        },
+        {
+          "time": 34.28333333333333,
+          "phase": "swing",
+          "hand": "left"
+        },
+        {
+          "time": 34.68333333333333,
+          "phase": "return",
+          "hand": "left"
+        },
+        {
+          "time": 35.15833333333333,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 35.166666666666664,
+          "phase": "approach",
+          "hand": "left"
+        },
+        {
+          "time": 36.21666666666667,
+          "phase": "place",
+          "hand": "left"
+        },
+        {
+          "time": 37.50833333333333,
+          "phase": "settle",
+          "hand": "left"
+        },
+        {
+          "time": 39.00833333333333,
+          "phase": "chamber",
+          "hand": "left"
+        },
+        {
+          "time": 39.458333333333336,
+          "phase": "swing",
+          "hand": "left"
+        },
+        {
+          "time": 39.858333333333334,
+          "phase": "return",
+          "hand": "left"
+        }
+      ],
+      "verdict": null,
+      "outcomes": {
+        "returned": {
+          "left": 6,
+          "right": 0
+        },
+        "failed": 0,
+        "interrupted": 0
+      }
+    },
+    {
+      "harness": {
+        "kind": "Node arena Duel",
+        "engine": "rapier/adapter-8/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde",
+        "hz": 120,
+        "actuation": "symmetric",
+        "balance": {
+          "left": 0,
+          "right": 0
+        }
+      },
+      "config": {
+        "held": "empty",
+        "hand": "right",
+        "motion": "retreat",
+        "gap": 1.6,
+        "mirror": true,
+        "engagement": "reference",
+        "cadence": {
+          "walk": 1.5,
+          "rest": 2.5
+        }
+      },
+      "attempts": 6,
+      "impacts": 6,
+      "usefulReturns": 5,
+      "returns": 5,
+      "timeouts": 0,
+      "falls": 0,
+      "opponentFalls": 0,
+      "outsideSeconds": 10.57500000000004,
+      "firstContact": 9.608333333333333,
+      "simulatedSeconds": 40,
+      "transitions": [
+        {
+          "time": 0.008333333333333333,
+          "phase": "approach",
+          "hand": "right"
+        },
+        {
+          "time": 4.95,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 7.475,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 8.975,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 9.416666666666666,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 9.816666666666666,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 10.291666666666666,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 10.3,
+          "phase": "approach",
+          "hand": "right"
+        },
+        {
+          "time": 11.408333333333333,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 12.625,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 14.125,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 15.858333333333333,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 17.358333333333334,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 17.816666666666666,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 18.216666666666665,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 18.7,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 18.708333333333332,
+          "phase": "approach",
+          "hand": "right"
+        },
+        {
+          "time": 19.733333333333334,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 20.95,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 22.45,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 23.7,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 25.2,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 25.641666666666666,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 26.041666666666668,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 26.516666666666666,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 26.525,
+          "phase": "approach",
+          "hand": "right"
+        },
+        {
+          "time": 27.675,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 29.208333333333332,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 30.708333333333332,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 31.141666666666666,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 31.541666666666668,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 32.03333333333333,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 32.041666666666664,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 33.425,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 34.925,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 35.375,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 35.775,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 36.25833333333333,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 36.266666666666666,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 37.833333333333336,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 39.333333333333336,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 39.775,
+          "phase": "swing",
+          "hand": "right"
+        }
+      ],
+      "verdict": null,
+      "outcomes": {
+        "returned": {
+          "left": 0,
+          "right": 5
+        },
+        "failed": 0,
+        "interrupted": 0
+      }
+    },
+    {
+      "harness": {
+        "kind": "Node arena Duel",
+        "engine": "rapier/adapter-8/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde",
+        "hz": 120,
+        "actuation": "symmetric",
+        "balance": {
+          "left": 0,
+          "right": 0
+        }
+      },
+      "config": {
+        "held": "empty",
+        "hand": "right",
+        "motion": "retreat",
+        "gap": 2.8,
+        "mirror": true,
+        "engagement": "reference",
+        "cadence": {
+          "walk": 1.5,
+          "rest": 2.5
+        }
+      },
+      "attempts": 7,
+      "impacts": 6,
+      "usefulReturns": 6,
+      "returns": 6,
+      "timeouts": 0,
+      "falls": 0,
+      "opponentFalls": 0,
+      "outsideSeconds": 13.57499999999987,
+      "firstContact": 10.116666666666667,
+      "simulatedSeconds": 40,
+      "transitions": [
+        {
+          "time": 3.066666666666667,
+          "phase": "approach",
+          "hand": "right"
+        },
+        {
+          "time": 6.883333333333334,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 8.316666666666666,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 9.816666666666666,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 9.925,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 10.325,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 10.8,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 10.808333333333334,
+          "phase": "approach",
+          "hand": "right"
+        },
+        {
+          "time": 12.258333333333333,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 13.533333333333333,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 15.033333333333333,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 15.141666666666667,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 15.541666666666666,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 16.008333333333333,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 16.016666666666666,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 17.675,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 19.175,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 19.591666666666665,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 19.991666666666667,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 20.441666666666666,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 20.45,
+          "phase": "approach",
+          "hand": "right"
+        },
+        {
+          "time": 21.575,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 22.758333333333333,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 24.258333333333333,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 24.708333333333332,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 25.108333333333334,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 25.6,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 25.608333333333334,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 27.275,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 28.775,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 29.225,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 29.625,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 30.1,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 30.108333333333334,
+          "phase": "approach",
+          "hand": "right"
+        },
+        {
+          "time": 31.275,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 32.766666666666666,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 34.266666666666666,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 34.375,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 34.775,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 35.25,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 35.25833333333333,
+          "phase": "approach",
+          "hand": "right"
+        },
+        {
+          "time": 36.4,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 37.90833333333333,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 39.40833333333333,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 39.858333333333334,
+          "phase": "swing",
+          "hand": "right"
+        }
+      ],
+      "verdict": null,
+      "outcomes": {
+        "returned": {
+          "left": 0,
+          "right": 6
+        },
+        "failed": 0,
+        "interrupted": 0
+      }
+    },
+    {
+      "harness": {
+        "kind": "Node arena Duel",
+        "engine": "rapier/adapter-8/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde",
+        "hz": 120,
+        "actuation": "symmetric",
+        "balance": {
+          "left": 0,
+          "right": 0
+        }
+      },
+      "config": {
+        "held": "empty",
+        "hand": "alternate",
+        "motion": "retreat",
+        "gap": 1.6,
+        "mirror": true,
+        "engagement": "reference",
+        "cadence": {
+          "walk": 1.5,
+          "rest": 2.5
+        }
+      },
+      "attempts": 5,
+      "impacts": 3,
+      "usefulReturns": 3,
+      "returns": 5,
+      "timeouts": 0,
+      "falls": 0,
+      "opponentFalls": 0,
+      "outsideSeconds": 14.358333333333158,
+      "firstContact": 9.608333333333333,
+      "simulatedSeconds": 40,
+      "transitions": [
+        {
+          "time": 0.008333333333333333,
+          "phase": "approach",
+          "hand": "right"
+        },
+        {
+          "time": 4.95,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 7.475,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 8.975,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 9.416666666666666,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 9.816666666666666,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 10.291666666666666,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 10.3,
+          "phase": "approach",
+          "hand": "left"
+        },
+        {
+          "time": 11.408333333333333,
+          "phase": "place",
+          "hand": "left"
+        },
+        {
+          "time": 12.625,
+          "phase": "settle",
+          "hand": "left"
+        },
+        {
+          "time": 14.125,
+          "phase": "place",
+          "hand": "left"
+        },
+        {
+          "time": 15.858333333333333,
+          "phase": "settle",
+          "hand": "left"
+        },
+        {
+          "time": 17.358333333333334,
+          "phase": "chamber",
+          "hand": "left"
+        },
+        {
+          "time": 17.775,
+          "phase": "swing",
+          "hand": "left"
+        },
+        {
+          "time": 18.175,
+          "phase": "return",
+          "hand": "left"
+        },
+        {
+          "time": 18.725,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 18.733333333333334,
+          "phase": "approach",
+          "hand": "right"
+        },
+        {
+          "time": 19.633333333333333,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 20.966666666666665,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 22.466666666666665,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 24.15,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 25.65,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 26.041666666666668,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 26.441666666666666,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 26.916666666666668,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 26.925,
+          "phase": "approach",
+          "hand": "left"
+        },
+        {
+          "time": 27.8,
+          "phase": "place",
+          "hand": "left"
+        },
+        {
+          "time": 29.191666666666666,
+          "phase": "settle",
+          "hand": "left"
+        },
+        {
+          "time": 30.691666666666666,
+          "phase": "chamber",
+          "hand": "left"
+        },
+        {
+          "time": 31.133333333333333,
+          "phase": "swing",
+          "hand": "left"
+        },
+        {
+          "time": 31.533333333333335,
+          "phase": "return",
+          "hand": "left"
+        },
+        {
+          "time": 32,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 32.00833333333333,
+          "phase": "approach",
+          "hand": "right"
+        },
+        {
+          "time": 32.016666666666666,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 34.416666666666664,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 35.916666666666664,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 36.35,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 36.75,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 37.225,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 37.233333333333334,
+          "phase": "place",
+          "hand": "left"
+        },
+        {
+          "time": 38.875,
+          "phase": "settle",
+          "hand": "left"
+        }
+      ],
+      "verdict": null,
+      "outcomes": {
+        "returned": {
+          "left": 2,
+          "right": 3
+        },
+        "failed": 0,
+        "interrupted": 0
+      }
+    },
+    {
+      "harness": {
+        "kind": "Node arena Duel",
+        "engine": "rapier/adapter-8/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde",
+        "hz": 120,
+        "actuation": "symmetric",
+        "balance": {
+          "left": 0,
+          "right": 0
+        }
+      },
+      "config": {
+        "held": "empty",
+        "hand": "alternate",
+        "motion": "retreat",
+        "gap": 2.8,
+        "mirror": true,
+        "engagement": "reference",
+        "cadence": {
+          "walk": 1.5,
+          "rest": 2.5
+        }
+      },
+      "attempts": 7,
+      "impacts": 6,
+      "usefulReturns": 6,
+      "returns": 6,
+      "timeouts": 0,
+      "falls": 0,
+      "opponentFalls": 0,
+      "outsideSeconds": 13.583333333333202,
+      "firstContact": 10.116666666666667,
+      "simulatedSeconds": 40,
+      "transitions": [
+        {
+          "time": 3.066666666666667,
+          "phase": "approach",
+          "hand": "right"
+        },
+        {
+          "time": 6.883333333333334,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 8.316666666666666,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 9.816666666666666,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 9.925,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 10.325,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 10.8,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 10.808333333333334,
+          "phase": "approach",
+          "hand": "left"
+        },
+        {
+          "time": 12.258333333333333,
+          "phase": "place",
+          "hand": "left"
+        },
+        {
+          "time": 13.533333333333333,
+          "phase": "settle",
+          "hand": "left"
+        },
+        {
+          "time": 15.033333333333333,
+          "phase": "chamber",
+          "hand": "left"
+        },
+        {
+          "time": 15.475,
+          "phase": "swing",
+          "hand": "left"
+        },
+        {
+          "time": 15.875,
+          "phase": "return",
+          "hand": "left"
+        },
+        {
+          "time": 16.35,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 16.358333333333334,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 18.066666666666666,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 19.566666666666666,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 20.008333333333333,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 20.408333333333335,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 20.883333333333333,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 20.891666666666666,
+          "phase": "approach",
+          "hand": "left"
+        },
+        {
+          "time": 20.925,
+          "phase": "place",
+          "hand": "left"
+        },
+        {
+          "time": 23.283333333333335,
+          "phase": "settle",
+          "hand": "left"
+        },
+        {
+          "time": 24.783333333333335,
+          "phase": "chamber",
+          "hand": "left"
+        },
+        {
+          "time": 25.225,
+          "phase": "swing",
+          "hand": "left"
+        },
+        {
+          "time": 25.625,
+          "phase": "return",
+          "hand": "left"
+        },
+        {
+          "time": 26.108333333333334,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 26.116666666666667,
+          "phase": "approach",
+          "hand": "right"
+        },
+        {
+          "time": 27.55,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 28.833333333333332,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 30.333333333333332,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 30.783333333333335,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 31.183333333333334,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 31.658333333333335,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 31.666666666666668,
+          "phase": "approach",
+          "hand": "left"
+        },
+        {
+          "time": 32.63333333333333,
+          "phase": "place",
+          "hand": "left"
+        },
+        {
+          "time": 33.983333333333334,
+          "phase": "settle",
+          "hand": "left"
+        },
+        {
+          "time": 35.483333333333334,
+          "phase": "chamber",
+          "hand": "left"
+        },
+        {
+          "time": 35.93333333333333,
+          "phase": "swing",
+          "hand": "left"
+        },
+        {
+          "time": 36.333333333333336,
+          "phase": "return",
+          "hand": "left"
+        },
+        {
+          "time": 36.80833333333333,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 36.81666666666667,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 38.44166666666667,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 39.94166666666667,
+          "phase": "chamber",
+          "hand": "right"
+        }
+      ],
+      "verdict": null,
+      "outcomes": {
+        "returned": {
+          "left": 3,
+          "right": 3
+        },
+        "failed": 0,
+        "interrupted": 0
+      }
+    },
+    {
+      "harness": {
+        "kind": "Node arena Duel",
+        "engine": "rapier/adapter-8/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde",
+        "hz": 120,
+        "actuation": "symmetric",
+        "balance": {
+          "left": 0,
+          "right": 0
+        }
+      },
+      "config": {
+        "held": "club",
+        "hand": "right",
+        "motion": "retreat",
+        "gap": 1.6,
+        "mirror": true,
+        "engagement": "reference",
+        "cadence": {
+          "walk": 1.5,
+          "rest": 2.5
+        }
+      },
+      "attempts": 3,
+      "impacts": 3,
+      "usefulReturns": 2,
+      "returns": 2,
+      "timeouts": 0,
+      "falls": 0,
+      "opponentFalls": 0,
+      "outsideSeconds": 4.933333333333368,
+      "firstContact": 6.416666666666667,
+      "simulatedSeconds": 17.016666666666666,
+      "transitions": [
+        {
+          "time": 0.008333333333333333,
+          "phase": "approach",
+          "hand": "right"
+        },
+        {
+          "time": 3.35,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 4.55,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 6.05,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 6.158333333333333,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 6.558333333333334,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 7.45,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 7.458333333333333,
+          "phase": "approach",
+          "hand": "right"
+        },
+        {
+          "time": 8.516666666666667,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 9.75,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 11.25,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 11.358333333333333,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 11.758333333333333,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 12.725,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 12.733333333333333,
+          "phase": "approach",
+          "hand": "right"
+        },
+        {
+          "time": 12.783333333333333,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 15.158333333333333,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 16.658333333333335,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 16.766666666666666,
+          "phase": "swing",
+          "hand": "right"
+        }
+      ],
+      "verdict": {
+        "winner": "right",
+        "ending": "fatal",
+        "time": 17.016666666666666
+      },
+      "outcomes": {
+        "returned": {
+          "left": 0,
+          "right": 2
+        },
+        "failed": 0,
+        "interrupted": 0
+      }
+    },
+    {
+      "harness": {
+        "kind": "Node arena Duel",
+        "engine": "rapier/adapter-8/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde",
+        "hz": 120,
+        "actuation": "symmetric",
+        "balance": {
+          "left": 0,
+          "right": 0
+        }
+      },
+      "config": {
+        "held": "club",
+        "hand": "right",
+        "motion": "retreat",
+        "gap": 2.8,
+        "mirror": true,
+        "engagement": "reference",
+        "cadence": {
+          "walk": 1.5,
+          "rest": 2.5
+        }
+      },
+      "attempts": 3,
+      "impacts": 3,
+      "usefulReturns": 2,
+      "returns": 2,
+      "timeouts": 0,
+      "falls": 0,
+      "opponentFalls": 0,
+      "outsideSeconds": 8.116666666666847,
+      "firstContact": 8.658333333333333,
+      "simulatedSeconds": 17.408333333333335,
+      "transitions": [
+        {
+          "time": 3.091666666666667,
+          "phase": "approach",
+          "hand": "right"
+        },
+        {
+          "time": 5.3,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 6.8,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 8.3,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 8.408333333333333,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 8.808333333333334,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 9.7,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 9.708333333333334,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 11.175,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 12.675,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 12.783333333333333,
+          "phase": "swing",
+          "hand": "right"
+        },
+        {
+          "time": 13.183333333333334,
+          "phase": "return",
+          "hand": "right"
+        },
+        {
+          "time": 13.958333333333334,
+          "phase": null,
+          "hand": null
+        },
+        {
+          "time": 13.966666666666667,
+          "phase": "place",
+          "hand": "right"
+        },
+        {
+          "time": 15.541666666666666,
+          "phase": "settle",
+          "hand": "right"
+        },
+        {
+          "time": 17.041666666666668,
+          "phase": "chamber",
+          "hand": "right"
+        },
+        {
+          "time": 17.15,
+          "phase": "swing",
+          "hand": "right"
+        }
+      ],
+      "verdict": {
+        "winner": "right",
+        "ending": "fatal",
+        "time": 17.408333333333335
+      },
+      "outcomes": {
+        "returned": {
+          "left": 0,
+          "right": 2
+        },
+        "failed": 0,
+        "interrupted": 0
+      }
+    }
+  ]
+}

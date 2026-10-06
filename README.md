@@ -50,7 +50,9 @@ Each contender has a **Controller** choice: Classic fighter, or experimental **P
 with the right hand, left hand, or alternating hands. Choose a wooden club or empty hands.
 Point control plans the striking point's path and predicts defensive intercepts, using the same
 body, muscles, walking, balance and damage rules as Classic. It is a playable comparison,
-not yet a stronger fighter.
+not yet a stronger fighter. It tracks moving opponents, returns on new hand/item contact,
+and can step back when crowded. [Moving-opponent checks](docs/reference/arena-engagement.md)
+measure useful contacts followed by verified returns; they do not establish a win-rate advantage.
 
 The **Recovery window** can allow 15, 30 or 60 seconds down before defeat. The HUD names the
 current controller or recovery attempt. Point control rises with the reference pose sequence,

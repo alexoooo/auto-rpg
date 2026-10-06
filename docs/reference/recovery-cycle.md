@@ -80,6 +80,8 @@ node research/arena-control-cycle.mjs docs/reference/recovery-cycle.json
 node --test tests/arena-control-cycle.test.mjs tests/arena-point-control.test.mjs
 ```
 
+The runner explicitly selects `engagement: "reference"` to reproduce this table; current game
+Point control defaults to tracked engagement. Integration tests exercise the current default.
 The two-worker runner executes one sequential queue per worker and writes all 19 development
 cases to [recovery-cycle.json](recovery-cycle.json), including failures. It uses the same Duel
 and World.step as gameplay. Static target coordinates and cancellation are fixture inputs,

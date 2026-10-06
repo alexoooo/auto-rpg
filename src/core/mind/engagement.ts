@@ -10,17 +10,18 @@ import { STAND_ORDERS, type Orders } from "./orders.ts";
 import type { Sight, Tactics } from "./tactics.ts";
 
 /** Point placement and entry hysteresis, engineering settings in `docs/reference/arena-engagement.md#tracked-settings`. */
-export const ENGAGEMENT = Object.freeze({ spacing: APPROACH.reach / 2, entry: APPROACH.reach / 2 });
+export const ENGAGEMENT = Object.freeze({ spacing: APPROACH.reach / 2, entry: APPROACH.reach / 2, prediction: PLACED.seconds });
 
 /** Range-aware intentions over the existing skills; explicit orders override autonomous pursuit. */
-export function trackedEngagement(name: string, orders: (sight: Sight) => Orders | null, mode: PointFighterConfig["hand"]): Tactics {
+export function trackedEngagement(name: string, orders: (sight: Sight) => Orders | null, mode: PointFighterConfig["hand"], settings = ENGAGEMENT): Tactics {
   const ordered = fighterTactics(name, sight => orders(sight) ?? STAND_ORDERS);
   const state = { phase: "guard", foe: null as string | null, hand: "right" as "left" | "right",
     aim: null as Vec3 | null, cycle: 0, engaging: false, ordered: ordered.state! };
   const guard = { left: GUARD_ACTION, right: GUARD_ACTION };
   return { name, state, engagement: state, decide(sight, dt) {
     const { view, report, envelope } = sight, strike = report.strike;
-    const cycles = strike.pointCycle ? strike.pointCycle.returned.left + strike.pointCycle.returned.right
+    const completed = strike.pointCycle?.response?.completed;
+    const cycles = completed ? completed.left + completed.right : strike.pointCycle ? strike.pointCycle.returned.left + strike.pointCycle.returned.right
       + strike.pointCycle.failed + strike.pointCycle.interrupted : strike.thrown.left + strike.thrown.right;
     if (view.resumed || cycles !== state.cycle) { state.aim = null; state.engaging = false; state.cycle = cycles; }
     if (strike.hand) state.hand = strike.hand;
@@ -53,28 +54,35 @@ export function trackedEngagement(name: string, orders: (sight: Sight) => Orders
     }
     const part = foe.segments.get("head"), at = part?.centre ?? foe.centre, velocity = part?.velocity ?? foe.velocity;
     const horizon = strike.phase === "swing" ? Math.max(0, PLACED.seconds - strike.since)
-      : strike.phase === "chamber" ? PLACED.seconds : 0;
+      : settings.prediction;
     const speed = hypot(velocity.x, velocity.y, velocity.z), scale = speed > 0 ? Math.min(horizon, APPROACH.reach / speed) : 0;
     const target: Vec3 = [at.x + velocity.x * scale, at.y + velocity.y * scale, at.z + velocity.z * scale];
     const range = strike.rangeAt(state.hand, target[1] - view.head.y);
-    const geometry = targetWindow([view.head.x, view.head.y, view.head.z], report.heading, target, range, APPROACH.reach);
+    const geometry = targetWindow([view.head.x, view.head.y, view.head.z], view.stance.facing, target, range, APPROACH.reach);
     const committed = strike.phase === "chamber" || strike.phase === "swing" || strike.phase === "return";
     if (committed || (state.engaging && geometry.inside)) {
       state.phase = strike.phase ?? "attack";
-      if (committed || !state.aim || hypot(target[0] - state.aim[0], target[1] - state.aim[1], target[2] - state.aim[2]) > ENGAGEMENT.entry) state.aim = target;
+      if (committed || !state.aim || hypot(target[0] - state.aim[0], target[1] - state.aim[1], target[2] - state.aim[2]) > settings.entry) state.aim = target;
       const attack: HandAction = { kind: "attack", target: state.aim! };
+      if (strike.phase === "return" && geometry.distance < range.reach) {
+        const speed = (envelope?.walk.value ?? APPROACH.pace) * STRAFE.share;
+        const turn = wrap(geometry.bearing - report.heading);
+        return { move: [-speed * cos(turn), -speed * sin(turn)], face: geometry.bearing,
+          hands: state.hand === "left" ? { left: attack, right: GUARD_ACTION } : { left: GUARD_ACTION, right: attack } };
+      }
       return { move: null, face: report.heading, hands: state.hand === "left" ? { left: attack, right: GUARD_ACTION } : { left: GUARD_ACTION, right: attack } };
     }
     const delta = geometry.distance - range.reach, turn = wrap(geometry.bearing - report.heading);
-    if (Math.abs(delta) <= ENGAGEMENT.entry && Math.abs(turn) <= STRAFE.turned) {
+    if (Math.abs(delta) <= settings.entry && Math.abs(wrap(geometry.bearing - view.stance.facing)) <= STRAFE.turned) {
       state.engaging = true; state.aim = target; state.phase = "attack";
       const attack: HandAction = { kind: "attack", target };
       return { move: null, face: report.heading, hands: state.hand === "left" ? { left: attack, right: GUARD_ACTION } : { left: GUARD_ACTION, right: attack } };
     }
     state.engaging = false; state.aim = null;
-    const pace = Math.min(envelope?.walk.value ?? APPROACH.pace, APPROACH.pace);
+    const maximum = envelope?.walk.value ?? APPROACH.pace;
+    const pace = Math.abs(delta) > APPROACH.reach ? maximum : Math.min(maximum, APPROACH.pace);
     const speedTo = Math.max(-pace * STRAFE.share, Math.min(pace, delta / APPROACH.seconds));
-    state.phase = delta < -ENGAGEMENT.entry ? "retreat" : Math.abs(turn) > STRAFE.turned ? "align" : "approach";
+    state.phase = delta < -settings.entry ? "retreat" : Math.abs(turn) > STRAFE.turned ? "align" : "approach";
     // A zero-speed walking goal still asks locomotion to turn within its measured envelope.
     return { move: [speedTo * cos(turn), speedTo * sin(turn)], face: geometry.bearing, hands: guard };
   } };

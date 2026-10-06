@@ -10,9 +10,11 @@ if (!isMainThread) {
 } else {
   const engagement = process.argv[2] ?? "reference", output = process.argv[3] ?? `research/runs/arena-${engagement}.json`;
   const heldOut = process.argv.includes("--held-out");
+  const fresh = process.argv.includes("--fresh");
   const jobs = ["stationary", "lateral", "advance", "retreat"].flatMap(motion =>
     [{ held: "empty", hand: "left" }, { held: "empty", hand: "right" }, { held: "empty", hand: "alternate" }, { held: "club", hand: "right" }].flatMap(loadout =>
-      [1.2, 2.4].map(gap => ({ ...loadout, motion, gap, mirror: heldOut, engagement }))));
+      (fresh ? [1.6, 2.8] : [1.2, 2.4]).map(gap => ({ ...loadout, motion, gap, mirror: heldOut, engagement,
+        ...(fresh ? { cadence: { walk: 1.5, rest: 2.5 } } : {}) }))));
   const results = new Array(jobs.length), workers = Array.from({ length: 2 }, () => new Worker(new URL(import.meta.url)));
   let next = 0;
   try {

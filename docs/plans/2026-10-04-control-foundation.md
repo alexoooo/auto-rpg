@@ -566,12 +566,17 @@ checks this path and fresh-world replay. Static strikes prepare and return with 
 contacts already pressing the target do not count as incoming impacts. The failed club direction
 and a cycle timeout remain in the development results.
 
+Tracked engagement, new-contact returns and crowded backward returns now pass development and
+fresh mirrored gates; [the record](../reference/arena-engagement.md) retains the rejected first
+validation and the accepted measurements. Replay, explicit orders, interruption and static cycles
+are covered in `tests/arena-engagement.test.mjs`.
+
 Remaining integration chunks must keep the classic comparison option:
 
-1. In `src/core/mind/point-fighter.ts` and `src/core/skills/strike.ts`, improve the measured
-   attack/return cycle and contact response without increasing muscle strength. Extend
-   `tests/arena-point-control.test.mjs` with moving targets, interrupted strikes and frozen
-   multi-bout evaluation cases; measure driven contact quality, misses and falls separately.
+1. Extend `research/arena-engagement.mjs` with opponents that attack and more body/loadout
+   combinations. Preserve frozen comparison splits and per-case failures; measure driven
+   contact quality, defense effectiveness, misses and falls separately before changing
+   `src/core/mind/point-fighter.ts` or `src/core/skills/strike.ts`.
 2. Generalize and accelerate the reference route in `src/core/mind/rise/`, starting with the
    failed club direction in `research/arena-control-trials.mjs`. Replace timed pose transitions
    only against measured contact/transfer gates. Extend `tests/arena-control-cycle.test.mjs`

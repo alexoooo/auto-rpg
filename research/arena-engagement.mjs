@@ -12,30 +12,31 @@ import { aimOf } from "../src/core/skills/strikes.ts";
 import { freshEngine } from "../tests/harness/core-stand.mjs";
 
 /** Real Duel with an ordered opponent; exchanging sides mirrors the approach without installing poses. */
-export async function engagementArena({ held = "empty", hand = "right", engagement = "reference", gap = 2.4, mirror = false, seconds = 40 } = {}) {
+export async function engagementArena({ held = "empty", hand = "right", engagement = "reference", gap = 2.4, mirror = false, seconds = 40, engagementTuning } = {}) {
   const rendering = new NullEngine(), scene = new Scene(rendering), engine = await freshEngine(), world = createWorld(scene, engine);
   addArenaSolids(world.physics);
   const side = mirror ? "right" : "left", other = mirror ? "left" : "right";
   const duel = new Duel(world, { [side]: "workshop-fighter", [other]: "workshop-rogue", gap, capSeconds: seconds + 2,
     recoverySeconds: 60, held: { [side]: held, [other]: "empty" },
-    minds: { [side]: { ...POINT_FIGHTER, hand, engagement }, [other]: FIGHTER } });
+    minds: { [side]: { ...POINT_FIGHTER, hand, engagement, ...(engagementTuning ? { engagementTuning } : {}) }, [other]: FIGHTER } });
   duel.order(other, STAND_ORDERS);
   return { world, duel, side, other, fighter: duel.duelists[side], opponent: duel.duelists[other],
     harness: { kind: "Node arena Duel", engine: engine.revision, hz: world.hz, actuation: world.actuation, balance: { left: 0, right: 0 } },
     dispose() { duel.dispose(); world.dispose(); scene.dispose(); rendering.dispose(); } };
 }
 
-/** A two-second walk followed by two seconds standing; lateral walks alternate direction. */
-export function orderOpponent(stand, motion, step) {
+/** Alternating walk/rest orders (two seconds each by default); lateral walks alternate direction. */
+export function orderOpponent(stand, motion, step, cadence = { walk: 2, rest: 2 }) {
   const { fighter, opponent, duel, other } = stand;
-  if (motion === "stationary" || Math.floor(step / 240) % 2 === 1) { duel.order(other, STAND_ORDERS); return; }
+  const walking = cadence.walk * stand.world.hz, period = walking + cadence.rest * stand.world.hz;
+  if (motion === "stationary" || step % period >= walking) { duel.order(other, STAND_ORDERS); return; }
   const a = fighter.body.view.head, b = opponent.body.view.head;
   const d = Math.max(.001, Math.hypot(a.x - b.x, a.z - b.z)), x = (a.x - b.x) / d, z = (a.z - b.z) / d;
   let move;
   switch (motion) {
     case "advance": move = { x, z }; break;
     case "retreat": move = { x: -x, z: -z }; break;
-    case "lateral": { const sign = Math.floor(step / 480) % 2 ? -1 : 1; move = { x: sign * z, z: -sign * x }; break; }
+    case "lateral": { const sign = Math.floor(step / period) % 2 ? -1 : 1; move = { x: sign * z, z: -sign * x }; break; }
     default: throw new Error(`unknown opponent motion ${motion}`);
   }
   duel.order(other, { move, face: { x, z }, attack: null });
@@ -55,7 +56,7 @@ export async function engagementTrial(config) {
     let phase = null, active = false, incoming = false, contacted = false, down = false, otherDown = false;
     let returned = 0, touching = { left: false, right: false };
     for (let step = 0; step < seconds * world.hz && !duel.verdict; step++) {
-      orderOpponent(stand, motion, step);
+      orderOpponent(stand, motion, step, config.cadence);
       const closing = {};
       for (const h of ["left", "right"]) {
         const s = fighter.built.segments.get(`hand.${h}`);
@@ -90,7 +91,7 @@ export async function engagementTrial(config) {
       if (off < range.along[0] || off > range.along[1]) result.outsideSeconds += world.dt;
     }
     result.returns = returned; result.timeouts = report.pointCycle.failed; result.simulatedSeconds = world.time;
-    result.verdict = duel.verdict;
+    result.verdict = duel.verdict; result.outcomes = structuredClone(report.pointCycle);
     return result;
   } finally { stand.dispose(); }
 }

@@ -52,6 +52,8 @@ export interface SkillOptions {
   readonly pointMotion?: boolean;
   /** Point placement offset, in metres; supplied by a measured engagement policy. */
   readonly pointSpacing?: number;
+  /** Retract on a new external hand contact and verify the target window before release. */
+  readonly pointResponse?: boolean;
   /** An experiment's strikes in place of the searched repertoire (`REPERTOIRE`): a search's candidate. */
   readonly repertoire?: Repertoire;
   /** An experiment's placed blow in place of the one set (`PLACED`): a sweep's cell. */
@@ -63,8 +65,8 @@ export interface SkillOptions {
 }
 
 /** The skills of `body`; `tactics` is the memory of the tactics that will hand them their intent (`Tactics.state`), kept with theirs. */
-export function createSkills(body: Body, { repertoire = REPERTOIRE, placed, steer, cover, pointMotion, pointSpacing }: SkillOptions = {}, tactics: object | null = null, engagement?: { readonly phase: string }): Skills {
-  const legs = locomotion(body.envelope), strikes = strikeSkill(body.built.spec, repertoire, placed, steer, pointMotion, pointSpacing), guard = guardSkill(body.built.spec, cover);
+export function createSkills(body: Body, { repertoire = REPERTOIRE, placed, steer, cover, pointMotion, pointSpacing, pointResponse }: SkillOptions = {}, tactics: object | null = null, engagement?: { readonly phase: string }): Skills {
+  const legs = locomotion(body.envelope), strikes = strikeSkill(body.built.spec, repertoire, placed, steer, pointMotion, pointSpacing, pointResponse), guard = guardSkill(body.built.spec, cover);
   const none: readonly MusclePush[] = Object.freeze([]);
   const idle: BodyCommand["hands"] = Object.freeze({ left: null, right: null });
   const command: { -readonly [K in keyof BodyCommand]: BodyCommand[K] } =
@@ -84,7 +86,9 @@ export function createSkills(body: Body, { repertoire = REPERTOIRE, placed, stee
     command(view, intent, dt) {
       const strike = strikes.command(view, intent.hands, legs.heading, legs.placed, dt);
       if (!strike) strikes.idle(intent.move !== null, dt);
-      const goal = strike?.footing ? legs.place(view, strike.footing, intent.lower)
+      const retreat = pointResponse && strikes.report.phase === "return" && intent.move !== null;
+      const goal = retreat ? legs.goal(view, intent.move, intent.face, dt, intent.lower)
+        : strike?.footing ? legs.place(view, strike.footing, intent.lower)
         : strike ? legs.goal(view, strike.walk, strike.face, dt, intent.lower)
         : legs.goal(view, intent.move, intent.face, dt, intent.lower);
       // A blow under way turns the heading to follow its target (`STEER`).

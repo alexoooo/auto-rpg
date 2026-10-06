@@ -107,8 +107,11 @@ optional recovery window. Reference rising now has a measured standing handover,
 walking and repeatable point preparation/strike/return cycles in the real Duel. The
 [development record](reference/recovery-cycle.md) retains a failed club fall direction and a
 post-recovery cycle timeout. Passing rises take 25-29 seconds; these fixtures establish neither
-general recovery nor combat quality. Faster contact-driven recovery across bodies, moving-target
-contact response, simultaneous coordinated attacks, separate/two-hand item rendering and damage,
+general recovery nor combat quality. Point control now defaults to tracked approach and new-contact
+return, including backward steps when crowded. [Moving-opponent validation](reference/arena-engagement.md)
+passes the documented useful-return, fall and timeout gates on development and fresh mirrored
+cases; pressure timeouts remain and no win-rate claim follows. Faster contact-driven recovery
+across bodies, simultaneous coordinated attacks, separate/two-hand item rendering and damage,
 and a practical real-time whole-body solver remain open. The independent policy interface and
 classic fighter remain available for comparison.
 

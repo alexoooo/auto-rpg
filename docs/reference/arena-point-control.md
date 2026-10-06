@@ -3,6 +3,8 @@
 `PointFighterConfig` selects an experimental gameplay controller independently of body anatomy.
 It is selectable beside Classic for either contender. The ordinary `Duel` owns physics, sensing,
 orders, contacts, damage, verdicts and replay; the page only selects the recipe and renders it.
+The default tracked engagement and its explicit reference comparison profile are documented in
+[moving-opponent engagement](arena-engagement.md).
 
 ## Controller and settings
 
@@ -54,8 +56,8 @@ Warrior versus Rogue, balance 0% on both sides (their sourced character values).
 - Controller/recovery link parsing, and a cover placed on the predicted intercept plane.
 
 These are integration gates, not evidence of superiority. A completed requested strike is
-not necessarily a hit, and a touch during a fall is not a successful driven attack. A standard
-20-second unarmed comparison bout requests several attacks; club use can topple the fighter.
+not necessarily a hit, and a touch during a fall is not a successful driven attack.
+The moving-opponent record separately measures useful contacts followed by returns.
 No win-rate or damage-quality claim is made from these fixtures.
 
 ## Remaining limits
@@ -68,9 +70,9 @@ disarms and shared two-hand grips are not yet integrated with rendering and dama
 
 The reference recovery sequence still uses timed poses. Its measured handover passes selected
 Warrior falls, but one club direction fails and passing recovery is slow. The independent
-support-entry research pose has no reliable general standing transition. Impact-aware
-braking/re-planning, moving-target return validation, coordinated simultaneous attacks and
-measured defense effectiveness remain open.
+support-entry research pose has no reliable general standing transition. Tracked new-contact
+returns and moving-target validation cover the measured Warrior slice; general recovery,
+coordinated simultaneous attacks and measured defense effectiveness remain open.
 
 ## Strike cycle
 
@@ -78,15 +80,18 @@ measured defense effectiveness remain open.
 `near = 0.03` m, `slow = 0.2` m/s, `hold = 0.1` s continuously, `limit = 2` s per phase.
 These are development thresholds validated by the table below, not anatomical measurements
 or optimal values from a sweep. Speed is the finite difference of the striking point in the
-body frame. Acceptance also requires an upright body and stance phase `stand`.
+body frame. Acceptance requires an upright body. Preparation requires stance phase `stand`;
+tracked returns can complete during controlled gait, while reference returns require standing.
 
-Point-only placement subtracts `PLACED.through` from available straight reach so the requested
+Reference point placement subtracts `PLACED.through` from available straight reach so the requested
 follow-through fits. At commitment the cycle captures its starting point. Preparation asks for
 half the arm's straight reach between point and target, retracting only the shortfall, capped at
 `PLACED.through`. This geometric choice supplies a stroke when the guard is already close to the
 target; it avoids unnecessary retraction with a longer club. Existing `PLACED.seconds` and
 muscle strengths remain unchanged. The chamber and return are fixed body-frame goals; the
-outbound goal follows the target. All phases use measured initial point velocity.
+outbound goal follows the target. All phases use measured initial point velocity. Tracked placement
+adds the engagement spacing and verifies the current target window before release; new external
+contact starts return immediately, with distinct finished-attempt outcomes.
 
 `thrown` counts completed outbound durations, not hits. `pointCycle.returned` counts measured
 returns to the captured starting point. `failed` counts preparation or return deadlines, and
@@ -95,6 +100,7 @@ its hand; recovery takeover discards the cycle and resumes from the actual body.
 timeout skips release and attempts return. Return timeout releases to guard with a failure.
 Thus even a reported return can follow a cancelled or failed preparation; it is not a hit count.
 
+The table below measures `engagement: "reference"`, not the tracked default.
 Harness: Node arena Duel, vendored Rapier adapter 8, symmetric actuation, 120 Hz, Warrior,
 balance 0% on both sides. Fixed box at head height, 0.65 m forward for empty hands or 1 m for
 the club; misses omit the box. Each row runs 20 s after settling. An incoming impact is the

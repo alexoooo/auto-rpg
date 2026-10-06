@@ -12,11 +12,11 @@ import { createWorld } from "../src/core/world.ts";
 import { freshEngine } from "../tests/harness/core-stand.mjs";
 
 /** Actual arena lifecycle, isolated by standing the other contestant out of reach. */
-export async function controlArena({ held = "empty", hand = "right", model = "workshop-fighter", seconds = 120 } = {}) {
+export async function controlArena({ held = "empty", hand = "right", model = "workshop-fighter", seconds = 120, engagement } = {}) {
   const rendering = new NullEngine(), scene = new Scene(rendering), engine = await freshEngine(), world = createWorld(scene, engine);
   addArenaSolids(world.physics);
   const duel = new Duel(world, { left: model, right: "workshop-rogue", gap: 8, capSeconds: seconds, recoverySeconds: 60,
-    held: { left: held, right: "empty" }, minds: { left: { ...POINT_FIGHTER, hand }, right: FIGHTER } });
+    held: { left: held, right: "empty" }, minds: { left: { ...POINT_FIGHTER, hand, ...(engagement ? { engagement } : {}) }, right: FIGHTER } });
   duel.order("left", STAND_ORDERS); duel.order("right", STAND_ORDERS);
   return { world, duel, fighter: duel.duelists.left,
     harness: { kind: "Node arena Duel", engine: engine.name, revision: engine.revision, hz: world.hz,

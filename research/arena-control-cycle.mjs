@@ -14,7 +14,7 @@ if (!isMainThread) {
     ...["hit", "miss"].flatMap((mode) => ["left", "right", "alternate"].map((hand) => ({ task: "strike", config: { held: "empty", hand, mode } }))),
     ...["hit", "miss"].map((mode) => ({ task: "strike", config: { held: "club", hand: "right", mode } })),
     { task: "strike", config: { held: "empty", hand: "right", mode: "miss", cancel: true } },
-  ];
+  ].map((job) => ({ ...job, config: { ...job.config, engagement: "reference" } }));
   const results = new Array(jobs.length), workers = Array.from({ length: 2 }, () => new Worker(new URL(import.meta.url)));
   let next = 0;
   try {

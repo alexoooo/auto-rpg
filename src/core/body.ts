@@ -16,6 +16,7 @@ import type { BodyLevel, MuscleDriver } from "./muscle/driver.ts";
 import type { World } from "./world.ts";
 import { physicalBody, type PhysicalBody } from "./physical-body.ts";
 import { centreReading } from "./observation.ts";
+import { handFeedback, type HandFeedback } from "./control/hand-feedback.ts";
 
 /**
  * **A body, commanded and seen.** One class for every body assembled from a spec: its muscles
@@ -57,8 +58,8 @@ export interface Body extends PhysicalBody {
    * view). Its driver's memory is the driver's to keep.
    */
   readonly state: object;
-  /** Hand the body to `driver`, asked for a command each control step; null keeps the last command. */
-  drive(driver: BodyDriver | null): void;
+  /** Drive each control step; null keeps the command. `released` discards pending driver work on sub-mind takeover or idle. */
+  drive(driver: BodyDriver | null, released?: (view: BodyView) => void): void;
   dispose(): void;
 }
 
@@ -96,6 +97,8 @@ const restCommand = (): BodyCommand => ({ posture: {}, hands: { left: null, righ
 
 /** **What a body shows its driver**, read at the start of each control step from the step before. */
 export interface BodyView {
+  /** Optional own-hand contact feedback for controllers that react to impacts. */
+  readonly handFeedback?: Readonly<Record<Hand, HandFeedback>>;
   /** Seconds of the world's clock. */
   readonly time: number;
   /** What the body senses of the world this step (`Senses`): the clock, its side, and every other body. */
@@ -139,6 +142,8 @@ export interface Fist {
 export const SERVO_SECONDS = 0.1;
 
 interface BodyOptions {
+  /** Read external hand contacts and striking-point motion into the body's view. */
+  readonly handFeedback?: boolean;
   /**
    * The joint servo's time constant, s (`servo`): a goal's error decays as a critically damped
    * motion with natural frequency 1 / servoSeconds.
@@ -166,13 +171,14 @@ interface BodyOptions {
  */
 interface CommandMind extends HostMind {
   readonly view: BodyView;
-  /** Hand the body to `driver`, asked for a command each control step; null keeps the last command. */
-  drive(driver: BodyDriver | null): void;
+  /** Drive each control step; null keeps the command. `released` discards pending driver work on sub-mind takeover or idle. */
+  drive(driver: BodyDriver | null, released?: (view: BodyView) => void): void;
 }
 
 /** The command layers over `own`, holding its reference pose until something drives them. */
-export function commandMind(own: OwnBody, { servoSeconds, stance }: BodyOptions): CommandMind {
+export function commandMind(own: OwnBody, { servoSeconds, stance, handFeedback: feedbackEnabled }: BodyOptions): CommandMind {
   const { built, muscles } = own;
+  const feedback = feedbackEnabled ? handFeedback(built) : null;
   const motor: MotorControl = motorControl(built, servoSeconds, {}, stance, own.assist);
   const fists = { left: fistOf(built, "left"), right: fistOf(built, "right") };
   const head = centreReading(built, "head");
@@ -189,6 +195,7 @@ export function commandMind(own: OwnBody, { servoSeconds, stance }: BodyOptions)
     motor: motor.state,
     down: false,
     resumed: false,
+    ...(feedback ? { handFeedback: feedback.state } : {}),
   };
   const view = {
     get time() { return state.time; },
@@ -201,8 +208,10 @@ export function commandMind(own: OwnBody, { servoSeconds, stance }: BodyOptions)
     stance: motor.stance.reading,
     get down() { return state.down; },
     get resumed() { return state.resumed; },
+    ...(feedback ? { handFeedback: feedback.state } : {}),
   };
   let driver: BodyDriver | null = null;
+  let released: ((view: BodyView) => void) | undefined;
 
   const obey = (command: BodyCommand): void => {
     motor.setPosture(command.posture);
@@ -218,6 +227,7 @@ export function commandMind(own: OwnBody, { servoSeconds, stance }: BodyOptions)
   obey(restCommand());
 
   const look = (senses: Senses): void => {
+    feedback?.read();
     state.time = senses.time;
     view.senses = senses;
     muscles.channels.forEach((c, i) => { angles[c.name] = muscles.angle(i); });
@@ -240,9 +250,10 @@ export function commandMind(own: OwnBody, { servoSeconds, stance }: BodyOptions)
   return {
     name: "command",
     view, look, act, state,
-    drive(next) { driver = next; },
+    drive(next, onRelease) { driver = next; released = onRelease; },
     step(senses, dt) { look(senses); act(dt); },
     release() {
+      released?.(view);
       motor.reset();
       goals.left = null;
       goals.right = null;
@@ -264,7 +275,7 @@ export function createBody(built: BuiltBody, world: World, options: BodyOptions)
   return Object.assign(physicalBody(own, world, sense, () => mind.has, state, dispose, () => command.view.down), {
     view: command.view,
     envelope: !options.measuring && Object.keys(options.stance ?? {}).length === 0 ? stanceEnvelope(built.spec) : null,
-    drive: (next: BodyDriver | null) => command.drive(next),
+    drive: (next: BodyDriver | null, released?: (view: BodyView) => void) => command.drive(next, released),
   });
 }
 

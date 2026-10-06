@@ -52,7 +52,8 @@ runs `stagedRise`, then uses locomotion's gradual height restoration and foot sq
 stabilize. `recoveryReady` independently requires loaded feet, no other fixed support, a centre
 of mass inside their support polygon, low segment speed and the host's upright reading for a
 continuous interval. A stabilization timeout retries from the actual body. The host releases
-pending commands on takeover and resumes its skills only after this handover. Recovery and
+pending commands on takeover; Point control also clears pending skill cycles through its
+driver release callback, and resumes after this handover. Recovery and
 trajectory memory are plain data under the body/bout state, including the standing reference.
 See [recovery measurements](reference/recovery-cycle.md) for the tested envelope and failures.
 The independent `supportEntryPolicy` remains available to the research task; it ends at hand/shin
@@ -63,6 +64,18 @@ point, and return it to its captured body-frame starting point. Preparation and 
 measured proximity and low velocity; deadlines produce failure counts, not successful returns.
 A cancelled committed stroke returns, while recovery takeover discards it. Classic retains its
 existing strike execution. See [strike-cycle settings](reference/arena-point-control.md#strike-cycle).
+
+Point control defaults to `trackedEngagement`: a hand-specific reach window with an inner entry
+band, bounded velocity prediction, measured facing and quiet settling before preparation.
+Explicit orders override pursuit. Optional `BodyView.handFeedback` samples actual point motion
+and external contact impulses from the preceding physics step, with no engine objects exposed.
+A new contact starts return; continuous pressure does not. Finished attempts record contact,
+miss, cancellation, target escape, timeout or recovery interruption, separately from verified
+returns. Alternating hands advances on finished attempts. A crowded return can step backward;
+its completion accepts upright controlled gait, but the next attack must settle standing.
+Feedback, engagement and reaction memory are plain bout state. `engagement: "reference"`
+preserves the comparison controller. See [settings and validation](reference/arena-engagement.md).
+
 
 `DuelRecipe.recoverySeconds` optionally permits a continuous interval down. Its per-side clocks
 are saved only when enabled. Damage elimination remains immediate, opponents continue sensing
