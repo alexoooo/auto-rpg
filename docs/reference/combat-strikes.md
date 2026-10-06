@@ -332,3 +332,10 @@ The complete matched 96-bout development record and separate opponent rates are
 reported in `arena-combat-evaluation.md#matched-combinations-and-low-mode-development`.
 The combination remains optional after little change in Brawler damage advantage
 and lower Point damage in that sample.
+
+## Cadence admission
+
+Shorter chamber and return times pass standing straight/cross hit and miss checks
+but lose low stability or hook accuracy in the complete admission screen. All
+51 physical development trials and the settings are retained in
+[cadence admission](combat-cadence.md). Playable timings remain unchanged.
