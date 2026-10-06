@@ -1,0 +1,270 @@
+{
+  "fingerprint": "d2a04066034ccf6163f712de9cc203e0a65f16e38ecb6d4b2f9284e56590fee2",
+  "sourceCommit": "b4b3cccf",
+  "groups": [
+    {
+      "id": "1444554f38aeb03d81014b6e8f167d44291eb58cae0e33fae288613d4a66d857",
+      "descriptor": {
+        "candidate": {
+          "kind": "arena-fighter",
+          "hand": "alternate",
+          "targeting": "openings",
+          "repertoire": "mixed",
+          "openings": {
+            "head": 0.3,
+            "upperTrunk": 0,
+            "middleTrunk": 0
+          },
+          "groundGame": true,
+          "spacing": 0.1
+        },
+        "opponent": "classic",
+        "body": "workshop-fighter",
+        "opponentBody": "workshop-fighter",
+        "held": "empty",
+        "opponentHeld": "empty",
+        "balance": 0,
+        "opponentBalance": 0,
+        "capSeconds": 60,
+        "recoverySeconds": null,
+        "harness": {
+          "kind": "Node Arena Duel",
+          "engine": "rapier-coordinate",
+          "revision": "rapier/adapter-8/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits",
+          "hz": 120,
+          "actuation": "symmetric"
+        },
+        "protocol": {
+          "version": 1,
+          "drivenClosing": 1,
+          "relativeHandSpeed": 0.5,
+          "pressureEpisode": 2,
+          "lowHeadHeight": 0.8,
+          "startup": 2,
+          "capSeconds": 60
+        }
+      },
+      "rating": {
+        "pairs": 100,
+        "bouts": 200,
+        "score": 0.925,
+        "score95": [
+          0.8562342653932596,
+          0.9623212611308026
+        ],
+        "relativeElo": 436.4321877389331,
+        "elo95": [
+          309.97488637141095,
+          562.8894891064552
+        ],
+        "perfectScore": false,
+        "endings": {
+          "wins": 185,
+          "losses": 15,
+          "draws": 0,
+          "decisiveWins": 0,
+          "timeWins": 185
+        }
+      },
+      "endings": {
+        "time": {
+          "wins": 185,
+          "losses": 15,
+          "draws": 0
+        }
+      },
+      "total": {
+        "seconds": 12000,
+        "driven": 1830,
+        "opposingDriven": 82,
+        "drivenDamage": 36.22614146920645,
+        "opposingDrivenDamage": 0.5639279663147333,
+        "falls": 61,
+        "opposingFalls": 184,
+        "lowDriven": 150
+      },
+      "damagePerSecond": 0.0030188451224338712,
+      "opposingDamagePerSecond": 4.699399719289444e-05,
+      "pairedDamageDelta": {
+        "mean": 0.0029718511252409745,
+        "standardError": 0.0001227813216489681
+      }
+    },
+    {
+      "id": "f3cb69136d29789aeab0f29c51f8e42aca2352e8938f95d23e23ce66b1aac425",
+      "descriptor": {
+        "candidate": {
+          "kind": "arena-fighter",
+          "hand": "alternate",
+          "targeting": "openings",
+          "repertoire": "mixed",
+          "openings": {
+            "head": 0.3,
+            "upperTrunk": 0,
+            "middleTrunk": 0
+          },
+          "groundGame": true,
+          "spacing": 0.1
+        },
+        "opponent": "point",
+        "body": "workshop-fighter",
+        "opponentBody": "workshop-fighter",
+        "held": "empty",
+        "opponentHeld": "empty",
+        "balance": 0,
+        "opponentBalance": 0,
+        "capSeconds": 60,
+        "recoverySeconds": null,
+        "harness": {
+          "kind": "Node Arena Duel",
+          "engine": "rapier-coordinate",
+          "revision": "rapier/adapter-8/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits",
+          "hz": 120,
+          "actuation": "symmetric"
+        },
+        "protocol": {
+          "version": 1,
+          "drivenClosing": 1,
+          "relativeHandSpeed": 0.5,
+          "pressureEpisode": 2,
+          "lowHeadHeight": 0.8,
+          "startup": 2,
+          "capSeconds": 60
+        }
+      },
+      "rating": {
+        "pairs": 100,
+        "bouts": 200,
+        "score": 0.98,
+        "score95": [
+          0.929988209271456,
+          0.9944980324498376
+        ],
+        "relativeElo": 676.0784320114053,
+        "elo95": [
+          449.32250258888973,
+          902.8343614339188
+        ],
+        "perfectScore": false,
+        "endings": {
+          "wins": 196,
+          "losses": 4,
+          "draws": 0,
+          "decisiveWins": 0,
+          "timeWins": 196
+        }
+      },
+      "endings": {
+        "time": {
+          "wins": 196,
+          "losses": 4,
+          "draws": 0
+        }
+      },
+      "total": {
+        "seconds": 12000,
+        "driven": 1229,
+        "opposingDriven": 73,
+        "drivenDamage": 39.99830471068111,
+        "opposingDrivenDamage": 0.2859347116056694,
+        "falls": 0,
+        "opposingFalls": 0,
+        "lowDriven": 0
+      },
+      "damagePerSecond": 0.003333192059223426,
+      "opposingDamagePerSecond": 2.3827892633805783e-05,
+      "pairedDamageDelta": {
+        "mean": 0.0033093641665896227,
+        "standardError": 0.0002571035955166385
+      }
+    },
+    {
+      "id": "d94ccf2f26c073443bd3b682937a785b428ede969ed1edd94d4451857c471af7",
+      "descriptor": {
+        "candidate": {
+          "kind": "arena-fighter",
+          "hand": "alternate",
+          "targeting": "openings",
+          "repertoire": "mixed",
+          "openings": {
+            "head": 0.3,
+            "upperTrunk": 0,
+            "middleTrunk": 0
+          },
+          "groundGame": true,
+          "spacing": 0.1
+        },
+        "opponent": "brawler",
+        "body": "workshop-fighter",
+        "opponentBody": "workshop-fighter",
+        "held": "empty",
+        "opponentHeld": "empty",
+        "balance": 0,
+        "opponentBalance": 0,
+        "capSeconds": 60,
+        "recoverySeconds": null,
+        "harness": {
+          "kind": "Node Arena Duel",
+          "engine": "rapier-coordinate",
+          "revision": "rapier/adapter-8/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits",
+          "hz": 120,
+          "actuation": "symmetric"
+        },
+        "protocol": {
+          "version": 1,
+          "drivenClosing": 1,
+          "relativeHandSpeed": 0.5,
+          "pressureEpisode": 2,
+          "lowHeadHeight": 0.8,
+          "startup": 2,
+          "capSeconds": 60
+        }
+      },
+      "rating": {
+        "pairs": 100,
+        "bouts": 200,
+        "score": 0.925,
+        "score95": [
+          0.8562342653932596,
+          0.9623212611308026
+        ],
+        "relativeElo": 436.4321877389331,
+        "elo95": [
+          309.97488637141095,
+          562.8894891064552
+        ],
+        "perfectScore": false,
+        "endings": {
+          "wins": 185,
+          "losses": 15,
+          "draws": 0,
+          "decisiveWins": 0,
+          "timeWins": 185
+        }
+      },
+      "endings": {
+        "time": {
+          "wins": 185,
+          "losses": 15,
+          "draws": 0
+        }
+      },
+      "total": {
+        "seconds": 12000,
+        "driven": 8470,
+        "opposingDriven": 5597,
+        "drivenDamage": 236.33112201960043,
+        "opposingDrivenDamage": 120.52276919832426,
+        "falls": 4,
+        "opposingFalls": 5,
+        "lowDriven": 3
+      },
+      "damagePerSecond": 0.019694260168300035,
+      "opposingDamagePerSecond": 0.010043564099860354,
+      "pairedDamageDelta": {
+        "mean": 0.009650696068439674,
+        "standardError": 0.00042675567015415853
+      }
+    }
+  ]
+}

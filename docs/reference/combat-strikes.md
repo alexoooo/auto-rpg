@@ -300,3 +300,30 @@ power remain open; a mechanical gain alone does not establish stronger Arena pla
 `OPENINGS.hookCost` is also an immutable opening override for selection ablations.
 Its retained 0.10 score is the ordinary mixed-repertoire cost; changing that cost selects
 among the same measured paths and does not change their physical execution.
+
+## Combination settings
+
+`ArenaFighterConfig.combinations` optionally grants one opposite-hand follow-up after
+a sensed target contact. Its opportunity window is derived from the shared path's
+return deadline plus chamber duration (1.20 + 0.22 s for the retained path). The lead
+hand must record an actual verified return; a return timeout cannot release the
+follow-up. The other hand is selected through a fresh unobstructed lane. Quiet standing
+at the working distance may bypass the separate tactical settling wait, while the
+shared executor retains its physical chamber and cooldown gates.
+
+The follow-up cannot schedule a third punch. Recovery/resume, ordinary orders, changed
+opponents, low-combat takeover, crowding and unlaunched defense cancellation clear the
+opportunity. Promise, deadline, baseline return count and sequence depth are plain
+saved tactical state. This is an optional policy feature over the same neutral
+single-strike executor; no strength, anatomy, contact or damage rule changes.
+
+The 128-bout lateral/hook development matrix is frozen at source `1391b685`:
+Node Arena Duel, rapier-coordinate, 120 Hz, Warrior fists, balance 0/0, continuing
+recovery, eight mirrored development recipes per profile against Brawler and Point.
+Every outcome is at the 60 s cap. Full rows and group ratings are retained in
+`combat-head-access-development.json`. Against Brawler, adding lateral surfaces to
+body selection changes little; head-first selection remains weaker. Against Point,
+extended lateral head selection increases driven damage to 5.728 HP over sixteen
+bouts, versus 2.742 HP for the spacing/body reference. Hook preference reduces
+damage to 2.161 HP and increases received damage. The head-first Brawler profile has one fall; the other profiles have none. These development samples improve access diagnostics but establish neither
+held-out promotion nor ordinary-wound finishing; optional settings remain optional.

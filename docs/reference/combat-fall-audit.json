@@ -1,0 +1,991 @@
+{
+  "fingerprint": "d4fea7cf39fe4156e38c6cd2f75181fc34ac856ca02a0dc3f5d01a85de98de23",
+  "rows": [
+    {
+      "id": "classic/heldout/101/1",
+      "events": [
+        {
+          "previous": {
+            "time": 57.46666666666667,
+            "down": false,
+            "phase": "low-wait",
+            "host": "command",
+            "ground": {
+              "mode": "wide",
+              "steady": 0,
+              "phase": "low-wait",
+              "surface": "upperTrunk",
+              "near": {
+                "phase": "guard",
+                "surface": "upperTrunk",
+                "stage": "approach",
+                "active": false,
+                "foe": null,
+                "hand": null,
+                "face": 2.8599683044913737,
+                "target": null,
+                "action": null,
+                "next": 0,
+                "elapsed": 0,
+                "lowTime": 0,
+                "retry": 0
+              },
+              "wide": {
+                "phase": "low-wait",
+                "stage": "approach",
+                "active": true,
+                "hand": "left",
+                "foe": "left",
+                "face": 4.703478843092704,
+                "target": [
+                  0.31882648869444913,
+                  0.2760300534740938,
+                  1.3433239722690826
+                ],
+                "surface": "upperTrunk",
+                "action": null,
+                "route": [
+                  [
+                    0.9590184993611922,
+                    -0.00854535964894521,
+                    1.4952593513048251
+                  ]
+                ],
+                "walk": [
+                  0.18159665838930228,
+                  -0.17838905140685918
+                ],
+                "stride": 116,
+                "planned": false,
+                "next": 57.725,
+                "elapsed": 2.2416666666666614,
+                "retry": 0,
+                "lowTime": 0
+              }
+            },
+            "support": {
+              "stage": "stand",
+              "ready": false,
+              "active": false,
+              "depth": 0,
+              "from": 0,
+              "to": 0,
+              "time": 0,
+              "quiet": 0,
+              "heading": 0
+            },
+            "head": [
+              -0.1289562632813435,
+              0.8828479024695431,
+              1.9377508095014215
+            ],
+            "centre": [
+              0.35276501705841384,
+              0.727862194015152,
+              1.7481861115957087
+            ],
+            "stance": {
+              "phase": "swing",
+              "facing": 2.5402634948225793,
+              "velocity": [
+                -0.4664744843795895,
+                -1.5716175932265812,
+                0.4318032404044642
+              ]
+            },
+            "foe": {
+              "down": true,
+              "head": [
+                0.24930114289562344,
+                0.14526154390515134,
+                1.0108612639606027
+              ]
+            },
+            "contacts": [
+              {
+                "name": "shank.right",
+                "fixed": null,
+                "other": "forearm.right",
+                "impulse": 0.2960222065448761,
+                "point": [
+                  0.5783973932266235,
+                  0.2420036941766739,
+                  1.5276278257369995
+                ],
+                "normal": [
+                  -0.931643138866975,
+                  -0.0474318508577717,
+                  0.3602655705535802
+                ]
+              }
+            ],
+            "recent": []
+          },
+          "now": {
+            "time": 57.475,
+            "down": true,
+            "phase": "low-wait",
+            "host": "recovery: rise",
+            "ground": {
+              "mode": "wide",
+              "steady": 0,
+              "phase": "low-wait",
+              "surface": "upperTrunk",
+              "near": {
+                "phase": "guard",
+                "surface": "upperTrunk",
+                "stage": "approach",
+                "active": false,
+                "foe": null,
+                "hand": null,
+                "face": 2.8599683044913737,
+                "target": null,
+                "action": null,
+                "next": 0,
+                "elapsed": 0,
+                "lowTime": 0,
+                "retry": 0
+              },
+              "wide": {
+                "phase": "low-wait",
+                "stage": "approach",
+                "active": true,
+                "hand": "left",
+                "foe": "left",
+                "face": 4.703478843092704,
+                "target": [
+                  0.31882648869444913,
+                  0.2760300534740938,
+                  1.3433239722690826
+                ],
+                "surface": "upperTrunk",
+                "action": null,
+                "route": [
+                  [
+                    0.9590184993611922,
+                    -0.00854535964894521,
+                    1.4952593513048251
+                  ]
+                ],
+                "walk": [
+                  0.18159665838930228,
+                  -0.17838905140685918
+                ],
+                "stride": 116,
+                "planned": false,
+                "next": 57.725,
+                "elapsed": 2.2416666666666614,
+                "retry": 0,
+                "lowTime": 0
+              }
+            },
+            "support": {
+              "stage": "stand",
+              "ready": false,
+              "active": false,
+              "depth": 0,
+              "from": 0,
+              "to": 0,
+              "time": 0,
+              "quiet": 0,
+              "heading": 0
+            },
+            "head": [
+              -0.13746706754736973,
+              0.8389126981381025,
+              1.9369033440134487
+            ],
+            "centre": [
+              0.34888959384536783,
+              0.7144106490022436,
+              1.7517751512045991
+            ],
+            "stance": {
+              "phase": "stand",
+              "facing": 2.5031188523200085,
+              "velocity": [
+                -0.4634398152418432,
+                -1.6516314357720312,
+                0.42947470555230954
+              ]
+            },
+            "foe": {
+              "down": true,
+              "head": [
+                0.2501184952640949,
+                0.1461717631249821,
+                1.011143207516621
+              ]
+            },
+            "contacts": [
+              {
+                "name": "shank.right",
+                "fixed": null,
+                "other": "forearm.right",
+                "impulse": 0.05656168609857559,
+                "point": [
+                  0.578270435333252,
+                  0.24621909856796265,
+                  1.526180386543274
+                ],
+                "normal": [
+                  -0.9316431388669749,
+                  -0.0474318508577717,
+                  0.3602655705535802
+                ]
+              }
+            ],
+            "recent": []
+          }
+        }
+      ]
+    },
+    {
+      "id": "classic/heldout/102/0",
+      "events": [
+        {
+          "previous": {
+            "time": 36.3,
+            "down": false,
+            "phase": "low-approach",
+            "host": "command",
+            "ground": {
+              "mode": "wide",
+              "steady": 0,
+              "phase": "low-approach",
+              "surface": "middleTrunk",
+              "near": {
+                "phase": "guard",
+                "surface": "upperTrunk",
+                "stage": "approach",
+                "active": false,
+                "foe": null,
+                "hand": null,
+                "face": 0.9849718035234392,
+                "target": null,
+                "action": null,
+                "next": 0,
+                "elapsed": 0,
+                "lowTime": 0,
+                "retry": 0
+              },
+              "wide": {
+                "phase": "low-approach",
+                "stage": "approach",
+                "active": true,
+                "hand": "right",
+                "foe": "right",
+                "face": 3.8642014113978607,
+                "target": [
+                  -0.3079760003780504,
+                  0.31474153049914844,
+                  1.5781203916352604
+                ],
+                "surface": "middleTrunk",
+                "action": null,
+                "route": [
+                  [
+                    0.19690570770034188,
+                    0.01645632209864386,
+                    1.9995399697849296
+                  ]
+                ],
+                "walk": [
+                  -0.08837723406860905,
+                  0.2387246625264811
+                ],
+                "stride": 75,
+                "planned": true,
+                "next": 36.708333333333336,
+                "elapsed": 0.591666666666667,
+                "retry": 0,
+                "lowTime": 0
+              }
+            },
+            "support": {
+              "stage": "stand",
+              "ready": false,
+              "active": false,
+              "depth": 0,
+              "from": 0,
+              "to": 0,
+              "time": 0,
+              "quiet": 0,
+              "heading": 0
+            },
+            "head": [
+              1.406261725945703,
+              0.9781311308906769,
+              0.575268557089358
+            ],
+            "centre": [
+              1.025153457441933,
+              0.7266523695572548,
+              0.9242592014715599
+            ],
+            "stance": {
+              "phase": "swing",
+              "facing": -0.49872491363490346,
+              "velocity": [
+                2.1270473005533215,
+                -1.4923895719915625,
+                -0.7450978906184431
+              ]
+            },
+            "foe": {
+              "down": true,
+              "head": [
+                -0.7252653878406747,
+                0.09565047275260309,
+                1.523684613028797
+              ]
+            },
+            "contacts": [
+              {
+                "name": "foot.left",
+                "fixed": 0,
+                "other": null,
+                "impulse": 1.5373412370681763,
+                "point": [
+                  0.2779470980167389,
+                  -0.005429557058960199,
+                  1.0050361156463623
+                ],
+                "normal": [
+                  0,
+                  -1,
+                  0
+                ]
+              }
+            ],
+            "recent": []
+          },
+          "now": {
+            "time": 36.30833333333333,
+            "down": true,
+            "phase": "low-approach",
+            "host": "recovery: rise",
+            "ground": {
+              "mode": "wide",
+              "steady": 0,
+              "phase": "low-approach",
+              "surface": "middleTrunk",
+              "near": {
+                "phase": "guard",
+                "surface": "upperTrunk",
+                "stage": "approach",
+                "active": false,
+                "foe": null,
+                "hand": null,
+                "face": 0.9849718035234392,
+                "target": null,
+                "action": null,
+                "next": 0,
+                "elapsed": 0,
+                "lowTime": 0,
+                "retry": 0
+              },
+              "wide": {
+                "phase": "low-approach",
+                "stage": "approach",
+                "active": true,
+                "hand": "right",
+                "foe": "right",
+                "face": 3.8642014113978607,
+                "target": [
+                  -0.3079760003780504,
+                  0.31474153049914844,
+                  1.5781203916352604
+                ],
+                "surface": "middleTrunk",
+                "action": null,
+                "route": [
+                  [
+                    0.19690570770034188,
+                    0.01645632209864386,
+                    1.9995399697849296
+                  ]
+                ],
+                "walk": [
+                  -0.08837723406860905,
+                  0.2387246625264811
+                ],
+                "stride": 75,
+                "planned": true,
+                "next": 36.708333333333336,
+                "elapsed": 0.591666666666667,
+                "retry": 0,
+                "lowTime": 0
+              }
+            },
+            "support": {
+              "stage": "stand",
+              "ready": false,
+              "active": false,
+              "depth": 0,
+              "from": 0,
+              "to": 0,
+              "time": 0,
+              "quiet": 0,
+              "heading": 0
+            },
+            "head": [
+              1.429721556626054,
+              0.9536370680858393,
+              0.5665700325133798
+            ],
+            "centre": [
+              1.0428978189275573,
+              0.7139419868453042,
+              0.9180298341908405
+            ],
+            "stance": {
+              "phase": "stand",
+              "facing": -0.44412239711724477,
+              "velocity": [
+                2.129607051324844,
+                -1.5546516462922086,
+                -0.7479792062982913
+              ]
+            },
+            "foe": {
+              "down": true,
+              "head": [
+                -0.7228677884667936,
+                0.09538319042020839,
+                1.5191220526027716
+              ]
+            },
+            "contacts": [],
+            "recent": []
+          }
+        }
+      ]
+    },
+    {
+      "id": "classic/heldout/105/1",
+      "events": [
+        {
+          "previous": {
+            "time": 36.36666666666667,
+            "down": false,
+            "phase": "low-return",
+            "host": "command",
+            "ground": {
+              "mode": "wide",
+              "steady": 0.5666666666666671,
+              "phase": "low-return",
+              "surface": "upperTrunk",
+              "near": {
+                "phase": "guard",
+                "surface": "upperTrunk",
+                "stage": "approach",
+                "active": false,
+                "foe": null,
+                "hand": null,
+                "face": 0,
+                "target": null,
+                "action": null,
+                "next": 0,
+                "elapsed": 0,
+                "lowTime": 0,
+                "retry": 0
+              },
+              "wide": {
+                "phase": "low-return",
+                "stage": "rise",
+                "active": true,
+                "hand": "right",
+                "foe": "left",
+                "face": 2.407140473752537,
+                "target": [
+                  0.9815937101769984,
+                  0.6705442903365357,
+                  -0.6881522122869383
+                ],
+                "surface": "upperTrunk",
+                "action": null,
+                "route": [
+                  [
+                    0.5156751270835315,
+                    -0.005918045736798242,
+                    -0.3657870191954868
+                  ]
+                ],
+                "walk": null,
+                "stride": 61,
+                "planned": true,
+                "next": 34.96666666666667,
+                "elapsed": 9.883333333333413,
+                "retry": 0,
+                "lowTime": 5.666666666666738
+              }
+            },
+            "support": {
+              "stage": "rise",
+              "ready": false,
+              "active": true,
+              "depth": 0.425250000000001,
+              "from": 1,
+              "to": 0,
+              "time": 1.0999999999999985,
+              "quiet": 0,
+              "heading": 2.3853227826404546
+            },
+            "head": [
+              -0.06605358027248723,
+              0.79733889202697,
+              0.3653355059014161
+            ],
+            "centre": [
+              0.22058758514183696,
+              0.5232438106423924,
+              -0.045171399372285724
+            ],
+            "stance": {
+              "phase": "stand",
+              "facing": 2.673200941053326,
+              "velocity": [
+                -0.662696766512925,
+                -0.4460424812962065,
+                0.6950720658723323
+              ]
+            },
+            "foe": {
+              "down": true,
+              "head": [
+                1.480873927108395,
+                1.0520575916769999,
+                -0.4555097163635337
+              ]
+            },
+            "contacts": [
+              {
+                "name": "foot.left",
+                "fixed": 0,
+                "other": null,
+                "impulse": 1.844532549381256,
+                "point": [
+                  0.6943955421447754,
+                  -0.001703473157249391,
+                  -0.2014063773676753
+                ],
+                "normal": [
+                  0,
+                  -1,
+                  0
+                ]
+              },
+              {
+                "name": "foot.right",
+                "fixed": 0,
+                "other": null,
+                "impulse": 3.2992724925279617,
+                "point": [
+                  0.4016281887888909,
+                  -0.002647445071488619,
+                  -0.476425439119339
+                ],
+                "normal": [
+                  0,
+                  -1,
+                  0
+                ]
+              }
+            ],
+            "recent": []
+          },
+          "now": {
+            "time": 36.375,
+            "down": true,
+            "phase": "low-return",
+            "host": "recovery: rise",
+            "ground": {
+              "mode": "wide",
+              "steady": 0.5666666666666671,
+              "phase": "low-return",
+              "surface": "upperTrunk",
+              "near": {
+                "phase": "guard",
+                "surface": "upperTrunk",
+                "stage": "approach",
+                "active": false,
+                "foe": null,
+                "hand": null,
+                "face": 0,
+                "target": null,
+                "action": null,
+                "next": 0,
+                "elapsed": 0,
+                "lowTime": 0,
+                "retry": 0
+              },
+              "wide": {
+                "phase": "low-return",
+                "stage": "rise",
+                "active": true,
+                "hand": "right",
+                "foe": "left",
+                "face": 2.407140473752537,
+                "target": [
+                  0.9815937101769984,
+                  0.6705442903365357,
+                  -0.6881522122869383
+                ],
+                "surface": "upperTrunk",
+                "action": null,
+                "route": [
+                  [
+                    0.5156751270835315,
+                    -0.005918045736798242,
+                    -0.3657870191954868
+                  ]
+                ],
+                "walk": null,
+                "stride": 61,
+                "planned": true,
+                "next": 34.96666666666667,
+                "elapsed": 9.883333333333413,
+                "retry": 0,
+                "lowTime": 5.666666666666738
+              }
+            },
+            "support": {
+              "stage": "stand",
+              "ready": false,
+              "active": false,
+              "depth": 0,
+              "from": 0,
+              "to": 0,
+              "time": 0,
+              "quiet": 0,
+              "heading": 2.3853227826404546
+            },
+            "head": [
+              -0.07670585376937639,
+              0.7768482338667432,
+              0.38076538614976235
+            ],
+            "centre": [
+              0.2150109250288515,
+              0.5194537628713798,
+              -0.0393172579042775
+            ],
+            "stance": {
+              "phase": "stand",
+              "facing": 2.7252577032246235,
+              "velocity": [
+                -0.675054198703868,
+                -0.46265322888116317,
+                0.7090348326604229
+              ]
+            },
+            "foe": {
+              "down": true,
+              "head": [
+                1.4809044848150457,
+                1.0520455526025407,
+                -0.4554752622728944
+              ]
+            },
+            "contacts": [
+              {
+                "name": "foot.left",
+                "fixed": 0,
+                "other": null,
+                "impulse": 0.8515188694000244,
+                "point": [
+                  0.6943957209587097,
+                  -0.0016277614049613476,
+                  -0.20136615354567766
+                ],
+                "normal": [
+                  0,
+                  -1,
+                  0
+                ]
+              },
+              {
+                "name": "foot.right",
+                "fixed": 0,
+                "other": null,
+                "impulse": 1.295307070016861,
+                "point": [
+                  0.401565358042717,
+                  -0.002549002761952579,
+                  -0.4764147698879242
+                ],
+                "normal": [
+                  0,
+                  -1,
+                  0
+                ]
+              }
+            ],
+            "recent": []
+          }
+        }
+      ]
+    },
+    {
+      "id": "classic/heldout/107/1",
+      "events": [
+        {
+          "previous": {
+            "time": 50.35,
+            "down": false,
+            "phase": "escape",
+            "host": "command",
+            "ground": {
+              "mode": "wide",
+              "steady": 0,
+              "phase": "guard",
+              "surface": "upperTrunk",
+              "near": {
+                "phase": "guard",
+                "surface": "upperTrunk",
+                "stage": "approach",
+                "active": false,
+                "foe": null,
+                "hand": null,
+                "face": 0,
+                "target": null,
+                "action": null,
+                "next": 0,
+                "elapsed": 0,
+                "lowTime": 0,
+                "retry": 0
+              },
+              "wide": {
+                "phase": "guard",
+                "stage": "approach",
+                "active": false,
+                "hand": null,
+                "foe": null,
+                "face": 0,
+                "target": null,
+                "surface": "upperTrunk",
+                "action": null,
+                "route": null,
+                "walk": null,
+                "stride": -1,
+                "planned": false,
+                "next": 0,
+                "elapsed": 0,
+                "retry": 0,
+                "lowTime": 0
+              }
+            },
+            "support": {
+              "stage": "stand",
+              "ready": false,
+              "active": false,
+              "depth": 0,
+              "from": 0,
+              "to": 0,
+              "time": 0,
+              "quiet": 0,
+              "heading": 0
+            },
+            "head": [
+              4.92065434405277,
+              0.7118285168240842,
+              -2.003040587878061
+            ],
+            "centre": [
+              4.711262870596465,
+              0.7150797776723447,
+              -1.5954575251307657
+            ],
+            "stance": {
+              "phase": "shift",
+              "facing": -0.25596368526922775,
+              "velocity": [
+                0.7596898582480496,
+                -0.7629394515845921,
+                -0.7004831921859642
+              ]
+            },
+            "foe": {
+              "down": false,
+              "head": [
+                4.141807419186329,
+                1.4335476992716463,
+                -1.4510031180158993
+              ]
+            },
+            "contacts": [
+              {
+                "name": "foot.left",
+                "fixed": 0,
+                "other": null,
+                "impulse": 1.7834737300872803,
+                "point": [
+                  4.347898960113525,
+                  -0.002463327720761299,
+                  -1.5347894430160522
+                ],
+                "normal": [
+                  0,
+                  -1,
+                  0
+                ]
+              },
+              {
+                "name": "foot.right",
+                "fixed": 0,
+                "other": null,
+                "impulse": 4.846464544534683,
+                "point": [
+                  4.64791202545166,
+                  -0.0029255245462991297,
+                  -1.1854670345783234
+                ],
+                "normal": [
+                  0,
+                  -1,
+                  0
+                ]
+              }
+            ],
+            "recent": []
+          },
+          "now": {
+            "time": 50.358333333333334,
+            "down": true,
+            "phase": "escape",
+            "host": "recovery: rise",
+            "ground": {
+              "mode": "wide",
+              "steady": 0,
+              "phase": "guard",
+              "surface": "upperTrunk",
+              "near": {
+                "phase": "guard",
+                "surface": "upperTrunk",
+                "stage": "approach",
+                "active": false,
+                "foe": null,
+                "hand": null,
+                "face": 0,
+                "target": null,
+                "action": null,
+                "next": 0,
+                "elapsed": 0,
+                "lowTime": 0,
+                "retry": 0
+              },
+              "wide": {
+                "phase": "guard",
+                "stage": "approach",
+                "active": false,
+                "hand": null,
+                "foe": null,
+                "face": 0,
+                "target": null,
+                "surface": "upperTrunk",
+                "action": null,
+                "route": null,
+                "walk": null,
+                "stride": -1,
+                "planned": false,
+                "next": 0,
+                "elapsed": 0,
+                "retry": 0,
+                "lowTime": 0
+              }
+            },
+            "support": {
+              "stage": "stand",
+              "ready": false,
+              "active": false,
+              "depth": 0,
+              "from": 0,
+              "to": 0,
+              "time": 0,
+              "quiet": 0,
+              "heading": 0
+            },
+            "head": [
+              4.928059075868867,
+              0.6962432279358625,
+              -2.0081119762501527
+            ],
+            "centre": [
+              4.717630929650223,
+              0.7087339786253106,
+              -1.6014184955759498
+            ],
+            "stance": {
+              "phase": "stand",
+              "facing": -0.24520956225604473,
+              "velocity": [
+                0.7679095868738831,
+                -0.7607382968867193,
+                -0.7268466636810449
+              ]
+            },
+            "foe": {
+              "down": false,
+              "head": [
+                4.142479947078455,
+                1.4260677319820434,
+                -1.453559610636359
+              ]
+            },
+            "contacts": [
+              {
+                "name": "foot.left",
+                "fixed": 0,
+                "other": null,
+                "impulse": 0.17864803969860077,
+                "point": [
+                  4.3470916748046875,
+                  -0.0022160671651363373,
+                  -1.5361888408660889
+                ],
+                "normal": [
+                  0,
+                  -1,
+                  0
+                ]
+              },
+              {
+                "name": "foot.right",
+                "fixed": 0,
+                "other": null,
+                "impulse": 0.9856317788362503,
+                "point": [
+                  4.647880792617798,
+                  -0.0027420041733421385,
+                  -1.1855877339839935
+                ],
+                "normal": [
+                  0,
+                  -1,
+                  0
+                ]
+              }
+            ],
+            "recent": []
+          }
+        }
+      ]
+    }
+  ],
+  "harness": {
+    "kind": "Node Arena passive fall audit",
+    "engine": "rapier-coordinate",
+    "hz": 120,
+    "balance": {
+      "left": 0,
+      "right": 0
+    },
+    "held": {
+      "left": "empty",
+      "right": "empty"
+    },
+    "model": "workshop-fighter"
+  },
+  "scope": "Four retained Classic fall cases replayed with full current code and optional combat features disabled; post-step snapshots, passive observation, causal contribution unresolved."
+}

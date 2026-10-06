@@ -22,7 +22,9 @@ const COMBAT = Object.freeze({ band: .08, reserve: .08, braking: .5, prediction:
 
 /** Tactical selection uses detached sensed bodies; the common skill owns physical execution. */
 export function combatTactics(spec: BodySpec, name: string, orders: (sight: Sight) => Orders | null, config: ArenaFighterConfig): Tactics {
-  const selectOpening = openingSelector(spec,config.openings,{...ATTACK_PATH,...config.paths});
+  const paths = { ...ATTACK_PATH, ...config.paths };
+  const combinationWindow = paths.returnLimit + paths.chamberSeconds;
+  const selectOpening = openingSelector(spec,config.openings,paths);
   const repertoire = config.repertoire ?? "linear";
   const mixed = (()=>{
     switch(repertoire) {
@@ -44,8 +46,10 @@ export function combatTactics(spec: BodySpec, name: string, orders: (sight: Sigh
     pressure: 0, escape: 0, angle: 1, cycle: 0, ready: 0, surface: "head",
     blockedSurface: null as string | null, blocks: 0, responded: false, previousHead: null as { time: number; at: Vec3 } | null, counter: 0,
     threat: false, defense: null as "guard" | "evade" | null,
+    combo: { hand: null as "left" | "right" | null, until: 0, returned: 0, depth: 0, following: false },
     ground: null as ReturnType<typeof groundCombat>["state"] | null,
     choice: null as ReturnType<typeof selectOpening>, nextSelection: 0, ordered: ordered.state! };
+  const resetCombination = () => { state.combo.hand = null; state.combo.until = 0; state.combo.returned = 0; state.combo.depth = 0; state.combo.following = false; };
   const defenseMode = config.defenseMode ?? "reference";
   const predictive = (() => {
     switch (defenseMode) {
@@ -74,7 +78,7 @@ export function combatTactics(spec: BodySpec, name: string, orders: (sight: Sigh
     const ownVelocity: Vec3 = previous && !view.resumed && view.time > previous.time
       ? head.map((v, k) => (v - previous.at[k]!) / (view.time - previous.time)) as unknown as Vec3 : [0, 0, 0];
     state.previousHead = { time: view.time, at: head }; state.counter = Math.max(0, state.counter - dt); state.defense = null;
-    if (view.resumed) { ground?.reset(); state.action = null; state.escape = 0; state.pressure = 0; state.ready = 0; state.responded = false; state.blockedSurface = null; state.blocks = 0; state.threat = false; state.counter = 0; state.choice = null; state.nextSelection = 0; }
+    if (view.resumed) { resetCombination(); ground?.reset(); state.action = null; state.escape = 0; state.pressure = 0; state.ready = 0; state.responded = false; state.blockedSurface = null; state.blocks = 0; state.threat = false; state.counter = 0; state.choice = null; state.nextSelection = 0; }
     const cycles = strike.thrown.left + strike.thrown.right + (strike.pointCycle?.failed ?? 0);
     if (!strike.hand && cycles !== state.cycle) { state.cycle = cycles; state.action = null; state.ready = 0; state.responded = false; state.nextSelection = 0; }
     let hand: "left" | "right";
@@ -83,9 +87,14 @@ export function combatTactics(spec: BodySpec, name: string, orders: (sight: Sigh
       case "alternate": hand = cycles % 2 === 0 ? "right" : "left"; break;
       default: { const never: never = config.hand; throw new Error(`unknown combat hand ${never}`); }
     }
+    if (state.combo.following && strike.hand === state.combo.hand && strike.hand) {
+      state.combo.depth = 1; state.combo.hand = null; state.combo.until = 0; state.combo.returned = 0; state.combo.following = false;
+    }
+    if (state.combo.hand && !strike.hand && (view.time >= state.combo.until
+      || (strike.pointCycle?.returned[state.combo.hand === "left" ? "right" : "left"] ?? 0) <= state.combo.returned)) resetCombination();
     const given = orders(sight);
     if (given) {
-      ground?.reset();
+      resetCombination(); ground?.reset();
       state.action = null; state.foe = null; state.pressure = 0; state.escape = 0; state.ready = 0;
       state.choice = null; state.nextSelection = 0;
       const intent = ordered.decide(sight, dt);
@@ -96,21 +105,21 @@ export function combatTactics(spec: BodySpec, name: string, orders: (sight: Sigh
       .reduce<typeof view.senses.others[number] | null>((near, o) => !near || hypot(o.centre.x - view.head.x, o.centre.z - view.head.z)
         < hypot(near.centre.x - view.head.x, near.centre.z - view.head.z) ? o : near, null);
     if (!foe || view.down || view.senses.out) {
-      ground?.reset();
+      resetCombination(); ground?.reset();
       state.action = null; state.phase = "guard";
       return { move: null, face: report.heading, hands: guard, combat: null };
     }
-    if(state.foe!==foe.id){state.choice=null;state.nextSelection=0;}
+    if(state.foe!==foe.id){resetCombination();state.choice=null;state.nextSelection=0;}
     state.foe = foe.id;
     const exit = view.senses.solids && clearanceExit([view.stance.centre.x, view.stance.centre.y, view.stance.centre.z], bodyRadius, view.senses.solids);
     if (exit && !strike.hand && (!report.support || report.support.stage === "stand")) {
-      state.phase = "escape"; state.action = null; state.ready = 0;
+      resetCombination(); state.phase = "escape"; state.action = null; state.ready = 0;
       return { move: [COMBAT.boundarySpeed * (exit[0] * sin(report.heading) + exit[1] * cos(report.heading)),
         COMBAT.boundarySpeed * (exit[0] * cos(report.heading) - exit[1] * sin(report.heading))], face: report.heading, hands: guard, combat: null };
     }
     const lowIntent = ground?.decide(view, report, foe, hand, dt);
     if (lowIntent) {
-      state.phase = ground!.state.phase; state.action = lowIntent.combat ?? null;
+      resetCombination(); state.phase = ground!.state.phase; state.action = lowIntent.combat ?? null;
       state.choice = null; state.nextSelection = 0; state.ready = 0; state.pressure = 0;
       state.surface = ground!.state.surface;
       return lowIntent;
@@ -124,16 +133,32 @@ export function combatTactics(spec: BodySpec, name: string, orders: (sight: Sigh
           state.blockedSurface = state.surface; state.blocks++;
           if (state.blocks >= COMBAT.blockedAttempts) { state.escape = COMBAT.escape; state.angle *= -1; state.ready = 0; state.blocks = 0; }
         }
-        else if (response === "target") { state.blockedSurface = null; state.blocks = 0; }
+        else if (response === "target") {
+          state.blockedSurface = null; state.blocks = 0;
+          if (config.combinations && state.combo.depth === 0) {
+            state.combo.hand = strike.hand === "right" ? "left" : "right"; state.combo.until = view.time + combinationWindow;
+            state.combo.returned = strike.pointCycle?.returned[strike.hand] ?? 0;
+          }
+        }
       }
     }
     let opening: ReturnType<typeof selectOpening> = null;
     if(openings) {
-      if(!mixed) opening = selectOpening(view,foe,hand,state.blockedSurface);
+      if(!mixed) {
+        opening = selectOpening(view,foe,hand,state.blockedSurface);
+        if (state.combo.hand && !strike.hand) {
+          const follow = selectOpening(view,foe,state.combo.hand,state.blockedSurface);
+          state.combo.following = !!follow && !follow.blocked;
+          if (state.combo.following) { opening = follow; hand = state.combo.hand; } else resetCombination();
+        }
+      }
       else {
         if(view.time>=state.nextSelection&&!strike.hand) {
-          state.choice = selectOpening(view,foe,hand,state.blockedSurface,repertoire);
-          if(config.hand==="alternate") {
+          const follow = state.combo.hand ? selectOpening(view,foe,state.combo.hand,state.blockedSurface,repertoire) : null;
+          state.combo.following = !!follow && !follow.blocked;
+          if (state.combo.hand && !state.combo.following) resetCombination();
+          state.choice = state.combo.following ? follow : selectOpening(view,foe,hand,state.blockedSurface,repertoire);
+          if(config.hand==="alternate" && !state.combo.following) {
             const other = selectOpening(view,foe,hand==="right"?"left":"right",state.blockedSurface,repertoire);
             if(other&&(!state.choice||other.score<state.choice.score))state.choice=other;
           }
@@ -155,7 +180,7 @@ export function combatTactics(spec: BodySpec, name: string, orders: (sight: Sigh
     const touching = (view.handFeedback?.left.impulse ?? 0) + (view.handFeedback?.right.impulse ?? 0) > 0;
     state.pressure = touching && strike.phase !== "swing" ? state.pressure + dt : 0;
     if (!strike.hand && (state.pressure >= COMBAT.pressure || delta < -COMBAT.band)) {
-      state.escape = COMBAT.escape; state.angle *= -1; state.pressure = 0; state.ready = 0;
+      resetCombination(); state.escape = COMBAT.escape; state.angle *= -1; state.pressure = 0; state.ready = 0;
     }
     let hands = guard;
     if (predictive && config.defense !== false) {
@@ -171,7 +196,7 @@ export function combatTactics(spec: BodySpec, name: string, orders: (sight: Sigh
         else state.defense = "evade";
         const moving = state.defense === "evade" ? moveClear(view, report.heading, [-maximum * STRAFE.share, state.angle * maximum * STRAFE.share]) : null;
         if (strike.phase !== "swing" && strike.phase !== "return") {
-          state.action = null; state.ready = 0; state.phase = state.defense === "guard" ? "defend" : "evade";
+          resetCombination(); state.action = null; state.ready = 0; state.phase = state.defense === "guard" ? "defend" : "evade";
           return { move: moving, face, hands, combat: null };
         }
       }
@@ -181,23 +206,26 @@ export function combatTactics(spec: BodySpec, name: string, orders: (sight: Sigh
       if (cover) hands = { left: { kind: "guard", cover }, right: { kind: "guard", cover } };
     }
     if (strike.hand) {
-      state.phase = strike.phase ?? "return";
+      state.phase = state.combo.depth === 1 ? `followup ${strike.phase ?? "return"}` : strike.phase ?? "return";
       // Committed paths retain the observed aim; preparation and return keep locomotion available.
       const speed = anticipated < -COMBAT.band ? -maximum * STRAFE.share : 0;
       return { move: strike.phase === "swing" ? null : moveClear(view, report.heading, [speed * cos(turn), speed * sin(turn)]), face,
         hands, combat: state.action };
     }
     if (state.escape > 0) {
-      state.escape -= dt; state.action = null; state.phase = "escape";
+      resetCombination(); state.escape -= dt; state.action = null; state.phase = "escape";
       const forward = -maximum * STRAFE.share, lateral = maximum * STRAFE.share * state.angle;
       return { move: moveClear(view, report.heading, [forward * cos(turn) - lateral * sin(turn), forward * sin(turn) + lateral * cos(turn)]), face, hands, combat: null };
     }
     if (Math.abs(delta) <= COMBAT.band && aligned && view.stance.velocity.length() <= COMBAT.readySpeed) state.ready += dt;
     else state.ready = 0;
-    if ((state.ready >= COMBAT.settle || (state.counter > 0 && Math.abs(delta) <= COMBAT.band && aligned)) && view.time >= ATTACK_PATH.startup) {
+    const follows = state.combo.following && Math.abs(delta) <= COMBAT.band && aligned
+      && view.stance.phase === "stand" && view.stance.velocity.length() <= COMBAT.readySpeed;
+    if ((state.ready >= COMBAT.settle || follows || (state.counter > 0 && Math.abs(delta) <= COMBAT.band && aligned)) && view.time >= ATTACK_PATH.startup) {
       state.counter = 0;
       state.surface = opening?.segment ?? "head"; state.responded = false;
-      state.phase = "attack"; state.action = { ...(opening ? openingAction(opening) : { hand, target }),
+      if (!state.combo.following && !state.action) state.combo.depth = 0;
+      state.phase = state.combo.following ? "combination" : "attack"; state.action = { ...(opening ? openingAction(opening) : { hand, target }),
         family: mixed&&opening?opening.family:cycles % 2 === 0 ? "straight" : "cross" };
       return { move: null, face, hands, combat: state.action };
     }

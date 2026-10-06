@@ -192,5 +192,40 @@ assist ceiling changes. These eight pairs select a candidate; they are not a pro
 
 The candidate is frozen for 100 fresh held-out recipe pairs per retained Classic, Point and
 Brawler opponent, using held-out indices 100-199, which exclude the earlier 0-99 evaluation.
-Its results are not published as achieved while the physical run is incomplete. Finishing
-power remains open even if win score improves.
+The complete results are below. Finishing power and fall safety remain open.
+
+## Spacing candidate held-out evaluation
+
+`combat-spacing-heldout.json` retains all 600 frozen trials at source `b4b3cccf`;
+`combat-spacing-rating.json` retains separate opponent ratings. Node Arena Duel,
+rapier-coordinate, 120 Hz, Warrior fists, balance 0/0, continuing recovery and 60 s caps.
+Each opponent receives 100 distinct recipe pairs, with both assignments, at fresh
+held-out-family indices 100-199. Candidate spacing is +0.10 m; the retained 5 m/s
+request, body targets and ordinary muscles/damage rules are unchanged.
+
+| Opponent | Wins / 200 | Paired score, 95% interval | Pairwise Elo, 95% interval | Driven / received driven HP per second | Candidate/opponent falls | Low driven blows |
+|---|---:|---|---|---:|---:|---:|
+| Classic | 185 | 0.925 [0.856,0.962] | +436 [+310,+563] | 0.003019 / 0.000047 | 61/184 | 150 |
+| Point | 196 | 0.980 [0.930,0.994] | +676 [+449,+903] | 0.003333 / 0.000024 | 0/0 | 0 |
+| Brawler | 185 | 0.925 [0.856,0.962] | +436 [+310,+563] | 0.019694 / 0.010044 | 4/5 | 3 |
+
+Every outcome is at the cap; no win establishes ordinary-wound incapacitation. The
+candidate passes the proposed win-score/uncertainty gate against all three opponents.
+Its paired damage-rate advantage over Brawler is 0.009651 HP/s, standard error
+0.000427 HP/s. These are pairwise comparisons, not one rating averaged across unlike
+opponents. The Classic stratum exposes falls and grounded interactions that the
+controlled low fixtures do not cover. A fall count alone does not identify its cause;
+phase/contact audits and matched ground-mode ablations are needed before attributing
+it to the low policy. Earlier held-out indices cannot supply that matched comparison.
+The candidate is not promoted while finishing power and fall safety remain unresolved.
+
+The first four passive Node Arena audits replay retained Classic cases 101/right,
+102/left, 105/right and 107/right at 120 Hz, rapier-coordinate, Warrior fists and
+balance 0/0. Their complete event snapshots are in `combat-fall-audit.json`. Falls
+begin at 57.475, 36.308, 36.375 and 50.358 s respectively: a low wait/approach with
+a shank touching the foe's forearm, low approach, return from a supported fold, and
+ordinary escape with low combat inactive. No new blow is recorded in the preceding
+0.20 s of these snapshots. This limited event timing does not establish an unforced
+cause or prove the low controller caused every fall. The four complete snapshot
+records repeat exactly under the current optional-feature code with those features
+disabled. Matched low-enabled/disabled trials are the next attribution check.
