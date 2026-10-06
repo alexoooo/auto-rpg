@@ -181,9 +181,9 @@ interface Range {
 }
 
 /** The range of `blows`' blow at a target `up` m over the head: the one the strike skill chooses there. */
-function rangeIn(blows: Blows, up: number, placing: Placed, reserve = 0): Range {
+function rangeIn(blows: Blows, up: number, placing: Placed, reserve = 0, spacing = 0): Range {
   const recipe = chooseIn(blows, up), blow = recipe === null ? blows.placed : blows.recipes[recipe]!;
-  return { reach: standOff(blow, up, placing, reserve), along: windowOf(blow).along };
+  return { reach: standOff(blow, up, placing, reserve) + spacing, along: windowOf(blow).along };
 }
 
 /**
@@ -326,7 +326,7 @@ interface StrikeState {
     outcomes: { returned: Record<Hand, number>; failed: number; interrupted: number } };
 }
 
-export function strikeSkill(spec: BodySpec, repertoire: Repertoire, placing: Placed = PLACED, steering = STEER, pointMotion = false): StrikeSkill {
+export function strikeSkill(spec: BodySpec, repertoire: Repertoire, placing: Placed = PLACED, steering = STEER, pointMotion = false, pointSpacing = 0): StrikeSkill {
   const known = { left: blowsOf(spec, repertoire, "left"), right: blowsOf(spec, repertoire, "right") };
   /** The recipe `hand` throws at a target `up` m over the head, by its place among the hand's; null where no window holds that height, and the blow is placed. */
   const choose = (hand: Hand, up: number): number | null => chooseIn(known[hand], up);
@@ -349,7 +349,7 @@ export function strikeSkill(spec: BodySpec, repertoire: Repertoire, placing: Pla
     get since() { return state.since; },
     get thrown() { return state.thrown; },
     get still() { return state.still; },
-    rangeAt: (hand, up) => rangeIn(known[hand], up, placing, pointMotion ? placing.through : 0),
+    rangeAt: (hand, up) => rangeIn(known[hand], up, placing, pointMotion ? placing.through : 0, pointSpacing),
     ...(state.motion ? { pointCycle: state.motion.outcomes } : {}),
     nets: { left: netsOf(known.left.chosen), right: netsOf(known.right.chosen) },
   };
@@ -416,7 +416,7 @@ export function strikeSkill(spec: BodySpec, repertoire: Repertoire, placing: Pla
           const recipe = choose(hand, up), taken = blowOf(hand, recipe);
           state.blow = taken.kind;
           state.recipe = recipe;
-          state.distance = standOff(taken, up, placing, pointMotion ? placing.through : 0);
+          state.distance = standOff(taken, up, placing, pointMotion ? placing.through : 0) + pointSpacing;
         }
         const window = windowOf(blowOf(hand, state.recipe)), reach = state.distance!;
         const middle = [(window.along[0] + window.along[1]) / 2, (window.across[0] + window.across[1]) / 2] as const;
@@ -471,7 +471,7 @@ export function strikeSkill(spec: BodySpec, repertoire: Repertoire, placing: Pla
               state.phase = same ? "place" : "approach";
               state.blow = stood.kind;
               state.recipe = recipe;
-              state.distance = standOff(stood, up, placing, pointMotion ? placing.through : 0);
+              state.distance = standOff(stood, up, placing, pointMotion ? placing.through : 0) + pointSpacing;
               state.still = 0;
               state.readyAt = null;
             }

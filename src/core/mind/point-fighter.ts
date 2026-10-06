@@ -9,13 +9,26 @@ import type { createMind } from "./minds.ts";
 import { supportRecovery } from "./rise/support-recovery.ts";
 import { driveBy } from "./tactics.ts";
 import { THREAT, threatOf } from "./threat.ts";
+import { ENGAGEMENT, trackedEngagement } from "./engagement.ts";
 
 /** Point-space attacks and predicted covers over the common body; settings: `docs/reference/arena-point-control.md`. */
 export function pointFighter(built: BuiltBody, world: World, config: PointFighterConfig, wiring: Parameters<typeof createMind>[3]) {
   const handMode = config.hand;
+  const tracked = config.engagement === "tracked";
   const body = createBody(built, world, { servoSeconds: SERVO_SECONDS, senses: wiring.senses, assist: wiring.assist,
     subs: [(own, view) => supportRecovery(own, view, world)] });
   const tactics = fighterTactics(wiring.name, (sight) => wiring.orders(sight.view.senses) ?? seekFoe(sight));
+  if (tracked) {
+    const engagement = trackedEngagement(wiring.name, sight => wiring.orders(sight.view.senses), handMode);
+    const skills = driveBy(body, { ...engagement, decide(sight, dt) {
+      const intent = engagement.decide(sight, dt);
+      const cover = threatOf(sight.view, THREAT, { out: GUARD_COVER.out, horizon: THREAT.within / THREAT.closing });
+      const guard = cover ? { kind: "guard" as const, cover } : GUARD_ACTION;
+      return { ...intent, hands: { left: intent.hands.left.kind === "attack" ? intent.hands.left : guard,
+        right: intent.hands.right.kind === "attack" ? intent.hands.right : guard } };
+    } }, { repertoire: [], pointMotion: true, pointSpacing: ENGAGEMENT.spacing });
+    return { kind: "point-fighter" as const, body, skills, state: skills.state };
+  }
   const skills = driveBy(body, { ...tactics, decide(sight, dt) {
     const intent = tactics.decide(sight, dt), attack = intent.hands.right;
     const cover = threatOf(sight.view, THREAT, { out: GUARD_COVER.out, horizon: THREAT.within / THREAT.closing });

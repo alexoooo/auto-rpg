@@ -44,11 +44,14 @@ export interface SkillReport {
   /** The centre of mass's standing height over the soles, m, read on the first step; null before. */
   readonly reference: number | null;
   readonly strike: StrikeReport;
+  readonly engagement?: { readonly phase: string };
 }
 
 export interface SkillOptions {
   /** Use measured point trajectories for placed blows. */
   readonly pointMotion?: boolean;
+  /** Point placement offset, in metres; supplied by a measured engagement policy. */
+  readonly pointSpacing?: number;
   /** An experiment's strikes in place of the searched repertoire (`REPERTOIRE`): a search's candidate. */
   readonly repertoire?: Repertoire;
   /** An experiment's placed blow in place of the one set (`PLACED`): a sweep's cell. */
@@ -60,8 +63,8 @@ export interface SkillOptions {
 }
 
 /** The skills of `body`; `tactics` is the memory of the tactics that will hand them their intent (`Tactics.state`), kept with theirs. */
-export function createSkills(body: Body, { repertoire = REPERTOIRE, placed, steer, cover, pointMotion }: SkillOptions = {}, tactics: object | null = null): Skills {
-  const legs = locomotion(body.envelope), strikes = strikeSkill(body.built.spec, repertoire, placed, steer, pointMotion), guard = guardSkill(body.built.spec, cover);
+export function createSkills(body: Body, { repertoire = REPERTOIRE, placed, steer, cover, pointMotion, pointSpacing }: SkillOptions = {}, tactics: object | null = null, engagement?: { readonly phase: string }): Skills {
+  const legs = locomotion(body.envelope), strikes = strikeSkill(body.built.spec, repertoire, placed, steer, pointMotion, pointSpacing), guard = guardSkill(body.built.spec, cover);
   const none: readonly MusclePush[] = Object.freeze([]);
   const idle: BodyCommand["hands"] = Object.freeze({ left: null, right: null });
   const command: { -readonly [K in keyof BodyCommand]: BodyCommand[K] } =
@@ -73,6 +76,7 @@ export function createSkills(body: Body, { repertoire = REPERTOIRE, placed, stee
     get pace() { return legs.pace; },
     get reference() { return legs.reference; },
     strike: strikes.report,
+    ...(engagement ? { engagement } : {}),
   };
   return {
     report, state,

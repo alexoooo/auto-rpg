@@ -370,7 +370,7 @@ export async function bootArena(): Promise<void> {
       const fighter = duel.duelists[row.side];
       row.bar.value = fighter.pool.bar();
       const mind = fighter.minded;
-      const phase = mind.kind === "direct" ? "joint control" : mind.skills.report.strike.phase ?? "guard / move";
+      const phase = mind.kind === "direct" ? "joint control" : mind.skills.report.strike.phase ?? mind.skills.report.engagement?.phase ?? "guard / move";
       const down = duel.state.recovery?.[row.side];
       row.status.textContent = fighter.body.down
         ? `${fighter.body.has}${down !== undefined ? ` - ${Math.max(0, duel.recipe.recoverySeconds! - down).toFixed(1)} s recovery left` : " - down"}`

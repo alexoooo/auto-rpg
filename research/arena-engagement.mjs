@@ -90,6 +90,7 @@ export async function engagementTrial(config) {
       if (off < range.along[0] || off > range.along[1]) result.outsideSeconds += world.dt;
     }
     result.returns = returned; result.timeouts = report.pointCycle.failed; result.simulatedSeconds = world.time;
+    result.verdict = duel.verdict;
     return result;
   } finally { stand.dispose(); }
 }

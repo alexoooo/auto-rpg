@@ -16,6 +16,8 @@ export interface Tactics {
    * (`Skills.state`). Tactics that keep what they remember anywhere else do not fork.
    */
   readonly state?: object;
+  /** Current engagement decision, read by gameplay status displays. */
+  readonly engagement?: { readonly phase: string };
 }
 
 /**
@@ -37,7 +39,7 @@ export interface Sight {
  * are resumed before the tactics decide, so the report they read is of the body as it is.
  */
 export function driveBy(body: Body, tactics: Tactics, options?: SkillOptions): Skills {
-  const skills = createSkills(body, options, tactics.state ?? null);
+  const skills = createSkills(body, options, tactics.state ?? null, tactics.engagement);
   const sight: Sight = { view: body.view, report: skills.report, envelope: body.envelope };
   body.drive((view, dt) => {
     if (view.resumed) skills.resume(view);

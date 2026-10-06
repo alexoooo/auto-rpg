@@ -47,3 +47,30 @@ require at least three useful returns and no fighter fall in each case.
 Raw per-case results: [arena-engagement-baseline.json](arena-engagement-baseline.json).
 The reference produces repeated preparation/return timeouts against stationary guards; the
 advancing opponent also causes club-fighter falls. These are development failures to retain.
+
+## Tracked settings
+
+`ENGAGEMENT.spacing` and `ENGAGEMENT.entry` are each half `APPROACH.reach` (0.125 m):
+extra placement distance and the inner engagement band. The outer band is the existing strike
+window. These are engineering candidates, measured against the reference before promotion.
+Prediction uses the remaining `PLACED.seconds`, capped to `APPROACH.reach` displacement.
+Walking uses `APPROACH.pace` and `APPROACH.seconds`, with the existing `STRAFE` backward
+share and facing threshold.
+
+## Placement-only candidate
+
+The tracked engagement candidate is explicit (`engagement: "tracked"`); ordinary Point control
+retains the reference until all promotion gates pass. It uses hand-specific range and bounded
+prediction, preserves explicit orders, and stores its decisions in replay state. The HUD reads
+its engagement phase between strike phases.
+
+| Opponent | Useful returns | Fighter falls | Phase timeouts | Simulated seconds |
+| --- | ---: | ---: | ---: | ---: |
+| stationary | 52 | 0 | 14 | 268.242 |
+| lateral | 33 | 0 | 0 | 273.567 |
+| advance | 10 | 1 | 2 | 320 |
+| retreat | 25 | 0 | 0 | 320 |
+
+Raw results: [arena-engagement-placement.json](arena-engagement-placement.json). The stationary
+right hand improves, but the candidate does not pass the complete promotion gate. Contact-aware
+return and per-attempt outcome handling remain necessary.
