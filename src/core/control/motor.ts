@@ -51,6 +51,10 @@ export interface HandGoal {
   readonly follows?: boolean;
   /** Initial point velocity in the body frame, m/s, for a measured Hermite path. One point only. */
   readonly initialVelocity?: Vec3;
+  /** Desired point velocity at the target, body frame, m/s; one-point Hermite paths only. */
+  readonly terminalVelocity?: Vec3;
+  /** Identity of a moving path segment; changing it starts a new path. */
+  readonly sequence?: number;
 }
 
 /**
@@ -181,12 +185,16 @@ export function motorControl(built: BuiltBody, seconds: number, posture: Pose = 
    */
   const along = (m: HandMemory, i: number, time: number, out: Vector3): Vector3 => {
     const { places, seconds: length, through = 0 } = m.goal!, position = places[i]!.position, from = m.from[i]!;
-    if (m.goal!.initialVelocity) {
+    if (m.goal!.initialVelocity || m.goal!.terminalVelocity) {
       const way = hypot(position[0] - from[0], position[1] - from[1], position[2] - from[2]);
       const scale = way > 0 ? 1 + through / way : 1;
       const finish = position.map((v, k) => from[k]! + scale * (v - from[k]!)) as unknown as Vec3;
-      const path = pointPath({ position: from, velocity: m.goal!.initialVelocity }, finish, Math.max(0, time), length);
-      return out.set(...path.target);
+      const terminal = m.goal!.terminalVelocity;
+      const path = pointPath({ position: from, velocity: m.goal!.initialVelocity ?? [0, 0, 0] }, finish, Math.max(0, time), length, terminal);
+      // Linear continuation preserves the endpoint rate in the IK finite differences.
+      const after = terminal ? Math.max(0, time - length) : 0;
+      return out.set(path.target[0] + after * (terminal?.[0] ?? 0), path.target[1] + after * (terminal?.[1] ?? 0),
+        path.target[2] + after * (terminal?.[2] ?? 0));
     }
     const s = Math.max(0, Math.min(1, time / length));
     let f = s * s * s * (10 - 15 * s + 6 * s * s);
@@ -268,7 +276,7 @@ export function motorControl(built: BuiltBody, seconds: number, posture: Pose = 
     setPosture(next) { state.pose = next; },
     reach(hand, goal) {
       const { memory: m, points } = arms[hand], { places } = goal;
-      if (goal.initialVelocity && places.length !== 1) throw new Error("a measured point path requires one point");
+      if ((goal.initialVelocity || goal.terminalVelocity) && places.length !== 1) throw new Error("a measured point path requires one point");
       if (places.length !== 1 && places.length !== 2) throw new Error(`a hand goal is one place or two, not ${places.length}`);
       for (const place of places) {
         if (!points.has(place.point)) throw new Error(`the ${hand} hand has no point ${place.point}: it has ${[...points.keys()].join(", ")}`);
@@ -282,7 +290,7 @@ export function motorControl(built: BuiltBody, seconds: number, posture: Pose = 
       }
       // A goal that follows keeps the path it is the next places of: the same points, time and run beyond.
       const was = m.goal;
-      const follows = goal.follows === true && was?.follows === true && was.seconds === goal.seconds && was.through === goal.through
+      const follows = goal.follows === true && was?.follows === true && was.seconds === goal.seconds && was.through === goal.through && was.sequence === goal.sequence
         && was.places.length === places.length && was.places.every((place, i) => place.point === places[i]!.point);
       m.goal = goal;
       if (!follows) m.started = false;

@@ -1,0 +1,856 @@
+{
+  "fingerprint": "2f35bedd02fc03eccd0241e095dcd3f8f4174511f23416ecbf1d073fa2e41f48",
+  "complete": true,
+  "secondsElapsed": 14.794,
+  "rating": null,
+  "rows": [
+    {
+      "id": "prototype/0",
+      "config": {
+        "left": "combat",
+        "right": "combat",
+        "recipe": {
+          "gap": 4,
+          "capSeconds": 30
+        }
+      },
+      "result": {
+        "config": {
+          "left": "combat",
+          "right": "combat",
+          "recipe": {
+            "gap": 4,
+            "capSeconds": 30
+          }
+        },
+        "recipe": {
+          "left": "workshop-fighter",
+          "right": "workshop-fighter",
+          "gap": 4,
+          "capSeconds": 30,
+          "recoverySeconds": null,
+          "balance": {
+            "left": 0,
+            "right": 0
+          },
+          "held": {
+            "left": "empty",
+            "right": "empty"
+          },
+          "minds": {
+            "left": {
+              "kind": "arena-fighter",
+              "hand": "alternate"
+            },
+            "right": {
+              "kind": "arena-fighter",
+              "hand": "alternate"
+            }
+          }
+        },
+        "protocol": {
+          "version": 1,
+          "drivenClosing": 1,
+          "relativeHandSpeed": 0.5,
+          "pressureEpisode": 2,
+          "lowHeadHeight": 0.8,
+          "startup": 2,
+          "capSeconds": 60
+        },
+        "harness": {
+          "kind": "Node Arena Duel",
+          "engine": "rapier-coordinate",
+          "revision": "rapier/adapter-8/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits",
+          "hz": 120,
+          "actuation": "symmetric"
+        },
+        "seconds": 30,
+        "verdict": {
+          "winner": "left",
+          "ending": "time",
+          "time": 30
+        },
+        "meanCentreGap": 0.8040838016677043,
+        "minimumCentreGap": 0.581592053668874,
+        "sides": {
+          "left": {
+            "phases": {
+              "align": 0.6500000000000001,
+              "approach": 13.091666666666564,
+              "attack": 0.18333333333333332,
+              "chamber": 5.491666666666729,
+              "swing": 1.3499999999999976,
+              "return": 8.033333333333518,
+              "escape": 1.1999999999999982
+            },
+            "falls": 0,
+            "downSeconds": 0,
+            "recoveries": 0,
+            "pressureSeconds": 10.608333333333372,
+            "longestPressure": 1.1999999999999982,
+            "pressureEpisodes": 0,
+            "pressureOnly": {
+              "longest": 1.1999999999999982,
+              "episodes": 0
+            },
+            "driven": 19,
+            "blocks": 19,
+            "lowDriven": 0,
+            "drivenDamage": 0.12729154239691554,
+            "selfDamage": 0.12729154239691554,
+            "incidentalDamage": 0.13873824098120874,
+            "incomingDamage": 0.2640525783352209,
+            "maximumDrivenSpeed": 5.197323380854727,
+            "bar": 0.9559912369441298,
+            "assist": {
+              "force": 0,
+              "moment": 0
+            }
+          },
+          "right": {
+            "phases": {
+              "align": 0.6500000000000001,
+              "approach": 14.791666666666467,
+              "attack": 0.175,
+              "chamber": 4.966666666666703,
+              "swing": 1.3499999999999976,
+              "return": 6.866666666666798,
+              "escape": 1.1999999999999982
+            },
+            "falls": 0,
+            "downSeconds": 0,
+            "recoveries": 0,
+            "pressureSeconds": 10.583333333333373,
+            "longestPressure": 1.1999999999999982,
+            "pressureEpisodes": 0,
+            "pressureOnly": {
+              "longest": 1.1999999999999982,
+              "episodes": 0
+            },
+            "driven": 20,
+            "blocks": 20,
+            "lowDriven": 0,
+            "drivenDamage": 0.12984923877367363,
+            "selfDamage": 0.12984923877367363,
+            "incidentalDamage": 0.1342033395615474,
+            "incomingDamage": 0.26602978337812416,
+            "maximumDrivenSpeed": 5.183543597859169,
+            "bar": 0.9556617027703126,
+            "assist": {
+              "force": 0,
+              "moment": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "prototype/1",
+      "config": {
+        "left": "combat",
+        "right": "combat",
+        "recipe": {
+          "gap": 1.2,
+          "capSeconds": 30
+        }
+      },
+      "result": {
+        "config": {
+          "left": "combat",
+          "right": "combat",
+          "recipe": {
+            "gap": 1.2,
+            "capSeconds": 30
+          }
+        },
+        "recipe": {
+          "left": "workshop-fighter",
+          "right": "workshop-fighter",
+          "gap": 1.2,
+          "capSeconds": 30,
+          "recoverySeconds": null,
+          "balance": {
+            "left": 0,
+            "right": 0
+          },
+          "held": {
+            "left": "empty",
+            "right": "empty"
+          },
+          "minds": {
+            "left": {
+              "kind": "arena-fighter",
+              "hand": "alternate"
+            },
+            "right": {
+              "kind": "arena-fighter",
+              "hand": "alternate"
+            }
+          }
+        },
+        "protocol": {
+          "version": 1,
+          "drivenClosing": 1,
+          "relativeHandSpeed": 0.5,
+          "pressureEpisode": 2,
+          "lowHeadHeight": 0.8,
+          "startup": 2,
+          "capSeconds": 60
+        },
+        "harness": {
+          "kind": "Node Arena Duel",
+          "engine": "rapier-coordinate",
+          "revision": "rapier/adapter-8/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits",
+          "hz": 120,
+          "actuation": "symmetric"
+        },
+        "seconds": 30,
+        "verdict": {
+          "winner": "right",
+          "ending": "time",
+          "time": 30
+        },
+        "meanCentreGap": 0.6433573643216198,
+        "minimumCentreGap": 0.5424753581308859,
+        "sides": {
+          "left": {
+            "phases": {
+              "align": 0.6500000000000001,
+              "approach": 11.691666666666643,
+              "attack": 0.18333333333333332,
+              "chamber": 6.216666666666765,
+              "swing": 1.3999999999999975,
+              "return": 9.858333333333414
+            },
+            "falls": 0,
+            "downSeconds": 0,
+            "recoveries": 0,
+            "pressureSeconds": 13.891666666666518,
+            "longestPressure": 0.6416666666666668,
+            "pressureEpisodes": 0,
+            "pressureOnly": {
+              "longest": 0.6416666666666668,
+              "episodes": 0
+            },
+            "driven": 18,
+            "blocks": 15,
+            "lowDriven": 0,
+            "drivenDamage": 0.0940684363368081,
+            "selfDamage": 0.12299342847688145,
+            "incidentalDamage": 0.2067547930296028,
+            "incomingDamage": 0.33415031078096497,
+            "maximumDrivenSpeed": 5.1596567069144434,
+            "bar": 0.9443082815365059,
+            "assist": {
+              "force": 0,
+              "moment": 0
+            }
+          },
+          "right": {
+            "phases": {
+              "align": 0.6500000000000001,
+              "approach": 10.800000000000027,
+              "attack": 0.19999999999999998,
+              "chamber": 7.4333333333334926,
+              "swing": 1.9749999999999954,
+              "return": 8.9416666666668
+            },
+            "falls": 0,
+            "downSeconds": 0,
+            "recoveries": 0,
+            "pressureSeconds": 13.916666666666517,
+            "longestPressure": 0.6416666666666668,
+            "pressureEpisodes": 0,
+            "pressureOnly": {
+              "longest": 0.6416666666666668,
+              "episodes": 0
+            },
+            "driven": 19,
+            "blocks": 18,
+            "lowDriven": 0,
+            "drivenDamage": 0.07604615913161279,
+            "selfDamage": 0.08158254522605353,
+            "incidentalDamage": 0.2581041516493521,
+            "incomingDamage": 0.3008232293664112,
+            "maximumDrivenSpeed": 5.153463849128462,
+            "bar": 0.9498627951055981,
+            "assist": {
+              "force": 0,
+              "moment": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "prototype/2",
+      "config": {
+        "left": "combat",
+        "right": "point",
+        "recipe": {
+          "gap": 4,
+          "capSeconds": 30
+        }
+      },
+      "result": {
+        "config": {
+          "left": "combat",
+          "right": "point",
+          "recipe": {
+            "gap": 4,
+            "capSeconds": 30
+          }
+        },
+        "recipe": {
+          "left": "workshop-fighter",
+          "right": "workshop-fighter",
+          "gap": 4,
+          "capSeconds": 30,
+          "recoverySeconds": null,
+          "balance": {
+            "left": 0,
+            "right": 0
+          },
+          "held": {
+            "left": "empty",
+            "right": "empty"
+          },
+          "minds": {
+            "left": {
+              "kind": "arena-fighter",
+              "hand": "alternate"
+            },
+            "right": {
+              "kind": "point-fighter",
+              "hand": "alternate"
+            }
+          }
+        },
+        "protocol": {
+          "version": 1,
+          "drivenClosing": 1,
+          "relativeHandSpeed": 0.5,
+          "pressureEpisode": 2,
+          "lowHeadHeight": 0.8,
+          "startup": 2,
+          "capSeconds": 60
+        },
+        "harness": {
+          "kind": "Node Arena Duel",
+          "engine": "rapier-coordinate",
+          "revision": "rapier/adapter-8/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits",
+          "hz": 120,
+          "actuation": "symmetric"
+        },
+        "seconds": 30,
+        "verdict": {
+          "winner": "left",
+          "ending": "time",
+          "time": 30
+        },
+        "meanCentreGap": 0.7630063259395774,
+        "minimumCentreGap": 0.506217469606322,
+        "sides": {
+          "left": {
+            "phases": {
+              "align": 0.6500000000000001,
+              "approach": 10.158333333333397,
+              "attack": 0.22499999999999998,
+              "chamber": 7.408333333333491,
+              "swing": 1.6833333333333298,
+              "return": 8.675000000000148,
+              "escape": 1.1999999999999982
+            },
+            "falls": 0,
+            "downSeconds": 0,
+            "recoveries": 0,
+            "pressureSeconds": 16.583333333333034,
+            "longestPressure": 1.5749999999999968,
+            "pressureEpisodes": 0,
+            "pressureOnly": {
+              "longest": 1.5749999999999968,
+              "episodes": 0
+            },
+            "driven": 25,
+            "blocks": 22,
+            "lowDriven": 0,
+            "drivenDamage": 0.07541912817851594,
+            "selfDamage": 0.08857525008576696,
+            "incidentalDamage": 0.07491366461708844,
+            "incomingDamage": 0.1328345518277837,
+            "maximumDrivenSpeed": 4.932632561681304,
+            "bar": 0.9778609080287026,
+            "assist": {
+              "force": 0,
+              "moment": 0
+            }
+          },
+          "right": {
+            "phases": {
+              "align": 0.9916666666666656,
+              "approach": 11.791666666666638,
+              "attack": 0.13333333333333333,
+              "settle": 9.741666666666754,
+              "chamber": 3.358333333333324,
+              "return": 3.2916666666666576,
+              "swing": 0.6916666666666667
+            },
+            "falls": 0,
+            "downSeconds": 0,
+            "recoveries": 0,
+            "pressureSeconds": 16.266666666666385,
+            "longestPressure": 1.5749999999999968,
+            "pressureEpisodes": 0,
+            "pressureOnly": {
+              "longest": 1.5749999999999968,
+              "episodes": 0
+            },
+            "driven": 4,
+            "blocks": 1,
+            "lowDriven": 0,
+            "drivenDamage": 0.008603191167999662,
+            "selfDamage": 0.013217876465473856,
+            "incidentalDamage": 0.12423136065978402,
+            "incomingDamage": 0.1503327927956044,
+            "maximumDrivenSpeed": 2.0132484140952536,
+            "bar": 0.974944534534066,
+            "assist": {
+              "force": 0,
+              "moment": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "prototype/3",
+      "config": {
+        "left": "point",
+        "right": "combat",
+        "recipe": {
+          "gap": 4,
+          "capSeconds": 30
+        }
+      },
+      "result": {
+        "config": {
+          "left": "point",
+          "right": "combat",
+          "recipe": {
+            "gap": 4,
+            "capSeconds": 30
+          }
+        },
+        "recipe": {
+          "left": "workshop-fighter",
+          "right": "workshop-fighter",
+          "gap": 4,
+          "capSeconds": 30,
+          "recoverySeconds": null,
+          "balance": {
+            "left": 0,
+            "right": 0
+          },
+          "held": {
+            "left": "empty",
+            "right": "empty"
+          },
+          "minds": {
+            "left": {
+              "kind": "point-fighter",
+              "hand": "alternate"
+            },
+            "right": {
+              "kind": "arena-fighter",
+              "hand": "alternate"
+            }
+          }
+        },
+        "protocol": {
+          "version": 1,
+          "drivenClosing": 1,
+          "relativeHandSpeed": 0.5,
+          "pressureEpisode": 2,
+          "lowHeadHeight": 0.8,
+          "startup": 2,
+          "capSeconds": 60
+        },
+        "harness": {
+          "kind": "Node Arena Duel",
+          "engine": "rapier-coordinate",
+          "revision": "rapier/adapter-8/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits",
+          "hz": 120,
+          "actuation": "symmetric"
+        },
+        "seconds": 30,
+        "verdict": {
+          "winner": "right",
+          "ending": "time",
+          "time": 30
+        },
+        "meanCentreGap": 0.775487842757795,
+        "minimumCentreGap": 0.5581049566439586,
+        "sides": {
+          "left": {
+            "phases": {
+              "align": 1.0249999999999988,
+              "approach": 10.45833333333338,
+              "attack": 0.10833333333333332,
+              "settle": 6.958333333333469,
+              "chamber": 4.841666666666697,
+              "swing": 0.8499999999999994,
+              "return": 5.758333333333409
+            },
+            "falls": 0,
+            "downSeconds": 0,
+            "recoveries": 0,
+            "pressureSeconds": 15.108333333333116,
+            "longestPressure": 1.1499999999999984,
+            "pressureEpisodes": 0,
+            "pressureOnly": {
+              "longest": 1.1499999999999984,
+              "episodes": 0
+            },
+            "driven": 1,
+            "blocks": 0,
+            "lowDriven": 0,
+            "drivenDamage": 0.003669854665205507,
+            "selfDamage": 0.006031404641915837,
+            "incidentalDamage": 0.1720044406523758,
+            "incomingDamage": 0.19589740446391896,
+            "maximumDrivenSpeed": 2.5153355774018595,
+            "bar": 0.9673504325893472,
+            "assist": {
+              "force": 0,
+              "moment": 0
+            }
+          },
+          "right": {
+            "phases": {
+              "align": 0.6500000000000001,
+              "approach": 12.066666666666622,
+              "attack": 0.19999999999999998,
+              "chamber": 5.7166666666667405,
+              "swing": 1.441666666666664,
+              "return": 8.725000000000145,
+              "escape": 1.1999999999999982
+            },
+            "falls": 0,
+            "downSeconds": 0,
+            "recoveries": 0,
+            "pressureSeconds": 15.224999999999776,
+            "longestPressure": 1.1499999999999984,
+            "pressureEpisodes": 0,
+            "pressureOnly": {
+              "longest": 1.058333333333332,
+              "episodes": 0
+            },
+            "driven": 19,
+            "blocks": 18,
+            "lowDriven": 0,
+            "drivenDamage": 0.06886699532155505,
+            "selfDamage": 0.0744848080130981,
+            "incidentalDamage": 0.1270304091423638,
+            "incomingDamage": 0.1756742953175813,
+            "maximumDrivenSpeed": 4.858833826992044,
+            "bar": 0.9707209507804032,
+            "assist": {
+              "force": 0,
+              "moment": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "prototype/4",
+      "config": {
+        "left": "combat",
+        "right": "classic",
+        "recipe": {
+          "gap": 4,
+          "capSeconds": 30
+        }
+      },
+      "result": {
+        "config": {
+          "left": "combat",
+          "right": "classic",
+          "recipe": {
+            "gap": 4,
+            "capSeconds": 30
+          }
+        },
+        "recipe": {
+          "left": "workshop-fighter",
+          "right": "workshop-fighter",
+          "gap": 4,
+          "capSeconds": 30,
+          "recoverySeconds": null,
+          "balance": {
+            "left": 0,
+            "right": 0
+          },
+          "held": {
+            "left": "empty",
+            "right": "empty"
+          },
+          "minds": {
+            "left": {
+              "kind": "arena-fighter",
+              "hand": "alternate"
+            },
+            "right": {
+              "kind": "fighter",
+              "subs": [
+                {
+                  "kind": "staged-rise"
+                }
+              ],
+              "guard": "pose",
+              "aim": "head",
+              "range": "close"
+            }
+          }
+        },
+        "protocol": {
+          "version": 1,
+          "drivenClosing": 1,
+          "relativeHandSpeed": 0.5,
+          "pressureEpisode": 2,
+          "lowHeadHeight": 0.8,
+          "startup": 2,
+          "capSeconds": 60
+        },
+        "harness": {
+          "kind": "Node Arena Duel",
+          "engine": "rapier-coordinate",
+          "revision": "rapier/adapter-8/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits",
+          "hz": 120,
+          "actuation": "symmetric"
+        },
+        "seconds": 30,
+        "verdict": {
+          "winner": "right",
+          "ending": "time",
+          "time": 30
+        },
+        "meanCentreGap": 0.6737453364755835,
+        "minimumCentreGap": 0.36011172732519625,
+        "sides": {
+          "left": {
+            "phases": {
+              "align": 0.6500000000000001,
+              "approach": 8.76666666666681,
+              "attack": 0.175,
+              "chamber": 4.641666666666687,
+              "swing": 1.1749999999999983,
+              "return": 6.908333333333466,
+              "escape": 7.683333333333505
+            },
+            "falls": 0,
+            "downSeconds": 0,
+            "recoveries": 0,
+            "pressureSeconds": 13.383333333333214,
+            "longestPressure": 1.2416666666666647,
+            "pressureEpisodes": 0,
+            "pressureOnly": {
+              "longest": 1.2333333333333314,
+              "episodes": 0
+            },
+            "driven": 16,
+            "blocks": 7,
+            "lowDriven": 0,
+            "drivenDamage": 0.08399121966429382,
+            "selfDamage": 0.11767435460695193,
+            "incidentalDamage": 0.15654894566366281,
+            "incomingDamage": 0.2557823169375074,
+            "maximumDrivenSpeed": 5.3692562632548,
+            "bar": 0.9573696138437487,
+            "assist": {
+              "force": 0,
+              "moment": 0
+            }
+          },
+          "right": {
+            "phases": {
+              "guard": 3.4999999999999902,
+              "approach": 2.2499999999999947,
+              "place": 12.799999999999914,
+              "settle": 10.500000000000044,
+              "swing": 0.9499999999999991
+            },
+            "falls": 0,
+            "downSeconds": 0,
+            "recoveries": 0,
+            "pressureSeconds": 12.183333333333282,
+            "longestPressure": 1.2833333333333312,
+            "pressureEpisodes": 0,
+            "pressureOnly": {
+              "longest": 1.2833333333333312,
+              "episodes": 0
+            },
+            "driven": 4,
+            "blocks": 3,
+            "lowDriven": 0,
+            "drivenDamage": 0.037098310868906755,
+            "selfDamage": 0.0403888609858095,
+            "incidentalDamage": 0.21868400606860064,
+            "incomingDamage": 0.24054016532795663,
+            "maximumDrivenSpeed": 6.319927563927129,
+            "bar": 0.9599099724453405,
+            "assist": {
+              "force": 0,
+              "moment": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "prototype/5",
+      "config": {
+        "left": "classic",
+        "right": "combat",
+        "recipe": {
+          "gap": 4,
+          "capSeconds": 30
+        }
+      },
+      "result": {
+        "config": {
+          "left": "classic",
+          "right": "combat",
+          "recipe": {
+            "gap": 4,
+            "capSeconds": 30
+          }
+        },
+        "recipe": {
+          "left": "workshop-fighter",
+          "right": "workshop-fighter",
+          "gap": 4,
+          "capSeconds": 30,
+          "recoverySeconds": null,
+          "balance": {
+            "left": 0,
+            "right": 0
+          },
+          "held": {
+            "left": "empty",
+            "right": "empty"
+          },
+          "minds": {
+            "left": {
+              "kind": "fighter",
+              "subs": [
+                {
+                  "kind": "staged-rise"
+                }
+              ],
+              "guard": "pose",
+              "aim": "head",
+              "range": "close"
+            },
+            "right": {
+              "kind": "arena-fighter",
+              "hand": "alternate"
+            }
+          }
+        },
+        "protocol": {
+          "version": 1,
+          "drivenClosing": 1,
+          "relativeHandSpeed": 0.5,
+          "pressureEpisode": 2,
+          "lowHeadHeight": 0.8,
+          "startup": 2,
+          "capSeconds": 60
+        },
+        "harness": {
+          "kind": "Node Arena Duel",
+          "engine": "rapier-coordinate",
+          "revision": "rapier/adapter-8/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits",
+          "hz": 120,
+          "actuation": "symmetric"
+        },
+        "seconds": 30,
+        "verdict": {
+          "winner": "right",
+          "ending": "time",
+          "time": 30
+        },
+        "meanCentreGap": 0.7012111046530558,
+        "minimumCentreGap": 0.3953304420596125,
+        "sides": {
+          "left": {
+            "phases": {
+              "guard": 3.7583333333333226,
+              "approach": 2.4083333333333274,
+              "place": 13.699999999999863,
+              "settle": 9.183333333333453,
+              "swing": 0.9499999999999991
+            },
+            "falls": 0,
+            "downSeconds": 0,
+            "recoveries": 0,
+            "pressureSeconds": 13.0249999999999,
+            "longestPressure": 1.1833333333333316,
+            "pressureEpisodes": 0,
+            "pressureOnly": {
+              "longest": 1.1833333333333316,
+              "episodes": 0
+            },
+            "driven": 0,
+            "blocks": 0,
+            "lowDriven": 0,
+            "drivenDamage": 0,
+            "selfDamage": 0,
+            "incidentalDamage": 0.28699450654435077,
+            "incomingDamage": 0.337827494573294,
+            "maximumDrivenSpeed": 0,
+            "bar": 0.9436954175711175,
+            "assist": {
+              "force": 0,
+              "moment": 0
+            }
+          },
+          "right": {
+            "phases": {
+              "align": 0.6500000000000001,
+              "approach": 7.541666666666831,
+              "attack": 0.22499999999999998,
+              "chamber": 7.341666666666821,
+              "swing": 1.5999999999999968,
+              "return": 10.075000000000069,
+              "escape": 2.56666666666666
+            },
+            "falls": 0,
+            "downSeconds": 0,
+            "recoveries": 0,
+            "pressureSeconds": 13.524999999999872,
+            "longestPressure": 1.1833333333333316,
+            "pressureEpisodes": 0,
+            "pressureOnly": {
+              "longest": 1.1833333333333316,
+              "episodes": 0
+            },
+            "driven": 17,
+            "blocks": 11,
+            "lowDriven": 0,
+            "drivenDamage": 0.10304549339786426,
+            "selfDamage": 0.09865848352541261,
+            "incidentalDamage": 0.23478200117542983,
+            "incomingDamage": 0.28699450654435077,
+            "maximumDrivenSpeed": 5.149031522044218,
+            "bar": 0.952167582242608,
+            "assist": {
+              "force": 0,
+              "moment": 0
+            }
+          }
+        }
+      }
+    }
+  ]
+}

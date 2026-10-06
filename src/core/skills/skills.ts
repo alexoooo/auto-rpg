@@ -1,3 +1,5 @@
+import { combatSkills } from "./combat.ts";
+import type { AttackTuning } from "./attack-path.ts";
 import type { Body, BodyCommand, BodyView } from "../body.ts";
 import type { Intent } from "../mind/intent.ts";
 import type { MusclePush } from "../control/motor.ts";
@@ -48,6 +50,8 @@ export interface SkillReport {
 }
 
 export interface SkillOptions {
+  /** Shared combat trajectories in place of the reference strike skill. */
+  readonly combat?: AttackTuning;
   /** Use measured point trajectories for placed blows. */
   readonly pointMotion?: boolean;
   /** Point placement offset, in metres; supplied by a measured engagement policy. */
@@ -65,7 +69,8 @@ export interface SkillOptions {
 }
 
 /** The skills of `body`; `tactics` is the memory of the tactics that will hand them their intent (`Tactics.state`), kept with theirs. */
-export function createSkills(body: Body, { repertoire = REPERTOIRE, placed, steer, cover, pointMotion, pointSpacing, pointResponse }: SkillOptions = {}, tactics: object | null = null, engagement?: { readonly phase: string }): Skills {
+export function createSkills(body: Body, { repertoire = REPERTOIRE, placed, steer, cover, pointMotion, pointSpacing, pointResponse, combat }: SkillOptions = {}, tactics: object | null = null, engagement?: { readonly phase: string }): Skills {
+  if (combat) return combatSkills(body, combat, tactics, engagement);
   const legs = locomotion(body.envelope), strikes = strikeSkill(body.built.spec, repertoire, placed, steer, pointMotion, pointSpacing, pointResponse), guard = guardSkill(body.built.spec, cover);
   const none: readonly MusclePush[] = Object.freeze([]);
   const idle: BodyCommand["hands"] = Object.freeze({ left: null, right: null });

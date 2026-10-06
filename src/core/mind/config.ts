@@ -1,3 +1,4 @@
+import type { AttackTuning } from "../skills/attack-path.ts";
 import type { Covering } from "../skills/guard.ts";
 import { deepFreeze } from "../state.ts";
 import type { Threat } from "./threat.ts";
@@ -37,7 +38,7 @@ export interface FighterMindConfig {
  * **A mind's config**, by kind: plain data, so it rides in a recipe, a save and a link. Each kind
  * of mind declares its own; a fight passes one through and reads nothing in it.
  */
-export type MindConfig = FighterMindConfig | PointFighterConfig | DirectMindConfig;
+export type MindConfig = FighterMindConfig | PointFighterConfig | ArenaFighterConfig | DirectMindConfig;
 
 /** Point-space combat over the shared stance and muscle controller. */
 export interface PointFighterConfig {
@@ -63,3 +64,15 @@ export interface DirectMindConfig {
 
 /** The mind every body has unless its fight says otherwise. */
 export const FIGHTER: FighterMindConfig = deepFreeze({ kind: "fighter", subs: [{ kind: "lie" }], guard: "pose", aim: "head", range: "close" });
+
+/** Tactical combat over the same physical body and reusable trajectory executor. */
+export interface ArenaFighterConfig {
+  readonly kind: "arena-fighter";
+  readonly hand: "left" | "right" | "alternate";
+  readonly defense?: boolean;
+  readonly paths?: Partial<AttackTuning>;
+  readonly spacing?: number;
+}
+
+/** Experimental autonomous combat; promotion is measured by the paired combat harness. */
+export const ARENA_FIGHTER: ArenaFighterConfig = deepFreeze({ kind: "arena-fighter", hand: "alternate" });

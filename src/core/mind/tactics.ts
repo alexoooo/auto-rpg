@@ -44,6 +44,6 @@ export function driveBy(body: Body, tactics: Tactics, options?: SkillOptions): S
   body.drive((view, dt) => {
     if (view.resumed) skills.resume(view);
     return skills.command(view, tactics.decide(sight, dt), dt);
-  }, options?.pointResponse ? view => skills.resume(view) : undefined);
+  }, (options?.pointResponse || options?.combat) ? view => skills.resume(view) : undefined);
   return skills;
 }

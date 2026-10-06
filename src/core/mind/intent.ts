@@ -19,6 +19,8 @@ export interface Intent {
   readonly hands: Readonly<Record<Hand, HandAction>>;
   /** How far under its standing height to hold the centre of mass, m; `STANCE_LOWER` when not given. */
   readonly lower?: number;
+  /** A committed combat action, executed by the common combat skill when configured. */
+  readonly combat?: CombatAction | null;
 }
 
 /** What a guarding hand covers: where the threat is, and the place of its own body it is kept from; world, m. */
@@ -42,3 +44,10 @@ export const GUARD_ACTION: HandAction = Object.freeze({ kind: "guard" });
 
 /** Standing in guard, facing `face`. */
 export const standIntent = (face = 0): Intent => ({ move: null, face, hands: { left: GUARD_ACTION, right: GUARD_ACTION } });
+
+/** A hand, observed world target and path family; no motor or anatomy prescription. */
+export interface CombatAction {
+  readonly hand: Hand;
+  readonly target: Vec3;
+  readonly family: "straight" | "cross" | "hook" | "downward";
+}

@@ -11,7 +11,15 @@ Rogue and club use afterwards; report Skeleton separately while its anatomy cont
 
 This work follows the shared [control foundation](2026-10-04-control-foundation.md). The initial
 baseline is recorded in [autonomous combat](../reference/arena-combat.md). The remaining chunks
-below are implementation work; a new controller has not yet been built or measured.
+below are implementation work. The core has an experimental `arena-fighter` and measured
+straight trajectories; it is not yet exposed or competitively promoted.
+
+The current physical and autonomous prototype measurements are in
+[combat strikes](../reference/combat-strikes.md). Straight punches repeat with both hands and
+misses on the unpinned gameplay body. Terminal velocity, moving path identity, explicit-order
+priority and fresh-world strike/return replay are gated. Self-play takes initiative and breaks
+prolonged pressure, but most blows meet the guard. Opening selection, sensed boundaries, low
+support transitions, defense reach/timing, browser integration and competitive promotion remain.
 
 ## Why the current controller fails
 
@@ -84,7 +92,7 @@ No particular learning algorithm becomes part of the physics/body contract.
 Each chunk runs `npm test`, `npm run check`, `npm run build`, the normal/ignore-CR diff gate,
 then commits. Freeze files while research fingerprint checks run. Preserve every failed case.
 
-1. **Autonomous baseline (initial probe landed with this plan).**
+1. **Autonomous baseline (landed).**
    `research/arena-combat-probe.mjs` and `docs/reference/arena-combat-baseline.json` reproduce
    Warrior self-play and mixed old controllers through ordinary Duel/World.step.
    Extend it into `research/arena-combat.mjs` (trial/accounting) and
