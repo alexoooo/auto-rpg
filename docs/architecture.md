@@ -700,6 +700,14 @@ bodies through the trusted factory; its policy gets no physical handles. The vis
 and Node observation traces match for the recorded six fixtures
 ([record](reference/control-foundation.md#shared-environment-and-browser-parity)).
 
+`research/punch-calibration.mjs` measures an unpinned Warrior against a sliding research pad
+through the shared combat executor. An independent momentum sensor subtracts the known mount
+load and records contact impulse over the whole world step. Native rigid contact and an
+explicit compliant material are separate apparatus configurations; the material applies
+equal/opposite normal forces without changing gameplay collision or damage. Pre-impact
+speed, delivered motor torque, verified returns, fine/coarse force histories and exact
+fresh-world replay accompany the [human comparison](reference/punch-calibration.md).
+
 ## One world step
 
 `createWorld(scene, engine)` (`src/core/world.ts`) makes the world: one fixed step at 120 Hz

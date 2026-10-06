@@ -132,6 +132,12 @@ but weakens recovering-target attacks. The [profile gates](reference/ground-comb
 retain the rejected cases. Competitive promotion, stronger self-play and low-combat robustness
 remain open.
 
+[Punch calibration](reference/punch-calibration.md) now measures contact impulse independently
+of damage scoring and screens rigid/compliant pads across physics rates. Qualified compliant
+Warrior trials remain below the cited human punch impulse and peak-force means. Realistic
+fist collision geometry, pre-impact bracing, coordinated body contribution and calibrated
+target materials remain open; faster trajectory requests alone are not a strength upgrade.
+
 ## Open items
 
 ### The AI
