@@ -4,6 +4,7 @@ import { motionAxesToRef, rotationOfToRef, turningToRef } from "../build/joint-s
 import type { Vec3 } from "../spec/quantity.ts";
 import { linearWork, solve3To, solveLinearTo, type LinearWork } from "../math/flat.ts";
 import { hypot } from "../math/real.ts";
+import { spinBetweenToRef } from "../math/turn.ts";
 
 /**
  * **A body's kinematics in its joints' angles**, in the root's frame: where a point on a segment is
@@ -202,6 +203,9 @@ interface ReachFreedom {
 /** How a solve ended: the passes it took, and whether it stopped of itself (no angle moved `IK_TOLERANCE` in its last pass) or at `IK_PASSES`. */
 export interface ReachEnd { passes: number; still: boolean }
 
+/** Segment turn since reference, in the root frame, with a positional lever for angular rows. */
+export interface ReachOrientation { readonly target: Quaternion; readonly lever: number }
+
 /** The rows a reach of `tasks` tasks asks: one point's three, and a second point's two more. */
 function rowsOf(tasks: number): number {
   return tasks === 1 ? 3 : 5;
@@ -239,7 +243,7 @@ export interface ReachWork {
 }
 
 export function reachWork(freedoms: number): ReachWork {
-  const stride = rowsOf(2);
+  const stride = 6;
   return {
     freedoms, stride, walk: chainWalk(), J: new Float64Array(freedoms * stride), least: new Float64Array(freedoms), most: new Float64Array(freedoms),
     stuck: new Uint8Array(freedoms), steps: new Float64Array(freedoms), toward: new Float64Array(freedoms), e: new Float64Array(stride),
@@ -254,7 +258,8 @@ export function reachWork(freedoms: number): ReachWork {
  * greatest distance left over the tasks, m, and says in `end`, if given, how it ended. It works
  * in `work`, made for at least as many freedoms as `free`.
  *
- * One task puts its point at its target: three rows. Two are two points of one rigid body, which
+ * One point with an independent orientation asks six rows, with angular errors scaled by its lever.
+ * One point alone asks three rows. Two are two points of one rigid body, which
  * can be asked five things, not six: the first point's place, and the second's error taken across
  * the line between the two points as they lie (two rows, along two directions square to it), the
  * distance along that line being the body's own.
@@ -272,12 +277,13 @@ export function reachWork(freedoms: number): ReachWork {
  * has no rotation.
  */
 export function solveReach(chain: readonly BuiltJoint[], angles: number[][], free: readonly ReachFreedom[], tasks: readonly ReachTask[],
-  end?: ReachEnd, work: ReachWork = reachWork(free.length)): number {
+  end?: ReachEnd, work: ReachWork = reachWork(free.length), orientation?: ReachOrientation): number {
   if (tasks.length !== 1 && tasks.length !== 2) throw new Error(`a reach is one task or two, not ${tasks.length}`);
+  if (orientation && (tasks.length !== 1 || !(orientation.lever > 0))) throw new Error("an oriented reach needs one point and a positive lever");
   const n = free.length;
   if (n > work.freedoms) throw new Error(`a reach of ${n} freedoms in a work made for ${work.freedoms}`);
   const [first, second] = tasks as readonly [ReachTask, ReachTask?];
-  const rows = rowsOf(tasks.length), { stride, walk, J, least, most, stuck, steps, toward, e, JJ, A, Jp, y, z, line, square, column, at, at2 } = work;
+  const rows = orientation ? 6 : rowsOf(tasks.length), { stride, walk, J, least, most, stuck, steps, toward, e, JJ, A, Jp, y, z, line, square, column, at, at2 } = work;
   // Each freedom's range, kept short of the half turn its joint's measure reads within.
   for (let k = 0; k < n; k++) {
     least[k] = Math.max(free[k]!.min, IK_SHORT - Math.PI);
@@ -305,12 +311,23 @@ export function solveReach(chain: readonly BuiltJoint[], angles: number[][], fre
       e[3] = ex * ax + ey * ay + ez * az; e[4] = ex * bx + ey * by + ez * bz;
       left = Math.max(left, hypot(ex, ey, ez));
     }
+    if (orientation) {
+      spinBetweenToRef(walk.last, orientation.target, 1, at2);
+      e[3] = at2.x * orientation.lever; e[4] = at2.y * orientation.lever; e[5] = at2.z * orientation.lever;
+      left = Math.max(left, hypot(e[3]!, e[4]!, e[5]!));
+    }
     for (let c = 0; c < n; c++) {
       walkedColumn(walk, c, free[c]!.joint, at, J, c * stride);
       if (second) {
         walkedColumn(walk, c, free[c]!.joint, at2, column, 0);
         J[c * stride + 3] = column[0]! * ax + column[1]! * ay + column[2]! * az;
         J[c * stride + 4] = column[0]! * bx + column[1]! * by + column[2]! * bz;
+      }
+      if (orientation) {
+        const spin = walk.spin[c]!;
+        J[c * stride + 3] = spin.x * orientation.lever;
+        J[c * stride + 4] = spin.y * orientation.lever;
+        J[c * stride + 5] = spin.z * orientation.lever;
       }
     }
     // The step is J' (J J' + damping^2 I)^-1 e, and the posture's pull is projected off what J
@@ -412,4 +429,3 @@ const IK_PASSES = 200, IK_TOLERANCE = 1e-10, IK_DAMPING = 0.01, IK_SHORT = 0.1, 
  * (`docs/reference/human-and-strikes.md#ik`).
  */
 const IK_POSTURE_PULL = 0.5, IK_TURN = 0.2;
-

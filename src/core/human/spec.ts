@@ -27,6 +27,10 @@ function figureSpec(figure: HumanFigure): BodySpec {
   const segments = humanSegments(figure);
   return {
     family: figure.family, model: figure.model, mass: figure.mass, stature: figure.stature, segments,
+    effectors: ["left", "right"].flatMap(side => [
+      { segment: `hand.${side}`, base: "upperTrunk", point: "knuckles" },
+      { segment: `foot.${side}`, base: "lowerTrunk", point: "strike" },
+    ]),
     joints: humanJoints(figure, segments, (exertion) => peakTorque(figure, exertion), (exertion) => jointSpeed(figure, exertion)),
     wounds: humanWounds(figure),
     attributes: humanAttributes(figure),

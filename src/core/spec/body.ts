@@ -32,6 +32,8 @@ export interface BodySpec {
   readonly mass: Quantity<number>;
   readonly stature: Quantity<number>;
   readonly segments: readonly SegmentSpec[];
+  /** Named controllable endpoints; the chain below `base` belongs to the effector. */
+  readonly effectors?: readonly { readonly segment: string; readonly base: string; readonly point: string }[];
   /** Each joint names a parent and a child segment; together they form a tree over the segments. */
   readonly joints: readonly JointSpec[];
   readonly wounds: WoundSpec;

@@ -38,7 +38,11 @@ read (`src/core/skills/skills.ts`).
 `createBody` (`src/core/body.ts`) gives a built body the command layers as its mind
 (`commandMind`, hosting the sub-minds it is given, under `embody`): its muscles and motor control. Each step it
 reads the body's `BodyView` (time, joint angles, fists, knuckles, head, stance), asks its driver,
-and obeys the `BodyCommand` it gets back: a posture, hand goals, timed pushes and a stance goal.
+and obeys the `BodyCommand` it gets back: a posture, named effector goals, timed pushes and a stance goal.
+Body data declares each effector and its free chain. Hands retain their adapters; either foot uses
+the same point tracker with an independent orientation and ordinary bounded muscles. A bearing
+foot cannot simultaneously receive an effector goal. Detached capabilities, observations, contact
+feedback and path memory share the body/bout replay boundary. See [effector contract](reference/striking-effectors.md).
 
 The arena also selects `PointFighterConfig` through `createMind`. It uses the shared locomotion
 and placement skill, but selects no searched torque recipes: attacks use `pointPath` through

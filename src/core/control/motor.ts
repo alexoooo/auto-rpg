@@ -1,13 +1,14 @@
-import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { BuiltBody, BuiltJoint, BuiltSegment } from "../build/build-body.ts";
-import { rigidPoints } from "../build/rigid.ts";
 import { pointPath } from "./point-path.ts";
+import { bodyEffectors, type EffectorModel } from "./effectors.ts";
+import { turnBetweenToRef } from "../math/turn.ts";
 import { hypot } from "../math/real.ts";
 import type { MuscleController, MuscleDriver } from "../muscle/driver.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { distance } from "../spec/vec.ts";
 import type { Assist } from "./assist.ts";
-import { chainTo, pointNowToRef, reachWork, solveReach, type ReachEnd, type ReachWork } from "./kinematics.ts";
+import { chainTo, pointNowToRef, reachWork, solveReach, type ReachEnd, type ReachWork, type ReachOrientation } from "./kinematics.ts";
 import { servoAsk, servoSolve } from "./servo.ts";
 import { stanceControl, type StanceControl, type StanceGoal } from "./stance.ts";
 import type { StanceTuning } from "./stance-tuning.ts";
@@ -33,8 +34,8 @@ interface Place {
   readonly position: Vec3;
 }
 
-/** **Where a hand goes, and in what time.** */
-export interface HandGoal {
+/** Named rigid-body points and an optional independent orientation, in the root frame. */
+export interface EffectorGoal {
   /** One place, or two points of the hand's one rigid body: where it is, and how its line lies. */
   readonly places: readonly Place[];
   readonly seconds: number;
@@ -57,7 +58,12 @@ export interface HandGoal {
   readonly curve?: Vec3;
   /** Identity of a moving path segment; changing it starts a new path. */
   readonly sequence?: number;
+  /** Independent segment turn since reference, in the root frame, on a smooth finite path. */
+  readonly orientation?: { readonly target: readonly [number, number, number, number]; readonly seconds: number };
 }
+
+/** Compatibility name for the hand adapters. */
+export type HandGoal = EffectorGoal;
 
 /**
  * **Motor control: goals in, muscle commands out.** A body is given a posture (angles for the
@@ -83,6 +89,10 @@ export interface HandGoal {
  * body carried or in the air.
  */
 export interface MotorControl {
+  readonly effectors: readonly EffectorModel[];
+  reachEffector(segment: string, goal: EffectorGoal): void;
+  releaseEffector(segment: string): void;
+  effectorPointToRef(segment: string, point: string, out: Vector3): Vector3;
   /** The controller for `driveMuscles`. */
   readonly control: MuscleController;
   /** Hold `pose` for every freedom no hand goal owns, from `control`'s next call. */
@@ -123,27 +133,29 @@ export interface MotorControl {
  */
 interface Free { readonly joint: number; readonly k: number; readonly min: number; readonly max: number; preferred: number; readonly name: string }
 
-/** An arm as the inverse kinematics takes it, and what motor control remembers of its hand's goal. */
-interface Arm {
+/** A declared chain and the endpoint path the tracker remembers. */
+interface Effector {
+  readonly orientation: ReachOrientation;
   readonly chain: BuiltJoint[];
   readonly hand: BuiltSegment;
   readonly knuckles: Vec3;
-  /** Its hand's rigid body's points (`rigidPoints`), body frame, reference pose, by name. */
+  /** The endpoint's named rigid-body points in the reference root frame. */
   readonly points: ReadonlyMap<string, Vec3>;
-  /** The chain's freedoms the inverse kinematics moves: the shoulder's, the elbow's and the wrist's. */
+  /** The declared chain's free joint coordinates. */
   readonly free: Free[];
   /** What its reach works in (`solveReach`). */
   readonly work: ReachWork;
-  readonly memory: HandMemory;
+  readonly memory: EffectorMemory;
 }
 
-/** What motor control remembers of a hand's goal from one step to the next. */
-interface HandMemory {
+/** What the endpoint tracker remembers from one step to the next. */
+interface EffectorMemory {
   goal: HandGoal | null;
   started: boolean;
   /** Where each place's point was when the path began, in the places' order. */
   from: Vec3[];
   time: number;
+  fromRotation: [number, number, number, number];
   /** The angles last solved, by chain joint. */
   angles: number[][];
   /** Where the first place's path stands. */
@@ -160,24 +172,26 @@ export function motorControl(built: BuiltBody, seconds: number, posture: Pose = 
   const stance = stanceControl(built, stanceTuning, assist);
   const root = chainTo(built, built.segments.get("hand.left")!)[0]!.parent;
   const names = (joint: BuiltJoint) => joint.dofs.map((dof) => `${joint.spec.name} ${dof.spec.positive}`);
-  const arm = (side: Hand): Arm => {
-    const hand = built.segments.get(`hand.${side}`);
-    const knuckles = hand?.spec.points?.knuckles?.value;
-    if (!hand || !knuckles) throw new Error(`${built.spec.model} has no ${side} hand with knuckles`);
-    const chain = chainTo(built, hand);
-    const moved = [`shoulder.${side}`, `elbow.${side}`, `wrist.${side}`];
-    const free = chain.flatMap((joint, j) => moved.includes(joint.spec.name)
-      ? joint.dofs.map((dof, k) => ({ joint: j, k, min: dof.spec.min.value, max: dof.spec.max.value, preferred: 0, name: names(joint)[k]! }))
-      : []);
-    const points = new Map([...rigidPoints(built.spec, hand.spec)].map(([name, point]) => [name, point.value]));
-    return { chain, hand, knuckles, points, free, work: reachWork(free.length),
-      memory: { goal: null, started: false, from: [], time: 0,
-        angles: chain.map((joint) => joint.dofs.map(() => 0)), point: new Vector3(), goals: new Map() } };
+  const descriptions = bodyEffectors(built);
+  const limbOf = (description: typeof descriptions[number]): Effector => {
+    const { segment: hand, chain, free, points } = description;
+    const knuckles = points.get(description.model.point)!;
+    return { chain, hand, free, points, knuckles, work: reachWork(free.length),
+      orientation: { target: new Quaternion(), lever: distance(hand.spec.proximal.value, hand.spec.distal.value) },
+      memory: { goal: null, started: false, from: [], time: 0, fromRotation: [0, 0, 0, 1],
+        angles: chain.map(joint => joint.dofs.map(() => 0)), point: new Vector3(), goals: new Map() } };
   };
-  const arms: Record<Hand, Arm> = { left: arm("left"), right: arm("right") }, both = [arms.left, arms.right];
-  const state: { pose: Pose; pushes: readonly MusclePush[]; standing: StanceGoal | null; readonly hands: Record<Hand, HandMemory>;
-    readonly reach: ReachMeter; readonly stance: object } =
+  const limbs = new Map(descriptions.map(d => [d.model.segment, limbOf(d)]));
+  const arm = (side: Hand): Effector => {
+    const limb = limbs.get(`hand.${side}`);
+    if (!limb) throw new Error(`${built.spec.model} has no ${side} hand effector`);
+    return limb;
+  };
+  const arms: Record<Hand, Effector> = { left: arm("left"), right: arm("right") }, both = [arms.left, arms.right, ...[...limbs.values()].filter(limb => limb !== arms.left && limb !== arms.right)];
+  const state: { pose: Pose; pushes: readonly MusclePush[]; standing: StanceGoal | null; readonly hands: Record<Hand, EffectorMemory>;
+    readonly effectors: Record<string, EffectorMemory>; readonly reach: ReachMeter; readonly stance: object } =
     { pose: posture, pushes: [], standing: null, hands: { left: arms.left.memory, right: arms.right.memory },
+      effectors: Object.fromEntries([...limbs].map(([name, limb]) => [name, limb.memory])),
       reach: { solves: 0, passes: 0, capped: 0 }, stance: stance.state };
 
   /**
@@ -185,7 +199,7 @@ export function motorControl(built: BuiltBody, seconds: number, posture: Pose = 
    * from where the point began to its place, and on `through` beyond it along that line.
    * A supplied initial velocity uses the shared quintic Hermite path instead.
    */
-  const along = (m: HandMemory, i: number, time: number, out: Vector3): Vector3 => {
+  const along = (m: EffectorMemory, i: number, time: number, out: Vector3): Vector3 => {
     const { places, seconds: length, through = 0 } = m.goal!, position = places[i]!.position, from = m.from[i]!;
     if (m.goal!.initialVelocity || m.goal!.terminalVelocity || m.goal!.curve) {
       const way = hypot(position[0] - from[0], position[1] - from[1], position[2] - from[2]);
@@ -208,13 +222,21 @@ export function motorControl(built: BuiltBody, seconds: number, posture: Pose = 
       from[2] + f * (position[2] - from[2]));
   };
   const at = new Vector3(), end: ReachEnd = { passes: 0, still: false };
-  const solveAt = ({ chain, free, points, work, memory }: Arm, time: number): number[][] => {
+  const fromTurn = new Quaternion(), toTurn = new Quaternion(), turn = new Quaternion(), inverse = new Quaternion();
+  const solveAt = ({ chain, free, points, work, memory, orientation: rotational }: Effector, time: number): number[][] => {
     const angles = memory.angles.map((row) => [...row]);
     const tasks = memory.goal!.places.map((place, i) => {
       along(memory, i, time, at);
       return { point: points.get(place.point)!, target: [at.x, at.y, at.z] as Vec3 };
     });
-    solveReach(chain, angles, free, tasks, end, work);
+    const orientation = memory.goal!.orientation;
+    if (orientation) {
+      const u = Math.max(0, Math.min(1, time / orientation.seconds)), amount = u * u * u * (10 - 15 * u + 6 * u * u);
+      fromTurn.set(...memory.fromRotation); toTurn.set(...orientation.target);
+      turnBetweenToRef(fromTurn, toTurn, amount, turn);
+      rotational.target.copyFrom(turn);
+    }
+    solveReach(chain, angles, free, tasks, end, work, orientation ? rotational : undefined);
     state.reach.solves++;
     state.reach.passes += end.passes;
     if (!end.still) state.reach.capped++;
@@ -238,6 +260,12 @@ export function motorControl(built: BuiltBody, seconds: number, posture: Pose = 
           pointNowToRef(limb.hand, root, limb.points.get(place.point)!, at);
           return [at.x, at.y, at.z] as Vec3;
         });
+        if (m.goal.orientation) {
+          root.rest.multiplyToRef(Quaternion.InverseToRef(root.node.rotationQuaternion!, inverse), fromTurn);
+          fromTurn.multiplyToRef(limb.hand.node.rotationQuaternion!, turn);
+          turn.multiplyToRef(Quaternion.InverseToRef(limb.hand.rest, inverse), fromTurn).normalize();
+          m.fromRotation = [fromTurn.x, fromTurn.y, fromTurn.z, fromTurn.w];
+        }
         m.time = 0;
         m.started = true;
       } else m.time += dt;
@@ -274,15 +302,20 @@ export function motorControl(built: BuiltBody, seconds: number, posture: Pose = 
     if (carried) stance.bear(driver, work);
   };
 
-  return {
-    control,
-    setPosture(next) { state.pose = next; },
-    reach(hand, goal) {
-      const { memory: m, points } = arms[hand], { places } = goal;
+  const reach = (segment: string, goal: HandGoal) => {
+      const limb = limbs.get(segment);
+      if (!limb) throw new Error(`no effector ${segment}`);
+      const { memory: m, points } = limb, { places } = goal;
+      if (!(goal.seconds > 0) || !Number.isFinite(goal.seconds)) throw new Error("effector path needs finite positive time");
+      if (goal.orientation && (places.length !== 1 || !(goal.orientation.seconds > 0)
+        || !Number.isFinite(goal.orientation.seconds) || goal.orientation.target.length !== 4
+        || !goal.orientation.target.every(Number.isFinite)
+        || Math.abs(goal.orientation.target.reduce((s, v) => s + v * v, 0) - 1) > 1e-8)) throw new Error("invalid effector orientation");
       if ((goal.initialVelocity || goal.terminalVelocity || goal.curve) && places.length !== 1) throw new Error("a measured point path requires one point");
       if (places.length !== 1 && places.length !== 2) throw new Error(`a hand goal is one place or two, not ${places.length}`);
       for (const place of places) {
-        if (!points.has(place.point)) throw new Error(`the ${hand} hand has no point ${place.point}: it has ${[...points.keys()].join(", ")}`);
+        const label = segment.startsWith("hand.") ? `${segment.slice(5)} hand` : `${segment} effector`;
+        if (!points.has(place.point)) throw new Error(`the ${label} has no point ${place.point}: it has ${[...points.keys()].join(", ")}`);
       }
       if (places.length === 2) {
         const [a, b] = places as [Place, Place];
@@ -297,6 +330,20 @@ export function motorControl(built: BuiltBody, seconds: number, posture: Pose = 
         && was.places.length === places.length && was.places.every((place, i) => place.point === places[i]!.point);
       m.goal = goal;
       if (!follows) m.started = false;
+  };
+  return {
+    control, effectors: Object.freeze(descriptions.map(d => d.model)),
+    setPosture(next) { state.pose = next; },
+    reach: (hand, goal) => reach(`hand.${hand}`, goal),
+    reachEffector: reach,
+    releaseEffector(segment) {
+      const limb = limbs.get(segment); if (!limb) throw new Error(`no effector ${segment}`);
+      limb.memory.goal = null;
+    },
+    effectorPointToRef(segment, point, out) {
+      const limb = limbs.get(segment), at = limb?.points.get(point);
+      if (!limb || !at) throw new Error(`no effector point ${segment}/${point}`);
+      return pointNowToRef(limb.hand, root, at, out);
     },
     release(hand) { arms[hand].memory.goal = null; },
     setPushes(next) { state.pushes = next; },

@@ -1,4 +1,5 @@
 import type { BuiltBody } from "../build/build-body.ts";
+import { bodyEffectors, type EffectorModel } from "../control/effectors.ts";
 import type { AssistCeiling } from "../control/assist.ts";
 import type { BodyObservation } from "../observation.ts";
 import { observeBody } from "../observation.ts";
@@ -13,6 +14,7 @@ import { clockSenses, type Senses } from "./senses.ts";
 
 /** Immutable actuator description; no object here can change the live body. */
 interface ActuatorModel {
+  readonly effectors: readonly EffectorModel[];
   readonly handPoses: BuiltBody["handPoses"]["model"];
   readonly equipment?: EquipmentPort["model"];
   readonly channels: readonly {
@@ -36,7 +38,7 @@ export function createPolicyBody(built: BuiltBody, world: World, make: (model: A
   const sense = options.senses ?? clockSenses(world), equipment = options.equipment;
   const embodied = embody(built, world, (own) => {
     const observe = observeBody(built, own.muscles, world, sense, equipment ? () => equipment.observe() : undefined);
-    const model = deepFreeze({ handPoses: built.handPoses.model, channels: own.muscles.channels.map((c) => ({ name: c.name, min: c.dof.spec.min.value,
+    const model = deepFreeze({ effectors: bodyEffectors(built).map(e => e.model), handPoses: built.handPoses.model, channels: own.muscles.channels.map((c) => ({ name: c.name, min: c.dof.spec.min.value,
       max: c.dof.spec.max.value, positive: c.positive.peak, negative: c.negative.peak })),
       ...(equipment ? { equipment: equipment.model } : {}) });
     const policy = make(model);

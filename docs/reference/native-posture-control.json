@@ -5649,6 +5649,24 @@
               "value": 122300,
               "unit": "N/m"
             }
+          },
+          "points": {
+            "sole": {
+              "value": [
+                -0.1981309085127707,
+                0,
+                0.07308724487418834
+              ],
+              "unit": "m"
+            },
+            "strike": {
+              "value": [
+                -0.1981309085127707,
+                0,
+                0.14492734745013713
+              ],
+              "unit": "m"
+            }
           }
         },
         {
@@ -6158,7 +6176,47 @@
               "value": 122300,
               "unit": "N/m"
             }
+          },
+          "points": {
+            "sole": {
+              "value": [
+                0.1981309085127707,
+                0,
+                0.07308724487418834
+              ],
+              "unit": "m"
+            },
+            "strike": {
+              "value": [
+                0.1981309085127707,
+                0,
+                0.14492734745013713
+              ],
+              "unit": "m"
+            }
           }
+        }
+      ],
+      "effectors": [
+        {
+          "segment": "hand.left",
+          "base": "upperTrunk",
+          "point": "knuckles"
+        },
+        {
+          "segment": "foot.left",
+          "base": "lowerTrunk",
+          "point": "strike"
+        },
+        {
+          "segment": "hand.right",
+          "base": "upperTrunk",
+          "point": "knuckles"
+        },
+        {
+          "segment": "foot.right",
+          "base": "lowerTrunk",
+          "point": "strike"
         }
       ],
       "joints": [

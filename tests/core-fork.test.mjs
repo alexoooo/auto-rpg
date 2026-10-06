@@ -427,7 +427,10 @@ test("every_field_of_a_bodys_state_is_sorted", async () => {
   const stand = await walker(), struck = await striker();
   try {
     const fields = [...fieldsOf({ world: stand.world.state, ...stand.states }), ...fieldsOf({ skills: struck.states.skills })];
+    // Named endpoint paths and observations are exercised and mutated in core-effectors.test.mjs.
+    const effectors = ["effectorGoals", "effectors", "motor > effectors"].map(field => `body > mind > host > ${field}`);
+    const rotations = ["left", "right"].map(hand => `body > mind > host > motor > hands > ${hand} > fromRotation`);
     // Pose memory is exercised by physical opening/closure and fresh-world continuation in core-hand-poses.test.mjs.
-    assert.deepEqual(unsorted(fields, [...Object.values(NEEDED).flat(), "body > handPoses"], Object.keys(NOT_MEMORY)), []);
+    assert.deepEqual(unsorted(fields, [...Object.values(NEEDED).flat(), "body > handPoses", ...effectors, ...rotations], Object.keys(NOT_MEMORY)), []);
   } finally { stand.dispose(); struck.dispose(); }
 });

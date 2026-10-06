@@ -183,6 +183,14 @@ export function humanSegments(figure: HumanFigure): SegmentSpec[] {
     const segment: SegmentSpec = { name: plan.name, proximal, distal, mass, centreOfMass, inertia, shape: shapeOf(figure, plan, proximal, distal, mass),
       surface: { stiffness: si(CONTACT_STIFFNESS[plan.row]) } };
     const points = plan.points && Object.fromEntries(Object.entries(plan.points).map(([name, point]) => [name, atFit(point)]));
+    if (plan.row === "foot" && segment.shape.kind === "box") {
+      const { centre, size } = segment.shape;
+      const sole = derive("m", "the sole centre on the box's plantar face", [proximal, distal, centre, size],
+        (p, d, c, s) => add(c, scale(segmentFrame(p, d).z, s[2] / 2)));
+      const strike = derive("m", "the centre of the distal half of the sole", [proximal, distal, sole, size],
+        (p, d, c, s) => add(c, scale(segmentFrame(p, d).y, s[1] / 4)));
+      return { ...segment, points: { sole, strike } };
+    }
     if (plan.row === "hand" && points?.knuckles && segment.shape.kind === "capsule") {
       const open = segment.shape;
       // The capsule ends at the metacarpal head plus the existing thickness: docs/reference/hand-poses.md.

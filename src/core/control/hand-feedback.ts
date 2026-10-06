@@ -33,19 +33,31 @@ export function newHandContact(wasTouching: boolean, current: Pick<HandFeedback,
 /** Trusted body adapter, sampled before control from the last completed physics step. */
 export function handFeedback(built: BuiltBody, identity?: ContactIdentity,
   external?: (hand: "left" | "right") => readonly HandContact[]) {
+  const feedback = effectorFeedback(built, ["hand.left", "hand.right"], identity,
+    external ? segment => external(segment === "hand.left" ? "left" : "right") : undefined);
+  return { state: { left: feedback.state["hand.left"]!, right: feedback.state["hand.right"]! }, read: feedback.read };
+}
+
+/** The same trusted contact and motion sampler for any declared physical endpoint. */
+export function effectorFeedback(built: BuiltBody, segments: readonly string[], identity?: ContactIdentity,
+  external?: (segment: string) => readonly HandContact[]) {
   const make = () => ({ point: [0, 0, 0] as [number, number, number], velocity: [0, 0, 0] as [number, number, number],
     impulse: 0, contactPoint: null as Vec3 | null, ...(identity || external ? { contact: null as HandContact | null } : {}) });
-  const state = { left: make(), right: make() };
+  const state = Object.fromEntries(segments.map(name => [name, make()]));
   const own = new Set([...built.segments.values()].map(s => s.body));
-  const hands = (["left", "right"] as const).map(hand => {
-    const segment = built.segments.get(`hand.${hand}`)!;
-    const points = rigidPoints(built.spec, segment.spec);
-    return { hand, segment, point: points.get(aimOf(built.spec, hand))!.value, strike: points.get("strike")?.value };
+  const hands = segments.map(name => {
+    const segment = built.segments.get(name);
+    if (!segment) throw new Error(`no feedback segment ${name}`);
+    const points = rigidPoints(built.spec, segment.spec), declaration = built.spec.effectors?.find(e => e.segment === name);
+    const aim = name === "hand.left" ? aimOf(built.spec, "left") : name === "hand.right" ? aimOf(built.spec, "right") : declaration?.point;
+    const point = aim && points.get(aim)?.value;
+    if (!point) throw new Error(`no feedback point ${name}`);
+    return { hand: name, segment, point, strike: points.get("strike")?.value };
   });
   const point = new Vector3(), velocity = new Vector3(), spin = new Vector3();
   return { state, read() {
     for (const item of hands) {
-      const out = state[item.hand];
+      const out = state[item.hand]!;
       pointOfToRef(item.segment, item.segment.handPose?.applied === "fist" && item.strike ? item.strike : item.point, point);
       motionAtToRef(item.segment, point, velocity, spin);
       out.point[0] = point.x; out.point[1] = point.y; out.point[2] = point.z;
