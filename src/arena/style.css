@@ -60,6 +60,34 @@ body {
   min-width: 210px;
 }
 
+/* The view panel leaves the centre of a live or paused bout open. */
+#arena-view {
+  position: fixed; top: 108px; right: 22px; z-index: 9;
+  width: min(330px, calc(100vw - 24px)); max-height: calc(100dvh - 240px); overflow-y: auto;
+  padding: 12px 14px; border: 1px solid var(--edge); border-radius: 6px;
+  background: var(--panel); font: 12px/1.4 var(--font);
+}
+#arena-view[hidden] { display: none; }
+#arena-view summary { cursor: pointer; color: var(--ink); font-weight: 600; }
+#arena-view[open] summary { margin-bottom: 12px; }
+#arena-view .field { display: grid; grid-template-columns: 66px minmax(0, 1fr); align-items: baseline; gap: 8px; margin: 8px 0 0; }
+#arena-view .label { color: var(--dim); margin: 0; }
+#arena-view .options { display: flex; flex-wrap: wrap; gap: 5px; }
+#arena-view button { flex: 1; min-width: 0; padding: 7px; border: 1px solid var(--edge); border-radius: 4px;
+  background: transparent; color: var(--ink); font: inherit; cursor: pointer; }
+#arena-view button[aria-pressed="true"] { color: var(--hot); border-color: var(--hot); }
+#arena-view button:hover { background: rgba(255, 255, 255, .06); }
+#arena-view [hidden] { display: none; }
+@media (max-width: 700px) {
+  #hud { padding: 16px 12px; gap: 12px; }
+  #hud .hud-col { min-width: 0; flex: 1; }
+  #hud .hud-col:nth-child(2) { flex: 0 1 auto; text-align: center; }
+  #hud .hud-col:last-child { align-items: flex-end; text-align: right; }
+  #hud progress { width: 120px; max-width: 100%; }
+  #arena-view { top: 96px; right: 12px; }
+  #arena-view:not([open]) { width: auto; }
+}
+
 /* ---------- panels and actions, shared by setup, pause and help ---------- */
 
 .panel {
@@ -370,6 +398,12 @@ body:has(#pause-menu:not(.gone)) #bout-end {
   font-size: 12px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
+}
+
+@media (max-width: 700px) {
+  #bout-end { width: calc(100vw - 24px); max-width: 500px; flex-wrap: wrap; }
+  #bout-verdict { flex: 1 0 100%; }
+  #bout-end .action { flex: 1; padding: 8px; }
 }
 
 /* ---------- the controls, on their own overlay ---------- */

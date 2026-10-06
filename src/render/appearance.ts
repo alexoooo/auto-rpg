@@ -4,8 +4,8 @@ import { BODY_MODELS, type BodyModel } from "../core/human/spec.ts";
 export const APPEARANCES = Object.freeze([
   Object.freeze({ id: "default", name: "Original", models: BODY_MODELS, clothing: true }),
   Object.freeze({ id: "industrial", name: "Industrial", models: Object.freeze(["workshop-fighter"] as const), clothing: false }),
-  Object.freeze({ id: "relic", name: "Relic", models: Object.freeze(["workshop-fighter"] as const), clothing: false }),
-  Object.freeze({ id: "duelist", name: "Duelist", models: Object.freeze(["workshop-fighter"] as const), clothing: false }),
+  Object.freeze({ id: "relic", name: "Steampunk", models: Object.freeze(["workshop-fighter"] as const), clothing: false }),
+  Object.freeze({ id: "duelist", name: "Futuristic", models: Object.freeze(["workshop-fighter"] as const), clothing: false }),
 ] as const);
 export type Appearance = (typeof APPEARANCES)[number]["id"];
 

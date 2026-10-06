@@ -1,5 +1,5 @@
 import type { MindLog } from "../mind-log.ts";
-import { table, type Control } from "./controls.ts";
+import { table, type Control } from "../../ui/controls.ts";
 
 /** The notes shown at once. */
 const ROWS = 10;

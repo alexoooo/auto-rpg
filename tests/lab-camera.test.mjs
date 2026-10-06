@@ -8,7 +8,7 @@ import assert from "node:assert/strict";
 import { Quaternion } from "@babylonjs/core/Maths/math.vector.js";
 import {
   behind, CHASE_BETA, easeAngle, facingOf, horizontalForward, ISO_ALPHA, ISO_BETA, orthoExtents,
-} from "../src/lab/camera.ts";
+} from "../src/render/camera-math.ts";
 
 const close = (actual, expected, message, tolerance = 1e-9) =>
   assert.ok(Math.abs(actual - expected) <= tolerance, `${message}: ${actual} against ${expected}`);

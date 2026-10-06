@@ -11,7 +11,7 @@ import { ROUTINE_TRACK, startRoutine } from "./routine.ts";
 import type { TargetReading } from "./targets.ts";
 import { paintTrack } from "./run-scenario.ts";
 import { trackOf } from "./track.ts";
-import { readings, table } from "./hud/controls.ts";
+import { readings, table } from "../ui/controls.ts";
 
 /**
  * **The Routine scenario**: the lab routine (`routine.ts`), tactics on the core's skills -- walk out,

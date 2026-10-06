@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { dressRobot } from "../src/render/robot-skin.ts";
 import { APPEARANCES, appearanceFor, appearancesFor, wearsClothing } from "../src/render/appearance.ts";
@@ -17,6 +18,42 @@ import { freshEngine } from "./harness/core-stand.mjs";
 
 const clothing = { boots: true, armour: true };
 const robots = APPEARANCES.filter(row => row.id !== "default");
+
+test("Industrial retains its recorded geometry, attachment and material finishes", async () => {
+  const stand = await coreStand(modelSpec("workshop-fighter"));
+  try {
+    const skin = dressRobot(stand.built, stand.scene, "industrial", { clothing });
+    const record = skin.meshes.map(m => ({
+      part: m.name.split(".").slice(3).join("."), parent: [...stand.built.segments].find(([, s]) => s.node === m.parent)[0],
+      positions: Array.from(m.getVerticesData("position")), normals: Array.from(m.getVerticesData("normal")), indices: Array.from(m.getIndices()),
+      at: m.position.asArray(), turn: m.rotationQuaternion?.asArray() ?? null,
+      material: { colour: m.material.albedoColor.asArray(), metallic: m.material.metallic, roughness: m.material.roughness,
+        emission: m.material.emissiveColor.asArray(), unlit: m.material.unlit },
+    }));
+    const fingerprint = () => createHash("sha256").update(JSON.stringify(record)).digest("hex");
+    const reference = "7bfa15f857583a9542f68b1bfff3fe844069e3a7c578846c0f89b34336e4086b";
+    assert.equal(fingerprint(), reference);
+    record[0].positions[0] += .01;
+    assert.notEqual(fingerprint(), reference);
+    skin.dispose();
+  } finally { stand.dispose(); }
+});
+
+test("robot designs use distinct geometry for each major body region", async () => {
+  const stand = await coreStand(modelSpec("workshop-fighter"));
+  try {
+    const skins = robots.map(row => dressRobot(stand.built, stand.scene, row.id, { clothing }));
+    for (const name of ["head", "upperTrunk", "middleTrunk", "lowerTrunk", "upperArm.right", "forearm.right", "thigh.right", "shank.right", "foot.right"]) {
+      const segment = stand.built.segments.get(name);
+      assert.ok(segment, name);
+      const geometry = skins.map(skin => skin.meshes.filter(m => m.parent === segment.node)
+        .flatMap(m => Array.from(m.getVerticesData("position"))));
+      for (const positions of geometry) assert.ok(positions.length > 0 && positions.every(Number.isFinite));
+      assert.equal(new Set(geometry.map(p => createHash("sha256").update(JSON.stringify(p)).digest("hex"))).size, 3, name);
+    }
+    for (const skin of skins) skin.dispose();
+  } finally { stand.dispose(); }
+});
 
 test("appearance compatibility and clothing support belong to the catalog", () => {
   assert.deepEqual(appearancesFor("workshop-fighter").map(row => row.id), ["default", "industrial", "relic", "duelist"]);

@@ -828,7 +828,11 @@ arena, crypt and lab screens at `?play=arena`, `?play=dungeon` and `?play=lab`, 
   solids (`arenaSolids`) are a floor slab, twenty-four rotated parapet boxes and eight brazier
   pedestals enclosing a circular floor. Setup uses two unstepped character previews
   (`src/render/character-preview.ts`) and an overview camera; Fight switches explicitly to the
-  combat camera and HUD. The solids are what bodies meet; the visible room is dressed from the forge kit
+  combat camera and HUD. `camera.ts` follows pose-only subjects with the existing FreeCamera and
+  post pipeline, running even while the world is paused. `view.ts` owns presentation URL settings,
+  including focus on Both, Left or Right; Chase requires one side. World/Tactical toggles existing
+  skin and collision-shape drawings and their shadow casters without rebuilding the duel.
+  The solids are what bodies meet; the visible room is dressed from the forge kit
   (`src/arena/forge-style.ts`, `src/arena/forge-room.ts`). `validateRoomPlacements` refuses a
   piece that names a collider the arena lacks, or one of the wrong role, and a solid-looking piece
   within reach (below `ROOM.maxReachHeight`) that names none.
@@ -853,7 +857,7 @@ arena, crypt and lab screens at `?play=arena`, `?play=dungeon` and `?play=lab`, 
   sounds of (`sound-log.ts`): its touches, its air, the touches of a target that hangs beside it,
   and the cue of the instrument that is no contact, the shove, each at the
   mind's time, so the page plays what the frame it shows sounded of, live or replayed. Its HUD is sections (`hud/sections.ts`) that the shell and the scenario fill with controls
-  built from data (`hud/controls.ts`).
+  built from data (`src/ui/controls.ts`).
 - **The character workshop** (`/character-lab.html`, `src/character-lab/`): the workshop models
   with their authored preview motion. It uses no core. See [art/characters.md](art/characters.md).
 - **The physics bench** (`/physics-bench.html`, `src/physics-bench/`): the bake-off's cases on
@@ -878,7 +882,14 @@ uniform `SkinView` contract includes collision-shape fallback. The Arena, Dungeo
 character previews all use this factory. `skinSlot` replaces a body's view without replacing its
 physics, rejecting stale asynchronous loads and preserving current clothing and visibility.
 
-The Warrior's Industrial, Relic and Duelist shells are procedural rigid pieces parented to its
+Arena and Lab share view types (`src/render/view.ts`), camera math (`camera-math.ts`) and
+controls (`src/ui/view-controls.ts`). Each screen owns its camera rig, input and URL persistence;
+the shared controls only read settings and request changes. Walking and audio use the Arena
+camera's actual horizontal direction in every mode.
+
+The Warrior's Industrial, Steampunk and Futuristic shells each have an independent procedural
+builder. They share segment-local geometry batching, attachment, materials and finger articulation
+through `robot-geometry.ts` and `robot-skin.ts`. Rigid pieces are parented to the simulated
 segments, with cosmetic finger articulation driven by the same closure input as the human skin
 ([robot art](art/robots.md)). Arena and Lab selectors store appearance in the address, outside
 physical loadouts, duel recipes and tapes. They do not change collisions, sounds, damage or control.

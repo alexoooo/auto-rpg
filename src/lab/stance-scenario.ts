@@ -8,7 +8,7 @@ import { createPlayer } from "./player.ts";
 import { shoveSound } from "./sound-log.ts";
 import { startStance, type StanceFrame } from "./stance-mode.ts";
 import { groundDisc } from "./ground-disc.ts";
-import { actions, choice, keyHints, legend, readings, type Entry } from "./hud/controls.ts";
+import { actions, choice, keyHints, legend, readings, type Entry } from "../ui/controls.ts";
 
 /**
  * **The Stance scenario**: the human on its own feet under the core stance, guard up, walked from

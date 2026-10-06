@@ -81,7 +81,7 @@ try {
     if (ready) await page.evaluate(() => __lab.scene.whenReadyAsync());
     await page.waitForTimeout(100);
   };
-  for (const [name, id] of [["Relic", "relic"], ["Duelist", "duelist"], ["Industrial", "industrial"]]) {
+  for (const [name, id] of [["Steampunk", "relic"], ["Futuristic", "duelist"], ["Industrial", "industrial"]]) {
     await choose(name, id);
     await capture(`lab-${id}`);
     assert.equal(new URL(page.url()).searchParams.get("appearance"), id);
@@ -92,7 +92,7 @@ try {
       now.every((byte, index) => byte === saved.physics[index]) && JSON.stringify(saved.recording) === JSON.stringify(saved.loaded.run.recording());
   }));
   await page.getByRole("button", { name: "Tactical", exact: true }).click();
-  await choose("Relic", "relic");
+  await choose("Steampunk", "relic");
   assert.ok(await page.evaluate(() => __lab.current().skin.meshes.every(m => !m.isEnabled()) && __lab.current().view.meshes.every(m => m.isEnabled())));
   await capture("lab-tactical");
   await page.getByRole("button", { name: "World", exact: true }).click();
@@ -105,7 +105,7 @@ try {
   await page.route("**/workshop-fighter.glb", async route => { requested(); await releasePromise; await route.continue(); });
   await appearances.getByRole("button", { name: "Original", exact: true }).click();
   await requestedPromise;
-  await choose("Duelist", "duelist", false);
+  await choose("Futuristic", "duelist", false);
   const response = page.waitForResponse(r => r.url().endsWith("/workshop-fighter.glb"));
   release(); await response;
   await page.evaluate(() => __lab.scene.whenReadyAsync());
@@ -119,7 +119,7 @@ try {
     __lab.scene.onBeforeRenderObservable.observers.filter(o => !o._willBeUnregistered).length]);
   const baseline = await resources();
   for (let i = 0; i < 3; i++) {
-    await choose("Relic", "relic"); await choose("Original", "default"); await choose("Industrial", "industrial");
+    await choose("Steampunk", "relic"); await choose("Original", "default"); await choose("Industrial", "industrial");
   }
   assert.deepEqual(await resources(), baseline);
   checks.push("Late human asset cannot replace a newer shell; repeated switching retains resource counts");

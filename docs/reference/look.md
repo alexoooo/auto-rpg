@@ -38,6 +38,24 @@ it go FXAA and ACES tone mapping, which are switches and not strengths.
 looks at. Setup uses a separate bearing 0, pitch 0.78 rad overview, at distance max(39,
 31 / viewport aspect) m, so the whole ring fits between the previews. A person moves the fight camera between 2.5 m and 16 m away, and between 0.05 rad and 1.35 rad up.
 
+`CAMERA_INPUT` (`src/arena/camera.ts`) uses 0.006 rad per horizontal pointer pixel and 0.004 rad
+per vertical pixel. Wheel distance scales by exp(deltaY × 0.001). Its overview pitch, distance
+and width are 0.78, 39 and 31 as described above. These are interface choices for the Arena.
+
+## View cameras
+
+The Arena and Lab share `src/render/camera-math.ts`. `ISO_ALPHA` is −3π/4, behind and to the
+left of a body facing +z; `ISO_BETA` is acos(1/√3), giving equal foreshortening on all three axes.
+`CHASE_BETA` is 1.2 rad from vertical, about 21 degrees above the floor. `VIEW_CAMERA` uses
+`turnSeconds` 0.3 to smooth pelvis twists, `lookHeight` 1 m to look at chest height, and
+`follow` 0.05 of the remaining target displacement per render frame. These are authored
+inspection-camera choices. Orthographic extents match the perspective field at the target.
+
+Arena Free orbits with the spare pointer buttons; Isometric and Chase hold their rotation, and
+all three zoom with the wheel. Focus names Both, Left or Right. Chase requires Left or Right,
+selecting the player's side (Left for spectators) when entered from Both. These choices never
+advance the world. The Lab retains its pointer orbit and pan controls and follows one body.
+
 ## Arena room
 
 The room `buildArenaWorld` builds (`src/arena/room.ts`) is a circular fighting floor, following

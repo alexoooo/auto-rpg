@@ -28,6 +28,10 @@
       <canvas id="stage"></canvas>
       <!-- Each side's name and bar, and the bout's clock; filled by src/arena/main.ts. -->
       <div id="hud"></div>
+      <details id="arena-view" hidden aria-label="View controls">
+        <summary>View</summary>
+        <div id="arena-view-controls"></div>
+      </details>
       <!-- Setup covers the arena because no bout exists yet. Pause does not: its compact sibling
            below leaves the frozen arena visible. -->
       <!-- One grid over the arena: a title across the top, a contender panel at each edge, an
@@ -89,8 +93,9 @@
             <dt>W A S D, or the arrows</dt><dd>walk, as the camera sees it</dd>
             <dt>Pointer</dt><dd>where your fighter faces while it walks</dd>
             <dt>Left button</dt><dd>attack where you point; hold to keep attacking</dd>
-            <dt>Middle or right drag</dt><dd>orbit the camera</dd>
+            <dt>Middle or right drag</dt><dd>orbit the Free camera</dd>
             <dt>Wheel</dt><dd>zoom</dd>
+            <dt>View panel</dt><dd>World or Tactical, camera mode, projection and fighter focus; works while paused</dd>
             <dt>Space / Esc</dt><dd>pause, and resume &mdash; the same key both ways</dd>
             <dt>R</dt><dd>this bout again</dd>
             <dt>Random replay</dt><dd>at a verdict or in the pause menu &mdash; the right side is redrawn</dd>

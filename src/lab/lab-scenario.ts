@@ -4,7 +4,7 @@ import type { BuiltBody } from "../core/build/build-body.ts";
 import type { Player, Playhead } from "./player.ts";
 import type { Hand } from "../core/control/motor.ts";
 import type { Actor } from "./actor.ts";
-import type { Control } from "./hud/controls.ts";
+import type { Control } from "../ui/controls.ts";
 import type { LabAddress } from "./scenarios.ts";
 
 /**

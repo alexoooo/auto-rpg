@@ -35,10 +35,16 @@ Everything the pages need is committed, so a fresh clone runs with no download s
 ## The Arena
 
 Choose the standing character on each side (Warrior, Rogue or Skeleton) and press **Fight**.
-The Warrior also has an **Appearance** selector: Original, Industrial, Relic or Duelist. The three
+The Warrior also has an **Appearance** selector: Original, Industrial, Steampunk or Futuristic. The three
 robot shells keep the Warrior's physics and abilities. The Lab offers the same choices and can
 switch skins during playback without restarting the scenario. Arena links keep each side's
 appearance in `&appearance=industrial,relic`; Lab links use, for example, `&appearance=duelist`.
+
+The **View** panel switches between the character skins (**World**) and their collision shapes
+(**Tactical**). Choose **Free**, **Isometric** or **Chase**, and focus on both fighters or either
+side. Isometric offers orthographic and perspective projection; Chase follows one fighter.
+These controls work while paused and after the verdict. Links retain the view with `view`,
+`camera`, `projection` and `focus` parameters.
 
 Each contender has a **Controller** choice: Classic fighter, or experimental **Point control**
 with the right hand, left hand, or alternating hands. Choose a wooden club or empty hands.
@@ -79,7 +85,7 @@ turn; across its heading or backward it walks at half pace.
 | W A S D, or the arrows | walk, as the camera sees the ground |
 | Pointer | where your fighter faces while it walks |
 | Left button | attack where you point; hold to keep attacking |
-| Middle or right drag | orbit the camera |
+| Middle or right drag | orbit the Free camera |
 | Wheel | zoom |
 | Space / Esc | pause and resume a bout (leaving the window pauses too) |
 | R | this bout again |

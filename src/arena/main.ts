@@ -15,11 +15,15 @@ import { BODY_MODELS, type BodyModel } from "../core/human/spec.ts";
 import { createWorld, type World } from "../core/world.ts";
 import type { SkinView } from "../render/skin-view.ts";
 import { loadSkeletonArt, type SkeletonArt } from "../render/skeleton-skin.ts";
-import { drawHeld, type BodyShapes } from "../render/body-shapes.ts";
+import { drawBody, drawHeld, type BodyShapes } from "../render/body-shapes.ts";
 import { dresserFor, type Dresser } from "../render/dress.ts";
 import { Duel, SIDES, type DuelEnding, type Side, type Verdict } from "./duel.ts";
 import { MATCHUP_PARAM, MODEL_LABELS, appearanceSearch, readAppearances, matchupSearch, readBalance, readCap, readGap, CONTROLS, readControls, readMinds, readRecovery, readHeld, readMatchup, readTape, readYou, youSearch, type Matchup } from "./matchup.ts";
-import { ORBIT, orbitPosition } from "./orbit.ts";
+import { Color3 } from "@babylonjs/core/Maths/math.color.js";
+import { arenaCameraRig, type ArenaSubjects } from "./camera.ts";
+import { arenaViewSearch, cameraFocuses, normalizeArenaView, readArenaView, type ArenaFocus, type ArenaView } from "./view.ts";
+import { choice, following, type Control } from "../ui/controls.ts";
+import { viewControls } from "../ui/view-controls.ts";
 import { aimPoint, keysToMove, personOrders } from "./orders-input.ts";
 
 /**
@@ -69,6 +73,8 @@ export async function bootArena(): Promise<void> {
   // Setup: a contender panel on each side, each with its model.
   let matchup: Matchup = readMatchup(location.search), you: Side | null = readYou(location.search);
   let appearances = readAppearances(location.search, matchup);
+  let view = readArenaView(location.search, you);
+  const rig = arenaCameraRig(camera, view);
   // A link's tape is of the link's matchup: a bout of another matchup begun from the page plays none.
   const linked = { matchup, tape: readTape(location.hash), hash: location.hash };
   /** Whether the bout under way plays a tape: it then takes no orders from a person. */
@@ -167,10 +173,36 @@ export async function bootArena(): Promise<void> {
 
   const audio = new GameAudio();
   let duel: Duel | null = null, drawn: (SkinView | BodyShapes)[] = [], paused = false, shown: Verdict | null = null;
-  const undraw = () => {
-    for (const view of drawn) { for (const mesh of view.meshes) shadows.removeShadowCaster(mesh); view.dispose(); }
-    drawn = [];
+  const bodies = new Map<Side, { skin: SkinView; shapes: BodyShapes; subject: ArenaSubjects[Side] }>();
+  let subjects: ArenaSubjects | null = null;
+  const applyView = () => {
+    for (const { skin, shapes } of bodies.values()) {
+      skin.setEnabled(view.view === "world");
+      for (const mesh of shapes.meshes) mesh.setEnabled(view.view === "tactical");
+      for (const mesh of [...skin.meshes, ...shapes.meshes]) shadows.removeShadowCaster(mesh);
+      for (const mesh of (view.view === "world" ? skin : shapes).meshes) shadows.addShadowCaster(mesh);
+    }
   };
+  const undraw = () => {
+    for (const drawing of drawn) { for (const mesh of drawing.meshes) shadows.removeShadowCaster(mesh); drawing.dispose(); }
+    drawn = []; bodies.clear(); subjects = null;
+  };
+  const viewPanel = need<HTMLDetailsElement>("arena-view");
+  viewPanel.open = !matchMedia("(max-width: 700px)").matches;
+  viewPanel.querySelector("summary")!.addEventListener("click", event => (event.currentTarget as HTMLElement).blur());
+  for (const type of ["pointerdown", "pointermove", "wheel"]) viewPanel.addEventListener(type, event => event.stopPropagation());
+  const viewFields: Control[] = [];
+  const chooseView = (patch: Partial<ArenaView>) => {
+    view = normalizeArenaView({ ...view, ...patch }, you);
+    rig.choose(view); applyView();
+    history.replaceState(null, "", arenaViewSearch(location.search, view) + location.hash);
+    for (const control of viewFields) control.refresh();
+  };
+  viewFields.push(...viewControls(() => view, chooseView),
+    following(() => view.camera, mode => choice("Focus", cameraFocuses(mode).map(value => ({ value,
+      name: ({ both: "Both", left: "Left", right: "Right" } satisfies Record<ArenaFocus, string>)[value] })),
+      () => view.focus, focus => chooseView({ focus }))));
+  need("arena-view-controls").append(...viewFields.map(control => control.element));
   /** What hears the bout under way: its touches' listener, and each side's air. */
   let hearing: { dispose(): void } | null = null, airs: { readonly side: Side; readonly air: (at: Vector3) => number }[] = [];
   const end = () => { undraw(); hearing?.dispose(); hearing = null; airs = []; duel?.dispose(); duel = null; shown = null; };
@@ -193,7 +225,7 @@ export async function bootArena(): Promise<void> {
   };
   let screen: "setup" | "fight" = "setup";
   const setup = () => {
-    end(); setPaused(false); show("bout-end", false); show("curtain", true); screen = "setup";
+    end(); setPaused(false); show("bout-end", false); show("curtain", true); screen = "setup"; viewPanel.hidden = true;
     for (const side of SIDES) {
       pickers[side].value = matchup[side];
       refreshChoices[side]();
@@ -216,7 +248,7 @@ export async function bootArena(): Promise<void> {
       const sameHeld = (linkedHeld ?? JSON.stringify({ left: "club", right: "club" })) === JSON.stringify(readHeld(search));
       const tape = matchup.left === linked.matchup.left && matchup.right === linked.matchup.right && sameControllers && sameRecovery && sameHeld ? linked.tape : [];
       replaying = tape.length > 0;
-      history.replaceState(null, "", youSearch(appearanceSearch(matchupSearch(search, matchup), matchup, appearances), you) + (replaying ? linked.hash : ""));
+      history.replaceState(null, "", arenaViewSearch(youSearch(appearanceSearch(matchupSearch(search, matchup), matchup, appearances), you), view) + (replaying ? linked.hash : ""));
       const dress = new Map(await Promise.all(SIDES.map(async (side) => [side, await dresser(matchup[side], appearances[side])] as const)));
       end();
       audio.reset();
@@ -226,20 +258,28 @@ export async function bootArena(): Promise<void> {
         ...(gap !== undefined ? { gap } : {}), ...(capSeconds !== undefined ? { capSeconds } : {}), ...(balance ? { balance } : {}), ...(held ? { held } : {}), ...(minds ? { minds } : {}),
       }, {
         onBuilt: (duelist, built) => {
-          for (const view of [dress.get(duelist.side)!(built, { clothing: { boots: true, armour: true } }), drawHeld(built, scene)]) {
-            for (const mesh of view.meshes) shadows.addShadowCaster(mesh);
-            drawn.push(view);
-          }
+          const skin = dress.get(duelist.side)!(built, { clothing: { boots: true, armour: true } });
+          const shapes = drawBody(built, scene, Color3.FromHexString(duelist.side === "left" ? "#6f8bb5" : "#d0705e"));
+          const held = drawHeld(built, scene), pelvis = built.segments.get("lowerTrunk")!.node;
+          const rest = pelvis.rotationQuaternion!.clone();
+          bodies.set(duelist.side, { skin, shapes, subject: {
+            get position() { return duelist.body.physical.centre; },
+            get rotation() { return pelvis.rotationQuaternion!; }, rest,
+          } });
+          for (const mesh of held.meshes) shadows.addShadowCaster(mesh);
+          drawn.push(skin, shapes, held);
         },
         // A blow is a touch, and is heard as one; this is what it took off.
         onBlow: (blow) => { for (const cue of debrisCues(blow)) audio.cue(cue); },
       });
+      subjects = { left: bodies.get("left")!.subject, right: bodies.get("right")!.subject };
+      rig.reset(); applyView();
       const sides = SIDES.map((side) => ({ id: side, built: bout.duelists[side].built }));
       hearing = hearTouches(world, sides, (cue) => audio.cue(cue));
       airs = sides.map(({ id, built }) => ({ side: id, air: airOf(built) }));
       bout.play(tape);
       for (const row of rows) row.label.textContent = `${MODEL_LABELS[matchup[row.side]]} (${row.side === you && !replaying ? "you" : row.side})`;
-      show("curtain", false); show("bout-end", false); setPaused(false); screen = "fight";
+      show("curtain", false); show("bout-end", false); setPaused(false); screen = "fight"; viewPanel.hidden = false;
       canvas.focus();
     } catch (error) {
       setup();
@@ -301,17 +341,14 @@ export async function bootArena(): Promise<void> {
   }
   canvas.addEventListener("pointerleave", () => { pointer = null; attacking = false; });
 
-  // The orbit camera: middle or right drag turns it, the wheel brings it in and out.
-  let azimuth: number = ORBIT.azimuth, pitch: number = ORBIT.pitch, distance: number = ORBIT.distance;
-  canvas.addEventListener("contextmenu", (event) => event.preventDefault());
-  canvas.addEventListener("pointermove", (event) => {
-    if (!(event.buttons & 6)) return;
-    azimuth += event.movementX * 0.006;
-    pitch = Math.min(ORBIT.highest, Math.max(ORBIT.lowest, pitch + event.movementY * 0.004));
+  // Orbit uses the spare buttons; left-button attack remains independent of camera mode.
+  canvas.addEventListener("contextmenu", event => event.preventDefault());
+  canvas.addEventListener("pointermove", event => {
+    if (screen === "fight" && (event.buttons & 6)) rig.orbit(event.movementX, event.movementY);
   });
-  canvas.addEventListener("wheel", (event) => {
+  canvas.addEventListener("wheel", event => {
     event.preventDefault();
-    distance = Math.min(ORBIT.farthest, Math.max(ORBIT.nearest, distance * Math.exp(event.deltaY * 0.001)));
+    if (screen === "fight") rig.zoom(event.deltaY);
   }, { passive: false });
   /** The person's orders for this frame, from the keys and the pointer as the camera has them. */
   const giveOrders = () => {
@@ -319,27 +356,13 @@ export async function bootArena(): Promise<void> {
     const centre = duel.duelists[you].body.physical.centre;
     const ray = pointer ? scene.createPickingRay(pointer.x, pointer.y, null, camera) : null;
     const point = ray ? aimPoint(ray.origin.asArray(), ray.direction.asArray(), centre.y) : null;
-    duel.order(you, personOrders(keysToMove(keys, azimuth), point, attacking, centre));
+    duel.order(you, personOrders(keysToMove(keys, rig.azimuth), point, attacking, centre));
   };
-  const target = new Vector3(0, 1, 0), airAt = new Vector3();
+  const airAt = new Vector3();
   const frame = () => {
-    if (screen === "setup") {
-      target.set(0, 0, 0);
-      // The full ring fits between the character niches (docs/reference/look.md#arena-camera).
-      const aspect = engine.getRenderWidth() / engine.getRenderHeight();
-      camera.position.set(...orbitPosition(target, 0, .78, Math.max(39, 31 / aspect)));
-      camera.setTarget(target);
-      arena.updateRoomOcclusion([]);
-      return;
-    }
-    if (duel) {
-      const a = duel.duelists.left.body.physical.centre, b = duel.duelists.right.body.physical.centre;
-      target.set((a.x + b.x) / 2, 1, (a.z + b.z) / 2);
-    }
-    camera.position.set(...orbitPosition(target, azimuth, pitch, distance));
-    camera.setTarget(target);
-    audio.setView({ x: camera.position.x, z: camera.position.z }, { x: Math.sin(azimuth), z: Math.cos(azimuth) });
-    arena.updateRoomOcclusion(duel ? SIDES.map((side) => ({ point: duel!.duelists[side].body.physical.head })) : []);
+    rig.frame(screen, subjects, engine.getDeltaTime() / 1000, engine.getAspectRatio(camera));
+    audio.setView(camera.position, { x: Math.sin(rig.azimuth), z: Math.cos(rig.azimuth) });
+    arena.updateRoomOcclusion(screen === "fight" && duel ? SIDES.map(side => ({ point: duel!.duelists[side].body.physical.head })) : []);
   };
   const readout = () => {
     if (!duel) return;

@@ -3,7 +3,7 @@ import { isBalance } from "../../core/rules/rulebook.ts";
 import { balanceAddress, loadoutBalance, strikesOf } from "../loadout.ts";
 import { LAB_DOWN, LAB_MINDS } from "../minds.ts";
 import { LAB_DOWN_IDS, LAB_HANDS, LAB_HELD, LAB_MIND_IDS, LAB_WORN, MODELS, type LabHeld } from "../scenarios.ts";
-import { choice, entries, following, group, quantity, switches, when, type Control, type Named } from "./controls.ts";
+import { choice, entries, following, group, quantity, switches, when, type Control, type Named } from "../../ui/controls.ts";
 import type { LabPage } from "./sections.ts";
 
 const HANDS: Readonly<Record<(typeof LAB_HANDS)[number], string>> = { right: "Right hand", left: "Left hand" };
