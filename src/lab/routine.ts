@@ -183,8 +183,6 @@ interface Routine {
   readonly readings: readonly TargetReading[];
   /** The ball of the target that is up: its centre (world) and its radius, m; null when none is. */
   ball(): { readonly centre: Vec3; readonly radius: number } | null;
-  /** How far `hand` is closed into a fist, 0 relaxed to 1 closed, for the skin to draw; nothing physical reads it. */
-  closure(hand: Hand): number;
   dispose(): void;
 }
 
@@ -198,12 +196,9 @@ export function startRoutine(actor: Actor, options: RoutineOptions = {}): Routin
   const fists = body.view.fists;
   const speed = { left: 0, right: 0 };
   const readings: TargetReading[] = [];
-  let time = 0, thrown = 0;
+  let thrown = 0;
   /** The target being read, and the hand striking; and the hand whose strike is under way. */
   let open: ReturnType<typeof readTarget> | null = null, striker: Hand | null = null;
-  // When each hand began to close for a strike, and when it began to open after one.
-  const closedAt: Record<Hand, number | null> = { left: null, right: null };
-  const openedAt: Record<Hand, number | null> = { left: null, right: null };
   const close = (reading: TargetReading): void => {
     readings.push(reading);
     open!.dispose();
@@ -213,21 +208,14 @@ export function startRoutine(actor: Actor, options: RoutineOptions = {}): Routin
 
   // The instrument: it reads what the body's mind sees, whatever mind that is.
   const read = (sight: Sight): void => {
-    const { view, report } = sight;
-    time = view.time;
+    const { report } = sight;
     for (const side of ["left", "right"] as const) speed[side] = fists[side].velocity.length();
     const { strike } = report;
     if (!striker && strike.hand !== null && (strike.phase === "chamber" || strike.phase === "swing")) {
       striker = strike.hand;
-      closedAt[striker] = time;
-      openedAt[striker] = null;
     }
     if (strike.thrown.left + strike.thrown.right > thrown) {
       thrown = strike.thrown.left + strike.thrown.right;
-      if (striker) {
-        closedAt[striker] = null;
-        openedAt[striker] = time;
-      }
       striker = null;
     }
     // One target is up at a time: the next is read from when the tactics turn to it.
@@ -269,12 +257,6 @@ export function startRoutine(actor: Actor, options: RoutineOptions = {}): Routin
       }
     },
     fistSpeed: () => striker ? speed[striker] : Math.max(speed.left, speed.right),
-    closure(hand) {
-      const closed = closedAt[hand], opened = openedAt[hand];
-      if (closed !== null) return Math.min(1, (time - closed) / FIST_CLOSING);
-      if (opened !== null) return Math.max(0, 1 - (time - opened) / FIST_OPENING);
-      return 0;
-    },
     dispose() {
       fall.dispose();
       open?.dispose();
@@ -282,9 +264,3 @@ export function startRoutine(actor: Actor, options: RoutineOptions = {}): Routin
     },
   };
 }
-
-/**
- * A striking hand closes over `FIST_CLOSING` seconds from its chamber (or its pushes, if it has
- * none), and opens over `FIST_OPENING` seconds after the pushes end. Chosen by eye.
- */
-const FIST_CLOSING = 0.1, FIST_OPENING = 0.25;

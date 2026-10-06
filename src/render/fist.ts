@@ -1,7 +1,7 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 
 /**
- * **The fist, built from the hand's own geometry.** The rig has no fist, and each finger bone's
+ * **The fist, built from the hand's own geometry.** Each finger bone's
  * own axes are no guide to one: from the index to the pinky the bones' x axes fan through 30
  * degrees, so fingers curled about their own axes sweep sideways across each other.
  *
@@ -57,6 +57,7 @@ interface PalmFrame {
   readonly flexion: Vector3;
 }
 
+/** Degrees to radians: a numeric setting for the authored pose's angle unit. */
 const DEG = Math.PI / 180;
 
 /** Rest orientation (in the hand's frame) and head position of every bone under `hand`. */

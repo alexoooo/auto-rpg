@@ -12,6 +12,7 @@ import type { TargetReading } from "./targets.ts";
 import { paintTrack } from "./run-scenario.ts";
 import { trackOf } from "./track.ts";
 import { readings, table } from "../ui/controls.ts";
+import { strikeHands } from "../render/strike-hands.ts";
 
 /**
  * **The Routine scenario**: the lab routine (`routine.ts`), tactics on the core's skills -- walk out,
@@ -67,9 +68,10 @@ export function routineScenario(scene: Scene): LabScenario {
     start({ actor, address, changed, clock, hears }) {
       const { world } = actor, { built } = actor.body;
       const routine = startRoutine(actor, { targets: address.targets, seed: address.seed, hung: hears });
+      const hands = strikeHands(world, actor.body, () => routine.report.strike);
       const history = recordHistory(built, world, HISTORY_SECONDS, (): RoutineMoment => ({
         time: routine.time(), loops: routine.tactics.loops, fist: routine.fistSpeed(),
-        closure: { left: routine.closure("left"), right: routine.closure("right") },
+        closure: hands.snapshot(),
         ball: routine.ball(),
       }));
       const player = createPlayer({ world, recording: history }, changed, clock);
@@ -103,6 +105,7 @@ export function routineScenario(scene: Scene): LabScenario {
         dispose(): void {
           ball.isVisible = false;
           history.dispose();
+          hands.dispose();
           routine.dispose();
         },
       };

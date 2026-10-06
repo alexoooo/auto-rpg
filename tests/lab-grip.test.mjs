@@ -1,13 +1,13 @@
 /**
- * **A hand closed on the club** (`src/lab/club-grip.ts`): on each model's skin, CPU-skinned
+ * **A hand closed on the club** (`src/render/club-grip.ts`): on each model's skin, CPU-skinned
  * from its GLB as `scripts/lab/fist-probe.mjs` does, both hands posed with `CLUB_GRIP` around
  * the haft where the core's grip puts it (`scripts/lab/haft.mjs`). Nothing of the hand is in
  * the haft, and every finger and the thumb touch it. The control: the fist sinks into it.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { CLUB_GRIP } from "../src/lab/club-grip.ts";
-import { fistTurns } from "../src/lab/fist.ts";
+import { CLUB_GRIP } from "../src/render/club-grip.ts";
+import { fistTurns } from "../src/render/fist.ts";
 import { loadGlb, restBones, skinHand } from "../scripts/lab/fist-probe.mjs";
 import { haftGaps, haftOf } from "../scripts/lab/haft.mjs";
 

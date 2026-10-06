@@ -1,6 +1,6 @@
 // The club's haft on the workshop skin, offline: where the core's grip (`inHand`,
 // `src/core/human/grip.ts`) puts it, in the GLB's rest coordinates, and how far each hand part
-// sits from it. `haft-fit.mjs` fits `CLUB_GRIP` (`src/lab/club-grip.ts`) against it, and
+// sits from it. `haft-fit.mjs` fits `CLUB_GRIP` (`src/render/club-grip.ts`) against it, and
 // `tests/lab-grip.test.mjs` holds the fit to it.
 import { Matrix } from "@babylonjs/core/Maths/math.vector.js";
 import { heldPoint } from "../../src/core/build/rigid.ts";

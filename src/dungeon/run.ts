@@ -191,8 +191,8 @@ interface DungeonRunOptions {
   readonly enemy?: (i: number) => BodyModel;
   /** Hears each blow as it lands. */
   readonly onBlow?: (blow: LandedBlow) => void;
-  /** Called with each actor as its body is built, before it first steps: the page dresses it. */
-  readonly onBuilt?: (actor: DungeonActor) => void;
+  /** The actor and its world, before its first step: presentation can subscribe even during run construction. */
+  readonly onBuilt?: (actor: DungeonActor, world: World) => void;
   /** The levels' rule; `LEVELS` unless given. */
   readonly levels?: LevelRule;
 }
@@ -287,7 +287,7 @@ export class DungeonRun {
     // The party first: a touch is read from the fighter given first (`watchBlows`), and the party's bodies are the fewer.
     const fighters = [...this.party, ...this.enemies].flatMap((a) => a.fighter ? [a.fighter] : []);
     this.watch = watchBlows(this.world, fighters, this.rules, (blow) => { this.blows.push(blow); this.options.onBlow?.(blow); });
-    this.options.onBuilt?.(actor);
+    this.options.onBuilt?.(actor, this.world);
   }
 
   /**
@@ -572,7 +572,7 @@ export class DungeonRun {
         member.next = 0; member.replan = true;
         if (order.kind !== "idle") member.post = null;
       }
-      this.notice = order.kind === "force" ? "Force move — following your drawn route" : "Find the illuminated exit.";
+      this.notice = order.kind === "force" ? "Force move â€” following your drawn route" : "Find the illuminated exit.";
     }
     for (const member of this.party) if (member.replan) {
       member.replan = false; member.route = []; member.goal = null; member.target = null; member.lastSeen = null;

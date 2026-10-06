@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import { FINGERS, fistTurns, palmFrame } from "../src/lab/fist.ts";
+import { FINGERS, fistTurns, palmFrame } from "../src/render/fist.ts";
 import { loadGlb, restBones } from "../scripts/lab/fist-probe.mjs";
 
 const POSE = {

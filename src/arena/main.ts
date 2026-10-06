@@ -19,6 +19,7 @@ import type { SkinView } from "../render/skin-view.ts";
 import { loadSkeletonArt, type SkeletonArt } from "../render/skeleton-skin.ts";
 import { drawBody, drawHeld, type BodyShapes } from "../render/body-shapes.ts";
 import { dresserFor, type Dresser } from "../render/dress.ts";
+import { fighterHands } from "../render/strike-hands.ts";
 import { Duel, SIDES, type DuelEnding, type Side, type Verdict } from "./duel.ts";
 import { MATCHUP_PARAM, MODEL_LABELS, appearanceSearch, readAppearances, matchupSearch, readBalance, readCap, readGap, CONTROLS, readControls, readMinds, readRecovery, readHeld, readMatchup, readTape, readYou, youSearch, type Matchup } from "./matchup.ts";
 import { Color3 } from "@babylonjs/core/Maths/math.color.js";
@@ -176,7 +177,7 @@ export async function bootArena(): Promise<void> {
 
   const audio = new GameAudio();
   let duel: Duel | null = null, drawn: (SkinView | BodyShapes)[] = [], paused = false, shown: Verdict | null = null;
-  const bodies = new Map<Side, { skin: SkinView; shapes: BodyShapes; subject: ArenaSubjects[Side] }>();
+  const bodies = new Map<Side, { skin: SkinView; shapes: BodyShapes; hands: ReturnType<typeof fighterHands>; subject: ArenaSubjects[Side] }>();
   let subjects: ArenaSubjects | null = null;
   const applyView = () => {
     for (const { skin, shapes } of bodies.values()) {
@@ -187,6 +188,7 @@ export async function bootArena(): Promise<void> {
     }
   };
   const undraw = () => {
+    for (const { hands } of bodies.values()) hands.dispose();
     for (const drawing of drawn) { for (const mesh of drawing.meshes) shadows.removeShadowCaster(mesh); drawing.dispose(); }
     drawn = []; bodies.clear(); subjects = null;
   };
@@ -268,11 +270,12 @@ export async function bootArena(): Promise<void> {
       }, {
         solids: arenaSolids(),
         onBuilt: (duelist, built) => {
-          const skin = dress.get(duelist.side)!(built, { clothing: { boots: true, armour: true } });
+          const hands = fighterHands(world, duelist);
+          const skin = dress.get(duelist.side)!(built, { clothing: { boots: true, armour: true }, closure: hands.closure });
           const shapes = drawBody(built, scene, Color3.FromHexString(duelist.side === "left" ? "#6f8bb5" : "#d0705e"));
           const held = drawHeld(built, scene), pelvis = built.segments.get("lowerTrunk")!.node;
           const rest = pelvis.rotationQuaternion!.clone();
-          bodies.set(duelist.side, { skin, shapes, subject: {
+          bodies.set(duelist.side, { skin, shapes, hands, subject: {
             get position() { return duelist.body.physical.centre; },
             get rotation() { return pelvis.rotationQuaternion!; }, rest,
           } });
@@ -401,7 +404,7 @@ export async function bootArena(): Promise<void> {
     // While either side is helped, each side's balance, per cent of its weight: the link's, or its character's.
     const helped = SIDES.some((side) => duel!.duelists[side].body.assist.on);
     const balance = SIDES.map((side) => duel!.recipe.balance?.[side] ?? duel!.duelists[side].built.spec.attributes.balance.value);
-    clock.textContent = `${duel.clock.toFixed(1)} s${helped ? ` Â· balance ${balance.join(" / ")} %` : ""}${replaying ? " Â· replay" : ""}`;
+    clock.textContent = `${duel.clock.toFixed(1)} s${helped ? ` Ã‚Â· balance ${balance.join(" / ")} %` : ""}${replaying ? " Ã‚Â· replay" : ""}`;
     if (duel.verdict && shown !== duel.verdict) {
       pauseButton.hidden = true;
       shown = duel.verdict;

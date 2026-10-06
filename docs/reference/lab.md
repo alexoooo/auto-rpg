@@ -1,7 +1,7 @@
 # The lab's tuning
 
 The readings behind the lab's constants and fitted poses: the hand poses the skin draws
-(`src/lab/club-grip.ts`, `src/render/skin.ts`), the page's seek budget
+(`src/render/club-grip.ts`, `src/render/skin.ts`), the page's seek budget
 (`src/lab/main.ts`), where the Routine's targets are drawn and how they are read
 (`src/lab/targets.ts`), the Routine's gait (`src/lab/routine.ts`, `src/lab/track.ts`),
 how far ahead a walker on a track faces (`src/lab/run-mode.ts`), how far off the track
@@ -48,6 +48,20 @@ is the table's first column), the thumb pad's gap, and the pose. Fitted at `66b2
 `scripts/core-lab/fist-fit.mjs`; at `e4ec0709` the Warrior's reads the same 5.0 and 3.8 mm and the
 pose `FIST` holds. The relaxed hand's depth is the probe's (`penetration`,
 `scripts/lab/fist-probe.mjs`) on the rig's empty grip, by a line that was not kept.
+
+## Fist presentation
+
+`src/render/hand-pose.ts` uses cosmetic durations of 0.1 s (`CLOSING`) to close during chambering
+and 0.25 s (`OPENING`) to relax during return or interruption. These are the Routine's by-eye timing choices, shared
+by Arena, Crypt and Lab. Each transition starts at the hand's current closure. A swing is fully
+closed from its first step, including a strike without chambering. Neither timing changes the
+physical hand or the strike's execution.
+
+`strike-hands.ts` reads the active command owner's skill report after a simulation step. It
+ignores reports while a sub-mind owns the body, while the body is inactive or after its pool
+ends. Guarding, approaching and moving leave empty hands relaxed. The simulation clock drives
+transitions; rendering only reads them, and Lab snapshots preserve both closures for playback.
+Held-item grips remain the skin's fitted pose regardless of the attack phase.
 
 ## Seek budget
 
