@@ -16,10 +16,18 @@ import { hullEntry } from "./hull-entry.ts";
 
 /** Visible lane ranking search cells: `docs/reference/combat-strikes.md#opening-selection`. */
 const OPENINGS = Object.freeze({ prediction: .12, blocked: 2, reachPenalty: 2, handMargin: .5,
-  head: 0, upperTrunk: .2, middleTrunk: .4, overhand: 0, repeated: 1, elevation: .5, hookReserve: .15, hookCost: .1, pathSamples: 4 });
+  head: 0, upperTrunk: .2, middleTrunk: .4, overhand: 0, repeated: 1, elevation: .5,
+  // Optional side-surface rays: `docs/reference/combat-strikes.md#lateral-head-surfaces`.
+  headLateral: 0, hookReserve: .15, hookCost: .1, pathSamples: 4 });
 
 /** Immutable target preferences for development searches over the same geometry and executor. */
-export type OpeningTuning = { readonly [K in "head" | "upperTrunk" | "middleTrunk" | "blocked" | "reachPenalty" | "repeated" | "overhand"]?: number };
+export type OpeningTuning = { readonly [K in "head" | "upperTrunk" | "middleTrunk" | "blocked" | "reachPenalty" | "repeated" | "overhand" | "headLateral" | "hookCost"]?: number };
+
+/** Opening scores are finite; the lateral surface fraction stays on the sensed collider. */
+export function validOpeningTuning(tuning: OpeningTuning): boolean {
+  const lateral = tuning.headLateral ?? OPENINGS.headLateral;
+  return Object.values(tuning).every(Number.isFinite) && lateral >= 0 && lateral <= 1;
+}
 
 /** Exact squared distance between two finite segments, including degenerate and parallel ones. */
 export function segmentDistanceSquared(start: Vec3, end: Vec3, otherStart: Vec3, otherEnd: Vec3): number {
@@ -114,7 +122,9 @@ export function openingAction(opening: Opening): CombatAction {
 
 /** A replaceable, bounded geometric selector; reads physical shapes and poses, never opponent policy or health. */
 export function openingSelector(spec: BodySpec, tuning: OpeningTuning = {}, paths: AttackTuning = ATTACK_PATH) {
+  if (!validOpeningTuning(tuning)) throw new Error("opening preferences must be finite and headLateral must be in [0,1]");
   const settings = { ...OPENINGS, ...tuning };
+  const headOffsets = settings.headLateral ? [-settings.headLateral, 0, settings.headLateral] : [0];
   const scratch = new Vector3(), inverse = new Quaternion();
   const point = (foe: BodySense, name: string, at: Vec3): Vec3 => {
     const sensed = foe.segments.get(name)!;
@@ -154,9 +164,12 @@ export function openingSelector(spec: BodySpec, tuning: OpeningTuning = {}, path
       }
       if(local) {
        const a = point(foe, name, local.a), b = point(foe, name, local.b);
-       for (const part of [a, scale(add(a, b), 1 / 2), b]) for (const elevation of [-OPENINGS.elevation, 0, OPENINGS.elevation]) {
+       for (const part of [a, scale(add(a, b), 1 / 2), b]) for (const elevation of [-OPENINGS.elevation, 0, OPENINGS.elevation])
+         for (const lateral of name === "head" ? headOffsets : [0]) {
         const way: Vec3 = [start[0] - part[0], 0, start[2] - part[2]], far = length(way), flatRadius = local.radius * Math.sqrt(1 - elevation * elevation);
-        const candidate = far > 0 ? add(part, [way[0] * flatRadius / far, elevation * local.radius, way[2] * flatRadius / far]) : part;
+        const c = Math.sqrt(1 - lateral * lateral);
+        const candidate = far > 0 ? lateral === 0 ? add(part, [way[0] * flatRadius / far, elevation * local.radius, way[2] * flatRadius / far])
+          : add(part, [(way[0] * c + way[2] * lateral) * flatRadius / far, elevation * local.radius, (way[2] * c - way[0] * lateral) * flatRadius / far]) : part;
         const axis = sub(b, a), squared = dot(axis, axis);
         const nearest = add(a, scale(axis, squared ? Math.max(0, Math.min(1, dot(sub(candidate, a), axis) / squared)) : 0));
         const normal = sub(candidate, nearest), normalLength = length(normal);

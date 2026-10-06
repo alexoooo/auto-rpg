@@ -6,6 +6,7 @@ import { combatTactics } from "./combat.ts";
 import type { ArenaFighterConfig } from "./config.ts";
 import type { createMind } from "./minds.ts";
 import { supportRecovery } from "./rise/support-recovery.ts";
+import { validOpeningTuning } from "./openings.ts";
 import { driveBy } from "./tactics.ts";
 
 /** Combat selection and execution share the ordinary physical body and recovery contract. */
@@ -14,7 +15,7 @@ export function arenaFighter(built: BuiltBody, world: World, config: ArenaFighte
   if (!validAttackTuning(paths))
     throw new Error("combat path settings need finite nonnegative values, positive durations and elbowExtension in [0,1]");
   if (config.spacing !== undefined && !Number.isFinite(config.spacing)) throw new Error("combat spacing must be finite");
-  if (Object.values(config.openings??{}).some(v=>!Number.isFinite(v))) throw new Error("opening preferences must be finite");
+  if (!validOpeningTuning(config.openings ?? {})) throw new Error("opening preferences must be finite and headLateral must be in [0,1]");
   const body = createBody(built, world, { servoSeconds: SERVO_SECONDS, senses: wiring.senses, assist: wiring.assist, handFeedback: true, contactIdentity: wiring.contactIdentity,
     subs: [(own, view) => supportRecovery(own, view, world)] });
   const tactics = combatTactics(built.spec, wiring.name, sight => wiring.orders(sight.view.senses), config);

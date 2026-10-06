@@ -260,3 +260,43 @@ straight and torso-driven cross misses at both heights return six or seven times
 hand, again without failed returns or falls. The cross composes elbow and trunk objectives.
 These cells qualify an optional primitive for Arena testing; they do not establish wound
 finishes, guard penetration or a stronger competitive controller.
+
+## Lateral head surfaces
+
+`OPENINGS.headLateral` defaults to zero, retaining the original surface ray. A fraction in
+[0,1] adds two horizontal surface rays to either side of that ray at each existing height.
+Their radial and tangent components stay on the actual sensed sphere/capsule and pass
+through the existing lane, reach and motion-prediction ranking. Zero executes the original
+point arithmetic. This is an optional geometric search cell, not a retained combat setting.
+
+The wider-hook probe on the Node unpinned Warrior stand (rapier-coordinate, 120 Hz,
+fists, balance 0, eight simulated seconds, target height 1.63 m, across +/-0.10 m,
+ahead 0.50 m) rejects larger curves: full elbow preference with the original 0.05 m curve
+lands eight contacts and seven returns on each hand, whereas 0.10 m curves land 0/3
+contacts and 0.15 m curves land none. Misses return six times without falls or failures.
+The original curve's mean post-step contact masses are 1.524/1.397 kg and its lowest
+pre-contact axial speeds are 2.664/2.694 m/s. These fixed-face values establish no head
+damage or competitive advantage; `combat-hook-head-probes.json` retains every cell.
+
+The subsequent Node Arena development comparison uses eight previously evaluated
+held-out-family recipes (indices 0-7), mirrored against retained Brawler for 60 s:
+rapier-coordinate, 120 Hz, Warrior fists, balance 0/0, continuing recovery. They are
+training comparisons, not fresh promotion samples. The separate spacing candidate
+evaluation uses fresh indices 100-199. `combat-elbow-development.json` retains the
+whole manifest, source fingerprint, physical rows and separate ratings.
+
+| Scrapper profile, all with extra spacing 0.10 m | Wins / 16 | Driven / received driven damage (HP) | Candidate/opponent falls |
+|---|---:|---:|---:|
+| Retained elbow preference, body targets | 16 | 19.808 / 8.503 | 1/1 |
+| Full elbow preference, body targets | 15 | 17.957 / 9.053 | 1/1 |
+| Full preference, ordinary head-first ranking | 2 | 7.703 / 10.993 | 0/0 |
+| Full preference, head cost -0.6 | 3 | 8.539 / 10.896 | 0/0 |
+
+Every win ends at the cap and every low-driven count is zero. The optional elbow
+objective has a useful standalone effect but does not improve this tactical candidate.
+Neither it nor either head-first profile is promoted. Better head access and finishing
+power remain open; a mechanical gain alone does not establish stronger Arena play.
+
+`OPENINGS.hookCost` is also an immutable opening override for selection ablations.
+Its retained 0.10 score is the ordinary mixed-repertoire cost; changing that cost selects
+among the same measured paths and does not change their physical execution.

@@ -78,7 +78,7 @@ preserves the comparison controller. See [settings and validation](reference/are
 
 
 `arena-fighter` selects collider-derived target surfaces and commits a hand trajectory through
-`combatSkills`. Terminal hand velocity and segment identity extend the common IK/muscle path;
+`combatSkills`. Terminal hand velocity and segment identity extend the common IK/muscle path; an optional, range-bounded elbow preference composes with trunk rotation and returns to guard. Optional lateral head-surface samples expand the same collider-based lane search; zero preserves the retained selector.
 Classic and Point retain their own execution. Chamber and return permit locomotion. Actual
 contact feedback optionally carries trusted detached body/segment labels, point, normal and
 impulse; repeated guard blocks request a lateral escape. These labels affect tactics, not damage.
@@ -90,7 +90,7 @@ checks, cancellation and a bounded counter window. Its self-play initiative is b
 reference diagnostic, so reference cover remains the default. See [defense measurements](reference/combat-defense.md).
 All selection, contact-response and trajectory memory belongs to the saved bout. The Arena
 exposes Combat and the body-targeting Brawler as experimental choices, with Warrior fist primitives measured in
-[combat strikes](reference/combat-strikes.md). Competitive promotion and low support remain open.
+[combat strikes](reference/combat-strikes.md). Scrapper adds measured physical low support and attacks against grounded or rising enemies; competitive promotion and finishing power remain open.
 
 `DuelRecipe.recoverySeconds` optionally permits a continuous interval down. Its per-side clocks
 are saved only when enabled; null allows unlimited time down until injury or the bout cap. Damage elimination remains immediate, opponents continue sensing
