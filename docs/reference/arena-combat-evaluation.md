@@ -145,3 +145,52 @@ These observations do not establish a foreground 60 Hz frame budget or GPU cost;
 percentile describes batch means, not individual steps. Foreground cost and optimization remain
 open. Timing is passive screen instrumentation and changes no bout state. The owned preview
 server and browser tab are stopped after inspection.
+
+## Resumable evaluation and retained league
+
+`research/arena-combat-run.mjs` writes a version-2 checkpoint with the entire frozen job
+manifest, source fingerprint, successful rows and separate failed-trial history. Each write
+uses a sibling temporary file and rename. `--resume` validates the source, manifest and whole
+job metadata, then runs only missing trials. A failed simulation is retried and never scored
+as a draw or loss. A worker lost without a returned result leaves its job pending. Source
+changes refuse continuation. Completed records retain actual results across fresh workers.
+
+```powershell
+node research/arena-combat-run.mjs --candidate scrapper --opponent brawler --pairs 100 --split heldout --workers 2 --output research/runs/scrapper.json --resume
+node research/arena-combat-league.mjs research/runs/scrapper.json --output research/runs/league.json
+```
+
+The league separates source-fingerprint seasons and policy/body/loadout/assist/rule/engine
+strata. It publishes paired win score, Wilson interval, pairwise Elo, actual ending counts,
+driven damage rates and the mean/standard error of paired damage-rate differences. It
+counts identical deterministic recipe/tape mirrors once, rejects a partially duplicated pair,
+and does not turn a heterogeneous opponent pool into one uncalibrated Elo rating. Complete
+physical runs from the earlier runner remain readable; they are validated and separated by
+source identity. This is an offline evaluation workflow over the same Arena world, with no
+planning simulation inside the gameplay control step.
+
+## Spacing and punch-speed development
+
+Node Arena Duel, rapier-coordinate, 120 Hz, unarmed Warriors, balance 0/0 and continuing
+recovery. Each profile receives the same eight distinct development recipes against retained
+Brawler, with both assignments and a 60 s cap. The code is frozen at `b4b3cccf`; full rows and
+source fingerprint are in `combat-spacing-development.json`. All results are cap outcomes.
+No profile in this matrix lands a low driven blow; it tests standing combat.
+
+| Scrapper variant | Wins / 16 | Paired score, 95% interval | Pairwise Elo, 95% interval | Driven damage / received driven damage (HP) | Candidate/opponent falls |
+|---|---:|---|---|---:|---:|
+| Reference | 10 | 0.625 [0.306, 0.863] | +88.7 [-142.5, +319.9] | 12.368 / 12.401 | 0/0 |
+| Requested contact speed 8 m/s | 8 | 0.500 [0.215, 0.785] | 0 [-224.8, +224.8] | 12.129 / 13.038 | 0/0 |
+| Additional spacing 0.10 m | 14 | 0.875 [0.529, 0.978] | +338.0 [+20.3, +655.8] | 16.688 / 9.626 | 0/0 |
+| Both changes | 13 | 0.813 [0.467, 0.955] | +254.7 [-23.1, +532.6] | 16.382 / 8.421 | 2/2 |
+
+The spacing-only candidate improves driven damage about 35% over reference Scrapper in this
+small search. Its paired damage advantage over Brawler is 0.007356 HP/s, standard error
+0.002045 HP/s. Larger spacing plausibly improves extension and exposure, but joint/contact
+measurements have not established that mechanism. No strength, muscle speed, damage rule or
+assist ceiling changes. These eight pairs select a candidate; they are not a promotion sample.
+
+The candidate is frozen for 100 fresh held-out recipe pairs per retained Classic, Point and
+Brawler opponent, using held-out indices 100-199, which exclude the earlier 0-99 evaluation.
+Its results are not published as achieved while the physical run is incomplete. Finishing
+power remains open even if win score improves.

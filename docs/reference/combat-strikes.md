@@ -209,3 +209,15 @@ win both assignments against Classic, and lose both against Point and retained B
 All outcomes are at the cap. These single-recipe diagnostics are not rating evidence and
 do not promote vertical selection. Full diagnostic records are in
 `combat-overhand-diagnostics.json`; the unrecorded source fingerprint limits their use.
+
+## Higher requested punch speed
+
+`combat-power-probes.json` records eighteen eight-second Node unpinned Warrior stand cells,
+rapier-coordinate at 120 Hz, empty hands and balance 0: straight attacks with both hands at
+1.63 m height, lateral +/-0.10 m and forward 0.50/0.60/0.70 m against a fixed front face.
+Requested contact speeds are 5, 8 and 12 m/s. A request changes trajectory, not muscle strength
+or shortening speed. The 8 m/s cells at 0.50 and 0.60 m produce repeated contacts and returns
+without falls; the 0.70 m cells are less reliable. The 12 m/s requests mostly miss, include
+a negative-closing contact and fail preparation/return. They are rejected as stronger
+primitives. The subsequent mirrored Arena matrix also fails to favour 8 m/s alone and
+finds falls when combined with extra spacing; the retained speed stays 5 m/s.

@@ -1,7 +1,8 @@
 import { isMainThread, parentPort, Worker } from 'node:worker_threads';
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync } from 'node:fs';
 import { dirname } from 'node:path';
-import { combatFingerprint, combatPairs, combatRating, combatTrial } from './arena-combat.mjs';
+import { combatCheckpoint, appendCombatRow, combatGroups } from './combat-records.mjs';
+import { combatFingerprint, combatPairs, combatTrial } from './arena-combat.mjs';
 
 if (!isMainThread) {
   parentPort.on('message', async ({ job, fingerprint }) => {
@@ -23,33 +24,40 @@ if (!isMainThread) {
     : combatPairs({ candidate: policy(value('--candidate', 'point')), opponent: policy(value('--opponent', 'classic')), count,
       split: value('--split', 'development'), capSeconds: Number(value('--cap', 60)) });
   if (!Array.isArray(jobs) || !jobs.length || jobs.some(j => !j.config)) throw new Error('combat run requires physical jobs');
-  const fingerprint = combatFingerprint(), rows = [], output = value('--output', 'research/runs/arena-combat.json');
+  const fingerprint = combatFingerprint(), output = value('--output', 'research/runs/arena-combat.json');
+  const previous = args.includes('--resume') && existsSync(output) ? JSON.parse(readFileSync(output,'utf8')) : null;
+  const record = combatCheckpoint(jobs,fingerprint,previous), completed = new Set(record.rows.map(r=>r.id));
+  const remaining = jobs.filter(j=>!completed.has(j.id));
   mkdirSync(dirname(output), { recursive: true });
-  const workers = Array.from({ length: Math.min(concurrency, jobs.length) }, () => new Worker(new URL(import.meta.url)));
-  const started = Date.now(); let next = 0;
+  const write = () => {writeFileSync(output+'.next',JSON.stringify(record,null,2)+'\n');renameSync(output+'.next',output);};
+  const rate = () => {record.groups=jobs.every(j=>j.candidateSide&&Number.isInteger(j.pair))?combatGroups(record.rows):null;record.rating=record.groups?.length===1?record.groups[0].rating:null;};
+  if(!remaining.length){rate();write();console.log(JSON.stringify({output,resumed:completed.size,remaining:0,groups:record.groups}));process.exit(0);}
+  write();
+  const workers = Array.from({ length: Math.min(concurrency, remaining.length) }, () => new Worker(new URL(import.meta.url)));
+  const started = Date.now(), elapsed = record.secondsElapsed; let next = 0;
   try {
     await Promise.all(workers.map(worker => new Promise((resolve, reject) => {
       worker.on('error', reject);
       const feed = () => {
-        if (next >= jobs.length) { resolve(); return; }
-        const job = jobs[next++];
+        if (next >= remaining.length) { resolve(); return; }
+        const job = remaining[next++];
         worker.once('message', row => {
-          rows.push(row);
-          writeFileSync(output, JSON.stringify({ fingerprint, complete: false, rows }, null, 2) + '\n');
+          try {
+          appendCombatRow(record,row);
+          record.secondsElapsed = elapsed + (Date.now()-started)/1000;write();
           if (row.error) { reject(new Error(row.error)); return; }
           console.log(JSON.stringify({ id: row.id, verdict: row.result.verdict,
             driven: [row.result.sides.left.driven, row.result.sides.right.driven],
             damage: [row.result.sides.left.drivenDamage, row.result.sides.right.drivenDamage] }));
           feed();
+          } catch(error) {reject(error);}
         });
         worker.postMessage({ job, fingerprint });
       }; feed();
     })));
     if (combatFingerprint() !== fingerprint) throw new Error('combat source changed before rating publication');
-    rows.sort((a, b) => jobs.findIndex(j => j.id === a.id) - jobs.findIndex(j => j.id === b.id));
-    const rating = jobs.every(j => j.candidateSide && Number.isInteger(j.pair)) ? combatRating(rows) : null;
-    const summary = { fingerprint, complete: true, secondsElapsed: (Date.now() - started) / 1000, rating, rows };
-    writeFileSync(output, JSON.stringify(summary, null, 2) + '\n');
-    console.log(JSON.stringify({ output, rating, secondsElapsed: summary.secondsElapsed }));
+    record.complete = true;rate();
+    record.secondsElapsed = elapsed + (Date.now()-started)/1000;write();
+    console.log(JSON.stringify({output,resumed:completed.size,groups:record.groups,secondsElapsed:record.secondsElapsed}));
   } finally { await Promise.all(workers.map(w => w.terminate())); }
 }
