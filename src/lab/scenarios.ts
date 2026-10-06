@@ -1,3 +1,4 @@
+import { VIEW_MODES, CAMERA_MODES, PROJECTIONS, type ViewSettings } from "../render/view.ts";
 import { appearanceFor, type Appearance } from "../render/appearance.ts";
 import { playHref } from "../app-route.ts";
 import { CHARACTERS } from "../character-lab/catalog.ts";
@@ -72,24 +73,12 @@ export type LabLoadout = { readonly model: BodyModel }
 export const LAB_RATES = [120, 480] as const;
 type LabRate = (typeof LAB_RATES)[number];
 
-/**
- * How the body is drawn: World, the model's skin, or Tactical, the collision shapes the solver
- * moves. The first is the default.
- */
-export const LAB_VIEWS = ["world", "tactical"] as const;
-export type LabView = (typeof LAB_VIEWS)[number];
-/** How the camera follows the body (`camera.ts`); the first is the default. */
-export const LAB_CAMERAS = ["free", "isometric", "chase"] as const;
-export type LabCamera = (typeof LAB_CAMERAS)[number];
 /** What may drive the body (`LAB_MINDS`, `minds.ts`); the first is the default. */
 export const LAB_MIND_IDS = ["script", "guard"] as const;
 export type LabMindId = (typeof LAB_MIND_IDS)[number];
 /** What a body does once it is down (`LAB_DOWN`, `minds.ts`); the first is the default. */
 export const LAB_DOWN_IDS = ["lie", "rise"] as const;
 export type LabDownId = (typeof LAB_DOWN_IDS)[number];
-/** How the isometric camera draws; the first is the default. */
-export const LAB_PROJECTIONS = ["orthographic", "perspective"] as const;
-export type LabProjection = (typeof LAB_PROJECTIONS)[number];
 
 /**
  * The Routine's targets: the most the address may ask for, and how many it has and the seed they are
@@ -98,7 +87,7 @@ export type LabProjection = (typeof LAB_PROJECTIONS)[number];
  */
 export const LAB_TARGETS = { most: 30, count: 10, seed: 1 } as const;
 
-export interface LabAddress extends LabLoadout {
+export interface LabAddress extends LabLoadout, ViewSettings {
   readonly appearance: Appearance;
   /** The scenario to run; none is the menu. */
   readonly scenario: ScenarioId | null;
@@ -109,9 +98,6 @@ export interface LabAddress extends LabLoadout {
   /** What its mind may not strike with: each thing held whose strike is barred. */
   readonly barred: readonly LabHeld[];
   readonly hz: LabRate;
-  readonly view: LabView;
-  readonly camera: LabCamera;
-  readonly projection: LabProjection;
   /** The Routine's targets a loop, 0 to `LAB_TARGETS.most`, and the seed they are drawn from (`drawTargets`, `targets.ts`). */
   readonly targets: number;
   readonly seed: number;
@@ -147,9 +133,9 @@ export function labAddress(search: string): LabAddress {
     down: LAB_DOWN_IDS.find((d) => d === query.get("down")) ?? LAB_DOWN_IDS[0],
     barred: LAB_HELD.filter((h) => barred.includes(h)),
     hz: LAB_RATES.find((r) => String(r) === query.get("hz")) ?? LAB_RATES[0],
-    view: LAB_VIEWS.find((v) => v === query.get("view")) ?? LAB_VIEWS[0],
-    camera: LAB_CAMERAS.find((c) => c === query.get("camera")) ?? LAB_CAMERAS[0],
-    projection: LAB_PROJECTIONS.find((p) => p === query.get("projection")) ?? LAB_PROJECTIONS[0],
+    view: VIEW_MODES.find((v) => v === query.get("view")) ?? VIEW_MODES[0],
+    camera: CAMERA_MODES.find((c) => c === query.get("camera")) ?? CAMERA_MODES[0],
+    projection: PROJECTIONS.find((p) => p === query.get("projection")) ?? PROJECTIONS[0],
     targets: whole(query.get("targets"), 0, LAB_TARGETS.most, LAB_TARGETS.count),
     // A seed is taken modulo 2^32 (`mulberry32`), so any whole number under it names one stream.
     seed: whole(query.get("seed"), 0, 4294967295, LAB_TARGETS.seed),

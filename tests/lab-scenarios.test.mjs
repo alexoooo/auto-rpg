@@ -4,10 +4,11 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
+import { VIEW_MODES, CAMERA_MODES, PROJECTIONS } from "../src/render/view.ts";
 import { routeFor } from "../src/app-route.ts";
 import { PHYSICS_HZ } from "../src/core/world.ts";
 import { CHARACTERS } from "../src/character-lab/catalog.ts";
-import { labAddress, labHref, LAB_CAMERAS, LAB_DOWN_IDS, LAB_HELD, LAB_MIND_IDS, LAB_PROJECTIONS, LAB_RATES, LAB_VIEWS, MODELS, SCENARIOS } from "../src/lab/scenarios.ts";
+import { labAddress, labHref, LAB_DOWN_IDS, LAB_HELD, LAB_MIND_IDS, LAB_RATES, MODELS, SCENARIOS } from "../src/lab/scenarios.ts";
 
 const DEFAULTS = { appearance: "default", scenario: null, model: "workshop-fighter", right: "empty", left: "empty", boots: true, armour: true, balance: null, mind: "script", down: "lie", barred: [], hz: 120,
   view: "world", camera: "free", projection: "orthographic", targets: 10, seed: 1 };
@@ -44,9 +45,9 @@ test("a_body_wears_what_the_workshop_dresses_it_in_until_the_address_says_otherw
 test("every_choice_the_lab_offers_reads_back_from_the_address_it_writes", () => {
   for (const scenario of [null, ...SCENARIOS.map((s) => s.id)]) {
     for (const { id: model } of MODELS) {
-      for (const [hz, view, balance] of LAB_RATES.flatMap((r) => LAB_VIEWS.flatMap((v) => [null, 0, 5].map((b) => [r, v, b])))) {
-        for (const camera of LAB_CAMERAS) {
-          for (const projection of LAB_PROJECTIONS) {
+      for (const [hz, view, balance] of LAB_RATES.flatMap((r) => VIEW_MODES.flatMap((v) => [null, 0, 5].map((b) => [r, v, b])))) {
+        for (const camera of CAMERA_MODES) {
+          for (const projection of PROJECTIONS) {
             for (const right of LAB_HELD) {
               for (const left of LAB_HELD) {
                 for (const boots of [false, true]) {

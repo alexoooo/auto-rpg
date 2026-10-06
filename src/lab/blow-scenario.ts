@@ -12,7 +12,7 @@ import { recordHistory } from "./history.ts";
 import type { LabScenario, LabShell } from "./lab-scenario.ts";
 import { createPlayer } from "./player.ts";
 import { hardestOn } from "./targets.ts";
-import { choice, legend, note, readings } from "./hud/controls.ts";
+import { choice, legend, note, readings } from "../ui/controls.ts";
 
 /**
  * **The Blow scenario**: the loaded body throws a stored blow (`blows.ts`) standing, as the strike

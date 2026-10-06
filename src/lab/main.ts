@@ -17,7 +17,7 @@ import { createWorld, type Hook, type World } from "../core/world.ts";
 import { publicAssetUrl } from "../asset-url.ts";
 import { labActor } from "./actor.ts";
 import { labCameraRig } from "./camera.ts";
-import type { Control } from "./hud/controls.ts";
+import type { Control } from "../ui/controls.ts";
 import { controlsSection } from "./hud/controls-section.ts";
 import { characterSection } from "./hud/character-section.ts";
 import { scenarioSection } from "./hud/scenario-section.ts";

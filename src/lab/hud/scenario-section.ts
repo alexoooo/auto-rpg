@@ -1,5 +1,5 @@
 import { LAB_RATES, type LabAddress } from "../scenarios.ts";
-import { choice, entries, type Control, type Named } from "./controls.ts";
+import { choice, entries, type Control, type Named } from "../../ui/controls.ts";
 import type { LabPage } from "./sections.ts";
 
 const RATES: Named<LabAddress["hz"]> = {

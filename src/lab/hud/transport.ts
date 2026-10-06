@@ -1,6 +1,6 @@
 import type { ScenarioRun } from "../lab-scenario.ts";
 import { isPaused, type Playhead } from "../player.ts";
-import { actions, choice, toggle, type Entry } from "./controls.ts";
+import { actions, choice, toggle, type Entry } from "../../ui/controls.ts";
 
 /**
  * **The lab's transport**: the bar that pauses the run, steps it a physics step at a time, scrubs

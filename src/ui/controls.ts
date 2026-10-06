@@ -1,7 +1,7 @@
 import type { Color3 } from "@babylonjs/core/Maths/math.color.js";
 
 /**
- * **The lab's controls**: the kinds of thing a HUD section holds, each built from data. A section
+ * **HUD controls**: the kinds of thing a HUD section holds, each built from data. A section
  * or a scenario lists what it offers; the pressed state and the blur on click are here alone.
  */
 
