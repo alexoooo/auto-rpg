@@ -230,7 +230,7 @@ export function motorControl(built: BuiltBody, seconds: number, posture: Pose = 
       // The held freedoms at the posture's angles, the free ones drawn toward it.
       limb.chain.forEach((joint, j) => {
         if (limb.free.some((f) => f.joint === j)) return;
-        names(joint).forEach((name, k) => { m.angles[j]![k] = pose[name] ?? 0; });
+        names(joint).forEach((name, k) => { m.angles[j]![k] = standing?.pose ? driver.angle(driver.channel(name)) : pose[name] ?? 0; });
       });
       for (const f of limb.free) f.preferred = pose[f.name] ?? 0;
       if (!m.started) {
@@ -263,13 +263,14 @@ export function motorControl(built: BuiltBody, seconds: number, posture: Pose = 
       driver.activation[i] = push.level;
       return undefined;
     }, seconds, dt, {
+      seconds: (i) => owned(i) ? seconds : standing?.pose?.seconds ?? seconds,
       rate: (i) => owned(i)?.[1] ?? 0,
       acceleration: (i) => owned(i)?.[2] ?? 0,
     });
     // Standing by torque, the stance asks the root's acceleration, the servo carries the rest of the
     // body with it, and the stance legs take what that leaves the ground to give.
     const carried = standing ? stance.carry(driver, work) : null;
-    servoSolve(driver, work, carried ?? undefined);
+    servoSolve(driver, work, carried ?? undefined, standing?.pose ? stance.owned : undefined);
     if (carried) stance.bear(driver, work);
   };
 

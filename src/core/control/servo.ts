@@ -62,7 +62,7 @@ export function servo(driver: MuscleDriver, goal: (channel: number) => number | 
  */
 export function servoAsk(driver: MuscleDriver, goal: (channel: number) => number | undefined, seconds: number, dt: number,
   feed?: ServoFeed): ServoWork {
-  const n = 1 / seconds, count = driver.channels.length;
+  const count = driver.channels.length;
   let work = scratch.get(driver);
   if (!work) scratch.set(driver, (work = { change: new Float64Array(count), accel: new Float64Array(count),
     torque: new Float64Array(count), fixed: new Uint8Array(count), bias: new Float64Array(count) }));
@@ -71,7 +71,7 @@ export function servoAsk(driver: MuscleDriver, goal: (channel: number) => number
   // The change of each freedom's rate asked over the step; NaN where the goal leaves a channel be,
   // whose torque is then its command's.
   for (let i = 0; i < count; i++) {
-    const g = goal(i);
+    const g = goal(i), n = 1 / (feed?.seconds?.(i) ?? seconds);
     fixed[i] = g === undefined ? 1 : 0;
     change[i] = g === undefined ? NaN : feed
       ? dt * (feed.acceleration(i) + n * n * (g - driver.angle(i)) + 2 * n * (feed.rate(i) - driver.rate(i)))
@@ -142,6 +142,8 @@ export function servoSolve(driver: MuscleDriver, work: ServoWork, root?: ArrayLi
  * in rate, so it follows a path rather than lagging it by a time constant.
  */
 interface ServoFeed {
+  /** Optional channel response time, s, for a slow support transition with a faster hand path. */
+  seconds?(channel: number): number;
   rate(channel: number): number;
   acceleration(channel: number): number;
 }

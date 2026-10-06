@@ -4,6 +4,7 @@ import { coreStand } from '../tests/harness/core-stand.mjs';
 import { modelSpec } from '../src/core/human/spec.ts';
 import { createBody, SERVO_SECONDS } from '../src/core/body.ts';
 import { DEFAULT_ENGINE } from '../src/core/engine/engines.ts';
+import {footStatesOf,readSupport} from '../src/core/control/support.ts';
 import { GUARD_ACTION } from '../src/core/mind/intent.ts';
 import { combatSkills } from '../src/core/skills/combat.ts';
 import { ATTACK_PATH } from '../src/core/skills/attack-path.ts';
@@ -14,7 +15,7 @@ import { intoFrameToRef } from '../src/core/control/kinematics.ts';
 
 /** Real, unpinned Warrior primitive: the policy supplies only a hand, target and family. */
 export async function combatStrike({ hand = 'right', family = 'straight', mode = 'miss', tuning = {}, seconds = 12,
-  ahead = .65, across = .15, up = 0 } = {}) {
+  ahead = .65, across = .15, up = 0, support = null } = {}) {
  const s = await coreStand(modelSpec('workshop-fighter'), { engine: DEFAULT_ENGINE });
  const body = createBody(s.built, s.world, { servoSeconds: SERVO_SECONDS, handFeedback: true });
  const skills = combatSkills(body, {...ATTACK_PATH, ...tuning}), target = [across*(hand==='right'?1:-1), 1.63+up, ahead];
@@ -27,20 +28,22 @@ export async function combatStrike({ hand = 'right', family = 'straight', mode =
   velocity.subtractInPlace(body.view.stance.velocity);
   const memory = body.state.mind.host.motor.hands[hand];
   intoFrameToRef(body.view.root,point.asArray(),local);
-  witness = {phase:skills.report.strike.phase, closing:velocity.z, speed:velocity.length(), velocity:velocity.asArray(),
+  witness = {phase:skills.report.strike.phase, closing:support?Vector3.Dot(velocity,new Vector3(...target).subtract(point).normalize()):velocity.z, speed:velocity.length(), velocity:velocity.asArray(),
    pathError:memory.goal?Vector3.Distance(local,memory.point):null,
    saturated:body.muscles.activation.filter(a=>a>=.999).length, channels:body.muscles.channels.length};
  });
- const phases = [], contacts = [], errors = [], paths = [], saturation = [], peaks = []; let lastPhase=null, peak=0, fell=false, touched=false;
+ const phases = [], contacts = [], errors = [], paths = [], saturation = [], peaks = []; let lastPhase=null, peak=0, fell=false, touched=false, floorContacts=0;
  body.drive((view,dt)=>{
   if(view.resumed) skills.resume(view);
-  return skills.command(view, {move:null,face:0,hands:{left:GUARD_ACTION,right:GUARD_ACTION},
-   combat:view.time>=2?{hand,target,family}:null},dt);
+  const command=skills.command(view, {move:null,face:0,hands:{left:GUARD_ACTION,right:GUARD_ACTION},
+   combat:view.time>=(support?.attackAt??2)&&view.time<(support?.riseAt??Infinity)?{hand,target,family}:null},dt);
+  return support? supportedStrikeCommand(view,command,support):command;
  });
  try {
   for(let step=0;step<seconds*s.world.hz;step++) {
    const report=skills.report.strike;
    s.step(); fell ||= body.down;
+   if(support&&['head','upperTrunk','middleTrunk','lowerTrunk'].some(n=>s.world.physics.contactsOf(s.built.segments.get(n).body).some(c=>c.fixed===s.floor.id&&c.impulse>0)))floorContacts++;
    const {phase,closing:preClosing,speed:preSpeed} = witness;
    if(report.phase!==lastPhase) {
     if(lastPhase==='swing') peaks.push(peak);
@@ -55,7 +58,8 @@ export async function combatStrike({ hand = 'right', family = 'straight', mode =
     paths.push(witness.pathError); saturation.push(witness.saturated/witness.channels);
    }
   }
-  return {harness:{kind:'Node unpinned core stand',engine:DEFAULT_ENGINE,hz:s.world.hz,balance:0,model:'workshop-fighter',held:'empty'},
+  const feet=footStatesOf(s.built); readSupport(feet,feet,new Vector3());
+  return {...(support?{support,floorContacts,feet:feet.map(f=>({side:f.side,corners:f.corners.map(p=>p.asArray())}))}:{}),harness:{kind:'Node unpinned core stand',engine:DEFAULT_ENGINE,hz:s.world.hz,balance:0,model:'workshop-fighter',held:'empty'},
    hand,family,mode,tuning:{...ATTACK_PATH,...tuning},target,fell,phases,contacts,peaks,
    cycles:structuredClone(skills.report.strike.pointCycle),thrown:structuredClone(skills.report.strike.thrown),
    finalHand:body.view.fists[hand].position.asArray(),head:body.view.head.asArray(),support:body.view.stance.phase,
@@ -64,6 +68,14 @@ export async function combatStrike({ hand = 'right', family = 'straight', mode =
    saturation:saturation.length?saturation.reduce((a,b)=>a+b,0)/saturation.length:null,
    assist:{force:body.assist.meter.force,moment:body.assist.meter.moment}};
  } finally {before.dispose();body.dispose();s.dispose();}
+}
+/** Research drive from an ordinary stand through a planted root fold, strikes and standing return. */
+export function supportedStrikeCommand(view,command,support) {
+ const u=Math.min(1,Math.max(0,view.time<support.riseAt?(view.time-2)/support.transition:1-(view.time-support.riseAt)/support.transition));
+ const e=u*u*(3-2*u);
+ return {...command,posture:{...command.posture,'lumbar flexion':support.lumbar*e,'thoracic flexion':support.thoracic*e},
+  stance:{feet:['left','right'],centre:null,heading:0,...command.stance,height:1-support.lower*e,
+   ...(view.time<2||view.time>=support.riseAt+support.transition?{}:{pose:{pitch:support.pitch*e,seconds:support.seconds}})}};
 }
 if(import.meta.url===pathToFileURL(process.argv[1]).href) {
  const config=process.argv[2]?JSON.parse(process.argv[2]):{};

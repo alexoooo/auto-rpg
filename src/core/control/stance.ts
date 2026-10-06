@@ -3,7 +3,7 @@ import type { BuiltBody } from "../build/build-body.ts";
 import type { MuscleDriver } from "../muscle/driver.ts";
 import type { Assist } from "./assist.ts";
 import type { ServoWork } from "./servo.ts";
-import { bearLimbs, carryRoot, type Limb } from "./bearing.ts";
+import { bearLimbs, carryRoot, limbMotion, makeBearing, type Bearing, type Limb } from "./bearing.ts";
 import { rotationAtToRef } from "./kinematics.ts";
 import type { StanceTuning } from "./stance-tuning.ts";
 import { ownStep, paceToward } from "./gait.ts";
@@ -30,6 +30,8 @@ export interface StanceGoal {
   readonly height: number;
   /** The pelvis's heading, rad about the world's up: 0 faces it as in the reference pose. */
   readonly heading: number;
+  /** A supported root pitch, rad, and response time, s; both feet stay planted and no step is requested. */
+  readonly pose?: { readonly pitch: number; readonly seconds: number };
   /** A foot not in `feet` carried to a landing place; none, and the other leg is left to the posture. */
   readonly swing?: SwingGoal | null;
   /**
@@ -258,7 +260,7 @@ function heightLimits(s: Stance, goal: StanceGoal, stance: readonly FootState[],
     const swinging = !stance.includes(foot);
     const [a, b] = foot.lengths, hx = hipAt.x + (swinging ? landX : r.x) - c.x, hz = hipAt.z + (swinging ? landZ : r.z) - c.z, rise = c.y - hipAt.y - reading.support.y;
     if (swinging) ankleAt.addInPlaceFromFloats(swing!.to[0] - foot.middle.x, reading.support.y - foot.middle.y, swing!.to[1] - foot.middle.z);
-    if (bend !== null) {
+    if (bend !== null && !s.state.pose) {
       const long = Math.sqrt(a * a + b * b + 2 * a * b * cos(bend)), spread = hypot(hx - ankleAt.x, hz - ankleAt.z);
       high = Math.min(high, ankleAt.y + Math.sqrt(Math.max(0, long * long - spread * spread)) + rise);
     }
@@ -509,7 +511,7 @@ function aimLimb(s: Stance, foot: FootState, limb: Limb, muscles: MuscleDriver):
   // freedoms take the task.
   ahead.length = foot.memory.channels.length;
   ahead.fill(NaN);
-  if (bend !== null) {
+  if (bend !== null && !s.state.pose) {
     const k = foot.chain[0]!.dofs.length, i = foot.memory.channels[k]!, flexed = muscles.angle(i) - foot.straight, m = 1 / seconds.height;
     if (flexed < 0) ahead[k] = m * m * (bend - flexed) - 2 * m * muscles.rate(i);
   }
@@ -545,11 +547,13 @@ function askNothing(s: Stance): void {
 
 export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}, assist: Assist | null = null): StanceControl {
   const s = makeStance(built, tuning, assist);
+  let poseBearing: Bearing | null = null;
   return {
     reset() {
       const { state } = s, { reading, step } = state;
       askNothing(s);
       state.plan.on = false;
+      state.pose = null;
       state.last = null;
       state.stride = null;
       state.striding = null;
@@ -570,11 +574,14 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}, assis
       const { aim } = s.state;
       if (!aim.on) return null;
       s.feet.forEach((foot, f) => { if (s.limbs[f]!.task.on) aimLimb(s, foot, s.limbs[f]!, muscles); });
-      return carryRoot(s.bearing, muscles, work, aim, leverOf(s, muscles.dynamics.root.centre[1]));
+      const bearing = s.state.pose ? poseBearing! : s.bearing;
+      const root = carryRoot(bearing, muscles, work, aim, leverOf(s, muscles.dynamics.root.centre[1]));
+      if (s.state.pose) limbMotion(bearing, work, s.state.owned);
+      return root;
     },
     bear(muscles, work) {
       if (!s.state.aim.on) return;
-      bearLimbs(s.bearing, muscles, work, leverOf(s, muscles.dynamics.root.centre[1]), s.tuning.boundedSwing);
+      bearLimbs(s.state.pose ? poseBearing! : s.bearing, muscles, work, leverOf(s, muscles.dynamics.root.centre[1]), s.tuning.boundedSwing);
     },
     read(which) {
       const { feet, segments, total, pelvis } = s, { reading } = s.state, { p, v, whole } = s.scratch;
@@ -598,6 +605,16 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}, assis
       const { feet, state } = s, { reading, plan } = state;
       bindChannels(s, muscles);
       askNothing(s);
+      state.pose = goal?.pose ?? null;
+      if (goal?.pose) {
+        if (!Number.isFinite(goal.pose.pitch) || !(goal.pose.seconds > 0) || !Number.isFinite(goal.pose.seconds)
+          || goal.feet.length !== 2 || !goal.feet.includes("left") || !goal.feet.includes("right") || goal.swing || goal.walk)
+          throw new Error("a supported root pose requires a finite pitch, positive response and two planted feet");
+        // Channel binding precedes allocation: effort rows are sized from the bound limb channels.
+        poseBearing ??= makeBearing(assist, s.limbs, { root: state.aim.root, helped: state.helped, held: state.held, shortfall: reading.shortfall }, { effort: true });
+        holdPose(s, goal, goal.pose);
+        return;
+      }
       paceToward(s, stepsOfItself(goal) ? goal.walk : null, dt);
       const swing = chooseStep(s, goal);
       const bearing = bearerOf(goal, reading.phase, swing);
@@ -627,6 +644,34 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}, assis
       if (reading.phase === "swing" && swing) swingFoot(s, swing, goal.heading, dt);
     },
   };
+}
+
+/** A planted-foot root pose, followed at its own response rather than by the walking pendulum. */
+function holdPose(s: Stance, goal: StanceGoal, pose: NonNullable<StanceGoal["pose"]>): void {
+  const { state, feet, pelvis } = s, { reading, aim } = state, n = 1 / pose.seconds;
+  readSupport(feet, feet, reading.support);
+  reading.phase = "stand"; reading.own = null; state.plan.on = false; state.last = goal.feet;
+  state.step.swing = null; state.stride = null; state.striding = null; state.pace.fill(0);
+  const c = reading.centre, v = reading.velocity, p = reading.support;
+  const [x, z] = goal.centre ? withinSupport(feet.map(bearingOf), goal.centre[0], goal.centre[1], s.tuning.inset) : [p.x, p.z];
+  aim.centre.set(n * n * (x - c.x) - 2 * n * v.x, n * n * (p.y + goal.height - c.y) - 2 * n * v.y,
+    n * n * (z - c.z) - 2 * n * v.z);
+  turnAboutToRef(Vector3.UpReadOnly, goal.heading, s.scratch.target);
+  turnAboutToRef(s.scratch.wholeAxis.set(1, 0, 0), pose.pitch, s.scratch.footTurn);
+  s.scratch.target.multiplyInPlace(s.scratch.footTurn).multiplyInPlace(pelvis.rest);
+  spinBetweenToRef(pelvis.node.rotationQuaternion!, s.scratch.target, pose.seconds, s.scratch.spin);
+  pelvis.body.angularVelocityToRef(s.scratch.pelvisSpin);
+  aim.spin.copyFrom(s.scratch.spin).scaleInPlace(n).subtractInPlace(s.scratch.pelvisSpin.scaleInPlace(2 * n));
+  aim.on = true;
+  for (const foot of feet) {
+    foot.memory.rolled = false;
+    const task = state.tasks[feet.indexOf(foot)]!;
+    motionAtToRef(foot.segment, foot.middle, task.linear, task.angular);
+    const vy = task.linear.y;
+    task.linear.scaleInPlace(-n); task.linear.y = n * n * (p.y - foot.middle.y) - 2 * n * vy;
+    task.angular.scaleInPlace(-n); task.on = true; task.bearing = true;
+    for (const i of foot.memory.channels) state.owned[i] = 1;
+  }
 }
 
 /** Whether two swings are the same step. */

@@ -2,7 +2,7 @@ import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { BuiltBody, BuiltSegment } from "./build/build-body.ts";
 import { rigidPoints } from "./build/rigid.ts";
 import type { Assist, AssistCeiling } from "./control/assist.ts";
-import { uprightness } from "./control/ground.ts";
+import { FALLEN, uprightness } from "./control/ground.ts";
 import { rootFrameToRef, type Frame } from "./control/kinematics.ts";
 import { motorControl, type Hand, type HandGoal, type MotorControl, type MusclePush, type Pose } from "./control/motor.ts";
 import type { StanceGoal, StanceReading } from "./control/stance.ts";
@@ -240,8 +240,9 @@ export function commandMind(own: OwnBody, { servoSeconds, stance, handFeedback: 
     rootFrameToRef(motor.root, state.root);
     head.update();
     motor.stance.read();
-    // Down is read against the height the body is asked to hold: held low on purpose, it is not down.
-    state.down = upright.down(motor.standing?.height);
+    // Down follows the asked height. Supported root poses retain a standing-relative recovery bar.
+    const standing = motor.standing;
+    state.down = upright.down(standing?.pose ? Math.max(standing.height, upright.standing - FALLEN) : standing?.height);
   };
   const act = (dt: number): void => {
     const next = driver?.(view, dt);

@@ -338,7 +338,7 @@ const NOT_MEMORY = {
     [`body > mind > host > motor > hands > ${hand} > point`, "each step with a goal writes it; `MotorControl.path` shows it, and a body does not"],
   ])),
   [`${STANCE} > step > turn`]: "each step of a swing writes it before reading it",
-  ...Object.fromEntries(["aim", "helped", "held", "tasks"].map((field) =>
+  ...Object.fromEntries(["aim", "helped", "held", "tasks", "pose"].map((field) =>
     [`${STANCE} > ${field}`, "the stance's `command` writes it each step, for `carry` and `bear` of that step"])),
   "skills > command": "each step the skills write its posture, hands, pushes and stance before the body reads them: it is in the state for what the body's shares with it",
   "skills > strikes > pushes": "each command of a strike clears it and fills it before the body reads it",

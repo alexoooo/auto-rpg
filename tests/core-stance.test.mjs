@@ -436,7 +436,7 @@ test("what a stance remembers is one record of plain data, which lists each foot
     const s = makeStance(stand.built, {}, null);
     assert.deepEqual(faults(s.state, "state"), []);
     assert.deepEqual(Object.keys(s.state).sort(),
-      ["aim", "feet", "held", "helped", "last", "owned", "pace", "plan", "reading", "step", "stride", "striding", "tasks"]);
+      ["aim", "feet", "held", "helped", "last", "owned", "pace", "plan", "pose", "reading", "step", "stride", "striding", "tasks"]);
     assert.equal(s.state.feet.length, 2);
     assert.ok(s.state.feet.every((memory, k) => memory === s.feet[k].memory), "the state lists each foot's own memory");
     assert.deepEqual(s.state.feet, [{ channels: [], rolled: false }, { channels: [], rolled: false }]);

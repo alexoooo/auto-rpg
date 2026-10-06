@@ -6,7 +6,7 @@ import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { BuiltBody, BuiltSegment } from "../build/build-body.ts";
 import type { Assist } from "./assist.ts";
 import { makeBearing, type Bearing, type Limb, type LimbTask } from "./bearing.ts";
-import type { Foot, StanceReading, SwingGoal } from "./stance.ts";
+import type { Foot, StanceGoal, StanceReading, SwingGoal } from "./stance.ts";
 import { resolveStance, type ResolvedStance, type StanceTuning } from "./stance-tuning.ts";
 import { footStatesOf, restWidth, type FootMemory, type FootState } from "./support.ts";
 
@@ -20,6 +20,8 @@ import { footStatesOf, restWidth, type FootMemory, type FootState } from "./supp
  * own step (`aim`, `helped`, `held`, `tasks`), and the turn a swing asks (`step.turn`).
  */
 interface StanceState {
+  /** The supported root pose requested this step; null uses the walking planner. */
+  pose: StanceGoal["pose"] | null;
   /** The foot of the last step of a walk, while it steps on without standing between. */
   stride: Foot | null;
   /** The walk the stance's step under way is for, if it is a walk's: `pace` itself, read as it is each step. */
@@ -120,7 +122,7 @@ export function makeStance(built: BuiltBody, tuning: StanceTuning, assist: Assis
   const feet = footStatesOf(built);
   const segments = [...built.segments.values()];
   const state: StanceState = {
-    stride: null, striding: null, owned: new Uint8Array(0), last: null, pace: [0, 0],
+    pose: null, stride: null, striding: null, owned: new Uint8Array(0), last: null, pace: [0, 0],
     step: { swing: null, lifted: false, time: 0, held: 0, from: new Vector3(), turn: new Quaternion(), lift: new Quaternion() },
     plan: { on: false, at: new Vector3(), velocity: new Vector3() },
     reading: { centre: new Vector3(), velocity: new Vector3(), support: new Vector3(), place: new Vector3(),

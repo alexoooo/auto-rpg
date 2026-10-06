@@ -970,3 +970,11 @@ These are the owner's, and the code is built on them.
   Its art is rigid, shaded by vertex colour. Today it runs on the human's placeholders and wounds;
   building this intent is on the [roadmap](roadmap.md).
 - **Cosmetics never carry authority.** Nothing decorative collides or decides a hit.
+
+A stance may hold a planted root pose (`StanceGoal.pose`): pitch and response time
+with two feet held still. Its effort-aware bearing solve carries the remaining servo
+solve at the solved leg accelerations. Posture can follow the support response while
+hand paths keep their ordinary tracking response; IK reads the measured held trunk
+angles. Supported poses retain a standing-relative recovery bar. The physical low
+strike and standing-return gates are recorded in
+[the supported root pose reference](reference/supported-root-pose.md).
