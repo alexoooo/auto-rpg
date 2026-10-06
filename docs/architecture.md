@@ -978,3 +978,7 @@ hand paths keep their ordinary tracking response; IK reads the measured held tru
 angles. Supported poses retain a standing-relative recovery bar. The physical low
 strike and standing-return gates are recorded in
 [the supported root pose reference](reference/supported-root-pose.md).
+
+The optional low-combat executor acquires quiet loaded feet, geometric COM support and head/trunk
+clearance before a planted fold. Its support report exposes acquisition, lowering, readiness and
+standing return to any policy; the ordinary hand-path executor commits strokes only after readiness.

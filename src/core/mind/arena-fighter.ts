@@ -19,6 +19,6 @@ export function arenaFighter(built: BuiltBody, world: World, config: ArenaFighte
   const body = createBody(built, world, { servoSeconds: SERVO_SECONDS, senses: wiring.senses, assist: wiring.assist, handFeedback: true, contactIdentity: wiring.contactIdentity,
     subs: [(own, view) => supportRecovery(own, view, world)] });
   const tactics = combatTactics(built.spec, wiring.name, sight => wiring.orders(sight.view.senses), config);
-  const skills = driveBy(body, tactics, { combat: paths });
+  const skills = driveBy(body, tactics, { combat: paths, lowCombat: config.groundGame === true });
   return { kind: "arena-fighter" as const, body, skills, state: skills.state };
 }

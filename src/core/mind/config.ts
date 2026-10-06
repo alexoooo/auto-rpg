@@ -80,6 +80,8 @@ export interface ArenaFighterConfig {
   readonly openings?: OpeningTuning;
   readonly paths?: Partial<AttackTuning>;
   readonly spacing?: number;
+  /** Permit the shared executor to perform supported low strikes; omitted preserves the retained reference. */
+  readonly groundGame?: boolean;
 }
 
 /** Experimental autonomous combat; promotion is measured by the paired combat harness. */

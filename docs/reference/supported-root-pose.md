@@ -73,3 +73,25 @@ This is a local capability gate. It proves neither arbitrary kneeling nor safe w
 while folded, and does not authorize chasing a vertically unreachable target into a
 fallen opponent. Autonomous entry, physical target clearance, grounded/rising enemy
 contact, and competitive measurement remain required before gameplay promotion.
+
+## Combat fold settings
+
+`COMBAT_FOLD` enables the supported transition behind `Intent.lower`. Its maximum
+lowering is 0.5 m, root pitch 0.9 rad, root/posture response 0.5 s, and transition
+2 s. Lumbar/thoracic requests are 0.89/0.368 rad, clamped to the body's limits.
+The standing reference is read from the actual body's first step. These are the same
+fold settings as the physical probe, with the faster transition checked in
+[supported-entry-probes.json](supported-entry-probes.json). Both hands, for each of
+1, 1.5, 2 and 3 s transitions, survive contact and return to standing without falls
+or head/trunk floor contacts. The 2 s cases have 17/14 verified returns and no failed
+cycles in those probes. They establish a supported transition, not a ground finish.
+
+The executor waits for an actual standing control phase and planted physical feet.
+The readiness settings are conservative engineering gates: every sole corner within
+0.015 m of the body's lowest point; positive fixed-contact impulse at each foot with
+its into-ground normal's y at most -0.9; head/trunk shape clearance at least 0.15 m;
+COM speed at most 0.1 m/s; COM within the actual sole polygon; and 0.05 s of held
+readiness after the transition. Thus a floating body cannot enter merely by requesting
+support. This is an entry rule for low combat; the separate recovery sub-mind restores
+missing support. A committed strike retains its support request through its return.
+Returning to ordinary locomotion also waits for quiet physical support.

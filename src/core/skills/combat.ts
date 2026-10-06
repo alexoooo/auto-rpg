@@ -7,19 +7,21 @@ import type { CombatAction } from "../mind/intent.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { attackPath, ATTACK_PATH, type AttackTuning } from "./attack-path.ts";
 import { GUARD, guardSkill } from "./guard.ts";
-import { locomotion } from "./locomotion.ts";
+import { supportFold } from "./support-fold.ts";
+import { locomotion, STANCE_LOWER } from "./locomotion.ts";
 import type { SkillReport, Skills } from "./skills.ts";
 import { placedReach, type StrikeReport } from "./strike.ts";
 import { aimOf } from "./strikes.ts";
 
 /** Shared strike executor: measured hand trajectories and supported locomotion with independent tactics. */
 export function combatSkills(body: Body, tuning: AttackTuning = ATTACK_PATH, tactics: object | null = null,
-  engagement?: { readonly phase: string }): Skills {
+  engagement?: { readonly phase: string }, lowCombat = false): Skills {
   const spec = body.built.spec, legs = locomotion(body.envelope), guard = guardSkill(spec);
-  const all = [legs, guard] as const;
+  const fold = lowCombat ? supportFold(body) : null;
+  const all = [legs, guard, ...(fold ? [fold] : [])];
   const aims = { left: aimOf(spec, "left"), right: aimOf(spec, "right") };
   const state = { command: { posture: GUARD, hands: { left: null, right: null }, pushes: [], stance: null } as BodyCommand,
-    legs: legs.state, tactics, hand: null as Hand | null, phase: null as "chamber" | "swing" | "return" | null,
+    legs: legs.state, ...(fold ? { support: fold.state } : {}), lower: STANCE_LOWER, tactics, hand: null as Hand | null, phase: null as "chamber" | "swing" | "return" | null,
     action: null as CombatAction | null, home: null as Vec3 | null, chamber: null as Vec3 | null,
     velocity: [0, 0, 0] as Vec3, previous: { left: null as Vec3 | null, right: null as Vec3 | null },
     time: 0, ready: 0, sequence: 0, touching: false, thrown: { left: 0, right: 0 },
@@ -36,7 +38,7 @@ export function combatSkills(body: Body, tuning: AttackTuning = ATTACK_PATH, tac
     nets: Object.freeze({ left: Object.freeze({ high: null, middle: null, low: null }), right: Object.freeze({ high: null, middle: null, low: null }) }),
   };
   const skillReport: SkillReport = { strike: report, get heading() { return legs.heading; }, get pace() { return legs.pace; },
-    get reference() { return legs.reference; }, ...(engagement ? { engagement } : {}) };
+    get reference() { return legs.reference; }, ...(fold ? { support: fold.report } : {}), ...(engagement ? { engagement } : {}) };
   const resume = (view: BodyView) => {
     if (state.hand) state.outcomes.interrupted++;
     state.hand = null; state.phase = null; state.action = null; state.home = null; state.chamber = null;
@@ -53,8 +55,9 @@ export function combatSkills(body: Body, tuning: AttackTuning = ATTACK_PATH, tac
     }
     state.cooldown += dt;
     const requested = intent.combat;
-    if (!state.hand && requested && view.time >= tuning.startup && state.cooldown >= tuning.hold) {
-      state.action = { ...requested, target: [...requested.target] }; state.hand = requested.hand;
+    fold?.tick(view, state.hand ? state.lower : intent.lower ?? STANCE_LOWER, !!intent.move, dt);
+    if (!state.hand && requested && view.time >= tuning.startup && state.cooldown >= tuning.hold && (!fold || fold.report.stage === "stand" || fold.report.ready)) {
+      state.action = { ...requested, target: [...requested.target] }; state.hand = requested.hand; state.lower = intent.lower ?? STANCE_LOWER;
       state.home = [...state.previous[requested.hand]!];
       intoFrameToRef(view.root, requested.target, target);
       state.chamber = attackPath(state.home, [target.x, target.y, target.z], requested.hand, requested.family, tuning).chamber;
@@ -110,8 +113,10 @@ export function combatSkills(body: Body, tuning: AttackTuning = ATTACK_PATH, tac
       }
     }
     const covers = guard.command(view, intent.hands, state.hand);
-    state.command = { posture, pushes: [], hands: goal && state.hand ? { ...covers, [state.hand]: goal } : covers,
-      stance: legs.goal(view, state.phase === "swing" ? null : intent.move, intent.face, dt, intent.lower) };
+    const baseStance = legs.goal(view, (state.phase === "swing" || (fold && fold.report.stage !== "stand" && fold.report.stage !== "wait")) ? null : intent.move, intent.face, dt, fold ? STANCE_LOWER : intent.lower);
+    const supported = fold?.apply(baseStance, posture) ?? { stance: baseStance, posture };
+    state.command = { posture: supported.posture, pushes: [], hands: goal && state.hand ? { ...covers, [state.hand]: goal } : covers,
+      stance: supported.stance };
     return state.command;
   } };
 }

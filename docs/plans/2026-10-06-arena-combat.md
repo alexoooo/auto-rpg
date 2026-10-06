@@ -21,7 +21,7 @@ priority and fresh-world strike/return replay are gated. Self-play takes initiat
 prolonged pressure, but most blows meet the guard. Hull/capsule/box surface selection, both-hand path ranking and detached contact response are implemented, including lateral
 escape after repeated physical blocks. Sensed boundaries and experimental defense reach/timing are implemented. The predictive
 variant remains optional after reduced initiative in self-play. Low support transitions,
-autonomous low support and competitive promotion remain. The shared body now executes measured planted root folds and low strike/return cycles; grounded/rising enemy integration remains. A torso-preferring mixed candidate wins 40/40 development cap bouts against linear Combat; held-out evaluation and decisive striking remain. Built Warrior fist play is inspected.
+autonomous low support and competitive promotion remain. The shared body now executes measured planted root folds and low strike/return cycles; grounded/rising enemy integration remains. A torso-preferring mixed candidate wins 40/40 development cap bouts against linear Combat; held-out evaluation wins 591/600 cap bouts across three retained opponents, but decisive striking remains. The neutral executor acquires physical foot support before folding and launching, and restores standing afterwards. Built Warrior fist play is inspected.
 
 ## Why the current controller fails
 

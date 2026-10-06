@@ -1,0 +1,72 @@
+{
+  "source": "2c7a7cc297418855dd40cb9d7e18af02e7b7c0ce7143670da9a308439e476126",
+  "secondsElapsed": 1680.254,
+  "pools": {
+    "classic": {
+      "pairs": 100,
+      "bouts": 200,
+      "score": 0.96,
+      "score95": [
+        0.9016292856411208,
+        0.9843366960084523
+      ],
+      "relativeElo": 552.0844966846423,
+      "elo95": [
+        384.86487371739054,
+        719.3041196518934
+      ],
+      "perfectScore": false,
+      "endings": {
+        "wins": 192,
+        "losses": 8,
+        "draws": 0,
+        "decisiveWins": 0,
+        "timeWins": 192
+      }
+    },
+    "point": {
+      "pairs": 100,
+      "bouts": 200,
+      "score": 1,
+      "score95": [
+        0.9630065017930143,
+        1
+      ],
+      "relativeElo": null,
+      "elo95": [
+        566.2015271838907,
+        null
+      ],
+      "perfectScore": true,
+      "endings": {
+        "wins": 200,
+        "losses": 0,
+        "draws": 0,
+        "decisiveWins": 0,
+        "timeWins": 200
+      }
+    },
+    "combat": {
+      "pairs": 100,
+      "bouts": 200,
+      "score": 0.995,
+      "score95": [
+        0.9538986593878135,
+        0.9994777773872704
+      ],
+      "relativeElo": 919.5412305638826,
+      "elo95": [
+        526.3154734846366,
+        1312.7669876430696
+      ],
+      "perfectScore": false,
+      "endings": {
+        "wins": 199,
+        "losses": 1,
+        "draws": 0,
+        "decisiveWins": 0,
+        "timeWins": 199
+      }
+    }
+  }
+}

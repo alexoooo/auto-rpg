@@ -82,3 +82,33 @@ damage. Classic produces faster occasional blows in mixed bouts, but Classic sel
 and spends the remainder attempting recovery. Correcting joint limits alone does not solve
 combat. This baseline supports testing chamber space, reliable launch speed and recovery under
 pressure before interpreting any win score as effective fighting.
+
+## Body-targeting held-out evaluation
+
+Frozen implementation `75e239d2`, Node Arena Duel, `rapier-coordinate`, 120 Hz,
+Warrior/Warrior, empty hands, balance 0/0, continuing recovery and 60 s cap. Each
+opponent has 100 distinct held-out recipes and their mirrors (200 bouts): variable
+gap 1.2?6 m, sense delay 0?12 steps, and a seeded short initial ordinary facing order.
+The source fingerprint, complete recipes/configs and tapes are retained in
+[combat-body-heldout.json](combat-body-heldout.json), with independent per-opponent
+paired ratings in [combat-body-heldout-ratings.json](combat-body-heldout-ratings.json).
+The frozen checkout ran six sequential worker queues in 1,680.254 wall-clock seconds.
+
+The candidate is `{kind:'arena-fighter',hand:'alternate',targeting:'openings',
+repertoire:'mixed',openings:{head:0.3,upperTrunk:0,middleTrunk:0}}`. No low-combat
+transition is enabled in this retained candidate. The comparison Combat is the linear
+opening controller; Classic attempts staged recovery and Point uses tracked engagement.
+
+| Opponent | Wins / 200 | Paired score, 95% interval | Relative Elo, 95% interval | Candidate/opponent falls | Mean driven damage candidate/opponent, hp per 60 s |
+| --- | ---: | --- | --- | ---: | ---: |
+| Classic | 192 | 0.960 [0.902, 0.984] | +552 [+385, +719] | 39 / 44 | 0.514 / 0.091 |
+| Point | 200 | 1.000 [0.963, 1.000] | unbounded point estimate; lower bound +566 | 0 / 0 | 1.004 / 0.040 |
+| Linear Combat | 199 | 0.995 [0.954, 0.999] | +920 [+526, +1,313] | 1 / 2 | 0.931 / 0.344 |
+
+All 591 candidate wins end at the cap; none is an ordinary-wound finish. These are
+relative estimates against each named opponent, not calibrated league ratings. The
+Point result establishes substantially better target contact and health advantage;
+finishing power is unresolved. Fall counts include all falls and do not assign their
+cause. The Classic row requires recovery/pressure investigation. These results do
+not establish armed or other-body performance, a browser cost budget, or promotion
+against the decisive-combat proposal.
