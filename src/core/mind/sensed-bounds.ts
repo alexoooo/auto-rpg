@@ -105,6 +105,13 @@ export function sensedFootClearance(foe: BodySense) {
   });
 }
 
+/** Sweep both observed soles by a world translation against the opponent's physical bounds. */
+export function clearFootTranslation(view: BodyView, foe: BodySense, dx: number, dz: number, radius: number): boolean {
+  const clear = sensedFootClearance(foe);
+  return [view.stance.soles.left, view.stance.soles.right].every(sole => !!sole && clear(
+    [sole.x, sole.y, sole.z], [sole.x + dx, sole.y, sole.z + dz], radius));
+}
+
 /** Observed opponent-height gate: `docs/reference/ground-combat.md#opponent-height`. */
 const LOW_HEAD = .8;
 

@@ -8,7 +8,7 @@ import type { Vec3 } from "../spec/quantity.ts";
 import { GUARD_ACTION, type CombatAction, type Intent } from "./intent.ts";
 import { upperSurface } from "./openings.ts";
 import { groundRoute } from "./ground-route.ts";
-import { lowOpponent, sensedFootClearance } from "./sensed-bounds.ts";
+import { clearFootTranslation, lowOpponent, sensedFootClearance } from "./sensed-bounds.ts";
 import type { BodySense } from "./senses.ts";
 
 /** Physical approach probes and finite transitions: `docs/reference/ground-combat.md#policy-settings`. */
@@ -96,14 +96,13 @@ export function groundWide(spec: BodySpec, clearMove: (view: BodyView, heading: 
       let move: readonly [number,number] | null = null;
       if (far >= GROUND_COMBAT.near && (!state.walk || state.stride !== view.stance.strides)) {
         const asked = [clip(dx * sin(report.heading) + dz * cos(report.heading)), clip(dx * cos(report.heading) - dz * sin(report.heading))] as const;
-        const clear = sensedFootClearance(foe), h = report.heading;
+        const h = report.heading;
         for (const candidate of [asked, [asked[0], 0], [0, asked[1]], [0, -GROUND_COMBAT.speed], [0, GROUND_COMBAT.speed], [GROUND_COMBAT.speed, 0], [-GROUND_COMBAT.speed, 0]] as const) {
           if(candidate[0]===0&&candidate[1]===0)continue;
           const wx = (candidate[0] * sin(h) + candidate[1] * cos(h)) * GROUND_COMBAT.lookahead;
           const wz = (candidate[0] * cos(h) - candidate[1] * sin(h)) * GROUND_COMBAT.lookahead;
           if (!view.stance.soles.left || !view.stance.soles.right) continue;
-          if ([view.stance.soles.left, view.stance.soles.right].every(sole => clear([sole.x, sole.y, sole.z],
-            [sole.x + wx, sole.y, sole.z + wz], GROUND_COMBAT.footRadius))) {
+          if (clearFootTranslation(view, foe, wx, wz, GROUND_COMBAT.footRadius)) {
             move = clearMove(view, h, candidate); if (move) break;
           }
         }

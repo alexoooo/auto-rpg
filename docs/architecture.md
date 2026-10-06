@@ -1034,6 +1034,12 @@ rigid-hand inertia approximation are recorded in [hand poses](reference/hand-pos
 The optional combat `execution` config requests physical fists, tracks their surface strike
 point and admits a finite impact path on identified target contact. Native and material contacts
 share detached tactile feedback; world, block, unknown and misaligned contacts withdraw.
+The common `skills/strike-cycle.ts` advances measured preparation, stroke, bounded intended
+contact and verified return. Limb adapters own their geometry, placement and counters. The
+optional planted punch executor admits actual loaded support and freezes locomotion for the
+whole cycle. Its [stability record](reference/punch-stability.md) passes standing cases and
+rejects the combined low-attack candidate; ordinary Brawler/Scrapper remain unchanged.
+
 The [bounded punch search](reference/punch-foundation.md) records its failed promotion and
 leaves Brawler/Scrapper settings intact. The [mass audit](reference/punch-mass-audit.md) identifies
 the current damage model's free-joint assumption without substituting a new rule.

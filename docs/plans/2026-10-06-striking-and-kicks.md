@@ -4,12 +4,12 @@ Implement in order, with physical qualification before promotion. Warrior empty 
 first qualified body/loadout. Trained adults are the performance target; independently measured,
 source-backed body and actuator corrections are authorized.
 
-1. Generalize `control/motor.ts` and its kinematic solve to named effectors with independent
+1. Landed: generalize `control/motor.ts` and its kinematic solve to named effectors with independent
    orientation and measured point motion. Keep hand wrappers and existing trajectories. Describe
    capabilities from body data; add foot strike sites derived from existing collision envelopes.
    Extend detached observations, contact feedback and replay. Physical chain/orientation tests,
    boundary/provenance tests, then the full suite, check and build gate the commit.
-2. Extract the common chamber/swing/impact/return cycle from `skills/combat.ts`, retain the hand
+2. Shared cycle and standing qualification landed; low qualification remains open. Extract the common chamber/swing/impact/return cycle from `skills/combat.ts`, retain the hand
    overlap adapter, and qualify orientation/support corrections. Both hands must pass standing
    straight/cross impact-return, miss/block/cancellation and stationary/recovering low-target
    gates without falls or assistance. Remove force-improvement criteria from stability admission.

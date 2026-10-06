@@ -1,5 +1,6 @@
 import { Vector3, Quaternion } from '@babylonjs/core/Maths/math.vector.js';
 import { TransformNode } from '@babylonjs/core/Meshes/transformNode.js';
+import { lowsOf } from '../src/core/control/ground.ts';
 import { pointOfToRef, motionAtToRef } from '../src/core/control/support.ts';
 
 /** A research apparatus, not human anatomy; assumptions and sensitivity: docs/reference/punch-calibration.md. */
@@ -39,9 +40,16 @@ export function punchPad(world, front, settings = {}) {
     load(segment) {
       if(config.face!=='compliant')return;
       const shape=segment.rigid.shapes[0];
-      if(shape.kind!=='capsule')throw new Error('the compliant hand fixture requires a capsule');
-      pointOfToRef(segment,shape.from.value,from);pointOfToRef(segment,shape.to.value,to);
-      at.copyFrom(from.z>to.z?from:to);at.z+=shape.radius.value;
+      if(shape.kind==='capsule') {
+        pointOfToRef(segment,shape.from.value,from);pointOfToRef(segment,shape.to.value,to);
+        at.copyFrom(from.z>to.z?from:to);at.z+=shape.radius.value;
+      } else {
+        let front=-Infinity;
+        for(const point of lowsOf(shape,segment.frame)) {
+          pointOfToRef(segment,point.at,from);from.z+=point.radius;
+          if(from.z>front){front=from.z;at.copyFrom(from);}
+        }
+      }
       const penetration=at.z-(node.position.z-config.size[2]/2);
       if(penetration<=0||Math.abs(at.x-node.position.x)>config.size[0]/2||Math.abs(at.y-node.position.y)>config.size[1]/2)return;
       motionAtToRef(segment,at,speed,spin);

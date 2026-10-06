@@ -76,7 +76,7 @@ export async function punchStand({hand='right',family='straight',hz=120,seconds=
       anchorErrors:[...s.built.joints.values()].filter(j=>[j.parent,j.child].includes(limb)||j.spec.name===`elbow.${hand}`).map(j=>({name:j.spec.name,
         error:Vector3.Distance(pointOfToRef(j.parent,j.spec.centre.value,new Vector3()),pointOfToRef(j.child,j.spec.centre.value,new Vector3()))}))};
     sensor.prepare();
-    for(const segment of s.built.segments.values())if(segment.spec.shape.kind==='capsule')sensor.load(segment);
+    for(const segment of s.built.segments.values())sensor.load(segment);
   });
   const after=s.world.afterStep(()=>{
     const reading=sensor.read(),segments=[...new Set([...reading.contacts.map(c=>names.get(c.other)??'other'),
