@@ -86,3 +86,7 @@ export interface ArenaFighterConfig {
 
 /** Experimental autonomous combat; promotion is measured by the paired combat harness. */
 export const ARENA_FIGHTER: ArenaFighterConfig = deepFreeze({ kind: "arena-fighter", hand: "alternate", targeting: "openings" });
+
+/** Body-targeting candidate and scope: `docs/reference/arena-combat-evaluation.md#body-targeting-held-out-evaluation`. */
+export const ARENA_BRAWLER: ArenaFighterConfig = deepFreeze({ kind: "arena-fighter", hand: "alternate",
+  targeting: "openings", repertoire: "mixed", openings: { head: .3, upperTrunk: 0, middleTrunk: 0 } });

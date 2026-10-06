@@ -112,3 +112,36 @@ finishing power is unresolved. Fall counts include all falls and do not assign t
 cause. The Classic row requires recovery/pressure investigation. These results do
 not establish armed or other-body performance, a browser cost budget, or promotion
 against the decisive-combat proposal.
+
+The selectable `ARENA_BRAWLER` uses this exact target preference and mixed repertoire. It
+is exposed separately from retained linear Combat, so existing controller links keep their
+meaning. The measured scope is Warrior empty hands; this exposure does not meet the proposed
+majority-before-cap finishing gate or validate other equipment and anatomy.
+
+## Built Brawler exposure and cost
+
+The Arena's Brawler choice uses the exact body-targeting held-out candidate, while Combat
+retains its earlier configuration. The URL recipe test checks both choices. A 30-second Node
+ArenaDuel self-play test at 120 Hz, gameplay Rapier coordinate limits, empty-handed Warriors,
+zero/zero balance and continuing recovery records 16/19 driven blows and 0.269/0.415 driven
+outgoing HP, including guard contacts. Both sides remain standing; the longest pressure-only
+interval is 0.467 seconds. This test checks the selectable recipe through the actual bout.
+
+Six complete 60-second held-out results (the first mirrored recipe against each of Classic,
+Point and linear Combat) are replayed on the exposure revision. Their entire accounting
+records equal the retained records exactly. This is a sample replay check, not a new 600-bout
+measurement or validation of additional body/loadout strata.
+
+The built page at `?play=arena&matchup=workshop-fighter,workshop-fighter&control=brawler&held=empty&balance=0&cap=60&measure=1`
+is inspected with both controller selectors, fists, ordinary attack/return movement and the
+continuing-recovery choice visible. The optional DOM timing output observes 500 active frames,
+5,921 physics steps at 120 Hz and 49.342 simulated seconds after the first two seconds.
+Mean physics cost is 2.487 ms/step; the 95th percentile of per-frame batch means is 3.133 ms/step.
+Whole-frame CPU median/p95 are 31.8/40.3 ms, including physics and the scene render call.
+
+The controlled browser reports visible but delivers frames at roughly 1 Hz (median 1,011.8 ms).
+The page advances at most 12 steps per delivered frame, so simulated/real time is 0.0993.
+These observations do not establish a foreground 60 Hz frame budget or GPU cost; the step
+percentile describes batch means, not individual steps. Foreground cost and optimization remain
+open. Timing is passive screen instrumentation and changes no bout state. The owned preview
+server and browser tab are stopped after inspection.

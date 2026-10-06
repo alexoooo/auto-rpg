@@ -89,7 +89,7 @@ predictive defense variant uses age-corrected relative motion, available-hand re
 checks, cancellation and a bounded counter window. Its self-play initiative is below the
 reference diagnostic, so reference cover remains the default. See [defense measurements](reference/combat-defense.md).
 All selection, contact-response and trajectory memory belongs to the saved bout. The Arena
-exposes Combat as an experimental choice, with Warrior fist primitives measured in
+exposes Combat and the body-targeting Brawler as experimental choices, with Warrior fist primitives measured in
 [combat strikes](reference/combat-strikes.md). Competitive promotion and low support remain open.
 
 `DuelRecipe.recoverySeconds` optionally permits a continuous interval down. Its per-side clocks

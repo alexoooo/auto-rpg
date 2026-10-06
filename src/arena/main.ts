@@ -1,3 +1,4 @@
+import { arenaMeasurement } from "./measure.ts";
 import { Engine } from "@babylonjs/core/Engines/engine.js";
 // `scene.createPickingRay` is this module's patch: without it the build compiles and the ray is missing.
 import "@babylonjs/core/Culling/ray.js";
@@ -403,19 +404,26 @@ export async function bootArena(): Promise<void> {
     }
   };
 
+  const measurement = new URLSearchParams(location.search).get("measure") === "1" ? arenaMeasurement(document.body) : null;
   engine.runRenderLoop(() => {
+    const began = measurement ? performance.now() : 0, clockBefore = world.time;
+    let physicsMs = 0;
     const seconds = engine.getDeltaTime() / 1000;
     giveOrders();
     if (duel && !paused) {
+      const beforePhysics = measurement ? performance.now() : 0;
       world.advance(seconds, Math.ceil(CATCH_UP_SECONDS * world.hz));
+      if (measurement) physicsMs = performance.now() - beforePhysics;
       for (const { side, air } of airs) audio.swish(side, air(airAt), airAt);
     }
     if (!paused) arena.fire.burn(seconds);
     frame(); readout(); audio.update();
     scene.render();
+    measurement?.record({ frame: performance.now() - began, interval: seconds * 1000, physics: physicsMs,
+      simulated: world.time - clockBefore, time: world.time, hz: world.hz, active: !!duel && !paused && !duel.verdict });
   });
   window.addEventListener("resize", () => engine.resize());
-  window.addEventListener("pagehide", () => { end(); audio.dispose(); engine.stopRenderLoop(); world.dispose(); scene.dispose(); engine.dispose(); });
+  window.addEventListener("pagehide", () => { end(); measurement?.dispose(); audio.dispose(); engine.stopRenderLoop(); world.dispose(); scene.dispose(); engine.dispose(); });
   Object.assign(window, { __arena: { get duel() { return duel; }, world, scene, engine } });
 
   await Promise.all(previewLoads);

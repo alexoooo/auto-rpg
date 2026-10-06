@@ -8,7 +8,7 @@ import { Duel } from "../src/arena/duel.ts";
 import { readControls, readMinds, readRecovery } from "../src/arena/matchup.ts";
 import { addArenaSolids } from "../src/arena/room.ts";
 import { centreOfToRef } from "../src/core/control/support.ts";
-import { ARENA_FIGHTER, FIGHTER, POINT_FIGHTER } from "../src/core/mind/config.ts";
+import { ARENA_BRAWLER, ARENA_FIGHTER, FIGHTER, POINT_FIGHTER } from "../src/core/mind/config.ts";
 import { STAND_ORDERS } from "../src/core/mind/orders.ts";
 import { saveState } from "../src/core/state.ts";
 import { createWorld } from "../src/core/world.ts";
@@ -30,6 +30,7 @@ test("controller and recovery links preserve independent choices and classic gua
     left: { ...POINT_FIGHTER, hand: "alternate" }, right: { ...FIGHTER, guard: "cover", subs: [{ kind: "staged-rise" }] },
   });
   assert.deepEqual(readMinds("?control=combat,point-left"), { left: ARENA_FIGHTER, right: { ...POINT_FIGHTER, hand: "left" } });
+  assert.deepEqual(readMinds("?control=brawler,combat"), { left: ARENA_BRAWLER, right: ARENA_FIGHTER });
   assert.deepEqual(readMinds("?control=point-right"), { left: POINT_FIGHTER, right: POINT_FIGHTER });
   assert.deepEqual(["", "?recovery=", "?recovery=-1", "?recovery=Infinity", "?recovery=61"].map(readRecovery), Array(5).fill(undefined));
   assert.equal(readRecovery("?recovery=continue"), null);
