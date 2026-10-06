@@ -53,6 +53,9 @@ test('fixed geometry grants preserve physical sizes and reject swept walls, post
  assert.equal(clearStep([0,1,0],[0,1,3],.2,solids),false);
  assert.equal(clearStep([0,1,0],[4,1,0],.2,solids),false);
  assert.equal(clearStep([0,1,1.75],[0,1,1],.2,solids),true);
+ assert.equal(clearStep([0,1,1.75],[0,1,1.74],.2,solids),true);
+ assert.equal(clearStep([0,1,1.75],[0,1,1.76],.2,solids),false);
+ assert.equal(clearStep([0,1,1.75],[.1,1,1.76],.2,solids),false);
  assert.equal(clearStep([0,1,1.75],[0,1,2.5],.2,solids),false);
  const turned=solidSenses([{name:'diagonal',kind:'box',centre:[0,1,2],size:[4,2,.2],turn:Math.PI/2}]);
  assert.equal(clearStep([-1,1,2],[1,1,2],.2,turned),false);

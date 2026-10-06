@@ -982,3 +982,8 @@ strike and standing-return gates are recorded in
 The optional low-combat executor acquires quiet loaded feet, geometric COM support and head/trunk
 clearance before a planted fold. Its support report exposes acquisition, lowering, readiness and
 standing return to any policy; the ordinary hand-path executor commits strokes only after readiness.
+
+Combat clearance reads hull and box torsos as well as round shapes. Detached collider bounds
+include held items; foot sweeps use exact round-collider distance and conservative polyhedral
+bounds. A body inside a fixed boundary margin backs away at its current heading before
+turning to fight. Existing margin penetration permits parallel or outward motion.

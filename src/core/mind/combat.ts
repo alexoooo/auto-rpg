@@ -10,13 +10,14 @@ import { fighterTactics, STRAFE } from "./fighter.ts";
 import { GUARD_ACTION, type CombatAction, type Intent } from "./intent.ts";
 import { STAND_ORDERS, type Orders } from "./orders.ts";
 import type { Sight, Tactics } from "./tactics.ts";
-import { clearStep } from "./clear-step.ts";
+import { bodyClearance } from "./sensed-bounds.ts";
+import { clearStep, clearanceExit } from "./clear-step.ts";
 import { openingSelector } from "./openings.ts";
 import { guardCanReach, incomingThreat, THREAT, threatOf } from "./threat.ts";
 
 /** Search cells for braking, chamber room and escape: `docs/reference/combat-strikes.md#tactical-settings`. */
 const COMBAT = Object.freeze({ band: .08, reserve: .08, braking: .5, prediction: .12, pressure: .6,
-  escape: .6, blockedAttempts: 3, boundaryMargin: .08, counter: .2, lateral: .2, settle: .08, readySpeed: .35 });
+  escape: .6, blockedAttempts: 3, boundaryMargin: .08, counter: .2, lateral: .2, settle: .08, readySpeed: .35, boundarySpeed: .18 });
 
 /** Tactical selection uses detached sensed bodies; the common skill owns physical execution. */
 export function combatTactics(spec: BodySpec, name: string, orders: (sight: Sight) => Orders | null, config: ArenaFighterConfig): Tactics {
@@ -51,8 +52,7 @@ export function combatTactics(spec: BodySpec, name: string, orders: (sight: Sigh
       default: { const never: never = defenseMode; throw new Error(`unknown defense ${never}`); }
     }
   })();
-  const bodyRadius = Math.max(...spec.segments.filter(s => /Trunk$/.test(s.name)).map(s =>
-    s.shape.kind === "capsule" || s.shape.kind === "sphere" ? s.shape.radius.value : 0)) + COMBAT.boundaryMargin;
+  const bodyRadius = bodyClearance(spec) + COMBAT.boundaryMargin;
   const moveClear = (view: Sight["view"], heading: number, move: readonly [number, number] | null) => {
     if (!move || !view.senses.solids) return move;
     const c = view.stance.centre, from: Vec3 = [c.x, c.y, c.z], angle = heading;
@@ -96,6 +96,12 @@ export function combatTactics(spec: BodySpec, name: string, orders: (sight: Sigh
     }
     if(state.foe!==foe.id){state.choice=null;state.nextSelection=0;}
     state.foe = foe.id;
+    const exit = view.senses.solids && clearanceExit([view.stance.centre.x, view.stance.centre.y, view.stance.centre.z], bodyRadius, view.senses.solids);
+    if (exit && !strike.hand && (!report.support || report.support.stage === "stand")) {
+      state.phase = "escape"; state.action = null; state.ready = 0;
+      return { move: [COMBAT.boundarySpeed * (exit[0] * sin(report.heading) + exit[1] * cos(report.heading)),
+        COMBAT.boundarySpeed * (exit[0] * cos(report.heading) - exit[1] * sin(report.heading))], face: report.heading, hands: guard, combat: null };
+    }
     const part = foe.segments.get("head"), at = part?.centre ?? foe.centre, velocity = part?.velocity ?? foe.velocity;
     if (!state.responded && strike.phase === "swing" && strike.hand) {
       const response = contactResponse(view.handFeedback?.[strike.hand], foe.id);

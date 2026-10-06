@@ -68,6 +68,27 @@ function capsule(segment: SegmentSpec) {
   LOCAL.set(segment, local); return local;
 }
 
+/** A vertical ray onto the actual sensed surface, suitable for attacks over a grounded trunk. */
+export function upperSurface(foe: BodySense, name: string, from?: Vec3): Vec3 | null {
+  const segment=foe.spec.segments.find(s=>s.name===name),sensed=foe.segments.get(name);
+  if(!segment||!sensed)return null;
+  const poly=polyhedron(segment),round=capsule(segment),scratch=new Vector3(),inverse=new Quaternion();
+  const world=(p:Vec3):Vec3=>{scratch.set(...p).applyRotationQuaternionToRef(sensed.rotation,scratch).addInPlace(sensed.position);return [scratch.x,scratch.y,scratch.z];};
+  if(round){const a=world(round.a),b=world(round.b),top=a[1]>=b[1]?a:b;return [top[0],top[1]+round.radius,top[2]];}
+  if(!poly)return null;
+  let toward=poly.middle;
+  if(from) {
+    scratch.set(...from).subtractInPlace(sensed.position).applyRotationQuaternionToRef(Quaternion.InverseToRef(sensed.rotation,inverse),scratch);
+    const local=[scratch.x,scratch.y,scratch.z];
+    toward=poly.middle.map((v,k)=>v+(local[k]!>v?1:local[k]!<v?-1:0)*OPENINGS.elevation*poly.extent[k]!/2) as unknown as Vec3;
+  }
+  const middle=world(toward);
+  scratch.set(middle[0],middle[1]+foe.spec.stature.value,middle[2]).subtractInPlace(sensed.position)
+    .applyRotationQuaternionToRef(Quaternion.InverseToRef(sensed.rotation,inverse),scratch);
+  const entry=hullEntry(poly.planes,[scratch.x,scratch.y,scratch.z],toward);
+  return entry?world(entry):null;
+}
+
 /** A replaceable, bounded geometric selector; reads physical shapes and poses, never opponent policy or health. */
 export function openingSelector(spec: BodySpec, tuning: OpeningTuning = {}, paths: AttackTuning = ATTACK_PATH) {
   const settings = { ...OPENINGS, ...tuning };

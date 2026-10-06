@@ -153,3 +153,7 @@ visible HUD advances through approach, chamber and return, and Tactical view dis
 physical bodies. The check reaches 14 s of the bout and verifies the recipe choices. It is
 performed alongside the full Node suite and establishes no frame-time budget. The owned
 preview server and tab are stopped after inspection.
+
+The `COMBAT` boundary escape uses 0.18 m/s while retaining its current heading until the
+actual torso clearance leaves the parapet margin. This is the conservative side-approach
+speed from the grounded combat probes, applied to the geometry correction for hull torsos.
