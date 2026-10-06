@@ -101,7 +101,7 @@ turn; across its heading or backward it walks at half pace.
 | Left button | attack where you point; hold to keep attacking |
 | Middle or right drag | orbit the Free camera |
 | Wheel | zoom |
-| Space / Esc | pause and resume a bout (leaving the window pauses too) |
+| Pause / Resume buttons, or Space / Esc | pause and resume a bout (leaving the window pauses too) |
 | R | this bout again |
 | Random replay | at a verdict or in the pause menu: the right side is redrawn |
 | ? | the controls |

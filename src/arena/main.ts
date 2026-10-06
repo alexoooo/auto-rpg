@@ -219,11 +219,17 @@ export async function bootArena(): Promise<void> {
     column.append(label, bar, status); hud.append(column);
     return { side, label, bar, status };
   });
-  const clock = document.createElement("div"); clock.className = "hud-col"; hud.insertBefore(clock, rows[1].label.parentElement);
+  const clockColumn = document.createElement("div"), clock = document.createElement("span"), pauseButton = document.createElement("button");
+  clockColumn.className = "hud-col hud-clock";
+  pauseButton.id = "arena-pause"; pauseButton.type = "button"; pauseButton.className = "action quiet";
+  pauseButton.textContent = "Pause"; pauseButton.title = "Pause (Space / Esc)"; pauseButton.hidden = true;
+  pauseButton.setAttribute("aria-controls", "pause-menu");
+  clockColumn.append(clock, pauseButton); hud.insertBefore(clockColumn, rows[1].label.parentElement);
 
   const setPaused = (value: boolean) => {
-    paused = value && duel !== null;
+    paused = value && duel !== null && !duel.verdict;
     show("pause-menu", paused);
+    pauseButton.hidden = paused || !duel || !!duel.verdict;
     audio.setActive(!paused && duel !== null && !duel.verdict);
   };
   let screen: "setup" | "fight" = "setup";
@@ -299,7 +305,10 @@ export async function bootArena(): Promise<void> {
     you = youPicker.value === "left" || youPicker.value === "right" ? youPicker.value : null;
     void begin(fromPickers());
   });
-  need("resume").addEventListener("click", () => setPaused(false));
+  for (const [button, value] of [[pauseButton, true], [need("resume"), false]] as const) {
+    for (const type of ["pointerdown", "pointermove"]) button.addEventListener(type, event => event.stopPropagation());
+    button.addEventListener("click", () => { button.blur(); setPaused(value); });
+  }
   for (const id of ["restart", "bout-end-replay"]) need(id).addEventListener("click", () => void begin(matchup));
   for (const id of ["random-replay", "bout-end-random"]) need(id).addEventListener("click", () => void begin(redrawn()));
   for (const id of ["leave", "bout-end-leave"]) need(id).addEventListener("click", setup);
@@ -394,6 +403,7 @@ export async function bootArena(): Promise<void> {
     const balance = SIDES.map((side) => duel!.recipe.balance?.[side] ?? duel!.duelists[side].built.spec.attributes.balance.value);
     clock.textContent = `${duel.clock.toFixed(1)} s${helped ? ` Â· balance ${balance.join(" / ")} %` : ""}${replaying ? " Â· replay" : ""}`;
     if (duel.verdict && shown !== duel.verdict) {
+      pauseButton.hidden = true;
       shown = duel.verdict;
       const { winner, ending, time } = shown;
       const how = ENDING_TEXT[ending];

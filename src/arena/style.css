@@ -60,6 +60,9 @@ body {
   min-width: 210px;
 }
 
+.hud-clock { align-items: center; }
+#arena-pause { pointer-events: auto; width: auto; min-height: 44px; padding: 8px 14px; }
+
 /* The view panel leaves the centre of a live or paused bout open. */
 #arena-view {
   position: fixed; top: 108px; right: 22px; z-index: 9;
