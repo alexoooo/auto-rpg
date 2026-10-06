@@ -32,7 +32,7 @@ export function combatTactics(spec: BodySpec, name: string, orders: (sight: Sigh
   const mixed = (()=>{
     switch(repertoire) {
       case "linear":return false;
-      case "mixed": case "vertical":return true;
+      case "mixed": case "vertical": case "boxing":return true;
       default:{const never:never=repertoire;throw new Error(`unknown repertoire ${never}`);}
     }
   })();

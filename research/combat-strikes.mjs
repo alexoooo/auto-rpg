@@ -20,8 +20,8 @@ export async function combatStrike({ hand = 'right', family = 'straight', mode =
  const s = await coreStand(modelSpec('workshop-fighter'), { engine: DEFAULT_ENGINE });
  const body = createBody(s.built, s.world, { servoSeconds: SERVO_SECONDS, handFeedback: true });
  const skills = combatSkills(body, {...ATTACK_PATH, ...tuning}), target = [across*(hand==='right'?1:-1), 1.63+up, ahead];
- if(!['front','top'].includes(surface))throw new Error('unknown stand surface');
- const obstacle = mode==='hit' ? surface==='top' ? s.world.physics.addFixedBox([target[0],target[1]-.04,target[2]],[.2,.08,.2])
+ if(!['front','top','bottom'].includes(surface))throw new Error('unknown stand surface');
+ const obstacle = mode==='hit' ? surface!=='front' ? s.world.physics.addFixedBox([target[0],target[1]+(surface==='bottom'?.04:-.04),target[2]],[.2,.08,.2])
   : s.world.physics.addFixedBox([target[0],target[1],target[2]+.04], [.2,.2,.08]) : null;
  const masses = measureMass ? contactMass(s.built) : null;
  const velocity = new Vector3(), spin = new Vector3(), point = new Vector3(), local = new Vector3();
@@ -32,7 +32,7 @@ export async function combatStrike({ hand = 'right', family = 'straight', mode =
   velocity.subtractInPlace(body.view.stance.velocity);
   const memory = body.state.mind.host.motor.hands[hand];
   intoFrameToRef(body.view.root,point.asArray(),local);
-  witness = {phase:skills.report.strike.phase, closing:support?Vector3.Dot(velocity,new Vector3(...target).subtract(point).normalize()):surface==='top'?-velocity.y:velocity.z, speed:velocity.length(), velocity:velocity.asArray(),
+  witness = {phase:skills.report.strike.phase, closing:support?Vector3.Dot(velocity,new Vector3(...target).subtract(point).normalize()):surface==='top'?-velocity.y:surface==='bottom'?velocity.y:velocity.z, speed:velocity.length(), velocity:velocity.asArray(),
    pathError:memory.goal?Vector3.Distance(local,memory.point):null,
    saturated:body.muscles.activation.filter(a=>a>=.999).length, channels:body.muscles.channels.length};
  });

@@ -18,15 +18,18 @@ import { hullEntry } from "./hull-entry.ts";
 const OPENINGS = Object.freeze({ prediction: .12, blocked: 2, reachPenalty: 2, handMargin: .5,
   head: 0, upperTrunk: .2, middleTrunk: .4, overhand: 0, repeated: 1, elevation: .5,
   // Optional side-surface rays: `docs/reference/combat-strikes.md#lateral-head-surfaces`.
-  headLateral: 0, hookReserve: .15, hookCost: .1, pathSamples: 4 });
+  headLateral: 0, hookReserve: .15, hookCost: .1, pathSamples: 4,
+  // Upward close-range development cells: `docs/reference/combat-uppercut.md`.
+  uppercut: .1, uppercutReserve: .25 });
 
 /** Immutable target preferences for development searches over the same geometry and executor. */
-export type OpeningTuning = { readonly [K in "head" | "upperTrunk" | "middleTrunk" | "blocked" | "reachPenalty" | "repeated" | "overhand" | "headLateral" | "hookCost"]?: number };
+export type OpeningTuning = { readonly [K in "head" | "upperTrunk" | "middleTrunk" | "blocked" | "reachPenalty" | "repeated" | "overhand" | "headLateral" | "hookCost" | "uppercut" | "uppercutReserve"]?: number };
 
 /** Opening scores are finite; the lateral surface fraction stays on the sensed collider. */
 export function validOpeningTuning(tuning: OpeningTuning): boolean {
   const lateral = tuning.headLateral ?? OPENINGS.headLateral;
-  return Object.values(tuning).every(Number.isFinite) && lateral >= 0 && lateral <= 1;
+  return Object.values(tuning).every(Number.isFinite) && lateral >= 0 && lateral <= 1
+    && (tuning.uppercutReserve ?? OPENINGS.uppercutReserve) >= 0;
 }
 
 /** Exact squared distance between two finite segments, including degenerate and parallel ones. */
@@ -78,11 +81,20 @@ function capsule(segment: SegmentSpec) {
 
 /** A vertical ray onto the actual sensed surface, suitable for attacks over a grounded trunk. */
 export function upperSurface(foe: BodySense, name: string, from?: Vec3): Vec3 | null {
+  return verticalSurface(foe, name, from, 1);
+}
+
+/** A ray from below onto the actual collider, for an upward attack. */
+export function lowerSurface(foe: BodySense, name: string, from?: Vec3): Vec3 | null {
+  return verticalSurface(foe, name, from, -1);
+}
+
+function verticalSurface(foe: BodySense, name: string, from: Vec3 | undefined, sense: 1 | -1): Vec3 | null {
   const segment=foe.spec.segments.find(s=>s.name===name),sensed=foe.segments.get(name);
   if(!segment||!sensed)return null;
   const poly=polyhedron(segment),round=capsule(segment),scratch=new Vector3(),inverse=new Quaternion();
   const world=(p:Vec3):Vec3=>{scratch.set(...p).applyRotationQuaternionToRef(sensed.rotation,scratch).addInPlace(sensed.position);return [scratch.x,scratch.y,scratch.z];};
-  if(round){const a=world(round.a),b=world(round.b),top=a[1]>=b[1]?a:b;return [top[0],top[1]+round.radius,top[2]];}
+  if(round){const a=world(round.a),b=world(round.b),top=sense*a[1]>=sense*b[1]?a:b;return [top[0],top[1]+sense*round.radius,top[2]];}
   if(!poly)return null;
   let toward=poly.middle;
   if(from) {
@@ -91,7 +103,7 @@ export function upperSurface(foe: BodySense, name: string, from?: Vec3): Vec3 | 
     toward=poly.middle.map((v,k)=>v+(local[k]!>v?1:local[k]!<v?-1:0)*OPENINGS.elevation*poly.extent[k]!/2) as unknown as Vec3;
   }
   const middle=world(toward);
-  scratch.set(middle[0],middle[1]+foe.spec.stature.value,middle[2]).subtractInPlace(sensed.position)
+  scratch.set(middle[0],middle[1]+sense*foe.spec.stature.value,middle[2]).subtractInPlace(sensed.position)
     .applyRotationQuaternionToRef(Quaternion.InverseToRef(sensed.rotation,inverse),scratch);
   const entry=hullEntry(poly.planes,[scratch.x,scratch.y,scratch.z],toward);
   return entry?world(entry):null;
@@ -131,7 +143,7 @@ export function openingSelector(spec: BodySpec, tuning: OpeningTuning = {}, path
     scratch.set(...at).applyRotationQuaternionToRef(sensed.rotation, scratch).addInPlace(sensed.position);
     return [scratch.x, scratch.y, scratch.z];
   };
-  return (view: BodyView, foe: BodySense, hand: Hand, blockedSurface: string | null = null, repertoire: "linear" | "mixed" | "vertical" = "linear") => {
+  return (view: BodyView, foe: BodySense, hand: Hand, blockedSurface: string | null = null, repertoire: "linear" | "mixed" | "vertical" | "boxing" = "linear") => {
     const handShape = spec.segments.find(s => s.name === `hand.${hand}`)!.shape;
     const margin = (handShape.kind === "capsule" || handShape.kind === "sphere" ? handShape.radius.value : 0) * OPENINGS.handMargin;
     const fist = view.fists[hand].position;
@@ -147,6 +159,7 @@ export function openingSelector(spec: BodySpec, tuning: OpeningTuning = {}, path
       case "linear": families = ["straight"]; break;
       case "mixed": families = ["straight", "hook"]; break;
       case "vertical": families = ["straight", "hook", "overhand"]; break;
+      case "boxing": families = ["straight", "hook", "uppercut"]; break;
       default: { const never: never = repertoire; throw new Error(`unknown repertoire ${never}`); }
     }
     for (const name of ["head", "upperTrunk", "middleTrunk"] as const) {
@@ -179,6 +192,8 @@ export function openingSelector(spec: BodySpec, tuning: OpeningTuning = {}, path
       }
       const top = repertoire === "vertical" ? upperSurface(foe, name, start) : null;
       if (top) fronts.push(top);
+      const bottom = repertoire === "boxing" ? lowerSurface(foe, name, start) : null;
+      if (bottom) fronts.push(bottom);
       for(const front of fronts) {
         const lever = sub(front, [sensed.centre.x, sensed.centre.y, sensed.centre.z]);
         const spin: Vec3 = [sensed.spin.y * lever[2] - sensed.spin.z * lever[1], sensed.spin.z * lever[0] - sensed.spin.x * lever[2],
@@ -188,12 +203,13 @@ export function openingSelector(spec: BodySpec, tuning: OpeningTuning = {}, path
         const flat = sub(target, [view.head.x, target[1], view.head.z]);
         for (const family of families) {
           if ((family === "overhand") !== (front === top)) continue;
-          const reach = Math.max(0, armReach - (family === "hook" ? settings.hookReserve : 0));
+          if ((family === "uppercut") !== (front === bottom)) continue;
+          const reach = Math.max(0, armReach - (family === "hook" ? settings.hookReserve : family === "uppercut" ? settings.uppercutReserve : 0));
           let blocked: boolean;
           if (repertoire === "linear") blocked = obstacles.some(o => segmentDistanceSquared(start, target, o.a, o.b) <= o.radius * o.radius);
           else {
             intoFrameToRef(view.root,target,scratch);const end: Vec3 = [scratch.x,scratch.y,scratch.z];
-            const contactDirection = family === "overhand" ? scratch.set(0, -1, 0)
+            const contactDirection = family === "overhand" || family === "uppercut" ? scratch.set(0, family === "overhand" ? -1 : 1, 0)
               .applyRotationQuaternionToRef(Quaternion.InverseToRef(view.root.rotation, inverse), scratch) : null;
             const p = view.points[hand][aimOf(spec,hand)]!, path = attackPath([p.x,p.y,p.z],end,hand,family,paths,
               contactDirection ? [contactDirection.x,contactDirection.y,contactDirection.z] : undefined);
@@ -207,9 +223,9 @@ export function openingSelector(spec: BodySpec, tuning: OpeningTuning = {}, path
             }
           }
           const score = settings[name] + (name === blockedSurface ? settings.repeated : 0) + (blocked ? settings.blocked : 0)
-            + settings.reachPenalty * Math.abs(length(flat) - reach + paths.windup) + (family === "overhand" ? settings.overhand : family === "hook" ? settings.hookCost : 0);
+            + settings.reachPenalty * Math.abs(length(flat) - reach + paths.windup) + (family === "overhand" ? settings.overhand : family === "hook" ? settings.hookCost : family === "uppercut" ? settings.uppercut : 0);
           if (!best || score < best.score) best = { hand, target, segment: name, family, blocked, reach, score,
-            ...(family === "overhand" ? { direction: [0,-1,0] as Vec3 } : {}) };
+            ...(family === "overhand" || family === "uppercut" ? { direction: [0,family === "overhand" ? -1 : 1,0] as Vec3 } : {}) };
         }
       }
     }

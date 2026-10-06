@@ -1,4 +1,5 @@
-import { Vector3 } from '@babylonjs/core/Maths/math.vector.js';
+import { Quaternion, Vector3 } from '@babylonjs/core/Maths/math.vector.js';
+import {turnAboutToRef,spinBetweenToRef} from '../src/core/math/turn.ts';
 import { buildBout } from './bout.mjs';
 import { combatContact, combatFingerprint } from './arena-combat.mjs';
 import { ARENA_SCRAPPER, ARENA_FIGHTER, FIGHTER } from '../src/core/mind/config.ts';
@@ -16,9 +17,20 @@ export async function groundFight(options = {}) {
  const a=bout.duel.duelists[side],b=bout.duel.duelists[other],skills=a.minded.skills;
  bout.duel.order(side,STAND_ORDERS);bout.duel.order(other,STAND_ORDERS);
  const linear=new Vector3(),angular=new Vector3(),at=new Vector3();let witness=null,seen=0;
+ const supportMotion=options.measureSupport?[]:null,targetTurn=new Quaternion(),pitchTurn=new Quaternion(),poseError=new Vector3(),rootSpin=new Vector3(),trunkSpin=new Vector3();
  const rows=[],summary={begun:null,contacts:0,driven:0,lowDriven:0,damage:0,attackerFell:false,trunkFloor:0,lowReady:0,opponentFell:false,opponentRecovered:false,returnedStanding:false};
  let attackedLow=false;
  const before=bout.world.beforeStep(()=>{
+  if(supportMotion){
+   const stance=skills.state.command.stance,pose=stance?.pose;
+   turnAboutToRef(Vector3.UpReadOnly,stance?.heading??skills.report.heading,targetTurn);
+   turnAboutToRef(Vector3.RightReadOnly,pose?.pitch??0,pitchTurn);targetTurn.multiplyInPlace(pitchTurn);
+   spinBetweenToRef(a.body.view.root.rotation,targetTurn,1,poseError);
+   a.body.muscles.dynamics.root.segment.body.angularVelocityToRef(rootSpin);a.built.segments.get('upperTrunk').body.angularVelocityToRef(trunkSpin);
+   supportMotion.push({time:bout.duel.clock,stage:skills.report.support.stage,depth:skills.state.support.depth,phase:skills.report.engagement.phase,
+    down:a.body.down,owner:a.body.has,comSpeed:a.body.view.stance.velocity.length(),facing:a.body.view.stance.facing,heading:skills.report.heading,
+    rootError:poseError.length(),rootSpin:rootSpin.asArray(),trunkSpin:trunkSpin.asArray(),target:stance?{heading:stance.heading,pitch:pose?.pitch??0}:null});
+  }
   const velocities={};for(const hand of ['left','right']){motionAtToRef(a.built.segments.get(`hand.${hand}`),a.body.view.fists[hand].position,linear,angular);linear.subtractInPlace(a.body.view.stance.velocity);velocities[hand]=linear.asArray();}
   witness={phase:skills.report.strike.phase,hand:skills.report.strike.hand,down:a.body.down,foeLow:b.body.down,foeRecovering:b.body.has==='recovery: rise',relativeVelocity:velocities};
  });
@@ -43,6 +55,6 @@ export async function groundFight(options = {}) {
   }
   summary.cycles=structuredClone(skills.report.strike.pointCycle);summary.assist={force:a.body.assist.meter.force,moment:a.body.assist.meter.moment};
   if(combatFingerprint()!==fingerprint)throw new Error('ground combat source changed during a physical trial');
-  return {fingerprint,harness:{kind:'Node Arena Duel',engine:DEFAULT_ENGINE,hz:120},config,options,seconds:bout.duel.clock,summary,rows};
+  return {fingerprint,harness:{kind:'Node Arena Duel',engine:DEFAULT_ENGINE,hz:120},config,options,seconds:bout.duel.clock,summary,rows,...(supportMotion?{supportMotion}: {})};
  }finally{before.dispose();bout.dispose();}
 }

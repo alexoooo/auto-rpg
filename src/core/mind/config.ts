@@ -77,7 +77,7 @@ export interface ArenaFighterConfig {
   /** Target selection variant, retained for reproducible opponents and ablations. */
   readonly targeting?: "head" | "openings";
   /** Linear reference, straight/close-hook ranking, or additional measured top-surface overhands. */
-  readonly repertoire?: "linear" | "mixed" | "vertical";
+  readonly repertoire?: "linear" | "mixed" | "vertical" | "boxing";
   readonly openings?: OpeningTuning;
   readonly paths?: Partial<AttackTuning>;
   readonly spacing?: number;

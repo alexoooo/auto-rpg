@@ -56,7 +56,7 @@ export function validArmExtension(extension = 0): boolean {
 export interface CombatAction {
   readonly hand: Hand;
   readonly target: Vec3;
-  readonly family: "straight" | "cross" | "hook" | "downward" | "overhand";
+  readonly family: "straight" | "cross" | "hook" | "downward" | "overhand" | "uppercut";
   /** Optional world direction at contact; the shared executor applies the measured speed. */
   readonly direction?: Vec3;
   /** Optional arm-extension style in [0,1]; the shared executor bounds it to the body: `docs/reference/combat-arm-style.md`. */
