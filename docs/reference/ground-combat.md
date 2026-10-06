@@ -118,3 +118,11 @@ farther out than the original reserve: two equal controllers can settle outside 
 useful stroke. This is a plausible geometric cause, not yet a measured workspace
 explanation. Target reach/launch admission and turn-aware low approach need physical
 validation before another profile is promoted.
+
+## Low workspace and failed approach refinements
+
+The shared executor qualifies a bilateral 0.33 m top-face strike with verified
+miss returns and standing restoration. Nearer approaches, conservative walking
+columns and moving-surface tracking fail broader Arena admission. Their complete
+rows, exact prototype sources and measurement distinctions are retained in
+[low workspace](combat-low-workspace.md). They do not change playable Scrapper.
