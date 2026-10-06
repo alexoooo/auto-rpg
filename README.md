@@ -53,10 +53,12 @@ body, muscles, walking, balance and damage rules as Classic. It is a playable co
 not yet a stronger fighter.
 
 The **Recovery window** can allow 15, 30 or 60 seconds down before defeat. The HUD names the
-current controller or recovery attempt. Point control uses hand/shin acquisition for empty-handed
-bodies with a measured support pose, and the staged riser otherwise. Neither is reliable standing
-recovery. Classic retains its passive response to a fall.
-Try `?play=arena&matchup=workshop-fighter,workshop-rogue&control=point-alternate,classic&held=empty&recovery=30`.
+current controller or recovery attempt. Point control rises with the reference pose sequence,
+then verifies quiet foot support before resuming walking or attacks. Its attacks prepare, strike,
+and return to the measured starting point. [Development checks](docs/reference/recovery-cycle.md)
+cover Warrior with empty hands and a club; recovery takes about 25-29 seconds in passing cases,
+and one tested club fall direction still fails. Classic retains its passive response to a fall.
+Try `?play=arena&matchup=workshop-fighter,workshop-rogue&control=point-alternate,classic&held=empty&recovery=60`.
 These choices travel in links and replays (`control`, `held`, `recovery`).
 
 The circular stone arena is enclosed by a low parapet, with eight braziers around its edge. Each

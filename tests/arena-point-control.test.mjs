@@ -74,7 +74,7 @@ test("a club point trajectory survives a fork in mid-swing with the whole bout s
   } finally { stand.dispose(); twin.dispose(); }
 });
 
-test("a real fall hands control to support acquisition, keeps sensing the opponent, and replays its countdown", async () => {
+test("a real fall hands control to recovery, keeps sensing the opponent, and replays its countdown", async () => {
   const stand = await bout({ gap: 8, capSeconds: 60, recoverySeconds: 4 });
   try {
     const { world, duel } = stand, fighter = duel.duelists.left;
@@ -85,7 +85,7 @@ test("a real fall hands control to support acquisition, keeps sensing the oppone
     while (!fighter.body.down && duel.steps < 600) world.step();
     assert.ok(fighter.body.down, "the physical shove caused a fall");
     world.step(2);
-    assert.match(fighter.body.has, /support entry/);
+    assert.equal(fighter.body.has, "recovery: rise");
     assert.equal(duel.verdict, null);
     assert.equal(duel.eliminated("left"), false);
     assert.equal(duel.duelists.right.body.view.senses.others.find(o => o.id === "left").out, false);

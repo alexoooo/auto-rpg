@@ -70,6 +70,7 @@ function doing(moment: BlowMoment): string {
   switch (moment.phase) {
     case "chamber": return "Chambering";
     case "swing": return "Swinging";
+    case "return": return "Returning to guard";
     case "approach": case "place": case "settle": case null:
       if (!moment.thrown) return "Standing in guard";
       return moment.since > WINDOW && moment.nearest !== null ? `Missed: it passed ${(100 * moment.nearest).toFixed(1)} cm from the target` : "Swinging";
