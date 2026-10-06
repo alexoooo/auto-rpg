@@ -221,3 +221,42 @@ without falls; the 0.70 m cells are less reliable. The 12 m/s requests mostly mi
 a negative-closing contact and fail preparation/return. They are rejected as stronger
 primitives. The subsequent mirrored Arena matrix also fails to favour 8 m/s alone and
 finds falls when combined with extra spacing; the retained speed stays 5 m/s.
+
+## Elbow extension
+
+`ATTACK_PATH.elbowExtension` defaults to zero, preserving the retained guard-biased point
+executor. An experimental fraction in [0,1] eases the active elbow preference from its
+current value toward extension during the swing and back toward guard during return.
+The preference is clamped to the body's stated joint range, composes with trunk rotation
+and is supplied to ordinary IK and muscles. It sets no pose, velocity or joint strength.
+The interpolation uses the cubic endpoint blend and the existing segment duration.
+Its current and initial fractions live in shared skill state for takeover and replay.
+
+`research/combat-strikes.mjs` optionally reads `measureMass`: contact mass along the actual
+solver contact normal at the post-step pose, with the same free-joint, floating-body
+convention as the game's blow rule. Contact velocity remains the pre-contact knuckle
+velocity along the named target axis; contact mass alone establishes neither damage
+nor competitive effectiveness. Stand probes and real Arena trials gate adoption.
+
+The twenty production-executor cells are retained in `combat-elbow-probes.json` with source
+fingerprint: Node unpinned Warrior stand, rapier-coordinate at 120 Hz, fists, balance 0.
+Each cell lasts eight simulated seconds, excludes the two-second startup, and targets
+a fixed front face at +/-0.10 m across and 0.60 m ahead. The mean contact mass uses the
+post-step solver point/normal; it is not an impulse or work measurement.
+
+| Fraction | Height (m) | Right/left contacts | Right/left verified returns | Right/left mean contact mass (kg) |
+|---|---|---|---|---|
+| 0 | 1.23 | 7/8 | 7/7 | 0.234/0.222 |
+| 0.5 | 1.23 | 8/8 | 7/8 | 0.253/0.242 |
+| 1 | 1.23 | 8/8 | 8/8 | 0.248/0.243 |
+| 0 | 1.63 | 7/6 | 7/7 | 0.246/0.234 |
+| 0.5 | 1.63 | 7/8 | 7/8 | 0.367/0.249 |
+| 1 | 1.63 | 8/8 | 8/8 | 0.351/0.335 |
+
+At full preference the two head-height fists each meet about 43% more contact mass than
+the retained preference; their pre-contact axial speeds stay above 5.0 m/s. Body-height
+gains are smaller. Every cell has zero failed returns, falls and assistance. Full-preference
+straight and torso-driven cross misses at both heights return six or seven times on each
+hand, again without failed returns or falls. The cross composes elbow and trunk objectives.
+These cells qualify an optional primitive for Arena testing; they do not establish wound
+finishes, guard penetration or a stronger competitive controller.

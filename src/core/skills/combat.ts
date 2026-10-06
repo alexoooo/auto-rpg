@@ -5,7 +5,7 @@ import type { Hand, HandGoal, Pose } from "../control/motor.ts";
 import { hypot } from "../math/real.ts";
 import type { CombatAction } from "../mind/intent.ts";
 import type { Vec3 } from "../spec/quantity.ts";
-import { attackPath, ATTACK_PATH, type AttackTuning } from "./attack-path.ts";
+import { attackPath, ATTACK_PATH, validAttackTuning, type AttackTuning } from "./attack-path.ts";
 import { GUARD, guardSkill } from "./guard.ts";
 import { supportFold } from "./support-fold.ts";
 import { locomotion, STANCE_LOWER } from "./locomotion.ts";
@@ -16,7 +16,10 @@ import { aimOf } from "./strikes.ts";
 /** Shared strike executor: measured hand trajectories and supported locomotion with independent tactics. */
 export function combatSkills(body: Body, tuning: AttackTuning = ATTACK_PATH, tactics: object | null = null,
   engagement?: { readonly phase: string }, lowCombat = false): Skills {
+  if (!validAttackTuning(tuning)) throw new Error("combat path settings need finite nonnegative values, positive durations and elbowExtension in [0,1]");
   const spec = body.built.spec, legs = locomotion(body.envelope), guard = guardSkill(spec);
+  const elbowRange = (hand: Hand) => spec.joints.find(j => j.name === `elbow.${hand}`)?.dofs.find(d => d.positive === "flexion");
+  const elbows = { left: elbowRange("left"), right: elbowRange("right") };
   const fold = lowCombat ? supportFold(body) : null;
   const all = [legs, guard, ...(fold ? [fold] : [])];
   const aims = { left: aimOf(spec, "left"), right: aimOf(spec, "right") };
@@ -24,11 +27,11 @@ export function combatSkills(body: Body, tuning: AttackTuning = ATTACK_PATH, tac
     legs: legs.state, ...(fold ? { support: fold.state } : {}), lower: STANCE_LOWER, tactics, hand: null as Hand | null, phase: null as "chamber" | "swing" | "return" | null,
     action: null as CombatAction | null, home: null as Vec3 | null, chamber: null as Vec3 | null,
     velocity: [0, 0, 0] as Vec3, previous: { left: null as Vec3 | null, right: null as Vec3 | null },
-    time: 0, ready: 0, sequence: 0, touching: false, thrown: { left: 0, right: 0 },
+    elbow: 0, initialElbow: 0, time: 0, ready: 0, sequence: 0, touching: false, thrown: { left: 0, right: 0 },
     outcomes: { returned: { left: 0, right: 0 }, failed: 0, interrupted: 0 }, cooldown: 0 };
   const target = new Vector3(), direction = new Vector3(), inverse = new Quaternion();
   const transition = (phase: typeof state.phase, velocity: Vec3) => {
-    state.phase = phase; state.time = 0; state.ready = 0; state.sequence++; state.velocity = velocity;
+    state.initialElbow = state.elbow; state.phase = phase; state.time = 0; state.ready = 0; state.sequence++; state.velocity = velocity;
   };
   const report: StrikeReport = {
     get hand() { return state.hand; }, get phase() { return state.phase; }, get blow() { return state.hand ? "placed" : null; },
@@ -43,7 +46,7 @@ export function combatSkills(body: Body, tuning: AttackTuning = ATTACK_PATH, tac
     if (state.hand) state.outcomes.interrupted++;
     state.hand = null; state.phase = null; state.action = null; state.home = null; state.chamber = null;
     state.previous.left = null; state.previous.right = null; state.cooldown = 0; state.touching = false;
-    state.time = 0; state.ready = 0; state.velocity = [0, 0, 0];
+    state.elbow = 0; state.initialElbow = 0; state.time = 0; state.ready = 0; state.velocity = [0, 0, 0];
     for (const skill of all) skill.resume(view);
   };
   return { state, report: skillReport, resume, command(view, intent, dt) {
@@ -95,7 +98,7 @@ export function combatSkills(body: Body, tuning: AttackTuning = ATTACK_PATH, tac
           state.ready = distance(home) <= tuning.near && speed <= tuning.slow && !view.down ? state.ready + dt : 0;
           if (state.ready >= tuning.hold || state.time >= tuning.returnLimit) {
             if (state.ready >= tuning.hold) state.outcomes.returned[hand]++; else state.outcomes.failed++;
-            state.hand = null; state.phase = null; state.action = null; state.cooldown = 0;
+            state.hand = null; state.phase = null; state.action = null; state.cooldown = 0; state.elbow = 0; state.initialElbow = 0;
           }
           break;
         case null: break;
@@ -108,10 +111,16 @@ export function combatSkills(body: Body, tuning: AttackTuning = ATTACK_PATH, tac
         goal = { places: [{ point: aims[hand], position: place }], seconds, follows: true,
           initialVelocity: state.velocity, sequence: state.sequence,
           ...(state.phase === "swing" ? { terminalVelocity: path.contactVelocity, ...(path.curve ? { curve: path.curve } : {}) } : {}) };
+        if (tuning.elbowExtension) {
+          const u = Math.min(1, state.time / seconds), amount = state.phase === "swing" ? tuning.elbowExtension : 0;
+          state.elbow = state.initialElbow + (amount - state.initialElbow) * u * u * (3 - 2 * u);
+          const dof = elbows[hand], name = `elbow.${hand} flexion`, preferred = (1 - state.elbow) * GUARD[name]!;
+          if (dof) posture = { ...posture, [name]: Math.max(dof.min.value, Math.min(dof.max.value, preferred)) };
+        }
         const rotation = state.phase === "chamber" ? -path.torso : state.phase === "swing" ? path.torso : 0;
         if (rotation) {
           const dof = spec.joints.find(j => j.name === "thoracic")?.dofs.find(d => d.positive === "rotation right");
-          posture = { ...GUARD, "thoracic rotation right": dof ? Math.max(dof.min.value, Math.min(dof.max.value, rotation)) : 0 };
+          posture = { ...posture, "thoracic rotation right": dof ? Math.max(dof.min.value, Math.min(dof.max.value, rotation)) : 0 };
         }
       }
     }

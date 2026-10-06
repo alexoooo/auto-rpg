@@ -9,9 +9,18 @@ export const ATTACK_PATH = Object.freeze({ chamberSeconds: .22, swingSeconds: .1
   hookSeconds: .18, curve: .05, hookAcross: .15,
   // Vertical chamber measurement: `docs/reference/combat-strikes.md#overhand-settings`.
   overhandWindup: .35,
+  // Optional elbow preference: `docs/reference/combat-strikes.md#elbow-extension`.
+  elbowExtension: 0,
   prepareLimit: .8, returnLimit: 1.2, near: .05, slow: .6, hold: .05, startup: 2 });
 
 export type AttackTuning = { readonly [K in keyof typeof ATTACK_PATH]: number };
+
+/** The shared executor admits finite path settings, positive durations and a bounded elbow preference. */
+export function validAttackTuning(tuning: AttackTuning): boolean {
+  return Object.values(tuning).every(v => Number.isFinite(v) && v >= 0)
+    && [tuning.chamberSeconds, tuning.swingSeconds, tuning.hookSeconds, tuning.returnSeconds, tuning.prepareLimit, tuning.returnLimit, tuning.hold].every(v => v > 0)
+    && tuning.elbowExtension <= 1;
+}
 
 /** A chamber and contact velocity from the actual guard and observed target, in the body frame. */
 export function attackPath(home: Vec3, target: Vec3, hand: Hand, family: CombatAction["family"], tuning: AttackTuning = ATTACK_PATH, direction?: Vec3) {

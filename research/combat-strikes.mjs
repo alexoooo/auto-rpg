@@ -1,5 +1,6 @@
 import { pathToFileURL } from 'node:url';
 import { Vector3 } from '@babylonjs/core/Maths/math.vector.js';
+import { contactMass } from '../src/core/build/contact-mass.ts';
 import { coreStand } from '../tests/harness/core-stand.mjs';
 import { modelSpec } from '../src/core/human/spec.ts';
 import { createBody, SERVO_SECONDS } from '../src/core/body.ts';
@@ -15,13 +16,14 @@ import { intoFrameToRef } from '../src/core/control/kinematics.ts';
 
 /** Real, unpinned Warrior primitive: the policy supplies only a hand, target and family. */
 export async function combatStrike({ hand = 'right', family = 'straight', mode = 'miss', tuning = {}, seconds = 12,
-  ahead = .65, across = .15, up = 0, support = null, surface = 'front', direction } = {}) {
+  ahead = .65, across = .15, up = 0, support = null, surface = 'front', direction, measureMass = false } = {}) {
  const s = await coreStand(modelSpec('workshop-fighter'), { engine: DEFAULT_ENGINE });
  const body = createBody(s.built, s.world, { servoSeconds: SERVO_SECONDS, handFeedback: true });
  const skills = combatSkills(body, {...ATTACK_PATH, ...tuning}), target = [across*(hand==='right'?1:-1), 1.63+up, ahead];
  if(!['front','top'].includes(surface))throw new Error('unknown stand surface');
  const obstacle = mode==='hit' ? surface==='top' ? s.world.physics.addFixedBox([target[0],target[1]-.04,target[2]],[.2,.08,.2])
   : s.world.physics.addFixedBox([target[0],target[1],target[2]+.04], [.2,.2,.08]) : null;
+ const masses = measureMass ? contactMass(s.built) : null;
  const velocity = new Vector3(), spin = new Vector3(), point = new Vector3(), local = new Vector3();
  const limb = s.built.segments.get(`hand.${hand}`), knuckles = rigidPoints(s.built.spec,limb.spec).get('knuckles').value;
  let witness;
@@ -54,7 +56,11 @@ export async function combatStrike({ hand = 'right', family = 'straight', mode =
    }
    if(phase==='swing'&&!touched){ peak=Math.max(peak,preClosing); }
    const contact=obstacle&&s.world.physics.contactsOf(s.built.segments.get(`hand.${hand}`).body).find(c=>c.fixed===obstacle.id&&c.impulse>0);
-   if(contact&&phase==='swing'&&!touched) { contacts.push({time:s.world.time,closing:preClosing,speed:preSpeed,velocity:witness.velocity,impulse:contact.impulse}); touched=true; }
+   if(contact&&phase==='swing'&&!touched) {
+    masses?.update();
+    contacts.push({time:s.world.time,closing:preClosing,speed:preSpeed,velocity:witness.velocity,impulse:contact.impulse,
+     ...(masses?{mass:masses.along(limb,contact.point,contact.normal)}:{})}); touched=true;
+   }
    if(phase==='swing'&&!touched) {
     errors.push(Vector3.Distance(point,new Vector3(...target)));
     paths.push(witness.pathError); saturation.push(witness.saturated/witness.channels);
