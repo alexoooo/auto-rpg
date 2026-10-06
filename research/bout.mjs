@@ -1,7 +1,7 @@
 // One arena bout in a world of its own (Node, core world, Rapier, 120 Hz), and its row.
 import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { Scene } from "@babylonjs/core/scene.js";
-import { addArenaSolids } from "../src/arena/room.ts";
+import { addArenaSolids, arenaSolids } from "../src/arena/room.ts";
 import { Duel, SIDES } from "../src/arena/duel.ts";
 import { isClash, woundedIn } from "../src/core/rules/blows.ts";
 import { createWorld } from "../src/core/world.ts";
@@ -14,8 +14,9 @@ export const BOUT_HARNESS = "Node, core world (src/core/world.ts), Rapier, 120 H
 export async function buildBout(recipe, { hz = 120, physicsEngine, actuation } = {}) {
   const engine = new NullEngine(), scene = new Scene(engine);
   const world = createWorld(scene, physicsEngine ?? await freshEngine(), { hz, actuation });
-  addArenaSolids(world.physics);
-  const duel = new Duel(world, recipe);
+  const solids = arenaSolids();
+  addArenaSolids(world.physics, solids);
+  const duel = new Duel(world, recipe, { solids });
   return { world, duel, dispose() { duel.dispose(); world.dispose(); scene.dispose(); engine.dispose(); } };
 }
 

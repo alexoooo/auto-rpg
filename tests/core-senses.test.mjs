@@ -81,9 +81,11 @@ test("a delay shows the others that many steps late", async () => {
     const history = [standing(second)];
     const step = (n) => { for (let i = 0; i < n; i++) { stand.step(1); history.push(standing(second)); } };
     step(5);
+    assert.equal(a().others[0].time,0);
     assert.deepEqual(sensed(a().others[0]), history[0], "inside the delay it is shown as it was added");
     step(35);
     // The fortieth step read the world 39 steps in, and showed it 12 late.
+    assert.equal(a().others[0].time,27/120);
     assert.deepEqual(sensed(a().others[0]), history[27]);
     assert.notDeepEqual(history[27], history[28]);
     assert.notDeepEqual(history[27], history[26]);

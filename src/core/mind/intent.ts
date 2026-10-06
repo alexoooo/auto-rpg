@@ -27,6 +27,8 @@ export interface Intent {
 export interface Cover {
   readonly threat: Vec3;
   readonly guarded: Vec3;
+  /** Optional observed arrival time limits the guard's shared tracking duration. */
+  readonly seconds?: number;
 }
 
 /**

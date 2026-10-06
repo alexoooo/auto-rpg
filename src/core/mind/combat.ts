@@ -10,12 +10,13 @@ import { fighterTactics, STRAFE } from "./fighter.ts";
 import { GUARD_ACTION, type CombatAction, type Intent } from "./intent.ts";
 import { STAND_ORDERS, type Orders } from "./orders.ts";
 import type { Sight, Tactics } from "./tactics.ts";
+import { clearStep } from "./clear-step.ts";
 import { openingSelector } from "./openings.ts";
-import { THREAT, threatOf } from "./threat.ts";
+import { guardCanReach, incomingThreat, THREAT, threatOf } from "./threat.ts";
 
 /** Search cells for braking, chamber room and escape: `docs/reference/combat-strikes.md#tactical-settings`. */
 const COMBAT = Object.freeze({ band: .08, reserve: .08, braking: .5, prediction: .12, pressure: .6,
-  escape: .6, blockedAttempts: 3, lateral: .2, settle: .08, readySpeed: .35 });
+  escape: .6, blockedAttempts: 3, boundaryMargin: .08, counter: .2, lateral: .2, settle: .08, readySpeed: .35 });
 
 /** Tactical selection uses detached sensed bodies; the common skill owns physical execution. */
 export function combatTactics(spec: BodySpec, name: string, orders: (sight: Sight) => Orders | null, config: ArenaFighterConfig): Tactics {
@@ -31,11 +32,36 @@ export function combatTactics(spec: BodySpec, name: string, orders: (sight: Sigh
   const ordered = fighterTactics(name, sight => orders(sight) ?? STAND_ORDERS);
   const state = { phase: "guard", foe: null as string | null, action: null as CombatAction | null,
     pressure: 0, escape: 0, angle: 1, cycle: 0, ready: 0, surface: "head",
-    blockedSurface: null as string | null, blocks: 0, responded: false, ordered: ordered.state! };
+    blockedSurface: null as string | null, blocks: 0, responded: false, previousHead: null as { time: number; at: Vec3 } | null, counter: 0,
+    threat: false, defense: null as "guard" | "evade" | null, ordered: ordered.state! };
+  const defenseMode = config.defenseMode ?? "reference";
+  const predictive = (() => {
+    switch (defenseMode) {
+      case "reference": return false;
+      case "predictive": return true;
+      default: { const never: never = defenseMode; throw new Error(`unknown defense ${never}`); }
+    }
+  })();
+  const bodyRadius = Math.max(...spec.segments.filter(s => /Trunk$/.test(s.name)).map(s =>
+    s.shape.kind === "capsule" || s.shape.kind === "sphere" ? s.shape.radius.value : 0)) + COMBAT.boundaryMargin;
+  const moveClear = (view: Sight["view"], heading: number, move: readonly [number, number] | null) => {
+    if (!move || !view.senses.solids) return move;
+    const c = view.stance.centre, from: Vec3 = [c.x, c.y, c.z], angle = heading;
+    const candidates = [move, [move[0], -move[1]], [0, Math.abs(move[0]) + Math.abs(move[1])], [0, -Math.abs(move[0]) - Math.abs(move[1])]] as const;
+    for (const candidate of candidates) {
+      const dx = candidate[0] * sin(angle) + candidate[1] * cos(angle), dz = candidate[0] * cos(angle) - candidate[1] * sin(angle);
+      if (clearStep(from, [c.x + dx * COMBAT.escape, c.y, c.z + dz * COMBAT.escape], bodyRadius, view.senses.solids)) return candidate;
+    }
+    return null;
+  };
   const guard = { left: GUARD_ACTION, right: GUARD_ACTION };
   return { name, state, engagement: state, decide(sight, dt): Intent {
     const { view, report, envelope } = sight, strike = report.strike;
-    if (view.resumed) { state.action = null; state.escape = 0; state.pressure = 0; state.ready = 0; state.responded = false; state.blockedSurface = null; state.blocks = 0; }
+    const previous = state.previousHead, head: Vec3 = [view.head.x, view.head.y, view.head.z];
+    const ownVelocity: Vec3 = previous && !view.resumed && view.time > previous.time
+      ? head.map((v, k) => (v - previous.at[k]!) / (view.time - previous.time)) as unknown as Vec3 : [0, 0, 0];
+    state.previousHead = { time: view.time, at: head }; state.counter = Math.max(0, state.counter - dt); state.defense = null;
+    if (view.resumed) { state.action = null; state.escape = 0; state.pressure = 0; state.ready = 0; state.responded = false; state.blockedSurface = null; state.blocks = 0; state.threat = false; state.counter = 0; }
     const cycles = strike.thrown.left + strike.thrown.right + (strike.pointCycle?.failed ?? 0);
     if (!strike.hand && cycles !== state.cycle) { state.cycle = cycles; state.action = null; state.ready = 0; state.responded = false; }
     let hand: "left" | "right";
@@ -87,7 +113,25 @@ export function combatTactics(spec: BodySpec, name: string, orders: (sight: Sigh
       state.escape = COMBAT.escape; state.angle *= -1; state.pressure = 0; state.ready = 0;
     }
     let hands = guard;
-    if (config.defense !== false) {
+    if (predictive && config.defense !== false) {
+      const threat = incomingThreat(view, ownVelocity);
+      if (!threat && state.threat) state.counter = COMBAT.counter;
+      state.threat = !!threat;
+      if (threat) {
+        const available = (["left", "right"] as const).filter(h => h !== strike.hand && guardCanReach(view, spec, h, threat));
+        const defending = available.reduce<"left" | "right" | null>((near, h) => !near || hypot(view.fists[h].position.x - threat.cover.threat[0],
+          view.fists[h].position.y - threat.cover.threat[1], view.fists[h].position.z - threat.cover.threat[2]) < hypot(view.fists[near].position.x - threat.cover.threat[0],
+          view.fists[near].position.y - threat.cover.threat[1], view.fists[near].position.z - threat.cover.threat[2]) ? h : near, null);
+        if (defending) { hands = { ...guard, [defending]: { kind: "guard", cover: threat.cover } }; state.defense = "guard"; }
+        else state.defense = "evade";
+        const moving = state.defense === "evade" ? moveClear(view, report.heading, [-maximum * STRAFE.share, state.angle * maximum * STRAFE.share]) : null;
+        if (strike.phase !== "swing" && strike.phase !== "return") {
+          state.action = null; state.ready = 0; state.phase = state.defense === "guard" ? "defend" : "evade";
+          return { move: moving, face, hands, combat: null };
+        }
+      }
+    }
+    if (!predictive && config.defense !== false) {
       const cover = threatOf(view, THREAT, { out: .3, horizon: .3 });
       if (cover) hands = { left: { kind: "guard", cover }, right: { kind: "guard", cover } };
     }
@@ -95,23 +139,24 @@ export function combatTactics(spec: BodySpec, name: string, orders: (sight: Sigh
       state.phase = strike.phase ?? "return";
       // Committed paths retain the observed aim; preparation and return keep locomotion available.
       const speed = anticipated < -COMBAT.band ? -maximum * STRAFE.share : 0;
-      return { move: strike.phase === "swing" ? null : [speed * cos(turn), speed * sin(turn)], face,
+      return { move: strike.phase === "swing" ? null : moveClear(view, report.heading, [speed * cos(turn), speed * sin(turn)]), face,
         hands, combat: state.action };
     }
     if (state.escape > 0) {
       state.escape -= dt; state.action = null; state.phase = "escape";
       const forward = -maximum * STRAFE.share, lateral = maximum * STRAFE.share * state.angle;
-      return { move: [forward * cos(turn) - lateral * sin(turn), forward * sin(turn) + lateral * cos(turn)], face, hands, combat: null };
+      return { move: moveClear(view, report.heading, [forward * cos(turn) - lateral * sin(turn), forward * sin(turn) + lateral * cos(turn)]), face, hands, combat: null };
     }
     if (Math.abs(delta) <= COMBAT.band && aligned && view.stance.velocity.length() <= COMBAT.readySpeed) state.ready += dt;
     else state.ready = 0;
-    if (state.ready >= COMBAT.settle && view.time >= ATTACK_PATH.startup) {
+    if ((state.ready >= COMBAT.settle || (state.counter > 0 && Math.abs(delta) <= COMBAT.band && aligned)) && view.time >= ATTACK_PATH.startup) {
+      state.counter = 0;
       state.surface = opening?.segment ?? "head"; state.responded = false;
       state.phase = "attack"; state.action = { hand, target, family: cycles % 2 === 0 ? "straight" : "cross" };
       return { move: null, face, hands, combat: state.action };
     }
     const speed = Math.max(-maximum * STRAFE.share, Math.min(maximum, anticipated / COMBAT.braking));
     state.phase = Math.abs(turn) > STRAFE.turned ? "align" : delta < -COMBAT.band ? "escape" : "approach";
-    return { move: [speed * cos(turn), speed * sin(turn)], face, hands, combat: null };
+    return { move: moveClear(view, report.heading, [speed * cos(turn), speed * sin(turn)]), face, hands, combat: null };
   } };
 }

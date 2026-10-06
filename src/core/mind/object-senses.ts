@@ -4,6 +4,30 @@ import type { Vec3 } from "../spec/quantity.ts";
 import { deepFreeze } from "../state.ts";
 import type { World } from "../world.ts";
 
+/** Fixed physical geometry, detached from collider handles and decorative meshes. */
+export type SolidSense =
+  | { readonly name: string; readonly kind: "box"; readonly centre: Vec3; readonly size: Vec3; readonly turn?: number }
+  | { readonly name: string; readonly kind: "hull"; readonly centre: Vec3; readonly points: readonly Vec3[] };
+
+/** Trusted grants are copied and frozen; changing the caller's geometry changes no policy input. */
+export function solidSenses(definitions: readonly SolidSense[]): readonly SolidSense[] {
+  const ids = new Set<string>(), tuple = (v: Vec3) => Array.isArray(v) && v.length === 3 && v.every(Number.isFinite);
+  for (const solid of definitions) {
+    if (!solid.name || ids.has(solid.name) || !tuple(solid.centre)) throw new Error("invalid sensed solid identity or position");
+    ids.add(solid.name);
+    switch (solid.kind) {
+      case "box":
+        if (!tuple(solid.size) || solid.size.some(v => v <= 0) || !Number.isFinite(solid.turn ?? 0)) throw new Error("invalid sensed box");
+        break;
+      case "hull":
+        if (solid.points.length < 4 || solid.points.some(v => !tuple(v))) throw new Error("invalid sensed hull");
+        break;
+      default: { const never: never = solid; throw new Error(`unknown sensed solid ${never}`); }
+    }
+  }
+  return deepFreeze(structuredClone(definitions));
+}
+
 /** Detached external rigid-object measurements; named points are in the object's local frame. */
 export interface ObjectSense {
   readonly id: string;

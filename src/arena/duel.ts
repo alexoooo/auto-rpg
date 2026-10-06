@@ -1,3 +1,4 @@
+import { solidSenses, type SolidSense } from "../core/mind/object-senses.ts";
 import type { ContactTarget } from "../core/control/hand-feedback.ts";
 import type { SegmentBody } from "../core/engine/engine.ts";
 import type { PhysicalBody } from "../core/physical-body.ts";
@@ -190,6 +191,8 @@ interface SideState {
 
 /** What a page hears of a bout. */
 interface DuelHooks {
+  /** Collision geometry granted by the same builder that installs the physical arena. */
+  readonly solids?: readonly SolidSense[];
   /** Hears each blow as it lands. */
   readonly onBlow?: (blow: LandedBlow) => void;
   /** Called with each side as its body is built, before it first steps: the page dresses it. */
@@ -230,6 +233,7 @@ export class Duel {
         this.order(side, orders);
       }
     });
+    const solids = hooks.solids ? solidSenses(hooks.solids) : undefined;
     const contactLabels = new Map<SegmentBody, ContactTarget>();
     const duelists = {} as Record<Side, Duelist>;
     for (const side of SIDES) {
@@ -240,7 +244,9 @@ export class Duel {
       for (const [segment, part] of built.segments) contactLabels.set(part.body, Object.freeze({ kind: "body", body: side, segment }));
       const pool = createPool(spec, this.rules);
       // A downed side remains in the fight while its recovery allowance lasts.
-      const senses = this.senses.add({ id: side, side, built, out: () => this.verdict !== null || this.eliminated(side) });
+      const sensedBody = this.senses.add({ id: side, side, built, out: () => this.verdict !== null || this.eliminated(side) });
+      const granted = solids ? Object.defineProperties({ solids }, Object.getOwnPropertyDescriptors(sensedBody())) as ReturnType<typeof sensedBody> : null;
+      const senses = granted ? () => granted : sensedBody;
       const assist = balanceCeiling(recipe.balance?.[side] ?? spec.attributes.balance.value, recipe.balancePercent ?? balancePercent(this.rules));
       const minded = createMind(built, world, recipe.minds?.[side] ?? FIGHTER, {
         name: `arena ${side}`, senses, assist,

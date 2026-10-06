@@ -77,7 +77,7 @@ export function openingSelector(spec: BodySpec) {
         const lever = sub(front, [sensed.centre.x, sensed.centre.y, sensed.centre.z]);
         const spin: Vec3 = [sensed.spin.y * lever[2] - sensed.spin.z * lever[1], sensed.spin.z * lever[0] - sensed.spin.x * lever[2],
           sensed.spin.x * lever[1] - sensed.spin.y * lever[0]];
-        const target = add(front, scale(add([sensed.velocity.x, sensed.velocity.y, sensed.velocity.z], spin), OPENINGS.prediction));
+        const target = add(front, scale(add([sensed.velocity.x, sensed.velocity.y, sensed.velocity.z], spin), OPENINGS.prediction + Math.max(0, view.time - (foe.time ?? view.time))));
         const blocked = obstacles.some(o => segmentDistanceSquared(start, target, o.a, o.b) <= o.radius * o.radius);
         const reach = placedReach(spec, hand, target[1] - view.head.y);
         const flat = sub(target, [view.head.x, target[1], view.head.z]);

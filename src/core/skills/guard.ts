@@ -93,8 +93,9 @@ export function guardSkill(spec: BodySpec, covering: Covering = GUARD_COVER): Gu
     const from: Vec3 = [guarded.x, guarded.y, guarded.z], way = sub([threat.x, threat.y, threat.z], from), far = length(way);
     if (far < NO_LINE) return null;
     const toward = scale(way, 1 / far), middle = add(from, scale(toward, Math.min(covering.out, far)));
+    const seconds = cover.seconds === undefined ? covering.seconds : Math.min(covering.seconds, cover.seconds);
     const { points, span } = covers[hand];
-    if (points.length === 1) return { places: [{ point: points[0]!, position: middle }], seconds: covering.seconds, follows: true };
+    if (points.length === 1) return { places: [{ point: points[0]!, position: middle }], seconds, follows: true };
     // The item's line as it lies, less what of it runs along the threat's line.
     const now = view.points[hand], a = now[points[0]!]!, b = now[points[1]!]!;
     const square = (line: Vec3): Vec3 => sub(line, scale(toward, dot(line, toward)));
@@ -104,7 +105,7 @@ export function guardSkill(spec: BodySpec, covering: Covering = GUARD_COVER): Gu
     const half = scale(across, span / 2 / length(across));
     return {
       places: [{ point: points[0]!, position: sub(middle, half) }, { point: points[1]!, position: add(middle, half) }],
-      seconds: covering.seconds, follows: true,
+      seconds, follows: true,
     };
   };
   return {

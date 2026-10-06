@@ -9,6 +9,8 @@ import { frameOf, type BodySpec } from "../spec/body.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { dot, sub } from "../spec/vec.ts";
 import type { Cover } from "./intent.ts";
+import { distance } from "../spec/vec.ts";
+import { placedReach } from "../skills/strike.ts";
 
 /**
  * **What counts as a threat**: a foe's striking point within `within` m of the head and closing
@@ -82,4 +84,48 @@ export function threatOf(view: BodyView, counts: Threat = THREAT, prediction?: {
     }
   }
   return threat && { threat, guarded: [head.x, head.y, head.z] };
+}
+
+/** Predictive defense search cells: `docs/reference/combat-defense.md#settings`. */
+const DEFENSE = Object.freeze({ out: .3, horizon: .3, speed: 3, reserve: .08, minimum: .05 });
+
+/** Detached constant-motion threat, corrected for sample age and the guarded point's own motion. */
+export function incomingThreat(view: BodyView, ownVelocity: Vec3, counts: Threat = THREAT) {
+  let best: { cover: Cover; seconds: number; closing: number; foe: string; hand: Hand } | null = null;
+  for (const foe of view.senses.others) {
+    if (foe.side === view.senses.side || foe.out) continue;
+    let striking = STRIKING.get(foe.spec);
+    if (!striking) STRIKING.set(foe.spec, striking = strikingPoints(foe.spec));
+    for (const hand of HANDS) {
+      const local = striking[hand], sensed = foe.segments.get(`hand.${hand}`);
+      if (!local || !sensed) continue;
+      point.set(...local).applyRotationQuaternionToRef(sensed.rotation, point).addInPlace(sensed.position);
+      point.subtractToRef(sensed.centre, lever); Vector3.CrossToRef(sensed.spin, lever, velocity).addInPlace(sensed.velocity);
+      const age = Math.max(0, view.time - (foe.time ?? view.time));
+      const position: Vec3 = [point.x + age * velocity.x, point.y + age * velocity.y, point.z + age * velocity.z];
+      const relative: Vec3 = [velocity.x - ownVelocity[0], velocity.y - ownVelocity[1], velocity.z - ownVelocity[2]];
+      const dx = position[0] - view.head.x, dy = position[1] - view.head.y, dz = position[2] - view.head.z, far = hypot(dx, dy, dz);
+      if (far === 0 || far > counts.within) continue;
+      const closing = -(dx * relative[0] + dy * relative[1] + dz * relative[2]) / far;
+      if (closing <= counts.closing) continue;
+      const speedSquared = relative[0] * relative[0] + relative[1] * relative[1] + relative[2] * relative[2];
+      const inward = dx * relative[0] + dy * relative[1] + dz * relative[2], offset = far * far - DEFENSE.out * DEFENSE.out;
+      const discriminant = inward * inward - speedSquared * offset;
+      if (discriminant < 0) continue;
+      const seconds = offset <= 0 ? 0 : offset / (-inward + Math.sqrt(discriminant));
+      if (seconds > DEFENSE.horizon || (best && seconds >= best.seconds)) continue;
+      const threat: Vec3 = [position[0] + seconds * velocity.x, position[1] + seconds * velocity.y, position[2] + seconds * velocity.z];
+      const guarded: Vec3 = [view.head.x + seconds * ownVelocity[0], view.head.y + seconds * ownVelocity[1], view.head.z + seconds * ownVelocity[2]];
+
+      best = { cover: { threat, guarded, seconds: Math.max(DEFENSE.minimum, seconds) }, seconds, closing, foe: foe.id, hand };
+    }
+  }
+  return best;
+}
+
+/** Necessary geometric and travel-time checks; physics still determines whether the actual guard holds. */
+export function guardCanReach(view: BodyView, spec: BodySpec, hand: Hand, threat: NonNullable<ReturnType<typeof incomingThreat>>): boolean {
+  const target = threat.cover.threat, at = view.fists[hand].position;
+  return distance([at.x, at.y, at.z], target) <= DEFENSE.speed * Math.max(DEFENSE.minimum, threat.seconds)
+    && hypot(target[0] - view.head.x, target[2] - view.head.z) <= placedReach(spec, hand, target[1] - view.head.y) - DEFENSE.reserve;
 }

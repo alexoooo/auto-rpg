@@ -56,7 +56,7 @@ autonomous target damage or competence against an attacking opponent.
 
 `COMBAT` contains these tactical search cells: range band and arm reserve 0.08 m, braking horizon 0.5 s,
 target prediction 0.12 s, pressure threshold and escape duration 0.6 s, fallback/lateral
-pace 0.2 m/s, three observed blocks before a lateral escape, launch settle hold 0.08 s and COM launch speed below 0.35 m/s. They permit
+pace 0.2 m/s, three observed blocks before a lateral escape, boundary margin 0.08 m, counter window 0.2 s, launch settle hold 0.08 s and COM launch speed below 0.35 m/s. They permit
 experiments through immutable config overrides; competitive selection remains pending.
 
 ## Autonomous prototype

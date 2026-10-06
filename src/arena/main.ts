@@ -4,6 +4,7 @@ import "@babylonjs/core/Culling/ray.js";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { appearanceFor, appearancesFor, type Appearance } from "../render/appearance.ts";
 import { showHeroLineup } from "../render/character-preview.ts";
+import { arenaSolids } from "./room.ts";
 import { buildArena } from "./scene.ts";
 import { MENU_HREF } from "../app-route.ts";
 import { need } from "../dom.ts";
@@ -258,6 +259,7 @@ export async function bootArena(): Promise<void> {
         left: matchup.left, right: matchup.right, recoverySeconds,
         ...(gap !== undefined ? { gap } : {}), ...(capSeconds !== undefined ? { capSeconds } : {}), ...(balance ? { balance } : {}), ...(held ? { held } : {}), ...(minds ? { minds } : {}),
       }, {
+        solids: arenaSolids(),
         onBuilt: (duelist, built) => {
           const skin = dress.get(duelist.side)!(built, { clothing: { boots: true, armour: true } });
           const shapes = drawBody(built, scene, Color3.FromHexString(duelist.side === "left" ? "#6f8bb5" : "#d0705e"));

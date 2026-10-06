@@ -70,6 +70,8 @@ export interface ArenaFighterConfig {
   readonly kind: "arena-fighter";
   readonly hand: "left" | "right" | "alternate";
   readonly defense?: boolean;
+  /** Reference cover or measured relative-motion prediction; omitted retains the reference. */
+  readonly defenseMode?: "reference" | "predictive";
   /** Target selection variant, retained for reproducible opponents and ablations. */
   readonly targeting?: "head" | "openings";
   readonly paths?: Partial<AttackTuning>;

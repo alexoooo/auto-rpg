@@ -82,6 +82,12 @@ preserves the comparison controller. See [settings and validation](reference/are
 Classic and Point retain their own execution. Chamber and return permit locomotion. Actual
 contact feedback optionally carries trusted detached body/segment labels, point, normal and
 impulse; repeated guard blocks request a lateral escape. These labels affect tactics, not damage.
+The builder optionally grants detached fixed geometry from the same definitions it installs
+in physics. Combat checks conservative retreat sweeps against those boxes and hull bounds.
+Body senses carry their actual sample time in the saved delay frames. An experimental
+predictive defense variant uses age-corrected relative motion, available-hand reach/travel
+checks, cancellation and a bounded counter window. Its self-play initiative is below the
+reference diagnostic, so reference cover remains the default. See [defense measurements](reference/combat-defense.md).
 All selection, contact-response and trajectory memory belongs to the saved bout. The Arena
 exposes Combat as an experimental choice, with Warrior fist primitives measured in
 [combat strikes](reference/combat-strikes.md). Competitive promotion and low support remain open.
