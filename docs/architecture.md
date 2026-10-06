@@ -918,6 +918,14 @@ uniform `SkinView` contract includes collision-shape fallback. The Arena, Dungeo
 character previews all use this factory. `skinSlot` replaces a body's view without replacing its
 physics, rejecting stale asynchronous loads and preserving current clothing and visibility.
 
+`strike-hands.ts` adapts the active command owner's strike report to `hand-pose.ts`, the shared
+finger presentation controller. Arena, Crypt, Lab Routine and Lab Blow advance it after each
+simulation step; skins only read closure. Empty hands close during chambering, remain fists
+during swings and relax during return or interruption. Held-item grips take precedence.
+Presentation belongs to the character rather than its replaceable skin and owns no physical
+state. Lab history records closure beside the body's transforms for scrubbing and replay;
+paused rendering advances neither. Timing: [fist presentation](reference/lab.md#fist-presentation).
+
 Arena and Lab share view types (`src/render/view.ts`), camera math (`camera-math.ts`) and
 controls (`src/ui/view-controls.ts`). Each screen owns its camera rig, input and URL persistence;
 the shared controls only read settings and request changes. Walking and audio use the Arena

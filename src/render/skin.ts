@@ -15,8 +15,8 @@ import type { BuiltBody, BuiltSegment } from "../core/build/build-body.ts";
 import { FIT_SCALE } from "../core/human/model.ts";
 import type { WorkshopModel } from "../core/human/rig.ts";
 import { visiblePart } from "../character-lab/catalog.ts";
-import { CLUB_GRIP } from "../lab/club-grip.ts";
-import { fistTurns, type FistPose, type RestBone } from "../lab/fist.ts";
+import { CLUB_GRIP } from "./club-grip.ts";
+import { fistTurns, type FistPose, type RestBone } from "./fist.ts";
 
 /**
  * **The body as the world sees it**: the workshop model's skinned mesh, each bone carried by

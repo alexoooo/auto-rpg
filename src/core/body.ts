@@ -63,6 +63,14 @@ export interface Body extends PhysicalBody {
   dispose(): void;
 }
 
+/** The command layers' ownership label, shared by their host and its readers. */
+const COMMAND = "command";
+
+/** Whether the command layers currently drive this body, rather than a sub-mind or nobody. */
+export function commandsBody(body: Pick<PhysicalBody, "has" | "level">): boolean {
+  return body.level === "full" && body.has === COMMAND;
+}
+
 /**
  * What drives a body: given the view and the step, the command for this step, or null to keep the
  * last (after a sub-mind had the body, the last is its posture alone). The body keeps the command's goals in its state, and a load writes into whatever of a
@@ -251,7 +259,7 @@ export function commandMind(own: OwnBody, { servoSeconds, stance, handFeedback: 
     state.resumed = false;
   };
   return {
-    name: "command",
+    name: COMMAND,
     view, look, act, state,
     drive(next, onRelease) { driver = next; released = onRelease; },
     step(senses, dt) { look(senses); act(dt); },

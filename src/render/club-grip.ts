@@ -2,7 +2,7 @@ import type { WorkshopModel } from "../core/human/rig.ts";
 import type { FistPose } from "./fist.ts";
 
 /**
- * **A hand closed on the club's haft**, built by `fist.ts` as the fist is: finger angles are the
+ * **A hand closed on the club's haft**, built by `fist.ts`: finger angles are the
  * joints' flexion from a straight finger, degrees, and the thumb's phalanges point along the palm's
  * axes. Fitted on the skin by `scripts/lab/haft-fit.mjs` (its header gives the rule) around
  * the haft where the core's grip puts it (`inHand`, `src/core/human/grip.ts`): each finger wraps

@@ -11,10 +11,12 @@ import "@babylonjs/core/Culling/ray.js";
 import type { PhysicsEngine } from "../core/engine/engine.ts";
 import { loadEngine } from "../core/engine/engines.ts";
 import type { BodyModel } from "../core/human/spec.ts";
-import type { Clothing, SkinView } from "../render/skin-view.ts";
+import type { Clothing } from "../render/skin-view.ts";
 import { loadSkeletonArt, type SkeletonArt } from "../render/skeleton-skin.ts";
-import { drawHeld, type BodyShapes } from "../render/body-shapes.ts";
+import { drawHeld } from "../render/body-shapes.ts";
 import { dresserFor, type Dresser } from "../render/dress.ts";
+import { fighterHands } from "../render/strike-hands.ts";
+import type { World } from "../core/world.ts";
 import { debrisCues } from "../audio/cues.ts";
 import { GameAudio } from "../audio/game-audio.ts";
 import { hearRun, type RunHearing } from "./hearing.ts";
@@ -172,8 +174,8 @@ interface DungeonPage {
   camera: FreeCamera | null;
   lighting: DungeonLighting | null;
   referenceLook: Awaited<ReturnType<typeof dressReference>> | null;
-  /** What the page drew for the bodies: their skins or shapes, and their clubs. */
-  drawn: (SkinView | BodyShapes)[];
+  /** The bodies' visual instances and their simulation-step presentation hooks. */
+  drawn: { dispose(): void }[];
   /** The torches whose flames are heard. */
   soundTorches: ReturnType<typeof torchPlacements>;
   /** The party's routes as they are drawn, and what they were drawn from. */
@@ -232,9 +234,9 @@ function setPaused(page: DungeonPage, value: boolean): void {
   need("pause-title").textContent = pauseTitle(run.status, run.party.length);
   need("pause-copy").textContent = run.status === "playing"
     ? "Your run is frozen. Wheel zoom remains available."
-    : `Seed ${page.seed} · ${Math.floor(run.clock)} seconds in the depths.`;
+    : `Seed ${page.seed} Â· ${Math.floor(run.clock)} seconds in the depths.`;
   need("resume").hidden = run.status !== "playing";
-  need("pause-button").textContent = value ? "Resume · Esc" : "Pause · Esc";
+  need("pause-button").textContent = value ? "Resume Â· Esc" : "Pause Â· Esc";
 }
 
 /** Points the camera and the light at the leader. The reference chamber keeps its composed view when the zoom is
@@ -345,9 +347,10 @@ async function buildRun(page: DungeonPage, nextSeed: number): Promise<void> {
   await Promise.all([...new Set<BodyModel>([page.selectedHero, ...page.companions, "crypt-skeleton"])].map((model) =>
     dresserFor(model, scene, { skeletonArt: () => page.skeletonArt }).then((dress) => { dressers.set(model, dress); })));
   stillShown();
-  const dress = (actor: DungeonActor) => {
-    const built = actor.fighter!.built, skin = dressers.get(actor.model)!(built, { clothing: page.clothing }), club = drawHeld(built, scene);
-    page.drawn.push(skin, club);
+  const dress = (actor: DungeonActor, world: World) => {
+    const fighter = actor.fighter!, hands = fighterHands(world, fighter), built = fighter.built;
+    const skin = dressers.get(actor.model)!(built, { clothing: page.clothing, closure: hands.closure }), club = drawHeld(built, scene);
+    page.drawn.push(hands, skin, club);
     actor.meshes.push(...skin.meshes, ...club.meshes);
   };
   const run = page.run = new DungeonRun(scene, {
@@ -409,7 +412,7 @@ async function launch(page: DungeonPage, nextSeed: number): Promise<void> {
   if (page.launching) return;
   page.launching = true;
   start.disabled = true;
-  start.textContent = "Loading…";
+  start.textContent = "Loadingâ€¦";
   need("setup-error").hidden = true;
   need("start-panel").inert = true;
   try {
@@ -439,8 +442,8 @@ function wireControls(page: DungeonPage): void {
     page.run?.commands.setMode({ keyboard: keyboard.checked, facing: facing.checked });
     if (page.run) canvas.focus();
     need("control-help").textContent = keyboard.checked
-      ? facing.checked ? "WASD / arrows to move · cursor to face · attacks are automatic" : "WASD / arrows to move · AI faces and attacks"
-      : facing.checked ? "Cursor to face · AI explores, moves and attacks" : "Click to attack-move · click an enemy to lock on · drag to force move";
+      ? facing.checked ? "WASD / arrows to move Â· cursor to face Â· attacks are automatic" : "WASD / arrows to move Â· AI faces and attacks"
+      : facing.checked ? "Cursor to face Â· AI explores, moves and attacks" : "Click to attack-move Â· click an enemy to lock on Â· drag to force move";
   };
   keyboard.addEventListener("change", modeChanged, { signal });
   facing.addEventListener("change", modeChanged, { signal });
@@ -503,7 +506,7 @@ function wireParty(page: DungeonPage): Party {
       button.setAttribute("aria-pressed", String(run.selected.has(member.id)));
       button.classList.toggle("fallen", !member.alive);
       button.querySelector("progress")!.value = member.vitality;
-      button.querySelector("small")!.textContent = member.alive ? `· ${orderLabel(member.order, member.post, member === run.hero)}` : "· fallen";
+      button.querySelector("small")!.textContent = member.alive ? `Â· ${orderLabel(member.order, member.post, member === run.hero)}` : "Â· fallen";
     }
   };
   const selectMember = (id: string, add: boolean) => {

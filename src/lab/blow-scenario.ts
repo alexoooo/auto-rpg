@@ -13,6 +13,8 @@ import type { LabScenario, LabShell } from "./lab-scenario.ts";
 import { createPlayer } from "./player.ts";
 import { hardestOn } from "./targets.ts";
 import { choice, legend, note, readings } from "../ui/controls.ts";
+import { strikeHands } from "../render/strike-hands.ts";
+import type { Hand } from "../core/control/motor.ts";
 
 /**
  * **The Blow scenario**: the loaded body throws a stored blow (`blows.ts`) standing, as the strike
@@ -37,6 +39,7 @@ import { choice, legend, note, readings } from "../ui/controls.ts";
 
 /** What the history holds of each step. */
 interface BlowMoment {
+  readonly closure: Readonly<Record<Hand, number>>;
   /** The time its mind saw at this step (`BodyView.time`), s. */
   readonly time: number;
   /** Seconds since the pushes were due (negative before), by the blow's clock. */
@@ -131,6 +134,7 @@ export function blowScenario(scene: Scene, shell: LabShell): LabScenario {
       // Holding anything else, the body stands in guard: the same rig with no blow to throw.
       const blow = throwBlow(actor, { hand: stored.hand, strike: holds ? stored.strike : { name: "guard", hand: stored.hand, pushes: [] }, place: stored.place, band: stored.band });
       const watch = holds ? watchBlow(actor, blow, RULES, { hung: hears }) : null;
+      const hands = strikeHands(world, actor.body, () => blow.report.strike, () => holds);
       let at: number | null = null;
       const history = recordHistory(built, world, HISTORY_SECONDS, (): BlowMoment => {
         const reading = watch?.reading, landed = reading ? hardestOn(reading.blows, "dummy") : null, since = blow.time - blow.pushing;
@@ -139,6 +143,7 @@ export function blowScenario(scene: Scene, shell: LabShell): LabScenario {
           time: blow.body.view.time, since, phase: blow.report.strike.phase, thrown: blow.report.strike.thrown[stored.hand] > 0,
           fallen: blow.body.view.down, landed, at: landed ? at : null, done: reading?.done ?? 0, cost: reading?.cost ?? 0,
           nearest: reading?.nearest ?? null, target: watch?.centre ?? null,
+          closure: hands.snapshot(),
         };
       });
       const player = createPlayer({ world, recording: history }, changed, clock);
@@ -169,10 +174,12 @@ export function blowScenario(scene: Scene, shell: LabShell): LabScenario {
           if (landed) touch.position.set(...landed.point);
           return moment.time;
         },
-        // The skin closes a hand on what it holds; the other stays open.
-        closure: () => 0,
+        closure(hand) {
+          return history.at(player.shownFrame() ?? history.live())?.closure[hand] ?? 0;
+        },
         dispose(): void {
           history.dispose();
+          hands.dispose();
           watch?.dispose();
           blow.dispose();
           ball.setEnabled(false);
