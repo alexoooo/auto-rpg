@@ -56,6 +56,9 @@ upright, so initial contact alone is not the missing gate. Shared-item defense a
 attack/guard still require demonstrations.
 Loaded support transitions and Warrior recovery have measured gates. Arena Brawler supplies
 driven standing fist combat and Scrapper adds supported low attacks and standing return.
+Optional [overlapping strike and return](reference/combat-overlap.md) shares one physical
+body and verifies each hand independently. Its matched development comparison does not
+improve the whole opponent pool, and mirrored low recovery still exposes an initiative gap.
 Coordinated shared-item defense, separate/two-hand equipment rendering and damage, broader
 bodies and the held-out integrated sequence remain open.
 

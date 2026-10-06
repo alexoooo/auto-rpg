@@ -86,6 +86,6 @@ All bouts end at the cap. Adaptive range with full elbow preference improves
 Classic damage rate and reduces its own falls (five to three), but both adaptive
 profiles lose more often to Brawler than fixed spacing. This iteration provides
 useful optional control state without establishing a stronger playable profile.
-The original Scrapper remains selected. Per-action arm preference and stronger
-low-path stability remain open; applying one standing posture preference to every
-family has not passed the low admission gates.
+The original Scrapper remains selected. Action-specific arm preference is implemented and measured in
+`combat-arm-style.md`; its complete low admission still exposes a later approach
+fall. Stronger low-path stability and finishing remain open.

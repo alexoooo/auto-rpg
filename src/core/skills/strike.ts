@@ -223,6 +223,10 @@ export interface StrikeReport {
   /** The hand whose attack the skill is carrying out, or null. */
   readonly hand: Hand | null;
   readonly phase: StrikePhase | null;
+  /** The additional hand still returning while the reported hand carries a follow-up. */
+  readonly returning?: Hand | null;
+  /** Opposite hand available for a follow-up after contact release and actual homeward motion. */
+  readonly overlapHand?: Hand | null;
   /** How the attack in hand is carried out, as last chosen: with a recipe, or placed. */
   readonly blow: Blow["kind"] | null;
   /** The recipe being thrown; null with none, or with a placed blow. */

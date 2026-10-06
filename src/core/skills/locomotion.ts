@@ -137,6 +137,8 @@ interface Locomotion extends Skill {
 interface LocomotionState extends LegsMemory {
   heading: number;
   pace: number;
+  /** Completed time in the current requested walk, capped at the optional startup interval. */
+  walkTime?: number;
   placing: Placing | null;
   placed: boolean;
   /** Resumed with its feet not at its own stance: the footing it steps them to before it walks or stands; null once there. */
@@ -156,14 +158,26 @@ export function validTurnLimit(turnLimit?: number): boolean {
   return turnLimit === undefined || (Number.isFinite(turnLimit) && turnLimit > 0);
 }
 
-export function locomotion(envelope: StanceEnvelope | null, turnLimit?: number): Locomotion {
+/** An optional startup turn ceiling lasts this many seconds of a continuous requested walk. */
+export interface TurnStartup { readonly seconds: number; readonly limit: number }
+
+/** A startup interval and ceiling are finite and positive; omitted retains ordinary turning. */
+export function validTurnStartup(startup?: TurnStartup): boolean {
+  return startup === undefined || (startup !== null && Number.isFinite(startup.seconds) && startup.seconds > 0
+    && Number.isFinite(startup.limit) && startup.limit > 0);
+}
+
+export function locomotion(envelope: StanceEnvelope | null, turnLimit?: number, turnStartup?: TurnStartup): Locomotion {
   if (!validTurnLimit(turnLimit)) throw new Error("locomotion turn limit must be finite and positive");
-  const state: LocomotionState = { reference: null, width: null, squaring: null, rising: null, heading: 0, pace: 0, placing: null, placed: false };
+  if (!validTurnStartup(turnStartup)) throw new Error("locomotion turn startup needs a finite positive interval and ceiling");
+  const state: LocomotionState = { reference: null, width: null, squaring: null, rising: null, heading: 0, pace: 0, placing: null, placed: false,
+    ...(turnStartup ? { walkTime: 0 } : {}) };
   const legs = stanceLegs(state);
   const acrossScratch = new Vector3();
   const apart = (a: readonly [number, number], b: readonly [number, number]): number => hypot(a[0] - b[0], a[1] - b[1]);
   const place = (view: BodyView, footing: Footing, lower?: number): StanceGoal | null => {
     state.pace = 0;
+    if (turnStartup) state.walkTime = 0;
     const base = legs.goal(view, state.heading, null, lower);
     if (!base) return null;
     const s = view.stance, was = state.placing;
@@ -212,6 +226,7 @@ export function locomotion(envelope: StanceEnvelope | null, turnLimit?: number):
       const across = acrossScratch.set(1, 0, 0).applyRotationQuaternionToRef(view.root.rotation, acrossScratch);
       state.heading = atan2(-across.z, across.x);
       state.pace = 0;
+      if (turnStartup) state.walkTime = 0;
       state.placing = null;
       state.placed = false;
       state.rising = { from: view.stance.centre.y - view.stance.support.y, at: view.time };
@@ -227,16 +242,18 @@ export function locomotion(envelope: StanceEnvelope | null, turnLimit?: number):
       }
       state.placing = null;
       state.placed = false;
-      if (!walk) state.pace = 0;
+      if (!walk) { state.pace = 0; if (turnStartup) state.walkTime = 0; }
       else if (view.time > 0) {
         const turn = wrap(face - state.heading);
-        if (envelope || turnLimit !== undefined) {
-          const rate = Math.min(envelope ? turnAt(envelope, state.pace) : Infinity, turnLimit ?? Infinity) * dt;
+        const startupLimit = turnStartup && state.walkTime! < turnStartup.seconds ? turnStartup.limit : Infinity;
+        if (envelope || turnLimit !== undefined || turnStartup) {
+          const rate = Math.min(envelope ? turnAt(envelope, state.pace) : Infinity, turnLimit ?? Infinity, startupLimit) * dt;
           state.heading += Math.max(-rate, Math.min(rate, turn));
         } else state.heading += turn;
         const speed = hypot(walk[0], walk[1]), most = envelope?.walk.value ?? Infinity;
         if (speed > most) walk = [walk[0] * most / speed, walk[1] * most / speed];
         state.pace = Math.min(speed, most);
+        if (turnStartup) state.walkTime = speed > 0 ? Math.min(turnStartup.seconds, state.walkTime! + dt) : 0;
       } else state.pace = hypot(walk[0], walk[1]);
       return legs.goal(view, state.heading, walk, lower);
     },

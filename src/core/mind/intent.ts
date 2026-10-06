@@ -47,11 +47,18 @@ export const GUARD_ACTION: HandAction = Object.freeze({ kind: "guard" });
 /** Standing in guard, facing `face`. */
 export const standIntent = (face = 0): Intent => ({ move: null, face, hands: { left: GUARD_ACTION, right: GUARD_ACTION } });
 
+/** The optional arm style is finite and bounded; omitted inherits the executor preference. */
+export function validArmExtension(extension = 0): boolean {
+  return Number.isFinite(extension) && extension >= 0 && extension <= 1;
+}
+
 /** A hand, observed world target and path family; no motor or anatomy prescription. */
 export interface CombatAction {
   readonly hand: Hand;
   readonly target: Vec3;
-  readonly family: "straight" | "cross" | "hook" | "downward" | "overhand";
+  readonly family: "straight" | "cross" | "hook" | "downward" | "overhand" | "uppercut";
   /** Optional world direction at contact; the shared executor applies the measured speed. */
   readonly direction?: Vec3;
+  /** Optional arm-extension style in [0,1]; the shared executor bounds it to the body: `docs/reference/combat-arm-style.md`. */
+  readonly armExtension?: number;
 }

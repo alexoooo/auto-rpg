@@ -1,4 +1,5 @@
 import type { AttackTuning } from "../skills/attack-path.ts";
+import type { TurnStartup } from "../skills/locomotion.ts";
 import type { OpeningTuning } from "./openings.ts";
 import type { Covering } from "../skills/guard.ts";
 import { deepFreeze } from "../state.ts";
@@ -76,7 +77,7 @@ export interface ArenaFighterConfig {
   /** Target selection variant, retained for reproducible opponents and ablations. */
   readonly targeting?: "head" | "openings";
   /** Linear reference, straight/close-hook ranking, or additional measured top-surface overhands. */
-  readonly repertoire?: "linear" | "mixed" | "vertical";
+  readonly repertoire?: "linear" | "mixed" | "vertical" | "boxing";
   readonly openings?: OpeningTuning;
   readonly paths?: Partial<AttackTuning>;
   readonly spacing?: number;
@@ -84,8 +85,12 @@ export interface ArenaFighterConfig {
   readonly spacingStep?: number;
   /** Optional heading-speed ceiling, rad/s: `docs/reference/combat-locomotion.md`. */
   readonly turnLimit?: number;
+  /** Optional brief heading-speed ceiling while setting off: `docs/reference/combat-turn-startup.md`. */
+  readonly turnStartup?: TurnStartup;
   /** One opposite-hand follow-up after a target hit and verified return, with fresh lane and footing checks. */
   readonly combinations?: boolean;
+  /** Allow the other hand's follow-up while a contact-free hand moves home; each return is still verified. */
+  readonly overlap?: boolean;
   /** Enable observed low-opponent approach and supported strikes; omitted preserves the retained reference. */
   readonly groundGame?: boolean;
 }

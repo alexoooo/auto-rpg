@@ -1,0 +1,473 @@
+{
+  "fingerprint": "b8532464c7dfed05ee59f9b7092365b6a6eb22071908c100fa695deee020b7d4",
+  "rows": [
+    {
+      "config": {
+        "speed": 0.18,
+        "rate": 4,
+        "sense": -1,
+        "after": 0,
+        "turnLimit": 4,
+        "turnStartup": {
+          "seconds": 0.3,
+          "limit": 2
+        },
+        "model": "workshop-fighter",
+        "engine": "rapier-coordinate",
+        "balance": 0,
+        "hz": 120
+      },
+      "harness": {
+        "kind": "Node core stand",
+        "engine": "rapier-coordinate",
+        "hz": 120,
+        "actuation": "symmetric",
+        "posture": "GUARD",
+        "pinned": false,
+        "held": "empty",
+        "balance": 0
+      },
+      "firstDown": null,
+      "drop": 0.0012686905815112448,
+      "maximumTurn": 4.000000000000012,
+      "phase": "stand",
+      "speed": 0.01921413486962801,
+      "strides": 10,
+      "recoveries": 0,
+      "assist": {
+        "steps": 0,
+        "force": 0,
+        "moment": 0
+      }
+    },
+    {
+      "config": {
+        "speed": 0.18,
+        "rate": 4,
+        "sense": 1,
+        "after": 0,
+        "turnLimit": 4,
+        "turnStartup": {
+          "seconds": 0.3,
+          "limit": 2
+        },
+        "model": "workshop-fighter",
+        "engine": "rapier-coordinate",
+        "balance": 0,
+        "hz": 120
+      },
+      "harness": {
+        "kind": "Node core stand",
+        "engine": "rapier-coordinate",
+        "hz": 120,
+        "actuation": "symmetric",
+        "posture": "GUARD",
+        "pinned": false,
+        "held": "empty",
+        "balance": 0
+      },
+      "firstDown": null,
+      "drop": 0.01962344376575842,
+      "maximumTurn": 4.000000000000012,
+      "phase": "stand",
+      "speed": 0.01948874048233479,
+      "strides": 10,
+      "recoveries": 0,
+      "assist": {
+        "steps": 0,
+        "force": 0,
+        "moment": 0
+      }
+    },
+    {
+      "config": {
+        "speed": 0.25,
+        "rate": 4,
+        "sense": -1,
+        "after": 0,
+        "turnLimit": 4,
+        "turnStartup": {
+          "seconds": 0.3,
+          "limit": 2
+        },
+        "model": "workshop-fighter",
+        "engine": "rapier-coordinate",
+        "balance": 0,
+        "hz": 120
+      },
+      "harness": {
+        "kind": "Node core stand",
+        "engine": "rapier-coordinate",
+        "hz": 120,
+        "actuation": "symmetric",
+        "posture": "GUARD",
+        "pinned": false,
+        "held": "empty",
+        "balance": 0
+      },
+      "firstDown": null,
+      "drop": 0.017408678697020896,
+      "maximumTurn": 4.000000000000012,
+      "phase": "stand",
+      "speed": 0.019186962536279197,
+      "strides": 10,
+      "recoveries": 0,
+      "assist": {
+        "steps": 0,
+        "force": 0,
+        "moment": 0
+      }
+    },
+    {
+      "config": {
+        "speed": 0.25,
+        "rate": 4,
+        "sense": 1,
+        "after": 0,
+        "turnLimit": 4,
+        "turnStartup": {
+          "seconds": 0.3,
+          "limit": 2
+        },
+        "model": "workshop-fighter",
+        "engine": "rapier-coordinate",
+        "balance": 0,
+        "hz": 120
+      },
+      "harness": {
+        "kind": "Node core stand",
+        "engine": "rapier-coordinate",
+        "hz": 120,
+        "actuation": "symmetric",
+        "posture": "GUARD",
+        "pinned": false,
+        "held": "empty",
+        "balance": 0
+      },
+      "firstDown": null,
+      "drop": 0.0008814373706323986,
+      "maximumTurn": 4.000000000000012,
+      "phase": "stand",
+      "speed": 0.01850189708060582,
+      "strides": 10,
+      "recoveries": 0,
+      "assist": {
+        "steps": 0,
+        "force": 0,
+        "moment": 0
+      }
+    },
+    {
+      "config": {
+        "speed": 0.5,
+        "rate": 4,
+        "sense": -1,
+        "after": 0,
+        "turnLimit": 4,
+        "turnStartup": {
+          "seconds": 0.3,
+          "limit": 2
+        },
+        "model": "workshop-fighter",
+        "engine": "rapier-coordinate",
+        "balance": 0,
+        "hz": 120
+      },
+      "harness": {
+        "kind": "Node core stand",
+        "engine": "rapier-coordinate",
+        "hz": 120,
+        "actuation": "symmetric",
+        "posture": "GUARD",
+        "pinned": false,
+        "held": "empty",
+        "balance": 0
+      },
+      "firstDown": 3.7583333333333333,
+      "drop": 1.1113118545809135,
+      "maximumTurn": 4.000000000000012,
+      "phase": "swing",
+      "speed": 0.49768425555548645,
+      "strides": 15,
+      "recoveries": 0,
+      "assist": {
+        "steps": 0,
+        "force": 0,
+        "moment": 0
+      }
+    },
+    {
+      "config": {
+        "speed": 0.5,
+        "rate": 4,
+        "sense": 1,
+        "after": 0,
+        "turnLimit": 4,
+        "turnStartup": {
+          "seconds": 0.3,
+          "limit": 2
+        },
+        "model": "workshop-fighter",
+        "engine": "rapier-coordinate",
+        "balance": 0,
+        "hz": 120
+      },
+      "harness": {
+        "kind": "Node core stand",
+        "engine": "rapier-coordinate",
+        "hz": 120,
+        "actuation": "symmetric",
+        "posture": "GUARD",
+        "pinned": false,
+        "held": "empty",
+        "balance": 0
+      },
+      "firstDown": null,
+      "drop": 0.003735097780594221,
+      "maximumTurn": 4.000000000000012,
+      "phase": "stand",
+      "speed": 0.049925370525759384,
+      "strides": 11,
+      "recoveries": 0,
+      "assist": {
+        "steps": 0,
+        "force": 0,
+        "moment": 0
+      }
+    },
+    {
+      "config": {
+        "speed": 0.18,
+        "rate": 4,
+        "sense": -1,
+        "after": 0,
+        "turnLimit": 4,
+        "turnStartup": {
+          "seconds": 0.6,
+          "limit": 2
+        },
+        "model": "workshop-fighter",
+        "engine": "rapier-coordinate",
+        "balance": 0,
+        "hz": 120
+      },
+      "harness": {
+        "kind": "Node core stand",
+        "engine": "rapier-coordinate",
+        "hz": 120,
+        "actuation": "symmetric",
+        "posture": "GUARD",
+        "pinned": false,
+        "held": "empty",
+        "balance": 0
+      },
+      "firstDown": null,
+      "drop": 0.0011685547853974576,
+      "maximumTurn": 4.000000000000012,
+      "phase": "stand",
+      "speed": 0.0194072869360849,
+      "strides": 10,
+      "recoveries": 0,
+      "assist": {
+        "steps": 0,
+        "force": 0,
+        "moment": 0
+      }
+    },
+    {
+      "config": {
+        "speed": 0.18,
+        "rate": 4,
+        "sense": 1,
+        "after": 0,
+        "turnLimit": 4,
+        "turnStartup": {
+          "seconds": 0.6,
+          "limit": 2
+        },
+        "model": "workshop-fighter",
+        "engine": "rapier-coordinate",
+        "balance": 0,
+        "hz": 120
+      },
+      "harness": {
+        "kind": "Node core stand",
+        "engine": "rapier-coordinate",
+        "hz": 120,
+        "actuation": "symmetric",
+        "posture": "GUARD",
+        "pinned": false,
+        "held": "empty",
+        "balance": 0
+      },
+      "firstDown": null,
+      "drop": 0.00616902872182401,
+      "maximumTurn": 4.000000000000012,
+      "phase": "stand",
+      "speed": 0.019262036723617437,
+      "strides": 10,
+      "recoveries": 0,
+      "assist": {
+        "steps": 0,
+        "force": 0,
+        "moment": 0
+      }
+    },
+    {
+      "config": {
+        "speed": 0.25,
+        "rate": 4,
+        "sense": -1,
+        "after": 0,
+        "turnLimit": 4,
+        "turnStartup": {
+          "seconds": 0.6,
+          "limit": 2
+        },
+        "model": "workshop-fighter",
+        "engine": "rapier-coordinate",
+        "balance": 0,
+        "hz": 120
+      },
+      "harness": {
+        "kind": "Node core stand",
+        "engine": "rapier-coordinate",
+        "hz": 120,
+        "actuation": "symmetric",
+        "posture": "GUARD",
+        "pinned": false,
+        "held": "empty",
+        "balance": 0
+      },
+      "firstDown": null,
+      "drop": 0.0013268636556201807,
+      "maximumTurn": 4.000000000000012,
+      "phase": "stand",
+      "speed": 0.019273088163847218,
+      "strides": 10,
+      "recoveries": 0,
+      "assist": {
+        "steps": 0,
+        "force": 0,
+        "moment": 0
+      }
+    },
+    {
+      "config": {
+        "speed": 0.25,
+        "rate": 4,
+        "sense": 1,
+        "after": 0,
+        "turnLimit": 4,
+        "turnStartup": {
+          "seconds": 0.6,
+          "limit": 2
+        },
+        "model": "workshop-fighter",
+        "engine": "rapier-coordinate",
+        "balance": 0,
+        "hz": 120
+      },
+      "harness": {
+        "kind": "Node core stand",
+        "engine": "rapier-coordinate",
+        "hz": 120,
+        "actuation": "symmetric",
+        "posture": "GUARD",
+        "pinned": false,
+        "held": "empty",
+        "balance": 0
+      },
+      "firstDown": null,
+      "drop": 0.03969927289432629,
+      "maximumTurn": 4.000000000000012,
+      "phase": "stand",
+      "speed": 0.01930116994898987,
+      "strides": 10,
+      "recoveries": 0,
+      "assist": {
+        "steps": 0,
+        "force": 0,
+        "moment": 0
+      }
+    },
+    {
+      "config": {
+        "speed": 0.5,
+        "rate": 4,
+        "sense": -1,
+        "after": 0,
+        "turnLimit": 4,
+        "turnStartup": {
+          "seconds": 0.6,
+          "limit": 2
+        },
+        "model": "workshop-fighter",
+        "engine": "rapier-coordinate",
+        "balance": 0,
+        "hz": 120
+      },
+      "harness": {
+        "kind": "Node core stand",
+        "engine": "rapier-coordinate",
+        "hz": 120,
+        "actuation": "symmetric",
+        "posture": "GUARD",
+        "pinned": false,
+        "held": "empty",
+        "balance": 0
+      },
+      "firstDown": null,
+      "drop": 0.006259366615601669,
+      "maximumTurn": 4.000000000000012,
+      "phase": "stand",
+      "speed": 0.04820443673277988,
+      "strides": 11,
+      "recoveries": 0,
+      "assist": {
+        "steps": 0,
+        "force": 0,
+        "moment": 0
+      }
+    },
+    {
+      "config": {
+        "speed": 0.5,
+        "rate": 4,
+        "sense": 1,
+        "after": 0,
+        "turnLimit": 4,
+        "turnStartup": {
+          "seconds": 0.6,
+          "limit": 2
+        },
+        "model": "workshop-fighter",
+        "engine": "rapier-coordinate",
+        "balance": 0,
+        "hz": 120
+      },
+      "harness": {
+        "kind": "Node core stand",
+        "engine": "rapier-coordinate",
+        "hz": 120,
+        "actuation": "symmetric",
+        "posture": "GUARD",
+        "pinned": false,
+        "held": "empty",
+        "balance": 0
+      },
+      "firstDown": null,
+      "drop": 0.010316650354242562,
+      "maximumTurn": 4.000000000000012,
+      "phase": "stand",
+      "speed": 0.04993522243746588,
+      "strides": 11,
+      "recoveries": 0,
+      "assist": {
+        "steps": 0,
+        "force": 0,
+        "moment": 0
+      }
+    }
+  ]
+}
