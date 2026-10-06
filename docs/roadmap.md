@@ -414,9 +414,10 @@ after repeated blocks. Low support, defense timing and active-opponent win/damag
   lets go of for a single step lands again; a touch read with `lasts: "contact"`
   (`src/core/touches.ts`) lands again only once the two have parted. Whether a blow should is a
   change of rule, which moves every bout, and comes with its table.
-- Rapier's default limits retain a `todo` test: a parent-axis row allows a pressed angle to pass
-  its stop. The optional `rapier-coordinate` configuration fixes the measured-angle gradient
-  ([record](reference/joint-limits.md)), but control migration remains open. The vendored binding exposes directional motor bounds and
+- Gameplay uses `rapier-coordinate` for the measured-angle joint-limit gradient
+  ([record](reference/joint-limits.md)). Parent-axis `rapier` remains a reference engine.
+  Recovery hand transfer is gated on actual retained support; repeated falls and the full
+  corrected-profile controller migration remain to improve. The vendored binding exposes directional motor bounds and
   whole-step accumulated impulses. Directional muscle actuation is an explicit world configuration;
   gameplay retains the symmetric reference pending contact and recovery correction. Delivered
   torque and both bounds are readable and replayable. Default migration and control retuning

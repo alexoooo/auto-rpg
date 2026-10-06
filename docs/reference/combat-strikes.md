@@ -95,22 +95,57 @@ required; more hand contacts alone do not satisfy promotion.
 
 ## Opening selection
 
-`OPENINGS` ranks collider-derived head, upper-trunk and middle-trunk surfaces. Linear/spin
-prediction is 0.12 s. Blocked lanes cost 2, working-range error costs 2 per metre, and the
-hand-radius margin is half its sourced radius. Surface priorities are 0, 0.2 and 0.4 respectively.
-A repeated blocked surface adds 1 to the rank. Surface samples use elevations of -0.5, 0 and 0.5 radii. These are development search cells. The selector sees sensed poses, shapes and velocities;
-it receives no wounds, orders or opposing controller phase. Curved lanes, explicit sense-age
-compensation and general low support remain work to measure.
+`OPENINGS` ranks head, upper-trunk and middle-trunk collision surfaces. Capsule/sphere samples
+are projected onto their boundary. A box or hull is clipped by its actual outward convex planes;
+the first ray entry supplies a surface point, rather than its internal centre or visible mesh.
+The immutable hull geometry is cached per sourced segment. Hull targets use nine rays around
+the mean of their points: lateral and vertical offsets of ?0.25 of the corresponding extent.
 
+Linear/spin prediction is 0.12 s plus measured observation age. Blocked lanes cost 2,
+working-range error costs 2 per metre, and the hand-radius margin is half its sourced radius.
+Reference surface priorities are 0, 0.2 and 0.4 for head/upper/middle trunk. A repeated blocked
+surface adds 1. Capsule samples use elevations of -0.5, 0 and 0.5 radii. Mixed selection checks
+four segments of the commanded hand path, adds 0.1 to a hook's rank and reduces its working
+reach by 0.15 m. These remain development search cells. Mixed selection can compare both hands;
+ties retain the alternating hand. It refreshes at most every 0.12 s while free, and retains its
+committed choice and path clock during a stroke. Its memory belongs to bout state.
 
-The six 30 s Node Arena diagnostics in `combat-openings-bouts.json` use rapier-coordinate,
-120 Hz, empty Warriors, balance 0/0 and continuing recovery. At 4 m, self-play produces
-16/19 driven blows (15/19 blocks), 0.079/0.084 hp driven damage and no falls. At 1.2 m it
-produces 14/16 driven blows, mostly blocks. Both Point assignments end with a Combat cap
-win, while Classic assignments split. These fixtures demonstrate contact response and
-initiative, with mixed damage changes from the head-only prototype. They do not establish
-competitive promotion. The head-only variant remains reproducible through `targeting: "head"`.
+The `openings` config supplies immutable target preferences; `repertoire: "linear"` retains
+straight/cross reference execution, and `"mixed"` ranks straight/close-hook trajectories.
+Current physical evidence favours torso preference, not frequent hook use. Held weapon
+obstruction shapes and low support remain to implement. The policy reads no opposing orders,
+controller phase, wounds or future physics. The evaluator records intended surfaces separately
+from actual driven contact segments.
 
+## Hull-aware development
+
+The Warrior's upper and middle trunk colliders are hulls. The capsule-only selector omitted
+both; its six diagnostics in `combat-openings-bouts.json` are head-only behaviour. They provide
+no evidence for body targeting. The corrected selector is measured again below.
+
+The eighteen 30 s diagnostics in `combat-hull-probes.json` use Node Arena Duel, rapier-coordinate,
+120 Hz, unarmed Warriors, balance 0/0, gap 4 m and continuing recovery. Assignments mirror each
+candidate against the corrected linear Combat, Point and Classic. Every reported win is at
+the cap. This is a diagnostic matrix, not independent rating evidence.
+
+| Mixed candidate priorities head/upper/middle | Driven damage against Point, both assignments (HP) | Driven torso/target contacts against Point | Self-falls, all six bouts |
+|---|---:|---:|---:|
+| 0 / 0.2 / 0.4 | 0.182 / 0.240 | 8 / 8 | 0 |
+| 0.3 / 0 / 0 | 0.504 / 0.451 | 19 / 17 | 0 |
+| 1 / 0.2 / 0 | 0.525 / 0.632 | 22 / 17 | 1 |
+
+The target-contact counts exclude opposing hands/forearms, but do not identify every remaining
+surface as trunk. A separate physical regression test requires actual upper/middle-trunk
+contacts against attacking Point, with driven damage above 0.2 HP in 20 s and no falls/assists.
+Its fresh-world fork covers hull selection and the subsequent strike/return.
+
+The retained development candidate is 0.3 / 0 / 0, preserving the reference muscles and paths.
+Twenty distinct mirrored development recipes vary gap, delay and timed ordinary orders, with
+60 s continuing bouts against the corrected linear Combat. `combat-body-development.json`
+contains all forty physical trials and their source fingerprint. Win score is 1.0; the 95%
+paired Wilson interval is [0.839, 1.0], equivalent to an Elo lower bound of +286.6. A finite
+point Elo is not estimable from a perfect score. The candidate has one fall in forty bouts. It launches 2,038 straights and one hook. All forty wins end at the cap; none proves
+ordinary-wound incapacitation. These are development results, not held-out promotion.
 
 Built-browser inspection uses the selectable Combat mode on two empty-handed Warriors,
 rapier-coordinate at the shared 120 Hz world rate, balance 0/0, continuing recovery. The

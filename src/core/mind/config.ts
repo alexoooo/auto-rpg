@@ -1,4 +1,5 @@
 import type { AttackTuning } from "../skills/attack-path.ts";
+import type { OpeningTuning } from "./openings.ts";
 import type { Covering } from "../skills/guard.ts";
 import { deepFreeze } from "../state.ts";
 import type { Threat } from "./threat.ts";
@@ -74,6 +75,9 @@ export interface ArenaFighterConfig {
   readonly defenseMode?: "reference" | "predictive";
   /** Target selection variant, retained for reproducible opponents and ablations. */
   readonly targeting?: "head" | "openings";
+  /** Linear reference or geometry-ranked straight/close-hook paths. */
+  readonly repertoire?: "linear" | "mixed";
+  readonly openings?: OpeningTuning;
   readonly paths?: Partial<AttackTuning>;
   readonly spacing?: number;
 }

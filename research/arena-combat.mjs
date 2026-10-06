@@ -73,7 +73,7 @@ export async function combatTrial(config) {
     pressureSeconds: 0, pressureRun: 0, longestPressure: 0, pressureEpisodes: 0,
     pressureOnly: { run: 0, longest: 0, episodes: 0 }, touching: false, drivenThisStep: false,
     driven: 0, blocks: 0, lowDriven: 0, drivenDamage: 0, selfDamage: 0, incidentalDamage: 0, incomingDamage: 0,
-    maximumDrivenSpeed: 0, witness: null,
+    maximumDrivenSpeed: 0, witness: null, pathLaunches: {}, intendedSurfaces: {}, drivenTargets: {}, lastPhase: null,
   }]));
   const bodies = Object.fromEntries(['left', 'right'].map(side => [side,
     new Set([...duel.duelists[side].built.segments.values()].map(s => s.body))]));
@@ -105,6 +105,13 @@ export async function combatTrial(config) {
         out.wasDown = d.body.down;
         if (d.body.down) out.downSeconds += world.dt;
         const phase = d.body.has === 'command' ? report?.engagement?.phase ?? report?.strike.phase ?? 'guard' : d.body.has;
+        const strikePhase = report?.strike.phase;
+        if(strikePhase==='swing'&&out.lastPhase!=='swing'&&d.minded.skills.state.action) {
+          const family=d.minded.skills.state.action.family,surface=d.minded.skills.state.tactics.surface;
+          out.pathLaunches[family]=(out.pathLaunches[family]??0)+1;
+          out.intendedSurfaces[surface]=(out.intendedSurfaces[surface]??0)+1;
+        }
+        out.lastPhase=strikePhase;
         out.phases[phase] = (out.phases[phase] ?? 0) + world.dt;
         const other = bodies[side === 'left' ? 'right' : 'left'];
         const touching = ['left', 'right'].some(hand => world.physics.contactsOf(d.built.segments.get(`hand.${hand}`).body)
@@ -127,6 +134,8 @@ export async function combatTrial(config) {
           if (contact.driven) {
             out.drivenThisStep = true;
             out.driven++; out.drivenDamage += contact.outgoing; out.selfDamage += contact.incoming;
+            const target=blow.sides.find(s=>s.fighter!==side).segment;
+            out.drivenTargets[target]=(out.drivenTargets[target]??0)+1;
             if (contact.kind === 'block') out.blocks++;
             if (contact.grounded) out.lowDriven++;
             out.maximumDrivenSpeed = Math.max(out.maximumDrivenSpeed, out.witness.relativeSpeed[out.witness.hand]);
@@ -146,6 +155,7 @@ export async function combatTrial(config) {
       combatPressure(out.pressureOnly, false, false, world.dt); delete out.pressureOnly.run;
       delete out.witness; delete out.wasDown; delete out.pressureRun;
       delete out.touching; delete out.drivenThisStep;
+      delete out.lastPhase;
       out.bar = d.pool.bar(); out.assist = { force: d.body.assist.meter.force, moment: d.body.assist.meter.moment };
     }
     return { config, recipe, protocol: COMBAT_PROTOCOL, harness: { kind: 'Node Arena Duel', engine: physicsEngine.name,

@@ -7,6 +7,21 @@ import { ARENA_FIGHTER } from '../src/core/mind/config.ts';
 import { loadEngine, DEFAULT_ENGINE } from '../src/core/engine/engines.ts';
 import { buildBout } from '../research/bout.mjs';
 import { traceOf } from './harness/trace.mjs';
+import { hullEntry } from '../src/core/mind/hull-entry.ts';
+import { convexHull } from '../src/core/spec/hull.ts';
+import { frameOf } from '../src/core/spec/body.ts';
+import { Quaternion, Vector3 } from '@babylonjs/core/Maths/math.vector.js';
+import { combatTrial } from '../research/arena-combat.mjs';
+import { STAND_ORDERS } from '../src/core/mind/orders.ts';
+
+test('convex surface rays enter faces, reject misses and never substitute an internal centre',()=>{
+ const vertices=[];for(const x of [-1,1])for(const y of [-1,1])for(const z of [-1,1])vertices.push([x,y,z]);
+ const {planes}=convexHull(vertices);
+ assert.deepEqual(hullEntry(planes,[0,.5,3],[0,.5,0]),[0,.5,1]);
+ assert.deepEqual(hullEntry(planes,[-3,.2,.4],[0,.2,.4]),[-1,.2,.4]);
+ assert.deepEqual(hullEntry(planes,[3,3,3],[0,0,0]),[1,1,1]);
+ for(const [a,b]of [[[0,0,0],[0,0,.5]],[[0,0,3],[0,0,2]],[[2,0,3],[2,0,0]],[[0,2,3],[0,2,0]]])assert.equal(hullEntry(planes,a,b),null);
+});
 
 test('bounded lane distance covers intersections, endpoints, parallel and point lanes symmetrically',()=>{
  const cases=[[[0,0,0],[2,0,0],[1,-1,0],[1,1,0],0],
@@ -65,4 +80,39 @@ test('a physical guard block triggers an angle change and replay preserves conta
   }
   assert.ok(labeled>10);assert.ok(penalized>100);assert.ok(escaped>10);assert.equal(snapshot,true);
  }finally{a.dispose();b.dispose();}
+});
+
+test('the real Warrior trunk hull supplies a surface opening and a fresh-world selection fork',async()=>{
+ const config={...ARENA_FIGHTER,repertoire:'mixed',openings:{head:1,upperTrunk:.2,middleTrunk:0}};
+ const recipe={left:'workshop-fighter',right:'workshop-fighter',held:{left:'empty',right:'empty'},balance:{left:0,right:0},
+  minds:{left:config,right:ARENA_FIGHTER},recoverySeconds:null,capSeconds:30};
+ const a=await buildBout(recipe,{physicsEngine:await loadEngine(DEFAULT_ENGINE)}),b=await buildBout(recipe,{physicsEngine:await loadEngine(DEFAULT_ENGINE)});
+ try {
+  const select=openingSelector(modelSpec('workshop-fighter'),{head:100,upperTrunk:100,middleTrunk:0});
+  a.duel.order('left',STAND_ORDERS);a.duel.order('right',STAND_ORDERS);
+  a.world.step(240);const view=a.duel.duelists.left.minded.body.view,foe=view.senses.others[0];
+  const opening=select(view,foe,'right');assert.equal(opening.segment,'middleTrunk');
+  const segment=foe.spec.segments.find(s=>s.name===opening.segment),sensed=foe.segments.get(opening.segment),frame=frameOf(segment);
+  assert.equal(segment.shape.kind,'hull');
+  const local=p=>{const d=p.map((v,k)=>v-frame.origin[k]);return [frame.x,frame.y,frame.z].map(axis=>axis.reduce((sum,v,k)=>sum+v*d[k],0));};
+  const poly=convexHull(segment.shape.points.map(p=>local(p.value)));
+  const position=new Vector3(...opening.target).subtractInPlace(sensed.position).applyRotationQuaternionToRef(Quaternion.Inverse(sensed.rotation),new Vector3());
+  const distances=poly.planes.map(p=>Vector3.Dot(new Vector3(...p.normal),position)-p.offset);
+  assert.ok(Math.max(...distances)<.005&&Math.abs(Math.max(...distances))<.005,'target lies on the physical hull within its short prediction');
+  a.duel.order('left',null);a.duel.order('right',null);
+  while(a.world.time<15&&!(a.duel.duelists.left.minded.skills.report.strike.phase==='swing'&&a.duel.duelists.left.minded.skills.state.tactics.surface==='middleTrunk'))a.world.step();
+  assert.equal(a.duel.duelists.left.minded.skills.state.tactics.surface,'middleTrunk');
+  assert.equal(a.duel.duelists.left.minded.skills.report.strike.phase,'swing');
+  b.duel.load(a.duel.save());const trace=s=>traceOf(Object.values(s.duel.duelists).map(d=>d.built)),ta=trace(a),tb=trace(b);
+  for(let k=0;k<200;k++){a.world.step();b.world.step();ta.take();tb.take();}
+  assert.deepEqual(a.duel.save().state,b.duel.save().state);assert.equal(ta.digest(),tb.digest());
+  assert.ok(a.duel.blows.some(blow=>blow.sides.some(s=>s.fighter==='right'&&s.segment==='middleTrunk')));
+ }finally{a.dispose();b.dispose();}
+});
+
+test('hull-aware body selection lands driven torso blows against an active Point fighter',async()=>{
+ const row=await combatTrial({left:{...ARENA_FIGHTER,repertoire:'mixed',openings:{head:.3,upperTrunk:0,middleTrunk:0}},right:'point',recipe:{capSeconds:20}});
+ const out=row.sides.left;
+ assert.ok((out.drivenTargets.middleTrunk??0)+(out.drivenTargets.upperTrunk??0)>=5,JSON.stringify(out));assert.ok(out.drivenDamage>.2,JSON.stringify(out));
+ assert.equal(out.falls,0);assert.deepEqual(out.assist,{force:0,moment:0});assert.ok(out.pressureOnly.longest<2);
 });

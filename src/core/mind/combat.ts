@@ -20,7 +20,15 @@ const COMBAT = Object.freeze({ band: .08, reserve: .08, braking: .5, prediction:
 
 /** Tactical selection uses detached sensed bodies; the common skill owns physical execution. */
 export function combatTactics(spec: BodySpec, name: string, orders: (sight: Sight) => Orders | null, config: ArenaFighterConfig): Tactics {
-  const selectOpening = openingSelector(spec);
+  const selectOpening = openingSelector(spec,config.openings,{...ATTACK_PATH,...config.paths});
+  const repertoire = config.repertoire ?? "linear";
+  const mixed = (()=>{
+    switch(repertoire) {
+      case "linear":return false;
+      case "mixed":return true;
+      default:{const never:never=repertoire;throw new Error(`unknown repertoire ${never}`);}
+    }
+  })();
   const targeting = config.targeting ?? "head";
   const openings = (() => {
     switch (targeting) {
@@ -33,7 +41,8 @@ export function combatTactics(spec: BodySpec, name: string, orders: (sight: Sigh
   const state = { phase: "guard", foe: null as string | null, action: null as CombatAction | null,
     pressure: 0, escape: 0, angle: 1, cycle: 0, ready: 0, surface: "head",
     blockedSurface: null as string | null, blocks: 0, responded: false, previousHead: null as { time: number; at: Vec3 } | null, counter: 0,
-    threat: false, defense: null as "guard" | "evade" | null, ordered: ordered.state! };
+    threat: false, defense: null as "guard" | "evade" | null,
+    choice: null as ReturnType<typeof selectOpening>, nextSelection: 0, ordered: ordered.state! };
   const defenseMode = config.defenseMode ?? "reference";
   const predictive = (() => {
     switch (defenseMode) {
@@ -61,9 +70,9 @@ export function combatTactics(spec: BodySpec, name: string, orders: (sight: Sigh
     const ownVelocity: Vec3 = previous && !view.resumed && view.time > previous.time
       ? head.map((v, k) => (v - previous.at[k]!) / (view.time - previous.time)) as unknown as Vec3 : [0, 0, 0];
     state.previousHead = { time: view.time, at: head }; state.counter = Math.max(0, state.counter - dt); state.defense = null;
-    if (view.resumed) { state.action = null; state.escape = 0; state.pressure = 0; state.ready = 0; state.responded = false; state.blockedSurface = null; state.blocks = 0; state.threat = false; state.counter = 0; }
+    if (view.resumed) { state.action = null; state.escape = 0; state.pressure = 0; state.ready = 0; state.responded = false; state.blockedSurface = null; state.blocks = 0; state.threat = false; state.counter = 0; state.choice = null; state.nextSelection = 0; }
     const cycles = strike.thrown.left + strike.thrown.right + (strike.pointCycle?.failed ?? 0);
-    if (!strike.hand && cycles !== state.cycle) { state.cycle = cycles; state.action = null; state.ready = 0; state.responded = false; }
+    if (!strike.hand && cycles !== state.cycle) { state.cycle = cycles; state.action = null; state.ready = 0; state.responded = false; state.nextSelection = 0; }
     let hand: "left" | "right";
     switch (config.hand) {
       case "left": case "right": hand = config.hand; break;
@@ -73,6 +82,7 @@ export function combatTactics(spec: BodySpec, name: string, orders: (sight: Sigh
     const given = orders(sight);
     if (given) {
       state.action = null; state.foe = null; state.pressure = 0; state.escape = 0; state.ready = 0;
+      state.choice = null; state.nextSelection = 0;
       const intent = ordered.decide(sight, dt);
       state.phase = given.attack ? strike.phase ?? "attack" : given.move ? "approach" : "guard";
       return { ...intent, hands: guard, combat: given.attack ? { hand, target: given.attack, family: "straight" } : null };
@@ -84,6 +94,7 @@ export function combatTactics(spec: BodySpec, name: string, orders: (sight: Sigh
       state.action = null; state.phase = "guard";
       return { move: null, face: report.heading, hands: guard, combat: null };
     }
+    if(state.foe!==foe.id){state.choice=null;state.nextSelection=0;}
     state.foe = foe.id;
     const part = foe.segments.get("head"), at = part?.centre ?? foe.centre, velocity = part?.velocity ?? foe.velocity;
     if (!state.responded && strike.phase === "swing" && strike.hand) {
@@ -97,13 +108,28 @@ export function combatTactics(spec: BodySpec, name: string, orders: (sight: Sigh
         else if (response === "target") { state.blockedSurface = null; state.blocks = 0; }
       }
     }
-    const opening = openings ? selectOpening(view, foe, hand, state.blockedSurface) : null;
+    let opening: ReturnType<typeof selectOpening> = null;
+    if(openings) {
+      if(!mixed) opening = selectOpening(view,foe,hand,state.blockedSurface);
+      else {
+        if(view.time>=state.nextSelection&&!strike.hand) {
+          state.choice = selectOpening(view,foe,hand,state.blockedSurface,repertoire);
+          if(config.hand==="alternate") {
+            const other = selectOpening(view,foe,hand==="right"?"left":"right",state.blockedSurface,repertoire);
+            if(other&&(!state.choice||other.score<state.choice.score))state.choice=other;
+          }
+          state.nextSelection = view.time+COMBAT.prediction;
+        }
+        opening = state.choice;
+        if(opening)hand=opening.hand;
+      }
+    }
     const target: Vec3 = opening?.target ?? [at.x + COMBAT.prediction * velocity.x, at.y + COMBAT.prediction * velocity.y, at.z + COMBAT.prediction * velocity.z];
     const dx = target[0] - view.head.x, dz = target[2] - view.head.z, far = hypot(dx, dz), face = atan2(dx, dz);
     const turn = wrap(face - report.heading), aligned = Math.abs(wrap(face - view.stance.facing)) < STRAFE.turned;
     const radius = foe.spec.segments.find(s => s.name === "head")?.shape;
     const skin = radius?.kind === "sphere" || radius?.kind === "capsule" ? radius.radius.value : 0;
-    const distance = Math.max(0, placedReach(spec, hand, target[1] - view.head.y) - COMBAT.reserve + (opening ? 0 : skin) + (config.spacing ?? 0));
+    const distance = Math.max(0, (mixed&&opening?opening.reach:placedReach(spec, hand, target[1] - view.head.y)) - COMBAT.reserve + (opening ? 0 : skin) + (config.spacing ?? 0));
     const toward = far > 0 ? ((view.stance.velocity.x - velocity.x) * dx + (view.stance.velocity.z - velocity.z) * dz) / far : 0;
     const delta = far - distance, anticipated = delta - Math.max(0, toward) * COMBAT.braking;
     const maximum = envelope?.walk.value ?? COMBAT.lateral;
@@ -152,7 +178,7 @@ export function combatTactics(spec: BodySpec, name: string, orders: (sight: Sigh
     if ((state.ready >= COMBAT.settle || (state.counter > 0 && Math.abs(delta) <= COMBAT.band && aligned)) && view.time >= ATTACK_PATH.startup) {
       state.counter = 0;
       state.surface = opening?.segment ?? "head"; state.responded = false;
-      state.phase = "attack"; state.action = { hand, target, family: cycles % 2 === 0 ? "straight" : "cross" };
+      state.phase = "attack"; state.action = { hand, target, family: mixed&&opening?opening.family:cycles % 2 === 0 ? "straight" : "cross" };
       return { move: null, face, hands, combat: state.action };
     }
     const speed = Math.max(-maximum * STRAFE.share, Math.min(maximum, anticipated / COMBAT.braking));
