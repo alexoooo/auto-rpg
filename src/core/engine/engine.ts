@@ -89,6 +89,12 @@ export interface SegmentBody {
    * one. Where the body is now.
    */
   gapTo(point: Vec3): number;
+  /** An unloaded replacement must clear every admitted collider; attached grips retain a gripping hand. */
+  canChangeShape(k: number, shape: ColliderShape): boolean;
+  /** Replace geometry in place, preserving handles, filtering, mass properties and velocities. */
+  changeShape(k: number, shape: ColliderShape): void;
+  /** Whether a registered grip currently joins this body to another. */
+  gripping(): boolean;
 }
 
 /** A body's shape, in its own frame: what `PhysicsWorld.addBody` gives it colliders for. */

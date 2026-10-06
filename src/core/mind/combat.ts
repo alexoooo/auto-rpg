@@ -127,7 +127,8 @@ export function combatTactics(spec: BodySpec, name: string, orders: (sight: Sigh
       range?.cancel(); resetCombination(); state.phase = ground!.state.phase; state.action = lowIntent.combat ?? null;
       state.choice = null; state.nextSelection = 0; state.ready = 0; state.pressure = 0;
       state.surface = ground!.state.surface;
-      return lowIntent;
+      if (state.action) state.action = { ...state.action, targetId: foe.id };
+      return { ...lowIntent, combat: state.action };
     }
     range?.observe(strike, view.handFeedback);
     const part = foe.segments.get("head"), at = part?.centre ?? foe.centre, velocity = part?.velocity ?? foe.velocity;
@@ -239,7 +240,7 @@ export function combatTactics(spec: BodySpec, name: string, orders: (sight: Sigh
       state.surface = opening?.segment ?? "head"; state.responded = false;
       if (!state.combo.following && !state.action) state.combo.depth = 0;
       state.phase = state.combo.following ? "combination" : "attack"; state.action = { ...(opening ? openingAction(opening) : { hand, target }),
-        family: mixed&&opening?opening.family:cycles % 2 === 0 ? "straight" : "cross" };
+        family: mixed&&opening?opening.family:cycles % 2 === 0 ? "straight" : "cross", targetId: foe.id };
       return { move: null, face, hands, combat: state.action };
     }
     const speed = Math.max(-maximum * STRAFE.share, Math.min(maximum, anticipated / COMBAT.braking));

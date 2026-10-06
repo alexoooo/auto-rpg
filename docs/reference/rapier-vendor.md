@@ -6,6 +6,10 @@ bounds and accumulated effort. The muscle driver selects symmetric reference or 
 bounds from immutable world configuration. Gameplay retains the reference while corrected-law
 control is measured separately in the [common battery](control-foundation.md).
 
+Adapter 9 adds stable collider-shape replacement, admitted-pair clearance queries and attached
+grip observation for coarse live hand poses. It uses the same committed vendor archive. Collider
+geometry restores through the native snapshot; pending/applied pose state restores with the body.
+
 ## Source and installation
 
 - Upstream commit: `b716d375efc0201003f0cd9ef7168eee0b62c177`, tag `js-v0.21.0`.

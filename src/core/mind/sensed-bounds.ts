@@ -1,7 +1,7 @@
 import type { BodyView } from "../body.ts";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { rigidOf } from "../build/rigid.ts";
-import { frameOf, type BodySpec, type SegmentSpec, type ShapeSpec } from "../spec/body.ts";
+import { frameOf, handShapeAt, type HandPose, type BodySpec, type SegmentSpec, type ShapeSpec } from "../spec/body.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { add, dot, scale, sub } from "../spec/vec.ts";
 import type { SolidSense } from "./object-senses.ts";
@@ -11,6 +11,7 @@ import type { BodySense } from "./senses.ts";
 
 /** Immutable collider support points, including attached items, in the segment's local frame. */
 const LOCAL = new WeakMap<BodySpec, ReadonlyMap<string, readonly { readonly points: readonly Vec3[]; readonly radius: number }[]>>();
+const POSES = new WeakMap<BodySpec, ReadonlyMap<string, Readonly<Record<string, { readonly points: readonly Vec3[]; readonly radius: number }>>>>();
 
 function pointsOf(shape: ShapeSpec, segment: SegmentSpec): { points: readonly Vec3[]; radius: number } {
   switch (shape.kind) {
@@ -51,12 +52,24 @@ function worldShapes(foe: BodySense) {
       })];
     }));
     LOCAL.set(foe.spec, locals);
+    POSES.set(foe.spec, new Map(foe.spec.segments.filter(s => s.handPoses).map(segment => {
+      const frame = frameOf(segment);
+      return [segment.name, Object.fromEntries((Object.keys(segment.handPoses!) as HandPose[]).map(pose => {
+        const data = pointsOf(handShapeAt(foe.spec, segment, pose), segment);
+        return [pose, { radius: data.radius, points: data.points.map(p => {
+          const d = sub(p, frame.origin); return [dot(d, frame.x), dot(d, frame.y), dot(d, frame.z)] as Vec3;
+        }) }];
+      }))];
+    })));
   }
   const scratch = new Vector3(), shapes: {name: string; points: Vec3[]; radius: number}[] = [];
   for (const [name, localsOf] of locals) {
     const sensed=foe.segments.get(name);if(!sensed)continue;
-    localsOf.forEach((shape,index)=>shapes.push({name:`${foe.id}/${name}/${index}`,radius:shape.radius,
-      points:shape.points.map(p=>{scratch.set(...p).applyRotationQuaternionToRef(sensed.rotation,scratch).addInPlace(sensed.position);return [scratch.x,scratch.y,scratch.z];})}));
+    localsOf.forEach((original,index)=>{
+      const shape = index === 0 ? POSES.get(foe.spec)?.get(name)?.[sensed.handPose ?? "open"] ?? original : original;
+      shapes.push({name:`${foe.id}/${name}/${index}`,radius:shape.radius,
+        points:shape.points.map(p=>{scratch.set(...p).applyRotationQuaternionToRef(sensed.rotation,scratch).addInPlace(sensed.position);return [scratch.x,scratch.y,scratch.z];})});
+    });
   }
   return shapes;
 }
@@ -100,4 +113,3 @@ export function lowOpponent(view: BodyView, foe: BodySense): boolean {
   const head = foe.segments.get("head");
   return !!head && head.centre.y - view.stance.support.y < LOW_HEAD;
 }
-

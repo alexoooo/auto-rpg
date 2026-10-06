@@ -76,5 +76,5 @@ export function embody<M extends Mind>(built: BuiltBody, world: World, make: Min
   const own: OwnBody = { spec: built.spec, built, muscles, assist: help.assist };
   try { mind = make(own); }
   catch (error) { muscles.dispose(); throw error; }
-  return { own, mind, state: { muscles: muscles.state, assist: help.state, mind: mind.state ?? null }, dispose: () => muscles.dispose() };
+  return { own, mind, state: { muscles: muscles.state, assist: help.state, handPoses: built.handPoses.state, mind: mind.state ?? null }, dispose: () => muscles.dispose() };
 }

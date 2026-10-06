@@ -12,6 +12,7 @@ import { SOLE_MARGIN } from "../../control/stance-tuning.ts";
 import { bearingSole, footStatesOf, motionAtToRef, pointOfToRef, readSupport, rolledRows, type FootState } from "../../control/support.ts";
 import { hypot } from "../../math/real.ts";
 import type { Vec3 } from "../../spec/quantity.ts";
+import { handShapeAt, type HandPose } from "../../spec/body.ts";
 import type { OwnBody } from "../mind.ts";
 import { limbChannels, type EndLimb, type FootLimb, type ProppedLimb, type Recipe } from "./stages.ts";
 
@@ -134,12 +135,19 @@ function hold(limb: Limb, rate: number, ground: number): void {
 
 /** A capsule's end as a limb bears on it: the end's centre, body frame, reference pose, and the capsule's radius. */
 function endOf(built: BuiltBody, segment: BuiltSegment, which: ProppedLimb["end"]): { readonly at: Vec3; readonly radius: number } {
-  const shape = segment.spec.shape, joint = chainTo(built, segment).at(-1);
-  if (shape.kind !== "capsule" || !joint) throw new Error(`${segment.spec.name} is a ${shape.kind} that ${joint ? joint.spec.name : "no joint"} carries; a limb bears on the end of a capsule a joint carries`);
-  const c = joint.spec.centre.value, from = shape.from.value, to = shape.to.value;
-  const away = (p: Vec3): number => (p[0] - c[0]) * (p[0] - c[0]) + (p[1] - c[1]) * (p[1] - c[1]) + (p[2] - c[2]) * (p[2] - c[2]);
-  const near = away(from) <= away(to) ? from : to;
-  return { at: which === "near" ? near : near === from ? to : from, radius: shape.radius.value };
+  const joint = chainTo(built, segment).at(-1);
+  const read = (shape: import("../../spec/body.ts").ShapeSpec) => {
+    if (shape.kind !== "capsule" || !joint) throw new Error(`${segment.spec.name} is a ${shape.kind} that ${joint ? joint.spec.name : "no joint"} carries; a limb bears on the end of a capsule a joint carries`);
+    const c = joint.spec.centre.value, from = shape.from.value, to = shape.to.value;
+    const away = (p: Vec3): number => (p[0] - c[0]) * (p[0] - c[0]) + (p[1] - c[1]) * (p[1] - c[1]) + (p[2] - c[2]) * (p[2] - c[2]);
+    const near = away(from) <= away(to) ? from : to;
+    return { at: which === "near" ? near : near === from ? to : from, radius: shape.radius.value };
+  };
+  const base = read(segment.spec.shape);
+  const poses = segment.spec.handPoses && Object.fromEntries((Object.keys(segment.spec.handPoses) as HandPose[]).map(name =>
+    [name, read(handShapeAt(built.spec, segment.spec, name))]));
+  const current = () => poses && segment.handPose ? poses[segment.handPose.applied]! : base;
+  return { get at() { return current().at; }, get radius() { return current().radius; } };
 }
 
 /**

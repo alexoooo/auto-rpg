@@ -40,23 +40,27 @@ export function approachSpeed(history, distance = HUMAN_PUNCH.speedDistance) {
 
 /** The real unassisted Warrior executor, with a detached target and an independent impulse sensor. */
 export async function punchStand({hand='right',family='straight',hz=120,seconds=6,ahead=.6,height=1.63,
-  contactSpeed=5,armExtension=0,mode='hit',pad={}} = {}) {
+  contactSpeed=5,armExtension=0,mode='hit',pad={},paths={},execution,matchedFeedback=false} = {}) {
   if (!['left','right'].includes(hand) || !['straight','cross'].includes(family) || !['hit','miss'].includes(mode)
     || ![120,240,480,960,1920].includes(hz) || ![seconds,ahead,height,contactSpeed,armExtension].every(Number.isFinite)
     || seconds<=2 || ahead<=0 || contactSpeed<=0 || armExtension<0 || armExtension>1) throw new Error('invalid punch calibration');
-  const config={hand,family,hz,seconds,ahead,height,contactSpeed,armExtension,mode,pad};
+  const config={hand,family,hz,seconds,ahead,height,contactSpeed,armExtension,mode,pad,paths,execution,matchedFeedback};
   const s=await coreStand(modelSpec('workshop-fighter'),{engine:DEFAULT_ENGINE,hz});
-  const body=createBody(s.built,s.world,{servoSeconds:SERVO_SECONDS,handFeedback:true});
-  const skills=combatSkills(body,{...ATTACK_PATH,contactSpeed});
+  let sensor;
+  const body=createBody(s.built,s.world,{servoSeconds:SERVO_SECONDS,handFeedback:true,
+    ...(matchedFeedback?{contactIdentity:other=>other===sensor?.body?{kind:'object',id:'punch-pad'}:other?null:{kind:'world'},
+      materialContacts:h=>(sensor?.state.materialContacts??[]).filter(c=>c.segment===`hand.${h}`).map(c=>({target:{kind:'object',id:'punch-pad'},
+        point:c.point,normal:[0,0,1],impulse:c.force*s.world.dt}))}: {})});
+  const skills=combatSkills(body,{...ATTACK_PATH,...paths,contactSpeed},null,undefined,false,undefined,undefined,false,execution);
   const target=[hand==='right'?.1:-.1,height,ahead];
-  const sensor=punchPad(s.world,[target[0]+(mode==='miss'?1:0),target[1],target[2]],pad);
-  const limb=s.built.segments.get(`hand.${hand}`),knuckles=rigidPoints(s.built.spec,limb.spec).get('knuckles').value;
+  sensor=punchPad(s.world,[target[0]+(mode==='miss'?1:0),target[1],target[2]],pad);
+  const limb=s.built.segments.get(`hand.${hand}`),knuckles=rigidPoints(s.built.spec,limb.spec).get(execution?.physicalFists?'strike':'knuckles').value;
   const names=new Map([...s.built.segments.values()].map(segment=>[segment.body,segment.spec.name]));
   const masses=contactMass(s.built),point=new Vector3(),velocity=new Vector3(),spin=new Vector3();
   const state={history:[],samples:[],impacts:[],active:null,phase:'guard',launch:0,launchTime:0,previousPhase:null,
     witness:null,fell:false,floorContacts:0,unassignedImpulse:0,preContactTorquePeaks:{},seenLaunch:0};
   body.drive((view,dt)=>skills.command(view,{move:null,face:0,hands:{left:GUARD_ACTION,right:GUARD_ACTION},
-    combat:view.time>=2?{hand,target,family,armExtension}:null},dt));
+    combat:view.time>=2?{hand,target,family,armExtension,targetId:'punch-pad'}:null},dt));
   const before=s.world.beforeStep(()=>{
     pointOfToRef(limb,knuckles,point);motionAtToRef(limb,point,velocity,spin);
     const phase=skills.report.strike.phase;
@@ -65,7 +69,12 @@ export async function punchStand({hand='right',family='straight',hz=120,seconds=
     state.history.push({time:s.world.time,point:point.asArray()});
     state.witness={point:point.asArray(),velocity:velocity.asArray(),speed:velocity.length(),
       relativeSpeed:velocity.subtract(body.view.stance.velocity).length(),
-      motorTorques:Array.from(body.muscles.pulled)};
+      motorTorques:Array.from(body.muscles.pulled),
+      pose:limb.handPose.applied,angles:structuredClone(body.view.angles),centre:body.view.stance.centre.asArray(),
+      centreVelocity:body.view.stance.velocity.asArray(),activation:Array.from(body.muscles.activation),
+      bounds:{positive:Array.from(body.muscles.bounds.positive),negative:Array.from(body.muscles.bounds.negative)},
+      anchorErrors:[...s.built.joints.values()].filter(j=>[j.parent,j.child].includes(limb)||j.spec.name===`elbow.${hand}`).map(j=>({name:j.spec.name,
+        error:Vector3.Distance(pointOfToRef(j.parent,j.spec.centre.value,new Vector3()),pointOfToRef(j.child,j.spec.centre.value,new Vector3()))}))};
     sensor.prepare();
     for(const segment of s.built.segments.values())if(segment.spec.shape.kind==='capsule')sensor.load(segment);
   });
@@ -87,7 +96,8 @@ export async function punchStand({hand='right',family='straight',hz=120,seconds=
         positiveSteps:0,contacts:[],preImpact:structuredClone(state.witness),
         last10cmSpeed:approachSpeed(state.history.filter(sample=>sample.time>=state.launchTime)),
         freeJointMass:contact?masses.along(limb,contact.point,contact.normal):material?masses.along(limb,material.point,[0,0,1]):null,samples:[],
-        truncated:false};
+        contactGeometry:{point:contact?.point??material?.point??null,normal:contact?.normal??[0,0,1],
+          offset:Vector3.Distance(point,new Vector3(...(contact?.point??material?.point??point.asArray())))},truncated:false};
       state.seenLaunch=state.launch;
     }
     if(state.active) {
@@ -128,6 +138,7 @@ export async function punchStand({hand='right',family='straight',hz=120,seconds=
         maximumCompression,maximumFaceCompression,qualification:{accepted:faults.length===0,faults},
         bestOfThree:best?{time:best.time,speed:best.last10cmSpeed,impulse:best.impulse,peakStepForce:best.peakStepForce,effectiveMass:best.effectiveMass}:null,
         unassignedImpulse:state.unassignedImpulse,preContactTorquePeaks:state.preContactTorquePeaks,
+        impactResponse:structuredClone(skills.state.impacts),
         assist:{force:body.assist.meter.force,moment:body.assist.meter.moment}};
     },
     dispose(){before.dispose();after.dispose();sensor.dispose();body.dispose();s.dispose();},

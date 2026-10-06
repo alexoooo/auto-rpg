@@ -16,7 +16,8 @@ import type { BodyLevel, MuscleDriver } from "./muscle/driver.ts";
 import type { World } from "./world.ts";
 import { physicalBody, type PhysicalBody } from "./physical-body.ts";
 import { centreReading } from "./observation.ts";
-import { handFeedback, type ContactIdentity, type HandFeedback } from "./control/hand-feedback.ts";
+import { handFeedback, type ContactIdentity, type HandContact, type HandFeedback } from "./control/hand-feedback.ts";
+import type { HandPose } from "./spec/body.ts";
 
 /**
  * **A body, commanded and seen.** One class for every body assembled from a spec: its muscles
@@ -85,6 +86,8 @@ type BodyDriver = (view: BodyView, dt: number) => BodyCommand | null;
  * the freedoms pushed flat out.
  */
 export interface BodyCommand {
+  /** A coarse contact configuration; omitted hands retain their pending request. */
+  readonly handPoses?: Readonly<Partial<Record<Hand, HandPose>>>;
   /** Angles by channel; a freedom not named is held at its reference angle. */
   readonly posture: Pose;
   /**
@@ -105,6 +108,7 @@ const restCommand = (): BodyCommand => ({ posture: {}, hands: { left: null, righ
 
 /** **What a body shows its driver**, read at the start of each control step from the step before. */
 export interface BodyView {
+  readonly handPoses: Readonly<Record<string, { readonly applied: HandPose; readonly requested: HandPose }>>;
   /** Optional own-hand contact feedback for controllers that react to impacts. */
   readonly handFeedback?: Readonly<Record<Hand, HandFeedback>>;
   /** Seconds of the world's clock. */
@@ -154,6 +158,8 @@ interface BodyOptions {
   readonly handFeedback?: boolean;
   /** Trusted labeling for detached contact response; policies receive no engine body. */
   readonly contactIdentity?: ContactIdentity;
+  /** Trusted material contacts from the last completed step, alongside native solver contacts. */
+  readonly materialContacts?: (hand: Hand) => readonly HandContact[];
   /**
    * The joint servo's time constant, s (`servo`): a goal's error decays as a critically damped
    * motion with natural frequency 1 / servoSeconds.
@@ -186,9 +192,9 @@ interface CommandMind extends HostMind {
 }
 
 /** The command layers over `own`, holding its reference pose until something drives them. */
-export function commandMind(own: OwnBody, { servoSeconds, stance, handFeedback: feedbackEnabled, contactIdentity }: BodyOptions): CommandMind {
+export function commandMind(own: OwnBody, { servoSeconds, stance, handFeedback: feedbackEnabled, contactIdentity, materialContacts }: BodyOptions): CommandMind {
   const { built, muscles } = own;
-  const feedback = feedbackEnabled ? handFeedback(built, contactIdentity) : null;
+  const feedback = feedbackEnabled ? handFeedback(built, contactIdentity, materialContacts) : null;
   const motor: MotorControl = motorControl(built, servoSeconds, {}, stance, own.assist);
   const fists = { left: fistOf(built, "left"), right: fistOf(built, "right") };
   const head = centreReading(built, "head");
@@ -208,6 +214,7 @@ export function commandMind(own: OwnBody, { servoSeconds, stance, handFeedback: 
     ...(feedback ? { handFeedback: feedback.state } : {}),
   };
   const view = {
+    handPoses: built.handPoses.state,
     get time() { return state.time; },
     senses: NOTHING_SENSED,
     angles,
@@ -224,6 +231,7 @@ export function commandMind(own: OwnBody, { servoSeconds, stance, handFeedback: 
   let released: ((view: BodyView) => void) | undefined;
 
   const obey = (command: BodyCommand): void => {
+    if (command.handPoses) built.handPoses.request(Object.entries(command.handPoses).map(([hand, pose]) => ({ hand: hand as Hand, pose: pose! })));
     motor.setPosture(command.posture);
     motor.setPushes(command.pushes);
     motor.setStance(command.stance);

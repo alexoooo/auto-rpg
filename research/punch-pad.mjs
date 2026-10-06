@@ -38,7 +38,7 @@ export function punchPad(world, front, settings = {}) {
     },
     load(segment) {
       if(config.face!=='compliant')return;
-      const shape=segment.spec.shape;
+      const shape=segment.rigid.shapes[0];
       if(shape.kind!=='capsule')throw new Error('the compliant hand fixture requires a capsule');
       pointOfToRef(segment,shape.from.value,from);pointOfToRef(segment,shape.to.value,to);
       at.copyFrom(from.z>to.z?from:to);at.z+=shape.radius.value;

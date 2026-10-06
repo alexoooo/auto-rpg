@@ -183,6 +183,14 @@ export function humanSegments(figure: HumanFigure): SegmentSpec[] {
     const segment: SegmentSpec = { name: plan.name, proximal, distal, mass, centreOfMass, inertia, shape: shapeOf(figure, plan, proximal, distal, mass),
       surface: { stiffness: si(CONTACT_STIFFNESS[plan.row]) } };
     const points = plan.points && Object.fromEntries(Object.entries(plan.points).map(([name, point]) => [name, atFit(point)]));
+    if (plan.row === "hand" && points?.knuckles && segment.shape.kind === "capsule") {
+      const open = segment.shape;
+      // The capsule ends at the metacarpal head plus the existing thickness: docs/reference/hand-poses.md.
+      const fist: ShapeSpec = { kind: "capsule", from: open.from, to: points.knuckles, radius: open.radius };
+      points.strike = derive("m", "the closed capsule's distal surface, beyond the metacarpal head by its radius",
+        [proximal, distal, points.knuckles, open.radius], (p, d, k, r) => add(k, scale(normalize(sub(d, p)), r)));
+      return { ...segment, ...(plan.right && { right: plan.right }), points, handPoses: { open, fist, grip: fist } };
+    }
     return { ...segment, ...(plan.right && { right: plan.right }), ...(points && { points }) };
   });
 }

@@ -54,6 +54,8 @@ export function validArmExtension(extension = 0): boolean {
 
 /** A hand, observed world target and path family; no motor or anatomy prescription. */
 export interface CombatAction {
+  /** Observed identity whose contact may admit a bounded follow-through. */
+  readonly targetId?: string;
   readonly hand: Hand;
   readonly target: Vec3;
   readonly family: "straight" | "cross" | "hook" | "downward" | "overhand" | "uppercut";

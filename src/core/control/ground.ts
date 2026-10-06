@@ -4,7 +4,7 @@
  */
 import { Vector3, Quaternion } from "@babylonjs/core/Maths/math.vector.js";
 import type { BuiltBody, BuiltSegment } from "../build/build-body.ts";
-import type { SegmentFrame, ShapeSpec } from "../spec/body.ts";
+import { handShapeAt, type HandPose, type SegmentFrame, type ShapeSpec } from "../spec/body.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { turnOfToRef } from "./support.ts";
 
@@ -84,7 +84,12 @@ export function uprightness(built: BuiltBody): Uprightness {
     mass += segment.rigid.mass;
     moment += segment.rigid.mass * centre[1];
     for (const low of lows) lowest = Math.min(lowest, low.at[1] - low.radius);
-    parts.push({ segment, mass: segment.rigid.mass, centre: from(centre), lows: lows.map((low) => ({ from: from(low.at), radius: low.radius })) });
+    const base = lows.map((low) => ({ from: from(low.at), radius: low.radius }));
+    const poses = segment.spec.handPoses && Object.fromEntries((Object.keys(segment.spec.handPoses) as HandPose[]).map(name =>
+      [name, lowsOf(handShapeAt(built.spec, segment.spec, name),
+        segment.frame).map(low => ({ from: from(low.at), radius: low.radius }))]));
+    parts.push({ segment, mass: segment.rigid.mass, centre: from(centre),
+      get lows() { return poses && segment.handPose ? poses[segment.handPose.applied]! : base; } });
   }
   if (parts.length === 0) throw new Error(`${built.spec.model} has no segment to stand on`);
   const standing = moment / mass - lowest;

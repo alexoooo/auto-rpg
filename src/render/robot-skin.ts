@@ -62,7 +62,8 @@ export function dressRobot(built: BuiltBody, scene: Scene, appearance: Robot, op
   for (const mesh of meshes) { mesh.isPickable = false; mesh.receiveShadows = true; }
   const update = () => {
     for (const finger of fingers) {
-      const closed = finger.holding ? 1 : Math.max(0, Math.min(1, options.closure?.(finger.hand) ?? 0));
+      const pose = built.handPoses.state[finger.hand]?.applied;
+      const closed = finger.holding ? 1 : Math.max(0, Math.min(1, options.closure ? options.closure(finger.hand) : pose === "open" ? 0 : 1));
       let y = finger.base.y, z = finger.base.z;
       for (let i = 0; i <= finger.index; i++) {
         const open = .12 + i * .10, angle = open + closed * (Math.PI / 6 + i * Math.PI / 3 - open);

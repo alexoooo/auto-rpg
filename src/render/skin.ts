@@ -138,7 +138,7 @@ function trunkSegment(built: BuiltBody, point: Vector3): BuiltSegment {
  * is closed on its haft.
  */
 export function dressBody(built: BuiltBody, container: AssetContainer, scene: Scene, clothing: Clothing,
-  closure: (hand: Hand) => number = () => 0): SkinView {
+  closure?: (hand: Hand) => number): SkinView {
   const model = built.spec.model as WorkshopModel, rig = RIGS[model], prefix = `${model}.skin.`;
   // Materials stay the container's, which the scene owns and other bodies share: a body part never
   // disposes them.
@@ -168,6 +168,7 @@ export function dressBody(built: BuiltBody, container: AssetContainer, scene: Sc
     right: built.spec.held?.some((held) => held.segment === "hand.right") ?? false,
   };
   const fist = new Map<string, Quaternion>();
+  const gripping = new Map<string, Quaternion>();
   for (const side of ["r", "l"] as const) {
     const hand = nodes.find((node) => nameOf(node) === `hand_${side}`)!;
     const bones = new Map<string, RestBone>();
@@ -176,6 +177,7 @@ export function dressBody(built: BuiltBody, container: AssetContainer, scene: Sc
     }
     const closed = holding[side === "r" ? "right" : "left"] ? CLUB_GRIP[model] : FIST[model];
     for (const [name, turn] of fistTurns(bones, side, closed)) fist.set(name, turn);
+    for (const [name, turn] of fistTurns(bones, side, CLUB_GRIP[model])) gripping.set(name, turn);
   }
   // Parents come before children: `getDescendants` walks depth first.
   const rows = nodes.filter((node) => rig.bones[nameOf(node)]).map((node) => {
@@ -185,7 +187,7 @@ export function dressBody(built: BuiltBody, container: AssetContainer, scene: Sc
       const scaling = new Vector3(), rotation = new Quaternion(), position = new Vector3();
       localMatrix(node).decompose(scaling, rotation, position);
       const finger = { hand: (name.endsWith("_r") ? "right" : "left") as Hand, scaling, rotation, position,
-        open: gripQuaternion(open), fist: shut };
+        open: gripQuaternion(open), fist: shut, grip: gripping.get(name)! };
       return { node, segment: null, held: new Matrix(), finger };
     }
     const host = HOSTS[rig.bones[name]!.host];
@@ -218,11 +220,15 @@ export function dressBody(built: BuiltBody, container: AssetContainer, scene: Sc
   const relative = new Matrix(), turn = new Quaternion(), curled = new Quaternion();
   const update = () => {
     achieved.clear();
-    const shut = { left: holding.left ? 1 : closure("left"), right: holding.right ? 1 : closure("right") };
+    const physicalClosure = (hand: Hand): number => {
+      const pose = built.handPoses.state[hand]?.applied;
+      return closure ? closure(hand) : pose === "open" ? 0 : 1;
+    };
+    const shut = { left: holding.left ? 1 : physicalClosure("left"), right: holding.right ? 1 : physicalClosure("right") };
     for (const row of rows) {
       if (row.finger) {
-        const { hand, scaling, rotation, position, open, fist } = row.finger;
-        Quaternion.SlerpToRef(open, fist, shut[hand], turn);
+        const { hand, scaling, rotation, position, open, fist, grip } = row.finger;
+        Quaternion.SlerpToRef(open, built.handPoses.state[hand]?.applied === "grip" ? grip : fist, shut[hand], turn);
         rotation.multiplyToRef(turn, curled);
         Matrix.ComposeToRef(scaling, curled, position, row.held);
       }

@@ -102,16 +102,30 @@ export function drawBody(built: BuiltBody, scene: Scene, tint: Color3): BodyShap
   right.diffuseColor = Color3.Lerp(tint, new Color3(...SHAPE_TINT.warm), SHAPE_TINT.warmShare);
   right.specularColor = left.specularColor;
   const meshes: Mesh[] = [];
+  const changing: { segment: import("../core/build/build-body.ts").BuiltSegment; mesh: Mesh; pose: string }[] = [];
   for (const segment of built.segments.values()) {
     // Its own shape; what it holds is `drawHeld`'s.
     const mesh = shapeMesh(`${segment.node.name}.view`, segment.frame, segment.spec.shape, scene);
     mesh.parent = segment.node;
     mesh.material = segment.spec.name.endsWith(".right") ? right : left;
     meshes.push(mesh);
+    if (segment.handPose) changing.push({ segment, mesh, pose: segment.handPose.applied });
   }
+  const observer = scene.onBeforeRenderObservable.add(() => {
+    for (const item of changing) {
+      const pose = item.segment.handPose!.applied;
+      if (pose === item.pose) continue;
+      const replacement = shapeMesh(`${item.mesh.name}.geometry`, item.segment.frame, item.segment.rigid.shapes[0]!, scene);
+      replacement.geometry!.applyToMesh(item.mesh);
+      item.mesh.position.copyFrom(replacement.position);
+      item.mesh.rotationQuaternion = replacement.rotationQuaternion!.clone();
+      replacement.dispose(false, false); item.pose = pose;
+    }
+  });
   return {
     meshes,
     dispose() {
+      scene.onBeforeRenderObservable.remove(observer);
       for (const mesh of meshes) mesh.dispose(false, false);
       left.dispose();
       right.dispose();

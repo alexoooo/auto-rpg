@@ -1018,3 +1018,18 @@ intent through the common executor. It retains a committed hand/aim, refreshes o
 strokes, and requests standing return on movement, target displacement or a deadline. Its
 nested state forks with the bout. Ordinary orders and recovery resumption reset selection.
 The supported executor remains available to other policies independently of this heuristic.
+
+Hands expose coarse open, fist and grip contact configurations to goal-based and direct
+controllers. The body owns pending/applied pose state; its builder checks unloaded contact and
+replacement clearance before changing a collider in place. Handles, ownership, filtering,
+velocity and sourced mass properties persist. Separate capture retains the current envelope
+until closure is requested; reopening waits for release. Senses carry the applied configuration
+at their observation time, and physical-pose renderers read that configuration. The geometry and retained
+rigid-hand inertia approximation are recorded in [hand poses](reference/hand-poses.md).
+
+The optional combat `execution` config requests physical fists, tracks their surface strike
+point and admits a finite impact path on identified target contact. Native and material contacts
+share detached tactile feedback; world, block, unknown and misaligned contacts withdraw.
+The [bounded punch search](reference/punch-foundation.md) records its failed promotion and
+leaves Brawler/Scrapper settings intact. The [mass audit](reference/punch-mass-audit.md) identifies
+the current damage model's free-joint assumption without substituting a new rule.

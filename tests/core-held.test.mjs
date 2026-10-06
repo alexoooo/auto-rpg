@@ -153,12 +153,12 @@ test("the engine holds the rigid body: its mass, centre and inertia, read back b
 test("a rigid body's points are its segment's and its items', placed", () => {
   const bare = humanSpec("workshop-fighter"), hand = bare.segments.find((segment) => segment.name === "hand.right");
   const own = rigidPoints(bare, hand);
-  assert.deepEqual([...own.keys()], ["knuckles", "little"]);
+  assert.deepEqual([...own.keys()], ["knuckles", "little", "strike"]);
   for (const [name, point] of own) assert.equal(point, hand.points[name], `${name} is the segment's own quantity`);
 
   const club = woodenClub(), spec = armed(bare, "right", club), [held] = spec.held;
   const points = rigidPoints(spec, hand);
-  assert.deepEqual([...points.keys()], ["knuckles", "little", "swellFrom", "swellTo", "swell"]);
+  assert.deepEqual([...points.keys()], ["knuckles", "little", "strike", "swellFrom", "swellTo", "swell"]);
   for (const name of ["knuckles", "little"]) assert.equal(points.get(name), hand.points[name]);
   for (const name of ["swellFrom", "swellTo", "swell"]) {
     assert.deepEqual(points.get(name).value, heldPoint(held, club.points[name]).value, `${name} is where its holding puts it`);
@@ -170,7 +170,7 @@ test("a rigid body's points are its segment's and its items', placed", () => {
   points.get("swell").value.forEach((c, k) => close(c, middle[k], 1e-12, `the swell's middle ${k}`));
   // The other hand holds nothing, and has its own alone.
   const left = spec.segments.find((segment) => segment.name === "hand.left");
-  assert.deepEqual([...rigidPoints(spec, left).keys()], ["knuckles", "little"]);
+  assert.deepEqual([...rigidPoints(spec, left).keys()], ["knuckles", "little", "strike"]);
 
   // A name the segment and its item both state is refused.
   const twice = { ...club, points: { ...club.points, knuckles: club.points.swell } };

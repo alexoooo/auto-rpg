@@ -1,7 +1,7 @@
 import type { Mesh } from "@babylonjs/core/Meshes/mesh.js";
 import type { Hand } from "../core/control/motor.ts";
 
-/** Presentation only: neither clothing nor finger poses changes the simulated body. */
+/** Presentation only: clothing changes no physics; fingers follow the body's applied contact pose. */
 export interface Clothing { readonly boots: boolean; readonly armour: boolean }
 
 /** Inputs belonging to one dressed body, never to a cached asset. */

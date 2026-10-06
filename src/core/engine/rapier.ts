@@ -29,7 +29,7 @@ import { turnAboutToRef } from "../math/turn.ts";
 type Rapier = typeof RAPIER;
 
 /** Vendor archive identity (`docs/reference/rapier-vendor.md`) and the adapter's snapshot contract. */
-const REVISION = "rapier/adapter-8/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde";
+const REVISION = "rapier/adapter-9/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde";
 
 /**
  * Rapier's wasm, loading or loaded: one instance a realm. Rapier's own `init` asked again while
@@ -387,6 +387,32 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
         get massProperties() { return properties; },
         setMassProperties: setMass,
         engineMass: () => rigid.mass(),
+        gripping: () => grips.some(g => g.handle !== null && (g.parent === body || g.child === body)),
+        canChangeShape(k, shape) {
+          const handle = colliders[k];
+          if (handle === undefined) throw new Error("unknown collider index");
+          const desc = colliderOf(shape), position = new Vector3(desc.translation.x, desc.translation.y, desc.translation.z);
+          const rotation = new Quaternion(desc.rotation.x, desc.rotation.y, desc.rotation.z, desc.rotation.w);
+          const currentTurn = rigid.rotation(), turn = new Quaternion(currentTurn.x, currentTurn.y, currentTurn.z, currentTurn.w);
+          position.applyRotationQuaternionToRef(turn, position);
+          const origin = rigid.translation(); position.addInPlaceFromFloats(origin.x, origin.y, origin.z);
+          turn.multiplyToRef(rotation, rotation);
+          let clear = true;
+          raw.colliders.forEach(other => {
+            if (!clear || bodyOf.get(other.handle) === body || other.isSensor()
+              || hooks.filterContactPair(handle, other.handle, rigid.handle, other.parent()?.handle ?? 0) === null) return;
+            if (other.intersectsShape(desc.shape, position, rotation)) clear = false;
+          });
+          return clear;
+        },
+        changeShape(k, shape) {
+          const handle = colliders[k];
+          if (handle === undefined) throw new Error("unknown collider index");
+          const desc = colliderOf(shape), collider = raw.getCollider(handle);
+          collider.setShape(desc.shape);
+          collider.setTranslationWrtParent(desc.translation);
+          collider.setRotationWrtParent(desc.rotation);
+        },
         hullVertices(k) {
           const collider = rigid.collider(k);
           if (collider.shape.type !== R.ShapeType.ConvexPolyhedron) return null;

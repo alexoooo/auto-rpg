@@ -2,11 +2,12 @@ import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode.js";
 import type { ColliderShape, EngineJoint, PhysicsWorld, SegmentBody } from "../engine/engine.ts";
 import type { World } from "../world.ts";
-import { frameOf, type BodySpec, type DofSpec, type JointSpec, type SegmentFrame, type SegmentSpec, type ShapeSpec } from "../spec/body.ts";
+import { frameOf, handShapeAt, type BodySpec, type DofSpec, type HandPose, type JointSpec, type SegmentFrame, type SegmentSpec, type ShapeSpec } from "../spec/body.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { cross, dot, normalize, orthogonalTo, sub } from "../spec/vec.ts";
 import { hasProducts, principalOf, rigidOf, type Rigid } from "./rigid.ts";
 import { rotationOfToRef } from "./joint-state.ts";
+import { createHandPoses, type HandPoses } from "../control/hand-poses.ts";
 
 /**
  * **`buildBody`: bodies and joints from a spec and an initial placement.**
@@ -37,6 +38,8 @@ export interface BuiltSegment {
   readonly rest: Quaternion;
   /** Its rigid body: the segment and what it holds (`rigid.ts`), whose mass properties the body has. */
   readonly rigid: Rigid;
+  /** Applied hand configuration, with pending requests kept in the body's pose state. */
+  readonly handPose?: { applied: HandPose; requested: HandPose };
 }
 
 /** A spec freedom as the joint has it: its angular axis is the freedom's index, and its sense may be flipped. */
@@ -65,6 +68,7 @@ export interface BuiltBody {
   readonly physics: PhysicsWorld;
   readonly segments: ReadonlyMap<string, BuiltSegment>;
   readonly joints: ReadonlyMap<string, BuiltJoint>;
+  readonly handPoses: HandPoses;
   dispose(): void;
 }
 
@@ -90,7 +94,7 @@ function local(frame: SegmentFrame, point: Vec3): Vec3 {
 const localDirection = (frame: SegmentFrame, direction: Vec3): Vec3 =>
   [dot(direction, frame.x), dot(direction, frame.y), dot(direction, frame.z)];
 
-function colliderOf(frame: SegmentFrame, spec: ShapeSpec): ColliderShape {
+export function colliderOf(frame: SegmentFrame, spec: ShapeSpec): ColliderShape {
   switch (spec.kind) {
     case "capsule":
       return { kind: "capsule", from: local(frame, spec.from.value), to: local(frame, spec.to.value), radius: spec.radius.value };
@@ -110,6 +114,7 @@ function colliderOf(frame: SegmentFrame, spec: ShapeSpec): ColliderShape {
 function buildSegment(body: BodySpec, spec: SegmentSpec, placement: Placement, world: World, pose?: InitialPose): BuiltSegment {
   const frame = frameOf(spec);
   const rigid = rigidOf(body, spec);
+  const initial: HandPose = body.held?.some(held => held.segment === spec.name) ? "grip" : "open";
   const node = new TransformNode(`${body.model}.${spec.name}`, world.scene);
   node.position = v3(frame.origin).addInPlace(v3(placement.position));
   node.rotationQuaternion = Quaternion.RotationQuaternionFromAxis(v3(frame.x), v3(frame.y), v3(frame.z));
@@ -125,7 +130,11 @@ function buildSegment(body: BodySpec, spec: SegmentSpec, placement: Placement, w
       ? Quaternion.RotationQuaternionFromAxis(v3(principal.axes[0]), v3(principal.axes[1]), v3(principal.axes[2]))
       : Quaternion.Identity(),
   });
-  return { spec, frame, node, body: physics, rest, rigid };
+  const handPose = spec.handPoses ? { applied: initial, requested: initial } : undefined;
+  const configurations = spec.handPoses && Object.fromEntries((Object.keys(spec.handPoses) as HandPose[]).map(name =>
+    [name, { ...rigid, shapes: [handShapeAt(body, spec, name), ...rigid.shapes.slice(1)] }]));
+  return { spec, frame, node, body: physics, rest, ...(handPose ? { handPose } : {}),
+    get rigid() { return configurations && handPose ? configurations[handPose.applied]! : rigid; } };
 }
 
 /**
@@ -229,9 +238,12 @@ export function buildBody(spec: BodySpec, world: World, placement: Placement): B
     if (!parent || !child) throw new Error(`${spec.model}'s ${joint.name} joins a segment it does not have`);
     joints.set(joint.name, buildJoint(joint, parent, child, world));
   }
+  const handPoses = createHandPoses(spec, segments, world);
   return {
     spec, physics: world.physics, segments, joints,
+    handPoses,
     dispose() {
+      handPoses.dispose();
       // Removing a body removes its colliders and joints with it.
       for (const segment of segments.values()) {
         world.physics.removeBody(segment.body);

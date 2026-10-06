@@ -1,0 +1,1163 @@
+{
+  "harness": {
+    "kind": "Node Warrior impulse-response stand",
+    "engine": "rapier-coordinate",
+    "revision": "rapier/adapter-9/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits",
+    "balance": 0
+  },
+  "windowSeconds": 0.008333333333333333,
+  "rows": [
+    {
+      "mode": "free",
+      "hand": "left",
+      "impulse": 0.1,
+      "hz": 120,
+      "revision": "rapier/adapter-9/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits",
+      "model": 0.4320924383006401,
+      "before": [
+        9.840520342667187e-7,
+        -0.0000024140271206247463,
+        0.00000312800749247206
+      ],
+      "after": [
+        0.15779173001077657,
+        0.18161790754984852,
+        0.23131973228640004
+      ],
+      "assists": {
+        "force": 0,
+        "moment": 0
+      },
+      "floorImpulse": 0,
+      "reference": {
+        "mode": "free",
+        "hand": "left",
+        "impulse": 0,
+        "hz": 120,
+        "revision": "rapier/adapter-9/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits",
+        "model": 0.4320924383006401,
+        "before": [
+          9.840520342667187e-7,
+          -0.0000024140271206247463,
+          0.00000312800749247206
+        ],
+        "after": [
+          0.0000013372121198886573,
+          -3.631830032431832e-7,
+          0.0000019837403016064973
+        ],
+        "assists": {
+          "force": 0,
+          "moment": 0
+        },
+        "floorImpulse": 0
+      },
+      "deltaVelocity": 0.23131774854609843,
+      "measuredWindowMass": 0.43230578124043684
+    },
+    {
+      "mode": "free",
+      "hand": "left",
+      "impulse": 1,
+      "hz": 120,
+      "revision": "rapier/adapter-9/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits",
+      "model": 0.4320924383006401,
+      "before": [
+        9.840520342667187e-7,
+        -0.0000024140271206247463,
+        0.00000312800749247206
+      ],
+      "after": [
+        1.2072176095320628,
+        2.0614280732147146,
+        2.3028362772839577
+      ],
+      "assists": {
+        "force": 0,
+        "moment": 0
+      },
+      "floorImpulse": 0,
+      "reference": {
+        "mode": "free",
+        "hand": "left",
+        "impulse": 0,
+        "hz": 120,
+        "revision": "rapier/adapter-9/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits",
+        "model": 0.4320924383006401,
+        "before": [
+          9.840520342667187e-7,
+          -0.0000024140271206247463,
+          0.00000312800749247206
+        ],
+        "after": [
+          0.0000013372121198886573,
+          -3.631830032431832e-7,
+          0.0000019837403016064973
+        ],
+        "assists": {
+          "force": 0,
+          "moment": 0
+        },
+        "floorImpulse": 0
+      },
+      "deltaVelocity": 2.302834293543656,
+      "measuredWindowMass": 0.4342474848510165
+    },
+    {
+      "mode": "free",
+      "hand": "right",
+      "impulse": 0.1,
+      "hz": 120,
+      "revision": "rapier/adapter-9/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits",
+      "model": 0.4320910639524909,
+      "before": [
+        -0.00000270645606198482,
+        -0.00001892773164111419,
+        0.000007926429759643506
+      ],
+      "after": [
+        -0.15778257791430025,
+        0.1815162500599551,
+        0.2313877890163275
+      ],
+      "assists": {
+        "force": 0,
+        "moment": 0
+      },
+      "floorImpulse": 0,
+      "reference": {
+        "mode": "free",
+        "hand": "right",
+        "impulse": 0,
+        "hz": 120,
+        "revision": "rapier/adapter-9/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits",
+        "model": 0.4320910639524909,
+        "before": [
+          -0.00000270645606198482,
+          -0.00001892773164111419,
+          0.000007926429759643506
+        ],
+        "after": [
+          -0.000010441564640336915,
+          -0.0000015464573964984077,
+          -0.000007965191794629011
+        ],
+        "assists": {
+          "force": 0,
+          "moment": 0
+        },
+        "floorImpulse": 0
+      },
+      "deltaVelocity": 0.23139575420812214,
+      "measuredWindowMass": 0.43216004693870885
+    },
+    {
+      "mode": "free",
+      "hand": "right",
+      "impulse": 1,
+      "hz": 120,
+      "revision": "rapier/adapter-9/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits",
+      "model": 0.4320910639524909,
+      "before": [
+        -0.00000270645606198482,
+        -0.00001892773164111419,
+        0.000007926429759643506
+      ],
+      "after": [
+        -1.2072329894391056,
+        2.0614932643773156,
+        2.3027505616171715
+      ],
+      "assists": {
+        "force": 0,
+        "moment": 0
+      },
+      "floorImpulse": 0,
+      "reference": {
+        "mode": "free",
+        "hand": "right",
+        "impulse": 0,
+        "hz": 120,
+        "revision": "rapier/adapter-9/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits",
+        "model": 0.4320910639524909,
+        "before": [
+          -0.00000270645606198482,
+          -0.00001892773164111419,
+          0.000007926429759643506
+        ],
+        "after": [
+          -0.000010441564640336915,
+          -0.0000015464573964984077,
+          -0.000007965191794629011
+        ],
+        "assists": {
+          "force": 0,
+          "moment": 0
+        },
+        "floorImpulse": 0
+      },
+      "deltaVelocity": 2.302758526808966,
+      "measuredWindowMass": 0.43426177272080024
+    },
+    {
+      "mode": "braced",
+      "hand": "left",
+      "impulse": 0.1,
+      "hz": 120,
+      "revision": "rapier/adapter-9/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits",
+      "model": 0.4320924383006401,
+      "before": [
+        9.840520342667187e-7,
+        -0.0000024140271206247463,
+        0.00000312800749247206
+      ],
+      "after": [
+        0.11724036492749443,
+        0.15364387407920344,
+        0.19047808648183456
+      ],
+      "assists": {
+        "force": 0,
+        "moment": 0
+      },
+      "floorImpulse": 0,
+      "reference": {
+        "mode": "braced",
+        "hand": "left",
+        "impulse": 0,
+        "hz": 120,
+        "revision": "rapier/adapter-9/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits",
+        "model": 0.4320924383006401,
+        "before": [
+          9.840520342667187e-7,
+          -0.0000024140271206247463,
+          0.00000312800749247206
+        ],
+        "after": [
+          0.0000010145451390199041,
+          -0.00002875442460771024,
+          0.000016706112110584358
+        ],
+        "assists": {
+          "force": 0,
+          "moment": 0
+        },
+        "floorImpulse": 0
+      },
+      "deltaVelocity": 0.190461380369724,
+      "measuredWindowMass": 0.5250408235301026
+    },
+    {
+      "mode": "braced",
+      "hand": "left",
+      "impulse": 1,
+      "hz": 120,
+      "revision": "rapier/adapter-9/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits",
+      "model": 0.4320924383006401,
+      "before": [
+        9.840520342667187e-7,
+        -0.0000024140271206247463,
+        0.00000312800749247206
+      ],
+      "after": [
+        1.2457115236120095,
+        1.3337828861141576,
+        1.7598052567836981
+      ],
+      "assists": {
+        "force": 0,
+        "moment": 0
+      },
+      "floorImpulse": 0,
+      "reference": {
+        "mode": "braced",
+        "hand": "left",
+        "impulse": 0,
+        "hz": 120,
+        "revision": "rapier/adapter-9/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits",
+        "model": 0.4320924383006401,
+        "before": [
+          9.840520342667187e-7,
+          -0.0000024140271206247463,
+          0.00000312800749247206
+        ],
+        "after": [
+          0.0000010145451390199041,
+          -0.00002875442460771024,
+          0.000016706112110584358
+        ],
+        "assists": {
+          "force": 0,
+          "moment": 0
+        },
+        "floorImpulse": 0
+      },
+      "deltaVelocity": 1.7597885506715876,
+      "measuredWindowMass": 0.5682500886929684
+    },
+    {
+      "mode": "braced",
+      "hand": "right",
+      "impulse": 0.1,
+      "hz": 120,
+      "revision": "rapier/adapter-9/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits",
+      "model": 0.4320910639524909,
+      "before": [
+        -0.00000270645606198482,
+        -0.00001892773164111419,
+        0.000007926429759643506
+      ],
+      "after": [
+        -0.11721301246743399,
+        0.15361663592402802,
+        0.19054304035580905
+      ],
+      "assists": {
+        "force": 0,
+        "moment": 0
+      },
+      "floorImpulse": 0,
+      "reference": {
+        "mode": "braced",
+        "hand": "right",
+        "impulse": 0,
+        "hz": 120,
+        "revision": "rapier/adapter-9/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits",
+        "model": 0.4320910639524909,
+        "before": [
+          -0.00000270645606198482,
+          -0.00001892773164111419,
+          0.000007926429759643506
+        ],
+        "after": [
+          -9.845402604496377e-8,
+          0.000002334066988941407,
+          0.000019268745027282095
+        ],
+        "assists": {
+          "force": 0,
+          "moment": 0
+        },
+        "floorImpulse": 0
+      },
+      "deltaVelocity": 0.19052377161078177,
+      "measuredWindowMass": 0.5248688872498732
+    },
+    {
+      "mode": "braced",
+      "hand": "right",
+      "impulse": 1,
+      "hz": 120,
+      "revision": "rapier/adapter-9/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits",
+      "model": 0.4320910639524909,
+      "before": [
+        -0.00000270645606198482,
+        -0.00001892773164111419,
+        0.000007926429759643506
+      ],
+      "after": [
+        -1.2456987579612169,
+        1.3337850599127503,
+        1.7598542726208786
+      ],
+      "assists": {
+        "force": 0,
+        "moment": 0
+      },
+      "floorImpulse": 0,
+      "reference": {
+        "mode": "braced",
+        "hand": "right",
+        "impulse": 0,
+        "hz": 120,
+        "revision": "rapier/adapter-9/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits",
+        "model": 0.4320910639524909,
+        "before": [
+          -0.00000270645606198482,
+          -0.00001892773164111419,
+          0.000007926429759643506
+        ],
+        "after": [
+          -9.845402604496377e-8,
+          0.000002334066988941407,
+          0.000019268745027282095
+        ],
+        "assists": {
+          "force": 0,
+          "moment": 0
+        },
+        "floorImpulse": 0
+      },
+      "deltaVelocity": 1.7598350038758512,
+      "measuredWindowMass": 0.5682350889700485
+    },
+    {
+      "mode": "grounded",
+      "hand": "left",
+      "impulse": 0.1,
+      "hz": 120,
+      "revision": "rapier/adapter-9/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits",
+      "model": 0.23979687497937677,
+      "before": [
+        0.000005951716357832639,
+        -9.988471267079575e-7,
+        0.0018883235682744402
+      ],
+      "after": [
+        -0.1010356455589151,
+        -0.118282199264096,
+        0.33803892229416777
+      ],
+      "assists": {
+        "force": 0,
+        "moment": 0
+      },
+      "floorImpulse": 6.470441579818726,
+      "reference": {
+        "mode": "grounded",
+        "hand": "left",
+        "impulse": 0,
+        "hz": 120,
+        "revision": "rapier/adapter-9/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits",
+        "model": 0.23979687497937677,
+        "before": [
+          0.000005951716357832639,
+          -9.988471267079575e-7,
+          0.0018883235682744402
+        ],
+        "after": [
+          -0.00002780850705960275,
+          0.000009757251690592023,
+          0.001839420857778949
+        ],
+        "assists": {
+          "force": 0,
+          "moment": 0
+        },
+        "floorImpulse": 6.456187844276428
+      },
+      "deltaVelocity": 0.3361995014363888,
+      "measuredWindowMass": 0.2974424398988012
+    },
+    {
+      "mode": "grounded",
+      "hand": "left",
+      "impulse": 1,
+      "hz": 120,
+      "revision": "rapier/adapter-9/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits",
+      "model": 0.23979687497937677,
+      "before": [
+        0.000005951716357832639,
+        -9.988471267079575e-7,
+        0.0018883235682744402
+      ],
+      "after": [
+        -0.5139374480161498,
+        -1.5112201730502828,
+        3.1753762483623236
+      ],
+      "assists": {
+        "force": 0,
+        "moment": 0
+      },
+      "floorImpulse": 6.498674690723419,
+      "reference": {
+        "mode": "grounded",
+        "hand": "left",
+        "impulse": 0,
+        "hz": 120,
+        "revision": "rapier/adapter-9/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits",
+        "model": 0.23979687497937677,
+        "before": [
+          0.000005951716357832639,
+          -9.988471267079575e-7,
+          0.0018883235682744402
+        ],
+        "after": [
+          -0.00002780850705960275,
+          0.000009757251690592023,
+          0.001839420857778949
+        ],
+        "assists": {
+          "force": 0,
+          "moment": 0
+        },
+        "floorImpulse": 6.456187844276428
+      },
+      "deltaVelocity": 3.173536827504545,
+      "measuredWindowMass": 0.31510584384373835
+    },
+    {
+      "mode": "grounded",
+      "hand": "right",
+      "impulse": 0.1,
+      "hz": 120,
+      "revision": "rapier/adapter-9/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits",
+      "model": 0.23979842801381987,
+      "before": [
+        -0.00005254840504142457,
+        -0.000016274259204372044,
+        0.0019231574627414196
+      ],
+      "after": [
+        0.10100274120684845,
+        -0.1183027822092391,
+        0.3380563932109364
+      ],
+      "assists": {
+        "force": 0,
+        "moment": 0
+      },
+      "floorImpulse": 6.470275342464447,
+      "reference": {
+        "mode": "grounded",
+        "hand": "right",
+        "impulse": 0,
+        "hz": 120,
+        "revision": "rapier/adapter-9/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits",
+        "model": 0.23979842801381987,
+        "before": [
+          -0.00005254840504142457,
+          -0.000016274259204372044,
+          0.0019231574627414196
+        ],
+        "after": [
+          -0.000025915848384679787,
+          -0.00000427803771635836,
+          0.0018565792376788498
+        ],
+        "assists": {
+          "force": 0,
+          "moment": 0
+        },
+        "floorImpulse": 6.456187844276428
+      },
+      "deltaVelocity": 0.33619981397325754,
+      "measuredWindowMass": 0.29744216339142393
+    },
+    {
+      "mode": "grounded",
+      "hand": "right",
+      "impulse": 1,
+      "hz": 120,
+      "revision": "rapier/adapter-9/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits",
+      "model": 0.23979842801381987,
+      "before": [
+        -0.00005254840504142457,
+        -0.000016274259204372044,
+        0.0019231574627414196
+      ],
+      "after": [
+        0.5138632725862502,
+        -1.5112593751124572,
+        3.1753555042450463
+      ],
+      "assists": {
+        "force": 0,
+        "moment": 0
+      },
+      "floorImpulse": 6.497632443904877,
+      "reference": {
+        "mode": "grounded",
+        "hand": "right",
+        "impulse": 0,
+        "hz": 120,
+        "revision": "rapier/adapter-9/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits",
+        "model": 0.23979842801381987,
+        "before": [
+          -0.00005254840504142457,
+          -0.000016274259204372044,
+          0.0019231574627414196
+        ],
+        "after": [
+          -0.000025915848384679787,
+          -0.00000427803771635836,
+          0.0018565792376788498
+        ],
+        "assists": {
+          "force": 0,
+          "moment": 0
+        },
+        "floorImpulse": 6.456187844276428
+      },
+      "deltaVelocity": 3.1734989250073675,
+      "measuredWindowMass": 0.3151096072917934
+    },
+    {
+      "mode": "free",
+      "hand": "left",
+      "impulse": 0.1,
+      "hz": 960,
+      "revision": "rapier/adapter-9/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits",
+      "model": 0.4320920017234757,
+      "before": [
+        -0.0000128716563349755,
+        0.000029505119713167727,
+        -0.000015009205122986693
+      ],
+      "after": [
+        0.1578528040155832,
+        0.1819706122765698,
+        0.23096987354546958
+      ],
+      "assists": {
+        "force": 0,
+        "moment": 0
+      },
+      "floorImpulse": 0,
+      "reference": {
+        "mode": "free",
+        "hand": "left",
+        "impulse": 0,
+        "hz": 960,
+        "revision": "rapier/adapter-9/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits",
+        "model": 0.4320920017234757,
+        "before": [
+          -0.0000128716563349755,
+          0.000029505119713167727,
+          -0.000015009205122986693
+        ],
+        "after": [
+          -0.000024010482764373496,
+          -0.00006537886590993158,
+          0.00006371459212768675
+        ],
+        "assists": {
+          "force": 0,
+          "moment": 0
+        },
+        "floorImpulse": 0
+      },
+      "deltaVelocity": 0.23090615895334188,
+      "measuredWindowMass": 0.4330763651055602
+    },
+    {
+      "mode": "free",
+      "hand": "left",
+      "impulse": 1,
+      "hz": 960,
+      "revision": "rapier/adapter-9/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits",
+      "model": 0.4320920017234757,
+      "before": [
+        -0.0000128716563349755,
+        0.000029505119713167727,
+        -0.000015009205122986693
+      ],
+      "after": [
+        1.2093656736660732,
+        2.0707830639638054,
+        2.2900578732362122
+      ],
+      "assists": {
+        "force": 0,
+        "moment": 0
+      },
+      "floorImpulse": 0,
+      "reference": {
+        "mode": "free",
+        "hand": "left",
+        "impulse": 0,
+        "hz": 960,
+        "revision": "rapier/adapter-9/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits",
+        "model": 0.4320920017234757,
+        "before": [
+          -0.0000128716563349755,
+          0.000029505119713167727,
+          -0.000015009205122986693
+        ],
+        "after": [
+          -0.000024010482764373496,
+          -0.00006537886590993158,
+          0.00006371459212768675
+        ],
+        "assists": {
+          "force": 0,
+          "moment": 0
+        },
+        "floorImpulse": 0
+      },
+      "deltaVelocity": 2.2899941586440846,
+      "measuredWindowMass": 0.43668233660128825
+    },
+    {
+      "mode": "free",
+      "hand": "right",
+      "impulse": 0.1,
+      "hz": 960,
+      "revision": "rapier/adapter-9/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits",
+      "model": 0.4320921296488499,
+      "before": [
+        -0.000008620230032251831,
+        0.000022027279524358244,
+        -0.000023810866728210555
+      ],
+      "after": [
+        -0.15780486349084458,
+        0.18140197551107348,
+        0.23138908366773667
+      ],
+      "assists": {
+        "force": 0,
+        "moment": 0
+      },
+      "floorImpulse": 0,
+      "reference": {
+        "mode": "free",
+        "hand": "right",
+        "impulse": 0,
+        "hz": 960,
+        "revision": "rapier/adapter-9/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits",
+        "model": 0.4320921296488499,
+        "before": [
+          -0.000008620230032251831,
+          0.000022027279524358244,
+          -0.000023810866728210555
+        ],
+        "after": [
+          0.000014035773391333875,
+          -0.00004710562728461888,
+          0.000034478463358997355
+        ],
+        "assists": {
+          "force": 0,
+          "moment": 0
+        },
+        "floorImpulse": 0
+      },
+      "deltaVelocity": 0.23135460520437767,
+      "measuredWindowMass": 0.4322369114358473
+    },
+    {
+      "mode": "free",
+      "hand": "right",
+      "impulse": 1,
+      "hz": 960,
+      "revision": "rapier/adapter-9/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits",
+      "model": 0.4320921296488499,
+      "before": [
+        -0.000008620230032251831,
+        0.000022027279524358244,
+        -0.000023810866728210555
+      ],
+      "after": [
+        -1.2094156043098359,
+        2.0707980971930966,
+        2.289978020861253
+      ],
+      "assists": {
+        "force": 0,
+        "moment": 0
+      },
+      "floorImpulse": 0,
+      "reference": {
+        "mode": "free",
+        "hand": "right",
+        "impulse": 0,
+        "hz": 960,
+        "revision": "rapier/adapter-9/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits",
+        "model": 0.4320921296488499,
+        "before": [
+          -0.000008620230032251831,
+          0.000022027279524358244,
+          -0.000023810866728210555
+        ],
+        "after": [
+          0.000014035773391333875,
+          -0.00004710562728461888,
+          0.000034478463358997355
+        ],
+        "assists": {
+          "force": 0,
+          "moment": 0
+        },
+        "floorImpulse": 0
+      },
+      "deltaVelocity": 2.2899435423978938,
+      "measuredWindowMass": 0.4366919889006779
+    },
+    {
+      "mode": "braced",
+      "hand": "left",
+      "impulse": 0.1,
+      "hz": 960,
+      "revision": "rapier/adapter-9/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits",
+      "model": 0.4320920017234757,
+      "before": [
+        -0.0000128716563349755,
+        0.000029505119713167727,
+        -0.000015009205122986693
+      ],
+      "after": [
+        0.1353876145531796,
+        0.1507725313254251,
+        0.19577225578944454
+      ],
+      "assists": {
+        "force": 0,
+        "moment": 0
+      },
+      "floorImpulse": 0,
+      "reference": {
+        "mode": "braced",
+        "hand": "left",
+        "impulse": 0,
+        "hz": 960,
+        "revision": "rapier/adapter-9/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits",
+        "model": 0.4320920017234757,
+        "before": [
+          -0.0000128716563349755,
+          0.000029505119713167727,
+          -0.000015009205122986693
+        ],
+        "after": [
+          0.00007118745139078953,
+          -0.0000954291345615752,
+          0.00003255769831874439
+        ],
+        "assists": {
+          "force": 0,
+          "moment": 0
+        },
+        "floorImpulse": 0
+      },
+      "deltaVelocity": 0.1957396980911258,
+      "measuredWindowMass": 0.5108825699396217
+    },
+    {
+      "mode": "braced",
+      "hand": "left",
+      "impulse": 1,
+      "hz": 960,
+      "revision": "rapier/adapter-9/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits",
+      "model": 0.4320920017234757,
+      "before": [
+        -0.0000128716563349755,
+        0.000029505119713167727,
+        -0.000015009205122986693
+      ],
+      "after": [
+        1.387174160386108,
+        1.471305716590823,
+        1.9166809273254073
+      ],
+      "assists": {
+        "force": 0,
+        "moment": 0
+      },
+      "floorImpulse": 0,
+      "reference": {
+        "mode": "braced",
+        "hand": "left",
+        "impulse": 0,
+        "hz": 960,
+        "revision": "rapier/adapter-9/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits",
+        "model": 0.4320920017234757,
+        "before": [
+          -0.0000128716563349755,
+          0.000029505119713167727,
+          -0.000015009205122986693
+        ],
+        "after": [
+          0.00007118745139078953,
+          -0.0000954291345615752,
+          0.00003255769831874439
+        ],
+        "assists": {
+          "force": 0,
+          "moment": 0
+        },
+        "floorImpulse": 0
+      },
+      "deltaVelocity": 1.9166483696270886,
+      "measuredWindowMass": 0.5217441111509485
+    },
+    {
+      "mode": "braced",
+      "hand": "right",
+      "impulse": 0.1,
+      "hz": 960,
+      "revision": "rapier/adapter-9/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits",
+      "model": 0.4320921296488499,
+      "before": [
+        -0.000008620230032251831,
+        0.000022027279524358244,
+        -0.000023810866728210555
+      ],
+      "after": [
+        -0.13559460791679578,
+        0.15090030171498248,
+        0.1956514250463917
+      ],
+      "assists": {
+        "force": 0,
+        "moment": 0
+      },
+      "floorImpulse": 0,
+      "reference": {
+        "mode": "braced",
+        "hand": "right",
+        "impulse": 0,
+        "hz": 960,
+        "revision": "rapier/adapter-9/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits",
+        "model": 0.4320921296488499,
+        "before": [
+          -0.000008620230032251831,
+          0.000022027279524358244,
+          -0.000023810866728210555
+        ],
+        "after": [
+          -0.000038862315451857705,
+          -0.0000619990722365921,
+          0.000015163350508988042
+        ],
+        "assists": {
+          "force": 0,
+          "moment": 0
+        },
+        "floorImpulse": 0
+      },
+      "deltaVelocity": 0.19563626169588272,
+      "measuredWindowMass": 0.5111526827038352
+    },
+    {
+      "mode": "braced",
+      "hand": "right",
+      "impulse": 1,
+      "hz": 960,
+      "revision": "rapier/adapter-9/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits",
+      "model": 0.4320921296488499,
+      "before": [
+        -0.000008620230032251831,
+        0.000022027279524358244,
+        -0.000023810866728210555
+      ],
+      "after": [
+        -1.3873099435931302,
+        1.4712496790951235,
+        1.916599348501025
+      ],
+      "assists": {
+        "force": 0,
+        "moment": 0
+      },
+      "floorImpulse": 0,
+      "reference": {
+        "mode": "braced",
+        "hand": "right",
+        "impulse": 0,
+        "hz": 960,
+        "revision": "rapier/adapter-9/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits",
+        "model": 0.4320921296488499,
+        "before": [
+          -0.000008620230032251831,
+          0.000022027279524358244,
+          -0.000023810866728210555
+        ],
+        "after": [
+          -0.000038862315451857705,
+          -0.0000619990722365921,
+          0.000015163350508988042
+        ],
+        "assists": {
+          "force": 0,
+          "moment": 0
+        },
+        "floorImpulse": 0
+      },
+      "deltaVelocity": 1.916584185150516,
+      "measuredWindowMass": 0.5217615838364369
+    },
+    {
+      "mode": "grounded",
+      "hand": "left",
+      "impulse": 0.1,
+      "hz": 960,
+      "revision": "rapier/adapter-9/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits",
+      "model": 0.23984103750720542,
+      "before": [
+        -0.00005907095147430909,
+        -0.0000875757654899893,
+        0.0018518521087497156
+      ],
+      "after": [
+        -0.09981709687219652,
+        -0.13103752868973453,
+        0.35122633265227
+      ],
+      "assists": {
+        "force": 0,
+        "moment": 0
+      },
+      "floorImpulse": 0.8066621050238609,
+      "reference": {
+        "mode": "grounded",
+        "hand": "left",
+        "impulse": 0,
+        "hz": 960,
+        "revision": "rapier/adapter-9/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits",
+        "model": 0.23984103750720542,
+        "before": [
+          -0.00005907095147430909,
+          -0.0000875757654899893,
+          0.0018518521087497156
+        ],
+        "after": [
+          -0.000039932983803173,
+          -0.00005944473797769688,
+          0.001775395539968944
+        ],
+        "assists": {
+          "force": 0,
+          "moment": 0
+        },
+        "floorImpulse": 0.8073163405060768
+      },
+      "deltaVelocity": 0.349450937112301,
+      "measuredWindowMass": 0.286163204558423
+    },
+    {
+      "mode": "grounded",
+      "hand": "left",
+      "impulse": 1,
+      "hz": 960,
+      "revision": "rapier/adapter-9/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits",
+      "model": 0.23984103750720542,
+      "before": [
+        -0.00005907095147430909,
+        -0.0000875757654899893,
+        0.0018518521087497156
+      ],
+      "after": [
+        -0.916582323229074,
+        -1.416372452459825,
+        3.445908235046907
+      ],
+      "assists": {
+        "force": 0,
+        "moment": 0
+      },
+      "floorImpulse": 0.8122497722506523,
+      "reference": {
+        "mode": "grounded",
+        "hand": "left",
+        "impulse": 0,
+        "hz": 960,
+        "revision": "rapier/adapter-9/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits",
+        "model": 0.23984103750720542,
+        "before": [
+          -0.00005907095147430909,
+          -0.0000875757654899893,
+          0.0018518521087497156
+        ],
+        "after": [
+          -0.000039932983803173,
+          -0.00005944473797769688,
+          0.001775395539968944
+        ],
+        "assists": {
+          "force": 0,
+          "moment": 0
+        },
+        "floorImpulse": 0.8073163405060768
+      },
+      "deltaVelocity": 3.444132839506938,
+      "measuredWindowMass": 0.2903488473293498
+    },
+    {
+      "mode": "grounded",
+      "hand": "right",
+      "impulse": 0.1,
+      "hz": 960,
+      "revision": "rapier/adapter-9/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits",
+      "model": 0.23983484442766245,
+      "before": [
+        -0.0000089261531830874,
+        -0.00018425663917277414,
+        0.0018500263031585092
+      ],
+      "after": [
+        0.09971511236297505,
+        -0.13094868602345644,
+        0.3513717903415484
+      ],
+      "assists": {
+        "force": 0,
+        "moment": 0
+      },
+      "floorImpulse": 0.8069548085331917,
+      "reference": {
+        "mode": "grounded",
+        "hand": "right",
+        "impulse": 0,
+        "hz": 960,
+        "revision": "rapier/adapter-9/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits",
+        "model": 0.23983484442766245,
+        "before": [
+          -0.0000089261531830874,
+          -0.00018425663917277414,
+          0.0018500263031585092
+        ],
+        "after": [
+          -0.000021110048280529757,
+          -0.00016474882147394333,
+          0.001813874212813734
+        ],
+        "assists": {
+          "force": 0,
+          "moment": 0
+        },
+        "floorImpulse": 0.8073163405060768
+      },
+      "deltaVelocity": 0.34955791612873466,
+      "measuredWindowMass": 0.28607562691606203
+    },
+    {
+      "mode": "grounded",
+      "hand": "right",
+      "impulse": 1,
+      "hz": 960,
+      "revision": "rapier/adapter-9/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits",
+      "model": 0.23983484442766245,
+      "before": [
+        -0.0000089261531830874,
+        -0.00018425663917277414,
+        0.0018500263031585092
+      ],
+      "after": [
+        0.9164167704703469,
+        -1.416192829315046,
+        3.4460411996219453
+      ],
+      "assists": {
+        "force": 0,
+        "moment": 0
+      },
+      "floorImpulse": 0.8103300184011459,
+      "reference": {
+        "mode": "grounded",
+        "hand": "right",
+        "impulse": 0,
+        "hz": 960,
+        "revision": "rapier/adapter-9/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits",
+        "model": 0.23983484442766245,
+        "before": [
+          -0.0000089261531830874,
+          -0.00018425663917277414,
+          0.0018500263031585092
+        ],
+        "after": [
+          -0.000021110048280529757,
+          -0.00016474882147394333,
+          0.001813874212813734
+        ],
+        "assists": {
+          "force": 0,
+          "moment": 0
+        },
+        "floorImpulse": 0.8073163405060768
+      },
+      "deltaVelocity": 3.444227325409132,
+      "measuredWindowMass": 0.2903408821545228
+    }
+  ]
+}

@@ -50,6 +50,7 @@ export interface BodySense {
 }
 
 interface SegmentSense {
+  readonly handPose?: import("../spec/body.ts").HandPose;
   /** The segment frame's origin and turn, world: its node's. */
   readonly position: Vector3;
   readonly rotation: Quaternion;
@@ -98,7 +99,7 @@ export function clockSenses(world: World): () => Senses {
  * `show` takes them: each segment's position, turn, centre, velocity and spin, then the whole
  * body's centre, its velocity, whether it is out and its observation time.
  */
-function frameLength(segments: number): number { return (3 + 4 + 3 + 3 + 3) * segments + 3 + 3 + 1 + 1; }
+function frameLength(segments: number): number { return (3 + 4 + 3 + 3 + 3 + 1) * segments + 3 + 3 + 1 + 1; }
 
 /**
  * **The one layer between the world and every mind's `Senses`.** In the step's sensing phase
@@ -128,6 +129,14 @@ export function createSenses(world: World, delay = 0): SensesHub {
       frame[k++] = p.x; frame[k++] = p.y; frame[k++] = p.z;
       frame[k++] = v.x; frame[k++] = v.y; frame[k++] = v.z;
       frame[k++] = w.x; frame[k++] = w.y; frame[k++] = w.z;
+      const pose = segment.handPose?.applied;
+      switch (pose) {
+        case undefined: frame[k++] = -1; break;
+        case "open": frame[k++] = 0; break;
+        case "fist": frame[k++] = 1; break;
+        case "grip": frame[k++] = 2; break;
+        default: { const never: never = pose; throw new Error(`unknown hand pose ${never}`); }
+      }
       cx += m * p.x; cy += m * p.y; cz += m * p.z; vx += m * v.x; vy += m * v.y; vz += m * v.z;
     }
     const mass = entry.mass;
@@ -145,6 +154,8 @@ export function createSenses(world: World, delay = 0): SensesHub {
       s.centre.set(frame[k++]!, frame[k++]!, frame[k++]!);
       s.velocity.set(frame[k++]!, frame[k++]!, frame[k++]!);
       s.spin.set(frame[k++]!, frame[k++]!, frame[k++]!);
+      const pose = frame[k++]!;
+      if (pose >= 0) (s as { handPose?: import("../spec/body.ts").HandPose }).handPose = pose === 1 ? "fist" : pose === 2 ? "grip" : "open";
     }
     entry.shown.centre.set(frame[k++]!, frame[k++]!, frame[k++]!);
     entry.shown.velocity.set(frame[k++]!, frame[k++]!, frame[k++]!);

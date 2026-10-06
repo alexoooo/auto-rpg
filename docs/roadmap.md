@@ -62,6 +62,13 @@ improve the whole opponent pool, and mirrored low recovery still exposes an init
 Coordinated shared-item defense, separate/two-hand equipment rendering and damage, broader
 bodies and the held-out integrated sequence remain open.
 
+[Live hand poses and bounded punch execution](reference/punch-foundation.md) are available on
+the shared body. The finite trajectory search does not pass its both-hand impulse or low/recovery
+promotion gates; existing Brawler/Scrapper remain selected. Fist orientation, contact-time support
+and repeatability across physics rates remain open. The [contact-mass audit](reference/punch-mass-audit.md)
+supports the free-joint model in its stated regime, while independently priced braced contact
+energy remains unvalidated. Human-range force/impulse is not established.
+
 The experimental [angular-limit correction](reference/joint-limits.md), `rapier-coordinate`,
 makes limit reactions follow their reported coordinates and is now the gameplay default after
 the native coordinate-gradient correction and gameplay regressions pass. The task results above use the parent-axis
@@ -519,8 +526,9 @@ target materials remain open; faster trajectory requests alone are not a strengt
 
 ### Art and look
 
-- The skeleton's look in play is the owner's to judge. Its drawn fist ends about 7 cm short of the
-  hand's collider.
+- The skeleton's look in play is the owner's to judge. Legacy controllers retain the open hand's
+  collision envelope while presenting fists. Physical hand-pose alignment has a coarse contact
+  proxy on the common human figure; skeleton combat still requires qualification.
 - An optional skeleton costume (a loincloth and belt, bracers, one shoulder plate), only if the
   owner wants it after seeing the bones in play. Each piece is rigid, rides a part like the bones,
   collides with nothing, and is checked for clearance over a driven sweep.

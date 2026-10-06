@@ -33,6 +33,10 @@ export function strikeHands(world: Pick<World, "afterStep">, body: Pick<Physical
 /** Every skill-based fighter shares the same presentation; direct joint control asks for none. */
 export function fighterHands(world: Pick<World, "afterStep">, fighter: { readonly minded: Minded; readonly pool: Pick<Pool, "ending"> }) {
   const mind = fighter.minded;
+  if (mind.kind !== "direct" && mind.skills.report.strike.physicalHands) {
+    const closure = (hand: "left" | "right") => mind.body.built.handPoses.state[hand]?.applied === "open" ? 0 : 1;
+    return { closure, snapshot: () => ({ left: closure("left"), right: closure("right") }), dispose() {} };
+  }
   const read = (): Strike | null => {
     switch (mind.kind) {
       case "fighter": case "point-fighter": case "arena-fighter": return mind.skills.report.strike;

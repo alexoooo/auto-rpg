@@ -13,6 +13,7 @@ import { clockSenses, type Senses } from "./senses.ts";
 
 /** Immutable actuator description; no object here can change the live body. */
 interface ActuatorModel {
+  readonly handPoses: BuiltBody["handPoses"]["model"];
   readonly equipment?: EquipmentPort["model"];
   readonly channels: readonly {
     readonly name: string; readonly min: number; readonly max: number;
@@ -35,13 +36,13 @@ export function createPolicyBody(built: BuiltBody, world: World, make: (model: A
   const sense = options.senses ?? clockSenses(world), equipment = options.equipment;
   const embodied = embody(built, world, (own) => {
     const observe = observeBody(built, own.muscles, world, sense, equipment ? () => equipment.observe() : undefined);
-    const model = deepFreeze({ channels: own.muscles.channels.map((c) => ({ name: c.name, min: c.dof.spec.min.value,
+    const model = deepFreeze({ handPoses: built.handPoses.model, channels: own.muscles.channels.map((c) => ({ name: c.name, min: c.dof.spec.min.value,
       max: c.dof.spec.max.value, positive: c.positive.peak, negative: c.negative.peak })),
       ...(equipment ? { equipment: equipment.model } : {}) });
     const policy = make(model);
     return { name: policy.name, state: policy.state, idle: () => policy.idle?.(), step() {
-      const action = checkedBodyAction(policy.step(observe(), world.dt), model.channels.length, equipment);
-      applyBodyAction(own.muscles, action, equipment);
+      const action = checkedBodyAction(policy.step(observe(), world.dt), model.channels.length, equipment, built.handPoses);
+      applyBodyAction(own.muscles, action, equipment, built.handPoses);
     } };
   }, sense, options.assist);
   return physicalBody(embodied.own, world, sense, () => embodied.mind.name, embodied.state, embodied.dispose, undefined, equipment);

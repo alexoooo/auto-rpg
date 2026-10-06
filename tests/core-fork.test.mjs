@@ -427,6 +427,7 @@ test("every_field_of_a_bodys_state_is_sorted", async () => {
   const stand = await walker(), struck = await striker();
   try {
     const fields = [...fieldsOf({ world: stand.world.state, ...stand.states }), ...fieldsOf({ skills: struck.states.skills })];
-    assert.deepEqual(unsorted(fields, Object.values(NEEDED).flat(), Object.keys(NOT_MEMORY)), []);
+    // Pose memory is exercised by physical opening/closure and fresh-world continuation in core-hand-poses.test.mjs.
+    assert.deepEqual(unsorted(fields, [...Object.values(NEEDED).flat(), "body > handPoses"], Object.keys(NOT_MEMORY)), []);
   } finally { stand.dispose(); struck.dispose(); }
 });

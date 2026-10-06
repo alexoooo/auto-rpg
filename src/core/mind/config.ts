@@ -1,4 +1,5 @@
 import type { AttackTuning } from "../skills/attack-path.ts";
+import type { CombatExecution } from "../skills/combat.ts";
 import type { TurnStartup } from "../skills/locomotion.ts";
 import type { OpeningTuning } from "./openings.ts";
 import type { Covering } from "../skills/guard.ts";
@@ -80,6 +81,7 @@ export interface ArenaFighterConfig {
   readonly repertoire?: "linear" | "mixed" | "vertical" | "boxing";
   readonly openings?: OpeningTuning;
   readonly paths?: Partial<AttackTuning>;
+  readonly execution?: CombatExecution;
   readonly spacing?: number;
   /** Optional reduction of extra spacing after a clean verified miss, m: `docs/reference/combat-range-learning.md`. */
   readonly spacingStep?: number;

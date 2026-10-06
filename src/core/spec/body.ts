@@ -151,7 +151,18 @@ export interface SegmentSpec {
    * are set on the body explicitly, so a shape can be sized for contact without moving them.
    */
   readonly shape: ShapeSpec;
+  /** Coarse hand envelopes in the same reference frame; articulation retains the stated mass properties. */
+  readonly handPoses?: Readonly<Record<HandPose, ShapeSpec>>;
   readonly surface: SurfaceSpec;
+}
+
+/** A rigid hand's contact configuration, independent of its controller. */
+export type HandPose = "open" | "fist" | "grip";
+
+/** Compound equipment retains its qualified hand envelope; separate pose requests use the declared envelopes. */
+export function handShapeAt(body: BodySpec, segment: SegmentSpec, pose: HandPose): ShapeSpec {
+  return pose === "grip" && body.held?.some(item => item.segment === segment.name)
+    ? segment.shape : segment.handPoses?.[pose] ?? segment.shape;
 }
 
 /**

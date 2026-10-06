@@ -13,6 +13,7 @@ import { deepFreeze } from "./state.ts";
 import type { World } from "./world.ts";
 
 interface SegmentObservation {
+  readonly handPose?: import("./spec/body.ts").HandPose;
   readonly name: string;
   readonly position: Vec3;
   readonly rotation: readonly [number, number, number, number];
@@ -23,6 +24,7 @@ interface SegmentObservation {
 
 /** Detached measurements: no engine objects, mutable live arrays, goals or controller memory. */
 export interface BodyObservation {
+  readonly handPoses: Readonly<Record<string, { readonly applied: import("./spec/body.ts").HandPose; readonly requested: import("./spec/body.ts").HandPose }>>;
   readonly time: number;
   readonly level: MuscleDriver["level"];
   readonly model: string;
@@ -97,7 +99,7 @@ export function observeBody(built: BuiltBody, muscles: MuscleDriver, world: Worl
     const segments = [...built.segments.values()].map((part) => {
       const q = part.node.rotationQuaternion!;
       part.body.angularVelocityToRef(spins.get(part)!);
-      return { name: part.spec.name, position: tuple(part.node.position), rotation: [q.x, q.y, q.z, q.w] as const,
+      return { name: part.spec.name, ...(part.handPose ? { handPose: part.handPose.applied } : {}), position: tuple(part.node.position), rotation: [q.x, q.y, q.z, q.w] as const,
         centre: tuple(centreOfToRef(part, p)), velocity: tuple(part.body.linearVelocityToRef(v)), spin: tuple(spins.get(part)!) };
     });
     let index = 0;
@@ -115,6 +117,7 @@ export function observeBody(built: BuiltBody, muscles: MuscleDriver, world: Worl
       pairs: contact.pairs.map((pair) => ({ ...pair, point: [...pair.point] as Vec3, normal: [...pair.normal] as Vec3 })),
     })));
     return deepFreeze({ time: world.time, level: muscles.level, model: built.spec.model,
+      handPoses: structuredClone(built.handPoses.state),
       ...(equipment ? { equipment: equipment() } : {}),
       centre: tuple(physical.centre), head: built.segments.has("head") ? tuple(physical.head) : null,
       height: physical.height, down: physical.down, segments, joints, contacts,
@@ -122,7 +125,7 @@ export function observeBody(built: BuiltBody, muscles: MuscleDriver, world: Worl
         ...(external.solids ? { solids: structuredClone(external.solids) } : {}),
         ...(external.objects ? { objects: structuredClone(external.objects) } : {}), others: external.others.map((other) => ({
         id: other.id, ...(other.time !== undefined ? { time: other.time } : {}), side: other.side, model: other.spec.model, out: other.out, centre: tuple(other.centre), velocity: tuple(other.velocity),
-        segments: [...other.segments].map(([name, s]) => ({ name, position: tuple(s.position),
+        segments: [...other.segments].map(([name, s]) => ({ name, ...(s.handPose ? { handPose: s.handPose } : {}), position: tuple(s.position),
           rotation: [s.rotation.x, s.rotation.y, s.rotation.z, s.rotation.w] as const,
           centre: tuple(s.centre), velocity: tuple(s.velocity), spin: tuple(s.spin) })),
       })) },

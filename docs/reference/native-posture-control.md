@@ -62,6 +62,10 @@ Raw snapshot byte equality is not the replay criterion: the observed serialized 
 after different save/load histories even when those physical traces agree. Their byte differences
 have not been assigned a physical cause here.
 
+The installed 1,200-action tape is remeasured on adapter 9 with the coarse hand-pose capability.
+Its complete physical task outcome is identical; the record's anatomical capability description
+and observation digest include the additional pose data. The tape itself is unchanged.
+
 The short regression replans twice from the same physical start and requires identical chosen
 actions and traces. It also refuses to label thirty steps as a completed ten-second hold. The
 shared task tests compare external joint feedback with the built-in direct controller at every
