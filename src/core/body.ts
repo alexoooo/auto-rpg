@@ -17,7 +17,7 @@ import type { World } from "./world.ts";
 import type { PhysicalBody } from "./physical-body.ts";
 import { centreReading } from "./observation.ts";
 import { effectorFeedback, type ContactIdentity, type EffectorContact, type EffectorFeedback } from "./control/effector-feedback.ts";
-import type { Side, HandPose } from "./spec/body.ts";
+import type { BodySpec, Side, HandPose } from "./spec/body.ts";
 
 /**
  * **A body, commanded and seen.** One class for every body assembled from a spec: its muscles
@@ -287,6 +287,16 @@ export function commandMind(own: OwnBody, { servoSeconds, stance, feedback: feed
     },
     resume() { state.resumed = true; },
   };
+}
+
+/**
+ * Whether a body of `spec` can take a command (`commandMind`): a fist (a hand with knuckles) on
+ * each side, a box sole under each foot for its stance, and a head its view is centred on.
+ */
+export function commandable(spec: BodySpec): boolean {
+  const segment = (name: string) => spec.segments.find((s) => s.name === name);
+  return (["left", "right"] as const).every((side) => !!segment(`hand.${side}`)?.points?.knuckles && segment(`foot.${side}`)?.shape.kind === "box")
+    && segment("head") !== undefined;
 }
 
 /** `built` in `world`, holding its reference pose until something drives it. */

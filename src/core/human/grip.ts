@@ -1,4 +1,4 @@
-import { type Side, segmentFrame, type BodySpec, type HeldSpec, type ItemSpec } from "../spec/body.ts";
+import { type Side, segmentFrame, type BodySpec, type HeldSpec, type ItemSpec, type SegmentSpec } from "../spec/body.ts";
 import { derive, type Quantity, type Vec3 } from "../spec/quantity.ts";
 import { add, dot, scale, sub } from "../spec/vec.ts";
 
@@ -16,11 +16,9 @@ import { add, dot, scale, sub } from "../spec/vec.ts";
  * the body, and z = x cross y points away from it on both hands (`tests/core-club.test.mjs`).
  */
 export function handHolding(spec: BodySpec, side: Side, item: ItemSpec): HeldSpec {
-  const name = `hand.${side}`;
-  const hand = spec.segments.find((segment) => segment.name === name);
-  if (!hand || hand.shape.kind !== "capsule") throw new Error(`${spec.model} has no ${side} hand with a capsule`);
-  const knuckles = hand.points?.knuckles, little = hand.points?.little;
-  if (!knuckles || !little || !hand.right || !item.grip) throw new Error(`${spec.model}'s ${side} hand cannot hold ${item.name}`);
+  const hand = holdingHand(spec, side);
+  if (!hand || !item.grip) throw new Error(`${spec.model}'s ${side} hand cannot hold ${item.name}`);
+  const name = hand.name, knuckles = hand.points.knuckles, little = hand.points.little;
   // The knuckles' row, little to index: the hand's right on the right hand, against it on the left.
   const along: Quantity<Vec3> = side === "right" ? hand.right
     : derive("1", "the left hand's right reversed: little finger to index", [hand.right], (r) => scale(r, -1));
@@ -34,6 +32,17 @@ export function handHolding(spec: BodySpec, side: Side, item: ItemSpec): HeldSpe
   const across = derive("1", "the hand's length, wrist to fingers", [hand.proximal, hand.distal, hand.right],
     (proximal, distal, right) => segmentFrame(proximal, distal, right).y);
   return { segment: name, item, origin, along, across };
+}
+
+/** Whether `spec`'s `side` hand can close on a haft (`handHolding`). */
+export const canHold = (spec: BodySpec, side: Side): boolean => holdingHand(spec, side) !== null;
+
+/** `spec`'s `side` hand if a haft can lie across it: a capsule with its own right and the knuckles a grip is laid by. */
+function holdingHand(spec: BodySpec, side: Side) {
+  const hand = spec.segments.find((segment) => segment.name === `hand.${side}`);
+  const knuckles = hand?.points?.knuckles, little = hand?.points?.little, shape = hand?.shape, right = hand?.right;
+  if (!hand || shape?.kind !== "capsule" || !knuckles || !little || !right) return null;
+  return { ...hand, shape, right, points: { knuckles, little } } satisfies SegmentSpec;
 }
 
 /** `spec` holding `item` in its `side` hand, beside whatever it held. */

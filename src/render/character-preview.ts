@@ -11,13 +11,20 @@ import { HDRCubeTexture } from "@babylonjs/core/Materials/Textures/hdrCubeTextur
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder.js";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial.js";
 import { buildBody, type BuiltBody } from "../core/build/build-body.ts";
-import { modelInfo, modelSpec, type BodyModel } from "../core/models.ts";
+import { modelSpec, type BodyModel } from "../core/models.ts";
+import type { BodySpec } from "../core/spec/body.ts";
 import type { PhysicsEngine } from "../core/engine/engine.ts";
 import { createWorld } from "../core/world.ts";
 import { dresserFor } from "./dress.ts";
 import { appearanceFor, type Appearance } from "./appearance.ts";
 import { skinSlot, type SkinSlot } from "./skin-slot.ts";
 import { publicAssetUrl } from "../asset-url.ts";
+
+/** Whether a body stands taller than it is long: shown from the front at a person's height, and a long one from three-quarters. */
+const upright = (spec: BodySpec): boolean => {
+  const z = spec.segments.flatMap((s) => [s.proximal.value[2], s.distal.value[2]]);
+  return spec.stature.value > Math.max(...z) - Math.min(...z);
+};
 
 /** The game's skins on unstepped bodies. Each column has its own camera, so resizing
  * keeps the characters centred. This scene draws on load, selection and resize;
@@ -52,8 +59,8 @@ export async function showHeroLineup(canvas: HTMLCanvasElement, physics: Physics
     const aspect = canvas.clientWidth / models.length / canvas.clientHeight;
     // A full body with headroom; narrow columns retain space for the arms (docs/art/menu.md).
     for (let i = 0; i < cameras.length; i++) {
-      const camera = cameras[i]!, human = modelInfo(chosen[i]!).hands;
-      const halfHeight = Math.max(human ? 1.12 : .4, (human ? .62 : .7) / aspect);
+      const camera = cameras[i]!, tall = upright(bodies[i]!.spec);
+      const halfHeight = Math.max(tall ? 1.12 : .4, (tall ? .62 : .7) / aspect);
       camera.orthoTop = halfHeight; camera.orthoBottom = -halfHeight;
       camera.orthoLeft = -halfHeight * aspect; camera.orthoRight = halfHeight * aspect;
     }
@@ -83,7 +90,7 @@ export async function showHeroLineup(canvas: HTMLCanvasElement, physics: Physics
       chosen[index] = model;
       const body = bodies[index] = buildBody(modelSpec(model), world, { position: [index * 4, 0, 0] });
       const camera = cameras[index]!, x = index * 4;
-      if (modelInfo(model).hands) { camera.position.set(x + .2, 1.05, 6); camera.setTarget(new Vector3(x, .95, 0)); }
+      if (upright(body.spec)) { camera.position.set(x + .2, 1.05, 6); camera.setTarget(new Vector3(x, .95, 0)); }
       else { camera.position.set(x + 2, .9, 2); camera.setTarget(new Vector3(x, body.spec.stature.value / 2, -.1)); }
       const skin = skins[index] = skinSlot(body, () => {
         for (const mesh of skin.meshes) mesh.layerMask = 1 << index;

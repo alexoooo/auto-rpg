@@ -13,7 +13,8 @@ import { airOf, hearTouches } from "../audio/body-sounds.ts";
 import { debrisCues } from "../audio/cues.ts";
 import { GameAudio } from "../audio/game-audio.ts";
 import { loadEngine } from "../core/engine/engines.ts";
-import { BODY_MODELS, modelInfo, type BodyModel } from "../core/models.ts";
+import { BODY_MODELS, modelHolds, modelInfo, type BodyModel } from "../core/models.ts";
+import { MODEL_DISPLAY } from "../render/models.ts";
 import { createWorld, type World } from "../core/world.ts";
 import type { SkinView } from "../render/skin-view.ts";
 import { loadSkeletonArt, type SkeletonArt } from "../render/skeleton-skin.ts";
@@ -21,7 +22,7 @@ import { drawBody, drawHeld, type BodyShapes } from "../render/body-shapes.ts";
 import { dresserFor, type Dresser } from "../render/dress.ts";
 import { fighterHands } from "../render/strike-hands.ts";
 import { Duel, SIDES, type DuelEnding, type Verdict } from "./duel.ts";
-import { MATCHUP_PARAM, MODEL_LABELS, appearanceSearch, readAppearances, matchupSearch, readBalance, readCap, readGap, CONTROLS, controlsFor, readControls, readMinds, readRecovery, readHeld, readMatchup, readTape, readYou, youSearch, type Matchup } from "./matchup.ts";
+import { MATCHUP_PARAM, appearanceSearch, readAppearances, matchupSearch, readBalance, readCap, readGap, CONTROLS, controlsFor, readControls, readMinds, readRecovery, readHeld, readMatchup, readTape, readYou, youSearch, type Matchup } from "./matchup.ts";
 import { Color3 } from "@babylonjs/core/Maths/math.color.js";
 import { arenaCameraRig, type ArenaSubjects } from "./camera.ts";
 import { arenaViewSearch, cameraFocuses, normalizeArenaView, readArenaView, type ArenaFocus, type ArenaView } from "./view.ts";
@@ -101,7 +102,7 @@ export async function bootArena(): Promise<void> {
     const field = document.createElement("label"), name = document.createElement("span"), select = document.createElement("select");
     field.className = "field"; name.className = "field-name"; name.textContent = "Character";
     for (const model of BODY_MODELS) {
-      const option = document.createElement("option"); option.value = model; option.textContent = MODEL_LABELS[model]; select.append(option);
+      const option = document.createElement("option"); option.value = model; option.textContent = MODEL_DISPLAY[model].label; select.append(option);
     }
     select.value = matchup[side]; select.disabled = true;
     select.setAttribute("aria-label", `${side === "left" ? "Left" : "Right"} character`);
@@ -138,7 +139,7 @@ export async function bootArena(): Promise<void> {
       const model = select.value as BodyModel, choices = controlsFor(model), previous = control.value;
       control.replaceChildren(...choices.map(value => Object.assign(document.createElement("option"), { value, textContent: CONTROLS[value] })));
       control.value = choices.includes(previous as typeof choices[number]) ? previous : readControls(matchupSearch("", { ...matchup, [side]: model }))[side];
-      const hands = modelInfo(model).hands;
+      const hands = modelHolds(model);
       equipment.hidden = !hands;
       for (const option of held.options) option.disabled = !hands && option.value !== "empty";
       if (!hands) held.value = "empty";
@@ -304,7 +305,7 @@ export async function bootArena(): Promise<void> {
       hearing = hearTouches(world, sides, (cue) => audio.cue(cue));
       airs = sides.map(({ id, built }) => ({ side: id, air: airOf(built) }));
       bout.play(tape);
-      for (const row of rows) row.label.textContent = `${MODEL_LABELS[matchup[row.side]]} (${row.side === you && !replaying ? "you" : row.side})`;
+      for (const row of rows) row.label.textContent = `${MODEL_DISPLAY[matchup[row.side]].label} (${row.side === you && !replaying ? "you" : row.side})`;
       show("curtain", false); show("bout-end", false); setPaused(false); screen = "fight"; viewPanel.hidden = false;
       canvas.focus();
     } catch (error) {
@@ -425,7 +426,7 @@ export async function bootArena(): Promise<void> {
       const { winner, ending, time } = shown;
       const how = ENDING_TEXT[ending];
       need("bout-verdict").textContent = winner
-        ? `${MODEL_LABELS[matchup[winner]]} (${winner}) wins ${how}, ${time.toFixed(1)} s`
+        ? `${MODEL_DISPLAY[matchup[winner]].label} (${winner}) wins ${how}, ${time.toFixed(1)} s`
         : `A draw ${how}, ${time.toFixed(1)} s`;
       show("bout-end", true); audio.setActive(false);
     }

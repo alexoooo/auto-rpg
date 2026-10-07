@@ -11,12 +11,28 @@ import type { HostMind } from "../mind/sub-mind.ts";
 import type { Senses } from "../mind/senses.ts";
 import { STAND_ORDERS } from "../mind/orders.ts";
 import type { World } from "../world.ts";
+import type { BodySpec } from "../spec/body.ts";
 import { atan2, cos, sin } from "../math/real.ts";
 import { crawl, soleGoal, type QuadrupedView } from "./crawl.ts";
 import { REPTILE_CRAWL as T, REPTILE_MOTOR } from "./tuning.ts";
 import { recover } from "./recover.ts";
 import { bite } from "./bite.ts";
 import { quadrupedTactics } from "./tactics.ts";
+
+/**
+ * Whether the quadruped mind can drive a body of `spec`: three or more effectors it stands on, so
+ * two stay down while one steps, each the end of a hip, a knee and an ankle from the root
+ * (`recover`), and a jaw with a bite point hinged to a head with a mouth (`mouthOf`).
+ */
+export function quadrupedFits(spec: BodySpec): boolean {
+  const above = (name: string) => spec.joints.find((joint) => joint.child === name);
+  const depth = (name: string): number => { const joint = above(name); return joint ? 1 + depth(joint.parent) : 0; };
+  const segment = (name: string | undefined) => spec.segments.find((s) => s.name === name);
+  const supports = (spec.effectors ?? []).filter((effector) => effector.support);
+  const jaw = spec.segments.find((s) => s.points?.bite), head = segment(jaw && above(jaw.name)?.parent);
+  return supports.length >= 3 && supports.every((paw) => depth(paw.segment) === 3)
+    && !!head?.points?.mouth && above(head.name) !== undefined;
+}
 
 /** A quadruped mind drives its own support chains through the common floating-base solve. */
 export function createQuadrupedMind(built: BuiltBody, world: World, wiring: Partial<MindWiring> = {}) {

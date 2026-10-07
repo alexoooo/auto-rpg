@@ -134,7 +134,10 @@ the impact literature for each part's stiffness under a blunt load (`CONTACT_STI
 | `reptile` | an independently authored 8 kg quadruped (`assets/reptile/body.json`) | 1 |
 
 `BODY_MODELS`, `modelSpec` and `modelInfo` (`src/core/models.ts`) own the model registry,
-construction, default minds, equipment, clothing, navigation footprints and controller compatibility.
+construction, default minds, equipment and navigation footprints. What a body can do is read from
+its spec: `modelHolds` (a hand a haft lies across, `canHold`) and `modelSupportsMind` (`commandable`
+for the humanoid minds, `quadrupedFits` for the quadruped). How a model is shown, its label,
+clothing and shape tint, is the screens' (`MODEL_DISPLAY`, `src/render/models.ts`).
 Humanoid-only tasks use `HUMANOID_MODELS`; they do not fabricate hands on a different body.
 The reptile has 17 segments, 16 joints and 31 muscle freedoms: a trunk, four three-segment legs,
 head, hinged jaw and two tail segments. Its complete spec carries asset provenance, with

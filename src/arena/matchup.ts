@@ -1,4 +1,4 @@
-import { BODY_MODELS, modelInfo, modelSupportsMind, type BodyModel } from "../core/models.ts";
+import { BODY_MODELS, modelHolds, modelSupportsMind, type BodyModel } from "../core/models.ts";
 import { ARENA_BRAWLER, ARENA_SCRAPPER, ARENA_KICKER, ARENA_FIGHTER, FIGHTER, POINT_FIGHTER, QUADRUPED, type FighterMindConfig, type MindConfig } from "../core/mind/config.ts";
 import { isOrders } from "../core/mind/orders.ts";
 import { balanceFrom } from "../core/rules/rulebook.ts";
@@ -15,7 +15,6 @@ export type Matchup = Readonly<Record<Side, BodyModel>>;
 export const DEFAULT_MATCHUP: Matchup = Object.freeze({ left: "workshop-fighter", right: "workshop-rogue" });
 
 /** What each model is called on the page. */
-export const MODEL_LABELS = Object.freeze(Object.fromEntries(BODY_MODELS.map(model => [model, modelInfo(model).label]))) as Readonly<Record<BodyModel, string>>;
 
 const isModel = (text: string | undefined): text is BodyModel => BODY_MODELS.includes(text as BodyModel);
 
@@ -91,7 +90,7 @@ export function readHeld(search: string): Readonly<Record<Side, (typeof DUEL_HEL
   const parts = text.split(","), given = parts.flatMap((part) => DUEL_HELD.filter((held) => held === part.trim()));
   if (parts.length > 2 || given.length !== parts.length) return undefined;
   const models = readMatchup(search);
-  return { left: modelInfo(models.left).hands ? given[0]! : "empty", right: modelInfo(models.right).hands ? given[given.length - 1]! : "empty" };
+  return { left: modelHolds(models.left) ? given[0]! : "empty", right: modelHolds(models.right) ? given[given.length - 1]! : "empty" };
 }
 
 /** The arena link's parameter for how both sides' hands guard while they do not attack: `&guard=cover` or `&guard=pose`. */

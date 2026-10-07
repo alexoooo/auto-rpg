@@ -5,7 +5,7 @@ import type { PhysicalBody } from "../core/physical-body.ts";
 import { buildBody } from "../core/build/build-body.ts";
 import type { AssistCeiling } from "../core/control/assist.ts";
 import { armed } from "../core/human/grip.ts";
-import { modelInfo, modelSpec, modelSupportsMind, type BodyModel } from "../core/models.ts";
+import { modelHolds, modelInfo, modelSpec, modelSupportsMind, type BodyModel } from "../core/models.ts";
 import { woodenClub } from "../core/items/club.ts";
 import type { MindConfig } from "../core/mind/config.ts";
 import { createMind, type Minded } from "../core/mind/minds.ts";
@@ -217,7 +217,7 @@ export class Duel {
       throw new Error("invalid recovery window");
     for (const side of SIDES) {
       const model = recipe[side], info = modelInfo(model), held = recipe.held?.[side] ?? info.held, config = recipe.minds?.[side] ?? info.mind;
-      if (held === "club" && !info.hands) throw new Error(`${model} cannot hold a club`);
+      if (held === "club" && !modelHolds(model)) throw new Error(`${model} cannot hold a club`);
       if (!modelSupportsMind(model, config)) throw new Error(`incompatible controller for ${model}`);
     }
     this.world = world;

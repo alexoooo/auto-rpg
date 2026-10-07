@@ -5,6 +5,7 @@ import { buildBody, type BuiltBody } from "../core/build/build-body.ts";
 import type { PhysicsEngine } from "../core/engine/engine.ts";
 import { armed } from "../core/human/grip.ts";
 import { modelInfo, modelSpec, type BodyModel } from "../core/models.ts";
+import { MODEL_DISPLAY } from "../render/models.ts";
 import { woodenClub } from "../core/items/club.ts";
 import { createSenses, type SensesHub } from "../core/mind/senses.ts";
 import { nearSurface } from "../core/mind/openings.ts";
@@ -53,8 +54,18 @@ import { generateEncounterLevel } from "./encounters.ts";
  * The run is lost when the whole party has fallen and won when a standing member reaches the exit.
  */
 
+/** The map a run of `options` plays: its layout, or the encounter level its seed generates. */
+export const runMap = (options: Pick<DungeonRunOptions, "seed" | "layout">): DungeonMap => options.layout ?? generateEncounterLevel(options.seed).map;
+const heroOf = (options: Pick<DungeonRunOptions, "hero">): BodyModel => options.hero ?? "workshop-fighter";
+const enemyAt = (map: DungeonMap, options: Pick<DungeonRunOptions, "enemy">, i: number): BodyModel =>
+  options.enemy?.(i) ?? map.encounters?.[i]?.model ?? "crypt-skeleton";
+/** Every model a run of `options` on `map` fields, each once: the party's, then the enemies'. */
+export function runModels(map: DungeonMap, options: Pick<DungeonRunOptions, "hero" | "companions" | "enemy">): BodyModel[] {
+  return [...new Set([heroOf(options), ...(options.companions ?? []), ...map.spawns.map((_, i) => enemyAt(map, options, i))])];
+}
+
 /** Who stands for each model in the party list and the target panel. */
-const NAMES = (model: BodyModel) => modelInfo(model).label.toLowerCase();
+const NAMES = (model: BodyModel) => MODEL_DISPLAY[model].label.toLowerCase();
 
 export interface DungeonActor {
   readonly id: string;
@@ -233,7 +244,7 @@ export class DungeonRun {
 
   constructor(scene: Scene, options: DungeonRunOptions) {
     this.options = options;
-    this.map = options.layout ?? generateEncounterLevel(options.seed).map;
+    this.map = runMap(options);
     this.world = createWorld(scene, options.engine);
     this.senses = createSenses(this.world);
     this.level = buildDungeonWorld(scene, this.map, options.visuals ?? true, this.world.physics);
@@ -259,9 +270,9 @@ export class DungeonRun {
       };
       this.actors.push(actor); return actor;
     };
-    this.hero = create("hero", options.hero ?? "workshop-fighter", this.map.start, "party");
+    this.hero = create("hero", heroOf(options), this.map.start, "party");
     this.party.push(this.hero);
-    this.map.spawns.forEach((at, i) => this.enemies.push(create(`enemy-${i}`, options.enemy?.(i) ?? this.map.encounters?.[i]?.model ?? "crypt-skeleton", at, "enemy")));
+    this.map.spawns.forEach((at, i) => this.enemies.push(create(`enemy-${i}`, enemyAt(this.map, options, i), at, "enemy")));
     const taken = [{ ...this.map.start, radius: this.hero.radius }];
     (options.companions ?? []).forEach((model, i) => {
       const radius = modelInfo(model).radius, at = companionSpawn(this.map, taken, radius);
@@ -303,7 +314,7 @@ export class DungeonRun {
       name: `crypt ${actor.side}`, assist, senses: sensed,
       orders: senses => {
         const { move, face, attack } = actor.plan, head = attack?.fighter?.body.physical.head;
-        if (!modelInfo(actor.model).hands && attack) {
+        if (modelInfo(actor.model).mind.kind === "quadruped" && attack) {
           const target = senses.others.find(s => s.id === attack.id), segment = built.segments.get("head")!;
           const from = pointOfToRef(segment, segment.spec.points!.mouth!.value, mouth);
           let nearest: readonly [number, number, number] | null = null, distance = Infinity;

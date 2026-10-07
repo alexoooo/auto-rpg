@@ -77,10 +77,10 @@ request backward crawling. No grip, clamp damage, decorative tooth collider or a
 
 ## Encounters
 
-The registry's `HUMANOIDS` retains the .35 m footprint and one-second progress interval from
+The registry's `HUMANOID` retains the .35 m footprint and one-second progress interval from
 [following](play.md#following), and `ATTACK_METRES` from
 [attack distance](human-and-strikes.md#attack-distance). Humanoid falls end a dungeon fight.
-`REPTILE` provides empty equipment, a quadruped mind, no clothing, .52 m dungeon attack spacing
+`readReptile` provides empty equipment, a quadruped mind, .52 m dungeon attack spacing
 and an eight-second progress interval. These are controller choices for the qualified slow crawl.
 `STALL_METRES` retains the 50 mm route-progress threshold; the reptile's longer interval lets it
 advance that distance before its route is judged stalled. The horizontal navigation radius is derived from the full

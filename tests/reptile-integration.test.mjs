@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { BODY_MODELS, modelInfo, modelSpec, modelSupportsMind } from "../src/core/models.ts";
+import { BODY_MODELS, modelHolds, modelInfo, modelSpec, modelSupportsMind } from "../src/core/models.ts";
+import { MODEL_DISPLAY } from "../src/render/models.ts";
 import { ARENA_KICKER, FIGHTER, QUADRUPED } from "../src/core/mind/config.ts";
 import { generateCryptDungeon } from "../src/dungeon/crypt-dungeon.ts";
 import { generateEncounterLevel, outsidePartyStart } from "../src/dungeon/encounters.ts";
@@ -12,6 +13,7 @@ import { freshEngine } from "./harness/core-stand.mjs";
 import { Duel } from "../src/arena/duel.ts";
 import { controlsFor, readControls, readHeld, readMinds } from "../src/arena/matchup.ts";
 import { companionSpawn } from "../src/dungeon/party-placement.ts";
+import { DungeonRun, runMap, runModels } from "../src/dungeon/run.ts";
 
 test("registered models declare compatible default minds and equipment", () => {
   assert.deepEqual(BODY_MODELS, ["workshop-fighter", "workshop-rogue", "crypt-skeleton", "reptile"]);
@@ -25,9 +27,9 @@ test("registered models declare compatible default minds and equipment", () => {
     assert.equal(modelSupportsMind(model, ARENA_KICKER), model !== "reptile");
     assert.equal(modelSupportsMind(model, { kind: "direct", targets: {}, seconds: .1, speed: 1, activation: 1 }), true);
     assert.equal(info.held, model === "reptile" ? "empty" : "club");
-    assert.equal(info.hands, model !== "reptile");
+    assert.equal(modelHolds(model), model !== "reptile");
     assert.equal(info.fallEndsFight, model !== "reptile");
-    assert.equal(info.clothing, model === "workshop-fighter" || model === "workshop-rogue");
+    assert.equal(MODEL_DISPLAY[model].clothing, model === "workshop-fighter" || model === "workshop-rogue");
   }
 });
 
@@ -54,6 +56,23 @@ test("arena links retain compatible choices and reject invalid recipes before bu
       assert.equal(duel.duelists.right.body.down, false);
     } finally { duel.dispose(); }
   } finally { world.dispose(); scene.dispose(); }
+});
+
+test("a crypt run fields exactly the models its page loads skins for, each once", async () => {
+  const fielded = [];
+  for (const seed of [0, 1, 2]) {
+    const options = { seed, hero: "workshop-rogue", companions: ["crypt-skeleton"] };
+    const map = runMap(options), models = runModels(map, options);
+    assert.deepEqual(map, generateEncounterLevel(seed).map);
+    const scene = new Scene(new NullEngine());
+    const run = new DungeonRun(scene, { ...options, engine: await freshEngine(), visuals: false, layout: map });
+    try {
+      assert.deepEqual([...models].sort(), [...new Set(run.actors.map(actor => actor.model))].sort(), `seed ${seed}`);
+      assert.equal(models.length, new Set(models).size);
+      fielded.push(...models);
+    } finally { run.dispose(); scene.dispose(); }
+  }
+  assert.deepEqual([...new Set(fielded)].sort(), ["crypt-skeleton", "reptile", "workshop-rogue"]);
 });
 
 test("generated layouts place reachable, separated three-reptile packs across seeds", () => {

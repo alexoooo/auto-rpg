@@ -116,22 +116,14 @@ needs it generic.
 
 The two task boxes (`tasks/collision.ts`, `tasks/swing-target.ts`) use `cuboidMoments` too; the club keeps its own until chunk 20.
 
-### Chunk 9: capabilities derived from the spec (bit-identical)
+### Chunk 9: capabilities derived from the spec (landed)
 
-**`models.ts`**
-- `modelSupportsMind` uses exported predicates:
-  - `commandable(spec)` (in `body.ts`);
-  - `quadrupedFits(spec)` (in `reptile/mind.ts`).
-- `canHold(spec, segment)` (`human/grip.ts`'s precondition) replaces the `hands` flag in
-  `duel.ts`, `matchup.ts` and `arena/main.ts`.
-- The humanoid rows come from one factory.
-- The reptile's footprint is computed on demand, not when the module loads.
-
-**Screens**
-- `character-preview.ts` frames by `spec.stature`.
-- `label` and `clothing` move to `src/render/models.ts`. `HEROES` in `dungeon/main.ts`, `MODELS`
-  and `TINT` in the Lab, and `NAMES` in `dungeon/run.ts` all read it.
-- The Crypt preloads dressers from its encounter models.
+- The humanoid rows were one row once label and clothing left, so there is one `HUMANOID`.
+- The character preview chooses its view by the body's proportions (taller than long: from the
+  front), keeping today's framing numbers; scaling the framing by stature changes the menu
+  picture and waits for an eye check.
+- The Crypt reads its map first (`runMap`) and loads a skin for each model the run fields
+  (`runModels`), the same rule the run spawns by.
 
 ### Chunk 10: per-body scratch and one centre-of-mass read (bit-identical)
 

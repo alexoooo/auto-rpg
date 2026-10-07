@@ -2,7 +2,8 @@ import { VIEW_MODES, CAMERA_MODES, PROJECTIONS, type ViewSettings } from "../ren
 import { appearanceFor, type Appearance } from "../render/appearance.ts";
 import { playHref } from "../app-route.ts";
 import { CHARACTERS } from "../character-lab/catalog.ts";
-import type { HumanoidModel } from "../core/models.ts";
+import { HUMANOID_MODELS, type HumanoidModel } from "../core/models.ts";
+import { MODEL_DISPLAY } from "../render/models.ts";
 import { balanceFrom } from "../core/rules/rulebook.ts";
 
 /**
@@ -33,11 +34,7 @@ export const SCENARIOS: readonly ScenarioInfo[] = [
   { id: "blow", name: "Blow", line: "It swings a club blow the strike search found into a head, and reads what it lands with.", holds: { right: "club" } },
 ];
 
-export const MODELS: readonly { readonly id: HumanoidModel; readonly name: string }[] = [
-  { id: "workshop-fighter", name: "Warrior" },
-  { id: "workshop-rogue", name: "Rogue" },
-  { id: "crypt-skeleton", name: "Skeleton" },
-];
+export const MODELS: readonly { readonly id: HumanoidModel; readonly name: string }[] = HUMANOID_MODELS.map((id) => ({ id, name: MODEL_DISPLAY[id].label }));
 
 /**
  * What a hand may hold: nothing, or the wooden club (`woodenClub`, `src/core/items/club.ts`),

@@ -10,7 +10,8 @@ import { Plane } from "@babylonjs/core/Maths/math.plane.js";
 import "@babylonjs/core/Culling/ray.js";
 import type { PhysicsEngine } from "../core/engine/engine.ts";
 import { loadEngine } from "../core/engine/engines.ts";
-import type { BodyModel } from "../core/models.ts";
+import { HUMANOID_MODELS, type BodyModel } from "../core/models.ts";
+import { MODEL_DISPLAY } from "../render/models.ts";
 import type { Clothing } from "../render/skin-view.ts";
 import { loadSkeletonArt, type SkeletonArt } from "../render/skeleton-skin.ts";
 import { drawHeld } from "../render/body-shapes.ts";
@@ -21,7 +22,7 @@ import { debrisCues } from "../audio/cues.ts";
 import { GameAudio } from "../audio/game-audio.ts";
 import { hearRun, type RunHearing } from "./hearing.ts";
 import { EnemyHover } from "./hover.ts";
-import { DungeonRun, type DungeonActor, type RunStatus } from "./run.ts";
+import { DungeonRun, runMap, runModels, type DungeonActor, type RunStatus } from "./run.ts";
 import { orderLabel } from "./commands.ts";
 import { cellKey, type Point } from "./map.ts";
 import { CAMERA_AZIMUTH, CAMERA_PITCH, cameraToward, frameDungeon, pickingCoordinates } from "./camera.ts";
@@ -94,8 +95,7 @@ let toward = cameraToward(azimuth);
 const stone = stoneQuery(location.search);
 seedInput.value = String(randomSeed());
 /** The heroes a person can lead, in the order companions are drawn from: each is a body, and each carries a club. */
-const HEROES: readonly { readonly model: BodyModel; readonly label: string }[] = [
-  { model: "workshop-fighter", label: "Warrior" }, { model: "workshop-rogue", label: "Rogue" }, { model: "crypt-skeleton", label: "Skeleton" }];
+const HEROES: readonly { readonly model: BodyModel; readonly label: string }[] = HUMANOID_MODELS.map((model) => ({ model, label: MODEL_DISPLAY[model].label }));
 /** The companions for a hero: the next heroes on the list after the hero's own, in turn. */
 const companionModels = (hero: BodyModel, count: number): BodyModel[] => {
   const at = Math.max(0, HEROES.findIndex(h => h.model === hero));
@@ -342,9 +342,11 @@ async function buildRun(page: DungeonPage, nextSeed: number): Promise<void> {
   camera.mode = Camera.ORTHOGRAPHIC_CAMERA;
   camera.minZ = 0.1;
   camera.maxZ = 160;
-  // Each model's skin, loaded once a scene; a body whose skin did not load is drawn as its shapes.
+  const fielded = { seed, layout: cryptPlan?.map ?? (reference ? referenceChamber(seed) : undefined), hero: page.selectedHero, companions: page.companions };
+  const layout = runMap(fielded);
+  // The skin of each model the run fields, loaded once a scene; a body whose skin did not load is drawn as its shapes.
   const dressers = new Map<BodyModel, Dresser>();
-  await Promise.all([...new Set<BodyModel>([page.selectedHero, ...page.companions, "crypt-skeleton", "reptile"])].map((model) =>
+  await Promise.all(runModels(layout, fielded).map((model) =>
     dresserFor(model, scene, { skeletonArt: () => page.skeletonArt }).then((dress) => { dressers.set(model, dress); })));
   stillShown();
   const dress = (actor: DungeonActor, world: World) => {
@@ -356,8 +358,7 @@ async function buildRun(page: DungeonPage, nextSeed: number): Promise<void> {
   const run = page.run = new DungeonRun(scene, {
     seed, engine: page.physicsEngine,
     visuals: { ...dungeonStone(scene, stone.floor, stone.wall), masonry: reference ? false : stone.masonry },
-    layout: cryptPlan?.map ?? (reference ? referenceChamber(seed) : undefined),
-    hero: page.selectedHero, companions: page.companions, onBuilt: dress,
+    layout, hero: page.selectedHero, companions: page.companions, onBuilt: dress,
     // A blow is a touch, and is heard as one (`hearRun`); this is what it took off, where the party can see.
     onBlow: (blow) => {
       const heard = page.run;
