@@ -126,8 +126,8 @@ cycles land nothing on a fixed box (the `todo` tests in `tests/arena-control-cyc
 [autonomous Warrior baseline](reference/arena-combat.md) exposes sustained hand pressure with
 little damage in the self-play of Point control, a placed-point controller no longer in the game. The path
 fighter's presets, Combat, Brawler, grounded Scrapper and Kicker, run through the same body and
-muscle contract. Brawler won 591/600 held-out Warrior fist cap bouts against Classic, Point and
-linear Combat while Point was in the game. Scrapper lands low blows with either hand in controlled knockdowns, attempts
+muscle contract. Against Classic on two Warriors, each wins bare-handed (0.97 to 0.98) and loses
+with clubs (0.09 to 0.24), every win on the clock ([presets](reference/controller-presets.md)). Scrapper lands low blows with either hand in controlled knockdowns, attempts
 recovery and restores standing, with fresh-world replay. Decisive finishing, low-target pose
 coverage, defense timing, broader loadouts and repeated league evaluation remain open. The
 standing benchmark does not rate the grounded extension. The original grounded configuration

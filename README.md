@@ -55,10 +55,14 @@ Try `?play=arena&matchup=workshop-fighter,reptile&held=empty&recovery=continue`.
 Its anatomy is an authored estimate; its blunt bite is weak, and fighting effectiveness remains
 unqualified. [Control checks](docs/reference/reptile.md) cover standing, walking, jaw contact,
 release and recovery. Recovery may take several retries, particularly from awkward leg positions.
+Classic strikes by searched recipes; Combat, Brawler, Scrapper and Kicker are presets of one
+path fighter, which strikes along hand paths on a shared strike cycle.
+Against Classic on two Warriors ([384 bouts each](docs/reference/controller-presets.md)), every
+preset wins bare-handed (Combat and Kicker 0.98, Brawler and Scrapper 0.97), all of it at the
+time cap, and loses with clubs (Combat 0.24, Kicker 0.17, Brawler and Scrapper 0.09), often by a
+wound. Finishing power remains under evaluation.
 Brawler is the experimental body-targeting fighter, with measured punch paths, guards and
-escapes. In held-out Warrior fist bouts it won 591/600 against retained Classic, Point and
-linear Combat opponents; these wins were decided at the time cap. Finishing power and autonomous
-low striking remain under evaluation. Try
+escapes. Try
 `?play=arena&matchup=workshop-fighter,workshop-fighter&control=brawler&held=empty&balance=0`.
 Scrapper adds supported low attacks against fallen or rising opponents. Start with two
 empty-handed Warriors:
