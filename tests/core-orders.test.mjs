@@ -14,7 +14,7 @@ import { modelSpec } from "../src/core/models.ts";
 import { woodenClub } from "../src/core/items/club.ts";
 import { recipeTactics } from "../src/core/mind/recipe-tactics.ts";
 import { STRAFE } from "../src/core/mind/ordered.ts";
-import { GUARD_ACTION } from "../src/core/mind/intent.ts";
+import { NO_COVER } from "../src/core/mind/intent.ts";
 import { sameOrders, STAND_ORDERS } from "../src/core/mind/orders.ts";
 import { driveBy } from "../src/core/mind/tactics.ts";
 import { threatReader } from "../src/core/mind/threat.ts";
@@ -29,15 +29,14 @@ test("tactics_turn_orders_into_an_intent", () => {
   /** The intent `orders` become for a body whose stance is asked to face `heading`. */
   const intent = (orders, heading = 0, envelope = { walk: { value: WALK } }) =>
     recipeTactics("orders", () => orders).decide({ view: { resumed: false }, report: { heading, strike: { thrown: { right: 0 } } }, envelope }, 1 / 120);
-  const guard = { left: GUARD_ACTION, right: GUARD_ACTION };
-  /** `got` is `{ move, face, hands: guard }`, its numbers within 1e-12. */
+  /** `got` is `{ move, face, guard: NO_COVER, attack: null }`, its numbers within 1e-12. */
   const is = (got, move, face, what) => {
     const near = (a, b) => Math.abs(a - b) < 1e-12;
     assert.ok(move === null ? got.move === null : got.move !== null && near(got.move[0], move[0]) && near(got.move[1], move[1]),
       `${what}: move ${JSON.stringify(got.move)}, not ${JSON.stringify(move)}`);
     assert.ok(near(got.face, face), `${what}: face ${got.face}, not ${face}`);
-    assert.deepEqual(got.hands, guard, what);
-    assert.deepEqual(Object.keys(got).sort(), ["face", "hands", "move"], what);
+    assert.deepEqual([got.guard, got.attack], [NO_COVER, null], what);
+    assert.deepEqual(Object.keys(got).sort(), ["attack", "face", "guard", "move"], what);
   };
   const half = STRAFE.share * WALK;
   assert.equal(half, 0.35);
@@ -70,7 +69,7 @@ test("tactics_turn_orders_into_an_intent", () => {
 
   // An attack waits for no walk, and holds the heading.
   assert.deepEqual(intent({ move: EAST, face: NORTH, attack: [1, 1.6, 0] }, 0.4),
-    { move: null, face: 0.4, hands: { left: GUARD_ACTION, right: { kind: "attack", target: [1, 1.6, 0] } } });
+    { move: null, face: 0.4, guard: NO_COVER, attack: { kind: "blow", hand: "right", target: [1, 1.6, 0] } });
 
   // An experiment's rule is passed in.
   const slow = recipeTactics("orders", () => ({ move: EAST, face: NORTH, attack: null }), { ...STRAFE, share: 0.25 })
@@ -90,8 +89,12 @@ test("a_fighter_told_to_cover_gives_the_cover_to_the_hand_that_does_not_attack",
     }] } },
     report: { heading: 0, strike: { thrown: { right: 0 } } }, envelope: { walk: { value: WALK } },
   });
-  const hands = (guard, orders, speed) => recipeTactics("orders", () => orders, STRAFE, guard).decide(sight(speed), 1 / 120).hands;
-  const attack = { move: null, face: null, attack: [0, 1.6, 1] }, struck = { kind: "attack", target: [0, 1.6, 1] };
+  /** What the hands do, told to guard by `guard`: what each covers, and the attack. */
+  const hands = (guard, orders, speed) => {
+    const intent = recipeTactics("orders", () => orders, STRAFE, guard).decide(sight(speed), 1 / 120);
+    return { guard: intent.guard, attack: intent.attack };
+  };
+  const attack = { move: null, face: null, attack: [0, 1.6, 1] }, struck = { kind: "blow", hand: "right", target: [0, 1.6, 1] };
   const cover = threatOf(sight(5).view);
   assert.ok(cover && Math.hypot(cover.threat[0], cover.threat[1] - 1.6, cover.threat[2] - 0.6) < 0.2, `the sight's threat: ${JSON.stringify(cover)}`);
   assert.deepEqual(cover.guarded, [0, 1.6, 0]);
@@ -103,15 +106,15 @@ test("a_fighter_told_to_cover_gives_the_cover_to_the_hand_that_does_not_attack",
   assert.ok(Math.abs(projection - .3) < 1e-12);
   assert.equal(threatOf(sight(5).view, undefined, { out: .3, horizon: .001 }), null, "a crossing beyond the planning horizon is refused");
   // Told to cover: the hand that does not attack covers, and both do when neither attacks.
-  assert.deepEqual(hands("cover", attack, 5), { left: { kind: "guard", cover }, right: struck });
-  assert.deepEqual(hands("cover", STAND_ORDERS, 5), { left: { kind: "guard", cover }, right: { kind: "guard", cover } });
-  assert.deepEqual(hands("cover", { move: EAST, face: null, attack: null }, 5), { left: { kind: "guard", cover }, right: { kind: "guard", cover } });
+  assert.deepEqual(hands("cover", attack, 5), { guard: { left: cover, right: null }, attack: struck });
+  assert.deepEqual(hands("cover", STAND_ORDERS, 5), { guard: { left: cover, right: cover }, attack: null });
+  assert.deepEqual(hands("cover", { move: EAST, face: null, attack: null }, 5), { guard: { left: cover, right: cover }, attack: null });
   // With nothing threatening, the plain guard.
-  assert.deepEqual(hands("cover", attack, 1), { left: GUARD_ACTION, right: struck });
-  assert.deepEqual(hands("cover", STAND_ORDERS, 1), { left: GUARD_ACTION, right: GUARD_ACTION });
+  assert.deepEqual(hands("cover", attack, 1), { guard: NO_COVER, attack: struck });
+  assert.deepEqual(hands("cover", STAND_ORDERS, 1), { guard: NO_COVER, attack: null });
   // In the pose, the plain guard whatever threatens.
-  assert.deepEqual(hands("pose", attack, 5), { left: GUARD_ACTION, right: struck });
-  assert.deepEqual(hands("pose", STAND_ORDERS, 5), { left: GUARD_ACTION, right: GUARD_ACTION });
+  assert.deepEqual(hands("pose", attack, 5), { guard: NO_COVER, attack: struck });
+  assert.deepEqual(hands("pose", STAND_ORDERS, 5), { guard: NO_COVER, attack: null });
   // A way of guarding nobody knows is refused as the tactics are made.
   assert.throws(() => recipeTactics("orders", () => STAND_ORDERS, STRAFE, "shield"), /in the pose or by a cover, not by "shield"/);
 });

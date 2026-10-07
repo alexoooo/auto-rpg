@@ -1,7 +1,7 @@
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { Body } from "../core/body.ts";
 import type { BuiltBody, BuiltSegment } from "../core/build/build-body.ts";
-import { GUARD_ACTION, type Intent } from "../core/mind/intent.ts";
+import { standIntent, type Intent } from "../core/mind/intent.ts";
 import type { Tactics } from "../core/mind/tactics.ts";
 import { watchBlows, type BlowWatch, type Fighter, type LandedBlow } from "../core/rules/blows.ts";
 import { createPool } from "../core/rules/pool.ts";
@@ -40,7 +40,7 @@ import { ballOf, dummySpec, hangDummy, TARGET_CLEAR, type Dummy } from "./target
  */
 function attackOnce(hand: Side, target: (head: Vector3) => Vec3, time: () => number, moved?: Partial<StandOff>): Tactics {
   let aim: Vec3 | null = null;
-  const guarding: Intent = { move: null, face: 0, hands: { left: GUARD_ACTION, right: GUARD_ACTION } };
+  const guarding: Intent = standIntent(0);
   return {
     name: "attack once",
     decide({ view, report }) {
@@ -48,7 +48,7 @@ function attackOnce(hand: Side, target: (head: Vector3) => Vec3, time: () => num
       if (report.strike.thrown[hand] > 0) return guarding;
       const thrown = moved && (report.strike.phase === "chamber" || report.strike.phase === "swing");
       const at: Vec3 = thrown ? [aim[0] + (moved.across ?? 0), aim[1] + (moved.up ?? 0), aim[2] + (moved.along ?? 0)] : aim;
-      return { ...guarding, hands: { ...guarding.hands, [hand]: { kind: "attack", target: at } } };
+      return { ...guarding, attack: { kind: "blow", hand, target: at } };
     },
   };
 }

@@ -91,7 +91,7 @@ export function recipeSkills(body: Body, { state: tactics, engagement }: Pick<Ta
     report, state,
     resume(view) { for (const skill of all) skill.resume(view); },
     command(view, intent, dt) {
-      const strike = strikes.command(view, intent.hands, legs.heading, legs.placed, dt);
+      const strike = strikes.command(view, intent.attack, legs.heading, legs.placed, dt);
       if (!strike) strikes.idle(intent.move !== null, dt);
       const goal = strike?.footing ? legs.place(view, strike.footing, intent.lower)
         : strike ? legs.goal(view, strike.walk, strike.face, dt, intent.lower)
@@ -101,7 +101,7 @@ export function recipeSkills(body: Body, { state: tactics, engagement }: Pick<Ta
       command.posture = strike?.posture ?? GUARD;
       command.pushes = strike?.pushes ?? none;
       // The strike's goal for the hand it has; the guard's for a hand it has not.
-      const thrown = strike?.hands, covers = guard.command(view, intent.hands, strikes.report.hand);
+      const thrown = strike?.hands, covers = guard.command(view, intent.guard, strikes.report.hand);
       const either = !!thrown && (!!thrown.left || !!thrown.right);
       effectors["hand.left"] = either ? thrown!.left ?? covers.left : covers.left;
       effectors["hand.right"] = either ? thrown!.right ?? covers.right : covers.right;

@@ -17,7 +17,6 @@ import { rigidPoints } from "../src/core/build/rigid.ts";
 import { armed } from "../src/core/human/grip.ts";
 import { humanSpec } from "../src/core/human/spec.ts";
 import { woodenClub } from "../src/core/items/club.ts";
-import { GUARD_ACTION } from "../src/core/mind/intent.ts";
 import { GUARD } from "../src/core/skills/guard.ts";
 import { PLACING } from "../src/core/skills/locomotion.ts";
 import { APPROACH, PLACED, rangeOf, STAND, STEER, strikeSkill } from "../src/core/skills/strike.ts";
@@ -161,7 +160,7 @@ test("an_attack_walks_to_its_place_sets_the_feet_stands_asks_the_window_and_is_t
   const head = new Vector3(0, 1.6, 0), view = { head, stance };
   const moveBy = (x, z) => { for (const v of [head, stance.centre, stance.soles.left, stance.soles.right]) { v.x += x; v.z += z; } };
   const target = [0.1, 1.6, 3];
-  const attack = { left: GUARD_ACTION, right: { kind: "attack", target } };
+  const attack = ({ kind: "blow", hand: "right", target });
   // Where the feet stand for the target to be at the window's middle: square, as built.
   const middle = [(window.along[0] + window.along[1]) / 2, (window.across[0] + window.across[1]) / 2];
   const mx = target[0] - middle[1], mz = target[2] - recipe.place.ahead - middle[0];
@@ -177,7 +176,7 @@ test("an_attack_walks_to_its_place_sets_the_feet_stands_asks_the_window_and_is_t
   assert.deepEqual(plain(far.posture), plain(GUARD));
 
   // Given up while walking, it is dropped.
-  assert.equal(skill.command(view, { left: GUARD_ACTION, right: GUARD_ACTION }, 0, false, DT), null);
+  assert.equal(skill.command(view, null, 0, false, DT), null);
   assert.equal(skill.report.hand, null);
 
   // Within reach of its place, it asks for the feet there, and does not walk.
@@ -217,7 +216,7 @@ test("a_recipe_whose_window_holds_its_target_where_the_body_stands_is_thrown_fro
   const { strike, recipe, window } = recipeFor(CLUBS, spec, "right", 0);
   const middle = [(window.along[0] + window.along[1]) / 2, (window.across[0] + window.across[1]) / 2];
   const target = [middle[1], 1.6, recipe.place.ahead + middle[0]];
-  const attack = { left: GUARD_ACTION, right: { kind: "attack", target } };
+  const attack = ({ kind: "blow", hand: "right", target });
   // From each edge of the window along, inside it and past it, and from across it: the feet not where they would be set.
   const from = (along, across) => {
     const skill = strikeSkill(spec, CLUBS), { view, moveBy } = standing();
@@ -295,7 +294,7 @@ test("what_a_body_knows_of_anothers_range_is_what_its_strike_skill_throws", () =
 test("a_target_in_a_recipes_window_is_thrown_at_with_it_and_one_out_of_its_height_is_placed", () => {
   const spec = humanSpec("workshop-fighter");
   const { recipe, window } = recipeFor(STRAIGHTS, spec, "right", 0);
-  const attack = (target) => ({ left: GUARD_ACTION, right: { kind: "attack", target } });
+  const attack = (target) => ({ kind: "blow", hand: "right", target });
   const taken = (up) => {
     const skill = strikeSkill(spec, STRAIGHTS), { view } = standing();
     skill.command(view, attack([0, 1.6 + up, 3]), 0, false, DT);
@@ -375,7 +374,7 @@ test("a_blow_is_chosen_again_by_the_head_as_it_stands", () => {
   const spec = humanSpec("workshop-fighter"), skill = strikeSkill(spec, STRAIGHTS);
   const { recipe, window } = recipeFor(STRAIGHTS, spec, "right", 0);
   const { view, moveBy } = standing();
-  const target = [0, 1.6, 3], hands = { left: GUARD_ACTION, right: { kind: "attack", target } };
+  const target = [0, 1.6, 3], hands = ({ kind: "blow", hand: "right", target });
   const middle = [(window.along[0] + window.along[1]) / 2, (window.across[0] + window.across[1]) / 2];
   moveBy(target[0] - middle[1], target[2] - recipe.place.ahead - middle[0]);
   skill.command(view, hands, 0, false, DT);
@@ -397,7 +396,7 @@ test("a_blow_chosen_standing_is_the_one_thrown_at_that_point", () => {
   const spec = humanSpec("workshop-fighter"), skill = strikeSkill(spec, STRAIGHTS);
   const { recipe, window } = recipeFor(STRAIGHTS, spec, "right", 0);
   const { view, moveBy } = standing();
-  const target = [0, 1.6, 3], attack = (at) => ({ left: GUARD_ACTION, right: { kind: "attack", target: at } });
+  const target = [0, 1.6, 3], attack = (at) => ({ kind: "blow", hand: "right", target: at });
   const middle = [(window.along[0] + window.along[1]) / 2, (window.across[0] + window.across[1]) / 2];
   moveBy(target[0] - middle[1], target[2] - recipe.place.ahead - middle[0]);
   skill.command(view, attack(target), 0, false, DT);
@@ -427,7 +426,7 @@ test("a_blow_chosen_standing_is_the_one_thrown_at_that_point", () => {
 
   // And so is the same point attacked anew: given up and taken up with the head over the
   // recipe's height, the blow is placed, and chosen again by the head as it stands.
-  assert.equal(skill.command(view, { left: GUARD_ACTION, right: GUARD_ACTION }, 0, false, DT), null);
+  assert.equal(skill.command(view, null, 0, false, DT), null);
   view.head.y += 0.05 - window.up[0];
   skill.command(view, attack(target), 0, false, DT);
   assert.deepEqual({ blow: skill.report.blow, phase: skill.report.phase }, { blow: "placed", phase: "settle" });
@@ -440,7 +439,7 @@ test("a_recipe_thrown_turns_the_heading_after_its_target_from_where_the_feet_sto
   const spec = armed(humanSpec("workshop-fighter"), "right", woodenClub());
   const { strike, recipe, window } = recipeFor(CLUBS, spec, "right", 0);
   const { view, moveBy } = standing();
-  const target = [0.3, 1.6, 3], attack = (at) => ({ left: GUARD_ACTION, right: { kind: "attack", target: at } });
+  const target = [0.3, 1.6, 3], attack = (at) => ({ kind: "blow", hand: "right", target: at });
   const middle = [(window.along[0] + window.along[1]) / 2, (window.across[0] + window.across[1]) / 2];
   moveBy(target[0] - middle[1], target[2] - recipe.place.ahead - middle[0]);
   const skill = strikeSkill(spec, CLUBS), still = strikeSkill(spec, CLUBS, PLACED, 0);
@@ -467,7 +466,7 @@ test("a_recipe_thrown_turns_the_heading_after_its_target_from_where_the_feet_sto
   // Right of where it was, the heading turns right (a heading grows to the right).
   assert.ok(skill.command(view, attack([0.4, 1.6, 3]), 0, false, DT).steer > 0);
   // Given up, the recipe is thrown to its end with the turn it had; then nothing is turned.
-  const had = skill.command(view, attack([0.2, 1.6, 3]), 0, false, DT).steer, guard = { left: GUARD_ACTION, right: GUARD_ACTION };
+  const had = skill.command(view, attack([0.2, 1.6, 3]), 0, false, DT).steer, guard = null;
   assert.ok(had < 0);
   for (steps = 0; skill.report.thrown.right === 0 && steps < 10 * 120; steps++) {
     assert.equal(skill.command(view, guard, 0, false, DT).steer, had);
@@ -479,7 +478,7 @@ test("a_recipe_thrown_turns_the_heading_after_its_target_from_where_the_feet_sto
 
 test("a_placed_blow_is_over_when_the_body_is_resumed", () => {
   const spec = humanSpec("workshop-fighter");
-  const target = [0, 1.2, 3], hands = { left: GUARD_ACTION, right: { kind: "attack", target } };
+  const target = [0, 1.2, 3], hands = ({ kind: "blow", hand: "right", target });
   /** A skill with its placed blow under way, a third of the way through. */
   const swinging = () => {
     const skill = strikeSkill(spec, STRAIGHTS), { view, moveBy } = standing();
@@ -504,6 +503,6 @@ test("a_placed_blow_is_over_when_the_body_is_resumed", () => {
 
   // Its attack given up, a placed blow is over too, unthrown: nothing carries it on.
   const given = swinging();
-  assert.equal(given.skill.command(given.view, { left: GUARD_ACTION, right: GUARD_ACTION }, 0, false, DT), null);
+  assert.equal(given.skill.command(given.view, null, 0, false, DT), null);
   assert.deepEqual(over(given.skill), none);
 });

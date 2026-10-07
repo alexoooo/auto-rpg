@@ -19,7 +19,7 @@ import { Duel, SIDES } from "../src/arena/duel.ts";
 import { addArenaSolids } from "../src/arena/room.ts";
 import { RECIPE_FIGHTER } from "../src/core/mind/config.ts";
 import { isClash, woundedIn } from "../src/core/rules/blows.ts";
-import { GUARD_ACTION } from "../src/core/mind/intent.ts";
+import { NO_COVER } from "../src/core/mind/intent.ts";
 import { STAND_ORDERS } from "../src/core/mind/orders.ts";
 import { threatReader } from "../src/core/mind/threat.ts";
 import { GUARD } from "../src/core/skills/guard.ts";
@@ -41,7 +41,7 @@ const TAPE = deepFreeze([{ step: 300, side: "left", orders: BACK }, { step: 420,
 const LATE = 7;
 
 /** The tables a bout's state points at: constants, which no load writes into. */
-const TABLES = { REPERTOIRE, GUARD, GUARD_ACTION, STAND_ORDERS };
+const TABLES = { REPERTOIRE, GUARD, NO_COVER, STAND_ORDERS };
 const frozenDeep = (value) => typeof value !== "object" || value === null || (Object.isFrozen(value) && Object.values(value).every(frozenDeep));
 const tablesAsBuilt = JSON.stringify(TABLES);
 

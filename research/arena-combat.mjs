@@ -115,7 +115,7 @@ export async function combatTrial(config) {
         const strikePhase = report?.strike.phase;
         if(strikePhase==='swing'&&out.lastPhase!=='swing'&&d.minded.skills.state.action) {
           const tactics=d.minded.skills.state.tactics;
-          const family=d.minded.skills.state.action.family,surface=tactics.surface;
+          const family=d.minded.skills.state.action.path.family,surface=tactics.surface;
           out.pathLaunches[family]=(out.pathLaunches[family]??0)+1;
           out.intendedSurfaces[surface]=(out.intendedSurfaces[surface]??0)+1;
         }

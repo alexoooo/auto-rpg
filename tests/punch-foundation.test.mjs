@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {punchStand,punchCalibration} from '../research/punch-calibration.mjs';
 import {PUNCH_EXECUTION,PLANTED_PUNCH_EXECUTION,validCombatExecution} from '../src/core/skills/combat.ts';
 import {contactResponse} from '../src/core/control/effector-feedback.ts';
-import {GUARD_ACTION} from '../src/core/mind/intent.ts';
+import {NO_COVER} from '../src/core/mind/intent.ts';
 import {saveStand,loadStand} from './harness/core-stand.mjs';
 import {punchAdmission,punchScore,median} from '../research/punch-foundation.mjs';
 const settings={execution:PUNCH_EXECUTION,matchedFeedback:true,pad:{face:'compliant'}};
@@ -44,7 +44,7 @@ test('cancellation interrupts an admitted impact and a fresh-world fork replays 
   const a=await punchStand({...settings,hand}),b=await punchStand({...settings,hand});
   try{while(!a.skills.state.impact&&a.world.time<4)a.step();assert.ok(a.skills.state.impact);
    loadStand(b.world,states(b),saveStand(a.world,states(a)));
-   const cancel=s=>s.body.drive((view,dt)=>s.skills.command(view,{move:null,face:0,hands:{left:GUARD_ACTION,right:GUARD_ACTION},combat:null},dt));
+   const cancel=s=>s.body.drive((view,dt)=>s.skills.command(view,{move:null,face:0,guard:NO_COVER,attack:null},dt));
    cancel(a);cancel(b);a.step(240);b.step(240);
    assert.deepEqual(a.reading(),b.reading());assert.deepEqual(saveStand(a.world,states(a)).state,saveStand(b.world,states(b)).state);
    assert.equal(a.skills.report.strike.hand,null);assert.equal(a.skills.state.impacts.aborted,1);

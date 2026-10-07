@@ -5,7 +5,7 @@ import {DEFAULT_ENGINE} from '../../src/core/engine/engines.ts';
 import {createBody,SERVO_SECONDS} from '../../src/core/body.ts';
 import {combatSkills} from '../../src/core/skills/combat.ts';
 import {ATTACK_PATH} from '../../src/core/skills/attack-path.ts';
-import {GUARD_ACTION} from '../../src/core/mind/intent.ts';
+import {NO_COVER} from '../../src/core/mind/intent.ts';
 import {motionAtToRef} from '../../src/core/control/support.ts';
 
 /** Two independent fist targets on an unpinned Warrior, through one shared command and stance. */
@@ -27,8 +27,8 @@ export async function combinationStand({lead='right',mode='hit',tuning={}}={}) {
    }else if(policy.stage==='wait'&&!report.hand){policy.pairs++;policy.stage='lead';policy.hand=lead;}
   }
   const hand=policy.hand;
-  const command=skills.command(view,{move:null,face:0,hands:{left:GUARD_ACTION,right:GUARD_ACTION},
-   combat:view.time>=2&&!policy.cancelled&&hand?{hand,family:'straight',target:[hand==='right'?.1:-.1,1.63,.6]}:null},dt);
+  const command=skills.command(view,{move:null,face:0,guard:NO_COVER,
+   attack:view.time>=2&&!policy.cancelled&&hand?{kind:'blow',hand,target:[hand==='right'?.1:-.1,1.63,.6],path:{family:'straight'}}:null},dt);
   const active=skills.state.hand;
   if(active){
    motionAtToRef(s.built.segments.get(`hand.${active}`),view.fists[active].position,velocity,spin);

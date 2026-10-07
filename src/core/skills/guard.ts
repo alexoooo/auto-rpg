@@ -3,7 +3,7 @@ import type { BodyView } from "../body.ts";
 import { rigidPoints } from "../build/rigid.ts";
 import { intoFrameToRef } from "../control/kinematics.ts";
 import type { EffectorGoal, Pose } from "../control/motor.ts";
-import type { Cover, HandAction } from "../mind/intent.ts";
+import type { Cover, Intent } from "../mind/intent.ts";
 import type { Side, BodySpec } from "../spec/body.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { add, distance, dot, length, scale, sub } from "../spec/vec.ts";
@@ -80,7 +80,7 @@ const NO_LINE = 1e-6;
  */
 interface GuardSkill extends Skill {
   /** Each hand's goal this step: a cover's places for a hand that guards with one and that `taken` is not; null otherwise. */
-  command(view: BodyView, hands: Readonly<Record<Side, HandAction>>, taken: Side | null): Readonly<Record<Side, EffectorGoal | null>>;
+  command(view: BodyView, guard: Intent["guard"], taken: Side | null): Readonly<Record<Side, EffectorGoal | null>>;
 }
 
 export function guardSkill(spec: BodySpec, covering: Covering = GUARD_COVER): GuardSkill {
@@ -110,12 +110,12 @@ export function guardSkill(spec: BodySpec, covering: Covering = GUARD_COVER): Gu
   };
   return {
     resume() {},
-    command(view, hands, taken) {
+    command(view, guard, taken) {
       let goals: { left: EffectorGoal | null; right: EffectorGoal | null } | null = null;
       for (const hand of HANDS) {
-        const action = hands[hand];
-        if (hand === taken || action.kind !== "guard" || !action.cover) continue;
-        const goal = goalOf(view, hand, action.cover);
+        const cover = guard[hand];
+        if (hand === taken || !cover) continue;
+        const goal = goalOf(view, hand, cover);
         if (goal) (goals ??= { left: null, right: null })[hand] = goal;
       }
       return goals ?? NO_HANDS;

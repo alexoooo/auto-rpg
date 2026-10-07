@@ -7,7 +7,7 @@ import {modelSpec} from '../src/core/models.ts';
 import {createBody,SERVO_SECONDS} from '../src/core/body.ts';
 import {combatSkills} from '../src/core/skills/combat.ts';
 import {GUARD} from '../src/core/skills/guard.ts';
-import {GUARD_ACTION} from '../src/core/mind/intent.ts';
+import {NO_COVER} from '../src/core/mind/intent.ts';
 import {DEFAULT_ENGINE} from '../src/core/engine/engines.ts';
 import {traceOf} from './harness/trace.mjs';
 
@@ -36,8 +36,8 @@ test('either hand repeats extended head punches with useful contact mass and sur
 async function stand(hand='right',family='straight') {
  const s=await coreStand(modelSpec('workshop-fighter'),{engine:DEFAULT_ENGINE});
  const body=createBody(s.built,s.world,{servoSeconds:SERVO_SECONDS,feedback:true}),skills=combatSkills(body,{...ATTACK_PATH,elbowExtension:1});
- body.drive((view,dt)=>skills.command(view,{move:null,face:0,hands:{left:GUARD_ACTION,right:GUARD_ACTION},
-  combat:view.time>=2?{hand,target:[hand==='right'?.1:-.1,1.63,.6],family}:null},dt));
+ body.drive((view,dt)=>skills.command(view,{move:null,face:0,guard:NO_COVER,
+  attack:view.time>=2?{kind:'blow',hand,target:[hand==='right'?.1:-.1,1.63,.6],path:{family}}:null},dt));
  return {...s,body,skills};
 }
 

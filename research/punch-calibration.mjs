@@ -7,7 +7,7 @@ import { coreStand } from '../tests/harness/core-stand.mjs';
 import { modelSpec } from '../src/core/models.ts';
 import { createBody, SERVO_SECONDS } from '../src/core/body.ts';
 import { DEFAULT_ENGINE } from '../src/core/engine/engines.ts';
-import { GUARD_ACTION } from '../src/core/mind/intent.ts';
+import { NO_COVER } from '../src/core/mind/intent.ts';
 import { combatSkills } from '../src/core/skills/combat.ts';
 import { ATTACK_PATH } from '../src/core/skills/attack-path.ts';
 import { motionAtToRef, pointOfToRef } from '../src/core/control/support.ts';
@@ -61,8 +61,8 @@ export async function punchStand({hand='right',family='straight',hz=120,seconds=
   const masses=contactMass(s.built),point=new Vector3(),velocity=new Vector3(),spin=new Vector3();
   const state={history:[],samples:[],impacts:[],active:null,phase:'guard',launch:0,launchTime:0,previousPhase:null,
     witness:null,fell:false,floorContacts:0,unassignedImpulse:0,preContactTorquePeaks:{},seenLaunch:0,effort:effort.state};
-  body.drive((view,dt)=>skills.command(view,{move:null,face:0,hands:{left:GUARD_ACTION,right:GUARD_ACTION},
-    combat:view.time>=2?{hand,target,family,armExtension,targetId:'punch-pad'}:null},dt));
+  body.drive((view,dt)=>skills.command(view,{move:null,face:0,guard:NO_COVER,
+    attack:view.time>=2?{kind:'blow',hand,target,targetId:'punch-pad',path:{family,armExtension}}:null},dt));
   const before=s.world.beforeStep(()=>{
     pointOfToRef(limb,knuckles,point);motionAtToRef(limb,point,velocity,spin);
     const phase=skills.report.strike.phase;

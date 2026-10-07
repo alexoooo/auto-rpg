@@ -3,7 +3,7 @@ import type { BodyView } from "../body.ts";
 import { attackPath, ATTACK_PATH, type AttackTuning } from "../skills/attack-path.ts";
 import { pointPath } from "../control/point-path.ts";
 import { intoFrameToRef } from "../control/kinematics.ts";
-import type { CombatAction } from "./intent.ts";
+import type { BlowAttack, BlowFamily } from "./intent.ts";
 import { aimOf } from "../skills/strikes.ts";
 import { placedReach } from "../skills/strike.ts";
 import { type Side, frameOf, type BodySpec, type SegmentSpec } from "../spec/body.ts";
@@ -22,7 +22,7 @@ const OPENINGS = Object.freeze({ prediction: .12, blocked: 2, reachPenalty: 2, h
   uppercut: .1, uppercutReserve: .25 });
 
 /** What choosing `family` asks of a blow: the reach it keeps back, its score, and the vertical sense of its contact direction, 0 for none. */
-function familyTerms(family: CombatAction["family"], settings: Readonly<Record<"hookReserve" | "hookCost" | "overhand" | "uppercut" | "uppercutReserve", number>>): { readonly reserve: number; readonly cost: number; readonly vertical: -1 | 0 | 1 } {
+function familyTerms(family: BlowFamily, settings: Readonly<Record<"hookReserve" | "hookCost" | "overhand" | "uppercut" | "uppercutReserve", number>>): { readonly reserve: number; readonly cost: number; readonly vertical: -1 | 0 | 1 } {
   switch (family) {
     case "straight": case "cross": case "downward": return { reserve: 0, cost: 0, vertical: 0 };
     case "hook": return { reserve: settings.hookReserve, cost: settings.hookCost, vertical: 0 };
@@ -171,12 +171,21 @@ export function highestSurface(foe: BodySense, name: string, from?: Vec3): Vec3 
   return highest;
 }
 
-interface Opening extends CombatAction { readonly segment: string; readonly blocked: boolean; readonly reach: number; readonly score: number }
+/** An opening found: the blow's hand, point and family, and how it ranks. */
+interface Opening {
+  readonly hand: Side;
+  readonly target: Vec3;
+  readonly family: BlowFamily;
+  readonly direction?: Vec3;
+  readonly segment: string;
+  readonly blocked: boolean;
+  readonly reach: number;
+  readonly score: number;
+}
 
-/** The selected neutral action, with geometric ranking metadata removed by its owner. */
-export function openingAction(opening: Opening): CombatAction {
-  const { segment, blocked, reach, score, ...action } = opening;
-  return action;
+/** The blow an opening asks for, along its family's path. */
+export function openingAction({ hand, target, family, direction }: Opening): BlowAttack {
+  return { kind: "blow", hand, target, path: { family, ...(direction ? { direction } : {}) } };
 }
 
 /** A replaceable, bounded geometric selector; reads physical shapes and poses, never opponent policy or health. */
@@ -203,7 +212,7 @@ export function openingSelector(spec: BodySpec, tuning: OpeningTuning = {}, path
       return local && foe.segments.has(segment.name) ? [{ a: point(foe, segment.name, local.a), b: point(foe, segment.name, local.b), radius: local.radius + margin }] : [];
     });
     let best: Opening | null = null;
-    let families: readonly CombatAction["family"][];
+    let families: readonly BlowFamily[];
     switch (repertoire) {
       case "linear": families = ["straight"]; break;
       case "mixed": families = ["straight", "hook"]; break;

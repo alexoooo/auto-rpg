@@ -35,7 +35,7 @@ test('selectable grounded combat forks its approach and low swing and obeys an o
   a.world.step(120);a.duel.order('left',null);
   const skills=a.duel.duelists.left.minded.skills;
   for(const phase of ['approach','swing']){
-   while(a.duel.clock<25&&!(phase==='approach'?skills.state.tactics.ground.wide.route?.length:skills.state.action?.family==='downward'&&skills.report.strike.phase==='swing'))a.world.step();
+   while(a.duel.clock<25&&!(phase==='approach'?skills.state.tactics.ground.wide.route?.length:skills.state.action?.path.family==='downward'&&skills.report.strike.phase==='swing'))a.world.step();
    assert.ok(a.duel.clock<25,phase);
    b.duel.load(a.duel.save());const ta=trace(a),tb=trace(b);
    for(let i=0;i<180;i++){a.world.step();b.world.step();ta.take();tb.take();}

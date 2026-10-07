@@ -4,7 +4,7 @@ import { STANCE_LOWER } from "../skills/locomotion.ts";
 import type { SkillReport } from "../skills/skills.ts";
 import type { Side, BodySpec } from "../spec/body.ts";
 import type { Vec3 } from "../spec/quantity.ts";
-import { GUARD_ACTION, type CombatAction, type Intent } from "./intent.ts";
+import { NO_COVER, type BlowAttack, type Intent } from "./intent.ts";
 import { upperSurface } from "./openings.ts";
 import { groundRoute } from "./ground-route.ts";
 import { clearFootTranslation, lowOpponent, sensedFootClearance } from "./sensed-bounds.ts";
@@ -23,17 +23,17 @@ export function groundWide(spec: BodySpec, clearMove: (view: BodyView, heading: 
   const width=Math.abs(left.centreOfMass.value[0]-right.centreOfMass.value[0])/2;
   const state = { phase: "guard", stage: "approach" as "approach" | "lower" | "attack" | "rise",
     active: false, hand: null as Side | null, foe: null as string | null, face: 0, target: null as Vec3 | null, surface: null as string | null,
-    action: null as CombatAction | null, route: null as readonly Vec3[] | null, walk: null as readonly [number,number] | null, stride: -1, planned: false, next: 0, elapsed: 0, retry: 0, lowTime: 0 };
+    action: null as BlowAttack | null, route: null as readonly Vec3[] | null, walk: null as readonly [number,number] | null, stride: -1, planned: false, next: 0, elapsed: 0, retry: 0, lowTime: 0 };
   const reset = () => { state.active = false; state.hand = null; state.stage = "approach"; state.foe = null; state.target = null;
     state.route = null; state.walk = null; state.stride = -1; state.planned = false; state.action = null; state.next = 0; state.elapsed = 0; state.lowTime = 0; state.retry = 0; state.phase = "guard"; };
-  const hands = { left: GUARD_ACTION, right: GUARD_ACTION };
+  const guard = NO_COVER;
   return { state, reset, withdraw(){state.stage='rise';}, decide(view: BodyView, report: SkillReport, foe: BodySense, hand: Side, dt: number): Intent | null {
     state.retry = Math.max(0, state.retry - dt);
     const low = lowOpponent(view, foe), supported = report.support;
     if (!supported) return null;
     if (!state.active) {
       if (!low || report.strike.hand || supported.stage !== "stand") return null;
-      if (state.retry > 0) return { move: null, face: report.heading, hands, combat: null };
+      if (state.retry > 0) return { move: null, face: report.heading, guard, attack: null };
       state.active = true; state.hand = hand; state.foe = foe.id; state.stage = "approach"; state.elapsed = 0; state.next = 0;
     }
     hand = state.hand!;
@@ -48,15 +48,15 @@ export function groundWide(spec: BodySpec, clearMove: (view: BodyView, heading: 
     if (state.stage === "rise") {
       state.phase = "low-return"; state.action = null;
       if (!report.strike.hand && supported.stage === "stand") { reset(); state.retry = GROUND_COMBAT.retry; }
-      return { move: null, face: state.face, hands, lower: STANCE_LOWER, combat: null };
+      return { move: null, face: state.face, guard, lower: STANCE_LOWER, attack: null };
     }
     if (view.time >= state.next && !report.strike.hand) {
       const candidates=foe.spec.marks.middle.map(segment=>({segment,target:upperSurface(foe,segment,[view.stance.centre.x,view.stance.centre.y,view.stance.centre.z])})).filter(o=>o.target!==null);
       const opening=candidates.reduce<typeof candidates[number]|null>((best,o)=>!best||o.target![1]>best.target![1]?o:best,null);
-      if (!opening) { state.stage = "rise"; return { move: null, face: state.face, hands, combat: null }; }
+      if (!opening) { state.stage = "rise"; return { move: null, face: state.face, guard, attack: null }; }
       if (state.stage !== "approach" && state.target && hypot(opening.target![0] - state.target[0], opening.target![2] - state.target[2]) > GROUND_COMBAT.targetShift) {
         state.stage = "rise"; state.action = null;
-        return { move: null, face: state.face, hands, combat: null };
+        return { move: null, face: state.face, guard, attack: null };
       }
       const previousTarget = state.target;
       state.target = opening.target!; state.surface = opening.segment; state.next = view.time + GROUND_COMBAT.refresh;
@@ -79,11 +79,11 @@ export function groundWide(spec: BodySpec, clearMove: (view: BodyView, heading: 
           if(state.planned&&n===0&&chosen!==null&&previousTarget&&hypot(opening.target![0]-previousTarget[0],opening.target![2]-previousTarget[2])<GROUND_COMBAT.targetShift)break;
         }
         if(chosen!==null){state.face=chosen;state.planned=true;}
-        else { state.planned=false;state.phase="low-wait";return {move:null,face:report.heading,hands,combat:null}; }
+        else { state.planned=false;state.phase="low-wait";return {move:null,face:report.heading,guard,attack:null}; }
 
       }
     }
-    if (!state.target || !state.planned) return { move: null, face: state.face, hands, combat: null };
+    if (!state.target || !state.planned) return { move: null, face: state.face, guard, attack: null };
     const target = state.target, f = [sin(state.face), cos(state.face)], r = [cos(state.face), -sin(state.face)], c = view.stance.centre;
     const desired = [target[0] - (hand==="right"?1:-1)*GROUND_COMBAT.across * r[0]! - GROUND_COMBAT.ahead * f[0]!,
       target[2] - (hand==="right"?1:-1)*GROUND_COMBAT.across * r[1]! - GROUND_COMBAT.ahead * f[1]!];
@@ -116,15 +116,15 @@ export function groundWide(spec: BodySpec, clearMove: (view: BodyView, heading: 
         state.stage = "lower"; state.lowTime = 0;
       }
       state.phase = "low-approach";
-      return { move, face: state.face, hands, combat: null };
+      return { move, face: state.face, guard, attack: null };
     }
     if (hypot(target[0] - c.x, target[2] - c.z) > GROUND_COMBAT.reach) {
       state.stage = "rise"; state.action = null;
-      return { move: null, face: state.face, hands, combat: null };
+      return { move: null, face: state.face, guard, attack: null };
     }
     if (supported.ready) state.stage = "attack";
-    if (!report.strike.hand) state.action = state.stage === "attack" ? { hand, target, family: "downward", armExtension: 0 } : null;
+    if (!report.strike.hand) state.action = state.stage === "attack" ? { kind: "blow", hand, target, path: { family: "downward", armExtension: 0 } } : null;
     state.phase = state.stage === "attack" ? report.strike.phase ?? "low-attack" : "low-prepare";
-    return { move: null, face: state.face, hands, lower: GROUND_COMBAT.lower, combat: state.action };
+    return { move: null, face: state.face, guard, lower: GROUND_COMBAT.lower, attack: state.action };
   } };
 }

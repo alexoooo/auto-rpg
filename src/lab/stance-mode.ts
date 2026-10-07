@@ -2,7 +2,7 @@ import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { Body } from "../core/body.ts";
 import type { BuiltSegment } from "../core/build/build-body.ts";
 import type { StancePhase } from "../core/control/stance.ts";
-import { GUARD_ACTION, type Intent } from "../core/mind/intent.ts";
+import { NO_COVER, type Intent } from "../core/mind/intent.ts";
 import type { Tactics } from "../core/mind/tactics.ts";
 import { STANCE_LOWER } from "../core/skills/locomotion.ts";
 import type { Actor } from "./actor.ts";
@@ -86,7 +86,6 @@ export const LAB_TURN_RATE = 1;
  * its walk.
  */
 function stanceTactics(orders: StanceOrders): Tactics {
-  const hands = { left: GUARD_ACTION, right: GUARD_ACTION };
   return {
     name: "keys",
     decide({ report }, dt): Intent {
@@ -94,7 +93,8 @@ function stanceTactics(orders: StanceOrders): Tactics {
       return {
         move: walking ? [orders.forward, orders.right] : null,
         face: report.heading + orders.turn * LAB_TURN_RATE * dt,
-        hands,
+        guard: NO_COVER,
+        attack: null,
         lower: orders.lower,
       };
     },

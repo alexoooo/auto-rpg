@@ -4,7 +4,7 @@ import type { Body, BodyCommand, BodyView } from "../body.ts";
 import { intoFrameToRef } from "../control/kinematics.ts";
 import type { EffectorGoal, Pose } from "../control/motor.ts";
 import { hypot } from "../math/real.ts";
-import { validArmExtension, type CombatAction } from "../mind/intent.ts";
+import { validArmExtension, type BlowAttack, type BlowPath, type KickAttack } from "../mind/intent.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { attackPath, ATTACK_PATH, validAttackTuning, type AttackTuning } from "./attack-path.ts";
 import { GUARD, guardSkill } from "./guard.ts";
@@ -27,6 +27,9 @@ export function validCombatExecution(execution: CombatExecution): boolean {
     .every(v => Number.isFinite(v) && v >= 0) && execution.normalAlignment <= 1;
 }
 
+/** A blow the path skill throws: one that names its path. */
+type PathBlow = BlowAttack & { readonly path: BlowPath };
+
 /** Shared strike executor: measured hand trajectories and supported locomotion with independent tactics. */
 export function combatSkills(body: Body, tuning: AttackTuning = ATTACK_PATH, tactics: object | null = null,
   engagement?: { readonly phase: string }, lowCombat = false, turnLimit?: number, turnStartup?: TurnStartup, overlap = false,
@@ -46,7 +49,7 @@ export function combatSkills(body: Body, tuning: AttackTuning = ATTACK_PATH, tac
     right: execution?.physicalFists && bare.right ? "strike" : aimOf(spec, "right") };
   const state = { command: { posture: GUARD, pushes: [], stance: null } as BodyCommand,
     legs: legs.state, ...(kicking ? { kick: kicking.state } : {}), ...(foundation ? { foundation: foundation.state } : {}), ...(fold ? { support: fold.state } : {}), lower: STANCE_LOWER, tactics, hand: null as Side | null, phase: null as "chamber" | "swing" | "return" | null,
-    action: null as CombatAction | null, home: null as Vec3 | null, chamber: null as Vec3 | null,
+    action: null as PathBlow | null, home: null as Vec3 | null, chamber: null as Vec3 | null,
     velocity: [0, 0, 0] as Vec3, previous: { left: null as Vec3 | null, right: null as Vec3 | null },
     elbow: 0, initialElbow: 0, time: 0, ready: 0, sequence: 0, touching: false, thrown: { left: 0, right: 0 },
     outcomes: { returned: { left: 0, right: 0 }, failed: 0, interrupted: 0 }, cooldown: 0,
@@ -97,8 +100,19 @@ export function combatSkills(body: Body, tuning: AttackTuning = ATTACK_PATH, tac
     }
     foundation?.read(view.stance.centre, view.stance.velocity, dt);
     state.cooldown += dt;
-    const requested = kicking && (intent.kick || kicking.report.foot) ? null : intent.combat;
-    if (requested && !validArmExtension(requested.armExtension)) throw new Error("combat armExtension must be finite and in [0,1]");
+    let blow: PathBlow | null = null, kick: KickAttack | null = null;
+    const attack = intent.attack;
+    if (attack) switch (attack.kind) {
+      case "blow":
+        if (!attack.path) throw new Error("the path skill throws a blow along the path it names");
+        blow = { ...attack, path: attack.path }; break;
+      case "kick":
+        if (!kicking) throw new Error("these skills carry out no kick");
+        kick = attack; break;
+      default: { const never: never = attack; throw new Error(`unknown attack ${JSON.stringify(never)}`); }
+    }
+    const requested = kicking && (kick || kicking.report.foot) ? null : blow;
+    if (requested && !validArmExtension(requested.path.armExtension)) throw new Error("combat armExtension must be finite and in [0,1]");
     fold?.tick(view, state.hand || state.returning ? state.lower : intent.lower ?? STANCE_LOWER, !!intent.move, dt);
     const mayOverlap = () => {
       const h = state.hand, home = state.home;
@@ -114,10 +128,10 @@ export function combatSkills(body: Body, tuning: AttackTuning = ATTACK_PATH, tac
       state.hand = null; state.phase = null; state.action = null; state.elbow = 0; state.initialElbow = 0;
     }
     if (!state.hand && requested && requested.hand !== state.returning?.hand && view.time >= tuning.startup && state.cooldown >= tuning.hold && (!foundation || (foundation.state.quiet >= STRIKE_SUPPORT.hold && view.stance.phase === "stand" && !view.down)) && (!fold || fold.report.stage === "stand" || fold.report.ready)) {
-      state.action = { ...requested, target: [...requested.target], ...(requested.direction ? { direction: [...requested.direction] as Vec3 } : {}) }; state.hand = requested.hand; state.lower = intent.lower ?? STANCE_LOWER;
+      state.action = { ...requested, target: [...requested.target], path: { ...requested.path, ...(requested.path.direction ? { direction: [...requested.path.direction] as Vec3 } : {}) } }; state.hand = requested.hand; state.lower = intent.lower ?? STANCE_LOWER;
       state.home = [...state.previous[requested.hand]!];
       intoFrameToRef(view.root, requested.target, target);
-      state.chamber = attackPath(state.home, [target.x, target.y, target.z], requested.hand, requested.family, tuning).chamber;
+      state.chamber = attackPath(state.home, [target.x, target.y, target.z], requested.hand, requested.path.family, tuning).chamber;
       state.touching = (view.effectors[`hand.${requested.hand}`]!.feedback?.impulse ?? 0) > 0;
       transition("chamber", velocities[requested.hand]);
     }
@@ -126,9 +140,9 @@ export function combatSkills(body: Body, tuning: AttackTuning = ATTACK_PATH, tac
     if (hand) {
       const at = state.previous[hand]!, action = state.action!, home = state.home!, chamber = state.chamber!;
       intoFrameToRef(view.root, action.target, target);
-      const contactDirection = action.direction ? direction.set(...action.direction)
+      const contactDirection = action.path.direction ? direction.set(...action.path.direction)
         .applyRotationQuaternionToRef(Quaternion.InverseToRef(view.root.rotation, inverse), direction) : null;
-      const path = attackPath(home, [target.x, target.y, target.z], hand, action.family, tuning,
+      const path = attackPath(home, [target.x, target.y, target.z], hand, action.path.family, tuning,
         contactDirection ? [contactDirection.x, contactDirection.y, contactDirection.z] : undefined);
       const feedback = view.effectors[`hand.${hand}`]!.feedback, touching = (feedback?.impulse ?? 0) > 0;
       const previousPhase = state.phase;
@@ -155,7 +169,7 @@ export function combatSkills(body: Body, tuning: AttackTuning = ATTACK_PATH, tac
         if (state.impact && execution) goal = { places: [{ point: aims[hand], position: state.impact.finish }],
           seconds: execution.impactSeconds, follows: true, initialVelocity: state.velocity,
           terminalVelocity: [0, 0, 0], sequence: state.sequence };
-        const extension = action.armExtension ?? tuning.elbowExtension;
+        const extension = action.path.armExtension ?? tuning.elbowExtension;
         if (extension || state.elbow) {
           const u = Math.min(1, state.time / seconds), amount = state.phase === "swing" ? extension : 0;
           state.elbow = state.initialElbow + (amount - state.initialElbow) * u * u * (3 - 2 * u);
@@ -190,14 +204,14 @@ export function combatSkills(body: Body, tuning: AttackTuning = ATTACK_PATH, tac
       }
     }
     state.canOverlap = mayOverlap();
-    const covers = guard.command(view, intent.hands, state.hand);
-    const baseStance = legs.goal(view, ((kicking && (intent.kick || kicking.report.foot)) || (execution?.planted && state.hand !== null) || state.phase === "swing" || (fold && fold.report.stage !== "stand" && fold.report.stage !== "wait")) ? null : intent.move, intent.face, dt, fold ? STANCE_LOWER : intent.lower);
+    const covers = guard.command(view, intent.guard, state.hand);
+    const baseStance = legs.goal(view, ((kicking && (kick || kicking.report.foot)) || (execution?.planted && state.hand !== null) || state.phase === "swing" || (fold && fold.report.stage !== "stand" && fold.report.stage !== "wait")) ? null : intent.move, intent.face, dt, fold ? STANCE_LOWER : intent.lower);
     const supported = fold?.apply(baseStance, posture) ?? { stance: baseStance, posture };
     let hands = goal && state.hand ? { ...covers, [state.hand]: goal } : covers;
     if (returningGoal && state.returning) hands = { ...hands, [state.returning.hand]: returningGoal };
     state.command = { posture: supported.posture, pushes: [], effectors: { "hand.left": hands.left, "hand.right": hands.right }, stance: supported.stance,
       ...(execution?.physicalFists ? { handPoses: { ...(bare.left ? { left: (state.hand === "left" || state.returning?.hand === "left" ? "fist" : "open") as "fist" | "open" } : {}), ...(bare.right ? { right: (state.hand === "right" || state.returning?.hand === "right" ? "fist" : "open") as "fist" | "open" } : {}) } } : {}) };
-    const motion = kicking?.command(view, intent.kick ?? null, supported.stance, !state.hand && !state.returning && !view.down && (!fold || fold.report.stage === "stand"), dt);
+    const motion = kicking?.command(view, kick, supported.stance, !state.hand && !state.returning && !view.down && (!fold || fold.report.stage === "stand"), dt);
     if (motion) state.command = { ...state.command, ...motion, effectors: { ...state.command.effectors, ...motion.effectors } };
     return state.command;
   } };

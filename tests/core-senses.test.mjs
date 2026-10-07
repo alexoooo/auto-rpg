@@ -15,7 +15,7 @@ import { humanSpec } from "../src/core/human/spec.ts";
 import { modelSpec } from "../src/core/models.ts";
 import { RECIPE_FIGHTER } from "../src/core/mind/config.ts";
 import { EDGE, recipeTactics, seekFoe } from "../src/core/mind/recipe-tactics.ts";
-import { GUARD_ACTION } from "../src/core/mind/intent.ts";
+import { NO_COVER } from "../src/core/mind/intent.ts";
 import { embody } from "../src/core/mind/mind.ts";
 import { createSenses } from "../src/core/mind/senses.ts";
 import { APPROACH, rangeOf } from "../src/core/skills/strike.ts";
@@ -233,30 +233,30 @@ test("a fighter holds the point it aims at until the plan's leaves it, a blow is
   const tactics = recipeTactics("aim", () => ({ move: null, face: null, attack }));
   const decide = () => tactics.decide({ view: { resumed }, report: { heading: 0.25, strike: { thrown: { right: thrown }, phase } }, envelope: null }, 1 / 120);
   const reach = APPROACH.reach;
-  assert.deepEqual(decide().hands.right, { kind: "attack", target: [1, 1.6, 0] });
+  assert.deepEqual(decide().attack, { kind: "blow", hand: "right", target: [1, 1.6, 0] });
   // A point that sways inside the reach is not followed, though the plan moves its own array.
   attack[0] = 1 + 0.9 * reach;
-  assert.deepEqual(decide().hands.right.target, [1, 1.6, 0]);
+  assert.deepEqual(decide().attack.target, [1, 1.6, 0]);
   // One that leaves it is.
   const beyond = attack = [1 + 1.1 * reach, 1.6, 0];
-  assert.deepEqual(decide().hands.right.target, beyond);
+  assert.deepEqual(decide().attack.target, beyond);
   // A blow thrown, it aims again, however near the point has stayed.
   attack = [1 + 1.2 * reach, 1.6, 0];
-  assert.deepEqual(decide().hands.right.target, beyond);
+  assert.deepEqual(decide().attack.target, beyond);
   thrown = 1;
-  assert.deepEqual(decide().hands.right.target, attack);
+  assert.deepEqual(decide().attack.target, attack);
   // A step with nothing to attack forgets the aim: the next is taken where the point is then.
   const held = attack;
   attack = null;
-  assert.deepEqual(decide(), { move: null, face: 0.25, hands: { left: GUARD_ACTION, right: GUARD_ACTION } });
+  assert.deepEqual(decide(), { move: null, face: 0.25, guard: NO_COVER, attack: null });
   attack = [held[0] + 0.5 * reach, 1.6, 0];
-  assert.deepEqual(decide().hands.right.target, attack);
+  assert.deepEqual(decide().attack.target, attack);
   // Back from another mind, it aims afresh, however near the point has stayed.
   const aimed = attack;
   attack = [aimed[0] + 0.5 * reach, 1.6, 0];
-  assert.deepEqual(decide().hands.right.target, aimed);
+  assert.deepEqual(decide().attack.target, aimed);
   resumed = true;
-  assert.deepEqual(decide().hands.right.target, attack);
+  assert.deepEqual(decide().attack.target, attack);
   // A blow committed, it aims at the point itself, step by step, and holds it again before the next.
   resumed = false;
   let aim = attack;
@@ -264,6 +264,6 @@ test("a fighter holds the point it aims at until the plan's leaves it, a blow is
     phase = now;
     attack = [attack[0] + 0.1 * reach, 1.6, 0];
     if (followed) aim = attack;
-    assert.deepEqual(decide().hands.right.target, aim, `${now}`);
+    assert.deepEqual(decide().attack.target, aim, `${now}`);
   }
 });

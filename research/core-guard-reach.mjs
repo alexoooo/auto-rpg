@@ -21,7 +21,6 @@ import { createBody, SERVO_SECONDS } from "../src/core/body.ts";
 import { rigidPoints } from "../src/core/build/rigid.ts";
 import { intoFrameToRef } from "../src/core/control/kinematics.ts";
 import { HUMANOID_MODELS } from "../src/core/models.ts";
-import { GUARD_ACTION } from "../src/core/mind/intent.ts";
 import { GUARD_COVER } from "../src/core/skills/guard.ts";
 import { recipeSkills } from "../src/core/skills/skills.ts";
 import { loadoutSpec } from "../src/lab/loadout.ts";
@@ -50,8 +49,8 @@ async function reach(cover, way, hand) {
   const own = hand === "right" && values.club !== "skill", guarded = new Vector3(), toward = new Vector3();
   let threat = null;
   body.drive((_, dt) => {
-    const act = (which) => threat && which === hand && !own ? { kind: "guard", cover: { threat, guarded: view.head.asArray() } } : GUARD_ACTION;
-    const command = skills.command(view, { move: null, face: 0, hands: { left: act("left"), right: act("right") } }, dt);
+    const cover = (which) => threat && which === hand && !own ? { threat, guarded: view.head.asArray() } : null;
+    const command = skills.command(view, { move: null, face: 0, guard: { left: cover("left"), right: cover("right") }, attack: null }, dt);
     if (!threat || !own) return command;
     // This script's goal, in the body frame as the skill's is: the same middle, and the line by the body's up or left free.
     intoFrameToRef(view.root, view.head.asArray(), guarded);

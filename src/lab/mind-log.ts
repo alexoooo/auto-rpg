@@ -55,7 +55,7 @@ function said({ report }: Sight, intent: Intent): Readonly<Record<string, string
   const { phase, blow, chosen } = report.strike;
   return {
     move: intent.move ? `move ${intent.move[0].toFixed(2)} ${intent.move[1].toFixed(2)}` : "stand",
-    ...Object.fromEntries(HANDS.map((hand) => [hand, `${hand} ${intent.hands[hand].kind}`])),
+    ...Object.fromEntries(HANDS.map((hand) => [hand, `${hand} ${intent.attack?.kind === "blow" && intent.attack.hand === hand ? "attack" : "guard"}`])),
     strike: phase && `strike ${phase}${blow ? ` ${chosen?.strike.name ?? blow}` : ""}`,
   };
 }

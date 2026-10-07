@@ -13,7 +13,7 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { Scene } from "@babylonjs/core/scene.js";
 import { buildBody } from "../src/core/build/build-body.ts";
 import { humanSpec } from "../src/core/human/spec.ts";
-import { GUARD_ACTION } from "../src/core/mind/intent.ts";
+import { NO_COVER } from "../src/core/mind/intent.ts";
 import { watchBlows } from "../src/core/rules/blows.ts";
 import { impactEnergy } from "../src/core/rules/impact.ts";
 import { createPool } from "../src/core/rules/pool.ts";
@@ -185,7 +185,7 @@ async function strikeAt(loadout, places, skills) {
   let open = null, thrown = 0, counted = 0, began = null, before = [];
   const tactics = {
     name: "attack",
-    decide: () => ({ move: null, face: 0, hands: { left: GUARD_ACTION, right: readings.length < targets.length && thrown === counted ? { kind: "attack", target: targets[readings.length].at } : GUARD_ACTION } }),
+    decide: () => ({ move: null, face: 0, guard: NO_COVER, attack: readings.length < targets.length && thrown === counted ? { kind: "blow", hand: "right", target: targets[readings.length].at } : null }),
   };
   actor.drive(tactics, { skills: { repertoire: FIXTURE_REPERTOIRE, ...skills }, watch(sight) {
     if (readings.length >= targets.length) return;
@@ -358,7 +358,7 @@ async function strikeFromInside(shoved) {
   const actor = labActor(stand.built, stand.world);
   const ahead = [0, actor.body.view.head.y, 0.8], chest = stand.built.segments.get("upperTrunk"), head = stand.built.segments.get("head");
   let open = null, reading = null, ball = null, thrown = 0, clear = 0;
-  actor.drive({ name: "attack", decide: () => ({ move: null, face: 0, hands: { left: GUARD_ACTION, right: thrown ? GUARD_ACTION : { kind: "attack", target: ahead } } }) }, { skills: { repertoire: FIXTURE_REPERTOIRE }, watch(sight) {
+  actor.drive({ name: "attack", decide: () => ({ move: null, face: 0, guard: NO_COVER, attack: thrown ? null : { kind: "blow", hand: "right", target: ahead } }) }, { skills: { repertoire: FIXTURE_REPERTOIRE }, watch(sight) {
     if (shoved && !thrown && sight.report.strike.thrown.right) chest.body.applyImpulse(new Vector3(0, 0, -150), chest.node.position);
     thrown = sight.report.strike.thrown.right;
     if (reading) return;

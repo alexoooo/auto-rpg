@@ -9,7 +9,7 @@ import { contactResponse } from "../control/effector-feedback.ts";
 import { supportReadiness, plantedSupport, STRIKE_SUPPORT } from "../control/support-readiness.ts";
 import { hypot, sin, cos } from "../math/real.ts";
 import { turnAboutToRef } from "../math/turn.ts";
-import type { KickAction } from "../mind/intent.ts";
+import type { KickAttack } from "../mind/intent.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import type { Skill } from "./skill.ts";
 import { advanceStrike, strikeTransition, STRIKE_EVENT, type StrikeCycleState } from "./strike-cycle.ts";
@@ -44,7 +44,7 @@ export interface KickReport {
 export function kickSkill(body: Body, tuning: KickTuning = KICK_PATH): Skill & {
   readonly state: object;
   readonly report: KickReport;
-  command(view: BodyView, requested: KickAction | null, stance: StanceGoal | null, available: boolean, dt: number): Pick<BodyCommand, "stance" | "effectors"> | null;
+  command(view: BodyView, requested: KickAttack | null, stance: StanceGoal | null, available: boolean, dt: number): Pick<BodyCommand, "stance" | "effectors"> | null;
 } {
   tuning = Object.freeze({ ...tuning });
   if (!validKickTuning(tuning))
@@ -56,7 +56,7 @@ export function kickSkill(body: Body, tuning: KickTuning = KICK_PATH): Skill & {
   const local = new Vector3(), world = new Vector3(), direction = new Vector3(), inverse = new Quaternion(), turn = new Quaternion();
   const cycle: StrikeCycleState = { phase: null, time: 0, ready: 0, sequence: 0, velocity: [0, 0, 0], touching: false, impact: null };
   const hipWidth = Math.abs(body.built.spec.joints.find(j => j.name === "hip.right")!.centre.value[0] - body.built.spec.joints.find(j => j.name === "hip.left")!.centre.value[0]);
-  const state = { stage: "idle" as Stage, foot: null as Side | null, action: null as KickAction | null, time: 0, held: 0,
+  const state = { stage: "idle" as Stage, foot: null as Side | null, action: null as KickAttack | null, time: 0, held: 0,
     anchors: {} as Partial<Record<Side, {
       position: Vec3;
       rotation: Rotation;

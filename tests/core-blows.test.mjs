@@ -18,7 +18,7 @@ import { buildBody } from "../src/core/build/build-body.ts";
 import { armed } from "../src/core/human/grip.ts";
 import { modelSpec } from "../src/core/models.ts";
 import { woodenClub } from "../src/core/items/club.ts";
-import { GUARD_ACTION, standIntent } from "../src/core/mind/intent.ts";
+import { NO_COVER, standIntent } from "../src/core/mind/intent.ts";
 import { driveBy } from "../src/core/mind/tactics.ts";
 import { impactEnergy, reducedMass } from "../src/core/rules/impact.ts";
 import { isClash, watchBlows, woundedIn } from "../src/core/rules/blows.ts";
@@ -385,8 +385,8 @@ test("a Warrior's club blow at a skeleton's head lands there and ends the fight"
   try {
     driveBy(warrior.body, { name: "attack", decide: ({ report }) => {
       const h = skeleton.body.view.head;
-      const right = report.strike.thrown.right > 0 ? GUARD_ACTION : { kind: "attack", target: [h.x, h.y, h.z] };
-      return { move: null, face: 0, hands: { left: GUARD_ACTION, right } };
+      const attack = report.strike.thrown.right > 0 ? null : { kind: "blow", hand: "right", target: [h.x, h.y, h.z] };
+      return { move: null, face: 0, guard: NO_COVER, attack };
     } });
     driveBy(skeleton.body, { name: "stand", decide: () => standIntent(0) });
     const watch = watchBlows(world, [warrior, skeleton], RULES);

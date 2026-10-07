@@ -8,7 +8,7 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { paceRound, stanceEnvelope } from "../src/core/control/stance-envelope.ts";
 import { centreOfToRef } from "../src/core/control/support.ts";
 import { humanSpec } from "../src/core/human/spec.ts";
-import { GUARD_ACTION, standIntent } from "../src/core/mind/intent.ts";
+import { NO_COVER, standIntent } from "../src/core/mind/intent.ts";
 import { STAND } from "../src/core/skills/strike.ts";
 import { labActor } from "../src/lab/actor.ts";
 import { throwBlow } from "../src/lab/blow.ts";
@@ -37,8 +37,8 @@ test("a_log_keeps_its_last_notes_and_gives_those_made_by_a_time", () => {
 });
 
 test("logged_tactics_decide_as_their_own_and_note_each_thing_as_it_changes", () => {
-  const stand = { move: null, face: 0, hands: { left: GUARD_ACTION, right: GUARD_ACTION } };
-  const attack = { ...stand, hands: { left: GUARD_ACTION, right: { kind: "attack", target: [0, 1, 1] } } };
+  const stand = { move: null, face: 0, guard: NO_COVER, attack: null };
+  const attack = { ...stand, attack: { kind: "blow", hand: "right", target: [0, 1, 1] } };
   const strike = (phase) => ({ phase, blow: phase && "recipe", chosen: phase && { strike: { name: "a blow" } } });
   // Each step: what the tactics decide, and what they see of their skills.
   const steps = [

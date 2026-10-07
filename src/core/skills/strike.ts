@@ -3,7 +3,7 @@ import type { BodyView } from "../body.ts";
 import { rigidPoints } from "../build/rigid.ts";
 import { intoFrameToRef } from "../control/kinematics.ts";
 import type { EffectorGoal, MusclePush, Pose } from "../control/motor.ts";
-import type { HandAction } from "../mind/intent.ts";
+import type { Attack, BlowAttack } from "../mind/intent.ts";
 import type { Side, BodySpec } from "../spec/body.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { distance, sub } from "../spec/vec.ts";
@@ -271,14 +271,14 @@ interface StrikeCommand {
  * holds its chamber and pushes, the pelvis turned to follow its target across (`STEER`). A placed
  * blow carries its point through the target by a hand goal in the body frame (`BodyView.root`).
  * While it works the skill has the legs (a blow is thrown standing) and the trunk; the other hand
- * guards. One strike at a time: the right hand's first when both attack. An attack given up
+ * guards. One strike at a time; a kick is not this skill's. An attack given up
  * before its blow begins is dropped. A recipe begun is thrown to the end of its pushes, whatever
  * its hand is then asked. A placed blow given up is over, unthrown. Resumed (`Skill.resume`), the strike in hand is discarded and the
  * body has stood still for no time.
  */
 interface StrikeSkill extends Skill {
-  /** This step's command for the hands' actions, or null when neither attacks and no strike is under way. */
-  command(view: BodyView, hands: Readonly<Record<Side, HandAction>>, heading: number, placed: boolean, dt: number): StrikeCommand | null;
+  /** This step's command for the attack asked for, or null when none is and no strike is under way. */
+  command(view: BodyView, attack: Attack | null, heading: number, placed: boolean, dt: number): StrikeCommand | null;
   /** Count a step the body stood still (the skill not commanding): walking, it is reset. */
   idle(walking: boolean, dt: number): void;
   readonly report: StrikeReport;
@@ -323,6 +323,19 @@ interface StrikeState {
   readonly pushes: MusclePush[];
 }
 
+/** The blow `attack` asks of the strike skill; it throws no kick. */
+function blowAsked(attack: Attack | null): BlowAttack | null {
+  if (!attack) return null;
+  switch (attack.kind) {
+    case "blow": return attack;
+    case "kick": throw new Error("the strike skill throws blows, not kicks");
+    default: {
+      const never: never = attack;
+      throw new Error(`unknown attack ${JSON.stringify(never)}`);
+    }
+  }
+}
+
 export function strikeSkill(spec: BodySpec, repertoire: Repertoire, placing: Placed = PLACED, steering = STEER): StrikeSkill {
   const known = { left: blowsOf(spec, repertoire, "left"), right: blowsOf(spec, repertoire, "right") };
   /** The recipe `hand` throws at a target `up` m over the head, by its place among the hand's; null where no window holds that height, and the blow is placed. */
@@ -362,7 +375,8 @@ export function strikeSkill(spec: BodySpec, repertoire: Repertoire, placing: Pla
       if (state.hand) end();
       state.still = walking ? 0 : state.still + dt;
     },
-    command(view, hands, heading, placed, dt) {
+    command(view, attack, heading, placed, dt) {
+      const asked = blowAsked(attack);
       const s = view.stance, fx = sin(heading), fz = cos(heading);
       // Across the ground, forward is (fx, fz) and the right (fz, -fx).
       const inFrame = (x: number, z: number): [number, number] => [x * fx + z * fz, x * fz - z * fx];
@@ -373,16 +387,16 @@ export function strikeSkill(spec: BodySpec, repertoire: Repertoire, placing: Pla
       const over = state.over ??= inFrame(view.head.x - feetX, view.head.z - feetZ);
       // Cancellation drops an uncommitted attack. A placed blow ends immediately, and a recipe
       // finishes its pushes.
-      if (state.hand && hands[state.hand].kind !== "attack") {
+      if (state.hand && asked?.hand !== state.hand) {
         if (state.begun === null) end();
         else if (state.blow === "placed") { end(); state.still = 0; }
       }
-      // Else the right hand's attack, then the left's.
-      const hand = state.hand ??= hands.right.kind === "attack" ? "right" : hands.left.kind === "attack" ? "left" : null;
+      // Else the hand the attack asks for.
+      const hand = state.hand ??= asked?.hand ?? null;
       if (!hand) return null;
-      const action = hands[hand];
+      const action = asked?.hand === hand ? asked : null;
       let walk: readonly [number, number] | null = null, face = heading, footing: Footing | null = null;
-      if (state.begun === null && action.kind === "attack") {
+      if (state.begun === null && action) {
         const [tx, ty, tz] = action.target, up = ty - view.head.y;
         if (state.blow === null) {
           const recipe = choose(hand, up), taken = blowOf(hand, recipe);
@@ -451,7 +465,7 @@ export function strikeSkill(spec: BodySpec, repertoire: Repertoire, placing: Pla
         }
       } else state.still += dt;
       // A recipe thrown follows its target across: the heading turned as its bearing has, while its hand attacks.
-      if (state.begun !== null && state.blow === "recipe" && steering > 0 && action.kind === "attack") {
+      if (state.begun !== null && state.blow === "recipe" && steering > 0 && action) {
         const origin = state.origin ??= [feetX, feetZ];
         const bearing = atan2(action.target[0] - origin[0], action.target[2] - origin[1]);
         state.bearing ??= bearing;
@@ -479,7 +493,7 @@ export function strikeSkill(spec: BodySpec, repertoire: Repertoire, placing: Pla
             const since = state.since = state.still - state.begun;
             over = since >= placing.seconds;
             state.phase = "swing";
-            if (action.kind !== "attack") throw new Error("a placed blow is carried only while its hand attacks");
+            if (!action) throw new Error("a placed blow is carried only while its hand attacks");
             if (!over) {
               // The target in the body frame as the body now stands: the path's end moves with it.
               intoFrameToRef(view.root, action.target, place);

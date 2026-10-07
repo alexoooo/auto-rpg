@@ -7,7 +7,7 @@ import { createBody, SERVO_SECONDS } from '../src/core/body.ts';
 import { modelSpec } from '../src/core/models.ts';
 import { DEFAULT_ENGINE } from '../src/core/engine/engines.ts';
 import { combatSkills } from '../src/core/skills/combat.ts';
-import { GUARD_ACTION } from '../src/core/mind/intent.ts';
+import { NO_COVER } from '../src/core/mind/intent.ts';
 import { coreStand, saveStand, loadStand } from './harness/core-stand.mjs';
 import { traceOf } from './harness/trace.mjs';
 
@@ -34,7 +34,7 @@ test('a fresh-world fork during the supported fold reproduces low strikes and th
   const stand=await coreStand(modelSpec('workshop-fighter'),{engine:DEFAULT_ENGINE});
   const body=createBody(stand.built,stand.world,{servoSeconds:SERVO_SECONDS,feedback:true}),skills=combatSkills(body);
   body.drive((view,dt)=>supportedStrikeCommand(view,skills.command(view,{move:null,face:0,
-   hands:{left:GUARD_ACTION,right:GUARD_ACTION},combat:view.time>=7&&view.time<16?{hand:'right',target:[.2,.3,.15],family:'downward'}:null},dt),support));
+   guard:NO_COVER,attack:view.time>=7&&view.time<16?{kind:'blow',hand:'right',target:[.2,.3,.15],path:{family:'downward'}}:null},dt),support));
   return {...stand,body,skills};
  };
  const a=await make(),b=await make();
@@ -50,7 +50,7 @@ test('a fresh-world fork during the supported fold reproduces low strikes and th
 test('a supported fold does not hide an actual fall from the host recovery reading',async()=>{
  const s=await coreStand(modelSpec('workshop-fighter'),{engine:DEFAULT_ENGINE});
  const body=createBody(s.built,s.world,{servoSeconds:SERVO_SECONDS,feedback:true}),skills=combatSkills(body);
- body.drive((view,dt)=>supportedStrikeCommand(view,skills.command(view,{move:null,face:0,hands:{left:GUARD_ACTION,right:GUARD_ACTION}},dt),{...support,lower:.7}));
+ body.drive((view,dt)=>supportedStrikeCommand(view,skills.command(view,{move:null,face:0,guard:NO_COVER,attack:null},dt),{...support,lower:.7}));
  try {
   s.step(840);
   assert.equal(body.down,false);
@@ -72,8 +72,8 @@ test('neutral low combat waits for physical support, then strikes and restores t
   const skills=combatSkills(body,undefined,null,undefined,true),target=[hand==='right'?.35:-.35,.3,.1];
   const obstacle=hit?stand.world.physics.addFixedBox([target[0],target[1],target[2]+.04],[.2,.2,.08]):null;
   let contacts=0,first=null,low=false,falls=false,badFloor=false;
-  body.drive((view,dt)=>skills.command(view,{move:null,face:0,hands:{left:GUARD_ACTION,right:GUARD_ACTION},
-   lower:view.time>=2&&view.time<14?.5:undefined,combat:view.time>=2&&view.time<14?{hand,target,family:'downward'}:null},dt));
+  body.drive((view,dt)=>skills.command(view,{move:null,face:0,guard:NO_COVER,
+   lower:view.time>=2&&view.time<14?.5:undefined,attack:view.time>=2&&view.time<14?{kind:'blow',hand,target,path:{family:'downward'}}:null},dt));
   try {
    for(let i=0;i<25*120;i++) {
     stand.step();falls ||= body.down;low ||= skills.report.support.ready;
@@ -92,8 +92,8 @@ test('neutral low combat waits for physical support, then strikes and restores t
 test('the supported executor refuses an imagined floor and keeps the strike unlaunched',async()=>{
  const s=await coreStand(modelSpec('workshop-fighter'),{engine:DEFAULT_ENGINE,gravity:false,ground:false});
  const body=createBody(s.built,s.world,{servoSeconds:SERVO_SECONDS}),skills=combatSkills(body,undefined,null,undefined,true);
- body.drive((view,dt)=>skills.command(view,{move:null,face:0,hands:{left:GUARD_ACTION,right:GUARD_ACTION},lower:.5,
-  combat:{hand:'right',target:[.35,.3,.1],family:'downward'}},dt));
+ body.drive((view,dt)=>skills.command(view,{move:null,face:0,guard:NO_COVER,lower:.5,
+  attack:{kind:'blow',hand:'right',target:[.35,.3,.1],path:{family:'downward'}}},dt));
  try {
   for(let i=0;i<360;i++){s.step();assert.equal(skills.report.support.stage,'wait');assert.equal(skills.report.support.ready,false);assert.equal(skills.report.strike.phase,null);}
  }finally{body.dispose();s.dispose();}
@@ -104,8 +104,8 @@ test('a neutral supported-combat fork preserves acquisition, committed strokes a
  const make=async()=>{
   const stand=await coreStand(modelSpec('workshop-fighter'),{engine:DEFAULT_ENGINE});
   const body=createBody(stand.built,stand.world,{servoSeconds:SERVO_SECONDS,feedback:true}),skills=combatSkills(body,undefined,null,undefined,true);
-  body.drive((view,dt)=>skills.command(view,{move:null,face:0,hands:{left:GUARD_ACTION,right:GUARD_ACTION},
-   lower:view.time>=2&&view.time<14?.5:undefined,combat:view.time>=2&&view.time<14?{hand:'left',target:[-.35,.3,.1],family:'downward'}:null},dt));
+  body.drive((view,dt)=>skills.command(view,{move:null,face:0,guard:NO_COVER,
+   lower:view.time>=2&&view.time<14?.5:undefined,attack:view.time>=2&&view.time<14?{kind:'blow',hand:'left',target:[-.35,.3,.1],path:{family:'downward'}}:null},dt));
   return {...stand,body,skills};
  };
  const a=await make(),b=await make();

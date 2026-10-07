@@ -488,8 +488,11 @@ fall of five and the skeleton from almost none
 
 `Tactics` (`tactics.ts`) are `decide(sight, dt)`: from their `Sight` (the body's view, the
 skills' report and the body's envelope) they return an `Intent` (`intent.ts`): a velocity forward
-and to the right of the body's heading, or none; a way to face; how low to stand; and for each hand
-guard or attack a point. It names no joint, pose or push. `driveBy(body, tactics)` hands the body
+and to the right of the body's heading, or none; a way to face; how low to stand; what each hand
+covers (`Cover`), or none, holding the guard's pose; and the one attack (`Attack`), or none: a
+blow of a hand at a point, which the recipe skill chooses for what the hand holds unless it names
+its path (`BlowPath`), or a kick of a foot. A skill refuses a kind it does not carry out. It
+names no joint, pose or push. `driveBy(body, tactics)` hands the body
 to them through the skills.
 
 Each fighter's tactics carry out `Orders` (`orders.ts`): a direction to walk, a direction to
@@ -983,7 +986,7 @@ physical loadouts, duel recipes and tapes. They do not change collisions, sounds
 
 ## What the seams are for
 
-An attack is a function of its target: the tactics say what to attack (`HandAction`: a point,
+An attack is a function of its target: the tactics say what to attack (`Attack`: a point,
 with whatever the hand holds) and never how, and the strike skill chooses how, a searched recipe
 or a placed blow. No technique is a kind in the code: a recipe is data a search found. Defence
 is the guard placing what a hand holds, or the hand. A blow is whatever two surfaces of two
@@ -1001,7 +1004,7 @@ sides met with. Each seam is where one kind of addition goes; none of these is b
 | **A kick, a knee** | A recipe whose pushes are a leg's, once the stance can give a leg up; the rule already wounds by any segment. | The rule, the targets. |
 | **A crouch, a low target** | The stance lowers the body beyond `STANCE_LOWER`, and a band under the middle one (`BANDS`) names it. The targets' low stratum is the row that turns from missed to hit. | The search, the skill's choice by window. |
 | **Another body**: four legs, a tail | A search on it: recipes are per model. Its surfaces are its spec's. | Everything else. |
-| **A learned or a planning mind** | It asks the same `HandAction`s; or, at the muscles, it is a `MindConfig` kind and the targets score it as a row. | The rule, the targets. |
+| **A learned or a planning mind** | It asks the same `Attack`s; or, at the muscles, it is a `MindConfig` kind and the targets score it as a row. | The rule, the targets. |
 
 ## Standing decisions
 
@@ -1075,7 +1078,7 @@ The [bounded punch search](reference/punch-foundation.md) records its failed pro
 leaves Brawler/Scrapper settings intact. The [mass audit](reference/punch-mass-audit.md) identifies
 the current damage model's free-joint assumption without substituting a new rule.
 
-The optional `KickAction` passes either foot, a world point and detached target identity
+A kick (`KickAttack`, an `Attack`) passes either foot, a world point and detached target identity
 through the common intent/skill boundary. `skills/kick.ts` shares the measured strike
 cycle with hands and surrounds it with support transfer, verified unloading, placement
 and recentering. Supported stance poses can own one bearing leg with captured sole

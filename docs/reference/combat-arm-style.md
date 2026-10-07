@@ -1,6 +1,6 @@
 # Action-specific arm style
 
-`CombatAction.armExtension` optionally specifies an extension style in [0,1].
+A blow's `path.armExtension` (`BlowPath`) optionally specifies an extension style in [0,1].
 Omitted inherits `ATTACK_PATH.elbowExtension`. Zero retains the guard preference;
 one requests extension through the existing joint-range-bounded IK objective.
 `validArmExtension` owns validation for the action and the shared path tuning.

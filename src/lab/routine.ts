@@ -1,7 +1,7 @@
 import type { Body, Fist } from "../core/body.ts";
 import type { BuiltBody } from "../core/build/build-body.ts";
 import type { StanceEnvelope } from "../core/control/stance-envelope.ts";
-import { GUARD_ACTION, type Intent } from "../core/mind/intent.ts";
+import { NO_COVER, type Intent } from "../core/mind/intent.ts";
 import type { Sight, Tactics } from "../core/mind/tactics.ts";
 import { rulebook, type Rulebook } from "../core/rules/rulebook.ts";
 import type { RecipeOptions, SkillReport } from "../core/skills/skills.ts";
@@ -141,7 +141,8 @@ function routineTactics(track: Track, envelope: StanceEnvelope, drawing: Drawing
       return {
         move: null,
         face: Math.atan2(target[0] - view.head.x, target[2] - view.head.z),
-        hands: { left: GUARD_ACTION, right: GUARD_ACTION, ...(!guarding && { [hand!]: { kind: "attack", target } }) },
+        guard: NO_COVER,
+        attack: guarding ? null : { kind: "blow", hand: hand!, target },
       };
     },
   };

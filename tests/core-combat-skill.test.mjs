@@ -14,7 +14,7 @@ import { traceOf } from './harness/trace.mjs';
 import { coreStand, saveStand, loadStand } from './harness/core-stand.mjs';
 import { pointPath } from '../src/core/control/point-path.ts';
 import { combatSkills } from '../src/core/skills/combat.ts';
-import { GUARD_ACTION } from '../src/core/mind/intent.ts';
+import { NO_COVER } from '../src/core/mind/intent.ts';
 
 test('curved point paths preserve endpoint motion and analytic derivatives', () => {
  const start={position:[.2,.7,-.1],velocity:[.3,-.2,.1]},finish=[-.1,.8,.5],terminal=[-1,0,3],curve=[.06,-.02,.01],seconds=.3;
@@ -71,8 +71,8 @@ test('a fresh-world fork inside a curved strike preserves the whole motion and r
  const make=async()=>{
   const stand=await coreStand(modelSpec('workshop-fighter'),{engine:DEFAULT_ENGINE});
   const body=createBody(stand.built,stand.world,{servoSeconds:SERVO_SECONDS,feedback:true}),skills=combatSkills(body);
-  body.drive((view,dt)=>skills.command(view,{move:null,face:0,hands:{left:GUARD_ACTION,right:GUARD_ACTION},
-   combat:view.time>=2?{hand:'right',target:[.1,1.63,.5],family:'hook'}:null},dt));
+  body.drive((view,dt)=>skills.command(view,{move:null,face:0,guard:NO_COVER,
+   attack:view.time>=2?{kind:'blow',hand:'right',target:[.1,1.63,.5],path:{family:'hook'}}:null},dt));
   return {...stand,body,skills};
  };
  const a=await make(),b=await make();

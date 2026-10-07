@@ -18,7 +18,6 @@ import { armed } from "../src/core/human/grip.ts";
 import { humanSpec } from "../src/core/human/spec.ts";
 import { woodenClub } from "../src/core/items/club.ts";
 import { RECIPE_FIGHTER } from "../src/core/mind/config.ts";
-import { GUARD_ACTION } from "../src/core/mind/intent.ts";
 import { STAND_ORDERS } from "../src/core/mind/orders.ts";
 import { createSenses } from "../src/core/mind/senses.ts";
 import { driveBy } from "../src/core/mind/tactics.ts";
@@ -41,8 +40,8 @@ async function covering(spec, hands) {
   const body = createBody(stand.built, stand.world, { servoSeconds: SERVO_SECONDS });
   const held = { threat: null };
   driveBy(body, { name: "covers", decide: ({ view }) => {
-    const act = (hand) => held.threat && hands.includes(hand) ? { kind: "guard", cover: { threat: held.threat, guarded: view.head.asArray() } } : GUARD_ACTION;
-    return { move: null, face: 0, hands: { left: act("left"), right: act("right") } };
+    const cover = (hand) => held.threat && hands.includes(hand) ? { threat: held.threat, guarded: view.head.asArray() } : null;
+    return { move: null, face: 0, guard: { left: cover("left"), right: cover("right") }, attack: null };
   } });
   const { view } = body;
   return {
@@ -272,9 +271,9 @@ test("the_guard_has_the_hands_the_strike_has_not", async () => {
   // The right hand attacks until its recipe's pushes begin, and is then told to cover as the left is all along.
   const held = { target: null, covers: false, seen: [] };
   body.drive((view, dt) => {
-    const cover = { kind: "guard", cover: { threat: [view.head.x, view.head.y, view.head.z + 0.8], guarded: view.head.asArray() } };
-    const right = held.covers || !held.target ? (held.covers ? cover : GUARD_ACTION) : { kind: "attack", target: held.target };
-    const command = skills.command(view, { move: null, face: 0, hands: { left: held.target ? cover : GUARD_ACTION, right } }, dt);
+    const cover = { threat: [view.head.x, view.head.y, view.head.z + 0.8], guarded: view.head.asArray() };
+    const attack = !held.covers && held.target ? { kind: "blow", hand: "right", target: held.target } : null;
+    const command = skills.command(view, { move: null, face: 0, guard: { left: held.target ? cover : null, right: held.covers ? cover : null }, attack }, dt);
     const { hand, phase, blow } = skills.report.strike;
     if (phase === "swing") held.covers = true;
     held.seen.push({ hand, phase, blow, covers: held.covers, left: command.effectors["hand.left"]?.places.map((place) => place.point) ?? null, right: command.effectors["hand.right"]?.places.map((place) => place.point) ?? null });

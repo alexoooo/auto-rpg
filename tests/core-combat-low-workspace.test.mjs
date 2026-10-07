@@ -4,7 +4,7 @@ import {combatStrike} from '../research/combat-strikes.mjs';
 import {combatSkills} from '../src/core/skills/combat.ts';
 import {ATTACK_PATH} from '../src/core/skills/attack-path.ts';
 import {STANCE_LOWER} from '../src/core/skills/locomotion.ts';
-import {GUARD_ACTION} from '../src/core/mind/intent.ts';
+import {NO_COVER} from '../src/core/mind/intent.ts';
 import {modelSpec} from '../src/core/models.ts';
 import {createBody,SERVO_SECONDS} from '../src/core/body.ts';
 import {DEFAULT_ENGINE} from '../src/core/engine/engines.ts';
@@ -33,9 +33,9 @@ for(const hand of ['left','right'])test(`the shared fold gates ${hand} low strok
 async function foldedStand(hand){
  const s=await coreStand(modelSpec('workshop-fighter'),{engine:DEFAULT_ENGINE});
  const body=createBody(s.built,s.world,{servoSeconds:SERVO_SECONDS,feedback:true}),skills=combatSkills(body,ATTACK_PATH,null,undefined,true);
- body.drive((view,dt)=>skills.command(view,{move:null,face:0,hands:{left:GUARD_ACTION,right:GUARD_ACTION},
+ body.drive((view,dt)=>skills.command(view,{move:null,face:0,guard:NO_COVER,
   lower:view.time>=2&&view.time<8?.5:STANCE_LOWER,
-  combat:view.time>=2&&view.time<8?{hand,family:'downward',target:[hand==='right'?.1:-.1,.33,.35],armExtension:1}:null},dt));
+  attack:view.time>=2&&view.time<8?{kind:'blow',hand,target:[hand==='right'?.1:-.1,.33,.35],path:{family:'downward',armExtension:1}}:null},dt));
  return {...s,body,skills};
 }
 

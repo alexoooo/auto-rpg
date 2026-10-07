@@ -1,6 +1,6 @@
 import type { Body } from "../core/body.ts";
 import { paceRound, type StanceEnvelope } from "../core/control/stance-envelope.ts";
-import { GUARD_ACTION, type Intent } from "../core/mind/intent.ts";
+import { NO_COVER, type Intent } from "../core/mind/intent.ts";
 import { wrap } from "../core/skills/locomotion.ts";
 import type { Tactics } from "../core/mind/tactics.ts";
 import type { Actor } from "./actor.ts";
@@ -86,7 +86,6 @@ export function trackTactics(track: Track, envelope: StanceEnvelope, gait?: { re
   const fastest = Math.min(envelope.walk.value, gait?.pace ?? Infinity), turn = gait?.turn ?? Infinity;
   let along = 0, travelled = 0, laps = 0, lapFrom = 0, lastLap: number | null = null;
   let pace = 0, bending = false, aim: [number, number] = [0, 0], face = 0, setOff: number | null = null;
-  const hands = { left: GUARD_ACTION, right: GUARD_ACTION };
   return {
     name: "track",
     decide({ view, report }, dt): Intent {
@@ -113,7 +112,7 @@ export function trackTactics(track: Track, envelope: StanceEnvelope, gait?: { re
         bending = bend < fastest;
         pace = Math.min(fastest, bend);
       }
-      return { move: [pace, 0], face, hands };
+      return { move: [pace, 0], face, guard: NO_COVER, attack: null };
     },
     frame(time) {
       const running = setOff === null ? 0 : time - setOff;

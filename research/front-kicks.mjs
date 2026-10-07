@@ -8,7 +8,7 @@ import {createBody,SERVO_SECONDS} from '../src/core/body.ts';
 import {DEFAULT_ENGINE} from '../src/core/engine/engines.ts';
 import {combatSkills} from '../src/core/skills/combat.ts';
 import {KICK_PATH} from '../src/core/skills/kick.ts';
-import {GUARD_ACTION} from '../src/core/mind/intent.ts';
+import {NO_COVER} from '../src/core/mind/intent.ts';
 import {pointOfToRef,motionAtToRef} from '../src/core/control/support.ts';
 import {supportRecovery} from '../src/core/mind/rise/support-recovery.ts';
 import {coarseForces} from './punch-calibration.mjs';
@@ -36,8 +36,8 @@ export async function frontKickStand({foot='right',hz=120,seconds=24,height=.45,
   sensor=punchPad(s.world,[target[0]+(mode==='miss'?1:0),height,ahead],{face:'compliant',size:[.2,.08,.11],...pad});
   body.drive((view,dt)=>{
     if(view.resumed)skills.resume(view);
-    return skills.command(view,{move:null,face:0,hands:{left:GUARD_ACTION,right:GUARD_ACTION},
-      combat:null,kick:view.time>=2&&view.time<cancelAt?{foot,target,targetId:'kick-pad'}:null},dt);
+    return skills.command(view,{move:null,face:0,guard:NO_COVER,
+      attack:view.time>=2&&view.time<cancelAt?{kind:'kick',foot,target,targetId:'kick-pad'}:null},dt);
   },view=>skills.resume(view));
   const limb=s.built.segments.get(`foot.${foot}`),point=new Vector3(),velocity=new Vector3(),spin=new Vector3();
   const names=new Map([...s.built.segments.values()].map(p=>[p.body,p.spec.name]));

@@ -213,6 +213,12 @@ type Attack = {kind:"blow"; hand; target; targetId?; path?: {family; direction?;
   carry out.
 - `Orders.attack` stays a world point, because tapes carry it.
 
+**As built (15a, landed): the vocabulary.** No pose moved; the path fighters' state is
+reshaped. `Intent.guard` is `Record<Side, Cover | null>` with `NO_COVER`; `Attack` is
+`BlowAttack | KickAttack` (the bite joins in chunk 16), a blow's `path` a `BlowPath`. The recipe
+skill refuses a kick; the path skill refuses a blow without a path (`PathBlow`) and a kick
+without a kicking skill. `Opening` is its own record and `openingAction` makes its blow.
+
 **`skills/effector-strike.ts`: `effectorStrike(body, def)` over `advanceStrike`**
 
 - It owns, once:

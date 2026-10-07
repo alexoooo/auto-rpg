@@ -15,7 +15,7 @@
  */
 import { parseArgs } from "node:util";
 import { Logger } from "@babylonjs/core/Misc/logger.js";
-import { GUARD_ACTION } from "../src/core/mind/intent.ts";
+import { NO_COVER } from "../src/core/mind/intent.ts";
 import { rulebook } from "../src/core/rules/rulebook.ts";
 import { recipeFor, REPERTOIRE } from "../src/core/skills/strikes.ts";
 import { labActor } from "../src/lab/actor.ts";
@@ -41,7 +41,7 @@ async function one(loadout, up, repertoire) {
   let target = null, open = null, reading = null, thrown = 0, time = 0;
   actor.drive({ name: "attack", decide: ({ view }) => {
     if (!target && time >= STOOD) target = { at: [0, view.head.y + up, 1.3], stratum: "control" };
-    return { move: null, face: 0, hands: { left: GUARD_ACTION, right: target && !thrown ? { kind: "attack", target: target.at } : GUARD_ACTION } };
+    return { move: null, face: 0, guard: NO_COVER, attack: target && !thrown ? { kind: "blow", hand: "right", target: target.at } : null };
   } }, { skills: { repertoire }, watch(sight, dt) {
     time += dt;
     thrown = sight.report.strike.thrown.right;

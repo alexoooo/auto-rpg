@@ -3,7 +3,6 @@ import type { BuiltBody } from "../core/build/build-body.ts";
 import type { AssistCeiling } from "../core/control/assist.ts";
 import type { StanceTuning } from "../core/control/stance-tuning.ts";
 import { RECIPE_FIGHTER, type SubMindConfig } from "../core/mind/config.ts";
-import { GUARD_ACTION } from "../core/mind/intent.ts";
 import { subMindsOf } from "../core/mind/sub-minds.ts";
 import { driveBy, type Sight, type Tactics } from "../core/mind/tactics.ts";
 import { recipeSkills, type RecipeOptions, type Skills } from "../core/skills/skills.ts";
@@ -60,12 +59,13 @@ function watched(tactics: Tactics, watch: Watch): Tactics {
   return deciding(tactics, (sight, dt) => { watch(sight, dt); return tactics.decide(sight, dt); });
 }
 
-/** `tactics`, each hand that may not strike (`strikes`) guarding where they have it attack. */
+/** `tactics`, each hand that may not strike (`strikes`) holding the guard's pose, and attacking nothing. */
 function barred(tactics: Tactics, strikes: Readonly<Record<Side, boolean>>): Tactics {
   if (strikes.left && strikes.right) return tactics;
   return deciding(tactics, (sight, dt) => {
-    const intent = tactics.decide(sight, dt), { left, right } = intent.hands;
-    return { ...intent, hands: { left: strikes.left ? left : GUARD_ACTION, right: strikes.right ? right : GUARD_ACTION } };
+    const intent = tactics.decide(sight, dt), { guard, attack } = intent;
+    return { ...intent, guard: { left: strikes.left ? guard.left : null, right: strikes.right ? guard.right : null },
+      attack: attack?.kind === "blow" && !strikes[attack.hand] ? null : attack };
   });
 }
 

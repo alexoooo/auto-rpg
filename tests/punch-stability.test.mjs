@@ -4,7 +4,7 @@ import {punchCalibration,punchStand} from '../research/punch-calibration.mjs';
 import {punchStabilityAdmission} from '../research/punch-stability.mjs';
 import {PLANTED_PUNCH_EXECUTION} from '../src/core/skills/combat.ts';
 import {plantedSupport} from '../src/core/control/support-readiness.ts';
-import {GUARD_ACTION} from '../src/core/mind/intent.ts';
+import {NO_COVER} from '../src/core/mind/intent.ts';
 import {saveStand,loadStand} from './harness/core-stand.mjs';
 const paths={contactSpeed:5,swingSeconds:.12,elbowExtension:.5,torso:.2};
 const settings={execution:PLANTED_PUNCH_EXECUTION,paths,armExtension:.5,matchedFeedback:true,pad:{face:'compliant'}};
@@ -43,7 +43,7 @@ test('the planted base replays cancellation of an admitted impact in a fresh wor
   while(!a.skills.state.impact&&a.world.time<4)a.step();assert.ok(a.skills.state.impact);
   loadStand(b.world,state(b),saveStand(a.world,state(a)));
   for(const s of [a,b])s.body.drive((view,dt)=>s.skills.command(view,{move:null,face:0,
-   hands:{left:GUARD_ACTION,right:GUARD_ACTION},combat:null},dt));
+   guard:NO_COVER,attack:null},dt));
   a.step(240);b.step(240);
   assert.equal(a.skills.state.impacts.aborted,1);assert.equal(a.skills.report.strike.hand,null);
   assert.equal(a.skills.state.outcomes.failed,0);assert.equal(a.body.down,false);

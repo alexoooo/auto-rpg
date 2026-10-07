@@ -52,7 +52,7 @@ export function recipeTactics(name: string, orders: (sight: Sight) => Orders, st
     name, state,
     decide: (sight): Intent => {
       if (sight.view.resumed) state.aim = null;
-      const { report } = sight, given = orders(sight), hand = rest(sight), attack = given.attack;
+      const { report } = sight, given = orders(sight), cover = rest(sight), attack = given.attack;
       if (attack) {
         const thrown = report.strike.thrown.right;
         let aim = state.aim;
@@ -61,10 +61,10 @@ export function recipeTactics(name: string, orders: (sight: Sight) => Orders, st
           || hypot(attack[0] - aim.point[0], attack[1] - aim.point[1], attack[2] - aim.point[2]) > APPROACH.reach) {
           aim = state.aim = { point: [attack[0], attack[1], attack[2]], thrown };
         }
-        return { move: null, face: report.heading, hands: { left: hand, right: { kind: "attack", target: aim.point } } };
+        return { move: null, face: report.heading, guard: { left: cover, right: null }, attack: { kind: "blow", hand: "right", target: aim.point } };
       }
       state.aim = null;
-      return orderedIntent(sight, given, { left: hand, right: hand }, strafe);
+      return orderedIntent(sight, given, { left: cover, right: cover }, strafe);
     },
   };
 }

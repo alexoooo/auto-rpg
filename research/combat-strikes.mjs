@@ -6,7 +6,7 @@ import { modelSpec } from '../src/core/models.ts';
 import { createBody, SERVO_SECONDS } from '../src/core/body.ts';
 import { DEFAULT_ENGINE } from '../src/core/engine/engines.ts';
 import {footStatesOf,readSupport} from '../src/core/control/support.ts';
-import { GUARD_ACTION } from '../src/core/mind/intent.ts';
+import { NO_COVER } from '../src/core/mind/intent.ts';
 import { combatSkills } from '../src/core/skills/combat.ts';
 import { ATTACK_PATH } from '../src/core/skills/attack-path.ts';
 import { STANCE_LOWER } from '../src/core/skills/locomotion.ts';
@@ -42,9 +42,9 @@ export async function combatStrike({ hand = 'right', family = 'straight', mode =
  const phases = [], contacts = [], errors = [], paths = [], saturation = [], peaks = []; let lastPhase=null, peak=0, fell=false, touched=false, floorContacts=0;
  body.drive((view,dt)=>{
   if(view.resumed) skills.resume(view);
-  const command=skills.command(view, {move:null,face:0,hands:{left:GUARD_ACTION,right:GUARD_ACTION},
+  const command=skills.command(view, {move:null,face:0,guard:NO_COVER,
    ...(sharedSupport?{lower:view.time>=2&&view.time<(support?.riseAt??Infinity)?support.lower:STANCE_LOWER}:{}),
-   combat:view.time>=(support?.attackAt??2)&&view.time<(support?.riseAt??Infinity)?{hand,target,family,...(direction?{direction}:{}),...(armExtension===undefined?{}:{armExtension})}:null},dt);
+   attack:view.time>=(support?.attackAt??2)&&view.time<(support?.riseAt??Infinity)?{kind:'blow',hand,target,path:{family,...(direction?{direction}:{}),...(armExtension===undefined?{}:{armExtension})}}:null},dt);
   return support&&!sharedSupport? supportedStrikeCommand(view,command,support):command;
  });
  try {
