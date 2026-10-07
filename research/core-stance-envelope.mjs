@@ -15,7 +15,7 @@ import { Worker } from "node:worker_threads";
 import { availableParallelism } from "node:os";
 import { writeFile } from "node:fs/promises";
 import { parseArgs } from "node:util";
-import { DUEL_HELD } from "../src/arena/duel.ts";
+import { HELD } from "../src/core/items/held.ts";
 import { fastestHeld } from "../src/core/control/stance-envelope.ts";
 import { PHYSICS_HZ } from "../src/core/world.ts";
 import { CORE_STANCE_HARNESS } from "./core-stance-trials.mjs";
@@ -26,7 +26,7 @@ export const MODELS = ["workshop-fighter", "workshop-rogue", "crypt-skeleton"];
 export const RATES = [0.25, 0.5, 1, 2, 4];
 export const SENSES = [1, -1];
 /** What a fight puts in a body's right hand: every way a body is played is a way it must hold. */
-export const HOLDS = DUEL_HELD;
+export const HOLDS = HELD;
 /**
  * When a turn begins, s after the walk sets off: every eighth of a second to 1.5, over the first
  * strides, where a turn meets the walk in any phase of its weight shift; and at 3, under way.

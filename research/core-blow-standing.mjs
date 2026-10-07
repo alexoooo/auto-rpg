@@ -14,7 +14,7 @@
  */
 import { parseArgs } from "node:util";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import { DUEL_HELD } from "../src/arena/duel.ts";
+import { HELD } from "../src/core/items/held.ts";
 import { centreOfToRef } from "../src/core/control/support.ts";
 import { HUMANOID_MODELS } from "../src/core/models.ts";
 import { STAND_ORDERS } from "../src/core/mind/orders.ts";
@@ -28,7 +28,7 @@ const { values } = parseArgs({ options: {
 } });
 const models = values.models.split(","), foes = values.foes.split(","), helds = values.held.split(","), gaps = values.gaps.split(",").map(Number);
 for (const model of [...models, ...foes]) if (!HUMANOID_MODELS.includes(model)) throw new Error(`no body is called ${model} (one of ${HUMANOID_MODELS.join(", ")})`);
-for (const held of helds) if (!DUEL_HELD.includes(held)) throw new Error(`--held is of ${DUEL_HELD.join(", ")}, not ${held}`);
+for (const held of helds) if (!HELD.includes(held)) throw new Error(`--held is of ${HELD.join(", ")}, not ${held}`);
 
 /** Seconds both stand before the attack is ordered, the most the attack is given to be thrown, and those read after it is. */
 const SETTLE = 1, WAIT = 20, AFTER = 1;

@@ -9,6 +9,7 @@ import type { PhysicsEngine, SegmentBody } from "../engine/engine.ts";
 import { equipHands } from "../human/equipment.ts";
 import { modelSpec, type HumanoidModel } from "../models.ts";
 import { woodenClub } from "../items/club.ts";
+import { HELD, type Held } from "../items/held.ts";
 import { sin, cos } from "../math/real.ts";
 import { createMotionBody } from "../mind/motion.ts";
 import { createObjectSenses } from "../mind/object-senses.ts";
@@ -61,14 +62,14 @@ function incomingClub(world: ReturnType<typeof createWorld>, id: string, pivot: 
 
 /** Shared physical head-defense task. All body contacts are measured independently of the policy. */
 export function createDefenseProbe(scene: Scene, engine: PhysicsEngine, config: {
-  readonly model: HumanoidModel; readonly hands: Side | "both"; readonly held: "empty" | "club";
+  readonly model: HumanoidModel; readonly hands: Side | "both"; readonly held: Held;
   readonly hz: number; readonly actuation: "symmetric" | "directional"; readonly offset: number;
   readonly variant: "predict" | "pose"; readonly angleOffset?: number;
   readonly jointStops?: boolean;
 }) {
   const stopSettings = jointStopProbeSettings(config.jointStops);
   if (!Number.isSafeInteger(config.hz) || config.hz < 120 || config.hz % 120 !== 0 || !Number.isFinite(config.offset)
-    || !["left", "right", "both"].includes(config.hands) || !["empty", "club"].includes(config.held)
+    || !["left", "right", "both"].includes(config.hands) || !HELD.includes(config.held)
     || !["predict", "pose"].includes(config.variant) || !Number.isFinite(config.angleOffset ?? 0)
     || Math.abs(config.angleOffset ?? 0) > 0.1) throw new Error("invalid defense fixture");
   const configuration = deepFreeze({ ...config, ...(stopSettings ? { stopPrediction: stopSettings } : {}), task: "point-defense", protocol: 1, settings: SETTINGS,

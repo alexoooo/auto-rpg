@@ -240,6 +240,11 @@ body:has(#curtain:not(.gone)) #hud { visibility: hidden; }
   text-transform: uppercase; color: #bca98c;
 }
 .contender-choices { display: grid; gap: 8px; }
+#curtain .settings summary { cursor: pointer; font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: #b7a790; }
+#curtain .settings .field { grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); align-items: center; margin-top: 6px; font-size: 12px; color: #b7a790; }
+#curtain .settings select, #curtain .settings input { padding: 6px 8px; font: 13px Georgia, serif; letter-spacing: 0; text-transform: none; }
+#curtain .settings input { width: 100%; box-sizing: border-box; color: #ecddc5; background: #141013df; border: 1px solid #8b684861; text-align: center; }
+#curtain .settings-fault { margin: 6px 0 0; color: #d0705e; font-size: 12px; }
 .contender-preview { width: 100%; height: 100%; min-height: 0; display: block; pointer-events: none; }
 #curtain .field { display: grid; gap: 8px; margin: 0; }
 #curtain .contender .field-name { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }

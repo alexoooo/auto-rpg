@@ -1,4 +1,5 @@
-import { modelInfo, type BodyModel } from "../core/models.ts";
+import type { BodyModel } from "../core/models.ts";
+import { cryptModel } from "./actors.ts";
 import { distance, findPath, walkable, type DungeonMap, type Point, type Room } from "./map.ts";
 import { levelCandidates } from "./level.ts";
 
@@ -26,7 +27,7 @@ export function populateEncounters(map: DungeonMap): void {
   const rooms = map.rooms.filter(room => !contains(room, map.start) && map.spawns.some(point => contains(room, point)));
   const encounters: NonNullable<DungeonMap["encounters"]>[number][] = [];
   rooms.forEach((room, index) => {
-    const model: BodyModel = index % 2 === 0 ? "crypt-skeleton" : "reptile", radius = modelInfo(model).radius;
+    const model: BodyModel = index % 2 === 0 ? "crypt-skeleton" : "reptile", radius = cryptModel(model).radius;
     const existing = map.spawns.filter(point => contains(room, point));
     if (model === "crypt-skeleton") {
       for (const point of existing) encounters.push({ room: room.id, model, point: { ...point } });
@@ -41,7 +42,7 @@ export function populateEncounters(map: DungeonMap): void {
       if (!walkable(map, point, radius, true) || !outsidePartyStart(map, point)
         || map.doors.some(door => distance(point, door.point) < radius + ENCOUNTERS.doorMargin)
         || pack.some(p => distance(p, point) < Math.max(2 * radius, ENCOUNTERS.spacing))
-        || encounters.some(e => distance(e.point, point) < radius + modelInfo(e.model).radius)
+        || encounters.some(e => distance(e.point, point) < radius + cryptModel(e.model).radius)
         || !findPath(map, map.start, point, radius).length) continue;
       pack.push(point);
       if (pack.length === ENCOUNTERS.pack) break;

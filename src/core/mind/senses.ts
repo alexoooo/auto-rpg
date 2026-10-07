@@ -60,12 +60,13 @@ interface SegmentSense {
   readonly spin: Vector3;
 }
 
-/** A body the senses carry: who it is, and whether it is out of the fight, asked once a step. */
+/** A body the senses carry: who it is, whether it is out of the fight, asked once a step, and the fixed geometry it is granted. */
 interface Sensed {
   readonly id: string;
   readonly side: string;
   readonly built: BuiltBody;
   out(): boolean;
+  readonly solids?: readonly SolidSense[];
 }
 
 export interface SensesHub {
@@ -207,6 +208,7 @@ export function createSenses(world: World, delay = 0): SensesHub {
         side: sensed.side,
         get out() { return sensed.out(); },
         others: entry.others,
+        ...(sensed.solids ? { solids: sensed.solids } : {}),
       };
       return () => senses;
     },

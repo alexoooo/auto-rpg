@@ -1,9 +1,10 @@
 import { BODY_MODELS, modelHolds, modelSupportsMind, type BodyModel } from "../core/models.ts";
-import { RECIPE_FIGHTER, type RecipeFighterConfig, type MindConfig } from "../core/mind/config.ts";
-import { PRESETS } from "../core/mind/controllers.ts";
+import type { MindConfig } from "../core/mind/config.ts";
+import { controllerOf, fieldsOf, PRESETS } from "../core/mind/controllers.ts";
 import { isOrders } from "../core/mind/orders.ts";
 import { balanceFrom } from "../core/rules/rulebook.ts";
-import { DUEL_HELD, type OrdersEntry } from "./duel.ts";
+import { SIDES, type OrdersEntry } from "./duel.ts";
+import { HELD, type Held } from "../core/items/held.ts";
 import { appearanceFor, type Appearance } from "../render/appearance.ts";
 import type { Side } from "../core/spec/body.ts";
 
@@ -78,36 +79,27 @@ export function readBalance(search: string): Readonly<Record<Side, number>> | un
   return { left: given[0]!, right: given[given.length - 1]! };
 }
 
-/** The arena link's parameter for what each side's right hand holds: `&held=left,right`, or one word for both, each of `DUEL_HELD`. */
+/** The arena link's parameter for what each side's right hand holds: `&held=left,right`, or one word for both, each of `HELD`. */
 const HELD_PARAM = "held";
 
 /**
- * What an address has each side's right hand hold (`DuelRecipe.held`): two of `DUEL_HELD`, left
+ * What an address has each side's right hand hold (`DuelRecipe.held`): two of `HELD`, left
  * then right, or one for both; undefined for anything else, and each then holds the club.
  */
-export function readHeld(search: string): Readonly<Record<Side, (typeof DUEL_HELD)[number]>> | undefined {
+export function readHeld(search: string): Readonly<Record<Side, Held>> | undefined {
   const text = new URLSearchParams(search).get(HELD_PARAM);
   if (text === null) return undefined;
-  const parts = text.split(","), given = parts.flatMap((part) => DUEL_HELD.filter((held) => held === part.trim()));
+  const parts = text.split(","), given = parts.flatMap((part) => HELD.filter((held) => held === part.trim()));
   if (parts.length > 2 || given.length !== parts.length) return undefined;
   const models = readMatchup(search);
   return { left: modelHolds(models.left) ? given[0]! : "empty", right: modelHolds(models.right) ? given[given.length - 1]! : "empty" };
 }
 
-/** The arena link's parameter for how both sides' hands guard while they do not attack: `&guard=cover` or `&guard=pose`. */
-const GUARD_PARAM = "guard";
-
 /**
- * The minds an address gives both sides (`DuelRecipe.minds`): the fighter (`RECIPE_FIGHTER`) guarding
- * as it names (`RecipeFighterConfig.guard`); undefined for anything else, and each side's mind is
- * then the bout's own.
+ * An old link's parameter for how both sides guard (`&guard=cover`): read as each side's `guard`
+ * setting where the side's own is not given, and never written.
  */
-export function readGuard(search: string): Readonly<Record<Side, RecipeFighterConfig>> | undefined {
-  const guard = new URLSearchParams(search).get(GUARD_PARAM);
-  if (guard !== "cover" && guard !== "pose") return undefined;
-  const mind: RecipeFighterConfig = { ...RECIPE_FIGHTER, guard };
-  return { left: mind, right: mind };
-}
+const GUARD_PARAM = "guard";
 
 /**
  * The gap, m, and the cap, s, a link may ask for (`DuelRecipe.gap`, `.capSeconds`), a numeric setting:
@@ -175,14 +167,71 @@ export function controlsFor(model: BodyModel): readonly Control[] {
   return Object.keys(PRESETS).filter((control) => modelSupportsMind(model, PRESETS[control]!.config));
 }
 
-/** The selected controllers' presets, a recipe fighter guarding as `&guard=` names (`readGuard`). */
+/** The link's key for `side`'s setting `key` (`Controller.fields`): `&left.guard=cover`. */
+const settingKey = (side: Side, key: string): string => `${side}.${key}`;
+
+/**
+ * `side`'s controller's config as `search` sets it: the selected preset with each of the
+ * controller's fields the link writes for the side (`&left.<key>=`, or an old link's `&guard=`). A
+ * value a field does not take keeps the preset's; a config its controller finds a fault in is the
+ * preset whole.
+ */
+function sideMind(search: string, side: Side, control: Control): MindConfig {
+  const { config, faults } = linkedSettings(search, side, control);
+  return faults.length > 0 ? PRESETS[control]!.config : config;
+}
+
+/** The preset `control` with `side`'s settings as `search` writes them, faults and all (`settled`): what the panel shows. */
+export function linkedSettings(search: string, side: Side, control: Control = readControls(search)[side]): ReturnType<typeof settled> {
+  const query = new URLSearchParams(search);
+  return settled(control, (key) => query.get(settingKey(side, key)) ?? (key === GUARD_PARAM ? query.get(GUARD_PARAM) : null));
+}
+
+/**
+ * The preset `control` with each of its controller's fields set to what `setting` gives for its key
+ * (`Controller.fields`), a value the field does not take keeping the preset's, and what the
+ * controller finds wrong with the result (`Controller.faults`).
+ */
+export function settled(control: Control, setting: (key: string) => string | null): { readonly config: MindConfig; readonly faults: readonly string[] } {
+  const preset = PRESETS[control]!.config;
+  let config = preset;
+  for (const field of fieldsOf(preset)) {
+    const text = setting(field.key);
+    if (text !== null) config = field.write(config, text) ?? config;
+  }
+  return { config, faults: controllerOf(config).faults(config) };
+}
+
+/** The selected controllers' configs, each its preset with the link's settings (`sideMind`). */
 export function readMinds(search: string): Readonly<Record<Side, MindConfig>> {
-  const controls = readControls(search), guards = readGuard(search);
-  const mind = (side: Side): MindConfig => {
-    const config = PRESETS[controls[side]]!.config;
-    return config.kind === "recipe-fighter" && guards ? { ...config, guard: guards[side].guard } : config;
-  };
-  return { left: mind("left"), right: mind("right") };
+  const controls = readControls(search);
+  return { left: sideMind(search, "left", controls.left), right: sideMind(search, "right", controls.right) };
+}
+
+/**
+ * `search` with each side's settings (`Controller.fields`) written where `settings` differ from
+ * its preset, each as its field reads it, and no other: no old `&guard=`, no value a field does not
+ * take, and no key of a field its controller lacks.
+ */
+export function settingsSearch(search: string, settings: Readonly<Record<Side, Readonly<Record<string, string>>>>): string {
+  const query = new URLSearchParams(search), controls = readControls(search);
+  query.delete(GUARD_PARAM);
+  for (const key of [...query.keys()]) if (/^(left|right)\./.test(key)) query.delete(key);
+  for (const side of SIDES) {
+    const preset = PRESETS[controls[side]]!.config;
+    for (const field of fieldsOf(preset)) {
+      const text = settings[side][field.key], set = text === undefined ? null : field.write(preset, text);
+      if (set && field.read(set) !== field.read(preset)) query.set(settingKey(side, field.key), field.read(set));
+    }
+  }
+  return `?${query}`;
+}
+
+/** What the bout calls a side's controller: its preset's name, `(edited)` where the address changes the preset's settings. */
+export function controllerLabel(search: string, side: Side): string {
+  const control = readControls(search)[side];
+  const edited = JSON.stringify(readMinds(search)[side]) !== JSON.stringify(PRESETS[control]!.config);
+  return `${CONTROLS[control]}${edited ? " (edited)" : ""}`;
 }
 
 /** Optional continuous-down allowance, in seconds, for recovery bouts. */

@@ -2,7 +2,7 @@
 
 The reptile uses procedural shells (`src/render/reptile-skin.ts`) instead of a workshop rig.
 Each shell follows its physical segment. Shells are olive `#78834d`; two 25 mm eye spheres
-with 12 segments sit at reference coordinates `(±.055, .285, .34)` m on the head. Their
+with 12 segments sit at the head's `eye.left` and `eye.right` points (`assets/reptile/body.json`), reference coordinates `(±.055, .285, .34)` m. Their
 diffuse colour is `#171f13`, with `#c3bb65` specular colour. These authored art choices carry
 no colliders or hit authority. The skin owns its materials and disposes its meshes without
 disposing the scene's shared materials. Detailed reptile art remains open.

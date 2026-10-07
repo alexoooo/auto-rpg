@@ -1,22 +1,15 @@
 import type { Scene } from "@babylonjs/core/scene.js";
 import type { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh.js";
-import type { PhysicalBody } from "../core/physical-body.ts";
-import { buildBody, type BuiltBody } from "../core/build/build-body.ts";
 import type { PhysicsEngine } from "../core/engine/engine.ts";
-import { armed } from "../core/human/grip.ts";
+import { enlist, type Combatant } from "../core/combatant.ts";
+import { armedWith } from "../core/items/held.ts";
 import { modelInfo, modelSpec, type BodyModel } from "../core/models.ts";
 import { MODEL_DISPLAY } from "../render/models.ts";
-import { woodenClub } from "../core/items/club.ts";
 import { createSenses, type SensesHub } from "../core/mind/senses.ts";
-import { nearSurface } from "../core/mind/openings.ts";
-import { pointOfToRef } from "../core/control/support.ts";
-import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import { createMind, type Minded } from "../core/mind/minds.ts";
-import { watchBlows, type BlowWatch, type Fighter, type LandedBlow } from "../core/rules/blows.ts";
+import { watchBlows, type BlowWatch, type LandedBlow } from "../core/rules/blows.ts";
 import { levelsOf, stirs, type LevelAsk, type LevelRule } from "../core/rules/levels.ts";
-import { createPool } from "../core/rules/pool.ts";
-import { balanceCeiling, balancePercent, rulebook } from "../core/rules/rulebook.ts";
-import type { BodySpec } from "../core/spec/body.ts";
+import { rulebook } from "../core/rules/rulebook.ts";
+import { cryptModel } from "./actors.ts";
 import { createWorld, type Hook, type World } from "../core/world.ts";
 import { canSee, cellKey, clearSegment, distance, explorationGoal, findPath, reveal, sightIndex, walkable,
   type DungeonMap, type Point, type SightIndex } from "./map.ts";
@@ -73,7 +66,7 @@ export interface DungeonActor {
   readonly model: BodyModel;
   readonly side: "party" | "enemy";
   /** The body, its mind (`minded`) and its pool, once built; an enemy waits unbuilt until the party is near (`WAKE_METRES`). */
-  fighter: (Fighter & { minded: Minded; body: PhysicalBody }) | null;
+  fighter: Combatant | null;
   /**
    * Where the body stands on the ground: its centre of mass over the floor; where its root lies,
    * limp; or where it waits unbuilt. A living body that is held reads where it stood, which is
@@ -204,9 +197,6 @@ interface DungeonRunOptions {
   readonly levels?: LevelRule;
 }
 
-/** The model's default equipment, applied only to a body that declares hands. */
-const equipped = (model: BodyModel): BodySpec => modelInfo(model).held === "club" ? armed(modelSpec(model), "right", woodenClub()) : modelSpec(model);
-
 export class DungeonRun {
   readonly map: DungeonMap;
   readonly commands = new DungeonCommands();
@@ -260,12 +250,12 @@ export class DungeonRun {
           return { x: c.x, z: c.z };
         },
         get alive() { return this.fighter === null || this.fighter.pool.ending() === null &&
-          (!modelInfo(this.model).fallEndsFight || !this.fighter.body.down); },
+          (!cryptModel(this.model).fallEndsFight || !this.fighter.body.down); },
         get limp() { return !this.alive && this.fighter!.body.level !== "full"; },
         get held() { return this.fighter?.body.level === "held"; },
         get vitality() { return this.fighter?.pool.bar() ?? 1; },
         target: null, home: { ...at }, lastSeen: null, alertedUntil: 0, route: [], goal: null, nextPlan: 0,
-        radius: modelInfo(model).radius, progress: { at: { ...at }, since: 0 },
+        radius: cryptModel(model).radius, progress: { at: { ...at }, since: 0 },
         order: IDLE, next: 0, post: null, replan: false, plan: { move: null, face: null, attack: null },
       };
       this.actors.push(actor); return actor;
@@ -275,7 +265,7 @@ export class DungeonRun {
     this.map.spawns.forEach((at, i) => this.enemies.push(create(`enemy-${i}`, enemyAt(this.map, options, i), at, "enemy")));
     const taken = [{ ...this.map.start, radius: this.hero.radius }];
     (options.companions ?? []).forEach((model, i) => {
-      const radius = modelInfo(model).radius, at = companionSpawn(this.map, taken, radius);
+      const radius = cryptModel(model).radius, at = companionSpawn(this.map, taken, radius);
       if (!at) throw new Error(`No floor beside the start for companion ${i + 1}`);
       taken.push({ ...at, radius }); this.party.push(create(`ally-${i}`, model, at, "party"));
     });
@@ -288,48 +278,30 @@ export class DungeonRun {
   /** Seconds since the run began: the world's clock. */
   get clock(): number { return this.world.time; }
 
-  /** Build `actor`'s body where it waits, give it its mind, and watch its blows with everybody's. */
+  /**
+   * Build `actor`'s body where it waits, holding what its model holds, under its model's mind with
+   * the assist its character's balance gives it, and watch its blows with everybody's. The mind
+   * carries out `actor`'s plan, which the run hands it as `Orders`, its target as the foe
+   * (`docs/reference/crypt-foe.md`): the
+   * plan's facing is for a fighter that stands, and one that walks faces its walk. It is asked only
+   * while its body is at `full` (`levels`).
+   */
   private build(actor: DungeonActor): void {
-    const spec = equipped(actor.model);
-    const built = buildBody(spec, this.world, { position: [actor.home.x, 0, actor.home.z] });
-    actor.fighter = { id: actor.id, side: actor.side, built, pool: createPool(spec, this.rules), ...this.drive(actor, built) };
+    const info = modelInfo(actor.model);
+    actor.fighter = enlist(this.world, {
+      id: actor.id, side: actor.side, spec: armedWith(modelSpec(actor.model), "right", info.held), at: [actor.home.x, 0, actor.home.z],
+      rules: this.rules, senses: this.senses, out: () => actor.fighter?.pool.ending() !== null && actor.fighter !== null,
+      mind: info.mind, name: `crypt ${actor.side}`,
+      orders: () => {
+        const { move, face, attack } = actor.plan;
+        return { move, face: move ? null : face, attack: null, ...(attack ? { foe: attack.id } : {}) };
+      },
+    });
     this.watch?.dispose();
     // The party first: a touch is read from the fighter given first (`watchBlows`), and the party's bodies are the fewer.
     const fighters = [...this.party, ...this.enemies].flatMap((a) => a.fighter ? [a.fighter] : []);
     this.watch = watchBlows(this.world, fighters, this.rules, (blow) => { this.blows.push(blow); this.options.onBlow?.(blow); });
     this.options.onBuilt?.(actor, this.world);
-  }
-
-  /**
-   * `built` under its model's default mind, with the assist its character's balance
-   * gives it. The mind carries out `actor`'s plan, which the run hands it as `Orders`: the plan's
-   * facing is for a fighter that stands, and one that walks faces its walk. It is asked only while
-   * its body is at `full` (`levels`).
-   */
-  private drive(actor: DungeonActor, built: BuiltBody): { minded: Minded; body: PhysicalBody } {
-    const assist = balanceCeiling(built.spec.attributes.balance.value, balancePercent(this.rules));
-    const mouth = new Vector3();
-    const sensed = this.senses.add({ id: actor.id, side: actor.side, built, out: () => actor.fighter?.pool.ending() !== null && actor.fighter !== null });
-    const minded = createMind(built, this.world, modelInfo(actor.model).mind, {
-      name: `crypt ${actor.side}`, assist, senses: sensed,
-      orders: senses => {
-        const { move, face, attack } = actor.plan, head = attack?.fighter?.body.physical.head;
-        if (modelInfo(actor.model).mind.kind === "quadruped" && attack) {
-          const target = senses.others.find(s => s.id === attack.id), segment = built.segments.get("head")!;
-          const from = pointOfToRef(segment, segment.spec.points!.mouth!.value, mouth);
-          let nearest: readonly [number, number, number] | null = null, distance = Infinity;
-          if (target) for (const part of target.spec.segments) {
-            const point = nearSurface(target, part.name, [from.x, from.y, from.z]);
-            if (!point) continue;
-            const dx = point[0] - from.x, dy = point[1] - from.y, dz = point[2] - from.z, squared = dx * dx + dy * dy + dz * dz;
-            if (squared < distance) { nearest = point; distance = squared; }
-          }
-          return { move, face: move ? null : face, attack: nearest };
-        }
-        return { move, face: move ? null : face, attack: head ? [head.x, head.y, head.z] : null };
-      },
-    });
-    return { minded, body: minded.body };
   }
 
   /**
@@ -418,7 +390,7 @@ export class DungeonRun {
   private follow(actor: DungeonActor, goal: Point): Point {
     const at = actor.feet();
     if (!actor.route.length || distance(at, actor.progress.at) > STALL_METRES) actor.progress = { at, since: this.clock };
-    else if (this.clock - actor.progress.since > modelInfo(actor.model).progressSeconds) {
+    else if (this.clock - actor.progress.since > cryptModel(actor.model).progressSeconds) {
       const route = findPath(this.map, at, goal, actor.radius);
       if (route.length) { actor.goal = { x: goal.x, z: goal.z }; actor.route = route; actor.nextPlan = this.clock + RUN_TIMING.replan; }
       actor.progress = { at, since: this.clock };
@@ -516,7 +488,7 @@ export class DungeonRun {
     }
     if (actor.target) {
       const targetAt = actor.target.feet();
-      return distance(at, targetAt) > modelInfo(actor.model).attackMetres ? this.follow(actor, targetAt) : null;
+      return distance(at, targetAt) > cryptModel(actor.model).attackMetres ? this.follow(actor, targetAt) : null;
     }
     if (order.kind === "lock" && actor.lastSeen) return this.follow(actor, actor.lastSeen);
     if (order.kind === "attack-move") {
@@ -550,7 +522,7 @@ export class DungeonRun {
   /** Where an enemy walks this step, or null when it is close enough to its target to fight: after what it saw, else home. */
   private enemyMovement(actor: DungeonActor): Point | null {
     const at = actor.feet();
-    if (actor.target && distance(at, actor.target.feet()) <= modelInfo(actor.model).attackMetres) return null;
+    if (actor.target && distance(at, actor.target.feet()) <= cryptModel(actor.model).attackMetres) return null;
     const goal = actor.target?.feet() ?? (actor.alertedUntil > this.clock ? actor.lastSeen : actor.home);
     return goal && distance(at, goal) > ARRIVAL.point ? this.follow(actor, goal) : { x: 0, z: 0 };
   }

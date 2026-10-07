@@ -11,7 +11,7 @@
  * minute of bout time, and the share of bouts that ended before any blow wounded. A count over one
  * bout is not a rate; the totals are read over all of them.
  *
- * - `--held` is what both sides' right hands hold (`DUEL_HELD`): the club unless given.
+ * - `--held` is what both sides' right hands hold (`HELD`): the club unless given.
  * - `--never-off` plays under a sever margin no blow reaches: a blunt blow empties a part and
  *   never takes it off.
  * - `--hand` plays with both hands' surfaces that many times as stiff, on both sides.
@@ -22,7 +22,7 @@
  *   ending decided would have gone on, and is counted apart.
  */
 import { parseArgs } from "node:util";
-import { DUEL_HELD } from "../src/arena/duel.ts";
+import { HELD } from "../src/core/items/held.ts";
 import { HUMANOID_MODELS } from "../src/core/models.ts";
 import { sourced } from "../src/core/spec/quantity.ts";
 import { BOUT_HARNESS } from "./bout.mjs";
@@ -34,7 +34,7 @@ const { values } = parseArgs({ options: {
   unit: { type: "string" },
 } });
 const gaps = values.gaps.split(",").map(Number), floors = values.floors?.split(",").map(Number) ?? [];
-if (!DUEL_HELD.includes(values.held)) throw new Error(`--held is one of ${DUEL_HELD.join(", ")}, not ${values.held}`);
+if (!HELD.includes(values.held)) throw new Error(`--held is one of ${HELD.join(", ")}, not ${values.held}`);
 const experiment = {
   ...(values.held !== "club" ? { held: { left: values.held, right: values.held } } : {}),
   ...(values["never-off"] || values.unit ? { rules: {

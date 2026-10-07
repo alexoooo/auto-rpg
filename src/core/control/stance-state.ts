@@ -74,7 +74,6 @@ interface StanceScratch {
   readonly along: Vector3;
   readonly sole: Vector3;
   readonly v: Vector3;
-  readonly spin: Vector3;
   readonly target: Quaternion;
   readonly pelvisSpin: Vector3;
   readonly turn: Vector3;
@@ -148,7 +147,7 @@ export function makeStance(built: BuiltBody, tuning: StanceTuning, assist: Assis
     bearing: makeBearing(assist, limbs, { root: state.aim.root, helped: state.helped, held: state.held, shortfall: state.reading.shortfall }),
     state,
     scratch: {
-      path: new Vector3(), along: new Vector3(), sole: new Vector3(), v: new Vector3(), spin: new Vector3(),
+      path: new Vector3(), along: new Vector3(), sole: new Vector3(), v: new Vector3(),
       target: new Quaternion(), pelvisSpin: new Vector3(), turn: new Vector3(),
       p: new Vector3(), hipAt: new Vector3(), ankleAt: new Vector3(), kneeAt: new Vector3(), shank: new Quaternion(),
       footTurn: new Quaternion(), level: new Quaternion(), whole: new Quaternion(), wholeAxis: new Vector3(),

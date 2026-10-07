@@ -48,8 +48,8 @@ refactoring along the way allowed.
     then the reading hook.
   - `hosting`: look first, then `wants` in rank order (it short-circuits), then release or end,
     then begin or resume.
-  - The humanoid reads down from the previous `standing` before its driver runs. Its down is
-    cached at look; the reptile's is read live.
+  - The humanoid reads down from the previous `standing` before its driver runs. Every body's down
+    is cached at look.
   - The reptile acts in this order: decide, withdraw, crawl, bite, paws in declared order,
     `tracker.step`, `motor.control`.
 - **Commit this plan** as `docs/plans/2026-10-07-core-cleanup.md`, keep it current, and delete it
@@ -318,6 +318,27 @@ fighters' state is reshaped.
   - `strike-hands.ts` is one switch over `Minded` with no quadruped special case.
   - The reptile's eye positions come from spec points.
 
+**As built (17, landed): one combatant path.** The Arena is bit-identical (the path fighters'
+state only reshaped); the two Crypt cases moved, and `docs/reference/crypt-foe.md` records why
+and the paired battery (32 seeds, the hero dead in 10 either way).
+- `enlist(world, {id, side, spec, at, rules, senses, solids?, out, mind, balance?, percent?, name,
+  orders, contactIdentity?})` takes the spec already armed, so the Arena's stiffened surfaces stay
+  the Arena's. The Lab actor does not enlist: it drives a body by a mode's script, with no pool,
+  senses or mind config.
+- A body's granted solids are a field of what the senses carry (`Sensed.solids`), not a copy of
+  its senses made by the Arena.
+- `HELD`, `heldItem` and `armedWith(spec, hand, held)` are in `src/core/items/held.ts`;
+  `armedWith` refuses a hand that cannot close on what it is given. The Arena's check before
+  building and the link's fallback (`readHeld`) stay, since both run before any spec is armed.
+- `Orders.foe` resolves in each controller through `aimedOrders(orders, senses, aim)`
+  (`targets.ts`): `highMark` for both fighters, `surfaceOn` from the mouth for the reptile.
+- `cryptModel` (`src/dungeon/actors.ts`) holds the Crypt's fields; `modelInfo` is
+  `{mind, held}`.
+- The HUD's controller is `controllerLabel(search, side)` (`matchup.ts`): the preset's name,
+  `(edited)` where the link's config differs from it (today `&guard=`).
+- `fighterHands` reads the strike report through one switch; a quadruped's hands relax as a
+  direct mind's do.
+
 ### Chunk 18: Arena controller settings panel and links (presets unchanged)
 
 - **Each controller declares its fields:** `Controller.fields` gives each field's label, options
@@ -338,6 +359,19 @@ fighters' state is reshaped.
 - **Tests:** the matchup round trip for each controller, an old `point-*` or `&guard=` link, and
   refused combinations. Check in the browser (preview port, kill by PID).
 
+**As built (18, landed): settings in the panel and the link.** No pose moved.
+- `src/core/mind/fields.ts` builds the fields (`choice`, `toggle`, `number`, `down`); a field's
+  `write` returns null for a value it does not take. `down` is the one sub-mind of `subs`.
+- `settled(control, setting)` (`matchup.ts`) applies a side's values to its preset and names the
+  faults; `linkedSettings` is what a link writes, faults and all, which the panel shows;
+  `readMinds` gives the preset where there is a fault. `settingsSearch` writes only a value that
+  differs from the preset, as its field reads it (`0.50` is written `0.5`). `readGuard` is gone:
+  an old `&guard=` is read under the side's own `guard` and never written.
+- The spacing's panel bounds (0 to 1 m, step 0 to 0.2 m) are numeric settings.
+- Checked in the browser on a preview port: a refused link shows its values and the fault, a
+  bout's link carries the settings and the HUD marks both sides edited, and a reptile's side hides
+  its settings.
+
 ### Chunk 19: one `Side` union (landed)
 
 ### Chunk 20: merges that move the lock (each an intended change, measured)
@@ -351,6 +385,36 @@ record:
 - **Reptile recovery readiness** uses `control/recovery-ready.ts` `recoveryReady` with the paws
   as supports, and the reptile's lie reading uses the shared one. Reptile cases move.
 - **One down timing for every body:** cached at look. The reptile's verdict step may move.
+
+**As built (20a, landed): one approach law, bit-identical.** `holdPose` already ran on the shared
+bearing solve (`makeBearing`, `carryRoot`, `limbMotion`, `bearLimbs`); what it copied was the
+critically damped goal. `control/approach.ts` holds it once: `approachToRef` for a point and
+`turnToRef` for a frame, which `holdPose` (centre, pelvis, anchored soles), the walking stance's
+pelvis and `supportedMotor` (centre, root, turned endpoints) ask by. The same operations in the
+same order, so no case moved: the lock against chunk 17, and a 2400-step front kick's trace before
+and after (both moved by a 1e-9 perturbation of the helper, so both run through it). The goals
+stay each caller's: a planted pose's free sole is damped at its rate and pressed down, a supported
+endpoint damped at twice its rate, and making them one would change the kick for sameness alone.
+The staged rise keeps its own turn, since it reads the steady spin again to know the turn is done.
+
+**As built (20b, landed): the club by `cylinderMoments`, bit-identical.** The club's two
+cylinders take their moments from the shared rule and move them to its centre; the moments come
+out the same to the bit (m (L/2)^2 / 3 and m L^2 / 12 round alike here), and the lock's seven club
+cases moved no pose.
+
+**As built (20c): no change, and why.** `recoveryReady` refuses any contact off the supports it
+is given, and a standing reptile rests its tail's tip on the ground at every step (11 s on the
+stand: the four paws and `tail.tip`, nothing else); it also has no height, which the crawl's
+handover needs. Naming the tail a support would put it in the support polygon the centre is held
+over. The reptile's gate stays its own (`recover.ts`), on the shared `groundContact`. The
+shared lie (`lieOf`) reads a humanoid's frame, a lying body's forward pointing up; the reptile's
+roll reads its own up, which is right for a body whose back is up.
+
+**As built (20d, landed): one down timing.** The reptile's body answers `down` from its view, read
+at its look, as a humanoid's does. No lock case moved (no reptile falls in them); a paired
+99-bout battery (`research/reptile-down.mjs`, `docs/reference/down-timing.md`) has the reptile
+down in the same 46 bouts both ways, each ended by its fall one step later, the winner and ending
+unchanged, and the other 53 the same to the step.
 
 ### Chunk 21: documents and figures
 

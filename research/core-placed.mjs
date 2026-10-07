@@ -23,8 +23,8 @@ const mean = (values) => values.length ? values.reduce((a, b) => a + b, 0) / val
 const shown = (value, digits) => value === null ? "-" : value.toFixed(digits);
 
 if (isMainThread) {
-  const [{ HUMANOID_MODELS: BODY_MODELS }, { LAB_HELD }, { PLACED }] = await Promise.all([
-    import("../src/core/models.ts"), import("../src/lab/scenarios.ts"), import("../src/core/skills/strike.ts")]);
+  const [{ HUMANOID_MODELS: BODY_MODELS }, { HELD }, { PLACED }] = await Promise.all([
+    import("../src/core/models.ts"), import("../src/core/items/held.ts"), import("../src/core/skills/strike.ts")]);
   const { values } = parseArgs({ options: {
     stretch: { type: "string", default: "0.8,0.9,1,1.1" }, seconds: { type: "string", default: "0.25,0.4,0.6" }, through: { type: "string", default: "0.1,0.15,0.25" },
     models: { type: "string", default: "workshop-fighter,workshop-rogue,crypt-skeleton" }, held: { type: "string", default: "empty,club" },
@@ -34,7 +34,7 @@ if (isMainThread) {
   const numbers = (list) => list.split(",").map(Number);
   const models = values.models.split(","), helds = values.held.split(","), seeds = numbers(values.seeds);
   for (const model of models) if (!BODY_MODELS.includes(model)) throw new Error(`--models names no body: ${model} (one of ${BODY_MODELS.join(", ")})`);
-  for (const held of helds) if (!LAB_HELD.includes(held)) throw new Error(`--held names nothing the lab holds: ${held} (one of ${LAB_HELD.join(", ")})`);
+  for (const held of helds) if (!HELD.includes(held)) throw new Error(`--held names nothing the lab holds: ${held} (one of ${HELD.join(", ")})`);
   const targets = Number(values.targets), hz = Number(values.hz);
   const cells = numbers(values.stretch).flatMap((stretch) => numbers(values.seconds).flatMap((seconds) => numbers(values.through).map((through) => ({ stretch, seconds, through }))));
   const jobs = cells.flatMap((placed, cell) => models.flatMap((model) => helds.flatMap((held) => seeds.flatMap((seed) =>

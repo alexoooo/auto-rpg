@@ -114,8 +114,12 @@ the impact literature for each part's stiffness under a blunt load (`CONTACT_STI
 | `reptile` | an independently authored 8 kg quadruped (`assets/reptile/body.json`) | 1 |
 
 `BODY_MODELS`, `modelSpec` and `modelInfo` (`src/core/models.ts`) own the model registry,
-construction, default minds, equipment and navigation footprints. What a body can do is read from
-its spec: `modelHolds` (a hand a haft lies across, `canHold`) and `modelSupportsMind`, which asks
+construction, and each model's default mind and what its right hand holds. What a hand may hold is
+one list (`HELD`, `src/core/items/held.ts`: nothing, or the wooden club), and `armedWith` puts it
+in a hand, refusing a hand that cannot close on it; the Arena, the Crypt, the Lab and the control
+tasks all read it. How the Crypt walks a model (its footprint, how near it fights, how long it
+waits on a stalled route, whether a fall ends its fight) is the Crypt's (`cryptModel`,
+`src/dungeon/actors.ts`). What a body can do is read from its spec: `modelHolds` (a hand a haft lies across, `canHold`) and `modelSupportsMind`, which asks
 the mind's controller (`Controller.fits`: `commandable` for both fighters, `quadrupedFits` for
 the quadruped, any body for direct control). How a model is shown, its label,
 clothing and shape tint, is the screens' (`MODEL_DISPLAY`, `src/render/models.ts`).
@@ -380,7 +384,7 @@ boundary and saved with the body; below full it retains that last sample. Game p
 and readiness stay in its own `BodyView`. When a body is down is its spec's rule (`BodySpec.down`,
 read by `uprightness`): a human by its height under the height it is asked, the reptile by its
 trunk's tilt and its height. The fighter's view reads it at the height its stance asks; every other
-mind's `physical.down` and `observe().down` read it at the standing height.
+mind's `physical.down` and `observe().down` read it at the standing height. A body answers `Body.down` as its mind read it at its look, before physics moves it, so a fight sees every body down at the same point in its step ([reference/down-timing.md](reference/down-timing.md)).
 
 Replacement policies use `createPolicyBody` (`mind/direct.ts`). They receive a frozen actuator
 description and detached, frozen `BodyObservation` snapshots (`observation.ts`), including joint
@@ -441,7 +445,11 @@ sub-minds nested configs in it (`SubMindConfig`), so a sub-mind is configured wh
 `createMind(built, world, config, wiring)` (`minds.ts`) makes a body's mind from one, wired to
 its fight (its orders, its senses, its assist's ceiling), and gives back a `Minded`: the body and
 the mind's memory, which is all a fight reads; a reader that knows the kind narrows on it (a
-fighter's skills and their report).
+fighter's skills and their report). A fight enlists each of its bodies the one way (`enlist`,
+`src/core/combatant.ts`): built where it stands with what it holds, its pool under the fight's
+rules, carried by the fight's senses with whatever fixed geometry they are granted, and under the
+mind its config makes with the assist its balance gives. The Arena and the Crypt both do; the Lab
+drives a body by a mode's script rather than a fight's mind.
 
 **A kind of mind is a controller** (`CONTROLLERS`, `controllers.ts`), a mapped type over the
 kinds, so a kind without one does not compile: it says which bodies it fits (`fits`), names
@@ -457,7 +465,22 @@ experiment's settings, which never travel in a link. The recipe fighter's are `g
 attacks (`hands`), its blows (`strikes`), the surface it favours (`prefers`), its defence,
 whether it kicks and fights on the ground, its combinations and its spacing; they are merged
 with its tuning once into the settings its tactics and its skills share (`resolvePath`), and its
-presets are `COMBAT`, `BRAWLER`, `SCRAPPER` and `KICKER`. There are three sub-minds, each of which wants the body while it is down
+presets are `COMBAT`, `BRAWLER`, `SCRAPPER` and `KICKER`.
+
+**A controller names the settings a person may change** (`Controller.fields`, built from
+`fields.ts`'s `choice`, `toggle`, `number` and `down`): each field's label, the values it takes
+or its range, and how it reads and writes a config. The recipe fighter's are its three player
+fields and what it does when down; the path fighter's are its player fields and the same; the
+quadruped has none yet. The fields alone drive the Arena's settings panel under each side's
+controller, the link (`&left.<key>=`, `&right.<key>=`, written by `settingsSearch` only where a
+value differs from the preset) and its reading (`readMinds`, `settled` in `src/arena/matchup.ts`):
+a value a field does not take keeps the preset's, a config its controller names a fault in is the
+preset whole (the panel shows the fault), and an old link's `&guard=` sets each recipe fighter's
+guard where its side's own is not given. A bout's HUD names the preset, `(edited)` where the
+link changes it (`controllerLabel`). A tape's link carries its settings, so a replay drives the
+same minds.
+
+There are three sub-minds, each of which wants the body while it is down
 (`BodyView.down`), and the body hands each maker its world (`SubMindMaker`): `lie` (`lying`,
 `lie.ts`), which asks its muscles for nothing, `staged-rise` (`stagedRise`, `rise/staged.ts`),
 the riser, and `support-recovery` (`supportRecovery`), the riser followed by a quiet standing
@@ -498,7 +521,9 @@ to them through the skills.
 
 Each fighter's tactics carry out `Orders` (`orders.ts`): a direction to walk, a direction to
 face and a point to attack, each or none, in the world's frame, as plain data naming no joint,
-pace or camera. Each step the tactics ask for the orders, with what the body sees. Walking and
+pace or camera; or, in place of the point, a sensed foe by its id (`Orders.foe`), on which the
+mind finds its own point as it senses it (`aimedOrders`, `targets.ts`): a fighter the foe's
+high mark (`highMark`), the reptile the nearest point of its surface (`surfaceOn`). Each step the tactics ask for the orders, with what the body sees. Walking and
 facing are one part both fighters share (`orderedIntent`, `ordered.ts`), as are the hand that
 does not attack (`guarding`) and whom and where they aim (`targets.ts`: the nearest foe,
 `nearestFoe`; the nearest surface, `nearestSurface`; how a fallen foe lies, `lyingAxis`), read by
@@ -517,8 +542,8 @@ pose, or by a cover of what threatens its head. The threat is read from the sens
 `threat.ts`): of the other sides' bodies still in the fight, the point each hand strikes with
 (its knuckles, or its club's swell) that closes fastest on the head, within `THREAT`'s distance
 and over its speed. What is sensed is as old as the senses' delay, and nothing corrects for it.
-Every body's fighter guards in the pose (`RECIPE_FIGHTER`); an arena link's `&guard=cover` gives both
-sides the cover ([reference/blows.md](reference/blows.md#covering-searched)).
+Every body's fighter guards in the pose (`RECIPE_FIGHTER`); an Arena side's `guard` setting
+(`&left.guard=cover`) gives it the cover ([reference/blows.md](reference/blows.md#covering-searched)).
 
 Orders come from three places. An arena side nobody has taken makes its own (`seekFoe`): from
 its senses it picks the nearest body of another side still in the fight, walks at it, and attacks
@@ -533,7 +558,7 @@ stands in its own blow's window from where it stands, or when it has stood there
 Every body's fighter walks in (`RECIPE_FIGHTER.range`). A side a person has taken is
 given the person's (`Duel.order`) and does only what it is ordered, until it is handed back or is
 out of the fight. In the crypt the run plans for its fighters with the map (`DungeonRun`) and
-hands each its plan as orders, with its target's head; its bodies sense the clock alone. Each
+hands each its plan as orders, its target as the foe; its bodies sense each other, with no delay. Each
 body's level is the levels' rule's (`levelsOf`, the run's `LEVELS`): one out of the fight goes
 limp, its assist withdrawn; an enemy waiting at its home with the party far off is held, fixed
 where it stands with nothing driving it, until the party nears; and the dead are held where they
@@ -876,7 +901,7 @@ file or a link gives the orders the bout gave.
 
 A tape rides in a link's fragment, which no server is sent (`#tape=`, `readTape` and `tapeHash`
 in `src/arena/matchup.ts`), with the rest of its recipe in the link's query (`&gap=`, `&cap=`,
-`&balance=`, `&guard=`). The arena plays a bout whose link carries a tape with nobody at the keys, and a
+`&balance=`, each side's settings). The arena plays a bout whose link carries a tape with nobody at the keys, and a
 tape made in Node plays its bout in a browser.
 
 **A bout forks** (`rollout`, `research/rollouts.mjs`) by a load: a bout of the recipe, which the
@@ -968,7 +993,8 @@ physics, rejecting stale asynchronous loads and preserving current clothing and 
 `strike-hands.ts` adapts the active command owner's strike report to `hand-pose.ts`, the shared
 finger presentation controller. Arena, Crypt, Lab Routine and Lab Blow advance it after each
 simulation step; skins only read closure. Empty hands close during chambering, remain fists
-during swings and relax during return or interruption. Held-item grips take precedence.
+during swings and relax during return or interruption; a mind that strikes with no hand, or
+drives joints directly, leaves them relaxed. Held-item grips take precedence.
 Presentation belongs to the character rather than its replaceable skin and owns no physical
 state. Lab history records closure beside the body's transforms for scrubbing and replay;
 paused rendering advances neither. Timing: [fist presentation](reference/lab.md#fist-presentation).

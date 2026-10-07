@@ -27,7 +27,8 @@
  */
 import { appendFileSync, readFileSync } from "node:fs";
 import { parseArgs } from "node:util";
-import { DUEL_HELD, SIDES } from "../src/arena/duel.ts";
+import { SIDES } from "../src/arena/duel.ts";
+import { HELD } from "../src/core/items/held.ts";
 import { HUMANOID_MODELS } from "../src/core/models.ts";
 import { RECIPE_FIGHTER } from "../src/core/mind/config.ts";
 import { BAND_NAMES, netsOf, recipesFor, REPERTOIRE } from "../src/core/skills/strikes.ts";
@@ -41,14 +42,14 @@ const { values } = parseArgs({ options: {
   workers: { type: "string" }, save: { type: "string" }, load: { type: "string" },
 } });
 const bouts = Number(values.bouts), from = Number(values.from), helds = values.held.split(","), models = values.models.split(",");
-for (const held of helds) if (!DUEL_HELD.includes(held)) throw new Error(`--held is of ${DUEL_HELD.join(", ")}, not ${held}`);
+for (const held of helds) if (!HELD.includes(held)) throw new Error(`--held is of ${HELD.join(", ")}, not ${held}`);
 for (const model of models) if (!HUMANOID_MODELS.includes(model)) throw new Error(`--models names no body: ${model} (one of ${HUMANOID_MODELS.join(", ")})`);
 
 /** The gaps the bouts start at, m: from `GAPS.least`, over `GAPS.span`, to a tenth of a millimetre. */
 const GAPS = { least: 3, span: 2 }, GOLDEN = (Math.sqrt(5) - 1) / 2;
 const gapOf = (seed) => Math.round(1e4 * (GAPS.least + GAPS.span * (((seed + 0.5) * GOLDEN) % 1))) / 1e4;
 
-/** What a bout's right hands hold (`DUEL_HELD`), by the name a recipe knows it by. */
+/** What a bout's right hands hold (`HELD`), by the name a recipe knows it by. */
 const HELD_NAME = { club: "wooden club", empty: "fist" };
 
 /** What `model`'s right hand nets by band with `held`, and the band it aims at under `"pays"`: the first of those that net most, the high one with none. */

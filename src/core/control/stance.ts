@@ -16,6 +16,7 @@ import {
 import { cos, atan2, exp, sinh, cosh, hypot } from "../math/real.ts";
 import type { Side } from "../spec/body.ts";
 import { spinBetweenToRef, turnAboutToRef, turnBetweenToRef } from "../math/turn.ts";
+import { approachToRef, turnToRef } from "./approach.ts";
 
 /**
  * **What a stance is asked for**: which feet bear the body, where its centre of mass goes, and which
@@ -328,14 +329,6 @@ function shiftWeight(s: Stance, swing: SwingGoal | null, bearer: FootState | und
   }
 }
 
-/** The pelvis's asked turn, into `spin`: toward upright at `heading`, the error over the time constant. */
-function pelvisTurn(s: Stance, heading: number): void {
-  const { pelvis } = s, { seconds } = s.tuning, { target, spin } = s.scratch;
-  turnAboutToRef(Vector3.UpReadOnly, heading, target);
-  target.multiplyInPlace(pelvis.rest);
-  spinBetweenToRef(pelvis.node.rotationQuaternion!, target, seconds.turn, spin);
-}
-
 /**
  * The swing: `swing`'s foot's sole carried along its path, its turn carried from the one it left
  * the ground with to flat and facing `heading` as it lands; the step ends as it lands.
@@ -456,17 +449,15 @@ function advancePlan(s: Stance, goal: StanceGoal, stance: readonly FootState[], 
 
 /**
  * The root's aims. Its angular acceleration: toward upright at `heading`, critically damped at the
- * turn's constant (`spin` is the error's angle over it). The centre of mass's: the plan's (`planned`),
+ * turn's constant (`turnToRef`). The centre of mass's: the plan's (`planned`),
  * its errors from the plan taken up critically damped at the rate `e`, one over `STANCE_TRACK`.
  * `height` is the centre of mass's over the stance soles.
  */
 function aimRoot(s: Stance, heading: number, planned: readonly [number, number, number], height: number, e: number): void {
-  const { pelvis } = s, { aim, plan, reading } = s.state, { seconds } = s.tuning, { spin, pelvisSpin } = s.scratch;
+  const { pelvis } = s, { aim, plan, reading } = s.state, { seconds } = s.tuning, { target, pelvisSpin } = s.scratch;
   const r = plan.at, u = plan.velocity, c = reading.centre, vel = reading.velocity, [ax, ay, az] = planned;
-  pelvisTurn(s, heading);
-  pelvis.body.angularVelocityToRef(pelvisSpin);
-  const q = 1 / seconds.turn;
-  aim.spin.copyFrom(spin).scaleInPlace(q).subtractInPlace(pelvisSpin.scaleInPlace(2 * q));
+  turnAboutToRef(Vector3.UpReadOnly, heading, target).multiplyInPlace(pelvis.rest);
+  turnToRef(pelvis.node.rotationQuaternion!, target, seconds.turn, pelvis.body.angularVelocityToRef(pelvisSpin), aim.spin);
   aim.centre.set(ax + e * e * (r.x - c.x) + 2 * e * (u.x - vel.x), ay + e * e * (r.y - height) + 2 * e * (u.y - vel.y),
     az + e * e * (r.z - c.z) + 2 * e * (u.z - vel.z));
   aim.on = true;
@@ -653,14 +644,11 @@ function holdPose(s: Stance, goal: StanceGoal, pose: NonNullable<StanceGoal["pos
   state.step.swing = null; state.stride = null; state.striding = null; state.pace.fill(0);
   const c = reading.centre, v = reading.velocity, p = reading.support;
   const [x, z] = goal.centre ? withinSupport(bearing.map(bearingOf), goal.centre[0], goal.centre[1], s.tuning.inset) : [p.x, p.z];
-  aim.centre.set(n * n * (x - c.x) - 2 * n * v.x, n * n * (p.y + goal.height - c.y) - 2 * n * v.y,
-    n * n * (z - c.z) - 2 * n * v.z);
+  approachToRef(s.scratch.p.set(x, p.y + goal.height, z), c, v, n, aim.centre);
   turnAboutToRef(Vector3.UpReadOnly, goal.heading, s.scratch.target);
   turnAboutToRef(s.scratch.wholeAxis.set(1, 0, 0), pose.pitch, s.scratch.footTurn);
   s.scratch.target.multiplyInPlace(s.scratch.footTurn).multiplyInPlace(pelvis.rest);
-  spinBetweenToRef(pelvis.node.rotationQuaternion!, s.scratch.target, pose.seconds, s.scratch.spin);
-  pelvis.body.angularVelocityToRef(s.scratch.pelvisSpin);
-  aim.spin.copyFrom(s.scratch.spin).scaleInPlace(n).subtractInPlace(s.scratch.pelvisSpin.scaleInPlace(2 * n));
+  turnToRef(pelvis.node.rotationQuaternion!, s.scratch.target, pose.seconds, pelvis.body.angularVelocityToRef(s.scratch.pelvisSpin), aim.spin);
   aim.on = true;
   for (const foot of bearing) {
     foot.memory.rolled = false;
@@ -672,11 +660,9 @@ function holdPose(s: Stance, goal: StanceGoal, pose: NonNullable<StanceGoal["pos
     const anchor = pose.anchors?.[foot.side];
     if (anchor) {
       motionAtToRef(foot.segment, foot.middle, s.scratch.v, s.scratch.pelvisSpin);
-      task.linear.set(n * n * (anchor.position[0] - foot.middle.x), n * n * (anchor.position[1] - foot.middle.y),
-        n * n * (anchor.position[2] - foot.middle.z)).subtractInPlace(s.scratch.v.scaleInPlace(2 * n));
+      approachToRef(s.scratch.p.set(...anchor.position), foot.middle, s.scratch.v, n, task.linear);
       s.scratch.target.set(...anchor.rotation).multiplyInPlace(foot.segment.rest);
-      spinBetweenToRef(foot.segment.node.rotationQuaternion!, s.scratch.target, pose.seconds, s.scratch.spin);
-      task.angular.copyFrom(s.scratch.spin).scaleInPlace(n).subtractInPlace(s.scratch.pelvisSpin.scaleInPlace(2 * n));
+      turnToRef(foot.segment.node.rotationQuaternion!, s.scratch.target, pose.seconds, s.scratch.pelvisSpin, task.angular);
     }
     task.on = true; task.bearing = true;
     for (const i of foot.memory.channels) state.owned[i] = 1;

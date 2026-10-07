@@ -95,3 +95,38 @@ export function combatLeague(runs) {
  }
  return {version:1,duplicatePairs,seasons:[...seasons.values()].map(s=>({fingerprint:s.fingerprint,groups:combatGroups(s.rows)}))};
 }
+
+/** The candidate's score in `rows` where it stood on `side`. */
+function sideScore(rows, side) {
+  const own = rows.filter((row) => row.candidateSide === side);
+  return own.reduce((sum, row) => sum + (row.result.verdict.winner === null ? 0.5 : row.result.verdict.winner === side ? 1 : 0), 0) / own.length;
+}
+
+/** Cohen's d of the candidate's bar less its opponent's, a pair's two mirrors averaged. */
+function barMarginD(rows) {
+  const pairs = new Map();
+  for (const row of rows) {
+    const side = row.candidateSide, other = side === "left" ? "right" : "left";
+    (pairs.get(row.pair) ?? pairs.set(row.pair, []).get(row.pair)).push(row.result.sides[side].bar - row.result.sides[other].bar);
+  }
+  const margins = [...pairs.values()].map(([a, b]) => (a + b) / 2), n = margins.length;
+  const mean = margins.reduce((sum, v) => sum + v, 0) / n;
+  const sd = Math.sqrt(margins.reduce((sum, v) => sum + (v - mean) * (v - mean), 0) / (n - 1));
+  return sd > 0 ? mean / sd : null;
+}
+
+/** One row of a battery's table: `rows`, one group of mirrored pairs, rated as the club check and the presets battery report it. */
+export function combatCell(name, rows) {
+  const rating = combatRating(rows), groups = combatGroups(rows);
+  if (groups.length !== 1) throw new Error(`a combat cell needs one group, not ${groups.length}`);
+  const [group] = groups;
+  const left = sideScore(rows, "left"), right = sideScore(rows, "right");
+  const falls = rows.reduce((sum, row) => {
+    const side = row.candidateSide, other = side === "left" ? "right" : "left";
+    return [sum[0] + row.result.sides[side].falls, sum[1] + row.result.sides[other].falls];
+  }, [0, 0]);
+  return {
+    name, bouts: rating.bouts, score: rating.score, score95: rating.score95, left, right, split: Math.abs(left - right),
+    damageDelta: group.pairedDamageDelta, d: barMarginD(rows), endings: group.endings, falls,
+  };
+}

@@ -11,7 +11,7 @@ import { TransformNode } from "@babylonjs/core/Meshes/transformNode.js";
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { ARENA_POSTS, addArenaSolids, arenaSolids } from "../src/arena/room.ts";
 import { CAP_SECONDS, Duel } from "../src/arena/duel.ts";
-import { DEFAULT_MATCHUP, matchupSearch, readBalance, readCap, readGap, readGuard, readHeld, readMatchup, readTape, readYou, tapeHash, youSearch } from "../src/arena/matchup.ts";
+import { DEFAULT_MATCHUP, matchupSearch, readBalance, readCap, readGap, readHeld, readMatchup, readTape, readYou, tapeHash, youSearch } from "../src/arena/matchup.ts";
 import { ORBIT, orbitPosition } from "../src/arena/orbit.ts";
 import { aimPoint, keysToMove, personOrders } from "../src/arena/orders-input.ts";
 import { stanceEnvelope } from "../src/core/control/stance-envelope.ts";
@@ -46,11 +46,6 @@ test("an_arena_link_names_its_matchup_and_a_malformed_one_falls_back", () => {
     [{ left: 5, right: 2 }, { left: 5, right: 5 }, { left: 0, right: 20.5 }, { left: 5, right: 2 }]);
   assert.deepEqual(["", "?balance=", "?balance=5,", "?balance=,5", "?balance=-1", "?balance=5,-1", "?balance=1,2,3", "?balance=many", "?balance=Infinity"].map(readBalance),
     Array(9).fill(undefined));
-  // How both sides guard: the fighter with that guard on each side, or nothing said.
-  const covering = { ...RECIPE_FIGHTER, guard: "cover" };
-  assert.deepEqual(readGuard("?play=arena&guard=cover"), { left: covering, right: covering });
-  assert.deepEqual(readGuard("?guard=pose"), { left: { ...RECIPE_FIGHTER, guard: "pose" }, right: { ...RECIPE_FIGHTER, guard: "pose" } });
-  assert.deepEqual(["", "?guard=", "?guard=shield", "?guard=cover,pose", "?guard=Cover"].map(readGuard), Array(5).fill(undefined));
 });
 
 test("a_tape_rides_in_a_link's_fragment", () => {
@@ -283,7 +278,7 @@ test("a_side's_right_hand_holds_the_club_unless_its_recipe_empties_it", async ()
   assert.deepEqual(await built({}), [[["hand.right", "wooden club"]], [["hand.right", "wooden club"]]]);
   assert.deepEqual(await built({ held: { left: "empty", right: "club" } }), [[], [["hand.right", "wooden club"]]]);
   assert.deepEqual(await built({ held: { left: "club", right: "empty" } }), [[["hand.right", "wooden club"]], []]);
-  await assert.rejects(built({ held: { left: "sword", right: "club" } }), /a bout's hand holds nothing called sword/);
+  await assert.rejects(built({ held: { left: "sword", right: "club" } }), /a hand holds nothing called sword/);
   // Two with nothing in their hands fight with them: a blow between them has no item in it, and each side of it is wounded.
   const row = await playBout({ left: "workshop-fighter", right: "workshop-rogue", gap: 3, held: { left: "empty", right: "empty" } }, 30, [], { blows: true });
   assert.ok(row.landed.length > 0, "the fixture's two meet");
