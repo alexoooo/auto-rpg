@@ -32,10 +32,11 @@ test('the selectable Arena profile completes either-foot native strikes and keep
   assert.equal(ARENA_SCRAPPER.kicks,undefined);
   for(const side of ['left','right']){
     const row=await combatTrial({left:side==='left'?ARENA_KICKER:'scrapper',right:side==='right'?ARENA_KICKER:'scrapper',
-      recipe:{capSeconds:45},tape:[{step:0,side:side==='left'?'right':'left',orders:STAND_ORDERS}]});
+      recipe:{capSeconds:90},tape:[{step:0,side:side==='left'?'right':'left',orders:STAND_ORDERS}]});
     const r=row.sides[side];assert.equal(r.falls,0);assert.deepEqual(r.assist,{force:0,moment:0});
     assert.equal(r.kicks.failed,0);assert.ok(r.kicks.returned.left>=1&&r.kicks.returned.right>=1,JSON.stringify(r));
     assert.ok(r.nativeKickContacts>=1&&r.nativeKickDamage>0,JSON.stringify(r));
+    assert.ok(r.drivenKicks>=1&&r.kickDamage>0,JSON.stringify(r));
   }
 });
 

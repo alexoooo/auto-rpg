@@ -56,10 +56,11 @@ material peak. Refining the rate produces multi-kilonewton bins without demonstr
 strong human punch.
 
 The **compliant face** makes the pad collider a sensor and applies an equal/opposite physical
-force to each contacting capsule and the pad. The plane uses the capsule's actual world
-endpoints and radius, not a cosmetic fist or a teleported hand. Its finite rectangular face
-admits the foremost capsule point; this is a normal material fixture, not a general rounded-edge
-contact solver. Compression gives `max(0, stiffness * penetration + damping * relative speed)`.
+force to actual live collision surfaces and the pad. The recorded battery's source fingerprint
+uses foremost capsule-point admission. The current meter clips capsule, sphere, box and hull
+surfaces to its finite window, including partial face overlaps, as specified in
+[trained-attack-force.md](trained-attack-force.md). It remains a normal material fixture.
+Compression gives `max(0, stiffness * penetration + damping * relative speed)`.
 Default face stiffness is 10,000 N/m and damping 20 N s/m; sensitivity cells use 5,000 and
 20,000 N/m. Load is resisted through ordinary articulated physics and bounded muscles.
 

@@ -70,14 +70,15 @@ a faster profile. This does not establish trained-adult force parity.
 
 | Swing / terminal request | Left hit / miss / block | Right hit / miss / block | Selection |
 | --- | --- | --- | --- |
-| 0.4 s / 2 m/s | pass / pass / pass | pass / pass / pass | retained |
-| 0.35 s / 2.5 m/s | pass / pass / pass | pass / failed return / pass | rejected |
-| 0.3 s / 3 m/s | failed impact/return / pass / pass | pass / pass / pass | rejected |
+| 0.4 s / 2 m/s | pass / pass / pass | pass / pass / pass | stand reference |
+| 0.35 s / 2.5 m/s | failed impact/return / pass / pass | failed impact/return / failed return / pass | rejected |
+| 0.3 s / 3 m/s | pass / pass / pass | pass / pass / pass | Arena profile |
 
-At the retained setting the four clean left impacts deliver 8.065, 1.970, 7.277
-and 2.914 N s; the right delivers 8.240, 7.438, 7.678 and 7.721 N s. Per-step peak
-forces span 145-321 N on the left and 278-311 N on the right in this apparatus.
-These are low shin-height contacts, with substantial left-side variability.
+At the conservative setting the four clean left impacts deliver 8.031, 7.408, 6.937
+and 7.182 N s; the right delivers 8.403, 7.423, 7.224 and 7.313 N s. Per-step peak
+forces span 223-250 N on the left and 206-243 N on the right in this apparatus.
+These are low shin-height contacts. The clipped-window meter supplies continuous
+partial-surface loads instead of dropping them when a foremost corner misses the face.
 
 ## Arena selection
 
@@ -98,18 +99,30 @@ observed COM speed above 0.15 m/s. The executor still withdraws and lands before
 ordinary combat resumes. Either foot can be selected; the reference policy alternates
 after each finished request.
 
+The Arena profile selects the six-cell qualified 0.3 s / 3 m/s candidate; the
+stand's `KICK_PATH` remains the conservative 0.4 s / 2 m/s reference. The
+faster profile's mean clean stand impulses are 10.759 N s left and 10.517 N s
+right, compared with 7.389 and 7.591 N s for the conservative profile, under
+the same Node apparatus, 120 Hz, symmetric actuation and balance 0. This is a
+trajectory improvement, with unchanged anatomy. These means include every
+eligible complete hit in the fixed 24 s trial and do not claim human parity.
+
 The selector samples the actual collider side or outward rounded cap. An inward
 cap normal is projected onto the cylindrical side, preventing an interior target.
 It ranks surfaces from the attacking foot and corrects lateral approach error.
 
 `arena-front-kicks.json.gz` records Node Arena Duel, same engine/rate/loadout,
-both sides' balance 0, 45 s, mirrored stationary-defender trials and self-play.
+both sides' balance 0, 90 s, mirrored stationary-defender trials and self-play.
 Stationary trials complete both feet's returns, record native foot wounds and
-remain standing. The retained strong-hit test still requires at least 1 m/s native
+remain standing. The retained strong-hit test requires at least 1 m/s native
 closing and 0.5 m/s COM-relative effector motion along the normal. Lower-speed
 native foot contacts are recorded separately and never counted as strong attacks.
-The mirrored stationary trials record 2 and 4 such contacts, respectively, and
-zero strong kicks. Self-play completes zero kick cycles under the quiet-foe gate.
+The mirrored faster-profile trials record 5 and 4 strong kicks, respectively,
+with no falls or failed kick cycles. Each returns the left foot once and right
+foot twice; another cycle can remain active at the bout cap. The conservative
+profile's earlier 45 s rows remain in `arena-front-kicks-reference.json.gz` and
+record zero strong kicks; different bout lengths are not a contact-rate comparison.
+Self-play completes zero kick cycles under the quiet-foe gate.
 The quiet-opponent gate rarely admits kicks in self-play. This profile establishes
 integration and a narrow physical capability, not stronger competitive combat.
 Orders, real falls, recovery takeover and bit-exact fresh-world Arena replay have
