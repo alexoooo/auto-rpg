@@ -47,8 +47,8 @@ improve the tested cases, not every downed pose or approach direction.
 
 ## Arena integration
 
-`ARENA_SCRAPPER_REFERENCE` extends retained `ARENA_BRAWLER` with `groundGame: true`;
-research names it `scrapper-v1`. Playable `ARENA_SCRAPPER` retains that profile after
+`ARENA_SCRAPPER_REFERENCE` extends retained `BRAWLER` with `ground: true`;
+research names it `scrapper-v1`. Playable `SCRAPPER` retains that profile after
 standing/low admission rejects the spacing and heading-ceiling candidates below. The selectable
 Scrapper controller, recipe links, snapshots and research runner all use `combatTactics`
 and the same supported executor. Its policy memory, route, deadlines and active hand are

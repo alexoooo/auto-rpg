@@ -4,7 +4,7 @@ import { createBody, SERVO_SECONDS } from '../src/core/body.ts';
 import { modelSpec } from '../src/core/models.ts';
 import { GUARD } from '../src/core/skills/guard.ts';
 import { attackPath, ATTACK_PATH } from '../src/core/skills/attack-path.ts';
-import { ARENA_FIGHTER } from '../src/core/mind/config.ts';
+import { COMBAT } from '../src/core/mind/config.ts';
 import { STAND_ORDERS } from '../src/core/mind/orders.ts';
 import { loadEngine, DEFAULT_ENGINE } from '../src/core/engine/engines.ts';
 import { combatStrike } from '../research/combat-strikes.mjs';
@@ -124,7 +124,7 @@ test('combat self-play takes initiative and breaks prolonged hand pressure witho
 
 test('explicit orders suppress pursuit and a fresh-world combat fork preserves the whole strike and return', async () => {
  const recipe={left:'workshop-fighter',right:'workshop-fighter',held:{left:'empty',right:'empty'},balance:{left:0,right:0},
-  minds:{left:ARENA_FIGHTER,right:ARENA_FIGHTER},recoverySeconds:null,capSeconds:30};
+  minds:{left:COMBAT,right:COMBAT},recoverySeconds:null,capSeconds:30};
  const a=await buildBout(recipe,{physicsEngine:await loadEngine(DEFAULT_ENGINE)});
  const b=await buildBout(recipe,{physicsEngine:await loadEngine(DEFAULT_ENGINE)});
  try {

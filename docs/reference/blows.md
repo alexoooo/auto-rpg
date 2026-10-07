@@ -927,7 +927,7 @@ The bar: covering saves the head at d over 0.2 in 4 of 16 cells, and in 1 of the
   and 0.97, and loses 0.174 and 0.141 HP where it lost 0.134 and 0.140.
 - **Bare-handed there is nothing to save.** A head loses 0.000 to 0.098 HP a bout to bare hands
   either way, and the pooled d is -0.08 and 0.01.
-- **Fighters go on in the pose** (`FIGHTER.guard`). The cover is a skill a config asks for
+- **Fighters go on in the pose** (`RECIPE_FIGHTER.guard`). The cover is a skill a config asks for
   (`&guard=cover` on the arena's address); why it does not save the head is in
   [How late a cover is](#how-late-a-cover-is).
 
@@ -1283,7 +1283,7 @@ The bar: covering saves the head at d over 0.2 in 9 of 32 cells, and in 5 of the
   3.5 to 4.25 m, it lands on its head, at 89 to 112 J. The Rogue's club blow, which the test
   throws from 3, 4 and 5 m, lands first on the head in the pose and on a hand or the club
   covering.
-- **Fighters go on in the pose** (`FIGHTER.guard`).
+- **Fighters go on in the pose** (`RECIPE_FIGHTER.guard`).
 
 ## Aim
 
@@ -1387,7 +1387,7 @@ two sets' records as one of 64:
   1190 and 1254 s on 26 and 24 worker threads, so 384 gaps a cell are 4 h, and a second set on
   fresh gaps (`--from 384`) 4 h more. They have not been played.
 
-`FIGHTER.aim` is `"head"`.
+`RECIPE_FIGHTER.aim` is `"head"`.
 
 ## Robustness
 

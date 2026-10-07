@@ -12,7 +12,7 @@ import { centreOfToRef, footStatesOf } from "../src/core/control/support.ts";
 import { armed } from "../src/core/human/grip.ts";
 import { HUMANOID_MODELS, modelSpec } from "../src/core/models.ts";
 import { woodenClub } from "../src/core/items/club.ts";
-import { FIGHTER } from "../src/core/mind/config.ts";
+import { RECIPE_FIGHTER } from "../src/core/mind/config.ts";
 import { standIntent } from "../src/core/mind/intent.ts";
 import { embody } from "../src/core/mind/mind.ts";
 import { DOWN } from "../src/core/mind/rise/limbs.ts";
@@ -190,7 +190,7 @@ test("a body asked to hold itself low is not down at that height", async () => {
    */
   const folded = async (asked) => {
     const stand = await coreStand(warrior, { ground: false, pinned: "lowerTrunk" });
-    const body = createBody(stand.built, stand.world, { servoSeconds: SERVO_SECONDS, subs: subMindsOf(FIGHTER.subs) });
+    const body = createBody(stand.built, stand.world, { servoSeconds: SERVO_SECONDS, subs: subMindsOf(RECIPE_FIGHTER.subs) });
     try {
       const upright = uprightness(stand.built), { standing } = upright;
       const stance = Object.freeze({ feet: Object.freeze([]), centre: null, height: asked(standing), heading: 0, walk: null });

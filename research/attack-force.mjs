@@ -6,7 +6,7 @@ import {punchCalibration,coarseForces} from './punch-calibration.mjs';
 import {frontKickCalibration} from './front-kicks.mjs';
 import {combatFingerprint} from './arena-combat.mjs';
 import {PLANTED_PUNCH_EXECUTION} from '../src/core/skills/combat.ts';
-import {ARENA_KICKER} from '../src/core/mind/config.ts';
+import {ARENA_KICKS} from '../src/core/mind/config.ts';
 
 /** Primary studies and incompatible protocols: docs/reference/trained-attack-force.md. */
 export const TRAINED_ATTACKS=Object.freeze({
@@ -102,7 +102,7 @@ async function measure(job) {
  const result=job.kind==='punch'?await punchCalibration({hand:job.limb,family:job.family,hz:job.hz,actuation:job.actuation,
   seconds:FORCE_PROTOCOL.punchSeconds,armExtension:.5,execution:PLANTED_PUNCH_EXECUTION,matchedFeedback:true,
   paths:{elbowExtension:.5},pad:{face:'compliant'}}):await frontKickCalibration({foot:job.limb,hz:job.hz,
-   seconds:FORCE_PROTOCOL.kickSeconds,actuation:job.actuation,tuning:ARENA_KICKER.kicks});
+   seconds:FORCE_PROTOCOL.kickSeconds,actuation:job.actuation,tuning:ARENA_KICKS});
  return {...job,result,summary:forceSummary(result,job.kind)};
 }
 

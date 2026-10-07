@@ -43,7 +43,9 @@ interface FighterMind extends MindedBody {
  */
 export type Minded = FighterMind | (MindedBody & { readonly kind: "direct" }) | (MindedBody & { readonly kind: "quadruped" });
 
-/** `built` under the mind `config` names, wired to its fight, made by its controller (`CONTROLLERS`). */
+/** `built` under the mind `config` names, wired to its fight, made by its controller (`CONTROLLERS`); a config with a fault is refused. */
 export function createMind(built: BuiltBody, world: World, config: MindConfig, wiring: MindWiring): Minded {
-  return controllerOf(config).create(built, world, config, wiring);
+  const controller = controllerOf(config), fault = controller.faults(config)[0];
+  if (fault) throw new Error(fault);
+  return controller.create(built, world, config, wiring);
 }

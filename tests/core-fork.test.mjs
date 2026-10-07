@@ -20,7 +20,7 @@ import { armed } from "../src/core/human/grip.ts";
 import { humanSpec } from "../src/core/human/spec.ts";
 import { modelSpec } from "../src/core/models.ts";
 import { woodenClub } from "../src/core/items/club.ts";
-import { FIGHTER } from "../src/core/mind/config.ts";
+import { RECIPE_FIGHTER } from "../src/core/mind/config.ts";
 import { fighterTactics } from "../src/core/mind/fighter.ts";
 import { standIntent } from "../src/core/mind/intent.ts";
 import { STAND_ORDERS } from "../src/core/mind/orders.ts";
@@ -134,7 +134,7 @@ const framed = pulled({ frame: 0.011 });
 const helped = pulled({ ceiling: { force: 0.25, moment: 0.065 }, withdraw: 300 });
 /** Pulled at its whole weight for a quarter second, it falls; its mind is the game's, which lies where it fell. Saved at every step from `FELLED.from`, `FELLED.count` times. */
 const FELLED = { from: 180, count: 30 };
-const felled = pulled({ share: 1, until: 150, subs: subMindsOf(FIGHTER.subs) });
+const felled = pulled({ share: 1, until: 150, subs: subMindsOf(RECIPE_FIGHTER.subs) });
 /** Unpulled, it is let go limp, held where it is, and given its body back; saved every 5 steps from step 80, 26 times. */
 const LEVELLED = { levels: [[100, "limp"], [140, "held"], [180, "full"]], from: 80, count: 26 };
 const levelled = pulled({ until: 0, levels: LEVELLED.levels });

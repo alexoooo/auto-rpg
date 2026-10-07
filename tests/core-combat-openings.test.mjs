@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { effectorFeedback, contactResponse } from '../src/core/control/effector-feedback.ts';
 import { openingSelector, segmentDistanceSquared } from '../src/core/mind/openings.ts';
 import { modelSpec } from '../src/core/models.ts';
-import { ARENA_FIGHTER } from '../src/core/mind/config.ts';
+import { COMBAT } from '../src/core/mind/config.ts';
 import { loadEngine, DEFAULT_ENGINE } from '../src/core/engine/engines.ts';
 import { buildBout } from '../research/bout.mjs';
 import { traceOf } from './harness/trace.mjs';
@@ -57,7 +57,7 @@ test('contact labels select the strongest permitted contact independently of str
 });
 
 test('a physical guard block triggers an angle change and replay preserves contact memory',async()=>{
- const recipe={left:'workshop-fighter',right:'workshop-fighter',held:{left:'empty',right:'empty'},balance:{left:0,right:0},minds:{left:ARENA_FIGHTER,right:ARENA_FIGHTER},recoverySeconds:null,capSeconds:30};
+ const recipe={left:'workshop-fighter',right:'workshop-fighter',held:{left:'empty',right:'empty'},balance:{left:0,right:0},minds:{left:COMBAT,right:COMBAT},recoverySeconds:null,capSeconds:30};
  const a=await buildBout(recipe,{physicsEngine:await loadEngine(DEFAULT_ENGINE)}),b=await buildBout(recipe,{physicsEngine:await loadEngine(DEFAULT_ENGINE)});
  try{
   const select=openingSelector(modelSpec('workshop-fighter'));
@@ -83,9 +83,9 @@ test('a physical guard block triggers an angle change and replay preserves conta
 });
 
 test('the real Warrior trunk hull supplies a surface opening and a fresh-world selection fork',async()=>{
- const config={...ARENA_FIGHTER,repertoire:'mixed',openings:{head:1,upperTrunk:.2,middleTrunk:0}};
+ const config={...COMBAT,strikes:'mixed',tuning:{openings:{head:1,upperTrunk:.2,middleTrunk:0}}};
  const recipe={left:'workshop-fighter',right:'workshop-fighter',held:{left:'empty',right:'empty'},balance:{left:0,right:0},
-  minds:{left:config,right:ARENA_FIGHTER},recoverySeconds:null,capSeconds:30};
+  minds:{left:config,right:COMBAT},recoverySeconds:null,capSeconds:30};
  const a=await buildBout(recipe,{physicsEngine:await loadEngine(DEFAULT_ENGINE)}),b=await buildBout(recipe,{physicsEngine:await loadEngine(DEFAULT_ENGINE)});
  try {
   const select=openingSelector(modelSpec('workshop-fighter'),{head:100,upperTrunk:100,middleTrunk:0});
@@ -111,7 +111,7 @@ test('the real Warrior trunk hull supplies a surface opening and a fresh-world s
 });
 
 test('hull-aware body selection lands driven torso blows against an active Combat fighter',async()=>{
- const row=await combatTrial({left:{...ARENA_FIGHTER,repertoire:'mixed',openings:{head:.3,upperTrunk:0,middleTrunk:0}},right:'combat',recipe:{capSeconds:30}});
+ const row=await combatTrial({left:{...COMBAT,strikes:'mixed',prefers:'body'},right:'combat',recipe:{capSeconds:30}});
  const out=row.sides.left;
  assert.ok((out.drivenTargets.middleTrunk??0)+(out.drivenTargets.upperTrunk??0)>=5,JSON.stringify(out));assert.ok(out.drivenDamage>.2,JSON.stringify(out));
  assert.equal(out.falls,0);assert.deepEqual(out.assist,{force:0,moment:0});assert.ok(out.pressureOnly.longest<2);
@@ -119,9 +119,9 @@ test('hull-aware body selection lands driven torso blows against an active Comba
 
 
 test('a selected overhand keeps its world contact direction through execution and fresh-world replay',async()=>{
- const candidate={...ARENA_FIGHTER,repertoire:'vertical',openings:{overhand:-.6}};
+ const candidate={...COMBAT,strikes:'vertical',tuning:{openings:{overhand:-.6}}};
  const recipe={left:'workshop-fighter',right:'workshop-fighter',held:{left:'empty',right:'empty'},balance:{left:0,right:0},
-  minds:{left:candidate,right:ARENA_FIGHTER},recoverySeconds:null,capSeconds:30};
+  minds:{left:candidate,right:COMBAT},recoverySeconds:null,capSeconds:30};
  const a=await buildBout(recipe,{physicsEngine:await loadEngine(DEFAULT_ENGINE)}),b=await buildBout(recipe,{physicsEngine:await loadEngine(DEFAULT_ENGINE)});
  try {
   const d=a.duel.duelists.left,skills=d.minded.skills;

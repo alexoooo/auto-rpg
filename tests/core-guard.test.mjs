@@ -17,7 +17,7 @@ import { centreOfToRef } from "../src/core/control/support.ts";
 import { armed } from "../src/core/human/grip.ts";
 import { humanSpec } from "../src/core/human/spec.ts";
 import { woodenClub } from "../src/core/items/club.ts";
-import { FIGHTER } from "../src/core/mind/config.ts";
+import { RECIPE_FIGHTER } from "../src/core/mind/config.ts";
 import { GUARD_ACTION } from "../src/core/mind/intent.ts";
 import { STAND_ORDERS } from "../src/core/mind/orders.ts";
 import { createSenses } from "../src/core/mind/senses.ts";
@@ -228,7 +228,7 @@ test("the_threat_is_the_foes_striking_point_that_closes_fastest", async () => {
  * under `guard`: the surface of the one who stands.
  */
 async function firstBlow(gap, guard, experiment = {}) {
-  const { world, duel, dispose } = await buildBout({ left: "workshop-rogue", right: "workshop-fighter", gap, minds: { left: FIGHTER, right: { ...FIGHTER, guard, ...experiment } } });
+  const { world, duel, dispose } = await buildBout({ left: "workshop-rogue", right: "workshop-fighter", gap, minds: { left: RECIPE_FIGHTER, right: { ...RECIPE_FIGHTER, guard, tuning: experiment } } });
   try {
     duel.play([{ step: 0, side: "right", orders: STAND_ORDERS }]);
     while (duel.blows.length === 0 && duel.clock < 20) world.step();

@@ -1,4 +1,4 @@
-import { FIGHTER, type SubMindConfig } from "../core/mind/config.ts";
+import { RECIPE_FIGHTER, type SubMindConfig } from "../core/mind/config.ts";
 import { standIntent } from "../core/mind/intent.ts";
 import type { Tactics } from "../core/mind/tactics.ts";
 import type { LabDownId, LabMindId } from "./scenarios.ts";
@@ -27,7 +27,7 @@ export const LAB_MINDS: Readonly<Record<LabMindId, LabMind>> = {
  * hands it to, in rank order (`ActorOptions.subs`, `actor.ts`). The first is the game's.
  */
 export const LAB_DOWN: Readonly<Record<LabDownId, { readonly name: string; readonly subs: readonly SubMindConfig[] }>> = {
-  lie: { name: "Lies", subs: FIGHTER.subs },
+  lie: { name: "Lies", subs: RECIPE_FIGHTER.subs },
   rise: { name: "Rises", subs: [{ kind: "staged-rise" }] },
 };
 

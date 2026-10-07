@@ -1,7 +1,7 @@
 import { HUMANOID_MODELS, humanoidSpec, type HumanoidModel } from "./human/spec.ts";
 import { frameOf, type BodySpec } from "./spec/body.ts";
 import { lowsOf } from "./control/ground.ts";
-import { FIGHTER, QUADRUPED, type MindConfig } from "./mind/config.ts";
+import { RECIPE_FIGHTER, QUADRUPED, type MindConfig } from "./mind/config.ts";
 import { controllerOf } from "./mind/controllers.ts";
 import { reptileSpec } from "./reptile/spec.ts";
 import { deepFreeze } from "./state.ts";
@@ -23,7 +23,7 @@ export function modelInfo(model: BodyModel) {
 }
 
 /** Every humanoid's defaults and its retained footprint and spacing: `docs/reference/reptile.md#encounters`. */
-const HUMANOID = deepFreeze({ mind: FIGHTER, held: "club" as const, radius: .35, attackMetres: ATTACK_METRES, progressSeconds: 1, fallEndsFight: true });
+const HUMANOID = deepFreeze({ mind: RECIPE_FIGHTER, held: "club" as const, radius: .35, attackMetres: ATTACK_METRES, progressSeconds: 1, fallEndsFight: true });
 
 let reptileInfo: ReturnType<typeof readReptile> | undefined;
 const reptile = () => reptileInfo ??= readReptile();

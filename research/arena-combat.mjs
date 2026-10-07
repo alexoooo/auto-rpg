@@ -4,7 +4,7 @@ import { execFileSync } from 'node:child_process';
 import { Vector3 } from '@babylonjs/core/Maths/math.vector.js';
 import { buildBout } from './bout.mjs';
 import { DEFAULT_ENGINE, loadEngine } from '../src/core/engine/engines.ts';
-import { FIGHTER, ARENA_BRAWLER, ARENA_SCRAPPER, ARENA_FIGHTER } from '../src/core/mind/config.ts';
+import { PRESETS } from '../src/core/mind/controllers.ts';
 import { motionAtToRef, pointOfToRef } from '../src/core/control/support.ts';
 import { STAND_ORDERS } from '../src/core/mind/orders.ts';
 
@@ -21,16 +21,12 @@ export function combatFingerprint() {
   return hash.digest('hex');
 }
 
-/** The stable comparison policies, with both granted staged recovery in continuing bouts. */
+/** A comparison policy: a mind config as it is, or a preset by id (`scrapper-v1` is the Scrapper), each with its own recovery. */
 export function combatMind(name) {
-  switch (name) {
-    case 'classic': return { ...FIGHTER, subs: [{ kind: 'staged-rise' }] };
-    case 'scrapper': case 'scrapper-v1': return ARENA_SCRAPPER;
-    case 'brawler': return ARENA_BRAWLER;
-    case 'combat': return ARENA_FIGHTER;
-    default: if (typeof name === 'object' && name !== null) return name;
-      throw new Error(`unknown combat policy ${name}`);
-  }
+  if (typeof name === 'object' && name !== null) return name;
+  const preset = PRESETS[name === 'scrapper-v1' ? 'scrapper' : name];
+  if (!preset) throw new Error(`unknown combat policy ${name}`);
+  return preset.config;
 }
 
 /** A physical blow classified independently on either side; no striker is added to the rules. */

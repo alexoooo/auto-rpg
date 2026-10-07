@@ -3,10 +3,10 @@ import {writeFileSync,readFileSync} from 'node:fs';
 import {gunzipSync} from 'node:zlib';
 import {combatPairs,combatTrial,combatRating,combatFingerprint} from '../research/arena-combat.mjs';
 import {groundFight} from '../research/ground-combat.mjs';
-import {ARENA_SCRAPPER} from '../src/core/mind/config.ts';
+import {SCRAPPER} from '../src/core/mind/config.ts';
 import {PUNCH_EXECUTION} from '../src/core/skills/combat.ts';
 const search=JSON.parse(gunzipSync(readFileSync('docs/reference/punch-foundation-search.json.gz')));
-const candidate={...ARENA_SCRAPPER,paths:search.rows[search.selected].settings,execution:PUNCH_EXECUTION};
+const candidate={...SCRAPPER,tuning:{paths:search.rows[search.selected].settings,execution:PUNCH_EXECUTION}};
 if(!isMainThread)parentPort.on('message',async job=>{try{parentPort.postMessage({...job,result:await(job.task==='ground'?groundFight(job.config):combatTrial(job.config))});}catch(e){parentPort.postMessage({...job,error:e.stack});}});
 else{
  const fingerprint=combatFingerprint(),jobs=[];

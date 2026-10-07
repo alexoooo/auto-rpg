@@ -12,7 +12,7 @@
  *   node research/core-rise.mjs [--workers 12] [--mind '<MindConfig JSON>'] [--watch 15] [--only <text>]
  *     [--shoves 16] [--turn 0] [--falls]
  *
- * With `--mind` every body has that mind in place of the game's (`FIGHTER`); with `--watch` each
+ * With `--mind` every body has that mind in place of the game's (`RECIPE_FIGHTER`); with `--watch` each
  * fall is watched that many seconds in place of `WATCH_SECONDS`; with `--only`, only the cells
  * whose name holds the text are run; with `--shoves`, each model is shoved that many ways; with `--turn`, every shove is
  * turned that many degrees further, a fresh set of falls to replicate a reading on; with `--falls`, a last table

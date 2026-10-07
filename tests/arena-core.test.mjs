@@ -16,7 +16,7 @@ import { ORBIT, orbitPosition } from "../src/arena/orbit.ts";
 import { aimPoint, keysToMove, personOrders } from "../src/arena/orders-input.ts";
 import { stanceEnvelope } from "../src/core/control/stance-envelope.ts";
 import { centreOfToRef } from "../src/core/control/support.ts";
-import { FIGHTER } from "../src/core/mind/config.ts";
+import { RECIPE_FIGHTER } from "../src/core/mind/config.ts";
 import { STAND_ORDERS, isOrders } from "../src/core/mind/orders.ts";
 import { createWorld } from "../src/core/world.ts";
 import { freshEngine } from "./harness/core-stand.mjs";
@@ -47,9 +47,9 @@ test("an_arena_link_names_its_matchup_and_a_malformed_one_falls_back", () => {
   assert.deepEqual(["", "?balance=", "?balance=5,", "?balance=,5", "?balance=-1", "?balance=5,-1", "?balance=1,2,3", "?balance=many", "?balance=Infinity"].map(readBalance),
     Array(9).fill(undefined));
   // How both sides guard: the fighter with that guard on each side, or nothing said.
-  const covering = { ...FIGHTER, guard: "cover" };
+  const covering = { ...RECIPE_FIGHTER, guard: "cover" };
   assert.deepEqual(readGuard("?play=arena&guard=cover"), { left: covering, right: covering });
-  assert.deepEqual(readGuard("?guard=pose"), { left: { ...FIGHTER, guard: "pose" }, right: { ...FIGHTER, guard: "pose" } });
+  assert.deepEqual(readGuard("?guard=pose"), { left: { ...RECIPE_FIGHTER, guard: "pose" }, right: { ...RECIPE_FIGHTER, guard: "pose" } });
   assert.deepEqual(["", "?guard=", "?guard=shield", "?guard=cover,pose", "?guard=Cover"].map(readGuard), Array(5).fill(undefined));
 });
 
@@ -217,20 +217,20 @@ test("a_bout's_minds_are_its_recipe's", async () => {
       return [left.body.has, right.body.has];
     } finally { duel.dispose(); dispose(); }
   };
-  const bare = { ...FIGHTER, subs: [] };
+  const bare = { ...RECIPE_FIGHTER, subs: [] };
   // The game's mind lies where it fell; one whose recipe gives it no sub-minds keeps its body. Each side has its own.
   assert.deepEqual(await felled("left", {}), ["lie", "command"]);
   assert.deepEqual(await felled("right", {}), ["command", "lie"]);
-  assert.deepEqual(await felled("left", { minds: { left: bare, right: FIGHTER } }), ["command", "command"]);
-  assert.deepEqual(await felled("right", { minds: { left: bare, right: FIGHTER } }), ["command", "lie"]);
-  assert.deepEqual(await felled("right", { minds: { left: FIGHTER, right: bare } }), ["command", "command"]);
+  assert.deepEqual(await felled("left", { minds: { left: bare, right: RECIPE_FIGHTER } }), ["command", "command"]);
+  assert.deepEqual(await felled("right", { minds: { left: bare, right: RECIPE_FIGHTER } }), ["command", "lie"]);
+  assert.deepEqual(await felled("right", { minds: { left: RECIPE_FIGHTER, right: bare } }), ["command", "command"]);
 });
 
 test("a_fighters_aim_rides_in_its_minds_config", async () => {
   // A Warrior with the club against one ordered to stand: the band of the recipe its first blow is thrown with.
   const thrown = async (aim) => {
     const { world, dispose } = await arena();
-    const duel = new Duel(world, { left: "workshop-fighter", right: "workshop-fighter", gap: 3, minds: { left: { ...FIGHTER, aim }, right: FIGHTER } });
+    const duel = new Duel(world, { left: "workshop-fighter", right: "workshop-fighter", gap: 3, minds: { left: { ...RECIPE_FIGHTER, aim }, right: RECIPE_FIGHTER } });
     try {
       duel.play([{ step: 0, side: "right", orders: STAND_ORDERS }]);
       const report = () => duel.duelists.left.minded.skills.report.strike;

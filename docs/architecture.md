@@ -449,15 +449,22 @@ controllers) and makes the mind (`create`). There are four: the **recipe fighter
 searched recipe blows, `recipe-fighter.ts`), the **path fighter** (Combat, Brawler, Scrapper,
 Kicker: hand paths on the strike cycle, `path-fighter.ts`), the **quadruped** (crawl and bite)
 and **direct** joint control. A config read from a save or a link whose kind none has is refused
-(`controllerOf`). There are three sub-minds, each of which wants the body while it is down
+(`controllerOf`), and so is one its controller names a fault in (`faults`, which `createMind`
+reads). A controller's config holds a player's fields, plain choices, and under `tuning` an
+experiment's settings, which never travel in a link. The recipe fighter's are `guard`, `aim` and
+`range`; its preset is `CLASSIC`, which rises by stages. The path fighter's are the hand that
+attacks (`hands`), its blows (`strikes`), the surface it favours (`prefers`), its defence,
+whether it kicks and fights on the ground, its combinations and its spacing; they are merged
+with its tuning once into the settings its tactics and its skills share (`resolvePath`), and its
+presets are `COMBAT`, `BRAWLER`, `SCRAPPER` and `KICKER`. There are three sub-minds, each of which wants the body while it is down
 (`BodyView.down`), and the body hands each maker its world (`SubMindMaker`): `lie` (`lying`,
 `lie.ts`), which asks its muscles for nothing, `staged-rise` (`stagedRise`, `rise/staged.ts`),
 the riser, and `support-recovery` (`supportRecovery`), the riser followed by a quiet standing
-handover. `FIGHTER` is the recipe fighter with `lie`: the mind every body has unless its fight says otherwise,
+handover. `RECIPE_FIGHTER` is the recipe fighter with `lie`: the mind every body has unless its fight says otherwise,
 so a body that falls lies still ([reference/rising.md](reference/rising.md#lying)). An arena
-recipe may name each side's mind (`DuelRecipe.minds`); the crypt gives every body `FIGHTER`;
+recipe may name each side's mind (`DuelRecipe.minds`); the crypt gives every body `RECIPE_FIGHTER`;
 the lab's actor, whose tactics are its scenario's, takes the sub-minds its page chose
-(`ActorOptions.subs`, made by `subMindsOf`), and `FIGHTER`'s unless it is given others.
+(`ActorOptions.subs`, made by `subMindsOf`), and `RECIPE_FIGHTER`'s unless it is given others.
 
 **The riser plays a recipe** (`Recipe`, `RISE`, `rise/stages.ts`): plain data that names
 freedoms and limbs, and no body. It lies slack until its centre of mass is still, reads how it
@@ -502,7 +509,7 @@ pose, or by a cover of what threatens its head. The threat is read from the sens
 `threat.ts`): of the other sides' bodies still in the fight, the point each hand strikes with
 (its knuckles, or its club's swell) that closes fastest on the head, within `THREAT`'s distance
 and over its speed. What is sensed is as old as the senses' delay, and nothing corrects for it.
-Every body's fighter guards in the pose (`FIGHTER`); an arena link's `&guard=cover` gives both
+Every body's fighter guards in the pose (`RECIPE_FIGHTER`); an arena link's `&guard=cover` gives both
 sides the cover ([reference/blows.md](reference/blows.md#covering-searched)).
 
 Orders come from three places. An arena side nobody has taken makes its own (`seekFoe`): from
@@ -510,12 +517,12 @@ its senses it picks the nearest body of another side still in the fight, walks a
 it once their centres are within `ATTACK_METRES` (1.8 m): at its head, or, where its config says
 to aim at what pays (`RecipeFighterConfig.aim`, `bandAimed`), at the part of the band its hand's
 recipe nets most on (`StrikeReport.nets`, `BANDS`). Every body's fighter aims at the head
-(`FIGHTER`; [reference/blows.md](reference/blows.md#aim)). Where its config says to hold at the
+(`RECIPE_FIGHTER`; [reference/blows.md](reference/blows.md#aim)). Where its config says to hold at the
 edge (`RecipeFighterConfig.range`, `EDGE`), it reads the foe's reach from what it sees of the foe
 (`rangeOf`, by `BodySense.spec`, the rule its own strike skill throws by, `StrikeReport.rangeAt`):
 it stands just outside it, backing out from inside it, and attacks when the part it aims at
 stands in its own blow's window from where it stands, or when it has stood there its patience.
-Every body's fighter walks in (`FIGHTER.range`). A side a person has taken is
+Every body's fighter walks in (`RECIPE_FIGHTER.range`). A side a person has taken is
 given the person's (`Duel.order`) and does only what it is ordered, until it is handed back or is
 out of the fight. In the crypt the run plans for its fighters with the map (`DungeonRun`) and
 hands each its plan as orders, with its target's head; its bodies sense the clock alone. Each

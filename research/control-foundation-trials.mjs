@@ -18,7 +18,7 @@ import { createDefenseProbe } from "../src/core/tasks/defense.ts";
 import { saveState, loadState } from "../src/core/state.ts";
 import { reachAction, reachFrame } from "../src/core/tasks/reach-policy.ts";
 import { HUMANOID_MODELS } from "../src/core/models.ts";
-import { FIGHTER } from "../src/core/mind/config.ts";
+import { RECIPE_FIGHTER } from "../src/core/mind/config.ts";
 import { createMind } from "../src/core/mind/minds.ts";
 import { STAND_ORDERS } from "../src/core/mind/orders.ts";
 import { REPERTOIRE, recipesFor } from "../src/core/skills/strikes.ts";
@@ -36,7 +36,7 @@ export const FOUNDATION = Object.freeze({ version: 2, samples: 2, watch: 40, bou
 
 const hash = (value) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
 const heldName = (held) => held === "club" ? "wooden club" : "fist";
-const riseMind = { ...FIGHTER, subs: [{ kind: "staged-rise" }] };
+const riseMind = { ...RECIPE_FIGHTER, subs: [{ kind: "staged-rise" }] };
 const suites = ["baseline", "recovery", "strike-block", "point-strike", "moving-strike", "defense", "bar", "support", "posture-hold", "support-entry", "integrated", "reach", "ccd", "solver"];
 
 /** Fully specified starts; a seed selects geometry, not a hidden source of simulation noise. */
@@ -231,7 +231,7 @@ function instrument(world, readings) {
 async function recoveryTrial(job) {
   let readings;
   const fall = await felled(job, (built, world) => {
-    const body = createMind(built, world, job.recovery === "staged-rise" ? riseMind : FIGHTER,
+    const body = createMind(built, world, job.recovery === "staged-rise" ? riseMind : RECIPE_FIGHTER,
       { name: "foundation", orders: () => STAND_ORDERS }).body;
     readings = meter([built], [body]);
     instrument(world, readings);
@@ -282,10 +282,10 @@ export function attackAccounting() {
 }
 
 async function boutTrial(job) {
-  const cover = { ...FIGHTER, guard: "cover" };
+  const cover = { ...RECIPE_FIGHTER, guard: "cover" };
   const recipe = { left: job.model, right: job.model, gap: job.gap, cap: job.cap,
     held: { left: job.held, right: job.held },
-    minds: { left: job.guard === "left-cover" ? cover : FIGHTER, right: job.guard === "right-cover" ? cover : FIGHTER } };
+    minds: { left: job.guard === "left-cover" ? cover : RECIPE_FIGHTER, right: job.guard === "right-cover" ? cover : RECIPE_FIGHTER } };
   const bout = await buildBout(recipe, { hz: job.hz, actuation: job.actuation });
   const sides = [bout.duel.duelists.left, bout.duel.duelists.right];
   const readings = meter(sides.map((s) => s.built), sides.map((s) => s.body));

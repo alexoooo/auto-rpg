@@ -67,7 +67,7 @@ export interface Model {
 }
 
 export const GRAVITY = STANDARD_GRAVITY.value;
-const FIGHTER = "workshop-fighter" as const;
+const RECIPE_FIGHTER = "workshop-fighter" as const;
 
 /** Segment frame coordinates of body-frame `p`. */
 function inFrame(spec: SegmentSpec, p: readonly number[]): V3 {
@@ -111,7 +111,7 @@ function segmentOf(spec: SegmentSpec): Segment {
 
 /** The whole workshop human, every segment and joint of the spec, hulls as boxes. */
 export function humanModel(): Model {
-  const spec = humanSpec(FIGHTER);
+  const spec = humanSpec(RECIPE_FIGHTER);
   const segments = spec.segments.map(segmentOf);
   const index = new Map(segments.map((s, i) => [s.name, i]));
   const joints = spec.joints.map((j): Joint => ({

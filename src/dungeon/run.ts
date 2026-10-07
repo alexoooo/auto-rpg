@@ -362,7 +362,7 @@ export class DungeonRun {
   /**
    * Put each body at its level (`levelsOf`). One found out of the fight, for good, is out from now:
    * its assist is withdrawn, and the rule lets it go limp, so it lies as the blow or the fall left
-   * it. A body that fell had already been let go by its mind (`FIGHTER` lies still while down); one
+   * it. A body that fell had already been let go by its mind (`RECIPE_FIGHTER` lies still while down); one
    * whose pool ended standing is let go here.
    */
   private levels(): void {

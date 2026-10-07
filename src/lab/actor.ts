@@ -2,7 +2,7 @@ import { createBody, SERVO_SECONDS, type Body } from "../core/body.ts";
 import type { BuiltBody } from "../core/build/build-body.ts";
 import type { AssistCeiling } from "../core/control/assist.ts";
 import type { StanceTuning } from "../core/control/stance-tuning.ts";
-import { FIGHTER, type SubMindConfig } from "../core/mind/config.ts";
+import { RECIPE_FIGHTER, type SubMindConfig } from "../core/mind/config.ts";
 import { GUARD_ACTION } from "../core/mind/intent.ts";
 import { subMindsOf } from "../core/mind/sub-minds.ts";
 import { driveBy, type Sight, type Tactics } from "../core/mind/tactics.ts";
@@ -26,7 +26,7 @@ interface Driving {
 /**
  * **A lab body and what drives it.** Every mode stands its body through an actor, so what a page
  * or an experiment gives a body is given here, and a mode knows none of it. Its tactics are a
- * mode's script; its sub-minds are the ones every body in a fight has (`FIGHTER`) unless it is
+ * mode's script; its sub-minds are the ones every body in a fight has (`RECIPE_FIGHTER`) unless it is
  * given others. A mode takes its actor over: it disposes it with itself.
  */
 export interface Actor {
@@ -51,7 +51,7 @@ interface ActorOptions {
   readonly allows?: (held: string) => boolean;
   /** Its mind: the tactics that drive it, made of the mode's script; the script itself unless given. */
   readonly mind?: (script: Tactics) => Tactics;
-  /** The sub-minds its mind hands its body to, in rank order; the game's (`FIGHTER`) unless given. */
+  /** The sub-minds its mind hands its body to, in rank order; the game's (`RECIPE_FIGHTER`) unless given. */
   readonly subs?: readonly SubMindConfig[];
 }
 
@@ -70,7 +70,7 @@ function barred(tactics: Tactics, strikes: Readonly<Record<Side, boolean>>): Tac
 }
 
 /** `built`, a human in its reference pose on the ground of `world`, as a mode's actor. */
-export function labActor(built: BuiltBody, world: World, { assist, stance, allows = () => true, mind = (script) => script, subs = FIGHTER.subs }: ActorOptions = {}): Actor {
+export function labActor(built: BuiltBody, world: World, { assist, stance, allows = () => true, mind = (script) => script, subs = RECIPE_FIGHTER.subs }: ActorOptions = {}): Actor {
   const body = createBody(built, world, { servoSeconds: SERVO_SECONDS, assist, stance, subs: subMindsOf(subs) });
   const strikes = { left: allows(heldIn(built.spec, "left")), right: allows(heldIn(built.spec, "right")) };
   return {

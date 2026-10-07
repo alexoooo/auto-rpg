@@ -110,7 +110,7 @@ host; skeletons with the club, 3 m apart on a ground, each under the command lay
 to stand. Read standing; then held (`Body.setLevel`), their muscles released and every segment
 fixed where it is; then let go, the same bodies and minds going on; then felled by a shove at the
 root and still driven by a mind with no sub-minds; then lying, under the sub-minds the game's mind
-has (`FIGHTER`); then limp, their muscles released; then held where they lie; then let go limp
+has (`RECIPE_FIGHTER`); then limp, their muscles released; then held where they lie; then let go limp
 and rising, under the riser that plays stages (`stagedRise`, `rising.md#stages`), the row
 saying what part of the bodies' steps the riser lay slack, held a pose and bore on its limbs. A
 row is the mean of 600 steps.

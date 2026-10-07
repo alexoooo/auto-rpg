@@ -6,6 +6,7 @@ import type { OpeningTuning } from "./openings.ts";
 import type { Covering } from "../skills/guard.ts";
 import { deepFreeze } from "../state.ts";
 import type { Threat } from "./threat.ts";
+import type { Edge } from "./fighter.ts";
 
 /** Lie still while down: ask the muscles for nothing (`lying`, `lie.ts`). */
 interface LieConfig { readonly kind: "lie" }
@@ -21,7 +22,8 @@ export type SubMindConfig = LieConfig | StagedRiseConfig | SupportRecoveryConfig
 
 /**
  * **The recipe fighter**: the searched recipe blows (`skills/strike.ts`) under tactics that seek
- * the foe (`seekFoe`), over the command layers (`recipe-fighter.ts`).
+ * the foe (`seekFoe`), over the command layers (`recipe-fighter.ts`). Its fields are a player's;
+ * `tuning` is research's, and never travels in a link.
  */
 export interface RecipeFighterConfig {
   readonly kind: "recipe-fighter";
@@ -29,10 +31,6 @@ export interface RecipeFighterConfig {
   readonly subs: readonly SubMindConfig[];
   /** How a hand that does not attack guards: the pose, or a cover of what threatens (`threatOf`, `threat.ts`). */
   readonly guard: "pose" | "cover";
-  /** An experiment's cover in place of the one set (`GUARD_COVER`): a sweep's cell. */
-  readonly covering?: Covering;
-  /** An experiment's threat in place of the one set (`THREAT`): a sweep's cell. */
-  readonly threat?: Threat;
   /** What of a foe a fighter attacks: its head; or, of its head and upper trunk, the one its hand's recipe nets more on (`seekFoe`, `fighter.ts`). */
   readonly aim: "head" | "pays";
   /**
@@ -40,8 +38,15 @@ export interface RecipeFighterConfig {
    * edge of the foe's reach, attacking when the foe stands in its own blow's window (`seekFoe`, `EDGE`).
    */
   readonly range: "close" | "edge";
-  /** An experiment's edge in place of the one set (`EDGE`): a sweep's cell. */
-  readonly edge?: { readonly band: number; readonly patience: number };
+  /** An experiment's settings in place of the ones set: a sweep's cell. */
+  readonly tuning?: {
+    /** The cover in place of `GUARD_COVER`. */
+    readonly covering?: Covering;
+    /** The threat in place of `THREAT`. */
+    readonly threat?: Threat;
+    /** The edge in place of `EDGE`. */
+    readonly edge?: Edge;
+  };
 }
 
 /**
@@ -64,52 +69,74 @@ export interface DirectMindConfig {
   readonly activation: number;
 }
 
-/** The mind every body has unless its fight says otherwise. */
-export const FIGHTER: RecipeFighterConfig = deepFreeze({ kind: "recipe-fighter", subs: [{ kind: "lie" }], guard: "pose", aim: "head", range: "close" });
+/** The mind every body has unless its fight says otherwise: the recipe fighter, lying still once down. */
+export const RECIPE_FIGHTER: RecipeFighterConfig = deepFreeze({ kind: "recipe-fighter", subs: [{ kind: "lie" }], guard: "pose", aim: "head", range: "close" });
+
+/** The Arena's Classic: the recipe fighter, rising by stages once down. */
+export const CLASSIC: RecipeFighterConfig = deepFreeze({ ...RECIPE_FIGHTER, subs: [{ kind: "staged-rise" }] });
 
 /**
  * **The path fighter**: hand paths chosen against the foe's surfaces and carried out on the
- * strike cycle (`skills/combat.ts`), over the command layers (`path-fighter.ts`).
+ * strike cycle (`skills/combat.ts`), over the command layers (`path-fighter.ts`). Its fields are
+ * a player's, each read once into the settings its tactics and skills share (`resolvePath`);
+ * `tuning` is research's, and never travels in a link.
  */
 export interface PathFighterConfig {
   readonly kind: "path-fighter";
   /** The sub-minds it hands its body to, in rank order: the first that wants the body has it. */
   readonly subs: readonly SubMindConfig[];
-  readonly hand: "left" | "right" | "alternate";
-  /** Reference cover or measured relative-motion prediction; omitted retains the reference. */
-  readonly defenseMode?: "reference" | "predictive";
-  /** Linear reference, straight/close-hook ranking, or additional measured top-surface overhands. */
-  readonly repertoire?: "linear" | "mixed" | "vertical" | "boxing";
-  readonly openings?: OpeningTuning;
-  readonly paths?: Partial<AttackTuning>;
-  readonly execution?: CombatExecution;
-  /** Optional either-foot skill, shared by research policies and Arena tactics. */
-  readonly kicks?: KickTuning;
-  readonly spacing?: number;
-  /** Optional reduction of extra spacing after a clean verified miss, m: `docs/reference/combat-range-learning.md`. */
-  readonly spacingStep?: number;
-  /** Optional heading-speed ceiling, rad/s: `docs/reference/combat-locomotion.md`. */
-  readonly turnLimit?: number;
-  /** Optional brief heading-speed ceiling while setting off: `docs/reference/combat-turn-startup.md`. */
-  readonly turnStartup?: TurnStartup;
-  /** One opposite-hand follow-up after a target hit and verified return, with fresh lane and footing checks. */
-  readonly combinations?: boolean;
-  /** Allow the other hand's follow-up while a contact-free hand moves home; each return is still verified. */
-  readonly overlap?: boolean;
-  /** Enable observed low-opponent approach and supported strikes; omitted preserves the retained reference. */
-  readonly groundGame?: boolean;
+  /** The hand that attacks, or both in turn. */
+  readonly hands: "left" | "right" | "alternate";
+  /** Straight blows; straight blows and close hooks ranked together; with measured overhands; or with uppercuts too. */
+  readonly strikes: "linear" | "mixed" | "vertical" | "boxing";
+  /** The surface the openings favour: the head, or the trunk (`BODY_OPENINGS`). */
+  readonly prefers: "head" | "body";
+  /** The reference cover, or a cover placed by measured relative-motion prediction (`docs/reference/combat-defense.md`). */
+  readonly defence: "cover" | "predictive";
+  /** Whether it kicks low with either foot (`ARENA_KICKS`). */
+  readonly kicks: boolean;
+  /** Whether it approaches and strikes an opponent that is low (`docs/reference/ground-combat.md`). */
+  readonly ground: boolean;
+  /**
+   * None; one opposite-hand follow-up after a target hit and verified return, with fresh lane and
+   * footing checks; or that follow-up thrown while the contact-free hand still moves home, each
+   * return still verified (`docs/reference/combat-overlap.md`). Both need alternate hands.
+   */
+  readonly combinations: "none" | "follow-up" | "overlap";
+  /** Extra distance kept from the foe, m. */
+  readonly spacing: number;
+  /** How much a clean verified miss takes off the extra spacing, m: `docs/reference/combat-range-learning.md`. */
+  readonly spacingStep: number;
+  /** An experiment's settings in place of the ones set. */
+  readonly tuning?: {
+    readonly paths?: Partial<AttackTuning>;
+    /** Over `ARENA_KICKS`, for a fighter that kicks. */
+    readonly kick?: Partial<KickTuning>;
+    readonly execution?: CombatExecution;
+    /** Over the openings `prefers` sets. */
+    readonly openings?: OpeningTuning;
+    /** A heading-speed ceiling, rad/s: `docs/reference/combat-locomotion.md`. */
+    readonly turnLimit?: number;
+    /** A brief heading-speed ceiling while setting off: `docs/reference/combat-turn-startup.md`. */
+    readonly turnStartup?: TurnStartup;
+  };
 }
 
-/** Experimental autonomous combat; promotion is measured by the paired combat harness. */
-export const ARENA_FIGHTER: PathFighterConfig = deepFreeze({ kind: "path-fighter", subs: [{ kind: "support-recovery" }], hand: "alternate" });
+/** Opening scores that favour the trunk over the head: `docs/reference/arena-combat-evaluation.md#body-targeting-held-out-evaluation`. */
+export const BODY_OPENINGS: OpeningTuning = deepFreeze({ head: .3, upperTrunk: 0, middleTrunk: 0 });
+
+/** The Arena's low kick: `docs/reference/front-kicks.md#arena-selection`. */
+export const ARENA_KICKS: KickTuning = deepFreeze({ ...KICK_PATH, swingSeconds: .3, contactSpeed: 3 });
+
+/** The Arena's Combat: straight blows at the head. Promotion is measured by the paired combat harness. */
+export const COMBAT: PathFighterConfig = deepFreeze({ kind: "path-fighter", subs: [{ kind: "support-recovery" }], hands: "alternate",
+  strikes: "linear", prefers: "head", defence: "cover", kicks: false, ground: false, combinations: "none", spacing: 0, spacingStep: 0 });
 
 /** Body-targeting candidate and scope: `docs/reference/arena-combat-evaluation.md#body-targeting-held-out-evaluation`. */
-export const ARENA_BRAWLER: PathFighterConfig = deepFreeze({ kind: "path-fighter", subs: [{ kind: "support-recovery" }], hand: "alternate",
-  repertoire: "mixed", openings: { head: .3, upperTrunk: 0, middleTrunk: 0 } });
+export const BRAWLER: PathFighterConfig = deepFreeze({ ...COMBAT, strikes: "mixed", prefers: "body" });
 
 /** Playable grounded profile with both-hand low gates: `docs/reference/ground-combat.md#arena-integration`. */
-export const ARENA_SCRAPPER: PathFighterConfig = deepFreeze({ ...ARENA_BRAWLER, groundGame: true });
+export const SCRAPPER: PathFighterConfig = deepFreeze({ ...BRAWLER, ground: true });
 
 /** Low-kick development profile: `docs/reference/front-kicks.md#arena-selection`. */
-export const ARENA_KICKER: PathFighterConfig = deepFreeze({ ...ARENA_SCRAPPER,
-  kicks: { ...KICK_PATH, swingSeconds: .3, contactSpeed: 3 } });
+export const KICKER: PathFighterConfig = deepFreeze({ ...SCRAPPER, kicks: true });

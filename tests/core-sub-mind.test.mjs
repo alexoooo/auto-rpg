@@ -12,7 +12,7 @@ import { atan2 } from "../src/core/math/real.ts";
 import { armed } from "../src/core/human/grip.ts";
 import { modelSpec } from "../src/core/models.ts";
 import { woodenClub } from "../src/core/items/club.ts";
-import { FIGHTER } from "../src/core/mind/config.ts";
+import { RECIPE_FIGHTER } from "../src/core/mind/config.ts";
 import { fighterTactics } from "../src/core/mind/fighter.ts";
 import { embody } from "../src/core/mind/mind.ts";
 import { createMind } from "../src/core/mind/minds.ts";
@@ -183,13 +183,13 @@ test("a body that is down lies still", async () => {
       return { ...seen, has: [...seen.has], phases: [...seen.phases], goals: [...seen.goals], fell: seen.down !== null && seen.down < stand.seconds(3) };
     } finally { body.dispose(); stand.dispose(); }
   };
-  const lay = await felled(FIGHTER);
+  const lay = await felled(RECIPE_FIGHTER);
   assert.ok(lay.fell, "the shove fells it");
   assert.deepEqual({ has: lay.has, asking: lay.asking, short: lay.short, phases: lay.phases, goals: lay.goals, up: lay.up },
     { has: ["lie"], asking: 0, short: 0, phases: ["stand"], goals: ["none"], up: 0 }, "from the step it is down it asks its muscles and its stance nothing");
   assert.ok(lay.late < 0.05, `3 s on, the fastest of its segments moves ${lay.late} m/s`);
   // The control: a fighter with no sub-minds keeps its body, and drives it where it lies.
-  const driven = await felled({ ...FIGHTER, subs: [] });
+  const driven = await felled({ ...RECIPE_FIGHTER, subs: [] });
   assert.ok(driven.fell);
   assert.deepEqual([driven.has, driven.goals], [["command"], ["a stance"]]);
   assert.ok(driven.asking > 0 && driven.short > 0 && driven.late > 0.5, `driven: ${driven.asking} steps asking, ${driven.short} short, ${driven.late} m/s 3 s on`);

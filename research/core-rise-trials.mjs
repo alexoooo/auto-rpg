@@ -14,7 +14,7 @@ import { centreOfToRef } from "../src/core/control/support.ts";
 import { armed } from "../src/core/human/grip.ts";
 import { modelSpec } from "../src/core/models.ts";
 import { woodenClub } from "../src/core/items/club.ts";
-import { FIGHTER } from "../src/core/mind/config.ts";
+import { RECIPE_FIGHTER } from "../src/core/mind/config.ts";
 import { createMind } from "../src/core/mind/minds.ts";
 import { STAND_ORDERS } from "../src/core/mind/orders.ts";
 import { lieOf } from "../src/core/mind/rise/staged.ts";
@@ -151,10 +151,10 @@ export async function toppled(shove, subs) {
 }
 
 /**
- * `felled`, under `mind` (a `MindConfig`; the game's, `FIGHTER`, unless given) ordered to stand in
+ * `felled`, under `mind` (a `MindConfig`; the game's, `RECIPE_FIGHTER`, unless given) ordered to stand in
  * guard, and watched `watch` s.
  */
-export async function shoved({ mind = FIGHTER, watch = WATCH_SECONDS, ...shove }) {
+export async function shoved({ mind = RECIPE_FIGHTER, watch = WATCH_SECONDS, ...shove }) {
   const { world, built, body, dispose } = await felled(shove,
     (made, into) => createMind(made, into, mind, { name: "battery", orders: () => STAND_ORDERS }).body);
   try {

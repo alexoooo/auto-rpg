@@ -113,7 +113,7 @@ cause. The Classic row requires recovery/pressure investigation. These results d
 not establish armed or other-body performance, a browser cost budget, or promotion
 against the decisive-combat proposal.
 
-The selectable `ARENA_BRAWLER` uses this exact target preference and mixed repertoire. It
+The selectable `BRAWLER` uses this exact target preference (`BODY_OPENINGS`) and mixed strikes. It
 is exposed separately from retained linear Combat, so existing controller links keep their
 meaning. The measured scope is Warrior empty hands; this exposure does not meet the proposed
 majority-before-cap finishing gate or validate other equipment and anatomy.

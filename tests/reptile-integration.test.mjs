@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { BODY_MODELS, modelHolds, modelInfo, modelSpec, modelSupportsMind } from "../src/core/models.ts";
 import { MODEL_DISPLAY } from "../src/render/models.ts";
-import { ARENA_KICKER, FIGHTER, QUADRUPED } from "../src/core/mind/config.ts";
+import { KICKER, RECIPE_FIGHTER, QUADRUPED } from "../src/core/mind/config.ts";
 import { generateCryptDungeon } from "../src/dungeon/crypt-dungeon.ts";
 import { generateEncounterLevel, outsidePartyStart } from "../src/dungeon/encounters.ts";
 import { distance, findPath, walkable } from "../src/dungeon/map.ts";
@@ -23,8 +23,8 @@ test("registered models declare compatible default minds and equipment", () => {
     assert.equal(modelSpec(model).model, model);
     assert.equal(modelSupportsMind(model, info.mind), true);
     assert.equal(modelSupportsMind(model, QUADRUPED), model === "reptile");
-    assert.equal(modelSupportsMind(model, FIGHTER), model !== "reptile");
-    assert.equal(modelSupportsMind(model, ARENA_KICKER), model !== "reptile");
+    assert.equal(modelSupportsMind(model, RECIPE_FIGHTER), model !== "reptile");
+    assert.equal(modelSupportsMind(model, KICKER), model !== "reptile");
     assert.equal(modelSupportsMind(model, { kind: "direct", targets: {}, seconds: .1, speed: 1, activation: 1 }), true);
     assert.equal(info.held, model === "reptile" ? "empty" : "club");
     assert.equal(modelHolds(model), model !== "reptile");
@@ -38,13 +38,13 @@ test("arena links retain compatible choices and reject invalid recipes before bu
   assert.deepEqual(controlsFor("reptile"), ["crawl"]);
   assert.deepEqual(readControls(query), { left: "crawl", right: "kicker" });
   assert.deepEqual(readHeld(query), { left: "empty", right: "club" });
-  assert.deepEqual(readMinds(query), { left: QUADRUPED, right: ARENA_KICKER });
+  assert.deepEqual(readMinds(query), { left: QUADRUPED, right: KICKER });
   const scene = new Scene(new NullEngine()), world = createWorld(scene, await freshEngine("rapier-coordinate"));
   try {
     const before = world.physics.save(), nodes = scene.transformNodes.length;
     const recipe = { left: "workshop-fighter", right: "reptile" };
     assert.throws(() => new Duel(world, { ...recipe, held: { left: "club", right: "club" } }), /cannot hold a club/);
-    assert.throws(() => new Duel(world, { ...recipe, minds: { left: FIGHTER, right: ARENA_KICKER } }), /incompatible controller for reptile/);
+    assert.throws(() => new Duel(world, { ...recipe, minds: { left: RECIPE_FIGHTER, right: KICKER } }), /incompatible controller for reptile/);
     assert.deepEqual(world.physics.save(), before);
     assert.equal(scene.transformNodes.length, nodes);
     world.physics.addFixedBox([0, -.5, 0], [40, 1, 40]);

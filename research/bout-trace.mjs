@@ -6,7 +6,7 @@
  *   node research/bout-trace.mjs [left] [right] [seconds] [--mind '<MindConfig JSON>']
  *
  * The defaults are the Warrior against the Rogue, to the verdict or 30 s. With `--mind` both sides
- * have that mind in place of the game's (`FIGHTER`).
+ * have that mind in place of the game's (`RECIPE_FIGHTER`).
  */
 import { playBout } from "./bout.mjs";
 

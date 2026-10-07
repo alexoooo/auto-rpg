@@ -4,16 +4,18 @@ import { createQuadrupedMind, quadrupedFits } from "../reptile/mind.ts";
 import type { BodySpec } from "../spec/body.ts";
 import { deepFreeze } from "../state.ts";
 import type { World } from "../world.ts";
-import { ARENA_BRAWLER, ARENA_FIGHTER, ARENA_KICKER, ARENA_SCRAPPER, FIGHTER, QUADRUPED, type MindConfig } from "./config.ts";
-import { createDirectBody } from "./direct.ts";
+import { BRAWLER, CLASSIC, COMBAT, KICKER, QUADRUPED, SCRAPPER, type MindConfig } from "./config.ts";
+import { createDirectBody, directFaults } from "./direct.ts";
 import type { Minded, MindWiring } from "./minds.ts";
-import { createPathFighter } from "./path-fighter.ts";
-import { createRecipeFighter } from "./recipe-fighter.ts";
+import { createPathFighter, pathFaults } from "./path-fighter.ts";
+import { createRecipeFighter, recipeFaults } from "./recipe-fighter.ts";
 
-/** **A controller**: a kind of mind, the bodies it can drive, its named configs and how it is made. */
+/** **A controller**: a kind of mind, the bodies it can drive, what is wrong with a config, its named configs and how it is made. */
 interface Controller<C extends MindConfig> {
   /** Whether a body of `spec` can carry out what a mind of `config` commands. */
   fits(spec: BodySpec, config: C): boolean;
+  /** What is wrong with `config`, each a sentence; none for a config this controller can make a mind of. */
+  faults(config: C): readonly string[];
   /** Its named configs, by the id the Arena's picker and a link's `control=` use; ids are unique across controllers. */
   readonly presets: Readonly<Record<string, { readonly label: string; readonly config: C }>>;
   create(built: BuiltBody, world: World, config: C, wiring: MindWiring): Minded;
@@ -26,30 +28,38 @@ interface Controller<C extends MindConfig> {
 export const CONTROLLERS: { readonly [K in MindConfig["kind"]]: Controller<Extract<MindConfig, { kind: K }>> } = Object.freeze({
   "recipe-fighter": {
     fits: commandable,
-    presets: deepFreeze({ classic: { label: "Classic fighter", config: { ...FIGHTER, subs: [{ kind: "staged-rise" as const }] } } }),
+    faults: recipeFaults,
+    presets: deepFreeze({ classic: { label: "Classic fighter", config: CLASSIC } }),
     create: createRecipeFighter,
   },
   "path-fighter": {
     fits: commandable,
+    faults: pathFaults,
     presets: deepFreeze({
-      combat: { label: "Combat (experimental)", config: ARENA_FIGHTER },
-      brawler: { label: "Brawler (experimental)", config: ARENA_BRAWLER },
-      scrapper: { label: "Scrapper (experimental)", config: ARENA_SCRAPPER },
-      kicker: { label: "Kicker (experimental)", config: ARENA_KICKER },
+      combat: { label: "Combat (experimental)", config: COMBAT },
+      brawler: { label: "Brawler (experimental)", config: BRAWLER },
+      scrapper: { label: "Scrapper (experimental)", config: SCRAPPER },
+      kicker: { label: "Kicker (experimental)", config: KICKER },
     }),
     create: createPathFighter,
   },
   quadruped: {
     fits: quadrupedFits,
+    faults: () => [],
     presets: deepFreeze({ crawl: { label: "Crawl and bite", config: QUADRUPED } }),
     create: (built, world, _config, wiring) => createQuadrupedMind(built, world, wiring),
   },
   direct: {
     fits: () => true,
+    faults: directFaults,
     presets: {},
     create: (built, world, config, wiring) => ({ kind: "direct", body: createDirectBody(built, world, config, wiring), state: {} }),
   },
 });
+
+/** Every controller's presets by id (`Controller.presets`), in the controllers' order. */
+export const PRESETS: Readonly<Record<string, { readonly label: string; readonly config: MindConfig }>> =
+  Object.freeze(Object.assign({}, ...Object.values(CONTROLLERS).map((controller) => controller.presets)));
 
 /** The controller of `config`'s kind; a thrown error for a kind no controller has, read from a save or a link. */
 export function controllerOf<C extends MindConfig>(config: C): Controller<C> {

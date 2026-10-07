@@ -50,10 +50,16 @@ export function createPolicyBody(built: BuiltBody, world: World, make: (model: A
   return physicalBody(embodied.own, world, sense, () => embodied.mind.name, embodied.state, embodied.dispose, undefined, equipment);
 }
 
+/** What is wrong with `config`'s gains; none when its time and speed are positive and its activation within [0, 1]. */
+export function directFaults(config: DirectMindConfig): readonly string[] {
+  return !Number.isFinite(config.seconds) || config.seconds <= 0 || !Number.isFinite(config.speed) || config.speed <= 0
+    || !Number.isFinite(config.activation) || config.activation < 0 || config.activation > 1 ? ["invalid direct controller gains"] : [];
+}
+
 /** Joint feedback is an independent reference policy, with every gain supplied by its experiment. */
 export function createDirectBody(built: BuiltBody, world: World, config: DirectMindConfig, options: PolicyOptions = {}): PhysicalBody {
-  if (!Number.isFinite(config.seconds) || config.seconds <= 0 || !Number.isFinite(config.speed) || config.speed <= 0
-    || !Number.isFinite(config.activation) || config.activation < 0 || config.activation > 1) throw new Error("invalid direct controller gains");
+  const fault = directFaults(config)[0];
+  if (fault) throw new Error(fault);
   const settings = deepFreeze({ ...config, targets: { ...config.targets } });
   return createPolicyBody(built, world, (model) => {
     for (const [name, target] of Object.entries(settings.targets)) {

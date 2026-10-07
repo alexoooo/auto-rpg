@@ -1,6 +1,6 @@
 import { BODY_MODELS, modelHolds, modelSupportsMind, type BodyModel } from "../core/models.ts";
-import { FIGHTER, type RecipeFighterConfig, type MindConfig } from "../core/mind/config.ts";
-import { CONTROLLERS } from "../core/mind/controllers.ts";
+import { RECIPE_FIGHTER, type RecipeFighterConfig, type MindConfig } from "../core/mind/config.ts";
+import { PRESETS } from "../core/mind/controllers.ts";
 import { isOrders } from "../core/mind/orders.ts";
 import { balanceFrom } from "../core/rules/rulebook.ts";
 import { DUEL_HELD, type OrdersEntry } from "./duel.ts";
@@ -98,14 +98,14 @@ export function readHeld(search: string): Readonly<Record<Side, (typeof DUEL_HEL
 const GUARD_PARAM = "guard";
 
 /**
- * The minds an address gives both sides (`DuelRecipe.minds`): the fighter (`FIGHTER`) guarding
+ * The minds an address gives both sides (`DuelRecipe.minds`): the fighter (`RECIPE_FIGHTER`) guarding
  * as it names (`RecipeFighterConfig.guard`); undefined for anything else, and each side's mind is
  * then the bout's own.
  */
 export function readGuard(search: string): Readonly<Record<Side, RecipeFighterConfig>> | undefined {
   const guard = new URLSearchParams(search).get(GUARD_PARAM);
   if (guard !== "cover" && guard !== "pose") return undefined;
-  const mind: RecipeFighterConfig = { ...FIGHTER, guard };
+  const mind: RecipeFighterConfig = { ...RECIPE_FIGHTER, guard };
   return { left: mind, right: mind };
 }
 
@@ -153,9 +153,7 @@ export function readTape(hash: string): OrdersEntry[] {
 /** The fragment that carries `tape` (`readTape`). */
 export const tapeHash = (tape: readonly OrdersEntry[]): string => `#${TAPE_KEY}=${encodeURIComponent(JSON.stringify(tape))}`;
 
-/** Every controller's presets by id (`Controller.presets`): a side's choice, separate from anatomy, equipment and appearance. */
-const PRESETS: Readonly<Record<string, { readonly label: string; readonly config: MindConfig }>> =
-  Object.freeze(Object.assign({}, ...Object.values(CONTROLLERS).map((controller) => controller.presets)));
+/** A side's choice of preset (`PRESETS`), separate from anatomy, equipment and appearance. */
 type Control = string;
 
 /** The selectable controllers' names on the page, by id. */

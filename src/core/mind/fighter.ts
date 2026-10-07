@@ -3,7 +3,7 @@ import { wrap } from "../skills/locomotion.ts";
 import { APPROACH, rangeOf, type StrikeReport } from "../skills/strike.ts";
 import { BAND_NAMES, BANDS, type Band } from "../skills/strikes.ts";
 import type { Vec3 } from "../spec/quantity.ts";
-import { FIGHTER, type RecipeFighterConfig } from "./config.ts";
+import { RECIPE_FIGHTER, type RecipeFighterConfig } from "./config.ts";
 import { GUARD_ACTION, type HandAction, type Intent } from "./intent.ts";
 import { STAND_ORDERS, type Orders } from "./orders.ts";
 import type { BodySense } from "./senses.ts";
@@ -31,7 +31,10 @@ export const STRAFE = { share: 0.5, turned: 0.3 } as const;
  * s, before it walks in to attack all the same. The band is set, the patience read in bouts:
  * `docs/reference/human-and-strikes.md#the-edge`.
  */
-export const EDGE: NonNullable<RecipeFighterConfig["edge"]> = Object.freeze({ band: 0.25, patience: 4 });
+export const EDGE: Edge = Object.freeze({ band: 0.25, patience: 4 });
+
+/** Where a fighter holds at the edge of a foe's reach (`EDGE`): the band past it, m, and the patience there, s. */
+export interface Edge { readonly band: number; readonly patience: number }
 
 /**
  * **A fighter's tactics** carry out `Orders`, asked for every control step with what the body
@@ -52,7 +55,7 @@ export const EDGE: NonNullable<RecipeFighterConfig["edge"]> = Object.freeze({ ba
  * does not turn.
  */
 export function fighterTactics(name: string, orders: (sight: Sight) => Orders, strafe: typeof STRAFE = STRAFE,
-  guard: RecipeFighterConfig["guard"] = FIGHTER.guard, threat: Threat = THREAT): Tactics {
+  guard: RecipeFighterConfig["guard"] = RECIPE_FIGHTER.guard, threat: Threat = THREAT): Tactics {
   const { threatOf } = threatReader();
   /** What a hand that does not attack does this step. */
   const guarding = ((): (sight: Sight) => HandAction => {
@@ -142,8 +145,8 @@ function bandAimed(aim: RecipeFighterConfig["aim"], nets: StrikeReport["nets"]):
  *
  * Once either is out it stands, facing the foe; and with nobody to fight it stands as it is.
  */
-export function seekFoe({ view, report }: Sight, aim: RecipeFighterConfig["aim"] = FIGHTER.aim,
-  range: RecipeFighterConfig["range"] = FIGHTER.range, edge: NonNullable<RecipeFighterConfig["edge"]> = EDGE): Orders {
+export function seekFoe({ view, report }: Sight, aim: RecipeFighterConfig["aim"] = RECIPE_FIGHTER.aim,
+  range: RecipeFighterConfig["range"] = RECIPE_FIGHTER.range, edge: Edge = EDGE): Orders {
   const { senses, stance } = view, from = stance.centre;
   let foe: BodySense | null = null, near = Infinity;
   for (const other of senses.others) {

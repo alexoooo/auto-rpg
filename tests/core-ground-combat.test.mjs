@@ -4,7 +4,7 @@ import { Vector3 } from '@babylonjs/core/Maths/math.vector.js';
 import { groundFight } from '../research/ground-combat.mjs';
 import { buildBout } from '../research/bout.mjs';
 import { loadEngine, DEFAULT_ENGINE } from '../src/core/engine/engines.ts';
-import { ARENA_SCRAPPER, FIGHTER } from '../src/core/mind/config.ts';
+import { SCRAPPER, RECIPE_FIGHTER } from '../src/core/mind/config.ts';
 import { STAND_ORDERS } from '../src/core/mind/orders.ts';
 import { centreOfToRef } from '../src/core/control/support.ts';
 import { readMinds } from '../src/arena/matchup.ts';
@@ -23,10 +23,10 @@ for(const hand of ['right','left'])for(const recover of [false,true])test(`the r
 });
 
 test('selectable grounded combat forks its approach and low swing and obeys an ordinary stand order',async()=>{
- const candidate={...readMinds('?control=scrapper').left,hand:'right'};
- assert.deepEqual(readMinds('?control=scrapper').left,ARENA_SCRAPPER);
+ const candidate={...readMinds('?control=scrapper').left,hands:'right'};
+ assert.deepEqual(readMinds('?control=scrapper').left,SCRAPPER);
  const recipe={left:'workshop-fighter',right:'workshop-fighter',held:{left:'empty',right:'empty'},balance:{left:0,right:0},
-  minds:{left:candidate,right:FIGHTER},gap:.8,capSeconds:60,recoverySeconds:null};
+  minds:{left:candidate,right:RECIPE_FIGHTER},gap:.8,capSeconds:60,recoverySeconds:null};
  const a=await buildBout(recipe,{physicsEngine:await loadEngine(DEFAULT_ENGINE)}),b=await buildBout(recipe,{physicsEngine:await loadEngine(DEFAULT_ENGINE)});
  const trace=s=>traceOf(Object.values(s.duel.duelists).map(d=>d.built));
  try{

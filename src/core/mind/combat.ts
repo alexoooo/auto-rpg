@@ -1,4 +1,4 @@
-import { rangeLearning, validRangeLearning } from "./range-learning.ts";
+import { rangeLearning } from "./range-learning.ts";
 import { contactResponse } from "../control/effector-feedback.ts";
 import { atan2, cos, hypot, sin } from "../math/real.ts";
 import { ATTACK_PATH } from "../skills/attack-path.ts";
@@ -7,6 +7,7 @@ import { placedReach } from "../skills/strike.ts";
 import type { BodySpec } from "../spec/body.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import type { PathFighterConfig } from "./config.ts";
+import type { ResolvedPath } from "./path-fighter.ts";
 import { fighterTactics, STRAFE } from "./fighter.ts";
 import { GUARD_ACTION, type CombatAction, type Intent } from "./intent.ts";
 import { STAND_ORDERS, type Orders } from "./orders.ts";
@@ -22,14 +23,13 @@ const COMBAT = Object.freeze({ band: .08, reserve: .08, braking: .5, prediction:
   escape: .6, blockedAttempts: 3, boundaryMargin: .08, counter: .2, lateral: .2, settle: .08, readySpeed: .35, boundarySpeed: .18 });
 
 /** Tactical selection uses detached sensed bodies; the common skill owns physical execution. */
-export function combatTactics(spec: BodySpec, name: string, orders: (sight: Sight) => Orders | null, config: PathFighterConfig): Tactics {
-  if (!validRangeLearning(config.spacing, config.spacingStep)) throw new Error("invalid combat range learning settings");
-  const range = (config.spacingStep ?? 0) > 0 ? rangeLearning(config.spacing ?? 0, config.spacingStep!) : null;
-  const paths = { ...ATTACK_PATH, ...config.paths };
+export function combatTactics(spec: BodySpec, name: string, orders: (sight: Sight) => Orders | null, config: PathFighterConfig, resolved: ResolvedPath): Tactics {
+  const range = config.spacingStep > 0 ? rangeLearning(config.spacing, config.spacingStep) : null;
+  const paths = resolved.paths;
   const combinationWindow = paths.returnLimit + paths.chamberSeconds;
-  const selectOpening = openingSelector(spec,config.openings,paths);
+  const selectOpening = openingSelector(spec,resolved.openings,paths);
   const { threatOf, incomingThreat } = threatReader();
-  const repertoire = config.repertoire ?? "linear";
+  const repertoire = config.strikes;
   const mixed = (()=>{
     switch(repertoire) {
       case "linear":return false;
@@ -47,12 +47,11 @@ export function combatTactics(spec: BodySpec, name: string, orders: (sight: Sigh
     ground: null as ReturnType<typeof groundCombat>["state"] | null,
     choice: null as ReturnType<typeof selectOpening>, nextSelection: 0, ordered: ordered.state! };
   const resetCombination = () => { state.combo.hand = null; state.combo.until = 0; state.combo.returned = 0; state.combo.depth = 0; state.combo.following = false; };
-  const defenseMode = config.defenseMode ?? "reference";
   const predictive = (() => {
-    switch (defenseMode) {
-      case "reference": return false;
+    switch (config.defence) {
+      case "cover": return false;
       case "predictive": return true;
-      default: { const never: never = defenseMode; throw new Error(`unknown defense ${never}`); }
+      default: { const never: never = config.defence; throw new Error(`unknown defence ${never}`); }
     }
   })();
   const bodyRadius = bodyClearance(spec) + COMBAT.boundaryMargin;
@@ -66,7 +65,7 @@ export function combatTactics(spec: BodySpec, name: string, orders: (sight: Sigh
     }
     return null;
   };
-  const ground = config.groundGame ? groundCombat(spec, moveClear, {}, config.hand === "alternate") : null;
+  const ground = config.ground ? groundCombat(spec, moveClear, {}, config.hands === "alternate") : null;
   state.ground = ground?.state ?? null;
   const guard = { left: GUARD_ACTION, right: GUARD_ACTION };
   return { name, state, engagement: state, decide(sight, dt): Intent {
@@ -77,13 +76,13 @@ export function combatTactics(spec: BodySpec, name: string, orders: (sight: Sigh
     state.previousHead = { time: view.time, at: head }; state.counter = Math.max(0, state.counter - dt); state.defense = null;
     if (view.resumed) { range?.cancel(); resetCombination(); ground?.reset(); state.action = null; state.escape = 0; state.pressure = 0; state.ready = 0; state.responded = false; state.blockedSurface = null; state.blocks = 0; state.threat = false; state.counter = 0; state.choice = null; state.nextSelection = 0; }
     const cycles = strike.thrown.left + strike.thrown.right + (strike.pointCycle?.failed ?? 0);
-    const overlapReady = () => !!config.overlap && !!state.combo.hand && strike.overlapHand === state.combo.hand;
+    const overlapReady = () => config.combinations === "overlap" && !!state.combo.hand && strike.overlapHand === state.combo.hand;
     if (!strike.hand && cycles !== state.cycle) { state.cycle = cycles; state.action = null; state.ready = 0; state.responded = false; state.nextSelection = 0; }
     let hand: "left" | "right";
-    switch (config.hand) {
-      case "left": case "right": hand = config.hand; break;
+    switch (config.hands) {
+      case "left": case "right": hand = config.hands; break;
       case "alternate": hand = cycles % 2 === 0 ? "right" : "left"; break;
-      default: { const never: never = config.hand; throw new Error(`unknown combat hand ${never}`); }
+      default: { const never: never = config.hands; throw new Error(`unknown combat hand ${never}`); }
     }
     if (state.combo.following && strike.hand === state.combo.hand && strike.hand) {
       state.combo.depth = 1; state.combo.hand = null; state.combo.until = 0; state.combo.returned = 0; state.combo.following = false;
@@ -135,7 +134,7 @@ export function combatTactics(spec: BodySpec, name: string, orders: (sight: Sigh
         }
         else if (response === "target") {
           state.blockedSurface = null; state.blocks = 0;
-          if (config.combinations && state.combo.depth === 0) {
+          if (config.combinations !== "none" && state.combo.depth === 0) {
             state.combo.hand = strike.hand === "right" ? "left" : "right"; state.combo.until = view.time + combinationWindow;
             state.combo.returned = strike.pointCycle?.returned[strike.hand] ?? 0;
           }
@@ -157,7 +156,7 @@ export function combatTactics(spec: BodySpec, name: string, orders: (sight: Sigh
         state.combo.following = !!follow && !follow.blocked;
         if (state.combo.hand && !state.combo.following) resetCombination();
         state.choice = state.combo.following ? follow : selectOpening(view,foe,hand,state.blockedSurface,repertoire);
-        if(config.hand==="alternate" && !state.combo.following) {
+        if(config.hands==="alternate" && !state.combo.following) {
           const other = selectOpening(view,foe,hand==="right"?"left":"right",state.blockedSurface,repertoire);
           if(other&&(!state.choice||other.score<state.choice.score))state.choice=other;
         }
@@ -176,7 +175,7 @@ export function combatTactics(spec: BodySpec, name: string, orders: (sight: Sigh
     const turn = wrap(face - report.heading), aligned = Math.abs(wrap(face - view.stance.facing)) < STRAFE.turned;
     const radius = foe.spec.segments.find(s => s.name === "head")?.shape;
     const skin = radius?.kind === "sphere" || radius?.kind === "capsule" ? radius.radius.value : 0;
-    const distance = Math.max(0, (mixed&&opening?opening.reach:placedReach(spec, hand, target[1] - view.head.y)) - COMBAT.reserve + (opening ? 0 : skin) + (range?.state.offset ?? config.spacing ?? 0));
+    const distance = Math.max(0, (mixed&&opening?opening.reach:placedReach(spec, hand, target[1] - view.head.y)) - COMBAT.reserve + (opening ? 0 : skin) + (range?.state.offset ?? config.spacing));
     const toward = far > 0 ? ((view.stance.velocity.x - velocity.x) * dx + (view.stance.velocity.z - velocity.z) * dz) / far : 0;
     const delta = far - distance, anticipated = delta - Math.max(0, toward) * COMBAT.braking;
     const maximum = envelope?.walk.value ?? COMBAT.lateral;

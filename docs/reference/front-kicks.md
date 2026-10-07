@@ -82,8 +82,8 @@ partial-surface loads instead of dropping them when a foremost corner misses the
 
 ## Arena selection
 
-`ARENA_KICKER`, selectable as **Kicker (experimental)**, adds an optional kick
-selector around Scrapper's existing tactics. Both share the same body, muscles,
+`KICKER`, selectable as **Kicker (experimental)**, adds an optional kick
+(`ARENA_KICKS`) selector around Scrapper's existing tactics. Both share the same body, muscles,
 damage, hands, supported low attacks and recovery. Brawler and Scrapper retain
 their configurations. Downed or moving foes use the retained ground/punch policy.
 

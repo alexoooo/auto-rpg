@@ -17,7 +17,7 @@ import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { Scene } from "@babylonjs/core/scene.js";
 import { Duel, SIDES } from "../src/arena/duel.ts";
 import { addArenaSolids } from "../src/arena/room.ts";
-import { FIGHTER } from "../src/core/mind/config.ts";
+import { RECIPE_FIGHTER } from "../src/core/mind/config.ts";
 import { isClash, woundedIn } from "../src/core/rules/blows.ts";
 import { GUARD_ACTION } from "../src/core/mind/intent.ts";
 import { STAND_ORDERS } from "../src/core/mind/orders.ts";
@@ -34,7 +34,7 @@ const { threatOf } = threatReader();
 
 const RECIPE = deepFreeze({ left: "workshop-fighter", right: "workshop-rogue", gap: 3.75, balance: { left: 25, right: 25 }, senseDelay: 1 });
 /** The same bout with both sides covering what threatens them (`RecipeFighterConfig.guard`). */
-const COVERING = deepFreeze({ ...RECIPE, minds: { left: { ...FIGHTER, guard: "cover" }, right: { ...FIGHTER, guard: "cover" } } });
+const COVERING = deepFreeze({ ...RECIPE, minds: { left: { ...RECIPE_FIGHTER, guard: "cover" }, right: { ...RECIPE_FIGHTER, guard: "cover" } } });
 const BACK = { move: { x: -1, z: 0 }, face: null, attack: null };
 const TAPE = deepFreeze([{ step: 300, side: "left", orders: BACK }, { step: 420, side: "left", orders: null }]);
 /** Steps a twin's world has taken when its bout is built: a bout begins at whatever step its world is at. */
@@ -200,7 +200,7 @@ test("a_load_is_of_the_same_recipe", async () => {
     // The control: the physics alone takes it, the two worlds having the same counts of bodies, joints and colliders.
     assert.doesNotThrow(() => taken.world.physics.load(saved.physics));
     // A bout of other minds is of another recipe: a mind's memory is its kind's, and its sub-minds'.
-    const minds = await bout("twin", { ...RECIPE, minds: { left: { ...FIGHTER, subs: [] }, right: FIGHTER } });
+    const minds = await bout("twin", { ...RECIPE, minds: { left: { ...RECIPE_FIGHTER, subs: [] }, right: RECIPE_FIGHTER } });
     try {
       assert.throws(() => minds.duel.load(saved), /another bout's recipe/);
       assert.throws(() => from.duel.load(minds.duel.save()), /another bout's recipe/);

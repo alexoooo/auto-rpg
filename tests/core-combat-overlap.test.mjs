@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {combinationStand} from './harness/combat-combination.mjs';
 import {saveStand,loadStand} from './harness/core-stand.mjs';
 import {traceOf} from './harness/trace.mjs';
-import {ARENA_SCRAPPER,ARENA_BRAWLER} from '../src/core/mind/config.ts';
+import {SCRAPPER,BRAWLER} from '../src/core/mind/config.ts';
 import {buildBout} from '../research/bout.mjs';
 import {loadEngine,DEFAULT_ENGINE} from '../src/core/engine/engines.ts';
 import {STAND_ORDERS} from '../src/core/mind/orders.ts';
@@ -90,7 +90,7 @@ test('an auxiliary return deadline records failure and never manufactures guard 
 async function arena(side='left'){
  const other=side==='left'?'right':'left';
  return buildBout({left:'workshop-fighter',right:'workshop-fighter',held:{left:'empty',right:'empty'},balance:{left:0,right:0},gap:2,
-  recoverySeconds:null,capSeconds:30,minds:{[side]:{...ARENA_SCRAPPER,spacing:.1,combinations:true,overlap:true},[other]:ARENA_BRAWLER}},
+  recoverySeconds:null,capSeconds:30,minds:{[side]:{...SCRAPPER,spacing:.1,combinations:'overlap'},[other]:BRAWLER}},
   {physicsEngine:await loadEngine(DEFAULT_ENGINE)});
 }
 

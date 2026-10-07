@@ -46,7 +46,7 @@ each fall in a world of its own with the arena's solids.
 node research/core-rise.mjs --workers 14 [--mind '<MindConfig JSON>']
 ```
 
-Every body has the game's mind (`FIGHTER`, `src/core/mind/config.ts`), or the one `--mind` gives.
+Every body has the game's mind (`RECIPE_FIGHTER`, `src/core/mind/config.ts`), or the one `--mind` gives.
 
 - **A shove** (`shoved`): a body built as the arena builds one, ordered to stand in guard
   (`STAND_ORDERS`), is shoved after 1 s at its middle trunk's centre by 1.5 N s for each kilogram
@@ -100,7 +100,7 @@ weights from 1 to 4 s after the shove, past 1e30 at 6 s and past 1e100 at 16 s.
 
 ## Lying
 
-The game's mind (`FIGHTER`): from the step a body is down it is `lie`'s (`lying`,
+The game's mind (`RECIPE_FIGHTER`): from the step a body is down it is `lie`'s (`lying`,
 `src/core/mind/lie.ts`), which asks its muscles for nothing, and the command layers ask its
 stance nothing.
 

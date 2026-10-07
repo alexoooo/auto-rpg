@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {rangeLearning,validRangeLearning} from '../src/core/mind/range-learning.ts';
-import {ARENA_SCRAPPER} from '../src/core/mind/config.ts';
+import {SCRAPPER} from '../src/core/mind/config.ts';
 import {combatTrial} from '../research/arena-combat.mjs';
 import {buildBout} from '../research/bout.mjs';
 import {loadEngine,DEFAULT_ENGINE} from '../src/core/engine/engines.ts';
@@ -45,7 +45,7 @@ test('range-learning settings reject nonfinite and negative active inputs',()=>{
  assert.equal(validRangeLearning(-.1,0),true);assert.equal(validRangeLearning(),true);
 });
 
-const candidate={...ARENA_SCRAPPER,spacing:.1,spacingStep:.1};
+const candidate={...SCRAPPER,spacing:.1,spacingStep:.1};
 test('observed clean misses correct physical self-play spacing without assistance or prolonged pressure',async()=>{
  const row=await combatTrial({left:candidate,right:candidate,recipe:{capSeconds:30}});
  for(const side of ['left','right']){
@@ -75,7 +75,7 @@ test('fresh-world replay retains learned range and ordinary orders cancel the pe
 });
 
 test('physical timed-out returns cannot train a shorter Arena working distance',async()=>{
- const timed={...candidate,paths:{returnLimit:.05}};
+ const timed={...candidate,tuning:{paths:{returnLimit:.05}}};
  const s=await buildBout({left:'workshop-fighter',right:'workshop-fighter',minds:{left:timed,right:timed},
   balance:{left:0,right:0},held:{left:'empty',right:'empty'},capSeconds:20,recoverySeconds:null},{physicsEngine:await loadEngine(DEFAULT_ENGINE)});
  try{

@@ -13,7 +13,7 @@ import { buildBody } from "../src/core/build/build-body.ts";
 import { centreOfToRef } from "../src/core/control/support.ts";
 import { humanSpec } from "../src/core/human/spec.ts";
 import { modelSpec } from "../src/core/models.ts";
-import { FIGHTER } from "../src/core/mind/config.ts";
+import { RECIPE_FIGHTER } from "../src/core/mind/config.ts";
 import { EDGE, fighterTactics, seekFoe } from "../src/core/mind/fighter.ts";
 import { GUARD_ACTION } from "../src/core/mind/intent.ts";
 import { embody } from "../src/core/mind/mind.ts";
@@ -176,8 +176,8 @@ test("a fighter aims at a foe's head, or at the part its right hand's recipe net
   const fist = { high: -0.03, middle: 0.2 }, club = { high: 0.98, middle: 0.5 };
   assert.deepEqual([aimed("pays", fist), aimed("pays", club)], [trunk, head]);
   assert.deepEqual([aimed("head", fist), aimed("head", club)], [head, head]);
-  // Left to itself a fighter aims at the head (`FIGHTER.aim`).
-  assert.equal(FIGHTER.aim, "head");
+  // Left to itself a fighter aims at the head (`RECIPE_FIGHTER.aim`).
+  assert.equal(RECIPE_FIGHTER.aim, "head");
   assert.deepEqual(seekFoe(sight(fist, none, whole)).attack, head);
   // Of equals the first band, the high one; a band its hand has no recipe in is not aimed at, whatever the other nets.
   assert.deepEqual(aimed("pays", { high: 0.2, middle: 0.2 }), head);
@@ -222,7 +222,7 @@ test("a fighter at the edge stands just outside its foe's reach and attacks when
   assert.deepEqual(orders(outside + 1, { phase: "approach" }).attack, [outside + 1, 1.6, 0]);
   assert.deepEqual(orders(outside + 0.3, {}, { band: 0.5, patience: 4 }).move, null, "a wider band stands further out");
   // Walking in is the fighter's way unless it is told otherwise.
-  assert.equal(FIGHTER.range, "close");
+  assert.equal(RECIPE_FIGHTER.range, "close");
 });
 
 test("a fighter holds the point it aims at until the plan's leaves it, a blow is thrown or one is under way", () => {

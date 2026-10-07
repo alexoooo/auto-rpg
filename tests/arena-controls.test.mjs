@@ -8,7 +8,7 @@ import { Duel } from "../src/arena/duel.ts";
 import { readControls, readMinds, readRecovery } from "../src/arena/matchup.ts";
 import { addArenaSolids } from "../src/arena/room.ts";
 import { centreOfToRef } from "../src/core/control/support.ts";
-import { ARENA_BRAWLER, ARENA_FIGHTER, FIGHTER } from "../src/core/mind/config.ts";
+import { BRAWLER, CLASSIC, COMBAT, RECIPE_FIGHTER } from "../src/core/mind/config.ts";
 import { STAND_ORDERS } from "../src/core/mind/orders.ts";
 import { saveState } from "../src/core/state.ts";
 import { createWorld } from "../src/core/world.ts";
@@ -19,7 +19,7 @@ async function bout(overrides = {}) {
   const engine = new NullEngine(), scene = new Scene(engine), world = createWorld(scene, await freshEngine());
   addArenaSolids(world.physics);
   const duel = new Duel(world, { left: "workshop-fighter", right: "workshop-rogue", capSeconds: 20,
-    held: { left: "empty", right: "empty" }, minds: { left: ARENA_FIGHTER, right: FIGHTER }, recoverySeconds: 15, ...overrides });
+    held: { left: "empty", right: "empty" }, minds: { left: COMBAT, right: RECIPE_FIGHTER }, recoverySeconds: 15, ...overrides });
   return { world, duel, dispose() { duel.dispose(); world.dispose(); scene.dispose(); engine.dispose(); } };
 }
 
@@ -28,9 +28,9 @@ test("controller and recovery links preserve independent choices and classic gua
   assert.deepEqual(readControls("?control=unknown,combat"), { left: "classic", right: "combat" });
   assert.deepEqual(readControls("?control=point-left,point-alternate"), { left: "classic", right: "classic" });
   assert.deepEqual(readMinds("?control=combat,classic&guard=cover"), {
-    left: ARENA_FIGHTER, right: { ...FIGHTER, guard: "cover", subs: [{ kind: "staged-rise" }] },
+    left: COMBAT, right: { ...CLASSIC, guard: "cover" },
   });
-  assert.deepEqual(readMinds("?control=brawler,combat"), { left: ARENA_BRAWLER, right: ARENA_FIGHTER });
+  assert.deepEqual(readMinds("?control=brawler,combat"), { left: BRAWLER, right: COMBAT });
   assert.deepEqual(["", "?recovery=", "?recovery=-1", "?recovery=Infinity", "?recovery=61"].map(readRecovery), Array(5).fill(undefined));
   assert.equal(readRecovery("?recovery=continue"), null);
   assert.deepEqual(["?recovery=0", "?recovery=15", "?recovery=60"].map(readRecovery), [0, 15, 60]);

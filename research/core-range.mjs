@@ -27,7 +27,7 @@ import { appendFileSync, readFileSync } from "node:fs";
 import { parseArgs } from "node:util";
 import { DUEL_HELD, SIDES } from "../src/arena/duel.ts";
 import { HUMANOID_MODELS } from "../src/core/models.ts";
-import { FIGHTER } from "../src/core/mind/config.ts";
+import { RECIPE_FIGHTER } from "../src/core/mind/config.ts";
 import { EDGE } from "../src/core/mind/fighter.ts";
 import { BOUT_HARNESS } from "./bout.mjs";
 import { defaultLanes, playBouts } from "./bout-pool.mjs";
@@ -63,7 +63,7 @@ function sideOf(row, side) {
 
 /** A bout's job, and the record its row becomes: `edge` is the side that holds at the edge, or null in the control. */
 function jobOf(seed, held, left, right, at, edge) {
-  const mind = (side) => side === at ? { ...FIGHTER, range: "edge", edge } : FIGHTER;
+  const mind = (side) => side === at ? { ...RECIPE_FIGHTER, range: "edge", tuning: { edge } } : RECIPE_FIGHTER;
   return {
     key: { seed, gap: gapOf(seed), held, left, right, at, edge },
     recipe: { left, right, gap: gapOf(seed), held: { left: held, right: held }, minds: { left: mind("left"), right: mind("right") } },

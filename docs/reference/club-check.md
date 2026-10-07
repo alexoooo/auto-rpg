@@ -1,6 +1,6 @@
 # The club check: Scrapper against Classic with clubs
 
-Whether the fighter that strikes on the shared strike cycle (Scrapper, `ARENA_SCRAPPER`) holds its
+Whether the fighter that strikes on the shared strike cycle (Scrapper, `SCRAPPER`) holds its
 own against the fighter that strikes by recipe (Classic) when both hold the wooden club. Recipe
 blows retire only if it does.
 

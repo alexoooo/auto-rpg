@@ -6,7 +6,7 @@ import {groundFight} from './ground-combat.mjs';
 import {punchScore} from './punch-foundation.mjs';
 import {combatFingerprint} from './arena-combat.mjs';
 import {PLANTED_PUNCH_EXECUTION} from '../src/core/skills/combat.ts';
-import {ARENA_SCRAPPER} from '../src/core/mind/config.ts';
+import {SCRAPPER} from '../src/core/mind/config.ts';
 
 /** Stability admits each limb and each task independently, without a force-improvement threshold. */
 export function punchStabilityAdmission(standing,ground) {
@@ -28,7 +28,7 @@ export async function qualifyPunchStability(paths={contactSpeed:5,swingSeconds:.
  }
  for(const hand of ['left','right'])for(const recover of [false,true]) {
   const r=await groundFight({hand,recover,seconds:45,
-   candidate:{...ARENA_SCRAPPER,paths,execution:PLANTED_PUNCH_EXECUTION},measureSupport:true});
+   candidate:{...SCRAPPER,tuning:{paths,execution:PLANTED_PUNCH_EXECUTION}},measureSupport:true});
   ground.push(r);process.stderr.write(`ground ${hand}/${recover}: ${JSON.stringify(r.summary)}\n`);
  }
  if(combatFingerprint()!==fingerprint)throw new Error('source changed during punch stability qualification');

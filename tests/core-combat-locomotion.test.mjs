@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {combatTurn} from '../research/combat-locomotion.mjs';
 import {locomotion,validTurnLimit} from '../src/core/skills/locomotion.ts';
-import {ARENA_SCRAPPER} from '../src/core/mind/config.ts';
+import {SCRAPPER} from '../src/core/mind/config.ts';
 import {buildBout} from '../research/bout.mjs';
 import {loadEngine,DEFAULT_ENGINE} from '../src/core/engine/engines.ts';
 import {traceOf} from './harness/trace.mjs';
@@ -24,7 +24,7 @@ test('the shared turn ceiling prevents an unassisted Warrior falling while start
 
 test('a configured Arena turn ceiling forks during an ordinary approach and retains its limit',async()=>{
  const make=async()=>buildBout({left:'workshop-fighter',right:'workshop-fighter',gap:2,capSeconds:20,recoverySeconds:null,
-  balance:{left:0,right:0},held:{left:'empty',right:'empty'},minds:{left:{...ARENA_SCRAPPER,turnLimit:1},right:{...ARENA_SCRAPPER,turnLimit:1}}},
+  balance:{left:0,right:0},held:{left:'empty',right:'empty'},minds:{left:{...SCRAPPER,tuning:{turnLimit:1}},right:{...SCRAPPER,tuning:{turnLimit:1}}}},
   {physicsEngine:await loadEngine(DEFAULT_ENGINE)});
  const a=await make(),b=await make();
  try{

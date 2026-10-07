@@ -43,7 +43,7 @@ and physics at the stated rate. No render call steps it.
 Harness: Node unpinned Warrior stand, `rapier-coordinate`, empty hands, balance 0.
 Punch cells run 8 s with the planted, physically closed-fist executor, 5 m/s
 requested terminal speed, 0.12 s stroke and 0.5 elbow preference. Kick cells run
-24 s with the current `ARENA_KICKER.kicks` settings, targeting (+/-0.1, 0.45, 0.45) m.
+24 s with the current `ARENA_KICKS` settings, targeting (+/-0.1, 0.45, 0.45) m.
 The conservative comparison uses `KICK_PATH`. All actual body segments
 can load the pad. The kick window is 8 cm high; the punch window is 40 cm high.
 Pad mass, mount stiffness, damping and material law retain `PUNCH_PAD`.

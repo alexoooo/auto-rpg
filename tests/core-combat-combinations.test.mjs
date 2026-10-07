@@ -1,15 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {ARENA_SCRAPPER,ARENA_BRAWLER} from '../src/core/mind/config.ts';
+import {SCRAPPER,BRAWLER} from '../src/core/mind/config.ts';
 import {buildBout} from '../research/bout.mjs';
 import {loadEngine,DEFAULT_ENGINE} from '../src/core/engine/engines.ts';
 import {STAND_ORDERS} from '../src/core/mind/orders.ts';
 import {traceOf} from './harness/trace.mjs';
 
 async function make(side='left',paths={}) {
- const other=side==='left'?'right':'left',candidate={...ARENA_SCRAPPER,spacing:.1,combinations:true,paths};
+ const other=side==='left'?'right':'left',candidate={...SCRAPPER,spacing:.1,combinations:'follow-up',tuning:{paths}};
  return buildBout({left:'workshop-fighter',right:'workshop-fighter',held:{left:'empty',right:'empty'},balance:{left:0,right:0},
-  minds:{[side]:candidate,[other]:ARENA_BRAWLER},gap:2,recoverySeconds:null,capSeconds:30},{physicsEngine:await loadEngine(DEFAULT_ENGINE)});
+  minds:{[side]:candidate,[other]:BRAWLER},gap:2,recoverySeconds:null,capSeconds:30},{physicsEngine:await loadEngine(DEFAULT_ENGINE)});
 }
 
 test('both Arena assignments follow confirmed target contact and verified return with one opposite-hand punch',async()=>{

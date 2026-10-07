@@ -6,7 +6,7 @@ import { clearStep } from '../src/core/mind/clear-step.ts';
 import { solidSenses } from '../src/core/mind/object-senses.ts';
 import { frameOf } from '../src/core/spec/body.ts';
 import { modelSpec } from '../src/core/models.ts';
-import { ARENA_FIGHTER } from '../src/core/mind/config.ts';
+import { COMBAT } from '../src/core/mind/config.ts';
 import { armed } from '../src/core/human/grip.ts';
 import { woodenClub } from '../src/core/items/club.ts';
 import { rigidPoints } from '../src/core/build/rigid.ts';
@@ -67,7 +67,7 @@ test('fixed geometry grants preserve physical sizes and reject swept walls, post
 
 test('physical predictive defense covers only an available hand and preserves its timing through a fresh-world fork',async()=>{
  const recipe={left:'workshop-fighter',right:'workshop-fighter',held:{left:'empty',right:'empty'},balance:{left:0,right:0},
-  minds:{left:{...ARENA_FIGHTER,defenseMode:'predictive'},right:ARENA_FIGHTER},senseDelay:6,recoverySeconds:null,capSeconds:30};
+  minds:{left:{...COMBAT,defence:'predictive'},right:COMBAT},senseDelay:6,recoverySeconds:null,capSeconds:30};
  const a=await buildBout(recipe,{physicsEngine:await loadEngine(DEFAULT_ENGINE)}),b=await buildBout(recipe,{physicsEngine:await loadEngine(DEFAULT_ENGINE)});
  try{
   const d=a.duel.duelists.left;let defended=0,evaded=0,covered=0,forked=false;
@@ -91,7 +91,7 @@ test('physical predictive defense covers only an available hand and preserves it
 });
 
 test('an ordered approach reaches the real parapet, then autonomous combat escapes and forks beside it',async()=>{
- const recipe={left:'workshop-fighter',right:'workshop-fighter',gap:1.2,held:{left:'empty',right:'empty'},balance:{left:0,right:0},minds:{left:ARENA_FIGHTER,right:ARENA_FIGHTER},recoverySeconds:null,capSeconds:160};
+ const recipe={left:'workshop-fighter',right:'workshop-fighter',gap:1.2,held:{left:'empty',right:'empty'},balance:{left:0,right:0},minds:{left:COMBAT,right:COMBAT},recoverySeconds:null,capSeconds:160};
  const a=await buildBout(recipe,{physicsEngine:await loadEngine(DEFAULT_ENGINE)}),b=await buildBout(recipe,{physicsEngine:await loadEngine(DEFAULT_ENGINE)});
  try{
   const left=a.duel.duelists.left,right=a.duel.duelists.right;

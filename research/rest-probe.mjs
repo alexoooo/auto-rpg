@@ -1,7 +1,7 @@
 /**
  * How long a felled body takes to lie still, and what Rapier does with a limp body put to sleep.
  *
- * **Falls.** Each crypt model with the club, under the crypt's mind (`FIGHTER`, with the assist
+ * **Falls.** Each crypt model with the club, under the crypt's mind (`RECIPE_FIGHTER`, with the assist
  * its balance gives under the dungeon's rulebook) and orders to stand, alone on a ground: stood
  * 2 s, then shoved at its root's centre of mass by its whole weight for a quarter second toward
  * each of four bearings and let go limp (`Body.setLevel`) as it is found down, as the crypt lets
@@ -34,7 +34,7 @@ import { armed } from "../src/core/human/grip.ts";
 import { modelSpec } from "../src/core/models.ts";
 import { woodenClub } from "../src/core/items/club.ts";
 import { centreOfToRef } from "../src/core/control/support.ts";
-import { FIGHTER } from "../src/core/mind/config.ts";
+import { RECIPE_FIGHTER } from "../src/core/mind/config.ts";
 import { standIntent } from "../src/core/mind/intent.ts";
 import { createMind } from "../src/core/mind/minds.ts";
 import { balanceCeiling, balancePercent, rulebook } from "../src/core/rules/rulebook.ts";
@@ -64,7 +64,7 @@ async function fall(model, shove) {
   world.physics.addFixedBox([0, -0.5, 0], [200, 1, 200]);
   const built = buildBody(spec, world, { position: [0, 0, 0] });
   const assist = balanceCeiling(built.spec.attributes.balance.value, balancePercent(rules));
-  const { body } = createMind(built, world, FIGHTER, { name: "probe", assist, orders: () => ({ move: null, face: null, attack: null }) });
+  const { body } = createMind(built, world, RECIPE_FIGHTER, { name: "probe", assist, orders: () => ({ move: null, face: null, attack: null }) });
   const segments = [...built.segments.values()], root = body.muscles.dynamics.root.segment, at = new Vector3(), v = new Vector3();
   const weight = segments.reduce((sum, segment) => sum + segment.rigid.mass, 0) * -built.physics.gravity[1];
   const push = shove && new Vector3(shove[1], 0, shove[2]).scaleInPlace(weight * world.dt);

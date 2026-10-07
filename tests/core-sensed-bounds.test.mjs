@@ -4,14 +4,14 @@ import {Vector3} from '@babylonjs/core/Maths/math.vector.js';
 import {bodyClearance,sensedBounds,sensedFootClearance,lowOpponent} from '../src/core/mind/sensed-bounds.ts';
 import {clearanceExit,clearStep} from '../src/core/mind/clear-step.ts';
 import {buildBout} from '../research/bout.mjs';
-import {ARENA_FIGHTER} from '../src/core/mind/config.ts';
+import {COMBAT} from '../src/core/mind/config.ts';
 import {DEFAULT_ENGINE,loadEngine} from '../src/core/engine/engines.ts';
 import {STAND_ORDERS} from '../src/core/mind/orders.ts';
 import {upperSurface,highestSurface} from '../src/core/mind/openings.ts';
 import {centreOfToRef} from '../src/core/control/support.ts';
 
 test('the physical Warrior hull and attached club contribute to detached bounds',async()=>{
- const b=await buildBout({left:'workshop-fighter',right:'workshop-fighter',held:{left:'empty',right:'club'},minds:{left:ARENA_FIGHTER,right:ARENA_FIGHTER}},
+ const b=await buildBout({left:'workshop-fighter',right:'workshop-fighter',held:{left:'empty',right:'club'},minds:{left:COMBAT,right:COMBAT}},
   {physicsEngine:await loadEngine(DEFAULT_ENGINE)});
  try {
   b.duel.order('left',STAND_ORDERS);b.duel.order('right',STAND_ORDERS);b.world.step(240);

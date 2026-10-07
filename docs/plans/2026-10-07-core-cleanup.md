@@ -162,63 +162,20 @@ Bit-identical, state included. As built:
   `combatSkills` resumes. `combatSkills` keeps its positional parameters until chunk 15.
 - The body hands each sub-mind maker its world (`SubMindMaker`), so `subMindsOf` needs none.
 
-### Chunk 13: each controller's config, validated once, with its presets (bit-identical)
+### Chunk 13: each controller's config, validated once, with its presets (landed)
 
-Each registry entry gains `faults(config, spec): string[]`, read by `createMind` (it throws on
-the first fault) and by the link reader (chunk 18).
-
-**The recipe fighter** (`RecipeFighterConfig`):
-
-```ts
-interface RecipeFighterConfig { kind:"recipe-fighter";
-  subs: readonly SubMindConfig[];
-  guard:"pose"|"cover"; aim:"head"|"pays"; range:"close"|"edge";
-  tuning?: { threat?; covering?; edge?; repertoire?; placed?; steer? } }  // research only
-```
-
-- `guard`, `aim` and `range` are its player fields. `aim: "pays"` and `range: "edge"` work and
-  have research behind them (`core-aim`, `core-range`), so they become panel fields.
-- `threat`, `covering` and `edge`, and the recipe skill's `repertoire`, `placed` and `steer`,
-  move under `tuning`: research and the Lab's Blow (`lab/blow.ts`) only.
-- `&guard=` folds into the per-side settings (chunk 18). Until then, `readGuard` writes the
-  `guard` field.
-- Presets: Classic, `{subs: [staged-rise], guard: "pose", aim: "head", range: "close"}`, the
-  default. The Crypt and every other default keep `FIGHTER` (renamed `RECIPE_FIGHTER`), with
-  `subs: [lie]`.
-
-**The path fighter** (`PathFighterConfig`):
-
-```ts
-interface PathFighterConfig { kind:"path-fighter";
-  subs: readonly SubMindConfig[];
-  hands:"left"|"right"|"alternate"; strikes:"linear"|"mixed"|"vertical"|"boxing";
-  prefers:"head"|"body"; defence:"cover"|"predictive"; kicks:boolean; ground:boolean;
-  combinations:"none"|"follow-up"|"overlap"; spacing:number; spacingStep:number;
-  tuning?: { paths?; kick?; execution?; openings?; turnLimit?; turnStartup? } }  // research only
-```
-
-- **One `resolvePath(config)`:** a frozen, merged `{paths, kick, execution, openings}`, read by
-  both the tactics and the skills.
-- **`faults`** refuses:
-  - combinations without alternate hands;
-  - invalid range learning, paths, kick, execution, openings or turn settings;
-  - kicks on a body without two foot effectors.
-- **Presets:**
-
-  | Preset | strikes | prefers | kicks | ground |
-  |---|---|---|---|---|
-  | Combat | linear | head | no | no |
-  | Brawler | mixed | body | no | no |
-  | Scrapper | mixed | body | no | yes |
-  | Kicker | mixed | body | yes | yes |
-
-  - All four use hands alternate, defence cover, combinations none and spacing 0.
-  - Kicker uses `ARENA_KICKS = {...KICK_PATH, swingSeconds:.3, contactSpeed:3}`.
-  - `matchup.ts`, `models.ts` and `research/arena-combat.mjs` read the registry's presets.
-- **Test-only options:**
-  - `defenseMode`, `repertoire` vertical/boxing, `combinations`, `overlap`, `spacingStep` and
-    `hand` become ordinary fields.
-  - `paths`, `execution`, `turnLimit` and `turnStartup` move under `tuning`.
+Bit-identical. As built:
+- Each registry entry has `faults(config)`, which `createMind` reads (it throws the first). It
+  takes no spec: whether a body can carry a config out is `fits`, and `commandable` already
+  needs box feet, so a kicker fits every body the path fighter fits.
+- The recipe fighter's config is `{kind, subs, guard, aim, range, tuning?: {covering, threat, edge}}`
+  (`Edge`, `fighter.ts`); `RECIPE_FIGHTER` (lies) and `CLASSIC` (staged rise). The recipe
+  skill's `repertoire`, `placed` and `steer` stay the Lab's `RecipeOptions`: no config sets them.
+- The path fighter's config is as written above; `resolvePath` and `pathFaults` are in
+  `path-fighter.ts`, and `combatTactics` takes the resolved settings. `BODY_OPENINGS` and
+  `ARENA_KICKS` are in `config.ts`; `prefers: "body"` is `BODY_OPENINGS` under any tuned openings.
+- `PRESETS` (`controllers.ts`) merges every controller's presets; `matchup.ts` and
+  `research/arena-combat.mjs`'s `combatMind` read it.
 
 ### Chunk 14: shared tactics parts, and targets by spec (bit-identical)
 

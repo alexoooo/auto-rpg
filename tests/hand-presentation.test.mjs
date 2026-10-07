@@ -5,7 +5,7 @@ import { strikeHands, fighterHands } from "../src/render/strike-hands.ts";
 import { dressRobot } from "../src/render/robot-skin.ts";
 import { skinSlot } from "../src/render/skin-slot.ts";
 import { commandsBody } from "../src/core/body.ts";
-import { FIGHTER, ARENA_FIGHTER } from "../src/core/mind/config.ts";
+import { RECIPE_FIGHTER, COMBAT } from "../src/core/mind/config.ts";
 import { DEFAULT_ENGINE } from "../src/core/engine/engines.ts";
 import { modelSpec } from "../src/core/models.ts";
 import { buildBout } from "../research/bout.mjs";
@@ -200,7 +200,7 @@ test("Crypt supplies the world to presentation during construction and when an e
   }
 });
 
-for (const mind of [FIGHTER, ARENA_FIGHTER]) test(`${mind.kind}: actual Arena punches form fists without changing the bout`, async () => {
+for (const mind of [RECIPE_FIGHTER, COMBAT]) test(`${mind.kind}: actual Arena punches form fists without changing the bout`, async () => {
   const recipe = { left: "workshop-fighter", right: "workshop-fighter", gap: 2, capSeconds: 8,
     balance: { left: 25, right: 25 }, held: { left: "empty", right: "empty" }, minds: { left: mind, right: mind } };
   const run = async decorated => {

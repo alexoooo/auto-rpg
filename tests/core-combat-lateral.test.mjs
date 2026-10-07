@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Vector3,Quaternion} from '@babylonjs/core/Maths/math.vector.js';
 import {openingSelector,validOpeningTuning} from '../src/core/mind/openings.ts';
-import {ARENA_SCRAPPER,ARENA_FIGHTER} from '../src/core/mind/config.ts';
+import {SCRAPPER,COMBAT} from '../src/core/mind/config.ts';
 import {STAND_ORDERS} from '../src/core/mind/orders.ts';
 import {buildBout} from '../research/bout.mjs';
 import {loadEngine,DEFAULT_ENGINE} from '../src/core/engine/engines.ts';
@@ -10,7 +10,7 @@ import {frameOf} from '../src/core/spec/body.ts';
 import {traceOf} from './harness/trace.mjs';
 
 const recipe={left:'workshop-fighter',right:'workshop-fighter',held:{left:'empty',right:'empty'},balance:{left:0,right:0},
- minds:{left:ARENA_SCRAPPER,right:ARENA_SCRAPPER},recoverySeconds:null,capSeconds:30};
+ minds:{left:SCRAPPER,right:SCRAPPER},recoverySeconds:null,capSeconds:30};
 
 test('lateral surface settings reject fractions outside the physical circle',()=>{
  for(const headLateral of [0,.5,1])assert.equal(validOpeningTuning({headLateral}),true);
@@ -41,8 +41,8 @@ test('both real guard hands can select a lateral collider surface while zero pre
 });
 
 test('lateral Arena selection carries through the shared physical strike and fresh-world replay',async()=>{
- const candidate={...ARENA_SCRAPPER,spacing:.1,paths:{elbowExtension:1},openings:{head:-.6,upperTrunk:0,middleTrunk:0,headLateral:.5}};
- const r={...recipe,minds:{left:candidate,right:ARENA_FIGHTER},gap:2};
+ const candidate={...SCRAPPER,spacing:.1,tuning:{paths:{elbowExtension:1},openings:{head:-.6,upperTrunk:0,middleTrunk:0,headLateral:.5}}};
+ const r={...recipe,minds:{left:candidate,right:COMBAT},gap:2};
  const a=await buildBout(r,{physicsEngine:await loadEngine(DEFAULT_ENGINE)}),b=await buildBout(r,{physicsEngine:await loadEngine(DEFAULT_ENGINE)});
  try{
   const d=a.duel.duelists.left,skills=d.minded.skills;
