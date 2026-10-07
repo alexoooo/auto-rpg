@@ -124,10 +124,10 @@ classic fighter remain available for comparison. On the Combat fighter, a second
 rise after a walk stalls at its fourth stage, about one fist return in ten times out, and club
 cycles land nothing on a fixed box (the `todo` tests in `tests/arena-control-cycle.test.mjs`). The
 [autonomous Warrior baseline](reference/arena-combat.md) exposes sustained hand pressure with
-little damage in the self-play of Point control, a placed-point controller no longer in the game. The [next combat controller](plans/2026-10-06-arena-combat.md)
-exposes Combat, retained Brawler and grounded Scrapper through the same body and muscle
-contract. Brawler wins 591/600 held-out Warrior fist cap bouts against Classic, Point and
-linear Combat. Scrapper lands low blows with either hand in controlled knockdowns, attempts
+little damage in the self-play of Point control, a placed-point controller no longer in the game. The path
+fighter's presets, Combat, Brawler, grounded Scrapper and Kicker, run through the same body and
+muscle contract. Brawler won 591/600 held-out Warrior fist cap bouts against Classic, Point and
+linear Combat while Point was in the game. Scrapper lands low blows with either hand in controlled knockdowns, attempts
 recovery and restores standing, with fresh-world replay. Decisive finishing, low-target pose
 coverage, defense timing, broader loadouts and repeated league evaluation remain open. The
 standing benchmark does not rate the grounded extension. The original grounded configuration
@@ -235,7 +235,7 @@ promoted by these results.
   first having no window the feet can be set to. A target off every window's height is struck
   by a placed blow.
 - The owner's to choose, each landed at its default:
-  - Where a fighter aims (`FighterMindConfig.aim`): the head, as it does, or the part its hand's
+  - Where a fighter aims (`RecipeFighterConfig.aim`): the head, as it does, or the part its hand's
     blow pays most on (`"pays"`). Over two pilots of 32 starting gaps a cell, aiming at what pays
     (the upper trunk, for every body with either thing held) gains 0.018 and 0.015 of the bar's
     margin, d 0.15 and 0.13, and wins fewer bouts, 0.47 of them where 0.50, falling in 0.39
@@ -365,7 +365,7 @@ promoted by these results.
   of lying at half or more; the Rogue from 6 of 32 falls and the skeleton from 1
   ([reference/rising.md](reference/rising.md#staged)); this battery uses the parent-axis
   reference engine. The Arena defaults to continuing after falls: Classic attempts its staged
-  rise, while Point and Combat verify standing support before handing control back. The Crypt
+  rise, while the path fighter verifies standing support before handing control back. The Crypt
   still uses the reference `lie` behavior. Open, each with its readings in the record
   ([reference/rising.md](reference/rising.md#where-the-rise-stops)):
   - the kneel-up goes down forward in two of the nine forward topples read: the body rocks onto

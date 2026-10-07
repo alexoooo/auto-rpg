@@ -33,7 +33,7 @@ read (`src/core/skills/skills.ts`).
 | Motor control | `src/core/control/` | joint goals, hand goals and the stance turned into muscle commands; a body borne on the ground through its limbs (`bearing.ts`) |
 | Skills | `src/core/skills/` | an intent turned into the body's command: walk, face, strike, guard |
 | Tactics | `src/core/mind/tactics.ts`, `ordered.ts`, `targets.ts`, `recipe-tactics.ts`, `path-tactics.ts` | what the body should do, decided from what it sees |
-| Minds | `src/core/mind/config.ts`, `minds.ts`, `rise/` | a body's mind made from its config, plain data by kind; a riser that plays a recipe of stages |
+| Minds | `src/core/mind/config.ts`, `controllers.ts`, `minds.ts`, `hosted.ts`, `rise/` | a body's mind made from its config, plain data by kind, by the controller of that kind; a riser that plays a recipe of stages |
 
 `createBody` (`src/core/body.ts`) gives a built body the command layers as its mind
 (`commandMind`, hosting the sub-minds it is given, under `embody`): its muscles and motor control. Each step it
@@ -432,7 +432,11 @@ and the view shows no stance asked). When the body is its own again it is told (
 the view says so for that step (`BodyView.resumed`): `driveBy` resumes every skill before the
 tactics decide (`Skills.resume`, each a `Skill`, told from one list), and the fighter's tactics
 aim afresh, so the body goes on from where it is and not from what it was in the middle of. Who
-has the body is one number in the mind's state, and `Body.has` names it.
+has the body is one number in the mind's state, and `Body.has` names it. A hosted mind is made one
+way for every body (`hostedBody`, `hosted.ts`): its maker gives the host, its sub-minds in rank
+order and how the body reads whether it is down, and the body is embodied, hosted and handed to the
+fight as a `PhysicalBody`. The humanoid's command mind (`createBody`) and the quadruped's
+(`createQuadrupedMind`) are both made so.
 
 A mind whose body leaves `full` is told (`Mind.idle`), and is not stepped until its body is at
 `full` again; it then goes on from the body as it is. Under `hosting` this is the hand-over to a
@@ -453,8 +457,10 @@ drives a body by a mode's script rather than a fight's mind.
 
 **A kind of mind is a controller** (`CONTROLLERS`, `controllers.ts`), a mapped type over the
 kinds, so a kind without one does not compile: it says which bodies it fits (`fits`), names
-its presets (the Arena's picker and a link's `control=` read them, ids unique across
-controllers) and makes the mind (`create`). There are four: the **recipe fighter** (Classic:
+its presets (`PRESETS` merges them; the Arena's picker and a link's `control=` read them, ids
+unique across controllers) and makes the mind (`create`). Each controller composes its own
+tactics and skills; what they share is shared code (the orders, the targets, the guard, the
+sub-minds, locomotion and the strike cycle), not a flag that chooses a stack. There are four: the **recipe fighter** (Classic:
 searched recipe blows, `recipe-fighter.ts`), the **path fighter** (Combat, Brawler, Scrapper,
 Kicker: hand paths on the strike cycle, `path-fighter.ts`), the **quadruped** (crawl and bite)
 and **direct** joint control. A config read from a save or a link whose kind none has is refused
@@ -527,8 +533,8 @@ high mark (`highMark`), the reptile the nearest point of its surface (`surfaceOn
 facing are one part both fighters share (`orderedIntent`, `ordered.ts`), as are the hand that
 does not attack (`guarding`) and whom and where they aim (`targets.ts`: the nearest foe,
 `nearestFoe`; the nearest surface, `nearestSurface`; how a fallen foe lies, `lyingAxis`), read by
-the foe's marks (`BodySpec.marks`: its high mark, its middle, its base and its legs) and never by
-a human segment's name. Ordered to walk, the body walks that way at its fastest
+the foe's marks (`BodySpec.marks`: its high mark, its middle, its base, its legs and what it
+guards with, where a contact is a block, `contactResponse`) and never by a human segment's name. Ordered to walk, the body walks that way at its fastest
 walk, turning to it. Ordered to face another way as it walks, it walks at half that pace until
 it has turned to its facing, and from then at half plus the other half times the cosine of the
 angle between its heading and its walk (`STRAFE`, [reference/orders.md](reference/orders.md)).
@@ -1013,9 +1019,10 @@ physical loadouts, duel recipes and tapes. They do not change collisions, sounds
 
 ## What the seams are for
 
-An attack is a function of its target: the tactics say what to attack (`Attack`: a point,
-with whatever the hand holds) and never how, and the strike skill chooses how, a searched recipe
-or a placed blow. No technique is a kind in the code: a recipe is data a search found. Defence
+An attack is a function of its target: the tactics say what to attack (`Attack`: a blow of a
+hand, with whatever it holds, or a kick of a foot, at a point) and, for the path fighter, along
+which family of path (`BlowPath`); the recipe fighter's strike skill chooses how, a searched
+recipe or a placed blow. No technique is a kind in the code: a recipe is data a search found. Defence
 is the guard placing what a hand holds, or the hand. A blow is whatever two surfaces of two
 sides met with. Each seam is where one kind of addition goes; none of these is built
 ([roadmap](roadmap.md#strikes)).
@@ -1028,10 +1035,10 @@ sides met with. Each seam is where one kind of addition goes; none of these is b
 | **A shield** | A held item with a face: its points are what the guard places (`ItemSpec.cover`); a bash is a blow like any other. A third place on one rigid body fixes its roll (`HandGoal.places`). | The guard skill, the rule. |
 | **A staff, a spear in two hands** | An item held by two segments: the builder closes the loop with a joint at the second hand, and a placement solves both arms to the item's points. | Recipes, which are per thing held; the rule. |
 | **A bow** | Shooting is a skill beside the strike in the one list (`createSkills`); an arrow is a body, and what it touches is a blow by the same rule, its point's mechanism priced. The draw is a placement. | Every contact rule. |
-| **A kick, a knee** | A recipe whose pushes are a leg's, once the stance can give a leg up; the rule already wounds by any segment. | The rule, the targets. |
+| **A knee** | A point on the shank struck as the kick strikes the foot (`effectorStrike` over the leg's chain, the stance bearing the other leg); the rule already wounds by any segment. | The rule, the targets, the cycle. |
 | **A crouch, a low target** | The stance lowers the body beyond `STANCE_LOWER`, and a band under the middle one (`BANDS`) names it. The targets' low stratum is the row that turns from missed to hit. | The search, the skill's choice by window. |
-| **Another body**: four legs, a tail | A search on it: recipes are per model. Its surfaces are its spec's. | Everything else. |
-| **A learned or a planning mind** | It asks the same `Attack`s; or, at the muscles, it is a `MindConfig` kind and the targets score it as a row. | The rule, the targets. |
+| **Another body**: four legs, a tail | Its spec, with its effectors, marks and down rule; the controllers that fit it (`Controller.fits`), and a search on it for recipe blows, which are per model. Its surfaces are its spec's. | Everything else. |
+| **A learned or a planning mind** | It asks the same `Attack`s; or, at the muscles, it is a controller of its own (`CONTROLLERS`, a `MindConfig` kind) and the targets score it as a row. | The rule, the targets. |
 
 ## Standing decisions
 

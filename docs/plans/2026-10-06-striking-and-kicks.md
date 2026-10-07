@@ -1,33 +1,27 @@
 # Shared striking, stability and trained-adult performance
 
-Implement in order, with physical qualification before promotion. Warrior empty handed is the
-first qualified body/loadout. Trained adults are the performance target; independently measured,
-source-backed body and actuator corrections are authorized.
+Physical qualification comes before promotion. Warrior empty handed is the first qualified
+body/loadout. Trained adults are the performance target; independently measured, source-backed
+body and actuator corrections are authorized.
 
-1. Landed: generalize `control/motor.ts` and its kinematic solve to named effectors with independent
-   orientation and measured point motion. Keep hand wrappers and existing trajectories. Describe
-   capabilities from body data; add foot strike sites derived from existing collision envelopes.
-   Extend detached observations, contact feedback and replay. Physical chain/orientation tests,
-   boundary/provenance tests, then the full suite, check and build gate the commit.
-2. Shared cycle and standing qualification landed; low qualification remains open.
-   Extract the common chamber/swing/impact/return cycle from `skills/combat.ts`, retain the hand
-   overlap adapter, and qualify orientation/support corrections. Both hands must pass standing
-   straight/cross impact-return, miss/block/cancellation and stationary/recovering low-target
-   gates without falls or assistance. Remove force-improvement criteria from stability admission.
-3. Shared cycle, low kicks and experimental Arena integration landed. Use the same cycle for
-   either-foot front kicks, with measured transfer/unloading and verified
-   placement/recentering. Stance owns the bearing leg, tracking the free leg; guard retains arms.
-   Cancellation and loss of support withdraw or yield to recovery. Add ordinary Arena configuration
-   and tactical selection; downed-opponent attacks retain qualified low punches. Verify real Arena
-   replay, contacts, blocks, falls and recovery before exposing a selectable configuration.
-4. Implemented measurement framework; physical parity remains open. Generalize the independent
-   strike apparatus to capsule and box contact. Preserve momentum
-   measurement and whole waveforms; freeze apparatus assumptions before tuning. Record primary
-   trained-adult references and protocol differences. Run finite reproducible search batches and
-   120/480/960/1920 Hz whole-system comparisons with common-rate force bins. Parity requires
-   per-limb performance, stability, directional bounds and convergence; it remains open if unmet.
+Landed: named effectors with independent orientation and measured point motion, described from
+body data (`BodySpec.effectors`), with foot strike sites from the collision envelopes; the common
+chamber/swing/impact/return cycle run once per effector (`effectorStrike`) for each hand of the
+path fighter and each foot of the kick; standing qualification of both hands; either-foot front
+kicks with measured transfer/unloading and verified placement/recentering; and the Arena's
+Kicker. What remains:
+
+1. **Low qualification.** Both hands must pass the stationary and recovering low-target gates
+   without falls or assistance, as they pass the standing straight/cross impact-return and
+   miss/block/cancellation gates. Remove force-improvement criteria from stability admission.
+2. **Physical parity.** The measurement framework is implemented: the independent strike
+   apparatus on capsule and box contact, momentum measurement and whole waveforms, apparatus
+   assumptions frozen before tuning, primary trained-adult references and protocol differences
+   recorded. Run finite reproducible search batches and 120/480/960/1920 Hz whole-system
+   comparisons with common-rate force bins. Parity requires per-limb performance, stability,
+   directional bounds and convergence; it remains open if unmet.
 
 Every landing runs `npm test`, `npm run check`, `npm run build`, and the line-ending gate. Browser
 QA uses a private preview port and stops its verified server PID. Commit each green chunk. Durable
 measurements belong in `docs/reference/`; update architecture/roadmap and delete this plan only
-when all implementation phases land. Roundhouse kicks, stomps and jumping attacks are later work.
+when both items land. Roundhouse kicks, stomps and jumping attacks are later work.

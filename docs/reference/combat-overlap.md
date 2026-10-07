@@ -1,6 +1,6 @@
 # Independent strike and return
 
-`ArenaFighterConfig.overlap` enables one opposite-hand follow-up while the first hand
+`ArenaFighterConfig.overlap` (`src/core/mind/config.ts@352fbe24`) enables one opposite-hand follow-up while the first hand
 returns. It requires `combinations`, alternate hands and opening selection. A confirmed
 target contact offers the existing finite combination window. The executor grants overlap
 only while standing, after external hand contact has cleared and the actual root-relative

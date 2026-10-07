@@ -567,8 +567,8 @@ checks this path and fresh-world replay on the Combat fighter. Static strikes re
 measured gates; contacts already pressing the target do not count as incoming impacts. The
 failed club direction and a cycle timeout remain in the development results.
 
-The [Arena combat plan](2026-10-06-arena-combat.md) implements the next attack/tactics chunk
-and adds autonomous self-play acceptance before promotion.
+The path fighter (Combat, Brawler, Scrapper and Kicker) is the next attack/tactics chunk, built;
+its competitive promotion stays open in the [roadmap](../roadmap.md).
 
 Remaining integration chunks must keep the classic comparison option:
 

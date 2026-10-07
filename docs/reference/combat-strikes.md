@@ -303,7 +303,7 @@ among the same measured paths and does not change their physical execution.
 
 ## Combination settings
 
-`ArenaFighterConfig.combinations` optionally grants one opposite-hand follow-up after
+`ArenaFighterConfig.combinations` (`src/core/mind/config.ts@352fbe24`) optionally grants one opposite-hand follow-up after
 a sensed target contact. Its opportunity window is derived from the shared path's
 return deadline plus chamber duration (1.20 + 0.22 s for the retained path). The lead
 hand must record an actual verified return; a return timeout cannot release the

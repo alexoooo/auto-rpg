@@ -2,8 +2,8 @@
 
 ## Goal
 
-Every body rises (`FIGHTER` names the staged riser), and the fights stop treating a fall as the
-end: a body is out of its fight when its pool ends, and not before. A body that is down may be
+Every body rises (`RECIPE_FIGHTER` takes the staged riser, as the Arena's `CLASSIC` does), and
+the fights stop treating a fall as the end: a body is out of its fight when its pool ends, and not before. A body that is down may be
 struck. Each fight says why a side is out in one function, which is where a context's own rule
 goes if it ever has one.
 
@@ -24,7 +24,7 @@ are measured again in it.
 
 | File | Change |
 |---|---|
-| `src/core/mind/config.ts` | `FIGHTER.subs` is `[{ kind: "staged-rise" }]`. |
+| `src/core/mind/config.ts` | `RECIPE_FIGHTER.subs` is `[{ kind: "staged-rise" }]`, so `CLASSIC` is `RECIPE_FIGHTER`. |
 | `src/arena/duel.ts` | `Duel.out` in place of `Duelist.standing` and `ending`; `DuelEnding`; the class comment. |
 | `src/arena/main.ts` | `fallen` goes from the verdict's words. |
 | `src/dungeon/run.ts` | `alive`; `drop`'s comment; the class comment. |
@@ -35,13 +35,13 @@ are measured again in it.
 | `tests/arena-core.test.mjs`, `arena-fork.test.mjs`, `crypt-core.test.mjs`, `research-rise.test.mjs` | See Tests. |
 | `README.md`, `AGENTS.md`, `docs/architecture.md`, `docs/roadmap.md`, `docs/reference/rising.md`, `play.md`, `bouts.md` | See Documents. |
 
-## `FIGHTER`
+## `RECIPE_FIGHTER`
 
 ```ts
-export const FIGHTER: FighterMindConfig = deepFreeze({ kind: "fighter", subs: [{ kind: "staged-rise" }] });
+export const RECIPE_FIGHTER: RecipeFighterConfig = deepFreeze({ kind: "recipe-fighter", subs: [{ kind: "staged-rise" }], guard: "pose", aim: "head", range: "close" });
 ```
 
-`LAB_DOWN_IDS` becomes `["rise", "lie"]`: its first is what an address without the key reads as,
+`LAB_DOWN_IDS` (`src/lab/scenarios.ts`) becomes `["rise", "lie"]`: its first is what an address without the key reads as,
 so a lab body is the game's body unless the page says otherwise.
 
 ## Who is out
@@ -69,7 +69,7 @@ export type DuelEnding = Ending;
   a side is out where it is not null, and the verdict's ending is the loser's. The senses' `out` is
   `() => this.verdict !== null || this.out(side) !== null`.
 - The class comment's "A side is out" says a side is out once its pool has ended, that a body
-  that is down rises of itself (`FIGHTER`) and may be struck, and that `out` is where the arena
+  that is down rises of itself (`RECIPE_FIGHTER`) and may be struck, and that `out` is where the arena
   says so.
 - `judge`'s `assist.withdraw()` at the verdict stays.
 - `src/arena/main.ts`: `fallen: "by a fall"` goes from `ENDING_TEXT`; the record is over
@@ -123,7 +123,7 @@ the verdict; `bout-baseline.mjs` prints falls a bout. `rollouts.mjs` reads `duel
    `"staged-rise"`, then `"command"`; the left's orders are carried out again after (it walks
    where it is ordered).
 2. `arena-core`, **`a_side_that_stays_down_is_judged_at_the_cap`**: the left under
-   `{ kind: "fighter", subs: [{ kind: "lie" }] }` (`DuelRecipe.minds`), shoved over, the right
+   `{ ...RECIPE_FIGHTER, subs: [{ kind: "lie" }] }` (`DuelRecipe.minds`), shoved over, the right
    ordered to stand, a cap of 10 s: no verdict before the cap; at it, `ending: "time"`, decided on
    the bars. `a_bout_in_the_arena_runs_to_its_verdict` is of a bout decided by a pool, and its
    check of who is out reads `duel.out`.
@@ -141,7 +141,7 @@ the verdict; `bout-baseline.mjs` prints falls a bout. `rollouts.mjs` reads `duel
 - `out` still reads `view.down`: tests 1 and 2.
 - `out` returns null for an ended pool: `a_bout_in_the_arena_runs_to_its_verdict`.
 - The senses' `out` reads `view.down`: test 3 (the right stands off a foe it is told is out).
-- `FIGHTER` left at `lie`: tests 1 and 5.
+- `RECIPE_FIGHTER` left at `lie`: tests 1 and 5.
 - `alive` still reads `view.down`: test 5.
 - `boutFall` orders the other side to stand whatever `foe` says: test 6's `struck`.
 
