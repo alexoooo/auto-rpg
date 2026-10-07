@@ -14,6 +14,7 @@ import { validRangeLearning } from "./range-learning.ts";
 import { validTurnLimit, validTurnStartup, type TurnStartup } from "../skills/locomotion.ts";
 import { validOpeningTuning, type OpeningTuning } from "./openings.ts";
 import { driveBy } from "./tactics.ts";
+import { aimedOrders, highMark } from "./targets.ts";
 
 /** **A path fighter's settings, merged once** from its config: what its tactics and its skills both read. */
 export interface ResolvedPath {
@@ -57,7 +58,7 @@ export function createPathFighter(built: BuiltBody, world: World, config: PathFi
   const resolved = resolvePath(config);
   const body = createBody(built, world, { servoSeconds: SERVO_SECONDS, senses: wiring.senses, assist: wiring.assist, feedback: true, contactIdentity: wiring.contactIdentity,
     subs: subMindsOf(config.subs) });
-  const tactics = pathTactics(built.spec, wiring.name, config, resolved, (sight: Sight) => wiring.orders(sight.view.senses));
+  const tactics = pathTactics(built.spec, wiring.name, config, resolved, (sight: Sight) => aimedOrders(wiring.orders(sight.view.senses), sight.view.senses, highMark));
   const skills = driveBy(body, tactics, (made, driving) => combatSkills(made, driving,
     { ...resolved, ground: config.ground, overlap: config.combinations === "overlap" }));
   return { kind: "path-fighter" as const, body, skills, state: skills.state };

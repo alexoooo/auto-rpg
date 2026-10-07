@@ -5,6 +5,7 @@ import { CHARACTERS } from "../character-lab/catalog.ts";
 import { HUMANOID_MODELS, type HumanoidModel } from "../core/models.ts";
 import { MODEL_DISPLAY } from "../render/models.ts";
 import { balanceFrom } from "../core/rules/rulebook.ts";
+import { HELD, type Held } from "../core/items/held.ts";
 
 /**
  * **The lab's scenarios, and the address that opens one.** `?play=lab` is the scenario menu
@@ -35,13 +36,6 @@ export const SCENARIOS: readonly ScenarioInfo[] = [
 ];
 
 export const MODELS: readonly { readonly id: HumanoidModel; readonly name: string }[] = HUMANOID_MODELS.map((id) => ({ id, name: MODEL_DISPLAY[id].label }));
-
-/**
- * What a hand may hold: nothing, or the wooden club (`woodenClub`, `src/core/items/club.ts`),
- * which becomes one rigid body with the hand.
- */
-export const LAB_HELD = ["empty", "club"] as const;
-export type LabHeld = (typeof LAB_HELD)[number];
 /** The hands that hold, and the clothing worn or not, as the loadout names them. */
 export const LAB_HANDS = ["right", "left"] as const, LAB_WORN = ["boots", "armour"] as const;
 
@@ -61,7 +55,7 @@ const WORN: Readonly<Record<HumanoidModel, { readonly boots: boolean; readonly a
  * core has no clothing, and the boot is in the foot's shape whatever the skin shows.
  */
 export type LabLoadout = { readonly model: HumanoidModel }
-  & Readonly<Record<(typeof LAB_HANDS)[number], LabHeld>> & Readonly<Record<(typeof LAB_WORN)[number], boolean>>;
+  & Readonly<Record<(typeof LAB_HANDS)[number], Held>> & Readonly<Record<(typeof LAB_WORN)[number], boolean>>;
 
 /**
  * The physics and control rates on offer, Hz: the game's (`PHYSICS_HZ`, which the test pins
@@ -93,7 +87,7 @@ export interface LabAddress extends LabLoadout, ViewSettings {
   readonly mind: LabMindId;
   readonly down: LabDownId;
   /** What its mind may not strike with: each thing held whose strike is barred. */
-  readonly barred: readonly LabHeld[];
+  readonly barred: readonly Held[];
   readonly hz: LabRate;
   /** The Routine's targets a loop, 0 to `LAB_TARGETS.most`, and the seed they are drawn from (`drawTargets`, `targets.ts`). */
   readonly targets: number;
@@ -121,14 +115,14 @@ export function labAddress(search: string): LabAddress {
     scenario: SCENARIOS.find((s) => s.id === query.get("scenario"))?.id ?? null,
     model,
     appearance: appearanceFor(model, query.get("appearance")),
-    right: LAB_HELD.find((h) => h === query.get("right")) ?? LAB_HELD[0],
-    left: LAB_HELD.find((h) => h === query.get("left")) ?? LAB_HELD[0],
+    right: HELD.find((h) => h === query.get("right")) ?? "empty",
+    left: HELD.find((h) => h === query.get("left")) ?? "empty",
     boots: flag(query.get("boots"), worn.boots),
     armour: flag(query.get("armour"), worn.armour),
     balance: balanceFrom(query.get("balance") ?? ""),
     mind: LAB_MIND_IDS.find((m) => m === query.get("mind")) ?? LAB_MIND_IDS[0],
     down: LAB_DOWN_IDS.find((d) => d === query.get("down")) ?? LAB_DOWN_IDS[0],
-    barred: LAB_HELD.filter((h) => barred.includes(h)),
+    barred: HELD.filter((h) => barred.includes(h)),
     hz: LAB_RATES.find((r) => String(r) === query.get("hz")) ?? LAB_RATES[0],
     view: VIEW_MODES.find((v) => v === query.get("view")) ?? VIEW_MODES[0],
     camera: CAMERA_MODES.find((c) => c === query.get("camera")) ?? CAMERA_MODES[0],

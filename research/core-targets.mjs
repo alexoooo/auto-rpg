@@ -22,7 +22,7 @@ import { Worker, isMainThread, parentPort } from "node:worker_threads";
 import { availableParallelism } from "node:os";
 import { parseArgs } from "node:util";
 import { HUMANOID_MODELS } from "../src/core/models.ts";
-import { LAB_HELD } from "../src/lab/scenarios.ts";
+import { HELD } from "../src/core/items/held.ts";
 
 const STRATA = ["control", "high", "middle", "low"];
 const mean = (values) => values.length ? values.reduce((a, b) => a + b, 0) / values.length : null;
@@ -36,7 +36,7 @@ if (isMainThread) {
   } });
   const models = values.models.split(","), helds = values.held.split(","), seeds = values.seeds.split(",").map(Number);
   for (const model of models) if (!HUMANOID_MODELS.includes(model)) throw new Error(`--models names no body: ${model} (one of ${HUMANOID_MODELS.join(", ")})`);
-  for (const held of helds) if (!LAB_HELD.includes(held)) throw new Error(`--held names nothing the lab holds: ${held} (one of ${LAB_HELD.join(", ")})`);
+  for (const held of helds) if (!HELD.includes(held)) throw new Error(`--held names nothing the lab holds: ${held} (one of ${HELD.join(", ")})`);
   const targets = Number(values.targets), hz = Number(values.hz);
   const lanes = Number(values.workers ?? Math.max(1, availableParallelism() - 2));
   // A run is a loop; or, each target on its own, the loop from that target and no further.

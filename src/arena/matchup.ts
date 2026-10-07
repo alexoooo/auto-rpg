@@ -3,7 +3,8 @@ import { RECIPE_FIGHTER, type RecipeFighterConfig, type MindConfig } from "../co
 import { PRESETS } from "../core/mind/controllers.ts";
 import { isOrders } from "../core/mind/orders.ts";
 import { balanceFrom } from "../core/rules/rulebook.ts";
-import { DUEL_HELD, type OrdersEntry } from "./duel.ts";
+import type { OrdersEntry } from "./duel.ts";
+import { HELD, type Held } from "../core/items/held.ts";
 import { appearanceFor, type Appearance } from "../render/appearance.ts";
 import type { Side } from "../core/spec/body.ts";
 
@@ -78,17 +79,17 @@ export function readBalance(search: string): Readonly<Record<Side, number>> | un
   return { left: given[0]!, right: given[given.length - 1]! };
 }
 
-/** The arena link's parameter for what each side's right hand holds: `&held=left,right`, or one word for both, each of `DUEL_HELD`. */
+/** The arena link's parameter for what each side's right hand holds: `&held=left,right`, or one word for both, each of `HELD`. */
 const HELD_PARAM = "held";
 
 /**
- * What an address has each side's right hand hold (`DuelRecipe.held`): two of `DUEL_HELD`, left
+ * What an address has each side's right hand hold (`DuelRecipe.held`): two of `HELD`, left
  * then right, or one for both; undefined for anything else, and each then holds the club.
  */
-export function readHeld(search: string): Readonly<Record<Side, (typeof DUEL_HELD)[number]>> | undefined {
+export function readHeld(search: string): Readonly<Record<Side, Held>> | undefined {
   const text = new URLSearchParams(search).get(HELD_PARAM);
   if (text === null) return undefined;
-  const parts = text.split(","), given = parts.flatMap((part) => DUEL_HELD.filter((held) => held === part.trim()));
+  const parts = text.split(","), given = parts.flatMap((part) => HELD.filter((held) => held === part.trim()));
   if (parts.length > 2 || given.length !== parts.length) return undefined;
   const models = readMatchup(search);
   return { left: modelHolds(models.left) ? given[0]! : "empty", right: modelHolds(models.right) ? given[given.length - 1]! : "empty" };
@@ -183,6 +184,13 @@ export function readMinds(search: string): Readonly<Record<Side, MindConfig>> {
     return config.kind === "recipe-fighter" && guards ? { ...config, guard: guards[side].guard } : config;
   };
   return { left: mind("left"), right: mind("right") };
+}
+
+/** What the bout calls a side's controller: its preset's name, `(edited)` where the address changes the preset's settings. */
+export function controllerLabel(search: string, side: Side): string {
+  const control = readControls(search)[side];
+  const edited = JSON.stringify(readMinds(search)[side]) !== JSON.stringify(PRESETS[control]!.config);
+  return `${CONTROLS[control]}${edited ? " (edited)" : ""}`;
 }
 
 /** Optional continuous-down allowance, in seconds, for recovery bouts. */

@@ -283,7 +283,7 @@ test("a_side's_right_hand_holds_the_club_unless_its_recipe_empties_it", async ()
   assert.deepEqual(await built({}), [[["hand.right", "wooden club"]], [["hand.right", "wooden club"]]]);
   assert.deepEqual(await built({ held: { left: "empty", right: "club" } }), [[], [["hand.right", "wooden club"]]]);
   assert.deepEqual(await built({ held: { left: "club", right: "empty" } }), [[["hand.right", "wooden club"]], []]);
-  await assert.rejects(built({ held: { left: "sword", right: "club" } }), /a bout's hand holds nothing called sword/);
+  await assert.rejects(built({ held: { left: "sword", right: "club" } }), /a hand holds nothing called sword/);
   // Two with nothing in their hands fight with them: a blow between them has no item in it, and each side of it is wounded.
   const row = await playBout({ left: "workshop-fighter", right: "workshop-rogue", gap: 3, held: { left: "empty", right: "empty" } }, 30, [], { blows: true });
   assert.ok(row.landed.length > 0, "the fixture's two meet");

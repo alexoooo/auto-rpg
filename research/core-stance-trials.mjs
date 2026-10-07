@@ -18,7 +18,7 @@ const across = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 
 /**
  * `model` on the stand: unarmed, its arms as the stance leaves them and nothing holding it up but its
- * muscles; or, given what its right hand holds (`held`, of `DUEL_HELD`: "club" or "empty"), as a
+ * muscles; or, given what its right hand holds (`held`, of `HELD`: "club" or "empty"), as a
  * fight plays it: the club in that hand, the arms in the guard (`GUARD`), and its character's balance
  * under it (`balanceCeiling`, the rulebook's per cent).
  */

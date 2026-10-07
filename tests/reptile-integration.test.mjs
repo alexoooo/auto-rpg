@@ -13,6 +13,7 @@ import { freshEngine } from "./harness/core-stand.mjs";
 import { Duel } from "../src/arena/duel.ts";
 import { controlsFor, readControls, readHeld, readMinds } from "../src/arena/matchup.ts";
 import { companionSpawn } from "../src/dungeon/party-placement.ts";
+import { cryptModel } from "../src/dungeon/actors.ts";
 import { DungeonRun, runMap, runModels } from "../src/dungeon/run.ts";
 
 test("registered models declare compatible default minds and equipment", () => {
@@ -28,7 +29,7 @@ test("registered models declare compatible default minds and equipment", () => {
     assert.equal(modelSupportsMind(model, { kind: "direct", targets: {}, seconds: .1, speed: 1, activation: 1 }), true);
     assert.equal(info.held, model === "reptile" ? "empty" : "club");
     assert.equal(modelHolds(model), model !== "reptile");
-    assert.equal(info.fallEndsFight, model !== "reptile");
+    assert.equal(cryptModel(model).fallEndsFight, model !== "reptile");
     assert.equal(MODEL_DISPLAY[model].clothing, model === "workshop-fighter" || model === "workshop-rogue");
   }
 });
@@ -80,7 +81,7 @@ test("generated layouts place reachable, separated three-reptile packs across se
     const map = make(seed), again = make(seed);
     assert.deepEqual(map, again, `seed ${seed} is reproducible`);
     assert.deepEqual(map.spawns, map.encounters.map(encounter => encounter.point));
-    const radius = modelInfo("reptile").radius, placed = [{ ...map.start, radius }];
+    const radius = cryptModel("reptile").radius, placed = [{ ...map.start, radius }];
     for (let index = 0; index < 2; index++) {
       const at = companionSpawn(map, placed, radius);
       if (!at) break;
@@ -91,7 +92,7 @@ test("generated layouts place reachable, separated three-reptile packs across se
     assert.ok(map.encounters.some(encounter => encounter.model === "crypt-skeleton"));
     const rooms = new Map();
     for (const encounter of map.encounters) {
-      const radius = modelInfo(encounter.model).radius;
+      const radius = cryptModel(encounter.model).radius;
       assert.ok(walkable(map, encounter.point, radius), `seed ${seed}: collider clearance`);
       assert.ok(findPath(map, map.start, encounter.point, radius).length, `seed ${seed}: route reaches encounter`);
       if (encounter.model !== "reptile") continue;
@@ -108,7 +109,7 @@ test("generated layouts place reachable, separated three-reptile packs across se
     for (const pack of rooms.values()) {
       assert.equal(pack.length, 3);
       for (let a = 0; a < pack.length; a++) for (let b = a + 1; b < pack.length; b++)
-        assert.ok(distance(pack[a].point, pack[b].point) >= Math.max(2, 2 * modelInfo("reptile").radius));
+        assert.ok(distance(pack[a].point, pack[b].point) >= Math.max(2, 2 * cryptModel("reptile").radius));
     }
   }
 });

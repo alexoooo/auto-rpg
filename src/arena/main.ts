@@ -22,7 +22,7 @@ import { drawBody, drawHeld, type BodyShapes } from "../render/body-shapes.ts";
 import { dresserFor, type Dresser } from "../render/dress.ts";
 import { fighterHands } from "../render/strike-hands.ts";
 import { Duel, SIDES, type DuelEnding, type Verdict } from "./duel.ts";
-import { MATCHUP_PARAM, appearanceSearch, readAppearances, matchupSearch, readBalance, readCap, readGap, CONTROLS, controlsFor, readControls, readMinds, readRecovery, readHeld, readMatchup, readTape, readYou, youSearch, type Matchup } from "./matchup.ts";
+import { MATCHUP_PARAM, appearanceSearch, readAppearances, matchupSearch, readBalance, readCap, readGap, CONTROLS, controllerLabel, controlsFor, readControls, readMinds, readRecovery, readHeld, readMatchup, readTape, readYou, youSearch, type Matchup } from "./matchup.ts";
 import { Color3 } from "@babylonjs/core/Maths/math.color.js";
 import { arenaCameraRig, type ArenaSubjects } from "./camera.ts";
 import { arenaViewSearch, cameraFocuses, normalizeArenaView, readArenaView, type ArenaFocus, type ArenaView } from "./view.ts";
@@ -189,6 +189,8 @@ export async function bootArena(): Promise<void> {
   };
 
   const audio = new GameAudio();
+  // What each side's controller is called while its bout runs (`controllerLabel`).
+  let controllers: Record<Side, string> = { left: "", right: "" };
   let duel: Duel | null = null, drawn: (SkinView | BodyShapes)[] = [], paused = false, shown: Verdict | null = null;
   const bodies = new Map<Side, { skin: SkinView; shapes: BodyShapes; hands: ReturnType<typeof fighterHands>; subject: ArenaSubjects[Side] }>();
   let subjects: ArenaSubjects | null = null;
@@ -278,6 +280,7 @@ export async function bootArena(): Promise<void> {
       end();
       audio.reset();
       const balance = readBalance(location.search), gap = readGap(location.search), capSeconds = readCap(location.search), held = readHeld(location.search), minds = readMinds(location.search), recoverySeconds = readRecovery(location.search) ?? null;
+      controllers = { left: controllerLabel(location.search, "left"), right: controllerLabel(location.search, "right") };
       const bout = duel = new Duel(world, {
         left: matchup.left, right: matchup.right, recoverySeconds,
         ...(gap !== undefined ? { gap } : {}), ...(capSeconds !== undefined ? { capSeconds } : {}), ...(balance ? { balance } : {}), ...(held ? { held } : {}), ...(minds ? { minds } : {}),
@@ -399,16 +402,7 @@ export async function bootArena(): Promise<void> {
     for (const row of rows) {
       const fighter = duel.duelists[row.side];
       row.bar.value = fighter.pool.bar();
-      const mind = fighter.minded;
-      const controller = (() => {
-        switch (mind.kind) {
-          case "recipe-fighter": return "Classic";
-          case "path-fighter": return "Combat";
-          case "direct": return "Joint control";
-          case "quadruped": return "Crawl and bite";
-          default: { const never: never = mind; throw new Error(`unknown mind ${never}`); }
-        }
-      })();
+      const mind = fighter.minded, controller = controllers[row.side];
       const phase = "skills" in mind ? mind.skills.report.strike.phase ?? mind.skills.report.engagement?.phase ?? "guard / move" : mind.body.has;
       const down = duel.state.recovery?.[row.side];
       row.status.textContent = fighter.body.down

@@ -77,10 +77,10 @@ request backward crawling. No grip, clamp damage, decorative tooth collider or a
 
 ## Encounters
 
-The registry's `HUMANOID` retains the .35 m footprint and one-second progress interval from
+The Crypt's `HUMANOID` (`cryptModel`, `src/dungeon/actors.ts`) retains the .35 m footprint and one-second progress interval from
 [following](play.md#following), and `ATTACK_METRES` from
 [attack distance](human-and-strikes.md#attack-distance). Humanoid falls end a dungeon fight.
-`readReptile` provides empty equipment, a quadruped mind, .52 m dungeon attack spacing
+The reptile has empty hands and a quadruped mind by default (`modelInfo`), and in the Crypt .52 m attack spacing
 and an eight-second progress interval. These are controller choices for the qualified slow crawl.
 `STALL_METRES` retains the 50 mm route-progress threshold; the reptile's longer interval lets it
 advance that distance before its route is judged stalled. The horizontal navigation radius is derived from the full

@@ -318,6 +318,27 @@ fighters' state is reshaped.
   - `strike-hands.ts` is one switch over `Minded` with no quadruped special case.
   - The reptile's eye positions come from spec points.
 
+**As built (17, landed): one combatant path.** The Arena is bit-identical (the path fighters'
+state only reshaped); the two Crypt cases moved, and `docs/reference/crypt-foe.md` records why
+and the paired battery (32 seeds, the hero dead in 10 either way).
+- `enlist(world, {id, side, spec, at, rules, senses, solids?, out, mind, balance?, percent?, name,
+  orders, contactIdentity?})` takes the spec already armed, so the Arena's stiffened surfaces stay
+  the Arena's. The Lab actor does not enlist: it drives a body by a mode's script, with no pool,
+  senses or mind config.
+- A body's granted solids are a field of what the senses carry (`Sensed.solids`), not a copy of
+  its senses made by the Arena.
+- `HELD`, `heldItem` and `armedWith(spec, hand, held)` are in `src/core/items/held.ts`;
+  `armedWith` refuses a hand that cannot close on what it is given. The Arena's check before
+  building and the link's fallback (`readHeld`) stay, since both run before any spec is armed.
+- `Orders.foe` resolves in each controller through `aimedOrders(orders, senses, aim)`
+  (`targets.ts`): `highMark` for both fighters, `surfaceOn` from the mouth for the reptile.
+- `cryptModel` (`src/dungeon/actors.ts`) holds the Crypt's fields; `modelInfo` is
+  `{mind, held}`.
+- The HUD's controller is `controllerLabel(search, side)` (`matchup.ts`): the preset's name,
+  `(edited)` where the link's config differs from it (today `&guard=`).
+- `fighterHands` reads the strike report through one switch; a quadruped's hands relax as a
+  direct mind's do.
+
 ### Chunk 18: Arena controller settings panel and links (presets unchanged)
 
 - **Each controller declares its fields:** `Controller.fields` gives each field's label, options

@@ -8,7 +8,8 @@ import { VIEW_MODES, CAMERA_MODES, PROJECTIONS } from "../src/render/view.ts";
 import { routeFor } from "../src/app-route.ts";
 import { PHYSICS_HZ } from "../src/core/world.ts";
 import { CHARACTERS } from "../src/character-lab/catalog.ts";
-import { labAddress, labHref, LAB_DOWN_IDS, LAB_HELD, LAB_MIND_IDS, LAB_RATES, MODELS, SCENARIOS } from "../src/lab/scenarios.ts";
+import { HELD } from "../src/core/items/held.ts";
+import { labAddress, labHref, LAB_DOWN_IDS, LAB_MIND_IDS, LAB_RATES, MODELS, SCENARIOS } from "../src/lab/scenarios.ts";
 
 const DEFAULTS = { appearance: "default", scenario: null, model: "workshop-fighter", right: "empty", left: "empty", boots: true, armour: true, balance: null, mind: "script", down: "lie", barred: [], hz: 120,
   view: "world", camera: "free", projection: "orthographic", targets: 10, seed: 1 };
@@ -39,7 +40,7 @@ test("a_body_wears_what_the_workshop_dresses_it_in_until_the_address_says_otherw
   assert.deepEqual(labAddress("?model=workshop-rogue&armour=1&boots=0"), { ...DEFAULTS, ...ROGUE, armour: true, boots: false });
   assert.deepEqual(labAddress("?armour=0&boots=1"), { ...DEFAULTS, armour: false });
   // The hands hold nothing unless the address says so; the workshop's weapon is not the lab's.
-  assert.deepEqual(LAB_HELD, ["empty", "club"]);
+  assert.deepEqual(HELD, ["empty", "club"]);
 });
 
 test("every_choice_the_lab_offers_reads_back_from_the_address_it_writes", () => {
@@ -48,8 +49,8 @@ test("every_choice_the_lab_offers_reads_back_from_the_address_it_writes", () => 
       for (const [hz, view, balance] of LAB_RATES.flatMap((r) => VIEW_MODES.flatMap((v) => [null, 0, 5].map((b) => [r, v, b])))) {
         for (const camera of CAMERA_MODES) {
           for (const projection of PROJECTIONS) {
-            for (const right of LAB_HELD) {
-              for (const left of LAB_HELD) {
+            for (const right of HELD) {
+              for (const left of HELD) {
                 for (const boots of [false, true]) {
                   for (const armour of [false, true]) {
                     for (const [mind, barred] of LAB_MIND_IDS.flatMap((m) => [[], ["empty"], ["club"], ["empty", "club"]].map((b) => [m, b]))) {

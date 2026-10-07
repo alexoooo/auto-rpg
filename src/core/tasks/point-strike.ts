@@ -6,6 +6,7 @@ import type { PhysicsEngine, SegmentBody } from "../engine/engine.ts";
 import { equipHands } from "../human/equipment.ts";
 import { modelSpec, type HumanoidModel } from "../models.ts";
 import { woodenClub } from "../items/club.ts";
+import { HELD, type Held } from "../items/held.ts";
 import { createMotionBody } from "../mind/motion.ts";
 import { createObjectSenses } from "../mind/object-senses.ts";
 import { clockSenses } from "../mind/senses.ts";
@@ -40,7 +41,7 @@ const tuple = (v: Vector3): Vec3 => [v.x, v.y, v.z];
 
 /** Shared physical fixture for a reference point-space strike, including a deliberately missed target. */
 export function createPointStrikeProbe(scene: Scene, engine: PhysicsEngine, config: {
-  readonly model: HumanoidModel; readonly hands: Side | "both"; readonly held: "empty" | "club";
+  readonly model: HumanoidModel; readonly hands: Side | "both"; readonly held: Held;
   readonly hz: number; readonly actuation: "symmetric" | "directional"; readonly offset: number; readonly miss: boolean;
   readonly centreControl?: boolean; readonly continueSeconds?: number;
   readonly shared?: { readonly release?: Side };
@@ -49,7 +50,7 @@ export function createPointStrikeProbe(scene: Scene, engine: PhysicsEngine, conf
 }) {
   const stopSettings = jointStopProbeSettings(config.jointStops);
   if (!Number.isSafeInteger(config.hz) || config.hz < 120 || config.hz % 120 !== 0 || !Number.isFinite(config.offset)
-    || !["left", "right", "both"].includes(config.hands) || !["empty", "club"].includes(config.held)) throw new Error("invalid point strike fixture");
+    || !["left", "right", "both"].includes(config.hands) || !HELD.includes(config.held)) throw new Error("invalid point strike fixture");
   if (config.shared && (config.hands !== "both" || config.held !== "club"
     || (config.shared.release !== undefined && config.shared.release !== "left" && config.shared.release !== "right"))) throw new Error("shared strike requires both hands and one club");
   const swing = config.swing ? deepFreeze({ ...config.swing }) : null;

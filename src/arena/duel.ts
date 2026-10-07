@@ -1,19 +1,16 @@
 import { solidSenses, type SolidSense } from "../core/mind/object-senses.ts";
 import type { ContactTarget } from "../core/control/effector-feedback.ts";
 import type { SegmentBody } from "../core/engine/engine.ts";
-import type { PhysicalBody } from "../core/physical-body.ts";
-import { buildBody } from "../core/build/build-body.ts";
 import type { AssistCeiling } from "../core/control/assist.ts";
-import { armed } from "../core/human/grip.ts";
 import { modelHolds, modelInfo, modelSpec, modelSupportsMind, type BodyModel } from "../core/models.ts";
-import { woodenClub } from "../core/items/club.ts";
+import { armedWith, type Held } from "../core/items/held.ts";
+import { enlist, type Combatant } from "../core/combatant.ts";
 import type { MindConfig } from "../core/mind/config.ts";
-import { createMind, type Minded } from "../core/mind/minds.ts";
 import { sameOrders, type Orders } from "../core/mind/orders.ts";
 import { createSenses, type SensesHub } from "../core/mind/senses.ts";
-import { watchBlows, type BlowWatch, type Fighter, type LandedBlow } from "../core/rules/blows.ts";
-import { createPool, type Ending } from "../core/rules/pool.ts";
-import { balanceCeiling, balancePercent, rulebook, type Rulebook, type RulebookOverride } from "../core/rules/rulebook.ts";
+import { watchBlows, type BlowWatch, type LandedBlow } from "../core/rules/blows.ts";
+import type { Ending } from "../core/rules/pool.ts";
+import { rulebook, type Rulebook, type RulebookOverride } from "../core/rules/rulebook.ts";
 import type { BodySpec, Side } from "../core/spec/body.ts";
 import { derive } from "../core/spec/quantity.ts";
 import type { BuiltBody } from "../core/build/build-body.ts";
@@ -58,10 +55,6 @@ const GAP_METRES = 4;
 /** How long a bout runs before the bars decide it, s (`docs/reference/play.md#the-bout`). */
 export const CAP_SECONDS = 120;
 
-/** What a side's right hand holds in a bout: the wooden club, or nothing. */
-export const DUEL_HELD = ["club", "empty"] as const;
-type DuelHeld = (typeof DUEL_HELD)[number];
-
 export const SIDES: readonly Side[] = Object.freeze(["left", "right"]);
 
 /** How a bout ended: the loser's pool's ending, its fall, or the clock. */
@@ -75,12 +68,9 @@ export interface Verdict {
   readonly time: number;
 }
 
-interface Duelist extends Fighter {
+interface Duelist extends Combatant {
   readonly side: Side;
   readonly model: BodyModel;
-  /** Its body under its mind, whatever kind the mind is; a reader of a kind's own narrows on `minded.kind`. */
-  readonly minded: Minded;
-  readonly body: PhysicalBody;
   /** Its pool not ended and its body not down. */
   readonly standing: boolean;
 }
@@ -107,23 +97,11 @@ interface DuelRecipe {
   /** Seconds continuously down before a fall ends the bout; null continues until injury or the cap. Zero is the reference fall rule. */
   readonly recoverySeconds?: number | null;
   /** What each side's right hand holds; the wooden club unless given. */
-  readonly held?: Readonly<Record<Side, DuelHeld>>;
+  readonly held?: Readonly<Record<Side, Held>>;
   /** The arena's rules with these in their place (`rulebook`'s override): an experiment's. */
   readonly rules?: RulebookOverride;
   /** For each segment named, what its surface's stiffness is times, on both sides: a sensitivity sweep's. */
   readonly surfaces?: Readonly<Record<string, number>>;
-}
-
-/** `spec` with `held` in its right hand. */
-function holding(spec: BodySpec, held: DuelHeld): BodySpec {
-  switch (held) {
-    case "club": return armed(spec, "right", woodenClub());
-    case "empty": return spec;
-    default: {
-      const never: never = held;
-      throw new Error(`a bout's hand holds nothing called ${String(never)}`);
-    }
-  }
 }
 
 /** `spec` with each segment `factors` names as stiff as its own surface times its factor. */
@@ -243,25 +221,22 @@ export class Duel {
     for (const side of SIDES) {
       const model = recipe[side];
       const info = modelInfo(model), held = recipe.held?.[side] ?? info.held, config = recipe.minds?.[side] ?? info.mind;
-      const spec = holding(recipe.surfaces ? stiffened(modelSpec(model), recipe.surfaces) : modelSpec(model), held);
+      const spec = armedWith(recipe.surfaces ? stiffened(modelSpec(model), recipe.surfaces) : modelSpec(model), "right", held);
       const x = (side === "left" ? -1 : 1) * gap / 2;
-      const built = buildBody(spec, world, { position: [x, 0, 0] });
-      for (const [segment, part] of built.segments) contactLabels.set(part.body, Object.freeze({ kind: "body", body: side, segment }));
-      const pool = createPool(spec, this.rules);
-      // A downed side remains in the fight while its recovery allowance lasts.
-      const sensedBody = this.senses.add({ id: side, side, built, out: () => this.verdict !== null || this.eliminated(side) });
-      const granted = solids ? Object.defineProperties({ solids }, Object.getOwnPropertyDescriptors(sensedBody())) as ReturnType<typeof sensedBody> : null;
-      const senses = granted ? () => granted : sensedBody;
-      const assist = balanceCeiling(recipe.balance?.[side] ?? spec.attributes.balance.value, recipe.balancePercent ?? balancePercent(this.rules));
-      const minded = createMind(built, world, config, {
-        name: `arena ${side}`, senses, assist,
+      const combatant = enlist(world, {
+        id: side, side, spec, at: [x, 0, 0], rules: this.rules, senses: this.senses, ...(solids ? { solids } : {}),
+        // A downed side remains in the fight while its recovery allowance lasts.
+        out: () => this.verdict !== null || this.eliminated(side),
+        mind: config, ...(recipe.balance ? { balance: recipe.balance[side] } : {}), ...(recipe.balancePercent ? { percent: recipe.balancePercent } : {}),
+        name: `arena ${side}`,
         contactIdentity: other => other ? contactLabels.get(other) ?? null : { kind: "world" },
         // Out of the fight it is left to itself, as a side nobody orders is.
         orders: (sensed) => sensed.out ? null : given[side],
       });
-      const { body } = minded;
+      for (const [segment, part] of combatant.built.segments) contactLabels.set(part.body, Object.freeze({ kind: "body", body: side, segment }));
+      const { pool, body } = combatant;
       duelists[side] = {
-        id: side, side, model, built, pool, minded, body,
+        ...combatant, side, model,
         get standing() { return pool.ending() === null && !body.down; },
       };
     }

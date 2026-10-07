@@ -25,7 +25,8 @@
  */
 import { appendFileSync, readFileSync } from "node:fs";
 import { parseArgs } from "node:util";
-import { DUEL_HELD, SIDES } from "../src/arena/duel.ts";
+import { SIDES } from "../src/arena/duel.ts";
+import { HELD } from "../src/core/items/held.ts";
 import { HUMANOID_MODELS } from "../src/core/models.ts";
 import { RECIPE_FIGHTER } from "../src/core/mind/config.ts";
 import { EDGE } from "../src/core/mind/recipe-tactics.ts";
@@ -39,7 +40,7 @@ const { values } = parseArgs({ options: {
   workers: { type: "string" }, save: { type: "string" }, load: { type: "string" },
 } });
 const bouts = Number(values.bouts), from = Number(values.from), helds = values.held.split(","), models = values.models.split(",");
-for (const held of helds) if (!DUEL_HELD.includes(held)) throw new Error(`--held is of ${DUEL_HELD.join(", ")}, not ${held}`);
+for (const held of helds) if (!HELD.includes(held)) throw new Error(`--held is of ${HELD.join(", ")}, not ${held}`);
 for (const model of models) if (!HUMANOID_MODELS.includes(model)) throw new Error(`--models names no body: ${model} (one of ${HUMANOID_MODELS.join(", ")})`);
 const edges = values.patience.split(",").map(Number).flatMap((patience) => values.band.split(",").map(Number).map((band) => ({ band, patience })));
 

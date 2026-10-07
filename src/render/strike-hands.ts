@@ -6,7 +6,7 @@ import type { StrikeReport } from "../core/skills/strike.ts";
 import type { World } from "../core/world.ts";
 import { handPose, type HandAction } from "./hand-pose.ts";
 
-type Strike = Pick<StrikeReport, "hand" | "phase">;
+type Strike = Pick<StrikeReport, "hand" | "phase" | "physicalHands">;
 
 /** A skill's phase as finger presentation; approach and guard leave empty hands relaxed. */
 function actionOf(phase: Strike["phase"]): HandAction {
@@ -30,20 +30,23 @@ export function strikeHands(world: Pick<World, "afterStep">, body: Pick<Physical
   return { closure: pose.closure, snapshot: pose.snapshot, dispose: () => hook.dispose() };
 }
 
-/** Every skill-based fighter shares the same presentation; direct joint control asks for none. */
+/**
+ * **A fighter's fingers**: every skill-based fighter's from its strike report; a mind that strikes
+ * with no hand, or drives joints directly, asks for none and its hands relax. A strike that closes
+ * the body's own hands (`StrikeReport.physicalHands`) is shown as the body holds them.
+ */
 export function fighterHands(world: Pick<World, "afterStep">, fighter: { readonly minded: Minded; readonly pool: Pick<Pool, "ending"> }) {
   const mind = fighter.minded;
-  if (mind.kind === "quadruped") return { closure: () => 0, snapshot: () => ({ left: 0, right: 0 }), dispose() {} };
-  if ("skills" in mind && mind.skills.report.strike.physicalHands) {
-    const closure = (hand: "left" | "right") => mind.body.built.handPoses.state[hand]?.applied === "open" ? 0 : 1;
-    return { closure, snapshot: () => ({ left: closure("left"), right: closure("right") }), dispose() {} };
-  }
   const read = (): Strike | null => {
     switch (mind.kind) {
       case "recipe-fighter": case "path-fighter": return mind.skills.report.strike;
-      case "direct": return null;
+      case "quadruped": case "direct": return null;
       default: { const never: never = mind; throw new Error(`unknown mind ${never}`); }
     }
   };
+  if (read()?.physicalHands) {
+    const closure = (hand: "left" | "right") => mind.body.built.handPoses.state[hand]?.applied === "open" ? 0 : 1;
+    return { closure, snapshot: () => ({ left: closure("left"), right: closure("right") }), dispose() {} };
+  }
   return strikeHands(world, mind.body, read, () => fighter.pool.ending() === null);
 }

@@ -15,6 +15,8 @@ export interface Orders {
   readonly face: Heading | null;
   /** Attack this world point with the mind's chosen endpoint; the walk waits. Null guards. */
   readonly attack: Vec3 | null;
+  /** Attack this sensed body (`BodySense.id`) where the mind chooses on it, in place of `attack` (`aimedOrders`). */
+  readonly foe?: string;
 }
 
 export const STAND_ORDERS: Orders = Object.freeze({ move: null, face: null, attack: null });
@@ -25,9 +27,10 @@ const isHeading = (value: unknown): value is Heading => typeof value === "object
 /** Whether `value` is orders: what orders read from outside the program must be before a body is given them. */
 export function isOrders(value: unknown): value is Orders {
   if (typeof value !== "object" || value === null) return false;
-  const { move, face, attack } = value as Record<string, unknown>;
+  const { move, face, attack, foe } = value as Record<string, unknown>;
   return (move === null || isHeading(move)) && (face === null || isHeading(face))
-    && (attack === null || (Array.isArray(attack) && attack.length === 3 && attack.every((n) => Number.isFinite(n))));
+    && (attack === null || (Array.isArray(attack) && attack.length === 3 && attack.every((n) => Number.isFinite(n))))
+    && (foe === undefined || typeof foe === "string");
 }
 
 /** Whether two orders, or two absences of them, say the same thing. */
