@@ -441,6 +441,25 @@ unchanged, and the other 53 the same to the step.
 - **Reference records** stay as history. Wherever they name deleted code, cite it as
   `path@<commit>`.
 
+**As built (21, landed).**
+- 21a: `research/controller-presets.mjs` runs the presets battery; `combatCell`
+  (`research/combat-records.mjs`) is the one cell report, which the club check shares.
+- 21b: a blow on the foe's hand or forearm is a block because the foe's spec says so
+  (`Marks.guards`), not by a human segment name; the reptile and a Lab dummy have none. No pose
+  moved.
+- 21c: architecture, AGENTS page parameters, the rising, strikes and striking-and-kicks plans
+  name the controllers; `2026-10-06-arena-combat.md` is deleted; records cite deleted code at a
+  commit.
+- 21d: `docs/reference/controller-presets.md`: every preset beats Classic bare-handed (0.97 to
+  0.98, all on the clock) and loses with clubs (0.09 to 0.24); no cell is side-split. Scrapper's
+  club cell reproduces the club check's Warrior cell exactly. The README and roadmap quote it.
+- Browser checks on a preview port, killed by PID, no console errors: an Arena bout (Kicker v
+  Classic), the Lab's Blow and Routine, `/control-tasks.html`, and a Crypt run with reptile packs
+  stepped 1200 steps.
+- End-state grep: the human segment literals left in `mind`, `skills` and `control` are the
+  humanoid controllers' own hand effectors (what `commandable` and `fits` require) and recipe or
+  tuning data (`OpeningTuning`, `BANDS`, the rise stages, `SUPPORT_ENTRY`).
+
 ## Verification
 
 - **Every chunk:** the gate above. The lock compare names exactly the expected moved cases (none
