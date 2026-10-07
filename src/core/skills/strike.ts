@@ -2,7 +2,7 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { BodyView } from "../body.ts";
 import { rigidPoints } from "../build/rigid.ts";
 import { targetWindow } from "../control/target-window.ts";
-import { newHandContact } from "../control/hand-feedback.ts";
+import { newContact } from "../control/effector-feedback.ts";
 import { intoFrameToRef } from "../control/kinematics.ts";
 import type { EffectorGoal, MusclePush, Pose } from "../control/motor.ts";
 import type { HandAction } from "../mind/intent.ts";
@@ -408,7 +408,7 @@ export function strikeSkill(spec: BodySpec, repertoire: Repertoire, placing: Pla
     command(view, hands, heading, placed, dt) {
       const velocities: Partial<Record<Side, Vec3>> | null = state.motion ? {} : null;
       if (state.motion) for (const hand of ["left", "right"] as const) {
-        const at = view.points[hand][aimOf(spec, hand)]!, previous = state.motion.previous[hand];
+        const at = view.effectors[`hand.${hand}`]!.points[aimOf(spec, hand)]!, previous = state.motion.previous[hand];
         const position: Vec3 = [at.x, at.y, at.z];
         velocities![hand] = previous ? position.map((v, k) => (v - previous[k]!) / dt) as unknown as Vec3 : [0, 0, 0];
         state.motion.previous[hand] = position;
@@ -416,8 +416,8 @@ export function strikeSkill(spec: BodySpec, repertoire: Repertoire, placing: Pla
       const reaction = state.motion?.reaction;
       const contactEdge = { left: false, right: false };
       if (reaction) for (const hand of ["left", "right"] as const) {
-        const touching = (view.handFeedback?.[hand].impulse ?? 0) > 0;
-        contactEdge[hand] = newHandContact(reaction.touching[hand], view.handFeedback?.[hand]);
+        const feedback = view.effectors[`hand.${hand}`]!.feedback, touching = (feedback?.impulse ?? 0) > 0;
+        contactEdge[hand] = newContact(reaction.touching[hand], feedback);
         reaction.touching[hand] = touching;
       }
       const s = view.stance, fx = sin(heading), fz = cos(heading);
@@ -547,7 +547,7 @@ export function strikeSkill(spec: BodySpec, repertoire: Repertoire, placing: Pla
             const since = state.since = state.still - (motion ? motion.launched ?? Infinity : state.begun);
             over = since >= placing.seconds;
             if (motion) {
-              const at = view.points[hand][blow.aim]!;
+              const at = view.effectors[`hand.${hand}`]!.points[blow.aim]!;
               motion.home ??= [at.x, at.y, at.z];
               if (!motion.returning && motion.launched === null) {
                 if (action.kind !== "attack") throw new Error("a point chamber needs an attack target");

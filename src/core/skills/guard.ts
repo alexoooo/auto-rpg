@@ -97,7 +97,7 @@ export function guardSkill(spec: BodySpec, covering: Covering = GUARD_COVER): Gu
     const { points, span } = covers[hand];
     if (points.length === 1) return { places: [{ point: points[0]!, position: middle }], seconds, follows: true };
     // The item's line as it lies, less what of it runs along the threat's line.
-    const now = view.points[hand], a = now[points[0]!]!, b = now[points[1]!]!;
+    const now = view.effectors[`hand.${hand}`]!.points, a = now[points[0]!]!, b = now[points[1]!]!;
     const square = (line: Vec3): Vec3 => sub(line, scale(toward, dot(line, toward)));
     let across = square([b.x - a.x, b.y - a.y, b.z - a.z]);
     if (length(across) < NO_LINE) across = square(UP);

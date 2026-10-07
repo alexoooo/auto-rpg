@@ -1,5 +1,5 @@
 import { rangeLearning, validRangeLearning } from "./range-learning.ts";
-import { contactResponse } from "../control/hand-feedback.ts";
+import { contactResponse } from "../control/effector-feedback.ts";
 import { atan2, cos, hypot, sin } from "../math/real.ts";
 import { ATTACK_PATH } from "../skills/attack-path.ts";
 import { wrap } from "../skills/locomotion.ts";
@@ -122,10 +122,10 @@ export function combatTactics(spec: BodySpec, name: string, orders: (sight: Sigh
       if (state.action) state.action = { ...state.action, targetId: foe.id };
       return { ...lowIntent, combat: state.action };
     }
-    range?.observe(strike, view.handFeedback);
+    range?.observe(strike, view.effectors);
     const part = foe.segments.get("head"), at = part?.centre ?? foe.centre, velocity = part?.velocity ?? foe.velocity;
     if (!state.responded && strike.phase === "swing" && strike.hand) {
-      const response = contactResponse(view.handFeedback?.[strike.hand], foe.id);
+      const response = contactResponse(view.effectors[`hand.${strike.hand}`]!.feedback, foe.id);
       if (response) {
         state.responded = true;
         if (response === "block") {
@@ -179,7 +179,7 @@ export function combatTactics(spec: BodySpec, name: string, orders: (sight: Sigh
     const toward = far > 0 ? ((view.stance.velocity.x - velocity.x) * dx + (view.stance.velocity.z - velocity.z) * dz) / far : 0;
     const delta = far - distance, anticipated = delta - Math.max(0, toward) * COMBAT.braking;
     const maximum = envelope?.walk.value ?? COMBAT.lateral;
-    const touching = (view.handFeedback?.left.impulse ?? 0) + (view.handFeedback?.right.impulse ?? 0) > 0;
+    const touching = (view.effectors["hand.left"]!.feedback?.impulse ?? 0) + (view.effectors["hand.right"]!.feedback?.impulse ?? 0) > 0;
     state.pressure = touching && strike.phase !== "swing" ? state.pressure + dt : 0;
     if (!strike.hand && (state.pressure >= COMBAT.pressure || delta < -COMBAT.band)) {
       resetCombination(); state.escape = COMBAT.escape; state.angle *= -1; state.pressure = 0; state.ready = 0;

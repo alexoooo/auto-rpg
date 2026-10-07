@@ -207,9 +207,9 @@ test("what was asked is given up with the body, and asked again when it is back"
   const body = createBody(stand.built, stand.world, { servoSeconds: SERVO_SECONDS, subs: [hold] });
   try {
     const height = body.view.stance.centre.y - body.view.stance.support.y;
-    const goal = deepFreeze({ places: [{ point: "knuckles", position: body.view.points.left.knuckles.add(new Vector3(0, 0.1, 0.25)).asArray() }], seconds: 0.4 });
+    const goal = deepFreeze({ places: [{ point: "knuckles", position: body.view.effectors["hand.left"].points.knuckles.add(new Vector3(0, 0.1, 0.25)).asArray() }], seconds: 0.4 });
     const command = Object.freeze({
-      posture: GUARD, hands: Object.freeze({ left: goal, right: null }),
+      posture: GUARD, effectors: Object.freeze({ "hand.left": goal }),
       // A push too light to move the body: what is read of it is whether it is asked.
       pushes: Object.freeze([Object.freeze({ channel: "wrist.right flexion", sense: 1, level: 0.02 })]),
       stance: Object.freeze({ feet: Object.freeze(["left", "right"]), centre: null, height, heading: 0, walk: null }),
@@ -218,9 +218,9 @@ test("what was asked is given up with the body, and asked again when it is back"
     const { host } = body.state.mind;
     /** What the command layers hold of what they were asked, and how far the left hand's knuckles are from its goal, m. */
     const read = () => ({
-      has: body.has, goal: host.goals.left !== null, reaching: host.motor.hands.left.goal !== null, standing: host.motor.standing !== null,
+      has: body.has, goal: host.goals["hand.left"] !== null, reaching: host.motor.effectors["hand.left"].goal !== null, standing: host.motor.standing !== null,
       pushes: host.motor.pushes.length,
-      off: body.view.points.left.knuckles.subtract(Vector3.FromArray(goal.places[0].position)).length(),
+      off: body.view.effectors["hand.left"].points.knuckles.subtract(Vector3.FromArray(goal.places[0].position)).length(),
     });
     stand.step(60);
     const reached = read();

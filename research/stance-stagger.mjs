@@ -54,7 +54,7 @@ for (const model of values.models.split(",")) for (const hz of values.hz.split("
       if (goal.swing) slidStepping = Math.max(slidStepping, d);
       speed = Math.max(speed, s.velocity.length());
     }
-    return { posture: GUARD, hands: { left: null, right: null }, pushes: [], stance: goal };
+    return { posture: GUARD, pushes: [], stance: goal };
   });
   let down = false;
   for (let i = 0; i < stand.seconds(WATCHED) && !down; i++) { stand.step(1); down = body.view.down; }

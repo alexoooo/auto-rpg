@@ -19,7 +19,7 @@ import { intoFrameToRef } from '../src/core/control/kinematics.ts';
 export async function combatStrike({ hand = 'right', family = 'straight', mode = 'miss', tuning = {}, seconds = 12,
   ahead = .65, across = .15, up = 0, support = null, surface = 'front', direction, armExtension, measureMass = false } = {}) {
  const s = await coreStand(modelSpec('workshop-fighter'), { engine: DEFAULT_ENGINE });
- const body = createBody(s.built, s.world, { servoSeconds: SERVO_SECONDS, handFeedback: true });
+ const body = createBody(s.built, s.world, { servoSeconds: SERVO_SECONDS, feedback: true });
  const sharedSupport = support?.shared === true;
  const skills = combatSkills(body, {...ATTACK_PATH, ...tuning}, null, undefined, sharedSupport), target = [across*(hand==='right'?1:-1), 1.63+up, ahead];
  if(!['front','top','bottom'].includes(surface))throw new Error('unknown stand surface');
@@ -32,7 +32,7 @@ export async function combatStrike({ hand = 'right', family = 'straight', mode =
  const before = s.world.beforeStep(() => {
   pointOfToRef(limb,knuckles,point); motionAtToRef(limb,point,velocity,spin);
   velocity.subtractInPlace(body.view.stance.velocity);
-  const memory = body.state.mind.host.motor.hands[hand];
+  const memory = body.state.mind.host.motor.effectors[`hand.${hand}`];
   intoFrameToRef(body.view.root,point.asArray(),local);
   witness = {phase:skills.report.strike.phase, closing:support&&!sharedSupport?Vector3.Dot(velocity,new Vector3(...target).subtract(point).normalize()):surface==='top'?-velocity.y:surface==='bottom'?velocity.y:velocity.z, speed:velocity.length(), velocity:velocity.asArray(),
    pathError:memory.goal?Vector3.Distance(local,memory.point):null,

@@ -58,7 +58,7 @@ test("dressed on a body just built each piece is at its bind, and as the body mo
     body.drive((view) => {
       const s = view.stance;
       if (!goal && view.time > 0) goal = { feet: ["left", "right"], centre: null, height: s.centre.y - s.support.y - 0.05, heading: 0 };
-      return { posture: { "elbow.right flexion": -0.5 }, hands: { left: null, right: null }, pushes: [], stance: goal };
+      return { posture: { "elbow.right flexion": -0.5 }, pushes: [], stance: goal };
     });
     stand.step(stand.seconds(1));
     stand.scene.onBeforeRenderObservable.notifyObservers(stand.scene);

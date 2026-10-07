@@ -30,7 +30,7 @@ export function arenaFighter(built: BuiltBody, world: World, config: ArenaFighte
   if (config.combinations && config.hand !== "alternate")
     throw new Error("combat combinations require alternate hands");
   if (config.overlap && !config.combinations) throw new Error("overlapping combat requires bounded combinations");
-  const body = createBody(built, world, { servoSeconds: SERVO_SECONDS, senses: wiring.senses, assist: wiring.assist, handFeedback: true, contactIdentity: wiring.contactIdentity,
+  const body = createBody(built, world, { servoSeconds: SERVO_SECONDS, senses: wiring.senses, assist: wiring.assist, feedback: true, contactIdentity: wiring.contactIdentity,
     subs: [(own, view) => supportRecovery(own, view, world)] });
   const orders = (sight: Sight) => wiring.orders(sight.view.senses);
   const base = combatTactics(built.spec, wiring.name, orders, config);

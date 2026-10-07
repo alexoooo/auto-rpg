@@ -72,6 +72,14 @@ export interface BuiltBody {
   dispose(): void;
 }
 
+/** The segment no joint carries: the root, whose frame is the body frame a goal is set in. */
+export function rootSegment(built: BuiltBody): BuiltSegment {
+  const carried = new Set([...built.joints.values()].map((joint) => joint.child));
+  const roots = [...built.segments.values()].filter((segment) => !carried.has(segment));
+  if (roots.length !== 1) throw new Error(`${built.spec.model} has ${roots.length} segments no joint carries, not one`);
+  return roots[0]!;
+}
+
 interface Placement {
   /** Where the body frame's origin, between the soles, is put in the world. */
   readonly position: Vec3;

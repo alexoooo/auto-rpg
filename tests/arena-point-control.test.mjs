@@ -46,7 +46,7 @@ test("a point fighter approaches, attacks with either hand, and wounds through a
       phases.add(fighter.minded.skills.report.strike.phase);
       phases.add(fighter.minded.skills.report.engagement?.phase);
       for (const hand of ["left", "right"]) {
-        const goal = fighter.minded.state.command.hands[hand];
+        const goal = fighter.minded.state.command.effectors[`hand.${hand}`];
         if (goal?.initialVelocity?.some(v => v !== 0)) paths.add(hand);
       }
     }
@@ -65,7 +65,7 @@ test("a club point trajectory survives a fork in mid-swing with the whole bout s
     const { world, duel } = stand;
     while (duel.steps < 2000 && duel.duelists.left.minded.skills.report.strike.phase !== "swing") world.step();
     assert.equal(duel.duelists.left.minded.skills.report.strike.phase, "swing");
-    const goal = duel.duelists.left.minded.state.command.hands.right;
+    const goal = duel.duelists.left.minded.state.command.effectors["hand.right"];
     assert.ok(goal.initialVelocity && goal.places[0].point !== "knuckles", "the item point owns the trajectory");
     const saved = duel.save();
     twin.duel.load(saved);

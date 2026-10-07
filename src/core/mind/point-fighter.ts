@@ -22,7 +22,7 @@ export function pointFighter(built: BuiltBody, world: World, config: PointFighte
       default: { const never: never = mode; throw new Error(`unknown engagement ${never}`); }
     }
   })();
-  const body = createBody(built, world, { servoSeconds: SERVO_SECONDS, senses: wiring.senses, assist: wiring.assist, handFeedback: tracked,
+  const body = createBody(built, world, { servoSeconds: SERVO_SECONDS, senses: wiring.senses, assist: wiring.assist, feedback: tracked,
     subs: [(own, view) => supportRecovery(own, view, world)] });
   const tactics = fighterTactics(wiring.name, (sight) => wiring.orders(sight.view.senses) ?? seekFoe(sight));
   if (tracked) {

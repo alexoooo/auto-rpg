@@ -1,4 +1,5 @@
 import measured from "../../../assets/core/strikes.json" with { type: "json" };
+import { effectorAim } from "../control/effectors.ts";
 import type { Pose } from "../control/motor.ts";
 import type { Side, BodySpec } from "../spec/body.ts";
 import { deepFreeze } from "../state.ts";
@@ -156,9 +157,9 @@ export function netsOf(known: readonly Chosen[]): Readonly<Record<Band, number |
 export const mirroredWindow = (window: StrikeWindow): StrikeWindow =>
   ({ along: window.along, across: [-window.across[1], -window.across[0]], up: window.up });
 
-/** The point `hand` of `spec` strikes with (`rigidPoints`): what it holds says (`ItemSpec.aim`), or the hand's knuckles. */
+/** The point `hand` of `spec` strikes with (`effectorAim`). */
 export function aimOf(spec: BodySpec, hand: Side): string {
-  return spec.held?.find((h) => h.segment === `hand.${hand}`)?.item.aim ?? "knuckles";
+  return effectorAim(spec, `hand.${hand}`);
 }
 
 /** The trunk's freedoms whose positive way is to one side: mirrored, their sense and angle turn over. */

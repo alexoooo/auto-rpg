@@ -194,7 +194,7 @@ export function openingSelector(spec: BodySpec, tuning: OpeningTuning = {}, path
     const handShape = spec.segments.find(s => s.name === `hand.${hand}`)!.shape;
     const margin = (handShape.kind === "capsule" || handShape.kind === "sphere" ? handShape.radius.value : 0) * OPENINGS.handMargin;
     const fist = view.fists[hand].position;
-    const observed = view.handFeedback?.[hand]?.point ?? [fist.x, fist.y, fist.z];
+    const observed = view.effectors[`hand.${hand}`]!.feedback?.point ?? [fist.x, fist.y, fist.z];
     const start: Vec3 = [observed[0], observed[1], observed[2]];
     const obstacles = foe.spec.segments.filter(s => /^hand\.|^forearm\./.test(s.name)).flatMap(segment => {
       const local = capsule(segment);
@@ -258,7 +258,7 @@ export function openingSelector(spec: BodySpec, tuning: OpeningTuning = {}, path
             intoFrameToRef(view.root,target,scratch);const end: Vec3 = [scratch.x,scratch.y,scratch.z];
             const contactDirection = terms.vertical !== 0 ? scratch.set(0, terms.vertical, 0)
               .applyRotationQuaternionToRef(Quaternion.InverseToRef(view.root.rotation, inverse), scratch) : null;
-            const p = view.points[hand][aimOf(spec,hand)]!, path = attackPath([p.x,p.y,p.z],end,hand,family,paths,
+            const p = view.effectors[`hand.${hand}`]!.points[aimOf(spec,hand)]!, path = attackPath([p.x,p.y,p.z],end,hand,family,paths,
               contactDirection ? [contactDirection.x,contactDirection.y,contactDirection.z] : undefined);
             const world = (at: Vec3): Vec3 => { scratch.set(...at).applyRotationQuaternionToRef(view.root.rotation,scratch).addInPlace(view.root.position);return [scratch.x,scratch.y,scratch.z]; };
             let previous = world(path.chamber);blocked = false;

@@ -5,7 +5,7 @@ import type { EffectorGoal } from "../control/motor.ts";
 import type { StanceGoal } from "../control/stance.ts";
 import { footStatesOf, readSupport, withinSupport } from "../control/support.ts";
 import { STANCE_GAIT } from "../control/stance-tuning.ts";
-import { contactResponse } from "../control/hand-feedback.ts";
+import { contactResponse } from "../control/effector-feedback.ts";
 import { supportReadiness, plantedSupport, STRIKE_SUPPORT } from "../control/support-readiness.ts";
 import { hypot, sin, cos } from "../math/real.ts";
 import { turnAboutToRef } from "../math/turn.ts";

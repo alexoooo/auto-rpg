@@ -71,7 +71,7 @@ test('both hands repeat actual upward contacts and survive clean misses with ver
 test('a fresh-world fork preserves the full upward swing and return with either hand',async()=>{
  const make=async hand=>{
   const s=await coreStand(modelSpec('workshop-fighter'),{engine:DEFAULT_ENGINE});
-  const body=createBody(s.built,s.world,{servoSeconds:SERVO_SECONDS,handFeedback:true}),skills=combatSkills(body);
+  const body=createBody(s.built,s.world,{servoSeconds:SERVO_SECONDS,feedback:true}),skills=combatSkills(body);
   body.drive((view,dt)=>skills.command(view,{move:null,face:0,hands:{left:GUARD_ACTION,right:GUARD_ACTION},
    combat:view.time>=2?{hand,target:[hand==='right'?.1:-.1,1.63,.35],family:'uppercut',direction:[0,1,0]}:null},dt));
   return {...s,body,skills};

@@ -60,7 +60,7 @@ test('pose changes and pending requests fork into a fresh world with identical c
     return {...s,body:createBody(s.built,s.world,{servoSeconds:SERVO_SECONDS})};};
   const a=await make(),b=await make();
   try{
-    a.body.drive(()=>({posture:{},hands:{left:null,right:null},pushes:[],stance:null,handPoses:{left:'fist',right:'grip'}}));
+    a.body.drive(()=>({posture:{},pushes:[],stance:null,handPoses:{left:'fist',right:'grip'}}));
     a.step(3);const saved=saveStand(a.world,{body:a.body.state});loadStand(b.world,{body:b.body.state},saved);
     assert.deepEqual(b.built.handPoses.state,a.built.handPoses.state);
     for(const s of [a,b]){s.body.drive(null);s.built.handPoses.request([{hand:'left',pose:'open'}]);s.step(8);}

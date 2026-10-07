@@ -53,7 +53,7 @@ export function createReachTask(scene: Scene, engine: PhysicsEngine, config: Rea
       case "actuator": body = createPolicyBody(built, world, () => ({ name: "external", state: {}, step: () => state.actuator })); break;
       case "layered": {
         const commanded: Body = createBody(built, world, { servoSeconds: settings.servoSeconds });
-        commanded.drive(() => ({ posture: state.posture, hands: { left: null, right: null }, pushes: [], stance: null }));
+        commanded.drive(() => ({ posture: state.posture, pushes: [], stance: null }));
         body = commanded; break;
       }
       default: throw new Error(`unknown reach controller ${settings.controller satisfies never}`);

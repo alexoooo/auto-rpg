@@ -4,7 +4,7 @@ import { combatSkills, type CombatExecution } from "./combat.ts";
 import type { AttackTuning } from "./attack-path.ts";
 import type { Body, BodyCommand, BodyView } from "../body.ts";
 import type { Intent } from "../mind/intent.ts";
-import type { MusclePush } from "../control/motor.ts";
+import type { EffectorGoal, MusclePush } from "../control/motor.ts";
 import { GUARD, guardSkill, type Covering } from "./guard.ts";
 import { locomotion, type TurnStartup } from "./locomotion.ts";
 import type { Skill } from "./skill.ts";
@@ -89,9 +89,9 @@ export function createSkills(body: Body, { repertoire = REPERTOIRE, placed, stee
   if (kicks) throw new Error("kicks require the shared combat executor");
   const legs = locomotion(body.envelope, turnLimit, turnStartup), strikes = strikeSkill(body.built.spec, repertoire, placed, steer, pointMotion, pointSpacing, pointResponse), guard = guardSkill(body.built.spec, cover);
   const none: readonly MusclePush[] = Object.freeze([]);
-  const idle: BodyCommand["hands"] = Object.freeze({ left: null, right: null });
+  const effectors: Record<string, EffectorGoal | null> = { "hand.left": null, "hand.right": null };
   const command: { -readonly [K in keyof BodyCommand]: BodyCommand[K] } =
-    { posture: GUARD, hands: idle, pushes: none, stance: null };
+    { posture: GUARD, effectors, pushes: none, stance: null };
   const state = { command, legs: legs.state, strikes: strikes.state, tactics };
   const all: readonly Skill[] = [legs, strikes, guard];
   const report: SkillReport = {
@@ -118,8 +118,9 @@ export function createSkills(body: Body, { repertoire = REPERTOIRE, placed, stee
       command.pushes = strike?.pushes ?? none;
       // The strike's goal for the hand it has; the guard's for a hand it has not.
       const thrown = strike?.hands, covers = guard.command(view, intent.hands, strikes.report.hand);
-      command.hands = !thrown || (!thrown.left && !thrown.right) ? covers
-        : { left: thrown.left ?? covers.left, right: thrown.right ?? covers.right };
+      const either = !!thrown && (!!thrown.left || !!thrown.right);
+      effectors["hand.left"] = either ? thrown!.left ?? covers.left : covers.left;
+      effectors["hand.right"] = either ? thrown!.right ?? covers.right : covers.right;
       return command;
     },
   };

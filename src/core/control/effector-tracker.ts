@@ -95,8 +95,8 @@ export function effectorTracker(built: BuiltBody, root: BuiltSegment) {
         angles: chain.map(joint => joint.dofs.map(() => 0)), point: new Vector3(), goals: new Map() } };
   };
   const limbs = new Map(descriptions.map(d => [d.model.segment, limbOf(d)]));
-  const both = ["hand.left", "hand.right"].flatMap(name => limbs.has(name) ? [limbs.get(name)!] : []);
-  both.push(...[...limbs.values()].filter(limb => !both.includes(limb)));
+  // In declared order: no two own a freedom (`bodyEffectors`), so the order decides nothing.
+  const all = [...limbs.values()];
   const state = { effectors: Object.fromEntries([...limbs].map(([name, limb]) => [name, limb.memory])), reach: { solves: 0, passes: 0, capped: 0 } as ReachMeter };
   /**
    * Where the path of place `i` is at `time`: minimum jerk, 10 s^3 - 15 s^4 + 6 s^5 of the way
@@ -160,8 +160,7 @@ export function effectorTracker(built: BuiltBody, root: BuiltSegment) {
       if ((goal.initialVelocity || goal.terminalVelocity || goal.curve) && places.length !== 1) throw new Error("a measured point path requires one point");
       if (places.length !== 1 && places.length !== 2) throw new Error(`an effector goal is one place or two, not ${places.length}`);
       for (const place of places) {
-        const label = segment.startsWith("hand.") ? `${segment.slice(5)} hand` : `${segment} effector`;
-        if (!points.has(place.point)) throw new Error(`the ${label} has no point ${place.point}: it has ${[...points.keys()].join(", ")}`);
+        if (!points.has(place.point)) throw new Error(`effector ${segment} has no point ${place.point}: it has ${[...points.keys()].join(", ")}`);
       }
       if (places.length === 2) {
         const [a, b] = places as [Place, Place];
@@ -180,11 +179,11 @@ export function effectorTracker(built: BuiltBody, root: BuiltSegment) {
   return {
     state, models: Object.freeze(descriptions.map(d => d.model)), reach,
     response(channel: string) {
-      for (const limb of both) if (limb.memory.goals.has(channel)) return limb.memory.goal?.response;
+      for (const limb of all) if (limb.memory.goals.has(channel)) return limb.memory.goal?.response;
       return undefined;
     },
     release(segment: string) { const limb = limbs.get(segment); if (!limb) throw new Error(`no effector ${segment}`); limb.memory.goal = null; },
-    reset() { for (const limb of both) limb.memory.goal = null; },
+    reset() { for (const limb of all) limb.memory.goal = null; },
     path(segment: string) { const limb = limbs.get(segment); return limb?.memory.goal ? limb.memory.point : null; },
     pointToRef(segment: string, point: string, out: Vector3) {
       const limb = limbs.get(segment), at = limb?.points.get(point);
@@ -192,7 +191,7 @@ export function effectorTracker(built: BuiltBody, root: BuiltSegment) {
       return pointNowToRef(limb.segment, root, at, out);
     },
     step(driver: MuscleDriver, pose: Readonly<Record<string, number>>, dt: number, fromActual = false, seedActual = false) {
-    for (const limb of both) {
+    for (const limb of all) {
       const m = limb.memory;
       m.goals.clear();
       if (!m.goal) continue;
@@ -227,7 +226,7 @@ export function effectorTracker(built: BuiltBody, root: BuiltSegment) {
     }
     const owned = (i: number) => {
       const name = driver.channels[i]!.name;
-      for (const limb of both) { const g = limb.memory.goals.get(name); if (g) return g; }
+      for (const limb of all) { const g = limb.memory.goals.get(name); if (g) return g; }
       return undefined;
     };
       return owned;

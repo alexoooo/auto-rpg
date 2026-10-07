@@ -1,5 +1,5 @@
 import { solidSenses, type SolidSense } from "../core/mind/object-senses.ts";
-import type { ContactTarget } from "../core/control/hand-feedback.ts";
+import type { ContactTarget } from "../core/control/effector-feedback.ts";
 import type { SegmentBody } from "../core/engine/engine.ts";
 import type { PhysicalBody } from "../core/physical-body.ts";
 import { buildBody } from "../core/build/build-body.ts";

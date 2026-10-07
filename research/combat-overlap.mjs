@@ -10,7 +10,7 @@ export async function combatOverlap({lead='right',mode='hit',seconds=10,tuning={
    s.step();fell ||= s.body.down;
    const state=s.skills.state,key=[state.hand,state.phase,state.returning?.hand].join('/');
    if(key!==last){phases.push({time:s.world.time,hand:state.hand,phase:state.phase,returning:state.returning?.hand??null});last=key;}
-   if(state.returning&&state.command.hands.left&&state.command.hands.right)overlapSteps++;
+   if(state.returning&&state.command.effectors["hand.left"]&&state.command.effectors["hand.right"])overlapSteps++;
    const w=s.policy.witness;
    if(w.phase==='swing'&&s.obstacle){
     const contact=s.world.physics.contactsOf(s.built.segments.get(`hand.${w.hand}`).body).find(c=>c.fixed===s.obstacle.id&&c.impulse>0);

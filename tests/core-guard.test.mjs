@@ -46,7 +46,7 @@ async function covering(spec, hands) {
   return {
     stand, body, view, held,
     /** A point of a hand's rigid body, world. */
-    point: (hand, name) => view.points[hand][name].clone().applyRotationQuaternion(view.root.rotation).addInPlace(view.root.position),
+    point: (hand, name) => view.effectors[`hand.${hand}`].points[name].clone().applyRotationQuaternion(view.root.rotation).addInPlace(view.root.position),
     /** Where a cover of `threat` puts its point, or its two points' middle: `out` from the head toward it. */
     place: (threat) => view.head.add(Vector3.FromArray(threat).subtract(view.head).normalize().scale(GUARD_COVER.out)),
     /** The arms' angles, by channel. */
@@ -275,7 +275,7 @@ test("the_guard_has_the_hands_the_strike_has_not", async () => {
     const command = skills.command(view, { move: null, face: 0, hands: { left: held.target ? cover : GUARD_ACTION, right } }, dt);
     const { hand, phase, blow } = skills.report.strike;
     if (phase === "swing") held.covers = true;
-    held.seen.push({ hand, phase, blow, covers: held.covers, left: command.hands.left?.places.map((place) => place.point) ?? null, right: command.hands.right?.places.map((place) => place.point) ?? null });
+    held.seen.push({ hand, phase, blow, covers: held.covers, left: command.effectors["hand.left"]?.places.map((place) => place.point) ?? null, right: command.effectors["hand.right"]?.places.map((place) => place.point) ?? null });
     return command;
   });
   try {

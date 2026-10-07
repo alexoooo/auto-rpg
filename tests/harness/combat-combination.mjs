@@ -11,7 +11,7 @@ import {motionAtToRef} from '../../src/core/control/support.ts';
 /** Two independent fist targets on an unpinned Warrior, through one shared command and stance. */
 export async function combinationStand({lead='right',mode='hit',tuning={}}={}) {
  const s=await coreStand(modelSpec('workshop-fighter'),{engine:DEFAULT_ENGINE});
- const body=createBody(s.built,s.world,{servoSeconds:SERVO_SECONDS,handFeedback:true});
+ const body=createBody(s.built,s.world,{servoSeconds:SERVO_SECONDS,feedback:true});
  const skills=combatSkills(body,{...ATTACK_PATH,...tuning},null,undefined,false,undefined,undefined,true);
  const obstacle=mode==='hit'?s.world.physics.addFixedBox([0,1.63,.64],[.6,.2,.08]):null;
  const policy={stage:'lead',hand:lead,cancelled:false,pairs:0,overlaps:[],witness:null};

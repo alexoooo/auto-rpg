@@ -86,59 +86,13 @@ Extend `scripts/fingerprint.mjs`. It already has worker lanes, `traceOf`
 - **Baseline:** taken at HEAD into the scratchpad (`lock-HEAD.json`). Re-baseline after each
   intended change.
 
-## Chunk 1: quick wins (bit-identical)
+## Chunk 1: quick wins (landed)
 
-- **Text:** fix the garbled `·` separators in `arena/main.ts` and the `—` in `dungeon/run.ts`.
-- **Names:**
-  - Replace the 30 aliased imports (`HUMANOID_MODELS as BODY_MODELS`, `HumanoidModel as BodyModel`)
-    with the real names: `HUMANOID_MODELS`/`HumanoidModel` where only humanoids are meant.
-  - Use double-quote import style in `kick.ts`, `kick-combat.ts`, `strike-cycle.ts` and
-    `support-readiness.ts`.
-- **Dead config:**
-  - `ARENA_SCRAPPER_REFERENCE` (it is `ARENA_SCRAPPER`); `research/arena-combat.mjs`'s
-    `scrapper-v1` maps to `scrapper`.
-  - `ArenaFighterConfig.targeting` ("head" is never set; openings always on), with its branches
-    in `mind/combat.ts`.
-  - `defense: false` and its branches.
-  - `REPTILE_CONTROL.recoveryTiming` (it equals the base values).
-  - The `HandGoal` alias, `motor.knucklesToRef`, and the test-only `handFeedback()` wrapper (its
-    tests use `effectorFeedback`).
-  - The unread `BodySpec.family`.
-- **Smaller fixes:**
-  - The `HeldSpec` doc comment goes back onto `HeldSpec`.
-  - The ternary chains over `family` in `openings.ts` and `skills/combat.ts` become `switch`es
-    with a `never` default.
-  - The `{.3,.3}` cover literal in `mind/combat.ts` becomes `DEFENSE.out`/`DEFENSE.horizon`.
-  - Validation stays up front in `arena-fighter.ts` until chunk 13's `fighterFaults` (a check
-    after `createBody` would leave a built body behind on a throw);
-  - export `MindWiring` instead of `Parameters<typeof createMind>[3]`.
-- **Tests:** `core-fork` drops the forgotten paths for removed fields.
+## Chunk 2: club check (landed: FAIL)
 
-## Chunk 2: club check (measurement only; runs in the background during chunks 3–10)
-
-- **New `research/club-check.mjs`:**
-  - Built on `combatPairs` and `combatRating` from `research/arena-combat.mjs`, with
-    `combatGroups`.
-  - Candidate `scrapper` against opponent `classic`.
-  - For each of `workshop-fighter`, `workshop-rogue` and `crypt-skeleton`: both sides hold a
-    club, the balance is written out from the spec, recovery is the protocol's, cap 60 s.
-  - 192 mirrored pairs per model, so 384 bouts per cell and 1152 in all.
-  - Jobs are run with `research/arena-combat-run.mjs --workers 8`.
-  - A `--report` mode prints, per cell and pooled:
-    - the paired score with its Wilson 95% interval;
-    - the score split by the candidate's side;
-    - the paired difference in driven-damage rate, with its standard error;
-    - Cohen's d of the paired bar margin;
-    - endings and falls.
-- **Pass bar:**
-  - pooled score ≥ 0.50 with a Wilson lower bound ≥ 0.45;
-  - no cell's lower bound below 0.40;
-  - the damage-rate difference + 1.96·SE ≥ 0;
-  - a side split over 10 points makes the run **invalid**, not passed.
-- **Record:** `docs/reference/club-check.md` plus the gzipped JSON, naming the harness: Node
-  Arena Duel, rapier-coordinate, 120 Hz.
-- **If it fails,** stop before chunk 11 and report the table.
-- It measures today's code. Chunks 3–10 keep the presets bit-identical, so the result holds.
+`research/club-check.mjs`, recorded in `docs/reference/club-check.md`: Scrapper scores 0.092
+pooled against Classic with clubs (Wilson 0.071-0.119), every model's cell under 0.15. Chunks
+3-10 go on; chunks 11 onward wait on the owner.
 
 ## Body, effector, motor and mind layers
 
@@ -281,7 +235,7 @@ Extend `scripts/fingerprint.mjs`. It already has worker lanes, `traceOf`
   and `physicalReading`, with the same operations in the same order.
 - Time the step before and after (`docs/reference/step-cost.md`); `core-step-cost` must pass.
 
-## Fighter, skills and screens (after the club check passes)
+## Fighter, skills and screens (waiting on the owner: the club check failed)
 
 ### Chunk 11: retire Classic and Point; Scrapper becomes the default (intended change)
 
@@ -486,10 +440,7 @@ type Attack = {kind:"punch"; hand; target; family; targetId?; direction?; armExt
 - **Tests:** the matchup round trip, an old `point-*`/`classic` link, and refused combinations.
   Check in the browser (preview port, kill by PID).
 
-### Chunk 19: one `Side` union (bit-identical)
-
-`Side` is defined once in `spec/body.ts`. `Foot`, the landmarks' `Side` and the skills' `Hand`
-use it.
+### Chunk 19: one `Side` union (landed)
 
 ### Chunk 20: merges that move the lock (each an intended change, measured)
 

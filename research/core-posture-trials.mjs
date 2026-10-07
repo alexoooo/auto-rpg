@@ -1261,7 +1261,7 @@ export async function handed({ row, posture, seconds = HANDED_SECONDS, lift = LI
   const body = await bodyOnce();
   const height = standingHeight(body) - STANCE_LOWER;
   const stance = Object.freeze({ feet: Object.freeze(["left", "right"]), centre: null, height, heading: 0 });
-  const command = Object.freeze({ posture: Object.freeze({}), hands: Object.freeze({ left: null, right: null }), pushes: Object.freeze([]), stance });
+  const command = Object.freeze({ posture: Object.freeze({}), pushes: Object.freeze([]), stance });
   const stand = await placed(posture, { lift, solver, make: (built, world) => createBody(built, world, { servoSeconds: SERVO_SECONDS }) });
   try {
     stand.driving.drive(() => command);

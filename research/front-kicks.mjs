@@ -26,9 +26,9 @@ export async function frontKickStand({foot='right',hz=120,seconds=24,height=.45,
   const s=await coreStand(modelSpec('workshop-fighter'),{engine:DEFAULT_ENGINE,hz,actuation});
   let sensor;
   const identity={kind:'object',id:mode==='block'?'block-pad':'kick-pad'};
-  const body=createBody(s.built,s.world,{servoSeconds:SERVO_SECONDS,handFeedback:true,
+  const body=createBody(s.built,s.world,{servoSeconds:SERVO_SECONDS,feedback:true,
     contactIdentity:other=>other===sensor?.body?identity:other?null:{kind:'world'},
-    effectorContacts:segment=>(sensor?.state.materialContacts??[]).filter(c=>c.segment===segment)
+    contacts:segment=>(sensor?.state.materialContacts??[]).filter(c=>c.segment===segment)
       .map(c=>({target:identity,point:c.point,normal:[0,0,1],impulse:c.force*s.world.dt})),
     ...(recovery?{subs:[(own,view)=>supportRecovery(own,view,s.world)]}:{})});
   const skills=combatSkills(body,undefined,null,undefined,false,undefined,undefined,false,undefined,{...KICK_PATH,...tuning});

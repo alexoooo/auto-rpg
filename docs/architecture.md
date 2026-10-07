@@ -37,11 +37,12 @@ read (`src/core/skills/skills.ts`).
 
 `createBody` (`src/core/body.ts`) gives a built body the command layers as its mind
 (`commandMind`, hosting the sub-minds it is given, under `embody`): its muscles and motor control. Each step it
-reads the body's `BodyView` (time, joint angles, fists, knuckles, head, stance), asks its driver,
+reads the body's `BodyView` (time, joint angles, fists, each effector's points, head, stance), asks its driver,
 and obeys the `BodyCommand` it gets back: a posture, named effector goals, timed pushes and a stance goal.
-Body data declares each effector and its free chain. Hands retain their adapters; either foot uses
-the same point tracker with an independent orientation and ordinary bounded muscles. A bearing
-foot cannot simultaneously receive an effector goal. Detached capabilities, observations, contact
+Body data declares each effector and its free chain (`BodySpec.effectors`), and a command names
+goals by the effector's segment: a hand, a foot or a paw, on one point tracker, a foot with an
+independent orientation, all on ordinary bounded muscles. No two effectors share a freedom. A
+bearing foot cannot simultaneously receive an effector goal. Detached capabilities, observations, contact
 feedback and path memory share the body/bout replay boundary. See [effector contract](reference/striking-effectors.md).
 
 The arena also selects `PointFighterConfig` through `createMind`. It uses the shared locomotion
@@ -71,7 +72,7 @@ existing strike execution. See [strike-cycle settings](reference/arena-point-con
 
 Point control defaults to `trackedEngagement`: a hand-specific reach window with an inner entry
 band, bounded velocity prediction, measured facing and quiet settling before preparation.
-Explicit orders override pursuit. Optional `BodyView.handFeedback` samples actual point motion
+Explicit orders override pursuit. Each effector's optional feedback (`BodyView.effectors`) samples actual point motion
 and external contact impulses from the preceding physics step, with no engine objects exposed.
 A new contact starts return; continuous pressure does not. Finished attempts record contact,
 miss, cancellation, target escape, timeout or recovery interruption, separately from verified

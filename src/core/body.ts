@@ -1,6 +1,5 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { BuiltBody, BuiltSegment } from "./build/build-body.ts";
-import { rigidPoints } from "./build/rigid.ts";
 import type { Assist, AssistCeiling } from "./control/assist.ts";
 import { FALLEN, uprightness } from "./control/ground.ts";
 import { rootFrameToRef, type Frame } from "./control/kinematics.ts";
@@ -16,7 +15,7 @@ import type { BodyLevel, MuscleDriver } from "./muscle/driver.ts";
 import type { World } from "./world.ts";
 import { physicalBody, type PhysicalBody } from "./physical-body.ts";
 import { centreReading } from "./observation.ts";
-import { effectorFeedback, type ContactIdentity, type HandContact, type HandFeedback } from "./control/hand-feedback.ts";
+import { effectorFeedback, type ContactIdentity, type EffectorContact, type EffectorFeedback } from "./control/effector-feedback.ts";
 import type { Side, HandPose } from "./spec/body.ts";
 
 /**
@@ -82,8 +81,8 @@ export function commandsBody(body: Pick<PhysicalBody, "has" | "level">): boolean
 type BodyDriver = (view: BodyView, dt: number) => BodyCommand | null;
 
 /**
- * **A command is goals**: a posture for the freedoms nothing else owns, a place for each hand, and
- * the freedoms pushed flat out.
+ * **A command is goals**: a posture for the freedoms nothing else owns, places for the effectors,
+ * and the freedoms pushed flat out.
  */
 export interface BodyCommand {
   /** A coarse contact configuration; omitted hands retain their pending request. */
@@ -91,13 +90,12 @@ export interface BodyCommand {
   /** Angles by channel; a freedom not named is held at its reference angle. */
   readonly posture: Pose;
   /**
-   * For each hand, where named points of its rigid body go (body frame, `BodyView.root`) and in
-   * what time (`EffectorGoal`), or null to give the arm to the posture. A goal equal to the one before
-   * keeps its path, as does one that follows it (`EffectorGoal.follows`); another starts a new one
-   * from where the points are.
+   * For each effector (`BodySpec.effectors`), by its segment, where named points of its rigid body
+   * go (body frame, `BodyView.root`) and in what time (`EffectorGoal`); one not named, or null,
+   * gives its chain to the posture. A goal equal to the one before keeps its path, as does one that
+   * follows it (`EffectorGoal.follows`); another starts a new one from where the points are. A
+   * foot the stance bears on cannot also reach.
    */
-  readonly hands: Readonly<Record<Side, EffectorGoal | null>>;
-  /** Additional named endpoint paths; a bearing foot cannot also own a reach. */
   readonly effectors?: Readonly<Record<string, EffectorGoal | null>>;
   /** Freedoms driven by their muscles alone, whatever else would own them. */
   readonly pushes: readonly MusclePush[];
@@ -106,15 +104,17 @@ export interface BodyCommand {
 }
 
 /** A command that holds the reference pose. */
-const restCommand = (): BodyCommand => ({ posture: {}, hands: { left: null, right: null }, pushes: [], stance: null });
+const restCommand = (): BodyCommand => ({ posture: {}, pushes: [], stance: null });
 
 /** **What a body shows its driver**, read at the start of each control step from the step before. */
 export interface BodyView {
-  /** Named endpoint points and turns in the root frame, with trusted detached tactile readings. */
-  readonly effectors: Readonly<Record<string, { readonly points: Readonly<Record<string, Vector3>>; readonly rotation: Quaternion; readonly feedback?: HandFeedback }>>;
+  /**
+   * Each effector's named points (`rigidPoints`: a hand's knuckles, the points of what it holds) and
+   * turn, in the body frame where its goal is set, with its trusted detached touch when the body
+   * reads it (`BodyOptions.feedback`).
+   */
+  readonly effectors: Readonly<Record<string, { readonly points: Readonly<Record<string, Vector3>>; readonly rotation: Quaternion; readonly feedback?: EffectorFeedback }>>;
   readonly handPoses: Readonly<Record<string, { readonly applied: HandPose; readonly requested: HandPose }>>;
-  /** Optional own-hand contact feedback for controllers that react to impacts. */
-  readonly handFeedback?: Readonly<Record<Side, HandFeedback>>;
   /** Seconds of the world's clock. */
   readonly time: number;
   /** What the body senses of the world this step (`Senses`): the clock, its side, and every other body. */
@@ -124,13 +124,8 @@ export interface BodyView {
   /** Each hand's knuckles in the world: where a fist strikes, and how fast. */
   readonly fists: Readonly<Record<Side, Fist>>;
   /**
-   * Each named point of each hand's rigid body (`rigidPoints`: its knuckles, the points of what
-   * it holds), by name, in the body frame, where a hand goal is set.
-   */
-  readonly points: Readonly<Record<Side, Readonly<Record<string, Vector3>>>>;
-  /**
    * The body frame in the world, as the last step left it: the root segment's place and turn
-   * (`rootFrameToRef`), the frame a hand goal is set in. A world point is brought into it with
+   * (`rootFrameToRef`), the frame an effector's goal is set in. A world point is brought into it with
    * `intoFrameToRef`.
    */
   readonly root: Frame;
@@ -158,13 +153,12 @@ export interface Fist {
 export const SERVO_SECONDS = 0.1;
 
 interface BodyOptions {
-  /** Read external hand contacts and striking-point motion into the body's view. */
-  readonly handFeedback?: boolean;
+  /** Read each effector's external contacts and striking-point motion into the body's view. */
+  readonly feedback?: boolean;
   /** Trusted labeling for detached contact response; policies receive no engine body. */
   readonly contactIdentity?: ContactIdentity;
-  /** Trusted material contacts from the last completed step, alongside native solver contacts. */
-  readonly materialContacts?: (hand: Side) => readonly HandContact[];
-  readonly effectorContacts?: (segment: string) => readonly HandContact[];
+  /** Trusted material contacts of an effector's segment from the last completed step, alongside native solver contacts. */
+  readonly contacts?: (segment: string) => readonly EffectorContact[];
   /**
    * The joint servo's time constant, s (`servo`): a goal's error decays as a critically damped
    * motion with natural frequency 1 / servoSeconds.
@@ -197,18 +191,16 @@ interface CommandMind extends HostMind {
 }
 
 /** The command layers over `own`, holding its reference pose until something drives them. */
-export function commandMind(own: OwnBody, { servoSeconds, stance, handFeedback: feedbackEnabled, contactIdentity, materialContacts, effectorContacts }: BodyOptions): CommandMind {
+export function commandMind(own: OwnBody, { servoSeconds, stance, feedback: feedbackEnabled, contactIdentity, contacts }: BodyOptions): CommandMind {
   const { built, muscles } = own;
   const motor: MotorControl = motorControl(built, servoSeconds, {}, stance, own.assist);
   const feedback = feedbackEnabled ? effectorFeedback(built, motor.effectors.map(e => e.segment), contactIdentity,
-    segment => effectorContacts?.(segment) ?? (segment === "hand.left" ? materialContacts?.("left") : segment === "hand.right" ? materialContacts?.("right") : undefined) ?? []) : null;
-  const handsFeedback = feedback ? { left: feedback.state["hand.left"]!, right: feedback.state["hand.right"]! } : null;
+    segment => contacts?.(segment) ?? []) : null;
   const fists = { left: fistOf(built, "left"), right: fistOf(built, "right") };
   const head = centreReading(built, "head");
   const angles: Record<string, number> = {};
-  const goals: Record<Side, EffectorGoal | null> = { left: null, right: null };
   const upright = uprightness(built);
-  const effectorGoals: Record<string, EffectorGoal | null> = Object.fromEntries(motor.effectors.map(e => [e.segment, null]));
+  const goals: Record<string, EffectorGoal | null> = Object.fromEntries(motor.effectors.map(e => [e.segment, null]));
   const effectors = Object.fromEntries(motor.effectors.map(e => [e.segment, {
     points: Object.fromEntries(Object.keys(e.points).map(name => [name, new Vector3()])), rotation: new Quaternion(),
     ...(feedback ? { feedback: feedback.state[e.segment]! } : {}),
@@ -216,15 +208,13 @@ export function commandMind(own: OwnBody, { servoSeconds, stance, handFeedback: 
   const inverse = new Quaternion(), segmentTurn = new Quaternion(), rootTurn = new Quaternion();
   // The view's own fields are the state's: between steps a view shows the step its state is of.
   const state = {
-    goals, effectorGoals, effectors, time: 0, angles,
+    goals, effectors, time: 0, angles,
     fists: { left: fists.left.fist, right: fists.right.fist },
-    points: { left: pointsOf(built, "left"), right: pointsOf(built, "right") },
     root: { position: new Vector3(), rotation: new Quaternion() },
     head: head.centre,
     motor: motor.state,
     down: false,
     resumed: false,
-    ...(handsFeedback ? { handFeedback: handsFeedback } : {}),
   };
   const view = {
     handPoses: built.handPoses.state, effectors,
@@ -232,38 +222,29 @@ export function commandMind(own: OwnBody, { servoSeconds, stance, handFeedback: 
     senses: NOTHING_SENSED,
     angles,
     fists: state.fists,
-    points: state.points,
     root: state.root,
     head: head.centre,
     stance: motor.stance.reading,
     get down() { return state.down; },
     get resumed() { return state.resumed; },
-    ...(handsFeedback ? { handFeedback: handsFeedback } : {}),
   };
   let driver: BodyDriver | null = null;
   let released: ((view: BodyView) => void) | undefined;
 
   const obey = (command: BodyCommand): void => {
     for (const [segment, goal] of Object.entries(command.effectors ?? {})) {
-      if (!(segment in effectorGoals)) throw new Error(`no effector ${segment}`);
-      if (goal && ((segment === "hand.left" && command.hands.left) || (segment === "hand.right" && command.hands.right)
-        || (command.stance?.feet.some(side => segment === `foot.${side}`)))) throw new Error(`two controllers own ${segment}`);
+      if (!(segment in goals)) throw new Error(`no effector ${segment}`);
+      if (goal && command.stance?.feet.some(side => segment === `foot.${side}`)) throw new Error(`two controllers own ${segment}`);
     }
     if (command.handPoses) built.handPoses.request(Object.entries(command.handPoses).map(([hand, pose]) => ({ hand: hand as Side, pose: pose! })));
     motor.setPosture(command.posture);
     motor.setPushes(command.pushes);
     motor.setStance(command.stance);
-    for (const hand of ["left", "right"] as const) {
-      const goal = command.hands[hand], was = goals[hand];
-      if (!goal) { if (was && !command.effectors?.[`hand.${hand}`]) motor.release(hand); }
-      else if (!was || !sameGoal(goal, was)) motor.reach(hand, goal);
-      goals[hand] = goal;
-    }
-    for (const segment in effectorGoals) {
-      const goal = command.effectors?.[segment] ?? null, was = effectorGoals[segment];
-      if (!goal) { if (was && !(segment === "hand.left" && command.hands.left) && !(segment === "hand.right" && command.hands.right)) motor.releaseEffector(segment); }
-      else if (!was || !sameGoal(goal, was)) motor.reachEffector(segment, goal);
-      effectorGoals[segment] = goal;
+    for (const segment in goals) {
+      const goal = command.effectors?.[segment] ?? null, was = goals[segment];
+      if (!goal) { if (was) motor.release(segment); }
+      else if (!was || !sameGoal(goal, was)) motor.reach(segment, goal);
+      goals[segment] = goal;
     }
   };
   obey(restCommand());
@@ -273,14 +254,12 @@ export function commandMind(own: OwnBody, { servoSeconds, stance, handFeedback: 
     state.time = senses.time;
     view.senses = senses;
     muscles.channels.forEach((c, i) => { angles[c.name] = muscles.angle(i); });
-    for (const hand of ["left", "right"] as const) {
-      fists[hand].update();
-      for (const name in view.points[hand]) motor.pointToRef(hand, name, view.points[hand][name]!);
-    }
+    fists.left.update();
+    fists.right.update();
     rootFrameToRef(motor.root, state.root);
     for (const segment in effectors) {
       const out = effectors[segment]!, part = built.segments.get(segment)!;
-      for (const name in out.points) motor.effectorPointToRef(segment, name, out.points[name]!);
+      for (const name in out.points) motor.pointToRef(segment, name, out.points[name]!);
       part.node.rotationQuaternion!.multiplyToRef(Quaternion.InverseToRef(part.rest, inverse), segmentTurn);
       Quaternion.InverseToRef(state.root.rotation, rootTurn).multiplyToRef(segmentTurn, out.rotation).normalize();
     }
@@ -304,9 +283,7 @@ export function commandMind(own: OwnBody, { servoSeconds, stance, handFeedback: 
     release() {
       released?.(view);
       motor.reset();
-      goals.left = null;
-      goals.right = null;
-      for (const segment in effectorGoals) effectorGoals[segment] = null;
+      for (const segment in goals) goals[segment] = null;
     },
     resume() { state.resumed = true; },
   };
@@ -340,13 +317,6 @@ const sameGoal = (a: EffectorGoal, b: EffectorGoal): boolean =>
   && a.sequence === b.sequence
   && a.seconds === b.seconds && a.through === b.through && a.follows === b.follows && a.places.length === b.places.length
   && a.places.every((place, i) => place.point === b.places[i]!.point && place.position.every((v, k) => v === b.places[i]!.position[k]));
-
-/** A vector for each named point of `hand`'s rigid body (`rigidPoints`). */
-function pointsOf(built: BuiltBody, hand: Side): Record<string, Vector3> {
-  const segment = built.segments.get(`hand.${hand}`);
-  if (!segment) throw new Error(`${built.spec.model} has no ${hand} hand`);
-  return Object.fromEntries([...rigidPoints(built.spec, segment.spec).keys()].map((name) => [name, new Vector3()]));
-}
 
 /**
  * The knuckles (`SegmentSpec.points`) of `hand`, where a fist strikes, and their velocity from the

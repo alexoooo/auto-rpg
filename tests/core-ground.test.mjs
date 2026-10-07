@@ -194,7 +194,7 @@ test("a body asked to hold itself low is not down at that height", async () => {
       const stance = Object.freeze({ feet: Object.freeze([]), centre: null, height: asked(standing), heading: 0, walk: null });
       const command = (fold) => Object.freeze({
         posture: Object.freeze({ ...GUARD, ...Object.fromEntries(LEGS.map((name) => [name, fold])) }),
-        hands: Object.freeze({ left: null, right: null }), pushes: Object.freeze([]), stance,
+        pushes: Object.freeze([]), stance,
       });
       let now = command(1.6);
       body.drive(() => now);

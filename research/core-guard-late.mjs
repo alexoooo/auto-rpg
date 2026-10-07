@@ -46,7 +46,7 @@ async function play(left, right, gap, covers) {
       if (strike.hand) counts.struck++;
       counts.steps++;
       const before = { since, cover, strike: strike.hand ? `${strike.hand} ${strike.phase}` : "none", head: view.head.clone(), knuckles: view.fists.left.position.clone(),
-        swell: toWorld(view.points.right.swellFrom).add(toWorld(view.points.right.swellTo)).scale(0.5) };
+        swell: toWorld(view.effectors["hand.right"].points.swellFrom).add(toWorld(view.effectors["hand.right"].points.swellTo)).scale(0.5) };
       world.step();
       for (; read < duel.blows.length; read++) {
         const blow = duel.blows[read], mine = blow.sides.find((side) => side.fighter === covers);

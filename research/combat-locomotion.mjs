@@ -20,7 +20,7 @@ export async function combatTurn({speed,rate,sense,after,turnLimit,turnStartup,m
   const stance=legs.goal(view,walk,heading,dt);
   maximumTurn=Math.max(maximumTurn,Math.abs(legs.heading-askedHeading)/dt);askedHeading=legs.heading;
   reference=legs.reference;
-  return {posture:GUARD,hands:{left:null,right:null},pushes:[],stance};
+  return {posture:GUARD,pushes:[],stance};
  });
  try{
   for(let i=0;i<stand.seconds(1+after+Math.PI/rate+5);i++){

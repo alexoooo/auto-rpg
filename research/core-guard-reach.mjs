@@ -57,17 +57,17 @@ async function reach(cover, way, hand) {
     intoFrameToRef(view.root, view.head.asArray(), guarded);
     intoFrameToRef(view.root, threat, toward).subtractInPlace(guarded).normalize();
     const middle = guarded.add(toward.scale(Math.min(cover.out, FAR)));
-    if (values.club === "middle") return { ...command, hands: { left: null, right: { places: [{ point: "swell", position: middle.asArray() }], seconds: cover.seconds, follows: true } } };
+    if (values.club === "middle") return { ...command, effectors: { "hand.right": { places: [{ point: "swell", position: middle.asArray() }], seconds: cover.seconds, follows: true } } };
     const up = Vector3.Up(), half = up.subtract(toward.scale(Vector3.Dot(up, toward))).normalize().scale(span / 2);
-    const lies = view.points.right.swellTo.subtract(view.points.right.swellFrom);
+    const lies = view.effectors["hand.right"].points.swellTo.subtract(view.effectors["hand.right"].points.swellFrom);
     if (Vector3.Dot(lies, half) < 0) half.scaleInPlace(-1);
-    return { ...command, hands: { left: null, right: { places: [{ point: "swellFrom", position: middle.subtract(half).asArray() }, { point: "swellTo", position: middle.add(half).asArray() }], seconds: cover.seconds, follows: true } } };
+    return { ...command, effectors: { "hand.right": { places: [{ point: "swellFrom", position: middle.subtract(half).asArray() }, { point: "swellTo", position: middle.add(half).asArray() }], seconds: cover.seconds, follows: true } } };
   });
   const world = (p) => p.clone().applyRotationQuaternion(view.root.rotation).addInPlace(view.root.position);
   try {
     stand.step(stand.seconds(1.5));
     threat = view.head.add(Vector3.FromArray(way).scale(FAR)).asArray();
-    const ends = () => [world(view.points.right.swellFrom), world(view.points.right.swellTo)];
+    const ends = () => [world(view.effectors["hand.right"].points.swellFrom), world(view.effectors["hand.right"].points.swellTo)];
     const uppermost = Math.sign(ends()[1].y - ends()[0].y);
     const rows = [];
     let t = 0;

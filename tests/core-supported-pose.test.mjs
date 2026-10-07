@@ -32,7 +32,7 @@ test('supported low strokes survive contact and misses with both hands and retur
 test('a fresh-world fork during the supported fold reproduces low strikes and the standing return',async()=>{
  const make=async()=>{
   const stand=await coreStand(modelSpec('workshop-fighter'),{engine:DEFAULT_ENGINE});
-  const body=createBody(stand.built,stand.world,{servoSeconds:SERVO_SECONDS,handFeedback:true}),skills=combatSkills(body);
+  const body=createBody(stand.built,stand.world,{servoSeconds:SERVO_SECONDS,feedback:true}),skills=combatSkills(body);
   body.drive((view,dt)=>supportedStrikeCommand(view,skills.command(view,{move:null,face:0,
    hands:{left:GUARD_ACTION,right:GUARD_ACTION},combat:view.time>=7&&view.time<16?{hand:'right',target:[.2,.3,.15],family:'downward'}:null},dt),support));
   return {...stand,body,skills};
@@ -49,7 +49,7 @@ test('a fresh-world fork during the supported fold reproduces low strikes and th
 
 test('a supported fold does not hide an actual fall from the host recovery reading',async()=>{
  const s=await coreStand(modelSpec('workshop-fighter'),{engine:DEFAULT_ENGINE});
- const body=createBody(s.built,s.world,{servoSeconds:SERVO_SECONDS,handFeedback:true}),skills=combatSkills(body);
+ const body=createBody(s.built,s.world,{servoSeconds:SERVO_SECONDS,feedback:true}),skills=combatSkills(body);
  body.drive((view,dt)=>supportedStrikeCommand(view,skills.command(view,{move:null,face:0,hands:{left:GUARD_ACTION,right:GUARD_ACTION}},dt),{...support,lower:.7}));
  try {
   s.step(840);
@@ -68,7 +68,7 @@ test('a supported fold does not hide an actual fall from the host recovery readi
 test('neutral low combat waits for physical support, then strikes and restores the ordinary stance',async()=>{
  for(const hand of ['right','left'])for(const hit of [true,false]) {
   const stand=await coreStand(modelSpec('workshop-fighter'),{engine:DEFAULT_ENGINE});
-  const body=createBody(stand.built,stand.world,{servoSeconds:SERVO_SECONDS,handFeedback:true});
+  const body=createBody(stand.built,stand.world,{servoSeconds:SERVO_SECONDS,feedback:true});
   const skills=combatSkills(body,undefined,null,undefined,true),target=[hand==='right'?.35:-.35,.3,.1];
   const obstacle=hit?stand.world.physics.addFixedBox([target[0],target[1],target[2]+.04],[.2,.2,.08]):null;
   let contacts=0,first=null,low=false,falls=false,badFloor=false;
@@ -103,7 +103,7 @@ test('the supported executor refuses an imagined floor and keeps the strike unla
 test('a neutral supported-combat fork preserves acquisition, committed strokes and standing handover',async()=>{
  const make=async()=>{
   const stand=await coreStand(modelSpec('workshop-fighter'),{engine:DEFAULT_ENGINE});
-  const body=createBody(stand.built,stand.world,{servoSeconds:SERVO_SECONDS,handFeedback:true}),skills=combatSkills(body,undefined,null,undefined,true);
+  const body=createBody(stand.built,stand.world,{servoSeconds:SERVO_SECONDS,feedback:true}),skills=combatSkills(body,undefined,null,undefined,true);
   body.drive((view,dt)=>skills.command(view,{move:null,face:0,hands:{left:GUARD_ACTION,right:GUARD_ACTION},
    lower:view.time>=2&&view.time<14?.5:undefined,combat:view.time>=2&&view.time<14?{hand:'left',target:[-.35,.3,.1],family:'downward'}:null},dt));
   return {...stand,body,skills};

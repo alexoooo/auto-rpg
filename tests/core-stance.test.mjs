@@ -54,7 +54,7 @@ async function standing(model, seconds, ask, { posture = {}, stance } = {}) {
       goal = ask({ centre: s.centre.clone(), support: s.support.clone(), height: s.centre.y - s.support.y });
       from = feet.map((foot) => foot.node.position.clone());
     }
-    return { posture, hands: { left: null, right: null }, pushes: [], stance: goal };
+    return { posture, pushes: [], stance: goal };
   });
   const read = () => {
     const s = body.view.stance;
@@ -101,7 +101,7 @@ async function stepping(model, foot, dx, dz, stance, heading = 0) {
       swing = { foot, to, seconds: 0.45, lift: 0.05 };
       goal = { ...goal, heading };
     }
-    return { posture: {}, hands: { left: null, right: null }, pushes: [], stance: goal && { ...goal, swing } };
+    return { posture: {}, pushes: [], stance: goal && { ...goal, swing } };
   });
   try {
     const phases = [];
@@ -238,7 +238,7 @@ async function shoved(model, impulse, degrees, stance) {
   body.drive((view) => {
     const s = view.stance;
     if (!goal && view.time > 0) goal = { feet: ["left", "right"], centre: null, height: s.centre.y - s.support.y - 0.03, heading: 0 };
-    return { posture: {}, hands: { left: null, right: null }, pushes: [], stance: goal };
+    return { posture: {}, pushes: [], stance: goal };
   });
   try {
     stand.step(stand.seconds(1.5));
@@ -351,7 +351,7 @@ async function walking(model, degrees, speed) {
   body.drive((view) => {
     const s = view.stance;
     if (!goal && view.time > 0) goal = { feet: ["left", "right"], centre: null, height: s.centre.y - s.support.y - 0.03, heading: 0 };
-    return { posture: {}, hands: { left: null, right: null }, pushes: [], stance: goal && { ...goal, walk } };
+    return { posture: {}, pushes: [], stance: goal && { ...goal, walk } };
   });
   try {
     stand.step(stand.seconds(1));

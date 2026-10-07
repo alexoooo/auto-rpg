@@ -95,7 +95,7 @@ test("the skeleton stands 3 cm low for 4 s, its centre over its soles, and walks
   body.drive((view) => {
     const s = view.stance;
     if (!goal && view.time > 0) goal = { feet: ["left", "right"], centre: null, height: s.centre.y - s.support.y - 0.03, heading: 0 };
-    return { posture: {}, hands: { left: null, right: null }, pushes: [], stance: goal };
+    return { posture: {}, pushes: [], stance: goal };
   });
   try {
     stand.step(stand.seconds(4));

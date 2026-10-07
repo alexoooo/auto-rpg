@@ -6,7 +6,7 @@ import { STAND_ORDERS } from "../src/core/mind/orders.ts";
 import { saveState } from "../src/core/state.ts";
 import { traceOf } from "./harness/trace.mjs";
 import { controlArena, attackCycles, shoveControlFighter } from "../research/arena-control-trials.mjs";
-import { effectorFeedback, newHandContact } from "../src/core/control/hand-feedback.ts";
+import { effectorFeedback, newContact } from "../src/core/control/effector-feedback.ts";
 import { trackedEngagement } from "../src/core/mind/engagement.ts";
 import { engagementComparison } from "../research/arena-engagement-score.mjs";
 
@@ -49,8 +49,8 @@ test("hand feedback excludes self contacts and distinguishes an incoming touch f
       assert.deepEqual(reading.state[`hand.${hand}`].contactPoint, [4, 5, 6]);
       assert.ok([...reading.state[`hand.${hand}`].point, ...reading.state[`hand.${hand}`].velocity].every(Number.isFinite));
     }
-    assert.deepEqual([newHandContact(false, { impulse: 3 }), newHandContact(true, { impulse: 3 }),
-      newHandContact(false, { impulse: 0 }), newHandContact(false, undefined)], [true, false, false, false]);
+    assert.deepEqual([newContact(false, { impulse: 3 }), newContact(true, { impulse: 3 }),
+      newContact(false, { impulse: 0 }), newContact(false, undefined)], [true, false, false, false]);
   } finally { stand.dispose(); }
 });
 
@@ -101,7 +101,7 @@ test("a new physical hand contact triggers early return and replays across the p
     a.world.step(); b.world.step();
     assert.equal(report.phase, "return");
     assert.ok(report.since < .4, "contact retracts before the outbound timer expires");
-    const feedback = a.fighter.body.view.handFeedback.right;
+    const feedback = a.fighter.body.view.effectors["hand.right"].feedback;
     assert.ok(feedback.impulse > 0); assert.equal(feedback.contactPoint.length, 3);
     assert.ok([...feedback.point, ...feedback.velocity].every(Number.isFinite));
     for (let step = 0; step < 240; step++) { a.world.step(); b.world.step(); }

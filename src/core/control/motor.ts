@@ -1,14 +1,12 @@
 import { effectorTracker, type EffectorGoal } from "./effector-tracker.ts";
 import type { EffectorModel } from "./effectors.ts";
 import { type Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import type { BuiltBody, BuiltSegment } from "../build/build-body.ts";
+import { rootSegment, type BuiltBody, type BuiltSegment } from "../build/build-body.ts";
 import type { MuscleController, MuscleDriver } from "../muscle/driver.ts";
 import type { Assist } from "./assist.ts";
-import { chainTo } from "./kinematics.ts";
 import { servoAsk, servoSolve } from "./servo.ts";
 import { stanceControl, type StanceControl, type StanceGoal } from "./stance.ts";
 import type { StanceTuning } from "./stance-tuning.ts";
-import type { Side } from "../spec/body.ts";
 
 /** Joint angles, rad, by channel name. */
 export type Pose = Readonly<Record<string, number>>;
@@ -27,14 +25,15 @@ export type { EffectorGoal } from "./effector-tracker.ts";
 
 /**
  * **Motor control: goals in, muscle commands out.** A body is given a posture (angles for the
- * freedoms, by name, the rest held at their reference angles) and, for each hand, places for
- * named points of its rigid body (its knuckles, a point of what it holds) in the body frame (the
- * root's frame, `kinematics.ts`) and the time to get there (`EffectorGoal`). Each point travels a
- * straight, minimum-jerk path from where it is; each step the paths' points become the
- * shoulder's, the elbow's and the wrist's angles by inverse kinematics, with the trunk at the
- * posture's angles, and the servo (`servo.ts`) follows those angles with their rates and
- * accelerations fed forward, bounded by the muscles. What a goal leaves free of the arm (one
- * place leaves four of its seven freedoms, two leave two) settles toward the posture's angles.
+ * freedoms, by name, the rest held at their reference angles) and, for each effector (`BodySpec.effectors`:
+ * a hand, a foot), places for named points of its rigid body (a hand's knuckles, a point of what it
+ * holds) in the body frame (the root's frame, `kinematics.ts`) and the time to get there
+ * (`EffectorGoal`). Each point travels a straight, minimum-jerk path from where it is; each step the
+ * paths' points become the angles of the effector's chain (an arm's shoulder, elbow and wrist) by
+ * inverse kinematics, with the rest of the body at the posture's angles, and the servo
+ * (`servo.ts`) follows those angles with their rates and accelerations fed forward, bounded by the
+ * muscles. What a goal leaves free of an arm (one place leaves four of its seven freedoms, two leave
+ * two) settles toward the posture's angles.
  * The wrist is the arm's: held at the posture's angle, a point of a held item half a metre from
  * the hand has no path the solve can follow (`docs/reference/human-and-strikes.md#ik`).
  *
@@ -49,50 +48,46 @@ export type { EffectorGoal } from "./effector-tracker.ts";
  * body carried or in the air.
  */
 export interface MotorControl {
+  /** What it can reach with, in declared order. */
   readonly effectors: readonly EffectorModel[];
-  reachEffector(segment: string, goal: EffectorGoal): void;
-  releaseEffector(segment: string): void;
-  effectorPointToRef(segment: string, point: string, out: Vector3): Vector3;
   /** The controller for `driveMuscles`. */
   readonly control: MuscleController;
-  /** Hold `pose` for every freedom no hand goal owns, from `control`'s next call. */
+  /** Hold `pose` for every freedom no effector's goal owns, from `control`'s next call. */
   setPosture(pose: Pose): void;
   /**
-   * Take `hand` to `goal`, from `control`'s next call. It refuses, with the reason, a point the
-   * hand's rigid body has not, no place or more than two, and two places whose distance apart
-   * differs from their points' by more than `PLACES_SLACK`.
+   * Take the effector of `segment` to `goal`, from `control`'s next call. It refuses, with the
+   * reason, a point its rigid body has not, no place or more than two, and two places whose
+   * distance apart differs from their points' by more than `PLACES_SLACK`.
    */
-  reach(hand: Side, goal: EffectorGoal): void;
-  /** Give `hand`'s arm back to the posture. */
-  release(hand: Side): void;
+  reach(segment: string, goal: EffectorGoal): void;
+  /** Give the chain of `segment`'s effector back to the posture. */
+  release(segment: string): void;
   /** Drive `pushes` flat out from `control`'s next call, in place of those before. */
   setPushes(pushes: readonly MusclePush[]): void;
   /** Stand on the ground as `goal` asks, or with null leave the legs to the posture, from `control`'s next call. */
   setStance(goal: StanceGoal | null): void;
   /** The stance goal it was last given, or null: what the legs are asked to hold. */
   readonly standing: StanceGoal | null;
-  /** Forget what was under way: no pushes, no stance, no hand's goal, and the stance's own memory (`StanceControl.reset`). The posture stays. */
+  /** Forget what was under way: no pushes, no stance, no effector's goal, and the stance's own memory (`StanceControl.reset`). The posture stays. */
   reset(): void;
   /** The stance's readings, as its last step left them. */
   readonly stance: StanceControl;
-  /** Where the path of `hand`'s first place stands now (body frame), or null with no goal. */
-  path(hand: Side): Vector3 | null;
-  /** Where `point` of `hand`'s rigid body is now, body frame. */
-  pointToRef(hand: Side, point: string, out: Vector3): Vector3;
+  /** Where the path of `segment`'s first place stands now (body frame), or null with no goal. */
+  path(segment: string): Vector3 | null;
+  /** Where `point` of `segment`'s rigid body is now, body frame. */
+  pointToRef(segment: string, point: string, out: Vector3): Vector3;
   /** The segment whose frame the body frame is carried by. */
   readonly root: BuiltSegment;
-  /** Its memory (`src/core/state.ts`): the goals it was last given, each hand's path, its hands' solves counted (`ReachMeter`), and the stance's. */
+  /** Its memory (`src/core/state.ts`): the goals it was last given, each effector's path, their solves counted (`ReachMeter`), and the stance's. */
   readonly state: object;
 }
 
 /** Motor control of `built`, servoing at a time constant of `seconds`; its stance asks `assist` for what the soles miss. */
 export function motorControl(built: BuiltBody, seconds: number, posture: Pose = {}, stanceTuning?: StanceTuning, assist: Assist | null = null): MotorControl {
   const stance = stanceControl(built, stanceTuning, assist);
-  const root = chainTo(built, built.segments.get("hand.left")!)[0]!.parent;
+  const root = rootSegment(built);
   const tracker = effectorTracker(built, root);
-  for (const hand of ["left", "right"]) if (!tracker.state.effectors[`hand.${hand}`]) throw new Error(`${built.spec.model} has no ${hand} hand effector`);
   const state = { pose: posture, pushes: [] as readonly MusclePush[], standing: null as StanceGoal | null,
-    hands: { left: tracker.state.effectors["hand.left"]!, right: tracker.state.effectors["hand.right"]! },
     effectors: tracker.state.effectors, reach: tracker.state.reach, stance: stance.state };
   const control: MuscleController = (driver: MuscleDriver, dt: number) => {
     const { pose, pushes, standing } = state;
@@ -124,11 +119,8 @@ export function motorControl(built: BuiltBody, seconds: number, posture: Pose = 
   return {
     control, effectors: tracker.models,
     setPosture(next) { state.pose = next; },
-    reach: (hand, goal) => tracker.reach(`hand.${hand}`, goal),
-    reachEffector: tracker.reach,
-    releaseEffector: tracker.release,
-    effectorPointToRef: tracker.pointToRef,
-    release(hand) { tracker.release(`hand.${hand}`); },
+    reach: tracker.reach,
+    release: tracker.release,
     setPushes(next) { state.pushes = next; },
     setStance(next) { state.standing = next; },
     get standing() { return state.standing; },
@@ -139,8 +131,8 @@ export function motorControl(built: BuiltBody, seconds: number, posture: Pose = 
       stance.reset();
     },
     stance, state,
-    path: (hand) => tracker.path(`hand.${hand}`),
-    pointToRef: (hand, point, out) => tracker.pointToRef(`hand.${hand}`, point, out),
+    path: tracker.path,
+    pointToRef: tracker.pointToRef,
     root,
   };
 }

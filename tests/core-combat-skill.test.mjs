@@ -52,10 +52,10 @@ test('terminal motion crosses the motor endpoint continuously and segment identi
  const s=await coreStand(modelSpec('workshop-fighter'),{engine:DEFAULT_ENGINE,pinned:'lowerTrunk',gravity:false,ground:false});
  const body=createBody(s.built,s.world,{servoSeconds:SERVO_SECONDS});
  let sequence=1, z=.45, curve=[.03,0,0];
- body.drive(()=>({posture:GUARD,pushes:[],stance:null,hands:{left:null,right:{places:[{point:'knuckles',position:[.15,1.49,z]}],
+ body.drive(()=>({posture:GUARD,pushes:[],stance:null,effectors:{'hand.right':{places:[{point:'knuckles',position:[.15,1.49,z]}],
   seconds:.2,initialVelocity:[0,0,0],terminalVelocity:[0,0,1],curve,sequence,follows:true}}}));
  try {
-  s.step(25); const memory=body.state.mind.host.motor.hands.right;
+  s.step(25); const memory=body.state.mind.host.motor.effectors["hand.right"];
   const endpoint=memory.point.z; assert.ok(Math.abs(memory.time-.2)<1e-12);
   s.step(); assert.ok(Math.abs((memory.point.z-endpoint)*120-1)<1e-12);
   sequence=2; s.step(); assert.equal(memory.time,0);
@@ -70,7 +70,7 @@ test('terminal motion crosses the motor endpoint continuously and segment identi
 test('a fresh-world fork inside a curved strike preserves the whole motion and return', async () => {
  const make=async()=>{
   const stand=await coreStand(modelSpec('workshop-fighter'),{engine:DEFAULT_ENGINE});
-  const body=createBody(stand.built,stand.world,{servoSeconds:SERVO_SECONDS,handFeedback:true}),skills=combatSkills(body);
+  const body=createBody(stand.built,stand.world,{servoSeconds:SERVO_SECONDS,feedback:true}),skills=combatSkills(body);
   body.drive((view,dt)=>skills.command(view,{move:null,face:0,hands:{left:GUARD_ACTION,right:GUARD_ACTION},
    combat:view.time>=2?{hand:'right',target:[.1,1.63,.5],family:'hook'}:null},dt));
   return {...stand,body,skills};

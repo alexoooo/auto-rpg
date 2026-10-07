@@ -58,7 +58,7 @@ async function walker() {
   const body = createBody(stand.built, stand.world, { servoSeconds: SERVO_SECONDS });
   const pace = body.envelope.walk.value, rate = turnAt(body.envelope, pace);
   const height = body.view.stance.centre.y - body.view.stance.support.y - STANCE_LOWER;
-  const reach = (hand, by) => deepFreeze({ places: [{ point: "knuckles", position: body.view.points[hand].knuckles.add(by).asArray() }], seconds: 0.4 });
+  const reach = (hand, by) => deepFreeze({ places: [{ point: "knuckles", position: body.view.effectors[`hand.${hand}`].points.knuckles.add(by).asArray() }], seconds: 0.4 });
   const left = [reach("left", new Vector3(0, 0.1, 0.25)), reach("left", new Vector3(0.1, 0.2, 0.15))];
   const right = [reach("right", new Vector3(-0.1, 0.15, 0.2)), reach("right", new Vector3(0, 0.25, 0.1))];
   const hand = (goals, time, from, to) => time >= from && time < to ? goals[time < from + 0.3 ? 0 : 1] : null;
@@ -68,7 +68,7 @@ async function walker() {
     const walk = time >= 1 && time < 5 ? [pace * Math.sin(heading), pace * Math.cos(heading)] : null;
     return {
       posture: time < 3.5 ? GUARD : BENT,
-      hands: { left: hand(left, time, 1.5, 4), right: hand(right, time, 3, 5) },
+      effectors: { "hand.left": hand(left, time, 1.5, 4), "hand.right": hand(right, time, 3, 5) },
       pushes: time >= 4.5 && time < 5 ? WRIST : NO_PUSHES,
       stance: time >= 6.81 && time < 6.875 ? null : { feet: BOTH, centre: null, height, heading, walk },
     };
@@ -103,7 +103,7 @@ const pulled = ({ ceiling = null, frame = null, withdraw = Infinity, share = 0.1
   const stand = await coreStand(humanSpec("workshop-fighter"));
   const body = createBody(stand.built, stand.world, { servoSeconds: SERVO_SECONDS, subs, ...(ceiling ? { assist: ceiling } : {}) });
   const height = body.view.stance.centre.y - body.view.stance.support.y - STANCE_LOWER;
-  const command = deepFreeze({ posture: GUARD, hands: { left: null, right: null }, pushes: [], stance: { feet: BOTH, centre: null, height, heading: 0, walk: null } });
+  const command = deepFreeze({ posture: GUARD, pushes: [], stance: { feet: BOTH, centre: null, height, heading: 0, walk: null } });
   body.drive(() => command);
   const root = body.muscles.dynamics.root.segment, at = new Vector3();
   const weight = [...stand.built.segments.values()].reduce((sum, segment) => sum + segment.rigid.mass, 0) * -stand.built.physics.gravity[1];
@@ -307,9 +307,9 @@ const NEEDED = {
     "world > steps",
     "body > physical",
     ...["activation", "velocity", "ceiling", "pulled", "bounds", "trackers"].map((field) => `body > muscles > ${field}`),
-    ...["goals", "time", "angles", "fists", "points", "root > position", "root > rotation", "head"].map((field) => `body > mind > host > ${field}`),
+    ...["goals", "time", "angles", "fists", "root > position", "root > rotation", "head"].map((field) => `body > mind > host > ${field}`),
     ...["pose", "pushes", "standing", "reach"].map((field) => `body > mind > host > motor > ${field}`),
-    ...["left", "right"].flatMap((hand) => HAND.map((field) => `body > mind > host > motor > hands > ${hand} > ${field}`)),
+    ...["left", "right"].flatMap((hand) => HAND.map((field) => `body > mind > host > motor > effectors > hand.${hand} > ${field}`)),
     ...["stride", "striding", "owned", "last", "pace", "reading", "feet"].map((field) => `${STANCE} > ${field}`),
     ...["swing", "lifted", "time", "held", "from", "lift"].map((field) => `${STANCE} > step > ${field}`),
     ...["on", "at", "velocity"].map((field) => `${STANCE} > plan > ${field}`),
@@ -334,14 +334,14 @@ const NOT_MEMORY = {
   "body > mind > host > down": "each step's look reads it from the body before any mind steps or any fight reads the view",
   "body > mind > host > resumed": "the step the body is handed back sets it and clears it: between steps it is false",
   ...Object.fromEntries(["left", "right"].flatMap((hand) => [
-    [`body > mind > host > motor > hands > ${hand} > started`, "a new goal clears it and that step's control sets it"],
-    [`body > mind > host > motor > hands > ${hand} > goals`, "each step clears it and fills it before reading it"],
-    [`body > mind > host > motor > hands > ${hand} > point`, "each step with a goal writes it; `MotorControl.path` shows it, and a body does not"],
+    [`body > mind > host > motor > effectors > hand.${hand} > started`, "a new goal clears it and that step's control sets it"],
+    [`body > mind > host > motor > effectors > hand.${hand} > goals`, "each step clears it and fills it before reading it"],
+    [`body > mind > host > motor > effectors > hand.${hand} > point`, "each step with a goal writes it; `MotorControl.path` shows it, and a body does not"],
   ])),
   [`${STANCE} > step > turn`]: "each step of a swing writes it before reading it",
   ...Object.fromEntries(["aim", "helped", "held", "tasks", "pose"].map((field) =>
     [`${STANCE} > ${field}`, "the stance's `command` writes it each step, for `carry` and `bear` of that step"])),
-  "skills > command": "each step the skills write its posture, hands, pushes and stance before the body reads them: it is in the state for what the body's shares with it",
+  "skills > command": "each step the skills write its posture, effectors, pushes and stance before the body reads them: it is in the state for what the body's shares with it",
   "skills > strikes > pushes": "each command of a strike clears it and fills it before the body reads it",
 };
 
@@ -428,9 +428,9 @@ test("every_field_of_a_bodys_state_is_sorted", async () => {
   const stand = await walker(), struck = await striker();
   try {
     const fields = [...fieldsOf({ world: stand.world.state, ...stand.states }), ...fieldsOf({ skills: struck.states.skills })];
-    // Named endpoint paths and observations are exercised and mutated in core-effectors.test.mjs.
-    const effectors = ["effectorGoals", "effectors", "motor > effectors"].map(field => `body > mind > host > ${field}`);
-    const rotations = ["left", "right"].map(hand => `body > mind > host > motor > hands > ${hand} > fromRotation`);
+    // The feet's paths and every effector's observations are exercised and mutated in core-effectors.test.mjs.
+    const effectors = ["effectors", "motor > effectors > foot.left", "motor > effectors > foot.right"].map(field => `body > mind > host > ${field}`);
+    const rotations = ["left", "right"].map(hand => `body > mind > host > motor > effectors > hand.${hand} > fromRotation`);
     // Pose memory is exercised by physical opening/closure and fresh-world continuation in core-hand-poses.test.mjs.
     assert.deepEqual(unsorted(fields, [...Object.values(NEEDED).flat(), "body > handPoses", ...effectors, ...rotations], Object.keys(NOT_MEMORY)), []);
   } finally { stand.dispose(); struck.dispose(); }
