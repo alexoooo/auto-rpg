@@ -52,7 +52,7 @@ export type Minded = FighterMind | (MindedBody & { readonly kind: "direct" }) | 
 /** `built` under the mind `config` names, wired to its fight. */
 export function createMind(built: BuiltBody, world: World, config: MindConfig, wiring: MindWiring): Minded {
   switch (config.kind) {
-    case "quadruped": return createQuadrupedMind(built, world, wiring.orders, wiring.senses, wiring.assist);
+    case "quadruped": return createQuadrupedMind(built, world, wiring);
     case "arena-fighter": return arenaFighter(built, world, config, wiring);
     case "point-fighter": return pointFighter(built, world, config, wiring);
     case "fighter": return createFighter(built, world, config, wiring);

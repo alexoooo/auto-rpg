@@ -7,13 +7,14 @@ import { motorControl, type EffectorGoal, type MotorControl, type MusclePush, ty
 import type { StanceGoal, StanceReading } from "./control/stance.ts";
 import type { StanceTuning } from "./control/stance-tuning.ts";
 import { stanceEnvelope, type StanceEnvelope } from "./control/stance-envelope.ts";
-import { embody, type OwnBody } from "./mind/mind.ts";
-import { clockSenses, NOTHING_SENSED, type Senses } from "./mind/senses.ts";
-import { hosting, type HostMind } from "./mind/sub-mind.ts";
+import { hostedBody } from "./mind/hosted.ts";
+import type { OwnBody } from "./mind/mind.ts";
+import { NOTHING_SENSED, type Senses } from "./mind/senses.ts";
+import type { HostMind } from "./mind/sub-mind.ts";
 import type { SubMindMaker } from "./mind/sub-minds.ts";
 import type { BodyLevel, MuscleDriver } from "./muscle/driver.ts";
 import type { World } from "./world.ts";
-import { physicalBody, type PhysicalBody } from "./physical-body.ts";
+import type { PhysicalBody } from "./physical-body.ts";
 import { centreReading } from "./observation.ts";
 import { effectorFeedback, type ContactIdentity, type EffectorContact, type EffectorFeedback } from "./control/effector-feedback.ts";
 import type { Side, HandPose } from "./spec/body.ts";
@@ -290,15 +291,15 @@ export function commandMind(own: OwnBody, { servoSeconds, stance, feedback: feed
 
 /** `built` in `world`, holding its reference pose until something drives it. */
 export function createBody(built: BuiltBody, world: World, options: BodyOptions): Body {
-  const sense = options.senses ?? clockSenses(world);
   let command!: CommandMind;
-  const { own, mind, state, dispose } = embody(built, world, (body) => {
-    command = commandMind(body, options);
-    return hosting(command, (options.subs ?? []).map((make) => make(body, command.view)));
-  }, sense, options.assist);
-  // Before its first step the view is the body as built, where a driver or a run first finds it.
-  command.look(sense());
-  return Object.assign(physicalBody(own, world, sense, () => mind.has, state, dispose, () => command.view.down), {
+  const body = hostedBody(built, world, options, (own, sense) => {
+    command = commandMind(own, options);
+    const subs = (options.subs ?? []).map((make) => make(own, command.view));
+    // Before its first step the view is the body as built, where a driver or a run first finds it.
+    command.look(sense());
+    return { host: command, subs, down: () => command.view.down };
+  });
+  return Object.assign(body, {
     view: command.view,
     envelope: !options.measuring && Object.keys(options.stance ?? {}).length === 0 ? stanceEnvelope(built.spec) : null,
     drive: (next: BodyDriver | null, released?: (view: BodyView) => void) => command.drive(next, released),

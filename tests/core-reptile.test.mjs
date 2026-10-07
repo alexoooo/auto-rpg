@@ -67,7 +67,7 @@ test("autonomous tactics approach sensed surfaces, close the jaw and verify rele
   const hub = createSenses(stand.world), see = hub.add({ id: "reptile", side: "one", built: stand.built, out: () => false });
   hub.add({ id: "target", side: "two", built: enemy, out: () => false });
   let cancel = false, hit = null, before = 0, returnedAtHit = 0;
-  const mind = createQuadrupedMind(stand.built, stand.world, () => cancel ? STAND_ORDERS : null, see);
+  const mind = createQuadrupedMind(stand.built, stand.world, { orders: () => cancel ? STAND_ORDERS : null, senses: see });
   const rules = rulebook("arena"), mine = createPool(stand.built.spec, rules), theirs = createPool(enemy.spec, rules);
   const bite = mind.body.state.mind.host.bite, jaw = mind.body.muscles.channel("jaw axis0");
   const watch = watchBlows(stand.world, [{ id: "reptile", side: "one", built: stand.built, pool: mine },
@@ -94,7 +94,7 @@ test("autonomous tactics approach sensed surfaces, close the jaw and verify rele
 
 test("holding and resuming a moving quadruped retains its bodies and resumes from actual paws", async () => {
   const stand = await coreStand(reptileSpec(), { engine: "rapier-coordinate" });
-  const mind = createQuadrupedMind(stand.built, stand.world, () => ({ move: { x: 0, z: 1 }, face: { x: 0, z: 1 }, attack: null }));
+  const mind = createQuadrupedMind(stand.built, stand.world, { orders: () => ({ move: { x: 0, z: 1 }, face: { x: 0, z: 1 }, attack: null }) });
   try {
     stand.step(480);
     const host = mind.body.state.mind.host, sequence = host.crawl.sequence;
@@ -116,7 +116,7 @@ test("a closing jaw wounds through the common contact rules and releases after c
   const enemy = buildBody(modelSpec("workshop-fighter"), stand.world, { position: [.18, 0, .53] });
   for (const segment of enemy.segments.values()) segment.body.setFixed(true);
   let attack = [.01, .22, .48];
-  const mind = createQuadrupedMind(stand.built, stand.world, () => ({ ...STAND_ORDERS, attack }));
+  const mind = createQuadrupedMind(stand.built, stand.world, { orders: () => ({ ...STAND_ORDERS, attack }) });
   const rules = rulebook("arena"), mine = createPool(stand.built.spec, rules), theirs = createPool(enemy.spec, rules);
   const jaw = mind.body.muscles.channel("jaw axis0"), bite = mind.body.state.mind.host.bite;
   let before = 0;
@@ -149,7 +149,7 @@ test("a closing jaw wounds through the common contact rules and releases after c
 test("the crawl walks two trunk lengths, stops, reverses and turns on physical paw landings", async () => {
   const stand = await coreStand(reptileSpec(), { engine: "rapier-coordinate" });
   let orders = STAND_ORDERS;
-  const mind = createQuadrupedMind(stand.built, stand.world, () => orders);
+  const mind = createQuadrupedMind(stand.built, stand.world, { orders: () => orders });
   const host = mind.body.state.mind.host, crawl = host.crawl;
   const names = ["front.left", "hind.right", "front.right", "hind.left"];
   const run = seconds => {

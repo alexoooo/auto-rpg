@@ -96,76 +96,15 @@ pooled against Classic with clubs (Wilson 0.071-0.119), every model's cell under
 
 ## Body, effector, motor and mind layers
 
-### Chunk 3: hands are effectors (pose bit-identical; state reshaped)
+### Chunk 3: hands are effectors (landed)
 
-**`control/effectors.ts`**
-- Delete the legacy-hands fallback.
-- Export `effectorAim(spec, segment)`: the held item's aim, else the declared point.
-- Throw when two effectors share a channel.
+### Chunk 4: the down rule is body data (landed)
 
-**`control/effector-tracker.ts`**
-- Iterate in declaration order and drop "hands first". The chains are disjoint, so this is
-  provably identical, and the new throw keeps it so.
+### Chunk 5: one mind skeleton (landed)
 
-**`control/motor.ts`**
-- Delete `Hand`, the façade and `state.hands`. Calls are by segment:
-  `reach`, `release`, `pointToRef`, `path`.
-- The root comes from a new `rootSegment(built)` in `control/kinematics.ts`. It is the same
-  object as `chainTo(hand.left)[0].parent`.
-
-**`control/hand-feedback.ts` → `control/effector-feedback.ts`**
-- Uses `effectorAim`, which removes the control → skills import.
-
-**`body.ts`**
-- `BodyCommand` loses `hands`.
-- `obey` becomes one loop over `effectors`.
-- `BodyView` loses `points` and `handFeedback`; readers use `view.effectors["hand.x"]`. It keeps
-  `fists`.
-- `restCommand` and `BodyOptions` (`materialContacts`) are trimmed to match.
-
-**Skills**
-- They write one mutable `effectors` record.
-- `skills/combat.ts` merges the kick's effectors into it, so a kick does not drop the hand goals.
-
-**Tests**
-- Update `core-fork`'s NEEDED/NOT_MEMORY paths
-  (`motor > effectors > hand.{side} > …`, `effectorGoals`).
-- Check the fork test still fails when `effectors` is forgotten.
-
-**Also update:** the readers in `strike.ts`, `guard.ts`, `openings.ts`, `mind/combat.ts`,
-`tasks/reach.ts`, the research scripts and the tests.
-
-### Chunk 4: the down rule is body data (bit-identical)
-
-- **Spec:** add `BodySpec.down: {kind:"asked"; fallen} | {kind:"low"; root; height; up}`, with
-  quantities sourced through `SOURCES`.
-  - Humans get `.25` in `figureSpec`.
-  - The reptile gets `.6/.5/trunk` in `assets/reptile/body.json`.
-- **Rule:** `uprightness(built).down(ask?)` in `control/ground.ts` switches on the kind with a
-  `never` default.
-  - Delete `FALLEN` and `control/posture.ts`.
-  - Remove `minimumHeight`/`minimumUp` from the reptile tuning.
-- **Callers:** `physicalBody`, `physicalReading` and `observeBody` take a required `down`.
-  - Humanoid: cached at look.
-  - Reptile: live.
-  - `direct`, `motion`, `support-recovery` and `tasks/bar`: `uprightness(built).down`.
-- **Test:** a reptile under a direct mind now reads down. No lock case covers that pairing.
-
-### Chunk 5: one mind skeleton (bit-identical)
-
-- New `mind/hosted.ts`, `hostedBody(built, world, {senses, assist, equipment}, make)`.
-  `make(own)` returns `{host, subs, down, prime?}`. Order:
-  1. `embody`;
-  2. `hosting(host, subs)`;
-  3. `prime?.()`;
-  4. `physicalBody`.
-- `createBody` uses it; `commandMind` is unchanged.
-- `reptile/mind.ts`:
-  - becomes `createQuadrupedMind(built, world, wiring)` through `hostedBody`;
-  - `recover` goes in `subs`;
-  - the tactics name comes from `wiring.name`;
-  - the act order is unchanged.
-- `SubMindMaker<V = BodyView>` in `mind/sub-minds.ts` is generic in its view.
+`mind/hosted.ts` `hostedBody` serves `createBody` and `createQuadrupedMind(built, world, wiring)`.
+`SubMindMaker` stays typed on `BodyView`: the reptile builds its one sub-mind itself, so nothing
+needs it generic.
 
 ### Chunk 6: hand poses in the build layer (bit-identical)
 
