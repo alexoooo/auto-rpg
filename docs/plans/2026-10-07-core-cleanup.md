@@ -359,6 +359,19 @@ and the paired battery (32 seeds, the hero dead in 10 either way).
 - **Tests:** the matchup round trip for each controller, an old `point-*` or `&guard=` link, and
   refused combinations. Check in the browser (preview port, kill by PID).
 
+**As built (18, landed): settings in the panel and the link.** No pose moved.
+- `src/core/mind/fields.ts` builds the fields (`choice`, `toggle`, `number`, `down`); a field's
+  `write` returns null for a value it does not take. `down` is the one sub-mind of `subs`.
+- `settled(control, setting)` (`matchup.ts`) applies a side's values to its preset and names the
+  faults; `linkedSettings` is what a link writes, faults and all, which the panel shows;
+  `readMinds` gives the preset where there is a fault. `settingsSearch` writes only a value that
+  differs from the preset, as its field reads it (`0.50` is written `0.5`). `readGuard` is gone:
+  an old `&guard=` is read under the side's own `guard` and never written.
+- The spacing's panel bounds (0 to 1 m, step 0 to 0.2 m) are numeric settings.
+- Checked in the browser on a preview port: a refused link shows its values and the fault, a
+  bout's link carries the settings and the HUD marks both sides edited, and a reptile's side hides
+  its settings.
+
 ### Chunk 19: one `Side` union (landed)
 
 ### Chunk 20: merges that move the lock (each an intended change, measured)

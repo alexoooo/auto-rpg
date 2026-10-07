@@ -465,7 +465,22 @@ experiment's settings, which never travel in a link. The recipe fighter's are `g
 attacks (`hands`), its blows (`strikes`), the surface it favours (`prefers`), its defence,
 whether it kicks and fights on the ground, its combinations and its spacing; they are merged
 with its tuning once into the settings its tactics and its skills share (`resolvePath`), and its
-presets are `COMBAT`, `BRAWLER`, `SCRAPPER` and `KICKER`. There are three sub-minds, each of which wants the body while it is down
+presets are `COMBAT`, `BRAWLER`, `SCRAPPER` and `KICKER`.
+
+**A controller names the settings a person may change** (`Controller.fields`, built from
+`fields.ts`'s `choice`, `toggle`, `number` and `down`): each field's label, the values it takes
+or its range, and how it reads and writes a config. The recipe fighter's are its three player
+fields and what it does when down; the path fighter's are its player fields and the same; the
+quadruped has none yet. The fields alone drive the Arena's settings panel under each side's
+controller, the link (`&left.<key>=`, `&right.<key>=`, written by `settingsSearch` only where a
+value differs from the preset) and its reading (`readMinds`, `settled` in `src/arena/matchup.ts`):
+a value a field does not take keeps the preset's, a config its controller names a fault in is the
+preset whole (the panel shows the fault), and an old link's `&guard=` sets each recipe fighter's
+guard where its side's own is not given. A bout's HUD names the preset, `(edited)` where the
+link changes it (`controllerLabel`). A tape's link carries its settings, so a replay drives the
+same minds.
+
+There are three sub-minds, each of which wants the body while it is down
 (`BodyView.down`), and the body hands each maker its world (`SubMindMaker`): `lie` (`lying`,
 `lie.ts`), which asks its muscles for nothing, `staged-rise` (`stagedRise`, `rise/staged.ts`),
 the riser, and `support-recovery` (`supportRecovery`), the riser followed by a quiet standing
@@ -527,8 +542,8 @@ pose, or by a cover of what threatens its head. The threat is read from the sens
 `threat.ts`): of the other sides' bodies still in the fight, the point each hand strikes with
 (its knuckles, or its club's swell) that closes fastest on the head, within `THREAT`'s distance
 and over its speed. What is sensed is as old as the senses' delay, and nothing corrects for it.
-Every body's fighter guards in the pose (`RECIPE_FIGHTER`); an arena link's `&guard=cover` gives both
-sides the cover ([reference/blows.md](reference/blows.md#covering-searched)).
+Every body's fighter guards in the pose (`RECIPE_FIGHTER`); an Arena side's `guard` setting
+(`&left.guard=cover`) gives it the cover ([reference/blows.md](reference/blows.md#covering-searched)).
 
 Orders come from three places. An arena side nobody has taken makes its own (`seekFoe`): from
 its senses it picks the nearest body of another side still in the fight, walks at it, and attacks
@@ -886,7 +901,7 @@ file or a link gives the orders the bout gave.
 
 A tape rides in a link's fragment, which no server is sent (`#tape=`, `readTape` and `tapeHash`
 in `src/arena/matchup.ts`), with the rest of its recipe in the link's query (`&gap=`, `&cap=`,
-`&balance=`, `&guard=`). The arena plays a bout whose link carries a tape with nobody at the keys, and a
+`&balance=`, each side's settings). The arena plays a bout whose link carries a tape with nobody at the keys, and a
 tape made in Node plays its bout in a browser.
 
 **A bout forks** (`rollout`, `research/rollouts.mjs`) by a load: a bout of the recipe, which the
