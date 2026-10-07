@@ -47,7 +47,8 @@ These controls work while paused and after the verdict. Links retain the view wi
 `camera`, `projection` and `focus` parameters.
 
 Each contender has a **Controller** choice: Classic fighter, experimental **Point control**
-with either or alternating hands, **Combat**, **Brawler**, **Scrapper**, or **Kicker**. Humanoids choose a wooden club or empty hands.
+with either or alternating hands, **Combat**, **Brawler**, **Scrapper**, or **Kicker (experimental)**.
+Humanoids choose a wooden club or empty hands.
 The Reptile uses **Crawl and bite**, carries no equipment and has 1 HP at 8 kg. It shifts its
 weight before lifting one paw, and bites reachable body surfaces with its physical jaw.
 Try `?play=arena&matchup=workshop-fighter,reptile&held=empty&recovery=continue`.
@@ -65,6 +66,9 @@ empty-handed Warriors:
 It creates room for punches, approaches low targets, acquires foot support and returns to
 standing. The checks cover both hands; unreachable placements time out and retry. Combat retains the earlier
 controller for comparison and replay.
+Kicker adds low front kicks with either foot to Scrapper. Start with empty-handed Warriors
+and `control=kicker`. It usually punches against moving opponents; its kicks are qualified
+against a quiet defender, and stronger competitive fighting remains under evaluation.
 Point control plans the striking point's path and predicts defensive intercepts, using the same
 body, muscles, walking, balance and damage rules as Classic. It is a playable comparison,
 not yet a stronger fighter. It tracks moving opponents, returns on new hand/item contact,

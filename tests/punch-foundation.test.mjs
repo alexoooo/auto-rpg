@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {punchStand,punchCalibration} from '../research/punch-calibration.mjs';
-import {PUNCH_EXECUTION,validCombatExecution} from '../src/core/skills/combat.ts';
+import {PUNCH_EXECUTION,PLANTED_PUNCH_EXECUTION,validCombatExecution} from '../src/core/skills/combat.ts';
 import {contactResponse} from '../src/core/control/hand-feedback.ts';
 import {GUARD_ACTION} from '../src/core/mind/intent.ts';
 import {saveStand,loadStand} from './harness/core-stand.mjs';
@@ -9,9 +9,9 @@ import {punchAdmission,punchScore,median} from '../research/punch-foundation.mjs
 const settings={execution:PUNCH_EXECUTION,matchedFeedback:true,pad:{face:'compliant'}};
 const states=s=>({body:s.body.state,skills:s.skills.state,pad:s.sensor.state,calibration:s.state});
 
-test('both physical fists use matched tactile contact, bounded impact paths and measured returns',async()=>{
+test('both planted physical fists use matched tactile contact, bounded impact paths and measured returns',async()=>{
  for(const hand of ['left','right']){
-  const s=await punchStand({...settings,hand});let impacts=0;
+  const s=await punchStand({...settings,execution:PLANTED_PUNCH_EXECUTION,armExtension:.5,hand});let impacts=0;
   try{while(s.world.time<6){s.step();if(s.skills.state.impact){impacts++;
     assert.equal(s.built.handPoses.state[hand].applied,'fist');
     assert.equal(s.skills.state.command.hands[hand].places[0].point,'strike');

@@ -1079,3 +1079,11 @@ path duration and optional muscle response are independent. All changing executi
 and tactical data forks with the bout. The selectable Kicker adds low shin targeting
 and alternates feet over Scrapper; its limited qualification and strength gaps are
 recorded in [front kicks](reference/front-kicks.md).
+
+The shared strike apparatus clips live collision surfaces to a finite pad and
+measures whole-step impulse through independent pad momentum. Its
+[trained-adult force battery](reference/trained-attack-force.md) retains both
+limbs, failed trials and full waveforms at four physics/control rates under both
+actuator laws. Same-step torque audits distinguish solver bounds from the sourced
+directional muscle bounds; common-rate bins and separately resolved 2 ms peaks
+prevent a coarse solver spike from becoming a human-force claim.

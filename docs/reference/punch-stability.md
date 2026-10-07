@@ -55,11 +55,12 @@ routes and measured whole-body withdrawal remain open controller work.
 ## Apparatus surfaces
 
 The compliant apparatus reads `BuiltSegment.rigid.shapes`: the body's live collision envelope,
-including the applied fist pose. Capsule support retains the endpoint-and-radius calculation.
-Box, sphere and hull support use the foremost world point of their physical shape. The finite
-rectangular pad admits that point only within its face. This simple normal-force apparatus does
-not model general edge contact, shear, distributed sole pressure or a human force plate's padding.
-Those assumptions are held fixed for comparisons and do not alter Arena collisions or damage.
+including the applied fist pose. The recorded qualification uses foremost-point admission;
+its source fingerprint preserves that apparatus version. The current apparatus clips actual
+surfaces to the finite rectangular face, including partial box and capsule-shaft overlaps, as
+specified in [trained-attack-force.md](trained-attack-force.md). It remains a normal-force meter
+without shear, distributed sole pressure or calibrated human padding. Arena collisions and
+damage use native physics and do not depend on the research apparatus.
 
 A physically closed-hand test places the face between the open and closed envelopes and reads
 zero load; substituting the static open shape makes it fail. A separate weightless boxed-foot

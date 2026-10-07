@@ -147,11 +147,19 @@ target materials remain open; faster trajectory requests alone are not a strengt
 
 Either-foot [front kicks](reference/front-kicks.md) now share punching's tracker and
 bounded cycle, with actual unloading, supported placement and recentering. The optional
-Arena Kicker retains Scrapper's punching, low attacks and recovery. Narrow low-pad
-hit/miss/block cases pass; stronger missed kicks and higher narrow targets expose
-failures. Quiet-defender integration passes, but competitive kick selection,
+Arena Kicker retains Scrapper's punching, low attacks and recovery. The selected
+0.3 s / 3 m/s low-kick profile passes both feet's narrow-pad hit/miss/block cases
+and delivers stronger stand impulses than the conservative reference. Higher
+narrow targets remain unqualified. Quiet-defender integration records strong
+native kicks and standing returns, but competitive kick selection,
 trained-adult force/impulse and whole-system rate convergence remain open. The combined
-planted physical-fist low-attack candidate also remains unqualified.
+planted physical-fist low-attack candidate also remains unqualified. The
+[trained-adult force battery](reference/trained-attack-force.md) now records both
+limbs at 120/480/960/1,920 Hz, full waveforms and same-step directional torque
+audits. It exposes symmetric braking above the opposing muscle's sourced bound
+and fine-rate return/convergence failures. No paired-limb family qualifies for
+human parity; an actuator-law switch and anatomical strength increases are not
+promoted by these results.
 
 ## Open items
 

@@ -14,15 +14,16 @@ import {supportRecovery} from '../src/core/mind/rise/support-recovery.ts';
 import {coarseForces} from './punch-calibration.mjs';
 import {punchPad} from './punch-pad.mjs';
 import {combatFingerprint} from './arena-combat.mjs';
+import {strikeEffort} from './strike-effort.mjs';
 
 /** Ordinary shared skills, physical unloading, native contacts and independent pad momentum. */
 export async function frontKickStand({foot='right',hz=120,seconds=24,height=.45,ahead=.45,
-  mode='hit',cancelAt=Infinity,tuning={},pad={},recovery=false}={}) {
+  mode='hit',cancelAt=Infinity,tuning={},pad={},recovery=false,actuation}={}) {
   if(!['left','right'].includes(foot)||!['hit','miss','block'].includes(mode)
     ||![120,480,960,1920].includes(hz)||![seconds,height,ahead].every(Number.isFinite)
     ||seconds<=2||ahead<=0||!(cancelAt>=2))throw new Error('invalid front kick calibration');
-  const config={foot,hz,seconds,height,ahead,mode,cancelAt:Number.isFinite(cancelAt)?cancelAt:null,tuning,pad,recovery};
-  const s=await coreStand(modelSpec('workshop-fighter'),{engine:DEFAULT_ENGINE,hz});
+  const config={foot,hz,seconds,height,ahead,mode,cancelAt:Number.isFinite(cancelAt)?cancelAt:null,tuning,pad,recovery,actuation};
+  const s=await coreStand(modelSpec('workshop-fighter'),{engine:DEFAULT_ENGINE,hz,actuation});
   let sensor;
   const identity={kind:'object',id:mode==='block'?'block-pad':'kick-pad'};
   const body=createBody(s.built,s.world,{servoSeconds:SERVO_SECONDS,handFeedback:true,
@@ -40,8 +41,9 @@ export async function frontKickStand({foot='right',hz=120,seconds=24,height=.45,
   },view=>skills.resume(view));
   const limb=s.built.segments.get(`foot.${foot}`),point=new Vector3(),velocity=new Vector3(),spin=new Vector3();
   const names=new Map([...s.built.segments.values()].map(p=>[p.body,p.spec.name]));
+  const effort=strikeEffort(body.muscles);
   const state={phases:[],samples:[],impacts:[],active:null,last:'',previousPhase:null,launch:0,seen:0,
-    fell:false,floorContacts:0,drivenPeak:0,witness:null,unloadedLaunches:0,loadedLaunches:0};
+    fell:false,floorContacts:0,drivenPeak:0,witness:null,unloadedLaunches:0,loadedLaunches:0,effort:effort.state};
   const before=s.world.beforeStep(()=>{
     const kick=skills.report.kick,phase=kick.phase,key=`${kick.stage}:${phase}`;
     pointOfToRef(limb,limb.spec.points.strike.value,point);motionAtToRef(limb,point,velocity,spin);
@@ -71,6 +73,7 @@ export async function frontKickStand({foot='right',hz=120,seconds=24,height=.45,
     if(pushed&&!state.active&&state.witness.phase==='swing'&&state.launch!==state.seen){
       state.active={launch:state.launch,time:s.world.time,lastPush:s.world.time,impulse:0,peakStepForce:0,
         preImpact:structuredClone(state.witness),samples:[],contacts:[],truncated:false};state.seen=state.launch;
+      state.active.deliveredTorque={time:s.world.time,torques:Array.from(body.muscles.pulled),bounds:structuredClone(body.muscles.bounds)};
     }
     if(state.active){
       state.active.samples.push(sample);state.active.impulse+=reading.impulse;
@@ -80,6 +83,7 @@ export async function frontKickStand({foot='right',hz=120,seconds=24,height=.45,
     }else if(state.witness.phase==='swing'&&!pushed&&state.seen!==state.launch)
       state.drivenPeak=Math.max(state.drivenPeak,state.witness.speed);
   });
+  const effortHook=s.world.afterStep(()=>effort.sample(s.world.time,state.witness.phase,state.witness.phase==='swing'&&state.launch!==state.seen));
   return {...s,body,skills,sensor,state,config,target,reading(){
     const impacts=[...state.impacts,...(state.active?[{...state.active,truncated:true}]:[])].map(e=>({...structuredClone(e),
       eligible:!e.truncated&&!e.preImpact.down&&e.contacts.length>0&&e.contacts.every(n=>n===`foot.${foot}`),
@@ -99,9 +103,10 @@ export async function frontKickStand({foot='right',hz=120,seconds=24,height=.45,
       cycle:structuredClone(skills.state.kick),fell:state.fell,floorContacts:state.floorContacts,
       drivenPeak:state.drivenPeak,unloadedLaunches:state.unloadedLaunches,loadedLaunches:state.loadedLaunches,
       impacts,phases:structuredClone(state.phases),samples:structuredClone(state.samples),
+      effort:structuredClone(effort.state),
       assist:{force:body.assist.meter.force,moment:body.assist.meter.moment},head:body.view.head.asArray(),
       qualification:{accepted:faults.length===0,faults}};
-  },dispose(){before.dispose();after.dispose();sensor.dispose();body.dispose();s.dispose();}};
+  },dispose(){before.dispose();after.dispose();effortHook.dispose();sensor.dispose();body.dispose();s.dispose();}};
 }
 
 export async function frontKickCalibration(config={}){

@@ -119,4 +119,5 @@ export const ARENA_SCRAPPER_REFERENCE: ArenaFighterConfig = deepFreeze({ ...AREN
 export const ARENA_SCRAPPER: ArenaFighterConfig = ARENA_SCRAPPER_REFERENCE;
 
 /** Low-kick development profile: `docs/reference/front-kicks.md#arena-selection`. */
-export const ARENA_KICKER: ArenaFighterConfig = deepFreeze({ ...ARENA_SCRAPPER, kicks: KICK_PATH });
+export const ARENA_KICKER: ArenaFighterConfig = deepFreeze({ ...ARENA_SCRAPPER,
+  kicks: { ...KICK_PATH, swingSeconds: .3, contactSpeed: 3 } });

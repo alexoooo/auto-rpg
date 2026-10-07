@@ -1,7 +1,7 @@
 import { Vector3, Quaternion } from '@babylonjs/core/Maths/math.vector.js';
 import { TransformNode } from '@babylonjs/core/Meshes/transformNode.js';
-import { lowsOf } from '../src/core/control/ground.ts';
-import { pointOfToRef, motionAtToRef } from '../src/core/control/support.ts';
+import { motionAtToRef } from '../src/core/control/support.ts';
+import { padSurface } from './pad-surface.mjs';
 
 /** A research apparatus, not human anatomy; assumptions and sensitivity: docs/reference/punch-calibration.md. */
 export const PUNCH_PAD = Object.freeze({ mass: 8, size: Object.freeze([.2, .4, .11]),
@@ -28,7 +28,7 @@ export function punchPad(world, front, settings = {}) {
   body.rigid.setEnabledRotations(false, false, false, true);
   if(config.face==='compliant')body.rigid.collider(0).setSensor(true);
   const damping = 2*config.dampingRatio*Math.sqrt(config.stiffness*m), rest = node.position.z;
-  const velocity = new Vector3(), force = new Vector3(),from=new Vector3(),to=new Vector3(),at=new Vector3(),speed=new Vector3(),spin=new Vector3();
+  const velocity = new Vector3(), force = new Vector3(),at=new Vector3(),speed=new Vector3(),spin=new Vector3();
   const state = {velocity:0, force:0,materialContacts:[]};
   return {body, node, config, damping, state,
     prepare() {
@@ -39,19 +39,12 @@ export function punchPad(world, front, settings = {}) {
     },
     load(segment) {
       if(config.face!=='compliant')return;
-      const shape=segment.rigid.shapes[0];
-      if(shape.kind==='capsule') {
-        pointOfToRef(segment,shape.from.value,from);pointOfToRef(segment,shape.to.value,to);
-        at.copyFrom(from.z>to.z?from:to);at.z+=shape.radius.value;
-      } else {
-        let front=-Infinity;
-        for(const point of lowsOf(shape,segment.frame)) {
-          pointOfToRef(segment,point.at,from);from.z+=point.radius;
-          if(from.z>front){front=from.z;at.copyFrom(from);}
-        }
-      }
+      const surface=padSurface(segment,[node.position.x-config.size[0]/2,node.position.x+config.size[0]/2,
+        node.position.y-config.size[1]/2,node.position.y+config.size[1]/2],node.position.z-config.size[2]/2);
+      if(!surface)return;
+      at.set(...surface);
       const penetration=at.z-(node.position.z-config.size[2]/2);
-      if(penetration<=0||Math.abs(at.x-node.position.x)>config.size[0]/2||Math.abs(at.y-node.position.y)>config.size[1]/2)return;
+      if(penetration<=0)return;
       motionAtToRef(segment,at,speed,spin);
       const load=Math.max(0,config.faceStiffness*penetration+config.faceDamping*(speed.z-state.velocity));
       if(!load)return;

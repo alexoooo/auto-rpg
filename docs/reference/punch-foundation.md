@@ -79,6 +79,11 @@ node research/punch-arena.mjs
 node research/punch-mass-audit.mjs
 ```
 
-The search record names its source fingerprint and each trial's engine adapter/rate. The Arena
+The search record names its source fingerprint and each trial's engine adapter/rate. Its
+foremost-point pad admission differs from the current clipped-surface meter described in
+[trained-attack-force.md](trained-attack-force.md). Current repeated-contact tests use the
+planted executor and selected 0.5 elbow preference; the unplanted original posture no longer
+supplies three clean contacts in six seconds with the corrected meter. The recorded rejected
+search does not qualify that posture under the current apparatus. The Arena
 runner loads the selected recorded inputs, uses one sequential loop per worker, and refuses a
 source change during the run.
