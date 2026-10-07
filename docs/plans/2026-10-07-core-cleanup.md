@@ -140,31 +140,13 @@ and the Lab). Each is a clean module of its own; what they share is shared code,
 the body, the sub-minds, the order-following, foe targeting, the guard and cover, locomotion,
 and the strike cycle wherever a blow runs on it.
 
-### Chunk 11: Point control folds away (intended change: the Point cases only)
+### Chunk 11: Point control folds away (landed)
 
-**Delete**
-- `mind/point-fighter.ts`, `mind/engagement.ts`, `PointFighterConfig`, `POINT_FIGHTER`, and
-  `"point-fighter"` in `Minded`.
-- In the recipe skill (`skills/strike.ts`): `pointMotion`, `pointSpacing`, `pointResponse`,
-  `POINT_RETURN`, `PointReason`, `PointResponse` and `StrikeState.motion`, with the branches that
-  read them. `StrikeReport.pointCycle` stays: the path fighter's skill fills it.
-- `SkillOptions` loses the three point options; `createSkills` loses its `retreat` branch, and
-  `driveBy` its `pointResponse` test.
-- `research/arena-engagement.mjs`, `research/arena-control-trials.mjs`, and the Point names in
-  `research/arena-combat.mjs` and `research/arena-combat-probe.mjs`.
-
-**Change**
-- `matchup.ts`: `point-*` leave `CONTROLS` and `controlMind`; old links fall back to the default.
-- `render/strike-hands.ts` and `arena/main.ts` lose their Point cases.
-- `control/point-motion.ts`, `control/point-strike.ts`, `control/intercept.ts` and
-  `tasks/defense.ts` serve `/control-tasks.html` and stay; read each import before deleting
-  anything they share with the recipe skill.
-
-**Tests:** delete `arena-point-control`; update `arena-view`, `core-combat-uppercut`,
-`hand-presentation` and `scripts/arena-view-browser-check.mjs`.
-
-**Lock:** the `point-*` cases leave the lock; every other case is bit-identical (the recipe
-skill's state has no `motion` unless point motion was asked).
+Only the six `point-*` cases left the lock. `research/arena-control-trials.mjs` stays and drives the
+Combat fighter, which has the same support recovery, ordered attacks and cycle report. Point's
+stricter cycle bars are `todo` tests there, each naming the gap the Combat fighter shows.
+Fixtures that used Point as an opponent use Classic (the hugging fixture, clubs, 12 s) or
+Combat (the openings fixture, 30 s).
 
 ### Chunk 12: controllers in one registry, each composing its own skills (bit-identical; state reshaped)
 

@@ -556,41 +556,31 @@ not just standing once within 40 seconds. Show the same controllers in the lab a
 
 ## Playable arena integration
 
-The selectable point fighter connects `pointPath`, `predictIntercept` and reference recovery
-with a measured standing handover to the actual `Duel`, through `createMind`. Controller/equipment selectors,
-recovery windows, status, player orders and replay use the same game lifecycle. See
-[the integration record](../reference/arena-point-control.md).
+Reference recovery reaches the actual `Duel` through the Combat fighters' `supportRecovery`, with
+a measured standing handover. Controller/equipment selectors, recovery windows, status, player
+orders and replay use the same game lifecycle.
 
 The first standing and strike/return slice is measured in
 [recovery-cycle](../reference/recovery-cycle.md): real falls, hand/shin support, rising,
 quiet handover, walking, repeated falls and subsequent attacks. `tests/arena-control-cycle.test.mjs`
-checks this path and fresh-world replay. Static strikes prepare and return with measured gates;
-contacts already pressing the target do not count as incoming impacts. The failed club direction
-and a cycle timeout remain in the development results.
-
-Tracked engagement, new-contact returns and crowded backward returns now pass development and
-fresh mirrored gates; [the record](../reference/arena-engagement.md) retains the rejected first
-validation and the accepted measurements. Replay, explicit orders, interruption and static cycles
-are covered in `tests/arena-engagement.test.mjs`.
+checks this path and fresh-world replay on the Combat fighter. Static strikes return with
+measured gates; contacts already pressing the target do not count as incoming impacts. The
+failed club direction and a cycle timeout remain in the development results.
 
 The [Arena combat plan](2026-10-06-arena-combat.md) implements the next attack/tactics chunk
 and adds autonomous self-play acceptance before promotion.
 
 Remaining integration chunks must keep the classic comparison option:
 
-1. Extend `research/arena-engagement.mjs` with opponents that attack and more body/loadout
-   combinations. Preserve frozen comparison splits and per-case failures; measure driven
-   contact quality, defense effectiveness, misses and falls separately before changing
-   `src/core/mind/point-fighter.ts` or `src/core/skills/strike.ts`.
-2. Generalize and accelerate the reference route in `src/core/mind/rise/`, starting with the
+1. Generalize and accelerate the reference route in `src/core/mind/rise/`, starting with the
    failed club direction in `research/arena-control-trials.mjs`. Replace timed pose transitions
    only against measured contact/transfer gates. Extend `tests/arena-control-cycle.test.mjs`
    across bodies, held items and disturbances; require walking and attack resumption, retain
    failures in the runner, and re-evaluate held-out cases with `DuelRecipe.recoverySeconds`.
-3. Adapt separate equipment to `Duel`'s damage ownership and the arena dresser before exposing
+2. Adapt separate equipment to `Duel`'s damage ownership and the arena dresser before exposing
    shared two-hand grips. Reuse `equipment-port.ts` capture and equipment snapshot state;
    assert release/re-grasp continuity and damage identity in whole-bout replay.
-4. Measure and integrate the optional whole-body motion controller only after it meets browser
+3. Measure and integrate the optional whole-body motion controller only after it meets browser
    step budgets with two active fighters. Keep the observation/action policy route independent
    of the reference stance/IK stack.
 

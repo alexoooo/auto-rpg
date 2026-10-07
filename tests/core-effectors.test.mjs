@@ -9,6 +9,7 @@ import { spinBetweenToRef } from '../src/core/math/turn.ts';
 import { driveMuscles } from '../src/core/muscle/driver.ts';
 import { createBody } from '../src/core/body.ts';
 import { createPolicyBody } from '../src/core/mind/direct.ts';
+import { effectorFeedback } from '../src/core/control/effector-feedback.ts';
 import { coreStand, saveStand, loadStand } from './harness/core-stand.mjs';
 
 const spec = () => modelSpec('workshop-fighter');
@@ -106,4 +107,22 @@ test('named effector memory changes the continuation and body observations survi
   loadStand(b.world,{body:bb.state},saved);bb.state.mind.host.goals['foot.left']=null;b.step(32);
   assert.notDeepEqual(b.built.segments.get('foot.left').node.position.asArray(),a.built.segments.get('foot.left').node.position.asArray());
  }finally{ba.dispose();bb.dispose();a.dispose();b.dispose();}
+});
+
+test('effector feedback reads only external contacts, the strongest one for each endpoint',async()=>{
+ const s=await coreStand(spec());
+ try{
+  s.step(10);
+  const built=s.built,reading=effectorFeedback({...built,physics:{...built.physics,contactsOf(){return [
+   {other:built.segments.get('middleTrunk').body,impulse:100,point:[1,2,3]},
+   {other:null,fixed:0,impulse:3,point:[4,5,6]},
+   {other:null,fixed:1,impulse:0,point:[7,8,9]},
+  ];}}},['hand.left','hand.right']);
+  reading.read();
+  for(const hand of ['left','right']){
+   const at=reading.state[`hand.${hand}`];
+   assert.equal(at.impulse,3);assert.deepEqual(at.contactPoint,[4,5,6]);
+   assert.ok([...at.point,...at.velocity].every(Number.isFinite));
+  }
+ }finally{s.dispose();}
 });

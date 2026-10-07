@@ -64,7 +64,7 @@ export function modelSupportsMind(model: BodyModel, mind: MindConfig): boolean {
   switch (mind.kind) {
     case "direct": return true;
     case "quadruped": return fitOf(model).quadruped;
-    case "fighter": case "arena-fighter": case "point-fighter": return fitOf(model).commandable;
+    case "fighter": case "arena-fighter": return fitOf(model).commandable;
     default: { const never: never = mind; throw new Error(`unknown mind ${never}`); }
   }
 }

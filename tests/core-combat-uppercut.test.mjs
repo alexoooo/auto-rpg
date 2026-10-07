@@ -8,7 +8,7 @@ import {frameOf} from '../src/core/spec/body.ts';
 import {convexHull} from '../src/core/spec/hull.ts';
 import {combatStrike} from '../research/combat-strikes.mjs';
 import {buildBout} from '../research/bout.mjs';
-import {ARENA_SCRAPPER} from '../src/core/mind/config.ts';
+import {ARENA_FIGHTER,ARENA_SCRAPPER} from '../src/core/mind/config.ts';
 import {STAND_ORDERS} from '../src/core/mind/orders.ts';
 import {DEFAULT_ENGINE,loadEngine} from '../src/core/engine/engines.ts';
 import {coreStand,saveStand,loadStand} from './harness/core-stand.mjs';
@@ -94,7 +94,7 @@ test('a fresh-world fork preserves the full upward swing and return with either 
 test('an actual Arena uppercut keeps its world direction and full state through a fresh-world fork',async()=>{
  const candidate={...ARENA_SCRAPPER,repertoire:'boxing',openings:{head:0,upperTrunk:.2,middleTrunk:.4,uppercut:-.6}};
  const recipe={left:'workshop-fighter',right:'workshop-fighter',gap:2,capSeconds:30,recoverySeconds:null,held:{left:'empty',right:'empty'},balance:{left:0,right:0},
-  minds:{left:candidate,right:{kind:'point-fighter',hand:'alternate'}}};
+  minds:{left:candidate,right:ARENA_FIGHTER}};
  const a=await buildBout(recipe,{physicsEngine:await loadEngine(DEFAULT_ENGINE)}),b=await buildBout(recipe,{physicsEngine:await loadEngine(DEFAULT_ENGINE)});
  try{
   const skills=a.duel.duelists.left.minded.skills;

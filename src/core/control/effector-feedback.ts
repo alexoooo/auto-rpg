@@ -25,11 +25,6 @@ export interface EffectorFeedback {
   readonly contact?: EffectorContact | null;
 }
 
-/** A positive touch beginning this step; pressure carried from the preceding step is not new. */
-export function newContact(wasTouching: boolean, current: Pick<EffectorFeedback, "impulse"> | undefined): boolean {
-  return !wasTouching && (current?.impulse ?? 0) > 0;
-}
-
 /** Trusted contact and motion sampler for any declared physical endpoint, sampled before control from the last completed physics step. */
 export function effectorFeedback(built: BuiltBody, segments: readonly string[], identity?: ContactIdentity,
   external?: (segment: string) => readonly EffectorContact[]) {

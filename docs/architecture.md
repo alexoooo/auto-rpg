@@ -45,41 +45,21 @@ independent orientation, all on ordinary bounded muscles. No two effectors share
 bearing foot cannot simultaneously receive an effector goal. Detached capabilities, observations, contact
 feedback and path memory share the body/bout replay boundary. See [effector contract](reference/striking-effectors.md).
 
-The arena also selects `PointFighterConfig` through `createMind`. It uses the shared locomotion
-and placement skill, but selects no searched torque recipes: attacks use `pointPath` through
-`HandGoal.initialVelocity`, measured in the body's frame, and the existing IK/servo follows them.
-`threatOf` optionally calls `predictIntercept` to place a cover at a predicted plane crossing.
-Both controllers reach the same physical body, damage and orders interfaces. This hybrid does
-not run the experimental whole-body optimization solver in the frame loop.
-
-The Point and Combat fighters' `supportRecovery` sub-mind takes control from the host's down reading,
+The Combat fighters' `supportRecovery` sub-mind takes control from the host's down reading,
 runs `stagedRise`, then uses locomotion's gradual height restoration and foot squaring to
 stabilize. `recoveryReady` independently requires loaded feet, no other fixed support, a centre
 of mass inside their support polygon, low segment speed and the host's upright reading for a
 continuous interval. A stabilization timeout retries from the actual body. The host releases
-pending commands on takeover; Point control also clears pending skill cycles through its
-driver release callback, as does Combat, and resumes after this handover. Recovery and
+pending commands on takeover; Combat also clears pending skill cycles through its driver
+release callback, and resumes after this handover. Recovery and
 trajectory memory are plain data under the body/bout state, including the standing reference.
 See [recovery measurements](reference/recovery-cycle.md) for the tested envelope and failures.
 The independent `supportEntryPolicy` remains available to the research task; it ends at hand/shin
 support and does not supply the arena's standing transition.
 
-Point attacks reserve reach for follow-through, prepare short strokes by retracting the striking
-point, and return it to its captured body-frame starting point. Preparation and return require
-measured proximity and low velocity; deadlines produce failure counts, not successful returns.
-A cancelled committed stroke returns, while recovery takeover discards it. Classic retains its
-existing strike execution. See [strike-cycle settings](reference/arena-point-control.md#strike-cycle).
-
-Point control defaults to `trackedEngagement`: a hand-specific reach window with an inner entry
-band, bounded velocity prediction, measured facing and quiet settling before preparation.
-Explicit orders override pursuit. Each effector's optional feedback (`BodyView.effectors`) samples actual point motion
-and external contact impulses from the preceding physics step, with no engine objects exposed.
-A new contact starts return; continuous pressure does not. Finished attempts record contact,
-miss, cancellation, target escape, timeout or recovery interruption, separately from verified
-returns. Alternating hands advances on finished attempts. A crowded return can step backward;
-its completion accepts upright controlled gait, but the next attack must settle standing.
-Feedback, engagement and reaction memory are plain bout state. `engagement: "reference"`
-preserves the comparison controller. See [settings and validation](reference/arena-engagement.md).
+Each effector's optional feedback (`BodyView.effectors`) samples actual point motion and external
+contact impulses from the preceding physics step, with no engine objects exposed. Feedback is
+plain bout state.
 
 
 `arena-fighter` selects collider-derived target surfaces and commits a hand trajectory through
@@ -88,7 +68,7 @@ Optional bounded combinations can overlap an opposite-hand strike with a contact
 returning hand. One saved auxiliary return retains its own motion sequence and completion checks;
 both arms share the ordinary body command, muscles and locomotion. Recovery interrupts both.
 The overlap admission screen does not establish stronger combat; see [measurements](reference/combat-overlap.md).
-Classic and Point retain their own execution. Chamber and return permit locomotion. Actual
+Classic retains its own execution. Chamber and return permit locomotion. Actual
 contact feedback optionally carries trusted detached body/segment labels, point, normal and
 impulse; repeated guard blocks request a lateral escape. These labels affect tactics, not damage.
 The builder optionally grants detached fixed geometry from the same definitions it installs
@@ -107,7 +87,6 @@ and attacking a fallen side during its allowance, and standing clears its clock.
 selection uses staged recovery. An omitted recipe field retains the historical fall rule for
 explicit reference experiments. Controller, hand, equipment and recovery choices are explicit
 recipe/link inputs. Changing those choices suppresses a linked orders tape from another recipe.
-See [the integration record](reference/arena-point-control.md) for checks and limits.
 
 ### Spec
 

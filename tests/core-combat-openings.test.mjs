@@ -110,8 +110,8 @@ test('the real Warrior trunk hull supplies a surface opening and a fresh-world s
  }finally{a.dispose();b.dispose();}
 });
 
-test('hull-aware body selection lands driven torso blows against an active Point fighter',async()=>{
- const row=await combatTrial({left:{...ARENA_FIGHTER,repertoire:'mixed',openings:{head:.3,upperTrunk:0,middleTrunk:0}},right:'point',recipe:{capSeconds:20}});
+test('hull-aware body selection lands driven torso blows against an active Combat fighter',async()=>{
+ const row=await combatTrial({left:{...ARENA_FIGHTER,repertoire:'mixed',openings:{head:.3,upperTrunk:0,middleTrunk:0}},right:'combat',recipe:{capSeconds:30}});
  const out=row.sides.left;
  assert.ok((out.drivenTargets.middleTrunk??0)+(out.drivenTargets.upperTrunk??0)>=5,JSON.stringify(out));assert.ok(out.drivenDamage>.2,JSON.stringify(out));
  assert.equal(out.falls,0);assert.deepEqual(out.assist,{force:0,moment:0});assert.ok(out.pressureOnly.longest<2);

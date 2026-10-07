@@ -403,7 +403,6 @@ export async function bootArena(): Promise<void> {
       const controller = (() => {
         switch (mind.kind) {
           case "fighter": return "Classic";
-          case "point-fighter": return "Point control";
           case "arena-fighter": return "Combat";
           case "direct": return "Joint control";
           case "quadruped": return "Crawl and bite";

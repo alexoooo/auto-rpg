@@ -40,7 +40,7 @@ export function fighterHands(world: Pick<World, "afterStep">, fighter: { readonl
   }
   const read = (): Strike | null => {
     switch (mind.kind) {
-      case "fighter": case "point-fighter": case "arena-fighter": return mind.skills.report.strike;
+      case "fighter": case "arena-fighter": return mind.skills.report.strike;
       case "direct": return null;
       default: { const never: never = mind; throw new Error(`unknown mind ${never}`); }
     }

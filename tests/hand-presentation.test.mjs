@@ -5,7 +5,7 @@ import { strikeHands, fighterHands } from "../src/render/strike-hands.ts";
 import { dressRobot } from "../src/render/robot-skin.ts";
 import { skinSlot } from "../src/render/skin-slot.ts";
 import { commandsBody } from "../src/core/body.ts";
-import { FIGHTER, POINT_FIGHTER, ARENA_FIGHTER } from "../src/core/mind/config.ts";
+import { FIGHTER, ARENA_FIGHTER } from "../src/core/mind/config.ts";
 import { DEFAULT_ENGINE } from "../src/core/engine/engines.ts";
 import { modelSpec } from "../src/core/models.ts";
 import { buildBout } from "../research/bout.mjs";
@@ -79,7 +79,7 @@ test("strike presentation ignores stale reports on takeover, inactivity, elimina
   const pose = fighterHands(world, fighter);
   try {
     assert.equal(commandsBody(body), true);
-    for (const kind of ["fighter", "point-fighter", "arena-fighter"]) {
+    for (const kind of ["fighter", "arena-fighter"]) {
       fighter.minded.kind = kind;
       world.step(.01);
       assert.deepEqual(pose.snapshot(), { left: 0, right: 1 });
@@ -200,7 +200,7 @@ test("Crypt supplies the world to presentation during construction and when an e
   }
 });
 
-for (const mind of [FIGHTER, POINT_FIGHTER, ARENA_FIGHTER]) test(`${mind.kind}: actual Arena punches form fists without changing the bout`, async () => {
+for (const mind of [FIGHTER, ARENA_FIGHTER]) test(`${mind.kind}: actual Arena punches form fists without changing the bout`, async () => {
   const recipe = { left: "workshop-fighter", right: "workshop-fighter", gap: 2, capSeconds: 8,
     balance: { left: 25, right: 25 }, held: { left: "empty", right: "empty" }, minds: { left: mind, right: mind } };
   const run = async decorated => {

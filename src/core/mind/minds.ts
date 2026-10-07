@@ -12,7 +12,6 @@ import { subMindsOf } from "./sub-minds.ts";
 import { driveBy } from "./tactics.ts";
 import type { PhysicalBody } from "../physical-body.ts";
 import { arenaFighter } from "./arena-fighter.ts";
-import { pointFighter } from "./point-fighter.ts";
 import { createDirectBody } from "./direct.ts";
 import { createQuadrupedMind } from "../reptile/mind.ts";
 
@@ -38,7 +37,7 @@ interface MindedBody {
 
 /** A body under a fighter's mind: its skills, for whoever knows it is a fighter and reads their report. */
 interface FighterMind extends MindedBody {
-  readonly kind: "fighter" | "point-fighter" | "arena-fighter";
+  readonly kind: "fighter" | "arena-fighter";
   readonly body: Body;
   readonly skills: Skills;
 }
@@ -54,7 +53,6 @@ export function createMind(built: BuiltBody, world: World, config: MindConfig, w
   switch (config.kind) {
     case "quadruped": return createQuadrupedMind(built, world, wiring);
     case "arena-fighter": return arenaFighter(built, world, config, wiring);
-    case "point-fighter": return pointFighter(built, world, config, wiring);
     case "fighter": return createFighter(built, world, config, wiring);
     case "direct": {
       const body = createDirectBody(built, world, config, wiring);

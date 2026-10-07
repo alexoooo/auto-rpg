@@ -112,21 +112,19 @@ retains impulse joints: the pinned multibody engine traps on two-axis ankles and
 internal limits use incompatible coordinates. A faithful multibody comparison needs more than
 new bindings; it remains a separate engine-extension experiment.
 
-The arena exposes an [experimental point fighter](reference/arena-point-control.md): either
-hand or alternating attacks, predictive covers, player orders, equipment selection, and an
-optional recovery window. Reference rising now has a measured standing handover, followed by
-walking and repeatable point preparation/strike/return cycles in the real Duel. The
+The arena's fighters take player orders, equipment selection and an optional recovery window.
+Reference rising has a measured standing handover, followed by walking and repeatable strike
+cycles in the real Duel. The
 [development record](reference/recovery-cycle.md) retains a failed club fall direction and a
 post-recovery cycle timeout. Passing rises take 25-29 seconds; these fixtures establish neither
-general recovery nor combat quality. Point control now defaults to tracked approach and new-contact
-return, including backward steps when crowded. [Moving-opponent validation](reference/arena-engagement.md)
-passes the documented useful-return, fall and timeout gates on development and fresh mirrored
-cases; pressure timeouts remain and no win-rate claim follows. Faster contact-driven recovery
+general recovery nor combat quality. Faster contact-driven recovery
 across bodies, simultaneous coordinated attacks, separate/two-hand item rendering and damage,
 and a practical real-time whole-body solver remain open. The independent policy interface and
-classic fighter remain available for comparison. The
+classic fighter remain available for comparison. On the Combat fighter, a second empty-handed
+rise after a walk stalls at its fourth stage, about one fist return in ten times out, and club
+cycles land nothing on a fixed box (the `todo` tests in `tests/arena-control-cycle.test.mjs`). The
 [autonomous Warrior baseline](reference/arena-combat.md) exposes sustained hand pressure with
-little damage in Point self-play. The [next combat controller](plans/2026-10-06-arena-combat.md)
+little damage in the self-play of Point control, a placed-point controller no longer in the game. The [next combat controller](plans/2026-10-06-arena-combat.md)
 exposes Combat, retained Brawler and grounded Scrapper through the same body and muscle
 contract. Brawler wins 591/600 held-out Warrior fist cap bouts against Classic, Point and
 linear Combat. Scrapper lands low blows with either hand in controlled knockdowns, attempts
@@ -169,7 +167,7 @@ promoted by these results.
   the muscles, sub-minds, a mind made from its config, senses, a person's orders, an assist whose ceiling is the character's balance, a
   bout that saves, loads and forks ([architecture](architecture.md#state)), and an oracle. Not
   built: a learned mind (a recipe names each side's mind by its config, `DuelRecipe.minds`, and
-  the classic fighter, an experimental point fighter and an independent joint-feedback mind are available); sight that is blocked (the senses pass
+  the classic fighter, the Combat fighters and an independent joint-feedback mind are available); sight that is blocked (the senses pass
   every body whatever stands between); a library for a body of another shape behind the same
   seam.
 - The owner's to choose, each landed at its default:

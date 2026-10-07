@@ -1,8 +1,6 @@
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { BodyView } from "../body.ts";
 import { rigidPoints } from "../build/rigid.ts";
-import { targetWindow } from "../control/target-window.ts";
-import { newContact } from "../control/effector-feedback.ts";
 import { intoFrameToRef } from "../control/kinematics.ts";
 import type { EffectorGoal, MusclePush, Pose } from "../control/motor.ts";
 import type { HandAction } from "../mind/intent.ts";
@@ -54,9 +52,6 @@ export const APPROACH = { pace: 0.3, seconds: 1, reach: 0.25 } as const;
  */
 export const PLACED: Placed = Object.freeze({ stretch: 1, seconds: 0.4, through: 0.15 });
 
-/** Point-return acceptance and deadline; engineering inputs in `docs/reference/arena-point-control.md#strike-cycle`. */
-const POINT_RETURN = Object.freeze({ near: 0.03, slow: 0.2, hold: 0.1, limit: 2 });
-
 /** A placed blow's settings (`PLACED`). */
 export interface Placed {
   readonly stretch: number;
@@ -102,8 +97,8 @@ function armOf(spec: BodySpec, hand: Side, aim: string): Arm {
  * low for any such place is stood for as near as the arm's length allows, under or over the
  * shoulder; and never nearer than the toes: a body does not stand on what it strikes.
  */
-function placedDistance({ length, shoulder, toes }: Arm, stretch: number, up: number, reserve = 0): number {
-  const reach = Math.max(0, stretch * length - reserve), rise = up - shoulder[1];
+function placedDistance({ length, shoulder, toes }: Arm, stretch: number, up: number): number {
+  const reach = stretch * length, rise = up - shoulder[1];
   const flat = reach * reach - shoulder[0] * shoulder[0] - rise * rise;
   return Math.max(toes, shoulder[2] + (flat > 0 ? Math.sqrt(flat) : 0));
 }
@@ -147,10 +142,10 @@ function chooseIn(blows: Blows, up: number): number | null {
 }
 
 /** How far ahead of the head `blow`'s target stands as it is thrown, m, the target `up` m over the head. */
-function standOff(blow: Blow, up: number, placing: Placed, reserve = 0): number {
+function standOff(blow: Blow, up: number, placing: Placed): number {
   switch (blow.kind) {
     case "recipe": return blow.chosen.recipe.place.ahead;
-    case "placed": return placedDistance(blow.arm, placing.stretch, up, reserve);
+    case "placed": return placedDistance(blow.arm, placing.stretch, up);
     default: {
       const never: never = blow;
       throw new Error(`unknown blow ${JSON.stringify(never)}`);
@@ -183,9 +178,9 @@ interface Range {
 }
 
 /** The range of `blows`' blow at a target `up` m over the head: the one the strike skill chooses there. */
-function rangeIn(blows: Blows, up: number, placing: Placed, reserve = 0, spacing = 0): Range {
+function rangeIn(blows: Blows, up: number, placing: Placed): Range {
   const recipe = chooseIn(blows, up), blow = recipe === null ? blows.placed : blows.recipes[recipe]!;
-  return { reach: standOff(blow, up, placing, reserve) + spacing, along: windowOf(blow).along };
+  return { reach: standOff(blow, up, placing), along: windowOf(blow).along };
 }
 
 /**
@@ -209,15 +204,6 @@ const NO_HANDS: Readonly<Record<Side, EffectorGoal | null>> = Object.freeze({ le
 /** Where a strike is: walking to its place, setting the feet there, standing still, holding its chamber, pushing or carrying its point, or returning it. */
 type StrikePhase = "approach" | "place" | "settle" | "chamber" | "swing" | "return";
 
-type PointReason = "contact" | "miss" | "cancelled" | "preparation-timeout" | "return-timeout" | "interrupted" | "target-moved";
-
-interface PointResponse {
-  /** Finished attempts, including cancellations and failures, each counted once. */
-  completed: Record<Side, number>;
-  reasons: Record<PointReason, number>;
-  last: { hand: Side; reason: PointReason; returned: boolean; time: number } | null;
-}
-
 /** How the strike skill is going, as the last command left it. */
 export interface StrikeReport {
   readonly physicalHands?: boolean;
@@ -240,7 +226,7 @@ export interface StrikeReport {
   /** Strikes thrown to the end of their pushes, each hand. */
   readonly thrown: Readonly<Record<Side, number>>;
   /** Point-cycle outcomes: verified returns, preparation/return timeouts, and interruptions. */
-  readonly pointCycle?: { readonly returned: Readonly<Record<Side, number>>; readonly failed: number; readonly interrupted: number; readonly response?: Readonly<PointResponse> };
+  readonly pointCycle?: { readonly returned: Readonly<Record<Side, number>>; readonly failed: number; readonly interrupted: number };
   /**
    * Seconds since the body last walked, set its feet or finished a strike: the stand before a
    * strike, and, counting on through the chamber and the pushes, the strike's clock.
@@ -284,12 +270,10 @@ interface StrikeCommand {
  * A recipe
  * holds its chamber and pushes, the pelvis turned to follow its target across (`STEER`). A placed
  * blow carries its point through the target by a hand goal in the body frame (`BodyView.root`).
- * Optional point motion adds measured preparation and return, with the settings `POINT_RETURN`.
  * While it works the skill has the legs (a blow is thrown standing) and the trunk; the other hand
  * guards. One strike at a time: the right hand's first when both attack. An attack given up
  * before its blow begins is dropped. A recipe begun is thrown to the end of its pushes, whatever
- * its hand is then asked. A placed blow given up is over, unthrown, unless point motion returns
- * its committed hand first. Resumed (`Skill.resume`), the strike in hand is discarded and the
+ * its hand is then asked. A placed blow given up is over, unthrown. Resumed (`Skill.resume`), the strike in hand is discarded and the
  * body has stood still for no time.
  */
 interface StrikeSkill extends Skill {
@@ -337,14 +321,9 @@ interface StrikeState {
   readonly thrown: Record<Side, number>;
   /** The pushes of the command last made: the one list, written again by each. */
   readonly pushes: MusclePush[];
-  /** Measured body-frame point motion for the optional Hermite trajectory. */
-  readonly motion?: { previous: Record<Side, Vec3 | null>; velocity: Vec3 | null; home: Vec3 | null;
-    chamber: Vec3 | null; launched: number | null; returning: boolean; time: number; ready: number;
-    reaction?: { touching: Record<Side, boolean>; reason: PointReason | null };
-    outcomes: { returned: Record<Side, number>; failed: number; interrupted: number; response?: PointResponse } };
 }
 
-export function strikeSkill(spec: BodySpec, repertoire: Repertoire, placing: Placed = PLACED, steering = STEER, pointMotion = false, pointSpacing = 0, pointResponse = false): StrikeSkill {
+export function strikeSkill(spec: BodySpec, repertoire: Repertoire, placing: Placed = PLACED, steering = STEER): StrikeSkill {
   const known = { left: blowsOf(spec, repertoire, "left"), right: blowsOf(spec, repertoire, "right") };
   /** The recipe `hand` throws at a target `up` m over the head, by its place among the hand's; null where no window holds that height, and the blow is placed. */
   const choose = (hand: Side, up: number): number | null => chooseIn(known[hand], up);
@@ -354,12 +333,6 @@ export function strikeSkill(spec: BodySpec, repertoire: Repertoire, placing: Pla
     hand: null, phase: null, blow: null, recipe: null, distance: null, stoodFor: null,
     still: 0, since: -Infinity, begun: null, readyAt: null, origin: null, bearing: null, steer: 0, width: null, over: null,
     thrown: { left: 0, right: 0 }, pushes: [],
-    ...(pointMotion ? { motion: { previous: { left: null, right: null }, velocity: null, home: null,
-      chamber: null, launched: null, returning: false, time: 0, ready: 0,
-      ...(pointResponse ? { reaction: { touching: { left: false, right: false }, reason: null } } : {}),
-      outcomes: { returned: { left: 0, right: 0 }, failed: 0, interrupted: 0,
-        ...(pointResponse ? { response: { completed: { left: 0, right: 0 }, reasons: { contact: 0, miss: 0, cancelled: 0,
-          "preparation-timeout": 0, "return-timeout": 0, interrupted: 0, "target-moved": 0 }, last: null } } : {}) } } } : {}),
   };
   const report: StrikeReport = {
     get hand() { return state.hand; },
@@ -370,56 +343,26 @@ export function strikeSkill(spec: BodySpec, repertoire: Repertoire, placing: Pla
     get since() { return state.since; },
     get thrown() { return state.thrown; },
     get still() { return state.still; },
-    rangeAt: (hand, up) => rangeIn(known[hand], up, placing, pointMotion ? placing.through : 0, pointSpacing),
-    ...(state.motion ? { pointCycle: state.motion.outcomes } : {}),
+    rangeAt: (hand, up) => rangeIn(known[hand], up, placing),
     nets: { left: netsOf(known.left.chosen), right: netsOf(known.right.chosen) },
-  };
-  const finishResponse = (reason: PointReason, returned: boolean, time: number): void => {
-    const response = state.motion?.outcomes.response;
-    if (!response || !state.hand || !state.motion?.home) return;
-    response.completed[state.hand]++; response.reasons[reason]++;
-    response.last = { hand: state.hand, reason, returned, time };
   };
   const end = (): void => {
     state.hand = null; state.phase = null; state.blow = null; state.recipe = null; state.distance = null; state.stoodFor = null;
     state.begun = null; state.readyAt = null; state.since = -Infinity;
     state.origin = null; state.bearing = null; state.steer = 0;
-    if (state.motion) {
-      state.motion.velocity = null; state.motion.home = null;
-      state.motion.chamber = null; state.motion.launched = null;
-      state.motion.returning = false; state.motion.time = 0; state.motion.ready = 0;
-      if (state.motion.reaction) state.motion.reaction.reason = null;
-    }
   };
   const place = new Vector3();
   return {
     report, state,
-    resume(view) {
-      if (state.motion?.reaction) finishResponse("interrupted", false, view.time);
-      if (state.motion?.home) state.motion.outcomes.interrupted++;
+    resume() {
       if (state.hand) end();
       state.still = 0;
-      if (state.motion) { state.motion.previous.left = null; state.motion.previous.right = null; }
     },
     idle(walking, dt) {
       if (state.hand) end();
       state.still = walking ? 0 : state.still + dt;
     },
     command(view, hands, heading, placed, dt) {
-      const velocities: Partial<Record<Side, Vec3>> | null = state.motion ? {} : null;
-      if (state.motion) for (const hand of ["left", "right"] as const) {
-        const at = view.effectors[`hand.${hand}`]!.points[aimOf(spec, hand)]!, previous = state.motion.previous[hand];
-        const position: Vec3 = [at.x, at.y, at.z];
-        velocities![hand] = previous ? position.map((v, k) => (v - previous[k]!) / dt) as unknown as Vec3 : [0, 0, 0];
-        state.motion.previous[hand] = position;
-      }
-      const reaction = state.motion?.reaction;
-      const contactEdge = { left: false, right: false };
-      if (reaction) for (const hand of ["left", "right"] as const) {
-        const feedback = view.effectors[`hand.${hand}`]!.feedback, touching = (feedback?.impulse ?? 0) > 0;
-        contactEdge[hand] = newContact(reaction.touching[hand], feedback);
-        reaction.touching[hand] = touching;
-      }
       const s = view.stance, fx = sin(heading), fz = cos(heading);
       // Across the ground, forward is (fx, fz) and the right (fz, -fx).
       const inFrame = (x: number, z: number): [number, number] => [x * fx + z * fz, x * fz - z * fx];
@@ -428,19 +371,11 @@ export function strikeSkill(spec: BodySpec, repertoire: Repertoire, placing: Pla
       // their middle, are the body's own until it has stood again.
       const width = state.width ??= Math.abs(inFrame(s.soles.right.x - s.soles.left.x, s.soles.right.z - s.soles.left.z)[1]);
       const over = state.over ??= inFrame(view.head.x - feetX, view.head.z - feetZ);
-      // Cancellation drops an uncommitted attack. A committed point cycle returns its hand;
-      // other placed blows end immediately, and a recipe finishes its pushes.
+      // Cancellation drops an uncommitted attack. A placed blow ends immediately, and a recipe
+      // finishes its pushes.
       if (state.hand && hands[state.hand].kind !== "attack") {
         if (state.begun === null) end();
-        else if (state.blow === "placed") {
-          if (state.motion?.home) {
-            if (!state.motion.returning) {
-              state.motion.returning = true; state.motion.time = 0; state.motion.ready = 0;
-              state.motion.velocity = velocities![state.hand]!; state.motion.outcomes.interrupted++;
-              if (reaction) reaction.reason = "cancelled";
-            }
-          } else { end(); state.still = 0; }
-        }
+        else if (state.blow === "placed") { end(); state.still = 0; }
       }
       // Else the right hand's attack, then the left's.
       const hand = state.hand ??= hands.right.kind === "attack" ? "right" : hands.left.kind === "attack" ? "left" : null;
@@ -453,7 +388,7 @@ export function strikeSkill(spec: BodySpec, repertoire: Repertoire, placing: Pla
           const recipe = choose(hand, up), taken = blowOf(hand, recipe);
           state.blow = taken.kind;
           state.recipe = recipe;
-          state.distance = standOff(taken, up, placing, pointMotion ? placing.through : 0) + pointSpacing;
+          state.distance = standOff(taken, up, placing);
         }
         const window = windowOf(blowOf(hand, state.recipe)), reach = state.distance!;
         const middle = [(window.along[0] + window.along[1]) / 2, (window.across[0] + window.across[1]) / 2] as const;
@@ -473,7 +408,7 @@ export function strikeSkill(spec: BodySpec, repertoire: Repertoire, placing: Pla
           const [toX, toZ] = inFrame(mx - s.centre.x, mz - s.centre.z);
           // A recipe's window holding the target from where the body stands: it stands there, and
           // is then within `APPROACH.reach` of its place.
-          const off = ahead - reach, held = (state.blow === "recipe" || pointResponse)
+          const off = ahead - reach, held = state.blow === "recipe"
             && window.along[0] <= off && off <= window.along[1] && window.across[0] <= aside && aside <= window.across[1];
           if (square || (state.phase === "place" && placed)) state.phase = "settle";
           else if (state.phase !== "place" && held) state.phase = "settle";
@@ -489,18 +424,16 @@ export function strikeSkill(spec: BodySpec, repertoire: Repertoire, placing: Pla
           if (state.phase !== "settle") { state.still = 0; state.readyAt = null; }
         }
         if (state.phase === "settle") {
-          // It settles on both feet (point response also measures centre speed), then chooses the blow by the head,
-          // once for the point attacked, and asks its window.
-          const standSeconds = pointResponse ? POINT_RETURN.hold : STAND;
-          if (s.phase === "stand" && (!pointResponse || hypot(s.velocity.x, s.velocity.y, s.velocity.z) < POINT_RETURN.slow)) state.still += dt;
-          else if (pointResponse) { state.still = 0; state.readyAt = null; }
+          // It settles on both feet, then chooses the blow by the head, once for the point
+          // attacked, and asks its window.
+          if (s.phase === "stand") state.still += dt;
           state.readyAt ??= state.still;
-          if (state.still >= standSeconds) {
+          if (state.still >= STAND) {
             const chosen = state.stoodFor !== null && state.stoodFor[0] === tx && state.stoodFor[1] === ty && state.stoodFor[2] === tz;
             const recipe = chosen ? state.recipe : choose(hand, up), stood = blowOf(hand, recipe), same = recipe === state.recipe, off = ahead - reach;
             state.stoodFor = [tx, ty, tz];
             if (same && window.along[0] <= off && off <= window.along[1] && window.across[0] <= aside && aside <= window.across[1]) {
-              state.begun = Math.max(standSeconds, state.readyAt);
+              state.begun = Math.max(STAND, state.readyAt);
             } else {
               // Another blow, or out of its window: the body stands again, for the blow chosen and
               // the head as it stands over the feet now. Another blow's place is walked to, or set,
@@ -510,7 +443,7 @@ export function strikeSkill(spec: BodySpec, repertoire: Repertoire, placing: Pla
               state.phase = same ? "place" : "approach";
               state.blow = stood.kind;
               state.recipe = recipe;
-              state.distance = standOff(stood, up, placing, pointMotion ? placing.through : 0) + pointSpacing;
+              state.distance = standOff(stood, up, placing);
               state.still = 0;
               state.readyAt = null;
             }
@@ -543,83 +476,14 @@ export function strikeSkill(spec: BodySpec, repertoire: Repertoire, placing: Pla
             break;
           }
           case "placed": {
-            const motion = state.motion;
-            const since = state.since = state.still - (motion ? motion.launched ?? Infinity : state.begun);
+            const since = state.since = state.still - state.begun;
             over = since >= placing.seconds;
-            if (motion) {
-              const at = view.effectors[`hand.${hand}`]!.points[blow.aim]!;
-              motion.home ??= [at.x, at.y, at.z];
-              if (!motion.returning && motion.launched === null) {
-                if (action.kind !== "attack") throw new Error("a point chamber needs an attack target");
-                if (!motion.chamber) {
-                  intoFrameToRef(view.root, action.target, place);
-                  const span = hypot(place.x - at.x, place.y - at.y, place.z - at.z);
-                  // Reserve half the straight reach for a stroke, retracting no further than its follow-through.
-                  const retreat = Math.max(0, Math.min(placing.through, blow.arm.length / 2 - span));
-                  const back = span > 0 ? retreat / span : 0;
-                  motion.chamber = [at.x - back * (place.x - at.x), at.y - back * (place.y - at.y), at.z - back * (place.z - at.z)];
-                  motion.velocity = velocities![hand]!;
-                }
-                state.phase = "chamber"; motion.time += dt;
-                const target = motion.chamber;
-                const ready = hypot(at.x - target[0], at.y - target[1], at.z - target[2]) <= POINT_RETURN.near
-                  && hypot(...velocities![hand]!) <= POINT_RETURN.slow && !view.down && s.phase === "stand";
-                motion.ready = ready ? motion.ready + dt : 0;
-                const goal: EffectorGoal = { places: [{ point: blow.aim, position: target }], seconds: placing.seconds,
-                  through: 0, follows: false, initialVelocity: motion.velocity! };
-                goals = hand === "left" ? { left: goal, right: null } : { left: null, right: goal };
-                if (motion.ready >= POINT_RETURN.hold) {
-                  const window = targetWindow([view.head.x, view.head.y, view.head.z], s.facing, action.target,
-                    rangeIn(known[hand], action.target[1] - view.head.y, placing, placing.through, pointSpacing), APPROACH.reach);
-                  if (reaction && !window.inside) { reaction.reason = "target-moved"; motion.returning = true; }
-                  else motion.launched = state.still;
-                  motion.velocity = velocities![hand]!; motion.ready = 0; motion.time = 0;
-                } else if (motion.time >= POINT_RETURN.limit) {
-                  if (reaction) reaction.reason = "preparation-timeout";
-                  motion.outcomes.failed++; motion.returning = true; motion.time = 0; motion.ready = 0; motion.velocity = velocities![hand]!;
-                }
-                over = false;
-                break;
-              }
-              if (reaction && contactEdge[hand] && !motion.returning && motion.launched !== null) {
-                reaction.reason = "contact"; motion.returning = true; motion.time = 0; motion.ready = 0;
-                motion.velocity = velocities![hand]!;
-              }
-              if (over && !motion.returning) {
-                if (reaction) reaction.reason = "miss";
-                state.thrown[hand]++;
-                motion.returning = true; motion.time = 0; motion.ready = 0;
-                motion.velocity = velocities![hand]!;
-              }
-              if (motion.returning) {
-                state.phase = "return";
-                motion.time += dt;
-                const speed = velocities![hand]!, home = motion.home;
-                const near = hypot(at.x - home[0], at.y - home[1], at.z - home[2]) <= POINT_RETURN.near;
-                const slow = hypot(...speed) <= POINT_RETURN.slow;
-                motion.ready = near && slow && !view.down && (pointResponse || s.phase === "stand") ? motion.ready + dt : 0;
-                if (motion.ready >= POINT_RETURN.hold || motion.time >= POINT_RETURN.limit) {
-                  const returned = motion.ready >= POINT_RETURN.hold;
-                  if (returned) motion.outcomes.returned[hand]++;
-                  else motion.outcomes.failed++;
-                  finishResponse(returned ? reaction?.reason ?? "miss" : "return-timeout", returned, view.time);
-                  end(); state.still = 0;
-                } else {
-                  const goal: EffectorGoal = { places: [{ point: blow.aim, position: home }], seconds: placing.seconds,
-                    through: 0, follows: false, initialVelocity: motion.velocity! };
-                  goals = hand === "left" ? { left: goal, right: null } : { left: null, right: goal };
-                }
-                over = false;
-                break;
-              }
-            }
             state.phase = "swing";
             if (action.kind !== "attack") throw new Error("a placed blow is carried only while its hand attacks");
             if (!over) {
               // The target in the body frame as the body now stands: the path's end moves with it.
               intoFrameToRef(view.root, action.target, place);
-              const goal: EffectorGoal = { places: [{ point: blow.aim, position: [place.x, place.y, place.z] }], seconds: placing.seconds, through: placing.through, follows: true,
-                ...(state.motion ? { initialVelocity: state.motion.velocity ??= velocities![hand]! } : {}) };
+              const goal: EffectorGoal = { places: [{ point: blow.aim, position: [place.x, place.y, place.z] }], seconds: placing.seconds, through: placing.through, follows: true };
               goals = hand === "left" ? { left: goal, right: null } : { left: null, right: goal };
             }
             break;

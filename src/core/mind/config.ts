@@ -42,25 +42,12 @@ export interface FighterMindConfig {
  * **A mind's config**, by kind: plain data, so it rides in a recipe, a save and a link. Each kind
  * of mind declares its own; a fight passes one through and reads nothing in it.
  */
-export type MindConfig = FighterMindConfig | PointFighterConfig | ArenaFighterConfig | DirectMindConfig | QuadrupedConfig;
+export type MindConfig = FighterMindConfig | ArenaFighterConfig | DirectMindConfig | QuadrupedConfig;
 
 /** Four-paw crawling, physical jaw snaps and self-righting through the body's own muscles. */
 interface QuadrupedConfig { readonly kind: "quadruped" }
 
 export const QUADRUPED: QuadrupedConfig = deepFreeze({ kind: "quadruped" });
-
-/** Point-space combat over the shared stance and muscle controller. */
-export interface PointFighterConfig {
-  readonly kind: "point-fighter";
-  readonly hand: "left" | "right" | "alternate";
-  /** Reference comparison or range-aware engagement; tracked engagement is the default. */
-  readonly engagement?: "reference" | "tracked";
-  /** Immutable experimental placement, entry-band and target-prediction settings. */
-  readonly engagementTuning?: { readonly spacing?: number; readonly entry?: number; readonly prediction?: number };
-}
-
-/** Experimental point combat; the right hand can carry the arena club. */
-export const POINT_FIGHTER: PointFighterConfig = deepFreeze({ kind: "point-fighter", hand: "right" });
 
 /** Joint-feedback experiment: targets in radians and explicit time, speed and activation bounds. */
 export interface DirectMindConfig {

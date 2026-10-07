@@ -4,7 +4,7 @@ import { execFileSync } from 'node:child_process';
 import { Vector3 } from '@babylonjs/core/Maths/math.vector.js';
 import { buildBout } from './bout.mjs';
 import { DEFAULT_ENGINE, loadEngine } from '../src/core/engine/engines.ts';
-import { FIGHTER, POINT_FIGHTER, ARENA_BRAWLER, ARENA_SCRAPPER, ARENA_FIGHTER } from '../src/core/mind/config.ts';
+import { FIGHTER, ARENA_BRAWLER, ARENA_SCRAPPER, ARENA_FIGHTER } from '../src/core/mind/config.ts';
 import { motionAtToRef, pointOfToRef } from '../src/core/control/support.ts';
 import { STAND_ORDERS } from '../src/core/mind/orders.ts';
 
@@ -28,7 +28,6 @@ export function combatMind(name) {
     case 'scrapper': case 'scrapper-v1': return ARENA_SCRAPPER;
     case 'brawler': return ARENA_BRAWLER;
     case 'combat': return ARENA_FIGHTER;
-    case 'point': return { ...POINT_FIGHTER, hand: 'alternate' };
     default: if (typeof name === 'object' && name !== null) return name;
       throw new Error(`unknown combat policy ${name}`);
   }
@@ -68,7 +67,7 @@ export async function combatTrial(config) {
   const recipe = { left: 'workshop-fighter', right: 'workshop-fighter', gap: 4,
     capSeconds: COMBAT_PROTOCOL.capSeconds, recoverySeconds: null, balance: { left: 0, right: 0 },
     held: { left: 'empty', right: 'empty' }, ...config.recipe,
-    minds: { left: combatMind(config.left ?? 'point'), right: combatMind(config.right ?? 'point') } };
+    minds: { left: combatMind(config.left), right: combatMind(config.right) } };
   const physicsEngine = await loadEngine(config.engine ?? DEFAULT_ENGINE);
   const stand = await buildBout(recipe, { physicsEngine }), { world, duel } = stand;
   duel.play(config.tape ?? []);

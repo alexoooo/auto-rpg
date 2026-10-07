@@ -57,7 +57,9 @@ test('ratings group complete mirrors and preserve draws, decisive wins and time 
 });
 
 test('the complete autonomous bout path exposes pressure and actual damage without contact-only strike credit', async () => {
-  const row = await combatTrial({ left: 'point', right: 'point', recipe: { capSeconds: 8 } });
+  // Both sides are ordered to walk into each other, clubs in hand, and never to attack.
+  const hug = (side, x) => ({ step: 0, side, orders: { move: { x, z: 0 }, face: null, attack: null } });
+  const row = await combatTrial({ left: 'classic', right: 'classic', recipe: { capSeconds: 12, held: { left: 'club', right: 'club' } }, tape: [hug('left', 1), hug('right', -1)] });
   assert.equal(row.harness.engine, 'rapier-coordinate');
   assert.equal(row.recipe.recoverySeconds, null);
   assert.ok(row.meanCentreGap > 0 && Number.isFinite(row.minimumCentreGap));

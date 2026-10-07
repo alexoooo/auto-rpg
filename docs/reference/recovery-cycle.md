@@ -76,8 +76,8 @@ available; no alternate AI must adopt this supervisor or these pose stages.
 ## Reproduction
 
 ```powershell
-node research/arena-control-cycle.mjs docs/reference/recovery-cycle.json
-node --test tests/arena-control-cycle.test.mjs tests/arena-point-control.test.mjs
+node research/arena-control-cycle.mjs docs/reference/recovery-cycle.json   # research/arena-control-cycle.mjs@a44f00e8
+node --test tests/arena-control-cycle.test.mjs tests/arena-point-control.test.mjs   # both @a44f00e8
 ```
 
 The runner explicitly selects `engagement: "reference"` to reproduce this table; current game

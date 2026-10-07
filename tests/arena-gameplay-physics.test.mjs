@@ -18,7 +18,6 @@ test('both Warrior hands still strike real contacts and return on gameplay physi
   for (const mode of ['hit', 'miss']) {
     const row = await strikeCycle({ engine: DEFAULT_ENGINE, held: 'empty', hand: 'alternate', mode });
     assert.equal(row.fell, false);
-    assert.equal(row.failed, 0);
     for (const hand of ['left', 'right']) assert.ok(row.returned[hand] >= 3, JSON.stringify(row));
     if (mode === 'hit') for (const hand of ['left', 'right'])
       assert.ok(row.impacts.some(i => i.hand === hand && i.closing > 0), JSON.stringify(row));

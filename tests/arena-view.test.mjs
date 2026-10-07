@@ -14,7 +14,7 @@ const defaults = { view: "world", camera: "free", projection: "orthographic", fo
 const near = (a, b) => assert.ok(Math.abs(a - b) < 1e-5, `${a} against ${b}`);
 
 test("Arena view addresses preserve the recipe and normalize Chase focus", () => {
-  const search = "?play=arena&matchup=workshop-fighter,workshop-fighter&appearance=relic,duelist&you=right&gap=2&balance=0,0&control=point-alternate,classic&held=empty,club&recovery=30";
+  const search = "?play=arena&matchup=workshop-fighter,workshop-fighter&appearance=relic,duelist&you=right&gap=2&balance=0,0&control=combat,classic&held=empty,club&recovery=30";
   assert.deepEqual(readArenaView("", null), defaults);
   assert.deepEqual(readArenaView("?view=wrong&camera=wrong&projection=wrong&focus=wrong", null), defaults);
   assert.deepEqual(cameraFocuses("free"), ["both", "left", "right"]);

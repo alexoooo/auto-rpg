@@ -125,7 +125,7 @@ motion replay passes from mid-return into a fresh Duel. Without preparation, the
 incoming-contact test fails because the hand can already be pressing the box at release.
 The post-recovery club trial has one phase timeout; these standalone rows do not erase it.
 
-Reproduce with `node --test tests/arena-control-cycle.test.mjs tests/arena-point-control.test.mjs`
+Reproduce at `a44f00e8` with `node --test tests/arena-control-cycle.test.mjs tests/arena-point-control.test.mjs`
 and the [19-case runner and raw record](recovery-cycle.md#reproduction).
 
 Built-browser smoke check: the arena renders Warrior versus Rogue with alternating point
