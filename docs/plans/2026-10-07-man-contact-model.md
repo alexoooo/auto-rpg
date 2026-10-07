@@ -21,14 +21,17 @@ The existing single-hand club is supported and measured separately from unarmed 
 ## Fit with the core cleanup
 
 The [core cleanup](2026-10-07-core-cleanup.md) owns the shared controller, attack and combatant
-organization. Its current decisions retain Classic and its recipe blows, keep controllers
-configurable for every body they fit, and use one registry. This plan builds on those decisions.
+organization. Reviewed at `1d17bd8e`: its runtime work through chunk 20 is settled, and chunk
+21's presets harness, spec-defined guards and controller document reconciliation have landed.
+Remaining preset figures are not runtime prerequisites for Man. Re-read subsequent runtime
+changes and take a fixed
+baseline before implementation; a later correction invalidates comparisons against the old one.
 
-- Finish the cleanup before changing shared runtime interfaces for this plan. Geometry
-  measurements and the anatomy audit can be prepared meanwhile. In particular, consume its
-  shared attack/effector strike (chunk 15), `enlist` and held-item path (chunk 17), controller
-  fields and links (chunk 18), and corrected physical baselines (chunk 20). Re-read the landed
-  code before starting; use the final names instead of reconstructing an intermediate API.
+- Consume the landed contracts directly: `effectorStrike(def)` and
+  `combatSkills(body, driving, settings)` (chunk 15), `enlist` and `armedWith` (chunk 17),
+  `Controller.fields` and per-side settings (chunk 18), `approachToRef`/`turnToRef`, shared club
+  inertia and down cached at look (chunk 20). Do not implement the superseded proposals in the
+  cleanup plan: there is no `strike-defs.ts`, universal impact tuning or shared reptile readiness.
 - `src/core/man/` owns anatomical input and construction only. There is no `ManBody` runtime,
   Man-specific physics loop, copied fighter, separate equipment implementation or second
   screen-side combatant builder.
@@ -38,9 +41,11 @@ configurable for every body they fit, and use one registry. This plan builds on 
 - Extend the **path fighter** with a selectable motion implementation. It composes shared
   targeting, order following, guard/cover, locomotion planning and the effector strike. Do not
   restore `arena-fighter` or Point control, retire Classic, or add another mind kind for Man.
-- `CONTROLLERS` remains the owner of `fits`, `faults`, presets, fields and creation. Its path
-  entry checks the selected motion implementation through one exported predicate. Screens,
-  links and construction use that same predicate; none infer compatibility from `model === man`.
+- `CONTROLLERS` remains the owner of `fits(spec, config)`, `faults(config)`, presets, fields and
+  creation. `faults` validates settings without a body; `fits` checks the selected motion and
+  sub-minds against anatomy through exported predicates. Keep `commandable`'s existing box-foot
+  contract for reference control; do not widen it to admit Man into a motor that cannot drive it.
+  Screens, links and construction use the registry; none infer compatibility from `model === man`.
 - Body-specific names and contact roles live in anatomical data. New movement and recovery
   code reads effectors, support groups, the body tree and `BodySpec.marks`; it contains no
   private copies of humanoid segment-name lists or box/capsule assumptions.
@@ -51,13 +56,52 @@ The [control foundation](2026-10-04-control-foundation.md) remains the contract 
 policies, motion objectives and tasks. Contact control is one optional implementation of those
 contracts, not a prerequisite imposed on every policy.
 
+### Landed integration points
+
+- `core/combatant.ts`'s `enlist(world, enlistment)` takes an already armed `spec`, explicit
+  `mind`, `out`, `name`, `orders`, senses and rules, with optional solids, balance, percent and
+  contact identity. Arena and Crypt use it. Preserve their pre-build checks and hook order:
+  hand poses, mind, reading. `items/held.ts` owns `HELD`, `heldItem` and
+  `armedWith(spec, hand, held)`; Arena surface overrides are applied before arming.
+- Lab remains `buildBody` plus `labActor`, driven by a scenario script, without an injury pool
+  or combatant senses. Extend its existing actor with the shared motion/skill composition it
+  needs; do not route it through `enlist` or start a second fighter over the scripted body.
+- `models.ts` owns `{mind, held}` defaults. Register Man there with Contact and empty hands.
+  `matchup.ts` currently prefers Classic when choosing a control without a valid preset; make
+  that fallback choose a fitting preset of the model's declared default mind kind through
+  `PRESETS`. Existing Arena defaults remain Classic, including the staged-rise choice distinct
+  from `RECIPE_FIGHTER`.
+- `fields.ts` owns the `down` field (`subs`); `controllers.ts` owns `PATH_FIELDS`.
+  `matchup.ts`'s `settled`, `linkedSettings`, `readMinds` and `settingsSearch` already apply and
+  serialize edits. Extend them, rather than adding a Contact settings parser or `recovery=` key.
+  Add a motion field whose reader normalizes omission to `reference`; the generic `choice`
+  reader would otherwise expose `undefined` for every old preset.
+- Edited settings need the body's compatibility check too: pass the selected model to
+  `settled` and use `modelSupportsMind` after config faults are checked. `linkedSettings` and
+  Arena's settings panel use that result, retaining the entered values and fault while
+  `readMinds` falls back to the fitting preset. Add the same registry `fits` check to
+  `createMind`; Duel's early check remains. A preset that fits does not prove every edit fits.
+- `control/approach.ts` supplies compatible point/frame approach calculations. Reuse it where
+  its law applies; preserve each caller's response rate and goals. `recoveryReady` remains the
+  humanoid gate; the reptile keeps its tail/height-aware gate. Every host reads down at look,
+  before act and physics; Contact recovery reads that cached host value too.
+- `research/controller-presets.mjs` and `combatCell` in `research/combat-records.mjs` supply
+  the paired Arena evaluation path. Reuse them for comparative reports; the presets figures
+  are still pending and are not evidence that Contact or Man works.
+- `Marks.guards` names the segments that cover. Arena's trusted `ContactTarget.guard` label
+  comes from that list, and `contactResponse` uses the flag to distinguish a block from a
+  target hit. Declare Man's hands/forearms there; every convex hand piece keeps its segment's
+  identity and guard flag. Lab object/dummy contacts retain their ordinary target identity.
+  Do not recreate the removed segment-name regex or infer blocking from a collider's shape.
+
 ## Physical and control contracts
 
 ### Contact geometry and poses
 
 In `src/core/spec/body.ts`, split primitive convex shapes from `ShapeSpec` and add a compound
 whose parts are an ordered, non-nested list of primitive convex shapes. Keep item shape arrays
-and their existing frame restrictions. One shared shape-parts reader supplies the builder,
+and their existing frame restrictions: `ItemShape` excludes boxes from `ConvexShapeSpec`,
+not from the compound union. One shared shape-parts reader supplies the builder,
 rigid geometry, geometric queries, compliant apparatus and renderers. Flattening retains the
 segment owner for every part; held-item colliders retain their own owners.
 
@@ -116,12 +160,18 @@ must not be disguised as anatomical damping, strength or added inertia.
 
 ### Motion, fighter composition and recovery
 
-Extract the small command-body motion interface actually read by `body.ts`: goals, control,
-root/effectors, physical point/path readings, stance readings, reset and explicit state.
+Extract the small command-body motion interface actually read by `body.ts` from `MotorControl`
+in `control/motor.ts`: goals, control, root/effectors, physical point/path readings, the stance's
+`read`/`reading`, standing goal, reset and explicit state. Add it in `control/command-motion.ts`;
+do not require Contact to implement the reference stance's internal bearing/ownership methods.
 The existing motor controller implements it without changing its reference calculations.
 Add `control/contact-motor.ts`, implementing the same contract through the shared bounded
 whole-body/contact tracking machinery, including passive coordinates and loads. One owner
 combines posture, both hands, root motion and support demands into the final muscle command.
+`createBody` accepts that motion choice with a reference default; its hosted lifecycle stays
+shared. Keep the reference state shape and `look`/`act` order. Select `Body.envelope` with the
+motion implementation: Contact reads its own model/loadout measurement or null while measuring,
+never calls `stanceEnvelope(man)` or borrows a Warrior row merely to construct the body.
 
 Add optional `PathFighterConfig.motion: reference | contact`; omission resolves to reference.
 `resolvePath`, `pathFaults` and the registry handle it once. The Contact preset uses alternate
@@ -129,6 +179,12 @@ hands, linear standing blows, cover defense and contact recovery, with kicks, gr
 and combinations off. Contact configurations requesting those unimplemented skills are
 refused through the shared compatibility path. Its ordinary motion/recovery selections travel
 through `Controller.fields`, links and saves; numerical tuning remains research-only.
+`contact-recovery` is a member of `SubMindConfig`, made by `subMind`/`subMindsOf`, and offered
+by the existing `down` field. Let `down` take a declared options list, defaulting to today's
+three choices; the path entry adds Contact recovery to its list. Its motion/support requirements
+are checked by the path entry's `fits`; add it to the recipe fighter's down options only if
+that pairing is actually supported.
+Reference staged/support recovery is not implicitly valid on passive-toe anatomy.
 
 Reuse the common locomotion goals and strike definitions. Contact support reading groups main
 foot and toe contacts, uses actual loaded points, verifies unloading before swing and landing
@@ -142,24 +198,31 @@ is settle/roll, acquire open-palm and knee support, plant one foot, transfer wei
 place the second foot, release palms, then verify standing. Existing roll/posture data can seed
 the route, but loaded support, clearance, orientation and motion decide transitions. Deadlines
 cause retries; elapsed pose time is never success. Recovery can begin without the support it
-is trying to acquire and reads down through the host's existing rule.
+is trying to acquire and reads down through the host's existing rule. It owns commands only
+while hosted, withdraws its pose/transfer work on end, and resumes the fighter through the
+existing `Skills.release`/`Skill.resume` contract. Both reference and Contact keep their own
+saved motor and recovery state; no controller, built body or callback enters that state.
 
 Extend the owner of `recoveryReady` with a grouped-support entry point, retaining the old
 entry point's behavior. Require both foot groups loaded, no other fixed support, COM within
 actual bearing support and quiet motion continuously for the existing 0.5 s handover gate.
 Readiness does not require both the toe and heel of every foot to contact simultaneously.
 
-Shared strikes request fists and verify the applied pose before committing. Recovery requests
-open palms and waits for the applied pose before acquiring palm support. A blocked request
-withdraws/retries through the ordinary cycle. Keep collider ownership, surface stiffness,
+Contact uses `CombatExecution.physicalFists` and the combat skill's existing applied-pose
+`prepared` check for bare hands; extend that path for compound envelopes and blocked-request
+withdrawal. Held strikes retain grip, and the reference execution defaults stay unchanged.
+Recovery requests open palms and waits for the applied pose before acquiring palm support.
+A blocked request withdraws/retries through the ordinary cycle. Keep collider ownership,
+surface stiffness,
 injury pools and the existing impact-energy/damage rule; multiple convex pieces do not create
 multiple priced blows for the same segment contact episode.
 
 ## Implementation chunks
 
 Every chunk is independently green and committed. Existing configurations are pose
-bit-identical; new-model/new-controller cases are intended additions. Update this plan as
-chunks land, and delete it after the final chunk. Code and `SOURCES` cite reference records,
+bit-identical; new-model/new-controller cases are intended additions. State reshaping is named
+and checked separately, as in the cleanup lock. Update this plan as chunks land, and delete it
+after the final chunk. Code and `SOURCES` cite reference records,
 never this plan.
 
 ### 0. Calibration and behavior baseline
@@ -174,7 +237,9 @@ never this plan.
 - Write `docs/reference/man-anatomy.md` with inputs, fitting rules, approximations, spring
   sources, calibration audit and raw measurements; add the necessary `SOURCES` entries.
 - Tests: `tests/man-envelope.test.mjs` reproduces the artifact and checks handedness, palmar
-  area, grip clearance and fitted-piece geometry. Capture the cleanup-complete behavior lock.
+  area, grip clearance and fitted-piece geometry. Capture a pinned runtime behavior lock,
+  including the landed Crypt foe targeting, down timing and spec-defined guard labels;
+  do not reuse a pre-cleanup lock.
 
 ### 1. Compound contact geometry and grip frames
 
@@ -201,48 +266,82 @@ never this plan.
 
 ### 3. Man anatomy and physical presentation
 
-- Add `man/figure.ts` and `man/spec.ts`. Extract only the human derivation helpers they need;
-  construct Man from shared calibration inputs, never `...humanoidSpec(...)`. Add two toe
+- Add `man/figure.ts` and `man/spec.ts`. Reuse `spec/geometry.ts`'s shared mass/shape derivation
+  and the existing human figure, landmarks, tables, joints, muscles, speed and wounds helpers;
+  extract only additional derivation helpers that both constructors actually read.
+  Construct Man from shared calibration inputs, never `...humanoidSpec(...)`. Add two toe
   segments and passive hinges, keep the remaining joint limits/muscles and total mass, and
-  declare effectors, support groups, grip frames, marks, wounds and down rule explicitly.
-- Register `man` through `models.ts`. Add physical presentation through `render/models.ts`,
-  the existing skin/shape factory and appearance compatibility. World and Tactical show
-  applied hand geometry and both foot segments, with no clothing or skin controls for Man.
+  declare effectors, support groups, grip frames, marks including guards, wounds and down
+  rule explicitly.
+- Qualify `manSpec` and physical presentation directly through the existing `drawBody` path
+  in the stand. Public model/display/default registration waits for chunk 5, when Contact can
+  drive it. The delivered World and Tactical views show applied hand geometry and both foot
+  segments, with no clothing or skin controls for Man.
 - Tests: `core-man` checks whole spec/provenance, mass accounting, positive tensors, bind
-  alignment, geometric nonadjacent clearance and optional controller construction. Extend
-  model/render tests for registration, pose updates and independently moving toe geometry.
+  alignment and geometric nonadjacent clearance through direct/limp fixtures; expose no broken
+  game default. Extend render tests for pose updates and independently moving toe geometry.
 
 ### 4. Shared Contact motion and recovery
 
-- Extract the command-body motion interface and implement `control/contact-motor.ts` and
-  `control/contact-support.ts`; reuse the coupled dynamics, bounded tracking, effector paths
-  and contact machinery. Add the Warrior support-description adapter for paired comparisons.
-- Add contact recovery, grouped readiness and a `contact-recovery` sub-mind config through
-  the existing maker. Add the motion selection to `path-fighter.ts`/`config.ts`; compose the
-  shared tactics and strike parts, with the physical-pose admission specified above.
+- Add `control/command-motion.ts`, extract the command-body motion interface and implement
+  `control/contact-motor.ts` and `control/contact-support.ts`; reuse the coupled dynamics,
+  bounded tracking, effector paths and contact machinery. Add the Warrior support-description
+  adapter for paired comparisons.
+- Add contact recovery and grouped readiness through `control/recovery-ready.ts`,
+  `mind/config.ts` and `mind/sub-minds.ts`. Add the motion selection to
+  `mind/path-fighter.ts`/`config.ts`, compatibility in `controllers.ts` and `createMind`, and
+  compose `pathTactics`, `driveBy` and `combatSkills(body, driving, settings)`.
+  Preserve `effectorStrike(def)`'s cycle ownership; add physical-pose admission through the
+  shared combat skill, not a Man strike executor. Keep attack path/execution tuning with its
+  existing owners. The independent point-strike task and reptile bite remain as qualified.
 - Tests: `core-contact-support`, `core-contact-motor` and `contact-recovery` exercise palm
   loading, toe-only support, loss of contact, weight transfer, failed landing, rejection,
   retries, cancellation, takeover/resume and saved state during every recovery stage.
-  Extend registry tests to verify compatibility and config faults without model-name branches.
+  Extend `core-controllers`, `core-body`, `core-fork` and `core-step-cost` tests for omission
+  resolving to reference, compatible recovery, active/passive mappings, envelope selection,
+  cached down, ownership and construction rejection without model-name branches.
 - Add `research/man-control.mjs` with worker queues over the ordinary Node stand and Arena
   Duel. Record timings, allocations, movement limits and all task results in
-  `docs/reference/man-control.md` and its raw JSON. Preallocate step work as needed; measure
-  any shared optimization before/after and preserve the existing arithmetic and fingerprints.
+  `docs/reference/man-control.md` and its raw JSON. Use the existing Arena protocol/job runner
+  and `combatCell` for mirrored comparative bouts, keeping body, control, loadout and balance
+  strata distinct. Preallocate step work as needed; measure any shared optimization
+  before/after and preserve the existing arithmetic and fingerprints.
 
 ### 5. Lab/Arena integration and qualification
 
-- Add the Contact preset and fields through `CONTROLLERS`. Use the cleanup's `enlist` and
-  shared held-item path; do not build a Man-only actor path. Keep current defaults and Crypt
-  spawn choices unchanged. Unavailable model/controller combinations are refused consistently.
-- In `lab/scenarios.ts`, `lab/loadout.ts`, `lab/actor.ts` and the mode dispatcher, make Man
-  available in Stance/Run with its selected motion and skills. Add `lab/contact-mode.ts`
+- Add the Contact preset and fields through `CONTROLLERS`, `fields.ts`'s motion/down readers
+  and register `man` through `models.ts`, including its Contact/empty defaults. Add its display
+  in `render/models.ts`, dresser dispatch and appearance compatibility. Update `matchup.ts`'s
+  default lookup and model-aware `settled`, plus `arena/main.ts`'s settings call sites.
+  Arena uses `enlist` with the already armed spec; Lab keeps `labActor`. Both use `armedWith`;
+  do not build a Man-only actor path.
+  Keep current defaults and Crypt spawn choices unchanged. Unavailable model/controller
+  combinations are refused consistently.
+- In `lab/scenarios.ts`, `lab/loadout.ts`, `lab/actor.ts`, `lab/minds.ts`, `lab/main.ts`,
+  `lab/lab-scenario.ts`, `lab/setup.ts` and `lab/hud/character-section.ts`, make Man
+  available in Stance/Run with its selected motion and skills. Broaden the Lab's model type
+  from `HumanoidModel` to the supported `BodyModel` subset without pretending Man is a
+  workshop rig. Add one `motion` choice and a Contact `down` choice to the existing Lab
+  address/readers; `mind=script|guard` remains the scenario's tactics wrapper. The actor's
+  recipe skill maker stays the default; Contact uses the shared combat skill maker with
+  resolved settings. Test scenario/model/motion/recovery compatibility before construction.
+  Keep recipe Blow/Routine confined to the bodies and reference motion they qualify.
+  Add `lab/contact-mode.ts` and `lab/contact-scenario.ts`
   (`scenario=contact`) for open/fist/grip requests on either hand, requested/applied readouts,
   palm support, toe flexion, shove/recovery and left/right punching. Use the same core tasks
   for page and research. Existing recipe Blow/Routine choices stay as they are.
-- Extend scenario/link tests, `arena-matchup` and fork/replay tests for Man, Contact on
-  Warrior, either side, invalid pairings and controller settings. Manual Lab requests go
-  through the checked pose port; the current task is the sole command owner. Pause freezes
+- Extend `lab-scenarios`, `lab-actor`, `lab-loadout`, `arena-controls`, `arena-core` and
+  model/render and fork/replay tests for Man, Contact on Warrior, either side, invalid pairings
+  and controller settings. Manual Lab requests go through the checked pose port; the current
+  task is the sole command owner. Pause freezes
   physical tasks, and replay restores applied geometry rather than a cosmetic fist timeline.
+- Extend `core-combat-openings` and `punch-foundation` tests: a contact on any piece of a
+  declared guard is a block, an intended unguarded segment/object is a target, and an unrelated
+  body is incidental. Exercise the trusted Arena labeling and shared contact-response path.
+- Extend `scripts/fingerprint.mjs` with explicitly named Man/Contact and Warrior/Contact
+  standing, walking, recovery and punch cases plus a Man Arena replay. Select their motion
+  through shared constructors; do not add Man to the old reference stand loop and assume it
+  works. Retain every existing case name/configuration in the pinned lock.
 - Verify the built application in a private preview: both views, both hand poses, passive
   toe movement, standing/walking, palm-assisted recovery, punches, club grip, model/controller
   switching and a replay. Check visibility/frame advancement. Stop the private server by PID.
@@ -250,9 +349,9 @@ never this plan.
 
 ## Qualification and landing gates
 
-Use the cleanup-complete gameplay engine revision, symmetric actuation and 120 Hz for the
-primary comparison. Balance assistance is 0 on every side; strength, solver settings, friction
-and damage are held constant. Keep every trial, including a failed or timed-out one.
+Use the pinned post-cleanup runtime gameplay engine revision, symmetric actuation and 120 Hz
+for the primary comparison. Balance assistance is 0 on every side; strength, solver settings,
+friction and damage are held constant. Keep every trial, including a failed or timed-out one.
 
 - Unarmed recovery passes the existing four-direction cycle: a real fall from the prescribed
   1.5 N s/kg trunk shove, verified standing within 60 s, then one second walking over 0.15 m
@@ -283,7 +382,7 @@ npm test
 npm run check
 npm run build
 $env:CORE_ENGINE = "rapier-coordinate"
-node scripts/fingerprint.mjs --compare <cleanup-complete-lock.json>
+node scripts/fingerprint.mjs --compare <runtime-lock.json>
 git diff --numstat
 git diff --ignore-cr-at-eol --numstat
 ```
