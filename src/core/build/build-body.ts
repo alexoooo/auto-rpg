@@ -7,7 +7,7 @@ import type { Vec3 } from "../spec/quantity.ts";
 import { cross, dot, normalize, orthogonalTo, sub } from "../spec/vec.ts";
 import { hasProducts, principalOf, rigidOf, type Rigid } from "./rigid.ts";
 import { rotationOfToRef } from "./joint-state.ts";
-import { createHandPoses, type HandPoses } from "../control/hand-poses.ts";
+import { createHandPoses, type HandPoses } from "./hand-poses.ts";
 
 /**
  * **`buildBody`: bodies and joints from a spec and an initial placement.**
@@ -40,6 +40,15 @@ export interface BuiltSegment {
   readonly rigid: Rigid;
   /** Applied hand configuration, with pending requests kept in the body's pose state. */
   readonly handPose?: { applied: HandPose; requested: HandPose };
+  /** A posable hand's configurations, made once: each pose's shape (`handShapeAt`), its rigid body and its collider. */
+  readonly poses?: Readonly<Record<HandPose, HandConfiguration>>;
+}
+
+/** A hand in one pose: its first shape the pose's, the rest as held. */
+interface HandConfiguration {
+  readonly shape: ShapeSpec;
+  readonly rigid: Rigid;
+  readonly collider: ColliderShape;
 }
 
 /** A spec freedom as the joint has it: its angular axis is the freedom's index, and its sense may be flipped. */
@@ -102,7 +111,7 @@ function local(frame: SegmentFrame, point: Vec3): Vec3 {
 const localDirection = (frame: SegmentFrame, direction: Vec3): Vec3 =>
   [dot(direction, frame.x), dot(direction, frame.y), dot(direction, frame.z)];
 
-export function colliderOf(frame: SegmentFrame, spec: ShapeSpec): ColliderShape {
+function colliderOf(frame: SegmentFrame, spec: ShapeSpec): ColliderShape {
   switch (spec.kind) {
     case "capsule":
       return { kind: "capsule", from: local(frame, spec.from.value), to: local(frame, spec.to.value), radius: spec.radius.value };
@@ -139,10 +148,13 @@ function buildSegment(body: BodySpec, spec: SegmentSpec, placement: Placement, w
       : Quaternion.Identity(),
   });
   const handPose = spec.handPoses ? { applied: initial, requested: initial } : undefined;
-  const configurations = spec.handPoses && Object.fromEntries((Object.keys(spec.handPoses) as HandPose[]).map(name =>
-    [name, { ...rigid, shapes: [handShapeAt(body, spec, name), ...rigid.shapes.slice(1)] }]));
-  return { spec, frame, node, body: physics, rest, ...(handPose ? { handPose } : {}),
-    get rigid() { return configurations && handPose ? configurations[handPose.applied]! : rigid; } };
+  const posed = (name: HandPose): HandConfiguration => {
+    const shape = handShapeAt(body, spec, name);
+    return { shape, rigid: { ...rigid, shapes: [shape, ...rigid.shapes.slice(1)] }, collider: colliderOf(frame, shape) };
+  };
+  const poses = spec.handPoses && { open: posed("open"), fist: posed("fist"), grip: posed("grip") };
+  return { spec, frame, node, body: physics, rest, ...(handPose ? { handPose } : {}), ...(poses ? { poses } : {}),
+    get rigid() { return poses && handPose ? poses[handPose.applied].rigid : rigid; } };
 }
 
 /**

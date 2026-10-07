@@ -2,7 +2,7 @@ import type { MuscleDriver } from "../muscle/driver.ts";
 import { deepFreeze } from "../state.ts";
 import { applyAction, checkedAction, type ActuatorAction } from "./actions.ts";
 import type { EquipmentPort, GripAction } from "./equipment-port.ts";
-import type { HandPoses, HandPoseRequest } from "../control/hand-poses.ts";
+import type { HandPoses, HandPoseRequest } from "../build/hand-poses.ts";
 
 /** Actuation alone, or one atomic request combining actuation with permitted equipment commands. */
 export type BodyAction = ActuatorAction | {

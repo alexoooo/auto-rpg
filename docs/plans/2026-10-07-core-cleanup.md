@@ -106,14 +106,7 @@ pooled against Classic with clubs (Wilson 0.071-0.119), every model's cell under
 `SubMindMaker` stays typed on `BodyView`: the reptile builds its one sub-mind itself, so nothing
 needs it generic.
 
-### Chunk 6: hand poses in the build layer (bit-identical)
-
-- Move `control/hand-poses.ts` to `build/hand-poses.ts`, which breaks the circular import with
-  `build-body.ts`.
-- `BuiltSegment.poses?` is a table made once from `handShapeAt` (`spec/body.ts`, the one rule).
-  Three readers use it instead of re-deriving shapes: the `rigid` getter, the pose colliders, and
-  the `uprightness` lows.
-- No hook is registered when no segment can be posed, so the reptile loses its no-op hook.
+### Chunk 6: hand poses in the build layer (landed)
 
 ### Chunk 7: reptile from data, with shared predicates (bit-identical)
 

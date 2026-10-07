@@ -1,7 +1,5 @@
-import type { BuiltSegment } from "../build/build-body.ts";
-import { colliderOf } from "../build/build-body.ts";
+import type { BuiltSegment } from "./build-body.ts";
 import type { BodySpec, HandPose } from "../spec/body.ts";
-import { handShapeAt } from "../spec/body.ts";
 import { deepFreeze } from "../state.ts";
 import type { World } from "../world.ts";
 
@@ -21,11 +19,9 @@ export function createHandPoses(spec: BodySpec, segments: ReadonlyMap<string, Bu
   const state: HandPoses["state"] = {};
   const hands = (["left", "right"] as const).flatMap(hand => {
     const part = segments.get(`hand.${hand}`);
-    if (!part?.handPose || !part.spec.handPoses) return [];
+    if (!part?.handPose || !part.poses) return [];
     state[hand] = part.handPose;
-    const shapes = { open: colliderOf(part.frame, handShapeAt(spec, part.spec, "open")),
-      fist: colliderOf(part.frame, handShapeAt(spec, part.spec, "fist")), grip: colliderOf(part.frame, handShapeAt(spec, part.spec, "grip")) };
-    return [{ hand, part, shapes, held: !!spec.held?.some(item => item.segment === part.spec.name) }];
+    return [{ hand, part, poses: part.poses, held: !!spec.held?.some(item => item.segment === part.spec.name) }];
   });
   const check: HandPoses["check"] = requests => {
     if (!Array.isArray(requests)) throw new Error("hand pose requests must be an array");
@@ -36,17 +32,18 @@ export function createHandPoses(spec: BodySpec, segments: ReadonlyMap<string, Bu
       seen.add(request.hand); return { ...request };
     }));
   };
-  const hook = world.beforeStep(() => {
+  const hook = hands.length === 0 ? null : world.beforeStep(() => {
     for (const hand of hands) {
       const pose = state[hand.hand]!;
       const attached = hand.part.body.gripping();
       const desired = hand.held ? "grip" : attached ? (pose.requested === "open" ? pose.applied : "grip") : pose.requested;
       if (desired === pose.applied) continue;
       if (world.physics.contactsOf(hand.part.body).some(contact => contact.impulse > 0)) continue;
-      if (!hand.part.body.canChangeShape(0, hand.shapes[desired])) continue;
-      hand.part.body.changeShape(0, hand.shapes[desired]); pose.applied = desired;
+      const collider = hand.poses[desired].collider;
+      if (!hand.part.body.canChangeShape(0, collider)) continue;
+      hand.part.body.changeShape(0, collider); pose.applied = desired;
     }
   });
   return { model: deepFreeze(hands.map(h => ({ hand: h.hand, poses: ["open", "fist", "grip"] as HandPose[] }))), state, check,
-    request(requests) { for (const request of check(requests)) state[request.hand]!.requested = request.pose; }, dispose: () => hook.dispose() };
+    request(requests) { for (const request of check(requests)) state[request.hand]!.requested = request.pose; }, dispose: () => hook?.dispose() };
 }
