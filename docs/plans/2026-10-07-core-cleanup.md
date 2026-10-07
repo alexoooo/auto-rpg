@@ -1,4 +1,4 @@
-# Core clean-up: body-neutral bodies, one humanoid fighter, one strike skill
+# Core clean-up: body-neutral bodies, configurable controllers, one strike cycle
 
 ## Context
 
@@ -8,8 +8,8 @@ A review of the recent humanoid-attack work (punch, strike cycle, kicks) and the
 - `BodySpec` is family-neutral, but the layers above it are not. `Body`, `BodyCommand` and
   `motorControl` assume two hands, so the reptile assembles its own mind by hand beside them.
 - Hands are carried twice: a hand façade beside the effectors.
-- Three humanoid minds (Classic, Point, arena-fighter) overlap, with two skill stacks behind a
-  15-field flag bag.
+- Three humanoid minds (Classic, Point, arena-fighter) are listed, matched to bodies and offered
+  in three places, and two skill stacks are chosen by a 15-field flag bag.
 - Punch, kick and bite each rebuild the code around the shared strike cycle.
 - Foe targeting is written six times and aims at human segment names.
 - The screens each assemble combatants and copy model data.
@@ -18,14 +18,14 @@ The owner wants all of it addressed: clean, simple, consistent and maintainable,
 refactoring along the way allowed.
 
 **Owner decisions (2026-10-07):**
-1. **Recipe blows retire, gated on a club check.** There will be one humanoid fighter on the
-   shared strike cycle for fists and clubs. Recipe machinery is deleted only if a paired club
-   battery shows the path fighter is no worse than Classic with a club. If it fails, stop and
-   report.
+1. **Several controllers, each configurable for any body it fits.** Having more than one
+   controller is not the problem; the requirement is that any controller can be configured for
+   a given body within the compatibility rules, and that each is built cleanly from shared
+   parts. Classic keeps its recipe blows and stays the default. The club check (chunk 2) stands
+   as a record: the path fighter is far weaker than Classic with a club.
 2. **Point control folds away.** Old `control=point-*` links fall back to the default.
-3. **One humanoid fighter, configured by data.** The Arena exposes it as named presets plus a
-   "Fighter settings" panel; edited settings travel in links and replays. The Crypt and the
-   Arena default to it.
+3. **Every controller's settings are exposed.** The Arena offers each controller's named presets
+   plus a settings panel; edited settings travel in links and replays.
 4. **Options only tests use** are merged cleanly into the config. A truly small one-off may stay
    if it adds no incidental complexity.
 
@@ -91,8 +91,8 @@ Extend `scripts/fingerprint.mjs`. It already has worker lanes, `traceOf`
 ## Chunk 2: club check (landed: FAIL)
 
 `research/club-check.mjs`, recorded in `docs/reference/club-check.md`: Scrapper scores 0.092
-pooled against Classic with clubs (Wilson 0.071-0.119), every model's cell under 0.15. Chunks
-3-10 go on; chunks 11 onward wait on the owner.
+pooled against Classic with clubs (Wilson 0.071-0.119), every model's cell under 0.15. The
+owner kept Classic and its recipe blows as a controller of their own (decision 1).
 
 ## Body, effector, motor and mind layers
 
@@ -130,129 +130,191 @@ The two task boxes (`tasks/collision.ts`, `tasks/swing-target.ts`) use `cuboidMo
 `lieOf` takes its work from its caller; the rise holds its own (`lying`). The step's time and
 allocation, before and after, are in `docs/reference/step-cost.md`.
 
-## Fighter, skills and screens (waiting on the owner: the club check failed)
+## Controllers, skills and screens
 
-### Chunk 11: retire Classic and Point; Scrapper becomes the default (intended change)
+A controller is a mind kind: its config, its tactics and the skills it drives. There are four
+after chunk 11: the **recipe fighter** (Classic: searched recipes, `skills/strike.ts`), the
+**path fighter** (Combat, Brawler, Scrapper, Kicker: hand paths on the strike cycle,
+`skills/combat.ts`), the **quadruped** (crawl and bite) and **direct** (joint targets, research
+and the Lab). Each is a clean module of its own; what they share is shared code, not copies:
+the body, the sub-minds, the order-following, foe targeting, the guard and cover, locomotion,
+and the strike cycle wherever a blow runs on it.
+
+### Chunk 11: Point control folds away (intended change: the Point cases only)
 
 **Delete**
-- `mind/point-fighter.ts` and `mind/engagement.ts`.
-- `FighterMindConfig`, `PointFighterConfig`, `POINT_FIGHTER` and `FIGHTER`.
-- The `seekFoe`, `bandAimed`, `EDGE` and attack branches of `fighterTactics`. What remains, the
-  order-following part plus `STRAFE`, moves to `mind/ordered.ts` as `orderedTactics`.
+- `mind/point-fighter.ts`, `mind/engagement.ts`, `PointFighterConfig`, `POINT_FIGHTER`, and
+  `"point-fighter"` in `Minded`.
+- In the recipe skill (`skills/strike.ts`): `pointMotion`, `pointSpacing`, `pointResponse`,
+  `POINT_RETURN`, `PointReason`, `PointResponse` and `StrikeState.motion`, with the branches that
+  read them. `StrikeReport.pointCycle` stays: the path fighter's skill fills it.
+- `SkillOptions` loses the three point options; `createSkills` loses its `retreat` branch, and
+  `driveBy` its `pointResponse` test.
+- `research/arena-engagement.mjs`, `research/arena-control-trials.mjs`, and the Point names in
+  `research/arena-combat.mjs` and `research/arena-combat-probe.mjs`.
 
 **Change**
-- `models.ts`: the default mind is Scrapper.
-- `matchup.ts`: drop `classic`, `point-*`, `readGuard` and `&guard=`. Unknown values already fall
-  back to the default.
-- `research/arena-combat.mjs`: `combatMind` drops those names.
-- `strike-hands.ts` and the HUD lose those cases.
+- `matchup.ts`: `point-*` leave `CONTROLS` and `controlMind`; old links fall back to the default.
+- `render/strike-hands.ts` and `arena/main.ts` lose their Point cases.
+- `control/point-motion.ts`, `control/point-strike.ts`, `control/intercept.ts` and
+  `tasks/defense.ts` serve `/control-tasks.html` and stay; read each import before deleting
+  anything they share with the recipe skill.
 
-**Tests:** delete `arena-point-control` and `arena-engagement`. Move `core-sub-mind`,
-`core-orders`, `core-fork` and `arena-core` onto the presets.
+**Tests:** delete `arena-point-control`; update `arena-view`, `core-combat-uppercut`,
+`hand-presentation` and `scripts/arena-view-browser-check.mjs`.
 
-**Lock:** the Classic and Point cases are removed; the presets stay bit-identical.
+**Lock:** the `point-*` cases leave the lock; every other case is bit-identical (the recipe
+skill's state has no `motion` unless point motion was asked).
 
-**Crypt:** report `research/crypt-blows.mjs` before and after over 8 seeds.
+### Chunk 12: controllers in one registry, each composing its own skills (bit-identical; state reshaped)
 
-### Chunk 12: delete recipe blows; rebuild the Lab's Routine and Blow on the fighter (intended change, Lab only)
+Today `createMind` switches over the kinds, `modelSupportsMind` keeps its own table of which kind
+fits which body, `matchup.ts` keeps `CONTROLS` and `controlMind`, and `createSkills` picks one of
+two skill stacks by which options are present.
 
-**Delete**
-- `skills/strikes.ts`; `strikeSkill`, `rangeOf`, `POINT_RETURN` and `pointMotion`.
-- `assets/core/strikes.json`. Its `SOURCES` entry becomes `path@<commit>`;
-  `research/core-club-unit.json` stays.
-- The recipe research scripts: `core-aim`, `core-blow*`, `core-placed*`, `core-strike-*`,
-  `core-club-strike`, `core-routine-battery`, `strike-robustness`.
-- Their tests.
+**The registry: `src/core/mind/controllers.ts`**
+- `CONTROLLERS: { [K in MindConfig["kind"]]: Controller<Extract<MindConfig, { kind: K }>> }`, a
+  mapped type, so a kind without an entry is a compile error.
+- `Controller<C> = { fits(spec, config: C): boolean; presets: Readonly<Record<string, { label:
+  string; config: C }>>; create(built, world, config: C, wiring): Minded }`.
+- `createMind` is `CONTROLLERS[config.kind].create(...)`, with `unknownKind` kept for a config
+  read from a save or a link. `modelSupportsMind(model, config)` is `CONTROLLERS[kind].fits`:
+  - `commandable(spec)` for both fighters, and two foot effectors as well for a path fighter
+    with kicks;
+  - `quadrupedFits(spec)` for the quadruped;
+  - any body for `direct`.
+- `matchup.ts`'s `CONTROLS` and `controlMind` are read from the presets. The ids are kept
+  (`classic`, `combat`, `brawler`, `scrapper`, `kicker`, `crawl`), so old links still work.
 
-**Move**
-- `placedReach`, `PLACED`, `aimOf` and `heldIn` go to `skills/reach.ts`.
+**Names**
+- The kinds are named for what they are, not for a screen: `"fighter"` becomes
+  `"recipe-fighter"` (`RecipeFighterConfig`) and `"arena-fighter"` becomes `"path-fighter"`
+  (`PathFighterConfig`).
+- The files follow: `mind/recipe-fighter.ts` (`createFighter` and the recipe tactics out of
+  `minds.ts` and `fighter.ts`), and `mind/path-fighter.ts` (out of `arena-fighter.ts`).
 
-**Simplify**
-- `createSkills` always builds the strike-cycle stack, and the recipe options leave
-  `SkillOptions`.
-- `StrikeReport` drops the fields nothing reads: `nets`, `chosen`, `distance` and `blow`.
+**Skills**
+- Each controller composes its own skills. `createSkills`'s flag bag splits into:
+  - `recipeSkills(body, {cover?, repertoire?, placed?, steer?})`;
+  - `combatSkills(body, …)` as today.
+- `SkillOptions` goes. `driveBy(body, tactics, skills)` takes the skills made. The release hook
+  is installed by the path fighter, as today.
 
-**Lab**
-- Routine and Blow give the unified fighter attack orders at the hung targets or the head, and
-  read what lands.
-- The recipe selection files `lab/blows.ts` and `targets.ts` go once nothing reads them.
-- `tests/core-blows` attacks through the fighter's attack intent.
+**Recovery**
+- Recovery is configured, not hard-wired. `SubMindConfig` gains `{kind: "support-recovery"}`,
+  and `subMind`/`subMindsOf` take the world.
+- The path fighter's config gains `subs`, `[{kind: "support-recovery"}]` in every preset, which
+  replaces its hard-wired `supportRecovery`.
+- The recipe fighter keeps its `subs`: `lie` by default, `staged-rise` in the Arena's preset.
 
-### Chunk 13: one `FighterConfig` and its presets (bit-identical for presets)
+**Tests:** `core-fork` paths follow the renames; a new registry test asserts every
+preset's `fits` against every model, the same table `controlsFor` gives today.
 
-The kind becomes `fighter`, in a new `mind/fighter-config.ts`:
+### Chunk 13: each controller's config, validated once, with its presets (bit-identical)
+
+Each registry entry gains `faults(config, spec): string[]`, read by `createMind` (it throws on
+the first fault) and by the link reader (chunk 18).
+
+**The recipe fighter** (`RecipeFighterConfig`):
 
 ```ts
-interface FighterConfig { kind:"fighter";
+interface RecipeFighterConfig { kind:"recipe-fighter";
+  subs: readonly SubMindConfig[];
+  guard:"pose"|"cover"; aim:"head"|"pays"; range:"close"|"edge";
+  tuning?: { threat?; covering?; edge?; repertoire?; placed?; steer? } }  // research only
+```
+
+- `guard`, `aim` and `range` are its player fields. `aim: "pays"` and `range: "edge"` work and
+  have research behind them (`core-aim`, `core-range`), so they become panel fields.
+- `threat`, `covering` and `edge`, and the recipe skill's `repertoire`, `placed` and `steer`,
+  move under `tuning`: research and the Lab's Blow (`lab/blow.ts`) only.
+- `&guard=` folds into the per-side settings (chunk 18). Until then, `readGuard` writes the
+  `guard` field.
+- Presets: Classic, `{subs: [staged-rise], guard: "pose", aim: "head", range: "close"}`, the
+  default. The Crypt and every other default keep `FIGHTER` (renamed `RECIPE_FIGHTER`), with
+  `subs: [lie]`.
+
+**The path fighter** (`PathFighterConfig`):
+
+```ts
+interface PathFighterConfig { kind:"path-fighter";
+  subs: readonly SubMindConfig[];
   hands:"left"|"right"|"alternate"; strikes:"linear"|"mixed"|"vertical"|"boxing";
   prefers:"head"|"body"; defence:"cover"|"predictive"; kicks:boolean; ground:boolean;
   combinations:"none"|"follow-up"|"overlap"; spacing:number; spacingStep:number;
-  subs: readonly SubMindConfig[];      // [{kind:"support-recovery"}]; SubMindConfig gains it
   tuning?: { paths?; kick?; execution?; openings?; turnLimit?; turnStartup? } }  // research only
 ```
 
-- **One `resolveFighter(config)`:** a frozen, merged `{paths, kick, execution, openings}`, read by
+- **One `resolvePath(config)`:** a frozen, merged `{paths, kick, execution, openings}`, read by
   both the tactics and the skills.
-- **One `fighterFaults(config): string[]`**, read by `createMind` and by the link reader. It
-  refuses:
+- **`faults`** refuses:
   - combinations without alternate hands;
   - invalid range learning, paths, kick, execution, openings or turn settings;
   - kicks on a body without two foot effectors.
-- **`PRESETS`:**
+- **Presets:**
 
   | Preset | strikes | prefers | kicks | ground |
   |---|---|---|---|---|
   | Combat | linear | head | no | no |
   | Brawler | mixed | body | no | no |
-  | **Scrapper** (default) | mixed | body | no | yes |
+  | Scrapper | mixed | body | no | yes |
   | Kicker | mixed | body | yes | yes |
 
   - All four use hands alternate, defence cover, combinations none and spacing 0.
   - Kicker uses `ARENA_KICKS = {...KICK_PATH, swingSeconds:.3, contactSpeed:3}`.
-  - `matchup.ts`, `models.ts` and `research/arena-combat.mjs` all read `PRESETS`.
+  - `matchup.ts`, `models.ts` and `research/arena-combat.mjs` read the registry's presets.
 - **Test-only options:**
   - `defenseMode`, `repertoire` vertical/boxing, `combinations`, `overlap`, `spacingStep` and
-    `hand` become ordinary panel fields.
-  - `paths`, `execution`, `turnLimit` and `turnStartup` move under `tuning` (research only).
+    `hand` become ordinary fields.
+  - `paths`, `execution`, `turnLimit` and `turnStartup` move under `tuning`.
 
-### Chunk 14: targets by spec, and one tactics module (bit-identical)
+### Chunk 14: shared tactics parts, and targets by spec (bit-identical)
 
 **`mind/targets.ts`**
-- `nearestFoe(senses, from, standingOnly)`: a strict `<` scan, which matches today's
-  tie-breaks.
+- `nearestFoe(senses, from, rule)`: a strict `<` scan, which matches today's tie-breaks.
+  - `rule: "standing"` skips a foe that is out.
+  - `rule: "standing-first"`, Classic's `seekFoe`, takes one that is out only when none stands.
 - `nearestSurface(foes, from, accept)`.
-- They replace the copies in `mind/combat.ts`, `kick-combat.ts`, `reptile/tactics.ts` and
-  `ground-*`.
+- They replace the copies in `seekFoe`, `mind/combat.ts`, `kick-combat.ts`,
+  `reptile/tactics.ts` and `ground-*`.
 
 **`BodySpec.marks`**
-- `{high, middle[], legs[]}`; humans `head`, `[upperTrunk, middleTrunk]`, `[shank.*]`; the
-  reptile its own segments.
+- `{high, middle[], legs[]}`: for humans `head`, `[upperTrunk, middleTrunk]` and `[shank.*]`;
+  for the reptile, its own segments.
 - The observer's sourced `lowBelow` (.8 m) is used by `lowOpponent`.
-- `openings`, `kick-combat` and `ground-*` read marks instead of human segment names, in the
+- `seekFoe` (with the recipe bands, `BANDS`, now read as `marks.high` and `marks.middle[0]`),
+  `openings`, `kick-combat` and `ground-*` read marks instead of human segment names, in the
   same order.
 
-**One tactics module**
-- `mind/combat.ts` becomes `fighterTactics(spec, config, resolved, orders)`.
-- It has one state, `{strike, ground, kick, …}`.
+**Order-following is one part**
+- The order-following half of `fighterTactics` (walk, strafe, face, guard or cover) becomes
+  `orderedTactics` in `mind/ordered.ts`, with `STRAFE`.
+- The recipe fighter's tactics are `orderedTactics` plus its own attack memory and `seekFoe`.
+  The path fighter's tactics use `orderedTactics` where they call `fighterTactics` today.
+
+**The path fighter's tactics are one module**
+- `mind/combat.ts` becomes `pathTactics(spec, config, resolved, orders)`, with one state,
+  `{strike, ground, kick, …}`.
 - The kick folds in as a part rather than a decorator, keeping today's call order: an active
-  kick returns early; otherwise base, then kick admission.
+  kick returns early; otherwise base, then kick admission. `kick-combat.ts` is deleted.
 - One `nextHand(mode, counts)` predicate is exported from `intent.ts`.
-- `kick-combat.ts` is deleted.
 
 ### Chunk 15: one attack vocabulary and one effector strike (pose bit-identical; state reshaped, except overlap)
 
 **The vocabulary**
 
 ```ts
-type Attack = {kind:"punch"; hand; target; family; targetId?; direction?; armExtension?}
+type Attack = {kind:"blow"; hand; target; targetId?; path?: {family; direction?; armExtension?}}
             | {kind:"kick"; foot; target; targetId?} | {kind:"bite"; target; commit; targetId?};
 ```
 
 - `Intent = {move, face, lower?, guard:Record<Side, Cover|null>, attack:Attack|null}`.
 - `HandAction`, `CombatAction`, `KickAction`, `Intent.combat` and `Intent.kick` go.
-- The skills switch on `attack.kind` with a `never` default.
-- `Orders.attack` stays a world point, because tapes carry it; the fighter makes it a straight
-  punch.
+- The recipe fighter emits `{kind:"blow", hand:"right", target}`; the recipe skill carries it
+  out and reads no `path`. The path fighter always gives `path`.
+- The skills switch on `attack.kind` with a `never` default, and refuse a kind they do not
+  carry out.
+- `Orders.attack` stays a world point, because tapes carry it.
 
 **`skills/effector-strike.ts`: `effectorStrike(body, def)` over `advanceStrike`**
 
@@ -264,12 +326,12 @@ type Attack = {kind:"punch"; hand; target; family; targetId?; direction?; armExt
   - phase → `EffectorGoal`, with impact.
 - `StrikeDef = {effector, point, frame, path, cycle, impact|null, support, prepared}`.
 - `skills/strike-defs.ts` holds:
-  - the punch definitions (path from `attackPath`);
+  - the path blows' definitions (path from `attackPath`);
   - the kick definition;
-  - one `IMPACT` constant `{.04,.04,.5}` shared by punch and kick;
+  - one `IMPACT` constant `{.04,.04,.5}` shared by blow and kick;
   - the limits records, made once.
 
-**Punch**
+**Path blows**
 - One instance per hand. Overlap is the other instance still returning: the `returning` copy
   goes, and the missing `released` check comes back. That is an intended change to overlap only,
   a test-only option.
@@ -282,9 +344,10 @@ type Attack = {kind:"punch"; hand; target; family; targetId?; direction?; armExt
 **Smaller fixes**
 - One `smoothElbow()` replaces the duplicated elbow smoothstep.
 - The combat skill's cycle fields nest under `cycle`, as in kick and bite.
-- `SkillOptions` becomes `{fighter: ResolvedFighter}`, and `combatSkills` loses its positional
-  parameters.
-- `driveBy` always installs the release hook.
+- `combatSkills(body, resolved)` loses its positional parameters.
+- `StrikeReport` keeps what a reader reads; each skill fills what it has. The recipe skill's
+  `nets`, `chosen` and `distance` are read by `seekFoe` and the Lab. The path skill's fixed
+  `nets`/`chosen: null` fill-ins go behind an optional field.
 
 **Also update:** `research/arena-combat.mjs`'s witness readers.
 
@@ -296,8 +359,8 @@ type Attack = {kind:"punch"; hand; target; family; targetId?; direction?; armExt
   shared vocabulary.
 - `control/point-strike.ts` stays for `/control-tasks.html`. Its phases map onto `advanceStrike`,
   and `docs/reference/point-strike*` is re-measured.
-- **Battery:** `research/reptile-control.mjs` before and after, plus Reptile v Warrior/Scrapper at
-  n=384, paired and side-split.
+- **Battery:** `research/reptile-control.mjs` before and after, plus Reptile v Warrior/Classic
+  and Reptile v Warrior/Scrapper at n=384, paired and side-split.
 
 ### Chunk 17: one combatant path and screen fixes (Arena bit-identical; Crypt intended)
 
@@ -308,7 +371,7 @@ type Attack = {kind:"punch"; hand; target; family; targetId?; direction?; armExt
   and `itemOf`, and the four held vocabularies. `readHeld` and `Duel` agree on refusing a club
   for a body that cannot hold one.
 - **`Orders.foe?: string`:**
-  - The Crypt orders a sensed id. The fighter aims at the foe's `marks.high`, the reptile at
+  - The Crypt orders a sensed id. A fighter aims at the foe's `marks.high`, the reptile at
     `nearestSurface`.
   - This deletes `run.ts`'s private bite targeting and its `body.physical.head` read from
     outside the senses.
@@ -319,21 +382,25 @@ type Attack = {kind:"punch"; hand; target; family; targetId?; direction?; armExt
   - `strike-hands.ts` is one switch over `Minded` with no quadruped special case.
   - The reptile's eye positions come from spec points.
 
-### Chunk 18: Arena "Fighter settings" panel and links (presets unchanged)
+### Chunk 18: Arena controller settings panel and links (presets unchanged)
 
-- **One table drives everything:** `arena/fighter-fields.ts` `FIGHTER_FIELDS` gives each field's
-  label, options or range, `read` and `write`. It drives the panel, `readMinds` and the link
-  writer.
+- **Each controller declares its fields:** `Controller.fields` gives each field's label, options
+  or range, `read` and `write`. The fields drive the panel, `readMinds` and the link writer, for
+  every controller:
+  - the recipe fighter: guard, aim, range and recovery;
+  - the path fighter: the chunk 13 fields and recovery;
+  - the quadruped: none yet.
 - **Link schema:** `control=<preset>,<preset>` plus `&left.<field>=` / `&right.<field>=`
   overrides.
   - A bad value falls back to the preset's value.
-  - A config `fighterFaults` refuses falls back to the preset, and the panel shows the fault.
+  - A config `faults` refuses falls back to the preset, and the panel shows the fault.
   - `tuning` never travels in a link.
-- **Panel:** a `<details>` under each humanoid side's Controller, with pointer-event rules per
-  AGENTS.md.
+  - `&guard=` is read once more, as both sides' `guard`, then dropped from written links.
+- **Panel:** a `<details>` "Settings" under each side's Controller, shown when the controller
+  has fields, with pointer-event rules per AGENTS.md.
 - **Replays:** tapes replay with the same parameters.
-- **Tests:** the matchup round trip, an old `point-*`/`classic` link, and refused combinations.
-  Check in the browser (preview port, kill by PID).
+- **Tests:** the matchup round trip for each controller, an old `point-*` or `&guard=` link, and
+  refused combinations. Check in the browser (preview port, kill by PID).
 
 ### Chunk 19: one `Side` union (landed)
 
@@ -352,25 +419,25 @@ record:
 ### Chunk 21: documents and figures
 
 - **Plans:**
-  - Delete `docs/plans/2026-10-02-strikes.md`.
-  - Rewrite `2026-10-06-arena-combat.md` and `2026-10-06-striking-and-kicks.md` around the one
-    fighter, or delete what has landed.
-  - Correct the rising plans' mentions of `FIGHTER` and Classic.
+  - Delete `docs/plans/2026-10-02-strikes.md` if it has landed, or correct it to the recipe
+    fighter's names.
+  - Rewrite `2026-10-06-arena-combat.md` and `2026-10-06-striking-and-kicks.md` around the
+    controllers, or delete what has landed.
+  - Correct the rising plans' mentions of `FIGHTER`.
 - **`docs/architecture.md`:**
   - the body-neutral body;
   - the effector-only command;
   - down as body data;
   - `hostedBody`;
-  - the fighter config and presets;
+  - the controller registry, each controller's config and presets;
   - the attack union;
   - the effector strike and its definitions.
 - **README:**
   - the controller list and settings panel;
-  - re-measured figures: a new `docs/reference/fighter-presets.md` round-robin of Combat,
-    Brawler, Scrapper and Kicker on Warrior, fists and club, n=384 per cell, paired and
-    side-split;
+  - re-measured figures: a new `docs/reference/controller-presets.md` with each path preset
+    against Classic on Warrior, fists and club, n=384 per cell, paired and side-split;
   - the Reptile text.
-- **AGENTS.md:** its page parameters (`control`, `recovery`, `appearance`, the fighter fields).
+- **AGENTS.md:** its page parameters (`control`, `recovery`, `appearance`, the per-side fields).
 - **Reference records** stay as history. Wherever they name deleted code, cite it as
   `path@<commit>`.
 
@@ -381,18 +448,20 @@ record:
   fails.
 - **Batteries for the intended changes:**
   - the club check (chunk 2);
-  - Crypt blows before and after (chunk 11);
-  - reptile control and Reptile v Scrapper (chunk 16);
+  - reptile control, and the Reptile against both fighters (chunk 16);
   - one per chunk-20 item;
-  - the preset round-robin (chunk 21).
+  - the presets against Classic (chunk 21).
 - **Browser checks** on a private preview port, killed by PID:
   - an Arena bout per preset;
-  - the settings panel, with an edited link and a replay;
+  - the settings panel for both fighters, with an edited link and a replay;
   - Crypt with the reptile pack;
   - the Lab's Routine and Blow;
   - `/control-tasks.html`.
 - **End state:**
+  - `createMind` dispatches through `CONTROLLERS`, which is also the one source of what fits a
+    body, the presets and the settings.
+  - Each controller composes its skills itself; there is no flag bag choosing a stack.
+  - One strike cycle serves path blows, kicks and bites; the recipe skill serves the recipe
+    fighter.
   - `grep` finds no `hand.left`, `shank.`, `upperTrunk` or `"head"` literals in `src/core/mind`,
-    `skills` or `control` outside the spec and marks;
-  - `createMind` has three kinds: fighter, direct and quadruped;
-  - one strike skill serves punch, kick and bite.
+    `skills` or `control` outside the spec, the marks and the recipe data.
