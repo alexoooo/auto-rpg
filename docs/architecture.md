@@ -384,7 +384,7 @@ boundary and saved with the body; below full it retains that last sample. Game p
 and readiness stay in its own `BodyView`. When a body is down is its spec's rule (`BodySpec.down`,
 read by `uprightness`): a human by its height under the height it is asked, the reptile by its
 trunk's tilt and its height. The fighter's view reads it at the height its stance asks; every other
-mind's `physical.down` and `observe().down` read it at the standing height.
+mind's `physical.down` and `observe().down` read it at the standing height. A body answers `Body.down` as its mind read it at its look, before physics moves it, so a fight sees every body down at the same point in its step ([reference/down-timing.md](reference/down-timing.md)).
 
 Replacement policies use `createPolicyBody` (`mind/direct.ts`). They receive a frozen actuator
 description and detached, frozen `BodyObservation` snapshots (`observation.ts`), including joint

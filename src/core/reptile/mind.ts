@@ -45,17 +45,19 @@ export function createQuadrupedMind(built: BuiltBody, world: World, wiring: Part
     const tracker = effectorTracker(built, motor.root), frame = { position: new Vector3(), rotation: new Quaternion() }, target = new Vector3();
     const inverse = new Quaternion(), desired = new Quaternion(), flat = new Quaternion(), lift = new Vector3(), descending = new Vector3();
     const turn = new Quaternion(), front = new Vector3(), forward = new Vector3(0, 0, 1), still = new Vector3();
+    // What the look reads of the body's heading and whether it is down, kept with the body's state.
+    const look = { yaw: 0, down: false };
     const view: QuadrupedView = { centre: motor.state.centre, velocity: motor.state.velocity, feet: motor.state.endpoints,
-      senses: senses(), yaw: 0, down: false };
+      senses: senses(), get yaw() { return look.yaw; }, get down() { return look.down; } };
     const reading = view as { -readonly [K in keyof QuadrupedView]: QuadrupedView[K] };
     const read = (s: Senses) => {
       motor.read(); turnOfToRef(motor.root, turn); forward.applyRotationQuaternionToRef(turn, front);
-      reading.senses = s; reading.yaw = atan2(front.x, front.z); reading.down = down();
+      reading.senses = s; look.yaw = atan2(front.x, front.z); look.down = down();
     };
     const snap = bite(own, tracker), tactics = quadrupedTactics(own, view => orders(view.senses)), skills = [skill, snap];
     const sight = { view, bite: snap.state.cycle };
     read(senses()); for (const s of skills) s.resume(view);
-    const host: HostMind = { name: "crawl", state: { motor: motor.state, crawl: skill.state, bite: snap.state, tracker: tracker.state }, look: read,
+    const host: HostMind = { name: "crawl", state: { motor: motor.state, crawl: skill.state, bite: snap.state, tracker: tracker.state, look }, look: read,
       step(s: Senses, dt: number) { read(s); this.act(dt); }, act(dt: number) {
       const intent = tactics.decide(sight, dt);
       const busy = snap.state.cycle.phase !== null;
@@ -79,7 +81,8 @@ export function createQuadrupedMind(built: BuiltBody, world: World, wiring: Part
       const tracked = tracker.step(own.muscles, command.posture, dt, false, true);
       motor.control(command, dt, i => snap.tracked(i) ?? tracked(i));
     }, release() { tracker.reset(); for (const s of skills) s.resume(view); }, resume() { motor.resume(); tracker.reset(); for (const s of skills) s.resume(view); } };
-    return { host, subs: [recover(own, motor, tracker, paws, view)], down };
+    // Down as the mind read it at its look, as every body answers: `docs/reference/down-timing.md`.
+    return { host, subs: [recover(own, motor, tracker, paws, view)], down: () => look.down };
   });
   return { kind: "quadruped" as const, body, state: {} };
 }

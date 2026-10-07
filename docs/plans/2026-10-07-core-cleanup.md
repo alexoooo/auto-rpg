@@ -48,8 +48,8 @@ refactoring along the way allowed.
     then the reading hook.
   - `hosting`: look first, then `wants` in rank order (it short-circuits), then release or end,
     then begin or resume.
-  - The humanoid reads down from the previous `standing` before its driver runs. Its down is
-    cached at look; the reptile's is read live.
+  - The humanoid reads down from the previous `standing` before its driver runs. Every body's down
+    is cached at look.
   - The reptile acts in this order: decide, withdraw, crawl, bite, paws in declared order,
     `tracker.step`, `motor.control`.
 - **Commit this plan** as `docs/plans/2026-10-07-core-cleanup.md`, keep it current, and delete it
@@ -396,6 +396,25 @@ and after (both moved by a 1e-9 perturbation of the helper, so both run through 
 stay each caller's: a planted pose's free sole is damped at its rate and pressed down, a supported
 endpoint damped at twice its rate, and making them one would change the kick for sameness alone.
 The staged rise keeps its own turn, since it reads the steady spin again to know the turn is done.
+
+**As built (20b, landed): the club by `cylinderMoments`, bit-identical.** The club's two
+cylinders take their moments from the shared rule and move them to its centre; the moments come
+out the same to the bit (m (L/2)^2 / 3 and m L^2 / 12 round alike here), and the lock's seven club
+cases moved no pose.
+
+**As built (20c): no change, and why.** `recoveryReady` refuses any contact off the supports it
+is given, and a standing reptile rests its tail's tip on the ground at every step (11 s on the
+stand: the four paws and `tail.tip`, nothing else); it also has no height, which the crawl's
+handover needs. Naming the tail a support would put it in the support polygon the centre is held
+over. The reptile's gate stays its own (`recover.ts`), on the shared `groundContact`. The
+shared lie (`lieOf`) reads a humanoid's frame, a lying body's forward pointing up; the reptile's
+roll reads its own up, which is right for a body whose back is up.
+
+**As built (20d, landed): one down timing.** The reptile's body answers `down` from its view, read
+at its look, as a humanoid's does. No lock case moved (no reptile falls in them); a paired
+99-bout battery (`research/reptile-down.mjs`, `docs/reference/down-timing.md`) has the reptile
+down in the same 46 bouts both ways, each ended by its fall one step later, the winner and ending
+unchanged, and the other 53 the same to the step.
 
 ### Chunk 21: documents and figures
 
