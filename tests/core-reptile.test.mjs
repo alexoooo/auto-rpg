@@ -15,7 +15,6 @@ import { createSenses } from "../src/core/mind/senses.ts";
 test("the reptile has its own complete sourced anatomy", () => {
   const spec = reptileSpec();
   assert.deepEqual(specProvenanceFaults(spec), []);
-  assert.equal(spec.family, "reptile");
   assert.equal(spec.mass.value, 8);
   assert.equal(spec.wounds.hp.value, 1);
   assert.equal(spec.attributes.balance.value, 0);

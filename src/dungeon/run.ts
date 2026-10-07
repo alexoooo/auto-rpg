@@ -585,7 +585,7 @@ export class DungeonRun {
         member.next = 0; member.replan = true;
         if (order.kind !== "idle") member.post = null;
       }
-      this.notice = order.kind === "force" ? "Force move â€” following your drawn route" : "Find the illuminated exit.";
+      this.notice = order.kind === "force" ? "Force move — following your drawn route" : "Find the illuminated exit.";
     }
     for (const member of this.party) if (member.replan) {
       member.replan = false; member.route = []; member.goal = null; member.target = null; member.lastSeen = null;

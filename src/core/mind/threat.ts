@@ -86,8 +86,8 @@ export function threatOf(view: BodyView, counts: Threat = THREAT, prediction?: {
   return threat && { threat, guarded: [head.x, head.y, head.z] };
 }
 
-/** Predictive defense search cells: `docs/reference/combat-defense.md#settings`. */
-const DEFENSE = Object.freeze({ out: .3, horizon: .3, speed: 3, reserve: .08, minimum: .05 });
+/** Predictive defense search cells, the reference cover's plane among them: `docs/reference/combat-defense.md#settings`. */
+export const DEFENSE = Object.freeze({ out: .3, horizon: .3, speed: 3, reserve: .08, minimum: .05 });
 
 /** Detached constant-motion threat, corrected for sample age and the guarded point's own motion. */
 export function incomingThreat(view: BodyView, ownVelocity: Vec3, counts: Threat = THREAT) {

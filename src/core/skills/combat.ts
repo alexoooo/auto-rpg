@@ -2,7 +2,7 @@ import { kickSkill, type KickTuning } from "./kick.ts";
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { Body, BodyCommand, BodyView } from "../body.ts";
 import { intoFrameToRef } from "../control/kinematics.ts";
-import type { Hand, HandGoal, Pose } from "../control/motor.ts";
+import type { Hand, EffectorGoal, Pose } from "../control/motor.ts";
 import { hypot } from "../math/real.ts";
 import { validArmExtension, type CombatAction } from "../mind/intent.ts";
 import type { Vec3 } from "../spec/quantity.ts";
@@ -120,7 +120,7 @@ export function combatSkills(body: Body, tuning: AttackTuning = ATTACK_PATH, tac
       state.touching = (view.handFeedback?.[requested.hand].impulse ?? 0) > 0;
       transition("chamber", velocities[requested.hand]);
     }
-    let posture: Pose = GUARD, goal: HandGoal | null = null;
+    let posture: Pose = GUARD, goal: EffectorGoal | null = null;
     const hand = state.hand;
     if (hand) {
       const at = state.previous[hand]!, action = state.action!, home = state.home!, chamber = state.chamber!;
@@ -168,7 +168,7 @@ export function combatSkills(body: Body, tuning: AttackTuning = ATTACK_PATH, tac
         }
       }
     }
-    let returningGoal: HandGoal | null = null;
+    let returningGoal: EffectorGoal | null = null;
     const returning = state.returning;
     if (returning) {
       returning.time += dt;

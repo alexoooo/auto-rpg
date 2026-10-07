@@ -16,7 +16,7 @@
 import { parseArgs } from "node:util";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { SIDES } from "../src/arena/duel.ts";
-import { HUMANOID_MODELS as BODY_MODELS } from "../src/core/models.ts";
+import { HUMANOID_MODELS } from "../src/core/models.ts";
 import { FIGHTER } from "../src/core/mind/config.ts";
 import { THREAT, threatOf } from "../src/core/mind/threat.ts";
 import { GUARD_COVER } from "../src/core/skills/guard.ts";
@@ -27,7 +27,7 @@ const { values } = parseArgs({ options: {
   models: { type: "string", default: "workshop-fighter,workshop-rogue" }, threat: { type: "string" }, list: { type: "boolean", default: false },
 } });
 const gaps = values.gaps.split(",").map(Number), delay = Number(values.delay), models = values.models.split(",");
-for (const model of models) if (!BODY_MODELS.includes(model)) throw new Error(`--models names no body: ${model} (one of ${BODY_MODELS.join(", ")})`);
+for (const model of models) if (!HUMANOID_MODELS.includes(model)) throw new Error(`--models names no body: ${model} (one of ${HUMANOID_MODELS.join(", ")})`);
 const threat = values.threat ? JSON.parse(values.threat) : THREAT;
 
 /** One bout with `covers` covering: its head's blows as the step before each left them, and the bout's counts. */

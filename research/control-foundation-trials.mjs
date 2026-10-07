@@ -17,7 +17,7 @@ import { createPointStrikeProbe } from "../src/core/tasks/point-strike.ts";
 import { createDefenseProbe } from "../src/core/tasks/defense.ts";
 import { saveState, loadState } from "../src/core/state.ts";
 import { reachAction, reachFrame } from "../src/core/tasks/reach-policy.ts";
-import { HUMANOID_MODELS as BODY_MODELS } from "../src/core/models.ts";
+import { HUMANOID_MODELS } from "../src/core/models.ts";
 import { FIGHTER } from "../src/core/mind/config.ts";
 import { createMind } from "../src/core/mind/minds.ts";
 import { STAND_ORDERS } from "../src/core/mind/orders.ts";
@@ -41,7 +41,7 @@ const suites = ["baseline", "recovery", "strike-block", "point-strike", "moving-
 
 /** Fully specified starts; a seed selects geometry, not a hidden source of simulation noise. */
 export function foundationJobs({ suite = "baseline", split = "development", samples = FOUNDATION.samples,
-  hz = 120, models = BODY_MODELS, from = 0, actuation = "symmetric", support = "pinned", centreControl = false, continueSeconds = 1, shared = false, jointStops = false } = {}) {
+  hz = 120, models = HUMANOID_MODELS, from = 0, actuation = "symmetric", support = "pinned", centreControl = false, continueSeconds = 1, shared = false, jointStops = false } = {}) {
   if (typeof jointStops !== "boolean" || jointStops && !["bar", "point-strike", "moving-strike", "defense"].includes(suite)) throw new Error("joint-stop prediction requires a motion probe suite");
   if (!suites.includes(suite)) throw new Error(`unknown suite ${suite}`);
   if (!["symmetric", "directional"].includes(actuation)) throw new Error(`unknown actuation ${actuation}`);
@@ -54,7 +54,7 @@ export function foundationJobs({ suite = "baseline", split = "development", samp
     || from + samples > FOUNDATION.maximumSamples) throw new Error("sample range must stay within its split");
   if (!Number.isSafeInteger(hz) || hz < 120 || hz % 120 !== 0) throw new Error("hz must be a positive multiple of 120");
   if (suite === "reach" && hz !== 120) throw new Error("the reach environment runs at 120 Hz");
-  if (!models.length || new Set(models).size !== models.length || models.some((m) => !BODY_MODELS.includes(m))) throw new Error("models must name distinct known bodies");
+  if (!models.length || new Set(models).size !== models.length || models.some((m) => !HUMANOID_MODELS.includes(m))) throw new Error("models must name distinct known bodies");
   const jobs = [];
   const add = (job) => {
     const config = { protocol: FOUNDATION.version, split, hz, actuation, ...(jointStops ? { jointStops } : {}), ...job };

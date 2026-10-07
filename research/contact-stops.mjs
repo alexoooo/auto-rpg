@@ -14,7 +14,7 @@ import { nearJointStops } from "../src/core/control/joint-stops.ts";
 const zero = [0, 0, 0], dimensions = [[1.2, .2, .6], [.6, .1, .2]];
 const q = (v, unit = "m") => sourced(v, unit, "de-leva-1996", "synthetic ground and angular-stop fixture; not anatomical data");
 const speed = { unloadedSpeed: q(30, "rad/s"), curvature: q(.25, "1"), eccentricCeiling: q(1.4, "1"), eccentricSlopeRatio: q(2, "1") };
-const fixtureSpec = (sense) => ({ family: "test", model: "contact-stop", mass: q(11, "kg"), stature: q(.65),
+const fixtureSpec = (sense) => ({ model: "contact-stop", mass: q(11, "kg"), stature: q(.65),
   segments: [[0, .1, 10], [sense * .6, .6, 1]].map(([x, y, mass], i) => ({ name: i ? "arm" : "base", proximal: q([x, y + .05, 0]), distal: q([x, y - .05, 0]),
     mass: q(mass, "kg"), centreOfMass: q([x, y, 0]), inertia: q(i ? [.01, .04, .04] : [.4, 1.2, 1.2], "kg m2"),
     shape: { kind: "box", centre: q([x, y, 0]), size: q(dimensions[i]) }, surface: { stiffness: q(1e5, "N/m") } })),

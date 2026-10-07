@@ -32,7 +32,7 @@
 import { appendFileSync, readFileSync } from "node:fs";
 import { parseArgs } from "node:util";
 import { DUEL_HELD, SIDES } from "../src/arena/duel.ts";
-import { HUMANOID_MODELS as BODY_MODELS } from "../src/core/models.ts";
+import { HUMANOID_MODELS } from "../src/core/models.ts";
 import { FIGHTER } from "../src/core/mind/config.ts";
 import { BOUT_HARNESS } from "./bout.mjs";
 import { defaultLanes, playBouts } from "./bout-pool.mjs";
@@ -45,7 +45,7 @@ const { values } = parseArgs({ options: {
 const bouts = Number(values.bouts), from = Number(values.from), delays = values.delays.split(",").map(Number);
 const helds = values.held.split(","), models = values.models.split(","), variants = JSON.parse(values.variants);
 for (const held of helds) if (!DUEL_HELD.includes(held)) throw new Error(`--held is of ${DUEL_HELD.join(", ")}, not ${held}`);
-for (const model of models) if (!BODY_MODELS.includes(model)) throw new Error(`--models names no body: ${model} (one of ${BODY_MODELS.join(", ")})`);
+for (const model of models) if (!HUMANOID_MODELS.includes(model)) throw new Error(`--models names no body: ${model} (one of ${HUMANOID_MODELS.join(", ")})`);
 
 /** The gaps the bouts start at, m: from `GAPS.least`, over `GAPS.span`, to a tenth of a millimetre. */
 const GAPS = { least: 3, span: 2 }, GOLDEN = (Math.sqrt(5) - 1) / 2;

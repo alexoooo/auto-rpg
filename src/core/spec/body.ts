@@ -24,9 +24,7 @@ import { cross, normalize, orthogonalTo, sub } from "./vec.ts";
  * mass -- reads both.
  */
 export interface BodySpec {
-  /** The family's name, such as `human` or `skeleton`; a spec never spreads another family's spec. */
-  readonly family: string;
-  /** Which body of the family, such as `workshop-fighter`. */
+  /** Which body it is, such as `workshop-fighter`; a spec never spreads another family's spec. */
   readonly model: string;
   /** Whole-body mass: the segments' masses sum to it. */
   readonly mass: Quantity<number>;
@@ -44,15 +42,15 @@ export interface BodySpec {
   readonly held?: readonly HeldSpec[];
 }
 
+/** What a thing is made of, where it meets another: a body's flesh or bone, an item's wood, the world's stone. */
+export type Substance = "flesh" | "bone" | "wood" | "stone";
+
 /**
  * **An item held rigidly in a segment**, as a club is in a closed hand: it moves with the segment
  * as one rigid body. `origin`, `along` and `across` place the item's frame in the body frame, in
  * the reference pose, as a segment's ends and right place its frame (`segmentFrame`): y along
  * `along`, x `across` made square to it, z = x cross y.
  */
-/** What a thing is made of, where it meets another: a body's flesh or bone, an item's wood, the world's stone. */
-export type Substance = "flesh" | "bone" | "wood" | "stone";
-
 export interface HeldSpec {
   /** The segment that holds it. */
   readonly segment: string;

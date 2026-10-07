@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {Vector3,Quaternion} from '@babylonjs/core/Maths/math.vector.js';
 import {locomotion,validTurnStartup} from '../src/core/skills/locomotion.ts';
 import {combatTurn} from '../research/combat-locomotion.mjs';
-import {ARENA_SCRAPPER_REFERENCE} from '../src/core/mind/config.ts';
+import {ARENA_SCRAPPER} from '../src/core/mind/config.ts';
 import {buildBout} from '../research/bout.mjs';
 import {loadEngine,DEFAULT_ENGINE} from '../src/core/engine/engines.ts';
 import {traceOf} from './harness/trace.mjs';
@@ -41,7 +41,7 @@ test('a brief startup ceiling permits fast established turns without the unassis
 });
 
 test('Arena startup timing forks during setting off and resets under ordinary standing orders',async()=>{
- const candidate={...ARENA_SCRAPPER_REFERENCE,turnLimit:4,turnStartup:startup};
+ const candidate={...ARENA_SCRAPPER,turnLimit:4,turnStartup:startup};
  const make=async()=>buildBout({left:'workshop-fighter',right:'workshop-fighter',gap:3,capSeconds:20,recoverySeconds:null,
   balance:{left:0,right:0},held:{left:'empty',right:'empty'},minds:{left:candidate,right:candidate}}, {physicsEngine:await loadEngine(DEFAULT_ENGINE)});
  const a=await make(),b=await make();

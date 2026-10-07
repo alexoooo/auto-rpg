@@ -25,14 +25,12 @@ export interface MusclePush {
 }
 
 export type { EffectorGoal } from "./effector-tracker.ts";
-/** Compatibility name for the hand adapters. */
-export type HandGoal = EffectorGoal;
 
 /**
  * **Motor control: goals in, muscle commands out.** A body is given a posture (angles for the
  * freedoms, by name, the rest held at their reference angles) and, for each hand, places for
  * named points of its rigid body (its knuckles, a point of what it holds) in the body frame (the
- * root's frame, `kinematics.ts`) and the time to get there (`HandGoal`). Each point travels a
+ * root's frame, `kinematics.ts`) and the time to get there (`EffectorGoal`). Each point travels a
  * straight, minimum-jerk path from where it is; each step the paths' points become the
  * shoulder's, the elbow's and the wrist's angles by inverse kinematics, with the trunk at the
  * posture's angles, and the servo (`servo.ts`) follows those angles with their rates and
@@ -65,7 +63,7 @@ export interface MotorControl {
    * hand's rigid body has not, no place or more than two, and two places whose distance apart
    * differs from their points' by more than `PLACES_SLACK`.
    */
-  reach(hand: Hand, goal: HandGoal): void;
+  reach(hand: Hand, goal: EffectorGoal): void;
   /** Give `hand`'s arm back to the posture. */
   release(hand: Hand): void;
   /** Drive `pushes` flat out from `control`'s next call, in place of those before. */
@@ -80,8 +78,6 @@ export interface MotorControl {
   readonly stance: StanceControl;
   /** Where the path of `hand`'s first place stands now (body frame), or null with no goal. */
   path(hand: Hand): Vector3 | null;
-  /** Where `hand`'s knuckles are now, body frame. */
-  knucklesToRef(hand: Hand, out: Vector3): Vector3;
   /** Where `point` of `hand`'s rigid body is now, body frame. */
   pointToRef(hand: Hand, point: string, out: Vector3): Vector3;
   /** The segment whose frame the body frame is carried by. */
@@ -145,7 +141,6 @@ export function motorControl(built: BuiltBody, seconds: number, posture: Pose = 
     },
     stance, state,
     path: (hand) => tracker.path(`hand.${hand}`),
-    knucklesToRef: (hand, out) => tracker.pointToRef(`hand.${hand}`, "knuckles", out),
     pointToRef: (hand, point, out) => tracker.pointToRef(`hand.${hand}`, point, out),
     root,
   };

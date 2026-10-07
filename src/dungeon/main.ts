@@ -234,9 +234,9 @@ function setPaused(page: DungeonPage, value: boolean): void {
   need("pause-title").textContent = pauseTitle(run.status, run.party.length);
   need("pause-copy").textContent = run.status === "playing"
     ? "Your run is frozen. Wheel zoom remains available."
-    : `Seed ${page.seed} Â· ${Math.floor(run.clock)} seconds in the depths.`;
+    : `Seed ${page.seed} · ${Math.floor(run.clock)} seconds in the depths.`;
   need("resume").hidden = run.status !== "playing";
-  need("pause-button").textContent = value ? "Resume Â· Esc" : "Pause Â· Esc";
+  need("pause-button").textContent = value ? "Resume · Esc" : "Pause · Esc";
 }
 
 /** Points the camera and the light at the leader. The reference chamber keeps its composed view when the zoom is
@@ -412,7 +412,7 @@ async function launch(page: DungeonPage, nextSeed: number): Promise<void> {
   if (page.launching) return;
   page.launching = true;
   start.disabled = true;
-  start.textContent = "Loadingâ€¦";
+  start.textContent = "Loading…";
   need("setup-error").hidden = true;
   need("start-panel").inert = true;
   try {
@@ -442,8 +442,8 @@ function wireControls(page: DungeonPage): void {
     page.run?.commands.setMode({ keyboard: keyboard.checked, facing: facing.checked });
     if (page.run) canvas.focus();
     need("control-help").textContent = keyboard.checked
-      ? facing.checked ? "WASD / arrows to move Â· cursor to face Â· attacks are automatic" : "WASD / arrows to move Â· AI faces and attacks"
-      : facing.checked ? "Cursor to face Â· AI explores, moves and attacks" : "Click to attack-move Â· click an enemy to lock on Â· drag to force move";
+      ? facing.checked ? "WASD / arrows to move · cursor to face · attacks are automatic" : "WASD / arrows to move · AI faces and attacks"
+      : facing.checked ? "Cursor to face · AI explores, moves and attacks" : "Click to attack-move · click an enemy to lock on · drag to force move";
   };
   keyboard.addEventListener("change", modeChanged, { signal });
   facing.addEventListener("change", modeChanged, { signal });
@@ -506,7 +506,7 @@ function wireParty(page: DungeonPage): Party {
       button.setAttribute("aria-pressed", String(run.selected.has(member.id)));
       button.classList.toggle("fallen", !member.alive);
       button.querySelector("progress")!.value = member.vitality;
-      button.querySelector("small")!.textContent = member.alive ? `Â· ${orderLabel(member.order, member.post, member === run.hero)}` : "Â· fallen";
+      button.querySelector("small")!.textContent = member.alive ? `· ${orderLabel(member.order, member.post, member === run.hero)}` : "· fallen";
     }
   };
   const selectMember = (id: string, add: boolean) => {

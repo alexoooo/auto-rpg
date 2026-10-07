@@ -22,7 +22,7 @@ const bodyMass = () => sourced(79, "kg", "de-leva-1996", "a stand-in leaf for th
 function tinySpec() {
   const share = si(thighPercent());
   const body = bodyMass();
-  return { family: "test", segments: [{ name: "thigh", mass: derive("kg", "share of body mass", [share, body], (f, m) => f * m) }] };
+  return { segments: [{ name: "thigh", mass: derive("kg", "share of body mass", [share, body], (f, m) => f * m) }] };
 }
 
 test("a spec whose every number rests on a source keeps the rule", () => {

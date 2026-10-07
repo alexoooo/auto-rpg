@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {rangeLearning,validRangeLearning} from '../src/core/mind/range-learning.ts';
-import {ARENA_SCRAPPER_REFERENCE} from '../src/core/mind/config.ts';
+import {ARENA_SCRAPPER} from '../src/core/mind/config.ts';
 import {combatTrial} from '../research/arena-combat.mjs';
 import {buildBout} from '../research/bout.mjs';
 import {loadEngine,DEFAULT_ENGINE} from '../src/core/engine/engines.ts';
@@ -45,7 +45,7 @@ test('range-learning settings reject nonfinite and negative active inputs',()=>{
  assert.equal(validRangeLearning(-.1,0),true);assert.equal(validRangeLearning(),true);
 });
 
-const candidate={...ARENA_SCRAPPER_REFERENCE,spacing:.1,spacingStep:.1};
+const candidate={...ARENA_SCRAPPER,spacing:.1,spacingStep:.1};
 test('observed clean misses correct physical self-play spacing without assistance or prolonged pressure',async()=>{
  const row=await combatTrial({left:candidate,right:candidate,recipe:{capSeconds:30}});
  for(const side of ['left','right']){

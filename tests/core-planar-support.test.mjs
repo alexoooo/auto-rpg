@@ -48,7 +48,7 @@ test("geometric plane support selects sphere, capsule endpoint/line and polyhedr
 
 const q = (v, unit = "m") => sourced(v, unit, "de-leva-1996", "synthetic sliding sphere");
 const radius = .1, hz = 1920;
-const spec = { family: "test", model: "slider", mass: q(1, "kg"), stature: q(.2), joints: [], segments: [{
+const spec = { model: "slider", mass: q(1, "kg"), stature: q(.2), joints: [], segments: [{
   name: "sphere", proximal: q([0, .2, 0]), distal: q(zero), mass: q(1, "kg"), centreOfMass: q([0, .1, 0]),
   inertia: q([.004, .004, .004], "kg m2"), shape: { kind: "sphere", centre: q([0, .1, 0]), radius: q(radius) },
   surface: { stiffness: q(1e5, "N/m") },

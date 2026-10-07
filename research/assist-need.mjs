@@ -13,7 +13,7 @@
  * fall the stance's ask has no bound.
  */
 import { parseArgs } from "node:util";
-import { HUMANOID_MODELS as BODY_MODELS } from "../src/core/models.ts";
+import { HUMANOID_MODELS } from "../src/core/models.ts";
 import { SIDES } from "../src/arena/duel.ts";
 import { BOUT_HARNESS } from "./bout.mjs";
 import { defaultLanes, playBouts } from "./bout-pool.mjs";
@@ -22,7 +22,7 @@ const { values } = parseArgs({ options: { gaps: { type: "string", default: "4" }
 const gaps = values.gaps.split(",").map(Number);
 
 const jobs = [];
-for (const gap of gaps) for (const left of BODY_MODELS) for (const right of BODY_MODELS) jobs.push({ recipe: { left, right, gap }, shortfall: true });
+for (const gap of gaps) for (const left of HUMANOID_MODELS) for (const right of HUMANOID_MODELS) jobs.push({ recipe: { left, right, gap }, shortfall: true });
 const started = Date.now();
 const rows = await playBouts(jobs, Number(values.workers ?? defaultLanes()));
 

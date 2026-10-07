@@ -5,7 +5,7 @@ import { HemisphericLight } from "@babylonjs/core/Lights/hemisphericLight.js";
 import { Color3, Color4 } from "@babylonjs/core/Maths/math.color.js";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { loadEngine } from "../core/engine/engines.ts";
-import { HUMANOID_MODELS as BODY_MODELS, type HumanoidModel as BodyModel } from "../core/models.ts";
+import { HUMANOID_MODELS, type HumanoidModel } from "../core/models.ts";
 import { createEnvironment } from "../core/tasks/environment.ts";
 import { createReachTask, type ReachTaskConfig } from "../core/tasks/reach.ts";
 import { reachAction, reachFrame } from "../core/tasks/reach-policy.ts";
@@ -23,8 +23,8 @@ const model = element<HTMLSelectElement>("model"), controller = element<HTMLSele
 
 /** The shared runner's reach settings (`docs/reference/control-foundation.md`), not anatomy. */
 function configuration(): ReachTaskConfig {
-  const chosen = model.value as BodyModel, control = controller.value;
-  if (!BODY_MODELS.includes(chosen) || (control !== "actuator" && control !== "layered")) throw new Error("unknown body or controller");
+  const chosen = model.value as HumanoidModel, control = controller.value;
+  if (!HUMANOID_MODELS.includes(chosen) || (control !== "actuator" && control !== "layered")) throw new Error("unknown body or controller");
   return { model: chosen, controller: control, actuation: "directional", gravity: true, pin: "lowerTrunk",
     channel: "elbow.right flexion", target: [0.5, 0.7], servoSeconds: 0.1, tolerance: 0.025, holdSteps: 120, engineRevision: engine.revision };
 }

@@ -417,7 +417,7 @@ export async function bootArena(): Promise<void> {
     // While either side is helped, each side's balance, per cent of its weight: the link's, or its character's.
     const helped = SIDES.some((side) => duel!.duelists[side].body.assist.on);
     const balance = SIDES.map((side) => duel!.recipe.balance?.[side] ?? duel!.duelists[side].built.spec.attributes.balance.value);
-    clock.textContent = `${duel.clock.toFixed(1)} s${helped ? ` Ã‚Â· balance ${balance.join(" / ")} %` : ""}${replaying ? " Ã‚Â· replay" : ""}`;
+    clock.textContent = `${duel.clock.toFixed(1)} s${helped ? ` · balance ${balance.join(" / ")} %` : ""}${replaying ? " · replay" : ""}`;
     if (duel.verdict && shown !== duel.verdict) {
       pauseButton.hidden = true;
       shown = duel.verdict;

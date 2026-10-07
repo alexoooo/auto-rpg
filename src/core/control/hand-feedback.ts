@@ -30,15 +30,7 @@ export function newHandContact(wasTouching: boolean, current: Pick<HandFeedback,
   return !wasTouching && (current?.impulse ?? 0) > 0;
 }
 
-/** Trusted body adapter, sampled before control from the last completed physics step. */
-export function handFeedback(built: BuiltBody, identity?: ContactIdentity,
-  external?: (hand: "left" | "right") => readonly HandContact[]) {
-  const feedback = effectorFeedback(built, ["hand.left", "hand.right"], identity,
-    external ? segment => external(segment === "hand.left" ? "left" : "right") : undefined);
-  return { state: { left: feedback.state["hand.left"]!, right: feedback.state["hand.right"]! }, read: feedback.read };
-}
-
-/** The same trusted contact and motion sampler for any declared physical endpoint. */
+/** Trusted contact and motion sampler for any declared physical endpoint, sampled before control from the last completed physics step. */
 export function effectorFeedback(built: BuiltBody, segments: readonly string[], identity?: ContactIdentity,
   external?: (segment: string) => readonly HandContact[]) {
   const make = () => ({ point: [0, 0, 0] as [number, number, number], velocity: [0, 0, 0] as [number, number, number],

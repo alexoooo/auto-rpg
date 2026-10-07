@@ -12,7 +12,7 @@ import { activeQuadratic } from "../src/core/math/active-quadratic.ts";
 
 const zero = [0, 0, 0], up = [0, 1, 0];
 const q = (v, unit = "m") => sourced(v, unit, "de-leva-1996", "synthetic free sliding slab");
-const spec = { family: "test", model: "sliding-slab", mass: q(1, "kg"), stature: q(.1), joints: [], segments: [{
+const spec = { model: "sliding-slab", mass: q(1, "kg"), stature: q(.1), joints: [], segments: [{
   name: "slab", proximal: q([0, .1, 0]), distal: q(zero), mass: q(1, "kg"), centreOfMass: q([0, .05, 0]),
   inertia: q([.02, .04, .04], "kg m2"), shape: { kind: "box", centre: q([0, .05, 0]), size: q([.6, .1, .4]) },
   surface: { stiffness: q(1e5, "N/m") },

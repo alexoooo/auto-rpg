@@ -28,7 +28,7 @@ function rod(peak = 400) {
     shape: { kind: "capsule", from: q(proximal), to: q(distal), radius: q(0.04) }, surface: { stiffness: q(1e5, "N/m") },
   });
   return {
-    family: "test", model: "rod", mass: q(3, "kg"), stature: q(1.5),
+    model: "rod", mass: q(3, "kg"), stature: q(1.5),
     segments: [segment("post", [0, 1.5, 0], [0, 1, 0], 2), segment("rod", [0, 1, 0], [0.3, 0.6, 0], 1)],
     joints: [{ name: "pin", parent: "post", child: "rod", centre: q([0, 1, 0]),
       dofs: [{ positive: "flexion", negative: "extension", axis: q([0, 0, 1], "1"), min: q(-3, "rad"), max: q(3, "rad"),
@@ -173,7 +173,7 @@ function pair(upperPeak, lowerPeak) {
   const pin = (name, parent, child, centre, peak) => ({ name, parent, child, centre: q(centre),
     dofs: [{ positive: "flexion", negative: "extension", axis: q([0, 0, 1], "1"), min: q(-3, "rad"), max: q(3, "rad"), muscle: muscle(peak) }] });
   return {
-    family: "test", model: "pair", mass: q(4.5, "kg"), stature: q(1.5),
+    model: "pair", mass: q(4.5, "kg"), stature: q(1.5),
     segments: [segment("post", [0, 1.6, 0], [0, 1.3, 0], 2), segment("upper", [0, 1.3, 0], [0, 0.95, 0], 1.5),
       segment("lower", [0, 0.95, 0], [0, 0.6, 0], 1)],
     joints: [pin("shoulder", "post", "upper", [0, 1.3, 0], upperPeak), pin("elbow", "upper", "lower", [0, 0.95, 0], lowerPeak)],

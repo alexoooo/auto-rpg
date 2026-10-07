@@ -2,7 +2,7 @@ import type { Scene } from "@babylonjs/core/scene.js";
 import { createBody, type Body } from "../body.ts";
 import { buildBody } from "../build/build-body.ts";
 import type { PhysicsEngine } from "../engine/engine.ts";
-import { modelSpec, type HumanoidModel as BodyModel } from "../models.ts";
+import { modelSpec, type HumanoidModel } from "../models.ts";
 import { checkedAction, type ActuatorAction } from "../mind/actions.ts";
 import { createPolicyBody } from "../mind/direct.ts";
 import type { BodyObservation } from "../observation.ts";
@@ -12,7 +12,7 @@ import { createWorld, type World } from "../world.ts";
 import type { WorldTask } from "./environment.ts";
 
 export interface ReachTaskConfig {
-  readonly model: BodyModel;
+  readonly model: HumanoidModel;
   readonly controller: "actuator" | "layered";
   readonly actuation: World["actuation"];
   readonly gravity: boolean;

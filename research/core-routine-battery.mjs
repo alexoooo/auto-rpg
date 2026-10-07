@@ -20,7 +20,7 @@ const LOOP_SECONDS = 120;
 import { Worker, isMainThread, parentPort } from "node:worker_threads";
 import { availableParallelism } from "node:os";
 import { parseArgs } from "node:util";
-import { HUMANOID_MODELS as BODY_MODELS } from "../src/core/models.ts";
+import { HUMANOID_MODELS } from "../src/core/models.ts";
 
 if (isMainThread) {
   const { values } = parseArgs({ options: {
@@ -29,7 +29,7 @@ if (isMainThread) {
     models: { type: "string", default: "workshop-rogue,workshop-fighter" }, list: { type: "boolean", default: false },
   } });
   const variants = JSON.parse(values.variants), models = values.models.split(","), seeds = Number(values.seeds);
-  for (const model of models) if (!BODY_MODELS.includes(model)) throw new Error(`--models names no body: ${model} (one of ${BODY_MODELS.join(", ")})`);
+  for (const model of models) if (!HUMANOID_MODELS.includes(model)) throw new Error(`--models names no body: ${model} (one of ${HUMANOID_MODELS.join(", ")})`);
   const loops = Number(values.loops), targets = values.targets === undefined ? undefined : Number(values.targets), impulse = Number(values.impulse), hz = Number(values.hz);
   const lanes = Number(values.workers ?? Math.max(1, availableParallelism() - 2));
   const jobs = [];

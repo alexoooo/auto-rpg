@@ -9,6 +9,5 @@ export const REPTILE_CONTROL = Object.freeze({
   foldHip: 1.2, foldKnee: 2.6, plantedKnee: 1.4, sweepYaw: 1.2, wrappedHip: .5, unwindHip: 2,
   placementError: .15, foldWait: .5, pressWait: .3, pressLever: .15, pressDepth: .002, recoveryLimit: 30, routeLimit: 10,
   recoveryServo: .06, placementServo: .008,
-  recoveryTiming: Object.freeze({ centre: .12, endpoint: .08, turn: .12, posture: .15 }),
   prepare: .25, snap: .12, release: .2, open: .3, jawError: .03, jawClosed: .001, biteTimeout: 1.2, biteEntry: .008, bitePrepareNear: .12, biteElevation: .15, biteNear: .04, biteSlow: .2, biteHold: .03, biteReturnLimit: 3,
 });

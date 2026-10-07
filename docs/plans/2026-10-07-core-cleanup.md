@@ -109,10 +109,9 @@ Extend `scripts/fingerprint.mjs`. It already has worker lanes, `traceOf`
   - The ternary chains over `family` in `openings.ts` and `skills/combat.ts` become `switch`es
     with a `never` default.
   - The `{.3,.3}` cover literal in `mind/combat.ts` becomes `DEFENSE.out`/`DEFENSE.horizon`.
-  - Validation is merged once:
-    - drop the duplicate `validRangeLearning`, `validOpeningTuning` and
-      `{...ATTACK_PATH, ...paths}` calls in `arena-fighter.ts`;
-    - export `MindWiring` instead of `Parameters<typeof createMind>[3]`.
+  - Validation stays up front in `arena-fighter.ts` until chunk 13's `fighterFaults` (a check
+    after `createBody` would leave a built body behind on a throw);
+  - export `MindWiring` instead of `Parameters<typeof createMind>[3]`.
 - **Tests:** `core-fork` drops the forgotten paths for removed fields.
 
 ## Chunk 2: club check (measurement only; runs in the background during chunks 3–10)

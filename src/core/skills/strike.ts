@@ -4,7 +4,7 @@ import { rigidPoints } from "../build/rigid.ts";
 import { targetWindow } from "../control/target-window.ts";
 import { newHandContact } from "../control/hand-feedback.ts";
 import { intoFrameToRef } from "../control/kinematics.ts";
-import type { Hand, HandGoal, MusclePush, Pose } from "../control/motor.ts";
+import type { Hand, EffectorGoal, MusclePush, Pose } from "../control/motor.ts";
 import type { HandAction } from "../mind/intent.ts";
 import type { BodySpec } from "../spec/body.ts";
 import type { Vec3 } from "../spec/quantity.ts";
@@ -204,7 +204,7 @@ export function rangeOf(spec: BodySpec, hand: Hand, up: number, repertoire: Repe
 const GAME_BLOWS = new WeakMap<BodySpec, Readonly<Record<Hand, Blows>>>();
 
 /** No hand given a goal. */
-const NO_HANDS: Readonly<Record<Hand, HandGoal | null>> = Object.freeze({ left: null, right: null });
+const NO_HANDS: Readonly<Record<Hand, EffectorGoal | null>> = Object.freeze({ left: null, right: null });
 
 /** Where a strike is: walking to its place, setting the feet there, standing still, holding its chamber, pushing or carrying its point, or returning it. */
 type StrikePhase = "approach" | "place" | "settle" | "chamber" | "swing" | "return";
@@ -265,7 +265,7 @@ interface StrikeCommand {
   readonly posture: Pose;
   readonly pushes: readonly MusclePush[];
   /** A placed blow's goal for its hand, made for the step; null for a hand with none. */
-  readonly hands: Readonly<Record<Hand, HandGoal | null>>;
+  readonly hands: Readonly<Record<Hand, EffectorGoal | null>>;
   /** How far the stance's heading is turned to follow the target, rad (`STEER`). */
   readonly steer: number;
 }
@@ -565,7 +565,7 @@ export function strikeSkill(spec: BodySpec, repertoire: Repertoire, placing: Pla
                 const ready = hypot(at.x - target[0], at.y - target[1], at.z - target[2]) <= POINT_RETURN.near
                   && hypot(...velocities![hand]!) <= POINT_RETURN.slow && !view.down && s.phase === "stand";
                 motion.ready = ready ? motion.ready + dt : 0;
-                const goal: HandGoal = { places: [{ point: blow.aim, position: target }], seconds: placing.seconds,
+                const goal: EffectorGoal = { places: [{ point: blow.aim, position: target }], seconds: placing.seconds,
                   through: 0, follows: false, initialVelocity: motion.velocity! };
                 goals = hand === "left" ? { left: goal, right: null } : { left: null, right: goal };
                 if (motion.ready >= POINT_RETURN.hold) {
@@ -605,7 +605,7 @@ export function strikeSkill(spec: BodySpec, repertoire: Repertoire, placing: Pla
                   finishResponse(returned ? reaction?.reason ?? "miss" : "return-timeout", returned, view.time);
                   end(); state.still = 0;
                 } else {
-                  const goal: HandGoal = { places: [{ point: blow.aim, position: home }], seconds: placing.seconds,
+                  const goal: EffectorGoal = { places: [{ point: blow.aim, position: home }], seconds: placing.seconds,
                     through: 0, follows: false, initialVelocity: motion.velocity! };
                   goals = hand === "left" ? { left: goal, right: null } : { left: null, right: goal };
                 }
@@ -618,7 +618,7 @@ export function strikeSkill(spec: BodySpec, repertoire: Repertoire, placing: Pla
             if (!over) {
               // The target in the body frame as the body now stands: the path's end moves with it.
               intoFrameToRef(view.root, action.target, place);
-              const goal: HandGoal = { places: [{ point: blow.aim, position: [place.x, place.y, place.z] }], seconds: placing.seconds, through: placing.through, follows: true,
+              const goal: EffectorGoal = { places: [{ point: blow.aim, position: [place.x, place.y, place.z] }], seconds: placing.seconds, through: placing.through, follows: true,
                 ...(state.motion ? { initialVelocity: state.motion.velocity ??= velocities![hand]! } : {}) };
               goals = hand === "left" ? { left: goal, right: null } : { left: null, right: goal };
             }

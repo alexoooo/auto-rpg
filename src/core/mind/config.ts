@@ -78,11 +78,8 @@ export const FIGHTER: FighterMindConfig = deepFreeze({ kind: "fighter", subs: [{
 export interface ArenaFighterConfig {
   readonly kind: "arena-fighter";
   readonly hand: "left" | "right" | "alternate";
-  readonly defense?: boolean;
   /** Reference cover or measured relative-motion prediction; omitted retains the reference. */
   readonly defenseMode?: "reference" | "predictive";
-  /** Target selection variant, retained for reproducible opponents and ablations. */
-  readonly targeting?: "head" | "openings";
   /** Linear reference, straight/close-hook ranking, or additional measured top-surface overhands. */
   readonly repertoire?: "linear" | "mixed" | "vertical" | "boxing";
   readonly openings?: OpeningTuning;
@@ -106,17 +103,14 @@ export interface ArenaFighterConfig {
 }
 
 /** Experimental autonomous combat; promotion is measured by the paired combat harness. */
-export const ARENA_FIGHTER: ArenaFighterConfig = deepFreeze({ kind: "arena-fighter", hand: "alternate", targeting: "openings" });
+export const ARENA_FIGHTER: ArenaFighterConfig = deepFreeze({ kind: "arena-fighter", hand: "alternate" });
 
 /** Body-targeting candidate and scope: `docs/reference/arena-combat-evaluation.md#body-targeting-held-out-evaluation`. */
 export const ARENA_BRAWLER: ArenaFighterConfig = deepFreeze({ kind: "arena-fighter", hand: "alternate",
-  targeting: "openings", repertoire: "mixed", openings: { head: .3, upperTrunk: 0, middleTrunk: 0 } });
-
-/** Retained grounded comparison profile: `docs/reference/ground-combat.md#arena-integration`. */
-export const ARENA_SCRAPPER_REFERENCE: ArenaFighterConfig = deepFreeze({ ...ARENA_BRAWLER, groundGame: true });
+  repertoire: "mixed", openings: { head: .3, upperTrunk: 0, middleTrunk: 0 } });
 
 /** Playable grounded profile with both-hand low gates: `docs/reference/ground-combat.md#arena-integration`. */
-export const ARENA_SCRAPPER: ArenaFighterConfig = ARENA_SCRAPPER_REFERENCE;
+export const ARENA_SCRAPPER: ArenaFighterConfig = deepFreeze({ ...ARENA_BRAWLER, groundGame: true });
 
 /** Low-kick development profile: `docs/reference/front-kicks.md#arena-selection`. */
 export const ARENA_KICKER: ArenaFighterConfig = deepFreeze({ ...ARENA_SCRAPPER,

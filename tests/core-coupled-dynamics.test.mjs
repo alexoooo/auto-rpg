@@ -50,7 +50,7 @@ const mechanicalSpec = () => {
   const segment = (name, x, y) => ({ name, proximal: q([x, y - 0.05, 0]), distal: q([x, y + 0.05, 0]),
     mass: q(1, "kg"), centreOfMass: q([x, y, 0]), inertia: q([0.001, 0.001, 0.001], "kg m2"),
     shape: { kind: "capsule", from: q([x, y - 0.04, 0]), to: q([x, y + 0.04, 0]), radius: q(0.01) }, surface: { stiffness: q(1e5, "N/m") } });
-  return { family: "test", model: "coupled", mass: q(2, "kg"), stature: q(1.3),
+  return { model: "coupled", mass: q(2, "kg"), stature: q(1.3),
     segments: [segment("left", -0.1, 1), segment("right", 0.1, 1.2)],
     joints: [{ name: "link", parent: "left", child: "right", centre: q([0, 1.1, 0]), dofs: xyz.map((axis, k) => ({
       positive: `p${k}`, negative: `n${k}`, axis: q(axis, "1"), min: q(-1, "rad"), max: q(1, "rad"),

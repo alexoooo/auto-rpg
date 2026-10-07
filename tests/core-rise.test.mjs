@@ -13,7 +13,7 @@ import { createBody, SERVO_SECONDS } from "../src/core/body.ts";
 import { uprightness } from "../src/core/control/ground.ts";
 import { SOLE_MARGIN } from "../src/core/control/stance-tuning.ts";
 import { centreOfToRef, footStatesOf, pointOfToRef, readSupport, turnOfToRef } from "../src/core/control/support.ts";
-import { HUMANOID_MODELS as BODY_MODELS, modelSpec } from "../src/core/models.ts";
+import { HUMANOID_MODELS, modelSpec } from "../src/core/models.ts";
 import { lying } from "../src/core/mind/lie.ts";
 import { createMind } from "../src/core/mind/minds.ts";
 import { STAND_ORDERS } from "../src/core/mind/orders.ts";
@@ -50,7 +50,7 @@ const fastest = (built, among = null) => Math.max(...[...built.segments].filter(
 const fallen = (model, recipe) => toppled({ model, held: "empty", degrees: 0 }, [(own, view) => stagedRise(own, view, recipe)]);
 
 test("a recipe that cannot be played says why", () => {
-  for (const model of BODY_MODELS) assert.deepEqual(stageFaults(RISE, modelSpec(model)), [], model);
+  for (const model of HUMANOID_MODELS) assert.deepEqual(stageFaults(RISE, modelSpec(model)), [], model);
   const warrior = modelSpec("workshop-fighter"), tuck = RISE.rise.find((stage) => stage.name === "tuck");
   assert.deepEqual(stageFaults(withStage(RISE, { ...tuck, posture: { ...tuck.posture, "tail flexion": 0.2 } }), warrior),
     ["stage tuck asks tail flexion, which workshop-fighter lacks"]);
@@ -116,7 +116,7 @@ test("a recipe that cannot be played says why", () => {
 
 test("how a body lies is read from its pelvis", async () => {
   // Toppled stiff forward and backward, then slack 3 s: on its front, and on its back.
-  for (const model of BODY_MODELS) for (const [degrees, lie] of [[0, "front"], [180, "back"]]) {
+  for (const model of HUMANOID_MODELS) for (const [degrees, lie] of [[0, "front"], [180, "back"]]) {
     const { world, body, dispose } = await toppled({ model, held: "empty", degrees }, [lying]);
     try {
       world.step(3 * world.hz);
@@ -192,7 +192,7 @@ const PROPPED = {
 };
 
 test("fallen forward, a body draws its knees under and props itself", async () => {
-  for (const model of BODY_MODELS) {
+  for (const model of HUMANOID_MODELS) {
     const { world, built, body, dispose } = await toppled({ model, held: "empty", degrees: 0 }, [(own, view) => stagedRise(own, view, POSES)]);
     try {
       const riser = riserOf(body), has = new Set(), lay = { pelvis: heightOf(built, "lowerTrunk"), chest: heightOf(built, "upperTrunk") };
@@ -335,7 +335,7 @@ const ROLLED = {
 test("fallen backward, a body rolls over its right side onto its front, and rises from there", async () => {
   const names = RISE.roll.back.map((stage) => stage.name);
   assert.deepEqual(names, ["wind", "swing", "over", "flat"]);
-  for (const model of BODY_MODELS) {
+  for (const model of HUMANOID_MODELS) {
     const { world, built, body, dispose } = await toppled({ model, held: "empty", degrees: 180 }, [(own, view) => stagedRise(own, view, TO_FOURS)]);
     try {
       const riser = riserOf(body), root = body.muscles.dynamics.root.segment, runs = [], lies = [];
@@ -507,7 +507,7 @@ test("a limb that is off the ground bears nothing, and a stage that bears on it 
   const fold = RISE.rise[0];
   const kneel = { ...FOURS, name: "kneel", on: ["left", "right"].map((side) => ({ limb: `shin.${side}`, share: 0.5 })), pitch: 1.35, posture: fold.posture, limit: 2 };
   const recipe = { ...RISE, rise: [fold, kneel] };
-  for (const model of BODY_MODELS) {
+  for (const model of HUMANOID_MODELS) {
     const { world, built, body, dispose } = await fallen(model, recipe);
     try {
       const riser = riserOf(body), upright = uprightness(built), limbs = riseLimbs(ownOf(built, body), recipe), root = body.muscles.dynamics.root.segment;
@@ -675,7 +675,7 @@ test("a shin bears from its knee to where its foot stands, and a hand where it t
 
 test("what is a foot's own is its reference pose's, however the body lies when its feet are made", async () => {
   const own = (feet) => feet.map((foot) => ({ ahead: foot.ahead, flat: foot.flat, width: foot.width, reach: foot.reach, sole: foot.sole.map((corner) => corner.asArray()) }));
-  for (const model of BODY_MODELS) {
+  for (const model of HUMANOID_MODELS) {
     const stand = await coreStand(modelSpec(model)), { built, dispose } = await fallen(model, POSES);
     try {
       const standing = footStatesOf(stand.built), lying = footStatesOf(built);

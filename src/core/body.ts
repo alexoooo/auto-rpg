@@ -4,7 +4,7 @@ import { rigidPoints } from "./build/rigid.ts";
 import type { Assist, AssistCeiling } from "./control/assist.ts";
 import { FALLEN, uprightness } from "./control/ground.ts";
 import { rootFrameToRef, type Frame } from "./control/kinematics.ts";
-import { motorControl, type Hand, type HandGoal, type EffectorGoal, type MotorControl, type MusclePush, type Pose } from "./control/motor.ts";
+import { motorControl, type Hand, type EffectorGoal, type MotorControl, type MusclePush, type Pose } from "./control/motor.ts";
 import type { StanceGoal, StanceReading } from "./control/stance.ts";
 import type { StanceTuning } from "./control/stance-tuning.ts";
 import { stanceEnvelope, type StanceEnvelope } from "./control/stance-envelope.ts";
@@ -92,11 +92,11 @@ export interface BodyCommand {
   readonly posture: Pose;
   /**
    * For each hand, where named points of its rigid body go (body frame, `BodyView.root`) and in
-   * what time (`HandGoal`), or null to give the arm to the posture. A goal equal to the one before
-   * keeps its path, as does one that follows it (`HandGoal.follows`); another starts a new one
+   * what time (`EffectorGoal`), or null to give the arm to the posture. A goal equal to the one before
+   * keeps its path, as does one that follows it (`EffectorGoal.follows`); another starts a new one
    * from where the points are.
    */
-  readonly hands: Readonly<Record<Hand, HandGoal | null>>;
+  readonly hands: Readonly<Record<Hand, EffectorGoal | null>>;
   /** Additional named endpoint paths; a bearing foot cannot also own a reach. */
   readonly effectors?: Readonly<Record<string, EffectorGoal | null>>;
   /** Freedoms driven by their muscles alone, whatever else would own them. */
@@ -206,9 +206,9 @@ export function commandMind(own: OwnBody, { servoSeconds, stance, handFeedback: 
   const fists = { left: fistOf(built, "left"), right: fistOf(built, "right") };
   const head = centreReading(built, "head");
   const angles: Record<string, number> = {};
-  const goals: Record<Hand, HandGoal | null> = { left: null, right: null };
+  const goals: Record<Hand, EffectorGoal | null> = { left: null, right: null };
   const upright = uprightness(built);
-  const effectorGoals: Record<string, HandGoal | null> = Object.fromEntries(motor.effectors.map(e => [e.segment, null]));
+  const effectorGoals: Record<string, EffectorGoal | null> = Object.fromEntries(motor.effectors.map(e => [e.segment, null]));
   const effectors = Object.fromEntries(motor.effectors.map(e => [e.segment, {
     points: Object.fromEntries(Object.keys(e.points).map(name => [name, new Vector3()])), rotation: new Quaternion(),
     ...(feedback ? { feedback: feedback.state[e.segment]! } : {}),
@@ -329,7 +329,7 @@ export function createBody(built: BuiltBody, world: World, options: BodyOptions)
   });
 }
 
-const sameGoal = (a: HandGoal, b: HandGoal): boolean =>
+const sameGoal = (a: EffectorGoal, b: EffectorGoal): boolean =>
   (a.initialVelocity === b.initialVelocity || (a.initialVelocity !== undefined && b.initialVelocity !== undefined
     && a.initialVelocity.every((v, k) => v === b.initialVelocity![k])))
   && (a.terminalVelocity === b.terminalVelocity || (a.terminalVelocity !== undefined && b.terminalVelocity !== undefined

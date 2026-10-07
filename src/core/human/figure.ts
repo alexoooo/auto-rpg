@@ -15,8 +15,7 @@ import type { DeLevaSegment, Sex } from "./tables/de-leva-1996.ts";
  * figure was authored at; `scale` takes them to x1.
  */
 export interface HumanFigure {
-  /** The spec's family and model. */
-  readonly family: string;
+  /** The spec's model. */
   readonly model: string;
   /** What the body is made of (`BodySpec.substance`). */
   readonly substance: Substance;

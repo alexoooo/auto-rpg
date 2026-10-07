@@ -14,7 +14,7 @@ function rotorSpec() {
   const segment = (name) => ({ name, proximal: q([0, 0.9, 0]), distal: q([0, 1.1, 0]), mass: q(1, "kg"),
     centreOfMass: q([0, 1, 0]), inertia: q([0.02, 0.02, 0.02], "kg m2"),
     shape: { kind: "capsule", from: q([0, 0.92, 0]), to: q([0, 1.08, 0]), radius: q(0.02) }, surface: { stiffness: q(1e5, "N/m") } });
-  return { family: "test", model: "spherical-rotor", mass: q(2, "kg"), stature: q(1.1),
+  return { model: "spherical-rotor", mass: q(2, "kg"), stature: q(1.1),
     segments: [segment("post"), segment("rotor")],
     joints: [{ name: "ball", parent: "post", child: "rotor", centre: q([0, 1, 0]),
       dofs: [[1, 0, 0], [0, -1, 0], [0, 0, 1]].map((axis, k) => ({ positive: `p${k}`, negative: `n${k}`, axis: q(axis, "1"),

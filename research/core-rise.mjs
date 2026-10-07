@@ -19,7 +19,7 @@
  * has a line for each fall.
  */
 import { Worker } from "node:worker_threads";
-import { HUMANOID_MODELS as BODY_MODELS } from "../src/core/models.ts";
+import { HUMANOID_MODELS } from "../src/core/models.ts";
 import { defaultLanes } from "./bout-pool.mjs";
 import { RISE } from "../src/core/mind/rise/stages.ts";
 import { LOADOUTS, RISE_HARNESS, UP_SECONDS, WATCH_SECONDS } from "./core-rise-trials.mjs";
@@ -38,12 +38,12 @@ const TURN = Number(option("turn", 0));
 const GAP = 4;
 
 const cells = [];
-for (const model of BODY_MODELS) for (const held of Object.keys(LOADOUTS)) {
+for (const model of HUMANOID_MODELS) for (const held of Object.keys(LOADOUTS)) {
   cells.push({ name: `${model}, ${held}, shoved`, jobs: Array.from({ length: SHOVES }, (_, k) => ({ trial: "shoved", model, held, degrees: TURN + k * 360 / SHOVES })) });
 }
 cells.push({
   name: "bouts",
-  jobs: BODY_MODELS.flatMap((left) => BODY_MODELS.map((right) => ({ trial: "boutFall", recipe: { left, right, gap: GAP } }))),
+  jobs: HUMANOID_MODELS.flatMap((left) => HUMANOID_MODELS.map((right) => ({ trial: "boutFall", recipe: { left, right, gap: GAP } }))),
 });
 
 /** Every job on `lanes` workers, each worker one fall at a time; the rows in the jobs' order, each back by message. */

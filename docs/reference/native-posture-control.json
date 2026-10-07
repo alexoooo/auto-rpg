@@ -129,7 +129,6 @@
     "sensing": "detached body observations",
     "modelAccess": "actuator descriptions",
     "anatomy": {
-      "family": "human",
       "model": "workshop-fighter",
       "mass": {
         "value": 79,

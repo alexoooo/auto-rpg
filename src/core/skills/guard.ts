@@ -2,7 +2,7 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { BodyView } from "../body.ts";
 import { rigidPoints } from "../build/rigid.ts";
 import { intoFrameToRef } from "../control/kinematics.ts";
-import type { Hand, HandGoal, Pose } from "../control/motor.ts";
+import type { Hand, EffectorGoal, Pose } from "../control/motor.ts";
 import type { Cover, HandAction } from "../mind/intent.ts";
 import type { BodySpec } from "../spec/body.ts";
 import type { Vec3 } from "../spec/quantity.ts";
@@ -55,7 +55,7 @@ function coversOf(spec: BodySpec, hand: Hand): Covers {
 }
 
 /** No hand given a goal. */
-const NO_HANDS: Readonly<Record<Hand, HandGoal | null>> = Object.freeze({ left: null, right: null });
+const NO_HANDS: Readonly<Record<Hand, EffectorGoal | null>> = Object.freeze({ left: null, right: null });
 
 const HANDS: readonly Hand[] = ["left", "right"];
 
@@ -80,14 +80,14 @@ const NO_LINE = 1e-6;
  */
 interface GuardSkill extends Skill {
   /** Each hand's goal this step: a cover's places for a hand that guards with one and that `taken` is not; null otherwise. */
-  command(view: BodyView, hands: Readonly<Record<Hand, HandAction>>, taken: Hand | null): Readonly<Record<Hand, HandGoal | null>>;
+  command(view: BodyView, hands: Readonly<Record<Hand, HandAction>>, taken: Hand | null): Readonly<Record<Hand, EffectorGoal | null>>;
 }
 
 export function guardSkill(spec: BodySpec, covering: Covering = GUARD_COVER): GuardSkill {
   const covers = { left: coversOf(spec, "left"), right: coversOf(spec, "right") };
   const guarded = new Vector3(), threat = new Vector3();
   /** `hand`'s goal for `cover`, in the body frame (`BodyView.root`); null where the threat is at the place guarded, and names no line. */
-  const goalOf = (view: BodyView, hand: Hand, cover: Cover): HandGoal | null => {
+  const goalOf = (view: BodyView, hand: Hand, cover: Cover): EffectorGoal | null => {
     intoFrameToRef(view.root, cover.guarded, guarded);
     intoFrameToRef(view.root, cover.threat, threat);
     const from: Vec3 = [guarded.x, guarded.y, guarded.z], way = sub([threat.x, threat.y, threat.z], from), far = length(way);
@@ -111,7 +111,7 @@ export function guardSkill(spec: BodySpec, covering: Covering = GUARD_COVER): Gu
   return {
     resume() {},
     command(view, hands, taken) {
-      let goals: { left: HandGoal | null; right: HandGoal | null } | null = null;
+      let goals: { left: EffectorGoal | null; right: EffectorGoal | null } | null = null;
       for (const hand of HANDS) {
         const action = hands[hand];
         if (hand === taken || action.kind !== "guard" || !action.cover) continue;

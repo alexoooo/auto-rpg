@@ -15,7 +15,7 @@ import { groundCombat } from "./ground-combat.ts";
 import { bodyClearance } from "./sensed-bounds.ts";
 import { clearStep, clearanceExit } from "./clear-step.ts";
 import { openingAction, openingSelector } from "./openings.ts";
-import { guardCanReach, incomingThreat, THREAT, threatOf } from "./threat.ts";
+import { DEFENSE, guardCanReach, incomingThreat, THREAT, threatOf } from "./threat.ts";
 
 /** Search cells for braking, chamber room and escape: `docs/reference/combat-strikes.md#tactical-settings`. */
 const COMBAT = Object.freeze({ band: .08, reserve: .08, braking: .5, prediction: .12, pressure: .6,
@@ -34,14 +34,6 @@ export function combatTactics(spec: BodySpec, name: string, orders: (sight: Sigh
       case "linear":return false;
       case "mixed": case "vertical": case "boxing":return true;
       default:{const never:never=repertoire;throw new Error(`unknown repertoire ${never}`);}
-    }
-  })();
-  const targeting = config.targeting ?? "head";
-  const openings = (() => {
-    switch (targeting) {
-      case "head": return false;
-      case "openings": return true;
-      default: { const never: never = targeting; throw new Error(`unknown target selection ${never}`); }
     }
   })();
   const ordered = fighterTactics(name, sight => orders(sight) ?? STAND_ORDERS);
@@ -150,35 +142,33 @@ export function combatTactics(spec: BodySpec, name: string, orders: (sight: Sigh
       }
     }
     let opening: ReturnType<typeof selectOpening> = null;
-    if(openings) {
-      if(!mixed) {
-        opening = selectOpening(view,foe,hand,state.blockedSurface);
-        if (state.combo.hand && (!strike.hand || overlapReady())) {
-          const follow = selectOpening(view,foe,state.combo.hand,state.blockedSurface);
-          state.combo.following = !!follow && !follow.blocked;
-          if (state.combo.following) { opening = follow; hand = state.combo.hand; } else resetCombination();
-        }
+    if(!mixed) {
+      opening = selectOpening(view,foe,hand,state.blockedSurface);
+      if (state.combo.hand && (!strike.hand || overlapReady())) {
+        const follow = selectOpening(view,foe,state.combo.hand,state.blockedSurface);
+        state.combo.following = !!follow && !follow.blocked;
+        if (state.combo.following) { opening = follow; hand = state.combo.hand; } else resetCombination();
       }
-      else {
-        if(view.time>=state.nextSelection&&!strike.hand) {
-          const follow = state.combo.hand ? selectOpening(view,foe,state.combo.hand,state.blockedSurface,repertoire) : null;
-          state.combo.following = !!follow && !follow.blocked;
-          if (state.combo.hand && !state.combo.following) resetCombination();
-          state.choice = state.combo.following ? follow : selectOpening(view,foe,hand,state.blockedSurface,repertoire);
-          if(config.hand==="alternate" && !state.combo.following) {
-            const other = selectOpening(view,foe,hand==="right"?"left":"right",state.blockedSurface,repertoire);
-            if(other&&(!state.choice||other.score<state.choice.score))state.choice=other;
-          }
-          state.nextSelection = view.time+COMBAT.prediction;
+    }
+    else {
+      if(view.time>=state.nextSelection&&!strike.hand) {
+        const follow = state.combo.hand ? selectOpening(view,foe,state.combo.hand,state.blockedSurface,repertoire) : null;
+        state.combo.following = !!follow && !follow.blocked;
+        if (state.combo.hand && !state.combo.following) resetCombination();
+        state.choice = state.combo.following ? follow : selectOpening(view,foe,hand,state.blockedSurface,repertoire);
+        if(config.hand==="alternate" && !state.combo.following) {
+          const other = selectOpening(view,foe,hand==="right"?"left":"right",state.blockedSurface,repertoire);
+          if(other&&(!state.choice||other.score<state.choice.score))state.choice=other;
         }
-        opening = state.choice;
-        if (overlapReady()) {
-          const follow = selectOpening(view,foe,state.combo.hand!,state.blockedSurface,repertoire);
-          state.combo.following = !!follow && !follow.blocked;
-          if (state.combo.following) opening = follow;
-        }
-        if(opening)hand=opening.hand;
+        state.nextSelection = view.time+COMBAT.prediction;
       }
+      opening = state.choice;
+      if (overlapReady()) {
+        const follow = selectOpening(view,foe,state.combo.hand!,state.blockedSurface,repertoire);
+        state.combo.following = !!follow && !follow.blocked;
+        if (state.combo.following) opening = follow;
+      }
+      if(opening)hand=opening.hand;
     }
     const target: Vec3 = opening?.target ?? [at.x + COMBAT.prediction * velocity.x, at.y + COMBAT.prediction * velocity.y, at.z + COMBAT.prediction * velocity.z];
     const dx = target[0] - view.head.x, dz = target[2] - view.head.z, far = hypot(dx, dz), face = atan2(dx, dz);
@@ -195,7 +185,7 @@ export function combatTactics(spec: BodySpec, name: string, orders: (sight: Sigh
       resetCombination(); state.escape = COMBAT.escape; state.angle *= -1; state.pressure = 0; state.ready = 0;
     }
     let hands = guard;
-    if (predictive && config.defense !== false) {
+    if (predictive) {
       const threat = incomingThreat(view, ownVelocity);
       if (!threat && state.threat) state.counter = COMBAT.counter;
       state.threat = !!threat;
@@ -213,8 +203,8 @@ export function combatTactics(spec: BodySpec, name: string, orders: (sight: Sigh
         }
       }
     }
-    if (!predictive && config.defense !== false) {
-      const cover = threatOf(view, THREAT, { out: .3, horizon: .3 });
+    if (!predictive) {
+      const cover = threatOf(view, THREAT, DEFENSE);
       if (cover) hands = { left: { kind: "guard", cover }, right: { kind: "guard", cover } };
     }
     const follows = state.combo.following && Math.abs(delta) <= COMBAT.band && aligned

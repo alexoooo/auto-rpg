@@ -91,7 +91,7 @@ export function dummySpec(attacker: BodySpec, part: string = DUMMY_PART): BodySp
   })();
   const centre = derive("m", "the ball's centre, its frame's origin", [], (): Vec3 => [0, 0, 0]);
   return {
-    family: "dummy", model: `${attacker.model}.dummy`, substance: attacker.substance, mass,
+    model: `${attacker.model}.dummy`, substance: attacker.substance, mass,
     stature: derive("m", "the ball's height, twice its radius", [radius], (r) => 2 * r),
     segments: [{
       name: part, proximal: centre, mass, centreOfMass: centre,

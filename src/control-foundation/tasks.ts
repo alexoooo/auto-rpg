@@ -7,7 +7,7 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder.js";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial.js";
 import { isEngineName, loadEngine } from "../core/engine/engines.ts";
-import { HUMANOID_MODELS as BODY_MODELS, type HumanoidModel as BodyModel } from "../core/models.ts";
+import { HUMANOID_MODELS, type HumanoidModel } from "../core/models.ts";
 import { createBarProbe } from "../core/tasks/bar.ts";
 import { createSupportProbe } from "../core/tasks/support.ts";
 import { createSupportEntryProbe } from "../core/tasks/support-entry.ts";
@@ -45,8 +45,8 @@ function make() {
   if (task.value === "support" || task.value === "posture-hold" || task.value === "support-entry") stops.value = "off";
   if (task.value === "posture-hold" || task.value === "support-entry") model.value = "workshop-fighter";
   if (task.value === "point-strike" && held.value === "shared") side.value = "both";
-  const chosen = model.value as BodyModel, selectedSide = side.value, selectedSupport = support.value, number = Number(seed.value);
-  if (!BODY_MODELS.includes(chosen) || (selectedSide !== "left" && selectedSide !== "right" && selectedSide !== "both")
+  const chosen = model.value as HumanoidModel, selectedSide = side.value, selectedSupport = support.value, number = Number(seed.value);
+  if (!HUMANOID_MODELS.includes(chosen) || (selectedSide !== "left" && selectedSide !== "right" && selectedSide !== "both")
     || (selectedSupport !== "standing" && selectedSupport !== "pinned") || !Number.isInteger(number) || number < 0 || number >= 1000000) throw new Error("Invalid development configuration");
   const fraction = (((number + 1) * 2654435761) >>> 0) / 4294967296;
   const common = { model: chosen, hz: 120, actuation: "directional" as const, ...(stops.value === "on" ? { jointStops: true } : {}) };

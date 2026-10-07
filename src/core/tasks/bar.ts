@@ -4,7 +4,7 @@ import { buildBody } from "../build/build-body.ts";
 import type { MotionCommand } from "../control/tasks.ts";
 import type { PhysicsEngine } from "../engine/engine.ts";
 import { equipHands } from "../human/equipment.ts";
-import { modelSpec, type HumanoidModel as BodyModel } from "../models.ts";
+import { modelSpec, type HumanoidModel } from "../models.ts";
 import { woodenClub } from "../items/club.ts";
 import { cos, sin } from "../math/real.ts";
 import { createMotionBody } from "../mind/motion.ts";
@@ -41,7 +41,7 @@ const rotation = (q: Quaternion) => [q.x, q.y, q.z, q.w] as const;
  * range. Its arm posture comes from measured grip capture. Recovery, moving targets and combat need their own tasks.
  */
 export function createBarProbe(scene: Scene, engine: PhysicsEngine, config: {
-  readonly model: BodyModel; readonly release: Side; readonly hz: number;
+  readonly model: HumanoidModel; readonly release: Side; readonly hz: number;
   readonly actuation: "symmetric" | "directional"; readonly offset: number;
   readonly support?: "pinned" | "standing";
   readonly jointStops?: boolean;

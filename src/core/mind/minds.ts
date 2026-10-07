@@ -17,7 +17,7 @@ import { createDirectBody } from "./direct.ts";
 import { createQuadrupedMind } from "../reptile/mind.ts";
 
 /** **What a fight gives the mind it makes**, beside the body and the config. */
-interface MindWiring {
+export interface MindWiring {
   readonly name: string;
   /** Trusted body adapter for permitted contact labels. */
   readonly contactIdentity?: ContactIdentity;

@@ -1,5 +1,5 @@
 /**
- * **An arm alone following a placed blow's goal** (`HandGoal`, `src/core/control/motor.ts`): each
+ * **An arm alone following a placed blow's goal** (`EffectorGoal`, `src/core/control/motor.ts`): each
  * body with its lower trunk held, standing in the guard, its right hand's striking point (`aimOf`)
  * given one goal as the strike skill gives it (`PLACED.through` beyond its place, following), to
  * each of `--places`: m ahead of the head and up from it, straight ahead of the right shoulder,

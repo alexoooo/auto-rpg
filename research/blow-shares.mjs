@@ -12,7 +12,7 @@
  *   (`partHitPoints`) times the unit, which is what a blow must bring to that surface, its share.
  */
 import { CONTACT_STIFFNESS } from "../src/core/human/tables/contact-stiffness.ts";
-import { HUMANOID_MODELS as BODY_MODELS, modelSpec } from "../src/core/models.ts";
+import { HUMANOID_MODELS, modelSpec } from "../src/core/models.ts";
 import { partHitPoints } from "../src/core/rules/pool.ts";
 import { rulebook } from "../src/core/rules/rulebook.ts";
 import { energyShares } from "../src/core/rules/share.ts";
@@ -49,8 +49,8 @@ for (const [row, other] of VARIED) console.log(`| ${row} | ${other} | ${[0.5, 1,
 
 const unit = rulebook("arena").unit.value;
 console.log(`\nJoules that empty a part, at ${unit} J a hit point:\n`);
-console.log(`| Part | ${BODY_MODELS.map((model) => `${model}: kg | HP | J`).join(" | ")} |\n|---|${BODY_MODELS.map(() => "---|---|---|").join("")}`);
-const specs = BODY_MODELS.map(modelSpec), pools = specs.map(partHitPoints);
+console.log(`| Part | ${HUMANOID_MODELS.map((model) => `${model}: kg | HP | J`).join(" | ")} |\n|---|${HUMANOID_MODELS.map(() => "---|---|---|").join("")}`);
+const specs = HUMANOID_MODELS.map(modelSpec), pools = specs.map(partHitPoints);
 for (const row of Object.keys(CONTACT_STIFFNESS)) {
   const cells = specs.map((spec, at) => {
     const segment = spec.segments.find((one) => one.name === row || one.name === `${row}.right`);

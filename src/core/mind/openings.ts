@@ -22,6 +22,17 @@ const OPENINGS = Object.freeze({ prediction: .12, blocked: 2, reachPenalty: 2, h
   // Upward close-range development cells: `docs/reference/combat-uppercut.md`.
   uppercut: .1, uppercutReserve: .25 });
 
+/** What choosing `family` asks of a blow: the reach it keeps back, its score, and the vertical sense of its contact direction, 0 for none. */
+function familyTerms(family: CombatAction["family"], settings: Readonly<Record<"hookReserve" | "hookCost" | "overhand" | "uppercut" | "uppercutReserve", number>>): { readonly reserve: number; readonly cost: number; readonly vertical: -1 | 0 | 1 } {
+  switch (family) {
+    case "straight": case "cross": case "downward": return { reserve: 0, cost: 0, vertical: 0 };
+    case "hook": return { reserve: settings.hookReserve, cost: settings.hookCost, vertical: 0 };
+    case "overhand": return { reserve: 0, cost: settings.overhand, vertical: -1 };
+    case "uppercut": return { reserve: settings.uppercutReserve, cost: settings.uppercut, vertical: 1 };
+    default: { const never: never = family; throw new Error(`unknown attack family ${never}`); }
+  }
+}
+
 /** Immutable target preferences for development searches over the same geometry and executor. */
 export type OpeningTuning = { readonly [K in "head" | "upperTrunk" | "middleTrunk" | "blocked" | "reachPenalty" | "repeated" | "overhand" | "headLateral" | "hookCost" | "uppercut" | "uppercutReserve"]?: number };
 
@@ -241,12 +252,12 @@ export function openingSelector(spec: BodySpec, tuning: OpeningTuning = {}, path
         for (const family of families) {
           if ((family === "overhand") !== (front === top)) continue;
           if ((family === "uppercut") !== (front === bottom)) continue;
-          const reach = Math.max(0, armReach - (family === "hook" ? settings.hookReserve : family === "uppercut" ? settings.uppercutReserve : 0));
+          const terms = familyTerms(family, settings), reach = Math.max(0, armReach - terms.reserve);
           let blocked: boolean;
           if (repertoire === "linear") blocked = obstacles.some(o => segmentDistanceSquared(start, target, o.a, o.b) <= o.radius * o.radius);
           else {
             intoFrameToRef(view.root,target,scratch);const end: Vec3 = [scratch.x,scratch.y,scratch.z];
-            const contactDirection = family === "overhand" || family === "uppercut" ? scratch.set(0, family === "overhand" ? -1 : 1, 0)
+            const contactDirection = terms.vertical !== 0 ? scratch.set(0, terms.vertical, 0)
               .applyRotationQuaternionToRef(Quaternion.InverseToRef(view.root.rotation, inverse), scratch) : null;
             const p = view.points[hand][aimOf(spec,hand)]!, path = attackPath([p.x,p.y,p.z],end,hand,family,paths,
               contactDirection ? [contactDirection.x,contactDirection.y,contactDirection.z] : undefined);
@@ -260,9 +271,9 @@ export function openingSelector(spec: BodySpec, tuning: OpeningTuning = {}, path
             }
           }
           const score = settings[name] + (name === blockedSurface ? settings.repeated : 0) + (blocked ? settings.blocked : 0)
-            + settings.reachPenalty * Math.abs(length(flat) - reach + paths.windup) + (family === "overhand" ? settings.overhand : family === "hook" ? settings.hookCost : family === "uppercut" ? settings.uppercut : 0);
+            + settings.reachPenalty * Math.abs(length(flat) - reach + paths.windup) + terms.cost;
           if (!best || score < best.score) best = { hand, target, segment: name, family, blocked, reach, score,
-            ...(family === "overhand" || family === "uppercut" ? { direction: [0,family === "overhand" ? -1 : 1,0] as Vec3 } : {}) };
+            ...(terms.vertical !== 0 ? { direction: [0, terms.vertical, 0] as Vec3 } : {}) };
         }
       }
     }

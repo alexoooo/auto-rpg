@@ -182,7 +182,7 @@ export function skeletonFigure(): HumanFigure {
   };
   const room = sourced(0.004, "m", "skeleton-limbs-clear", "the room a limb keeps from what it shares no joint with");
   return {
-    family: "skeleton", model: SKELETON_MODEL, substance: "bone", sex: "male",
+    model: SKELETON_MODEL, substance: "bone", sex: "male",
     mass: placeholder(79, "kg", "the typical man's mass"),
     stature: derive("m", "the vertex's height over the soles", [VERT], (v) => v[1]),
     trunk, limbs,

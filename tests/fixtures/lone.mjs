@@ -25,7 +25,7 @@ export function lone(model, name, kg, { hp = 1, whole = [], spare = false, held 
     ...(stiffness === null ? {} : { surface: { stiffness: q(stiffness, unit) } }) });
   const free = { unloadedSpeed: q(60, "rad/s"), curvature: q(0.25, "1"), eccentricCeiling: q(1.4, "1"), eccentricSlopeRatio: q(2, "1") };
   return {
-    family: "test", model, ...(substance ? { substance } : {}), mass: q(spare ? 2 * kg : kg, "kg"), stature: q(spare ? 0.2 : 0.1),
+    model, ...(substance ? { substance } : {}), mass: q(spare ? 2 * kg : kg, "kg"), stature: q(spare ? 0.2 : 0.1),
     segments: spare ? [ball("spare", -0.1), ball(name, 0)] : [ball(name, 0)],
     joints: spare ? [{ name: "pin", parent: "spare", child: name, centre: q([0, -0.05, 0]),
       dofs: [{ positive: "flexion", negative: "extension", axis: q([0, 0, 1], "1"), min: q(-3, "rad"), max: q(3, "rad"),

@@ -169,7 +169,7 @@ test("motor_control_meters_its_hands_solves", async () => {
     stand.step(stand.seconds(1));
     assert.deepEqual(motor.state.reach, { solves: 0, passes: 0, capped: 0 }, "no hand has a goal: nothing is solved");
     // A place the hand can take: three solves a step (the step before, the step, the step after), each ending.
-    const from = motor.knucklesToRef("right", new Vector3()), steps = stand.seconds(0.4);
+    const from = motor.pointToRef("right", "knuckles", new Vector3()), steps = stand.seconds(0.4);
     motor.reach("right", { places: [{ point: "knuckles", position: [from.x, from.y + 0.05, from.z + 0.2] }], seconds: 0.4 });
     stand.step(steps);
     const near = { ...motor.state.reach };
@@ -275,14 +275,14 @@ async function reachRun(hz, move) {
   const driver = driveMuscles(stand.built, stand.world, motor.control);
   try {
     stand.step(stand.seconds(1));
-    const from = motor.knucklesToRef("right", new Vector3());
+    const from = motor.pointToRef("right", "knuckles", new Vector3());
     const target = [from.x + move[0], from.y + move[1], from.z + move[2]];
     motor.reach("right", { places: [{ point: "knuckles", position: target }], seconds: 0.4 });
     const now = new Vector3();
     let worst = 0;
     for (let s = 0; s < stand.seconds(0.9); s++) {
       stand.step(1);
-      worst = Math.max(worst, Vector3.Distance(motor.path("right"), motor.knucklesToRef("right", now)));
+      worst = Math.max(worst, Vector3.Distance(motor.path("right"), motor.pointToRef("right", "knuckles", now)));
     }
     return { worst, end: now.clone(), off: Vector3.Distance(now, Vector3.FromArray(target)) };
   } finally {
@@ -309,7 +309,7 @@ test("a goal's path runs on through its place, and one that follows keeps its st
   const driver = driveMuscles(stand.built, stand.world, motor.control);
   try {
     stand.step(stand.seconds(1));
-    const from = motor.knucklesToRef("right", new Vector3()).clone();
+    const from = motor.pointToRef("right", "knuckles", new Vector3()).clone();
     const goal = (shift, more) => ({ places: [{ point: "knuckles", position: [from.x + shift, from.y + 0.05, from.z + 0.2] }], seconds: 0.4, ...more });
     const placeOf = ({ places: [{ position }] }) => new Vector3(...position);
     /** The arm let back to its guard, then what `given(s)` gives, if anything, asked before each of `steps` steps: the path's point after the first, and after the last. */
