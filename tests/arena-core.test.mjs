@@ -374,7 +374,7 @@ test("a_side_under_orders_does_what_it_is_told_and_the_other_fights_on", async (
     assert.equal(duel.steps, 480);
     assert.ok(Math.abs(x(left) - start) < 0.05, `ordered to stand, it stands: ${start} to ${x(left)}`);
     assert.ok(x(right) < there - 0.6, `while the other side walks at it: ${there} to ${x(right)}`);
-    assert.equal(left.minded.kind, "fighter");
+    assert.equal(left.minded.kind, "recipe-fighter");
     assert.equal(left.minded.skills.report.strike.thrown.right, 0, "and it throws nothing unasked");
     assert.deepEqual(duel.tape, [{ step: 0, side: "left", orders: STAND_ORDERS }]);
     duel.order("left", { move: null, face: null, attack: null });

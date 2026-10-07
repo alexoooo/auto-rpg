@@ -1,5 +1,5 @@
 /**
- * Whether a fighter that covers what threatens its head (`FighterMindConfig.guard`, `"cover"`) is
+ * Whether a fighter that covers what threatens its head (`RecipeFighterConfig.guard`, `"cover"`) is
  * hit there less than one that guards in the pose: arena bouts (`bout.mjs`), each in a world of
  * its own on a worker (`bout-pool.mjs`).
  *
@@ -25,7 +25,7 @@
  *   the head's hit points over 0.2, with no more falls.
  *
  * - `--variants` are the covering side's experiments, each a part of its mind's config
- *   (`covering`, `threat`: `FighterMindConfig`): a sweep's cells, against one control.
+ *   (`covering`, `threat`: `RecipeFighterConfig`): a sweep's cells, against one control.
  * - `--save` appends each bout's record to a file as it is read, and `--load` reads records in
  *   place of playing: a run cut short is not lost, and two sets are read as one.
  */

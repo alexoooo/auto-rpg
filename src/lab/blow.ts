@@ -80,7 +80,7 @@ interface Throw {
   readonly band: Band;
   /** How far the target moves once the blow is committed, as its tactics see it (`attackOnce`); none if not given. */
   readonly moved?: Partial<StandOff>;
-  /** An experiment's most a blow turns the pelvis (`SkillOptions.steer`); the skill's own if not given. */
+  /** An experiment's most a blow turns the pelvis (`RecipeOptions.steer`); the skill's own if not given. */
   readonly steer?: number;
 }
 

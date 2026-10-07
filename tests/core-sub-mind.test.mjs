@@ -148,7 +148,7 @@ test("a sub-mind's config names its kind", () => {
   const lie = subMind(own, view, { kind: "lie" });
   assert.equal(lie.name, "lie");
   assert.equal(lie.wants(), false);
-  assert.throws(() => subMind(own, view, { kind: "nap" }), /no sub-mind of kind "nap"/);
+  assert.throws(() => subMind(own, view, { kind: "nap" }, null), /no sub-mind of kind "nap"/);
 });
 
 /** How fast the fastest of `built`'s segments' centres moves, m/s. */

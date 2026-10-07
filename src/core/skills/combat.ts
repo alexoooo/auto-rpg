@@ -88,7 +88,7 @@ export function combatSkills(body: Body, tuning: AttackTuning = ATTACK_PATH, tac
     state.elbow = 0; state.initialElbow = 0; state.time = 0; state.ready = 0; state.velocity = [0, 0, 0];
     for (const skill of all) skill.resume(view);
   };
-  return { state, report: skillReport, resume, command(view, intent, dt) {
+  return { state, report: skillReport, resume, release: resume, command(view, intent, dt) {
     const velocities = { left: [0, 0, 0] as Vec3, right: [0, 0, 0] as Vec3 };
     for (const hand of ["left", "right"] as const) {
       const p = view.effectors[`hand.${hand}`]!.points[aims[hand]]!, now: Vec3 = [p.x, p.y, p.z], was = state.previous[hand];

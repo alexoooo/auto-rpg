@@ -75,11 +75,11 @@ test("strike presentation ignores stale reports on takeover, inactivity, elimina
   const world = clock(), body = { has: "command", level: "full" };
   const strike = { hand: "right", phase: "swing" };
   let ending = null;
-  const fighter = { minded: { kind: "fighter", body, skills: { report: { strike } } }, pool: { ending: () => ending } };
+  const fighter = { minded: { kind: "recipe-fighter", body, skills: { report: { strike } } }, pool: { ending: () => ending } };
   const pose = fighterHands(world, fighter);
   try {
     assert.equal(commandsBody(body), true);
-    for (const kind of ["fighter", "arena-fighter"]) {
+    for (const kind of ["recipe-fighter", "path-fighter"]) {
       fighter.minded.kind = kind;
       world.step(.01);
       assert.deepEqual(pose.snapshot(), { left: 0, right: 1 });
@@ -101,7 +101,7 @@ test("strike presentation ignores stale reports on takeover, inactivity, elimina
     assert.deepEqual(pose.snapshot(), { left: 0, right: 0 });
     const saved = pose.snapshot();
     pose.dispose();
-    fighter.minded.kind = "fighter";
+    fighter.minded.kind = "recipe-fighter";
     world.step(1);
     assert.deepEqual(pose.snapshot(), saved);
     assert.equal(world.observers, 0);
@@ -208,7 +208,7 @@ for (const mind of [FIGHTER, ARENA_FIGHTER]) test(`${mind.kind}: actual Arena pu
     const { world, duel } = stand, scene = world.scene, poses = [], skins = [], swung = new Set();
     try {
       // Classic receives stationary practice marks so its approach does not chase a moving foe.
-      if (mind.kind === "fighter") for (const side of ["left", "right"]) {
+      if (mind.kind === "recipe-fighter") for (const side of ["left", "right"]) {
         const head = duel.duelists[side].body.physical.head;
         duel.order(side, { move: null, face: 0, attack: [head.x, head.y, head.z + .5] });
       }

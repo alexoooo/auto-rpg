@@ -402,8 +402,8 @@ export async function bootArena(): Promise<void> {
       const mind = fighter.minded;
       const controller = (() => {
         switch (mind.kind) {
-          case "fighter": return "Classic";
-          case "arena-fighter": return "Combat";
+          case "recipe-fighter": return "Classic";
+          case "path-fighter": return "Combat";
           case "direct": return "Joint control";
           case "quadruped": return "Crawl and bite";
           default: { const never: never = mind; throw new Error(`unknown mind ${never}`); }

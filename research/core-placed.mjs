@@ -2,7 +2,7 @@
  * **The placed blow's sweep** (`PLACED`, `src/core/skills/strike.ts`): the targets' battery
  * (`core-targets.mjs`, each target on a run of its own, the walk out to it included) at every
  * cell of `--stretch` by `--seconds` by `--through`, each given to the skills in place of the
- * blow set (`SkillOptions.placed`). A cell reads its placed blows alone: a target a recipe was
+ * blow set (`RecipeOptions.placed`). A cell reads its placed blows alone: a target a recipe was
  * thrown at is the same in every cell.
  *
  *   node research/core-placed.mjs [--stretch 0.8,0.9,1,1.1] [--seconds 0.25,0.4,0.6] [--through 0.1,0.15,0.25]

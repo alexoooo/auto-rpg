@@ -116,7 +116,7 @@ test("a game hosts a direct mind alongside its fighter and restores both", async
   const duel = new Duel(stand.world, { left: "workshop-fighter", right: "workshop-rogue", minds: { left: config }, balance: { left: 0, right: 0 } });
   try {
     assert.equal(duel.duelists.left.minded.kind, "direct");
-    assert.equal(duel.duelists.right.minded.kind, "fighter");
+    assert.equal(duel.duelists.right.minded.kind, "recipe-fighter");
     assert.equal("view" in duel.duelists.left.body, false);
     stand.step(20);
     const saved = duel.save();

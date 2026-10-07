@@ -1,5 +1,5 @@
 /**
- * Whether a fighter that aims at the part its blow pays most on (`FighterMindConfig.aim`,
+ * Whether a fighter that aims at the part its blow pays most on (`RecipeFighterConfig.aim`,
  * `"pays"`) does better than one that aims at the head: arena bouts (`bout.mjs`), each in a world
  * of its own on a worker (`bout-pool.mjs`).
  *

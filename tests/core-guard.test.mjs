@@ -24,7 +24,7 @@ import { createSenses } from "../src/core/mind/senses.ts";
 import { driveBy } from "../src/core/mind/tactics.ts";
 import { THREAT, threatReader } from "../src/core/mind/threat.ts";
 import { GUARD, GUARD_COVER } from "../src/core/skills/guard.ts";
-import { createSkills } from "../src/core/skills/skills.ts";
+import { recipeSkills } from "../src/core/skills/skills.ts";
 import { buildBout } from "../research/bout.mjs";
 import { coreStand } from "./harness/core-stand.mjs";
 
@@ -268,7 +268,7 @@ test("an_experiments_cover_and_threat_ride_in_the_minds_config", async () => {
 test("the_guard_has_the_hands_the_strike_has_not", async () => {
   const stand = await coreStand(WARRIOR, { ground: true });
   const body = createBody(stand.built, stand.world, { servoSeconds: SERVO_SECONDS });
-  const skills = createSkills(body);
+  const skills = recipeSkills(body);
   // The right hand attacks until its recipe's pushes begin, and is then told to cover as the left is all along.
   const held = { target: null, covers: false, seen: [] };
   body.drive((view, dt) => {

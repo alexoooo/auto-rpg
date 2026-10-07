@@ -23,7 +23,7 @@ import { intoFrameToRef } from "../src/core/control/kinematics.ts";
 import { HUMANOID_MODELS } from "../src/core/models.ts";
 import { GUARD_ACTION } from "../src/core/mind/intent.ts";
 import { GUARD_COVER } from "../src/core/skills/guard.ts";
-import { createSkills } from "../src/core/skills/skills.ts";
+import { recipeSkills } from "../src/core/skills/skills.ts";
 import { loadoutSpec } from "../src/lab/loadout.ts";
 import { coreStand } from "../tests/harness/core-stand.mjs";
 
@@ -44,7 +44,7 @@ async function reach(cover, way, hand) {
   const spec = loadoutSpec({ model: values.model, right: "club", left: "empty" });
   const stand = await coreStand(spec, { ground: true });
   const body = createBody(stand.built, stand.world, { servoSeconds: SERVO_SECONDS });
-  const { view } = body, skills = createSkills(body, { cover });
+  const { view } = body, skills = recipeSkills(body, {}, { cover });
   const known = rigidPoints(spec, spec.segments.find((segment) => segment.name === "hand.right"));
   const span = Vector3.Distance(Vector3.FromArray(known.get("swellFrom").value), Vector3.FromArray(known.get("swellTo").value));
   const own = hand === "right" && values.club !== "skill", guarded = new Vector3(), toward = new Vector3();

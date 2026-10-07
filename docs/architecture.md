@@ -62,7 +62,7 @@ contact impulses from the preceding physics step, with no engine objects exposed
 plain bout state.
 
 
-`arena-fighter` selects collider-derived target surfaces and commits a hand trajectory through
+The path fighter selects collider-derived target surfaces and commits a hand trajectory through
 `combatSkills`. Terminal hand velocity and segment identity extend the common IK/muscle path; an optional, range-bounded elbow preference composes with trunk rotation and returns to guard. Optional lateral head-surface samples expand the same collider-based lane search; zero preserves the retained selector.
 Optional bounded combinations can overlap an opposite-hand strike with a contact-free, physically
 returning hand. One saved auxiliary return retains its own motion sequence and completion checks;
@@ -114,8 +114,9 @@ the impact literature for each part's stiffness under a blunt load (`CONTACT_STI
 
 `BODY_MODELS`, `modelSpec` and `modelInfo` (`src/core/models.ts`) own the model registry,
 construction, default minds, equipment and navigation footprints. What a body can do is read from
-its spec: `modelHolds` (a hand a haft lies across, `canHold`) and `modelSupportsMind` (`commandable`
-for the humanoid minds, `quadrupedFits` for the quadruped). How a model is shown, its label,
+its spec: `modelHolds` (a hand a haft lies across, `canHold`) and `modelSupportsMind`, which asks
+the mind's controller (`Controller.fits`: `commandable` for both fighters, `quadrupedFits` for
+the quadruped, any body for direct control). How a model is shown, its label,
 clothing and shape tint, is the screens' (`MODEL_DISPLAY`, `src/render/models.ts`).
 Humanoid-only tasks use `HUMANOID_MODELS`; they do not fabricate hands on a different body.
 The reptile has 17 segments, 16 joints and 31 muscle freedoms: a trunk, four three-segment legs,
@@ -286,8 +287,10 @@ and driven afresh to change what it costs.
 
 ### Skills
 
-`createSkills` (`src/core/skills/skills.ts`) is the only place an `Intent` becomes a
-`BodyCommand`, and it reports back (`SkillReport`: heading, pace, where a strike is).
+A controller's skills are the only place an `Intent` becomes a `BodyCommand`, and they report
+back (`SkillReport`: heading, pace, where a strike is). Each controller composes its own: the
+recipe fighter's `recipeSkills` (`src/core/skills/skills.ts`, below) and the path fighter's
+`combatSkills` (`combat.ts`); `driveBy` hands a body to tactics over the skills it is given.
 
 - **Locomotion** (`locomotion.ts`) walks at no more than the body's measured fastest walk, turns
   only while walking and no faster than its envelope and optional `turnLimit` allow, and can
@@ -437,11 +440,20 @@ sub-minds nested configs in it (`SubMindConfig`), so a sub-mind is configured wh
 `createMind(built, world, config, wiring)` (`minds.ts`) makes a body's mind from one, wired to
 its fight (its orders, its senses, its assist's ceiling), and gives back a `Minded`: the body and
 the mind's memory, which is all a fight reads; a reader that knows the kind narrows on it (a
-fighter's skills and their report). The switches that make a mind and a sub-mind of a config
-have a `never` default. There is one kind of mind, the fighter, and two sub-minds, each of
-which wants the body while it is down (`BodyView.down`): `lie` (`lying`, `lie.ts`), which
-asks its muscles for nothing, and `staged-rise` (`stagedRise`, `rise/staged.ts`), the riser.
-`FIGHTER` is the fighter with `lie`: the mind every body has unless its fight says otherwise,
+fighter's skills and their report).
+
+**A kind of mind is a controller** (`CONTROLLERS`, `controllers.ts`), a mapped type over the
+kinds, so a kind without one does not compile: it says which bodies it fits (`fits`), names
+its presets (the Arena's picker and a link's `control=` read them, ids unique across
+controllers) and makes the mind (`create`). There are four: the **recipe fighter** (Classic:
+searched recipe blows, `recipe-fighter.ts`), the **path fighter** (Combat, Brawler, Scrapper,
+Kicker: hand paths on the strike cycle, `path-fighter.ts`), the **quadruped** (crawl and bite)
+and **direct** joint control. A config read from a save or a link whose kind none has is refused
+(`controllerOf`). There are three sub-minds, each of which wants the body while it is down
+(`BodyView.down`), and the body hands each maker its world (`SubMindMaker`): `lie` (`lying`,
+`lie.ts`), which asks its muscles for nothing, `staged-rise` (`stagedRise`, `rise/staged.ts`),
+the riser, and `support-recovery` (`supportRecovery`), the riser followed by a quiet standing
+handover. `FIGHTER` is the recipe fighter with `lie`: the mind every body has unless its fight says otherwise,
 so a body that falls lies still ([reference/rising.md](reference/rising.md#lying)). An arena
 recipe may name each side's mind (`DuelRecipe.minds`); the crypt gives every body `FIGHTER`;
 the lab's actor, whose tactics are its scenario's, takes the sub-minds its page chose
@@ -485,7 +497,7 @@ left guards: it holds the point while the strike skill walks and sets the feet f
 at the ordered point itself once a blow is committed. The stance turns only while it walks or
 follows a blow's target, so a standing body ordered to face does not turn.
 
-A hand that does not attack guards as the mind's config says (`FighterMindConfig.guard`): in the
+A hand that does not attack guards as the mind's config says (`RecipeFighterConfig.guard`): in the
 pose, or by a cover of what threatens its head. The threat is read from the senses (`threatOf`,
 `threat.ts`): of the other sides' bodies still in the fight, the point each hand strikes with
 (its knuckles, or its club's swell) that closes fastest on the head, within `THREAT`'s distance
@@ -496,10 +508,10 @@ sides the cover ([reference/blows.md](reference/blows.md#covering-searched)).
 Orders come from three places. An arena side nobody has taken makes its own (`seekFoe`): from
 its senses it picks the nearest body of another side still in the fight, walks at it, and attacks
 it once their centres are within `ATTACK_METRES` (1.8 m): at its head, or, where its config says
-to aim at what pays (`FighterMindConfig.aim`, `bandAimed`), at the part of the band its hand's
+to aim at what pays (`RecipeFighterConfig.aim`, `bandAimed`), at the part of the band its hand's
 recipe nets most on (`StrikeReport.nets`, `BANDS`). Every body's fighter aims at the head
 (`FIGHTER`; [reference/blows.md](reference/blows.md#aim)). Where its config says to hold at the
-edge (`FighterMindConfig.range`, `EDGE`), it reads the foe's reach from what it sees of the foe
+edge (`RecipeFighterConfig.range`, `EDGE`), it reads the foe's reach from what it sees of the foe
 (`rangeOf`, by `BodySense.spec`, the rule its own strike skill throws by, `StrikeReport.rangeAt`):
 it stands just outside it, backing out from inside it, and attacks when the part it aims at
 stands in its own blow's window from where it stands, or when it has stood there its patience.

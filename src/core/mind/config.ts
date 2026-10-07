@@ -13,12 +13,18 @@ interface LieConfig { readonly kind: "lie" }
 /** Rise by stages (`stagedRise`, `rise/staged.ts`): the recipe is the game's (`RISE`). */
 interface StagedRiseConfig { readonly kind: "staged-rise" }
 
-/** **A sub-mind's config**, by kind: what a host's slot holds, whole, so a sub-mind is configured where it is chosen. */
-export type SubMindConfig = LieConfig | StagedRiseConfig;
+/** Rise by stages, then stand quiet on loaded feet before giving the body back (`supportRecovery`, `rise/support-recovery.ts`). */
+interface SupportRecoveryConfig { readonly kind: "support-recovery" }
 
-/** **The fighter**: tactics over skills over the command layers (`createMind`, `minds.ts`). */
-export interface FighterMindConfig {
-  readonly kind: "fighter";
+/** **A sub-mind's config**, by kind: what a host's slot holds, whole, so a sub-mind is configured where it is chosen. */
+export type SubMindConfig = LieConfig | StagedRiseConfig | SupportRecoveryConfig;
+
+/**
+ * **The recipe fighter**: the searched recipe blows (`skills/strike.ts`) under tactics that seek
+ * the foe (`seekFoe`), over the command layers (`recipe-fighter.ts`).
+ */
+export interface RecipeFighterConfig {
+  readonly kind: "recipe-fighter";
   /** The sub-minds it hands its body to, in rank order: the first that wants the body has it. */
   readonly subs: readonly SubMindConfig[];
   /** How a hand that does not attack guards: the pose, or a cover of what threatens (`threatOf`, `threat.ts`). */
@@ -42,7 +48,7 @@ export interface FighterMindConfig {
  * **A mind's config**, by kind: plain data, so it rides in a recipe, a save and a link. Each kind
  * of mind declares its own; a fight passes one through and reads nothing in it.
  */
-export type MindConfig = FighterMindConfig | ArenaFighterConfig | DirectMindConfig | QuadrupedConfig;
+export type MindConfig = RecipeFighterConfig | PathFighterConfig | DirectMindConfig | QuadrupedConfig;
 
 /** Four-paw crawling, physical jaw snaps and self-righting through the body's own muscles. */
 interface QuadrupedConfig { readonly kind: "quadruped" }
@@ -59,11 +65,16 @@ export interface DirectMindConfig {
 }
 
 /** The mind every body has unless its fight says otherwise. */
-export const FIGHTER: FighterMindConfig = deepFreeze({ kind: "fighter", subs: [{ kind: "lie" }], guard: "pose", aim: "head", range: "close" });
+export const FIGHTER: RecipeFighterConfig = deepFreeze({ kind: "recipe-fighter", subs: [{ kind: "lie" }], guard: "pose", aim: "head", range: "close" });
 
-/** Tactical combat over the same physical body and reusable trajectory executor. */
-export interface ArenaFighterConfig {
-  readonly kind: "arena-fighter";
+/**
+ * **The path fighter**: hand paths chosen against the foe's surfaces and carried out on the
+ * strike cycle (`skills/combat.ts`), over the command layers (`path-fighter.ts`).
+ */
+export interface PathFighterConfig {
+  readonly kind: "path-fighter";
+  /** The sub-minds it hands its body to, in rank order: the first that wants the body has it. */
+  readonly subs: readonly SubMindConfig[];
   readonly hand: "left" | "right" | "alternate";
   /** Reference cover or measured relative-motion prediction; omitted retains the reference. */
   readonly defenseMode?: "reference" | "predictive";
@@ -90,15 +101,15 @@ export interface ArenaFighterConfig {
 }
 
 /** Experimental autonomous combat; promotion is measured by the paired combat harness. */
-export const ARENA_FIGHTER: ArenaFighterConfig = deepFreeze({ kind: "arena-fighter", hand: "alternate" });
+export const ARENA_FIGHTER: PathFighterConfig = deepFreeze({ kind: "path-fighter", subs: [{ kind: "support-recovery" }], hand: "alternate" });
 
 /** Body-targeting candidate and scope: `docs/reference/arena-combat-evaluation.md#body-targeting-held-out-evaluation`. */
-export const ARENA_BRAWLER: ArenaFighterConfig = deepFreeze({ kind: "arena-fighter", hand: "alternate",
+export const ARENA_BRAWLER: PathFighterConfig = deepFreeze({ kind: "path-fighter", subs: [{ kind: "support-recovery" }], hand: "alternate",
   repertoire: "mixed", openings: { head: .3, upperTrunk: 0, middleTrunk: 0 } });
 
 /** Playable grounded profile with both-hand low gates: `docs/reference/ground-combat.md#arena-integration`. */
-export const ARENA_SCRAPPER: ArenaFighterConfig = deepFreeze({ ...ARENA_BRAWLER, groundGame: true });
+export const ARENA_SCRAPPER: PathFighterConfig = deepFreeze({ ...ARENA_BRAWLER, groundGame: true });
 
 /** Low-kick development profile: `docs/reference/front-kicks.md#arena-selection`. */
-export const ARENA_KICKER: ArenaFighterConfig = deepFreeze({ ...ARENA_SCRAPPER,
+export const ARENA_KICKER: PathFighterConfig = deepFreeze({ ...ARENA_SCRAPPER,
   kicks: { ...KICK_PATH, swingSeconds: .3, contactSpeed: 3 } });

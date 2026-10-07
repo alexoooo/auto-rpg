@@ -304,7 +304,7 @@ export function createBody(built: BuiltBody, world: World, options: BodyOptions)
   let command!: CommandMind;
   const body = hostedBody(built, world, options, (own, sense) => {
     command = commandMind(own, options);
-    const subs = (options.subs ?? []).map((make) => make(own, command.view));
+    const subs = (options.subs ?? []).map((make) => make(own, command.view, world));
     // Before its first step the view is the body as built, where a driver or a run first finds it.
     command.look(sense());
     return { host: command, subs, down: () => command.view.down };

@@ -1,12 +1,11 @@
-import type { KickReport, KickTuning } from "./kick.ts";
+import type { KickReport } from "./kick.ts";
 import type { SupportReport } from "./support-fold.ts";
-import { combatSkills, type CombatExecution } from "./combat.ts";
-import type { AttackTuning } from "./attack-path.ts";
 import type { Body, BodyCommand, BodyView } from "../body.ts";
 import type { Intent } from "../mind/intent.ts";
+import type { Tactics } from "../mind/tactics.ts";
 import type { EffectorGoal, MusclePush } from "../control/motor.ts";
 import { GUARD, guardSkill, type Covering } from "./guard.ts";
-import { locomotion, type TurnStartup } from "./locomotion.ts";
+import { locomotion } from "./locomotion.ts";
 import type { Skill } from "./skill.ts";
 import { strikeSkill, type Placed, type StrikeReport } from "./strike.ts";
 import { REPERTOIRE, type Repertoire } from "./strikes.ts";
@@ -26,7 +25,8 @@ import { REPERTOIRE, type Repertoire } from "./strikes.ts";
  *   cover of what its tactics name. It has the hands the strike has not.
  *
  * Every skill answers `Skill.resume`, and the skills tell every one of them from one list: a
- * skill added to it cannot be left out.
+ * skill added to it cannot be left out. Each controller composes its own: the recipe fighter's
+ * here (`recipeSkills`), the path fighter's on the strike cycle (`combatSkills`, `combat.ts`).
  */
 export interface Skills extends Skill {
   /** The command for this control step. */
@@ -37,6 +37,8 @@ export interface Skills extends Skill {
    * body's state shares; the legs' and the strike's; and their tactics' (`Tactics.state`), or null.
    */
   readonly state: object;
+  /** What they do when a sub-mind takes the body (`Body.drive`); nothing unless given. */
+  readonly release?: (view: BodyView) => void;
 }
 
 /** How the skills are going, as the last command left them. */
@@ -53,20 +55,8 @@ export interface SkillReport {
   readonly kick?: KickReport;
 }
 
-export interface SkillOptions {
-  /** Shared combat trajectories in place of the reference strike skill. */
-  readonly combat?: AttackTuning;
-  readonly combatExecution?: CombatExecution;
-  /** Either-foot support transfer, front strike, withdrawal and verified landing. */
-  readonly kicks?: KickTuning;
-  /** Enable supported low-combat transitions behind the neutral lowering intent. */
-  readonly lowCombat?: boolean;
-  /** Carry one returning hand independently while the other performs a bounded follow-up. */
-  readonly combatOverlap?: boolean;
-  /** Additional heading-speed ceiling, rad/s, applied by the shared locomotion skill. */
-  readonly turnLimit?: number;
-  /** Optional brief ceiling at the beginning of each requested walk. */
-  readonly turnStartup?: TurnStartup;
+/** An experiment's recipe skills, in place of the ones set. */
+export interface RecipeOptions {
   /** An experiment's strikes in place of the searched repertoire (`REPERTOIRE`): a search's candidate. */
   readonly repertoire?: Repertoire;
   /** An experiment's placed blow in place of the one set (`PLACED`): a sweep's cell. */
@@ -77,16 +67,18 @@ export interface SkillOptions {
   readonly cover?: Covering;
 }
 
-/** The skills of `body`; `tactics` is the memory of the tactics that will hand them their intent (`Tactics.state`), kept with theirs. */
-export function createSkills(body: Body, { repertoire = REPERTOIRE, placed, steer, cover, combat, combatExecution, lowCombat, turnLimit, turnStartup, combatOverlap, kicks }: SkillOptions = {}, tactics: object | null = null, engagement?: { readonly phase: string }): Skills {
-  if (combat) return combatSkills(body, combat, tactics, engagement, lowCombat, turnLimit, turnStartup, combatOverlap, combatExecution, kicks);
-  if (kicks) throw new Error("kicks require the shared combat executor");
-  const legs = locomotion(body.envelope, turnLimit, turnStartup), strikes = strikeSkill(body.built.spec, repertoire, placed, steer), guard = guardSkill(body.built.spec, cover);
+/**
+ * The recipe fighter's skills of `body`: the walk, the recipe strike and the guard. `tactics` will
+ * hand them their intent; their memory (`Tactics.state`) is kept with the skills'.
+ */
+export function recipeSkills(body: Body, { state: tactics, engagement }: Pick<Tactics, "state" | "engagement"> = {},
+  { repertoire = REPERTOIRE, placed, steer, cover }: RecipeOptions = {}): Skills {
+  const legs = locomotion(body.envelope), strikes = strikeSkill(body.built.spec, repertoire, placed, steer), guard = guardSkill(body.built.spec, cover);
   const none: readonly MusclePush[] = Object.freeze([]);
   const effectors: Record<string, EffectorGoal | null> = { "hand.left": null, "hand.right": null };
   const command: { -readonly [K in keyof BodyCommand]: BodyCommand[K] } =
     { posture: GUARD, effectors, pushes: none, stance: null };
-  const state = { command, legs: legs.state, strikes: strikes.state, tactics };
+  const state = { command, legs: legs.state, strikes: strikes.state, tactics: tactics ?? null };
   const all: readonly Skill[] = [legs, strikes, guard];
   const report: SkillReport = {
     get heading() { return legs.heading; },

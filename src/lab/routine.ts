@@ -4,7 +4,7 @@ import type { StanceEnvelope } from "../core/control/stance-envelope.ts";
 import { GUARD_ACTION, type Intent } from "../core/mind/intent.ts";
 import type { Sight, Tactics } from "../core/mind/tactics.ts";
 import { rulebook, type Rulebook } from "../core/rules/rulebook.ts";
-import type { SkillOptions, SkillReport } from "../core/skills/skills.ts";
+import type { RecipeOptions, SkillReport } from "../core/skills/skills.ts";
 import { APPROACH } from "../core/skills/strike.ts";
 import type { Actor } from "./actor.ts";
 import { trackTactics } from "./run-mode.ts";
@@ -158,7 +158,7 @@ interface RoutineOptions {
   /** The hands that strike, in turn. */
   readonly hands?: readonly Side[];
   /** An experiment's skills, in place of their defaults. */
-  readonly skills?: SkillOptions;
+  readonly skills?: RecipeOptions;
   /** The rules its targets are read under: the arena's unless given. */
   readonly rules?: Rulebook;
   /** Told each target's body as it is hung; what it returns is disposed with that body. */

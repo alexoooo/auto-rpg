@@ -148,49 +148,19 @@ stricter cycle bars are `todo` tests there, each naming the gap the Combat fight
 Fixtures that used Point as an opponent use Classic (the hugging fixture, clubs, 12 s) or
 Combat (the openings fixture, 30 s).
 
-### Chunk 12: controllers in one registry, each composing its own skills (bit-identical; state reshaped)
+### Chunk 12: controllers in one registry, each composing its own skills (landed)
 
-Today `createMind` switches over the kinds, `modelSupportsMind` keeps its own table of which kind
-fits which body, `matchup.ts` keeps `CONTROLS` and `controlMind`, and `createSkills` picks one of
-two skill stacks by which options are present.
-
-**The registry: `src/core/mind/controllers.ts`**
-- `CONTROLLERS: { [K in MindConfig["kind"]]: Controller<Extract<MindConfig, { kind: K }>> }`, a
-  mapped type, so a kind without an entry is a compile error.
-- `Controller<C> = { fits(spec, config: C): boolean; presets: Readonly<Record<string, { label:
-  string; config: C }>>; create(built, world, config: C, wiring): Minded }`.
-- `createMind` is `CONTROLLERS[config.kind].create(...)`, with `unknownKind` kept for a config
-  read from a save or a link. `modelSupportsMind(model, config)` is `CONTROLLERS[kind].fits`:
-  - `commandable(spec)` for both fighters, and two foot effectors as well for a path fighter
-    with kicks;
-  - `quadrupedFits(spec)` for the quadruped;
-  - any body for `direct`.
-- `matchup.ts`'s `CONTROLS` and `controlMind` are read from the presets. The ids are kept
-  (`classic`, `combat`, `brawler`, `scrapper`, `kicker`, `crawl`), so old links still work.
-
-**Names**
-- The kinds are named for what they are, not for a screen: `"fighter"` becomes
-  `"recipe-fighter"` (`RecipeFighterConfig`) and `"arena-fighter"` becomes `"path-fighter"`
-  (`PathFighterConfig`).
-- The files follow: `mind/recipe-fighter.ts` (`createFighter` and the recipe tactics out of
-  `minds.ts` and `fighter.ts`), and `mind/path-fighter.ts` (out of `arena-fighter.ts`).
-
-**Skills**
-- Each controller composes its own skills. `createSkills`'s flag bag splits into:
-  - `recipeSkills(body, {cover?, repertoire?, placed?, steer?})`;
-  - `combatSkills(body, …)` as today.
-- `SkillOptions` goes. `driveBy(body, tactics, skills)` takes the skills made. The release hook
-  is installed by the path fighter, as today.
-
-**Recovery**
-- Recovery is configured, not hard-wired. `SubMindConfig` gains `{kind: "support-recovery"}`,
-  and `subMind`/`subMindsOf` take the world.
-- The path fighter's config gains `subs`, `[{kind: "support-recovery"}]` in every preset, which
-  replaces its hard-wired `supportRecovery`.
-- The recipe fighter keeps its `subs`: `lie` by default, `staged-rise` in the Arena's preset.
-
-**Tests:** `core-fork` paths follow the renames; a new registry test asserts every
-preset's `fits` against every model, the same table `controlsFor` gives today.
+Bit-identical, state included. As built:
+- `CONTROLLERS` (`mind/controllers.ts`) holds `fits`, `presets` and `create`, and `controllerOf`
+  refuses an unknown kind. The presets list classic, combat, brawler, scrapper, kicker, crawl in that
+  order, which the picker follows. `commandable` already needs box feet, so a kicker fits every
+  body the path fighter fits.
+- The kinds are `recipe-fighter` and `path-fighter` (`recipe-fighter.ts`, `path-fighter.ts`). The
+  preset constants keep their names until chunk 13, and `fighter.ts` splits in chunk 14.
+- `driveBy(body, tactics, make = recipeSkills)` takes a maker, so the callers that pass no skills
+  are unchanged. A stack's `Skills.release` is what it does when a sub-mind takes the body:
+  `combatSkills` resumes. `combatSkills` keeps its positional parameters until chunk 15.
+- The body hands each sub-mind maker its world (`SubMindMaker`), so `subMindsOf` needs none.
 
 ### Chunk 13: each controller's config, validated once, with its presets (bit-identical)
 

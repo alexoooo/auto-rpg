@@ -6,7 +6,7 @@ import { FIGHTER, type SubMindConfig } from "../core/mind/config.ts";
 import { GUARD_ACTION } from "../core/mind/intent.ts";
 import { subMindsOf } from "../core/mind/sub-minds.ts";
 import { driveBy, type Sight, type Tactics } from "../core/mind/tactics.ts";
-import type { SkillOptions, Skills } from "../core/skills/skills.ts";
+import { recipeSkills, type RecipeOptions, type Skills } from "../core/skills/skills.ts";
 import { heldIn } from "../core/skills/strikes.ts";
 import type { World } from "../core/world.ts";
 import { deciding } from "./minds.ts";
@@ -18,7 +18,7 @@ type Watch = (sight: Sight, dt: number) => void;
 /** What a mode drives its body with, beside its script. */
 interface Driving {
   /** What its skills are made with, in place of their defaults. */
-  readonly skills?: SkillOptions;
+  readonly skills?: RecipeOptions;
   /** Read each step, whatever the mind is. */
   readonly watch?: Watch;
 }
@@ -77,7 +77,7 @@ export function labActor(built: BuiltBody, world: World, { assist, stance, allow
     body, world, strikes,
     drive(script, { skills, watch } = {}) {
       const tactics = barred(mind(script), strikes);
-      return driveBy(body, watch ? watched(tactics, watch) : tactics, skills);
+      return driveBy(body, watch ? watched(tactics, watch) : tactics, (made, driving) => recipeSkills(made, driving, skills));
     },
     dispose: () => body.dispose(),
   };

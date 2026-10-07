@@ -1,19 +1,14 @@
-import { createBody, SERVO_SECONDS, type Body } from "../body.ts";
+import type { Body } from "../body.ts";
 import type { BuiltBody } from "../build/build-body.ts";
 import type { ContactIdentity } from "../control/effector-feedback.ts";
 import type { AssistCeiling } from "../control/assist.ts";
 import type { Skills } from "../skills/skills.ts";
 import type { World } from "../world.ts";
-import type { FighterMindConfig, MindConfig } from "./config.ts";
-import { fighterTactics, seekFoe, STRAFE } from "./fighter.ts";
+import type { MindConfig } from "./config.ts";
+import { controllerOf } from "./controllers.ts";
 import type { Orders } from "./orders.ts";
 import type { Senses } from "./senses.ts";
-import { subMindsOf } from "./sub-minds.ts";
-import { driveBy } from "./tactics.ts";
 import type { PhysicalBody } from "../physical-body.ts";
-import { arenaFighter } from "./arena-fighter.ts";
-import { createDirectBody } from "./direct.ts";
-import { createQuadrupedMind } from "../reptile/mind.ts";
 
 /** **What a fight gives the mind it makes**, beside the body and the config. */
 export interface MindWiring {
@@ -37,7 +32,7 @@ interface MindedBody {
 
 /** A body under a fighter's mind: its skills, for whoever knows it is a fighter and reads their report. */
 interface FighterMind extends MindedBody {
-  readonly kind: "fighter" | "arena-fighter";
+  readonly kind: "recipe-fighter" | "path-fighter";
   readonly body: Body;
   readonly skills: Skills;
 }
@@ -48,29 +43,7 @@ interface FighterMind extends MindedBody {
  */
 export type Minded = FighterMind | (MindedBody & { readonly kind: "direct" }) | (MindedBody & { readonly kind: "quadruped" });
 
-/** `built` under the mind `config` names, wired to its fight. */
+/** `built` under the mind `config` names, wired to its fight, made by its controller (`CONTROLLERS`). */
 export function createMind(built: BuiltBody, world: World, config: MindConfig, wiring: MindWiring): Minded {
-  switch (config.kind) {
-    case "quadruped": return createQuadrupedMind(built, world, wiring);
-    case "arena-fighter": return arenaFighter(built, world, config, wiring);
-    case "fighter": return createFighter(built, world, config, wiring);
-    case "direct": {
-      const body = createDirectBody(built, world, config, wiring);
-      return { kind: "direct", body, state: {} };
-    }
-    default: return unknownKind(config);
-  }
-}
-
-/** A fighter left to itself seeks its foe (`seekFoe`): the one conduct there is. */
-function createFighter(built: BuiltBody, world: World, config: FighterMindConfig, wiring: MindWiring): FighterMind {
-  const body = createBody(built, world, { servoSeconds: SERVO_SECONDS, senses: wiring.senses, assist: wiring.assist, subs: subMindsOf(config.subs) });
-  const skills = driveBy(body, fighterTactics(wiring.name, (sight) => wiring.orders(sight.view.senses) ?? seekFoe(sight, config.aim, config.range, config.edge), STRAFE, config.guard, config.threat),
-    { cover: config.covering });
-  return { kind: "fighter", body, skills, state: skills.state };
-}
-
-/** A config's kind no maker knows: a compile error where the union is known, and a thrown one for a config read from a save or a link. */
-function unknownKind(config: never): never {
-  throw new Error(`no mind of kind ${JSON.stringify((config as { kind?: unknown }).kind)}`);
+  return controllerOf(config).create(built, world, config, wiring);
 }

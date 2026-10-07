@@ -1,5 +1,6 @@
 import { BODY_MODELS, modelHolds, modelSupportsMind, type BodyModel } from "../core/models.ts";
-import { ARENA_BRAWLER, ARENA_SCRAPPER, ARENA_KICKER, ARENA_FIGHTER, FIGHTER, QUADRUPED, type FighterMindConfig, type MindConfig } from "../core/mind/config.ts";
+import { FIGHTER, type RecipeFighterConfig, type MindConfig } from "../core/mind/config.ts";
+import { CONTROLLERS } from "../core/mind/controllers.ts";
 import { isOrders } from "../core/mind/orders.ts";
 import { balanceFrom } from "../core/rules/rulebook.ts";
 import { DUEL_HELD, type OrdersEntry } from "./duel.ts";
@@ -98,13 +99,13 @@ const GUARD_PARAM = "guard";
 
 /**
  * The minds an address gives both sides (`DuelRecipe.minds`): the fighter (`FIGHTER`) guarding
- * as it names (`FighterMindConfig.guard`); undefined for anything else, and each side's mind is
+ * as it names (`RecipeFighterConfig.guard`); undefined for anything else, and each side's mind is
  * then the bout's own.
  */
-export function readGuard(search: string): Readonly<Record<Side, FighterMindConfig>> | undefined {
+export function readGuard(search: string): Readonly<Record<Side, RecipeFighterConfig>> | undefined {
   const guard = new URLSearchParams(search).get(GUARD_PARAM);
   if (guard !== "cover" && guard !== "pose") return undefined;
-  const mind: FighterMindConfig = { ...FIGHTER, guard };
+  const mind: RecipeFighterConfig = { ...FIGHTER, guard };
   return { left: mind, right: mind };
 }
 
@@ -152,10 +153,13 @@ export function readTape(hash: string): OrdersEntry[] {
 /** The fragment that carries `tape` (`readTape`). */
 export const tapeHash = (tape: readonly OrdersEntry[]): string => `#${TAPE_KEY}=${encodeURIComponent(JSON.stringify(tape))}`;
 
-/** Selectable controllers; separate from anatomy, equipment and appearance. */
-export const CONTROLS = Object.freeze({ kicker: "Kicker (experimental)", scrapper: "Scrapper (experimental)", brawler: "Brawler (experimental)", combat: "Combat (experimental)", classic: "Classic fighter",
-  crawl: "Crawl and bite" });
-type Control = keyof typeof CONTROLS;
+/** Every controller's presets by id (`Controller.presets`): a side's choice, separate from anatomy, equipment and appearance. */
+const PRESETS: Readonly<Record<string, { readonly label: string; readonly config: MindConfig }>> =
+  Object.freeze(Object.assign({}, ...Object.values(CONTROLLERS).map((controller) => controller.presets)));
+type Control = string;
+
+/** The selectable controllers' names on the page, by id. */
+export const CONTROLS: Readonly<Record<Control, string>> = Object.freeze(Object.fromEntries(Object.entries(PRESETS).map(([id, preset]) => [id, preset.label])));
 
 /** Per-side controller choices in a shareable arena recipe. */
 export function readControls(search: string): Readonly<Record<Side, Control>> {
@@ -163,33 +167,22 @@ export function readControls(search: string): Readonly<Record<Side, Control>> {
   const models = readMatchup(search);
   const read = (s: string | undefined, model: BodyModel): Control => {
     const choices = controlsFor(model);
-    return choices.includes(s as Control) ? s as Control : choices.includes("classic") ? "classic" : choices[0]!;
+    return s !== undefined && choices.includes(s) ? s : choices.includes("classic") ? "classic" : choices[0]!;
   };
   return { left: read(parts[0], models.left), right: read(parts[1] ?? parts[0], models.right) };
 }
 
 /** Pickers and links accept the same model/controller pairs. */
 export function controlsFor(model: BodyModel): readonly Control[] {
-  return (Object.keys(CONTROLS) as Control[]).filter(control => modelSupportsMind(model, controlMind(control)));
+  return Object.keys(PRESETS).filter((control) => modelSupportsMind(model, PRESETS[control]!.config));
 }
 
-function controlMind(control: Control, guard: FighterMindConfig = FIGHTER): MindConfig {
-  switch (control) {
-    case "crawl": return QUADRUPED;
-    case "kicker": return ARENA_KICKER;
-    case "scrapper": return ARENA_SCRAPPER;
-    case "brawler": return ARENA_BRAWLER;
-    case "combat": return ARENA_FIGHTER;
-    case "classic": return { ...guard, subs: [{ kind: "staged-rise" }] };
-    default: { const never: never = control; throw new Error(`unknown controller ${never}`); }
-  }
-}
-
-/** The selected controllers, retaining the classic fighter's guard option. */
+/** The selected controllers' presets, a recipe fighter guarding as `&guard=` names (`readGuard`). */
 export function readMinds(search: string): Readonly<Record<Side, MindConfig>> {
   const controls = readControls(search), guards = readGuard(search);
   const mind = (side: Side): MindConfig => {
-    return controlMind(controls[side], guards?.[side]);
+    const config = PRESETS[controls[side]]!.config;
+    return config.kind === "recipe-fighter" && guards ? { ...config, guard: guards[side].guard } : config;
   };
   return { left: mind("left"), right: mind("right") };
 }

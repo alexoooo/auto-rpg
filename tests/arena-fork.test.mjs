@@ -33,7 +33,7 @@ import { traceOf } from "./harness/trace.mjs";
 const { threatOf } = threatReader();
 
 const RECIPE = deepFreeze({ left: "workshop-fighter", right: "workshop-rogue", gap: 3.75, balance: { left: 25, right: 25 }, senseDelay: 1 });
-/** The same bout with both sides covering what threatens them (`FighterMindConfig.guard`). */
+/** The same bout with both sides covering what threatens them (`RecipeFighterConfig.guard`). */
 const COVERING = deepFreeze({ ...RECIPE, minds: { left: { ...FIGHTER, guard: "cover" }, right: { ...FIGHTER, guard: "cover" } } });
 const BACK = { move: { x: -1, z: 0 }, face: null, attack: null };
 const TAPE = deepFreeze([{ step: 300, side: "left", orders: BACK }, { step: 420, side: "left", orders: null }]);
@@ -84,7 +84,7 @@ async function bout(which = "trunk", recipe = RECIPE, tape = TAPE) {
         for (const side of woundedIn(blow)) if (side.wound.severed.length) seen.severed.push(side.fighter);
       }
       for (const { minded } of sides) if (minded.skills.report.strike.phase === "swing") seen.swung.add(minded.skills.report.strike.blow);
-      for (const { side, body, minded } of sides) if (minded.kind === "fighter" && recipe.minds?.[side].guard === "cover" && threatOf(body.view)) seen.covered.add(side);
+      for (const { side, body, minded } of sides) if (minded.kind === "recipe-fighter" && recipe.minds?.[side].guard === "cover" && threatOf(body.view)) seen.covered.add(side);
       seen.orders = duel.tape.map(({ step, orders }) => [step, orders !== null]);
       seen.withdrawn = sides.every(({ body }) => body.assist.withdrawn);
       seen.verdict = duel.verdict;

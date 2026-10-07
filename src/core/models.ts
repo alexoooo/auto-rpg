@@ -2,12 +2,11 @@ import { HUMANOID_MODELS, humanoidSpec, type HumanoidModel } from "./human/spec.
 import { frameOf, type BodySpec } from "./spec/body.ts";
 import { lowsOf } from "./control/ground.ts";
 import { FIGHTER, QUADRUPED, type MindConfig } from "./mind/config.ts";
+import { controllerOf } from "./mind/controllers.ts";
 import { reptileSpec } from "./reptile/spec.ts";
 import { deepFreeze } from "./state.ts";
 import { ATTACK_METRES } from "./mind/fighter.ts";
 import { canHold } from "./human/grip.ts";
-import { commandable } from "./body.ts";
-import { quadrupedFits } from "./reptile/mind.ts";
 
 /** Models available to game builders, independent of a family's anatomical constructor. */
 export type BodyModel = HumanoidModel | "reptile";
@@ -44,27 +43,16 @@ export function modelSpec(model: BodyModel): BodySpec {
   }
 }
 
-/** What each model's body can do, read from its spec once. */
-const fits = new Map<BodyModel, { readonly holds: boolean; readonly commandable: boolean; readonly quadruped: boolean }>();
-function fitOf(model: BodyModel) {
-  let fit = fits.get(model);
-  if (!fit) {
-    const spec = modelSpec(model);
-    fit = Object.freeze({ holds: canHold(spec, "right"), commandable: commandable(spec), quadruped: quadrupedFits(spec) });
-    fits.set(model, fit);
-  }
-  return fit;
+/** Each model's spec, read once, for what its body can do. */
+const specs = new Map<BodyModel, BodySpec>();
+function specOf(model: BodyModel): BodySpec {
+  let spec = specs.get(model);
+  if (!spec) specs.set(model, spec = modelSpec(model));
+  return spec;
 }
 
 /** Whether `model`'s right hand can close on a haft (`canHold`). */
-export const modelHolds = (model: BodyModel): boolean => fitOf(model).holds;
+export const modelHolds = (model: BodyModel): boolean => canHold(specOf(model), "right");
 
-/** Joint-feedback control is body-neutral; the other minds need the body their commands name. */
-export function modelSupportsMind(model: BodyModel, mind: MindConfig): boolean {
-  switch (mind.kind) {
-    case "direct": return true;
-    case "quadruped": return fitOf(model).quadruped;
-    case "fighter": case "arena-fighter": return fitOf(model).commandable;
-    default: { const never: never = mind; throw new Error(`unknown mind ${never}`); }
-  }
-}
+/** Whether `model`'s body can carry out what `mind` commands: its controller's to say (`Controller.fits`). */
+export const modelSupportsMind = (model: BodyModel, mind: MindConfig): boolean => controllerOf(mind).fits(specOf(model), mind);

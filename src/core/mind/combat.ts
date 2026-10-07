@@ -6,7 +6,7 @@ import { wrap } from "../skills/locomotion.ts";
 import { placedReach } from "../skills/strike.ts";
 import type { BodySpec } from "../spec/body.ts";
 import type { Vec3 } from "../spec/quantity.ts";
-import type { ArenaFighterConfig } from "./config.ts";
+import type { PathFighterConfig } from "./config.ts";
 import { fighterTactics, STRAFE } from "./fighter.ts";
 import { GUARD_ACTION, type CombatAction, type Intent } from "./intent.ts";
 import { STAND_ORDERS, type Orders } from "./orders.ts";
@@ -22,7 +22,7 @@ const COMBAT = Object.freeze({ band: .08, reserve: .08, braking: .5, prediction:
   escape: .6, blockedAttempts: 3, boundaryMargin: .08, counter: .2, lateral: .2, settle: .08, readySpeed: .35, boundarySpeed: .18 });
 
 /** Tactical selection uses detached sensed bodies; the common skill owns physical execution. */
-export function combatTactics(spec: BodySpec, name: string, orders: (sight: Sight) => Orders | null, config: ArenaFighterConfig): Tactics {
+export function combatTactics(spec: BodySpec, name: string, orders: (sight: Sight) => Orders | null, config: PathFighterConfig): Tactics {
   if (!validRangeLearning(config.spacing, config.spacingStep)) throw new Error("invalid combat range learning settings");
   const range = (config.spacingStep ?? 0) > 0 ? rangeLearning(config.spacing ?? 0, config.spacingStep!) : null;
   const paths = { ...ATTACK_PATH, ...config.paths };

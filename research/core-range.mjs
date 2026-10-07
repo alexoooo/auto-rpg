@@ -1,5 +1,5 @@
 /**
- * Whether a fighter that holds at the edge of its foe's reach (`FighterMindConfig.range`, `"edge"`)
+ * Whether a fighter that holds at the edge of its foe's reach (`RecipeFighterConfig.range`, `"edge"`)
  * does better than one that walks in to attack: arena bouts (`bout.mjs`), each in a world of its
  * own on a worker (`bout-pool.mjs`).
  *
