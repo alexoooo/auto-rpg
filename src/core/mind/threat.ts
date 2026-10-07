@@ -40,7 +40,17 @@ function strikingPoints(spec: BodySpec): Readonly<Record<Side, Vec3 | null>> {
 /** Each spec's striking points, found once: a spec is immutable, and so is what is read from it. */
 const STRIKING = new WeakMap<BodySpec, Readonly<Record<Side, Vec3 | null>>>();
 
-const point = new Vector3(), velocity = new Vector3(), lever = new Vector3();
+/** The vectors a threat reading works in, which carry nothing between calls. */
+interface ThreatWork { readonly point: Vector3; readonly velocity: Vector3; readonly lever: Vector3 }
+
+/** A mind's own threat readings (`threatOf`, `incomingThreat`), working in vectors no other mind shares. */
+export function threatReader() {
+  const work: ThreatWork = { point: new Vector3(), velocity: new Vector3(), lever: new Vector3() };
+  return {
+    threatOf: (view: BodyView, counts?: Threat, prediction?: { readonly out: number; readonly horizon: number }) => threatOf(view, work, counts, prediction),
+    incomingThreat: (view: BodyView, ownVelocity: Vec3, counts?: Threat) => incomingThreat(view, ownVelocity, work, counts),
+  };
+}
 
 /**
  * The cover a body's senses ask for: of every other side's body still in the fight, the point
@@ -52,7 +62,8 @@ const point = new Vector3(), velocity = new Vector3(), lever = new Vector3();
  * crossing of the plane ahead of the head replaces the current point; a threat already inside
  * the plane is covered immediately. No crossing in the horizon means no candidate.
  */
-export function threatOf(view: BodyView, counts: Threat = THREAT, prediction?: { readonly out: number; readonly horizon: number }): Cover | null {
+function threatOf(view: BodyView, { point, velocity, lever }: ThreatWork, counts: Threat = THREAT,
+  prediction?: { readonly out: number; readonly horizon: number }): Cover | null {
   const { senses, head } = view;
   let threat: Vec3 | null = null, fastest = counts.closing;
   for (const other of senses.others) {
@@ -89,7 +100,7 @@ export function threatOf(view: BodyView, counts: Threat = THREAT, prediction?: {
 export const DEFENSE = Object.freeze({ out: .3, horizon: .3, speed: 3, reserve: .08, minimum: .05 });
 
 /** Detached constant-motion threat, corrected for sample age and the guarded point's own motion. */
-export function incomingThreat(view: BodyView, ownVelocity: Vec3, counts: Threat = THREAT) {
+function incomingThreat(view: BodyView, ownVelocity: Vec3, { point, velocity, lever }: ThreatWork, counts: Threat = THREAT) {
   let best: { cover: Cover; seconds: number; closing: number; foe: string; hand: Side } | null = null;
   for (const foe of view.senses.others) {
     if (foe.side === view.senses.side || foe.out) continue;

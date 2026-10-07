@@ -10,7 +10,7 @@ import type { StanceTuning } from "./stance-tuning.ts";
 import { ownStep, paceToward } from "./gait.ts";
 import { gravityOf, makeStance, type Stance } from "./stance-state.ts";
 import {
-  bearingOf, bearingSole, centreOfToRef, motionAtToRef, pointOfToRef, readSupport, rolledRows, soleMiddleToRef, turnOfToRef,
+  bearingOf, bearingSole, massCentreToRef, motionAtToRef, pointOfToRef, readSupport, rolledRows, soleMiddleToRef, turnOfToRef,
   withinSupport, type FootState,
 } from "./support.ts";
 import { cos, atan2, exp, sinh, cosh, hypot } from "../math/real.ts";
@@ -586,17 +586,8 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}, assis
       bearLimbs(s.state.pose ? poseBearing! : s.bearing, muscles, work, leverOf(s, muscles.dynamics.root.centre[1]), s.tuning.boundedSwing);
     },
     read(which) {
-      const { feet, segments, total, pelvis } = s, { reading } = s.state, { p, v, whole } = s.scratch;
-      // The centre of mass and its velocity (a body's linear velocity is its centre of mass's).
-      const c = reading.centre.setAll(0), vel = reading.velocity.setAll(0);
-      for (const segment of segments) {
-        const m = segment.rigid.mass;
-        c.addInPlace(centreOfToRef(segment, p).scaleInPlace(m));
-        segment.body.linearVelocityToRef(v);
-        vel.addInPlace(v.scaleInPlace(m));
-      }
-      c.scaleInPlace(1 / total);
-      vel.scaleInPlace(1 / total);
+      const { feet, segments, total, pelvis } = s, { reading } = s.state, { p, whole } = s.scratch;
+      massCentreToRef(segments, total, reading.centre, p, reading.velocity);
       // The reference pose faces +z: its forward, turned as the pelvis has turned since.
       p.set(0, 0, 1).applyRotationQuaternionToRef(turnOfToRef(pelvis, whole), p);
       reading.facing = atan2(p.x, p.z);

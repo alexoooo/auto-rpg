@@ -18,9 +18,11 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { SIDES } from "../src/arena/duel.ts";
 import { HUMANOID_MODELS } from "../src/core/models.ts";
 import { FIGHTER } from "../src/core/mind/config.ts";
-import { THREAT, threatOf } from "../src/core/mind/threat.ts";
+import { THREAT, threatReader } from "../src/core/mind/threat.ts";
 import { GUARD_COVER } from "../src/core/skills/guard.ts";
 import { BOUT_HARNESS, buildBout } from "./bout.mjs";
+
+const { threatOf } = threatReader();
 
 const { values } = parseArgs({ options: {
   gaps: { type: "string", default: "3,3.5,4,4.5,5" }, delay: { type: "string", default: "0" },

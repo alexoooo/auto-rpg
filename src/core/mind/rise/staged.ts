@@ -53,14 +53,13 @@ const LEFT = 0.01;
  */
 const RAISED = 0.1;
 
-const scratch = { turn: new Quaternion(), way: new Vector3() };
-
 /**
  * How a body lies, by its root segment `root`: its forward (the reference pose's +z) against up
  * says back or front, and between them the side its left (the reference pose's -x) is under.
+ * `work` carries nothing between calls.
  */
-export function lieOf(root: BuiltSegment): Lie {
-  const turn = turnOfToRef(root, scratch.turn), way = scratch.way;
+export function lieOf(root: BuiltSegment, work = { turn: new Quaternion(), way: new Vector3() }): Lie {
+  const turn = turnOfToRef(root, work.turn), way = work.way;
   const forward = way.set(0, 0, 1).applyRotationQuaternionToRef(turn, way).y;
   if (forward > LIE_UP) return "back";
   if (forward < -LIE_UP) return "front";
@@ -102,6 +101,7 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
   const muscles = own.muscles, root = muscles.dynamics.root.segment, count = muscles.channels.length;
   const upright = uprightness(own.built), made = riseLimbs(own, recipe);
   const feet = footStatesOf(own.built), footSegments: ReadonlySet<BuiltSegment> = new Set(feet.map((foot) => foot.segment)), soles = new Vector3();
+  const lying = { turn: new Quaternion(), way: new Vector3() };
   /**
    * Whether the body stands on its feet alone: every other segment more than `DOWN` over the
    * ground, and its centre of mass over the outline of its soles.
@@ -287,7 +287,7 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
           const v = view.stance.velocity;
           state.still = v.x * v.x + v.y * v.y + v.z * v.z < SLOW * SLOW ? state.still + dt : 0;
           if (state.still + dt / 2 < STILL_SECONDS) return;
-          state.lie = lieOf(root);
+          state.lie = lieOf(root, lying);
           state.tries++;
           enter(state.lie === "front" ? "rise" : "roll", 0);
           return;

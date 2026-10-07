@@ -22,11 +22,13 @@ import { GUARD_ACTION } from "../src/core/mind/intent.ts";
 import { STAND_ORDERS } from "../src/core/mind/orders.ts";
 import { createSenses } from "../src/core/mind/senses.ts";
 import { driveBy } from "../src/core/mind/tactics.ts";
-import { THREAT, threatOf } from "../src/core/mind/threat.ts";
+import { THREAT, threatReader } from "../src/core/mind/threat.ts";
 import { GUARD, GUARD_COVER } from "../src/core/skills/guard.ts";
 import { createSkills } from "../src/core/skills/skills.ts";
 import { buildBout } from "../research/bout.mjs";
 import { coreStand } from "./harness/core-stand.mjs";
+
+const { threatOf } = threatReader();
 
 const WARRIOR = humanSpec("workshop-fighter"), CLUBBED = armed(WARRIOR, "right", woodenClub());
 

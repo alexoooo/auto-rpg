@@ -8,7 +8,7 @@ import type { Assist } from "./assist.ts";
 import { makeBearing, type Bearing, type Limb, type LimbTask } from "./bearing.ts";
 import type { StanceGoal, StanceReading, SwingGoal } from "./stance.ts";
 import { resolveStance, type ResolvedStance, type StanceTuning } from "./stance-tuning.ts";
-import { footStatesOf, restWidth, type FootMemory, type FootState } from "./support.ts";
+import { footStatesOf, massOf, restWidth, type FootMemory, type FootState } from "./support.ts";
 import type { Side } from "../spec/body.ts";
 
 /**
@@ -143,7 +143,7 @@ export function makeStance(built: BuiltBody, tuning: StanceTuning, assist: Assis
   }));
   return {
     built, assist, tuning: resolveStance(tuning), pelvis: feet[0]!.chain[0]!.parent, segments,
-    total: segments.reduce((sum, segment) => sum + segment.rigid.mass, 0),
+    total: massOf(segments),
     feet, rest: restWidth(feet), limbs,
     bearing: makeBearing(assist, limbs, { root: state.aim.root, helped: state.helped, held: state.held, shortfall: state.reading.shortfall }),
     state,

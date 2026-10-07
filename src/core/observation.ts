@@ -2,7 +2,7 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { BuiltBody } from "./build/build-body.ts";
 import { jointTracker } from "./build/joint-state.ts";
 import { uprightness } from "./control/ground.ts";
-import { centreOfToRef } from "./control/support.ts";
+import { centreOfToRef, massCentreToRef, massOf } from "./control/support.ts";
 import type { MuscleDriver } from "./muscle/driver.ts";
 import type { Senses } from "./mind/senses.ts";
 import type { SolidSense } from "./mind/object-senses.ts";
@@ -60,13 +60,9 @@ export function physicalReading(built: BuiltBody, down?: () => boolean) {
   const upright = uprightness(built), point = new Vector3();
   const head = built.segments.has("head") ? centreReading(built, "head") : null;
   const reading = { centre: new Vector3(), head: new Vector3(), height: 0, down: false };
-  const parts = [...built.segments.values()], mass = parts.reduce((sum, part) => sum + part.rigid.mass, 0);
+  const parts = [...built.segments.values()], mass = massOf(parts);
   return () => {
-    reading.centre.set(0, 0, 0);
-    for (const part of parts) {
-      reading.centre.addInPlace(centreOfToRef(part, point).scaleInPlace(part.rigid.mass));
-    }
-    reading.centre.scaleInPlace(1 / mass);
+    massCentreToRef(parts, mass, reading.centre, point);
     if (head) { head.update(); reading.head.copyFrom(head.centre); }
     else reading.head.copyFrom(reading.centre);
     reading.height = upright.height();

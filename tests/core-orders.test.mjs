@@ -16,8 +16,10 @@ import { fighterTactics, STRAFE } from "../src/core/mind/fighter.ts";
 import { GUARD_ACTION } from "../src/core/mind/intent.ts";
 import { sameOrders, STAND_ORDERS } from "../src/core/mind/orders.ts";
 import { driveBy } from "../src/core/mind/tactics.ts";
-import { threatOf } from "../src/core/mind/threat.ts";
+import { threatReader } from "../src/core/mind/threat.ts";
 import { coreStand } from "./harness/core-stand.mjs";
+
+const { threatOf } = threatReader();
 
 const QUARTER = Math.PI / 2, WALK = 0.7;
 const EAST = { x: 1, z: 0 }, NORTH = { x: 0, z: 1 }, SOUTH = { x: 0, z: -1 };

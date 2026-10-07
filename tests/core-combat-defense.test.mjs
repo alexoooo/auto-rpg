@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Vector3, Quaternion } from '@babylonjs/core/Maths/math.vector.js';
-import { incomingThreat, guardCanReach } from '../src/core/mind/threat.ts';
+import { threatReader, guardCanReach } from '../src/core/mind/threat.ts';
 import { clearStep } from '../src/core/mind/clear-step.ts';
 import { solidSenses } from '../src/core/mind/object-senses.ts';
 import { frameOf } from '../src/core/spec/body.ts';
@@ -15,6 +15,8 @@ import { loadEngine,DEFAULT_ENGINE } from '../src/core/engine/engines.ts';
 import { buildBout } from '../research/bout.mjs';
 import { traceOf } from './harness/trace.mjs';
 import { STAND_ORDERS } from '../src/core/mind/orders.ts';
+
+const { incomingThreat } = threatReader();
 const spec=modelSpec('workshop-fighter');
 
 function fixture(hand,position,velocity,{age=0,spin=[0,0,0],offset=[0,0,0],model=spec}={}){

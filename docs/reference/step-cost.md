@@ -323,6 +323,7 @@ systems are a few rows each, it allocates 82 and 114, against 79 and 110 landed:
 | A body's velocities kept from the step (`rapier.ts`) | 0.971, 0.931 | 0.883, 0.846 | 0.43 | 2.98 | 80 | 118 |
 | The senses' frames all of one kind (`senses.ts`) | 0.909, 0.919 | 0.820, 0.826 | 0.46 | 2.96 | 80 | 117 |
 | A body's contacts read through one callback (`contactsOf`) | 0.886, 0.900 | 0.799, 0.811 | 0.45 | 2.83 | 80 | 111 |
+| Each mind's own threat work, one centre-of-mass read (`threatReader`, `massCentreToRef`) | 0.975, 0.997 | 0.876, 0.896 | 0.49 | 3.16 | 81 | 113 |
 
 - **The ground's wrench**: on the bout's own 4576 calls, each asked as the bout asked it and
   answered alone, the least of nine passes, 57.2 us a call before and 12.5 after, all 68544
@@ -371,6 +372,15 @@ systems are a few rows each, it allocates 82 and 114, against 79 and 110 landed:
   the CPU profiler and are 3.5 and 2.8, the bout's step 0.909 and 0.919 ms to 0.886 and 0.900.
   The rest of the reads' cost is Rapier calling back for each pair offered. The bout from 2 s to
   its verdict allocates 248 KiB a step against 258 (`--sites`).
+- **Each mind's own threat work, one centre-of-mass read**: the threat readings worked in vectors
+  every mind shared, and the rise's lie in a pair every body shared; each mind now makes its own
+  (`threatReader`, the rise's `lying`). The stance, the supported motor and the physical reading
+  each summed the centre of mass in a loop of its own; they call `massCentreToRef`
+  (`support.ts`), the same operations in the same order. Read against the tree before it, twice
+  (the code before it on this machine: the bout 0.986 and 0.996 ms, then 1.005 and 0.962; one and
+  eight bodies standing 0.48 and 3.30, then 0.49 and 3.20; the highest of five allocation
+  readings 81 and 82 KiB standing, 114 and 114 in the bout), the step is the same within the
+  spread of its readings, and the allocation the same or a KiB lower.
 - **Read and not landed: the joints' turning tables.** `turningToRef` (`joint-state.ts`) is 2.1 % of
   the bout with what it calls (1.4 to 2.1 % in the profiles above), and boxes the doubles it works
   with: a pass of a skeleton's 15 joints at its standing angles allocates 2010 bytes, 563 of them

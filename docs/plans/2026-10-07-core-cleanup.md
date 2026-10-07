@@ -125,13 +125,10 @@ The two task boxes (`tasks/collision.ts`, `tasks/swing-target.ts`) use `cuboidMo
 - The Crypt reads its map first (`runMap`) and loads a skin for each model the run fields
   (`runModels`), the same rule the run spawns by.
 
-### Chunk 10: per-body scratch and one centre-of-mass read (bit-identical)
+### Chunk 10: per-body scratch and one centre-of-mass read (landed)
 
-- `threatReader()` gives each mind its own scratch.
-- `stagedRise` keeps its scratch in its closure.
-- `massCentreToRef(...)` in `control/support.ts` is used by `stance.read`, `supportedMotor.read`
-  and `physicalReading`, with the same operations in the same order.
-- Time the step before and after (`docs/reference/step-cost.md`); `core-step-cost` must pass.
+`lieOf` takes its work from its caller; the rise holds its own (`lying`). The step's time and
+allocation, before and after, are in `docs/reference/step-cost.md`.
 
 ## Fighter, skills and screens (waiting on the owner: the club check failed)
 

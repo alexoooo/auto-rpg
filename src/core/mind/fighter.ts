@@ -8,7 +8,7 @@ import { GUARD_ACTION, type HandAction, type Intent } from "./intent.ts";
 import { STAND_ORDERS, type Orders } from "./orders.ts";
 import type { BodySense } from "./senses.ts";
 import type { Sight, Tactics } from "./tactics.ts";
-import { THREAT, threatOf, type Threat } from "./threat.ts";
+import { THREAT, threatReader, type Threat } from "./threat.ts";
 import { sin, cos, atan2, hypot } from "../math/real.ts";
 
 /**
@@ -53,6 +53,7 @@ export const EDGE: NonNullable<FighterMindConfig["edge"]> = Object.freeze({ band
  */
 export function fighterTactics(name: string, orders: (sight: Sight) => Orders, strafe: typeof STRAFE = STRAFE,
   guard: FighterMindConfig["guard"] = FIGHTER.guard, threat: Threat = THREAT): Tactics {
+  const { threatOf } = threatReader();
   /** What a hand that does not attack does this step. */
   const guarding = ((): (sight: Sight) => HandAction => {
     switch (guard) {

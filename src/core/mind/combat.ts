@@ -15,7 +15,7 @@ import { groundCombat } from "./ground-combat.ts";
 import { bodyClearance } from "./sensed-bounds.ts";
 import { clearStep, clearanceExit } from "./clear-step.ts";
 import { openingAction, openingSelector } from "./openings.ts";
-import { DEFENSE, guardCanReach, incomingThreat, THREAT, threatOf } from "./threat.ts";
+import { DEFENSE, guardCanReach, THREAT, threatReader } from "./threat.ts";
 
 /** Search cells for braking, chamber room and escape: `docs/reference/combat-strikes.md#tactical-settings`. */
 const COMBAT = Object.freeze({ band: .08, reserve: .08, braking: .5, prediction: .12, pressure: .6,
@@ -28,6 +28,7 @@ export function combatTactics(spec: BodySpec, name: string, orders: (sight: Sigh
   const paths = { ...ATTACK_PATH, ...config.paths };
   const combinationWindow = paths.returnLimit + paths.chamberSeconds;
   const selectOpening = openingSelector(spec,config.openings,paths);
+  const { threatOf, incomingThreat } = threatReader();
   const repertoire = config.repertoire ?? "linear";
   const mixed = (()=>{
     switch(repertoire) {

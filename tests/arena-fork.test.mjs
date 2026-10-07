@@ -21,7 +21,7 @@ import { FIGHTER } from "../src/core/mind/config.ts";
 import { isClash, woundedIn } from "../src/core/rules/blows.ts";
 import { GUARD_ACTION } from "../src/core/mind/intent.ts";
 import { STAND_ORDERS } from "../src/core/mind/orders.ts";
-import { threatOf } from "../src/core/mind/threat.ts";
+import { threatReader } from "../src/core/mind/threat.ts";
 import { GUARD } from "../src/core/skills/guard.ts";
 import { REPERTOIRE } from "../src/core/skills/strikes.ts";
 import { deepFreeze, loadState, saveState } from "../src/core/state.ts";
@@ -29,6 +29,8 @@ import { createWorld } from "../src/core/world.ts";
 import { freshEngine } from "./harness/core-stand.mjs";
 import { assertForks, fieldsOf, forgetting, forks, PHYSICS_ALONE, shows, STATE_ALONE, unsorted } from "./harness/fork.mjs";
 import { traceOf } from "./harness/trace.mjs";
+
+const { threatOf } = threatReader();
 
 const RECIPE = deepFreeze({ left: "workshop-fighter", right: "workshop-rogue", gap: 3.75, balance: { left: 25, right: 25 }, senseDelay: 1 });
 /** The same bout with both sides covering what threatens them (`FighterMindConfig.guard`). */

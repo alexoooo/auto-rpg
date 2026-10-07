@@ -179,6 +179,23 @@ export function pointOfToRef(segment: BuiltSegment, point: Vec3, out: Vector3): 
 
 export const centreOfToRef = (segment: BuiltSegment, out: Vector3): Vector3 => pointOfToRef(segment, segment.rigid.centre, out);
 
+/** The mass of `parts`, kg: their rigid bodies' masses summed in order. */
+export const massOf = (parts: readonly BuiltSegment[]): number => parts.reduce((sum, part) => sum + part.rigid.mass, 0);
+
+/**
+ * The centre of mass of `parts`, whose masses sum to `mass` (`massOf`), into `centre`, and its
+ * velocity into `velocity` when asked (a body's linear velocity is its centre of mass's); `work`
+ * carries nothing between calls.
+ */
+export function massCentreToRef(parts: readonly BuiltSegment[], mass: number, centre: Vector3, work: Vector3, velocity?: Vector3): void {
+  centre.setAll(0); velocity?.setAll(0);
+  for (const part of parts) {
+    centre.addInPlace(centreOfToRef(part, work).scaleInPlace(part.rigid.mass));
+    if (velocity) velocity.addInPlace(part.body.linearVelocityToRef(work).scaleInPlace(part.rigid.mass));
+  }
+  centre.scaleInPlace(1 / mass); velocity?.scaleInPlace(1 / mass);
+}
+
 /** `segment`'s point `at` (world): its velocity into `linear`, and the segment's spin into `angular`. */
 export function motionAtToRef(segment: BuiltSegment, at: Vector3, linear: Vector3, angular: Vector3): void {
   const body = segment.body, c = centreOfToRef(segment, new Vector3());

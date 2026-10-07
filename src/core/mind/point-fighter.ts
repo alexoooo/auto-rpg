@@ -8,12 +8,12 @@ import { GUARD_ACTION } from "./intent.ts";
 import type { MindWiring } from "./minds.ts";
 import { supportRecovery } from "./rise/support-recovery.ts";
 import { driveBy } from "./tactics.ts";
-import { THREAT, threatOf } from "./threat.ts";
+import { THREAT, threatReader } from "./threat.ts";
 import { ENGAGEMENT, trackedEngagement } from "./engagement.ts";
 
 /** Point-space attacks and predicted covers over the common body; settings: `docs/reference/arena-point-control.md`. */
 export function pointFighter(built: BuiltBody, world: World, config: PointFighterConfig, wiring: MindWiring) {
-  const handMode = config.hand;
+  const handMode = config.hand, { threatOf } = threatReader();
   const tracked = (() => {
     const mode = config.engagement ?? "tracked";
     switch (mode) {
