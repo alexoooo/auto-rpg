@@ -14,7 +14,7 @@ import { createPlayer } from "./player.ts";
 import { hardestOn } from "./targets.ts";
 import { choice, legend, note, readings } from "../ui/controls.ts";
 import { strikeHands } from "../render/strike-hands.ts";
-import type { Hand } from "../core/control/motor.ts";
+import type { Side } from "../core/spec/body.ts";
 
 /**
  * **The Blow scenario**: the loaded body throws a stored blow (`blows.ts`) standing, as the strike
@@ -39,7 +39,7 @@ import type { Hand } from "../core/control/motor.ts";
 
 /** What the history holds of each step. */
 interface BlowMoment {
-  readonly closure: Readonly<Record<Hand, number>>;
+  readonly closure: Readonly<Record<Side, number>>;
   /** The time its mind saw at this step (`BodyView.time`), s. */
   readonly time: number;
   /** Seconds since the pushes were due (negative before), by the blow's clock. */

@@ -1,5 +1,5 @@
 import type { Mesh } from "@babylonjs/core/Meshes/mesh.js";
-import type { Hand } from "../core/control/motor.ts";
+import type { Side } from "../core/spec/body.ts";
 
 /** Presentation only: clothing changes no physics; fingers follow the body's applied contact pose. */
 export interface Clothing { readonly boots: boolean; readonly armour: boolean }
@@ -7,7 +7,7 @@ export interface Clothing { readonly boots: boolean; readonly armour: boolean }
 /** Inputs belonging to one dressed body, never to a cached asset. */
 export interface SkinOptions {
   readonly clothing: Clothing;
-  readonly closure?: (hand: Hand) => number;
+  readonly closure?: (hand: Side) => number;
 }
 
 /** One body's visual instance; shared source assets remain owned by their scene. */

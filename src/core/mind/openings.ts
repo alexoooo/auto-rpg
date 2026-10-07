@@ -1,13 +1,12 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { BodyView } from "../body.ts";
-import type { Hand } from "../control/motor.ts";
 import { attackPath, ATTACK_PATH, type AttackTuning } from "../skills/attack-path.ts";
 import { pointPath } from "../control/point-path.ts";
 import { intoFrameToRef } from "../control/kinematics.ts";
 import type { CombatAction } from "./intent.ts";
 import { aimOf } from "../skills/strikes.ts";
 import { placedReach } from "../skills/strike.ts";
-import { frameOf, type BodySpec, type SegmentSpec } from "../spec/body.ts";
+import { type Side, frameOf, type BodySpec, type SegmentSpec } from "../spec/body.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { add, dot, length, scale, sub } from "../spec/vec.ts";
 import type { BodySense } from "./senses.ts";
@@ -191,7 +190,7 @@ export function openingSelector(spec: BodySpec, tuning: OpeningTuning = {}, path
     scratch.set(...at).applyRotationQuaternionToRef(sensed.rotation, scratch).addInPlace(sensed.position);
     return [scratch.x, scratch.y, scratch.z];
   };
-  return (view: BodyView, foe: BodySense, hand: Hand, blockedSurface: string | null = null, repertoire: "linear" | "mixed" | "vertical" | "boxing" = "linear") => {
+  return (view: BodyView, foe: BodySense, hand: Side, blockedSurface: string | null = null, repertoire: "linear" | "mixed" | "vertical" | "boxing" = "linear") => {
     const handShape = spec.segments.find(s => s.name === `hand.${hand}`)!.shape;
     const margin = (handShape.kind === "capsule" || handShape.kind === "sphere" ? handShape.radius.value : 0) * OPENINGS.handMargin;
     const fist = view.fists[hand].position;

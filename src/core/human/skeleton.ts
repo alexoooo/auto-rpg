@@ -3,7 +3,8 @@ import { derive, sourced, type Quantity, type Vec3 } from "../spec/quantity.ts";
 import { add, distance, midpoint, normalize, scale, sub } from "../spec/vec.ts";
 import type { Extent, Extents, TrunkSegment } from "./envelope.ts";
 import type { HumanFigure, LimbFigure } from "./figure.ts";
-import { dividedTrunk, type Side } from "./landmarks.ts";
+import { dividedTrunk } from "./landmarks.ts";
+import type { Side } from "../spec/body.ts";
 
 /**
  * **The crypt skeleton as a human figure.** Its shape is its art's: Blender Studio's realistic

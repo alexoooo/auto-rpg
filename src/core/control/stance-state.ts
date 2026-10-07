@@ -6,9 +6,10 @@ import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { BuiltBody, BuiltSegment } from "../build/build-body.ts";
 import type { Assist } from "./assist.ts";
 import { makeBearing, type Bearing, type Limb, type LimbTask } from "./bearing.ts";
-import type { Foot, StanceGoal, StanceReading, SwingGoal } from "./stance.ts";
+import type { StanceGoal, StanceReading, SwingGoal } from "./stance.ts";
 import { resolveStance, type ResolvedStance, type StanceTuning } from "./stance-tuning.ts";
 import { footStatesOf, restWidth, type FootMemory, type FootState } from "./support.ts";
+import type { Side } from "../spec/body.ts";
 
 /**
  * **What a stance remembers**: everything a step writes that a later step, or a reader between
@@ -23,13 +24,13 @@ interface StanceState {
   /** The supported root pose requested this step; null uses the walking planner. */
   pose: StanceGoal["pose"] | null;
   /** The foot of the last step of a walk, while it steps on without standing between. */
-  stride: Foot | null;
+  stride: Side | null;
   /** The walk the stance's step under way is for, if it is a walk's: `pace` itself, read as it is each step. */
   striding: readonly [number, number] | null;
   /** Each channel the last command drove, 1, or 0. */
   owned: Uint8Array;
   /** The feet the last command had bear the body; null if it asked for no stance. */
-  last: readonly Foot[] | null;
+  last: readonly Side[] | null;
   /** The walk's pace, world (x, z), m/s: toward the goal's at the gait's acceleration, toward none standing. */
   readonly pace: [number, number];
   /** The step under way: its swing, the time since its foot left the ground, where and how the foot left it, and the turn asked of it now. */

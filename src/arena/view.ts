@@ -1,5 +1,5 @@
 import { CAMERA_MODES, PROJECTIONS, VIEW_MODES, type CameraMode, type ViewSettings } from "../render/view.ts";
-import type { Side } from "./duel.ts";
+import type { Side } from "../core/spec/body.ts";
 
 export type ArenaFocus = "both" | Side;
 export interface ArenaView extends ViewSettings { readonly focus: ArenaFocus }

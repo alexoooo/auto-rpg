@@ -2,7 +2,8 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 
 import type { BodyView } from "../body.ts";
 import { turnAt, type StanceEnvelope } from "../control/stance-envelope.ts";
-import type { Foot, StanceGoal, SwingGoal } from "../control/stance.ts";
+import type { StanceGoal, SwingGoal } from "../control/stance.ts";
+import type { Side } from "../spec/body.ts";
 import { STANCE_GAIT } from "../control/stance-tuning.ts";
 import { atan2, sin, cos, hypot } from "../math/real.ts";
 import type { Skill } from "./skill.ts";
@@ -73,7 +74,7 @@ function stanceLegs(state: LegsMemory): StanceLegs {
 }
 
 /** Where each sole's middle goes, world (x, z), m: a stance taken at a place. */
-export type Footing = Readonly<Record<Foot, readonly [number, number]>>;
+export type Footing = Readonly<Record<Side, readonly [number, number]>>;
 
 /**
  * **How the feet are placed** (`Locomotion.place`): a foot further than `near` (m) from its place
@@ -148,7 +149,7 @@ interface LocomotionState extends LegsMemory {
 /** The footing being placed, the feet that have stepped to it, and the step under way. */
 interface Placing {
   footing: Footing;
-  stepped: Record<Foot, boolean>;
+  stepped: Record<Side, boolean>;
   step: SwingGoal | null;
   lifted: boolean;
 }
@@ -192,8 +193,8 @@ export function locomotion(envelope: StanceEnvelope | null, turnLimit?: number, 
     state.placed = false;
     // A step of the stance's own under way is finished first.
     if (s.phase !== "stand") return base;
-    const off = (foot: Foot): number => placing.stepped[foot] ? 0 : apart([s.soles[foot].x, s.soles[foot].z], placing.footing[foot]);
-    const foot: Foot = off("left") >= off("right") ? "left" : "right";
+    const off = (foot: Side): number => placing.stepped[foot] ? 0 : apart([s.soles[foot].x, s.soles[foot].z], placing.footing[foot]);
+    const foot: Side = off("left") >= off("right") ? "left" : "right";
     if (off(foot) <= PLACING.near) { state.placed = true; return base; }
     placing.step = { foot, to: placing.footing[foot], seconds: STANCE_GAIT.seconds, lift: STANCE_GAIT.lift, shift: true };
     placing.lifted = false;
@@ -204,8 +205,8 @@ export function locomotion(envelope: StanceEnvelope | null, turnLimit?: number, 
   const squareOf = (view: BodyView): Footing | null => {
     const width = state.width, s = view.stance, c = s.centre;
     if (width === null) return null;
-    const near = (foot: Foot): number => hypot(s.soles[foot].x - c.x, s.soles[foot].z - c.z);
-    const stays: Foot = near("left") <= near("right") ? "left" : "right", steps: Foot = stays === "left" ? "right" : "left";
+    const near = (foot: Side): number => hypot(s.soles[foot].x - c.x, s.soles[foot].z - c.z);
+    const stays: Side = near("left") <= near("right") ? "left" : "right", steps: Side = stays === "left" ? "right" : "left";
     const at = s.soles[stays], q = s.soles[steps];
     // The pelvis's right across the ground is (cos h, -sin h); forward, (sin h, cos h).
     const rx = cos(state.heading), rz = -sin(state.heading), fx = sin(state.heading), fz = cos(state.heading);

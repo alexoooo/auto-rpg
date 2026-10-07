@@ -4,7 +4,7 @@ import { Vector3, type Quaternion } from "@babylonjs/core/Maths/math.vector.js";
 import { CHASE_BETA, easeAngle, facingOf, ISO_ALPHA, ISO_BETA, orthoExtents, VIEW_CAMERA } from "../render/camera-math.ts";
 import { ORBIT, orbitPosition } from "./orbit.ts";
 import type { ArenaView } from "./view.ts";
-import type { Side } from "./duel.ts";
+import type { Side } from "../core/spec/body.ts";
 
 interface Subject {
   readonly position: Vector3;

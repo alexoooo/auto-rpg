@@ -7,7 +7,6 @@ import { pointMotion } from "../control/point-motion.ts";
 import { createEquipment } from "../equipment.ts";
 import type { PhysicsEngine, SegmentBody } from "../engine/engine.ts";
 import { equipHands } from "../human/equipment.ts";
-import type { Side } from "../human/landmarks.ts";
 import { modelSpec, type HumanoidModel } from "../models.ts";
 import { woodenClub } from "../items/club.ts";
 import { sin, cos } from "../math/real.ts";
@@ -19,6 +18,7 @@ import { deepFreeze } from "../state.ts";
 import { createWorld } from "../world.ts";
 import { trackingRejected } from "../control/whole-body.ts";
 import { jointStopProbeSettings } from "./stop-settings.ts";
+import type { Side } from "../spec/body.ts";
 
 /** Declared mechanical task and controller inputs (`docs/reference/point-defense.md#physical-fixture-and-declared-inputs`). */
 const SETTINGS = deepFreeze({

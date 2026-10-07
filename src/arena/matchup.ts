@@ -2,8 +2,9 @@ import { BODY_MODELS, modelInfo, modelSupportsMind, type BodyModel } from "../co
 import { ARENA_BRAWLER, ARENA_SCRAPPER, ARENA_KICKER, ARENA_FIGHTER, FIGHTER, POINT_FIGHTER, QUADRUPED, type FighterMindConfig, type MindConfig } from "../core/mind/config.ts";
 import { isOrders } from "../core/mind/orders.ts";
 import { balanceFrom } from "../core/rules/rulebook.ts";
-import { DUEL_HELD, type OrdersEntry, type Side } from "./duel.ts";
+import { DUEL_HELD, type OrdersEntry } from "./duel.ts";
 import { appearanceFor, type Appearance } from "../render/appearance.ts";
+import type { Side } from "../core/spec/body.ts";
 
 /** The arena link's parameter: `?matchup=left,right`, each a core model. */
 export const MATCHUP_PARAM = "matchup";

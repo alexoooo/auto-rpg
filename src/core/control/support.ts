@@ -9,9 +9,9 @@ import type { Row } from "./bearing.ts";
 import type { BearingSole } from "./contact-wrench.ts";
 import { chainTo } from "./kinematics.ts";
 import type { Vec3 } from "../spec/quantity.ts";
-import type { Foot } from "./stance.ts";
 import { SUPPORT_INSET } from "./stance-tuning.ts";
 import { acos, hypot } from "../math/real.ts";
+import type { Side } from "../spec/body.ts";
 
 /** What of a foot a stance keeps from one step to the next. */
 export interface FootMemory {
@@ -26,7 +26,7 @@ export interface FootMemory {
 
 /** A foot as the stance reads it. */
 export interface FootState {
-  readonly side: Foot;
+  readonly side: Side;
   readonly segment: BuiltSegment;
   readonly chain: BuiltJoint[];
   /** The sole's corners, in the segment's own frame. */

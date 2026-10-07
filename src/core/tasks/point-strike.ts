@@ -4,7 +4,6 @@ import { buildBody } from "../build/build-body.ts";
 import { pointStrike } from "../control/point-strike.ts";
 import type { PhysicsEngine, SegmentBody } from "../engine/engine.ts";
 import { equipHands } from "../human/equipment.ts";
-import type { Side } from "../human/landmarks.ts";
 import { modelSpec, type HumanoidModel } from "../models.ts";
 import { woodenClub } from "../items/club.ts";
 import { createMotionBody } from "../mind/motion.ts";
@@ -16,6 +15,7 @@ import { createWorld } from "../world.ts";
 import { trackingRejected } from "../control/whole-body.ts";
 import { jointStopProbeSettings } from "./stop-settings.ts";
 import { createSwingTarget } from "./swing-target.ts";
+import type { Side } from "../spec/body.ts";
 
 /** Static point-strike experiment inputs, numeric settings (`docs/reference/point-strike.md`). */
 const SETTINGS = deepFreeze({

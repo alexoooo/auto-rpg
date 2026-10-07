@@ -14,9 +14,8 @@ import {
   withinSupport, type FootState,
 } from "./support.ts";
 import { cos, atan2, exp, sinh, cosh, hypot } from "../math/real.ts";
+import type { Side } from "../spec/body.ts";
 import { spinBetweenToRef, turnAboutToRef, turnBetweenToRef } from "../math/turn.ts";
-
-export type Foot = "left" | "right";
 
 /**
  * **What a stance is asked for**: which feet bear the body, where its centre of mass goes, and which
@@ -24,7 +23,7 @@ export type Foot = "left" | "right";
  */
 export interface StanceGoal {
   /** The feet bearing weight; the other leg is left to the posture. */
-  readonly feet: readonly Foot[];
+  readonly feet: readonly Side[];
   /** The centre of mass's place over the ground, world (x, z), m; null for the middle of the stance feet. */
   readonly centre: readonly [number, number] | null;
   /** The centre of mass's height over the stance feet's soles, m. */
@@ -34,7 +33,7 @@ export interface StanceGoal {
   /** A supported root pitch, rad, and response time, s; the bearing feet stay planted and no step is requested. */
   readonly pose?: { readonly pitch: number; readonly seconds: number;
     /** Captured bearing soles, world position and rotation since reference; errors are corrected through muscles. */
-    readonly anchors?: Readonly<Partial<Record<Foot, { readonly position: Vec3; readonly rotation: readonly [number, number, number, number] }>>> };
+    readonly anchors?: Readonly<Partial<Record<Side, { readonly position: Vec3; readonly rotation: readonly [number, number, number, number] }>>> };
   /** A foot not in `feet` carried to a landing place; none, and the other leg is left to the posture. */
   readonly swing?: SwingGoal | null;
   /**
@@ -52,7 +51,7 @@ export interface StanceGoal {
  * a new one starts from where the foot is.
  */
 export interface SwingGoal {
-  readonly foot: Foot;
+  readonly foot: Side;
   /** The sole's middle's landing place, world (x, z), m. */
   readonly to: readonly [number, number];
   /** The swing's time, s. */
@@ -126,7 +125,7 @@ export interface StanceControl {
    * stance feet, or both). A body reads this before its driver decides, so the driver's view is
    * this step's; `command` uses it.
    */
-  read(feet?: readonly Foot[]): void;
+  read(feet?: readonly Side[]): void;
   /**
    * Set `goal`'s aims from the last reading: the centre of mass's, the pelvis's turn's and each
    * stance leg's foot's accelerations. The stance legs' channels are marked in `owned`, for the
@@ -163,7 +162,7 @@ export interface StanceReading {
   /** The way the pelvis faces, rad about up, as a heading is counted: 0 as in the reference pose, growing to the right. */
   readonly facing: number;
   /** Each sole's middle, world. */
-  readonly soles: Readonly<Record<Foot, Vector3>>;
+  readonly soles: Readonly<Record<Side, Vector3>>;
   /**
    * The place over the ground the stance holds the centre of mass toward, world (x, z; y unused):
    * the goal's, or the nearest the stance soles can hold (`withinSupport`).
@@ -427,7 +426,7 @@ function chooseStep(s: Stance, goal: StanceGoal | null): SwingGoal | null {
 }
 
 /** The feet that bear the body: the goal's, but for a foot that is swinging. */
-function bearerOf(goal: StanceGoal | null, phase: StancePhase, swing: SwingGoal | null): readonly Foot[] {
+function bearerOf(goal: StanceGoal | null, phase: StancePhase, swing: SwingGoal | null): readonly Side[] {
   return !goal ? [] : phase === "swing" ? goal.feet.filter((side) => side !== swing!.foot) : goal.feet;
 }
 
@@ -615,7 +614,7 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}, assis
           || goal.feet.some(side => side !== "left" && side !== "right") || goal.swing || goal.walk)
           throw new Error("a supported root pose requires a finite pitch, positive response and one or two planted feet");
         if (goal.pose.anchors) for (const [side, anchor] of Object.entries(goal.pose.anchors))
-          if (!goal.feet.includes(side as Foot) || !anchor || anchor.position.length !== 3 || anchor.rotation.length !== 4 || !anchor.position.every(Number.isFinite)
+          if (!goal.feet.includes(side as Side) || !anchor || anchor.position.length !== 3 || anchor.rotation.length !== 4 || !anchor.position.every(Number.isFinite)
             || !anchor.rotation.every(Number.isFinite) || Math.abs(anchor.rotation.reduce((sum, v) => sum + v * v, 0) - 1) > 1e-8)
             throw new Error("a supported sole anchor requires a bearing foot, finite position and unit rotation");
         // Channel binding precedes allocation: effort rows are sized from the bound limb channels.

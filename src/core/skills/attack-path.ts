@@ -1,7 +1,7 @@
-import type { Hand } from "../control/motor.ts";
 import { hypot } from "../math/real.ts";
 import { validArmExtension, type CombatAction } from "../mind/intent.ts";
 import type { Vec3 } from "../spec/quantity.ts";
+import type { Side } from "../spec/body.ts";
 
 /** Experimental trajectory search cells and physical gates: `docs/reference/combat-strikes.md#trajectory-settings`. */
 export const ATTACK_PATH = Object.freeze({ chamberSeconds: .22, swingSeconds: .12, returnSeconds: .32,
@@ -25,7 +25,7 @@ export function validAttackTuning(tuning: AttackTuning): boolean {
 }
 
 /** A chamber and contact velocity from the actual guard and observed target, in the body frame. */
-export function attackPath(home: Vec3, target: Vec3, hand: Hand, family: CombatAction["family"], tuning: AttackTuning = ATTACK_PATH, direction?: Vec3) {
+export function attackPath(home: Vec3, target: Vec3, hand: Side, family: CombatAction["family"], tuning: AttackTuning = ATTACK_PATH, direction?: Vec3) {
   const side = hand === "right" ? 1 : -1;
   let chamber: Vec3, torso: number, seconds = tuning.swingSeconds;
   switch (family) {

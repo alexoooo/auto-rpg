@@ -1,7 +1,7 @@
-import type { Substance } from "../spec/body.ts";
+import type { Side, Substance } from "../spec/body.ts";
 import type { Quantity, Vec3 } from "../spec/quantity.ts";
 import type { Extents, TrunkSegment } from "./envelope.ts";
-import type { LimbLandmarks, Side, TrunkLandmarks } from "./landmarks.ts";
+import type { LimbLandmarks, TrunkLandmarks } from "./landmarks.ts";
 import type { DeLevaSegment, Sex } from "./tables/de-leva-1996.ts";
 
 /**

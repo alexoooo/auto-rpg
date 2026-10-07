@@ -1,7 +1,7 @@
 import unitBlow from "../../research/core-club-unit.json" with { type: "json" };
-import type { Hand } from "../core/control/motor.ts";
 import { REPERTOIRE, type Band, type Strike } from "../core/skills/strikes.ts";
 import type { BlowPlace } from "./blow.ts";
+import type { Side } from "../core/spec/body.ts";
 
 /**
  * **The blows the lab's Blow scenario throws** (`blow-scenario.ts`): each a strike found by the
@@ -16,7 +16,7 @@ export interface StoredBlow {
   readonly line: string;
   /** The body it was searched on. */
   readonly model: string;
-  readonly hand: Hand;
+  readonly hand: Side;
   /** What the hand holds to throw it, by the core's name for it (`heldIn`). */
   readonly held: string;
   readonly strike: Strike;
@@ -36,7 +36,7 @@ export const LAB_BLOWS: readonly StoredBlow[] = [
     line: `The Warrior's strongest club blow (research/core-club-unit.json): searched at 960 Hz, `
       + `${unitBlow.readings.at1920.mean} J into a head-sized mark at 1920 Hz and ${unitBlow.readings.at120.mean} at 120, `
       + `closing at ${unitBlow.readings.at1920.closing} m/s.`,
-    model: unitBlow.model, hand: unitBlow.hand as Hand, held: "wooden club",
+    model: unitBlow.model, hand: unitBlow.hand as Side, held: "wooden club",
     strike: unitBlow.strike as Strike, place: { ahead: unitBlow.distance, up: 0 }, band: "high",
   },
   ...REPERTOIRE.map((recipe): StoredBlow => ({

@@ -8,13 +8,13 @@ import { modelSpec, type HumanoidModel } from "../models.ts";
 import { woodenClub } from "../items/club.ts";
 import { cos, sin } from "../math/real.ts";
 import { createMotionBody } from "../mind/motion.ts";
-import type { Side } from "../human/landmarks.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { deepFreeze } from "../state.ts";
 import { physicalReading } from "../observation.ts";
 import { createWorld } from "../world.ts";
 import { trackingRejected } from "../control/whole-body.ts";
 import { jointStopProbeSettings } from "./stop-settings.ts";
+import type { Side } from "../spec/body.ts";
 
 /** Pinned bar experiment inputs, numeric settings (`docs/reference/motion-tracking.md`). */
 const SETTINGS = deepFreeze({

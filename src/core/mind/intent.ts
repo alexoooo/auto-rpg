@@ -1,6 +1,5 @@
-import type { Foot } from "../control/stance.ts";
-import type { Hand } from "../control/motor.ts";
 import type { Vec3 } from "../spec/quantity.ts";
+import type { Side } from "../spec/body.ts";
 
 /**
  * **What tactics ask of their body**, each control step: how to move, which way to face, and what
@@ -17,7 +16,7 @@ export interface Intent {
   readonly move: readonly [forward: number, right: number] | null;
   /** Face this way, rad about up (0 faces +z, growing to the right); the body turns toward it as its walk allows. */
   readonly face: number;
-  readonly hands: Readonly<Record<Hand, HandAction>>;
+  readonly hands: Readonly<Record<Side, HandAction>>;
   /** How far under its standing height to hold the centre of mass, m; `STANCE_LOWER` when not given. */
   readonly lower?: number;
   /** A committed combat action, executed by the common combat skill when configured. */
@@ -59,7 +58,7 @@ export function validArmExtension(extension = 0): boolean {
 export interface CombatAction {
   /** Observed identity whose contact may admit a bounded follow-through. */
   readonly targetId?: string;
-  readonly hand: Hand;
+  readonly hand: Side;
   readonly target: Vec3;
   readonly family: "straight" | "cross" | "hook" | "downward" | "overhand" | "uppercut";
   /** Optional world direction at contact; the shared executor applies the measured speed. */
@@ -70,7 +69,7 @@ export interface CombatAction {
 
 /** A named foot and observed world point; no joint or engine prescription. */
 export interface KickAction {
-  readonly foot: Foot;
+  readonly foot: Side;
   readonly target: Vec3;
   readonly targetId?: string;
 }

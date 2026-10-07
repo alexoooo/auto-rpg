@@ -8,11 +8,10 @@ import { chainTo } from "./kinematics.ts";
 import { servoAsk, servoSolve } from "./servo.ts";
 import { stanceControl, type StanceControl, type StanceGoal } from "./stance.ts";
 import type { StanceTuning } from "./stance-tuning.ts";
+import type { Side } from "../spec/body.ts";
 
 /** Joint angles, rad, by channel name. */
 export type Pose = Readonly<Record<string, number>>;
-
-export type Hand = "left" | "right";
 
 /**
  * A freedom driven flat out: its muscles pull toward `sense` (+1 or -1) at activation `level`
@@ -63,9 +62,9 @@ export interface MotorControl {
    * hand's rigid body has not, no place or more than two, and two places whose distance apart
    * differs from their points' by more than `PLACES_SLACK`.
    */
-  reach(hand: Hand, goal: EffectorGoal): void;
+  reach(hand: Side, goal: EffectorGoal): void;
   /** Give `hand`'s arm back to the posture. */
-  release(hand: Hand): void;
+  release(hand: Side): void;
   /** Drive `pushes` flat out from `control`'s next call, in place of those before. */
   setPushes(pushes: readonly MusclePush[]): void;
   /** Stand on the ground as `goal` asks, or with null leave the legs to the posture, from `control`'s next call. */
@@ -77,9 +76,9 @@ export interface MotorControl {
   /** The stance's readings, as its last step left them. */
   readonly stance: StanceControl;
   /** Where the path of `hand`'s first place stands now (body frame), or null with no goal. */
-  path(hand: Hand): Vector3 | null;
+  path(hand: Side): Vector3 | null;
   /** Where `point` of `hand`'s rigid body is now, body frame. */
-  pointToRef(hand: Hand, point: string, out: Vector3): Vector3;
+  pointToRef(hand: Side, point: string, out: Vector3): Vector3;
   /** The segment whose frame the body frame is carried by. */
   readonly root: BuiltSegment;
   /** Its memory (`src/core/state.ts`): the goals it was last given, each hand's path, its hands' solves counted (`ReachMeter`), and the stance's. */

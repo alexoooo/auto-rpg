@@ -1,9 +1,9 @@
 import type { Body } from "../core/body.ts";
-import type { Hand } from "../core/control/motor.ts";
 import type { Intent } from "../core/mind/intent.ts";
 import type { Sight, Tactics } from "../core/mind/tactics.ts";
 import type { Hook, World } from "../core/world.ts";
 import { deciding } from "./minds.ts";
+import type { Side } from "../core/spec/body.ts";
 
 /**
  * **What a lab body's mind decides, as it changes.** A log holds notes in the order they were
@@ -48,7 +48,7 @@ export function createMindLog(capacity = CAPACITY): MindLog {
   };
 }
 
-const HANDS: readonly Hand[] = ["left", "right"];
+const HANDS: readonly Side[] = ["left", "right"];
 
 /** What is said of a step, by kind; null says nothing. The words are the intent's and the report's own. */
 function said({ report }: Sight, intent: Intent): Readonly<Record<string, string | null>> {

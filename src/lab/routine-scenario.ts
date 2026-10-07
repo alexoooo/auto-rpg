@@ -2,7 +2,6 @@ import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial.js"
 import { Color3 } from "@babylonjs/core/Maths/math.color.js";
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder.js";
 import type { Scene } from "@babylonjs/core/scene.js";
-import type { Hand } from "../core/control/motor.ts";
 import type { Vec3 } from "../core/spec/quantity.ts";
 import { recordHistory } from "./history.ts";
 import type { LabScenario } from "./lab-scenario.ts";
@@ -13,6 +12,7 @@ import { paintTrack } from "./run-scenario.ts";
 import { trackOf } from "./track.ts";
 import { readings, table } from "../ui/controls.ts";
 import { strikeHands } from "../render/strike-hands.ts";
+import type { Side } from "../core/spec/body.ts";
 
 /**
  * **The Routine scenario**: the lab routine (`routine.ts`), tactics on the core's skills -- walk out,
@@ -29,7 +29,7 @@ interface RoutineMoment {
   readonly time: number;
   readonly loops: number;
   readonly fist: number;
-  readonly closure: Readonly<Record<Hand, number>>;
+  readonly closure: Readonly<Record<Side, number>>;
   /** The ball of the target that is up: its centre and its radius; null when none is. */
   readonly ball: { readonly centre: Vec3; readonly radius: number } | null;
 }

@@ -2,7 +2,7 @@ import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { Body, BodyCommand, BodyView } from "../body.ts";
 import { intoFrameToRef } from "../control/kinematics.ts";
 import type { EffectorGoal } from "../control/motor.ts";
-import type { Foot, StanceGoal } from "../control/stance.ts";
+import type { StanceGoal } from "../control/stance.ts";
 import { footStatesOf, readSupport, withinSupport } from "../control/support.ts";
 import { STANCE_GAIT } from "../control/stance-tuning.ts";
 import { contactResponse } from "../control/hand-feedback.ts";
@@ -13,6 +13,7 @@ import type { KickAction } from "../mind/intent.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import type { Skill } from "./skill.ts";
 import { advanceStrike, strikeTransition, STRIKE_EVENT, type StrikeCycleState } from "./strike-cycle.ts";
+import type { Side } from "../spec/body.ts";
 /** Engineering experiment inputs and physical qualification: `docs/reference/front-kicks.md#execution-settings`. */
 export const KICK_PATH = Object.freeze({ setupLimit: 8, lower: .05, lean: 0, transferLimit: 6, transferSeconds: .2, transferSlow: .12,
   lift: .45, windup: .15, chamberSeconds: .6, swingSeconds: .4, returnSeconds: .6, contactSpeed: 2, soleTurn: .2,
@@ -32,10 +33,10 @@ export function validKickTuning(tuning: KickTuning): boolean {
 type Rotation = readonly [number, number, number, number];
 type Stage = "idle" | "setup" | "transfer" | "unload" | "strike" | "place" | "recenter";
 export interface KickReport {
-  readonly foot: Foot | null;
+  readonly foot: Side | null;
   readonly stage: Stage;
   readonly phase: StrikeCycleState["phase"];
-  readonly returned: Readonly<Record<Foot, number>>;
+  readonly returned: Readonly<Record<Side, number>>;
   readonly failed: number;
   readonly interrupted: number;
 }
@@ -55,8 +56,8 @@ export function kickSkill(body: Body, tuning: KickTuning = KICK_PATH): Skill & {
   const local = new Vector3(), world = new Vector3(), direction = new Vector3(), inverse = new Quaternion(), turn = new Quaternion();
   const cycle: StrikeCycleState = { phase: null, time: 0, ready: 0, sequence: 0, velocity: [0, 0, 0], touching: false, impact: null };
   const hipWidth = Math.abs(body.built.spec.joints.find(j => j.name === "hip.right")!.centre.value[0] - body.built.spec.joints.find(j => j.name === "hip.left")!.centre.value[0]);
-  const state = { stage: "idle" as Stage, foot: null as Foot | null, action: null as KickAction | null, time: 0, held: 0,
-    anchors: {} as Partial<Record<Foot, {
+  const state = { stage: "idle" as Stage, foot: null as Side | null, action: null as KickAction | null, time: 0, held: 0,
+    anchors: {} as Partial<Record<Side, {
       position: Vec3;
       rotation: Rotation;
     }>>,
@@ -73,7 +74,7 @@ export function kickSkill(body: Body, tuning: KickTuning = KICK_PATH): Skill & {
       angle: number;
       speed: number;
       load: number;
-    } | null, placementVerified: false, withdrawalVerified: false, cycleFailed: false, setting: null as Foot | null,
+    } | null, placementVerified: false, withdrawalVerified: false, cycleFailed: false, setting: null as Side | null,
     footing: { left: [0, 0] as readonly [number, number], right: [0, 0] as readonly [number, number] } };
   const report: KickReport = { get foot() { return state.foot; }, get stage() { return state.stage; }, get phase() { return cycle.phase; },
     returned: state.returned, get failed() { return state.failed; }, get interrupted() { return state.interrupted; } };
@@ -170,7 +171,7 @@ export function kickSkill(body: Body, tuning: KickTuning = KICK_PATH): Skill & {
             finish(false);
             return null;
           }
-          const far = (side: Foot) => { const sole = view.stance.soles[side], to = state.footing[side]; return hypot(sole.x - to[0], sole.z - to[1]); };
+          const far = (side: Side) => { const sole = view.stance.soles[side], to = state.footing[side]; return hypot(sole.x - to[0], sole.z - to[1]); };
           if (state.setting && view.stance.phase === "stand" && far(state.setting) <= tuning.near)
             state.setting = null;
           if (!state.setting)

@@ -2,8 +2,8 @@ import fighterHull from "../../../assets/humanoid/workshop-fighter-trunk-hull.js
 import rogueHull from "../../../assets/humanoid/workshop-rogue-trunk-hull.json" with { type: "json" };
 import type { SourceKey } from "../sources.ts";
 import { sourced, type Quantity, type Vec3 } from "../spec/quantity.ts";
-import type { Side } from "./landmarks.ts";
 import type { WorkshopModel } from "./rig.ts";
+import type { Side } from "../spec/body.ts";
 
 /**
  * **The workshop models' clothed envelope**, as `scripts/core/workshop-envelope.mjs` measures it

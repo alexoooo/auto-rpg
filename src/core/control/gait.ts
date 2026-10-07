@@ -5,11 +5,12 @@
  * walk has reached (`paceToward`).
  */
 import type { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import type { Foot, SwingGoal } from "./stance.ts";
+import type { SwingGoal } from "./stance.ts";
 import { gravityOf, type Stance } from "./stance-state.ts";
 import { SUPPORT_INSET, type GaitTuning, type RecoveryTuning } from "./stance-tuning.ts";
 import { bearingOf, withinSupport, type FootState } from "./support.ts";
 import { sin, cos, exp, hypot } from "../math/real.ts";
+import type { Side } from "../spec/body.ts";
 
 /** The soles' middles' distance apart across `heading` (rad about up, 0 facing +z), m. */
 function across(feet: readonly FootState[], heading: number): number {
@@ -22,8 +23,8 @@ function across(feet: readonly FootState[], heading: number): number {
  * step (`last`) lands `width` from the other's sole's middle across the heading, beside it, after
  * the weight has shifted off it, as a walk's first step does.
  */
-function settleStep(feet: readonly FootState[], last: Foot, heading: number, width: number, tuning: GaitTuning): SwingGoal {
-  const side: Foot = last === "left" ? "right" : "left", b = feet.find((f) => f.side === last)!.middle, sign = side === "right" ? 1 : -1;
+function settleStep(feet: readonly FootState[], last: Side, heading: number, width: number, tuning: GaitTuning): SwingGoal {
+  const side: Side = last === "left" ? "right" : "left", b = feet.find((f) => f.side === last)!.middle, sign = side === "right" ? 1 : -1;
   const rx = cos(heading), rz = -sin(heading);
   return { foot: side, to: [b.x + sign * width * rx, b.z + sign * width * rz], seconds: tuning.seconds, lift: tuning.lift, shift: true };
 }
@@ -108,10 +109,10 @@ function outside(feet: readonly FootState[], centre: Vector3, velocity: Vector3,
  * time left.
  */
 function walkStep(feet: readonly FootState[], centre: Vector3, velocity: Vector3, g: number, walk: readonly [number, number], heading: number,
-  tuning: GaitTuning, last: Foot | null, under?: { readonly foot: Foot; readonly pivot: Vector3; readonly remaining: number }, inset = SUPPORT_INSET): SwingGoal {
+  tuning: GaitTuning, last: Side | null, under?: { readonly foot: Side; readonly pivot: Vector3; readonly remaining: number }, inset = SUPPORT_INSET): SwingGoal {
   // The pelvis's right across the ground at the heading: +x at heading 0.
   const rx = cos(heading), rz = -sin(heading);
-  const side: Foot = under?.foot ?? (last ? (last === "left" ? "right" : "left") : walk[0] * rx + walk[1] * rz < 0 ? "left" : "right");
+  const side: Side = under?.foot ?? (last ? (last === "left" ? "right" : "left") : walk[0] * rx + walk[1] * rz < 0 ? "left" : "right");
   const foot = feet.find((f) => f.side === side)!, bearer = feet.find((f) => f !== foot)!, b = bearer.middle, sign = side === "right" ? 1 : -1;
   // The height's floor, 1 mm, is a numeric setting.
   const T = tuning.seconds, w = Math.sqrt(g / Math.max(centre.y - b.y, 1e-3)), grow = exp(w * T);
@@ -166,9 +167,9 @@ const PREVIEW_STEPS = 8;
  * share of the landing the reference moves with.
  */
 function transferStep(feet: readonly FootState[], centre: Vector3, velocity: Vector3, g: number, walk: readonly [number, number], heading: number,
-  tuning: GaitTuning, last: Foot | null, under?: { readonly foot: Foot; readonly pivot: Vector3; readonly remaining: number }, inset = SUPPORT_INSET): SwingGoal {
+  tuning: GaitTuning, last: Side | null, under?: { readonly foot: Side; readonly pivot: Vector3; readonly remaining: number }, inset = SUPPORT_INSET): SwingGoal {
   const rx = cos(heading), rz = -sin(heading);
-  const side: Foot = under?.foot ?? (last === "left" ? "right" : "left");
+  const side: Side = under?.foot ?? (last === "left" ? "right" : "left");
   const foot = feet.find((f) => f.side === side)!, bearer = feet.find((f) => f !== foot)!, b = bearer.middle, sign = side === "right" ? 1 : -1;
   // The height's floor, 1 mm, is a numeric setting.
   const Tss = tuning.seconds, Tds = tuning.transfer!, T = Tss + Tds, w = Math.sqrt(g / Math.max(centre.y - b.y, 1e-3));

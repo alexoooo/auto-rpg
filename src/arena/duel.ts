@@ -14,7 +14,7 @@ import { createSenses, type SensesHub } from "../core/mind/senses.ts";
 import { watchBlows, type BlowWatch, type Fighter, type LandedBlow } from "../core/rules/blows.ts";
 import { createPool, type Ending } from "../core/rules/pool.ts";
 import { balanceCeiling, balancePercent, rulebook, type Rulebook, type RulebookOverride } from "../core/rules/rulebook.ts";
-import type { BodySpec } from "../core/spec/body.ts";
+import type { BodySpec, Side } from "../core/spec/body.ts";
 import { derive } from "../core/spec/quantity.ts";
 import type { BuiltBody } from "../core/build/build-body.ts";
 import { loadState, saveState, type Saved } from "../core/state.ts";
@@ -62,7 +62,6 @@ export const CAP_SECONDS = 120;
 export const DUEL_HELD = ["club", "empty"] as const;
 type DuelHeld = (typeof DUEL_HELD)[number];
 
-export type Side = "left" | "right";
 export const SIDES: readonly Side[] = Object.freeze(["left", "right"]);
 
 /** How a bout ended: the loser's pool's ending, its fall, or the clock. */

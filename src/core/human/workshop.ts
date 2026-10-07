@@ -2,11 +2,12 @@ import { derive, type Quantity, type Vec3 } from "../spec/quantity.ts";
 import { normalize, sub } from "../spec/vec.ts";
 import { workshopEnvelope, type Extents } from "./envelope.ts";
 import type { HumanFigure, LimbFigure } from "./figure.ts";
-import { limbLandmarks, rigSuffix, trunkLandmarks, type Side } from "./landmarks.ts";
+import { limbLandmarks, rigSuffix, trunkLandmarks } from "./landmarks.ts";
 import { bodyMass, FIT_SCALE, stature, WORKSHOP_SEX } from "./model.ts";
 import { rigPoint, type WorkshopModel } from "./rig.ts";
 import { workshopBalance } from "./attributes.ts";
 import { workshopHitPoints } from "./wounds.ts";
+import type { Side } from "../spec/body.ts";
 
 /**
  * **A workshop model as a human figure**: its rig's landmarks (`landmarks.ts`), its clothed

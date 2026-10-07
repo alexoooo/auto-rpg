@@ -2,10 +2,10 @@ import type { Scene } from "@babylonjs/core/scene.js";
 import type { SoundCue } from "../audio/cues.ts";
 import type { BuiltBody } from "../core/build/build-body.ts";
 import type { Player, Playhead } from "./player.ts";
-import type { Hand } from "../core/control/motor.ts";
 import type { Actor } from "./actor.ts";
 import type { Control } from "../ui/controls.ts";
 import type { LabAddress } from "./scenarios.ts";
+import type { Side } from "../core/spec/body.ts";
 
 /**
  * **What the lab's shell (`main.ts`) asks of a scenario.** The shell owns the page: the engine,
@@ -72,6 +72,6 @@ export interface ScenarioRun {
    */
   readout(frame: number | null): number | null;
   /** How far `hand` is closed at the frame shown, from 0 (open) to 1 (a fist). */
-  closure(hand: Hand): number;
+  closure(hand: Side): number;
   dispose(): void;
 }

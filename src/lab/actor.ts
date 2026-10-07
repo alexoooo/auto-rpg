@@ -1,7 +1,6 @@
 import { createBody, SERVO_SECONDS, type Body } from "../core/body.ts";
 import type { BuiltBody } from "../core/build/build-body.ts";
 import type { AssistCeiling } from "../core/control/assist.ts";
-import type { Hand } from "../core/control/motor.ts";
 import type { StanceTuning } from "../core/control/stance-tuning.ts";
 import { FIGHTER, type SubMindConfig } from "../core/mind/config.ts";
 import { GUARD_ACTION } from "../core/mind/intent.ts";
@@ -11,6 +10,7 @@ import type { SkillOptions, Skills } from "../core/skills/skills.ts";
 import { heldIn } from "../core/skills/strikes.ts";
 import type { World } from "../core/world.ts";
 import { deciding } from "./minds.ts";
+import type { Side } from "../core/spec/body.ts";
 
 /** A mode's instrument: it reads what the mind sees, before the mind decides, and changes nothing. */
 type Watch = (sight: Sight, dt: number) => void;
@@ -33,7 +33,7 @@ export interface Actor {
   readonly body: Body;
   readonly world: World;
   /** Whether each hand may attack: what it holds is not barred (`ActorOptions.allows`). A mode asks no strike of a hand that may not. */
-  readonly strikes: Readonly<Record<Hand, boolean>>;
+  readonly strikes: Readonly<Record<Side, boolean>>;
   /** Hand the body to its mind, which makes its tactics of `script`, a mode's. Returns the skills, for their report. */
   drive(script: Tactics, driving?: Driving): Skills;
   dispose(): void;
@@ -61,7 +61,7 @@ function watched(tactics: Tactics, watch: Watch): Tactics {
 }
 
 /** `tactics`, each hand that may not strike (`strikes`) guarding where they have it attack. */
-function barred(tactics: Tactics, strikes: Readonly<Record<Hand, boolean>>): Tactics {
+function barred(tactics: Tactics, strikes: Readonly<Record<Side, boolean>>): Tactics {
   if (strikes.left && strikes.right) return tactics;
   return deciding(tactics, (sight, dt) => {
     const intent = tactics.decide(sight, dt), { left, right } = intent.hands;

@@ -4,7 +4,7 @@ import { rigidPoints } from "./build/rigid.ts";
 import type { Assist, AssistCeiling } from "./control/assist.ts";
 import { FALLEN, uprightness } from "./control/ground.ts";
 import { rootFrameToRef, type Frame } from "./control/kinematics.ts";
-import { motorControl, type Hand, type EffectorGoal, type MotorControl, type MusclePush, type Pose } from "./control/motor.ts";
+import { motorControl, type EffectorGoal, type MotorControl, type MusclePush, type Pose } from "./control/motor.ts";
 import type { StanceGoal, StanceReading } from "./control/stance.ts";
 import type { StanceTuning } from "./control/stance-tuning.ts";
 import { stanceEnvelope, type StanceEnvelope } from "./control/stance-envelope.ts";
@@ -17,7 +17,7 @@ import type { World } from "./world.ts";
 import { physicalBody, type PhysicalBody } from "./physical-body.ts";
 import { centreReading } from "./observation.ts";
 import { effectorFeedback, type ContactIdentity, type HandContact, type HandFeedback } from "./control/hand-feedback.ts";
-import type { HandPose } from "./spec/body.ts";
+import type { Side, HandPose } from "./spec/body.ts";
 
 /**
  * **A body, commanded and seen.** One class for every body assembled from a spec: its muscles
@@ -87,7 +87,7 @@ type BodyDriver = (view: BodyView, dt: number) => BodyCommand | null;
  */
 export interface BodyCommand {
   /** A coarse contact configuration; omitted hands retain their pending request. */
-  readonly handPoses?: Readonly<Partial<Record<Hand, HandPose>>>;
+  readonly handPoses?: Readonly<Partial<Record<Side, HandPose>>>;
   /** Angles by channel; a freedom not named is held at its reference angle. */
   readonly posture: Pose;
   /**
@@ -96,7 +96,7 @@ export interface BodyCommand {
    * keeps its path, as does one that follows it (`EffectorGoal.follows`); another starts a new one
    * from where the points are.
    */
-  readonly hands: Readonly<Record<Hand, EffectorGoal | null>>;
+  readonly hands: Readonly<Record<Side, EffectorGoal | null>>;
   /** Additional named endpoint paths; a bearing foot cannot also own a reach. */
   readonly effectors?: Readonly<Record<string, EffectorGoal | null>>;
   /** Freedoms driven by their muscles alone, whatever else would own them. */
@@ -114,7 +114,7 @@ export interface BodyView {
   readonly effectors: Readonly<Record<string, { readonly points: Readonly<Record<string, Vector3>>; readonly rotation: Quaternion; readonly feedback?: HandFeedback }>>;
   readonly handPoses: Readonly<Record<string, { readonly applied: HandPose; readonly requested: HandPose }>>;
   /** Optional own-hand contact feedback for controllers that react to impacts. */
-  readonly handFeedback?: Readonly<Record<Hand, HandFeedback>>;
+  readonly handFeedback?: Readonly<Record<Side, HandFeedback>>;
   /** Seconds of the world's clock. */
   readonly time: number;
   /** What the body senses of the world this step (`Senses`): the clock, its side, and every other body. */
@@ -122,12 +122,12 @@ export interface BodyView {
   /** Each freedom's angle, rad, by channel name (`jointAngles`). */
   readonly angles: Readonly<Record<string, number>>;
   /** Each hand's knuckles in the world: where a fist strikes, and how fast. */
-  readonly fists: Readonly<Record<Hand, Fist>>;
+  readonly fists: Readonly<Record<Side, Fist>>;
   /**
    * Each named point of each hand's rigid body (`rigidPoints`: its knuckles, the points of what
    * it holds), by name, in the body frame, where a hand goal is set.
    */
-  readonly points: Readonly<Record<Hand, Readonly<Record<string, Vector3>>>>;
+  readonly points: Readonly<Record<Side, Readonly<Record<string, Vector3>>>>;
   /**
    * The body frame in the world, as the last step left it: the root segment's place and turn
    * (`rootFrameToRef`), the frame a hand goal is set in. A world point is brought into it with
@@ -163,7 +163,7 @@ interface BodyOptions {
   /** Trusted labeling for detached contact response; policies receive no engine body. */
   readonly contactIdentity?: ContactIdentity;
   /** Trusted material contacts from the last completed step, alongside native solver contacts. */
-  readonly materialContacts?: (hand: Hand) => readonly HandContact[];
+  readonly materialContacts?: (hand: Side) => readonly HandContact[];
   readonly effectorContacts?: (segment: string) => readonly HandContact[];
   /**
    * The joint servo's time constant, s (`servo`): a goal's error decays as a critically damped
@@ -206,7 +206,7 @@ export function commandMind(own: OwnBody, { servoSeconds, stance, handFeedback: 
   const fists = { left: fistOf(built, "left"), right: fistOf(built, "right") };
   const head = centreReading(built, "head");
   const angles: Record<string, number> = {};
-  const goals: Record<Hand, EffectorGoal | null> = { left: null, right: null };
+  const goals: Record<Side, EffectorGoal | null> = { left: null, right: null };
   const upright = uprightness(built);
   const effectorGoals: Record<string, EffectorGoal | null> = Object.fromEntries(motor.effectors.map(e => [e.segment, null]));
   const effectors = Object.fromEntries(motor.effectors.map(e => [e.segment, {
@@ -249,7 +249,7 @@ export function commandMind(own: OwnBody, { servoSeconds, stance, handFeedback: 
       if (goal && ((segment === "hand.left" && command.hands.left) || (segment === "hand.right" && command.hands.right)
         || (command.stance?.feet.some(side => segment === `foot.${side}`)))) throw new Error(`two controllers own ${segment}`);
     }
-    if (command.handPoses) built.handPoses.request(Object.entries(command.handPoses).map(([hand, pose]) => ({ hand: hand as Hand, pose: pose! })));
+    if (command.handPoses) built.handPoses.request(Object.entries(command.handPoses).map(([hand, pose]) => ({ hand: hand as Side, pose: pose! })));
     motor.setPosture(command.posture);
     motor.setPushes(command.pushes);
     motor.setStance(command.stance);
@@ -342,7 +342,7 @@ const sameGoal = (a: EffectorGoal, b: EffectorGoal): boolean =>
   && a.places.every((place, i) => place.point === b.places[i]!.point && place.position.every((v, k) => v === b.places[i]!.position[k]));
 
 /** A vector for each named point of `hand`'s rigid body (`rigidPoints`). */
-function pointsOf(built: BuiltBody, hand: Hand): Record<string, Vector3> {
+function pointsOf(built: BuiltBody, hand: Side): Record<string, Vector3> {
   const segment = built.segments.get(`hand.${hand}`);
   if (!segment) throw new Error(`${built.spec.model} has no ${hand} hand`);
   return Object.fromEntries([...rigidPoints(built.spec, segment.spec).keys()].map((name) => [name, new Vector3()]));
@@ -355,7 +355,7 @@ function pointsOf(built: BuiltBody, hand: Hand): Record<string, Vector3> {
  * on to the fingertips, where a whip of the wrist would read as a punch. Not differenced from the
  * nodes: the engine moves a body by more than its velocity when it corrects a constraint's error.
  */
-function fistOf(built: BuiltBody, side: Hand): { fist: Fist; update(): void } {
+function fistOf(built: BuiltBody, side: Side): { fist: Fist; update(): void } {
   const hand: BuiltSegment | undefined = built.segments.get(`hand.${side}`);
   const knuckles = hand?.spec.points?.knuckles;
   if (!hand || !knuckles) throw new Error(`${built.spec.model} has no ${side} hand with knuckles`);

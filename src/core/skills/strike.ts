@@ -4,9 +4,9 @@ import { rigidPoints } from "../build/rigid.ts";
 import { targetWindow } from "../control/target-window.ts";
 import { newHandContact } from "../control/hand-feedback.ts";
 import { intoFrameToRef } from "../control/kinematics.ts";
-import type { Hand, EffectorGoal, MusclePush, Pose } from "../control/motor.ts";
+import type { EffectorGoal, MusclePush, Pose } from "../control/motor.ts";
 import type { HandAction } from "../mind/intent.ts";
-import type { BodySpec } from "../spec/body.ts";
+import type { Side, BodySpec } from "../spec/body.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { distance, sub } from "../spec/vec.ts";
 import { deepFreeze } from "../state.ts";
@@ -75,7 +75,7 @@ interface Arm {
   readonly toes: number;
 }
 
-function armOf(spec: BodySpec, hand: Hand, aim: string): Arm {
+function armOf(spec: BodySpec, hand: Side, aim: string): Arm {
   const segment = (name: string) => {
     const found = spec.segments.find((s) => s.name === name);
     if (!found) throw new Error(`${spec.model} has no ${name}`);
@@ -112,7 +112,7 @@ function placedDistance({ length, shoulder, toes }: Arm, stretch: number, up: nu
  * How far ahead of its head a body of `spec` stands a target `up` m over the head for `hand`'s
  * placed blow, m (`PLACED`, unless an experiment passes another).
  */
-export function placedReach(spec: BodySpec, hand: Hand, up: number, placing: Placed = PLACED): number {
+export function placedReach(spec: BodySpec, hand: Side, up: number, placing: Placed = PLACED): number {
   return placedDistance(armOf(spec, hand, aimOf(spec, hand)), placing.stretch, up);
 }
 
@@ -131,7 +131,7 @@ interface Blows {
   readonly placed: Blow;
 }
 
-function blowsOf(spec: BodySpec, repertoire: Repertoire, hand: Hand): Blows {
+function blowsOf(spec: BodySpec, repertoire: Repertoire, hand: Side): Blows {
   const chosen = recipesFor(repertoire, spec, hand), aim = aimOf(spec, hand);
   return deepFreeze({
     chosen,
@@ -193,7 +193,7 @@ function rangeIn(blows: Blows, up: number, placing: Placed, reserve = 0, spacing
  * strike skill throws (`strikeSkill`, the game's repertoire and placed blow unless an experiment
  * passes others): what one body knows of another's blow by what it sees of it (`BodySense.spec`).
  */
-export function rangeOf(spec: BodySpec, hand: Hand, up: number, repertoire: Repertoire = REPERTOIRE, placing: Placed = PLACED): Range {
+export function rangeOf(spec: BodySpec, hand: Side, up: number, repertoire: Repertoire = REPERTOIRE, placing: Placed = PLACED): Range {
   if (repertoire !== REPERTOIRE) return rangeIn(blowsOf(spec, repertoire, hand), up, placing);
   let blows = GAME_BLOWS.get(spec);
   if (!blows) GAME_BLOWS.set(spec, blows = { left: blowsOf(spec, REPERTOIRE, "left"), right: blowsOf(spec, REPERTOIRE, "right") });
@@ -201,10 +201,10 @@ export function rangeOf(spec: BodySpec, hand: Hand, up: number, repertoire: Repe
 }
 
 /** Each body's blows under the game's repertoire, read once a spec: a body's are the same every step. */
-const GAME_BLOWS = new WeakMap<BodySpec, Readonly<Record<Hand, Blows>>>();
+const GAME_BLOWS = new WeakMap<BodySpec, Readonly<Record<Side, Blows>>>();
 
 /** No hand given a goal. */
-const NO_HANDS: Readonly<Record<Hand, EffectorGoal | null>> = Object.freeze({ left: null, right: null });
+const NO_HANDS: Readonly<Record<Side, EffectorGoal | null>> = Object.freeze({ left: null, right: null });
 
 /** Where a strike is: walking to its place, setting the feet there, standing still, holding its chamber, pushing or carrying its point, or returning it. */
 type StrikePhase = "approach" | "place" | "settle" | "chamber" | "swing" | "return";
@@ -213,9 +213,9 @@ type PointReason = "contact" | "miss" | "cancelled" | "preparation-timeout" | "r
 
 interface PointResponse {
   /** Finished attempts, including cancellations and failures, each counted once. */
-  completed: Record<Hand, number>;
+  completed: Record<Side, number>;
   reasons: Record<PointReason, number>;
-  last: { hand: Hand; reason: PointReason; returned: boolean; time: number } | null;
+  last: { hand: Side; reason: PointReason; returned: boolean; time: number } | null;
 }
 
 /** How the strike skill is going, as the last command left it. */
@@ -223,12 +223,12 @@ export interface StrikeReport {
   readonly physicalHands?: boolean;
   readonly impact?: boolean;
   /** The hand whose attack the skill is carrying out, or null. */
-  readonly hand: Hand | null;
+  readonly hand: Side | null;
   readonly phase: StrikePhase | null;
   /** The additional hand still returning while the reported hand carries a follow-up. */
-  readonly returning?: Hand | null;
+  readonly returning?: Side | null;
   /** Opposite hand available for a follow-up after contact release and actual homeward motion. */
-  readonly overlapHand?: Hand | null;
+  readonly overlapHand?: Side | null;
   /** How the attack in hand is carried out, as last chosen: with a recipe, or placed. */
   readonly blow: Blow["kind"] | null;
   /** The recipe being thrown; null with none, or with a placed blow. */
@@ -238,9 +238,9 @@ export interface StrikeReport {
   /** Seconds since the pushes, or a placed blow's path, began (negative before). */
   readonly since: number;
   /** Strikes thrown to the end of their pushes, each hand. */
-  readonly thrown: Readonly<Record<Hand, number>>;
+  readonly thrown: Readonly<Record<Side, number>>;
   /** Point-cycle outcomes: verified returns, preparation/return timeouts, and interruptions. */
-  readonly pointCycle?: { readonly returned: Readonly<Record<Hand, number>>; readonly failed: number; readonly interrupted: number; readonly response?: Readonly<PointResponse> };
+  readonly pointCycle?: { readonly returned: Readonly<Record<Side, number>>; readonly failed: number; readonly interrupted: number; readonly response?: Readonly<PointResponse> };
   /**
    * Seconds since the body last walked, set its feet or finished a strike: the stand before a
    * strike, and, counting on through the chamber and the pushes, the strike's clock.
@@ -250,9 +250,9 @@ export interface StrikeReport {
    * The range of `hand`'s blow at a target `up` m over the head (`rangeOf`): its place in the
    * recipe whose window holds that height, or a placed blow's with none, and the window along.
    */
-  rangeAt(hand: Hand, up: number): Range;
+  rangeAt(hand: Side, up: number): Range;
   /** What each hand's recipe nets in each band (`netsOf`): null for a band it has none in. */
-  readonly nets: Readonly<Record<Hand, Readonly<Record<Band, number | null>>>>;
+  readonly nets: Readonly<Record<Side, Readonly<Record<Band, number | null>>>>;
 }
 
 /** What the strike skill asks of the body this step. */
@@ -265,7 +265,7 @@ interface StrikeCommand {
   readonly posture: Pose;
   readonly pushes: readonly MusclePush[];
   /** A placed blow's goal for its hand, made for the step; null for a hand with none. */
-  readonly hands: Readonly<Record<Hand, EffectorGoal | null>>;
+  readonly hands: Readonly<Record<Side, EffectorGoal | null>>;
   /** How far the stance's heading is turned to follow the target, rad (`STEER`). */
   readonly steer: number;
 }
@@ -294,7 +294,7 @@ interface StrikeCommand {
  */
 interface StrikeSkill extends Skill {
   /** This step's command for the hands' actions, or null when neither attacks and no strike is under way. */
-  command(view: BodyView, hands: Readonly<Record<Hand, HandAction>>, heading: number, placed: boolean, dt: number): StrikeCommand | null;
+  command(view: BodyView, hands: Readonly<Record<Side, HandAction>>, heading: number, placed: boolean, dt: number): StrikeCommand | null;
   /** Count a step the body stood still (the skill not commanding): walking, it is reset. */
   idle(walking: boolean, dt: number): void;
   readonly report: StrikeReport;
@@ -305,7 +305,7 @@ interface StrikeSkill extends Skill {
 /** **What the strike skill remembers.** */
 interface StrikeState {
   /** The hand whose attack it is carrying out, and where that strike is. */
-  hand: Hand | null;
+  hand: Side | null;
   phase: StrikePhase | null;
   /**
    * How that attack is carried out, as last chosen: the recipe's place among the hand's
@@ -334,22 +334,22 @@ interface StrikeState {
   width: number | null;
   over: [number, number] | null;
   /** Strikes thrown to the end of their pushes, each hand. */
-  readonly thrown: Record<Hand, number>;
+  readonly thrown: Record<Side, number>;
   /** The pushes of the command last made: the one list, written again by each. */
   readonly pushes: MusclePush[];
   /** Measured body-frame point motion for the optional Hermite trajectory. */
-  readonly motion?: { previous: Record<Hand, Vec3 | null>; velocity: Vec3 | null; home: Vec3 | null;
+  readonly motion?: { previous: Record<Side, Vec3 | null>; velocity: Vec3 | null; home: Vec3 | null;
     chamber: Vec3 | null; launched: number | null; returning: boolean; time: number; ready: number;
-    reaction?: { touching: Record<Hand, boolean>; reason: PointReason | null };
-    outcomes: { returned: Record<Hand, number>; failed: number; interrupted: number; response?: PointResponse } };
+    reaction?: { touching: Record<Side, boolean>; reason: PointReason | null };
+    outcomes: { returned: Record<Side, number>; failed: number; interrupted: number; response?: PointResponse } };
 }
 
 export function strikeSkill(spec: BodySpec, repertoire: Repertoire, placing: Placed = PLACED, steering = STEER, pointMotion = false, pointSpacing = 0, pointResponse = false): StrikeSkill {
   const known = { left: blowsOf(spec, repertoire, "left"), right: blowsOf(spec, repertoire, "right") };
   /** The recipe `hand` throws at a target `up` m over the head, by its place among the hand's; null where no window holds that height, and the blow is placed. */
-  const choose = (hand: Hand, up: number): number | null => chooseIn(known[hand], up);
+  const choose = (hand: Side, up: number): number | null => chooseIn(known[hand], up);
   /** The blow `hand` throws with its recipe at `recipe`, or placed with none. */
-  const blowOf = (hand: Hand, recipe: number | null): Blow => recipe === null ? known[hand].placed : known[hand].recipes[recipe]!;
+  const blowOf = (hand: Side, recipe: number | null): Blow => recipe === null ? known[hand].placed : known[hand].recipes[recipe]!;
   const state: StrikeState = {
     hand: null, phase: null, blow: null, recipe: null, distance: null, stoodFor: null,
     still: 0, since: -Infinity, begun: null, readyAt: null, origin: null, bearing: null, steer: 0, width: null, over: null,
@@ -406,7 +406,7 @@ export function strikeSkill(spec: BodySpec, repertoire: Repertoire, placing: Pla
       state.still = walking ? 0 : state.still + dt;
     },
     command(view, hands, heading, placed, dt) {
-      const velocities: Partial<Record<Hand, Vec3>> | null = state.motion ? {} : null;
+      const velocities: Partial<Record<Side, Vec3>> | null = state.motion ? {} : null;
       if (state.motion) for (const hand of ["left", "right"] as const) {
         const at = view.points[hand][aimOf(spec, hand)]!, previous = state.motion.previous[hand];
         const position: Vec3 = [at.x, at.y, at.z];
