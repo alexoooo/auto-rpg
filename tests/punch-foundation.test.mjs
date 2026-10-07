@@ -61,8 +61,8 @@ test('native pad contacts carry the same intended-object identity as the complia
 
 test('contact admission distinguishes blocks, incidental objects and world, and rejects invalid settings',()=>{
  const touch=target=>({contact:{target}});
- assert.equal(contactResponse(touch({kind:'body',body:'foe',segment:'forearm.left'}),'foe'),'block');
- assert.equal(contactResponse(touch({kind:'body',body:'foe',segment:'upperTrunk'}),'foe'),'target');
+ assert.equal(contactResponse(touch({kind:'body',body:'foe',segment:'forearm.left',guard:true}),'foe'),'block');
+ assert.equal(contactResponse(touch({kind:'body',body:'foe',segment:'upperTrunk',guard:false}),'foe'),'target');
  assert.equal(contactResponse(touch({kind:'object',id:'other'}),'foe'),'incidental');
  assert.equal(contactResponse(touch({kind:'world'}),'foe'),'world');
  assert.equal(contactResponse({impulse:1},'foe'),null);

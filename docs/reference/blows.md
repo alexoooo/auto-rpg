@@ -1287,7 +1287,7 @@ The bar: covering saves the head at d over 0.2 in 9 of 32 cells, and in 5 of the
 
 ## Aim
 
-A fighter aims at its foe's head (`FighterMindConfig.aim`, `"head"`), or at the part of it
+A fighter aims at its foe's head (`FighterMindConfig.aim`, `"head"`, `src/core/mind/config.ts@352fbe24`), or at the part of it
 its right hand's recipes net most on (`"pays"`: `netsOf`). Under `"pays"` every body aims at
 the upper trunk, with a fist and with the club:
 

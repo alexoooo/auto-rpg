@@ -65,7 +65,7 @@ Both-hand low/recovery trials still fail: two of four attackers fall, and none c
 existing low-hit/standing-return gates. Assistance remains zero.
 
 **Do not promote this configuration.** Brawler and Scrapper retain their qualified settings.
-`ArenaFighterConfig.execution` permits the experiment through the ordinary gameplay path,
+`ArenaFighterConfig.execution` (`src/core/mind/config.ts@352fbe24`) permits the experiment through the ordinary gameplay path,
 with physical presentation reading the applied pose. Recovery still hands the body to the
 shared recovery controller. No promoted Arena controller or human-equivalent punch claim
 follows from these results. The next mechanical questions are fist orientation under tracking,

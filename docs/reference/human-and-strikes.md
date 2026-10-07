@@ -162,7 +162,7 @@ their target 0.93 m (a head) and 1.12 m (a trunk) ahead of its own head (`Recipe
 ## The edge
 
 `EDGE` is a band of 0.25 m and a patience of 4 s: a fighter that holds at the edge of its foe's
-reach (`FighterMindConfig.range`, `"edge"`) stands no more than 0.25 m beyond where the foe's blow
+reach (`FighterMindConfig.range`, `"edge"`, `src/core/mind/config.ts@352fbe24`) stands no more than 0.25 m beyond where the foe's blow
 at its head would reach it, and after standing still 4 s walks in to attack all the same. The
 band is set, not swept: it is the strike skill's own slack about a blow's place
 (`APPROACH.reach`), so a foe that comes on by that much brings itself into the window. The

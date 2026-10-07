@@ -233,7 +233,7 @@ export class Duel {
         // Out of the fight it is left to itself, as a side nobody orders is.
         orders: (sensed) => sensed.out ? null : given[side],
       });
-      for (const [segment, part] of combatant.built.segments) contactLabels.set(part.body, Object.freeze({ kind: "body", body: side, segment }));
+      for (const [segment, part] of combatant.built.segments) contactLabels.set(part.body, Object.freeze({ kind: "body", body: side, segment, guard: spec.marks.guards.includes(segment) }));
       const { pool, body } = combatant;
       duelists[side] = {
         ...combatant, side, model,

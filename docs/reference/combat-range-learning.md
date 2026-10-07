@@ -1,6 +1,6 @@
 # Working distance from observed misses
 
-`ArenaFighterConfig.spacingStep` optionally reduces the extra spacing requested by
+`ArenaFighterConfig.spacingStep` (`src/core/mind/config.ts@352fbe24`) optionally reduces the extra spacing requested by
 `spacing`, in metres. `rangeLearning` in `src/core/mind/range-learning.ts` observes
 the ordinary shared executor's chamber, swing and return. A correction requires
 an actually launched swing, no external hand contact during its episode, and an

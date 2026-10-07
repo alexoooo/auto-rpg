@@ -42,6 +42,6 @@ cases demonstrate the outcome, not an ablation proving each cause. The earlier
 attack, so its useful-return gains establish a narrower capability than effective autonomous
 combat. These six fixed cases are diagnostic regressions, not a distributional win-rate claim.
 
-The [next controller plan](../plans/2026-10-06-arena-combat.md) prioritizes crowd escape, proven
-attack primitives, openings/initiative, defense and active-opponent promotion gates. Its larger
-win/damage goals are proposals awaiting implementation and measurement.
+The next controller plan (`docs/plans/2026-10-06-arena-combat.md@a144de7f`) prioritized crowd
+escape, proven attack primitives, openings/initiative, defense and active-opponent promotion
+gates. Its larger win/damage goals were proposals awaiting implementation and measurement.

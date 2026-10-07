@@ -25,8 +25,9 @@ works in dev and is absent from `dist`.
 
 - `/` (`index.html`, `src/app.ts`): the main menu; the arena at `?play=arena`
   (`&matchup=left,right` opens a bout, `&you=left` takes a side, `&gap=`, `&cap=`, `&balance=`,
-  `&held=`, `&control=` and each side's settings (`&left.guard=`) are its recipe's, `#tape=` plays a bout's orders again, `src/arena/`); the crypt at
-  `?play=dungeon`
+  `&held=`, `&recovery=`, `&control=` (a preset a side) and each side's settings (`&left.<field>=`,
+  `&right.<field>=`, `Controller.fields`) are its recipe's, `&appearance=` is each side's skin,
+  `#tape=` plays a bout's orders again, `src/arena/`); the crypt at `?play=dungeon`
   (`src/dungeon/`); the lab at `?play=lab` (`&scenario=` runs one, `src/lab/scenarios.ts`).
   Each screen is a `<template>` mounted once per page load; changing screen is a navigation.
 - `/character-lab.html`: the character workshop viewer.

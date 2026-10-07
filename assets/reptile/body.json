@@ -6,7 +6,7 @@
   "curvature": 0.25,
   "eccentricCeiling": 1.5,
   "eccentricSlopeRatio": 1,
-  "marks": { "high": "head", "middle": ["trunk"], "base": "tail.base", "legs": ["lower.front.left", "lower.front.right", "lower.hind.left", "lower.hind.right"] },
+  "marks": { "high": "head", "middle": ["trunk"], "base": "tail.base", "legs": ["lower.front.left", "lower.front.right", "lower.hind.left", "lower.hind.right"], "guards": [] },
   "down": {
     "root": "trunk",
     "height": 0.6,
