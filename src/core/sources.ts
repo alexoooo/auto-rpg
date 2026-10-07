@@ -77,6 +77,28 @@ export const SOURCES = Object.freeze({
     kind: "asset", file: "public/assets/humanoid/workshop-rogue.glb",
     what: "The Rogue's model; a pointer is into its glTF JSON chunk.",
   },
+  "man-contact-geometry": {
+    kind: "asset", file: "assets/humanoid/man-contact-geometry.json",
+    what: "Man's contact surfaces from the Warrior's skin: each open hand's and fist's convex hull with "
+      + "its palm patch, and each bare foot cut at the ball into a foot and a toe piece with their "
+      + "hinge, sole and toe pad; body frame, authored size, rounded to 0.1 mm; written by "
+      + "scripts/core/man-envelope.mjs --write, measured again by tests/man-envelope.test.mjs, its "
+      + "rules and approximations in docs/reference/man-anatomy.md.",
+  },
+  "falisse-2022-toes": {
+    kind: "literature",
+    cite: "Falisse A, Afschrift M, De Groote F (2022). Modeling toes contributes to realistic stance knee "
+      + "mechanics in three-dimensional predictive simulations of walking. PLoS ONE 17(1):e0256311. "
+      + "The metatarsophalangeal joint as a passive rotational spring, 25 N m/rad about a neutral "
+      + "rest, with 2 N m s/rad of damping.",
+    link: "https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0256311",
+  },
+  "opensim-gait2392-mtp": {
+    kind: "literature",
+    cite: "Delp SL et al. OpenSim Gait2392 model, mtp_angle coordinate: the metatarsophalangeal joint's "
+      + "range, about -90 to +90 degrees about its axis.",
+    link: "https://github.com/opensim-org/opensim-models/blob/master/Models/Gait2392_Simbody/gait2392_thelen2003muscle.osim",
+  },
   "owner-typical-adult": {
     kind: "decision", date: "2026-09-27",
     decided: "A human at x1 is a typical adult, about 1.76-1.78 m and 78-80 kg for a man; the Rogue "

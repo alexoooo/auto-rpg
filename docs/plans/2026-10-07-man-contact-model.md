@@ -86,6 +86,14 @@ option. Each chunk is green and committed on its own.
   handedness (left mirrors right), palm patch area against the hull's palmar face, convexity,
   and that `foot` and `toes` meet at the hinge without overlap beyond 1 mm.
 
+As built: the artifact is at the authored size, like the trunk hulls, and a spec scales it by
+`FIT_SCALE`. The hands are skinned through `scripts/lab/fist-probe.mjs`, which needed `FIST` to
+move from `src/render/skin.ts` to `src/render/fist.ts`. The palm patch lies on the hull's
+largest face within 45° of palmar, because the most palmar plane touches the hollow palm in only
+0.7 cm². The hinge lies at the middle of the cut's height, because the rig's ball head is 9 mm
+above the ground. The source keys are `man-contact-geometry`, `falisse-2022-toes` and
+`opensim-gait2392-mtp`. `docs/reference/man-anatomy.md` holds the numbers.
+
 ### A1. Statics with fitted contacts and a passive toe
 
 Extend the posture audit's statics (`research/core-posture-trials.mjs`, instrument A) with an
