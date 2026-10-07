@@ -20,7 +20,8 @@ export function punchScore(results) {
    saturation:median(events.flatMap(e=>e.preImpact.motorTorques.map((torque,i)=>{
     const cap=torque>=0?e.preImpact.bounds.positive[i]:e.preImpact.bounds.negative[i];return cap?Math.abs(torque)/cap:0;})))};
  }
- return {accepted:results.length===4&&results.every(r=>r.qualification.accepted),hands,
+ return {accepted:results.length===4&&['left','right'].every(hand=>['straight','cross'].every(family=>
+   results.filter(r=>r.config.hand===hand&&r.config.family===family).length===1))&&results.every(r=>r.qualification.accepted),hands,
   minimumImpulse:Math.min(hands.left.impulse??0,hands.right.impulse??0)};
 }
 export function punchAdmission(reference,candidate,ratio=PUNCH_SEARCH.ratio) {

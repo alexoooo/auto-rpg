@@ -5,11 +5,11 @@ import { Vector3 } from '@babylonjs/core/Maths/math.vector.js';
 import { buildBout } from './bout.mjs';
 import { DEFAULT_ENGINE, loadEngine } from '../src/core/engine/engines.ts';
 import { FIGHTER, POINT_FIGHTER, ARENA_BRAWLER, ARENA_SCRAPPER, ARENA_SCRAPPER_REFERENCE, ARENA_FIGHTER } from '../src/core/mind/config.ts';
-import { motionAtToRef } from '../src/core/control/support.ts';
+import { motionAtToRef, pointOfToRef } from '../src/core/control/support.ts';
 import { STAND_ORDERS } from '../src/core/mind/orders.ts';
 
 /** Frozen measurement protocol: m/s, s; sustained pressure alone never counts as a driven blow. */
-export const COMBAT_PROTOCOL = Object.freeze({ version: 1, drivenClosing: 1, relativeHandSpeed: .5,
+export const COMBAT_PROTOCOL = Object.freeze({ version: 1, drivenClosing: 1, relativeHandSpeed: .5, relativeFootSpeed: .5,
   pressureEpisode: 2, lowHeadHeight: .8, startup: 2, capSeconds: 60 });
 
 /** Source identity includes untracked implementation files; results are excluded from the scan. */
@@ -40,14 +40,17 @@ export function combatContact(blow, side, witness, protocol = COMBAT_PROTOCOL) {
   const mine = blow.sides.find(s => s.fighter === side), other = blow.sides.find(s => s.fighter !== side);
   if (!mine || !other) throw new Error('combat contact needs two different fighters');
   const hand = mine.segment === 'hand.left' ? 'left' : mine.segment === 'hand.right' ? 'right' : null;
-  const direction = blow.sides[0] === mine ? 1 : -1, velocity = hand && witness?.relativeVelocity[hand];
+  const foot = mine.segment === 'foot.left' ? 'left' : mine.segment === 'foot.right' ? 'right' : null;
+  const kick = foot !== null && witness?.kick?.foot === foot && witness.kick.phase === 'swing';
+  const direction = blow.sides[0] === mine ? 1 : -1, velocity = kick ? witness.kick.relativeVelocity[foot] : hand && witness?.relativeVelocity[hand];
   const closing = velocity ? direction * velocity.reduce((sum, v, k) => sum + v * blow.normal[k], 0) : 0;
-  const driven = hand !== null && witness?.phase === 'swing' && witness.hand === hand && !witness.down
-    && blow.closing >= protocol.drivenClosing && closing >= protocol.relativeHandSpeed;
-  const block = hand !== null && /^hand\.|^forearm\./.test(other.segment);
+  const driven = ((hand !== null && witness?.phase === 'swing' && witness.hand === hand) || kick) && !witness.down
+    && blow.closing >= protocol.drivenClosing && closing >= (kick ? protocol.relativeFootSpeed : protocol.relativeHandSpeed);
+  const block = (hand !== null || kick) && /^hand\.|^forearm\./.test(other.segment);
   const taken = s => s.wound?.taken.reduce((sum, w) => sum + w.hp, 0) ?? 0;
   return { driven, kind: driven ? block ? 'block' : 'target' : hand ? 'incidental-hand' : 'incidental-body',
-    outgoing: taken(other), incoming: taken(mine), energy: blow.energy, grounded: witness?.foeLow ?? false };
+    outgoing: taken(other), incoming: taken(mine), energy: blow.energy, grounded: witness?.foeLow ?? false,
+    ...(kick && !witness.down && closing > 0 && blow.closing > 0 ? {nativeKick:true} : {}) };
 }
 
 /** Consecutive contact without a driven blow; contact gaps and driven blows end the episode. */
@@ -70,7 +73,7 @@ export async function combatTrial(config) {
   const physicsEngine = await loadEngine(config.engine ?? DEFAULT_ENGINE);
   const stand = await buildBout(recipe, { physicsEngine }), { world, duel } = stand;
   duel.play(config.tape ?? []);
-  const vector = new Vector3(), spin = new Vector3();
+  const vector = new Vector3(), spin = new Vector3(), footPoint = new Vector3();
   const sides = Object.fromEntries(['left', 'right'].map(side => [side, {
     phases: {}, falls: 0, downSeconds: 0, wasDown: false, recoveries: 0,
     pressureSeconds: 0, pressureRun: 0, longestPressure: 0, pressureEpisodes: 0,
@@ -92,7 +95,14 @@ export async function combatTrial(config) {
         vector.subtractInPlace(d.body.view.stance.velocity);
         relativeSpeed[hand] = vector.length(); relativeVelocity[hand] = vector.asArray();
       }
+      const kick = d.minded.skills?.report.kick, footVelocity = {}, footSpeed = {};
+      if(kick)for(const foot of ['left','right']){
+        const limb=d.built.segments.get(`foot.${foot}`);
+        pointOfToRef(limb,limb.spec.points.strike.value,footPoint);motionAtToRef(limb,footPoint,vector,spin);
+        vector.subtractInPlace(d.body.view.stance.velocity);footVelocity[foot]=vector.asArray();footSpeed[foot]=vector.length();
+      }
       out.witness = { phase: report?.phase, hand: report?.hand, relativeSpeed, relativeVelocity, down: d.body.down,
+        ...(kick?{kick:{foot:kick.foot,phase:kick.phase,relativeVelocity:footVelocity,relativeSpeed:footSpeed}}:{}),
         foeLow: other.body.down || other.body.physical.head.y < COMBAT_PROTOCOL.lowHeadHeight };
       out.drivenThisStep = false;
     }
@@ -110,7 +120,8 @@ export async function combatTrial(config) {
         const phase = d.body.has === 'command' ? report?.engagement?.phase ?? report?.strike.phase ?? 'guard' : d.body.has;
         const strikePhase = report?.strike.phase;
         if(strikePhase==='swing'&&out.lastPhase!=='swing'&&d.minded.skills.state.action) {
-          const family=d.minded.skills.state.action.family,surface=d.minded.skills.state.tactics.surface;
+          const tactics=d.minded.skills.state.tactics;
+          const family=d.minded.skills.state.action.family,surface=(recipe.minds[side].kicks?tactics.base:tactics).surface;
           out.pathLaunches[family]=(out.pathLaunches[family]??0)+1;
           out.intendedSurfaces[surface]=(out.intendedSurfaces[surface]??0)+1;
         }
@@ -134,14 +145,18 @@ export async function combatTrial(config) {
         for (const side of ['left', 'right']) {
           const out = sides[side], contact = combatContact(blow, side, out.witness);
           out.incomingDamage += contact.incoming;
+          if(contact.nativeKick){out.nativeKickContacts=(out.nativeKickContacts??0)+1;
+            out.nativeKickDamage=(out.nativeKickDamage??0)+contact.outgoing;}
           if (contact.driven) {
+            const mine=blow.sides.find(s=>s.fighter===side),foot=mine.segment.startsWith('foot.');
+            if(foot){out.drivenKicks=(out.drivenKicks??0)+1;out.kickDamage=(out.kickDamage??0)+contact.outgoing;}
             out.drivenThisStep = true;
             out.driven++; out.drivenDamage += contact.outgoing; out.selfDamage += contact.incoming;
             const target=blow.sides.find(s=>s.fighter!==side).segment;
             out.drivenTargets[target]=(out.drivenTargets[target]??0)+1;
             if (contact.kind === 'block') out.blocks++;
             if (contact.grounded) out.lowDriven++;
-            out.maximumDrivenSpeed = Math.max(out.maximumDrivenSpeed, out.witness.relativeSpeed[out.witness.hand]);
+            out.maximumDrivenSpeed = Math.max(out.maximumDrivenSpeed, foot ? out.witness.kick.relativeSpeed[out.witness.kick.foot] : out.witness.relativeSpeed[out.witness.hand]);
           } else out.incidentalDamage += contact.outgoing;
         }
       }
@@ -159,7 +174,9 @@ export async function combatTrial(config) {
       delete out.witness; delete out.wasDown; delete out.pressureRun;
       delete out.touching; delete out.drivenThisStep;
       delete out.lastPhase;
-      const learned = d.minded.skills?.state?.tactics?.range;
+      const tactics = d.minded.skills?.state?.tactics;
+      const learned = (recipe.minds[side].kicks ? tactics?.base : tactics)?.range;
+      if(d.minded.skills?.report.kick)out.kicks=structuredClone({...d.minded.skills.report.kick});
       if (learned) out.rangeLearning = structuredClone(learned);
       out.bar = d.pool.bar(); out.assist = { force: d.body.assist.meter.force, moment: d.body.assist.meter.moment };
     }

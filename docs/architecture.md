@@ -1043,3 +1043,13 @@ rejects the combined low-attack candidate; ordinary Brawler/Scrapper remain unch
 The [bounded punch search](reference/punch-foundation.md) records its failed promotion and
 leaves Brawler/Scrapper settings intact. The [mass audit](reference/punch-mass-audit.md) identifies
 the current damage model's free-joint assumption without substituting a new rule.
+
+The optional `KickAction` passes either foot, a world point and detached target identity
+through the common intent/skill boundary. `skills/kick.ts` shares the measured strike
+cycle with hands and surrounds it with support transfer, verified unloading, placement
+and recentering. Supported stance poses can own one bearing leg with captured sole
+anchors, while the free leg tracks its named strike point and orientation. Effector
+path duration and optional muscle response are independent. All changing execution
+and tactical data forks with the bout. The selectable Kicker adds low shin targeting
+and alternates feet over Scrapper; its limited qualification and strength gaps are
+recorded in [front kicks](reference/front-kicks.md).

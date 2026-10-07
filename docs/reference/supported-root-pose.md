@@ -2,13 +2,16 @@
 
 ## Contract and harness
 
-`StanceGoal.pose` supplies a root pitch and response time while two feet remain planted.
+`StanceGoal.pose` supplies a root pitch and response time while one or two selected feet remain planted.
 The existing body, IK, muscles and contact solver execute it. It owns no movement step,
 and a walk or swing supplied with it is refused. The effort-aware bearing solve is
 allocated after the leg channels are bound. Its solved leg accelerations carry the
 remaining body's servo solve through `limbMotion`; its muscles still cap every torque.
 The posture follows the slower support response while a requested hand path retains
-its ordinary tracking response. Arm IK reads the measured held trunk angles during
+its ordinary tracking response. Optional world-space sole anchors correct position and rotation errors through the
+bearing muscles. A free foot is owned by its effector tracker and is excluded from
+the support polygon and stance channels. Every anchor must name a selected bearing
+foot and contain a finite position and unit quaternion. Arm IK reads the measured held trunk angles during
 this mode. No assist, anatomy, inertia, muscle strength or damage rule changes.
 
 A supported pose retains a recovery bar at least the reference standing height less

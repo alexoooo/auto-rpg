@@ -26,6 +26,7 @@ test('both hands complete planted straight and cross cycles without falls or ass
   r=>r.summary.lowDriven=0,r=>r.summary.returnedStanding=false,r=>r.summary.assist.force=1]) {
   const bad=structuredClone(ground);mutate(bad[0]);assert.equal(punchStabilityAdmission(rows,bad),false);
  }
+ assert.equal(punchStabilityAdmission([rows[0],rows[0],rows[2],rows[3]],ground),false,'duplicate cells cannot replace a required hand/family');
  assert.equal(punchStabilityAdmission(rows.slice(1),ground),false);
  assert.equal(punchStabilityAdmission(rows,ground.slice(1)),false);
  const weak=structuredClone(rows);for(const row of weak)for(const event of row.impacts)event.impulse*=.1;

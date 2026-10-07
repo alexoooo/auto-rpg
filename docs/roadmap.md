@@ -145,6 +145,14 @@ Warrior trials remain below the cited human punch impulse and peak-force means. 
 fist collision geometry, pre-impact bracing, coordinated body contribution and calibrated
 target materials remain open; faster trajectory requests alone are not a strength upgrade.
 
+Either-foot [front kicks](reference/front-kicks.md) now share punching's tracker and
+bounded cycle, with actual unloading, supported placement and recentering. The optional
+Arena Kicker retains Scrapper's punching, low attacks and recovery. Narrow low-pad
+hit/miss/block cases pass; stronger missed kicks and higher narrow targets expose
+failures. Quiet-defender integration passes, but competitive kick selection,
+trained-adult force/impulse and whole-system rate convergence remain open. The combined
+planted physical-fist low-attack candidate also remains unqualified.
+
 ## Open items
 
 ### The AI

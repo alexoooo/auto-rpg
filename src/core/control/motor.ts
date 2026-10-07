@@ -50,6 +50,8 @@ export interface EffectorGoal {
    * a new path from where the points are.
    */
   readonly follows?: boolean;
+  /** Optional muscle tracking response, s, independent of the endpoint path's duration. */
+  readonly response?: number;
   /** Initial point velocity in the body frame, m/s, for a measured Hermite path. One point only. */
   readonly initialVelocity?: Vec3;
   /** Desired point velocity at the target, body frame, m/s; one-point Hermite paths only. */
@@ -291,7 +293,12 @@ export function motorControl(built: BuiltBody, seconds: number, posture: Pose = 
       driver.activation[i] = push.level;
       return undefined;
     }, seconds, dt, {
-      seconds: (i) => owned(i) ? seconds : standing?.pose?.seconds ?? seconds,
+      seconds: (i) => {
+        if (!owned(i)) return standing?.pose?.seconds ?? seconds;
+        const name = driver.channels[i]!.name;
+        for (const limb of both) if (limb.memory.goals.has(name)) return limb.memory.goal?.response ?? seconds;
+        return seconds;
+      },
       rate: (i) => owned(i)?.[1] ?? 0,
       acceleration: (i) => owned(i)?.[2] ?? 0,
     });
@@ -306,6 +313,7 @@ export function motorControl(built: BuiltBody, seconds: number, posture: Pose = 
       const limb = limbs.get(segment);
       if (!limb) throw new Error(`no effector ${segment}`);
       const { memory: m, points } = limb, { places } = goal;
+      if (goal.response !== undefined && (!(goal.response > 0) || !Number.isFinite(goal.response))) throw new Error("effector tracking needs finite positive response");
       if (!(goal.seconds > 0) || !Number.isFinite(goal.seconds)) throw new Error("effector path needs finite positive time");
       if (goal.orientation && (places.length !== 1 || !(goal.orientation.seconds > 0)
         || !Number.isFinite(goal.orientation.seconds) || goal.orientation.target.length !== 4

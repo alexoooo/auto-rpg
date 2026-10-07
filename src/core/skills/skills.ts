@@ -1,3 +1,4 @@
+import type { KickReport, KickTuning } from "./kick.ts";
 import type { SupportReport } from "./support-fold.ts";
 import { combatSkills, type CombatExecution } from "./combat.ts";
 import type { AttackTuning } from "./attack-path.ts";
@@ -49,12 +50,15 @@ export interface SkillReport {
   readonly strike: StrikeReport;
   readonly engagement?: { readonly phase: string };
   readonly support?: SupportReport;
+  readonly kick?: KickReport;
 }
 
 export interface SkillOptions {
   /** Shared combat trajectories in place of the reference strike skill. */
   readonly combat?: AttackTuning;
   readonly combatExecution?: CombatExecution;
+  /** Either-foot support transfer, front strike, withdrawal and verified landing. */
+  readonly kicks?: KickTuning;
   /** Enable supported low-combat transitions behind the neutral lowering intent. */
   readonly lowCombat?: boolean;
   /** Carry one returning hand independently while the other performs a bounded follow-up. */
@@ -80,8 +84,9 @@ export interface SkillOptions {
 }
 
 /** The skills of `body`; `tactics` is the memory of the tactics that will hand them their intent (`Tactics.state`), kept with theirs. */
-export function createSkills(body: Body, { repertoire = REPERTOIRE, placed, steer, cover, pointMotion, pointSpacing, pointResponse, combat, combatExecution, lowCombat, turnLimit, turnStartup, combatOverlap }: SkillOptions = {}, tactics: object | null = null, engagement?: { readonly phase: string }): Skills {
-  if (combat) return combatSkills(body, combat, tactics, engagement, lowCombat, turnLimit, turnStartup, combatOverlap, combatExecution);
+export function createSkills(body: Body, { repertoire = REPERTOIRE, placed, steer, cover, pointMotion, pointSpacing, pointResponse, combat, combatExecution, lowCombat, turnLimit, turnStartup, combatOverlap, kicks }: SkillOptions = {}, tactics: object | null = null, engagement?: { readonly phase: string }): Skills {
+  if (combat) return combatSkills(body, combat, tactics, engagement, lowCombat, turnLimit, turnStartup, combatOverlap, combatExecution, kicks);
+  if (kicks) throw new Error("kicks require the shared combat executor");
   const legs = locomotion(body.envelope, turnLimit, turnStartup), strikes = strikeSkill(body.built.spec, repertoire, placed, steer, pointMotion, pointSpacing, pointResponse), guard = guardSkill(body.built.spec, cover);
   const none: readonly MusclePush[] = Object.freeze([]);
   const idle: BodyCommand["hands"] = Object.freeze({ left: null, right: null });

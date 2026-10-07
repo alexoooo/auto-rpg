@@ -13,7 +13,7 @@ source-backed body and actuator corrections are authorized.
    overlap adapter, and qualify orientation/support corrections. Both hands must pass standing
    straight/cross impact-return, miss/block/cancellation and stationary/recovering low-target
    gates without falls or assistance. Remove force-improvement criteria from stability admission.
-3. Use the same cycle for either-foot front kicks, with measured transfer/unloading and verified
+3. Shared cycle, low kicks and experimental Arena integration implemented. Use the same cycle for either-foot front kicks, with measured transfer/unloading and verified
    placement/recentering. Stance owns the bearing leg, tracking the free leg; guard retains arms.
    Cancellation and loss of support withdraw or yield to recovery. Add ordinary Arena configuration
    and tactical selection; downed-opponent attacks retain qualified low punches. Verify real Arena

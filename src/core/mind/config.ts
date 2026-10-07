@@ -1,3 +1,4 @@
+import { KICK_PATH, type KickTuning } from "../skills/kick.ts";
 import type { AttackTuning } from "../skills/attack-path.ts";
 import type { CombatExecution } from "../skills/combat.ts";
 import type { TurnStartup } from "../skills/locomotion.ts";
@@ -82,6 +83,8 @@ export interface ArenaFighterConfig {
   readonly openings?: OpeningTuning;
   readonly paths?: Partial<AttackTuning>;
   readonly execution?: CombatExecution;
+  /** Optional either-foot skill, shared by research policies and Arena tactics. */
+  readonly kicks?: KickTuning;
   readonly spacing?: number;
   /** Optional reduction of extra spacing after a clean verified miss, m: `docs/reference/combat-range-learning.md`. */
   readonly spacingStep?: number;
@@ -109,3 +112,6 @@ export const ARENA_SCRAPPER_REFERENCE: ArenaFighterConfig = deepFreeze({ ...AREN
 
 /** Playable grounded profile with both-hand low gates: `docs/reference/ground-combat.md#arena-integration`. */
 export const ARENA_SCRAPPER: ArenaFighterConfig = ARENA_SCRAPPER_REFERENCE;
+
+/** Low-kick development profile: `docs/reference/front-kicks.md#arena-selection`. */
+export const ARENA_KICKER: ArenaFighterConfig = deepFreeze({ ...ARENA_SCRAPPER, kicks: KICK_PATH });

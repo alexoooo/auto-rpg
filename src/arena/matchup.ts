@@ -1,5 +1,5 @@
 import { BODY_MODELS, type BodyModel } from "../core/human/spec.ts";
-import { ARENA_BRAWLER, ARENA_SCRAPPER, ARENA_FIGHTER, FIGHTER, POINT_FIGHTER, type FighterMindConfig, type MindConfig } from "../core/mind/config.ts";
+import { ARENA_BRAWLER, ARENA_SCRAPPER, ARENA_KICKER, ARENA_FIGHTER, FIGHTER, POINT_FIGHTER, type FighterMindConfig, type MindConfig } from "../core/mind/config.ts";
 import { isOrders } from "../core/mind/orders.ts";
 import { balanceFrom } from "../core/rules/rulebook.ts";
 import { DUEL_HELD, type OrdersEntry, type Side } from "./duel.ts";
@@ -154,7 +154,7 @@ export function readTape(hash: string): OrdersEntry[] {
 export const tapeHash = (tape: readonly OrdersEntry[]): string => `#${TAPE_KEY}=${encodeURIComponent(JSON.stringify(tape))}`;
 
 /** Selectable controllers; separate from anatomy, equipment and appearance. */
-export const CONTROLS = Object.freeze({ scrapper: "Scrapper (experimental)", brawler: "Brawler (experimental)", combat: "Combat (experimental)", classic: "Classic fighter", "point-right": "Point control: right hand",
+export const CONTROLS = Object.freeze({ kicker: "Kicker (experimental)", scrapper: "Scrapper (experimental)", brawler: "Brawler (experimental)", combat: "Combat (experimental)", classic: "Classic fighter", "point-right": "Point control: right hand",
   "point-left": "Point control: left hand", "point-alternate": "Point control: alternate hands" });
 type Control = keyof typeof CONTROLS;
 
@@ -171,6 +171,7 @@ export function readMinds(search: string): Readonly<Record<Side, MindConfig>> {
   const mind = (side: Side): MindConfig => {
     const control = controls[side];
     switch (control) {
+      case "kicker": return ARENA_KICKER;
       case "scrapper": return ARENA_SCRAPPER;
       case "brawler": return ARENA_BRAWLER;
       case "combat": return ARENA_FIGHTER;

@@ -89,6 +89,24 @@ export function lowerSurface(foe: BodySense, name: string, from?: Vec3): Vec3 | 
   return verticalSurface(foe, name, from, -1);
 }
 
+/** An exposed capsule side toward an observed point, with its centre line sampled at a world height. */
+export function capsuleSurfaceAtHeight(foe: BodySense, name: string, from: Vec3, height: number): Vec3 | null {
+  const segment = foe.spec.segments.find(s => s.name === name), sensed = foe.segments.get(name);
+  const round = segment && capsule(segment);
+  if (!round || !sensed || !Number.isFinite(height) || !from.every(Number.isFinite)) return null;
+  const world = (p: Vec3) => new Vector3(...p).applyRotationQuaternionToRef(sensed.rotation, new Vector3()).addInPlace(sensed.position);
+  const a = world(round.a), b = world(round.b), axis = b.subtract(a), squared = axis.lengthSquared();
+  if (height < Math.min(a.y, b.y) - round.radius || height > Math.max(a.y, b.y) + round.radius) return null;
+  const fraction = b.y === a.y ? 1 / 2 : Math.max(0, Math.min(1, (height - a.y) / (b.y - a.y)));
+  const centre = a.add(axis.scale(fraction)), normal = new Vector3(...from).subtractInPlace(centre);
+  const axial = Vector3.Dot(normal, axis);
+  if (squared && (fraction > 0 && fraction < 1 || fraction === 0 && axial > 0 || fraction === 1 && axial < 0))
+    normal.subtractInPlace(axis.scale(axial / squared));
+  if (!normal.lengthSquared()) return null;
+  const surface = centre.add(normal.normalize().scaleInPlace(round.radius));
+  return [surface.x, surface.y, surface.z];
+}
+
 function verticalSurface(foe: BodySense, name: string, from: Vec3 | undefined, sense: 1 | -1): Vec3 | null {
   const segment=foe.spec.segments.find(s=>s.name===name),sensed=foe.segments.get(name);
   if(!segment||!sensed)return null;

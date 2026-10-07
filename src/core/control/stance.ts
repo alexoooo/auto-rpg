@@ -1,4 +1,5 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import type { Vec3 } from "../spec/quantity.ts";
 import type { BuiltBody } from "../build/build-body.ts";
 import type { MuscleDriver } from "../muscle/driver.ts";
 import type { Assist } from "./assist.ts";
@@ -30,8 +31,10 @@ export interface StanceGoal {
   readonly height: number;
   /** The pelvis's heading, rad about the world's up: 0 faces it as in the reference pose. */
   readonly heading: number;
-  /** A supported root pitch, rad, and response time, s; both feet stay planted and no step is requested. */
-  readonly pose?: { readonly pitch: number; readonly seconds: number };
+  /** A supported root pitch, rad, and response time, s; the bearing feet stay planted and no step is requested. */
+  readonly pose?: { readonly pitch: number; readonly seconds: number;
+    /** Captured bearing soles, world position and rotation since reference; errors are corrected through muscles. */
+    readonly anchors?: Readonly<Partial<Record<Foot, { readonly position: Vec3; readonly rotation: readonly [number, number, number, number] }>>> };
   /** A foot not in `feet` carried to a landing place; none, and the other leg is left to the posture. */
   readonly swing?: SwingGoal | null;
   /**
@@ -608,8 +611,13 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}, assis
       state.pose = goal?.pose ?? null;
       if (goal?.pose) {
         if (!Number.isFinite(goal.pose.pitch) || !(goal.pose.seconds > 0) || !Number.isFinite(goal.pose.seconds)
-          || goal.feet.length !== 2 || !goal.feet.includes("left") || !goal.feet.includes("right") || goal.swing || goal.walk)
-          throw new Error("a supported root pose requires a finite pitch, positive response and two planted feet");
+          || goal.feet.length < 1 || goal.feet.length > 2 || (goal.feet.length === 2 && goal.feet[0] === goal.feet[1])
+          || goal.feet.some(side => side !== "left" && side !== "right") || goal.swing || goal.walk)
+          throw new Error("a supported root pose requires a finite pitch, positive response and one or two planted feet");
+        if (goal.pose.anchors) for (const [side, anchor] of Object.entries(goal.pose.anchors))
+          if (!goal.feet.includes(side as Foot) || !anchor || anchor.position.length !== 3 || anchor.rotation.length !== 4 || !anchor.position.every(Number.isFinite)
+            || !anchor.rotation.every(Number.isFinite) || Math.abs(anchor.rotation.reduce((sum, v) => sum + v * v, 0) - 1) > 1e-8)
+            throw new Error("a supported sole anchor requires a bearing foot, finite position and unit rotation");
         // Channel binding precedes allocation: effort rows are sized from the bound limb channels.
         poseBearing ??= makeBearing(assist, s.limbs, { root: state.aim.root, helped: state.helped, held: state.held, shortfall: reading.shortfall }, { effort: true });
         holdPose(s, goal, goal.pose);
@@ -649,11 +657,12 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}, assis
 /** A planted-foot root pose, followed at its own response rather than by the walking pendulum. */
 function holdPose(s: Stance, goal: StanceGoal, pose: NonNullable<StanceGoal["pose"]>): void {
   const { state, feet, pelvis } = s, { reading, aim } = state, n = 1 / pose.seconds;
-  readSupport(feet, feet, reading.support);
+  const bearing = goal.feet.length === feet.length ? feet : feet.filter(foot => goal.feet.includes(foot.side));
+  readSupport(feet, bearing, reading.support);
   reading.phase = "stand"; reading.own = null; state.plan.on = false; state.last = goal.feet;
   state.step.swing = null; state.stride = null; state.striding = null; state.pace.fill(0);
   const c = reading.centre, v = reading.velocity, p = reading.support;
-  const [x, z] = goal.centre ? withinSupport(feet.map(bearingOf), goal.centre[0], goal.centre[1], s.tuning.inset) : [p.x, p.z];
+  const [x, z] = goal.centre ? withinSupport(bearing.map(bearingOf), goal.centre[0], goal.centre[1], s.tuning.inset) : [p.x, p.z];
   aim.centre.set(n * n * (x - c.x) - 2 * n * v.x, n * n * (p.y + goal.height - c.y) - 2 * n * v.y,
     n * n * (z - c.z) - 2 * n * v.z);
   turnAboutToRef(Vector3.UpReadOnly, goal.heading, s.scratch.target);
@@ -663,13 +672,23 @@ function holdPose(s: Stance, goal: StanceGoal, pose: NonNullable<StanceGoal["pos
   pelvis.body.angularVelocityToRef(s.scratch.pelvisSpin);
   aim.spin.copyFrom(s.scratch.spin).scaleInPlace(n).subtractInPlace(s.scratch.pelvisSpin.scaleInPlace(2 * n));
   aim.on = true;
-  for (const foot of feet) {
+  for (const foot of bearing) {
     foot.memory.rolled = false;
     const task = state.tasks[feet.indexOf(foot)]!;
     motionAtToRef(foot.segment, foot.middle, task.linear, task.angular);
     const vy = task.linear.y;
     task.linear.scaleInPlace(-n); task.linear.y = n * n * (p.y - foot.middle.y) - 2 * n * vy;
-    task.angular.scaleInPlace(-n); task.on = true; task.bearing = true;
+    task.angular.scaleInPlace(-n);
+    const anchor = pose.anchors?.[foot.side];
+    if (anchor) {
+      motionAtToRef(foot.segment, foot.middle, s.scratch.v, s.scratch.pelvisSpin);
+      task.linear.set(n * n * (anchor.position[0] - foot.middle.x), n * n * (anchor.position[1] - foot.middle.y),
+        n * n * (anchor.position[2] - foot.middle.z)).subtractInPlace(s.scratch.v.scaleInPlace(2 * n));
+      s.scratch.target.set(...anchor.rotation).multiplyInPlace(foot.segment.rest);
+      spinBetweenToRef(foot.segment.node.rotationQuaternion!, s.scratch.target, pose.seconds, s.scratch.spin);
+      task.angular.copyFrom(s.scratch.spin).scaleInPlace(n).subtractInPlace(s.scratch.pelvisSpin.scaleInPlace(2 * n));
+    }
+    task.on = true; task.bearing = true;
     for (const i of foot.memory.channels) state.owned[i] = 1;
   }
 }

@@ -1,3 +1,4 @@
+import type { Foot } from "../control/stance.ts";
 import type { Hand } from "../control/motor.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 
@@ -21,6 +22,8 @@ export interface Intent {
   readonly lower?: number;
   /** A committed combat action, executed by the common combat skill when configured. */
   readonly combat?: CombatAction | null;
+  /** A foot attack; the common skill acquires support and verifies the complete landing. */
+  readonly kick?: KickAction | null;
 }
 
 /** What a guarding hand covers: where the threat is, and the place of its own body it is kept from; world, m. */
@@ -63,4 +66,11 @@ export interface CombatAction {
   readonly direction?: Vec3;
   /** Optional arm-extension style in [0,1]; the shared executor bounds it to the body: `docs/reference/combat-arm-style.md`. */
   readonly armExtension?: number;
+}
+
+/** A named foot and observed world point; no joint or engine prescription. */
+export interface KickAction {
+  readonly foot: Foot;
+  readonly target: Vec3;
+  readonly targetId?: string;
 }
