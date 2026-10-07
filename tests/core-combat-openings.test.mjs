@@ -125,9 +125,9 @@ test('a selected overhand keeps its world contact direction through execution an
  const a=await buildBout(recipe,{physicsEngine:await loadEngine(DEFAULT_ENGINE)}),b=await buildBout(recipe,{physicsEngine:await loadEngine(DEFAULT_ENGINE)});
  try {
   const d=a.duel.duelists.left,skills=d.minded.skills;
-  while(a.duel.clock<20&&!(skills.state.action?.path.family==='overhand'&&skills.report.strike.phase==='swing'))a.world.step();
-  assert.equal(skills.state.action?.path.family,'overhand');assert.equal(skills.report.strike.phase,'swing');
-  assert.deepEqual(skills.state.action.path.direction,[0,-1,0]);
+  while(a.duel.clock<20&&!(skills.state.hands[skills.state.hand]?.action?.path.family==='overhand'&&skills.report.strike.phase==='swing'))a.world.step();
+  assert.equal(skills.state.hands[skills.state.hand]?.action?.path.family,'overhand');assert.equal(skills.report.strike.phase,'swing');
+  assert.deepEqual(skills.state.hands[skills.state.hand]?.action.path.direction,[0,-1,0]);
   const hand=skills.report.strike.hand,goal=skills.state.command.effectors[`hand.${hand}`];
   const world=new Vector3(...goal.terminalVelocity).applyRotationQuaternionToRef(d.body.view.root.rotation,new Vector3());
   assert.ok(Math.abs(world.x)<1e-8&&Math.abs(world.y+5)<1e-8&&Math.abs(world.z)<1e-8,JSON.stringify(world.asArray()));

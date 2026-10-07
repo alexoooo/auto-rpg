@@ -69,7 +69,7 @@ test('neutral low combat waits for physical support, then strikes and restores t
  for(const hand of ['right','left'])for(const hit of [true,false]) {
   const stand=await coreStand(modelSpec('workshop-fighter'),{engine:DEFAULT_ENGINE});
   const body=createBody(stand.built,stand.world,{servoSeconds:SERVO_SECONDS,feedback:true});
-  const skills=combatSkills(body,undefined,null,undefined,true),target=[hand==='right'?.35:-.35,.3,.1];
+  const skills=combatSkills(body,{},{ground:true}),target=[hand==='right'?.35:-.35,.3,.1];
   const obstacle=hit?stand.world.physics.addFixedBox([target[0],target[1],target[2]+.04],[.2,.2,.08]):null;
   let contacts=0,first=null,low=false,falls=false,badFloor=false;
   body.drive((view,dt)=>skills.command(view,{move:null,face:0,guard:NO_COVER,
@@ -91,7 +91,7 @@ test('neutral low combat waits for physical support, then strikes and restores t
 
 test('the supported executor refuses an imagined floor and keeps the strike unlaunched',async()=>{
  const s=await coreStand(modelSpec('workshop-fighter'),{engine:DEFAULT_ENGINE,gravity:false,ground:false});
- const body=createBody(s.built,s.world,{servoSeconds:SERVO_SECONDS}),skills=combatSkills(body,undefined,null,undefined,true);
+ const body=createBody(s.built,s.world,{servoSeconds:SERVO_SECONDS}),skills=combatSkills(body,{},{ground:true});
  body.drive((view,dt)=>skills.command(view,{move:null,face:0,guard:NO_COVER,lower:.5,
   attack:{kind:'blow',hand:'right',target:[.35,.3,.1],path:{family:'downward'}}},dt));
  try {
@@ -103,7 +103,7 @@ test('the supported executor refuses an imagined floor and keeps the strike unla
 test('a neutral supported-combat fork preserves acquisition, committed strokes and standing handover',async()=>{
  const make=async()=>{
   const stand=await coreStand(modelSpec('workshop-fighter'),{engine:DEFAULT_ENGINE});
-  const body=createBody(stand.built,stand.world,{servoSeconds:SERVO_SECONDS,feedback:true}),skills=combatSkills(body,undefined,null,undefined,true);
+  const body=createBody(stand.built,stand.world,{servoSeconds:SERVO_SECONDS,feedback:true}),skills=combatSkills(body,{},{ground:true});
   body.drive((view,dt)=>skills.command(view,{move:null,face:0,guard:NO_COVER,
    lower:view.time>=2&&view.time<14?.5:undefined,attack:view.time>=2&&view.time<14?{kind:'blow',hand:'left',target:[-.35,.3,.1],path:{family:'downward'}}:null},dt));
   return {...stand,body,skills};

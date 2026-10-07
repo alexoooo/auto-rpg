@@ -12,10 +12,10 @@ const states=s=>({body:s.body.state,skills:s.skills.state,pad:s.sensor.state,cal
 test('both planted physical fists use matched tactile contact, bounded impact paths and measured returns',async()=>{
  for(const hand of ['left','right']){
   const s=await punchStand({...settings,execution:PLANTED_PUNCH_EXECUTION,armExtension:.5,hand});let impacts=0;
-  try{while(s.world.time<6){s.step();if(s.skills.state.impact){impacts++;
+  try{while(s.world.time<6){s.step();if(s.skills.report.strike.impact){impacts++;
     assert.equal(s.built.handPoses.state[hand].applied,'fist');
     assert.equal(s.skills.state.command.effectors[`hand.${hand}`].places[0].point,'strike');
-    const {origin,finish,elapsed}=s.skills.state.impact;
+    const {origin,finish,elapsed}=s.skills.state.hands[hand].cycle.impact;
     assert.ok(Math.hypot(...finish.map((v,k)=>v-origin[k]))<=PUNCH_EXECUTION.impactTravel+1e-10);
     assert.ok(elapsed<PUNCH_EXECUTION.impactSeconds);assert.equal(contactResponse(s.body.view.effectors[`hand.${hand}`].feedback,'punch-pad'),'target');
    }}
@@ -42,12 +42,12 @@ test('misses and an actual fixed obstruction withdraw, without target follow-thr
 test('cancellation interrupts an admitted impact and a fresh-world fork replays it exactly',async()=>{
  for(const hand of ['left','right']){
   const a=await punchStand({...settings,hand}),b=await punchStand({...settings,hand});
-  try{while(!a.skills.state.impact&&a.world.time<4)a.step();assert.ok(a.skills.state.impact);
+  try{while(!a.skills.report.strike.impact&&a.world.time<4)a.step();assert.ok(a.skills.report.strike.impact);
    loadStand(b.world,states(b),saveStand(a.world,states(a)));
    const cancel=s=>s.body.drive((view,dt)=>s.skills.command(view,{move:null,face:0,guard:NO_COVER,attack:null},dt));
    cancel(a);cancel(b);a.step(240);b.step(240);
    assert.deepEqual(a.reading(),b.reading());assert.deepEqual(saveStand(a.world,states(a)).state,saveStand(b.world,states(b)).state);
-   assert.equal(a.skills.report.strike.hand,null);assert.equal(a.skills.state.impacts.aborted,1);
+   assert.equal(a.skills.report.strike.hand,null);assert.equal(a.skills.state.hands[hand].cycle.aborted,1);
    assert.equal(a.reading().cycles.failed,0);assert.equal(a.reading().cycles.returned[hand],1);
   }finally{a.dispose();b.dispose();}
  }

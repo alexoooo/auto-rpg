@@ -80,7 +80,7 @@ test('a fresh-world fork preserves the full upward swing and return with either 
   const a=await make(hand),b=await make(hand);
   try{
    while(a.skills.report.strike.phase!==phase&&a.world.time<5)a.step();a.step(3);assert.equal(a.skills.report.strike.phase,phase);
-   assert.equal(a.skills.state.action.path.family,'uppercut');assert.deepEqual(a.skills.state.action.path.direction,[0,1,0]);
+   assert.equal(a.skills.state.hands[hand].action.path.family,'uppercut');assert.deepEqual(a.skills.state.hands[hand].action.path.direction,[0,1,0]);
    const states=s=>({body:s.body.state,skills:s.skills.state});loadStand(b.world,states(b),saveStand(a.world,states(a)));
    const ta=traceOf([a.built]),tb=traceOf([b.built]);
    for(let i=0;i<200;i++){a.step();b.step();ta.take();tb.take();}
@@ -98,8 +98,8 @@ test('an actual Arena uppercut keeps its world direction and full state through 
  const a=await buildBout(recipe,{physicsEngine:await loadEngine(DEFAULT_ENGINE)}),b=await buildBout(recipe,{physicsEngine:await loadEngine(DEFAULT_ENGINE)});
  try{
   const skills=a.duel.duelists.left.minded.skills;
-  while(a.duel.clock<20&&!(skills.state.action?.path.family==='uppercut'&&skills.report.strike.phase==='swing'))a.world.step();
-  assert.ok(a.duel.clock<20);assert.equal(skills.state.action.path.family,'uppercut');assert.deepEqual(skills.state.action.path.direction,[0,1,0]);
+  while(a.duel.clock<20&&!(skills.state.hands[skills.state.hand]?.action?.path.family==='uppercut'&&skills.report.strike.phase==='swing'))a.world.step();
+  assert.ok(a.duel.clock<20);assert.equal(skills.state.hands[skills.state.hand]?.action.path.family,'uppercut');assert.deepEqual(skills.state.hands[skills.state.hand]?.action.path.direction,[0,1,0]);
   const hand=skills.report.strike.hand,thrown=skills.report.strike.thrown[hand];b.duel.load(a.duel.save());
   const trace=s=>traceOf(Object.values(s.duel.duelists).map(d=>d.built)),ta=trace(a),tb=trace(b);
   for(let i=0;i<200;i++){a.world.step();b.world.step();ta.take();tb.take();}

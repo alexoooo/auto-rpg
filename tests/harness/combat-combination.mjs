@@ -12,7 +12,7 @@ import {motionAtToRef} from '../../src/core/control/support.ts';
 export async function combinationStand({lead='right',mode='hit',tuning={}}={}) {
  const s=await coreStand(modelSpec('workshop-fighter'),{engine:DEFAULT_ENGINE});
  const body=createBody(s.built,s.world,{servoSeconds:SERVO_SECONDS,feedback:true});
- const skills=combatSkills(body,{...ATTACK_PATH,...tuning},null,undefined,false,undefined,undefined,true);
+ const skills=combatSkills(body,{},{paths:{...ATTACK_PATH,...tuning},overlap:true});
  const obstacle=mode==='hit'?s.world.physics.addFixedBox([0,1.63,.64],[.6,.2,.08]):null;
  const policy={stage:'lead',hand:lead,cancelled:false,pairs:0,overlaps:[],witness:null};
  const velocity=new Vector3(),spin=new Vector3();
@@ -20,7 +20,7 @@ export async function combinationStand({lead='right',mode='hit',tuning={}}={}) {
   const report=skills.report.strike,other=lead==='right'?'left':'right';
   if(view.time>=2&&!policy.cancelled){
    if(policy.stage==='lead'&&report.overlapHand===other){
-    policy.overlaps.push({time:view.time,lead,returned:report.pointCycle.returned[lead],sequence:skills.state.sequence});
+    policy.overlaps.push({time:view.time,lead,returned:report.pointCycle.returned[lead],sequence:skills.state.hands[lead].cycle.sequence});
     policy.stage='follow';policy.hand=other;
    }else if(policy.stage==='follow'&&report.hand===other&&report.phase==='return'){
     policy.stage='wait';policy.hand=null;
@@ -34,7 +34,7 @@ export async function combinationStand({lead='right',mode='hit',tuning={}}={}) {
    motionAtToRef(s.built.segments.get(`hand.${active}`),view.fists[active].position,velocity,spin);
    velocity.subtractInPlace(view.stance.velocity);
   }
-  policy.witness={hand:active,phase:skills.state.phase,closing:active?velocity.z:0};
+  policy.witness={hand:active,phase:active?skills.state.hands[active].cycle.phase:null,closing:active?velocity.z:0};
   return command;
  });
  return {...s,body,skills,policy,obstacle,dispose(){body.dispose();s.dispose();}};

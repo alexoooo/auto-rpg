@@ -217,10 +217,10 @@ export interface StrikeReport {
   readonly overlapHand?: Side | null;
   /** How the attack in hand is carried out, as last chosen: with a recipe, or placed. */
   readonly blow: Blow["kind"] | null;
-  /** The recipe being thrown; null with none, or with a placed blow. */
-  readonly chosen: Chosen | null;
+  /** The recipe being thrown; null with none, or with a placed blow; absent from a skill that throws no recipes. */
+  readonly chosen?: Chosen | null;
   /** How far ahead of the head the blow in hand has its target as it is thrown, m: what the body stands for. */
-  readonly distance: number | null;
+  readonly distance?: number | null;
   /** Seconds since the pushes, or a placed blow's path, began (negative before). */
   readonly since: number;
   /** Strikes thrown to the end of their pushes, each hand. */
@@ -237,8 +237,8 @@ export interface StrikeReport {
    * recipe whose window holds that height, or a placed blow's with none, and the window along.
    */
   rangeAt(hand: Side, up: number): Range;
-  /** What each hand's recipe nets in each band (`netsOf`): null for a band it has none in. */
-  readonly nets: Readonly<Record<Side, Readonly<Record<Band, number | null>>>>;
+  /** What each hand's recipe nets in each band (`netsOf`): null for a band it has none in; absent from a skill that throws no recipes. */
+  readonly nets?: Readonly<Record<Side, Readonly<Record<Band, number | null>>>>;
 }
 
 /** What the strike skill asks of the body this step. */

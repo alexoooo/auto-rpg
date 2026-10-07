@@ -31,7 +31,7 @@ export async function frontKickStand({foot='right',hz=120,seconds=24,height=.45,
     contacts:segment=>(sensor?.state.materialContacts??[]).filter(c=>c.segment===segment)
       .map(c=>({target:identity,point:c.point,normal:[0,0,1],impulse:c.force*s.world.dt})),
     ...(recovery?{subs:[(own,view)=>supportRecovery(own,view,s.world)]}:{})});
-  const skills=combatSkills(body,undefined,null,undefined,false,undefined,undefined,false,undefined,{...KICK_PATH,...tuning});
+  const skills=combatSkills(body,{},{kick:{...KICK_PATH,...tuning}});
   const target=[foot==='right'?.1:-.1,height,ahead];
   sensor=punchPad(s.world,[target[0]+(mode==='miss'?1:0),height,ahead],{face:'compliant',size:[.2,.08,.11],...pad});
   body.drive((view,dt)=>{

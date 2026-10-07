@@ -21,7 +21,7 @@ export async function combatStrike({ hand = 'right', family = 'straight', mode =
  const s = await coreStand(modelSpec('workshop-fighter'), { engine: DEFAULT_ENGINE });
  const body = createBody(s.built, s.world, { servoSeconds: SERVO_SECONDS, feedback: true });
  const sharedSupport = support?.shared === true;
- const skills = combatSkills(body, {...ATTACK_PATH, ...tuning}, null, undefined, sharedSupport), target = [across*(hand==='right'?1:-1), 1.63+up, ahead];
+ const skills = combatSkills(body, {}, {paths: {...ATTACK_PATH, ...tuning}, ground: sharedSupport}), target = [across*(hand==='right'?1:-1), 1.63+up, ahead];
  if(!['front','top','bottom'].includes(surface))throw new Error('unknown stand surface');
  const obstacle = mode==='hit' ? surface!=='front' ? s.world.physics.addFixedBox([target[0],target[1]+(surface==='bottom'?.04:-.04),target[2]],[.2,.08,.2])
   : s.world.physics.addFixedBox([target[0],target[1],target[2]+.04], [.2,.2,.08]) : null;

@@ -72,7 +72,7 @@ export function recipeTactics(name: string, orders: (sight: Sight) => Orders, st
 /**
  * The band of a foe a fighter attacks, by its `aim` (`RecipeFighterConfig.aim`): the high one, its
  * head; or the one the right hand's recipe nets the most on (`StrikeReport.nets`), the first of
- * equals in the bands' order, and the high one where the hand has no recipe.
+ * equals in the bands' order, and the high one where the hand has no recipe or the skill throws none.
  */
 function bandAimed(aim: RecipeFighterConfig["aim"], nets: StrikeReport["nets"]): Band {
   switch (aim) {
@@ -80,7 +80,7 @@ function bandAimed(aim: RecipeFighterConfig["aim"], nets: StrikeReport["nets"]):
     case "pays": {
       let best: Band = "high", most: number | null = null;
       for (const band of BAND_NAMES) {
-        const net = nets.right[band];
+        const net = nets?.right[band] ?? null;
         if (net !== null && (most === null || net > most)) { best = band; most = net; }
       }
       return best;

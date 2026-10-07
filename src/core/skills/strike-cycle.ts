@@ -28,7 +28,7 @@ interface Motion {
   readonly contactVelocity: Vec3;
   readonly seconds: number;
 }
-interface Limits {
+export interface StrikeLimits {
   readonly near: number;
   readonly slow: number;
   readonly hold: number;
@@ -42,7 +42,7 @@ interface Limits {
 export const STRIKE_EVENT = Object.freeze({ launch: 1, thrown: 2, returned: 4, failed: 8, finished: 16, admitted: 32, aborted: 64 });
 
 /** Measured endpoint proximity and speed, independent of a requested path's clock. */
-export function strikeReady(at: Vec3, target: Vec3, velocity: Vec3, limits: Pick<Limits, "near" | "slow">): boolean {
+function strikeReady(at: Vec3, target: Vec3, velocity: Vec3, limits: Pick<StrikeLimits, "near" | "slow">): boolean {
   return hypot(at[0] - target[0], at[1] - target[1], at[2] - target[2]) <= limits.near && hypot(...velocity) <= limits.slow;
 }
 
@@ -52,7 +52,7 @@ export function strikeTransition(state: StrikeCycleState, phase: StrikeCycleStat
 }
 
 /** Chamber, committed stroke, bounded intended contact and verified withdrawal for any effector. */
-export function advanceStrike(state: StrikeCycleState, motion: Motion, limits: Limits, dt: number): number {
+export function advanceStrike(state: StrikeCycleState, motion: Motion, limits: StrikeLimits, dt: number): number {
   state.time += dt;
   const distance = (to: Vec3) => hypot(motion.at[0] - to[0], motion.at[1] - to[1], motion.at[2] - to[2]);
   let event = 0;

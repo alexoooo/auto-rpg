@@ -8,9 +8,11 @@ hand velocity points toward its captured guard position. The policy also checks 
 unblocked opening, fighting distance, alignment, quiet centre motion and standing footing.
 There is no additional timer that substitutes for those physical checks.
 
-`combatSkills` keeps the first hand's captured return goal, initial velocity, motion sequence,
-elapsed time and elbow preference in `state.returning`. The other hand uses the ordinary
-chamber/swing/return lane. There is one locomotion owner, one trunk objective and one body
+Each hand of `combatSkills` is a strike of its own (`effectorStrike`, `state.hands`): the first
+hand goes on returning with its captured goal, initial velocity, motion sequence, elapsed time and
+elbow preference while the other runs the ordinary chamber/swing/return lane. The measurements
+below were taken with the first hand's return held in a saved copy (`state.returning` in
+`src/core/skills/combat.ts@a9b7724a`). There is one locomotion owner, one trunk objective and one body
 command. Each hand earns a return only through the existing actual distance, speed and
 upright hold checks. A deadline counts a failure, and recovery takeover interrupts each
 active hand. The report excludes the returning hand from predicted guard placement and

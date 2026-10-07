@@ -65,8 +65,9 @@ plain bout state.
 The path fighter selects collider-derived target surfaces and commits a hand trajectory through
 `combatSkills`. Terminal hand velocity and segment identity extend the common IK/muscle path; an optional, range-bounded elbow preference composes with trunk rotation and returns to guard. Optional lateral head-surface samples expand the same collider-based lane search; zero preserves the retained selector.
 Optional bounded combinations can overlap an opposite-hand strike with a contact-free, physically
-returning hand. One saved auxiliary return retains its own motion sequence and completion checks;
-both arms share the ordinary body command, muscles and locomotion. Recovery interrupts both.
+returning hand. Each hand is a strike of its own (`effectorStrike`), so the returning one keeps its
+motion sequence and completion checks; both arms share the ordinary body command, muscles and
+locomotion. Recovery interrupts both.
 The overlap admission screen does not establish stronger combat; see [measurements](reference/combat-overlap.md).
 Classic retains its own execution. Chamber and return permit locomotion. Actual
 contact feedback optionally carries trusted detached body/segment labels, point, normal and
@@ -1069,7 +1070,11 @@ The optional combat `execution` config requests physical fists, tracks their sur
 point and admits a finite impact path on identified target contact. Native and material contacts
 share detached tactile feedback; world, block, unknown and misaligned contacts withdraw.
 The common `skills/strike-cycle.ts` advances measured preparation, stroke, bounded intended
-contact and verified return. Limb adapters own their geometry, placement and counters. The
+contact and verified return. `skills/effector-strike.ts` (`effectorStrike`) runs it for one
+effector, one for each hand of the path skill and each foot of the kick: it owns the point's
+measured velocity, whether a contact is the intended target's and square to the stroke, what each
+stroke comes to, and each phase's goal, a held contact's included. The skills own the geometry
+of the course and, for the kick, the support transfer and placing around it. The
 optional planted punch executor admits actual loaded support and freezes locomotion for the
 whole cycle. Its [stability record](reference/punch-stability.md) passes standing cases and
 rejects the combined low-attack candidate; ordinary Brawler/Scrapper remain unchanged.

@@ -58,7 +58,7 @@ export function createPathFighter(built: BuiltBody, world: World, config: PathFi
   const body = createBody(built, world, { servoSeconds: SERVO_SECONDS, senses: wiring.senses, assist: wiring.assist, feedback: true, contactIdentity: wiring.contactIdentity,
     subs: subMindsOf(config.subs) });
   const tactics = pathTactics(built.spec, wiring.name, config, resolved, (sight: Sight) => wiring.orders(sight.view.senses));
-  const skills = driveBy(body, tactics, (made, { state, engagement }) => combatSkills(made, resolved.paths, state ?? null, engagement,
-    config.ground, resolved.turnLimit, resolved.turnStartup, config.combinations === "overlap", resolved.execution, resolved.kick ?? undefined));
+  const skills = driveBy(body, tactics, (made, driving) => combatSkills(made, driving,
+    { ...resolved, ground: config.ground, overlap: config.combinations === "overlap" }));
   return { kind: "path-fighter" as const, body, skills, state: skills.state };
 }

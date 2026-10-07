@@ -15,8 +15,8 @@ test('either foot unloads, strikes, withdraws, lands and recentres against real 
     assert.ok(r.head[1]>1.5);
     if(mode==='miss')assert.deepEqual(r.impacts,[]);
     else assert.ok(r.impacts.filter(e=>e.eligible).length>=3);
-    if(mode==='block')assert.equal(r.cycle.impacts.admitted,0,'an unrelated blocker cannot admit follow-through');
-    else if(mode==='hit')assert.ok(r.cycle.impacts.admitted>=3,'matched target contacts admit the bounded interval');
+    if(mode==='block')assert.equal(r.cycle.strikes[foot].admitted,0,'an unrelated blocker cannot admit follow-through');
+    else if(mode==='hit')assert.ok(r.cycle.strikes[foot].admitted>=3,'matched target contacts admit the bounded interval');
     for(const impact of r.impacts.filter(e=>e.eligible)){
       assert.ok(impact.preImpact.velocity[2]>0,'the foot is moving toward the pad before the force');
       assert.ok(Math.abs(impact.samples.reduce((n,s)=>n+s.impulse,0)-impact.impulse)<1e-12);
@@ -29,7 +29,7 @@ test('fresh-world forks reproduce unloading, bounded contact and placement throu
   for(const stage of ['unload','impact','place']){
     const a=await frontKickStand(),b=await frontKickStand();
     try{
-      while(a.world.time<10&&(stage==='impact'?!a.skills.state.kick.cycle.impact:a.skills.report.kick.stage!==stage))a.step();
+      while(a.world.time<10&&(stage==='impact'?!a.skills.state.kick.strikes.right.impact:a.skills.report.kick.stage!==stage))a.step();
       assert.ok(a.world.time<10,stage);
       loadStand(b.world,states(b),saveStand(a.world,states(a)));
       const ta=traceOf([a.built]),tb=traceOf([b.built]);

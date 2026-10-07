@@ -254,6 +254,24 @@ without a kicking skill. `Opening` is its own record and `openingAction` makes i
 
 **Also update:** `research/arena-combat.mjs`'s witness readers.
 
+**As built (15b, landed): one effector strike.** No pose moved, the kicker's included; the path
+fighters' state is reshaped.
+- `effectorStrike(def)` takes no body: its definition names the effector and point, the limits
+  (made once by each skill) and the chamber and return times. It gives `read`, `begin`, `step`,
+  `seconds`, `goal`, `renew` (a kick's placing goals) and `reset`. Its state (the cycle, the
+  point's last place, the counts) hangs on the skill's: `state.hands[hand].cycle` in the path
+  skill, `state.kick.strikes[foot]` in the kick.
+- No `strike-defs.ts` and no shared `IMPACT`: the impact numbers stay each controller's settings
+  (`CombatExecution`, `KickTuning`), which an experiment overrides
+  (`research/punch-foundation.mjs` runs `impactSeconds: 0`). The kick's alignment divides by the
+  contact velocity's length rather than `contactSpeed`.
+- `combatSkills(body, driving, settings)` takes its settings by name (`CombatSettings`), as
+  `recipeSkills` takes its options. `StrikeReport`'s `chosen`, `distance` and `nets` are
+  optional and the path skill leaves them out; a fighter aiming at what pays aims high without
+  them. The path skill's `since` is `-Infinity` with no strike under way.
+- Overlap: the returning hand's elbow eases by the one `smoothElbow` too. The overlap record
+  names the copy its measurements were taken with.
+
 ### Chunk 16: bite and the control-tasks strike on the same cycle (intended change, reptile and control tasks)
 
 - `reptile/bite.ts` becomes a `StrikeDef`: frame is the head, and `prepared` means the jaw is
@@ -264,6 +282,21 @@ without a kicking skill. `Opening` is its own record and `openingAction` makes i
   and `docs/reference/point-strike*` is re-measured.
 - **Battery:** `research/reptile-control.mjs` before and after, plus Reptile v Warrior/Classic
   and Reptile v Warrior/Scrapper at n=384, paired and side-split.
+
+**As built (16, landed): no change, and why.** Both already run on the shared cycle
+(`advanceStrike`); what `effectorStrike` adds around it would not be shared:
+- The bite measures its tip's velocity physically, relative to the head that carries it, in the
+  head's frame; its stroke is the jaw's scalar path, with the head's mouth point a tracker reach
+  beside it. Its contact is any outside contact of either jaw, never a held impact. Nothing of
+  `effectorStrike`'s finite-difference velocity, alignment, intended-target test or phase goals
+  fits it; as a `StrikeDef` it would be an adapter as long as itself.
+- `{kind: "bite", commit}` in the attack union would not carry today's bite: the jaw opens on
+  `prepareBite` without a stroke asked, and a returning bite asks a stroke without preparing.
+  A union member that cannot say both moves the reptile's pose for a name. The quadruped's intent
+  stays `Orders` with `prepareBite`; the humanoid `Attack` stays `BlowAttack | KickAttack`.
+- `control/point-strike.ts` is `/control-tasks.html`'s measured reference: several effectors,
+  one shot, and phases (`prepare`, `strike`, `follow`, `return`, `complete`) that are not the
+  cycle's. Moving it onto `advanceStrike` re-measures a reference to share no code.
 
 ### Chunk 17: one combatant path and screen fixes (Arena bit-identical; Crypt intended)
 

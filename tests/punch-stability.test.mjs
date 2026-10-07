@@ -40,13 +40,13 @@ test('the planted base replays cancellation of an admitted impact in a fresh wor
   a.step(240);assert.equal(plantedSupport(a.skills.state.foundation),true);
   for(const change of [{otherSupport:true},{flat:{left:false,right:true}},{centred:false},{speed:.36}])
    assert.equal(plantedSupport({...structuredClone(a.skills.state.foundation),...change}),false);
-  while(!a.skills.state.impact&&a.world.time<4)a.step();assert.ok(a.skills.state.impact);
+  while(!a.skills.report.strike.impact&&a.world.time<4)a.step();assert.ok(a.skills.report.strike.impact);
   loadStand(b.world,state(b),saveStand(a.world,state(a)));
   for(const s of [a,b])s.body.drive((view,dt)=>s.skills.command(view,{move:null,face:0,
    guard:NO_COVER,attack:null},dt));
   a.step(240);b.step(240);
-  assert.equal(a.skills.state.impacts.aborted,1);assert.equal(a.skills.report.strike.hand,null);
-  assert.equal(a.skills.state.outcomes.failed,0);assert.equal(a.body.down,false);
+  assert.equal(a.skills.state.hands.right.cycle.aborted,1);assert.equal(a.skills.report.strike.hand,null);
+  assert.equal(a.skills.report.strike.pointCycle.failed,0);assert.equal(a.body.down,false);
   assert.deepEqual(saveStand(a.world,state(a)).state,saveStand(b.world,state(b)).state);
  }finally{a.dispose();b.dispose();}
 });
