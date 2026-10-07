@@ -18,8 +18,8 @@
  */
 import { readFileSync, writeFileSync } from "node:fs";
 import { parseArgs } from "node:util";
-import { combatPairs, combatRating } from "./arena-combat.mjs";
-import { combatGroups } from "./combat-records.mjs";
+import { combatPairs } from "./arena-combat.mjs";
+import { combatCell } from "./combat-records.mjs";
 
 /** The humanoid models the check runs on, each against itself. */
 const MODELS = ["workshop-fighter", "workshop-rogue", "crypt-skeleton"];
@@ -36,39 +36,6 @@ function clubJobs() {
   })));
 }
 
-/** The candidate's score in `rows` where it stood on `side`. */
-function sideScore(rows, side) {
-  const own = rows.filter((row) => row.candidateSide === side);
-  return own.reduce((sum, row) => sum + (row.result.verdict.winner === null ? 0.5 : row.result.verdict.winner === side ? 1 : 0), 0) / own.length;
-}
-
-/** Cohen's d of the candidate's bar less its opponent's, a pair's two mirrors averaged. */
-function barMarginD(rows) {
-  const pairs = new Map();
-  for (const row of rows) {
-    const side = row.candidateSide, other = side === "left" ? "right" : "left";
-    (pairs.get(row.pair) ?? pairs.set(row.pair, []).get(row.pair)).push(row.result.sides[side].bar - row.result.sides[other].bar);
-  }
-  const margins = [...pairs.values()].map(([a, b]) => (a + b) / 2), n = margins.length;
-  const mean = margins.reduce((sum, v) => sum + v, 0) / n;
-  const sd = Math.sqrt(margins.reduce((sum, v) => sum + (v - mean) * (v - mean), 0) / (n - 1));
-  return sd > 0 ? mean / sd : null;
-}
-
-/** One row of the table: a model's rows, or all of them. */
-function cell(name, rows) {
-  const rating = combatRating(rows), [group] = combatGroups(rows.map((row) => ({ ...row, result: { ...row.result, recipe: { ...row.result.recipe, left: "humanoid", right: "humanoid" } } })));
-  const left = sideScore(rows, "left"), right = sideScore(rows, "right");
-  const falls = rows.reduce((sum, row) => {
-    const side = row.candidateSide, other = side === "left" ? "right" : "left";
-    return [sum[0] + row.result.sides[side].falls, sum[1] + row.result.sides[other].falls];
-  }, [0, 0]);
-  return {
-    name, bouts: rating.bouts, score: rating.score, score95: rating.score95, left, right, split: Math.abs(left - right),
-    damageDelta: group.pairedDamageDelta, d: barMarginD(rows), endings: group.endings, falls,
-  };
-}
-
 const fixed = (v, n = 3) => v === null ? "n/a" : v.toFixed(n);
 
 const { values } = parseArgs({ options: { jobs: { type: "string" }, report: { type: "string" } } });
@@ -82,7 +49,10 @@ if (values.jobs) {
   if (run.failures.length) throw new Error(`${run.failures.length} trials failed`);
   const [harness] = run.rows.map((row) => row.result.harness);
   console.log(`Harness: ${harness.kind}, ${harness.engine}, ${harness.hz} Hz; scrapper (candidate) v classic, club v club, cap 60 s, recovery continuing.`);
-  const cells = [...MODELS.map((model) => cell(model, run.rows.filter((row) => row.result.recipe.left === model))), cell("pooled", run.rows)];
+  // The pooled cell reads every model as one body, so that its rows make one group.
+  const humanoid = (row) => ({ ...row, result: { ...row.result, recipe: { ...row.result.recipe, left: "humanoid", right: "humanoid" } } });
+  const cells = [...MODELS.map((model) => combatCell(model, run.rows.filter((row) => row.result.recipe.left === model))),
+    combatCell("pooled", run.rows.map(humanoid))];
   console.log("| cell | bouts | score | Wilson 95 % | as left | as right | damage-rate diff (SE) | d bar margin | falls cand/opp | endings |");
   console.log("|---|---|---|---|---|---|---|---|---|---|");
   for (const c of cells) {
