@@ -20,11 +20,9 @@ The existing single-hand club is supported and measured separately from unarmed 
 
 ## Fit with the core cleanup
 
-The [core cleanup](2026-10-07-core-cleanup.md) owns the shared controller, attack and combatant
-organization. Reviewed at `1d17bd8e`: its runtime work through chunk 20 is settled, and chunk
-21's presets harness, spec-defined guards and controller document reconciliation have landed.
-Remaining preset figures are not runtime prerequisites for Man. Re-read subsequent runtime
-changes and take a fixed
+The core cleanup (`docs/plans/2026-10-07-core-cleanup.md@4e94d2a6`) settled the shared
+controller, attack and combatant organization and has landed in full; its preset figures are
+`docs/reference/controller-presets.md`. Re-read subsequent runtime changes and take a fixed
 baseline before implementation; a later correction invalidates comparisons against the old one.
 
 - Consume the landed contracts directly: `effectorStrike(def)` and
