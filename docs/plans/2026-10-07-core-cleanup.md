@@ -386,6 +386,17 @@ record:
   as supports, and the reptile's lie reading uses the shared one. Reptile cases move.
 - **One down timing for every body:** cached at look. The reptile's verdict step may move.
 
+**As built (20a, landed): one approach law, bit-identical.** `holdPose` already ran on the shared
+bearing solve (`makeBearing`, `carryRoot`, `limbMotion`, `bearLimbs`); what it copied was the
+critically damped goal. `control/approach.ts` holds it once: `approachToRef` for a point and
+`turnToRef` for a frame, which `holdPose` (centre, pelvis, anchored soles), the walking stance's
+pelvis and `supportedMotor` (centre, root, turned endpoints) ask by. The same operations in the
+same order, so no case moved: the lock against chunk 17, and a 2400-step front kick's trace before
+and after (both moved by a 1e-9 perturbation of the helper, so both run through it). The goals
+stay each caller's: a planted pose's free sole is damped at its rate and pressed down, a supported
+endpoint damped at twice its rate, and making them one would change the kick for sameness alone.
+The staged rise keeps its own turn, since it reads the steady spin again to know the turn is done.
+
 ### Chunk 21: documents and figures
 
 - **Plans:**

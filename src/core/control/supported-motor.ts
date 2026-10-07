@@ -7,7 +7,7 @@ import { chainTo } from "./kinematics.ts";
 import { bearLimbs, carryRoot, limbMotion, makeBearing, type Limb } from "./bearing.ts";
 import { groundContact, massCentreToRef, massOf, motionAtToRef, pointOfToRef } from "./support.ts";
 import { servoAsk, servoSolve } from "./servo.ts";
-import { spinBetweenToRef } from "../math/turn.ts";
+import { approachToRef, turnToRef } from "./approach.ts";
 import { channelName } from "../muscle/driver.ts";
 
 /** Named anatomical endpoints; no assumption about the number or names of supporting limbs. */
@@ -93,25 +93,20 @@ export function supportedMotor(own: OwnBody, endpoints: readonly SupportEndpoint
   read();
   return { state, root, read, resume() { state.motion.started = false; state.motion.acceleration.fill(0); }, control(command: SupportedCommand, dt: number, tracked: (channel: number) => readonly [number, number, number] | undefined = () => undefined, timing: Pick<Response, "centre" | "endpoint" | "turn" | "posture"> = response) {
     if (command.endpoints.length !== limbs.length) throw new Error("support goal count differs from anatomy");
-    const nc = 1 / timing.centre, ne = 1 / timing.endpoint, nt = 1 / timing.turn;
-    state.aim.centre.set(...command.centre).subtractInPlace(state.centre).scaleInPlace(nc * nc);
-    scratch.velocity.set(...command.velocity).subtractInPlace(state.velocity).scaleInPlace(2 * nc);
-    state.aim.centre.addInPlace(scratch.velocity);
+    const ne = 1 / timing.endpoint;
+    scratch.velocity.copyFrom(state.velocity).subtractInPlace(scratch.at.set(...command.velocity));
+    approachToRef(scratch.at.set(...command.centre), state.centre, scratch.velocity, 1 / timing.centre, state.aim.centre);
     scratch.target.set(...command.rotation);
-    spinBetweenToRef(root.node.rotationQuaternion!, scratch.target, timing.turn, state.aim.spin);
-    state.aim.spin.scaleInPlace(nt).subtractInPlace(root.body.angularVelocityToRef(scratch.angular).scaleInPlace(2 * nt));
+    turnToRef(root.node.rotationQuaternion!, scratch.target, timing.turn, root.body.angularVelocityToRef(scratch.angular), state.aim.spin);
     limbs.forEach((limb, i) => {
       const goal = command.endpoints[i]!, actual = state.endpoints[i]!, task = limb.task;
       task.bearing = goal.bearing && actual.contact; task.on = task.bearing;
       task.linear.copyFrom(actual.contactVelocity).scaleInPlace(-2 * ne);
       limb.work.rows = goal.rotation || actual.flat && soles[i] ? null : positionRows;
       limb.work.patch = actual.flat && soles[i] ? soles[i]! : points[i]!;
-      task.angular.copyFrom(limb.segment.body.angularVelocityToRef(scratch.angular)).scaleInPlace(-2 * ne);
-      if (goal.rotation) {
-        scratch.target.set(...goal.rotation);
-        spinBetweenToRef(limb.segment.node.rotationQuaternion!, scratch.target, timing.endpoint, scratch.angular);
-        task.angular.addInPlace(scratch.angular.scaleInPlace(ne));
-      }
+      limb.segment.body.angularVelocityToRef(scratch.angular);
+      if (goal.rotation) turnToRef(limb.segment.node.rotationQuaternion!, scratch.target.set(...goal.rotation), timing.endpoint, scratch.angular, task.angular);
+      else task.angular.copyFrom(scratch.angular).scaleInPlace(-2 * ne);
     });
     const work = servoAsk(muscles, i => tracked(i)?.[0] ?? command.posture[muscles.channels[i]!.name] ?? 0, timing.posture, dt,
       { rate: i => tracked(i)?.[1] ?? 0, acceleration: i => tracked(i)?.[2] ?? 0 });
