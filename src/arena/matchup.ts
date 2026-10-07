@@ -1,5 +1,5 @@
-import { BODY_MODELS, type BodyModel } from "../core/human/spec.ts";
-import { ARENA_BRAWLER, ARENA_SCRAPPER, ARENA_KICKER, ARENA_FIGHTER, FIGHTER, POINT_FIGHTER, type FighterMindConfig, type MindConfig } from "../core/mind/config.ts";
+import { BODY_MODELS, modelInfo, modelSupportsMind, type BodyModel } from "../core/models.ts";
+import { ARENA_BRAWLER, ARENA_SCRAPPER, ARENA_KICKER, ARENA_FIGHTER, FIGHTER, POINT_FIGHTER, QUADRUPED, type FighterMindConfig, type MindConfig } from "../core/mind/config.ts";
 import { isOrders } from "../core/mind/orders.ts";
 import { balanceFrom } from "../core/rules/rulebook.ts";
 import { DUEL_HELD, type OrdersEntry, type Side } from "./duel.ts";
@@ -14,9 +14,7 @@ export type Matchup = Readonly<Record<Side, BodyModel>>;
 export const DEFAULT_MATCHUP: Matchup = Object.freeze({ left: "workshop-fighter", right: "workshop-rogue" });
 
 /** What each model is called on the page. */
-export const MODEL_LABELS: Readonly<Record<BodyModel, string>> = Object.freeze({
-  "workshop-fighter": "Warrior", "workshop-rogue": "Rogue", "crypt-skeleton": "Skeleton",
-});
+export const MODEL_LABELS = Object.freeze(Object.fromEntries(BODY_MODELS.map(model => [model, modelInfo(model).label]))) as Readonly<Record<BodyModel, string>>;
 
 const isModel = (text: string | undefined): text is BodyModel => BODY_MODELS.includes(text as BodyModel);
 
@@ -91,7 +89,8 @@ export function readHeld(search: string): Readonly<Record<Side, (typeof DUEL_HEL
   if (text === null) return undefined;
   const parts = text.split(","), given = parts.flatMap((part) => DUEL_HELD.filter((held) => held === part.trim()));
   if (parts.length > 2 || given.length !== parts.length) return undefined;
-  return { left: given[0]!, right: given[given.length - 1]! };
+  const models = readMatchup(search);
+  return { left: modelInfo(models.left).hands ? given[0]! : "empty", right: modelInfo(models.right).hands ? given[given.length - 1]! : "empty" };
 }
 
 /** The arena link's parameter for how both sides' hands guard while they do not attack: `&guard=cover` or `&guard=pose`. */
@@ -155,32 +154,45 @@ export const tapeHash = (tape: readonly OrdersEntry[]): string => `#${TAPE_KEY}=
 
 /** Selectable controllers; separate from anatomy, equipment and appearance. */
 export const CONTROLS = Object.freeze({ kicker: "Kicker (experimental)", scrapper: "Scrapper (experimental)", brawler: "Brawler (experimental)", combat: "Combat (experimental)", classic: "Classic fighter", "point-right": "Point control: right hand",
-  "point-left": "Point control: left hand", "point-alternate": "Point control: alternate hands" });
+  "point-left": "Point control: left hand", "point-alternate": "Point control: alternate hands", crawl: "Crawl and bite" });
 type Control = keyof typeof CONTROLS;
 
 /** Per-side controller choices in a shareable arena recipe. */
 export function readControls(search: string): Readonly<Record<Side, Control>> {
   const parts = (new URLSearchParams(search).get("control") ?? "").split(",");
-  const read = (s: string | undefined): Control => s && Object.hasOwn(CONTROLS, s) ? s as Control : "classic";
-  return { left: read(parts[0]), right: read(parts[1] ?? parts[0]) };
+  const models = readMatchup(search);
+  const read = (s: string | undefined, model: BodyModel): Control => {
+    const choices = controlsFor(model);
+    return choices.includes(s as Control) ? s as Control : choices.includes("classic") ? "classic" : choices[0]!;
+  };
+  return { left: read(parts[0], models.left), right: read(parts[1] ?? parts[0], models.right) };
+}
+
+/** Pickers and links accept the same model/controller pairs. */
+export function controlsFor(model: BodyModel): readonly Control[] {
+  return (Object.keys(CONTROLS) as Control[]).filter(control => modelSupportsMind(model, controlMind(control)));
+}
+
+function controlMind(control: Control, guard: FighterMindConfig = FIGHTER): MindConfig {
+  switch (control) {
+    case "crawl": return QUADRUPED;
+    case "kicker": return ARENA_KICKER;
+    case "scrapper": return ARENA_SCRAPPER;
+    case "brawler": return ARENA_BRAWLER;
+    case "combat": return ARENA_FIGHTER;
+    case "classic": return { ...guard, subs: [{ kind: "staged-rise" }] };
+    case "point-right": return POINT_FIGHTER;
+    case "point-left": return { ...POINT_FIGHTER, hand: "left" };
+    case "point-alternate": return { ...POINT_FIGHTER, hand: "alternate" };
+    default: { const never: never = control; throw new Error(`unknown controller ${never}`); }
+  }
 }
 
 /** The selected controllers, retaining the classic fighter's guard option. */
 export function readMinds(search: string): Readonly<Record<Side, MindConfig>> {
   const controls = readControls(search), guards = readGuard(search);
   const mind = (side: Side): MindConfig => {
-    const control = controls[side];
-    switch (control) {
-      case "kicker": return ARENA_KICKER;
-      case "scrapper": return ARENA_SCRAPPER;
-      case "brawler": return ARENA_BRAWLER;
-      case "combat": return ARENA_FIGHTER;
-      case "classic": return { ...(guards?.[side] ?? FIGHTER), subs: [{ kind: "staged-rise" }] };
-      case "point-right": return POINT_FIGHTER;
-      case "point-left": return { ...POINT_FIGHTER, hand: "left" };
-      case "point-alternate": return { ...POINT_FIGHTER, hand: "alternate" };
-      default: { const never: never = control; throw new Error(`unknown controller ${never}`); }
-    }
+    return controlMind(controls[side], guards?.[side]);
   };
   return { left: mind("left"), right: mind("right") };
 }

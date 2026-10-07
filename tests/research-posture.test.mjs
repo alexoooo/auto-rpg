@@ -12,7 +12,7 @@ import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { jointAngles } from "../src/core/build/joint-state.ts";
 import { pointAtToRef } from "../src/core/control/kinematics.ts";
 import { pointOfToRef } from "../src/core/control/support.ts";
-import { modelSpec } from "../src/core/human/spec.ts";
+import { modelSpec } from "../src/core/models.ts";
 import { STANCE_LOWER } from "../src/core/skills/locomotion.ts";
 import {
   AUDITED, handed, held, jointMomentsOf, leastShare, linearProgramme, placeLike, posed, project, random, rangesOf, recordOf, rowNamed, search, simplex, staticBody,

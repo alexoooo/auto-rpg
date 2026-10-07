@@ -4,7 +4,8 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { BODY_MODELS, humanSpec, modelSpec } from "../src/core/human/spec.ts";
+import { humanSpec } from "../src/core/human/spec.ts";
+import { BODY_MODELS, modelSpec } from "../src/core/models.ts";
 import { impactEnergy } from "../src/core/rules/impact.ts";
 import { createPool, partHitPoints } from "../src/core/rules/pool.ts";
 import { balanceCeiling, balancePercent, blowDamage, CLUB_BEST, MECHANISMS, rulebook } from "../src/core/rules/rulebook.ts";
@@ -44,7 +45,7 @@ test("a_balance_is_a_per_cent_of_the_body's_weight_with_the_rulebook's_moment_an
   for (const model of BODY_MODELS) {
     const spec = modelSpec(model), { balance } = spec.attributes;
     assert.equal(balance.unit, "%", model);
-    assert.ok(["owner-balance", "skeleton-placeholders"].includes(balance.provenance.source), `${model}'s balance is from ${balance.provenance.source}`);
+    assert.ok(["owner-balance", "skeleton-placeholders", "reptile-anatomy"].includes(balance.provenance.source), `${model}'s balance is from ${balance.provenance.source}`);
     assert.ok(Number.isFinite(balance.value) && balance.value >= 0, `${model}'s balance is ${balance.value}`);
     assert.deepEqual(specProvenanceFaults(spec), [], model);
     assert.equal(specProvenanceFaults({ attributes: { balance: { ...balance, provenance: { ...balance.provenance, source: "nowhere" } } } }).length, 1, "a balance from nowhere is a fault");

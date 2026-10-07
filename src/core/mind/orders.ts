@@ -13,7 +13,7 @@ export interface Orders {
   readonly move: Heading | null;
   /** Face this way (its length is not read past 0.08). Null faces the walk, or, standing, as it stands. */
   readonly face: Heading | null;
-  /** Attack this world point with the mind's chosen hand (Classic uses right); the walk waits. Null guards. */
+  /** Attack this world point with the mind's chosen endpoint; the walk waits. Null guards. */
   readonly attack: Vec3 | null;
 }
 

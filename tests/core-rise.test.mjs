@@ -13,7 +13,7 @@ import { createBody, SERVO_SECONDS } from "../src/core/body.ts";
 import { uprightness } from "../src/core/control/ground.ts";
 import { SOLE_MARGIN } from "../src/core/control/stance-tuning.ts";
 import { centreOfToRef, footStatesOf, pointOfToRef, readSupport, turnOfToRef } from "../src/core/control/support.ts";
-import { BODY_MODELS, modelSpec } from "../src/core/human/spec.ts";
+import { HUMANOID_MODELS as BODY_MODELS, modelSpec } from "../src/core/models.ts";
 import { lying } from "../src/core/mind/lie.ts";
 import { createMind } from "../src/core/mind/minds.ts";
 import { STAND_ORDERS } from "../src/core/mind/orders.ts";

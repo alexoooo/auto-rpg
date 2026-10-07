@@ -5,7 +5,7 @@ import { buildBody } from "../build/build-body.ts";
 import { supportEntryReading } from "../control/support-entry.ts";
 import { centreOfToRef } from "../control/support.ts";
 import type { PhysicsEngine } from "../engine/engine.ts";
-import { modelSpec, type BodyModel } from "../human/spec.ts";
+import { modelSpec, type HumanoidModel as BodyModel } from "../models.ts";
 import { FIGHTER } from "../mind/config.ts";
 import { createPolicyBody } from "../mind/direct.ts";
 import { createMind } from "../mind/minds.ts";

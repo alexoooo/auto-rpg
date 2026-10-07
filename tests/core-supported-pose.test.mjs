@@ -4,7 +4,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { combatStrike, supportedStrikeCommand } from '../research/combat-strikes.mjs';
 import { createBody, SERVO_SECONDS } from '../src/core/body.ts';
-import { modelSpec } from '../src/core/human/spec.ts';
+import { modelSpec } from '../src/core/models.ts';
 import { DEFAULT_ENGINE } from '../src/core/engine/engines.ts';
 import { combatSkills } from '../src/core/skills/combat.ts';
 import { GUARD_ACTION } from '../src/core/mind/intent.ts';

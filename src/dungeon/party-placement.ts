@@ -9,15 +9,16 @@ const COMPANION_SPAWN = Object.freeze({ rings: [1.6, 2.4, 3.2], clearance: 0.7, 
 
 /**
  * Where a companion stands at the start: the first of twelve bearings on a ring about the start, then a
- * wider ring, whose floor clears a large body and lies at least `COMPANION_SPAWN.apart` from everybody
+ * wider ring, whose floor clears the body's radius and lies at least `COMPANION_SPAWN.apart` from everybody
  * already placed. Fixed bearings rather than a draw, so a companion costs the enemies none of their seeds.
  */
-export function companionSpawn(map: DungeonMap, taken: readonly Point[]): Point | null {
-  const { rings, clearance, apart } = COMPANION_SPAWN;
+export function companionSpawn(map: DungeonMap, taken: readonly (Point & { readonly radius?: number })[], radius: number = COMPANION_SPAWN.clearance): Point | null {
+  const { rings, clearance, apart } = COMPANION_SPAWN, footprint = Math.max(clearance, radius);
   for (const ring of rings) for (let i = 0; i < 12; i++) {
     const angle = Math.PI + i * Math.PI / 6;
     const at = { x: map.start.x + Math.sin(angle) * ring, z: map.start.z + Math.cos(angle) * ring };
-    if (walkable(map, at, clearance, true) && clearSegment(map, map.start, at, clearance, true) && taken.every(other => distance(other, at) >= apart)) return at;
+    if (walkable(map, at, footprint, true) && clearSegment(map, map.start, at, footprint, true)
+      && taken.every(other => distance(other, at) >= Math.max(apart, radius + (other.radius ?? clearance)))) return at;
   }
   return null;
 }

@@ -2,7 +2,7 @@ import type { Scene } from "@babylonjs/core/scene.js";
 import { createBody, type Body } from "../body.ts";
 import { buildBody } from "../build/build-body.ts";
 import type { PhysicsEngine } from "../engine/engine.ts";
-import { modelSpec, type BodyModel } from "../human/spec.ts";
+import { modelSpec, type HumanoidModel as BodyModel } from "../models.ts";
 import { checkedAction, type ActuatorAction } from "../mind/actions.ts";
 import { createPolicyBody } from "../mind/direct.ts";
 import type { BodyObservation } from "../observation.ts";

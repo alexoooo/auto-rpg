@@ -15,7 +15,7 @@ building on it.
 - **Equipment**: swords, a maul, a mace, a whip, and the loadouts to choose them. Edged and pointed
   weapons bring the rulebook's other mechanisms into play; every weapon keeps its ratio to the club.
 - **Many morphologies**: every body a sourced spec, families sharing code and not values. The human
-  is the reference body, the skeleton is on the core, a reptile is next.
+  is the reference body; the skeleton and an authored reptile quadruped are on the core.
 - **Layered AI**: each layer depending only on those below it -- world, body, motor control,
   skills, minds. Above the muscles a mind is a function from its body's senses to its body's
   effectors, with the layers as one way to write it; a person gives orders
@@ -579,9 +579,11 @@ planted physical-fist low-attack candidate also remains unqualified.
 
 ### New bodies
 
-- The reptile: a quadruped of about 8 kg that bites, with 1 hit point, several to a dungeon room,
-  selectable in the arena, built entirely on the core. Once it exists: the Warrior and the Rogue
-  against it, blows to end a fight, one-shots and severs.
+- The reptile is an 8 kg, 1 HP quadruped on the core, selectable in the arena, with three per
+  generated encounter room. [Qualification](reference/reptile.md) covers standing, a four-paw
+  crawl, physical jaw contact and release, recovery and fresh-world replay. Its anatomy is
+  explicitly estimated; the blunt bite has little finishing power. Broader recovery, practical
+  combat against Warrior and Rogue, blows to end a fight, one-shots and severs remain open.
 
 ### Engines
 

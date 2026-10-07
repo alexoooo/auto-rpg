@@ -5,7 +5,7 @@ import {ATTACK_PATH} from '../src/core/skills/attack-path.ts';
 import {combatSkills} from '../src/core/skills/combat.ts';
 import {combatStrike} from '../research/combat-strikes.mjs';
 import {coreStand,saveStand,loadStand} from './harness/core-stand.mjs';
-import {modelSpec} from '../src/core/human/spec.ts';
+import {modelSpec} from '../src/core/models.ts';
 import {createBody,SERVO_SECONDS} from '../src/core/body.ts';
 import {GUARD} from '../src/core/skills/guard.ts';
 import {DEFAULT_ENGINE} from '../src/core/engine/engines.ts';

@@ -17,7 +17,7 @@ import { createPointStrikeProbe } from "../src/core/tasks/point-strike.ts";
 import { createDefenseProbe } from "../src/core/tasks/defense.ts";
 import { saveState, loadState } from "../src/core/state.ts";
 import { reachAction, reachFrame } from "../src/core/tasks/reach-policy.ts";
-import { BODY_MODELS } from "../src/core/human/spec.ts";
+import { HUMANOID_MODELS as BODY_MODELS } from "../src/core/models.ts";
 import { FIGHTER } from "../src/core/mind/config.ts";
 import { createMind } from "../src/core/mind/minds.ts";
 import { STAND_ORDERS } from "../src/core/mind/orders.ts";

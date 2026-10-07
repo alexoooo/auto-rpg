@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import { modelSpec } from "../src/core/human/spec.ts";
+import { modelSpec } from "../src/core/models.ts";
 import { woodenClub } from "../src/core/items/club.ts";
 import { equipHands } from "../src/core/human/equipment.ts";
 import { createMotionBody } from "../src/core/mind/motion.ts";

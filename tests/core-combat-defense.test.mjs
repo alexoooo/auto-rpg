@@ -5,7 +5,7 @@ import { incomingThreat, guardCanReach } from '../src/core/mind/threat.ts';
 import { clearStep } from '../src/core/mind/clear-step.ts';
 import { solidSenses } from '../src/core/mind/object-senses.ts';
 import { frameOf } from '../src/core/spec/body.ts';
-import { modelSpec } from '../src/core/human/spec.ts';
+import { modelSpec } from '../src/core/models.ts';
 import { ARENA_FIGHTER } from '../src/core/mind/config.ts';
 import { armed } from '../src/core/human/grip.ts';
 import { woodenClub } from '../src/core/items/club.ts';

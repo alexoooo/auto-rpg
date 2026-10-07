@@ -19,7 +19,7 @@ import { parseArgs } from "node:util";
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { createBody, SERVO_SECONDS } from "../src/core/body.ts";
 import { armed } from "../src/core/human/grip.ts";
-import { BODY_MODELS, modelSpec } from "../src/core/human/spec.ts";
+import { HUMANOID_MODELS as BODY_MODELS, modelSpec } from "../src/core/models.ts";
 import { woodenClub } from "../src/core/items/club.ts";
 import { fighterTactics, STRAFE } from "../src/core/mind/fighter.ts";
 import { driveBy } from "../src/core/mind/tactics.ts";

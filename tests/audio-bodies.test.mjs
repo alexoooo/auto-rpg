@@ -16,7 +16,7 @@ import { substanceOf, swishStrength } from "../src/audio/cues.ts";
 import { buildBody } from "../src/core/build/build-body.ts";
 import { heldPoint } from "../src/core/build/rigid.ts";
 import { centreOfToRef, pointOfToRef } from "../src/core/control/support.ts";
-import { modelSpec } from "../src/core/human/spec.ts";
+import { modelSpec } from "../src/core/models.ts";
 import { rulebook } from "../src/core/rules/rulebook.ts";
 import { createWorld } from "../src/core/world.ts";
 import { labActor } from "../src/lab/actor.ts";

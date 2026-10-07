@@ -14,14 +14,13 @@ import { humanWounds } from "./wounds.ts";
 export const humanSpec = (model: WorkshopModel): BodySpec => figureSpec(workshopFigure(model));
 
 /** The core's bodies by model: the workshop humans and the crypt skeleton. */
-export type BodyModel = WorkshopModel | typeof SKELETON_MODEL;
-export const BODY_MODELS: readonly BodyModel[] = Object.freeze([...WORKSHOP_MODELS, SKELETON_MODEL]);
+export type HumanoidModel = WorkshopModel | typeof SKELETON_MODEL;
+export const HUMANOID_MODELS: readonly HumanoidModel[] = Object.freeze([...WORKSHOP_MODELS, SKELETON_MODEL]);
 
 /** **A core body by model**, whole. */
-export function modelSpec(model: BodyModel): BodySpec {
+export function humanoidSpec(model: HumanoidModel): BodySpec {
   return model === SKELETON_MODEL ? figureSpec(skeletonFigure()) : humanSpec(model);
 }
-
 /** **A human figure, whole** (`figure.ts`): the human body plan on the figure's own numbers. */
 function figureSpec(figure: HumanFigure): BodySpec {
   const segments = humanSegments(figure);

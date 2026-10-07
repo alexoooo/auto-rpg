@@ -8,9 +8,9 @@ import type { Intent } from "./intent.ts";
  * made of layers (`driveBy`): a scenario's script, a person's keys, the arena's AI. They reach the
  * body only through their intent, which the skills carry out (`createSkills`).
  */
-export interface Tactics {
+export interface Tactics<S = Sight, I = Intent> {
   readonly name: string;
-  decide(sight: Sight, dt: number): Intent;
+  decide(sight: S, dt: number): I;
   /**
    * Their memory, if they have any (`src/core/state.ts`), saved and loaded with their body's skills'
    * (`Skills.state`). Tactics that keep what they remember anywhere else do not fork.

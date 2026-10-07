@@ -20,7 +20,7 @@ const LOOP_SECONDS = 120;
 import { Worker, isMainThread, parentPort } from "node:worker_threads";
 import { availableParallelism } from "node:os";
 import { parseArgs } from "node:util";
-import { BODY_MODELS } from "../src/core/human/spec.ts";
+import { HUMANOID_MODELS as BODY_MODELS } from "../src/core/models.ts";
 
 if (isMainThread) {
   const { values } = parseArgs({ options: {
@@ -72,7 +72,7 @@ if (isMainThread) {
   });
 } else {
   const [{ Logger }, { Vector3 }, { modelSpec }, { labActor }, { startRoutine }, { coreStand }] = await Promise.all([
-    import("@babylonjs/core/Misc/logger.js"), import("@babylonjs/core/Maths/math.vector.js"), import("../src/core/human/spec.ts"),
+    import("@babylonjs/core/Misc/logger.js"), import("@babylonjs/core/Maths/math.vector.js"), import("../src/core/models.ts"),
     import("../src/lab/actor.ts"), import("../src/lab/routine.ts"), import("../tests/harness/core-stand.mjs")]);
   Logger.LogLevels = Logger.ErrorLogLevel;
   parentPort.on("message", async ({ model, seed, stance, loops, targets, impulse, hz }) => {

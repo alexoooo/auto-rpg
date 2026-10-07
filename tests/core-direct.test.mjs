@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { modelSpec as humanSpec } from "../src/core/human/spec.ts";
+import { modelSpec as humanSpec } from "../src/core/models.ts";
 import { createMind } from "../src/core/mind/minds.ts";
 import { createPolicyBody } from "../src/core/mind/direct.ts";
 import { checkedAction } from "../src/core/mind/actions.ts";

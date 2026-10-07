@@ -11,7 +11,7 @@ import { HDRCubeTexture } from "@babylonjs/core/Materials/Textures/hdrCubeTextur
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder.js";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial.js";
 import { buildBody, type BuiltBody } from "../core/build/build-body.ts";
-import { modelSpec, type BodyModel } from "../core/human/spec.ts";
+import { modelInfo, modelSpec, type BodyModel } from "../core/models.ts";
 import type { PhysicsEngine } from "../core/engine/engine.ts";
 import { createWorld } from "../core/world.ts";
 import { dresserFor } from "./dress.ts";
@@ -51,8 +51,9 @@ export async function showHeroLineup(canvas: HTMLCanvasElement, physics: Physics
     engine.resize();
     const aspect = canvas.clientWidth / models.length / canvas.clientHeight;
     // A full body with headroom; narrow columns retain space for the arms (docs/art/menu.md).
-    const halfHeight = Math.max(1.12, .62 / aspect);
-    for (const camera of cameras) {
+    for (let i = 0; i < cameras.length; i++) {
+      const camera = cameras[i]!, human = modelInfo(chosen[i]!).hands;
+      const halfHeight = Math.max(human ? 1.12 : .4, (human ? .62 : .7) / aspect);
       camera.orthoTop = halfHeight; camera.orthoBottom = -halfHeight;
       camera.orthoLeft = -halfHeight * aspect; camera.orthoRight = halfHeight * aspect;
     }
@@ -81,6 +82,9 @@ export async function showHeroLineup(canvas: HTMLCanvasElement, physics: Physics
       skins[index]?.dispose(); bodies[index]?.dispose();
       chosen[index] = model;
       const body = bodies[index] = buildBody(modelSpec(model), world, { position: [index * 4, 0, 0] });
+      const camera = cameras[index]!, x = index * 4;
+      if (modelInfo(model).hands) { camera.position.set(x + .2, 1.05, 6); camera.setTarget(new Vector3(x, .95, 0)); }
+      else { camera.position.set(x + 2, .9, 2); camera.setTarget(new Vector3(x, body.spec.stature.value / 2, -.1)); }
       const skin = skins[index] = skinSlot(body, () => {
         for (const mesh of skin.meshes) mesh.layerMask = 1 << index;
       });

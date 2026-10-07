@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { coupledDynamics } from "../src/core/build/coupled-dynamics.ts";
 import { articulatedMass } from "../src/core/build/articulated-mass.ts";
-import { modelSpec } from "../src/core/human/spec.ts";
+import { modelSpec } from "../src/core/models.ts";
 import { armed } from "../src/core/human/grip.ts";
 import { equipHands } from "../src/core/human/equipment.ts";
 import { woodenClub } from "../src/core/items/club.ts";

@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { skinSlot } from "../src/render/skin-slot.ts";
 import { dresserFor } from "../src/render/dress.ts";
-import { modelSpec } from "../src/core/human/spec.ts";
+import { modelSpec } from "../src/core/models.ts";
 import { coreStand } from "./harness/core-stand.mjs";
 
 const clothing = { boots: true, armour: true };

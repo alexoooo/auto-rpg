@@ -7,7 +7,7 @@ There is no attack button and no animation. A fighter is a body of jointed segme
 muscles with the strength and speed of their anatomy, and a mind that decides what the body does;
 a blow is a club carried into something by the arm that swings it, and it wounds by the energy it
 brings. The bodies are the Warrior and the Rogue, two humans measured from their workshop models,
-and the crypt's skeleton.
+the crypt's skeleton, and a small, sprawling reptile with four legs and a driven jaw.
 
 ## Play online
 
@@ -34,7 +34,7 @@ Everything the pages need is committed, so a fresh clone runs with no download s
 
 ## The Arena
 
-Choose the standing character on each side (Warrior, Rogue or Skeleton) and press **Fight**.
+Choose the standing character on each side (Warrior, Rogue, Skeleton or Reptile) and press **Fight**.
 The Warrior also has an **Appearance** selector: Original, Industrial, Steampunk or Futuristic. The three
 robot shells keep the Warrior's physics and abilities. The Lab offers the same choices and can
 switch skins during playback without restarting the scenario. Arena links keep each side's
@@ -47,7 +47,13 @@ These controls work while paused and after the verdict. Links retain the view wi
 `camera`, `projection` and `focus` parameters.
 
 Each contender has a **Controller** choice: Classic fighter, experimental **Point control**
-with either or alternating hands, **Combat**, **Brawler**, or **Scrapper**. Choose a wooden club or empty hands.
+with either or alternating hands, **Combat**, **Brawler**, **Scrapper**, or **Kicker**. Humanoids choose a wooden club or empty hands.
+The Reptile uses **Crawl and bite**, carries no equipment and has 1 HP at 8 kg. It shifts its
+weight before lifting one paw, and bites reachable body surfaces with its physical jaw.
+Try `?play=arena&matchup=workshop-fighter,reptile&held=empty&recovery=continue`.
+Its anatomy is an authored estimate; its blunt bite is weak, and fighting effectiveness remains
+unqualified. [Control checks](docs/reference/reptile.md) cover standing, walking, jaw contact,
+release and recovery. Recovery may take several retries, particularly from awkward leg positions.
 Brawler is the experimental body-targeting fighter, with measured punch paths, guards and
 escapes. In held-out Warrior fist bouts it won 591/600 against retained Classic, Point and
 linear Combat opponents; these wins were decided at the time cap. Finishing power and autonomous
@@ -76,8 +82,8 @@ Try `?play=arena&matchup=workshop-fighter,workshop-rogue&control=point-alternate
 These choices travel in links and replays (`control`, `held`, `recovery`).
 
 The circular stone arena is enclosed by a low parapet, with eight braziers around its edge. Each
-side starts with a wooden club unless selected otherwise. Its mind walks at the opponent and
-attacks its head. A side is out when its wounds end it or it stays down for the chosen recovery
+humanoid starts with a wooden club unless selected otherwise. Its mind walks at the opponent and
+attacks its head; the reptile approaches a surface near its mouth. A side is out when its wounds end it or it stays down for the chosen recovery
 window, when one is selected. At the two-minute bell the fuller bar wins; equal bars draw.
 
 A blow costs both who meet in it. Any two parts of the two bodies that come together closing
@@ -189,7 +195,8 @@ had a click or a key.
 ## Status
 
 **Working**: the Arena and the Crypt on the core, with the Warrior, the Rogue and the skeleton,
-with empty hands or a club; the lab's scenarios; the character workshop; the physics bench.
+with empty hands or a club; the reptile with its crawl and jaw; the lab's scenarios; the character
+workshop; the physics bench. Generated crypt rooms mix skeletons and three-reptile packs.
 Arena bouts continue after falls by default: fighters attempt recovery, and Scrapper can
 attack low while an opponent is down or rising. Warrior fists are the measured low-combat scope.
 

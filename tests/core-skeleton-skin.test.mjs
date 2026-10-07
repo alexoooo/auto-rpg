@@ -10,7 +10,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { Matrix, Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { createBody } from "../src/core/body.ts";
-import { modelSpec } from "../src/core/human/spec.ts";
+import { modelSpec } from "../src/core/models.ts";
 import { SKELETON_MODEL } from "../src/core/human/skeleton.ts";
 import { bindMatrix, dressSkeleton, parseSkeletonArt, piecesOnSegments, SKELETON_PIECES, SKELETON_UNSHOWN } from "../src/render/skeleton-skin.ts";
 import { coreStand } from "./harness/core-stand.mjs";

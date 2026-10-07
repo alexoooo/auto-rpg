@@ -41,3 +41,23 @@ test('a finite miss withdraws and a timeout or fallen home never counts as a ver
  strikeTransition(s,'return',[0,0,0]);
  assert.equal(advanceStrike(s,motion,limits,.05),STRIKE_EVENT.finished|STRIKE_EVENT.returned);
 });
+
+test('contact release gates a measured return and still has a finite deadline',()=>{
+ for(const released of [false,true,undefined]) {
+  const s=fresh();strikeTransition(s,'return',[0,0,0]);
+  const result=advanceStrike(s,{...motion,released},limits,.05);
+  assert.equal(result,released===false?0:STRIKE_EVENT.finished|STRIKE_EVENT.returned);
+  assert.equal(s.phase,released===false?'return':null);
+  if(released===false) {
+   assert.equal(s.ready,0);
+   assert.equal(advanceStrike(s,{...motion,released},limits,1.15),STRIKE_EVENT.finished|STRIKE_EVENT.failed);
+   assert.equal(s.phase,null);
+  }
+ }
+ const s=fresh();strikeTransition(s,'return',[0,0,0]);
+ advanceStrike(s,{...motion,released:false},limits,.04);
+ assert.equal(advanceStrike(s,{...motion,released:true},limits,.025),0);
+ assert.equal(advanceStrike(s,{...motion,released:false},limits,.025),0);
+ assert.equal(s.ready,0);
+ assert.equal(advanceStrike(s,{...motion,released:true},limits,.05),STRIKE_EVENT.finished|STRIKE_EVENT.returned);
+});

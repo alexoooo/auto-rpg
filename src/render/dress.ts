@@ -1,13 +1,14 @@
 import { Color3 } from "@babylonjs/core/Maths/math.color.js";
 import type { Scene } from "@babylonjs/core/scene.js";
 import type { BuiltBody } from "../core/build/build-body.ts";
-import type { BodyModel } from "../core/human/spec.ts";
+import type { BodyModel } from "../core/models.ts";
 import { drawBody } from "./body-shapes.ts";
 import { dressSkeleton, loadSkeletonArt, type SkeletonArt } from "./skeleton-skin.ts";
 import { dressBody, loadSkin } from "./skin.ts";
 import { appearanceFor, type Appearance } from "./appearance.ts";
 import { dressRobot } from "./robot-skin.ts";
 import type { SkinOptions, SkinView } from "./skin-view.ts";
+import { dressReptile } from "./reptile-skin.ts";
 
 /** The body's colour when its skin did not load, and it is drawn as its shapes. */
 const SHAPES_TINT = Color3.FromHexString("#b9a58a");
@@ -25,9 +26,13 @@ export function dresserFor(model: BodyModel, scene: Scene,
   let skin: Promise<Dresser>;
   switch (appearance) {
     case "default":
-      skin = model === "crypt-skeleton"
-        ? (options.skeletonArt ?? loadSkeletonArt)().then((art) => (built) => dressSkeleton(built, art, scene))
-        : loadSkin(model, scene).then((container) => (built, instance) => dressBody(built, container, scene, instance.clothing, instance.closure));
+      switch (model) {
+        case "reptile": skin = Promise.resolve(built => dressReptile(built, scene)); break;
+        case "crypt-skeleton": skin = (options.skeletonArt ?? loadSkeletonArt)().then(art => built => dressSkeleton(built, art, scene)); break;
+        case "workshop-fighter": case "workshop-rogue":
+          skin = loadSkin(model, scene).then(container => (built, instance) => dressBody(built, container, scene, instance.clothing, instance.closure)); break;
+        default: { const never: never = model; throw new Error(`unknown model ${never}`); }
+      }
       break;
     case "industrial": case "relic": case "duelist":
       skin = Promise.resolve((built, instance) => dressRobot(built, scene, appearance, instance));

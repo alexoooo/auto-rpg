@@ -21,7 +21,7 @@
 import { Worker, isMainThread, parentPort } from "node:worker_threads";
 import { availableParallelism } from "node:os";
 import { parseArgs } from "node:util";
-import { BODY_MODELS } from "../src/core/human/spec.ts";
+import { HUMANOID_MODELS as BODY_MODELS } from "../src/core/models.ts";
 import { LAB_HELD } from "../src/lab/scenarios.ts";
 
 const STRATA = ["control", "high", "middle", "low"];

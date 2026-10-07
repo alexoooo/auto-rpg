@@ -12,7 +12,7 @@
  *   (`partHitPoints`) times the unit, which is what a blow must bring to that surface, its share.
  */
 import { CONTACT_STIFFNESS } from "../src/core/human/tables/contact-stiffness.ts";
-import { BODY_MODELS, modelSpec } from "../src/core/human/spec.ts";
+import { HUMANOID_MODELS as BODY_MODELS, modelSpec } from "../src/core/models.ts";
 import { partHitPoints } from "../src/core/rules/pool.ts";
 import { rulebook } from "../src/core/rules/rulebook.ts";
 import { energyShares } from "../src/core/rules/share.ts";

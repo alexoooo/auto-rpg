@@ -18,7 +18,8 @@ import { chainTo, pointAtToRef, pointNowToRef, reachJacobianTo, solveReach } fro
 import { motorControl } from "../src/core/control/motor.ts";
 import { servo } from "../src/core/control/servo.ts";
 import { armed } from "../src/core/human/grip.ts";
-import { humanSpec, modelSpec } from "../src/core/human/spec.ts";
+import { humanSpec } from "../src/core/human/spec.ts";
+import { modelSpec } from "../src/core/models.ts";
 import { woodenClub } from "../src/core/items/club.ts";
 import { driveMuscles } from "../src/core/muscle/driver.ts";
 import { AT_PLACE, reachBed } from "../research/reach-bed.mjs";

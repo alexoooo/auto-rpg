@@ -14,6 +14,7 @@ import type { PhysicalBody } from "../physical-body.ts";
 import { arenaFighter } from "./arena-fighter.ts";
 import { pointFighter } from "./point-fighter.ts";
 import { createDirectBody } from "./direct.ts";
+import { createQuadrupedMind } from "../reptile/mind.ts";
 
 /** **What a fight gives the mind it makes**, beside the body and the config. */
 interface MindWiring {
@@ -46,11 +47,12 @@ interface FighterMind extends MindedBody {
  * **A body under a mind, by the mind's kind.** A fight holds one and reads what every kind gives,
  * the body and the memory; a reader that needs a kind's own narrows on `kind`.
  */
-export type Minded = FighterMind | (MindedBody & { readonly kind: "direct" });
+export type Minded = FighterMind | (MindedBody & { readonly kind: "direct" }) | (MindedBody & { readonly kind: "quadruped" });
 
 /** `built` under the mind `config` names, wired to its fight. */
 export function createMind(built: BuiltBody, world: World, config: MindConfig, wiring: MindWiring): Minded {
   switch (config.kind) {
+    case "quadruped": return createQuadrupedMind(built, world, wiring.orders, wiring.senses, wiring.assist);
     case "arena-fighter": return arenaFighter(built, world, config, wiring);
     case "point-fighter": return pointFighter(built, world, config, wiring);
     case "fighter": return createFighter(built, world, config, wiring);

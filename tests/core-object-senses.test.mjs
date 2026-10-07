@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode.js";
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import { modelSpec } from "../src/core/human/spec.ts";
+import { modelSpec } from "../src/core/models.ts";
 import { createObjectSenses } from "../src/core/mind/object-senses.ts";
 import { createPolicyBody } from "../src/core/mind/direct.ts";
 import { clockSenses } from "../src/core/mind/senses.ts";

@@ -5,7 +5,7 @@ import { HemisphericLight } from "@babylonjs/core/Lights/hemisphericLight.js";
 import { Color3, Color4 } from "@babylonjs/core/Maths/math.color.js";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { loadEngine } from "../core/engine/engines.ts";
-import { BODY_MODELS, type BodyModel } from "../core/human/spec.ts";
+import { HUMANOID_MODELS as BODY_MODELS, type HumanoidModel as BodyModel } from "../core/models.ts";
 import { createEnvironment } from "../core/tasks/environment.ts";
 import { createReachTask, type ReachTaskConfig } from "../core/tasks/reach.ts";
 import { reachAction, reachFrame } from "../core/tasks/reach-policy.ts";

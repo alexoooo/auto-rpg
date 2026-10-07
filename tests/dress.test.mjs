@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { dresserFor } from "../src/render/dress.ts";
 import { parseSkeletonArt } from "../src/render/skeleton-skin.ts";
-import { modelSpec } from "../src/core/human/spec.ts";
+import { modelSpec } from "../src/core/models.ts";
 import { coreStand } from "./harness/core-stand.mjs";
 
 const clothing = { boots: true, armour: true };

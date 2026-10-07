@@ -1,4 +1,4 @@
-import { BODY_MODELS, type BodyModel } from "../core/human/spec.ts";
+import { BODY_MODELS, modelInfo, type BodyModel } from "../core/models.ts";
 
 /** Cosmetic choices; supported models are physical bodies, never aliases for these skins. */
 export const APPEARANCES = Object.freeze([
@@ -21,5 +21,5 @@ export function appearanceFor(model: BodyModel, value: string | null | undefined
 
 /** Whether this appearance can display the human clothing controls. */
 export function wearsClothing(model: BodyModel, appearance: Appearance): boolean {
-  return model !== "crypt-skeleton" && APPEARANCES.find(row => row.id === appearanceFor(model, appearance))!.clothing;
+  return modelInfo(model).clothing && APPEARANCES.find(row => row.id === appearanceFor(model, appearance))!.clothing;
 }

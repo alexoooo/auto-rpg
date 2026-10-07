@@ -5,7 +5,7 @@ import { pointStrike } from "../control/point-strike.ts";
 import type { PhysicsEngine, SegmentBody } from "../engine/engine.ts";
 import { equipHands } from "../human/equipment.ts";
 import type { Side } from "../human/landmarks.ts";
-import { modelSpec, type BodyModel } from "../human/spec.ts";
+import { modelSpec, type HumanoidModel as BodyModel } from "../models.ts";
 import { woodenClub } from "../items/club.ts";
 import { createMotionBody } from "../mind/motion.ts";
 import { createObjectSenses } from "../mind/object-senses.ts";

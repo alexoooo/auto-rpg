@@ -2,7 +2,7 @@ import { VIEW_MODES, CAMERA_MODES, PROJECTIONS, type ViewSettings } from "../ren
 import { appearanceFor, type Appearance } from "../render/appearance.ts";
 import { playHref } from "../app-route.ts";
 import { CHARACTERS } from "../character-lab/catalog.ts";
-import type { BodyModel } from "../core/human/spec.ts";
+import type { HumanoidModel as BodyModel } from "../core/models.ts";
 import { balanceFrom } from "../core/rules/rulebook.ts";
 
 /**

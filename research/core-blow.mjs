@@ -19,7 +19,7 @@ import { Logger } from "@babylonjs/core/Misc/logger.js";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { footStatesOf, soleMiddleToRef, withinSupport } from "../src/core/control/support.ts";
 import { armed } from "../src/core/human/grip.ts";
-import { modelSpec } from "../src/core/human/spec.ts";
+import { modelSpec } from "../src/core/models.ts";
 import { woodenClub } from "../src/core/items/club.ts";
 import { SUPPORT_INSET } from "../src/core/control/stance-tuning.ts";
 import { hypot } from "../src/core/math/real.ts";

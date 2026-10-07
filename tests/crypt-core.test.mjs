@@ -43,8 +43,8 @@ test("a_seeded_crypt_loads_and_its_bodies_stand_in_it", async () => {
     assert.equal(run.status, "playing");
     for (const actor of run.actors.filter(a => a.fighter)) {
       const { body } = actor.fighter;
-      assert.equal(body.view.down, false, `${actor.id} is on its feet`);
-      assert.ok(body.view.head.y > 1, `${actor.id}'s head is up: ${body.view.head.y}`);
+      assert.equal(body.down, false, `${actor.id} is on its feet`);
+      assert.ok(body.physical.head.y > (actor.model === "reptile" ? .24 : 1), `${actor.id}'s head is up: ${body.physical.head.y}`);
       assert.ok(distance(actor.feet(), actor.home) < 1, `and it stood where it was built: ${distance(actor.feet(), actor.home)}`);
     }
   } finally { dispose(); }

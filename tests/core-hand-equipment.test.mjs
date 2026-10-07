@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import { modelSpec as humanSpec } from "../src/core/human/spec.ts";
+import { modelSpec as humanSpec } from "../src/core/models.ts";
 import { armed } from "../src/core/human/grip.ts";
 import { equipHands } from "../src/core/human/equipment.ts";
 import { heldPoint } from "../src/core/build/rigid.ts";

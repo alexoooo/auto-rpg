@@ -13,7 +13,7 @@
  */
 import { parseArgs } from "node:util";
 import { createBody } from "../src/core/body.ts";
-import { modelSpec } from "../src/core/human/spec.ts";
+import { modelSpec } from "../src/core/models.ts";
 import { coreStand } from "../tests/harness/core-stand.mjs";
 
 const { values } = parseArgs({ options: {

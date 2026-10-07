@@ -26,7 +26,8 @@ import { createBody } from "../src/core/body.ts";
 import { makeStance } from "../src/core/control/stance-state.ts";
 import { SOLE_MARGIN, SUPPORT_INSET, STANCE_ANKLE_SPARE } from "../src/core/control/stance-tuning.ts";
 import { withinSupport } from "../src/core/control/support.ts";
-import { humanSpec, modelSpec } from "../src/core/human/spec.ts";
+import { humanSpec } from "../src/core/human/spec.ts";
+import { modelSpec } from "../src/core/models.ts";
 import { shove } from "../research/core-stance-trials.mjs";
 import { coreStand } from "./harness/core-stand.mjs";
 

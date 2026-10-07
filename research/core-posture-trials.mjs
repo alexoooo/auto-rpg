@@ -27,7 +27,7 @@ import { lowsOf } from "../src/core/control/ground.ts";
 import { chainTo, pointAtToRef, rotationAtToRef } from "../src/core/control/kinematics.ts";
 import { pointOfToRef } from "../src/core/control/support.ts";
 import { CONTACT_FRICTION } from "../src/core/engine/engine.ts";
-import { modelSpec } from "../src/core/human/spec.ts";
+import { modelSpec } from "../src/core/models.ts";
 import { driveMuscles } from "../src/core/muscle/driver.ts";
 import { STANCE_LOWER } from "../src/core/skills/locomotion.ts";
 import { derive } from "../src/core/spec/quantity.ts";

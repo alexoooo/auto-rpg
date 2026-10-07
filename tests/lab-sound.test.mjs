@@ -12,7 +12,7 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { airOf, hearTouches } from "../src/audio/body-sounds.ts";
 import { contactMass } from "../src/core/build/contact-mass.ts";
 import { centreOfToRef } from "../src/core/control/support.ts";
-import { modelSpec } from "../src/core/human/spec.ts";
+import { modelSpec } from "../src/core/models.ts";
 import { rulebook } from "../src/core/rules/rulebook.ts";
 import { STAND } from "../src/core/skills/strike.ts";
 import { labActor } from "../src/lab/actor.ts";

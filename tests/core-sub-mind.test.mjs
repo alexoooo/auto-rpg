@@ -10,7 +10,7 @@ import { createBody, SERVO_SECONDS } from "../src/core/body.ts";
 import { centreOfToRef } from "../src/core/control/support.ts";
 import { atan2 } from "../src/core/math/real.ts";
 import { armed } from "../src/core/human/grip.ts";
-import { modelSpec } from "../src/core/human/spec.ts";
+import { modelSpec } from "../src/core/models.ts";
 import { woodenClub } from "../src/core/items/club.ts";
 import { FIGHTER } from "../src/core/mind/config.ts";
 import { fighterTactics } from "../src/core/mind/fighter.ts";

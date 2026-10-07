@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { handFeedback, contactResponse } from '../src/core/control/hand-feedback.ts';
 import { openingSelector, segmentDistanceSquared } from '../src/core/mind/openings.ts';
-import { modelSpec } from '../src/core/human/spec.ts';
+import { modelSpec } from '../src/core/models.ts';
 import { ARENA_FIGHTER } from '../src/core/mind/config.ts';
 import { loadEngine, DEFAULT_ENGINE } from '../src/core/engine/engines.ts';
 import { buildBout } from '../research/bout.mjs';

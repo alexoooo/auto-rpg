@@ -3,7 +3,7 @@ import { buildBody } from "../build/build-body.ts";
 import { supportTransition } from "../control/support-transition.ts";
 import type { PhysicsEngine } from "../engine/engine.ts";
 import type { Side } from "../human/landmarks.ts";
-import { modelSpec, type BodyModel } from "../human/spec.ts";
+import { modelSpec, type HumanoidModel as BodyModel } from "../models.ts";
 import { createMotionBody } from "../mind/motion.ts";
 import { deepFreeze } from "../state.ts";
 import { createWorld } from "../world.ts";

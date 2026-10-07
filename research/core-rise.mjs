@@ -19,7 +19,7 @@
  * has a line for each fall.
  */
 import { Worker } from "node:worker_threads";
-import { BODY_MODELS } from "../src/core/human/spec.ts";
+import { HUMANOID_MODELS as BODY_MODELS } from "../src/core/models.ts";
 import { defaultLanes } from "./bout-pool.mjs";
 import { RISE } from "../src/core/mind/rise/stages.ts";
 import { LOADOUTS, RISE_HARNESS, UP_SECONDS, WATCH_SECONDS } from "./core-rise-trials.mjs";

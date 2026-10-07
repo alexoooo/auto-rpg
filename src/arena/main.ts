@@ -13,7 +13,7 @@ import { airOf, hearTouches } from "../audio/body-sounds.ts";
 import { debrisCues } from "../audio/cues.ts";
 import { GameAudio } from "../audio/game-audio.ts";
 import { loadEngine } from "../core/engine/engines.ts";
-import { BODY_MODELS, type BodyModel } from "../core/human/spec.ts";
+import { BODY_MODELS, modelInfo, type BodyModel } from "../core/models.ts";
 import { createWorld, type World } from "../core/world.ts";
 import type { SkinView } from "../render/skin-view.ts";
 import { loadSkeletonArt, type SkeletonArt } from "../render/skeleton-skin.ts";
@@ -21,7 +21,7 @@ import { drawBody, drawHeld, type BodyShapes } from "../render/body-shapes.ts";
 import { dresserFor, type Dresser } from "../render/dress.ts";
 import { fighterHands } from "../render/strike-hands.ts";
 import { Duel, SIDES, type DuelEnding, type Side, type Verdict } from "./duel.ts";
-import { MATCHUP_PARAM, MODEL_LABELS, appearanceSearch, readAppearances, matchupSearch, readBalance, readCap, readGap, CONTROLS, readControls, readMinds, readRecovery, readHeld, readMatchup, readTape, readYou, youSearch, type Matchup } from "./matchup.ts";
+import { MATCHUP_PARAM, MODEL_LABELS, appearanceSearch, readAppearances, matchupSearch, readBalance, readCap, readGap, CONTROLS, controlsFor, readControls, readMinds, readRecovery, readHeld, readMatchup, readTape, readYou, youSearch, type Matchup } from "./matchup.ts";
 import { Color3 } from "@babylonjs/core/Maths/math.color.js";
 import { arenaCameraRig, type ArenaSubjects } from "./camera.ts";
 import { arenaViewSearch, cameraFocuses, normalizeArenaView, readArenaView, type ArenaFocus, type ArenaView } from "./view.ts";
@@ -87,7 +87,7 @@ export async function bootArena(): Promise<void> {
   const controlPickers = {} as Record<Side, HTMLSelectElement>, heldPickers = {} as Record<Side, HTMLSelectElement>;
   const controls = readControls(location.search), heldChoices = readHeld(location.search);
   const linkedControl = JSON.stringify(readMinds(location.search)), linkedRecovery = readRecovery(location.search);
-  const linkedHeld = JSON.stringify(heldChoices);
+  const linkedHeld = JSON.stringify(heldChoices ?? { left: modelInfo(matchup.left).held, right: modelInfo(matchup.right).held });
   const pickers = {} as Record<Side, HTMLSelectElement>;
   const refreshChoices = {} as Record<Side, () => void>;
   const previews = {} as Record<Side, Awaited<ReturnType<typeof showHeroLineup>>>;
@@ -110,13 +110,13 @@ export async function bootArena(): Promise<void> {
     appearanceField.className = "field"; appearanceName.className = "field-name"; appearanceName.textContent = "Appearance";
     appearancePicker.setAttribute("aria-label", `${side === "left" ? "Left" : "Right"} appearance`);
     appearancePicker.disabled = true;
-    const refresh = refreshChoices[side] = () => {
+    const refreshAppearance = () => {
       const model = select.value as BodyModel, choices = appearancesFor(model);
       appearancePicker.replaceChildren(...choices.map(row => Object.assign(document.createElement("option"), { value: row.id, textContent: row.name })));
       appearancePicker.value = appearanceFor(model, appearances[side]);
       appearanceField.hidden = choices.length < 2;
     };
-    refresh();
+    refreshAppearance();
     appearanceField.append(appearanceName, appearancePicker);
     const choices = document.createElement("div"); choices.className = "contender-choices";
     field.append(name, select); choices.append(field, appearanceField); panel.append(head, preview, choices);
@@ -130,8 +130,19 @@ export async function bootArena(): Promise<void> {
     equipment.className = "field"; equipment.textContent = "Right hand"; held.setAttribute("aria-label", `${side} equipment`);
     for (const [value, textContent] of [["club", "Wooden club"], ["empty", "Empty hands"]])
       held.append(Object.assign(document.createElement("option"), { value, textContent }));
-    held.value = heldChoices?.[side] ?? "club"; held.addEventListener("change", () => held.blur());
+    held.value = heldChoices?.[side] ?? modelInfo(matchup[side]).held; held.addEventListener("change", () => held.blur());
     equipment.append(held); choices.append(equipment); heldPickers[side] = held;
+    const refresh = refreshChoices[side] = () => {
+      refreshAppearance();
+      const model = select.value as BodyModel, choices = controlsFor(model), previous = control.value;
+      control.replaceChildren(...choices.map(value => Object.assign(document.createElement("option"), { value, textContent: CONTROLS[value] })));
+      control.value = choices.includes(previous as typeof choices[number]) ? previous : readControls(matchupSearch("", { ...matchup, [side]: model }))[side];
+      const hands = modelInfo(model).hands;
+      equipment.hidden = !hands;
+      for (const option of held.options) option.disabled = !hands && option.value !== "empty";
+      if (!hands) held.value = "empty";
+    };
+    refresh();
     need("matchup").append(panel);
     pickers[side] = select;
     previewLoads.push(showHeroLineup(preview, physicsEngine, [matchup[side]], lifetime.signal, [appearances[side]]).then(view => {
@@ -250,13 +261,14 @@ export async function bootArena(): Promise<void> {
       appearances = { left: appearanceFor(next.left, appearances.left), right: appearanceFor(next.right, appearances.right) };
       matchup = next;
       const query = new URLSearchParams(location.search);
+      query.set(MATCHUP_PARAM, `${matchup.left},${matchup.right}`);
       query.set("control", SIDES.map((side) => controlPickers[side].value).join(","));
       query.set("held", SIDES.map((side) => heldPickers[side].value).join(","));
       query.set("recovery", recoveryPicker.value);
       const search = `?${query}`;
       const sameControllers = linkedControl === JSON.stringify(readMinds(search));
       const sameRecovery = (linkedRecovery ?? null) === (readRecovery(search) ?? null);
-      const sameHeld = (linkedHeld ?? JSON.stringify({ left: "club", right: "club" })) === JSON.stringify(readHeld(search));
+      const sameHeld = linkedHeld === JSON.stringify(readHeld(search));
       const tape = matchup.left === linked.matchup.left && matchup.right === linked.matchup.right && sameControllers && sameRecovery && sameHeld ? linked.tape : [];
       replaying = tape.length > 0;
       history.replaceState(null, "", arenaViewSearch(youSearch(appearanceSearch(matchupSearch(search, matchup), matchup, appearances), you), view) + (replaying ? linked.hash : ""));
@@ -273,7 +285,7 @@ export async function bootArena(): Promise<void> {
           const hands = fighterHands(world, duelist);
           const skin = dress.get(duelist.side)!(built, { clothing: { boots: true, armour: true }, closure: hands.closure });
           const shapes = drawBody(built, scene, Color3.FromHexString(duelist.side === "left" ? "#6f8bb5" : "#d0705e"));
-          const held = drawHeld(built, scene), pelvis = built.segments.get("lowerTrunk")!.node;
+          const held = drawHeld(built, scene), pelvis = duelist.body.muscles.dynamics.root.segment.node;
           const rest = pelvis.rotationQuaternion!.clone();
           bodies.set(duelist.side, { skin, shapes, hands, subject: {
             get position() { return duelist.body.physical.centre; },
@@ -392,10 +404,11 @@ export async function bootArena(): Promise<void> {
           case "point-fighter": return "Point control";
           case "arena-fighter": return "Combat";
           case "direct": return "Joint control";
+          case "quadruped": return "Crawl and bite";
           default: { const never: never = mind; throw new Error(`unknown mind ${never}`); }
         }
       })();
-      const phase = mind.kind === "direct" ? "joint control" : mind.skills.report.strike.phase ?? mind.skills.report.engagement?.phase ?? "guard / move";
+      const phase = "skills" in mind ? mind.skills.report.strike.phase ?? mind.skills.report.engagement?.phase ?? "guard / move" : mind.body.has;
       const down = duel.state.recovery?.[row.side];
       row.status.textContent = fighter.body.down
         ? `${fighter.body.has}${duel.recipe.recoverySeconds === null ? " - getting up" : down !== undefined ? ` - ${Math.max(0, duel.recipe.recoverySeconds! - down).toFixed(1)} s recovery left` : " - down"}`

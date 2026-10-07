@@ -12,7 +12,7 @@ import { createBody } from "../src/core/body.ts";
 import { armed } from "../src/core/human/grip.ts";
 import { woodenClub } from "../src/core/items/club.ts";
 import { stanceEnvelope } from "../src/core/control/stance-envelope.ts";
-import { BODY_MODELS, modelSpec } from "../src/core/human/spec.ts";
+import { HUMANOID_MODELS as BODY_MODELS, modelSpec } from "../src/core/models.ts";
 import { SKELETON_MODEL } from "../src/core/human/skeleton.ts";
 import { sourcesOf } from "../src/core/spec/provenance.ts";
 import { walk } from "../research/core-stance-trials.mjs";

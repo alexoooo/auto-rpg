@@ -16,7 +16,7 @@ import { parseArgs } from "node:util";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { DUEL_HELD } from "../src/arena/duel.ts";
 import { centreOfToRef } from "../src/core/control/support.ts";
-import { BODY_MODELS } from "../src/core/human/spec.ts";
+import { HUMANOID_MODELS as BODY_MODELS } from "../src/core/models.ts";
 import { STAND_ORDERS } from "../src/core/mind/orders.ts";
 import { woundedIn } from "../src/core/rules/blows.ts";
 import { BAND_NAMES, BANDS } from "../src/core/skills/strikes.ts";

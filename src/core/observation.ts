@@ -56,7 +56,7 @@ export interface BodyObservation {
 }
 
 /** Physical readings for trusted game code; all fields are overwritten from physics on each read. */
-export function physicalReading(built: BuiltBody) {
+export function physicalReading(built: BuiltBody, down?: () => boolean) {
   const upright = uprightness(built), point = new Vector3();
   const head = built.segments.has("head") ? centreReading(built, "head") : null;
   const reading = { centre: new Vector3(), head: new Vector3(), height: 0, down: false };
@@ -70,7 +70,7 @@ export function physicalReading(built: BuiltBody) {
     if (head) { head.update(); reading.head.copyFrom(head.centre); }
     else reading.head.copyFrom(reading.centre);
     reading.height = upright.height();
-    reading.down = upright.down();
+    reading.down = down ? down() : upright.down();
     return reading;
   };
 }
@@ -90,8 +90,8 @@ const tuple = (v: { readonly x: number; readonly y: number; readonly z: number }
 
 /** Snapshot on demand, including current joint motion even while the muscles are idle. */
 export function observeBody(built: BuiltBody, muscles: MuscleDriver, world: World, senses: () => Senses,
-  equipment?: () => readonly EquipmentObservation[]): () => BodyObservation {
-  const read = physicalReading(built), p = new Vector3(), v = new Vector3();
+  equipment?: () => readonly EquipmentObservation[], down?: () => boolean): () => BodyObservation {
+  const read = physicalReading(built, down), p = new Vector3(), v = new Vector3();
   const spins = new Map([...built.segments.values()].map((part) => [part, new Vector3()]));
   const trackers = [...built.joints.values()].map((joint) => ({ joint, tracker: jointTracker(joint) }));
   return () => {

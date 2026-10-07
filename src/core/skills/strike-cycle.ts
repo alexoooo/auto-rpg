@@ -20,6 +20,8 @@ interface Motion {
   readonly down: boolean;
   readonly supported: boolean;
   readonly prepared: boolean;
+  /** The adapter has released physical contact before accepting its measured return. */
+  readonly released?: boolean;
   readonly touching: boolean;
   readonly intended: boolean;
   readonly aligned: boolean;
@@ -85,7 +87,7 @@ export function advanceStrike(state: StrikeCycleState, motion: Motion, limits: L
       break;
     }
     case 'return':
-      state.ready = !motion.down && strikeReady(motion.at, motion.home, motion.velocity, limits) ? state.ready + dt : 0;
+      state.ready = !motion.down && motion.released !== false && strikeReady(motion.at, motion.home, motion.velocity, limits) ? state.ready + dt : 0;
       if (state.ready >= limits.hold || state.time >= limits.returnLimit) {
         event = STRIKE_EVENT.finished | (state.ready >= limits.hold ? STRIKE_EVENT.returned : STRIKE_EVENT.failed); state.phase = null;
       }

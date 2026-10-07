@@ -13,7 +13,7 @@
  * fall the stance's ask has no bound.
  */
 import { parseArgs } from "node:util";
-import { BODY_MODELS } from "../src/core/human/spec.ts";
+import { HUMANOID_MODELS as BODY_MODELS } from "../src/core/models.ts";
 import { SIDES } from "../src/arena/duel.ts";
 import { BOUT_HARNESS } from "./bout.mjs";
 import { defaultLanes, playBouts } from "./bout-pool.mjs";

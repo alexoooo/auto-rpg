@@ -7,7 +7,7 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder.js";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial.js";
 import { isEngineName, loadEngine } from "../core/engine/engines.ts";
-import { BODY_MODELS, type BodyModel } from "../core/human/spec.ts";
+import { HUMANOID_MODELS as BODY_MODELS, type HumanoidModel as BodyModel } from "../core/models.ts";
 import { createBarProbe } from "../core/tasks/bar.ts";
 import { createSupportProbe } from "../core/tasks/support.ts";
 import { createSupportEntryProbe } from "../core/tasks/support-entry.ts";

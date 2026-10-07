@@ -7,7 +7,7 @@ import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { constrainedMass, attachmentRows } from "../src/core/build/constrained-mass.ts";
 import { articulatedMass } from "../src/core/build/articulated-mass.ts";
 import { contactMass } from "../src/core/build/contact-mass.ts";
-import { modelSpec } from "../src/core/human/spec.ts";
+import { modelSpec } from "../src/core/models.ts";
 import { armed } from "../src/core/human/grip.ts";
 import { woodenClub } from "../src/core/items/club.ts";
 import { createEquipment } from "../src/core/equipment.ts";

@@ -23,8 +23,8 @@ const mean = (values) => values.length ? values.reduce((a, b) => a + b, 0) / val
 const shown = (value, digits) => value === null ? "-" : value.toFixed(digits);
 
 if (isMainThread) {
-  const [{ BODY_MODELS }, { LAB_HELD }, { PLACED }] = await Promise.all([
-    import("../src/core/human/spec.ts"), import("../src/lab/scenarios.ts"), import("../src/core/skills/strike.ts")]);
+  const [{ HUMANOID_MODELS: BODY_MODELS }, { LAB_HELD }, { PLACED }] = await Promise.all([
+    import("../src/core/models.ts"), import("../src/lab/scenarios.ts"), import("../src/core/skills/strike.ts")]);
   const { values } = parseArgs({ options: {
     stretch: { type: "string", default: "0.8,0.9,1,1.1" }, seconds: { type: "string", default: "0.25,0.4,0.6" }, through: { type: "string", default: "0.1,0.15,0.25" },
     models: { type: "string", default: "workshop-fighter,workshop-rogue,crypt-skeleton" }, held: { type: "string", default: "empty,club" },

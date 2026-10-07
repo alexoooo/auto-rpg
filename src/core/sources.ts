@@ -17,6 +17,10 @@ type Source =
   | { readonly kind: "measurement"; readonly how: string; readonly record: string };
 
 export const SOURCES = Object.freeze({
+  "reptile-anatomy": {
+    kind: "asset", file: "assets/reptile/body.json",
+    what: "Authored estimates for the 8 kg sprawling reptile: geometry, mass weights, joint limits and muscle ceilings; docs/reference/reptile.md states their uncertainty and derivations.",
+  },
   "contact-projection-fixture": {
     kind: "asset", file: "assets/research/contact-projection.json",
     what: "Synthetic sphere and welded offset load for the friction-projection comparison; fixture inputs, not anatomical measurements.",
@@ -180,7 +184,7 @@ export const SOURCES = Object.freeze({
   },
   "hallaceli-2014": {
     kind: "literature",
-    cite: "Hallaçeli H, Uruç V, Uysal HH, Özden R, Hallaçeli Ç, Soyuer F, İnce Parpucu T, Yengil E, "
+    cite: "HallaÃ§eli H, UruÃ§ V, Uysal HH, Ã–zden R, HallaÃ§eli Ã‡, Soyuer F, Ä°nce Parpucu T, Yengil E, "
       + "Cavlak U (2014). Normal hip, knee and ankle range of motion in the Turkish population. Acta "
       + "Orthop Traumatol Turc 48(1):37-42.",
     link: "https://doi.org/10.3944/AOTT.2014.3113",
@@ -219,7 +223,7 @@ export const SOURCES = Object.freeze({
   },
   "ds-2009": {
     kind: "literature",
-    cite: "Danneskiold-Samsøe B, Bartels EM, Bülow PM, Lund H, Stockmarr A, Holm CC, Wätjen I, "
+    cite: "Danneskiold-SamsÃ¸e B, Bartels EM, BÃ¼low PM, Lund H, Stockmarr A, Holm CC, WÃ¤tjen I, "
       + "Appleyard M, Bliddal H (2009). Isokinetic and isometric muscle strength in a healthy "
       + "population with special reference to age and gender. Acta Physiol 197(Suppl 673):1-68.",
     link: "https://doi.org/10.1111/j.1748-1716.2009.02022.x",
@@ -258,7 +262,7 @@ export const SOURCES = Object.freeze({
   },
   "axelsson-2018": {
     kind: "literature",
-    cite: "Axelsson P, Fredrikson P, Nilsson A, Andersson JK, Kärrholm J (2018). Forearm torque and "
+    cite: "Axelsson P, Fredrikson P, Nilsson A, Andersson JK, KÃ¤rrholm J (2018). Forearm torque and "
       + "lifting strength: normative data. J Hand Surg Am 43(7):677.e1-677.e17.",
     link: "https://doi.org/10.1016/j.jhsa.2017.12.022",
   },

@@ -4,6 +4,7 @@ import { LEVEL } from "./level.ts";
 import { distance, findPath, walkable, type DungeonMap, type Point, type Room } from "./map.ts";
 import { companionSpawn } from "./party-placement.ts";
 import { mulberry32 } from "../rng.ts";
+import { populateEncounters, outsidePartyStart } from "./encounters.ts";
 
 /**
  * The crypt's layout, in cells of 1 m (`docs/reference/play.md#the-crypt`): four rooms, two by two, each joined to
@@ -27,7 +28,6 @@ const CRYPT_LAYOUT = Object.freeze({
   /** Enemies in each room but the entrance. */
   spawns: 2,
   /** How far an enemy starts from the party's start, from every door and from the other enemy of its room, m. */
-  spawnFromStart: 15,
   spawnFromDoor: 3,
   spawnSpacing: 2,
   /** Companions the entrance must have room for. */
@@ -111,13 +111,13 @@ function farthestRoom(adjacency: readonly (readonly number[])[]): number {
 /** Where `room`'s enemies start: the first of its inner cells, shuffled, that a body can stand on and walk to from
  * the start, far enough from the start, from every door and from one another. */
 function encounter(map: DungeonMap, room: Room, pick: Pick): Point[] {
-  const { spawns, spawnFromStart, spawnFromDoor, spawnSpacing } = CRYPT_LAYOUT;
+  const { spawns, spawnFromDoor, spawnSpacing } = CRYPT_LAYOUT;
   const candidates: Point[] = [];
   for (let z = room.min.z + 1; z < room.max.z; z++) for (let x = room.min.x + 1; x < room.max.x; x++) candidates.push({ x, z });
   shuffle(candidates, pick);
   const chosen: Point[] = [];
   for (const p of candidates) {
-    const fits = walkable(map, p, LEVEL.clearance) && distance(p, map.start) > spawnFromStart
+    const fits = walkable(map, p, LEVEL.clearance) && outsidePartyStart(map, p)
       && map.doors.every(door => distance(p, door.point) > spawnFromDoor)
       && chosen.every(q => distance(p, q) > spawnSpacing) && findPath(map, map.start, p, LEVEL.clearance).length > 0;
     if (!fits) continue;
@@ -175,5 +175,6 @@ export function generateCryptDungeon(seed: number): CryptRoomPlan {
   for (const p of [map.exit, ...map.spawns, ...rooms.map(room => room.centre)]) {
     if (!findPath(map, map.start, p, LEVEL.clearance).length) throw new CryptLayoutError(map.seed, `no way from the start to ${p.x}, ${p.z}`);
   }
+  populateEncounters(map);
   return dressCryptMap(map, mulberry32((seed ^ ART_SALT) >>> 0), archetypes, furniture.flatMap(f => f.placements));
 }

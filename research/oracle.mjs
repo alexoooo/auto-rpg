@@ -33,7 +33,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { parseArgs } from "node:util";
 import { CAP_SECONDS, SIDES } from "../src/arena/duel.ts";
 import { tapeHash } from "../src/arena/matchup.ts";
-import { BODY_MODELS } from "../src/core/human/spec.ts";
+import { HUMANOID_MODELS as BODY_MODELS } from "../src/core/models.ts";
 import { BOUT_HARNESS, buildBout } from "./bout.mjs";
 import { defaultLanes, playBouts } from "./bout-pool.mjs";
 import { rolloutPool } from "./rollout-pool.mjs";

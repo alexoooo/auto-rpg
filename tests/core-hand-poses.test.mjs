@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Quaternion, Vector3 } from '@babylonjs/core/Maths/math.vector.js';
-import { modelSpec } from '../src/core/human/spec.ts';
+import { modelSpec } from '../src/core/models.ts';
 import { coreStand, saveStand, loadStand } from './harness/core-stand.mjs';
 import { createBody, SERVO_SECONDS } from '../src/core/body.ts';
 import { pointOfToRef } from '../src/core/control/support.ts';

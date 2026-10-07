@@ -5,7 +5,7 @@ import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { dressRobot } from "../src/render/robot-skin.ts";
 import { APPEARANCES, appearanceFor, appearancesFor, wearsClothing } from "../src/render/appearance.ts";
 import { dresserFor } from "../src/render/dress.ts";
-import { modelSpec } from "../src/core/human/spec.ts";
+import { modelSpec } from "../src/core/models.ts";
 import { armed } from "../src/core/human/grip.ts";
 import { woodenClub } from "../src/core/items/club.ts";
 import { coreStand } from "./harness/core-stand.mjs";

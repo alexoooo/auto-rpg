@@ -20,7 +20,7 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { createBody, SERVO_SECONDS } from "../src/core/body.ts";
 import { rigidPoints } from "../src/core/build/rigid.ts";
 import { intoFrameToRef } from "../src/core/control/kinematics.ts";
-import { BODY_MODELS } from "../src/core/human/spec.ts";
+import { HUMANOID_MODELS as BODY_MODELS } from "../src/core/models.ts";
 import { GUARD_ACTION } from "../src/core/mind/intent.ts";
 import { GUARD_COVER } from "../src/core/skills/guard.ts";
 import { createSkills } from "../src/core/skills/skills.ts";

@@ -2,7 +2,7 @@ import type { Scene } from "@babylonjs/core/scene.js";
 import poses from "../../../assets/research/posture-holds.json" with { type: "json" };
 import { buildBody } from "../build/build-body.ts";
 import type { PhysicsEngine } from "../engine/engine.ts";
-import { modelSpec, type BodyModel } from "../human/spec.ts";
+import { modelSpec, type HumanoidModel as BodyModel } from "../models.ts";
 import { checkedAction, type ActuatorAction } from "../mind/actions.ts";
 import { createDirectBody, createPolicyBody } from "../mind/direct.ts";
 import { deepFreeze } from "../state.ts";

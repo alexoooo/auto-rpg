@@ -11,7 +11,7 @@ import { Scene } from "@babylonjs/core/scene.js";
 import { GameAudio } from "../audio/game-audio.ts";
 import { loadEngine } from "../core/engine/engines.ts";
 import { buildBody, type BuiltBody } from "../core/build/build-body.ts";
-import type { BodyModel } from "../core/human/spec.ts";
+import type { HumanoidModel as BodyModel } from "../core/models.ts";
 import { balanceCeiling, balancePercent, rulebook } from "../core/rules/rulebook.ts";
 import { createWorld, type Hook, type World } from "../core/world.ts";
 import { publicAssetUrl } from "../asset-url.ts";

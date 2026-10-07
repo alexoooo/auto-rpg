@@ -25,7 +25,7 @@ read (`src/core/skills/skills.ts`).
 
 | Layer | Where | What it does |
 |---|---|---|
-| Spec | `src/core/spec/`, `src/core/human/` | a body as data: segments, joints, muscles, wounds, every number sourced |
+| Spec | `src/core/spec/`, `src/core/human/`, `src/core/reptile/` | a body as data: segments, joints, muscles, wounds, every number sourced |
 | Engine seam | `src/core/engine/` | the one contract the core needs from a physics engine |
 | Build | `src/core/build/` | the spec made into engine bodies and joints, and the dynamics read back from them |
 | Muscles | `src/core/muscle/` | torque bounded by strength and by speed |
@@ -117,7 +117,7 @@ blow is shared by), its joints (a tree; each freedom with its axis, range and mu
 wounds (`hp`, the `vital` parts, the parts that never come off) and anything held. An item
 states a surface or is rigid.
 
-The human body plan builds every current body. `figureSpec` (`src/core/human/spec.ts`) takes a
+The humanoid body plan builds the Warrior, Rogue and Skeleton. `figureSpec` (`src/core/human/spec.ts`) takes a
 `HumanFigure` (the sex whose tables apply, the landmarks, the trunk's hulls, the feet, the hands,
 the mass, the stature and the hit points) and lays out 16 segments and 15 joints from published
 tables: de Leva for segment parameters, Dempster via Winter for densities, measured joint ranges
@@ -130,8 +130,15 @@ the impact literature for each part's stiffness under a blunt load (`CONTACT_STI
 | `workshop-fighter`, the Warrior | `workshopFigure`: the workshop model's rig and clothed envelope | 6 |
 | `workshop-rogue`, the Rogue | `workshopFigure` | 4 |
 | `crypt-skeleton` | `skeletonFigure`: its art's bind (`assets/skeleton/bind.json`); mass, strength and hit points are placeholders | 6 |
+| `reptile` | an independently authored 8 kg quadruped (`assets/reptile/body.json`) | 1 |
 
-`BODY_MODELS` lists them and `modelSpec` builds one; `armed(spec, side, woodenClub())`
+`BODY_MODELS`, `modelSpec` and `modelInfo` (`src/core/models.ts`) own the model registry,
+construction, default minds, equipment, clothing, navigation footprints and controller compatibility.
+Humanoid-only tasks use `HUMANOID_MODELS`; they do not fabricate hands on a different body.
+The reptile has 17 segments, 16 joints and 31 muscle freedoms: a trunk, four three-segment legs,
+head, hinged jaw and two tail segments. Its complete spec carries asset provenance, with
+explicitly estimated anatomical values ([reference/reptile.md](reference/reptile.md)).
+`armed(spec, side, woodenClub())`
 (`src/core/human/grip.ts`, `src/core/items/club.ts`) puts the club, the only weapon so far, in a
 hand. Families share code, never values: a spec does not spread another family's spec.
 
@@ -363,6 +370,20 @@ body it carries in the step's sensing phase (`World.sense`), before any mind ste
 in a step sees the same moment; it shows each body to the others a whole number of steps late,
 none unless given (`DuelRecipe.senseDelay`). A body alone senses the clock (`clockSenses`). Under
 the command layers the senses are in the view (`BodyView.senses`).
+
+The quadruped uses the same `OwnBody`, muscle driver and `PhysicalBody` lifecycle. Its
+`Tactics<Sight, Intent>` reads sensed collider surfaces near the mouth and supplies approach,
+facing and bite intent. `Skill<View>` gives every skill the same resume contract without requiring
+a humanoid view. Crawl, bite and righting keep all changing data under the body's state.
+The shared `effectorTracker` drives declared physical points through bounded IK; `supportedMotor`
+uses named support chains and the floating-base bearing solve. Four paw contacts carry the reptile,
+with no balance assist. Shared upstream freedoms form a stem instead of being owned twice.
+A crawl shifts the centre into the other three contacts before one paw lifts; only a measured
+lift followed by a positive fixed-ground impulse counts as a landing. Stop and resume capture
+the body as it is. The jaw follows a finite angular path through the shared strike cycle, and
+contact wounds both surfaces through the common blow rules. Recovery supplies grounded joint
+torques, routes paws clear of the trunk and verifies quiet four-paw support before the host resumes.
+Blocked placements try the other end of the trunk; broad combat recovery remains unqualified.
 
 The default fighter uses `commandMind` (`src/core/body.ts`): motor control under a driver
 that hands it goals, with skills carrying out what tactics decide. `Minded.body` is the common
@@ -886,7 +907,11 @@ arena, crypt and lab screens at `?play=arena`, `?play=dungeon` and `?play=lab`, 
   within reach (below `ROOM.maxReachHeight`) that names none.
 - **The Crypt** (`src/dungeon/`): a party in a generated dungeon (`DungeonRun`, `run.ts`). The
   map's walls, doors and obstacles are fixed boxes in the world (`buildDungeonWorld`); every
-  body is driven by a mind; a person's orders reach the party only through the run's
+  body is driven by its model's default mind; generated rooms alternate skeletons and three-reptile
+  packs, with collider clearance and reachable routes checked before choosing a layout.
+  Point-only maps retain skeletons. Every built actor receives the run's shared senses;
+  a reptile remains alive during recovery and must stand to reach the exit.
+  A person's orders reach the party only through the run's
   plan (`DungeonCommands`), and each member's mind carries them out while it defends itself.
   Enemies are built when the party comes near; its art is in [art/crypt.md](art/crypt.md). Sight
   is the map's (`canSee`, `reveal`, `src/dungeon/map.ts`), read through an index of the cells
@@ -913,7 +938,8 @@ arena, crypt and lab screens at `?play=arena`, `?play=dungeon` and `?play=lab`, 
 
 The screens share the core and `src/render/`: `dress.ts`, which draws each body as its skin, or as
 its collision shapes if the skin does not load; the skins (`skin.ts` for the humans,
-`skeleton-skin.ts` for the skeleton, see [art/skeleton.md](art/skeleton.md)), which read only the
+`skeleton-skin.ts` for the skeleton, see [art/skeleton.md](art/skeleton.md), and procedural
+`reptile-skin.ts`), which read only the
 segments' achieved transforms and own no collision, and the collision shapes drawn
 (`body-shapes.ts`). The arena and the crypt also share the post pipeline (`post.ts`), textured
 surfaces (`surface.ts`, `materials.ts`, `textures.json`) and sound (`src/audio/`): `cues.ts`

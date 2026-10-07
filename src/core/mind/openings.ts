@@ -107,6 +107,25 @@ export function capsuleSurfaceAtHeight(foe: BodySense, name: string, from: Vec3,
   return [surface.x, surface.y, surface.z];
 }
 
+/** The near face of an observed collider, including limbs below a standing opponent's trunk. */
+export function nearSurface(foe: BodySense, name: string, from: Vec3): Vec3 | null {
+  const segment = foe.spec.segments.find(s => s.name === name), sensed = foe.segments.get(name);
+  if (!segment || !sensed) return null;
+  const scratch = new Vector3(), inverse = new Quaternion();
+  scratch.set(...from).subtractInPlace(sensed.position).applyRotationQuaternionToRef(Quaternion.InverseToRef(sensed.rotation, inverse), scratch);
+  const start: Vec3 = [scratch.x, scratch.y, scratch.z], round = capsule(segment), poly = polyhedron(segment);
+  let at: Vec3 | null = null;
+  if (round) {
+    const axis = sub(round.b, round.a), squared = dot(axis, axis);
+    const centre = add(round.a, scale(axis, squared ? Math.max(0, Math.min(1, dot(sub(start, round.a), axis) / squared)) : 0));
+    const normal = sub(start, centre), size = length(normal);
+    at = size ? add(centre, scale(normal, round.radius / size)) : add(centre, [round.radius, 0, 0]);
+  } else if (poly) at = hullEntry(poly.planes, start, poly.middle);
+  if (!at) return null;
+  scratch.set(...at).applyRotationQuaternionToRef(sensed.rotation, scratch).addInPlace(sensed.position);
+  return [scratch.x, scratch.y, scratch.z];
+}
+
 function verticalSurface(foe: BodySense, name: string, from: Vec3 | undefined, sense: 1 | -1): Vec3 | null {
   const segment=foe.spec.segments.find(s=>s.name===name),sensed=foe.segments.get(name);
   if(!segment||!sensed)return null;

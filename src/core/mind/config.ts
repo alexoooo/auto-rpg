@@ -42,7 +42,12 @@ export interface FighterMindConfig {
  * **A mind's config**, by kind: plain data, so it rides in a recipe, a save and a link. Each kind
  * of mind declares its own; a fight passes one through and reads nothing in it.
  */
-export type MindConfig = FighterMindConfig | PointFighterConfig | ArenaFighterConfig | DirectMindConfig;
+export type MindConfig = FighterMindConfig | PointFighterConfig | ArenaFighterConfig | DirectMindConfig | QuadrupedConfig;
+
+/** Four-paw crawling, physical jaw snaps and self-righting through the body's own muscles. */
+interface QuadrupedConfig { readonly kind: "quadruped" }
+
+export const QUADRUPED: QuadrupedConfig = deepFreeze({ kind: "quadruped" });
 
 /** Point-space combat over the shared stance and muscle controller. */
 export interface PointFighterConfig {

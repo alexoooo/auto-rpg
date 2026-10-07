@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createEquipment } from "../src/core/equipment.ts";
 import { woodenClub } from "../src/core/items/club.ts";
-import { modelSpec } from "../src/core/human/spec.ts";
+import { modelSpec } from "../src/core/models.ts";
 import { equipmentPort } from "../src/core/mind/equipment-port.ts";
 import { checkedBodyAction } from "../src/core/mind/body-actions.ts";
 import { createPolicyBody } from "../src/core/mind/direct.ts";

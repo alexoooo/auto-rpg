@@ -10,7 +10,7 @@ import { createBody, SERVO_SECONDS } from "../src/core/body.ts";
 import { FALLEN, uprightness } from "../src/core/control/ground.ts";
 import { centreOfToRef, footStatesOf } from "../src/core/control/support.ts";
 import { armed } from "../src/core/human/grip.ts";
-import { BODY_MODELS, modelSpec } from "../src/core/human/spec.ts";
+import { HUMANOID_MODELS as BODY_MODELS, modelSpec } from "../src/core/models.ts";
 import { woodenClub } from "../src/core/items/club.ts";
 import { FIGHTER } from "../src/core/mind/config.ts";
 import { standIntent } from "../src/core/mind/intent.ts";

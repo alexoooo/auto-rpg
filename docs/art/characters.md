@@ -1,5 +1,12 @@
 # The workshop models: the Warrior and the Rogue
 
+The reptile uses procedural shells (`src/render/reptile-skin.ts`) instead of a workshop rig.
+Each shell follows its physical segment. Shells are olive `#78834d`; two 25 mm eye spheres
+with 12 segments sit at reference coordinates `(±.055, .285, .34)` m on the head. Their
+diffuse colour is `#171f13`, with `#c3bb65` specular colour. These authored art choices carry
+no colliders or hit authority. The skin owns its materials and disposes its meshes without
+disposing the scene's shared materials. Detailed reptile art remains open.
+
 The game's two humans are the character workshop's models: the fighter, who plays the Warrior,
 and the rogue, who plays the Rogue. The male fighter and female rogue use customized
 MakeHuman/MPFB CC0 anatomy, skin textures, hair, eyes and rig weights. Their clothing, armour,

@@ -30,7 +30,7 @@ if (isMainThread) {
     gaps: { type: "string", default: "3,4,5" }, held: { type: "string", default: "club" }, workers: { type: "string" },
     save: { type: "string" }, load: { type: "string" },
   } });
-  const { BODY_MODELS } = await import("../src/core/human/spec.ts");
+  const { HUMANOID_MODELS: BODY_MODELS } = await import("../src/core/models.ts");
   const jobs = [];
   for (const held of values.held.split(",")) for (const gap of values.gaps.split(",").map(Number)) {
     for (const left of BODY_MODELS) for (const right of BODY_MODELS) jobs.push({ left, right, gap, held });

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createBody, SERVO_SECONDS } from '../src/core/body.ts';
-import { modelSpec } from '../src/core/human/spec.ts';
+import { modelSpec } from '../src/core/models.ts';
 import { GUARD } from '../src/core/skills/guard.ts';
 import { attackPath, ATTACK_PATH } from '../src/core/skills/attack-path.ts';
 import { ARENA_FIGHTER } from '../src/core/mind/config.ts';

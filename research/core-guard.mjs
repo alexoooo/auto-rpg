@@ -32,7 +32,7 @@
 import { appendFileSync, readFileSync } from "node:fs";
 import { parseArgs } from "node:util";
 import { DUEL_HELD, SIDES } from "../src/arena/duel.ts";
-import { BODY_MODELS } from "../src/core/human/spec.ts";
+import { HUMANOID_MODELS as BODY_MODELS } from "../src/core/models.ts";
 import { FIGHTER } from "../src/core/mind/config.ts";
 import { BOUT_HARNESS } from "./bout.mjs";
 import { defaultLanes, playBouts } from "./bout-pool.mjs";

@@ -4,7 +4,7 @@ import { buildBody } from "../build/build-body.ts";
 import type { MotionCommand } from "../control/tasks.ts";
 import type { PhysicsEngine } from "../engine/engine.ts";
 import { equipHands } from "../human/equipment.ts";
-import { modelSpec, type BodyModel } from "../human/spec.ts";
+import { modelSpec, type HumanoidModel as BodyModel } from "../models.ts";
 import { woodenClub } from "../items/club.ts";
 import { cos, sin } from "../math/real.ts";
 import { createMotionBody } from "../mind/motion.ts";

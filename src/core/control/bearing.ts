@@ -180,6 +180,7 @@ interface BearingScratch {
  */
 export interface Bearing {
   readonly assist: Assist | null;
+  readonly damping: number;
   readonly limbs: readonly Limb[];
   readonly root: Float64Array;
   readonly helped: { readonly force: Vector3; readonly moment: Vector3 };
@@ -194,10 +195,10 @@ export interface Bearing {
  * muscles that carry it can most easily give it (`weighEffort`), besides as their shares ask.
  */
 export function makeBearing(assist: Assist | null, limbs: readonly Limb[],
-  out: Pick<Bearing, "root" | "helped" | "held" | "shortfall">, { effort = false }: { readonly effort?: boolean } = {}): Bearing {
+  out: Pick<Bearing, "root" | "helped" | "held" | "shortfall">, { effort = false, damping = LEG_DAMPING }: { readonly effort?: boolean; readonly damping?: number } = {}): Bearing {
   const carriers = new Set(limbs.flatMap((limb) => [...limb.memory.channels, ...limb.stem])).size;
   return {
-    assist, limbs, root: out.root, helped: out.helped, held: out.held, shortfall: out.shortfall,
+    assist, damping, limbs, root: out.root, helped: out.helped, held: out.held, shortfall: out.shortfall,
     scratch: {
       shares: limbs.map(() => ({ force: new Vector3(), moment: new Vector3() })),
       missed: { force: new Vector3(), moment: new Vector3() },
@@ -233,14 +234,14 @@ function jacobianTo(channels: readonly number[], point: Vector3, driver: MuscleD
  * and the least motion that gives the task what `toward` leaves of it. A posture asked so is a
  * task beneath the point's, in its null space (Siciliano and Slotine 1991). `rows` is `q` by `m`.
  */
-function nearSolveTo(solve: LimbSolve, rows: Float64Array, y: Float64Array, q: number, m: number, ahead: readonly number[], toward: readonly number[], x: Float64Array): void {
+function nearSolveTo(solve: LimbSolve, rows: Float64Array, y: Float64Array, q: number, m: number, ahead: readonly number[], toward: readonly number[], x: Float64Array, damping: number): void {
   const left = solve.column;
   for (let r = 0; r < q; r++) {
     let sum = y[r]!;
     for (let k = 0; k < m; k++) if (Number.isNaN(ahead[k]!)) sum = sum - rows[r * m + k]! * toward[k]!;
     left[r] = sum;
   }
-  fixedSolveTo(solve.fixed, rows, left, q, m, ahead, LEG_DAMPING, x);
+  fixedSolveTo(solve.fixed, rows, left, q, m, ahead, damping, x);
   for (let k = 0; k < m; k++) if (Number.isNaN(ahead[k]!)) x[k] = x[k]! + toward[k]!;
 }
 
@@ -293,12 +294,12 @@ function solveLimb(b: Bearing, index: number, muscles: MuscleDriver, p0: readonl
     rows = solve.rowsJ; Bs = solve.rowsB; y = solve.rowsK;
   }
   const { y0, Y, still, column, x } = solve;
-  if (work.toward) nearSolveTo(solve, rows, y, q, m, ahead, work.toward, y0);
-  else fixedSolveTo(solve.fixed, rows, y, q, m, ahead, LEG_DAMPING, y0);
+  if (work.toward) nearSolveTo(solve, rows, y, q, m, ahead, work.toward, y0, b.damping);
+  else fixedSolveTo(solve.fixed, rows, y, q, m, ahead, b.damping, y0);
   for (let k = 0; k < m; k++) still[k] = Number.isNaN(ahead[k]!) ? NaN : 0;
   for (let c = 0; c < 6; c++) {
     for (let r = 0; r < q; r++) column[r] = Bs[r * 6 + c]!;
-    fixedSolveTo(solve.fixed, rows, column, q, m, still, LEG_DAMPING, x);
+    fixedSolveTo(solve.fixed, rows, column, q, m, still, b.damping, x);
     for (let k = 0; k < m; k++) Y[k * 6 + c] = x[k]!;
   }
 }

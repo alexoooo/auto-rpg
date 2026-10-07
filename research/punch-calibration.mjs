@@ -4,7 +4,7 @@ import { gzipSync } from 'node:zlib';
 import { parseArgs } from 'node:util';
 import { Vector3 } from '@babylonjs/core/Maths/math.vector.js';
 import { coreStand } from '../tests/harness/core-stand.mjs';
-import { modelSpec } from '../src/core/human/spec.ts';
+import { modelSpec } from '../src/core/models.ts';
 import { createBody, SERVO_SECONDS } from '../src/core/body.ts';
 import { DEFAULT_ENGINE } from '../src/core/engine/engines.ts';
 import { GUARD_ACTION } from '../src/core/mind/intent.ts';

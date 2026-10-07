@@ -1,5 +1,5 @@
 import { armed } from "../core/human/grip.ts";
-import { modelSpec } from "../core/human/spec.ts";
+import { modelSpec } from "../core/models.ts";
 import { woodenClub } from "../core/items/club.ts";
 import { FIST, heldIn } from "../core/skills/strikes.ts";
 import type { BodySpec } from "../core/spec/body.ts";

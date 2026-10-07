@@ -7,7 +7,7 @@ import { skinSlot } from "../src/render/skin-slot.ts";
 import { commandsBody } from "../src/core/body.ts";
 import { FIGHTER, POINT_FIGHTER, ARENA_FIGHTER } from "../src/core/mind/config.ts";
 import { DEFAULT_ENGINE } from "../src/core/engine/engines.ts";
-import { modelSpec } from "../src/core/human/spec.ts";
+import { modelSpec } from "../src/core/models.ts";
 import { buildBout } from "../research/bout.mjs";
 import { labActor } from "../src/lab/actor.ts";
 import { throwBlow } from "../src/lab/blow.ts";

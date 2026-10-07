@@ -1,0 +1,887 @@
+{
+  "mass": 8,
+  "stature": 0.325,
+  "balance": 0,
+  "stiffness": 17000,
+  "curvature": 0.25,
+  "eccentricCeiling": 1.5,
+  "eccentricSlopeRatio": 1,
+  "segments": [
+    {
+      "name": "trunk",
+      "proximal": [
+        0,
+        0.24,
+        -0.14
+      ],
+      "distal": [
+        0,
+        0.24,
+        0.14
+      ],
+      "radius": 0.08,
+      "weight": 4,
+      "kind": "capsule"
+    },
+    {
+      "name": "head",
+      "proximal": [
+        0,
+        0.26,
+        0.25
+      ],
+      "distal": [
+        0,
+        0.26,
+        0.4
+      ],
+      "radius": 0.065,
+      "weight": 0.7,
+      "kind": "capsule",
+      "points": {
+        "mouth": [
+          0,
+          0.215,
+          0.465
+        ]
+      }
+    },
+    {
+      "name": "jaw",
+      "proximal": [
+        0,
+        0.205,
+        0.27
+      ],
+      "distal": [
+        0,
+        0.205,
+        0.495
+      ],
+      "radius": 0.015,
+      "weight": 0.15,
+      "kind": "box",
+      "size": [
+        0.085,
+        0.225,
+        0.025
+      ],
+      "points": {
+        "bite": [
+          0,
+          0.215,
+          0.495
+        ]
+      }
+    },
+    {
+      "name": "upper.front.left",
+      "proximal": [
+        -0.085,
+        0.24,
+        0.16
+      ],
+      "distal": [
+        -0.205,
+        0.145,
+        0.16
+      ],
+      "radius": 0.03,
+      "weight": 0.26,
+      "kind": "capsule"
+    },
+    {
+      "name": "lower.front.left",
+      "proximal": [
+        -0.205,
+        0.145,
+        0.16
+      ],
+      "distal": [
+        -0.26,
+        0.04,
+        0.16
+      ],
+      "radius": 0.023,
+      "weight": 0.16,
+      "kind": "capsule"
+    },
+    {
+      "name": "paw.front.left",
+      "proximal": [
+        -0.26,
+        0.04,
+        0.16
+      ],
+      "distal": [
+        -0.26,
+        0,
+        0.16
+      ],
+      "radius": 0.025,
+      "weight": 0.04,
+      "kind": "box",
+      "size": [
+        0.075,
+        0.035,
+        0.1
+      ],
+      "points": {
+        "sole": [
+          -0.26,
+          0.0025,
+          0.16
+        ]
+      }
+    },
+    {
+      "name": "upper.front.right",
+      "proximal": [
+        0.085,
+        0.24,
+        0.16
+      ],
+      "distal": [
+        0.205,
+        0.145,
+        0.16
+      ],
+      "radius": 0.03,
+      "weight": 0.26,
+      "kind": "capsule"
+    },
+    {
+      "name": "lower.front.right",
+      "proximal": [
+        0.205,
+        0.145,
+        0.16
+      ],
+      "distal": [
+        0.26,
+        0.04,
+        0.16
+      ],
+      "radius": 0.023,
+      "weight": 0.16,
+      "kind": "capsule"
+    },
+    {
+      "name": "paw.front.right",
+      "proximal": [
+        0.26,
+        0.04,
+        0.16
+      ],
+      "distal": [
+        0.26,
+        0,
+        0.16
+      ],
+      "radius": 0.025,
+      "weight": 0.04,
+      "kind": "box",
+      "size": [
+        0.075,
+        0.035,
+        0.1
+      ],
+      "points": {
+        "sole": [
+          0.26,
+          0.0025,
+          0.16
+        ]
+      }
+    },
+    {
+      "name": "upper.hind.left",
+      "proximal": [
+        -0.085,
+        0.24,
+        -0.16
+      ],
+      "distal": [
+        -0.205,
+        0.145,
+        -0.16
+      ],
+      "radius": 0.03,
+      "weight": 0.26,
+      "kind": "capsule"
+    },
+    {
+      "name": "lower.hind.left",
+      "proximal": [
+        -0.205,
+        0.145,
+        -0.16
+      ],
+      "distal": [
+        -0.26,
+        0.04,
+        -0.16
+      ],
+      "radius": 0.023,
+      "weight": 0.16,
+      "kind": "capsule"
+    },
+    {
+      "name": "paw.hind.left",
+      "proximal": [
+        -0.26,
+        0.04,
+        -0.16
+      ],
+      "distal": [
+        -0.26,
+        0,
+        -0.16
+      ],
+      "radius": 0.025,
+      "weight": 0.04,
+      "kind": "box",
+      "size": [
+        0.075,
+        0.035,
+        0.1
+      ],
+      "points": {
+        "sole": [
+          -0.26,
+          0.0025,
+          -0.16
+        ]
+      }
+    },
+    {
+      "name": "upper.hind.right",
+      "proximal": [
+        0.085,
+        0.24,
+        -0.16
+      ],
+      "distal": [
+        0.205,
+        0.145,
+        -0.16
+      ],
+      "radius": 0.03,
+      "weight": 0.26,
+      "kind": "capsule"
+    },
+    {
+      "name": "lower.hind.right",
+      "proximal": [
+        0.205,
+        0.145,
+        -0.16
+      ],
+      "distal": [
+        0.26,
+        0.04,
+        -0.16
+      ],
+      "radius": 0.023,
+      "weight": 0.16,
+      "kind": "capsule"
+    },
+    {
+      "name": "paw.hind.right",
+      "proximal": [
+        0.26,
+        0.04,
+        -0.16
+      ],
+      "distal": [
+        0.26,
+        0,
+        -0.16
+      ],
+      "radius": 0.025,
+      "weight": 0.04,
+      "kind": "box",
+      "size": [
+        0.075,
+        0.035,
+        0.1
+      ],
+      "points": {
+        "sole": [
+          0.26,
+          0.0025,
+          -0.16
+        ]
+      }
+    },
+    {
+      "name": "tail.base",
+      "proximal": [
+        0,
+        0.24,
+        -0.23
+      ],
+      "distal": [
+        0,
+        0.18,
+        -0.46
+      ],
+      "radius": 0.035,
+      "weight": 0.45,
+      "kind": "capsule"
+    },
+    {
+      "name": "tail.tip",
+      "proximal": [
+        0,
+        0.18,
+        -0.46
+      ],
+      "distal": [
+        0,
+        0.13,
+        -0.68
+      ],
+      "radius": 0.023,
+      "weight": 0.25,
+      "kind": "capsule"
+    }
+  ],
+  "joints": [
+    {
+      "name": "neck",
+      "parent": "trunk",
+      "child": "head",
+      "centre": [
+        0,
+        0.26,
+        0.24
+      ],
+      "axes": [
+        [
+          0,
+          1,
+          0
+        ],
+        [
+          1,
+          0,
+          0
+        ]
+      ],
+      "peak": 1.5,
+      "speed": 8,
+      "limits": [
+        [
+          -0.8,
+          0.8
+        ],
+        [
+          -0.6,
+          0.6
+        ]
+      ]
+    },
+    {
+      "name": "jaw",
+      "parent": "head",
+      "child": "jaw",
+      "centre": [
+        0,
+        0.205,
+        0.27
+      ],
+      "axes": [
+        [
+          1,
+          0,
+          0
+        ]
+      ],
+      "peak": 1.2,
+      "speed": 12,
+      "limits": [
+        [
+          0,
+          0.65
+        ]
+      ]
+    },
+    {
+      "name": "girdle.front.left",
+      "parent": "trunk",
+      "child": "upper.front.left",
+      "centre": [
+        -0.085,
+        0.24,
+        0.16
+      ],
+      "axes": [
+        [
+          0,
+          1,
+          0
+        ],
+        [
+          1,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          1
+        ]
+      ],
+      "peak": 6,
+      "speed": 6,
+      "limits": [
+        [
+          -1.2,
+          1.2
+        ],
+        [
+          -1.2,
+          1.2
+        ],
+        [
+          -2.8,
+          2.8
+        ]
+      ]
+    },
+    {
+      "name": "bend.front.left",
+      "parent": "upper.front.left",
+      "child": "lower.front.left",
+      "centre": [
+        -0.205,
+        0.145,
+        0.16
+      ],
+      "axes": [
+        [
+          0,
+          0,
+          1
+        ]
+      ],
+      "peak": 4,
+      "speed": 6,
+      "limits": [
+        [
+          -0.2,
+          2.8
+        ]
+      ]
+    },
+    {
+      "name": "ankle.front.left",
+      "parent": "lower.front.left",
+      "child": "paw.front.left",
+      "centre": [
+        -0.26,
+        0.04,
+        0.16
+      ],
+      "axes": [
+        [
+          1,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          1
+        ]
+      ],
+      "peak": 2,
+      "speed": 6,
+      "limits": [
+        [
+          -1.2,
+          1.2
+        ],
+        [
+          -1.2,
+          1.2
+        ]
+      ]
+    },
+    {
+      "name": "girdle.front.right",
+      "parent": "trunk",
+      "child": "upper.front.right",
+      "centre": [
+        0.085,
+        0.24,
+        0.16
+      ],
+      "axes": [
+        [
+          0,
+          1,
+          0
+        ],
+        [
+          1,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          1
+        ]
+      ],
+      "peak": 6,
+      "speed": 6,
+      "limits": [
+        [
+          -1.2,
+          1.2
+        ],
+        [
+          -1.2,
+          1.2
+        ],
+        [
+          -2.8,
+          2.8
+        ]
+      ]
+    },
+    {
+      "name": "bend.front.right",
+      "parent": "upper.front.right",
+      "child": "lower.front.right",
+      "centre": [
+        0.205,
+        0.145,
+        0.16
+      ],
+      "axes": [
+        [
+          0,
+          0,
+          1
+        ]
+      ],
+      "peak": 4,
+      "speed": 6,
+      "limits": [
+        [
+          -2.8,
+          0.2
+        ]
+      ]
+    },
+    {
+      "name": "ankle.front.right",
+      "parent": "lower.front.right",
+      "child": "paw.front.right",
+      "centre": [
+        0.26,
+        0.04,
+        0.16
+      ],
+      "axes": [
+        [
+          1,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          1
+        ]
+      ],
+      "peak": 2,
+      "speed": 6,
+      "limits": [
+        [
+          -1.2,
+          1.2
+        ],
+        [
+          -1.2,
+          1.2
+        ]
+      ]
+    },
+    {
+      "name": "girdle.hind.left",
+      "parent": "trunk",
+      "child": "upper.hind.left",
+      "centre": [
+        -0.085,
+        0.24,
+        -0.16
+      ],
+      "axes": [
+        [
+          0,
+          1,
+          0
+        ],
+        [
+          1,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          1
+        ]
+      ],
+      "peak": 6,
+      "speed": 6,
+      "limits": [
+        [
+          -1.2,
+          1.2
+        ],
+        [
+          -1.2,
+          1.2
+        ],
+        [
+          -2.8,
+          2.8
+        ]
+      ]
+    },
+    {
+      "name": "bend.hind.left",
+      "parent": "upper.hind.left",
+      "child": "lower.hind.left",
+      "centre": [
+        -0.205,
+        0.145,
+        -0.16
+      ],
+      "axes": [
+        [
+          0,
+          0,
+          1
+        ]
+      ],
+      "peak": 4,
+      "speed": 6,
+      "limits": [
+        [
+          -0.2,
+          2.8
+        ]
+      ]
+    },
+    {
+      "name": "ankle.hind.left",
+      "parent": "lower.hind.left",
+      "child": "paw.hind.left",
+      "centre": [
+        -0.26,
+        0.04,
+        -0.16
+      ],
+      "axes": [
+        [
+          1,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          1
+        ]
+      ],
+      "peak": 2,
+      "speed": 6,
+      "limits": [
+        [
+          -1.2,
+          1.2
+        ],
+        [
+          -1.2,
+          1.2
+        ]
+      ]
+    },
+    {
+      "name": "girdle.hind.right",
+      "parent": "trunk",
+      "child": "upper.hind.right",
+      "centre": [
+        0.085,
+        0.24,
+        -0.16
+      ],
+      "axes": [
+        [
+          0,
+          1,
+          0
+        ],
+        [
+          1,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          1
+        ]
+      ],
+      "peak": 6,
+      "speed": 6,
+      "limits": [
+        [
+          -1.2,
+          1.2
+        ],
+        [
+          -1.2,
+          1.2
+        ],
+        [
+          -2.8,
+          2.8
+        ]
+      ]
+    },
+    {
+      "name": "bend.hind.right",
+      "parent": "upper.hind.right",
+      "child": "lower.hind.right",
+      "centre": [
+        0.205,
+        0.145,
+        -0.16
+      ],
+      "axes": [
+        [
+          0,
+          0,
+          1
+        ]
+      ],
+      "peak": 4,
+      "speed": 6,
+      "limits": [
+        [
+          -2.8,
+          0.2
+        ]
+      ]
+    },
+    {
+      "name": "ankle.hind.right",
+      "parent": "lower.hind.right",
+      "child": "paw.hind.right",
+      "centre": [
+        0.26,
+        0.04,
+        -0.16
+      ],
+      "axes": [
+        [
+          1,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          1
+        ]
+      ],
+      "peak": 2,
+      "speed": 6,
+      "limits": [
+        [
+          -1.2,
+          1.2
+        ],
+        [
+          -1.2,
+          1.2
+        ]
+      ]
+    },
+    {
+      "name": "tail.base",
+      "parent": "trunk",
+      "child": "tail.base",
+      "centre": [
+        0,
+        0.24,
+        -0.23
+      ],
+      "axes": [
+        [
+          0,
+          1,
+          0
+        ],
+        [
+          1,
+          0,
+          0
+        ]
+      ],
+      "peak": 0.4,
+      "speed": 4,
+      "limits": [
+        [
+          -0.6,
+          0.6
+        ],
+        [
+          -0.4,
+          0.4
+        ]
+      ]
+    },
+    {
+      "name": "tail.tip",
+      "parent": "tail.base",
+      "child": "tail.tip",
+      "centre": [
+        0,
+        0.18,
+        -0.46
+      ],
+      "axes": [
+        [
+          0,
+          1,
+          0
+        ],
+        [
+          1,
+          0,
+          0
+        ]
+      ],
+      "peak": 0.2,
+      "speed": 4,
+      "limits": [
+        [
+          -0.6,
+          0.6
+        ],
+        [
+          -0.4,
+          0.4
+        ]
+      ]
+    }
+  ]
+}

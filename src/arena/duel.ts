@@ -5,9 +5,9 @@ import type { PhysicalBody } from "../core/physical-body.ts";
 import { buildBody } from "../core/build/build-body.ts";
 import type { AssistCeiling } from "../core/control/assist.ts";
 import { armed } from "../core/human/grip.ts";
-import { modelSpec, type BodyModel } from "../core/human/spec.ts";
+import { modelInfo, modelSpec, modelSupportsMind, type BodyModel } from "../core/models.ts";
 import { woodenClub } from "../core/items/club.ts";
-import { FIGHTER, type MindConfig } from "../core/mind/config.ts";
+import type { MindConfig } from "../core/mind/config.ts";
 import { createMind, type Minded } from "../core/mind/minds.ts";
 import { sameOrders, type Orders } from "../core/mind/orders.ts";
 import { createSenses, type SensesHub } from "../core/mind/senses.ts";
@@ -216,6 +216,11 @@ export class Duel {
   constructor(world: World, recipe: DuelRecipe, hooks: DuelHooks = {}) {
     if (recipe.recoverySeconds !== undefined && recipe.recoverySeconds !== null && (!Number.isFinite(recipe.recoverySeconds) || recipe.recoverySeconds < 0))
       throw new Error("invalid recovery window");
+    for (const side of SIDES) {
+      const model = recipe[side], info = modelInfo(model), held = recipe.held?.[side] ?? info.held, config = recipe.minds?.[side] ?? info.mind;
+      if (held === "club" && !info.hands) throw new Error(`${model} cannot hold a club`);
+      if (!modelSupportsMind(model, config)) throw new Error(`incompatible controller for ${model}`);
+    }
     this.world = world;
     this.recipe = Object.freeze({ ...recipe });
     this.rules = rulebook("arena", recipe.rules);
@@ -238,7 +243,8 @@ export class Duel {
     const duelists = {} as Record<Side, Duelist>;
     for (const side of SIDES) {
       const model = recipe[side];
-      const spec = holding(recipe.surfaces ? stiffened(modelSpec(model), recipe.surfaces) : modelSpec(model), recipe.held?.[side] ?? "club");
+      const info = modelInfo(model), held = recipe.held?.[side] ?? info.held, config = recipe.minds?.[side] ?? info.mind;
+      const spec = holding(recipe.surfaces ? stiffened(modelSpec(model), recipe.surfaces) : modelSpec(model), held);
       const x = (side === "left" ? -1 : 1) * gap / 2;
       const built = buildBody(spec, world, { position: [x, 0, 0] });
       for (const [segment, part] of built.segments) contactLabels.set(part.body, Object.freeze({ kind: "body", body: side, segment }));
@@ -248,7 +254,7 @@ export class Duel {
       const granted = solids ? Object.defineProperties({ solids }, Object.getOwnPropertyDescriptors(sensedBody())) as ReturnType<typeof sensedBody> : null;
       const senses = granted ? () => granted : sensedBody;
       const assist = balanceCeiling(recipe.balance?.[side] ?? spec.attributes.balance.value, recipe.balancePercent ?? balancePercent(this.rules));
-      const minded = createMind(built, world, recipe.minds?.[side] ?? FIGHTER, {
+      const minded = createMind(built, world, config, {
         name: `arena ${side}`, senses, assist,
         contactIdentity: other => other ? contactLabels.get(other) ?? null : { kind: "world" },
         // Out of the fight it is left to itself, as a side nobody orders is.

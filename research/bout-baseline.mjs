@@ -23,7 +23,7 @@
  */
 import { parseArgs } from "node:util";
 import { DUEL_HELD } from "../src/arena/duel.ts";
-import { BODY_MODELS } from "../src/core/human/spec.ts";
+import { HUMANOID_MODELS as BODY_MODELS } from "../src/core/models.ts";
 import { sourced } from "../src/core/spec/quantity.ts";
 import { BOUT_HARNESS } from "./bout.mjs";
 import { defaultLanes, playBouts } from "./bout-pool.mjs";

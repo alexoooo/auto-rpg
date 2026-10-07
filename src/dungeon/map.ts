@@ -7,6 +7,8 @@ export interface DungeonMap {
   obstacles?: readonly DungeonObstacle[];
   seed: number; size: number; floor: Uint8Array; rooms: Room[]; doors: Door[];
   start: Point; exit: Point; spawns: Point[];
+  /** Optional authored/generated encounter metadata; point-only maps retain skeleton enemies. */
+  encounters?: readonly { readonly room: number; readonly model: BodyModel; readonly point: Point }[];
 }
 export const distance = (a: Point, b: Point): number => Math.hypot(a.x - b.x, a.z - b.z);
 export const cellKey = (map: DungeonMap, p: Point): number => Math.round(p.z) * map.size + Math.round(p.x);
@@ -166,3 +168,4 @@ export function explorationGoal(map: DungeonMap, from: Point, explored: Set<numb
   }
   return null;
 }
+import type { BodyModel } from "../core/models.ts";

@@ -2,7 +2,7 @@ import { pathToFileURL } from 'node:url';
 import { Vector3 } from '@babylonjs/core/Maths/math.vector.js';
 import { contactMass } from '../src/core/build/contact-mass.ts';
 import { coreStand } from '../tests/harness/core-stand.mjs';
-import { modelSpec } from '../src/core/human/spec.ts';
+import { modelSpec } from '../src/core/models.ts';
 import { createBody, SERVO_SECONDS } from '../src/core/body.ts';
 import { DEFAULT_ENGINE } from '../src/core/engine/engines.ts';
 import {footStatesOf,readSupport} from '../src/core/control/support.ts';

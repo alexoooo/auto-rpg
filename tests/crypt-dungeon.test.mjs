@@ -41,8 +41,8 @@ test("a seed makes the same crypt every time", () => {
     "a crypt made twice of one seed is the same plan, whole");
 });
 
-test("a crypt holds four rooms, six doors, six enemies, eight torches, eighteen obstacles and damp floor", () => {
-  const expected = { rooms: 4, doors: 6, spawns: 6, torches: 8, obstacles: 18, damp: true };
+test("a crypt holds four rooms, six doors, seven enemies, eight torches, eighteen obstacles and damp floor", () => {
+  const expected = { rooms: 4, doors: 6, spawns: 7, torches: 8, obstacles: 18, damp: true };
   assert.deepEqual(faults((plan) => {
     const counts = {
       rooms: plan.map.rooms.length, doors: plan.map.doors.length, spawns: plan.map.spawns.length,

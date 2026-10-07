@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {Vector3,Quaternion} from '@babylonjs/core/Maths/math.vector.js';
 import {attackPath,ATTACK_PATH,validAttackTuning} from '../src/core/skills/attack-path.ts';
 import {lowerSurface,upperSurface,openingSelector} from '../src/core/mind/openings.ts';
-import {modelSpec} from '../src/core/human/spec.ts';
+import {modelSpec} from '../src/core/models.ts';
 import {frameOf} from '../src/core/spec/body.ts';
 import {convexHull} from '../src/core/spec/hull.ts';
 import {combatStrike} from '../research/combat-strikes.mjs';
