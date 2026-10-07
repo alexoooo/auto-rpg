@@ -1,5 +1,6 @@
 import type { ItemSpec } from "../spec/body.ts";
 import { square } from "../math/real.ts";
+import { cylinderMoments } from "../spec/geometry.ts";
 import { derive, si, sourced, type Quantity } from "../spec/quantity.ts";
 import { midpoint } from "../spec/vec.ts";
 
@@ -9,9 +10,8 @@ import { midpoint } from "../spec/vec.ts";
  * cylinder of ash, end to end.
  *
  * Its frame: the origin at the butt, y up the haft to the swell's end, x and z across. Its mass is
- * the two cylinders' volumes at ash's density; its inertia is each cylinder's about its own
- * centre, a rod's m (L/2)^2 / 3 across plus a disc's m r^2 / 4, and m r^2 / 2 along, moved to
- * the club's centre of mass. It collides as two capsules, each spanning its cylinder's length.
+ * the two cylinders' volumes at ash's density; its inertia is each cylinder's principal moments
+ * about its own centre (`cylinderMoments`), moved to the club's centre of mass. It collides as two capsules, each spanning its cylinder's length.
  *
  * Points: `swellFrom` and `swellTo`, the ends of the swell's capsule's axis, where a blow lands
  * and between which one is stopped (`ItemSpec.cover`), and `swell`, the middle of that axis, which
@@ -32,12 +32,12 @@ export function woodenClub(): ItemSpec {
   const pieces = [haftMass, HAFT_LENGTH, haftRadius, swellMass, SWELL_LENGTH, swellRadius] as const;
   const centreOfMass = derive("m", "each cylinder's mass at its middle, the swell's beyond the haft", pieces,
     (mh, lh, _rh, ms, ls) => [0, (mh * lh / 2 + ms * (lh + ls / 2)) / (mh + ms), 0]);
-  const inertia = derive("kg m2", "each solid cylinder about its centre, m ((L/2)^2 / 3 + r^2 / 4) across and m r^2 / 2 along, moved to the club's centre",
+  const inertia = derive("kg m2", "each solid cylinder's principal moments about its centre, moved to the club's centre",
     pieces, (mh, lh, rh, ms, ls, rs) => {
       const centre = (mh * lh / 2 + ms * (lh + ls / 2)) / (mh + ms);
-      const across = (m: number, l: number, r: number, at: number) => m * (square(l / 2) / 3 + r * r / 4) + m * square(at - centre);
-      const t = across(mh, lh, rh, lh / 2) + across(ms, ls, rs, lh + ls / 2);
-      return [t, mh * rh * rh / 2 + ms * rs * rs / 2, t];
+      const haft = cylinderMoments(mh, lh, rh), swell = cylinderMoments(ms, ls, rs);
+      const t = haft[0] + mh * square(lh / 2 - centre) + (swell[0] + ms * square(lh + ls / 2 - centre));
+      return [t, haft[1] + swell[1], t];
     });
   const at = (rule: string, inputs: readonly Quantity<number>[], y: (...values: number[]) => number) =>
     derive("m", rule, inputs, (...values: number[]) => [0, y(...values), 0]);
