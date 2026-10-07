@@ -1,13 +1,14 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode.js";
 import { cos, sin } from "../math/real.ts";
+import { cuboidMoments } from "../spec/geometry.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import type { World } from "../world.ts";
 
 /**
  * A freely swinging box on one revolute joint. Only initialization supplies an impulse; gravity,
  * joint limits and contact determine its subsequent motion. Inputs are fixture geometry and mass,
- * not character anatomy. Its uniform-box principal moments follow m(a² + b²)/12.
+ * not character anatomy. Its moments are a uniform box's (`cuboidMoments`).
  */
 export function createSwingTarget(world: World, config: {
   readonly id: string; readonly centre: Vec3; readonly size: Vec3; readonly mass: number;
@@ -23,10 +24,8 @@ export function createSwingTarget(world: World, config: {
   node.position.set(x + config.length * sine, y + config.length * (1 - cosine), z);
   node.rotationQuaternion = new Quaternion(0, 0, sin(config.angle / 2), cos(config.angle / 2));
   anchorNode.position.set(x, y + config.length, z); anchorNode.rotationQuaternion = Quaternion.Identity();
-  const [width, height, depth] = config.size;
   const body = world.physics.addBody(node, [{ kind: "box", centre: [0, 0, 0], size: config.size }], {
-    mass: config.mass, centre: [0, 0, 0], moments: [config.mass * (height * height + depth * depth) / 12,
-      config.mass * (width * width + depth * depth) / 12, config.mass * (width * width + height * height) / 12], orientation: Quaternion.Identity(),
+    mass: config.mass, centre: [0, 0, 0], moments: cuboidMoments(config.mass, config.size), orientation: Quaternion.Identity(),
   }, { ccd: true });
   const anchor = world.physics.addBody(anchorNode, [{ kind: "sphere", centre: [0, 0, 0], radius: config.anchorRadius }], {
     mass: config.anchorMass, centre: [0, 0, 0], moments: [config.anchorMoment, config.anchorMoment, config.anchorMoment], orientation: Quaternion.Identity(),

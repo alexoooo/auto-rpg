@@ -1,4 +1,5 @@
 import { cbrt } from "../math/real.ts";
+import type { Vec3 } from "./quantity.ts";
 
 /**
  * Geometry a spec's rules need and cannot write in one line.
@@ -32,4 +33,21 @@ export function ballRadius(volume: number): number {
 /** A solid ball's moment of inertia about any axis through its centre, kg m2: 2/5 m r^2. */
 export function ballMoment(mass: number, radius: number): number {
   return (2 / 5) * mass * radius * radius;
+}
+
+/** A solid cylinder's principal moments about its centre, kg m2, its axis along y: m (l^2 / 12 + r^2 / 4) across, m r^2 / 2 along. */
+export function cylinderMoments(mass: number, length: number, radius: number): Vec3 {
+  const across = mass * (length * length / 12 + radius * radius / 4);
+  return [across, mass * radius * radius / 2, across];
+}
+
+/** A solid cuboid's principal moments about its centre, kg m2, on its edges' axes: m (b^2 + c^2) / 12 about each. */
+export function cuboidMoments(mass: number, size: Vec3): Vec3 {
+  const [x, y, z] = size;
+  return [mass * (y * y + z * z) / 12, mass * (x * x + z * z) / 12, mass * (x * x + y * y) / 12];
+}
+
+/** One part's share of a whole by its weight among all the parts' weights: whole weight / the sum of the weights. */
+export function massShare(whole: number, weight: number, weights: readonly number[]): number {
+  return whole * weight / weights.reduce((sum, w) => sum + w, 0);
 }

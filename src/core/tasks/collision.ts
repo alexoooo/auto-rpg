@@ -2,6 +2,7 @@ import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode.js";
 import type { Scene } from "@babylonjs/core/scene.js";
 import type { PhysicsEngine } from "../engine/engine.ts";
+import { cuboidMoments } from "../spec/geometry.ts";
 import { createWorld } from "../world.ts";
 
 interface CollisionConfiguration {
@@ -31,8 +32,7 @@ export function createCollisionProbe(scene: Scene, engine: PhysicsEngine, config
   }, { ccd: config.ccd });
   const mass = 10, width = 0.01, height = 0.02, depth = 1;
   const shield = world.physics.addBody(shieldNode, [{ kind: "box", centre: [0, 0, 0], size: [width, height, depth] }], {
-    mass, centre: [0, 0, 0], moments: [mass * (height * height + depth * depth) / 12,
-      mass * (width * width + depth * depth) / 12, mass * (width * width + height * height) / 12], orientation: Quaternion.Identity(),
+    mass, centre: [0, 0, 0], moments: cuboidMoments(mass, [width, height, depth]), orientation: Quaternion.Identity(),
   });
   shield.applyImpulse(new Vector3(mass * config.shieldSpeed, 0, 0), shieldNode.position);
   switch (config.mode) {

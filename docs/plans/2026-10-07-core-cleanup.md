@@ -112,11 +112,9 @@ needs it generic.
 
 `externalContact` was not exported: the bite is its only reader.
 
-### Chunk 8: shared spec derivation (bit-identical)
+### Chunk 8: shared spec derivation (landed)
 
-- Add `massShare`, `cuboidMoments` and `cylinderMoments` to `spec/geometry.ts`, beside
-  `ballMoment`.
-- `human/segments.ts` and `reptile/spec.ts` use them, with each copy's operation order kept.
+The two task boxes (`tasks/collision.ts`, `tasks/swing-target.ts`) use `cuboidMoments` too; the club keeps its own until chunk 20.
 
 ### Chunk 9: capabilities derived from the spec (bit-identical)
 

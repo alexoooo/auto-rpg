@@ -1,5 +1,6 @@
 import data from "../../../assets/reptile/body.json" with { type: "json" };
 import type { BodySpec, JointSpec, SegmentSpec, ShapeSpec } from "../spec/body.ts";
+import { cuboidMoments, cylinderMoments, massShare } from "../spec/geometry.ts";
 import { derive, sourced, type Quantity, type Vec3 } from "../spec/quantity.ts";
 import { deepFreeze } from "../state.ts";
 
@@ -16,7 +17,7 @@ export function reptileSpec(): BodySpec {
     const at = `/segments/${i}`, a = q(vector(s.proximal), "m", `${at}/proximal`), b = q(vector(s.distal), "m", `${at}/distal`);
     const centre = derive("m", "midpoint of the declared segment", [a, b], (a, b): Vec3 => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2]);
     const own = derive("kg", "body mass distributed by declared segment weights", [mass, weights[i]!, ...weights],
-      (mass, weight, ...all) => mass * weight / all.reduce((sum, w) => sum + w, 0));
+      (mass, weight, ...all) => massShare(mass, weight, all));
     const { shape, inertia } = ((): { shape: ShapeSpec; inertia: Quantity<Vec3> } => {
       const kind = s.kind as "capsule" | "box";
       switch (kind) {
@@ -27,14 +28,12 @@ export function reptileSpec(): BodySpec {
             return Math.sqrt(x * x + y * y + z * z) + 2 * r;
           });
           return { shape: { kind: "capsule", from: a, to: b, radius },
-            inertia: derive("kg m2", "equivalent uniform cylinder principal moments", [own, span, radius], (m, l, r): Vec3 =>
-              [m * (l * l / (3 * 4) + r * r / 4), m * r * r / 2, m * (l * l / (3 * 4) + r * r / 4)]) };
+            inertia: derive("kg m2", "equivalent uniform cylinder principal moments", [own, span, radius], (m, l, r) => cylinderMoments(m, l, r)) };
         }
         case "box": {
           const size = q(vector(s.size!), "m", `${at}/size`);
           return { shape: { kind: "box", centre, size },
-            inertia: derive("kg m2", "uniform cuboid principal moments", [own, size], (m, d): Vec3 =>
-              [m * (d[1] * d[1] + d[2] * d[2]) / (3 * 4), m * (d[0] * d[0] + d[2] * d[2]) / (3 * 4), m * (d[0] * d[0] + d[1] * d[1]) / (3 * 4)]) };
+            inertia: derive("kg m2", "uniform cuboid principal moments", [own, size], (m, d) => cuboidMoments(m, d)) };
         }
         default: return unknownShape(kind);
       }

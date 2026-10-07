@@ -1,7 +1,7 @@
 import type { Side, SegmentSpec, ShapeSpec } from "../spec/body.ts";
 import { segmentFrame } from "../spec/body.ts";
 import { square } from "../math/real.ts";
-import { capsuleRadius } from "../spec/geometry.ts";
+import { capsuleRadius, massShare } from "../spec/geometry.ts";
 import { derive, si, type Quantity, type Vec3 } from "../spec/quantity.ts";
 import { add, distance, dot, lerp, normalize, scale, sub } from "../spec/vec.ts";
 import type { Extents } from "./envelope.ts";
@@ -171,7 +171,7 @@ export function humanSegments(figure: HumanFigure): SegmentSpec[] {
     const proximal = atFit(plan.proximal), distal = atFit(plan.distal);
     const origin = atFit(plan.origin), end = atFit(plan.end);
     const mass = derive("kg", "de Leva's share of the body's mass, the printed shares normalised to sum to one",
-      [body, shares[i]!, ...shares], (m, share, ...every) => m * share / every.reduce((a, b) => a + b, 0));
+      [body, shares[i]!, ...shares], (m, share, ...every) => massShare(m, share, every));
     const centreOfMass = derive("m", "de Leva's centre of mass, along the row from its origin", [origin, end, si(row.centreOfMass)],
       (o, e, fraction) => lerp(o, e, fraction));
     const inertia = derive("kg m2", "m (r L)^2 about the transverse, longitudinal and sagittal axes",
