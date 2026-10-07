@@ -29,8 +29,9 @@ box sizes are along that segment's local frame.
 
 ## Controller settings
 
-These values are controller choices, held separately from the anatomy in `REPTILE_MOTOR`, `REPTILE_CRAWL`,
-`REPTILE_RECOVERY` and `REPTILE_BITE` (`src/core/reptile/tuning.ts`).
+These values are controller choices, held separately from the anatomy in `REPTILE_MOTOR`,
+`REPTILE_TRAVEL`, `REPTILE_TROT`, `REPTILE_CRAWL`, `REPTILE_RECOVERY` and `REPTILE_BITE`
+(`src/core/reptile/tuning.ts`).
 The contact gates and the final fixed-anatomy checks below qualify the combination; they are
 not a measured optimum or evidence of a real animal's locomotion. Response times are seconds,
 lengths metres, angles radians, and height multipliers relative to the spec's reference COM.
@@ -42,7 +43,14 @@ height over its lowest point.
 | Construct | Values | Purpose |
 | --- | --- | --- |
 | Floating-base response | centre .12, endpoint .08, turn .12, posture .15 s | Damped support and pose tracking |
+| Travel response | centre .06, endpoint .04, turn .06, posture .06 s | Faster support and free-paw tracking during the trot |
 | Support solve | lever .3 m, damping .005, rootMotion .05 s | Wrench weighting, regularization and observed root-acceleration filtering |
+| Trot geometry | crawlHeight 1, lift .025 m, lead .3 s | Standing COM height and paw placement ahead of the actual COM by the commanded velocity times the lead |
+| Trot travel | speed .3 m/s, acceleration .5 m/s2, sideways .15 | Bounded velocity changes and slower lateral travel |
+| Trot timing | swing .22, settle .025, plant .2 s; plantSpeed .2 m/s | Alternating diagonal pairs, with root motion subtracted from landing velocity |
+| Trot heading | turnRate .25 rad/s, turnMoveAngle .2 rad, turnError .05 rad | Wait for the actual trunk heading before accelerating; bound the requested turn |
+| Trot acquisition | liftConfirm .001 m, landingWait .1 s, placementLimit 3 s | Count physical lift and reload; brake on delayed landing and return an unlanded pair to its anchors |
+| Resumed travel | resumeSpeed .1 m/s, resumeHold .3 s, resumeAngle .05 rad | Align and place paws through the crawl, then require quiet four-sole support before trotting |
 | Crawl geometry | crawlHeight .85, stride .07 m, lift .06 m | Lowered three-paw support and one-paw swing |
 | Crawl timing | swing 1.2, shift .45, settle .3, plant .2 s; plantSpeed .05 m/s | Slow placement and continued downward acquisition |
 | Placement bounds | placementLimit 3 s, liftConfirm .001 m | Return an unlanded paw; require real lift-off |
@@ -51,7 +59,8 @@ height over its lowest point.
 | Contact | supportNormal .5, contactMargin .01 m | Positive fixed-ground impulses, and sole versus edge contact |
 | Jaw path | prepare .25 s, snap .12 s, open .3 rad, jawError .03 rad, jawClosed .001 rad | Measured opening and closing, with finite angular motion |
 | Bite reach | biteEntry .008 m beyond the tip-to-mouth span, bitePrepareNear .12 m, biteElevation .15 m, biteNear .04 m | Sensed surface selection and physical chamber readiness |
-| Bite cycle | release .2 s, biteSlow .2 m/s, biteHold .03 s, biteTimeout 1.2 s, biteReturnLimit 3 s | Verified quiet release, or an explicit failed cycle |
+| Bite cycle | release .2 s, biteSlow .2 m/s, biteHold .03 s, biteTimeout 1.2 s, biteReturnLimit 8 s | Verified quiet release; the bound allows actual backward paw placements before reporting failure |
+| Bite approach | approach .3 m, braking .5 m/s2, creepNear .3 m | Reduce travel intent with remaining mouth clearance and stopping distance; retain close crawling until the foe clears this distance |
 | Grounded righting | rightingGain 8 N m/rad, rightingDamping 4 N m s/rad, rightingEpsilon .000001 | Upright-error moment projected onto loaded hips, bounded by their muscles |
 | Clear leg route | foldHip 1.2, foldKnee 2.6, plantedKnee 1.4, sweepYaw 1.2, wrappedHip .5, unwindHip 2 rad | Move a wrapped paw around a trunk end before unfolding; interpolation spans the declared unwind interval |
 | Leg tracking | recoveryServo .06, placementServo .008 s, placementError .15 rad, foldWait .5 s | Separate holding and moving legs; require actual joint arrival and paw clearance |
@@ -60,9 +69,18 @@ height over its lowest point.
 | Supported handover | recoveryPath .5 s, recoveryHeight .8, recoveredSpeed .1 m/s, recovered .5 s, rollUpright .95 | Free-paw reacquisition and quiet four-sole support before resume |
 | Supported rise response | centre .12, endpoint .08, turn .12, posture .15 s | The same physical support solve as ordinary control |
 
-The crawl's centre is shifted into the other three actual contact patches before a swing.
+The trot alternates diagonal pairs selected from the reference footprint. It advances the COM
+continuously at a commanded velocity, rather than waiting for a support shift at every paw.
+Its free paws land with world velocity near zero across the ground, compensating translation
+and rotation of the trunk. The crawl's centre is shifted into the other three actual contact
+patches before a swing. Its paw placements are relative to the actual COM and reference
+footprint, so a support shift does not progressively widen the stance.
 A path finishing does not establish a landing: a paw must first clear the floor and then carry
 a positive ground impulse. An unsuccessful landing returns toward its saved anchor and retries.
+Gaits switch after the active placement ends. Approach brakes toward the mouth's usable reach;
+close fighting and crowded withdrawal use the crawl until the opponent is clear. A resumed host
+places every paw through the crawl, aligns its actual heading with the order and verifies quiet
+four-sole support before trotting.
 Righting reads all fixed-ground contacts but gives joint pushes only through loaded leg chains.
 Its leg route reads each leg's own hip and knee; blocked routes reverse the chosen trunk end.
 Completion requires actual four-paw sole contact, sufficient height, an upright body and a quiet
@@ -72,6 +90,7 @@ The bite uses sensed collision surfaces near its mouth, not a named opponent lim
 goal compensates the exposed 30 mm lower-jaw tip; this anatomical offset gives the jaw a chance
 to meet the target before the head. Jaw motion is an angular quintic path, the chamber/strike/return
 states use the shared strike cycle, and all wounds use ordinary closing-contact energy sharing.
+The chamber follows the sensed target as the bodies move; the snap commits the last chambered aim.
 The head and jaw must lose foreign loaded contact before a return succeeds; crowded returns
 request backward crawling. No grip, clamp damage, decorative tooth collider or artificial striker exists.
 
@@ -81,15 +100,15 @@ The Crypt's `HUMANOID` (`cryptModel`, `src/dungeon/actors.ts`) retains the .35 m
 [following](play.md#following), and `ATTACK_METRES` from
 [attack distance](human-and-strikes.md#attack-distance). Humanoid falls end a dungeon fight.
 The reptile has empty hands and a quadruped mind by default (`modelInfo`), and in the Crypt .52 m attack spacing
-and an eight-second progress interval. These are controller choices for the qualified slow crawl.
-`STALL_METRES` retains the 50 mm route-progress threshold; the reptile's longer interval lets it
-advance that distance before its route is judged stalled. The horizontal navigation radius is derived from the full
+and an eight-second progress interval. These are controller choices allowing heading changes
+and careful close crawling as well as the faster trot. `STALL_METRES` retains the 50 mm
+route-progress threshold. The horizontal navigation radius is derived from the full
 collider envelope, including the tail, rather than copied from humanoid shoulder width.
 Party placement also uses that footprint and the radii of companions already placed.
 
 Generated crypt and generated-depth layouts alternate skeleton rooms and three-reptile packs.
 `ENCOUNTERS` sets three bodies per pack, at least 2 m apart, and one extra metre clear of doors
-beyond their radius. These spacing choices keep slow bodies clear of their neighbours and doorways.
+beyond their radius. These spacing choices keep bodies clear of their neighbours and doorways.
 Pack points are
 outside the party's initial 15 m separation, walkable with closed doors and reachable from the
 start at the body's radius. A generated candidate with insufficient space is rejected before
@@ -104,30 +123,73 @@ The Node stand uses the core world, the default `rapier-coordinate` engine and
 placement and gait settings are separate from anatomical strength.
 
 The permanent witnesses are `tests/core-reptile.test.mjs`, `tests/reptile-recovery.test.mjs`,
-`tests/reptile-fork.test.mjs` and `tests/reptile-integration.test.mjs`. No anatomical torque or
+`tests/reptile-fork.test.mjs`, `tests/reptile-combat.test.mjs` and `tests/reptile-integration.test.mjs`. No anatomical torque or
 unloaded speed is raised during their qualification.
 
 | Node stand, rapier-coordinate, 120 Hz | Gate/result |
 | --- | --- |
 | Construction with gravity and ground disabled | Eight steps, segment speed below 10 micrometres/s |
 | Standing | Thirty seconds upright, COM above .17 m, horizontal drift below .05 m |
-| Forward and backward crawl | At least two .44 m trunk lengths in each 60 s interval |
-| Stop, turn, rightward crawl | Quiet stop within .02 m; quarter turn within .1 rad in 120 s; two trunk lengths rightward in 60 s |
-| Paw accounting | At most one requested swing; each counted landing follows physical lift-off and positive fixed-ground contact |
+| Forward and backward trot | At least 2 m forward and 1.8 m backward in each 10 s interval, including acceleration |
+| Stop, turn, rightward trot | Quiet stop within .02 m; quarter turn within .1 rad in 20 s; at least 2 m rightward in 10 s |
+| Paw accounting | At most two requested swings in the trot, one in the crawl; each counted paw clears the floor and reloads through positive fixed-ground contact |
 | Closing-jaw contact | One clean chambered-jaw/shank blow, positive energy and damage to both surfaces; cancellation gives one verified release and no failed return |
 | Autonomous bite | Senses-only approach and closing-jaw contact, followed by verified release after cancellation |
+| Autonomous mirror matches | Gaps 1.5, 2 and 3 m, 30 s each: neither body falls; both launch and release bites, with driven closing-jaw contact before 12 s and positive common-rule damage |
 | Recovery | Back, left, right and lowered-belly poses in two headings, eight handovers within 100 s; each then walks two trunk lengths in 60 s without another fall |
 | No floor | No invented support or completed rise in a gravity-free unsupported inverted body |
 | Lifecycle and replay | Hold/resume retains physical bodies; crawling, jaw cancellation and righting fork exactly, with physics-only and state-only negative controls |
 | Generated packs | Both layout generators, 24 seeds each; complete-map repeatability, physical clearance, reachability and pack separation |
 
-The clean jaw fixture's closing rate immediately before contact is -.058929649 rad/s and its
-energy .0000642368897 J. Its target receives .0000000413486455 HP and its own jaw
-.00000060102025 HP. These are common-rule blunt contact readings, not a credible finishing
+The clean jaw fixture's closing rate immediately before contact is -.0510180951 rad/s and its
+energy .000107654655 J. Its target receives .0000000692962284 HP and its own jaw
+.00000100725032 HP. These are common-rule blunt contact readings, not a credible finishing
 bite. The autonomous approach fixture includes incidental contacts before its jaw stroke;
 it is not the clean one-contact measurement. Neither establishes competitive combat power.
 The eight recovery poses are development witnesses, not a claim about arbitrary falls,
 obstacles or opponents. Some rotated leg positions take repeated retries and about 80 s.
+
+### Travel admission after recovery
+
+The Node stand, rapier-coordinate at 120 Hz, starts the reptile on its left side with a
+quarter-turn heading, then commands forward travel for 60 seconds after physical handover.
+Anatomy and balance are unchanged, with no external blow. Handover occurs at 20.283 s.
+
+| Admission before accelerating | Steps down after handover | Forward distance in 60 s, m |
+| --- | --- | --- |
+| Commanded heading within .2 rad | 364 | 12.618 |
+| Crawl aligns the actual heading within .05 rad before trotting | 0 | 13.715 |
+
+The commanded heading can arrive before the body turns. Travel reads the actual heading, and
+a resumed host completes its heading change through the crawl. Quiet paw contact alone does
+not establish that the body is ready to accelerate toward its goal.
+The eight-pose qualification retains the requirement for no fall after handover.
+
+### Travel selection
+
+`node research/reptile-motion.mjs --sweep` runs the Node stand on rapier-coordinate at 120 Hz,
+with zero balance and fixed anatomy. Each row stands for two seconds, then commands forward
+travel for ten seconds on a 100 m ground. These are driven, unstruck intervals. Overrides are
+passed into `createQuadrupedMind`; no global setting is mutated.
+
+| Commanded speed, m/s | COM height multiplier | Distance in 10 s, m | Mean speed, m/s | Steps down | Counted paws |
+| --- | --- | --- | --- | --- | --- |
+| .25 | 1 | 2.809 | .281 | 0 | 76 |
+| .30 | 1 | 3.243 | .324 | 0 | 76 |
+| .35 | 1 | 3.646 | .365 | 0 | 76 |
+| .40 | 1 | .339 | .034 | 296 | 6 |
+| .30 | .85 | .351 | .035 | 308 | 10 |
+
+The .30 m/s command is the qualified default; this small sweep does not establish a maximum
+speed. The support response and standing height are necessary to this combination. At the
+same Node stand, engine and rate, the crawl in `42cd1e5a` covered .155880 m in ten seconds
+after two seconds standing (.015588 m/s). The default trot is about 20.8 times faster in this
+straight-travel witness. Mean COM speed includes the physical effects of swinging limbs; it
+need not equal the velocity command exactly.
+
+`node research/reptile-motion.mjs` also prints three autonomous arena mirror matches and
+distinguishes jaw blows during a committed closing stroke from incidental body collisions.
+Those matches qualify approach and attacks, not competitive bite power or arbitrary encounters.
 
 ## Humanoid regression
 

@@ -77,13 +77,13 @@ test("autonomous tactics approach sensed surfaces, close the jaw and verify rele
     }
   });
   try {
-    for (let step = 0; step < 15 * stand.world.hz; step++) {
+    for (let step = 0; step < 30 * stand.world.hz; step++) {
       before = mind.body.muscles.rate(jaw); stand.step();
       if (hit && bite.returned > returnedAtHit && bite.cycle.phase === null) break;
     }
     assert.ok(hit && hit.closing > 0 && hit.energy > 0, "a sensed target receives a closing-jaw blow");
     assert.ok(hit.sides.every(side => side.damage > 0));
-    assert.ok(bite.launched > 0 && bite.returned > returnedAtHit);
+    assert.ok(bite.launched > 0 && bite.returned > returnedAtHit, JSON.stringify({ hit: hit.time, returnedAtHit, bite }));
     const own = new Set([...stand.built.segments.values()].map(segment => segment.body));
     for (const name of ["head", "jaw"]) assert.ok(stand.world.physics.contactsOf(stand.built.segments.get(name).body)
       .every(contact => !contact.other || own.has(contact.other) || contact.impulse === 0));
@@ -146,22 +146,25 @@ test("a closing jaw wounds through the common contact rules and releases after c
   } finally { watch.dispose(); mind.body.dispose(); enemy.dispose(); stand.dispose(); }
 });
 
-test("the crawl walks two trunk lengths, stops, reverses and turns on physical paw landings", async () => {
-  const stand = await coreStand(reptileSpec(), { engine: "rapier-coordinate" });
+test("the trot travels quickly, stops, reverses and turns on physical paw landings", async () => {
+  const stand = await coreStand(reptileSpec(), { engine: "rapier-coordinate", groundSize: 100 });
   let orders = STAND_ORDERS;
   const mind = createQuadrupedMind(stand.built, stand.world, { orders: () => orders });
   const host = mind.body.state.mind.host, crawl = host.crawl;
-  const names = ["front.left", "hind.right", "front.right", "hind.left"];
+  const groups = [[0, 1], [2, 3]];
   const run = seconds => {
     for (let i = 0; i < seconds * stand.world.hz; i++) {
       const steps = crawl.steps, paw = crawl.paw;
       stand.step();
       assert.equal(mind.body.down, false);
-      assert.ok(crawl.command.endpoints.filter(endpoint => !endpoint.bearing).length <= 1);
+      assert.ok(crawl.command.endpoints.filter(endpoint => !endpoint.bearing).length <= 2);
       if (crawl.steps !== steps) {
-        assert.equal(crawl.steps, steps + 1);
+        assert.equal(crawl.steps, steps + 2);
         assert.equal(crawl.lifted, true);
-        assert.equal(host.motor.endpoints[paw].contact, true, `paw.${names[paw]} lands in physics`);
+        for (const i of groups[paw]) {
+          assert.equal(crawl.liftedPaws[i], true);
+          assert.equal(host.motor.endpoints[i].contact, true, `paw ${i} lands in physics`);
+        }
       }
     }
     return mind.body.observe().centre;
@@ -169,9 +172,9 @@ test("the crawl walks two trunk lengths, stops, reverses and turns on physical p
   try {
     const start = run(2);
     orders = { move: { x: 0, z: 1 }, face: { x: 0, z: 1 }, attack: null };
-    const forward = run(60);
-    assert.ok(forward[2] - start[2] >= .88, "two .44 m trunk lengths");
-    assert.ok(crawl.steps >= 20);
+    const forward = run(10);
+    assert.ok(forward[2] - start[2] >= 2, "at least .2 m/s including acceleration");
+    assert.ok(crawl.steps >= 60);
     orders = STAND_ORDERS; run(5);
     assert.equal(crawl.phase, "settle");
     const stopped = mind.body.observe().centre, stoppedSteps = crawl.steps;
@@ -180,13 +183,13 @@ test("the crawl walks two trunk lengths, stops, reverses and turns on physical p
     const quiet = mind.body.observe().centre;
     assert.ok(Math.hypot(quiet[0] - stopped[0], quiet[2] - stopped[2]) < .02);
     orders = { move: { x: 0, z: -1 }, face: { x: 0, z: 1 }, attack: null };
-    const backward = run(60);
-    assert.ok(quiet[2] - backward[2] >= .88);
-    orders = { move: null, face: { x: 1, z: 0 }, attack: null }; run(120);
+    const backward = run(10);
+    assert.ok(quiet[2] - backward[2] >= 1.8);
+    orders = { move: null, face: { x: 1, z: 0 }, attack: null }; run(20);
     assert.ok(Math.abs(crawl.yaw - Math.PI / 2) < .1);
     orders = { move: { x: 1, z: 0 }, face: { x: 1, z: 0 }, attack: null };
-    const turning = mind.body.observe().centre, right = run(60);
-    assert.ok(right[0] - turning[0] >= .88);
+    const turning = mind.body.observe().centre, right = run(10);
+    assert.ok(right[0] - turning[0] >= 2);
     assert.equal(mind.body.assist.meter.force, 0);
     assert.equal(mind.body.assist.meter.moment, 0);
   } finally { mind.body.dispose(); stand.dispose(); }

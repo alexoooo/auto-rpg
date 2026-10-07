@@ -365,15 +365,21 @@ the command layers the senses are in the view (`BodyView.senses`).
 The quadruped uses the same `OwnBody`, muscle driver and `PhysicalBody` lifecycle. Its
 `Tactics<Sight, Intent>` reads sensed collider surfaces near the mouth and supplies approach,
 facing and bite intent. `Skill<View>` gives every skill the same resume contract without requiring
-a humanoid view. Crawl, bite and righting keep all changing data under the body's state.
+a humanoid view. Trot, crawl, bite and righting keep all changing data under the body's state.
 The shared `effectorTracker` drives declared physical points through bounded IK; `supportedMotor`
 uses named support chains and the floating-base bearing solve. Four paw contacts carry the reptile,
 with no balance assist. Shared upstream freedoms form a stem instead of being owned twice.
-A crawl shifts the centre into the other three contacts before one paw lifts; only a measured
-lift followed by a positive fixed-ground impulse counts as a landing. Stop and resume capture
-the body as it is. The jaw follows a finite angular path through the shared strike cycle, and
-contact wounds both surfaces through the common blow rules. Recovery supplies grounded joint
-torques, routes paws clear of the trunk and verifies quiet four-paw support before the host resumes.
+A trot alternates diagonal support pairs, waits for the actual trunk heading before accelerating,
+drives continuous COM travel and brakes before close contact. A crawl shifts the centre into the other three contacts before one paw lifts; its
+placements use the body's reference footprint around the actual COM. Both count only measured
+lift followed by a positive fixed-ground impulse. Gaits switch after the active placement lands;
+close fighting retains the crawl until the opponent is clear. After recovery or hold/resume,
+each paw is placed and the actual heading is aligned before quiet four-sole support admits another
+trot. The jaw follows sensed
+targets while chambering, commits its aim for the snap and follows a finite angular path through
+the shared strike cycle. Contact wounds both surfaces through the common blow rules. Recovery
+supplies grounded joint torques, routes paws clear of the trunk and verifies quiet four-paw support
+before the host resumes.
 Blocked placements try the other end of the trunk; broad combat recovery remains unqualified.
 
 The default fighter uses `commandMind` (`src/core/body.ts`): motor control under a driver

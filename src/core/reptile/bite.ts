@@ -49,6 +49,7 @@ export function bite(own: OwnBody, tracker: ReturnType<typeof effectorTracker>) 
       intoFrameToRef(frame, [at.x, at.y, at.z], point);
       const measured: Vec3 = [point.x, point.y, point.z];
       if (cycle.phase === null && target && ready) { state.target.splice(0, 3, ...target); strikeTransition(cycle, "chamber", rate); }
+      if (cycle.phase === "chamber" && target) state.target.splice(0, 3, ...target);
       offset.set(tip[0] - mouth[0], tip[1] - mouth[1], tip[2] - mouth[2]).applyRotationQuaternionToRef(frame.rotation, offset);
       aim.set(...state.target).subtractInPlace(offset);
       const angle = own.muscles.angle(jaw), clear = !touching(head) && !touching(lower);

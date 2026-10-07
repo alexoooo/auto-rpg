@@ -17,7 +17,7 @@ export async function recoveryTrial(pose, yaw = 0) {
   };
   if (!fixtures[pose]) throw new Error(`unknown recovery fixture ${pose}`);
   const fixture = fixtures[pose], heading = new Quaternion(0, Math.sin(yaw / 2), 0, Math.cos(yaw / 2));
-  const stand = await coreStand(reptileSpec(), { engine: "rapier-coordinate", ...fixture,
+  const stand = await coreStand(reptileSpec(), { engine: "rapier-coordinate", groundSize: 100, ...fixture,
     rotation: heading.multiply(new Quaternion(...fixture.rotation)).asArray() });
   let orders = STAND_ORDERS, handoff = null, start = null, support = null, falls = 0;
   const mind = createQuadrupedMind(stand.built, stand.world, { orders: () => orders }), host = mind.body.state.mind.host, recovery = mind.body.state.mind.subs[0];

@@ -8,7 +8,7 @@ import type { EffectorGoal } from "../control/effector-tracker.ts";
 import { withinSupport } from "../control/support.ts";
 import { atan2, cos, sin } from "../math/real.ts";
 import type { Vec3 } from "../spec/quantity.ts";
-import { REPTILE_CRAWL as T } from "./tuning.ts";
+import { REPTILE_CRAWL } from "./tuning.ts";
 
 /** A quadruped's proprioception exposes support endpoints rather than fabricated hands. */
 export interface QuadrupedView {
@@ -31,7 +31,7 @@ export function soleGoal(point: string, at: Vector3, seconds: number, sequence: 
 }
 
 /** One paw moves after the centre enters the other three paws' support triangle. */
-export function crawl(own: OwnBody, motor: ReturnType<typeof supportedMotor>, names: readonly string[]) {
+export function crawl(own: OwnBody, motor: ReturnType<typeof supportedMotor>, names: readonly string[], T = REPTILE_CRAWL) {
   const root = motor.root, nominal = names.map(name => own.built.segments.get(name)!.spec.points!.sole!.value);
   const mass = own.spec.mass.value, reference = own.spec.segments.reduce((c, p) => {
     const m = p.mass.value / mass, at = p.centreOfMass.value;
@@ -95,10 +95,9 @@ export function crawl(own: OwnBody, motor: ReturnType<typeof supportedMotor>, na
           state.from.splice(0, 3, ...anchor);
           let dx = 0, dz = 0;
           if (intent.move) { const length = Math.sqrt(intent.move.x * intent.move.x + intent.move.z * intent.move.z); if (length) { dx = intent.move.x / length; dz = intent.move.z / length; } }
-          const n = nominal[state.paw]!, c = cos(state.yaw), s = sin(state.yaw);
-          const shiftX = (average[0]! * names.length - anchor[0]) / (names.length - 1), shiftZ = (average[2]! * names.length - anchor[2]) / (names.length - 1);
-          state.to[0] = shiftX + c * n[0] + s * n[2] + dx * T.stride;
-          state.to[1] = ground; state.to[2] = shiftZ - s * n[0] + c * n[2] + dz * T.stride;
+          const n = nominal[state.paw]!, c = cos(state.yaw), s = sin(state.yaw), x = n[0] - reference[0], z = n[2] - reference[2];
+          state.to[0] = view.centre.x + c * x + s * z + dx * T.stride;
+          state.to[1] = ground; state.to[2] = view.centre.z - s * x + c * z + dz * T.stride;
         }
       }
       if (state.phase === "shift" || state.phase === "swing" || state.phase === "land" || state.phase === "return") {
