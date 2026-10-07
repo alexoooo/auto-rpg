@@ -15,10 +15,28 @@ npm test      # node --test tests/*.test.mjs
 npm run build # check, then vite build
 ```
 
-Run `npm test`, `npm run check` and `npm run build` before landing a change, and commit each
-landable change as it lands. Do not leave a development server running. Port 5180 may be the
-owner's server: do not restart or kill it; if you need your own, use `npm run preview` on another
-port and kill it by PID when done.
+**Validate according to what changed.** During iteration, run the smallest meaningful check;
+apply the landing gate once to the final candidate. Reuse completed checks while their inputs
+are unchanged; a follow-on document edit does not require another physics run.
+
+- **Documents only** (`docs/`, `README.md`, `AGENTS.md`): verify referenced files, links and
+  construct names, run `git diff --check` and the line-ending gate below. No runtime tests,
+  type check or build are required for changes confined to prose.
+- **Routine code**: run `npm run check` and the relevant whole-path tests. For changes under
+  `src/`, also run `node --test tests/core-boundary.test.mjs tests/exports.test.mjs tests/comments.test.mjs`.
+  Run `npm run build` when browser code, rendering, delivered assets, dependencies or build
+  configuration change; verify the affected built-browser behavior where appropriate.
+- **Shared runtime or physical behavior**: run `npm test`, `npm run check` and `npm run build`
+  before landing. This includes world stepping, engines, bodies/specs, muscle/control/skill/mind
+  contracts, combat rules, deterministic arithmetic and state/snapshot/replay behavior. Run the
+  applicable behavior lock and qualification measurements as well. Broaden to this gate when
+  a change's effects cannot be bounded by targeted tests.
+- **CI** retains the full test, type-check and build gate (`.github/workflows/pages.yml`).
+
+Name the checks run and any unresolved failures when landing. Commit each landable change as
+it lands. Do not leave a development server running. Port 5180 may be the owner's server: do
+not restart or kill it; if you need your own, use `npm run preview` on another port and kill it
+by PID when done.
 
 **Pages.** Every page is named in `vite.config.ts`'s `rollupOptions.input`; a page missing there
 works in dev and is absent from `dist`.
