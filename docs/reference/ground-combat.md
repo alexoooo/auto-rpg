@@ -50,7 +50,7 @@ improve the tested cases, not every downed pose or approach direction.
 `ARENA_SCRAPPER_REFERENCE` extends retained `BRAWLER` with `ground: true`;
 research names it `scrapper-v1`. Playable `SCRAPPER` retains that profile after
 standing/low admission rejects the spacing and heading-ceiling candidates below. The selectable
-Scrapper controller, recipe links, snapshots and research runner all use `combatTactics`
+Scrapper controller, recipe links, snapshots and research runner all use `pathTactics`
 and the same supported executor. Its policy memory, route, deadlines and active hand are
 plain bout state. Orders reset the autonomous episode; recovery takeover clears execution,
 and resumption reads the body as it is. The HUD exposes low approach, preparation and return.

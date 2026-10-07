@@ -117,6 +117,6 @@ const LOW_HEAD = .8;
 
 /** A grounded opponent is observed by height over the body's own support, never its controller's state. */
 export function lowOpponent(view: BodyView, foe: BodySense): boolean {
-  const head = foe.segments.get("head");
+  const head = foe.segments.get(foe.spec.marks.high);
   return !!head && head.centre.y - view.stance.support.y < LOW_HEAD;
 }

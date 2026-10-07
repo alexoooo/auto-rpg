@@ -1,5 +1,5 @@
 import type { BodyView } from "../body.ts";
-import { atan2, cos, hypot, sin } from "../math/real.ts";
+import { cos, hypot, sin } from "../math/real.ts";
 import { STANCE_LOWER } from "../skills/locomotion.ts";
 import type { SkillReport } from "../skills/skills.ts";
 import type { Side, BodySpec } from "../spec/body.ts";
@@ -9,6 +9,7 @@ import { upperSurface } from "./openings.ts";
 import { groundRoute } from "./ground-route.ts";
 import { clearFootTranslation, lowOpponent, sensedFootClearance } from "./sensed-bounds.ts";
 import type { BodySense } from "./senses.ts";
+import { lyingAxis } from "./targets.ts";
 
 /** Physical approach probes and finite transitions: `docs/reference/ground-combat.md#policy-settings`. */
 const GROUND_COMBAT = Object.freeze({ across: .1, ahead: .65,
@@ -21,7 +22,7 @@ export function groundWide(spec: BodySpec, clearMove: (view: BodyView, heading: 
   const left=spec.segments.find(s=>s.name==="foot.left")!,right=spec.segments.find(s=>s.name==="foot.right")!;
   const width=Math.abs(left.centreOfMass.value[0]-right.centreOfMass.value[0])/2;
   const state = { phase: "guard", stage: "approach" as "approach" | "lower" | "attack" | "rise",
-    active: false, hand: null as Side | null, foe: null as string | null, face: 0, target: null as Vec3 | null, surface: "upperTrunk",
+    active: false, hand: null as Side | null, foe: null as string | null, face: 0, target: null as Vec3 | null, surface: null as string | null,
     action: null as CombatAction | null, route: null as readonly Vec3[] | null, walk: null as readonly [number,number] | null, stride: -1, planned: false, next: 0, elapsed: 0, retry: 0, lowTime: 0 };
   const reset = () => { state.active = false; state.hand = null; state.stage = "approach"; state.foe = null; state.target = null;
     state.route = null; state.walk = null; state.stride = -1; state.planned = false; state.action = null; state.next = 0; state.elapsed = 0; state.lowTime = 0; state.retry = 0; state.phase = "guard"; };
@@ -50,7 +51,7 @@ export function groundWide(spec: BodySpec, clearMove: (view: BodyView, heading: 
       return { move: null, face: state.face, hands, lower: STANCE_LOWER, combat: null };
     }
     if (view.time >= state.next && !report.strike.hand) {
-      const candidates=["upperTrunk","middleTrunk"].map(segment=>({segment,target:upperSurface(foe,segment,[view.stance.centre.x,view.stance.centre.y,view.stance.centre.z])})).filter(o=>o.target!==null);
+      const candidates=foe.spec.marks.middle.map(segment=>({segment,target:upperSurface(foe,segment,[view.stance.centre.x,view.stance.centre.y,view.stance.centre.z])})).filter(o=>o.target!==null);
       const opening=candidates.reduce<typeof candidates[number]|null>((best,o)=>!best||o.target![1]>best.target![1]?o:best,null);
       if (!opening) { state.stage = "rise"; return { move: null, face: state.face, hands, combat: null }; }
       if (state.stage !== "approach" && state.target && hypot(opening.target![0] - state.target[0], opening.target![2] - state.target[2]) > GROUND_COMBAT.targetShift) {
@@ -60,8 +61,7 @@ export function groundWide(spec: BodySpec, clearMove: (view: BodyView, heading: 
       const previousTarget = state.target;
       state.target = opening.target!; state.surface = opening.segment; state.next = view.time + GROUND_COMBAT.refresh;
       if (state.stage === "approach") {
-        const h = foe.segments.get("head")!.centre, p = foe.segments.get("lowerTrunk")?.centre ?? foe.centre;
-        const axis = atan2(h.x - p.x, h.z - p.z), clear = sensedFootClearance(foe), c = view.stance.centre;
+        const axis = lyingAxis(foe), clear = sensedFootClearance(foe), c = view.stance.centre;
         
         let best = Infinity, chosen: number | null = null;
         for(let n=0;n<GROUND_COMBAT.orientations;n++) {

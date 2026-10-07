@@ -21,7 +21,7 @@ import { humanSpec } from "../src/core/human/spec.ts";
 import { modelSpec } from "../src/core/models.ts";
 import { woodenClub } from "../src/core/items/club.ts";
 import { RECIPE_FIGHTER } from "../src/core/mind/config.ts";
-import { fighterTactics } from "../src/core/mind/fighter.ts";
+import { recipeTactics } from "../src/core/mind/recipe-tactics.ts";
 import { standIntent } from "../src/core/mind/intent.ts";
 import { STAND_ORDERS } from "../src/core/mind/orders.ts";
 import { subMindsOf } from "../src/core/mind/sub-minds.ts";
@@ -190,7 +190,7 @@ async function taken() {
     step() { own.muscles.activation.fill(1); own.muscles.velocity.fill(0); },
   });
   const body = createBody(stand.built, stand.world, { servoSeconds: SERVO_SECONDS, subs: [hold] });
-  const skills = driveBy(body, fighterTactics("walk", () => ({ move: { x: 0, z: 1 }, face: null, attack: null })));
+  const skills = driveBy(body, recipeTactics("walk", () => ({ move: { x: 0, z: 1 }, face: null, attack: null })));
   const seen = { has: [], squared: 0, rose: 0, fallen: false };
   return {
     world: stand.world, builts: [stand.built], states: { body: body.state, skills: skills.state }, seen,
@@ -210,7 +210,7 @@ const walking = (move, face = null) => deepFreeze({ move, face, attack: null });
 const ORDERS = { east: walking(EAST), eastFacingNorth: walking(EAST, NORTH), west: walking(WEST) };
 
 /**
- * The Warrior, club in hand, under a fighter's tactics (`fighterTactics`) and orders that are a
+ * The Warrior, club in hand, under a fighter's tactics (`recipeTactics`) and orders that are a
  * function of the view's time alone. It stands a second; walks east 2 s, facing its walk, so its
  * heading turns a quarter to its right once the walk is under way; walks on east 1.5 s facing
  * north, at the pace that holds, its heading turning back; walks west, turning a quarter to its
@@ -219,7 +219,7 @@ const ORDERS = { east: walking(EAST), eastFacingNorth: walking(EAST, NORTH), wes
 async function ordered() {
   const stand = await coreStand(fighter);
   const body = createBody(stand.built, stand.world, { servoSeconds: SERVO_SECONDS });
-  const skills = driveBy(body, fighterTactics("orders", ({ view: { time } }) =>
+  const skills = driveBy(body, recipeTactics("orders", ({ view: { time } }) =>
     time < 1 ? STAND_ORDERS : time < 3 ? ORDERS.east : time < 4.5 ? ORDERS.eastFacingNorth : time < 5.1 ? ORDERS.west : STAND_ORDERS));
   const seen = { strides: 0, headings: [0, 0], paces: new Set(), fallen: false };
   return {
@@ -265,7 +265,7 @@ async function striker() {
     return { built, body: createBody(built, world, { servoSeconds: SERVO_SECONDS }) };
   };
   const warrior = make(fighter, 0), skeleton = make(modelSpec("crypt-skeleton"), 1.4);
-  const skills = driveBy(warrior.body, fighterTactics("attack", () => {
+  const skills = driveBy(warrior.body, recipeTactics("attack", () => {
     const head = skeleton.body.view.head;
     return { move: null, face: null, attack: [head.x, head.y, head.z] };
   }));

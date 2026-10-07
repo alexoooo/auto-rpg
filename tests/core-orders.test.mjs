@@ -1,6 +1,6 @@
 /**
- * **Orders** (`src/core/mind/orders.ts`) and the tactics that carry them out (`fighterTactics`,
- * `src/core/mind/fighter.ts`): what an order becomes as an intent, on sights made by hand, what a
+ * **Orders** (`src/core/mind/orders.ts`) and the tactics that carry them out (`recipeTactics`,
+ * `src/core/mind/recipe-tactics.ts`): what an order becomes as an intent, on sights made by hand, what a
  * hand that does not attack is given under each way of guarding, and a body walking one way while
  * it faces another (Node stand, Rapier, 120 Hz: the Warrior with the
  * club in its right hand).
@@ -12,7 +12,8 @@ import { createBody, SERVO_SECONDS } from "../src/core/body.ts";
 import { armed } from "../src/core/human/grip.ts";
 import { modelSpec } from "../src/core/models.ts";
 import { woodenClub } from "../src/core/items/club.ts";
-import { fighterTactics, STRAFE } from "../src/core/mind/fighter.ts";
+import { recipeTactics } from "../src/core/mind/recipe-tactics.ts";
+import { STRAFE } from "../src/core/mind/ordered.ts";
 import { GUARD_ACTION } from "../src/core/mind/intent.ts";
 import { sameOrders, STAND_ORDERS } from "../src/core/mind/orders.ts";
 import { driveBy } from "../src/core/mind/tactics.ts";
@@ -27,7 +28,7 @@ const EAST = { x: 1, z: 0 }, NORTH = { x: 0, z: 1 }, SOUTH = { x: 0, z: -1 };
 test("tactics_turn_orders_into_an_intent", () => {
   /** The intent `orders` become for a body whose stance is asked to face `heading`. */
   const intent = (orders, heading = 0, envelope = { walk: { value: WALK } }) =>
-    fighterTactics("orders", () => orders).decide({ view: { resumed: false }, report: { heading, strike: { thrown: { right: 0 } } }, envelope }, 1 / 120);
+    recipeTactics("orders", () => orders).decide({ view: { resumed: false }, report: { heading, strike: { thrown: { right: 0 } } }, envelope }, 1 / 120);
   const guard = { left: GUARD_ACTION, right: GUARD_ACTION };
   /** `got` is `{ move, face, hands: guard }`, its numbers within 1e-12. */
   const is = (got, move, face, what) => {
@@ -72,7 +73,7 @@ test("tactics_turn_orders_into_an_intent", () => {
     { move: null, face: 0.4, hands: { left: GUARD_ACTION, right: { kind: "attack", target: [1, 1.6, 0] } } });
 
   // An experiment's rule is passed in.
-  const slow = fighterTactics("orders", () => ({ move: EAST, face: NORTH, attack: null }), { ...STRAFE, share: 0.25 })
+  const slow = recipeTactics("orders", () => ({ move: EAST, face: NORTH, attack: null }), { ...STRAFE, share: 0.25 })
     .decide({ view: { resumed: false }, report: { heading: 0, strike: { thrown: { right: 0 } } }, envelope: { walk: { value: WALK } } }, 1 / 120);
   is(slow, [0, 0.175], 0, "a quarter share");
 });
@@ -89,7 +90,7 @@ test("a_fighter_told_to_cover_gives_the_cover_to_the_hand_that_does_not_attack",
     }] } },
     report: { heading: 0, strike: { thrown: { right: 0 } } }, envelope: { walk: { value: WALK } },
   });
-  const hands = (guard, orders, speed) => fighterTactics("orders", () => orders, STRAFE, guard).decide(sight(speed), 1 / 120).hands;
+  const hands = (guard, orders, speed) => recipeTactics("orders", () => orders, STRAFE, guard).decide(sight(speed), 1 / 120).hands;
   const attack = { move: null, face: null, attack: [0, 1.6, 1] }, struck = { kind: "attack", target: [0, 1.6, 1] };
   const cover = threatOf(sight(5).view);
   assert.ok(cover && Math.hypot(cover.threat[0], cover.threat[1] - 1.6, cover.threat[2] - 0.6) < 0.2, `the sight's threat: ${JSON.stringify(cover)}`);
@@ -112,7 +113,7 @@ test("a_fighter_told_to_cover_gives_the_cover_to_the_hand_that_does_not_attack",
   assert.deepEqual(hands("pose", attack, 5), { left: GUARD_ACTION, right: struck });
   assert.deepEqual(hands("pose", STAND_ORDERS, 5), { left: GUARD_ACTION, right: GUARD_ACTION });
   // A way of guarding nobody knows is refused as the tactics are made.
-  assert.throws(() => fighterTactics("orders", () => STAND_ORDERS, STRAFE, "shield"), /in the pose or by a cover, not by "shield"/);
+  assert.throws(() => recipeTactics("orders", () => STAND_ORDERS, STRAFE, "shield"), /in the pose or by a cover, not by "shield"/);
 });
 
 test("a_body_walks_one_way_while_it_faces_another", async () => {
@@ -121,7 +122,7 @@ test("a_body_walks_one_way_while_it_faces_another", async () => {
     const stand = await coreStand(armed(modelSpec("workshop-fighter"), "right", woodenClub()));
     const body = createBody(stand.built, stand.world, { servoSeconds: SERVO_SECONDS });
     try {
-      const skills = driveBy(body, fighterTactics("orders", () => orders));
+      const skills = driveBy(body, recipeTactics("orders", () => orders));
       const from = body.view.stance.centre.clone();
       stand.step(stand.seconds(8));
       const to = body.view.stance.centre;

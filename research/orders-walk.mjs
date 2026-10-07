@@ -1,6 +1,6 @@
 /**
  * Walking one way while facing another: each of the core's bodies, the wooden club in its right
- * hand, alone on the stand under a fighter's tactics (`fighterTactics`) given one order for the
+ * hand, alone on the stand under a fighter's tactics (`recipeTactics`) given one order for the
  * whole trial, at eight world bearings 45 degrees apart and four facings: its walk (no facing
  * ordered), and a far point ahead of where it stands as built (+z), to its right (+x) and behind
  * it (-z).
@@ -21,7 +21,8 @@ import { createBody, SERVO_SECONDS } from "../src/core/body.ts";
 import { armed } from "../src/core/human/grip.ts";
 import { HUMANOID_MODELS, modelSpec } from "../src/core/models.ts";
 import { woodenClub } from "../src/core/items/club.ts";
-import { fighterTactics, STRAFE } from "../src/core/mind/fighter.ts";
+import { recipeTactics } from "../src/core/mind/recipe-tactics.ts";
+import { STRAFE } from "../src/core/mind/ordered.ts";
 import { driveBy } from "../src/core/mind/tactics.ts";
 import { wrap } from "../src/core/skills/locomotion.ts";
 import { coreStand } from "../tests/harness/core-stand.mjs";
@@ -39,7 +40,7 @@ async function trial({ model, bearing, facing, seconds, strafe }) {
     const point = facing === null ? null : { x: FAR * Math.sin(facing), z: FAR * Math.cos(facing) };
     // The facing is the direction to the point from where the body stands, as a person's pointer gives it.
     const orders = () => ({ move, face: point && { x: point.x - centre.x, z: point.z - centre.z }, attack: null });
-    const skills = driveBy(body, fighterTactics("orders", orders, strafe));
+    const skills = driveBy(body, recipeTactics("orders", orders, strafe));
     const pelvis = stand.built.segments.get("lowerTrunk").node, built = pelvis.rotationQuaternion.clone();
     let fellAt = null;
     for (let step = 0; step < stand.seconds(seconds) && fellAt === null; step++) {

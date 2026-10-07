@@ -5,7 +5,7 @@
  * taking a hand's attack up to its blow thrown, dropped or cut by the verdict), how long it took to
  * set up (to its chamber), how often its feet were set again; where the foe's head stood against
  * the chosen recipe's window when the throw was committed and when its pushes began, and how far
- * the point its tactics held to attack (`fighterTactics`) was from that head then; whether the
+ * the point its tactics held to attack (`recipeTactics`) was from that head then; whether the
  * throw landed a blow of the thrower's hand or what it holds on the foe, and on what part; the
  * steps the thrower's stance took to catch it from the commit to a second after the throw; and
  * whether it was down within `DOWN` seconds of the commit, and the hit points its foe's blows took

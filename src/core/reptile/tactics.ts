@@ -3,7 +3,7 @@ import type { OwnBody } from "../mind/mind.ts";
 import type { Orders } from "../mind/orders.ts";
 import { STAND_ORDERS } from "../mind/orders.ts";
 import type { Tactics } from "../mind/tactics.ts";
-import { nearSurface } from "../mind/openings.ts";
+import { nearestSurface } from "../mind/targets.ts";
 import { pointOfToRef } from "../control/support.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import type { QuadrupedView } from "./crawl.ts";
@@ -26,16 +26,8 @@ export function quadrupedTactics(own: OwnBody, orders: (view: QuadrupedView) => 
     if (view.senses.out) return { ...STAND_ORDERS, prepareBite: false };
     pointOfToRef(head, head.spec.points!.mouth!.value, mouth);
     const from: Vec3 = [mouth.x, mouth.y, mouth.z];
-    let target: Vec3 | null = null, nearest = Infinity;
-    for (const foe of view.senses.others) {
-      if (foe.out || foe.side === view.senses.side) continue;
-      for (const segment of foe.spec.segments) {
-        const at = nearSurface(foe, segment.name, from);
-        if (!at || Math.abs(at[1] - mouth.y) > T.biteElevation) continue;
-        const dx = at[0] - mouth.x, dy = at[1] - mouth.y, dz = at[2] - mouth.z, squared = dx * dx + dy * dy + dz * dz;
-        if (squared < nearest) { target = at; nearest = squared; }
-      }
-    }
+    const near = nearestSurface(view.senses, from, (at) => Math.abs(at[1] - mouth.y) <= T.biteElevation);
+    const target = near?.at ?? null, nearest = near?.squared ?? Infinity;
     const prepareBite = nearest <= T.bitePrepareNear * T.bitePrepareNear || !!given?.attack;
     if (given) return { ...given, prepareBite };
     if (!target) return { ...STAND_ORDERS, prepareBite: false };

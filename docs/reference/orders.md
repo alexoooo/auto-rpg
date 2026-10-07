@@ -1,7 +1,7 @@
 # Orders
 
 The measurements behind what a body does with an order to walk one way while it faces another
-(`fighterTactics`, `src/core/mind/fighter.ts`).
+(`recipeTactics`, `src/core/mind/recipe-tactics.ts`).
 
 ## The rule
 
@@ -12,7 +12,7 @@ is the whole walk and across or backward is the share. A body with no facing ord
 forward at its fastest walk and turns to its walk.
 
 Harness: Node stand (`tests/harness/core-stand.mjs`), Rapier, 120 Hz; each of the core's bodies
-alone on a ground, the wooden club in its right hand, under `fighterTactics` given one order for
+alone on a ground, the wooden club in its right hand, under `recipeTactics` given one order for
 the whole of an 8 s walk; eight world bearings 45 degrees apart, the body built facing +z; four
 facings: its walk (none ordered), and a far point ahead (+z), a quarter turn to its right (+x)
 and behind (-z). A fall is the stance's (`SkillReport.fallen`), and a walk that fell is left out

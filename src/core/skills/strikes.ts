@@ -22,7 +22,7 @@ import { deepFreeze } from "../state.ts";
  * **The height bands a recipe is searched in**: what a foe of the striker's own build has at
  * each, and so the part a target body there is the mass and the surface of
  * (`research/core-blow.mjs`), and the part a fighter that aims by what pays attacks
- * (`seekFoe`, `src/core/mind/fighter.ts`).
+ * (`seekFoe`, `src/core/mind/recipe-tactics.ts`).
  */
 export const BANDS = Object.freeze({ high: "head", middle: "upperTrunk" } as const);
 

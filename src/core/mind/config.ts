@@ -6,7 +6,7 @@ import type { OpeningTuning } from "./openings.ts";
 import type { Covering } from "../skills/guard.ts";
 import { deepFreeze } from "../state.ts";
 import type { Threat } from "./threat.ts";
-import type { Edge } from "./fighter.ts";
+import type { Edge } from "./recipe-tactics.ts";
 
 /** Lie still while down: ask the muscles for nothing (`lying`, `lie.ts`). */
 interface LieConfig { readonly kind: "lie" }
@@ -31,7 +31,7 @@ export interface RecipeFighterConfig {
   readonly subs: readonly SubMindConfig[];
   /** How a hand that does not attack guards: the pose, or a cover of what threatens (`threatOf`, `threat.ts`). */
   readonly guard: "pose" | "cover";
-  /** What of a foe a fighter attacks: its head; or, of its head and upper trunk, the one its hand's recipe nets more on (`seekFoe`, `fighter.ts`). */
+  /** What of a foe a fighter attacks: its head; or, of its head and upper trunk, the one its hand's recipe nets more on (`seekFoe`, `recipe-tactics.ts`). */
   readonly aim: "head" | "pays";
   /**
    * How near a foe a fighter comes to attack it: walking in to `ATTACK_METRES`; or held at the

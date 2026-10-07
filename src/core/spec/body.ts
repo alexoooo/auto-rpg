@@ -45,6 +45,20 @@ export interface BodySpec {
   readonly held?: readonly HeldSpec[];
   /** When the body is down: the rule every fight, page and mind reads it by (`uprightness`, `src/core/control/ground.ts`). */
   readonly down: DownSpec;
+  /** Where another body aims at it. */
+  readonly marks: Marks;
+}
+
+/**
+ * **Where another body aims at a body**, by segment: `high`, what a blow at the head meets;
+ * `middle`, the trunk's parts a blow at the middle meets, the upper first; `base`, the trunk's
+ * far end from `high`, the two its long axis; `legs`, what a low kick meets.
+ */
+export interface Marks {
+  readonly high: string;
+  readonly middle: readonly string[];
+  readonly base: string;
+  readonly legs: readonly string[];
 }
 
 /**

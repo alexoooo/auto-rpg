@@ -28,7 +28,7 @@ import { parseArgs } from "node:util";
 import { DUEL_HELD, SIDES } from "../src/arena/duel.ts";
 import { HUMANOID_MODELS } from "../src/core/models.ts";
 import { RECIPE_FIGHTER } from "../src/core/mind/config.ts";
-import { EDGE } from "../src/core/mind/fighter.ts";
+import { EDGE } from "../src/core/mind/recipe-tactics.ts";
 import { BOUT_HARNESS } from "./bout.mjs";
 import { defaultLanes, playBouts } from "./bout-pool.mjs";
 

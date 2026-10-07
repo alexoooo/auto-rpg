@@ -104,6 +104,7 @@ export function dummySpec(attacker: BodySpec, part: string = DUMMY_PART): BodySp
     wounds: { hp: derive("HP", "the attacker's hit points", [attacker.wounds.hp], (hp) => hp), vital: [], whole: [part] },
     attributes: { balance: derive("%", "the attacker's balance", [attacker.attributes.balance], (percent) => percent) },
     down: { kind: "asked", fallen: derive("m", "the attacker's fall bar", [attacker.down.fallen], (fallen) => fallen) },
+    marks: { high: part, middle: [], base: part, legs: [] },
   };
 }
 

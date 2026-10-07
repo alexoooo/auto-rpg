@@ -61,7 +61,8 @@ export function reptileSpec(): BodySpec {
     effectors: data.effectors.map(e => ({ segment: e.segment, base: e.base, point: e.point, ...(e.support ? { support: e.support as "sole" } : {}) })),
     wounds: { hp: sourced(1, "HP", "owner-hp-pool", "reptile 1"), vital: data.wounds.vital, whole: data.wounds.whole },
     attributes: { balance: q(data.balance, "%", "/balance") }, substance: "flesh",
-    down: { kind: "low", root: data.down.root, height: q(data.down.height, "1", "/down/height"), up: q(data.down.up, "1", "/down/up") } });
+    down: { kind: "low", root: data.down.root, height: q(data.down.height, "1", "/down/height"), up: q(data.down.up, "1", "/down/up") },
+    marks: data.marks });
 }
 
 function unknownShape(kind: never): never {

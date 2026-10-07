@@ -32,7 +32,7 @@ read (`src/core/skills/skills.ts`).
 | Mind seam | `src/core/mind/mind.ts`, `sub-mind.ts` | a mind made with its body, stepped before the solver, writing the muscles' command and its assist's ask; a host hands its body to a sub-mind that wants it |
 | Motor control | `src/core/control/` | joint goals, hand goals and the stance turned into muscle commands; a body borne on the ground through its limbs (`bearing.ts`) |
 | Skills | `src/core/skills/` | an intent turned into the body's command: walk, face, strike, guard |
-| Tactics | `src/core/mind/tactics.ts`, `fighter.ts` | what the body should do, decided from what it sees |
+| Tactics | `src/core/mind/tactics.ts`, `ordered.ts`, `targets.ts`, `recipe-tactics.ts`, `path-tactics.ts` | what the body should do, decided from what it sees |
 | Minds | `src/core/mind/config.ts`, `minds.ts`, `rise/` | a body's mind made from its config, plain data by kind; a riser that plays a recipe of stages |
 
 `createBody` (`src/core/body.ts`) gives a built body the command layers as its mind
@@ -492,15 +492,19 @@ and to the right of the body's heading, or none; a way to face; how low to stand
 guard or attack a point. It names no joint, pose or push. `driveBy(body, tactics)` hands the body
 to them through the skills.
 
-The core has one set of tactics, `fighterTactics` (`fighter.ts`), which carry out `Orders`
-(`orders.ts`): a direction to walk, a direction to face and a point to attack, each or none, in
-the world's frame, as plain data naming no joint, pace or camera. Each step the tactics ask for
-the orders, with what the body sees. Ordered to walk, the body walks that way at its fastest
+Each fighter's tactics carry out `Orders` (`orders.ts`): a direction to walk, a direction to
+face and a point to attack, each or none, in the world's frame, as plain data naming no joint,
+pace or camera. Each step the tactics ask for the orders, with what the body sees. Walking and
+facing are one part both fighters share (`orderedIntent`, `ordered.ts`), as are the hand that
+does not attack (`guarding`) and whom and where they aim (`targets.ts`: the nearest foe,
+`nearestFoe`; the nearest surface, `nearestSurface`; how a fallen foe lies, `lyingAxis`), read by
+the foe's marks (`BodySpec.marks`: its high mark, its middle, its base and its legs) and never by
+a human segment's name. Ordered to walk, the body walks that way at its fastest
 walk, turning to it. Ordered to face another way as it walks, it walks at half that pace until
 it has turned to its facing, and from then at half plus the other half times the cosine of the
 angle between its heading and its walk (`STRAFE`, [reference/orders.md](reference/orders.md)).
-Given a point it attacks it with its right hand, the strike skill closing the distance, while the
-left guards: it holds the point while the strike skill walks and sets the feet for it, and aims
+Given a point the recipe fighter (`recipeTactics`, `recipe-tactics.ts`) attacks it with its
+right hand, the strike skill closing the distance, while the left guards: it holds the point while the strike skill walks and sets the feet for it, and aims
 at the ordered point itself once a blow is committed. The stance turns only while it walks or
 follows a blow's target, so a standing body ordered to face does not turn.
 
@@ -516,7 +520,7 @@ Orders come from three places. An arena side nobody has taken makes its own (`se
 its senses it picks the nearest body of another side still in the fight, walks at it, and attacks
 it once their centres are within `ATTACK_METRES` (1.8 m): at its head, or, where its config says
 to aim at what pays (`RecipeFighterConfig.aim`, `bandAimed`), at the part of the band its hand's
-recipe nets most on (`StrikeReport.nets`, `BANDS`). Every body's fighter aims at the head
+recipe nets most on (`StrikeReport.nets`, `markOf`). Every body's fighter aims at the head
 (`RECIPE_FIGHTER`; [reference/blows.md](reference/blows.md#aim)). Where its config says to hold at the
 edge (`RecipeFighterConfig.range`, `EDGE`), it reads the foe's reach from what it sees of the foe
 (`rangeOf`, by `BodySense.spec`, the rule its own strike skill throws by, `StrikeReport.rangeAt`):
@@ -890,7 +894,7 @@ arena, crypt and lab screens at `?play=arena`, `?play=dungeon` and `?play=lab`, 
 `<template>` mounted once per page load. Changing screen is a navigation.
 
 - **The Arena** (`src/arena/`): two clubbed bodies in the Forge (`src/arena/scene.ts`,
-  `src/arena/room.ts`), each driven by `fighterTactics` under a `Duel`, to a verdict. A person
+  `src/arena/room.ts`), each driven by `recipeTactics` under a `Duel`, to a verdict. A person
   may take a side (`&you=left`): each frame the page turns the walking keys, as the camera sees
   the ground, and the pointer's ray, where it crosses the level of the body's centre of mass,
   into world directions (`src/arena/orders-input.ts`) and gives them as orders (`Duel.order`),
@@ -1044,7 +1048,7 @@ turning to fight. Existing margin penetration permits parallel or outward motion
 
 Scrapper is an optional grounded extension of the retained standing Brawler. Its `groundCombat`
 policy observes head height, trunk motion and collider geometry, admits a close approach by
-foot clearance, and otherwise uses a wider route. `combatTactics` resolves the resulting neutral
+foot clearance, and otherwise uses a wider route. `pathTactics` resolves the resulting neutral
 intent through the common executor. It retains a committed hand/aim, refreshes only between
 strokes, and requests standing return on movement, target displacement or a deadline. Its
 nested state forks with the bout. Ordinary orders and recovery resumption reset selection.

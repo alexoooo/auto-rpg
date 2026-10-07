@@ -1,5 +1,4 @@
 import type { Sight } from "./tactics.ts";
-import { kickCombat } from "./kick-combat.ts";
 import { validKickTuning, type KickTuning } from "../skills/kick.ts";
 import { createBody, SERVO_SECONDS } from "../body.ts";
 import type { BuiltBody } from "../build/build-body.ts";
@@ -7,7 +6,7 @@ import { ATTACK_PATH, validAttackTuning, type AttackTuning } from "../skills/att
 import { combatSkills, validCombatExecution, type CombatExecution } from "../skills/combat.ts";
 import { deepFreeze } from "../state.ts";
 import type { World } from "../world.ts";
-import { combatTactics } from "./combat.ts";
+import { pathTactics } from "./path-tactics.ts";
 import { ARENA_KICKS, BODY_OPENINGS, type PathFighterConfig } from "./config.ts";
 import type { MindWiring } from "./minds.ts";
 import { subMindsOf } from "./sub-minds.ts";
@@ -58,9 +57,7 @@ export function createPathFighter(built: BuiltBody, world: World, config: PathFi
   const resolved = resolvePath(config);
   const body = createBody(built, world, { servoSeconds: SERVO_SECONDS, senses: wiring.senses, assist: wiring.assist, feedback: true, contactIdentity: wiring.contactIdentity,
     subs: subMindsOf(config.subs) });
-  const orders = (sight: Sight) => wiring.orders(sight.view.senses);
-  const base = combatTactics(built.spec, wiring.name, orders, config, resolved);
-  const tactics = resolved.kick ? kickCombat(base, resolved.kick, orders) : base;
+  const tactics = pathTactics(built.spec, wiring.name, config, resolved, (sight: Sight) => wiring.orders(sight.view.senses));
   const skills = driveBy(body, tactics, (made, { state, engagement }) => combatSkills(made, resolved.paths, state ?? null, engagement,
     config.ground, resolved.turnLimit, resolved.turnStartup, config.combinations === "overlap", resolved.execution, resolved.kick ?? undefined));
   return { kind: "path-fighter" as const, body, skills, state: skills.state };

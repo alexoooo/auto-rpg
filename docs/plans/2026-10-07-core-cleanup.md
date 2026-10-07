@@ -177,36 +177,24 @@ Bit-identical. As built:
 - `PRESETS` (`controllers.ts`) merges every controller's presets; `matchup.ts` and
   `research/arena-combat.mjs`'s `combatMind` read it.
 
-### Chunk 14: shared tactics parts, and targets by spec (bit-identical)
+### Chunk 14: shared tactics parts, and targets by spec (landed)
 
-**`mind/targets.ts`**
-- `nearestFoe(senses, from, rule)`: a strict `<` scan, which matches today's tie-breaks.
-  - `rule: "standing"` skips a foe that is out.
-  - `rule: "standing-first"`, Classic's `seekFoe`, takes one that is out only when none stands.
-- `nearestSurface(foes, from, accept)`.
-- They replace the copies in `seekFoe`, `mind/combat.ts`, `kick-combat.ts`,
-  `reptile/tactics.ts` and `ground-*`.
-
-**`BodySpec.marks`**
-- `{high, middle[], legs[]}`: for humans `head`, `[upperTrunk, middleTrunk]` and `[shank.*]`;
-  for the reptile, its own segments.
-- The observer's sourced `lowBelow` (.8 m) is used by `lowOpponent`.
-- `seekFoe` (with the recipe bands, `BANDS`, now read as `marks.high` and `marks.middle[0]`),
-  `openings`, `kick-combat` and `ground-*` read marks instead of human segment names, in the
-  same order.
-
-**Order-following is one part**
-- The order-following half of `fighterTactics` (walk, strafe, face, guard or cover) becomes
-  `orderedTactics` in `mind/ordered.ts`, with `STRAFE`.
-- The recipe fighter's tactics are `orderedTactics` plus its own attack memory and `seekFoe`.
-  The path fighter's tactics use `orderedTactics` where they call `fighterTactics` today.
-
-**The path fighter's tactics are one module**
-- `mind/combat.ts` becomes `pathTactics(spec, config, resolved, orders)`, with one state,
-  `{strike, ground, kick, …}`.
-- The kick folds in as a part rather than a decorator, keeping today's call order: an active
-  kick returns early; otherwise base, then kick admission. `kick-combat.ts` is deleted.
-- One `nextHand(mode, counts)` predicate is exported from `intent.ts`.
+No pose moved; the path fighters' state is reshaped (no order-following memory, the kick a part).
+As built:
+- `mind/targets.ts`: `nearestFoe(senses, from, rule)`, `nearestSurface(senses, from, accept)` and
+  `lyingAxis(foe)`, the head-to-base heading the three ground parts each wrote.
+- `BodySpec.marks` is `{high, middle[], base, legs[]}`: `base` (a human's lower trunk) is the far
+  end of the long axis, and the ground parts' quiet check reads `[...middle, base]`. The reptile's
+  are in its data; a Lab dummy's are its one part. The opening preferences stay keyed by segment
+  name (`OpeningTuning`), a part without one at 0; `lowOpponent` keeps its sourced `LOW_HEAD`,
+  read at the high mark.
+- `mind/ordered.ts`: `STRAFE`, `guarding(guard, threat)` and `orderedIntent(sight, orders, hands,
+  strafe)`, a function rather than tactics, since the recipe fighter reads its guard once a step
+  for both of its branches. `fighter.ts` is `recipe-tactics.ts` (`recipeTactics`, `seekFoe`,
+  `markOf`).
+- `mind/path-tactics.ts` `pathTactics(spec, name, config, resolved, orders)`; the kick is
+  `kickTactics(tuning)` (`kick-tactics.ts`), a part with `during` and `after`, its state at
+  `state.kick`. The rest of the state stays flat. `nextHand(mode, cycles)` is in `intent.ts`.
 
 ### Chunk 15: one attack vocabulary and one effector strike (pose bit-identical; state reshaped, except overlap)
 

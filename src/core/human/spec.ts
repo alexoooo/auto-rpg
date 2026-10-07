@@ -36,5 +36,6 @@ function figureSpec(figure: HumanFigure): BodySpec {
     attributes: humanAttributes(figure),
     substance: figure.substance,
     down: { kind: "asked", fallen: sourced(0.25, "m", "fall-bar", "Fallen") },
+    marks: { high: "head", middle: ["upperTrunk", "middleTrunk"], base: "lowerTrunk", legs: ["shank.left", "shank.right"] },
   };
 }

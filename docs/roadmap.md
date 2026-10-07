@@ -215,7 +215,7 @@ promoted by these results.
   are not. When an answer is late the world waits (the owner's choice): `World.advance` takes no
   step while one due at it is out, and `World.step` thinks whatever has not come. It would live in
   `src/core/think/`, taken in `World.step` between the sensing hooks and the step hooks.
-- The tactics (`fighterTactics`) cannot yet attack a moving body.
+- The tactics (`recipeTactics`) cannot yet attack a moving body.
 - A fighter can cover its head against a blow it sees coming (`guard: "cover"`,
   `&guard=cover`), and does not unless asked: the cover is late, and saves no more of the head
   than the pose ([blows](reference/blows.md#covering-searched)). A Warrior that stands meets

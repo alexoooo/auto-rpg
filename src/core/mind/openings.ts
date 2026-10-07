@@ -183,6 +183,8 @@ export function openingAction(opening: Opening): CombatAction {
 export function openingSelector(spec: BodySpec, tuning: OpeningTuning = {}, paths: AttackTuning = ATTACK_PATH) {
   if (!validOpeningTuning(tuning)) throw new Error("opening preferences must be finite and headLateral must be in [0,1]");
   const settings = { ...OPENINGS, ...tuning };
+  /** The preference for a part by its segment's name (`OpeningTuning`'s `head`, `upperTrunk`, `middleTrunk`); none, 0. */
+  const preference: Readonly<Record<string, number | undefined>> = settings;
   const headOffsets = settings.headLateral ? [-settings.headLateral, 0, settings.headLateral] : [0];
   const scratch = new Vector3(), inverse = new Quaternion();
   const point = (foe: BodySense, name: string, at: Vec3): Vec3 => {
@@ -209,7 +211,8 @@ export function openingSelector(spec: BodySpec, tuning: OpeningTuning = {}, path
       case "boxing": families = ["straight", "hook", "uppercut"]; break;
       default: { const never: never = repertoire; throw new Error(`unknown repertoire ${never}`); }
     }
-    for (const name of ["head", "upperTrunk", "middleTrunk"] as const) {
+    const { high, middle } = foe.spec.marks;
+    for (const name of [high, ...middle]) {
       const segment = foe.spec.segments.find(s => s.name === name), sensed = foe.segments.get(name);
       const local = segment && capsule(segment), poly = segment && polyhedron(segment);
       if ((!local&&!poly) || !sensed) continue;
@@ -225,7 +228,7 @@ export function openingSelector(spec: BodySpec, tuning: OpeningTuning = {}, path
       if(local) {
        const a = point(foe, name, local.a), b = point(foe, name, local.b);
        for (const part of [a, scale(add(a, b), 1 / 2), b]) for (const elevation of [-OPENINGS.elevation, 0, OPENINGS.elevation])
-         for (const lateral of name === "head" ? headOffsets : [0]) {
+         for (const lateral of name === high ? headOffsets : [0]) {
         const way: Vec3 = [start[0] - part[0], 0, start[2] - part[2]], far = length(way), flatRadius = local.radius * Math.sqrt(1 - elevation * elevation);
         const c = Math.sqrt(1 - lateral * lateral);
         const candidate = far > 0 ? lateral === 0 ? add(part, [way[0] * flatRadius / far, elevation * local.radius, way[2] * flatRadius / far])
@@ -269,7 +272,7 @@ export function openingSelector(spec: BodySpec, tuning: OpeningTuning = {}, path
               previous = next;
             }
           }
-          const score = settings[name] + (name === blockedSurface ? settings.repeated : 0) + (blocked ? settings.blocked : 0)
+          const score = (preference[name] ?? 0) + (name === blockedSurface ? settings.repeated : 0) + (blocked ? settings.blocked : 0)
             + settings.reachPenalty * Math.abs(length(flat) - reach + paths.windup) + terms.cost;
           if (!best || score < best.score) best = { hand, target, segment: name, family, blocked, reach, score,
             ...(terms.vertical !== 0 ? { direction: [0, terms.vertical, 0] as Vec3 } : {}) };

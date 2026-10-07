@@ -8922,6 +8922,18 @@
           "value": 0.25,
           "unit": "m"
         }
+      },
+      "marks": {
+        "high": "head",
+        "middle": [
+          "upperTrunk",
+          "middleTrunk"
+        ],
+        "base": "lowerTrunk",
+        "legs": [
+          "shank.left",
+          "shank.right"
+        ]
       }
     }
   },

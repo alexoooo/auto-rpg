@@ -1497,7 +1497,7 @@ the commit to a quarter second after the throw.
 | the thrower down within 2 s of the commit | 0, 2, 0 | 0, 2, 0 |
 
 - **A throw is thrown at where the head was.** The tactics hold the point they attack until the
-  foe's head is `APPROACH.reach`, 25 cm, from it (`fighterTactics`), so the skill sets the feet
+  foe's head is `APPROACH.reach`, 25 cm, from it (`recipeTactics`), so the skill sets the feet
   for, and throws at, a point a median 11 cm from the head, more than a window's width across.
   The foe's head is in the window at a third of the committed club throws and a seventh of the
   bare ones. Aiming at the head as it is does not make more of them land
@@ -1547,7 +1547,7 @@ to come back into the window before setting the feet again. Neither change is in
 A recipe follows its target across (`STEER`, `src/core/skills/strike.ts`): from the commit to the
 end of its pushes the stance's heading is turned by as much as the target's bearing has turned
 since the commit, read from where the feet's middle stood then, up to 0.3 rad either way; and the
-fighter aims at the foe's head itself once a blow is committed (`fighterTactics`).
+fighter aims at the foe's head itself once a blow is committed (`recipeTactics`).
 
 **On the stand.** `node research/strike-robustness.mjs --seen --offsets 0.06,0.12 --hz 120`, and
 with `--steer 0` for none (Node core stand, Rapier, 120 Hz,

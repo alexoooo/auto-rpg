@@ -49,6 +49,15 @@ export const GUARD_ACTION: HandAction = Object.freeze({ kind: "guard" });
 /** Standing in guard, facing `face`. */
 export const standIntent = (face = 0): Intent => ({ move: null, face, hands: { left: GUARD_ACTION, right: GUARD_ACTION } });
 
+/** **The hand a fighter attacks with next**, by `mode`: the one it names, or each in turn, the right first, by the blows begun so far (`cycles`). */
+export function nextHand(mode: Side | "alternate", cycles: number): Side {
+  switch (mode) {
+    case "left": case "right": return mode;
+    case "alternate": return cycles % 2 === 0 ? "right" : "left";
+    default: { const never: never = mode; throw new Error(`no hand ${JSON.stringify(never)}`); }
+  }
+}
+
 /** The optional arm style is finite and bounded; omitted inherits the executor preference. */
 export function validArmExtension(extension = 0): boolean {
   return Number.isFinite(extension) && extension >= 0 && extension <= 1;

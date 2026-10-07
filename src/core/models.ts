@@ -5,7 +5,7 @@ import { RECIPE_FIGHTER, QUADRUPED, type MindConfig } from "./mind/config.ts";
 import { controllerOf } from "./mind/controllers.ts";
 import { reptileSpec } from "./reptile/spec.ts";
 import { deepFreeze } from "./state.ts";
-import { ATTACK_METRES } from "./mind/fighter.ts";
+import { ATTACK_METRES } from "./mind/recipe-tactics.ts";
 import { canHold } from "./human/grip.ts";
 
 /** Models available to game builders, independent of a family's anatomical constructor. */

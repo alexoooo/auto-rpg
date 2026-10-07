@@ -13,7 +13,7 @@ import { armed } from "../src/core/human/grip.ts";
 import { modelSpec } from "../src/core/models.ts";
 import { woodenClub } from "../src/core/items/club.ts";
 import { RECIPE_FIGHTER } from "../src/core/mind/config.ts";
-import { fighterTactics } from "../src/core/mind/fighter.ts";
+import { recipeTactics } from "../src/core/mind/recipe-tactics.ts";
 import { embody } from "../src/core/mind/mind.ts";
 import { createMind } from "../src/core/mind/minds.ts";
 import { STAND_ORDERS } from "../src/core/mind/orders.ts";
@@ -257,7 +257,7 @@ test("a body taken in the middle of a step forgets the step, steps its feet apar
   const body = createBody(stand.built, stand.world, { servoSeconds: SERVO_SECONDS, subs: [hold] });
   const stance = body.state.mind.host.motor.stance;
   try {
-    const skills = driveBy(body, fighterTactics("walk", () => ({ move: { x: 0, z: 1 }, face: null, attack: null })));
+    const skills = driveBy(body, recipeTactics("walk", () => ({ move: { x: 0, z: 1 }, face: null, attack: null })));
     /** The stance's memory of the step under way. */
     const memory = () => ({
       plan: stance.plan.on, last: stance.last, stride: stance.stride, striding: stance.striding, pace: [...stance.pace],
@@ -311,7 +311,7 @@ test("a body handed back goes on from where it is", async () => {
   try {
     // What the tactics see each step they decide: the driver's own view, as the skills have been resumed on it.
     const decided = [];
-    skills = driveBy(body, fighterTactics("back", ({ view, report }) => {
+    skills = driveBy(body, recipeTactics("back", ({ view, report }) => {
       // The way the pelvis faces, read from its left-to-right axis, (cos h, 0, -sin h).
       const across = new Vector3(1, 0, 0).applyRotationQuaternion(view.root.rotation);
       decided.push({ time: view.time, resumed: view.resumed, phase: report.strike.phase, heading: report.heading, facing: view.stance.facing, across: atan2(-across.z, across.x), thrown: report.strike.thrown.right });

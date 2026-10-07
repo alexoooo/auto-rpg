@@ -4,7 +4,7 @@ What the tuned constants of the skills and the tactics rest on: how long a body 
 throws (`STAND`) and how it comes to a recipe's place (`APPROACH`), both in
 `src/core/skills/strike.ts`; how its feet are placed (`PLACING`, `src/core/skills/locomotion.ts`)
 and how fast a walk turns (the stance's envelope); the guard (`GUARD`, `src/core/skills/guard.ts`);
-how near a fighter attacks (`ATTACK_METRES`, `src/core/mind/fighter.ts`); what shapes an
+how near a fighter attacks (`ATTACK_METRES`, `src/core/mind/recipe-tactics.ts`); what shapes an
 arm's path to a place (`IK_POSTURE_PULL`, `IK_TURN`, `src/core/control/kinematics.ts`); and
 where about its place a recipe is thrown (`StrikeWindow`, `src/core/skills/strikes.ts`). Each
 constant's comment cites its section below. A value said to be set was chosen and not swept: no
@@ -75,7 +75,7 @@ the feet were set, and was not committed.
 pace through its turns, which each human held. `APPROACH.seconds` and `APPROACH.reach` are set:
 the walk asked is the distance left over one second, and the feet are set once the centre of
 mass is within 0.25 m of the place. The tactics hold an attack's point until the point ordered
-has moved by the same reach (`fighterTactics`, `src/core/mind/fighter.ts`).
+has moved by the same reach (`recipeTactics`, `src/core/mind/recipe-tactics.ts`).
 
 ## Placing
 

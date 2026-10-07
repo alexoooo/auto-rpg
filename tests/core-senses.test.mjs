@@ -1,7 +1,7 @@
 /**
  * **The senses** (`createSenses`, `src/core/mind/senses.ts`): the one layer between the world and
  * what every mind is told of the other bodies, read before any mind steps; the fighter's own
- * choice of foe from them (`seekFoe`), and the aim its tactics hold (`fighterTactics`). Node
+ * choice of foe from them (`seekFoe`), and the aim its tactics hold (`recipeTactics`). Node
  * stand, Rapier, 120 Hz: two Warriors in one world on a ground, the second built two metres along
  * x, both limp unless a test says otherwise, so both are falling and every reading moves.
  */
@@ -14,7 +14,7 @@ import { centreOfToRef } from "../src/core/control/support.ts";
 import { humanSpec } from "../src/core/human/spec.ts";
 import { modelSpec } from "../src/core/models.ts";
 import { RECIPE_FIGHTER } from "../src/core/mind/config.ts";
-import { EDGE, fighterTactics, seekFoe } from "../src/core/mind/fighter.ts";
+import { EDGE, recipeTactics, seekFoe } from "../src/core/mind/recipe-tactics.ts";
 import { GUARD_ACTION } from "../src/core/mind/intent.ts";
 import { embody } from "../src/core/mind/mind.ts";
 import { createSenses } from "../src/core/mind/senses.ts";
@@ -137,9 +137,12 @@ test("a sensed centre is the body's own reading", async () => {
   } finally { body.dispose(); hub.dispose(); dispose(); }
 });
 
+/** A sensed body's spec as `seekFoe` reads it: where it is aimed at, a human's marks. */
+const MARKED = { marks: modelSpec("workshop-fighter").marks };
+
 test("a fighter picks its foe from what it sees", () => {
   const at = (x, y, z) => new Vector3(x, y, z);
-  const body = (side, out, centre, head) => ({ side, out, centre, segments: new Map(head ? [["head", { centre: head }]] : []) });
+  const body = (side, out, centre, head) => ({ side, out, centre, spec: MARKED, segments: new Map(head ? [["head", { centre: head }]] : []) });
   const plan = (others, out = false) => seekFoe({ view: { stance: { centre: at(0, 1, 0) }, senses: { side: "left", out, others } } });
   const east = { x: 1, z: 0 }, north = { x: 0, z: 1 };
 
@@ -168,7 +171,7 @@ test("a fighter aims at a foe's head, or at the part its right hand's recipe net
   const head = [0.1, 1.6, 1.4], trunk = [0, 1.3, 1.5], none = { high: null, middle: null };
   const whole = new Map([["head", { centre: at(...head) }], ["upperTrunk", { centre: at(...trunk) }]]);
   const sight = (right, left, segments) => ({
-    view: { stance: { centre: at(0, 1, 0) }, senses: { side: "left", out: false, others: [{ side: "right", out: false, centre: at(0, 1, 1.5), segments }] } },
+    view: { stance: { centre: at(0, 1, 0) }, senses: { side: "left", out: false, others: [{ side: "right", out: false, centre: at(0, 1, 1.5), spec: MARKED, segments }] } },
     report: { strike: { nets: { left, right } } },
   });
   const aimed = (aim, right, left = none, segments = whole) => seekFoe(sight(right, left, segments), aim).attack;
@@ -227,7 +230,7 @@ test("a fighter at the edge stands just outside its foe's reach and attacks when
 
 test("a fighter holds the point it aims at until the plan's leaves it, a blow is thrown or one is under way", () => {
   let attack = [1, 1.6, 0], thrown = 0, resumed = false, phase = "settle";
-  const tactics = fighterTactics("aim", () => ({ move: null, face: null, attack }));
+  const tactics = recipeTactics("aim", () => ({ move: null, face: null, attack }));
   const decide = () => tactics.decide({ view: { resumed }, report: { heading: 0.25, strike: { thrown: { right: thrown }, phase } }, envelope: null }, 1 / 120);
   const reach = APPROACH.reach;
   assert.deepEqual(decide().hands.right, { kind: "attack", target: [1, 1.6, 0] });
