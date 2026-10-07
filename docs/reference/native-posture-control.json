@@ -8933,6 +8933,12 @@
         "legs": [
           "shank.left",
           "shank.right"
+        ],
+        "guards": [
+          "hand.left",
+          "hand.right",
+          "forearm.left",
+          "forearm.right"
         ]
       }
     }

@@ -40,18 +40,18 @@ test('contact labels select the strongest permitted contact independently of str
    {other:null,impulse:20,point:[1,2,3],normal:[0,1,0]},
    {other,impulse:3,point:[4,5,6],normal:[0,0,-1]},
    {other,impulse:2,point:[7,8,9],normal:[-1,0,0]}];
-  const reading=effectorFeedback({...built,physics:{contactsOf(){return contacts;}}},['hand.left','hand.right'],body=>body===other?{kind:'body',body:'right',segment:'forearm.right'}:null);
+  const reading=effectorFeedback({...built,physics:{contactsOf(){return contacts;}}},['hand.left','hand.right'],body=>body===other?{kind:'body',body:'right',segment:'forearm.right',guard:true}:null);
   reading.read();
   for(const hand of ['left','right']){
    assert.equal(reading.state[`hand.${hand}`].impulse,25);
    assert.deepEqual(reading.state[`hand.${hand}`].contactPoint,[1,2,3]);
-   assert.deepEqual(reading.state[`hand.${hand}`].contact,{target:{kind:'body',body:'right',segment:'forearm.right'},point:[4,5,6],normal:[0,0,-1],impulse:3});
+   assert.deepEqual(reading.state[`hand.${hand}`].contact,{target:{kind:'body',body:'right',segment:'forearm.right',guard:true},point:[4,5,6],normal:[0,0,-1],impulse:3});
    assert.equal(contactResponse(reading.state[`hand.${hand}`],'right'),'block');
    assert.equal(contactResponse(reading.state[`hand.${hand}`],'third'),'incidental');
   }
   contacts.length=0;reading.read();assert.equal(reading.state['hand.right'].contact,null);
   assert.equal(contactResponse(reading.state.right,'right'),null);
-  for(const [target,want]of [[{kind:'world'},'world'],[{kind:'body',body:'right',segment:'head'},'target']])
+  for(const [target,want]of [[{kind:'world'},'world'],[{kind:'body',body:'right',segment:'head',guard:false},'target']])
    assert.equal(contactResponse({contact:{target}},'right'),want);
  }finally{s.dispose();}
 });

@@ -6,8 +6,8 @@ import { effectorAim } from "./effectors.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { motionAtToRef, pointOfToRef } from "./support.ts";
 
-/** Permitted contact identity, detached from engine handles. */
-export type ContactTarget = { readonly kind: "body"; readonly body: string; readonly segment: string }
+/** Permitted contact identity, detached from engine handles: a body's segment says whether its body covers with it (`Marks.guards`). */
+export type ContactTarget = { readonly kind: "body"; readonly body: string; readonly segment: string; readonly guard: boolean }
   | { readonly kind: "object"; readonly id: string } | { readonly kind: "world" };
 
 /** Trusted adapter maps physics bodies to permitted identities; only detached results enter a view. */
@@ -77,7 +77,7 @@ export function contactResponse(feedback: EffectorFeedback | undefined, foe: str
   switch (target.kind) {
     case "world": return "world";
     case "object": return target.id === foe ? "target" : "incidental";
-    case "body": return target.body !== foe ? "incidental" : /^hand\.|^forearm\./.test(target.segment) ? "block" : "target";
+    case "body": return target.body !== foe ? "incidental" : target.guard ? "block" : "target";
     default: { const never: never = target; throw new Error(`unknown contact target ${never}`); }
   }
 }
