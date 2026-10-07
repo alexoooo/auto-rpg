@@ -11,6 +11,45 @@
     "height": 0.6,
     "up": 0.5
   },
+  "effectors": [
+    {
+      "segment": "paw.front.left",
+      "base": "trunk",
+      "point": "sole",
+      "support": "sole"
+    },
+    {
+      "segment": "paw.hind.right",
+      "base": "trunk",
+      "point": "sole",
+      "support": "sole"
+    },
+    {
+      "segment": "paw.front.right",
+      "base": "trunk",
+      "point": "sole",
+      "support": "sole"
+    },
+    {
+      "segment": "paw.hind.left",
+      "base": "trunk",
+      "point": "sole",
+      "support": "sole"
+    },
+    {
+      "segment": "head",
+      "base": "trunk",
+      "point": "mouth"
+    }
+  ],
+  "wounds": {
+    "vital": [
+      "head"
+    ],
+    "whole": [
+      "trunk"
+    ]
+  },
   "segments": [
     {
       "name": "trunk",
@@ -63,7 +102,6 @@
         0.205,
         0.495
       ],
-      "radius": 0.015,
       "weight": 0.15,
       "kind": "box",
       "size": [
@@ -123,7 +161,6 @@
         0,
         0.16
       ],
-      "radius": 0.025,
       "weight": 0.04,
       "kind": "box",
       "size": [
@@ -183,7 +220,6 @@
         0,
         0.16
       ],
-      "radius": 0.025,
       "weight": 0.04,
       "kind": "box",
       "size": [
@@ -243,7 +279,6 @@
         0,
         -0.16
       ],
-      "radius": 0.025,
       "weight": 0.04,
       "kind": "box",
       "size": [
@@ -303,7 +338,6 @@
         0,
         -0.16
       ],
-      "radius": 0.025,
       "weight": 0.04,
       "kind": "box",
       "size": [

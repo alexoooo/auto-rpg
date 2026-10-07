@@ -3,7 +3,7 @@
  * the frame helpers that read a segment where it is now.
  */
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import { CONTACT_FRICTION } from "../engine/engine.ts";
+import { CONTACT_FRICTION, type Contact } from "../engine/engine.ts";
 import type { BuiltBody, BuiltJoint, BuiltSegment } from "../build/build-body.ts";
 import type { Row } from "./bearing.ts";
 import type { BearingSole } from "./contact-wrench.ts";
@@ -12,6 +12,10 @@ import type { Vec3 } from "../spec/quantity.ts";
 import { SUPPORT_INSET } from "./stance-tuning.ts";
 import { acos, hypot } from "../math/real.ts";
 import type { Side } from "../spec/body.ts";
+
+/** Whether `contact` is the ground bearing a body: a fixed collider that pushed this step, its normal (from the body into it) more than `minUp` down. */
+export const groundContact = (contact: Contact, minUp: number): boolean =>
+  contact.fixed !== null && contact.impulse > 0 && contact.normal[1] < -minUp;
 
 /** What of a foot a stance keeps from one step to the next. */
 export interface FootMemory {

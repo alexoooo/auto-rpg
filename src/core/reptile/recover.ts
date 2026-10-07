@@ -2,27 +2,43 @@ import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { OwnBody } from "../mind/mind.ts";
 import type { SubMind } from "../mind/sub-mind.ts";
 import type { effectorTracker } from "../control/effector-tracker.ts";
-import type { supportedMotor } from "../control/supported-motor.ts";
-import { rootFrameToRef, intoFrameToRef } from "../control/kinematics.ts";
-import { turnOfToRef } from "../control/support.ts";
+import type { supportedMotor, SupportEndpoint } from "../control/supported-motor.ts";
+import { chainTo, rootFrameToRef, intoFrameToRef } from "../control/kinematics.ts";
+import { channelName } from "../muscle/driver.ts";
+import { groundContact, turnOfToRef } from "../control/support.ts";
 import { servo } from "../control/servo.ts";
 import { atan2, cos, hypot, sin } from "../math/real.ts";
-import type { QuadrupedView } from "./crawl.ts";
-import { REPTILE_CONTROL as T } from "./tuning.ts";
+import { soleGoal, type QuadrupedView } from "./crawl.ts";
+import { REPTILE_CRAWL, REPTILE_MOTOR, REPTILE_RECOVERY as T } from "./tuning.ts";
 
-/** Grounded righting, clear leg routes, and a quiet supported handover to the crawl. */
-export function recover(own: OwnBody, motor: ReturnType<typeof supportedMotor>, tracker: ReturnType<typeof effectorTracker>, names: readonly string[], view: QuadrupedView): SubMind {
-  const legs = names.map(name => name.slice("paw.".length)), paws = names.map(name => own.built.segments.get(name)!);
-  const supports = legs.map(leg => ["paw.", "lower.", "upper."].map(prefix => own.built.segments.get(prefix + leg)!));
+/** A leg's joints by their place in the chain from the trunk out to its paw. */
+const HIP = 0, KNEE = 1;
+
+/**
+ * Grounded righting, clear leg routes, and a quiet supported handover to the crawl. Each leg is
+ * the chain from the trunk out to its paw (`paws`): a hip, a knee and an ankle. Its side and its
+ * end are where its paw is in the reference pose: +x is the body's right, +z its front.
+ */
+export function recover(own: OwnBody, motor: ReturnType<typeof supportedMotor>, tracker: ReturnType<typeof effectorTracker>, endpoints: readonly SupportEndpoint[], view: QuadrupedView): SubMind {
+  const names = endpoints.map(e => e.segment), paws = names.map(name => own.built.segments.get(name)!);
+  const legs = paws.map(paw => {
+    const chain = chainTo(own.built, paw);
+    if (chain.length !== 3) throw new Error(`${paw.spec.name}'s leg has ${chain.length} joints, not a hip, a knee and an ankle`);
+    return chain;
+  });
+  const supports = legs.map(chain => chain.map(joint => joint.child).reverse());
   const parts = [...own.built.segments.values()];
-  const hip = legs.map(leg => own.muscles.channel(`girdle.${leg} axis2`)), knee = legs.map(leg => own.muscles.channel(`bend.${leg} axis0`));
-  const sign = legs.map(leg => leg.endsWith("left") ? 1 : -1), fore = legs.map(leg => leg.startsWith("front") ? 1 : -1);
-  const channels = own.muscles.channels.map(channel => ({ leg: legs.findIndex(leg => channel.name.includes(leg)), joint: channel.joint.spec.name.split(".")[0], axis: channel.index }));
+  const hip = legs.map(chain => own.muscles.channel(channelName(chain[HIP]!, 2))), knee = legs.map(chain => own.muscles.channel(channelName(chain[KNEE]!, 0)));
+  const sign = paws.map(paw => paw.frame.origin[0] < 0 ? 1 : -1), fore = paws.map(paw => paw.frame.origin[2] > 0 ? 1 : -1);
+  const channels = own.muscles.channels.map(channel => {
+    const leg = legs.findIndex(chain => chain.includes(channel.joint));
+    return { leg, joint: leg < 0 ? -1 : legs[leg]!.indexOf(channel.joint), axis: channel.index };
+  });
   const reference = own.spec.segments.reduce((sum, part) => sum + part.mass.value * part.centreOfMass.value[1], 0) / own.spec.mass.value;
   const state = { phase: "idle" as "idle" | "roll" | "place" | "rise", route: "start" as "start" | "sweep" | "fold" | "unwind" | "unfold" | "press",
     time: 0, elapsed: 0, stable: 0, paw: 0, yaw: 0, ground: 0, sequence: 0, retries: 0,
     placed: names.map(() => false), held: names.map(() => 0), loaded: names.map(() => false), direction: [...fore],
-    command: { centre: [0, reference * T.crawlHeight, 0] as [number, number, number], velocity: [0, 0, 0] as [number, number, number],
+    command: { centre: [0, reference * REPTILE_CRAWL.crawlHeight, 0] as [number, number, number], velocity: [0, 0, 0] as [number, number, number],
       rotation: [0, 0, 0, 1] as [number, number, number, number], posture: {} as Record<string, number>,
       endpoints: names.map(() => ({ target: [0, 0, 0] as [number, number, number], bearing: false, rotation: [0, 0, 0, 1] as [number, number, number, number] })) } };
   const turn = new Quaternion(), heading = new Quaternion(), inverse = new Quaternion(), flat = new Quaternion();
@@ -52,24 +68,23 @@ export function recover(own: OwnBody, motor: ReturnType<typeof supportedMotor>, 
       state.time += dt; state.elapsed += dt;
       let ground = 0, contacts = 0;
       for (const part of parts) for (const contact of own.built.physics.contactsOf(part.body))
-        if (contact.fixed !== null && contact.impulse > 0 && contact.normal[1] < -T.supportNormal) { ground += contact.point[1]; contacts++; }
+        if (groundContact(contact, REPTILE_MOTOR.supportNormal)) { ground += contact.point[1]; contacts++; }
       if (contacts) state.ground = ground / contacts;
       supports.forEach((parts, i) => { state.loaded[i] = parts.some(part => own.built.physics.contactsOf(part.body)
-        .some(contact => contact.fixed !== null && contact.impulse > 0 && contact.normal[1] < -T.supportNormal)); });
+        .some(contact => groundContact(contact, REPTILE_MOTOR.supportNormal))); });
       readTurn();
       if (state.phase === "roll" && up.y >= T.rollUpright && contacts) { state.phase = "place"; state.time = 0; state.elapsed = 0; }
       if (state.phase === "rise") {
         const command = state.command;
-        command.centre[1] = state.ground + reference * T.crawlHeight;
+        command.centre[1] = state.ground + reference * REPTILE_CRAWL.crawlHeight;
         rootFrameToRef(motor.root, frame); Quaternion.InverseToRef(frame.rotation, inverse);
         inverse.multiplyToRef(heading.set(0, sin(state.yaw / 2), 0, cos(state.yaw / 2)), flat).normalize();
-        descending.set(0, -T.plantSpeed, 0).applyRotationQuaternionToRef(inverse, descending);
+        descending.set(0, -REPTILE_CRAWL.plantSpeed, 0).applyRotationQuaternionToRef(inverse, descending);
         command.endpoints.forEach((goal, i) => {
           goal.bearing = view.feet[i]!.contact;
           if (goal.bearing) tracker.release(names[i]!);
           else { intoFrameToRef(frame, goal.target, point);
-            tracker.reach(names[i]!, { places: [{ point: "sole", position: [point.x, point.y, point.z] }], seconds: T.recoveryPath, follows: true, sequence: state.sequence,
-              terminalVelocity: [descending.x, descending.y, descending.z], orientation: { target: [flat.x, flat.y, flat.z, flat.w], seconds: T.recoveryPath } }); }
+            tracker.reach(names[i]!, soleGoal(endpoints[i]!.point, point, T.recoveryPath, state.sequence, descending, flat)); }
         });
         motor.control(command, dt, tracker.step(own.muscles, command.posture, dt, false, true));
         const stable = !view.down && view.centre.y - state.ground >= reference * T.recoveryHeight && view.feet.every(foot => foot.contact && foot.flat)
@@ -93,8 +108,8 @@ export function recover(own: OwnBody, motor: ReturnType<typeof supportedMotor>, 
         if (leg < 0) return state.phase === "roll" ? 0 : own.muscles.angle(i);
         const s = sign[leg]!, direction = state.direction[leg]!, h = own.muscles.angle(hip[leg]!), k = own.muscles.angle(knee[leg]!);
         if (state.placed[leg]) {
-          if (joint === "girdle") return axis === 2 ? state.held[leg]! : 0;
-          if (joint === "bend") return s * T.plantedKnee;
+          if (joint === HIP) return axis === 2 ? state.held[leg]! : 0;
+          if (joint === KNEE) return s * T.plantedKnee;
           return axis === 1 ? -state.held[leg]! - k - roll : 0;
         }
         if (leg === moving) {
@@ -110,26 +125,26 @@ export function recover(own: OwnBody, motor: ReturnType<typeof supportedMotor>, 
             case "press": hipGoal = h + s * (view.feet[leg]!.at.y - state.ground + T.pressDepth) / T.pressLever; break;
             default: { const never: never = state.route; throw new Error(`unknown placement route ${never}`); }
           }
-          if (joint === "girdle") return axis === 0 ? yaw : axis === 1 ? pitch : hipGoal;
-          if (joint === "bend") return kneeGoal;
+          if (joint === HIP) return axis === 0 ? yaw : axis === 1 ? pitch : hipGoal;
+          if (joint === KNEE) return kneeGoal;
           return axis === 1 ? -h - k - roll : 0;
         }
-        if (joint === "girdle" && state.loaded[leg]) {
+        if (joint === HIP && state.loaded[leg]) {
           const axis = own.muscles.dynamics.axis(i), torque = moment.x * axis[0] + moment.y * axis[1] + moment.z * axis[2];
           const sense = torque >= 0 ? 1 : -1, strength = own.muscles.strength(i, sense);
           own.muscles.velocity[i] = sense * Infinity; own.muscles.activation[i] = strength > 0 ? Math.min(1, Math.abs(torque) / strength) : 0;
           return undefined;
         }
         return state.phase === "roll" ? 0 : own.muscles.angle(i);
-      }, state.phase === "roll" ? T.posture : T.recoveryServo, dt,
-      { seconds: i => channels[i]!.leg === moving ? T.placementServo : state.phase === "roll" ? T.posture : T.recoveryServo, rate: () => 0, acceleration: () => 0 });
+      }, state.phase === "roll" ? REPTILE_MOTOR.posture : T.recoveryServo, dt,
+      { seconds: i => channels[i]!.leg === moving ? T.placementServo : state.phase === "roll" ? REPTILE_MOTOR.posture : T.recoveryServo, rate: () => 0, acceleration: () => 0 });
       if (moving >= 0) {
-        const s = sign[moving]!, near = (joint: string, axis: number, target: number) =>
-          Math.abs(own.muscles.angle(own.muscles.channel(`${joint}.${legs[moving]} axis${axis}`)) - target) < T.placementError;
-        if (state.route === "sweep" && state.time >= T.foldWait && near("girdle", 0, -s * state.direction[moving]! * T.sweepYaw)) nextRoute("fold");
-        else if (state.route === "fold" && state.time >= T.foldWait && !view.feet[moving]!.contact && view.feet[moving]!.low - state.ground > T.contactMargin) nextRoute("unwind");
-        else if (state.route === "unwind" && near("girdle", 2, -s * T.foldHip)) nextRoute("unfold");
-        else if (state.route === "unfold" && near("bend", 0, s * T.plantedKnee) && near("girdle", 1, 0)) nextRoute("press");
+        const s = sign[moving]!, near = (joint: number, axis: number, target: number) =>
+          Math.abs(own.muscles.angle(own.muscles.channel(channelName(legs[moving]![joint]!, axis))) - target) < T.placementError;
+        if (state.route === "sweep" && state.time >= T.foldWait && near(HIP, 0, -s * state.direction[moving]! * T.sweepYaw)) nextRoute("fold");
+        else if (state.route === "fold" && state.time >= T.foldWait && !view.feet[moving]!.contact && view.feet[moving]!.low - state.ground > REPTILE_MOTOR.contactMargin) nextRoute("unwind");
+        else if (state.route === "unwind" && near(HIP, 2, -s * T.foldHip)) nextRoute("unfold");
+        else if (state.route === "unfold" && near(KNEE, 0, s * T.plantedKnee) && near(HIP, 1, 0)) nextRoute("press");
         if (state.route === "press" && state.time >= T.pressWait && view.feet[moving]!.contact) {
           state.placed[moving] = true; state.held[moving] = own.muscles.angle(hip[moving]!); state.paw++; nextRoute("start");
           if (state.paw === names.length) startRise();

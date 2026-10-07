@@ -1,20 +1,33 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import type { BuiltBody } from "../build/build-body.ts";
 import type { OwnBody } from "../mind/mind.ts";
+import { channelName } from "../muscle/driver.ts";
 import type { effectorTracker } from "../control/effector-tracker.ts";
-import { rootFrameToRef, intoFrameToRef, pointAtToRef } from "../control/kinematics.ts";
+import { chainTo, rootFrameToRef, intoFrameToRef, pointAtToRef } from "../control/kinematics.ts";
 import { motionAtToRef, pointOfToRef } from "../control/support.ts";
 import { advanceStrike, strikeTransition, STRIKE_EVENT, type StrikeCycleState } from "../skills/strike-cycle.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import type { Skill } from "../skills/skill.ts";
 import type { QuadrupedView } from "./crawl.ts";
-import { REPTILE_CONTROL as T } from "./tuning.ts";
+import { REPTILE_BITE as T } from "./tuning.ts";
 import { scalarPathToRef } from "../control/point-path.ts";
+
+/**
+ * The jaw and what it hangs from: the segment with a `bite` point (`lower`), its joint (`hinge`),
+ * the head the hinge hangs it from, which has a `mouth` point, and the joint that carries the head (`neck`).
+ */
+export function mouthOf(built: BuiltBody) {
+  const lower = [...built.segments.values()].find(segment => segment.spec.points?.bite);
+  const hinge = lower && chainTo(built, lower).at(-1), head = hinge?.parent, neck = head && chainTo(built, head).at(-1);
+  if (!lower || !hinge || !head?.spec.points?.mouth || !neck) throw new Error(`${built.spec.model} has no jaw hinged to a head with a mouth`);
+  return { lower, hinge, head, neck };
+}
 
 /** A finite physical jaw stroke uses the shared measured chamber, contact and withdrawal cycle. */
 export function bite(own: OwnBody, tracker: ReturnType<typeof effectorTracker>) {
-  const jaw = own.muscles.channel("jaw axis0"), head = own.built.segments.get("head")!, lower = own.built.segments.get("jaw")!;
-  const hinge = own.built.joints.get("jaw")!, tip = lower.spec.points!.bite!.value;
-  const retract = own.built.joints.get("neck")!.dofs[1]!.spec.min.value;
+  const { lower, hinge, head, neck } = mouthOf(own.built);
+  const jawName = channelName(hinge, 0), jaw = own.muscles.channel(jawName), tip = lower.spec.points!.bite!.value;
+  const neckName = channelName(neck, 1), retract = neck.dofs[1]!.spec.min.value;
   const bodies = new Set([...own.built.segments.values()].map(p => p.body));
   const cycle: StrikeCycleState = { phase: null, time: 0, ready: 0, sequence: 0, velocity: [0, 0, 0], touching: false, impact: null };
   const state = { cycle, target: [0, 0, 0] as [number, number, number], launched: 0, returned: 0, failed: 0,
@@ -26,7 +39,7 @@ export function bite(own: OwnBody, tracker: ReturnType<typeof effectorTracker>) 
   const aim = new Vector3(), offset = new Vector3(), mouth = head.spec.points!.mouth!.value;
   const touching = (part: typeof head) => own.built.physics.contactsOf(part.body).some(c => c.other && !bodies.has(c.other) && c.impulse > 0);
   const withdraw = () => cycle.phase === "return" && (touching(head) || touching(lower));
-  const resume = () => { strikeTransition(cycle, null, [0, 0, 0]); cycle.touching = false; state.jaw.sequence = -1; tracker.release("head"); };
+  const resume = () => { strikeTransition(cycle, null, [0, 0, 0]); cycle.touching = false; state.jaw.sequence = -1; tracker.release(head.spec.name); };
   const skill: Skill<QuadrupedView> & { readonly state: typeof state; withdraw(): boolean; tracked(channel: number): readonly [number, number, number] | undefined; command(view: QuadrupedView, target: Vec3 | null, ready: boolean, dt: number, posture: Record<string, number>, prepare: boolean): void } = {
     state, resume, withdraw, tracked: channel => channel === jaw ? state.jaw.sample : undefined, command(view, target, ready, dt, posture, prepare) {
       rootFrameToRef(head, frame); pointOfToRef(lower, tip, at);
@@ -57,12 +70,12 @@ export function bite(own: OwnBody, tracker: ReturnType<typeof effectorTracker>) 
         path.start = angle; path.rate = own.muscles.rate(jaw);
       } else path.time += dt;
       scalarPathToRef(path.start, path.rate, opening ? T.open : 0, path.time, opening ? T.prepare : T.snap, path.sample);
-      posture["jaw axis0"] = path.sample[0];
-      posture["neck axis1"] = cycle.phase === "return" ? retract : 0;
+      posture[jawName] = path.sample[0];
+      posture[neckName] = cycle.phase === "return" ? retract : 0;
       if (cycle.phase === "chamber" || cycle.phase === "swing") {
         rootFrameToRef(own.muscles.dynamics.root.segment, root); intoFrameToRef(root, [aim.x, aim.y, aim.z], point);
-        tracker.reach("head", { places: [{ point: "mouth", position: [point.x, point.y, point.z] }], seconds: T.prepare, follows: true, sequence: cycle.sequence });
-      } else tracker.release("head");
+        tracker.reach(head.spec.name, { places: [{ point: "mouth", position: [point.x, point.y, point.z] }], seconds: T.prepare, follows: true, sequence: cycle.sequence });
+      } else tracker.release(head.spec.name);
     } };
   return skill;
 }

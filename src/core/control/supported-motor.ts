@@ -5,9 +5,10 @@ import { frameOf } from "../spec/body.ts";
 import { lowsOf } from "./ground.ts";
 import { chainTo } from "./kinematics.ts";
 import { bearLimbs, carryRoot, limbMotion, makeBearing, type Limb } from "./bearing.ts";
-import { centreOfToRef, motionAtToRef, pointOfToRef } from "./support.ts";
+import { centreOfToRef, groundContact, motionAtToRef, pointOfToRef } from "./support.ts";
 import { servoAsk, servoSolve } from "./servo.ts";
 import { spinBetweenToRef } from "../math/turn.ts";
+import { channelName } from "../muscle/driver.ts";
 
 /** Named anatomical endpoints; no assumption about the number or names of supporting limbs. */
 export interface SupportEndpoint { readonly segment: string; readonly point: string; readonly sole?: boolean }
@@ -32,7 +33,7 @@ export function supportedMotor(own: OwnBody, endpoints: readonly SupportEndpoint
     const segment = built.segments.get(e.segment), point = segment?.spec.points?.[e.point]?.value;
     if (!segment || !point) throw new Error(`unknown support endpoint ${e.segment}/${e.point}`);
     const chain = chainTo(built, segment);
-    const channels = chain.flatMap(j => j.dofs.map(d => muscles.channel(`${j.spec.name} ${d.spec.positive}`)));
+    const channels = chain.flatMap(j => j.dofs.map((_, k) => muscles.channel(channelName(j, k))));
     const shape = segment.spec.shape;
     if (e.sole && shape.kind !== "box") throw new Error("a rectangular support sole needs a box");
     return { segment, point, channels, stem: [] as number[], lows: lowsOf(shape, frameOf(segment.spec)), sole: e.sole && shape.kind === "box" ? { width: shape.size.value[0] / 2, length: shape.size.value[2] / 2 } : null };
@@ -77,7 +78,7 @@ export function supportedMotor(own: OwnBody, endpoints: readonly SupportEndpoint
       motionAtToRef(d.segment, e.at, e.velocity, scratch.angular);
       e.contactAt.setAll(0);
       let impulse = 0;
-      for (const c of built.physics.contactsOf(d.segment.body)) if (c.fixed !== null && c.impulse > 0 && c.normal[1] < -response.supportNormal) {
+      for (const c of built.physics.contactsOf(d.segment.body)) if (groundContact(c, response.supportNormal)) {
         e.contactAt.x += c.point[0] * c.impulse; e.contactAt.y += c.point[1] * c.impulse; e.contactAt.z += c.point[2] * c.impulse; impulse += c.impulse;
       }
       e.contact = impulse > 0;

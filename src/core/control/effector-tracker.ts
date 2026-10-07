@@ -1,6 +1,6 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { BuiltBody, BuiltJoint, BuiltSegment } from "../build/build-body.ts";
-import type { MuscleDriver } from "../muscle/driver.ts";
+import { channelName, type MuscleDriver } from "../muscle/driver.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { distance } from "../spec/vec.ts";
 import { bodyEffectors } from "./effectors.ts";
@@ -85,7 +85,7 @@ interface ReachMeter { solves: number; passes: number; capped: number }
 
 /** Named physical endpoint paths and bounded IK, independent of a body's support controller. */
 export function effectorTracker(built: BuiltBody, root: BuiltSegment) {
-  const names = (joint: BuiltJoint) => joint.dofs.map((dof) => `${joint.spec.name} ${dof.spec.positive}`);
+  const names = (joint: BuiltJoint) => joint.dofs.map((_, k) => channelName(joint, k));
   const descriptions = bodyEffectors(built);
   const limbOf = (description: typeof descriptions[number]): Effector => {
     const { segment, chain, free, points } = description;

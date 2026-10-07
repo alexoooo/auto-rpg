@@ -8,15 +8,16 @@ import { pointOfToRef } from "../control/support.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import type { QuadrupedView } from "./crawl.ts";
 import type { StrikeCycleState } from "../skills/strike-cycle.ts";
-import { REPTILE_CONTROL as T } from "./tuning.ts";
+import { REPTILE_BITE as T } from "./tuning.ts";
+import { mouthOf } from "./bite.ts";
 
 /** Bite preparation accompanies approach; the committed stroke waits for loaded paws. */
 interface QuadrupedIntent extends Orders { readonly prepareBite: boolean }
 
 /** Shape-based low targets come from sensed colliders, without assuming an opponent's anatomy. */
 export function quadrupedTactics(own: OwnBody, orders: (view: QuadrupedView) => Orders | null): Tactics<{ readonly view: QuadrupedView; readonly bite: Pick<StrikeCycleState, "phase"> }, QuadrupedIntent> {
-  const mouth = new Vector3(), head = own.built.segments.get("head")!;
-  const tip = own.built.segments.get("jaw")!.spec.points!.bite!.value, lip = head.spec.points!.mouth!.value;
+  const mouth = new Vector3(), { head, lower } = mouthOf(own.built);
+  const tip = lower.spec.points!.bite!.value, lip = head.spec.points!.mouth!.value;
   const dx = tip[0] - lip[0], dy = tip[1] - lip[1], dz = tip[2] - lip[2];
   const entry = Math.sqrt(dx * dx + dy * dy + dz * dz) + T.biteEntry;
   return { name: "reptile", decide(sight) {

@@ -4,10 +4,11 @@ import type { Orders } from "../mind/orders.ts";
 import type { Senses } from "../mind/senses.ts";
 import type { Skill } from "../skills/skill.ts";
 import type { supportedMotor, SupportedCommand } from "../control/supported-motor.ts";
+import type { EffectorGoal } from "../control/effector-tracker.ts";
 import { withinSupport } from "../control/support.ts";
 import { atan2, cos, sin } from "../math/real.ts";
 import type { Vec3 } from "../spec/quantity.ts";
-import { REPTILE_CONTROL as T } from "./tuning.ts";
+import { REPTILE_CRAWL as T } from "./tuning.ts";
 
 /** A quadruped's proprioception exposes support endpoints rather than fabricated hands. */
 export interface QuadrupedView {
@@ -17,6 +18,16 @@ export interface QuadrupedView {
   readonly senses: Senses;
   readonly yaw: number;
   readonly down: boolean;
+}
+
+/**
+ * A paw's goal, root frame: its `point` to `at` and turned to `turn` in `seconds`, coming down
+ * at `landing`. On a `curve`, it leaves from rest and bows by `curve`.
+ */
+export function soleGoal(point: string, at: Vector3, seconds: number, sequence: number, landing: Vector3, turn: Quaternion, curve?: Vector3): EffectorGoal {
+  return { places: [{ point, position: [at.x, at.y, at.z] }], seconds, follows: true, sequence,
+    ...(curve ? { initialVelocity: [0, 0, 0] as const } : {}), terminalVelocity: [landing.x, landing.y, landing.z],
+    ...(curve ? { curve: [curve.x, curve.y, curve.z] as const } : {}), orientation: { target: [turn.x, turn.y, turn.z, turn.w], seconds } };
 }
 
 /** One paw moves after the centre enters the other three paws' support triangle. */

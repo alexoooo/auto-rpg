@@ -12,24 +12,23 @@ import type { Senses } from "../mind/senses.ts";
 import { STAND_ORDERS } from "../mind/orders.ts";
 import type { World } from "../world.ts";
 import { atan2, cos, sin } from "../math/real.ts";
-import { crawl, type QuadrupedView } from "./crawl.ts";
-import { REPTILE_CONTROL as T } from "./tuning.ts";
+import { crawl, soleGoal, type QuadrupedView } from "./crawl.ts";
+import { REPTILE_CRAWL as T, REPTILE_MOTOR } from "./tuning.ts";
 import { recover } from "./recover.ts";
 import { bite } from "./bite.ts";
 import { quadrupedTactics } from "./tactics.ts";
-
-/** Four physical support endpoints, in the crawl's order. */
-const PAWS: readonly SupportEndpoint[] = ["front.left", "hind.right", "front.right", "hind.left"].map(name => ({ segment: `paw.${name}`, point: "sole", sole: true }));
 
 /** A quadruped mind drives its own support chains through the common floating-base solve. */
 export function createQuadrupedMind(built: BuiltBody, world: World, wiring: Partial<MindWiring> = {}) {
   const orders = wiring.orders ?? ((): null => null);
   const upright = uprightness(built), down = (): boolean => upright.down();
+  // The paws, in the order the crawl lifts them: the effectors the spec says it stands on.
+  const paws: readonly SupportEndpoint[] = (built.spec.effectors ?? []).filter(e => e.support).map(e => ({ segment: e.segment, point: e.point, sole: e.support === "sole" }));
   const body = hostedBody(built, world, wiring, (own, senses) => {
-    const motor = supportedMotor(own, PAWS, T), skill = crawl(own, motor, PAWS.map(p => p.segment));
+    const motor = supportedMotor(own, paws, REPTILE_MOTOR), skill = crawl(own, motor, paws.map(p => p.segment));
     const tracker = effectorTracker(built, motor.root), frame = { position: new Vector3(), rotation: new Quaternion() }, target = new Vector3();
     const inverse = new Quaternion(), desired = new Quaternion(), flat = new Quaternion(), lift = new Vector3(), descending = new Vector3();
-    const turn = new Quaternion(), front = new Vector3(), forward = new Vector3(0, 0, 1);
+    const turn = new Quaternion(), front = new Vector3(), forward = new Vector3(0, 0, 1), still = new Vector3();
     const view: QuadrupedView = { centre: motor.state.centre, velocity: motor.state.velocity, feet: motor.state.endpoints,
       senses: senses(), yaw: 0, down: false };
     const reading = view as { -readonly [K in keyof QuadrupedView]: QuadrupedView[K] };
@@ -54,20 +53,17 @@ export function createQuadrupedMind(built: BuiltBody, world: World, wiring: Part
       lift.set(0, T.lift, 0).applyRotationQuaternionToRef(inverse, lift);
       descending.set(0, -T.plantSpeed, 0).applyRotationQuaternionToRef(inverse, descending);
       command.endpoints.forEach((goal, i) => {
-        const name = PAWS[i]!.segment;
-        if (goal.bearing && view.feet[i]!.contact) tracker.release(name);
+        const paw = paws[i]!;
+        if (goal.bearing && view.feet[i]!.contact) tracker.release(paw.segment);
         else {
           intoFrameToRef(frame, goal.bearing ? goal.target : skill.state.to, target);
-          tracker.reach(name, { places: [{ point: "sole", position: [target.x, target.y, target.z] }], seconds: goal.bearing ? T.plant : T.swing,
-            follows: true, sequence: skill.state.sequence, initialVelocity: [0, 0, 0], terminalVelocity: [descending.x, descending.y, descending.z],
-            curve: goal.bearing ? [0, 0, 0] : [lift.x, lift.y, lift.z],
-            orientation: { target: [flat.x, flat.y, flat.z, flat.w], seconds: goal.bearing ? T.plant : T.swing } });
+          tracker.reach(paw.segment, soleGoal(paw.point, target, goal.bearing ? T.plant : T.swing, skill.state.sequence, descending, flat, goal.bearing ? still : lift));
         }
       });
       const tracked = tracker.step(own.muscles, command.posture, dt, false, true);
       motor.control(command, dt, i => snap.tracked(i) ?? tracked(i));
     }, release() { tracker.reset(); for (const s of skills) s.resume(view); }, resume() { motor.resume(); tracker.reset(); for (const s of skills) s.resume(view); } };
-    return { host, subs: [recover(own, motor, tracker, PAWS.map(p => p.segment), view)], down };
+    return { host, subs: [recover(own, motor, tracker, paws, view)], down };
   });
   return { kind: "quadruped" as const, body, state: {} };
 }

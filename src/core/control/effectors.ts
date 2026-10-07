@@ -4,6 +4,7 @@ import { chainTo } from "./kinematics.ts";
 import { deepFreeze } from "../state.ts";
 import type { BodySpec } from "../spec/body.ts";
 import type { Vec3 } from "../spec/quantity.ts";
+import { channelName } from "../muscle/driver.ts";
 
 /** Detached endpoint capability; coordinates are the body's reference frame, not engine handles. */
 export interface EffectorModel {
@@ -37,7 +38,7 @@ export function bodyEffectors(built: BuiltBody) {
     const points = new Map([...rigidPoints(built.spec, segment.spec)].map(([name, p]) => [name, p.value]));
     if (start < 0 || !points.has(description.point)) throw new Error("effector needs an ancestor base and a physical point");
     const free = chain.flatMap((joint, j) => j < start ? [] : joint.dofs.map((dof, k) => ({ joint: j, k,
-      min: dof.spec.min.value, max: dof.spec.max.value, preferred: 0, name: `${joint.spec.name} ${dof.spec.positive}` })));
+      min: dof.spec.min.value, max: dof.spec.max.value, preferred: 0, name: channelName(joint, k) })));
     for (const f of free) {
       const other = owned.get(f.name);
       if (other) throw new Error(`effectors ${other} and ${description.segment} share ${f.name}`);

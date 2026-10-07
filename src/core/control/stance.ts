@@ -1,7 +1,7 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { Vec3 } from "../spec/quantity.ts";
 import type { BuiltBody } from "../build/build-body.ts";
-import type { MuscleDriver } from "../muscle/driver.ts";
+import { channelName, type MuscleDriver } from "../muscle/driver.ts";
 import type { Assist } from "./assist.ts";
 import type { ServoWork } from "./servo.ts";
 import { bearLimbs, carryRoot, limbMotion, makeBearing, type Bearing, type Limb } from "./bearing.ts";
@@ -392,7 +392,7 @@ function bindChannels(s: Stance, muscles: MuscleDriver): void {
   const { state } = s;
   if (state.owned.length === muscles.channels.length) return;
   state.owned = new Uint8Array(muscles.channels.length);
-  for (const foot of s.feet) foot.memory.channels = foot.chain.flatMap((joint) => joint.dofs.map((dof) => muscles.channel(`${joint.spec.name} ${dof.spec.positive}`)));
+  for (const foot of s.feet) foot.memory.channels = foot.chain.flatMap((joint) => joint.dofs.map((_, k) => muscles.channel(channelName(joint, k))));
 }
 
 /** Whether `goal` leaves the stance to step of itself: it stands on both feet and asks for no step. */

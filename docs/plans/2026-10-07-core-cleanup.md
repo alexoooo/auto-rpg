@@ -108,33 +108,9 @@ needs it generic.
 
 ### Chunk 6: hand poses in the build layer (landed)
 
-### Chunk 7: reptile from data, with shared predicates (bit-identical)
+### Chunk 7: reptile from data, with shared predicates (landed)
 
-**Body data**
-- `EffectorSpec.support?: "sole"`.
-- `body.json` declares the paws, head, wounds and down. Support endpoints are
-  `spec.effectors.filter(e => e.support)`, in declared order, which replaces `PAWS`.
-- One `soleGoal()` builder serves the crawl act and the rise in `recover`. It passes optional
-  fields only when given.
-
-**Recovery and bite read structure, not names**
-- `recover.ts` finds each leg with `chainTo(paw)`. Joint roles come from position in the chain,
-  and sides and signs from the reference positions. While changing it, assert them against
-  today's name-based reading.
-- `bite.ts` finds the jaw by its `bite` point, the hinge as the jaw's parent joint, and the neck
-  as the joint carrying the head. Channel names come from `dofs[k].positive`.
-
-**Shared predicates**
-- Export `groundContact(contact, minUp)` from `control/support.ts`. It is used by
-  `supported-motor`, `support-readiness` and `recover`. Keep each caller's comparison; the
-  `<`/`<=` difference stays unless the lock allows it.
-- Export `externalContact` there as well, for the bite's own-body contact test.
-
-**Tuning and spec reader**
-- Split `REPTILE_CONTROL` into `REPTILE_MOTOR`, `_CRAWL`, `_RECOVERY` and `_BITE`.
-- The spec reader switches on the JSON `kind` with a `never` default.
-- Drop the box `radius` from the JSON.
-- Check each joint's reference angle against its range, as the human joints already do.
+`externalContact` was not exported: the bite is its only reader.
 
 ### Chunk 8: shared spec derivation (bit-identical)
 

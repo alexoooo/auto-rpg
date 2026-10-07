@@ -34,7 +34,7 @@ export interface BodySpec {
   readonly stature: Quantity<number>;
   readonly segments: readonly SegmentSpec[];
   /** Named controllable endpoints; the chain below `base` belongs to the effector. */
-  readonly effectors?: readonly { readonly segment: string; readonly base: string; readonly point: string }[];
+  readonly effectors?: readonly EffectorSpec[];
   /** Each joint names a parent and a child segment; together they form a tree over the segments. */
   readonly joints: readonly JointSpec[];
   readonly wounds: WoundSpec;
@@ -58,6 +58,17 @@ export interface BodySpec {
 export type DownSpec =
   | { readonly kind: "asked"; readonly fallen: Quantity<number> }
   | { readonly kind: "low"; readonly root: string; readonly height: Quantity<number>; readonly up: Quantity<number> };
+
+/**
+ * **A controllable endpoint**: `segment`'s `point`, moved by the chain from `base` out to it.
+ * `support`: a foot the body stands on, flat on its sole.
+ */
+interface EffectorSpec {
+  readonly segment: string;
+  readonly base: string;
+  readonly point: string;
+  readonly support?: "sole";
+}
 
 /** What a thing is made of, where it meets another: a body's flesh or bone, an item's wood, the world's stone. */
 export type Substance = "flesh" | "bone" | "wood" | "stone";

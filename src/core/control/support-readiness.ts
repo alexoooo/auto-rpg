@@ -1,6 +1,6 @@
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { BuiltBody } from "../build/build-body.ts";
-import { footStatesOf, readSupport, withinSupport } from "./support.ts";
+import { footStatesOf, groundContact, readSupport, withinSupport } from "./support.ts";
 
 /** Physical readiness limits, independent of anatomy: `docs/reference/punch-stability.md#readiness-settings`. */
 export const STRIKE_SUPPORT = Object.freeze({ normal: .9, footGap: .015, slow: .35, hold: .05 });
@@ -16,14 +16,14 @@ export function supportReadiness(built: BuiltBody) {
     for (const foot of feet) {
       state.loads[foot.side] = 0;
       for (const c of built.physics.contactsOf(foot.segment.body))
-        if (c.fixed !== null && c.normal[1] <= -STRIKE_SUPPORT.normal && c.impulse > 0) state.loads[foot.side] += -c.normal[1] * c.impulse;
+        if (groundContact(c, STRIKE_SUPPORT.normal)) state.loads[foot.side] += -c.normal[1] * c.impulse;
       state.flat[foot.side] = Math.max(...foot.corners.map(c => c.y)) - Math.min(...foot.corners.map(c => c.y)) <= STRIKE_SUPPORT.footGap;
     }
     const near = withinSupport(feet, centre.x, centre.z);
     state.centred = near[0] === centre.x && near[1] === centre.z;
     state.speed = velocity.length(); state.otherSupport = false;
     for (const part of built.segments.values()) if (!soles.has(part.body)
-      && built.physics.contactsOf(part.body).some(c => c.fixed !== null && c.impulse > 0 && c.normal[1] <= -STRIKE_SUPPORT.normal)) state.otherSupport = true;
+      && built.physics.contactsOf(part.body).some(c => groundContact(c, STRIKE_SUPPORT.normal))) state.otherSupport = true;
     state.quiet = plantedSupport(state) ? state.quiet + dt : 0;
   } };
 }

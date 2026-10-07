@@ -71,6 +71,9 @@ function fixedAt(level: BodyLevel): boolean {
 }
 
 /** One freedom's muscles: which joint and freedom, and the curve each way. */
+/** The channel of `joint`'s freedom `index`: the joint's name and the freedom's positive motion, e.g. "elbow.right flexion". */
+export const channelName = (joint: BuiltJoint, index: number): string => `${joint.spec.name} ${joint.dofs[index]!.spec.positive}`;
+
 interface MuscleChannel {
   /** `joint.name` and the freedom's positive motion, e.g. "elbow.right flexion". */
   readonly name: string;
@@ -155,7 +158,7 @@ export function driveMuscles(built: BuiltBody, world: World, control?: MuscleCon
     joint.dofs.forEach((dof, index) => {
       const muscle = dof.spec.muscle;
       channels.push({
-        name: `${joint.spec.name} ${dof.spec.positive}`, joint, index, dof,
+        name: channelName(joint, index), joint, index, dof,
         positive: { peak: muscle.peakPositive.value, curve: curveOf(muscle, "positive") },
         negative: { peak: muscle.peakNegative.value, curve: curveOf(muscle, "negative") },
       });

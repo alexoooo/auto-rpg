@@ -29,7 +29,8 @@ box sizes are along that segment's local frame.
 
 ## Controller settings
 
-These values are controller choices, held separately from the anatomy in `REPTILE_CONTROL`.
+These values are controller choices, held separately from the anatomy in `REPTILE_MOTOR`, `REPTILE_CRAWL`,
+`REPTILE_RECOVERY` and `REPTILE_BITE` (`src/core/reptile/tuning.ts`).
 The contact gates and the final fixed-anatomy checks below qualify the combination; they are
 not a measured optimum or evidence of a real animal's locomotion. Response times are seconds,
 lengths metres, angles radians, and height multipliers relative to the spec's reference COM.
