@@ -30,7 +30,7 @@ export function lone(model, name, kg, { hp = 1, whole = [], spare = false, held 
     joints: spare ? [{ name: "pin", parent: "spare", child: name, centre: q([0, -0.05, 0]),
       dofs: [{ positive: "flexion", negative: "extension", axis: q([0, 0, 1], "1"), min: q(-3, "rad"), max: q(3, "rad"),
         muscle: { peakPositive: q(1, "N m"), peakNegative: q(1, "N m"), speedPositive: free, speedNegative: free } }] }] : [],
-    wounds: { hp: q(hp, "HP"), vital: [], whole }, attributes: { balance: q(0, "%") },
+    wounds: { hp: q(hp, "HP"), vital: [], whole }, attributes: { balance: q(0, "%") }, down: { kind: "asked", fallen: q(0.25) },
     ...(held === null ? {} : { held: [{
       segment: name, origin: q([held, 0, 0]), along: q([0, 1, 0], "1"), across: q([1, 0, 0], "1"),
       item: { name: ITEM, mass: q(ITEM_KG, "kg"), centreOfMass: q([0, 0, 0]), inertia: q([0.0001, 0.0001, 0.0001], "kg m2"),

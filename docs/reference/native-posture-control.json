@@ -8915,7 +8915,14 @@
           "unit": "%"
         }
       },
-      "substance": "flesh"
+      "substance": "flesh",
+      "down": {
+        "kind": "asked",
+        "fallen": {
+          "value": 0.25,
+          "unit": "m"
+        }
+      }
     }
   },
   "planner": {

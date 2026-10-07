@@ -1,4 +1,5 @@
 import type { BodySpec } from "../spec/body.ts";
+import { sourced } from "../spec/quantity.ts";
 import { humanAttributes } from "./attributes.ts";
 import type { HumanFigure } from "./figure.ts";
 import { humanJoints } from "./joints.ts";
@@ -34,5 +35,6 @@ function figureSpec(figure: HumanFigure): BodySpec {
     wounds: humanWounds(figure),
     attributes: humanAttributes(figure),
     substance: figure.substance,
+    down: { kind: "asked", fallen: sourced(0.25, "m", "fall-bar", "Fallen") },
   };
 }

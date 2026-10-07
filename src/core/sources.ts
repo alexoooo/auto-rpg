@@ -17,6 +17,12 @@ type Source =
   | { readonly kind: "measurement"; readonly how: string; readonly record: string };
 
 export const SOURCES = Object.freeze({
+  "fall-bar": {
+    kind: "measurement",
+    how: "The depth under its asked height at which the stance's batteries count a fall (research/core-stance-trials.mjs); "
+      + "set, not swept, and the bar a standing body is down by.",
+    record: "docs/reference/stance-tuning.md#fallen",
+  },
   "reptile-anatomy": {
     kind: "asset", file: "assets/reptile/body.json",
     what: "Authored estimates for the 8 kg sprawling reptile: geometry, mass weights, joint limits and muscle ceilings; docs/reference/reptile.md states their uncertainty and derivations.",

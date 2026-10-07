@@ -96,7 +96,7 @@ const fistSpec = (kg) => ({
   segments: [{ name: "hand.right", proximal: q([0, 0, 0]), distal: q([0, 0.1, 0]), mass: q(kg, "kg"), centreOfMass: q([0, 0.05, 0]),
     inertia: q([0.001, 0.001, 0.001], "kg m2"), shape: { kind: "sphere", centre: q([0, 0.05, 0]), radius: q(0.05) },
     surface: { stiffness: q(FIST_K, "N/m") } }],
-  joints: [], wounds: { hp: q(1, "HP"), vital: [], whole: [] }, attributes: { balance: q(0, "%") },
+  joints: [], wounds: { hp: q(1, "HP"), vital: [], whole: [] }, attributes: { balance: q(0, "%") }, down: { kind: "asked", fallen: q(0.25) },
 });
 
 /**

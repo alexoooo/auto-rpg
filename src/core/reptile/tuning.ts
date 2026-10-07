@@ -3,7 +3,7 @@ export const REPTILE_CONTROL = Object.freeze({
   centre: .12, endpoint: .08, turn: .12, posture: .15, lever: .3, damping: .005, rootMotion: .05,
   crawlHeight: .85, stride: .07, lift: .06, liftConfirm: .001, swing: 1.2, shift: .45, settle: .3, plant: .2, plantSpeed: .05, placementLimit: 3,
   inset: .4, supportInset: .1, shiftError: .008, turnError: .05, yawStep: .18,
-  minimumHeight: .6, minimumUp: .5, supportNormal: .5, contactMargin: .01,
+  supportNormal: .5, contactMargin: .01,
   recoveryPath: .5, recovered: .5, recoveredSpeed: .1, recoveryHeight: .8, rollUpright: .95,
   rightingGain: 8, rightingDamping: 4, rightingEpsilon: .000001,
   foldHip: 1.2, foldKnee: 2.6, plantedKnee: 1.4, sweepYaw: 1.2, wrappedHip: .5, unwindHip: 2,

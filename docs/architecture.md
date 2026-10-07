@@ -391,11 +391,10 @@ that hands it goals, with skills carrying out what tactics decide. `Minded.body`
 `PhysicalBody` lifecycle (`physical-body.ts`), which requires no stance, envelope, skill or
 recovery controller. Its `physical` reading is sampled before physics at each full control-step
 boundary and saved with the body; below full it retains that last sample. Game positioning reads it; the fighter's predicted supports
-and readiness stay in its own `BodyView`. The common `down` rule adapter preserves the fighter's
-intentional stance-height allowance. Independent policies default to the anatomical standing
-height. Both use `uprightness`; unconditional standing-height `physical.down` and `observe().down`
-remain separate measurements. Common recovery task scoring must name its height rule explicitly;
-removing the game's controller-dependent stance allowance belongs to the recovery-rule migration.
+and readiness stay in its own `BodyView`. When a body is down is its spec's rule (`BodySpec.down`,
+read by `uprightness`): a human by its height under the height it is asked, the reptile by its
+trunk's tilt and its height. The fighter's view reads it at the height its stance asks; every other
+mind's `physical.down` and `observe().down` read it at the standing height.
 
 Replacement policies use `createPolicyBody` (`mind/direct.ts`). They receive a frozen actuator
 description and detached, frozen `BodyObservation` snapshots (`observation.ts`), including joint
@@ -844,8 +843,8 @@ The rules of a fight are `src/core/rules/`, free of any page so they can be argu
   never from the machine, so there is no cap on the bodies at `full`; the fight gives the
   distances (`LevelRule`). The crypt is its one caller today.
 
-A body that is down (`BodyView.down`: its centre of mass a quarter metre under the height it is
-asked to hold, over its lowest point, `src/core/control/ground.ts`) is out of the fight, and lies still (`lie`): the
+A body that is down (`BodyView.down`, by its spec's rule: a human's centre of mass a quarter metre
+under the height it is asked to hold, over its lowest point, `src/core/control/ground.ts`) is out of the fight, and lies still (`lie`): the
 riser is the lab's alone, and no fight gives its bodies one. The arena's verdict (`Duel.judge`, `src/arena/duel.ts`): a side is out when its
 pool ends or its body is down; both out on one step is a draw; at 120 s the fuller bar wins.
 

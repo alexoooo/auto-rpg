@@ -15,7 +15,7 @@ foot and contain a finite position and unit quaternion. Arm IK reads the measure
 this mode. No assist, anatomy, inertia, muscle strength or damage rule changes.
 
 A supported pose retains a recovery bar at least the reference standing height less
-`FALLEN`. Asking for a lower root height therefore still reports a physically fallen
+the spec's fall bar (`DownSpec` `asked`). Asking for a lower root height therefore still reports a physically fallen
 body to the host. A shove from the low posture exercises that path; removing the bar
 makes that test fail. Fresh-world save/load during descent reproduces the complete
 low striking and standing return state and body motion bit for bit.

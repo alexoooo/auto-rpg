@@ -20,8 +20,8 @@ mind (`DungeonRun.drop`), the lab does nothing.
 
 1. **Down is a reading of the body, not a memory of a skill.** How high the centre of mass is
    over the body's lowest point, against the height its mind asks it to hold: its standing height,
-   less whatever a stance goal lowers it by (`uprightness`, `src/core/control/ground.ts`). One
-   module owns the bar (`FALLEN`) and exports the predicate; the view carries it
+   less whatever a stance goal lowers it by (`uprightness`, `src/core/control/ground.ts`). The
+   body's spec states the bar (`BodySpec.down`), one module reads it and exports the predicate; the view carries it
    (`BodyView.down`); every fight, page and sub-mind reads that. It is true while the body is down
    and false once it is up again, so it can be the trigger of a rise; and a body that holds itself
    low on purpose is not down.

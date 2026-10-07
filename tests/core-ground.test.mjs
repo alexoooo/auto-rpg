@@ -7,7 +7,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { createBody, SERVO_SECONDS } from "../src/core/body.ts";
-import { FALLEN, uprightness } from "../src/core/control/ground.ts";
+import { uprightness } from "../src/core/control/ground.ts";
 import { centreOfToRef, footStatesOf } from "../src/core/control/support.ts";
 import { armed } from "../src/core/human/grip.ts";
 import { HUMANOID_MODELS, modelSpec } from "../src/core/models.ts";
@@ -22,6 +22,8 @@ import { GUARD } from "../src/core/skills/guard.ts";
 import { coreStand } from "./harness/core-stand.mjs";
 
 const warrior = modelSpec("workshop-fighter");
+/** How far under its asked height a human is down, m: its spec's bar. */
+const FALLEN = warrior.down.fallen.value;
 const BODIES = [...HUMANOID_MODELS.map(modelSpec), armed(warrior, "right", woodenClub())];
 
 /** A built body's centre of mass's height over the stand's ground, m: the ground's top is y = 0. */

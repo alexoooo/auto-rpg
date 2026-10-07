@@ -11,6 +11,7 @@ import { rulebook } from "../src/core/rules/rulebook.ts";
 import { watchBlows } from "../src/core/rules/blows.ts";
 import { STAND_ORDERS } from "../src/core/mind/orders.ts";
 import { createSenses } from "../src/core/mind/senses.ts";
+import { createDirectBody } from "../src/core/mind/direct.ts";
 
 test("the reptile has its own complete sourced anatomy", () => {
   const spec = reptileSpec();
@@ -34,6 +35,17 @@ test("the reptile constructs in its declared joint pose without a corrective imp
       assert.ok(v.length() < 1e-5, `${s.spec.name}: ${v.length()}`);
     }
   } finally { stand.dispose(); }
+});
+
+test("a reptile is down by its own rule under any mind", async () => {
+  // A mind that knows nothing of reptiles reads the spec's rule: on its back it is down, built on its paws it is not.
+  const read = async (rotation, position) => {
+    const s = await coreStand(reptileSpec(), { engine: "rapier-coordinate", rotation, position });
+    const body = createDirectBody(s.built, s.world, { kind: "direct", targets: {}, seconds: 0.05, speed: 1, activation: 0 });
+    try { s.step(); return [body.down, body.observe().down]; } finally { body.dispose(); s.dispose(); }
+  };
+  assert.deepEqual(await read(undefined, [0, 0, 0]), [false, false]);
+  assert.deepEqual(await read([0, 0, 1, 0], [0, 0.5, 0]), [true, true]);
 });
 
 test("the reptile stands for thirty seconds without an assist", async () => {

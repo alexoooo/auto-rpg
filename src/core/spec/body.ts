@@ -43,7 +43,21 @@ export interface BodySpec {
   readonly substance: Substance;
   /** Items held rigidly in a segment, such as a club in a hand; absent, nothing. */
   readonly held?: readonly HeldSpec[];
+  /** When the body is down: the rule every fight, page and mind reads it by (`uprightness`, `src/core/control/ground.ts`). */
+  readonly down: DownSpec;
 }
+
+/**
+ * **When a body is down**, by kind:
+ *
+ * - `asked`: its centre of mass is more than `fallen`, m, under the height its mind asks it to
+ *   hold over its lowest point: a body that stands, and can be asked to crouch or kneel.
+ * - `low`: `root`'s up has tipped under `up` (the cosine of its tilt), or its centre of mass is
+ *   under `height` of its standing height: a body that keeps low to the ground and asks no height.
+ */
+export type DownSpec =
+  | { readonly kind: "asked"; readonly fallen: Quantity<number> }
+  | { readonly kind: "low"; readonly root: string; readonly height: Quantity<number>; readonly up: Quantity<number> };
 
 /** What a thing is made of, where it meets another: a body's flesh or bone, an item's wood, the world's stone. */
 export type Substance = "flesh" | "bone" | "wood" | "stone";

@@ -89,6 +89,7 @@ export function dummySpec(attacker: BodySpec, part: string = DUMMY_PART): BodySp
     return derive("m", `the ball that holds the attacker's ${part}'s mass at its density`, [made.mass, si(density)], (m, rho) => ballRadius(m / rho));
   })();
   const centre = derive("m", "the ball's centre, its frame's origin", [], (): Vec3 => [0, 0, 0]);
+  if (attacker.down.kind !== "asked") throw new Error(`a dummy is down by its attacker's fall bar, and ${attacker.model} has none`);
   return {
     model: `${attacker.model}.dummy`, substance: attacker.substance, mass,
     stature: derive("m", "the ball's height, twice its radius", [radius], (r) => 2 * r),
@@ -102,6 +103,7 @@ export function dummySpec(attacker: BodySpec, part: string = DUMMY_PART): BodySp
     joints: [],
     wounds: { hp: derive("HP", "the attacker's hit points", [attacker.wounds.hp], (hp) => hp), vital: [], whole: [part] },
     attributes: { balance: derive("%", "the attacker's balance", [attacker.attributes.balance], (percent) => percent) },
+    down: { kind: "asked", fallen: derive("m", "the attacker's fall bar", [attacker.down.fallen], (fallen) => fallen) },
   };
 }
 

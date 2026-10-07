@@ -4,15 +4,9 @@
  */
 import { Vector3, Quaternion } from "@babylonjs/core/Maths/math.vector.js";
 import type { BuiltBody, BuiltSegment } from "../build/build-body.ts";
-import { handShapeAt, type HandPose, type SegmentFrame, type ShapeSpec } from "../spec/body.ts";
+import { handShapeAt, type DownSpec, type HandPose, type SegmentFrame, type ShapeSpec } from "../spec/body.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { turnOfToRef } from "./support.ts";
-
-/**
- * How far under the height it is asked to hold a body's centre of mass is when the body is down, m
- * (`docs/reference/rising.md#down`). Set, not swept.
- */
-export const FALLEN = 0.25;
 
 /**
  * **How upright a body is, as the body itself can tell**: its centre of mass's height over its
@@ -26,16 +20,43 @@ interface Uprightness {
   /** That height in the reference pose, m: the spec's, whatever pose the body is in when this is made. */
   readonly standing: number;
   /**
-   * Whether the body is down: its centre of mass more than `FALLEN` under `asked`, the height its
-   * mind asks it to hold, m. Its standing height unless given, and no more than it: a body asked
-   * to stand taller than it can is not down for failing to.
+   * Whether the body is down, by its spec's rule (`DownSpec`). Under `asked`, `asked` is the
+   * height its mind asks it to hold, m: its standing height unless given, and no more than it, so a
+   * body asked to stand taller than it can is not down for failing to. `posed`, a body held in a
+   * supported pose is asked no lower than `fallen` under its standing height. `low` asks nothing.
    */
-  down(asked?: number): boolean;
+  down(asked?: number, posed?: boolean): boolean;
   /**
    * How far over the body's lowest point the lowest point of its segments but `except` is, m, now:
    * a body that touches the ground with those alone holds the rest this far clear of it.
    */
   clearance(except: ReadonlySet<BuiltSegment>): number;
+}
+
+/** `spec`'s rule of when `built` is down, its standing height `standing` and its height read now by `height`. */
+function downRule(built: BuiltBody, spec: DownSpec, standing: number, height: () => number): Uprightness["down"] {
+  switch (spec.kind) {
+    case "asked": {
+      const fallen = spec.fallen.value;
+      return (asked = standing, posed = false) => Math.min(posed ? Math.max(asked, standing - fallen) : asked, standing) - height() > fallen;
+    }
+    case "low": {
+      const root = built.segments.get(spec.root);
+      if (!root) throw new Error(`${built.spec.model} has no ${spec.root} to read its tilt by`);
+      const least = spec.up.value, low = standing * spec.height.value;
+      const turn = new Quaternion(), up = new Vector3(), vertical = new Vector3(0, 1, 0);
+      return () => {
+        turnOfToRef(root, turn);
+        vertical.applyRotationQuaternionToRef(turn, up);
+        return up.y < least || height() < low;
+      };
+    }
+    default: return unknownDown(spec);
+  }
+}
+
+function unknownDown(spec: never): never {
+  throw new Error(`no down rule of a ${JSON.stringify((spec as { kind?: unknown }).kind)}`);
 }
 
 /** A point of a segment's shape, body frame, reference pose, and how far the shape reaches around it, m. */
@@ -94,6 +115,7 @@ export function uprightness(built: BuiltBody): Uprightness {
   if (parts.length === 0) throw new Error(`${built.spec.model} has no segment to stand on`);
   const standing = moment / mass - lowest;
   const turn = new Quaternion(), at = new Vector3();
+  const down = downRule(built, built.spec.down, standing, () => height());
   /** The centre of mass's height, world, and the lowest point's, read now. */
   const levels = { centre: 0, low: 0 };
   const read = (): typeof levels => {
@@ -115,7 +137,7 @@ export function uprightness(built: BuiltBody): Uprightness {
   return {
     height, standing,
     lowest: () => read().low,
-    down: (asked = standing) => Math.min(asked, standing) - height() > FALLEN,
+    down,
     clearance(except) {
       let low = Infinity, rest = Infinity;
       for (const part of parts) {

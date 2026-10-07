@@ -34,7 +34,7 @@ function holder() {
   };
   return {
     model: "holder", mass: q(1.7, "kg"), stature: q(1), segments: [segment], joints: [],
-    wounds: { hp: q(1, "1"), vital: [], whole: [] }, attributes: { balance: q(0, "%") },
+    wounds: { hp: q(1, "1"), vital: [], whole: [] }, attributes: { balance: q(0, "%") }, down: { kind: "asked", fallen: q(0.25) },
     held: [{ segment: "grip", item: rod, origin: q([0.2, 0.93, 0.15]), along: q([0.2, 0.9, -0.4], "1"), across: q([1, -0.1, 0.3], "1") }],
   };
 }

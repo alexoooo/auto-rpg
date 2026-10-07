@@ -2,7 +2,7 @@ import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { BuiltBody } from "../build/build-body.ts";
 import { supportedMotor, type SupportEndpoint } from "../control/supported-motor.ts";
 import { NO_ASSIST, type AssistCeiling } from "../control/assist.ts";
-import { lowBodyPosture } from "../control/posture.ts";
+import { uprightness } from "../control/ground.ts";
 import { effectorTracker } from "../control/effector-tracker.ts";
 import { rootFrameToRef, intoFrameToRef } from "../control/kinematics.ts";
 import { turnOfToRef } from "../control/support.ts";
@@ -24,7 +24,7 @@ const PAWS: readonly SupportEndpoint[] = ["front.left", "hind.right", "front.rig
 
 /** A quadruped mind drives its own support chains through the common floating-base solve. */
 export function createQuadrupedMind(built: BuiltBody, world: World, orders: (senses: Senses) => Orders | null = () => null, senses = clockSenses(world), assist: AssistCeiling = NO_ASSIST) {
-  const posture = lowBodyPosture(built, "trunk", T.minimumHeight, T.minimumUp);
+  const upright = uprightness(built), down = (): boolean => upright.down();
   const embodied = embody(built, world, own => {
     const motor = supportedMotor(own, PAWS, T), skill = crawl(own, motor, PAWS.map(p => p.segment));
     const tracker = effectorTracker(built, motor.root), frame = { position: new Vector3(), rotation: new Quaternion() }, target = new Vector3();
@@ -35,7 +35,7 @@ export function createQuadrupedMind(built: BuiltBody, world: World, orders: (sen
     const reading = view as { -readonly [K in keyof QuadrupedView]: QuadrupedView[K] };
     const read = (s: Senses) => {
       motor.read(); turnOfToRef(motor.root, turn); forward.applyRotationQuaternionToRef(turn, front);
-      reading.senses = s; reading.yaw = atan2(front.x, front.z); reading.down = posture.down();
+      reading.senses = s; reading.yaw = atan2(front.x, front.z); reading.down = down();
     };
     const snap = bite(own, tracker), tactics = quadrupedTactics(own, view => orders(view.senses)), skills = [skill, snap];
     const sight = { view, bite: snap.state.cycle };
@@ -69,5 +69,5 @@ export function createQuadrupedMind(built: BuiltBody, world: World, orders: (sen
     }, release() { tracker.reset(); for (const s of skills) s.resume(view); }, resume() { motor.resume(); tracker.reset(); for (const s of skills) s.resume(view); } };
     return hosting(host, [recover(own, motor, tracker, PAWS.map(p => p.segment), view)]);
   }, senses, assist);
-  return { kind: "quadruped" as const, body: physicalBody(embodied.own, world, senses, () => embodied.mind.has, embodied.state, embodied.dispose, posture.down), state: {} };
+  return { kind: "quadruped" as const, body: physicalBody(embodied.own, world, senses, () => embodied.mind.has, embodied.state, embodied.dispose, down), state: {} };
 }
