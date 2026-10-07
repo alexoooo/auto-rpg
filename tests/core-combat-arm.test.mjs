@@ -13,7 +13,7 @@ import {traceOf} from './harness/trace.mjs';
 
 async function stand(hand,armExtension,elbowExtension=0) {
  const s=await coreStand(modelSpec('workshop-fighter'),{engine:DEFAULT_ENGINE});
- const body=createBody(s.built,s.world,{servoSeconds:SERVO_SECONDS,handFeedback:true}),skills=combatSkills(body,{...ATTACK_PATH,elbowExtension});
+ const body=createBody(s.built,s.world,{servoSeconds:SERVO_SECONDS,feedback:true}),skills=combatSkills(body,{...ATTACK_PATH,elbowExtension});
  const action={hand,target:[hand==='right'?.1:-.1,1.63,.6],family:'straight',armExtension};
  body.drive((view,dt)=>skills.command(view,{move:null,face:0,hands:{left:GUARD_ACTION,right:GUARD_ACTION},combat:view.time>=2?action:null},dt));
  return {...s,body,skills,action};

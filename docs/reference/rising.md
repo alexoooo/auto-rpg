@@ -4,9 +4,11 @@ The records the core's reading of a fall, and what a body does after one, are me
 
 ## Down
 
-A body is down while its centre of mass is more than `FALLEN`, 0.25 m, under the height it is
-asked to hold (`uprightness`, `src/core/control/ground.ts`). The bar is set, not swept: it is the
-one the stance's batteries count a fall by (`stance-tuning.md#fallen`).
+A human is down while its centre of mass is more than its spec's `fallen`, 0.25 m, under the
+height it is asked to hold (`DownSpec` `asked`, `src/core/spec/body.ts`, read by `uprightness`,
+`src/core/control/ground.ts`). The bar is set, not swept: it is the one the stance's batteries
+count a fall by (`stance-tuning.md#fallen`). The reptile asks no height and is down by its own
+rule (`low`, `reptile.md`).
 
 - **The height is over the body's lowest point**: the least over every segment's shape, a
   capsule's ends and a sphere's centre less the radius, a box's corners, a hull's points. The

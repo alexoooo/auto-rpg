@@ -33,7 +33,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { parseArgs } from "node:util";
 import { CAP_SECONDS, SIDES } from "../src/arena/duel.ts";
 import { tapeHash } from "../src/arena/matchup.ts";
-import { HUMANOID_MODELS as BODY_MODELS } from "../src/core/models.ts";
+import { HUMANOID_MODELS } from "../src/core/models.ts";
 import { BOUT_HARNESS, buildBout } from "./bout.mjs";
 import { defaultLanes, playBouts } from "./bout-pool.mjs";
 import { rolloutPool } from "./rollout-pool.mjs";
@@ -50,7 +50,7 @@ const gap = Number(values.gap), seconds = Number(values.seconds), blind = Number
 const sides = values.side === "both" ? SIDES : [values.side];
 if (!sides.every((side) => SIDES.includes(side))) throw new Error(`--side is left, right or both, not ${values.side}`);
 const balance = values.balance === undefined ? undefined : (([left, right = left]) => ({ left, right }))(values.balance.split(",").map(Number));
-const matchups = values.all ? BODY_MODELS.flatMap((left) => BODY_MODELS.map((right) => ({ left, right }))) : [{ left: values.left, right: values.right }];
+const matchups = values.all ? HUMANOID_MODELS.flatMap((left) => HUMANOID_MODELS.map((right) => ({ left, right }))) : [{ left: values.left, right: values.right }];
 const lanes = Number(values.workers ?? defaultLanes());
 
 const mean = (numbers) => numbers.reduce((sum, n) => sum + n, 0) / numbers.length;

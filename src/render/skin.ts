@@ -1,4 +1,3 @@
-import type { Hand } from "../core/control/motor.ts";
 import type { Clothing, SkinView } from "./skin-view.ts";
 import type { AssetContainer } from "@babylonjs/core/assetContainer.js";
 import { LoadAssetContainerAsync } from "@babylonjs/core/Loading/sceneLoader.js";
@@ -17,6 +16,7 @@ import type { WorkshopModel } from "../core/human/rig.ts";
 import { visiblePart } from "../character-lab/catalog.ts";
 import { CLUB_GRIP } from "./club-grip.ts";
 import { fistTurns, type FistPose, type RestBone } from "./fist.ts";
+import type { Side } from "../core/spec/body.ts";
 
 /**
  * **The body as the world sees it**: the workshop model's skinned mesh, each bone carried by
@@ -138,7 +138,7 @@ function trunkSegment(built: BuiltBody, point: Vector3): BuiltSegment {
  * is closed on its haft.
  */
 export function dressBody(built: BuiltBody, container: AssetContainer, scene: Scene, clothing: Clothing,
-  closure?: (hand: Hand) => number): SkinView {
+  closure?: (hand: Side) => number): SkinView {
   const model = built.spec.model as WorkshopModel, rig = RIGS[model], prefix = `${model}.skin.`;
   // Materials stay the container's, which the scene owns and other bodies share: a body part never
   // disposes them.
@@ -186,7 +186,7 @@ export function dressBody(built: BuiltBody, container: AssetContainer, scene: Sc
       // A finger: its rest local, turned by the grip, on its parent as achieved.
       const scaling = new Vector3(), rotation = new Quaternion(), position = new Vector3();
       localMatrix(node).decompose(scaling, rotation, position);
-      const finger = { hand: (name.endsWith("_r") ? "right" : "left") as Hand, scaling, rotation, position,
+      const finger = { hand: (name.endsWith("_r") ? "right" : "left") as Side, scaling, rotation, position,
         open: gripQuaternion(open), fist: shut, grip: gripping.get(name)! };
       return { node, segment: null, held: new Matrix(), finger };
     }
@@ -220,7 +220,7 @@ export function dressBody(built: BuiltBody, container: AssetContainer, scene: Sc
   const relative = new Matrix(), turn = new Quaternion(), curled = new Quaternion();
   const update = () => {
     achieved.clear();
-    const physicalClosure = (hand: Hand): number => {
+    const physicalClosure = (hand: Side): number => {
       const pose = built.handPoses.state[hand]?.applied;
       return closure ? closure(hand) : pose === "open" ? 0 : 1;
     };

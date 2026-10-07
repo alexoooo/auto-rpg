@@ -1,18 +1,19 @@
-import { Quaternion, Vector3 } from '@babylonjs/core/Maths/math.vector.js';
-import type { Body, BodyCommand, BodyView } from '../body.ts';
-import { intoFrameToRef } from '../control/kinematics.ts';
-import type { EffectorGoal } from '../control/motor.ts';
-import type { Foot, StanceGoal } from '../control/stance.ts';
-import { footStatesOf, readSupport, withinSupport } from '../control/support.ts';
-import { STANCE_GAIT } from '../control/stance-tuning.ts';
-import { contactResponse } from '../control/hand-feedback.ts';
-import { supportReadiness, plantedSupport, STRIKE_SUPPORT } from '../control/support-readiness.ts';
-import { hypot, sin, cos } from '../math/real.ts';
-import { turnAboutToRef } from '../math/turn.ts';
-import type { KickAction } from '../mind/intent.ts';
-import type { Vec3 } from '../spec/quantity.ts';
-import type { Skill } from './skill.ts';
-import { advanceStrike, strikeTransition, STRIKE_EVENT, type StrikeCycleState } from './strike-cycle.ts';
+import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import type { Body, BodyCommand, BodyView } from "../body.ts";
+import { intoFrameToRef } from "../control/kinematics.ts";
+import type { EffectorGoal } from "../control/motor.ts";
+import type { StanceGoal } from "../control/stance.ts";
+import { footStatesOf, readSupport, withinSupport } from "../control/support.ts";
+import { STANCE_GAIT } from "../control/stance-tuning.ts";
+import { contactResponse } from "../control/effector-feedback.ts";
+import { supportReadiness, plantedSupport, STRIKE_SUPPORT } from "../control/support-readiness.ts";
+import { hypot, sin, cos } from "../math/real.ts";
+import { turnAboutToRef } from "../math/turn.ts";
+import type { KickAction } from "../mind/intent.ts";
+import type { Vec3 } from "../spec/quantity.ts";
+import type { Skill } from "./skill.ts";
+import { advanceStrike, strikeTransition, STRIKE_EVENT, type StrikeCycleState } from "./strike-cycle.ts";
+import type { Side } from "../spec/body.ts";
 /** Engineering experiment inputs and physical qualification: `docs/reference/front-kicks.md#execution-settings`. */
 export const KICK_PATH = Object.freeze({ setupLimit: 8, lower: .05, lean: 0, transferLimit: 6, transferSeconds: .2, transferSlow: .12,
   lift: .45, windup: .15, chamberSeconds: .6, swingSeconds: .4, returnSeconds: .6, contactSpeed: 2, soleTurn: .2,
@@ -30,12 +31,12 @@ export function validKickTuning(tuning: KickTuning): boolean {
     && tuning.contactSpeed > 0 && tuning.normalAlignment <= 1 && tuning.rotationError <= 1 && tuning.soleTurn <= 1;
 }
 type Rotation = readonly [number, number, number, number];
-type Stage = 'idle' | 'setup' | 'transfer' | 'unload' | 'strike' | 'place' | 'recenter';
+type Stage = "idle" | "setup" | "transfer" | "unload" | "strike" | "place" | "recenter";
 export interface KickReport {
-  readonly foot: Foot | null;
+  readonly foot: Side | null;
   readonly stage: Stage;
-  readonly phase: StrikeCycleState['phase'];
-  readonly returned: Readonly<Record<Foot, number>>;
+  readonly phase: StrikeCycleState["phase"];
+  readonly returned: Readonly<Record<Side, number>>;
   readonly failed: number;
   readonly interrupted: number;
 }
@@ -43,20 +44,20 @@ export interface KickReport {
 export function kickSkill(body: Body, tuning: KickTuning = KICK_PATH): Skill & {
   readonly state: object;
   readonly report: KickReport;
-  command(view: BodyView, requested: KickAction | null, stance: StanceGoal | null, available: boolean, dt: number): Pick<BodyCommand, 'stance' | 'effectors'> | null;
+  command(view: BodyView, requested: KickAction | null, stance: StanceGoal | null, available: boolean, dt: number): Pick<BodyCommand, "stance" | "effectors"> | null;
 } {
   tuning = Object.freeze({ ...tuning });
   if (!validKickTuning(tuning))
-    throw new Error('invalid kick tuning');
-  for (const side of ['left', 'right'])
+    throw new Error("invalid kick tuning");
+  for (const side of ["left", "right"])
     if (!body.built.spec.effectors?.some(e => e.segment === `foot.${side}`))
-      throw new Error('kicks require two declared foot effectors');
+      throw new Error("kicks require two declared foot effectors");
   const feet = footStatesOf(body.built), support = supportReadiness(body.built), middle = new Vector3();
   const local = new Vector3(), world = new Vector3(), direction = new Vector3(), inverse = new Quaternion(), turn = new Quaternion();
   const cycle: StrikeCycleState = { phase: null, time: 0, ready: 0, sequence: 0, velocity: [0, 0, 0], touching: false, impact: null };
-  const hipWidth = Math.abs(body.built.spec.joints.find(j => j.name === 'hip.right')!.centre.value[0] - body.built.spec.joints.find(j => j.name === 'hip.left')!.centre.value[0]);
-  const state = { stage: 'idle' as Stage, foot: null as Foot | null, action: null as KickAction | null, time: 0, held: 0,
-    anchors: {} as Partial<Record<Foot, {
+  const hipWidth = Math.abs(body.built.spec.joints.find(j => j.name === "hip.right")!.centre.value[0] - body.built.spec.joints.find(j => j.name === "hip.left")!.centre.value[0]);
+  const state = { stage: "idle" as Stage, foot: null as Side | null, action: null as KickAction | null, time: 0, held: 0,
+    anchors: {} as Partial<Record<Side, {
       position: Vec3;
       rotation: Rotation;
     }>>,
@@ -73,7 +74,7 @@ export function kickSkill(body: Body, tuning: KickTuning = KICK_PATH): Skill & {
       angle: number;
       speed: number;
       load: number;
-    } | null, placementVerified: false, withdrawalVerified: false, cycleFailed: false, setting: null as Foot | null,
+    } | null, placementVerified: false, withdrawalVerified: false, cycleFailed: false, setting: null as Side | null,
     footing: { left: [0, 0] as readonly [number, number], right: [0, 0] as readonly [number, number] } };
   const report: KickReport = { get foot() { return state.foot; }, get stage() { return state.stage; }, get phase() { return cycle.phase; },
     returned: state.returned, get failed() { return state.failed; }, get interrupted() { return state.interrupted; } };
@@ -85,7 +86,7 @@ export function kickSkill(body: Body, tuning: KickTuning = KICK_PATH): Skill & {
       else if (success === false)
         state.failed++;
     }
-    stage('idle');
+    stage("idle");
     state.foot = null;
     state.action = null;
     state.initial = null;
@@ -113,13 +114,13 @@ export function kickSkill(body: Body, tuning: KickTuning = KICK_PATH): Skill & {
       state.withdrawalVerified = false;
     },
     command(view, requested, stance, available, dt) {
-      if (requested && (!['left', 'right'].includes(requested.foot) || requested.target.length !== 3 || !requested.target.every(Number.isFinite)))
-        throw new Error('a kick requires a named foot and finite world target');
+      if (requested && (!["left", "right"].includes(requested.foot) || requested.target.length !== 3 || !requested.target.every(Number.isFinite)))
+        throw new Error("a kick requires a named foot and finite world target");
       support.read(view.stance.centre, view.stance.velocity, dt);
       readSupport(feet, feet, middle);
       state.cooldown += dt;
-      if (state.stage === 'idle') {
-        if (!requested || !available || !stance || view.down || view.stance.phase !== 'stand' || view.time < tuning.startup
+      if (state.stage === "idle") {
+        if (!requested || !available || !stance || view.down || view.stance.phase !== "stand" || view.time < tuning.startup
           || state.cooldown < tuning.cooldown || !plantedSupport(support.state) || support.state.quiet < STRIKE_SUPPORT.hold)
           return null;
         const e = view.effectors[`foot.${requested.foot}`]!;
@@ -132,8 +133,8 @@ export function kickSkill(body: Body, tuning: KickTuning = KICK_PATH): Skill & {
         const strike = coordinates(worldPoint(view, e.points.strike!, world));
         view.root.rotation.multiplyToRef(e.rotation, turn).normalize();
         state.initial = { sole, strike, rotation: [turn.x, turn.y, turn.z, turn.w], chamber: [strike[0] + tuning.windup * sin(state.heading), strike[1] + tuning.lift, strike[2] + tuning.windup * cos(state.heading)] };
-        for (const side of ['left', 'right'] as const) {
-          const sign = side === 'right' ? 1 : -1;
+        for (const side of ["left", "right"] as const) {
+          const sign = side === "right" ? 1 : -1;
           state.footing[side] = [middle.x + sign * hipWidth * cos(state.heading) / 2, middle.z - sign * hipWidth * sin(state.heading) / 2];
         }
         state.previous = null;
@@ -141,14 +142,14 @@ export function kickSkill(body: Body, tuning: KickTuning = KICK_PATH): Skill & {
         state.placementVerified = false;
         state.cycleFailed = false;
         state.setting = null;
-        stage('setup');
+        stage("setup");
       }
       if (view.down) {
         state.interrupted++;
         finish(null);
         return null;
       }
-      const foot = state.foot!, other = foot === 'left' ? 'right' : 'left', bearing = feet.find(f => f.side === other)!, initial = state.initial!;
+      const foot = state.foot!, other = foot === "left" ? "right" : "left", bearing = feet.find(f => f.side === other)!, initial = state.initial!;
       const e = view.effectors[`foot.${foot}`]!, at = e.points.strike!, now: Vec3 = [at.x, at.y, at.z], was = state.previous;
       const velocity: Vec3 = was ? [(at.x - was[0]) / dt, (at.y - was[1]) / dt, (at.z - was[2]) / dt] : [0, 0, 0];
       state.previous = now;
@@ -158,9 +159,9 @@ export function kickSkill(body: Body, tuning: KickTuning = KICK_PATH): Skill & {
       state.time += dt;
       let goal: EffectorGoal | null = null;
       const anchor = state.anchors[other];
-      const supported: StanceGoal = { feet: [other], centre: anchor ? [anchor.position[0], anchor.position[2]] : [bearing.middle.x, bearing.middle.z], height: state.height + (state.stage === 'place' || state.stage === 'recenter' || cycle.phase === 'return' ? tuning.lower : 0), heading: state.heading, pose: { pitch: state.stage === 'place' || state.stage === 'recenter' ? 0 : tuning.lean, seconds: tuning.transferSeconds, anchors: state.anchors } };
+      const supported: StanceGoal = { feet: [other], centre: anchor ? [anchor.position[0], anchor.position[2]] : [bearing.middle.x, bearing.middle.z], height: state.height + (state.stage === "place" || state.stage === "recenter" || cycle.phase === "return" ? tuning.lower : 0), heading: state.heading, pose: { pitch: state.stage === "place" || state.stage === "recenter" ? 0 : tuning.lean, seconds: tuning.transferSeconds, anchors: state.anchors } };
       switch (state.stage) {
-        case 'setup': {
+        case "setup": {
           if (!requested) {
             state.interrupted++;
             finish(null);
@@ -170,20 +171,20 @@ export function kickSkill(body: Body, tuning: KickTuning = KICK_PATH): Skill & {
             finish(false);
             return null;
           }
-          const far = (side: Foot) => { const sole = view.stance.soles[side], to = state.footing[side]; return hypot(sole.x - to[0], sole.z - to[1]); };
-          if (state.setting && view.stance.phase === 'stand' && far(state.setting) <= tuning.near)
+          const far = (side: Side) => { const sole = view.stance.soles[side], to = state.footing[side]; return hypot(sole.x - to[0], sole.z - to[1]); };
+          if (state.setting && view.stance.phase === "stand" && far(state.setting) <= tuning.near)
             state.setting = null;
           if (!state.setting)
-            state.setting = far('left') > tuning.near ? 'left' : far('right') > tuning.near ? 'right' : null;
+            state.setting = far("left") > tuning.near ? "left" : far("right") > tuning.near ? "right" : null;
           if (state.setting) {
             const moving = state.setting;
-            return { stance: { feet: ['left', 'right'], centre: null, height: stance!.height, heading: state.heading,
+            return { stance: { feet: ["left", "right"], centre: null, height: stance!.height, heading: state.heading,
                 swing: { foot: moving, to: state.footing[moving], seconds: STANCE_GAIT.seconds, lift: STANCE_GAIT.lift } } };
           }
-          state.held = plantedSupport(support.state) && view.stance.phase === 'stand'
+          state.held = plantedSupport(support.state) && view.stance.phase === "stand"
             && support.state.speed <= tuning.transferSlow ? state.held + dt : 0;
           if (state.held < tuning.hold)
-            return { stance: { ...supported, feet: ['left', 'right'], centre: null, height: stance!.height } };
+            return { stance: { ...supported, feet: ["left", "right"], centre: null, height: stance!.height } };
           const sole = coordinates(worldPoint(view, e.points.sole!, world));
           const strike = coordinates(worldPoint(view, e.points.strike!, world));
           view.root.rotation.multiplyToRef(e.rotation, turn).normalize();
@@ -192,52 +193,52 @@ export function kickSkill(body: Body, tuning: KickTuning = KICK_PATH): Skill & {
           const bp = coordinates(worldPoint(view, be.points.sole!, world));
           view.root.rotation.multiplyToRef(be.rotation, turn).normalize();
           state.anchors = { [other]: { position: bp, rotation: [turn.x, turn.y, turn.z, turn.w] } };
-          stage('transfer');
-          return { stance: { ...supported, feet: ['left', 'right'], pose: { pitch: tuning.lean, seconds: tuning.transferSeconds } } };
+          stage("transfer");
+          return { stance: { ...supported, feet: ["left", "right"], pose: { pitch: tuning.lean, seconds: tuning.transferSeconds } } };
         }
-        case 'transfer': {
+        case "transfer": {
           const near = bearingReady;
           const ready = near && total > 0 && support.state.speed <= tuning.transferSlow;
           state.held = ready ? state.held + dt : 0;
           if (!requested) {
             state.interrupted++;
-            stage('recenter');
-            return { stance: { ...supported, feet: ['left', 'right'], centre: null } };
+            stage("recenter");
+            return { stance: { ...supported, feet: ["left", "right"], centre: null } };
           }
           if (state.time >= tuning.transferLimit) {
             state.cycleFailed = true;
-            stage('recenter');
-            return { stance: { ...supported, feet: ['left', 'right'], centre: null } };
+            stage("recenter");
+            return { stance: { ...supported, feet: ["left", "right"], centre: null } };
           }
           if (state.held < tuning.hold)
-            return { stance: { ...supported, feet: ['left', 'right'], pose: { pitch: tuning.lean, seconds: tuning.transferSeconds } } };
-          stage('unload');
+            return { stance: { ...supported, feet: ["left", "right"], pose: { pitch: tuning.lean, seconds: tuning.transferSeconds } } };
+          stage("unload");
           break;
         }
-        case 'unload': {
+        case "unload": {
           if (!requested) {
             state.interrupted++;
-            stage('place');
-            goal = place(view, 'sole', initial.sole, tuning.placeSeconds, initial.rotation);
+            stage("place");
+            goal = place(view, "sole", initial.sole, tuning.placeSeconds, initial.rotation);
             break;
           }
           if (state.time >= tuning.transferLimit) {
             state.cycleFailed = true;
-            stage('place');
-            goal = place(view, 'sole', initial.sole, tuning.placeSeconds, initial.rotation);
+            stage("place");
+            goal = place(view, "sole", initial.sole, tuning.placeSeconds, initial.rotation);
             break;
           }
-          goal = place(view, 'sole', [initial.sole[0], initial.sole[1] + tuning.near, initial.sole[2]], tuning.chamberSeconds, initial.rotation);
+          goal = place(view, "sole", [initial.sole[0], initial.sole[1] + tuning.near, initial.sole[2]], tuning.chamberSeconds, initial.rotation);
           state.held = loads[foot] === 0 && bearingReady ? state.held + dt : 0;
           if (state.held >= tuning.hold) {
-            stage('strike');
-            strikeTransition(cycle, 'chamber', velocity);
+            stage("strike");
+            strikeTransition(cycle, "chamber", velocity);
           }
           break;
         }
-        case 'strike': break;
-        case 'place': {
-          goal = place(view, 'sole', initial.sole, tuning.placeSeconds, initial.rotation);
+        case "strike": break;
+        case "place": {
+          goal = place(view, "sole", initial.sole, tuning.placeSeconds, initial.rotation);
           const sole = worldPoint(view, e.points.sole!, world), error = hypot(sole.x - initial.sole[0], sole.y - initial.sole[1], sole.z - initial.sole[2]);
           view.root.rotation.multiplyToRef(e.rotation, turn).normalize();
           const angle = 1 - Math.abs(turn.x * initial.rotation[0] + turn.y * initial.rotation[1] + turn.z * initial.rotation[2] + turn.w * initial.rotation[3]);
@@ -246,7 +247,7 @@ export function kickSkill(body: Body, tuning: KickTuning = KICK_PATH): Skill & {
           state.held = ready ? state.held + dt : 0;
           if (state.held >= tuning.hold) {
             state.placementVerified = true;
-            stage('recenter');
+            stage("recenter");
             goal = null;
           }
           else if (state.time >= tuning.placeLimit) {
@@ -255,7 +256,7 @@ export function kickSkill(body: Body, tuning: KickTuning = KICK_PATH): Skill & {
           }
           break;
         }
-        case 'recenter': {
+        case "recenter": {
           state.held = plantedSupport(support.state) && support.state.speed <= tuning.transferSlow
             && hypot(centre.x - middle.x, centre.z - middle.z) <= tuning.placement ? state.held + dt : 0;
           if (state.held >= tuning.hold) {
@@ -266,15 +267,15 @@ export function kickSkill(body: Body, tuning: KickTuning = KICK_PATH): Skill & {
             finish(false);
             return null;
           }
-          return { stance: { ...supported, feet: ['left', 'right'], centre: null } };
+          return { stance: { ...supported, feet: ["left", "right"], centre: null } };
         }
-        case 'idle': return null;
+        case "idle": return null;
         default: {
           const never: never = state.stage;
           throw new Error(`unknown kick stage ${never}`);
         }
       }
-      if (state.stage === 'strike') {
+      if (state.stage === "strike") {
         intoFrameToRef(view.root, initial.chamber, local);
         const chamber: Vec3 = [local.x, local.y, local.z];
         intoFrameToRef(view.root, state.action!.target, local);
@@ -288,7 +289,7 @@ export function kickSkill(body: Body, tuning: KickTuning = KICK_PATH): Skill & {
         const aligned = !!normal && length > 0 && Math.abs(direction.x * normal[0] + direction.y * normal[1] + direction.z * normal[2]) / tuning.contactSpeed >= tuning.normalAlignment;
         const touching = loads[foot] === 0 && (feedback?.impulse ?? 0) > 0;
         const event = advanceStrike(cycle, { at: now, velocity, home, chamber, requested: !!requested, down: view.down,
-          supported: bearingReady, prepared: loads[foot] === 0, touching, intended: !!state.action!.targetId && contactResponse(feedback, state.action!.targetId) === 'target',
+          supported: bearingReady, prepared: loads[foot] === 0, touching, intended: !!state.action!.targetId && contactResponse(feedback, state.action!.targetId) === "target",
           aligned, contactVelocity, seconds: tuning.swingSeconds }, { ...tuning, impact: tuning }, dt);
         if (event & STRIKE_EVENT.thrown)
           state.thrown[foot]++;
@@ -301,24 +302,24 @@ export function kickSkill(body: Body, tuning: KickTuning = KICK_PATH): Skill & {
         if (event & STRIKE_EVENT.returned)
           state.withdrawalVerified = true;
         if (event & STRIKE_EVENT.finished) {
-          stage('place');
-          goal = place(view, 'sole', initial.sole, tuning.placeSeconds, initial.rotation);
+          stage("place");
+          goal = place(view, "sole", initial.sole, tuning.placeSeconds, initial.rotation);
         }
         else {
-          const seconds = cycle.phase === 'chamber' ? tuning.chamberSeconds : cycle.phase === 'return' ? tuning.returnSeconds : tuning.swingSeconds;
-          if (cycle.phase === 'swing')
+          const seconds = cycle.phase === "chamber" ? tuning.chamberSeconds : cycle.phase === "return" ? tuning.returnSeconds : tuning.swingSeconds;
+          if (cycle.phase === "swing")
             turnAboutToRef(direction.set(1, 0, 0), -tuning.soleTurn * Math.PI / 2, turn);
           else
             Quaternion.InverseToRef(view.root.rotation, inverse).multiplyToRef(new Quaternion(...initial.rotation), turn).normalize();
-          goal = { response: tuning.response, places: [{ point: 'strike', position: cycle.impact?.finish ?? (cycle.phase === 'swing' ? target : cycle.phase === 'return' ? home : chamber) }], seconds,
+          goal = { response: tuning.response, places: [{ point: "strike", position: cycle.impact?.finish ?? (cycle.phase === "swing" ? target : cycle.phase === "return" ? home : chamber) }], seconds,
             follows: true, initialVelocity: cycle.velocity, sequence: cycle.sequence,
-            ...(((cycle.phase === 'swing' && tuning.soleTurn > 0) || cycle.phase === 'return') ? { orientation: { target: [turn.x, turn.y, turn.z, turn.w] as const, seconds: tuning.swingSeconds } } : {}),
-            ...(cycle.phase === 'swing' ? { terminalVelocity: contactVelocity } : {}) };
+            ...(((cycle.phase === "swing" && tuning.soleTurn > 0) || cycle.phase === "return") ? { orientation: { target: [turn.x, turn.y, turn.z, turn.w] as const, seconds: tuning.swingSeconds } } : {}),
+            ...(cycle.phase === "swing" ? { terminalVelocity: contactVelocity } : {}) };
           if (cycle.impact)
             goal = { ...goal, seconds: tuning.impactSeconds, terminalVelocity: [0, 0, 0] };
         }
       }
-      return { stance: report.stage === 'recenter' ? { ...supported, feet: ['left', 'right'], centre: null } : supported,
+      return { stance: report.stage === "recenter" ? { ...supported, feet: ["left", "right"], centre: null } : supported,
         ...(goal ? { effectors: { [`foot.${foot}`]: goal } } : {}) };
     } };
 }

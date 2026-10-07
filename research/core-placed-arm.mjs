@@ -1,5 +1,5 @@
 /**
- * **An arm alone following a placed blow's goal** (`HandGoal`, `src/core/control/motor.ts`): each
+ * **An arm alone following a placed blow's goal** (`EffectorGoal`, `src/core/control/motor.ts`): each
  * body with its lower trunk held, standing in the guard, its right hand's striking point (`aimOf`)
  * given one goal as the strike skill gives it (`PLACED.through` beyond its place, following), to
  * each of `--places`: m ahead of the head and up from it, straight ahead of the right shoulder,
@@ -46,12 +46,12 @@ async function one(spec, aim, [ahead, up], seconds) {
     const shoulder = spec.joints.find((j) => j.name === "shoulder.right").centre.value;
     const position = [shoulder[0], head[1] + up, head[2] + ahead], place = new Vector3(...position);
     const goal = { places: [{ point: aim, position }], seconds, through: PLACED.through, follows: true };
-    const at = motor.pointToRef("right", aim, new Vector3()), last = at.clone(), began = Vector3.Distance(at, place);
+    const at = motor.pointToRef("hand.right", aim, new Vector3()), last = at.clone(), began = Vector3.Distance(at, place);
     let nearest = Infinity, speed = 0;
     for (let s = 0; s < stand.seconds(seconds + AFTER); s++) {
-      if (s < stand.seconds(seconds)) motor.reach("right", goal); else motor.release("right");
+      if (s < stand.seconds(seconds)) motor.reach("hand.right", goal); else motor.release("hand.right");
       stand.step(1);
-      motor.pointToRef("right", aim, at);
+      motor.pointToRef("hand.right", aim, at);
       const off = Vector3.Distance(at, place);
       if (off < nearest) { nearest = off; speed = Vector3.Distance(at, last) * HZ; }
       last.copyFrom(at);

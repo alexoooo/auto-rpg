@@ -35,8 +35,8 @@ test('the same bounded tracker places and orients each hand and foot through phy
   try{
    assert.ok(Object.isFrozen(d.model));assert.ok(Object.isFrozen(d.model.points[d.model.point]));
    assert.equal(d.model.channels.length,name.startsWith('hand')?7:6);
-   r.motor.setPosture(t.pose);r.motor.reachEffector(name,t.goal);s.step(1920);
-   const at=r.motor.effectorPointToRef(name,d.model.point,new Vector3());
+   r.motor.setPosture(t.pose);r.motor.reach(name,t.goal);s.step(1920);
+   const at=r.motor.pointToRef(name,d.model.point,new Vector3());
    assert.ok(Vector3.Distance(at,new Vector3(...t.goal.places[0].position))<.002,`${name}: ${at.asArray()}`);
    const part=s.built.segments.get(name),turn=part.node.rotationQuaternion.multiply(Quaternion.Inverse(part.rest));
    assert.ok(spinBetweenToRef(turn,new Quaternion(...t.goal.orientation.target),1,new Vector3()).length()<.01,name);
@@ -49,7 +49,7 @@ test('a moving oriented foot path forks into a fresh world and reset releases ev
  const a=await coreStand(spec(),options),b=await coreStand(spec(),options),ra=rig(a),rb=rig(b);
  try{
   const t=target(bodyEffectors(a.built).find(d=>d.model.segment==='foot.left'));
-  ra.motor.setPosture(t.pose);ra.motor.reachEffector('foot.left',t.goal);a.step(120);
+  ra.motor.setPosture(t.pose);ra.motor.reach('foot.left',t.goal);a.step(120);
   const states=r=>({motor:r.motor.state,driver:r.driver.state});
   loadStand(b.world,states(rb),saveStand(a.world,states(ra)));a.step(240);b.step(240);
   assert.deepEqual(saveStand(a.world,states(ra)).state,saveStand(b.world,states(rb)).state);
@@ -66,10 +66,9 @@ test('ownership refuses a reach on a bearing foot before accepting commands and 
   assert.deepEqual(model.effectors.map(e=>e.segment),['hand.left','foot.left','hand.right','foot.right']);
   assert.ok(model.effectors.every(e=>Object.isFrozen(e)&&!('body' in e)));
   policy.dispose();policy=null;
-  body=createBody(s.built,s.world,{servoSeconds:.1,handFeedback:true});
+  body=createBody(s.built,s.world,{servoSeconds:.1,feedback:true});
   const point=body.view.effectors['foot.left'].points.strike.asArray();
-  body.drive(()=>({posture:{},pushes:[],hands:{left:null,right:null},
-   stance:{feet:['left','right'],centre:null,height:.8,heading:0},effectors:{'foot.left':{places:[{point:'strike',position:point}],seconds:.3}}}));
+  body.drive(()=>({posture:{},pushes:[],stance:{feet:['left','right'],centre:null,height:.8,heading:0},effectors:{'foot.left':{places:[{point:'strike',position:point}],seconds:.3}}}));
   assert.throws(()=>s.step(),/two controllers own foot.left/);
   assert.deepEqual(body.view.effectors['foot.left'].points.strike.asArray(),point);
  }finally{policy?.dispose();body?.dispose();s.dispose();}
@@ -80,7 +79,7 @@ test('named effector memory changes the continuation and body observations survi
   const s=await coreStand(spec(),options),r=rig(s);
   try{
    const t=target(bodyEffectors(s.built).find(d=>d.model.segment===name));
-   r.motor.setPosture(t.pose);r.motor.reachEffector(name,t.goal);s.step(120);
+   r.motor.setPosture(t.pose);r.motor.reach(name,t.goal);s.step(120);
    const states={motor:r.motor.state,driver:r.driver.state},saved=saveStand(s.world,states);
    s.step(32);const expected=s.built.segments.get(name).node.position.asArray();
    const changes={goal:m=>{m.goal=null;},from:m=>{m.from[0][2]+=.02;},time:m=>{m.time+=.1;},
@@ -89,7 +88,7 @@ test('named effector memory changes the continuation and body observations survi
     loadStand(s.world,states,saved);change(r.motor.state.effectors[name]);s.step(32);
     assert.notDeepEqual(s.built.segments.get(name).node.position.asArray(),expected,`${name} ${field}`);
    }
-   loadStand(s.world,states,saved);r.motor.reachEffector(name,{...t.goal,orientation:undefined});s.step(16);
+   loadStand(s.world,states,saved);r.motor.reach(name,{...t.goal,orientation:undefined});s.step(16);
    const loose=saveStand(s.world,states);s.step(1);const unaltered=r.motor.state.effectors[name].angles;
    loadStand(s.world,states,loose);r.motor.state.effectors[name].angles.at(-1)[0]+=.1;s.step(1);
    assert.notDeepEqual(r.motor.state.effectors[name].angles,unaltered,`${name} solve seed`);
@@ -99,12 +98,12 @@ test('named effector memory changes the continuation and body observations survi
  const ba=createBody(a.built,a.world,{servoSeconds:.1,measuring:true}),bb=createBody(b.built,b.world,{servoSeconds:.1,measuring:true});
  try{
   const t=target(bodyEffectors(a.built).find(d=>d.model.segment==='foot.left'));
-  const command={posture:t.pose,pushes:[],hands:{left:null,right:null},stance:null,effectors:{'foot.left':t.goal}};
+  const command={posture:t.pose,pushes:[],stance:null,effectors:{'foot.left':t.goal}};
   ba.drive(()=>command);bb.drive(()=>command);a.step(120);
   const saved=saveStand(a.world,{body:ba.state});loadStand(b.world,{body:bb.state},saved);
   assert.deepEqual(bb.view.effectors,ba.view.effectors);a.step(32);b.step(32);
   assert.deepEqual(saveStand(a.world,{body:ba.state}).state,saveStand(b.world,{body:bb.state}).state);
-  loadStand(b.world,{body:bb.state},saved);bb.state.mind.host.effectorGoals['foot.left']=null;b.step(32);
+  loadStand(b.world,{body:bb.state},saved);bb.state.mind.host.goals['foot.left']=null;b.step(32);
   assert.notDeepEqual(b.built.segments.get('foot.left').node.position.asArray(),a.built.segments.get('foot.left').node.position.asArray());
  }finally{ba.dispose();bb.dispose();a.dispose();b.dispose();}
 });

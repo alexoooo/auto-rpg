@@ -2,7 +2,7 @@ import { kickSkill, type KickTuning } from "./kick.ts";
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { Body, BodyCommand, BodyView } from "../body.ts";
 import { intoFrameToRef } from "../control/kinematics.ts";
-import type { Hand, HandGoal, Pose } from "../control/motor.ts";
+import type { EffectorGoal, Pose } from "../control/motor.ts";
 import { hypot } from "../math/real.ts";
 import { validArmExtension, type CombatAction } from "../mind/intent.ts";
 import type { Vec3 } from "../spec/quantity.ts";
@@ -15,7 +15,8 @@ import { placedReach, type StrikeReport } from "./strike.ts";
 import { aimOf } from "./strikes.ts";
 import { supportReadiness, bearingSupport, STRIKE_SUPPORT } from "../control/support-readiness.ts";
 import { advanceStrike, strikeTransition, strikeReady, STRIKE_EVENT, type StrikeCycleState } from "./strike-cycle.ts";
-import { contactResponse } from "../control/hand-feedback.ts";
+import { contactResponse } from "../control/effector-feedback.ts";
+import type { Side } from "../spec/body.ts";
 
 /** Experimental execution limits, independent of anatomy: `docs/reference/punch-foundation.md#execution-limits`. */
 export const PUNCH_EXECUTION = Object.freeze({ physicalFists: true, impactSeconds: .04, impactTravel: .04, normalAlignment: .5 });
@@ -33,7 +34,7 @@ export function combatSkills(body: Body, tuning: AttackTuning = ATTACK_PATH, tac
   if (execution && !validCombatExecution(execution)) throw new Error("invalid combat execution settings");
   if (!validAttackTuning(tuning)) throw new Error("combat path settings need finite nonnegative values, positive durations and elbowExtension in [0,1]");
   const spec = body.built.spec, legs = locomotion(body.envelope, turnLimit, turnStartup), guard = guardSkill(spec);
-  const elbowRange = (hand: Hand) => spec.joints.find(j => j.name === `elbow.${hand}`)?.dofs.find(d => d.positive === "flexion");
+  const elbowRange = (hand: Side) => spec.joints.find(j => j.name === `elbow.${hand}`)?.dofs.find(d => d.positive === "flexion");
   const elbows = { left: elbowRange("left"), right: elbowRange("right") };
   const fold = lowCombat ? supportFold(body) : null;
   const foundation = execution?.planted ? supportReadiness(body.built) : null;
@@ -43,18 +44,18 @@ export function combatSkills(body: Body, tuning: AttackTuning = ATTACK_PATH, tac
     right: !!spec.segments.find(s => s.name === "hand.right")?.handPoses && !spec.held?.some(h => h.segment === "hand.right") };
   const aims = { left: execution?.physicalFists && bare.left ? "strike" : aimOf(spec, "left"),
     right: execution?.physicalFists && bare.right ? "strike" : aimOf(spec, "right") };
-  const state = { command: { posture: GUARD, hands: { left: null, right: null }, pushes: [], stance: null } as BodyCommand,
-    legs: legs.state, ...(kicking ? { kick: kicking.state } : {}), ...(foundation ? { foundation: foundation.state } : {}), ...(fold ? { support: fold.state } : {}), lower: STANCE_LOWER, tactics, hand: null as Hand | null, phase: null as "chamber" | "swing" | "return" | null,
+  const state = { command: { posture: GUARD, pushes: [], stance: null } as BodyCommand,
+    legs: legs.state, ...(kicking ? { kick: kicking.state } : {}), ...(foundation ? { foundation: foundation.state } : {}), ...(fold ? { support: fold.state } : {}), lower: STANCE_LOWER, tactics, hand: null as Side | null, phase: null as "chamber" | "swing" | "return" | null,
     action: null as CombatAction | null, home: null as Vec3 | null, chamber: null as Vec3 | null,
     velocity: [0, 0, 0] as Vec3, previous: { left: null as Vec3 | null, right: null as Vec3 | null },
     elbow: 0, initialElbow: 0, time: 0, ready: 0, sequence: 0, touching: false, thrown: { left: 0, right: 0 },
     outcomes: { returned: { left: 0, right: 0 }, failed: 0, interrupted: 0 }, cooldown: 0,
-    returning: null as { hand: Hand; home: Vec3; velocity: Vec3; sequence: number; time: number; ready: number; initialElbow: number; elbow: number } | null,
+    returning: null as { hand: Side; home: Vec3; velocity: Vec3; sequence: number; time: number; ready: number; initialElbow: number; elbow: number } | null,
     canOverlap: false, impact: null as { origin: Vec3; finish: Vec3; elapsed: number } | null,
     impacts: { admitted: 0, aborted: 0 } };
   const target = new Vector3(), direction = new Vector3(), inverse = new Quaternion();
-  const alignedContact = (view: BodyView, hand: Hand, velocity: Vec3) => {
-    const normal = view.handFeedback?.[hand].contact?.normal, unit = hypot(...velocity);
+  const alignedContact = (view: BodyView, hand: Side, velocity: Vec3) => {
+    const normal = view.effectors[`hand.${hand}`]!.feedback?.contact?.normal, unit = hypot(...velocity);
     const worldDirection = direction.set(...velocity).applyRotationQuaternionToRef(view.root.rotation, direction);
     return !!normal && unit > 0 && Math.abs(worldDirection.x * normal[0] + worldDirection.y * normal[1] + worldDirection.z * normal[2]) / unit >= execution!.normalAlignment;
   };
@@ -90,7 +91,7 @@ export function combatSkills(body: Body, tuning: AttackTuning = ATTACK_PATH, tac
   return { state, report: skillReport, resume, command(view, intent, dt) {
     const velocities = { left: [0, 0, 0] as Vec3, right: [0, 0, 0] as Vec3 };
     for (const hand of ["left", "right"] as const) {
-      const p = view.points[hand][aims[hand]]!, now: Vec3 = [p.x, p.y, p.z], was = state.previous[hand];
+      const p = view.effectors[`hand.${hand}`]!.points[aims[hand]]!, now: Vec3 = [p.x, p.y, p.z], was = state.previous[hand];
       if (was) velocities[hand] = [(p.x - was[0]) / dt, (p.y - was[1]) / dt, (p.z - was[2]) / dt];
       state.previous[hand] = now;
     }
@@ -103,7 +104,7 @@ export function combatSkills(body: Body, tuning: AttackTuning = ATTACK_PATH, tac
       const h = state.hand, home = state.home;
       if (!overlap || !h || !home || state.phase !== "return" || state.returning || view.down
         || (fold && fold.report.stage !== "stand") || state.lower !== STANCE_LOWER
-        || (intent.lower ?? STANCE_LOWER) !== STANCE_LOWER || (view.handFeedback?.[h].impulse ?? 0) > 0) return false;
+        || (intent.lower ?? STANCE_LOWER) !== STANCE_LOWER || (view.effectors[`hand.${h}`]!.feedback?.impulse ?? 0) > 0) return false;
       const at = state.previous[h]!, velocity = velocities[h];
       return velocity[0] * (home[0] - at[0]) + velocity[1] * (home[1] - at[1]) + velocity[2] * (home[2] - at[2]) > 0;
     };
@@ -117,10 +118,10 @@ export function combatSkills(body: Body, tuning: AttackTuning = ATTACK_PATH, tac
       state.home = [...state.previous[requested.hand]!];
       intoFrameToRef(view.root, requested.target, target);
       state.chamber = attackPath(state.home, [target.x, target.y, target.z], requested.hand, requested.family, tuning).chamber;
-      state.touching = (view.handFeedback?.[requested.hand].impulse ?? 0) > 0;
+      state.touching = (view.effectors[`hand.${requested.hand}`]!.feedback?.impulse ?? 0) > 0;
       transition("chamber", velocities[requested.hand]);
     }
-    let posture: Pose = GUARD, goal: HandGoal | null = null;
+    let posture: Pose = GUARD, goal: EffectorGoal | null = null;
     const hand = state.hand;
     if (hand) {
       const at = state.previous[hand]!, action = state.action!, home = state.home!, chamber = state.chamber!;
@@ -129,11 +130,11 @@ export function combatSkills(body: Body, tuning: AttackTuning = ATTACK_PATH, tac
         .applyRotationQuaternionToRef(Quaternion.InverseToRef(view.root.rotation, inverse), direction) : null;
       const path = attackPath(home, [target.x, target.y, target.z], hand, action.family, tuning,
         contactDirection ? [contactDirection.x, contactDirection.y, contactDirection.z] : undefined);
-      const touching = (view.handFeedback?.[hand].impulse ?? 0) > 0;
+      const feedback = view.effectors[`hand.${hand}`]!.feedback, touching = (feedback?.impulse ?? 0) > 0;
       const previousPhase = state.phase;
       const event = advanceStrike(state, { at, velocity: velocities[hand], home, chamber, requested: !!requested,
         down: view.down, supported: !foundation || bearingSupport(foundation.state), prepared: !execution?.physicalFists || !bare[hand] || view.handPoses[hand]?.applied === "fist",
-        touching, intended: !!action.targetId && contactResponse(view.handFeedback?.[hand], action.targetId) === "target",
+        touching, intended: !!action.targetId && contactResponse(feedback, action.targetId) === "target",
         aligned: !!execution && alignedContact(view, hand, path.contactVelocity), contactVelocity: path.contactVelocity, seconds: path.seconds },
         { ...tuning, ...(execution ? { impact: execution } : {}) }, dt);
       if (state.phase !== previousPhase) state.initialElbow = state.elbow;
@@ -168,7 +169,7 @@ export function combatSkills(body: Body, tuning: AttackTuning = ATTACK_PATH, tac
         }
       }
     }
-    let returningGoal: HandGoal | null = null;
+    let returningGoal: EffectorGoal | null = null;
     const returning = state.returning;
     if (returning) {
       returning.time += dt;
@@ -194,10 +195,10 @@ export function combatSkills(body: Body, tuning: AttackTuning = ATTACK_PATH, tac
     const supported = fold?.apply(baseStance, posture) ?? { stance: baseStance, posture };
     let hands = goal && state.hand ? { ...covers, [state.hand]: goal } : covers;
     if (returningGoal && state.returning) hands = { ...hands, [state.returning.hand]: returningGoal };
-    state.command = { posture: supported.posture, pushes: [], hands, stance: supported.stance,
+    state.command = { posture: supported.posture, pushes: [], effectors: { "hand.left": hands.left, "hand.right": hands.right }, stance: supported.stance,
       ...(execution?.physicalFists ? { handPoses: { ...(bare.left ? { left: (state.hand === "left" || state.returning?.hand === "left" ? "fist" : "open") as "fist" | "open" } : {}), ...(bare.right ? { right: (state.hand === "right" || state.returning?.hand === "right" ? "fist" : "open") as "fist" | "open" } : {}) } } : {}) };
     const motion = kicking?.command(view, intent.kick ?? null, supported.stance, !state.hand && !state.returning && !view.down && (!fold || fold.report.stage === "stand"), dt);
-    if (motion) state.command = { ...state.command, ...motion };
+    if (motion) state.command = { ...state.command, ...motion, effectors: { ...state.command.effectors, ...motion.effectors } };
     return state.command;
   } };
 }

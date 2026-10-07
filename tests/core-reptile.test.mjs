@@ -11,11 +11,11 @@ import { rulebook } from "../src/core/rules/rulebook.ts";
 import { watchBlows } from "../src/core/rules/blows.ts";
 import { STAND_ORDERS } from "../src/core/mind/orders.ts";
 import { createSenses } from "../src/core/mind/senses.ts";
+import { createDirectBody } from "../src/core/mind/direct.ts";
 
 test("the reptile has its own complete sourced anatomy", () => {
   const spec = reptileSpec();
   assert.deepEqual(specProvenanceFaults(spec), []);
-  assert.equal(spec.family, "reptile");
   assert.equal(spec.mass.value, 8);
   assert.equal(spec.wounds.hp.value, 1);
   assert.equal(spec.attributes.balance.value, 0);
@@ -37,6 +37,17 @@ test("the reptile constructs in its declared joint pose without a corrective imp
   } finally { stand.dispose(); }
 });
 
+test("a reptile is down by its own rule under any mind", async () => {
+  // A mind that knows nothing of reptiles reads the spec's rule: on its back it is down, built on its paws it is not.
+  const read = async (rotation, position) => {
+    const s = await coreStand(reptileSpec(), { engine: "rapier-coordinate", rotation, position });
+    const body = createDirectBody(s.built, s.world, { kind: "direct", targets: {}, seconds: 0.05, speed: 1, activation: 0 });
+    try { s.step(); return [body.down, body.observe().down]; } finally { body.dispose(); s.dispose(); }
+  };
+  assert.deepEqual(await read(undefined, [0, 0, 0]), [false, false]);
+  assert.deepEqual(await read([0, 0, 1, 0], [0, 0.5, 0]), [true, true]);
+});
+
 test("the reptile stands for thirty seconds without an assist", async () => {
   const s = await coreStand(reptileSpec(), { engine: "rapier-coordinate" }), m = createQuadrupedMind(s.built, s.world);
   try {
@@ -56,7 +67,7 @@ test("autonomous tactics approach sensed surfaces, close the jaw and verify rele
   const hub = createSenses(stand.world), see = hub.add({ id: "reptile", side: "one", built: stand.built, out: () => false });
   hub.add({ id: "target", side: "two", built: enemy, out: () => false });
   let cancel = false, hit = null, before = 0, returnedAtHit = 0;
-  const mind = createQuadrupedMind(stand.built, stand.world, () => cancel ? STAND_ORDERS : null, see);
+  const mind = createQuadrupedMind(stand.built, stand.world, { orders: () => cancel ? STAND_ORDERS : null, senses: see });
   const rules = rulebook("arena"), mine = createPool(stand.built.spec, rules), theirs = createPool(enemy.spec, rules);
   const bite = mind.body.state.mind.host.bite, jaw = mind.body.muscles.channel("jaw axis0");
   const watch = watchBlows(stand.world, [{ id: "reptile", side: "one", built: stand.built, pool: mine },
@@ -83,7 +94,7 @@ test("autonomous tactics approach sensed surfaces, close the jaw and verify rele
 
 test("holding and resuming a moving quadruped retains its bodies and resumes from actual paws", async () => {
   const stand = await coreStand(reptileSpec(), { engine: "rapier-coordinate" });
-  const mind = createQuadrupedMind(stand.built, stand.world, () => ({ move: { x: 0, z: 1 }, face: { x: 0, z: 1 }, attack: null }));
+  const mind = createQuadrupedMind(stand.built, stand.world, { orders: () => ({ move: { x: 0, z: 1 }, face: { x: 0, z: 1 }, attack: null }) });
   try {
     stand.step(480);
     const host = mind.body.state.mind.host, sequence = host.crawl.sequence;
@@ -105,7 +116,7 @@ test("a closing jaw wounds through the common contact rules and releases after c
   const enemy = buildBody(modelSpec("workshop-fighter"), stand.world, { position: [.18, 0, .53] });
   for (const segment of enemy.segments.values()) segment.body.setFixed(true);
   let attack = [.01, .22, .48];
-  const mind = createQuadrupedMind(stand.built, stand.world, () => ({ ...STAND_ORDERS, attack }));
+  const mind = createQuadrupedMind(stand.built, stand.world, { orders: () => ({ ...STAND_ORDERS, attack }) });
   const rules = rulebook("arena"), mine = createPool(stand.built.spec, rules), theirs = createPool(enemy.spec, rules);
   const jaw = mind.body.muscles.channel("jaw axis0"), bite = mind.body.state.mind.host.bite;
   let before = 0;
@@ -138,7 +149,7 @@ test("a closing jaw wounds through the common contact rules and releases after c
 test("the crawl walks two trunk lengths, stops, reverses and turns on physical paw landings", async () => {
   const stand = await coreStand(reptileSpec(), { engine: "rapier-coordinate" });
   let orders = STAND_ORDERS;
-  const mind = createQuadrupedMind(stand.built, stand.world, () => orders);
+  const mind = createQuadrupedMind(stand.built, stand.world, { orders: () => orders });
   const host = mind.body.state.mind.host, crawl = host.crawl;
   const names = ["front.left", "hind.right", "front.right", "hind.left"];
   const run = seconds => {

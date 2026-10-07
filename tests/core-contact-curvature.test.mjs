@@ -11,7 +11,7 @@ const q = (value, unit = "m") => sourced(value, unit, "de-leva-1996", "synthetic
 const radius = 0.1;
 function roller(kind) {
   const capsule = kind === "capsule";
-  return { family: "test", model: "roller", mass: q(1, "kg"), stature: q(0.2), joints: [], segments: [{
+  return { model: "roller", mass: q(1, "kg"), stature: q(0.2), joints: [], segments: [{
     name: "roller", proximal: q(capsule ? [0, radius, -0.3] : [0, radius, 0]), distal: q(capsule ? [0, radius, 0.3] : [0, 2 * radius, 0]),
     mass: q(1, "kg"), centreOfMass: q([0, radius, 0]), inertia: q(capsule ? [0.04, 0.005, 0.04] : [0.004, 0.004, 0.004], "kg m2"),
     shape: capsule ? { kind, from: q([0, radius, -0.2]), to: q([0, radius, 0.2]), radius: q(radius) }

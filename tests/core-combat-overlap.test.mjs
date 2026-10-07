@@ -21,13 +21,13 @@ test('both leading hands overlap real strikes and returns through one unpinned b
     assert.equal(s.body.down,false);
     if(r){
      overlapSteps++;assert.notEqual(state.hand,r.hand);assert.equal(s.skills.report.strike.returning,r.hand);
-     assert.ok(state.command.hands.left);assert.ok(state.command.hands.right);
-     assert.equal(state.command.hands[r.hand].sequence,r.sequence);
-     assert.equal(s.body.state.mind.host.motor.hands[r.hand].goal.sequence,r.sequence,'return motion keeps its identity');
+     assert.ok(state.command.effectors["hand.left"]);assert.ok(state.command.effectors["hand.right"]);
+     assert.equal(state.command.effectors[`hand.${r.hand}`].sequence,r.sequence);
+     assert.equal(s.body.state.mind.host.motor.effectors[`hand.${r.hand}`].goal.sequence,r.sequence,'return motion keeps its identity');
      if(!before.returning){
       starts++;assert.equal(before.phase,'return');assert.equal(before.hand,r.hand);
       assert.equal(state.outcomes.returned[r.hand],before.outcomes.returned[r.hand],'overlap is not a verified return');
-      assert.equal(s.body.view.handFeedback[r.hand].impulse,0,'old contact has cleared');
+      assert.equal(s.body.view.effectors[`hand.${r.hand}`].feedback.impulse,0,'old contact has cleared');
       const was=before.previous[r.hand],at=state.previous[r.hand];
       assert.ok(at.reduce((sum,v,k)=>sum+(v-was[k])*(r.home[k]-v),0)>0,'physical hand motion is homeward');
      }

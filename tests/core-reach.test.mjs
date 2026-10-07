@@ -169,8 +169,8 @@ test("motor_control_meters_its_hands_solves", async () => {
     stand.step(stand.seconds(1));
     assert.deepEqual(motor.state.reach, { solves: 0, passes: 0, capped: 0 }, "no hand has a goal: nothing is solved");
     // A place the hand can take: three solves a step (the step before, the step, the step after), each ending.
-    const from = motor.knucklesToRef("right", new Vector3()), steps = stand.seconds(0.4);
-    motor.reach("right", { places: [{ point: "knuckles", position: [from.x, from.y + 0.05, from.z + 0.2] }], seconds: 0.4 });
+    const from = motor.pointToRef("hand.right", "knuckles", new Vector3()), steps = stand.seconds(0.4);
+    motor.reach("hand.right", { places: [{ point: "knuckles", position: [from.x, from.y + 0.05, from.z + 0.2] }], seconds: 0.4 });
     stand.step(steps);
     const near = { ...motor.state.reach };
     assert.equal(near.solves, 3 * steps);
@@ -178,7 +178,7 @@ test("motor_control_meters_its_hands_solves", async () => {
     // Every solve takes a pass at least, and the first of a path, from the guard's angles, many.
     assert.ok(near.passes > near.solves + 10 && near.passes < CAP * near.solves, `${near.passes} passes in ${near.solves} solves`);
     // A place two metres ahead, which no arm reaches: its solves run to the cap and are counted so.
-    motor.reach("right", { places: [{ point: "knuckles", position: [from.x, from.y, from.z + 2] }], seconds: 0.4 });
+    motor.reach("hand.right", { places: [{ point: "knuckles", position: [from.x, from.y, from.z + 2] }], seconds: 0.4 });
     stand.step(steps);
     const far = motor.state.reach;
     assert.equal(far.solves, 6 * steps);
@@ -275,14 +275,14 @@ async function reachRun(hz, move) {
   const driver = driveMuscles(stand.built, stand.world, motor.control);
   try {
     stand.step(stand.seconds(1));
-    const from = motor.knucklesToRef("right", new Vector3());
+    const from = motor.pointToRef("hand.right", "knuckles", new Vector3());
     const target = [from.x + move[0], from.y + move[1], from.z + move[2]];
-    motor.reach("right", { places: [{ point: "knuckles", position: target }], seconds: 0.4 });
+    motor.reach("hand.right", { places: [{ point: "knuckles", position: target }], seconds: 0.4 });
     const now = new Vector3();
     let worst = 0;
     for (let s = 0; s < stand.seconds(0.9); s++) {
       stand.step(1);
-      worst = Math.max(worst, Vector3.Distance(motor.path("right"), motor.knucklesToRef("right", now)));
+      worst = Math.max(worst, Vector3.Distance(motor.path("hand.right"), motor.pointToRef("hand.right", "knuckles", now)));
     }
     return { worst, end: now.clone(), off: Vector3.Distance(now, Vector3.FromArray(target)) };
   } finally {
@@ -309,21 +309,21 @@ test("a goal's path runs on through its place, and one that follows keeps its st
   const driver = driveMuscles(stand.built, stand.world, motor.control);
   try {
     stand.step(stand.seconds(1));
-    const from = motor.knucklesToRef("right", new Vector3()).clone();
+    const from = motor.pointToRef("hand.right", "knuckles", new Vector3()).clone();
     const goal = (shift, more) => ({ places: [{ point: "knuckles", position: [from.x + shift, from.y + 0.05, from.z + 0.2] }], seconds: 0.4, ...more });
     const placeOf = ({ places: [{ position }] }) => new Vector3(...position);
     /** The arm let back to its guard, then what `given(s)` gives, if anything, asked before each of `steps` steps: the path's point after the first, and after the last. */
     const run = (steps, given) => {
-      motor.release("right");
+      motor.release("hand.right");
       stand.step(stand.seconds(1));
       let start = null;
       for (let s = 0; s < steps; s++) {
         const next = given(s);
-        if (next) motor.reach("right", next);
+        if (next) motor.reach("hand.right", next);
         stand.step(1);
-        start ??= motor.path("right").clone();
+        start ??= motor.path("hand.right").clone();
       }
-      return { start, end: motor.path("right").clone() };
+      return { start, end: motor.path("hand.right").clone() };
     };
     const half = stand.seconds(0.2) + 1, whole = stand.seconds(0.4) + 1, shifted = (s) => 0.001 * s;
 
@@ -388,16 +388,16 @@ async function placeRun(hz, pose, names, order = (places) => places) {
   const driver = driveMuscles(stand.built, stand.world, motor.control);
   try {
     stand.step(stand.seconds(1));
-    motor.reach("right", { places: order(places), seconds: 0.6 });
+    motor.reach("hand.right", { places: order(places), seconds: 0.6 });
     const now = new Vector3();
     let strayed = 0;
     for (let s = 0; s < stand.seconds(1.2); s++) {
       stand.step(1);
-      strayed = Math.max(strayed, Vector3.Distance(motor.path("right"), motor.pointToRef("right", order(places)[0].point, now)));
+      strayed = Math.max(strayed, Vector3.Distance(motor.path("hand.right"), motor.pointToRef("hand.right", order(places)[0].point, now)));
     }
     return {
-      off: places.map(({ point, position }) => Vector3.Distance(motor.pointToRef("right", point, now), Vector3.FromArray(position))),
-      end: places.map(({ point }) => motor.pointToRef("right", point, new Vector3())),
+      off: places.map(({ point, position }) => Vector3.Distance(motor.pointToRef("hand.right", point, now), Vector3.FromArray(position))),
+      end: places.map(({ point }) => motor.pointToRef("hand.right", point, new Vector3())),
       wrist: ARM.slice(4).map((name) => driver.angle(driver.channel(name))),
       strayed,
     };
@@ -438,12 +438,12 @@ test("a hand goal is refused with its reason: no place, three, a point the hand 
   const { stand, places: [from, to] } = await clubStand(120, LINES.upright, ["swellFrom", "swellTo"]);
   const motor = motorControl(stand.built, 0.1, GUARD);
   try {
-    const goal = (places) => () => motor.reach("right", { places, seconds: 0.4 });
+    const goal = (places) => () => motor.reach("hand.right", { places, seconds: 0.4 });
     assert.throws(goal([]), /one place or two, not 0/);
     assert.throws(goal([from, to, from]), /one place or two, not 3/);
-    assert.throws(goal([{ point: "pommel", position: from.position }]), /the right hand has no point pommel: it has knuckles, .*swellFrom, swellTo, swell/);
+    assert.throws(goal([{ point: "pommel", position: from.position }]), /effector hand.right has no point pommel: it has knuckles, .*swellFrom, swellTo, swell/);
     // The left hand holds nothing: the club's points are the right's alone.
-    assert.throws(() => motor.reach("left", { places: [from], seconds: 0.4 }), /the left hand has no point swellFrom/);
+    assert.throws(() => motor.reach("hand.left", { places: [from], seconds: 0.4 }), /effector hand.left has no point swellFrom/);
     // A decimetre farther apart than the swell's ends are; the control is the pair as built.
     const far = { point: to.point, position: [to.position[0], to.position[1] + 0.1, to.position[2]] };
     const apart = Math.hypot(...far.position.map((c, k) => c - from.position[k])), built = Math.hypot(...to.position.map((c, k) => c - from.position[k]));

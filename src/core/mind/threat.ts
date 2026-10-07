@@ -2,10 +2,9 @@ import { predictIntercept } from "../control/intercept.ts";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { BodyView } from "../body.ts";
 import { rigidPoints } from "../build/rigid.ts";
-import type { Hand } from "../control/motor.ts";
 import { hypot } from "../math/real.ts";
 import { aimOf } from "../skills/strikes.ts";
-import { frameOf, type BodySpec } from "../spec/body.ts";
+import { type Side, frameOf, type BodySpec } from "../spec/body.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { dot, sub } from "../spec/vec.ts";
 import type { Cover } from "./intent.ts";
@@ -24,11 +23,11 @@ export interface Threat {
   readonly closing: number;
 }
 
-const HANDS: readonly Hand[] = ["left", "right"];
+const HANDS: readonly Side[] = ["left", "right"];
 
 /** The point each hand of `spec` strikes with (`aimOf`), in its hand's own frame; null for a hand the spec has not. */
-function strikingPoints(spec: BodySpec): Readonly<Record<Hand, Vec3 | null>> {
-  const point = (hand: Hand): Vec3 | null => {
+function strikingPoints(spec: BodySpec): Readonly<Record<Side, Vec3 | null>> {
+  const point = (hand: Side): Vec3 | null => {
     const segment = spec.segments.find((s) => s.name === `hand.${hand}`);
     const at = segment && rigidPoints(spec, segment).get(aimOf(spec, hand));
     if (!segment || !at) return null;
@@ -39,7 +38,7 @@ function strikingPoints(spec: BodySpec): Readonly<Record<Hand, Vec3 | null>> {
 }
 
 /** Each spec's striking points, found once: a spec is immutable, and so is what is read from it. */
-const STRIKING = new WeakMap<BodySpec, Readonly<Record<Hand, Vec3 | null>>>();
+const STRIKING = new WeakMap<BodySpec, Readonly<Record<Side, Vec3 | null>>>();
 
 const point = new Vector3(), velocity = new Vector3(), lever = new Vector3();
 
@@ -86,12 +85,12 @@ export function threatOf(view: BodyView, counts: Threat = THREAT, prediction?: {
   return threat && { threat, guarded: [head.x, head.y, head.z] };
 }
 
-/** Predictive defense search cells: `docs/reference/combat-defense.md#settings`. */
-const DEFENSE = Object.freeze({ out: .3, horizon: .3, speed: 3, reserve: .08, minimum: .05 });
+/** Predictive defense search cells, the reference cover's plane among them: `docs/reference/combat-defense.md#settings`. */
+export const DEFENSE = Object.freeze({ out: .3, horizon: .3, speed: 3, reserve: .08, minimum: .05 });
 
 /** Detached constant-motion threat, corrected for sample age and the guarded point's own motion. */
 export function incomingThreat(view: BodyView, ownVelocity: Vec3, counts: Threat = THREAT) {
-  let best: { cover: Cover; seconds: number; closing: number; foe: string; hand: Hand } | null = null;
+  let best: { cover: Cover; seconds: number; closing: number; foe: string; hand: Side } | null = null;
   for (const foe of view.senses.others) {
     if (foe.side === view.senses.side || foe.out) continue;
     let striking = STRIKING.get(foe.spec);
@@ -124,7 +123,7 @@ export function incomingThreat(view: BodyView, ownVelocity: Vec3, counts: Threat
 }
 
 /** Necessary geometric and travel-time checks; physics still determines whether the actual guard holds. */
-export function guardCanReach(view: BodyView, spec: BodySpec, hand: Hand, threat: NonNullable<ReturnType<typeof incomingThreat>>): boolean {
+export function guardCanReach(view: BodyView, spec: BodySpec, hand: Side, threat: NonNullable<ReturnType<typeof incomingThreat>>): boolean {
   const target = threat.cover.threat, at = view.fists[hand].position;
   return distance([at.x, at.y, at.z], target) <= DEFENSE.speed * Math.max(DEFENSE.minimum, threat.seconds)
     && hypot(target[0] - view.head.x, target[2] - view.head.z) <= placedReach(spec, hand, target[1] - view.head.y) - DEFENSE.reserve;

@@ -76,7 +76,7 @@ function rod(curve, peak) {
     shape: { kind: "capsule", from: q(proximal), to: q(distal), radius: q(0.04) }, surface: { stiffness: q(1e5, "N/m") },
   });
   return {
-    family: "test", model: "rod", mass: q(3, "kg"), stature: q(1.5),
+    model: "rod", mass: q(3, "kg"), stature: q(1.5),
     segments: [segment("post", [0, 1.5, 0], [0, 1, 0], 2), segment("rod", [0, 1, 0], [0.1, 0.55, 0.05], 1)],
     joints: [{ name: "pin", parent: "post", child: "rod", centre: q([0, 1, 0]),
       dofs: [{ positive: "flexion", negative: "extension", axis: q([0.8, 0.6, 0], "1"), min: q(-3, "rad"), max: q(3, "rad"),
@@ -218,7 +218,7 @@ test("a light limb on a heavy one speeds up at 120 Hz as it does at a fine rate"
     shape: { kind: "capsule", from: q(proximal), to: q(distal), radius: q(0.03) }, surface: { stiffness: q(1e5, "N/m") } });
   const pin = (name, parent, child, centre, m) => ({ name, parent, child, centre: q(centre),
     dofs: [{ positive: "flexion", negative: "extension", axis: q([0, 0, 1], "1"), min: q(-30, "rad"), max: q(30, "rad"), muscle: m }] });
-  const spec = { family: "test", model: "arm", mass: q(3, "kg"), stature: q(1.5),
+  const spec = { model: "arm", mass: q(3, "kg"), stature: q(1.5),
     segments: [segment("post", [0, 1.5, 0], [0, 1.2, 0], 2, [0.02, 0.004, 0.02]),
       segment("forearm", [0, 1.2, 0], [0.19, 1.01, 0], 1.2, [0.0012, 0.0073, 0.0073]),
       segment("hand", [0.19, 1.01, 0], [0.32, 0.88, 0], 0.45, [0.0004, 0.0013, 0.0014])],
@@ -360,7 +360,7 @@ test("the inertia beyond a joint is its segments' about the axis, at the pose as
     shape: { kind: "capsule", from: q(proximal), to: q(distal), radius: q(0.03) }, surface: { stiffness: q(1e5, "N/m") } });
   const pin = (name, parent, child, centre) => ({ name, parent, child, centre: q(centre),
     dofs: [{ positive: "flexion", negative: "extension", axis: q([0, 0, 1], "1"), min: q(-3, "rad"), max: q(3, "rad"), muscle }] });
-  const arm = { family: "test", model: "arm", mass: q(3, "kg"), stature: q(1.5),
+  const arm = { model: "arm", mass: q(3, "kg"), stature: q(1.5),
     segments: [segment("post", [0, 1.5, 0], [0, 1.2, 0], 2, [0.02, 0.004, 0.02]),
       segment("forearm", [0, 1.2, 0], [0.19, 1.01, 0], 1.2, [0.0012, 0.0073, 0.0065]),
       segment("hand", [0.19, 1.01, 0], [0.32, 0.88, 0], 0.45, [0.0004, 0.0013, 0.0011])],

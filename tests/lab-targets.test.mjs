@@ -77,10 +77,10 @@ test("a_dummy_is_a_ball_of_its_attackers_head_and_every_number_is_the_attackers"
   assert.deepEqual(specProvenanceFaults(spec), []);
   const [ball] = spec.segments, r = head.shape.radius.value, m = head.mass.value;
   assert.deepEqual(
-    { family: spec.family, model: spec.model, segments: spec.segments.map((segment) => segment.name), joints: spec.joints, mass: spec.mass.value, stature: spec.stature.value,
+    { model: spec.model, segments: spec.segments.map((segment) => segment.name), joints: spec.joints, mass: spec.mass.value, stature: spec.stature.value,
       kind: ball.shape.kind, radius: ball.shape.radius.value, centre: ball.shape.centre.value, com: ball.centreOfMass.value, kg: ball.mass.value,
       inertia: ball.inertia.value, surface: [ball.surface.stiffness.value, ball.surface.stiffness.unit], hp: spec.wounds.hp.value, vital: spec.wounds.vital, whole: spec.wounds.whole, balance: spec.attributes.balance.value },
-    { family: "dummy", model: "workshop-fighter.dummy", segments: ["head"], joints: [], mass: m, stature: 2 * r,
+    { model: "workshop-fighter.dummy", segments: ["head"], joints: [], mass: m, stature: 2 * r,
       kind: "sphere", radius: r, centre: [0, 0, 0], com: [0, 0, 0], kg: m,
       inertia: [(2 / 5) * m * r * r, (2 / 5) * m * r * r, (2 / 5) * m * r * r], surface: [201e3, "N/m"], hp: WARRIOR.wounds.hp.value, vital: [], whole: ["head"], balance: WARRIOR.attributes.balance.value });
 });
@@ -92,11 +92,11 @@ const FIST_K = 201e3;
 
 /** A body of one ball of `kg`, 5 cm in radius, named `hand.right`: a fist and nothing else, its centre 5 cm over its node. */
 const fistSpec = (kg) => ({
-  family: "test", model: "fist", mass: q(kg, "kg"), stature: q(0.1),
+  model: "fist", mass: q(kg, "kg"), stature: q(0.1),
   segments: [{ name: "hand.right", proximal: q([0, 0, 0]), distal: q([0, 0.1, 0]), mass: q(kg, "kg"), centreOfMass: q([0, 0.05, 0]),
     inertia: q([0.001, 0.001, 0.001], "kg m2"), shape: { kind: "sphere", centre: q([0, 0.05, 0]), radius: q(0.05) },
     surface: { stiffness: q(FIST_K, "N/m") } }],
-  joints: [], wounds: { hp: q(1, "HP"), vital: [], whole: [] }, attributes: { balance: q(0, "%") },
+  joints: [], wounds: { hp: q(1, "HP"), vital: [], whole: [] }, attributes: { balance: q(0, "%") }, down: { kind: "asked", fallen: q(0.25) },
 });
 
 /**

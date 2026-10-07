@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {rangeLearning,validRangeLearning} from '../src/core/mind/range-learning.ts';
-import {ARENA_SCRAPPER_REFERENCE} from '../src/core/mind/config.ts';
+import {ARENA_SCRAPPER} from '../src/core/mind/config.ts';
 import {combatTrial} from '../research/arena-combat.mjs';
 import {buildBout} from '../research/bout.mjs';
 import {loadEngine,DEFAULT_ENGINE} from '../src/core/engine/engines.ts';
@@ -10,11 +10,11 @@ import {traceOf} from './harness/trace.mjs';
 
 test('range adaptation consumes only a clean launched swing with a verified return and saturates at the reference spacing',()=>{
  const learner=rangeLearning(.125,.03125),report={hand:'left',phase:'chamber',pointCycle:{returned:{left:0,right:0}}};
- const feedback={left:{impulse:0},right:{impulse:0}};
+ const effectors={'hand.left':{feedback:{impulse:0}},'hand.right':{feedback:{impulse:0}}};
  for(let i=0;i<6;i++){
-  report.hand='left';report.phase='chamber';learner.observe(report,feedback);
-  report.phase='swing';learner.observe(report,feedback);report.phase='return';learner.observe(report,feedback);
-  report.hand=null;report.phase=null;report.pointCycle.returned.left++;learner.observe(report,feedback);
+  report.hand='left';report.phase='chamber';learner.observe(report,effectors);
+  report.phase='swing';learner.observe(report,effectors);report.phase='return';learner.observe(report,effectors);
+  report.hand=null;report.phase=null;report.pointCycle.returned.left++;learner.observe(report,effectors);
   assert.deepEqual(learner.state,{offset:Math.max(0,.125-(i+1)*.03125),hand:null,launched:false,touched:false,returned:0,misses:i+1,adjustments:Math.min(i+1,4)});
  }
  learner.restart();assert.deepEqual(learner.state,{offset:.125,hand:null,launched:false,touched:false,returned:0,misses:0,adjustments:0});
@@ -23,18 +23,18 @@ test('range adaptation consumes only a clean launched swing with a verified retu
 test('preparation failure, a return timeout and contact during any strike phase never justify moving closer',()=>{
  for(const scenario of ['prepare','timeout','chamber','swing','return']){
   const learner=rangeLearning(.125,.03125),report={hand:'left',phase:'chamber',pointCycle:{returned:{left:0,right:0},failed:0}};
-  const feedback={left:{impulse:0},right:{impulse:0}};
+  const effectors={'hand.left':{feedback:{impulse:0}},'hand.right':{feedback:{impulse:0}}};
   for(const phase of ['chamber',...(scenario==='prepare'?[]:['swing']),'return']){
-   report.phase=phase;feedback.left.impulse=phase===scenario?1:0;learner.observe(report,feedback);
+   report.phase=phase;effectors['hand.left'].feedback.impulse=phase===scenario?1:0;learner.observe(report,effectors);
   }
   report.hand=null;report.phase=null;
   if(scenario==='timeout')report.pointCycle.failed++;else report.pointCycle.returned.left++;
-  learner.observe(report,feedback);
+  learner.observe(report,effectors);
   assert.deepEqual(learner.state,{offset:.125,hand:null,launched:false,touched:false,returned:0,misses:0,adjustments:0},scenario);
  }
  const learner=rangeLearning(.125,.03125),report={hand:'right',phase:'chamber',pointCycle:{returned:{left:0,right:0}}};
- learner.observe(report);report.phase='swing';learner.observe(report);learner.cancel();
- report.hand=null;report.phase=null;report.pointCycle.returned.right++;learner.observe(report);
+ learner.observe(report,{});report.phase='swing';learner.observe(report,{});learner.cancel();
+ report.hand=null;report.phase=null;report.pointCycle.returned.right++;learner.observe(report,{});
  assert.equal(learner.state.misses,0);assert.equal(learner.state.offset,.125);
 });
 
@@ -45,7 +45,7 @@ test('range-learning settings reject nonfinite and negative active inputs',()=>{
  assert.equal(validRangeLearning(-.1,0),true);assert.equal(validRangeLearning(),true);
 });
 
-const candidate={...ARENA_SCRAPPER_REFERENCE,spacing:.1,spacingStep:.1};
+const candidate={...ARENA_SCRAPPER,spacing:.1,spacingStep:.1};
 test('observed clean misses correct physical self-play spacing without assistance or prolonged pressure',async()=>{
  const row=await combatTrial({left:candidate,right:candidate,recipe:{capSeconds:30}});
  for(const side of ['left','right']){

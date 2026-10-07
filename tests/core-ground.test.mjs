@@ -7,10 +7,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { createBody, SERVO_SECONDS } from "../src/core/body.ts";
-import { FALLEN, uprightness } from "../src/core/control/ground.ts";
+import { uprightness } from "../src/core/control/ground.ts";
 import { centreOfToRef, footStatesOf } from "../src/core/control/support.ts";
 import { armed } from "../src/core/human/grip.ts";
-import { HUMANOID_MODELS as BODY_MODELS, modelSpec } from "../src/core/models.ts";
+import { HUMANOID_MODELS, modelSpec } from "../src/core/models.ts";
 import { woodenClub } from "../src/core/items/club.ts";
 import { FIGHTER } from "../src/core/mind/config.ts";
 import { standIntent } from "../src/core/mind/intent.ts";
@@ -22,7 +22,9 @@ import { GUARD } from "../src/core/skills/guard.ts";
 import { coreStand } from "./harness/core-stand.mjs";
 
 const warrior = modelSpec("workshop-fighter");
-const BODIES = [...BODY_MODELS.map(modelSpec), armed(warrior, "right", woodenClub())];
+/** How far under its asked height a human is down, m: its spec's bar. */
+const FALLEN = warrior.down.fallen.value;
+const BODIES = [...HUMANOID_MODELS.map(modelSpec), armed(warrior, "right", woodenClub())];
 
 /** A built body's centre of mass's height over the stand's ground, m: the ground's top is y = 0. */
 function overGround(built) {
@@ -194,7 +196,7 @@ test("a body asked to hold itself low is not down at that height", async () => {
       const stance = Object.freeze({ feet: Object.freeze([]), centre: null, height: asked(standing), heading: 0, walk: null });
       const command = (fold) => Object.freeze({
         posture: Object.freeze({ ...GUARD, ...Object.fromEntries(LEGS.map((name) => [name, fold])) }),
-        hands: Object.freeze({ left: null, right: null }), pushes: Object.freeze([]), stance,
+        pushes: Object.freeze([]), stance,
       });
       let now = command(1.6);
       body.drive(() => now);

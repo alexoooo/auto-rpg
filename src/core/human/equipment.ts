@@ -2,11 +2,10 @@ import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { BuiltBody } from "../build/build-body.ts";
 import { heldFrame } from "../build/rigid.ts";
 import { createEquipment } from "../equipment.ts";
-import type { ItemSpec } from "../spec/body.ts";
+import type { Side, ItemSpec } from "../spec/body.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import type { World } from "../world.ts";
 import { handHolding } from "./grip.ts";
-import type { Side } from "./landmarks.ts";
 
 interface HandEquipment {
   readonly id: string;

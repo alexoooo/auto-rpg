@@ -1,8 +1,8 @@
-import { segmentFrame, type DofSpec, type ForceVelocitySpec, type JointSpec, type SegmentSpec } from "../spec/body.ts";
+import { type Side, segmentFrame, type DofSpec, type ForceVelocitySpec, type JointSpec, type SegmentSpec } from "../spec/body.ts";
 import { derive, si, sourced, type Quantity, type Vec3 } from "../spec/quantity.ts";
 import { angleAbout, cross, dot, normalize, orthogonalTo, scale, sub } from "../spec/vec.ts";
 import type { HumanFigure } from "./figure.ts";
-import { SIDES, type Side } from "./landmarks.ts";
+import { SIDES } from "./landmarks.ts";
 import { segmentName } from "./segments.ts";
 import type { Exertion } from "./tables/joint-torques.ts";
 import { rangeOfMotion, type RangeRow } from "./tables/range-of-motion.ts";

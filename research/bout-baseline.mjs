@@ -23,7 +23,7 @@
  */
 import { parseArgs } from "node:util";
 import { DUEL_HELD } from "../src/arena/duel.ts";
-import { HUMANOID_MODELS as BODY_MODELS } from "../src/core/models.ts";
+import { HUMANOID_MODELS } from "../src/core/models.ts";
 import { sourced } from "../src/core/spec/quantity.ts";
 import { BOUT_HARNESS } from "./bout.mjs";
 import { defaultLanes, playBouts } from "./bout-pool.mjs";
@@ -45,7 +45,7 @@ const experiment = {
 };
 
 const jobs = [];
-for (const gap of gaps) for (const left of BODY_MODELS) for (const right of BODY_MODELS) jobs.push({ recipe: { left, right, gap, ...experiment }, blows: floors.length > 0 });
+for (const gap of gaps) for (const left of HUMANOID_MODELS) for (const right of HUMANOID_MODELS) jobs.push({ recipe: { left, right, gap, ...experiment }, blows: floors.length > 0 });
 
 const started = Date.now();
 const rows = await playBouts(jobs, Number(values.workers ?? defaultLanes()));
@@ -74,7 +74,7 @@ console.log("\nA bout, by matchup: hit points the blows took from the two sides 
 console.log("| Left | Right | Bouts | Endings | Seconds | Blows | HP taken | Own | Jostled | Ruined | Off |");
 console.log("|---|---|---|---|---|---|---|---|---|---|---|");
 const line = (left, right, some) => `| ${left} | ${right} | ${some.length} | ${endingsOf(some)} | ${mean(some, (row) => row.seconds).toFixed(1)} | ${mean(some, (row) => row.blows).toFixed(1)} | ${mean(some, both("taken")).toFixed(3)} | ${mean(some, both("own")).toFixed(3)} | ${mean(some, both("jostled")).toFixed(3)} | ${mean(some, both("ruined")).toFixed(2)} | ${mean(some, both("off")).toFixed(2)} |`;
-for (const left of BODY_MODELS) for (const right of BODY_MODELS) {
+for (const left of HUMANOID_MODELS) for (const right of HUMANOID_MODELS) {
   console.log(line(left, right, rows.filter((row) => row.recipe.left === left && row.recipe.right === right)));
 }
 console.log(line("every", "matchup", rows));

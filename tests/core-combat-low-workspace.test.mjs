@@ -32,7 +32,7 @@ for(const hand of ['left','right'])test(`the shared fold gates ${hand} low strok
 
 async function foldedStand(hand){
  const s=await coreStand(modelSpec('workshop-fighter'),{engine:DEFAULT_ENGINE});
- const body=createBody(s.built,s.world,{servoSeconds:SERVO_SECONDS,handFeedback:true}),skills=combatSkills(body,ATTACK_PATH,null,undefined,true);
+ const body=createBody(s.built,s.world,{servoSeconds:SERVO_SECONDS,feedback:true}),skills=combatSkills(body,ATTACK_PATH,null,undefined,true);
  body.drive((view,dt)=>skills.command(view,{move:null,face:0,hands:{left:GUARD_ACTION,right:GUARD_ACTION},
   lower:view.time>=2&&view.time<8?.5:STANCE_LOWER,
   combat:view.time>=2&&view.time<8?{hand,family:'downward',target:[hand==='right'?.1:-.1,.33,.35],armExtension:1}:null},dt));

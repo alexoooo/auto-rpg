@@ -121,10 +121,10 @@ test("a_middle_target_is_the_upper_trunks_mass_and_surface", () => {
   assert.notEqual(trunk.shape.kind, "sphere");
   const [ball] = spec.segments, m = trunk.mass.value, r = Math.cbrt(3 * (m / (1000 * SEGMENT_DENSITY.upperTrunk.value)) / (4 * Math.PI));
   assert.deepEqual(
-    { family: spec.family, model: spec.model, segments: spec.segments.map((segment) => segment.name), joints: spec.joints, mass: spec.mass.value,
+    { model: spec.model, segments: spec.segments.map((segment) => segment.name), joints: spec.joints, mass: spec.mass.value,
       kind: ball.shape.kind, centre: ball.shape.centre.value, com: ball.centreOfMass.value, kg: ball.mass.value,
       surface: [ball.surface.stiffness.value, ball.surface.stiffness.unit], hp: spec.wounds.hp.value, vital: spec.wounds.vital, whole: spec.wounds.whole },
-    { family: "dummy", model: "workshop-fighter.dummy", segments: ["upperTrunk"], joints: [], mass: m,
+    { model: "workshop-fighter.dummy", segments: ["upperTrunk"], joints: [], mass: m,
       kind: "sphere", centre: [0, 0, 0], com: [0, 0, 0], kg: m,
       surface: [trunk.surface.stiffness.value, "N/m"], hp: WARRIOR.wounds.hp.value, vital: [], whole: ["upperTrunk"] });
   // The trunk's surface is softer than a head's, and its ball the size its mass makes at its density.

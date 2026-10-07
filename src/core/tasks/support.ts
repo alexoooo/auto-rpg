@@ -2,11 +2,11 @@ import type { Scene } from "@babylonjs/core/scene.js";
 import { buildBody } from "../build/build-body.ts";
 import { supportTransition } from "../control/support-transition.ts";
 import type { PhysicsEngine } from "../engine/engine.ts";
-import type { Side } from "../human/landmarks.ts";
-import { modelSpec, type HumanoidModel as BodyModel } from "../models.ts";
+import { modelSpec, type HumanoidModel } from "../models.ts";
 import { createMotionBody } from "../mind/motion.ts";
 import { deepFreeze } from "../state.ts";
 import { createWorld } from "../world.ts";
+import type { Side } from "../spec/body.ts";
 
 /** Upright support experiment inputs, numeric settings (`docs/reference/support-transition.md`). */
 const SETTINGS = deepFreeze({ lower: 0.04, lift: 0.04, placementMargin: 0.002, centreGain: 0.7,
@@ -20,7 +20,7 @@ const SETTINGS = deepFreeze({ lower: 0.04, lift: 0.04, placementMargin: 0.002, c
 
 /** Shared physical fixture: unload either foot, lift, place and regain two-foot support. */
 export function createSupportProbe(scene: Scene, engine: PhysicsEngine, config: {
-  readonly model: BodyModel; readonly side: Side; readonly hz: number; readonly liftOffset: number;
+  readonly model: HumanoidModel; readonly side: Side; readonly hz: number; readonly liftOffset: number;
   readonly actuation: "symmetric" | "directional";
 }) {
   if ((config.side !== "left" && config.side !== "right") || !Number.isSafeInteger(config.hz) || config.hz < 120

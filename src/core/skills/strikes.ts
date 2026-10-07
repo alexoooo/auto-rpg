@@ -1,6 +1,7 @@
 import measured from "../../../assets/core/strikes.json" with { type: "json" };
-import type { Hand, Pose } from "../control/motor.ts";
-import type { BodySpec } from "../spec/body.ts";
+import { effectorAim } from "../control/effectors.ts";
+import type { Pose } from "../control/motor.ts";
+import type { Side, BodySpec } from "../spec/body.ts";
 import { deepFreeze } from "../state.ts";
 
 /**
@@ -43,7 +44,7 @@ interface StrikePush {
 /** A strike: a chamber pose held for its time, then pushes. */
 export interface Strike {
   readonly name: string;
-  readonly hand: Hand;
+  readonly hand: Side;
   readonly chamber?: { readonly seconds: number; readonly pose: Pose };
   readonly pushes: readonly StrikePush[];
 }
@@ -97,7 +98,7 @@ export const FIST = "fist";
 export const REPERTOIRE: Repertoire = deepFreeze(measured.recipes as unknown as Repertoire);
 
 /** What `hand` of `spec` holds: the item's name, or `FIST`. */
-export function heldIn(spec: BodySpec, hand: Hand): string {
+export function heldIn(spec: BodySpec, hand: Side): string {
   return spec.held?.find((h) => h.segment === `hand.${hand}`)?.item.name ?? FIST;
 }
 
@@ -112,7 +113,7 @@ export interface Chosen {
  * Every recipe `spec`'s `hand` may throw with what it holds, as that hand throws it: those
  * searched on its body with that held, in the repertoire's order.
  */
-export function recipesFor(repertoire: Repertoire, spec: BodySpec, hand: Hand): Chosen[] {
+export function recipesFor(repertoire: Repertoire, spec: BodySpec, hand: Side): Chosen[] {
   const held = heldIn(spec, hand);
   return repertoire.filter((r) => r.held === held && r.model === spec.model).map((recipe) => {
     const own = hand === recipe.strike.hand;
@@ -139,7 +140,7 @@ export function recipeAt(known: readonly Chosen[], up: number): number {
  * The recipe `spec`'s `hand` throws, with what it holds, at a target `up` m above its head
  * (`recipesFor`, `recipeAt`). Null if no recipe's window holds that height.
  */
-export function recipeFor(repertoire: Repertoire, spec: BodySpec, hand: Hand, up: number): Chosen | null {
+export function recipeFor(repertoire: Repertoire, spec: BodySpec, hand: Side, up: number): Chosen | null {
   const known = recipesFor(repertoire, spec, hand), at = recipeAt(known, up);
   return at < 0 ? null : known[at]!;
 }
@@ -156,9 +157,9 @@ export function netsOf(known: readonly Chosen[]): Readonly<Record<Band, number |
 export const mirroredWindow = (window: StrikeWindow): StrikeWindow =>
   ({ along: window.along, across: [-window.across[1], -window.across[0]], up: window.up });
 
-/** The point `hand` of `spec` strikes with (`rigidPoints`): what it holds says (`ItemSpec.aim`), or the hand's knuckles. */
-export function aimOf(spec: BodySpec, hand: Hand): string {
-  return spec.held?.find((h) => h.segment === `hand.${hand}`)?.item.aim ?? "knuckles";
+/** The point `hand` of `spec` strikes with (`effectorAim`). */
+export function aimOf(spec: BodySpec, hand: Side): string {
+  return effectorAim(spec, `hand.${hand}`);
 }
 
 /** The trunk's freedoms whose positive way is to one side: mirrored, their sense and angle turn over. */
@@ -177,7 +178,7 @@ const otherSide = (channel: string): string =>
  */
 export function mirrored(strike: Strike): Strike {
   const sided = (channel: string): boolean => SIDED.some((s) => channel.endsWith(s));
-  const hand: Hand = strike.hand === "right" ? "left" : "right";
+  const hand: Side = strike.hand === "right" ? "left" : "right";
   return {
     name: strike.name.replace(strike.hand, hand),
     hand,

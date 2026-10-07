@@ -2,7 +2,7 @@ import { VIEW_MODES, CAMERA_MODES, PROJECTIONS, type ViewSettings } from "../ren
 import { appearanceFor, type Appearance } from "../render/appearance.ts";
 import { playHref } from "../app-route.ts";
 import { CHARACTERS } from "../character-lab/catalog.ts";
-import type { HumanoidModel as BodyModel } from "../core/models.ts";
+import type { HumanoidModel } from "../core/models.ts";
 import { balanceFrom } from "../core/rules/rulebook.ts";
 
 /**
@@ -33,7 +33,7 @@ export const SCENARIOS: readonly ScenarioInfo[] = [
   { id: "blow", name: "Blow", line: "It swings a club blow the strike search found into a head, and reads what it lands with.", holds: { right: "club" } },
 ];
 
-export const MODELS: readonly { readonly id: BodyModel; readonly name: string }[] = [
+export const MODELS: readonly { readonly id: HumanoidModel; readonly name: string }[] = [
   { id: "workshop-fighter", name: "Warrior" },
   { id: "workshop-rogue", name: "Rogue" },
   { id: "crypt-skeleton", name: "Skeleton" },
@@ -52,7 +52,7 @@ export const LAB_HANDS = ["right", "left"] as const, LAB_WORN = ["boots", "armou
  * What each body wears unless the address says: the character workshop's own default loadout for
  * the humans, the Warrior armoured and the Rogue not; the skeleton wears nothing.
  */
-const WORN: Readonly<Record<BodyModel, { readonly boots: boolean; readonly armour: boolean }>> = {
+const WORN: Readonly<Record<HumanoidModel, { readonly boots: boolean; readonly armour: boolean }>> = {
   "workshop-fighter": CHARACTERS.fighter.defaults,
   "workshop-rogue": CHARACTERS.rogue.defaults,
   "crypt-skeleton": { boots: false, armour: false },
@@ -63,7 +63,7 @@ const WORN: Readonly<Record<BodyModel, { readonly boots: boolean; readonly armou
  * physical: they make the spec (`loadout.ts`). Boots and armour are the skin's meshes alone; the
  * core has no clothing, and the boot is in the foot's shape whatever the skin shows.
  */
-export type LabLoadout = { readonly model: BodyModel }
+export type LabLoadout = { readonly model: HumanoidModel }
   & Readonly<Record<(typeof LAB_HANDS)[number], LabHeld>> & Readonly<Record<(typeof LAB_WORN)[number], boolean>>;
 
 /**

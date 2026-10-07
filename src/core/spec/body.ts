@@ -1,6 +1,9 @@
 import type { Quantity, Vec3 } from "./quantity.ts";
 import { cross, normalize, orthogonalTo, sub } from "./vec.ts";
 
+/** One side of a bilateral body: a hand, a foot, a limb, a corner of a bout. */
+export type Side = "left" | "right";
+
 /**
  * **What a body is built from**, and nothing else: `buildBody` reads a
  * `BodySpec` and makes the bodies and joints it states. Every number in it is a `Quantity`, so it
@@ -24,9 +27,7 @@ import { cross, normalize, orthogonalTo, sub } from "./vec.ts";
  * mass -- reads both.
  */
 export interface BodySpec {
-  /** The family's name, such as `human` or `skeleton`; a spec never spreads another family's spec. */
-  readonly family: string;
-  /** Which body of the family, such as `workshop-fighter`. */
+  /** Which body it is, such as `workshop-fighter`; a spec never spreads another family's spec. */
   readonly model: string;
   /** Whole-body mass: the segments' masses sum to it. */
   readonly mass: Quantity<number>;
@@ -42,7 +43,24 @@ export interface BodySpec {
   readonly substance: Substance;
   /** Items held rigidly in a segment, such as a club in a hand; absent, nothing. */
   readonly held?: readonly HeldSpec[];
+  /** When the body is down: the rule every fight, page and mind reads it by (`uprightness`, `src/core/control/ground.ts`). */
+  readonly down: DownSpec;
 }
+
+/**
+ * **When a body is down**, by kind:
+ *
+ * - `asked`: its centre of mass is more than `fallen`, m, under the height its mind asks it to
+ *   hold over its lowest point: a body that stands, and can be asked to crouch or kneel.
+ * - `low`: `root`'s up has tipped under `up` (the cosine of its tilt), or its centre of mass is
+ *   under `height` of its standing height: a body that keeps low to the ground and asks no height.
+ */
+export type DownSpec =
+  | { readonly kind: "asked"; readonly fallen: Quantity<number> }
+  | { readonly kind: "low"; readonly root: string; readonly height: Quantity<number>; readonly up: Quantity<number> };
+
+/** What a thing is made of, where it meets another: a body's flesh or bone, an item's wood, the world's stone. */
+export type Substance = "flesh" | "bone" | "wood" | "stone";
 
 /**
  * **An item held rigidly in a segment**, as a club is in a closed hand: it moves with the segment
@@ -50,9 +68,6 @@ export interface BodySpec {
  * the reference pose, as a segment's ends and right place its frame (`segmentFrame`): y along
  * `along`, x `across` made square to it, z = x cross y.
  */
-/** What a thing is made of, where it meets another: a body's flesh or bone, an item's wood, the world's stone. */
-export type Substance = "flesh" | "bone" | "wood" | "stone";
-
 export interface HeldSpec {
   /** The segment that holds it. */
   readonly segment: string;

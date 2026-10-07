@@ -1,6 +1,5 @@
 import type { Body, Fist } from "../core/body.ts";
 import type { BuiltBody } from "../core/build/build-body.ts";
-import type { Hand } from "../core/control/motor.ts";
 import type { StanceEnvelope } from "../core/control/stance-envelope.ts";
 import { GUARD_ACTION, type Intent } from "../core/mind/intent.ts";
 import type { Sight, Tactics } from "../core/mind/tactics.ts";
@@ -13,6 +12,7 @@ import { LAB_TURN_RATE } from "./stance-mode.ts";
 import type { Vec3 } from "../core/spec/quantity.ts";
 import { drawTargets, readTarget, type Target, type TargetReading } from "./targets.ts";
 import { SHUTTLE_TURN_RADIUS, TURN_PACE, trackOf, type Piece, type Track } from "./track.ts";
+import type { Side } from "../core/spec/body.ts";
 
 /**
  * **The lab's routine**: a human walks out, strikes at each of its targets in turn, turns, walks
@@ -62,7 +62,7 @@ const POST_BEYOND = 0.45;
 const ROUTINE_GAIT = { pace: TURN_PACE, turn: LAB_TURN_RATE } as const;
 
 /** The hands that strike at the targets, in turn: both hands meet every stratum. */
-export const ROUTINE_HANDS: readonly Hand[] = ["right", "left"];
+export const ROUTINE_HANDS: readonly Side[] = ["right", "left"];
 
 /** Where the routine is: walking out, at its targets, or walking back. */
 type Leg = "out" | "post" | "back";
@@ -84,7 +84,7 @@ interface RoutineTactics extends Tactics {
   /** The targets, once the tactics have seen the head's height; null before. */
   readonly targets: readonly Target[] | null;
   /** The target that is up, by its place among `targets`, and the hand that strikes at it; null when none is. */
-  readonly up: { readonly index: number; readonly hand: Hand } | null;
+  readonly up: { readonly index: number; readonly hand: Side } | null;
   /** The instrument has closed the reading of the target that is up: the next one's turn. */
   done(): void;
 }
@@ -98,14 +98,14 @@ interface RoutineTactics extends Tactics {
  * reading (`done`), and take the walk back after the last; with no blow in either hand, or no
  * target, they walk out and back.
  */
-function routineTactics(track: Track, envelope: StanceEnvelope, drawing: Drawing, hands: readonly Hand[]): RoutineTactics {
+function routineTactics(track: Track, envelope: StanceEnvelope, drawing: Drawing, hands: readonly Side[]): RoutineTactics {
   const walk = trackTactics(track, envelope, ROUTINE_GAIT);
   let leg: Leg = "out", loops = 0, next = drawing.from;
   /** The strikes thrown so far, and as the target that is up took its turn. */
   let thrown = 0, counted = 0;
   let targets: readonly Target[] | null = null;
   const closing = APPROACH.pace * APPROACH.seconds;
-  const handOf = (index: number): Hand | null => hands.length > 0 ? hands[index % hands.length]! : null;
+  const handOf = (index: number): Side | null => hands.length > 0 ? hands[index % hands.length]! : null;
   return {
     name: "routine",
     get leg() { return leg; },
@@ -156,7 +156,7 @@ interface RoutineOptions {
   /** The target a loop begins at, by its place among them: the ones before it are drawn and not struck at. The first unless given. */
   readonly from?: number;
   /** The hands that strike, in turn. */
-  readonly hands?: readonly Hand[];
+  readonly hands?: readonly Side[];
   /** An experiment's skills, in place of their defaults. */
   readonly skills?: SkillOptions;
   /** The rules its targets are read under: the arena's unless given. */
@@ -198,7 +198,7 @@ export function startRoutine(actor: Actor, options: RoutineOptions = {}): Routin
   const readings: TargetReading[] = [];
   let thrown = 0;
   /** The target being read, and the hand striking; and the hand whose strike is under way. */
-  let open: ReturnType<typeof readTarget> | null = null, striker: Hand | null = null;
+  let open: ReturnType<typeof readTarget> | null = null, striker: Side | null = null;
   const close = (reading: TargetReading): void => {
     readings.push(reading);
     open!.dispose();

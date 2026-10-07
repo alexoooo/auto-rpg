@@ -6,7 +6,12 @@
  * change and compare after, on the same machine. It is not a test: a change that means to change
  * how a fight plays changes its lines, and says so.
  *
- *   node scripts/fingerprint.mjs [--workers 12] [--character]
+ *   node scripts/fingerprint.mjs [--workers 12] [--character] [--only <regex>] [--json <file>] [--compare <file>]
+ *
+ * `--only` runs the cases whose names match. `--json` writes each case's record as well, and
+ * `--compare` reads such a file and names every case whose record differs: it fails on a pose,
+ * and names a state or physics difference without failing, since a change may reshape what a
+ * bout keeps and still play it to the bit. The engine is `CORE_ENGINE`'s (`tests/harness/core-stand.mjs`).
  *
  * `--character` prints instead what the character workshop's checks measure on its two models: the
  * lines a change to `scripts/character-lab/validation.mjs` or `contact.mjs` must leave as they were.
@@ -18,7 +23,7 @@
  * reads no clock and no `Math.random`.
  */
 import { createHash } from "node:crypto";
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import { availableParallelism } from "node:os";
 import { parseArgs } from "node:util";
 import { Worker, isMainThread, parentPort } from "node:worker_threads";
@@ -31,7 +36,13 @@ import { Scene } from "@babylonjs/core/scene.js";
 import "@babylonjs/loaders/glTF/index.js";
 import { SIDES } from "../src/arena/duel.ts";
 import { CHARACTERS, WEAPONS, clipFor } from "../src/character-lab/catalog.ts";
+import { controlsFor, readMinds } from "../src/arena/matchup.ts";
+import { createBody, SERVO_SECONDS } from "../src/core/body.ts";
 import { humanSpec } from "../src/core/human/spec.ts";
+import { standIntent } from "../src/core/mind/intent.ts";
+import { driveBy } from "../src/core/mind/tactics.ts";
+import { HUMANOID_MODELS, modelSpec } from "../src/core/models.ts";
+import { createQuadrupedMind } from "../src/core/reptile/mind.ts";
 import { generateCryptDungeon } from "../src/dungeon/crypt-dungeon.ts";
 import { CryptWeathering } from "../src/dungeon/crypt-weathering.ts";
 import { generateLevel } from "../src/dungeon/level.ts";
@@ -48,7 +59,7 @@ import { surface } from "./character-lab/contact.mjs";
 import {
   contactPatch, forearmExpansion, gripDistances, gripGap, skinPart, skinRegions, surfaceIndex, wristAreaRatio,
 } from "./character-lab/validation.mjs";
-import { coreStand, freshEngine } from "../tests/harness/core-stand.mjs";
+import { CORE_ENGINE, coreStand, freshEngine } from "../tests/harness/core-stand.mjs";
 import { traceOf } from "../tests/harness/trace.mjs";
 
 // An engine announces itself with the time of day, which no two runs share.
@@ -59,18 +70,70 @@ const digestOf = (hash) => hash.digest("hex").slice(0, 16);
 const written = (value) => JSON.stringify(value,
   (_, v) => ArrayBuffer.isView(v) ? Array.from(v) : v instanceof Vector3 ? v.asArray() : v);
 
-/** A bout to its verdict or its cap, then 2 s more: a body that fell goes on moving, and so does the stance under it. */
-async function arena(left, right) {
-  const { world, duel, dispose } = await buildBout({ left, right, capSeconds: 30 });
+/**
+ * A digest of `value`, a saved state (`saveState`): every number to the bit, maps and records in
+ * their own order, and an object met again written as the place it was first met.
+ */
+function stateDigest(value) {
+  const hash = createHash("sha256"), met = new Map();
+  const put = (v) => {
+    if (v === null || typeof v !== "object") {
+      hash.update(typeof v === "number" ? (Object.is(v, -0) ? "n-0;" : `n${v};`) : `${typeof v}${String(v)};`);
+      return;
+    }
+    if (met.has(v)) { hash.update(`@${met.get(v)};`); return; }
+    met.set(v, met.size);
+    if (ArrayBuffer.isView(v)) { hash.update(`${v.constructor.name}[`); hash.update(new Uint8Array(v.buffer, v.byteOffset, v.byteLength)); hash.update("]"); }
+    else if (Array.isArray(v)) { hash.update("["); for (const item of v) put(item); hash.update("]"); }
+    else if (v instanceof Map) { hash.update("M{"); for (const [key, item] of v) { put(key); put(item); } hash.update("}"); }
+    else if (v instanceof Set) { hash.update("S{"); for (const item of v) put(item); hash.update("}"); }
+    else { hash.update("{"); for (const [key, item] of Object.entries(v)) { hash.update(`${key}:`); put(item); } hash.update("}"); }
+  };
+  put(value);
+  return digestOf(hash);
+}
+
+/**
+ * A bout of `recipe` capped at 30 s, to its verdict, then 2 s more: a body that fell goes on
+ * moving, and so does the stance under it. Its record has the pose, the bout's state and the
+ * physics' bytes at the verdict and 2 s on, the verdict and the blows.
+ */
+async function arena(recipe) {
+  const { world, duel, dispose } = await buildBout({ ...recipe, capSeconds: 30 });
   try {
     const trace = traceOf(SIDES.map((side) => duel.duelists[side].built));
+    const taken = () => {
+      const { physics, state } = duel.save();
+      return { pose: trace.digest(), state: stateDigest(state), physics: digestOf(createHash("sha256").update(physics)) };
+    };
     while (!duel.verdict) { world.step(); trace.take(); }
     const { winner, ending } = duel.verdict;
     const bars = SIDES.map((side) => duel.duelists[side].pool.bar());
-    const told = `${winner ?? "draw"} by ${ending} at step ${world.steps}, bars ${bars.join(" ")}, blows ${duel.blows.length}, pose ${trace.digest()}`;
+    const verdict = `${winner ?? "draw"} by ${ending} at step ${world.steps}, bars ${bars.join(" ")}`, blows = duel.blows.length;
+    const then = taken();
     for (let i = 0; i < 2 * world.hz; i++) { world.step(); trace.take(); }
-    return `${told}, 2 s on ${trace.digest()}`;
+    const later = taken();
+    return {
+      line: `${verdict}, blows ${blows}, pose ${then.pose}, 2 s on ${later.pose}`,
+      record: { pose: `${then.pose} ${later.pose}`, state: `${then.state} ${later.state}`, physics: `${then.physics} ${later.physics}`, verdict, blows },
+    };
   } finally { dispose(); }
+}
+
+/**
+ * `model` left standing for 11 s from as it is built: a humanoid under the command layers in
+ * guard, the reptile under its own mind with no orders.
+ */
+async function stand(model) {
+  const stand = await coreStand(modelSpec(model));
+  const body = model === "reptile" ? createQuadrupedMind(stand.built, stand.world).body : createBody(stand.built, stand.world, { servoSeconds: SERVO_SECONDS });
+  try {
+    if (model !== "reptile") driveBy(body, { name: "stand", decide: () => standIntent(0) });
+    const trace = traceOf([stand.built]);
+    for (let i = 0; i < stand.seconds(11); i++) { stand.step(); trace.take(); }
+    const pose = trace.digest();
+    return { line: `pose ${pose}`, record: { pose } };
+  } finally { body.dispose(); stand.dispose(); }
 }
 
 /** The level of `seed` with its start moved to open floor `gap` m from the first spawn, in its sight. */
@@ -90,8 +153,8 @@ async function cryptFight(seed) {
   try {
     const trace = traceOf({ *[Symbol.iterator]() { for (const actor of run.actors) if (actor.fighter) yield actor.fighter.built; } });
     for (let i = 0; i < 12 * run.world.hz && run.status === "playing"; i++) { run.step(); trace.take(); }
-    const built = run.actors.filter((actor) => actor.fighter).length;
-    return `${run.status} at step ${run.world.steps}, bodies ${built}, blows ${run.blows.length}, pose ${trace.digest()}`;
+    const built = run.actors.filter((actor) => actor.fighter).length, pose = trace.digest();
+    return { line: `${run.status} at step ${run.world.steps}, bodies ${built}, blows ${run.blows.length}, pose ${pose}`, record: { pose, blows: run.blows.length } };
   } finally { run.dispose(); scene.dispose(); }
 }
 
@@ -115,7 +178,8 @@ async function labRoutine(model) {
     for (let i = 0; i < stand.seconds(60) && routine.readings.length < 4; i++) { stand.step(); trace.take(); }
     const read = routine.readings.map(({ target, took, nearest }) =>
       `${target.stratum} ${took ? `${took.damage.toFixed(4)} HP` : nearest === null ? "unread" : `missed by ${(100 * nearest).toFixed(2)} cm`}`);
-    return `targets ${read.join(", ") || "none"}; pose ${trace.digest()}`;
+    const pose = trace.digest();
+    return { line: `targets ${read.join(", ") || "none"}; pose ${pose}`, record: { pose, verdict: read.join(", ") } };
   } finally { routine.dispose(); stand.dispose(); }
 }
 
@@ -269,10 +333,22 @@ function sight(seed) {
 }
 
 const range = (n) => Array.from({ length: n }, (_, i) => i);
+/** An arena bout of `left` and `right` under the controllers a link names, holding `held`. */
+const controlled = (left, right, controls, held) => ({
+  name: `arena ${left} v ${right}, ${controls}, ${held.left === held.right ? held.left : `${held.left} v ${held.right}`}`,
+  run: () => arena({ left, right, held, minds: readMinds(`?matchup=${left},${right}&control=${controls}`) }),
+});
+const both = (held) => ({ left: held, right: held });
 /** The cases in the order they print, the long ones first so that the lanes stay full. */
 const CASES = [
   ...[["workshop-fighter", "workshop-rogue"], ["crypt-skeleton", "workshop-fighter"], ["workshop-rogue", "crypt-skeleton"]]
-    .map(([left, right]) => ({ name: `arena ${left} v ${right}`, run: () => arena(left, right) })),
+    .map(([left, right]) => ({ name: `arena ${left} v ${right}`, run: () => arena({ left, right }) })),
+  ...controlsFor("workshop-fighter").flatMap((control) =>
+    ["club", "empty"].map((held) => controlled("workshop-fighter", "workshop-rogue", `${control},${control}`, both(held)))),
+  controlled("crypt-skeleton", "workshop-rogue", "classic,classic", both("club")),
+  controlled("reptile", "reptile", "crawl,crawl", both("empty")),
+  ...["club", "empty"].map((held) => controlled("reptile", "workshop-fighter", "crawl,classic", { left: "empty", right: held })),
+  ...[...HUMANOID_MODELS, "reptile"].map((model) => ({ name: `stand ${model}`, run: () => stand(model) })),
   ...[1, 2].map((seed) => ({ name: `crypt fight, seed ${seed}`, run: () => cryptFight(seed) })),
   ...["workshop-fighter", "workshop-rogue"].flatMap((model) => [
     { name: `lab run, circle, ${model}`, run: () => labRun(model) },
@@ -287,8 +363,12 @@ const CASES = [
 ];
 
 if (isMainThread) {
-  const { values } = parseArgs({ options: { workers: { type: "string" }, character: { type: "boolean" } } });
-  const chosen = CASES.keys().filter((id) => !!CASES[id].workshop === !!values.character).toArray();
+  const { values } = parseArgs({ options: {
+    workers: { type: "string" }, character: { type: "boolean" }, only: { type: "string" }, json: { type: "string" }, compare: { type: "string" },
+  } });
+  const only = values.only === undefined ? null : new RegExp(values.only);
+  const chosen = CASES.keys().filter((id) => !!CASES[id].workshop === !!values.character && (!only || only.test(CASES[id].name))).toArray();
+  console.log(`engine ${CORE_ENGINE}, ${chosen.length} cases`);
   const lanes = Math.min(chosen.length, Number(values.workers ?? Math.max(1, availableParallelism() - 2)));
   const lines = new Array(CASES.length);
   let next = 0;
@@ -297,20 +377,40 @@ if (isMainThread) {
     const feed = () => {
       if (next >= chosen.length) { worker.terminate(); resolve(); return; }
       const id = chosen[next++];
-      worker.once("message", ({ line, error }) => {
+      worker.once("message", ({ told, error }) => {
         if (error) { reject(new Error(`${CASES[id].name}: ${error}`)); return; }
-        lines[id] = line;
+        lines[id] = told;
         feed();
       });
       worker.postMessage(id);
     };
     feed();
   })));
-  for (const id of chosen) console.log(`${CASES[id].name}: ${lines[id]}`);
+  for (const id of chosen) console.log(`${CASES[id].name}: ${lines[id].line}`);
+  const cases = Object.fromEntries(chosen.map((id) => [CASES[id].name, lines[id].record]));
+  if (values.json) await writeFile(values.json, JSON.stringify({ harness: "Node, core world (src/core/world.ts), 120 Hz", engine: CORE_ENGINE, cases }, null, 1));
+  if (values.compare) {
+    const before = JSON.parse(await readFile(values.compare, "utf8"));
+    if (before.engine !== CORE_ENGINE) throw new Error(`${values.compare} was taken on ${before.engine}, this on ${CORE_ENGINE}`);
+    let moved = 0;
+    for (const [name, record] of Object.entries(cases)) {
+      const was = before.cases[name];
+      if (!was) { console.log(`new: ${name}`); continue; }
+      const differs = Object.keys({ ...was, ...record }).filter((key) => JSON.stringify(was[key]) !== JSON.stringify(record[key]));
+      if (differs.includes("pose")) moved++;
+      if (differs.length) console.log(`${differs.includes("pose") ? "MOVED" : "reshaped"}: ${name} (${differs.join(", ")})`);
+    }
+    for (const name of Object.keys(before.cases)) if (!(name in cases) && (!only || only.test(name))) console.log(`gone: ${name}`);
+    console.log(moved ? `${moved} cases moved` : "no pose moved");
+    if (moved) process.exitCode = 1;
+  }
 } else {
-  // One case at a time: each is answered only when it is done.
+  // One case at a time: each is answered only when it is done. A case answers its line, or its line and record; a line alone is its pose.
   parentPort.on("message", async (id) => {
-    try { parentPort.postMessage({ line: await CASES[id].run() }); }
+    try {
+      const told = await CASES[id].run();
+      parentPort.postMessage({ told: typeof told === "string" ? { line: told, record: { pose: told } } : told });
+    }
     catch (error) { parentPort.postMessage({ error: String(error?.stack ?? error) }); }
   });
 }

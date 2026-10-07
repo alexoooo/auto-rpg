@@ -1,7 +1,7 @@
 import type { SourceKey } from "../../sources.ts";
 import { sourced, type Quantity } from "../../spec/quantity.ts";
-import type { Side } from "../landmarks.ts";
 import type { Sex } from "./de-leva-1996.ts";
+import type { Side } from "../../spec/body.ts";
 
 /**
  * **How far each joint turns, from the anatomical position**: degrees, as each source prints them,

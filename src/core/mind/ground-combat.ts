@@ -2,9 +2,8 @@ import {groundNear} from "./ground-near.ts";
 import {groundWide} from "./ground-wide.ts";
 import {atan2,sin,cos} from "../math/real.ts";
 import type {BodyView} from "../body.ts";
-import type {Hand} from "../control/motor.ts";
 import type {SkillReport} from "../skills/skills.ts";
-import type {BodySpec} from "../spec/body.ts";
+import type { Side, BodySpec} from "../spec/body.ts";
 import {lowOpponent,sensedFootClearance} from "./sensed-bounds.ts";
 import {highestSurface} from "./openings.ts";
 import type {BodySense} from "./senses.ts";
@@ -15,14 +14,14 @@ export function groundCombat(spec:BodySpec,clearMove:Parameters<typeof groundNea
  const near=groundNear(clearMove),wide=groundWide(spec,clearMove),tuning={...GROUND_ADMISSION,...override};
  const state={mode:'wide' as 'near'|'wide',steady:0,phase:'guard',surface:'upperTrunk',near:near.state,wide:wide.state};
  const reset=()=>{near.reset();wide.reset();state.mode='wide';state.steady=0;state.phase='guard';};
- return {state,reset,decide(view:BodyView,report:SkillReport,foe:BodySense,hand:Hand,dt:number){
+ return {state,reset,decide(view:BodyView,report:SkillReport,foe:BodySense,hand:Side,dt:number){
   if(!lowOpponent(view,foe)&&!near.state.active&&!wide.state.active){reset();return null;}
   const quiet=['upperTrunk','middleTrunk','lowerTrunk'].every(name=>{const p=foe.segments.get(name);return !p||(p.velocity.lengthSquared()<=tuning.quiet*tuning.quiet&&p.spin.lengthSquared()<=tuning.spin*tuning.spin);});
   state.steady=quiet?state.steady+dt:0;
   let selected=state.mode==='near'?near:wide;
   const h=foe.segments.get('head')!.centre,p=foe.segments.get('lowerTrunk')?.centre??foe.centre;
   const axis=atan2(h.x-p.x,h.z-p.z),targets=['upperTrunk','middleTrunk'].map(n=>highestSurface(foe,n)),target=targets.reduce<typeof targets[number]>((best,t)=>t&&(!best||t[1]>best[1])?t:best,null);
-  let nearHand:Hand|null=null,best=Infinity;
+  let nearHand:Side|null=null,best=Infinity;
   if(target){const clear=sensedFootClearance(foe),c=view.stance.centre;for(const candidate of allowBoth?['right','left'] as const:[hand]){
    const side=candidate==='right'?1:-1,x=target[0]-side*tuning.outside*cos(axis)-tuning.ahead*sin(axis),z=target[2]+side*tuning.outside*sin(axis)-tuning.ahead*cos(axis);
    const dx=x-c.x,dz=z-c.z;

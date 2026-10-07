@@ -48,9 +48,9 @@ export async function punchStand({hand='right',family='straight',hz=120,seconds=
   const config={hand,family,hz,seconds,ahead,height,contactSpeed,armExtension,mode,pad,paths,execution,matchedFeedback,actuation};
   const s=await coreStand(modelSpec('workshop-fighter'),{engine:DEFAULT_ENGINE,hz,actuation});
   let sensor;
-  const body=createBody(s.built,s.world,{servoSeconds:SERVO_SECONDS,handFeedback:true,
+  const body=createBody(s.built,s.world,{servoSeconds:SERVO_SECONDS,feedback:true,
     ...(matchedFeedback?{contactIdentity:other=>other===sensor?.body?{kind:'object',id:'punch-pad'}:other?null:{kind:'world'},
-      materialContacts:h=>(sensor?.state.materialContacts??[]).filter(c=>c.segment===`hand.${h}`).map(c=>({target:{kind:'object',id:'punch-pad'},
+      contacts:segment=>(sensor?.state.materialContacts??[]).filter(c=>c.segment===segment).map(c=>({target:{kind:'object',id:'punch-pad'},
         point:c.point,normal:[0,0,1],impulse:c.force*s.world.dt}))}: {})});
   const skills=combatSkills(body,{...ATTACK_PATH,...paths,contactSpeed},null,undefined,false,undefined,undefined,false,execution);
   const target=[hand==='right'?.1:-.1,height,ahead];

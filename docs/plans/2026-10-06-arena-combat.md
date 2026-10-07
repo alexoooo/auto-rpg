@@ -137,7 +137,7 @@ then commits. Freeze files while research fingerprint checks run. Preserve every
 5. **Defense and contact response.**
    Extend `src/core/mind/threat.ts`/`control/intercept.ts` with own-target relative motion and
    a reach/time predicate consumed by the new policy. Add detached contact identity/normal
-   readings in `control/hand-feedback.ts`/`body.ts` through trusted wiring, not engine handles
+   readings in `control/effector-feedback.ts`/`body.ts` through trusted wiring, not engine handles
    in policy inputs. `guard.ts` and the combat skill leave one hand available and resolve
    cancellation before launch, blocking and return. Tests cover slow pressure, fast incoming
    hands/clubs, both sides, unavailable guard, observed recovery/counter windows, physical

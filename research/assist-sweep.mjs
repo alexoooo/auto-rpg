@@ -20,7 +20,7 @@
  * matchup at every gap, and of the uneven table twice that.
  */
 import { parseArgs } from "node:util";
-import { HUMANOID_MODELS as BODY_MODELS } from "../src/core/models.ts";
+import { HUMANOID_MODELS } from "../src/core/models.ts";
 import { SIDES } from "../src/arena/duel.ts";
 import { BOUT_HARNESS } from "./bout.mjs";
 import { defaultLanes, playBouts } from "./bout-pool.mjs";
@@ -44,7 +44,7 @@ const uneven = list(values.uneven, ",").map((pair) => { const [more, less] = pai
 /** Every matchup at every gap with `extra` in its recipe, each job tagged with its `cell`. */
 const jobs = [];
 function cellOf(cell, extra) {
-  for (const gap of gaps) for (const left of BODY_MODELS) for (const right of BODY_MODELS) jobs.push({ cell, recipe: { left, right, gap, ...extra } });
+  for (const gap of gaps) for (const left of HUMANOID_MODELS) for (const right of HUMANOID_MODELS) jobs.push({ cell, recipe: { left, right, gap, ...extra } });
 }
 even.forEach((balance, k) => cellOf(`even ${k}`, { balance: { left: balance, right: balance } }));
 shapes.forEach((balancePercent, k) => cellOf(`shape ${k}`, { balance: { left: SHAPE_BALANCE, right: SHAPE_BALANCE }, balancePercent }));
@@ -57,7 +57,7 @@ const started = Date.now();
 const played = await playBouts(jobs.map(({ recipe }) => ({ recipe })), Number(values.workers ?? defaultLanes()));
 const rows = played.map((row, k) => ({ ...row, cell: jobs[k].cell }));
 const rowsOf = (cell) => rows.filter((row) => row.cell === cell);
-console.log(`${BOUT_HARNESS}; ${rows.length} bouts in ${((Date.now() - started) / 1000).toFixed(0)} s; ${BODY_MODELS.length ** 2} matchups at gaps of ${gaps.join(", ")} m, each to its verdict or the cap`);
+console.log(`${BOUT_HARNESS}; ${rows.length} bouts in ${((Date.now() - started) / 1000).toFixed(0)} s; ${HUMANOID_MODELS.length ** 2} matchups at gaps of ${gaps.join(", ")} m, each to its verdict or the cap`);
 
 const sum = (items, of) => items.reduce((total, item) => total + of(item), 0);
 const minutesOf = (cellRows) => sum(cellRows, (row) => row.seconds) / 60;
@@ -84,7 +84,7 @@ if (even.length) {
   const byModel = "| Balance, % | Model | Sides | Its bout time, s | Its falls | Its falls a minute | Mean given, N | Mean given, N m |";
   console.log(`\nEven, by model: a model's sides are every side it fought on, and its bout time those bouts' (a mirror counts twice).\n\n${byModel}\n|${rule(byModel)}|`);
   even.forEach((balance, k) => {
-    for (const model of BODY_MODELS) {
+    for (const model of HUMANOID_MODELS) {
       const its = rowsOf(`even ${k}`).flatMap((row) => SIDES.filter((side) => row.recipe[side] === model).map((side) => ({ row, side })));
       const minutes = sum(its, ({ row }) => row.seconds) / 60, falls = its.filter(({ row, side }) => row.fallen.includes(side)).length;
       const [force, moment] = given(rowsOf(`even ${k}`), (row, side) => row.recipe[side] === model);

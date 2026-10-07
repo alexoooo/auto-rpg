@@ -35,7 +35,7 @@ test('either hand repeats extended head punches with useful contact mass and sur
 
 async function stand(hand='right',family='straight') {
  const s=await coreStand(modelSpec('workshop-fighter'),{engine:DEFAULT_ENGINE});
- const body=createBody(s.built,s.world,{servoSeconds:SERVO_SECONDS,handFeedback:true}),skills=combatSkills(body,{...ATTACK_PATH,elbowExtension:1});
+ const body=createBody(s.built,s.world,{servoSeconds:SERVO_SECONDS,feedback:true}),skills=combatSkills(body,{...ATTACK_PATH,elbowExtension:1});
  body.drive((view,dt)=>skills.command(view,{move:null,face:0,hands:{left:GUARD_ACTION,right:GUARD_ACTION},
   combat:view.time>=2?{hand,target:[hand==='right'?.1:-.1,1.63,.6],family}:null},dt));
  return {...s,body,skills};

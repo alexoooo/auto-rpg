@@ -26,7 +26,7 @@
 import { appendFileSync, readFileSync } from "node:fs";
 import { parseArgs } from "node:util";
 import { DUEL_HELD, SIDES } from "../src/arena/duel.ts";
-import { HUMANOID_MODELS as BODY_MODELS } from "../src/core/models.ts";
+import { HUMANOID_MODELS } from "../src/core/models.ts";
 import { FIGHTER } from "../src/core/mind/config.ts";
 import { EDGE } from "../src/core/mind/fighter.ts";
 import { BOUT_HARNESS } from "./bout.mjs";
@@ -34,13 +34,13 @@ import { defaultLanes, playBouts } from "./bout-pool.mjs";
 
 const { values } = parseArgs({ options: {
   bouts: { type: "string", default: "96" }, from: { type: "string", default: "0" },
-  held: { type: "string", default: "club,empty" }, models: { type: "string", default: BODY_MODELS.join(",") },
+  held: { type: "string", default: "club,empty" }, models: { type: "string", default: HUMANOID_MODELS.join(",") },
   patience: { type: "string", default: String(EDGE.patience) }, band: { type: "string", default: String(EDGE.band) },
   workers: { type: "string" }, save: { type: "string" }, load: { type: "string" },
 } });
 const bouts = Number(values.bouts), from = Number(values.from), helds = values.held.split(","), models = values.models.split(",");
 for (const held of helds) if (!DUEL_HELD.includes(held)) throw new Error(`--held is of ${DUEL_HELD.join(", ")}, not ${held}`);
-for (const model of models) if (!BODY_MODELS.includes(model)) throw new Error(`--models names no body: ${model} (one of ${BODY_MODELS.join(", ")})`);
+for (const model of models) if (!HUMANOID_MODELS.includes(model)) throw new Error(`--models names no body: ${model} (one of ${HUMANOID_MODELS.join(", ")})`);
 const edges = values.patience.split(",").map(Number).flatMap((patience) => values.band.split(",").map(Number).map((band) => ({ band, patience })));
 
 /** The gaps the bouts start at, m: from `GAPS.least`, over `GAPS.span`, to a tenth of a millimetre. */

@@ -6,7 +6,7 @@ import { STAND_ORDERS } from "../src/core/mind/orders.ts";
 import { saveState } from "../src/core/state.ts";
 import { traceOf } from "./harness/trace.mjs";
 import { controlArena, attackCycles, shoveControlFighter } from "../research/arena-control-trials.mjs";
-import { handFeedback, newHandContact } from "../src/core/control/hand-feedback.ts";
+import { effectorFeedback, newContact } from "../src/core/control/effector-feedback.ts";
 import { trackedEngagement } from "../src/core/mind/engagement.ts";
 import { engagementComparison } from "../research/arena-engagement-score.mjs";
 
@@ -38,19 +38,19 @@ test("hand feedback excludes self contacts and distinguishes an incoming touch f
   try {
     stand.world.step(180);
     const built = stand.fighter.built;
-    const reading = handFeedback({ ...built, physics: { ...built.physics, contactsOf() { return [
+    const reading = effectorFeedback({ ...built, physics: { ...built.physics, contactsOf() { return [
       { other: built.segments.get("middleTrunk").body, impulse: 100, point: [1, 2, 3] },
       { other: null, fixed: 0, impulse: 3, point: [4, 5, 6] },
       { other: null, fixed: 1, impulse: 0, point: [7, 8, 9] },
-    ]; } } });
+    ]; } } }, ["hand.left", "hand.right"]);
     reading.read();
     for (const hand of ["left", "right"]) {
-      assert.equal(reading.state[hand].impulse, 3);
-      assert.deepEqual(reading.state[hand].contactPoint, [4, 5, 6]);
-      assert.ok([...reading.state[hand].point, ...reading.state[hand].velocity].every(Number.isFinite));
+      assert.equal(reading.state[`hand.${hand}`].impulse, 3);
+      assert.deepEqual(reading.state[`hand.${hand}`].contactPoint, [4, 5, 6]);
+      assert.ok([...reading.state[`hand.${hand}`].point, ...reading.state[`hand.${hand}`].velocity].every(Number.isFinite));
     }
-    assert.deepEqual([newHandContact(false, { impulse: 3 }), newHandContact(true, { impulse: 3 }),
-      newHandContact(false, { impulse: 0 }), newHandContact(false, undefined)], [true, false, false, false]);
+    assert.deepEqual([newContact(false, { impulse: 3 }), newContact(true, { impulse: 3 }),
+      newContact(false, { impulse: 0 }), newContact(false, undefined)], [true, false, false, false]);
   } finally { stand.dispose(); }
 });
 
@@ -101,7 +101,7 @@ test("a new physical hand contact triggers early return and replays across the p
     a.world.step(); b.world.step();
     assert.equal(report.phase, "return");
     assert.ok(report.since < .4, "contact retracts before the outbound timer expires");
-    const feedback = a.fighter.body.view.handFeedback.right;
+    const feedback = a.fighter.body.view.effectors["hand.right"].feedback;
     assert.ok(feedback.impulse > 0); assert.equal(feedback.contactPoint.length, 3);
     assert.ok([...feedback.point, ...feedback.velocity].every(Number.isFinite));
     for (let step = 0; step < 240; step++) { a.world.step(); b.world.step(); }

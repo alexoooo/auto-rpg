@@ -4,7 +4,7 @@ import { execFileSync } from 'node:child_process';
 import { Vector3 } from '@babylonjs/core/Maths/math.vector.js';
 import { buildBout } from './bout.mjs';
 import { DEFAULT_ENGINE, loadEngine } from '../src/core/engine/engines.ts';
-import { FIGHTER, POINT_FIGHTER, ARENA_BRAWLER, ARENA_SCRAPPER, ARENA_SCRAPPER_REFERENCE, ARENA_FIGHTER } from '../src/core/mind/config.ts';
+import { FIGHTER, POINT_FIGHTER, ARENA_BRAWLER, ARENA_SCRAPPER, ARENA_FIGHTER } from '../src/core/mind/config.ts';
 import { motionAtToRef, pointOfToRef } from '../src/core/control/support.ts';
 import { STAND_ORDERS } from '../src/core/mind/orders.ts';
 
@@ -25,8 +25,7 @@ export function combatFingerprint() {
 export function combatMind(name) {
   switch (name) {
     case 'classic': return { ...FIGHTER, subs: [{ kind: 'staged-rise' }] };
-    case 'scrapper': return ARENA_SCRAPPER;
-    case 'scrapper-v1': return ARENA_SCRAPPER_REFERENCE;
+    case 'scrapper': case 'scrapper-v1': return ARENA_SCRAPPER;
     case 'brawler': return ARENA_BRAWLER;
     case 'combat': return ARENA_FIGHTER;
     case 'point': return { ...POINT_FIGHTER, hand: 'alternate' };

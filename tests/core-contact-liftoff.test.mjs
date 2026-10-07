@@ -15,7 +15,7 @@ const speed = { unloadedSpeed: q(30, "rad/s"), curvature: q(.25, "1"),
 const part = (name, from, to, mass, radius) => ({ name, proximal: q(from), distal: q(to), mass: q(mass, "kg"),
   centreOfMass: q(from.map((v, i) => (v + to[i]) / 2)), inertia: q([.1, .1, .1], "kg m2"),
   shape: { kind: "capsule", from: q(from), to: q(to), radius: q(radius) }, surface: { stiffness: q(1e5, "N/m") } });
-const spec = { family: "test", model: "ground-lift", mass: q(3, "kg"), stature: q(1.3),
+const spec = { model: "ground-lift", mass: q(3, "kg"), stature: q(1.3), down: { kind: "asked", fallen: q(0.25) },
   segments: [part("parent", [0, 1.3, 0], [0, 1, 0], 2, .03), part("child", [0, 1, 0], [.6, .1, 0], 1, .1)],
   joints: [{ name: "hinge", parent: "parent", child: "child", centre: q([0, 1, 0]), dofs: [{
     positive: "lift", negative: "lower", axis: q([0, 0, 1], "1"), min: q(-1, "rad"), max: q(1, "rad"),
@@ -124,7 +124,7 @@ test("released contact rejects a torque that accelerates through its measured no
 });
 
 test("a spinning flat support cannot claim mutually incompatible sticking accelerations", async (t) => {
-  const slab = { family: "test", model: "spinning-support", mass: q(3, "kg"), stature: q(1),
+  const slab = { model: "spinning-support", mass: q(3, "kg"), stature: q(1), down: { kind: "asked", fallen: q(0.25) },
     joints: [{ name: "spin", parent: "parent", child: "slab", centre: q([0, .05, 0]), dofs: [{
       positive: "turn", negative: "return", axis: q([0, 1, 0], "1"), min: q(-1, "rad"), max: q(1, "rad"),
       muscle: { peakPositive: q(10, "N m"), peakNegative: q(10, "N m"), speedPositive: speed, speedNegative: speed },

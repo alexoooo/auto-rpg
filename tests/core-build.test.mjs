@@ -22,7 +22,7 @@ function rods(dofs, range = [-1, 1]) {
     shape: { kind: "capsule", from: q(proximal), to: q(distal), radius: q(0.04) }, surface: { stiffness: q(1e5, "N/m") },
   });
   return {
-    family: "test", model: "rods", mass: q(3, "kg"), stature: q(1.5),
+    model: "rods", mass: q(3, "kg"), stature: q(1.5),
     segments: [segment("upper", [0, 1.5, 0], [0, 1, 0], 2), segment("lower", [0, 1, 0], [0.1, 0.55, 0.05], 1)],
     joints: [{ name: "middle", parent: "upper", child: "lower", centre: q([0, 1, 0]),
       dofs: dofs.map(([positive, axis]) => ({ positive, negative: `not ${positive}`, axis: q(axis, "1"),

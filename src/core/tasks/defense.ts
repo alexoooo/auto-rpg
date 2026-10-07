@@ -7,8 +7,7 @@ import { pointMotion } from "../control/point-motion.ts";
 import { createEquipment } from "../equipment.ts";
 import type { PhysicsEngine, SegmentBody } from "../engine/engine.ts";
 import { equipHands } from "../human/equipment.ts";
-import type { Side } from "../human/landmarks.ts";
-import { modelSpec, type HumanoidModel as BodyModel } from "../models.ts";
+import { modelSpec, type HumanoidModel } from "../models.ts";
 import { woodenClub } from "../items/club.ts";
 import { sin, cos } from "../math/real.ts";
 import { createMotionBody } from "../mind/motion.ts";
@@ -19,6 +18,7 @@ import { deepFreeze } from "../state.ts";
 import { createWorld } from "../world.ts";
 import { trackingRejected } from "../control/whole-body.ts";
 import { jointStopProbeSettings } from "./stop-settings.ts";
+import type { Side } from "../spec/body.ts";
 
 /** Declared mechanical task and controller inputs (`docs/reference/point-defense.md#physical-fixture-and-declared-inputs`). */
 const SETTINGS = deepFreeze({
@@ -61,7 +61,7 @@ function incomingClub(world: ReturnType<typeof createWorld>, id: string, pivot: 
 
 /** Shared physical head-defense task. All body contacts are measured independently of the policy. */
 export function createDefenseProbe(scene: Scene, engine: PhysicsEngine, config: {
-  readonly model: BodyModel; readonly hands: Side | "both"; readonly held: "empty" | "club";
+  readonly model: HumanoidModel; readonly hands: Side | "both"; readonly held: "empty" | "club";
   readonly hz: number; readonly actuation: "symmetric" | "directional"; readonly offset: number;
   readonly variant: "predict" | "pose"; readonly angleOffset?: number;
   readonly jointStops?: boolean;

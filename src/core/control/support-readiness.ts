@@ -1,6 +1,6 @@
-import { Vector3 } from '@babylonjs/core/Maths/math.vector.js';
-import type { BuiltBody } from '../build/build-body.ts';
-import { footStatesOf, readSupport, withinSupport } from './support.ts';
+import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import type { BuiltBody } from "../build/build-body.ts";
+import { footStatesOf, readSupport, withinSupport } from "./support.ts";
 
 /** Physical readiness limits, independent of anatomy: `docs/reference/punch-stability.md#readiness-settings`. */
 export const STRIKE_SUPPORT = Object.freeze({ normal: .9, footGap: .015, slow: .35, hold: .05 });
@@ -29,12 +29,12 @@ export function supportReadiness(built: BuiltBody) {
 }
 
 /** Both feet carry a quiet upright striking base, with no substitute ground support. */
-export function plantedSupport(reading: ReturnType<typeof supportReadiness>['state']): boolean {
+export function plantedSupport(reading: ReturnType<typeof supportReadiness>["state"]): boolean {
   return bearingSupport(reading) && reading.speed <= STRIKE_SUPPORT.slow;
 }
 
 /** The committed stroke retains ground support while its centre of mass is allowed to accelerate. */
-export function bearingSupport(reading: ReturnType<typeof supportReadiness>['state']): boolean {
+export function bearingSupport(reading: ReturnType<typeof supportReadiness>["state"]): boolean {
   return reading.loads.left > 0 && reading.loads.right > 0 && reading.flat.left && reading.flat.right
     && reading.centred && !reading.otherSupport;
 }

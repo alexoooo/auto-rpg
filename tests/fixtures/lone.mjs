@@ -25,12 +25,12 @@ export function lone(model, name, kg, { hp = 1, whole = [], spare = false, held 
     ...(stiffness === null ? {} : { surface: { stiffness: q(stiffness, unit) } }) });
   const free = { unloadedSpeed: q(60, "rad/s"), curvature: q(0.25, "1"), eccentricCeiling: q(1.4, "1"), eccentricSlopeRatio: q(2, "1") };
   return {
-    family: "test", model, ...(substance ? { substance } : {}), mass: q(spare ? 2 * kg : kg, "kg"), stature: q(spare ? 0.2 : 0.1),
+    model, ...(substance ? { substance } : {}), mass: q(spare ? 2 * kg : kg, "kg"), stature: q(spare ? 0.2 : 0.1),
     segments: spare ? [ball("spare", -0.1), ball(name, 0)] : [ball(name, 0)],
     joints: spare ? [{ name: "pin", parent: "spare", child: name, centre: q([0, -0.05, 0]),
       dofs: [{ positive: "flexion", negative: "extension", axis: q([0, 0, 1], "1"), min: q(-3, "rad"), max: q(3, "rad"),
         muscle: { peakPositive: q(1, "N m"), peakNegative: q(1, "N m"), speedPositive: free, speedNegative: free } }] }] : [],
-    wounds: { hp: q(hp, "HP"), vital: [], whole }, attributes: { balance: q(0, "%") },
+    wounds: { hp: q(hp, "HP"), vital: [], whole }, attributes: { balance: q(0, "%") }, down: { kind: "asked", fallen: q(0.25) },
     ...(held === null ? {} : { held: [{
       segment: name, origin: q([held, 0, 0]), along: q([0, 1, 0], "1"), across: q([1, 0, 0], "1"),
       item: { name: ITEM, mass: q(ITEM_KG, "kg"), centreOfMass: q([0, 0, 0]), inertia: q([0.0001, 0.0001, 0.0001], "kg m2"),

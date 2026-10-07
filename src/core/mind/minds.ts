@@ -1,6 +1,6 @@
 import { createBody, SERVO_SECONDS, type Body } from "../body.ts";
 import type { BuiltBody } from "../build/build-body.ts";
-import type { ContactIdentity } from "../control/hand-feedback.ts";
+import type { ContactIdentity } from "../control/effector-feedback.ts";
 import type { AssistCeiling } from "../control/assist.ts";
 import type { Skills } from "../skills/skills.ts";
 import type { World } from "../world.ts";
@@ -17,7 +17,7 @@ import { createDirectBody } from "./direct.ts";
 import { createQuadrupedMind } from "../reptile/mind.ts";
 
 /** **What a fight gives the mind it makes**, beside the body and the config. */
-interface MindWiring {
+export interface MindWiring {
   readonly name: string;
   /** Trusted body adapter for permitted contact labels. */
   readonly contactIdentity?: ContactIdentity;
@@ -52,7 +52,7 @@ export type Minded = FighterMind | (MindedBody & { readonly kind: "direct" }) | 
 /** `built` under the mind `config` names, wired to its fight. */
 export function createMind(built: BuiltBody, world: World, config: MindConfig, wiring: MindWiring): Minded {
   switch (config.kind) {
-    case "quadruped": return createQuadrupedMind(built, world, wiring.orders, wiring.senses, wiring.assist);
+    case "quadruped": return createQuadrupedMind(built, world, wiring);
     case "arena-fighter": return arenaFighter(built, world, config, wiring);
     case "point-fighter": return pointFighter(built, world, config, wiring);
     case "fighter": return createFighter(built, world, config, wiring);

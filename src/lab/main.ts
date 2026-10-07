@@ -11,7 +11,7 @@ import { Scene } from "@babylonjs/core/scene.js";
 import { GameAudio } from "../audio/game-audio.ts";
 import { loadEngine } from "../core/engine/engines.ts";
 import { buildBody, type BuiltBody } from "../core/build/build-body.ts";
-import type { HumanoidModel as BodyModel } from "../core/models.ts";
+import type { HumanoidModel } from "../core/models.ts";
 import { balanceCeiling, balancePercent, rulebook } from "../core/rules/rulebook.ts";
 import { createWorld, type Hook, type World } from "../core/world.ts";
 import { publicAssetUrl } from "../asset-url.ts";
@@ -72,7 +72,7 @@ import { need } from "../dom.ts";
  * always its own.
  */
 
-const TINT: Readonly<Record<BodyModel, Color3>> = {
+const TINT: Readonly<Record<HumanoidModel, Color3>> = {
   "workshop-fighter": new Color3(0.55, 0.6, 0.66),
   "workshop-rogue": new Color3(0.5, 0.62, 0.55),
   "crypt-skeleton": new Color3(0.72, 0.68, 0.58),

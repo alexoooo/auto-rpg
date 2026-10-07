@@ -70,7 +70,7 @@ test("a mind that asks every freedom to hold holds the pose, and one that asks n
 test("a body's command layers are a mind like any other", async () => {
   // The same goals through `createBody` and through `commandMind` under `embody` end in the same place, to the bit.
   const posture = { "elbow.right flexion": 1.2, "shoulder.left flexion": 0.5 };
-  const command = () => ({ posture, hands: { left: null, right: null }, pushes: [], stance: null });
+  const command = () => ({ posture, pushes: [], stance: null });
   const one = await stand(), two = await stand();
   const body = createBody(one.built, one.world, { servoSeconds: 0.1 });
   body.drive(command);

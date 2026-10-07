@@ -18,7 +18,7 @@ const foremost=(segment,shape)=>lowsOf(shape,segment.frame).map(p=>{
 
 test('the compliant pad cannot push the open fingertips of a physically closed hand',async()=>{
  const s=await coreStand(modelSpec('workshop-fighter'),{engine:DEFAULT_ENGINE}),body=createBody(s.built,s.world,{servoSeconds:SERVO_SECONDS});
- body.drive(()=>({posture:GUARD,hands:{left:null,right:null},pushes:[],stance:{feet:['left','right'],centre:null,height:1,heading:0}}));
+ body.drive(()=>({posture:GUARD,pushes:[],stance:{feet:['left','right'],centre:null,height:1,heading:0}}));
  let pad;
  try {
   s.step(240);s.built.handPoses.request([{hand:'right',pose:'fist'}]);s.step();

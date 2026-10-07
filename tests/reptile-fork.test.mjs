@@ -9,9 +9,9 @@ import { assertForks, forks, PHYSICS_ALONE, STATE_ALONE } from "./harness/fork.m
 async function rig(mode) {
   const stand = await coreStand(reptileSpec(), { engine: "rapier-coordinate", joints: mode === "bite" ? { jaw: [.3] } : undefined,
     ...(mode === "recover" ? { rotation: [0, 0, 1, 0], position: [0, .34, 0] } : {}) });
-  const mind = createQuadrupedMind(stand.built, stand.world, () => mode === "bite"
+  const mind = createQuadrupedMind(stand.built, stand.world, { orders: () => mode === "bite"
     ? { ...STAND_ORDERS, attack: stand.world.time < 1 ? [0, .215, .495] : null }
-    : mode === "recover" ? STAND_ORDERS : stand.world.time < 10 ? { move: { x: 0, z: 1 }, face: { x: 0, z: 1 }, attack: null } : STAND_ORDERS);
+    : mode === "recover" ? STAND_ORDERS : stand.world.time < 10 ? { move: { x: 0, z: 1 }, face: { x: 0, z: 1 }, attack: null } : STAND_ORDERS });
   const body = mind.body, host = body.state.mind.host;
   const seen = new Set();
   return { world: stand.world, builts: [stand.built], states: { body: body.state }, seen,

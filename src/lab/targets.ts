@@ -1,6 +1,5 @@
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { buildBody, type BuiltBody } from "../core/build/build-body.ts";
-import type { Hand } from "../core/control/motor.ts";
 import { cos, sin } from "../core/math/real.ts";
 import type { Sight } from "../core/mind/tactics.ts";
 import type { StrikeReport } from "../core/skills/strike.ts";
@@ -9,7 +8,7 @@ import { watchBlows, woundedIn, type BlowSide, type BlowWatch, type Fighter, typ
 import { createPool } from "../core/rules/pool.ts";
 import type { Rulebook } from "../core/rules/rulebook.ts";
 import { SEGMENT_DENSITY, type DensitySegment } from "../core/human/tables/densities.ts";
-import type { BodySpec, ShapeSpec } from "../core/spec/body.ts";
+import type { Side, BodySpec, ShapeSpec } from "../core/spec/body.ts";
 import { ballMoment, ballRadius } from "../core/spec/geometry.ts";
 import { derive, si, type Quantity, type Vec3 } from "../core/spec/quantity.ts";
 import type { World } from "../core/world.ts";
@@ -90,8 +89,9 @@ export function dummySpec(attacker: BodySpec, part: string = DUMMY_PART): BodySp
     return derive("m", `the ball that holds the attacker's ${part}'s mass at its density`, [made.mass, si(density)], (m, rho) => ballRadius(m / rho));
   })();
   const centre = derive("m", "the ball's centre, its frame's origin", [], (): Vec3 => [0, 0, 0]);
+  if (attacker.down.kind !== "asked") throw new Error(`a dummy is down by its attacker's fall bar, and ${attacker.model} has none`);
   return {
-    family: "dummy", model: `${attacker.model}.dummy`, substance: attacker.substance, mass,
+    model: `${attacker.model}.dummy`, substance: attacker.substance, mass,
     stature: derive("m", "the ball's height, twice its radius", [radius], (r) => 2 * r),
     segments: [{
       name: part, proximal: centre, mass, centreOfMass: centre,
@@ -103,6 +103,7 @@ export function dummySpec(attacker: BodySpec, part: string = DUMMY_PART): BodySp
     joints: [],
     wounds: { hp: derive("HP", "the attacker's hit points", [attacker.wounds.hp], (hp) => hp), vital: [], whole: [part] },
     attributes: { balance: derive("%", "the attacker's balance", [attacker.attributes.balance], (percent) => percent) },
+    down: { kind: "asked", fallen: derive("m", "the attacker's fall bar", [attacker.down.fallen], (fallen) => fallen) },
   };
 }
 
@@ -171,7 +172,7 @@ interface ThrownStrike {
 /** What one target read. */
 export interface TargetReading {
   readonly target: Target;
-  readonly hand: Hand;
+  readonly hand: Side;
   /** The strike thrown at it; null if none began. */
   readonly strike: ThrownStrike | null;
   /** Seconds from the attack being asked to the end of the watch. */
@@ -241,7 +242,7 @@ interface TargetRead {
  * stepped by its tactics, so whatever steps the world closes the reading then (`fall`). `hung` is
  * told the dummy's body as it is hung, and what it returns is disposed with the dummy.
  */
-export function readTarget(actor: Actor, target: Target, hand: Hand, rules: Rulebook, hung?: (built: BuiltBody) => { dispose(): void }): TargetRead {
+export function readTarget(actor: Actor, target: Target, hand: Side, rules: Rulebook, hung?: (built: BuiltBody) => { dispose(): void }): TargetRead {
   const { world, body } = actor, built = body.built;
   const spec = dummySpec(built.spec), radius = ballOf(spec).ball.radius.value;
   const striking = built.segments.get(`hand.${hand}`);

@@ -20,7 +20,7 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { createBody, SERVO_SECONDS } from "../src/core/body.ts";
 import { rigidPoints } from "../src/core/build/rigid.ts";
 import { intoFrameToRef } from "../src/core/control/kinematics.ts";
-import { HUMANOID_MODELS as BODY_MODELS } from "../src/core/models.ts";
+import { HUMANOID_MODELS } from "../src/core/models.ts";
 import { GUARD_ACTION } from "../src/core/mind/intent.ts";
 import { GUARD_COVER } from "../src/core/skills/guard.ts";
 import { createSkills } from "../src/core/skills/skills.ts";
@@ -32,7 +32,7 @@ const { values } = parseArgs({ options: {
   at: { type: "string", default: "0.15,0.3,0.6,1" }, club: { type: "string", default: "skill" },
 } });
 if (!["skill", "up", "middle"].includes(values.club)) throw new Error(`--club is skill, up or middle, not ${values.club}`);
-if (!BODY_MODELS.includes(values.model)) throw new Error(`--model names no body: ${values.model} (one of ${BODY_MODELS.join(", ")})`);
+if (!HUMANOID_MODELS.includes(values.model)) throw new Error(`--model names no body: ${values.model} (one of ${HUMANOID_MODELS.join(", ")})`);
 const covers = JSON.parse(values.covers), times = values.at.split(",").map(Number);
 
 /** How far the threat is from the head, m, and the ways it lies: ahead, to each side, above and ahead, low and ahead. */
@@ -57,17 +57,17 @@ async function reach(cover, way, hand) {
     intoFrameToRef(view.root, view.head.asArray(), guarded);
     intoFrameToRef(view.root, threat, toward).subtractInPlace(guarded).normalize();
     const middle = guarded.add(toward.scale(Math.min(cover.out, FAR)));
-    if (values.club === "middle") return { ...command, hands: { left: null, right: { places: [{ point: "swell", position: middle.asArray() }], seconds: cover.seconds, follows: true } } };
+    if (values.club === "middle") return { ...command, effectors: { "hand.right": { places: [{ point: "swell", position: middle.asArray() }], seconds: cover.seconds, follows: true } } };
     const up = Vector3.Up(), half = up.subtract(toward.scale(Vector3.Dot(up, toward))).normalize().scale(span / 2);
-    const lies = view.points.right.swellTo.subtract(view.points.right.swellFrom);
+    const lies = view.effectors["hand.right"].points.swellTo.subtract(view.effectors["hand.right"].points.swellFrom);
     if (Vector3.Dot(lies, half) < 0) half.scaleInPlace(-1);
-    return { ...command, hands: { left: null, right: { places: [{ point: "swellFrom", position: middle.subtract(half).asArray() }, { point: "swellTo", position: middle.add(half).asArray() }], seconds: cover.seconds, follows: true } } };
+    return { ...command, effectors: { "hand.right": { places: [{ point: "swellFrom", position: middle.subtract(half).asArray() }, { point: "swellTo", position: middle.add(half).asArray() }], seconds: cover.seconds, follows: true } } };
   });
   const world = (p) => p.clone().applyRotationQuaternion(view.root.rotation).addInPlace(view.root.position);
   try {
     stand.step(stand.seconds(1.5));
     threat = view.head.add(Vector3.FromArray(way).scale(FAR)).asArray();
-    const ends = () => [world(view.points.right.swellFrom), world(view.points.right.swellTo)];
+    const ends = () => [world(view.effectors["hand.right"].points.swellFrom), world(view.effectors["hand.right"].points.swellTo)];
     const uppermost = Math.sign(ends()[1].y - ends()[0].y);
     const rows = [];
     let t = 0;

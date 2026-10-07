@@ -19,7 +19,7 @@ import { parseArgs } from "node:util";
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { createBody, SERVO_SECONDS } from "../src/core/body.ts";
 import { armed } from "../src/core/human/grip.ts";
-import { HUMANOID_MODELS as BODY_MODELS, modelSpec } from "../src/core/models.ts";
+import { HUMANOID_MODELS, modelSpec } from "../src/core/models.ts";
 import { woodenClub } from "../src/core/items/club.ts";
 import { fighterTactics, STRAFE } from "../src/core/mind/fighter.ts";
 import { driveBy } from "../src/core/mind/tactics.ts";
@@ -67,7 +67,7 @@ if (!isMainThread) {
   const seconds = Number(values.seconds), lanes = Number(values.workers ?? Math.max(1, availableParallelism() - 2));
   const rules = values.shares ? values.shares.split(",").map((share) => ({ ...STRAFE, share: Number(share) })) : [STRAFE];
   const jobs = [];
-  for (const strafe of rules) for (const model of BODY_MODELS) for (const [name, facing] of Object.entries(FACINGS)) {
+  for (const strafe of rules) for (const model of HUMANOID_MODELS) for (const [name, facing] of Object.entries(FACINGS)) {
     // The share is read only when a facing is ordered: the walk facing itself is run once.
     if (facing === null && strafe !== rules[0]) continue;
     for (let i = 0; i < 8; i++) jobs.push({ model, name, facing, bearing: wrap(i * Math.PI / 4), seconds, strafe });
@@ -93,7 +93,7 @@ if (!isMainThread) {
   console.log(`Turned within ${STRAFE.turned} rad of its facing, a body walks at the share plus the rest of its fastest walk times the cosine of the angle between its heading and its walk.\n`);
   console.log("| Share | Body | Facing | Falls of 8 | Fell: bearing, deg, at s | Along, m: least to most | Across, m: most | Off its facing, rad: most |");
   console.log("|---|---|---|---|---|---|---|---|");
-  for (const strafe of rules) for (const model of BODY_MODELS) for (const name of Object.keys(FACINGS)) {
+  for (const strafe of rules) for (const model of HUMANOID_MODELS) for (const name of Object.keys(FACINGS)) {
     const rows = jobs.filter((job) => job.strafe === strafe && job.model === model && job.name === name).map((job) => job.result);
     if (rows.length === 0) continue;
     const held = rows.filter((row) => row.fellAt === null), fell = rows.filter((row) => row.fellAt !== null);

@@ -1,6 +1,6 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { Vec3 } from "../spec/quantity.ts";
-import type { BuiltBody, BuiltSegment } from "./build-body.ts";
+import { rootSegment, type BuiltBody, type BuiltSegment } from "./build-body.ts";
 import { motionAxesToRef } from "./joint-state.ts";
 import { hasProducts } from "./rigid.ts";
 
@@ -127,9 +127,7 @@ export function bodyDynamics(built: BuiltBody, gravity: Vec3): BodyDynamics {
   const depth = (j: number): number => { const up = byChild.get(joints[j]!.parent); return up === undefined ? 0 : 1 + depth(up); };
   const outward = joints.map((_, j) => j).sort((a, b) => depth(a) - depth(b));
   const parentOf = joints.map((joint) => index.get(joint.parent)!), childOf = joints.map((joint) => index.get(joint.child)!);
-  const roots = segments.map((_, i) => i).filter((i) => !childOf.includes(i));
-  if (roots.length !== 1) throw new Error(`${built.spec.model} has ${roots.length} segments no joint carries, not one`);
-  const rootIndex = roots[0]!;
+  const rootIndex = index.get(rootSegment(built))!;
   const root = { segment: segments[rootIndex]!, centre: [0, 0, 0] as Point, mass: [0, 1, 2, 3, 4, 5].map(() => new Float64Array(6)),
     coupling: [0, 1, 2, 3, 4, 5].map(() => new Float64Array(n)), gravity: new Float64Array(6), bias: new Float64Array(6) };
   const whole = { centre: [0, 0, 0] as Point, inertia: new Float64Array(6), mass: segments.reduce((sum, s) => sum + s.rigid.mass, 0) };
@@ -167,7 +165,7 @@ export function bodyDynamics(built: BuiltBody, gravity: Vec3): BodyDynamics {
       const s = spin(segments[i]!), o = spins[i]!;
       o[0] = s.x; o[1] = s.y; o[2] = s.z;
     }
-    for (const i of roots) { alpha[i]!.fill(0); accel[i]!.fill(0); }
+    alpha[rootIndex]!.fill(0); accel[rootIndex]!.fill(0);
     for (const j of outward) {
       const p = parentOf[j]!, c = childOf[j]!, P = pivots[j]!;
       const wp = spins[p]!, wc = spins[c]!;

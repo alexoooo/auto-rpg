@@ -1,4 +1,4 @@
-import type { SegmentSpec, ShapeSpec } from "../spec/body.ts";
+import type { Side, SegmentSpec, ShapeSpec } from "../spec/body.ts";
 import { segmentFrame } from "../spec/body.ts";
 import { square } from "../math/real.ts";
 import { capsuleRadius } from "../spec/geometry.ts";
@@ -6,7 +6,7 @@ import { derive, si, type Quantity, type Vec3 } from "../spec/quantity.ts";
 import { add, distance, dot, lerp, normalize, scale, sub } from "../spec/vec.ts";
 import type { Extents } from "./envelope.ts";
 import type { HumanFigure } from "./figure.ts";
-import { SIDES, type Side } from "./landmarks.ts";
+import { SIDES } from "./landmarks.ts";
 import { DE_LEVA_1996, type DeLevaRow, type DeLevaSegment } from "./tables/de-leva-1996.ts";
 import { CONTACT_STIFFNESS } from "./tables/contact-stiffness.ts";
 import { SEGMENT_DENSITY, type DensitySegment } from "./tables/densities.ts";

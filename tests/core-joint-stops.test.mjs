@@ -47,7 +47,7 @@ function hinge(sense) {
   const segment = (name, proximal, distal, mass) => ({ name, proximal: q(proximal), distal: q(distal), mass: q(mass, "kg"),
     centreOfMass: q(proximal.map((v, i) => (v + distal[i]) / 2)), inertia: q([0.02, 0.004, 0.02], "kg m2"),
     shape: { kind: "capsule", from: q(proximal), to: q(distal), radius: q(0.03) }, surface: { stiffness: q(1e5, "N/m") } });
-  return { family: "test", model: "loaded-hinge", mass: q(3, "kg"), stature: q(1),
+  return { model: "loaded-hinge", mass: q(3, "kg"), stature: q(1), down: { kind: "asked", fallen: q(0.25) },
     segments: [segment("parent", [0, 1, 0], [0, 0.6, 0], 2), segment("child", [0, 0.6, 0], [0, 0.2, sense * 0.2], 1)],
     joints: [{ name: "hinge", parent: "parent", child: "child", centre: q([0, 0.6, 0]), dofs: [{
       positive: "bend", negative: "extend", axis: q([1, 0, 0], "1"), min: q(-0.3, "rad"), max: q(0.3, "rad"),

@@ -4,8 +4,7 @@ import { buildBody } from "../build/build-body.ts";
 import { pointStrike } from "../control/point-strike.ts";
 import type { PhysicsEngine, SegmentBody } from "../engine/engine.ts";
 import { equipHands } from "../human/equipment.ts";
-import type { Side } from "../human/landmarks.ts";
-import { modelSpec, type HumanoidModel as BodyModel } from "../models.ts";
+import { modelSpec, type HumanoidModel } from "../models.ts";
 import { woodenClub } from "../items/club.ts";
 import { createMotionBody } from "../mind/motion.ts";
 import { createObjectSenses } from "../mind/object-senses.ts";
@@ -16,6 +15,7 @@ import { createWorld } from "../world.ts";
 import { trackingRejected } from "../control/whole-body.ts";
 import { jointStopProbeSettings } from "./stop-settings.ts";
 import { createSwingTarget } from "./swing-target.ts";
+import type { Side } from "../spec/body.ts";
 
 /** Static point-strike experiment inputs, numeric settings (`docs/reference/point-strike.md`). */
 const SETTINGS = deepFreeze({
@@ -40,7 +40,7 @@ const tuple = (v: Vector3): Vec3 => [v.x, v.y, v.z];
 
 /** Shared physical fixture for a reference point-space strike, including a deliberately missed target. */
 export function createPointStrikeProbe(scene: Scene, engine: PhysicsEngine, config: {
-  readonly model: BodyModel; readonly hands: Side | "both"; readonly held: "empty" | "club";
+  readonly model: HumanoidModel; readonly hands: Side | "both"; readonly held: "empty" | "club";
   readonly hz: number; readonly actuation: "symmetric" | "directional"; readonly offset: number; readonly miss: boolean;
   readonly centreControl?: boolean; readonly continueSeconds?: number;
   readonly shared?: { readonly release?: Side };

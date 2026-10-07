@@ -1,7 +1,7 @@
-import type { Substance } from "../spec/body.ts";
+import type { Side, Substance } from "../spec/body.ts";
 import type { Quantity, Vec3 } from "../spec/quantity.ts";
 import type { Extents, TrunkSegment } from "./envelope.ts";
-import type { LimbLandmarks, Side, TrunkLandmarks } from "./landmarks.ts";
+import type { LimbLandmarks, TrunkLandmarks } from "./landmarks.ts";
 import type { DeLevaSegment, Sex } from "./tables/de-leva-1996.ts";
 
 /**
@@ -15,8 +15,7 @@ import type { DeLevaSegment, Sex } from "./tables/de-leva-1996.ts";
  * figure was authored at; `scale` takes them to x1.
  */
 export interface HumanFigure {
-  /** The spec's family and model. */
-  readonly family: string;
+  /** The spec's model. */
   readonly model: string;
   /** What the body is made of (`BodySpec.substance`). */
   readonly substance: Substance;

@@ -3,7 +3,8 @@ import { derive, sourced, type Quantity, type Vec3 } from "../spec/quantity.ts";
 import { add, distance, midpoint, normalize, scale, sub } from "../spec/vec.ts";
 import type { Extent, Extents, TrunkSegment } from "./envelope.ts";
 import type { HumanFigure, LimbFigure } from "./figure.ts";
-import { dividedTrunk, type Side } from "./landmarks.ts";
+import { dividedTrunk } from "./landmarks.ts";
+import type { Side } from "../spec/body.ts";
 
 /**
  * **The crypt skeleton as a human figure.** Its shape is its art's: Blender Studio's realistic
@@ -182,7 +183,7 @@ export function skeletonFigure(): HumanFigure {
   };
   const room = sourced(0.004, "m", "skeleton-limbs-clear", "the room a limb keeps from what it shares no joint with");
   return {
-    family: "skeleton", model: SKELETON_MODEL, substance: "bone", sex: "male",
+    model: SKELETON_MODEL, substance: "bone", sex: "male",
     mass: placeholder(79, "kg", "the typical man's mass"),
     stature: derive("m", "the vertex's height over the soles", [VERT], (v) => v[1]),
     trunk, limbs,

@@ -76,7 +76,7 @@ function hinge() {
     mass: q(mass, "kg"), centreOfMass: q([0, y - 0.2, 0]), inertia: q([0.02, 0.004, 0.02], "kg m2"),
     shape: { kind: "capsule", from: q([0, y, 0]), to: q([0, y - 0.4, 0]), radius: q(0.03) },
     surface: { stiffness: q(1e5, "N/m") } });
-  return { family: "test", model: "stop", mass: q(3, "kg"), stature: q(1),
+  return { model: "stop", mass: q(3, "kg"), stature: q(1),
     segments: [segment("parent", 1, 2), segment("child", 0.6, 1)],
     joints: [{ name: "hinge", parent: "parent", child: "child", centre: q([0, 0.6, 0]), dofs: [{
       positive: "bend", negative: "extend", axis: q([1, 0, 0], "1"), min: q(-0.3, "rad"), max: q(0.3, "rad"),

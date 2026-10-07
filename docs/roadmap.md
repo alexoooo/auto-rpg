@@ -419,7 +419,7 @@ promoted by these results.
   (`PLACING.near`), how near a fighter attacks (`ATTACK_METRES`), the band a fighter holds at the
   edge of a foe's reach (`EDGE`), the shaping of an arm's path (`IK_POSTURE_PULL`, `IK_TURN`)
   ([human and strikes](reference/human-and-strikes.md)); the stance's height and its fall bar
-  (`STANCE_LOWER`, `FALLEN`, [stance tuning](reference/stance-tuning.md#stance-height)).
+  (`STANCE_LOWER`, a human's `down.fallen`, [stance tuning](reference/stance-tuning.md#stance-height)).
 - Set on readings from an engine that is gone, to read again on this one: how long a body stands
   before it throws (`STAND`: the Warrior reads 6 mm/s at 1.5 s where it read 5,
   [human and strikes](reference/human-and-strikes.md#stand-time)); how far ahead a walker on a

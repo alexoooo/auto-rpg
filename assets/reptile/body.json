@@ -6,6 +6,11 @@
   "curvature": 0.25,
   "eccentricCeiling": 1.5,
   "eccentricSlopeRatio": 1,
+  "down": {
+    "root": "trunk",
+    "height": 0.6,
+    "up": 0.5
+  },
   "segments": [
     {
       "name": "trunk",

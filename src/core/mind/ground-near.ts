@@ -1,5 +1,4 @@
 import type {BodyView} from "../body.ts";
-import type {Hand} from "../control/motor.ts";
 import {atan2,sin,cos,hypot} from "../math/real.ts";
 import {STANCE_LOWER} from "../skills/locomotion.ts";
 import type {SkillReport} from "../skills/skills.ts";
@@ -8,15 +7,16 @@ import {GUARD_ACTION,type CombatAction,type Intent} from "./intent.ts";
 import {lowOpponent} from "./sensed-bounds.ts";
 import {highestSurface} from "./openings.ts";
 import type {BodySense} from "./senses.ts";
+import type { Side } from "../spec/body.ts";
 /** Close approach cells and finite deadlines: `docs/reference/ground-combat.md#policy-settings`. */
 const GROUND_NEAR=Object.freeze({across:.35,ahead:.04,outside:.35,along:.12,near:.1,settle:.12,speed:.18,braking:.5,quiet:.1,refresh:.5,lower:.5,targetShift:.2,reach:.6,acquisition:5,attack:8,approach:30,retry:1});
 /** Approach beside a quiet observed torso, lower through the shared executor, and return standing. */
 export function groundNear(clearMove:(view:BodyView,h:number,m:readonly[number,number]|null)=>readonly[number,number]|null,override:Partial<typeof GROUND_NEAR>={}) {
  const tuning={...GROUND_NEAR,...override};
- const state={phase:'guard',surface:'upperTrunk',stage:'approach' as 'approach'|'lower'|'attack'|'rise',active:false,foe:null as string|null,hand:null as Hand|null,face:0,target:null as Vec3|null,action:null as CombatAction|null,next:0,elapsed:0,lowTime:0,retry:0};
+ const state={phase:'guard',surface:'upperTrunk',stage:'approach' as 'approach'|'lower'|'attack'|'rise',active:false,foe:null as string|null,hand:null as Side|null,face:0,target:null as Vec3|null,action:null as CombatAction|null,next:0,elapsed:0,lowTime:0,retry:0};
  const hands={left:GUARD_ACTION,right:GUARD_ACTION};
  const reset=()=>{state.stage='approach';state.phase='guard';state.active=false;state.foe=null;state.hand=null;state.target=null;state.action=null;state.next=0;state.elapsed=0;state.lowTime=0;state.retry=0;};
- return {state,reset,withdraw(){state.stage='rise';},decide(view:BodyView,report:SkillReport,foe:BodySense,hand:Hand,dt:number):Intent|null {
+ return {state,reset,withdraw(){state.stage='rise';},decide(view:BodyView,report:SkillReport,foe:BodySense,hand:Side,dt:number):Intent|null {
   const support=report.support;if(!support)return null;
   state.retry=Math.max(0,state.retry-dt);const low=lowOpponent(view,foe);
   if(!state.active){

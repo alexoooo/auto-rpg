@@ -1,16 +1,15 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { BuiltBody } from "../build/build-body.ts";
 import { supportedMotor, type SupportEndpoint } from "../control/supported-motor.ts";
-import { NO_ASSIST, type AssistCeiling } from "../control/assist.ts";
-import { lowBodyPosture } from "../control/posture.ts";
+import { uprightness } from "../control/ground.ts";
 import { effectorTracker } from "../control/effector-tracker.ts";
 import { rootFrameToRef, intoFrameToRef } from "../control/kinematics.ts";
 import { turnOfToRef } from "../control/support.ts";
-import { embody } from "../mind/mind.ts";
-import { hosting, type HostMind } from "../mind/sub-mind.ts";
-import { clockSenses, type Senses } from "../mind/senses.ts";
-import { STAND_ORDERS, type Orders } from "../mind/orders.ts";
-import { physicalBody } from "../physical-body.ts";
+import { hostedBody } from "../mind/hosted.ts";
+import type { MindWiring } from "../mind/minds.ts";
+import type { HostMind } from "../mind/sub-mind.ts";
+import type { Senses } from "../mind/senses.ts";
+import { STAND_ORDERS } from "../mind/orders.ts";
 import type { World } from "../world.ts";
 import { atan2, cos, sin } from "../math/real.ts";
 import { crawl, type QuadrupedView } from "./crawl.ts";
@@ -23,9 +22,10 @@ import { quadrupedTactics } from "./tactics.ts";
 const PAWS: readonly SupportEndpoint[] = ["front.left", "hind.right", "front.right", "hind.left"].map(name => ({ segment: `paw.${name}`, point: "sole", sole: true }));
 
 /** A quadruped mind drives its own support chains through the common floating-base solve. */
-export function createQuadrupedMind(built: BuiltBody, world: World, orders: (senses: Senses) => Orders | null = () => null, senses = clockSenses(world), assist: AssistCeiling = NO_ASSIST) {
-  const posture = lowBodyPosture(built, "trunk", T.minimumHeight, T.minimumUp);
-  const embodied = embody(built, world, own => {
+export function createQuadrupedMind(built: BuiltBody, world: World, wiring: Partial<MindWiring> = {}) {
+  const orders = wiring.orders ?? ((): null => null);
+  const upright = uprightness(built), down = (): boolean => upright.down();
+  const body = hostedBody(built, world, wiring, (own, senses) => {
     const motor = supportedMotor(own, PAWS, T), skill = crawl(own, motor, PAWS.map(p => p.segment));
     const tracker = effectorTracker(built, motor.root), frame = { position: new Vector3(), rotation: new Quaternion() }, target = new Vector3();
     const inverse = new Quaternion(), desired = new Quaternion(), flat = new Quaternion(), lift = new Vector3(), descending = new Vector3();
@@ -35,7 +35,7 @@ export function createQuadrupedMind(built: BuiltBody, world: World, orders: (sen
     const reading = view as { -readonly [K in keyof QuadrupedView]: QuadrupedView[K] };
     const read = (s: Senses) => {
       motor.read(); turnOfToRef(motor.root, turn); forward.applyRotationQuaternionToRef(turn, front);
-      reading.senses = s; reading.yaw = atan2(front.x, front.z); reading.down = posture.down();
+      reading.senses = s; reading.yaw = atan2(front.x, front.z); reading.down = down();
     };
     const snap = bite(own, tracker), tactics = quadrupedTactics(own, view => orders(view.senses)), skills = [skill, snap];
     const sight = { view, bite: snap.state.cycle };
@@ -67,7 +67,7 @@ export function createQuadrupedMind(built: BuiltBody, world: World, orders: (sen
       const tracked = tracker.step(own.muscles, command.posture, dt, false, true);
       motor.control(command, dt, i => snap.tracked(i) ?? tracked(i));
     }, release() { tracker.reset(); for (const s of skills) s.resume(view); }, resume() { motor.resume(); tracker.reset(); for (const s of skills) s.resume(view); } };
-    return hosting(host, [recover(own, motor, tracker, PAWS.map(p => p.segment), view)]);
-  }, senses, assist);
-  return { kind: "quadruped" as const, body: physicalBody(embodied.own, world, senses, () => embodied.mind.has, embodied.state, embodied.dispose, posture.down), state: {} };
+    return { host, subs: [recover(own, motor, tracker, PAWS.map(p => p.segment), view)], down };
+  });
+  return { kind: "quadruped" as const, body, state: {} };
 }

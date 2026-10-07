@@ -1,4 +1,5 @@
 import type { BodySpec } from "../spec/body.ts";
+import { sourced } from "../spec/quantity.ts";
 import { humanAttributes } from "./attributes.ts";
 import type { HumanFigure } from "./figure.ts";
 import { humanJoints } from "./joints.ts";
@@ -25,7 +26,7 @@ export function humanoidSpec(model: HumanoidModel): BodySpec {
 function figureSpec(figure: HumanFigure): BodySpec {
   const segments = humanSegments(figure);
   return {
-    family: figure.family, model: figure.model, mass: figure.mass, stature: figure.stature, segments,
+    model: figure.model, mass: figure.mass, stature: figure.stature, segments,
     effectors: ["left", "right"].flatMap(side => [
       { segment: `hand.${side}`, base: "upperTrunk", point: "knuckles" },
       { segment: `foot.${side}`, base: "lowerTrunk", point: "strike" },
@@ -34,5 +35,6 @@ function figureSpec(figure: HumanFigure): BodySpec {
     wounds: humanWounds(figure),
     attributes: humanAttributes(figure),
     substance: figure.substance,
+    down: { kind: "asked", fallen: sourced(0.25, "m", "fall-bar", "Fallen") },
   };
 }

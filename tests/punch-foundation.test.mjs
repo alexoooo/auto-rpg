@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {punchStand,punchCalibration} from '../research/punch-calibration.mjs';
 import {PUNCH_EXECUTION,PLANTED_PUNCH_EXECUTION,validCombatExecution} from '../src/core/skills/combat.ts';
-import {contactResponse} from '../src/core/control/hand-feedback.ts';
+import {contactResponse} from '../src/core/control/effector-feedback.ts';
 import {GUARD_ACTION} from '../src/core/mind/intent.ts';
 import {saveStand,loadStand} from './harness/core-stand.mjs';
 import {punchAdmission,punchScore,median} from '../research/punch-foundation.mjs';
@@ -14,10 +14,10 @@ test('both planted physical fists use matched tactile contact, bounded impact pa
   const s=await punchStand({...settings,execution:PLANTED_PUNCH_EXECUTION,armExtension:.5,hand});let impacts=0;
   try{while(s.world.time<6){s.step();if(s.skills.state.impact){impacts++;
     assert.equal(s.built.handPoses.state[hand].applied,'fist');
-    assert.equal(s.skills.state.command.hands[hand].places[0].point,'strike');
+    assert.equal(s.skills.state.command.effectors[`hand.${hand}`].places[0].point,'strike');
     const {origin,finish,elapsed}=s.skills.state.impact;
     assert.ok(Math.hypot(...finish.map((v,k)=>v-origin[k]))<=PUNCH_EXECUTION.impactTravel+1e-10);
-    assert.ok(elapsed<PUNCH_EXECUTION.impactSeconds);assert.equal(contactResponse(s.body.view.handFeedback[hand],'punch-pad'),'target');
+    assert.ok(elapsed<PUNCH_EXECUTION.impactSeconds);assert.equal(contactResponse(s.body.view.effectors[`hand.${hand}`].feedback,'punch-pad'),'target');
    }}
    const r=s.reading();assert.ok(impacts>=3);assert.ok(r.impactResponse.admitted>=3);
    assert.equal(r.cycles.failed,0);assert.ok(r.cycles.returned[hand]>=3);assert.equal(r.fell,false);
@@ -32,7 +32,7 @@ test('misses and an actual fixed obstruction withdraw, without target follow-thr
   const s=await punchStand({...settings,hand,mode:'miss'});
   if(block)s.world.physics.addFixedBox([s.target[0],s.target[1],s.target[2]-.1],[.2,.4,.11]);
   let touched=false;
-  try{s.world.afterStep(()=>{touched||=s.body.view.handFeedback[hand].impulse>0;});s.step(720);const r=s.reading();
+  try{s.world.afterStep(()=>{touched||=s.body.view.effectors[`hand.${hand}`].feedback.impulse>0;});s.step(720);const r=s.reading();
    assert.equal(r.impacts.length,0);assert.equal(r.impactResponse.admitted,0);assert.ok(r.cycles.returned[hand]>=2);
    assert.equal(r.cycles.failed,0);assert.equal(r.fell,false);assert.equal(touched,block);
   }finally{s.dispose();}

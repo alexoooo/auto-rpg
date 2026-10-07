@@ -4,17 +4,17 @@ import { buildBody } from "../build/build-body.ts";
 import type { MotionCommand } from "../control/tasks.ts";
 import type { PhysicsEngine } from "../engine/engine.ts";
 import { equipHands } from "../human/equipment.ts";
-import { modelSpec, type HumanoidModel as BodyModel } from "../models.ts";
+import { modelSpec, type HumanoidModel } from "../models.ts";
 import { woodenClub } from "../items/club.ts";
 import { cos, sin } from "../math/real.ts";
 import { createMotionBody } from "../mind/motion.ts";
-import type { Side } from "../human/landmarks.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { deepFreeze } from "../state.ts";
 import { physicalReading } from "../observation.ts";
 import { createWorld } from "../world.ts";
 import { trackingRejected } from "../control/whole-body.ts";
 import { jointStopProbeSettings } from "./stop-settings.ts";
+import type { Side } from "../spec/body.ts";
 
 /** Pinned bar experiment inputs, numeric settings (`docs/reference/motion-tracking.md`). */
 const SETTINGS = deepFreeze({
@@ -41,7 +41,7 @@ const rotation = (q: Quaternion) => [q.x, q.y, q.z, q.w] as const;
  * range. Its arm posture comes from measured grip capture. Recovery, moving targets and combat need their own tasks.
  */
 export function createBarProbe(scene: Scene, engine: PhysicsEngine, config: {
-  readonly model: BodyModel; readonly release: Side; readonly hz: number;
+  readonly model: HumanoidModel; readonly release: Side; readonly hz: number;
   readonly actuation: "symmetric" | "directional"; readonly offset: number;
   readonly support?: "pinned" | "standing";
   readonly jointStops?: boolean;

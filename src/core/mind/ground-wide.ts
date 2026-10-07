@@ -1,9 +1,8 @@
 import type { BodyView } from "../body.ts";
-import type { Hand } from "../control/motor.ts";
 import { atan2, cos, hypot, sin } from "../math/real.ts";
 import { STANCE_LOWER } from "../skills/locomotion.ts";
 import type { SkillReport } from "../skills/skills.ts";
-import type { BodySpec } from "../spec/body.ts";
+import type { Side, BodySpec } from "../spec/body.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { GUARD_ACTION, type CombatAction, type Intent } from "./intent.ts";
 import { upperSurface } from "./openings.ts";
@@ -22,12 +21,12 @@ export function groundWide(spec: BodySpec, clearMove: (view: BodyView, heading: 
   const left=spec.segments.find(s=>s.name==="foot.left")!,right=spec.segments.find(s=>s.name==="foot.right")!;
   const width=Math.abs(left.centreOfMass.value[0]-right.centreOfMass.value[0])/2;
   const state = { phase: "guard", stage: "approach" as "approach" | "lower" | "attack" | "rise",
-    active: false, hand: null as Hand | null, foe: null as string | null, face: 0, target: null as Vec3 | null, surface: "upperTrunk",
+    active: false, hand: null as Side | null, foe: null as string | null, face: 0, target: null as Vec3 | null, surface: "upperTrunk",
     action: null as CombatAction | null, route: null as readonly Vec3[] | null, walk: null as readonly [number,number] | null, stride: -1, planned: false, next: 0, elapsed: 0, retry: 0, lowTime: 0 };
   const reset = () => { state.active = false; state.hand = null; state.stage = "approach"; state.foe = null; state.target = null;
     state.route = null; state.walk = null; state.stride = -1; state.planned = false; state.action = null; state.next = 0; state.elapsed = 0; state.lowTime = 0; state.retry = 0; state.phase = "guard"; };
   const hands = { left: GUARD_ACTION, right: GUARD_ACTION };
-  return { state, reset, withdraw(){state.stage='rise';}, decide(view: BodyView, report: SkillReport, foe: BodySense, hand: Hand, dt: number): Intent | null {
+  return { state, reset, withdraw(){state.stage='rise';}, decide(view: BodyView, report: SkillReport, foe: BodySense, hand: Side, dt: number): Intent | null {
     state.retry = Math.max(0, state.retry - dt);
     const low = lowOpponent(view, foe), supported = report.support;
     if (!supported) return null;

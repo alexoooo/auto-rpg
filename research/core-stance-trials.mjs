@@ -40,7 +40,7 @@ export async function stand({ model, stance, hz = 120 }) {
   b.drive((view) => {
     const s = view.stance;
     if (!goal && view.time > 0) { goal = { feet: ["left", "right"], centre: null, height: s.centre.y - s.support.y - 0.03, heading: 0 }; from = feet.map((f) => f.node.position.clone()); }
-    return { posture: GUARD, hands: { left: null, right: null }, pushes: [], stance: goal };
+    return { posture: GUARD, pushes: [], stance: goal };
   });
   try {
     const settle = [];
@@ -71,7 +71,7 @@ export async function edge({ model, degrees, stance, hz = 120 }) {
       goal = { feet: ["left", "right"], centre: [s.support.x + 0.3 * Math.sin(way), s.support.z + 0.3 * Math.cos(way)], height: s.centre.y - s.support.y - 0.03, heading: 0 };
       from = feet.map((f) => f.node.position.clone());
     }
-    return { posture: {}, hands: { left: null, right: null }, pushes: [], stance: goal };
+    return { posture: {}, pushes: [], stance: goal };
   });
   try {
     stand.step(stand.seconds(6));
@@ -95,7 +95,7 @@ export async function step({ model, foot, dx, dz, stance, hz = 120 }) {
       bearing = s.soles[other].clone();
       swing = { foot, to, seconds: 0.45, lift: 0.05 };
     }
-    return { posture: {}, hands: { left: null, right: null }, pushes: [], stance: goal && { ...goal, swing } };
+    return { posture: {}, pushes: [], stance: goal && { ...goal, swing } };
   });
   try {
     const phases = [];
@@ -128,7 +128,7 @@ export async function shove({ model, impulse, degrees, stance, hz = 120, walked 
   b.drive((view) => {
     const s = view.stance;
     if (!goal && view.time > 0) goal = { feet: ["left", "right"], centre: null, height: s.centre.y - s.support.y - 0.03, heading: 0 };
-    return { posture: {}, hands: { left: null, right: null }, pushes: [], stance: goal && { ...goal, walk: pace } };
+    return { posture: {}, pushes: [], stance: goal && { ...goal, walk: pace } };
   });
   try {
     stand.step(stand.seconds(1.5));
@@ -165,7 +165,7 @@ export async function walk({ model, degrees, speed, stance, hz = 120, held = nul
   b.drive((view) => {
     const s = view.stance;
     if (!goal && view.time > 0) goal = { feet: ["left", "right"], centre: null, height: s.centre.y - s.support.y - 0.03, heading: 0 };
-    return { posture: held === null ? {} : GUARD, hands: { left: null, right: null }, pushes: [], stance: goal && { ...goal, walk: pace } };
+    return { posture: held === null ? {} : GUARD, pushes: [], stance: goal && { ...goal, walk: pace } };
   });
   try {
     stand.step(stand.seconds(1));
@@ -213,7 +213,7 @@ export async function turn({ model, speed, rate, sense, stance, hz = 120, after 
       heading += sense * d;
     }
     const walk = walking ? [speed * Math.sin(heading), speed * Math.cos(heading)] : null;
-    return { posture: held === null ? {} : GUARD, hands: { left: null, right: null }, pushes: [], stance: goal && { ...goal, heading, walk } };
+    return { posture: held === null ? {} : GUARD, pushes: [], stance: goal && { ...goal, heading, walk } };
   });
   try {
     let low = -Infinity;

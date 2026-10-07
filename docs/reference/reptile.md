@@ -34,6 +34,10 @@ The contact gates and the final fixed-anatomy checks below qualify the combinati
 not a measured optimum or evidence of a real animal's locomotion. Response times are seconds,
 lengths metres, angles radians, and height multipliers relative to the spec's reference COM.
 
+The reptile is down (`DownSpec` `low`, `assets/reptile/body.json`'s `down`) once its trunk's up
+tips under 0.5 (60 degrees from upright) or its centre of mass sinks under 0.6 of its standing
+height over its lowest point.
+
 | Construct | Values | Purpose |
 | --- | --- | --- |
 | Floating-base response | centre .12, endpoint .08, turn .12, posture .15 s | Damped support and pose tracking |
@@ -43,7 +47,6 @@ lengths metres, angles radians, and height multipliers relative to the spec's re
 | Placement bounds | placementLimit 3 s, liftConfirm .001 m | Return an unlanded paw; require real lift-off |
 | Support margins | inset .4 m, supportInset .1 m, shiftError .008 m | Desired support-centre inset and actual containment tolerance |
 | Heading | yawStep .18 rad per four paws, turnError .05 rad | Bounded heading advance |
-| Posture | minimumHeight .6, minimumUp .5 | Scale-relative down reading from the actual body |
 | Contact | supportNormal .5, contactMargin .01 m | Positive fixed-ground impulses, and sole versus edge contact |
 | Jaw path | prepare .25 s, snap .12 s, open .3 rad, jawError .03 rad, jawClosed .001 rad | Measured opening and closing, with finite angular motion |
 | Bite reach | biteEntry .008 m beyond the tip-to-mouth span, bitePrepareNear .12 m, biteElevation .15 m, biteNear .04 m | Sensed surface selection and physical chamber readiness |

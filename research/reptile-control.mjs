@@ -20,7 +20,7 @@ export async function recoveryTrial(pose, yaw = 0) {
   const stand = await coreStand(reptileSpec(), { engine: "rapier-coordinate", ...fixture,
     rotation: heading.multiply(new Quaternion(...fixture.rotation)).asArray() });
   let orders = STAND_ORDERS, handoff = null, start = null, support = null, falls = 0;
-  const mind = createQuadrupedMind(stand.built, stand.world, () => orders), host = mind.body.state.mind.host, recovery = mind.body.state.mind.subs[0];
+  const mind = createQuadrupedMind(stand.built, stand.world, { orders: () => orders }), host = mind.body.state.mind.host, recovery = mind.body.state.mind.subs[0];
   try {
     for (let step = 0; step < 160 * stand.world.hz; step++) {
       stand.step();

@@ -2,9 +2,9 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { BodyView } from "../body.ts";
 import { rigidPoints } from "../build/rigid.ts";
 import { intoFrameToRef } from "../control/kinematics.ts";
-import type { Hand, HandGoal, Pose } from "../control/motor.ts";
+import type { EffectorGoal, Pose } from "../control/motor.ts";
 import type { Cover, HandAction } from "../mind/intent.ts";
-import type { BodySpec } from "../spec/body.ts";
+import type { Side, BodySpec } from "../spec/body.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { add, distance, dot, length, scale, sub } from "../spec/vec.ts";
 import type { Skill } from "./skill.ts";
@@ -41,7 +41,7 @@ interface Covers {
   readonly span: number;
 }
 
-function coversOf(spec: BodySpec, hand: Hand): Covers {
+function coversOf(spec: BodySpec, hand: Side): Covers {
   const segment = spec.segments.find((s) => s.name === `hand.${hand}`);
   if (!segment) throw new Error(`${spec.model} has no ${hand} hand`);
   const points = spec.held?.find((h) => h.segment === segment.name)?.item.cover ?? ["knuckles"];
@@ -55,9 +55,9 @@ function coversOf(spec: BodySpec, hand: Hand): Covers {
 }
 
 /** No hand given a goal. */
-const NO_HANDS: Readonly<Record<Hand, HandGoal | null>> = Object.freeze({ left: null, right: null });
+const NO_HANDS: Readonly<Record<Side, EffectorGoal | null>> = Object.freeze({ left: null, right: null });
 
-const HANDS: readonly Hand[] = ["left", "right"];
+const HANDS: readonly Side[] = ["left", "right"];
 
 /** The body frame's up and right: the ways an item's line is laid when how it lies now says nothing. */
 const UP: Vec3 = [0, 1, 0], RIGHT: Vec3 = [1, 0, 0];
@@ -80,14 +80,14 @@ const NO_LINE = 1e-6;
  */
 interface GuardSkill extends Skill {
   /** Each hand's goal this step: a cover's places for a hand that guards with one and that `taken` is not; null otherwise. */
-  command(view: BodyView, hands: Readonly<Record<Hand, HandAction>>, taken: Hand | null): Readonly<Record<Hand, HandGoal | null>>;
+  command(view: BodyView, hands: Readonly<Record<Side, HandAction>>, taken: Side | null): Readonly<Record<Side, EffectorGoal | null>>;
 }
 
 export function guardSkill(spec: BodySpec, covering: Covering = GUARD_COVER): GuardSkill {
   const covers = { left: coversOf(spec, "left"), right: coversOf(spec, "right") };
   const guarded = new Vector3(), threat = new Vector3();
   /** `hand`'s goal for `cover`, in the body frame (`BodyView.root`); null where the threat is at the place guarded, and names no line. */
-  const goalOf = (view: BodyView, hand: Hand, cover: Cover): HandGoal | null => {
+  const goalOf = (view: BodyView, hand: Side, cover: Cover): EffectorGoal | null => {
     intoFrameToRef(view.root, cover.guarded, guarded);
     intoFrameToRef(view.root, cover.threat, threat);
     const from: Vec3 = [guarded.x, guarded.y, guarded.z], way = sub([threat.x, threat.y, threat.z], from), far = length(way);
@@ -97,7 +97,7 @@ export function guardSkill(spec: BodySpec, covering: Covering = GUARD_COVER): Gu
     const { points, span } = covers[hand];
     if (points.length === 1) return { places: [{ point: points[0]!, position: middle }], seconds, follows: true };
     // The item's line as it lies, less what of it runs along the threat's line.
-    const now = view.points[hand], a = now[points[0]!]!, b = now[points[1]!]!;
+    const now = view.effectors[`hand.${hand}`]!.points, a = now[points[0]!]!, b = now[points[1]!]!;
     const square = (line: Vec3): Vec3 => sub(line, scale(toward, dot(line, toward)));
     let across = square([b.x - a.x, b.y - a.y, b.z - a.z]);
     if (length(across) < NO_LINE) across = square(UP);
@@ -111,7 +111,7 @@ export function guardSkill(spec: BodySpec, covering: Covering = GUARD_COVER): Gu
   return {
     resume() {},
     command(view, hands, taken) {
-      let goals: { left: HandGoal | null; right: HandGoal | null } | null = null;
+      let goals: { left: EffectorGoal | null; right: EffectorGoal | null } | null = null;
       for (const hand of HANDS) {
         const action = hands[hand];
         if (hand === taken || action.kind !== "guard" || !action.cover) continue;

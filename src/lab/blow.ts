@@ -1,7 +1,6 @@
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { Body } from "../core/body.ts";
 import type { BuiltBody, BuiltSegment } from "../core/build/build-body.ts";
-import type { Hand } from "../core/control/motor.ts";
 import { GUARD_ACTION, type Intent } from "../core/mind/intent.ts";
 import type { Tactics } from "../core/mind/tactics.ts";
 import { watchBlows, type BlowWatch, type Fighter, type LandedBlow } from "../core/rules/blows.ts";
@@ -10,7 +9,7 @@ import type { Rulebook } from "../core/rules/rulebook.ts";
 import type { SkillReport } from "../core/skills/skills.ts";
 import { STAND } from "../core/skills/strike.ts";
 import { BANDS, heldIn, type Band, type Repertoire, type StandOff, type Strike, type StrikeWindow } from "../core/skills/strikes.ts";
-import type { BodySpec } from "../core/spec/body.ts";
+import type { Side, BodySpec } from "../core/spec/body.ts";
 import type { Vec3 } from "../core/spec/quantity.ts";
 import type { Actor } from "./actor.ts";
 import { ballOf, dummySpec, hangDummy, TARGET_CLEAR, type Dummy } from "./targets.ts";
@@ -39,7 +38,7 @@ import { ballOf, dummySpec, hangDummy, TARGET_CLEAR, type Dummy } from "./target
  * moved by it (`StandOff`) once the blow is committed (its chamber and its swing): a target that
  * moved under the blow, as its tactics see it.
  */
-function attackOnce(hand: Hand, target: (head: Vector3) => Vec3, time: () => number, moved?: Partial<StandOff>): Tactics {
+function attackOnce(hand: Side, target: (head: Vector3) => Vec3, time: () => number, moved?: Partial<StandOff>): Tactics {
   let aim: Vec3 | null = null;
   const guarding: Intent = { move: null, face: 0, hands: { left: GUARD_ACTION, right: GUARD_ACTION } };
   return {
@@ -75,7 +74,7 @@ export function bandRise(spec: BodySpec, band: Band): number {
 
 /** What a blow is thrown with: the hand, its strike (null for a placed blow, the skill's own with no recipe), where its target stands and the band it is. */
 interface Throw {
-  readonly hand: Hand;
+  readonly hand: Side;
   readonly strike: Strike | null;
   readonly place: BlowPlace;
   readonly band: Band;

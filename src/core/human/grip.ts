@@ -1,7 +1,6 @@
-import { segmentFrame, type BodySpec, type HeldSpec, type ItemSpec } from "../spec/body.ts";
+import { type Side, segmentFrame, type BodySpec, type HeldSpec, type ItemSpec } from "../spec/body.ts";
 import { derive, type Quantity, type Vec3 } from "../spec/quantity.ts";
 import { add, dot, scale, sub } from "../spec/vec.ts";
-import type { Side } from "./landmarks.ts";
 
 /**
  * **A human hand closed on a haft** (`core-grip`): the haft runs across the knuckles, from the

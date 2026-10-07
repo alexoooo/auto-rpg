@@ -12,7 +12,7 @@ import { CONTACT_FRICTION } from "../src/core/engine/engine.ts";
 
 const q = (path, unit = "m") => sourced(path.split("/").reduce((v, key) => v[key], fixture), unit, "contact-projection-fixture", "/" + path);
 const zero = [0, 0, 0], identity = [0, 0, 0, 1];
-const spec = { family: "test", model: "contact-projection", mass: q("root/mass", "kg"), stature: q("root/stature"), joints: [], segments: [{
+const spec = { model: "contact-projection", mass: q("root/mass", "kg"), stature: q("root/stature"), joints: [], segments: [{
   name: "root", proximal: q("root/proximal"), distal: q("root/distal"), mass: q("root/mass", "kg"), centreOfMass: q("root/centre"),
   inertia: q("root/inertia", "kg m2"), shape: { kind: "sphere", centre: q("root/centre"), radius: q("root/radius") },
   surface: { stiffness: q("root/surfaceStiffness", "N/m") },

@@ -45,8 +45,9 @@ export function reptileSpec(): BodySpec {
         bind: derive("rad", "reference joint angle", [], () => 0),
         muscle: { peakPositive: q(j.peak, "N m", `${at}/peak`), peakNegative: q(j.peak, "N m", `${at}/peak`), speedPositive: speed, speedNegative: speed } })) };
   });
-  return deepFreeze({ family: "reptile", model: "reptile", mass, stature: q(data.stature, "m", "/stature"), segments, joints,
+  return deepFreeze({ model: "reptile", mass, stature: q(data.stature, "m", "/stature"), segments, joints,
     effectors: [...["front.left", "hind.right", "front.right", "hind.left"].map(name => ({ segment: `paw.${name}`, base: "trunk", point: "sole" })), { segment: "head", base: "trunk", point: "mouth" }],
     wounds: { hp: sourced(1, "HP", "owner-hp-pool", "reptile 1"), vital: ["head"], whole: ["trunk"] },
-    attributes: { balance: q(data.balance, "%", "/balance") }, substance: "flesh" });
+    attributes: { balance: q(data.balance, "%", "/balance") }, substance: "flesh",
+    down: { kind: "low", root: data.down.root, height: q(data.down.height, "1", "/down/height"), up: q(data.down.up, "1", "/down/up") } });
 }

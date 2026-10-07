@@ -5,7 +5,7 @@ import { buildBody } from "../build/build-body.ts";
 import { supportEntryReading } from "../control/support-entry.ts";
 import { centreOfToRef } from "../control/support.ts";
 import type { PhysicsEngine } from "../engine/engine.ts";
-import { modelSpec, type HumanoidModel as BodyModel } from "../models.ts";
+import { modelSpec, type HumanoidModel } from "../models.ts";
 import { FIGHTER } from "../mind/config.ts";
 import { createPolicyBody } from "../mind/direct.ts";
 import { createMind } from "../mind/minds.ts";
@@ -23,7 +23,7 @@ const SETTINGS = deepFreeze({ seconds: 40, standSeconds: 1, fallSeconds: 3, impu
 
 /** Fall, acquire measured hand/shin support, and retain it under an independent policy. */
 export function createSupportEntryProbe(scene: Scene, engine: PhysicsEngine, config: {
-  readonly model: BodyModel; readonly direction: 0 | 1 | 2 | 3;
+  readonly model: HumanoidModel; readonly direction: 0 | 1 | 2 | 3;
   readonly hz: number; readonly actuation: "symmetric" | "directional";
 }) {
   const pose = poses.find((p) => p.model === config.model && p.id === "fours");
