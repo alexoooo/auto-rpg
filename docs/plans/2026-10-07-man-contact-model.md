@@ -1,326 +1,194 @@
-# Man: contact anatomy, tested before it is built on
+# Man's hands on the human family
 
 ## Outcome and owner decisions
 
-Standing up and punching have been hard. One suspected cause is the body's contact layout: the
-Warrior's hand is a capsule, its foot a box fitted to a boot, and it has no toe joint. This plan
-answers whether a fitted palm, a barefoot sole and a passive toe make the support postures and
-transfers that defeat the Warrior physically possible on the game's solver. It answers the
-question with cheap diagnostics first (phase A), builds the anatomy in the core only if they come
-out positive (phase B), and ends with a measured comparison of the built body. It does not build a
-fighter, a controller or screens for the new body; that is a separate plan, written from this
-plan's result (see [After this plan](#after-this-plan)).
+Standing up and punching have been hard. One suspected cause was the body's contact layout: the
+Warrior's hand is a capsule, its foot a box fitted to a boot, and it has no toe joint. Phase A
+tested a fitted palm and fist, a barefoot sole and a passive toe with diagnostics, and failed its
+gate. The owner chose the gate's second option, applied to the human family itself, so that the
+body layer is settled once and the controller work that follows does not recalibrate for body
+changes:
 
-Kept from the owner's earlier decisions:
+- Each workshop human's hands take their fitted contact geometry from their own skin: the open
+  pose is the palm hull, the fist pose the fist hull, with the fist's `strike` point on its
+  surface. The grip pose and the shape a held item seats against stay today's capsules, so club
+  holding and its grip frame are unchanged.
+- Feet stay the boot box, with no toe joint.
+- The crypt skeleton keeps its own hands, from its own art.
+- A hand is one rigid body in every pose, with today's mass properties and surface stiffness.
+  Balance assistance is 0 everywhere. No strength changes.
 
-- Man keeps the Warrior's stature, mass, limb lengths, muscle limits, hand mass properties and
-  surface stiffness. Hand and foot contact geometry are replaced, and the existing de Leva foot
-  mass is divided between the main foot and the toes.
-- A hand is one rigid body in every pose. There are no active fingers, no active toes, no mobile
-  arch and no new damage model. Balance assistance is 0 everywhere.
-- Existing models, controller presets and game defaults stay as they are. Man is not offered
-  in the Arena, Crypt or Lab by this plan.
+The punch measurement that informed the choice is
+[Man's hands on the punch](../reference/man-punch.md).
 
-Left open, and put to the owner at gate B: whether Man stays a separate model or its contact
-geometry becomes the human family's correction (the Warrior's baseline moves, every bout's
-fingerprint changes and a new lock is taken).
+Left to the owner at [B4](#b4-the-bare-hand-blow-closes-the-fist): whether the game's own bare-hand
+blow closes the hand's collider into the fist, as the renderer already draws it.
 
-## The evidence this plan starts from
+## Phase A result
 
-The records show anatomy matters in specific places:
+Phase A landed (`2a111961`, `b43619f6`, `15e820ce`, `2f46395d`) and changed no runtime
+behavior. Its records:
 
-- The [posture audit](../reference/postures.md) finds `kneel on toes, knees light` unbalanced
-  and `half kneel, hands` with no witness. Its contacts are box corners (`ball` is the box's two
-  bottom front corners, a line) and the hand capsule's two ends. The roadmap names "the knees
-  leaving a kneel on the toes (the ankle, and a foot with no toe joint)" among the four
-  lift-offs the Warrior cannot hold.
-- The [recovery-support study](../analysis/2026-10-05-recovery-support.md) records that the
-  capsule hand's geometric endpoint candidates differ from the engine's manifold points, as a
-  lead, not an established cause.
+- [Man's contact anatomy](../reference/man-anatomy.md): the geometry artifact
+  `assets/humanoid/man-contact-geometry.json`, measured from the Warrior's skin by
+  `scripts/core/man-envelope.mjs`.
+- [Man's postures](../reference/man-postures.md): the statics on the boot, the bare foot and the
+  passive toe, and the installed holds and transfer with the palm and the bare foot.
+- [Man's passive toes](../reference/man-passive-toes.md): the toe joint on the game's solver.
 
-And they show control is a larger cause:
+Gate A failed. No posture the boot fails holds on the toe, and the bare foot loses rows, because
+it is a smaller base than the boot box. The passive toe fails on the solver at 120 and 480 Hz.
+The palm bears on more points, spread wider, than the capsule. On the punch, the fist hull
+strikes on a real surface of the fist and delivers more impulse than the capsule; the open palm
+changes nothing, because today's game blow lands with the open hand's fingertips on either
+geometry.
 
-- The whole-body tracker (`control/whole-body.ts`, which describes itself as experimental) fails
-  installed holds that independent joint feedback passes ([posture hold](../reference/posture-hold.md)).
-- The offline native-rollout controller reproduces every selected next step and still fails the
-  all-fours to half-kneel transfer (`nativeRolloutFollowups` in the study above).
-- The Warrior with the reference riser already rises empty handed in all four development
-  directions in 25 to 29 s ([recovery cycle](../reference/recovery-cycle.md)), and its standing
-  straight/cross blows qualify.
+## Phase B: the hands in the core
 
-So the anatomy question is narrow and measurable without a new controller: does it turn rows and
-transfers that fail into ones that hold, under the instruments that already exist?
-
-## Phase A: diagnostics
-
-Phase A changes no runtime behavior. It adds a geometry artifact, research variants and one task
-option. Each chunk is green and committed on its own.
-
-### A0. Contact geometry artifact and anatomy record
-
-- Add `scripts/core/man-envelope.mjs`, beside `scripts/core/workshop-envelope.mjs` and reusing
-  `scripts/core/glb.mjs`'s `readGlb` and `weightedVertices`. Read the workshop-fighter GLB's
-  `base__skin` and `bare__feet` meshes, never `boots__*`. Transform authored points through the
-  fit scale and body-frame rule the human spec already uses (`src/core/human/workshop.ts`).
-- Write `assets/humanoid/man-contact-geometry.json`, per side:
-  - `palm`: the open hand's convex hull (wrist to fingertips, palmar face fitted planar) and its
-    support patch (outline in the hand's frame, outward normal);
-  - `fist`: the closed hand's convex hull from the posed finger bones, with the `knuckles` and
-    `strike` points on its distal face;
-  - `foot`: the barefoot main foot's convex hull, cut at the rig's `ball_*` bone head, and its
-    sole patch;
-  - `toes`: the toe hull distal to that cut and its toe-pad patch;
-  - `mtp`: the hinge centre and transverse axis at the `ball_*` head;
-  - `rigidFoot`: the hull of `foot` and `toes` together at the neutral toe angle;
-  - each foot piece's solid volume, centre and unit-mass inertia tensor.
-- The de Leva foot mass is divided between `foot` and `toes` by volume, a uniform-density
-  approximation stated in the record. Hand mass properties stay those of the existing hand.
-- Write `docs/reference/man-anatomy.md`: inputs, fitting rules, approximations, the toe spring's
-  sources (below) and raw measurements. Add `SOURCES` entries (`src/core/sources.ts`) for the
-  artifact and the two spring sources.
-- Toe spring inputs, recorded as prototype values: neutral rest angle, 25 N m/rad stiffness and
-  2 N m s/rad damping from [Falisse et al.](https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0256311);
-  stop bounds of about -90 to +90 degrees from the [OpenSim Gait2392 coordinate interval](https://github.com/opensim-org/opensim-models/blob/master/Models/Gait2392_Simbody/gait2392_thelen2003muscle.osim),
-  which that model does not clamp, so the bounds are a prototype choice, not a measured range.
-- Test: `tests/man-envelope.test.mjs` re-runs the script and compares the artifact, and checks
-  handedness (left mirrors right), palm patch area against the hull's palmar face, convexity,
-  and that `foot` and `toes` meet at the hinge without overlap beyond 1 mm.
-
-As built: the artifact is at the authored size, like the trunk hulls, and a spec scales it by
-`FIT_SCALE`. The hands are skinned through `scripts/lab/fist-probe.mjs`, which needed `FIST` to
-move from `src/render/skin.ts` to `src/render/fist.ts`. The palm patch lies on the hull's
-largest face within 45° of palmar, because the most palmar plane touches the hollow palm in only
-0.7 cm². The hinge lies at the middle of the cut's height, because the rig's ball head is 9 mm
-above the ground. The source keys are `man-contact-geometry`, `falisse-2022-toes` and
-`opensim-gait2392-mtp`. `docs/reference/man-anatomy.md` holds the numbers.
-
-### A1. Statics with fitted contacts and a passive toe
-
-Extend the posture audit's statics (`research/core-posture-trials.mjs`, instrument A) with an
-`--envelopes` axis beside `--variants`, in `research/core-posture.mjs`:
-
-- `boot`: today's `contactsOf`, unchanged.
-- `barefoot`: `envelopeSpec(spec, "barefoot")`, a research transform like `strippedSpec`, puts
-  `rigidFoot` as each foot's shape and `palm` as each hand's shape; mass properties are not
-  touched (a shape carries no mass, `SegmentSpec.shape`). `contactsOf` reads the sole patch's
-  outline for `sole`, the toe-pad outline's front edge for `ball`, and the palm patch outline
-  for `hand`.
-- `toe`: as `barefoot`, with the toe pad posed about `mtp` by one more knob, the toe angle,
-  within the prototype bounds. The toe is massless here and its mass stays in the foot (stated).
-  Toe-pad forces act on the foot as rigidly attached, plus one equality row in the linear
-  programme: the toe-pad forces' moment about the hinge axis equals the spring moment
-  `stiffness * (angle - rest)`, with a free stop reaction of the right sign at a bound.
-  `lowsOf` includes the posed toe hull.
-
-Run every row of `ROWS` on all three envelopes, built variant, both frictions, the same seeds and
-evaluation budget as the existing audit. Record `docs/reference/man-postures.md`: per row and
-envelope, the verdict, least share, support margin and toe angle, and the witnesses as postures
-under `research/runs/postures/`. Statics are one-sided: a held row is a witness, "none found"
-is not "none".
-
-Test: extend `tests/research-posture.test.mjs` with a fixture where `boot` is unbalanced and `toe` holds
-(`kneel on toes, knees light`), and a mutation that drops the spring row and must change the
-`toe` answer.
-
-As built: the envelopes have their own runner, `research/man-postures.mjs`, sharing its worker
-pool with `core-posture.mjs` (`research/core-posture-runs.mjs`). The spring's equality is a band
-(`TOE_ON`, 0.02 rad), the front touches are the lowest of the ball and the toes rather than both
-down at once, and a toe is searched only where the row bears on its foot's front: without these
-the first toe run failed rows the bare foot held with the toes at rest. A row an envelope holds
-nothing of is searched again from the other envelopes' witnesses, which found `half kneel, hands`
-on the boot. The cone re-reads each box witness rather than searching. No row is unbalanced on
-the boot and held on the toe, so the fixture is the toe's witness of `squat on toes @ 0.60 m`,
-which neither rigid foot holds. The test tilts both toes 0.2 rad, and the ground's moment must
-follow the spring there, which the mutation fails. `docs/reference/man-postures.md` holds the
-tables.
-
-### A2. The toe joint on the game's solver
-
-Add `research/man-toe-solver.mjs`, a fixture built directly through `rapierModule`
-(`src/core/engine/rapier.ts`), outside the core:
-
-- a leg body carrying half the Warrior's mass less one foot, on an ankle revolute held by a
-  velocity motor capped at the ankle muscle's peak; the `foot` hull; the `toes` hull on an
-  impulse revolute at `mtp` with the prototype limits and a ForceBased position motor
-  (`configureMotorModel`, `configureMotorPosition`) at the A0 spring values; the ordinary ground.
-- Load cases: flat stance; heel raised onto the toe pad with the load ramped from zero to full
-  over 1 s and held 3 s; and the toe dorsiflexed near its bound as in a kneel on the toes.
-- Configurations: 120 Hz with `SOLVER`'s iterations; 480 Hz, read at 120 Hz spacing; 120 Hz
-  with four times the iterations; the toe locked by a fixed joint; and a single `rigidFoot` body.
-- Readings: hinge separation, toe angle against the static prediction from the measured toe-pad
-  moment, peak-to-peak toe angle over the last second, the fixture's total mechanical energy
-  over the hold, and the spring's impulse.
-
-Declared engineering acceptance at 120 Hz with the game's iterations: hinge separation at most
-1 mm, steady toe angle within 0.05 rad of the static prediction, peak-to-peak at most 0.01 rad,
-no rise in total energy over the hold beyond 1 % of the spring's stored energy, and the 480 Hz
-run within the same tolerances. Record `docs/reference/man-passive-toes.md` with the full table,
-including failures.
-
-As built: the leg body and the ankle's velocity motor made the foot creep along the ground at up
-to 8 mm/s, the rigid foot as much as the cut one, so the load sits on the foot at the ankle centre
-and the foot's turn is held; the record keeps the first fixture's finding. A control case lifts
-the toes clear with a known moment, and two more configurations multiply the toes' mass and
-moments by 10 and 100 at their own weight, to test the cause. Friction is not in the measured
-moment: Rapier's default profile applies it over the patch, not per point. The toe fails its
-acceptance at 120 Hz and at 480 Hz under every load; the locked toe sinks and creeps too; the
-rigid foot passes; toes ×100 meet the spring's law and still chatter in the kneel.
-
-### A3. Engine holds and transfer with the fitted palm
-
-The passive toe needs core support that phase B builds, so this chunk tests the palm and the
-barefoot sole with a rigid toe, which need none: `hull` is an existing `ShapeSpec` kind and
-`build/hand-poses.ts` swaps any shape.
-
-- `src/core/tasks/posture-hold.ts` accepts an optional anatomy override (`spec`) and an optional
-  starting placement; omitted, everything is as today, including the direct controller's
-  measured traces. The task's environment identity includes the override.
-- `research/native-posture-control.mjs` takes `--envelope boot|barefoot` and `--transfer`, which
-  makes the archived all-fours to half-kneel transfer (`nativeRolloutFollowups`) a durable
-  option: two seconds' hold, six seconds' smoothstep interpolation, ten seconds' hold.
-- Starts for `barefoot` come from A1's witnesses for `fours`, `half kneel` and `squat`, placed
-  with `placeLike`; `boot` keeps `assets/research/posture-holds.json`.
-- Run, for both envelopes: the direct posture-hold suite
-  (`research/control-foundation.mjs --suite posture-hold`), the native-rollout hold of each
-  posture, and the native-rollout transfer. Read the loaded manifold points per hand and their
-  spread, beside drift and effort.
-
-Record the results in `docs/reference/man-postures.md`, naming harness, engine revision, rate,
-loadout and assistance. Test: `tests/core-posture-hold.test.mjs` gains an override case, and the
-existing cases' traces stay identical.
-
-As built: the starts are placements in `docs/reference/man-postures.json`, which
-`research/man-posture-starts.mjs` writes from the statics' barefoot witnesses and checks by
-building each in a world of its own (within 4e-8 m), since the task builds its own body and
-`placeLike` places one already built. The barefoot squat is at 0.60 m: no barefoot squat at
-0.50 m holds. The direct suite takes `--envelope`, the barefoot jobs alone carrying it in their
-identity. The hands are read from each hand's ground manifolds that pushed, points within 1 mm of
-the ground. Fours holds on both envelopes; the barefoot half kneel falls where the boot's holds
-under the native rollouts, because the bare foot is a smaller base than the boot's box (the
-boot's own half-kneel angles ask twice the share barefoot); the transfer fails on both; the palm
-bears on about four points to the capsule's three and keeps its spread as the hands turn.
-
-### Gate A
-
-Continue to phase B if all of these hold:
-
-1. A1: with `toe`, at least one route row that fails on `boot` holds (`kneel on toes, knees
-   light` or `half kneel, hands`), and no row held on `boot` is lost.
-2. A2: the passive toe meets its acceptance at 120 Hz. If only the locked toe or `rigidFoot`
-   does, phase B builds Man without a toe joint and skips B2.
-3. A3: `barefoot` holds the installed postures no worse than `boot` (drift and failures), and
-   the palm carries load on more, wider-spread manifold points than the capsule. If the palm is
-   no better, phase B keeps the capsule hand poses.
-
-If gate 1 fails, stop. The anatomy is not the obstacle these instruments can see. Put the result
-and the choice to the owner: stop the Man model, or build it for the punching geometry alone.
-
-## Phase B: Man in the core
-
-Phase B changes shared runtime. Before B1, capture a pinned runtime behavior lock with
-`scripts/fingerprint.mjs` from a fixed `git archive` snapshot of the current commit, including
-the landed Crypt foe targeting, down timing and spec-defined guard labels. Every chunk keeps
-every existing case bit-identical.
+Phase B changes shared runtime. Each chunk lands green and is committed on its own.
 
 Constraints carried into every chunk:
 
-- `src/core/man/` owns anatomical input and construction only. There is no Man runtime,
-  physics loop, fighter or equipment path. `PhysicalBody`, `buildBody`, `hostedBody` and
-  `World.step` are kept as they are.
-- Man is constructed from shared calibration inputs, never by spreading `humanoidSpec(...)`.
-- `commandable`'s box-foot contract stays; Man is not commandable, and nothing forces the
-  reference controller onto it.
-- Body-specific names live in anatomical data. New code reads effectors, the body tree and
-  `BodySpec.marks`, not private lists of segment names.
+- **A hand's `shape` stays today's open capsule.** It is what a held item seats against
+  (`rigidOf` builds a held compound from it, `handShapeAt` returns it for a held grip) and what
+  `grip.ts` reads. The empty hand's colliders are its poses (`handPoses`).
+- Hand geometry is data on the figure, by model. A figure without fitted hands builds today's
+  capsule poses. No reader names a model.
+- Every number is a sourced `Quantity`: hull points and patch centres come from their artifact
+  through `sourced` and the fit scale through `derive`, as `research/man-hands.mjs` does.
 
-### B1. Hand envelopes
+### B0. The behavior lock
 
-Only if gate A kept the palm. Put the `palm` hull as Man's `open` hand pose and `fist` as `fist`.
-`grip` keeps the existing capsule grip envelope, so the qualified club holding and its grip
-frame are unchanged. The hand stays one collider and the hand-pose swap is unchanged. Add the
-grip channel and a multi-piece hand later, and only if punching or club work needs it.
+Before B1, take a pinned runtime lock from a `git archive` snapshot of the commit B1 starts from:
 
-Tests: extend `tests/core-hand-poses.test.mjs` for hull poses: unloaded swap, a blocked swap
-deferred, mass properties and velocities unchanged, replay in a fresh world.
+```powershell
+node scripts/fingerprint.mjs --workers 12 --json research/runs/man-hands/lock-before.json
+```
 
-### B2. Passive joints and coordinate mapping
+B1 and B2 must compare equal to it (`--compare`). B3 moves every case that builds a workshop
+human. Take `research/runs/man-hands/lock-after.json` at B3's commit, and hold B4 and B5 to it,
+or to B4's own lock if B4 lands.
 
-Only if gate A kept the passive toe.
+### B1. Hand artifacts for both workshop humans
 
-- `src/core/spec/body.ts`: `DofSpec` becomes a union, a muscular freedom
-  (`muscle: MuscleSpec`) or a passive one (`passive: { rest, stiffness, damping }`, each a
-  sourced `Quantity`), sharing `positive`, `negative`, `axis`, `min`, `max` and `bind`. Export
-  `isPassive(dof)`. The compiler lists every reader of `dof.spec.muscle` to update.
-- `src/core/engine/engine.ts`: `EngineJoint.setSpring(k, rest, stiffness, damping)`;
-  `rapier.ts` implements it with the ForceBased position motor at A2's qualified settings.
-  `motorStepImpulse(k)` on a passive freedom reads the spring's impulse.
-- `build/passive-joints.ts` owns the spring law and its reading; the builder sets springs once
-  at construction. Springs stay active while muscles are limp, a motor release never touches
-  them, and physics snapshots restore them.
-- `muscle/driver.ts`, `observation.ts`, `mind/direct.ts`, `build/coupled-dynamics.ts` and the
-  coupled tracking path change together. Muscle and action channels hold only muscular freedoms
-  and carry their physical-coordinate index. Observations include passive motion. An action can
-  never command a passive freedom. Torque columns map to the full physical coordinates. Spring
-  loads enter predictions once and never count as muscle effort. Where the mapping is the
-  identity (every existing body), channel order and arithmetic are unchanged.
-- Tests: `tests/core-passive-joints.test.mjs` with a passive freedom between two active ones:
-  torque mapping, loaded spring response, both limits, damping, equal and opposite reaction,
-  limp behavior, zero muscle effort on the passive freedom, and restored motion in a fresh
-  world. Extend the dynamics, direct-policy and snapshot/fork suites.
+- Add `scripts/core/hand-envelope.mjs`, holding the hand measurement now in `man-envelope.mjs`'s
+  `hand`, with the model as an argument: palm hull and patch, fist hull, `knuckles`, and
+  `strike` where the wrist-to-knuckle line leaves the fist hull. It adds `palm`: the patch
+  outline's centroid on its plane, where an open hand bears. It reads `workshop-rogue`'s GLB as
+  well as `workshop-fighter`'s, since both share the rig and the `base__skin` mesh.
+  `man-envelope.mjs` imports `hand` from it and its artifact is unchanged.
+- `node scripts/core/hand-envelope.mjs --write` writes `assets/humanoid/<model>-hands.json` for
+  both models, in the body frame at the authored size, rounded to 0.1 mm.
+- `SOURCES` (`src/core/sources.ts`): `workshop-fighter-hands` and `workshop-rogue-hands`.
+- Test `tests/hand-envelope.test.mjs`: the artifacts are what the script measures; left mirrors
+  right; each hull is convex; `strike` lies on the fist hull's surface (within 0.1 mm) and
+  `knuckles` inside it; `palm` lies on the open hull's patch face; each model's `knuckles` at
+  the fit scale equal its figure's (`humanSegments`) within 0.1 mm.
+- Document the rules in `docs/reference/man-anatomy.md`, renamed `docs/reference/hand-anatomy.md`
+  if the feet and toes sections move out, with the numbers for both models.
 
-### B3. Man anatomy and presentation
+No runtime change. Checks: the new test, `tests/man-envelope.test.mjs`, `npm run check`, and the
+`src/` trio (`core-boundary`, `exports`, `comments`).
 
-- Add `src/core/man/figure.ts` and `src/core/man/spec.ts`. Reuse `spec/geometry.ts` and the
-  existing human figure, landmarks, tables, joints, muscles, speed and wounds helpers; extract
-  only a helper both constructors read. Add the two toe segments and their passive hinges (or
-  the rigid foot, per gate A). Keep total mass. Declare effectors, marks including `guards`
-  (hands and forearms), wounds and the down rule; toe contact never reads as down.
-- Draw Man through the existing `drawBody` path (`src/render/body-shapes.ts`) on the stand:
-  applied hand geometry and moving toe geometry. No model registration, skin or screen.
-- Tests: `tests/core-man.test.mjs` checks the whole spec and its provenance
-  (`specProvenanceFaults`), mass accounting, positive tensors, bind alignment, and geometric
-  nonadjacent clearance under direct and limp fixtures. Extend the render tests for pose
-  updates and an independently moving toe.
+### B2. Pose-correct construction and readers
 
-### B4. The anatomy comparison
+Bit-identical against `lock-before.json`. Every change here is a no-op while every pose is a
+capsule and `shape` equals the open pose.
 
-Run A1's statics on Man as built, and A3's suite on four bodies: Warrior with the boot, Man,
-Man with the toe locked, and Man with capsule hands. Add the installed holds of
-`kneel on toes, knees light` and `half kneel, hands` from A1's witnesses, and a native-rollout
-transfer from `kneel on toes` to `kneel on toes, knees light`. Same tasks, rate, solver,
-strength, friction and zero assistance throughout. Keep every trial, including failures and
-timeouts.
+- `src/core/build/build-body.ts` (`buildSegment`): build the physical body from the initial
+  pose's rigid configuration (`poses[initial].rigid`), not from `rigidOf`'s, so the collider
+  matches `handPose.applied` from the first step.
+- `src/core/mind/rise/limbs.ts` (`endOf`, `endLimb`): a hull pose bears where its lows do. Its
+  corners within `DOWN` of the ground bear at their mean, otherwise at the lowest corner, with a
+  radius of 0, through `lowsOf` (`src/core/control/ground.ts`). For two capsule ends this is
+  today's rule. Keep the capsule path's arithmetic and order as it is, so the lock holds.
+  `src/core/mind/rise/stages.ts` (`onEnd`) accepts a hand whose poses are hulls.
+- `src/render/body-shapes.ts`: draw a posed hand from its applied pose, not `spec.shape`, and
+  swap to a hull mesh without reading a null `rotationQuaternion` (a hull mesh needs one set
+  when it is made).
+- `src/core/control/whole-body.ts`: take each hand's lift-off radius from its applied pose at
+  each read, not once at construction.
+- Tests, each on a spec carrying B1's hulls as a fixture (`tests/fixtures/`), not yet the game's:
+  - `tests/core-hand-poses.test.mjs`: unloaded swap between hulls, a blocked swap deferred, mass
+    properties and velocities unchanged, replay in a fresh world, and the first step's collider
+    is the open hull;
+  - `tests/core-rise.test.mjs`: an end limb on a palm hull bears at its corners' mean when they
+    are down;
+  - the render test in `tests/core-hand-poses.test.mjs` swaps to and from a hull.
 
-Record `docs/reference/man-contact.md`. Name harness, full engine revision, rate, loadout and
-assistance in every figure. These are finite capability fixtures, not a recovery success rate.
-Report each ablation separately; do not credit a difference to the toe that the palm made, or
-the reverse.
+Checks: `npm test`, `npm run check`, `npm run build`, and `scripts/fingerprint.mjs --compare
+research/runs/man-hands/lock-before.json`, which must report no difference.
 
-Extend `scripts/fingerprint.mjs` with named Man stand cases (built, limp, held posture) and keep
-every old case. Update `docs/architecture.md` and `docs/roadmap.md` with what was built and
-measured. Put the end-state choice above to the owner. Then delete this plan.
+### B3. The workshop humans' hands
 
-## After this plan
+- `src/core/human/figure.ts`: `HumanFigure` gains optional `hands`, per side `palm` (hull points,
+  `palm` point) and `fist` (hull points, `strike`), each a sourced `Quantity`.
+  `src/core/human/workshop.ts` fills it from `<model>-hands.json` at the fit scale;
+  `src/core/human/skeleton.ts` leaves it out.
+- `src/core/human/segments.ts` (`humanSegments`): with `figure.hands`, a hand's `handPoses` are
+  `{ open: palm hull, fist: fist hull, grip: the capsule fist }`, `shape` stays the open capsule,
+  and `points` gain `strike` from the artifact and `palm`. Without it, everything is as today.
+- Delete `research/man-hands.mjs` and `punchStand`'s `hands` option once the game's spec carries
+  the hulls. `tests/research-man-hands.test.mjs` becomes a case of `tests/core-human.test.mjs`.
+- Tests in `tests/core-human.test.mjs`:
+  - provenance (`specProvenanceFaults`) of both workshop specs;
+  - the open and fist hulls clear the thigh and the trunk in the reference pose, measured
+    geometrically;
+  - `strike` is on the fist hull;
+  - the skeleton's hands are unchanged.
+  Update the tests that pin the capsule hand's poses (`tests/strike-pad.test.mjs`'s open-to-closed
+  reach, and `tests/core-ground.test.mjs`'s lone hand) to read the poses they mean.
+- Take `research/runs/man-hands/lock-after.json`. Every workshop case moves; the skeleton's
+  stand cases must not.
 
-If B4 shows postures or transfers that hold on Man and fail on the Warrior, the next plan builds
-the controller that uses them: a selectable path-fighter motion, a contact recovery sub-mind
-whose route B4 has shown to be feasible, grouped-support readiness, and the Lab and Arena
-integration. The earlier draft of this plan (`docs/plans/2026-10-07-man-contact-model.md@42cd1e5a`)
-holds the integration analysis for that work: `CONTROLLERS` compatibility, `models.ts` defaults,
-`fields.ts` readers, `enlist`, `labActor`, guard labeling and the qualification gates.
+Checks: the full gate below.
+
+### B4. The bare-hand blow closes the fist
+
+The owner's choice. Today no game controller closes the hand. A bare-hand blow aims the knuckles
+(`aimOf`) and lands with the open hand's fingertips, about 9 cm past the knuckles, while the
+renderer draws a fist (`src/render/strike-hands.ts`). With B3's palm, the fingers that strike are
+straight.
+
+If chosen: a bare hand closes for its strike cycle and aims `strike` in every combat skill set,
+the part of `physicalFists` that is about the hand. The impact response stays as it is today
+(`impactSeconds`, `impactTravel` and `normalAlignment` remain research settings). In
+`src/core/skills/combat.ts`, `CombatExecution` splits into the hand's closing, which is on
+whenever the hand is bare, and the optional impact response. `effector-feedback.ts` already
+reads `strike` in the fist. Tests: `tests/core-combat-*.test.mjs` cases assert that a bare hand
+is in `fist` during `swing` and `open` in guard, for both hands. Every bout's fingerprint moves:
+take a new lock.
+
+If not chosen, B4 is skipped and the record says the game strikes with the open hand.
+
+### B5. Recalibrate once
+
+Re-measure, on the built body, the records whose claims rest on the hand, and update them in
+place with the harness commit:
+
+- the force battery (`research/attack-force.mjs`): `docs/reference/attack-force.json.gz`,
+  `docs/reference/trained-attack-force.md`;
+- the punch calibration (`research/punch-calibration.mjs`): `docs/reference/punch-calibration.md`
+  and its JSON;
+- the recovery cycle: `docs/reference/recovery-cycle.md` and its JSON, since the hands bear in
+  the rise;
+- the installed holds (`research/control-foundation.mjs --suite posture-hold`):
+  `docs/reference/posture-hold.md` and its JSON;
+- the presets against Classic: `docs/reference/controller-presets.md` and its JSON.
+
+A record that cites a figure measured before B3 and is not re-measured keeps its harness commit,
+which already dates it. Update `docs/architecture.md` (the hand's poses and where their geometry
+comes from) and `docs/roadmap.md`. Then delete this plan.
 
 ## Landing each chunk
 
-Phase A chunks that touch only research, scripts, assets and documents: run the chunk's tests,
-`npm run check`, and, where `src/` changes (A0's `SOURCES`, A3's task option),
-`node --test tests/core-boundary.test.mjs tests/exports.test.mjs tests/comments.test.mjs`.
 Phase B chunks change shared runtime:
 
 ```powershell
 npm test
 npm run check
 npm run build
-node scripts/fingerprint.mjs --compare <runtime-lock.json>
+node scripts/fingerprint.mjs --workers 12 --compare <lock.json>
 git diff --numstat
 git diff --ignore-cr-at-eol --numstat
 ```

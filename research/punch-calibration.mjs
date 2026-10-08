@@ -2,15 +2,16 @@ import { pathToFileURL } from 'node:url';
 import { writeFileSync } from 'node:fs';
 import { gzipSync } from 'node:zlib';
 import { parseArgs } from 'node:util';
-import { Vector3 } from '@babylonjs/core/Maths/math.vector.js';
+import { Quaternion, Vector3 } from '@babylonjs/core/Maths/math.vector.js';
 import { coreStand } from '../tests/harness/core-stand.mjs';
 import { modelSpec } from '../src/core/models.ts';
+import { handsSpec } from './man-hands.mjs';
 import { createBody, SERVO_SECONDS } from '../src/core/body.ts';
 import { DEFAULT_ENGINE } from '../src/core/engine/engines.ts';
 import { NO_COVER } from '../src/core/mind/intent.ts';
 import { combatSkills } from '../src/core/skills/combat.ts';
 import { ATTACK_PATH } from '../src/core/skills/attack-path.ts';
-import { motionAtToRef, pointOfToRef } from '../src/core/control/support.ts';
+import { motionAtToRef, pointOfToRef, turnOfToRef } from '../src/core/control/support.ts';
 import { rigidPoints } from '../src/core/build/rigid.ts';
 import { contactMass } from '../src/core/build/contact-mass.ts';
 import { combatFingerprint } from './arena-combat.mjs';
@@ -41,12 +42,12 @@ export function approachSpeed(history, distance = HUMAN_PUNCH.speedDistance) {
 
 /** The real unassisted Warrior executor, with a detached target and an independent impulse sensor. */
 export async function punchStand({hand='right',family='straight',hz=120,seconds=6,ahead=.6,height=1.63,
-  contactSpeed=5,armExtension=0,mode='hit',pad={},paths={},execution,matchedFeedback=false,actuation} = {}) {
+  contactSpeed=5,armExtension=0,mode='hit',pad={},paths={},execution,matchedFeedback=false,actuation,hands='capsule'} = {}) {
   if (!['left','right'].includes(hand) || !['straight','cross'].includes(family) || !['hit','miss'].includes(mode)
     || ![120,240,480,960,1920].includes(hz) || ![seconds,ahead,height,contactSpeed,armExtension].every(Number.isFinite)
     || seconds<=2 || ahead<=0 || contactSpeed<=0 || armExtension<0 || armExtension>1) throw new Error('invalid punch calibration');
-  const config={hand,family,hz,seconds,ahead,height,contactSpeed,armExtension,mode,pad,paths,execution,matchedFeedback,actuation};
-  const s=await coreStand(modelSpec('workshop-fighter'),{engine:DEFAULT_ENGINE,hz,actuation});
+  const config={hand,family,hz,seconds,ahead,height,contactSpeed,armExtension,mode,pad,paths,execution,matchedFeedback,actuation,hands};
+  const s=await coreStand(handsSpec(modelSpec('workshop-fighter'),hands),{engine:DEFAULT_ENGINE,hz,actuation});
   let sensor;
   const body=createBody(s.built,s.world,{servoSeconds:SERVO_SECONDS,feedback:true,
     ...(matchedFeedback?{contactIdentity:other=>other===sensor?.body?{kind:'object',id:'punch-pad'}:other?null:{kind:'world'},
@@ -99,7 +100,8 @@ export async function punchStand({hand='right',family='straight',hz=120,seconds=
         last10cmSpeed:approachSpeed(state.history.filter(sample=>sample.time>=state.launchTime)),
         freeJointMass:contact?masses.along(limb,contact.point,contact.normal):material?masses.along(limb,material.point,[0,0,1]):null,samples:[],
         contactGeometry:{point:contact?.point??material?.point??null,normal:contact?.normal??[0,0,1],
-          offset:Vector3.Distance(point,new Vector3(...(contact?.point??material?.point??point.asArray())))},truncated:false};
+          offset:Vector3.Distance(point,new Vector3(...(contact?.point??material?.point??point.asArray()))),
+          rest:restPoint(limb,contact?.point??material?.point??null)},truncated:false};
       state.active.deliveredTorque={time:s.world.time,torques:Array.from(body.muscles.pulled),
         bounds:structuredClone(body.muscles.bounds)};
       state.seenLaunch=state.launch;
@@ -136,7 +138,7 @@ export async function punchStand({hand='right',family='straight',hz=120,seconds=
       if(body.assist.meter.force||body.assist.meter.moment)faults.push('assistance');
       const best=clean.length>=3?clean.slice(0,3).reduce((a,b)=>a.impulse>=b.impulse?a:b):null;
       return {config,target,harness:{kind:'Node unpinned core stand',engine:DEFAULT_ENGINE,revision:s.world.physics.revision,
-        hz,actuation:s.world.actuation,model:'workshop-fighter',held:'empty',balance:0},
+        hz,actuation:s.world.actuation,model:'workshop-fighter',hands,held:'empty',balance:0},
         apparatus:{...sensor.config,damping:sensor.damping,normal:[0,0,1],gravity:false,rotation:'locked',translation:'normal only'},
         human:HUMAN_PUNCH,impacts,samples:structuredClone(state.samples),fell:state.fell,floorContacts:state.floorContacts,
         cycles:structuredClone(skills.report.strike.pointCycle),head:body.view.head.asArray(),
@@ -149,6 +151,14 @@ export async function punchStand({hand='right',family='straight',hz=120,seconds=
     },
     dispose(){before.dispose();after.dispose();effortHook.dispose();sensor.dispose();body.dispose();s.dispose();},
   };
+}
+
+/** A world point carried back into a segment's reference pose, where its spec's points are written. */
+function restPoint(segment,point) {
+  if(!point)return null;
+  const turn=turnOfToRef(segment,new Quaternion()).conjugateInPlace(),origin=segment.frame.origin;
+  return new Vector3(...point).subtractInPlace(segment.node.position).applyRotationQuaternionInPlace(turn)
+    .addInPlaceFromFloats(origin[0],origin[1],origin[2]).asArray();
 }
 
 /** Average fine-step impulses in clock-aligned coarse bins; a fine spike is not a coarse force. */
