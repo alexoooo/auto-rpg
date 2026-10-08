@@ -1,7 +1,7 @@
 {
  "study": "docs/analysis/2026-10-08-punch-and-rise-speed.md",
  "code": "38cdc1cb",
- "note": "Probes ran from copies of the tree at 38cdc1cb with the named patches applied. Paths are as they were run, under research/runs/punch/.",
+ "note": "Probes ran from copies of the tree at 38cdc1cb with the named patches applied. Paths are as they were run, under research/runs/punch/. The capacity and push searches and their re-runs ran on the tree at f55820e1 unpatched (src as at 38cdc1cb).",
  "patches": {
   "torso-carried.patch": "diff --git a/src/core/body.ts b/src/core/body.ts\nindex 84c17dea..906e2e6e 100644\n--- a/src/core/body.ts\n+++ b/src/core/body.ts\n@@ -324,7 +324,7 @@ const sameGoal = (a: EffectorGoal, b: EffectorGoal): boolean =>\n   && (a.curve === b.curve || (a.curve !== undefined && b.curve !== undefined && a.curve.every((v, k) => v === b.curve![k])))\n   && (a.orientation === b.orientation || (a.orientation !== undefined && b.orientation !== undefined\n     && a.orientation.seconds === b.orientation.seconds && a.orientation.target.every((v, k) => v === b.orientation!.target[k])))\n-  && a.sequence === b.sequence\n+  && a.sequence === b.sequence && a.carried === b.carried\n   && a.seconds === b.seconds && a.through === b.through && a.follows === b.follows && a.places.length === b.places.length\n   && a.places.every((place, i) => place.point === b.places[i]!.point && place.position.every((v, k) => v === b.places[i]!.position[k]));\n \ndiff --git a/src/core/control/effector-tracker.ts b/src/core/control/effector-tracker.ts\nindex f7afd7fa..906370d8 100644\n--- a/src/core/control/effector-tracker.ts\n+++ b/src/core/control/effector-tracker.ts\n@@ -40,6 +40,12 @@ export interface EffectorGoal {\n   readonly curve?: Vec3;\n   /** Identity of a moving path segment; changing it starts a new path. */\n   readonly sequence?: number;\n+  /**\n+   * Whether the chain's held freedoms (an arm's trunk) are read where the body has them, not at the\n+   * posture's angles: the path is then the point's from the root as the trunk actually carries the\n+   * limb, and a trunk turning under a blow speeds its point rather than throwing it off its line.\n+   */\n+  readonly carried?: boolean;\n   /** Independent segment turn since reference, in the root frame, on a smooth finite path. */\n   readonly orientation?: { readonly target: readonly [number, number, number, number]; readonly seconds: number };\n }\n@@ -198,7 +204,7 @@ export function effectorTracker(built: BuiltBody, root: BuiltSegment) {\n       // The held freedoms at the posture's angles, the free ones drawn toward it.\n       limb.chain.forEach((joint, j) => {\n         if (limb.free.some((f) => f.joint === j)) return;\n-        names(joint).forEach((name, k) => { m.angles[j]![k] = fromActual ? driver.angle(driver.channel(name)) : pose[name] ?? 0; });\n+        names(joint).forEach((name, k) => { m.angles[j]![k] = fromActual || m.goal!.carried ? driver.angle(driver.channel(name)) : pose[name] ?? 0; });\n       });\n       for (const f of limb.free) f.preferred = pose[f.name] ?? 0;\n       if (!m.started) {\ndiff --git a/src/core/skills/attack-path.ts b/src/core/skills/attack-path.ts\nindex 01c06828..7909b099 100644\n--- a/src/core/skills/attack-path.ts\n+++ b/src/core/skills/attack-path.ts\n@@ -24,14 +24,18 @@ export function validAttackTuning(tuning: AttackTuning): boolean {\n     && validArmExtension(tuning.elbowExtension);\n }\n \n-/** A chamber and contact velocity from the actual guard and observed target, in the body frame. */\n+/**\n+ * A chamber and contact velocity from the actual guard and observed target, in the body frame, and\n+ * the trunk's turn (`thoracic rotation right`, rad) the swing asks: a cross or a hook turns the trunk\n+ * away from its hand's side, bringing that shoulder forward, and its chamber the other way.\n+ */\n export function attackPath(home: Vec3, target: Vec3, hand: Side, family: BlowFamily, tuning: AttackTuning = ATTACK_PATH, direction?: Vec3) {\n   const side = hand === \"right\" ? 1 : -1;\n   let chamber: Vec3, torso: number, seconds = tuning.swingSeconds;\n   switch (family) {\n     case \"straight\": chamber = [home[0], home[1], home[2] - tuning.windup]; torso = 0; break;\n-    case \"cross\": chamber = [home[0] + side * tuning.across, home[1], home[2] - tuning.windup]; torso = side * tuning.torso; break;\n-    case \"hook\": chamber = [home[0] + side * tuning.windup, home[1], home[2]]; torso = side * tuning.torso; seconds = tuning.hookSeconds; break;\n+    case \"cross\": chamber = [home[0] + side * tuning.across, home[1], home[2] - tuning.windup]; torso = -side * tuning.torso; break;\n+    case \"hook\": chamber = [home[0] + side * tuning.windup, home[1], home[2]]; torso = -side * tuning.torso; seconds = tuning.hookSeconds; break;\n     case \"downward\": chamber = [home[0], home[1] + tuning.windup, home[2]]; torso = 0; break;\n     case \"overhand\": chamber = [home[0], home[1] + tuning.overhandWindup, home[2] - tuning.windup]; torso = 0; break;\n     case \"uppercut\": chamber = [home[0], home[1] - tuning.uppercutWindup, home[2] - tuning.windup]; torso = 0; seconds = tuning.uppercutSeconds; break;\ndiff --git a/src/core/skills/effector-strike.ts b/src/core/skills/effector-strike.ts\nindex b33ca3b6..59ed4606 100644\n--- a/src/core/skills/effector-strike.ts\n+++ b/src/core/skills/effector-strike.ts\n@@ -106,12 +106,16 @@ export function effectorStrike(def: StrikeDef) {\n     },\n     /** How long the phase under way takes, a held contact aside. */\n     seconds,\n-    /** The point's goal in the phase under way, or through a held contact; `orientation` turns the effector as it goes. */\n+    /**\n+   * The point's goal in the phase under way, or through a held contact; `orientation` turns the\n+   * effector as it goes. It is carried (`EffectorGoal.carried`): the limb is aimed from where its\n+   * trunk is, which a blow turns.\n+   */\n     goal(course: StrikeCourse, orientation?: EffectorGoal[\"orientation\"]): EffectorGoal {\n       const { phase, impact } = state;\n       const position = impact ? impact.finish : phase === \"chamber\" ? course.chamber : phase === \"return\" ? course.home : course.target;\n       return { ...(def.response === undefined ? {} : { response: def.response }), places: [{ point: def.point, position }],\n-        seconds: impact ? def.limits.impact!.impactSeconds : seconds(course), follows: true, initialVelocity: state.velocity, sequence: state.sequence,\n+        seconds: impact ? def.limits.impact!.impactSeconds : seconds(course), follows: true, initialVelocity: state.velocity, sequence: state.sequence, carried: true,\n         ...(orientation ? { orientation } : {}),\n         ...(impact ? { terminalVelocity: STILL }\n           : phase === \"swing\" ? { terminalVelocity: course.contactVelocity, ...(course.curve ? { curve: course.curve } : {}) } : {}) };\n",
   "fast-speed.patch": "--- /dev/fd/63\t2026-10-08 00:16:10.000000000 -0400\n+++ fast-snapshot/src/core/human/speed.ts\t2026-10-07 23:58:53.718642600 -0400\n@@ -58,8 +58,13 @@\n \n function shortening(direction: Measured, sex: Sex): Pick<ForceVelocitySpec, \"unloadedSpeed\" | \"curvature\"> {\n   switch (direction) {\n-    case \"hipExtension\": case \"hipFlexion\": case \"kneeExtension\": case \"kneeFlexion\": case \"ankleDorsiflexion\":\n-      return throughTwoPoints(direction, sex);\n+    case \"hipExtension\": case \"hipFlexion\": case \"kneeExtension\": case \"kneeFlexion\": case \"ankleDorsiflexion\": {\n+      const { threeQuarters, half } = andersonPoints(direction, sex);\n+      const k = THELEN_CURVATURE.value, pts = [[threeQuarters.value, .75], [half.value, .5]];\n+      let num = 0, den = 0; for (const [w, f] of pts) { num += (1 - f) * (w + f * w / k); den += (1 - f) * (1 - f); }\n+      void throughTwoPoints;\n+      return { unloadedSpeed: derive(\"rad/s\", \"experiment\", [threeQuarters], () => num / den), curvature: THELEN_CURVATURE };\n+    }\n     case \"elbowFlexion\": case \"elbowExtension\":\n       return fittedAtCurvature(direction, sex);\n     default: { const never: never = direction; throw new Error(`no curve for ${String(never)}`); }\n",
@@ -11,12 +11,17 @@
  "sources": {
   "body.mjs": "// A punch cell with the body driven under it.\n// node body.mjs '<cell overrides>' '<drive>'\n// drive: { turn, lean (stance, rad / m, in chamber+swing), chamberTorso, swingTorso (thoracic posture),\n//          push: [[channel, sense, level?, from?, to?]] (seconds since the swing began; negative = in the chamber) }\nimport { Vector3 } from \"@babylonjs/core/Maths/math.vector.js\";\nimport { punchStand } from \"../../punch-calibration.mjs\";\nimport { PLANTED_PUNCH_EXECUTION } from \"../../../src/core/skills/combat.ts\";\nconst over = JSON.parse(process.argv[2] ?? \"{}\"), drive = { turn: 0, lean: 0, push: [], ...JSON.parse(process.argv[3] ?? \"{}\") };\nconst s = await punchStand({ hand: \"right\", family: \"straight\", hz: 960, seconds: 8, armExtension: .5, ahead: .55, height: 1.55,\n  execution: PLANTED_PUNCH_EXECUTION, matchedFeedback: true, paths: { elbowExtension: .5 }, pad: { face: \"compliant\" }, ...over });\nglobalThis.__ACTUAL = !!drive.actual;\nconst inner = s.skills.command;\nlet swingAt = null, chamberAt = null, last = null;\ns.skills.command = (view, intent, dt) => {\n  const c = inner(view, intent, dt), phase = s.skills.report.strike.phase;\n  if (phase === \"chamber\" && last !== \"chamber\") chamberAt = view.time;\n  if (phase === \"swing\" && last !== \"swing\") swingAt = view.time;\n  last = phase;\n  if (phase !== \"chamber\" && phase !== \"swing\") return c;\n  const since = phase === \"swing\" ? view.time - swingAt : view.time - chamberAt - s.skills.state.hands.right.cycle.time - 1e9;\n  const sinceSwing = phase === \"swing\" ? view.time - swingAt : -(1e-9 + (0.22 - (view.time - chamberAt)));\n  let { stance, posture, pushes } = c;\n  if (stance && (drive.turn || drive.lean)) {\n    const feet = view.stance.soles, mx = (feet.left.x + feet.right.x) / 2, mz = (feet.left.z + feet.right.z) / 2;\n    stance = { ...stance, heading: stance.heading + drive.turn, centre: drive.lean ? [mx, mz + drive.lean] : stance.centre };\n  }\n  const t = phase === \"chamber\" ? drive.chamberTorso : drive.swingTorso;\n  if (t !== undefined) posture = { ...posture, \"thoracic rotation right\": t };\n  const live = drive.push.filter(([, , , from = 0, to = 1]) => sinceSwing >= from && sinceSwing < to);\n  if (drive.free && sinceSwing >= drive.free[0] && sinceSwing < drive.free[1]) stance = null;\n  if (live.length) pushes = [...pushes, ...live.map(([channel, sense, level = 1]) => ({ channel, sense, level }))];\n  void since;\n  return { ...c, stance, posture, pushes };\n};\nconst arm = s.built.segments.get(\"upperArm.right\"), v = new Vector3();\nlet shoulderPeak = 0, fistPeak = 0; const passes = [];\nfor (let i = 0; i < 8 * 960; i++) {\n  s.step();\n  if (s.state.phase === \"swing\" && s.state.witness) { const p = s.state.witness.point, d = Math.hypot(p[0] - s.target[0], p[1] - s.target[1], p[2] - s.target[2]);\n    const k = s.state.launch; passes[k] ??= { d: 9 }; if (d < passes[k].d) passes[k] = { d: +d.toFixed(3), off: p.map((x, j) => +(x - s.target[j]).toFixed(3)), v: +s.state.witness.speed.toFixed(2) }; }\n  if (s.state.phase === \"swing\") { arm.body.linearVelocityToRef(v); shoulderPeak = Math.max(shoulderPeak, v.z); fistPeak = Math.max(fistPeak, s.state.witness?.speed ?? 0); }\n}\nconst r = s.reading(); s.dispose();\nconst clean = r.impacts.filter((e) => e.eligible && e.last10cmSpeed);\nconst mean = (f) => clean.length ? +(clean.reduce((a, e) => a + f(e), 0) / clean.length).toFixed(3) : null;\nconsole.log(JSON.stringify({ over, drive, n: clean.length, fell: r.fell, faults: r.qualification.faults, speed: mean((e) => e.last10cmSpeed), impulse: mean((e) => e.impulse),\n  peak: mean((e) => e.peakStepForce), mass: mean((e) => e.effectiveMass), shoulderPeak: +shoulderPeak.toFixed(2), fistPeak: +fistPeak.toFixed(2),\n  raw: r.impacts.map((e) => [e.contacts.join(\"+\"), +e.impulse.toFixed(1), e.truncated]), cycles: r.cycles, passes: passes.filter(Boolean), comp: +r.maximumCompression.toFixed(3) }));\n",
   "sweep.mjs": "// node sweep.mjs <out dir> <parallel> <jobs.json: [[cellOverrides, drive], ...]>\nimport { spawn } from \"node:child_process\";\nimport { mkdirSync, readFileSync, writeFileSync, existsSync } from \"node:fs\";\nimport { resolve, dirname } from \"node:path\";\nimport { fileURLToPath } from \"node:url\";\nconst here = dirname(fileURLToPath(import.meta.url));\nconst [out, parallel = \"10\", jobsFile] = process.argv.slice(2);\nconst jobs = JSON.parse(readFileSync(jobsFile, \"utf8\"));\nmkdirSync(out, { recursive: true });\nlet next = 0;\nconst one = (i) => new Promise((done) => {\n  const file = resolve(out, `${i}.json`);\n  if (existsSync(file)) return done();\n  const [cell, drive] = jobs[i];\n  const child = spawn(process.execPath, [resolve(here, \"body.mjs\"), JSON.stringify(cell), JSON.stringify(drive)], { stdio: [\"ignore\", \"pipe\", \"ignore\"] });\n  let text = \"\";\n  child.stdout.on(\"data\", (d) => { text += d; });\n  child.on(\"close\", () => { const line = text.split(\"\\n\").find((l) => l.startsWith(\"{\")); if (line) writeFileSync(file, line); done(); });\n});\nawait Promise.all(Array.from({ length: +parallel }, async () => { while (next < jobs.length) await one(next++); }));\nconst rows = jobs.map((_, i) => existsSync(resolve(out, `${i}.json`)) ? JSON.parse(readFileSync(resolve(out, `${i}.json`), \"utf8\")) : null);\nfor (const [i, r] of rows.entries()) {\n  if (!r) { console.log(i, \"no output\"); continue; }\n  console.log(i, JSON.stringify(r.over), JSON.stringify(r.drive), \"| n\", r.n, \"v\", r.speed, \"J\", r.impulse, \"F\", r.peak?.toFixed?.(0), \"m\", r.mass, \"fist\", r.fistPeak, r.faults.join(\";\"));\n}\n",
-  "cap-eval.mjs": "// One capacity trial: the combat guard stand, then from t = 2 s the listed channels pushed flat out\n// on a schedule, stance released. Scores the right hand's best forward speed at shoulder height.\nimport { Vector3 } from \"@babylonjs/core/Maths/math.vector.js\";\nimport { coreStand } from \"../../../tests/harness/core-stand.mjs\";\nimport { modelSpec } from \"../../../src/core/models.ts\";\nimport { createBody, SERVO_SECONDS } from \"../../../src/core/body.ts\";\nimport { DEFAULT_ENGINE } from \"../../../src/core/engine/engines.ts\";\nimport { NO_COVER } from \"../../../src/core/mind/intent.ts\";\nimport { combatSkills } from \"../../../src/core/skills/combat.ts\";\n\nexport const CHANNELS = [\n  \"thoracic rotation right\", \"lumbar rotation right\", \"thoracic flexion\", \"lumbar flexion\",\n  \"hip.left flexion\", \"hip.left abduction\", \"hip.left internal rotation\", \"knee.left flexion\", \"ankle.left dorsiflexion\",\n  \"hip.right flexion\", \"hip.right abduction\", \"hip.right internal rotation\", \"knee.right flexion\", \"ankle.right dorsiflexion\",\n  \"shoulder.right flexion\", \"shoulder.right abduction\", \"shoulder.right internal rotation\", \"elbow.right flexion\",\n];\nconst T0 = 2, WINDOW = .45;\n\n/** x: per channel [level in -1..1, start s, duration s]. */\nexport async function trial(x, { hz = 120, keepStance = false, model = \"workshop-fighter\", trace = false } = {}) {\n  const sched = CHANNELS.map((channel, i) => ({ channel, level: x[3 * i], from: x[3 * i + 1], to: x[3 * i + 1] + Math.max(0, x[3 * i + 2]) }))\n    .filter((p) => Math.abs(p.level) > .05);\n  const s = await coreStand(modelSpec(model), { engine: DEFAULT_ENGINE, hz });\n  const body = createBody(s.built, s.world, { servoSeconds: SERVO_SECONDS, feedback: true });\n  const skills = combatSkills(body, {});\n  body.drive((view, dt) => {\n    const c = skills.command(view, { move: null, face: 0, guard: NO_COVER, attack: null }, dt);\n    const t = view.time - T0;\n    if (t < -.25) return c;\n    const live = sched.filter((p) => t >= p.from && t < p.to)\n      .map((p) => ({ channel: p.channel, sense: p.level > 0 ? 1 : -1, level: Math.min(1, Math.abs(p.level)) }));\n    return { ...c, pushes: [...c.pushes, ...live], ...(keepStance ? {} : { stance: null }) };\n  });\n  const hand = s.built.segments.get(\"hand.right\"), trunk = s.built.segments.get(\"upperTrunk\"), v = new Vector3();\n  let best = 0, at = null, shoulderBest = 0; const traced = {};\n  for (let i = 0; i < (T0 + WINDOW) * hz; i++) {\n    s.step();\n    const t = s.world.time - T0;\n    if (t < -.25) continue;\n    hand.body.linearVelocityToRef(v);\n    const pos = hand.node.position;\n    const up = trunk.node.position.y > 1.38;\n    if (t >= 0 && up && pos.y > 1.2 && pos.y < 1.6 && pos.z - trunk.node.position.z > .3 && v.z > best) { best = v.z; at = [+t.toFixed(3), +pos.x.toFixed(2), +pos.y.toFixed(2), +pos.z.toFixed(2)]; }\n    trunk.body.linearVelocityToRef(v); shoulderBest = Math.max(shoulderBest, v.z);\n    if (globalThis.__trace && t >= -.25) { const T = globalThis.__trace; const row = [t.toFixed(3)];\n      for (const n of T.names) { const ci = body.muscles.channels.findIndex((c) => c.name === n), ch = body.muscles.channels[ci];\n        row.push(`${n.split(' ')[0].slice(0,9)} ${body.muscles.angle(ci).toFixed(2)}[${ch.dof.spec?.min?.value?.toFixed?.(2)},${ch.dof.spec?.max?.value?.toFixed?.(2)}] w${body.muscles.speed(ci).toFixed(1)} T${body.muscles.pulled[ci].toFixed(0)}`); }\n      console.log(row.join(' | ')); }\n    if (globalThis.__chatter && t >= -.25) for (const [ci, ch] of body.muscles.channels.entries()) { const C = globalThis.__chatter, w = body.muscles.speed(ci), c = (C[ch.name] ??= { last: 0, flips: 0, big: 0 });\n      if (Math.abs(w) > 1 && Math.abs(c.last) > 1 && Math.sign(w) !== Math.sign(c.last)) c.flips++; if (Math.abs(w) > 5) c.big++; c.last = w; }\n    if (trace && up && t >= -.25) for (const [ci, ch] of body.muscles.channels.entries()) {\n      const w = body.muscles.speed(ci), r = (traced[ch.name] ??= { peak: 0, peakNeg: 0, w0p: ch.positive.curve.unloadedSpeed, w0n: ch.negative.curve.unloadedSpeed, at: 0 });\n      if (w > r.peak) r.peak = w; if (w < r.peakNeg) r.peakNeg = w;\n    }\n  }\n  const down = body.view.down;\n  s.dispose?.();\n  return { score: best, at, trunk: +shoulderBest.toFixed(2), down, ...(trace ? { traced } : {}) };\n}\n",
-  "cap-opt.mjs": "// Diagonal CMA-ES over cap-eval's schedule. node cap-opt.mjs <out.json> <workers> <generations> [opts json]\nimport { Worker, isMainThread, parentPort, workerData } from \"node:worker_threads\";\nimport { writeFileSync, existsSync, readFileSync } from \"node:fs\";\nif (!isMainThread) {\n  const { trial } = await import(\"./cap-eval.mjs\");\n  parentPort.on(\"message\", async ({ id, x }) => {\n    let r; try { r = await trial(x, workerData.opts); } catch (e) { r = { score: 0, error: String(e) }; }\n    parentPort.postMessage({ id, r });\n  });\n} else {\n  const { CHANNELS } = await import(\"./cap-eval.mjs\");\n  const [out, nw = \"24\", gens = \"40\", optsJson = \"{}\"] = process.argv.slice(2);\n  const opts = JSON.parse(optsJson), n = CHANNELS.length * 3;\n  const lo = [], hi = [];\n  for (let i = 0; i < CHANNELS.length; i++) { lo.push(-1, -.3, 0); hi.push(1, .3, .45); }\n  const workers = Array.from({ length: +nw }, () => new Worker(new URL(import.meta.url), { workerData: { opts } }));\n  let nextId = 0; const waiting = new Map(), idle = [...workers], queue = [];\n  for (const w of workers) w.on(\"message\", ({ id, r }) => { waiting.get(id)(r); waiting.delete(id); idle.push(w); pump(); });\n  function pump() { while (idle.length && queue.length) { const { id, x } = queue.shift(); idle.pop().postMessage({ id, x }); } }\n  const evalx = (x) => new Promise((done) => { const id = nextId++; waiting.set(id, done); queue.push({ id, x }); pump(); });\n  // Search in unit space u in [0,1]^n.\n  const toX = (u) => u.map((ui, i) => lo[i] + (hi[i] - lo[i]) * Math.min(1, Math.max(0, ui)));\n  let m = opts.start ? opts.start.map((x, i) => (x - lo[i]) / (hi[i] - lo[i])) : Array.from({ length: n }, (_, i) => i % 3 === 0 ? .5 : .5);\n  let sigma = opts.sigma ?? .25; const C = new Array(n).fill(1);\n  const lambda = opts.lambda ?? 4 * +nw, mu = lambda >> 1;\n  const wts = Array.from({ length: mu }, (_, i) => Math.log(mu + .5) - Math.log(i + 1)); const ws = wts.reduce((a, b) => a + b); for (let i = 0; i < mu; i++) wts[i] /= ws;\n  const mueff = 1 / wts.reduce((a, w) => a + w * w, 0);\n  const cs = (mueff + 2) / (n + mueff + 5), ds = 1 + cs, cc = 4 / (n + 4), c1 = 2 / ((n + 1.3) ** 2 + mueff), cmu = Math.min(1 - c1, 2 * (mueff - 2 + 1 / mueff) / ((n + 2) ** 2 + mueff)) * (n + 2) / 3;\n  const chiN = Math.sqrt(n) * (1 - 1 / (4 * n) + 1 / (21 * n * n));\n  let ps = new Array(n).fill(0), pc = new Array(n).fill(0);\n  const gauss = () => { let u = 0, v = 0; while (!u) u = Math.random(); v = Math.random(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); };\n  let best = { score: -1 };\n  const log = [];\n  for (let g = 0; g < +gens; g++) {\n    const zs = Array.from({ length: lambda }, () => Array.from({ length: n }, gauss));\n    const us = zs.map((z) => z.map((zi, i) => Math.min(1, Math.max(0, m[i] + sigma * Math.sqrt(C[i]) * zi))));\n    const rs = await Promise.all(us.map((u) => evalx(toX(u))));\n    const fit = rs.map((r) => r.score - (r.down ? 0 : 0));\n    const order = fit.map((f, i) => i).sort((a, b) => fit[b] - fit[a]);\n    if (fit[order[0]] > best.score) best = { score: fit[order[0]], x: toX(us[order[0]]), r: rs[order[0]], g };\n    const old = m.slice();\n    m = m.map((_, i) => order.slice(0, mu).reduce((a, k, j) => a + wts[j] * us[k][i], 0));\n    const y = m.map((mi, i) => (mi - old[i]) / sigma);\n    ps = ps.map((p, i) => (1 - cs) * p + Math.sqrt(cs * (2 - cs) * mueff) * y[i] / Math.sqrt(C[i]));\n    const psn = Math.sqrt(ps.reduce((a, p) => a + p * p, 0));\n    pc = pc.map((p, i) => (1 - cc) * p + Math.sqrt(cc * (2 - cc) * mueff) * y[i]);\n    for (let i = 0; i < n; i++) {\n      let rank = 0; for (let j = 0; j < mu; j++) { const d = (us[order[j]][i] - old[i]) / sigma; rank += wts[j] * d * d; }\n      C[i] = (1 - c1 - cmu) * C[i] + c1 * pc[i] * pc[i] + cmu * rank;\n    }\n    sigma *= Math.exp((cs / ds) * (psn / chiN - 1));\n    const med = fit.slice().sort((a, b) => a - b)[lambda >> 1];\n    log.push({ g, best: +fit[order[0]].toFixed(3), median: +med.toFixed(3), sigma: +sigma.toFixed(3) });\n    console.log(JSON.stringify(log.at(-1)), JSON.stringify(rs[order[0]]));\n    writeFileSync(out, JSON.stringify({ opts, best, mean: toX(m), log, channels: CHANNELS }));\n  }\n  for (const w of workers) w.terminate();\n}\n",
+  "cap-eval.mjs": "// One capacity trial: the combat guard stand, then from t = 2 s the listed channels pushed flat out\n// on a schedule, stance released. Scores the right hand's best forward speed at shoulder height.\nimport { Vector3 } from \"@babylonjs/core/Maths/math.vector.js\";\nimport { coreStand } from \"../../../tests/harness/core-stand.mjs\";\nimport { modelSpec } from \"../../../src/core/models.ts\";\nimport { createBody, SERVO_SECONDS } from \"../../../src/core/body.ts\";\nimport { DEFAULT_ENGINE } from \"../../../src/core/engine/engines.ts\";\nimport { NO_COVER } from \"../../../src/core/mind/intent.ts\";\nimport { combatSkills } from \"../../../src/core/skills/combat.ts\";\n\nexport const CHANNELS = [\n  \"thoracic rotation right\", \"lumbar rotation right\", \"thoracic flexion\", \"lumbar flexion\",\n  \"hip.left flexion\", \"hip.left abduction\", \"hip.left internal rotation\", \"knee.left flexion\", \"ankle.left dorsiflexion\",\n  \"hip.right flexion\", \"hip.right abduction\", \"hip.right internal rotation\", \"knee.right flexion\", \"ankle.right dorsiflexion\",\n  \"shoulder.right flexion\", \"shoulder.right abduction\", \"shoulder.right internal rotation\", \"elbow.right flexion\",\n];\nconst T0 = 2, WINDOW = .45;\n\n/** x: per channel [level in -1..1, start s, duration s]. */\nexport async function trial(x, { hz = 120, keepStance = false, model = \"workshop-fighter\", trace = false } = {}) {\n  const sched = CHANNELS.map((channel, i) => ({ channel, level: x[3 * i], from: x[3 * i + 1], to: x[3 * i + 1] + Math.max(0, x[3 * i + 2]) }))\n    .filter((p) => Math.abs(p.level) > .05);\n  const s = await coreStand(modelSpec(model), { engine: DEFAULT_ENGINE, hz });\n  const body = createBody(s.built, s.world, { servoSeconds: SERVO_SECONDS, feedback: true });\n  const skills = combatSkills(body, {});\n  body.drive((view, dt) => {\n    const c = skills.command(view, { move: null, face: 0, guard: NO_COVER, attack: null }, dt);\n    const t = view.time - T0;\n    if (t < -.25) return c;\n    const live = sched.filter((p) => t >= p.from && t < p.to)\n      .map((p) => ({ channel: p.channel, sense: p.level > 0 ? 1 : -1, level: Math.min(1, Math.abs(p.level)) }));\n    return { ...c, pushes: [...c.pushes, ...live], ...(keepStance ? {} : { stance: null }) };\n  });\n  const hand = s.built.segments.get(\"hand.right\"), trunk = s.built.segments.get(\"upperTrunk\"), v = new Vector3();\n  let best = 0, at = null, shoulderBest = 0, wristBest = 0, wristAtBest = 0, lastZ = null; const traced = {};\n  for (let i = 0; i < (T0 + WINDOW) * hz; i++) {\n    s.step();\n    const t = s.world.time - T0;\n    if (t < -.25) continue;\n    hand.body.linearVelocityToRef(v);\n    const pos = hand.node.position;\n    const wz = lastZ === null ? 0 : (pos.z - lastZ) * hz; lastZ = pos.z;\n    const up = trunk.node.position.y > 1.38;\n    if (t >= 0 && up && pos.x > (globalThis.__laneLo ?? -9) && pos.x < (globalThis.__laneHi ?? 9) && pos.y > 1.2 && pos.y < 1.6 && pos.z - trunk.node.position.z > .3 && wz > wristBest) wristBest = wz;\n    if (t >= 0 && up && pos.x > (globalThis.__laneLo ?? -9) && pos.x < (globalThis.__laneHi ?? 9) && pos.y > 1.2 && pos.y < 1.6 && pos.z - trunk.node.position.z > .3 && v.z > best) { best = v.z; wristAtBest = wz; at = [+t.toFixed(3), +pos.x.toFixed(2), +pos.y.toFixed(2), +pos.z.toFixed(2)]; }\n    trunk.body.linearVelocityToRef(v); shoulderBest = Math.max(shoulderBest, v.z);\n    if (globalThis.__trace && t >= -.25) { const T = globalThis.__trace; const row = [t.toFixed(3)];\n      for (const n of T.names) { const ci = body.muscles.channels.findIndex((c) => c.name === n), ch = body.muscles.channels[ci];\n        row.push(`${n.split(' ')[0].slice(0,9)} ${body.muscles.angle(ci).toFixed(2)}[${ch.dof.spec?.min?.value?.toFixed?.(2)},${ch.dof.spec?.max?.value?.toFixed?.(2)}] w${body.muscles.speed(ci).toFixed(1)} T${body.muscles.pulled[ci].toFixed(0)}`); }\n      console.log(row.join(' | ')); }\n    if (globalThis.__chatter && t >= -.25) for (const [ci, ch] of body.muscles.channels.entries()) { const C = globalThis.__chatter, w = body.muscles.speed(ci), c = (C[ch.name] ??= { last: 0, flips: 0, big: 0 });\n      if (Math.abs(w) > 1 && Math.abs(c.last) > 1 && Math.sign(w) !== Math.sign(c.last)) c.flips++; if (Math.abs(w) > 5) c.big++; c.last = w; }\n    if (trace && up && t >= -.25) for (const [ci, ch] of body.muscles.channels.entries()) {\n      const w = body.muscles.speed(ci), r = (traced[ch.name] ??= { peak: 0, peakNeg: 0, w0p: ch.positive.curve.unloadedSpeed, w0n: ch.negative.curve.unloadedSpeed, at: 0 });\n      if (w > r.peak) r.peak = w; if (w < r.peakNeg) r.peakNeg = w;\n    }\n  }\n  const down = body.view.down;\n  s.dispose?.();\n  return { score: best, at, wrist: +wristBest.toFixed(2), wristAtBest: +wristAtBest.toFixed(2), trunk: +shoulderBest.toFixed(2), down, ...(trace ? { traced } : {}) };\n}\n",
+  "cap-opt.mjs": "// Diagonal CMA-ES over cap-eval's schedule. node cap-opt.mjs <out.json> <workers> <generations> [opts json]\nimport { Worker, isMainThread, parentPort, workerData } from \"node:worker_threads\";\nimport { writeFileSync, existsSync, readFileSync } from \"node:fs\";\nif (!isMainThread) {\n  const { trial } = await import(\"./cap-eval.mjs\"); if (workerData.opts.lane) [globalThis.__laneLo, globalThis.__laneHi] = workerData.opts.lane;\n  parentPort.on(\"message\", async ({ id, x }) => {\n    let r; try { r = await trial(x, workerData.opts); } catch (e) { r = { score: 0, error: String(e) }; }\n    parentPort.postMessage({ id, r });\n  });\n} else {\n  const { CHANNELS } = await import(\"./cap-eval.mjs\");\n  const [out, nw = \"24\", gens = \"40\", optsJson = \"{}\"] = process.argv.slice(2);\n  const opts = JSON.parse(optsJson), n = CHANNELS.length * 3;\n  const lo = [], hi = [];\n  for (let i = 0; i < CHANNELS.length; i++) { lo.push(-1, -.3, 0); hi.push(1, .3, .45); }\n  const workers = Array.from({ length: +nw }, () => new Worker(new URL(import.meta.url), { workerData: { opts } }));\n  let nextId = 0; const waiting = new Map(), idle = [...workers], queue = [];\n  for (const w of workers) w.on(\"message\", ({ id, r }) => { waiting.get(id)(r); waiting.delete(id); idle.push(w); pump(); });\n  function pump() { while (idle.length && queue.length) { const { id, x } = queue.shift(); idle.pop().postMessage({ id, x }); } }\n  const evalx = (x) => new Promise((done) => { const id = nextId++; waiting.set(id, done); queue.push({ id, x }); pump(); });\n  // Search in unit space u in [0,1]^n.\n  const toX = (u) => u.map((ui, i) => lo[i] + (hi[i] - lo[i]) * Math.min(1, Math.max(0, ui)));\n  let m = opts.start ? opts.start.map((x, i) => (x - lo[i]) / (hi[i] - lo[i])) : Array.from({ length: n }, (_, i) => i % 3 === 0 ? .5 : .5);\n  let sigma = opts.sigma ?? .25; const C = new Array(n).fill(1);\n  const lambda = opts.lambda ?? 4 * +nw, mu = lambda >> 1;\n  const wts = Array.from({ length: mu }, (_, i) => Math.log(mu + .5) - Math.log(i + 1)); const ws = wts.reduce((a, b) => a + b); for (let i = 0; i < mu; i++) wts[i] /= ws;\n  const mueff = 1 / wts.reduce((a, w) => a + w * w, 0);\n  const cs = (mueff + 2) / (n + mueff + 5), ds = 1 + cs, cc = 4 / (n + 4), c1 = 2 / ((n + 1.3) ** 2 + mueff), cmu = Math.min(1 - c1, 2 * (mueff - 2 + 1 / mueff) / ((n + 2) ** 2 + mueff)) * (n + 2) / 3;\n  const chiN = Math.sqrt(n) * (1 - 1 / (4 * n) + 1 / (21 * n * n));\n  let ps = new Array(n).fill(0), pc = new Array(n).fill(0);\n  const gauss = () => { let u = 0, v = 0; while (!u) u = Math.random(); v = Math.random(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); };\n  let best = { score: -1 };\n  const log = [];\n  for (let g = 0; g < +gens; g++) {\n    const zs = Array.from({ length: lambda }, () => Array.from({ length: n }, gauss));\n    const us = zs.map((z) => z.map((zi, i) => Math.min(1, Math.max(0, m[i] + sigma * Math.sqrt(C[i]) * zi))));\n    const rs = await Promise.all(us.map((u) => evalx(toX(u))));\n    const fit = rs.map((r) => r.score - (r.down ? 0 : 0));\n    const order = fit.map((f, i) => i).sort((a, b) => fit[b] - fit[a]);\n    if (fit[order[0]] > best.score) best = { score: fit[order[0]], x: toX(us[order[0]]), r: rs[order[0]], g };\n    const old = m.slice();\n    m = m.map((_, i) => order.slice(0, mu).reduce((a, k, j) => a + wts[j] * us[k][i], 0));\n    const y = m.map((mi, i) => (mi - old[i]) / sigma);\n    ps = ps.map((p, i) => (1 - cs) * p + Math.sqrt(cs * (2 - cs) * mueff) * y[i] / Math.sqrt(C[i]));\n    const psn = Math.sqrt(ps.reduce((a, p) => a + p * p, 0));\n    pc = pc.map((p, i) => (1 - cc) * p + Math.sqrt(cc * (2 - cc) * mueff) * y[i]);\n    for (let i = 0; i < n; i++) {\n      let rank = 0; for (let j = 0; j < mu; j++) { const d = (us[order[j]][i] - old[i]) / sigma; rank += wts[j] * d * d; }\n      C[i] = (1 - c1 - cmu) * C[i] + c1 * pc[i] * pc[i] + cmu * rank;\n    }\n    sigma *= Math.exp((cs / ds) * (psn / chiN - 1));\n    const med = fit.slice().sort((a, b) => a - b)[lambda >> 1];\n    log.push({ g, best: +fit[order[0]].toFixed(3), median: +med.toFixed(3), sigma: +sigma.toFixed(3) });\n    console.log(JSON.stringify(log.at(-1)), JSON.stringify(rs[order[0]]));\n    writeFileSync(out, JSON.stringify({ opts, best, mean: toX(m), log, channels: CHANNELS }));\n  }\n  for (const w of workers) w.terminate();\n}\n",
   "chatter.mjs": "// Per-step sign flips of every channel's speed in a window: a two-step chatter count.\nimport * as m from \"./cap-eval.mjs\";\nconst mode = process.argv[2] ?? \"none\";\nconst x = new Array(54).fill(0);\nglobalThis.__chatter = {};\nconst r = await m.trial(x, { keepStance: mode === \"stance\", trace: true });\nconsole.log(mode, JSON.stringify(r.score));\nfor (const [k, v] of Object.entries(globalThis.__chatter)) if (v.flips > 3 || v.big > 3) console.log(k.padEnd(34), \"flips\", v.flips, \"steps over 5 rad/s\", v.big);\n",
   "rise-chatter.mjs": "// A shoved Warrior under the staged rise: per rise stage, the steps on which a channel's speed\n// reverses above 3 rad/s both sides (a two-step chatter), by channel.\nimport { felled, riserOf } from \"../../core-rise-trials.mjs\";\nimport { createMind } from \"../../../src/core/mind/minds.ts\";\nimport { STAND_ORDERS } from \"../../../src/core/mind/orders.ts\";\nimport { RISE } from \"../../../src/core/mind/rise/stages.ts\";\nconst degrees = +(process.argv[2] ?? 0), held = process.argv[3] ?? \"empty\";\nconst mind = { kind: \"recipe-fighter\", subs: [{ kind: \"staged-rise\" }], guard: \"pose\", aim: \"head\", range: \"close\" };\nconst { world, body, dispose } = await felled({ model: \"workshop-fighter\", held, degrees },\n  (made, into) => createMind(made, into, mind, { name: \"probe\", orders: () => STAND_ORDERS }).body);\nconst riser = riserOf(body), ch = body.muscles.channels, last = new Float64Array(ch.length);\nconst by = {}; let upAt = null;\nfor (let i = 0; i < 40 * world.hz; i++) {\n  world.step();\n  const stage = riser.phase === \"rise\" ? RISE.rise[riser.stage ?? riser.furthest]?.name ?? \"?\" : riser.phase;\n  const b = (by[stage] ??= { steps: 0, flips: {} }); b.steps++;\n  for (let c = 0; c < ch.length; c++) { const w = body.muscles.speed(c);\n    if (Math.abs(w) > 3 && Math.abs(last[c]) > 3 && Math.sign(w) !== Math.sign(last[c])) b.flips[ch[c].name] = (b.flips[ch[c].name] ?? 0) + 1;\n    last[c] = w; }\n  if (!body.view.down && upAt === null) upAt = world.time; if (body.view.down) upAt = null;\n}\nconsole.log(\"deg\", degrees, held, \"up since\", upAt?.toFixed(2));\nfor (const [s, b] of Object.entries(by)) { const top = Object.entries(b.flips).sort((a, c) => c[1] - a[1]).slice(0, 5);\n  console.log(s.padEnd(12), \"steps\", b.steps, \"flips/step\", (Object.values(b.flips).reduce((a, c) => a + c, 0) / b.steps).toFixed(2), JSON.stringify(top)); }\ndispose();\n",
   "speeds.mjs": "import { jointSpeed } from \"../../../src/core/human/speed.ts\";\nfor (const sex of [\"male\",\"female\"]) for (const e of [\"hipExtension\",\"hipFlexion\",\"kneeExtension\",\"kneeFlexion\",\"ankleDorsiflexion\",\"elbowFlexion\",\"elbowExtension\"]) { const s = jointSpeed({sex}, e); console.log(sex, e, s.unloadedSpeed.value.toFixed(2), s.curvature.value.toFixed(3)); }\n",
-  "trunk-trace.mjs": "// Replays cap3's best with a per-step trace of trunk angles and speeds against their limits.\nimport { readFileSync } from \"node:fs\";\nimport * as m from \"./cap-eval.mjs\";\nconst b = JSON.parse(readFileSync(process.argv[2] ?? \"cap3.json\")).best;\nconst names = (process.argv[3] ?? \"thoracic flexion,lumbar flexion,hip.left flexion,hip.right flexion,elbow.right flexion\").split(\",\");\nglobalThis.__trace = { names, rows: [] };\nawait m.trial(b.x, { trace: true });\n"
+  "trunk-trace.mjs": "// Replays cap3's best with a per-step trace of trunk angles and speeds against their limits.\nimport { readFileSync } from \"node:fs\";\nimport * as m from \"./cap-eval.mjs\";\nconst b = JSON.parse(readFileSync(process.argv[2] ?? \"cap3.json\")).best;\nconst names = (process.argv[3] ?? \"thoracic flexion,lumbar flexion,hip.left flexion,hip.right flexion,elbow.right flexion\").split(\",\");\nglobalThis.__trace = { names, rows: [] };\nawait m.trial(b.x, { trace: true });\n",
+  "cap-verify.mjs": "// Re-run cap5's best (stance kept, punch lane) at each rate, with the peak joint speeds.\nimport { readFileSync } from \"node:fs\";\nimport { trial } from \"./cap-eval.mjs\";\nconst j = JSON.parse(readFileSync(\"cap5.json\", \"utf8\"));\nglobalThis.__laneLo = j.opts.lane[0]; globalThis.__laneHi = j.opts.lane[1];\nfor (const hz of [120, 480, 960]) {\n  const r = await trial(j.best.x, { hz, keepStance: true, trace: true });\n  const fast = Object.entries(r.traced).map(([n, t]) => [n, +Math.max(t.peak / t.w0p, -t.peakNeg / t.w0n).toFixed(2), +t.peak.toFixed(1), +t.peakNeg.toFixed(1), +t.w0p.toFixed(1), +t.w0n.toFixed(1)])\n    .sort((a, b) => b[1] - a[1]).slice(0, 5);\n  console.log(JSON.stringify({ hz, score: +r.score.toFixed(2), wrist: r.wrist, wristAtBest: r.wristAtBest, at: r.at, down: r.down, fast }));\n}\n",
+  "cell-fn.mjs": "// A punch cell (punchStand) with flat-out pushes added on a schedule counted from each swing's start\n// (negative: in the chamber). The stance is kept, so pushes on its bearing legs are its to override.\nimport { punchStand } from \"../../punch-calibration.mjs\";\nimport { PLANTED_PUNCH_EXECUTION } from \"../../../src/core/skills/combat.ts\";\n\nexport const BASE = { hand: \"right\", family: \"cross\", hz: 120, seconds: 8, armExtension: .5, ahead: .55, height: 1.55,\n  execution: PLANTED_PUNCH_EXECUTION, matchedFeedback: true, paths: { elbowExtension: .5 }, pad: { face: \"compliant\" } };\n\n/** schedule: [[channel, level -1..1, from s, to s]]. */\nexport async function cell(over, schedule) {\n  const s = await punchStand({ ...BASE, ...over });\n  const inner = s.skills.command;\n  let swingAt = null, chamberAt = null, last = null;\n  const chamberSeconds = s.skills.state.hands?.right?.cycle?.time;\n  void chamberSeconds;\n  s.skills.command = (view, intent, dt) => {\n    const c = inner(view, intent, dt), phase = s.skills.report.strike.phase;\n    if (phase === \"chamber\" && last !== \"chamber\") chamberAt = view.time;\n    if (phase === \"swing\" && last !== \"swing\") swingAt = view.time;\n    last = phase;\n    if (phase !== \"chamber\" && phase !== \"swing\") return c;\n    // In the chamber, time runs negative toward the swing's planned start.\n    const t = phase === \"swing\" ? view.time - swingAt : (view.time - chamberAt) - (over.paths?.chamberSeconds ?? .22);\n    const live = schedule.filter(([, level, from, to]) => Math.abs(level) > .05 && t >= from && t < to)\n      .map(([channel, level]) => ({ channel, sense: level > 0 ? 1 : -1, level: Math.min(1, Math.abs(level)) }));\n    return live.length ? { ...c, pushes: [...c.pushes, ...live] } : c;\n  };\n  try {\n    s.step(Math.round(s.config.seconds * s.world.hz));\n    const r = s.reading();\n    const clean = r.impacts.filter((e) => e.eligible && e.last10cmSpeed);\n    const mean = (f) => clean.length ? clean.reduce((a, e) => a + f(e), 0) / clean.length : null;\n    return { n: clean.length, fell: r.fell, faults: r.qualification.faults, speed: mean((e) => e.last10cmSpeed),\n      impulse: mean((e) => e.impulse), peak: mean((e) => e.peakStepForce), mass: mean((e) => e.effectiveMass) };\n  } finally { s.dispose(); }\n}\n",
+  "punch-opt.mjs": "// Diagonal CMA-ES over a punch cell's push schedule, scored by the pad's impulse. node punch-opt.mjs <out.json> <workers> <generations> [opts json]\nimport { Worker, isMainThread, parentPort, workerData } from \"node:worker_threads\";\nimport { writeFileSync, existsSync, readFileSync } from \"node:fs\";\nif (!isMainThread) {\n  const { cell } = await import(\"./cell-fn.mjs\");\n  const CH = workerData.channels;\n  const trial = async (x, opts) => {\n    const schedule = CH.map((c, i) => [c, x[3 * i], x[3 * i + 1], x[3 * i + 1] + Math.max(0, x[3 * i + 2])]);\n    if (opts.rates) {\n      // Robust: the worst of the cell at each rate.\n      const rs = [];\n      for (const hz of opts.rates) rs.push(await trial(x, { ...opts, rates: undefined, over: { ...opts.over, hz } }));\n      const worst = rs.reduce((a, b) => (b.score < a.score ? b : a));\n      return { ...worst, byRate: rs.map((q) => +q.score.toFixed(2)) };\n    }\n    const r = await cell(opts.over ?? {}, schedule);\n    const score = r.fell || !r.n ? 0 : opts.score === \"speed\" ? (r.n >= 3 && !r.faults.length ? r.speed : r.speed * r.n / 6)\n      : (r.n >= 3 ? r.impulse : r.impulse * r.n / 6) * (r.faults.length ? .5 : 1);\n    return { score, ...r };\n  };\n  parentPort.on(\"message\", async ({ id, x }) => {\n    let r; try { r = await trial(x, workerData.opts); } catch (e) { r = { score: 0, error: String(e) }; }\n    parentPort.postMessage({ id, r });\n  });\n} else {\n  const CHANNELS = [\"thoracic rotation right\", \"lumbar rotation right\", \"thoracic flexion\", \"lumbar flexion\",\n    \"shoulder.right flexion\", \"shoulder.right abduction\", \"shoulder.right internal rotation\", \"elbow.right flexion\", \"wrist.right flexion\"];\n  const [out, nw = \"24\", gens = \"40\", optsJson = \"{}\"] = process.argv.slice(2);\n  const opts = JSON.parse(optsJson), n = CHANNELS.length * 3;\n  const lo = [], hi = [];\n  for (let i = 0; i < CHANNELS.length; i++) { lo.push(-1, -.22, 0); hi.push(1, .12, .3); }\n  const workers = Array.from({ length: +nw }, () => new Worker(new URL(import.meta.url), { workerData: { opts, channels: CHANNELS } }));\n  let nextId = 0; const waiting = new Map(), idle = [...workers], queue = [];\n  for (const w of workers) w.on(\"message\", ({ id, r }) => { waiting.get(id)(r); waiting.delete(id); idle.push(w); pump(); });\n  function pump() { while (idle.length && queue.length) { const { id, x } = queue.shift(); idle.pop().postMessage({ id, x }); } }\n  const evalx = (x) => new Promise((done) => { const id = nextId++; waiting.set(id, done); queue.push({ id, x }); pump(); });\n  // Search in unit space u in [0,1]^n.\n  const toX = (u) => u.map((ui, i) => lo[i] + (hi[i] - lo[i]) * Math.min(1, Math.max(0, ui)));\n  let m = opts.start ? opts.start.map((x, i) => (x - lo[i]) / (hi[i] - lo[i])) : Array.from({ length: n }, (_, i) => i % 3 === 0 ? .5 : .5);\n  let sigma = opts.sigma ?? .25; const C = new Array(n).fill(1);\n  const lambda = opts.lambda ?? 4 * +nw, mu = lambda >> 1;\n  const wts = Array.from({ length: mu }, (_, i) => Math.log(mu + .5) - Math.log(i + 1)); const ws = wts.reduce((a, b) => a + b); for (let i = 0; i < mu; i++) wts[i] /= ws;\n  const mueff = 1 / wts.reduce((a, w) => a + w * w, 0);\n  const cs = (mueff + 2) / (n + mueff + 5), ds = 1 + cs, cc = 4 / (n + 4), c1 = 2 / ((n + 1.3) ** 2 + mueff), cmu = Math.min(1 - c1, 2 * (mueff - 2 + 1 / mueff) / ((n + 2) ** 2 + mueff)) * (n + 2) / 3;\n  const chiN = Math.sqrt(n) * (1 - 1 / (4 * n) + 1 / (21 * n * n));\n  let ps = new Array(n).fill(0), pc = new Array(n).fill(0);\n  const gauss = () => { let u = 0, v = 0; while (!u) u = Math.random(); v = Math.random(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); };\n  let best = { score: -1 };\n  const log = [];\n  for (let g = 0; g < +gens; g++) {\n    const zs = Array.from({ length: lambda }, () => Array.from({ length: n }, gauss));\n    const us = zs.map((z) => z.map((zi, i) => Math.min(1, Math.max(0, m[i] + sigma * Math.sqrt(C[i]) * zi))));\n    const rs = await Promise.all(us.map((u) => evalx(toX(u))));\n    const fit = rs.map((r) => r.score - (r.down ? 0 : 0));\n    const order = fit.map((f, i) => i).sort((a, b) => fit[b] - fit[a]);\n    if (fit[order[0]] > best.score) best = { score: fit[order[0]], x: toX(us[order[0]]), r: rs[order[0]], g };\n    const old = m.slice();\n    m = m.map((_, i) => order.slice(0, mu).reduce((a, k, j) => a + wts[j] * us[k][i], 0));\n    const y = m.map((mi, i) => (mi - old[i]) / sigma);\n    ps = ps.map((p, i) => (1 - cs) * p + Math.sqrt(cs * (2 - cs) * mueff) * y[i] / Math.sqrt(C[i]));\n    const psn = Math.sqrt(ps.reduce((a, p) => a + p * p, 0));\n    pc = pc.map((p, i) => (1 - cc) * p + Math.sqrt(cc * (2 - cc) * mueff) * y[i]);\n    for (let i = 0; i < n; i++) {\n      let rank = 0; for (let j = 0; j < mu; j++) { const d = (us[order[j]][i] - old[i]) / sigma; rank += wts[j] * d * d; }\n      C[i] = (1 - c1 - cmu) * C[i] + c1 * pc[i] * pc[i] + cmu * rank;\n    }\n    sigma *= Math.exp((cs / ds) * (psn / chiN - 1));\n    const med = fit.slice().sort((a, b) => a - b)[lambda >> 1];\n    log.push({ g, best: +fit[order[0]].toFixed(3), median: +med.toFixed(3), sigma: +sigma.toFixed(3) });\n    console.log(JSON.stringify(log.at(-1)), JSON.stringify(rs[order[0]]));\n    writeFileSync(out, JSON.stringify({ opts, best, mean: toX(m), log, channels: CHANNELS }));\n  }\n  for (const w of workers) w.terminate();\n}\n",
+  "verify-popt.mjs": "// Re-run a punch-opt best schedule (or none) at the listed rates.\nimport { readFileSync } from \"node:fs\";\nimport { cell } from \"./cell-fn.mjs\";\nconst [file, rates = \"480,960\"] = process.argv.slice(2);\nconst j = file === \"none\" ? null : JSON.parse(readFileSync(file, \"utf8\"));\nconst schedule = j ? j.channels.map((c, i) => [c, j.best.x[3 * i], j.best.x[3 * i + 1], j.best.x[3 * i + 1] + Math.max(0, j.best.x[3 * i + 2])]) : [];\nfor (const hz of rates.split(\",\").map(Number)) {\n  const r = await cell({ hz }, schedule);\n  console.log(JSON.stringify({ file, hz, n: r.n, fell: r.fell, faults: r.faults, speed: r.speed && +r.speed.toFixed(2), impulse: r.impulse && +r.impulse.toFixed(2), mass: r.mass && +r.mass.toFixed(2) }));\n}\n",
+  "verify-robust.mjs": "// The robust search's best and mean schedules under nearby conditions: rates and the pad's distance.\nimport { readFileSync } from \"node:fs\";\nimport { cell } from \"./cell-fn.mjs\";\nconst j = JSON.parse(readFileSync(\"poptrobust.json\", \"utf8\"));\nconst sched = (x) => j.channels.map((c, i) => [c, x[3 * i], x[3 * i + 1], x[3 * i + 1] + Math.max(0, x[3 * i + 2])]);\nconst [which, conds] = process.argv.slice(2);\nconst x = which === \"mean\" ? j.mean : which === \"none\" ? null : j.best.x;\nfor (const over of JSON.parse(conds)) {\n  const r = await cell(over, x ? sched(x) : []);\n  console.log(JSON.stringify({ which, over, n: r.n, fell: r.fell, faults: r.faults, speed: r.speed && +r.speed.toFixed(2), impulse: r.impulse && +r.impulse.toFixed(2), mass: r.mass && +r.mass.toFixed(2) }));\n}\n"
  },
  "rows": {
   "speed curves, Anderson two-point (6.5/8.9), with torso-carried": [
@@ -1710,6 +1715,1693 @@
     "shoulder.right internal rotation",
     "elbow.right flexion"
    ]
-  }
+  },
+  "capacity search, stance kept, punch lane (cap5)": {
+   "opts": {
+    "sigma": 0.2,
+    "keepStance": true,
+    "lane": [
+     -0.1,
+     0.35
+    ]
+   },
+   "best": {
+    "score": 12.715258598327637,
+    "x": [
+     -0.8557684246308573,
+     0.019422538527298805,
+     0.2549179218240629,
+     -0.2117449068563002,
+     0.15296265731449477,
+     0.24231674155334146,
+     -0.6699051900599972,
+     -0.25887499933588964,
+     0.05833947933353768,
+     0.8959033277362933,
+     -0.009255638538945843,
+     0.2596151190057339,
+     0.06703275543225629,
+     -0.02240044324322704,
+     0.3724415155750671,
+     0.8533450819445494,
+     -0.15707975086314674,
+     0.23007281823176215,
+     -0.3610646258562624,
+     -0.17177030211967548,
+     0.1828351893077625,
+     0.25519010368984074,
+     0.13307438630695884,
+     0.34061840379503056,
+     0.719891518679058,
+     -0.18623740342323286,
+     0.19245529362844727,
+     -0.15905560569204313,
+     -0.08852536159809343,
+     0.23415007898804865,
+     -0.09974668728402936,
+     0.21185548370403867,
+     0.0620352292375469,
+     0.5403453361387947,
+     -0.15789473080942973,
+     0.2691490269167463,
+     -0.017915086713075623,
+     -0.18137633654025886,
+     0.21211127081460598,
+     -0.5534406778836753,
+     0.17857106371344528,
+     0.3536575205831101,
+     0.8983240092187703,
+     -0.24197174140840208,
+     0.366978129165414,
+     -0.3405722176530418,
+     -0.22987358567546806,
+     0.23300657242783088,
+     0.598161205052895,
+     0.22796551407350935,
+     0.1805352288478818,
+     -0.783549824797886,
+     0.15022868875841827,
+     0.3237718875229403
+    ],
+    "r": {
+     "score": 12.715258598327637,
+     "at": [
+      0.258,
+      0.27,
+      1.57,
+      0.38
+     ],
+     "trunk": 0.21,
+     "down": false
+    },
+    "g": 58
+   },
+   "mean": [
+    -0.737102944704324,
+    0.010546013678503052,
+    0.3007173700164161,
+    -0.11704691071067486,
+    0.22261285354269084,
+    0.19599596660247728,
+    -0.4583025370068372,
+    -0.19040819850169216,
+    0.10646688639515603,
+    0.917653669353945,
+    0.008024037353021263,
+    0.3356459829234716,
+    -0.13140067844033565,
+    -0.07601273288178331,
+    0.33248196597814994,
+    0.48101697862025894,
+    -0.1476649138602843,
+    0.31384309906183966,
+    -0.2597932750327566,
+    -0.2051403522164712,
+    0.1560022472656447,
+    -0.08073414195057171,
+    0.15921866032595655,
+    0.32479774168770825,
+    0.660566457984717,
+    -0.193044400638264,
+    0.22475986309651688,
+    -0.25045889039928626,
+    0.004274268430266959,
+    0.18994911018564895,
+    -0.22543437677311318,
+    0.21719544441242938,
+    0.05836014430519457,
+    0.43907387950245536,
+    -0.029607087417412747,
+    0.21754435290463356,
+    -0.2719651905005632,
+    -0.13620928960706793,
+    0.20714712196934773,
+    -0.6135457563591269,
+    0.2672866031653606,
+    0.3368771918452528,
+    0.8169515607090092,
+    -0.2009139423479812,
+    0.34777266344601526,
+    -0.260948603021093,
+    -0.1990151939741041,
+    0.20762933325216096,
+    0.6637703182917472,
+    0.223256987441861,
+    0.09941428750974081,
+    -0.7944042504334874,
+    0.16732170268363245,
+    0.34262605613222297
+   ],
+   "log": [
+    {
+     "g": 0,
+     "best": 4.922,
+     "median": 0,
+     "sigma": 0.19
+    },
+    {
+     "g": 1,
+     "best": 3.64,
+     "median": 0,
+     "sigma": 0.182
+    },
+    {
+     "g": 2,
+     "best": 3.984,
+     "median": 0,
+     "sigma": 0.177
+    },
+    {
+     "g": 3,
+     "best": 3.308,
+     "median": 0,
+     "sigma": 0.175
+    },
+    {
+     "g": 4,
+     "best": 5.253,
+     "median": 0.707,
+     "sigma": 0.174
+    },
+    {
+     "g": 5,
+     "best": 4.495,
+     "median": 0,
+     "sigma": 0.172
+    },
+    {
+     "g": 6,
+     "best": 4.577,
+     "median": 0.99,
+     "sigma": 0.173
+    },
+    {
+     "g": 7,
+     "best": 5.621,
+     "median": 2.254,
+     "sigma": 0.172
+    },
+    {
+     "g": 8,
+     "best": 4.436,
+     "median": 2.288,
+     "sigma": 0.179
+    },
+    {
+     "g": 9,
+     "best": 5.562,
+     "median": 2.612,
+     "sigma": 0.183
+    },
+    {
+     "g": 10,
+     "best": 6.364,
+     "median": 2.692,
+     "sigma": 0.186
+    },
+    {
+     "g": 11,
+     "best": 6.177,
+     "median": 2.487,
+     "sigma": 0.191
+    },
+    {
+     "g": 12,
+     "best": 6.599,
+     "median": 2.552,
+     "sigma": 0.193
+    },
+    {
+     "g": 13,
+     "best": 8.261,
+     "median": 2.916,
+     "sigma": 0.191
+    },
+    {
+     "g": 14,
+     "best": 6.3,
+     "median": 2.814,
+     "sigma": 0.188
+    },
+    {
+     "g": 15,
+     "best": 5.743,
+     "median": 3.134,
+     "sigma": 0.184
+    },
+    {
+     "g": 16,
+     "best": 7.15,
+     "median": 2.926,
+     "sigma": 0.175
+    },
+    {
+     "g": 17,
+     "best": 6.356,
+     "median": 3.266,
+     "sigma": 0.174
+    },
+    {
+     "g": 18,
+     "best": 7.654,
+     "median": 3.092,
+     "sigma": 0.173
+    },
+    {
+     "g": 19,
+     "best": 5.911,
+     "median": 3.406,
+     "sigma": 0.175
+    },
+    {
+     "g": 20,
+     "best": 7.102,
+     "median": 3.007,
+     "sigma": 0.177
+    },
+    {
+     "g": 21,
+     "best": 6.069,
+     "median": 2.911,
+     "sigma": 0.179
+    },
+    {
+     "g": 22,
+     "best": 6.2,
+     "median": 3.267,
+     "sigma": 0.178
+    },
+    {
+     "g": 23,
+     "best": 6.637,
+     "median": 3.577,
+     "sigma": 0.177
+    },
+    {
+     "g": 24,
+     "best": 8.766,
+     "median": 2.899,
+     "sigma": 0.171
+    },
+    {
+     "g": 25,
+     "best": 7.046,
+     "median": 3.936,
+     "sigma": 0.165
+    },
+    {
+     "g": 26,
+     "best": 6.899,
+     "median": 4.255,
+     "sigma": 0.159
+    },
+    {
+     "g": 27,
+     "best": 8.283,
+     "median": 4.418,
+     "sigma": 0.156
+    },
+    {
+     "g": 28,
+     "best": 7.317,
+     "median": 4.619,
+     "sigma": 0.153
+    },
+    {
+     "g": 29,
+     "best": 6.805,
+     "median": 4.731,
+     "sigma": 0.153
+    },
+    {
+     "g": 30,
+     "best": 7.583,
+     "median": 4.993,
+     "sigma": 0.147
+    },
+    {
+     "g": 31,
+     "best": 8.555,
+     "median": 4.9,
+     "sigma": 0.143
+    },
+    {
+     "g": 32,
+     "best": 8.21,
+     "median": 5.002,
+     "sigma": 0.14
+    },
+    {
+     "g": 33,
+     "best": 8.612,
+     "median": 5.633,
+     "sigma": 0.138
+    },
+    {
+     "g": 34,
+     "best": 8.893,
+     "median": 5.156,
+     "sigma": 0.139
+    },
+    {
+     "g": 35,
+     "best": 10.857,
+     "median": 5.322,
+     "sigma": 0.139
+    },
+    {
+     "g": 36,
+     "best": 8.453,
+     "median": 6.101,
+     "sigma": 0.14
+    },
+    {
+     "g": 37,
+     "best": 10.916,
+     "median": 6.086,
+     "sigma": 0.14
+    },
+    {
+     "g": 38,
+     "best": 10.719,
+     "median": 5.73,
+     "sigma": 0.14
+    },
+    {
+     "g": 39,
+     "best": 8.156,
+     "median": 4.069,
+     "sigma": 0.141
+    },
+    {
+     "g": 40,
+     "best": 10.563,
+     "median": 5.501,
+     "sigma": 0.143
+    },
+    {
+     "g": 41,
+     "best": 10.778,
+     "median": 5.296,
+     "sigma": 0.147
+    },
+    {
+     "g": 42,
+     "best": 10.391,
+     "median": 5.662,
+     "sigma": 0.147
+    },
+    {
+     "g": 43,
+     "best": 10.484,
+     "median": 5.812,
+     "sigma": 0.146
+    },
+    {
+     "g": 44,
+     "best": 11.595,
+     "median": 6.711,
+     "sigma": 0.147
+    },
+    {
+     "g": 45,
+     "best": 10.687,
+     "median": 7.643,
+     "sigma": 0.15
+    },
+    {
+     "g": 46,
+     "best": 11.496,
+     "median": 6.161,
+     "sigma": 0.15
+    },
+    {
+     "g": 47,
+     "best": 11.833,
+     "median": 8.093,
+     "sigma": 0.15
+    },
+    {
+     "g": 48,
+     "best": 11.077,
+     "median": 7.018,
+     "sigma": 0.149
+    },
+    {
+     "g": 49,
+     "best": 11.403,
+     "median": 8.273,
+     "sigma": 0.148
+    },
+    {
+     "g": 50,
+     "best": 11.201,
+     "median": 7.804,
+     "sigma": 0.148
+    },
+    {
+     "g": 51,
+     "best": 11.57,
+     "median": 8.355,
+     "sigma": 0.15
+    },
+    {
+     "g": 52,
+     "best": 11.473,
+     "median": 7.994,
+     "sigma": 0.143
+    },
+    {
+     "g": 53,
+     "best": 11.371,
+     "median": 7.908,
+     "sigma": 0.14
+    },
+    {
+     "g": 54,
+     "best": 11.387,
+     "median": 8.755,
+     "sigma": 0.135
+    },
+    {
+     "g": 55,
+     "best": 11.552,
+     "median": 8.581,
+     "sigma": 0.13
+    },
+    {
+     "g": 56,
+     "best": 11.522,
+     "median": 9.221,
+     "sigma": 0.128
+    },
+    {
+     "g": 57,
+     "best": 11.806,
+     "median": 9.545,
+     "sigma": 0.123
+    },
+    {
+     "g": 58,
+     "best": 12.715,
+     "median": 9.521,
+     "sigma": 0.118
+    },
+    {
+     "g": 59,
+     "best": 12.36,
+     "median": 9.757,
+     "sigma": 0.113
+    },
+    {
+     "g": 60,
+     "best": 12.326,
+     "median": 10.239,
+     "sigma": 0.113
+    },
+    {
+     "g": 61,
+     "best": 11.943,
+     "median": 10.409,
+     "sigma": 0.113
+    },
+    {
+     "g": 62,
+     "best": 12.328,
+     "median": 10.283,
+     "sigma": 0.114
+    },
+    {
+     "g": 63,
+     "best": 11.69,
+     "median": 10.07,
+     "sigma": 0.114
+    },
+    {
+     "g": 64,
+     "best": 12.139,
+     "median": 10.521,
+     "sigma": 0.114
+    },
+    {
+     "g": 65,
+     "best": 11.734,
+     "median": 10.284,
+     "sigma": 0.114
+    },
+    {
+     "g": 66,
+     "best": 12.223,
+     "median": 10.533,
+     "sigma": 0.112
+    },
+    {
+     "g": 67,
+     "best": 12.082,
+     "median": 10.589,
+     "sigma": 0.109
+    },
+    {
+     "g": 68,
+     "best": 12.377,
+     "median": 10.666,
+     "sigma": 0.104
+    },
+    {
+     "g": 69,
+     "best": 12.13,
+     "median": 10.793,
+     "sigma": 0.101
+    }
+   ],
+   "channels": [
+    "thoracic rotation right",
+    "lumbar rotation right",
+    "thoracic flexion",
+    "lumbar flexion",
+    "hip.left flexion",
+    "hip.left abduction",
+    "hip.left internal rotation",
+    "knee.left flexion",
+    "ankle.left dorsiflexion",
+    "hip.right flexion",
+    "hip.right abduction",
+    "hip.right internal rotation",
+    "knee.right flexion",
+    "ankle.right dorsiflexion",
+    "shoulder.right flexion",
+    "shoulder.right abduction",
+    "shoulder.right internal rotation",
+    "elbow.right flexion"
+   ]
+  },
+  "capacity re-run by rate (cap-verify)": [
+   {
+    "hz": 120,
+    "hand": 12.72,
+    "wrist": 10.12,
+    "at": [
+     0.258,
+     0.27,
+     1.57,
+     0.38
+    ]
+   },
+   {
+    "hz": 480,
+    "hand": 12.57,
+    "wrist": 10.09,
+    "at": [
+     0.252,
+     0.28,
+     1.57,
+     0.39
+    ]
+   },
+   {
+    "hz": 960,
+    "hand": 12.37,
+    "wrist": 9.78,
+    "at": [
+     0.252,
+     0.27,
+     1.6,
+     0.4
+    ]
+   }
+  ],
+  "push search for impulse at 120 Hz (popt1)": {
+   "opts": {
+    "sigma": 0.2
+   },
+   "best": {
+    "score": 14.843314062439665,
+    "x": [
+     0.041955958460073495,
+     -0.10215215394418725,
+     0.09877018484028198,
+     -0.25925977142596557,
+     -0.20301144571724206,
+     0.11119093428681757,
+     -0.18025566384492975,
+     -0.017811315887793527,
+     0.16119629610622307,
+     0.2254482313240529,
+     -0.11431299581394432,
+     0.1522462573970141,
+     0.057554727953523566,
+     -0.182758400813706,
+     0.07918849153763592,
+     0.04175762066624733,
+     -0.07679879204316975,
+     0.11266789284920413,
+     -0.266250380272507,
+     -0.14044189167309207,
+     0,
+     -0.23194845067927072,
+     0.04377891210629428,
+     0.035207600303927306,
+     0.7377409475415104,
+     -0.056855767081578995,
+     0.06559944657150624
+    ],
+    "r": {
+     "score": 14.843314062439665,
+     "n": 3,
+     "fell": false,
+     "faults": [],
+     "speed": 3.9780500991648995,
+     "impulse": 14.843314062439665,
+     "peak": 732.4839678188837,
+     "mass": 3.76081248189464
+    },
+    "g": 15
+   },
+   "mean": [
+    0.7746015861534354,
+    -0.15516307912555075,
+    0.08700289881643342,
+    0.3332503959570652,
+    -0.14336449061082818,
+    0.07528652959336901,
+    0.2804505735006937,
+    -0.09558367391297928,
+    0.09841881826570414,
+    -0.4473845199966885,
+    -0.14980432252154888,
+    0.13911567683452514,
+    0.4539637992914778,
+    -0.16539814141646852,
+    0.1046207641241498,
+    -0.161251478164678,
+    -0.09737619490169892,
+    0.1757140662210279,
+    -0.3177658066968325,
+    -0.14375440728172162,
+    0.027043655834899073,
+    -0.04543718282577014,
+    -0.11273943507560592,
+    0.051882567463259886,
+    0.11832788999901189,
+    -0.12487940307841314,
+    0.08911984708993866
+   ],
+   "log": [
+    {
+     "g": 0,
+     "best": 1.879,
+     "median": 0,
+     "sigma": 0.187
+    },
+    {
+     "g": 1,
+     "best": 5.822,
+     "median": 0,
+     "sigma": 0.177
+    },
+    {
+     "g": 2,
+     "best": 10.49,
+     "median": 0,
+     "sigma": 0.17
+    },
+    {
+     "g": 3,
+     "best": 7.979,
+     "median": 0,
+     "sigma": 0.17
+    },
+    {
+     "g": 4,
+     "best": 9.876,
+     "median": 0,
+     "sigma": 0.162
+    },
+    {
+     "g": 5,
+     "best": 9.116,
+     "median": 0,
+     "sigma": 0.167
+    },
+    {
+     "g": 6,
+     "best": 10.304,
+     "median": 0,
+     "sigma": 0.176
+    },
+    {
+     "g": 7,
+     "best": 11.824,
+     "median": 0,
+     "sigma": 0.179
+    },
+    {
+     "g": 8,
+     "best": 10.222,
+     "median": 0,
+     "sigma": 0.195
+    },
+    {
+     "g": 9,
+     "best": 10.897,
+     "median": 0,
+     "sigma": 0.206
+    },
+    {
+     "g": 10,
+     "best": 10.269,
+     "median": 0,
+     "sigma": 0.216
+    },
+    {
+     "g": 11,
+     "best": 9.828,
+     "median": 1.312,
+     "sigma": 0.223
+    },
+    {
+     "g": 12,
+     "best": 10.776,
+     "median": 0,
+     "sigma": 0.219
+    },
+    {
+     "g": 13,
+     "best": 10.696,
+     "median": 0,
+     "sigma": 0.219
+    },
+    {
+     "g": 14,
+     "best": 13.942,
+     "median": 3.605,
+     "sigma": 0.216
+    },
+    {
+     "g": 15,
+     "best": 14.843,
+     "median": 3.179,
+     "sigma": 0.21
+    },
+    {
+     "g": 16,
+     "best": 10.804,
+     "median": 2.916,
+     "sigma": 0.203
+    },
+    {
+     "g": 17,
+     "best": 11.55,
+     "median": 7.016,
+     "sigma": 0.196
+    },
+    {
+     "g": 18,
+     "best": 10.62,
+     "median": 7.096,
+     "sigma": 0.195
+    },
+    {
+     "g": 19,
+     "best": 12.274,
+     "median": 7.406,
+     "sigma": 0.196
+    },
+    {
+     "g": 20,
+     "best": 10.488,
+     "median": 7.303,
+     "sigma": 0.199
+    },
+    {
+     "g": 21,
+     "best": 10.197,
+     "median": 7.283,
+     "sigma": 0.195
+    },
+    {
+     "g": 22,
+     "best": 11.369,
+     "median": 7.411,
+     "sigma": 0.195
+    },
+    {
+     "g": 23,
+     "best": 10.953,
+     "median": 7.687,
+     "sigma": 0.19
+    },
+    {
+     "g": 24,
+     "best": 13.263,
+     "median": 7.601,
+     "sigma": 0.185
+    },
+    {
+     "g": 25,
+     "best": 11.06,
+     "median": 6.688,
+     "sigma": 0.183
+    },
+    {
+     "g": 26,
+     "best": 11.858,
+     "median": 7.784,
+     "sigma": 0.184
+    },
+    {
+     "g": 27,
+     "best": 12.458,
+     "median": 8.26,
+     "sigma": 0.189
+    },
+    {
+     "g": 28,
+     "best": 14.534,
+     "median": 7.897,
+     "sigma": 0.196
+    },
+    {
+     "g": 29,
+     "best": 13.144,
+     "median": 8.103,
+     "sigma": 0.189
+    },
+    {
+     "g": 30,
+     "best": 12.435,
+     "median": 6.851,
+     "sigma": 0.183
+    },
+    {
+     "g": 31,
+     "best": 13.586,
+     "median": 7.204,
+     "sigma": 0.178
+    },
+    {
+     "g": 32,
+     "best": 12.33,
+     "median": 4.055,
+     "sigma": 0.179
+    },
+    {
+     "g": 33,
+     "best": 12.339,
+     "median": 7.266,
+     "sigma": 0.175
+    },
+    {
+     "g": 34,
+     "best": 13.606,
+     "median": 7.684,
+     "sigma": 0.173
+    },
+    {
+     "g": 35,
+     "best": 12.414,
+     "median": 5.526,
+     "sigma": 0.173
+    },
+    {
+     "g": 36,
+     "best": 12.642,
+     "median": 8.223,
+     "sigma": 0.166
+    },
+    {
+     "g": 37,
+     "best": 12.179,
+     "median": 8.403,
+     "sigma": 0.167
+    },
+    {
+     "g": 38,
+     "best": 13.684,
+     "median": 7.973,
+     "sigma": 0.165
+    },
+    {
+     "g": 39,
+     "best": 13.968,
+     "median": 4.452,
+     "sigma": 0.17
+    }
+   ],
+   "channels": [
+    "thoracic rotation right",
+    "lumbar rotation right",
+    "thoracic flexion",
+    "lumbar flexion",
+    "shoulder.right flexion",
+    "shoulder.right abduction",
+    "shoulder.right internal rotation",
+    "elbow.right flexion",
+    "wrist.right flexion"
+   ]
+  },
+  "push search for impulse at 480 Hz (popt480)": {
+   "opts": {
+    "sigma": 0.2,
+    "over": {
+     "hz": 480
+    }
+   },
+   "best": {
+    "score": 16.43836796117337,
+    "x": [
+     0.038433903364953004,
+     -0.04504814969000884,
+     0.09015193833043446,
+     0.42924822619226966,
+     -0.036747093626355004,
+     0.015041303765722498,
+     0.008978238841975905,
+     -0.08775893348548797,
+     0.16493760009594877,
+     -0.3876943417639993,
+     -0.16805946117752177,
+     0.10171767214008784,
+     0.2667122082365567,
+     0.0391590562838757,
+     0.12762558086846756,
+     -0.022943456027383125,
+     -0.07678397969733833,
+     0.05819632540670469,
+     -0.2881790888589715,
+     -0.1579890065801445,
+     0.10786877812593819,
+     0.45635677990792667,
+     -0.20501008998991102,
+     0.024448757789164742,
+     -0.4832682797346044,
+     -0.03444313132831173,
+     0.12367781026056424
+    ],
+    "r": {
+     "score": 16.43836796117337,
+     "n": 3,
+     "fell": false,
+     "faults": [],
+     "speed": 3.9368038267126395,
+     "impulse": 16.43836796117337,
+     "peak": 608.1899022984304,
+     "mass": 4.157511541710515
+    },
+    "g": 20
+   },
+   "mean": [
+    0.20906492885611638,
+    -0.17205528223310299,
+    0.10544015775076739,
+    0.13003417129322803,
+    -0.09109714955961232,
+    0.0530226317777858,
+    -0.10238195199916189,
+    -0.12560551415715238,
+    0.09194780119898367,
+    -0.24268370671041484,
+    -0.15115222284878801,
+    0.11677048001134602,
+    0.31150637084265465,
+    0.03531411045038377,
+    0.15053199351598223,
+    -0.2017463443091123,
+    -0.04356867892463018,
+    0.16014050221051326,
+    -0.3197257330594935,
+    -0.17651402819138773,
+    0.03775154048389268,
+    -0.3075397377551129,
+    -0.1739280768617375,
+    0.01022657592871229,
+    -0.38101965250153513,
+    -0.10864737309083021,
+    0.10229924894233276
+   ],
+   "log": [
+    {
+     "g": 0,
+     "best": 8.269,
+     "median": 0,
+     "sigma": 0.189
+    },
+    {
+     "g": 1,
+     "best": 3.923,
+     "median": 0,
+     "sigma": 0.184
+    },
+    {
+     "g": 2,
+     "best": 3.811,
+     "median": 0,
+     "sigma": 0.18
+    },
+    {
+     "g": 3,
+     "best": 5.093,
+     "median": 0,
+     "sigma": 0.175
+    },
+    {
+     "g": 4,
+     "best": 6.998,
+     "median": 0,
+     "sigma": 0.162
+    },
+    {
+     "g": 5,
+     "best": 3.9,
+     "median": 0,
+     "sigma": 0.161
+    },
+    {
+     "g": 6,
+     "best": 5.037,
+     "median": 0,
+     "sigma": 0.16
+    },
+    {
+     "g": 7,
+     "best": 6.543,
+     "median": 0,
+     "sigma": 0.164
+    },
+    {
+     "g": 8,
+     "best": 11.416,
+     "median": 0,
+     "sigma": 0.172
+    },
+    {
+     "g": 9,
+     "best": 8.749,
+     "median": 0,
+     "sigma": 0.179
+    },
+    {
+     "g": 10,
+     "best": 14.104,
+     "median": 0,
+     "sigma": 0.186
+    },
+    {
+     "g": 11,
+     "best": 10.498,
+     "median": 0.985,
+     "sigma": 0.195
+    },
+    {
+     "g": 12,
+     "best": 7.724,
+     "median": 0.933,
+     "sigma": 0.198
+    },
+    {
+     "g": 13,
+     "best": 10.595,
+     "median": 1.062,
+     "sigma": 0.204
+    },
+    {
+     "g": 14,
+     "best": 12.257,
+     "median": 1.672,
+     "sigma": 0.217
+    },
+    {
+     "g": 15,
+     "best": 11.417,
+     "median": 3.237,
+     "sigma": 0.217
+    },
+    {
+     "g": 16,
+     "best": 12.816,
+     "median": 3.727,
+     "sigma": 0.201
+    },
+    {
+     "g": 17,
+     "best": 8.083,
+     "median": 4.134,
+     "sigma": 0.192
+    },
+    {
+     "g": 18,
+     "best": 8.773,
+     "median": 4.66,
+     "sigma": 0.177
+    },
+    {
+     "g": 19,
+     "best": 12.964,
+     "median": 5.251,
+     "sigma": 0.179
+    },
+    {
+     "g": 20,
+     "best": 16.438,
+     "median": 5.388,
+     "sigma": 0.175
+    },
+    {
+     "g": 21,
+     "best": 15.603,
+     "median": 6.16,
+     "sigma": 0.165
+    },
+    {
+     "g": 22,
+     "best": 9.947,
+     "median": 5.086,
+     "sigma": 0.153
+    },
+    {
+     "g": 23,
+     "best": 14.553,
+     "median": 5.588,
+     "sigma": 0.146
+    },
+    {
+     "g": 24,
+     "best": 13.387,
+     "median": 6.256,
+     "sigma": 0.142
+    },
+    {
+     "g": 25,
+     "best": 11.054,
+     "median": 5.911,
+     "sigma": 0.146
+    },
+    {
+     "g": 26,
+     "best": 14.767,
+     "median": 6.559,
+     "sigma": 0.146
+    },
+    {
+     "g": 27,
+     "best": 13.565,
+     "median": 6.026,
+     "sigma": 0.144
+    },
+    {
+     "g": 28,
+     "best": 12.838,
+     "median": 6.168,
+     "sigma": 0.145
+    },
+    {
+     "g": 29,
+     "best": 11.569,
+     "median": 6.588,
+     "sigma": 0.148
+    }
+   ],
+   "channels": [
+    "thoracic rotation right",
+    "lumbar rotation right",
+    "thoracic flexion",
+    "lumbar flexion",
+    "shoulder.right flexion",
+    "shoulder.right abduction",
+    "shoulder.right internal rotation",
+    "elbow.right flexion",
+    "wrist.right flexion"
+   ]
+  },
+  "push search for impulse, worst of 480 and 960 Hz (poptrobust)": {
+   "opts": {
+    "sigma": 0.12,
+    "rates": [
+     480,
+     960
+    ],
+    "start": [
+     0.20906492885611638,
+     -0.17205528223310299,
+     0.10544015775076739,
+     0.13003417129322803,
+     -0.09109714955961232,
+     0.0530226317777858,
+     -0.10238195199916189,
+     -0.12560551415715238,
+     0.09194780119898367,
+     -0.24268370671041484,
+     -0.15115222284878801,
+     0.11677048001134602,
+     0.31150637084265465,
+     0.03531411045038377,
+     0.15053199351598223,
+     -0.2017463443091123,
+     -0.04356867892463018,
+     0.16014050221051326,
+     -0.3197257330594935,
+     -0.17651402819138773,
+     0.03775154048389268,
+     -0.3075397377551129,
+     -0.1739280768617375,
+     0.01022657592871229,
+     -0.38101965250153513,
+     -0.10864737309083021,
+     0.10229924894233276
+    ],
+    "lambda": 28
+   },
+   "best": {
+    "score": 14.344883176099165,
+    "x": [
+     0.07397832048285968,
+     -0.09641541037407275,
+     0.09020722733054404,
+     0.36855758013302187,
+     -0.14827547085271572,
+     0.08701566755892289,
+     0.39404416765157,
+     -0.07259566597968761,
+     0.0609782667328513,
+     0.013995718701736104,
+     -0.1702062951328595,
+     0.1434203029060036,
+     0.27362894318233333,
+     0.02895077467096005,
+     0.021919435877359148,
+     -0.47890893566098525,
+     -0.09850695640918666,
+     0.24445318606742195,
+     -0.026627701020633388,
+     -0.14475657293507277,
+     0.032763714639010275,
+     -0.4864765769768977,
+     -0.18792323714725778,
+     0,
+     0.1100690396286681,
+     -0.09399409132326916,
+     0.16309335241407782
+    ],
+    "r": {
+     "score": 14.344883176099165,
+     "n": 3,
+     "fell": false,
+     "faults": [],
+     "speed": 3.9443881920950576,
+     "impulse": 14.344883176099165,
+     "peak": 620.5067859417048,
+     "mass": 3.7662424084963337,
+     "byRate": [
+      14.34,
+      14.95
+     ]
+    },
+    "g": 22
+   },
+   "mean": [
+    0.11254689255309969,
+    -0.11104429740187938,
+    0.1135383440005818,
+    0.2698594475779912,
+    -0.14182685207664616,
+    0.0671426749746923,
+    0.5184277329389624,
+    -0.09556355905367772,
+    0.06552172805229459,
+    -0.17376146822258254,
+    -0.1802597465431331,
+    0.14703294087350277,
+    0.20373868797099126,
+    -0.010743542575801346,
+    0.040205988668476286,
+    -0.3613226147148658,
+    -0.096708009818062,
+    0.2311197829094631,
+    -0.14486061187844468,
+    -0.12941989937086384,
+    0.007870838806397705,
+    -0.3870969893130487,
+    -0.17426168802115405,
+    0.019958643003499605,
+    0.046996247578841466,
+    -0.13536210195223974,
+    0.11992201608534105
+   ],
+   "log": [
+    {
+     "g": 0,
+     "best": 6.838,
+     "median": 3.994,
+     "sigma": 0.111
+    },
+    {
+     "g": 1,
+     "best": 6.69,
+     "median": 1.617,
+     "sigma": 0.106
+    },
+    {
+     "g": 2,
+     "best": 6.433,
+     "median": 3.752,
+     "sigma": 0.101
+    },
+    {
+     "g": 3,
+     "best": 6.426,
+     "median": 4.542,
+     "sigma": 0.096
+    },
+    {
+     "g": 4,
+     "best": 8.295,
+     "median": 4.571,
+     "sigma": 0.093
+    },
+    {
+     "g": 5,
+     "best": 7.57,
+     "median": 4.726,
+     "sigma": 0.093
+    },
+    {
+     "g": 6,
+     "best": 6.75,
+     "median": 4.255,
+     "sigma": 0.091
+    },
+    {
+     "g": 7,
+     "best": 9.296,
+     "median": 4.44,
+     "sigma": 0.09
+    },
+    {
+     "g": 8,
+     "best": 8.916,
+     "median": 3.785,
+     "sigma": 0.088
+    },
+    {
+     "g": 9,
+     "best": 8.324,
+     "median": 5.148,
+     "sigma": 0.091
+    },
+    {
+     "g": 10,
+     "best": 7.517,
+     "median": 4.067,
+     "sigma": 0.092
+    },
+    {
+     "g": 11,
+     "best": 8.847,
+     "median": 5.423,
+     "sigma": 0.091
+    },
+    {
+     "g": 12,
+     "best": 8.092,
+     "median": 2.496,
+     "sigma": 0.093
+    },
+    {
+     "g": 13,
+     "best": 7.669,
+     "median": 5.606,
+     "sigma": 0.095
+    },
+    {
+     "g": 14,
+     "best": 8.931,
+     "median": 4.693,
+     "sigma": 0.094
+    },
+    {
+     "g": 15,
+     "best": 7.468,
+     "median": 5.806,
+     "sigma": 0.095
+    },
+    {
+     "g": 16,
+     "best": 7.762,
+     "median": 5.223,
+     "sigma": 0.094
+    },
+    {
+     "g": 17,
+     "best": 8.219,
+     "median": 6.47,
+     "sigma": 0.091
+    },
+    {
+     "g": 18,
+     "best": 8.98,
+     "median": 5.795,
+     "sigma": 0.088
+    },
+    {
+     "g": 19,
+     "best": 7.794,
+     "median": 6.541,
+     "sigma": 0.085
+    },
+    {
+     "g": 20,
+     "best": 8.165,
+     "median": 3.908,
+     "sigma": 0.084
+    },
+    {
+     "g": 21,
+     "best": 8.638,
+     "median": 5.274,
+     "sigma": 0.081
+    },
+    {
+     "g": 22,
+     "best": 14.345,
+     "median": 6.509,
+     "sigma": 0.078
+    },
+    {
+     "g": 23,
+     "best": 8.348,
+     "median": 6.859,
+     "sigma": 0.076
+    },
+    {
+     "g": 24,
+     "best": 8.151,
+     "median": 6.743,
+     "sigma": 0.076
+    }
+   ],
+   "channels": [
+    "thoracic rotation right",
+    "lumbar rotation right",
+    "thoracic flexion",
+    "lumbar flexion",
+    "shoulder.right flexion",
+    "shoulder.right abduction",
+    "shoulder.right internal rotation",
+    "elbow.right flexion",
+    "wrist.right flexion"
+   ]
+  },
+  "push search re-runs (verify-popt, verify-robust)": [
+   {
+    "schedule": "popt1 best",
+    "hz": 120,
+    "n": 3,
+    "speed": 3.98,
+    "impulse": 14.84,
+    "mass": 3.76
+   },
+   {
+    "schedule": "popt1 best",
+    "hz": 960,
+    "n": 4,
+    "speed": 4.15,
+    "impulse": 3.13,
+    "mass": 0.75
+   },
+   {
+    "schedule": "popt480 best",
+    "hz": 480,
+    "n": 3,
+    "speed": 3.94,
+    "impulse": 16.44,
+    "mass": 4.16
+   },
+   {
+    "schedule": "popt480 best",
+    "hz": 960,
+    "n": 1,
+    "faults": [
+     "fewer than three complete measured hand impacts",
+     "pad stroke exceeded"
+    ],
+    "speed": 4.16,
+    "impulse": 11.8,
+    "mass": 2.84
+   },
+   {
+    "schedule": "popt480 mean",
+    "hz": 480,
+    "n": 4,
+    "speed": 3.89,
+    "impulse": 10.41,
+    "mass": 2.6
+   },
+   {
+    "schedule": "popt480 mean",
+    "hz": 960,
+    "n": 5,
+    "speed": 4.03,
+    "impulse": 5.28,
+    "mass": 1.31
+   },
+   {
+    "schedule": "none",
+    "hz": 480,
+    "n": 8,
+    "speed": 4.52,
+    "impulse": 4.98,
+    "mass": 1.1
+   },
+   {
+    "schedule": "none",
+    "hz": 960,
+    "n": 8,
+    "speed": 4.55,
+    "impulse": 4.5,
+    "mass": 0.99
+   },
+   {
+    "schedule": "poptrobust best",
+    "hz": 240,
+    "n": 3,
+    "speed": 4.36,
+    "impulse": 11.28,
+    "mass": 2.6
+   },
+   {
+    "schedule": "poptrobust best",
+    "hz": 960,
+    "ahead": 0.53,
+    "n": 3,
+    "faults": [
+     "failed strike/return cycle"
+    ],
+    "speed": 4.13,
+    "impulse": 9.56,
+    "mass": 2.32
+   },
+   {
+    "schedule": "poptrobust best",
+    "hz": 960,
+    "ahead": 0.57,
+    "n": 1,
+    "faults": [
+     "fewer than three complete measured hand impacts"
+    ],
+    "speed": 4.29,
+    "impulse": 16.06,
+    "mass": 3.74
+   },
+   {
+    "schedule": "poptrobust best",
+    "hz": 1920,
+    "n": 3,
+    "faults": [
+     "pad stroke exceeded"
+    ],
+    "speed": 3.75,
+    "impulse": 12.15,
+    "mass": 3.15
+   },
+   {
+    "schedule": "poptrobust mean",
+    "hz": 240,
+    "n": 1,
+    "faults": [
+     "fewer than three complete measured hand impacts"
+    ],
+    "speed": 4.5,
+    "impulse": 11.26,
+    "mass": 2.5
+   },
+   {
+    "schedule": "poptrobust mean",
+    "hz": 960,
+    "n": 3,
+    "speed": 4.23,
+    "impulse": 7.9,
+    "mass": 1.88
+   },
+   {
+    "schedule": "poptrobust mean",
+    "hz": 960,
+    "ahead": 0.53,
+    "n": 5,
+    "speed": 4.16,
+    "impulse": 6.6,
+    "mass": 1.59
+   },
+   {
+    "schedule": "poptrobust mean",
+    "hz": 960,
+    "ahead": 0.57,
+    "n": 3,
+    "speed": 3.96,
+    "impulse": 9.92,
+    "mass": 2.5
+   },
+   {
+    "schedule": "poptrobust mean",
+    "hz": 1920,
+    "n": 5,
+    "speed": 4.14,
+    "impulse": 8.01,
+    "mass": 1.94
+   },
+   {
+    "schedule": "none",
+    "hz": 240,
+    "n": 7,
+    "speed": 4.67,
+    "impulse": 6.19,
+    "mass": 1.33
+   },
+   {
+    "schedule": "none",
+    "hz": 960,
+    "ahead": 0.53,
+    "n": 8,
+    "speed": 4.25,
+    "impulse": 4.05,
+    "mass": 0.95
+   },
+   {
+    "schedule": "none",
+    "hz": 960,
+    "ahead": 0.57,
+    "n": 8,
+    "speed": 4.59,
+    "impulse": 4.48,
+    "mass": 0.97
+   },
+   {
+    "schedule": "none",
+    "hz": 1920,
+    "n": 7,
+    "speed": 4.37,
+    "impulse": 3.62,
+    "mass": 0.83
+   }
+  ]
  }
 }

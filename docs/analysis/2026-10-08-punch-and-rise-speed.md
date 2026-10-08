@@ -4,7 +4,8 @@ The question: how far the Warrior's punch and rise are from a person's, and whet
 the controller holds them there. This study is open, for the choices at its end. Its
 [probes, experiment patches and raw rows](2026-10-08-punch-and-rise-speed.json) run against code
 at `38cdc1cb` (the body as `83c3540c` built it), each from a copy of the tree with the named
-patch applied; no experiment is installed.
+patch applied, and the capacity and push searches at `f55820e1` (the same `src/`) unpatched; no
+experiment is installed.
 
 Harnesses: the punch cells are `punchStand` (`research/punch-calibration.mjs`), right hand,
 compliant pad, planted execution, 960 Hz, rapier-coordinate. The flat-out probes are the combat
@@ -22,8 +23,9 @@ seconds (not sourced here).
 
 ## The punch
 
-All punch cells here run with the cross's trunk turned the right way and the arm aimed from
-its actual trunk (the change described under [The cross's trunk](#the-crosss-trunk)).
+The punch cells in the two tables below run with the cross's trunk turned the right way and the
+arm aimed from its actual trunk (the change described under [The cross's trunk](#the-crosss-trunk)).
+The capacity and push searches after them run on the code as it is, unpatched.
 
 **The hip's and the trunk's speed.** Hip extension's Hill curve, solved through Anderson 2007's
 two points, falls to zero at 6.5 rad/s with a curvature of 22.7: nearly a straight line,
@@ -75,6 +77,51 @@ account: hand-timed hip and trunk pushes, and a flat-out search over 18 channels
 schedules, which found a 10 m/s hand at shoulder height by riding this chatter (trunk freedoms
 reversing at 14 to 17 rad/s against an unloaded speed of 8.9).
 
+**What the body can do, the stance kept.** A flat-out search on the combat guard stand with the
+stance kept (`cap-opt.mjs`, `cap-eval.mjs`: 18 channels' push levels, starts and lengths from
+the trunk, legs and right arm, diagonal CMA-ES, 70 generations at 120 Hz) scores the hand's
+forward speed at shoulder height, in the punch lane (x -0.1 to 0.35 m), more than 0.3 m ahead of
+the trunk, the trunk up. No channel chatters with the stance kept. Its best schedule, run again
+at each rate (time from 2 s into the stand, where the schedule's clock starts):
+
+| rate, Hz | hand, m/s | wrist, m/s | hand at (x, y, z), m | time, s |
+|---|---|---|---|---|
+| 120 | 12.72 | 10.12 | 0.27, 1.57, 0.38 | 0.258 |
+| 480 | 12.57 | 10.09 | 0.28, 1.57, 0.39 | 0.252 |
+| 960 | 12.37 | 9.78 | 0.27, 1.60, 0.40 | 0.252 |
+
+The wrist is the hand's joint (the hand segment's origin), its speed read from its travel each
+step: the arm without the hand's own flail. The schedule is a cross: the trunk turned to bring the
+right shoulder forward (thoracic rotation pushed left at 0.86), the lumbar spine flexed (0.9),
+the shoulder flexed (0.9) and the elbow extended (0.78), with the legs braced. It is a whip:
+the elbow extends near 30 rad/s against an unloaded speed of 25.5, and the wrist's freedoms pass
+twice theirs, carried by the segments behind them. The arm reaches a boxer's hand speed with the
+body's own muscles. Nothing struck in this search, and its hand arrives with a loose wrist: it
+measures what the body can move, not a blow.
+
+**Pushes on the game's cross, for impulse.** The same search over the punch cell, the game's
+cross as it stands at `f55820e1` (its trunk turning the way described below), with nine channels
+of the trunk and right arm pushed on a schedule timed from the swing (`punch-opt.mjs`,
+`cell-fn.mjs`), scored by the pad's mean impulse over qualified impacts. Scored at 120 Hz, the
+search found 14.8 N s that read 3.1 at 960 Hz: the coarse rate's contact is what it learned.
+Scored at 480 Hz, its best read 16.4 N s there and one impact at 960 Hz. Scored at the worse of
+480 and 960 Hz (25 generations of 28, started from the 480 Hz search's mean), its best reads
+14.3 and 15.0, and nearby it falls apart; its final mean holds:
+
+| schedule | 240 Hz | 960 Hz | 960 Hz, pad 2 cm nearer | 960 Hz, 2 cm further | 1920 Hz |
+|---|---|---|---|---|---|
+| none | 6.19 (7) | 4.50 (8) | 4.05 (8) | 4.48 (8) | 3.62 (7) |
+| best | 11.28 (3) | 14.95 (3) | 9.56 (3), failed cycle | 16.06 (1) | 12.15 (3), pad stroke |
+| mean | 11.26 (1) | 7.90 (3) | 6.60 (5) | 9.92 (3) | 8.01 (5) |
+
+Impulse in N s (qualified impacts). The mean schedule leans the trunk forward (thoracic flexion
+at 0.52) and drives the shoulder in and the elbow out at the swing's start; the hand is no faster
+(4.0 to 4.2 m/s) and the effective mass rises from about 1 kg to 1.6 to 2.5. Pushes laid on
+today's cross nearly double its impulse and leave its speed, at a third of a trained person's
+17.2 N s. Two cautions for every impulse figure here: it still moves with the rate between 960
+and 1920 Hz (4.50 to 3.62 with nothing pushed), and a schedule scored on one cell is fragile to
+a cell 2 cm away.
+
 ## The rise
 
 No freedom chatters in any stage of a staged rise (a Warrior felled at 0 degrees: under 0.25
@@ -113,7 +160,9 @@ found with the trunk turning the wrong way.
   is the step before a flat-out search can say what the body can do, and costs no body change.
 - **An explosive punch controller.** A cross from the legs, pelvis and trunk to the hand, in
   sequence and at full effort, needs a stance that lets the pelvis turn at 10 rad/s and an arm
-  path that rides it. Today's stance holds the heading and today's path ignores it.
+  path that rides it. Today's stance holds the heading and today's path ignores it. The body
+  moves the wrist at 10 m/s with the stance kept; pushes laid on today's path add mass to the
+  blow and no speed.
 - **The hip's and trunk's curves.** The two-point extrapolation puts the hip's unloaded speed
   below what the elbow's rule gives from the same points. Replacing it is a body change felt in
   every walk, rise and kick, and wants its before/after tables; it pays only with the controller
