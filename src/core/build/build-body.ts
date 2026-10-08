@@ -137,9 +137,16 @@ function buildSegment(body: BodySpec, spec: SegmentSpec, placement: Placement, w
   node.rotationQuaternion = Quaternion.RotationQuaternionFromAxis(v3(frame.x), v3(frame.y), v3(frame.z));
   const rest = node.rotationQuaternion.clone();
   if (pose) { node.position.copyFrom(pose.position); node.rotationQuaternion.copyFrom(pose.rotation); }
+  const posed = (name: HandPose): HandConfiguration => {
+    const shape = handShapeAt(body, spec, name);
+    return { shape, rigid: { ...rigid, shapes: [shape, ...rigid.shapes.slice(1)] }, collider: colliderOf(frame, shape) };
+  };
+  const poses = spec.handPoses && { open: posed("open"), fist: posed("fist"), grip: posed("grip") };
+  // A posed hand's collider is its initial pose's from the first step, as `handPose.applied` says.
+  const shapes = poses ? poses[initial].rigid.shapes : rigid.shapes;
   const [xx, yy, zz] = rigid.tensor;
   const principal = hasProducts(rigid.tensor) ? principalOf(rigid.tensor) : null;
-  const physics = world.physics.addBody(node, rigid.shapes.map((shape) => colliderOf(frame, shape)), {
+  const physics = world.physics.addBody(node, shapes.map((shape) => colliderOf(frame, shape)), {
     mass: rigid.mass,
     centre: local(frame, rigid.centre),
     moments: principal ? principal.moments : [xx, yy, zz],
@@ -148,11 +155,6 @@ function buildSegment(body: BodySpec, spec: SegmentSpec, placement: Placement, w
       : Quaternion.Identity(),
   });
   const handPose = spec.handPoses ? { applied: initial, requested: initial } : undefined;
-  const posed = (name: HandPose): HandConfiguration => {
-    const shape = handShapeAt(body, spec, name);
-    return { shape, rigid: { ...rigid, shapes: [shape, ...rigid.shapes.slice(1)] }, collider: colliderOf(frame, shape) };
-  };
-  const poses = spec.handPoses && { open: posed("open"), fist: posed("fist"), grip: posed("grip") };
   return { spec, frame, node, body: physics, rest, ...(handPose ? { handPose } : {}), ...(poses ? { poses } : {}),
     get rigid() { return poses && handPose ? poses[handPose.applied].rigid : rigid; } };
 }

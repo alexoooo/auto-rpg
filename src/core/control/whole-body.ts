@@ -45,17 +45,20 @@ export function wholeBodyTracking(built: BuiltBody, muscles: MuscleDriver, gravi
   }
   const liftOff = settings.contact?.settings.liftOff ? { ...settings.contact.settings.liftOff } : null;
   const contactPasses = liftOff ? settings.contact!.settings.maxPoints + 1 : 0;
-  const radius = (shapes: readonly ShapeSpec[]) => shapes.map((shape) => {
+  const rounding = (shape: ShapeSpec | undefined): number => {
+    if (!shape) return NaN;
     switch (shape.kind) {
       case "capsule": case "sphere": return shape.radius.value;
       case "box": case "hull": return 0;
       default: { const never: never = shape; throw new Error(`unknown contact shape ${JSON.stringify(never)}`); }
     }
-  });
-  const radii = new Map([...built.segments].map(([name, s]) => [motionFrameKey({ kind: "segment", name }), radius(s.rigid.shapes)]));
-  for (const item of items) radii.set(motionFrameKey({ kind: "item", id: item.id }), radius(item.spec.shapes));
+  };
+  // Each frame's colliders as they are at the read: a hand's are its applied pose's.
+  const shapes = new Map<string, () => readonly ShapeSpec[]>([...built.segments].map(([name, s]) => [motionFrameKey({ kind: "segment", name }), () => s.rigid.shapes]));
+  for (const item of items) shapes.set(motionFrameKey({ kind: "item", id: item.id }), () => item.spec.shapes);
+  const radius = (frame: string, collider: number): number => rounding(shapes.get(frame)?.()[collider]);
   const contacts = settings.contact ? contactTracking(settings.contact.physics, frames, count, settings.contact.settings,
-    (stopSettings ? count : 0) + (liftOff ? settings.contact.settings.maxPoints : 0), { dt: settings.contact.dt ?? 0, radii }) : null;
+    (stopSettings ? count : 0) + (liftOff ? settings.contact.settings.maxPoints : 0), { dt: settings.contact.dt ?? 0, radius }) : null;
   const stopEffort = stopSettings && !contacts && count > 0 ? effortBounds(count, count, stopSettings) : null;
   const rowCapacity = count + 6 * capacity, A = new Float64Array(rowCapacity * count), target = new Float64Array(rowCapacity);
   const H = new Float64Array(count * count), rhs = new Float64Array(count), unconstrained = new Float64Array(count);

@@ -93,5 +93,11 @@ The strike stands 5.3 mm (Warrior) and 4.3 mm (Rogue) ahead of the knuckle, and 
 - The surfaces are convex hulls: the palm's hollow, the arch and the gaps between toes are
   bridged. Contact on a flat ground is what they are for.
 - The hand is one rigid piece per pose; the fingers do not bend under load.
+- The engine (Rapier) builds a hull from its corners, merging adjacent triangles within about
+  1.5° into one face and dropping corners inside such a face: 4 to 7 of a hand hull's 151 to 173,
+  each within 0.005 mm of the hull of the rest, so the collider is the hull. Its point query
+  (`gapTo`) is not reliable on these hulls: it reads some corners up to 11 mm off a surface that a
+  ray meets exactly there. `tests/core-hand-poses.test.mjs` compares the collider's corners
+  instead.
 - The bind pose's skin is the unloaded skin; nothing models its compression beyond `PATCH`.
 - The hinge's height is a mid-section estimate (see **Hinge**).

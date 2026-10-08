@@ -22,6 +22,7 @@ import { lieOf, stagedRise } from "../src/core/mind/rise/staged.ts";
 import { RISE, stageFaults } from "../src/core/mind/rise/stages.ts";
 import { felled, riserOf, toppled } from "../research/core-rise-trials.mjs";
 import { coreStand } from "./harness/core-stand.mjs";
+import { hullHands } from "./fixtures/hull-hands.mjs";
 
 /** No roll: a body not on its front lies as it is. */
 const NO_ROLL = { back: [], left: [], right: [] };
@@ -690,4 +691,49 @@ test("what is a foot's own is its reference pose's, however the body lies when i
       assert.ok(lying.every((foot) => Math.abs(foot.heel) > 0.02), `${model}: lying, its heels are ${lying.map((foot) => foot.heel)} m over its front edges`);
     } finally { stand.dispose(); dispose(); }
   }
+});
+
+test("a hand on its palm hull bears at the middle of its corners that are down, else at its lowest, and in its grip on its capsule", async () => {
+  const stand = await coreStand(hullHands(modelSpec("workshop-fighter")), { gravity: false, ground: false });
+  const body = createBody(stand.built, stand.world, { servoSeconds: SERVO_SECONDS });
+  const xyz = (v) => v.asArray(), far = (a, b) => Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
+  try {
+    const limbs = riseLimbs(ownOf(stand.built, body), RISE);
+    for (const [l, side] of [[HANDS[0], "left"], [HANDS[1], "right"]]) {
+      const segment = stand.built.segments.get(`hand.${side}`), limb = limbs.limbs[l];
+      assert.equal(limb.reach, segment.spec.shape.radius.value, `${side}: its reach is its own capsule's radius`);
+      const corners = segment.spec.handPoses.open.points.map((p) => pointOfToRef(segment, p.value, new Vector3()));
+      const lowest = corners.reduce((low, corner) => (corner.y < low.y ? corner : low));
+      // The ground a metre under it: no corner is down, and the hand bears at its lowest.
+      limbs.read(lowest.y - 1, false);
+      assert.deepEqual(xyz(limb.work.at), xyz(lowest), `${side}, none down`);
+      // A centimetre under it: the corners within DOWN of the ground, some and not all, at their middle.
+      const ground = lowest.y - 0.01, down = corners.filter((corner) => corner.y - ground < DOWN);
+      assert.ok(down.length > 1 && down.length < corners.length, `${side}: ${down.length} of ${corners.length} corners down`);
+      const middle = down.reduce((sum, corner) => sum.add(corner), new Vector3()).scale(1 / down.length);
+      limbs.read(ground, false);
+      assert.ok(far(limb.work.at, middle) < 1e-12, `${side}: bears at (${xyz(limb.work.at)}), its down corners' middle (${xyz(middle)})`);
+    }
+    // In its grip, a capsule: under its lower end's centre, a radius down.
+    stand.built.handPoses.request([{ hand: "left", pose: "grip" }, { hand: "right", pose: "grip" }]);
+    stand.step();
+    for (const [l, side] of [[HANDS[0], "left"], [HANDS[1], "right"]]) {
+      const segment = stand.built.segments.get(`hand.${side}`), grip = segment.spec.handPoses.grip;
+      assert.equal(segment.handPose.applied, "grip");
+      const ends = [grip.from, grip.to].map((p) => pointOfToRef(segment, p.value, new Vector3()).subtractFromFloats(0, grip.radius.value, 0));
+      const lower = ends[0].y <= ends[1].y ? ends[0] : ends[1];
+      limbs.read(lower.y - 1, false);
+      assert.ok(far(limbs.limbs[l].work.at, lower) < 1e-12, `${side}, in its grip: bears at (${xyz(limbs.limbs[l].work.at)}), its capsule's lower end (${xyz(lower)})`);
+    }
+  } finally { body.dispose(); stand.dispose(); }
+});
+
+test("a propped limb bears only on capsules, and an end limb on a hand's hulls", () => {
+  const spec = hullHands(modelSpec("workshop-fighter")), hand = RISE.limbs.find((limb) => limb.name === "hand.left");
+  assert.deepEqual(stageFaults(RISE, spec), []);
+  const propped = { ...RISE.limbs.find((limb) => limb.kind === "propped"), name: "palm", segment: "hand.left", end: "far" };
+  const faults = stageFaults({ ...RISE, limbs: [...RISE.limbs, propped] }, spec);
+  assert.ok(faults.includes("limb palm bears on hand.left, whose open pose is a hull"), faults.join("; "));
+  const boxed = { ...spec, segments: spec.segments.map((s) => s.name === hand.segment ? { ...s, handPoses: { ...s.handPoses, fist: { kind: "box", centre: s.centreOfMass, size: { ...s.centreOfMass, value: [0.1, 0.1, 0.1] } } } } : s) };
+  assert.ok(stageFaults(RISE, boxed).includes(`limb ${hand.name} bears on ${hand.segment}, whose fist pose is a box`), stageFaults(RISE, boxed).join("; "));
 });

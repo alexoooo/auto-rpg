@@ -7,12 +7,13 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { BuiltBody, BuiltSegment } from "../../build/build-body.ts";
 import type { Limb, LimbTask, Row } from "../../control/bearing.ts";
 import type { BearingPoint } from "../../control/contact-wrench.ts";
+import { lowsOf } from "../../control/ground.ts";
 import { chainTo } from "../../control/kinematics.ts";
 import { SOLE_MARGIN } from "../../control/stance-tuning.ts";
 import { bearingSole, footStatesOf, motionAtToRef, pointOfToRef, readSupport, rolledRows, type FootState } from "../../control/support.ts";
 import { hypot } from "../../math/real.ts";
 import type { Vec3 } from "../../spec/quantity.ts";
-import { handShapeAt, type HandPose } from "../../spec/body.ts";
+import { handShapeAt, type HandPose, type ShapeSpec } from "../../spec/body.ts";
 import type { OwnBody } from "../mind.ts";
 import { limbChannels, type EndLimb, type FootLimb, type ProppedLimb, type Recipe } from "./stages.ts";
 
@@ -115,6 +116,10 @@ export function riseLimbs(own: OwnBody, recipe: Recipe): RiseLimbs {
   };
 }
 
+function unknownEnd(end: never): never {
+  throw new Error(`an end of no known shape: ${JSON.stringify((end as { kind?: unknown }).kind)}`);
+}
+
 function unknownLimb(limb: never): never {
   throw new Error(`a limb of no known kind: ${JSON.stringify(limb)}`);
 }
@@ -133,22 +138,37 @@ function hold(limb: Limb, rate: number, ground: number): void {
   task.bearing = true;
 }
 
-/** A capsule's end as a limb bears on it: the end's centre, body frame, reference pose, and the capsule's radius. */
-function endOf(built: BuiltBody, segment: BuiltSegment, which: ProppedLimb["end"]): { readonly at: Vec3; readonly radius: number } {
+/** A capsule's ends as a limb bears on them, body frame, reference pose: the end nearer the joint that carries it, the other, and its radius. */
+function capsuleEnds(built: BuiltBody, segment: BuiltSegment, shape: ShapeSpec): { readonly near: Vec3; readonly far: Vec3; readonly radius: number } {
   const joint = chainTo(built, segment).at(-1);
-  const read = (shape: import("../../spec/body.ts").ShapeSpec) => {
-    if (shape.kind !== "capsule" || !joint) throw new Error(`${segment.spec.name} is a ${shape.kind} that ${joint ? joint.spec.name : "no joint"} carries; a limb bears on the end of a capsule a joint carries`);
-    const c = joint.spec.centre.value, from = shape.from.value, to = shape.to.value;
-    const away = (p: Vec3): number => (p[0] - c[0]) * (p[0] - c[0]) + (p[1] - c[1]) * (p[1] - c[1]) + (p[2] - c[2]) * (p[2] - c[2]);
-    const near = away(from) <= away(to) ? from : to;
-    return { at: which === "near" ? near : near === from ? to : from, radius: shape.radius.value };
-  };
+  if (shape.kind !== "capsule" || !joint) throw new Error(`${segment.spec.name} is a ${shape.kind} that ${joint ? joint.spec.name : "no joint"} carries; a limb bears on the end of a capsule a joint carries`);
+  const c = joint.spec.centre.value, from = shape.from.value, to = shape.to.value;
+  const away = (p: Vec3): number => (p[0] - c[0]) * (p[0] - c[0]) + (p[1] - c[1]) * (p[1] - c[1]) + (p[2] - c[2]) * (p[2] - c[2]);
+  const near = away(from) <= away(to) ? from : to;
+  return { near, far: near === from ? to : from, radius: shape.radius.value };
+}
+
+/** `read` of a segment's shape and of each of its hand's poses; what it gives is the applied pose's, or the shape's for a segment without poses. */
+function byPose<T>(built: BuiltBody, segment: BuiltSegment, read: (shape: ShapeSpec) => T): () => T {
   const base = read(segment.spec.shape);
   const poses = segment.spec.handPoses && Object.fromEntries((Object.keys(segment.spec.handPoses) as HandPose[]).map(name =>
     [name, read(handShapeAt(built.spec, segment.spec, name))]));
-  const current = () => poses && segment.handPose ? poses[segment.handPose.applied]! : base;
+  return () => poses && segment.handPose ? poses[segment.handPose.applied]! : base;
+}
+
+/** A capsule's end as a limb bears on it: the end's centre, body frame, reference pose, and the capsule's radius. */
+function endOf(built: BuiltBody, segment: BuiltSegment, which: ProppedLimb["end"]): { readonly at: Vec3; readonly radius: number } {
+  const current = byPose(built, segment, (shape) => {
+    const ends = capsuleEnds(built, segment, shape);
+    return { at: which === "near" ? ends.near : ends.far, radius: ends.radius };
+  });
   return { get at() { return current().at; }, get radius() { return current().radius; } };
 }
+
+/** What an end limb bears on: a capsule's two ends, a radius out, or a hull's corners. */
+type EndShape =
+  | { readonly kind: "capsule"; readonly near: Vec3; readonly far: Vec3; readonly radius: number }
+  | { readonly kind: "hull"; readonly corners: readonly Vec3[] };
 
 /**
  * The chain of a limb: its channels, root outward, and its stem's; and `ask`, which asks its
@@ -173,26 +193,50 @@ function chainOf(own: OwnBody, spec: EndLimb | ProppedLimb | FootLimb) {
 }
 
 /**
- * A capsule where it touches the ground: a point a radius under its lower end's centre, or, both
- * its ends down (within `DOWN` of the ground), under the middle of the two; held, the segment
- * turning about it as the body moves. Some freedoms of its chain take the point, as near the
- * posture as the point lets them; the others are asked toward the posture ahead of it.
+ * A segment's end where it touches the ground. On a capsule: a point a radius under its lower
+ * end's centre, or, both its ends down (within `DOWN` of the ground), under the middle of the two.
+ * On a hand pose's hull: the middle of its corners that are down, or its lowest corner if none
+ * is. Held, the segment turning about it as the body moves. Some freedoms of its chain take the
+ * point, as near the posture as the point lets them; the others are asked toward the posture
+ * ahead of it. Its reach is its own shape's capsule radius, whatever pose its hand is in.
  */
 function endLimb(own: OwnBody, spec: EndLimb): Part {
   const { built } = own, segment = built.segments.get(spec.segment)!;
-  const chain = chainOf(own, spec), near = endOf(built, segment, "near"), far = endOf(built, segment, "far");
-  const at = new Vector3(), other = new Vector3(), patch: BearingPoint = { kind: "point", at };
+  const chain = chainOf(own, spec), reach = capsuleEnds(built, segment, segment.spec.shape).radius;
+  const shape = byPose(built, segment, (s): EndShape => s.kind === "hull"
+    ? { kind: "hull", corners: lowsOf(s, segment.frame).map((low) => low.at) }
+    : { kind: "capsule", ...capsuleEnds(built, segment, s) });
+  const at = new Vector3(), other = new Vector3(), corner = new Vector3(), patch: BearingPoint = { kind: "point", at };
   const limb: Limb = {
-    segment, memory: { channels: chain.channels }, stem: chain.stem, reach: near.radius, task: taskOf(chain.channels.length),
+    segment, memory: { channels: chain.channels }, stem: chain.stem, reach, task: taskOf(chain.channels.length),
     work: { at, rows: POINT_ROWS, ahead: chain.ahead, toward: chain.toward, patch, share: 1 },
   };
   return {
     limb, over: at,
     read(ground) {
-      pointOfToRef(segment, near.at, at).y -= near.radius;
-      pointOfToRef(segment, far.at, other).y -= far.radius;
-      if (at.y - ground < DOWN && other.y - ground < DOWN) at.addInPlace(other).scaleInPlace(0.5);
-      else if (other.y < at.y) at.copyFrom(other);
+      const now = shape();
+      switch (now.kind) {
+        case "capsule":
+          pointOfToRef(segment, now.near, at).y -= now.radius;
+          pointOfToRef(segment, now.far, other).y -= now.radius;
+          if (at.y - ground < DOWN && other.y - ground < DOWN) at.addInPlace(other).scaleInPlace(0.5);
+          else if (other.y < at.y) at.copyFrom(other);
+          return;
+        case "hull": {
+          let down = 0;
+          at.setAll(0);
+          other.setAll(Infinity);
+          for (const point of now.corners) {
+            pointOfToRef(segment, point, corner);
+            if (corner.y - ground < DOWN) { at.addInPlace(corner); down++; }
+            if (corner.y < other.y) other.copyFrom(corner);
+          }
+          if (down > 0) at.scaleInPlace(1 / down);
+          else at.copyFrom(other);
+          return;
+        }
+        default: unknownEnd(now);
+      }
     },
     bear(goal, rate, ground, transfer) {
       hold(limb, rate, ground);

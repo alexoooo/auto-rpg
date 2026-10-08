@@ -104,8 +104,8 @@ export function drawBody(built: BuiltBody, scene: Scene, tint: Color3): BodyShap
   const meshes: Mesh[] = [];
   const changing: { segment: import("../core/build/build-body.ts").BuiltSegment; mesh: Mesh; pose: string }[] = [];
   for (const segment of built.segments.values()) {
-    // Its own shape; what it holds is `drawHeld`'s.
-    const mesh = shapeMesh(`${segment.node.name}.view`, segment.frame, segment.spec.shape, scene);
+    // Its own shape, a hand's in the pose it is in; what it holds is `drawHeld`'s.
+    const mesh = shapeMesh(`${segment.node.name}.view`, segment.frame, segment.rigid.shapes[0]!, scene);
     mesh.parent = segment.node;
     mesh.material = segment.spec.name.endsWith(".right") ? right : left;
     meshes.push(mesh);
@@ -118,7 +118,8 @@ export function drawBody(built: BuiltBody, scene: Scene, tint: Color3): BodyShap
       const replacement = shapeMesh(`${item.mesh.name}.geometry`, item.segment.frame, item.segment.rigid.shapes[0]!, scene);
       replacement.geometry!.applyToMesh(item.mesh);
       item.mesh.position.copyFrom(replacement.position);
-      item.mesh.rotationQuaternion = replacement.rotationQuaternion!.clone();
+      // Only a capsule is turned in its segment's coordinates; a box, sphere or hull is not.
+      item.mesh.rotationQuaternion = replacement.rotationQuaternion ? replacement.rotationQuaternion.clone() : Quaternion.Identity();
       replacement.dispose(false, false); item.pose = pose;
     }
   });
