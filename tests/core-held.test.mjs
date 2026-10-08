@@ -153,12 +153,12 @@ test("the engine holds the rigid body: its mass, centre and inertia, read back b
 test("a rigid body's points are its segment's and its items', placed", () => {
   const bare = humanSpec("workshop-fighter"), hand = bare.segments.find((segment) => segment.name === "hand.right");
   const own = rigidPoints(bare, hand);
-  assert.deepEqual([...own.keys()], ["knuckles", "little", "strike"]);
+  assert.deepEqual([...own.keys()], ["knuckles", "little", "strike", "palm"]);
   for (const [name, point] of own) assert.equal(point, hand.points[name], `${name} is the segment's own quantity`);
 
   const club = woodenClub(), spec = armed(bare, "right", club), [held] = spec.held;
   const points = rigidPoints(spec, hand);
-  assert.deepEqual([...points.keys()], ["knuckles", "little", "strike", "swellFrom", "swellTo", "swell"]);
+  assert.deepEqual([...points.keys()], ["knuckles", "little", "strike", "palm", "swellFrom", "swellTo", "swell"]);
   for (const name of ["knuckles", "little"]) assert.equal(points.get(name), hand.points[name]);
   for (const name of ["swellFrom", "swellTo", "swell"]) {
     assert.deepEqual(points.get(name).value, heldPoint(held, club.points[name]).value, `${name} is where its holding puts it`);
@@ -170,16 +170,16 @@ test("a rigid body's points are its segment's and its items', placed", () => {
   points.get("swell").value.forEach((c, k) => close(c, middle[k], 1e-12, `the swell's middle ${k}`));
   // The other hand holds nothing, and has its own alone.
   const left = spec.segments.find((segment) => segment.name === "hand.left");
-  assert.deepEqual([...rigidPoints(spec, left).keys()], ["knuckles", "little", "strike"]);
+  assert.deepEqual([...rigidPoints(spec, left).keys()], ["knuckles", "little", "strike", "palm"]);
 
   // A name the segment and its item both state is refused.
   const twice = { ...club, points: { ...club.points, knuckles: club.points.swell } };
   assert.throws(() => rigidPoints(armed(bare, "right", twice), hand), /hand\.right and what it holds have two points named knuckles/);
 });
 
-test("a hand strikes with the point its item says, or its knuckles", () => {
+test("a hand strikes with the point its item says, a bare hand with its fist's, and a hand that holds an item with no aim with its knuckles", () => {
   const bare = humanSpec("workshop-fighter"), club = woodenClub(), spec = armed(bare, "right", club);
-  assert.deepEqual({ right: aimOf(spec, "right"), left: aimOf(spec, "left"), bare: aimOf(bare, "right") }, { right: "swell", left: "knuckles", bare: "knuckles" });
+  assert.deepEqual({ right: aimOf(spec, "right"), left: aimOf(spec, "left"), bare: aimOf(bare, "right") }, { right: "swell", left: "strike", bare: "strike" });
   // An item that names no point to aim by is aimed by the hand.
   const { aim, ...plain } = club;
   assert.equal(aim, "swell");

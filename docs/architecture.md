@@ -406,9 +406,10 @@ does not raise strength. Action representations and the world's actuator law bel
 manifests. `DirectMindConfig` supplies explicit joint targets, time constant, maximum speed and
 activation to an independent joint-feedback policy. It shares the game's construction, level,
 disposal and replay paths, and has no fighter view. Its pinned reach/hold test is a replacement
-proof, not a standing or fighting claim. The same independent policy also holds an installed
-Warrior all-fours pose on ordinary ground for ten seconds within 2 cm, without assistance
-([posture hold](reference/posture-hold.md)); half-kneel and squat fail that gate.
+proof, not a standing or fighting claim. On the workshop hands' hulls the same independent
+policy holds no installed Warrior pose on ordinary ground for ten seconds within 2 cm without
+assistance: all fours drifts 2.3 cm, and half-kneel and squat fail further
+([posture hold](reference/posture-hold.md)).
 The posture task also exposes checked external actions, immutable actuator descriptions and
 the common environment interface. Its held command is replayable controller state; the physical
 fixture and scoring are independent of controller choice. An explicitly privileged
@@ -1006,11 +1007,13 @@ uniform `SkinView` contract includes collision-shape fallback. The Arena, Dungeo
 character previews all use this factory. `skinSlot` replaces a body's view without replacing its
 physics, rejecting stale asynchronous loads and preserving current clothing and visibility.
 
-`strike-hands.ts` adapts the active command owner's strike report to `hand-pose.ts`, the shared
-finger presentation controller. Arena, Crypt, Lab Routine and Lab Blow advance it after each
-simulation step; skins only read closure. Empty hands close during chambering, remain fists
-during swings and relax during return or interruption; a mind that strikes with no hand, or
-drives joints directly, leaves them relaxed. Held-item grips take precedence.
+`strike-hands.ts` gives skins their fingers' closure. In the Arena and the Crypt a fighter's
+fingers are its body's applied hand poses (`fighterHands`): closed in a fist or a grip, open else,
+since every skill set closes a bare hand for its blow. Lab Routine and Lab Blow, whose skills drive
+the strike skill alone, adapt the active command owner's strike report to `hand-pose.ts`, the
+shared finger presentation controller (`strikeHands`), advanced after each simulation step: empty
+hands close during chambering, remain fists during swings and relax during return or
+interruption. Skins only read closure, and held-item grips take precedence.
 Presentation belongs to the character rather than its replaceable skin and owns no physical
 state. Lab history records closure beside the body's transforms for scrubbing and replay;
 paused rendering advances neither. Timing: [fist presentation](reference/lab.md#fist-presentation).
@@ -1108,9 +1111,15 @@ velocity and sourced mass properties persist. Separate capture retains the curre
 until closure is requested; reopening waits for release. Senses carry the applied configuration
 at their observation time, and physical-pose renderers read that configuration. The geometry and retained
 rigid-hand inertia approximation are recorded in [hand poses](reference/hand-poses.md).
+A workshop human's open hand is its palm's hull and its fist the fist's hull, measured from its
+skin (`src/core/human/hands.ts`, `assets/humanoid/<model>-hands.json`); its grip, and the shape a
+held item seats against, stay the capsule. A figure without measured hands, the skeleton's, has
+capsule poses.
 
-The optional combat `execution` config requests physical fists, tracks their surface strike
-point and admits a finite impact path on identified target contact. Native and material contacts
+A bare hand closes into its fist for its blow and opens in the guard, in both skill sets
+(`closesToStrike`, `src/core/skills/strikes.ts`), and strikes with the fist's surface point
+(`aimOf`). The optional combat `execution` config admits a finite impact path on identified
+target contact. Native and material contacts
 share detached tactile feedback; world, block, unknown and misaligned contacts withdraw.
 The common `skills/strike-cycle.ts` advances measured preparation, stroke, bounded intended
 contact and verified return. `skills/effector-strike.ts` (`effectorStrike`) runs it for one

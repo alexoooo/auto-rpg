@@ -334,7 +334,7 @@ export async function bootArena(): Promise<void> {
       }, {
         solids: arenaSolids(),
         onBuilt: (duelist, built) => {
-          const hands = fighterHands(world, duelist);
+          const hands = fighterHands(duelist);
           const skin = dress.get(duelist.side)!(built, { clothing: { boots: true, armour: true }, closure: hands.closure });
           const shapes = drawBody(built, scene, Color3.FromHexString(duelist.side === "left" ? "#6f8bb5" : "#d0705e"));
           const held = drawHeld(built, scene), pelvis = duelist.body.muscles.dynamics.root.segment.node;

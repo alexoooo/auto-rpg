@@ -6,39 +6,41 @@ the README's figures; the run sets no bar.
 
 **Harness:** Node Arena Duel, rapier-coordinate (`rapier/adapter-9/...coordinate-limits`), 120 Hz,
 symmetric actuation; the arena-combat protocol (`COMBAT_PROTOCOL`): 60 s cap, recovery continuing,
-balance 0 as every character's is. Code at `a144de7f`.
+balance 0 as every character's is. Code at `83c3540c`: the bare hand strikes with its measured
+fist hull.
 
 **Design:** `workshop-fighter` on both sides, both right hands empty or both holding the club, 192
 mirrored held-out pairs a cell (`combatPairs`), 384 bouts a cell, 3072 in all. Run from a snapshot
 with `research/controller-presets.mjs --jobs`, `research/arena-combat-run.mjs --workers 16`
-(3604 s), reported with `research/controller-presets.mjs --report`. Raw rows:
+(4985 s), reported with `research/controller-presets.mjs --report`. Raw rows:
 `controller-presets.json.gz`. A side split over 10 points would make a cell invalid; none is.
 
 | cell | bouts | score | Wilson 95 % | as left | as right | damage-rate diff (SE) | d bar margin | falls cand/opp |
 |---|---|---|---|---|---|---|---|---|
-| combat, empty | 384 | 0.984 | 0.955-0.995 | 0.974 | 0.995 | 0.0038 (0.0001) | 1.96 | 77/86 |
-| combat, club | 384 | 0.240 | 0.185-0.305 | 0.245 | 0.234 | -0.0072 (0.0007) | -1.07 | 333/386 |
-| brawler, empty | 384 | 0.971 | 0.937-0.987 | 0.964 | 0.979 | 0.0070 (0.0001) | 3.89 | 82/94 |
-| brawler, club | 384 | 0.091 | 0.058-0.140 | 0.089 | 0.094 | -0.0288 (0.0021) | -1.70 | 212/269 |
-| scrapper, empty | 384 | 0.971 | 0.937-0.987 | 0.964 | 0.979 | 0.0070 (0.0001) | 3.72 | 48/92 |
-| scrapper, club | 384 | 0.094 | 0.060-0.143 | 0.089 | 0.099 | -0.0286 (0.0021) | -1.72 | 169/270 |
-| kicker, empty | 384 | 0.984 | 0.955-0.995 | 0.984 | 0.984 | 0.0046 (0.0001) | 3.53 | 34/73 |
-| kicker, club | 384 | 0.167 | 0.121-0.226 | 0.167 | 0.167 | -0.0260 (0.0021) | -1.64 | 142/266 |
+| combat, empty | 384 | 0.987 | 0.959-0.996 | 0.995 | 0.979 | 0.0070 (0.0001) | 3.18 | 86/98 |
+| combat, club | 384 | 0.240 | 0.185-0.305 | 0.240 | 0.240 | -0.0064 (0.0008) | -0.91 | 352/397 |
+| brawler, empty | 384 | 0.982 | 0.951-0.993 | 0.979 | 0.984 | 0.0152 (0.0003) | 3.78 | 82/88 |
+| brawler, club | 384 | 0.117 | 0.079-0.170 | 0.115 | 0.120 | -0.0273 (0.0021) | -1.61 | 216/240 |
+| scrapper, empty | 384 | 0.984 | 0.955-0.995 | 0.979 | 0.990 | 0.0153 (0.0003) | 3.77 | 37/92 |
+| scrapper, club | 384 | 0.096 | 0.062-0.146 | 0.104 | 0.089 | -0.0272 (0.0021) | -1.71 | 145/247 |
+| kicker, empty | 384 | 0.997 | 0.976-1.000 | 1.000 | 0.995 | 0.0106 (0.0002) | 3.50 | 44/95 |
+| kicker, club | 384 | 0.102 | 0.066-0.152 | 0.083 | 0.120 | -0.0255 (0.0020) | -1.69 | 103/224 |
 
 Endings, the preset's wins/losses (no draws):
 
 | cell | time | fatal | severed |
 |---|---|---|---|
-| combat, empty | 378/6 | 0/0 | 0/0 |
-| combat, club | 92/251 | 0/27 | 0/14 |
-| brawler, empty | 373/3 | 0/8 | 0/0 |
-| brawler, club | 35/195 | 0/58 | 0/96 |
-| scrapper, empty | 373/3 | 0/8 | 0/0 |
-| scrapper, club | 36/193 | 0/58 | 0/97 |
-| kicker, empty | 378/2 | 0/4 | 0/0 |
-| kicker, club | 64/156 | 0/40 | 0/124 |
+| combat, empty | 379/4 | 0/1 | 0/0 |
+| combat, club | 92/255 | 0/22 | 0/15 |
+| brawler, empty | 377/1 | 0/6 | 0/0 |
+| brawler, club | 45/180 | 0/61 | 0/98 |
+| scrapper, empty | 378/0 | 0/6 | 0/0 |
+| scrapper, club | 37/190 | 0/59 | 0/98 |
+| kicker, empty | 383/1 | 0/0 | 0/0 |
+| kicker, club | 39/158 | 0/50 | 0/137 |
 
 **Reading.** Bare-handed, every preset beats Classic, and every win is on the clock: no preset
-ends a bout by a wound. With clubs, Classic beats every preset, often by a wound. Scrapper's club
-cell is the club check's Warrior cell to the last figure (`club-check.md`): the same pairs, run
-at `fee400ec` there and at `a144de7f` here.
+ends a bout by a wound. With clubs, Classic beats every preset, often by a wound. Against the
+capsule hands' run at `a144de7f`, the bare-handed scores rise from 0.97-0.98 to 0.98-1.00 and
+Brawler's and Scrapper's damage-rate margins double, from 0.0070 to 0.015; Kicker's club cell
+falls from 0.167 to 0.102 and Brawler's rises from 0.091 to 0.117.

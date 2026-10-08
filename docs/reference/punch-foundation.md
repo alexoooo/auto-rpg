@@ -1,8 +1,8 @@
 # Punch execution qualification
 
 The Node unpinned Warrior stand uses vendored Rapier, symmetric sourced muscle bounds,
-120 Hz and balance zero. The retained original apparatus measurements are in
-`punch-calibration.md`; the new matched apparatus supplies both native and compliant contacts
+120 Hz and balance zero. The original apparatus measurements it compares against are
+`docs/reference/punch-calibration.json.gz@8c59943b`, capsule hands; the new matched apparatus supplies both native and compliant contacts
 through the same detached hand-feedback contract. Compliant tactile impulse is the explicitly
 applied material force times the step. The independent pad meter remains momentum balance.
 
@@ -26,7 +26,8 @@ Promotion requires both-hand median clean impulse at least 1.2 times the matched
 baseline, no additional failed cycles, falls or assistance, and the Arena qualification gates.
 Raw records: `punch-foundation-search.json.gz` contains every trial, diagnostic, force waveform,
 failure and both coordinate passes; `punch-arena.json` contains the gameplay qualification.
-The original `punch-calibration.json.gz` is retained. The new record also repeats its 26-cell
+The original pack is `docs/reference/punch-calibration.json.gz@8c59943b`;
+`punch-calibration.json.gz` now holds the fist hull's. The new record also repeats its 26-cell
 matrix and adds 12 matched fine-rate finalist/reference trials: 98 physical stand runs total.
 
 ## Measured decision

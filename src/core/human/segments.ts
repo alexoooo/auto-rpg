@@ -5,7 +5,7 @@ import { capsuleRadius, massShare } from "../spec/geometry.ts";
 import { derive, si, type Quantity, type Vec3 } from "../spec/quantity.ts";
 import { add, distance, dot, lerp, normalize, scale, sub } from "../spec/vec.ts";
 import type { Extents } from "./envelope.ts";
-import type { HumanFigure } from "./figure.ts";
+import type { HandFigure, HumanFigure } from "./figure.ts";
 import { SIDES } from "./landmarks.ts";
 import { DE_LEVA_1996, type DeLevaRow, type DeLevaSegment } from "./tables/de-leva-1996.ts";
 import { CONTACT_STIFFNESS } from "./tables/contact-stiffness.ts";
@@ -37,6 +37,13 @@ import { SEGMENT_DENSITY, type DensitySegment } from "./tables/densities.ts";
  * any turn of the wrist over more than twice the lever. Its `little` is the little finger's
  * knuckle, the head of its first bone, where a grip ends (`grip.ts`), when the figure has one.
  *
+ * **A hand's poses** (`SegmentSpec.handPoses`). With the figure's measured hands
+ * (`HumanFigure.hands`), the open hand is the palm's hull and the fist the fist's hull; its
+ * `strike` is the fist's surface ahead of the knuckles and its `palm` where the open hand bears.
+ * Without them, the open hand is the segment's capsule and the fist the capsule ended at the
+ * knuckles, its `strike` the fist's distal surface. Either way the grip is that capsule fist and
+ * the hand's own shape the open capsule, which a held item seats against (`rigidOf`, `grip.ts`).
+ *
  * **A hand's right.** A hand's frame takes its own right (`SegmentSpec.right`, the figure's
  * `handRight`): across its knuckles toward the thumb on the right hand, toward the little finger
  * on the left, as the body's right runs across a hand in the anatomical position. Its two
@@ -58,6 +65,8 @@ interface Plan {
   readonly shape: Shape;
   readonly right?: Quantity<Vec3>;
   readonly points?: { readonly [name: string]: Quantity<Vec3> };
+  /** A hand's measured contact geometry, where the figure has it. */
+  readonly hand?: HandFigure;
 }
 
 /** A segment's name: the row's, and the side for a limb. */
@@ -92,8 +101,8 @@ const lengthAtScale = (figure: HumanFigure) => (length: Quantity<number>): Quant
 function plans(figure: HumanFigure): Plan[] {
   const { VERT, CERV, XYPH, OMPH, MIDH } = figure.trunk;
   const plan = (name: string, row: DeLevaSegment, proximal: Quantity<Vec3>, distal: Quantity<Vec3>, shape: Shape,
-    origin = proximal, end = distal, right?: Quantity<Vec3>, points?: Plan["points"]): Plan =>
-    ({ name, row, proximal, distal, origin, end, shape, right, points });
+    origin = proximal, end = distal, right?: Quantity<Vec3>, points?: Plan["points"], hand?: HandFigure): Plan =>
+    ({ name, row, proximal, distal, origin, end, shape, right, points, ...(hand && { hand }) });
   const out: Plan[] = [
     plan("head", "head", CERV, VERT, { kind: "capsule", density: "head" }, VERT, CERV),
     plan("upperTrunk", "upperTrunk", CERV, XYPH, { kind: "hull", points: figure.hulls.upper }),
@@ -101,12 +110,13 @@ function plans(figure: HumanFigure): Plan[] {
     plan("lowerTrunk", "lowerTrunk", OMPH, MIDH, { kind: "hull", points: figure.hulls.lower }),
   ];
   for (const side of SIDES) {
-    const { SJC, EJC, WJC, DAC3, MET3, HJC, KJC, AJC, HEEL, TTIP, handRight, little } = figure.limbs[side];
+    const { SJC, EJC, WJC, DAC3, MET3, HJC, KJC, AJC, HEEL, TTIP, handRight, little } = figure.limbs[side], hand = figure.hands?.[side];
     out.push(
       plan(segmentName("upperArm", side), "upperArm", SJC, EJC, { kind: "capsule", density: "upperArm" }),
       plan(segmentName("forearm", side), "forearm", EJC, WJC, { kind: "capsule", density: "forearm" }),
       plan(segmentName("hand", side), "hand", WJC, DAC3, { kind: "capsule", density: "hand" }, WJC, DAC3, handRight,
-        little ? { knuckles: MET3, little } : { knuckles: MET3 }),
+        hand ? { knuckles: MET3, ...(little && { little }), strike: hand.fist.strike, palm: hand.palm.centre }
+          : little ? { knuckles: MET3, little } : { knuckles: MET3 }, hand),
       plan(segmentName("thigh", side), "thigh", HJC, KJC, { kind: "capsule", density: "thigh" }),
       plan(segmentName("shank", side), "shank", KJC, AJC, { kind: "capsule", density: "shank" }),
       plan(segmentName("foot", side), "foot", HEEL, TTIP, { kind: "box in the body frame", extents: figure.feet[side] }),
@@ -195,6 +205,11 @@ export function humanSegments(figure: HumanFigure): SegmentSpec[] {
       const open = segment.shape;
       // The capsule ends at the metacarpal head plus the existing thickness: docs/reference/hand-poses.md.
       const fist: ShapeSpec = { kind: "capsule", from: open.from, to: points.knuckles, radius: open.radius };
+      if (plan.hand) {
+        const hull = (corners: readonly Quantity<Vec3>[]): ShapeSpec => ({ kind: "hull", points: corners.map(atFit) });
+        return { ...segment, ...(plan.right && { right: plan.right }), points,
+          handPoses: { open: hull(plan.hand.palm.hull), fist: hull(plan.hand.fist.hull), grip: fist } };
+      }
       points.strike = derive("m", "the closed capsule's distal surface, beyond the metacarpal head by its radius",
         [proximal, distal, points.knuckles, open.radius], (p, d, k, r) => add(k, scale(normalize(sub(d, p)), r)));
       return { ...segment, ...(plan.right && { right: plan.right }), points, handPoses: { open, fist, grip: fist } };

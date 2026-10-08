@@ -206,7 +206,6 @@ type StrikePhase = "approach" | "place" | "settle" | "chamber" | "swing" | "retu
 
 /** How the strike skill is going, as the last command left it. */
 export interface StrikeReport {
-  readonly physicalHands?: boolean;
   readonly impact?: boolean;
   /** The hand whose attack the skill is carrying out, or null. */
   readonly hand: Side | null;

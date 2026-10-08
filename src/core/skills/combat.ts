@@ -12,18 +12,18 @@ import { supportFold } from "./support-fold.ts";
 import { locomotion, STANCE_LOWER, type TurnStartup } from "./locomotion.ts";
 import type { SkillReport, Skills } from "./skills.ts";
 import { placedReach, type StrikeReport } from "./strike.ts";
-import { aimOf } from "./strikes.ts";
+import { aimOf, closesToStrike } from "./strikes.ts";
 import { supportReadiness, bearingSupport, STRIKE_SUPPORT } from "../control/support-readiness.ts";
 import { STRIKE_EVENT } from "./strike-cycle.ts";
 import { effectorStrike, type StrikeCourse, type StrikeState } from "./effector-strike.ts";
 import type { Side } from "../spec/body.ts";
 
 /** Experimental execution limits, independent of anatomy: `docs/reference/punch-foundation.md#execution-limits`. */
-export const PUNCH_EXECUTION = Object.freeze({ physicalFists: true, impactSeconds: .04, impactTravel: .04, normalAlignment: .5 });
+export const PUNCH_EXECUTION = Object.freeze({ impactSeconds: .04, impactTravel: .04, normalAlignment: .5 });
 export const PLANTED_PUNCH_EXECUTION = Object.freeze({ ...PUNCH_EXECUTION, planted: true });
-export interface CombatExecution { readonly planted?: boolean; readonly physicalFists: boolean; readonly impactSeconds: number; readonly impactTravel: number; readonly normalAlignment: number }
+export interface CombatExecution { readonly planted?: boolean; readonly impactSeconds: number; readonly impactTravel: number; readonly normalAlignment: number }
 export function validCombatExecution(execution: CombatExecution): boolean {
-  return (execution.planted === undefined || typeof execution.planted === "boolean") && typeof execution.physicalFists === "boolean" && [execution.impactSeconds, execution.impactTravel, execution.normalAlignment]
+  return (execution.planted === undefined || typeof execution.planted === "boolean") && [execution.impactSeconds, execution.impactTravel, execution.normalAlignment]
     .every(v => Number.isFinite(v) && v >= 0) && execution.normalAlignment <= 1;
 }
 
@@ -33,7 +33,7 @@ interface CombatSettings {
   readonly paths?: AttackTuning;
   /** The kick, or none for a body that does not kick. */
   readonly kick?: KickTuning | null;
-  /** How a contact is held and the fists closed, and whether a blow waits on planted support; with none, a contact ends the stroke. */
+  /** How a contact is held, and whether a blow waits on planted support; with none, a contact ends the stroke. */
   readonly execution?: CombatExecution;
   readonly turnLimit?: number;
   readonly turnStartup?: TurnStartup;
@@ -71,10 +71,9 @@ export function combatSkills(body: Body, { state: tactics, engagement }: Pick<Ta
   const foundation = execution?.planted ? supportReadiness(body.built) : null;
   const kicking = kicks ? kickSkill(body, kicks) : null;
   const all = [legs, guard, ...(fold ? [fold] : []), ...(kicking ? [kicking] : [])];
-  const bare = { left: !!spec.segments.find(s => s.name === "hand.left")?.handPoses && !spec.held?.some(h => h.segment === "hand.left"),
-    right: !!spec.segments.find(s => s.name === "hand.right")?.handPoses && !spec.held?.some(h => h.segment === "hand.right") };
-  const aims = { left: execution?.physicalFists && bare.left ? "strike" : aimOf(spec, "left"),
-    right: execution?.physicalFists && bare.right ? "strike" : aimOf(spec, "right") };
+  // A bare hand closes for its strike cycle and strikes with its fist (`closesToStrike`).
+  const bare = { left: closesToStrike(spec, "left"), right: closesToStrike(spec, "right") };
+  const aims = { left: aimOf(spec, "left"), right: aimOf(spec, "right") };
   const limits = Object.freeze({ ...tuning, ...(execution ? { impact: execution } : {}) });
   const strikeOf = (hand: Side) => effectorStrike({ effector: `hand.${hand}`, point: aims[hand], limits,
     chamberSeconds: tuning.chamberSeconds, returnSeconds: tuning.returnSeconds });
@@ -92,7 +91,6 @@ export function combatSkills(body: Body, { state: tactics, engagement }: Pick<Ta
     : state.hand !== "right" && state.hands.right.cycle.phase !== null ? "right" : null;
   const busy = () => state.hands.left.cycle.phase !== null || state.hands.right.cycle.phase !== null;
   const report: StrikeReport = {
-    physicalHands: execution?.physicalFists ?? false,
     get impact() { return state.hands.left.cycle.impact !== null || state.hands.right.cycle.impact !== null; },
     get hand() { return state.hand ?? returning(); },
     get phase() { return state.hand ? state.hands[state.hand].cycle.phase : returning() ? "return" : null; },
@@ -113,8 +111,7 @@ export function combatSkills(body: Body, { state: tactics, engagement }: Pick<Ta
     if (state.hands.right.cycle.phase !== null) state.interrupted++;
     state.canOverlap = false;
     if (foundation) foundation.state.quiet = 0;
-    if (execution?.physicalFists) body.built.handPoses.request((["left", "right"] as const)
-      .filter(h => bare[h]).map(hand => ({ hand, pose: "open" as const })));
+    body.built.handPoses.request((["left", "right"] as const).filter(h => bare[h]).map(hand => ({ hand, pose: "open" as const })));
     state.hand = null; state.cooldown = 0;
     for (const hand of ["left", "right"] as const) { strikes[hand].reset(); rest(state.hands[hand]); }
     for (const skill of all) skill.resume(view);
@@ -170,7 +167,7 @@ export function combatSkills(body: Body, { state: tactics, engagement }: Pick<Ta
         seconds: path.seconds, ...(path.curve ? { curve: path.curve } : {}) };
       const previousPhase = striking.cycle.phase;
       const event = strike.step(view, velocities[hand], course, { requested: !!requested, down: view.down,
-        supported: !foundation || bearingSupport(foundation.state), prepared: !execution?.physicalFists || !bare[hand] || view.handPoses[hand]?.applied === "fist",
+        supported: !foundation || bearingSupport(foundation.state), prepared: !bare[hand] || view.handPoses[hand]?.applied === "fist",
         free: true, targetId: action.targetId }, dt);
       if (striking.cycle.phase !== previousPhase) striking.initialElbow = striking.elbow;
       if (event & STRIKE_EVENT.finished) {
@@ -202,7 +199,7 @@ export function combatSkills(body: Body, { state: tactics, engagement }: Pick<Ta
     const supported = fold?.apply(baseStance, posture) ?? { stance: baseStance, posture };
     const fist = (hand: Side) => (state.hands[hand].cycle.phase !== null ? "fist" : "open") as "fist" | "open";
     state.command = { posture: supported.posture, pushes: [], effectors: { "hand.left": goals.left ?? covers.left, "hand.right": goals.right ?? covers.right }, stance: supported.stance,
-      ...(execution?.physicalFists ? { handPoses: { ...(bare.left ? { left: fist("left") } : {}), ...(bare.right ? { right: fist("right") } : {}) } } : {}) };
+      ...(bare.left || bare.right ? { handPoses: { ...(bare.left ? { left: fist("left") } : {}), ...(bare.right ? { right: fist("right") } : {}) } } : {}) };
     const motion = kicking?.command(view, kick, supported.stance, !busy() && !view.down && (!fold || fold.report.stage === "stand"), dt);
     if (motion) state.command = { ...state.command, ...motion, effectors: { ...state.command.effectors, ...motion.effectors } };
     return state.command;

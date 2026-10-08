@@ -97,13 +97,14 @@ test("a segment alone lies on its own shape, whatever its kind", async () => {
     try {
       const upright = uprightness(stand.built);
       stand.step(stand.seconds(3));
-      const height = upright.height(), over = overGround(stand.built);
-      assert.ok(Math.abs(height - over) < 5e-3, `${segment.name}, a ${segment.shape.kind}: ${height} over its lowest point, ${over} over the ground`);
-      kinds.add(segment.shape.kind);
+      // A hand lies on its applied pose, the open hand's hull, not on the capsule a held item seats against.
+      const height = upright.height(), over = overGround(stand.built), kind = stand.built.segments.get(segment.name).rigid.shapes[0].kind;
+      assert.ok(Math.abs(height - over) < 5e-3, `${segment.name}, a ${kind}: ${height} over its lowest point, ${over} over the ground`);
+      kinds.add(kind);
     } finally { stand.dispose(); }
   }
-  // The fixture shows a round shape, whose lowest point is its radius under a point of it, and one with corners.
-  assert.ok(kinds.has("capsule") && kinds.has("box"), [...kinds].join());
+  // The fixture shows a round shape, whose lowest point is its radius under a point of it, and ones with corners.
+  assert.ok(kinds.has("capsule") && kinds.has("box") && kinds.has("hull"), [...kinds].join());
 });
 
 /** A mind that drives `folds`' freedoms toward `fold()` rad at no more than 1 rad/s, and holds every other where it is built. */

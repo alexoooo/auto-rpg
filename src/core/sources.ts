@@ -77,6 +77,17 @@ export const SOURCES = Object.freeze({
     kind: "asset", file: "public/assets/humanoid/workshop-rogue.glb",
     what: "The Rogue's model; a pointer is into its glTF JSON chunk.",
   },
+  "workshop-fighter-hands": {
+    kind: "asset", file: "assets/humanoid/workshop-fighter-hands.json",
+    what: "The Warrior's hands from its bare skin: each open hand's convex hull with its palm patch and "
+      + "the patch's centre, and each fist's convex hull, middle knuckle and strike point; body frame, "
+      + "authored size, rounded to 0.1 mm; written by scripts/core/hand-envelope.mjs --write, measured "
+      + "again by tests/hand-envelope.test.mjs, its rules in docs/reference/man-anatomy.md.",
+  },
+  "workshop-rogue-hands": {
+    kind: "asset", file: "assets/humanoid/workshop-rogue-hands.json",
+    what: "The Rogue's hands from its bare skin, as the Warrior's.",
+  },
   "man-contact-geometry": {
     kind: "asset", file: "assets/humanoid/man-contact-geometry.json",
     what: "Man's contact surfaces from the Warrior's skin: each open hand's and fist's convex hull with "

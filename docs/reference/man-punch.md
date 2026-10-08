@@ -2,8 +2,8 @@
 
 Whether Man's fitted hands ([Man's contact anatomy](man-anatomy.md)) change the Warrior's punch:
 the spec's capsule hand against the palm hull (open) and the fist hull (closed), with the fist's
-`strike` on its surface. `research/man-punch.mjs` runs it; `research/man-hands.mjs` (`handsSpec`)
-gives the hulls, the grip keeping its capsule and the feet the boot. The cells are in
+`strike` on its surface. `research/man-punch.mjs@d9ad04d3` ran it; `research/man-hands.mjs@d9ad04d3`
+(`handsSpec`) gave the hulls, the grip keeping its capsule and the feet the boot. The cells are in
 `man-punch.json.gz` beside this record.
 
 **Harness.** Node, the unpinned core stand (`punchStand`, `research/punch-calibration.mjs`),

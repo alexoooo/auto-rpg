@@ -103,12 +103,12 @@ negative-gap positional correction from stop bounds also fails. The hands are ca
 their initial geometric endpoint candidates differ from the native manifold's three points
 and contact acquisition. This is a lead for comparison, not an established engine defect.
 
-The existing independent velocity-feedback policy supplies a separate positive result.
-With joint response 0.01 s, full activation, a 10 rad/s speed cap and unchanged native
-iterations, it holds all fours. The durable [installed-pose task](../reference/posture-hold.md)
-uses the shared pose builder, not the teleport helper, and measures ten seconds including
-startup. It passes on both corrected-limit friction profiles and replays in Node and browser.
-Half-kneel and squat fail. No recovery entry, disturbance rejection or useful standing
+The existing independent velocity-feedback policy held all fours with the capsule hands,
+with joint response 0.01 s, full activation, a 10 rad/s speed cap and unchanged native
+iterations. The durable [installed-pose task](../reference/posture-hold.md) uses the shared
+pose builder, not the teleport helper, and measures ten seconds including startup. On the
+hands' hulls it fails on both corrected-limit friction profiles: all fours drifts 2.3 to
+2.5 cm against the 2 cm gate. Half-kneel and squat fail. No recovery entry, disturbance rejection or useful standing
 handover is established. Continue support entry/transfer experiments while keeping the
 independent feedback and model-based options behind the same physical enforcement path.
 

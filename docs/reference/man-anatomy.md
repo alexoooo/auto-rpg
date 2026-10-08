@@ -5,14 +5,18 @@ through the boot box and capsule hand of the workshop fighter. This record says 
 by which rule, what is approximated, and the numbers. The geometry is
 `assets/humanoid/man-contact-geometry.json` (`SOURCES["man-contact-geometry"]`), written by
 `node scripts/core/man-envelope.mjs --write` and measured again by `tests/man-envelope.test.mjs`.
-Figures below are the left side at the authored size; the spec scales them by `FIT_SCALE`
+The hands are measured by `scripts/core/hand-envelope.mjs` for both workshop humans, which share
+the rig and the skin mesh: `assets/humanoid/workshop-fighter-hands.json` and
+`workshop-rogue-hands.json` (`SOURCES["workshop-fighter-hands"]`, `["workshop-rogue-hands"]`),
+written by `node scripts/core/hand-envelope.mjs --write` and measured again by
+`tests/hand-envelope.test.mjs`; `man-envelope.mjs` takes the Warrior's from it. Figures below are the left side at the authored size; the spec scales them by `FIT_SCALE`
 (0.9412). The right side mirrors it within 0.5 % (the foot's hull has one corner fewer).
 
 ## Inputs
 
 - `public/assets/humanoid/workshop-fighter.glb`: the bare hands (the skin's hand mesh) and the
-  bare feet (`bare__feet`), skinned in the bind pose.
-- `assets/humanoid/workshop-fighter.json`: the rig, for the wrist, knuckles, the ball head and the
+  bare feet (`bare__feet`), skinned in the bind pose; `workshop-rogue.glb` for the Rogue's hands.
+- `assets/humanoid/workshop-fighter.json` (and `workshop-rogue.json` for the Rogue's hands): the rig, for the wrist, knuckles, the ball head and the
   relaxed hand (`grips.empty`).
 - `FIST` (`src/render/fist.ts`): the renderer's fitted fist, turned by `fistTurns`; `FIST` moved
   there from `skin.ts` so that a script can read it without the renderer.
@@ -26,7 +30,8 @@ of the hull touches it in a sliver (0.7 cm²). The patch is instead the hull's l
 45° of palmar (coplanar triangles merged), which bridges the hollow from the heel of the hand to
 the finger pads as a flat ground meets it; its outline is the corners within `PATCH` of that
 face's plane, laid on it. `PATCH` = 5 mm is a chosen tolerance for skin flattening under load,
-not a measurement.
+not a measurement. The hand artifacts add the patch's `centre`, the outline's area centroid on
+its plane, where an open hand bears; the Man artifact leaves it out.
 
 **Fist.** The hull of the hand skinned in `FIST`. `knuckles` is the rig's middle knuckle (MET3);
 `strike` is where the wrist-to-knuckle line through that knuckle leaves the hull: the fist's
@@ -73,10 +78,26 @@ measured range of motion.
   10.7.
 - Fist: `knuckles` (-58.37, 110.62, 31.52), `strike` (-58.60, 110.37, 31.93) cm in the bind pose.
 
+**Both workshop humans' hands**, left side, authored size (cm):
+
+| Model | Palm corners | Palm extent x · y · z | Patch | Patch centre | Fist corners | Fist extent | `knuckles` | `strike` |
+|---|---|---|---|---|---|---|---|---|
+| Warrior | 151 | 13.9 · 18.0 · 21.4 | 12 corners, 163.2 cm² | (-53.08, 109.87, 27.83) | 173 | 10.2 · 13.7 · 16.1 | (-58.37, 110.62, 31.52) | (-58.60, 110.37, 31.93) |
+| Rogue | 154 | 11.4 · 15.8 · 18.1 | 11 corners, 104.7 cm² | (-45.55, 99.36, 22.19) | 171 | 8.5 · 12.1 · 13.8 | (-49.88, 100.10, 25.05) | (-50.06, 99.88, 25.37) |
+
+The strike stands 5.3 mm (Warrior) and 4.3 mm (Rogue) ahead of the knuckle, and the patch centre
+65 and 52 mm behind it, toward the wrist and palmar. Both figures take `FIT_SCALE`.
+
 ## Approximations
 
 - The surfaces are convex hulls: the palm's hollow, the arch and the gaps between toes are
   bridged. Contact on a flat ground is what they are for.
 - The hand is one rigid piece per pose; the fingers do not bend under load.
+- The engine (Rapier) builds a hull from its corners, merging adjacent triangles within about
+  1.5° into one face and dropping corners inside such a face: 4 to 7 of a hand hull's 151 to 173,
+  each within 0.005 mm of the hull of the rest, so the collider is the hull. Its point query
+  (`gapTo`) is not reliable on these hulls: it reads some corners up to 11 mm off a surface that a
+  ray meets exactly there. `tests/core-hand-poses.test.mjs` compares the collider's corners
+  instead.
 - The bind pose's skin is the unloaded skin; nothing models its compression beyond `PATCH`.
 - The hinge's height is a mid-section estimate (see **Hinge**).

@@ -85,9 +85,9 @@ test("lift-off requires explicit finite step, geometry and acceleration toleranc
   const stand = await coreStand(spec, { pinned: "parent", ground: true });
   try {
     const frames = new Map([["segment:child", stand.built.segments.get("child").body]]);
-    const valid = { dt: stand.world.dt, radii: new Map([["segment:child", [.1]]]) };
-    for (const motion of [undefined, { ...valid, dt: 0 }, { ...valid, dt: Infinity },
-      { ...valid, radii: new Map() }, { ...valid, radii: new Map([["segment:child", [NaN]]]) }]) {
+    const valid = { dt: stand.world.dt, radius: (frame, collider) => frame === "segment:child" && collider === 0 ? .1 : NaN };
+    for (const motion of [undefined, { ...valid, dt: 0 }, { ...valid, dt: Infinity }, { dt: stand.world.dt },
+      { ...valid, radius: () => NaN }, { ...valid, radius: () => -.1 }, { ...valid, radius: () => Infinity }]) {
       assert.throws(() => contactTracking(stand.world.physics, frames, 1,
         { ...settings, liftOff: { accelerationTolerance: 1e-4 } }, 8, motion), /lift-off settings/);
     }
@@ -102,9 +102,9 @@ test("released contact rejects a torque that accelerates through its measured no
     stand.step(120);
     const child = stand.built.segments.get("child").body, parent = stand.built.segments.get("parent").body;
     const config = { ...settings, liftOff: { accelerationTolerance: 1e-4 } };
-    const motion = { dt: stand.world.dt, radii: new Map([["segment:child", [.1]]]) };
+    const motion = { dt: stand.world.dt, radius: () => .1 };
     const contacts = contactTracking(stand.world.physics, new Map([["segment:child", child]]), 1, config, 8, motion);
-    config.liftOff.accelerationTolerance = -1; motion.dt = 0; motion.radii.get("segment:child")[0] = NaN;
+    config.liftOff.accelerationTolerance = -1; motion.dt = 0; motion.radius = () => NaN;
     const model = coupledDynamics(stand.built, stand.world.physics.gravity, [], [parent]);
     const command = { joints: [], frames: [], grips: [] };
     const snapshot = stand.world.physics.save();
@@ -138,7 +138,7 @@ test("a spinning flat support cannot claim mutually incompatible sticking accele
     stand.step(120); const segment = stand.built.segments.get("slab").body;
     const contacts = contactTracking(stand.world.physics, new Map([["segment:slab", segment]]), 1,
       { ...settings, liftOff: { accelerationTolerance: 1e-4 } }, 8,
-      { dt: stand.world.dt, radii: new Map([["segment:slab", [0]]]) });
+      { dt: stand.world.dt, radius: () => 0 });
     const model = coupledDynamics(stand.built, stand.world.physics.gravity, [], [stand.built.segments.get("parent").body]);
     const check = () => {
       contacts.begin(); const rows = contacts.read({ joints: [], frames: [], grips: [] });

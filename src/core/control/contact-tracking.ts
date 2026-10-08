@@ -78,18 +78,19 @@ function distributionModes(points: readonly Point[]): number[][] {
  * remains restricted to the torque response, so rejection does not certify infeasibility.
  * Additional affine effort rows can share this solve. Sliding friction, contact acquisition and
  * distant impacts need separate models or planning. Optional lift-off uses local plane curvature
- * and a normal end-step bound; it does not choose sliding friction.
+ * and a normal end-step bound; it does not choose sliding friction. Its `radius` gives a frame's
+ * collider's rounding as the collider is at the read, since a hand's changes with its pose.
  */
-export function contactTracking(physics: PhysicsWorld, frames: ReadonlyMap<string, SegmentBody>, channels: number, settings: ContactTrackingSettings, extraCapacity = 0, motion?: { readonly dt: number; readonly radii: ReadonlyMap<string, readonly number[]> }) {
+export function contactTracking(physics: PhysicsWorld, frames: ReadonlyMap<string, SegmentBody>, channels: number, settings: ContactTrackingSettings, extraCapacity = 0, motion?: { readonly dt: number; readonly radius: (frame: string, collider: number) => number }) {
   if (!Number.isSafeInteger(extraCapacity) || extraCapacity < 0 || !Number.isSafeInteger(settings.maxPoints) || settings.maxPoints < 1 || !(settings.gap >= 0) || !Number.isFinite(settings.gap)
     || !(settings.minUpNormal > 0 && settings.minUpNormal <= 1) || !(settings.forceTolerance > 0) || !Number.isFinite(settings.forceTolerance)
     || !(dot(physics.gravity, physics.gravity) > 0)) throw new Error("invalid sticking contact settings");
   if (settings.redistributionCost !== undefined && !(Number.isFinite(settings.redistributionCost) && settings.redistributionCost > 0)) throw new Error("invalid contact redistribution cost");
-  const mode = settings.liftOff ? { dt: motion?.dt ?? 0, radii: motion?.radii ? new Map([...motion.radii].map(([frame, radii]) => [frame, Array.from(radii)])) : undefined, accelerationTolerance: settings.liftOff.accelerationTolerance } : null;
-  if (mode && (!(mode.dt > 0) || !Number.isFinite(mode.dt) || !mode.radii
+  const mode = settings.liftOff ? { dt: motion?.dt ?? 0, radius: motion?.radius, accelerationTolerance: settings.liftOff.accelerationTolerance } : null;
+  const rounding = (r: number): boolean => r >= 0 && Number.isFinite(r);
+  if (mode && (!(mode.dt > 0) || !Number.isFinite(mode.dt) || !mode.radius
     || !(mode.accelerationTolerance > 0) || !Number.isFinite(mode.accelerationTolerance)
-    || [...frames.keys()].some((frame) => !mode.radii!.has(frame))
-    || [...mode.radii.values()].some((radii) => !radii.length || radii.some((r) => !(r >= 0) || !Number.isFinite(r))))) throw new Error("invalid contact lift-off settings");
+    || [...frames.keys()].some((frame) => !rounding(mode.radius!(frame, 0))))) throw new Error("invalid contact lift-off settings");
   const config = Object.freeze({ ...settings }), capacity = channels + 5 * config.maxPoints + extraCapacity;
   let size = channels, solver = activeQuadratic(size, capacity, config);
   const up = normalized(physics.gravity.map((v) => -v) as unknown as Vec3);
@@ -138,8 +139,8 @@ export function contactTracking(physics: PhysicsWorld, frames: ReadonlyMap<strin
               body.linearVelocityToRef(velocity); body.angularVelocityToRef(spin);
               offset.set(...point.point).subtractInPlace(centre); Vector3.CrossToRef(spin, offset, offset); velocity.addInPlace(offset);
               const rate = velocity.x * normal[0] + velocity.y * normal[1] + velocity.z * normal[2];
-              const radius = mode.radii!.get(frame)![manifold.mine];
-              if (radius === undefined) throw new Error("contact lift-off shape is missing");
+              const radius = mode.radius!(frame, manifold.mine);
+              if (!rounding(radius)) throw new Error("contact lift-off shape is missing");
               curvature = planarContactAcceleration({ kind: "sphere", centre: ZERO, radius }, normal, [spin.x, spin.y, spin.z]);
               target = dot(curvature, normal) + (-point.distance / mode.dt - rate) / mode.dt;
             }

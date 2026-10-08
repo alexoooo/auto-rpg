@@ -17,7 +17,6 @@ import { loadSkeletonArt, type SkeletonArt } from "../render/skeleton-skin.ts";
 import { drawHeld } from "../render/body-shapes.ts";
 import { dresserFor, type Dresser } from "../render/dress.ts";
 import { fighterHands } from "../render/strike-hands.ts";
-import type { World } from "../core/world.ts";
 import { debrisCues } from "../audio/cues.ts";
 import { GameAudio } from "../audio/game-audio.ts";
 import { hearRun, type RunHearing } from "./hearing.ts";
@@ -349,8 +348,8 @@ async function buildRun(page: DungeonPage, nextSeed: number): Promise<void> {
   await Promise.all(runModels(layout, fielded).map((model) =>
     dresserFor(model, scene, { skeletonArt: () => page.skeletonArt }).then((dress) => { dressers.set(model, dress); })));
   stillShown();
-  const dress = (actor: DungeonActor, world: World) => {
-    const fighter = actor.fighter!, hands = fighterHands(world, fighter), built = fighter.built;
+  const dress = (actor: DungeonActor) => {
+    const fighter = actor.fighter!, hands = fighterHands(fighter), built = fighter.built;
     const skin = dressers.get(actor.model)!(built, { clothing: page.clothing, closure: hands.closure }), club = drawHeld(built, scene);
     page.drawn.push(hands, skin, club);
     actor.meshes.push(...skin.meshes, ...club.meshes);

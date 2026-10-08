@@ -453,9 +453,13 @@ function limbFaults(recipe: Recipe, spec: BodySpec): string[] {
       faults.push(`limb ${limb.name} is on ${limb.segment}, which ${spec.model} lacks`);
       return;
     }
-    /** A limb on a capsule's end: the capsule, its chain, and the channels that take its task of `rows` rows, its chain's, each once. */
+    /** A limb on a capsule's end, or an end limb on a hand pose's hull: the shape, its chain, and the channels that take its task of `rows` rows, its chain's, each once. */
     const onEnd = (on: EndLimb | ProppedLimb, rows: number): void => {
       if (segment.shape.kind !== "capsule") faults.push(`limb ${on.name} bears on an end of ${on.segment}, a ${segment.shape.kind}`);
+      // An end limb bears on a hand pose's capsule ends or its hull's corners; a propped one on a capsule's end.
+      for (const [pose, shape] of Object.entries(segment.handPoses ?? {})) {
+        if (shape.kind !== "capsule" && (on.kind === "propped" || shape.kind !== "hull")) faults.push(`limb ${on.name} bears on ${on.segment}, whose ${pose} pose is a ${shape.kind}`);
+      }
       const channels = limbChannels(on, spec);
       if (!channels) {
         faults.push(`limb ${on.name} begins at ${on.from}, which is not on the way to ${on.segment}`);

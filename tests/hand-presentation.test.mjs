@@ -71,41 +71,45 @@ function clock() {
   };
 }
 
-test("strike presentation ignores stale reports on takeover, inactivity, elimination and direct control", () => {
+test("strike presentation ignores stale reports on takeover, inactivity and elimination", () => {
   const world = clock(), body = { has: "command", level: "full" };
   const strike = { hand: "right", phase: "swing" };
   let ending = null;
-  const fighter = { minded: { kind: "recipe-fighter", body, skills: { report: { strike } } }, pool: { ending: () => ending } };
-  const pose = fighterHands(world, fighter);
+  const pose = strikeHands(world, body, () => strike, () => ending === null);
   try {
     assert.equal(commandsBody(body), true);
-    for (const kind of ["recipe-fighter", "path-fighter"]) {
-      fighter.minded.kind = kind;
+    world.step(.01);
+    assert.deepEqual(pose.snapshot(), { left: 0, right: 1 });
+    for (const cause of ["takeover", "inactive", "eliminated"]) {
+      if (cause === "takeover") body.has = "rise";
+      if (cause === "inactive") body.level = "limp";
+      if (cause === "eliminated") ending = "exhausted";
+      world.step(.125);
+      assert.deepEqual(pose.snapshot(), { left: 0, right: .5 }, cause);
+      world.step(.125);
+      assert.deepEqual(pose.snapshot(), { left: 0, right: 0 }, cause);
+      body.has = "command"; body.level = "full"; ending = null;
       world.step(.01);
-      assert.deepEqual(pose.snapshot(), { left: 0, right: 1 });
-      for (const cause of ["takeover", "inactive", "eliminated"]) {
-        if (cause === "takeover") body.has = "rise";
-        if (cause === "inactive") body.level = "limp";
-        if (cause === "eliminated") ending = "exhausted";
-        world.step(.125);
-        assert.deepEqual(pose.snapshot(), { left: 0, right: .5 }, cause);
-        world.step(.125);
-        assert.deepEqual(pose.snapshot(), { left: 0, right: 0 }, cause);
-        body.has = "command"; body.level = "full"; ending = null;
-        world.step(.01);
-        assert.equal(pose.closure("right"), 1);
-      }
+      assert.equal(pose.closure("right"), 1);
     }
-    fighter.minded.kind = "direct";
-    world.step(.25);
-    assert.deepEqual(pose.snapshot(), { left: 0, right: 0 });
     const saved = pose.snapshot();
     pose.dispose();
-    fighter.minded.kind = "recipe-fighter";
     world.step(1);
     assert.deepEqual(pose.snapshot(), saved);
     assert.equal(world.observers, 0);
   } finally { pose.dispose(); }
+});
+
+test("a fighter's fingers are its body's hand poses: shut in a fist or a grip, open else, and open with no pose", () => {
+  const state = { left: { applied: "open", requested: "fist" }, right: { applied: "fist", requested: "fist" } };
+  const fighter = { minded: { body: { built: { handPoses: { state } } } } };
+  const pose = fighterHands(fighter);
+  assert.deepEqual(pose.snapshot(), { left: 0, right: 1 });
+  state.left.applied = "grip"; state.right.applied = "open";
+  assert.deepEqual(pose.snapshot(), { left: 1, right: 0 });
+  delete state.left;
+  assert.deepEqual(pose.snapshot(), { left: 0, right: 0 });
+  pose.dispose();
 });
 
 test("preparation, return, cancelled attacks and alternating hands share one phase adapter", () => {
@@ -184,7 +188,7 @@ test("Crypt supplies the world to presentation during construction and when an e
   const run = new DungeonRun(scene, { seed: 42, engine: await freshEngine(), visuals: false, layout,
     onBuilt(actor, world) {
       seen.push({ id: actor.id, world });
-      presentations.push(fighterHands(world, actor.fighter));
+      presentations.push(fighterHands(actor.fighter));
     } });
   try {
     assert.deepEqual(seen.map(s => s.id), ["hero"]);
@@ -193,7 +197,8 @@ test("Crypt supplies the world to presentation during construction and when an e
     for (let i = 0; i < 600 && seen.length < 2; i++) run.step();
     assert.deepEqual(seen.map(s => s.id), ["hero", "enemy-0"]);
     assert.ok(seen.every(s => s.world === run.world));
-    assert.deepEqual(presentations.map(p => p.snapshot()), [{ left: 0, right: 0 }, { left: 0, right: 0 }]);
+    // Each grips its club in its right hand, and its left is open.
+    assert.deepEqual(presentations.map(p => p.snapshot()), [{ left: 0, right: 1 }, { left: 0, right: 1 }]);
   } finally {
     for (const presentation of presentations) presentation.dispose();
     run.dispose(); scene.dispose(); engine.dispose();
@@ -213,7 +218,7 @@ for (const mind of [RECIPE_FIGHTER, COMBAT]) test(`${mind.kind}: actual Arena pu
         duel.order(side, { move: null, face: 0, attack: [head.x, head.y, head.z + .5] });
       }
       if (decorated) for (const [index, fighter] of Object.values(duel.duelists).entries()) {
-        const hands = fighterHands(world, fighter);
+        const hands = fighterHands(fighter);
         poses.push(hands);
         skins.push(dressRobot(fighter.built, scene, index ? "relic" : "industrial", { clothing: { boots: true, armour: true }, closure: hands.closure }));
       }

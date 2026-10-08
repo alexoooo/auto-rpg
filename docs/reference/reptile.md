@@ -266,9 +266,10 @@ Those matches qualify approach and attacks, not competitive bite power or arbitr
 `node research/body-plan-regression.mjs CHECKOUT OUTPUT.json` runs the same Node stand and Duel
 on a supplied checkout, rapier-coordinate at 120 Hz. Standing uses 120 warmup steps followed
 by 1,200 measured steps; each Warrior/Rogue bout takes 2,400 steps. All segment poses enter
-the digest after every measured step. Comparison against upstream `3f60d702` gives:
+the digest after every measured step. Comparison of Reptile qualification commit `cf2c220c`
+against upstream `3f60d702`, before the measured workshop-hand hulls, gives:
 
-| Witness | Upstream digest | Current implementation digest |
+| Witness | Upstream digest | Reptile qualification digest (`cf2c220c`) |
 | --- | --- | --- |
 | Warrior standing | `2a08cb82a39d0889` | `2a08cb82a39d0889` |
 | Rogue standing | `ef9201a9062b6c05` | `ef9201a9062b6c05` |
@@ -278,5 +279,5 @@ the digest after every measured step. Comparison against upstream `3f60d702` giv
 
 The club verdict is unchanged: left wins by fatal wound at 9.125 s. The empty-hand bout has
 no verdict inside the measured 20 s. These fixtures establish exact retention of the covered
-humanoid paths. Initial timing readings overlapped recovery measurements, so they do not
-support a performance comparison.
+humanoid paths for that Reptile qualification. Initial timing readings overlapped recovery
+measurements, so they do not support a performance comparison.

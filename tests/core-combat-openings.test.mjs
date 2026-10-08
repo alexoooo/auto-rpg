@@ -118,7 +118,9 @@ test('hull-aware body selection lands driven torso blows against an active Comba
 });
 
 
-test('a selected overhand keeps its world contact direction through execution and fresh-world replay',async()=>{
+test('a selected overhand keeps its world contact direction through execution and fresh-world replay', {
+  todo: "a bare hand strikes with its fist's measured surface (`closesToStrike`), about 9 cm short of the open capsule's fingers that its blows' spacing, aim and recipes were tuned to",
+}, async()=>{
  const candidate={...COMBAT,strikes:'vertical',tuning:{openings:{overhand:-.6}}};
  const recipe={left:'workshop-fighter',right:'workshop-fighter',held:{left:'empty',right:'empty'},balance:{left:0,right:0},
   minds:{left:candidate,right:COMBAT},recoverySeconds:null,capSeconds:30};

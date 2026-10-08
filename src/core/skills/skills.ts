@@ -4,11 +4,12 @@ import type { Body, BodyCommand, BodyView } from "../body.ts";
 import type { Intent } from "../mind/intent.ts";
 import type { Tactics } from "../mind/tactics.ts";
 import type { EffectorGoal, MusclePush } from "../control/motor.ts";
+import type { HandPose, Side } from "../spec/body.ts";
 import { GUARD, guardSkill, type Covering } from "./guard.ts";
 import { locomotion } from "./locomotion.ts";
 import type { Skill } from "./skill.ts";
 import { strikeSkill, type Placed, type StrikeReport } from "./strike.ts";
-import { REPERTOIRE, type Repertoire } from "./strikes.ts";
+import { closesToStrike, REPERTOIRE, type Repertoire } from "./strikes.ts";
 
 /**
  * **The skills**: the one place the tactics' intent (`src/core/mind/intent.ts`) becomes the command a
@@ -23,6 +24,8 @@ import { REPERTOIRE, type Repertoire } from "./strikes.ts";
  *   walk: while it works it has the legs, and the tactics' walk waits.
  * - **Guard** (`guard.ts`): the arms' posture when nothing owns them, and a guarding hand's
  *   cover of what its tactics name. It has the hands the strike has not.
+ *
+ * A bare hand closes into its fist for its blow and opens in the guard (`closesToStrike`), in both.
  *
  * Every skill answers `Skill.resume`, and the skills tell every one of them from one list: a
  * skill added to it cannot be left out. Each controller composes its own: the recipe fighter's
@@ -67,6 +70,15 @@ export interface RecipeOptions {
   readonly cover?: Covering;
 }
 
+/** Whether a strike in `phase` holds its hand closed: from settling to throw to the blow's end. */
+function closedIn(phase: StrikeReport["phase"]): boolean {
+  switch (phase) {
+    case "settle": case "chamber": case "swing": case "return": return true;
+    case "approach": case "place": case null: return false;
+    default: { const never: never = phase; throw new Error(`unknown strike phase ${never}`); }
+  }
+}
+
 /**
  * The recipe fighter's skills of `body`: the walk, the recipe strike and the guard. `tactics` will
  * hand them their intent; their memory (`Tactics.state`) is kept with the skills'.
@@ -76,8 +88,10 @@ export function recipeSkills(body: Body, { state: tactics, engagement }: Pick<Ta
   const legs = locomotion(body.envelope), strikes = strikeSkill(body.built.spec, repertoire, placed, steer), guard = guardSkill(body.built.spec, cover);
   const none: readonly MusclePush[] = Object.freeze([]);
   const effectors: Record<string, EffectorGoal | null> = { "hand.left": null, "hand.right": null };
+  const closes = { left: closesToStrike(body.built.spec, "left"), right: closesToStrike(body.built.spec, "right") };
+  const poses: Partial<Record<Side, HandPose>> = { ...(closes.left ? { left: "open" } : {}), ...(closes.right ? { right: "open" } : {}) };
   const command: { -readonly [K in keyof BodyCommand]: BodyCommand[K] } =
-    { posture: GUARD, effectors, pushes: none, stance: null };
+    { posture: GUARD, effectors, pushes: none, stance: null, ...(closes.left || closes.right ? { handPoses: poses } : {}) };
   const state = { command, legs: legs.state, strikes: strikes.state, tactics: tactics ?? null };
   const all: readonly Skill[] = [legs, strikes, guard];
   const report: SkillReport = {
@@ -105,6 +119,8 @@ export function recipeSkills(body: Body, { state: tactics, engagement }: Pick<Ta
       const either = !!thrown && (!!thrown.left || !!thrown.right);
       effectors["hand.left"] = either ? thrown!.left ?? covers.left : covers.left;
       effectors["hand.right"] = either ? thrown!.right ?? covers.right : covers.right;
+      const closed = closedIn(strikes.report.phase) ? strikes.report.hand : null, held = command.handPoses as Partial<Record<Side, HandPose>> | undefined;
+      if (held) for (const hand of ["left", "right"] as const) if (closes[hand]) held[hand] = closed === hand ? "fist" : "open";
       return command;
     },
   };

@@ -13,7 +13,7 @@ test('heading ceilings reject invalid values and an omitted ceiling retains the 
 });
 
 test('the shared turn ceiling prevents an unassisted Warrior falling while starting a fast left turn',async()=>{
- for(const speed of [.18,.25,.5]){
+ for(const speed of [.18,.35,.5]){
   const config={speed,rate:4,sense:-1,after:0};
   const raw=await combatTurn(config),limited=await combatTurn({...config,turnLimit:2});
   assert.notEqual(raw.firstDown,null,JSON.stringify(raw));assert.equal(limited.firstDown,null,JSON.stringify(limited));

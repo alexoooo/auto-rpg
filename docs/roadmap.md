@@ -95,9 +95,10 @@ sliding direction on a welded load; the articulated projection gives a different
 friction law. This distinction does not close the anatomical first-contact prediction gap.
 The [posture audit](reference/posture-limit-models.md) accounts for corrected limit directions.
 Its three development witnesses remain statically feasible, but their engine holds fail the
-displacement gate under their static torque controller. Independent joint feedback now
-[holds installed all fours](reference/posture-hold.md) for ten seconds within 2 cm on both
-corrected-limit friction profiles. Direct feedback fails half-kneel and squat; recovery still needs demonstrated
+displacement gate under their static torque controller. On the hands' hulls independent joint
+feedback [holds no installed pose](reference/posture-hold.md) for ten seconds within 2 cm on
+either corrected-limit friction profile: all fours drifts 2.3 to 2.5 cm, where the capsule hands
+held it within 1.5 cm. Direct feedback fails half-kneel and squat; recovery still needs demonstrated
 entry, balance and transfer between supports.
 An [offline native-rollout controller](reference/native-posture-control.md) passes the same
 installed half-kneel hold at the default solver count, through the task's external actuator
@@ -126,8 +127,8 @@ cycles land nothing on a fixed box (the `todo` tests in `tests/arena-control-cyc
 [autonomous Warrior baseline](reference/arena-combat.md) exposes sustained hand pressure with
 little damage in the self-play of Point control, a placed-point controller no longer in the game. The path
 fighter's presets, Combat, Brawler, grounded Scrapper and Kicker, run through the same body and
-muscle contract. Against Classic on two Warriors, each wins bare-handed (0.97 to 0.98) and loses
-with clubs (0.09 to 0.24), every win on the clock ([presets](reference/controller-presets.md)). Scrapper lands low blows with either hand in controlled knockdowns, attempts
+muscle contract. Against Classic on two Warriors, each wins bare-handed (0.98 to 1.00) and loses
+with clubs (0.10 to 0.24), every win on the clock ([presets](reference/controller-presets.md)). Scrapper lands low blows with either hand in controlled knockdowns, attempts
 recovery and restores standing, with fresh-world replay. Decisive finishing, low-target pose
 coverage, defense timing, broader loadouts and repeated league evaluation remain open. The
 standing benchmark does not rate the grounded extension. The original grounded configuration
@@ -139,9 +140,10 @@ remain open.
 
 [Punch calibration](reference/punch-calibration.md) now measures contact impulse independently
 of damage scoring and screens rigid/compliant pads across physics rates. Qualified compliant
-Warrior trials remain below the cited human punch impulse and peak-force means. Realistic
-fist collision geometry, pre-impact bracing, coordinated body contribution and calibrated
-target materials remain open; faster trajectory requests alone are not a strength upgrade.
+Warrior trials remain below the cited human punch impulse and peak-force means: the bare hand
+now strikes with its measured fist hull, and the planted cells reach 4.3 to 5.3 m/s and 4 to
+10 N s. Pre-impact bracing, coordinated body contribution and calibrated target materials
+remain open; faster trajectory requests alone are not a strength upgrade.
 
 Either-foot [front kicks](reference/front-kicks.md) now share punching's tracker and
 bounded cycle, with actual unloading, supported placement and recentering. The optional
@@ -360,12 +362,12 @@ promoted by these results.
 - Rising after a fall is built to the feet and integrated with continuing Arena bouts as well
   as the lab's Character section ("Down"). A fallen body rolls onto its front, comes onto knees
   and hands, kneels up, steps to a
-  half kneel and lunges onto both feet, where its stance has it. On the battery of falls the
-  Warrior rises from seven falls of eight with nothing in its hands (112 of 127 shoves, 110 up at
-  the end of 40 s) and from more than three of four with the club (94 of 121, 97 up), every way
-  of lying at half or more; the Rogue from 6 of 32 falls and the skeleton from 1
-  ([reference/rising.md](reference/rising.md#staged)); this battery uses the parent-axis
-  reference engine. The Arena defaults to continuing after falls: Classic attempts its staged
+  half kneel and lunges onto both feet, where its stance has it. On the hands' hulls the battery
+  of falls has the Warrior rise from 11 of 16 falls with nothing in its hands and 9 of 14 with
+  the club, and the Rogue from 2 of 32; the capsule hands rose from 13 of 16, 13 of 15 and 6 of
+  32 on the same shoves, and from 112 of 127 and 94 of 121 on the 128-shove battery
+  ([reference/rising.md](reference/rising.md#staged)). The stages were tuned on the capsule
+  hands. This battery uses the parent-axis reference engine. The Arena defaults to continuing after falls: Classic attempts its staged
   rise, while the path fighter verifies standing support before handing control back. The Crypt
   still uses the reference `lie` behavior. Open, each with its readings in the record
   ([reference/rising.md](reference/rising.md#where-the-rise-stops)):
