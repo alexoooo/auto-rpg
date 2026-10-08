@@ -5,7 +5,8 @@ import { mkdtempSync, readFileSync, realpathSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { foundationJobs, foundationTrial, attackAccounting, proportion } from "../research/control-foundation-trials.mjs";
-import { runFoundation, summarizeFoundation } from "../research/control-foundation.mjs";
+import { runFoundation, summarizeCompetencies, summarizeFoundation } from "../research/control-foundation.mjs";
+import { PHYSIQUE_GRID, physiqueGrid, physiqueLabel, physiqueRanges } from "../research/physiques.mjs";
 import { COMPETENCY, RATES, competencyFigures, competencyPasses, fullReach } from "../research/competencies.mjs";
 import { modelSpec } from "../src/core/models.ts";
 import { rigidPoints } from "../src/core/build/rigid.ts";
@@ -339,12 +340,14 @@ test("competency figures: the least shove and fastest walk held every way, blows
   const brisk = competencyFigures("walk", [...walking(() => false, (speed) => speed), ...upright]);
   assert.equal(brisk.speed, 1.4); assert.equal(brisk.meets, true);
   assert.equal(competencyFigures("walk", [...walking(() => false, (speed) => speed * 0.9), ...upright]).meets, false);
-  const cell = (competency, hz, meets) => ({ cell: `${competency}/workshop-fighter/empty/${hz}/symmetric`, meets });
+  const cell = (competency, hz, meets, physique = "default") => ({ competency, model: "workshop-fighter", physique, held: "empty", hz, actuation: "symmetric", meets });
   assert.deepEqual(RATES, [120, 480]);
-  assert.deepEqual(competencyPasses([cell("walk", 120, true), cell("walk", 480, true), cell("punch", 480, false), cell("punch", 120, true), cell("kick", 120, true)]), [
-    { cell: "walk/workshop-fighter/empty/symmetric", meets: { 120: true, 480: true }, passes: true },
-    { cell: "punch/workshop-fighter/empty/symmetric", meets: { 120: true, 480: false }, passes: false },
-    { cell: "kick/workshop-fighter/empty/symmetric", meets: { 120: true }, passes: false }]);
+  assert.deepEqual(competencyPasses([cell("walk", 120, true), cell("walk", 480, true), cell("punch", 480, false), cell("punch", 120, true), cell("kick", 120, true),
+    cell("walk", 120, true, "size=1.18"), cell("walk", 480, false, "size=1.18")]), [
+    { cell: "walk/workshop-fighter/default/empty/symmetric", meets: { 120: true, 480: true }, passes: true },
+    { cell: "punch/workshop-fighter/default/empty/symmetric", meets: { 120: true, 480: false }, passes: false },
+    { cell: "kick/workshop-fighter/default/empty/symmetric", meets: { 120: true }, passes: false },
+    { cell: "walk/workshop-fighter/size=1.18/empty/symmetric", meets: { 120: true, 480: false }, passes: false }]);
   const punch = (outcome) => row({ competency: "punch", hand: "right", placement: "place", mode: "hit" }, { success: true, fell: false, impulse: 5, cycleSeconds: [0.3], ...outcome });
   const strong = competencyFigures("punch", [punch({ blows: 4, landed: 4, speeds: [7, 8, 9, 7], firstContactSeconds: 0.3 })]);
   assert.equal(strong.meets, true); assert.deepEqual(strong.parts[0].blows, { landed: 4, count: 4 }); assert.equal(strong.parts[0].slowest, 7);
@@ -377,4 +380,38 @@ test("competency trials replay on fresh worlds, and a miss lands nothing a hit l
   assert.ok(hit.speeds.every((v) => v > 4 && v < 5.5) && hit.firstContactSeconds > 0.25 && hit.firstContactSeconds < 0.5, JSON.stringify(hit.speeds));
   assert.ok(miss.success && miss.blows > 0 && miss.landed === 0 && miss.contacts === 0 && miss.speed === null, JSON.stringify(miss));
   assert.ok(kick.success && kick.landed > 0 && kick.speeds.every((v) => v > 1 && v < 1.6), JSON.stringify(kick));
+});
+
+test("the physique grid is its record's axes, any of which a run replaces, and a default job is the job it was", () => {
+  assert.deepEqual(Object.keys(PHYSIQUE_GRID), ["size", "weight", "strength", "speed"]);
+  assert.deepEqual([physiqueGrid().length, physiqueGrid(physiqueRanges(), "full").length], [9, 81]);
+  const wider = physiqueRanges({ size: [1.3, 0.8, 1, 1.1] });
+  assert.deepEqual(wider.size, [0.8, 1, 1.1, 1.3]);
+  assert.deepEqual([physiqueGrid(wider).length, physiqueGrid(wider, "full").length], [10, 108]);
+  assert.deepEqual(physiqueGrid(physiqueRanges({ weight: [], strength: [], speed: [] })), [{}, { size: 0.9 }, { size: 1.18 }]);
+  assert.deepEqual(new Set(physiqueGrid(physiqueRanges(), "full").map(physiqueLabel)).size, 81);
+  assert.deepEqual([physiqueLabel({}), physiqueLabel({ speed: 1.15, size: 0.9 })], ["default", "size=0.9,speed=1.15"]);
+  for (const bad of [{ reach: [1.1] }, { size: [0] }, { weight: [Number.NaN] }]) assert.throws(() => physiqueRanges(bad), /physique/);
+  assert.throws(() => physiqueGrid(physiqueRanges(), "half"), /design/);
+
+  const plain = foundationJobs({ suite: "competency", samples: 1 }), grid = foundationJobs({ suite: "competency", samples: 1, grid: "axes" });
+  assert.equal(grid.length, 9 * plain.length);
+  const ids = new Set(grid.map((j) => j.id));
+  assert.ok(plain.every((j) => ids.has(j.id)), "the default physique's jobs keep their ids");
+  assert.ok(grid.every((j) => j.physique === undefined || Object.keys(j.physique).length === 1));
+  const ranged = foundationJobs({ suite: "competency", samples: 1, grid: "axes", ranges: { size: [1.3], weight: [], strength: [], speed: [] } });
+  assert.deepEqual(new Set(ranged.map((j) => physiqueLabel(j.physique))), new Set(["default", "size=1.3"]));
+  // The job reads its own body: a shove is per kilogram of it, and full reach is its own arm's.
+  const at = (jobs, label, pick) => jobs.find((j) => physiqueLabel(j.physique) === label && pick(j));
+  const shove = (j) => j.competency === "stand" && j.level === 0.5 && j.model === "workshop-fighter" && j.held === "empty";
+  assert.ok(Math.abs(at(ranged, "size=1.3", shove).impulse / at(ranged, "default", shove).impulse - 1.3 ** 3) < 1e-12);
+  const reach = (j) => j.competency === "punch" && j.placement === "reach" && j.hand === "right" && j.model === "workshop-fighter";
+  assert.ok(at(ranged, "size=1.3", reach).ahead > at(ranged, "default", reach).ahead + 0.1);
+  for (const bad of [{ suite: "defense", grid: "axes" }, { suite: "competency", grid: "half" }, { suite: "competency", ranges: { size: [1.1] } }])
+    assert.throws(() => foundationJobs({ samples: 1, ...bad }), /grid|physique/);
+  // The summary keeps a physique's cell apart from the default's.
+  const row = (physique) => ({ job: { competency: "stand", model: "workshop-fighter", held: "empty", hz: 120, actuation: "symmetric", level: 0.2, ...(physique && { physique }) },
+    result: { status: "measured", outcome: { success: true, fell: false, steps: 0 } } });
+  assert.deepEqual(summarizeCompetencies([row(), row({ size: 1.18 })]).map((c) => [c.cell, c.physique]),
+    [["stand/workshop-fighter/default/empty/120/symmetric", "default"], ["stand/workshop-fighter/size=1.18/empty/120/symmetric", "size=1.18"]]);
 });

@@ -8,6 +8,7 @@ import { createEquipment } from "../equipment.ts";
 import type { PhysicsEngine, SegmentBody } from "../engine/engine.ts";
 import { equipHands } from "../human/equipment.ts";
 import { modelSpec, type HumanoidModel } from "../models.ts";
+import type { Physique } from "../human/physique.ts";
 import { woodenClub } from "../items/club.ts";
 import { HELD, type Held } from "../items/held.ts";
 import { sin, cos } from "../math/real.ts";
@@ -65,7 +66,7 @@ export function createDefenseProbe(scene: Scene, engine: PhysicsEngine, config: 
   readonly model: HumanoidModel; readonly hands: Side | "both"; readonly held: Held;
   readonly hz: number; readonly actuation: "symmetric" | "directional"; readonly offset: number;
   readonly variant: "predict" | "pose"; readonly angleOffset?: number;
-  readonly jointStops?: boolean;
+  readonly jointStops?: boolean; readonly physique?: Physique;
 }) {
   const stopSettings = jointStopProbeSettings(config.jointStops);
   if (!Number.isSafeInteger(config.hz) || config.hz < 120 || config.hz % 120 !== 0 || !Number.isFinite(config.offset)
@@ -77,7 +78,7 @@ export function createDefenseProbe(scene: Scene, engine: PhysicsEngine, config: 
     assists: { root: 0, weapon: false }, prediction: "sampled point acceleration; necessary reach and travel-time filters" });
   const world = createWorld(scene, engine, { gravity: true, hz: config.hz, actuation: config.actuation });
   world.physics.addFixedBox(SETTINGS.floor.centre, SETTINGS.floor.size);
-  const built = buildBody(modelSpec(config.model), world, { position: ZERO });
+  const built = buildBody(modelSpec(config.model, config.physique), world, { position: ZERO });
   const root = built.segments.get("lowerTrunk")!, head = built.segments.get("head")!;
   const rootPosition = tuple(root.node.position), q = root.node.rotationQuaternion!, rootRotation = [q.x, q.y, q.z, q.w] as const;
   const centreGoal = tuple(["left", "right"].map((side) => {

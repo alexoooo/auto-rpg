@@ -42,6 +42,33 @@ club in the right hand, at 120 Hz and at 480 Hz. Two development seeds per cell.
 club is the club's competency and not the punch's, so the club's punch cell is an `unsupported` row.
 Physique cells join with the physiques.
 
+## Physiques
+
+A physique (`Physique`, `src/core/human/physique.ts`) is how a body differs from its model's
+figure: four factors, each changing one thing. The owner chose them on 2026-10-08.
+
+| Attribute | Changes | Leaves |
+|---|---|---|
+| size | every length, and the mass at the same density; the muscle is a share of that mass, so torque goes as size cubed | joint speeds |
+| weight | the mass alone, a load the same muscles carry: every segment as long and as dense, broader by the square root | lengths, joint centres, torques, speeds |
+| strength | every peak torque | everything else |
+| speed | every muscle's unloaded speed of shortening | everything else |
+
+Weight broadens a trunk segment's hull and each hand's hulls about the line along the segment
+through the hull's centroid, a foot's box across and up from its sole, and a limb's capsule by
+holding its mass at its density. The longitudinal radius of gyration broadens with it; de Leva's
+transverse radii are kept, a stated assumption.
+
+Weight has a ceiling in the body plan. Broadened, segments that share no joint come to touch in
+the reference pose, where the engine would fling them apart: the Warrior's upper arms meet its
+middle trunk past x1.30 (5.3 mm of room at x1.25), and the Rogue's thighs meet each other past
+x1.35. The crypt skeleton takes no weight: its limbs are capped by the room its own trunk leaves,
+which it would have to derive again.
+
+The grid's ranges are the owner's: size x0.9 to x1.18, weight x0.85 to x1.25, strength x0.8 to
+x1.25, and speed x0.85 to x1.15, the last an engineering range with no source. They are
+`PHYSIQUE_GRID` (`research/physiques.mjs`), and a run overrides any of them by flag.
+
 ## Targets
 
 | Competency | Human figure | Source |

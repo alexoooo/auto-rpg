@@ -104,14 +104,15 @@ const FLOOR = 12;
  * shoved at its middle trunk's centre by `impulse` N s a kilogram of the whole body, `degrees`
  * about up from the way it faces: the world stepped to the first step it is down, or
  * `FALL_SECONDS` if it holds. With `level`, m, it is built on a floor that high over the arena's
- * ground, `FLOOR` m square. The caller disposes.
+ * ground, `FLOOR` m square. With `physique`, the body is the model's with it (`Physique`). The caller
+ * disposes.
  */
-export async function felled({ model, held, degrees, impulse = 1.5, level = 0, hz = 120, actuation }, minded) {
+export async function felled({ model, held, degrees, impulse = 1.5, level = 0, hz = 120, actuation, physique }, minded) {
   const engine = new NullEngine(), scene = new Scene(engine);
   const world = createWorld(scene, await freshEngine(), { hz, actuation });
   addArenaSolids(world.physics);
   if (level > 0) world.physics.addFixedBox([0, level / 2, 0], [FLOOR, level, FLOOR]);
-  const built = buildBody(LOADOUTS[held](modelSpec(model)), world, { position: [0, level, 0] });
+  const built = buildBody(LOADOUTS[held](modelSpec(model, physique)), world, { position: [0, level, 0] });
   const body = minded(built, world);
   const dispose = () => { body.dispose(); built.dispose(); world.dispose(); scene.dispose(); engine.dispose(); };
   try {

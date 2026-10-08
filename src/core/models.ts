@@ -1,4 +1,5 @@
 import { HUMANOID_MODELS, humanoidSpec, type HumanoidModel } from "./human/spec.ts";
+import type { Physique } from "./human/physique.ts";
 import type { BodySpec } from "./spec/body.ts";
 import { RECIPE_FIGHTER, QUADRUPED, type MindConfig } from "./mind/config.ts";
 import { controllerOf } from "./mind/controllers.ts";
@@ -30,11 +31,16 @@ export function modelInfo(model: BodyModel): ModelInfo {
 const HUMANOID: ModelInfo = deepFreeze({ mind: RECIPE_FIGHTER, held: "club" });
 const REPTILE: ModelInfo = deepFreeze({ mind: QUADRUPED, held: "empty" });
 
-/** Anatomical construction dispatches by registered model, without another family's spec as a template. */
-export function modelSpec(model: BodyModel): BodySpec {
+/**
+ * Anatomical construction dispatches by registered model, without another family's spec as a
+ * template. A humanoid takes a physique (`Physique`); the reptile has none.
+ */
+export function modelSpec(model: BodyModel, physique?: Physique): BodySpec {
   switch (model) {
-    case "workshop-fighter": case "workshop-rogue": case "crypt-skeleton": return humanoidSpec(model);
-    case "reptile": return reptileSpec();
+    case "workshop-fighter": case "workshop-rogue": case "crypt-skeleton": return humanoidSpec(model, physique);
+    case "reptile":
+      if (physique) throw new Error("the reptile takes no physique");
+      return reptileSpec();
     default: { const never: never = model; throw new Error(`unknown model ${never}`); }
   }
 }

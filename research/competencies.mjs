@@ -82,19 +82,19 @@ const median = (values) => {
   return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
 };
 
-/** The body's own mass, kg: its segments', with nothing held. */
-export function bodyMass(model) {
-  return sum(modelSpec(model).segments.map((segment) => segment.mass.value));
+/** The body's own mass, kg: its segments', with nothing held, with `physique` if given. */
+export function bodyMass(model, physique) {
+  return sum(modelSpec(model, physique).segments.map((segment) => segment.mass.value));
 }
 
 /**
  * How far ahead a target at (`x`, `height`) stands when `hand`'s strike point touches it with the
  * arm straight from the shoulder where the body is built, m: the shoulder's centre plus the arm's
  * length (shoulder to elbow to wrist to the strike point, in the reference pose), the rest of the
- * way forward. Null if the arm cannot reach that height and side.
+ * way forward. Null if the arm cannot reach that height and side. With `physique`, its body's arm.
  */
-export function fullReach(model, hand, x, height) {
-  const spec = modelSpec(model), centre = (name) => spec.joints.find((joint) => joint.name === name).centre.value;
+export function fullReach(model, hand, x, height, physique) {
+  const spec = modelSpec(model, physique), centre = (name) => spec.joints.find((joint) => joint.name === name).centre.value;
   const shoulder = centre(`shoulder.${hand}`), elbow = centre(`elbow.${hand}`), wrist = centre(`wrist.${hand}`);
   const strike = rigidPoints(spec, spec.segments.find((segment) => segment.name === `hand.${hand}`)).get(aimOf(spec, hand)).value;
   const length = distance(shoulder, elbow) + distance(elbow, wrist) + distance(wrist, strike);
@@ -102,16 +102,20 @@ export function fullReach(model, hand, x, height) {
   return ahead > 0 ? shoulder[2] + Math.sqrt(ahead) : null;
 }
 
+/** A job's physique field: absent for the default, so a default job is the job it always was. */
+const physiqueOf = (physique) => physique && Object.keys(physique).length ? { physique } : {};
+
 /**
- * The jobs of `competency` (or of every competency) for `model` holding `held`, seed `seed`; a
- * cell no fixture covers is an `unsupported` job, so it stays in every count.
+ * The jobs of `competency` (or of every competency) for `model` with `physique` (`Physique`; the
+ * default if absent) holding `held`, seed `seed`; a cell no fixture covers is an `unsupported`
+ * job, so it stays in every count.
  */
-export function competencyJobs({ competency, model, held, seed }) {
+export function competencyJobs({ competency, model, held, seed, physique }) {
   const fraction = (((seed + 1) * 2654435761) >>> 0) / 4294967296, signed = fraction * 2 - 1;
-  const common = { model, held, seed }, jobs = [];
+  const common = { model, ...physiqueOf(physique), held, seed }, jobs = [];
   const wanted = (name) => competency === undefined || competency === name;
   if (wanted("stand")) {
-    const { levels, ways, watch } = COMPETENCY.stand, mass = bodyMass(model);
+    const { levels, ways, watch } = COMPETENCY.stand, mass = bodyMass(model, physique);
     for (const level of levels) for (let k = 0; k < ways; k++) jobs.push({ ...common, task: "competency", competency: "stand",
       level, impulse: level * mass, degrees: (k + fraction) * 360 / ways, watch });
   }
@@ -122,7 +126,7 @@ export function competencyJobs({ competency, model, held, seed }) {
     const { place: [x, height, ahead], offset } = COMPETENCY.punch;
     if (held === "empty") for (const hand of ["left", "right"]) {
       const across = signed * offset, up = height - signed * offset, side = hand === "right" ? x : -x;
-      const reach = fullReach(model, hand, side + across, up);
+      const reach = fullReach(model, hand, side + across, up, physique);
       for (const [placement, mode] of [["place", "hit"], ["reach", "hit"], ["place", "miss"]]) jobs.push({ ...common,
         task: "competency", competency: "punch", hand, placement, mode, across, height: up, ahead: placement === "reach" ? reach : ahead });
     } else jobs.push({ ...common, task: "unsupported", competency: "punch", capability: "a blow with a held item is that item's competency" });
@@ -147,9 +151,9 @@ export function competencyJobs({ competency, model, held, seed }) {
 }
 
 /** The jobs that stand once a cell, not once a seed: the run, which no skill does yet. */
-export function competencyGaps({ competency, model, held }) {
+export function competencyGaps({ competency, model, held, physique }) {
   return competency === undefined || competency === "run"
-    ? [{ model, held, task: "unsupported", competency: "run", capability: "no run: the stance's walk is the only gait" }] : [];
+    ? [{ model, ...physiqueOf(physique), held, task: "unsupported", competency: "run", capability: "no run: the stance's walk is the only gait" }] : [];
 }
 
 /** Faults of a strike stand's qualification that count blows in its window; the suite counts blows itself. */
@@ -184,7 +188,7 @@ async function punchTrial(job) {
   const { seconds } = COMPETENCY.punch;
   const s = await punchStand({ model: job.model, hand: job.hand, family: "cross", hz: job.hz, seconds,
     ahead: job.ahead, height: job.height, across: job.across, armExtension: 0.5, mode: job.mode, pad: { face: "compliant" },
-    paths: { elbowExtension: 0.5 }, execution: PLANTED_PUNCH_EXECUTION, matchedFeedback: true, actuation: job.actuation });
+    paths: { elbowExtension: 0.5 }, execution: PLANTED_PUNCH_EXECUTION, matchedFeedback: true, actuation: job.actuation, physique: job.physique });
   const changes = [];
   const hook = s.world.beforeStep(() => {
     const phase = s.skills.report.strike.phase;
@@ -202,7 +206,7 @@ async function punchTrial(job) {
 async function kickTrial(job) {
   const { seconds } = COMPETENCY.kick;
   const s = await frontKickStand({ model: job.model, held: job.held, foot: job.foot, hz: job.hz, seconds,
-    height: job.height, ahead: job.ahead, mode: job.mode, actuation: job.actuation });
+    height: job.height, ahead: job.ahead, mode: job.mode, actuation: job.actuation, physique: job.physique });
   try {
     s.step(s.seconds(seconds));
     const r = s.reading();
@@ -213,18 +217,18 @@ async function kickTrial(job) {
 
 /** One trial of a competency that wraps a stand fixture; the guard and the rise are not here. */
 export async function competencyTrial(job) {
-  const { model, held, hz, actuation } = job;
+  const { model, held, hz, actuation, physique } = job;
   switch (job.competency) {
     case "stand": {
-      const r = await shove({ model, held, hz, actuation, impulse: job.impulse, degrees: job.degrees, watch: job.watch });
+      const r = await shove({ model, held, hz, actuation, physique, impulse: job.impulse, degrees: job.degrees, watch: job.watch });
       return { status: "measured", outcome: { ...r, success: !r.fell }, limits: ["a shove at the middle trunk's centre of mass, level"] };
     }
     case "walk": if (job.trial === "walk") {
-      const r = await walk({ model, held, hz, actuation, speed: job.speed, degrees: job.degrees });
+      const r = await walk({ model, held, hz, actuation, physique, speed: job.speed, degrees: job.degrees });
       return { status: "measured", outcome: { ...r, success: !r.fell },
         limits: ["the stance's walk, asked a pace; no gait is chosen"] };
     } else {
-      const r = await turn({ model, held, hz, actuation, speed: job.speed, rate: job.rate, sense: job.sense });
+      const r = await turn({ model, held, hz, actuation, physique, speed: job.speed, rate: job.rate, sense: job.sense });
       return { status: "measured", outcome: { ...r, success: !r.fell }, limits: ["half a turn walking"] };
     }
     case "punch": return punchTrial(job);
@@ -317,15 +321,15 @@ export function competencyFigures(competency, rows) {
 
 /**
  * Whether each competency passes, from its figures at several rates (`summarizeCompetencies`'
- * entries, from one run a rate): by competency, model, loadout and actuation, it passes where every
- * rate of `RATES` is there and meets its threshold.
+ * entries, from one run a rate): by competency, model, physique, loadout and actuation, it passes
+ * where every rate of `RATES` is there and meets its threshold.
  */
 export function competencyPasses(figures) {
   const groups = new Map();
-  for (const figure of figures) {
-    const [competency, model, held, hz, actuation] = figure.cell.split("/"), key = [competency, model, held, actuation].join("/");
+  for (const { competency, model, physique, held, actuation, hz, meets } of figures) {
+    const key = [competency, model, physique, held, actuation].join("/");
     if (!groups.has(key)) groups.set(key, new Map());
-    groups.get(key).set(Number(hz), figure.meets);
+    groups.get(key).set(hz, meets);
   }
   return [...groups].map(([cell, rates]) => ({ cell, meets: Object.fromEntries([...rates].sort(([a], [b]) => a - b)),
     passes: RATES.every((hz) => rates.get(hz) === true) }));

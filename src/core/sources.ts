@@ -168,6 +168,15 @@ export const SOURCES = Object.freeze({
       + "quarter of a weight and 50 N m for the Warrior; and every character starts at 0.",
     record: "docs/reference/assist.md#balance",
   },
+  "owner-physique": {
+    kind: "decision", date: "2026-10-08",
+    decided: "A body may differ from its model by a physique of four attributes, each a factor that "
+      + "changes one thing: size (every length, and the mass at the same density), weight (the mass "
+      + "alone, a load the same muscles carry), strength (every peak torque) and speed (every muscle's "
+      + "unloaded speed of shortening). An attribute left out is 1. The factors are the character's or "
+      + "the run's; the grid's ranges are the owner's and live in research/physiques.mjs.",
+    record: "docs/reference/competencies.md#physiques",
+  },
   "owner-part-hp-split": {
     kind: "decision", date: "2026-09-29",
     decided: "A core human's hit points are split over its segments by cross-section: each segment's "

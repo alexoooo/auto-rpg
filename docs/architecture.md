@@ -113,6 +113,14 @@ the impact literature for each part's stiffness under a blunt load (`CONTACT_STI
 | `crypt-skeleton` | `skeletonFigure`: its art's bind (`assets/skeleton/bind.json`); mass, strength and hit points are placeholders | 6 |
 | `reptile` | an independently authored 8 kg quadruped (`assets/reptile/body.json`) | 1 |
 
+A humanoid may be built with a physique (`Physique`, `src/core/human/physique.ts`;
+`modelSpec(model, physique)`): factors of size, weight, strength and speed, each changing one
+thing. `physiqueFigure` resizes the figure, broadens each segment at its density for weight, and
+carries strength and speed to the torque and the force-velocity curves; the figure's muscled
+mass (`HumanFigure.muscled`) keeps weight from adding muscle. Without one, a model is its figure.
+The competency suite measures skills across a grid of them
+([competencies](reference/competencies.md#physiques)).
+
 `BODY_MODELS`, `modelSpec` and `modelInfo` (`src/core/models.ts`) own the model registry,
 construction, and each model's default mind and what its right hand holds. What a hand may hold is
 one list (`HELD`, `src/core/items/held.ts`: nothing, or the wooden club), and `armedWith` puts it

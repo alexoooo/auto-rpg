@@ -29,7 +29,7 @@ import type { Exertion } from "./tables/joint-torques.ts";
  *   owner chose 1.4 for fighters.
  *
  * The figure's column is its sex's. Speed is not scaled to size: a geometrically similar body turns
- * its joints at the same rate.
+ * its joints at the same rate. The figure's speed, where it has one, multiplies the unloaded speed.
  */
 export function jointSpeed(figure: HumanFigure, exertion: Exertion): ForceVelocitySpec {
   const { sex } = figure;
@@ -37,7 +37,9 @@ export function jointSpeed(figure: HumanFigure, exertion: Exertion): ForceVeloci
   const own = shortening(measured, sex);
   const borrowed = (q: Quantity<number>) => measured === exertion ? q
     : derive(q.unit, `${measured}'s, taken for ${exertion}: a stated assumption (BORROWED, src/core/human/speed.ts)`, [q], (v) => v);
-  const unloadedSpeed = borrowed(own.unloadedSpeed), curvature = borrowed(own.curvature);
+  const curvature = borrowed(own.curvature), unloaded = borrowed(own.unloadedSpeed);
+  const unloadedSpeed = figure.speed
+    ? derive("rad/s", "the unloaded speed times the figure's speed", [unloaded, figure.speed], (w, s) => w * s) : unloaded;
   return {
     unloadedSpeed, curvature,
     eccentricCeiling: THELEN_ECCENTRIC_CEILING, eccentricSlopeRatio: THELEN_ECCENTRIC_SLOPE_RATIO,

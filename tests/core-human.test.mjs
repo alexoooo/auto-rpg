@@ -14,6 +14,8 @@ import { SIDES } from "../src/core/human/landmarks.ts";
 import { inventory, sourcesOf } from "../src/core/spec/provenance.ts";
 import { footprint, transcribed, trunkHulls } from "../scripts/core/workshop-envelope.mjs";
 import { humanSpec } from "../src/core/human/spec.ts";
+import { physiqueFigure } from "../src/core/human/physique.ts";
+import { convexHull } from "../src/core/spec/hull.ts";
 import { peakTorque } from "../src/core/human/muscle.ts";
 import { jointSpeed } from "../src/core/human/speed.ts";
 import { workshopFigure } from "../src/core/human/workshop.ts";
@@ -409,4 +411,80 @@ test("the skeleton's hands are capsules in every pose, its fist ended at its knu
     const along = normalize(sub(hand.distal.value, hand.proximal.value));
     assert.ok(length(sub(hand.points.strike.value, hand.points.knuckles.value.map((k, i) => k + along[i] * hand.shape.radius.value))) < 1e-12, side);
   }
+});
+
+/** A segment's shape's volume, m3: a capsule's, a box's, or a hull's by its triangles about the origin. */
+function volumeOf(shape) {
+  switch (shape.kind) {
+    case "capsule": { const r = shape.radius.value, l = length(sub(shape.to.value, shape.from.value)); return Math.PI * r * r * l + 4 / 3 * Math.PI * r * r * r; }
+    case "box": return shape.size.value.reduce((a, b) => a * b, 1);
+    case "hull": {
+      const points = shape.points.map((p) => p.value);
+      return convexHull(points).faces.reduce((sum, [a, b, c]) => sum + dot(points[a], cross(points[b], points[c])) / 6, 0);
+    }
+    default: throw new Error(`no volume for ${shape.kind}`);
+  }
+}
+
+const torquesOf = (spec) => spec.joints.flatMap((j) => j.dofs.flatMap((d) => [d.muscle.peakPositive.value, d.muscle.peakNegative.value]));
+const speedsOf = (spec) => spec.joints.flatMap((j) => j.dofs.flatMap((d) => [d.muscle.speedPositive, d.muscle.speedNegative]));
+const centresOf = (spec) => spec.joints.map((j) => j.centre.value);
+const lengthsOf = (spec) => spec.segments.map((s) => length(sub(s.distal.value, s.proximal.value)));
+const near = (a, b, where) => assert.ok(Math.abs(a - b) <= 1e-9 * Math.max(1, Math.abs(b)), `${where}: ${a} against ${b}`);
+const valuesOf = (record) => JSON.parse(JSON.stringify(record, (key, v) => key === "provenance" ? undefined : v));
+
+test("a physique changes what it names and nothing else, and the default physique is the model", () => {
+  for (const model of WORKSHOP_MODELS) {
+    const base = humanSpec(model), torques = torquesOf(base), speeds = speedsOf(base);
+    assert.equal(JSON.stringify(humanSpec(model, undefined)), JSON.stringify(base), `${model}: no physique is the model's spec, provenance and all`);
+    assert.deepEqual(valuesOf(humanSpec(model, {})), valuesOf(base), `${model}: an empty physique`);
+    const sized = humanSpec(model, { size: 1.1 });
+    lengthsOf(sized).forEach((l, i) => near(l, lengthsOf(base)[i] * 1.1, `${model} size length ${i}`));
+    sized.segments.forEach((s, i) => near(s.mass.value, base.segments[i].mass.value * 1.331, `${model} size mass ${s.name}`));
+    torquesOf(sized).forEach((t, i) => near(t, torques[i] * 1.331, `${model} size torque ${i}`));
+    assert.deepEqual(valuesOf(speedsOf(sized)), valuesOf(speeds), `${model}: size keeps joint speeds`);
+    const heavy = humanSpec(model, { weight: 1.2 });
+    assert.deepEqual([lengthsOf(heavy), centresOf(heavy), torquesOf(heavy), valuesOf(speedsOf(heavy))],
+      [lengthsOf(base), centresOf(base), torques, valuesOf(speeds)], `${model}: weight keeps lengths, joints, torques and speeds`);
+    heavy.segments.forEach((s, i) => {
+      const b = base.segments[i];
+      near(s.mass.value, b.mass.value * 1.2, `${model} weight mass ${s.name}`);
+      near(s.mass.value / volumeOf(s.shape), b.mass.value / volumeOf(b.shape), `${model} weight density ${s.name}`);
+      if (s.handPoses && b.handPoses) for (const pose of ["open", "fist"]) near(volumeOf(s.handPoses[pose]), volumeOf(b.handPoses[pose]) * 1.2, `${model} ${s.name} ${pose}`);
+    });
+    const strong = humanSpec(model, { strength: 1.2 });
+    torquesOf(strong).forEach((t, i) => near(t, torques[i] * 1.2, `${model} strength torque ${i}`));
+    assert.deepEqual(valuesOf({ ...strong, joints: strong.joints.map((j) => ({ ...j, dofs: j.dofs.map((d) => ({ ...d, muscle: { ...d.muscle, peakPositive: null, peakNegative: null } })) })) }),
+      valuesOf({ ...base, joints: base.joints.map((j) => ({ ...j, dofs: j.dofs.map((d) => ({ ...d, muscle: { ...d.muscle, peakPositive: null, peakNegative: null } })) })) }), `${model}: strength changes torque alone`);
+    const quick = humanSpec(model, { speed: 1.1 });
+    speedsOf(quick).forEach((s, i) => { near(s.unloadedSpeed.value, speeds[i].unloadedSpeed.value * 1.1, `${model} speed ${i}`); assert.equal(s.curvature.value, speeds[i].curvature.value); });
+    assert.deepEqual(valuesOf({ ...quick, joints: quick.joints.map((j) => ({ ...j, dofs: j.dofs.map((d) => ({ ...d, muscle: { ...d.muscle, speedPositive: null, speedNegative: null } })) })) }),
+      valuesOf({ ...base, joints: base.joints.map((j) => ({ ...j, dofs: j.dofs.map((d) => ({ ...d, muscle: { ...d.muscle, speedPositive: null, speedNegative: null } })) })) }), `${model}: speed changes unloaded speed alone`);
+  }
+});
+
+test("a body at the grid's corners and beyond keeps its sourced numbers, its soles on the ground and room between its segments", () => {
+  for (const model of WORKSHOP_MODELS) for (const physique of [{ size: 0.9, weight: 0.85, strength: 0.8, speed: 0.85 }, { size: 1.18, weight: 1.25, strength: 1.25, speed: 1.15 },
+    { size: 0.9, weight: 1.25 }, { size: 1.3 }, { weight: 1.3 }]) {
+    const where = `${model} ${JSON.stringify(physique)}`, spec = humanSpec(model, physique);
+    assert.deepEqual(specProvenanceFaults(spec), [], where);
+    const tight = [];
+    for (let i = 0; i < spec.segments.length; i++) for (let j = i + 1; j < spec.segments.length; j++) {
+      const a = spec.segments[i], b = spec.segments[j];
+      if (HUMAN_PARENTS.get(a.name) === b.name || HUMAN_PARENTS.get(b.name) === a.name) continue;
+      if (!(clearance(solid(a), solid(b)) > 0)) tight.push(`${a.name} and ${b.name}`);
+    }
+    assert.deepEqual(tight, [], where);
+    for (const segment of spec.segments) {
+      const bottom = lowest(solid(segment));
+      if (segment.name.startsWith("foot.")) assert.ok(Math.abs(bottom) < 1e-12, `${where} ${segment.name} at ${bottom}`);
+      else assert.ok(bottom > 0.05, `${where} ${segment.name} reaches ${bottom} m`);
+    }
+  }
+});
+
+test("a physique refuses a factor that is not positive, and weight on a figure whose limbs are capped by its room", () => {
+  for (const physique of [{ size: 0 }, { weight: -1 }, { strength: Number.NaN }, { speed: Infinity }]) assert.throws(() => humanSpec("workshop-fighter", physique), /positive factor/);
+  assert.throws(() => physiqueFigure(skeletonFigure(), { weight: 1.1 }), /takes no weight/);
+  assert.equal(humanSegments(physiqueFigure(skeletonFigure(), { size: 1.1, strength: 1.2, speed: 1.1 })).length, 16);
 });

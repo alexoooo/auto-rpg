@@ -3,6 +3,7 @@ import { sourced } from "../spec/quantity.ts";
 import { humanAttributes } from "./attributes.ts";
 import type { HumanFigure } from "./figure.ts";
 import { humanJoints } from "./joints.ts";
+import { physiqueFigure, type Physique } from "./physique.ts";
 import { peakTorque } from "./muscle.ts";
 import { WORKSHOP_MODELS, type WorkshopModel } from "./rig.ts";
 import { humanSegments } from "./segments.ts";
@@ -11,16 +12,19 @@ import { jointSpeed } from "./speed.ts";
 import { workshopFigure } from "./workshop.ts";
 import { humanWounds } from "./wounds.ts";
 
-/** **A workshop human, whole**: its segments, the joints and muscle between them, its wounds and its attributes, at x1. */
-export const humanSpec = (model: WorkshopModel): BodySpec => figureSpec(workshopFigure(model));
+/**
+ * **A workshop human, whole**: its segments, the joints and muscle between them, its wounds and its
+ * attributes, at x1, or with `physique` (`physique.ts`).
+ */
+export const humanSpec = (model: WorkshopModel, physique?: Physique): BodySpec => figureSpec(physiqueFigure(workshopFigure(model), physique));
 
 /** The core's bodies by model: the workshop humans and the crypt skeleton. */
 export type HumanoidModel = WorkshopModel | typeof SKELETON_MODEL;
 export const HUMANOID_MODELS: readonly HumanoidModel[] = Object.freeze([...WORKSHOP_MODELS, SKELETON_MODEL]);
 
-/** **A core body by model**, whole. */
-export function humanoidSpec(model: HumanoidModel): BodySpec {
-  return model === SKELETON_MODEL ? figureSpec(skeletonFigure()) : humanSpec(model);
+/** **A core body by model**, whole, with `physique` where one is given. */
+export function humanoidSpec(model: HumanoidModel, physique?: Physique): BodySpec {
+  return model === SKELETON_MODEL ? figureSpec(physiqueFigure(skeletonFigure(), physique)) : humanSpec(model, physique);
 }
 /** **A human figure, whole** (`figure.ts`): the human body plan on the figure's own numbers. */
 function figureSpec(figure: HumanFigure): BodySpec {

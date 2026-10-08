@@ -40,14 +40,14 @@ export function approachSpeed(history, distance = HUMAN_PUNCH.speedDistance) {
   return null;
 }
 
-/** The real unassisted executor of `model` (a workshop body, empty handed), with a detached target and an independent impulse sensor. */
+/** The real unassisted executor of `model` (a workshop body, empty handed, with `physique` if given), with a detached target and an independent impulse sensor. */
 export async function punchStand({model='workshop-fighter',hand='right',family='straight',hz=120,seconds=6,ahead=.6,height=1.63,across=0,
-  contactSpeed=5,armExtension=0,mode='hit',pad={},paths={},execution,matchedFeedback=false,actuation} = {}) {
+  contactSpeed=5,armExtension=0,mode='hit',pad={},paths={},execution,matchedFeedback=false,actuation,physique} = {}) {
   if (!['left','right'].includes(hand) || !['straight','cross'].includes(family) || !['hit','miss'].includes(mode)
     || ![120,240,480,960,1920].includes(hz) || ![seconds,ahead,height,across,contactSpeed,armExtension].every(Number.isFinite)
     || seconds<=2 || ahead<=0 || contactSpeed<=0 || armExtension<0 || armExtension>1) throw new Error('invalid punch calibration');
-  const config={model,hand,family,hz,seconds,ahead,height,across,contactSpeed,armExtension,mode,pad,paths,execution,matchedFeedback,actuation};
-  const s=await coreStand(modelSpec(model),{engine:DEFAULT_ENGINE,hz,actuation});
+  const config={model,hand,family,hz,seconds,ahead,height,across,contactSpeed,armExtension,mode,pad,paths,execution,matchedFeedback,actuation,...(physique?{physique}:{})};
+  const s=await coreStand(modelSpec(model,physique),{engine:DEFAULT_ENGINE,hz,actuation});
   let sensor;
   const body=createBody(s.built,s.world,{servoSeconds:SERVO_SECONDS,feedback:true,
     ...(matchedFeedback?{contactIdentity:other=>other===sensor?.body?{kind:'object',id:'punch-pad'}:other?null:{kind:'world'},

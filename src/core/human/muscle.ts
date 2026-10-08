@@ -15,6 +15,9 @@ import { measuredTorque, subjectMass, type Exertion } from "./tables/joint-torqu
  *     torque = the men's torque x (model's regional muscle / the men's regional muscle)
  *     regional muscle = body mass x (the region's muscle per body mass, for the sex)
  *
+ * The body mass counted is the figure's muscled mass (`HumanFigure.muscled`), which a physique's
+ * weight leaves as it is; the figure's strength, where it has one, multiplies the torque.
+ *
  * The regional muscle per body mass is Abe 2003's, for both sexes: the women's share and the men's
  * come from the same people in the same scanner, so their ratio carries no difference of method. A
  * man's torque is then his body mass over the men's times theirs; a woman's is also scaled by the
@@ -27,12 +30,13 @@ import { measuredTorque, subjectMass, type Exertion } from "./tables/joint-torqu
 export function peakTorque(figure: HumanFigure, exertion: Exertion): Quantity<number> {
   const { sex } = figure;
   const region = REGION[exertion];
-  return derive("N m", "the men's torque, times the model's regional muscle over the men's, each body mass times "
+  const torque = derive("N m", "the men's torque, times the model's regional muscle over the men's, each body mass times "
     + "the region's muscle per body mass for its sex",
-  [measuredTorque(exertion, "male"), figure.mass, abeRegionalMuscle(sex, region), abeBodyMass(sex),
+  [measuredTorque(exertion, "male"), figure.muscled ?? figure.mass, abeRegionalMuscle(sex, region), abeBodyMass(sex),
     subjectMass(exertion, "male"), abeRegionalMuscle("male", region), abeBodyMass("male")],
   (torque, mass, muscle, muscleMass, menMass, menMuscle, menMuscleMass) =>
     torque * (mass * muscle / muscleMass) / (menMass * menMuscle / menMuscleMass));
+  return figure.strength ? derive("N m", "the torque times the figure's strength", [torque, figure.strength], (t, s) => t * s) : torque;
 }
 
 /**

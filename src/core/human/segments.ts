@@ -21,7 +21,9 @@ import { SEGMENT_DENSITY, type DensitySegment } from "./tables/densities.ts";
  *   for men and 99.99 for women; they are normalised to sum to one, so the segments sum to the body.
  * - **Centre of mass and inertia.** de Leva's centre-of-mass position and radii of gyration, as
  *   fractions of this segment's own length. The inertia is about the segment frame's axes, which
- *   are his: x transverse, y longitudinal, z sagittal.
+ *   are his: x transverse, y longitudinal, z sagittal. A figure broader than his rows
+ *   (`HumanFigure.breadth`) has the longitudinal radius broader by as much, since it lies wholly
+ *   across the segment; the two transverse radii are his, a stated assumption.
  * - **Shape.** The head and the limbs are capsules as long as the segment that hold its mass at
  *   Dempster's density. A trunk segment is the convex hull of its stretch of the figure (a workshop
  *   model's clothed envelope), not a box on its extents, whose corners stand out of the body where
@@ -184,8 +186,11 @@ export function humanSegments(figure: HumanFigure): SegmentSpec[] {
       [body, shares[i]!, ...shares], (m, share, ...every) => massShare(m, share, every));
     const centreOfMass = derive("m", "de Leva's centre of mass, along the row from its origin", [origin, end, si(row.centreOfMass)],
       (o, e, fraction) => lerp(o, e, fraction));
+    const longitudinalRadius = figure.breadth
+      ? derive("1", "de Leva's longitudinal radius of gyration times the figure's breadth", [si(row.radiusLongitudinal), figure.breadth], (r, b) => r * b)
+      : si(row.radiusLongitudinal);
     const inertia = derive("kg m2", "m (r L)^2 about the transverse, longitudinal and sagittal axes",
-      [mass, proximal, distal, si(row.radiusTransverse), si(row.radiusLongitudinal), si(row.radiusSagittal)],
+      [mass, proximal, distal, si(row.radiusTransverse), longitudinalRadius, si(row.radiusSagittal)],
       (m, p, d, transverse, longitudinal, sagittal) => {
         const l = distance(p, d);
         return [m * square(transverse * l), m * square(longitudinal * l), m * square(sagittal * l)];

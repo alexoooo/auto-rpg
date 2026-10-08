@@ -40,6 +40,14 @@ export interface HumanFigure {
    * at its density.
    */
   readonly widest?: Readonly<Partial<Record<DeLevaSegment, Quantity<number>>>>;
+  /** The body mass its regional muscle is a share of (`peakTorque`), kg at x1; absent, `mass`. */
+  readonly muscled?: Quantity<number>;
+  /** How much broader than de Leva's rows each segment is across its long axis; absent, 1. */
+  readonly breadth?: Quantity<number>;
+  /** A factor on every peak torque (`peakTorque`); absent, 1. */
+  readonly strength?: Quantity<number>;
+  /** A factor on every unloaded speed of shortening (`jointSpeed`); absent, 1. */
+  readonly speed?: Quantity<number>;
   /** The body's hit points, in the rulebook's unit. */
   readonly hp: Quantity<number>;
   /** The body's balance, per cent of its weight (`AttributeSpec`). */
