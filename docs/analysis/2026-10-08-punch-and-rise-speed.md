@@ -106,10 +106,11 @@ found with the trunk turning the wrong way.
 
 ## Open choices
 
-- **A servo that carries the root.** `servoSolve` takes the root's acceleration; asking the
-  posture servo with it where the stance is released would remove the chatter and make a
-  flat-out search say what the body can do. It is the step before any whole-body explosive
-  control and costs no body change.
+- **A servo that does not hold the root.** `servoSolve` takes the root's acceleration, which
+  the stance supplies; where the stance is released nothing does, and on planted feet that
+  acceleration is the contacts' to decide. Leaving the legs to the stance's solve while the rest
+  is pushed, or solving the floating root with its contacts, may end the chatter (untested); it
+  is the step before a flat-out search can say what the body can do, and costs no body change.
 - **An explosive punch controller.** A cross from the legs, pelvis and trunk to the hand, in
   sequence and at full effort, needs a stance that lets the pelvis turn at 10 rad/s and an arm
   path that rides it. Today's stance holds the heading and today's path ignores it.

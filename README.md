@@ -60,9 +60,9 @@ particularly from awkward leg positions.
 Classic strikes by searched recipes; Combat, Brawler, Scrapper and Kicker are presets of one
 path fighter, which strikes along hand paths on a shared strike cycle.
 Against Classic on two Warriors ([384 bouts each](docs/reference/controller-presets.md)), every
-preset wins bare-handed (Combat and Kicker 0.98, Brawler and Scrapper 0.97), all of it at the
-time cap, and loses with clubs (Combat 0.24, Kicker 0.17, Brawler and Scrapper 0.09), often by a
-wound. Finishing power remains under evaluation.
+preset wins bare-handed (Kicker 1.00, Combat 0.99, Brawler and Scrapper 0.98), all of it at the
+time cap, and loses with clubs (Combat 0.24, Brawler 0.12, Kicker 0.10, Scrapper 0.10), often by
+a wound. Finishing power remains under evaluation.
 Brawler is the experimental body-targeting fighter, with measured punch paths, guards and
 escapes. Try
 `?play=arena&matchup=workshop-fighter,workshop-fighter&control=brawler&held=empty&balance=0`.
