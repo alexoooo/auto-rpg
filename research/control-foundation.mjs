@@ -8,6 +8,7 @@ import { parseArgs } from "node:util";
 import { Worker } from "node:worker_threads";
 import { gzipSync } from "node:zlib";
 import { foundationJobs, FOUNDATION, proportion } from "./control-foundation-trials.mjs";
+import { COMPETENCIES, competencyFigures } from "./competencies.mjs";
 import { CORE_ENGINE, freshEngine } from "../tests/harness/core-stand.mjs";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
@@ -71,11 +72,35 @@ export async function runFoundation(jobs, { workers = 4, onResult = async () => 
   } finally { await Promise.all(pool.map((worker) => worker.terminate())); }
 }
 
+/**
+ * The competency suite's figures, one a competency, body, loadout, rate and actuation
+ * (`competencyFigures`), each count with its interval.
+ */
+export function summarizeCompetencies(rows) {
+  const cells = new Map();
+  for (const row of rows) {
+    const { job } = row, key = [job.competency, job.model, job.held, job.hz, job.actuation].join("/");
+    if (!cells.has(key)) cells.set(key, []);
+    cells.get(key).push(row);
+  }
+  const interval = (value) => {
+    if (Array.isArray(value)) return value.map(interval);
+    if (!value || typeof value !== "object") return value;
+    const share = Number.isInteger(value.count) ? [value.success ?? value.held ?? value.landed, value.count] : Number.isInteger(value.fallen) ? [value.risen, value.fallen] : null;
+    return { ...Object.fromEntries(Object.entries(value).map(([name, v]) => [name, interval(v)])),
+      ...(share ? { interval95: proportion(...share).interval95 } : {}) };
+  };
+  return [...cells].sort(([a], [b]) => COMPETENCIES.indexOf(a.split("/")[0]) - COMPETENCIES.indexOf(b.split("/")[0]) || a.localeCompare(b))
+    .map(([cell, members]) => ({ cell, ...interval(competencyFigures(members[0].job.competency, members)) }));
+}
+
 /** Each task/loadout/hand/controller has its own denominator; guard differences are paired. */
 export function summarizeFoundation(rows) {
   const groups = new Map(), bouts = new Map(), defenses = new Map();
+  const competencies = rows.filter((row) => row.job.competency);
   for (const row of rows) {
     const { job, result } = row;
+    if (job.competency) continue;
     const key = [job.actuation ?? "symmetric", job.task, job.model, job.held, job.hand ?? "", job.target ?? "", job.recovery ?? "", job.guard ?? "",
       ...(job.controller ? [job.controller] : []), ...(job.task === "ccd" ? [job.mode, `ccd=${job.ccd}`] : []),
       ...(job.task === "solver" ? [job.representation, job.sense] : []), ...(job.task === "support" ? [job.side] : []),
@@ -125,7 +150,7 @@ export function summarizeFoundation(rows) {
     poseFallen: variants.pose.fell, predictFallen: variants.predict.fell,
     poseSuccess: variants.pose.success, predictSuccess: variants.predict.success,
   }] : []);
-  return { cells, pairedGuard, ...(defenses.size ? { pairedDefense } : {}) };
+  return { cells, pairedGuard, ...(defenses.size ? { pairedDefense } : {}), ...(competencies.length ? { competencies: summarizeCompetencies(competencies) } : {}) };
 }
 
 async function main() {
@@ -137,11 +162,12 @@ async function main() {
     support: { type: "string", default: "pinned" },
     "centre-control": { type: "boolean", default: false }, "continue-seconds": { type: "string", default: "1" },
     shared: { type: "boolean", default: false }, "joint-stops": { type: "boolean", default: false },
-    envelope: { type: "string", default: "boot" },
+    envelope: { type: "string", default: "boot" }, competency: { type: "string" },
   } });
   const options = { suite: values.suite, split: values.split, samples: Number(values.samples), from: Number(values.from), hz: Number(values.hz),
     actuation: values.actuation, support: values.support, centreControl: values["centre-control"], continueSeconds: Number(values["continue-seconds"]),
     shared: values.shared, jointStops: values["joint-stops"], envelope: values.envelope,
+    ...(values.competency ? { competency: values.competency } : {}),
     ...(values.models ? { models: values.models.split(",") } : {}) };
   const jobs = foundationJobs(options), started = new Date().toISOString();
   const directory = resolve(values.out ?? resolve(root, "research/runs/control-foundation", `${started.replaceAll(":", "-")}-${randomUUID()}`));
@@ -156,10 +182,12 @@ async function main() {
     sensing: ["moving-strike", "defense"].includes(values.suite) ? "detached body/item observations, coupled dynamics, measured fixed contacts and target poses/velocities delayed 25 ms"
       : ["posture-hold", "support-entry"].includes(values.suite) ? "detached body observations; actuator descriptions only"
       : ["bar", "support", "point-strike"].includes(values.suite) ? "detached body/item observations, coupled dynamics and measured fixed contacts"
+      : values.suite === "competency" ? "each skill's own senses on its stand: the stance's reading, the combat skills' view and the defense probe's delayed target poses"
       : ["ccd", "solver"].includes(values.suite) ? "diagnostic physics readings; no policy" : values.suite === "reach" ? "detached body observations and task goal; no privileged model" : "existing fighter senses; stationary blow offset disclosed at commitment",
     action: values.suite === "solver" ? "fixed raw velocity motor with directional bounds; adapter-contract screening"
       : ["posture-hold", "support-entry"].includes(values.suite) ? "independent joint-feedback actuator velocities; bounded directional muscles"
       : ["bar", "support", "point-strike", "moving-strike", "defense"].includes(values.suite) ? "whole-body motion objectives and granted grip requests; bounded muscle torques"
+      : values.suite === "competency" ? "today's skills: the stance and its walk, the path fighter's planted cross and front kick, the predictive guard and the staged rise"
       : values.suite === "ccd" ? "initial impulses, then free dynamics; no held action" : values.suite === "reach" ? "actuator velocities or layered posture targets, declared per job" : "existing fighter skills and staged-rise/lie",
     policyPeriodSteps: values.suite === "reach" ? 4 : 1, assists: { rootBalancePercent: 0, weapon: false },
     unavailable: ["integrated recovery/combat", "opponent defense", "actuator work", "contact penetration"],

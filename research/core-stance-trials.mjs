@@ -20,11 +20,11 @@ const across = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
  * `model` on the stand: unarmed, its arms as the stance leaves them and nothing holding it up but its
  * muscles; or, given what its right hand holds (`held`, of `HELD`: "club" or "empty"), as a
  * fight plays it: the club in that hand, the arms in the guard (`GUARD`), and its character's balance
- * under it (`balanceCeiling`, the rulebook's per cent).
+ * under it (`balanceCeiling`, the rulebook's per cent). `actuation` is the world's (`createWorld`).
  */
-async function body(model, stance, hz, held = null) {
+async function body(model, stance, hz, held = null, actuation) {
   const spec = held === "club" ? armed(modelSpec(model), "right", woodenClub()) : modelSpec(model);
-  const stand = await coreStand(spec, { ground: true, hz });
+  const stand = await coreStand(spec, { ground: true, hz, actuation });
   const assist = held === null ? undefined : balanceCeiling(stand.built.spec.attributes.balance.value, balancePercent(rulebook("arena")));
   const built = createBody(stand.built, stand.world, { servoSeconds: 0.1, stance, measuring: true, assist });
   return { stand, body: built, feet: ["left", "right"].map((side) => stand.built.segments.get(`foot.${side}`)) };
@@ -118,17 +118,18 @@ export async function step({ model, foot, dx, dz, stance, hz = 120 }) {
 }
 
 /**
- * Shoved at the middle trunk's centre of mass by `impulse` N s level `degrees` from forward after 1.5 s, watched 4.5 s
+ * Shoved at the middle trunk's centre of mass by `impulse` N s level `degrees` from forward after 1.5 s, watched `watch` s
  * (`shoved` in the tests). With `walked` (m/s) it first walks forward 3 s at that pace and stops, and is shoved 3 s
  * after the stop is asked: the lab's shove after a walk. `apart` is the soles' middles' distance across when shoved, m.
+ * With `held` it stands as a fight plays it (`body`).
  */
-export async function shove({ model, impulse, degrees, stance, hz = 120, walked = 0 }) {
-  const { stand, body: b, feet } = await body(model, stance, hz);
+export async function shove({ model, impulse, degrees, stance, hz = 120, walked = 0, held = null, watch = 4.5, actuation }) {
+  const { stand, body: b, feet } = await body(model, stance, hz, held, actuation);
   let goal = null, pace = null;
   b.drive((view) => {
     const s = view.stance;
     if (!goal && view.time > 0) goal = { feet: ["left", "right"], centre: null, height: s.centre.y - s.support.y - 0.03, heading: 0 };
-    return { posture: {}, pushes: [], stance: goal && { ...goal, walk: pace } };
+    return { posture: held === null ? {} : GUARD, pushes: [], stance: goal && { ...goal, walk: pace } };
   });
   try {
     stand.step(stand.seconds(1.5));
@@ -144,7 +145,7 @@ export async function shove({ model, impulse, degrees, stance, hz = 120, walked 
     const at = new Vector3(com[0] - o[0], com[1] - o[1], com[2] - o[2]).applyRotationQuaternion(turn).add(trunk.node.position);
     trunk.body.applyImpulse(new Vector3(impulse * Math.sin(way), 0, impulse * Math.cos(way)), at);
     let low = -Infinity;
-    for (let i = 0; i < stand.seconds(4.5); i++) {
+    for (let i = 0; i < stand.seconds(watch); i++) {
       stand.step(1);
       const s = b.view.stance;
       low = Math.max(low, goal.height - (s.centre.y - s.support.y));
@@ -158,8 +159,8 @@ export async function shove({ model, impulse, degrees, stance, hz = 120, walked 
  * Walk at `speed` m/s `degrees` from forward for 8 s after 1 s, then walk nowhere 4 s (`walking` in
  * the tests); as a fight plays the body with `held` (`body`).
  */
-export async function walk({ model, degrees, speed, stance, hz = 120, held = null }) {
-  const { stand, body: b } = await body(model, stance, hz, held);
+export async function walk({ model, degrees, speed, stance, hz = 120, held = null, actuation }) {
+  const { stand, body: b } = await body(model, stance, hz, held, actuation);
   const way = degrees * Math.PI / 180, ux = Math.sin(way), uz = Math.cos(way);
   let goal = null, pace = null;
   b.drive((view) => {
@@ -201,8 +202,8 @@ export async function walk({ model, degrees, speed, stance, hz = 120, held = nul
  * rad. At an `after` of 0 the heading turns as the walk sets off. As a fight plays the body with
  * `held` (`body`).
  */
-export async function turn({ model, speed, rate, sense, stance, hz = 120, after = 3, held = null }) {
-  const { stand, body: b } = await body(model, stance, hz, held);
+export async function turn({ model, speed, rate, sense, stance, hz = 120, after = 3, held = null, actuation }) {
+  const { stand, body: b } = await body(model, stance, hz, held, actuation);
   let goal = null, heading = 0, turning = false, walking = false, turned = 0;
   b.drive((view, dt) => {
     const s = view.stance;

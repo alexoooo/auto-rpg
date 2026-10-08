@@ -74,7 +74,7 @@ and the line-ending gate, and is committed as it lands. Research chunks change n
 **Files:**
 - `research/competencies.mjs` (**new**): each competency's fixture, metrics, human target and
   threshold.
-- `research/control-foundation-trials.mjs`: suite `competency`, with `--competency` and `--grid`.
+- `research/control-foundation-trials.mjs`: suite `competency`, with `--competency`.
 - `research/control-foundation.mjs`: grid cells in the manifest and summary.
 - `tests/research-control-foundation.test.mjs`
 - `research/README.md`
@@ -132,7 +132,7 @@ node research/control-foundation.mjs --suite competency --competency punch --hz 
 - `src/core/human/muscle.ts`: strength's factor in `peakTorque`.
 - `src/core/sources.ts`: `owner-physique`.
 - `src/core/models.ts`
-- `research/control-foundation-trials.mjs`: grid cells by physique.
+- `research/control-foundation-trials.mjs`, `research/control-foundation.mjs`: grid cells by physique, with `--grid`.
 - `tests/core-human.test.mjs`, `tests/core-spec.test.mjs`
 - `docs/architecture.md` (Spec)
 

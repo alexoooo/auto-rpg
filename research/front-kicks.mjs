@@ -4,6 +4,8 @@ import {gzipSync} from 'node:zlib';
 import {Vector3} from '@babylonjs/core/Maths/math.vector.js';
 import {coreStand} from '../tests/harness/core-stand.mjs';
 import {modelSpec} from '../src/core/models.ts';
+import {armed} from '../src/core/human/grip.ts';
+import {woodenClub} from '../src/core/items/club.ts';
 import {createBody,SERVO_SECONDS} from '../src/core/body.ts';
 import {DEFAULT_ENGINE} from '../src/core/engine/engines.ts';
 import {combatSkills} from '../src/core/skills/combat.ts';
@@ -16,14 +18,14 @@ import {punchPad} from './punch-pad.mjs';
 import {combatFingerprint} from './arena-combat.mjs';
 import {strikeEffort} from './strike-effort.mjs';
 
-/** Ordinary shared skills, physical unloading, native contacts and independent pad momentum. */
-export async function frontKickStand({foot='right',hz=120,seconds=24,height=.45,ahead=.45,
+/** Ordinary shared skills of `model` holding `held` in its right hand, physical unloading, native contacts and independent pad momentum. */
+export async function frontKickStand({model='workshop-fighter',held='empty',foot='right',hz=120,seconds=24,height=.45,ahead=.45,
   mode='hit',cancelAt=Infinity,tuning={},pad={},recovery=false,actuation}={}) {
-  if(!['left','right'].includes(foot)||!['hit','miss','block'].includes(mode)
+  if(!['left','right'].includes(foot)||!['empty','club'].includes(held)||!['hit','miss','block'].includes(mode)
     ||![120,480,960,1920].includes(hz)||![seconds,height,ahead].every(Number.isFinite)
     ||seconds<=2||ahead<=0||!(cancelAt>=2))throw new Error('invalid front kick calibration');
-  const config={foot,hz,seconds,height,ahead,mode,cancelAt:Number.isFinite(cancelAt)?cancelAt:null,tuning,pad,recovery,actuation};
-  const s=await coreStand(modelSpec('workshop-fighter'),{engine:DEFAULT_ENGINE,hz,actuation});
+  const config={model,held,foot,hz,seconds,height,ahead,mode,cancelAt:Number.isFinite(cancelAt)?cancelAt:null,tuning,pad,recovery,actuation};
+  const s=await coreStand(held==='club'?armed(modelSpec(model),'right',woodenClub()):modelSpec(model),{engine:DEFAULT_ENGINE,hz,actuation});
   let sensor;
   const identity={kind:'object',id:mode==='block'?'block-pad':'kick-pad'};
   const body=createBody(s.built,s.world,{servoSeconds:SERVO_SECONDS,feedback:true,
@@ -98,7 +100,7 @@ export async function frontKickStand({foot='right',hz=120,seconds=24,height=.45,
     if(body.assist.meter.force||body.assist.meter.moment)faults.push('assistance');
     if(state.samples.some(s=>s.displacement>sensor.config.size[2]||s.materialContacts.some(c=>c.penetration>sensor.config.size[2])))faults.push('pad stroke exceeded');
     return {config,harness:{kind:'Node unpinned core stand',engine:DEFAULT_ENGINE,revision:s.world.physics.revision,
-      hz,model:'workshop-fighter',held:'empty',balance:0,actuation:s.world.actuation},target,
+      hz,model,held,balance:0,actuation:s.world.actuation},target,
       apparatus:{...sensor.config,damping:sensor.damping,normal:[0,0,1]},report:structuredClone({...skills.report.kick}),
       cycle:structuredClone(skills.state.kick),fell:state.fell,floorContacts:state.floorContacts,
       drivenPeak:state.drivenPeak,unloadedLaunches:state.unloadedLaunches,loadedLaunches:state.loadedLaunches,

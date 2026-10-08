@@ -53,7 +53,9 @@ control, skills, minds -- and a mind may use as much or as little of the stack a
 [Robust skills](plans/2026-10-08-skills-platform.md) has five chunks:
 
 1. **A competency suite on the shared task runner**, run across a grid of bodies, physiques,
-   loadouts and two physics rates. Today's skills are read on it first.
+   loadouts and two physics rates. Today's skills are read on it
+   ([competencies](reference/competencies.md)): of the proposed thresholds, only the stand's is
+   met everywhere, and the staged rise does not rise at 480 Hz.
 2. **Physiques**: size, weight and strength.
 3. **A spike** that settles one whole-body layer under a stance and a punch.
 4. **A skill contract** that tactics choose by.

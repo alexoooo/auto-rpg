@@ -6,6 +6,10 @@ import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { foundationJobs, foundationTrial, attackAccounting, proportion } from "../research/control-foundation-trials.mjs";
 import { runFoundation, summarizeFoundation } from "../research/control-foundation.mjs";
+import { COMPETENCY, competencyFigures, fullReach } from "../research/competencies.mjs";
+import { modelSpec } from "../src/core/models.ts";
+import { rigidPoints } from "../src/core/build/rigid.ts";
+import { aimOf } from "../src/core/skills/strikes.ts";
 
 test("support entry jobs keep missing bodies explicit and reject inapplicable prediction settings", async () => {
   const jobs = foundationJobs({ suite: "support-entry", actuation: "directional" });
@@ -275,4 +279,86 @@ test("joint-stop comparisons retain distinct manifests and defense denominators"
   const summary = summarizeFoundation(rows);
   assert.equal(summary.cells.length, 24); assert.equal(summary.pairedDefense.length, 12);
   assert.ok(summary.pairedDefense.every((pair) => pair.protectedImpulseSavedNs === 2));
+});
+
+test("the competency suite has a row for every competency in every cell, and none outside its own suite", () => {
+  const jobs = foundationJobs({ suite: "competency", samples: 1 }), cells = new Map();
+  assert.equal(new Set(jobs.map((j) => j.id)).size, jobs.length);
+  for (const j of jobs) cells.set(`${j.model}/${j.held}`, [...(cells.get(`${j.model}/${j.held}`) ?? []), j]);
+  assert.deepEqual([...cells.keys()], ["workshop-fighter/empty", "workshop-fighter/club", "workshop-rogue/empty", "workshop-rogue/club"]);
+  for (const [cell, members] of cells) {
+    const count = (c) => members.filter((j) => j.competency === c).length, club = cell.endsWith("club");
+    assert.deepEqual([count("stand"), count("guard"), count("punch"), count("walk"), count("rise"), count("kick"), count("run")],
+      [COMPETENCY.stand.levels.length * COMPETENCY.stand.ways, 6, club ? 1 : 6, COMPETENCY.walk.speeds.length * COMPETENCY.walk.ways + 2, COMPETENCY.rise.ways, 4, 1], cell);
+    assert.equal(members.filter((j) => j.task === "unsupported").length, club ? 2 : 1, cell);
+  }
+  const held = foundationJobs({ suite: "competency", samples: 1, split: "held-out" });
+  assert.ok(held.every((j) => !jobs.some((d) => d.id === j.id)));
+  assert.deepEqual(new Set(foundationJobs({ suite: "competency", samples: 1, competency: "kick" }).map((j) => j.competency)), new Set(["kick"]));
+  assert.throws(() => foundationJobs({ suite: "competency", competency: "swim" }), /competency/);
+  assert.throws(() => foundationJobs({ suite: "defense", competency: "guard" }), /competency/);
+  assert.throws(() => foundationJobs({ suite: "competency", hz: 240 }), /120, 480/);
+});
+
+test("full reach puts the strike point of a straight arm from the built shoulder on the target", () => {
+  const length = (a, b) => Math.sqrt(a.reduce((sum, v, i) => sum + (v - b[i]) * (v - b[i]), 0));
+  for (const model of ["workshop-fighter", "workshop-rogue"]) for (const hand of ["left", "right"]) {
+    const spec = modelSpec(model), centre = (name) => spec.joints.find((j) => j.name === name).centre.value;
+    const strike = rigidPoints(spec, spec.segments.find((s) => s.name === `hand.${hand}`)).get(aimOf(spec, hand)).value;
+    const arm = length(centre(`shoulder.${hand}`), centre(`elbow.${hand}`)) + length(centre(`elbow.${hand}`), centre(`wrist.${hand}`))
+      + length(centre(`wrist.${hand}`), strike);
+    const x = hand === "right" ? 0.1 : -0.1, ahead = fullReach(model, hand, x, 1.55);
+    assert.ok(Math.abs(length(centre(`shoulder.${hand}`), [x, 1.55, ahead]) - arm) < 1e-12, `${model} ${hand}`);
+    assert.ok(ahead > centre(`shoulder.${hand}`)[2]);
+    assert.equal(fullReach(model, hand, x, 1.55 + 2 * arm), null);
+  }
+});
+
+test("competency figures: the least shove and fastest walk held every way, blows landed, rises, and gaps meet nothing", () => {
+  const row = (job, outcome) => ({ job: { model: "workshop-fighter", held: "empty", hz: 120, actuation: "symmetric", ...job }, result: { status: "measured", outcome } });
+  const { levels, ways } = COMPETENCY.stand;
+  // Every way held up to 0.5 N s/kg, one way fell at 0.6, and every way held again at 0.8: the rule stops at the first miss.
+  const stand = levels.flatMap((level) => Array.from({ length: ways }, (_, k) => row({ competency: "stand", level },
+    { success: !(level === 0.6 && k === 3), fell: level === 0.6 && k === 3, steps: 1 })));
+  const s = competencyFigures("stand", stand);
+  assert.equal(s.level, 0.5); assert.equal(s.meets, true);
+  assert.deepEqual(s.levels.map((l) => l.held), levels.map((l) => l === 0.6 ? ways - 1 : ways));
+  assert.equal(competencyFigures("stand", stand.map((r) => r.job.level === 0.2 ? { ...r, result: { status: "measured", outcome: { success: false } } } : r)).level, 0);
+  const walks = COMPETENCY.walk.speeds.flatMap((speed) => Array.from({ length: COMPETENCY.walk.ways }, () =>
+    row({ competency: "walk", trial: "walk", speed }, { success: speed <= 0.7, fell: speed > 1, along: speed })));
+  const turning = [1, -1].map((sense) => row({ competency: "walk", trial: "turn", sense }, { success: sense === 1, fell: sense !== 1 }));
+  const w = competencyFigures("walk", [...walks, ...turning]);
+  assert.equal(w.speed, 0.7); assert.equal(w.upright, 1); assert.deepEqual(w.turns, { held: 1, count: 2 }); assert.equal(w.meets, false);
+  const punch = (outcome) => row({ competency: "punch", hand: "right", placement: "place", mode: "hit" }, { success: true, fell: false, impulse: 5, cycleSeconds: [0.3], ...outcome });
+  const strong = competencyFigures("punch", [punch({ blows: 4, landed: 4, speeds: [7, 8, 9, 7], firstContactSeconds: 0.3 })]);
+  assert.equal(strong.meets, true); assert.deepEqual(strong.parts[0].blows, { landed: 4, count: 4 }); assert.equal(strong.parts[0].slowest, 7);
+  for (const weak of [{ blows: 4, landed: 3, speeds: [7, 8, 9], firstContactSeconds: 0.3 }, { blows: 4, landed: 4, speeds: [7, 8, 9, 6], firstContactSeconds: 0.3 },
+    { blows: 4, landed: 4, speeds: [7, 8, 9, 7], firstContactSeconds: 0.6 }]) assert.equal(competencyFigures("punch", [punch(weak)]).meets, false, JSON.stringify(weak));
+  const rise = (fell, risen, seconds) => row({ competency: "rise" }, { fell, risen, up: risen, seconds });
+  const r = competencyFigures("rise", [rise(true, true, 4), rise(true, true, 8), rise(true, true, 5), rise(false, false, null)]);
+  assert.deepEqual([r.fallen, r.risen, r.seconds, r.slowest, r.meets], [3, 3, 5, 8, true]);
+  assert.equal(competencyFigures("rise", [rise(true, true, 4), rise(true, false, null)]).meets, false);
+  const gap = { job: { competency: "punch", task: "unsupported" }, result: { status: "unsupported" } };
+  assert.equal(competencyFigures("punch", [gap, punch({ blows: 4, landed: 4, speeds: [8, 8, 8, 8], firstContactSeconds: 0.3 })]).meets, false);
+  assert.deepEqual(competencyFigures("run", [gap]), { competency: "run", trials: 1, measured: 0, unsupported: 1, meets: false });
+});
+
+test("competency trials replay on fresh worlds, and a miss lands nothing a hit lands", async () => {
+  const jobs = foundationJobs({ suite: "competency", models: ["workshop-fighter"], samples: 1 });
+  const pick = [jobs.find((j) => j.competency === "stand" && j.level === 0.3 && j.held === "empty"),
+    jobs.find((j) => j.competency === "walk" && j.trial === "walk" && j.speed === 0.3 && j.held === "club"),
+    jobs.find((j) => j.competency === "punch" && j.hand === "right" && j.placement === "place" && j.mode === "hit"),
+    jobs.find((j) => j.competency === "punch" && j.hand === "right" && j.mode === "miss"),
+    jobs.find((j) => j.competency === "kick" && j.foot === "left" && j.mode === "hit" && j.held === "empty")];
+  const [a, b] = await Promise.all([runFoundation(pick, { workers: 5 }), runFoundation(pick, { workers: 5 })]);
+  assert.deepEqual(a.map((r) => r.result.outcome), b.map((r) => r.result.outcome));
+  const [stand, walk, hit, miss, kick] = a.map((r) => r.result.outcome);
+  assert.ok(stand.success && !stand.fell);
+  assert.ok(walk.success && walk.along >= COMPETENCY.walk.pace * 0.3, `walked ${walk.along}`);
+  assert.ok(hit.success && hit.landed > 0 && hit.landed <= hit.blows && hit.speeds.length === hit.landed, JSON.stringify(hit));
+  // The planted cross at its own cell reads 4.4 to 5 m/s over its last 10 cm, and the front kick 1.1 to 1.5 m/s at contact
+  // (docs/reference/competencies.md#baseline).
+  assert.ok(hit.speeds.every((v) => v > 4 && v < 5.5) && hit.firstContactSeconds > 0.25 && hit.firstContactSeconds < 0.5, JSON.stringify(hit.speeds));
+  assert.ok(miss.success && miss.blows > 0 && miss.landed === 0 && miss.contacts === 0 && miss.speed === null, JSON.stringify(miss));
+  assert.ok(kick.success && kick.landed > 0 && kick.speeds.every((v) => v > 1 && v < 1.6), JSON.stringify(kick));
 });
