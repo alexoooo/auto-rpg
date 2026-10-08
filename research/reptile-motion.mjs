@@ -37,21 +37,51 @@ export async function mirrorTrial(gap = 2, seconds = 30) {
   const bout = await buildBout({ left: "reptile", right: "reptile", gap, capSeconds: seconds }, { physicsEngine: await freshEngine("rapier-coordinate") });
   const { world, duel } = bout;
   const sides = ["left", "right"], falls = [null, null], firstLaunch = [null, null], hits = [];
+  const cycles = sides.map(() => []), pending = [null, null];
   let seen = 0;
   try {
     while (!duel.verdict && world.time < seconds) {
       const before = Object.fromEntries(sides.map(side => {
         const body = duel.duelists[side].body;
-        return [side, { rate: body.muscles.rate(body.muscles.channel("jaw axis0")), phase: body.state.mind.host.bite.cycle.phase }];
+        const host = body.state.mind.host;
+        return [side, { rate: body.muscles.rate(body.muscles.channel("jaw axis0")), phase: host.bite.cycle.phase,
+          launched: host.bite.launched, returned: host.bite.returned, failed: host.bite.failed,
+          target: structuredClone(host.tactics.target), support: host.motor.endpoints.filter(e => e.contact).length }];
       }));
       world.step();
+      sides.forEach((side, i) => {
+        const bite = duel.duelists[side].body.state.mind.host.bite, was = before[side];
+        if (bite.launched > was.launched) {
+          pending[i] = { launch: world.time, release: null, target: was.target, support: was.support, damage: 0, energy: 0, regions: [] };
+          cycles[i].push(pending[i]);
+        }
+        if (bite.returned > was.returned && pending[i]) { pending[i].release = world.time; pending[i] = null; }
+        if (bite.failed > was.failed && pending[i]) { pending[i].failed = true; pending[i] = null; }
+      });
       sides.forEach((side, i) => { if (duel.duelists[side].body.down) falls[i] ??= world.time; if (duel.duelists[side].body.state.mind.host.bite.launched > 0) firstLaunch[i] ??= world.time; });
-      for (const blow of duel.blows.slice(seen)) hits.push({ time: blow.time, energy: blow.energy, closing: blow.closing,
+      for (const blow of duel.blows.slice(seen)) {
+        sides.forEach((side, i) => {
+          const tooth = blow.sides.find(s => s.fighter === side && s.segment === "jaw" && s.region?.startsWith("tooth"));
+          const victim = blow.sides.find(s => s.fighter !== side);
+          const cycle = pending[i] ?? cycles[i].at(-1);
+          if (tooth && victim?.mechanism === "point" && cycle && !cycle.failed
+            && (before[side].phase === "swing" || blow.work !== undefined)) {
+            cycle.energy += blow.energy;
+            cycle.damage += victim.wound?.taken.reduce((sum, part) => sum + part.hp, 0) ?? 0;
+            cycle.regions.push(tooth.region);
+          }
+        });
+        hits.push({ time: blow.time, energy: blow.energy, closing: blow.closing, ...(blow.work === undefined ? {} : { work: blow.work }),
         sides: blow.sides.map(s => ({ fighter: s.fighter, part: s.segment, damage: s.damage, region: s.region, mechanism: s.mechanism,
+          taken: s.wound?.taken.reduce((sum, part) => sum + part.hp, 0) ?? 0,
           phase: duel.duelists[s.fighter].body.state.mind.host.bite.cycle.phase, before: before[s.fighter].phase, jawRate: before[s.fighter].rate })) });
+      }
       seen = duel.blows.length;
     }
-    return { gap, seconds: world.time, falls, firstLaunch, verdict: duel.verdict, bites: sides.map(side => {
+    return { harness: "Node arena", engine: world.physics.engine, hz: world.hz, balances: [0, 0],
+      gap, seconds: world.time, falls, firstLaunch, verdict: duel.verdict, cycles,
+      damagingCycles: cycles.map(list => list.filter(c => c.release !== null && c.damage > 0 && !c.failed).length),
+      biteDamage: cycles.reduce((sum, list) => sum + list.reduce((n, c) => n + c.damage, 0), 0), bites: sides.map(side => {
       const bite = duel.duelists[side].body.state.mind.host.bite;
       return { launched: bite.launched, returned: bite.returned, failed: bite.failed, phase: bite.cycle.phase };
     }), centres: sides.map(side => duel.duelists[side].body.observe().centre), bars: sides.map(side => duel.duelists[side].pool.bar()),
