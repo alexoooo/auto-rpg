@@ -73,4 +73,4 @@ angles agree with signed joint readings without an initial constraint impulse.
 With the hands' hulls the independent policy holds no grounded anatomical pose within the
 gate. Entry, disturbances, loaded hands, balanced kneeling/squatting and transitions to useful
 standing control remain separate gates. The contact predictor's anatomical mismatch remains
-an open [recovery study](../analysis/2026-10-05-recovery-support.md).
+open; the recovery study that read it is `docs/analysis/2026-10-05-recovery-support.md@7f3ebcdb`.

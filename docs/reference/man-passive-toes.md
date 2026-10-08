@@ -3,7 +3,7 @@
 Whether a toe on a passive hinge, as Man's anatomy proposes (`docs/reference/man-anatomy.md`),
 behaves on the core's Rapier world as the spring it is meant to be. Measured by
 `node research/man-toe-solver.mjs` on the Node stand, at commit `2a111961` with the working
-changes of the plan's A1 and A2: the core's Rapier world (`createRapierPhysics`, coordinate limits,
+changes of A1 and A2 of the contact-model plan (`docs/plans/2026-10-07-man-contact-model.md@d9ad04d3`): the core's Rapier world (`createRapierPhysics`, coordinate limits,
 box friction, `SOLVER`'s 16 iterations and 2 PGS passes; vendored revision `adapter-9`), the
 arena's ground, the Warrior's left foot.
 
@@ -120,6 +120,6 @@ peak-to-peak ≤ 0.01 rad; energy rise ≤ 1 % of the spring's energy.
 - The locked toe has the same mass-ratio fault.
 - The rigid foot meets every bar that applies to it.
 
-By the plan's rule, phase B builds Man without a toe joint unless the toe's conditioning
+By the contact-model plan's rule, phase B builds Man without a toe joint unless the toe's conditioning
 becomes a measured `SOLVER` entry. That would be an inertia floor of about a hundred times the
 toes' own, and it still leaves the kneel unsteady.

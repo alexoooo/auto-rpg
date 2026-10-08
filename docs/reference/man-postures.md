@@ -141,7 +141,7 @@ node research/native-posture-control.mjs --posture fours|half-kneel|squat --enve
 node research/native-posture-control.mjs --transfer --envelope boot|barefoot
 ```
 
-Node, the core's `World` at 120 Hz, with the plan's A3 as it lands beside this section, vendored
+Node, the core's `World` at 120 Hz, with A3 of the contact-model plan (`docs/plans/2026-10-07-man-contact-model.md@d9ad04d3`), vendored
 Rapier `adapter-9`. Directional actuation at the muscles' peaks (speed 10,
 activation 1), no assist, nothing in the hands.
 

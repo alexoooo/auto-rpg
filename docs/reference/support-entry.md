@@ -41,8 +41,8 @@ targets are converted through each freedom's bind angle and clamped to its limit
 The final joint targets come from the installed all-fours witness in
 [posture hold](posture-hold.md). All active stages use full activation, a 0.01 s response and
 10 rad/s speed cap, without changing muscle ceilings. An unsupported final pose retries
-after six seconds. These gains are development choices measured here and in the open
-[recovery study](../analysis/2026-10-05-recovery-support.md).
+after six seconds. These gains are development choices measured here and in the
+recovery study (`docs/analysis/2026-10-05-recovery-support.md@7f3ebcdb`).
 
 Acceptance requires a real initial fall, pelvis facing down, positive fixed-ground contact
 on both hands and both shins, and no positive contact on head or any trunk segment. After

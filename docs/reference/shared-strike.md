@@ -144,4 +144,4 @@ recorded binary64 values.
 Validation: 789 tests, 787 passing and the two existing joint-limit/recovery TODOs; typecheck
 and production build pass. The capture mutation fails as intended. Recovery, sustained
 defense, shared-item defense, attack/guard coordination, game equipment/damage integration,
-and the held-out integrated sequence remain open parts of the foundation plan.
+and the held-out integrated sequence remain open ([roadmap](../roadmap.md#where-the-control-work-stands)).

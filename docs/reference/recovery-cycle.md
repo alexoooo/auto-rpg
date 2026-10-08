@@ -57,7 +57,7 @@ Two successive +z falls in the same Duel, with walking after each, complete for 
 (25.617 and 25.725 s) and the retained club (27.392 and 25.617 s). The subsequent 15 s attack
 window yields four incoming impacts and four verified right-hand returns for empty hands;
 the club yields four incoming impacts, three verified returns and one phase timeout. Neither
-falls during that attack window. See [strike-cycle definitions](arena-point-control.md#strike-cycle)
+falls during that attack window. See the strike-cycle definitions (`docs/reference/arena-point-control.md@7f3ebcdb`, Strike cycle)
 for the distinction between contacts, thrown strokes, returns and failures. Root assist meter
 readings at trial completion are zero; these character configurations grant zero balance.
 

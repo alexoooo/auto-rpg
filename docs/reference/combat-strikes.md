@@ -338,4 +338,4 @@ and lower Point damage in that sample.
 Shorter chamber and return times pass standing straight/cross hit and miss checks
 but lose low stability or hook accuracy in the complete admission screen. All
 51 physical development trials and the settings are retained in
-[cadence admission](combat-cadence.md). Playable timings remain unchanged.
+`docs/reference/combat-cadence.md@7f3ebcdb`. Playable timings remain unchanged.

@@ -1,5 +1,11 @@
 # Coarse physical hand poses
 
+A figure with measured hands (`HumanFigure.hands`: the workshop humans) has its open hand on the
+palm's hull and its fist on the fist's hull, and grips with the capsule fist below
+([contact anatomy](man-anatomy.md); their effect on the punch: [man-punch](man-punch.md)). What
+follows is the capsule hand, which a figure without measured hands (the skeleton) keeps whole,
+and which every grip uses.
+
 The hand remains one rigid segment. Its open capsule is the existing de Leva hand length and
 volume/density construction. The closed capsule retains its proximal endpoint and radius, with
 its distal centre at the rig's third metacarpal head. The named `strike` point is that head plus
