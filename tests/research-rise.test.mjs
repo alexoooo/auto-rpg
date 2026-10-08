@@ -35,8 +35,9 @@ test("a shove of the battery fells the Warrior, and it does not rise", async () 
     const driven = await shoved({ model: "workshop-fighter", held: "club", degrees, mind: DRIVEN });
     assert.ok(driven.fell && driven.asked > 0, `driven, its stance asked ${driven.asked} weights more than its soles gave`);
     assert.ok(driven.peak > row.peak, `driven, the fastest of its segments moved ${driven.peak} m/s, and lying ${row.peak}`);
-    // The peak is read from a second after the fall, not from the fall: shoved to its side, it lands within that second.
-    if (degrees === 90) assert.ok(row.peak < 1, `lying on its side, the fastest of its segments moved ${row.peak} m/s`);
+    // The peak is read from a second after the fall, not from the fall: shoved to its side, it has landed but for the
+    // last of its empty hand's swing, and it is still within two seconds of the fall.
+    if (degrees === 90) assert.ok(row.peak < 1.5 && row.moved < 2, `lying on its side, the fastest of its segments moved ${row.peak} m/s, and the last moved ${row.moved} s after the fall`);
     // Lying, it is still within 3 s of the fall; driven, it moves to the watch's last step.
     assert.ok(row.moved > 0.5 && row.moved < 3, `lying, it last moved ${row.moved} s after the fall`);
     assert.ok(Math.abs(driven.moved - (WATCH_SECONDS - 1 / 120)) < 1e-9, `driven, it last moved ${driven.moved} s after the fall`);

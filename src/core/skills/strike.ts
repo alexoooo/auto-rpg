@@ -11,7 +11,7 @@ import { deepFreeze } from "../state.ts";
 import { GUARD } from "./guard.ts";
 import { PLACING, wrap, type Footing } from "./locomotion.ts";
 import type { Skill } from "./skill.ts";
-import { aimOf, netsOf, recipeAt, recipesFor, REPERTOIRE, type Band, type Chosen, type Repertoire, type StrikeWindow } from "./strikes.ts";
+import { aimOf, holdsAt, netsOf, recipeAt, recipesFor, REPERTOIRE, type Band, type Chosen, type Repertoire, type StrikeWindow } from "./strikes.ts";
 import { sin, cos, asin, atan2, hypot } from "../math/real.ts";
 
 /**
@@ -264,7 +264,8 @@ interface StrikeCommand {
  * distance) straight ahead of the head, and sets its feet there (`APPROACH`), or, for a recipe
  * whose window holds the target from where the body stands, stands where it is; stands still in the
  * guard `STAND` seconds; then chooses the blow again by the head as it stands, once for a point
- * attacked (from one stand to the next a height at a window's edge reads either side of it), and
+ * attacked (from one stand to the next a height at a window's edge reads either side of it) and
+ * keeping a recipe whose window still holds the target (`holdsAt`), and
  * asks the window of it, standing again for another blow or setting the feet again if it is out.
  * A recipe
  * holds its chamber and pushes, the pelvis turned to follow its target across (`STEER`). A placed
@@ -273,7 +274,8 @@ interface StrikeCommand {
  * guards. One strike at a time; a kick is not this skill's. An attack given up
  * before its blow begins is dropped. A recipe begun is thrown to the end of its pushes, whatever
  * its hand is then asked. A placed blow given up is over, unthrown. Resumed (`Skill.resume`), the strike in hand is discarded and the
- * body has stood still for no time.
+ * body has stood still for no time. Its arms rest in `guard`, the body's (`guardPosture`), and a
+ * recipe's chamber is laid over it.
  */
 interface StrikeSkill extends Skill {
   /** This step's command for the attack asked for, or null when none is and no strike is under way. */
@@ -335,7 +337,7 @@ function blowAsked(attack: Attack | null): BlowAttack | null {
   }
 }
 
-export function strikeSkill(spec: BodySpec, repertoire: Repertoire, placing: Placed = PLACED, steering = STEER): StrikeSkill {
+export function strikeSkill(spec: BodySpec, repertoire: Repertoire, placing: Placed = PLACED, steering = STEER, guard: Pose = GUARD): StrikeSkill {
   const known = { left: blowsOf(spec, repertoire, "left"), right: blowsOf(spec, repertoire, "right") };
   /** The recipe `hand` throws at a target `up` m over the head, by its place among the hand's; null where no window holds that height, and the blow is placed. */
   const choose = (hand: Side, up: number): number | null => chooseIn(known[hand], up);
@@ -438,12 +440,14 @@ export function strikeSkill(spec: BodySpec, repertoire: Repertoire, placing: Pla
         }
         if (state.phase === "settle") {
           // It settles on both feet, then chooses the blow by the head, once for the point
-          // attacked, and asks its window.
+          // attacked, and asks its window. A recipe set up is kept while its window holds the
+          // target's height, so two windows that overlap in height do not trade places.
           if (s.phase === "stand") state.still += dt;
           state.readyAt ??= state.still;
           if (state.still >= STAND) {
             const chosen = state.stoodFor !== null && state.stoodFor[0] === tx && state.stoodFor[1] === ty && state.stoodFor[2] === tz;
-            const recipe = chosen ? state.recipe : choose(hand, up), stood = blowOf(hand, recipe), same = recipe === state.recipe, off = ahead - reach;
+            const kept = state.recipe !== null && holdsAt(known[hand].chosen[state.recipe]!, up);
+            const recipe = chosen || kept ? state.recipe : choose(hand, up), stood = blowOf(hand, recipe), same = recipe === state.recipe, off = ahead - reach;
             state.stoodFor = [tx, ty, tz];
             if (same && window.along[0] <= off && off <= window.along[1] && window.across[0] <= aside && aside <= window.across[1]) {
               state.begun = Math.max(STAND, state.readyAt);
@@ -472,7 +476,7 @@ export function strikeSkill(spec: BodySpec, repertoire: Repertoire, placing: Pla
       }
       const { pushes, steer } = state;
       pushes.length = 0;
-      let posture = GUARD, goals = NO_HANDS;
+      let posture = guard, goals = NO_HANDS;
       if (state.begun !== null) {
         const blow = blowOf(hand, state.recipe);
         let over: boolean;
@@ -481,7 +485,7 @@ export function strikeSkill(spec: BodySpec, repertoire: Repertoire, placing: Pla
             const { strike } = blow.chosen, chamber = strike.chamber ?? { seconds: 0, pose: {} };
             const since = state.since = state.still - (state.begun + chamber.seconds);
             over = since >= Math.max(0, ...strike.pushes.map((p) => p.to));
-            if (since < 0) { posture = { ...GUARD, ...chamber.pose }; state.phase = "chamber"; }
+            if (since < 0) { posture = { ...guard, ...chamber.pose }; state.phase = "chamber"; }
             else {
               state.phase = "swing";
               for (const p of strike.pushes) if (since >= p.from && since < p.to) pushes.push({ channel: p.channel, sense: p.sense, level: p.level ?? 1 });

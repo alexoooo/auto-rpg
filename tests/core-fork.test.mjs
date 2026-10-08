@@ -242,7 +242,7 @@ async function ordered() {
  * at which its feet are first placed, when it is saved at every step: the skill holds that they
  * are placed for one step.
  */
-const STRIKER = { every: 20, nudged: [290, 315], shoved: [600, 630], placed: [300, 340] };
+const STRIKER = { every: 20, nudged: [205, 230], shoved: [600, 630], placed: [300, 340] };
 
 /**
  * A Warrior with a club and, 1.4 m ahead of it, a skeleton, on a ground in a bare world. The
@@ -252,7 +252,7 @@ const STRIKER = { every: 20, nudged: [290, 315], shoved: [600, 630], placed: [30
  *
  * Twice it is pushed from outside. As its left foot swings to its place, the foot is pushed to
  * its left at 10 N (`STRIKER.nudged`), so it lands more than `PLACING.near` off and the feet are
- * placed by having stepped, not by standing square. Its blow thrown, the Warrior is pushed at its
+ * placed by having stepped, not by standing square. As its swing ends, the Warrior is pushed at its
  * root's centre of mass along +z, an impulse of its weight through each step of `STRIKER.shoved`,
  * and falls.
  */

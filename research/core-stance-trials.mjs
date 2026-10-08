@@ -9,7 +9,7 @@ import { armed } from "../src/core/human/grip.ts";
 import { modelSpec } from "../src/core/models.ts";
 import { woodenClub } from "../src/core/items/club.ts";
 import { balanceCeiling, balancePercent, rulebook } from "../src/core/rules/rulebook.ts";
-import { GUARD } from "../src/core/skills/guard.ts";
+import { GUARD, guardPosture } from "../src/core/skills/guard.ts";
 import { coreStand } from "../tests/harness/core-stand.mjs";
 
 export const CORE_STANCE_HARNESS = "Node core stand (tests/harness/core-stand.mjs), Rapier";
@@ -19,7 +19,7 @@ const across = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 /**
  * `model` on the stand: unarmed, its arms as the stance leaves them and nothing holding it up but its
  * muscles; or, given what its right hand holds (`held`, of `HELD`: "club" or "empty"), as a
- * fight plays it: the club in that hand, the arms in the guard (`GUARD`), and its character's balance
+ * fight plays it: the club in that hand, the arms in the body's guard (`guardPosture`), and its character's balance
  * under it (`balanceCeiling`, the rulebook's per cent). `actuation` is the world's (`createWorld`),
  * and `physique` the body's (`Physique`, `src/core/human/physique.ts`).
  */
@@ -28,7 +28,7 @@ async function body(model, stance, hz, held = null, actuation, physique) {
   const stand = await coreStand(spec, { ground: true, hz, actuation });
   const assist = held === null ? undefined : balanceCeiling(stand.built.spec.attributes.balance.value, balancePercent(rulebook("arena")));
   const built = createBody(stand.built, stand.world, { servoSeconds: 0.1, stance, measuring: true, assist });
-  return { stand, body: built, feet: ["left", "right"].map((side) => stand.built.segments.get(`foot.${side}`)) };
+  return { stand, body: built, guard: guardPosture(stand.built), feet: ["left", "right"].map((side) => stand.built.segments.get(`foot.${side}`)) };
 }
 
 /** The seconds stood at which `stand` reads the centre of mass's speed as the body settles. */
@@ -125,12 +125,12 @@ export async function step({ model, foot, dx, dz, stance, hz = 120 }) {
  * With `held` it stands as a fight plays it (`body`).
  */
 export async function shove({ model, impulse, degrees, stance, hz = 120, walked = 0, held = null, watch = 4.5, actuation, physique }) {
-  const { stand, body: b, feet } = await body(model, stance, hz, held, actuation, physique);
+  const { stand, body: b, guard, feet } = await body(model, stance, hz, held, actuation, physique);
   let goal = null, pace = null;
   b.drive((view) => {
     const s = view.stance;
     if (!goal && view.time > 0) goal = { feet: ["left", "right"], centre: null, height: s.centre.y - s.support.y - 0.03, heading: 0 };
-    return { posture: held === null ? {} : GUARD, pushes: [], stance: goal && { ...goal, walk: pace } };
+    return { posture: held === null ? {} : guard, pushes: [], stance: goal && { ...goal, walk: pace } };
   });
   try {
     stand.step(stand.seconds(1.5));
@@ -161,13 +161,13 @@ export async function shove({ model, impulse, degrees, stance, hz = 120, walked 
  * the tests); as a fight plays the body with `held` (`body`).
  */
 export async function walk({ model, degrees, speed, stance, hz = 120, held = null, actuation, physique }) {
-  const { stand, body: b } = await body(model, stance, hz, held, actuation, physique);
+  const { stand, body: b, guard } = await body(model, stance, hz, held, actuation, physique);
   const way = degrees * Math.PI / 180, ux = Math.sin(way), uz = Math.cos(way);
   let goal = null, pace = null;
   b.drive((view) => {
     const s = view.stance;
     if (!goal && view.time > 0) goal = { feet: ["left", "right"], centre: null, height: s.centre.y - s.support.y - 0.03, heading: 0 };
-    return { posture: held === null ? {} : GUARD, pushes: [], stance: goal && { ...goal, walk: pace } };
+    return { posture: held === null ? {} : guard, pushes: [], stance: goal && { ...goal, walk: pace } };
   });
   try {
     stand.step(stand.seconds(1));
@@ -204,7 +204,7 @@ export async function walk({ model, degrees, speed, stance, hz = 120, held = nul
  * `held` (`body`).
  */
 export async function turn({ model, speed, rate, sense, stance, hz = 120, after = 3, held = null, actuation, physique }) {
-  const { stand, body: b } = await body(model, stance, hz, held, actuation, physique);
+  const { stand, body: b, guard } = await body(model, stance, hz, held, actuation, physique);
   let goal = null, heading = 0, turning = false, walking = false, turned = 0;
   b.drive((view, dt) => {
     const s = view.stance;
@@ -215,7 +215,7 @@ export async function turn({ model, speed, rate, sense, stance, hz = 120, after 
       heading += sense * d;
     }
     const walk = walking ? [speed * Math.sin(heading), speed * Math.cos(heading)] : null;
-    return { posture: held === null ? {} : GUARD, pushes: [], stance: goal && { ...goal, heading, walk } };
+    return { posture: held === null ? {} : guard, pushes: [], stance: goal && { ...goal, heading, walk } };
   });
   try {
     let low = -Infinity;

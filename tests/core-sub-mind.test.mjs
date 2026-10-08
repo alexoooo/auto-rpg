@@ -293,7 +293,7 @@ test("a body taken in the middle of a step forgets the step, steps its feet apar
 test("a body handed back goes on from where it is", async () => {
   const stand = await coreStand(armed(warrior, "right", woodenClub()));
   // A point to its right, at head height: the strike skill walks it there, turning, and sets its feet.
-  const ATTACK = Object.freeze({ move: null, face: null, attack: Object.freeze([1.6, 1.5, 0.4]) });
+  const ATTACK = Object.freeze({ move: null, face: null, attack: Object.freeze([1.6, 1.6, 0.4]) });
   /** How long the body is held, in steps: counted, since a time that is a whole number of steps reads either side of its last one. */
   const HELD = 48;
   let skills = null, until = null;

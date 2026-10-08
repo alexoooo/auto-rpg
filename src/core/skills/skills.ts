@@ -5,7 +5,7 @@ import type { Intent } from "../mind/intent.ts";
 import type { Tactics } from "../mind/tactics.ts";
 import type { EffectorGoal, MusclePush } from "../control/motor.ts";
 import type { HandPose, Side } from "../spec/body.ts";
-import { GUARD, guardSkill, type Covering } from "./guard.ts";
+import { guardPosture, guardSkill, type Covering } from "./guard.ts";
 import { locomotion } from "./locomotion.ts";
 import type { Skill } from "./skill.ts";
 import { strikeSkill, type Placed, type StrikeReport } from "./strike.ts";
@@ -22,7 +22,7 @@ import { closesToStrike, REPERTOIRE, type Repertoire } from "./strikes.ts";
  * - **Strike** (`strike.ts`): a hand's attack, thrown with the recipe for what it holds
  *   (`strikes.ts`) or placed, its point carried to the target by a hand goal. It outranks the
  *   walk: while it works it has the legs, and the tactics' walk waits.
- * - **Guard** (`guard.ts`): the arms' posture when nothing owns them, and a guarding hand's
+ * - **Guard** (`guard.ts`): the arms' posture when nothing owns them (`guardPosture`), and a guarding hand's
  *   cover of what its tactics name. It has the hands the strike has not.
  *
  * A bare hand closes into its fist for its blow and opens in the guard (`closesToStrike`), in both.
@@ -85,13 +85,14 @@ function closedIn(phase: StrikeReport["phase"]): boolean {
  */
 export function recipeSkills(body: Body, { state: tactics, engagement }: Pick<Tactics, "state" | "engagement"> = {},
   { repertoire = REPERTOIRE, placed, steer, cover }: RecipeOptions = {}): Skills {
-  const legs = locomotion(body.envelope), strikes = strikeSkill(body.built.spec, repertoire, placed, steer), guard = guardSkill(body.built.spec, cover);
+  const guarding = guardPosture(body.built);
+  const legs = locomotion(body.envelope), strikes = strikeSkill(body.built.spec, repertoire, placed, steer, guarding), guard = guardSkill(body.built.spec, cover);
   const none: readonly MusclePush[] = Object.freeze([]);
   const effectors: Record<string, EffectorGoal | null> = { "hand.left": null, "hand.right": null };
   const closes = { left: closesToStrike(body.built.spec, "left"), right: closesToStrike(body.built.spec, "right") };
   const poses: Partial<Record<Side, HandPose>> = { ...(closes.left ? { left: "open" } : {}), ...(closes.right ? { right: "open" } : {}) };
   const command: { -readonly [K in keyof BodyCommand]: BodyCommand[K] } =
-    { posture: GUARD, effectors, pushes: none, stance: null, ...(closes.left || closes.right ? { handPoses: poses } : {}) };
+    { posture: guarding, effectors, pushes: none, stance: null, ...(closes.left || closes.right ? { handPoses: poses } : {}) };
   const state = { command, legs: legs.state, strikes: strikes.state, tactics: tactics ?? null };
   const all: readonly Skill[] = [legs, strikes, guard];
   const report: SkillReport = {
@@ -112,7 +113,7 @@ export function recipeSkills(body: Body, { state: tactics, engagement }: Pick<Ta
         : legs.goal(view, intent.move, intent.face, dt, intent.lower);
       // A blow under way turns the heading to follow its target (`STEER`).
       if (goal) command.stance = strike?.steer ? { ...goal, heading: goal.heading + strike.steer } : goal;
-      command.posture = strike?.posture ?? GUARD;
+      command.posture = strike?.posture ?? guarding;
       command.pushes = strike?.pushes ?? none;
       // The strike's goal for the hand it has; the guard's for a hand it has not.
       const thrown = strike?.hands, covers = guard.command(view, intent.guard, strikes.report.hand);

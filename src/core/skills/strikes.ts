@@ -121,16 +121,22 @@ export function recipesFor(repertoire: Repertoire, spec: BodySpec, hand: Side): 
   });
 }
 
+/** Whether `chosen`'s window holds a target `up` m above the head. */
+export function holdsAt(chosen: Chosen, up: number): boolean {
+  const off = up - chosen.recipe.place.up;
+  return chosen.recipe.window.up[0] <= off && off <= chosen.recipe.window.up[1];
+}
+
 /**
  * Of `known` (`recipesFor`), the one thrown at a target `up` m above the head: the one whose
- * window holds that height, and of several that do, the one whose place is nearest it in
- * height, the first of equals. Its place among `known`; -1 if none holds it.
+ * window holds that height (`holdsAt`), and of several that do, the one whose place is nearest it
+ * in height, the first of equals. Its place among `known`; -1 if none holds it.
  */
 export function recipeAt(known: readonly Chosen[], up: number): number {
   let best = -1;
   for (let k = 0; k < known.length; k++) {
-    const { recipe } = known[k]!, off = up - recipe.place.up;
-    if (off < recipe.window.up[0] || off > recipe.window.up[1]) continue;
+    const off = up - known[k]!.recipe.place.up;
+    if (!holdsAt(known[k]!, up)) continue;
     if (best < 0 || Math.abs(off) < Math.abs(up - known[best]!.recipe.place.up)) best = k;
   }
   return best;

@@ -363,22 +363,22 @@ export const SOURCES = Object.freeze({
     decided: "\"should we just make it 100J what's so special about 138?\", and then that all of what was "
       + "planned with it be built. One hit point is 100 J of blunt blow; every weapon keeps its ratio to blunt "
       + "(owner-weapon-ratios). It replaces the unit of owner-club, the strongest club hit, which stays a "
-      + "measurement (core-club-unit) and is worth 1.38 HP. The bodies' hit points are as they were "
+      + "measurement (core-club-unit). The bodies' hit points are as they were "
       + "(owner-hp-pool), so each holds fewer joules: of the record's three options the first, the owner's to "
       + "change.",
     record: "docs/reference/wounds.md#unit",
   },
   "core-club-unit": {
     kind: "measurement",
-    how: "research/core-strike-search.mjs@80e5cec9 --weapon club: the Warrior's strongest one-handed blow with the "
-      + "wooden club into a head-sized sphere it passes through (src/lab/club-blow.ts@80e5cec9), thrown standing "
-      + "on its own feet (src/lab/blow.ts), by cross-entropy search (Node core stand, ground on), its energy "
-      + "1/2 mu v^2 from the masses the contact meets. On Rapier, "
-      + "three seeds searched at 960 Hz, the coarsest rate a standing blow converges at, then searched on from the "
-      + "best of two of them and from a blow found on another engine (research/core-club-havok.json@0d63a616); the "
-      + "strongest, from that one, read again at 1920 Hz, where it agrees with 960 and 3840 Hz to 0.4 %. Recorded, not asked: the blow's energy is the rate-converged reading, not the "
-      + "game's 120 Hz one (117.30 J there). The blow and its readings are research/core-club-unit.json; the search's "
-      + "table is in docs/plans/2026-09-28-core-foundation.md@2e99105f.",
+    how: "research/core-strike-search.mjs --model workshop-fighter --held 'wooden club' --band high --hz 960: the Warrior's "
+      + "strongest one-handed blow with the wooden club at a head hung at its place (research/core-blow.mjs), thrown "
+      + "standing on its own feet from the guard it holds (guardPosture), by cross-entropy search (Node core stand, "
+      + "Rapier, ground on, no assist), its energy 1/2 mu v^2 from the masses the contact meets. 30 generations of 96 at "
+      + "960 Hz, the coarsest rate a standing blow converges at, going on from the blow of "
+      + "research/core-club-unit.json@b2829b66; read again by research/core-club-unit.mjs, eight throws a rate, at "
+      + "1920 Hz, where it agrees with 480, 960 and 3840 Hz to 2 %. Recorded, not asked: the blow's energy is the "
+      + "rate-converged reading, not the game's 120 Hz one (60.72 J there, four throws of the eight landing 27 J or less). The blow "
+      + "and its readings are research/core-club-unit.json; the search is in docs/reference/blows.md#the-clubs-best-blow.",
     record: "research/core-club-unit.json",
   },
   "core-stance-envelope": {

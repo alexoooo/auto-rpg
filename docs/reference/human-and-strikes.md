@@ -151,6 +151,19 @@ the guard itself, the club blow chambered from it), and `STAND` was measured sta
 change to the guard voids the recipes and the stand time. The skeleton's reference pose presses
 the guard's elbows into their stops.
 
+A body that holds an item holds `guardPosture`: `GUARD`, with the holding wrist alone solved
+(`solveReach`) so the item stands as near upright as the wrist's range allows, the arm as `GUARD`
+holds it within its ranges. The Warrior's and the Rogue's wrists stand the club within 1° of
+upright, each freedom off its stops, the grip 3 to 5 cm from where `GUARD` puts it; the skeleton's
+stops at its range, 35° short of upright and clear of its head. Solving the whole arm instead
+for an upright club with its grip held in place put the humans' wrists at their ulnar stops and
+has no answer for the skeleton, whose `GUARD` lies beyond its elbow's range. Held as `GUARD`
+holds it, the club leaned back over the head and the head bore it: 17 N s over 2 s standing on the
+Warrior, and on the Rogue at size x0.9 it fell across the other arm, which a shove of 0.2 N s/kg
+then felled (Node core stand, Rapier, 120 and 480 Hz). A recipe is open loop, and a chamber
+reached from another guard is not reached the same way in its time, so the club's recipes and
+its best blow were searched again from `guardPosture` ([blows.md](blows.md#searched-from-the-upright-guard)).
+
 ## Attack distance
 
 `ATTACK_METRES` is 1.8 m, between the two centres of mass across the ground: nearer than that, a

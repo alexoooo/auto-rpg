@@ -146,15 +146,15 @@ changes less still: only a left hand is bare.
 **One hit point is 100 J of blunt blow** (`Rulebook.unit`, `owner-damage-unit`), and every
 mechanism keeps its ratio to blunt. The owner, 2026-10-01: "should we just make it 100J what's
 so special about 138?". Before it the unit was the Warrior's strongest one-handed blow with the
-wooden club, 138.26 J (`core-club-unit`), which stays a measurement (`CLUB_BEST`,
-`src/core/rules/rulebook.ts`) and is worth 1.38 hit points.
+wooden club as it was measured then, 138.26 J. The club's best blow stays a measurement
+(`CLUB_BEST`, `src/core/rules/rulebook.ts`, `core-club-unit`): 133.75 J, worth 1.34 hit points.
 
 The owner's words name the number and not what becomes of the bodies' hit points, so the option
 is the owner's to change. The first is what the rulebook has:
 
 | Option | In the game |
 |---|---|
-| **100 J, hit points as they are** | Every body holds 28 % fewer joules: the Warrior's 6 HP is 600 J where it was 830 J, the Rogue's 4 is 400 J where it was 553 J. The club's best blow is 1.38 HP and empties a Warrior's head (0.446 HP) three times over, where it did 2.2 times. |
+| **100 J, hit points as they are** | Every body holds 28 % fewer joules: the Warrior's 6 HP is 600 J where it was 830 J, the Rogue's 4 is 400 J where it was 553 J. The club's best blow is 1.34 HP and empties a Warrior's head (0.446 HP) three times over, where it did 2.2 times. |
 | 100 J, hit points raised to hold the joules | No fight changes; the numbers shown do: Warrior 8.3, Rogue 5.5. |
 | 138.26 J kept | Nothing changes; the unit is a measurement, and moves if the club's blow is measured again. |
 

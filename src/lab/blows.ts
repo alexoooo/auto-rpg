@@ -34,7 +34,7 @@ export const LAB_BLOWS: readonly StoredBlow[] = [
   {
     id: "unit", name: "The club's best",
     line: `The Warrior's strongest club blow (research/core-club-unit.json): searched at 960 Hz, `
-      + `${unitBlow.readings.at1920.mean} J into a head-sized mark at 1920 Hz and ${unitBlow.readings.at120.mean} at 120, `
+      + `${unitBlow.readings.at1920.mean} J into a hung head at 1920 Hz and ${unitBlow.readings.at120.mean} at 120, `
       + `closing at ${unitBlow.readings.at1920.closing} m/s.`,
     model: unitBlow.model, hand: unitBlow.hand as Side, held: "wooden club",
     strike: unitBlow.strike as Strike, place: { ahead: unitBlow.distance, up: 0 }, band: "high",

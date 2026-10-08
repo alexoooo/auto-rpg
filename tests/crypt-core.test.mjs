@@ -226,6 +226,8 @@ test("the_dead_are_held_once_the_party_has_walked_off_and_loose_when_it_is_back"
     assert.ok(until(run, () => !enemy.alive, 3), "the shove fells it");
     run.step();
     assert.deepEqual([enemy.limp, enemy.held], [true, false], "it is let go limp at the next step");
+    // It comes to lie still, the party within `LEVELS.rest`, before a place beside it is chosen by its feet.
+    seconds(run, 3);
     const beside = floorBetween(run.map, enemy.feet(), run.hero.feet(), 2, 3.5, 1.2);
     assert.ok(walkUntil(run, beside, () => distance(run.hero.feet(), beside) < 0.5, 45), `the hero walks up beside it: ${apart().toFixed(2)} m`);
     assert.ok(apart() < LEVELS.company, `the hero stands beside it: ${apart().toFixed(2)} m`);

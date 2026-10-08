@@ -7,7 +7,7 @@ import { supportEntry } from "../../control/support-entry.ts";
 import { motorControl } from "../../control/motor.ts";
 import { footStatesOf, readSupport } from "../../control/support.ts";
 import { recoveryReady } from "../../control/recovery-ready.ts";
-import { GUARD } from "../../skills/guard.ts";
+import { guardPosture } from "../../skills/guard.ts";
 import { locomotion } from "../../skills/locomotion.ts";
 import { SERVO_SECONDS } from "../../body.ts";
 import type { Vec3 } from "../../spec/quantity.ts";
@@ -53,7 +53,7 @@ export function supportEntryPolicy(built: BuiltBody, model: Pick<MotionModel, "c
 export function supportRecovery(own: OwnBody, view: BodyView, world: World): SubMind {
   const { built, muscles } = own;
   const rise = stagedRise(own, view), feet = footStatesOf(built), legs = locomotion(null);
-  const motor = motorControl(built, SERVO_SECONDS, GUARD, undefined, own.assist);
+  const motor = motorControl(built, SERVO_SECONDS, guardPosture(built), undefined, own.assist);
   const observe = observeBody(built, muscles, world, () => view.senses);
   const state = { phase: "complete" as "rise" | "stabilize" | "complete", rise: rise.state, motor: motor.state, legs: legs.state,
     time: 0, ready: 0, retries: 0, completed: 0 };
