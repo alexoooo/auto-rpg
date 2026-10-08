@@ -26,7 +26,9 @@ const ORDERED = 2;
  * turn at `turn`; punches thrown
  * `seconds` at the punch cell's `place` (x right, height, ahead, m) and at full reach
  * (`fullReach`), the target moved by up to `offset` m by the seed; kicks at the kick stand's
- * target likewise; falls from `ways` directions of `impulse` N s/kg, watched `watch` s.
+ * target likewise; falls from `ways` directions of `impulse` N s/kg, watched `watch` s. A place
+ * and a kick's target are at x1 and go with a physique's size (`placed`), so each body meets the
+ * task in its own proportions.
  */
 export const COMPETENCY = Object.freeze({
   stand: Object.freeze({ levels: Object.freeze([0.2, 0.3, 0.4, 0.5, 0.6, 0.8]), ways: 8, watch: 10 }),
@@ -102,6 +104,9 @@ export function fullReach(model, hand, x, height, physique) {
   return ahead > 0 ? shoulder[2] + Math.sqrt(ahead) : null;
 }
 
+/** A length of `COMPETENCY`, m at x1, for a body of `physique`: times its size. */
+const placed = (length, physique) => length * (physique?.size ?? 1);
+
 /** A job's physique field: absent for the default, so a default job is the job it always was. */
 const physiqueOf = (physique) => physique && Object.keys(physique).length ? { physique } : {};
 
@@ -123,7 +128,7 @@ export function competencyJobs({ competency, model, held, seed, physique }) {
     ...common, task: "defense", competency: "guard", hands, variant, offset: signed * 0.04, angleOffset: signed * 0.1,
     watchSeconds: 10, checkpointSeconds: 2.5, sampleHz: 120 });
   if (wanted("punch")) {
-    const { place: [x, height, ahead], offset } = COMPETENCY.punch;
+    const { place, offset } = COMPETENCY.punch, [x, height, ahead] = place.map((length) => placed(length, physique));
     if (held === "empty") for (const hand of ["left", "right"]) {
       const across = signed * offset, up = height - signed * offset, side = hand === "right" ? x : -x;
       const reach = fullReach(model, hand, side + across, up, physique);
@@ -143,7 +148,7 @@ export function competencyJobs({ competency, model, held, seed, physique }) {
       degrees: (k + fraction) * 360 / ways, impulse, watch });
   }
   if (wanted("kick")) {
-    const { height, ahead, offset } = COMPETENCY.kick;
+    const { offset } = COMPETENCY.kick, height = placed(COMPETENCY.kick.height, physique), ahead = placed(COMPETENCY.kick.ahead, physique);
     for (const foot of ["left", "right"]) for (const mode of ["hit", "miss"]) jobs.push({ ...common, task: "competency",
       competency: "kick", foot, mode, height: height + signed * offset, ahead });
   }
