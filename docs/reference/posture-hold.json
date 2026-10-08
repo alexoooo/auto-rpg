@@ -1,12 +1,12 @@
 {
-  "harness": "Node core world, 120 Hz; browser checks recorded in posture-hold.md",
+  "harness": "Node core world, 120 Hz; posture-hold.md",
   "generator": "﻿import fs from 'node:fs';\nimport {Quaternion} from '@babylonjs/core/Maths/math.vector.js';\nimport {modelSpec} from '../src/core/human/spec.ts';\nconst source='docs/reference/posture-limit-models.json',rows=JSON.parse(fs.readFileSync(source,'utf8')).rows,spec=modelSpec('workshop-fighter');\nconst records=[['fours','fours'],['half-kneel','half kneel, knee light'],['squat','squat']].map(([id,name])=>{\n const row=rows.find(r=>r.job.engine==='rapier-coordinate'&&r.job.row===name),posture=row.result.posture;let offset=0;\n const joints=Object.fromEntries(spec.joints.map(j=>[j.name,j.dofs.map(d=>{const a=posture.angles[offset++];return Math.max(d.min.value,Math.min(d.max.value,a));})]));\n return {id,model:spec.model,source:{path:source,engine:row.job.engine,row:name,seed:row.job.seed},placement:{position:[0,posture.height+.0005,0],rotation:Quaternion.RotationYawPitchRoll(0,posture.pitch,posture.roll).asArray(),joints}};\n});\nfs.mkdirSync('assets/research',{recursive:true});fs.writeFileSync('assets/research/posture-holds.json',JSON.stringify(records,null,2)+'\\n');\nconsole.log(records.map(r=>({id:r.id,joints:Object.keys(r.placement.joints).length})));\r\n",
   "runs": [
     {
       "engine": "rapier-coordinate",
       "manifest": {
         "protocol": 2,
-        "started": "2026-10-05T14:57:46.619Z",
+        "started": "2026-10-08T04:06:43.921Z",
         "options": {
           "suite": "posture-hold",
           "split": "development",
@@ -18,24 +18,25 @@
           "centreControl": false,
           "continueSeconds": 1,
           "shared": false,
-          "jointStops": false
+          "jointStops": false,
+          "envelope": "boot"
         },
-        "workers": 2,
+        "workers": 6,
         "harness": "Node, core world, per-task arena/stand fixtures",
         "node": "v24.19.0",
         "engine": "rapier-coordinate",
-        "engineRevision": "rapier/adapter-7/sha256:07af259dc277cac77daa9c95eaded0ed2bc8aeb5feac08bfd9e58d23e58feebd/coordinate-limits",
+        "engineRevision": "rapier/adapter-9/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits",
         "package": {
-          "version": "0.21.0-auto-rpg.6",
-          "resolved": "file:vendor/rapier/dimforge-rapier3d-simd-compat-0.21.0-auto-rpg.6.tgz",
-          "integrity": "sha512-s7G2mXQcXedR6BBxki1vym9EjoTTnzWmNxt2QWdxHogJ8RhC5T0EAWPWxNKsi7kqHzT1+T0UAXSHTgbyY6CUww==",
-          "entrySha256": "d0e9b190bd0ec74136918a4268a00b4a3cb3e19e28bc8ab5d2fb055af01a7054"
+          "version": "0.21.0-auto-rpg.7",
+          "resolved": "file:vendor/rapier/dimforge-rapier3d-simd-compat-0.21.0-auto-rpg.7.tgz",
+          "integrity": "sha512-uQD03MLVg5/vBElDxkPBzfqIjOiYfva7mOekERHFFZ4lIRE/CIAdMBpt13JW08kMYL5n04qsomN5pzjgZ1IiAw==",
+          "entrySha256": "c8f3d8f0f2ddac056a9cde27755951c081b53ec23bcd82d517a92bb15320e89c"
         },
         "source": {
-          "git": "afabc97c78861a7e80b5451fbdd06435eb1cde16",
-          "content": "a672d9adefe20e3e93358ba6209d5621403185ff3ccb57ce972b205c4264caf1",
+          "git": "83c3540c11c13165e627fef447b232b281259f67",
+          "content": "38a51389c48a016c0e99b1a93eb70621c474ac32b5bf71f969e717a1707ce0c8",
           "archive": "source.json.gz",
-          "archiveSha256": "51967a4d5301b0a1296ff07b58e495559b242acf47536e3c64bdb81d80cc9052"
+          "archiveSha256": "cc75fbe5643ae60e50512982e8a0b27eaa3feecb16b2fe2a24187e2ed5de8313"
         },
         "sensing": "detached body observations; actuator descriptions only",
         "action": "independent joint-feedback actuator velocities; bounded directional muscles",
@@ -709,7 +710,7 @@
                   }
                 }
               },
-              "engineRevision": "rapier/adapter-7/sha256:07af259dc277cac77daa9c95eaded0ed2bc8aeb5feac08bfd9e58d23e58feebd/coordinate-limits",
+              "engineRevision": "rapier/adapter-9/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits",
               "gravity": true,
               "pin": null,
               "assists": {
@@ -721,26 +722,26 @@
             },
             "outcome": {
               "steps": 1200,
-              "peakDrift": 0.023037862601039825,
-              "finalDrift": 0.023037862601039825,
-              "peakAngleError": 0.04114789273391595,
-              "peakEffort": 53.64189147949219,
-              "peakEffortViolation": 0.000018068505539758917,
+              "peakDrift": 0.02869522332270362,
+              "finalDrift": 0.02869522332270362,
+              "peakAngleError": 0.06417872969842267,
+              "peakEffort": 53.672744035720825,
+              "peakEffortViolation": 0.000006365844356537309,
               "contactSteps": 1200,
               "complete": true,
               "success": false,
               "replayExact": true,
-              "digest": "6e4fc5761210d26e1c494c4c782481cf19137e4b4f2ffc09311d1d2e634f5cb6",
-              "stateDigest": "5fc87005d0b90d17f565181070c34fed36ed68e42059ec19b31d627855541097"
+              "digest": "c92d6af78ebd4f66278586d3e94bd2942ea95cd083458199ce3ca432c84ab4a4",
+              "stateDigest": "853269d04d8f13a297ec2f01fc51cf9e97939da605bdef571a0581c8d0165c7b"
             },
             "physical": {
               "assistForceIntegralNs": 0,
               "assistMomentIntegralNms": 0
             },
             "timing": {
-              "meanStepMs": 0.7027169791666689,
-              "p95StepMs": 0.8317000000001826,
-              "p99StepMs": 1.1757000000002336
+              "meanStepMs": 3.0886278124999857,
+              "p95StepMs": 6.839100000000144,
+              "p99StepMs": 20.40769999999975
             },
             "limits": [
               "installed empty-handed Warrior pose; no entry, recovery or disturbance",
@@ -895,7 +896,7 @@
                   }
                 }
               },
-              "engineRevision": "rapier/adapter-7/sha256:07af259dc277cac77daa9c95eaded0ed2bc8aeb5feac08bfd9e58d23e58feebd/coordinate-limits",
+              "engineRevision": "rapier/adapter-9/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits",
               "gravity": true,
               "pin": null,
               "assists": {
@@ -907,26 +908,26 @@
             },
             "outcome": {
               "steps": 1200,
-              "peakDrift": 1.6736273882889747,
-              "finalDrift": 1.339908620153507,
-              "peakAngleError": 0.47763434487730627,
-              "peakEffort": 219.66137409210205,
-              "peakEffortViolation": 0.00003494767474876426,
-              "contactSteps": 1195,
+              "peakDrift": 1.6698649665437324,
+              "finalDrift": 1.3538940165267546,
+              "peakAngleError": 0.48170374637971963,
+              "peakEffort": 221.08567893505096,
+              "peakEffortViolation": 0.000013504747357728775,
+              "contactSteps": 1188,
               "complete": true,
               "success": false,
               "replayExact": true,
-              "digest": "d9df48eaaf7ca00addcf9b2d11e7d82515ae131d6e5ea818f9e01c8ade4eea81",
-              "stateDigest": "167bb407126da3398e88b89c05f88364d2e0c44175c456cb906d19a7b01f8a08"
+              "digest": "6b31d1e2ff9d60d971eb53a6f7a7767e2bec3fd141c713df3e882054f5acc53f",
+              "stateDigest": "ea3a1d794b87a2ccaaec964dcd408f34b0a0a601ab08eaaa4748496d46857ec2"
             },
             "physical": {
               "assistForceIntegralNs": 0,
               "assistMomentIntegralNms": 0
             },
             "timing": {
-              "meanStepMs": 0.7000489583333244,
-              "p95StepMs": 0.7204000000001543,
-              "p99StepMs": 1.0927999999985332
+              "meanStepMs": 2.568181562500058,
+              "p95StepMs": 3.6709999999984575,
+              "p99StepMs": 5.853699999999662
             },
             "limits": [
               "installed empty-handed Warrior pose; no entry, recovery or disturbance",
@@ -1105,7 +1106,7 @@
                   }
                 }
               },
-              "engineRevision": "rapier/adapter-7/sha256:07af259dc277cac77daa9c95eaded0ed2bc8aeb5feac08bfd9e58d23e58feebd/coordinate-limits",
+              "engineRevision": "rapier/adapter-9/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits",
               "gravity": true,
               "pin": null,
               "assists": {
@@ -1117,26 +1118,26 @@
             },
             "outcome": {
               "steps": 1200,
-              "peakDrift": 1.6869394421322144,
-              "finalDrift": 1.3654305051310072,
-              "peakAngleError": 1.3133470146678619,
-              "peakEffort": 210.04533290863037,
-              "peakEffortViolation": 0.00004163495007958318,
-              "contactSteps": 1128,
+              "peakDrift": 1.699436999891241,
+              "finalDrift": 1.2398256095119329,
+              "peakAngleError": 1.444945578527832,
+              "peakEffort": 215.77599048614502,
+              "peakEffortViolation": 0.0000215062590314119,
+              "contactSteps": 1132,
               "complete": true,
               "success": false,
               "replayExact": true,
-              "digest": "6775ea57718a4c3ac21d159c8330d9e082067ccab24cd42d50b00193a457b905",
-              "stateDigest": "d3c98f0e1b0ff6dbfab49fd61735706b8bb6c6805ef6ae010b6a15fe390ab0b1"
+              "digest": "3903f0165ee7e0231bf02ca5c0b8e7e89d08e9194d6840f0ab752d0db10c4957",
+              "stateDigest": "2493f1dd3c20dbc7564eb92809ca1da7d2386fc00aa440cb3e3aeaf75789451f"
             },
             "physical": {
               "assistForceIntegralNs": 0,
               "assistMomentIntegralNms": 0
             },
             "timing": {
-              "meanStepMs": 0.6992295833333231,
-              "p95StepMs": 0.7255999999997584,
-              "p99StepMs": 0.8106000000007043
+              "meanStepMs": 2.4141002083332923,
+              "p95StepMs": 3.717000000000553,
+              "p99StepMs": 5.089099999999235
             },
             "limits": [
               "installed empty-handed Warrior pose; no entry, recovery or disturbance",
@@ -1387,7 +1388,7 @@
                   }
                 }
               },
-              "engineRevision": "rapier/adapter-7/sha256:07af259dc277cac77daa9c95eaded0ed2bc8aeb5feac08bfd9e58d23e58feebd/coordinate-limits",
+              "engineRevision": "rapier/adapter-9/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits",
               "gravity": true,
               "pin": null,
               "assists": {
@@ -1399,26 +1400,26 @@
             },
             "outcome": {
               "steps": 1200,
-              "peakDrift": 0.21358816793266397,
-              "finalDrift": 0.21358816793266397,
-              "peakAngleError": 0.09522986048628224,
-              "peakEffort": 81.42439126968384,
+              "peakDrift": 0.21893364976458884,
+              "finalDrift": 0.21893364976458884,
+              "peakAngleError": 0.09294933549873868,
+              "peakEffort": 81.64193719625473,
               "peakEffortViolation": 0,
               "contactSteps": 1200,
               "complete": true,
               "success": false,
               "replayExact": true,
-              "digest": "0d232d1da259b9de03c0036c88aedd7c654d764fbb30c1fec2ae87a4ee1afc02",
-              "stateDigest": "f914d815b4bf5898ab21740c498052a4a5d5ae41a0ee56eb91fe6b12b4390d96"
+              "digest": "fa179ba2d9f4f7c46ba5732ac580fdb758846f5670f8111439152ab1765b79d0",
+              "stateDigest": "f787641f2ede878487b6a8eb28aa9f56c2501725975c73264eecfeb644e5b422"
             },
             "physical": {
               "assistForceIntegralNs": 0,
               "assistMomentIntegralNms": 0
             },
             "timing": {
-              "meanStepMs": 0.6624622916666544,
-              "p95StepMs": 0.7622999999998683,
-              "p99StepMs": 0.9873999999999796
+              "meanStepMs": 3.2111140624999877,
+              "p95StepMs": 8.81590000000051,
+              "p99StepMs": 32.162500000000364
             },
             "limits": [
               "installed empty-handed Warrior pose; no entry, recovery or disturbance",
@@ -1597,7 +1598,7 @@
                   }
                 }
               },
-              "engineRevision": "rapier/adapter-7/sha256:07af259dc277cac77daa9c95eaded0ed2bc8aeb5feac08bfd9e58d23e58feebd/coordinate-limits",
+              "engineRevision": "rapier/adapter-9/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits",
               "gravity": true,
               "pin": null,
               "assists": {
@@ -1609,26 +1610,26 @@
             },
             "outcome": {
               "steps": 1200,
-              "peakDrift": 0.01486670590304321,
-              "finalDrift": 0.01486670590304321,
-              "peakAngleError": 0.015840990504621733,
-              "peakEffort": 52.97475814819336,
+              "peakDrift": 0.0235101378937156,
+              "finalDrift": 0.0235101378937156,
+              "peakAngleError": 0.016877964282332236,
+              "peakEffort": 52.026633247733116,
               "peakEffortViolation": 0,
               "contactSteps": 1200,
               "complete": true,
-              "success": true,
+              "success": false,
               "replayExact": true,
-              "digest": "6f7df4c5ec8cfd01347d7d7012c62085705cf7bad07666dfbd203555c5311049",
-              "stateDigest": "3b772d33f17d6b87c249a77e3db2a64500b701926dc1bf4965d97a7a689fa315"
+              "digest": "bc731b6e1915f5e8abda76e55284f439ec47f2ecdd20c7b69dd0c7b5d74ffd65",
+              "stateDigest": "20fd9fad943cefd41fa3961aaae6def6fbafe99f8e2227471d73323773172cf1"
             },
             "physical": {
               "assistForceIntegralNs": 0,
               "assistMomentIntegralNms": 0
             },
             "timing": {
-              "meanStepMs": 0.6666962499999854,
-              "p95StepMs": 0.7364999999999782,
-              "p99StepMs": 0.8721000000000458
+              "meanStepMs": 2.995446145833342,
+              "p95StepMs": 5.770799999999326,
+              "p99StepMs": 18.992300000000796
             },
             "limits": [
               "installed empty-handed Warrior pose; no entry, recovery or disturbance",
@@ -1783,7 +1784,7 @@
                   }
                 }
               },
-              "engineRevision": "rapier/adapter-7/sha256:07af259dc277cac77daa9c95eaded0ed2bc8aeb5feac08bfd9e58d23e58feebd/coordinate-limits",
+              "engineRevision": "rapier/adapter-9/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits",
               "gravity": true,
               "pin": null,
               "assists": {
@@ -1795,26 +1796,26 @@
             },
             "outcome": {
               "steps": 1200,
-              "peakDrift": 0.10597565362531268,
-              "finalDrift": 0.10597565362531268,
-              "peakAngleError": 0.010522481636847936,
-              "peakEffort": 110.13414859771729,
-              "peakEffortViolation": 0.000010711716434741447,
+              "peakDrift": 0.10598494906332023,
+              "finalDrift": 0.10598494906332023,
+              "peakAngleError": 0.010522091035426118,
+              "peakEffort": 110.115457624197,
+              "peakEffortViolation": 0.000005281566352266509,
               "contactSteps": 1200,
               "complete": true,
               "success": false,
               "replayExact": true,
-              "digest": "2b581db64186c34531bee9c069649894a4f6f5c1bbebc685d735b3051e6e55a2",
-              "stateDigest": "f3ff4b8d7d02d0a626b51e3e705b5504d37e2b26568777e762b52afaeaa81a8e"
+              "digest": "acceeeddaca1afbcb628db7a7af0b96d1076d23e7ce06672aa055dbf8ae7cff7",
+              "stateDigest": "323c754c00ee19eb284835f23f7b84e5b0c5aa14f8119823f1b2b22c5c4a87b6"
             },
             "physical": {
               "assistForceIntegralNs": 0,
               "assistMomentIntegralNms": 0
             },
             "timing": {
-              "meanStepMs": 0.6327168750000122,
-              "p95StepMs": 0.6530999999995402,
-              "p99StepMs": 0.7778000000007523
+              "meanStepMs": 2.958094375,
+              "p95StepMs": 5.67830000000049,
+              "p99StepMs": 23.690699999999197
             },
             "limits": [
               "installed empty-handed Warrior pose; no entry, recovery or disturbance",
@@ -2041,7 +2042,7 @@
                   }
                 }
               },
-              "engineRevision": "rapier/adapter-7/sha256:07af259dc277cac77daa9c95eaded0ed2bc8aeb5feac08bfd9e58d23e58feebd/coordinate-limits",
+              "engineRevision": "rapier/adapter-9/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits",
               "gravity": true,
               "pin": null,
               "assists": {
@@ -2053,26 +2054,26 @@
             },
             "outcome": {
               "steps": 1200,
-              "peakDrift": 1.679971668424317,
-              "finalDrift": 1.3273206224547018,
-              "peakAngleError": 0.5175463211043297,
-              "peakEffort": 194.565110206604,
-              "peakEffortViolation": 0.00004336434044205362,
-              "contactSteps": 1199,
+              "peakDrift": 1.679996200841798,
+              "finalDrift": 1.329311867249813,
+              "peakAngleError": 0.5160195070730237,
+              "peakEffort": 187.1920269727707,
+              "peakEffortViolation": 0.000019966910201674182,
+              "contactSteps": 1197,
               "complete": true,
               "success": false,
               "replayExact": true,
-              "digest": "5a083692b3a751f75a73d7d68d8d40cb00a3d99f0797c3ca2cd5125bb73fe0df",
-              "stateDigest": "c16ec2e4a0d064bb0ca353771d5c5ae6d669fb2dc6db42265ca38fb2289b0150"
+              "digest": "bfb22b2270e34feaaafa1a3567aff6dca68caa4e0c9a026e0138edecaf03434d",
+              "stateDigest": "5f27208e8b3e6f5f8bc8ea6b5649644b43499067d43743d11609d6e5a0d2ba39"
             },
             "physical": {
               "assistForceIntegralNs": 0,
               "assistMomentIntegralNms": 0
             },
             "timing": {
-              "meanStepMs": 0.6865527083333433,
-              "p95StepMs": 0.7137999999995372,
-              "p99StepMs": 0.8122999999995955
+              "meanStepMs": 2.573321250000028,
+              "p95StepMs": 3.4637999999995372,
+              "p99StepMs": 5.482500000000073
             },
             "limits": [
               "installed empty-handed Warrior pose; no entry, recovery or disturbance",
@@ -2275,7 +2276,7 @@
                   }
                 }
               },
-              "engineRevision": "rapier/adapter-7/sha256:07af259dc277cac77daa9c95eaded0ed2bc8aeb5feac08bfd9e58d23e58feebd/coordinate-limits",
+              "engineRevision": "rapier/adapter-9/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits",
               "gravity": true,
               "pin": null,
               "assists": {
@@ -2287,26 +2288,26 @@
             },
             "outcome": {
               "steps": 1200,
-              "peakDrift": 0.08360764672058187,
-              "finalDrift": 0.08360764672058187,
-              "peakAngleError": 0.02600976692887924,
-              "peakEffort": 73.26846599578857,
+              "peakDrift": 0.08357342950053813,
+              "finalDrift": 0.08357342950053813,
+              "peakAngleError": 0.026010632116126253,
+              "peakEffort": 73.26258279383183,
               "peakEffortViolation": 0,
               "contactSteps": 1200,
               "complete": true,
               "success": false,
               "replayExact": true,
-              "digest": "a00d1143400abe777126600abb88674b407375e0cd0e56bc446969f305e92dab",
-              "stateDigest": "f99fa71b48d2fced868578c86b996fb7b553c704befecfa062a4c0995ba3029e"
+              "digest": "acea4f4bbbe126a10a20be5bf28240437d17dfc4aa2141031e2cbf7b8638b3ab",
+              "stateDigest": "552c61263c35de5827d009dcc9dc2969a770061fbd7ec4aee0c2c4e62b99c4dc"
             },
             "physical": {
               "assistForceIntegralNs": 0,
               "assistMomentIntegralNms": 0
             },
             "timing": {
-              "meanStepMs": 0.6327159375000103,
-              "p95StepMs": 0.6595999999999549,
-              "p99StepMs": 1.02179999999953
+              "meanStepMs": 3.5519998958333314,
+              "p95StepMs": 10.929699999999684,
+              "p99StepMs": 33.422599999999875
             },
             "limits": [
               "installed empty-handed Warrior pose; no entry, recovery or disturbance",
@@ -2461,7 +2462,7 @@
                   }
                 }
               },
-              "engineRevision": "rapier/adapter-7/sha256:07af259dc277cac77daa9c95eaded0ed2bc8aeb5feac08bfd9e58d23e58feebd/coordinate-limits",
+              "engineRevision": "rapier/adapter-9/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits",
               "gravity": true,
               "pin": null,
               "assists": {
@@ -2473,26 +2474,26 @@
             },
             "outcome": {
               "steps": 1200,
-              "peakDrift": 0.05564392365575268,
-              "finalDrift": 0.05564392365575268,
-              "peakAngleError": 0.11388113635205302,
-              "peakEffort": 53.604798316955566,
-              "peakEffortViolation": 0.000017924891771770035,
+              "peakDrift": 0.03698650136043583,
+              "finalDrift": 0.03508116891027634,
+              "peakAngleError": 0.09325094533489175,
+              "peakEffort": 51.44116848707199,
+              "peakEffortViolation": 0,
               "contactSteps": 1200,
               "complete": true,
               "success": false,
               "replayExact": true,
-              "digest": "b5b2e688215b8101fa094a5b6c3cfcab1b171e9ae5a0ac33e6e5d4ed29bf728f",
-              "stateDigest": "a020927613ccf5f57b101c4668018d81b7acafd24f6012f8edea20562e71a2e3"
+              "digest": "9a021adb5f4191cfa5544eb1300f5fd954ab800aa06242d1e7de831c0c08bd87",
+              "stateDigest": "be8fc6c387e60cec5e947e2ba3459e3b87d03e213cc20a89d8cbcebc6eea1022"
             },
             "physical": {
               "assistForceIntegralNs": 0,
               "assistMomentIntegralNms": 0
             },
             "timing": {
-              "meanStepMs": 0.7177588541666583,
-              "p95StepMs": 0.9370000000001255,
-              "p99StepMs": 1.3636000000001332
+              "meanStepMs": 3.9443967708333094,
+              "p95StepMs": 10.965100000001257,
+              "p99StepMs": 39.32060000000001
             },
             "limits": [
               "installed empty-handed Warrior pose; no entry, recovery or disturbance",
@@ -2652,7 +2653,7 @@
       "engine": "rapier-coordinate-coulomb",
       "manifest": {
         "protocol": 2,
-        "started": "2026-10-05T14:57:46.956Z",
+        "started": "2026-10-08T04:06:43.922Z",
         "options": {
           "suite": "posture-hold",
           "split": "development",
@@ -2664,24 +2665,25 @@
           "centreControl": false,
           "continueSeconds": 1,
           "shared": false,
-          "jointStops": false
+          "jointStops": false,
+          "envelope": "boot"
         },
-        "workers": 2,
+        "workers": 6,
         "harness": "Node, core world, per-task arena/stand fixtures",
         "node": "v24.19.0",
         "engine": "rapier-coordinate-coulomb",
-        "engineRevision": "rapier/adapter-7/sha256:07af259dc277cac77daa9c95eaded0ed2bc8aeb5feac08bfd9e58d23e58feebd/coordinate-limits/point-friction",
+        "engineRevision": "rapier/adapter-9/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits/point-friction",
         "package": {
-          "version": "0.21.0-auto-rpg.6",
-          "resolved": "file:vendor/rapier/dimforge-rapier3d-simd-compat-0.21.0-auto-rpg.6.tgz",
-          "integrity": "sha512-s7G2mXQcXedR6BBxki1vym9EjoTTnzWmNxt2QWdxHogJ8RhC5T0EAWPWxNKsi7kqHzT1+T0UAXSHTgbyY6CUww==",
-          "entrySha256": "d0e9b190bd0ec74136918a4268a00b4a3cb3e19e28bc8ab5d2fb055af01a7054"
+          "version": "0.21.0-auto-rpg.7",
+          "resolved": "file:vendor/rapier/dimforge-rapier3d-simd-compat-0.21.0-auto-rpg.7.tgz",
+          "integrity": "sha512-uQD03MLVg5/vBElDxkPBzfqIjOiYfva7mOekERHFFZ4lIRE/CIAdMBpt13JW08kMYL5n04qsomN5pzjgZ1IiAw==",
+          "entrySha256": "c8f3d8f0f2ddac056a9cde27755951c081b53ec23bcd82d517a92bb15320e89c"
         },
         "source": {
-          "git": "afabc97c78861a7e80b5451fbdd06435eb1cde16",
-          "content": "a672d9adefe20e3e93358ba6209d5621403185ff3ccb57ce972b205c4264caf1",
+          "git": "83c3540c11c13165e627fef447b232b281259f67",
+          "content": "38a51389c48a016c0e99b1a93eb70621c474ac32b5bf71f969e717a1707ce0c8",
           "archive": "source.json.gz",
-          "archiveSha256": "51967a4d5301b0a1296ff07b58e495559b242acf47536e3c64bdb81d80cc9052"
+          "archiveSha256": "cc75fbe5643ae60e50512982e8a0b27eaa3feecb16b2fe2a24187e2ed5de8313"
         },
         "sensing": "detached body observations; actuator descriptions only",
         "action": "independent joint-feedback actuator velocities; bounded directional muscles",
@@ -3355,7 +3357,7 @@
                   }
                 }
               },
-              "engineRevision": "rapier/adapter-7/sha256:07af259dc277cac77daa9c95eaded0ed2bc8aeb5feac08bfd9e58d23e58feebd/coordinate-limits/point-friction",
+              "engineRevision": "rapier/adapter-9/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits/point-friction",
               "gravity": true,
               "pin": null,
               "assists": {
@@ -3367,26 +3369,26 @@
             },
             "outcome": {
               "steps": 1200,
-              "peakDrift": 0.02265419658368783,
-              "finalDrift": 0.02265419658368783,
-              "peakAngleError": 0.04105219288889539,
-              "peakEffort": 53.66854190826416,
-              "peakEffortViolation": 0.000017864233043951572,
+              "peakDrift": 0.023134293795695128,
+              "finalDrift": 0.023134293795695128,
+              "peakAngleError": 0.04426607203791266,
+              "peakEffort": 48.3753602206707,
+              "peakEffortViolation": 0.0000010725563077684797,
               "contactSteps": 1200,
               "complete": true,
               "success": false,
               "replayExact": true,
-              "digest": "0b5b68c3758a2c0375c708b3e786bba0c698cad5836ace42bcf708bab56d763a",
-              "stateDigest": "fc14956091c79317d5362d49944e9353dbd38566583d30b120b7be7dbfe8a632"
+              "digest": "1b51fd63ec5eec91fb2953878a5650b342aeb99b1b52abedefa4648465a2e7e3",
+              "stateDigest": "89db58e58f882671ed63ef2b6a061a7ff64f72479019d3cefe77196df8f7eb6c"
             },
             "physical": {
               "assistForceIntegralNs": 0,
               "assistMomentIntegralNms": 0
             },
             "timing": {
-              "meanStepMs": 0.6972214583333326,
-              "p95StepMs": 0.864699999999857,
-              "p99StepMs": 1.2012999999999465
+              "meanStepMs": 2.524356145833331,
+              "p95StepMs": 3.798200000000179,
+              "p99StepMs": 9.064000000000306
             },
             "limits": [
               "installed empty-handed Warrior pose; no entry, recovery or disturbance",
@@ -3541,7 +3543,7 @@
                   }
                 }
               },
-              "engineRevision": "rapier/adapter-7/sha256:07af259dc277cac77daa9c95eaded0ed2bc8aeb5feac08bfd9e58d23e58feebd/coordinate-limits/point-friction",
+              "engineRevision": "rapier/adapter-9/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits/point-friction",
               "gravity": true,
               "pin": null,
               "assists": {
@@ -3553,26 +3555,26 @@
             },
             "outcome": {
               "steps": 1200,
-              "peakDrift": 1.6736275506904341,
-              "finalDrift": 1.357065819421747,
-              "peakAngleError": 0.485638968017445,
-              "peakEffort": 206.89218521118164,
-              "peakEffortViolation": 0.000039584643204193526,
-              "contactSteps": 1194,
+              "peakDrift": 1.6759270361226013,
+              "finalDrift": 1.3346290080764567,
+              "peakAngleError": 0.48679092023314485,
+              "peakEffort": 205.04959791898727,
+              "peakEffortViolation": 0.000018725982187106638,
+              "contactSteps": 1196,
               "complete": true,
               "success": false,
               "replayExact": true,
-              "digest": "b94baf563fea85f9fd4439f8391d88fb8a289586af43ea5a03b6d54897153bd1",
-              "stateDigest": "0874f10b62036472176090e1328b0cd466495402b80254393ee76711b9b78af6"
+              "digest": "584c004a39c3e7cbfb22f08f75891690ec077f8738eb39ed4c66b5b66cb9a643",
+              "stateDigest": "2213be8e5b6ef523df74f8960b49c41428674a62a580b222a9be67554df0fbce"
             },
             "physical": {
               "assistForceIntegralNs": 0,
               "assistMomentIntegralNms": 0
             },
             "timing": {
-              "meanStepMs": 0.7028214583333275,
-              "p95StepMs": 0.7273999999997613,
-              "p99StepMs": 1.1048000000000684
+              "meanStepMs": 2.7898828124999926,
+              "p95StepMs": 3.813000000000102,
+              "p99StepMs": 6.540199999999459
             },
             "limits": [
               "installed empty-handed Warrior pose; no entry, recovery or disturbance",
@@ -3751,7 +3753,7 @@
                   }
                 }
               },
-              "engineRevision": "rapier/adapter-7/sha256:07af259dc277cac77daa9c95eaded0ed2bc8aeb5feac08bfd9e58d23e58feebd/coordinate-limits/point-friction",
+              "engineRevision": "rapier/adapter-9/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits/point-friction",
               "gravity": true,
               "pin": null,
               "assists": {
@@ -3763,26 +3765,26 @@
             },
             "outcome": {
               "steps": 1200,
-              "peakDrift": 1.6790420488575735,
-              "finalDrift": 1.3211892527166795,
-              "peakAngleError": 1.2544825586154158,
-              "peakEffort": 184.5646333694458,
-              "peakEffortViolation": 0.00004365577905218743,
-              "contactSteps": 1136,
+              "peakDrift": 1.6762538673568466,
+              "finalDrift": 1.23365965698257,
+              "peakAngleError": 1.2683734123633126,
+              "peakEffort": 207.04443097114563,
+              "peakEffortViolation": 0.000020911573301418684,
+              "contactSteps": 1170,
               "complete": true,
               "success": false,
               "replayExact": true,
-              "digest": "8d96bfe85e0443d022d559cc1f868408a4e164b097a4d48fa6664a0434340ab5",
-              "stateDigest": "96e680a4c619b56a8b1a9758c767e3dfc69a342e04dcf763cbcf2becce6d3998"
+              "digest": "e5c4b9731673f4c73b05f47ac0ba2fcb5d0ec9f877b8bd3a6f1778d019c6349d",
+              "stateDigest": "aa4c2bdbd677239c4fc8267aabc5519c72578891ad265f22dca6878117404430"
             },
             "physical": {
               "assistForceIntegralNs": 0,
               "assistMomentIntegralNms": 0
             },
             "timing": {
-              "meanStepMs": 0.6995749999999741,
-              "p95StepMs": 0.7350000000005821,
-              "p99StepMs": 0.9678000000003522
+              "meanStepMs": 2.8440998958333523,
+              "p95StepMs": 3.7166999999990367,
+              "p99StepMs": 5.700699999999415
             },
             "limits": [
               "installed empty-handed Warrior pose; no entry, recovery or disturbance",
@@ -4033,7 +4035,7 @@
                   }
                 }
               },
-              "engineRevision": "rapier/adapter-7/sha256:07af259dc277cac77daa9c95eaded0ed2bc8aeb5feac08bfd9e58d23e58feebd/coordinate-limits/point-friction",
+              "engineRevision": "rapier/adapter-9/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits/point-friction",
               "gravity": true,
               "pin": null,
               "assists": {
@@ -4045,26 +4047,26 @@
             },
             "outcome": {
               "steps": 1200,
-              "peakDrift": 0.10057794817847487,
-              "finalDrift": 0.10057794817847487,
-              "peakAngleError": 0.09541944773147132,
-              "peakEffort": 83.03418159484863,
+              "peakDrift": 0.10059270138406318,
+              "finalDrift": 0.10059270138406318,
+              "peakAngleError": 0.0954191695433102,
+              "peakEffort": 83.03758755326271,
               "peakEffortViolation": 0,
               "contactSteps": 1200,
               "complete": true,
               "success": false,
               "replayExact": true,
-              "digest": "268b76f3e7afa9781ef1fb064cba37c31b69390837f31d34b02a786eca1d76b3",
-              "stateDigest": "656dcae42e1ffc638ac8e3f9c721f34f7156e5b2cacf00c4eeb3ece13305854a"
+              "digest": "8b69f36e2ff9a87263ab9f8dec34e4194006431d20fd79a929ef352288cfe01e",
+              "stateDigest": "c6dccef2c77731e00ae68fe506d357035e2e314f0ea9b0ef1288b8c318736604"
             },
             "physical": {
               "assistForceIntegralNs": 0,
               "assistMomentIntegralNms": 0
             },
             "timing": {
-              "meanStepMs": 0.6471452083333323,
-              "p95StepMs": 0.7130999999999403,
-              "p99StepMs": 0.9512000000004264
+              "meanStepMs": 2.520562083333332,
+              "p95StepMs": 4.379399999999805,
+              "p99StepMs": 9.642900000000736
             },
             "limits": [
               "installed empty-handed Warrior pose; no entry, recovery or disturbance",
@@ -4243,7 +4245,7 @@
                   }
                 }
               },
-              "engineRevision": "rapier/adapter-7/sha256:07af259dc277cac77daa9c95eaded0ed2bc8aeb5feac08bfd9e58d23e58feebd/coordinate-limits/point-friction",
+              "engineRevision": "rapier/adapter-9/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits/point-friction",
               "gravity": true,
               "pin": null,
               "assists": {
@@ -4255,26 +4257,26 @@
             },
             "outcome": {
               "steps": 1200,
-              "peakDrift": 0.015454903634809853,
-              "finalDrift": 0.015454903634809853,
-              "peakAngleError": 0.01653262980098802,
-              "peakEffort": 51.22232794761658,
-              "peakEffortViolation": 0,
+              "peakDrift": 0.024768180098000955,
+              "finalDrift": 0.024768180098000955,
+              "peakAngleError": 0.04644538047160381,
+              "peakEffort": 47.41671994328499,
+              "peakEffortViolation": 0.0000012924058889751677,
               "contactSteps": 1200,
               "complete": true,
-              "success": true,
+              "success": false,
               "replayExact": true,
-              "digest": "b8942a1226c8851f89692635775b20f3462f213bc05cc489c44e283dd084eff6",
-              "stateDigest": "53d13a2fbb068e1273a1312fb33f8a3aa2f0f67ab9efb0b71a122e5b8e7b5804"
+              "digest": "411a13e891caaa0e94d1d4a1a83d5a7d6a5dd379339db8d72a243d63a60c710e",
+              "stateDigest": "3753ec6305b57dabe16e3dd6f5382abf4081891e00c7fe1242f8cae90b128a46"
             },
             "physical": {
               "assistForceIntegralNs": 0,
               "assistMomentIntegralNms": 0
             },
             "timing": {
-              "meanStepMs": 0.6677064583333215,
-              "p95StepMs": 0.7207000000003063,
-              "p99StepMs": 1.0138999999999214
+              "meanStepMs": 2.658496458333351,
+              "p95StepMs": 3.6847999999999956,
+              "p99StepMs": 11.186300000000301
             },
             "limits": [
               "installed empty-handed Warrior pose; no entry, recovery or disturbance",
@@ -4429,7 +4431,7 @@
                   }
                 }
               },
-              "engineRevision": "rapier/adapter-7/sha256:07af259dc277cac77daa9c95eaded0ed2bc8aeb5feac08bfd9e58d23e58feebd/coordinate-limits/point-friction",
+              "engineRevision": "rapier/adapter-9/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits/point-friction",
               "gravity": true,
               "pin": null,
               "assists": {
@@ -4441,26 +4443,26 @@
             },
             "outcome": {
               "steps": 1200,
-              "peakDrift": 0.1270722896087563,
-              "finalDrift": 0.1270722896087563,
-              "peakAngleError": 0.010209165603662418,
-              "peakEffort": 114.09274578094482,
-              "peakEffortViolation": 0.000007385288490979747,
+              "peakDrift": 0.12704724715302002,
+              "finalDrift": 0.12704724715302002,
+              "peakAngleError": 0.010210280635901459,
+              "peakEffort": 114.07025992870331,
+              "peakEffortViolation": 0.000005284443432174157,
               "contactSteps": 1200,
               "complete": true,
               "success": false,
               "replayExact": true,
-              "digest": "1ba4d0c2dde9cbe273108be6fb8487f9fa97bc183dc5d78c85577570cc8d6ecc",
-              "stateDigest": "2070c94fccc15e19e341f6a166c18b8089ff7a41c07e923b7b2cdee182c09e73"
+              "digest": "ee1f2525b78ad8a1bcbafb67073898607866427fae908f39ea158b46e87f7c6b",
+              "stateDigest": "fc1525c2576e2a7d610bdb708a18c89f3e80a262ef8a797ad5198712a880ad5f"
             },
             "physical": {
               "assistForceIntegralNs": 0,
               "assistMomentIntegralNms": 0
             },
             "timing": {
-              "meanStepMs": 0.6335433333333166,
-              "p95StepMs": 0.6596999999992477,
-              "p99StepMs": 0.9634999999998399
+              "meanStepMs": 2.517200833333346,
+              "p95StepMs": 3.602700000000368,
+              "p99StepMs": 10.045399999999972
             },
             "limits": [
               "installed empty-handed Warrior pose; no entry, recovery or disturbance",
@@ -4687,7 +4689,7 @@
                   }
                 }
               },
-              "engineRevision": "rapier/adapter-7/sha256:07af259dc277cac77daa9c95eaded0ed2bc8aeb5feac08bfd9e58d23e58feebd/coordinate-limits/point-friction",
+              "engineRevision": "rapier/adapter-9/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits/point-friction",
               "gravity": true,
               "pin": null,
               "assists": {
@@ -4699,26 +4701,26 @@
             },
             "outcome": {
               "steps": 1200,
-              "peakDrift": 1.6815002843604112,
-              "finalDrift": 1.3301727931460638,
-              "peakAngleError": 0.5112153484213625,
-              "peakEffort": 203.03858757019043,
-              "peakEffortViolation": 0.00004089161396336749,
-              "contactSteps": 1198,
+              "peakDrift": 1.6834470175653748,
+              "finalDrift": 1.3314206798972337,
+              "peakAngleError": 0.5123929300486277,
+              "peakEffort": 202.50998944044113,
+              "peakEffortViolation": 0.000015854870653697617,
+              "contactSteps": 1196,
               "complete": true,
               "success": false,
               "replayExact": true,
-              "digest": "6fa926eb390ef551dec6810fffff914f2c571b1a9f9ee1d5fe216a8849b86922",
-              "stateDigest": "8029b67d8f1a7af2dd44613dc6647b438c05ecedeb536fec30a87fe2600fbef2"
+              "digest": "fa736f28548b5ef7b0dc78f4ba79dda6f6cdbae9008f6171317e628eca9b05a5",
+              "stateDigest": "61f534db22d480142b209dbf335de514e0475341623956b33e912e3939a2b41c"
             },
             "physical": {
               "assistForceIntegralNs": 0,
               "assistMomentIntegralNms": 0
             },
             "timing": {
-              "meanStepMs": 0.6873273958333234,
-              "p95StepMs": 0.7161000000005515,
-              "p99StepMs": 1.0646999999999025
+              "meanStepMs": 2.66150083333334,
+              "p95StepMs": 3.414199999999255,
+              "p99StepMs": 4.624400000000605
             },
             "limits": [
               "installed empty-handed Warrior pose; no entry, recovery or disturbance",
@@ -4921,7 +4923,7 @@
                   }
                 }
               },
-              "engineRevision": "rapier/adapter-7/sha256:07af259dc277cac77daa9c95eaded0ed2bc8aeb5feac08bfd9e58d23e58feebd/coordinate-limits/point-friction",
+              "engineRevision": "rapier/adapter-9/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits/point-friction",
               "gravity": true,
               "pin": null,
               "assists": {
@@ -4933,26 +4935,26 @@
             },
             "outcome": {
               "steps": 1200,
-              "peakDrift": 0.09830510290903545,
-              "finalDrift": 0.09830510290903545,
-              "peakAngleError": 0.026289909182463378,
-              "peakEffort": 73.95467519760132,
+              "peakDrift": 0.09830418672572507,
+              "finalDrift": 0.09830418672572507,
+              "peakAngleError": 0.026289584444638192,
+              "peakEffort": 73.94725620746613,
               "peakEffortViolation": 0,
               "contactSteps": 1200,
               "complete": true,
               "success": false,
               "replayExact": true,
-              "digest": "c203633179941e996eb9e4324dffc77dd6941fe3857191ea7191d40486b4aafb",
-              "stateDigest": "389994084446cf2303152c7be536981a4b3392720851e0232f6668473bd71d12"
+              "digest": "6c46bdf5a7bed51e15778f63f714cce7a1d00bd7e7031c62a656b243895f7092",
+              "stateDigest": "3818a5877024671da43ee5261a45fb974803ad27a90b92de72b7280f2b64dae2"
             },
             "physical": {
               "assistForceIntegralNs": 0,
               "assistMomentIntegralNms": 0
             },
             "timing": {
-              "meanStepMs": 0.6396612499999758,
-              "p95StepMs": 0.6792999999997846,
-              "p99StepMs": 0.7568999999994048
+              "meanStepMs": 2.6200385416666734,
+              "p95StepMs": 4.101300000000265,
+              "p99StepMs": 11.70259999999962
             },
             "limits": [
               "installed empty-handed Warrior pose; no entry, recovery or disturbance",
@@ -5107,7 +5109,7 @@
                   }
                 }
               },
-              "engineRevision": "rapier/adapter-7/sha256:07af259dc277cac77daa9c95eaded0ed2bc8aeb5feac08bfd9e58d23e58feebd/coordinate-limits/point-friction",
+              "engineRevision": "rapier/adapter-9/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde/coordinate-limits/point-friction",
               "gravity": true,
               "pin": null,
               "assists": {
@@ -5119,26 +5121,26 @@
             },
             "outcome": {
               "steps": 1200,
-              "peakDrift": 0.0567653162787796,
-              "finalDrift": 0.0567653162787796,
-              "peakAngleError": 0.1150254262641116,
-              "peakEffort": 53.60565662384033,
-              "peakEffortViolation": 0.000017354309925110556,
+              "peakDrift": 0.03262372043908708,
+              "finalDrift": 0.03257092281830605,
+              "peakAngleError": 0.09327230768636108,
+              "peakEffort": 52.02190026640892,
+              "peakEffortViolation": 0,
               "contactSteps": 1200,
               "complete": true,
               "success": false,
               "replayExact": true,
-              "digest": "90c5f12f9cffa136b308b2e1f8f04bc65593910a6ba919d6b980712c0e88ed13",
-              "stateDigest": "510858d57c7092c5ee13fbb8e94907a6d584a03539bf4f85cbe554925d4be825"
+              "digest": "72356feeae31cdc09aeaddd394f9217bb971976ad62eba28a7367fe1f234bf4a",
+              "stateDigest": "3b443de075e533a4fe9e5f6035c7fafa883f6ddaf115bcaae7dde039a5bdb24c"
             },
             "physical": {
               "assistForceIntegralNs": 0,
               "assistMomentIntegralNms": 0
             },
             "timing": {
-              "meanStepMs": 0.6978118750000005,
-              "p95StepMs": 0.8360000000000127,
-              "p99StepMs": 1.1262000000001535
+              "meanStepMs": 2.5970996875000014,
+              "p95StepMs": 3.6984000000002197,
+              "p99StepMs": 8.883100000000013
             },
             "limits": [
               "installed empty-handed Warrior pose; no entry, recovery or disturbance",

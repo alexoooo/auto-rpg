@@ -406,9 +406,10 @@ does not raise strength. Action representations and the world's actuator law bel
 manifests. `DirectMindConfig` supplies explicit joint targets, time constant, maximum speed and
 activation to an independent joint-feedback policy. It shares the game's construction, level,
 disposal and replay paths, and has no fighter view. Its pinned reach/hold test is a replacement
-proof, not a standing or fighting claim. The same independent policy also holds an installed
-Warrior all-fours pose on ordinary ground for ten seconds within 2 cm, without assistance
-([posture hold](reference/posture-hold.md)); half-kneel and squat fail that gate.
+proof, not a standing or fighting claim. On the workshop hands' hulls the same independent
+policy holds no installed Warrior pose on ordinary ground for ten seconds within 2 cm without
+assistance: all fours drifts 2.3 cm, and half-kneel and squat fail further
+([posture hold](reference/posture-hold.md)).
 The posture task also exposes checked external actions, immutable actuator descriptions and
 the common environment interface. Its held command is replayable controller state; the physical
 fixture and scoring are independent of controller choice. An explicitly privileged

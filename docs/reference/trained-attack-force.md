@@ -107,8 +107,9 @@ strength, assistance or damage multiplier is changed by this measurement work.
 ## Recorded results
 
 The conservative 48-cell battery in [attack-force-reference.json.gz](attack-force-reference.json.gz)
-preserves the complete records under its source fingerprint. The current Arena
-profile's battery is [attack-force.json.gz](attack-force.json.gz). The following
+preserves the complete records under its source fingerprint; its hands are capsules.
+The current Arena profile's battery is [attack-force.json.gz](attack-force.json.gz),
+code at `83c3540c`: the workshop hands' measured hulls, the punch on the fist's. The following
 conservative values are means of the first three eligible impacts,
 or the available eligible impacts when the three-trial gate fails. All figures
 use the Node stand, same engine, empty hands, balance 0 and the frozen pad law.
@@ -152,17 +153,42 @@ current kick battery retains the same Node apparatus and balance 0:
 
 | Law / limb | 120 Hz impulse (N s) | 1,920 Hz impulse (N s) | 1,920 Hz 2 ms peak (N) |
 | --- | ---: | ---: | ---: |
-| Symmetric / left | 10.708 | 4.089 | 169.5 |
-| Symmetric / right | 10.235 | 3.748 | 165.0 |
-| Directional / left | 10.336 | 4.016 | 169.0 |
-| Directional / right | 10.130 | 3.849 | 169.3 |
+| Symmetric / left | 10.358 | 4.114 | 170.3 |
+| Symmetric / right | 10.013 | 3.851 | 168.6 |
+| Directional / left | 10.138 | 4.117 | 170.1 |
+| Directional / right | 10.580 | 3.856 | 170.0 |
 
 The stronger 120 Hz profile passes the six-cell hit/miss/block stability screen
 under symmetric actuation. The force battery applies the additional bounds and
-rate gates: left symmetric braking exceeds the activated anatomical bound at
-120 Hz, right directional returns fail there, and both laws' right foot falls
-at 1,920 Hz. Successive fine-rate kick impulses still change by roughly 8-13%.
-No paired-limb family qualifies. Punch settings and measurements are unchanged.
+rate gates: under both laws the left foot fails a cycle and its returns at
+120 Hz, and the right foot falls at 1,920 Hz. Successive fine-rate kick impulses
+still change by roughly 8-12%. No paired-limb family qualifies.
+
+The current pack's punches keep the conservative settings and strike with the
+fist's hull:
+
+| Law / family / limb | 120 Hz impulse (N s) | 1,920 Hz impulse (N s) | 1,920 Hz 2 ms peak (N) |
+| --- | ---: | ---: | ---: |
+| Symmetric / straight / left | 11.596 | 5.961 | 324.9 |
+| Symmetric / straight / right | 11.225 | 6.263 | 316.2 |
+| Symmetric / cross / left | 6.339 | 4.957 | 305.0 |
+| Symmetric / cross / right | 6.189 | 5.280 | 310.7 |
+| Directional / straight / left | 11.289 | 5.824 | 320.3 |
+| Directional / straight / right | 10.900 | 5.595 | 317.5 |
+| Directional / cross / left | 7.991 | 3.940 | 254.0 |
+| Directional / cross / right | 7.663 | 4.985 | 305.8 |
+
+Every 1,920 Hz punch carries more impulse and a higher 2 ms peak than the
+reference pack's, and none qualifies. The 120 Hz cells land fewer than three clean
+impacts except the symmetric left cross; those rows are one or two impacts.
+Symmetric punches exceed directional anatomical bounds in 11 of 16 cells,
+mostly at the wrist in a return: at 480 Hz a left straight returns with 8.22 N m
+of wrist radial deviation against a zero activated bound. Directional punches
+keep within their bounds. Their straight impulses change by 11% from 480 to
+960 Hz and their 960-to-1,920 Hz 2 ms peaks by 0.2% and 4.2%; the left
+straight's 1,920 Hz cell exceeds the pad stroke. Directional cross impulses
+change by 12-21% (left) and 34-37% (right). The maximum motor-bound relative
+excess over all cells is 1.64e-7, below the numerical allowance.
 
 The apparatus correction removes a missed partial-surface load; it does not
 close the force gap. Higher terminal speed alone is also insufficient. The

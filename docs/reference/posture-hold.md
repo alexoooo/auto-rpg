@@ -1,4 +1,4 @@
-# Independent feedback holds an installed posture
+# Independent feedback on an installed posture
 
 `tasks/posture-hold.ts` initializes a body through `buildBody` and runs the existing independent
 joint-feedback policy through detached observations and bounded muscle actions. The policy has
@@ -10,9 +10,9 @@ initial pose and scoring are identical. An [offline native-rollout diagnostic](n
 now holds half-kneel at the default solver count; that result uses a different controller from
 the direct-feedback measurements below.
 
-Harness: Node core world and visible `/control-tasks.html`, 120 Hz, Rapier
-0.21.0-auto-rpg.6 / adapter 7, corrected angular limits, directional muscle bounds, native
-16 solver iterations, ordinary ground, empty hands, zero root and weapon assistance.
+Harness: Node core world, 120 Hz, Rapier 0.21.0-auto-rpg.7 / adapter 9, corrected angular
+limits, directional muscle bounds, native 16 solver iterations, ordinary ground, empty hands,
+zero root and weapon assistance; code at `83c3540c`, the workshop hands' measured hulls.
 The two profiles differ only in patch versus per-point friction. Anatomical strength is unchanged.
 
 ## Fixture and acceptance
@@ -38,30 +38,26 @@ Maximum segment drift in metres, Node core world / 120 Hz:
 
 | Pose | Response (s) | Patch friction | Per-point friction |
 |---|---:|---:|---:|
-| All fours | 0.1 | 0.055644 | 0.056765 |
-| All fours | 0.03 | 0.023038 | 0.022654 |
-| All fours | 0.01 | **0.014867** | **0.015455** |
-| Half kneel | 0.1 | 0.213588 | 0.100578 |
-| Half kneel | 0.03 | 0.083608 | 0.098305 |
-| Half kneel | 0.01 | 0.105976 | 0.127072 |
-| Squat | 0.1 | 1.679972 | 1.681500 |
-| Squat | 0.03 | 1.673627 | 1.673628 |
-| Squat | 0.01 | 1.686939 | 1.679042 |
+| All fours | 0.1 | 0.036987 | 0.032624 |
+| All fours | 0.03 | 0.028695 | 0.023134 |
+| All fours | 0.01 | 0.023510 | 0.024768 |
+| Half kneel | 0.1 | 0.218934 | 0.100593 |
+| Half kneel | 0.03 | 0.083573 | 0.098304 |
+| Half kneel | 0.01 | 0.105985 | 0.127047 |
+| Squat | 0.1 | 1.679996 | 1.683447 |
+| Squat | 0.03 | 1.669865 | 1.675927 |
+| Squat | 0.01 | 1.699437 | 1.676254 |
 
-Only all fours at 0.01 s passes. Both passing cells have ground contact on all 1,200 steps
-and no measured effort excess. Maximum driven effort, including startup, is 52.974758 N m
-(patch) and 51.222328 N m (per-point); these are not struck peaks. All eighteen measured
-cells replay exactly from the two-second checkpoint. Each engine run additionally reports
-eighteen unsupported Rogue/skeleton cells; it does not silently count them as measured trials.
-This fixed development screen is not a distributional success estimate. Held-out data is unused.
+No cell passes. All fours comes nearest, 2.31 to 3.70 cm, with ground contact on all 1,200
+steps and no effort excess beyond the tolerance. Maximum driven effort, including startup, is
+47.4 to 53.7 N m on all fours; these are not struck peaks. All eighteen measured cells replay
+exactly from the two-second checkpoint. Each engine run additionally reports eighteen
+unsupported Rogue/skeleton cells; it does not silently count them as measured trials. This
+fixed development screen is not a distributional success estimate. Held-out data is unused.
 
-Visible browser runs of both passing cells reproduce the complete outcome and observation
-trace from steps 241 through 1,200, and match their restored branch:
-
-| Profile | Observation SHA256 |
-|---|---|
-| `rapier-coordinate` | `6f7df4c5ec8cfd01347d7d7012c62085705cf7bad07666dfbd203555c5311049` |
-| `rapier-coordinate-coulomb` | `b8942a1226c8851f89692635775b20f3462f213bc05cc489c44e283dd084eff6` |
+The hands decide it. The same patch-friction screen at `8c59943b`, the hands capsules, holds
+all fours at 0.01 s within 0.014867 m, ground contact on all 1,200 steps and no effort excess;
+its other cells drift 0.023038 to 1.686939 m. The hulls move that cell to 0.023510 m.
 
 Reproduce with `CORE_ENGINE` set to either profile:
 
@@ -74,7 +70,7 @@ worker timings are diagnostic, not a quiet-machine capacity measurement. Tests a
 limp control, slower feedback and missing fixtures, and verify that requested construction
 angles agree with signed joint readings without an initial constraint impulse.
 
-The useful result is a general independent policy holding one grounded anatomical pose.
-Entry, disturbances, loaded hands, balanced kneeling/squatting and transitions to useful
+With the hands' hulls the independent policy holds no grounded anatomical pose within the
+gate. Entry, disturbances, loaded hands, balanced kneeling/squatting and transitions to useful
 standing control remain separate gates. The contact predictor's anatomical mismatch remains
 an open [recovery study](../analysis/2026-10-05-recovery-support.md).

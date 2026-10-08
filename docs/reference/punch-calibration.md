@@ -2,12 +2,13 @@
 
 The unassisted Warrior can deliver measured punches, but the retained executor and the
 tested trajectory variants do not establish hard human punching performance. A compliant
-research pad gives roughly 240-570 N peaks in admitted fine-step comparisons, with selected
-impulses around 4-6 N s. The human reference is 1,665 N and 22.84 N s. Changing the requested
-endpoint speed from 5 to 8 m/s produces only about 5 m/s over the final 10 cm in these fixtures.
+research pad gives roughly 160-460 N peaks in admitted fine-step comparisons, with selected
+impulses around 4-10 N s. The human reference is 1,665 N and 22.84 N s. Changing the requested
+endpoint speed from 5 to 8 m/s produces only 4.3-5.3 m/s over the final 10 cm in these fixtures.
 
 The harness is **Node unpinned core stand, rapier-coordinate, symmetric actuation, Warrior
-empty hands, balance 0, no wound scoring**, at the explicitly named physics/control rate.
+empty hands, balance 0, no wound scoring**, at the explicitly named physics/control rate,
+code at `83c3540c`: the workshop hands' measured hulls, and the blow closes the fist.
 Each cell lasts six simulated seconds with two seconds of guard startup. It calls the same
 `combatSkills`, hand controller, muscles and `World.step` used by Arena combat. Strength,
 shortening speed, body mass, anatomy and balance are unchanged. These are repeated deterministic
@@ -56,9 +57,8 @@ material peak. Refining the rate produces multi-kilonewton bins without demonstr
 strong human punch.
 
 The **compliant face** makes the pad collider a sensor and applies an equal/opposite physical
-force to actual live collision surfaces and the pad. The recorded battery's source fingerprint
-uses foremost capsule-point admission. The current meter clips capsule, sphere, box and hull
-surfaces to its finite window, including partial face overlaps, as specified in
+force to actual live collision surfaces and the pad. The meter clips capsule, sphere, box and
+hull surfaces to its finite window, including partial face overlaps, as specified in
 [trained-attack-force.md](trained-attack-force.md). It remains a normal material fixture.
 Compression gives `max(0, stiffness * penetration + damping * relative speed)`.
 Default face stiffness is 10,000 N/m and damping 20 N s/m; sensitivity cells use 5,000 and
@@ -94,54 +94,56 @@ retained `ATTACK_PATH`. Extension changes an IK preference, not a strength limit
 
 | Face / profile | Hand | Hz | Selected speed (m/s) | Impulse (N s) | Peak force bin (N) | Impulse/speed mass (kg) | Returns | Qualification |
 |---|---|---:|---:|---:|---:|---:|---:|---|
-| rigid / reference | left | 120 | 4.87 | 5.08 | 589 | 1.04 | 5 | pass |
-| rigid / reference | right | 120 | 4.85 | 5.32 | 613 | 1.10 | 5 | pass |
-| rigid / extended | left | 120 | 4.93 | 5.52 | 662 | 1.12 | 5 | pass |
-| rigid / extended | right | 120 | 4.91 | 5.55 | 665 | 1.13 | 5 | pass |
-| rigid / faster-extended | left | 120 | 5.03 | 7.43 | 804 | 1.48 | 4 | pass |
-| rigid / faster-extended | right | 120 | - | - | - | - | 4 | fewer than three complete measured hand impacts |
-| rigid / reference | right | 480 | 4.83 | 7.98 | 1423 | 1.65 | 4 | pass |
-| rigid / faster-extended | right | 480 | 4.84 | 11.01 | 2391 | 2.27 | 3 | pass |
-| rigid / reference | right | 960 | 4.50 | 7.09 | 3077 | 1.57 | 4 | pass |
-| rigid / faster-extended | right | 960 | 4.94 | 10.97 | 3190 | 2.22 | 3 | pass |
-| rigid / faster-extended/pad-sensitivity (mount 10000) | right | 120 | 5.21 | 8.35 | 610 | 1.60 | 4 | pass |
-| rigid / faster-extended/pad-sensitivity (mount 80000) | right | 120 | 5.00 | 7.66 | 798 | 1.53 | 4 | pass |
-| compliant / reference | left | 120 | 4.95 | 4.53 | 544 | 0.92 | 5 | pass |
-| compliant / reference | right | 120 | 4.91 | 5.27 | 543 | 1.07 | 5 | pass |
-| compliant / extended | left | 120 | 4.95 | 6.90 | 567 | 1.39 | 4 | pass |
-| compliant / extended | right | 120 | 5.02 | 5.79 | 476 | 1.15 | 2 | failed strike/return cycle; fewer than three verified returns |
-| compliant / faster-extended | left | 120 | - | - | - | - | 1 | failed strike/return cycle; fewer than three complete measured hand impacts; fewer than three verified returns |
-| compliant / faster-extended | right | 120 | 5.21 | 5.30 | 376 | 1.02 | 2 | failed strike/return cycle; fewer than three verified returns |
-| compliant / reference | right | 480 | 4.87 | 4.31 | 264 | 0.88 | 4 | pass |
-| compliant / faster-extended | right | 480 | 5.05 | 6.20 | 421 | 1.23 | 5 | pass |
-| compliant / reference | right | 960 | 4.50 | 4.51 | 253 | 1.00 | 4 | pad stroke exceeded |
-| compliant / faster-extended | right | 960 | 5.07 | 6.40 | 433 | 1.26 | 5 | pass |
-| compliant / reference | right | 1920 | 4.83 | 4.24 | 242 | 0.88 | 5 | pass |
-| compliant / faster-extended | right | 1920 | 5.04 | 5.80 | 420 | 1.15 | 5 | pass |
-| compliant / faster-extended/face-sensitivity (face 5000) | right | 960 | 5.07 | 5.45 | 288 | 1.08 | 5 | pass |
-| compliant / faster-extended/face-sensitivity (face 20000) | right | 960 | 5.04 | 5.62 | 570 | 1.11 | 5 | pass |
+| rigid / reference | left | 120 | 4.92 | 5.96 | 715 | 1.21 | 5 | pass |
+| rigid / reference | right | 120 | 4.99 | 6.13 | 736 | 1.23 | 5 | pass |
+| rigid / extended | left | 120 | 5.14 | 6.59 | 790 | 1.28 | 5 | pass |
+| rigid / extended | right | 120 | 5.13 | 6.37 | 764 | 1.24 | 5 | pass |
+| rigid / faster-extended | left | 120 | 5.32 | 5.65 | 678 | 1.06 | 4 | pass |
+| rigid / faster-extended | right | 120 | 5.25 | 12.04 | 488 | 2.29 | 4 | pass |
+| rigid / reference | right | 480 | 4.90 | 8.64 | 2493 | 1.76 | 4 | pass |
+| rigid / faster-extended | right | 480 | 5.05 | 13.42 | 1786 | 2.66 | 3 | pass |
+| rigid / reference | right | 960 | 4.79 | 5.72 | 4964 | 1.20 | 5 | pass |
+| rigid / faster-extended | right | 960 | 5.00 | 10.91 | 5180 | 2.18 | 4 | pass |
+| rigid / faster-extended/pad-sensitivity (mount 10000) | right | 120 | - | - | - | - | 4 | fewer than three complete measured hand impacts |
+| rigid / faster-extended/pad-sensitivity (mount 80000) | right | 120 | - | - | - | - | 4 | fewer than three complete measured hand impacts |
+| compliant / reference | left | 120 | 4.91 | 10.25 | 554 | 2.09 | 2 | failed strike/return cycle; fewer than three verified returns |
+| compliant / reference | right | 120 | 4.90 | 9.85 | 521 | 2.01 | 4 | pass |
+| compliant / extended | left | 120 | - | - | - | - | 4 | fewer than three complete measured hand impacts |
+| compliant / extended | right | 120 | - | - | - | - | 4 | fewer than three complete measured hand impacts |
+| compliant / faster-extended | left | 120 | 4.60 | 4.73 | 338 | 1.03 | 4 | pass |
+| compliant / faster-extended | right | 120 | 4.33 | 3.91 | 192 | 0.90 | 5 | pass |
+| compliant / reference | right | 480 | 4.88 | 9.92 | 415 | 2.03 | 4 | pass |
+| compliant / faster-extended | right | 480 | 4.72 | 6.62 | 237 | 1.40 | 5 | pass |
+| compliant / reference | right | 960 | 4.92 | 8.12 | 347 | 1.65 | 4 | pass |
+| compliant / faster-extended | right | 960 | 4.92 | 8.66 | 285 | 1.76 | 5 | pass |
+| compliant / reference | right | 1920 | 4.77 | 8.78 | 377 | 1.84 | 4 | pass |
+| compliant / faster-extended | right | 1920 | 5.21 | 5.93 | 314 | 1.14 | 5 | pass |
+| compliant / faster-extended/face-sensitivity (face 5000) | right | 960 | 4.96 | 4.40 | 163 | 0.89 | 5 | pass |
+| compliant / faster-extended/face-sensitivity (face 20000) | right | 960 | 4.90 | 6.43 | 464 | 1.31 | 5 | pass |
 
-The current hand collider represents an open hand, while the named strike point is at the
-knuckles. In the rigid fixture the first contact is roughly 7 cm before those knuckles reach
-the requested face. The requested endpoint velocity is consequently not the measured impact
-speed. A physically closed fist envelope and coordinated wrist/arm/trunk bracing remain
-subjects for a separate measured change.
+The hand strikes with the fist's hull, the named strike point on its surface. At first contact
+the contact point lies 2-4 cm ahead of that point along the punch and 1-5 cm below it
+(`contactGeometry` against the pre-step strike point), 2.2-3.1 cm ahead at 480 Hz and finer.
+The requested endpoint velocity is consequently not the measured impact speed. Coordinated
+wrist/arm/trunk bracing remains a subject for a separate measured change.
 
-The compliant faster-extended right-hand peak means at 480, 960 and 1920 Hz are approximately
-416, 378 and 403 N. Reading the fine impulses in clock-aligned 120 Hz bins avoids comparing
-a 1 ms spike to an 8 ms average. This is a convergence screen, not a claim that each rate
-produces the same punch: control and contact trajectories also change. The 960 Hz reference
-cell exceeds the face stroke during a later contact and is rejected despite usable earlier
-strikes. At 120 Hz several extended/faster compliant cells fail return; no profile is promoted.
+Means of the first three impacts' peaks in clock-aligned 120 Hz bins, right hand, compliant
+face, at 480, 960 and 1920 Hz: faster-extended 246, 277 and 244 N; reference 368, 345 and
+350 N. Reading the fine impulses in 120 Hz bins avoids comparing a 1 ms spike to an 8 ms
+average. This is a convergence screen, not a claim that each rate produces the same punch:
+control and contact trajectories also change. At 120 Hz the compliant left reference cell
+fails a cycle and its returns, and both extended cells and both rigid mount-sensitivity cells
+land fewer than three measured impacts; no profile is promoted.
 
 For the admitted right-hand compliant faster-extended fixture at 1920 Hz, best of three is
-5.04 m/s, 5.80 N s, 420 N and 1.15 kg by impulse/speed. Against the cited human means these
-are about 63%, 25%, 25% and 39%, respectively, under different uncalibrated padding. Doubling
-face stiffness to 20,000 N/m at 960 Hz yields 570 N and 5.62 N s in the selected trial;
-changing padding can raise force without establishing a stronger fighter. No tested admitted
-compliant cell reaches the cited human impulse or peak-force mean.
+5.21 m/s, 5.93 N s, 314 N and 1.14 kg by impulse/speed. Against the cited human means these
+are about 65%, 26%, 19% and 39%, respectively, under different uncalibrated padding. The
+reference profile there selects 4.77 m/s, 8.78 N s, 377 N and 1.84 kg: more impulse and mass
+at a lower speed. Doubling face stiffness to 20,000 N/m at 960 Hz yields 464 N and 6.43 N s in
+the selected trial; changing padding can raise force without establishing a stronger fighter.
+No tested admitted compliant cell reaches the cited human impulse or peak-force mean.
 
-The independently measured impulse/speed mass is commonly around 1 kg, while the separate
+The independently measured impulse/speed mass is commonly 1-2 kg, while the separate
 free-joint scoring estimate is much smaller. They are different quantities. The result
 motivates auditing damage's free-joint/no-ground-support assumption; it does not establish
 that replacing it by this fixture's mass is correct for an opponent's head or trunk.
@@ -167,6 +169,6 @@ node --test tests/research-punch-calibration.test.mjs
 
 The runner uses one sequential world per trial and refuses a suite whose implementation
 fingerprint changes during measurement. `--face-stiffness`, `--pad-stiffness`, `--seconds`
-and `--mode miss` are explicit per-trial inputs. Further work is to measure a realistic fist
-envelope and pre-impact bracing, calibrate the target's materials, and retain stronger
+and `--mode miss` are explicit per-trial inputs. Further work is to measure pre-impact
+bracing, calibrate the target's materials, and retain stronger
 controllers only after both-hand hit/miss/return and Arena qualification.
