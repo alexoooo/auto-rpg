@@ -1,0 +1,1715 @@
+{
+ "study": "docs/analysis/2026-10-08-punch-and-rise-speed.md",
+ "code": "38cdc1cb",
+ "note": "Probes ran from copies of the tree at 38cdc1cb with the named patches applied. Paths are as they were run, under research/runs/punch/.",
+ "patches": {
+  "torso-carried.patch": "diff --git a/src/core/body.ts b/src/core/body.ts\nindex 84c17dea..906e2e6e 100644\n--- a/src/core/body.ts\n+++ b/src/core/body.ts\n@@ -324,7 +324,7 @@ const sameGoal = (a: EffectorGoal, b: EffectorGoal): boolean =>\n   && (a.curve === b.curve || (a.curve !== undefined && b.curve !== undefined && a.curve.every((v, k) => v === b.curve![k])))\n   && (a.orientation === b.orientation || (a.orientation !== undefined && b.orientation !== undefined\n     && a.orientation.seconds === b.orientation.seconds && a.orientation.target.every((v, k) => v === b.orientation!.target[k])))\n-  && a.sequence === b.sequence\n+  && a.sequence === b.sequence && a.carried === b.carried\n   && a.seconds === b.seconds && a.through === b.through && a.follows === b.follows && a.places.length === b.places.length\n   && a.places.every((place, i) => place.point === b.places[i]!.point && place.position.every((v, k) => v === b.places[i]!.position[k]));\n \ndiff --git a/src/core/control/effector-tracker.ts b/src/core/control/effector-tracker.ts\nindex f7afd7fa..906370d8 100644\n--- a/src/core/control/effector-tracker.ts\n+++ b/src/core/control/effector-tracker.ts\n@@ -40,6 +40,12 @@ export interface EffectorGoal {\n   readonly curve?: Vec3;\n   /** Identity of a moving path segment; changing it starts a new path. */\n   readonly sequence?: number;\n+  /**\n+   * Whether the chain's held freedoms (an arm's trunk) are read where the body has them, not at the\n+   * posture's angles: the path is then the point's from the root as the trunk actually carries the\n+   * limb, and a trunk turning under a blow speeds its point rather than throwing it off its line.\n+   */\n+  readonly carried?: boolean;\n   /** Independent segment turn since reference, in the root frame, on a smooth finite path. */\n   readonly orientation?: { readonly target: readonly [number, number, number, number]; readonly seconds: number };\n }\n@@ -198,7 +204,7 @@ export function effectorTracker(built: BuiltBody, root: BuiltSegment) {\n       // The held freedoms at the posture's angles, the free ones drawn toward it.\n       limb.chain.forEach((joint, j) => {\n         if (limb.free.some((f) => f.joint === j)) return;\n-        names(joint).forEach((name, k) => { m.angles[j]![k] = fromActual ? driver.angle(driver.channel(name)) : pose[name] ?? 0; });\n+        names(joint).forEach((name, k) => { m.angles[j]![k] = fromActual || m.goal!.carried ? driver.angle(driver.channel(name)) : pose[name] ?? 0; });\n       });\n       for (const f of limb.free) f.preferred = pose[f.name] ?? 0;\n       if (!m.started) {\ndiff --git a/src/core/skills/attack-path.ts b/src/core/skills/attack-path.ts\nindex 01c06828..7909b099 100644\n--- a/src/core/skills/attack-path.ts\n+++ b/src/core/skills/attack-path.ts\n@@ -24,14 +24,18 @@ export function validAttackTuning(tuning: AttackTuning): boolean {\n     && validArmExtension(tuning.elbowExtension);\n }\n \n-/** A chamber and contact velocity from the actual guard and observed target, in the body frame. */\n+/**\n+ * A chamber and contact velocity from the actual guard and observed target, in the body frame, and\n+ * the trunk's turn (`thoracic rotation right`, rad) the swing asks: a cross or a hook turns the trunk\n+ * away from its hand's side, bringing that shoulder forward, and its chamber the other way.\n+ */\n export function attackPath(home: Vec3, target: Vec3, hand: Side, family: BlowFamily, tuning: AttackTuning = ATTACK_PATH, direction?: Vec3) {\n   const side = hand === \"right\" ? 1 : -1;\n   let chamber: Vec3, torso: number, seconds = tuning.swingSeconds;\n   switch (family) {\n     case \"straight\": chamber = [home[0], home[1], home[2] - tuning.windup]; torso = 0; break;\n-    case \"cross\": chamber = [home[0] + side * tuning.across, home[1], home[2] - tuning.windup]; torso = side * tuning.torso; break;\n-    case \"hook\": chamber = [home[0] + side * tuning.windup, home[1], home[2]]; torso = side * tuning.torso; seconds = tuning.hookSeconds; break;\n+    case \"cross\": chamber = [home[0] + side * tuning.across, home[1], home[2] - tuning.windup]; torso = -side * tuning.torso; break;\n+    case \"hook\": chamber = [home[0] + side * tuning.windup, home[1], home[2]]; torso = -side * tuning.torso; seconds = tuning.hookSeconds; break;\n     case \"downward\": chamber = [home[0], home[1] + tuning.windup, home[2]]; torso = 0; break;\n     case \"overhand\": chamber = [home[0], home[1] + tuning.overhandWindup, home[2] - tuning.windup]; torso = 0; break;\n     case \"uppercut\": chamber = [home[0], home[1] - tuning.uppercutWindup, home[2] - tuning.windup]; torso = 0; seconds = tuning.uppercutSeconds; break;\ndiff --git a/src/core/skills/effector-strike.ts b/src/core/skills/effector-strike.ts\nindex b33ca3b6..59ed4606 100644\n--- a/src/core/skills/effector-strike.ts\n+++ b/src/core/skills/effector-strike.ts\n@@ -106,12 +106,16 @@ export function effectorStrike(def: StrikeDef) {\n     },\n     /** How long the phase under way takes, a held contact aside. */\n     seconds,\n-    /** The point's goal in the phase under way, or through a held contact; `orientation` turns the effector as it goes. */\n+    /**\n+   * The point's goal in the phase under way, or through a held contact; `orientation` turns the\n+   * effector as it goes. It is carried (`EffectorGoal.carried`): the limb is aimed from where its\n+   * trunk is, which a blow turns.\n+   */\n     goal(course: StrikeCourse, orientation?: EffectorGoal[\"orientation\"]): EffectorGoal {\n       const { phase, impact } = state;\n       const position = impact ? impact.finish : phase === \"chamber\" ? course.chamber : phase === \"return\" ? course.home : course.target;\n       return { ...(def.response === undefined ? {} : { response: def.response }), places: [{ point: def.point, position }],\n-        seconds: impact ? def.limits.impact!.impactSeconds : seconds(course), follows: true, initialVelocity: state.velocity, sequence: state.sequence,\n+        seconds: impact ? def.limits.impact!.impactSeconds : seconds(course), follows: true, initialVelocity: state.velocity, sequence: state.sequence, carried: true,\n         ...(orientation ? { orientation } : {}),\n         ...(impact ? { terminalVelocity: STILL }\n           : phase === \"swing\" ? { terminalVelocity: course.contactVelocity, ...(course.curve ? { curve: course.curve } : {}) } : {}) };\n",
+  "fast-speed.patch": "--- /dev/fd/63\t2026-10-08 00:16:10.000000000 -0400\n+++ fast-snapshot/src/core/human/speed.ts\t2026-10-07 23:58:53.718642600 -0400\n@@ -58,8 +58,13 @@\n \n function shortening(direction: Measured, sex: Sex): Pick<ForceVelocitySpec, \"unloadedSpeed\" | \"curvature\"> {\n   switch (direction) {\n-    case \"hipExtension\": case \"hipFlexion\": case \"kneeExtension\": case \"kneeFlexion\": case \"ankleDorsiflexion\":\n-      return throughTwoPoints(direction, sex);\n+    case \"hipExtension\": case \"hipFlexion\": case \"kneeExtension\": case \"kneeFlexion\": case \"ankleDorsiflexion\": {\n+      const { threeQuarters, half } = andersonPoints(direction, sex);\n+      const k = THELEN_CURVATURE.value, pts = [[threeQuarters.value, .75], [half.value, .5]];\n+      let num = 0, den = 0; for (const [w, f] of pts) { num += (1 - f) * (w + f * w / k); den += (1 - f) * (1 - f); }\n+      void throughTwoPoints;\n+      return { unloadedSpeed: derive(\"rad/s\", \"experiment\", [threeQuarters], () => num / den), curvature: THELEN_CURVATURE };\n+    }\n     case \"elbowFlexion\": case \"elbowExtension\":\n       return fittedAtCurvature(direction, sex);\n     default: { const never: never = direction; throw new Error(`no curve for ${String(never)}`); }\n",
+  "stance-tuning.patch": "--- /dev/fd/63\t2026-10-08 00:16:10.000000000 -0400\n+++ base-snapshot/research/punch-calibration.mjs\t2026-10-08 00:09:01.602022700 -0400\n@@ -42,14 +42,14 @@\n \n /** The real unassisted Warrior executor, with a detached target and an independent impulse sensor. */\n export async function punchStand({hand='right',family='straight',hz=120,seconds=6,ahead=.6,height=1.63,\n-  contactSpeed=5,armExtension=0,mode='hit',pad={},paths={},execution,matchedFeedback=false,actuation} = {}) {\n+  contactSpeed=5,armExtension=0,mode='hit',pad={},paths={},execution,matchedFeedback=false,actuation,stanceTuning} = {}) {\n   if (!['left','right'].includes(hand) || !['straight','cross'].includes(family) || !['hit','miss'].includes(mode)\n     || ![120,240,480,960,1920].includes(hz) || ![seconds,ahead,height,contactSpeed,armExtension].every(Number.isFinite)\n     || seconds<=2 || ahead<=0 || contactSpeed<=0 || armExtension<0 || armExtension>1) throw new Error('invalid punch calibration');\n   const config={hand,family,hz,seconds,ahead,height,contactSpeed,armExtension,mode,pad,paths,execution,matchedFeedback,actuation};\n   const s=await coreStand(modelSpec('workshop-fighter'),{engine:DEFAULT_ENGINE,hz,actuation});\n   let sensor;\n-  const body=createBody(s.built,s.world,{servoSeconds:SERVO_SECONDS,feedback:true,\n+  const body=createBody(s.built,s.world,{servoSeconds:SERVO_SECONDS,feedback:true,...(stanceTuning?{stance:stanceTuning}:{}),\n     ...(matchedFeedback?{contactIdentity:other=>other===sensor?.body?{kind:'object',id:'punch-pad'}:other?null:{kind:'world'},\n       contacts:segment=>(sensor?.state.materialContacts??[]).filter(c=>c.segment===segment).map(c=>({target:{kind:'object',id:'punch-pad'},\n         point:c.point,normal:[0,0,1],impulse:c.force*s.world.dt}))}: {})});\n",
+  "rise-scale.patch": "--- /dev/fd/63\t2026-10-08 00:16:10.000000000 -0400\n+++ base-snapshot/src/core/mind/rise/stages.ts\t2026-10-08 00:11:35.779842400 -0400\n@@ -5,6 +5,7 @@\n  */\n import type { BodySpec, JointSpec } from \"../../spec/body.ts\";\n import { deepFreeze } from \"../../state.ts\";\n+const RISE_SCALE = Number(globalThis.process?.env?.RISE_SCALE ?? 1);\n \n /** How a body lies: on its front, its back, or a side (the side that is down). */\n export type Lie = \"front\" | \"back\" | \"left\" | \"right\";\n@@ -193,10 +194,10 @@\n \n /** The stages that turn a body on its back onto its front, over its `over` side. */\n const rollOver = (over: Side): PoseStage[] => [\n-  { kind: \"pose\", name: \"wind\", posture: rollingOver(over, WIND), seconds: 0.5 },\n-  { kind: \"pose\", name: \"swing\", posture: rollingOver(over, SWING), seconds: 1 },\n-  { kind: \"pose\", name: \"over\", posture: rollingOver(over, OVER), seconds: 0.5 },\n-  { kind: \"pose\", name: \"flat\", posture: rollingOver(over, FLAT), seconds: 1 },\n+  { kind: \"pose\", name: \"wind\", posture: rollingOver(over, WIND), seconds: (0.5 * RISE_SCALE) },\n+  { kind: \"pose\", name: \"swing\", posture: rollingOver(over, SWING), seconds: (1 * RISE_SCALE) },\n+  { kind: \"pose\", name: \"over\", posture: rollingOver(over, OVER), seconds: (0.5 * RISE_SCALE) },\n+  { kind: \"pose\", name: \"flat\", posture: rollingOver(over, FLAT), seconds: (1 * RISE_SCALE) },\n ];\n \n /**\n@@ -352,11 +353,11 @@\n   // From its back a body rolls over its right side; on a side, it goes on over that side.\n   roll: { back: rollOver(\"right\"), left: rollOver(\"left\").slice(2), right: rollOver(\"right\").slice(2) },\n   rise: [\n-    { kind: \"pose\", name: \"fold\", posture: bothSides(FOLD), seconds: 1 },\n+    { kind: \"pose\", name: \"fold\", posture: bothSides(FOLD), seconds: (1 * RISE_SCALE) },\n     // The pelvis comes off the ground over the shins.\n-    { kind: \"pose\", name: \"tuck\", posture: bothSides(TUCK), seconds: 2 },\n+    { kind: \"pose\", name: \"tuck\", posture: bothSides(TUCK), seconds: (2 * RISE_SCALE) },\n     // The arms prop the trunk.\n-    { kind: \"pose\", name: \"prop\", posture: bothSides(PROP), seconds: 1.5 },\n+    { kind: \"pose\", name: \"prop\", posture: bothSides(PROP), seconds: (1.5 * RISE_SCALE) },\n     // The shins bear two thirds of the body and the hands a third: the centre of mass is held\n     // that far between them. The shins leave the body no height of its own.\n     {\n@@ -364,17 +365,17 @@\n       leave: [], overProp: false, height: null, pitch: 1.3, posture: bothSides(FOURS), seconds: 0.4, limit: 5,\n     },\n     // The kneel-up: back onto the heels, the trunk raised over the knees, the arms in, then tall.\n-    { kind: \"pose\", name: \"sit\", posture: bothSides(SIT), seconds: 1 },\n-    ...between(bothSides(SIT), bothSides(KNEEL), 3).map((posture, k): PoseStage => ({ kind: \"pose\", name: `kneel ${k}`, posture, seconds: 0.25 })),\n-    { kind: \"pose\", name: \"arms\", posture: bothSides(KNEEL_ARMS), seconds: 0.3 },\n-    { kind: \"pose\", name: \"hold\", posture: bothSides(KNEEL_ARMS), seconds: 1 },\n-    ...between(bothSides(KNEEL_ARMS), bothSides(TALL), 3).map((posture, k): PoseStage => ({ kind: \"pose\", name: `tall ${k}`, posture, seconds: 0.5 })),\n-    { kind: \"pose\", name: \"tall\", posture: bothSides(TALL), seconds: 1 },\n+    { kind: \"pose\", name: \"sit\", posture: bothSides(SIT), seconds: (1 * RISE_SCALE) },\n+    ...between(bothSides(SIT), bothSides(KNEEL), 3).map((posture, k): PoseStage => ({ kind: \"pose\", name: `kneel ${k}`, posture, seconds: 0.25 * RISE_SCALE })),\n+    { kind: \"pose\", name: \"arms\", posture: bothSides(KNEEL_ARMS), seconds: (0.3 * RISE_SCALE) },\n+    { kind: \"pose\", name: \"hold\", posture: bothSides(KNEEL_ARMS), seconds: (1 * RISE_SCALE) },\n+    ...between(bothSides(KNEEL_ARMS), bothSides(TALL), 3).map((posture, k): PoseStage => ({ kind: \"pose\", name: `tall ${k}`, posture, seconds: 0.5 * RISE_SCALE })),\n+    { kind: \"pose\", name: \"tall\", posture: bothSides(TALL), seconds: (1 * RISE_SCALE) },\n     // The step: the weight onto the right knee, and the left foot brought through and set down ahead.\n-    { kind: \"pose\", name: \"shift\", posture: bothSides(SHIFT), seconds: 0.6 },\n-    { kind: \"pose\", name: \"lift\", posture: bothSides(LIFT), seconds: 0.35, drive: QUICK },\n-    { kind: \"pose\", name: \"swing\", posture: bothSides(SWING_THROUGH), seconds: 0.42, drive: QUICK },\n-    { kind: \"pose\", name: \"reach\", posture: bothSides(REACH), seconds: 0.25, drive: QUICK },\n+    { kind: \"pose\", name: \"shift\", posture: bothSides(SHIFT), seconds: (0.6 * RISE_SCALE) },\n+    { kind: \"pose\", name: \"lift\", posture: bothSides(LIFT), seconds: (0.35 * RISE_SCALE), drive: QUICK },\n+    { kind: \"pose\", name: \"swing\", posture: bothSides(SWING_THROUGH), seconds: (0.42 * RISE_SCALE), drive: QUICK },\n+    { kind: \"pose\", name: \"reach\", posture: bothSides(REACH), seconds: (0.25 * RISE_SCALE), drive: QUICK },\n     // Half kneeling, borne on the right shin and the left foot; then the weight onto the right\n     // toes. Neither leaves the body a height or the pelvis a pitch of its own.\n     {\n"
+ },
+ "sources": {
+  "body.mjs": "// A punch cell with the body driven under it.\n// node body.mjs '<cell overrides>' '<drive>'\n// drive: { turn, lean (stance, rad / m, in chamber+swing), chamberTorso, swingTorso (thoracic posture),\n//          push: [[channel, sense, level?, from?, to?]] (seconds since the swing began; negative = in the chamber) }\nimport { Vector3 } from \"@babylonjs/core/Maths/math.vector.js\";\nimport { punchStand } from \"../../punch-calibration.mjs\";\nimport { PLANTED_PUNCH_EXECUTION } from \"../../../src/core/skills/combat.ts\";\nconst over = JSON.parse(process.argv[2] ?? \"{}\"), drive = { turn: 0, lean: 0, push: [], ...JSON.parse(process.argv[3] ?? \"{}\") };\nconst s = await punchStand({ hand: \"right\", family: \"straight\", hz: 960, seconds: 8, armExtension: .5, ahead: .55, height: 1.55,\n  execution: PLANTED_PUNCH_EXECUTION, matchedFeedback: true, paths: { elbowExtension: .5 }, pad: { face: \"compliant\" }, ...over });\nglobalThis.__ACTUAL = !!drive.actual;\nconst inner = s.skills.command;\nlet swingAt = null, chamberAt = null, last = null;\ns.skills.command = (view, intent, dt) => {\n  const c = inner(view, intent, dt), phase = s.skills.report.strike.phase;\n  if (phase === \"chamber\" && last !== \"chamber\") chamberAt = view.time;\n  if (phase === \"swing\" && last !== \"swing\") swingAt = view.time;\n  last = phase;\n  if (phase !== \"chamber\" && phase !== \"swing\") return c;\n  const since = phase === \"swing\" ? view.time - swingAt : view.time - chamberAt - s.skills.state.hands.right.cycle.time - 1e9;\n  const sinceSwing = phase === \"swing\" ? view.time - swingAt : -(1e-9 + (0.22 - (view.time - chamberAt)));\n  let { stance, posture, pushes } = c;\n  if (stance && (drive.turn || drive.lean)) {\n    const feet = view.stance.soles, mx = (feet.left.x + feet.right.x) / 2, mz = (feet.left.z + feet.right.z) / 2;\n    stance = { ...stance, heading: stance.heading + drive.turn, centre: drive.lean ? [mx, mz + drive.lean] : stance.centre };\n  }\n  const t = phase === \"chamber\" ? drive.chamberTorso : drive.swingTorso;\n  if (t !== undefined) posture = { ...posture, \"thoracic rotation right\": t };\n  const live = drive.push.filter(([, , , from = 0, to = 1]) => sinceSwing >= from && sinceSwing < to);\n  if (drive.free && sinceSwing >= drive.free[0] && sinceSwing < drive.free[1]) stance = null;\n  if (live.length) pushes = [...pushes, ...live.map(([channel, sense, level = 1]) => ({ channel, sense, level }))];\n  void since;\n  return { ...c, stance, posture, pushes };\n};\nconst arm = s.built.segments.get(\"upperArm.right\"), v = new Vector3();\nlet shoulderPeak = 0, fistPeak = 0; const passes = [];\nfor (let i = 0; i < 8 * 960; i++) {\n  s.step();\n  if (s.state.phase === \"swing\" && s.state.witness) { const p = s.state.witness.point, d = Math.hypot(p[0] - s.target[0], p[1] - s.target[1], p[2] - s.target[2]);\n    const k = s.state.launch; passes[k] ??= { d: 9 }; if (d < passes[k].d) passes[k] = { d: +d.toFixed(3), off: p.map((x, j) => +(x - s.target[j]).toFixed(3)), v: +s.state.witness.speed.toFixed(2) }; }\n  if (s.state.phase === \"swing\") { arm.body.linearVelocityToRef(v); shoulderPeak = Math.max(shoulderPeak, v.z); fistPeak = Math.max(fistPeak, s.state.witness?.speed ?? 0); }\n}\nconst r = s.reading(); s.dispose();\nconst clean = r.impacts.filter((e) => e.eligible && e.last10cmSpeed);\nconst mean = (f) => clean.length ? +(clean.reduce((a, e) => a + f(e), 0) / clean.length).toFixed(3) : null;\nconsole.log(JSON.stringify({ over, drive, n: clean.length, fell: r.fell, faults: r.qualification.faults, speed: mean((e) => e.last10cmSpeed), impulse: mean((e) => e.impulse),\n  peak: mean((e) => e.peakStepForce), mass: mean((e) => e.effectiveMass), shoulderPeak: +shoulderPeak.toFixed(2), fistPeak: +fistPeak.toFixed(2),\n  raw: r.impacts.map((e) => [e.contacts.join(\"+\"), +e.impulse.toFixed(1), e.truncated]), cycles: r.cycles, passes: passes.filter(Boolean), comp: +r.maximumCompression.toFixed(3) }));\n",
+  "sweep.mjs": "// node sweep.mjs <out dir> <parallel> <jobs.json: [[cellOverrides, drive], ...]>\nimport { spawn } from \"node:child_process\";\nimport { mkdirSync, readFileSync, writeFileSync, existsSync } from \"node:fs\";\nimport { resolve, dirname } from \"node:path\";\nimport { fileURLToPath } from \"node:url\";\nconst here = dirname(fileURLToPath(import.meta.url));\nconst [out, parallel = \"10\", jobsFile] = process.argv.slice(2);\nconst jobs = JSON.parse(readFileSync(jobsFile, \"utf8\"));\nmkdirSync(out, { recursive: true });\nlet next = 0;\nconst one = (i) => new Promise((done) => {\n  const file = resolve(out, `${i}.json`);\n  if (existsSync(file)) return done();\n  const [cell, drive] = jobs[i];\n  const child = spawn(process.execPath, [resolve(here, \"body.mjs\"), JSON.stringify(cell), JSON.stringify(drive)], { stdio: [\"ignore\", \"pipe\", \"ignore\"] });\n  let text = \"\";\n  child.stdout.on(\"data\", (d) => { text += d; });\n  child.on(\"close\", () => { const line = text.split(\"\\n\").find((l) => l.startsWith(\"{\")); if (line) writeFileSync(file, line); done(); });\n});\nawait Promise.all(Array.from({ length: +parallel }, async () => { while (next < jobs.length) await one(next++); }));\nconst rows = jobs.map((_, i) => existsSync(resolve(out, `${i}.json`)) ? JSON.parse(readFileSync(resolve(out, `${i}.json`), \"utf8\")) : null);\nfor (const [i, r] of rows.entries()) {\n  if (!r) { console.log(i, \"no output\"); continue; }\n  console.log(i, JSON.stringify(r.over), JSON.stringify(r.drive), \"| n\", r.n, \"v\", r.speed, \"J\", r.impulse, \"F\", r.peak?.toFixed?.(0), \"m\", r.mass, \"fist\", r.fistPeak, r.faults.join(\";\"));\n}\n",
+  "cap-eval.mjs": "// One capacity trial: the combat guard stand, then from t = 2 s the listed channels pushed flat out\n// on a schedule, stance released. Scores the right hand's best forward speed at shoulder height.\nimport { Vector3 } from \"@babylonjs/core/Maths/math.vector.js\";\nimport { coreStand } from \"../../../tests/harness/core-stand.mjs\";\nimport { modelSpec } from \"../../../src/core/models.ts\";\nimport { createBody, SERVO_SECONDS } from \"../../../src/core/body.ts\";\nimport { DEFAULT_ENGINE } from \"../../../src/core/engine/engines.ts\";\nimport { NO_COVER } from \"../../../src/core/mind/intent.ts\";\nimport { combatSkills } from \"../../../src/core/skills/combat.ts\";\n\nexport const CHANNELS = [\n  \"thoracic rotation right\", \"lumbar rotation right\", \"thoracic flexion\", \"lumbar flexion\",\n  \"hip.left flexion\", \"hip.left abduction\", \"hip.left internal rotation\", \"knee.left flexion\", \"ankle.left dorsiflexion\",\n  \"hip.right flexion\", \"hip.right abduction\", \"hip.right internal rotation\", \"knee.right flexion\", \"ankle.right dorsiflexion\",\n  \"shoulder.right flexion\", \"shoulder.right abduction\", \"shoulder.right internal rotation\", \"elbow.right flexion\",\n];\nconst T0 = 2, WINDOW = .45;\n\n/** x: per channel [level in -1..1, start s, duration s]. */\nexport async function trial(x, { hz = 120, keepStance = false, model = \"workshop-fighter\", trace = false } = {}) {\n  const sched = CHANNELS.map((channel, i) => ({ channel, level: x[3 * i], from: x[3 * i + 1], to: x[3 * i + 1] + Math.max(0, x[3 * i + 2]) }))\n    .filter((p) => Math.abs(p.level) > .05);\n  const s = await coreStand(modelSpec(model), { engine: DEFAULT_ENGINE, hz });\n  const body = createBody(s.built, s.world, { servoSeconds: SERVO_SECONDS, feedback: true });\n  const skills = combatSkills(body, {});\n  body.drive((view, dt) => {\n    const c = skills.command(view, { move: null, face: 0, guard: NO_COVER, attack: null }, dt);\n    const t = view.time - T0;\n    if (t < -.25) return c;\n    const live = sched.filter((p) => t >= p.from && t < p.to)\n      .map((p) => ({ channel: p.channel, sense: p.level > 0 ? 1 : -1, level: Math.min(1, Math.abs(p.level)) }));\n    return { ...c, pushes: [...c.pushes, ...live], ...(keepStance ? {} : { stance: null }) };\n  });\n  const hand = s.built.segments.get(\"hand.right\"), trunk = s.built.segments.get(\"upperTrunk\"), v = new Vector3();\n  let best = 0, at = null, shoulderBest = 0; const traced = {};\n  for (let i = 0; i < (T0 + WINDOW) * hz; i++) {\n    s.step();\n    const t = s.world.time - T0;\n    if (t < -.25) continue;\n    hand.body.linearVelocityToRef(v);\n    const pos = hand.node.position;\n    const up = trunk.node.position.y > 1.38;\n    if (t >= 0 && up && pos.y > 1.2 && pos.y < 1.6 && pos.z - trunk.node.position.z > .3 && v.z > best) { best = v.z; at = [+t.toFixed(3), +pos.x.toFixed(2), +pos.y.toFixed(2), +pos.z.toFixed(2)]; }\n    trunk.body.linearVelocityToRef(v); shoulderBest = Math.max(shoulderBest, v.z);\n    if (globalThis.__trace && t >= -.25) { const T = globalThis.__trace; const row = [t.toFixed(3)];\n      for (const n of T.names) { const ci = body.muscles.channels.findIndex((c) => c.name === n), ch = body.muscles.channels[ci];\n        row.push(`${n.split(' ')[0].slice(0,9)} ${body.muscles.angle(ci).toFixed(2)}[${ch.dof.spec?.min?.value?.toFixed?.(2)},${ch.dof.spec?.max?.value?.toFixed?.(2)}] w${body.muscles.speed(ci).toFixed(1)} T${body.muscles.pulled[ci].toFixed(0)}`); }\n      console.log(row.join(' | ')); }\n    if (globalThis.__chatter && t >= -.25) for (const [ci, ch] of body.muscles.channels.entries()) { const C = globalThis.__chatter, w = body.muscles.speed(ci), c = (C[ch.name] ??= { last: 0, flips: 0, big: 0 });\n      if (Math.abs(w) > 1 && Math.abs(c.last) > 1 && Math.sign(w) !== Math.sign(c.last)) c.flips++; if (Math.abs(w) > 5) c.big++; c.last = w; }\n    if (trace && up && t >= -.25) for (const [ci, ch] of body.muscles.channels.entries()) {\n      const w = body.muscles.speed(ci), r = (traced[ch.name] ??= { peak: 0, peakNeg: 0, w0p: ch.positive.curve.unloadedSpeed, w0n: ch.negative.curve.unloadedSpeed, at: 0 });\n      if (w > r.peak) r.peak = w; if (w < r.peakNeg) r.peakNeg = w;\n    }\n  }\n  const down = body.view.down;\n  s.dispose?.();\n  return { score: best, at, trunk: +shoulderBest.toFixed(2), down, ...(trace ? { traced } : {}) };\n}\n",
+  "cap-opt.mjs": "// Diagonal CMA-ES over cap-eval's schedule. node cap-opt.mjs <out.json> <workers> <generations> [opts json]\nimport { Worker, isMainThread, parentPort, workerData } from \"node:worker_threads\";\nimport { writeFileSync, existsSync, readFileSync } from \"node:fs\";\nif (!isMainThread) {\n  const { trial } = await import(\"./cap-eval.mjs\");\n  parentPort.on(\"message\", async ({ id, x }) => {\n    let r; try { r = await trial(x, workerData.opts); } catch (e) { r = { score: 0, error: String(e) }; }\n    parentPort.postMessage({ id, r });\n  });\n} else {\n  const { CHANNELS } = await import(\"./cap-eval.mjs\");\n  const [out, nw = \"24\", gens = \"40\", optsJson = \"{}\"] = process.argv.slice(2);\n  const opts = JSON.parse(optsJson), n = CHANNELS.length * 3;\n  const lo = [], hi = [];\n  for (let i = 0; i < CHANNELS.length; i++) { lo.push(-1, -.3, 0); hi.push(1, .3, .45); }\n  const workers = Array.from({ length: +nw }, () => new Worker(new URL(import.meta.url), { workerData: { opts } }));\n  let nextId = 0; const waiting = new Map(), idle = [...workers], queue = [];\n  for (const w of workers) w.on(\"message\", ({ id, r }) => { waiting.get(id)(r); waiting.delete(id); idle.push(w); pump(); });\n  function pump() { while (idle.length && queue.length) { const { id, x } = queue.shift(); idle.pop().postMessage({ id, x }); } }\n  const evalx = (x) => new Promise((done) => { const id = nextId++; waiting.set(id, done); queue.push({ id, x }); pump(); });\n  // Search in unit space u in [0,1]^n.\n  const toX = (u) => u.map((ui, i) => lo[i] + (hi[i] - lo[i]) * Math.min(1, Math.max(0, ui)));\n  let m = opts.start ? opts.start.map((x, i) => (x - lo[i]) / (hi[i] - lo[i])) : Array.from({ length: n }, (_, i) => i % 3 === 0 ? .5 : .5);\n  let sigma = opts.sigma ?? .25; const C = new Array(n).fill(1);\n  const lambda = opts.lambda ?? 4 * +nw, mu = lambda >> 1;\n  const wts = Array.from({ length: mu }, (_, i) => Math.log(mu + .5) - Math.log(i + 1)); const ws = wts.reduce((a, b) => a + b); for (let i = 0; i < mu; i++) wts[i] /= ws;\n  const mueff = 1 / wts.reduce((a, w) => a + w * w, 0);\n  const cs = (mueff + 2) / (n + mueff + 5), ds = 1 + cs, cc = 4 / (n + 4), c1 = 2 / ((n + 1.3) ** 2 + mueff), cmu = Math.min(1 - c1, 2 * (mueff - 2 + 1 / mueff) / ((n + 2) ** 2 + mueff)) * (n + 2) / 3;\n  const chiN = Math.sqrt(n) * (1 - 1 / (4 * n) + 1 / (21 * n * n));\n  let ps = new Array(n).fill(0), pc = new Array(n).fill(0);\n  const gauss = () => { let u = 0, v = 0; while (!u) u = Math.random(); v = Math.random(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); };\n  let best = { score: -1 };\n  const log = [];\n  for (let g = 0; g < +gens; g++) {\n    const zs = Array.from({ length: lambda }, () => Array.from({ length: n }, gauss));\n    const us = zs.map((z) => z.map((zi, i) => Math.min(1, Math.max(0, m[i] + sigma * Math.sqrt(C[i]) * zi))));\n    const rs = await Promise.all(us.map((u) => evalx(toX(u))));\n    const fit = rs.map((r) => r.score - (r.down ? 0 : 0));\n    const order = fit.map((f, i) => i).sort((a, b) => fit[b] - fit[a]);\n    if (fit[order[0]] > best.score) best = { score: fit[order[0]], x: toX(us[order[0]]), r: rs[order[0]], g };\n    const old = m.slice();\n    m = m.map((_, i) => order.slice(0, mu).reduce((a, k, j) => a + wts[j] * us[k][i], 0));\n    const y = m.map((mi, i) => (mi - old[i]) / sigma);\n    ps = ps.map((p, i) => (1 - cs) * p + Math.sqrt(cs * (2 - cs) * mueff) * y[i] / Math.sqrt(C[i]));\n    const psn = Math.sqrt(ps.reduce((a, p) => a + p * p, 0));\n    pc = pc.map((p, i) => (1 - cc) * p + Math.sqrt(cc * (2 - cc) * mueff) * y[i]);\n    for (let i = 0; i < n; i++) {\n      let rank = 0; for (let j = 0; j < mu; j++) { const d = (us[order[j]][i] - old[i]) / sigma; rank += wts[j] * d * d; }\n      C[i] = (1 - c1 - cmu) * C[i] + c1 * pc[i] * pc[i] + cmu * rank;\n    }\n    sigma *= Math.exp((cs / ds) * (psn / chiN - 1));\n    const med = fit.slice().sort((a, b) => a - b)[lambda >> 1];\n    log.push({ g, best: +fit[order[0]].toFixed(3), median: +med.toFixed(3), sigma: +sigma.toFixed(3) });\n    console.log(JSON.stringify(log.at(-1)), JSON.stringify(rs[order[0]]));\n    writeFileSync(out, JSON.stringify({ opts, best, mean: toX(m), log, channels: CHANNELS }));\n  }\n  for (const w of workers) w.terminate();\n}\n",
+  "chatter.mjs": "// Per-step sign flips of every channel's speed in a window: a two-step chatter count.\nimport * as m from \"./cap-eval.mjs\";\nconst mode = process.argv[2] ?? \"none\";\nconst x = new Array(54).fill(0);\nglobalThis.__chatter = {};\nconst r = await m.trial(x, { keepStance: mode === \"stance\", trace: true });\nconsole.log(mode, JSON.stringify(r.score));\nfor (const [k, v] of Object.entries(globalThis.__chatter)) if (v.flips > 3 || v.big > 3) console.log(k.padEnd(34), \"flips\", v.flips, \"steps over 5 rad/s\", v.big);\n",
+  "rise-chatter.mjs": "// A shoved Warrior under the staged rise: per rise stage, the steps on which a channel's speed\n// reverses above 3 rad/s both sides (a two-step chatter), by channel.\nimport { felled, riserOf } from \"../../core-rise-trials.mjs\";\nimport { createMind } from \"../../../src/core/mind/minds.ts\";\nimport { STAND_ORDERS } from \"../../../src/core/mind/orders.ts\";\nimport { RISE } from \"../../../src/core/mind/rise/stages.ts\";\nconst degrees = +(process.argv[2] ?? 0), held = process.argv[3] ?? \"empty\";\nconst mind = { kind: \"recipe-fighter\", subs: [{ kind: \"staged-rise\" }], guard: \"pose\", aim: \"head\", range: \"close\" };\nconst { world, body, dispose } = await felled({ model: \"workshop-fighter\", held, degrees },\n  (made, into) => createMind(made, into, mind, { name: \"probe\", orders: () => STAND_ORDERS }).body);\nconst riser = riserOf(body), ch = body.muscles.channels, last = new Float64Array(ch.length);\nconst by = {}; let upAt = null;\nfor (let i = 0; i < 40 * world.hz; i++) {\n  world.step();\n  const stage = riser.phase === \"rise\" ? RISE.rise[riser.stage ?? riser.furthest]?.name ?? \"?\" : riser.phase;\n  const b = (by[stage] ??= { steps: 0, flips: {} }); b.steps++;\n  for (let c = 0; c < ch.length; c++) { const w = body.muscles.speed(c);\n    if (Math.abs(w) > 3 && Math.abs(last[c]) > 3 && Math.sign(w) !== Math.sign(last[c])) b.flips[ch[c].name] = (b.flips[ch[c].name] ?? 0) + 1;\n    last[c] = w; }\n  if (!body.view.down && upAt === null) upAt = world.time; if (body.view.down) upAt = null;\n}\nconsole.log(\"deg\", degrees, held, \"up since\", upAt?.toFixed(2));\nfor (const [s, b] of Object.entries(by)) { const top = Object.entries(b.flips).sort((a, c) => c[1] - a[1]).slice(0, 5);\n  console.log(s.padEnd(12), \"steps\", b.steps, \"flips/step\", (Object.values(b.flips).reduce((a, c) => a + c, 0) / b.steps).toFixed(2), JSON.stringify(top)); }\ndispose();\n",
+  "speeds.mjs": "import { jointSpeed } from \"../../../src/core/human/speed.ts\";\nfor (const sex of [\"male\",\"female\"]) for (const e of [\"hipExtension\",\"hipFlexion\",\"kneeExtension\",\"kneeFlexion\",\"ankleDorsiflexion\",\"elbowFlexion\",\"elbowExtension\"]) { const s = jointSpeed({sex}, e); console.log(sex, e, s.unloadedSpeed.value.toFixed(2), s.curvature.value.toFixed(3)); }\n",
+  "trunk-trace.mjs": "// Replays cap3's best with a per-step trace of trunk angles and speeds against their limits.\nimport { readFileSync } from \"node:fs\";\nimport * as m from \"./cap-eval.mjs\";\nconst b = JSON.parse(readFileSync(process.argv[2] ?? \"cap3.json\")).best;\nconst names = (process.argv[3] ?? \"thoracic flexion,lumbar flexion,hip.left flexion,hip.right flexion,elbow.right flexion\").split(\",\");\nglobalThis.__trace = { names, rows: [] };\nawait m.trial(b.x, { trace: true });\n"
+ },
+ "rows": {
+  "speed curves, Anderson two-point (6.5/8.9), with torso-carried": [
+   {
+    "over": {},
+    "drive": {
+     "turn": 0,
+     "lean": 0,
+     "push": []
+    },
+    "n": 8,
+    "fell": false,
+    "faults": [],
+    "speed": 4.487,
+    "impulse": 3.889,
+    "peak": 298.194,
+    "mass": 0.868,
+    "shoulderPeak": 1.3,
+    "fistPeak": 5.81,
+    "cycles": {
+     "returned": {
+      "left": 0,
+      "right": 7
+     },
+     "failed": 0,
+     "interrupted": 0
+    },
+    "comp": 0.005
+   },
+   {
+    "over": {
+     "family": "cross"
+    },
+    "drive": {
+     "turn": 0,
+     "lean": 0,
+     "push": []
+    },
+    "n": 6,
+    "fell": false,
+    "faults": [],
+    "speed": 5.054,
+    "impulse": 4.389,
+    "peak": 328.636,
+    "mass": 0.869,
+    "shoulderPeak": 1.74,
+    "fistPeak": 7.24,
+    "cycles": {
+     "returned": {
+      "left": 0,
+      "right": 6
+     },
+     "failed": 0,
+     "interrupted": 0
+    },
+    "comp": 0.005
+   },
+   {
+    "over": {
+     "family": "cross",
+     "ahead": 0.542,
+     "contactSpeed": 5.925,
+     "armExtension": 0.383,
+     "execution": {
+      "impactSeconds": 0.06,
+      "impactTravel": 0.162,
+      "normalAlignment": 0.5,
+      "planted": true
+     },
+     "paths": {
+      "elbowExtension": 0.383,
+      "torso": 0.122,
+      "swingSeconds": 0.198,
+      "windup": 0.051,
+      "chamberSeconds": 0.202
+     }
+    },
+    "drive": {
+     "turn": 0,
+     "lean": 0,
+     "push": []
+    },
+    "n": 8,
+    "fell": false,
+    "faults": [],
+    "speed": 4.984,
+    "impulse": 6.647,
+    "peak": 400.536,
+    "mass": 1.335,
+    "shoulderPeak": 1.49,
+    "fistPeak": 6.69,
+    "cycles": {
+     "returned": {
+      "left": 0,
+      "right": 7
+     },
+     "failed": 0,
+     "interrupted": 0
+    },
+    "comp": 0.008
+   },
+   {
+    "over": {
+     "family": "cross",
+     "ahead": 0.6,
+     "contactSpeed": 5.925,
+     "armExtension": 0.383,
+     "execution": {
+      "impactSeconds": 0.06,
+      "impactTravel": 0.162,
+      "normalAlignment": 0.5,
+      "planted": true
+     },
+     "paths": {
+      "elbowExtension": 0.383,
+      "torso": 0.122,
+      "swingSeconds": 0.198,
+      "windup": 0.051,
+      "chamberSeconds": 0.202
+     }
+    },
+    "drive": {
+     "turn": -0.4,
+     "lean": 0,
+     "push": []
+    },
+    "n": 7,
+    "fell": false,
+    "faults": [],
+    "speed": 4.885,
+    "impulse": 7.094,
+    "peak": 423.276,
+    "mass": 1.454,
+    "shoulderPeak": 1.9,
+    "fistPeak": 6.93,
+    "cycles": {
+     "returned": {
+      "left": 0,
+      "right": 7
+     },
+     "failed": 0,
+     "interrupted": 0
+    },
+    "comp": 0.008
+   },
+   {
+    "over": {
+     "family": "cross",
+     "ahead": 0.542,
+     "contactSpeed": 5.925,
+     "armExtension": 0.383,
+     "execution": {
+      "impactSeconds": 0.06,
+      "impactTravel": 0.162,
+      "normalAlignment": 0.5,
+      "planted": true
+     },
+     "paths": {
+      "elbowExtension": 0.383,
+      "torso": 0.3,
+      "swingSeconds": 0.198,
+      "windup": 0.051,
+      "chamberSeconds": 0.202
+     }
+    },
+    "drive": {
+     "turn": 0,
+     "lean": 0,
+     "push": []
+    },
+    "n": 6,
+    "fell": false,
+    "faults": [],
+    "speed": 4.366,
+    "impulse": 5.074,
+    "peak": 329.881,
+    "mass": 1.16,
+    "shoulderPeak": 1.85,
+    "fistPeak": 6.21,
+    "cycles": {
+     "returned": {
+      "left": 0,
+      "right": 6
+     },
+     "failed": 0,
+     "interrupted": 0
+    },
+    "comp": 0.006
+   },
+   {
+    "over": {
+     "family": "cross",
+     "ahead": 0.542,
+     "contactSpeed": 5.925,
+     "armExtension": 0.383,
+     "execution": {
+      "impactSeconds": 0.06,
+      "impactTravel": 0.162,
+      "normalAlignment": 0.5,
+      "planted": true
+     },
+     "paths": {
+      "elbowExtension": 0.383,
+      "torso": 0.43,
+      "swingSeconds": 0.198,
+      "windup": 0.051,
+      "chamberSeconds": 0.202
+     }
+    },
+    "drive": {
+     "turn": 0,
+     "lean": 0,
+     "push": []
+    },
+    "n": 5,
+    "fell": false,
+    "faults": [],
+    "speed": 4.266,
+    "impulse": 4.825,
+    "peak": 301.58,
+    "mass": 1.132,
+    "shoulderPeak": 1.78,
+    "fistPeak": 5.96,
+    "cycles": {
+     "returned": {
+      "left": 0,
+      "right": 5
+     },
+     "failed": 0,
+     "interrupted": 0
+    },
+    "comp": 0.005
+   },
+   {
+    "over": {
+     "family": "cross",
+     "ahead": 0.542,
+     "contactSpeed": 5.925,
+     "armExtension": 0.383,
+     "execution": {
+      "impactSeconds": 0.06,
+      "impactTravel": 0.162,
+      "normalAlignment": 0.5,
+      "planted": true
+     },
+     "paths": {
+      "elbowExtension": 0.383,
+      "torso": 0.3,
+      "swingSeconds": 0.198,
+      "windup": 0.051,
+      "chamberSeconds": 0.202
+     }
+    },
+    "drive": {
+     "turn": -0.4,
+     "lean": 0,
+     "push": []
+    },
+    "n": 0,
+    "fell": false,
+    "faults": [
+     "failed strike/return cycle",
+     "fewer than three complete measured hand impacts",
+     "pad stroke exceeded"
+    ],
+    "speed": null,
+    "impulse": null,
+    "peak": null,
+    "mass": null,
+    "shoulderPeak": 1.83,
+    "fistPeak": 6.31,
+    "cycles": {
+     "returned": {
+      "left": 0,
+      "right": 3
+     },
+     "failed": 1,
+     "interrupted": 0
+    },
+    "comp": 0.034
+   },
+   {
+    "over": {
+     "family": "cross",
+     "ahead": 0.542,
+     "contactSpeed": 5.925,
+     "armExtension": 0.383,
+     "execution": {
+      "impactSeconds": 0.06,
+      "impactTravel": 0.162,
+      "normalAlignment": 0.5,
+      "planted": true
+     },
+     "paths": {
+      "elbowExtension": 0.383,
+      "torso": 0.6,
+      "swingSeconds": 0.198,
+      "windup": 0.051,
+      "chamberSeconds": 0.202
+     }
+    },
+    "drive": {
+     "turn": -0.4,
+     "lean": 0,
+     "push": []
+    },
+    "n": 0,
+    "fell": false,
+    "faults": [
+     "fewer than three complete measured hand impacts",
+     "pad stroke exceeded"
+    ],
+    "speed": null,
+    "impulse": null,
+    "peak": null,
+    "mass": null,
+    "shoulderPeak": 1.54,
+    "fistPeak": 5.26,
+    "cycles": {
+     "returned": {
+      "left": 0,
+      "right": 4
+     },
+     "failed": 0,
+     "interrupted": 0
+    },
+    "comp": 0.014
+   }
+  ],
+  "speed curves, Thelen curvature (20.4/27.2), with torso-carried": [
+   {
+    "over": {},
+    "drive": {
+     "turn": 0,
+     "lean": 0,
+     "push": []
+    },
+    "n": 8,
+    "fell": false,
+    "faults": [],
+    "speed": 4.73,
+    "impulse": 4.074,
+    "peak": 306.758,
+    "mass": 0.861,
+    "shoulderPeak": 1.11,
+    "fistPeak": 5.44,
+    "cycles": {
+     "returned": {
+      "left": 0,
+      "right": 7
+     },
+     "failed": 0,
+     "interrupted": 0
+    },
+    "comp": 0.005
+   },
+   {
+    "over": {
+     "family": "cross"
+    },
+    "drive": {
+     "turn": 0,
+     "lean": 0,
+     "push": []
+    },
+    "n": 7,
+    "fell": false,
+    "faults": [],
+    "speed": 5.113,
+    "impulse": 4.251,
+    "peak": 312.353,
+    "mass": 0.832,
+    "shoulderPeak": 1.41,
+    "fistPeak": 5.89,
+    "cycles": {
+     "returned": {
+      "left": 0,
+      "right": 7
+     },
+     "failed": 0,
+     "interrupted": 0
+    },
+    "comp": 0.005
+   },
+   {
+    "over": {
+     "family": "cross",
+     "ahead": 0.542,
+     "contactSpeed": 5.925,
+     "armExtension": 0.383,
+     "execution": {
+      "impactSeconds": 0.06,
+      "impactTravel": 0.162,
+      "normalAlignment": 0.5,
+      "planted": true
+     },
+     "paths": {
+      "elbowExtension": 0.383,
+      "torso": 0.122,
+      "swingSeconds": 0.198,
+      "windup": 0.051,
+      "chamberSeconds": 0.202
+     }
+    },
+    "drive": {
+     "turn": 0,
+     "lean": 0,
+     "push": []
+    },
+    "n": 8,
+    "fell": false,
+    "faults": [],
+    "speed": 4.973,
+    "impulse": 6.624,
+    "peak": 404.174,
+    "mass": 1.333,
+    "shoulderPeak": 1.5,
+    "fistPeak": 6.81,
+    "cycles": {
+     "returned": {
+      "left": 0,
+      "right": 7
+     },
+     "failed": 0,
+     "interrupted": 0
+    },
+    "comp": 0.008
+   },
+   {
+    "over": {
+     "family": "cross",
+     "ahead": 0.6,
+     "contactSpeed": 5.925,
+     "armExtension": 0.383,
+     "execution": {
+      "impactSeconds": 0.06,
+      "impactTravel": 0.162,
+      "normalAlignment": 0.5,
+      "planted": true
+     },
+     "paths": {
+      "elbowExtension": 0.383,
+      "torso": 0.122,
+      "swingSeconds": 0.198,
+      "windup": 0.051,
+      "chamberSeconds": 0.202
+     }
+    },
+    "drive": {
+     "turn": -0.4,
+     "lean": 0,
+     "push": []
+    },
+    "n": 7,
+    "fell": false,
+    "faults": [],
+    "speed": 5.038,
+    "impulse": 7.305,
+    "peak": 407.443,
+    "mass": 1.45,
+    "shoulderPeak": 1.54,
+    "fistPeak": 7.31,
+    "cycles": {
+     "returned": {
+      "left": 0,
+      "right": 6
+     },
+     "failed": 0,
+     "interrupted": 0
+    },
+    "comp": 0.008
+   },
+   {
+    "over": {
+     "family": "cross",
+     "ahead": 0.542,
+     "contactSpeed": 5.925,
+     "armExtension": 0.383,
+     "execution": {
+      "impactSeconds": 0.06,
+      "impactTravel": 0.162,
+      "normalAlignment": 0.5,
+      "planted": true
+     },
+     "paths": {
+      "elbowExtension": 0.383,
+      "torso": 0.3,
+      "swingSeconds": 0.198,
+      "windup": 0.051,
+      "chamberSeconds": 0.202
+     }
+    },
+    "drive": {
+     "turn": 0,
+     "lean": 0,
+     "push": []
+    },
+    "n": 7,
+    "fell": false,
+    "faults": [],
+    "speed": 4.742,
+    "impulse": 5.34,
+    "peak": 352.529,
+    "mass": 1.126,
+    "shoulderPeak": 1.69,
+    "fistPeak": 6.55,
+    "cycles": {
+     "returned": {
+      "left": 0,
+      "right": 7
+     },
+     "failed": 0,
+     "interrupted": 0
+    },
+    "comp": 0.006
+   },
+   {
+    "over": {
+     "family": "cross",
+     "ahead": 0.542,
+     "contactSpeed": 5.925,
+     "armExtension": 0.383,
+     "execution": {
+      "impactSeconds": 0.06,
+      "impactTravel": 0.162,
+      "normalAlignment": 0.5,
+      "planted": true
+     },
+     "paths": {
+      "elbowExtension": 0.383,
+      "torso": 0.43,
+      "swingSeconds": 0.198,
+      "windup": 0.051,
+      "chamberSeconds": 0.202
+     }
+    },
+    "drive": {
+     "turn": 0,
+     "lean": 0,
+     "push": []
+    },
+    "n": 5,
+    "fell": false,
+    "faults": [],
+    "speed": 3.9,
+    "impulse": 4.623,
+    "peak": 292.707,
+    "mass": 1.189,
+    "shoulderPeak": 1.82,
+    "fistPeak": 6.07,
+    "cycles": {
+     "returned": {
+      "left": 0,
+      "right": 5
+     },
+     "failed": 0,
+     "interrupted": 0
+    },
+    "comp": 0.005
+   },
+   {
+    "over": {
+     "family": "cross",
+     "ahead": 0.542,
+     "contactSpeed": 5.925,
+     "armExtension": 0.383,
+     "execution": {
+      "impactSeconds": 0.06,
+      "impactTravel": 0.162,
+      "normalAlignment": 0.5,
+      "planted": true
+     },
+     "paths": {
+      "elbowExtension": 0.383,
+      "torso": 0.3,
+      "swingSeconds": 0.198,
+      "windup": 0.051,
+      "chamberSeconds": 0.202
+     }
+    },
+    "drive": {
+     "turn": -0.4,
+     "lean": 0,
+     "push": []
+    },
+    "n": 0,
+    "fell": true,
+    "faults": [
+     "fall",
+     "trunk-floor contact",
+     "failed strike/return cycle",
+     "fewer than three complete measured hand impacts",
+     "fewer than three verified returns",
+     "pad stroke exceeded"
+    ],
+    "speed": null,
+    "impulse": null,
+    "peak": null,
+    "mass": null,
+    "shoulderPeak": 1.83,
+    "fistPeak": 6.25,
+    "cycles": {
+     "returned": {
+      "left": 0,
+      "right": 0
+     },
+     "failed": 1,
+     "interrupted": 0
+    },
+    "comp": 0.043
+   },
+   {
+    "over": {
+     "family": "cross",
+     "ahead": 0.542,
+     "contactSpeed": 5.925,
+     "armExtension": 0.383,
+     "execution": {
+      "impactSeconds": 0.06,
+      "impactTravel": 0.162,
+      "normalAlignment": 0.5,
+      "planted": true
+     },
+     "paths": {
+      "elbowExtension": 0.383,
+      "torso": 0.6,
+      "swingSeconds": 0.198,
+      "windup": 0.051,
+      "chamberSeconds": 0.202
+     }
+    },
+    "drive": {
+     "turn": -0.4,
+     "lean": 0,
+     "push": []
+    },
+    "n": 0,
+    "fell": false,
+    "faults": [
+     "fewer than three complete measured hand impacts",
+     "pad stroke exceeded"
+    ],
+    "speed": null,
+    "impulse": null,
+    "peak": null,
+    "mass": null,
+    "shoulderPeak": 1.54,
+    "fistPeak": 5.26,
+    "cycles": {
+     "returned": {
+      "left": 0,
+      "right": 4
+     },
+     "failed": 0,
+     "interrupted": 0
+    },
+    "comp": 0.01
+   }
+  ],
+  "stance turn constant and heading, with torso-carried": [
+   {
+    "over": {
+     "family": "cross",
+     "ahead": 0.542,
+     "contactSpeed": 5.925,
+     "armExtension": 0.383,
+     "execution": {
+      "impactSeconds": 0.06,
+      "impactTravel": 0.162,
+      "normalAlignment": 0.5,
+      "planted": true
+     },
+     "paths": {
+      "elbowExtension": 0.383,
+      "torso": 0.122,
+      "swingSeconds": 0.198,
+      "windup": 0.051,
+      "chamberSeconds": 0.202
+     },
+     "stanceTuning": {
+      "seconds": {
+       "across": 0.3,
+       "height": 0.15,
+       "turn": 0.15,
+       "swing": 0.1
+      }
+     }
+    },
+    "drive": {
+     "turn": 0,
+     "lean": 0,
+     "push": []
+    },
+    "n": 8,
+    "fell": false,
+    "faults": [],
+    "speed": 4.984,
+    "impulse": 6.647,
+    "peak": 400.536,
+    "mass": 1.335,
+    "shoulderPeak": 1.49,
+    "fistPeak": 6.69,
+    "cycles": {
+     "returned": {
+      "left": 0,
+      "right": 7
+     },
+     "failed": 0,
+     "interrupted": 0
+    },
+    "comp": 0.008
+   },
+   {
+    "over": {
+     "family": "cross",
+     "ahead": 0.542,
+     "contactSpeed": 5.925,
+     "armExtension": 0.383,
+     "execution": {
+      "impactSeconds": 0.06,
+      "impactTravel": 0.162,
+      "normalAlignment": 0.5,
+      "planted": true
+     },
+     "paths": {
+      "elbowExtension": 0.383,
+      "torso": 0.122,
+      "swingSeconds": 0.198,
+      "windup": 0.051,
+      "chamberSeconds": 0.202
+     },
+     "stanceTuning": {
+      "seconds": {
+       "across": 0.3,
+       "height": 0.15,
+       "turn": 0.15,
+       "swing": 0.1
+      }
+     }
+    },
+    "drive": {
+     "turn": -0.3,
+     "lean": 0,
+     "push": []
+    },
+    "n": 7,
+    "fell": false,
+    "faults": [],
+    "speed": 4.595,
+    "impulse": 6.966,
+    "peak": 390.885,
+    "mass": 1.513,
+    "shoulderPeak": 1.63,
+    "fistPeak": 6.71,
+    "cycles": {
+     "returned": {
+      "left": 0,
+      "right": 6
+     },
+     "failed": 0,
+     "interrupted": 0
+    },
+    "comp": 0.009
+   },
+   {
+    "over": {
+     "family": "cross",
+     "ahead": 0.542,
+     "contactSpeed": 5.925,
+     "armExtension": 0.383,
+     "execution": {
+      "impactSeconds": 0.06,
+      "impactTravel": 0.162,
+      "normalAlignment": 0.5,
+      "planted": true
+     },
+     "paths": {
+      "elbowExtension": 0.383,
+      "torso": 0.122,
+      "swingSeconds": 0.198,
+      "windup": 0.051,
+      "chamberSeconds": 0.202
+     },
+     "stanceTuning": {
+      "seconds": {
+       "across": 0.3,
+       "height": 0.15,
+       "turn": 0.15,
+       "swing": 0.1
+      }
+     }
+    },
+    "drive": {
+     "turn": -0.6,
+     "lean": 0,
+     "push": []
+    },
+    "n": 5,
+    "fell": false,
+    "faults": [],
+    "speed": 4.392,
+    "impulse": 4.583,
+    "peak": 332.131,
+    "mass": 1.043,
+    "shoulderPeak": 2.02,
+    "fistPeak": 6.16,
+    "cycles": {
+     "returned": {
+      "left": 0,
+      "right": 6
+     },
+     "failed": 0,
+     "interrupted": 0
+    },
+    "comp": 0.009
+   },
+   {
+    "over": {
+     "family": "cross",
+     "ahead": 0.542,
+     "contactSpeed": 5.925,
+     "armExtension": 0.383,
+     "execution": {
+      "impactSeconds": 0.06,
+      "impactTravel": 0.162,
+      "normalAlignment": 0.5,
+      "planted": true
+     },
+     "paths": {
+      "elbowExtension": 0.383,
+      "torso": 0.122,
+      "swingSeconds": 0.198,
+      "windup": 0.051,
+      "chamberSeconds": 0.202
+     },
+     "stanceTuning": {
+      "seconds": {
+       "across": 0.3,
+       "height": 0.15,
+       "turn": 0.06,
+       "swing": 0.1
+      }
+     }
+    },
+    "drive": {
+     "turn": 0,
+     "lean": 0,
+     "push": []
+    },
+    "n": 7,
+    "fell": false,
+    "faults": [],
+    "speed": 4.49,
+    "impulse": 6.051,
+    "peak": 375.295,
+    "mass": 1.347,
+    "shoulderPeak": 1.61,
+    "fistPeak": 6.5,
+    "cycles": {
+     "returned": {
+      "left": 0,
+      "right": 7
+     },
+     "failed": 0,
+     "interrupted": 0
+    },
+    "comp": 0.007
+   },
+   {
+    "over": {
+     "family": "cross",
+     "ahead": 0.542,
+     "contactSpeed": 5.925,
+     "armExtension": 0.383,
+     "execution": {
+      "impactSeconds": 0.06,
+      "impactTravel": 0.162,
+      "normalAlignment": 0.5,
+      "planted": true
+     },
+     "paths": {
+      "elbowExtension": 0.383,
+      "torso": 0.122,
+      "swingSeconds": 0.198,
+      "windup": 0.051,
+      "chamberSeconds": 0.202
+     },
+     "stanceTuning": {
+      "seconds": {
+       "across": 0.3,
+       "height": 0.15,
+       "turn": 0.06,
+       "swing": 0.1
+      }
+     }
+    },
+    "drive": {
+     "turn": -0.3,
+     "lean": 0,
+     "push": []
+    },
+    "n": 2,
+    "fell": true,
+    "faults": [
+     "fall",
+     "trunk-floor contact",
+     "failed strike/return cycle",
+     "fewer than three complete measured hand impacts",
+     "pad stroke exceeded"
+    ],
+    "speed": 4.361,
+    "impulse": 6.578,
+    "peak": 390.876,
+    "mass": 1.502,
+    "shoulderPeak": 2.13,
+    "fistPeak": 6.71,
+    "cycles": {
+     "returned": {
+      "left": 0,
+      "right": 4
+     },
+     "failed": 1,
+     "interrupted": 0
+    },
+    "comp": 0.04
+   },
+   {
+    "over": {
+     "family": "cross",
+     "ahead": 0.542,
+     "contactSpeed": 5.925,
+     "armExtension": 0.383,
+     "execution": {
+      "impactSeconds": 0.06,
+      "impactTravel": 0.162,
+      "normalAlignment": 0.5,
+      "planted": true
+     },
+     "paths": {
+      "elbowExtension": 0.383,
+      "torso": 0.122,
+      "swingSeconds": 0.198,
+      "windup": 0.051,
+      "chamberSeconds": 0.202
+     },
+     "stanceTuning": {
+      "seconds": {
+       "across": 0.3,
+       "height": 0.15,
+       "turn": 0.06,
+       "swing": 0.1
+      }
+     }
+    },
+    "drive": {
+     "turn": -0.6,
+     "lean": 0,
+     "push": []
+    },
+    "n": 1,
+    "fell": false,
+    "faults": [
+     "fewer than three complete measured hand impacts"
+    ],
+    "speed": 4.157,
+    "impulse": 6.094,
+    "peak": 262.145,
+    "mass": 1.466,
+    "shoulderPeak": 1.31,
+    "fistPeak": 6.48,
+    "cycles": {
+     "returned": {
+      "left": 0,
+      "right": 5
+     },
+     "failed": 0,
+     "interrupted": 0
+    },
+    "comp": 0.012
+   },
+   {
+    "over": {
+     "family": "cross",
+     "ahead": 0.542,
+     "contactSpeed": 5.925,
+     "armExtension": 0.383,
+     "execution": {
+      "impactSeconds": 0.06,
+      "impactTravel": 0.162,
+      "normalAlignment": 0.5,
+      "planted": true
+     },
+     "paths": {
+      "elbowExtension": 0.383,
+      "torso": 0.122,
+      "swingSeconds": 0.198,
+      "windup": 0.051,
+      "chamberSeconds": 0.202
+     },
+     "stanceTuning": {
+      "seconds": {
+       "across": 0.3,
+       "height": 0.15,
+       "turn": 0.03,
+       "swing": 0.1
+      }
+     }
+    },
+    "drive": {
+     "turn": 0,
+     "lean": 0,
+     "push": []
+    },
+    "n": 3,
+    "fell": false,
+    "faults": [],
+    "speed": 4.557,
+    "impulse": 6.319,
+    "peak": 390.12,
+    "mass": 1.387,
+    "shoulderPeak": 1.52,
+    "fistPeak": 6.22,
+    "cycles": {
+     "returned": {
+      "left": 0,
+      "right": 5
+     },
+     "failed": 0,
+     "interrupted": 0
+    },
+    "comp": 0.007
+   },
+   {
+    "over": {
+     "family": "cross",
+     "ahead": 0.542,
+     "contactSpeed": 5.925,
+     "armExtension": 0.383,
+     "execution": {
+      "impactSeconds": 0.06,
+      "impactTravel": 0.162,
+      "normalAlignment": 0.5,
+      "planted": true
+     },
+     "paths": {
+      "elbowExtension": 0.383,
+      "torso": 0.122,
+      "swingSeconds": 0.198,
+      "windup": 0.051,
+      "chamberSeconds": 0.202
+     },
+     "stanceTuning": {
+      "seconds": {
+       "across": 0.3,
+       "height": 0.15,
+       "turn": 0.03,
+       "swing": 0.1
+      }
+     }
+    },
+    "drive": {
+     "turn": -0.3,
+     "lean": 0,
+     "push": []
+    },
+    "n": 5,
+    "fell": false,
+    "faults": [],
+    "speed": 4.874,
+    "impulse": 6.218,
+    "peak": 388.151,
+    "mass": 1.275,
+    "shoulderPeak": 1.57,
+    "fistPeak": 6.79,
+    "cycles": {
+     "returned": {
+      "left": 0,
+      "right": 5
+     },
+     "failed": 0,
+     "interrupted": 0
+    },
+    "comp": 0.007
+   },
+   {
+    "over": {
+     "family": "cross",
+     "ahead": 0.542,
+     "contactSpeed": 5.925,
+     "armExtension": 0.383,
+     "execution": {
+      "impactSeconds": 0.06,
+      "impactTravel": 0.162,
+      "normalAlignment": 0.5,
+      "planted": true
+     },
+     "paths": {
+      "elbowExtension": 0.383,
+      "torso": 0.122,
+      "swingSeconds": 0.198,
+      "windup": 0.051,
+      "chamberSeconds": 0.202
+     },
+     "stanceTuning": {
+      "seconds": {
+       "across": 0.3,
+       "height": 0.15,
+       "turn": 0.03,
+       "swing": 0.1
+      }
+     }
+    },
+    "drive": {
+     "turn": -0.6,
+     "lean": 0,
+     "push": []
+    },
+    "n": 2,
+    "fell": false,
+    "faults": [
+     "failed strike/return cycle",
+     "fewer than three complete measured hand impacts",
+     "fewer than three verified returns"
+    ],
+    "speed": 4.536,
+    "impulse": 7.86,
+    "peak": 493.11,
+    "mass": 1.784,
+    "shoulderPeak": 1.1,
+    "fistPeak": 5.12,
+    "cycles": {
+     "returned": {
+      "left": 0,
+      "right": 1
+     },
+     "failed": 1,
+     "interrupted": 0
+    },
+    "comp": 0.006
+   }
+  ],
+  "chatter, stance released, no pushes": "none 0\nneck flexion                       flips 4 steps over 5 rad/s 3\nneck lateral flexion right         flips 34 steps over 5 rad/s 3\nthoracic flexion                   flips 4 steps over 5 rad/s 0\nthoracic lateral flexion right     flips 40 steps over 5 rad/s 0\nthoracic rotation right            flips 16 steps over 5 rad/s 4\nlumbar flexion                     flips 81 steps over 5 rad/s 81\nlumbar lateral flexion right       flips 60 steps over 5 rad/s 42\nlumbar rotation right              flips 28 steps over 5 rad/s 6\nshoulder.left flexion              flips 1 steps over 5 rad/s 26\nshoulder.left internal rotation    flips 1 steps over 5 rad/s 4\nwrist.left flexion                 flips 1 steps over 5 rad/s 4\nwrist.left radial deviation        flips 1 steps over 5 rad/s 5\nhip.left flexion                   flips 81 steps over 5 rad/s 81\nhip.left abduction                 flips 63 steps over 5 rad/s 42\nhip.left internal rotation         flips 20 steps over 5 rad/s 0\nknee.left flexion                  flips 1 steps over 5 rad/s 18\nankle.left dorsiflexion            flips 11 steps over 5 rad/s 7\nankle.left inversion               flips 19 steps over 5 rad/s 1\nshoulder.right flexion             flips 0 steps over 5 rad/s 6\nhip.right flexion                  flips 81 steps over 5 rad/s 79\nhip.right abduction                flips 65 steps over 5 rad/s 42\nhip.right internal rotation        flips 17 steps over 5 rad/s 0\nknee.right flexion                 flips 0 steps over 5 rad/s 19\nankle.right dorsiflexion           flips 15 steps over 5 rad/s 4\nankle.right inversion              flips 6 steps over 5 rad/s 0\n",
+  "chatter, stance kept, no pushes": "stance 0\n",
+  "staged rise chatter by stage, 0 degrees": "deg 0 empty up since 19.07\nsettle       steps 165 flips/step 0.23 [[\"wrist.right radial deviation\",4],[\"wrist.left radial deviation\",4],[\"shoulder.left abduction\",3],[\"wrist.left flexion\",3],[\"elbow.right flexion\",2]]\nfold         steps 120 flips/step 0.00 []\ntuck         steps 240 flips/step 0.00 []\nprop         steps 180 flips/step 0.00 []\nfours        steps 195 flips/step 0.00 []\nsit          steps 120 flips/step 0.00 []\nkneel 0      steps 30 flips/step 0.00 []\nkneel 1      steps 30 flips/step 0.00 []\nkneel 2      steps 30 flips/step 0.00 []\narms         steps 36 flips/step 0.00 []\nhold         steps 120 flips/step 0.00 []\ntall 0       steps 60 flips/step 0.00 []\ntall 1       steps 60 flips/step 0.00 []\ntall 2       steps 60 flips/step 0.00 []\ntall         steps 120 flips/step 0.00 []\nshift        steps 72 flips/step 0.00 []\nlift         steps 42 flips/step 0.00 []\nswing        steps 50 flips/step 0.00 []\nreach        steps 30 flips/step 0.00 []\nhalf kneel   steps 68 flips/step 0.00 []\nonto the toes steps 64 flips/step 0.00 []\nlunge 0      steps 20 flips/step 0.00 []\nlunge 1      steps 106 flips/step 0.00 []\nlunge 2      steps 104 flips/step 0.00 []\nlunge 3      steps 83 flips/step 0.00 []\neven         steps 91 flips/step 0.00 []\nidle         steps 2504 flips/step 0.00 [[\"ankle.right inversion\",1]]\n",
+  "rise, pose times x1": [
+   "Node, core world (src/core/world.ts), Rapier, 120 Hz; watched 40 s from the fall, risen is 2 s up running; mind {\"kind\":\"recipe-fighter\",\"subs\":[{\"kind\":\"staged-rise\"}],\"guard\":\"pose\",\"aim\":\"head\",\"range\":\"close\"}; cells holding \"workshop-fighter\"; 8 workers",
+   "| workshop-fighter, club, shoved | 16 | 14 | 9 | 25.49 | 4.32 | 0.6 | 30.88 | 39.99 | 11 |",
+   "| workshop-fighter, empty, shoved | 16 | 16 | 11 | 22.32 | 4.50 | 2.0 | 31.31 | 39.99 | 10 |",
+   "| workshop-fighter, club, shoved, on its back | 9 | 7 | lunge 2: 1, lunge 3: 1, even: 7 | 7 |",
+   "| workshop-fighter, club, shoved, on its front | 2 | 1 | even: 2 | 2 |",
+   "| workshop-fighter, club, shoved, on its left | 3 | 1 | fours: 1, half kneel: 1, even: 1 | 1 |",
+   "| workshop-fighter, empty, shoved, on its back | 10 | 7 | half kneel: 1, lunge 1: 2, even: 7 | 7 |",
+   "| workshop-fighter, empty, shoved, on its front | 4 | 2 | half kneel: 1, lunge 1: 1, even: 2 | 2 |",
+   "| workshop-fighter, empty, shoved, on its left | 1 | 1 | even: 1 | 1 |",
+   "| workshop-fighter, empty, shoved, on its right | 1 | 1 | even: 1 | 1 |"
+  ],
+  "rise, pose times x0.75": [
+   "Node, core world (src/core/world.ts), Rapier, 120 Hz; watched 40 s from the fall, risen is 2 s up running; mind {\"kind\":\"recipe-fighter\",\"subs\":[{\"kind\":\"staged-rise\"}],\"guard\":\"pose\",\"aim\":\"head\",\"range\":\"close\"}; cells holding \"workshop-fighter\"; 8 workers",
+   "| workshop-fighter, club, shoved | 16 | 14 | 9 | 21.19 | 4.24 | 0.6 | 28.56 | 39.99 | 10 |",
+   "| workshop-fighter, empty, shoved | 16 | 16 | 9 | 18.41 | 4.23 | 0.9 | 32.97 | 39.99 | 9 |",
+   "| workshop-fighter, club, shoved, on its back | 9 | 6 | tuck: 1, hold: 1, tall 0: 1, even: 6 | 6 |",
+   "| workshop-fighter, club, shoved, on its front | 2 | 2 | even: 2 | 2 |",
+   "| workshop-fighter, club, shoved, on its left | 3 | 1 | tall 1: 1, even: 2 | 1 |",
+   "| workshop-fighter, empty, shoved, on its back | 10 | 5 | none: 3, tall: 1, half kneel: 1, even: 5 | 5 |",
+   "| workshop-fighter, empty, shoved, on its front | 4 | 3 | fours: 1, even: 3 | 3 |",
+   "| workshop-fighter, empty, shoved, on its left | 1 | 1 | even: 1 | 1 |",
+   "| workshop-fighter, empty, shoved, on its right | 1 | 0 | fours: 1 | 0 |"
+  ],
+  "rise, pose times x0.5": [
+   "Node, core world (src/core/world.ts), Rapier, 120 Hz; watched 40 s from the fall, risen is 2 s up running; mind {\"kind\":\"recipe-fighter\",\"subs\":[{\"kind\":\"staged-rise\"}],\"guard\":\"pose\",\"aim\":\"head\",\"range\":\"close\"}; cells holding \"workshop-fighter\"; 8 workers",
+   "| workshop-fighter, club, shoved | 16 | 14 | 0 | - | 4.69 | 0.0 | 39.99 | 39.99 | 0 |",
+   "| workshop-fighter, empty, shoved | 16 | 16 | 0 | - | 4.57 | 0.0 | 39.99 | 39.99 | 0 |",
+   "| workshop-fighter, club, shoved, on its back | 9 | 0 | none: 9 | 0 |",
+   "| workshop-fighter, club, shoved, on its front | 2 | 0 | fours: 1, lunge 0: 1 | 0 |",
+   "| workshop-fighter, club, shoved, on its left | 3 | 0 | half kneel: 1, onto the toes: 1, lunge 0: 1 | 0 |",
+   "| workshop-fighter, empty, shoved, on its back | 10 | 0 | none: 10 | 0 |",
+   "| workshop-fighter, empty, shoved, on its front | 4 | 0 | fours: 1, half kneel: 3 | 0 |",
+   "| workshop-fighter, empty, shoved, on its left | 1 | 0 | none: 1 | 0 |",
+   "| workshop-fighter, empty, shoved, on its right | 1 | 0 | fours: 1 | 0 |"
+  ],
+  "flat-out search, stance released (void: chatter)": {
+   "opts": {
+    "sigma": 0.2
+   },
+   "best": {
+    "score": 10.014890670776367,
+    "x": [
+     0.4483630583080218,
+     0.2873308452354894,
+     0.35521713263784777,
+     -0.15527249255630915,
+     -0.16710625747738475,
+     0.19160340584435234,
+     -0.35844889248089684,
+     -0.19802127493347954,
+     0.13519821403930582,
+     0.6020079759654813,
+     0.04935055338288419,
+     0.2780463959649626,
+     -0.6348869329181462,
+     0.0952351450634159,
+     0.24033138702350682,
+     0.18445384093743544,
+     0.04552188319173189,
+     0.12184746644858084,
+     0.5121520076041386,
+     -0.17376723118429363,
+     0.3606466563096873,
+     -0.7193457527761878,
+     -0.1925768876304431,
+     0.25681980539506505,
+     -0.7713990503515569,
+     0.16135252060978372,
+     0.2288932547264187,
+     -0.40368609490241214,
+     0.11184846854421471,
+     0.17418363946765855,
+     -0.44484899616333606,
+     0.3,
+     0.09591448770911347,
+     0.4787166926576871,
+     0.0570197598451509,
+     0.2515681821436869,
+     0.21054704907310717,
+     -0.11541299927460422,
+     0.16145864810087462,
+     -0.12033153890215798,
+     0.3,
+     0.35745817929007057,
+     0.5127966291896209,
+     -0.1481606807234341,
+     0.15898809650000645,
+     -0.667809465272608,
+     0.07135982730663953,
+     0.17876127165853636,
+     -0.9360043701465832,
+     -0.2795982598899823,
+     0.3104972549799288,
+     -0.9106174276250341,
+     0.08941399502944025,
+     0.3161765556225362
+    ],
+    "r": {
+     "score": 10.014890670776367,
+     "at": [
+      0.167,
+      0.41,
+      1.56,
+      0.47
+     ],
+     "trunk": 0.4,
+     "down": false
+    },
+    "g": 59
+   },
+   "mean": [
+    0.1512342218226579,
+    0.19308632690764904,
+    0.3646623378523746,
+    -0.3687446303295778,
+    -0.03348078675491467,
+    0.18827075606637933,
+    -0.3820250106877563,
+    -0.18949260658869554,
+    0.15679756840563253,
+    0.6920292322154415,
+    0.017591726750667724,
+    0.24663673993415822,
+    -0.5566824449362304,
+    0.1406632244979632,
+    0.2599907855635716,
+    0.037925147762566835,
+    -0.016980321457583547,
+    0.08727052768530331,
+    0.3889176103975409,
+    -0.1281760547350342,
+    0.3648541290856292,
+    -0.847434094103821,
+    -0.1758024503356862,
+    0.28583894216606043,
+    -0.5723845563000531,
+    0.11375694097425204,
+    0.21407202282164636,
+    -0.2540347342060907,
+    0.08654360026740499,
+    0.16871240007427202,
+    -0.3416707032092975,
+    0.24827727963643925,
+    0.10690133235170919,
+    0.4953406710719601,
+    0.07565474302009034,
+    0.22210217997410184,
+    0.34454915789377694,
+    -0.10166837514130087,
+    0.1513753563131572,
+    0.22109874360924375,
+    0.26509351238117035,
+    0.35146760053109316,
+    0.5273790782458241,
+    -0.12097678242684487,
+    0.11988088988497538,
+    -0.35855841264057875,
+    0.08867025536462902,
+    0.11745421551109503,
+    -0.9493755205977503,
+    -0.28491521162377265,
+    0.288107726571429,
+    -0.9006222053707778,
+    0.056054806392004275,
+    0.3010107387675414
+   ],
+   "log": [
+    {
+     "g": 0,
+     "best": 0,
+     "median": 0,
+     "sigma": 0.185
+    },
+    {
+     "g": 1,
+     "best": 4.167,
+     "median": 0,
+     "sigma": 0.178
+    },
+    {
+     "g": 2,
+     "best": 0.321,
+     "median": 0,
+     "sigma": 0.173
+    },
+    {
+     "g": 3,
+     "best": 0.349,
+     "median": 0,
+     "sigma": 0.17
+    },
+    {
+     "g": 4,
+     "best": 1.673,
+     "median": 0,
+     "sigma": 0.167
+    },
+    {
+     "g": 5,
+     "best": 0.737,
+     "median": 0,
+     "sigma": 0.161
+    },
+    {
+     "g": 6,
+     "best": 0,
+     "median": 0,
+     "sigma": 0.155
+    },
+    {
+     "g": 7,
+     "best": 0,
+     "median": 0,
+     "sigma": 0.153
+    },
+    {
+     "g": 8,
+     "best": 0,
+     "median": 0,
+     "sigma": 0.15
+    },
+    {
+     "g": 9,
+     "best": 0,
+     "median": 0,
+     "sigma": 0.148
+    },
+    {
+     "g": 10,
+     "best": 0,
+     "median": 0,
+     "sigma": 0.149
+    },
+    {
+     "g": 11,
+     "best": 1.741,
+     "median": 0,
+     "sigma": 0.15
+    },
+    {
+     "g": 12,
+     "best": 0.087,
+     "median": 0,
+     "sigma": 0.15
+    },
+    {
+     "g": 13,
+     "best": 0.438,
+     "median": 0,
+     "sigma": 0.147
+    },
+    {
+     "g": 14,
+     "best": 0,
+     "median": 0,
+     "sigma": 0.149
+    },
+    {
+     "g": 15,
+     "best": 0.822,
+     "median": 0,
+     "sigma": 0.151
+    },
+    {
+     "g": 16,
+     "best": 0.979,
+     "median": 0,
+     "sigma": 0.148
+    },
+    {
+     "g": 17,
+     "best": 2.759,
+     "median": 0,
+     "sigma": 0.148
+    },
+    {
+     "g": 18,
+     "best": 2.878,
+     "median": 0,
+     "sigma": 0.145
+    },
+    {
+     "g": 19,
+     "best": 3.619,
+     "median": 0,
+     "sigma": 0.145
+    },
+    {
+     "g": 20,
+     "best": 3.778,
+     "median": 0,
+     "sigma": 0.145
+    },
+    {
+     "g": 21,
+     "best": 4.834,
+     "median": 0,
+     "sigma": 0.146
+    },
+    {
+     "g": 22,
+     "best": 4.358,
+     "median": 0,
+     "sigma": 0.146
+    },
+    {
+     "g": 23,
+     "best": 5.815,
+     "median": 0,
+     "sigma": 0.148
+    },
+    {
+     "g": 24,
+     "best": 6.163,
+     "median": 0,
+     "sigma": 0.152
+    },
+    {
+     "g": 25,
+     "best": 4.927,
+     "median": 0,
+     "sigma": 0.157
+    },
+    {
+     "g": 26,
+     "best": 5.984,
+     "median": 1.169,
+     "sigma": 0.161
+    },
+    {
+     "g": 27,
+     "best": 5.335,
+     "median": 0,
+     "sigma": 0.166
+    },
+    {
+     "g": 28,
+     "best": 7.273,
+     "median": 2.651,
+     "sigma": 0.166
+    },
+    {
+     "g": 29,
+     "best": 6.051,
+     "median": 1,
+     "sigma": 0.168
+    },
+    {
+     "g": 30,
+     "best": 5.516,
+     "median": 2.629,
+     "sigma": 0.164
+    },
+    {
+     "g": 31,
+     "best": 7.245,
+     "median": 3.714,
+     "sigma": 0.166
+    },
+    {
+     "g": 32,
+     "best": 6.633,
+     "median": 2.302,
+     "sigma": 0.168
+    },
+    {
+     "g": 33,
+     "best": 6.467,
+     "median": 2.93,
+     "sigma": 0.169
+    },
+    {
+     "g": 34,
+     "best": 7.536,
+     "median": 2.513,
+     "sigma": 0.166
+    },
+    {
+     "g": 35,
+     "best": 6.428,
+     "median": 3.521,
+     "sigma": 0.162
+    },
+    {
+     "g": 36,
+     "best": 7.005,
+     "median": 3.539,
+     "sigma": 0.161
+    },
+    {
+     "g": 37,
+     "best": 7.591,
+     "median": 3.34,
+     "sigma": 0.158
+    },
+    {
+     "g": 38,
+     "best": 8.317,
+     "median": 2.666,
+     "sigma": 0.158
+    },
+    {
+     "g": 39,
+     "best": 7.293,
+     "median": 4.923,
+     "sigma": 0.158
+    },
+    {
+     "g": 40,
+     "best": 7.935,
+     "median": 5.425,
+     "sigma": 0.158
+    },
+    {
+     "g": 41,
+     "best": 7.897,
+     "median": 4.672,
+     "sigma": 0.156
+    },
+    {
+     "g": 42,
+     "best": 7.619,
+     "median": 3.797,
+     "sigma": 0.155
+    },
+    {
+     "g": 43,
+     "best": 7.478,
+     "median": 4.471,
+     "sigma": 0.156
+    },
+    {
+     "g": 44,
+     "best": 7.656,
+     "median": 3.54,
+     "sigma": 0.154
+    },
+    {
+     "g": 45,
+     "best": 7.574,
+     "median": 4.337,
+     "sigma": 0.151
+    },
+    {
+     "g": 46,
+     "best": 7.882,
+     "median": 4.729,
+     "sigma": 0.147
+    },
+    {
+     "g": 47,
+     "best": 8.286,
+     "median": 5.246,
+     "sigma": 0.141
+    },
+    {
+     "g": 48,
+     "best": 8.526,
+     "median": 5.312,
+     "sigma": 0.138
+    },
+    {
+     "g": 49,
+     "best": 8.447,
+     "median": 4.748,
+     "sigma": 0.134
+    },
+    {
+     "g": 50,
+     "best": 7.923,
+     "median": 5.541,
+     "sigma": 0.132
+    },
+    {
+     "g": 51,
+     "best": 8.546,
+     "median": 5.756,
+     "sigma": 0.13
+    },
+    {
+     "g": 52,
+     "best": 9.411,
+     "median": 6.457,
+     "sigma": 0.132
+    },
+    {
+     "g": 53,
+     "best": 8.332,
+     "median": 6.361,
+     "sigma": 0.133
+    },
+    {
+     "g": 54,
+     "best": 8.408,
+     "median": 5,
+     "sigma": 0.131
+    },
+    {
+     "g": 55,
+     "best": 8.791,
+     "median": 6.602,
+     "sigma": 0.132
+    },
+    {
+     "g": 56,
+     "best": 9.799,
+     "median": 6.604,
+     "sigma": 0.132
+    },
+    {
+     "g": 57,
+     "best": 9.098,
+     "median": 6.818,
+     "sigma": 0.132
+    },
+    {
+     "g": 58,
+     "best": 9.209,
+     "median": 6.735,
+     "sigma": 0.133
+    },
+    {
+     "g": 59,
+     "best": 10.015,
+     "median": 7.319,
+     "sigma": 0.134
+    }
+   ],
+   "channels": [
+    "thoracic rotation right",
+    "lumbar rotation right",
+    "thoracic flexion",
+    "lumbar flexion",
+    "hip.left flexion",
+    "hip.left abduction",
+    "hip.left internal rotation",
+    "knee.left flexion",
+    "ankle.left dorsiflexion",
+    "hip.right flexion",
+    "hip.right abduction",
+    "hip.right internal rotation",
+    "knee.right flexion",
+    "ankle.right dorsiflexion",
+    "shoulder.right flexion",
+    "shoulder.right abduction",
+    "shoulder.right internal rotation",
+    "elbow.right flexion"
+   ]
+  }
+ }
+}
