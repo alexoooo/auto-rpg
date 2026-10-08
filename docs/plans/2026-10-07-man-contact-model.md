@@ -157,6 +157,15 @@ no rise in total energy over the hold beyond 1 % of the spring's stored energy, 
 run within the same tolerances. Record `docs/reference/man-passive-toes.md` with the full table,
 including failures.
 
+As built: the leg body and the ankle's velocity motor made the foot creep along the ground at up
+to 8 mm/s, the rigid foot as much as the cut one, so the load sits on the foot at the ankle centre
+and the foot's turn is held; the record keeps the first fixture's finding. A control case lifts
+the toes clear with a known moment, and two more configurations multiply the toes' mass and
+moments by 10 and 100 at their own weight, to test the cause. Friction is not in the measured
+moment: Rapier's default profile applies it over the patch, not per point. The toe fails its
+acceptance at 120 Hz and at 480 Hz under every load; the locked toe sinks and creeps too; the
+rigid foot passes; toes ×100 meet the spring's law and still chatter in the kneel.
+
 ### A3. Engine holds and transfer with the fitted palm
 
 The passive toe needs core support that phase B builds, so this chunk tests the palm and the
