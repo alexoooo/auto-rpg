@@ -60,8 +60,9 @@ experiments are `docs/analysis/2026-10-05-recovery-support.md@7f3ebcdb`.
    competency passes only where it meets them at 120 and 480 Hz; the walk is gated on the speed
    travelled ([competencies](../reference/competencies.md#thresholds)). None is lowered after a
    held-out run.
-2. **The grid's ranges.** The roadmap's ranges are size x0.9 to x1.18 and weight x0.85 to
-   x1.25. Strength x0.8 to x1.25 is proposed.
+2. **The grid's ranges.** Decided 2026-10-08: size x0.9 to x1.18, weight x0.85 to x1.25 and
+   strength x0.8 to x1.25. They are data that a run can change without a code change (chunk 2,
+   "Flexible by construction").
 3. **Extend or replace the whole-body layer.** Chunk 3 records what `wholeBodyTracking` achieves
    on the spike, at what cost per step. Chunk 4 goes ahead on the answer the owner picks.
 
@@ -133,8 +134,10 @@ node research/control-foundation.mjs --suite competency --competency punch --hz 
 - `src/core/human/muscle.ts`: strength's factor in `peakTorque`.
 - `src/core/sources.ts`: `owner-physique`.
 - `src/core/models.ts`
-- `research/control-foundation-trials.mjs`, `research/control-foundation.mjs`: grid cells by physique, with `--grid`.
-- `tests/core-human.test.mjs`, `tests/core-spec.test.mjs`
+- `research/physiques.mjs` (**new**): `PHYSIQUE_GRID`, `physiqueGrid`.
+- `research/control-foundation-trials.mjs`, `research/control-foundation.mjs`: grid cells by
+  physique, with `--grid` and the axis overrides.
+- `tests/core-human.test.mjs`, `tests/core-spec.test.mjs`, `tests/research-control-foundation.test.mjs`
 - `docs/architecture.md` (Spec)
 
 **What a physique is.** `Physique` is plain data, `{ size, weight, strength }`, each a `Quantity`
@@ -150,11 +153,41 @@ body is stronger by the existing rule, and `strength` is a separate factor on to
 hit points are unchanged. A physique is a character's declared difference, recorded with its
 source, not a muscle raised for feel.
 
+**Flexible by construction.** The ranges are the owner's today, and may change:
+- **The core knows no range.** `Physique` takes any positive factor, and `physiqueFigure` refuses
+  only a factor that is not positive and finite. A character may carry a physique of its own.
+- **The ranges are one record of data.** `PHYSIQUE_GRID` (`research/physiques.mjs`) is frozen data:
+  `{ size: [0.9, 1.18], weight: [0.85, 1.25], strength: [0.8, 1.25] }`, each axis a list of
+  values, 1 always added. Changing a range is an edit to that record and nothing else.
+- **A run can override it without an edit**, by `--size 0.85,1.2`, `--weight …` or
+  `--strength …`, each a list of any length. The manifest records the grid the run used.
+- **The cells are built by one rule.** `physiqueGrid(grid, design)`:
+  - `"axes"`, the default: the default physique, and each axis's values with the others at 1.
+    That is 7 physiques for two values an axis.
+  - `"full"`: every combination of the axes' values (27 for two values an axis).
+
+  Size alone keeps the body's density, so its weight follows size cubed; the weight axis varies
+  mass at size 1.
+- **A new attribute is three edits:** a field of `Physique`, its rule in `physiqueFigure`, and an
+  axis of `PHYSIQUE_GRID`. Joint speed, if it joins, would be the example. The runner, summary and
+  record take the axes as they come.
+
 **Tests:**
 - size 1.1 lengthens every segment by 1.1 and multiplies mass by 1.331;
 - strength 1.2 multiplies every peak torque by 1.2 and changes nothing else;
 - `specProvenanceFaults` stays empty;
-- the default spec is equal to today's in a whole-record comparison.
+- the default spec is equal to today's in a whole-record comparison;
+- `physiqueGrid` makes 7 physiques by axes and 27 in full from the default record. With a third
+  value on one axis, it makes 8 and 36;
+- a factor outside the default ranges (size 1.3) builds a body;
+- an override reaches every job and the manifest;
+- a non-positive factor is refused.
+
+**Commands:**
+```powershell
+node research/control-foundation.mjs --suite competency --grid axes --workers 14
+node research/control-foundation.mjs --suite competency --grid axes --hz 480 --workers 14
+```
 
 **Gate:**
 - the full gate (bodies and specs are shared physical behaviour);
