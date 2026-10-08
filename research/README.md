@@ -14,6 +14,7 @@ Some write the data files the core reads, and only with `--write`; without it th
 |---|---|---|
 | `control-foundation.mjs`, `control-foundation-trials.mjs`, `control-foundation-worker.mjs` | shared recovery, either-hand strike/miss, paired guard and independent/layered reach and moving-defense CCD tasks; explicit development/held-out starts and unsupported capabilities; `--suite baseline`, `reach` or `ccd`, `--actuation`, `--samples`, `--from`, `--hz`, `--models`, `--workers` | exclusive manifest, source archive, raw rows and summary under `research/runs/control-foundation/`; protocol and readings in `docs/reference/control-foundation.md` |
 | `core-stance-envelope.mjs` | each core body's walks (five ways, at each speed) and turns; the fastest each holds | `assets/core/stance-envelope.json` |
+| `reptile-motion.mjs` | fixed-anatomy travel and autonomous mirror matches, rapier-coordinate at 120 Hz; `--sweep` compares immutable speed and height overrides | controller choices and qualification in `docs/reference/reptile.md` |
 | `core-stance-sweep.mjs` | the stance's batteries (stand, edge, step, walk, gait at `--speeds` and `--ways`, shove) over stance tunings (`--variants`) | |
 | `core-stance-trials.mjs`, `core-stance-worker.mjs` | the trials the sweep and envelope run, and their worker | |
 | `core-routine-battery.mjs` | the lab's Routine from seeded pushed starts, per tuning: loops held, falls, each strike's peak | |

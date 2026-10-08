@@ -26,7 +26,7 @@ async function rig(mode) {
 test("crawling and stopping continue identically from saved support and endpoint state", async () => {
   const run = await forks(() => rig("crawl"), 30, 60, 48, { physics: PHYSICS_ALONE, state: STATE_ALONE });
   assertForks(run, ["physics", "state"]);
-  assert.deepEqual([...run.seen].sort(), ["land", "settle", "shift", "swing"]);
+  assert.deepEqual([...run.seen].sort(), ["land", "settle", "swing"]);
 });
 
 test("grounded righting and its supported handover fork into a fresh world", async () => {

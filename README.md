@@ -49,12 +49,14 @@ These controls work while paused and after the verdict. Links retain the view wi
 Each contender has a **Controller** choice: Classic fighter, **Combat**, **Brawler**, **Scrapper**,
 or **Kicker (experimental)**.
 Humanoids choose a wooden club or empty hands.
-The Reptile uses **Crawl and bite**, carries no equipment and has 1 HP at 8 kg. It shifts its
-weight before lifting one paw, and bites reachable body surfaces with its physical jaw.
+The Reptile uses **Crawl and bite**, carries no equipment and has 1 HP at 8 kg. It trots toward
+opponents, slows for contact, and shifts its weight before placing one paw during close fighting
+and withdrawal. It bites reachable body surfaces with its physical jaw.
 Try `?play=arena&matchup=workshop-fighter,reptile&held=empty&recovery=continue`.
 Its anatomy is an authored estimate; its blunt bite is weak, and fighting effectiveness remains
-unqualified. [Control checks](docs/reference/reptile.md) cover standing, walking, jaw contact,
-release and recovery. Recovery may take several retries, particularly from awkward leg positions.
+unqualified against humanoids. [Control checks](docs/reference/reptile.md) cover standing, fast
+travel, biting mirror matches, release and recovery. Recovery may take several retries,
+particularly from awkward leg positions.
 Classic strikes by searched recipes; Combat, Brawler, Scrapper and Kicker are presets of one
 path fighter, which strikes along hand paths on a shared strike cycle.
 Against Classic on two Warriors ([384 bouts each](docs/reference/controller-presets.md)), every

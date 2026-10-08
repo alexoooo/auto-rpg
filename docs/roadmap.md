@@ -587,7 +587,8 @@ promoted by these results.
 
 - The reptile is an 8 kg, 1 HP quadruped on the core, selectable in the arena, with three per
   generated encounter room. [Qualification](reference/reptile.md) covers standing, a four-paw
-  crawl, physical jaw contact and release, recovery and fresh-world replay. Its anatomy is
+  crawl, a brisk diagonal trot, biting mirror matches at three starting gaps, physical jaw contact
+  and release, recovery and fresh-world replay. Its anatomy is
   explicitly estimated; the blunt bite has little finishing power. Broader recovery, practical
   combat against Warrior and Rogue, blows to end a fight, one-shots and severs remain open.
 
