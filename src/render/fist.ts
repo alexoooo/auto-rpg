@@ -1,4 +1,5 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import type { WorkshopModel } from "../core/human/rig.ts";
 
 /**
  * **The fist, built from the hand's own geometry.** Each finger bone's
@@ -44,6 +45,44 @@ export interface FistPose {
   /** Each thumb phalanx's direction, proximal first. */
   readonly thumb: readonly [PalmDirection, PalmDirection, PalmDirection];
 }
+
+/**
+ * **The fist**, built by `fistTurns` from each hand's geometry: finger angles are the joints' flexion
+ * from a straight finger, degrees, and the thumb's phalanges point along the palm's axes. Fitted
+ * on the skin by `scripts/lab/fist-fit.mjs` (its header gives the rule), one pose for both
+ * hands: every knuckle at one angle, each middle joint as far closed as it goes, the thumb across
+ * the index and middle fingers. The fit leaves no part deeper in another than 2 mm or than the
+ * relaxed hand already is, except the thumb's first phalanx in the ball of the thumb. Its readings:
+ * `docs/reference/lab.md#fist`.
+ */
+export const FIST: Readonly<Record<WorkshopModel, FistPose>> = {
+  "workshop-fighter": {
+    fingers: {
+      index: { mcp: 65, pip: 85, dip: 55.3 },
+      middle: { mcp: 65, pip: 95, dip: 61.8 },
+      ring: { mcp: 65, pip: 80, dip: 52 },
+      pinky: { mcp: 65, pip: 75, dip: 48.8 },
+    },
+    thumb: [
+      { forward: 0.439, palmar: 0.714, radial: 0.546 },
+      { forward: 0.522, palmar: 0.691, radial: -0.501 },
+      { forward: 0.688, palmar: 0.007, radial: -0.726 },
+    ],
+  },
+  "workshop-rogue": {
+    fingers: {
+      index: { mcp: 65, pip: 80, dip: 52 },
+      middle: { mcp: 65, pip: 95, dip: 61.8 },
+      ring: { mcp: 65, pip: 75, dip: 48.8 },
+      pinky: { mcp: 65, pip: 65, dip: 42.3 },
+    },
+    thumb: [
+      { forward: 0.429, palmar: 0.766, radial: 0.479 },
+      { forward: 0.492, palmar: 0.691, radial: -0.53 },
+      { forward: 0.844, palmar: -0.152, radial: -0.514 },
+    ],
+  },
+};
 
 export const FINGERS = ["index", "middle", "ring", "pinky"] as const;
 const UP = new Vector3(0, 1, 0);

@@ -36,6 +36,10 @@ test("installed posture jobs keep gain/posture cells and missing body witnesses 
   const jobs = foundationJobs({ suite: "posture-hold", actuation: "directional" });
   assert.equal(jobs.length, 27); assert.equal(new Set(jobs.map((j) => j.id)).size, 27);
   assert.throws(() => foundationJobs({ suite: "posture-hold", split: "held-out" }), /held-out/);
+  const barefoot = foundationJobs({ suite: "posture-hold", actuation: "directional", envelope: "barefoot" });
+  assert.ok(jobs.every((j) => !("envelope" in j)) && barefoot.every((j) => j.envelope === "barefoot"), "the boot's jobs keep their identity");
+  assert.equal(new Set([...jobs, ...barefoot].map((j) => j.id)).size, 54);
+  for (const invalid of [{ suite: "posture-hold", envelope: "toe" }, { suite: "baseline", envelope: "barefoot" }]) assert.throws(() => foundationJobs(invalid), /envelope/);
   const missing = jobs.filter((j) => j.model !== "workshop-fighter");
   const rows = await Promise.all(missing.map(async (job) => ({ job, result: await foundationTrial(job) })));
   assert.ok(rows.every((r) => r.result.status === "unsupported"));

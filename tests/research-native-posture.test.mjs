@@ -25,7 +25,8 @@ test("native rollouts select bounded actions through the shared posture task and
 });
 
 test("native posture search refuses undeclared budgets before creating a world", async () => {
-  for (const change of [{ steps: 0 }, { steps: 1201 }, { response: NaN }, { iterations: 0 }, { iterations: 9 }, { posture: "unknown" }]) {
+  for (const change of [{ steps: 0 }, { steps: 1201 }, { response: NaN }, { iterations: 0 }, { iterations: 9 }, { posture: "unknown" },
+    { envelope: "toe" }, { transfer: "yes" }, { transfer: true, steps: 2161 }]) {
     await assert.rejects(nativePostureControl(change), /invalid native posture trial/);
   }
 });

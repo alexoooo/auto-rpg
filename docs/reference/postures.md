@@ -404,9 +404,10 @@ engine holds both at 0.04 to 0.05 on either solver.
 - **K, the half kneel, is closed twice: lifting the hands, and rising onto the front foot.**
   `fours, left knee light` is held at 0.35 (the engine, 0.20). `half kneel, hands` under the box:
   the best try has the front hip (2.21 rad) and the lumbar spine (0.89) at their stops together and
-  still puts the front thigh 98 mm into the trunk, which is none found; under the cone it is held
-  at 0.10 with the foot further out, and with any one of the four stops stripped it is held under
-  the box at 0.06 to 0.10. `half kneel, hands light` is none found as built (its best misses by
+  still puts the front thigh 98 mm into the trunk, which is none found here; under the cone it is
+  held at 0.10 with the foot further out, and with any one of the four stops stripped it is held
+  under the box at 0.06 to 0.10. As built under the box it is held at 0.12, from a start these
+  seeds did not reach: the bare foot's witness ([man-postures.md](man-postures.md)). `half kneel, hands light` is none found as built (its best misses by
   9.6 cm), unbalanced by 3.3 cm under the cone, and held only with the rear knee's stop stripped
   (2.79 rad, 0.68, zero margin). The upright `half kneel` is held at 0.07 and `half kneel, knee
   light` at 0.15, and the path between them at 0.31 at most; the engine holds them (0.69 by side,

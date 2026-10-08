@@ -27,13 +27,16 @@ import { lowsOf } from "../src/core/control/ground.ts";
 import { chainTo, pointAtToRef, rotationAtToRef } from "../src/core/control/kinematics.ts";
 import { pointOfToRef } from "../src/core/control/support.ts";
 import { CONTACT_FRICTION } from "../src/core/engine/engine.ts";
+import { FIT_SCALE } from "../src/core/human/model.ts";
 import { modelSpec } from "../src/core/models.ts";
 import { driveMuscles } from "../src/core/muscle/driver.ts";
 import { STANCE_LOWER } from "../src/core/skills/locomotion.ts";
-import { derive } from "../src/core/spec/quantity.ts";
+import { derive, sourced } from "../src/core/spec/quantity.ts";
+import { add, cross, dot, normalize, scale, sub } from "../src/core/spec/vec.ts";
 import { createWorld, PHYSICS_HZ } from "../src/core/world.ts";
 import { freshEngine } from "../tests/harness/core-stand.mjs";
 import { risenAt } from "./core-rise-trials.mjs";
+import MAN from "../assets/humanoid/man-contact-geometry.json" with { type: "json" };
 
 export const STATICS_HARNESS = "Node, statics: the joints' kinematics and the body's dynamics (src/core/build/dynamics.ts), no world step";
 
@@ -78,12 +81,73 @@ export const VARIANTS = Object.freeze({
 export const STRIPPED = 3;
 
 /**
+ * **The hands and feet a body is read with**: `boot`, the Warrior as built, a box boot and a
+ * capsule hand; `barefoot`, Man's measured contact geometry (`SOURCES["man-contact-geometry"]`,
+ * `docs/reference/man-anatomy.md`), the whole bare foot rigid and the open hand's hull; `toe`, as
+ * `barefoot` with the foot cut at the ball and the toes on a passive hinge (`TOE`). Only shapes
+ * change: mass stays where the spec puts it, the toes' in the foot.
+ */
+export const ENVELOPES = Object.freeze(["boot", "barefoot", "toe"]);
+
+/**
+ * **The toes' hinge**, a passive spring at the metatarsophalangeal joint: `stiffness` N m/rad about
+ * `rest`, the bind pose's angle (`SOURCES["falisse-2022-toes"]`), between stops at `lo` and `hi`
+ * rad, a quarter turn either way (`SOURCES["opensim-gait2392-mtp"]`, a prototype bound, not a
+ * measured range). An angle is about the hinge's axis, the body's right more or less on either
+ * side, so a positive one curls the toes down and a negative one bends them up. The statics' toe
+ * has no mass.
+ */
+export const TOE = Object.freeze({ stiffness: 25, rest: 0, lo: -Math.PI / 2, hi: Math.PI / 2 });
+
+/**
+ * How far a toe may stand from where its spring puts it and still be there, rad: the statics'
+ * tolerance, as `ON` is a touch's. Without one, a toe that bears nothing holds only exactly at
+ * rest, which a search over its angle never lands on.
+ */
+export const TOE_ON = 0.02;
+
+/** A point of Man's contact geometry, body frame, at the fit scale. */
+const atFit = (p) => scale(p, FIT_SCALE.value);
+
+/**
+ * **`spec` with `envelope`'s hands and feet** (`ENVELOPES`): each foot's shape the bare foot's hull
+ * (`rigidFoot`, or for `toe` the foot cut at the ball), each hand's the open hand's hull, with the
+ * fist's hull its closed pose. A research transform, as `strippedSpec` is; mass, joints and every
+ * named point untouched.
+ */
+export function envelopeSpec(spec, envelope) {
+  switch (envelope) {
+    case "boot": return spec;
+    case "barefoot": case "toe": break;
+    default: throw new Error(`no envelope ${envelope}`);
+  }
+  const hull = (side, piece) => ({
+    kind: "hull",
+    points: MAN[side][piece].hull.map((p, i) => derive("m", "Man's contact geometry at the fit scale",
+      [sourced(p, "m", "man-contact-geometry", `/${side}/${piece}/hull/${i}`), FIT_SCALE], (q, s) => scale(q, s))),
+  });
+  return {
+    ...spec,
+    segments: spec.segments.map((segment) => {
+      const [part, side] = segment.name.split(".");
+      if (part === "foot") return { ...segment, shape: hull(side, envelope === "toe" ? "foot" : "rigidFoot") };
+      if (part === "hand") {
+        const open = hull(side, "palm"), fist = hull(side, "fist");
+        return { ...segment, shape: open, handPoses: { open, fist, grip: fist } };
+      }
+      return segment;
+    }),
+  };
+}
+
+/**
  * **A body as the statics read it**: built once in its reference pose in a world that is never
  * stepped, with its freedoms in the muscle driver's order (`driveMuscles`), what each moves, every
- * lowest point of every shape (`lowsOf`), and the contacts a row may name (`contactsOf`). The
- * caller disposes.
+ * lowest point of every shape (`lowsOf`), and the contacts a row may name (`contactsOf`). With the
+ * `toe` envelope, each foot's toes are posed by an angle a posture carries after the freedoms'
+ * (`toesOf`). The caller disposes.
  */
-export async function staticBody(spec = modelSpec(AUDITED), engineName) {
+export async function staticBody(spec = modelSpec(AUDITED), engineName, envelope = "boot") {
   const scene = new Scene(new NullEngine());
   const engine = await freshEngine(engineName);
   const world = createWorld(scene, engine);
@@ -93,7 +157,7 @@ export async function staticBody(spec = modelSpec(AUDITED), engineName) {
     case "rapier-coordinate": case "rapier-coordinate-coulomb": limitModel = "coordinate"; break;
     default: throw new Error(`posture audit has no limit model for ${engine.name}`);
   }
-  const built = buildBody(spec, world, { position: [0, 0, 0] });
+  const built = buildBody(envelopeSpec(spec, envelope), world, { position: [0, 0, 0] });
   const segments = [...built.segments.values()], joints = [...built.joints.values()];
   const root = segments.find((segment) => !joints.some((joint) => joint.child === segment));
   const chains = new Map(segments.map((segment) => [segment, chainTo(built, segment)]));
@@ -108,16 +172,45 @@ export async function staticBody(spec = modelSpec(AUDITED), engineName) {
   const lows = segments.flatMap((segment) => lowsOf(segment.spec.shape, segment.frame).map((low) => ({ segment, at: low.at, radius: low.radius })));
   const body = {
     built, segments, joints, root, chains, jointIndex, freedoms, mass, gravity, lows,
-    engine: { name: engine.name, revision: engine.revision }, limitModel,
+    engine: { name: engine.name, revision: engine.revision }, limitModel, envelope,
     weight: mass * Math.hypot(...gravity),
     moves: freedoms.map((f) => new Set(segments.filter((segment) => chains.get(segment).includes(f.joint)))),
     dynamics: bodyDynamics(built, gravity),
     channel: new Map(freedoms.map((f, i) => [f.name, i])),
     dispose: () => { built.dispose(); world.dispose(); scene.dispose(); },
   };
+  body.toe = envelope === "toe" ? toesOf(body) : null;
+  if (body.toe) body.lows.push(...body.toe.sides.flatMap((t) => t.lows));
   body.contacts = contactsOf(body);
   body.shapes = shapesOf(body);
   return body;
+}
+
+/**
+ * **Each foot's toes**, posed about their hinge (`mtp`) by the angle a posture carries at `index`,
+ * after the freedoms': the hinge's centre and axis, body frame, reference pose, and the toe hull's
+ * points as lows of the foot (`TOE`'s toe has no mass, and so no segment), each where the angle
+ * puts it now. The engine has no collider for them.
+ */
+function toesOf(body) {
+  const angles = [TOE.rest, TOE.rest];
+  const sides = ["left", "right"].map((side, k) => {
+    const foot = body.built.segments.get(`foot.${side}`), centre = atFit(MAN[side].mtp.centre), axis = normalize(MAN[side].mtp.axis);
+    const turned = (p) => turnAbout(p, centre, axis, angles[k]);
+    const lows = MAN[side].toes.hull.map((p) => {
+      const point = atFit(p);
+      return { segment: foot, radius: 0, toe: k, get at() { return turned(point); } };
+    });
+    return { side, k, index: body.freedoms.length + k, foot, centre, axis, lows, turned };
+  });
+  return { angles, sides };
+}
+
+/** `p` turned `angle` rad about the line through `centre` along unit `axis` (Rodrigues). */
+function turnAbout(p, centre, axis, angle) {
+  if (angle === 0) return p;
+  const v = sub(p, centre), c = Math.cos(angle), s = Math.sin(angle);
+  return add(centre, add(add(scale(v, c), scale(cross(axis, v), s)), scale(axis, dot(axis, v) * (1 - c))));
 }
 
 /**
@@ -131,6 +224,8 @@ export async function staticBody(spec = modelSpec(AUDITED), engineName) {
  * - `toes`: of each side's front corners the lower, bottom or top: a foot on its toes either way;
  * - `knee`: the lower of the thigh's end and the shank's end at the knee;
  * - `hand`: the hand's two ends, a palm flat on the ground.
+ *
+ * A hull's touch is the lowest of its candidates, as a convex body meets a flat ground (`hullContacts`).
  */
 function contactsOf(body) {
   const segment = (name) => {
@@ -142,23 +237,80 @@ function contactsOf(body) {
   const nearest = (s, centre) => lowsOn(s).reduce((best, low) => (distance(low.at, centre) < distance(best.at, centre) ? low : best));
   const contacts = {};
   for (const side of ["left", "right"]) {
-    const foot = segment(`foot.${side}`), corners = lowsOn(foot);
+    const thigh = segment(`thigh.${side}`), shank = segment(`shank.${side}`), hand = segment(`hand.${side}`), foot = segment(`foot.${side}`);
+    const knee = body.joints.find((joint) => joint.child === shank).spec.centre.value;
+    const one = (low) => ({ segment: low.segment, candidates: [low] });
+    contacts[`knee.${side}`] = [{ segment: shank, candidates: [nearest(thigh, knee), nearest(shank, knee)] }];
+    if (body.envelope !== "boot") {
+      Object.assign(contacts, hullContacts(body, side, foot, hand));
+      continue;
+    }
+    const corners = lowsOn(foot);
     if (corners.length !== 8) throw new Error(`${foot.spec.name} is not a box`);
     const byHeight = [...corners].sort((a, b) => a.at[1] - b.at[1]);
     const ahead = (list) => [...list].sort((a, b) => b.at[2] - a.at[2]);
     const bottom = byHeight.slice(0, 4), top = byHeight.slice(4);
     const ball = ahead(bottom).slice(0, 2), instep = ahead(top).slice(0, 2);
     const sameSide = (low) => instep.reduce((best, other) => (Math.abs(other.at[0] - low.at[0]) < Math.abs(best.at[0] - low.at[0]) ? other : best));
-    const thigh = segment(`thigh.${side}`), shank = segment(`shank.${side}`), hand = segment(`hand.${side}`);
-    const knee = body.joints.find((joint) => joint.child === shank).spec.centre.value;
-    const one = (low) => ({ segment: low.segment, candidates: [low] });
     contacts[`sole.${side}`] = bottom.map(one);
     contacts[`ball.${side}`] = ball.map(one);
     contacts[`instep.${side}`] = instep.map(one);
     contacts[`toes.${side}`] = ball.map((low) => ({ segment: foot, candidates: [low, sameSide(low)] }));
-    contacts[`knee.${side}`] = [{ segment: shank, candidates: [nearest(thigh, knee), nearest(shank, knee)] }];
     contacts[`hand.${side}`] = lowsOn(hand).map(one);
   }
+  return contacts;
+}
+
+/**
+ * **A side's hand and foot contacts on Man's hulls**, each touch the lowest of a quarter of a
+ * patch or a half of a piece. The foot's axes are the hinge's: across along its axis, ahead square
+ * to it and the vertical. The hand's: ahead the hand segment's length laid on the palm patch's
+ * plane, across square to it in the plane.
+ *
+ * - `sole`: the sole patch's corners in quarters, ahead and behind its middle, either side of it:
+ *   the rigid foot's for `barefoot`, the cut foot's for `toe`;
+ * - `ball`, `instep`, `toes`: on the rigid foot, its corners ahead of the hinge, either side of
+ *   their middle, whichever way they meet the ground; on the cut foot, the lowest of its corners
+ *   ahead of its sole's middle and the toe's corners, either side of their middle: the ball or the
+ *   toes, whichever the toe's angle puts down;
+ * - `hand`: the palm patch's corners in quarters, a palm flat on the ground.
+ */
+function hullContacts(body, side, foot, hand) {
+  const G = MAN[side], axis = normalize(G.mtp.axis), ahead = cross(axis, [0, 1, 0]);
+  const low = (segment) => (at) => ({ segment, at: atFit(at), radius: 0 });
+  const middle = (points) => scale(points.reduce((sum, p) => add(sum, p), [0, 0, 0]), 1 / points.length);
+  /** `points` (each with `at`, or a getter) in the cells `keys` names, by their offsets from `centre` along `along` and `across`; none empty. */
+  const cells = (points, centre, along, across, keys) => keys.map(([front, right]) => {
+    const inside = points.filter((p) => {
+      const v = sub(p.at, centre);
+      return (front === null || (dot(v, along) > 0) === front) && (dot(v, across) > 0) === right;
+    });
+    if (inside.length === 0) throw new Error(`${side}: an empty cell of a contact`);
+    return inside;
+  });
+  const QUARTERS = [[false, false], [false, true], [true, false], [true, true]], HALVES = [[null, false], [null, true]];
+  const quarters = (points, along, across) => cells(points, middle(points.map((p) => p.at)), along, across, QUARTERS);
+  const halves = (points) => cells(points, middle(points.map((p) => p.at)), ahead, axis, HALVES);
+  const touches = (segment, groups) => groups.map((candidates) => ({ segment, candidates }));
+  const hinge = atFit(G.mtp.centre);
+
+  const n = G.palm.patch.normal, length = sub(hand.spec.distal.value, hand.spec.proximal.value);
+  const palmAhead = normalize(sub(length, scale(n, dot(length, n)))), palmAcross = cross(n, palmAhead);
+  const contacts = { [`hand.${side}`]: touches(hand, quarters(G.palm.patch.outline.map(low(hand)), palmAhead, palmAcross)) };
+  if (body.envelope === "barefoot") {
+    const front = G.rigidFoot.hull.map(low(foot)).filter((p) => dot(sub(p.at, hinge), ahead) > 0);
+    const fore = touches(foot, halves(front));
+    contacts[`sole.${side}`] = touches(foot, quarters(G.rigidFoot.sole.outline.map(low(foot)), ahead, axis));
+    contacts[`ball.${side}`] = contacts[`instep.${side}`] = contacts[`toes.${side}`] = fore;
+    return contacts;
+  }
+  const sole = G.foot.sole.outline.map(low(foot)), soleMiddle = middle(sole.map((p) => p.at));
+  const front = G.foot.hull.map(low(foot)).filter((p) => dot(sub(p.at, soleMiddle), ahead) > 0);
+  const toe = body.toe.sides.find((t) => t.side === side);
+  const ball = halves(front), tips = halves(toe.lows);
+  const fore = ball.map((half, h) => ({ segment: foot, candidates: [...half, ...tips[h]] }));
+  contacts[`sole.${side}`] = touches(foot, quarters(sole, ahead, axis));
+  contacts[`ball.${side}`] = contacts[`instep.${side}`] = contacts[`toes.${side}`] = fore;
   return contacts;
 }
 
@@ -220,18 +372,25 @@ export function posed(body, posture) {
     R.multiplyToRef(turn, scratch.q);
     scratch.q.multiplyToRef(segment.rest, node.rotationQuaternion ??= new Quaternion());
   }
+  if (body.toe) for (const t of body.toe.sides) body.toe.angles[t.k] = angles[t.index] ?? TOE.rest;
   return body;
 }
 
 /** A touch where the body stands now: its lowest candidate's lowest point, world, into `out`; returns it. */
 function touchPointToRef(touch, out) {
-  let best = Infinity;
+  lowestOf(touch, out);
+  return out;
+}
+
+/** A touch's lowest candidate now, its lowest point, world, into `out`. */
+function lowestOf(touch, out) {
+  let best = Infinity, lowest = null;
   for (const low of touch.candidates) {
     pointOfToRef(low.segment, low.at, scratch.v);
     const y = scratch.v.y - low.radius;
-    if (y < best) { best = y; out.set(scratch.v.x, y, scratch.v.z); }
+    if (y < best) { best = y; lowest = low; out.set(scratch.v.x, y, scratch.v.z); }
   }
-  return out;
+  return lowest;
 }
 
 /** The lowest point of each of `body`'s lows, world height, m, now. */
@@ -365,9 +524,12 @@ export const SEEDS = Object.freeze({
   },
 });
 
-/** A seed's angles by freedom, from the reference pose: each named channel's angle less its `bind`, clamped to its range. */
+/** The toes bent up, rad, as a kneel on them bends them: the toe's second start (`search`'s `toe`), a guess the search corrects. */
+export const TOES_BENT = -1.2;
+
+/** A seed's angles by freedom, from the reference pose: each named channel's angle less its `bind`, clamped to its range; then each toe's, at rest. */
 export function seedAngles(body, seed, ranges = body.freedoms) {
-  const angles = body.freedoms.map(() => 0);
+  const angles = [...body.freedoms.map(() => 0), ...(body.toe?.sides.map(() => TOE.rest) ?? [])];
   for (const [name, value] of Object.entries(seed.angles)) {
     const names = name.includes("@") ? [name.replace("@", "left"), name.replace("@", "right")] : [name];
     for (const one of names) {
@@ -379,18 +541,20 @@ export function seedAngles(body, seed, ranges = body.freedoms) {
   return angles;
 }
 
-/** The freedoms' ranges under `variant` (`VARIANTS`): a stripped stop at `STRIPPED`. */
+/** The freedoms' ranges under `variant` (`VARIANTS`): a stripped stop at `STRIPPED`; then each toe's, between `TOE`'s stops. */
 export function rangesOf(body, variant) {
   const patterns = VARIANTS[variant];
   if (!patterns) throw new Error(`no variant ${variant}`);
-  return body.freedoms.map((f) => ({ lo: f.lo, hi: patterns.some((pattern) => pattern.test(f.name)) ? STRIPPED : f.hi }));
+  const ranges = body.freedoms.map((f) => ({ lo: f.lo, hi: patterns.some((pattern) => pattern.test(f.name)) ? STRIPPED : f.hi }));
+  return [...ranges, ...(body.toe?.sides.map(() => ({ lo: TOE.lo, hi: TOE.hi })) ?? [])];
 }
 
 /**
  * **What a row's search moves** (`knobs`): the root's height, pitch, and roll unless the row is
  * symmetric, then a knob a freedom the search may move, or a pair of one the left side mirrors.
  * The `HELD` freedoms stay at the reference, and in a symmetric row so do the neck's and the
- * trunk's lateral flexion and rotation.
+ * trunk's lateral flexion and rotation. Each toe the row may bear on (`toeBears`) is a knob, the
+ * left mirroring the right in a symmetric row; any other stays at rest.
  */
 export function knobsOf(body, row) {
   const knobs = [];
@@ -403,8 +567,16 @@ export function knobsOf(body, row) {
       knobs.push(mirror === undefined ? [i] : [i, mirror]);
     } else knobs.push([i]);
   }
+  if (body.toe) {
+    const [left, right] = body.toe.sides.filter((t) => toeBears(row, t.side)).map((t) => t.index);
+    if (row.symmetric && right !== undefined) knobs.push([right, left]);
+    else for (const index of [left, right]) if (index !== undefined) knobs.push([index]);
+  }
   return knobs;
 }
+
+/** Whether `row` may bear on `side`'s toes: it bears on that foot's front. */
+const toeBears = (row, side) => (row.bear ?? row.touch).some((name) => ["ball", "instep", "toes"].some((part) => name === `${part}.${side}`));
 
 // --- The inner solve
 
@@ -434,16 +606,30 @@ export function postureStopDirections(body, posture) {
  * rows and the root's, a force f at x on a segment adding (m x (x - p)) . f to each freedom that
  * moves it and f with its moment to the root's. A stop at `hi` gives any torque toward `lo` and
  * none away, ramped in over `RAMP` short of it unless `snap`, where it bears only on it.
+ *
+ * A toe (`toesOf`) has no mass, so what the ground pushes on it passes whole to the foot, as if
+ * the toe were the foot's; and it is still only if that push's moment about its hinge is the
+ * spring's, `TOE.stiffness` times its angle from rest, with a stop's at a stop, within the
+ * spring's moment over `TOE_ON`: two rows a toe, whether the ground touches it or not.
  */
 export function leastShare(body, row, posture, { friction = "box", ranges = body.freedoms, snap = false, spread = true } = {}) {
   const { dynamics, freedoms } = body, n = freedoms.length, edges = FRICTIONS[friction];
   dynamics.update(byJoint(body, posture.angles));
-  const bearing = (row.bear ?? row.touch).flatMap((name) => body.contacts[name].map((touch) => ({ name, touch, point: touchPointToRef(touch, new Vector3()) })));
+  const bearing = (row.bear ?? row.touch).flatMap((name) => body.contacts[name].map((touch) => {
+    const point = new Vector3();
+    return { name, touch, low: lowestOf(touch, point), point };
+  }));
   // A freedom that moves no bearing point asks a torque no ground force changes: its share is a
   // floor under s, and it is no row of the parent-axis programme. Coordinate reactions can
   // couple such freedoms, so that model keeps every muscle and stop in the programme.
   const reached = freedoms.map((_, f) => body.limitModel === "coordinate" || bearing.some((b) => body.moves[f].has(b.touch.segment)));
   const W = body.weight, c = dynamics.root.centre;
+  // Each toe's hinge, world, now.
+  const toes = body.toe?.sides ?? [];
+  const hinges = toes.map((t) => {
+    const centre = pointOfToRef(t.foot, t.centre, new Vector3());
+    return { centre, axis: pointOfToRef(t.foot, add(t.centre, t.axis), new Vector3()).subtractInPlace(centre) };
+  });
   // A column per edge of each bearing point: its generalized force per newton along the edge.
   const columns = [];
   for (const contact of bearing) {
@@ -456,7 +642,13 @@ export function leastShare(body, row, posture, { friction = "box", ranges = body
         const m = dynamics.axis(f), p = dynamics.pivot(f), a = [x.x - p[0], x.y - p[1], x.z - p[2]];
         return (m[1] * a[2] - m[2] * a[1]) * F[0] + (m[2] * a[0] - m[0] * a[2]) * F[1] + (m[0] * a[1] - m[1] * a[0]) * F[2];
       });
-      columns.push({ contact, edge: F, root, joints });
+      // Its moment about each toe's hinge, if it is on the toe.
+      const hinge = hinges.map((h, k) => {
+        if (contact.low.toe !== k) return 0;
+        const a = [x.x - h.centre.x, x.y - h.centre.y, x.z - h.centre.z];
+        return dot([h.axis.x, h.axis.y, h.axis.z], cross(a, F));
+      });
+      columns.push({ contact, edge: F, root, joints, hinge });
     }
   }
   // Each stop's bearing: 1 on it, ramped to 0 a `RAMP` short, or 0 or 1 snapped.
@@ -476,10 +668,16 @@ export function leastShare(body, row, posture, { friction = "box", ranges = body
     return t > 0 ? Math.max(0, t - stops[f].lo * STOP_BEARS) : Math.min(0, t + stops[f].hi * STOP_BEARS);
   });
   const floor = Math.max(0, ...freedoms.map((fr, f) => (fixedTorque[f] >= 0 ? fixedTorque[f] / fr.plus : -fixedTorque[f] / fr.minus)));
+  const toeStops = toes.flatMap((t) => {
+    const angle = posture.angles[t.index], { lo, hi } = ranges[t.index] ?? TOE, out = [];
+    if (near(hi - angle) > 0) out.push({ k: t.k, sign: 1, most: near(hi - angle) * STOP_BEARS });
+    if (near(angle - lo) > 0) out.push({ k: t.k, sign: -1, most: near(angle - lo) * STOP_BEARS });
+    return out;
+  });
   const E = columns.length, S = stopColumns.length;
   // The unknowns: the edges' forces, N; the stops' torques as shares of `STOP_BEARS`, so that every
-  // row is of a size; s.
-  const v = E + S + 1, sAt = E + S;
+  // row is of a size; s; the toes' stops', as the joints'.
+  const v = E + S + 1 + toeStops.length, sAt = E + S;
   const Aeq = [], beq = [];
   // The root's rows, moments over the weight times a metre and forces over the weight.
   for (let r = 0; r < 6; r++) {
@@ -488,6 +686,13 @@ export function leastShare(body, row, posture, { friction = "box", ranges = body
     Aeq.push(row6);
     beq.push(-dynamics.root.gravity[r] / W);
   }
+  // Each toe's: the ground's moment about its hinge, less a stop's, is the spring's within `TOE_ON`'s.
+  const toeRows = toes.map((t) => {
+    const a = new Array(v).fill(0);
+    columns.forEach((col, e) => { a[e] = col.hinge[t.k] / W; });
+    toeStops.forEach((st, j) => { if (st.k === t.k) a[sAt + 1 + j] = (-st.sign * STOP_BEARS) / W; });
+    return { a, spring: (TOE.stiffness * (posture.angles[t.index] - TOE.rest)) / W, within: (TOE.stiffness * TOE_ON) / W };
+  });
   // The muscles' torque: t = -gravity - J w + (stop at hi) - (stop at lo), each side within s P.
   const torqueRow = (f, sign, P) => {
     const a = new Array(v).fill(0);
@@ -503,6 +708,8 @@ export function leastShare(body, row, posture, { friction = "box", ranges = body
     const down = torqueRow(f, -1, fr.minus); down[sAt] = -1; Aub.push(down); bub.push(-g / fr.minus);
   }
   stopColumns.forEach((st, k) => { const a = new Array(v).fill(0); a[E + k] = 1; Aub.push(a); bub.push(st.most / STOP_BEARS); });
+  for (const { a, spring, within } of toeRows) { Aub.push(a, a.map((x) => -x)); bub.push(spring + within, within - spring); }
+  toeStops.forEach((st, j) => { const a = new Array(v).fill(0); a[sAt + 1 + j] = 1; Aub.push(a); bub.push(st.most / STOP_BEARS); });
   const cost = new Array(v).fill(0);
   cost[sAt] = 1;
   const first = linearProgramme(cost, Aub, bub, Aeq, beq);
@@ -548,7 +755,12 @@ export function leastShare(body, row, posture, { friction = "box", ranges = body
   const forces = bearing.map(() => new Vector3());
   columns.forEach((col, e) => { forces[bearing.indexOf(col.contact)].addInPlaceFromFloats(col.edge[0] * x[e], col.edge[1] * x[e], col.edge[2] * x[e]); });
   const ratios = freedoms.map((fr, f) => (torques[f] >= 0 ? torques[f] / fr.plus : torques[f] / fr.minus));
-  return { balanced: true, miss: 0, share, torques, ratios, stops: stopTorques, bearing, forces };
+  // Each toe's angle, its spring's moment and the ground's on it about its hinge, N m.
+  const toeMoments = toes.map((t) => ({
+    angle: posture.angles[t.index], spring: TOE.stiffness * (posture.angles[t.index] - TOE.rest),
+    ground: columns.reduce((sum, col, e) => sum + col.hinge[t.k] * x[e], 0),
+  }));
+  return { balanced: true, miss: 0, share, torques, ratios, stops: stopTorques, bearing, forces, toes: toeMoments };
 }
 
 /** The least a pivot may be of its column's largest entry (`simplex`). */
@@ -700,7 +912,7 @@ export function simplex(c, Aub, bub, Aeq, beq) {
  * it is from the row's ground, m: its touches' largest distance from it and its deepest other
  * point under it.
  */
-export function project(body, row, posture, { knobs = knobsOf(body, row), ranges = body.freedoms, fixed = new Set(), height, steps = 12 } = {}) {
+export function project(body, row, posture, { knobs = knobsOf(body, row), ranges = body.freedoms, fixed = new Set(), height, steps = 12, solve = "residuals" } = {}) {
   const touches = row.touch.flatMap((name) => body.contacts[name]);
   const point = new Vector3(), centre = new Vector3(), heights = new Float64Array(body.lows.length);
   let p = { ...posture, angles: [...posture.angles] };
@@ -733,10 +945,20 @@ export function project(body, row, posture, { knobs = knobsOf(body, row), ranges
       const rq = residuals(q, under);
       rq.forEach((value, k) => { J[k][c] = (value - r[k]) / moved; });
     });
-    // dx = -J' (J J' + d^2 E)^-1 r.
-    const d2 = 1e-6, G = J.map((a, i) => J.map((b, j) => a.reduce((sum, v, k) => sum + v * b[k], 0) + (i === j ? d2 : 0)));
-    const z = solveDense(G, r);
-    const dx = vars.map((_, c) => -J.reduce((sum, row, k) => sum + row[c] * z[k], 0));
+    // dx = -J' (J J' + d^2 E)^-1 r, solved a residual a row; or by `solve: "variables"` as
+    // -(J' J + d^2 E)^-1 J' r, the same step solved a variable a row, the cheaper where the
+    // residuals are many more than the variables, as a hull under the ground makes them. The two
+    // round apart, and a search follows its rounding.
+    const d2 = 1e-6;
+    let dx;
+    if (solve === "residuals" || r.length <= vars.length) {
+      const G = J.map((a, i) => J.map((b, j) => a.reduce((sum, v, k) => sum + v * b[k], 0) + (i === j ? d2 : 0)));
+      const z = solveDense(G, r);
+      dx = vars.map((_, c) => -J.reduce((sum, row, k) => sum + row[c] * z[k], 0));
+    } else {
+      const H = vars.map((_, a) => vars.map((_, b) => J.reduce((sum, row) => sum + row[a] * row[b], 0) + (a === b ? d2 : 0)));
+      dx = solveDense(H, vars.map((_, c) => -J.reduce((sum, row, k) => sum + row[c] * r[k], 0)));
+    }
     let scale = 1, next = null, rn = null;
     for (let tries = 0; tries < 6; tries++, scale /= 2) {
       const q = { ...p, angles: [...p.angles] };
@@ -782,9 +1004,9 @@ function solveDense(A, b) {
  * `ON` or overlapping by more than `OVERLAP` scores 1000 and up by how far; one the ground cannot
  * balance, 100 and up by its miss; one that holds, its share.
  */
-export function statics(body, row, posture, { friction = "box", variant = "built", height, snap = false, knobs = knobsOf(body, row) } = {}) {
+export function statics(body, row, posture, { friction = "box", variant = "built", height, snap = false, knobs = knobsOf(body, row), solve } = {}) {
   const ranges = rangesOf(body, variant);
-  let placed = project(body, row, posture, { knobs, ranges, height });
+  let placed = project(body, row, posture, { knobs, ranges, height, solve });
   let fixed = new Set();
   if (snap) {
     // Each knob within the ramp of a stop put on it, held there, and the posture put back on its ground.
@@ -794,7 +1016,7 @@ export function statics(body, row, posture, { friction = "box", variant = "built
       const to = hi - a <= RAMP ? hi : a - lo <= RAMP ? lo : null;
       if (to !== null) { for (const j of knob) angles[j] = to; fixed.add(k); }
     });
-    placed = project(body, row, { ...placed.posture, angles }, { knobs, ranges, height, fixed });
+    placed = project(body, row, { ...placed.posture, angles }, { knobs, ranges, height, fixed, solve });
   }
   const { posture: p, off, centre } = placed;
   posed(body, p);
@@ -854,16 +1076,18 @@ function coordinates(body, row, knobs, ranges) {
  * modification in CMA-ES achieving linear time and space complexity", PPSN X) over the search's
  * coordinates, each candidate put on the row's ground and scored by `statics`. Seed 0 starts from
  * the row's seed posture with a small step, a polish; any other from a posture drawn at random
- * about it with a wide one. Returns the best posture's reading, snapped onto its stops.
+ * about it with a wide one. `toe` is the toes' angle in the seed posture, rest unless given.
+ * Returns the best posture's reading, snapped onto its stops.
  */
-export function search(body, row, { seed = 0, evals = 1500, friction = "box", variant = "built", height, start } = {}) {
+export function search(body, row, { seed = 0, evals = 1500, friction = "box", variant = "built", height, start, toe, solve } = {}) {
   const ranges = rangesOf(body, variant), knobs = knobsOf(body, row), coords = coordinates(body, row, knobs, ranges);
   const given = SEEDS[row.seed];
   const from = start ?? { height: 1, pitch: given.pitch, roll: 0, angles: seedAngles(body, given, ranges) };
+  if (!start && toe !== undefined) for (const t of body.toe?.sides ?? []) if (toeBears(row, t.side)) from.angles[t.index] = toe;
   const uniform = random(seed * 7919 + 17), gauss = normal(uniform), D = coords.size;
   let mean = coords.encode(from);
   if (seed > 0) mean = mean.map((v, d) => (d === 0 ? v : d < (row.symmetric ? 2 : 3) ? v + 0.15 * gauss() : uniform()));
-  const evaluate = (z) => statics(body, row, coords.decode(z, from), { friction, variant, height, knobs });
+  const evaluate = (z) => statics(body, row, coords.decode(z, from), { friction, variant, height, knobs, solve });
   // Lamarckian: a candidate is put on its ground, and its coordinates are where it was put.
   let best = evaluate(mean);
   mean = coords.encode(best.posture);
@@ -900,7 +1124,7 @@ export function search(body, row, { seed = 0, evals = 1500, friction = "box", va
     }
     sigma *= Math.exp((cs / ds) * (psNorm / chiN - 1));
   }
-  const snapped = statics(body, row, best.posture, { friction, variant, height, knobs, snap: true });
+  const snapped = statics(body, row, best.posture, { friction, variant, height, knobs, snap: true, solve });
   return { ...(snapped.score <= best.score + 1e-3 || snapped.score < 100 ? snapped : best), evals: used };
 }
 
@@ -920,7 +1144,7 @@ export function recordOf(body, row, reading, { variant = "built", friction = "bo
   const centre = centreOfMass(body);
   const share = solved.balanced ? solved.share : null;
   return {
-    row: rowName(row, height), route: row.route, variant, friction, seed,
+    row: rowName(row, height), route: row.route, variant, friction, seed, envelope: body.envelope,
     engine: { ...body.engine }, limitModel: body.limitModel,
     found, balanced: solved.balanced, held: found && solved.balanced && share <= 1,
     share: share === null ? null : round(share), miss: round(solved.miss),
@@ -934,6 +1158,7 @@ export function recordOf(body, row, reading, { variant = "built", friction = "bo
     off: round(off, 4), overlap: { depth: round(overlap.depth, 4), between: overlap.between },
     height: round(centre.y), pitch: round(posture.pitch), roll: round(posture.roll),
     angles: Object.fromEntries(named.map(([name, a]) => [name, round(a)])),
+    toes: body.toe ? body.toe.sides.map((t) => ({ side: t.side, angle: round(posture.angles[t.index]), ...(solved.balanced && { ground: round(solved.toes[t.k].ground, 1), spring: round(solved.toes[t.k].spring, 1) }) })) : null,
     posture: { height: posture.height, pitch: posture.pitch, roll: posture.roll, angles: [...posture.angles] },
   };
 }
@@ -977,14 +1202,15 @@ export const rowNamed = (name) => {
 };
 
 /**
- * **One job**: the row named `row` searched on a static body of `AUDITED` under `variant` and
- * `friction`, from `seed` with `evals` evaluations, at `height` if the row scans it; or from
- * `start` (a posture) if given. Its record (`recordOf`).
+ * **One job**: the row named `row` searched on a static body of `AUDITED` with `envelope`
+ * (`ENVELOPES`) under `variant` and `friction`, from `seed` with `evals` evaluations, at `height`
+ * if the row scans it, its toes at `toe` to start; or from `start` (a posture) if given. Its record
+ * (`recordOf`).
  */
-export async function audit({ row: name, variant = "built", friction = "box", seed = 0, evals = 1500, height, start }) {
-  const body = await bodyOnce();
+export async function audit({ row: name, variant = "built", friction = "box", seed = 0, evals = 1500, height, start, envelope = "boot", toe, solve }) {
+  const body = await bodyOnce(envelope);
   const row = rowNamed(name);
-  const reading = search(body, row, { seed, evals, friction, variant, height, start });
+  const reading = search(body, row, { seed, evals, friction, variant, height, start, toe, solve });
   return { ...recordOf(body, row, reading, { variant, friction, height, seed }), evals: reading.evals };
 }
 
@@ -1283,8 +1509,11 @@ function standingHeight(body) {
   return centreOfMass(body).y;
 }
 
-/** A worker's one static body, built at its first job. */
-let made = null;
-const bodyOnce = () => (made ??= staticBody());
+/** A worker's static body of each envelope (`ENVELOPES`), built at its first job. */
+const made = new Map();
+const bodyOnce = (envelope = "boot") => {
+  if (!made.has(envelope)) made.set(envelope, staticBody(undefined, undefined, envelope));
+  return made.get(envelope);
+};
 
 export const TRIALS = { audit, path, held, least, handed };
