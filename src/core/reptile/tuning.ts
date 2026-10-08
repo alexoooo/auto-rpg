@@ -10,7 +10,7 @@ export const REPTILE_TRAVEL = Object.freeze({ centre: .06, endpoint: .04, turn: 
 
 /** The crawl (`crawl`): its lowered support, its stride and its timing: `docs/reference/reptile.md#controller-settings`. */
 export const REPTILE_CRAWL = Object.freeze({
-  crawlHeight: .85, stride: .07, lift: .06, liftConfirm: .001, swing: 1.2, shift: .45, settle: .3, plant: .2, plantSpeed: .05, placementLimit: 3,
+  crawlHeight: .85, stride: .035, lift: .025, liftConfirm: .001, swing: 1.2, shift: .45, settle: .3, plant: .2, plantSpeed: .05, placementLimit: 3,
   inset: .4, supportInset: .1, shiftError: .008, turnError: .05, yawStep: .18,
 });
 
@@ -33,4 +33,5 @@ export const REPTILE_RECOVERY = Object.freeze({
 export const REPTILE_BITE = Object.freeze({
   prepare: .25, snap: .12, release: .2, open: .3, jawError: .03, jawClosed: .001, biteTimeout: 1.2, biteEntry: .008, bitePrepareNear: .12, biteElevation: .15, biteNear: .04, biteSlow: .2, biteHold: .03, biteReturnLimit: 8,
   approach: .3, braking: .5, creepNear: .3,
+  contactAt: .5, closeRate: 4, biteAlign: .04, biteShift: .04, biteInset: .02,
 });

@@ -109,6 +109,10 @@ export function drawBody(built: BuiltBody, scene: Scene, tint: Color3): BodyShap
     mesh.parent = segment.node;
     mesh.material = segment.spec.name.endsWith(".right") ? right : left;
     meshes.push(mesh);
+    for (const contact of segment.spec.contacts ?? []) {
+      const region = shapeMesh(`${segment.node.name}.contact.${contact.name}`, segment.frame, contact.shape, scene);
+      region.parent = segment.node; region.material = mesh.material; meshes.push(region);
+    }
     if (segment.handPose) changing.push({ segment, mesh, pose: segment.handPose.applied });
   }
   const observer = scene.onBeforeRenderObservable.add(() => {
@@ -152,7 +156,7 @@ export function drawEquipment(item: ReturnType<typeof createEquipment>, scene: S
 
 /**
  * Draw what `built`'s hands hold, as the solver has it: each segment's rigid body is its own shape
- * and then its held items' (`rigidOf`), so what follows the first is drawn, on the segment's node.
+ * with its natural regions and held items (`rigidOf`); only the held owners are drawn here.
  * The skin has no mesh for a held item, so World shows these too.
  */
 export function drawHeld(built: BuiltBody, scene: Scene): BodyShapes {
@@ -162,6 +166,7 @@ export function drawHeld(built: BuiltBody, scene: Scene): BodyShapes {
   const meshes: Mesh[] = [];
   for (const segment of built.segments.values()) {
     segment.rigid.shapes.slice(1).forEach((shape, i) => {
+      if (segment.rigid.owners[i + 1]!.kind !== "held") return;
       const mesh = shapeMesh(`${segment.node.name}.held.${i}`, segment.frame, shape, scene);
       mesh.parent = segment.node;
       mesh.material = wood;

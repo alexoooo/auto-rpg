@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { dresserFor } from "../src/render/dress.ts";
 import { parseSkeletonArt } from "../src/render/skeleton-skin.ts";
+import { drawHeld } from "../src/render/body-shapes.ts";
 import { modelSpec } from "../src/core/models.ts";
 import { coreStand } from "./harness/core-stand.mjs";
 
@@ -43,6 +44,22 @@ test("a failed skin provides the complete view contract without changing the bod
     assert.ok(view.meshes.every(m => m.isEnabled()));
     view.dispose();
     assert.equal(stand.built.spec, spec);
+    assert.ok([...stand.built.segments.values()].every(s => !s.node.isDisposed()));
+  } finally { stand.dispose(); }
+});
+
+test("the reptile draws every physical tooth once, with independently disposed skin materials", async () => {
+  const stand = await coreStand(modelSpec("reptile"));
+  try {
+    const baseline = { meshes: stand.scene.meshes.length, materials: stand.scene.materials.length }, before = stand.world.physics.save();
+    const dress = await dresserFor("reptile", stand.scene), skin = dress(stand.built, { clothing }), held = drawHeld(stand.built, stand.scene);
+    const teeth = skin.meshes.filter(mesh => mesh.name.includes(".contact.tooth."));
+    assert.equal(teeth.length, 3); assert.equal(held.meshes.length, 0);
+    assert.ok(teeth.every(mesh => mesh.getTotalVertices() >= 5 && mesh.material.name.endsWith(".teeth")));
+    assert.equal(teeth.filter(mesh => mesh.parent === stand.built.segments.get("jaw").node).length, 3);
+    assert.deepEqual(stand.world.physics.save(), before);
+    skin.dispose(); held.dispose();
+    assert.deepEqual({ meshes: stand.scene.meshes.length, materials: stand.scene.materials.length }, baseline);
     assert.ok([...stand.built.segments.values()].every(s => !s.node.isDisposed()));
   } finally { stand.dispose(); }
 });

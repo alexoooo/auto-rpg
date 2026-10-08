@@ -13,6 +13,9 @@ export function dressReptile(built: BuiltBody, scene: Scene): SkinView {
   const shells = drawBody(built, scene, Color3.FromHexString(MODEL_DISPLAY.reptile.tint)), head = built.segments.get("head")!;
   const eyes = new StandardMaterial(`${head.node.name}.eyes`, scene);
   eyes.diffuseColor = Color3.FromHexString("#171f13"); eyes.specularColor = Color3.FromHexString("#c3bb65");
+  const teeth = new StandardMaterial(`${head.node.name}.teeth`, scene);
+  teeth.diffuseColor = Color3.FromHexString("#eadcc2");
+  for (const mesh of shells.meshes) if (mesh.name.includes(".contact.tooth.")) mesh.material = teeth;
   const meshes = [...shells.meshes];
   for (const side of ["left", "right"] as const) {
     const eye = MeshBuilder.CreateSphere(`${head.node.name}.eye.${side}`, { diameter: .025, segments: 12 }, scene);
@@ -21,5 +24,5 @@ export function dressReptile(built: BuiltBody, scene: Scene): SkinView {
     eye.parent = head.node; eye.material = eyes; meshes.push(eye);
   }
   return { meshes, setEnabled(enabled) { for (const mesh of meshes) mesh.setEnabled(enabled); },
-    wear() {}, dispose() { shells.dispose(); for (const mesh of meshes.slice(shells.meshes.length)) mesh.dispose(false, false); eyes.dispose(); } };
+    wear() {}, dispose() { shells.dispose(); for (const mesh of meshes.slice(shells.meshes.length)) mesh.dispose(false, false); eyes.dispose(); teeth.dispose(); } };
 }

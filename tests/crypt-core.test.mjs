@@ -249,31 +249,42 @@ test("the_dead_are_held_once_the_party_has_walked_off_and_loose_when_it_is_back"
 });
 
 test("nobody_in_the_fight_is_held_with_the_party_near", async () => {
-  // Read before the bodies step, so a margin of a step's walk: the rule read the party where it stood a step before.
-  const NEAR = WAKE_METRES - 0.05;
-  const found = [];
-  for (const seed of [1, 2, 3, 4]) {
-    const { run, dispose } = await crypt(seed, undefined, { companions: ["workshop-fighter", "workshop-fighter", "workshop-fighter"] });
+  // The rule reads before physics, so the near line leaves a margin for one step's walk.
+  const NEAR = WAKE_METRES - .05, found = [];
+  for (const seed of [1, 2, 4, 5]) {
+    const { map, far } = restFixture(seed);
+    const { run, dispose } = await crypt(seed, map, { companions: ["workshop-fighter", "workshop-fighter", "workshop-fighter"] });
     try {
-      run.commands.setMode({ keyboard: false, facing: true });
-      let held = 0;
-      const wrong = [];
+      const enemy = run.enemies[0], wrong = [];
+      let held = 0, near = 0;
       const check = run.world.beforeStep(() => {
         const party = run.party.filter(member => member.alive).map(member => member.feet());
         for (const enemy of run.enemies) {
-          if (!enemy.held || !enemy.alive) continue;
-          held += 1;
+          if (!enemy.alive) continue;
+          if (enemy.held) held++;
           const nearest = Math.min(...party.map(p => distance(p, enemy.feet())));
-          if (nearest < NEAR) wrong.push([run.world.steps, enemy.id, nearest]);
+          if (nearest < NEAR) {
+            near++;
+            if (!enemy.fighter || enemy.held) wrong.push([run.world.steps, enemy.id, nearest]);
+          }
         }
       });
-      seconds(run, 60);
-      check.dispose();
-      found.push({ seed, wrong: wrong.slice(0, 3), held: held > 0 });
+      try {
+        seconds(run, 1);
+        assert.ok(near > 0, "the initial party is physically inside the near line");
+        assert.deepEqual(wrong, [], "nearby living enemies are built and awake");
+        const away = floorBetween(map, enemy.home, far, LEVELS.rest + 3.5, LEVELS.rest + 5, 1.2);
+        assert.ok(walkUntil(run, away, () => enemy.alive && enemy.held, 60), JSON.stringify({ seed, phase: "rest", feet: run.party.map(p => p.feet()) }));
+        const beforeReturn = near;
+        assert.ok(walkUntil(run, map.start, () => !enemy.held, 60), JSON.stringify({ seed, phase: "wake" }));
+        seconds(run, 5);
+        assert.ok(near > beforeReturn, "the returning party physically crosses the near line");
+        found.push({ seed, wrong: wrong.slice(0, 3), held, near });
+      } finally { check.dispose(); }
     } finally { dispose(); }
   }
-  assert.deepEqual(found.map(({ seed, wrong }) => ({ seed, wrong })), [1, 2, 3, 4].map(seed => ({ seed, wrong: [] })));
-  assert.ok(found.some(({ held }) => held), "the fixture cannot show one: no enemy in the fight was held on any seed");
+  assert.deepEqual(found.map(({ seed, wrong }) => ({ seed, wrong })), [1, 2, 4, 5].map(seed => ({ seed, wrong: [] })));
+  assert.ok(found.every(({ held, near }) => held > 0 && near > 0), "each fixture exercises held and nearby living bodies");
 });
 
 test("a_closed_door_is_a_wall_until_it_opens", async () => {

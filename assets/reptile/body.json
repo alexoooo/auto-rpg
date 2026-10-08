@@ -6,7 +6,20 @@
   "curvature": 0.25,
   "eccentricCeiling": 1.5,
   "eccentricSlopeRatio": 1,
-  "marks": { "high": "head", "middle": ["trunk"], "base": "tail.base", "legs": ["lower.front.left", "lower.front.right", "lower.hind.left", "lower.hind.right"], "guards": [] },
+  "marks": {
+    "high": "head",
+    "middle": [
+      "trunk"
+    ],
+    "base": "tail.base",
+    "legs": [
+      "lower.front.left",
+      "lower.front.right",
+      "lower.hind.left",
+      "lower.hind.right"
+    ],
+    "guards": []
+  },
   "down": {
     "root": "trunk",
     "height": 0.6,
@@ -123,10 +136,123 @@
       "points": {
         "bite": [
           0,
-          0.215,
-          0.495
+          0.2255,
+          0.485
         ]
-      }
+      },
+      "contacts": [
+        {
+          "name": "tooth.0",
+          "points": [
+            [
+              -0.031,
+              0.2175,
+              0.481
+            ],
+            [
+              -0.025,
+              0.2175,
+              0.481
+            ],
+            [
+              -0.025,
+              0.2175,
+              0.489
+            ],
+            [
+              -0.031,
+              0.2175,
+              0.489
+            ],
+            [
+              -0.028,
+              0.2255,
+              0.485
+            ]
+          ],
+          "stiffness": 10000000,
+          "direction": [
+            0,
+            1,
+            0
+          ],
+          "alignment": 0.5
+        },
+        {
+          "name": "tooth.1",
+          "points": [
+            [
+              -0.003,
+              0.2175,
+              0.481
+            ],
+            [
+              0.003,
+              0.2175,
+              0.481
+            ],
+            [
+              0.003,
+              0.2175,
+              0.489
+            ],
+            [
+              -0.003,
+              0.2175,
+              0.489
+            ],
+            [
+              0,
+              0.2255,
+              0.485
+            ]
+          ],
+          "stiffness": 10000000,
+          "direction": [
+            0,
+            1,
+            0
+          ],
+          "alignment": 0.5
+        },
+        {
+          "name": "tooth.2",
+          "points": [
+            [
+              0.025,
+              0.2175,
+              0.481
+            ],
+            [
+              0.031,
+              0.2175,
+              0.481
+            ],
+            [
+              0.031,
+              0.2175,
+              0.489
+            ],
+            [
+              0.025,
+              0.2175,
+              0.489
+            ],
+            [
+              0.028,
+              0.2255,
+              0.485
+            ]
+          ],
+          "stiffness": 10000000,
+          "direction": [
+            0,
+            1,
+            0
+          ],
+          "alignment": 0.5
+        }
+      ]
     },
     {
       "name": "upper.front.left",

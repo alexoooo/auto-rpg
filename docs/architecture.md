@@ -535,7 +535,7 @@ Each fighter's tactics carry out `Orders` (`orders.ts`): a direction to walk, a 
 face and a point to attack, each or none, in the world's frame, as plain data naming no joint,
 pace or camera; or, in place of the point, a sensed foe by its id (`Orders.foe`), on which the
 mind finds its own point as it senses it (`aimedOrders`, `targets.ts`): a fighter the foe's
-high mark (`highMark`), the reptile the nearest point of its surface (`surfaceOn`). Each step the tactics ask for the orders, with what the body sees. Walking and
+high mark (`highMark`), the reptile a nearest surface point carried in the sensed segment frame (`nearestSurface`). Each step the tactics ask for the orders, with what the body sees. Walking and
 facing are one part both fighters share (`orderedIntent`, `ordered.ts`), as are the hand that
 does not attack (`guarding`) and whom and where they aim (`targets.ts`: the nearest foe,
 `nearestFoe`; the nearest surface, `nearestSurface`; how a fallen foe lies, `lyingAxis`), read by
@@ -851,7 +851,7 @@ The rules of a fight are `src/core/rules/`, free of any page so they can be argu
 - **A blow** (`watchBlows`, `blows.ts`) is a touch between any two segments of two sides'
   bodies, lasting while the solver pushes: it has no striker. Its energy is the touch's. Its
   record is two sides (`BlowSide`), the surfaces that met: of the pairs of shapes the solver
-  pushed on, the one it pushed on hardest, each shape its segment's own or an item it holds. Each
+  pushed on, the one it pushed on hardest, each shape its segment's own, a natural contact region (`ContactRegionSpec`), or an item it holds. Each
   side has the share of the energy it took, its damage and its wound.
 - **The two surfaces share the energy by their compliance** (`energyShares`, `share.ts`): springs
   in series under one force, so the softer takes the more. A segment's surface is its spec's; an
@@ -863,7 +863,11 @@ The rules of a fight are `src/core/rules/`, free of any page so they can be argu
 - **Damage** (`rulebook.ts`) is energy times the mechanism's worth over the unit. The unit is
   100 J of blunt blow a hit point, the owner's round number (`owner-damage-unit`,
   [reference/wounds.md](reference/wounds.md#unit)), and every mechanism (blunt, edge, axe, point)
-  keeps its ratio to blunt. The Warrior's strongest one-handed blow with the wooden club is a
+  keeps its ratio to blunt. A declared piercing direction is read in the body reference frame
+  for anatomy and the item frame for equipment: a tooth or point inside its admitted normal
+  cone prices the opposing side's share as `point`; its sides and back remain blunt
+  (`pointsInto`). The strongest loaded shape pair supplies the surfaces and direction.
+  The Warrior's strongest one-handed blow with the wooden club is a
   measurement beside it (`CLUB_BEST`, `research/core-club-unit.json`): 138.26 J, 1.38 hit points.
   The arena's rulebook and the dungeon's are the same rules.
 - **Wounds** (`pool.ts`): one pool of hit points per body, split over its parts by cross-section
@@ -1036,7 +1040,7 @@ sides met with. Each seam is where one kind of addition goes; none of these is b
 | Added | Where it goes | What it leaves alone |
 |---|---|---|
 | **A sword, a spear**: an edge, a point | An item's shape states its mechanism where it cuts or pierces; a blow whose surface is that shape is priced by it (`MECHANISM_PRICE`), after a breach cost under which it is a blunt blow. The item states its `aim` and its points; a search finds its recipes; the guard places its two ends. | The shares, the pool, the skill, the targets. |
-| **The face and the vault** | A segment takes several shapes, each with its own surface; a blow reads the surface of the shape that was touched, which a contact already names. | The pool: one head, one share of hit points. |
+| **The face and the vault** | Natural contact regions (`SegmentSpec.contacts`) supply separate colliders and surfaces; teeth use this path. Face and vault regions still need anatomical data. | The pool: one head, one share of hit points. |
 | **Armour**: boots, greaves, a cuirass, vambraces, gloves, a helmet | A worn item, rigid with its segments as a held one is: it adds its mass, and its surface is one more layer in series (`energyShares` over the layers), taking its share and wounding nobody; it raises the breach cost of an edge or a point. A glove protects the puncher by the same rule. | The rule's shape; a rigid body's shapes gain a kind of owner. |
 | **A shield** | A held item with a face: its points are what the guard places (`ItemSpec.cover`); a bash is a blow like any other. A third place on one rigid body fixes its roll (`HandGoal.places`). | The guard skill, the rule. |
 | **A staff, a spear in two hands** | An item held by two segments: the builder closes the loop with a joint at the second hand, and a placement solves both arms to the item's points. | Recipes, which are per thing held; the rule. |

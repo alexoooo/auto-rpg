@@ -198,6 +198,15 @@ export interface SegmentSpec {
   /** Coarse hand envelopes in the same reference frame; articulation retains the stated mass properties. */
   readonly handPoses?: Readonly<Record<HandPose, ShapeSpec>>;
   readonly surface: SurfaceSpec;
+  /** Additional anatomical contact shapes; their mass is included in the segment's stated mass properties. */
+  readonly contacts?: readonly ContactRegionSpec[];
+}
+
+/** A named anatomical collider with its own contact surface, in the body's reference frame. */
+export interface ContactRegionSpec {
+  readonly name: string;
+  readonly shape: ShapeSpec;
+  readonly surface: SurfaceSpec;
 }
 
 /** A rigid hand's contact configuration, independent of its controller. */
@@ -215,6 +224,8 @@ export function handShapeAt(body: BodySpec, segment: SegmentSpec, pose: HandPose
  */
 interface SurfaceSpec {
   readonly stiffness: Quantity<number>;
+  /** A piercing direction and admitted normal cosine: body reference frame for anatomy, item frame for equipment. */
+  readonly point?: { readonly direction: Quantity<Vec3>; readonly alignment: Quantity<number> };
 }
 
 /**

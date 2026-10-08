@@ -67,7 +67,7 @@ export function crawl(own: OwnBody, motor: ReturnType<typeof supportedMotor>, na
         error = atan2(sin(d), cos(d));
 
       }
-      const moving = !!intent.move || Math.abs(error) > T.turnError || state.align > 0;
+      const moving = !!intent.move || Math.abs(error) > T.turnError || state.align > 0 && !!face;
       state.time += dt;
       view.feet.forEach((e, i) => {
         if (e.contact && (i !== state.paw || state.phase === "settle" || state.phase === "shift")) {
@@ -94,7 +94,7 @@ export function crawl(own: OwnBody, motor: ReturnType<typeof supportedMotor>, na
           const anchor = state.anchors[state.paw]!;
           state.from.splice(0, 3, ...anchor);
           let dx = 0, dz = 0;
-          if (intent.move) { const length = Math.sqrt(intent.move.x * intent.move.x + intent.move.z * intent.move.z); if (length) { dx = intent.move.x / length; dz = intent.move.z / length; } }
+          if (intent.move) { const length = Math.sqrt(intent.move.x * intent.move.x + intent.move.z * intent.move.z); if (length) { dx = intent.move.x / Math.max(1, length); dz = intent.move.z / Math.max(1, length); } }
           const n = nominal[state.paw]!, c = cos(state.yaw), s = sin(state.yaw), x = n[0] - reference[0], z = n[2] - reference[2];
           state.to[0] = view.centre.x + c * x + s * z + dx * T.stride;
           state.to[1] = ground; state.to[2] = view.centre.z - s * x + c * z + dz * T.stride;

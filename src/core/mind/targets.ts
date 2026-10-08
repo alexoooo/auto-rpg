@@ -25,15 +25,15 @@ export function nearestFoe(senses: Senses, from: { readonly x: number; readonly 
 }
 
 /** A point of a surface, and its squared distance from where it was sought. */
-interface Surface { readonly at: Vec3; readonly squared: number }
+interface Surface { readonly at: Vec3; readonly squared: number; readonly foe: string; readonly part: string }
 
 /** **The nearest point of `foe`'s surface** to `from` that `accept` takes, of every segment, if nearer than `best`; `best` otherwise. */
-export function surfaceOn(foe: BodySense, from: Vec3, accept: (at: Vec3) => boolean, best: Surface | null = null): Surface | null {
+function surfaceOn(foe: BodySense, from: Vec3, accept: (at: Vec3) => boolean, best: Surface | null = null): Surface | null {
   for (const segment of foe.spec.segments) {
     const at = nearSurface(foe, segment.name, from);
     if (!at || !accept(at)) continue;
     const dx = at[0] - from[0], dy = at[1] - from[1], dz = at[2] - from[2], squared = dx * dx + dy * dy + dz * dz;
-    if (squared < (best?.squared ?? Infinity)) best = { at, squared };
+    if (squared < (best?.squared ?? Infinity)) best = { at, squared, foe: foe.id, part: segment.name };
   }
   return best;
 }
@@ -42,9 +42,9 @@ export function surfaceOn(foe: BodySense, from: Vec3, accept: (at: Vec3) => bool
  * **The nearest point of a standing foe's surface** to `from` that `accept` takes, of every
  * segment of every one, with its squared distance; null where there is none.
  */
-export function nearestSurface(senses: Senses, from: Vec3, accept: (at: Vec3) => boolean): Surface | null {
+export function nearestSurface(senses: Senses, from: Vec3, accept: (at: Vec3) => boolean, id?: string): Surface | null {
   let best: Surface | null = null;
-  for (const foe of senses.others) if (!foe.out && foe.side !== senses.side) best = surfaceOn(foe, from, accept, best);
+  for (const foe of senses.others) if (!foe.out && foe.side !== senses.side && (id === undefined || foe.id === id)) best = surfaceOn(foe, from, accept, best);
   return best;
 }
 

@@ -15,7 +15,7 @@ import type { BodySpec } from "../spec/body.ts";
 import { atan2, cos, sin } from "../math/real.ts";
 import { crawl, soleGoal, type QuadrupedView } from "./crawl.ts";
 import { headingAligned, trot } from "./trot.ts";
-import { REPTILE_CRAWL, REPTILE_TROT, REPTILE_MOTOR, REPTILE_TRAVEL } from "./tuning.ts";
+import { REPTILE_CRAWL, REPTILE_TROT, REPTILE_MOTOR, REPTILE_TRAVEL, REPTILE_BITE } from "./tuning.ts";
 import { recover } from "./recover.ts";
 import { bite } from "./bite.ts";
 import { quadrupedTactics } from "./tactics.ts";
@@ -36,7 +36,7 @@ export function quadrupedFits(spec: BodySpec): boolean {
 }
 
 /** A quadruped mind drives its own support chains through the common floating-base solve. */
-export function createQuadrupedMind(built: BuiltBody, world: World, wiring: Partial<MindWiring> = {}, tuning = { crawl: REPTILE_CRAWL, trot: REPTILE_TROT, motor: REPTILE_MOTOR, travel: REPTILE_TRAVEL }) {
+export function createQuadrupedMind(built: BuiltBody, world: World, wiring: Partial<MindWiring> = {}, tuning: { crawl: typeof REPTILE_CRAWL; trot: typeof REPTILE_TROT; motor: typeof REPTILE_MOTOR; travel: typeof REPTILE_TRAVEL; bite?: typeof REPTILE_BITE } = { crawl: REPTILE_CRAWL, trot: REPTILE_TROT, motor: REPTILE_MOTOR, travel: REPTILE_TRAVEL }) {
   const orders = wiring.orders ?? ((): null => null);
   const upright = uprightness(built), down = (): boolean => upright.down();
   // The paws, in the order the crawl lifts them: the effectors the spec says it stands on.
@@ -58,10 +58,10 @@ export function createQuadrupedMind(built: BuiltBody, world: World, wiring: Part
       motor.read(); turnOfToRef(motor.root, turn); forward.applyRotationQuaternionToRef(turn, front);
       reading.senses = s; look.yaw = atan2(front.x, front.z); look.down = down();
     };
-    const snap = bite(own, tracker), tactics = quadrupedTactics(own, view => orders(view.senses)), skills = [skill, creep, snap];
+    const snap = bite(own, tracker, tuning.bite), tactics = quadrupedTactics(own, view => orders(view.senses), tuning.bite), skills = [skill, creep, snap];
     const sight = { view, bite: snap.state.cycle };
     read(senses()); for (const s of skills) s.resume(view);
-    const host: HostMind = { name: "crawl", state: { motor: motor.state, crawl: skill.state, creep: creep.state, gait, bite: snap.state, tracker: tracker.state, look }, look: read,
+    const host: HostMind = { name: "crawl", state: { motor: motor.state, crawl: skill.state, creep: creep.state, gait, bite: snap.state, tactics: tactics.state, tracker: tracker.state, look }, look: read,
       step(s: Senses, dt: number) { read(s); this.act(dt); }, act(dt: number) {
       const intent = tactics.decide(sight, dt);
       const busy = snap.state.cycle.phase !== null;
@@ -76,7 +76,7 @@ export function createQuadrupedMind(built: BuiltBody, world: World, wiring: Part
       }
       let movement: Orders = intent;
       if (gait.reacquire) movement = placing ? { ...STAND_ORDERS, move: { x: 0, z: 0 }, face: heading } : STAND_ORDERS;
-      else if (withdrawing) movement = { move: { x: -sin(view.yaw), z: -cos(view.yaw) }, face: null, attack: null };
+      else if (withdrawing) movement = { move: { x: -sin(view.yaw), z: -cos(view.yaw) }, face: { x: sin(view.yaw), z: cos(view.yaw) }, attack: null };
       else if (busy) movement = STAND_ORDERS;
       const wanted = gait.reacquire || withdrawing || intent.creep || gait.kind === "crawl" && !intent.travel ? "crawl" : "trot";
       let active = locomotion[gait.kind];
@@ -86,7 +86,7 @@ export function createQuadrupedMind(built: BuiltBody, world: World, wiring: Part
       }
       const T = settings[gait.kind];
       const command = active.command(view, wanted !== gait.kind ? STAND_ORDERS : movement, dt);
-      snap.command(view, gait.reacquire ? null : intent.attack, active.state.phase === "settle" && view.feet.every(f => f.contact), dt, command.posture as Record<string, number>, intent.prepareBite);
+      snap.command(view, gait.reacquire ? null : intent.attack, active.state.phase === "settle" && (busy ? view.feet.reduce((loaded, f) => loaded + (f.contact ? 1 : 0), 0) >= paws.length - 1 : view.feet.every(f => f.contact) && headingAligned(view.yaw, intent.face, tuning.trot.turnMoveAngle)), dt, command, intent.prepareBite);
       rootFrameToRef(motor.root, frame);
       desired.set(...command.rotation).multiplyToRef(Quaternion.InverseToRef(motor.root.rest, inverse), desired);
       Quaternion.InverseToRef(frame.rotation, inverse).multiplyToRef(desired, flat).normalize();

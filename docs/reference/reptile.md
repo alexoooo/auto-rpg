@@ -23,8 +23,15 @@ Masses are each segment's declared weight divided by the sum of weights, times
 8 kg. The centre of mass is the midpoint. A box has the uniform cuboid's moments;
 a capsule's inertia is approximated by a uniform cylinder of the declared radius
 and its full end-to-end extent. Collision geometry does not change those masses.
-Surface stiffness is an explicit 17,000 N/m estimate throughout, not a borrowed
-human anatomical table. A segment's endpoints define its local longitudinal axis;
+Ordinary surfaces have an explicit 17,000 N/m estimate, not a borrowed human
+anatomical table. Three lower-jaw tooth pyramids are separate anatomical colliders,
+each with its own authored 10,000,000 N/m surface. Their tips rise 8 mm from their
+bases, at reference y .2255 m and z .485 m.
+Their reference points, directions and .5 contact-normal cosine are in the asset.
+These are game estimates, not measured enamel stiffness or species bite forces.
+The lower middle tooth tip is the jaw's `bite` point. Teeth belong to the existing
+segment mass and inertia; adding their colliders adds no mass or muscle strength.
+A segment's endpoints define its local longitudinal axis;
 box sizes are along that segment's local frame.
 
 ## Controller settings
@@ -51,7 +58,7 @@ height over its lowest point.
 | Trot heading | turnRate .25 rad/s, turnMoveAngle .2 rad, turnError .05 rad | Wait for the actual trunk heading before accelerating; bound the requested turn |
 | Trot acquisition | liftConfirm .001 m, landingWait .1 s, placementLimit 3 s | Count physical lift and reload; brake on delayed landing and return an unlanded pair to its anchors |
 | Resumed travel | resumeSpeed .1 m/s, resumeHold .3 s, resumeAngle .05 rad | Align and place paws through the crawl, then require quiet four-sole support before trotting |
-| Crawl geometry | crawlHeight .85, stride .07 m, lift .06 m | Lowered three-paw support and one-paw swing |
+| Crawl geometry | crawlHeight .85, stride .035 m, lift .025 m | Lowered three-paw support and one-paw swing |
 | Crawl timing | swing 1.2, shift .45, settle .3, plant .2 s; plantSpeed .05 m/s | Slow placement and continued downward acquisition |
 | Placement bounds | placementLimit 3 s, liftConfirm .001 m | Return an unlanded paw; require real lift-off |
 | Support margins | inset .4 m, supportInset .1 m, shiftError .008 m | Desired support-centre inset and actual containment tolerance |
@@ -59,6 +66,8 @@ height over its lowest point.
 | Contact | supportNormal .5, contactMargin .01 m | Positive fixed-ground impulses, and sole versus edge contact |
 | Jaw path | prepare .25 s, snap .12 s, open .3 rad, jawError .03 rad, jawClosed .001 rad | Measured opening and closing, with finite angular motion |
 | Bite reach | biteEntry .008 m beyond the tip-to-mouth span, bitePrepareNear .12 m, biteElevation .15 m, biteNear .04 m | Sensed surface selection and physical chamber readiness |
+| Bite placement | contactAt .5 of the opening angle, biteAlign .04 m, biteShift .04 m, biteInset .02 m | Aim the middle of the tooth's closing stroke; bound COM displacement within loaded paw support |
+| Closing path | closeRate 4 rad/s | Retain closing velocity at the requested path endpoint; actual motion remains muscle limited |
 | Bite cycle | release .2 s, biteSlow .2 m/s, biteHold .03 s, biteTimeout 1.2 s, biteReturnLimit 8 s | Verified quiet release; the bound allows actual backward paw placements before reporting failure |
 | Bite approach | approach .3 m, braking .5 m/s2, creepNear .3 m | Reduce travel intent with remaining mouth clearance and stopping distance; retain close crawling until the foe clears this distance |
 | Grounded righting | rightingGain 8 N m/rad, rightingDamping 4 N m s/rad, rightingEpsilon .000001 | Upright-error moment projected onto loaded hips, bounded by their muscles |
@@ -72,7 +81,9 @@ height over its lowest point.
 The trot alternates diagonal pairs selected from the reference footprint. It advances the COM
 continuously at a commanded velocity, rather than waiting for a support shift at every paw.
 Its free paws land with world velocity near zero across the ground, compensating translation
-and rotation of the trunk. The crawl's centre is shifted into the other three actual contact
+and rotation of the trunk. The crawl respects travel intent magnitude, so approach braking
+also shortens its stride.
+Its centre is shifted into the other three actual contact
 patches before a swing. Its paw placements are relative to the actual COM and reference
 footprint, so a support shift does not progressively widen the stance.
 A path finishing does not establish a landing: a paw must first clear the floor and then carry
@@ -86,13 +97,25 @@ Its leg route reads each leg's own hip and knee; blocked routes reverse the chos
 Completion requires actual four-paw sole contact, sufficient height, an upright body and a quiet
 COM for half a second. Recovery does not require that support before it starts.
 
-The bite uses sensed collision surfaces near its mouth, not a named opponent limb. The mouth
-goal compensates the exposed 30 mm lower-jaw tip; this anatomical offset gives the jaw a chance
-to meet the target before the head. Jaw motion is an angular quintic path, the chamber/strike/return
-states use the shared strike cycle, and all wounds use ordinary closing-contact energy sharing.
-The chamber follows the sensed target as the bodies move; the snap commits the last chambered aim.
+The bite selects a sensed surface near its mouth. Preparation retains that material point
+in the opponent segment's frame, so it follows the foe without chasing a new nearest point
+as its own head moves. A changed foe order replaces the chamber target; the snap keeps its
+committed aim. The mouth goal compensates the tooth position during the closing
+stroke. A bounded horizontal COM shift stays inside the actual paw support polygon.
+Admission waits for four loaded paws and the actual trunk heading; the committed bite
+can continue with three loaded paws. A queued crawl turn pauses while the bite owns the body.
+A jaw opened beyond the
+requested gape can strike from its measured angle; it need not first close to an exact opening.
+The angular quintic keeps closing velocity through contact, within the unchanged muscle
+ceilings. The snap commits the last chambered aim.
+
+The shared blow rule reads the strongest loaded shape pair. A physical tooth facing into
+the contact normal prices the opposite side's energy share by the existing `point` worth;
+its sides and back, and ordinary head and jaw shapes, remain blunt. The tooth's stiffness
+sets the compliance share. The bite has no special striker or hit-point multiplier.
 The head and jaw must lose foreign loaded contact before a return succeeds; crowded returns
-request backward crawling. No grip, clamp damage, decorative tooth collider or artificial striker exists.
+request backward crawling while retaining the forward heading. Sustained clamping, tissue
+deformation and penetration work are not modeled: continued pressure alone creates no new blow.
 
 ## Encounters
 
@@ -133,19 +156,66 @@ unloaded speed is raised during their qualification.
 | Forward and backward trot | At least 2 m forward and 1.8 m backward in each 10 s interval, including acceleration |
 | Stop, turn, rightward trot | Quiet stop within .02 m; quarter turn within .1 rad in 20 s; at least 2 m rightward in 10 s |
 | Paw accounting | At most two requested swings in the trot, one in the crawl; each counted paw clears the floor and reloads through positive fixed-ground contact |
-| Closing-jaw contact | One clean chambered-jaw/shank blow, positive energy and damage to both surfaces; cancellation gives one verified release and no failed return |
+| Closing-jaw contact | A fixed opposing Reptile jaw receives a tooth contact during the fast closing stroke; cancellation gives one verified release and no failed return |
 | Autonomous bite | Senses-only approach and closing-jaw contact, followed by verified release after cancellation |
-| Autonomous mirror matches | Gaps 1.5, 2 and 3 m, 30 s each: neither body falls; both launch and release bites, with driven closing-jaw contact before 12 s and positive common-rule damage |
+| Autonomous mirror matches | Gaps 1.5, 2 and 3 m, 30 s each: neither body falls; both launch before 12 s and release bites; each bout includes a driven closing-jaw point contact with positive common-rule damage |
 | Recovery | Back, left, right and lowered-belly poses in two headings, eight handovers within 100 s; each then walks two trunk lengths in 60 s without another fall |
 | No floor | No invented support or completed rise in a gravity-free unsupported inverted body |
 | Lifecycle and replay | Hold/resume retains physical bodies; crawling, jaw cancellation and righting fork exactly, with physics-only and state-only negative controls |
 | Generated packs | Both layout generators, 24 seeds each; complete-map repeatability, physical clearance, reachability and pack separation |
 
-The clean jaw fixture's closing rate immediately before contact is -.0510180951 rad/s and its
-energy .000107654655 J. Its target receives .0000000692962284 HP and its own jaw
-.00000100725032 HP. These are common-rule blunt contact readings, not a credible finishing
-bite. The autonomous approach fixture includes incidental contacts before its jaw stroke;
-it is not the clean one-contact measurement. Neither establishes competitive combat power.
+### Bite placement and tooth contact
+
+`node research/reptile-bite.mjs --sweep` runs the Node core stand, rapier-coordinate at
+120 Hz, with balance zero on both sides. The lower jaw starts at .3 rad. A fixed
+opposing Reptile at [0, 0, .97] m faces it, and the ordered tooth target is
+[0, .1925, .485] m. Cancellation follows the first driven jaw blow. The same
+physical geometry, masses, muscles and point pricing are used in these immutable
+controller comparisons; the rate is sampled immediately before impact.
+
+| Contact angle fraction | Path endpoint closing rate, rad/s | Time into stroke, s | Actual jaw rate, rad/s | Energy, J | Target damage, HP |
+| --- | --- | --- | --- | --- | --- |
+| 0 | 0 | .066667 | -4.737118 | .00892337 | .00297375 |
+| .5 | 0 | .058333 | -4.407002 | .01334741 | .00444808 |
+| .5 | 4 | .083333 | -3.798380 | .01170222 | .00389981 |
+
+Every row launches once, returns once without failure, releases both head and jaw,
+and stays upright. These rows establish fast physical entry; they do not show that
+the selected endpoint rate maximizes damage. The default is qualified together
+with the moving encounters below. The autonomous version of the same fixed-target
+stand hits at -3.529875 rad/s, .01347776 J and .00449152 HP, and releases without
+failure. The unloaded trial has no blow and loses no HP.
+
+The default clean hit's tooth receives .001697 of the energy and its opposing jaw
+.998303. The latter is priced by the existing point/blunt ratio (1134.99/34),
+about 33.38, rather than an extra Reptile multiplier. Ordinary shapes and a tooth's
+side or reverse direction retain blunt pricing. This fixture replaces the old
+front-of-shank placement in `c8d620cb` (Node core stand, the same engine, rate and
+zero balances), which sampled the jaw after it had slowed to -.051018
+rad/s; the two target geometries are different, so their damage is not a direct
+before/after ratio.
+
+`node research/reptile-motion.mjs` runs autonomous Node arena mirror bouts on
+rapier-coordinate at 120 Hz, balance zero on both sides, for 30 s. Each row below
+is a driven closing-jaw point contact; the rate belongs to its toothed side and
+is sampled before contact. An earlier approach bump is not included.
+
+| Starting gap, m | First launches, left/right, s | Point contact, s | Jaw rate, rad/s | Energy, J | Opposing jaw damage, HP | Falls |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1.5 | 6.708 / 6.708 | 6.725 | -.337321 | .00123442 | .00041138 | 0 / 0 |
+| 2 | 8.567 / 7.533 | 8.667 | -4.234745 | .01895199 | .00631583 | 0 / 0 |
+| 3 | 9.558 / 9.550 | 18.533 | -.502355 | .00426229 | .00142043 | 0 / 0 |
+
+Both sides launch and verify at least one release in every bout, and spend no
+assist. Contact during preparation can precede the stroke; a launch alone does
+not establish a fresh damaging contact. The widest-gap bout's first driven point
+contact follows its initial launches. Accordingly, the prompt-launch gate and
+actual damaging-contact gate are separate. Preparation and crowded returns can
+still time out and retry. Damage remains modest, and these measurements do not
+establish practical finishing power against humanoids. Sustained compression,
+tissue yielding and penetration work remain open; the rigid contact rule prices
+closing entries, not time spent clamped.
+
 The eight recovery poses are development witnesses, not a claim about arbitrary falls,
 obstacles or opponents. Some rotated leg positions take repeated retries and about 80 s.
 
@@ -198,7 +268,7 @@ on a supplied checkout, rapier-coordinate at 120 Hz. Standing uses 120 warmup st
 by 1,200 measured steps; each Warrior/Rogue bout takes 2,400 steps. All segment poses enter
 the digest after every measured step. Comparison against upstream `3f60d702` gives:
 
-| Witness | Upstream digest | Quadruped implementation digest |
+| Witness | Upstream digest | Current implementation digest |
 | --- | --- | --- |
 | Warrior standing | `2a08cb82a39d0889` | `2a08cb82a39d0889` |
 | Rogue standing | `ef9201a9062b6c05` | `ef9201a9062b6c05` |

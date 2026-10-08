@@ -15,9 +15,9 @@ type Mode = "arena" | "dungeon";
 /**
  * How a blow wounds, each with its own price: something blunt arriving (a club, a fist), an edge
  * drawn (a sword), an axe's short edge, and a point going in (an arrow, a bite). Which one a
- * contact is waits for the weapons that have edges and points; a club is `blunt`.
+ * contact is comes from its physical surface; a club is `blunt`, a forward tooth is `point`.
  */
-type Mechanism = "blunt" | "edge" | "axe" | "point";
+export type Mechanism = "blunt" | "edge" | "axe" | "point";
 export const MECHANISMS: readonly Mechanism[] = Object.freeze(["blunt", "edge", "axe", "point"]);
 
 export interface Rulebook {

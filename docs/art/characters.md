@@ -5,7 +5,10 @@ Each shell follows its physical segment. Shells are olive `#78834d`; two 25 mm e
 with 12 segments sit at the head's `eye.left` and `eye.right` points (`assets/reptile/body.json`), reference coordinates `(±.055, .285, .34)` m. Their
 diffuse colour is `#171f13`, with `#c3bb65` specular colour. These authored art choices carry
 no colliders or hit authority. The skin owns its materials and disposes its meshes without
-disposing the scene's shared materials. Detailed reptile art remains open.
+disposing the scene's shared materials. Three ivory `#eadcc2` tooth meshes draw the
+authored anatomical contact hulls once each, on the jaw node. Their
+geometry comes from the physical spec; the colour has no hit authority. Detailed
+reptile art remains open.
 
 The game's two humans are the character workshop's models: the fighter, who plays the Warrior,
 and the rogue, who plays the Rogue. The male fighter and female rogue use customized

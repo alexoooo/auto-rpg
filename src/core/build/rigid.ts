@@ -1,4 +1,4 @@
-import { frameOf, segmentFrame, type BodySpec, type HeldSpec, type ItemShape, type SegmentFrame, type SegmentSpec, type ShapeSpec } from "../spec/body.ts";
+import { frameOf, segmentFrame, type BodySpec, type ContactRegionSpec, type HeldSpec, type ItemShape, type SegmentFrame, type SegmentSpec, type ShapeSpec } from "../spec/body.ts";
 import { derive, type Quantity, type Vec3 } from "../spec/quantity.ts";
 import { add, cross, dot, scale, sub } from "../spec/vec.ts";
 
@@ -14,9 +14,10 @@ import { add, cross, dot, scale, sub } from "../spec/vec.ts";
 /** A symmetric inertia's entries, kg m2: xx, yy, zz, xy, xz, yz. */
 type Tensor = readonly [number, number, number, number, number, number];
 
-/** Whose a rigid body's shape is: its segment's own, or an item it holds. */
+/** Whose a rigid body's shape is: its segment, a natural contact region or an item it holds. */
 type ShapeOwner =
   | { readonly kind: "segment" }
+  | { readonly kind: "region"; readonly region: ContactRegionSpec }
   | { readonly kind: "held"; readonly held: HeldSpec };
 
 export interface Rigid {
@@ -81,7 +82,7 @@ export function rigidOf(spec: BodySpec, segment: SegmentSpec): Rigid {
   const holding = heldBy(spec, segment.name);
   const [ix, iy, iz] = segment.inertia.value;
   if (holding.length === 0) {
-    return { mass: segment.mass.value, centre: segment.centreOfMass.value, tensor: [ix, iy, iz, 0, 0, 0], shapes: [segment.shape], owners: [{ kind: "segment" }] };
+    return { mass: segment.mass.value, centre: segment.centreOfMass.value, tensor: [ix, iy, iz, 0, 0, 0], shapes: [segment.shape, ...(segment.contacts ?? []).map(c => c.shape)], owners: [{ kind: "segment" }, ...(segment.contacts ?? []).map(region => ({ kind: "region" as const, region }))] };
   }
   const own = frameOf(segment);
   const pieces = [
@@ -108,8 +109,8 @@ export function rigidOf(spec: BodySpec, segment: SegmentSpec): Rigid {
   }
   return {
     mass, centre, tensor: t as unknown as Tensor,
-    shapes: [segment.shape, ...holding.flatMap((held) => held.item.shapes.map((shape) => placedShape(held, shape)))],
-    owners: [{ kind: "segment" }, ...holding.flatMap((held) => held.item.shapes.map((): ShapeOwner => ({ kind: "held", held })))],
+    shapes: [segment.shape, ...(segment.contacts ?? []).map(c => c.shape), ...holding.flatMap((held) => held.item.shapes.map((shape) => placedShape(held, shape)))],
+    owners: [{ kind: "segment" }, ...(segment.contacts ?? []).map(region => ({ kind: "region" as const, region })), ...holding.flatMap((held) => held.item.shapes.map((): ShapeOwner => ({ kind: "held", held })))],
   };
 }
 

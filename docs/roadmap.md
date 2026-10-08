@@ -307,7 +307,8 @@ promoted by these results.
   is a third as tough as a knuckle while a head is far tougher than a face:
   [reference/wounds.md](reference/wounds.md#tolerances)); the face apart from the rest of the
   head; armour, which is a layer more in the list `energyShares` already takes; an edge and a
-  point, whose prices are in the rulebook and which no item states.
+  point on equipment. Natural teeth use the shared point price and surface direction
+  rule; edges and equipment loadouts remain open.
 - The owner's to choose, each landed at its default:
   - What the bodies hold now that a hit point is 100 J of blunt blow (`owner-damage-unit`).
     Today their hit points are as they were, so each holds 28 % fewer joules: of 45 bouts with
@@ -589,7 +590,8 @@ promoted by these results.
   generated encounter room. [Qualification](reference/reptile.md) covers standing, a four-paw
   crawl, a brisk diagonal trot, biting mirror matches at three starting gaps, physical jaw contact
   and release, recovery and fresh-world replay. Its anatomy is
-  explicitly estimated; the blunt bite has little finishing power. Broader recovery, practical
+  explicitly estimated; physical teeth use the shared piercing rule and fast closing contact,
+  but damage remains modest. Sustained compression and tissue yielding, broader recovery, practical
   combat against Warrior and Rogue, blows to end a fight, one-shots and severs remain open.
 
 ### Engines
