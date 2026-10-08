@@ -16,7 +16,7 @@ balance is 0 %, and the punch and kick stands fault any assist they meter.
 | stand | `shove` (`research/core-stance-trials.mjs`), in the guard | a level shove at the middle trunk's centre of mass, 0.2 to 0.8 N s per kg of the body's own mass, from 8 directions; upright through 10 s after it | the largest level held from every direction, as at every level below it (`fastestHeld`) | recovery steps |
 | guard | the defense probe (`src/core/tasks/defense.ts`) | hinged clubs at the head and upper trunk, covered by the left, right or both hands; the predictive guard and the pose as its control | share of predictive trials that cover every blow, protect the head and upper trunk, and stay up | protected impulse |
 | punch | `punchStand` (`research/punch-calibration.mjs`), the path fighter's planted cross | 8 s of crosses with each hand at a compliant pad: at the cell's place (0.1 m to the hand's side, 1.55 m up, 0.55 m ahead), at full reach (`fullReach`), and 1 m aside as a miss; the seed moves the target up to 2 cm | share of blows landed; hand speed over the last 10 cm; first contact after the order; upright and returned | impulse, effective mass, peak force, the chamber-to-contact time |
-| walk | `walk`, `turn` (`research/core-stance-trials.mjs`), in the guard | 8 s at 0.3 to 1.4 m/s at 4 headings, then a stop; a half turn at 2 rad/s walking at 0.3 m/s, each way | the fastest speed held at every heading (upright, and 80 % of the asked speed made along the way), as at every slower one; both turns upright | speed made, falls |
+| walk | `walk`, `turn` (`research/core-stance-trials.mjs`), in the guard | 8 s at 0.3 to 1.4 m/s at 4 headings, then a stop; a half turn at 2 rad/s walking at 0.3 m/s, each way | the speed travelled (below); both turns upright | the fastest asked speed held upright at every heading, as at every slower one (the stance envelope's rule); falls |
 | rise | `felled` (`research/core-rise-trials.mjs`) under the staged rise | shoved down at 1.5 N s/kg from 4 directions; watched 40 s | share of falls risen and up at the end; median time from the fall to standing 2 s | the slowest rise |
 | kick | `frontKickStand` (`research/front-kicks.mjs`), the path fighter's front kick | 24 s of kicks with each foot at a pad 0.45 m up and ahead, and 1 m aside as a miss | share of blows landed; foot speed at contact; upright and returned | impulse, first contact after the order |
 | run | none | an `unsupported` row in every cell | | |
@@ -25,6 +25,11 @@ A blow is each swing begun at least 0.5 s before the window ends; it lands when 
 of that swing reaches the pad. A hit trial succeeds with no fault (a fall, a trunk on the floor, a
 failed cycle, an assist, the pad's stroke exceeded) and a blow landed. A miss trial succeeds with no
 fault and nothing touched.
+
+**The speed travelled** is the walk's gated figure. A walk's speed made is its centre of mass's
+travel along its heading over seconds 5 to 8, divided by 3 s. At each asked speed where no walk
+fell at any heading, as at every slower one, the slowest heading's speed made counts; the figure is
+the best of those. It is the speed the body walks at every heading, whatever it was asked.
 
 **Full reach** is where the target stands when the hand's strike point touches it with the arm
 straight from the shoulder where the body is built. The arm's length runs shoulder to elbow to
@@ -51,14 +56,21 @@ Physique cells join with the physiques.
 
 ## Thresholds
 
-These are proposals, and the owner's to accept. Once accepted, none is lowered after a held-out run.
+The owner accepted these on 2026-10-08. None is lowered after a held-out run.
 
-| Competency | Proposed pass | From |
+A competency passes only where it meets its threshold at 120 Hz and at 480 Hz (`RATES`,
+`competencyPasses`). The game runs at 120 Hz. The 480 Hz run reads the same skill at a quarter of
+the step, nearer the continuous physics the body stands for, so a skill that works only through
+120 Hz's integration error fails it; such a skill would also break when a body's size, weight or
+strength changes. Each rate is a run of its own, and `research/competency-passes.mjs` reads the
+runs together.
+
+| Competency | Pass | From |
 |---|---|---|
 | stand | 0.5 N s/kg held from every direction | engineering: about 40 N s on the Warrior, the shove the stance's own tests hold sideways |
 | guard | 95 % of predictive trials succeed | engineering |
 | punch | every trial succeeds; 95 % of blows land; every landed blow at least 6.8 m/s; first contact within 0.5 s of the order | the untrained mean less one SD; the 0.5 s is engineering |
-| walk | 1.27 m/s held at every heading; both turns upright | the slowest group's comfortable speed |
+| walk | 1.27 m/s travelled; both turns upright | the slowest group's comfortable speed |
 | rise | 95 % of falls risen; median 6 s or less | the share from the young adults; the time is engineering until the paper's tables are read |
 | kick | every trial succeeds; 95 % of blows land; every landed blow at least 6.5 m/s | the novice mean less one SD |
 | run | none yet | |
@@ -71,10 +83,12 @@ it `meets` them.
 Node, the core's world on Rapier (`rapier/adapter-9`), symmetric actuation, development seeds 0
 and 1, at 120 Hz and 480 Hz from the same source (`ecea5407`, content `3f8c80d6`). The rows and
 manifests of both runs are `competencies-baseline.json.gz`. The figures are `competencyFigures`
-over those rows. Each cell is a body (Warrior: `workshop-fighter`, 79.0 kg; Rogue:
+over those rows; `node research/competency-passes.mjs docs/reference/competencies-baseline.json.gz`
+prints them and the passes. Each cell is a body (Warrior: `workshop-fighter`, 79.0 kg; Rogue:
 `workshop-rogue`, 57.6 kg) with empty hands or the club. Figures read "120 Hz | 480 Hz".
 
-**Nothing meets its proposed threshold except the stand, and the guard in the cells listed.**
+**The stand passes in every cell, and the guard in both bodies' empty-handed cells. Nothing else
+meets its threshold at either rate.**
 
 ### Stand
 
@@ -127,21 +141,19 @@ rate-dependence predicts.
 
 ### Walk
 
-The fastest speed made at every heading (80 % of the asked pace along the way, upright), the
-fastest held upright at every heading (the stance envelope's rule), in m/s, and falls of 8 at
-0.7 m/s. Every half turn stayed up (4/4).
+The speed travelled and the fastest asked speed held upright at every heading, in m/s, and falls
+of 8 at 0.7 m/s. Every half turn stayed up (4/4).
 
-| Cell | Steady | Upright | Falls at 0.7 |
+| Cell | Travelled | Upright | Falls at 0.7 |
 |---|---|---|---|
-| Warrior, empty | 0.3 \| 0.3 | 0.5 \| 0.5 | 3 \| 3 |
-| Warrior, club | 0 \| 0.3 | 0.5 \| 0.5 | 3 \| 3 |
-| Rogue, empty | 0.3 \| 0.3 | 0.3 \| 0.5 | 5 \| 5 |
-| Rogue, club | 0 \| 0.5 | 0.3 \| 0.5 | 4 \| 5 |
+| Warrior, empty | 0.40 \| 0.40 | 0.5 \| 0.5 | 3 \| 3 |
+| Warrior, club | 0.39 \| 0.39 | 0.5 \| 0.5 | 3 \| 3 |
+| Rogue, empty | 0.25 \| 0.39 | 0.3 \| 0.5 | 5 \| 5 |
+| Rogue, club | 0.23 \| 0.40 | 0.3 \| 0.5 | 4 \| 5 |
 
-A steady figure of 0 is a walk at 146° or 201° that makes 77 to 80 % of 0.3 m/s without falling.
-Upright walks at 0.3 and 0.5 m/s make 77 to 106 % of the asked pace, at any heading. The fastest walk held
-is 0.5 m/s, 36 % of the 1.39 m/s a man in his twenties walks at comfortably. At 1.4 m/s, 7 or 8
-of 8 fall in every cell.
+Each figure comes from the fastest asked speed held upright, where the slowest heading makes 77
+to 85 % of it. The best is 0.40 m/s, 31 % of the 1.27 m/s threshold. At 1.4 m/s, 6 to 8 of 8
+fall in every cell.
 
 ### Rise
 
@@ -181,13 +193,13 @@ An `unsupported` row in every cell.
 ## Agreement between the rates
 
 The tolerance for the gated quantities is:
-- a hand or foot speed within 10 % of the 120 Hz figure;
-- a stand level or walk speed on the same rung of its ladder;
+- a hand, foot or walking speed within 10 % of the 120 Hz figure;
+- a stand level on the same rung of its ladder;
 - a share whose 95 % intervals overlap.
 
 Within it:
 - the stand;
-- the walk, both figures within one rung;
+- the Warrior's walk, within 1 %;
 - the punch's speed at full reach;
 - the Warrior's first contact times;
 - the kick, except the one cell below;
@@ -207,9 +219,9 @@ Outside it, each a finding:
   apart. Its other kicks agree within 8 %.
 - **The Warrior's two-handed guard with the club** covers both trials at 120 Hz and neither at
   480 Hz (11.5 N s protected).
+- **The Rogue walks faster at 480 Hz**: 0.39 and 0.40 m/s against 0.25 and 0.23 at 120 Hz. At
+  120 Hz one or two of its walks asked 0.5 m/s fall in each loadout, so its figure comes from 0.3 m/s.
 - **The Rogue's punch at the place** lands 10 of 26 at 120 Hz and 1 of 27 at 480 Hz, at a target
   beyond its straight arm.
 
 Impulse is reported and not gated: 120 Hz reads 1.4 to 2.0 times 480 Hz on the punch and the kick.
-
-Proposed with the thresholds: a skill passes only where it passes at both rates.

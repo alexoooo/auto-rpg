@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { foundationJobs, foundationTrial, attackAccounting, proportion } from "../research/control-foundation-trials.mjs";
 import { runFoundation, summarizeFoundation } from "../research/control-foundation.mjs";
-import { COMPETENCY, competencyFigures, fullReach } from "../research/competencies.mjs";
+import { COMPETENCY, RATES, competencyFigures, competencyPasses, fullReach } from "../research/competencies.mjs";
 import { modelSpec } from "../src/core/models.ts";
 import { rigidPoints } from "../src/core/build/rigid.ts";
 import { aimOf } from "../src/core/skills/strikes.ts";
@@ -324,11 +324,27 @@ test("competency figures: the least shove and fastest walk held every way, blows
   assert.equal(s.level, 0.5); assert.equal(s.meets, true);
   assert.deepEqual(s.levels.map((l) => l.held), levels.map((l) => l === 0.6 ? ways - 1 : ways));
   assert.equal(competencyFigures("stand", stand.map((r) => r.job.level === 0.2 ? { ...r, result: { status: "measured", outcome: { success: false } } } : r)).level, 0);
-  const walks = COMPETENCY.walk.speeds.flatMap((speed) => Array.from({ length: COMPETENCY.walk.ways }, () =>
-    row({ competency: "walk", trial: "walk", speed }, { success: speed <= 0.7, fell: speed > 1, along: speed })));
+  // Upright through 1.0 m/s and falling at 1.4; one heading lags at every speed and barely moves at 1.0, so the speed
+  // travelled is that heading's at 0.7. A fall at 0.5 stops the ladder below it.
+  const walking = (fell, along) => COMPETENCY.walk.speeds.flatMap((speed) => Array.from({ length: COMPETENCY.walk.ways }, (_, k) =>
+    row({ competency: "walk", trial: "walk", speed }, { success: !fell(speed, k), fell: fell(speed, k), along: along(speed, k) })));
+  const lagging = (speed, k) => k !== 2 ? speed : speed === 1 ? 0.2 : speed * 0.9;
   const turning = [1, -1].map((sense) => row({ competency: "walk", trial: "turn", sense }, { success: sense === 1, fell: sense !== 1 }));
-  const w = competencyFigures("walk", [...walks, ...turning]);
-  assert.equal(w.speed, 0.7); assert.equal(w.upright, 1); assert.deepEqual(w.turns, { held: 1, count: 2 }); assert.equal(w.meets, false);
+  const w = competencyFigures("walk", [...walking((speed) => speed > 1, lagging), ...turning]);
+  assert.equal(w.upright, 1); assert.equal(w.speed, 0.7 * 0.9); assert.deepEqual(w.turns, { held: 1, count: 2 }); assert.equal(w.meets, false);
+  assert.deepEqual(w.speeds.map((s) => [s.held, s.fell, s.slowest]), [[4, 0, 0.3 * 0.9], [4, 0, 0.5 * 0.9], [4, 0, 0.7 * 0.9], [4, 0, 0.2], [0, 4, 1.4 * 0.9]]);
+  const stopped = competencyFigures("walk", walking((speed, k) => speed > 1 || speed === 0.5 && k === 0, lagging));
+  assert.equal(stopped.upright, 0.3); assert.equal(stopped.speed, 0.3 * 0.9);
+  const upright = turning.map((r) => ({ ...r, result: { status: "measured", outcome: { success: true, fell: false } } }));
+  const brisk = competencyFigures("walk", [...walking(() => false, (speed) => speed), ...upright]);
+  assert.equal(brisk.speed, 1.4); assert.equal(brisk.meets, true);
+  assert.equal(competencyFigures("walk", [...walking(() => false, (speed) => speed * 0.9), ...upright]).meets, false);
+  const cell = (competency, hz, meets) => ({ cell: `${competency}/workshop-fighter/empty/${hz}/symmetric`, meets });
+  assert.deepEqual(RATES, [120, 480]);
+  assert.deepEqual(competencyPasses([cell("walk", 120, true), cell("walk", 480, true), cell("punch", 480, false), cell("punch", 120, true), cell("kick", 120, true)]), [
+    { cell: "walk/workshop-fighter/empty/symmetric", meets: { 120: true, 480: true }, passes: true },
+    { cell: "punch/workshop-fighter/empty/symmetric", meets: { 120: true, 480: false }, passes: false },
+    { cell: "kick/workshop-fighter/empty/symmetric", meets: { 120: true }, passes: false }]);
   const punch = (outcome) => row({ competency: "punch", hand: "right", placement: "place", mode: "hit" }, { success: true, fell: false, impulse: 5, cycleSeconds: [0.3], ...outcome });
   const strong = competencyFigures("punch", [punch({ blows: 4, landed: 4, speeds: [7, 8, 9, 7], firstContactSeconds: 0.3 })]);
   assert.equal(strong.meets, true); assert.deepEqual(strong.parts[0].blows, { landed: 4, count: 4 }); assert.equal(strong.parts[0].slowest, 7);
@@ -354,7 +370,7 @@ test("competency trials replay on fresh worlds, and a miss lands nothing a hit l
   assert.deepEqual(a.map((r) => r.result.outcome), b.map((r) => r.result.outcome));
   const [stand, walk, hit, miss, kick] = a.map((r) => r.result.outcome);
   assert.ok(stand.success && !stand.fell);
-  assert.ok(walk.success && walk.along >= COMPETENCY.walk.pace * 0.3, `walked ${walk.along}`);
+  assert.ok(walk.success && !walk.fell && walk.along > 0.2 && walk.along < 0.4, `walked ${walk.along}`);
   assert.ok(hit.success && hit.landed > 0 && hit.landed <= hit.blows && hit.speeds.length === hit.landed, JSON.stringify(hit));
   // The planted cross at its own cell reads 4.4 to 5 m/s over its last 10 cm, and the front kick 1.1 to 1.5 m/s at contact
   // (docs/reference/competencies.md#baseline).

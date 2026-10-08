@@ -22,15 +22,15 @@ const ORDERED = 2;
 
 /**
  * What each competency's trials ask: shoves in N s a kilogram of the body's own mass, from `ways`
- * directions, watched `watch` s; walks at each of `speeds`, m/s, at `ways` headings, held when they
- * make `pace` of the asked speed along their way, and a half turn at `turn`; punches thrown
+ * directions, watched `watch` s; walks at each of `speeds`, m/s, at `ways` headings, and a half
+ * turn at `turn`; punches thrown
  * `seconds` at the punch cell's `place` (x right, height, ahead, m) and at full reach
  * (`fullReach`), the target moved by up to `offset` m by the seed; kicks at the kick stand's
  * target likewise; falls from `ways` directions of `impulse` N s/kg, watched `watch` s.
  */
 export const COMPETENCY = Object.freeze({
   stand: Object.freeze({ levels: Object.freeze([0.2, 0.3, 0.4, 0.5, 0.6, 0.8]), ways: 8, watch: 10 }),
-  walk: Object.freeze({ speeds: Object.freeze([0.3, 0.5, 0.7, 1.0, 1.4]), ways: 4, pace: 0.8,
+  walk: Object.freeze({ speeds: Object.freeze([0.3, 0.5, 0.7, 1.0, 1.4]), ways: 4,
     turn: Object.freeze({ speed: 0.3, rate: 2 }) }),
   punch: Object.freeze({ seconds: 8, place: Object.freeze([0.1, 1.55, 0.55]), offset: 0.02 }),
   kick: Object.freeze({ seconds: 24, height: 0.45, ahead: 0.45, offset: 0.02 }),
@@ -52,9 +52,10 @@ export const HUMAN_TARGETS = Object.freeze({
 });
 
 /**
- * The pass thresholds proposed for the owner (`docs/reference/competencies.md#thresholds`): each
+ * The pass thresholds, the owner's decision (`docs/reference/competencies.md#thresholds`): each
  * gate's figure and the least or most it may read; a null figure is reported and not gated. Never
- * lowered after a held-out run.
+ * lowered after a held-out run. A competency passes only where it meets them at every rate of
+ * `RATES` (`competencyPasses`).
  */
 export const THRESHOLDS = Object.freeze({
   stand: Object.freeze({ level: 0.5 }),
@@ -65,6 +66,12 @@ export const THRESHOLDS = Object.freeze({
   kick: Object.freeze({ speed: HUMAN_TARGETS.kick.speed - HUMAN_TARGETS.kick.speedSD, latency: null, share: 1, landed: 0.95 }),
   run: null,
 });
+
+/**
+ * The physics rates a competency must meet its thresholds at, Hz: the game's, and four times it as
+ * the convergence check (AGENTS.md, Measurement). The owner's decision.
+ */
+export const RATES = Object.freeze([120, 480]);
 
 const sum = (values) => values.reduce((a, b) => a + b, 0);
 const distance = (a, b) => Math.sqrt(sum(a.map((v, i) => (v - b[i]) * (v - b[i]))));
@@ -214,7 +221,7 @@ export async function competencyTrial(job) {
     }
     case "walk": if (job.trial === "walk") {
       const r = await walk({ model, held, hz, actuation, speed: job.speed, degrees: job.degrees });
-      return { status: "measured", outcome: { ...r, success: !r.fell && r.along >= COMPETENCY.walk.pace * job.speed },
+      return { status: "measured", outcome: { ...r, success: !r.fell },
         limits: ["the stance's walk, asked a pace; no gait is chosen"] };
     } else {
       const r = await turn({ model, held, hz, actuation, speed: job.speed, rate: job.rate, sense: job.sense });
@@ -240,8 +247,10 @@ export function competencyPart(job) {
 
 /**
  * A competency's figures over one cell's rows (one model, loadout and rate): counts are plain, and
- * the caller gives them their intervals. Each figure says whether it meets its proposed threshold
- * (`THRESHOLDS`); a cell with an unsupported row meets nothing.
+ * the caller gives them their intervals. Each figure says whether it meets its threshold
+ * (`THRESHOLDS`); a cell with an unsupported row meets nothing. The walk's figure is the speed
+ * travelled: at each asked speed where no walk fell, as at every slower one, the slowest heading's
+ * speed made along its way, and the best of those.
  */
 export function competencyFigures(competency, rows) {
   const measured = rows.filter((r) => r.result.status === "measured"), unsupported = rows.length - measured.length;
@@ -264,10 +273,12 @@ export function competencyFigures(competency, rows) {
     case "walk": {
       const walks = parts.get("walk") ?? [], turns = parts.get("turn") ?? [], { speeds } = COMPETENCY.walk;
       const at = speeds.map((speed) => walks.filter((r) => r.job.speed === speed));
-      const fastest = (held) => fastestHeld({ speeds, ways: Math.min(...at.map((rs) => rs.length)), held: at.map((rs) => rs.filter(held).length) });
-      const speed = fastest((r) => outcome(r).success), upright = fastest((r) => !outcome(r).fell);
-      return { ...base, speeds: speeds.map((s, i) => ({ speed: s, held: at[i].filter((r) => outcome(r).success).length, count: at[i].length,
-        fell: at[i].filter((r) => outcome(r).fell).length, along: mean(at[i].map((r) => outcome(r).along)) })),
+      const upright = fastestHeld({ speeds, ways: Math.min(...at.map((rs) => rs.length)), held: at.map((rs) => rs.filter((r) => !outcome(r).fell).length) });
+      const made = at.map((rs) => rs.length ? Math.min(...rs.map((r) => outcome(r).along)) : null);
+      const travelled = made.filter((v, i) => speeds[i] <= upright && v !== null);
+      const speed = Math.max(0, ...travelled);
+      return { ...base, speeds: speeds.map((s, i) => ({ speed: s, held: at[i].filter((r) => !outcome(r).fell).length, count: at[i].length,
+        fell: at[i].filter((r) => outcome(r).fell).length, along: mean(at[i].map((r) => outcome(r).along)), slowest: made[i] })),
         speed, upright, turns: { held: turns.filter((r) => outcome(r).success).length, count: turns.length },
         meets: !unsupported && speed >= threshold.speed && turns.every((r) => outcome(r).success) };
     }
@@ -302,4 +313,20 @@ export function competencyFigures(competency, rows) {
     case "run": return { ...base, meets: false };
     default: throw new Error(`unknown competency ${competency}`);
   }
+}
+
+/**
+ * Whether each competency passes, from its figures at several rates (`summarizeCompetencies`'
+ * entries, from one run a rate): by competency, model, loadout and actuation, it passes where every
+ * rate of `RATES` is there and meets its threshold.
+ */
+export function competencyPasses(figures) {
+  const groups = new Map();
+  for (const figure of figures) {
+    const [competency, model, held, hz, actuation] = figure.cell.split("/"), key = [competency, model, held, actuation].join("/");
+    if (!groups.has(key)) groups.set(key, new Map());
+    groups.get(key).set(Number(hz), figure.meets);
+  }
+  return [...groups].map(([cell, rates]) => ({ cell, meets: Object.fromEntries([...rates].sort(([a], [b]) => a - b)),
+    passes: RATES.every((hz) => rates.get(hz) === true) }));
 }

@@ -56,9 +56,10 @@ experiments are `docs/analysis/2026-10-05-recovery-support.md@7f3ebcdb`.
 
 ## Owner's choices this plan puts
 
-1. **The gates' thresholds.** Chunk 1 proposes each competency's human target, with its source,
-   and a pass threshold. They are engineering proposals until the owner accepts them, and are
-   never lowered after a held-out run.
+1. **The gates' thresholds.** Decided 2026-10-08: the owner accepted chunk 1's thresholds; a
+   competency passes only where it meets them at 120 and 480 Hz; the walk is gated on the speed
+   travelled ([competencies](../reference/competencies.md#thresholds)). None is lowered after a
+   held-out run.
 2. **The grid's ranges.** The roadmap's ranges are size x0.9 to x1.18 and weight x0.85 to
    x1.25. Strength x0.8 to x1.25 is proposed.
 3. **Extend or replace the whole-body layer.** Chunk 3 records what `wholeBodyTracking` achieves
