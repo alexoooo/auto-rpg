@@ -9,8 +9,8 @@
  *   square to the wrist-to-knuckle line and the knuckle line, on the side the rig's relaxed middle
  *   finger curls toward.
  * - `fist`: the hull of the hand skinned in the renderer's fist (`FIST`, `fistTurns`), the middle
- *   knuckle (`knuckles`, the rig's MET3) and `strike`, the knuckle carried forward along the
- *   wrist-to-knuckle line to the hull's farthest extent.
+ *   knuckle (`knuckles`, the rig's MET3) and `strike`, where the wrist-to-knuckle line through that
+ *   knuckle leaves the hull: the fist's surface ahead of the middle knuckle.
  * - `foot` and `toes`: the bare foot (`bare__feet`'s vertices the foot's bones weigh most on) cut by
  *   the vertical plane through the rig's ball head square to the ball bone's horizontal direction;
  *   each piece's hull holds its side's vertices and the points where the mesh's edges cross the
@@ -161,7 +161,9 @@ async function hand(side) {
   if (dot(sub(tip(bodyOf(skinHand(skin, s, relaxed))), tip(open)), palmar) < 0) palmar = scale(palmar, -1);
   const openHull = hullOf(open.map((v) => v.p)), face = largestFaceToward(openHull, palmar);
   const closed = hullOf(bodyOf(skinHand(skin, s, fistTurns(restBones(skin, s), s, FIST[MODEL]))).map((v) => v.p));
-  const reach = Math.max(...closed.map((p) => dot(sub(p, MET3), forward)));
+  // Where the wrist-to-knuckle line leaves the fist: the nearest face plane ahead along it.
+  const reach = Math.min(...convexHull(closed).planes.filter(({ normal }) => dot(normal, forward) > 0)
+    .map(({ normal, offset }) => (offset - dot(normal, MET3)) / dot(normal, forward)));
   return {
     palm: { hull: openHull.map(round), patch: patchOf(openHull, face, orthogonalTo(forward, face)) },
     fist: { hull: closed.map(round), knuckles: round(MET3), strike: round(add(MET3, scale(forward, reach))) },

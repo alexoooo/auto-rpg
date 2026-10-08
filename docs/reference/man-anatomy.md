@@ -29,7 +29,8 @@ face's plane, laid on it. `PATCH` = 5 mm is a chosen tolerance for skin flatteni
 not a measurement.
 
 **Fist.** The hull of the hand skinned in `FIST`. `knuckles` is the rig's middle knuckle (MET3);
-`strike` is that knuckle carried along the wrist-to-knuckle line to the hull's farthest extent.
+`strike` is where the wrist-to-knuckle line through that knuckle leaves the hull: the fist's
+surface just ahead of the middle knuckle, about 5 mm at the authored size.
 
 **Foot and toes.** The vertices of `bare__feet` that the foot's bones weigh most on, cut by the
 vertical plane through the rig's ball head, square to the ball bone's horizontal direction. Each
@@ -70,7 +71,7 @@ measured range of motion.
   0.145 kg.
 - Inertia per unit mass about the centre, diagonal (cm²): toes 4.54, 9.49, 6.80; foot 31.9, 30.9,
   10.7.
-- Fist: `knuckles` (-58.37, 110.62, 31.52), `strike` (-59.28, 109.62, 33.15) cm in the bind pose.
+- Fist: `knuckles` (-58.37, 110.62, 31.52), `strike` (-58.60, 110.37, 31.93) cm in the bind pose.
 
 ## Approximations
 
