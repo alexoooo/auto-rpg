@@ -122,6 +122,18 @@ Test: extend `tests/research-posture.test.mjs` with a fixture where `boot` is un
 (`kneel on toes, knees light`), and a mutation that drops the spring row and must change the
 `toe` answer.
 
+As built: the envelopes have their own runner, `research/man-postures.mjs`, sharing its worker
+pool with `core-posture.mjs` (`research/core-posture-runs.mjs`). The spring's equality is a band
+(`TOE_ON`, 0.02 rad), the front touches are the lowest of the ball and the toes rather than both
+down at once, and a toe is searched only where the row bears on its foot's front: without these
+the first toe run failed rows the bare foot held with the toes at rest. A row an envelope holds
+nothing of is searched again from the other envelopes' witnesses, which found `half kneel, hands`
+on the boot. The cone re-reads each box witness rather than searching. No row is unbalanced on
+the boot and held on the toe, so the fixture is the toe's witness of `squat on toes @ 0.60 m`,
+which neither rigid foot holds. The test tilts both toes 0.2 rad, and the ground's moment must
+follow the spring there, which the mutation fails. `docs/reference/man-postures.md` holds the
+tables.
+
 ### A2. The toe joint on the game's solver
 
 Add `research/man-toe-solver.mjs`, a fixture built directly through `rapierModule`

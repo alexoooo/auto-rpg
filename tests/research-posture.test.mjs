@@ -15,7 +15,7 @@ import { pointOfToRef } from "../src/core/control/support.ts";
 import { modelSpec } from "../src/core/models.ts";
 import { STANCE_LOWER } from "../src/core/skills/locomotion.ts";
 import {
-  AUDITED, handed, held, jointMomentsOf, leastShare, linearProgramme, placeLike, posed, project, random, rangesOf, recordOf, rowNamed, search, simplex, staticBody,
+  AUDITED, handed, held, jointMomentsOf, knobsOf, leastShare, linearProgramme, placeLike, posed, project, random, rangesOf, recordOf, rowNamed, search, simplex, staticBody, statics, TOE, TOE_ON,
 } from "../research/core-posture-trials.mjs";
 import { coreStand } from "./harness/core-stand.mjs";
 
@@ -185,8 +185,8 @@ function answer(row, { height, evals = 300, variant } = {}) {
 test("the controls: standing and on all fours held, a deep squat at a tenth of its strength not", () => {
   const stand = answer(rowNamed("stand")), fours = answer(rowNamed("fours")), squat = answer(rowNamed("squat"), { height: 0.5 });
   assert.deepEqual(Object.keys(stand), [
-    "row", "route", "variant", "friction", "seed", "engine", "limitModel", "found", "balanced", "held", "share", "miss", "binds", "ratios", "stops", "forces", "margin",
-    "off", "overlap", "height", "pitch", "roll", "angles", "posture",
+    "row", "route", "variant", "friction", "seed", "envelope", "engine", "limitModel", "found", "balanced", "held", "share", "miss", "binds", "ratios", "stops",
+    "forces", "margin", "off", "overlap", "height", "pitch", "roll", "angles", "toes", "posture",
   ]);
   for (const record of [stand, fours, squat]) assert.deepEqual([record.found, record.balanced, record.held], [true, true, true], record.row);
   // A share is the strength's inverse: at a tenth of every strength, a share over 0.1 is not held.
@@ -275,4 +275,57 @@ test("standing put on the engine stays, held by its motors and handed to its sta
   const up = body.segments.reduce((sum, s) => sum + pointOfToRef(s, s.rigid.centre, new Vector3()).y * s.rigid.mass, 0) / body.mass;
   assert.deepEqual([handed_.solver, handed_.stood, handed_.down], ["game", true, false]);
   near(handed_.centre, up - STANCE_LOWER, 0.05, "the handed body's centre, m");
+});
+
+test("a toe that bears nothing rests, and the toe's body then reads as the rigid bare foot's", async () => {
+  const bare = await staticBody(undefined, undefined, "barefoot"), toe = await staticBody(undefined, undefined, "toe");
+  try {
+    const stand = rowNamed("stand"), kneel = rowNamed("kneel on toes");
+    // A toe is a knob only where the row may bear on it: a symmetric row's two as one, mirrored.
+    assert.equal(knobsOf(toe, stand).length, knobsOf(bare, stand).length);
+    assert.deepEqual(knobsOf(toe, kneel).slice(knobsOf(bare, kneel).length), [toe.toe.sides.map((t) => t.index).reverse()]);
+    const placed = project(bare, stand, { height: 1, pitch: 0, roll: 0, angles: bare.freedoms.map(() => 0) }, { knobs: [] }).posture;
+    const withToes = (left, right) => ({ ...placed, angles: [...placed.angles, left, right] });
+    const read = (posture) => (posed(toe, posture), leastShare(toe, stand, posture));
+    posed(bare, placed);
+    const rigid = leastShare(bare, stand, placed), rest = read(withToes(TOE.rest, TOE.rest));
+    assert.ok(rigid.balanced && rest.balanced);
+    near(rest.share, rigid.share, 1e-9, "the share at rest");
+    assert.deepEqual(rest.toes.map((t) => [t.angle, t.spring, t.ground]), [[TOE.rest, 0, 0], [TOE.rest, 0, 0]]);
+    // The spring's rows are live: a toe that bears nothing holds within `TOE_ON` of rest and not beyond.
+    assert.equal(read(withToes(TOE.rest + TOE_ON / 2, TOE.rest)).balanced, true);
+    assert.equal(read(withToes(TOE.rest, TOE.rest - 2 * TOE_ON)).balanced, false);
+  } finally { bare.dispose(); toe.dispose(); }
+});
+
+test("a loaded toe holds a squat on the toes that neither rigid foot holds, at its spring's moment", async () => {
+  const fixture = JSON.parse(readFileSync(new URL("./fixtures/man-loaded-toe.json", import.meta.url), "utf8"));
+  const row = rowNamed(fixture.row), bodies = await Promise.all(["toe", "barefoot", "boot"].map((envelope) => staticBody(undefined, undefined, envelope)));
+  const [toe, bare, boot] = bodies;
+  try {
+    const read = (body, angles) => statics(body, row, { ...fixture.posture, angles }, { height: fixture.height });
+    const held = read(toe, fixture.posture.angles);
+    assert.equal(held.score, held.solved.share, "on its ground, apart and balanced");
+    near(held.solved.share, fixture.share, 1e-3, "the share");
+    // Each toe bears the ground's push at the spring's moment, within `TOE_ON`'s, and that push is
+    // many times the band: the spring's rows decide where the toe stands.
+    const band = TOE.stiffness * TOE_ON;
+    for (const t of held.solved.toes) {
+      assert.ok(Math.abs(t.ground - t.spring) <= band + 1e-9, `the ground's moment ${t.ground} N m, the spring's ${t.spring}`);
+      assert.ok(Math.abs(t.ground) > 10 * band, `the toe bears ${t.ground} N m`);
+    }
+    // Both toes turned 0.2 rad further down, the rest as it was: the ground's push moves about the
+    // hinge to follow the spring, and the body pays for it.
+    const turned = { ...held.posture, angles: held.posture.angles.map((a, i) => (toe.toe.sides.some((t) => t.index === i) ? a + 0.2 : a)) };
+    posed(toe, turned);
+    const following = leastShare(toe, row, turned);
+    assert.ok(following.balanced);
+    for (const t of following.toes) assert.ok(Math.abs(t.ground - t.spring) <= band + 1e-9, `turned, the ground's moment ${t.ground} N m, the spring's ${t.spring}`);
+    assert.ok(following.share > held.solved.share + 0.02, `turned, the share ${following.share}`);
+    // The same posture with the toes rigid: the bare foot cannot balance it, the boots overlap.
+    const angles = fixture.posture.angles.slice(0, bare.freedoms.length);
+    const rigid = read(bare, angles), booted = read(boot, angles);
+    assert.ok(rigid.score >= 100 && !rigid.solved.balanced, `bare, the score ${rigid.score}`);
+    assert.ok(booted.score >= 1000 && booted.overlap.depth > 0.01, `booted, the score ${booted.score}`);
+  } finally { for (const body of bodies) body.dispose(); }
 });
