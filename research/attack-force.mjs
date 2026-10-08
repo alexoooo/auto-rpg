@@ -1,7 +1,7 @@
 import {pathToFileURL} from 'node:url';
 import {writeFileSync} from 'node:fs';
 import {gzipSync} from 'node:zlib';
-import {Worker,isMainThread,parentPort} from 'node:worker_threads';
+import {Worker,isMainThread,parentPort,workerData} from 'node:worker_threads';
 import {punchCalibration,coarseForces} from './punch-calibration.mjs';
 import {frontKickCalibration} from './front-kicks.mjs';
 import {combatFingerprint} from './arena-combat.mjs';
@@ -112,7 +112,7 @@ export async function calibrateAttackForce({workers=2}={}) {
  const fingerprint=combatFingerprint(),jobs=[],rows=[];
  for(const actuation of ['symmetric','directional'])for(const kind of ['punch','kick'])for(const family of kind==='punch'?['straight','cross']:['front'])
   for(const hz of FORCE_PROTOCOL.rates)for(const limb of ['left','right'])jobs.push({kind,family,hz,limb,actuation});
- const pool=Array.from({length:workers},()=>new Worker(new URL(import.meta.url)));let index=0;
+ const pool=Array.from({length:workers},()=>new Worker(new URL(import.meta.url),{workerData:{entry:import.meta.url}}));let index=0;
  try {
   await Promise.all(pool.map(worker=>new Promise((resolve,reject)=>{
    worker.on('error',reject);worker.on('exit',code=>{if(code!==0)reject(new Error(`force worker exited ${code}`));});
@@ -130,8 +130,9 @@ export async function calibrateAttackForce({workers=2}={}) {
  return {version:1,fingerprint,human:TRAINED_ATTACKS,protocol:FORCE_PROTOCOL,rows,admissions,parity:admissions.every(a=>a.parity)};
 }
 
-if(!isMainThread)parentPort.on('message',async job=>{try{parentPort.postMessage(await measure(job));}catch(e){parentPort.postMessage({error:e.stack});}});
-else if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href) {
+// Only a worker started for this module answers: a module that imports this one runs this line in its own workers.
+if(!isMainThread&&workerData?.entry===import.meta.url)parentPort.on('message',async job=>{try{parentPort.postMessage(await measure(job));}catch(e){parentPort.postMessage({error:e.stack});}});
+else if(isMainThread&&process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href) {
  const record=await calibrateAttackForce();writeFileSync(process.argv[2]??'docs/reference/attack-force.json.gz',gzipSync(JSON.stringify(record)));
  console.log(JSON.stringify({parity:record.parity,admissions:record.admissions}));
 }
