@@ -33,7 +33,7 @@ control, skills, minds -- and a mind may use as much or as little of the stack a
   - attack and defence, a "divine wind" that gives a blow or a guard a boost.
 
   Each is metered against a ceiling the character's attributes set.
-- **Attributes**: body size, weight, strength and the assists' ceilings, so that characters
+- **Attributes**: body size, weight, strength, muscle speed and the assists' ceilings, so that characters
   differ and skills are tested across them.
 - **Later, other ideas** on the same bodies, such as an end-to-end learned controller on the
   muscles. The hand-built skills and the competency suite are its baseline and its benchmark
@@ -56,7 +56,7 @@ control, skills, minds -- and a mind may use as much or as little of the stack a
    loadouts and two physics rates. Today's skills are read on it
    ([competencies](reference/competencies.md)): of the owner's thresholds, only the stand's is
    met everywhere, and the staged rise does not rise at 480 Hz.
-2. **Physiques**: size, weight and strength.
+2. **Physiques**: size, weight, strength and speed.
 3. **A spike** that settles one whole-body layer under a stance and a punch.
 4. **A skill contract** that tactics choose by.
 5. **An explosive punch** thrown at full reach.

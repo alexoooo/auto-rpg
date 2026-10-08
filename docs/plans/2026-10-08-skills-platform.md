@@ -60,8 +60,9 @@ experiments are `docs/analysis/2026-10-05-recovery-support.md@7f3ebcdb`.
    competency passes only where it meets them at 120 and 480 Hz; the walk is gated on the speed
    travelled ([competencies](../reference/competencies.md#thresholds)). None is lowered after a
    held-out run.
-2. **The grid's ranges.** Decided 2026-10-08: size x0.9 to x1.18, weight x0.85 to x1.25 and
-   strength x0.8 to x1.25. They are data that a run can change without a code change (chunk 2,
+2. **The physique's attributes and ranges.** Decided 2026-10-08: size x0.9 to x1.18, weight
+   x0.85 to x1.25, strength x0.8 to x1.25 and speed x0.85 to x1.15. Weight is a load the same
+   muscles carry. The ranges are data that a run can change without a code change (chunk 2,
    "Flexible by construction").
 3. **Extend or replace the whole-body layer.** Chunk 3 records what `wholeBodyTracking` achieves
    on the spike, at what cost per step. Chunk 4 goes ahead on the answer the owner picks.
@@ -126,12 +127,16 @@ node research/control-foundation.mjs --suite competency --competency punch --hz 
 - the 480 Hz rows of the converged quantities agree with 120 Hz within the record's stated
   tolerance, or the disagreement is recorded as a finding.
 
-### 2. Physiques: size, weight and strength
+### 2. Physiques: size, weight, strength and speed
 
 **Files:**
 - `src/core/human/physique.ts` (**new**): `Physique`, `physiqueFigure`.
+- `src/core/human/figure.ts`: `HumanFigure.muscled`, the body mass its regional muscle is a share
+  of.
 - `src/core/human/spec.ts`: `humanoidSpec(model, physique?)`.
-- `src/core/human/muscle.ts`: strength's factor in `peakTorque`.
+- `src/core/human/segments.ts`: each segment's breadth by `weight`.
+- `src/core/human/muscle.ts`: `peakTorque` reads `muscled`, times `strength`.
+- `src/core/human/speed.ts`: `jointSpeed`'s unloaded speed times `speed`.
 - `src/core/sources.ts`: `owner-physique`.
 - `src/core/models.ts`
 - `research/physiques.mjs` (**new**): `PHYSIQUE_GRID`, `physiqueGrid`.
@@ -140,45 +145,49 @@ node research/control-foundation.mjs --suite competency --competency punch --hz 
 - `tests/core-human.test.mjs`, `tests/core-spec.test.mjs`, `tests/research-control-foundation.test.mjs`
 - `docs/architecture.md` (Spec)
 
-**What a physique is.** `Physique` is plain data, `{ size, weight, strength }`, each a `Quantity`
-read from `owner-physique`. Absent, the figure is unchanged.
+**What a physique is.** `Physique` is plain data, `{ size, weight, strength, speed }`, each a
+`Quantity` read from `owner-physique`. Absent, the figure is unchanged. Each attribute changes one
+thing, so a skill that breaks on the grid says which change broke it:
 
-`physiqueFigure(figure, physique)` returns a figure:
-- its points scaled by `size` through the existing `scale`;
-- its mass times `weight`, which defaults to size cubed, so a body is as dense as before;
-- the hulls, the feet and the hands scaled with the points.
+| Attribute | Changes | Leaves | Rule in `physiqueFigure` and the spec |
+|---|---|---|---|
+| `size` | every length, and the mass at the same density | joint speeds | points, hulls, feet and hands scaled through the existing `scale`; mass and `muscled` times size cubed. Torque follows the muscled mass, so it grows as size cubed |
+| `weight` | mass: a load the same muscles carry | lengths, joint centres, torques, speeds | every segment's mass times `weight`, and its breadth across its long axis (a capsule's radius, a hull's and a foot's extents, a hand's hull) times its square root, so every segment keeps its density. `muscled` is unchanged |
+| `strength` | every peak torque | mass, shape, speeds | `peakTorque` times `strength` |
+| `speed` | how fast each muscle shortens | mass, shape, torques | each exertion's unloaded speed, w0 in `jointSpeed`, times `speed`; the curvature is unchanged |
 
-Strength multiplies the regional muscle that `peakTorque` already scales by mass, so a heavier
-body is stronger by the existing rule, and `strength` is a separate factor on top. Joint speed and
-hit points are unchanged. A physique is a character's declared difference, recorded with its
-source, not a muscle raised for feel.
+A strong, heavy body is the weight and the strength axes together. Hit points are unchanged. A
+physique is a character's declared difference, recorded with its source, not a muscle raised for
+feel.
 
 **Flexible by construction.** The ranges are the owner's today, and may change:
 - **The core knows no range.** `Physique` takes any positive factor, and `physiqueFigure` refuses
   only a factor that is not positive and finite. A character may carry a physique of its own.
 - **The ranges are one record of data.** `PHYSIQUE_GRID` (`research/physiques.mjs`) is frozen data:
-  `{ size: [0.9, 1.18], weight: [0.85, 1.25], strength: [0.8, 1.25] }`, each axis a list of
-  values, 1 always added. Changing a range is an edit to that record and nothing else.
-- **A run can override it without an edit**, by `--size 0.85,1.2`, `--weight …` or
-  `--strength …`, each a list of any length. The manifest records the grid the run used.
+  `{ size: [0.9, 1.18], weight: [0.85, 1.25], strength: [0.8, 1.25], speed: [0.85, 1.15] }`, each
+  axis a list of values, 1 always added. Changing a range is an edit to that record and nothing
+  else.
+- **A run can override it without an edit**, by `--size 0.85,1.2`, `--weight …`, `--strength …`
+  or `--speed …`, each a list of any length. The manifest records the grid the run used.
 - **The cells are built by one rule.** `physiqueGrid(grid, design)`:
   - `"axes"`, the default: the default physique, and each axis's values with the others at 1.
-    That is 7 physiques for two values an axis.
-  - `"full"`: every combination of the axes' values (27 for two values an axis).
-
-  Size alone keeps the body's density, so its weight follows size cubed; the weight axis varies
-  mass at size 1.
-- **A new attribute is three edits:** a field of `Physique`, its rule in `physiqueFigure`, and an
-  axis of `PHYSIQUE_GRID`. Joint speed, if it joins, would be the example. The runner, summary and
-  record take the axes as they come.
+    That is 9 physiques for two values an axis.
+  - `"full"`: every combination of the axes' values (81 for two values an axis).
+- **A new attribute is three edits:** a field of `Physique`, its rule in `physiqueFigure` or the
+  spec, and an axis of `PHYSIQUE_GRID`. Reach (the limbs' length against the stature) would be the
+  example. The runner, summary and record take the axes as they come.
 
 **Tests:**
-- size 1.1 lengthens every segment by 1.1 and multiplies mass by 1.331;
+- size 1.1 lengthens every segment by 1.1, and multiplies mass and every peak torque by 1.331,
+  with every unloaded speed unchanged;
+- weight 1.2 multiplies every segment's mass by 1.2, keeps every length, joint centre and
+  segment's density, and changes no torque or speed;
 - strength 1.2 multiplies every peak torque by 1.2 and changes nothing else;
+- speed 1.1 multiplies every unloaded speed by 1.1 and changes nothing else;
 - `specProvenanceFaults` stays empty;
 - the default spec is equal to today's in a whole-record comparison;
-- `physiqueGrid` makes 7 physiques by axes and 27 in full from the default record. With a third
-  value on one axis, it makes 8 and 36;
+- `physiqueGrid` makes 9 physiques by axes and 81 in full from the default record. With a third
+  value on one axis, it makes 10 and 108;
 - a factor outside the default ranges (size 1.3) builds a body;
 - an override reaches every job and the manifest;
 - a non-positive factor is refused.
