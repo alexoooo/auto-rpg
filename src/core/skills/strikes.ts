@@ -157,9 +157,19 @@ export function netsOf(known: readonly Chosen[]): Readonly<Record<Band, number |
 export const mirroredWindow = (window: StrikeWindow): StrikeWindow =>
   ({ along: window.along, across: [-window.across[1], -window.across[0]], up: window.up });
 
-/** The point `hand` of `spec` strikes with (`effectorAim`). */
+/**
+ * Whether `hand` of `spec` closes into its fist to strike: it has a fist pose and a point on it to
+ * strike with (`strike`), and holds nothing. Every skill set closes such a hand for its blow
+ * (`recipeSkills`, `combatSkills`).
+ */
+export function closesToStrike(spec: BodySpec, hand: Side): boolean {
+  const segment = spec.segments.find((s) => s.name === `hand.${hand}`);
+  return !!segment?.handPoses && !!segment.points?.strike && !spec.held?.some((h) => h.segment === segment.name);
+}
+
+/** The point `hand` of `spec` strikes with: a hand that closes to strike, its fist's `strike`; else its effector's (`effectorAim`). */
 export function aimOf(spec: BodySpec, hand: Side): string {
-  return effectorAim(spec, `hand.${hand}`);
+  return closesToStrike(spec, hand) ? "strike" : effectorAim(spec, `hand.${hand}`);
 }
 
 /** The trunk's freedoms whose positive way is to one side: mirrored, their sense and angle turn over. */

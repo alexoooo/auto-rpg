@@ -7,7 +7,7 @@ import assert from "node:assert/strict";
 import { FIT_SCALE, bodyMass, stature, WORKSHOP_SEX } from "../src/core/human/model.ts";
 import { rigPoint, WORKSHOP_MODELS } from "../src/core/human/rig.ts";
 import { frameOf, segmentFrame } from "../src/core/spec/body.ts";
-import { cross, dot, length, normalize, sub } from "../src/core/spec/vec.ts";
+import { cross, dot, length, normalize, scale, sub } from "../src/core/spec/vec.ts";
 import { HUMAN_PARENTS, humanSegments } from "../src/core/human/segments.ts";
 import { TRUNK_SEGMENTS, workshopEnvelope } from "../src/core/human/envelope.ts";
 import { SIDES } from "../src/core/human/landmarks.ts";
@@ -365,5 +365,48 @@ test("each measured speed curve passes through its source, and a borrowed one na
     assert.match(shoulder.unloadedSpeed.provenance.rule, /elbowFlexion's, taken for shoulderFlexion/);
     assert.equal(elbow.unloadedSpeed.provenance.kind, "derived");
     assert.doesNotMatch(elbow.unloadedSpeed.provenance.rule, /taken for/);
+  }
+});
+
+/** How far `point` stands outside the hull `shape`, m: its largest height over a face's plane. */
+const heightOver = (shape, point) => Math.max(...hullOf(shape.points.map((p) => p.value)).planes.map(({ normal, offset }) => dot(normal, point) - offset));
+
+test("the workshop humans' hands open on their palms' hulls and close on their fists', and grip on the capsule fist", () => {
+  for (const model of WORKSHOP_MODELS) {
+    const figure = workshopFigure(model), segments = humanSegments(figure);
+    for (const side of SIDES) {
+      const hand = segments.find((s) => s.name === `hand.${side}`), measured = figure.hands[side], { open, fist, grip } = hand.handPoses;
+      const where = `${model} ${side}`;
+      // What a held item seats against stays the capsule; the grip is that capsule ended at the knuckles.
+      assert.equal(hand.shape.kind, "capsule", where);
+      assert.deepEqual(grip, { kind: "capsule", from: hand.shape.from, to: hand.points.knuckles, radius: hand.shape.radius }, where);
+      for (const [pose, hull] of [[open, measured.palm.hull], [fist, measured.fist.hull]]) {
+        assert.deepEqual([pose.kind, pose.points.map((p) => p.value)], ["hull", hull.map((p) => scale(p.value, FIT_SCALE.value))], where);
+      }
+      assert.deepEqual([hand.points.strike.value, hand.points.palm.value], [scale(measured.fist.strike.value, FIT_SCALE.value), scale(measured.palm.centre.value, FIT_SCALE.value)], where);
+      assert.ok(Math.abs(heightOver(fist, hand.points.strike.value)) < 1e-4, `${where}: the strike on the fist's surface`);
+      assert.ok(heightOver(fist, hand.points.knuckles.value) < -1e-3, `${where}: the knuckles inside the fist`);
+      assert.ok(Math.abs(heightOver(open, hand.points.palm.value)) < 2e-4, `${where}: the palm point on the open hand's surface`);
+      // Either pose has room from every segment the hand shares no joint with, in the reference pose.
+      for (const other of segments) {
+        if (other === hand || HUMAN_PARENTS.get(hand.name) === other.name) continue;
+        for (const [name, shape] of [["open", open], ["fist", fist]]) {
+          const room = clearance(solid({ ...hand, shape }), solid(other));
+          assert.ok(room > 0, `${where} ${name} and ${other.name}: ${room} m`);
+        }
+      }
+    }
+  }
+});
+
+test("the skeleton's hands are capsules in every pose, its fist ended at its knuckles", () => {
+  for (const side of SIDES) {
+    const hand = humanSegments(skeletonFigure()).find((s) => s.name === `hand.${side}`), { open, fist, grip } = hand.handPoses;
+    assert.equal(open, hand.shape);
+    assert.deepEqual(fist, { kind: "capsule", from: hand.shape.from, to: hand.points.knuckles, radius: hand.shape.radius });
+    assert.equal(grip, fist);
+    assert.deepEqual(Object.keys(hand.points).sort(), ["knuckles", "little", "strike"]);
+    const along = normalize(sub(hand.distal.value, hand.proximal.value));
+    assert.ok(length(sub(hand.points.strike.value, hand.points.knuckles.value.map((k, i) => k + along[i] * hand.shape.radius.value))) < 1e-12, side);
   }
 });

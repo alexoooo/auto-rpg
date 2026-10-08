@@ -32,6 +32,8 @@ export interface HumanFigure {
   readonly hulls: Readonly<Record<TrunkSegment, readonly Quantity<Vec3>[]>>;
   /** Each foot's extents, body frame. */
   readonly feet: Readonly<Record<Side, Extents>>;
+  /** Each hand's measured contact geometry; absent, a hand's poses are capsules (`segments.ts`). */
+  readonly hands?: Readonly<Record<Side, HandFigure>>;
   /**
    * The widest a limb's capsule is, m, by its row, where the figure's limbs stand nearer each other
    * or its trunk than their mass at its density leaves room for; absent, a capsule holds its mass
@@ -42,6 +44,16 @@ export interface HumanFigure {
   readonly hp: Quantity<number>;
   /** The body's balance, per cent of its weight (`AttributeSpec`). */
   readonly balance: Quantity<number>;
+}
+
+/**
+ * **A hand's contact geometry**, measured from the figure's skin (`hands.ts`): the open hand's
+ * hull and where it bears, its palm patch's centre; the fist's hull and where it strikes, its
+ * surface ahead of the middle knuckle.
+ */
+export interface HandFigure {
+  readonly palm: { readonly hull: readonly Quantity<Vec3>[]; readonly centre: Quantity<Vec3> };
+  readonly fist: { readonly hull: readonly Quantity<Vec3>[]; readonly strike: Quantity<Vec3> };
 }
 
 /**

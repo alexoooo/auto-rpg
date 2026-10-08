@@ -2,6 +2,7 @@ import { derive, type Quantity, type Vec3 } from "../spec/quantity.ts";
 import { normalize, sub } from "../spec/vec.ts";
 import { workshopEnvelope, type Extents } from "./envelope.ts";
 import type { HumanFigure, LimbFigure } from "./figure.ts";
+import { workshopHands } from "./hands.ts";
 import { limbLandmarks, rigSuffix, trunkLandmarks } from "./landmarks.ts";
 import { bodyMass, FIT_SCALE, stature, WORKSHOP_SEX } from "./model.ts";
 import { rigPoint, type WorkshopModel } from "./rig.ts";
@@ -11,7 +12,7 @@ import type { Side } from "../spec/body.ts";
 
 /**
  * **A workshop model as a human figure**: its rig's landmarks (`landmarks.ts`), its clothed
- * envelope's trunk hulls and boots (`envelope.ts`), its sex, size and mass (`model.ts`), and the
+ * envelope's trunk hulls and boots (`envelope.ts`), its bare hands (`hands.ts`), its sex, size and mass (`model.ts`), and the
  * owner's hit points and balance, all at the authored size with the fit scale to take them to x1.
  *
  * The rig's feet end in a boot, so the foot runs from the boot's heel to its toe, at the height of
@@ -23,7 +24,7 @@ export function workshopFigure(model: WorkshopModel): HumanFigure {
   const limbs = { left: limb(model, "left", envelope.feet.left), right: limb(model, "right", envelope.feet.right) };
   return {
     model, substance: "flesh", sex: WORKSHOP_SEX[model], scale: FIT_SCALE, mass: bodyMass(model), stature: stature(model),
-    trunk: trunkLandmarks(model), limbs, hulls: envelope.trunk, feet: envelope.feet, hp: workshopHitPoints(model),
+    trunk: trunkLandmarks(model), limbs, hulls: envelope.trunk, feet: envelope.feet, hands: workshopHands(model), hp: workshopHitPoints(model),
     balance: workshopBalance(model),
   };
 }

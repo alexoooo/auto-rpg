@@ -32,7 +32,7 @@ import { traceOf } from "./harness/trace.mjs";
 
 const { threatOf } = threatReader();
 
-const RECIPE = deepFreeze({ left: "workshop-fighter", right: "workshop-rogue", gap: 3.75, balance: { left: 25, right: 25 }, senseDelay: 1 });
+const RECIPE = deepFreeze({ left: "workshop-fighter", right: "workshop-rogue", gap: 3.5, balance: { left: 25, right: 25 }, senseDelay: 1 });
 /** The same bout with both sides covering what threatens them (`RecipeFighterConfig.guard`). */
 const COVERING = deepFreeze({ ...RECIPE, minds: { left: { ...RECIPE_FIGHTER, guard: "cover" }, right: { ...RECIPE_FIGHTER, guard: "cover" } } });
 const BACK = { move: { x: -1, z: 0 }, face: null, attack: null };

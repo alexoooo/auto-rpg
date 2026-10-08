@@ -10,7 +10,6 @@ import { createSenses } from '../src/core/mind/senses.ts';
 import { Color3 } from '@babylonjs/core/Maths/math.color.js';
 import { drawBody } from '../src/render/body-shapes.ts';
 import { convexHull } from '../src/core/spec/hull.ts';
-import { hullHands } from './fixtures/hull-hands.mjs';
 
 test('both live fists preserve momentum, frames and collider identities and expose their actual surface', async () => {
   const s=await coreStand(modelSpec('workshop-fighter'),{gravity:false,ground:false});
@@ -171,7 +170,7 @@ const builtFrom=(part,shape)=>{
 };
 
 test('a hand whose poses are hulls is built in its open hull, and swaps among hulls and its capsule grip keeping its momentum',async()=>{
-  const spec=hullHands(modelSpec('workshop-fighter'));
+  const spec=modelSpec('workshop-fighter');
   const s=await coreStand(spec,{gravity:false,ground:false});
   try{
     const parts=['left','right'].map(side=>s.built.segments.get(`hand.${side}`));
@@ -205,7 +204,7 @@ test('a hand whose poses are hulls is built in its open hull, and swaps among hu
 });
 
 test('a hull hand\'s blocked opening waits without a collision, and applies when it clears',async()=>{
-  const spec=hullHands(modelSpec('workshop-fighter')),hand=spec.segments.find(p=>p.name==='hand.right');
+  const spec=modelSpec('workshop-fighter'),hand=spec.segments.find(p=>p.name==='hand.right');
   const s=await coreStand({...spec,segments:[hand],joints:[]},{gravity:false,ground:false});
   try{
     const part=s.built.segments.get(hand.name);
@@ -223,7 +222,7 @@ test('a hull hand\'s blocked opening waits without a collision, and applies when
 });
 
 test('hull poses and pending requests fork into a fresh world with identical continuation',async()=>{
-  const make=async()=>{const s=await coreStand(hullHands(modelSpec('workshop-fighter')),{gravity:false,ground:false});
+  const make=async()=>{const s=await coreStand(modelSpec('workshop-fighter'),{gravity:false,ground:false});
     return {...s,body:createBody(s.built,s.world,{servoSeconds:SERVO_SECONDS})};};
   const a=await make(),b=await make();
   try{
@@ -244,7 +243,7 @@ test('hull poses and pending requests fork into a fresh world with identical con
 });
 
 test('diagnostic rendering draws a hull hand in its applied pose and swaps to and from its hulls',async()=>{
- const s=await coreStand(hullHands(modelSpec('workshop-fighter')),{gravity:false,ground:false});
+ const s=await coreStand(modelSpec('workshop-fighter'),{gravity:false,ground:false});
  const view=drawBody(s.built,s.scene,new Color3(.5,.5,.5)),meshes=view.meshes.filter(m=>m.name.includes('hand.'));
  // A hull is drawn as its faces, each in both windings: six corners a face.
  const corners=(part,pose)=>{const shape=part.spec.handPoses[pose];return shape.kind==='hull'?6*convexHull(shape.points.map(p=>p.value)).faces.length:null;};

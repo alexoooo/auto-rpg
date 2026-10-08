@@ -5,11 +5,11 @@ import { parseArgs } from 'node:util';
 import { Quaternion, Vector3 } from '@babylonjs/core/Maths/math.vector.js';
 import { coreStand } from '../tests/harness/core-stand.mjs';
 import { modelSpec } from '../src/core/models.ts';
-import { handsSpec } from './man-hands.mjs';
 import { createBody, SERVO_SECONDS } from '../src/core/body.ts';
 import { DEFAULT_ENGINE } from '../src/core/engine/engines.ts';
 import { NO_COVER } from '../src/core/mind/intent.ts';
 import { combatSkills } from '../src/core/skills/combat.ts';
+import { aimOf } from '../src/core/skills/strikes.ts';
 import { ATTACK_PATH } from '../src/core/skills/attack-path.ts';
 import { motionAtToRef, pointOfToRef, turnOfToRef } from '../src/core/control/support.ts';
 import { rigidPoints } from '../src/core/build/rigid.ts';
@@ -42,12 +42,12 @@ export function approachSpeed(history, distance = HUMAN_PUNCH.speedDistance) {
 
 /** The real unassisted Warrior executor, with a detached target and an independent impulse sensor. */
 export async function punchStand({hand='right',family='straight',hz=120,seconds=6,ahead=.6,height=1.63,
-  contactSpeed=5,armExtension=0,mode='hit',pad={},paths={},execution,matchedFeedback=false,actuation,hands='capsule'} = {}) {
+  contactSpeed=5,armExtension=0,mode='hit',pad={},paths={},execution,matchedFeedback=false,actuation} = {}) {
   if (!['left','right'].includes(hand) || !['straight','cross'].includes(family) || !['hit','miss'].includes(mode)
     || ![120,240,480,960,1920].includes(hz) || ![seconds,ahead,height,contactSpeed,armExtension].every(Number.isFinite)
     || seconds<=2 || ahead<=0 || contactSpeed<=0 || armExtension<0 || armExtension>1) throw new Error('invalid punch calibration');
-  const config={hand,family,hz,seconds,ahead,height,contactSpeed,armExtension,mode,pad,paths,execution,matchedFeedback,actuation,hands};
-  const s=await coreStand(handsSpec(modelSpec('workshop-fighter'),hands),{engine:DEFAULT_ENGINE,hz,actuation});
+  const config={hand,family,hz,seconds,ahead,height,contactSpeed,armExtension,mode,pad,paths,execution,matchedFeedback,actuation};
+  const s=await coreStand(modelSpec('workshop-fighter'),{engine:DEFAULT_ENGINE,hz,actuation});
   let sensor;
   const body=createBody(s.built,s.world,{servoSeconds:SERVO_SECONDS,feedback:true,
     ...(matchedFeedback?{contactIdentity:other=>other===sensor?.body?{kind:'object',id:'punch-pad'}:other?null:{kind:'world'},
@@ -56,7 +56,7 @@ export async function punchStand({hand='right',family='straight',hz=120,seconds=
   const skills=combatSkills(body,{},{paths:{...ATTACK_PATH,...paths,contactSpeed},execution});
   const target=[hand==='right'?.1:-.1,height,ahead];
   sensor=punchPad(s.world,[target[0]+(mode==='miss'?1:0),target[1],target[2]],pad);
-  const limb=s.built.segments.get(`hand.${hand}`),knuckles=rigidPoints(s.built.spec,limb.spec).get(execution?.physicalFists?'strike':'knuckles').value;
+  const limb=s.built.segments.get(`hand.${hand}`),knuckles=rigidPoints(s.built.spec,limb.spec).get(aimOf(s.built.spec,hand)).value;
   const names=new Map([...s.built.segments.values()].map(segment=>[segment.body,segment.spec.name]));
   const effort=strikeEffort(body.muscles);
   const masses=contactMass(s.built),point=new Vector3(),velocity=new Vector3(),spin=new Vector3();
@@ -138,7 +138,7 @@ export async function punchStand({hand='right',family='straight',hz=120,seconds=
       if(body.assist.meter.force||body.assist.meter.moment)faults.push('assistance');
       const best=clean.length>=3?clean.slice(0,3).reduce((a,b)=>a.impulse>=b.impulse?a:b):null;
       return {config,target,harness:{kind:'Node unpinned core stand',engine:DEFAULT_ENGINE,revision:s.world.physics.revision,
-        hz,actuation:s.world.actuation,model:'workshop-fighter',hands,held:'empty',balance:0},
+        hz,actuation:s.world.actuation,model:'workshop-fighter',held:'empty',balance:0},
         apparatus:{...sensor.config,damping:sensor.damping,normal:[0,0,1],gravity:false,rotation:'locked',translation:'normal only'},
         human:HUMAN_PUNCH,impacts,samples:structuredClone(state.samples),fell:state.fell,floorContacts:state.floorContacts,
         cycles:structuredClone(skills.report.strike.pointCycle),head:body.view.head.asArray(),
