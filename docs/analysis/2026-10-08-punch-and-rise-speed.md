@@ -122,6 +122,30 @@ today's cross nearly double its impulse and leave its speed, at a third of a tra
 and 1920 Hz (4.50 to 3.62 with nothing pushed), and a schedule scored on one cell is fragile to
 a cell 2 cm away.
 
+**The cell's distance holds its speed.** Laid on the cross in the cell (18 channels from the
+capacity search's best, scored by the impacts' speed at the worse of 480 and 960 Hz), pushes
+reach 4.7 m/s and stop there (seven generations; the search was stopped). The hand starts its
+swing 0.3 m from the pad: in the guard its centre is at z 0.25 to 0.31, it meets the pad's face
+at 0.44 (the fist at 0.52), and in that distance the flat-out arm reaches 4.5 m/s. The planted
+cross does not reach a pad at 0.75. So the capacity search was asked again with a gate in
+place of the lane: the hand's forward speed when its centre first reaches a plane, scored only
+within 0.1 m of (0.1, 1.55) with the trunk up. Each search ran 40 generations at 120 Hz with the
+stance kept; its best, run again at each rate:
+
+| start | gate, z | 120 Hz | 480 Hz | 960 Hz | wrist, 960 Hz | at, s |
+|---|---|---|---|---|---|---|
+| the guard | 0.45, the pad's | 6.62 | 6.00 | 6.08 | 5.79 | 0.283 |
+| the guard | 0.55, full reach | 8.73 | 8.58 | 8.60 | 7.64 | 0.330 |
+| a quarter second's wind-up | 0.45, the pad's | 12.00 | 11.99 | 12.11 | 9.48 | 0.283 |
+
+Hand speeds in m/s. From the guard, with nothing before the clock starts, the body brings the
+hand to a boxer's 8.5 m/s at full reach in a third of a second; to the pad's place, 6. The
+wind-up draws the hand 0.37 m behind the guard while the trunk turns the right shoulder back,
+then unwinds the trunk, flexes the lumbar spine 0.89 rad and throws the elbow straight: a
+lunging whip, not a boxer's cross, but it says what the distance gives. The cell's pad is nearer
+than a cross lands, and a blow aimed nearer than full reach is slow by geometry before any
+controller is asked.
+
 ## The rise
 
 No freedom chatters in any stage of a staged rise (a Warrior felled at 0 degrees: under 0.25
@@ -138,6 +162,26 @@ set time. Scaling every pose stage's time:
 A quarter comes out at a similar rate on these 16 shoves; half breaks every rise. The stages
 drive toward poses at a set speed and wait to be near them; a rise in a few seconds carries
 momentum from one support to the next, which this design does not.
+
+Where a rise's time goes, timed stage by stage over the same 32 shoves (`stage-time.mjs`,
+`felled` from `research/core-rise-trials.mjs` under the battery's staged-rise mind, 40 s, 120 Hz,
+at `1cab92ec` unpatched; it reproduces the battery's 11 of 16 at a median 22.33 s and 9 of 14 at
+25.49 s). Medians over the rises that stood, s:
+
+| part | empty | club |
+|---|---|---|
+| settle, lying still before it begins | 3.42 | 4.12 |
+| roll, onto the front | 3.00 | 3.00 |
+| onto all fours (fold, tuck, prop: poses) | 4.50 | 6.18 |
+| all fours (bearing) | 1.40 | 1.15 |
+| kneel up (sit to tall: poses) | 5.55 | 5.55 |
+| the step through (poses) | 1.62 | 1.62 |
+| half kneel to standing (bearing) | 4.32 | 4.32 |
+| attempts | 1 | 2 |
+
+The pose stages alone are 14.7 s of set time, the settle another 3 to 4. A rise of a few seconds
+is not this script made faster: it skips the kneel-up and the step, and goes from a hand and a
+foot to standing in one motion.
 
 ## The cross's trunk
 
@@ -161,8 +205,9 @@ found with the trunk turning the wrong way.
 - **An explosive punch controller.** A cross from the legs, pelvis and trunk to the hand, in
   sequence and at full effort, needs a stance that lets the pelvis turn at 10 rad/s and an arm
   path that rides it. Today's stance holds the heading and today's path ignores it. The body
-  moves the wrist at 10 m/s with the stance kept; pushes laid on today's path add mass to the
-  blow and no speed.
+  moves the wrist at 10 m/s with the stance kept, and from the guard the hand at 8.6 m/s to a
+  target at full reach; pushes laid on today's path add mass to the blow and no speed. Such a
+  controller throws at a target at full reach, and the punch cell's pad (0.55) is nearer.
 - **The hip's and trunk's curves.** The two-point extrapolation puts the hip's unloaded speed
   below what the elbow's rule gives from the same points. Replacing it is a body change felt in
   every walk, rise and kick, and wants its before/after tables; it pays only with the controller

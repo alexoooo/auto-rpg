@@ -1,7 +1,7 @@
 {
  "study": "docs/analysis/2026-10-08-punch-and-rise-speed.md",
  "code": "38cdc1cb",
- "note": "Probes ran from copies of the tree at 38cdc1cb with the named patches applied. Paths are as they were run, under research/runs/punch/. The capacity and push searches and their re-runs ran on the tree at f55820e1 unpatched (src as at 38cdc1cb).",
+ "note": "Probes ran from copies of the tree at 38cdc1cb with the named patches applied. Paths are as they were run, under research/runs/punch/. The capacity, push and gate searches, their re-runs and the rise's stage timing ran on the tree at f55820e1 or 1cab92ec unpatched (src as at 38cdc1cb).",
  "patches": {
   "torso-carried.patch": "diff --git a/src/core/body.ts b/src/core/body.ts\nindex 84c17dea..906e2e6e 100644\n--- a/src/core/body.ts\n+++ b/src/core/body.ts\n@@ -324,7 +324,7 @@ const sameGoal = (a: EffectorGoal, b: EffectorGoal): boolean =>\n   && (a.curve === b.curve || (a.curve !== undefined && b.curve !== undefined && a.curve.every((v, k) => v === b.curve![k])))\n   && (a.orientation === b.orientation || (a.orientation !== undefined && b.orientation !== undefined\n     && a.orientation.seconds === b.orientation.seconds && a.orientation.target.every((v, k) => v === b.orientation!.target[k])))\n-  && a.sequence === b.sequence\n+  && a.sequence === b.sequence && a.carried === b.carried\n   && a.seconds === b.seconds && a.through === b.through && a.follows === b.follows && a.places.length === b.places.length\n   && a.places.every((place, i) => place.point === b.places[i]!.point && place.position.every((v, k) => v === b.places[i]!.position[k]));\n \ndiff --git a/src/core/control/effector-tracker.ts b/src/core/control/effector-tracker.ts\nindex f7afd7fa..906370d8 100644\n--- a/src/core/control/effector-tracker.ts\n+++ b/src/core/control/effector-tracker.ts\n@@ -40,6 +40,12 @@ export interface EffectorGoal {\n   readonly curve?: Vec3;\n   /** Identity of a moving path segment; changing it starts a new path. */\n   readonly sequence?: number;\n+  /**\n+   * Whether the chain's held freedoms (an arm's trunk) are read where the body has them, not at the\n+   * posture's angles: the path is then the point's from the root as the trunk actually carries the\n+   * limb, and a trunk turning under a blow speeds its point rather than throwing it off its line.\n+   */\n+  readonly carried?: boolean;\n   /** Independent segment turn since reference, in the root frame, on a smooth finite path. */\n   readonly orientation?: { readonly target: readonly [number, number, number, number]; readonly seconds: number };\n }\n@@ -198,7 +204,7 @@ export function effectorTracker(built: BuiltBody, root: BuiltSegment) {\n       // The held freedoms at the posture's angles, the free ones drawn toward it.\n       limb.chain.forEach((joint, j) => {\n         if (limb.free.some((f) => f.joint === j)) return;\n-        names(joint).forEach((name, k) => { m.angles[j]![k] = fromActual ? driver.angle(driver.channel(name)) : pose[name] ?? 0; });\n+        names(joint).forEach((name, k) => { m.angles[j]![k] = fromActual || m.goal!.carried ? driver.angle(driver.channel(name)) : pose[name] ?? 0; });\n       });\n       for (const f of limb.free) f.preferred = pose[f.name] ?? 0;\n       if (!m.started) {\ndiff --git a/src/core/skills/attack-path.ts b/src/core/skills/attack-path.ts\nindex 01c06828..7909b099 100644\n--- a/src/core/skills/attack-path.ts\n+++ b/src/core/skills/attack-path.ts\n@@ -24,14 +24,18 @@ export function validAttackTuning(tuning: AttackTuning): boolean {\n     && validArmExtension(tuning.elbowExtension);\n }\n \n-/** A chamber and contact velocity from the actual guard and observed target, in the body frame. */\n+/**\n+ * A chamber and contact velocity from the actual guard and observed target, in the body frame, and\n+ * the trunk's turn (`thoracic rotation right`, rad) the swing asks: a cross or a hook turns the trunk\n+ * away from its hand's side, bringing that shoulder forward, and its chamber the other way.\n+ */\n export function attackPath(home: Vec3, target: Vec3, hand: Side, family: BlowFamily, tuning: AttackTuning = ATTACK_PATH, direction?: Vec3) {\n   const side = hand === \"right\" ? 1 : -1;\n   let chamber: Vec3, torso: number, seconds = tuning.swingSeconds;\n   switch (family) {\n     case \"straight\": chamber = [home[0], home[1], home[2] - tuning.windup]; torso = 0; break;\n-    case \"cross\": chamber = [home[0] + side * tuning.across, home[1], home[2] - tuning.windup]; torso = side * tuning.torso; break;\n-    case \"hook\": chamber = [home[0] + side * tuning.windup, home[1], home[2]]; torso = side * tuning.torso; seconds = tuning.hookSeconds; break;\n+    case \"cross\": chamber = [home[0] + side * tuning.across, home[1], home[2] - tuning.windup]; torso = -side * tuning.torso; break;\n+    case \"hook\": chamber = [home[0] + side * tuning.windup, home[1], home[2]]; torso = -side * tuning.torso; seconds = tuning.hookSeconds; break;\n     case \"downward\": chamber = [home[0], home[1] + tuning.windup, home[2]]; torso = 0; break;\n     case \"overhand\": chamber = [home[0], home[1] + tuning.overhandWindup, home[2] - tuning.windup]; torso = 0; break;\n     case \"uppercut\": chamber = [home[0], home[1] - tuning.uppercutWindup, home[2] - tuning.windup]; torso = 0; seconds = tuning.uppercutSeconds; break;\ndiff --git a/src/core/skills/effector-strike.ts b/src/core/skills/effector-strike.ts\nindex b33ca3b6..59ed4606 100644\n--- a/src/core/skills/effector-strike.ts\n+++ b/src/core/skills/effector-strike.ts\n@@ -106,12 +106,16 @@ export function effectorStrike(def: StrikeDef) {\n     },\n     /** How long the phase under way takes, a held contact aside. */\n     seconds,\n-    /** The point's goal in the phase under way, or through a held contact; `orientation` turns the effector as it goes. */\n+    /**\n+   * The point's goal in the phase under way, or through a held contact; `orientation` turns the\n+   * effector as it goes. It is carried (`EffectorGoal.carried`): the limb is aimed from where its\n+   * trunk is, which a blow turns.\n+   */\n     goal(course: StrikeCourse, orientation?: EffectorGoal[\"orientation\"]): EffectorGoal {\n       const { phase, impact } = state;\n       const position = impact ? impact.finish : phase === \"chamber\" ? course.chamber : phase === \"return\" ? course.home : course.target;\n       return { ...(def.response === undefined ? {} : { response: def.response }), places: [{ point: def.point, position }],\n-        seconds: impact ? def.limits.impact!.impactSeconds : seconds(course), follows: true, initialVelocity: state.velocity, sequence: state.sequence,\n+        seconds: impact ? def.limits.impact!.impactSeconds : seconds(course), follows: true, initialVelocity: state.velocity, sequence: state.sequence, carried: true,\n         ...(orientation ? { orientation } : {}),\n         ...(impact ? { terminalVelocity: STILL }\n           : phase === \"swing\" ? { terminalVelocity: course.contactVelocity, ...(course.curve ? { curve: course.curve } : {}) } : {}) };\n",
   "fast-speed.patch": "--- /dev/fd/63\t2026-10-08 00:16:10.000000000 -0400\n+++ fast-snapshot/src/core/human/speed.ts\t2026-10-07 23:58:53.718642600 -0400\n@@ -58,8 +58,13 @@\n \n function shortening(direction: Measured, sex: Sex): Pick<ForceVelocitySpec, \"unloadedSpeed\" | \"curvature\"> {\n   switch (direction) {\n-    case \"hipExtension\": case \"hipFlexion\": case \"kneeExtension\": case \"kneeFlexion\": case \"ankleDorsiflexion\":\n-      return throughTwoPoints(direction, sex);\n+    case \"hipExtension\": case \"hipFlexion\": case \"kneeExtension\": case \"kneeFlexion\": case \"ankleDorsiflexion\": {\n+      const { threeQuarters, half } = andersonPoints(direction, sex);\n+      const k = THELEN_CURVATURE.value, pts = [[threeQuarters.value, .75], [half.value, .5]];\n+      let num = 0, den = 0; for (const [w, f] of pts) { num += (1 - f) * (w + f * w / k); den += (1 - f) * (1 - f); }\n+      void throughTwoPoints;\n+      return { unloadedSpeed: derive(\"rad/s\", \"experiment\", [threeQuarters], () => num / den), curvature: THELEN_CURVATURE };\n+    }\n     case \"elbowFlexion\": case \"elbowExtension\":\n       return fittedAtCurvature(direction, sex);\n     default: { const never: never = direction; throw new Error(`no curve for ${String(never)}`); }\n",
@@ -11,17 +11,22 @@
  "sources": {
   "body.mjs": "// A punch cell with the body driven under it.\n// node body.mjs '<cell overrides>' '<drive>'\n// drive: { turn, lean (stance, rad / m, in chamber+swing), chamberTorso, swingTorso (thoracic posture),\n//          push: [[channel, sense, level?, from?, to?]] (seconds since the swing began; negative = in the chamber) }\nimport { Vector3 } from \"@babylonjs/core/Maths/math.vector.js\";\nimport { punchStand } from \"../../punch-calibration.mjs\";\nimport { PLANTED_PUNCH_EXECUTION } from \"../../../src/core/skills/combat.ts\";\nconst over = JSON.parse(process.argv[2] ?? \"{}\"), drive = { turn: 0, lean: 0, push: [], ...JSON.parse(process.argv[3] ?? \"{}\") };\nconst s = await punchStand({ hand: \"right\", family: \"straight\", hz: 960, seconds: 8, armExtension: .5, ahead: .55, height: 1.55,\n  execution: PLANTED_PUNCH_EXECUTION, matchedFeedback: true, paths: { elbowExtension: .5 }, pad: { face: \"compliant\" }, ...over });\nglobalThis.__ACTUAL = !!drive.actual;\nconst inner = s.skills.command;\nlet swingAt = null, chamberAt = null, last = null;\ns.skills.command = (view, intent, dt) => {\n  const c = inner(view, intent, dt), phase = s.skills.report.strike.phase;\n  if (phase === \"chamber\" && last !== \"chamber\") chamberAt = view.time;\n  if (phase === \"swing\" && last !== \"swing\") swingAt = view.time;\n  last = phase;\n  if (phase !== \"chamber\" && phase !== \"swing\") return c;\n  const since = phase === \"swing\" ? view.time - swingAt : view.time - chamberAt - s.skills.state.hands.right.cycle.time - 1e9;\n  const sinceSwing = phase === \"swing\" ? view.time - swingAt : -(1e-9 + (0.22 - (view.time - chamberAt)));\n  let { stance, posture, pushes } = c;\n  if (stance && (drive.turn || drive.lean)) {\n    const feet = view.stance.soles, mx = (feet.left.x + feet.right.x) / 2, mz = (feet.left.z + feet.right.z) / 2;\n    stance = { ...stance, heading: stance.heading + drive.turn, centre: drive.lean ? [mx, mz + drive.lean] : stance.centre };\n  }\n  const t = phase === \"chamber\" ? drive.chamberTorso : drive.swingTorso;\n  if (t !== undefined) posture = { ...posture, \"thoracic rotation right\": t };\n  const live = drive.push.filter(([, , , from = 0, to = 1]) => sinceSwing >= from && sinceSwing < to);\n  if (drive.free && sinceSwing >= drive.free[0] && sinceSwing < drive.free[1]) stance = null;\n  if (live.length) pushes = [...pushes, ...live.map(([channel, sense, level = 1]) => ({ channel, sense, level }))];\n  void since;\n  return { ...c, stance, posture, pushes };\n};\nconst arm = s.built.segments.get(\"upperArm.right\"), v = new Vector3();\nlet shoulderPeak = 0, fistPeak = 0; const passes = [];\nfor (let i = 0; i < 8 * 960; i++) {\n  s.step();\n  if (s.state.phase === \"swing\" && s.state.witness) { const p = s.state.witness.point, d = Math.hypot(p[0] - s.target[0], p[1] - s.target[1], p[2] - s.target[2]);\n    const k = s.state.launch; passes[k] ??= { d: 9 }; if (d < passes[k].d) passes[k] = { d: +d.toFixed(3), off: p.map((x, j) => +(x - s.target[j]).toFixed(3)), v: +s.state.witness.speed.toFixed(2) }; }\n  if (s.state.phase === \"swing\") { arm.body.linearVelocityToRef(v); shoulderPeak = Math.max(shoulderPeak, v.z); fistPeak = Math.max(fistPeak, s.state.witness?.speed ?? 0); }\n}\nconst r = s.reading(); s.dispose();\nconst clean = r.impacts.filter((e) => e.eligible && e.last10cmSpeed);\nconst mean = (f) => clean.length ? +(clean.reduce((a, e) => a + f(e), 0) / clean.length).toFixed(3) : null;\nconsole.log(JSON.stringify({ over, drive, n: clean.length, fell: r.fell, faults: r.qualification.faults, speed: mean((e) => e.last10cmSpeed), impulse: mean((e) => e.impulse),\n  peak: mean((e) => e.peakStepForce), mass: mean((e) => e.effectiveMass), shoulderPeak: +shoulderPeak.toFixed(2), fistPeak: +fistPeak.toFixed(2),\n  raw: r.impacts.map((e) => [e.contacts.join(\"+\"), +e.impulse.toFixed(1), e.truncated]), cycles: r.cycles, passes: passes.filter(Boolean), comp: +r.maximumCompression.toFixed(3) }));\n",
   "sweep.mjs": "// node sweep.mjs <out dir> <parallel> <jobs.json: [[cellOverrides, drive], ...]>\nimport { spawn } from \"node:child_process\";\nimport { mkdirSync, readFileSync, writeFileSync, existsSync } from \"node:fs\";\nimport { resolve, dirname } from \"node:path\";\nimport { fileURLToPath } from \"node:url\";\nconst here = dirname(fileURLToPath(import.meta.url));\nconst [out, parallel = \"10\", jobsFile] = process.argv.slice(2);\nconst jobs = JSON.parse(readFileSync(jobsFile, \"utf8\"));\nmkdirSync(out, { recursive: true });\nlet next = 0;\nconst one = (i) => new Promise((done) => {\n  const file = resolve(out, `${i}.json`);\n  if (existsSync(file)) return done();\n  const [cell, drive] = jobs[i];\n  const child = spawn(process.execPath, [resolve(here, \"body.mjs\"), JSON.stringify(cell), JSON.stringify(drive)], { stdio: [\"ignore\", \"pipe\", \"ignore\"] });\n  let text = \"\";\n  child.stdout.on(\"data\", (d) => { text += d; });\n  child.on(\"close\", () => { const line = text.split(\"\\n\").find((l) => l.startsWith(\"{\")); if (line) writeFileSync(file, line); done(); });\n});\nawait Promise.all(Array.from({ length: +parallel }, async () => { while (next < jobs.length) await one(next++); }));\nconst rows = jobs.map((_, i) => existsSync(resolve(out, `${i}.json`)) ? JSON.parse(readFileSync(resolve(out, `${i}.json`), \"utf8\")) : null);\nfor (const [i, r] of rows.entries()) {\n  if (!r) { console.log(i, \"no output\"); continue; }\n  console.log(i, JSON.stringify(r.over), JSON.stringify(r.drive), \"| n\", r.n, \"v\", r.speed, \"J\", r.impulse, \"F\", r.peak?.toFixed?.(0), \"m\", r.mass, \"fist\", r.fistPeak, r.faults.join(\";\"));\n}\n",
-  "cap-eval.mjs": "// One capacity trial: the combat guard stand, then from t = 2 s the listed channels pushed flat out\n// on a schedule, stance released. Scores the right hand's best forward speed at shoulder height.\nimport { Vector3 } from \"@babylonjs/core/Maths/math.vector.js\";\nimport { coreStand } from \"../../../tests/harness/core-stand.mjs\";\nimport { modelSpec } from \"../../../src/core/models.ts\";\nimport { createBody, SERVO_SECONDS } from \"../../../src/core/body.ts\";\nimport { DEFAULT_ENGINE } from \"../../../src/core/engine/engines.ts\";\nimport { NO_COVER } from \"../../../src/core/mind/intent.ts\";\nimport { combatSkills } from \"../../../src/core/skills/combat.ts\";\n\nexport const CHANNELS = [\n  \"thoracic rotation right\", \"lumbar rotation right\", \"thoracic flexion\", \"lumbar flexion\",\n  \"hip.left flexion\", \"hip.left abduction\", \"hip.left internal rotation\", \"knee.left flexion\", \"ankle.left dorsiflexion\",\n  \"hip.right flexion\", \"hip.right abduction\", \"hip.right internal rotation\", \"knee.right flexion\", \"ankle.right dorsiflexion\",\n  \"shoulder.right flexion\", \"shoulder.right abduction\", \"shoulder.right internal rotation\", \"elbow.right flexion\",\n];\nconst T0 = 2, WINDOW = .45;\n\n/** x: per channel [level in -1..1, start s, duration s]. */\nexport async function trial(x, { hz = 120, keepStance = false, model = \"workshop-fighter\", trace = false } = {}) {\n  const sched = CHANNELS.map((channel, i) => ({ channel, level: x[3 * i], from: x[3 * i + 1], to: x[3 * i + 1] + Math.max(0, x[3 * i + 2]) }))\n    .filter((p) => Math.abs(p.level) > .05);\n  const s = await coreStand(modelSpec(model), { engine: DEFAULT_ENGINE, hz });\n  const body = createBody(s.built, s.world, { servoSeconds: SERVO_SECONDS, feedback: true });\n  const skills = combatSkills(body, {});\n  body.drive((view, dt) => {\n    const c = skills.command(view, { move: null, face: 0, guard: NO_COVER, attack: null }, dt);\n    const t = view.time - T0;\n    if (t < -.25) return c;\n    const live = sched.filter((p) => t >= p.from && t < p.to)\n      .map((p) => ({ channel: p.channel, sense: p.level > 0 ? 1 : -1, level: Math.min(1, Math.abs(p.level)) }));\n    return { ...c, pushes: [...c.pushes, ...live], ...(keepStance ? {} : { stance: null }) };\n  });\n  const hand = s.built.segments.get(\"hand.right\"), trunk = s.built.segments.get(\"upperTrunk\"), v = new Vector3();\n  let best = 0, at = null, shoulderBest = 0, wristBest = 0, wristAtBest = 0, lastZ = null; const traced = {};\n  for (let i = 0; i < (T0 + WINDOW) * hz; i++) {\n    s.step();\n    const t = s.world.time - T0;\n    if (t < -.25) continue;\n    hand.body.linearVelocityToRef(v);\n    const pos = hand.node.position;\n    const wz = lastZ === null ? 0 : (pos.z - lastZ) * hz; lastZ = pos.z;\n    const up = trunk.node.position.y > 1.38;\n    if (t >= 0 && up && pos.x > (globalThis.__laneLo ?? -9) && pos.x < (globalThis.__laneHi ?? 9) && pos.y > 1.2 && pos.y < 1.6 && pos.z - trunk.node.position.z > .3 && wz > wristBest) wristBest = wz;\n    if (t >= 0 && up && pos.x > (globalThis.__laneLo ?? -9) && pos.x < (globalThis.__laneHi ?? 9) && pos.y > 1.2 && pos.y < 1.6 && pos.z - trunk.node.position.z > .3 && v.z > best) { best = v.z; wristAtBest = wz; at = [+t.toFixed(3), +pos.x.toFixed(2), +pos.y.toFixed(2), +pos.z.toFixed(2)]; }\n    trunk.body.linearVelocityToRef(v); shoulderBest = Math.max(shoulderBest, v.z);\n    if (globalThis.__trace && t >= -.25) { const T = globalThis.__trace; const row = [t.toFixed(3)];\n      for (const n of T.names) { const ci = body.muscles.channels.findIndex((c) => c.name === n), ch = body.muscles.channels[ci];\n        row.push(`${n.split(' ')[0].slice(0,9)} ${body.muscles.angle(ci).toFixed(2)}[${ch.dof.spec?.min?.value?.toFixed?.(2)},${ch.dof.spec?.max?.value?.toFixed?.(2)}] w${body.muscles.speed(ci).toFixed(1)} T${body.muscles.pulled[ci].toFixed(0)}`); }\n      console.log(row.join(' | ')); }\n    if (globalThis.__chatter && t >= -.25) for (const [ci, ch] of body.muscles.channels.entries()) { const C = globalThis.__chatter, w = body.muscles.speed(ci), c = (C[ch.name] ??= { last: 0, flips: 0, big: 0 });\n      if (Math.abs(w) > 1 && Math.abs(c.last) > 1 && Math.sign(w) !== Math.sign(c.last)) c.flips++; if (Math.abs(w) > 5) c.big++; c.last = w; }\n    if (trace && up && t >= -.25) for (const [ci, ch] of body.muscles.channels.entries()) {\n      const w = body.muscles.speed(ci), r = (traced[ch.name] ??= { peak: 0, peakNeg: 0, w0p: ch.positive.curve.unloadedSpeed, w0n: ch.negative.curve.unloadedSpeed, at: 0 });\n      if (w > r.peak) r.peak = w; if (w < r.peakNeg) r.peakNeg = w;\n    }\n  }\n  const down = body.view.down;\n  s.dispose?.();\n  return { score: best, at, wrist: +wristBest.toFixed(2), wristAtBest: +wristAtBest.toFixed(2), trunk: +shoulderBest.toFixed(2), down, ...(trace ? { traced } : {}) };\n}\n",
-  "cap-opt.mjs": "// Diagonal CMA-ES over cap-eval's schedule. node cap-opt.mjs <out.json> <workers> <generations> [opts json]\nimport { Worker, isMainThread, parentPort, workerData } from \"node:worker_threads\";\nimport { writeFileSync, existsSync, readFileSync } from \"node:fs\";\nif (!isMainThread) {\n  const { trial } = await import(\"./cap-eval.mjs\"); if (workerData.opts.lane) [globalThis.__laneLo, globalThis.__laneHi] = workerData.opts.lane;\n  parentPort.on(\"message\", async ({ id, x }) => {\n    let r; try { r = await trial(x, workerData.opts); } catch (e) { r = { score: 0, error: String(e) }; }\n    parentPort.postMessage({ id, r });\n  });\n} else {\n  const { CHANNELS } = await import(\"./cap-eval.mjs\");\n  const [out, nw = \"24\", gens = \"40\", optsJson = \"{}\"] = process.argv.slice(2);\n  const opts = JSON.parse(optsJson), n = CHANNELS.length * 3;\n  const lo = [], hi = [];\n  for (let i = 0; i < CHANNELS.length; i++) { lo.push(-1, -.3, 0); hi.push(1, .3, .45); }\n  const workers = Array.from({ length: +nw }, () => new Worker(new URL(import.meta.url), { workerData: { opts } }));\n  let nextId = 0; const waiting = new Map(), idle = [...workers], queue = [];\n  for (const w of workers) w.on(\"message\", ({ id, r }) => { waiting.get(id)(r); waiting.delete(id); idle.push(w); pump(); });\n  function pump() { while (idle.length && queue.length) { const { id, x } = queue.shift(); idle.pop().postMessage({ id, x }); } }\n  const evalx = (x) => new Promise((done) => { const id = nextId++; waiting.set(id, done); queue.push({ id, x }); pump(); });\n  // Search in unit space u in [0,1]^n.\n  const toX = (u) => u.map((ui, i) => lo[i] + (hi[i] - lo[i]) * Math.min(1, Math.max(0, ui)));\n  let m = opts.start ? opts.start.map((x, i) => (x - lo[i]) / (hi[i] - lo[i])) : Array.from({ length: n }, (_, i) => i % 3 === 0 ? .5 : .5);\n  let sigma = opts.sigma ?? .25; const C = new Array(n).fill(1);\n  const lambda = opts.lambda ?? 4 * +nw, mu = lambda >> 1;\n  const wts = Array.from({ length: mu }, (_, i) => Math.log(mu + .5) - Math.log(i + 1)); const ws = wts.reduce((a, b) => a + b); for (let i = 0; i < mu; i++) wts[i] /= ws;\n  const mueff = 1 / wts.reduce((a, w) => a + w * w, 0);\n  const cs = (mueff + 2) / (n + mueff + 5), ds = 1 + cs, cc = 4 / (n + 4), c1 = 2 / ((n + 1.3) ** 2 + mueff), cmu = Math.min(1 - c1, 2 * (mueff - 2 + 1 / mueff) / ((n + 2) ** 2 + mueff)) * (n + 2) / 3;\n  const chiN = Math.sqrt(n) * (1 - 1 / (4 * n) + 1 / (21 * n * n));\n  let ps = new Array(n).fill(0), pc = new Array(n).fill(0);\n  const gauss = () => { let u = 0, v = 0; while (!u) u = Math.random(); v = Math.random(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); };\n  let best = { score: -1 };\n  const log = [];\n  for (let g = 0; g < +gens; g++) {\n    const zs = Array.from({ length: lambda }, () => Array.from({ length: n }, gauss));\n    const us = zs.map((z) => z.map((zi, i) => Math.min(1, Math.max(0, m[i] + sigma * Math.sqrt(C[i]) * zi))));\n    const rs = await Promise.all(us.map((u) => evalx(toX(u))));\n    const fit = rs.map((r) => r.score - (r.down ? 0 : 0));\n    const order = fit.map((f, i) => i).sort((a, b) => fit[b] - fit[a]);\n    if (fit[order[0]] > best.score) best = { score: fit[order[0]], x: toX(us[order[0]]), r: rs[order[0]], g };\n    const old = m.slice();\n    m = m.map((_, i) => order.slice(0, mu).reduce((a, k, j) => a + wts[j] * us[k][i], 0));\n    const y = m.map((mi, i) => (mi - old[i]) / sigma);\n    ps = ps.map((p, i) => (1 - cs) * p + Math.sqrt(cs * (2 - cs) * mueff) * y[i] / Math.sqrt(C[i]));\n    const psn = Math.sqrt(ps.reduce((a, p) => a + p * p, 0));\n    pc = pc.map((p, i) => (1 - cc) * p + Math.sqrt(cc * (2 - cc) * mueff) * y[i]);\n    for (let i = 0; i < n; i++) {\n      let rank = 0; for (let j = 0; j < mu; j++) { const d = (us[order[j]][i] - old[i]) / sigma; rank += wts[j] * d * d; }\n      C[i] = (1 - c1 - cmu) * C[i] + c1 * pc[i] * pc[i] + cmu * rank;\n    }\n    sigma *= Math.exp((cs / ds) * (psn / chiN - 1));\n    const med = fit.slice().sort((a, b) => a - b)[lambda >> 1];\n    log.push({ g, best: +fit[order[0]].toFixed(3), median: +med.toFixed(3), sigma: +sigma.toFixed(3) });\n    console.log(JSON.stringify(log.at(-1)), JSON.stringify(rs[order[0]]));\n    writeFileSync(out, JSON.stringify({ opts, best, mean: toX(m), log, channels: CHANNELS }));\n  }\n  for (const w of workers) w.terminate();\n}\n",
+  "cap-eval.mjs": "// One capacity trial: the combat guard stand, then from t = 2 s the listed channels pushed flat out\n// on a schedule, stance released. Scores the right hand's best forward speed at shoulder height.\nimport { Vector3 } from \"@babylonjs/core/Maths/math.vector.js\";\nimport { coreStand } from \"../../../tests/harness/core-stand.mjs\";\nimport { modelSpec } from \"../../../src/core/models.ts\";\nimport { createBody, SERVO_SECONDS } from \"../../../src/core/body.ts\";\nimport { DEFAULT_ENGINE } from \"../../../src/core/engine/engines.ts\";\nimport { NO_COVER } from \"../../../src/core/mind/intent.ts\";\nimport { combatSkills } from \"../../../src/core/skills/combat.ts\";\n\nexport const CHANNELS = [\n  \"thoracic rotation right\", \"lumbar rotation right\", \"thoracic flexion\", \"lumbar flexion\",\n  \"hip.left flexion\", \"hip.left abduction\", \"hip.left internal rotation\", \"knee.left flexion\", \"ankle.left dorsiflexion\",\n  \"hip.right flexion\", \"hip.right abduction\", \"hip.right internal rotation\", \"knee.right flexion\", \"ankle.right dorsiflexion\",\n  \"shoulder.right flexion\", \"shoulder.right abduction\", \"shoulder.right internal rotation\", \"elbow.right flexion\",\n];\nconst T0 = 2, WINDOW = .45;\n\n/** x: per channel [level in -1..1, start s, duration s]. */\nexport async function trial(x, { hz = 120, keepStance = false, model = \"workshop-fighter\", trace = false } = {}) {\n  const sched = CHANNELS.map((channel, i) => ({ channel, level: x[3 * i], from: x[3 * i + 1], to: x[3 * i + 1] + Math.max(0, x[3 * i + 2]) }))\n    .filter((p) => Math.abs(p.level) > .05);\n  const s = await coreStand(modelSpec(model), { engine: DEFAULT_ENGINE, hz });\n  const body = createBody(s.built, s.world, { servoSeconds: SERVO_SECONDS, feedback: true });\n  const skills = combatSkills(body, {});\n  body.drive((view, dt) => {\n    const c = skills.command(view, { move: null, face: 0, guard: NO_COVER, attack: null }, dt);\n    const t = view.time - T0;\n    if (t < -.25) return c;\n    const live = sched.filter((p) => t >= p.from && t < p.to)\n      .map((p) => ({ channel: p.channel, sense: p.level > 0 ? 1 : -1, level: Math.min(1, Math.abs(p.level)) }));\n    return { ...c, pushes: [...c.pushes, ...live], ...(keepStance ? {} : { stance: null }) };\n  });\n  const hand = s.built.segments.get(\"hand.right\"), trunk = s.built.segments.get(\"upperTrunk\"), v = new Vector3();\n  let gateSpeed = 0, gateWrist = 0, gated = false, guardAt = null, best = 0, at = null, shoulderBest = 0, wristBest = 0, wristAtBest = 0, lastZ = null; const traced = {};\n  for (let i = 0; i < (T0 + WINDOW) * hz; i++) {\n    s.step();\n    const t = s.world.time - T0;\n    if (t < -.25) continue;\n    hand.body.linearVelocityToRef(v);\n    const pos = hand.node.position;\n    const wz = lastZ === null ? 0 : (pos.z - lastZ) * hz; lastZ = pos.z;\n    const up = trunk.node.position.y > 1.38;\n    if (t >= 0 && !guardAt) guardAt = [+pos.x.toFixed(2), +pos.y.toFixed(2), +pos.z.toFixed(2)];\n    // The gate: the hand's forward speed the first time it reaches the plane z = G[2], scored if it\n    // passes within G[3] of (G[0], G[1]) with the trunk up.\n    const G = globalThis.__gate;\n    if (G && t >= 0 && !gated && pos.z >= G[2]) { gated = true;\n      if (up && Math.hypot(pos.x - G[0], pos.y - G[1]) < G[3]) { gateSpeed = v.z; gateWrist = wz; } }\n    if (t >= 0 && up && pos.x > (globalThis.__laneLo ?? -9) && pos.x < (globalThis.__laneHi ?? 9) && pos.y > 1.2 && pos.y < 1.6 && pos.z - trunk.node.position.z > .3 && wz > wristBest) wristBest = wz;\n    if (t >= 0 && up && pos.x > (globalThis.__laneLo ?? -9) && pos.x < (globalThis.__laneHi ?? 9) && pos.y > 1.2 && pos.y < 1.6 && pos.z - trunk.node.position.z > .3 && v.z > best) { best = v.z; wristAtBest = wz; at = [+t.toFixed(3), +pos.x.toFixed(2), +pos.y.toFixed(2), +pos.z.toFixed(2)]; }\n    trunk.body.linearVelocityToRef(v); shoulderBest = Math.max(shoulderBest, v.z);\n    if (globalThis.__trace && t >= -.25) { const T = globalThis.__trace; const row = [t.toFixed(3)];\n      for (const n of T.names) { const ci = body.muscles.channels.findIndex((c) => c.name === n), ch = body.muscles.channels[ci];\n        row.push(`${n.split(' ')[0].slice(0,9)} ${body.muscles.angle(ci).toFixed(2)}[${ch.dof.spec?.min?.value?.toFixed?.(2)},${ch.dof.spec?.max?.value?.toFixed?.(2)}] w${body.muscles.speed(ci).toFixed(1)} T${body.muscles.pulled[ci].toFixed(0)}`); }\n      console.log(row.join(' | ')); }\n    if (globalThis.__chatter && t >= -.25) for (const [ci, ch] of body.muscles.channels.entries()) { const C = globalThis.__chatter, w = body.muscles.speed(ci), c = (C[ch.name] ??= { last: 0, flips: 0, big: 0 });\n      if (Math.abs(w) > 1 && Math.abs(c.last) > 1 && Math.sign(w) !== Math.sign(c.last)) c.flips++; if (Math.abs(w) > 5) c.big++; c.last = w; }\n    if (trace && up && t >= -.25) for (const [ci, ch] of body.muscles.channels.entries()) {\n      const w = body.muscles.speed(ci), r = (traced[ch.name] ??= { peak: 0, peakNeg: 0, w0p: ch.positive.curve.unloadedSpeed, w0n: ch.negative.curve.unloadedSpeed, at: 0 });\n      if (w > r.peak) r.peak = w; if (w < r.peakNeg) r.peakNeg = w;\n    }\n  }\n  const down = body.view.down;\n  s.dispose?.();\n  return { score: globalThis.__gate ? gateSpeed : best, gateSpeed: +gateSpeed.toFixed(2), gateWrist: +gateWrist.toFixed(2), guardAt, lane: +best.toFixed(2), at, wrist: +wristBest.toFixed(2), wristAtBest: +wristAtBest.toFixed(2), trunk: +shoulderBest.toFixed(2), down, ...(trace ? { traced } : {}) };\n}\n",
+  "cap-opt.mjs": "// Diagonal CMA-ES over cap-eval's schedule. node cap-opt.mjs <out.json> <workers> <generations> [opts json]\nimport { Worker, isMainThread, parentPort, workerData } from \"node:worker_threads\";\nimport { writeFileSync, existsSync, readFileSync } from \"node:fs\";\nif (!isMainThread) {\n  const { trial } = await import(\"./cap-eval.mjs\"); if (workerData.opts.lane) [globalThis.__laneLo, globalThis.__laneHi] = workerData.opts.lane; if (workerData.opts.gate) globalThis.__gate = workerData.opts.gate;\n  parentPort.on(\"message\", async ({ id, x }) => {\n    let r; try { r = await trial(x, workerData.opts); } catch (e) { r = { score: 0, error: String(e) }; }\n    parentPort.postMessage({ id, r });\n  });\n} else {\n  const { CHANNELS } = await import(\"./cap-eval.mjs\");\n  const [out, nw = \"24\", gens = \"40\", optsJson = \"{}\"] = process.argv.slice(2);\n  const opts = JSON.parse(optsJson), n = CHANNELS.length * 3;\n  const lo = [], hi = [];\n  for (let i = 0; i < CHANNELS.length; i++) { lo.push(-1, opts.from?.[0] ?? -.3, 0); hi.push(1, opts.from?.[1] ?? .3, .45); }\n  const workers = Array.from({ length: +nw }, () => new Worker(new URL(import.meta.url), { workerData: { opts } }));\n  let nextId = 0; const waiting = new Map(), idle = [...workers], queue = [];\n  for (const w of workers) w.on(\"message\", ({ id, r }) => { waiting.get(id)(r); waiting.delete(id); idle.push(w); pump(); });\n  function pump() { while (idle.length && queue.length) { const { id, x } = queue.shift(); idle.pop().postMessage({ id, x }); } }\n  const evalx = (x) => new Promise((done) => { const id = nextId++; waiting.set(id, done); queue.push({ id, x }); pump(); });\n  // Search in unit space u in [0,1]^n.\n  const toX = (u) => u.map((ui, i) => lo[i] + (hi[i] - lo[i]) * Math.min(1, Math.max(0, ui)));\n  let m = opts.start ? opts.start.map((x, i) => (x - lo[i]) / (hi[i] - lo[i])) : Array.from({ length: n }, (_, i) => i % 3 === 0 ? .5 : .5);\n  let sigma = opts.sigma ?? .25; const C = new Array(n).fill(1);\n  const lambda = opts.lambda ?? 4 * +nw, mu = lambda >> 1;\n  const wts = Array.from({ length: mu }, (_, i) => Math.log(mu + .5) - Math.log(i + 1)); const ws = wts.reduce((a, b) => a + b); for (let i = 0; i < mu; i++) wts[i] /= ws;\n  const mueff = 1 / wts.reduce((a, w) => a + w * w, 0);\n  const cs = (mueff + 2) / (n + mueff + 5), ds = 1 + cs, cc = 4 / (n + 4), c1 = 2 / ((n + 1.3) ** 2 + mueff), cmu = Math.min(1 - c1, 2 * (mueff - 2 + 1 / mueff) / ((n + 2) ** 2 + mueff)) * (n + 2) / 3;\n  const chiN = Math.sqrt(n) * (1 - 1 / (4 * n) + 1 / (21 * n * n));\n  let ps = new Array(n).fill(0), pc = new Array(n).fill(0);\n  const gauss = () => { let u = 0, v = 0; while (!u) u = Math.random(); v = Math.random(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); };\n  let best = { score: -1 };\n  const log = [];\n  for (let g = 0; g < +gens; g++) {\n    const zs = Array.from({ length: lambda }, () => Array.from({ length: n }, gauss));\n    const us = zs.map((z) => z.map((zi, i) => Math.min(1, Math.max(0, m[i] + sigma * Math.sqrt(C[i]) * zi))));\n    const rs = await Promise.all(us.map((u) => evalx(toX(u))));\n    const fit = rs.map((r) => r.score - (r.down ? 0 : 0));\n    const order = fit.map((f, i) => i).sort((a, b) => fit[b] - fit[a]);\n    if (fit[order[0]] > best.score) best = { score: fit[order[0]], x: toX(us[order[0]]), r: rs[order[0]], g };\n    const old = m.slice();\n    m = m.map((_, i) => order.slice(0, mu).reduce((a, k, j) => a + wts[j] * us[k][i], 0));\n    const y = m.map((mi, i) => (mi - old[i]) / sigma);\n    ps = ps.map((p, i) => (1 - cs) * p + Math.sqrt(cs * (2 - cs) * mueff) * y[i] / Math.sqrt(C[i]));\n    const psn = Math.sqrt(ps.reduce((a, p) => a + p * p, 0));\n    pc = pc.map((p, i) => (1 - cc) * p + Math.sqrt(cc * (2 - cc) * mueff) * y[i]);\n    for (let i = 0; i < n; i++) {\n      let rank = 0; for (let j = 0; j < mu; j++) { const d = (us[order[j]][i] - old[i]) / sigma; rank += wts[j] * d * d; }\n      C[i] = (1 - c1 - cmu) * C[i] + c1 * pc[i] * pc[i] + cmu * rank;\n    }\n    sigma *= Math.exp((cs / ds) * (psn / chiN - 1));\n    const med = fit.slice().sort((a, b) => a - b)[lambda >> 1];\n    log.push({ g, best: +fit[order[0]].toFixed(3), median: +med.toFixed(3), sigma: +sigma.toFixed(3) });\n    console.log(JSON.stringify(log.at(-1)), JSON.stringify(rs[order[0]]));\n    writeFileSync(out, JSON.stringify({ opts, best, mean: toX(m), log, channels: CHANNELS }));\n  }\n  for (const w of workers) w.terminate();\n}\n",
   "chatter.mjs": "// Per-step sign flips of every channel's speed in a window: a two-step chatter count.\nimport * as m from \"./cap-eval.mjs\";\nconst mode = process.argv[2] ?? \"none\";\nconst x = new Array(54).fill(0);\nglobalThis.__chatter = {};\nconst r = await m.trial(x, { keepStance: mode === \"stance\", trace: true });\nconsole.log(mode, JSON.stringify(r.score));\nfor (const [k, v] of Object.entries(globalThis.__chatter)) if (v.flips > 3 || v.big > 3) console.log(k.padEnd(34), \"flips\", v.flips, \"steps over 5 rad/s\", v.big);\n",
   "rise-chatter.mjs": "// A shoved Warrior under the staged rise: per rise stage, the steps on which a channel's speed\n// reverses above 3 rad/s both sides (a two-step chatter), by channel.\nimport { felled, riserOf } from \"../../core-rise-trials.mjs\";\nimport { createMind } from \"../../../src/core/mind/minds.ts\";\nimport { STAND_ORDERS } from \"../../../src/core/mind/orders.ts\";\nimport { RISE } from \"../../../src/core/mind/rise/stages.ts\";\nconst degrees = +(process.argv[2] ?? 0), held = process.argv[3] ?? \"empty\";\nconst mind = { kind: \"recipe-fighter\", subs: [{ kind: \"staged-rise\" }], guard: \"pose\", aim: \"head\", range: \"close\" };\nconst { world, body, dispose } = await felled({ model: \"workshop-fighter\", held, degrees },\n  (made, into) => createMind(made, into, mind, { name: \"probe\", orders: () => STAND_ORDERS }).body);\nconst riser = riserOf(body), ch = body.muscles.channels, last = new Float64Array(ch.length);\nconst by = {}; let upAt = null;\nfor (let i = 0; i < 40 * world.hz; i++) {\n  world.step();\n  const stage = riser.phase === \"rise\" ? RISE.rise[riser.stage ?? riser.furthest]?.name ?? \"?\" : riser.phase;\n  const b = (by[stage] ??= { steps: 0, flips: {} }); b.steps++;\n  for (let c = 0; c < ch.length; c++) { const w = body.muscles.speed(c);\n    if (Math.abs(w) > 3 && Math.abs(last[c]) > 3 && Math.sign(w) !== Math.sign(last[c])) b.flips[ch[c].name] = (b.flips[ch[c].name] ?? 0) + 1;\n    last[c] = w; }\n  if (!body.view.down && upAt === null) upAt = world.time; if (body.view.down) upAt = null;\n}\nconsole.log(\"deg\", degrees, held, \"up since\", upAt?.toFixed(2));\nfor (const [s, b] of Object.entries(by)) { const top = Object.entries(b.flips).sort((a, c) => c[1] - a[1]).slice(0, 5);\n  console.log(s.padEnd(12), \"steps\", b.steps, \"flips/step\", (Object.values(b.flips).reduce((a, c) => a + c, 0) / b.steps).toFixed(2), JSON.stringify(top)); }\ndispose();\n",
   "speeds.mjs": "import { jointSpeed } from \"../../../src/core/human/speed.ts\";\nfor (const sex of [\"male\",\"female\"]) for (const e of [\"hipExtension\",\"hipFlexion\",\"kneeExtension\",\"kneeFlexion\",\"ankleDorsiflexion\",\"elbowFlexion\",\"elbowExtension\"]) { const s = jointSpeed({sex}, e); console.log(sex, e, s.unloadedSpeed.value.toFixed(2), s.curvature.value.toFixed(3)); }\n",
   "trunk-trace.mjs": "// Replays cap3's best with a per-step trace of trunk angles and speeds against their limits.\nimport { readFileSync } from \"node:fs\";\nimport * as m from \"./cap-eval.mjs\";\nconst b = JSON.parse(readFileSync(process.argv[2] ?? \"cap3.json\")).best;\nconst names = (process.argv[3] ?? \"thoracic flexion,lumbar flexion,hip.left flexion,hip.right flexion,elbow.right flexion\").split(\",\");\nglobalThis.__trace = { names, rows: [] };\nawait m.trial(b.x, { trace: true });\n",
   "cap-verify.mjs": "// Re-run cap5's best (stance kept, punch lane) at each rate, with the peak joint speeds.\nimport { readFileSync } from \"node:fs\";\nimport { trial } from \"./cap-eval.mjs\";\nconst j = JSON.parse(readFileSync(\"cap5.json\", \"utf8\"));\nglobalThis.__laneLo = j.opts.lane[0]; globalThis.__laneHi = j.opts.lane[1];\nfor (const hz of [120, 480, 960]) {\n  const r = await trial(j.best.x, { hz, keepStance: true, trace: true });\n  const fast = Object.entries(r.traced).map(([n, t]) => [n, +Math.max(t.peak / t.w0p, -t.peakNeg / t.w0n).toFixed(2), +t.peak.toFixed(1), +t.peakNeg.toFixed(1), +t.w0p.toFixed(1), +t.w0n.toFixed(1)])\n    .sort((a, b) => b[1] - a[1]).slice(0, 5);\n  console.log(JSON.stringify({ hz, score: +r.score.toFixed(2), wrist: r.wrist, wristAtBest: r.wristAtBest, at: r.at, down: r.down, fast }));\n}\n",
-  "cell-fn.mjs": "// A punch cell (punchStand) with flat-out pushes added on a schedule counted from each swing's start\n// (negative: in the chamber). The stance is kept, so pushes on its bearing legs are its to override.\nimport { punchStand } from \"../../punch-calibration.mjs\";\nimport { PLANTED_PUNCH_EXECUTION } from \"../../../src/core/skills/combat.ts\";\n\nexport const BASE = { hand: \"right\", family: \"cross\", hz: 120, seconds: 8, armExtension: .5, ahead: .55, height: 1.55,\n  execution: PLANTED_PUNCH_EXECUTION, matchedFeedback: true, paths: { elbowExtension: .5 }, pad: { face: \"compliant\" } };\n\n/** schedule: [[channel, level -1..1, from s, to s]]. */\nexport async function cell(over, schedule) {\n  const s = await punchStand({ ...BASE, ...over });\n  const inner = s.skills.command;\n  let swingAt = null, chamberAt = null, last = null;\n  const chamberSeconds = s.skills.state.hands?.right?.cycle?.time;\n  void chamberSeconds;\n  s.skills.command = (view, intent, dt) => {\n    const c = inner(view, intent, dt), phase = s.skills.report.strike.phase;\n    if (phase === \"chamber\" && last !== \"chamber\") chamberAt = view.time;\n    if (phase === \"swing\" && last !== \"swing\") swingAt = view.time;\n    last = phase;\n    if (phase !== \"chamber\" && phase !== \"swing\") return c;\n    // In the chamber, time runs negative toward the swing's planned start.\n    const t = phase === \"swing\" ? view.time - swingAt : (view.time - chamberAt) - (over.paths?.chamberSeconds ?? .22);\n    const live = schedule.filter(([, level, from, to]) => Math.abs(level) > .05 && t >= from && t < to)\n      .map(([channel, level]) => ({ channel, sense: level > 0 ? 1 : -1, level: Math.min(1, Math.abs(level)) }));\n    return live.length ? { ...c, pushes: [...c.pushes, ...live] } : c;\n  };\n  try {\n    s.step(Math.round(s.config.seconds * s.world.hz));\n    const r = s.reading();\n    const clean = r.impacts.filter((e) => e.eligible && e.last10cmSpeed);\n    const mean = (f) => clean.length ? clean.reduce((a, e) => a + f(e), 0) / clean.length : null;\n    return { n: clean.length, fell: r.fell, faults: r.qualification.faults, speed: mean((e) => e.last10cmSpeed),\n      impulse: mean((e) => e.impulse), peak: mean((e) => e.peakStepForce), mass: mean((e) => e.effectiveMass) };\n  } finally { s.dispose(); }\n}\n",
-  "punch-opt.mjs": "// Diagonal CMA-ES over a punch cell's push schedule, scored by the pad's impulse. node punch-opt.mjs <out.json> <workers> <generations> [opts json]\nimport { Worker, isMainThread, parentPort, workerData } from \"node:worker_threads\";\nimport { writeFileSync, existsSync, readFileSync } from \"node:fs\";\nif (!isMainThread) {\n  const { cell } = await import(\"./cell-fn.mjs\");\n  const CH = workerData.channels;\n  const trial = async (x, opts) => {\n    const schedule = CH.map((c, i) => [c, x[3 * i], x[3 * i + 1], x[3 * i + 1] + Math.max(0, x[3 * i + 2])]);\n    if (opts.rates) {\n      // Robust: the worst of the cell at each rate.\n      const rs = [];\n      for (const hz of opts.rates) rs.push(await trial(x, { ...opts, rates: undefined, over: { ...opts.over, hz } }));\n      const worst = rs.reduce((a, b) => (b.score < a.score ? b : a));\n      return { ...worst, byRate: rs.map((q) => +q.score.toFixed(2)) };\n    }\n    const r = await cell(opts.over ?? {}, schedule);\n    const score = r.fell || !r.n ? 0 : opts.score === \"speed\" ? (r.n >= 3 && !r.faults.length ? r.speed : r.speed * r.n / 6)\n      : (r.n >= 3 ? r.impulse : r.impulse * r.n / 6) * (r.faults.length ? .5 : 1);\n    return { score, ...r };\n  };\n  parentPort.on(\"message\", async ({ id, x }) => {\n    let r; try { r = await trial(x, workerData.opts); } catch (e) { r = { score: 0, error: String(e) }; }\n    parentPort.postMessage({ id, r });\n  });\n} else {\n  const CHANNELS = [\"thoracic rotation right\", \"lumbar rotation right\", \"thoracic flexion\", \"lumbar flexion\",\n    \"shoulder.right flexion\", \"shoulder.right abduction\", \"shoulder.right internal rotation\", \"elbow.right flexion\", \"wrist.right flexion\"];\n  const [out, nw = \"24\", gens = \"40\", optsJson = \"{}\"] = process.argv.slice(2);\n  const opts = JSON.parse(optsJson), n = CHANNELS.length * 3;\n  const lo = [], hi = [];\n  for (let i = 0; i < CHANNELS.length; i++) { lo.push(-1, -.22, 0); hi.push(1, .12, .3); }\n  const workers = Array.from({ length: +nw }, () => new Worker(new URL(import.meta.url), { workerData: { opts, channels: CHANNELS } }));\n  let nextId = 0; const waiting = new Map(), idle = [...workers], queue = [];\n  for (const w of workers) w.on(\"message\", ({ id, r }) => { waiting.get(id)(r); waiting.delete(id); idle.push(w); pump(); });\n  function pump() { while (idle.length && queue.length) { const { id, x } = queue.shift(); idle.pop().postMessage({ id, x }); } }\n  const evalx = (x) => new Promise((done) => { const id = nextId++; waiting.set(id, done); queue.push({ id, x }); pump(); });\n  // Search in unit space u in [0,1]^n.\n  const toX = (u) => u.map((ui, i) => lo[i] + (hi[i] - lo[i]) * Math.min(1, Math.max(0, ui)));\n  let m = opts.start ? opts.start.map((x, i) => (x - lo[i]) / (hi[i] - lo[i])) : Array.from({ length: n }, (_, i) => i % 3 === 0 ? .5 : .5);\n  let sigma = opts.sigma ?? .25; const C = new Array(n).fill(1);\n  const lambda = opts.lambda ?? 4 * +nw, mu = lambda >> 1;\n  const wts = Array.from({ length: mu }, (_, i) => Math.log(mu + .5) - Math.log(i + 1)); const ws = wts.reduce((a, b) => a + b); for (let i = 0; i < mu; i++) wts[i] /= ws;\n  const mueff = 1 / wts.reduce((a, w) => a + w * w, 0);\n  const cs = (mueff + 2) / (n + mueff + 5), ds = 1 + cs, cc = 4 / (n + 4), c1 = 2 / ((n + 1.3) ** 2 + mueff), cmu = Math.min(1 - c1, 2 * (mueff - 2 + 1 / mueff) / ((n + 2) ** 2 + mueff)) * (n + 2) / 3;\n  const chiN = Math.sqrt(n) * (1 - 1 / (4 * n) + 1 / (21 * n * n));\n  let ps = new Array(n).fill(0), pc = new Array(n).fill(0);\n  const gauss = () => { let u = 0, v = 0; while (!u) u = Math.random(); v = Math.random(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); };\n  let best = { score: -1 };\n  const log = [];\n  for (let g = 0; g < +gens; g++) {\n    const zs = Array.from({ length: lambda }, () => Array.from({ length: n }, gauss));\n    const us = zs.map((z) => z.map((zi, i) => Math.min(1, Math.max(0, m[i] + sigma * Math.sqrt(C[i]) * zi))));\n    const rs = await Promise.all(us.map((u) => evalx(toX(u))));\n    const fit = rs.map((r) => r.score - (r.down ? 0 : 0));\n    const order = fit.map((f, i) => i).sort((a, b) => fit[b] - fit[a]);\n    if (fit[order[0]] > best.score) best = { score: fit[order[0]], x: toX(us[order[0]]), r: rs[order[0]], g };\n    const old = m.slice();\n    m = m.map((_, i) => order.slice(0, mu).reduce((a, k, j) => a + wts[j] * us[k][i], 0));\n    const y = m.map((mi, i) => (mi - old[i]) / sigma);\n    ps = ps.map((p, i) => (1 - cs) * p + Math.sqrt(cs * (2 - cs) * mueff) * y[i] / Math.sqrt(C[i]));\n    const psn = Math.sqrt(ps.reduce((a, p) => a + p * p, 0));\n    pc = pc.map((p, i) => (1 - cc) * p + Math.sqrt(cc * (2 - cc) * mueff) * y[i]);\n    for (let i = 0; i < n; i++) {\n      let rank = 0; for (let j = 0; j < mu; j++) { const d = (us[order[j]][i] - old[i]) / sigma; rank += wts[j] * d * d; }\n      C[i] = (1 - c1 - cmu) * C[i] + c1 * pc[i] * pc[i] + cmu * rank;\n    }\n    sigma *= Math.exp((cs / ds) * (psn / chiN - 1));\n    const med = fit.slice().sort((a, b) => a - b)[lambda >> 1];\n    log.push({ g, best: +fit[order[0]].toFixed(3), median: +med.toFixed(3), sigma: +sigma.toFixed(3) });\n    console.log(JSON.stringify(log.at(-1)), JSON.stringify(rs[order[0]]));\n    writeFileSync(out, JSON.stringify({ opts, best, mean: toX(m), log, channels: CHANNELS }));\n  }\n  for (const w of workers) w.terminate();\n}\n",
+  "cell-fn.mjs": "// A punch cell (punchStand) with flat-out pushes added on a schedule counted from each swing's start\n// (negative: in the chamber). The stance is kept, so pushes on its bearing legs are its to override.\nimport { punchStand } from \"../../punch-calibration.mjs\";\nimport { PLANTED_PUNCH_EXECUTION } from \"../../../src/core/skills/combat.ts\";\n\nexport const BASE = { hand: \"right\", family: \"cross\", hz: 120, seconds: 8, armExtension: .5, ahead: .55, height: 1.55,\n  execution: PLANTED_PUNCH_EXECUTION, matchedFeedback: true, paths: { elbowExtension: .5 }, pad: { face: \"compliant\" } };\n\n/** schedule: [[channel, level -1..1, from s, to s]]. */\nexport async function cell(over, schedule) {\n  const s = await punchStand({ ...BASE, ...over });\n  const inner = s.skills.command;\n  let swingAt = null, chamberAt = null, last = null;\n  const chamberSeconds = s.skills.state.hands?.right?.cycle?.time;\n  void chamberSeconds;\n  s.skills.command = (view, intent, dt) => {\n    const c = inner(view, intent, dt), phase = s.skills.report.strike.phase;\n    if (phase === \"chamber\" && last !== \"chamber\") chamberAt = view.time;\n    if (phase === \"swing\" && last !== \"swing\") swingAt = view.time;\n    last = phase;\n    if (phase !== \"chamber\" && phase !== \"swing\") return c;\n    // In the chamber, time runs negative toward the swing's planned start.\n    const t = phase === \"swing\" ? view.time - swingAt : (view.time - chamberAt) - (over.paths?.chamberSeconds ?? .22);\n    // A chamber that overruns its planned time pushes nothing more until the swing.\n    if (phase === \"chamber\" && t >= 0) return c;\n    const live = schedule.filter(([, level, from, to]) => Math.abs(level) > .05 && t >= from && t < to)\n      .map(([channel, level]) => ({ channel, sense: level > 0 ? 1 : -1, level: Math.min(1, Math.abs(level)) }));\n    return live.length ? { ...c, pushes: [...c.pushes, ...live] } : c;\n  };\n  try {\n    // The hand's nearest pass to the target in each swing, for a schedule that never lands.\n    const near = [];\n    for (let i = 0, n = Math.round(s.config.seconds * s.world.hz); i < n; i++) {\n      s.step();\n      const w = s.state.witness;\n      if (s.state.phase === \"swing\" && w) { const p = w.point, d = Math.hypot(p[0] - s.target[0], p[1] - s.target[1], p[2] - s.target[2]);\n        near[s.state.launch] = Math.min(near[s.state.launch] ?? 9, d); }\n    }\n    const passes = near.filter((d) => d !== undefined);\n    const r = s.reading();\n    const clean = r.impacts.filter((e) => e.eligible && e.last10cmSpeed);\n    const mean = (f) => clean.length ? clean.reduce((a, e) => a + f(e), 0) / clean.length : null;\n    return { n: clean.length, fell: r.fell, faults: r.qualification.faults, speed: mean((e) => e.last10cmSpeed),\n      impulse: mean((e) => e.impulse), peak: mean((e) => e.peakStepForce), mass: mean((e) => e.effectiveMass), miss: passes.length ? passes.reduce((a, d) => a + d, 0) / passes.length : 1 };\n  } finally { s.dispose(); }\n}\n",
+  "punch-opt.mjs": "// Diagonal CMA-ES over a punch cell's push schedule, scored by the pad's impulse. node punch-opt.mjs <out.json> <workers> <generations> [opts json]\nimport { Worker, isMainThread, parentPort, workerData } from \"node:worker_threads\";\nimport { writeFileSync, existsSync, readFileSync } from \"node:fs\";\nif (!isMainThread) {\n  const { cell } = await import(\"./cell-fn.mjs\");\n  const CH = workerData.channels;\n  const trial = async (x, opts) => {\n    const schedule = CH.map((c, i) => [c, x[3 * i], x[3 * i + 1], x[3 * i + 1] + Math.max(0, x[3 * i + 2])]);\n    if (opts.rates) {\n      // Robust: the worst of the cell at each rate.\n      const rs = [];\n      for (const hz of opts.rates) rs.push(await trial(x, { ...opts, rates: undefined, over: { ...opts.over, hz } }));\n      const worst = rs.reduce((a, b) => (b.score < a.score ? b : a));\n      return { ...worst, byRate: rs.map((q) => +q.score.toFixed(2)) };\n    }\n    const r = await cell(opts.over ?? {}, schedule);\n    const score = opts.score === \"blow\" ? (r.fell ? -2 : !r.n ? -r.miss : r.n >= 3 && !r.faults.length ? r.speed : r.speed * r.n / 6 * (r.faults.length ? .5 : 1))\n      : r.fell || !r.n ? 0 : opts.score === \"speed\" ? (r.n >= 3 && !r.faults.length ? r.speed : r.speed * r.n / 6)\n      : (r.n >= 3 ? r.impulse : r.impulse * r.n / 6) * (r.faults.length ? .5 : 1);\n    return { score, ...r };\n  };\n  parentPort.on(\"message\", async ({ id, x }) => {\n    let r; try { r = await trial(x, workerData.opts); } catch (e) { r = { score: 0, error: String(e) }; }\n    parentPort.postMessage({ id, r });\n  });\n} else {\n  const [out, nw = \"24\", gens = \"40\", optsJson = \"{}\"] = process.argv.slice(2);\n  const opts = JSON.parse(optsJson);\n  const CHANNELS = opts.channels ?? [\"thoracic rotation right\", \"lumbar rotation right\", \"thoracic flexion\", \"lumbar flexion\",\n    \"shoulder.right flexion\", \"shoulder.right abduction\", \"shoulder.right internal rotation\", \"elbow.right flexion\", \"wrist.right flexion\"];\n  const n = CHANNELS.length * 3;\n  const lo = [], hi = [];\n  for (let i = 0; i < CHANNELS.length; i++) { lo.push(-1, opts.from?.[0] ?? -.22, 0); hi.push(1, opts.from?.[1] ?? .12, opts.length ?? .3); }\n  const workers = Array.from({ length: +nw }, () => new Worker(new URL(import.meta.url), { workerData: { opts, channels: CHANNELS } }));\n  let nextId = 0; const waiting = new Map(), idle = [...workers], queue = [];\n  for (const w of workers) w.on(\"message\", ({ id, r }) => { waiting.get(id)(r); waiting.delete(id); idle.push(w); pump(); });\n  function pump() { while (idle.length && queue.length) { const { id, x } = queue.shift(); idle.pop().postMessage({ id, x }); } }\n  const evalx = (x) => new Promise((done) => { const id = nextId++; waiting.set(id, done); queue.push({ id, x }); pump(); });\n  // Search in unit space u in [0,1]^n.\n  const toX = (u) => u.map((ui, i) => lo[i] + (hi[i] - lo[i]) * Math.min(1, Math.max(0, ui)));\n  let m = opts.start ? opts.start.map((x, i) => (x - lo[i]) / (hi[i] - lo[i])) : Array.from({ length: n }, (_, i) => i % 3 === 0 ? .5 : .5);\n  let sigma = opts.sigma ?? .25; const C = new Array(n).fill(1);\n  const lambda = opts.lambda ?? 4 * +nw, mu = lambda >> 1;\n  const wts = Array.from({ length: mu }, (_, i) => Math.log(mu + .5) - Math.log(i + 1)); const ws = wts.reduce((a, b) => a + b); for (let i = 0; i < mu; i++) wts[i] /= ws;\n  const mueff = 1 / wts.reduce((a, w) => a + w * w, 0);\n  const cs = (mueff + 2) / (n + mueff + 5), ds = 1 + cs, cc = 4 / (n + 4), c1 = 2 / ((n + 1.3) ** 2 + mueff), cmu = Math.min(1 - c1, 2 * (mueff - 2 + 1 / mueff) / ((n + 2) ** 2 + mueff)) * (n + 2) / 3;\n  const chiN = Math.sqrt(n) * (1 - 1 / (4 * n) + 1 / (21 * n * n));\n  let ps = new Array(n).fill(0), pc = new Array(n).fill(0);\n  const gauss = () => { let u = 0, v = 0; while (!u) u = Math.random(); v = Math.random(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); };\n  let best = { score: -1 };\n  const log = [];\n  for (let g = 0; g < +gens; g++) {\n    const zs = Array.from({ length: lambda }, () => Array.from({ length: n }, gauss));\n    const us = zs.map((z) => z.map((zi, i) => Math.min(1, Math.max(0, m[i] + sigma * Math.sqrt(C[i]) * zi))));\n    const rs = await Promise.all(us.map((u) => evalx(toX(u))));\n    const fit = rs.map((r) => r.score - (r.down ? 0 : 0));\n    const order = fit.map((f, i) => i).sort((a, b) => fit[b] - fit[a]);\n    if (fit[order[0]] > best.score) best = { score: fit[order[0]], x: toX(us[order[0]]), r: rs[order[0]], g };\n    const old = m.slice();\n    m = m.map((_, i) => order.slice(0, mu).reduce((a, k, j) => a + wts[j] * us[k][i], 0));\n    const y = m.map((mi, i) => (mi - old[i]) / sigma);\n    ps = ps.map((p, i) => (1 - cs) * p + Math.sqrt(cs * (2 - cs) * mueff) * y[i] / Math.sqrt(C[i]));\n    const psn = Math.sqrt(ps.reduce((a, p) => a + p * p, 0));\n    pc = pc.map((p, i) => (1 - cc) * p + Math.sqrt(cc * (2 - cc) * mueff) * y[i]);\n    for (let i = 0; i < n; i++) {\n      let rank = 0; for (let j = 0; j < mu; j++) { const d = (us[order[j]][i] - old[i]) / sigma; rank += wts[j] * d * d; }\n      C[i] = (1 - c1 - cmu) * C[i] + c1 * pc[i] * pc[i] + cmu * rank;\n    }\n    sigma *= Math.exp((cs / ds) * (psn / chiN - 1));\n    const med = fit.slice().sort((a, b) => a - b)[lambda >> 1];\n    log.push({ g, best: +fit[order[0]].toFixed(3), median: +med.toFixed(3), sigma: +sigma.toFixed(3) });\n    console.log(JSON.stringify(log.at(-1)), JSON.stringify(rs[order[0]]));\n    writeFileSync(out, JSON.stringify({ opts, best, mean: toX(m), log, channels: CHANNELS }));\n  }\n  for (const w of workers) w.terminate();\n}\n",
   "verify-popt.mjs": "// Re-run a punch-opt best schedule (or none) at the listed rates.\nimport { readFileSync } from \"node:fs\";\nimport { cell } from \"./cell-fn.mjs\";\nconst [file, rates = \"480,960\"] = process.argv.slice(2);\nconst j = file === \"none\" ? null : JSON.parse(readFileSync(file, \"utf8\"));\nconst schedule = j ? j.channels.map((c, i) => [c, j.best.x[3 * i], j.best.x[3 * i + 1], j.best.x[3 * i + 1] + Math.max(0, j.best.x[3 * i + 2])]) : [];\nfor (const hz of rates.split(\",\").map(Number)) {\n  const r = await cell({ hz }, schedule);\n  console.log(JSON.stringify({ file, hz, n: r.n, fell: r.fell, faults: r.faults, speed: r.speed && +r.speed.toFixed(2), impulse: r.impulse && +r.impulse.toFixed(2), mass: r.mass && +r.mass.toFixed(2) }));\n}\n",
-  "verify-robust.mjs": "// The robust search's best and mean schedules under nearby conditions: rates and the pad's distance.\nimport { readFileSync } from \"node:fs\";\nimport { cell } from \"./cell-fn.mjs\";\nconst j = JSON.parse(readFileSync(\"poptrobust.json\", \"utf8\"));\nconst sched = (x) => j.channels.map((c, i) => [c, x[3 * i], x[3 * i + 1], x[3 * i + 1] + Math.max(0, x[3 * i + 2])]);\nconst [which, conds] = process.argv.slice(2);\nconst x = which === \"mean\" ? j.mean : which === \"none\" ? null : j.best.x;\nfor (const over of JSON.parse(conds)) {\n  const r = await cell(over, x ? sched(x) : []);\n  console.log(JSON.stringify({ which, over, n: r.n, fell: r.fell, faults: r.faults, speed: r.speed && +r.speed.toFixed(2), impulse: r.impulse && +r.impulse.toFixed(2), mass: r.mass && +r.mass.toFixed(2) }));\n}\n"
+  "verify-robust.mjs": "// The robust search's best and mean schedules under nearby conditions: rates and the pad's distance.\nimport { readFileSync } from \"node:fs\";\nimport { cell } from \"./cell-fn.mjs\";\nconst j = JSON.parse(readFileSync(\"poptrobust.json\", \"utf8\"));\nconst sched = (x) => j.channels.map((c, i) => [c, x[3 * i], x[3 * i + 1], x[3 * i + 1] + Math.max(0, x[3 * i + 2])]);\nconst [which, conds] = process.argv.slice(2);\nconst x = which === \"mean\" ? j.mean : which === \"none\" ? null : j.best.x;\nfor (const over of JSON.parse(conds)) {\n  const r = await cell(over, x ? sched(x) : []);\n  console.log(JSON.stringify({ which, over, n: r.n, fell: r.fell, faults: r.faults, speed: r.speed && +r.speed.toFixed(2), impulse: r.impulse && +r.impulse.toFixed(2), mass: r.mass && +r.mass.toFixed(2) }));\n}\n",
+  "gate-verify.mjs": "// A gate search's best schedule, run again at each rate.\nimport { readFileSync } from \"node:fs\";\nimport { trial } from \"./cap-eval.mjs\";\nconst f = process.argv[2], j = JSON.parse(readFileSync(f, \"utf8\"));\nglobalThis.__gate = j.opts.gate;\nfor (const hz of [120, 480, 960]) { const r = await trial(j.best.x, { hz, keepStance: true });\n  console.log(JSON.stringify({ f, hz, hand: r.gateSpeed, wrist: r.gateWrist, handAtT0: r.guardAt, at: r.at, down: r.down })); }\n",
+  "gate-trace.mjs": "import { readFileSync } from \"node:fs\";\nimport { Vector3 } from \"@babylonjs/core/Maths/math.vector.js\";\nimport { coreStand } from \"../../../tests/harness/core-stand.mjs\";\nimport { modelSpec } from \"../../../src/core/models.ts\";\nimport { createBody, SERVO_SECONDS } from \"../../../src/core/body.ts\";\nimport { DEFAULT_ENGINE } from \"../../../src/core/engine/engines.ts\";\nimport { NO_COVER } from \"../../../src/core/mind/intent.ts\";\nimport { combatSkills } from \"../../../src/core/skills/combat.ts\";\nimport { CHANNELS } from \"./cap-eval.mjs\";\nconst j = JSON.parse(readFileSync(process.argv[2], \"utf8\")), x = j.best.x, hz = 480;\nconst sched = CHANNELS.map((channel, i) => ({ channel, level: x[3 * i], from: x[3 * i + 1], to: x[3 * i + 1] + Math.max(0, x[3 * i + 2]) })).filter((p) => Math.abs(p.level) > .05);\nconst s = await coreStand(modelSpec(\"workshop-fighter\"), { engine: DEFAULT_ENGINE, hz });\nconst body = createBody(s.built, s.world, { servoSeconds: SERVO_SECONDS, feedback: true }), skills = combatSkills(body, {});\nbody.drive((view, dt) => { const c = skills.command(view, { move: null, face: 0, guard: NO_COVER, attack: null }, dt), t = view.time - 2;\n  if (t < -.25) return c; const live = sched.filter((p) => t >= p.from && t < p.to).map((p) => ({ channel: p.channel, sense: p.level > 0 ? 1 : -1, level: Math.min(1, Math.abs(p.level)) }));\n  return { ...c, pushes: [...c.pushes, ...live] }; });\nconst hand = s.built.segments.get(\"hand.right\"), sh = s.built.segments.get(\"upperArm.right\"), pel = s.built.segments.get(\"lowerTrunk\"), v = new Vector3();\nconst ch = (n) => body.muscles.channels.findIndex((c) => c.name === n);\nfor (let i = 0; i < 2.45 * hz; i++) { s.step(); const t = s.world.time - 2; if (t < -.26 || i % 10) continue;\n  hand.body.linearVelocityToRef(v); const p = hand.node.position, q = sh.node.position;\n  console.log(t.toFixed(3), \"hand\", p.x.toFixed(2), p.y.toFixed(2), p.z.toFixed(2), \"vz\", v.z.toFixed(1), \"shoulder z\", q.z.toFixed(2), \"thor rot\", body.muscles.angle(ch(\"thoracic rotation right\")).toFixed(2), \"lumb flex\", body.muscles.angle(ch(\"lumbar flexion\")).toFixed(2), \"elbow\", body.muscles.angle(ch(\"elbow.right flexion\")).toFixed(2), \"pelvis z\", pel.node.position.z.toFixed(2)); }\n",
+  "cap-in-cell.mjs": "// cap5's flat-out schedule fired inside the punch cell, its clock shifted to the swing's by `shift` s.\nimport { readFileSync } from \"node:fs\";\nimport { cell } from \"./cell-fn.mjs\";\nimport { CHANNELS } from \"./cap-eval.mjs\";\nconst j = JSON.parse(readFileSync(\"cap5.json\", \"utf8\"));\nconst [shifts = \"0\", over = \"{}\"] = process.argv.slice(2);\nfor (const shift of shifts.split(\",\").map(Number)) {\n  const schedule = CHANNELS.map((c, i) => [c, j.best.x[3 * i], j.best.x[3 * i + 1] + shift, j.best.x[3 * i + 1] + shift + Math.max(0, j.best.x[3 * i + 2])]);\n  const r = await cell({ hz: 480, ...JSON.parse(over) }, schedule);\n  console.log(JSON.stringify({ shift, over: JSON.parse(over), n: r.n, fell: r.fell, faults: r.faults, speed: r.speed && +r.speed.toFixed(2), impulse: r.impulse && +r.impulse.toFixed(2), mass: r.mass && +r.mass.toFixed(2), miss: +r.miss.toFixed(3) }));\n}\n",
+  "dbg-cell.mjs": "import { readFileSync } from \"node:fs\";\nimport { punchStand } from \"../../punch-calibration.mjs\";\nimport { BASE } from \"./cell-fn.mjs\";\nimport { CHANNELS } from \"./cap-eval.mjs\";\nimport { Vector3 } from \"@babylonjs/core/Maths/math.vector.js\";\nconst j = JSON.parse(readFileSync(process.argv[3] ?? \"cap5.json\", \"utf8\")), shift = +process.argv[2];\nconst schedule = CHANNELS.map((c, i) => [c, j.best.x[3 * i], j.best.x[3 * i + 1] + shift, j.best.x[3 * i + 1] + shift + Math.max(0, j.best.x[3 * i + 2])]);\nconst s = await punchStand({ ...BASE, hz: 480 });\nconst inner = s.skills.command; let swingAt = null, chamberAt = null, last = null;\ns.skills.command = (view, intent, dt) => {\n  const c = inner(view, intent, dt), phase = s.skills.report.strike.phase;\n  if (phase === \"chamber\" && last !== \"chamber\") chamberAt = view.time;\n  if (phase === \"swing\" && last !== \"swing\") swingAt = view.time;\n  last = phase;\n  if (phase !== \"chamber\" && phase !== \"swing\") return c;\n  const t = phase === \"swing\" ? view.time - swingAt : (view.time - chamberAt) - .22;\n  if (phase === \"chamber\" && t >= 0) return c;\n  const live = schedule.filter(([, level, from, to]) => Math.abs(level) > .05 && t >= from && t < to).map(([channel, level]) => ({ channel, sense: level > 0 ? 1 : -1, level: Math.min(1, Math.abs(level)) }));\n  return live.length ? { ...c, pushes: [...c.pushes, ...live] } : c;\n};\nconst hand = s.built.segments.get(\"hand.right\"), v = new Vector3(); let k = 0;\nfor (let i = 0; i < 3.6 * 480; i++) { s.step(); const ph = s.state.phase; if (ph !== \"swing\") continue;\n  hand.body.linearVelocityToRef(v); const p = hand.node.position, w = s.state.witness;\n  if (k++ % 4 === 0 || s.state.active) console.log(s.world.time.toFixed(4), ph, \"hand\", p.x.toFixed(2), p.y.toFixed(2), p.z.toFixed(2), \"vz\", v.z.toFixed(2), \"|v|\", v.length().toFixed(2), \"witness\", w?.point.map((q) => q.toFixed(2)).join(\",\"), w?.speed.toFixed(2), s.state.active ? \"CONTACT\" : \"\"); }\nconsole.log(\"target\", s.target);",
+  "rise-time/stage-time.mjs": "// Time a shoved Warrior spends in each phase and stage of its staged rise, watched 40 s at 120 Hz.\n// node stage-time.mjs <held> <degrees,...>\nimport { felled, riserOf, risenAt } from \"../../core-rise-trials.mjs\";\nimport { RECIPE_FIGHTER } from \"../../../src/core/mind/config.ts\";\nimport { createMind } from \"../../../src/core/mind/minds.ts\";\nimport { STAND_ORDERS } from \"../../../src/core/mind/orders.ts\";\nimport { RISE } from \"../../../src/core/mind/rise/stages.ts\";\nconst MIND = {\"kind\":\"recipe-fighter\",\"subs\":[{\"kind\":\"staged-rise\"}],\"guard\":\"pose\",\"aim\":\"head\",\"range\":\"close\"};\nconst [held, list] = process.argv.slice(2);\nfor (const degrees of list.split(\",\").map(Number)) {\n  const { world, body, dispose } = await felled({ model: \"workshop-fighter\", held, degrees },\n    (made, into) => createMind(made, into, MIND, { name: \"probe\", orders: () => STAND_ORDERS }).body);\n  try {\n    if (!body.view.down) { console.log(JSON.stringify({ held, degrees, fell: false })); continue; }\n    let riser = riserOf(body); const downs = [body.view.down], spans = [];\n    let key = null, from = 0;\n    for (let i = 1; i < 40 * world.hz; i++) {\n      world.step(); downs.push(body.view.down); riser ??= riserOf(body); if (!riser) continue;\n      const list = riser.phase === \"rise\" ? RISE.rise : riser.phase === \"roll\" ? RISE.roll[riser.lie ?? \"back\"] ?? [] : [];\n      const k = riser.phase === \"rise\" || riser.phase === \"roll\" ? `${riser.phase}:${list[riser.stage]?.name ?? riser.stage}` : riser.phase;\n      if (k !== key) { if (key) spans.push([key, +((i - from) / world.hz).toFixed(3)]); key = k; from = i; }\n    }\n    spans.push([key, +((40 * world.hz - from) / world.hz).toFixed(3)]);\n    console.log(JSON.stringify({ held, degrees, fell: true, risen: risenAt(downs, world.hz), lie: riser.lie, spans }));\n  } finally { dispose(); }\n}\n"
  },
  "rows": {
   "speed curves, Anderson two-point (6.5/8.9), with torso-carried": [
@@ -3401,6 +3406,6673 @@
     "speed": 4.37,
     "impulse": 3.62,
     "mass": 0.83
+   }
+  ],
+  "push search on the cell for impact speed, 18 channels, worst of 480 and 960 Hz, stopped (poptblow)": {
+   "opts": {
+    "sigma": 0.12,
+    "lambda": 28,
+    "rates": [
+     480,
+     960
+    ],
+    "score": "blow",
+    "channels": [
+     "thoracic rotation right",
+     "lumbar rotation right",
+     "thoracic flexion",
+     "lumbar flexion",
+     "hip.left flexion",
+     "hip.left abduction",
+     "hip.left internal rotation",
+     "knee.left flexion",
+     "ankle.left dorsiflexion",
+     "hip.right flexion",
+     "hip.right abduction",
+     "hip.right internal rotation",
+     "knee.right flexion",
+     "ankle.right dorsiflexion",
+     "shoulder.right flexion",
+     "shoulder.right abduction",
+     "shoulder.right internal rotation",
+     "elbow.right flexion"
+    ],
+    "from": [
+     -0.22,
+     0.3
+    ],
+    "length": 0.45,
+    "start": [
+     -0.8557684246308573,
+     0.11942253852729881,
+     0.2549179218240629,
+     -0.2117449068563002,
+     0.25296265731449474,
+     0.24231674155334146,
+     -0.6699051900599972,
+     -0.15887499933588964,
+     0.05833947933353768,
+     0.8959033277362933,
+     0.09074436146105416,
+     0.2596151190057339,
+     0.06703275543225629,
+     0.07759955675677296,
+     0.3724415155750671,
+     0.8533450819445494,
+     -0.05707975086314673,
+     0.23007281823176215,
+     -0.3610646258562624,
+     -0.07177030211967547,
+     0.1828351893077625,
+     0.25519010368984074,
+     0.23307438630695884,
+     0.34061840379503056,
+     0.719891518679058,
+     -0.08623740342323286,
+     0.19245529362844727,
+     -0.15905560569204313,
+     0.011474638401906573,
+     0.23415007898804865,
+     -0.09974668728402936,
+     0.3,
+     0.0620352292375469,
+     0.5403453361387947,
+     -0.05789473080942972,
+     0.2691490269167463,
+     -0.017915086713075623,
+     -0.08137633654025886,
+     0.21211127081460598,
+     -0.5534406778836753,
+     0.2785710637134453,
+     0.3536575205831101,
+     0.8983240092187703,
+     -0.14197174140840207,
+     0.366978129165414,
+     -0.3405722176530418,
+     -0.12987358567546806,
+     0.23300657242783088,
+     0.598161205052895,
+     0.3,
+     0.1805352288478818,
+     -0.783549824797886,
+     0.2502286887584183,
+     0.3237718875229403
+    ]
+   },
+   "best": {
+    "score": 4.724180814049373,
+    "x": [
+     -0.6753030374218596,
+     0.1525256612319589,
+     0.29478524070929046,
+     -0.14245026149131979,
+     0.15189945784946715,
+     0.1452926743467911,
+     -0.4677114886027247,
+     -0.14684631647822016,
+     0,
+     0.6036016868589691,
+     0.0678663804521796,
+     0.21448847901022702,
+     -0.1322873380091545,
+     0.14555106588272357,
+     0.3571409534767999,
+     0.8297794835274084,
+     0.046133392857453465,
+     0.1848084188192562,
+     -0.19070339129515168,
+     -0.19474300761019564,
+     0.2517687105731867,
+     0.4793166342195083,
+     0.21097323247351588,
+     0.31340382831094277,
+     0.76125468633067,
+     -0.09443430363112884,
+     0.25341986647118564,
+     -0.1827994347093378,
+     0.1114402841318082,
+     0.1263800410153102,
+     0.17303047525779114,
+     0.28582765720257386,
+     0,
+     0.5612412653666858,
+     0.0376330263411985,
+     0.2579657466345289,
+     -0.49175019624023975,
+     -0.22,
+     0.2137350918591136,
+     -0.7641804837189885,
+     0.24236182046004182,
+     0.31313168860087875,
+     0.26819616024956816,
+     -0.18682874511068792,
+     0.2581870401332917,
+     -0.2502866736577083,
+     -0.18710514749744167,
+     0.114748888993252,
+     0.847327880025355,
+     0.25706627840064267,
+     0.19165576544908522,
+     -0.8349420551224399,
+     0.23119066673281005,
+     0.2810688156822326
+    ],
+    "r": {
+     "score": 4.724180814049373,
+     "n": 4,
+     "fell": false,
+     "faults": [],
+     "speed": 4.724180814049373,
+     "impulse": 7.328589697970514,
+     "peak": 358.85615762342263,
+     "mass": 1.5590887542366154,
+     "miss": 0.08449864050932626,
+     "byRate": [
+      4.78,
+      4.72
+     ]
+    },
+    "g": 4
+   },
+   "mean": [
+    -0.8412247725118229,
+    0.17702933785513883,
+    0.2151739576814061,
+    -0.05001364269500763,
+    0.19481959456879863,
+    0.11203961697963012,
+    -0.698666969900543,
+    -0.12855175280237283,
+    0.060133850448341325,
+    0.8283493761713041,
+    0.1174510379089608,
+    0.259218526907343,
+    0.15757119982040613,
+    0.10597148737990766,
+    0.34634376934499256,
+    0.8457196454636489,
+    -0.022194350521584694,
+    0.18181448572397527,
+    -0.5304187840281346,
+    -0.1473819843268428,
+    0.2212150203116464,
+    0.39541096703599776,
+    0.2389962551566335,
+    0.26203003005581066,
+    0.7790278228360557,
+    -0.1252942628114685,
+    0.17731349753597433,
+    -0.5884164307611024,
+    0.13959759807328212,
+    0.217561507876171,
+    -0.0038704955941727404,
+    0.25157515345637926,
+    0.07432049221081236,
+    0.5039755007601545,
+    -0.0919591556209022,
+    0.2652638219199869,
+    -0.06812072795380764,
+    -0.13394379119468486,
+    0.14255916674131394,
+    -0.6622572600747374,
+    0.2076590691563002,
+    0.3475979070637038,
+    0.30766243930197157,
+    -0.17674715278115996,
+    0.3315835741792968,
+    0.042530334478456444,
+    -0.12235777775196853,
+    0.0933697885754082,
+    0.6169466012900309,
+    0.25647538784790136,
+    0.2084912328100115,
+    -0.7949860033691575,
+    0.21271976610012308,
+    0.34006043444592615
+   ],
+   "log": [
+    {
+     "g": 0,
+     "best": 4.053,
+     "median": 0.38,
+     "sigma": 0.114
+    },
+    {
+     "g": 1,
+     "best": 4.406,
+     "median": 0.678,
+     "sigma": 0.109
+    },
+    {
+     "g": 2,
+     "best": 4.463,
+     "median": 3.729,
+     "sigma": 0.107
+    },
+    {
+     "g": 3,
+     "best": 4.528,
+     "median": 0.361,
+     "sigma": 0.105
+    },
+    {
+     "g": 4,
+     "best": 4.724,
+     "median": 0.959,
+     "sigma": 0.104
+    },
+    {
+     "g": 5,
+     "best": 4.571,
+     "median": 4.093,
+     "sigma": 0.104
+    },
+    {
+     "g": 6,
+     "best": 4.586,
+     "median": 4.216,
+     "sigma": 0.104
+    }
+   ],
+   "channels": [
+    "thoracic rotation right",
+    "lumbar rotation right",
+    "thoracic flexion",
+    "lumbar flexion",
+    "hip.left flexion",
+    "hip.left abduction",
+    "hip.left internal rotation",
+    "knee.left flexion",
+    "ankle.left dorsiflexion",
+    "hip.right flexion",
+    "hip.right abduction",
+    "hip.right internal rotation",
+    "knee.right flexion",
+    "ankle.right dorsiflexion",
+    "shoulder.right flexion",
+    "shoulder.right abduction",
+    "shoulder.right internal rotation",
+    "elbow.right flexion"
+   ]
+  },
+  "gate search from the guard, gate z 0.45 (gateguard)": {
+   "opts": {
+    "sigma": 0.15,
+    "lambda": 28,
+    "keepStance": true,
+    "gate": [
+     0.1,
+     1.55,
+     0.45,
+     0.1
+    ],
+    "from": [
+     0,
+     0.3
+    ],
+    "start": [
+     -0.8557684246308573,
+     0.2694225385272988,
+     0.2549179218240629,
+     -0.2117449068563002,
+     0.40296265731449477,
+     0.24231674155334146,
+     -0.6699051900599972,
+     0,
+     0.05833947933353768,
+     0.8959033277362933,
+     0.24074436146105416,
+     0.2596151190057339,
+     0.06703275543225629,
+     0.22759955675677296,
+     0.3724415155750671,
+     0.8533450819445494,
+     0.09292024913685326,
+     0.23007281823176215,
+     -0.3610646258562624,
+     0.07822969788032452,
+     0.1828351893077625,
+     0.25519010368984074,
+     0.38307438630695884,
+     0.34061840379503056,
+     0.719891518679058,
+     0.06376259657676714,
+     0.19245529362844727,
+     -0.15905560569204313,
+     0.16147463840190657,
+     0.23415007898804865,
+     -0.09974668728402936,
+     0.46185548370403867,
+     0.0620352292375469,
+     0.5403453361387947,
+     0.09210526919057027,
+     0.2691490269167463,
+     -0.017915086713075623,
+     0.06862366345974114,
+     0.21211127081460598,
+     -0.5534406778836753,
+     0.4285710637134453,
+     0.3536575205831101,
+     0.8983240092187703,
+     0.00802825859159792,
+     0.366978129165414,
+     -0.3405722176530418,
+     0.020126414324531938,
+     0.23300657242783088,
+     0.598161205052895,
+     0.47796551407350935,
+     0.1805352288478818,
+     -0.783549824797886,
+     0.40022868875841827,
+     0.3237718875229403
+    ]
+   },
+   "best": {
+    "score": 6.61927604675293,
+    "x": [
+     0.2682454789138844,
+     0.1989517062593312,
+     0.2609185580381117,
+     -0.06620811495209589,
+     0.03365329136298528,
+     0.17159668983502488,
+     0.44377839240659367,
+     0.15906388207963576,
+     0.12629476121850286,
+     1,
+     0.23317229057363473,
+     0.07430368715723326,
+     0.3493017535328251,
+     0.16420124730845073,
+     0.1685912538174228,
+     -0.004669723768948142,
+     0.11714641587507266,
+     0.42044796634689896,
+     -0.2376224818949444,
+     0.20152618315461654,
+     0.19077130666145017,
+     -0.364165872220896,
+     0.20125687146737833,
+     0.21347932885650006,
+     0.004197400721119848,
+     0.15265123725575833,
+     0.2591770509129534,
+     -0.29609406108437963,
+     0.26919068812407587,
+     0.36618017978485495,
+     -1,
+     0.17708950257626613,
+     0.22470405449642766,
+     1,
+     0.07951577311840655,
+     0.04477407793089187,
+     -0.2879843914607839,
+     0.19243285777212613,
+     0.2123246310135592,
+     -0.348171607061614,
+     0.19857721703339862,
+     0.45,
+     0.7857104187431907,
+     0.005228572519776647,
+     0.19928467968886174,
+     -0.8726906262382885,
+     0.13969994971883648,
+     0.33696857352160187,
+     0.5000938076475379,
+     0.11783646110995354,
+     0.23049705267544945,
+     -0.9594370690215425,
+     0.2340702194625952,
+     0.40341167320690396
+    ],
+    "r": {
+     "score": 6.61927604675293,
+     "gateSpeed": 6.62,
+     "gateWrist": 6.34,
+     "guardAt": [
+      0.2,
+      1.37,
+      0.31
+     ],
+     "lane": 6.73,
+     "at": [
+      0.283,
+      0.12,
+      1.53,
+      0.4
+     ],
+     "wrist": 6.34,
+     "wristAtBest": 6.27,
+     "trunk": 0.04,
+     "down": false
+    },
+    "g": 27
+   },
+   "mean": [
+    -0.1684199351665029,
+    0.20091151364802137,
+    0.2220993428585268,
+    -0.27664539961811563,
+    0.16373853559518436,
+    0.07514854277383054,
+    0.036341629325881586,
+    0.1432694894685423,
+    0.1253082472483612,
+    0.5836250985135616,
+    0.18928419759461557,
+    0.03688166186429176,
+    0.09974074090889729,
+    0.21086888789975758,
+    0.10379132789801292,
+    -0.043233600869031275,
+    0.07762877209612848,
+    0.3426704215522879,
+    -0.19721285885981354,
+    0.14308391250564131,
+    0.1531100827049823,
+    -0.7242804199502877,
+    0.20921067845751234,
+    0.28979374400789254,
+    0.4998534146778879,
+    0.18683090324929402,
+    0.23388982413775933,
+    -0.23000305540458776,
+    0.2135510507118085,
+    0.31938448636019184,
+    -0.5573830385602979,
+    0.14942562800671472,
+    0.16864557781345801,
+    0.5715102508422814,
+    0.09205387260045851,
+    0.09511756290375054,
+    -0.231668865235522,
+    0.1768984254043016,
+    0.2209883702582283,
+    -0.7703187918213315,
+    0.17314284437255076,
+    0.4121920399224889,
+    0.8294721776544396,
+    0.07469813842292035,
+    0.13075609835529448,
+    -0.5937725116933121,
+    0.19543493195895492,
+    0.34466770384447887,
+    0.09587371488624252,
+    0.2186726612834763,
+    0.23947303947606582,
+    -0.8442875140463141,
+    0.21406945242236186,
+    0.3875507211097432
+   ],
+   "log": [
+    {
+     "g": 0,
+     "best": 3.769,
+     "median": 0,
+     "sigma": 0.161
+    },
+    {
+     "g": 1,
+     "best": 5.962,
+     "median": 0,
+     "sigma": 0.173
+    },
+    {
+     "g": 2,
+     "best": 4.847,
+     "median": 0,
+     "sigma": 0.184
+    },
+    {
+     "g": 3,
+     "best": 3.486,
+     "median": 0,
+     "sigma": 0.197
+    },
+    {
+     "g": 4,
+     "best": 3.569,
+     "median": 0,
+     "sigma": 0.206
+    },
+    {
+     "g": 5,
+     "best": 2.98,
+     "median": 0,
+     "sigma": 0.212
+    },
+    {
+     "g": 6,
+     "best": 2.846,
+     "median": 0,
+     "sigma": 0.217
+    },
+    {
+     "g": 7,
+     "best": 2.863,
+     "median": 0,
+     "sigma": 0.222
+    },
+    {
+     "g": 8,
+     "best": 6.021,
+     "median": 0,
+     "sigma": 0.228
+    },
+    {
+     "g": 9,
+     "best": 3.63,
+     "median": 0,
+     "sigma": 0.227
+    },
+    {
+     "g": 10,
+     "best": 5.074,
+     "median": 0,
+     "sigma": 0.225
+    },
+    {
+     "g": 11,
+     "best": 5.567,
+     "median": 0,
+     "sigma": 0.224
+    },
+    {
+     "g": 12,
+     "best": 3.652,
+     "median": 0,
+     "sigma": 0.22
+    },
+    {
+     "g": 13,
+     "best": 3.638,
+     "median": 0,
+     "sigma": 0.215
+    },
+    {
+     "g": 14,
+     "best": 2.814,
+     "median": 0,
+     "sigma": 0.211
+    },
+    {
+     "g": 15,
+     "best": 1.827,
+     "median": 0,
+     "sigma": 0.207
+    },
+    {
+     "g": 16,
+     "best": 3.344,
+     "median": 0,
+     "sigma": 0.2
+    },
+    {
+     "g": 17,
+     "best": 3.793,
+     "median": 0,
+     "sigma": 0.197
+    },
+    {
+     "g": 18,
+     "best": 4.031,
+     "median": 0,
+     "sigma": 0.196
+    },
+    {
+     "g": 19,
+     "best": 5.054,
+     "median": 0,
+     "sigma": 0.193
+    },
+    {
+     "g": 20,
+     "best": 4.452,
+     "median": 0,
+     "sigma": 0.19
+    },
+    {
+     "g": 21,
+     "best": 3.873,
+     "median": 0,
+     "sigma": 0.187
+    },
+    {
+     "g": 22,
+     "best": 3.318,
+     "median": 0,
+     "sigma": 0.184
+    },
+    {
+     "g": 23,
+     "best": 3.819,
+     "median": 0,
+     "sigma": 0.178
+    },
+    {
+     "g": 24,
+     "best": 0,
+     "median": 0,
+     "sigma": 0.173
+    },
+    {
+     "g": 25,
+     "best": 3.724,
+     "median": 0,
+     "sigma": 0.166
+    },
+    {
+     "g": 26,
+     "best": 5.725,
+     "median": 0,
+     "sigma": 0.16
+    },
+    {
+     "g": 27,
+     "best": 6.619,
+     "median": 0,
+     "sigma": 0.154
+    },
+    {
+     "g": 28,
+     "best": 3.643,
+     "median": 0,
+     "sigma": 0.148
+    },
+    {
+     "g": 29,
+     "best": 3.87,
+     "median": 0,
+     "sigma": 0.145
+    },
+    {
+     "g": 30,
+     "best": 5.034,
+     "median": 0,
+     "sigma": 0.139
+    },
+    {
+     "g": 31,
+     "best": 5.978,
+     "median": 0,
+     "sigma": 0.136
+    },
+    {
+     "g": 32,
+     "best": 5.146,
+     "median": 0,
+     "sigma": 0.133
+    },
+    {
+     "g": 33,
+     "best": 4.716,
+     "median": 0,
+     "sigma": 0.131
+    },
+    {
+     "g": 34,
+     "best": 5.641,
+     "median": 0,
+     "sigma": 0.129
+    },
+    {
+     "g": 35,
+     "best": 5.192,
+     "median": 0,
+     "sigma": 0.125
+    },
+    {
+     "g": 36,
+     "best": 5.503,
+     "median": 0,
+     "sigma": 0.121
+    },
+    {
+     "g": 37,
+     "best": 5.336,
+     "median": 0,
+     "sigma": 0.118
+    },
+    {
+     "g": 38,
+     "best": 6.084,
+     "median": 0,
+     "sigma": 0.116
+    },
+    {
+     "g": 39,
+     "best": 5.487,
+     "median": 0,
+     "sigma": 0.113
+    }
+   ],
+   "channels": [
+    "thoracic rotation right",
+    "lumbar rotation right",
+    "thoracic flexion",
+    "lumbar flexion",
+    "hip.left flexion",
+    "hip.left abduction",
+    "hip.left internal rotation",
+    "knee.left flexion",
+    "ankle.left dorsiflexion",
+    "hip.right flexion",
+    "hip.right abduction",
+    "hip.right internal rotation",
+    "knee.right flexion",
+    "ankle.right dorsiflexion",
+    "shoulder.right flexion",
+    "shoulder.right abduction",
+    "shoulder.right internal rotation",
+    "elbow.right flexion"
+   ]
+  },
+  "gate search from the guard, gate z 0.55 (gateguardfar)": {
+   "opts": {
+    "sigma": 0.15,
+    "lambda": 28,
+    "keepStance": true,
+    "gate": [
+     0.1,
+     1.55,
+     0.55,
+     0.1
+    ],
+    "from": [
+     0,
+     0.3
+    ],
+    "start": [
+     0.2682454789138844,
+     0.1989517062593312,
+     0.2609185580381117,
+     -0.06620811495209589,
+     0.03365329136298528,
+     0.17159668983502488,
+     0.44377839240659367,
+     0.15906388207963576,
+     0.12629476121850286,
+     1,
+     0.23317229057363473,
+     0.07430368715723326,
+     0.3493017535328251,
+     0.16420124730845073,
+     0.1685912538174228,
+     -0.004669723768948142,
+     0.11714641587507266,
+     0.42044796634689896,
+     -0.2376224818949444,
+     0.20152618315461654,
+     0.19077130666145017,
+     -0.364165872220896,
+     0.20125687146737833,
+     0.21347932885650006,
+     0.004197400721119848,
+     0.15265123725575833,
+     0.2591770509129534,
+     -0.29609406108437963,
+     0.26919068812407587,
+     0.36618017978485495,
+     -1,
+     0.17708950257626613,
+     0.22470405449642766,
+     1,
+     0.07951577311840655,
+     0.04477407793089187,
+     -0.2879843914607839,
+     0.19243285777212613,
+     0.2123246310135592,
+     -0.348171607061614,
+     0.19857721703339862,
+     0.45,
+     0.7857104187431907,
+     0.005228572519776647,
+     0.19928467968886174,
+     -0.8726906262382885,
+     0.13969994971883648,
+     0.33696857352160187,
+     0.5000938076475379,
+     0.11783646110995354,
+     0.23049705267544945,
+     -0.9594370690215425,
+     0.2340702194625952,
+     0.40341167320690396
+    ]
+   },
+   "best": {
+    "score": 8.729764938354492,
+    "x": [
+     0.7440397072902531,
+     0.3,
+     0.1872327931968195,
+     -0.8567937625424825,
+     0.12646852042472262,
+     0.25024538848157285,
+     0.5136082919314751,
+     0.12238592493576625,
+     0.05931517683801649,
+     0.3687725623829752,
+     0.19747159956154492,
+     0.04752209764948079,
+     1,
+     0.14129531437129306,
+     0.21062879068866297,
+     0.006813413525686096,
+     0.14288517049365365,
+     0.40767527974114315,
+     0.3745121387602608,
+     0.179086690129846,
+     0.20716919135850884,
+     -0.5267482933708775,
+     0.20710339028094196,
+     0.3078568953201733,
+     0.41408184464231446,
+     0.12204540230682029,
+     0.1435317609371718,
+     -0.23348055991598105,
+     0.22920712306641977,
+     0.2778200817283111,
+     -0.92521326890322,
+     0.20962235781849956,
+     0.45,
+     0.6958776772035007,
+     0.10815663138210951,
+     0.14707491131401362,
+     -0.5669825552357447,
+     0.26117868103307124,
+     0.3055096195854663,
+     -0.6596693141178557,
+     0.0876882074212492,
+     0.4006795430589003,
+     0.9852396434695234,
+     0.0029304078789480965,
+     0.24593869336644994,
+     -1,
+     0.16068667972555534,
+     0.4324170450926705,
+     0.674584914319845,
+     0.25973252668020225,
+     0.2891105918932304,
+     -1,
+     0.24104154127630428,
+     0.2839662879805855
+    ],
+    "r": {
+     "score": 8.729764938354492,
+     "gateSpeed": 8.73,
+     "gateWrist": 7.46,
+     "guardAt": [
+      0.2,
+      1.37,
+      0.31
+     ],
+     "lane": 8.73,
+     "at": [
+      0.333,
+      0.17,
+      1.6,
+      0.56
+     ],
+     "wrist": 7.46,
+     "wristAtBest": 7.46,
+     "trunk": 0.47,
+     "down": false
+    },
+    "g": 35
+   },
+   "mean": [
+    0.6646019159724306,
+    0.291804365523551,
+    0.24515481553003285,
+    -0.7835115173689098,
+    0.09586944501040841,
+    0.22621192445590393,
+    0.3822941904170143,
+    0.11587636230896739,
+    0.06028911940813542,
+    0.37275013954395564,
+    0.22602687088610096,
+    0.025107121991540058,
+    0.9083147808186587,
+    0.1773603806239811,
+    0.20805724015707208,
+    -0.21538998207180204,
+    0.10338138539467125,
+    0.3779875798608193,
+    0.3896665659201364,
+    0.16978452018243118,
+    0.24384891588610194,
+    -0.5025457485179474,
+    0.22097724059324278,
+    0.24175097895375738,
+    0.4536255590927183,
+    0.11912078570484674,
+    0.10353375744854106,
+    -0.4336373663917532,
+    0.2351744480518285,
+    0.27335309047384254,
+    -0.8259774169873895,
+    0.18270829982919112,
+    0.42268636398230813,
+    0.675375713794196,
+    0.12037259305963804,
+    0.18737998663859914,
+    -0.5709875666949238,
+    0.25530011640754013,
+    0.30557150120653465,
+    -0.4884865017676123,
+    0.11527827965275741,
+    0.39810323529596475,
+    0.9159109306465409,
+    0.007298220157673045,
+    0.26339923586609015,
+    -0.8372385043386235,
+    0.15160295011295813,
+    0.3976367851991763,
+    0.46947998716199035,
+    0.25584988710070766,
+    0.3284636369381134,
+    -0.9897655613015114,
+    0.25499628998472623,
+    0.26447811441545294
+   ],
+   "log": [
+    {
+     "g": 0,
+     "best": 2.479,
+     "median": 0,
+     "sigma": 0.141
+    },
+    {
+     "g": 1,
+     "best": 5.718,
+     "median": 0,
+     "sigma": 0.136
+    },
+    {
+     "g": 2,
+     "best": 2.867,
+     "median": 0,
+     "sigma": 0.131
+    },
+    {
+     "g": 3,
+     "best": 5.162,
+     "median": 0,
+     "sigma": 0.128
+    },
+    {
+     "g": 4,
+     "best": 4.578,
+     "median": 0,
+     "sigma": 0.126
+    },
+    {
+     "g": 5,
+     "best": 5.659,
+     "median": 0,
+     "sigma": 0.123
+    },
+    {
+     "g": 6,
+     "best": 4.957,
+     "median": 0,
+     "sigma": 0.121
+    },
+    {
+     "g": 7,
+     "best": 6.523,
+     "median": 0,
+     "sigma": 0.117
+    },
+    {
+     "g": 8,
+     "best": 4.626,
+     "median": 0,
+     "sigma": 0.115
+    },
+    {
+     "g": 9,
+     "best": 5.489,
+     "median": 0,
+     "sigma": 0.114
+    },
+    {
+     "g": 10,
+     "best": 6.69,
+     "median": 0,
+     "sigma": 0.112
+    },
+    {
+     "g": 11,
+     "best": 6.06,
+     "median": 0,
+     "sigma": 0.11
+    },
+    {
+     "g": 12,
+     "best": 6.756,
+     "median": 0,
+     "sigma": 0.109
+    },
+    {
+     "g": 13,
+     "best": 6.102,
+     "median": 0,
+     "sigma": 0.107
+    },
+    {
+     "g": 14,
+     "best": 5.147,
+     "median": 0,
+     "sigma": 0.104
+    },
+    {
+     "g": 15,
+     "best": 5.87,
+     "median": 0,
+     "sigma": 0.103
+    },
+    {
+     "g": 16,
+     "best": 5.993,
+     "median": 0,
+     "sigma": 0.103
+    },
+    {
+     "g": 17,
+     "best": 6.287,
+     "median": 2.115,
+     "sigma": 0.103
+    },
+    {
+     "g": 18,
+     "best": 5.783,
+     "median": 0,
+     "sigma": 0.103
+    },
+    {
+     "g": 19,
+     "best": 6.646,
+     "median": 0,
+     "sigma": 0.102
+    },
+    {
+     "g": 20,
+     "best": 6.788,
+     "median": 3.288,
+     "sigma": 0.102
+    },
+    {
+     "g": 21,
+     "best": 6.901,
+     "median": 0,
+     "sigma": 0.101
+    },
+    {
+     "g": 22,
+     "best": 7.337,
+     "median": 0,
+     "sigma": 0.099
+    },
+    {
+     "g": 23,
+     "best": 7.347,
+     "median": 0,
+     "sigma": 0.097
+    },
+    {
+     "g": 24,
+     "best": 7.459,
+     "median": 0,
+     "sigma": 0.095
+    },
+    {
+     "g": 25,
+     "best": 6.404,
+     "median": 0,
+     "sigma": 0.091
+    },
+    {
+     "g": 26,
+     "best": 7.212,
+     "median": 3.648,
+     "sigma": 0.088
+    },
+    {
+     "g": 27,
+     "best": 7.264,
+     "median": 0,
+     "sigma": 0.085
+    },
+    {
+     "g": 28,
+     "best": 7.426,
+     "median": 5.647,
+     "sigma": 0.082
+    },
+    {
+     "g": 29,
+     "best": 7.802,
+     "median": 4.794,
+     "sigma": 0.08
+    },
+    {
+     "g": 30,
+     "best": 7.911,
+     "median": 6.588,
+     "sigma": 0.079
+    },
+    {
+     "g": 31,
+     "best": 8.368,
+     "median": 5.976,
+     "sigma": 0.079
+    },
+    {
+     "g": 32,
+     "best": 8.352,
+     "median": 6.059,
+     "sigma": 0.078
+    },
+    {
+     "g": 33,
+     "best": 8.24,
+     "median": 6.471,
+     "sigma": 0.076
+    },
+    {
+     "g": 34,
+     "best": 8.361,
+     "median": 5.864,
+     "sigma": 0.074
+    },
+    {
+     "g": 35,
+     "best": 8.73,
+     "median": 6.812,
+     "sigma": 0.072
+    },
+    {
+     "g": 36,
+     "best": 8.506,
+     "median": 5.641,
+     "sigma": 0.07
+    },
+    {
+     "g": 37,
+     "best": 8.273,
+     "median": 6.206,
+     "sigma": 0.068
+    },
+    {
+     "g": 38,
+     "best": 8.354,
+     "median": 7.077,
+     "sigma": 0.066
+    },
+    {
+     "g": 39,
+     "best": 8.283,
+     "median": 7.13,
+     "sigma": 0.064
+    }
+   ],
+   "channels": [
+    "thoracic rotation right",
+    "lumbar rotation right",
+    "thoracic flexion",
+    "lumbar flexion",
+    "hip.left flexion",
+    "hip.left abduction",
+    "hip.left internal rotation",
+    "knee.left flexion",
+    "ankle.left dorsiflexion",
+    "hip.right flexion",
+    "hip.right abduction",
+    "hip.right internal rotation",
+    "knee.right flexion",
+    "ankle.right dorsiflexion",
+    "shoulder.right flexion",
+    "shoulder.right abduction",
+    "shoulder.right internal rotation",
+    "elbow.right flexion"
+   ]
+  },
+  "gate search with a wind-up, gate z 0.45 (gatewind)": {
+   "opts": {
+    "sigma": 0.15,
+    "lambda": 28,
+    "keepStance": true,
+    "gate": [
+     0.1,
+     1.55,
+     0.45,
+     0.1
+    ],
+    "start": [
+     -0.8557684246308573,
+     0.019422538527298805,
+     0.2549179218240629,
+     -0.2117449068563002,
+     0.15296265731449477,
+     0.24231674155334146,
+     -0.6699051900599972,
+     -0.25887499933588964,
+     0.05833947933353768,
+     0.8959033277362933,
+     -0.009255638538945843,
+     0.2596151190057339,
+     0.06703275543225629,
+     -0.02240044324322704,
+     0.3724415155750671,
+     0.8533450819445494,
+     -0.15707975086314674,
+     0.23007281823176215,
+     -0.3610646258562624,
+     -0.17177030211967548,
+     0.1828351893077625,
+     0.25519010368984074,
+     0.13307438630695884,
+     0.34061840379503056,
+     0.719891518679058,
+     -0.18623740342323286,
+     0.19245529362844727,
+     -0.15905560569204313,
+     -0.08852536159809343,
+     0.23415007898804865,
+     -0.09974668728402936,
+     0.21185548370403867,
+     0.0620352292375469,
+     0.5403453361387947,
+     -0.15789473080942973,
+     0.2691490269167463,
+     -0.017915086713075623,
+     -0.18137633654025886,
+     0.21211127081460598,
+     -0.5534406778836753,
+     0.17857106371344528,
+     0.3536575205831101,
+     0.8983240092187703,
+     -0.24197174140840208,
+     0.366978129165414,
+     -0.3405722176530418,
+     -0.22987358567546806,
+     0.23300657242783088,
+     0.598161205052895,
+     0.22796551407350935,
+     0.1805352288478818,
+     -0.783549824797886,
+     0.15022868875841827,
+     0.3237718875229403
+    ]
+   },
+   "best": {
+    "score": 12.001031875610352,
+    "x": [
+     -0.5992525833587723,
+     0.06606548052475325,
+     0.2618385855800778,
+     -0.2962838682461818,
+     0.07710571882159611,
+     0.11319801885124074,
+     -0.7857558146616048,
+     -0.06790784272455777,
+     0.052908222557737916,
+     0.9153354499150852,
+     0.023275884640884814,
+     0.2575642674569041,
+     0.18818891402245375,
+     0.09650712315462728,
+     0.3428820392288188,
+     0.25193860074103647,
+     0.18571305743188865,
+     0.21471137762678594,
+     -0.44509111509751664,
+     0.3,
+     0.16930410415748554,
+     -0.01213555143789058,
+     0.10461715198891819,
+     0.1181941638990949,
+     0.5450713263254217,
+     -0.20649827027381867,
+     0.016109515373635898,
+     -0.8569334611537258,
+     -0.16483888369130803,
+     0.03995241434287121,
+     0.1794441786031662,
+     0.2181714733657198,
+     0.21756580726812408,
+     0.8729374117467756,
+     -0.12926652708637193,
+     0.16967387318096483,
+     0.47316448974985836,
+     -0.09794798703070812,
+     0.31393788986674437,
+     -0.09721653853656131,
+     0.13484005664721305,
+     0.20481772360195,
+     0.7497673657156378,
+     -0.16918490751446105,
+     0.3327943159715371,
+     -0.5951190654567589,
+     -0.2061948396025124,
+     0.14241796126919687,
+     0.5222913569887608,
+     0.19623322080975264,
+     0.1416446568944604,
+     -0.7105458790543991,
+     0.17060111088802044,
+     0.2633872404657012
+    ],
+    "r": {
+     "score": 12.001031875610352,
+     "gateSpeed": 12,
+     "gateWrist": 9.64,
+     "guardAt": [
+      0.11,
+      1.58,
+      0.17
+     ],
+     "lane": 12,
+     "at": [
+      0.283,
+      0.07,
+      1.6,
+      0.45
+     ],
+     "wrist": 9.64,
+     "wristAtBest": 9.64,
+     "trunk": 0.2,
+     "down": false
+    },
+    "g": 37
+   },
+   "mean": [
+    -0.6720563694723858,
+    0.05395674665855532,
+    0.20007367385806546,
+    -0.16521685218847293,
+    0.10283000490079602,
+    0.05162181472148792,
+    -0.6016448746725662,
+    -0.07305797486897198,
+    0.03692054015644499,
+    0.842022259342948,
+    0.019550776332457442,
+    0.27106856157412723,
+    0.3116642439510646,
+    0.0384994053002653,
+    0.321617249725353,
+    0.31437644448542446,
+    0.18152237896708406,
+    0.19015439178466884,
+    -0.5454423676133026,
+    0.19929642778264345,
+    0.15578955556234736,
+    -0.14947024080510385,
+    0.13520988677159107,
+    0.19292574390431358,
+    0.35492617351038946,
+    -0.15938899062819809,
+    0.03122898777861987,
+    -0.4719477069651252,
+    -0.15316696299156285,
+    0.09912830687610519,
+    0.20137743213560522,
+    0.20099480572306255,
+    0.2166407961200857,
+    0.7934311870106616,
+    -0.07322324205182967,
+    0.149176939414783,
+    0.699486030173496,
+    -0.09357504479489398,
+    0.3181948663305029,
+    -0.023863378605667562,
+    0.13593242848131737,
+    0.21561173613302465,
+    0.7336254928068449,
+    -0.12433258681935278,
+    0.33262756758466044,
+    -0.5648933974902064,
+    -0.2129541192033873,
+    0.143851159185299,
+    0.528962076066779,
+    0.22675822345578606,
+    0.10652979110001194,
+    -0.7387100253339898,
+    0.17965709091166143,
+    0.27543332038861285
+   ],
+   "log": [
+    {
+     "g": 0,
+     "best": 7.349,
+     "median": 0,
+     "sigma": 0.142
+    },
+    {
+     "g": 1,
+     "best": 8.05,
+     "median": 0,
+     "sigma": 0.138
+    },
+    {
+     "g": 2,
+     "best": 9.522,
+     "median": 0,
+     "sigma": 0.134
+    },
+    {
+     "g": 3,
+     "best": 11.577,
+     "median": 0,
+     "sigma": 0.13
+    },
+    {
+     "g": 4,
+     "best": 8.007,
+     "median": 0,
+     "sigma": 0.128
+    },
+    {
+     "g": 5,
+     "best": 8.66,
+     "median": 0,
+     "sigma": 0.127
+    },
+    {
+     "g": 6,
+     "best": 7.929,
+     "median": 0,
+     "sigma": 0.125
+    },
+    {
+     "g": 7,
+     "best": 8.191,
+     "median": 0,
+     "sigma": 0.125
+    },
+    {
+     "g": 8,
+     "best": 9.327,
+     "median": 0,
+     "sigma": 0.124
+    },
+    {
+     "g": 9,
+     "best": 8.011,
+     "median": 0,
+     "sigma": 0.122
+    },
+    {
+     "g": 10,
+     "best": 0,
+     "median": 0,
+     "sigma": 0.119
+    },
+    {
+     "g": 11,
+     "best": 8.061,
+     "median": 0,
+     "sigma": 0.117
+    },
+    {
+     "g": 12,
+     "best": 6.178,
+     "median": 0,
+     "sigma": 0.116
+    },
+    {
+     "g": 13,
+     "best": 6.146,
+     "median": 0,
+     "sigma": 0.115
+    },
+    {
+     "g": 14,
+     "best": 7.9,
+     "median": 0,
+     "sigma": 0.116
+    },
+    {
+     "g": 15,
+     "best": 9.542,
+     "median": 0,
+     "sigma": 0.116
+    },
+    {
+     "g": 16,
+     "best": 8.225,
+     "median": 0,
+     "sigma": 0.115
+    },
+    {
+     "g": 17,
+     "best": 8.949,
+     "median": 0,
+     "sigma": 0.114
+    },
+    {
+     "g": 18,
+     "best": 7.148,
+     "median": 0,
+     "sigma": 0.114
+    },
+    {
+     "g": 19,
+     "best": 7.612,
+     "median": 0,
+     "sigma": 0.113
+    },
+    {
+     "g": 20,
+     "best": 6.692,
+     "median": 0,
+     "sigma": 0.112
+    },
+    {
+     "g": 21,
+     "best": 9.326,
+     "median": 0,
+     "sigma": 0.11
+    },
+    {
+     "g": 22,
+     "best": 8.984,
+     "median": 0,
+     "sigma": 0.108
+    },
+    {
+     "g": 23,
+     "best": 7.725,
+     "median": 0,
+     "sigma": 0.106
+    },
+    {
+     "g": 24,
+     "best": 8.903,
+     "median": 0,
+     "sigma": 0.104
+    },
+    {
+     "g": 25,
+     "best": 9.527,
+     "median": 0,
+     "sigma": 0.101
+    },
+    {
+     "g": 26,
+     "best": 8.669,
+     "median": 0,
+     "sigma": 0.099
+    },
+    {
+     "g": 27,
+     "best": 10.565,
+     "median": 0,
+     "sigma": 0.097
+    },
+    {
+     "g": 28,
+     "best": 8.954,
+     "median": 0,
+     "sigma": 0.095
+    },
+    {
+     "g": 29,
+     "best": 10.191,
+     "median": 0,
+     "sigma": 0.093
+    },
+    {
+     "g": 30,
+     "best": 10.015,
+     "median": 0,
+     "sigma": 0.092
+    },
+    {
+     "g": 31,
+     "best": 10.745,
+     "median": 0,
+     "sigma": 0.09
+    },
+    {
+     "g": 32,
+     "best": 10.646,
+     "median": 0,
+     "sigma": 0.088
+    },
+    {
+     "g": 33,
+     "best": 10.267,
+     "median": 0,
+     "sigma": 0.087
+    },
+    {
+     "g": 34,
+     "best": 11.199,
+     "median": 0,
+     "sigma": 0.085
+    },
+    {
+     "g": 35,
+     "best": 10.684,
+     "median": 0,
+     "sigma": 0.084
+    },
+    {
+     "g": 36,
+     "best": 10.951,
+     "median": 0,
+     "sigma": 0.083
+    },
+    {
+     "g": 37,
+     "best": 12.001,
+     "median": 0,
+     "sigma": 0.082
+    },
+    {
+     "g": 38,
+     "best": 10.833,
+     "median": 0,
+     "sigma": 0.081
+    },
+    {
+     "g": 39,
+     "best": 10.293,
+     "median": 0,
+     "sigma": 0.08
+    }
+   ],
+   "channels": [
+    "thoracic rotation right",
+    "lumbar rotation right",
+    "thoracic flexion",
+    "lumbar flexion",
+    "hip.left flexion",
+    "hip.left abduction",
+    "hip.left internal rotation",
+    "knee.left flexion",
+    "ankle.left dorsiflexion",
+    "hip.right flexion",
+    "hip.right abduction",
+    "hip.right internal rotation",
+    "knee.right flexion",
+    "ankle.right dorsiflexion",
+    "shoulder.right flexion",
+    "shoulder.right abduction",
+    "shoulder.right internal rotation",
+    "elbow.right flexion"
+   ]
+  },
+  "gate re-runs by rate (gate-verify)": [
+   {
+    "f": "gateguard",
+    "hz": 120,
+    "hand": 6.62,
+    "wrist": 6.34,
+    "at": [
+     0.283,
+     0.12,
+     1.53,
+     0.4
+    ]
+   },
+   {
+    "f": "gateguard",
+    "hz": 480,
+    "hand": 6,
+    "wrist": 5.73,
+    "at": [
+     0.288,
+     0.11,
+     1.5,
+     0.43
+    ]
+   },
+   {
+    "f": "gateguard",
+    "hz": 960,
+    "hand": 6.08,
+    "wrist": 5.79,
+    "at": [
+     0.283,
+     0.12,
+     1.51,
+     0.4
+    ]
+   },
+   {
+    "f": "gateguardfar",
+    "hz": 120,
+    "hand": 8.73,
+    "wrist": 7.46,
+    "at": [
+     0.333,
+     0.17,
+     1.6,
+     0.56
+    ]
+   },
+   {
+    "f": "gateguardfar",
+    "hz": 480,
+    "hand": 8.58,
+    "wrist": 7.52,
+    "at": [
+     0.329,
+     0.18,
+     1.59,
+     0.53
+    ]
+   },
+   {
+    "f": "gateguardfar",
+    "hz": 960,
+    "hand": 8.6,
+    "wrist": 7.64,
+    "at": [
+     0.33,
+     0.18,
+     1.58,
+     0.54
+    ]
+   },
+   {
+    "f": "gatewind",
+    "hz": 120,
+    "hand": 12,
+    "wrist": 9.64,
+    "handAtT0": [
+     0.11,
+     1.58,
+     0.17
+    ],
+    "at": [
+     0.283,
+     0.07,
+     1.6,
+     0.45
+    ]
+   },
+   {
+    "f": "gatewind",
+    "hz": 480,
+    "hand": 11.99,
+    "wrist": 9.45,
+    "at": [
+     0.285,
+     0.05,
+     1.58,
+     0.44
+    ]
+   },
+   {
+    "f": "gatewind",
+    "hz": 960,
+    "hand": 12.11,
+    "wrist": 9.48,
+    "at": [
+     0.284,
+     0.07,
+     1.59,
+     0.44
+    ]
+   }
+  ],
+  "cap5 fired in the cell at 480 Hz (cap-in-cell), chamber pushes capped": [
+   {
+    "shift": -0.1,
+    "n": 0,
+    "miss": 0.242
+   },
+   {
+    "shift": 0,
+    "n": 0,
+    "miss": 0.174
+   },
+   {
+    "shift": 0.1,
+    "n": 4,
+    "speed": 4.11,
+    "impulse": 6.86,
+    "mass": 1.67,
+    "miss": 0.079
+   },
+   {
+    "shift": 0,
+    "ahead": 0.65,
+    "n": 0,
+    "miss": 0.189
+   },
+   {
+    "shift": 0,
+    "ahead": 0.75,
+    "n": 0,
+    "miss": 0.291
+   },
+   {
+    "shift": 0,
+    "ahead": 0.85,
+    "n": 0,
+    "miss": 0.422
+   },
+   {
+    "schedule": "none",
+    "ahead": 0.65,
+    "n": 5,
+    "speed": 4.77,
+    "impulse": 4.73
+   },
+   {
+    "schedule": "none",
+    "ahead": 0.75,
+    "n": 0
+   },
+   {
+    "schedule": "none",
+    "ahead": 0.85,
+    "n": 0
+   }
+  ],
+  "rise stage timing, 32 shoves (stage-time)": [
+   {
+    "held": "club",
+    "degrees": 0,
+    "fell": true,
+    "risen": 25.683333333333334,
+    "lie": "front",
+    "spans": [
+     [
+      "settle",
+      1.733
+     ],
+     [
+      "roll:wind",
+      0.5
+     ],
+     [
+      "roll:swing",
+      1
+     ],
+     [
+      "roll:over",
+      0.5
+     ],
+     [
+      "roll:flat",
+      1
+     ],
+     [
+      "settle",
+      1.942
+     ],
+     [
+      "rise:fold",
+      1
+     ],
+     [
+      "rise:tuck",
+      0.683
+     ],
+     [
+      "settle",
+      1.708
+     ],
+     [
+      "rise:fold",
+      1
+     ],
+     [
+      "rise:tuck",
+      2
+     ],
+     [
+      "rise:prop",
+      1.5
+     ],
+     [
+      "rise:fours",
+      1.058
+     ],
+     [
+      "rise:sit",
+      1
+     ],
+     [
+      "rise:kneel 0",
+      0.25
+     ],
+     [
+      "rise:kneel 1",
+      0.25
+     ],
+     [
+      "rise:kneel 2",
+      0.25
+     ],
+     [
+      "rise:arms",
+      0.3
+     ],
+     [
+      "rise:hold",
+      1
+     ],
+     [
+      "rise:tall 0",
+      0.5
+     ],
+     [
+      "rise:tall 1",
+      0.5
+     ],
+     [
+      "rise:tall 2",
+      0.5
+     ],
+     [
+      "rise:tall",
+      1
+     ],
+     [
+      "rise:shift",
+      0.6
+     ],
+     [
+      "rise:lift",
+      0.35
+     ],
+     [
+      "rise:swing",
+      0.417
+     ],
+     [
+      "rise:reach",
+      0.25
+     ],
+     [
+      "rise:half kneel",
+      0.675
+     ],
+     [
+      "rise:onto the toes",
+      0.533
+     ],
+     [
+      "rise:lunge 0",
+      0.042
+     ],
+     [
+      "rise:lunge 1",
+      0.792
+     ],
+     [
+      "rise:lunge 2",
+      0.908
+     ],
+     [
+      "rise:lunge 3",
+      0.692
+     ],
+     [
+      "rise:even",
+      0.725
+     ],
+     [
+      "idle",
+      12.833
+     ]
+    ]
+   },
+   {
+    "held": "club",
+    "degrees": 22.5,
+    "fell": true,
+    "risen": 33.56666666666667,
+    "lie": "front",
+    "spans": [
+     [
+      "settle",
+      2.008
+     ],
+     [
+      "roll:wind",
+      0.5
+     ],
+     [
+      "roll:swing",
+      1
+     ],
+     [
+      "roll:over",
+      0.5
+     ],
+     [
+      "roll:flat",
+      1
+     ],
+     [
+      "settle",
+      0.933
+     ],
+     [
+      "rise:fold",
+      1
+     ],
+     [
+      "rise:tuck",
+      0.733
+     ],
+     [
+      "settle",
+      1.617
+     ],
+     [
+      "rise:fold",
+      1
+     ],
+     [
+      "rise:tuck",
+      2
+     ],
+     [
+      "rise:prop",
+      1.5
+     ],
+     [
+      "rise:fours",
+      0.2
+     ],
+     [
+      "settle",
+      1.217
+     ],
+     [
+      "roll:over",
+      0.5
+     ],
+     [
+      "roll:flat",
+      1
+     ],
+     [
+      "settle",
+      1.15
+     ],
+     [
+      "rise:fold",
+      1
+     ],
+     [
+      "rise:tuck",
+      2
+     ],
+     [
+      "rise:prop",
+      1.5
+     ],
+     [
+      "rise:fours",
+      1.075
+     ],
+     [
+      "rise:sit",
+      1
+     ],
+     [
+      "rise:kneel 0",
+      0.25
+     ],
+     [
+      "rise:kneel 1",
+      0.25
+     ],
+     [
+      "rise:kneel 2",
+      0.25
+     ],
+     [
+      "rise:arms",
+      0.3
+     ],
+     [
+      "rise:hold",
+      1
+     ],
+     [
+      "rise:tall 0",
+      0.5
+     ],
+     [
+      "rise:tall 1",
+      0.5
+     ],
+     [
+      "rise:tall 2",
+      0.5
+     ],
+     [
+      "rise:tall",
+      1
+     ],
+     [
+      "rise:shift",
+      0.6
+     ],
+     [
+      "rise:lift",
+      0.35
+     ],
+     [
+      "rise:swing",
+      0.417
+     ],
+     [
+      "rise:reach",
+      0.25
+     ],
+     [
+      "rise:half kneel",
+      0.633
+     ],
+     [
+      "rise:onto the toes",
+      0.517
+     ],
+     [
+      "rise:lunge 0",
+      0.092
+     ],
+     [
+      "rise:lunge 1",
+      0.875
+     ],
+     [
+      "rise:lunge 2",
+      0.867
+     ],
+     [
+      "rise:lunge 3",
+      0.692
+     ],
+     [
+      "rise:even",
+      0.775
+     ],
+     [
+      "idle",
+      4.942
+     ]
+    ]
+   },
+   {
+    "held": "club",
+    "degrees": 45,
+    "fell": true,
+    "risen": null,
+    "lie": "front",
+    "spans": [
+     [
+      "settle",
+      1.525
+     ],
+     [
+      "roll:over",
+      0.5
+     ],
+     [
+      "roll:flat",
+      1
+     ],
+     [
+      "settle",
+      0.725
+     ],
+     [
+      "rise:fold",
+      1
+     ],
+     [
+      "rise:tuck",
+      2
+     ],
+     [
+      "rise:prop",
+      1.5
+     ],
+     [
+      "rise:fours",
+      5
+     ],
+     [
+      "settle",
+      5.5
+     ],
+     [
+      "roll:wind",
+      0.5
+     ],
+     [
+      "roll:swing",
+      1
+     ],
+     [
+      "roll:over",
+      0.5
+     ],
+     [
+      "roll:flat",
+      1
+     ],
+     [
+      "settle",
+      0.975
+     ],
+     [
+      "rise:fold",
+      1
+     ],
+     [
+      "rise:tuck",
+      2
+     ],
+     [
+      "rise:prop",
+      1.5
+     ],
+     [
+      "rise:fours",
+      5
+     ],
+     [
+      "settle",
+      0.975
+     ],
+     [
+      "roll:wind",
+      0.5
+     ],
+     [
+      "roll:swing",
+      1
+     ],
+     [
+      "roll:over",
+      0.5
+     ],
+     [
+      "roll:flat",
+      1
+     ],
+     [
+      "settle",
+      0.942
+     ],
+     [
+      "rise:fold",
+      1
+     ],
+     [
+      "rise:tuck",
+      0.708
+     ],
+     [
+      "settle",
+      1.025
+     ],
+     [
+      "rise:fold",
+      0.117
+     ]
+    ]
+   },
+   {
+    "held": "club",
+    "degrees": 67.5,
+    "fell": true,
+    "risen": null,
+    "lie": "front",
+    "spans": [
+     [
+      "settle",
+      1.842
+     ],
+     [
+      "roll:wind",
+      0.5
+     ],
+     [
+      "roll:swing",
+      1
+     ],
+     [
+      "roll:over",
+      0.5
+     ],
+     [
+      "roll:flat",
+      1
+     ],
+     [
+      "settle",
+      0.875
+     ],
+     [
+      "rise:fold",
+      1
+     ],
+     [
+      "rise:tuck",
+      0.8
+     ],
+     [
+      "settle",
+      1.042
+     ],
+     [
+      "rise:fold",
+      1
+     ],
+     [
+      "rise:tuck",
+      2
+     ],
+     [
+      "rise:prop",
+      1.308
+     ],
+     [
+      "settle",
+      1.533
+     ],
+     [
+      "roll:wind",
+      0.5
+     ],
+     [
+      "roll:swing",
+      1
+     ],
+     [
+      "roll:over",
+      0.5
+     ],
+     [
+      "roll:flat",
+      1
+     ],
+     [
+      "settle",
+      0.575
+     ],
+     [
+      "roll:wind",
+      0.5
+     ],
+     [
+      "roll:swing",
+      1
+     ],
+     [
+      "roll:over",
+      0.5
+     ],
+     [
+      "roll:flat",
+      1
+     ],
+     [
+      "settle",
+      0.883
+     ],
+     [
+      "rise:fold",
+      1
+     ],
+     [
+      "rise:tuck",
+      0.733
+     ],
+     [
+      "settle",
+      1.075
+     ],
+     [
+      "rise:fold",
+      1
+     ],
+     [
+      "rise:tuck",
+      2
+     ],
+     [
+      "rise:prop",
+      1.5
+     ],
+     [
+      "rise:fours",
+      0.258
+     ],
+     [
+      "rise:sit",
+      1
+     ],
+     [
+      "rise:kneel 0",
+      0.25
+     ],
+     [
+      "rise:kneel 1",
+      0.25
+     ],
+     [
+      "rise:kneel 2",
+      0.25
+     ],
+     [
+      "rise:arms",
+      0.3
+     ],
+     [
+      "rise:hold",
+      1
+     ],
+     [
+      "rise:tall 0",
+      0.5
+     ],
+     [
+      "rise:tall 1",
+      0.5
+     ],
+     [
+      "rise:tall 2",
+      0.5
+     ],
+     [
+      "rise:tall",
+      1
+     ],
+     [
+      "rise:shift",
+      0.6
+     ],
+     [
+      "rise:lift",
+      0.35
+     ],
+     [
+      "rise:swing",
+      0.417
+     ],
+     [
+      "rise:reach",
+      0.25
+     ],
+     [
+      "rise:half kneel",
+      0.6
+     ],
+     [
+      "rise:onto the toes",
+      0.508
+     ],
+     [
+      "rise:lunge 0",
+      0.067
+     ],
+     [
+      "rise:lunge 1",
+      0.792
+     ],
+     [
+      "rise:lunge 2",
+      0.925
+     ],
+     [
+      "rise:lunge 3",
+      0.508
+     ]
+    ]
+   },
+   {
+    "held": "club",
+    "degrees": 90,
+    "fell": true,
+    "risen": 27.991666666666667,
+    "lie": "front",
+    "spans": [
+     [
+      "settle",
+      1.375
+     ],
+     [
+      "roll:wind",
+      0.5
+     ],
+     [
+      "roll:swing",
+      1
+     ],
+     [
+      "roll:over",
+      0.5
+     ],
+     [
+      "roll:flat",
+      1
+     ],
+     [
+      "settle",
+      0.575
+     ],
+     [
+      "roll:wind",
+      0.5
+     ],
+     [
+      "roll:swing",
+      1
+     ],
+     [
+      "roll:over",
+      0.5
+     ],
+     [
+      "roll:flat",
+      1
+     ],
+     [
+      "settle",
+      0.942
+     ],
+     [
+      "rise:fold",
+      1
+     ],
+     [
+      "rise:tuck",
+      0.675
+     ],
+     [
+      "settle",
+      1.7
+     ],
+     [
+      "rise:fold",
+      1
+     ],
+     [
+      "rise:tuck",
+      2
+     ],
+     [
+      "rise:prop",
+      1.5
+     ],
+     [
+      "rise:fours",
+      1.225
+     ],
+     [
+      "rise:sit",
+      1
+     ],
+     [
+      "rise:kneel 0",
+      0.25
+     ],
+     [
+      "rise:kneel 1",
+      0.25
+     ],
+     [
+      "rise:kneel 2",
+      0.25
+     ],
+     [
+      "rise:arms",
+      0.3
+     ],
+     [
+      "rise:hold",
+      1
+     ],
+     [
+      "rise:tall 0",
+      0.5
+     ],
+     [
+      "rise:tall 1",
+      0.5
+     ],
+     [
+      "rise:tall 2",
+      0.5
+     ],
+     [
+      "rise:tall",
+      1
+     ],
+     [
+      "rise:shift",
+      0.6
+     ],
+     [
+      "rise:lift",
+      0.35
+     ],
+     [
+      "rise:swing",
+      0.417
+     ],
+     [
+      "rise:reach",
+      0.25
+     ],
+     [
+      "rise:half kneel",
+      0.625
+     ],
+     [
+      "rise:onto the toes",
+      0.533
+     ],
+     [
+      "rise:lunge 0",
+      0.042
+     ],
+     [
+      "rise:lunge 1",
+      0.783
+     ],
+     [
+      "rise:lunge 2",
+      0.833
+     ],
+     [
+      "rise:lunge 3",
+      0.692
+     ],
+     [
+      "rise:even",
+      0.808
+     ],
+     [
+      "idle",
+      10.517
+     ]
+    ]
+   },
+   {
+    "held": "club",
+    "degrees": 112.5,
+    "fell": true,
+    "risen": null,
+    "lie": "front",
+    "spans": [
+     [
+      "settle",
+      1.533
+     ],
+     [
+      "rise:fold",
+      1
+     ],
+     [
+      "rise:tuck",
+      2
+     ],
+     [
+      "rise:prop",
+      1.5
+     ],
+     [
+      "rise:fours",
+      0.008
+     ],
+     [
+      "rise:sit",
+      1
+     ],
+     [
+      "rise:kneel 0",
+      0.25
+     ],
+     [
+      "rise:kneel 1",
+      0.25
+     ],
+     [
+      "rise:kneel 2",
+      0.25
+     ],
+     [
+      "rise:arms",
+      0.3
+     ],
+     [
+      "rise:hold",
+      1
+     ],
+     [
+      "rise:tall 0",
+      0.5
+     ],
+     [
+      "rise:tall 1",
+      0.5
+     ],
+     [
+      "rise:tall 2",
+      0.5
+     ],
+     [
+      "rise:tall",
+      1
+     ],
+     [
+      "rise:shift",
+      0.6
+     ],
+     [
+      "rise:lift",
+      0.35
+     ],
+     [
+      "rise:swing",
+      0.417
+     ],
+     [
+      "rise:reach",
+      0.25
+     ],
+     [
+      "rise:half kneel",
+      1.325
+     ],
+     [
+      "rise:onto the toes",
+      4
+     ],
+     [
+      "settle",
+      2.167
+     ],
+     [
+      "roll:over",
+      0.5
+     ],
+     [
+      "roll:flat",
+      1
+     ],
+     [
+      "settle",
+      1.408
+     ],
+     [
+      "rise:fold",
+      1
+     ],
+     [
+      "rise:tuck",
+      2
+     ],
+     [
+      "rise:prop",
+      1.5
+     ],
+     [
+      "rise:fours",
+      0.008
+     ],
+     [
+      "rise:sit",
+      1
+     ],
+     [
+      "rise:kneel 0",
+      0.25
+     ],
+     [
+      "rise:kneel 1",
+      0.25
+     ],
+     [
+      "rise:kneel 2",
+      0.25
+     ],
+     [
+      "rise:arms",
+      0.3
+     ],
+     [
+      "rise:hold",
+      1
+     ],
+     [
+      "rise:tall 0",
+      0.5
+     ],
+     [
+      "rise:tall 1",
+      0.5
+     ],
+     [
+      "rise:tall 2",
+      0.5
+     ],
+     [
+      "rise:tall",
+      1
+     ],
+     [
+      "rise:shift",
+      0.6
+     ],
+     [
+      "rise:lift",
+      0.35
+     ],
+     [
+      "rise:swing",
+      0.417
+     ],
+     [
+      "rise:reach",
+      0.25
+     ],
+     [
+      "rise:half kneel",
+      0.633
+     ],
+     [
+      "rise:onto the toes",
+      0.492
+     ],
+     [
+      "rise:lunge 0",
+      0.092
+     ],
+     [
+      "rise:lunge 1",
+      0.85
+     ],
+     [
+      "rise:lunge 2",
+      0.867
+     ],
+     [
+      "rise:lunge 3",
+      0.692
+     ],
+     [
+      "rise:even",
+      0.783
+     ],
+     [
+      "idle",
+      0.3
+     ]
+    ]
+   },
+   {
+    "held": "club",
+    "degrees": 135,
+    "fell": true,
+    "risen": 21.183333333333334,
+    "lie": "front",
+    "spans": [
+     [
+      "settle",
+      1.317
+     ],
+     [
+      "roll:wind",
+      0.5
+     ],
+     [
+      "roll:swing",
+      1
+     ],
+     [
+      "roll:over",
+      0.5
+     ],
+     [
+      "roll:flat",
+      1
+     ],
+     [
+      "settle",
+      1.058
+     ],
+     [
+      "rise:fold",
+      1
+     ],
+     [
+      "rise:tuck",
+      2
+     ],
+     [
+      "rise:prop",
+      1.5
+     ],
+     [
+      "rise:fours",
+      1.15
+     ],
+     [
+      "rise:sit",
+      1
+     ],
+     [
+      "rise:kneel 0",
+      0.25
+     ],
+     [
+      "rise:kneel 1",
+      0.25
+     ],
+     [
+      "rise:kneel 2",
+      0.25
+     ],
+     [
+      "rise:arms",
+      0.3
+     ],
+     [
+      "rise:hold",
+      1
+     ],
+     [
+      "rise:tall 0",
+      0.5
+     ],
+     [
+      "rise:tall 1",
+      0.5
+     ],
+     [
+      "rise:tall 2",
+      0.5
+     ],
+     [
+      "rise:tall",
+      1
+     ],
+     [
+      "rise:shift",
+      0.6
+     ],
+     [
+      "rise:lift",
+      0.35
+     ],
+     [
+      "rise:swing",
+      0.417
+     ],
+     [
+      "rise:reach",
+      0.25
+     ],
+     [
+      "rise:half kneel",
+      0.658
+     ],
+     [
+      "rise:onto the toes",
+      0.575
+     ],
+     [
+      "rise:lunge 0",
+      0.042
+     ],
+     [
+      "rise:lunge 1",
+      0.85
+     ],
+     [
+      "rise:lunge 2",
+      0.833
+     ],
+     [
+      "rise:lunge 3",
+      0.7
+     ],
+     [
+      "rise:even",
+      0.817
+     ],
+     [
+      "idle",
+      17.325
+     ]
+    ]
+   },
+   {
+    "held": "club",
+    "degrees": 157.5,
+    "fell": false
+   },
+   {
+    "held": "club",
+    "degrees": 180,
+    "fell": true,
+    "risen": null,
+    "lie": "front",
+    "spans": [
+     [
+      "idle",
+      0.042
+     ],
+     [
+      "settle",
+      1.442
+     ],
+     [
+      "roll:wind",
+      0.5
+     ],
+     [
+      "roll:swing",
+      1
+     ],
+     [
+      "roll:over",
+      0.5
+     ],
+     [
+      "roll:flat",
+      1
+     ],
+     [
+      "settle",
+      0.6
+     ],
+     [
+      "roll:wind",
+      0.5
+     ],
+     [
+      "roll:swing",
+      1
+     ],
+     [
+      "roll:over",
+      0.5
+     ],
+     [
+      "roll:flat",
+      1
+     ],
+     [
+      "settle",
+      1.1
+     ],
+     [
+      "rise:fold",
+      1
+     ],
+     [
+      "rise:tuck",
+      2
+     ],
+     [
+      "rise:prop",
+      1.5
+     ],
+     [
+      "rise:fours",
+      0.4
+     ],
+     [
+      "settle",
+      1.375
+     ],
+     [
+      "roll:wind",
+      0.5
+     ],
+     [
+      "roll:swing",
+      1
+     ],
+     [
+      "roll:over",
+      0.5
+     ],
+     [
+      "roll:flat",
+      1
+     ],
+     [
+      "settle",
+      1.367
+     ],
+     [
+      "rise:fold",
+      1
+     ],
+     [
+      "rise:tuck",
+      1.967
+     ],
+     [
+      "settle",
+      1.858
+     ],
+     [
+      "rise:fold",
+      1
+     ],
+     [
+      "rise:tuck",
+      2
+     ],
+     [
+      "rise:prop",
+      1.5
+     ],
+     [
+      "rise:fours",
+      1.025
+     ],
+     [
+      "rise:sit",
+      1
+     ],
+     [
+      "rise:kneel 0",
+      0.25
+     ],
+     [
+      "rise:kneel 1",
+      0.25
+     ],
+     [
+      "rise:kneel 2",
+      0.25
+     ],
+     [
+      "rise:arms",
+      0.3
+     ],
+     [
+      "rise:hold",
+      1
+     ],
+     [
+      "rise:tall 0",
+      0.5
+     ],
+     [
+      "rise:tall 1",
+      0.5
+     ],
+     [
+      "rise:tall 2",
+      0.5
+     ],
+     [
+      "rise:tall",
+      1
+     ],
+     [
+      "rise:shift",
+      0.6
+     ],
+     [
+      "rise:lift",
+      0.35
+     ],
+     [
+      "rise:swing",
+      0.417
+     ],
+     [
+      "rise:reach",
+      0.25
+     ],
+     [
+      "rise:half kneel",
+      0.642
+     ],
+     [
+      "rise:onto the toes",
+      0.442
+     ],
+     [
+      "rise:lunge 0",
+      0.108
+     ],
+     [
+      "rise:lunge 1",
+      0.8
+     ],
+     [
+      "rise:lunge 2",
+      0.658
+     ]
+    ]
+   },
+   {
+    "held": "club",
+    "degrees": 202.5,
+    "fell": false
+   },
+   {
+    "held": "club",
+    "degrees": 225,
+    "fell": true,
+    "risen": 27.366666666666667,
+    "lie": "front",
+    "spans": [
+     [
+      "settle",
+      1.592
+     ],
+     [
+      "roll:wind",
+      0.5
+     ],
+     [
+      "roll:swing",
+      1
+     ],
+     [
+      "roll:over",
+      0.5
+     ],
+     [
+      "roll:flat",
+      1
+     ],
+     [
+      "settle",
+      0.533
+     ],
+     [
+      "roll:wind",
+      0.5
+     ],
+     [
+      "roll:swing",
+      1
+     ],
+     [
+      "roll:over",
+      0.5
+     ],
+     [
+      "roll:flat",
+      1
+     ],
+     [
+      "settle",
+      0.892
+     ],
+     [
+      "rise:fold",
+      1
+     ],
+     [
+      "rise:tuck",
+      0.692
+     ],
+     [
+      "settle",
+      1.1
+     ],
+     [
+      "rise:fold",
+      1
+     ],
+     [
+      "rise:tuck",
+      2
+     ],
+     [
+      "rise:prop",
+      1.5
+     ],
+     [
+      "rise:fours",
+      1.075
+     ],
+     [
+      "rise:sit",
+      1
+     ],
+     [
+      "rise:kneel 0",
+      0.25
+     ],
+     [
+      "rise:kneel 1",
+      0.25
+     ],
+     [
+      "rise:kneel 2",
+      0.25
+     ],
+     [
+      "rise:arms",
+      0.3
+     ],
+     [
+      "rise:hold",
+      1
+     ],
+     [
+      "rise:tall 0",
+      0.5
+     ],
+     [
+      "rise:tall 1",
+      0.5
+     ],
+     [
+      "rise:tall 2",
+      0.5
+     ],
+     [
+      "rise:tall",
+      1
+     ],
+     [
+      "rise:shift",
+      0.6
+     ],
+     [
+      "rise:lift",
+      0.35
+     ],
+     [
+      "rise:swing",
+      0.417
+     ],
+     [
+      "rise:reach",
+      0.25
+     ],
+     [
+      "rise:half kneel",
+      0.625
+     ],
+     [
+      "rise:onto the toes",
+      0.533
+     ],
+     [
+      "rise:lunge 0",
+      0.033
+     ],
+     [
+      "rise:lunge 1",
+      0.783
+     ],
+     [
+      "rise:lunge 2",
+      0.875
+     ],
+     [
+      "rise:lunge 3",
+      0.7
+     ],
+     [
+      "rise:even",
+      0.75
+     ],
+     [
+      "idle",
+      11.142
+     ]
+    ]
+   },
+   {
+    "held": "club",
+    "degrees": 247.5,
+    "fell": true,
+    "risen": 19.466666666666665,
+    "lie": "front",
+    "spans": [
+     [
+      "settle",
+      1.883
+     ],
+     [
+      "roll:over",
+      0.5
+     ],
+     [
+      "roll:flat",
+      1
+     ],
+     [
+      "settle",
+      0.917
+     ],
+     [
+      "rise:fold",
+      1
+     ],
+     [
+      "rise:tuck",
+      2
+     ],
+     [
+      "rise:prop",
+      1.5
+     ],
+     [
+      "rise:fours",
+      0.742
+     ],
+     [
+      "rise:sit",
+      1
+     ],
+     [
+      "rise:kneel 0",
+      0.25
+     ],
+     [
+      "rise:kneel 1",
+      0.25
+     ],
+     [
+      "rise:kneel 2",
+      0.25
+     ],
+     [
+      "rise:arms",
+      0.3
+     ],
+     [
+      "rise:hold",
+      1
+     ],
+     [
+      "rise:tall 0",
+      0.5
+     ],
+     [
+      "rise:tall 1",
+      0.5
+     ],
+     [
+      "rise:tall 2",
+      0.5
+     ],
+     [
+      "rise:tall",
+      1
+     ],
+     [
+      "rise:shift",
+      0.6
+     ],
+     [
+      "rise:lift",
+      0.35
+     ],
+     [
+      "rise:swing",
+      0.417
+     ],
+     [
+      "rise:reach",
+      0.25
+     ],
+     [
+      "rise:half kneel",
+      0.667
+     ],
+     [
+      "rise:onto the toes",
+      0.367
+     ],
+     [
+      "rise:lunge 0",
+      0.05
+     ],
+     [
+      "rise:lunge 1",
+      0.8
+     ],
+     [
+      "rise:lunge 2",
+      0.858
+     ],
+     [
+      "rise:lunge 3",
+      0.708
+     ],
+     [
+      "rise:even",
+      0.642
+     ],
+     [
+      "idle",
+      19.192
+     ]
+    ]
+   },
+   {
+    "held": "club",
+    "degrees": 270,
+    "fell": true,
+    "risen": 24.208333333333332,
+    "lie": "front",
+    "spans": [
+     [
+      "settle",
+      1.283
+     ],
+     [
+      "roll:wind",
+      0.5
+     ],
+     [
+      "roll:swing",
+      1
+     ],
+     [
+      "roll:over",
+      0.5
+     ],
+     [
+      "roll:flat",
+      1
+     ],
+     [
+      "settle",
+      1.125
+     ],
+     [
+      "rise:fold",
+      1
+     ],
+     [
+      "rise:tuck",
+      0.792
+     ],
+     [
+      "settle",
+      1.267
+     ],
+     [
+      "rise:fold",
+      1
+     ],
+     [
+      "rise:tuck",
+      2
+     ],
+     [
+      "rise:prop",
+      1.5
+     ],
+     [
+      "rise:fours",
+      1.217
+     ],
+     [
+      "rise:sit",
+      1
+     ],
+     [
+      "rise:kneel 0",
+      0.25
+     ],
+     [
+      "rise:kneel 1",
+      0.25
+     ],
+     [
+      "rise:kneel 2",
+      0.25
+     ],
+     [
+      "rise:arms",
+      0.3
+     ],
+     [
+      "rise:hold",
+      1
+     ],
+     [
+      "rise:tall 0",
+      0.5
+     ],
+     [
+      "rise:tall 1",
+      0.5
+     ],
+     [
+      "rise:tall 2",
+      0.5
+     ],
+     [
+      "rise:tall",
+      1
+     ],
+     [
+      "rise:shift",
+      0.6
+     ],
+     [
+      "rise:lift",
+      0.35
+     ],
+     [
+      "rise:swing",
+      0.417
+     ],
+     [
+      "rise:reach",
+      0.25
+     ],
+     [
+      "rise:half kneel",
+      0.6
+     ],
+     [
+      "rise:onto the toes",
+      0.508
+     ],
+     [
+      "rise:lunge 0",
+      0.092
+     ],
+     [
+      "rise:lunge 1",
+      0.808
+     ],
+     [
+      "rise:lunge 2",
+      0.9
+     ],
+     [
+      "rise:lunge 3",
+      0.7
+     ],
+     [
+      "rise:even",
+      0.725
+     ],
+     [
+      "idle",
+      14.308
+     ]
+    ]
+   },
+   {
+    "held": "club",
+    "degrees": 292.5,
+    "fell": true,
+    "risen": 25.491666666666667,
+    "lie": "front",
+    "spans": [
+     [
+      "settle",
+      1.833
+     ],
+     [
+      "roll:wind",
+      0.5
+     ],
+     [
+      "roll:swing",
+      1
+     ],
+     [
+      "roll:over",
+      0.5
+     ],
+     [
+      "roll:flat",
+      1
+     ],
+     [
+      "settle",
+      1.767
+     ],
+     [
+      "rise:fold",
+      1
+     ],
+     [
+      "rise:tuck",
+      0.908
+     ],
+     [
+      "settle",
+      1.292
+     ],
+     [
+      "rise:fold",
+      1
+     ],
+     [
+      "rise:tuck",
+      2
+     ],
+     [
+      "rise:prop",
+      1.5
+     ],
+     [
+      "rise:fours",
+      1.15
+     ],
+     [
+      "rise:sit",
+      1
+     ],
+     [
+      "rise:kneel 0",
+      0.25
+     ],
+     [
+      "rise:kneel 1",
+      0.25
+     ],
+     [
+      "rise:kneel 2",
+      0.25
+     ],
+     [
+      "rise:arms",
+      0.3
+     ],
+     [
+      "rise:hold",
+      1
+     ],
+     [
+      "rise:tall 0",
+      0.5
+     ],
+     [
+      "rise:tall 1",
+      0.5
+     ],
+     [
+      "rise:tall 2",
+      0.5
+     ],
+     [
+      "rise:tall",
+      1
+     ],
+     [
+      "rise:shift",
+      0.6
+     ],
+     [
+      "rise:lift",
+      0.35
+     ],
+     [
+      "rise:swing",
+      0.417
+     ],
+     [
+      "rise:reach",
+      0.25
+     ],
+     [
+      "rise:half kneel",
+      0.675
+     ],
+     [
+      "rise:onto the toes",
+      0.483
+     ],
+     [
+      "rise:lunge 0",
+      0.083
+     ],
+     [
+      "rise:lunge 1",
+      0.783
+     ],
+     [
+      "rise:lunge 2",
+      0.808
+     ],
+     [
+      "rise:lunge 3",
+      0.708
+     ],
+     [
+      "rise:even",
+      0.783
+     ],
+     [
+      "idle",
+      13.05
+     ]
+    ]
+   },
+   {
+    "held": "club",
+    "degrees": 315,
+    "fell": true,
+    "risen": 16.708333333333332,
+    "lie": "front",
+    "spans": [
+     [
+      "settle",
+      1.442
+     ],
+     [
+      "rise:fold",
+      1
+     ],
+     [
+      "rise:tuck",
+      2
+     ],
+     [
+      "rise:prop",
+      1.5
+     ],
+     [
+      "rise:fours",
+      0.8
+     ],
+     [
+      "rise:sit",
+      1
+     ],
+     [
+      "rise:kneel 0",
+      0.25
+     ],
+     [
+      "rise:kneel 1",
+      0.25
+     ],
+     [
+      "rise:kneel 2",
+      0.25
+     ],
+     [
+      "rise:arms",
+      0.3
+     ],
+     [
+      "rise:hold",
+      1
+     ],
+     [
+      "rise:tall 0",
+      0.5
+     ],
+     [
+      "rise:tall 1",
+      0.5
+     ],
+     [
+      "rise:tall 2",
+      0.5
+     ],
+     [
+      "rise:tall",
+      1
+     ],
+     [
+      "rise:shift",
+      0.6
+     ],
+     [
+      "rise:lift",
+      0.35
+     ],
+     [
+      "rise:swing",
+      0.417
+     ],
+     [
+      "rise:reach",
+      0.25
+     ],
+     [
+      "rise:half kneel",
+      0.633
+     ],
+     [
+      "rise:onto the toes",
+      0.458
+     ],
+     [
+      "rise:lunge 0",
+      0.033
+     ],
+     [
+      "rise:lunge 1",
+      0.808
+     ],
+     [
+      "rise:lunge 2",
+      0.842
+     ],
+     [
+      "rise:lunge 3",
+      0.683
+     ],
+     [
+      "rise:even",
+      0.675
+     ],
+     [
+      "idle",
+      21.95
+     ]
+    ]
+   },
+   {
+    "held": "club",
+    "degrees": 337.5,
+    "fell": true,
+    "risen": null,
+    "lie": "front",
+    "spans": [
+     [
+      "settle",
+      1.4
+     ],
+     [
+      "roll:over",
+      0.5
+     ],
+     [
+      "roll:flat",
+      1
+     ],
+     [
+      "settle",
+      0.967
+     ],
+     [
+      "rise:fold",
+      1
+     ],
+     [
+      "rise:tuck",
+      2
+     ],
+     [
+      "rise:prop",
+      1.5
+     ],
+     [
+      "rise:fours",
+      1.267
+     ],
+     [
+      "rise:sit",
+      1
+     ],
+     [
+      "rise:kneel 0",
+      0.25
+     ],
+     [
+      "rise:kneel 1",
+      0.25
+     ],
+     [
+      "rise:kneel 2",
+      0.25
+     ],
+     [
+      "rise:arms",
+      0.3
+     ],
+     [
+      "rise:hold",
+      1
+     ],
+     [
+      "rise:tall 0",
+      0.5
+     ],
+     [
+      "rise:tall 1",
+      0.5
+     ],
+     [
+      "rise:tall 2",
+      0.5
+     ],
+     [
+      "rise:tall",
+      1
+     ],
+     [
+      "rise:shift",
+      0.6
+     ],
+     [
+      "rise:lift",
+      0.35
+     ],
+     [
+      "rise:swing",
+      0.417
+     ],
+     [
+      "rise:reach",
+      0.25
+     ],
+     [
+      "rise:half kneel",
+      1.517
+     ],
+     [
+      "settle",
+      1.125
+     ],
+     [
+      "rise:fold",
+      1
+     ],
+     [
+      "rise:tuck",
+      2
+     ],
+     [
+      "rise:prop",
+      1.5
+     ],
+     [
+      "rise:fours",
+      0.025
+     ],
+     [
+      "settle",
+      1.358
+     ],
+     [
+      "roll:wind",
+      0.5
+     ],
+     [
+      "roll:swing",
+      1
+     ],
+     [
+      "roll:over",
+      0.5
+     ],
+     [
+      "roll:flat",
+      1
+     ],
+     [
+      "settle",
+      1.042
+     ],
+     [
+      "rise:fold",
+      1
+     ],
+     [
+      "rise:tuck",
+      0.875
+     ],
+     [
+      "settle",
+      1.617
+     ],
+     [
+      "rise:fold",
+      1
+     ],
+     [
+      "rise:tuck",
+      2
+     ],
+     [
+      "rise:prop",
+      1.5
+     ],
+     [
+      "rise:fours",
+      0.933
+     ],
+     [
+      "rise:sit",
+      1
+     ],
+     [
+      "rise:kneel 0",
+      0.25
+     ],
+     [
+      "rise:kneel 1",
+      0.25
+     ],
+     [
+      "rise:kneel 2",
+      0.2
+     ]
+    ]
+   },
+   {
+    "held": "empty",
+    "degrees": 0,
+    "fell": true,
+    "risen": 17.65,
+    "lie": "front",
+    "spans": [
+     [
+      "settle",
+      1.375
+     ],
+     [
+      "rise:fold",
+      1
+     ],
+     [
+      "rise:tuck",
+      2
+     ],
+     [
+      "rise:prop",
+      1.5
+     ],
+     [
+      "rise:fours",
+      1.625
+     ],
+     [
+      "rise:sit",
+      1
+     ],
+     [
+      "rise:kneel 0",
+      0.25
+     ],
+     [
+      "rise:kneel 1",
+      0.25
+     ],
+     [
+      "rise:kneel 2",
+      0.25
+     ],
+     [
+      "rise:arms",
+      0.3
+     ],
+     [
+      "rise:hold",
+      1
+     ],
+     [
+      "rise:tall 0",
+      0.5
+     ],
+     [
+      "rise:tall 1",
+      0.5
+     ],
+     [
+      "rise:tall 2",
+      0.5
+     ],
+     [
+      "rise:tall",
+      1
+     ],
+     [
+      "rise:shift",
+      0.6
+     ],
+     [
+      "rise:lift",
+      0.35
+     ],
+     [
+      "rise:swing",
+      0.417
+     ],
+     [
+      "rise:reach",
+      0.25
+     ],
+     [
+      "rise:half kneel",
+      0.567
+     ],
+     [
+      "rise:onto the toes",
+      0.533
+     ],
+     [
+      "rise:lunge 0",
+      0.167
+     ],
+     [
+      "rise:lunge 1",
+      0.883
+     ],
+     [
+      "rise:lunge 2",
+      0.867
+     ],
+     [
+      "rise:lunge 3",
+      0.692
+     ],
+     [
+      "rise:even",
+      0.758
+     ],
+     [
+      "idle",
+      20.858
+     ]
+    ]
+   },
+   {
+    "held": "empty",
+    "degrees": 22.5,
+    "fell": true,
+    "risen": 29.741666666666667,
+    "lie": "front",
+    "spans": [
+     [
+      "settle",
+      6.108
+     ],
+     [
+      "roll:wind",
+      0.5
+     ],
+     [
+      "roll:swing",
+      1
+     ],
+     [
+      "roll:over",
+      0.5
+     ],
+     [
+      "roll:flat",
+      1
+     ],
+     [
+      "settle",
+      0.658
+     ],
+     [
+      "roll:wind",
+      0.5
+     ],
+     [
+      "roll:swing",
+      1
+     ],
+     [
+      "roll:over",
+      0.5
+     ],
+     [
+      "roll:flat",
+      1
+     ],
+     [
+      "settle",
+      0.917
+     ],
+     [
+      "rise:fold",
+      1
+     ],
+     [
+      "rise:tuck",
+      2
+     ],
+     [
+      "rise:prop",
+      1.5
+     ],
+     [
+      "rise:fours",
+      1.567
+     ],
+     [
+      "rise:sit",
+      1
+     ],
+     [
+      "rise:kneel 0",
+      0.25
+     ],
+     [
+      "rise:kneel 1",
+      0.25
+     ],
+     [
+      "rise:kneel 2",
+      0.25
+     ],
+     [
+      "rise:arms",
+      0.3
+     ],
+     [
+      "rise:hold",
+      1
+     ],
+     [
+      "rise:tall 0",
+      0.5
+     ],
+     [
+      "rise:tall 1",
+      0.5
+     ],
+     [
+      "rise:tall 2",
+      0.5
+     ],
+     [
+      "rise:tall",
+      1
+     ],
+     [
+      "rise:shift",
+      0.6
+     ],
+     [
+      "rise:lift",
+      0.35
+     ],
+     [
+      "rise:swing",
+      0.417
+     ],
+     [
+      "rise:reach",
+      0.25
+     ],
+     [
+      "rise:half kneel",
+      0.458
+     ],
+     [
+      "rise:onto the toes",
+      0.475
+     ],
+     [
+      "rise:lunge 0",
+      0.158
+     ],
+     [
+      "rise:lunge 1",
+      0.858
+     ],
+     [
+      "rise:lunge 2",
+      0.875
+     ],
+     [
+      "rise:lunge 3",
+      0.725
+     ],
+     [
+      "rise:even",
+      0.7
+     ],
+     [
+      "idle",
+      8.825
+     ]
+    ]
+   },
+   {
+    "held": "empty",
+    "degrees": 45,
+    "fell": true,
+    "risen": 19.425,
+    "lie": "front",
+    "spans": [
+     [
+      "settle",
+      1.467
+     ],
+     [
+      "roll:over",
+      0.5
+     ],
+     [
+      "roll:flat",
+      1
+     ],
+     [
+      "settle",
+      0.908
+     ],
+     [
+      "rise:fold",
+      1
+     ],
+     [
+      "rise:tuck",
+      2
+     ],
+     [
+      "rise:prop",
+      1.5
+     ],
+     [
+      "rise:fours",
+      0.992
+     ],
+     [
+      "rise:sit",
+      1
+     ],
+     [
+      "rise:kneel 0",
+      0.25
+     ],
+     [
+      "rise:kneel 1",
+      0.25
+     ],
+     [
+      "rise:kneel 2",
+      0.25
+     ],
+     [
+      "rise:arms",
+      0.3
+     ],
+     [
+      "rise:hold",
+      1
+     ],
+     [
+      "rise:tall 0",
+      0.5
+     ],
+     [
+      "rise:tall 1",
+      0.5
+     ],
+     [
+      "rise:tall 2",
+      0.5
+     ],
+     [
+      "rise:tall",
+      1
+     ],
+     [
+      "rise:shift",
+      0.6
+     ],
+     [
+      "rise:lift",
+      0.35
+     ],
+     [
+      "rise:swing",
+      0.417
+     ],
+     [
+      "rise:reach",
+      0.25
+     ],
+     [
+      "rise:half kneel",
+      0.583
+     ],
+     [
+      "rise:onto the toes",
+      0.492
+     ],
+     [
+      "rise:lunge 0",
+      0.1
+     ],
+     [
+      "rise:lunge 1",
+      0.875
+     ],
+     [
+      "rise:lunge 2",
+      0.842
+     ],
+     [
+      "rise:lunge 3",
+      0.7
+     ],
+     [
+      "rise:even",
+      0.725
+     ],
+     [
+      "idle",
+      19.142
+     ]
+    ]
+   },
+   {
+    "held": "empty",
+    "degrees": 67.5,
+    "fell": true,
+    "risen": 21.575,
+    "lie": "front",
+    "spans": [
+     [
+      "settle",
+      1.608
+     ],
+     [
+      "roll:wind",
+      0.5
+     ],
+     [
+      "roll:swing",
+      1
+     ],
+     [
+      "roll:over",
+      0.5
+     ],
+     [
+      "roll:flat",
+      1
+     ],
+     [
+      "settle",
+      0.958
+     ],
+     [
+      "rise:fold",
+      1
+     ],
+     [
+      "rise:tuck",
+      2
+     ],
+     [
+      "rise:prop",
+      1.5
+     ],
+     [
+      "rise:fours",
+      1.458
+     ],
+     [
+      "rise:sit",
+      1
+     ],
+     [
+      "rise:kneel 0",
+      0.25
+     ],
+     [
+      "rise:kneel 1",
+      0.25
+     ],
+     [
+      "rise:kneel 2",
+      0.25
+     ],
+     [
+      "rise:arms",
+      0.3
+     ],
+     [
+      "rise:hold",
+      1
+     ],
+     [
+      "rise:tall 0",
+      0.5
+     ],
+     [
+      "rise:tall 1",
+      0.5
+     ],
+     [
+      "rise:tall 2",
+      0.5
+     ],
+     [
+      "rise:tall",
+      1
+     ],
+     [
+      "rise:shift",
+      0.6
+     ],
+     [
+      "rise:lift",
+      0.35
+     ],
+     [
+      "rise:swing",
+      0.417
+     ],
+     [
+      "rise:reach",
+      0.25
+     ],
+     [
+      "rise:half kneel",
+      0.508
+     ],
+     [
+      "rise:onto the toes",
+      0.542
+     ],
+     [
+      "rise:lunge 0",
+      0.133
+     ],
+     [
+      "rise:lunge 1",
+      0.858
+     ],
+     [
+      "rise:lunge 2",
+      0.917
+     ],
+     [
+      "rise:lunge 3",
+      0.7
+     ],
+     [
+      "rise:even",
+      0.675
+     ],
+     [
+      "idle",
+      16.967
+     ]
+    ]
+   },
+   {
+    "held": "empty",
+    "degrees": 90,
+    "fell": true,
+    "risen": 23.466666666666665,
+    "lie": "front",
+    "spans": [
+     [
+      "settle",
+      1.117
+     ],
+     [
+      "roll:wind",
+      0.5
+     ],
+     [
+      "roll:swing",
+      1
+     ],
+     [
+      "roll:over",
+      0.5
+     ],
+     [
+      "roll:flat",
+      1
+     ],
+     [
+      "settle",
+      3.383
+     ],
+     [
+      "rise:fold",
+      1
+     ],
+     [
+      "rise:tuck",
+      2
+     ],
+     [
+      "rise:prop",
+      1.5
+     ],
+     [
+      "rise:fours",
+      1.467
+     ],
+     [
+      "rise:sit",
+      1
+     ],
+     [
+      "rise:kneel 0",
+      0.25
+     ],
+     [
+      "rise:kneel 1",
+      0.25
+     ],
+     [
+      "rise:kneel 2",
+      0.25
+     ],
+     [
+      "rise:arms",
+      0.3
+     ],
+     [
+      "rise:hold",
+      1
+     ],
+     [
+      "rise:tall 0",
+      0.5
+     ],
+     [
+      "rise:tall 1",
+      0.5
+     ],
+     [
+      "rise:tall 2",
+      0.5
+     ],
+     [
+      "rise:tall",
+      1
+     ],
+     [
+      "rise:shift",
+      0.6
+     ],
+     [
+      "rise:lift",
+      0.35
+     ],
+     [
+      "rise:swing",
+      0.417
+     ],
+     [
+      "rise:reach",
+      0.25
+     ],
+     [
+      "rise:half kneel",
+      0.583
+     ],
+     [
+      "rise:onto the toes",
+      0.5
+     ],
+     [
+      "rise:lunge 0",
+      0.1
+     ],
+     [
+      "rise:lunge 1",
+      0.8
+     ],
+     [
+      "rise:lunge 2",
+      0.817
+     ],
+     [
+      "rise:lunge 3",
+      0.683
+     ],
+     [
+      "rise:even",
+      0.725
+     ],
+     [
+      "idle",
+      15.15
+     ]
+    ]
+   },
+   {
+    "held": "empty",
+    "degrees": 112.5,
+    "fell": true,
+    "risen": null,
+    "lie": "front",
+    "spans": [
+     [
+      "settle",
+      1.775
+     ],
+     [
+      "rise:fold",
+      1
+     ],
+     [
+      "rise:tuck",
+      2
+     ],
+     [
+      "rise:prop",
+      1.5
+     ],
+     [
+      "rise:fours",
+      1.483
+     ],
+     [
+      "rise:sit",
+      1
+     ],
+     [
+      "rise:kneel 0",
+      0.25
+     ],
+     [
+      "rise:kneel 1",
+      0.25
+     ],
+     [
+      "rise:kneel 2",
+      0.25
+     ],
+     [
+      "rise:arms",
+      0.3
+     ],
+     [
+      "rise:hold",
+      1
+     ],
+     [
+      "rise:tall 0",
+      0.5
+     ],
+     [
+      "rise:tall 1",
+      0.5
+     ],
+     [
+      "rise:tall 2",
+      0.5
+     ],
+     [
+      "rise:tall",
+      1
+     ],
+     [
+      "rise:shift",
+      0.6
+     ],
+     [
+      "rise:lift",
+      0.35
+     ],
+     [
+      "rise:swing",
+      0.417
+     ],
+     [
+      "rise:reach",
+      0.25
+     ],
+     [
+      "rise:half kneel",
+      0.85
+     ],
+     [
+      "rise:onto the toes",
+      0.392
+     ],
+     [
+      "rise:lunge 0",
+      0.383
+     ],
+     [
+      "rise:lunge 1",
+      1.458
+     ],
+     [
+      "settle",
+      1.708
+     ],
+     [
+      "roll:wind",
+      0.5
+     ],
+     [
+      "roll:swing",
+      1
+     ],
+     [
+      "roll:over",
+      0.5
+     ],
+     [
+      "roll:flat",
+      1
+     ],
+     [
+      "settle",
+      0.892
+     ],
+     [
+      "rise:fold",
+      1
+     ],
+     [
+      "rise:tuck",
+      0.767
+     ],
+     [
+      "settle",
+      1.292
+     ],
+     [
+      "rise:fold",
+      1
+     ],
+     [
+      "rise:tuck",
+      0.917
+     ],
+     [
+      "settle",
+      1.242
+     ],
+     [
+      "rise:fold",
+      1
+     ],
+     [
+      "rise:tuck",
+      2
+     ],
+     [
+      "rise:prop",
+      1.5
+     ],
+     [
+      "rise:fours",
+      1.275
+     ],
+     [
+      "rise:sit",
+      1
+     ],
+     [
+      "rise:kneel 0",
+      0.25
+     ],
+     [
+      "rise:kneel 1",
+      0.25
+     ],
+     [
+      "rise:kneel 2",
+      0.25
+     ],
+     [
+      "rise:arms",
+      0.3
+     ],
+     [
+      "rise:hold",
+      1
+     ],
+     [
+      "rise:tall 0",
+      0.5
+     ],
+     [
+      "rise:tall 1",
+      0.5
+     ],
+     [
+      "rise:tall 2",
+      0.342
+     ]
+    ]
+   },
+   {
+    "held": "empty",
+    "degrees": 135,
+    "fell": true,
+    "risen": 26.058333333333334,
+    "lie": "front",
+    "spans": [
+     [
+      "settle",
+      2.55
+     ],
+     [
+      "roll:wind",
+      0.5
+     ],
+     [
+      "roll:swing",
+      1
+     ],
+     [
+      "roll:over",
+      0.5
+     ],
+     [
+      "roll:flat",
+      1
+     ],
+     [
+      "settle",
+      0.592
+     ],
+     [
+      "roll:wind",
+      0.5
+     ],
+     [
+      "roll:swing",
+      1
+     ],
+     [
+      "roll:over",
+      0.5
+     ],
+     [
+      "roll:flat",
+      1
+     ],
+     [
+      "settle",
+      0.917
+     ],
+     [
+      "rise:fold",
+      1
+     ],
+     [
+      "rise:tuck",
+      2
+     ],
+     [
+      "rise:prop",
+      1.5
+     ],
+     [
+      "rise:fours",
+      1.4
+     ],
+     [
+      "rise:sit",
+      1
+     ],
+     [
+      "rise:kneel 0",
+      0.25
+     ],
+     [
+      "rise:kneel 1",
+      0.25
+     ],
+     [
+      "rise:kneel 2",
+      0.25
+     ],
+     [
+      "rise:arms",
+      0.3
+     ],
+     [
+      "rise:hold",
+      1
+     ],
+     [
+      "rise:tall 0",
+      0.5
+     ],
+     [
+      "rise:tall 1",
+      0.5
+     ],
+     [
+      "rise:tall 2",
+      0.5
+     ],
+     [
+      "rise:tall",
+      1
+     ],
+     [
+      "rise:shift",
+      0.6
+     ],
+     [
+      "rise:lift",
+      0.35
+     ],
+     [
+      "rise:swing",
+      0.417
+     ],
+     [
+      "rise:reach",
+      0.25
+     ],
+     [
+      "rise:half kneel",
+      0.533
+     ],
+     [
+      "rise:onto the toes",
+      0.508
+     ],
+     [
+      "rise:lunge 0",
+      0.167
+     ],
+     [
+      "rise:lunge 1",
+      0.883
+     ],
+     [
+      "rise:lunge 2",
+      0.792
+     ],
+     [
+      "rise:lunge 3",
+      0.708
+     ],
+     [
+      "rise:even",
+      0.758
+     ],
+     [
+      "idle",
+      12.517
+     ]
+    ]
+   },
+   {
+    "held": "empty",
+    "degrees": 157.5,
+    "fell": true,
+    "risen": null,
+    "lie": "front",
+    "spans": [
+     [
+      "settle",
+      1.992
+     ],
+     [
+      "roll:wind",
+      0.5
+     ],
+     [
+      "roll:swing",
+      1
+     ],
+     [
+      "roll:over",
+      0.5
+     ],
+     [
+      "roll:flat",
+      1
+     ],
+     [
+      "settle",
+      0.592
+     ],
+     [
+      "roll:wind",
+      0.5
+     ],
+     [
+      "roll:swing",
+      1
+     ],
+     [
+      "roll:over",
+      0.5
+     ],
+     [
+      "roll:flat",
+      1
+     ],
+     [
+      "settle",
+      0.925
+     ],
+     [
+      "rise:fold",
+      1
+     ],
+     [
+      "rise:tuck",
+      2
+     ],
+     [
+      "rise:prop",
+      1.5
+     ],
+     [
+      "rise:fours",
+      1.233
+     ],
+     [
+      "rise:sit",
+      1
+     ],
+     [
+      "rise:kneel 0",
+      0.25
+     ],
+     [
+      "rise:kneel 1",
+      0.25
+     ],
+     [
+      "rise:kneel 2",
+      0.25
+     ],
+     [
+      "rise:arms",
+      0.3
+     ],
+     [
+      "rise:hold",
+      1
+     ],
+     [
+      "rise:tall 0",
+      0.5
+     ],
+     [
+      "rise:tall 1",
+      0.5
+     ],
+     [
+      "rise:tall 2",
+      0.5
+     ],
+     [
+      "rise:tall",
+      1
+     ],
+     [
+      "rise:shift",
+      0.6
+     ],
+     [
+      "rise:lift",
+      0.35
+     ],
+     [
+      "rise:swing",
+      0.417
+     ],
+     [
+      "rise:reach",
+      0.25
+     ],
+     [
+      "rise:half kneel",
+      0.475
+     ],
+     [
+      "settle",
+      1.317
+     ],
+     [
+      "roll:over",
+      0.5
+     ],
+     [
+      "roll:flat",
+      1
+     ],
+     [
+      "settle",
+      0.733
+     ],
+     [
+      "rise:fold",
+      1
+     ],
+     [
+      "rise:tuck",
+      2
+     ],
+     [
+      "rise:prop",
+      1.5
+     ],
+     [
+      "rise:fours",
+      0.317
+     ],
+     [
+      "settle",
+      1.092
+     ],
+     [
+      "roll:wind",
+      0.5
+     ],
+     [
+      "roll:swing",
+      1
+     ],
+     [
+      "roll:over",
+      0.5
+     ],
+     [
+      "roll:flat",
+      1
+     ],
+     [
+      "settle",
+      1.1
+     ],
+     [
+      "rise:fold",
+      1
+     ],
+     [
+      "rise:tuck",
+      2
+     ],
+     [
+      "rise:prop",
+      0.55
+     ]
+    ]
+   },
+   {
+    "held": "empty",
+    "degrees": 180,
+    "fell": true,
+    "risen": 25.5,
+    "lie": "front",
+    "spans": [
+     [
+      "idle",
+      0.225
+     ],
+     [
+      "settle",
+      1.65
+     ],
+     [
+      "roll:wind",
+      0.5
+     ],
+     [
+      "roll:swing",
+      1
+     ],
+     [
+      "roll:over",
+      0.5
+     ],
+     [
+      "roll:flat",
+      1
+     ],
+     [
+      "settle",
+      0.6
+     ],
+     [
+      "roll:wind",
+      0.5
+     ],
+     [
+      "roll:swing",
+      1
+     ],
+     [
+      "roll:over",
+      0.5
+     ],
+     [
+      "roll:flat",
+      1
+     ],
+     [
+      "settle",
+      1.308
+     ],
+     [
+      "rise:fold",
+      1
+     ],
+     [
+      "rise:tuck",
+      2
+     ],
+     [
+      "rise:prop",
+      1.5
+     ],
+     [
+      "rise:fours",
+      1.217
+     ],
+     [
+      "rise:sit",
+      1
+     ],
+     [
+      "rise:kneel 0",
+      0.25
+     ],
+     [
+      "rise:kneel 1",
+      0.25
+     ],
+     [
+      "rise:kneel 2",
+      0.25
+     ],
+     [
+      "rise:arms",
+      0.3
+     ],
+     [
+      "rise:hold",
+      1
+     ],
+     [
+      "rise:tall 0",
+      0.5
+     ],
+     [
+      "rise:tall 1",
+      0.5
+     ],
+     [
+      "rise:tall 2",
+      0.5
+     ],
+     [
+      "rise:tall",
+      1
+     ],
+     [
+      "rise:shift",
+      0.6
+     ],
+     [
+      "rise:lift",
+      0.35
+     ],
+     [
+      "rise:swing",
+      0.417
+     ],
+     [
+      "rise:reach",
+      0.25
+     ],
+     [
+      "rise:half kneel",
+      0.608
+     ],
+     [
+      "rise:onto the toes",
+      0.467
+     ],
+     [
+      "rise:lunge 0",
+      0.108
+     ],
+     [
+      "rise:lunge 1",
+      0.792
+     ],
+     [
+      "rise:lunge 2",
+      0.825
+     ],
+     [
+      "rise:lunge 3",
+      0.692
+     ],
+     [
+      "rise:even",
+      0.65
+     ],
+     [
+      "idle",
+      13.183
+     ]
+    ]
+   },
+   {
+    "held": "empty",
+    "degrees": 202.5,
+    "fell": true,
+    "risen": null,
+    "lie": "front",
+    "spans": [
+     [
+      "settle",
+      1.817
+     ],
+     [
+      "rise:fold",
+      1
+     ],
+     [
+      "rise:tuck",
+      2
+     ],
+     [
+      "rise:prop",
+      1.408
+     ],
+     [
+      "settle",
+      1.092
+     ],
+     [
+      "roll:wind",
+      0.5
+     ],
+     [
+      "roll:swing",
+      1
+     ],
+     [
+      "roll:over",
+      0.5
+     ],
+     [
+      "roll:flat",
+      1
+     ],
+     [
+      "settle",
+      0.592
+     ],
+     [
+      "roll:wind",
+      0.5
+     ],
+     [
+      "roll:swing",
+      1
+     ],
+     [
+      "roll:over",
+      0.5
+     ],
+     [
+      "roll:flat",
+      1
+     ],
+     [
+      "settle",
+      1.142
+     ],
+     [
+      "rise:fold",
+      1
+     ],
+     [
+      "rise:tuck",
+      1.242
+     ],
+     [
+      "settle",
+      1.667
+     ],
+     [
+      "rise:fold",
+      1
+     ],
+     [
+      "rise:tuck",
+      2
+     ],
+     [
+      "rise:prop",
+      1.5
+     ],
+     [
+      "rise:fours",
+      1.192
+     ],
+     [
+      "rise:sit",
+      1
+     ],
+     [
+      "rise:kneel 0",
+      0.25
+     ],
+     [
+      "rise:kneel 1",
+      0.25
+     ],
+     [
+      "rise:kneel 2",
+      0.25
+     ],
+     [
+      "rise:arms",
+      0.3
+     ],
+     [
+      "rise:hold",
+      1
+     ],
+     [
+      "rise:tall 0",
+      0.5
+     ],
+     [
+      "rise:tall 1",
+      0.5
+     ],
+     [
+      "rise:tall 2",
+      0.5
+     ],
+     [
+      "rise:tall",
+      1
+     ],
+     [
+      "rise:shift",
+      0.6
+     ],
+     [
+      "rise:lift",
+      0.35
+     ],
+     [
+      "rise:swing",
+      0.417
+     ],
+     [
+      "rise:reach",
+      0.25
+     ],
+     [
+      "rise:half kneel",
+      0.85
+     ],
+     [
+      "settle",
+      1.392
+     ],
+     [
+      "rise:fold",
+      1
+     ],
+     [
+      "rise:tuck",
+      2
+     ],
+     [
+      "rise:prop",
+      1.5
+     ],
+     [
+      "rise:fours",
+      0.2
+     ],
+     [
+      "rise:sit",
+      1
+     ],
+     [
+      "rise:kneel 0",
+      0.233
+     ]
+    ]
+   },
+   {
+    "held": "empty",
+    "degrees": 225,
+    "fell": true,
+    "risen": null,
+    "lie": "front",
+    "spans": [
+     [
+      "settle",
+      1.825
+     ],
+     [
+      "roll:wind",
+      0.5
+     ],
+     [
+      "roll:swing",
+      1
+     ],
+     [
+      "roll:over",
+      0.5
+     ],
+     [
+      "roll:flat",
+      1
+     ],
+     [
+      "settle",
+      0.592
+     ],
+     [
+      "roll:wind",
+      0.5
+     ],
+     [
+      "roll:swing",
+      1
+     ],
+     [
+      "roll:over",
+      0.5
+     ],
+     [
+      "roll:flat",
+      1
+     ],
+     [
+      "settle",
+      0.975
+     ],
+     [
+      "rise:fold",
+      1
+     ],
+     [
+      "rise:tuck",
+      2
+     ],
+     [
+      "rise:prop",
+      1.5
+     ],
+     [
+      "rise:fours",
+      0.617
+     ],
+     [
+      "settle",
+      2.467
+     ],
+     [
+      "roll:wind",
+      0.5
+     ],
+     [
+      "roll:swing",
+      1
+     ],
+     [
+      "roll:over",
+      0.5
+     ],
+     [
+      "roll:flat",
+      1
+     ],
+     [
+      "settle",
+      0.592
+     ],
+     [
+      "roll:wind",
+      0.5
+     ],
+     [
+      "roll:swing",
+      1
+     ],
+     [
+      "roll:over",
+      0.5
+     ],
+     [
+      "roll:flat",
+      1
+     ],
+     [
+      "settle",
+      1.525
+     ],
+     [
+      "rise:fold",
+      1
+     ],
+     [
+      "rise:tuck",
+      2
+     ],
+     [
+      "rise:prop",
+      1.5
+     ],
+     [
+      "rise:fours",
+      1.525
+     ],
+     [
+      "rise:sit",
+      1
+     ],
+     [
+      "rise:kneel 0",
+      0.25
+     ],
+     [
+      "rise:kneel 1",
+      0.25
+     ],
+     [
+      "rise:kneel 2",
+      0.25
+     ],
+     [
+      "rise:arms",
+      0.3
+     ],
+     [
+      "rise:hold",
+      1
+     ],
+     [
+      "rise:tall 0",
+      0.5
+     ],
+     [
+      "rise:tall 1",
+      0.5
+     ],
+     [
+      "rise:tall 2",
+      0.5
+     ],
+     [
+      "rise:tall",
+      1
+     ],
+     [
+      "rise:shift",
+      0.6
+     ],
+     [
+      "rise:lift",
+      0.35
+     ],
+     [
+      "rise:swing",
+      0.417
+     ],
+     [
+      "rise:reach",
+      0.25
+     ],
+     [
+      "rise:half kneel",
+      0.567
+     ],
+     [
+      "rise:onto the toes",
+      0.5
+     ],
+     [
+      "rise:lunge 0",
+      0.142
+     ],
+     [
+      "rise:lunge 1",
+      0.5
+     ]
+    ]
+   },
+   {
+    "held": "empty",
+    "degrees": 247.5,
+    "fell": true,
+    "risen": 29.416666666666668,
+    "lie": "front",
+    "spans": [
+     [
+      "settle",
+      4.625
+     ],
+     [
+      "roll:wind",
+      0.5
+     ],
+     [
+      "roll:swing",
+      1
+     ],
+     [
+      "roll:over",
+      0.5
+     ],
+     [
+      "roll:flat",
+      1
+     ],
+     [
+      "settle",
+      1.092
+     ],
+     [
+      "rise:fold",
+      1
+     ],
+     [
+      "rise:tuck",
+      1.617
+     ],
+     [
+      "settle",
+      1.992
+     ],
+     [
+      "rise:fold",
+      1
+     ],
+     [
+      "rise:tuck",
+      2
+     ],
+     [
+      "rise:prop",
+      1.5
+     ],
+     [
+      "rise:fours",
+      1.592
+     ],
+     [
+      "rise:sit",
+      1
+     ],
+     [
+      "rise:kneel 0",
+      0.25
+     ],
+     [
+      "rise:kneel 1",
+      0.25
+     ],
+     [
+      "rise:kneel 2",
+      0.25
+     ],
+     [
+      "rise:arms",
+      0.3
+     ],
+     [
+      "rise:hold",
+      1
+     ],
+     [
+      "rise:tall 0",
+      0.5
+     ],
+     [
+      "rise:tall 1",
+      0.5
+     ],
+     [
+      "rise:tall 2",
+      0.5
+     ],
+     [
+      "rise:tall",
+      1
+     ],
+     [
+      "rise:shift",
+      0.6
+     ],
+     [
+      "rise:lift",
+      0.35
+     ],
+     [
+      "rise:swing",
+      0.417
+     ],
+     [
+      "rise:reach",
+      0.25
+     ],
+     [
+      "rise:half kneel",
+      0.492
+     ],
+     [
+      "rise:onto the toes",
+      0.542
+     ],
+     [
+      "rise:lunge 0",
+      0.092
+     ],
+     [
+      "rise:lunge 1",
+      0.867
+     ],
+     [
+      "rise:lunge 2",
+      0.908
+     ],
+     [
+      "rise:lunge 3",
+      0.708
+     ],
+     [
+      "rise:even",
+      0.675
+     ],
+     [
+      "idle",
+      9.125
+     ]
+    ]
+   },
+   {
+    "held": "empty",
+    "degrees": 270,
+    "fell": true,
+    "risen": null,
+    "lie": "front",
+    "spans": [
+     [
+      "settle",
+      1.75
+     ],
+     [
+      "roll:wind",
+      0.5
+     ],
+     [
+      "roll:swing",
+      1
+     ],
+     [
+      "roll:over",
+      0.5
+     ],
+     [
+      "roll:flat",
+      1
+     ],
+     [
+      "settle",
+      0.925
+     ],
+     [
+      "rise:fold",
+      1
+     ],
+     [
+      "rise:tuck",
+      0.425
+     ],
+     [
+      "settle",
+      1.258
+     ],
+     [
+      "rise:fold",
+      1
+     ],
+     [
+      "rise:tuck",
+      2
+     ],
+     [
+      "rise:prop",
+      1.5
+     ],
+     [
+      "rise:fours",
+      1.383
+     ],
+     [
+      "rise:sit",
+      1
+     ],
+     [
+      "rise:kneel 0",
+      0.25
+     ],
+     [
+      "rise:kneel 1",
+      0.25
+     ],
+     [
+      "rise:kneel 2",
+      0.25
+     ],
+     [
+      "rise:arms",
+      0.3
+     ],
+     [
+      "rise:hold",
+      1
+     ],
+     [
+      "rise:tall 0",
+      0.5
+     ],
+     [
+      "rise:tall 1",
+      0.5
+     ],
+     [
+      "rise:tall 2",
+      0.5
+     ],
+     [
+      "rise:tall",
+      1
+     ],
+     [
+      "rise:shift",
+      0.6
+     ],
+     [
+      "rise:lift",
+      0.35
+     ],
+     [
+      "rise:swing",
+      0.417
+     ],
+     [
+      "rise:reach",
+      0.25
+     ],
+     [
+      "rise:half kneel",
+      0.758
+     ],
+     [
+      "rise:onto the toes",
+      0.7
+     ],
+     [
+      "rise:lunge 0",
+      0.008
+     ],
+     [
+      "rise:lunge 1",
+      1.95
+     ],
+     [
+      "settle",
+      1.692
+     ],
+     [
+      "roll:wind",
+      0.5
+     ],
+     [
+      "roll:swing",
+      1
+     ],
+     [
+      "roll:over",
+      0.5
+     ],
+     [
+      "roll:flat",
+      1
+     ],
+     [
+      "settle",
+      0.933
+     ],
+     [
+      "rise:fold",
+      1
+     ],
+     [
+      "rise:tuck",
+      1.45
+     ],
+     [
+      "settle",
+      1.142
+     ],
+     [
+      "rise:fold",
+      1
+     ],
+     [
+      "rise:tuck",
+      2
+     ],
+     [
+      "rise:prop",
+      1.5
+     ],
+     [
+      "rise:fours",
+      1.45
+     ]
+    ]
+   },
+   {
+    "held": "empty",
+    "degrees": 292.5,
+    "fell": true,
+    "risen": 21.05,
+    "lie": "front",
+    "spans": [
+     [
+      "settle",
+      1.467
+     ],
+     [
+      "roll:wind",
+      0.5
+     ],
+     [
+      "roll:swing",
+      1
+     ],
+     [
+      "roll:over",
+      0.5
+     ],
+     [
+      "roll:flat",
+      1
+     ],
+     [
+      "settle",
+      0.9
+     ],
+     [
+      "rise:fold",
+      1
+     ],
+     [
+      "rise:tuck",
+      2
+     ],
+     [
+      "rise:prop",
+      1.5
+     ],
+     [
+      "rise:fours",
+      1.067
+     ],
+     [
+      "rise:sit",
+      1
+     ],
+     [
+      "rise:kneel 0",
+      0.25
+     ],
+     [
+      "rise:kneel 1",
+      0.25
+     ],
+     [
+      "rise:kneel 2",
+      0.25
+     ],
+     [
+      "rise:arms",
+      0.3
+     ],
+     [
+      "rise:hold",
+      1
+     ],
+     [
+      "rise:tall 0",
+      0.5
+     ],
+     [
+      "rise:tall 1",
+      0.5
+     ],
+     [
+      "rise:tall 2",
+      0.5
+     ],
+     [
+      "rise:tall",
+      1
+     ],
+     [
+      "rise:shift",
+      0.6
+     ],
+     [
+      "rise:lift",
+      0.35
+     ],
+     [
+      "rise:swing",
+      0.417
+     ],
+     [
+      "rise:reach",
+      0.25
+     ],
+     [
+      "rise:half kneel",
+      0.567
+     ],
+     [
+      "rise:onto the toes",
+      0.525
+     ],
+     [
+      "rise:lunge 0",
+      0.15
+     ],
+     [
+      "rise:lunge 1",
+      0.867
+     ],
+     [
+      "rise:lunge 2",
+      0.817
+     ],
+     [
+      "rise:lunge 3",
+      0.7
+     ],
+     [
+      "rise:even",
+      0.767
+     ],
+     [
+      "idle",
+      17.5
+     ]
+    ]
+   },
+   {
+    "held": "empty",
+    "degrees": 315,
+    "fell": true,
+    "risen": 18.725,
+    "lie": "front",
+    "spans": [
+     [
+      "settle",
+      2.667
+     ],
+     [
+      "rise:fold",
+      1
+     ],
+     [
+      "rise:tuck",
+      2
+     ],
+     [
+      "rise:prop",
+      1.5
+     ],
+     [
+      "rise:fours",
+      1.283
+     ],
+     [
+      "rise:sit",
+      1
+     ],
+     [
+      "rise:kneel 0",
+      0.25
+     ],
+     [
+      "rise:kneel 1",
+      0.25
+     ],
+     [
+      "rise:kneel 2",
+      0.25
+     ],
+     [
+      "rise:arms",
+      0.3
+     ],
+     [
+      "rise:hold",
+      1
+     ],
+     [
+      "rise:tall 0",
+      0.5
+     ],
+     [
+      "rise:tall 1",
+      0.5
+     ],
+     [
+      "rise:tall 2",
+      0.5
+     ],
+     [
+      "rise:tall",
+      1
+     ],
+     [
+      "rise:shift",
+      0.6
+     ],
+     [
+      "rise:lift",
+      0.35
+     ],
+     [
+      "rise:swing",
+      0.417
+     ],
+     [
+      "rise:reach",
+      0.25
+     ],
+     [
+      "rise:half kneel",
+      0.733
+     ],
+     [
+      "rise:onto the toes",
+      0.542
+     ],
+     [
+      "rise:lunge 0",
+      0.2
+     ],
+     [
+      "rise:lunge 1",
+      0.808
+     ],
+     [
+      "rise:lunge 2",
+      0.85
+     ],
+     [
+      "rise:lunge 3",
+      0.692
+     ],
+     [
+      "rise:even",
+      0.767
+     ],
+     [
+      "idle",
+      19.783
+     ]
+    ]
+   },
+   {
+    "held": "empty",
+    "degrees": 337.5,
+    "fell": true,
+    "risen": 22.325,
+    "lie": "front",
+    "spans": [
+     [
+      "settle",
+      2.05
+     ],
+     [
+      "roll:wind",
+      0.5
+     ],
+     [
+      "roll:swing",
+      1
+     ],
+     [
+      "roll:over",
+      0.5
+     ],
+     [
+      "roll:flat",
+      1
+     ],
+     [
+      "settle",
+      1.375
+     ],
+     [
+      "rise:fold",
+      1
+     ],
+     [
+      "rise:tuck",
+      2
+     ],
+     [
+      "rise:prop",
+      1.5
+     ],
+     [
+      "rise:fours",
+      1.358
+     ],
+     [
+      "rise:sit",
+      1
+     ],
+     [
+      "rise:kneel 0",
+      0.25
+     ],
+     [
+      "rise:kneel 1",
+      0.25
+     ],
+     [
+      "rise:kneel 2",
+      0.25
+     ],
+     [
+      "rise:arms",
+      0.3
+     ],
+     [
+      "rise:hold",
+      1
+     ],
+     [
+      "rise:tall 0",
+      0.5
+     ],
+     [
+      "rise:tall 1",
+      0.5
+     ],
+     [
+      "rise:tall 2",
+      0.5
+     ],
+     [
+      "rise:tall",
+      1
+     ],
+     [
+      "rise:shift",
+      0.6
+     ],
+     [
+      "rise:lift",
+      0.35
+     ],
+     [
+      "rise:swing",
+      0.417
+     ],
+     [
+      "rise:reach",
+      0.25
+     ],
+     [
+      "rise:half kneel",
+      0.575
+     ],
+     [
+      "rise:onto the toes",
+      0.492
+     ],
+     [
+      "rise:lunge 0",
+      0.108
+     ],
+     [
+      "rise:lunge 1",
+      0.858
+     ],
+     [
+      "rise:lunge 2",
+      0.85
+     ],
+     [
+      "rise:lunge 3",
+      0.708
+     ],
+     [
+      "rise:even",
+      0.717
+     ],
+     [
+      "idle",
+      16.233
+     ]
+    ]
    }
   ]
  }
