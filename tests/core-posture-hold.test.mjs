@@ -8,6 +8,7 @@ import { createPostureHoldProbe } from "../src/core/tasks/posture-hold.ts";
 import { saveState, loadState } from "../src/core/state.ts";
 import poses from "../assets/research/posture-holds.json" with { type: "json" };
 import { createEnvironment } from "../src/core/tasks/environment.ts";
+import { modelSpec } from "../src/core/models.ts";
 
 const configuration = { model: "workshop-fighter", posture: "fours", hz: 120, actuation: "directional", servoSeconds: .01, speed: 10, activation: 1 };
 
@@ -116,4 +117,38 @@ test("the actuator posture task runs in the common environment across a held-act
     assert.deepEqual(env.load(saved), partial); assert.deepEqual(branch(), expected);
     assert.deepEqual(env.reset(0), initial);
   } finally { env.dispose(); }
+});
+
+test("an anatomy and start override is the task's identity and nothing else", async () => {
+  const engine = await freshEngine("rapier-coordinate-coulomb"), rendering = new NullEngine();
+  const installed = poses.find((p) => p.id === configuration.posture && p.model === configuration.model);
+  const spec = modelSpec(configuration.model);
+  const run = (change) => {
+    const scene = new Scene(rendering), probe = createPostureHoldProbe(scene, engine, { ...configuration, ...change });
+    try {
+      const trace = createHash("sha256");
+      for (let i = 0; i < 240; i++) { probe.world.step(); trace.update(JSON.stringify(probe.body.observe())); }
+      return { configuration: probe.configuration, digest: trace.digest("hex"), shape: probe.built.segments.get("hand.left").spec.shape.kind };
+    } finally { probe.dispose(); scene.dispose(); }
+  };
+  try {
+    const plain = run({}), same = run({ spec, placement: installed.placement });
+    assert.equal(plain.configuration.anatomy, undefined);
+    assert.equal(same.digest, plain.digest, "the model's own anatomy and the installed start change no motion");
+    assert.equal(same.configuration.anatomy.mass.value, spec.mass.value);
+    assert.deepEqual(same.configuration.pose.placement, installed.placement);
+    // Another start and another hand both reach the identity and the motion.
+    const raised = { ...installed.placement, position: installed.placement.position.map((v, k) => v + (k === 1 ? .01 : 0)) };
+    const moved = run({ placement: raised });
+    assert.deepEqual(moved.configuration.pose.placement.position, raised.position);
+    assert.notEqual(moved.digest, plain.digest);
+    const fists = { ...spec, segments: spec.segments.map((s) => s.name.startsWith("hand.") ? { ...s, shape: s.handPoses.fist, handPoses: { ...s.handPoses, open: s.handPoses.fist } } : s) };
+    const fisted = run({ spec: fists });
+    assert.deepEqual(fisted.configuration.anatomy.segments.find((s) => s.name === "hand.left").shape,
+      same.configuration.anatomy.segments.find((s) => s.name === "hand.left").handPoses.fist);
+    assert.notEqual(fisted.digest, plain.digest);
+    const scene = new Scene(rendering);
+    assert.throws(() => createPostureHoldProbe(scene, engine, { ...configuration, spec: modelSpec("workshop-rogue") }), /configuration/);
+    assert.equal(scene.transformNodes.length, 0); scene.dispose();
+  } finally { rendering.dispose(); }
 });

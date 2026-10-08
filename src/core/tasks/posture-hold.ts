@@ -3,6 +3,7 @@ import poses from "../../../assets/research/posture-holds.json" with { type: "js
 import { buildBody } from "../build/build-body.ts";
 import type { PhysicsEngine } from "../engine/engine.ts";
 import { modelSpec, type HumanoidModel } from "../models.ts";
+import type { BodySpec } from "../spec/body.ts";
 import { checkedAction, type ActuatorAction } from "../mind/actions.ts";
 import { createDirectBody, createPolicyBody } from "../mind/direct.ts";
 import { deepFreeze } from "../state.ts";
@@ -12,28 +13,39 @@ import { createWorld } from "../world.ts";
 const SETTINGS = deepFreeze({ seconds: 10, tolerance: .02, effortTolerance: .0001,
   floor: { centre: [0, -.5, 0] as const, size: [20, 1, 20] as const } });
 
-/** Hold a declared physical start through the independent observation/action controller. */
+type Placement = Parameters<typeof buildBody>[2];
+const anatomyOf = (spec: BodySpec) => JSON.parse(JSON.stringify(spec, (key, value) => key === "provenance" ? undefined : value)) as object;
+
+/**
+ * Hold a declared physical start through the independent observation/action controller. `spec`
+ * replaces the model's anatomy and `placement` the installed start (its joints are the targets);
+ * either one enters the environment identity, and neither omitted changes anything.
+ */
 export function createPostureHoldProbe(scene: Scene, engine: PhysicsEngine, config: {
   readonly model: HumanoidModel; readonly posture: "fours" | "half-kneel" | "squat";
   readonly hz: number; readonly actuation: "symmetric" | "directional";
   readonly servoSeconds: number; readonly speed: number; readonly activation: number;
   readonly controller?: "direct" | "actuator";
+  readonly spec?: BodySpec; readonly placement?: Placement;
 }) {
+  const { spec: anatomy, placement, ...settings } = config;
   const controller = config.controller ?? "direct";
-  const pose = poses.find((p) => p.id === config.posture && p.model === config.model);
-  if (!pose) throw new Error("no installed posture for that body");
+  const installed = poses.find((p) => p.id === config.posture && p.model === config.model);
+  if (!installed) throw new Error("no installed posture for that body");
+  if (anatomy && anatomy.model !== config.model) throw new Error("invalid posture hold configuration");
+  const pose = placement ? { id: config.posture, model: config.model, placement: JSON.parse(JSON.stringify(placement)) as typeof installed.placement } : installed;
   if (!Number.isSafeInteger(config.hz) || config.hz < 120 || config.hz % 120 !== 0
     || ![config.servoSeconds, config.speed].every((v) => v > 0 && Number.isFinite(v))
     || !(config.activation >= 0 && config.activation <= 1)
     || (controller !== "direct" && controller !== "actuator")) throw new Error("invalid posture hold configuration");
-  const spec = modelSpec(config.model);
-  const configuration = deepFreeze({ ...config, task: "posture-hold", protocol: 1, settings: SETTINGS, pose,
-    ...(controller === "actuator" ? { anatomy: JSON.parse(JSON.stringify(spec, (key, value) => key === "provenance" ? undefined : value)) as object } : {}),
+  const spec = anatomy ?? modelSpec(config.model);
+  const configuration = deepFreeze({ ...settings, task: "posture-hold", protocol: 1, settings: SETTINGS, pose,
+    ...(controller === "actuator" || anatomy ? { anatomy: anatomyOf(spec) } : {}),
     engineRevision: engine.revision, gravity: true, pin: null, assists: { root: 0, weapon: false }, held: "empty",
     controller, sensing: "detached body observations", modelAccess: "actuator descriptions" });
   const world = createWorld(scene, engine, { hz: config.hz, gravity: true, actuation: config.actuation });
   world.physics.addFixedBox(SETTINGS.floor.centre, SETTINGS.floor.size);
-  const built = buildBody(spec, world, pose.placement as unknown as Parameters<typeof buildBody>[2]);
+  const built = buildBody(spec, world, pose.placement as unknown as Placement);
   const targets = Object.fromEntries([...built.joints].flatMap(([name, joint]) => joint.dofs.map((dof, i) =>
     [`${name} ${dof.spec.positive}`, (pose.placement.joints as Record<string, number[]>)[name]![i]!] as const)));
   const command = { action: deepFreeze({ kind: "torque", torque: Object.keys(targets).map(() => 0) }) as ActuatorAction };

@@ -189,6 +189,17 @@ Record the results in `docs/reference/man-postures.md`, naming harness, engine r
 loadout and assistance. Test: `tests/core-posture-hold.test.mjs` gains an override case, and the
 existing cases' traces stay identical.
 
+As built: the starts are placements in `docs/reference/man-postures.json`, which
+`research/man-posture-starts.mjs` writes from the statics' barefoot witnesses and checks by
+building each in a world of its own (within 4e-8 m), since the task builds its own body and
+`placeLike` places one already built. The barefoot squat is at 0.60 m: no barefoot squat at
+0.50 m holds. The direct suite takes `--envelope`, the barefoot jobs alone carrying it in their
+identity. The hands are read from each hand's ground manifolds that pushed, points within 1 mm of
+the ground. Fours holds on both envelopes; the barefoot half kneel falls where the boot's holds
+under the native rollouts, because the bare foot is a smaller base than the boot's box (the
+boot's own half-kneel angles ask twice the share barefoot); the transfer fails on both; the palm
+bears on about four points to the capsule's three and keeps its spread as the hands turn.
+
 ### Gate A
 
 Continue to phase B if all of these hold:

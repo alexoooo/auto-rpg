@@ -12,6 +12,7 @@ import { createCollisionProbe } from "../src/core/tasks/collision.ts";
 import { createBarProbe } from "../src/core/tasks/bar.ts";
 import { createSupportProbe } from "../src/core/tasks/support.ts";
 import { createPostureHoldProbe } from "../src/core/tasks/posture-hold.ts";
+import { postureStart } from "./man-posture-starts.mjs";
 import { createSupportEntryProbe } from "../src/core/tasks/support-entry.ts";
 import { createPointStrikeProbe } from "../src/core/tasks/point-strike.ts";
 import { createDefenseProbe } from "../src/core/tasks/defense.ts";
@@ -41,9 +42,10 @@ const suites = ["baseline", "recovery", "strike-block", "point-strike", "moving-
 
 /** Fully specified starts; a seed selects geometry, not a hidden source of simulation noise. */
 export function foundationJobs({ suite = "baseline", split = "development", samples = FOUNDATION.samples,
-  hz = 120, models = HUMANOID_MODELS, from = 0, actuation = "symmetric", support = "pinned", centreControl = false, continueSeconds = 1, shared = false, jointStops = false } = {}) {
+  hz = 120, models = HUMANOID_MODELS, from = 0, actuation = "symmetric", support = "pinned", centreControl = false, continueSeconds = 1, shared = false, jointStops = false, envelope = "boot" } = {}) {
   if (typeof jointStops !== "boolean" || jointStops && !["bar", "point-strike", "moving-strike", "defense"].includes(suite)) throw new Error("joint-stop prediction requires a motion probe suite");
   if (!suites.includes(suite)) throw new Error(`unknown suite ${suite}`);
+  if (!["boot", "barefoot"].includes(envelope) || envelope !== "boot" && suite !== "posture-hold") throw new Error("an envelope other than the boot requires the posture-hold suite");
   if (!["symmetric", "directional"].includes(actuation)) throw new Error(`unknown actuation ${actuation}`);
   if (!["pinned", "standing"].includes(support)) throw new Error(`unknown support ${support}`);
   if (typeof centreControl !== "boolean" || !(Number.isFinite(continueSeconds) && continueSeconds > 0)) throw new Error("invalid centre control or continuation");
@@ -70,7 +72,7 @@ export function foundationJobs({ suite = "baseline", split = "development", samp
     if (split !== "development") throw new Error("installed posture holds have no held-out dataset");
     for (const model of models) for (const posture of ["fours", "half-kneel", "squat"]) for (const servoSeconds of [.1, .03, .01]) {
       add({ task: "posture-hold", model, posture, servoSeconds, speed: 10, activation: 1, held: "empty", controller: "direct",
-        checkpointSeconds: 2, watchSeconds: 10, sampleHz: 120 });
+        checkpointSeconds: 2, watchSeconds: 10, sampleHz: 120, ...(envelope === "boot" ? {} : { envelope }) });
     }
     return jobs;
   }
@@ -414,11 +416,11 @@ async function supportTrial(job) {
 async function postureHoldTrial(job) {
   if (job.model !== "workshop-fighter") return { status: "unsupported", reason: "no installed posture witness for this body" };
   const engine = await freshEngine(), rendering = new NullEngine(), scene = new Scene(rendering);
-  const probe = createPostureHoldProbe(scene, engine, job);
+  const probe = createPostureHoldProbe(scene, engine, { ...job, ...postureStart(job.envelope ?? "boot", job.posture) });
   try {
     const result = replayedProbe(probe, job), outcome = result.outcome;
     return { status: "measured", configuration: probe.configuration, ...result, outcome: { ...outcome, success: outcome.success && outcome.replayExact },
-      limits: ["installed empty-handed Warrior pose; no entry, recovery or disturbance", "direct joint feedback without root or contact planning",
+      limits: [job.envelope ? "the statics' barefoot witness as the start, the boot's mass properties" : "installed empty-handed Warrior pose; no entry, recovery or disturbance", "direct joint feedback without root or contact planning",
         "maximum segment drift includes startup", "fixed development witnesses; no held-out evaluation"] };
   } finally { probe.dispose(); scene.dispose(); rendering.dispose(); }
 }

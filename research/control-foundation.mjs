@@ -79,7 +79,7 @@ export function summarizeFoundation(rows) {
     const key = [job.actuation ?? "symmetric", job.task, job.model, job.held, job.hand ?? "", job.target ?? "", job.recovery ?? "", job.guard ?? "",
       ...(job.controller ? [job.controller] : []), ...(job.task === "ccd" ? [job.mode, `ccd=${job.ccd}`] : []),
       ...(job.task === "solver" ? [job.representation, job.sense] : []), ...(job.task === "support" ? [job.side] : []),
-      ...(job.task === "posture-hold" ? [job.posture, job.servoSeconds] : []),
+      ...(job.task === "posture-hold" ? [job.posture, job.servoSeconds, job.envelope ?? "boot"] : []),
       ...(job.task === "support-entry" ? [job.direction] : []),
       ...(job.task === "point-strike" ? [job.hands, job.miss ? "miss" : "hit", ...(job.swing ? ["swing", job.swing.tracking ? "tracked" : "fixed-aim", job.swing.braking ? "brake" : "continue"] : [])] : []),
       ...(job.task === "defense" ? [job.hands, job.variant] : []),
@@ -137,10 +137,11 @@ async function main() {
     support: { type: "string", default: "pinned" },
     "centre-control": { type: "boolean", default: false }, "continue-seconds": { type: "string", default: "1" },
     shared: { type: "boolean", default: false }, "joint-stops": { type: "boolean", default: false },
+    envelope: { type: "string", default: "boot" },
   } });
   const options = { suite: values.suite, split: values.split, samples: Number(values.samples), from: Number(values.from), hz: Number(values.hz),
     actuation: values.actuation, support: values.support, centreControl: values["centre-control"], continueSeconds: Number(values["continue-seconds"]),
-    shared: values.shared, jointStops: values["joint-stops"],
+    shared: values.shared, jointStops: values["joint-stops"], envelope: values.envelope,
     ...(values.models ? { models: values.models.split(",") } : {}) };
   const jobs = foundationJobs(options), started = new Date().toISOString();
   const directory = resolve(values.out ?? resolve(root, "research/runs/control-foundation", `${started.replaceAll(":", "-")}-${randomUUID()}`));
