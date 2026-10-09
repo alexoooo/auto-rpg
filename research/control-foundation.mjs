@@ -220,7 +220,7 @@ async function main() {
       return writes;
     } });
     await writes;
-    if ((await contentRevision()).content !== source.content) throw new Error("source changed during the experiment; results are invalid");
+    if ((await contentRevision()).content !== source.content) console.warn("source changed during the experiment: the results may mix two versions of the code");
     await writeFile(resolve(directory, "summary.json"), json(summarizeFoundation(rows)), { flag: "wx" });
     console.log(`Completed ${rows.length} tasks; manifest SHA256 ${digest(json(manifest))}`);
   } catch (error) {

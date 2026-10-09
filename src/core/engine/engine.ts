@@ -7,7 +7,7 @@ import type { Vec3 } from "../spec/quantity.ts";
  * bodies (`src/core/build/build-body.ts`) and steps them (`src/core/world.ts`) through these
  * interfaces alone; an engine is one module beside this one that implements them (`rapier.ts`) and
  * is named in `engines.ts`, so a candidate that passes the physics bench (`src/physics-bench/`) runs
- * under the core's tests by writing that module (`CORE_ENGINE=<name> npm test`).
+ * under the core's tests by writing that module (`CORE_ENGINE=<name> npm run test:all`).
  *
  * The contract, which an engine meets or converts to:
  * - **The step is fixed.** `PhysicsWorld.step` takes the world's step and nothing else, and after it

@@ -349,4 +349,4 @@ After it, each with its own plan, in the order each needs the one before:
 ### Engines
 
 - **Another engine** (Box3D, Jolt or another): a bench adapter in `src/physics-bench/engines/`
-  first, then `src/core/engine/<name>.ts` and `CORE_ENGINE=<name> npm test`.
+  first, then `src/core/engine/<name>.ts` and `CORE_ENGINE=<name> npm run test:all`.

@@ -26,7 +26,7 @@ Requires **Node 22.13.0 or newer**; `.npmrc` sets `engine-strict=true`, so an ol
 npm ci        # not `npm install`: the exact lockfile
 npm run dev   # http://localhost:5180
 npm run check # tsc, no emit
-npm test      # the core's tests, headless, and the pages' rules
+npm test      # the fast tests: the core, the rules and a short bout (npm run test:all: every test)
 npm run build # check, then the production bundle
 ```
 

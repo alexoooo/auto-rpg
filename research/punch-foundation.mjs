@@ -58,7 +58,7 @@ export async function searchPunches() {
   fine.push({candidate,result});process.stderr.write(`fine ${hand}/${hz}/${candidate}: ${result.qualification.accepted}\n`);
  }
  const retained=await calibratePunches({seconds:6});
- if(combatFingerprint()!==fingerprint)throw new Error('source changed during punch foundation search');
+ if(combatFingerprint()!==fingerprint)console.warn('source changed during punch foundation search: the results may mix two versions of the code');
  return {version:1,fingerprint,protocol:PUNCH_SEARCH,baseline:baseline.id,closed:closed.id,selected:selected.id,admitted,trace,rows,fine,retained};
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){

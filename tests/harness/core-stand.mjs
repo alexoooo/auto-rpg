@@ -1,6 +1,6 @@
 /**
  * **The core's Node stand**: one body built from a spec, on a ground, in a world of its own on the
- * engine `CORE_ENGINE` names (Rapier unless named: `CORE_ENGINE=<name> npm test`).
+ * engine `CORE_ENGINE` names (Rapier unless named: `CORE_ENGINE=<name> npm run test:all`).
  *
  * A `NullEngine` and a `Scene` hold the nodes; the core's world (`createWorld`,
  * `src/core/world.ts`) steps the engine, as the page does. The body is built through `buildBody`

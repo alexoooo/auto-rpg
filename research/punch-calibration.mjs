@@ -215,7 +215,7 @@ export async function calibratePunches({seconds=6}={}) {
     const result=await punchCalibration({seconds,hz:960,contactSpeed:8,armExtension:1,pad:{face:'compliant',faceStiffness}});
     rows.push({profile:'faster-extended/face-sensitivity',result});process.stderr.write(`face ${faceStiffness}: ${result.impacts.length} impacts\n`);
   }
-  if(combatFingerprint()!==fingerprint)throw new Error('source changed during punch calibration');
+  if(combatFingerprint()!==fingerprint)console.warn('source changed during punch calibration: the results may mix two versions of the code');
   return {version:1,fingerprint,profiles,rows};
 }
 

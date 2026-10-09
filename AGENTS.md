@@ -8,30 +8,30 @@ built; `docs/roadmap.md` says where it is going. This file is the rules for work
 ## Commands
 
 ```powershell
-npm ci        # not `install`: the exact lockfile
-npm run dev   # http://localhost:5180, strictPort
-npm run check # tsc --noEmit
-npm test      # node --test tests/*.test.mjs
-npm run build # check, then vite build
+npm ci           # not `install`: the exact lockfile
+npm run dev      # http://localhost:5180, strictPort
+npm run check    # tsc --noEmit
+npm test         # the fast tier, about 45 s: every test file but tests/slow.json's
+npm run test:all # every test file, as CI runs them
+npm run build    # check, then vite build
 ```
 
-**Validate according to what changed.** During iteration, run the smallest meaningful check;
-apply the landing gate once to the final candidate. Reuse completed checks while their inputs
-are unchanged; a follow-on document edit does not require another physics run.
+**Speed comes first.** A change is checked for whether it broke the core, not re-qualified:
 
-- **Documents only** (`docs/`, `README.md`, `AGENTS.md`): verify referenced files, links and
-  construct names, run `git diff --check` and the line-ending gate below. No runtime tests,
-  type check or build are required for changes confined to prose.
-- **Routine code**: run `npm run check` and the relevant whole-path tests. For changes under
-  `src/`, also run `node --test tests/core-boundary.test.mjs tests/exports.test.mjs tests/comments.test.mjs`.
-  Run `npm run build` when browser code, rendering, delivered assets, dependencies or build
-  configuration change; verify the affected built-browser behavior where appropriate.
-- **Shared runtime or physical behavior**: run `npm test`, `npm run check` and `npm run build`
-  before landing. This includes world stepping, engines, bodies/specs, muscle/control/skill/mind
-  contracts, combat rules, deterministic arithmetic and state/snapshot/replay behavior. Run the
-  applicable behavior lock and qualification measurements as well. Broaden to this gate when
-  a change's effects cannot be bounded by targeted tests.
-- **CI** retains the full test, type-check and build gate (`.github/workflows/pages.yml`).
+- **Every code change**: `npm run check` and `npm test`. That is the whole gate. `npm test` holds
+  the core's contracts, the source rules (boundary, exports, comments, provenance) and a short
+  Arena bout that must wound both sides and play the same twice (`tests/smoke.test.mjs`). Add
+  `npm run build` when browser code, assets, dependencies or build configuration change.
+- **Run a slow test by name** when the change is about what it covers (`node --test
+  tests/<file>`); `npm run test:all` only when asked, or before merging a large change of the
+  world step, the engine or the body. CI runs it on every push (`.github/workflows/pages.yml`).
+- **Documents only**: check the files and names they cite, `git diff --check`, and the
+  line-ending gate below.
+- **No measurement unless the question is a measurement.** A feature lands without a battery, a
+  reference record, a step-cost reading, a fingerprint or a browser check. Look in a browser when
+  the change is something to see, briefly; the owner judges motion there themselves. The
+  fingerprint (`scripts/fingerprint.mjs`) is for a refactor that claims to change no behaviour.
+- **A new test file is fast** (under about 10 s), or it goes in `tests/slow.json`.
 
 Name the checks run and any unresolved failures when landing. Commit each landable change as
 it lands. Do not leave a development server running. Port 5180 may be the owner's server: do
@@ -184,9 +184,9 @@ screens build on it; it never imports them.
   extension, and TypeScript parameter properties are forbidden there (Node strips types only).
 - **The headless stand** (`tests/harness/core-stand.mjs`): `coreStand(spec)` builds one body on a
   ground in a world of its own; `createWorld(scene, await freshEngine())` makes a bare world.
-  `CORE_ENGINE=<name> npm test` runs the stand on another engine.
-- **A green test can assert nothing.** Mutate the subject and watch it go red. Assert whole
-  records, sample both sides of an asymmetric range, and choose a fixture that can show the defect.
+  `CORE_ENGINE=<name> npm run test:all` runs the stand on another engine.
+- **A green test can assert nothing.** Assert whole records, and choose a fixture that can show
+  the defect.
 - **Test the whole path, not its two ends.** A fixture may simplify the world but not describe one
   that cannot exist.
 - **Test navigation on several seeds**; one generated map proves little.
@@ -194,6 +194,8 @@ screens build on it; it never imports them.
 - **Under CPU load a dropped test count is a timeout**, not a regression; re-run on a quiet machine.
 
 ## Measurement
+
+When the question is a measurement:
 
 - **Name the harness in every figure** (Node stand or page, engine, rate). Page and Node readings
   of the same code have differed. An arena bout is the same in both to the bit
@@ -214,8 +216,10 @@ screens build on it; it never imports them.
   in a comment: work sessions, plan stages, commit hashes, dates of change, what the code used to
   do, or code and engines that no longer exist. The story of a change goes in its commit message.
   `tests/comments.test.mjs` refuses the common markers.
-- **A tuned constant's comment says what it does and where its value came from**: a `SOURCES` entry
-  or a record under `docs/reference/`. The sweep table lives in the record, not the code.
+- **A tuned constant of the body or the rules says where its value came from** (`src/core/spec`,
+  `human`, `muscle`, `build`, `items`, `rules`): a `SOURCES` entry or a record under
+  `docs/reference/`, which `tests/constants.test.mjs` holds it to. Elsewhere (tactics, skills,
+  screens, experiments) a constant's comment says what it does, and it is tuned freely.
 - **Name the construct, not a line number.**
 - **A comment about a code path is a hypothesis until the path has run.**
 - **Switch on a union with a `never` default**; a ternary chain with a default branch silently
@@ -243,17 +247,18 @@ screens build on it; it never imports them.
 - `README.md`: the game, for people. `AGENTS.md`: this file.
 - `docs/architecture.md`: how the game is built, in the present tense.
 - `docs/roadmap.md`: the direction and the open items.
-- `docs/plans/`: only plans being carried out, each directly implementable (exact files,
-  constructs, tests, commands), split into chunks that land green. A plan is deleted when it
-  lands; code and comments never cite a plan.
-- `docs/reference/`: records that code and `SOURCES` cite: sweep tables, measurements, reference
-  data.
+- `docs/plans/`: only a plan the owner asks for, for work over several sessions. An ordinary
+  feature is built straight away, in small commits. A plan is deleted when it lands; code and
+  comments never cite a plan.
+- `docs/reference/`: records that the body's and the rules' numbers cite, and measurements the
+  owner asked for. A feature needs no record.
 - `docs/analysis/`: studies behind a decision still open, named by date: what was tried, measured
   and found. Code never cites one. Once the decision is made, what lasts moves to the
   architecture, the roadmap or a reference record, and the study is deleted.
 - `docs/art/`: how the art is made and rebuilt: `crypt.md`, `characters.md`, `skeleton.md`.
 
-A document that is wrong is corrected or deleted, not annotated.
+A document that is wrong is corrected or deleted, not annotated. A change updates the documents
+it makes wrong, and writes no new ones.
 
 ## Line endings
 

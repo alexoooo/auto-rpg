@@ -26,7 +26,7 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - run: npm test
+      - run: npm run test:all
       - run: npm run check
       - run: npm run build -- --base=/auto-rpg/
       - uses: actions/upload-pages-artifact@v3

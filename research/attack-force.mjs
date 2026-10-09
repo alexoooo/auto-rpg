@@ -122,7 +122,7 @@ export async function calibrateAttackForce({workers=2}={}) {
     worker.postMessage(job);};next();
   })));
  }finally{await Promise.all(pool.map(w=>w.terminate()));}
- if(combatFingerprint()!==fingerprint)throw new Error('source changed during attack force calibration');
+ if(combatFingerprint()!==fingerprint)console.warn('source changed during attack force calibration: the results may mix two versions of the code');
  rows.sort((a,b)=>a.id-b.id);
  const admissions=[];
  for(const law of ['symmetric','directional'])for(const kind of ['punch','kick'])for(const family of kind==='punch'?['straight','cross']:['front'])

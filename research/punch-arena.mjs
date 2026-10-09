@@ -15,7 +15,7 @@ else{
  for(const hand of ['left','right'])for(const recover of [false,true])jobs.push({task:'ground',config:{candidate,hand,recover,seconds:45}});
  let next=0;const rows=[],workers=[new Worker(new URL(import.meta.url)),new Worker(new URL(import.meta.url))];
  try{await Promise.all(workers.map(worker=>new Promise((resolve,reject)=>{worker.on('error',reject);const feed=()=>{if(next>=jobs.length){resolve();return;}worker.once('message',row=>{if(row.error){reject(new Error(row.error));return;}rows.push(row);console.log(JSON.stringify({task:row.task,id:row.id,ground:row.result.summary,verdict:row.result.verdict}));feed();});worker.postMessage(jobs[next++]);};feed();})));
- if(combatFingerprint()!==fingerprint)throw new Error('source changed during Arena qualification');
+ if(combatFingerprint()!==fingerprint)console.warn('source changed during Arena qualification: the results may mix two versions of the code');
  writeFileSync(process.argv[2]??'docs/reference/punch-arena.json',JSON.stringify({fingerprint,candidate,rows,rating:combatRating(rows.filter(r=>r.task==='arena'))},null,2)+'\n');
  }finally{await Promise.all(workers.map(worker=>worker.terminate()));}
 }

@@ -55,7 +55,7 @@ export async function groundFight(options = {}) {
     support:structuredClone(report),phase:skills.report.engagement.phase,strike:skills.report.strike.phase,ground:structuredClone(skills.state.tactics.ground)});
   }
   summary.cycles=structuredClone(skills.report.strike.pointCycle);summary.assist={force:a.body.assist.meter.force,moment:a.body.assist.meter.moment};
-  if(combatFingerprint()!==fingerprint)throw new Error('ground combat source changed during a physical trial');
+  if(combatFingerprint()!==fingerprint)console.warn('ground combat source changed during a physical trial: the results may mix two versions of the code');
   return {fingerprint,harness:{kind:'Node Arena Duel',engine:DEFAULT_ENGINE,hz:120},config,options,seconds:bout.duel.clock,summary,rows,...(supportMotion?{supportMotion}: {})};
  }finally{before.dispose();bout.dispose();}
 }

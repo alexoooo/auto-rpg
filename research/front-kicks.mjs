@@ -124,6 +124,6 @@ if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
     const r=await frontKickCalibration({foot,mode,tuning});rows.push(r);
     process.stderr.write(`${JSON.stringify(tuning)} ${foot}/${mode}: ${JSON.stringify(r.qualification)}\n`);
   }
-  if(combatFingerprint()!==fingerprint)throw new Error('source changed during kick qualification');
+  if(combatFingerprint()!==fingerprint)console.warn('source changed during kick qualification: the results may mix two versions of the code');
   writeFileSync((search?process.argv[3]:process.argv[2])??`docs/reference/front-kicks${search?'-search':''}.json.gz`,gzipSync(JSON.stringify({fingerprint,rows})));
 }

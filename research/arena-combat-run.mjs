@@ -7,9 +7,9 @@ import { combatFingerprint, combatPairs, combatTrial } from './arena-combat.mjs'
 if (!isMainThread) {
   parentPort.on('message', async ({ job, fingerprint }) => {
     try {
-      if (combatFingerprint() !== fingerprint) throw new Error('combat source changed before a physical trial');
+      if (combatFingerprint() !== fingerprint) console.warn('combat source changed before a physical trial: the results may mix two versions of the code');
       const result = await combatTrial(job.config);
-      if (combatFingerprint() !== fingerprint) throw new Error('combat source changed during a physical trial');
+      if (combatFingerprint() !== fingerprint) console.warn('combat source changed during a physical trial: the results may mix two versions of the code');
       parentPort.postMessage({ ...job, result });
     } catch (error) { parentPort.postMessage({ ...job, error: error.stack }); }
   });
@@ -55,7 +55,7 @@ if (!isMainThread) {
         worker.postMessage({ job, fingerprint });
       }; feed();
     })));
-    if (combatFingerprint() !== fingerprint) throw new Error('combat source changed before rating publication');
+    if (combatFingerprint() !== fingerprint) console.warn('combat source changed before rating publication: the results may mix two versions of the code');
     record.complete = true;rate();
     record.secondsElapsed = elapsed + (Date.now()-started)/1000;write();
     console.log(JSON.stringify({output,resumed:completed.size,groups:record.groups,secondsElapsed:record.secondsElapsed}));

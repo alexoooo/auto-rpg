@@ -224,7 +224,7 @@ body's velocities as read until the next step, or an impulse, new mass or a hold
 reads each a few times a step and every read through Rapier's binding makes an object. `engines.ts`
 lists the engines and is the only module in `src/core/` or the lab that imports one. A candidate
 is tried on the physics bench (`src/physics-bench/engines/`) first, then added to `ENGINES` and run
-under the core's tests with `CORE_ENGINE=<name> npm test`.
+under the core's tests with `CORE_ENGINE=<name> npm run test:all`.
 
 ### Muscles
 

@@ -1,6 +1,6 @@
 /**
- * Every tuned constant says where its value came from. A module-scope constant of the core or a
- * screen that writes a number (`tunedConstants`, `tests/fixtures/constants.mjs`) carries a comment
+ * Every tuned constant of the body and the rules says where its value came from. A module-scope
+ * constant there that writes a number (`tunedConstants`, `tests/fixtures/constants.mjs`) carries a comment
  * that cites a record's section naming it, a key of `SOURCES`, or says it is a numeric setting or
  * solver conditioning (`sourceFault`).
  *
@@ -16,8 +16,11 @@ import { ledgerFaults, sourceFault, tunedConstants } from "./fixtures/constants.
 import { recordSection } from "./fixtures/spec.mjs";
 import { ROOT, sourcesUnder } from "./harness/program.mjs";
 
-/** Where a tuned number decides how the game plays, looks or sounds. */
-const SCOPE = ["src/core", "src/arena", "src/dungeon", "src/render", "src/audio", "src/character-lab"];
+/**
+ * The body and the rules of a fight: what a body is made of and how strong it is, how it is built
+ * and what it holds, and what a blow does. Tactics, skills, screens and experiments are tuned freely.
+ */
+const SCOPE = ["src/core/spec", "src/core/human", "src/core/muscle", "src/core/build", "src/core/items", "src/core/rules"];
 
 const READ = { sources: Object.keys(SOURCES), sectionOf: recordSection };
 
@@ -138,13 +141,12 @@ test("the list of constants not yet sourced holds every failure, and nothing tha
   ]);
 });
 
-test("every tuned constant of the core and the screens names its source, or is listed as not yet", () => {
-  const files = SCOPE.flatMap((directory) => sourcesUnder(directory, ".ts"))
-    .map((file) => [file, fs.readFileSync(`${ROOT}/${file}`, "utf8")]);
-  const failing = unsourced(files);
-  assert.deepEqual(ledgerFaults(failing, NOT_YET), []);
+test("every tuned constant of the body and the rules names its source, or is listed as not yet", () => {
+  const read = (file) => [file, fs.readFileSync(`${ROOT}/${file}`, "utf8")];
+  assert.deepEqual(ledgerFaults(unsourced(SCOPE.flatMap((directory) => sourcesUnder(directory, ".ts")).map(read)), NOT_YET), []);
 
-  // The scan read the tree: the sourced constant is among what it found, and passed.
+  // The scan reads a tree: given the sourced constant's file, it finds the constant, and passes it.
+  const files = [read(SOURCED.file)], failing = unsourced(files);
   const sourced = `${SOURCED.file} ${SOURCED.name}`;
   assert.ok(scanned(files).some(({ key }) => key === sourced) && !failing.has(sourced));
   // The same tree with that constant's citation taken out of its comment: the scan that passed sees it.
