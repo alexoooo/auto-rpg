@@ -65,7 +65,12 @@ experiments are `docs/analysis/2026-10-05-recovery-support.md@7f3ebcdb`.
    muscles carry. The ranges are data that a run can change without a code change (chunk 2,
    "Flexible by construction").
 3. **Extend or replace the whole-body layer.** Chunk 3 records what `wholeBodyTracking` achieves
-   on the spike, at what cost per step. Chunk 4 goes ahead on the answer the owner picks.
+   on the spike, at what cost per step. Asked 2026-10-08: the owner chose the cheaper option that
+   meets the punch's bar, first a punch layer on today's stance, then the whole-body solve during a
+   blow. Neither meets it: the solve lands at 4.2 to 4.4 m/s
+   ([whole-body spike](../reference/whole-body-spike.md)), and the layer lands almost nothing
+   (`docs/analysis/2026-10-08-punch-layer.md`). Chunk 4 goes ahead on the owner's call among
+   that study's choices.
 
 ## Chunks, each landing green
 

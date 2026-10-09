@@ -53,7 +53,7 @@ export function supportEntryPolicy(built: BuiltBody, model: Pick<MotionModel, "c
 export function supportRecovery(own: OwnBody, view: BodyView, world: World): SubMind {
   const { built, muscles } = own;
   const rise = stagedRise(own, view), feet = footStatesOf(built), legs = locomotion(null);
-  const motor = motorControl(built, SERVO_SECONDS, guardPosture(built), undefined, own.assist);
+  const motor = motorControl(built, SERVO_SECONDS, guardPosture(built.spec), undefined, own.assist);
   const observe = observeBody(built, muscles, world, () => view.senses);
   const state = { phase: "complete" as "rise" | "stabilize" | "complete", rise: rise.state, motor: motor.state, legs: legs.state,
     time: 0, ready: 0, retries: 0, completed: 0 };

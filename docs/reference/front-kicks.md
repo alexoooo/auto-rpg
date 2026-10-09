@@ -25,7 +25,7 @@ required before preparation and after placement.
 | contactSpeed | 2 m/s | Requested terminal speed, not measured force |
 | soleTurn | 0.2 | Fraction of a quarter turn during the stroke |
 | prepareLimit / returnLimit | 4 / 2 s | Measured preparation and withdrawal deadlines |
-| near / slow / hold | 0.04 m / 0.3 m/s / 0.05 s | Endpoint admission |
+| near / slow / hold | 0.04 m / 0.3 m/s / 0.05 s | Endpoint admission; the home's and a set-down's height over the place |
 | followSeconds | 0.04 s | Finite ordinary follow-through |
 | impactSeconds / impactTravel / normalAlignment | 0.04 s / 0.04 m / 0.5 | Matched-contact ceilings and directional cosine |
 | response | 0.1 s | Muscle tracking response, separate from path duration |
@@ -35,22 +35,26 @@ required before preparation and after placement.
 | recenterLimit | 4 s | Quiet double-support deadline |
 | startup / cooldown | 2 / 1 s | Initial settling and inter-cycle rest |
 
-Withdrawal returns toward the captured ground strike point and restores ordinary
-standing height. Placement then verifies the captured sole position and rotation,
-positive ground load and quiet motion. Recentring requires quiet double support
-and COM within 2 cm of the actual sole midpoint. Only the whole sequence counts a
-returned kick. Deadlines count failures; cancellation before a stroke counts an
-interruption. Recovery takeover discards the foot path through the common skill
-resume list.
+Withdrawal returns to a home `near` over the captured strike point and restores
+ordinary standing height. Placement carries the sole `near` over its captured place
+while it is off it across the ground by more than `placement`, and sets it down from
+there; it then verifies the captured sole position and rotation, positive ground load
+and quiet motion. A foot brought back to the ground itself lands short of its place
+and is held there by its friction, pressed toward a captured sole that lies a few
+millimetres under the surface: it times out its return or its placement (below).
+Recentring requires quiet double support and COM within 2 cm of the actual sole
+midpoint. Only the whole sequence counts a returned kick. Deadlines count failures;
+cancellation before a stroke counts an interruption. Recovery takeover discards the
+foot path through the common skill resume list.
 
 ## Harness and qualification
 
 `node research/front-kicks.mjs` records six cases in
-`front-kicks.json.gz`. Harness: Node unpinned Warrior stand, `rapier-coordinate`,
-120 Hz, empty hands, balance 0, symmetric actuation, 24 s per case. Both feet target
-world (+/-0.1, 0.45, 0.45) m. The sliding compliant pad has an 8 cm high contact
-window; its mass, mount and material law retain `punchPad` assumptions. Every actual
-body segment can load it. Pad momentum independently measures impulse, and whole
+`front-kicks.json.gz`. Harness: Node unpinned Warrior stand built in its guard,
+`rapier-coordinate`, 120 Hz, empty hands, balance 0, symmetric actuation, 24 s per
+case. Both feet target world (+/-0.1, 0.45, 0.45) m. The sliding compliant pad has an
+8 cm high contact window; its mass, mount and material law retain `punchPad`
+assumptions. Every actual body segment can load it. Pad momentum independently measures impulse, and whole
 force histories, point motion, support loads and motor bounds are retained.
 
 Admission requires three clean impacts and three verified returns per hit case,
@@ -71,12 +75,15 @@ a faster profile. This does not establish trained-adult force parity.
 | Swing / terminal request | Left hit / miss / block | Right hit / miss / block | Selection |
 | --- | --- | --- | --- |
 | 0.4 s / 2 m/s | pass / pass / pass | pass / pass / pass | stand reference |
-| 0.35 s / 2.5 m/s | failed impact/return / pass / pass | failed impact/return / failed return / pass | rejected |
+| 0.35 s / 2.5 m/s | pass / pass / pass | pass / pass / pass | qualified, not selected |
 | 0.3 s / 3 m/s | pass / pass / pass | pass / pass / pass | Arena profile |
 
-At the conservative setting the four clean left impacts deliver 8.031, 7.408, 6.937
-and 7.182 N s; the right delivers 8.403, 7.423, 7.224 and 7.313 N s. Per-step peak
-forces span 223-250 N on the left and 206-243 N on the right in this apparatus.
+At the conservative setting the four clean left impacts deliver 7.645, 7.775, 7.855
+and 7.966 N s; the right delivers 7.932, 7.714, 7.730 and 7.581 N s. Per-step peak
+forces span 229-241 N on the left and 225-235 N on the right in this apparatus.
+With the foot returned to the ground itself, and the body built in its reference
+pose, the 0.35 s / 2.5 m/s cell failed its left and right hits' returns and its right
+miss's, and was rejected.
 These are low shin-height contacts. The clipped-window meter supplies continuous
 partial-surface loads instead of dropping them when a foremost corner misses the face.
 
@@ -101,8 +108,8 @@ after each finished request.
 
 The Arena profile selects the six-cell qualified 0.3 s / 3 m/s candidate; the
 stand's `KICK_PATH` remains the conservative 0.4 s / 2 m/s reference. The
-faster profile's mean clean stand impulses are 10.759 N s left and 10.517 N s
-right, compared with 7.389 and 7.591 N s for the conservative profile, under
+faster profile's mean clean stand impulses are 10.112 N s left and 10.300 N s
+right, compared with 7.810 and 7.739 N s for the conservative profile, under
 the same Node apparatus, 120 Hz, symmetric actuation and balance 0. This is a
 trajectory improvement, with unchanged anatomy. These means include every
 eligible complete hit in the fixed 24 s trial and do not claim human parity.
@@ -127,6 +134,21 @@ The quiet-opponent gate rarely admits kicks in self-play. This profile establish
 integration and a narrow physical capability, not stronger competitive combat.
 Orders, real falls, recovery takeover and bit-exact fresh-world Arena replay have
 separate tests. High kicks, roundhouse kicks, stomps and jumping attacks remain open.
+
+Setting the foot down from over its place, rather than bringing it back to the
+ground itself, is measured in Node Arena Duels (`combatTrial`, `research/arena-combat.mjs`),
+`rapier-coordinate`, 120 Hz, empty hands, both sides' balance 0: the Kicker on each side
+against a Scrapper ordered to stand, 90 s, from 20 gaps of 3.5 to 4.5 m, 40 bouts a row. A
+cycle is a returned or a failed kick. The failures it removes are returns and placements
+that time out with the foot on the ground short of its place.
+
+| Body built in / foot returned | Cycles | Failed | Bouts with a failure | Falls | Native kick contacts | Driven kicks |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| reference pose / to the ground | 154 | 12 (7.8 %) | 10 | 1 | 244 | 169 |
+| guard / to the ground | 153 | 16 (10.5 %) | 14 | 3 | 241 | 165 |
+| guard / over its place, then set down | 161 | 1 (0.6 %) | 1 | 0 | 261 | 182 |
+
+The one failure left is a return that timed out at 2 s.
 
 Private production preview browser QA renders the selected empty-hand Kicker and
 Scrapper, shows punching fallback and the ordered standing-defender kick setup,

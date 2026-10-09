@@ -4,7 +4,7 @@
  * from went on, in the bout it came from or in another of the same recipe. Node, core world,
  * Rapier, 120 Hz.
  *
- * The bout is the fighter against the rogue from 4.5 m apart, each with a balance of 25 %, each
+ * The bout is the fighter against the rogue from 3.25 m apart, each with a balance of 25 %, each
  * seeing the other a step late, under a tape that orders the left side back before step 300
  * and hands it back to itself before step 420. It crosses blows thrown by a recipe and one placed.
  *
@@ -32,7 +32,7 @@ import { traceOf } from "./harness/trace.mjs";
 
 const { threatOf } = threatReader();
 
-const RECIPE = deepFreeze({ left: "workshop-fighter", right: "workshop-rogue", gap: 3.5, balance: { left: 25, right: 25 }, senseDelay: 1 });
+const RECIPE = deepFreeze({ left: "workshop-fighter", right: "workshop-rogue", gap: 3.25, balance: { left: 25, right: 25 }, senseDelay: 1 });
 /** The same bout with both sides covering what threatens them (`RecipeFighterConfig.guard`). */
 const COVERING = deepFreeze({ ...RECIPE, minds: { left: { ...RECIPE_FIGHTER, guard: "cover" }, right: { ...RECIPE_FIGHTER, guard: "cover" } } });
 const BACK = { move: { x: -1, z: 0 }, face: null, attack: null };
@@ -98,6 +98,14 @@ function stepped(stand, steps) {
   const trace = traceOf(stand.builts);
   for (let i = 0; i < steps; i++) { stand.advance(); trace.take(); }
   return trace.digest();
+}
+
+/** A bout stepped from where it stands to its verdict, or `most` steps: how many it took, and their digest as `stepped` reads it. */
+function toVerdict(stand, most) {
+  const trace = traceOf(stand.builts);
+  let steps = 0;
+  for (; steps < most && stand.duel.verdict === null; steps++) { stand.advance(); trace.take(); }
+  return { steps, digest: trace.digest() };
 }
 
 /** The bout's state and physics loaded, and nothing shown of them: the senses show the step the bout was at. */
@@ -168,16 +176,15 @@ test("a_bout_rewinds", async () => {
     assert.equal(JSON.stringify(tape), given, "the tape it was given to play is not written into");
     assert.equal(stepped(stand, 360), first);
     assert.deepEqual(saveState(duel.state), was);
-    // And in the middle, across its first blows and its verdict.
-    stepped(stand, 600);
-    const saved = duel.save(), on = stepped(stand, 600), then = saveState(duel.state), blows = [...duel.blows], [blow] = blows;
+    // And in the middle, between its orders and before its first blow, across its blows to its verdict.
+    const saved = duel.save(), { steps, digest: on } = toVerdict(stand, 120 * 60), then = saveState(duel.state), blows = [...duel.blows], [blow] = blows;
     const told = JSON.stringify(blows), verdict = duel.verdict;
     assert.ok(verdict !== null, `no verdict by step ${duel.steps}`);
     assert.ok(blows.length > 0 && Object.isFrozen(blow) && Object.isFrozen(blow.point) && blow.sides.every((side) => Object.isFrozen(side) && Object.isFrozen(side.wound ?? side)),
       "a blow landed, and is frozen as it landed");
     duel.load(saved);
-    assert.deepEqual([duel.steps, duel.blows.length], [960, 0]);
-    assert.equal(stepped(stand, 600), on);
+    assert.deepEqual([duel.steps, duel.blows.length], [360, 0]);
+    assert.equal(stepped(stand, steps), on);
     assert.deepEqual(saveState(duel.state), then);
     assert.equal(JSON.stringify(duel.blows), told);
     assert.equal(JSON.stringify(blows), told, "the blows it had landed are as they were");

@@ -24,7 +24,7 @@ import { woodenClub } from "../src/core/items/club.ts";
 import { recipeTactics } from "../src/core/mind/recipe-tactics.ts";
 import { STRAFE } from "../src/core/mind/ordered.ts";
 import { driveBy } from "../src/core/mind/tactics.ts";
-import { wrap } from "../src/core/skills/locomotion.ts";
+import { wrap } from "../src/core/math/turn.ts";
 import { coreStand } from "../tests/harness/core-stand.mjs";
 
 const FACINGS = { "the walk": null, ahead: 0, "a quarter turn": Math.PI / 2, "a half turn": Math.PI };

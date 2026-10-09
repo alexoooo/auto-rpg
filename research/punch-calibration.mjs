@@ -9,6 +9,7 @@ import { createBody, SERVO_SECONDS } from '../src/core/body.ts';
 import { DEFAULT_ENGINE } from '../src/core/engine/engines.ts';
 import { NO_COVER } from '../src/core/mind/intent.ts';
 import { combatSkills } from '../src/core/skills/combat.ts';
+import { guardPosture } from '../src/core/skills/guard.ts';
 import { aimOf } from '../src/core/skills/strikes.ts';
 import { ATTACK_PATH } from '../src/core/skills/attack-path.ts';
 import { motionAtToRef, pointOfToRef, turnOfToRef } from '../src/core/control/support.ts';
@@ -47,7 +48,7 @@ export async function punchStand({model='workshop-fighter',hand='right',family='
     || ![120,240,480,960,1920].includes(hz) || ![seconds,ahead,height,across,contactSpeed,armExtension].every(Number.isFinite)
     || seconds<=2 || ahead<=0 || contactSpeed<=0 || armExtension<0 || armExtension>1) throw new Error('invalid punch calibration');
   const config={model,hand,family,hz,seconds,ahead,height,across,contactSpeed,armExtension,mode,pad,paths,execution,matchedFeedback,actuation,...(physique?{physique}:{})};
-  const s=await coreStand(modelSpec(model,physique),{engine:DEFAULT_ENGINE,hz,actuation});
+  const spec=modelSpec(model,physique),s=await coreStand(spec,{engine:DEFAULT_ENGINE,hz,actuation,posture:guardPosture(spec)});
   let sensor;
   const body=createBody(s.built,s.world,{servoSeconds:SERVO_SECONDS,feedback:true,
     ...(matchedFeedback?{contactIdentity:other=>other===sensor?.body?{kind:'object',id:'punch-pad'}:other?null:{kind:'world'},

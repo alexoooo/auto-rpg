@@ -13,13 +13,14 @@ import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { humanSpec } from "../src/core/human/spec.ts";
 import { stanceEnvelope, turnAt } from "../src/core/control/stance-envelope.ts";
 import { STANCE_GAIT } from "../src/core/control/stance-tuning.ts";
-import { locomotion, PLACING, RISING_SECONDS, STANCE_LOWER, wrap } from "../src/core/skills/locomotion.ts";
+import { locomotion, PLACING, RISING_SECONDS, STANCE_LOWER } from "../src/core/skills/locomotion.ts";
+import { wrap } from "../src/core/math/turn.ts";
 
 const DT = 1 / 120;
 const envelope = stanceEnvelope(humanSpec("workshop-rogue"));
 /** A body standing as built: its centre 0.9 m over its soles, which stand 0.2 m apart across +x. */
 const SOLES = { left: new Vector3(-0.1, 0, 0), right: new Vector3(0.1, 0, 0) };
-const viewAt = (time) => ({ time, stance: { centre: new Vector3(0, 0.9, 0), support: new Vector3(0, 0, 0), soles: SOLES } });
+const viewAt = (time) => ({ time, standing: 0.9, stance: { centre: new Vector3(0, 0.9, 0), support: new Vector3(0, 0, 0), soles: SOLES } });
 
 test("a_walk_is_capped_at_the_envelopes_fastest_and_keeps_its_direction", () => {
   const legs = locomotion(envelope), most = envelope.walk.value;

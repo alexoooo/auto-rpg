@@ -2,7 +2,7 @@ import { rangeLearning } from "./range-learning.ts";
 import { contactResponse } from "../control/effector-feedback.ts";
 import { atan2, cos, hypot, sin } from "../math/real.ts";
 import { ATTACK_PATH } from "../skills/attack-path.ts";
-import { wrap } from "../skills/locomotion.ts";
+import { wrap } from "../math/turn.ts";
 import { placedReach } from "../skills/strike.ts";
 import type { BodySpec } from "../spec/body.ts";
 import type { Vec3 } from "../spec/quantity.ts";

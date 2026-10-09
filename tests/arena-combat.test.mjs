@@ -59,9 +59,10 @@ test('ratings group complete mirrors and preserve draws, decisive wins and time 
 test('the complete autonomous bout path exposes pressure and actual damage without contact-only strike credit', async () => {
   // Both sides are ordered to walk into each other, empty-handed, and never to attack. Clubs held
   // upright meet first at the hands that hold them, and slide there, a contact that breaks every
-  // half second and never runs to an episode.
+  // half second and never runs to an episode. From 3.6 m apart the bare-handed pair meet and stay
+  // pressed together for seconds at a time on both sides, which the reading must find.
   const hug = (side, x) => ({ step: 0, side, orders: { move: { x, z: 0 }, face: null, attack: null } });
-  const row = await combatTrial({ left: 'classic', right: 'classic', recipe: { capSeconds: 12 }, tape: [hug('left', 1), hug('right', -1)] });
+  const row = await combatTrial({ left: 'classic', right: 'classic', recipe: { capSeconds: 12, gap: 3.6 }, tape: [hug('left', 1), hug('right', -1)] });
   assert.equal(row.harness.engine, 'rapier-coordinate');
   assert.equal(row.recipe.recoverySeconds, null);
   assert.ok(row.meanCentreGap > 0 && Number.isFinite(row.minimumCentreGap));
@@ -75,26 +76,28 @@ test('the complete autonomous bout path exposes pressure and actual damage witho
   }
 });
 
-test('the selectable Brawler pair launches repeated body blows without sustained hugging',async()=>{
- const minds=readMinds('?control=brawler,brawler');
- const row=await combatTrial({left:minds.left,right:minds.right,recipe:{capSeconds:30}});
- for(const side of ['left','right']){
-  const out=row.sides[side];
-  assert.ok((out.drivenTargets.upperTrunk??0)+(out.drivenTargets.middleTrunk??0)>=8,JSON.stringify(out));
-  assert.ok(out.drivenDamage>.2,JSON.stringify(out));assert.equal(out.falls,0);
-  assert.ok(out.pressureOnly.longest<1);assert.equal(out.pressureOnly.episodes,0);
+/**
+ * A mirrored pair's 30 s bouts from each gap 3.4 to 4.6 m, 0.2 m apart: a side lands 8 driven body
+ * blows a bout and more than 0.2 HP of driven damage on the mean over both sides of every bout, since
+ * the sides of a mirrored pair are alike and one bout's count is one draw (from one gap to the next
+ * a side's count runs from 3 to 16); and in every bout neither falls, hugs or is assisted.
+ */
+async function landsBodyBlows(control){
+ const minds=readMinds(`?control=${control},${control}`),outs=[];
+ for(const gap of [3.4,3.6,3.8,4,4.2,4.4,4.6]){const row=await combatTrial({left:minds.left,right:minds.right,recipe:{capSeconds:30,gap}});outs.push(row.sides.left,row.sides.right);}
+ const mean=f=>outs.reduce((sum,out)=>sum+f(out),0)/outs.length,told=JSON.stringify(outs);
+ assert.ok(mean(out=>(out.drivenTargets.upperTrunk??0)+(out.drivenTargets.middleTrunk??0))>=8,told);
+ assert.ok(mean(out=>out.drivenDamage)>.2,told);
+ for(const out of outs){
+  assert.equal(out.falls,0);assert.ok(out.pressureOnly.longest<1);assert.equal(out.pressureOnly.episodes,0);
   assert.deepEqual(out.assist,{force:0,moment:0});
  }
+}
+
+test('the selectable Brawler pair launches repeated body blows without sustained hugging',async()=>{
+ await landsBodyBlows('brawler');
 });
 
 test('the selected Scrapper pair lands body blows without sustained hugging on the real Arena body',async()=>{
- const minds=readMinds('?control=scrapper,scrapper');
- const row=await combatTrial({left:minds.left,right:minds.right,recipe:{capSeconds:30}});
- for(const side of ['left','right']){
-  const out=row.sides[side];
-  assert.ok((out.drivenTargets.upperTrunk??0)+(out.drivenTargets.middleTrunk??0)>=8,JSON.stringify(out));
-  assert.ok(out.drivenDamage>.2,JSON.stringify(out));assert.equal(out.falls,0);
-  assert.ok(out.pressureOnly.longest<1);assert.equal(out.pressureOnly.episodes,0);
-  assert.deepEqual(out.assist,{force:0,moment:0});
- }
+ await landsBodyBlows('scrapper');
 });

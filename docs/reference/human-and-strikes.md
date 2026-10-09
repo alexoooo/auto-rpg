@@ -89,7 +89,7 @@ windows with it.
 
 A walk's heading turns from the step the walk sets off, no faster than the stance's envelope turns
 at the pace (`turnAt`, `assets/core/stance-envelope.json`). The envelope is measured on each body
-as a fight plays it: in the guard, under its character's balance, with a club in its right hand
+as a fight plays it: built in the guard and holding it, under its character's balance, with a club in its right hand
 and empty-handed; and its turns are begun at every eighth of a second from the walk's setting off
 to 1.5 s, and under way (`research/core-stance-envelope.mjs`, Node core stand, Rapier, 120 Hz).
 Measured unarmed, out of the guard, with no assist and on a walk already under way, it let the
@@ -99,12 +99,14 @@ in some phases of the first strides and not in others.
 
 | Body | Fastest walk, unarmed | as played | Turn at each speed to it, rad/s, unarmed | as played |
 |---|---|---|---|---|
-| Warrior | 0.7 | 0.5 | 4, 4, 4, 2, 2 | 4, 2, 2, 2 |
-| Rogue | 0.5 | 0.4 | 4, 4, 4, 2 | 2, 2, 2 |
-| skeleton | 0.2 | 0.4 | 2 | 2, 2, 2 |
+| Warrior | 0.7 | 0.5 | 4, 4, 4, 2, 2 | 4, 4, 4, 2 |
+| Rogue | 0.5 | 0.4 | 4, 4, 4, 2 | 4, 1, 2 |
+| skeleton | 0.2 | 0.4 | 2 | 4, 4, 1 |
 
 The skeleton walks faster as played than on its muscles alone: its balance holds it at 0.3 and
-0.4 m/s, where unarmed and unassisted it fell three ways of five.
+0.4 m/s, where unarmed and unassisted it fell three ways of five. A turn as played is the fastest rate at
+which no turn of the 56 fell (`turnHeld`): the Warrior's at 0.5 m/s, the Rogue's at 0.3 m/s and the
+skeleton's at 0.4 m/s each lost one turn of 56 at the next rate up, and the Rogue's at 0.4 m/s three.
 
 The game with no lead, against the envelope measured unarmed with a lead of 1 s:
 
@@ -141,6 +143,17 @@ and 53, 82 and 59 become 4, 2 and 0 at 4 rad/s. Measured against the pelvis's fa
 which a swing whips a radian either way, the bound holds the heading still while the body walks
 to its next place, and the crypt's skeleton goes down with no blow on it on 19 to 21 layouts of
 72 where it goes down on 10, and on 9 under a placebo; the bound is not in the game.
+
+What is in the game bounds the step instead (`landingHeading`, `src/core/control/support.ts`): a
+foot lands facing the heading only as far as the bearing foot's hip lets the pelvis turn over it,
+its step placed across that facing, and a turn past it is taken step by step. In the envelope's
+battery, falls of the 56 at each body's top rates, 70 in all across the three bodies, become 10;
+the Warrior's half turn begun from the build at 0.5 m/s and 4 rad/s, which fell, turns in about five steps and stands.
+Placed across the heading instead, with only the foot turned, 41 of the 392 turns of the seven cells
+that fall most fell where 10 do; with the walk's sway across the heading and its clearance across
+the foot, 26. The turns that still fall do so as the Rogue's at 0.3 m/s and 2 rad/s does: after
+the half turn the walk's plan runs to 0.58 m/s where 0.3 is asked, then about 1 m/s sideways, the
+soles fall about 100 N short, and the pelvis twists (Node core stand, Rapier, 120 Hz).
 
 ## Guard
 
@@ -235,21 +248,21 @@ place, the mean of four throws, and its window.
 
 | Body | Held | Band | Does at its place, HP: 120 Hz | 480 Hz | Window along, cm | across | up |
 |---|---|---|---|---|---|---|---|
-| Warrior | wooden club | high | 1.02 | 1.11 | -2 to 12 | -4 to 2 | -6 to 12 |
-| Warrior | wooden club | middle | 1.29 | 1.36 | -14 to 12 | -6 to 6 | -30 to 26 |
-| Warrior | fist | high | 0.13 | 0.13 | -4 to 4 | -10 to 14 | -8 to 10 |
-| Warrior | fist | middle | 0.53 | 0.36 | -2 to 2 | -8 to 2 | -36 to 20 |
-| Rogue | wooden club | high | 0.42 | 0.46 | -14 to 6 | -2 to 6 | -8 to 8 |
-| Rogue | wooden club | middle | 0.49 | 0.37 | -10 to 12 | -6 to 2 | -46 to 26 |
-| Rogue | fist | high | 0.05 | 0.05 | -6 to 8 | -2 to 6 | -12 to 6 |
-| Rogue | fist | middle | 0.31 | 0.15 | -4 to 2 | -6 to 2 | -14 to 20 |
-| skeleton | wooden club | high | 0.79 | 0.84 | -2 to 2 | -4 to 4 | -14 to 20 |
-| skeleton | wooden club | middle | 1.12 | 1.01 | -18 to 6 | -2 to 4 | -14 to 14 |
-| skeleton | fist | high | 0.19 | 0.17 | -2 to 6 | -4 to 4 | -28 to 18 |
-| skeleton | fist | middle | 0.70 | 0.41 | -2 to 6 | 0 to 6 | -28 to 36 |
+| Warrior | wooden club | high | 1.15 | 1.09 | -8 to 2 | -2 to 2 | -54 to 14 |
+| Warrior | wooden club | middle | 1.12 | 0.99 | -14 to 4 | -4 to 4 | -32 to 18 |
+| Warrior | fist | high | 0.16 | 0.16 | -6 to 6 | -14 to 4 | -6 to 8 |
+| Warrior | fist | middle | 0.58 | 0.41 | 0 to 4 | -2 to 6 | -34 to 18 |
+| Rogue | wooden club | high | 0.40 | 0.31 | -2 to 8 | -6 to 2 | -18 to 6 |
+| Rogue | wooden club | middle | 0.50 | 0.46 | -16 to 4 | -4 to 4 | -22 to 26 |
+| Rogue | fist | high | 0.05 | 0.06 | -4 to 4 | -2 to 4 | -14 to 8 |
+| Rogue | fist | middle | 0.22 | 0.24 | -4 to 2 | -2 to 4 | -24 to 24 |
+| skeleton | wooden club | high | 0.84 | 0.83 | -2 to 6 | -2 to 2 | -26 to 26 |
+| skeleton | wooden club | middle | 1.30 | 1.29 | -12 to 16 | -6 to 4 | -36 to 12 |
+| skeleton | fist | high | 0.19 | 0.17 | -4 to 6 | -6 to 2 | -24 to 12 |
+| skeleton | fist | middle | 0.78 | 0.49 | -4 to 2 | -4 to 6 | -18 to 2 |
 
 No window comes to the 60 cm the ball is moved to. The fists' are 4 to 14 cm wide along the
-heading and 6 to 24 across; the clubs' 4 to 26 and 6 to 12.
+heading and 6 to 18 across; the clubs' 8 to 28 and 4 to 10.
 
 ### Four throws
 
@@ -313,10 +326,10 @@ blow, in the order of what they net, whose window is read in its turn
 set to is thrown at by placement. The asset says which recipes were passed over (`passed`) and
 which cells are placed (`placed`), and why.
 
-One recipe of the 12 was passed over: the skeleton's club blow at a head of seed 2, which nets
-0.872 HP and leaves the skeleton down in throws about its own place, most at 480 Hz, so that no
-stand-off is in its window. Its cell has seed 1's, 0.735 HP, with a window 4 cm along and 8 cm
-across.
+One recipe of the 12 was passed over: the Rogue's club blow at a trunk of seed 1, which nets
+0.532 HP at 120 Hz, and at 480 Hz lands once in eight throws and leaves the Rogue down thrown at
+nothing, so that its window is 0 cm along and across. Its cell has seed 2's, 0.424 HP, with a
+window 20 cm along and 8 cm across.
 
 ## IK
 

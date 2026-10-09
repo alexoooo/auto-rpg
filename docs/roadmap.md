@@ -94,7 +94,9 @@ After it, each with its own plan, in the order each needs the one before:
   A person's is 8 m/s ([punch calibration](reference/punch-calibration.md)), and no paired-limb
   family reaches trained-adult force ([trained force](reference/trained-attack-force.md)). The
   body itself brings the hand to 8.6 m/s at full reach from the guard
-  (`docs/analysis/2026-10-08-punch-and-rise-speed.md@7f3ebcdb`).
+  (`docs/analysis/2026-10-08-punch-and-rise-speed.md@7f3ebcdb`). Neither a layer on today's
+  stance nor the whole-body solve lands a blow at the competency's 6.8 m/s
+  ([punch layer](analysis/2026-10-08-punch-layer.md)).
 - **Kicks.** Either-foot [front kicks](reference/front-kicks.md) share the punch's tracker and
   cycle. Higher targets and competitive kick selection are open.
 - **Rising.** Rising is built to the feet and continues Arena bouts:
@@ -122,7 +124,8 @@ After it, each with its own plan, in the order each needs the one before:
   - [bar](reference/bar-posture.md).
 - **The whole-body solve.** `wholeBodyTracking` (`src/core/control/whole-body.ts`) is a bounded
   torque solve with contacts and joint stops. It is experimental and is not the game's default.
-  The next phase's spike measures it.
+  It stands to 0.2 N s/kg and punches at 4.2 to 4.4 m/s, at five or six times today's cost a step
+  ([whole-body spike](reference/whole-body-spike.md)).
 - **Engine profiles.** Gameplay uses `rapier-coordinate`, the measured-angle limit gradient
   ([joint limits](reference/joint-limits.md)); parent-axis `rapier` is the reference engine.
   Directional muscle bounds are an explicit world configuration, and gameplay keeps the
@@ -237,8 +240,8 @@ After it, each with its own plan, in the order each needs the one before:
   and the skeleton (`assets/core/stance-envelope.json`), where a person's preferred walk is near
   1.4 m/s. Running, a dash, a roll, a crouch and turning on the spot are not built
   ([orders](reference/orders.md)).
-- **A half turn at the envelope's 2 rad/s, in a fight, now and then runs away sideways and
-  falls.** The pelvis falls behind the heading past the hips' turn
+- **A half turn at the next rate past the envelope's still now and then runs away sideways and
+  falls**, one to three of 56 in four cells: after the turn the walk's plan outruns the pace asked
   ([human and strikes](reference/human-and-strikes.md#turning)).
 - **Rising's own failures** ([rising](reference/rising.md#where-the-rise-stops)):
   - the kneel-up goes down forward in two of nine forward topples;

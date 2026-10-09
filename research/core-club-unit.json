@@ -1,231 +1,222 @@
 {
- "harness": "Node core stand, Rapier, standing on its feet as built, ground on, no assist; a blow thrown through the strike skill at a target body of its band's part hung at its place, read by the arena's rulebook; each rate's mean of eight throws' energies, J, the first's landing beside it",
+ "harness": "Node core stand, Rapier, built in its guard and standing on its feet, ground on, no assist; a blow thrown through the strike skill at a target body of its band's part hung at its place, read by the arena's rulebook; each rate's mean of eight throws' energies, J, the first's landing beside it",
  "model": "workshop-fighter",
  "hand": "right",
- "found": "research/core-strike-search.mjs --model workshop-fighter --held \"wooden club\" --band high --seed 12 --hz 960 --generations 30 --population 96 --from <the blow of research/core-club-unit.json@b2829b66, as encodeHeld writes it> --sigma 0.2, 4 trials a candidate and one at nothing; searched mean 1.34 HP; read again by research/core-club-unit.mjs",
+ "found": "research/core-strike-search.mjs --model workshop-fighter --held \"wooden club\" --band high --seed 12 --hz 960 --generations 30 --population 96 --from <the blow of research/core-club-unit.json@7601bd36, as encodeHeld writes it> --sigma 0.2, 4 trials a candidate and one at nothing; searched mean 1.387 HP; read again by research/core-club-unit.mjs",
  "readings": {
   "at120": {
-   "mean": 60.72,
+   "mean": 87.85,
    "runs": [
-    98.47,
-    3.42,
-    105.01,
     0,
-    117.18,
-    115.22,
-    19.91,
-    26.56
+    122.66,
+    6.7,
+    117.88,
+    122.86,
+    111.16,
+    90.64,
+    130.92
    ],
    "landed": 7,
-   "stood": 7,
-   "at": 0.3312,
-   "closing": 16.83,
-   "clubKg": 0.808,
-   "headKg": 4.968,
-   "normal": [
-    -0.202,
-    -0.795,
-    0.572
-   ]
+   "stood": 6
   },
   "at480": {
-   "mean": 131.53,
+   "mean": 137.81,
    "runs": [
-    131.5,
-    129.56,
-    132.05,
-    131.28,
-    132,
-    132.47,
-    130.58,
-    132.78
+    138.98,
+    137.52,
+    138.8,
+    133.66,
+    140.4,
+    136.51,
+    137.43,
+    139.18
    ],
    "landed": 8,
    "stood": 8,
-   "at": 0.3187,
-   "closing": 20.532,
-   "clubKg": 0.704,
-   "headKg": 5.477,
+   "at": 0.3169,
+   "closing": 20.595,
+   "clubKg": 0.745,
+   "headKg": 5.471,
    "normal": [
-    0.468,
-    -0.643,
-    0.606
+    0.399,
+    -0.657,
+    0.639
    ]
   },
   "at960": {
-   "mean": 133.65,
+   "mean": 138.02,
    "runs": [
-    133.62,
-    133.08,
-    133.91,
-    134.46,
-    132.56,
-    133.8,
-    133.44,
-    134.32
+    138.94,
+    137.6,
+    138.96,
+    138.18,
+    137.23,
+    136.71,
+    137.62,
+    138.88
    ],
    "landed": 8,
    "stood": 8,
-   "at": 0.3166,
-   "closing": 20.59,
-   "clubKg": 0.712,
-   "headKg": 5.481,
+   "at": 0.3179,
+   "closing": 20.499,
+   "clubKg": 0.752,
+   "headKg": 5.48,
    "normal": [
-    0.406,
-    -0.652,
-    0.64
+    0.368,
+    -0.677,
+    0.638
    ]
   },
   "at1920": {
-   "mean": 133.75,
+   "mean": 138.23,
    "runs": [
-    133.86,
-    132.7,
-    133.8,
-    134.24,
-    133.65,
-    134.35,
-    134.48,
-    132.9
+    139.04,
+    138.09,
+    138.92,
+    137.61,
+    136.94,
+    138.7,
+    138.71,
+    137.81
    ],
    "landed": 8,
    "stood": 8,
-   "at": 0.3145,
-   "closing": 20.443,
-   "clubKg": 0.725,
+   "at": 0.3174,
+   "closing": 20.42,
+   "clubKg": 0.759,
    "headKg": 5.482,
    "normal": [
-    0.329,
-    -0.661,
-    0.674
+    0.41,
+    -0.663,
+    0.626
    ]
   },
   "at3840": {
-   "mean": 134.1,
+   "mean": 138.97,
    "runs": [
-    134.21,
-    133.74,
-    134.32,
-    134.16,
-    134.08,
-    134.57,
-    133.71,
-    133.98
+    139.06,
+    138.9,
+    139.34,
+    138.47,
+    138.64,
+    138.68,
+    139.3,
+    139.4
    ],
    "landed": 8,
    "stood": 8,
-   "at": 0.315,
-   "closing": 20.657,
-   "clubKg": 0.711,
-   "headKg": 5.482,
+   "at": 0.3169,
+   "closing": 20.252,
+   "clubKg": 0.774,
+   "headKg": 5.48,
    "normal": [
-    0.383,
-    -0.648,
-    0.659
+    0.394,
+    -0.641,
+    0.658
    ]
   }
  },
- "distance": 1.046597369613213,
+ "distance": 1.0406983927526083,
  "strike": {
   "name": "searched right club blow",
   "hand": "right",
   "chamber": {
-   "seconds": 0.568812904643554,
+   "seconds": 0.5935215129801492,
    "pose": {
-    "thoracic rotation right": -0.2113618464849144,
-    "shoulder.right flexion": 2.8994718598857414,
-    "shoulder.right abduction": 1.459374994115353,
-    "shoulder.right internal rotation": 0.24475809580944352,
-    "elbow.right flexion": 1.2896282005926871,
-    "wrist.right flexion": 1.0108054504708166,
-    "wrist.right radial deviation": -0.11737784317773114,
-    "wrist.right pronation": 0.1947555359275832
+    "thoracic rotation right": -0.19425135119709006,
+    "shoulder.right flexion": 3.021680887024762,
+    "shoulder.right abduction": 1.3269242648152773,
+    "shoulder.right internal rotation": 0.20231115773136676,
+    "elbow.right flexion": 1.1927986096072665,
+    "wrist.right flexion": 0.7930289456888522,
+    "wrist.right radial deviation": -0.19754031319864362,
+    "wrist.right pronation": 0.1699663861222378
    }
   },
   "pushes": [
    {
     "channel": "thoracic rotation right",
     "sense": -1,
-    "from": 0.06804585907856252,
-    "to": 0.1742758884028151,
-    "level": 0.35045022459732816
+    "from": 0.08223593956654164,
+    "to": 0.19836737993004033,
+    "level": 0.39742053262409344
    },
    {
     "channel": "lumbar rotation right",
     "sense": 1,
-    "from": 0.15035557786423406,
-    "to": 0.2701042225156994,
-    "level": 0.38226665105786656
+    "from": 0.09154047795893687,
+    "to": 0.2190041389132708,
+    "level": 0.2860943264107896
    },
    {
     "channel": "thoracic flexion",
     "sense": 1,
-    "from": 0.0382817691953279,
-    "to": 0.15417156473886034,
-    "level": 0.22619518286960985
+    "from": 0.04168174901232766,
+    "to": 0.1685291462401752,
+    "level": 0.20120899222104213
    },
    {
     "channel": "thoracic lateral flexion right",
     "sense": 1,
-    "from": 0.13508153075017298,
-    "to": 0.2592915671389937,
-    "level": 0.5998309162518856
+    "from": 0.14640206043877754,
+    "to": 0.2813780066026164,
+    "level": 0.6353511757686546
    },
    {
     "channel": "lumbar flexion",
     "sense": 1,
-    "from": 0.009885827725605716,
-    "to": 0.29484532729950136,
+    "from": 0.014425084018814998,
+    "to": 0.3075506552001106,
     "level": 1
    },
    {
     "channel": "shoulder.right flexion",
     "sense": -1,
-    "from": 0,
-    "to": 0.12809803217579432,
-    "level": 0.13237958990771345
+    "from": 0.007453268841114368,
+    "to": 0.1249300261716817,
+    "level": 0.1169119631021349
    },
    {
     "channel": "shoulder.right abduction",
     "sense": -1,
-    "from": 0.13042576225448005,
-    "to": 0.281014603083504,
-    "level": 1
+    "from": 0.12640448808517737,
+    "to": 0.2810914667042588,
+    "level": 0.9828390379815056
    },
    {
     "channel": "shoulder.right internal rotation",
     "sense": 1,
-    "from": 0.2047801594413245,
-    "to": 0.3024474027007243,
-    "level": 0.4988399363072896
+    "from": 0.214186351604667,
+    "to": 0.31429345164654515,
+    "level": 0.6169048153518215
    },
    {
     "channel": "elbow.right flexion",
     "sense": -1,
-    "from": 0.09707827114163112,
-    "to": 0.34902831764717956,
-    "level": 1
+    "from": 0.07435316284132963,
+    "to": 0.3250603515423314,
+    "level": 0.9973305953810406
    },
    {
     "channel": "wrist.right flexion",
     "sense": 1,
-    "from": 0.16188261517313995,
-    "to": 0.33563404550679876,
-    "level": 0.7432950754841204
+    "from": 0.16186728853214707,
+    "to": 0.33426468284265987,
+    "level": 0.9210000227352363
    },
    {
     "channel": "wrist.right radial deviation",
     "sense": -1,
-    "from": 0.10368323111495673,
-    "to": 0.35084553609576485,
-    "level": 0.8810336094433039
+    "from": 0.11950479728194632,
+    "to": 0.3389186263205871,
+    "level": 0.9108483563415828
    },
    {
     "channel": "wrist.right pronation",
     "sense": -1,
-    "from": 0.19838421159310046,
-    "to": 0.36827618808979073,
-    "level": 0.4017016471791891
+    "from": 0.19746008308890386,
+    "to": 0.3368899185506777,
+    "level": 0.44882549979179037
    }
   ]
  }

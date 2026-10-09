@@ -1,5 +1,5 @@
 {
-  "fingerprint": "ca65ec75154b9ea218ee65fddfeccf48863a8a28adc1073058703083cbfaeac9",
+  "source": "the tree of the commit that last changed this file",
   "jobs": [
     {
       "speed": 0.18,
@@ -470,10 +470,10 @@
           "balance": 0
         },
         "firstDown": null,
-        "drop": 0.004161769664188797,
+        "drop": 0.0009886407059769287,
         "maximumTurn": 1.000000000000023,
         "phase": "stand",
-        "speed": 0.014615837128303102,
+        "speed": 0.014255366574286603,
         "strides": 16,
         "recoveries": 0,
         "assist": {
@@ -506,10 +506,10 @@
           "balance": 0
         },
         "firstDown": null,
-        "drop": 0.0009248644929752414,
+        "drop": 0.0010463667124204212,
         "maximumTurn": 1.000000000000023,
         "phase": "stand",
-        "speed": 0.014773924923105058,
+        "speed": 0.014737843682126583,
         "strides": 24,
         "recoveries": 0,
         "assist": {
@@ -542,10 +542,10 @@
           "balance": 0
         },
         "firstDown": null,
-        "drop": 0.0010583254688316668,
+        "drop": 0.0010027092275017857,
         "maximumTurn": 1.000000000000023,
         "phase": "stand",
-        "speed": 0.01476588483142343,
+        "speed": 0.014789075000095074,
         "strides": 16,
         "recoveries": 0,
         "assist": {
@@ -578,10 +578,10 @@
           "balance": 0
         },
         "firstDown": null,
-        "drop": 0.0010556263465254512,
+        "drop": 0.0010248314770918698,
         "maximumTurn": 1.000000000000023,
         "phase": "stand",
-        "speed": 0.014723556892393502,
+        "speed": 0.014755916730474241,
         "strides": 24,
         "recoveries": 0,
         "assist": {
@@ -614,10 +614,10 @@
           "balance": 0
         },
         "firstDown": null,
-        "drop": 0.001082789504794901,
+        "drop": 0.00255440587904765,
         "maximumTurn": 2.000000000000006,
         "phase": "stand",
-        "speed": 0.01761041773802089,
+        "speed": 0.017617512875859536,
         "strides": 12,
         "recoveries": 0,
         "assist": {
@@ -650,10 +650,10 @@
           "balance": 0
         },
         "firstDown": null,
-        "drop": 0.0010690831079862573,
+        "drop": 0.0010648026652561038,
         "maximumTurn": 2.000000000000006,
         "phase": "stand",
-        "speed": 0.01798623548817223,
+        "speed": 0.017993438510659324,
         "strides": 20,
         "recoveries": 0,
         "assist": {
@@ -686,10 +686,10 @@
           "balance": 0
         },
         "firstDown": null,
-        "drop": 0.0010264720922292803,
+        "drop": 0.0010523179763362034,
         "maximumTurn": 2.000000000000006,
         "phase": "stand",
-        "speed": 0.017649403481360113,
+        "speed": 0.017589141069210557,
         "strides": 12,
         "recoveries": 0,
         "assist": {
@@ -722,10 +722,10 @@
           "balance": 0
         },
         "firstDown": null,
-        "drop": 0.004169482705013161,
+        "drop": 0.0011640055071855393,
         "maximumTurn": 2.000000000000006,
         "phase": "stand",
-        "speed": 0.018010747215749114,
+        "speed": 0.017991265760131308,
         "strides": 20,
         "recoveries": 0,
         "assist": {
@@ -757,48 +757,11 @@
           "held": "empty",
           "balance": 0
         },
-        "firstDown": 3.316666666666667,
-        "drop": 1.8889877165703444,
-        "maximumTurn": 4.000000000000012,
-        "phase": "swing",
-        "speed": 0.29810233931804614,
-        "strides": 15,
-        "recoveries": 0,
-        "assist": {
-          "steps": 0,
-          "force": 0,
-          "moment": 0
-        }
-      }
-    },
-    {
-      "result": {
-        "config": {
-          "speed": 0.18,
-          "rate": 4,
-          "sense": -1,
-          "after": 0,
-          "turnLimit": 2,
-          "model": "workshop-fighter",
-          "engine": "rapier-coordinate",
-          "balance": 0,
-          "hz": 120
-        },
-        "harness": {
-          "kind": "Node core stand",
-          "engine": "rapier-coordinate",
-          "hz": 120,
-          "actuation": "symmetric",
-          "posture": "GUARD",
-          "pinned": false,
-          "held": "empty",
-          "balance": 0
-        },
         "firstDown": null,
-        "drop": 0.0007472490668216647,
-        "maximumTurn": 2.000000000000006,
+        "drop": 0.00708809504359853,
+        "maximumTurn": 4.000000000000012,
         "phase": "stand",
-        "speed": 0.018570057401818156,
+        "speed": 0.01900077155904847,
         "strides": 10,
         "recoveries": 0,
         "assist": {
@@ -831,47 +794,10 @@
           "balance": 0
         },
         "firstDown": null,
-        "drop": 0.0016256333487805197,
+        "drop": 0.012112046260791764,
         "maximumTurn": 4.000000000000012,
         "phase": "stand",
-        "speed": 0.019011873809744024,
-        "strides": 18,
-        "recoveries": 0,
-        "assist": {
-          "steps": 0,
-          "force": 0,
-          "moment": 0
-        }
-      }
-    },
-    {
-      "result": {
-        "config": {
-          "speed": 0.18,
-          "rate": 4,
-          "sense": -1,
-          "after": 3,
-          "turnLimit": 2,
-          "model": "workshop-fighter",
-          "engine": "rapier-coordinate",
-          "balance": 0,
-          "hz": 120
-        },
-        "harness": {
-          "kind": "Node core stand",
-          "engine": "rapier-coordinate",
-          "hz": 120,
-          "actuation": "symmetric",
-          "posture": "GUARD",
-          "pinned": false,
-          "held": "empty",
-          "balance": 0
-        },
-        "firstDown": null,
-        "drop": 0.0012366490383961537,
-        "maximumTurn": 2.000000000000006,
-        "phase": "stand",
-        "speed": 0.01990897266889657,
+        "speed": 0.0196712550231381,
         "strides": 18,
         "recoveries": 0,
         "assist": {
@@ -904,47 +830,10 @@
           "balance": 0
         },
         "firstDown": null,
-        "drop": 0.0010832473190538483,
+        "drop": 0.010266346885710709,
         "maximumTurn": 4.000000000000012,
         "phase": "stand",
-        "speed": 0.018781371416003705,
-        "strides": 10,
-        "recoveries": 0,
-        "assist": {
-          "steps": 0,
-          "force": 0,
-          "moment": 0
-        }
-      }
-    },
-    {
-      "result": {
-        "config": {
-          "speed": 0.18,
-          "rate": 4,
-          "sense": 1,
-          "after": 0,
-          "turnLimit": 2,
-          "model": "workshop-fighter",
-          "engine": "rapier-coordinate",
-          "balance": 0,
-          "hz": 120
-        },
-        "harness": {
-          "kind": "Node core stand",
-          "engine": "rapier-coordinate",
-          "hz": 120,
-          "actuation": "symmetric",
-          "posture": "GUARD",
-          "pinned": false,
-          "held": "empty",
-          "balance": 0
-        },
-        "firstDown": null,
-        "drop": 0.0013036119697007464,
-        "maximumTurn": 2.000000000000006,
-        "phase": "stand",
-        "speed": 0.01928955791482463,
+        "speed": 0.01881032317942201,
         "strides": 10,
         "recoveries": 0,
         "assist": {
@@ -977,47 +866,10 @@
           "balance": 0
         },
         "firstDown": null,
-        "drop": 0.0012883192174775182,
+        "drop": 0.008894065288852615,
         "maximumTurn": 4.000000000000012,
         "phase": "stand",
-        "speed": 0.01970133067009713,
-        "strides": 18,
-        "recoveries": 0,
-        "assist": {
-          "steps": 0,
-          "force": 0,
-          "moment": 0
-        }
-      }
-    },
-    {
-      "result": {
-        "config": {
-          "speed": 0.18,
-          "rate": 4,
-          "sense": 1,
-          "after": 3,
-          "turnLimit": 2,
-          "model": "workshop-fighter",
-          "engine": "rapier-coordinate",
-          "balance": 0,
-          "hz": 120
-        },
-        "harness": {
-          "kind": "Node core stand",
-          "engine": "rapier-coordinate",
-          "hz": 120,
-          "actuation": "symmetric",
-          "posture": "GUARD",
-          "pinned": false,
-          "held": "empty",
-          "balance": 0
-        },
-        "firstDown": null,
-        "drop": 0.004169482705013161,
-        "maximumTurn": 2.000000000000006,
-        "phase": "stand",
-        "speed": 0.019910313045389663,
+        "speed": 0.019679643671192997,
         "strides": 18,
         "recoveries": 0,
         "assist": {
@@ -1050,10 +902,10 @@
           "balance": 0
         },
         "firstDown": null,
-        "drop": 0.0034912013965069377,
+        "drop": 0.003626151000351574,
         "maximumTurn": 1.000000000000023,
         "phase": "stand",
-        "speed": 0.03741471819782367,
+        "speed": 0.03743592129206994,
         "strides": 17,
         "recoveries": 0,
         "assist": {
@@ -1086,10 +938,10 @@
           "balance": 0
         },
         "firstDown": null,
-        "drop": 0.0009865948607219455,
+        "drop": 0.0009329718517104846,
         "maximumTurn": 1.000000000000023,
         "phase": "stand",
-        "speed": 0.01473524988306392,
+        "speed": 0.014868509909103857,
         "strides": 24,
         "recoveries": 0,
         "assist": {
@@ -1122,10 +974,10 @@
           "balance": 0
         },
         "firstDown": null,
-        "drop": 0.0009223107205136305,
+        "drop": 0.0011718385115719876,
         "maximumTurn": 1.000000000000023,
         "phase": "stand",
-        "speed": 0.01485380936424259,
+        "speed": 0.015521280841639987,
         "strides": 16,
         "recoveries": 0,
         "assist": {
@@ -1158,10 +1010,10 @@
           "balance": 0
         },
         "firstDown": null,
-        "drop": 0.0011339249222418468,
+        "drop": 0.0009517242355117084,
         "maximumTurn": 1.000000000000023,
         "phase": "stand",
-        "speed": 0.01493213250374119,
+        "speed": 0.014797393866761644,
         "strides": 24,
         "recoveries": 0,
         "assist": {
@@ -1194,10 +1046,10 @@
           "balance": 0
         },
         "firstDown": null,
-        "drop": 0.001283330393279325,
+        "drop": 0.0012658946565771156,
         "maximumTurn": 2.000000000000006,
         "phase": "stand",
-        "speed": 0.01776669742223027,
+        "speed": 0.01783721883802407,
         "strides": 12,
         "recoveries": 0,
         "assist": {
@@ -1230,10 +1082,10 @@
           "balance": 0
         },
         "firstDown": null,
-        "drop": 0.00135087340201423,
+        "drop": 0.0012710749045086178,
         "maximumTurn": 2.000000000000006,
         "phase": "stand",
-        "speed": 0.018108220136257454,
+        "speed": 0.018213759916586407,
         "strides": 20,
         "recoveries": 0,
         "assist": {
@@ -1266,10 +1118,10 @@
           "balance": 0
         },
         "firstDown": null,
-        "drop": 0.0012549836894557576,
+        "drop": 0.001260586189642976,
         "maximumTurn": 2.000000000000006,
         "phase": "stand",
-        "speed": 0.01778786044564964,
+        "speed": 0.01763213831564868,
         "strides": 12,
         "recoveries": 0,
         "assist": {
@@ -1302,10 +1154,10 @@
           "balance": 0
         },
         "firstDown": null,
-        "drop": 0.0013833311520811131,
+        "drop": 0.0012838566752993996,
         "maximumTurn": 2.000000000000006,
         "phase": "stand",
-        "speed": 0.018082125227375703,
+        "speed": 0.01823550413740506,
         "strides": 20,
         "recoveries": 0,
         "assist": {
@@ -1337,48 +1189,11 @@
           "held": "empty",
           "balance": 0
         },
-        "firstDown": 3,
-        "drop": 1.382809227774473,
-        "maximumTurn": 4.000000000000012,
-        "phase": "swing",
-        "speed": 0.9298475994235036,
-        "strides": 15,
-        "recoveries": 0,
-        "assist": {
-          "steps": 0,
-          "force": 0,
-          "moment": 0
-        }
-      }
-    },
-    {
-      "result": {
-        "config": {
-          "speed": 0.25,
-          "rate": 4,
-          "sense": -1,
-          "after": 0,
-          "turnLimit": 2,
-          "model": "workshop-fighter",
-          "engine": "rapier-coordinate",
-          "balance": 0,
-          "hz": 120
-        },
-        "harness": {
-          "kind": "Node core stand",
-          "engine": "rapier-coordinate",
-          "hz": 120,
-          "actuation": "symmetric",
-          "posture": "GUARD",
-          "pinned": false,
-          "held": "empty",
-          "balance": 0
-        },
         "firstDown": null,
-        "drop": 0.0013146276078827013,
-        "maximumTurn": 2.000000000000006,
+        "drop": 0.0075862580728538465,
+        "maximumTurn": 4.000000000000012,
         "phase": "stand",
-        "speed": 0.019416116142599506,
+        "speed": 0.018679697860272484,
         "strides": 10,
         "recoveries": 0,
         "assist": {
@@ -1411,47 +1226,10 @@
           "balance": 0
         },
         "firstDown": null,
-        "drop": 0.001893267644899943,
+        "drop": 0.001322529100853398,
         "maximumTurn": 4.000000000000012,
         "phase": "stand",
-        "speed": 0.01966769334103501,
-        "strides": 18,
-        "recoveries": 0,
-        "assist": {
-          "steps": 0,
-          "force": 0,
-          "moment": 0
-        }
-      }
-    },
-    {
-      "result": {
-        "config": {
-          "speed": 0.25,
-          "rate": 4,
-          "sense": -1,
-          "after": 3,
-          "turnLimit": 2,
-          "model": "workshop-fighter",
-          "engine": "rapier-coordinate",
-          "balance": 0,
-          "hz": 120
-        },
-        "harness": {
-          "kind": "Node core stand",
-          "engine": "rapier-coordinate",
-          "hz": 120,
-          "actuation": "symmetric",
-          "posture": "GUARD",
-          "pinned": false,
-          "held": "empty",
-          "balance": 0
-        },
-        "firstDown": null,
-        "drop": 0.0013013157801951003,
-        "maximumTurn": 2.000000000000006,
-        "phase": "stand",
-        "speed": 0.01980651303000715,
+        "speed": 0.019821720474876573,
         "strides": 18,
         "recoveries": 0,
         "assist": {
@@ -1484,47 +1262,10 @@
           "balance": 0
         },
         "firstDown": null,
-        "drop": 0.007966748976371174,
+        "drop": 0.00653615280553832,
         "maximumTurn": 4.000000000000012,
         "phase": "stand",
-        "speed": 0.018917966502300862,
-        "strides": 10,
-        "recoveries": 0,
-        "assist": {
-          "steps": 0,
-          "force": 0,
-          "moment": 0
-        }
-      }
-    },
-    {
-      "result": {
-        "config": {
-          "speed": 0.25,
-          "rate": 4,
-          "sense": 1,
-          "after": 0,
-          "turnLimit": 2,
-          "model": "workshop-fighter",
-          "engine": "rapier-coordinate",
-          "balance": 0,
-          "hz": 120
-        },
-        "harness": {
-          "kind": "Node core stand",
-          "engine": "rapier-coordinate",
-          "hz": 120,
-          "actuation": "symmetric",
-          "posture": "GUARD",
-          "pinned": false,
-          "held": "empty",
-          "balance": 0
-        },
-        "firstDown": null,
-        "drop": 0.0013681700144936304,
-        "maximumTurn": 2.000000000000006,
-        "phase": "stand",
-        "speed": 0.01937151274779525,
+        "speed": 0.018988228373830247,
         "strides": 10,
         "recoveries": 0,
         "assist": {
@@ -1557,47 +1298,10 @@
           "balance": 0
         },
         "firstDown": null,
-        "drop": 0.0013858264872798065,
+        "drop": 0.006977614411124877,
         "maximumTurn": 4.000000000000012,
         "phase": "stand",
-        "speed": 0.019776433015780887,
-        "strides": 18,
-        "recoveries": 0,
-        "assist": {
-          "steps": 0,
-          "force": 0,
-          "moment": 0
-        }
-      }
-    },
-    {
-      "result": {
-        "config": {
-          "speed": 0.25,
-          "rate": 4,
-          "sense": 1,
-          "after": 3,
-          "turnLimit": 2,
-          "model": "workshop-fighter",
-          "engine": "rapier-coordinate",
-          "balance": 0,
-          "hz": 120
-        },
-        "harness": {
-          "kind": "Node core stand",
-          "engine": "rapier-coordinate",
-          "hz": 120,
-          "actuation": "symmetric",
-          "posture": "GUARD",
-          "pinned": false,
-          "held": "empty",
-          "balance": 0
-        },
-        "firstDown": null,
-        "drop": 0.0013948705720531196,
-        "maximumTurn": 2.000000000000006,
-        "phase": "stand",
-        "speed": 0.01974527804177692,
+        "speed": 0.019782100670034292,
         "strides": 18,
         "recoveries": 0,
         "assist": {
@@ -1630,10 +1334,10 @@
           "balance": 0
         },
         "firstDown": null,
-        "drop": 0.0037347254863624446,
+        "drop": 0.0009879926787799143,
         "maximumTurn": 1.000000000000023,
         "phase": "stand",
-        "speed": 0.037880618720444056,
+        "speed": 0.03695510433542137,
         "strides": 17,
         "recoveries": 0,
         "assist": {
@@ -1666,10 +1370,10 @@
           "balance": 0
         },
         "firstDown": null,
-        "drop": 0.00126786287235503,
+        "drop": 0.0034598368053117,
         "maximumTurn": 1.000000000000023,
         "phase": "stand",
-        "speed": 0.03828746588450514,
+        "speed": 0.038340854427710666,
         "strides": 25,
         "recoveries": 0,
         "assist": {
@@ -1702,10 +1406,10 @@
           "balance": 0
         },
         "firstDown": null,
-        "drop": 0.0010378805503988842,
+        "drop": 0.003926777791503744,
         "maximumTurn": 1.000000000000023,
         "phase": "stand",
-        "speed": 0.03802544357131135,
+        "speed": 0.03843633370390116,
         "strides": 17,
         "recoveries": 0,
         "assist": {
@@ -1738,10 +1442,10 @@
           "balance": 0
         },
         "firstDown": null,
-        "drop": 0.0009656256267212004,
+        "drop": 0.003584951461662378,
         "maximumTurn": 1.000000000000023,
         "phase": "stand",
-        "speed": 0.037747496834010234,
+        "speed": 0.038372936833711596,
         "strides": 25,
         "recoveries": 0,
         "assist": {
@@ -1774,10 +1478,10 @@
           "balance": 0
         },
         "firstDown": null,
-        "drop": 0.005973502856202684,
+        "drop": 0.012186570602212288,
         "maximumTurn": 2.000000000000006,
         "phase": "stand",
-        "speed": 0.04649206341600931,
+        "speed": 0.044755876269645646,
         "strides": 13,
         "recoveries": 0,
         "assist": {
@@ -1810,10 +1514,10 @@
           "balance": 0
         },
         "firstDown": null,
-        "drop": 0.0041115338053255845,
+        "drop": 0.007137308498844197,
         "maximumTurn": 2.000000000000006,
         "phase": "stand",
-        "speed": 0.04733183106962649,
+        "speed": 0.04694500954022263,
         "strides": 21,
         "recoveries": 0,
         "assist": {
@@ -1846,10 +1550,10 @@
           "balance": 0
         },
         "firstDown": null,
-        "drop": 0.0037966994014229094,
+        "drop": 0.0037087703570684027,
         "maximumTurn": 2.000000000000006,
         "phase": "stand",
-        "speed": 0.046709293788397804,
+        "speed": 0.046624565711837845,
         "strides": 13,
         "recoveries": 0,
         "assist": {
@@ -1882,10 +1586,10 @@
           "balance": 0
         },
         "firstDown": null,
-        "drop": 0.036916852214764706,
+        "drop": 0.0056206768610639335,
         "maximumTurn": 2.000000000000006,
         "phase": "stand",
-        "speed": 0.04549253771981407,
+        "speed": 0.04749704851418524,
         "strides": 21,
         "recoveries": 0,
         "assist": {
@@ -1917,48 +1621,11 @@
           "held": "empty",
           "balance": 0
         },
-        "firstDown": 2.9166666666666665,
-        "drop": 1.520294405186302,
-        "maximumTurn": 4.000000000000012,
-        "phase": "swing",
-        "speed": 0.4213491475353645,
-        "strides": 15,
-        "recoveries": 0,
-        "assist": {
-          "steps": 0,
-          "force": 0,
-          "moment": 0
-        }
-      }
-    },
-    {
-      "result": {
-        "config": {
-          "speed": 0.5,
-          "rate": 4,
-          "sense": -1,
-          "after": 0,
-          "turnLimit": 2,
-          "model": "workshop-fighter",
-          "engine": "rapier-coordinate",
-          "balance": 0,
-          "hz": 120
-        },
-        "harness": {
-          "kind": "Node core stand",
-          "engine": "rapier-coordinate",
-          "hz": 120,
-          "actuation": "symmetric",
-          "posture": "GUARD",
-          "pinned": false,
-          "held": "empty",
-          "balance": 0
-        },
         "firstDown": null,
-        "drop": 0.005973502856202684,
-        "maximumTurn": 2.000000000000006,
+        "drop": 0.0012020183653921324,
+        "maximumTurn": 4.000000000000012,
         "phase": "stand",
-        "speed": 0.04842174398357581,
+        "speed": 0.04792328233433558,
         "strides": 11,
         "recoveries": 0,
         "assist": {
@@ -1991,47 +1658,10 @@
           "balance": 0
         },
         "firstDown": null,
-        "drop": 0.018938489822678872,
+        "drop": 0.003430553865702346,
         "maximumTurn": 4.000000000000012,
         "phase": "stand",
-        "speed": 0.04971164368229198,
-        "strides": 19,
-        "recoveries": 0,
-        "assist": {
-          "steps": 0,
-          "force": 0,
-          "moment": 0
-        }
-      }
-    },
-    {
-      "result": {
-        "config": {
-          "speed": 0.5,
-          "rate": 4,
-          "sense": -1,
-          "after": 3,
-          "turnLimit": 2,
-          "model": "workshop-fighter",
-          "engine": "rapier-coordinate",
-          "balance": 0,
-          "hz": 120
-        },
-        "harness": {
-          "kind": "Node core stand",
-          "engine": "rapier-coordinate",
-          "hz": 120,
-          "actuation": "symmetric",
-          "posture": "GUARD",
-          "pinned": false,
-          "held": "empty",
-          "balance": 0
-        },
-        "firstDown": null,
-        "drop": 0.0034778918584971175,
-        "maximumTurn": 2.000000000000006,
-        "phase": "stand",
-        "speed": 0.0498116482903912,
+        "speed": 0.049165242456298545,
         "strides": 19,
         "recoveries": 0,
         "assist": {
@@ -2064,11 +1694,417 @@
           "balance": 0
         },
         "firstDown": null,
-        "drop": 0.003575993215860662,
+        "drop": 0.0037056789496812126,
         "maximumTurn": 4.000000000000012,
         "phase": "stand",
-        "speed": 0.04713537307385399,
+        "speed": 0.04914703983637582,
         "strides": 11,
+        "recoveries": 0,
+        "assist": {
+          "steps": 0,
+          "force": 0,
+          "moment": 0
+        }
+      }
+    },
+    {
+      "result": {
+        "config": {
+          "speed": 0.5,
+          "rate": 4,
+          "sense": 1,
+          "after": 3,
+          "model": "workshop-fighter",
+          "engine": "rapier-coordinate",
+          "balance": 0,
+          "hz": 120
+        },
+        "harness": {
+          "kind": "Node core stand",
+          "engine": "rapier-coordinate",
+          "hz": 120,
+          "actuation": "symmetric",
+          "posture": "GUARD",
+          "pinned": false,
+          "held": "empty",
+          "balance": 0
+        },
+        "firstDown": null,
+        "drop": 0.012566199800616351,
+        "maximumTurn": 4.000000000000012,
+        "phase": "stand",
+        "speed": 0.048902641120987106,
+        "strides": 19,
+        "recoveries": 0,
+        "assist": {
+          "steps": 0,
+          "force": 0,
+          "moment": 0
+        }
+      }
+    },
+    {
+      "result": {
+        "config": {
+          "speed": 0.18,
+          "rate": 4,
+          "sense": -1,
+          "after": 0,
+          "turnLimit": 2,
+          "model": "workshop-fighter",
+          "engine": "rapier-coordinate",
+          "balance": 0,
+          "hz": 120
+        },
+        "harness": {
+          "kind": "Node core stand",
+          "engine": "rapier-coordinate",
+          "hz": 120,
+          "actuation": "symmetric",
+          "posture": "GUARD",
+          "pinned": false,
+          "held": "empty",
+          "balance": 0
+        },
+        "firstDown": null,
+        "drop": 0.00255440587904765,
+        "maximumTurn": 2.000000000000006,
+        "phase": "stand",
+        "speed": 0.019279887755388418,
+        "strides": 10,
+        "recoveries": 0,
+        "assist": {
+          "steps": 0,
+          "force": 0,
+          "moment": 0
+        }
+      }
+    },
+    {
+      "result": {
+        "config": {
+          "speed": 0.18,
+          "rate": 4,
+          "sense": -1,
+          "after": 3,
+          "turnLimit": 2,
+          "model": "workshop-fighter",
+          "engine": "rapier-coordinate",
+          "balance": 0,
+          "hz": 120
+        },
+        "harness": {
+          "kind": "Node core stand",
+          "engine": "rapier-coordinate",
+          "hz": 120,
+          "actuation": "symmetric",
+          "posture": "GUARD",
+          "pinned": false,
+          "held": "empty",
+          "balance": 0
+        },
+        "firstDown": null,
+        "drop": 0.0010671670284759793,
+        "maximumTurn": 2.000000000000006,
+        "phase": "stand",
+        "speed": 0.019876277768859526,
+        "strides": 18,
+        "recoveries": 0,
+        "assist": {
+          "steps": 0,
+          "force": 0,
+          "moment": 0
+        }
+      }
+    },
+    {
+      "result": {
+        "config": {
+          "speed": 0.18,
+          "rate": 4,
+          "sense": 1,
+          "after": 0,
+          "turnLimit": 2,
+          "model": "workshop-fighter",
+          "engine": "rapier-coordinate",
+          "balance": 0,
+          "hz": 120
+        },
+        "harness": {
+          "kind": "Node core stand",
+          "engine": "rapier-coordinate",
+          "hz": 120,
+          "actuation": "symmetric",
+          "posture": "GUARD",
+          "pinned": false,
+          "held": "empty",
+          "balance": 0
+        },
+        "firstDown": null,
+        "drop": 0.0012981793405978381,
+        "maximumTurn": 2.000000000000006,
+        "phase": "stand",
+        "speed": 0.01926530634002653,
+        "strides": 10,
+        "recoveries": 0,
+        "assist": {
+          "steps": 0,
+          "force": 0,
+          "moment": 0
+        }
+      }
+    },
+    {
+      "result": {
+        "config": {
+          "speed": 0.18,
+          "rate": 4,
+          "sense": 1,
+          "after": 3,
+          "turnLimit": 2,
+          "model": "workshop-fighter",
+          "engine": "rapier-coordinate",
+          "balance": 0,
+          "hz": 120
+        },
+        "harness": {
+          "kind": "Node core stand",
+          "engine": "rapier-coordinate",
+          "hz": 120,
+          "actuation": "symmetric",
+          "posture": "GUARD",
+          "pinned": false,
+          "held": "empty",
+          "balance": 0
+        },
+        "firstDown": null,
+        "drop": 0.001283453246954891,
+        "maximumTurn": 2.000000000000006,
+        "phase": "stand",
+        "speed": 0.019634943106720777,
+        "strides": 18,
+        "recoveries": 0,
+        "assist": {
+          "steps": 0,
+          "force": 0,
+          "moment": 0
+        }
+      }
+    },
+    {
+      "result": {
+        "config": {
+          "speed": 0.25,
+          "rate": 4,
+          "sense": -1,
+          "after": 0,
+          "turnLimit": 2,
+          "model": "workshop-fighter",
+          "engine": "rapier-coordinate",
+          "balance": 0,
+          "hz": 120
+        },
+        "harness": {
+          "kind": "Node core stand",
+          "engine": "rapier-coordinate",
+          "hz": 120,
+          "actuation": "symmetric",
+          "posture": "GUARD",
+          "pinned": false,
+          "held": "empty",
+          "balance": 0
+        },
+        "firstDown": null,
+        "drop": 0.0012792084944608373,
+        "maximumTurn": 2.000000000000006,
+        "phase": "stand",
+        "speed": 0.019335892103912733,
+        "strides": 10,
+        "recoveries": 0,
+        "assist": {
+          "steps": 0,
+          "force": 0,
+          "moment": 0
+        }
+      }
+    },
+    {
+      "result": {
+        "config": {
+          "speed": 0.25,
+          "rate": 4,
+          "sense": -1,
+          "after": 3,
+          "turnLimit": 2,
+          "model": "workshop-fighter",
+          "engine": "rapier-coordinate",
+          "balance": 0,
+          "hz": 120
+        },
+        "harness": {
+          "kind": "Node core stand",
+          "engine": "rapier-coordinate",
+          "hz": 120,
+          "actuation": "symmetric",
+          "posture": "GUARD",
+          "pinned": false,
+          "held": "empty",
+          "balance": 0
+        },
+        "firstDown": null,
+        "drop": 0.0012675013404509494,
+        "maximumTurn": 2.000000000000006,
+        "phase": "stand",
+        "speed": 0.01980893535266905,
+        "strides": 18,
+        "recoveries": 0,
+        "assist": {
+          "steps": 0,
+          "force": 0,
+          "moment": 0
+        }
+      }
+    },
+    {
+      "result": {
+        "config": {
+          "speed": 0.25,
+          "rate": 4,
+          "sense": 1,
+          "after": 0,
+          "turnLimit": 2,
+          "model": "workshop-fighter",
+          "engine": "rapier-coordinate",
+          "balance": 0,
+          "hz": 120
+        },
+        "harness": {
+          "kind": "Node core stand",
+          "engine": "rapier-coordinate",
+          "hz": 120,
+          "actuation": "symmetric",
+          "posture": "GUARD",
+          "pinned": false,
+          "held": "empty",
+          "balance": 0
+        },
+        "firstDown": null,
+        "drop": 0.0013569199184073621,
+        "maximumTurn": 2.000000000000006,
+        "phase": "stand",
+        "speed": 0.01932125186610534,
+        "strides": 10,
+        "recoveries": 0,
+        "assist": {
+          "steps": 0,
+          "force": 0,
+          "moment": 0
+        }
+      }
+    },
+    {
+      "result": {
+        "config": {
+          "speed": 0.25,
+          "rate": 4,
+          "sense": 1,
+          "after": 3,
+          "turnLimit": 2,
+          "model": "workshop-fighter",
+          "engine": "rapier-coordinate",
+          "balance": 0,
+          "hz": 120
+        },
+        "harness": {
+          "kind": "Node core stand",
+          "engine": "rapier-coordinate",
+          "hz": 120,
+          "actuation": "symmetric",
+          "posture": "GUARD",
+          "pinned": false,
+          "held": "empty",
+          "balance": 0
+        },
+        "firstDown": null,
+        "drop": 0.0013729633116428275,
+        "maximumTurn": 2.000000000000006,
+        "phase": "stand",
+        "speed": 0.01973766323992327,
+        "strides": 18,
+        "recoveries": 0,
+        "assist": {
+          "steps": 0,
+          "force": 0,
+          "moment": 0
+        }
+      }
+    },
+    {
+      "result": {
+        "config": {
+          "speed": 0.5,
+          "rate": 4,
+          "sense": -1,
+          "after": 0,
+          "turnLimit": 2,
+          "model": "workshop-fighter",
+          "engine": "rapier-coordinate",
+          "balance": 0,
+          "hz": 120
+        },
+        "harness": {
+          "kind": "Node core stand",
+          "engine": "rapier-coordinate",
+          "hz": 120,
+          "actuation": "symmetric",
+          "posture": "GUARD",
+          "pinned": false,
+          "held": "empty",
+          "balance": 0
+        },
+        "firstDown": null,
+        "drop": 0.012186570602212288,
+        "maximumTurn": 2.000000000000006,
+        "phase": "stand",
+        "speed": 0.05063347288637022,
+        "strides": 11,
+        "recoveries": 0,
+        "assist": {
+          "steps": 0,
+          "force": 0,
+          "moment": 0
+        }
+      }
+    },
+    {
+      "result": {
+        "config": {
+          "speed": 0.5,
+          "rate": 4,
+          "sense": -1,
+          "after": 3,
+          "turnLimit": 2,
+          "model": "workshop-fighter",
+          "engine": "rapier-coordinate",
+          "balance": 0,
+          "hz": 120
+        },
+        "harness": {
+          "kind": "Node core stand",
+          "engine": "rapier-coordinate",
+          "hz": 120,
+          "actuation": "symmetric",
+          "posture": "GUARD",
+          "pinned": false,
+          "held": "empty",
+          "balance": 0
+        },
+        "firstDown": null,
+        "drop": 0.007137308498844197,
+        "maximumTurn": 2.000000000000006,
+        "phase": "stand",
+        "speed": 0.04913430755347893,
+        "strides": 19,
         "recoveries": 0,
         "assist": {
           "steps": 0,
@@ -2101,47 +2137,11 @@
           "balance": 0
         },
         "firstDown": null,
-        "drop": 0.0035281112477431043,
+        "drop": 0.0037421713547565183,
         "maximumTurn": 2.000000000000006,
         "phase": "stand",
-        "speed": 0.04817506987184047,
+        "speed": 0.04807499163025461,
         "strides": 11,
-        "recoveries": 0,
-        "assist": {
-          "steps": 0,
-          "force": 0,
-          "moment": 0
-        }
-      }
-    },
-    {
-      "result": {
-        "config": {
-          "speed": 0.5,
-          "rate": 4,
-          "sense": 1,
-          "after": 3,
-          "model": "workshop-fighter",
-          "engine": "rapier-coordinate",
-          "balance": 0,
-          "hz": 120
-        },
-        "harness": {
-          "kind": "Node core stand",
-          "engine": "rapier-coordinate",
-          "hz": 120,
-          "actuation": "symmetric",
-          "posture": "GUARD",
-          "pinned": false,
-          "held": "empty",
-          "balance": 0
-        },
-        "firstDown": null,
-        "drop": 0.02496265373105444,
-        "maximumTurn": 4.000000000000012,
-        "phase": "stand",
-        "speed": 0.049922257366849306,
-        "strides": 19,
         "recoveries": 0,
         "assist": {
           "steps": 0,
@@ -2174,10 +2174,10 @@
           "balance": 0
         },
         "firstDown": null,
-        "drop": 0.036916852214764706,
+        "drop": 0.0056206768610639335,
         "maximumTurn": 2.000000000000006,
         "phase": "stand",
-        "speed": 0.04935160115951153,
+        "speed": 0.049261547900860174,
         "strides": 19,
         "recoveries": 0,
         "assist": {
@@ -2210,10 +2210,10 @@
           "balance": 0
         },
         "firstDown": null,
-        "drop": 0.0009248199704475768,
+        "drop": 0.005726295579973284,
         "maximumTurn": 2.000000000000006,
         "phase": "stand",
-        "speed": 0.021229983348321584,
+        "speed": 0.02169045168063574,
         "strides": 13,
         "recoveries": 0,
         "assist": {
@@ -2246,10 +2246,10 @@
           "balance": 0
         },
         "firstDown": null,
-        "drop": 0.00152606220721907,
+        "drop": 0.0012665302282452995,
         "maximumTurn": 2.000000000000006,
         "phase": "stand",
-        "speed": 0.025651812855535455,
+        "speed": 0.025686632281774455,
         "strides": 14,
         "recoveries": 0,
         "assist": {
@@ -2282,10 +2282,10 @@
           "balance": 0
         },
         "firstDown": null,
-        "drop": 0.0009756720539172425,
+        "drop": 0.0038198706928278536,
         "maximumTurn": 2.000000000000006,
         "phase": "stand",
-        "speed": 0.021337242691320823,
+        "speed": 0.021720953988332542,
         "strides": 13,
         "recoveries": 0,
         "assist": {
@@ -2318,10 +2318,10 @@
           "balance": 0
         },
         "firstDown": null,
-        "drop": 0.001243769065672251,
+        "drop": 0.0012383610278065005,
         "maximumTurn": 2.000000000000006,
         "phase": "stand",
-        "speed": 0.026552453315327608,
+        "speed": 0.026502269661279457,
         "strides": 14,
         "recoveries": 0,
         "assist": {
@@ -2354,10 +2354,10 @@
           "balance": 0
         },
         "firstDown": null,
-        "drop": 0.0038134030888651305,
+        "drop": 0.00698193993599483,
         "maximumTurn": 4.000000000000012,
         "phase": "stand",
-        "speed": 0.023548544509031304,
+        "speed": 0.023757813263115345,
         "strides": 11,
         "recoveries": 0,
         "assist": {
@@ -2390,10 +2390,10 @@
           "balance": 0
         },
         "firstDown": null,
-        "drop": 0.0008760297435678188,
+        "drop": 0.0011323871879668213,
         "maximumTurn": 4.000000000000012,
         "phase": "stand",
-        "speed": 0.0280729030729606,
+        "speed": 0.02885538406781319,
         "strides": 12,
         "recoveries": 0,
         "assist": {
@@ -2426,10 +2426,10 @@
           "balance": 0
         },
         "firstDown": null,
-        "drop": 0.003789197557594881,
+        "drop": 0.0038208970038078327,
         "maximumTurn": 4.000000000000012,
         "phase": "stand",
-        "speed": 0.02347743198467376,
+        "speed": 0.02360935015475554,
         "strides": 11,
         "recoveries": 0,
         "assist": {
@@ -2462,10 +2462,10 @@
           "balance": 0
         },
         "firstDown": null,
-        "drop": 0.02408510697687294,
+        "drop": 0.008728099772631559,
         "maximumTurn": 4.000000000000012,
         "phase": "stand",
-        "speed": 0.02881183352256337,
+        "speed": 0.028066679876128948,
         "strides": 12,
         "recoveries": 0,
         "assist": {
@@ -2498,10 +2498,10 @@
           "balance": 0
         },
         "firstDown": null,
-        "drop": 0.003910657663470762,
+        "drop": 0.004145781926476966,
         "maximumTurn": 2.000000000000006,
         "phase": "stand",
-        "speed": 0.021525853075111685,
+        "speed": 0.02184696838000895,
         "strides": 13,
         "recoveries": 0,
         "assist": {
@@ -2534,10 +2534,10 @@
           "balance": 0
         },
         "firstDown": null,
-        "drop": 0.0015174991989004294,
+        "drop": 0.005481051387845937,
         "maximumTurn": 2.000000000000006,
         "phase": "stand",
-        "speed": 0.026597722040945883,
+        "speed": 0.02658491381585664,
         "strides": 14,
         "recoveries": 0,
         "assist": {
@@ -2570,10 +2570,10 @@
           "balance": 0
         },
         "firstDown": null,
-        "drop": 0.004197627362075962,
+        "drop": 0.004114543333734733,
         "maximumTurn": 2.000000000000006,
         "phase": "stand",
-        "speed": 0.02171308078467457,
+        "speed": 0.021597404394764395,
         "strides": 13,
         "recoveries": 0,
         "assist": {
@@ -2606,10 +2606,10 @@
           "balance": 0
         },
         "firstDown": null,
-        "drop": 0.0012589587147128212,
+        "drop": 0.000993352015693394,
         "maximumTurn": 2.000000000000006,
         "phase": "stand",
-        "speed": 0.026602974090287026,
+        "speed": 0.025466987351679706,
         "strides": 14,
         "recoveries": 0,
         "assist": {
@@ -2642,10 +2642,10 @@
           "balance": 0
         },
         "firstDown": null,
-        "drop": 0.003891673789027661,
+        "drop": 0.0054907021033964165,
         "maximumTurn": 4.000000000000012,
         "phase": "stand",
-        "speed": 0.023450064527835372,
+        "speed": 0.023116199963131866,
         "strides": 11,
         "recoveries": 0,
         "assist": {
@@ -2678,10 +2678,10 @@
           "balance": 0
         },
         "firstDown": null,
-        "drop": 0.0012220249340952893,
+        "drop": 0.0110478987879703,
         "maximumTurn": 4.000000000000012,
         "phase": "stand",
-        "speed": 0.0289345732210174,
+        "speed": 0.029019066980552108,
         "strides": 12,
         "recoveries": 0,
         "assist": {
@@ -2714,10 +2714,10 @@
           "balance": 0
         },
         "firstDown": null,
-        "drop": 0.0009947346500597254,
+        "drop": 0.0042373639579198485,
         "maximumTurn": 4.000000000000012,
         "phase": "stand",
-        "speed": 0.023255892479515962,
+        "speed": 0.023713405914505974,
         "strides": 11,
         "recoveries": 0,
         "assist": {
@@ -2750,10 +2750,10 @@
           "balance": 0
         },
         "firstDown": null,
-        "drop": 0.0012721028996925954,
+        "drop": 0.0062574922005712574,
         "maximumTurn": 4.000000000000012,
         "phase": "stand",
-        "speed": 0.028965799626042864,
+        "speed": 0.027689513500372503,
         "strides": 12,
         "recoveries": 0,
         "assist": {
@@ -2786,10 +2786,10 @@
           "balance": 0
         },
         "firstDown": null,
-        "drop": 0.000863639547808992,
+        "drop": 0.007043724656601524,
         "maximumTurn": 2.000000000000006,
         "phase": "stand",
-        "speed": 0.05329225034483471,
+        "speed": 0.054794713427914116,
         "strides": 14,
         "recoveries": 0,
         "assist": {
@@ -2822,10 +2822,10 @@
           "balance": 0
         },
         "firstDown": null,
-        "drop": 0.004205523314881221,
+        "drop": 0.006898454626803052,
         "maximumTurn": 2.000000000000006,
         "phase": "stand",
-        "speed": 0.06494155167677225,
+        "speed": 0.06479209607424306,
         "strides": 15,
         "recoveries": 0,
         "assist": {
@@ -2858,10 +2858,10 @@
           "balance": 0
         },
         "firstDown": null,
-        "drop": 0.0011969380890655135,
+        "drop": 0.0011437609747193545,
         "maximumTurn": 2.000000000000006,
         "phase": "stand",
-        "speed": 0.05495786964595367,
+        "speed": 0.054840130872866884,
         "strides": 14,
         "recoveries": 0,
         "assist": {
@@ -2894,10 +2894,10 @@
           "balance": 0
         },
         "firstDown": null,
-        "drop": 0.004096219737912743,
+        "drop": 0.004145194817532061,
         "maximumTurn": 2.000000000000006,
         "phase": "stand",
-        "speed": 0.0649515705954454,
+        "speed": 0.06497143301751264,
         "strides": 15,
         "recoveries": 0,
         "assist": {
@@ -2930,10 +2930,10 @@
           "balance": 0
         },
         "firstDown": null,
-        "drop": 0.0011406722830356042,
+        "drop": 0.015369388241828874,
         "maximumTurn": 4.000000000000012,
         "phase": "stand",
-        "speed": 0.05928157832171936,
+        "speed": 0.0572346880117073,
         "strides": 12,
         "recoveries": 0,
         "assist": {
@@ -2966,10 +2966,10 @@
           "balance": 0
         },
         "firstDown": null,
-        "drop": 0.03778909459003221,
+        "drop": 0.0012549699635070466,
         "maximumTurn": 4.000000000000012,
         "phase": "stand",
-        "speed": 0.02872072491059038,
+        "speed": 0.028384847068467202,
         "strides": 12,
         "recoveries": 0,
         "assist": {
@@ -3002,10 +3002,10 @@
           "balance": 0
         },
         "firstDown": null,
-        "drop": 0.0011446386421842814,
+        "drop": 0.001202066498275478,
         "maximumTurn": 4.000000000000012,
         "phase": "stand",
-        "speed": 0.059241322782294534,
+        "speed": 0.05926587547575086,
         "strides": 12,
         "recoveries": 0,
         "assist": {
@@ -3038,10 +3038,10 @@
           "balance": 0
         },
         "firstDown": null,
-        "drop": 0.02275622315660264,
+        "drop": 0.002078307003965607,
         "maximumTurn": 4.000000000000012,
         "phase": "stand",
-        "speed": 0.02847803211509485,
+        "speed": 0.028665541157691557,
         "strides": 12,
         "recoveries": 0,
         "assist": {
@@ -3051,6 +3051,5 @@
         }
       }
     }
-  ],
-  "sourceCommit": "76ae71d4"
+  ]
 }

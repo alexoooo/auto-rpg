@@ -11,6 +11,8 @@ import { Scene } from "@babylonjs/core/scene.js";
 import { GameAudio } from "../audio/game-audio.ts";
 import { loadEngine } from "../core/engine/engines.ts";
 import { buildBody, type BuiltBody } from "../core/build/build-body.ts";
+import { poseAngles } from "../core/control/kinematics.ts";
+import { guardPosture } from "../core/skills/guard.ts";
 import { MODEL_DISPLAY } from "../render/models.ts";
 import { balanceCeiling, balancePercent, rulebook } from "../core/rules/rulebook.ts";
 import { createWorld, type Hook, type World } from "../core/world.ts";
@@ -220,7 +222,9 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
     unload();
     world = createWorld(scene, physicsEngine, { hz: to.hz });
     world.physics.addFixedBox([0, -0.5, 0], [40, 1, 40]);
-    const built = buildBody(loadoutSpec(to), world, { position: [0, 0, 0] }), balance = loadoutBalance(to.balance, built.spec);
+    // Its skills hold the guard from the first step, so it is built holding it.
+    const spec = loadoutSpec(to), built = buildBody(spec, world, { position: [0, 0, 0], joints: poseAngles(spec, guardPosture(spec)) });
+    const balance = loadoutBalance(to.balance, built.spec);
     const log = createMindLog();
     const actor = labActor(built, world, {
       assist: balanceCeiling(balance, PERCENT), allows: allowing(to.barred), mind: (script) => logged(LAB_MINDS[to.mind].tactics(script), log),

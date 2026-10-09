@@ -10,7 +10,7 @@ import type { StanceTuning } from "./stance-tuning.ts";
 import { ownStep, paceToward } from "./gait.ts";
 import { gravityOf, makeStance, type Stance } from "./stance-state.ts";
 import {
-  bearingOf, bearingSole, massCentreToRef, motionAtToRef, pointOfToRef, readSupport, rolledRows, soleMiddleToRef, turnOfToRef,
+  bearingOf, bearingSole, massCentreToRef, motionAtToRef, pointOfToRef, landingHeading, readSupport, rolledRows, soleMiddleToRef, turnOfToRef,
   withinSupport, type FootState,
 } from "./support.ts";
 import { cos, atan2, exp, sinh, cosh, hypot } from "../math/real.ts";
@@ -630,7 +630,9 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}, assis
       const e = 1 / s.tuning.track;
       aimRoot(s, goal.heading, planned, height, e);
       holdStance(s, stance, e);
-      if (reading.phase === "swing" && swing) swingFoot(s, swing, goal.heading, dt);
+      // A step lands facing the heading as far as the bearing foot's hip lets the pelvis turn over it
+      // (`landingHeading`): a turn past that is taken step by step.
+      if (reading.phase === "swing" && swing) swingFoot(s, swing, bearer ? landingHeading(bearer, goal.heading) : goal.heading, dt);
     },
   };
 }

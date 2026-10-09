@@ -1,10 +1,13 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import type { BuiltBody, BuiltJoint, BuiltSegment } from "../build/build-body.ts";
+import { jointKinematics, type BuiltBody, type BuiltJoint, type BuiltSegment, type JointKinematics } from "../build/build-body.ts";
 import { motionAxesToRef, rotationOfToRef, turningToRef } from "../build/joint-state.ts";
+import type { BodySpec } from "../spec/body.ts";
 import type { Vec3 } from "../spec/quantity.ts";
+import type { Pose } from "./motor.ts";
 import { linearWork, solve3To, solveLinearTo, type LinearWork } from "../math/flat.ts";
 import { hypot } from "../math/real.ts";
 import { spinBetweenToRef } from "../math/turn.ts";
+import { channelName } from "../muscle/driver.ts";
 
 /**
  * **A body's kinematics in its joints' angles**, in the root's frame: where a point on a segment is
@@ -29,15 +32,38 @@ export function chainTo(built: BuiltBody, segment: BuiltSegment): BuiltJoint[] {
   return chain;
 }
 
+/** The joints from `spec`'s root out to its segment `segment`, root first, as `chainTo` walks a built body's: what a pose is solved in before the body is built. */
+export function specChainTo(spec: BodySpec, segment: string): JointKinematics[] {
+  const byChild = new Map(spec.joints.map((joint) => [joint.child, joint]));
+  const chain: JointKinematics[] = [];
+  for (let joint = byChild.get(segment); joint; joint = byChild.get(joint.parent)) chain.unshift(jointKinematics(joint));
+  return chain;
+}
+
+/**
+ * `pose` as a placement's angles by joint (`buildBody`): each joint a channel of `pose` names
+ * (`channelName`), its freedoms at the pose's angles read within their ranges, a freedom it does
+ * not name at zero. A body built so stands in the pose from its first step.
+ */
+export function poseAngles(spec: BodySpec, pose: Pose): Record<string, number[]> {
+  const angles: Record<string, number[]> = {};
+  for (const joint of spec.joints) {
+    const kinematics = jointKinematics(joint), named = joint.dofs.map((_, k) => pose[channelName(kinematics, k)]);
+    if (named.every((angle) => angle === undefined)) continue;
+    angles[joint.name] = joint.dofs.map((dof, k) => Math.min(dof.max.value, Math.max(dof.min.value, named[k] ?? 0)));
+  }
+  return angles;
+}
+
 const scratch = { a: new Quaternion(), b: new Quaternion(), d: new Quaternion(), v: new Vector3(), at: new Vector3() };
 
 /** `joint`'s rotation at `angles` (each freedom's, its own sense), body frame: `jointAngles` undone. */
-export function rotationAtToRef(joint: BuiltJoint, angles: readonly number[], out: Quaternion): Quaternion {
+export function rotationAtToRef(joint: JointKinematics, angles: readonly number[], out: Quaternion): Quaternion {
   return rotationOfToRef(joint.axes, engineAngle(joint, angles, 0), engineAngle(joint, angles, 1), engineAngle(joint, angles, 2), out);
 }
 
 /** Freedom `k` of `joint` at `angles` in the engine's sense, a locked one at zero. */
-function engineAngle(joint: BuiltJoint, angles: readonly number[], k: number): number {
+function engineAngle(joint: JointKinematics, angles: readonly number[], k: number): number {
   return k < joint.dofs.length ? joint.dofs[k]!.sign * angles[k]! : 0;
 }
 
@@ -45,7 +71,7 @@ function engineAngle(joint: BuiltJoint, angles: readonly number[], k: number): n
  * Where `point` (body frame, reference pose, on the chain's last segment) is in the root's frame
  * with the chain's joints at `angles` (by joint, in the chain's order).
  */
-export function pointAtToRef(chain: readonly BuiltJoint[], angles: readonly (readonly number[])[], point: Vec3, out: Vector3): Vector3 {
+export function pointAtToRef(chain: readonly JointKinematics[], angles: readonly (readonly number[])[], point: Vec3, out: Vector3): Vector3 {
   const turn = scratch.d.copyFromFloats(0, 0, 0, 1);
   const first = chain[0]!.spec.centre.value;
   out.set(first[0], first[1], first[2]);
@@ -83,7 +109,7 @@ function chainWalk(): ChainWalk {
  * which leans a two-freedom joint's as its lock asks) summed by what each freedom's speed is for a
  * unit of this one's rate (`turningToRef`), turned by everything before the joint.
  */
-function walkTo(walk: ChainWalk, chain: readonly BuiltJoint[], angles: readonly (readonly number[])[], free: readonly ReachFreedom[]): void {
+function walkTo(walk: ChainWalk, chain: readonly JointKinematics[], angles: readonly (readonly number[])[], free: readonly ReachFreedom[]): void {
   const { before, centre, last, spin, axes, turning } = walk;
   last.copyFromFloats(0, 0, 0, 1);
   for (let j = 0; j < chain.length; j++) {
@@ -115,7 +141,7 @@ function walkTo(walk: ChainWalk, chain: readonly BuiltJoint[], angles: readonly 
 }
 
 /** Where `point` of the last segment of the chain walked into `walk` is, root's frame: `pointAtToRef`'s answer, by the walk's sums. */
-function walkedPointToRef(walk: ChainWalk, chain: readonly BuiltJoint[], point: Vec3, out: Vector3): Vector3 {
+function walkedPointToRef(walk: ChainWalk, chain: readonly JointKinematics[], point: Vec3, out: Vector3): Vector3 {
   const end = chain.length - 1, c = chain[end]!.spec.centre.value;
   scratch.v.set(point[0] - c[0], point[1] - c[1], point[2] - c[2]).applyRotationQuaternionToRef(walk.last, scratch.v);
   return out.copyFrom(walk.centre[end]!).addInPlace(scratch.v);
@@ -133,7 +159,7 @@ function walkedColumn(walk: ChainWalk, c: number, joint: number, at: Vector3, ou
  * walk of the chain, no differences: the column of freedom k of joint j is w x (p - c_j), p the
  * point as the chain stands, c_j the joint's centre, w the freedom's spin (`walkTo`).
  */
-export function reachJacobianTo(out: number[][], chain: readonly BuiltJoint[], angles: readonly (readonly number[])[],
+export function reachJacobianTo(out: number[][], chain: readonly JointKinematics[], angles: readonly (readonly number[])[],
   free: readonly ReachFreedom[], point: Vec3): number[][] {
   const walk = chainWalk();
   walkTo(walk, chain, angles, free);
@@ -276,7 +302,7 @@ export function reachWork(freedoms: number): ReachWork {
  * a half turn (`rotationOfToRef`), so a limit at one or beyond never acts, and an angle there
  * has no rotation.
  */
-export function solveReach(chain: readonly BuiltJoint[], angles: number[][], free: readonly ReachFreedom[], tasks: readonly ReachTask[],
+export function solveReach(chain: readonly JointKinematics[], angles: number[][], free: readonly ReachFreedom[], tasks: readonly ReachTask[],
   end?: ReachEnd, work: ReachWork = reachWork(free.length), orientation?: ReachOrientation): number {
   if (tasks.length !== 1 && tasks.length !== 2) throw new Error(`a reach is one task or two, not ${tasks.length}`);
   if (orientation && (tasks.length !== 1 || !(orientation.lever > 0))) throw new Error("an oriented reach needs one point and a positive lever");

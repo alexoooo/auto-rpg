@@ -1,6 +1,6 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { Vec3 } from "../spec/quantity.ts";
-import type { BuiltJoint, BuiltSegment } from "./build-body.ts";
+import type { BuiltJoint, BuiltSegment, JointKinematics } from "./build-body.ts";
 import { tan, atan2 } from "../math/real.ts";
 
 /**
@@ -91,7 +91,7 @@ const abc: [number, number, number] = [0, 0, 0];
  * cross-product matrix of t. A locked axis has t at zero, so a joint of fewer freedoms reads the
  * leading rows and columns: of two, the diagonal w^2 (1 + t_k^2). At no angles this is the identity.
  */
-export function turningToRef(joint: BuiltJoint, angles: readonly number[], out: number[][]): number[][] {
+export function turningToRef(joint: JointKinematics, angles: readonly number[], out: number[][]): number[][] {
   const { dofs } = joint, count = dofs.length;
   const x = halfTan(joint, angles, 0), y = halfTan(joint, angles, 1), z = halfTan(joint, angles, 2);
   const w2 = 1 / (1 + x * x + y * y + z * z);
@@ -110,7 +110,7 @@ export function turningToRef(joint: BuiltJoint, angles: readonly number[], out: 
 }
 
 /** tan(a_k / 2) of freedom `k`'s angle in `angles` (own senses) in the engine's sense, a locked freedom's at zero. */
-function halfTan(joint: BuiltJoint, angles: readonly number[], k: number): number {
+function halfTan(joint: JointKinematics, angles: readonly number[], k: number): number {
   return tan((k < joint.dofs.length ? joint.dofs[k]!.sign * angles[k]! : 0) / 2);
 }
 
@@ -173,7 +173,7 @@ export function rateBiasToRef(joint: BuiltJoint, angles: readonly number[], spee
  * second's about Y + tan(a / 2) Z. As the angles turn, these axes lean along Z at rates whose sum
  * over the speeds cancels, so a joint's axes add nothing to the motion's bias (`dynamics.ts`).
  */
-export function motionAxesToRef(joint: BuiltJoint, angles: readonly number[], out: [number, number, number][]): [number, number, number][] {
+export function motionAxesToRef(joint: JointKinematics, angles: readonly number[], out: [number, number, number][]): [number, number, number][] {
   const { dofs, axes } = joint;
   out.length = dofs.length;
   if (dofs.length === 2) {

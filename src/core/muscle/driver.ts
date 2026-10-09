@@ -1,5 +1,5 @@
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import type { BuiltBody, BuiltDof, BuiltJoint, BuiltSegment } from "../build/build-body.ts";
+import type { BuiltBody, BuiltDof, BuiltJoint, BuiltSegment, JointKinematics } from "../build/build-body.ts";
 import type { MuscleSpec } from "../spec/body.ts";
 import { jointTracker, type JointTracker } from "../build/joint-state.ts";
 import { bodyDynamics, type BodyDynamics } from "../build/dynamics.ts";
@@ -72,7 +72,7 @@ function fixedAt(level: BodyLevel): boolean {
 
 /** One freedom's muscles: which joint and freedom, and the curve each way. */
 /** The channel of `joint`'s freedom `index`: the joint's name and the freedom's positive motion, e.g. "elbow.right flexion". */
-export const channelName = (joint: BuiltJoint, index: number): string => `${joint.spec.name} ${joint.dofs[index]!.spec.positive}`;
+export const channelName = (joint: JointKinematics, index: number): string => `${joint.spec.name} ${joint.dofs[index]!.spec.positive}`;
 
 interface MuscleChannel {
   /** `joint.name` and the freedom's positive motion, e.g. "elbow.right flexion". */

@@ -15,6 +15,7 @@ import { isEngineName, loadEngine } from "../../src/core/engine/engines.ts";
 import { PHYSICS_HZ } from "../../src/core/world.ts";
 import { createWorld } from "../../src/core/world.ts";
 import { buildBody } from "../../src/core/build/build-body.ts";
+import { poseAngles } from "../../src/core/control/kinematics.ts";
 import { loadState, saveState } from "../../src/core/state.ts";
 
 /** Published reference batteries use parent-axis Rapier; gameplay gates request their engine explicitly. */
@@ -26,15 +27,17 @@ export const freshEngine = (name = CORE_ENGINE) => loadEngine(name);
 /**
  * A stand for `spec`. `gravity: false` builds a world without it, for reading a joint alone;
  * `ground: false` leaves the body in the air; `pinned` names a segment the stand holds still, as a
- * mannequin's stand holds its pelvis. `groundSize` is the ground's side, m (the lab's is 40). `hz` runs physics and control at another rate than the
+ * mannequin's stand holds its pelvis; `posture` (a `Pose`) builds it standing in that posture, as a
+ * fighter is built in the guard its skills hold (`poseAngles`), in place of `joints`. `groundSize`
+ * is the ground's side, m (the lab's is 40). `hz` runs physics and control at another rate than the
  * game's, as a finer reference; a figure read at one names it.
  */
-export async function coreStand(spec, { gravity = true, ground = true, position = [0, 0, 0], rotation, joints, pinned, groundSize = 20, hz = PHYSICS_HZ.value, actuation, engine: engineName = CORE_ENGINE } = {}) {
+export async function coreStand(spec, { gravity = true, ground = true, position = [0, 0, 0], rotation, joints, posture, pinned, groundSize = 20, hz = PHYSICS_HZ.value, actuation, engine: engineName = CORE_ENGINE } = {}) {
   const engine = new NullEngine();
   const scene = new Scene(engine);
   const world = createWorld(scene, await freshEngine(engineName), { hz, gravity, actuation });
   const floor = ground ? world.physics.addFixedBox([0, -0.5, 0], [groundSize, 1, groundSize]) : null;
-  const built = buildBody(spec, world, { position, rotation, joints });
+  const built = buildBody(spec, world, { position, rotation, joints: posture ? poseAngles(spec, posture) : joints });
   if (pinned !== undefined) {
     const segment = built.segments.get(pinned);
     if (!segment) throw new Error(`no segment ${pinned} to pin`);

@@ -92,7 +92,7 @@ test('an auxiliary return deadline records failure and never manufactures guard 
 
 async function arena(side='left'){
  const other=side==='left'?'right':'left';
- return buildBout({left:'workshop-fighter',right:'workshop-fighter',held:{left:'empty',right:'empty'},balance:{left:0,right:0},gap:2,
+ return buildBout({left:'workshop-fighter',right:'workshop-fighter',held:{left:'empty',right:'empty'},balance:{left:0,right:0},gap:1.9,
   recoverySeconds:null,capSeconds:30,minds:{[side]:{...SCRAPPER,spacing:.1,combinations:'overlap'},[other]:BRAWLER}},
   {physicsEngine:await loadEngine(DEFAULT_ENGINE)});
 }

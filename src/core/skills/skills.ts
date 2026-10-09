@@ -85,7 +85,7 @@ function closedIn(phase: StrikeReport["phase"]): boolean {
  */
 export function recipeSkills(body: Body, { state: tactics, engagement }: Pick<Tactics, "state" | "engagement"> = {},
   { repertoire = REPERTOIRE, placed, steer, cover }: RecipeOptions = {}): Skills {
-  const guarding = guardPosture(body.built);
+  const guarding = guardPosture(body.built.spec);
   const legs = locomotion(body.envelope), strikes = strikeSkill(body.built.spec, repertoire, placed, steer, guarding), guard = guardSkill(body.built.spec, cover);
   const none: readonly MusclePush[] = Object.freeze([]);
   const effectors: Record<string, EffectorGoal | null> = { "hand.left": null, "hand.right": null };

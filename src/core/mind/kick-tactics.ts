@@ -1,7 +1,7 @@
 import { capsuleSurfaceAtHeight } from "./openings.ts";
 import { lowOpponent } from "./sensed-bounds.ts";
 import { atan2, hypot, cos, sin } from "../math/real.ts";
-import { wrap } from "../skills/locomotion.ts";
+import { wrap } from "../math/turn.ts";
 import type { KickTuning } from "../skills/kick.ts";
 import { NO_COVER, type Intent, type KickAttack } from "./intent.ts";
 import type { Sight } from "./tactics.ts";

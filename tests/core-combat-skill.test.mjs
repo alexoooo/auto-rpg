@@ -14,6 +14,7 @@ import { traceOf } from './harness/trace.mjs';
 import { coreStand, saveStand, loadStand } from './harness/core-stand.mjs';
 import { pointPath } from '../src/core/control/point-path.ts';
 import { combatSkills } from '../src/core/skills/combat.ts';
+import { poseBlocked } from '../src/core/build/hand-poses.ts';
 import { NO_COVER } from '../src/core/mind/intent.ts';
 
 test('curved point paths preserve endpoint motion and analytic derivatives', () => {
@@ -172,7 +173,10 @@ test('every skill set closes a bare hand for its blow and opens it in the guard'
  for(const mind of [COMBAT,RECIPE_FIGHTER]) {
   const bout=await buildBout({left:'workshop-fighter',right:'workshop-fighter',gap:2,capSeconds:15,recoverySeconds:null,
    balance:{left:0,right:0},held:{left:'empty',right:'empty'},minds:{left:mind,right:mind}},{physicsEngine:await loadEngine(DEFAULT_ENGINE)});
-  const tally={},free={left:0,right:0};
+  const tally={},free={left:0,right:0},blocked={};
+  // Blocked as `createHandPoses` blocks a change, read where it reads it: before the step, after it has had its say.
+  const hook=bout.world.beforeStep(()=>{for(const side of ['left','right'])for(const hand of ['left','right']){
+   const part=bout.duel.duelists[side].built.segments.get(`hand.${hand}`);blocked[`${side}.${hand}`]=poseBlocked(bout.world,part,part.poses.open.collider);}});
   try {
    bout.duel.play([]);
    while(bout.duel.verdict===null&&bout.duel.clock<15) {
@@ -182,19 +186,20 @@ test('every skill set closes a bare hand for its blow and opens it in the guard'
      // A step after its last blow has ended, a hand is asked open; one held shut is only an opening blocked until it is clear.
      free[side]=strike.hand===null&&!strike.returning&&!d.body.view.down?free[side]+1:0;
      for(const hand of ['left','right']) {
-      const t=tally[`${mind.kind} ${side}.${hand}`]??={swing:0,swingOpen:0,guard:0,guardAsked:0,guardOpen:0};
+      const t=tally[`${mind.kind} ${side}.${hand}`]??={swing:0,swingOpen:0,guard:0,guardAsked:0,guardOpen:0,guardBlocked:0};
       if(strike.hand===hand&&strike.phase==='swing'){t.swing++;if(poses[hand].applied!=='fist')t.swingOpen++;}
-      if(free[side]>=2){t.guard++;if(poses[hand].requested==='open')t.guardAsked++;if(poses[hand].applied==='open')t.guardOpen++;}
+      if(free[side]>=2){t.guard++;if(poses[hand].requested==='open')t.guardAsked++;if(poses[hand].applied==='open')t.guardOpen++;else if(blocked[`${side}.${hand}`])t.guardBlocked++;}
      }
     }
    }
-  } finally {bout.dispose();}
+  } finally {hook.dispose();bout.dispose();}
   for(const [key,t] of Object.entries(tally)) {
    // The recipe fighter throws with its right hand alone; its left is never closed.
    if(mind===RECIPE_FIGHTER&&key.endsWith('.left'))assert.equal(t.swing,0,key);
    else assert.ok(t.swing>0,`${key}: ${JSON.stringify(t)}`);
    assert.equal(t.swingOpen,0,`${key} swings with its fist: ${JSON.stringify(t)}`);
-   assert.ok(t.guard>100&&t.guardAsked===t.guard&&t.guardOpen>=.95*t.guard,`${key} opens in the guard: ${JSON.stringify(t)}`);
+   // Every step a hand asked open in the guard is not open, its opening is blocked; and it is open on more than a hundred.
+   assert.ok(t.guard>100&&t.guardAsked===t.guard&&t.guardOpen+t.guardBlocked===t.guard&&t.guardOpen>100,`${key} opens in the guard: ${JSON.stringify(t)}`);
   }
  }
 });

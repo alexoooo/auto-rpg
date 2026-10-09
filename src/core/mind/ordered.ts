@@ -1,5 +1,5 @@
 import { atan2, cos, hypot, sin } from "../math/real.ts";
-import { wrap } from "../skills/locomotion.ts";
+import { wrap } from "../math/turn.ts";
 import type { RecipeFighterConfig } from "./config.ts";
 import type { Cover, Intent } from "./intent.ts";
 import type { Orders } from "./orders.ts";

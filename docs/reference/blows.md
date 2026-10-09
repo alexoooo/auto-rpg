@@ -1032,23 +1032,22 @@ A cell with no recipe is thrown at by placement.
 
 | Body | Held | Band | Target ahead, m | up, m | Net at 120 Hz, HP | at 480 | at 1920 | The placed blow's net, HP | Window along, cm | across | up |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| Warrior | wooden club | high | 0.967 | 0.000 | 1.012 | 1.016 | 0.833 | 0.062 | -4 to 4 | -4 to 4 | -32 to 12 |
-| Warrior | wooden club | middle | 1.074 | -0.240 | 1.154 | 0.922 | 1.063 | 0.084 | -10 to 8 | -6 to 2 | -24 to 16 |
-| Warrior | fist | high | 0.372 | 0.000 | 0.024 | 0.024 | 0.024 | -0.002 | -4 to 4 | -10 to 14 | -8 to 10 |
-| Warrior | fist | middle | 0.617 | -0.240 | 0.507 | 0.325 | 0.336 | 0.003 | -2 to 2 | -8 to 2 | -36 to 20 |
-| Rogue | wooden club | high | 0.888 | 0.000 | 0.397 | 0.458 | 0.451 | 0.052 | -6 to 6 | -2 to 2 | -16 to 4 |
-| Rogue | wooden club | middle | 0.829 | -0.231 | 0.502 | 0.280 | 0.298 | 0.075 | -12 to 14 | -4 to 2 | -60 to 26 |
-| Rogue | fist | high | 0.437 | 0.000 | 0.007 | 0.007 | 0.007 | -0.001 | -6 to 8 | -2 to 6 | -12 to 6 |
-| Rogue | fist | middle | 0.575 | -0.231 | 0.225 | 0.132 | 0.146 | 0.001 | -4 to 2 | -6 to 2 | -14 to 20 |
-| skeleton | wooden club | high | 0.794 | 0.000 | 0.800 | 0.798 | 0.812 | 0.000 | -2 to 4 | -4 to 2 | -16 to 30 |
-| skeleton | wooden club | middle | 1.102 | -0.248 | 1.271 | 1.276 | 1.289 | 0.016 | -20 to 10 | -6 to 4 | -44 to 20 |
-| skeleton | fist | high | 0.530 | 0.000 | 0.034 | 0.031 | 0.032 | 0.000 | -2 to 6 | -4 to 4 | -28 to 18 |
-| skeleton | fist | middle | 0.645 | -0.248 | 0.674 | 0.382 | 0.354 | 0.024 | -2 to 6 | 0 to 6 | -28 to 36 |
+| Warrior | wooden club | high | 0.962 | 0.000 | 1.101 | 1.083 | 1.106 | 0.062 | -8 to 2 | -2 to 2 | -54 to 14 |
+| Warrior | wooden club | middle | 1.067 | -0.240 | 1.163 | 1.016 | 0.935 | 0.084 | -14 to 4 | -4 to 4 | -32 to 18 |
+| Warrior | fist | high | 0.387 | 0.000 | 0.029 | 0.030 | 0.031 | -0.004 | -6 to 6 | -14 to 4 | -6 to 8 |
+| Warrior | fist | middle | 0.596 | -0.240 | 0.582 | 0.388 | 0.293 | 0.015 | 0 to 4 | -2 to 6 | -34 to 18 |
+| Rogue | wooden club | high | 0.859 | 0.000 | 0.402 | 0.319 | 0.273 | 0.052 | -2 to 8 | -6 to 2 | -18 to 6 |
+| Rogue | wooden club | middle | 0.836 | -0.231 | 0.424 | 0.476 | 0.491 | 0.077 | -16 to 4 | -4 to 4 | -22 to 26 |
+| Rogue | fist | high | 0.407 | 0.000 | 0.010 | 0.010 | 0.010 | -0.002 | -4 to 4 | -2 to 4 | -14 to 8 |
+| Rogue | fist | middle | 0.539 | -0.231 | 0.260 | 0.215 | 0.215 | 0.007 | -4 to 2 | -2 to 4 | -24 to 24 |
+| skeleton | wooden club | high | 0.822 | 0.000 | 0.787 | 0.812 | 0.806 | 0.000 | -2 to 6 | -2 to 2 | -26 to 26 |
+| skeleton | wooden club | middle | 1.042 | -0.248 | 1.301 | 1.318 | 1.305 | 0.030 | -12 to 16 | -6 to 4 | -36 to 12 |
+| skeleton | fist | high | 0.545 | 0.000 | 0.036 | 0.033 | 0.032 | -0.001 | -4 to 6 | -6 to 2 | -24 to 12 |
+| skeleton | fist | middle | 0.645 | -0.248 | 0.683 | 0.441 | 0.454 | 0.020 | -4 to 2 | -4 to 6 | -18 to 2 |
 
-Every cell has a recipe. The Rogue's club blow at a trunk is its fifth search: none of the first
-three has a window at 480 Hz. Thrown about its place at that rate the first leaves the Rogue down
-within the three seconds a window watches, and the second and third land a tenth of what they do
-at 120 Hz, or miss.
+Every cell has a recipe. The Rogue's club blow at a trunk is its second search: its first nets
+more at 120 Hz, 0.532 HP, and has no window the feet can be set to; at 480 Hz it lands once in
+eight, and thrown at nothing leaves the Rogue down.
 
 ### Another body's recipe
 
@@ -1890,31 +1889,93 @@ on 28 worker threads of a 16-core desktop, one after another. The columns are
   0.361, 0.325 and 0.357 and stands at nothing at every rate, and is not its recipe: a recipe is
   what nets most at the game's rate.
 
+### Searched built in the guard
+
+A fighter is built in the guard its mind holds (`Controller.builtIn`: `guardPosture`, an item
+upright at the wrist or the fists' `GUARD`), and stands at the height its reference pose gives
+(`standingHeight`), 7 to 11 mm over the guard's, so it settles otherwise and an open-loop recipe
+lands otherwise. Every cell, fists and clubs, was searched again as
+[the searches](#the-searches) were, from its own recipe of `assets/core/strikes.json@7601bd36` at
+spreads 0.2, 0.4 and 0.6, and still where its recipe was searched still; the recipes chosen
+(`research/core-strike-repertoire.mjs --write --from-at --spare`) and their windows measured
+(`research/core-strike-window.mjs --write --spare`). Node core stand, Rapier, 120 Hz, 30
+generations of 64; 36 searches of 2 to 8 minutes on 28 worker threads of a 16-core desktop, one
+after another. The columns are [the searches](#the-searches)'.
+
+| Body | Held | Band | Seed | From | Spread | Searched, HP | 120 Hz: net | done | cost | landed | stood | 480 Hz: net | done | cost | landed | stood | 1920 Hz: net | done | cost | landed | stood | At nothing, 120, 480, 1920 Hz | The cell's |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Warrior | wooden club | high | 1 | Warrior's, high | 0.2 | 1.050 | 1.023 | 1.023 | 0.000 | 8 | 8 | 0.909 | 0.909 | 0.000 | 8 | 8 | 0.880 | 0.880 | 0.000 | 8 | 8 | stands, stands, stands |  |
+| Warrior | wooden club | high | 2 | Warrior's, high | 0.4 | 1.160 | 1.101 | 1.101 | 0.000 | 8 | 7 | 1.083 | 1.083 | 0.000 | 8 | 8 | 1.106 | 1.106 | 0.000 | 8 | 8 | stands, stands, stands | yes |
+| Warrior | wooden club | high | 3 | Warrior's, high | 0.6 | 1.100 | 1.083 | 1.083 | 0.000 | 8 | 8 | 0.896 | 0.896 | 0.000 | 8 | 8 | 0.930 | 0.930 | 0.000 | 8 | 8 | stands, stands, stands |  |
+| Warrior | wooden club | middle, still | 1 | Warrior's, middle | 0.2 | 1.235 | 0.988 | 0.988 | 0.000 | 8 | 8 | 1.135 | 1.135 | 0.000 | 8 | 8 | 1.114 | 1.114 | 0.000 | 8 | 8 | stands, stands, stands |  |
+| Warrior | wooden club | middle, still | 2 | Warrior's, middle | 0.4 | 1.195 | 1.163 | 1.163 | 0.000 | 8 | 8 | 1.016 | 1.016 | 0.000 | 8 | 8 | 0.935 | 0.935 | 0.000 | 8 | 8 | stands, stands, stands | yes |
+| Warrior | wooden club | middle, still | 3 | Warrior's, middle | 0.6 | 1.128 | 1.111 | 1.111 | 0.000 | 8 | 8 | 0.892 | 0.892 | 0.000 | 8 | 8 | 1.094 | 1.094 | 0.000 | 8 | 8 | stands, stands, stands |  |
+| Warrior | fist | high, still | 1 | Warrior's, high | 0.2 | 0.030 | 0.029 | 0.160 | 0.131 | 8 | 8 | 0.030 | 0.161 | 0.132 | 8 | 8 | 0.031 | 0.165 | 0.135 | 8 | 8 | stands, stands, stands | yes |
+| Warrior | fist | high, still | 2 | Warrior's, high | 0.4 | 0.022 | 0.021 | 0.114 | 0.093 | 8 | 8 | 0.015 | 0.082 | 0.067 | 8 | 8 | 0.016 | 0.089 | 0.072 | 8 | 8 | stands, stands, stands |  |
+| Warrior | fist | high, still | 3 | Warrior's, high | 0.6 | 0.018 | 0.014 | 0.073 | 0.059 | 8 | 8 | 0.004 | 0.022 | 0.018 | 8 | 8 | 0.003 | 0.017 | 0.014 | 8 | 8 | stands, stands, stands |  |
+| Warrior | fist | middle | 1 | Warrior's, middle | 0.2 | 0.574 | 0.485 | 0.543 | 0.057 | 8 | 7 | 0.357 | 0.401 | 0.044 | 8 | 8 | 0.327 | 0.369 | 0.042 | 8 | 8 | stands, stands, stands |  |
+| Warrior | fist | middle | 2 | Warrior's, middle | 0.4 | 0.637 | 0.582 | 0.653 | 0.071 | 8 | 5 | 0.388 | 0.430 | 0.042 | 8 | 8 | 0.293 | 0.330 | 0.037 | 8 | 8 | stands, stands, stands | yes |
+| Warrior | fist | middle | 3 | Warrior's, middle | 0.6 | 0.675 | 0.466 | 0.516 | 0.050 | 8 | 8 | 0.297 | 0.328 | 0.031 | 8 | 8 | 0.122 | 0.131 | 0.009 | 8 | 8 | stands, stands, stands |  |
+| Rogue | wooden club | high | 1 | Rogue's, high | 0.2 | 0.413 | 0.402 | 0.402 | 0.000 | 8 | 8 | 0.319 | 0.319 | 0.000 | 8 | 8 | 0.273 | 0.273 | 0.000 | 8 | 8 | stands, stands, stands | yes |
+| Rogue | wooden club | high | 2 | Rogue's, high | 0.4 | 0.391 | 0.386 | 0.386 | 0.000 | 8 | 8 | 0.385 | 0.385 | 0.000 | 8 | 8 | 0.367 | 0.367 | 0.000 | 8 | 8 | stands, stands, stands |  |
+| Rogue | wooden club | high | 3 | Rogue's, high | 0.6 | 0.331 | 0.311 | 0.311 | 0.000 | 8 | 6 | 0.052 | 0.052 | 0.000 | 6 | 7 | 0.014 | 0.014 | 0.000 | 2 | 6 | stands, stands, stands |  |
+| Rogue | wooden club | middle | 1 | Rogue's, middle | 0.2 | 0.530 | 0.532 | 0.532 | 0.000 | 8 | 8 | 0.001 | 0.001 | 0.000 | 1 | 0 | 0.226 | 0.226 | 0.000 | 8 | 8 | stands, falls, stands |  |
+| Rogue | wooden club | middle | 2 | Rogue's, middle | 0.4 | 0.501 | 0.424 | 0.424 | 0.000 | 8 | 8 | 0.476 | 0.476 | 0.000 | 8 | 8 | 0.491 | 0.491 | 0.000 | 8 | 8 | stands, stands, stands | yes |
+| Rogue | wooden club | middle | 3 | Rogue's, middle | 0.6 | 0.368 | 0.354 | 0.354 | 0.000 | 8 | 8 | 0.331 | 0.331 | 0.000 | 8 | 8 | 0.293 | 0.293 | 0.000 | 8 | 8 | stands, stands, stands |  |
+| Rogue | fist | high | 1 | Rogue's, high | 0.2 | 0.009 | 0.007 | 0.044 | 0.038 | 8 | 8 | 0.004 | 0.047 | 0.043 | 8 | 8 | 0.003 | 0.045 | 0.042 | 8 | 8 | stands, stands, stands |  |
+| Rogue | fist | high | 2 | Rogue's, high | 0.4 | 0.011 | 0.010 | 0.055 | 0.045 | 8 | 8 | 0.010 | 0.055 | 0.045 | 8 | 8 | 0.010 | 0.055 | 0.044 | 8 | 8 | stands, stands, stands | yes |
+| Rogue | fist | high | 3 | Rogue's, high | 0.6 | 0.011 | 0.005 | 0.038 | 0.033 | 8 | 8 | 0.008 | 0.043 | 0.035 | 8 | 8 | 0.007 | 0.040 | 0.033 | 8 | 8 | stands, stands, stands |  |
+| Rogue | fist | middle | 1 | Rogue's, middle | 0.2 | 0.325 | 0.260 | 0.288 | 0.028 | 8 | 8 | 0.215 | 0.237 | 0.021 | 8 | 8 | 0.215 | 0.237 | 0.021 | 8 | 8 | stands, stands, stands | yes |
+| Rogue | fist | middle | 2 | Rogue's, middle | 0.4 | 0.292 | 0.253 | 0.281 | 0.028 | 8 | 8 | 0.185 | 0.203 | 0.018 | 8 | 8 | 0.172 | 0.188 | 0.016 | 8 | 8 | stands, stands, stands |  |
+| Rogue | fist | middle | 3 | Rogue's, middle | 0.6 | 0.291 | 0.232 | 0.257 | 0.025 | 8 | 8 | 0.160 | 0.177 | 0.018 | 8 | 8 | 0.112 | 0.126 | 0.014 | 8 | 8 | stands, stands, stands |  |
+| skeleton | wooden club | high | 1 | skeleton's, high | 0.2 | 0.816 | 0.775 | 0.775 | 0.000 | 8 | 8 | 0.764 | 0.764 | 0.000 | 8 | 8 | 0.760 | 0.760 | 0.000 | 8 | 8 | stands, stands, falls |  |
+| skeleton | wooden club | high | 2 | skeleton's, high | 0.4 | 0.842 | 0.787 | 0.787 | 0.000 | 8 | 8 | 0.812 | 0.812 | 0.000 | 8 | 8 | 0.806 | 0.806 | 0.000 | 8 | 8 | stands, stands, stands | yes |
+| skeleton | wooden club | high | 3 | skeleton's, high | 0.6 | 0.810 | 0.779 | 0.779 | 0.000 | 8 | 8 | 0.789 | 0.789 | 0.000 | 8 | 8 | 0.736 | 0.736 | 0.000 | 8 | 8 | stands, stands, falls |  |
+| skeleton | wooden club | middle | 1 | skeleton's, middle | 0.2 | 1.323 | 1.190 | 1.190 | 0.000 | 8 | 4 | 1.237 | 1.237 | 0.000 | 8 | 8 | 1.245 | 1.245 | 0.000 | 8 | 7 | stands, stands, stands |  |
+| skeleton | wooden club | middle | 2 | skeleton's, middle | 0.4 | 1.327 | 1.301 | 1.301 | 0.000 | 8 | 8 | 1.318 | 1.318 | 0.000 | 8 | 8 | 1.305 | 1.305 | 0.000 | 8 | 8 | stands, stands, stands | yes |
+| skeleton | wooden club | middle | 3 | skeleton's, middle | 0.6 | 1.266 | 1.218 | 1.218 | 0.000 | 8 | 8 | 1.300 | 1.300 | 0.000 | 8 | 8 | 1.311 | 1.311 | 0.000 | 8 | 8 | stands, stands, stands |  |
+| skeleton | fist | high | 1 | skeleton's, high | 0.2 | 0.039 | 0.028 | 0.214 | 0.186 | 8 | 8 | 0.038 | 0.204 | 0.166 | 8 | 8 | 0.037 | 0.199 | 0.162 | 8 | 8 | stands, stands, stands |  |
+| skeleton | fist | high | 2 | skeleton's, high | 0.4 | 0.038 | 0.036 | 0.195 | 0.159 | 8 | 8 | 0.038 | 0.205 | 0.167 | 8 | 8 | 0.035 | 0.189 | 0.154 | 8 | 8 | stands, stands, stands |  |
+| skeleton | fist | high | 3 | skeleton's, high | 0.6 | 0.037 | 0.036 | 0.196 | 0.159 | 8 | 8 | 0.033 | 0.174 | 0.142 | 8 | 8 | 0.032 | 0.170 | 0.139 | 8 | 8 | stands, stands, stands | yes |
+| skeleton | fist | middle | 1 | skeleton's, middle | 0.2 | 0.729 | 0.535 | 0.598 | 0.063 | 8 | 8 | 0.434 | 0.477 | 0.043 | 8 | 8 | 0.421 | 0.462 | 0.041 | 8 | 8 | stands, stands, stands |  |
+| skeleton | fist | middle | 2 | skeleton's, middle | 0.4 | 0.767 | 0.612 | 0.683 | 0.070 | 8 | 8 | 0.423 | 0.463 | 0.040 | 8 | 8 | 0.382 | 0.415 | 0.033 | 8 | 8 | stands, stands, stands |  |
+| skeleton | fist | middle | 3 | skeleton's, middle | 0.6 | 0.748 | 0.683 | 0.764 | 0.081 | 8 | 7 | 0.441 | 0.484 | 0.043 | 8 | 8 | 0.454 | 0.497 | 0.043 | 8 | 8 | stands, stands, stands | yes |
+
+- **Built in the guard, ten of the twelve recipes net more at 120 Hz**: the Warrior's club 1.101 HP
+  at a head where the recipe it was searched from netted 1.012, and 1.163 at a trunk where
+  1.154; its fist 0.029 where 0.024, and 0.582 where 0.507; the Rogue's club 0.402 where 0.397;
+  its fist 0.010 where 0.007, and 0.260 where 0.225; the skeleton's club 1.301 at a trunk where
+  1.271, its fist 0.036 where 0.034, and 0.683 where 0.674. The skeleton's club at a head nets
+  0.787 where 0.800, and the Rogue's at a trunk 0.424 where 0.502.
+- **Thrown at nothing, every recipe stands at every rate**, where from the upright guard the
+  Rogue's club fell at a head at 1920 Hz and at a trunk at 480 and 1920 Hz.
+- **The Rogue's club at a trunk now converges with the rate**: 0.424, 0.476 and 0.491 HP at 120,
+  480 and 1920 Hz. The fists at a trunk converge worst: the Warrior's nets 0.388 at 480 Hz and
+  0.293 at 1920, half of what it nets at 120.
+
 ### The club's best blow
 
 `CLUB_BEST` (`src/core/rules/rulebook.ts`, `core-club-unit`): the Warrior's strongest one-handed
-blow with the wooden club, searched again from the upright guard.
+blow with the wooden club, searched again built in the guard.
 `node research/core-strike-search.mjs --model workshop-fighter --held "wooden club" --band high --seed 12 --hz 960 --generations 30 --population 96 --replay 120,480,960,1920,3840 --sigma 0.2 --from <file>`,
-going on from the blow of `research/core-club-unit.json@b2829b66` as `encodeHeld` writes it, 26
+going on from the blow of `research/core-club-unit.json@7601bd36` as `encodeHeld` writes it, 27
 minutes on 28 worker threads; its best read again by `node research/core-club-unit.mjs <its output> --write`,
-which writes `research/core-club-unit.json`. Node core stand, Rapier, ground on, no assist; a
-head hung at its place, the arena's rulebook. Each rate's mean is of eight throws' energies, the
-first as written; the first's landing beside it.
+which writes `research/core-club-unit.json`. Node core stand, Rapier, built in its guard, ground
+on, no assist; a head hung at its place, the arena's rulebook. Each rate's mean is of eight throws'
+energies, the first as written; the first's landing beside it.
 
-| Rate, Hz | Mean, J | Throws, J | Landed | Closing, m/s | Club side, kg | Head side, kg |
-|---|---|---|---|---|---|---|
-| 120 | 60.72 | 98.47, 3.42, 105.01, 0, 117.18, 115.22, 19.91, 26.56 | 7 | 16.830 | 0.808 | 4.968 |
-| 480 | 131.53 | 131.50, 129.56, 132.05, 131.28, 132.00, 132.47, 130.58, 132.78 | 8 | 20.532 | 0.704 | 5.477 |
-| 960 | 133.65 | 133.62, 133.08, 133.91, 134.46, 132.56, 133.80, 133.44, 134.32 | 8 | 20.590 | 0.712 | 5.481 |
-| 1920 | 133.75 | 133.86, 132.70, 133.80, 134.24, 133.65, 134.35, 134.48, 132.90 | 8 | 20.443 | 0.725 | 5.482 |
-| 3840 | 134.10 | 134.21, 133.74, 134.32, 134.16, 134.08, 134.57, 133.71, 133.98 | 8 | 20.657 | 0.711 | 5.482 |
+| Rate, Hz | Mean, J | Throws, J | Landed | Stood | Closing, m/s | Club side, kg | Head side, kg |
+|---|---|---|---|---|---|---|---|
+| 120 | 87.85 | 0, 122.66, 6.70, 117.88, 122.86, 111.16, 90.64, 130.92 | 7 | 6 | the first misses | | |
+| 480 | 137.81 | 138.98, 137.52, 138.80, 133.66, 140.40, 136.51, 137.43, 139.18 | 8 | 8 | 20.595 | 0.745 | 5.471 |
+| 960 | 138.02 | 138.94, 137.60, 138.96, 138.18, 137.23, 136.71, 137.62, 138.88 | 8 | 8 | 20.499 | 0.752 | 5.480 |
+| 1920 | 138.23 | 139.04, 138.09, 138.92, 137.61, 136.94, 138.70, 138.71, 137.81 | 8 | 8 | 20.420 | 0.759 | 5.482 |
+| 3840 | 138.97 | 139.06, 138.90, 139.34, 138.47, 138.64, 138.68, 139.30, 139.40 | 8 | 8 | 20.252 | 0.774 | 5.480 |
 
-- **`CLUB_BEST` is 133.75 J, 1.34 hit points, where it was 138.26 J and 1.38.** The unit is
+- **`CLUB_BEST` is 138.23 J, 1.38 hit points, where it was 133.75 J and 1.34.** The unit is
   100 J (`owner-damage-unit`) and does not move, so no blow's hit points change with it.
-- **The two are read at different marks.** The blow before was read at a head on a body, which
-  met it with 11.5 kg (`src/lab/club-blow.ts@80e5cec9`), closing at 18.8 m/s; this one at a head
-  hung on nothing, 5.5 kg, closing at 20.4 m/s. On today's evaluator the blow before, from the
-  guard as `GUARD` held the club, did about 1.28 HP at 960 Hz (`tests/core-rules.test.mjs@b2829b66`),
-  and this one does 1.34.
-- **At the game's rate it is another blow**: four throws of the eight at 120 Hz do 27 J or less,
-  where the blow before did 117.30 J there. From 480 Hz up the readings agree to 2 %.
+- **It is read at the same mark as the blow before**, a head hung on nothing, closing at 20.4 m/s
+  at 1920 Hz as that did: searched again built in the guard, the blow lands 4.5 J harder at the
+  same speed, with 34 g more of the club side behind it.
+- **At the game's rate it is another blow**: at 120 Hz two throws of the eight do 7 J or less and
+  two leave the Warrior down, where from 480 Hz up the readings agree to 1 %.

@@ -24,6 +24,7 @@ import { woodenClub } from "../src/core/items/club.ts";
 import { SUPPORT_INSET } from "../src/core/control/stance-tuning.ts";
 import { hypot } from "../src/core/math/real.ts";
 import { rulebook } from "../src/core/rules/rulebook.ts";
+import { guardPosture } from "../src/core/skills/guard.ts";
 import { placedReach } from "../src/core/skills/strike.ts";
 import { FIST } from "../src/core/skills/strikes.ts";
 import { labActor } from "../src/lab/actor.ts";
@@ -34,7 +35,7 @@ import { decodeBy, dimensionsBy, encodeBy, perturbed, STRAIGHT } from "./core-st
 
 Logger.LogLevels = Logger.ErrorLogLevel;
 
-export const CORE_BLOW_HARNESS = "Node core stand, Rapier, standing on its feet as built, ground on, no assist; "
+export const CORE_BLOW_HARNESS = "Node core stand, Rapier, built in its guard and standing on its feet, ground on, no assist; "
   + "a blow thrown through the strike skill at a target body of its band's part hung at its place, read by the arena's rulebook";
 
 /**
@@ -100,7 +101,7 @@ export async function evaluateBlow({ model = "workshop-fighter", held = FIST, ha
     : strike === null ? { strike: null, distance: ahead ?? placedReach(spec, hand, up) } : { strike, distance: ahead };
   if (given.strike === undefined || !(given.distance > 0)) throw new Error("a blow is a unit, or a strike and how far ahead its target stands");
   const thrown = given.strike && perturbation ? perturbed(given.strike, perturbation) : given.strike;
-  const stand = await coreStand(spec, { ground: true, groundSize: ground, hz, actuation });
+  const stand = await coreStand(spec, { ground: true, groundSize: ground, hz, actuation, posture: guardPosture(spec) });
   const actor = labActor(stand.built, stand.world);
   const blow = throwBlow(actor, { hand, strike: thrown, place: { ahead: given.distance, up }, band,
     ...(seen && off ? { moved: off } : {}), ...(steer === undefined ? {} : { steer }) });

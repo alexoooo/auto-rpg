@@ -376,12 +376,12 @@ export const SOURCES = Object.freeze({
     kind: "measurement",
     how: "research/core-strike-search.mjs --model workshop-fighter --held 'wooden club' --band high --hz 960: the Warrior's "
       + "strongest one-handed blow with the wooden club at a head hung at its place (research/core-blow.mjs), thrown "
-      + "standing on its own feet from the guard it holds (guardPosture), by cross-entropy search (Node core stand, "
+      + "standing on its own feet, built in the guard it holds (guardPosture), by cross-entropy search (Node core stand, "
       + "Rapier, ground on, no assist), its energy 1/2 mu v^2 from the masses the contact meets. 30 generations of 96 at "
       + "960 Hz, the coarsest rate a standing blow converges at, going on from the blow of "
-      + "research/core-club-unit.json@b2829b66; read again by research/core-club-unit.mjs, eight throws a rate, at "
+      + "research/core-club-unit.json@7601bd36; read again by research/core-club-unit.mjs, eight throws a rate, at "
       + "1920 Hz, where it agrees with 480, 960 and 3840 Hz to 2 %. Recorded, not asked: the blow's energy is the "
-      + "rate-converged reading, not the game's 120 Hz one (60.72 J there, four throws of the eight landing 27 J or less). The blow "
+      + "rate-converged reading, not the game's 120 Hz one (87.85 J there, two throws of the eight landing 7 J or less). The blow "
       + "and its readings are research/core-club-unit.json; the search is in docs/reference/blows.md#the-clubs-best-blow.",
     record: "research/core-club-unit.json",
   },

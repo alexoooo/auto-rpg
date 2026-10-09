@@ -249,13 +249,13 @@ function instrument(world, readings) {
 
 async function recoveryTrial(job) {
   let readings;
+  const mind = job.recovery === "staged-rise" ? riseMind : RECIPE_FIGHTER;
   const fall = await felled(job, (built, world) => {
-    const body = createMind(built, world, job.recovery === "staged-rise" ? riseMind : RECIPE_FIGHTER,
-      { name: "foundation", orders: () => STAND_ORDERS }).body;
+    const body = createMind(built, world, mind, { name: "foundation", orders: () => STAND_ORDERS }).body;
     readings = meter([built], [body]);
     instrument(world, readings);
     return body;
-  });
+  }, mind);
   try {
     const outcome = fall.body.view.down ? watchFall(fall.world, fall.built, fall.body, job.watch)
       : { fell: false, risen: false, seconds: null, up: null };

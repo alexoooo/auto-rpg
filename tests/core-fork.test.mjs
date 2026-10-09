@@ -242,7 +242,7 @@ async function ordered() {
  * at which its feet are first placed, when it is saved at every step: the skill holds that they
  * are placed for one step.
  */
-const STRIKER = { every: 20, nudged: [205, 230], shoved: [600, 630], placed: [300, 340] };
+const STRIKER = { every: 20, nudged: [290, 315], shoved: [600, 630], placed: [300, 340] };
 
 /**
  * A Warrior with a club and, 1.4 m ahead of it, a skeleton, on a ground in a bare world. The

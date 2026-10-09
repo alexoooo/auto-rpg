@@ -2,6 +2,7 @@ import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { BuiltBody, BuiltSegment } from "./build/build-body.ts";
 import type { Assist, AssistCeiling } from "./control/assist.ts";
 import { uprightness } from "./control/ground.ts";
+import { standingHeight } from "./control/support.ts";
 import { rootFrameToRef, type Frame } from "./control/kinematics.ts";
 import { motorControl, type EffectorGoal, type MotorControl, type MusclePush, type Pose } from "./control/motor.ts";
 import type { StanceGoal, StanceReading } from "./control/stance.ts";
@@ -134,6 +135,11 @@ export interface BodyView {
   readonly head: Vector3;
   /** The centre of mass, the stance's support, and what the stance last asked (`StanceReading`). */
   readonly stance: StanceReading;
+  /**
+   * The centre of mass's height over the soles' middle in the reference pose, m (`standingHeight`):
+   * what the body stands at, whatever posture it was built in.
+   */
+  readonly standing: number;
   /** Whether the body is down (`uprightness`, `src/core/control/ground.ts`): true while it is, false once it is up again. */
   readonly down: boolean;
   /** Whether a sub-mind had the body until this step: whatever its driver had under way is over. */
@@ -226,6 +232,7 @@ export function commandMind(own: OwnBody, { servoSeconds, stance, feedback: feed
     root: state.root,
     head: head.centre,
     stance: motor.stance.reading,
+    standing: standingHeight(built),
     get down() { return state.down; },
     get resumed() { return state.resumed; },
   };
