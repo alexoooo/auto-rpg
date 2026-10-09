@@ -40,6 +40,12 @@ export interface EffectorGoal {
   readonly curve?: Vec3;
   /** Identity of a moving path segment; changing it starts a new path. */
   readonly sequence?: number;
+  /**
+   * Whether the chain's held freedoms (an arm's trunk) are read where the body has them, not at the
+   * posture's angles: the path is then the point's from the root as the trunk actually carries the
+   * limb, and a trunk turning under a blow speeds its point rather than throwing it off its line.
+   */
+  readonly carried?: boolean;
   /** Independent segment turn since reference, in the root frame, on a smooth finite path. */
   readonly orientation?: { readonly target: readonly [number, number, number, number]; readonly seconds: number };
 }
@@ -198,7 +204,7 @@ export function effectorTracker(built: BuiltBody, root: BuiltSegment) {
       // The held freedoms at the posture's angles, the free ones drawn toward it.
       limb.chain.forEach((joint, j) => {
         if (limb.free.some((f) => f.joint === j)) return;
-        names(joint).forEach((name, k) => { m.angles[j]![k] = fromActual ? driver.angle(driver.channel(name)) : pose[name] ?? 0; });
+        names(joint).forEach((name, k) => { m.angles[j]![k] = fromActual || m.goal!.carried ? driver.angle(driver.channel(name)) : pose[name] ?? 0; });
       });
       for (const f of limb.free) f.preferred = pose[f.name] ?? 0;
       if (!m.started) {

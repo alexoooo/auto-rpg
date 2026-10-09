@@ -61,10 +61,10 @@ control, skills, minds -- and a mind may use as much or as little of the stack a
 4. **A skill contract** that tactics choose by.
 5. **An explosive punch** thrown at full reach.
 
-[Configurable minds](plans/2026-10-09-configurable-minds.md) runs beside it: a mind becomes a
-tree of parts (tactics, a skill per kind of action, sub-minds) that a player sees and changes in
-the Arena, the Lab and the Crypt. A mind can hold several skills of one kind and choose among
-them, and the research skills that run in real time are offered as experimental parts.
+Beside it, a mind is a tree of parts (tactics, a skill per kind of action, sub-minds) that a
+player sees and changes in the Arena, the Lab and the Crypt; a mind can hold several blows and
+choose among them, and the punch's research blows that run in real time are experimental parts
+([Minds](architecture.md#minds)).
 
 After it, each with its own plan, in the order each needs the one before:
 

@@ -106,7 +106,7 @@ export function labActor(built: BuiltBody, world: World, { mind = LAB_PRESETS.sc
   return {
     body, world, strikes,
     drive(script, { skills, watch } = {}) {
-      return driven = driveFighter(body, tuned(mind, skills), { ...wiring, script }, (tactics) => {
+      return driven = driveFighter(body, world, tuned(mind, skills), { ...wiring, script }, (tactics) => {
         const made = barred(around(tactics), strikes);
         return watch ? watched(made, watch) : made;
       });

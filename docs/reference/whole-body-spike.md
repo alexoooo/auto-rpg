@@ -43,7 +43,7 @@ guard.
 
 ## Settings
 
-The spike's own choices (`SPIKE`). The contact model and the joints' feedback and weights are the
+The spike's own choices (`SPIKE`), which the whole-body strike keeps (`WHOLE_BODY`). The contact model and the joints' feedback and weights are the
 support task's ([support transition](support-transition.md)); the rest were set on the Warrior at
 120 Hz by trying the stance and the punch by hand.
 
@@ -126,6 +126,43 @@ upright, 95 % landed, every landed blow 6.8 m/s or faster, first contact within 
   first blow's contact (2.19 s) and 6 at the second's (4.19 s), when the pad's push leaves no
   contact forces that hold the asked motion, and zeroes the torques for them; the body is down at
   4.87 s, 0.67 s after the second contact. The other 1042 of its 1053 rejected steps come after.
+
+## Flat out
+
+The flat-out drive (`FLAT_OUT`, `src/core/skills/whole-body-strike.ts`, and
+`research/greedy-punch.mjs` over it) asks the same solve for the fist with no path and no set
+time. Every step it asks the fist's strike point for `push` m/s² along the line from where the
+drive began to `through` past the target, beyond anything a muscle gives, and holds it to the line
+across with 0.05 s of feedback, at weight 3. With `runup`, the fist is first drawn back along the
+line to that far from the target, with a goal of 0.06 s feedback and no time, until it is within
+3 cm of there or 0.45 s have passed. The channels of `free` are let go of the guard (weight 0.001)
+while the fist is driven, and `turns` adds the timed punch's pelvis and chest turns. A drive lasts
+0.45 s at most, and 0.03 s after contact.
+
+The settings were picked by a grid: the Warrior's right hand at the pad 0.1 m right, 1.55 m up and
+0.55 m ahead, 120 Hz, three blows on the spike's body (`greedyTrial`). Blows landed of three,
+the slowest and fastest landing speed over the last 10 cm (m/s), and whether the body fell, with
+the arm and the trunk let go and the turns on:
+
+| `push`, m/s² | No run-up | `runup` 0.2 m | 0.25 m | 0.3 m | 0.35 m |
+|---|---|---|---|---|---|
+| 120 | 3/3, 3.56 to 4.02 | | 3/3, 4.20 to 5.89 | 3/3, 3.36 to 3.82 | 3/3, 4.37 to 4.62 |
+| 180 | 1/3, 3.80, fell | | 3/3, 4.65 to 5.34 | 3/3, 3.35 to 4.30 | 3/3, 3.60 to 4.43 |
+| 240 | 3/3, 3.71 to 3.89, fell | 3/3, 2.75 to 4.76 | **3/3, 5.10 to 5.87** | 3/3, 3.66 to 4.37 | 3/3, 2.70 to 4.20 |
+| 320 | | 3/3, 3.27 to 4.49 | 2/3, 1.73 to 3.73, fell | 1/3, 3.28, fell | |
+| 400 | | 3/3, 4.19 to 4.50 | 1/3, 1.21, fell | 3/3, 2.36 to 3.43, fell | |
+| 500 | | 1/3, 4.10, fell | 1/3, 4.01, fell | 0/3, fell | |
+
+- **The best cell** is `push` 240 and `runup` 0.25 m, with no step rejected: `FLAT_OUT`.
+- **Without the turns**, the same cell lands 2 of 3 at 4.05 to 5.86 m/s and falls; at `push` 120
+  it lands 4.19 to 4.27.
+- **Letting the hips go** as well, at `push` 240 and `runup` 0.25, lands 1 of 3 and falls; letting
+  every leg channel go lands 3 of 3 at 4.40 to 5.28.
+- **At `push` 320 and above**, the line's demand swamps the base's goals: the solve rejects steps,
+  which zeroes every torque, and the body falls.
+
+The drive's blows on the punch competency's cells, both bodies and both rates, are in
+[competencies](competencies.md#research-blows).
 
 ## Infeasible steps
 

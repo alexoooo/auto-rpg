@@ -21,6 +21,7 @@ node research/crypt-plan.mjs --seeds 1,2,3,4
 node research/crypt-plan.mjs --seeds 1,2,3,4 --profile
 node research/rest-probe.mjs
 node research/rest-probe.mjs --bodies 4
+node research/blow-cost.mjs
 ```
 
 ## Bodies in a step
@@ -507,3 +508,30 @@ lets them go limp, and 5 s on puts every segment to sleep through the binding's 
 - With eight, three bodies woke of themselves within the 5 s and a segment read 49 m/s. It is the
   same every time the probe runs. What wakes them and what throws the segment is not read, so a
   body is not put to sleep in the game.
+
+## A blow part's step
+
+`research/blow-cost.mjs`. One body on the punch stand (`punchStand`), its right hand throwing at
+the pad 0.1 m right, 1.55 m up and 0.55 m ahead, 8 s from 2 s, each world step timed; the steps
+with a blow under way and those without, each cell the least mean of three playings after one to
+compile. The stand's own instruments (its pad and its witness of the hand) run in every step, so
+a step without a blow, about 1.05 ms, is the stand's and the body's together; what a blow adds is
+the difference.
+
+| Body | Blow | Striking: mean | longest | steps | Guarding: mean | longest |
+|---|---|---:|---:|---:|---:|---:|
+| Warrior | path strike | 1.21 | 8.51 | 664 | 1.07 | 3.78 |
+| Warrior | driven strike | 1.71 | 7.91 | 692 | 1.11 | 3.46 |
+| Warrior | whole-body, timed | 2.46 | 7.47 | 699 | 1.06 | 3.32 |
+| Warrior | whole-body, flat out | 2.47 | 11.15 | 699 | 1.05 | 3.36 |
+| Rogue | path strike | 1.21 | 9.13 | 672 | 1.18 | 6.46 |
+| Rogue | driven strike | 1.63 | 4.61 | 692 | 1.11 | 3.45 |
+| Rogue | whole-body, timed | 2.40 | 5.73 | 700 | 1.04 | 3.38 |
+| Rogue | whole-body, flat out | 2.50 | 5.83 | 699 | 1.01 | 3.33 |
+
+- **The path strike adds 0.03 to 0.14 ms** a step while it strikes, **the driven strike about 0.5 to
+  0.6**, and **the whole-body strike 1.4 to 1.5**, either drive: the spike's solve, as its record
+  found ([whole-body spike](whole-body-spike.md#cost)).
+- Under the whole-body strike, a striking body costs a step about 2.4 ms with the stand's
+  instruments: two such bodies fit in the 8.33 ms step at 120 Hz while both strike, with nothing
+  drawn.

@@ -8,7 +8,7 @@ import { parseArgs } from "node:util";
 import { Worker } from "node:worker_threads";
 import { gzipSync } from "node:zlib";
 import { foundationJobs, FOUNDATION, proportion } from "./control-foundation-trials.mjs";
-import { COMPETENCIES, competencyFigures } from "./competencies.mjs";
+import { blowConfig, COMPETENCIES, competencyFigures } from "./competencies.mjs";
 import { physiqueLabel, physiqueRanges } from "./physiques.mjs";
 import { PHYSIQUE_ATTRIBUTES } from "../src/core/human/physique.ts";
 import { CORE_ENGINE, freshEngine } from "../tests/harness/core-stand.mjs";
@@ -168,14 +168,17 @@ async function main() {
     "centre-control": { type: "boolean", default: false }, "continue-seconds": { type: "string", default: "1" },
     shared: { type: "boolean", default: false }, "joint-stops": { type: "boolean", default: false },
     envelope: { type: "string", default: "boot" }, competency: { type: "string" },
+    blow: { type: "string" }, "blow-settings": { type: "string" },
     grid: { type: "string" }, ...Object.fromEntries(PHYSIQUE_ATTRIBUTES.map((attribute) => [attribute, { type: "string" }])),
   } });
+  if (values["blow-settings"] && !values.blow) throw new Error("blow settings need --blow");
   const overrides = Object.fromEntries(PHYSIQUE_ATTRIBUTES.filter((a) => values[a] !== undefined).map((a) => [a, values[a].split(",").map(Number)]));
   if (Object.keys(overrides).length && !values.grid) throw new Error("a physique axis needs --grid");
   const options = { suite: values.suite, split: values.split, samples: Number(values.samples), from: Number(values.from), hz: Number(values.hz),
     actuation: values.actuation, support: values.support, centreControl: values["centre-control"], continueSeconds: Number(values["continue-seconds"]),
     shared: values.shared, jointStops: values["joint-stops"], envelope: values.envelope,
     ...(values.competency ? { competency: values.competency } : {}),
+    ...(values.blow ? { blow: blowConfig(values.blow, values["blow-settings"]) } : {}),
     ...(values.grid ? { grid: values.grid, ranges: physiqueRanges(overrides) } : {}),
     ...(values.models ? { models: values.models.split(",") } : {}) };
   const jobs = foundationJobs(options), started = new Date().toISOString();
@@ -196,7 +199,7 @@ async function main() {
     action: values.suite === "solver" ? "fixed raw velocity motor with directional bounds; adapter-contract screening"
       : ["posture-hold", "support-entry"].includes(values.suite) ? "independent joint-feedback actuator velocities; bounded directional muscles"
       : ["bar", "support", "point-strike", "moving-strike", "defense"].includes(values.suite) ? "whole-body motion objectives and granted grip requests; bounded muscle torques"
-      : values.suite === "competency" ? "today's skills: the stance and its walk, the path strike's planted cross, the front kick, the predictive guard and the staged rise"
+      : values.suite === "competency" ? `today's skills: the stance and its walk, ${values.blow ? `the ${values.blow} blow part` : "the path strike's planted cross"}, the front kick, the predictive guard and the staged rise`
       : values.suite === "ccd" ? "initial impulses, then free dynamics; no held action" : values.suite === "reach" ? "actuator velocities or layered posture targets, declared per job" : "existing fighter skills and staged-rise/lie",
     policyPeriodSteps: values.suite === "reach" ? 4 : 1, assists: { rootBalancePercent: 0, weapon: false },
     unavailable: ["integrated recovery/combat", "opponent defense", "actuator work", "contact penetration"],

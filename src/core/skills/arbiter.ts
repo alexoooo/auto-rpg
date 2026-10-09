@@ -41,7 +41,8 @@ const NO_HANDS: Readonly<Record<Side, EffectorGoal | null>> = Object.freeze({ le
  *
  * 1. the support skill moves toward the stance the blow under way keeps, or the tactics ask;
  * 2. a kick asked for, or under way, leaves the blow none to begin;
- * 3. the blow claims what it uses;
+ * 3. the blow claims what it uses; a blow that drives every freedom itself (`Claim.whole`) is
+ *    given the body whole, and the steps after this one stand aside;
  * 4. the guard covers with each hand the blow does not hold;
  * 5. the legs carry out the blow's `LegsAsk`, or the tactics' walk while it asks none; a kick, or
  *    the support lowering, rising or low, holds the walk;
@@ -89,6 +90,14 @@ export function skillSet(body: Body, { state: tactics, engagement }: Pick<Tactic
       support?.tick(view, blow.lower ?? intent.lower ?? STANCE_LOWER, !!intent.move, dt);
       const claim = blow.command(view, kicking ? null : asked, intent, around, dt);
       const covers = guard.command(view, intent.guard, blow.holds);
+      if (claim?.whole) {
+        // A blow that drives every freedom by its pushes (`Claim.whole`) leaves the stance, the guard and the posture nothing.
+        const whole: BodyCommand = { posture: guarding, pushes: claim.pushes, effectors: { "hand.left": null, "hand.right": null }, stance: null,
+          ...(closing ? { handPoses: poses(closes, claim.closed) } : {}) };
+        holders.legs = "blow"; holders.trunk = "blow"; holders.left = "blow"; holders.right = "blow";
+        state.command = whole;
+        return whole;
+      }
       const lower = support ? STANCE_LOWER : intent.lower;
       const supporting = support !== null && support.report.stage !== "stand" && support.report.stage !== "wait";
       const ask = kicking || supporting ? null : claim?.legs ?? FREE;

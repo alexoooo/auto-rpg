@@ -47,7 +47,7 @@ const WORKSHOP = Object.freeze(["workshop-fighter", "workshop-rogue"]);
 
 /** Fully specified starts; a seed selects geometry, not a hidden source of simulation noise. */
 export function foundationJobs({ suite = "baseline", split = "development", samples = FOUNDATION.samples,
-  hz = 120, models = suite === "competency" ? WORKSHOP : HUMANOID_MODELS, from = 0, actuation = "symmetric", support = "pinned", centreControl = false, continueSeconds = 1, shared = false, jointStops = false, envelope = "boot", competency, grid, ranges } = {}) {
+  hz = 120, models = suite === "competency" ? WORKSHOP : HUMANOID_MODELS, from = 0, actuation = "symmetric", support = "pinned", centreControl = false, continueSeconds = 1, shared = false, jointStops = false, envelope = "boot", competency, grid, ranges, blow } = {}) {
   if (typeof jointStops !== "boolean" || jointStops && !["bar", "point-strike", "moving-strike", "defense"].includes(suite)) throw new Error("joint-stop prediction requires a motion probe suite");
   if (!suites.includes(suite)) throw new Error(`unknown suite ${suite}`);
   if (!["boot", "barefoot"].includes(envelope) || envelope !== "boot" && suite !== "posture-hold") throw new Error("an envelope other than the boot requires the posture-hold suite");
@@ -66,6 +66,7 @@ export function foundationJobs({ suite = "baseline", split = "development", samp
   if ((grid !== undefined || ranges !== undefined) && suite !== "competency") throw new Error("a physique grid needs the competency suite");
   if (grid !== undefined && !PHYSIQUE_DESIGNS.includes(grid)) throw new Error(`a grid is one of ${PHYSIQUE_DESIGNS.join(", ")}`);
   if (ranges !== undefined && grid === undefined) throw new Error("physique ranges need a grid");
+  if (blow !== undefined && (suite !== "competency" || competency !== "punch")) throw new Error("a blow part needs the punch competency");
   if (!models.length || new Set(models).size !== models.length || models.some((m) => !HUMANOID_MODELS.includes(m))) throw new Error("models must name distinct known bodies");
   const jobs = [];
   const add = (job) => {
@@ -75,7 +76,7 @@ export function foundationJobs({ suite = "baseline", split = "development", samp
   if (suite === "competency") {
     const physiques = grid === undefined ? [{}] : physiqueGrid(physiqueRanges(ranges), grid);
     for (const model of models) for (const physique of physiques) for (const held of ["empty", "club"]) {
-      for (let index = from; index < from + samples; index++) for (const job of competencyJobs({ competency, model, physique, held, seed: FOUNDATION.split[split] + index })) add(job);
+      for (let index = from; index < from + samples; index++) for (const job of competencyJobs({ competency, model, physique, held, seed: FOUNDATION.split[split] + index, blow })) add(job);
       for (const job of competencyGaps({ competency, model, physique, held })) add(job);
     }
     return jobs;

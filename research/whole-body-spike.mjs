@@ -25,7 +25,7 @@
  */
 import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { Logger } from "@babylonjs/core/Misc/logger.js";
-import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { Scene } from "@babylonjs/core/scene.js";
 import { appendFile, writeFile } from "node:fs/promises";
 import { availableParallelism } from "node:os";
@@ -45,6 +45,7 @@ import { createMotionBody } from "../src/core/mind/motion.ts";
 import { modelSpec } from "../src/core/models.ts";
 import { guardPosture } from "../src/core/skills/guard.ts";
 import { aimOf } from "../src/core/skills/strikes.ts";
+import { guardJoints, holdGoals, localPoint, minimumJerk, trunkTurn, turnSense, WHOLE_BODY } from "../src/core/skills/whole-body-strike.ts";
 import { createWorld } from "../src/core/world.ts";
 import { CORE_ENGINE, freshEngine } from "../tests/harness/core-stand.mjs";
 import { bodyMass, COMPETENCY, fullReach, THRESHOLDS } from "./competencies.mjs";
@@ -53,50 +54,16 @@ import { punchPad } from "./punch-pad.mjs";
 
 Logger.LogLevels = Logger.ErrorLogLevel;
 
-/**
- * The spike's settings, its own choices (the record's "Settings"). The contact model is the support
- * task's (`src/core/tasks/support.ts`, `docs/reference/support-transition.md`), as are the joints'
- * feedback and weights; the rest were set by the prototypes the record reports.
- */
-export const SPIKE = Object.freeze({
-  contact: Object.freeze({ maxPoints: 64, gap: 0.005, minUpNormal: 0.9, forceTolerance: 1e-5,
-    iterations: 2048, absoluteTolerance: 1e-7, relativeTolerance: 1e-6 }),
-  effortCost: 1e-6, capacity: 5,
-  /** The pelvis this far under where it was built, m, and the knees' bend, rad. */
-  lower: 0.04, knee: 0.3,
-  /** Joints toward the guard: their feedback, s, and weights, legs and the rest. */
-  jointSeconds: 0.3, legWeight: 0.02, otherWeight: 0.1,
-  /** The mass centre over the soles' middle and the pelvis's height and turn: feedback, s, and weights. */
-  holdSeconds: 0.25, centreWeight: 10, rootWeight: 1,
-  /** The punch: the fist's path, s; how far past the pad it aims, m; the pelvis's and chest's turn, rad; each link's lead, s. */
-  punch: Object.freeze({ seconds: 0.12, through: 0.2, pelvis: 0.25, chest: 0.45, lead: 0.06,
-    /** The fist's and the turns' feedback, s, and weights; the arm's joints' weight while the fist is driven. */
-    fistSeconds: 0.05, fistWeight: 3, turnSeconds: 0.15, turnWeight: 1, armWeight: 0.001,
-    /** How long after contact the fist is driven on, s, and how long a blow and its return take, s. */
-    follow: 0.03, cycle: 2, returned: 0.05 }),
-});
+/** The spike's settings: the whole-body strike's (`WHOLE_BODY`), the record's "Settings". */
+export const SPIKE = WHOLE_BODY;
 
 export const ZERO = Object.freeze([0, 0, 0]);
-const UP = new Vector3(0, 1, 0);
 /** When the first punch is ordered, s, as the competency's stands (`ORDERED`). */
 export const ORDERED = 2;
 /** How long a stand settles before its shove, s, as `shove` does. */
 const SETTLE = 1.5;
 /** How far under its settled height the mass centre may sink before the body is down, m, as `shove` reads. */
 const SINK = 0.25;
-
-/** Minimum-jerk progress `s`, rate and acceleration `t` s into a move of `span` s. */
-function minimumJerk(t, span) {
-  const u = Math.max(0, Math.min(1, t / span)), u2 = u * u, u3 = u2 * u;
-  return { s: u3 * (10 - 15 * u + 6 * u2), v: (30 * u2 - 60 * u3 + 30 * u2 * u2) / span, a: (60 * u - 180 * u2 + 120 * u3) / (span * span) };
-}
-
-/** `point`, body frame, reference pose, in `segment`'s node frame: where a frame goal's `at` is read. */
-export function localPoint(segment, point) {
-  const { origin, x, y, z } = segment.frame, d = point.map((v, k) => v - origin[k]);
-  const dot = (a) => d[0] * a[0] + d[1] * a[1] + d[2] * a[2];
-  return [dot(x), dot(y), dot(z)];
-}
 
 /**
  * `model` holding `held` ("empty" or "club" in the right hand) on the ground at `hz`, built in its
@@ -128,23 +95,12 @@ export async function spikeBody({ model, held, hz, actuation }, policy) {
   };
 }
 
-/** Every channel toward the guard, the knees bent, the arm's channels of `light` at `armWeight`. */
-export function guardJoints(description, guard, light = null, armWeight = SPIKE.otherWeight) {
-  return description.channels.map((c) => ({ channel: c.name,
-    angle: Math.max(c.min, Math.min(c.max, guard[c.name] ?? (/knee/.test(c.name) ? SPIKE.knee : 0))), rate: 0, acceleration: 0,
-    seconds: SPIKE.jointSeconds, weight: /hip|knee|ankle/.test(c.name) ? SPIKE.legWeight : light?.test(c.name) ? armWeight : SPIKE.otherWeight }));
-}
+export { guardJoints, localPoint };
 
-/** The goals every step holds: the mass centre over the soles' middle, and the pelvis's height. */
+/** The goals every step holds (`holdGoals`): the mass centre over the soles' middle, and the pelvis `lower` under its height as built. */
 export function holding(observation, initial, segments) {
   const feet = ["left", "right"].map((side) => observation.segments.find((s) => s.name === `foot.${side}`));
-  const middle = [(feet[0].centre[0] + feet[1].centre[0]) / 2, 0, (feet[0].centre[2] + feet[1].centre[2]) / 2];
-  return {
-    frame: { id: "height", frame: { kind: "segment", name: "lowerTrunk" }, at: ZERO, translation: { target: [0, initial.root[1] - SPIKE.lower, 0],
-      velocity: ZERO, acceleration: ZERO, seconds: SPIKE.holdSeconds, weight: SPIKE.rootWeight, axes: ["y"] } },
-    centre: { id: "centre", frames: segments, translation: { target: middle, velocity: ZERO, acceleration: ZERO,
-      seconds: SPIKE.holdSeconds, weight: SPIKE.centreWeight, axes: ["x", "z"] } },
-  };
+  return holdGoals([(feet[0].centre[0] + feet[1].centre[0]) / 2, 0, (feet[0].centre[2] + feet[1].centre[2]) / 2], initial.root[1] - SPIKE.lower, segments);
 }
 
 /** The stance alone: the guard, the centre over the soles, the pelvis level and turned as built. */
@@ -190,13 +146,8 @@ export async function standTrial({ model, held, hz, actuation = "symmetric", imp
  * caller's, which reads the phase from it.
  */
 function punchPolicy(hand, target, limb, aim, events, state) {
-  const side = hand === "right" ? 1 : -1, { punch } = SPIKE, arm = new RegExp(`(shoulder|elbow|wrist)\\.${hand}`);
-  // The turn about up that brings the striking side, +x for the right hand, forward (+z).
-  const sense = new Vector3(side, 0, 0).applyRotationQuaternion(Quaternion.RotationAxis(UP, 0.1)).z > 0 ? 1 : -1;
-  const turn = (from, angle, t, span, weight) => {
-    const m = minimumJerk(t, span), q = Quaternion.RotationAxis(UP, sense * angle * m.s).multiply(new Quaternion(...from));
-    return { target: [q.x, q.y, q.z, q.w], velocity: [0, sense * angle * m.v, 0], acceleration: [0, sense * angle * m.a, 0], seconds: punch.turnSeconds, weight };
-  };
+  const { punch } = SPIKE, arm = new RegExp(`(shoulder|elbow|wrist)\\.${hand}`), sense = turnSense(hand);
+  const turn = (from, angle, t, span, weight) => trunkTurn(from, sense, angle, t, span, weight);
   const at = localPoint(limb, aim), to = [target[0], target[1], target[2] + punch.through];
   return (description, guard) => {
     const segments = description.frames.filter((f) => f.kind === "segment");

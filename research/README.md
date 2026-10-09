@@ -12,7 +12,7 @@ Some write the data files the core reads, and only with `--write`; without it th
 
 | Script | What it measures | Writes |
 |---|---|---|
-| `control-foundation.mjs`, `control-foundation-trials.mjs`, `control-foundation-worker.mjs` | shared recovery, either-hand strike/miss, paired guard and independent/layered reach and moving-defense CCD tasks; explicit development/held-out starts and unsupported capabilities; `--suite baseline`, `reach`, `ccd` or `competency` (with `--competency`, and `--grid axes|full` with `--size`, `--weight`, `--strength`, `--speed` overriding the physique grid's axes), `--actuation`, `--samples`, `--from`, `--hz`, `--models`, `--workers` | exclusive manifest, source archive, raw rows and summary under `research/runs/control-foundation/`; protocol and readings in `docs/reference/control-foundation.md` |
+| `control-foundation.mjs`, `control-foundation-trials.mjs`, `control-foundation-worker.mjs` | shared recovery, either-hand strike/miss, paired guard and independent/layered reach and moving-defense CCD tasks; explicit development/held-out starts and unsupported capabilities; `--suite baseline`, `reach`, `ccd` or `competency` (with `--competency`, `--blow <kind>` and `--blow-settings <path=value,...>` throwing the punch with a blow part, and `--grid axes|full` with `--size`, `--weight`, `--strength`, `--speed` overriding the physique grid's axes), `--actuation`, `--samples`, `--from`, `--hz`, `--models`, `--workers` | exclusive manifest, source archive, raw rows and summary under `research/runs/control-foundation/`; protocol and readings in `docs/reference/control-foundation.md` |
 | `competencies.mjs` | the competency suite run by `control-foundation.mjs --suite competency`: stand (shoves by N s/kg from eight ways), guard, punch (the cell's place, full reach and a miss), walk (speeds by four headings, and a turn), rise and kick, each workshop body empty-handed and with the club, a run as an unsupported row; each competency's human target, threshold and figure | the figures under `competencies` in the run's summary; the record in `docs/reference/competencies.md` |
 | `physiques.mjs` | the physique grid: the owner's ranges (`PHYSIQUE_GRID`), a run's overrides (`physiqueRanges`), the physiques by axes or in full (`physiqueGrid`) and a physique's name in a cell | the jobs of `--grid` |
 | `competency-passes.mjs` | the competency figures of a run a rate (run directories, or the record's rows by rate), and whether each competency passes at every rate of `RATES` | JSON on stdout |
@@ -104,6 +104,7 @@ the same on any machine.
 | `step-time.mjs` | one bout's steps, each the least of several playings, split into the solver and the rest, with every collection, and each side's hands' solves counted; with `--profile`, the bout's time by file and by function | the tables, pasted into `docs/reference/step-cost.md` |
 | `reach-bed.mjs` | kinematics alone: the solves a bout asked of a hand's reach (`tests/fixtures/reach-solves.json`), each solved again by the tree's solve: those at the cap, the passes, those at their place, what a second solve moves, a step's three answers' second difference, and a pass's time | the table, pasted into `docs/reference/step-cost.md` |
 | `crypt-plan.mjs` | what a crypt run's own planning takes of its steps, by seed, and its part of the slowest ones; with `--profile`, which of the plan's functions the time is | the tables, pasted into `docs/reference/step-cost.md` |
+| `blow-cost.mjs` | what each blow part costs a step on the punch stand, the steps with a blow under way and those without, each body at 120 Hz or `--hz` | the table, pasted into `docs/reference/step-cost.md` |
 | `rest-probe.mjs` | what Rapier does with limp bodies put to sleep through its own rigid bodies: a step's time standing, limp and asleep, how many stay asleep, and what a ball dropped on one wakes | the table, pasted into `docs/reference/step-cost.md` |
 
 `step-garbage.mjs` reads allocation with `allocatedIn` (`tests/harness/garbage.mjs`): everything
@@ -116,6 +117,7 @@ node research/step-time.mjs --profile
 node research/reach-bed.mjs
 node research/crypt-plan.mjs --seeds 1,2,3,4
 node research/crypt-plan.mjs --seeds 1,2,3,4 --profile
+node research/blow-cost.mjs
 ```
 
 ## The physics bake-off

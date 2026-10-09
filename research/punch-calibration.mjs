@@ -9,6 +9,10 @@ import { createBody, SERVO_SECONDS } from '../src/core/body.ts';
 import { DEFAULT_ENGINE } from '../src/core/engine/engines.ts';
 import { NO_COVER } from '../src/core/mind/intent.ts';
 import { combatSkills } from '../src/core/skills/combat.ts';
+import { skillSet } from '../src/core/skills/arbiter.ts';
+import { locomotion } from '../src/core/skills/locomotion.ts';
+import { guardSkill } from '../src/core/skills/guard.ts';
+import { blowOf } from '../src/core/mind/fighter.ts';
 import { guardPosture } from '../src/core/skills/guard.ts';
 import { aimOf } from '../src/core/skills/strikes.ts';
 import { ATTACK_PATH } from '../src/core/skills/attack-path.ts';
@@ -41,20 +45,24 @@ export function approachSpeed(history, distance = HUMAN_PUNCH.speedDistance) {
   return null;
 }
 
-/** The real unassisted executor of `model` (a workshop body, empty handed, with `physique` if given), with a detached target and an independent impulse sensor. */
+/**
+ * The real unassisted executor of `model` (a workshop body, empty handed, with `physique` if given), with a detached target and an independent impulse sensor.
+ * Its blow is the path strike's, or with `blow` the blow part that config names (`blowOf`), beside the walk and the guard.
+ */
 export async function punchStand({model='workshop-fighter',hand='right',family='straight',hz=120,seconds=6,ahead=.6,height=1.63,across=0,
-  contactSpeed=5,armExtension=0,mode='hit',pad={},paths={},execution,matchedFeedback=false,actuation,physique} = {}) {
+  contactSpeed=5,armExtension=0,mode='hit',pad={},paths={},execution,matchedFeedback=false,actuation,physique,blow} = {}) {
   if (!['left','right'].includes(hand) || !['straight','cross'].includes(family) || !['hit','miss'].includes(mode)
     || ![120,240,480,960,1920].includes(hz) || ![seconds,ahead,height,across,contactSpeed,armExtension].every(Number.isFinite)
     || seconds<=2 || ahead<=0 || contactSpeed<=0 || armExtension<0 || armExtension>1) throw new Error('invalid punch calibration');
-  const config={model,hand,family,hz,seconds,ahead,height,across,contactSpeed,armExtension,mode,pad,paths,execution,matchedFeedback,actuation,...(physique?{physique}:{})};
+  const config={model,hand,family,hz,seconds,ahead,height,across,contactSpeed,armExtension,mode,pad,paths,execution,matchedFeedback,actuation,...(physique?{physique}:{}),...(blow?{blow}:{})};
   const spec=modelSpec(model,physique),s=await coreStand(spec,{engine:DEFAULT_ENGINE,hz,actuation,posture:guardPosture(spec)});
   let sensor;
   const body=createBody(s.built,s.world,{servoSeconds:SERVO_SECONDS,feedback:true,
     ...(matchedFeedback?{contactIdentity:other=>other===sensor?.body?{kind:'object',id:'punch-pad'}:other?null:{kind:'world'},
       contacts:segment=>(sensor?.state.materialContacts??[]).filter(c=>c.segment===segment).map(c=>({target:{kind:'object',id:'punch-pad'},
         point:c.point,normal:[0,0,1],impulse:c.force*s.world.dt}))}: {})});
-  const skills=combatSkills(body,{},{paths:{...ATTACK_PATH,...paths,contactSpeed},execution});
+  const skills=blow?skillSet(body,{},{legs:locomotion(body.envelope),guard:guardSkill(spec),blow:blowOf(body,s.world,blow)})
+    :combatSkills(body,{},{paths:{...ATTACK_PATH,...paths,contactSpeed},execution});
   const target=[(hand==='right'?.1:-.1)+across,height,ahead];
   sensor=punchPad(s.world,[target[0]+(mode==='miss'?1:0),target[1],target[2]],pad);
   const limb=s.built.segments.get(`hand.${hand}`),knuckles=rigidPoints(s.built.spec,limb.spec).get(aimOf(s.built.spec,hand)).value;
@@ -146,7 +154,7 @@ export async function punchStand({model='workshop-fighter',hand='right',family='
         maximumCompression,maximumFaceCompression,qualification:{accepted:faults.length===0,faults},
         bestOfThree:best?{time:best.time,speed:best.last10cmSpeed,impulse:best.impulse,peakStepForce:best.peakStepForce,effectiveMass:best.effectiveMass}:null,
         unassignedImpulse:state.unassignedImpulse,preContactTorquePeaks:state.preContactTorquePeaks,
-        impactResponse:{admitted:skills.state.blow.hands[hand].cycle.admitted,aborted:skills.state.blow.hands[hand].cycle.aborted},
+        impactResponse:{admitted:skills.state.blow.hands?.[hand].cycle.admitted??null,aborted:skills.state.blow.hands?.[hand].cycle.aborted??null},
         effort:structuredClone(effort.state),
         assist:{force:body.assist.meter.force,moment:body.assist.meter.moment}};
     },

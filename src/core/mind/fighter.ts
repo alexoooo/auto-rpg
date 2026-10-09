@@ -3,7 +3,7 @@ import type { BuiltBody } from "../build/build-body.ts";
 import { skillSet, type SkillParts } from "../skills/arbiter.ts";
 import { ATTACK_PATH, validAttackTuning, type AttackTuning } from "../skills/attack-path.ts";
 import { chooseSkill } from "../skills/choose.ts";
-import { pathStrike, validCombatExecution } from "../skills/combat.ts";
+import { DRIVEN_STRIKE, pathStrike, validCombatExecution, validDrivenStrike } from "../skills/combat.ts";
 import { guardPosture, guardSkill } from "../skills/guard.ts";
 import { kickSkill, validKickTuning } from "../skills/kick.ts";
 import { locomotion, validTurnLimit, validTurnStartup } from "../skills/locomotion.ts";
@@ -11,10 +11,12 @@ import type { BlowSkill } from "../skills/skill.ts";
 import type { Skills } from "../skills/skills.ts";
 import { recipeStrike } from "../skills/strike.ts";
 import { supportFold } from "../skills/support-fold.ts";
+import { wholeBodyFits, wholeBodyStrike } from "../skills/whole-body-strike.ts";
 import { deepFreeze } from "../state.ts";
 import type { World } from "../world.ts";
-import { ARENA_KICKS, type BlowConfig, type ChooseBlowConfig, type FighterConfig, type FrontKickConfig, type PathStrikeConfig, type SkillConfig, type StanceWalkConfig } from "./config.ts";
-import { choice, toggle } from "./fields.ts";
+import { ARENA_KICKS, type BlowConfig, type ChooseBlowConfig, type DrivenStrikeConfig, type FighterConfig, type FrontKickConfig, type PathStrikeConfig, type SkillConfig, type StanceWalkConfig,
+  type WholeBodyStrikeConfig } from "./config.ts";
+import { choice, number, toggle, type PartField } from "./fields.ts";
 import type { MindWiring } from "./minds.ts";
 import { slotList, type Part } from "./parts.ts";
 import { subMindsOf } from "./sub-minds.ts";
@@ -26,20 +28,36 @@ import { aimedOrders, highMark } from "./targets.ts";
 const skill = <C extends SkillConfig>(role: Part["role"], label: string, stage: Part["stage"], defaults: C, faults: (config: C) => readonly string[] = () => []): Part<C> =>
   ({ role, label, stage, fields: [], slots: [], defaults, fits: commandable, faults });
 
-/** The hand paths a blow of `config` carries out: the path strike's over `ATTACK_PATH`, a choice's first option's, or `ATTACK_PATH` for a blow of none. */
+/**
+ * The hand paths a blow of `config` carries out: the path strike's over `ATTACK_PATH`, the driven
+ * strike's with its wind-up, turn and speed, a choice's first option's, or `ATTACK_PATH` for a blow
+ * of none.
+ */
 function pathsOf(config: BlowConfig): AttackTuning {
   switch (config.kind) {
-    case "recipe-strike": return ATTACK_PATH;
+    case "recipe-strike": case "whole-body-strike": return ATTACK_PATH;
     case "path-strike": return { ...ATTACK_PATH, ...config.tuning?.paths };
+    case "driven-strike": return { ...ATTACK_PATH, ...config.tuning?.paths, windup: config.windup, torso: config.torso, contactSpeed: config.contact };
     case "choose-blow": return config.options[0] ? pathsOf(config.options[0]) : ATTACK_PATH;
     default: { const never: never = config; throw new Error(`no blow of kind ${JSON.stringify((never as { kind?: unknown }).kind)}`); }
   }
 }
 
 /**
+ * The driven strike's settings. Their bounds are a numeric setting, the most a panel offers: what a
+ * strike can do with them is `validDrivenStrike`'s.
+ */
+const DRIVEN_FIELDS: readonly PartField<DrivenStrikeConfig>[] = Object.freeze([
+  number<DrivenStrikeConfig, "drive">("drive", "Trunk drive", 0, 1, 0.05, "of full"),
+  number<DrivenStrikeConfig, "torso">("torso", "Trunk turn", 0, 0.6, 0.01, "rad"),
+  number<DrivenStrikeConfig, "windup">("windup", "Wind-up", 0, 0.4, 0.01, "m"),
+  number<DrivenStrikeConfig, "contact">("contact", "Contact speed", 1, 12, 0.5, "m/s"),
+]);
+
+/**
  * **Every skill, by its kind** (`Part`): what a fighter's skill slots hold, each its role's. The
- * path strike, the kick and low support are the opening tactics' research, offered beside the
- * game's.
+ * path strike, the kick and low support are the opening tactics' research, and the driven and
+ * whole-body strikes the punch's, offered beside the game's.
  */
 export const SKILL_PARTS: { readonly [K in SkillConfig["kind"]]: Part<Extract<SkillConfig, { kind: K }>> } = deepFreeze({
   "stance-walk": skill<StanceWalkConfig>("locomotion", "Walk in the stance", "game", { kind: "stance-walk" }, (config) => [
@@ -54,6 +72,19 @@ export const SKILL_PARTS: { readonly [K in SkillConfig["kind"]]: Part<Extract<Sk
       ...(!config.tuning?.execution || validCombatExecution(config.tuning.execution) ? [] : ["invalid combat execution settings"]),
     ]),
     fields: [toggle("overlap", "Overlap returns")],
+  },
+  "driven-strike": {
+    ...skill<DrivenStrikeConfig>("blow", "Driven strike", "experimental", { kind: "driven-strike", ...DRIVEN_STRIKE }, (config) => [
+      ...(validDrivenStrike(config) ? [] : ["a driven strike needs a drive in [0,1], a turn and a wind-up not negative, and a positive contact speed"]),
+      ...(validAttackTuning(pathsOf(config)) ? [] : ["combat path settings need finite nonnegative values, positive durations and elbowExtension in [0,1]"]),
+      ...(!config.tuning?.execution || validCombatExecution(config.tuning.execution) ? [] : ["invalid combat execution settings"]),
+    ]),
+    fields: DRIVEN_FIELDS,
+  },
+  "whole-body-strike": {
+    ...skill<WholeBodyStrikeConfig>("blow", "Whole-body strike", "experimental", { kind: "whole-body-strike", drive: "timed" }),
+    fits: (spec) => commandable(spec) && wholeBodyFits(spec),
+    fields: [choice("drive", "Drive", [["timed", "On a timed path"], ["flat-out", "Flat out along the line"]])],
   },
   "choose-blow": {
     ...skill<ChooseBlowConfig>("blow", "Choose a blow", "experimental", { kind: "choose-blow", options: [{ kind: "recipe-strike" }], policy: "first-able" },
@@ -74,8 +105,8 @@ function abilitiesOf(config: FighterConfig): Abilities {
 /** Whether a blow of `config` may throw one with no path, as tactics that name none ask: the recipe strike, or a choice with an option that may. */
 function throwsPathless(config: BlowConfig): boolean {
   switch (config.kind) {
-    case "recipe-strike": return true;
-    case "path-strike": return false;
+    case "recipe-strike": case "whole-body-strike": return true;
+    case "path-strike": case "driven-strike": return false;
     case "choose-blow": return config.options.some(throwsPathless);
     default: { const never: never = config; throw new Error(`no blow of kind ${JSON.stringify((never as { kind?: unknown }).kind)}`); }
   }
@@ -84,18 +115,21 @@ function throwsPathless(config: BlowConfig): boolean {
 /** Whether every blow of `config` may begin while the other hand returns: the overlapping path strike, or a choice of nothing else. */
 function overlaps(config: BlowConfig): boolean {
   switch (config.kind) {
-    case "recipe-strike": return false;
+    case "recipe-strike": case "driven-strike": case "whole-body-strike": return false;
     case "path-strike": return config.overlap;
     case "choose-blow": return config.options.length > 0 && config.options.every(overlaps);
     default: { const never: never = config; throw new Error(`no blow of kind ${JSON.stringify((never as { kind?: unknown }).kind)}`); }
   }
 }
 
-/** Whether a blow of `config` reads its hand's contacts: the path strike's impact does, and a choice counts what landed by them (`chooseSkill`). */
+/**
+ * Whether a blow of `config` reads its hand's contacts: the path strikes' impacts do, the
+ * whole-body strike drives on past its touch, and a choice counts what landed by them (`chooseSkill`).
+ */
 function blowReadsContact(config: BlowConfig): boolean {
   switch (config.kind) {
     case "recipe-strike": return false;
-    case "path-strike": case "choose-blow": return true;
+    case "path-strike": case "driven-strike": case "whole-body-strike": case "choose-blow": return true;
     default: { const never: never = config; throw new Error(`no blow of kind ${JSON.stringify((never as { kind?: unknown }).kind)}`); }
   }
 }
@@ -134,8 +168,11 @@ function readsContact(config: FighterConfig): boolean {
   return config.tactics.kind === "openings" || blowReadsContact(config.blow);
 }
 
-/** The blow `config` names, for `body`: a path strike carries out its own paths, which the tactics plan by where it is the first blow (`abilitiesOf`). */
-function blowOf(body: Body, config: BlowConfig): BlowSkill {
+/**
+ * **The blow `config` names**, for `body` in `world`: a path strike carries out its own paths,
+ * which the tactics plan by where it is the first blow (`abilitiesOf`).
+ */
+export function blowOf(body: Body, world: World, config: BlowConfig): BlowSkill {
   switch (config.kind) {
     case "recipe-strike": {
       const spec = body.built.spec, tuning = config.tuning;
@@ -145,17 +182,22 @@ function blowOf(body: Body, config: BlowConfig): BlowSkill {
       const execution = config.tuning?.execution;
       return pathStrike(body, { paths: pathsOf(config), ...(execution ? { execution } : {}), overlap: config.overlap });
     }
-    case "choose-blow": return chooseSkill(config.options.map((option) => blowOf(body, option)), config.policy);
+    case "driven-strike": {
+      const execution = config.tuning?.execution, { drive, torso, windup, contact } = config;
+      return pathStrike(body, { paths: { ...ATTACK_PATH, ...config.tuning?.paths }, ...(execution ? { execution } : {}), driven: { drive, torso, windup, contact } });
+    }
+    case "whole-body-strike": return wholeBodyStrike(body, world, config.drive);
+    case "choose-blow": return chooseSkill(config.options.map((option) => blowOf(body, world, option)), config.policy);
     default: { const never: never = config; throw new Error(`no blow of kind ${JSON.stringify((never as { kind?: unknown }).kind)}`); }
   }
 }
 
-/** The skills of a fighter of `config`, for `body`: one a slot, an empty slot a skill it has not. */
-function skillPartsOf(body: Body, config: FighterConfig, abilities: Abilities): SkillParts {
+/** The skills of a fighter of `config`, for `body` in `world`: one a slot, an empty slot a skill it has not. */
+function skillPartsOf(body: Body, world: World, config: FighterConfig, abilities: Abilities): SkillParts {
   const walk = config.locomotion.tuning;
   return {
     legs: locomotion(body.envelope, walk?.turnLimit, walk?.turnStartup), guard: guardSkill(body.built.spec, config.guard.tuning?.covering),
-    blow: blowOf(body, config.blow),
+    blow: blowOf(body, world, config.blow),
     kick: abilities.kick ? kickSkill(body, abilities.kick) : null, support: config.support ? supportFold(body) : null,
   };
 }
@@ -167,20 +209,20 @@ export function fighterBody(config: FighterConfig, wiring: MindWiring): BodyOpti
 }
 
 /**
- * `body` under a fighter of `config`: its tactics, planning by what its skills can do, handing
- * their intent to its skills (`skillSet`). What the screen makes of the tactics (`around`: the
- * Lab's log, its barred hands and its instrument) decides in their place.
+ * `body` in `world` under a fighter of `config`: its tactics, planning by what its skills can do,
+ * handing their intent to its skills (`skillSet`). What the screen makes of the tactics (`around`:
+ * the Lab's log, its barred hands and its instrument) decides in their place.
  */
-export function driveFighter(body: Body, config: FighterConfig, wiring: MindWiring, around: (tactics: Tactics) => Tactics = (tactics) => tactics): Skills {
+export function driveFighter(body: Body, world: World, config: FighterConfig, wiring: MindWiring, around: (tactics: Tactics) => Tactics = (tactics) => tactics): Skills {
   const abilities = abilitiesOf(config);
   const tactics = tacticsOf(config.tactics, body.built.spec, wiring.name, abilities,
     (sight) => aimedOrders(wiring.orders(sight.view.senses), sight.view.senses, highMark), wiring.script);
-  return driveBy(body, around(tactics), (made, driving) => skillSet(made, driving, skillPartsOf(made, config, abilities)));
+  return driveBy(body, around(tactics), (made, driving) => skillSet(made, driving, skillPartsOf(made, world, config, abilities)));
 }
 
 /** **A fighter**: its body and sub-minds (`fighterBody`), driven by its tactics over its skills (`driveFighter`). */
 export function createFighter(built: BuiltBody, world: World, config: FighterConfig, wiring: MindWiring) {
   const body = createBody(built, world, fighterBody(config, wiring));
-  const skills = driveFighter(body, config, wiring);
+  const skills = driveFighter(body, world, config, wiring);
   return { kind: "fighter" as const, body, skills, state: skills.state };
 }

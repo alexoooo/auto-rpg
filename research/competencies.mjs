@@ -10,6 +10,7 @@ import { rigidPoints } from "../src/core/build/rigid.ts";
 import { aimOf } from "../src/core/skills/strikes.ts";
 import { PLANTED_PUNCH_EXECUTION } from "../src/core/skills/combat.ts";
 import { fastestHeld } from "../src/core/control/stance-envelope.ts";
+import { PARTS, treeFaults } from "../src/core/mind/catalog.ts";
 import { HUMAN_PUNCH, punchStand } from "./punch-calibration.mjs";
 import { frontKickStand } from "./front-kicks.mjs";
 import { shove, walk, turn } from "./core-stance-trials.mjs";
@@ -112,10 +113,10 @@ const physiqueOf = (physique) => physique && Object.keys(physique).length ? { ph
 
 /**
  * The jobs of `competency` (or of every competency) for `model` with `physique` (`Physique`; the
- * default if absent) holding `held`, seed `seed`; a cell no fixture covers is an `unsupported`
- * job, so it stays in every count.
+ * default if absent) holding `held`, seed `seed`, a punch thrown by `blow` if given (`blowConfig`);
+ * a cell no fixture covers is an `unsupported` job, so it stays in every count.
  */
-export function competencyJobs({ competency, model, held, seed, physique }) {
+export function competencyJobs({ competency, model, held, seed, physique, blow }) {
   const fraction = (((seed + 1) * 2654435761) >>> 0) / 4294967296, signed = fraction * 2 - 1;
   const common = { model, ...physiqueOf(physique), held, seed }, jobs = [];
   const wanted = (name) => competency === undefined || competency === name;
@@ -133,7 +134,7 @@ export function competencyJobs({ competency, model, held, seed, physique }) {
       const across = signed * offset, up = height - signed * offset, side = hand === "right" ? x : -x;
       const reach = fullReach(model, hand, side + across, up, physique);
       for (const [placement, mode] of [["place", "hit"], ["reach", "hit"], ["place", "miss"]]) jobs.push({ ...common,
-        task: "competency", competency: "punch", hand, placement, mode, across, height: up, ahead: placement === "reach" ? reach : ahead });
+        task: "competency", competency: "punch", hand, placement, mode, across, height: up, ahead: placement === "reach" ? reach : ahead, ...(blow ? { blow } : {}) });
     } else jobs.push({ ...common, task: "unsupported", competency: "punch", capability: "a blow with a held item is that item's competency" });
   }
   if (wanted("walk")) {
@@ -153,6 +154,28 @@ export function competencyJobs({ competency, model, held, seed, physique }) {
       competency: "kick", foot, mode, height: height + signed * offset, ahead });
   }
   return jobs;
+}
+
+/**
+ * The blow part a punch trial throws (`--blow`): `kind`'s defaults (`PARTS`), a path-like blow on
+ * the planted cross the default trial throws, with each `path=value` of `settings` (a dotted path,
+ * a number, a word or true/false) set on it. A config with faults is refused.
+ */
+export function blowConfig(kind, settings = "") {
+  const part = PARTS[kind];
+  if (!part || part.role !== "blow") throw new Error(`no blow part ${kind}`);
+  const config = structuredClone({ ...part.defaults, ...(kind === "path-strike" || kind === "driven-strike"
+    ? { tuning: { paths: { elbowExtension: 0.5 }, execution: PLANTED_PUNCH_EXECUTION } } : {}) });
+  for (const pair of settings.split(",").filter(Boolean)) {
+    const [path, text] = pair.split("="), keys = path.split("."), last = keys.pop();
+    if (text === undefined || !last) throw new Error(`a blow setting is path=value, not ${pair}`);
+    let at = config;
+    for (const key of keys) at = at[key] ??= {};
+    at[last] = text === "true" ? true : text === "false" ? false : Number.isFinite(Number(text)) ? Number(text) : text;
+  }
+  const faults = treeFaults(config);
+  if (faults.length) throw new Error(`blow ${kind}: ${faults.join("; ")}`);
+  return config;
 }
 
 /** The jobs that stand once a cell, not once a seed: the run, which no skill does yet. */
@@ -193,7 +216,8 @@ async function punchTrial(job) {
   const { seconds } = COMPETENCY.punch;
   const s = await punchStand({ model: job.model, hand: job.hand, family: "cross", hz: job.hz, seconds,
     ahead: job.ahead, height: job.height, across: job.across, armExtension: 0.5, mode: job.mode, pad: { face: "compliant" },
-    paths: { elbowExtension: 0.5 }, execution: PLANTED_PUNCH_EXECUTION, matchedFeedback: true, actuation: job.actuation, physique: job.physique });
+    paths: { elbowExtension: 0.5 }, execution: PLANTED_PUNCH_EXECUTION, matchedFeedback: true, actuation: job.actuation, physique: job.physique,
+    ...(job.blow ? { blow: job.blow } : {}) });
   const changes = [];
   const hook = s.world.beforeStep(() => {
     const phase = s.skills.report.strike.phase;
@@ -204,7 +228,7 @@ async function punchTrial(job) {
     const r = s.reading();
     return { status: "measured", outcome: { ...blows(job, r, changes, seconds, (e) => e.last10cmSpeed),
       effectiveMass: mean(r.impacts.filter((e) => e.eligible && e.effectiveMass !== null).map((e) => e.effectiveMass)), returned: r.cycles.returned[job.hand] },
-    harness: r.harness, limits: ["the planted cross of the path strike", "a sliding, rotation-locked pad; impulse and force are reported, not gated"] };
+    harness: r.harness, limits: [job.blow ? `the ${job.blow.kind} blow part` : "the planted cross of the path strike", "a sliding, rotation-locked pad; impulse and force are reported, not gated"] };
   } finally { hook.dispose(); s.dispose(); }
 }
 

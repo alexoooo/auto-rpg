@@ -311,17 +311,28 @@ back (`SkillReport`: heading, pace, where a strike is, and which skill had each 
 `skill.ts`), and a kick and a support skill if it has them. A blow skill is given the blow asked,
 or none while a kick is asked or under way, and claims what it uses (`Claim`): each hand's goal,
 the posture, pushes, the hands it holds closed, a turn of the heading, and what it asks of the
-legs (`LegsAsk`: the tactics' walk, no walk, its own walk, or a footing). The arbiter moves the
+legs (`LegsAsk`: the tactics' walk, no walk, its own walk, or a footing). A blow may instead
+claim the body whole (`Claim.whole`): it drives every freedom by its pushes, the stance, the guard
+and the posture stand aside, and it holds the legs, the trunk and both hands. The arbiter moves the
 support skill first, by the stance the blow under way keeps; takes the blow's claim; has the
 guard cover with each hand the blow does not hold; carries out the legs' ask, a kick or the
 support lowering, low or rising holding the walk; lays the support's stance and trunk over the
 command; and lays a kick's stance and foot goals over it last, a kick beginning only while no
 blow is under way and the body stands. A blow skill of one kind is swapped for another without
 touching the rest. A fighter's set is the skills its slots name (`skillPartsOf`,
-`src/core/mind/fighter.ts`): the walk, the guard, the recipe strike (`recipeStrike`), the path
-strike (`pathStrike`) or a choice of blows (`chooseSkill`), and a kick and a support fold where it
-has them. A blow skill says whether it carries out an attack (`BlowSkill.accepts`): the recipe
-strike every blow, the path strike one with a path. For a stand,
+`src/core/mind/fighter.ts`, `blowOf`): the walk, the guard, the recipe strike (`recipeStrike`), the path
+strike (`pathStrike`), the driven strike (`pathStrike` with its `driven` setting), the whole-body
+strike (`wholeBodyStrike`, `whole-body-strike.ts`) or a choice of blows (`chooseSkill`), and a kick
+and a support fold where it has them. A blow skill says whether it carries out an attack
+(`BlowSkill.accepts`): the recipe strike and the whole-body strike every blow, the path strikes one
+with a path. The driven strike turns the trunk flat out in the swing, by a push on its rotation,
+until it is turned as far as asked; aims the arm from where the trunk is, its goal's held freedoms
+read from the body (`EffectorGoal.carried`); winds up deeper; and times the swing as an evenly
+accelerating fist from where it is at launch to the contact speed at the target. The whole-body
+strike runs one bounded torque solve over the body, its contacts and its stops
+(`wholeBodyTracking`) from the blow's start to its return, the fist on a timed path behind the
+pelvis's and chest's turns or driven flat out along the line, and needs the world it is in for its
+physics and gravity (`driveFighter` takes it). For a stand,
 `recipeParts` (`src/core/skills/skills.ts`) and `pathParts` (`combat.ts`) make each blow's usual
 set and `recipeSkills` and `combatSkills` put it under the arbiter; `driveBy` hands a body to
 tactics over the skills it is given.
@@ -535,7 +546,8 @@ sub-minds. Its tactics (`tacticsOf`, `tactics-of.ts`) are `seek` (`recipeTactics
 surface it favours, its defence, its combinations and its spacing), `script` (the screen's own,
 carried out as written: the Lab's modes write one) or `stand` (in guard the way the body faces). Its skills are its walk
 (`stance-walk`), its guard (`cover-guard`), its blow (`recipe-strike`, or `path-strike`, which may
-begin a hand while the other returns, or `choose-blow`, which gives each blow to one of a list of
+begin a hand while the other returns, the experimental `driven-strike` and `whole-body-strike`
+from the punch's research, or `choose-blow`, which gives each blow to one of a list of
 blows), and, optionally, a kick (`front-kick`) and low support
 (`support-fold`): an empty slot is a fighter that does not do that. The tactics plan by what the
 skills can do (`Abilities`, `abilitiesOf`: the blow's hand paths, the kick, whether it fights from

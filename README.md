@@ -61,6 +61,9 @@ Every humanoid preset is one fighter whose tactics and skills you can change in 
 panel. Classic seeks its foe and strikes by searched recipes; Combat, Brawler, Scrapper and Kicker
 choose openings and strike along hand paths on a shared strike cycle, Scrapper fighting from low
 support too and Kicker kicking.
+Any of them may throw one of two experimental blows from the punch's research instead: the
+driven strike, which turns the trunk flat out behind the arm, or the whole-body strike, one
+solve over every muscle at once ([measured](docs/reference/competencies.md#research-blows)).
 Against Classic on two Warriors ([384 bouts each](docs/reference/controller-presets.md)), every
 preset wins bare-handed (Kicker 1.00, Combat 0.99, Brawler and Scrapper 0.98), all of it at the
 time cap, and loses with clubs (Combat 0.24, Brawler 0.12, Kicker 0.10, Scrapper 0.10), often by

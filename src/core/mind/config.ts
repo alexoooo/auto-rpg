@@ -1,11 +1,12 @@
 import type { REPTILE_BITE } from "../reptile/tuning.ts";
 import { KICK_PATH, type KickTuning } from "../skills/kick.ts";
 import type { AttackTuning } from "../skills/attack-path.ts";
-import type { CombatExecution } from "../skills/combat.ts";
+import type { CombatExecution, DrivenStrike } from "../skills/combat.ts";
 import type { TurnStartup } from "../skills/locomotion.ts";
 import type { ChoosePolicy } from "../skills/choose.ts";
 import type { Placed } from "../skills/strike.ts";
 import type { Repertoire } from "../skills/strikes.ts";
+import type { WholeBodyDrive } from "../skills/whole-body-strike.ts";
 import type { OpeningTuning } from "./openings.ts";
 import type { Covering } from "../skills/guard.ts";
 import { deepFreeze } from "../state.ts";
@@ -135,6 +136,18 @@ export interface PathStrikeConfig {
   };
 }
 
+/** **The driven strike** (`DrivenStrike`, `skills/combat.ts`): the path strike with its trunk driven into the swing. */
+export interface DrivenStrikeConfig extends DrivenStrike {
+  readonly kind: "driven-strike";
+  readonly tuning?: PathStrikeConfig["tuning"];
+}
+
+/** **The whole-body strike** (`wholeBodyStrike`, `skills/whole-body-strike.ts`): one torque solve over the whole body under a blow, its fist driven by `drive`. */
+export interface WholeBodyStrikeConfig {
+  readonly kind: "whole-body-strike";
+  readonly drive: WholeBodyDrive;
+}
+
 /** **A choice of blows**: each blow begun given to one of `options` by `policy` (`chooseSkill`, `skills/choose.ts`). */
 export interface ChooseBlowConfig {
   readonly kind: "choose-blow";
@@ -143,7 +156,7 @@ export interface ChooseBlowConfig {
 }
 
 /** **A blow skill's config**, by kind: what carries out a hand's attack. */
-export type BlowConfig = RecipeStrikeConfig | PathStrikeConfig | ChooseBlowConfig;
+export type BlowConfig = RecipeStrikeConfig | PathStrikeConfig | DrivenStrikeConfig | WholeBodyStrikeConfig | ChooseBlowConfig;
 
 /** **The front kick** with either foot (`kickSkill`), its swing over `ARENA_KICKS`. */
 export interface FrontKickConfig {

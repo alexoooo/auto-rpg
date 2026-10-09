@@ -37,6 +37,11 @@ interface Claim {
   readonly legs: LegsAsk;
   /** How far the stance's heading is turned from the legs' to follow a target, rad. */
   readonly steer: number;
+  /**
+   * Whether the blow drives every freedom itself, by its pushes: the guard, the stance and the
+   * posture stand aside, and the blow holds the legs, the trunk and both hands.
+   */
+  readonly whole?: true;
 }
 
 /** What a blow skill reads of the skills beside it, as this step finds them. */

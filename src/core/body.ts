@@ -331,7 +331,7 @@ const sameGoal = (a: EffectorGoal, b: EffectorGoal): boolean =>
   && (a.curve === b.curve || (a.curve !== undefined && b.curve !== undefined && a.curve.every((v, k) => v === b.curve![k])))
   && (a.orientation === b.orientation || (a.orientation !== undefined && b.orientation !== undefined
     && a.orientation.seconds === b.orientation.seconds && a.orientation.target.every((v, k) => v === b.orientation!.target[k])))
-  && a.sequence === b.sequence
+  && a.sequence === b.sequence && a.carried === b.carried
   && a.seconds === b.seconds && a.through === b.through && a.follows === b.follows && a.places.length === b.places.length
   && a.places.every((place, i) => place.point === b.places[i]!.point && place.position.every((v, k) => v === b.places[i]!.position[k]));
 

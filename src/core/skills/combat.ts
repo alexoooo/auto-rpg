@@ -2,6 +2,7 @@ import { kickSkill, type KickTuning } from "./kick.ts";
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { Body } from "../body.ts";
 import { intoFrameToRef } from "../control/kinematics.ts";
+import { hypot } from "../math/real.ts";
 import type { EffectorGoal, MusclePush, Pose } from "../control/motor.ts";
 import { validArmExtension, type BlowAttack, type BlowPath } from "../mind/intent.ts";
 import type { Tactics } from "../mind/tactics.ts";
@@ -27,6 +28,31 @@ export interface CombatExecution { readonly planted?: boolean; readonly impactSe
 export function validCombatExecution(execution: CombatExecution): boolean {
   return (execution.planted === undefined || typeof execution.planted === "boolean") && [execution.impactSeconds, execution.impactTravel, execution.normalAlignment]
     .every(v => Number.isFinite(v) && v >= 0) && execution.normalAlignment <= 1;
+}
+
+/**
+ * **The driven strike**: the path strike with its trunk driven into the swing. The cross and the
+ * hook turn the trunk the way that brings the striking shoulder back in the chamber and forward in
+ * the swing, `torso` rad each way; the swing pushes `thoracic rotation right` flat out at level
+ * `drive` (`MusclePush`) until the trunk is turned that far. The hand is aimed from where the trunk
+ * is (`EffectorGoal.carried`); the chamber winds up `windup` m; and the swing takes the time an
+ * evenly accelerating fist takes from where it is at launch to `contact` m/s at the target: twice
+ * the distance over the speed.
+ */
+export interface DrivenStrike {
+  readonly drive: number;
+  readonly torso: number;
+  readonly windup: number;
+  readonly contact: number;
+}
+
+/** The driven strike's first setting tried, its punch rows in `docs/reference/competencies.md#research-blows`. */
+export const DRIVEN_STRIKE: DrivenStrike = Object.freeze({ drive: 1, torso: 0.43, windup: 0.3, contact: 7.5 });
+
+/** A driven strike's settings: a level in [0, 1], a turn and a wind-up finite and not negative, and a positive speed. */
+export function validDrivenStrike(driven: DrivenStrike): boolean {
+  return [driven.drive, driven.torso, driven.windup, driven.contact].every(Number.isFinite) && driven.drive >= 0 && driven.drive <= 1
+    && driven.torso >= 0 && driven.windup >= 0 && driven.contact > 0;
 }
 
 /** **What the path strike's usual skill set is made of**; a setting left out is its default. */
@@ -56,13 +82,15 @@ interface HandBlow {
   chamber: Vec3 | null;
   elbow: number;
   initialElbow: number;
+  /** A driven swing's time, s, set at its launch (`DrivenStrike`); null otherwise. */
+  launch: number | null;
 }
 
 /** The elbow's opening `u` of the way from `from` to `to`, eased in and out. */
 const smoothElbow = (from: number, to: number, u: number) => from + (to - from) * u * u * (3 - 2 * u);
 
-/** What a path strike's blows are carried out with; a setting left out is its default. */
-type PathStrikeSettings = Pick<CombatSettings, "paths" | "execution" | "overlap">;
+/** What a path strike's blows are carried out with, and whether its trunk is driven (`DrivenStrike`); a setting left out is its default. */
+type PathStrikeSettings = Pick<CombatSettings, "paths" | "execution" | "overlap"> & { readonly driven?: DrivenStrike };
 
 const HOLD: LegsAsk = Object.freeze({ kind: "hold" });
 const FREE: LegsAsk = Object.freeze({ kind: "free" });
@@ -73,10 +101,13 @@ const NO_PUSHES: readonly MusclePush[] = Object.freeze([]);
  * strike cycle (`effectorStrike`), from chamber to return, a measured hand trajectory under a hand
  * goal. One hand begins at a time; with `overlap`, a hand may begin while the other returns. With
  * a planted `execution`, a blow waits on quiet planted support (`supportReadiness`) and holds the
- * walk until it is over; a swing holds it too. Resumed, a blow under way is interrupted.
+ * walk until it is over; a swing holds it too. Resumed, a blow under way is interrupted. With
+ * `driven`, it is the driven strike (`DrivenStrike`).
  */
-export function pathStrike(body: Body, { paths: tuning = ATTACK_PATH, execution, overlap = false }: PathStrikeSettings = {}): BlowSkill {
+export function pathStrike(body: Body, { paths = ATTACK_PATH, execution, overlap = false, driven }: PathStrikeSettings = {}): BlowSkill {
   if (execution && !validCombatExecution(execution)) throw new Error("invalid combat execution settings");
+  if (driven && !validDrivenStrike(driven)) throw new Error("a driven strike needs a drive in [0,1], a turn and a wind-up not negative, and a positive contact speed");
+  const tuning = driven ? { ...paths, windup: driven.windup, torso: driven.torso, contactSpeed: driven.contact } : paths;
   if (!validAttackTuning(tuning)) throw new Error("combat path settings need finite nonnegative values, positive durations and elbowExtension in [0,1]");
   const spec = body.built.spec, guarding = guardPosture(spec);
   const elbowRange = (hand: Side) => spec.joints.find(j => j.name === `elbow.${hand}`)?.dofs.find(d => d.positive === "flexion");
@@ -89,11 +120,11 @@ export function pathStrike(body: Body, { paths: tuning = ATTACK_PATH, execution,
   const strikeOf = (hand: Side) => effectorStrike({ effector: `hand.${hand}`, point: aims[hand], limits,
     chamberSeconds: tuning.chamberSeconds, returnSeconds: tuning.returnSeconds });
   const strikes = { left: strikeOf("left"), right: strikeOf("right") };
-  const blowOf = (hand: Side): HandBlow => ({ cycle: strikes[hand].state, action: null, home: null, chamber: null, elbow: 0, initialElbow: 0 });
+  const blowOf = (hand: Side): HandBlow => ({ cycle: strikes[hand].state, action: null, home: null, chamber: null, elbow: 0, initialElbow: 0, launch: null });
   const state = { ...(foundation ? { foundation: foundation.state } : {}),
     lower: STANCE_LOWER, hand: null as Side | null, hands: { left: blowOf("left"), right: blowOf("right") },
     cooldown: 0, interrupted: 0, canOverlap: false };
-  const rest = (blow: HandBlow) => { blow.action = null; blow.home = null; blow.chamber = null; blow.elbow = 0; blow.initialElbow = 0; };
+  const rest = (blow: HandBlow) => { blow.action = null; blow.home = null; blow.chamber = null; blow.elbow = 0; blow.initialElbow = 0; blow.launch = null; };
   const target = new Vector3(), direction = new Vector3(), inverse = new Quaternion();
   const other = (hand: Side): Side => hand === "left" ? "right" : "left";
   /** The hand still returning beside the one striking, or after it. */
@@ -156,7 +187,7 @@ export function pathStrike(body: Body, { paths: tuning = ATTACK_PATH, execution,
         starting.chamber = attackPath(starting.home, [target.x, target.y, target.z], hand, requested.path.family, tuning).chamber;
         starting.initialElbow = starting.elbow; strikes[hand].begin("chamber", velocities[hand]);
       }
-      let posture: Pose = guarding;
+      let posture: Pose = guarding, pushes = NO_PUSHES;
       const goals: Record<Side, EffectorGoal | null> = { left: null, right: null };
       const advance = (hand: Side) => {
         const striking = state.hands[hand], strike = strikes[hand], action = striking.action!, home = striking.home!, chamber = striking.chamber!;
@@ -165,30 +196,40 @@ export function pathStrike(body: Body, { paths: tuning = ATTACK_PATH, execution,
           .applyRotationQuaternionToRef(Quaternion.InverseToRef(view.root.rotation, inverse), direction) : null;
         const path = attackPath(home, [target.x, target.y, target.z], hand, action.path.family, tuning,
           contactDirection ? [contactDirection.x, contactDirection.y, contactDirection.z] : undefined);
-        const course: StrikeCourse = { home, chamber, target: [target.x, target.y, target.z], contactVelocity: path.contactVelocity,
-          seconds: path.seconds, ...(path.curve ? { curve: path.curve } : {}) };
+        let course: StrikeCourse = { home, chamber, target: [target.x, target.y, target.z], contactVelocity: path.contactVelocity,
+          seconds: striking.launch ?? path.seconds, ...(path.curve ? { curve: path.curve } : {}) };
         const previousPhase = striking.cycle.phase;
         const event = strike.step(view, velocities[hand], course, { requested: !!requested, down: view.down,
           supported: !foundation || bearingSupport(foundation.state), prepared: !bare[hand] || view.handPoses[hand]?.applied === "fist",
           free: true, targetId: action.targetId }, dt);
-        if (striking.cycle.phase !== previousPhase) striking.initialElbow = striking.elbow;
+        if (striking.cycle.phase !== previousPhase) {
+          striking.initialElbow = striking.elbow;
+          if (driven && striking.cycle.phase === "swing") {
+            const at = striking.cycle.previous!;
+            striking.launch = Math.max(dt, 2 * hypot(target.x - at[0], target.y - at[1], target.z - at[2]) / driven.contact);
+            course = { ...course, seconds: striking.launch };
+          }
+        }
         if (event & STRIKE_EVENT.finished) {
           if (hand === state.hand) { state.hand = null; state.cooldown = 0; }
           rest(striking);
         }
         const phase = striking.cycle.phase;
         if (!phase) return;
-        goals[hand] = strike.goal(course);
+        goals[hand] = driven ? { ...strike.goal(course), carried: true } : strike.goal(course);
         const extension = action.path.armExtension ?? tuning.elbowExtension;
         if (extension || striking.elbow) {
           striking.elbow = smoothElbow(striking.initialElbow, phase === "swing" ? extension : 0, Math.min(1, striking.cycle.time / strike.seconds(course)));
           const dof = elbows[hand], name = `elbow.${hand} flexion`, preferred = (1 - striking.elbow) * guarding[name]!;
           if (dof) posture = { ...posture, [name]: Math.max(dof.min.value, Math.min(dof.max.value, preferred)) };
         }
-        const rotation = phase === "chamber" ? -path.torso : phase === "swing" ? path.torso : 0;
+        // The driven strike turns the trunk the other way: the striking shoulder forward in the swing.
+        const turn = driven ? -path.torso : path.torso, rotation = phase === "chamber" ? -turn : phase === "swing" ? turn : 0;
         if (rotation) {
           const dof = spec.joints.find(j => j.name === "thoracic")?.dofs.find(d => d.positive === "rotation right");
-          posture = { ...posture, "thoracic rotation right": dof ? Math.max(dof.min.value, Math.min(dof.max.value, rotation)) : 0 };
+          const sense = rotation > 0 ? 1 : -1, turned = sense * (view.angles["thoracic rotation right"] ?? 0) >= sense * rotation;
+          if (driven && driven.drive > 0 && phase === "swing" && dof && !turned) pushes = [{ channel: "thoracic rotation right", sense, level: driven.drive }];
+          else posture = { ...posture, "thoracic rotation right": dof ? Math.max(dof.min.value, Math.min(dof.max.value, rotation)) : 0 };
         }
       };
       const main = state.hand, back = returning();
@@ -197,7 +238,7 @@ export function pathStrike(body: Body, { paths: tuning = ATTACK_PATH, execution,
       state.canOverlap = mayOverlap();
       const swinging = state.hand !== null && state.hands[state.hand].cycle.phase === "swing";
       return {
-        hands: goals, posture: posture === guarding ? null : posture, pushes: NO_PUSHES, steer: 0,
+        hands: goals, posture: posture === guarding ? null : posture, pushes, steer: 0,
         closed: { left: state.hands.left.cycle.phase !== null, right: state.hands.right.cycle.phase !== null },
         legs: (execution?.planted && state.hand !== null) || swinging ? HOLD : FREE,
       };

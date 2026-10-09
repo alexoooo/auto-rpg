@@ -15,7 +15,7 @@ balance is 0 %, and the punch and kick stands fault any assist they meter.
 |---|---|---|---|---|
 | stand | `shove` (`research/core-stance-trials.mjs`), in the guard | a level shove at the middle trunk's centre of mass, 0.2 to 0.8 N s per kg of the body's own mass, from 8 directions; upright through 10 s after it | the largest level held from every direction, as at every level below it (`fastestHeld`) | recovery steps |
 | guard | the defense probe (`src/core/tasks/defense.ts`) | hinged clubs at the head and upper trunk, covered by the left, right or both hands; the predictive guard and the pose as its control | share of predictive trials that cover every blow, protect the head and upper trunk, and stay up | protected impulse |
-| punch | `punchStand` (`research/punch-calibration.mjs`), the path strike's planted cross | 8 s of crosses with each hand at a compliant pad: at the cell's place (0.1 m to the hand's side, 1.55 m up, 0.55 m ahead), at full reach (`fullReach`), and 1 m aside as a miss; the seed moves the target up to 2 cm | share of blows landed; hand speed over the last 10 cm; first contact after the order; upright and returned | impulse, effective mass, peak force, the chamber-to-contact time |
+| punch | `punchStand` (`research/punch-calibration.mjs`), the path strike's planted cross, or a blow part (`--blow`, [Research blows](#research-blows)) | 8 s of crosses with each hand at a compliant pad: at the cell's place (0.1 m to the hand's side, 1.55 m up, 0.55 m ahead), at full reach (`fullReach`), and 1 m aside as a miss; the seed moves the target up to 2 cm | share of blows landed; hand speed over the last 10 cm; first contact after the order; upright and returned | impulse, effective mass, peak force, the chamber-to-contact time |
 | walk | `walk`, `turn` (`research/core-stance-trials.mjs`), in the guard | 8 s at 0.3 to 1.4 m/s at 4 headings, then a stop; a half turn at 2 rad/s walking at 0.3 m/s, each way | the speed travelled (below); both turns upright | the fastest asked speed held upright at every heading, as at every slower one (the stance envelope's rule); falls |
 | rise | `felled` (`research/core-rise-trials.mjs`) under the staged rise | shoved down at 1.5 N s/kg from 4 directions; watched 40 s | share of falls risen and up at the end; median time from the fall to standing 2 s | the slowest rise |
 | kick | `frontKickStand` (`research/front-kicks.mjs`), the front kick | 24 s of kicks with each foot at a pad 0.45 m up and ahead, and 1 m aside as a miss | share of blows landed; foot speed at contact; upright and returned | impulse, first contact after the order |
@@ -253,6 +253,99 @@ Outside it, each a finding:
   beyond its straight arm.
 
 Impulse is reported and not gated: 120 Hz reads 1.4 to 2.0 times 480 Hz on the punch and the kick.
+
+## Research blows
+
+The experimental blow parts (`driven-strike`, `whole-body-strike`), each on the punch competency
+in place of the path strike: `control-foundation.mjs --suite competency --competency punch --blow
+<kind>` (`blowConfig`, `research/competencies.mjs`), the whole-body strike's flat-out drive with
+`--blow-settings drive=flat-out`. Node, the core's world on Rapier (`rapier/adapter-9`),
+symmetric actuation, development seeds 0 and 1, at 120 Hz and 480 Hz from one source (content
+`3a82bee4`). Everything else is the punch's: the walk and the guard beside the blow, a compliant
+pad, both hands at the cell's place and at full reach, and the miss. The rows and manifests are
+`competencies-driven-strike.json.gz`, `competencies-whole-body-timed.json.gz` and
+`competencies-whole-body-flat-out.json.gz`; `node research/competency-passes.mjs <record>` prints
+the figures. Figures read "120 Hz | 480 Hz", as the [baseline](#punch)'s do; a hit cell is two
+trials, so its falls are of 2, and the misses clean are the miss trials that touched nothing and
+stayed up.
+
+**No part meets the punch's threshold in any cell, at either rate.**
+
+### Driven strike
+
+The path strike with its `driven` setting at its defaults (`DRIVEN_STRIKE`: drive 1, turn
+0.43 rad, wind-up 0.3 m, contact 7.5 m/s), on the planted cross the baseline throws.
+
+| Cell | Landed | Speed | Slowest | First contact | Falls, hit | Misses clean |
+|---|---|---|---|---|---|---|
+| Warrior left, place | 0/8 \| 0/8 | – \| – | – \| – | – \| – | 0/2 \| 0/2 | 2/2 \| 2/2 |
+| Warrior left, full reach | 0/8 \| 0/8 | – \| – | – \| – | – \| – | 0/2 \| 0/2 |  |
+| Warrior right, place | 0/8 \| 0/8 | – \| – | – \| – | – \| – | 0/2 \| 0/2 | 2/2 \| 2/2 |
+| Warrior right, full reach | 0/8 \| 0/8 | – \| – | – \| – | – \| – | 0/2 \| 0/2 |  |
+| Rogue left, place | 0/8 \| 0/8 | – \| – | – \| – | – \| – | 0/2 \| 0/2 | 2/2 \| 2/2 |
+| Rogue left, full reach | 0/8 \| 0/8 | – \| – | – \| – | – \| – | 0/2 \| 0/2 |  |
+| Rogue right, place | 0/8 \| 0/8 | – \| – | – \| – | – \| – | 0/2 \| 0/2 | 2/2 \| 2/2 |
+| Rogue right, full reach | 0/8 \| 0/8 | – \| – | – \| – | – \| – | 0/2 \| 0/2 |  |
+
+No blow lands. Every swing is aborted 0.07 to 0.13 s after launch without touching the pad, by
+the strike cycle's support rule (`bearingSupport`): with that rule taken as held, a diagnostic
+only, the Warrior's right-hand swings at the place ran 0.15 and 0.18 s. Nothing fell.
+
+### Whole-body strike, timed
+
+The spike's solve and punch ([whole-body spike](whole-body-spike.md#punch)) as a fighter's blow:
+the pelvis and chest turn, and the fist goes on a 0.12 s minimum-jerk path to 0.2 m past the target
+the way the body faces.
+
+| Cell | Landed | Speed | Slowest | First contact | Falls, hit | Misses clean |
+|---|---|---|---|---|---|---|
+| Warrior left, place | 8/8 \| 8/8 | 4.47 \| 4.97 | 4.10 \| 4.49 | 0.20 \| 0.18 | 0/2 \| 0/2 | 2/2 \| 2/2 |
+| Warrior left, full reach | 7/7 \| 7/7 | 4.59 \| 4.35 | 3.62 \| 3.25 | 0.22 \| 0.20 | 0/2 \| 0/2 |  |
+| Warrior right, place | 7/7 \| 8/8 | 4.38 \| 4.70 | 2.71 \| 3.85 | 0.21 \| 0.18 | 0/2 \| 0/2 | 2/2 \| 2/2 |
+| Warrior right, full reach | 5/7 \| 6/6 | 3.36 \| 3.98 | 2.85 \| 2.62 | 0.23 \| 0.21 | 0/2 \| 1/2 |  |
+| Rogue left, place | 4/7 \| 7/7 | 3.34 \| 2.88 | 1.85 \| 2.20 | 0.22 \| 0.21 | 0/2 \| 0/2 | 2/2 \| 2/2 |
+| Rogue left, full reach | 4/6 \| 7/7 | 2.82 \| 2.97 | 1.61 \| 2.04 | 1.25 \| 0.21 | 0/2 \| 0/2 |  |
+| Rogue right, place | 2/7 \| 7/7 | 1.75 \| 2.83 | 1.57 \| 2.11 | 0.27 \| 0.21 | 0/2 \| 0/2 | 2/2 \| 2/2 |
+| Rogue right, full reach | 6/6 \| 7/8 | 2.44 \| 3.15 | 1.47 \| 2.34 | 0.25 \| 0.19 | 0/2 \| 0/2 |  |
+
+First contact comes 0.18 to 0.27 s after the order, within the threshold's 0.5 s but for one
+Rogue cell at 120 Hz, at 1.8 to 5.0 m/s. One trial fell, the Warrior's right hand at full reach
+at 480 Hz.
+
+### Whole-body strike, flat out
+
+The flat-out drive ([whole-body spike](whole-body-spike.md#flat-out)): the fist drawn back to 0.25 m
+from the target, then driven along the line at 240 m/s² with the turns.
+
+| Cell | Landed | Speed | Slowest | First contact | Falls, hit | Misses clean |
+|---|---|---|---|---|---|---|
+| Warrior left, place | 6/6 \| 3/3 | 4.25 \| 3.71 | 3.51 \| 3.65 | 0.22 \| 0.19 | 0/2 \| 2/2 | 0/2 \| 0/2 |
+| Warrior left, full reach | 5/5 \| 4/4 | 2.77 \| 2.74 | 1.57 \| 1.01 | 0.24 \| 0.18 | 1/2 \| 1/2 |  |
+| Warrior right, place | 5/6 \| 4/4 | 4.28 \| 3.88 | 3.78 \| 3.54 | 0.23 \| 0.19 | 0/2 \| 1/2 | 0/2 \| 0/2 |
+| Warrior right, full reach | 5/6 \| 2/2 | 3.00 \| 3.53 | 2.28 \| 3.51 | 0.23 \| 0.18 | 1/2 \| 2/2 |  |
+| Rogue left, place | 6/6 \| 6/6 | 3.19 \| 2.37 | 2.12 \| 1.66 | 0.26 \| 0.25 | 1/2 \| 0/2 | 0/2 \| 0/2 |
+| Rogue left, full reach | 8/8 \| 4/6 | 2.97 \| 2.27 | 2.51 \| 1.97 | 0.26 \| 0.26 | 0/2 \| 0/2 |  |
+| Rogue right, place | 8/8 \| 6/6 | 2.75 \| 2.47 | 0.75 \| 1.70 | 0.26 \| 0.25 | 0/2 \| 0/2 | 0/2 \| 0/2 |
+| Rogue right, full reach | 6/6 \| 3/6 | 3.07 \| 2.20 | 2.68 \| 2.08 | 0.26 \| 0.26 | 1/2 \| 1/2 |  |
+
+Every miss trial falls: nothing stops a drive that meets no pad until 0.45 s have passed. Hits
+fall in 11 of 32 trials. The Warrior's blows at the place land at 3.7 to 4.3 m/s, under the
+grid's 5.1 to 5.9.
+
+### Against the spike
+
+The part runs the spike's goals and settings inside a fighter, and three things differ from the
+spike's rig, which runs its solve on the body the whole time:
+
+- **Between blows the stance holds the body**, and the solve takes it from wherever the stance has
+  it. The spike's solve had stood it from the start, and its blows begin from that.
+- **The fist is closed**, as the path strike's is; the spike's hand is open.
+- **The pelvis's height and turn are held from where the blow begins**: its height `lower` under
+  its reference height over where the feet stand, and its turn as it is, where the spike holds
+  both as built.
+
+On the grid's own cell, the Warrior's right hand at 120 Hz, the flat-out part lands four blows at
+3.2 to 5.1 m/s, against the grid's 5.1 to 5.9.
 
 ## The physique grid
 
