@@ -91,7 +91,7 @@ function tuned(config: FighterConfig, skills: RecipeOptions | undefined): Fighte
   return {
     ...config,
     guard: cover === undefined ? config.guard : { ...config.guard, tuning: { ...config.guard.tuning, covering: cover } },
-    blow: config.blow.kind === "recipe-strike" && Object.keys(strike).length > 0 ? { ...config.blow, tuning: { ...config.blow.tuning, ...strike } } : config.blow,
+    blow: config.blow?.kind === "recipe-strike" && Object.keys(strike).length > 0 ? { ...config.blow, tuning: { ...config.blow.tuning, ...strike } } : config.blow,
   };
 }
 

@@ -41,7 +41,7 @@ const REFERENCE: Pose = Object.freeze({});
  */
 const FIGHTER_SLOTS: readonly Slot[] = Object.freeze([
   slotOne("tactics", "Tactics", "tactics"), slotOne("locomotion", "Walk", "locomotion"), slotOne("guard", "Guard", "guard"),
-  slotOne("blow", "Blow", "blow"), slotOne("kick", "Kick", "kick", true), slotOne("support", "Low support", "support", true),
+  slotOne("blow", "Blow", "blow", true), slotOne("kick", "Kick", "kick", true), slotOne("support", "Low support", "support", true),
   slotList("subs", "When down", "sub-mind"),
 ]);
 

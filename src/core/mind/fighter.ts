@@ -7,6 +7,7 @@ import { DRIVEN_STRIKE, pathStrike, validCombatExecution, validDrivenStrike } fr
 import { guardPosture, guardSkill } from "../skills/guard.ts";
 import { kickSkill, validKickTuning } from "../skills/kick.ts";
 import { locomotion, validTurnLimit, validTurnStartup } from "../skills/locomotion.ts";
+import { noBlow } from "../skills/no-blow.ts";
 import type { BlowSkill } from "../skills/skill.ts";
 import type { Skills } from "../skills/skills.ts";
 import { recipeStrike } from "../skills/strike.ts";
@@ -97,9 +98,9 @@ export const SKILL_PARTS: { readonly [K in SkillConfig["kind"]]: Part<Extract<Sk
   "support-fold": skill("support", "Fight from low support", "experimental", { kind: "support-fold" }),
 });
 
-/** What the skills of `config` can do, as its tactics plan by it. */
+/** What the skills of `config` can do, as its tactics plan by it; a fighter of no blow plans no path. */
 function abilitiesOf(config: FighterConfig): Abilities {
-  return deepFreeze({ paths: pathsOf(config.blow), kick: config.kick ? { ...ARENA_KICKS, ...config.kick.tuning } : null, ground: config.support !== null });
+  return deepFreeze({ paths: config.blow ? pathsOf(config.blow) : ATTACK_PATH, kick: config.kick ? { ...ARENA_KICKS, ...config.kick.tuning } : null, ground: config.support !== null });
 }
 
 /** Whether a blow of `config` may throw one with no path, as tactics that name none ask: the recipe strike, or a choice with an option that may. */
@@ -141,6 +142,7 @@ function blowReadsContact(config: BlowConfig): boolean {
  */
 export function fighterFaults(config: FighterConfig): readonly string[] {
   const faults: string[] = [], tactics = config.tactics;
+  const blow = config.blow;
   const neverKick = () => {
     if (config.kick) faults.push("kick: these tactics never kick");
     if (config.support) faults.push("support: these tactics never fight from low support");
@@ -148,14 +150,16 @@ export function fighterFaults(config: FighterConfig): readonly string[] {
   switch (tactics.kind) {
     case "seek":
     case "script":
-      if (!throwsPathless(config.blow)) faults.push("blow: the path strike carries out a blow only along a path, and these tactics name none");
+      if (!blow) faults.push("blow: these tactics throw blows, and the fighter has none");
+      else if (!throwsPathless(blow)) faults.push("blow: the path strike carries out a blow only along a path, and these tactics name none");
       neverKick();
       break;
     case "stand":
       neverKick();
       break;
     case "openings":
-      if (tactics.combinations === "overlap" && !overlaps(config.blow))
+      if (!blow) faults.push("blow: these tactics throw blows, and the fighter has none");
+      else if (tactics.combinations === "overlap" && !overlaps(blow))
         faults.push("blow: overlapping combinations need a blow that may begin while the other hand returns");
       break;
     default: { const never: never = tactics; throw new Error(`no tactics of kind ${JSON.stringify((never as { kind?: unknown }).kind)}`); }
@@ -165,7 +169,7 @@ export function fighterFaults(config: FighterConfig): readonly string[] {
 
 /** Whether a fighter of `config` reads its hands' contacts (`BodyOptions.feedback`): the opening tactics do, and some blows (`blowReadsContact`). */
 function readsContact(config: FighterConfig): boolean {
-  return config.tactics.kind === "openings" || blowReadsContact(config.blow);
+  return config.tactics.kind === "openings" || (config.blow !== null && blowReadsContact(config.blow));
 }
 
 /**
@@ -192,12 +196,12 @@ export function blowOf(body: Body, world: World, config: BlowConfig): BlowSkill 
   }
 }
 
-/** The skills of a fighter of `config`, for `body` in `world`: one a slot, an empty slot a skill it has not. */
+/** The skills of a fighter of `config`, for `body` in `world`: one a slot, an empty slot a skill it has not (`noBlow` for the blow). */
 function skillPartsOf(body: Body, world: World, config: FighterConfig, abilities: Abilities): SkillParts {
   const walk = config.locomotion.tuning;
   return {
     legs: locomotion(body.envelope, walk?.turnLimit, walk?.turnStartup), guard: guardSkill(body.built.spec, config.guard.tuning?.covering),
-    blow: blowOf(body, world, config.blow),
+    blow: config.blow ? blowOf(body, world, config.blow) : noBlow(body.built.spec),
     kick: abilities.kick ? kickSkill(body, abilities.kick) : null, support: config.support ? supportFold(body) : null,
   };
 }

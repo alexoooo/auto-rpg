@@ -49,7 +49,7 @@ export function mindInspector(config: MindConfig, spec: BodySpec, inspected: () 
   };
   const has = row("Has the body"), held = HELD.map(([key, label]) => [key, row(label)] as const);
   // A blow that chooses among others (`chooseSkill`): the option that has the body, and what each has landed of what it threw.
-  const options = config.kind === "fighter" && config.blow.kind === "choose-blow" ? config.blow.options : null;
+  const options = config.kind === "fighter" && config.blow?.kind === "choose-blow" ? config.blow.options : null;
   const chose = options && row("Blow chosen");
   const slots = (key: string) => tree.element.querySelectorAll<HTMLElement>(`.mind-editor > div > .mind-part > .mind-slot[data-slot="${key}"]`);
   let shown = "";

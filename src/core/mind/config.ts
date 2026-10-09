@@ -172,15 +172,15 @@ export type SkillConfig = StanceWalkConfig | CoverGuardConfig | BlowConfig | Fro
 
 /**
  * **The fighter**: tactics over a skill of each role, under one arbiter (`skillSet`), handing its
- * body to its sub-minds while down (`fighter.ts`). An empty `kick` or `support` is a fighter that
- * does not kick, or does not fight from low support.
+ * body to its sub-minds while down (`fighter.ts`). An empty `blow`, `kick` or `support` is a fighter
+ * that throws no blow, does not kick, or does not fight from low support.
  */
 export interface FighterConfig {
   readonly kind: "fighter";
   readonly tactics: TacticsConfig;
   readonly locomotion: StanceWalkConfig;
   readonly guard: CoverGuardConfig;
-  readonly blow: BlowConfig;
+  readonly blow: BlowConfig | null;
   readonly kick: FrontKickConfig | null;
   readonly support: SupportFoldConfig | null;
   /** The sub-minds it hands its body to, in rank order: the first that wants the body has it. */
