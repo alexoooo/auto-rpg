@@ -3,6 +3,7 @@ import { KICK_PATH, type KickTuning } from "../skills/kick.ts";
 import type { AttackTuning } from "../skills/attack-path.ts";
 import type { CombatExecution } from "../skills/combat.ts";
 import type { TurnStartup } from "../skills/locomotion.ts";
+import type { ChoosePolicy } from "../skills/choose.ts";
 import type { Placed } from "../skills/strike.ts";
 import type { Repertoire } from "../skills/strikes.ts";
 import type { OpeningTuning } from "./openings.ts";
@@ -134,8 +135,15 @@ export interface PathStrikeConfig {
   };
 }
 
+/** **A choice of blows**: each blow begun given to one of `options` by `policy` (`chooseSkill`, `skills/choose.ts`). */
+export interface ChooseBlowConfig {
+  readonly kind: "choose-blow";
+  readonly options: readonly BlowConfig[];
+  readonly policy: ChoosePolicy;
+}
+
 /** **A blow skill's config**, by kind: what carries out a hand's attack. */
-export type BlowConfig = RecipeStrikeConfig | PathStrikeConfig;
+export type BlowConfig = RecipeStrikeConfig | PathStrikeConfig | ChooseBlowConfig;
 
 /** **The front kick** with either foot (`kickSkill`), its swing over `ARENA_KICKS`. */
 export interface FrontKickConfig {

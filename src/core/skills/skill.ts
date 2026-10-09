@@ -55,6 +55,8 @@ export interface Around {
 export interface BlowSkill extends Skill {
   /** This step's claim, or null with no blow asked and none under way. */
   command(view: BodyView, attack: BlowAttack | null, intent: Intent, around: Around, dt: number): Claim | null;
+  /** Whether it carries out `attack`: a skill given one it does not refuses it (`Attack`). */
+  accepts(attack: BlowAttack): boolean;
   readonly report: StrikeReport;
   /** The hand the guard leaves alone, the last command made. */
   readonly holds: Side | null;

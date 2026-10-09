@@ -318,8 +318,10 @@ support lowering, low or rising holding the walk; lays the support's stance and 
 command; and lays a kick's stance and foot goals over it last, a kick beginning only while no
 blow is under way and the body stands. A blow skill of one kind is swapped for another without
 touching the rest. A fighter's set is the skills its slots name (`skillPartsOf`,
-`src/core/mind/fighter.ts`): the walk, the guard, the recipe strike (`recipeStrike`) or the path
-strike (`pathStrike`), and a kick and a support fold where it has them. For a stand,
+`src/core/mind/fighter.ts`): the walk, the guard, the recipe strike (`recipeStrike`), the path
+strike (`pathStrike`) or a choice of blows (`chooseSkill`), and a kick and a support fold where it
+has them. A blow skill says whether it carries out an attack (`BlowSkill.accepts`): the recipe
+strike every blow, the path strike one with a path. For a stand,
 `recipeParts` (`src/core/skills/skills.ts`) and `pathParts` (`combat.ts`) make each blow's usual
 set and `recipeSkills` and `combatSkills` put it under the arbiter; `driveBy` hands a body to
 tactics over the skills it is given.
@@ -368,6 +370,18 @@ tactics over the skills it is given.
   nearest how it lies. There is no block and no parry: a club across a blow's line, a hand before
   the face and a shield raised are this one skill placing different points, and what a cover
   costs is the blows' rule's.
+- **A choice of blows** (`chooseSkill`, `choose.ts`) is a blow skill over other blow skills. As a
+  blow begins it gives it to one option by its policy (`ChoosePolicy`), none of which draws a
+  random number: the first that accepts it (`first-able`), the next after the one that began the
+  last blow (`rotate`), or the one with the most (landed + 1) / (thrown + 2) of its own blows, ties
+  to the earlier (`scored`). The option keeps the body until it is no longer busy; the others are
+  given nothing, and each is resumed when the body is its own again. A blow has landed when the
+  hand that threw it touched a foe while it was under way, read from the body's effector feedback,
+  which a fighter with a choice reads. Which option has the body, the one that began the last blow
+  and the counts are in its state with each option's own (`tests/core-choose.test.mjs` forks a bout
+  in the middle of a blow). Its report is the option's that has the body, with the blows thrown
+  summed over every option, a hand's range the first option's, and `choice`: the option and the
+  counts, which the mind inspector shows.
 
 ### Minds
 
@@ -521,7 +535,8 @@ sub-minds. Its tactics (`tacticsOf`, `tactics-of.ts`) are `seek` (`recipeTactics
 surface it favours, its defence, its combinations and its spacing), `script` (the screen's own,
 carried out as written: the Lab's modes write one) or `stand` (in guard the way the body faces). Its skills are its walk
 (`stance-walk`), its guard (`cover-guard`), its blow (`recipe-strike`, or `path-strike`, which may
-begin a hand while the other returns), and, optionally, a kick (`front-kick`) and low support
+begin a hand while the other returns, or `choose-blow`, which gives each blow to one of a list of
+blows), and, optionally, a kick (`front-kick`) and low support
 (`support-fold`): an empty slot is a fighter that does not do that. The tactics plan by what the
 skills can do (`Abilities`, `abilitiesOf`: the blow's hand paths, the kick, whether it fights from
 low support), never by a setting of their own; and a hand's contacts are read where the opening

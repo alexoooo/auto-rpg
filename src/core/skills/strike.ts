@@ -239,6 +239,8 @@ export interface StrikeReport {
   rangeAt(hand: Side, up: number): Range;
   /** What each hand's recipe nets in each band (`netsOf`): null for a band it has none in; absent from a skill that throws no recipes. */
   readonly nets?: Readonly<Record<Side, Readonly<Record<Band, number | null>>>>;
+  /** A selector's (`chooseSkill`): the option that has the body, and what each has thrown and landed; absent from a skill that chooses none. */
+  readonly choice?: { readonly option: number; readonly counts: readonly { readonly thrown: number; readonly landed: number }[] };
 }
 
 /** What the strike skill asks of the body this step. */
@@ -548,6 +550,8 @@ export function recipeStrike(spec: BodySpec, repertoire: Repertoire = REPERTOIRE
     report, state: strike.state, releases: false, lower: null,
     get holds() { return report.hand; },
     get busy() { return report.hand !== null; },
+    // A blow with a path is thrown as its hand's recipe or placed blow, the path aside.
+    accepts: () => true,
     resume: (view) => strike.resume(view),
     command(view, attack, intent, around, dt) {
       const made = strike.command(view, attack, around.heading, around.placed, dt);

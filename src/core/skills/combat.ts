@@ -119,6 +119,7 @@ export function pathStrike(body: Body, { paths: tuning = ATTACK_PATH, execution,
     get holds() { return state.hand; },
     get busy() { return busy(); },
     get lower() { return busy() ? state.lower : null; },
+    accepts: (attack) => attack.path !== undefined,
     resume() {
       if (state.hands.left.cycle.phase !== null) state.interrupted++;
       if (state.hands.right.cycle.phase !== null) state.interrupted++;

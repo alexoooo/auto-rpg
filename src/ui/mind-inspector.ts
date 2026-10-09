@@ -1,13 +1,14 @@
 import { partOf } from "../core/mind/catalog.ts";
 import type { MindConfig } from "../core/mind/config.ts";
 import type { Holders } from "../core/skills/arbiter.ts";
+import type { StrikeReport } from "../core/skills/strike.ts";
 import type { BodySpec } from "../core/spec/body.ts";
 import { mindEditor } from "./mind-editor.ts";
 
-/** What an inspector reads of a body under a mind as it goes: who has the body and, for a fighter, which skill had each part of it. */
+/** What an inspector reads of a body under a mind as it goes: who has the body and, for a fighter, which skill had each part of it and what its blow chose. */
 interface Inspected {
   readonly body: { readonly has: string };
-  readonly skills?: { readonly report: { readonly holders?: Holders } } | null;
+  readonly skills?: { readonly report: { readonly holders?: Holders; readonly strike?: Pick<StrikeReport, "choice"> } } | null;
 }
 
 /** The parts of a body a fighter's skills hold, as a person calls them. */
@@ -47,17 +48,22 @@ export function mindInspector(config: MindConfig, spec: BodySpec, inspected: () 
     return value;
   };
   const has = row("Has the body"), held = HELD.map(([key, label]) => [key, row(label)] as const);
+  // A blow that chooses among others (`chooseSkill`): the option that has the body, and what each has landed of what it threw.
+  const options = config.kind === "fighter" && config.blow.kind === "choose-blow" ? config.blow.options : null;
+  const chose = options && row("Blow chosen");
   const slots = (key: string) => tree.element.querySelectorAll<HTMLElement>(`.mind-editor > div > .mind-part > .mind-slot[data-slot="${key}"]`);
   let shown = "";
   return {
     element,
     refresh() {
-      const now = inspected(), holders = now?.skills?.report.holders;
-      const text = JSON.stringify([now?.body.has ?? null, holders ?? null]);
+      const now = inspected(), holders = now?.skills?.report.holders, choice = now?.skills?.report.strike?.choice;
+      const text = JSON.stringify([now?.body.has ?? null, holders ?? null, choice ?? null]);
       // The same reading draws nothing new.
       if (text === shown) return;
       shown = text;
       has.textContent = now ? hasText(now.body.has, config.kind === "fighter") : "no body";
+      if (chose) chose.textContent = !choice || !options ? "-" : `${partOf(options[choice.option]!).label}; landed ${
+        choice.counts.map(({ thrown, landed }, i) => `${partOf(options[i]!).label} ${landed} of ${thrown}`).join(", ")}`;
       const holding = new Set<string>();
       for (const [key, value] of held) {
         const holder = holders?.[key];
