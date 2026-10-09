@@ -122,7 +122,8 @@ After it, each with its own plan, in the order each needs the one before:
   - [bar](reference/bar-posture.md).
 - **The whole-body solve.** `wholeBodyTracking` (`src/core/control/whole-body.ts`) is a bounded
   torque solve with contacts and joint stops. It is experimental and is not the game's default.
-  The next phase's spike measures it.
+  It stands to 0.2 N s/kg and punches at 4.2 to 4.4 m/s, at five or six times today's cost a step
+  ([whole-body spike](reference/whole-body-spike.md)).
 - **Engine profiles.** Gameplay uses `rapier-coordinate`, the measured-angle limit gradient
   ([joint limits](reference/joint-limits.md)); parent-axis `rapier` is the reference engine.
   Directional muscle bounds are an explicit world configuration, and gameplay keeps the
