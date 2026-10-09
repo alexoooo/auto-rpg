@@ -17,7 +17,7 @@ import type { Abilities, Sight, Tactics } from "./tactics.ts";
 /** The seeking tactics' settings: how a hand that does not attack guards, what it aims at and how near it comes. */
 const SEEK_FIELDS: readonly PartField<SeekConfig>[] = Object.freeze([
   choice<SeekConfig, "guard">("guard", "Guard", [["pose", "Hold the pose"], ["cover", "Cover the threat"]]),
-  choice<SeekConfig, "aim">("aim", "Aim", [["head", "The head"], ["pays", "What pays"]]),
+  choice<SeekConfig, "aim">("aim", "Aim", [["head", "The head"], ["body", "The body"], ["pays", "What pays"]]),
   choice<SeekConfig, "range">("range", "Range", [["close", "Walk in"], ["edge", "Hold at the edge"]]),
 ]);
 

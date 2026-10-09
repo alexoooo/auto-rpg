@@ -319,13 +319,33 @@ core's world on Rapier, 120 Hz.
 
 A bare-handed search from that best reached 2.2 HP a bout against the standing Warrior. On the
 fresh gaps that is 1.95, with 3 of 8 bouts won outright. Against Classic it gives 0.57, takes
-0.25 and falls in 3 of 8, because it was never searched against a foe that hits back. The game
-keeps the first setting.
+0.25 and loses 3 of 8, all by falling in the clinch: the Arena's bout is lost at the first fall.
+
+The stand-off is now measured from the punching shoulder to the target, as a share of the arm's
+straight length (0.63 m on the Warrior), not from the head across the ground. At 0.845 of the arm,
+the share the bare best stood at, it plays the bare best to the hundredth (1.96 against 1.95).
+Searched against both foes, 4 gaps each, with a lost bout priced at 1 HP, it found 1.20 aimed
+at the head and 1.28 aimed at the upper trunk (`SeekConfig.aim` `"body"`), from the bare best.
+Neither held on fresh gaps: against Classic they lose 2 and 4 bouts of 8. Against Classic a
+bout turns on whether someone falls, and 4 bouts a candidate let the search keep the lucky ones.
+Over 16 gaps against Classic, the bare best loses 4 at 0.845 of the arm, 5 at 0.95, and 1 at
+0.9. The game throws the bare best at 0.9:
+
+| Puncher | Foe | Bouts | HP given | HP taken | Thrown | Lost | Won |
+|---|---|---|---|---|---|---|---|
+| straight punch, 0.9 of the arm | standing in guard | 8 | 1.65 | 0.04 | 12.1 | 0 | 3 |
+| straight punch, 0.9 of the arm | Classic | 16 | 0.82 | 0.27 | 10.3 | 1 | 3 |
 
 Most of the damage lands on the foe's chest and middle trunk, past the guard that covers the
-head: the head takes 0.01 to 0.04 HP a bout. A wounding fist meets 0.9 to 1.5 kg, the median.
-That is more than the recipe's 0.6 kg but far from the 6 kg of an arm straight on the line. The
-blows land at 2.5 to 6 m/s, before the arm is straight.
+head: the head takes 0.01 to 0.04 HP a bout. A wounding fist meets 0.9 to 1.5 kg, the median,
+at 2.5 to 7 m/s. At contact the elbow is 0 to 1 rad (straight is -0.86), 0.03 to 0.09 s into
+the drive: the fist meets the chest, in front of the head it reaches for, before the arm has
+opened. Neither a stand-off of a whole arm or more, the arm held 0.15 to 0.3 s behind the
+trunk, nor an aim at the chest wounds more: where the fist meets more, up to 2.9 kg, it closes
+at 2.4 to 4 m/s.
+Each of those punches is worth 0.05 to 0.15 HP. The ceiling's push schedules searched for
+damage on a head (`--score damage`) found no more than 0.054 HP a blow, a 1.37 kg fist at
+5 m/s.
 
 ## What it says
 
@@ -355,11 +375,12 @@ blows land at 2.5 to 6 m/s, before the arm is straight.
 
 ## Open choices
 
-- **What the straight punch is searched against.** Against a standing Warrior, the search finds
-  a body puncher that falls to a Classic that hits back. Against both, the score has to price a
-  lost bout.
-- **The head behind the guard.** The punch aims at the head and lands on the chest. A punch that
-  reaches the head has to go around or over the foe's guard, or the fighter aims at the trunk.
+- **How many bouts a straight punch is searched on.** Against Classic one fall decides a bout, so
+  a candidate scored on 4 bouts against it is mostly luck. A search that holds needs 16 or more
+  a candidate, or bouts that go on after a fall (`&recovery=`).
+- **The head behind the guard.** The punch aims at the head and lands on the chest. Aiming at
+  the upper trunk does not pay more. A punch that reaches the head has to go around or over the
+  foe's guard.
 - **The fist's threshold against a head.** At 36.8 J and a 62 % share, the exchange stops paying
   at 59 J, and a boxer's blow costs the hand. Against a trunk the fist takes an eighth and the
   threshold is never reached.

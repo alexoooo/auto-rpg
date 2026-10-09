@@ -1,14 +1,15 @@
 /**
  * **The straight punch in the game**: Arena bouts (`buildBout`) of a Classic fighter throwing the
- * straight punch (`straightPunch`, `src/core/skills/straight-punch.ts`) bare-handed at the head of
- * a bare-handed Warrior that stands in guard, priced by the arena's rulebook as its blows land (`Duel.blows`). A bout's
+ * straight punch (`straightPunch`, `src/core/skills/straight-punch.ts`) bare-handed at what `--aim`
+ * names (`SeekConfig.aim`, the head unless asked) of a bare-handed Warrior, priced by the arena's
+ * rulebook as its blows land (`Duel.blows`). A bout's
  * score is the hit points the foe lost less those the puncher lost, with `FELL` taken off for each
  * second the puncher spent down and `LOST` for a bout it lost. The foes are a Warrior standing in
  * guard, or Classic fighting back (`--foes stands,classic`).
  *
  * Usage:
- *   node research/punch-in-bout.mjs [--settings '<json>'] [--gaps 1.2,1.6] [--seconds 8] [--foes stands]  one setting, its blows printed
- *   node research/punch-in-bout.mjs --search [--foes stands,classic] [--settings '<json>'] [--sigma 0.2] [--generations 30] [--lambda 16] [--workers 15] [--seed 1] [--hz 120]
+ *   node research/punch-in-bout.mjs [--settings '<json>'] [--gaps 1.2,1.6] [--seconds 8] [--foes stands] [--aim head]  one setting, its blows printed
+ *   node research/punch-in-bout.mjs --search [--foes stands,classic] [--aim head] [--settings '<json>'] [--sigma 0.2] [--generations 30] [--lambda 16] [--workers 15] [--seed 1] [--hz 120]
  *
  * Harness: Node, the core's world on Rapier (`DEFAULT_ENGINE`), the Arena's room, 120 Hz unless asked.
  */
@@ -34,7 +35,7 @@ const FOES = Object.freeze({ stands: STANDS, classic: CLASSIC });
 
 /** The settings searched, each its range. */
 const RANGES = Object.freeze({
-  pace: [0.2, 1.2], reach: [0.4, 1.0], band: [0.02, 0.15], settle: [0, 0.6], through: [0, 0.4], hips: [0, 0.5], turn: [0, 0.45], lean: [0, 0.5],
+  pace: [0.2, 1.2], reach: [0.6, 1.3], band: [0.02, 0.15], settle: [0, 0.6], through: [0, 0.4], hips: [0, 0.5], turn: [0, 0.45], lean: [0, 0.5],
   chamber: [0, 0.5], lead: [0, 0.15], elbow: [0, 0.25], brake: [0.02, 0.4], follow: [0, 0.06], longest: [0.15, 0.6], recover: [0.1, 0.8],
 });
 const KEYS = Object.keys(RANGES);
@@ -73,15 +74,16 @@ export async function boutOf(mind, { foe = STANDS, gap = 1.4, seconds = 8, hz = 
   } finally { dispose(); }
 }
 
-/** One bout of the straight punch with `settings` (`boutOf`), the rest of it the game's. */
-export const punchBout = (settings, options) => boutOf({ ...CLASSIC, blow: { kind: "straight-punch", ...STRAIGHT_PUNCH, ...settings } }, options);
+/** One bout of the straight punch with `settings` (`boutOf`), aimed at what `aim` names (`SeekConfig.aim`), the rest of it the game's. */
+export const punchBout = (settings, { aim = CLASSIC.tactics.aim, ...options } = {}) =>
+  boutOf({ ...CLASSIC, tactics: { ...CLASSIC.tactics, aim }, blow: { kind: "straight-punch", ...STRAIGHT_PUNCH, ...settings } }, options);
 
 /** The bouts a setting is scored on: one a gap against each foe named. */
 const GAPS = [1.0, 1.4, 1.8, 2.2];
 
-async function scoreOf(settings, hz, foes) {
+async function scoreOf(settings, hz, foes, aim) {
   const bouts = [];
-  for (const foe of foes) for (const gap of GAPS) bouts.push(await punchBout(settings, { foe: FOES[foe], gap, hz }));
+  for (const foe of foes) for (const gap of GAPS) bouts.push(await punchBout(settings, { foe: FOES[foe], gap, hz, aim }));
   const mean = (key) => bouts.reduce((sum, b) => sum + b[key], 0) / bouts.length;
   return { score: mean("score"), given: mean("given"), taken: mean("taken"), down: mean("down"), thrown: mean("thrown"),
     lost: mean("lost"), landed: bouts.reduce((n, b) => n + b.punches.length, 0) / bouts.length };
@@ -89,15 +91,15 @@ async function scoreOf(settings, hz, foes) {
 
 if (!isMainThread && workerData?.punchInBout) {
   parentPort.on("message", async ({ id, x }) => {
-    try { parentPort.postMessage({ id, r: await scoreOf(toSettings(x), workerData.hz, workerData.foes) }); }
+    try { parentPort.postMessage({ id, r: await scoreOf(toSettings(x), workerData.hz, workerData.foes, workerData.aim) }); }
     catch (error) { parentPort.postMessage({ id, r: { score: -10, error: String(error) } }); }
   });
 } else if (isMainThread && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const argv = process.argv.slice(2), arg = (name, fallback) => { const i = argv.indexOf(`--${name}`); return i < 0 ? fallback : argv[i + 1]; };
-  const hz = Number(arg("hz", 120)), foes = arg("foes", "stands").split(",");
+  const hz = Number(arg("hz", 120)), foes = arg("foes", "stands").split(","), aim = arg("aim", CLASSIC.tactics.aim);
   for (const foe of foes) if (!FOES[foe]) throw new Error(`no foe ${foe}: ${Object.keys(FOES).join(", ")}`);
   if (argv.includes("--search")) {
-    const workers = Number(arg("workers", Math.max(1, availableParallelism() - 1))), pool = workerPool(new URL(import.meta.url), { hz, foes, punchInBout: true }, workers);
+    const workers = Number(arg("workers", Math.max(1, availableParallelism() - 1))), pool = workerPool(new URL(import.meta.url), { hz, foes, aim, punchInBout: true }, workers);
     const start = toUnit({ ...STRAIGHT_PUNCH, ...JSON.parse(arg("settings", "{}")) }).map((v) => Math.min(1, Math.max(0, v)));
     try {
       const { best } = await cmaSearch({ n: KEYS.length, start, sigma: Number(arg("sigma", 0.2)), lambda: Number(arg("lambda", 16)), generations: Number(arg("generations", 30)),
@@ -107,6 +109,6 @@ if (!isMainThread && workerData?.punchInBout) {
     } finally { pool.terminate(); }
   } else {
     const settings = JSON.parse(arg("settings", "{}")), gaps = arg("gaps", GAPS.join(",")).split(",").map(Number);
-    for (const foe of foes) for (const gap of gaps) console.log(JSON.stringify(await punchBout(settings, { foe: FOES[foe], gap, seconds: Number(arg("seconds", 8)), hz })));
+    for (const foe of foes) for (const gap of gaps) console.log(JSON.stringify(await punchBout(settings, { foe: FOES[foe], gap, seconds: Number(arg("seconds", 8)), hz, aim })));
   }
 }

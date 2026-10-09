@@ -205,7 +205,7 @@ export const BEHAVIOUR_PARTS: { readonly [K in BehaviourConfig["kind"]]: Part<Of
   strike: {
     ...behaviour<Of<"strike">>("Strike", { kind: "strike", hands: "alternate", aim: "head", blow: { kind: "recipe-strike" } }, [
       choice<Of<"strike">, "hands">("hands", "Hands", [["alternate", "Both in turn"], ["right", "Right"], ["left", "Left"]]),
-      choice<Of<"strike">, "aim">("aim", "Aim", [["head", "The head"], ["pays", "What pays"]]),
+      choice<Of<"strike">, "aim">("aim", "Aim", [["head", "The head"], ["body", "The body"], ["pays", "What pays"]]),
     ]),
     slots: [slotOne("blow", "Blow", "blow")],
   },

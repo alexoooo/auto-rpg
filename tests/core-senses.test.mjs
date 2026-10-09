@@ -166,7 +166,7 @@ test("a fighter picks its foe from what it sees", () => {
   for (const order of [[downFar, down], [down, downFar]]) assert.deepEqual(plan(order), { move: null, face: north, attack: null }, "both out: it faces the nearer");
 });
 
-test("a fighter aims at a foe's head, or at the part its right hand's recipe nets the most on", () => {
+test("a fighter aims at a foe's head, its upper trunk, or the part its right hand's recipe nets the most on", () => {
   const at = (x, y, z) => new Vector3(x, y, z);
   const head = [0.1, 1.6, 1.4], trunk = [0, 1.3, 1.5], none = { high: null, middle: null };
   const whole = new Map([["head", { centre: at(...head) }], ["upperTrunk", { centre: at(...trunk) }]]);
@@ -179,6 +179,8 @@ test("a fighter aims at a foe's head, or at the part its right hand's recipe net
   const fist = { high: -0.03, middle: 0.2 }, club = { high: 0.98, middle: 0.5 };
   assert.deepEqual([aimed("pays", fist), aimed("pays", club)], [trunk, head]);
   assert.deepEqual([aimed("head", fist), aimed("head", club)], [head, head]);
+  // Under "body" it is the upper trunk, whatever pays, and the head where it has none.
+  assert.deepEqual([aimed("body", fist), aimed("body", club), aimed("body", none, none, new Map([["head", { centre: at(...head) }]]))], [trunk, trunk, head]);
   // Left to itself a fighter aims at the head (`RECIPE_FIGHTER.tactics.aim`).
   assert.equal(RECIPE_FIGHTER.tactics.aim, "head");
   assert.deepEqual(seekFoe(sight(fist, none, whole)).attack, head);

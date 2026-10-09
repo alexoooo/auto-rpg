@@ -35,8 +35,8 @@ export interface SeekConfig {
   readonly kind: "seek";
   /** How a hand that does not attack guards: the pose, or a cover of what threatens (`threatOf`, `threat.ts`). */
   readonly guard: "pose" | "cover";
-  /** What of a foe a fighter attacks: its head; or, of its head and upper trunk, the one its hand's recipe nets more on (`seekFoe`, `recipe-tactics.ts`). */
-  readonly aim: "head" | "pays";
+  /** What of a foe a fighter attacks: its head; its upper trunk; or, of its head and upper trunk, the one its hand's recipe nets more on (`seekFoe`, `recipe-tactics.ts`). */
+  readonly aim: "head" | "body" | "pays";
   /**
    * How near a foe a fighter comes to attack it: walking in to `ATTACK_METRES`; or held at the
    * edge of the foe's reach, attacking when the foe stands in its own blow's window (`seekFoe`, `EDGE`).
