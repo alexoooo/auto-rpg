@@ -1,6 +1,6 @@
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { BuiltBody, BuiltSegment } from "./build/build-body.ts";
-import { contactMass, type ContactMass } from "./build/contact-mass.ts";
+import { contactGive, contactMass, type ContactMass, type Hold } from "./build/contact-mass.ts";
 import type { ContactPair, SegmentBody } from "./engine/engine.ts";
 import { impactEnergy } from "./rules/impact.ts";
 import type { Vec3 } from "./spec/quantity.ts";
@@ -24,7 +24,8 @@ import type { World } from "./world.ts";
  *   it. Something fixed does not move. A touch that was not closing is none.
  * - **Its energy** (`TouchWatch.priced`) is `impactEnergy` of the masses the contact meets on each
  *   side (`contactMass`, joints free and each body floating), and of something fixed, a mass
- *   nothing moves.
+ *   nothing moves. Given the contact's stiffness, each body's freedoms that hold (`holds`) hold
+ *   through it for its time (`contactGive`).
  */
 
 /** A segment of a body that is watched. */
@@ -54,9 +55,11 @@ export interface TouchWatch<B> {
   readonly state: object;
   /**
    * The masses `touch` meets on each side, kg (`Infinity` for something fixed), and its energy, J.
-   * Read from the bodies as they stand: good only while the touch is being heard.
+   * Read from the bodies as they stand: good only while the touch is being heard. With the
+   * contact's `stiffness` (N/m, its surfaces in series; `Infinity` for two rigid ones), what each
+   * body holds (`holds`) holds for the contact's time; without it, every joint is free.
    */
-  priced(touch: Touch<B>): { readonly ofKg: number; readonly onKg: number; readonly energy: number };
+  priced(touch: Touch<B>, stiffness?: number): { readonly ofKg: number; readonly onKg: number; readonly energy: number };
   dispose(): void;
 }
 
@@ -79,6 +82,8 @@ interface TouchOptions<B> {
    * later one of the same step.
    */
   counts(of: Part<B>, on: Part<B> | null): boolean;
+  /** The freedoms of `body` whose muscles hold through a contact now, with what they give (`Hold`); none if not given. */
+  holds?(body: B): readonly Hold[];
 }
 
 interface Owned<B> extends Part<B> {
@@ -137,6 +142,10 @@ export function watchTouches<B extends { readonly built: BuiltBody }>(
     if (!posed.has(owned.masses)) { owned.masses.update(); posed.add(owned.masses); }
     return owned.masses.along(owned.segment, point, normal);
   };
+  const yieldAt = (owned: Owned<B>, point: Vec3, direction: Vec3, holds: readonly Hold[]) => {
+    if (!posed.has(owned.masses)) { owned.masses.update(); posed.add(owned.masses); }
+    return owned.masses.yielding(owned.segment, point, direction, holds);
+  };
   /** Whether a step's touches are being told: outside it, a pose taken is not kept. */
   let telling = false;
   /** The part whose contacts are being read, and whether the one with `other` is wanted of the engine. */
@@ -175,10 +184,16 @@ export function watchTouches<B extends { readonly built: BuiltBody }>(
 
   return {
     state,
-    priced(touch) {
+    priced(touch, stiffness) {
       const of = owners.get(touch.of.segment.body), on = touch.on ? owners.get(touch.on.segment.body) : null;
       if (!of || on === undefined) throw new Error("a touch is priced by the watch that read it");
       if (!telling) posed.clear();
+      if (stiffness !== undefined && on && options.holds) {
+        // The impulse pushes `of` back along the normal, and `on` on along it.
+        const back: Vec3 = [-touch.normal[0], -touch.normal[1], -touch.normal[2]];
+        const give = contactGive(yieldAt(of, touch.point, back, options.holds(of.body)), yieldAt(on, touch.point, touch.normal, options.holds(on.body)), touch.closing, stiffness);
+        return { ofKg: give.aKg, onKg: give.bKg, energy: impactEnergy(give.aKg, give.bKg, touch.closing) };
+      }
       const ofKg = massAt(of, touch.point, touch.normal);
       const onKg = on ? massAt(on, touch.point, touch.normal) : Infinity;
       return { ofKg, onKg, energy: impactEnergy(ofKg, onKg, touch.closing) };

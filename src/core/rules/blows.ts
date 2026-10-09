@@ -8,6 +8,8 @@ import type { Vec3 } from "../spec/quantity.ts";
 import { deepFreeze } from "../state.ts";
 import { watchTouches, type Part, type Touch, type TouchWatch } from "../touches.ts";
 import type { World } from "../world.ts";
+import type { Hold } from "../build/contact-mass.ts";
+import type { MuscleDriver } from "../muscle/driver.ts";
 import type { Pool, Wound } from "./pool.ts";
 import { blowDamage, type Mechanism, type Rulebook } from "./rulebook.ts";
 import { energyShares } from "./share.ts";
@@ -28,7 +30,8 @@ import { energyShares } from "./share.ts";
  *   surface is its spec's (`SegmentSpec.surface`), and an item that states none is rigid and takes
  *   none. So a fist takes its part of its own punch, what a club strikes takes the whole blow, and
  *   two items meeting are a clash, in which neither side takes any (`isClash`).
- * - **Its closing speed and its energy** are the touch's (`TouchWatch.priced`) for rigid contacts.
+ * - **Its closing speed and its energy** are the touch's (`TouchWatch.priced`) for rigid contacts,
+ *   each fighter's muscles holding for the time the two surfaces' stiffness in series gives it.
  *   Admitted point layers instead accumulate signed solver reaction work in the world: teeth on
  *   one opposing segment form one episode, priced once at release, retaining every pair's
  *   compliance and point contribution, with unloading subtracted.
@@ -46,7 +49,21 @@ export interface Fighter {
   readonly side: string;
   readonly built: BuiltBody;
   readonly pool: Pool;
+  /**
+   * Its muscles: each freedom holds through a blow with the ceilings they were last given
+   * (`holdsOf`). A fighter without them meets every blow with its joints free.
+   */
+  readonly muscles?: Pick<MuscleDriver, "channels" | "bounds">;
 }
+
+/** The freedoms whose muscles `muscles` hold through a contact with, and what each gives toward either sense (`Hold`). */
+function holdsOf(muscles: Pick<MuscleDriver, "channels" | "bounds">): Hold[] {
+  return muscles.channels.map((channel, i) => ({ joint: channel.joint, index: channel.index, negative: muscles.bounds.negative[i]!, positive: muscles.bounds.positive[i]! }));
+}
+
+/** The stiffness of two surfaces in series, N/m: `Infinity` where both are rigid (null). */
+const seriesStiffness = (stiffness: readonly (number | null)[]): number =>
+  1 / stiffness.reduce<number>((sum, k) => sum + (k === null ? 0 : 1 / k), 0);
 
 /** One side of a blow: the surface that met the other's. */
 export interface BlowSide {
@@ -217,6 +234,7 @@ export function watchBlows(world: World, fighters: readonly Fighter[], rules: Ru
     // A touch is read from the earlier of its two: only a fighter with one of another side after it has one to read.
     reads: (fighter: Fighter) => fighters.some((other, k) => k > place.get(fighter)! && other.side !== fighter.side),
     lasts: "pushed",
+    holds: (fighter: Fighter) => (fighter.muscles ? holdsOf(fighter.muscles) : []),
     // Each pair of bodies is read once, from the one given first; a blow earlier in the step may have ended either's fight.
     counts: (first: Part<Fighter>, second: Part<Fighter> | null) => second !== null && second.body.side !== first.body.side && place.get(second.body)! > place.get(first.body)!
       && inFight(first) && inFight(second),
@@ -224,8 +242,9 @@ export function watchBlows(world: World, fighters: readonly Fighter[], rules: Ru
     const first = touch.of, second = touch.on!;
     const key = `${first.segment.body.id}:${second.segment.body.id}`, reverse = `${second.segment.body.id}:${first.segment.body.id}`;
     if (world.contactWork.active.has(key) || world.contactWork.active.has(reverse)) return;
-    const { ofKg, onKg, energy } = touches.priced(touch), kg = [ofKg, onKg] as const;
     const pair = strongest(touch.pairs);
+    const stiffness = seriesStiffness([surfaceOf(first, pair.mine).stiffness, surfaceOf(second, pair.theirs).stiffness]);
+    const { ofKg, onKg, energy } = touches.priced(touch, stiffness), kg = [ofKg, onKg] as const;
     land(first, second, pair, touch, energy, kg, touch.closing);
   });
 

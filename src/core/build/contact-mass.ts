@@ -1,6 +1,6 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { Vec3 } from "../spec/quantity.ts";
-import type { BuiltBody, BuiltSegment } from "./build-body.ts";
+import type { BuiltBody, BuiltJoint, BuiltSegment } from "./build-body.ts";
 import { jointAngles, motionAxesToRef } from "./joint-state.ts";
 import { hypot } from "../math/real.ts";
 
@@ -15,6 +15,12 @@ import { hypot } from "../math/real.ts";
  * blow on the trunk moves the whole body, and one on a hand moves the hand, and the arm and trunk
  * as far as the joints couple them. A joint at its limit is taken as free too, and the ground is
  * not there.
+ *
+ * **Muscles that hold through it** (`yielding`, `contactGive`) are the exception. A muscle does
+ * not answer a blow, but one already pulling keeps pulling: a freedom whose muscles are given a
+ * ceiling (`Hold`) does not turn until the blow asks more angular impulse of it than that ceiling
+ * over the contact's time, and turns past it against the ceiling. So a braced arm meets a blow
+ * with the body behind it, and a limp one with the hand alone.
  *
  * The speeds are the root's velocity and spin, then every freedom's (`dynamics.ts` has how a
  * freedom's speed turns what its joint carries, about its motion axis through the joint's centre).
@@ -38,11 +44,39 @@ export interface ContactMass {
    * `along` is 1 over n' of it n.
    */
   mobility(segment: BuiltSegment, point: Vec3): number[][];
+  /**
+   * How the body gives at `point` on `segment` to an impulse pushing it along `direction`, with
+   * `holds` holding for one second (`Yield`).
+   */
+  yielding(segment: BuiltSegment, point: Vec3, direction: Vec3, holds: readonly Hold[]): Yield;
+}
+
+/** A freedom whose muscles hold through a contact: its joint, its index there, and the torque they can give toward each sense, N m. */
+export interface Hold {
+  readonly joint: BuiltJoint;
+  readonly index: number;
+  readonly negative: number;
+  readonly positive: number;
+}
+
+/**
+ * **How a body gives to an impulse at a point**, its holds lasting one second: the point's
+ * velocity change along the push, against the impulse, piecewise linear from no impulse.
+ * `impulse` and `change` are its corners (N s, m/s), and `slope` its rise past the last, which is
+ * one over the free mass (`along`). Over a contact of T seconds the holds give T times the
+ * angular impulse, and the change at impulse P is T times this one's at P / T: the problem is the
+ * same one scaled.
+ */
+interface Yield {
+  readonly impulse: readonly number[];
+  readonly change: readonly number[];
+  readonly slope: number;
 }
 
 export function contactMass(built: BuiltBody): ContactMass {
   const segments = [...built.segments.values()], joints = [...built.joints.values()];
   const index = new Map(segments.map((segment, i) => [segment, i]));
+  const jointIndex = new Map(joints.map((joint, j) => [joint, j]));
   const byChild = new Map(joints.map((joint, j) => [joint.child, j]));
   const roots = segments.filter((segment) => !byChild.has(segment));
   if (roots.length !== 1) throw new Error(`${built.spec.model} has ${roots.length} roots; a contact mass needs one`);
@@ -174,12 +208,150 @@ export function contactMass(built: BuiltBody): ContactMass {
       }
     },
     along(segment, point, normal) {
-      const J = jacobian(segmentIndex(segment), point, false);
-      const size = hypot(normal[0], normal[1], normal[2]);
-      const g = J[0]!.map((_, col) => (normal[0] * J[0]![col]! + normal[1] * J[1]![col]! + normal[2] * J[2]![col]!) / size);
-      const x = solve(g);
+      const g = pushRow(segment, point, normal), x = solve(g);
       return 1 / g.reduce((sum, gi, k) => sum + gi * x[k]!, 0);
     },
     mobility,
+    yielding(segment, point, direction, holds) {
+      const g = pushRow(segment, point, direction), Ag = solve(g);
+      const a = g.reduce((sum, gi, k) => sum + gi * Ag[k]!, 0);
+      const held = holds.filter((hold) => hold.negative > 0 || hold.positive > 0).map((hold) => {
+        const j = jointIndex.get(hold.joint);
+        if (j === undefined) throw new Error(`${hold.joint.spec.name} is not a joint of ${built.spec.model}`);
+        return { column: firstColumn[j]! + hold.index, low: -hold.negative, high: hold.positive };
+      });
+      // The held freedoms' block of M^-1, and the push's column of it there.
+      const columns = held.map(({ column }) => { const e = new Array<number>(n).fill(0); e[column] = 1; return solve(e); });
+      const K = held.map((_, i) => held.map(({ column }) => columns[i]![column]!));
+      const c = held.map(({ column }) => Ag[column]!);
+      return yieldPath(a, c, K, held.map(({ low }) => low), held.map(({ high }) => high));
+    },
   };
+
+  /** The push along `direction` at `point` on `segment` as a row of the body's speeds: n' J, with n of unit length. */
+  function pushRow(segment: BuiltSegment, point: Vec3, direction: Vec3): number[] {
+    const J = jacobian(segmentIndex(segment), point, false);
+    const size = hypot(direction[0], direction[1], direction[2]);
+    return J[0]!.map((_, col) => (direction[0] * J[0]![col]! + direction[1] * J[1]![col]! + direction[2] * J[2]![col]!) / size);
+  }
+}
+
+/**
+ * **The path of a push against freedoms that hold** (`Yield`), followed exactly as the impulse
+ * grows. The point moves by `a` P + c' l along the push, and the held freedoms turn by c P + K l,
+ * where l is what each held freedom's muscles give, within [`low`, `high`]. A freedom whose l is
+ * inside its bounds does not turn; one at a bound turns the way the push takes it. With no impulse
+ * every freedom holds; each leg of the path runs to the next freedom that reaches a bound or,
+ * turning, comes to a stop, and changes it over, the first of equals first. K is a principal block
+ * of the inverse of a mass matrix, positive definite, so there is one path.
+ */
+export function yieldPath(a: number, c: readonly number[], K: readonly (readonly number[])[], low: readonly number[], high: readonly number[]): Yield {
+  const h = c.length, given = new Array<number>(h).fill(0), turning = new Array<number>(h).fill(0);
+  // 0 holds; +1 gives at its high bound, -1 at its low.
+  const at = new Array<number>(h).fill(0);
+  const impulse = [0], change = [0];
+  let P = 0;
+  for (let leg = 0; leg <= 4 * h + 8; leg++) {
+    const holding: number[] = [];
+    for (let i = 0; i < h; i++) if (at[i] === 0) holding.push(i);
+    // What the holding freedoms give per newton second: K_HH r = -c_H.
+    const rate = spdSolve(holding.map((i) => holding.map((k) => K[i]![k]!)), holding.map((i) => -c[i]!));
+    const dGiven = new Array<number>(h).fill(0), dTurning = new Array<number>(h).fill(0);
+    holding.forEach((i, k) => { dGiven[i] = rate[k]!; });
+    let slope = a;
+    for (const i of holding) slope += c[i]! * dGiven[i]!;
+    for (let i = 0; i < h; i++) {
+      if (at[i] === 0) continue;
+      let d = c[i]!;
+      for (const k of holding) d += K[i]![k]! * dGiven[k]!;
+      dTurning[i] = d;
+    }
+    let next = Infinity, which = -1;
+    for (let i = 0; i < h; i++) {
+      let t = Infinity;
+      if (at[i] === 0) {
+        if (dGiven[i]! > 0) t = (high[i]! - given[i]!) / dGiven[i]!;
+        else if (dGiven[i]! < 0) t = (low[i]! - given[i]!) / dGiven[i]!;
+      } else if (at[i]! > 0 ? dTurning[i]! > 0 : dTurning[i]! < 0) t = -turning[i]! / dTurning[i]!;
+      if (t < next) { next = t; which = i; }
+    }
+    if (which < 0) return { impulse, change, slope };
+    const t = Math.max(0, next);
+    P += t;
+    for (let i = 0; i < h; i++) { given[i] = given[i]! + dGiven[i]! * t; turning[i] = turning[i]! + dTurning[i]! * t; }
+    if (at[which] === 0) { at[which] = dGiven[which]! > 0 ? 1 : -1; given[which] = at[which]! > 0 ? high[which]! : low[which]!; }
+    else at[which] = 0;
+    turning[which] = 0;
+    if (t > 0) {
+      let v = a * P;
+      for (let i = 0; i < h; i++) v += c[i]! * given[i]!;
+      impulse.push(P); change.push(v);
+    }
+  }
+  throw new Error("a push against held freedoms changed them over more than four times as often as there are freedoms");
+}
+
+/** x with A x = b, A symmetric positive definite, by Cholesky. */
+function spdSolve(A: readonly (readonly number[])[], b: readonly number[]): number[] {
+  const m = b.length, L = Array.from({ length: m }, () => new Array<number>(m).fill(0));
+  for (let i = 0; i < m; i++) {
+    for (let j = 0; j <= i; j++) {
+      let s = A[i]![j]!;
+      for (let k = 0; k < j; k++) s -= L[i]![k]! * L[j]![k]!;
+      if (i === j) {
+        if (!(s > 0)) throw new Error("a held block of the mass matrix's inverse is not positive definite");
+        L[i]![i] = Math.sqrt(s);
+      } else L[i]![j] = s / L[j]![j]!;
+    }
+  }
+  const y = b.slice();
+  for (let i = 0; i < m; i++) { let s = y[i]!; for (let k = 0; k < i; k++) s -= L[i]![k]! * y[k]!; y[i] = s / L[i]![i]!; }
+  for (let i = m - 1; i >= 0; i--) { let s = y[i]!; for (let k = i + 1; k < m; k++) s -= L[k]![i]! * y[k]!; y[i] = s / L[i]![i]!; }
+  return y;
+}
+
+/** The change `y` makes at impulse `P` (`Yield`). */
+export function changeAt(y: Yield, P: number): number {
+  const last = y.impulse.length - 1;
+  if (P >= y.impulse[last]!) return y.change[last]! + y.slope * (P - y.impulse[last]!);
+  let k = 0;
+  while (y.impulse[k + 1]! < P) k++;
+  const P0 = y.impulse[k]!, P1 = y.impulse[k + 1]!;
+  return y.change[k]! + (y.change[k + 1]! - y.change[k]!) * (P - P0) / (P1 - P0);
+}
+
+/** The impulse at which the changes of `a` and `b` together come to `v`: both rise, so there is one. */
+function impulseFor(a: Yield, b: Yield, v: number): number {
+  const corners = [...a.impulse, ...b.impulse].sort((x, y) => x - y);
+  let P0 = 0, v0 = 0;
+  for (const P1 of corners) {
+    if (!(P1 > P0)) continue;
+    const v1 = changeAt(a, P1) + changeAt(b, P1);
+    if (v1 >= v) return P0 + (P1 - P0) * (v - v0) / (v1 - v0);
+    P0 = P1; v0 = v1;
+  }
+  return P0 + (v - v0) / (a.slope + b.slope);
+}
+
+/**
+ * **What two bodies pass between them in a blow, their muscles holding** (`Yield`): the impulse
+ * that stops their closing at `closing` m/s, and the mass each side meets it with, that impulse
+ * over the change it makes there. The holds last the contact's time, T = pi sqrt(mu / k), half the
+ * period of the two masses on the contact's stiffness `stiffness` (N/m, the surfaces in series). mu
+ * is what the holds make it, and the holds last what mu makes T: from the free masses up, each
+ * answer raises the other, to where they agree. A contact with no compliance lasts no time, and
+ * meets the free masses.
+ */
+export function contactGive(a: Yield, b: Yield, closing: number, stiffness: number): { readonly impulse: number; readonly aKg: number; readonly bKg: number } {
+  if (!(closing > 0) || !(stiffness < Infinity)) return { impulse: 0, aKg: 1 / a.slope, bKg: 1 / b.slope };
+  let mu = 1 / (a.slope + b.slope), x = 0, T = 0;
+  for (let round = 0; round < 32; round++) {
+    T = Math.PI * Math.sqrt(mu / stiffness);
+    x = impulseFor(a, b, closing / T);
+    const next = T * x / closing;
+    if (!(next > mu)) break;
+    mu = next;
+  }
+  // A side that holds nothing meets its free mass exactly.
+  return { impulse: T * x, aKg: a.impulse.length > 1 ? x / changeAt(a, x) : 1 / a.slope, bKg: b.impulse.length > 1 ? x / changeAt(b, x) : 1 / b.slope };
 }

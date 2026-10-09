@@ -197,7 +197,8 @@ The shared body/controller interfaces do not depend on that engine-specific choi
   velocity-product terms, gyroscopic torque included) in the joints' speeds, and the root's rows
   that say what wrench the ground must supply.
 - `contactMass` (`contact-mass.ts`) gives the effective mass a contact meets at a point along a
-  normal, which is what prices a blow.
+  normal, which is what prices a blow: with every joint free, or with the freedoms whose muscles
+  hold through it (`yielding`, `contactGive`).
 
 ### Engine seam
 
@@ -965,7 +966,13 @@ The rules of a fight are `src/core/rules/`, free of any page so they can be argu
   reduced mass of the two effective masses (`contactMass`; something fixed is a mass nothing
   moves) times the closing speed squared.
 - **A blow** (`watchBlows`, `blows.ts`) is a touch between any two segments of two sides'
-  bodies: it has no striker. Ordinary contacts use the touch's impact energy. An admitted
+  bodies: it has no striker. Ordinary contacts use the touch's impact energy, with each fighter's
+  muscles holding through it: a freedom does not turn until the blow asks more angular impulse of
+  it than the ceiling its muscles were last given (`MuscleDriver.bounds`) over the contact's time,
+  and turns past it. That time is half the period of the two masses on the two surfaces'
+  stiffness in series, pi sqrt(mu / k); mu and the time are solved together (`contactGive`). So a
+  braced arm meets a blow with the trunk behind it, and a limp one with the hand alone; two rigid
+  surfaces meet for no time, with every joint free. An admitted
   point against a declared `SurfaceSpec.layer` uses the solver's reaction work instead:
   a finite spring and damper with a rigid depth backstop. Compression adds work and unloading
   subtracts it; static pressure adds none. `World.contactWork` aggregates simultaneous teeth
