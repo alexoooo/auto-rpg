@@ -22,7 +22,7 @@ import { drawBody, drawHeld, type BodyShapes } from "../render/body-shapes.ts";
 import { dresserFor, type Dresser } from "../render/dress.ts";
 import { fighterHands } from "../render/strike-hands.ts";
 import { Duel, SIDES, type DuelEnding, type Verdict } from "./duel.ts";
-import { MATCHUP_PARAM, appearanceSearch, readAppearances, matchupSearch, readBalance, readCap, readGap, CONTROLS, controllerLabel, controlsFor, readControls, readMinds, readRecovery, readHeld, readMatchup, readTape, readYou, linkedMind, mindsSearch, youSearch, type Matchup } from "./matchup.ts";
+import { MATCHUP_PARAM, appearanceSearch, readAppearances, matchupSearch, readBalance, readCap, readGap, CONTROLS, controllerLabel, controlName, controlsFor, readControls, readMinds, readRecovery, readHeld, readMatchup, readTape, readYou, linkedMind, mindsSearch, youSearch, type Matchup } from "./matchup.ts";
 import { PRESETS } from "../core/mind/controllers.ts";
 import { partOf } from "../core/mind/catalog.ts";
 import { mindEditor } from "../ui/mind-editor.ts";
@@ -138,11 +138,14 @@ export async function bootArena(): Promise<void> {
     // The mind's tree (`mindEditor`), its preset's until changed; the linked mind as the link carries it, with any fault.
     const settings = document.createElement("details"), summary = document.createElement("summary");
     settings.className = "settings"; summary.textContent = "Mind";
-    const editor = mindEditor(linkedMind(location.search, side).config, { spec: modelSpec(matchup[side]), onFault: "the preset is used" });
+    // The chosen preset is named as the mind now stands (`controlName`): custom once it is changed.
+    const nameControl = () => { for (const option of control.options) option.textContent = option.value === control.value ? controlName(option.value, editor.config) : CONTROLS[option.value]!; };
+    const editor = mindEditor(linkedMind(location.search, side).config, { spec: modelSpec(matchup[side]), onFault: "the preset is used", onChange: () => nameControl() });
     settings.append(summary, editor.element); choices.append(settings);
     const showSettings = (config: MindConfig) => {
       editor.set(config, modelSpec(select.value as BodyModel));
       settings.hidden = partOf(config).fields.length === 0 && partOf(config).slots.length === 0;
+      nameControl();
     };
     showSettings(editor.config);
     mindOf[side] = () => editor.config;

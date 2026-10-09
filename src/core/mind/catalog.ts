@@ -3,7 +3,7 @@ import { BEHAVIOUR_PARTS } from "./behaviours.ts";
 import type { BehaviourConfig, MindConfig, SkillConfig, SubMindConfig, TacticsConfig } from "./config.ts";
 import { CONTROLLERS } from "./controllers.ts";
 import { SKILL_PARTS } from "./fighter.ts";
-import type { Part, PartConfig, Provision, Role } from "./parts.ts";
+import { slotsOf, type Part, type PartConfig, type Provision, type Role } from "./parts.ts";
 import { SUB_MIND_PARTS } from "./sub-minds.ts";
 import { TACTICS_PARTS } from "./tactics-of.ts";
 
@@ -25,7 +25,7 @@ export function partOf<C extends PartConfig>(config: C): Part<C> {
 
 /** What each slot of `config` holds, by the slot, as a list: a single slot's part or none, or a list slot's parts. */
 function held(config: PartConfig): { readonly slot: Part["slots"][number]; readonly parts: readonly unknown[] }[] {
-  return partOf(config).slots.map((slot) => {
+  return slotsOf(partOf(config), config).map((slot) => {
     const value = (config as unknown as Record<string, unknown>)[slot.key];
     return { slot, parts: slot.many ? (Array.isArray(value) ? value : [value]) : value === null || value === undefined ? [] : [value] };
   });

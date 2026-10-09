@@ -9,7 +9,7 @@ import { NO_COVER, type Attack, type Cover, type Intent } from "./intent.ts";
 import { kickTactics } from "./kick-tactics.ts";
 import { guarding, orderedIntent } from "./ordered.ts";
 import type { Orders } from "./orders.ts";
-import type { Part } from "./parts.ts";
+import { slotOne, type Part } from "./parts.ts";
 import { recipeTactics, seekFoe } from "./recipe-tactics.ts";
 import { bodyClearance } from "./sensed-bounds.ts";
 import type { Abilities, Sight, Tactics } from "./tactics.ts";
@@ -143,32 +143,24 @@ function strike(name: string, config: Extract<BehaviourConfig, { kind: "strike" 
 }
 
 /**
- * How near a foe a kick behaviour steps to where it can kick, m, centre of mass to centre of mass
- * across the ground: past the kick's own reach (`KICK_SELECTION.ahead` in `kick-tactics.ts`, from
- * the sole) by a step, so that from further a behaviour ranked after it walks the body in.
+ * Kick the nearest standing foe's legs with the kick (`kickTactics`, tracking a foe that moves): a
+ * kick under way, or one begun where a leg is within reach (`now`: the turn to it, or the step back
+ * from one too near), and otherwise the walk in, facing the walk. A higher-ranked attack holds it back.
  */
-const KICK_NEAR = 1.2;
-
-/**
- * Kick the nearest standing foe's legs with the kick, as the opening tactics' kick does
- * (`kickTactics`): a kick under way, or one admitted, or, within `KICK_NEAR`, the slow step to
- * where one can be. A higher-ranked attack holds it back.
- */
-function kick(abilities: Abilities, config: Extract<BehaviourConfig, { kind: "kick" }>): Behaviour {
+function kick(spec: BodySpec, abilities: Abilities, config: Extract<BehaviourConfig, { kind: "kick" }>): Behaviour {
   if (!abilities.kick) throw new Error("a kick behaviour needs a kick skill");
-  const kicks = kickTactics(abilities.kick, config.feet);
+  const kicks = kickTactics(abilities.kick, config.feet, true), walkIn = distance(spec, 0, false);
   return {
     state: kicks.state,
     want(sight, dt, taken) {
-      const c = sight.view.stance.centre, foe = nearestFoe(sight.view.senses, c, "standing");
-      const near = foe !== null && hypot(foe.centre.x - c.x, foe.centre.z - c.z) <= KICK_NEAR;
-      const going = kicks.during(sight, taken.attack) ?? (near ? kicks.after(sight, dt, "kick", taken.attack) : null);
-      if (!going) return null;
-      const { intent } = going;
-      return { legs: { move: intent.move, face: intent.face }, ...(intent.attack ? { attack: intent.attack } : {}) };
+      const going = kicks.during(sight, taken.attack) ?? kicks.now(sight, taken.attack);
+      return going ? wanted(going.intent) : walkIn.want(sight, dt, taken);
     },
   };
 }
+
+/** The legs and the attack `intent` asks for. */
+const wanted = (intent: Intent): Wants => ({ legs: { move: intent.move, face: intent.face }, ...(intent.attack ? { attack: intent.attack } : {}) });
 
 /** Each hand covers as `guard` says (`guarding`): a hand an attack has does not guard. */
 function cover(config: Extract<BehaviourConfig, { kind: "cover" }>): Behaviour {
@@ -187,7 +179,7 @@ export function behaviourOf(config: BehaviourConfig, spec: BodySpec, name: strin
     case "close-in": return distance(spec, config.metres, false);
     case "keep-distance": return distance(spec, config.metres, true);
     case "strike": return strike(name, config);
-    case "kick": return kick(abilities, config);
+    case "kick": return kick(spec, abilities, config);
     case "cover": return cover(config);
     default: { const never: never = config; throw new Error(`no behaviour of kind ${JSON.stringify((never as { kind?: unknown }).kind)}`); }
   }
@@ -210,12 +202,18 @@ export const BEHAVIOUR_PARTS: { readonly [K in BehaviourConfig["kind"]]: Part<Of
     [number<Of<"close-in">, "metres">("metres", "To within", 0, 5, 0.1, "m")], metresFaults),
   "keep-distance": behaviour<Of<"keep-distance">>("Keep a distance", { kind: "keep-distance", metres: 2.5 },
     [number<Of<"keep-distance">, "metres">("metres", "Distance", 0, 10, 0.1, "m")], metresFaults),
-  strike: behaviour<Of<"strike">>("Strike", { kind: "strike", hands: "alternate", aim: "head" }, [
-    choice<Of<"strike">, "hands">("hands", "Hands", [["alternate", "Both in turn"], ["right", "Right"], ["left", "Left"]]),
-    choice<Of<"strike">, "aim">("aim", "Aim", [["head", "The head"], ["pays", "What pays"]]),
-  ]),
-  kick: behaviour<Of<"kick">>("Kick", { kind: "kick", feet: "alternate" },
-    [choice<Of<"kick">, "feet">("feet", "Feet", [["alternate", "Both in turn"], ["right", "Right"], ["left", "Left"]])]),
+  strike: {
+    ...behaviour<Of<"strike">>("Strike", { kind: "strike", hands: "alternate", aim: "head", blow: { kind: "recipe-strike" } }, [
+      choice<Of<"strike">, "hands">("hands", "Hands", [["alternate", "Both in turn"], ["right", "Right"], ["left", "Left"]]),
+      choice<Of<"strike">, "aim">("aim", "Aim", [["head", "The head"], ["pays", "What pays"]]),
+    ]),
+    slots: [slotOne("blow", "Blow", "blow")],
+  },
+  kick: {
+    ...behaviour<Of<"kick">>("Kick", { kind: "kick", feet: "alternate", kick: { kind: "front-kick" } },
+      [choice<Of<"kick">, "feet">("feet", "Feet", [["alternate", "Both in turn"], ["right", "Right"], ["left", "Left"]])]),
+    slots: [slotOne("kick", "Kick", "kick")],
+  },
   cover: behaviour<Of<"cover">>("Guard", { kind: "cover", guard: "cover" },
     [choice<Of<"cover">, "guard">("guard", "Guard", [["cover", "Cover the threat"], ["pose", "Hold the pose"]])]),
 });

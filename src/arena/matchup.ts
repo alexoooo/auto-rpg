@@ -194,11 +194,14 @@ export function mindsSearch(search: string, minds: Readonly<Record<Side, MindCon
   return `?${query}`;
 }
 
-/** What the bout calls a side's controller: its preset's name, `(edited)` where the address carries a mind of its own. */
+/** What a mind of `config`, chosen from `control`'s preset, is called: the preset's name, or custom where it is the preset's no longer. */
+export function controlName(control: Control, config: MindConfig): string {
+  return JSON.stringify(config) === JSON.stringify(PRESETS[control]!.config) ? CONTROLS[control] : `Custom (from ${CONTROLS[control]})`;
+}
+
+/** What the bout calls a side's controller (`controlName`), by the mind its address carries. */
 export function controllerLabel(search: string, side: Side): string {
-  const control = readControls(search)[side];
-  const edited = JSON.stringify(readMinds(search)[side]) !== JSON.stringify(PRESETS[control]!.config);
-  return `${CONTROLS[control]}${edited ? " (edited)" : ""}`;
+  return controlName(readControls(search)[side], readMinds(search)[side]);
 }
 
 /** Optional continuous-down allowance, in seconds, for recovery bouts. */

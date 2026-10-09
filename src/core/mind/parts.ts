@@ -40,6 +40,8 @@ export interface Part<C extends PartConfig = PartConfig> {
   readonly stage: Stage;
   readonly fields: readonly PartField<C>[];
   readonly slots: readonly Slot[];
+  /** The slots a config of it has where they depend on what it holds: a subset of `slots`, or all of them where absent (`slotsOf`). */
+  slotsFor?(config: C): readonly Slot[];
   /** The config a slot set to this kind takes. */
   readonly defaults: C;
   /** What a screen must give a mind for this part to run, if anything. */
@@ -58,3 +60,6 @@ export const slotList = (key: string, label: string, role: Role): Slot => Object
 
 /** A slot of one part of `role`, or of none where it is `optional`. */
 export const slotOne = (key: string, label: string, role: Role, optional = false): Slot => Object.freeze({ key, label, role, many: false, optional });
+
+/** The slots `config` of `part` has: those it says it has by what it holds (`Part.slotsFor`), or all of its slots. */
+export const slotsOf = <C extends PartConfig>(part: Part<C>, config: C): readonly Slot[] => part.slotsFor?.(config) ?? part.slots;

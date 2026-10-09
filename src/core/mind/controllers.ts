@@ -7,7 +7,7 @@ import { guardPosture } from "../skills/guard.ts";
 import type { BodySpec } from "../spec/body.ts";
 import { deepFreeze } from "../state.ts";
 import type { World } from "../world.ts";
-import { BRAWLER, CHARGER, CLASSIC, COMBAT, KICKER, KICKS_ONLY, LEFT_HAND, QUADRUPED, RUNNER, RECIPE_FIGHTER, SCRAPPER, type DirectMindConfig, type MindConfig } from "./config.ts";
+import { BEHAVIOURS, BRAWLER, CHARGER, CLASSIC, COMBAT, KICKER, KICKS_ONLY, LEFT_HAND, QUADRUPED, RUNNER, RECIPE_FIGHTER, SCRAPPER, type DirectMindConfig, type MindConfig } from "./config.ts";
 import { createDirectBody, directFaults } from "./direct.ts";
 import { createFighter, fighterFaults } from "./fighter.ts";
 import type { Minded, MindWiring } from "./minds.ts";
@@ -45,6 +45,9 @@ const FIGHTER_SLOTS: readonly Slot[] = Object.freeze([
   slotList("subs", "When down", "sub-mind"),
 ]);
 
+/** A fighter's slots under behaviours, which carry its blow and its kick themselves (`StrikeConfig`, `KickConfig`). */
+const BEHAVING_SLOTS: readonly Slot[] = Object.freeze(FIGHTER_SLOTS.filter((slot) => !["blow", "kick", "support"].includes(slot.key)));
+
 /**
  * **Every controller, by its mind's kind**: the one place a kind is made, matched to a body and
  * offered by name. A kind without an entry does not compile.
@@ -52,6 +55,7 @@ const FIGHTER_SLOTS: readonly Slot[] = Object.freeze([
 export const CONTROLLERS: { readonly [K in MindConfig["kind"]]: Controller<Extract<MindConfig, { kind: K }>> } = Object.freeze({
   fighter: {
     role: "mind", label: "Fighter", stage: "game", fields: [], slots: FIGHTER_SLOTS, defaults: RECIPE_FIGHTER,
+    slotsFor: (config) => config.tactics?.kind === "behaviours" ? BEHAVING_SLOTS : FIGHTER_SLOTS,
     fits: commandable,
     faults: fighterFaults,
     presets: deepFreeze({
@@ -60,6 +64,7 @@ export const CONTROLLERS: { readonly [K in MindConfig["kind"]]: Controller<Extra
       brawler: { label: "Brawler (experimental)", config: BRAWLER },
       scrapper: { label: "Scrapper (experimental)", config: SCRAPPER },
       kicker: { label: "Kicker (experimental)", config: KICKER },
+      behaviours: { label: "Behaviours", config: BEHAVIOURS },
       runner: { label: "Runner", config: RUNNER },
       charger: { label: "Charger", config: CHARGER },
       "left-hand": { label: "Left hand only", config: LEFT_HAND },

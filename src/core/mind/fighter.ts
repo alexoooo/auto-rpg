@@ -15,7 +15,7 @@ import { supportFold } from "../skills/support-fold.ts";
 import { wholeBodyFits, wholeBodyStrike } from "../skills/whole-body-strike.ts";
 import { deepFreeze } from "../state.ts";
 import type { World } from "../world.ts";
-import { ARENA_KICKS, type BlowConfig, type ChooseBlowConfig, type DrivenStrikeConfig, type FighterConfig, type FrontKickConfig, type PathStrikeConfig, type SkillConfig, type StanceWalkConfig,
+import { ARENA_KICKS, type BehaviourConfig, type BlowConfig, type ChooseBlowConfig, type DrivenStrikeConfig, type FighterConfig, type FrontKickConfig, type PathStrikeConfig, type SkillConfig, type StanceWalkConfig,
   type WholeBodyStrikeConfig } from "./config.ts";
 import { choice, number, toggle, type PartField } from "./fields.ts";
 import type { MindWiring } from "./minds.ts";
@@ -98,8 +98,17 @@ export const SKILL_PARTS: { readonly [K in SkillConfig["kind"]]: Part<Extract<Sk
   "support-fold": skill("support", "Fight from low support", "experimental", { kind: "support-fold" }),
 });
 
+/** The blow, kick and low support of a fighter of `config`: its slots', or, under behaviours, the first strike's blow and the first kick's kick. */
+function fighterSkills(config: FighterConfig): Pick<FighterConfig, "blow" | "kick" | "support"> {
+  const tactics = config.tactics;
+  if (tactics.kind !== "behaviours") return config;
+  const strike = tactics.list.find((behaviour): behaviour is Extract<BehaviourConfig, { kind: "strike" }> => behaviour.kind === "strike");
+  const kick = tactics.list.find((behaviour): behaviour is Extract<BehaviourConfig, { kind: "kick" }> => behaviour.kind === "kick");
+  return { blow: strike?.blow ?? null, kick: kick?.kick ?? null, support: null };
+}
+
 /** What the skills of `config` can do, as its tactics plan by it; a fighter of no blow plans no path. */
-function abilitiesOf(config: FighterConfig): Abilities {
+function abilitiesOf(config: Pick<FighterConfig, "blow" | "kick" | "support">): Abilities {
   return deepFreeze({ paths: config.blow ? pathsOf(config.blow) : ATTACK_PATH, kick: config.kick ? { ...ARENA_KICKS, ...config.kick.tuning } : null, ground: config.support !== null });
 }
 
@@ -143,6 +152,7 @@ function blowReadsContact(config: BlowConfig): boolean {
 export function fighterFaults(config: FighterConfig): readonly string[] {
   const faults: string[] = [], tactics = config.tactics;
   const blow = config.blow;
+  const alike = (configs: readonly object[]) => configs.every((one) => JSON.stringify(one) === JSON.stringify(configs[0]));
   const neverKick = () => {
     if (config.kick) faults.push("kick: these tactics never kick");
     if (config.support) faults.push("support: these tactics never fight from low support");
@@ -163,14 +173,11 @@ export function fighterFaults(config: FighterConfig): readonly string[] {
         faults.push("blow: overlapping combinations need a blow that may begin while the other hand returns");
       break;
     case "behaviours": {
-      const has = (kind: string) => tactics.list.some((behaviour) => behaviour.kind === kind);
-      if (has("strike") && !blow) faults.push("blow: a strike needs a blow");
-      if (blow && !has("strike") && !has("follow-orders")) faults.push("blow: these behaviours never strike");
-      if (blow && (has("strike") || has("follow-orders")) && !throwsPathless(blow))
-        faults.push("blow: the path strike carries out a blow only along a path, and these behaviours name none");
-      if (has("kick") && !config.kick) faults.push("kick: a kick needs a kick skill");
-      if (config.kick && !has("kick")) faults.push("kick: these behaviours never kick");
-      if (config.support) faults.push("support: these behaviours never fight from low support");
+      const strikes = tactics.list.flatMap((behaviour) => behaviour.kind === "strike" ? [behaviour.blow] : []);
+      const kicks = tactics.list.flatMap((behaviour) => behaviour.kind === "kick" ? [behaviour.kick] : []);
+      if (!alike(strikes)) faults.push("tactics: a body has one blow, and these strikes name different ones");
+      if (!alike(kicks)) faults.push("tactics: a body has one kick, and these kicks name different ones");
+      if (strikes[0] && !throwsPathless(strikes[0])) faults.push("tactics: a strike names no path, and the path strike carries out a blow only along one");
       break;
     }
     default: { const never: never = tactics; throw new Error(`no tactics of kind ${JSON.stringify((never as { kind?: unknown }).kind)}`); }
@@ -180,7 +187,8 @@ export function fighterFaults(config: FighterConfig): readonly string[] {
 
 /** Whether a fighter of `config` reads its hands' contacts (`BodyOptions.feedback`): the opening tactics do, and some blows (`blowReadsContact`). */
 function readsContact(config: FighterConfig): boolean {
-  return config.tactics.kind === "openings" || (config.blow !== null && blowReadsContact(config.blow));
+  const blow = fighterSkills(config).blow;
+  return config.tactics.kind === "openings" || (blow !== null && blowReadsContact(blow));
 }
 
 /**
@@ -209,11 +217,11 @@ export function blowOf(body: Body, world: World, config: BlowConfig): BlowSkill 
 
 /** The skills of a fighter of `config`, for `body` in `world`: one a slot, an empty slot a skill it has not (`noBlow` for the blow). */
 function skillPartsOf(body: Body, world: World, config: FighterConfig, abilities: Abilities): SkillParts {
-  const walk = config.locomotion.tuning;
+  const walk = config.locomotion.tuning, { blow, support } = fighterSkills(config);
   return {
     legs: locomotion(body.envelope, walk?.turnLimit, walk?.turnStartup), guard: guardSkill(body.built.spec, config.guard.tuning?.covering),
-    blow: config.blow ? blowOf(body, world, config.blow) : noBlow(body.built.spec),
-    kick: abilities.kick ? kickSkill(body, abilities.kick) : null, support: config.support ? supportFold(body) : null,
+    blow: blow ? blowOf(body, world, blow) : noBlow(body.built.spec),
+    kick: abilities.kick ? kickSkill(body, abilities.kick) : null, support: support ? supportFold(body) : null,
   };
 }
 
@@ -229,7 +237,7 @@ export function fighterBody(config: FighterConfig, wiring: MindWiring): BodyOpti
  * the Lab's log, its barred hands and its instrument) decides in their place.
  */
 export function driveFighter(body: Body, world: World, config: FighterConfig, wiring: MindWiring, around: (tactics: Tactics) => Tactics = (tactics) => tactics): Skills {
-  const abilities = abilitiesOf(config);
+  const abilities = abilitiesOf(fighterSkills(config));
   const tactics = tacticsOf(config.tactics, body.built.spec, wiring.name, abilities,
     (sight) => aimedOrders(wiring.orders(sight.view.senses), sight.view.senses, highMark), wiring.script);
   return driveBy(body, around(tactics), (made, driving) => skillSet(made, driving, skillPartsOf(made, world, config, abilities)));

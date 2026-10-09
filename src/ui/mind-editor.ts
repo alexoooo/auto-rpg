@@ -1,7 +1,7 @@
 import { kindsFor, partOf, PARTS } from "../core/mind/catalog.ts";
 import type { MindConfig } from "../core/mind/config.ts";
 import type { PartField } from "../core/mind/fields.ts";
-import type { Part, PartConfig, Provision, Slot } from "../core/mind/parts.ts";
+import { slotsOf, type Part, type PartConfig, type Provision, type Slot } from "../core/mind/parts.ts";
 import type { BodySpec } from "../core/spec/body.ts";
 import { mindFaults } from "./mind-link.ts";
 
@@ -110,7 +110,7 @@ export function mindEditor(config: MindConfig, { spec: body, provides = [], onCh
       shown.className = "mind-tuning"; shown.textContent = `Research tuning, read-only\n${JSON.stringify(tuning, null, 1)}`;
       block.append(shown);
     }
-    for (const slot of part.slots) block.append(drawSlot(config, slot, write));
+    for (const slot of slotsOf(part, config)) block.append(drawSlot(config, slot, write));
     return block;
   };
 

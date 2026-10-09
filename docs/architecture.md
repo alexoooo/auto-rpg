@@ -547,8 +547,11 @@ surface it favours, its defence, its combinations and its spacing), `script` (th
 carried out as written: the Lab's modes write one), `stand` (in guard the way the body faces) or `behaviours`
 (`behavioursTactics`, `behaviours.ts`): a ranked list of behaviours, each of which may want the legs, the
 attack or a hand's guard, the first that wants one having it and what none wants standing in guard
-(`follow-orders`, `flee`, `close-in`, `keep-distance`, `strike` with the hand or hands named, `kick`
-with the foot or feet named, and `cover`). Its skills are its walk
+(`follow-orders`, `flee`, `close-in`, `keep-distance`, `strike` with the hand or hands named and
+its blow, `kick` with the foot or feet named and its kick, walking in and kicking the nearest
+standing leg within reach, and `cover`); under them the fighter's blow and kick are the ones its
+behaviours name and it has no low support (`fighterSkills`), its own slots for them not offered
+(`slotsFor`), and two strikes that name different blows are a fault. Its skills are its walk
 (`stance-walk`), its guard (`cover-guard`), optionally a blow (`recipe-strike`, or `path-strike`, which may
 begin a hand while the other returns, the experimental `driven-strike` and `whole-body-strike`
 from the punch's research, or `choose-blow`, which gives each blow to one of a list of
@@ -561,13 +564,14 @@ that cannot carry out what they ask, is a fault at its slot (`fighterFaults`: `b
 strike carries out a blow only along a path, and these tactics name none`). The presets are
 `CLASSIC` (seek over the recipe strike, rising by stages) and `COMBAT`, `BRAWLER`, `SCRAPPER` and
 `KICKER` (openings over the path strike; Scrapper adds low support, and Kicker a kick); and, of
-behaviours, `RUNNER` (runs away), `CHARGER` (walks in and stays on the foe), `LEFT_HAND` (strikes
-with the left hand alone) and `KICKS_ONLY` (kicks, with no blow).
+behaviours, `BEHAVIOURS` (strikes with either hand in turn), `RUNNER` (runs away), `CHARGER` (walks in and stays on the foe), `LEFT_HAND` (strikes
+with the left hand alone) and `KICKS_ONLY` (kicks, with no blow). A preset changed in the Arena's
+panel is named `Custom (from` its preset`)` (`controlName`, `src/arena/matchup.ts`).
 
 **A mind is a tree of parts** (`Part`, `src/core/mind/parts.ts`). Each part has a role (`mind`,
 `sub-mind`, `tactics`, `behaviour`, or a skill's: `locomotion`, `guard`, `blow`, `kick`, `support`), a label, a stage (`game`, or `experimental` for research offered beside the
 game's), the settings a person may change (`fields`, built from `fields.ts`'s `choice`, `toggle`
-and `number`), its slots, the config it starts from (`defaults`), the bodies it fits (`fits`) and
+and `number`), its slots (`slotsOf`: those `slotsFor` keeps for a config, where a part has it), the config it starts from (`defaults`), the bodies it fits (`fits`) and
 what is wrong with a config of it (`faults`), and what it needs of the screen it runs on (`needs`, a
 `Provision`: the script tactics need a script, which only the Lab gives). A slot is a key of the config that holds another
 part of a stated role, or none where it is optional (`slotOne`), or a ranked list of them

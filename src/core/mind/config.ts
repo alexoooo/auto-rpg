@@ -100,15 +100,16 @@ interface CloseInConfig { readonly kind: "close-in"; readonly metres: number }
 /** Hold `metres` from the nearest foe: walk in from further, back away from nearer. */
 interface KeepDistanceConfig { readonly kind: "keep-distance"; readonly metres: number }
 
-/** Strike the nearest foe with the blow, by `hands`, at what `aim` names, walking in to it. */
+/** Strike the nearest foe with `blow`, by `hands`, at what `aim` names, walking in to it. */
 interface StrikeConfig {
   readonly kind: "strike";
   readonly hands: "left" | "right" | "alternate";
   readonly aim: SeekConfig["aim"];
+  readonly blow: BlowConfig;
 }
 
-/** Kick the nearest standing foe's legs with the kick, by `feet`, stepping to where it can. */
-interface KickConfig { readonly kind: "kick"; readonly feet: "left" | "right" | "alternate" }
+/** Kick the nearest standing foe's legs with `kick`, by `feet`, walking in to it. */
+interface KickConfig { readonly kind: "kick"; readonly feet: "left" | "right" | "alternate"; readonly kick: FrontKickConfig }
 
 /** Guard with the hands that do not attack, as `guard` says. */
 interface CoverConfig { readonly kind: "cover"; readonly guard: SeekConfig["guard"] }
@@ -119,6 +120,8 @@ export type BehaviourConfig = FollowOrdersConfig | FleeConfig | CloseInConfig | 
 /**
  * **Tactics made of behaviours**, in rank order: each step the first behaviour that wants the legs,
  * the attack or a hand's guard has it, and what none wants stands in guard (`behavioursTactics`).
+ * What the body can do is what its behaviours carry: a strike its blow, a kick its kick
+ * (`fighterSkills`).
  */
 export interface BehavioursConfig { readonly kind: "behaviours"; readonly list: readonly BehaviourConfig[] }
 
@@ -207,7 +210,8 @@ export type SkillConfig = StanceWalkConfig | CoverGuardConfig | BlowConfig | Fro
 /**
  * **The fighter**: tactics over a skill of each role, under one arbiter (`skillSet`), handing its
  * body to its sub-minds while down (`fighter.ts`). An empty `blow`, `kick` or `support` is a fighter
- * that throws no blow, does not kick, or does not fight from low support.
+ * that throws no blow, does not kick, or does not fight from low support. Under behaviours its blow
+ * and kick are its behaviours' own, and these three slots are not its (`fighterSkills`).
  */
 export interface FighterConfig {
   readonly kind: "fighter";
@@ -277,12 +281,12 @@ export const SCRAPPER: FighterConfig = deepFreeze({ ...BRAWLER, support: { kind:
 /** Low-kick development profile: `docs/reference/front-kicks.md#arena-selection`. */
 export const KICKER: FighterConfig = deepFreeze({ ...SCRAPPER, kick: { kind: "front-kick" } });
 
-/** A fighter of behaviours (`BehavioursConfig`) over no skill but the walk and the guard, rising by stages once down. */
-const BEHAVING: FighterConfig = deepFreeze({ ...CLASSIC, tactics: { kind: "behaviours", list: [] }, blow: null });
+/** A fighter of behaviours (`BehavioursConfig`): orders followed first, then `list`, then the hands covering; rising by stages once down. */
+const behaving = (list: readonly BehaviourConfig[]): FighterConfig => deepFreeze({ ...CLASSIC, blow: null,
+  tactics: { kind: "behaviours", list: [{ kind: "follow-orders" }, ...list, { kind: "cover", guard: "cover" }] } });
 
-/** A fighter of `list`, its behaviours in rank order, over `skills`. */
-const behaving = (list: readonly BehaviourConfig[], skills: Partial<Pick<FighterConfig, "blow" | "kick">> = {}): FighterConfig =>
-  deepFreeze({ ...BEHAVING, tactics: { kind: "behaviours", list: [{ kind: "follow-orders" }, ...list, { kind: "cover", guard: "cover" }] }, ...skills });
+/** Behaviours as they start: the foe struck with either hand by the recipe strike. */
+export const BEHAVIOURS: FighterConfig = behaving([{ kind: "strike", hands: "alternate", aim: "head", blow: { kind: "recipe-strike" } }]);
 
 /** Runs from the nearest foe, guarding, and never strikes. */
 export const RUNNER: FighterConfig = behaving([{ kind: "flee" }]);
@@ -291,7 +295,7 @@ export const RUNNER: FighterConfig = behaving([{ kind: "flee" }]);
 export const CHARGER: FighterConfig = behaving([{ kind: "close-in", metres: 0.6 }]);
 
 /** Strikes with the left hand alone. */
-export const LEFT_HAND: FighterConfig = behaving([{ kind: "strike", hands: "left", aim: "head" }], { blow: { kind: "recipe-strike" } });
+export const LEFT_HAND: FighterConfig = behaving([{ kind: "strike", hands: "left", aim: "head", blow: { kind: "recipe-strike" } }]);
 
-/** Kicks and never strikes, closing in on a foe it cannot yet kick. */
-export const KICKS_ONLY: FighterConfig = behaving([{ kind: "kick", feet: "alternate" }, { kind: "close-in", metres: 0.9 }], { kick: { kind: "front-kick" } });
+/** Kicks and never strikes. */
+export const KICKS_ONLY: FighterConfig = behaving([{ kind: "kick", feet: "alternate", kick: { kind: "front-kick" } }]);

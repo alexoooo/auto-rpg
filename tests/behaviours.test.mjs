@@ -1,7 +1,7 @@
 /**
  * The behaviours tactics: the merge, by rank, channel by channel; what each preset of behaviours
  * does to a Warrior that stands in guard (Node, core world, Rapier, 120 Hz, the Arena's room); and
- * the faults of a fighter whose behaviours ask for a skill it lacks.
+ * the faults of behaviours whose skills disagree.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -61,13 +61,14 @@ test("a fighter of the left hand alone strikes with it, and one of kicks alone k
   assert.deepEqual(kicked.thrown, { left: 0, right: 0 });
 });
 
-test("behaviours that ask for a skill the fighter lacks, or a skill they never use, are faults", () => {
-  assert.deepEqual(treeFaults(RUNNER), []);
-  assert.deepEqual(treeFaults({ ...KICKS_ONLY, kick: null }), ["kick: a kick needs a kick skill"]);
-  assert.deepEqual(treeFaults({ ...LEFT_HAND, blow: null }), ["blow: a strike needs a blow"]);
-  assert.deepEqual(treeFaults({ ...RUNNER, blow: { kind: "recipe-strike" }, tactics: { kind: "behaviours", list: [{ kind: "flee" }] } }), ["blow: these behaviours never strike"]);
-  assert.deepEqual(treeFaults({ ...RUNNER, kick: { kind: "front-kick" } }), ["kick: these behaviours never kick"]);
-  assert.deepEqual(treeFaults({ ...LEFT_HAND, blow: { kind: "path-strike", overlap: false } }),
-    ["blow: the path strike carries out a blow only along a path, and these behaviours name none"]);
+test("a behaviour carries its skill, and behaviours that name two blows or two kicks are faults", () => {
+  assert.deepEqual([treeFaults(RUNNER), treeFaults(KICKS_ONLY), treeFaults(LEFT_HAND)], [[], [], []]);
+  const strike = (blow) => ({ kind: "strike", hands: "alternate", aim: "head", blow });
+  const kick = { kind: "kick", feet: "alternate", kick: { kind: "front-kick" } };
+  const listed = (list) => ({ ...RUNNER, tactics: { kind: "behaviours", list } });
+  assert.deepEqual(treeFaults(listed([strike({ kind: "recipe-strike" }), strike({ kind: "path-strike", overlap: true }), kick, kick])),
+    ["tactics: a body has one blow, and these strikes name different ones"]);
+  assert.deepEqual(treeFaults(listed([strike({ kind: "path-strike", overlap: false })])),
+    ["tactics: a strike names no path, and the path strike carries out a blow only along one"]);
   assert.deepEqual(treeFaults(withParts(CHARGER, { tactics: { list: [{ kind: "close-in", metres: -1 }] } })), ["tactics.list.0: a distance must be finite and not negative"]);
 });

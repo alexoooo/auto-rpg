@@ -86,7 +86,7 @@ test("each side's mind travels in a link as its whole tree, without research tun
   assert.deepEqual(readMinds(reptile).left, QUADRUPED);
   assert.deepEqual(linkedMind(reptile, "left").faults, ["the mind does not fit this body"]);
   // The HUD marks an edited side.
-  assert.deepEqual(["left", "right"].map((side) => controllerLabel(search, side)), ["Classic fighter", "Combat (experimental) (edited)"]);
+  assert.deepEqual(["left", "right"].map((side) => controllerLabel(search, side)), ["Classic fighter", "Custom (from Combat (experimental))"]);
   assert.equal(controllerLabel("?control=classic,brawler", "right"), "Brawler (experimental)");
   assert.equal(readMinds(`?control=classic,scrapper&right.mind=${encodeURIComponent(JSON.stringify(withParts(SCRAPPER, { tactics: { spacing: .25 } })))}`).right.tactics.spacing, .25);
   assert.deepEqual(readMinds("?control=brawler,classic").left, BRAWLER);

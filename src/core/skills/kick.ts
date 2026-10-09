@@ -159,6 +159,8 @@ export function kickSkill(body: Body, tuning: KickTuning = KICK_PATH): KickSkill
         finish(null);
         return null;
       }
+      // The kick under way aims where its request moves its target.
+      if (requested && requested.foot === state.foot && requested.target.some((v, k) => v !== state.action!.target[k])) state.action = { ...state.action!, target: [...requested.target] };
       const foot = state.foot!, other = foot === "left" ? "right" : "left", bearing = feet.find(f => f.side === other)!, initial = state.initial!;
       const e = view.effectors[`foot.${foot}`]!, kicking = strikes[foot], velocity = kicking.read(view, dt);
       const loads = support.state.loads, total = loads.left + loads.right;

@@ -3,7 +3,7 @@ import { behaviourOf, behavioursTactics } from "./behaviours.ts";
 import { standIntent } from "./intent.ts";
 import type { BodySpec } from "../spec/body.ts";
 import { deepFreeze } from "../state.ts";
-import { OPENINGS, SEEK, type BehavioursConfig, type OpeningsConfig, type SeekConfig, type TacticsConfig } from "./config.ts";
+import { BEHAVIOURS, OPENINGS, SEEK, type BehavioursConfig, type OpeningsConfig, type SeekConfig, type TacticsConfig } from "./config.ts";
 import { choice, number, type PartField } from "./fields.ts";
 import { validOpeningTuning } from "./openings.ts";
 import { STRAFE } from "./ordered.ts";
@@ -51,17 +51,13 @@ function openingsFaults(config: OpeningsConfig): readonly string[] {
   return faults;
 }
 
-/** Behaviours as they start: orders followed, the foe struck with either hand, and the hands that do not strike covering. */
-const BEHAVIOURS: BehavioursConfig = deepFreeze({ kind: "behaviours",
-  list: [{ kind: "follow-orders" }, { kind: "strike", hands: "alternate", aim: "head" }, { kind: "cover", guard: "cover" }] });
-
 /** **Every kind of tactics** (`Part`): what a fighter's `tactics` slot may hold. */
 export const TACTICS_PARTS: { readonly [K in TacticsConfig["kind"]]: Part<Extract<TacticsConfig, { kind: K }>> } = deepFreeze({
   seek: { role: "tactics", label: "Seek the foe", stage: "game", fields: SEEK_FIELDS, slots: [], defaults: SEEK, fits: commandable, faults: seekFaults },
   openings: { role: "tactics", label: "Choose openings", stage: "experimental", fields: OPENINGS_FIELDS, slots: [], defaults: OPENINGS, fits: commandable, faults: openingsFaults },
   script: { role: "tactics", label: "Follow the script", stage: "game", fields: [], slots: [], defaults: { kind: "script" }, needs: "script", fits: commandable, faults: () => [] },
   stand: { role: "tactics", label: "Stand in guard", stage: "game", fields: [], slots: [], defaults: { kind: "stand" }, fits: commandable, faults: () => [] },
-  behaviours: { role: "tactics", label: "Behaviours", stage: "game", fields: [], slots: [slotList("list", "Behaviours", "behaviour")], defaults: BEHAVIOURS,
+  behaviours: { role: "tactics", label: "Behaviours", stage: "game", fields: [], slots: [slotList("list", "Behaviours", "behaviour")], defaults: BEHAVIOURS.tactics as BehavioursConfig,
     fits: commandable, faults: () => [] },
 });
 
