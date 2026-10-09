@@ -7,13 +7,16 @@
  * face, within the face, no later than `deadline` s after the order, and the body still up 0.3 s
  * after. No pad stands there: the score is what the fist brings to it. With `cone`, a blow counts
  * only if its last 10 cm come in within that many degrees of the face's normal: a straight blow, not
- * one chopped down across the face.
+ * one chopped down across the face. With `--score damage` the score is what the blow is worth in the
+ * game instead: the exchange of hit points if the fist met a Warrior's head standing in guard there,
+ * at the closing speed and with the arm's muscles holding as they did that step (`pricePunch`,
+ * `punch-objective.mjs`).
  *
  * The search is diagonal CMA-ES in the unit cube of the schedule. It measures the body, not a
  * controller: its schedules are fitted to one cell and are not a skill.
  *
  *   node research/punch-ceiling.mjs --out <file.json> [--model ...] [--physique '<json>'] [--hand right] [--cell place|reach]
- *     [--deadline 0.5] [--cone <deg>] [--hz 120] [--workers 14] [--generations 40] [--seed 1]
+ *     [--score speed|damage] [--struck workshop-fighter] [--deadline 0.5] [--cone <deg>] [--hz 120] [--workers 14] [--generations 40] [--seed 1]
  *     [--from <file.json> [--sigma 0.25]]     a search begun at another's best, at that step size
  *   node research/punch-ceiling.mjs --verify <file.json> [--rates 120,480]     the best schedule again at each rate
  *
@@ -29,16 +32,19 @@ import { parseArgs } from "node:util";
 import { isMainThread, parentPort, Worker, workerData } from "node:worker_threads";
 import { createBody, SERVO_SECONDS } from "../src/core/body.ts";
 import { rigidPoints } from "../src/core/build/rigid.ts";
-import { pointOfToRef } from "../src/core/control/support.ts";
+import { contactMass } from "../src/core/build/contact-mass.ts";
+import { motionAtToRef, pointOfToRef } from "../src/core/control/support.ts";
 import { DEFAULT_ENGINE } from "../src/core/engine/engines.ts";
 import { NO_COVER } from "../src/core/mind/intent.ts";
 import { modelSpec } from "../src/core/models.ts";
+import { holdsOf } from "../src/core/rules/blows.ts";
 import { combatSkills } from "../src/core/skills/combat.ts";
 import { guardPosture } from "../src/core/skills/guard.ts";
 import { aimOf } from "../src/core/skills/strikes.ts";
 import { coreStand } from "../tests/harness/core-stand.mjs";
 import { COMPETENCY, fullReach } from "./competencies.mjs";
 import { approachSpeed } from "./punch-calibration.mjs";
+import { pricePunch, referenceHead } from "./punch-objective.mjs";
 import { PUNCH_PAD } from "./punch-pad.mjs";
 
 /** When the blow is ordered, s, as the competency's stands; how long after reaching the face the body must stay up, s. */
@@ -74,10 +80,30 @@ export function ceilingTarget({ model, physique, hand, cell }) {
 }
 
 /**
+ * What the fist's muscles hold through the blow: the game's rule (`bounds`, the motor's ceilings
+ * read at the joint's speed as the step began), or, to see what a different rule would be worth,
+ * each driven side's activation times its isometric peak (`isometric`), or times its peak and its
+ * eccentric ceiling (`eccentric`): the joint stopped, or driven back, through the contact.
+ */
+function holdsBy(holding, muscles) {
+  if (holding === "bounds") return holdsOf(muscles);
+  const scale = (side) => side.peak * (holding === "eccentric" ? side.curve.eccentricCeiling : 1);
+  return muscles.channels.map((c, i) => {
+    const a = Math.max(0, Math.min(1, muscles.activation[i]));
+    return { joint: c.joint, index: c.index, positive: muscles.bounds.positive[i] > 0 ? a * scale(c.positive) : 0, negative: muscles.bounds.negative[i] > 0 ? a * scale(c.negative) : 0 };
+  });
+}
+
+/** The struck head each model and rate is priced on, read once a thread. */
+const heads = new Map();
+const headOf = (model, hz) => { const key = `${model}@${hz}`; if (!heads.has(key)) heads.set(key, referenceHead({ model, hz })); return heads.get(key); };
+
+/**
  * One schedule `x` (per channel: level in -1..1, start and length in s after the order) on the
  * cell. Returns the score and what it read.
  */
-export async function ceilingTrial(x, { model, physique, hand, cell, deadline, cone = null, hz }) {
+export async function ceilingTrial(x, { model, physique, hand, cell, deadline, cone = null, hz, score: scoring = "speed", struck = "workshop-fighter", holding = "bounds" }) {
+  const head = scoring === "damage" ? await headOf(struck, hz) : null;
   const channels = ceilingChannels(hand), target = ceilingTarget({ model, physique, hand, cell });
   const schedule = channels.map((channel, i) => ({ channel, level: x[3 * i], from: x[3 * i + 1], to: x[3 * i + 1] + Math.max(0, x[3 * i + 2]) }))
     .filter((p) => Math.abs(p.level) > 0.05);
@@ -90,6 +116,7 @@ export async function ceilingTrial(x, { model, physique, hand, cell, deadline, c
   });
   const limb = s.built.segments.get(`hand.${hand}`), aim = rigidPoints(spec, limb.spec).get(aimOf(spec, hand)).value, point = new Vector3();
   const [halfX, halfY] = [PUNCH_PAD.size[0] / 2, PUNCH_PAD.size[1] / 2], history = [];
+  const masses = head ? contactMass(s.built) : null, linear = new Vector3(), angular = new Vector3();
   let reached = null, down = false;
   try {
     for (let i = 0; i < Math.round((ORDERED + deadline + UPRIGHT) * hz); i++) {
@@ -100,8 +127,17 @@ export async function ceilingTrial(x, { model, physique, hand, cell, deadline, c
       if (reached === null) {
         pointOfToRef(limb, aim, point);
         history.push({ time: t, point: point.asArray() });
-        if (point.z >= target[2]) reached = { time: t, at: point.asArray(), within: Math.abs(point.x - target[0]) <= halfX && Math.abs(point.y - target[1]) <= halfY,
-          speed: approachSpeed(history), across: approachAcross(history), downThen: down };
+        if (point.z >= target[2]) {
+          let priced = null;
+          if (masses) {
+            motionAtToRef(limb, point, linear, angular);
+            masses.update();
+            priced = { ...pricePunch({ fist: masses.yielding(limb, point.asArray(), [0, 0, 1], holdsBy(holding, body.muscles)), fistStiffness: limb.spec.surface.stiffness.value,
+              head, closing: Math.max(0, linear.z) }), fistFreeKg: masses.along(limb, point.asArray(), [0, 0, 1]) };
+          }
+          reached = { time: t, at: point.asArray(), within: Math.abs(point.x - target[0]) <= halfX && Math.abs(point.y - target[1]) <= halfY,
+            speed: approachSpeed(history), across: approachAcross(history), downThen: down, closing: linear.z, priced };
+        }
       }
       if (reached !== null && t > reached.time + UPRIGHT) break;
       if (reached === null && t > deadline) break;
@@ -109,8 +145,9 @@ export async function ceilingTrial(x, { model, physique, hand, cell, deadline, c
   } finally { body.dispose?.(); s.dispose(); }
   const straight = cone === null || (reached?.across ?? Infinity) <= Math.tan(cone * Math.PI / 180);
   const counted = reached !== null && reached.within && straight && reached.time <= deadline && !down && reached.speed !== null;
-  return { score: counted ? reached.speed : 0, reached: reached && { time: +reached.time.toFixed(4), at: reached.at.map((v) => +v.toFixed(3)), within: reached.within,
-    across: reached.across === null ? null : +reached.across.toFixed(3), speed: reached.speed === null ? null : +reached.speed.toFixed(3) }, down, target };
+  return { score: counted ? (head ? reached.priced.exchange : reached.speed) : 0, reached: reached && { time: +reached.time.toFixed(4), at: reached.at.map((v) => +v.toFixed(3)), within: reached.within,
+    across: reached.across === null ? null : +reached.across.toFixed(3), speed: reached.speed === null ? null : +reached.speed.toFixed(3),
+    ...(reached.priced ? { closing: +reached.closing.toFixed(3), priced: Object.fromEntries(Object.entries(reached.priced).map(([k, v]) => [k, +v.toFixed(4)])) } : {}) }, down, target };
 }
 
 if (!isMainThread && workerData?.ceiling) {
@@ -121,7 +158,7 @@ if (!isMainThread && workerData?.ceiling) {
 } else if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const { values } = parseArgs({ options: { out: { type: "string" }, model: { type: "string" }, physique: { type: "string" }, hand: { type: "string" },
     cell: { type: "string" }, deadline: { type: "string" }, hz: { type: "string" }, workers: { type: "string" }, generations: { type: "string" },
-    seed: { type: "string" }, cone: { type: "string" }, from: { type: "string" }, sigma: { type: "string" }, verify: { type: "string" }, rates: { type: "string" } } });
+    seed: { type: "string" }, cone: { type: "string" }, score: { type: "string" }, struck: { type: "string" }, from: { type: "string" }, sigma: { type: "string" }, verify: { type: "string" }, rates: { type: "string" } } });
   if (values.verify) {
     const found = JSON.parse(readFileSync(values.verify, "utf8")), rows = [];
     for (const hz of (values.rates ?? "120,480").split(",").map(Number)) rows.push({ hz, ...(await ceilingTrial(found.best.x, { ...found.cell, hz })) });
@@ -129,7 +166,8 @@ if (!isMainThread && workerData?.ceiling) {
     process.exit(0);
   }
   const cell = { model: values.model ?? "workshop-fighter", ...(values.physique ? { physique: JSON.parse(values.physique) } : {}), hand: values.hand ?? "right",
-    cell: values.cell ?? "place", deadline: Number(values.deadline ?? 0.5), cone: values.cone === undefined ? null : Number(values.cone), hz: Number(values.hz ?? 120) };
+    cell: values.cell ?? "place", deadline: Number(values.deadline ?? 0.5), cone: values.cone === undefined ? null : Number(values.cone), hz: Number(values.hz ?? 120),
+    score: values.score ?? "speed", struck: values.struck ?? "workshop-fighter" };
   const nw = Number(values.workers ?? Math.max(1, availableParallelism() - 4)), generations = Number(values.generations ?? 40), n = ceilingChannels(cell.hand).length * 3;
   // A seeded generator, so a search can be run again: mulberry32.
   let seed = Number(values.seed ?? 1) >>> 0;
@@ -152,7 +190,7 @@ if (!isMainThread && workerData?.ceiling) {
   const cs = (mueff + 2) / (n + mueff + 5), ds = 1 + cs, cc = 4 / (n + 4), c1 = 2 / ((n + 1.3) * (n + 1.3) + mueff);
   const cmu = Math.min(1 - c1, 2 * (mueff - 2 + 1 / mueff) / ((n + 2) * (n + 2) + mueff)) * (n + 2) / 3;
   const chiN = Math.sqrt(n) * (1 - 1 / (4 * n) + 1 / (21 * n * n));
-  let ps = new Array(n).fill(0), pc = new Array(n).fill(0), best = { score: -1 };
+  let ps = new Array(n).fill(0), pc = new Array(n).fill(0), best = { score: -Infinity };
   const log = [];
   for (let g = 0; g < generations; g++) {
     const us = Array.from({ length: lambda }, () => m.map((mi, i) => Math.min(1, Math.max(0, mi + sigma * Math.sqrt(C[i]) * gauss()))));

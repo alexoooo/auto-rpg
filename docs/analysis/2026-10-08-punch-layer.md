@@ -19,6 +19,12 @@ Three more things were tried:
 
 The body can meet the bar. What is missing is a controller that sequences the blow.
 
+Speed is not what a blow is worth, though. Priced as the game prices it, the fastest blows the
+search finds take 2 to 5 % of a Warrior's head, because they land with the elbow bent and the fist
+meets 0.2 to 1.4 kg. The same arm straight and on the line of the blow meets 6 kg free, and 1.4 to
+2.7 kg with the elbow or the wrist 20° off. The way to a punch that hurts is a blow that lands
+with the arm lined up ([What a blow is worth](#what-a-blow-is-worth)).
+
 ## A layer on the tracked arm
 
 The layer was a prototype, with no code installed. One setting, `drive`, turned it on, and with it
@@ -229,6 +235,60 @@ after the order, lands straight at 7.3 to 7.7 m/s, and at 8.2 to 8.6 by 0.4 s. A
 9.57 and 9.27, 7.14 and 7.29, 7.36 and 8.80, 10.47 and 11.97, 7.06 and 7.55. The body's ceiling is not set by the trunk's and
 hip's unloaded speeds.
 
+## What a blow is worth
+
+`research/punch-objective.mjs` prices a fist that reaches the pad as the arena would price it on
+the head of a Warrior standing in guard there:
+
+- **the fist** meets what its body gives along the approach, with each muscle holding at the
+  bounds it had that step (`ContactMass.yielding`);
+- **the head** meets what the guard's body gives, with its own muscles holding: 7.0 kg free, 7.3
+  to 7.8 kg held;
+- **the two hold for the time their surfaces in series take** (`contactGive`), about 10 ms;
+- **the surfaces share the energy** by compliance: the fist takes 62 % against a head;
+- **each share is damage** by the rulebook, the fist's less its threshold (`Rulebook.fist`,
+  36.8 J).
+
+The score is the exchange: the hit points the head loses less the ones the fist loses. It peaks
+at 0.22 HP, half a Warrior's head, where the fist's share meets its threshold: a blow of 59 J.
+Past that, each joule costs the fist more than it gives the head. A Warrior's hand comes off at a
+blow of about 80 J on a head.
+
+`research/punch-ceiling.mjs --score damage` searches on it. Harness: Node, Rapier, the body built
+in its guard, symmetric actuation, held within 20° of the face's normal, 150 generations of 56 at
+120 Hz, read again at 480 Hz. Each cell was searched three ways: on speed; on the exchange, begun
+at the speed search's best; and on the exchange, from scratch.
+
+| Cell, at 480 Hz | Speed search: m/s, fist kg, J, head HP | Best on the exchange: m/s, fist kg (free), J, head HP |
+|---|---|---|
+| Warrior, right, place | 6.12, 0.28, 5.1, 0.019 | 4.34, 0.65 (0.59), 5.7, 0.021 |
+| Warrior, right, full reach | 5.59, 0.35, 5.3, 0.020 | 4.96, 0.85 (0.78), 9.4, 0.036 |
+| Warrior, left, place | 4.35, 0.42, 3.8, 0.014 | 4.42, 0.60 (0.53), 5.4, 0.020 |
+| Rogue, right, place | 3.53, 0.19, 1.2, 0.004 | 3.87, 0.35 (0.31), 2.5, 0.010 |
+| Rogue, right, full reach | 3.85, 0.17, 1.3, 0.005 | 3.96, 0.28 (0.26), 2.1, 0.008 |
+
+These searches are weaker than the ones above (6.1 m/s against 9.6 for the Warrior's straight
+right hand), and the figures are floors. Two more on the Warrior's full reach at 240 Hz, 200
+generations, reached 0.047 HP. Read at 120 Hz the fist's masses are up to 60 % larger.
+
+**The fist's mass is the arm's alignment.** On a stand with no gravity, the Warrior's right
+shoulder flexed 90°, every other freedom in guard, a push along +z through the strike point:
+
+| Arm | Free, kg | Every muscle held at its peak, kg | J at 9.14 m/s | Head HP |
+|---|---|---|---|---|
+| straight, wrist on line | 6.15 | 15.9 | 207 | 0.78 |
+| elbow 9° short of straight | 3.57 | 8.3 | 161 | 0.61 |
+| elbow 20° short | 1.42 | 2.7 | 82 | 0.31 |
+| straight, wrist 23° off | 1.08 to 1.44 | 2.2 to 2.7 | 70 to 82 | 0.27 to 0.31 |
+| elbow 32° short | 0.74 | 1.3 | 46 | 0.18 |
+| elbow 49° short | 0.40 | 0.67 | 26 | 0.10 |
+
+The elbow's straight is its range's end, -0.86 rad: the reference pose has it bent 49°. A boxer's
+2.9 kg at 9.14 m/s (Walilko, Viano and Bir 2005) is the elbow about 20° short of straight. The
+searched blows land 35 to 50° short: the trunk carries the fist to the face while the elbow is
+still opening. How the muscles hold barely matters: holding at the activation's isometric peak,
+or its eccentric ceiling, rather than at the step's bounds, raises the fist's mass by under 10 %.
+
 ## What it says
 
 - **Today's body clears the bar.** On the muscles as they are, every cell searched has a straight
@@ -248,11 +308,21 @@ hip's unloaded speeds.
 - **The competency's bar counts a chop.** It reads the fist's speed toward the pad and where it
   lands on the face, not the angle it comes in at. Blows coming down across the face at 10 to
   14 m/s pass it.
+- **What a blow is worth is where the arm is when it lands.** Today's fastest blows hurt least:
+  a bent elbow brings a third of a kilogram. A blow 20° short of straight at a boxer's speed
+  takes 70 % of a Warrior's head, and with it the hand. Flat-out pushes on the trunk, legs and
+  arm do not find that blow.
 - **The lead hand at the place is tight on time.** Its straight blow needs nearly all of the
   0.5 s. The Rogue's lead hand was not searched.
 
 ## Open choices
 
+- **A blow that lands lined up.** The skill chooses its distance and its contact pose (elbow
+  10 to 20° short of straight, wrist on the line) first, then the motion that arrives there
+  fast. The exchange is the score to search it on.
+- **The fist's threshold against a head.** At 36.8 J and a 62 % share, the exchange stops paying
+  at 59 J, and a boxer's blow costs the hand. Against a trunk the fist takes an eighth and the
+  threshold is never reached.
 - **A controller that looks ahead.** It decides from the state toward the goal, over the blow's
   whole third of a second, rather than one step at a time:
   - the whole-body solve over a horizon, solved again each step;

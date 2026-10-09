@@ -58,12 +58,12 @@ export interface Fighter {
 }
 
 /** The freedoms whose muscles `muscles` hold through a contact with, and what each gives toward either sense (`Hold`). */
-function holdsOf(muscles: Pick<MuscleDriver, "channels" | "bounds">): Hold[] {
+export function holdsOf(muscles: Pick<MuscleDriver, "channels" | "bounds">): Hold[] {
   return muscles.channels.map((channel, i) => ({ joint: channel.joint, index: channel.index, negative: muscles.bounds.negative[i]!, positive: muscles.bounds.positive[i]! }));
 }
 
 /** The stiffness of two surfaces in series, N/m: `Infinity` where both are rigid (null). */
-const seriesStiffness = (stiffness: readonly (number | null)[]): number =>
+export const seriesStiffness = (stiffness: readonly (number | null)[]): number =>
   1 / stiffness.reduce<number>((sum, k) => sum + (k === null ? 0 : 1 / k), 0);
 
 /** One side of a blow: the surface that met the other's. */
