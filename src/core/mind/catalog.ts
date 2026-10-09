@@ -2,7 +2,7 @@ import type { BodySpec } from "../spec/body.ts";
 import type { MindConfig, SkillConfig, SubMindConfig, TacticsConfig } from "./config.ts";
 import { CONTROLLERS } from "./controllers.ts";
 import { SKILL_PARTS } from "./fighter.ts";
-import type { Part, PartConfig, Role } from "./parts.ts";
+import type { Part, PartConfig, Provision, Role } from "./parts.ts";
 import { SUB_MIND_PARTS } from "./sub-minds.ts";
 import { TACTICS_PARTS } from "./tactics-of.ts";
 
@@ -34,13 +34,21 @@ function held(config: PartConfig): { readonly slot: Part["slots"][number]; reado
 const isPart = (value: unknown): value is PartConfig =>
   typeof value === "object" && value !== null && typeof (value as { kind?: unknown }).kind === "string" && Object.hasOwn(PARTS, (value as PartConfig).kind);
 
+/** What a screen that gives nothing beyond the body and the world provides. */
+const NOTHING: readonly Provision[] = Object.freeze([]);
+
+/** Why a part that `needs` something cannot run on a screen that `provides` what it does, or null. */
+const unprovided = (needs: Provision | undefined, provides: readonly Provision[]): string | null =>
+  needs === undefined || provides.includes(needs) ? null : `this screen gives no ${needs}`;
+
 /**
- * **What is wrong with the tree `config` roots**, each a sentence. A part's own faults come first,
- * then each slot's, each prefixed with where it is (`subs.0: `). A slot that holds what is no part,
- * a part of another role, or nothing where it must hold one is a fault; a part's own faults
+ * **What is wrong with the tree `config` roots** on a screen that `provides` what it does, each a
+ * sentence. A part's own faults come first, then each slot's, each prefixed with where it is
+ * (`subs.0: `). A part the screen cannot run (`Part.needs`), a slot that holds what is no part, a
+ * part of another role, or nothing where it must hold one is a fault; a part's own faults
  * (`Part.faults`) are read only once every slot holds parts of its role.
  */
-export function treeFaults(config: PartConfig, at = ""): readonly string[] {
+export function treeFaults(config: PartConfig, provides: readonly Provision[] = NOTHING, at = ""): readonly string[] {
   const where = (fault: string, path = at) => path ? `${path}: ${fault}` : fault;
   const kind = (value: unknown) => `no part of kind ${JSON.stringify((value as { kind?: unknown } | null)?.kind)}`;
   if (!isPart(config)) return [where(kind(config))];
@@ -54,10 +62,11 @@ export function treeFaults(config: PartConfig, at = ""): readonly string[] {
       const here = slot.many ? `${path}.${i}` : path;
       if (!isPart(child)) { formed = false; slots.push(where(kind(child), here)); }
       else if (partOf(child).role !== slot.role) { formed = false; slots.push(where(`a ${partOf(child).role} part cannot go where a ${slot.role} part goes`, here)); }
-      else slots.push(...treeFaults(child, here));
+      else slots.push(...treeFaults(child, provides, here));
     });
   }
-  return [...(formed ? partOf(config).faults(config).map((fault) => where(fault)) : []), ...slots];
+  const screen = unprovided(partOf(config).needs, provides);
+  return [...(screen ? [where(screen)] : []), ...(formed ? partOf(config).faults(config).map((fault) => where(fault)) : []), ...slots];
 }
 
 /** Whether a body of `spec` can carry out what every part of the tree `config` roots commands. */
@@ -84,8 +93,11 @@ interface Offered {
   readonly reason: string | null;
 }
 
-/** **Every part of `role`**, in the list's order, each with why it cannot go in a slot of a body of `spec`, or null. None is left out. */
-export function kindsFor(role: Role, spec: BodySpec): readonly Offered[] {
+/**
+ * **Every part of `role`**, in the list's order, each with why it cannot go in a slot of a body of
+ * `spec` on a screen that `provides` what it does, or null. None is left out.
+ */
+export function kindsFor(role: Role, spec: BodySpec, provides: readonly Provision[] = NOTHING): readonly Offered[] {
   return Object.entries(PARTS as Readonly<Record<string, Part>>).filter(([, part]) => part.role === role)
-    .map(([kind, part]) => ({ kind, part, reason: treeFits(spec, part.defaults) ? null : "does not fit this body" }));
+    .map(([kind, part]) => ({ kind, part, reason: treeFits(spec, part.defaults) ? unprovided(part.needs, provides) : "does not fit this body" }));
 }

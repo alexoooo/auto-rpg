@@ -518,7 +518,8 @@ experiment's settings, which never travel in a link.
 **The fighter's slots** (`FighterConfig`) are its tactics, a skill of each role and its
 sub-minds. Its tactics (`tacticsOf`, `tactics-of.ts`) are `seek` (`recipeTactics`, with `guard`,
 `aim` and `range`) or `openings` (`pathTactics`, with the hand that attacks, its blows, the
-surface it favours, its defence, its combinations and its spacing). Its skills are its walk
+surface it favours, its defence, its combinations and its spacing), `script` (the screen's own,
+carried out as written: the Lab's modes write one) or `stand` (in guard the way the body faces). Its skills are its walk
 (`stance-walk`), its guard (`cover-guard`), its blow (`recipe-strike`, or `path-strike`, which may
 begin a hand while the other returns), and, optionally, a kick (`front-kick`) and low support
 (`support-fold`): an empty slot is a fighter that does not do that. The tactics plan by what the
@@ -534,22 +535,26 @@ strike carries out a blow only along a path, and these tactics name none`). The 
 `sub-mind`, `tactics`, or a skill's: `locomotion`, `guard`, `blow`, `kick`, `support`), a label, a stage (`game`, or `experimental` for research offered beside the
 game's), the settings a person may change (`fields`, built from `fields.ts`'s `choice`, `toggle`
 and `number`), its slots, the config it starts from (`defaults`), the bodies it fits (`fits`) and
-what is wrong with a config of it (`faults`). A slot is a key of the config that holds another
+what is wrong with a config of it (`faults`), and what it needs of the screen it runs on (`needs`, a
+`Provision`: the script tactics need a script, which only the Lab gives). A slot is a key of the config that holds another
 part of a stated role, or none where it is optional (`slotOne`), or a ranked list of them
 (`slotList`). The controllers are the parts of role `mind`; the sub-minds are `SUB_MIND_PARTS`;
 the tactics `TACTICS_PARTS`; the skills `SKILL_PARTS`; `PARTS` (`src/core/mind/catalog.ts`) is every
 part by kind, typed so that a kind without one does not compile. Over it, once for every part:
 `treeFaults` names each fault by its path in the tree (`subs.0: ...`), a part of the wrong role
-in a slot among them, a part's own faults read once each of its slots holds parts of its role; `treeFits` asks every part whether it fits a body; `withoutTuning` leaves
+in a slot and a part whose need its screen does not provide (`tactics: this screen gives no
+script`) among them, a part's own faults read once each of its slots holds parts of its role; `treeFits` asks every part whether it fits a body; `withoutTuning` leaves
 out every part's `tuning`; and `kindsFor` lists every part of a role, none left out, each with
-the reason it cannot go there for a body or null. The fighter hands its body to the sub-minds in
+the reason it cannot go there for a body or on a screen, or null. The fighter hands its body to the sub-minds in
 its `subs` slot.
 
 **The mind editor** (`mindEditor`, `src/ui/mind-editor.ts`) draws a tree for a body: each part's
 fields, its research `tuning` read-only, each single slot as a picker of every part of its role
 (the ones that cannot go there disabled with the reason, an experimental one so labelled), each
 list slot with add, move up and remove, and the tree's faults by path. It is the Arena's panel
-under each side's controller. A side's mind travels in a link as its preset (`&control=`) or,
+under each side's controller, the Lab's under its body, and the Crypt's under each hero on the
+start panel (`partyMinds`, `src/dungeon/party-minds.ts`). A screen's link carries a mind as the id
+of one of its presets or as the whole tree (`readMind`, `mindText`). A side's mind travels in a link as its preset (`&control=`) or,
 once edited, as its whole config in JSON under `&left.mind=` or `&right.mind=` (`writeMind`,
 `parseMind` in `src/ui/mind-link.ts`; `linkedMind`, `readMinds` and `mindsSearch` in
 `src/arena/matchup.ts`), with no part's `tuning`: the reader drops any it finds, and a tree with a
@@ -557,15 +562,23 @@ fault, or one that does not fit its body, plays the preset whole while the panel
 A bout's HUD names the preset, `(edited)` where the link changes it (`controllerLabel`). A tape's
 link carries its minds, so a replay drives the same minds.
 
+**The mind inspector** (`mindInspector`, `src/ui/mind-inspector.ts`) shows a body's mind as it
+goes: its tree read-only, who has the body (`PhysicalBody.has`), and the part of the tree that holds
+the legs, the trunk and each hand (`SkillReport.holders`; a blow holds the hand it moves, by its
+goal or by its posture, `BlowSkill.holds`), whose slot it marks live. Each side's bar in the Arena's
+HUD has one, the Lab's thinking section one, and the Crypt's HUD one, for the enemy under the
+pointer, else the enemy the party is locked on, else the first selected member.
+
 There are three sub-minds, each of which wants the body while it is down
 (`BodyView.down`), and the body hands each maker its world (`SubMindMaker`): `lie` (`lying`,
 `lie.ts`), which asks its muscles for nothing, `staged-rise` (`stagedRise`, `rise/staged.ts`),
 the riser, and `support-recovery` (`supportRecovery`), the riser followed by a quiet standing
 handover. `RECIPE_FIGHTER` is Classic's fighter with `lie`: the mind every body has unless its fight says otherwise,
 so a body that falls lies still ([reference/rising.md](reference/rising.md#lying)). An arena
-recipe may name each side's mind (`DuelRecipe.minds`); the crypt gives every body `RECIPE_FIGHTER`;
-the lab's actor, whose tactics are its scenario's, takes the sub-minds its page chose
-(`ActorOptions.subs`, made by `subMindsOf`), and `RECIPE_FIGHTER`'s unless it is given others.
+recipe may name each side's mind (`DuelRecipe.minds`); the crypt gives an enemy its model's (`modelInfo`) and a party member the
+mind chosen for its model on the start panel (`DungeonRunOptions.minds`), its model's unless one
+was; the lab's actor drives the fighter its page chose (`ActorOptions.mind`), the Script preset
+unless it is given another.
 
 **The riser plays a recipe** (`Recipe`, `RISE`, `rise/stages.ts`): plain data that names
 freedoms and limbs, and no body. It lies slack until its centre of mass is still, reads how it
@@ -1014,7 +1027,8 @@ arena, crypt and lab screens at `?play=arena`, `?play=dungeon` and `?play=lab`, 
 `<template>` mounted once per page load. Changing screen is a navigation.
 
 - **The Arena** (`src/arena/`): two clubbed bodies in the Forge (`src/arena/scene.ts`,
-  `src/arena/room.ts`), each driven by `recipeTactics` under a `Duel`, to a verdict. A person
+  `src/arena/room.ts`), each driven by its side's mind under a `Duel`, to a verdict, each
+side's mind inspected under its bar. A person
   may take a side (`&you=left`): each frame the page turns the walking keys, as the camera sees
   the ground, and the pointer's ray, where it crosses the level of the body's centre of mass,
   into world directions (`src/arena/orders-input.ts`) and gives them as orders (`Duel.order`),
@@ -1032,7 +1046,8 @@ arena, crypt and lab screens at `?play=arena`, `?play=dungeon` and `?play=lab`, 
   within reach (below `ROOM.maxReachHeight`) that names none.
 - **The Crypt** (`src/dungeon/`): a party in a generated dungeon (`DungeonRun`, `run.ts`). The
   map's walls, doors and obstacles are fixed boxes in the world (`buildDungeonWorld`); every
-  body is driven by its model's default mind; generated rooms alternate skeletons and three-reptile
+  enemy is driven by its model's mind, and each party member by the mind chosen for its model on
+the start panel (`partyMinds`, carried by `&<model>.mind=`), which the HUD inspects (`inspectMind`); generated rooms alternate skeletons and three-reptile
   packs, with collider clearance and reachable routes checked before choosing a layout.
   Point-only maps retain skeletons. Every built actor receives the run's shared senses;
   a reptile remains alive during recovery and must stand to reach the exit.
@@ -1046,12 +1061,14 @@ arena, crypt and lab screens at `?play=arena`, `?play=dungeon` and `?play=lab`, 
 - **The lab** (`src/lab/`): one body at a time in the Stance, Routine, Run and Blow
   scenarios (`scenarios.ts`), at 120 or 480 Hz, with a transport that steps the world by hand.
   Every scenario drives its body through an actor (`actor.ts`), which gives the body what the
-  page chose: its balance, its mind, what it does once it is down (to lie, or to rise by
-  stages: `LAB_MINDS`, `LAB_DOWN`, `minds.ts`) and the strikes it may throw. The Routine's
+  page chose: its balance, its mind and the strikes it may throw. The mind is a fighter
+  (`labMind`): a preset (`LAB_PRESETS`: Script, whose tactics follow the scenario's script, or
+  Guard, which stands in guard) or any tree changed from one, carried by `&mind=`, the sub-mind
+  that has the body once it is down among its parts. The Routine's
   targets are bodies (`targets.ts`): a ball of the attacker's head, hung where a seed drew it as
   the strike at it begins and read by the rule a fight wounds by (`watchBlows`), one at a time
-  ([reference/blows.md](reference/blows.md#targets)). The page logs what
-  the mind decides, and who has the body when it changes hands (`mind-log.ts`), and what the body
+  ([reference/blows.md](reference/blows.md#targets)). The page inspects the
+  mind as it goes (`mindInspector`), logs what it decides, and who has the body when it changes hands (`mind-log.ts`), and what the body
   sounds of (`sound-log.ts`): its touches, its air, the touches of a target that hangs beside it,
   and the cue of the instrument that is no contact, the shove, each at the
   mind's time, so the page plays what the frame it shows sounded of, live or replayed. Its HUD is sections (`hud/sections.ts`) that the shell and the scenario fill with controls

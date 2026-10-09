@@ -7,6 +7,9 @@ import type { PartField } from "./fields.ts";
  */
 export type Role = "mind" | "sub-mind" | "tactics" | "locomotion" | "guard" | "blow" | "kick" | "support";
 
+/** What a screen gives a mind beyond the body and the world: the Lab gives its scenario's script (`MindWiring.script`). */
+export type Provision = "script";
+
 /** Whether a part is the game's, or research offered beside it: either is shown and may be chosen. */
 type Stage = "game" | "experimental";
 
@@ -39,6 +42,8 @@ export interface Part<C extends PartConfig = PartConfig> {
   readonly slots: readonly Slot[];
   /** The config a slot set to this kind takes. */
   readonly defaults: C;
+  /** What a screen must give a mind for this part to run, if anything. */
+  readonly needs?: Provision;
   /** Whether a body of `spec` can carry out what a part of `config` commands. */
   fits(spec: BodySpec, config: C): boolean;
   /**

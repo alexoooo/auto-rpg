@@ -7,6 +7,7 @@ import type { Skills } from "../skills/skills.ts";
 import type { BodySpec } from "../spec/body.ts";
 import type { World } from "../world.ts";
 import type { MindConfig } from "./config.ts";
+import type { Tactics } from "./tactics.ts";
 import { treeFaults } from "./catalog.ts";
 import { controllerOf } from "./controllers.ts";
 import type { Orders } from "./orders.ts";
@@ -24,6 +25,8 @@ export interface MindWiring {
   readonly senses?: () => Senses;
   /** The most its assist gives it; none unless given. */
   readonly assist?: AssistCeiling;
+  /** The screen's script, which tactics of kind `script` carry out: the Lab's scenario. None unless given. */
+  readonly script?: Tactics;
 }
 
 /** What every kind of mind gives the fight that made it. */
@@ -51,9 +54,13 @@ export function builtAngles(spec: BodySpec, config: MindConfig): Record<string, 
   return poseAngles(spec, controllerOf(config).builtIn(spec, config));
 }
 
-/** `built` under the mind `config` names, wired to its fight, made by its controller (`CONTROLLERS`); a config with a fault anywhere in its tree (`treeFaults`) is refused. */
+/**
+ * `built` under the mind `config` names, wired to its fight, made by its controller
+ * (`CONTROLLERS`); a config with a fault anywhere in its tree (`treeFaults`, with the script if
+ * the wiring gives one) is refused.
+ */
 export function createMind(built: BuiltBody, world: World, config: MindConfig, wiring: MindWiring): Minded {
-  const fault = treeFaults(config)[0];
+  const fault = treeFaults(config, wiring.script ? ["script"] : [])[0];
   if (fault) throw new Error(fault);
   return controllerOf(config).create(built, world, config, wiring);
 }

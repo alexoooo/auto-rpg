@@ -16,9 +16,9 @@ import { labActor } from "../src/lab/actor.ts";
 import { throwBlow, watchBlow } from "../src/lab/blow.ts";
 import { LAB_BLOWS } from "../src/lab/blows.ts";
 import { allowing, loadoutSpec } from "../src/lab/loadout.ts";
-import { LAB_DOWN, LAB_MINDS } from "../src/lab/minds.ts";
+import { tacticsOf } from "../src/core/mind/tactics-of.ts";
 import { startRoutine } from "../src/lab/routine.ts";
-import { LAB_DOWN_IDS, LAB_MIND_IDS } from "../src/lab/scenarios.ts";
+import { LAB_PRESETS, labMind } from "../src/lab/scenarios.ts";
 import { startStance } from "../src/lab/stance-mode.ts";
 import { WARRIOR_STRAIGHT } from "./fixtures/strikes.mjs";
 import { coreStand } from "./harness/core-stand.mjs";
@@ -128,16 +128,27 @@ test("with_every_strike_barred_the_routine_walks_to_its_targets_and_back", async
   } finally { routine.dispose(); stand.dispose(); }
 });
 
-test("the_first_lab_mind_is_the_script_itself_and_the_guard_stands_the_way_it_faces", () => {
-  assert.deepEqual(Object.keys(LAB_MINDS), LAB_MIND_IDS);
-  assert.deepEqual(LAB_MIND_IDS.map((id) => LAB_MINDS[id].strikes), [true, false]);
+test("the_first_lab_preset_follows_the_script_and_the_guard_stands_the_way_it_faces", () => {
+  assert.deepEqual(Object.keys(LAB_PRESETS), ["script", "guard"]);
+  assert.deepEqual(Object.values(LAB_PRESETS).map(({ config }) => config.tactics), [{ kind: "script" }, { kind: "stand" }]);
   const script = { name: "a script", decide: () => { throw new Error("the script decided"); } };
-  assert.equal(LAB_MINDS.script.tactics(script), script);
-  assert.deepEqual(LAB_MINDS.guard.tactics(script).decide({ report: { heading: 1.25 } }, 1 / 120), standIntent(1.25));
+  const tactics = (config, given) => tacticsOf(config.tactics, null, "lab", null, () => null, given);
+  assert.equal(tactics(LAB_PRESETS.script.config, script), script);
+  assert.throws(() => tactics(LAB_PRESETS.script.config, undefined), /need the screen's script/);
+  assert.deepEqual(tactics(LAB_PRESETS.guard.config, script).decide({ report: { heading: 1.25 } }, 1 / 120), standIntent(1.25));
+});
+
+test("a_lab_body_plays_the_mind_it_is_given_or_the_script_preset_where_that_has_a_fault", () => {
+  const spec = humanSpec("workshop-fighter"), guard = LAB_PRESETS.guard.config;
+  assert.deepEqual(labMind(guard, spec), { plays: guard, faults: [] });
+  // A mind of another kind, and a fighter whose parts disagree, play the Script preset whole.
+  assert.deepEqual(labMind({ kind: "lie" }, spec), { plays: LAB_PRESETS.script.config, faults: ["the Lab drives a fighter"] });
+  assert.deepEqual(labMind({ ...guard, kick: { kind: "front-kick" } }, spec),
+    { plays: LAB_PRESETS.script.config, faults: ["kick: these tactics never kick"] });
 });
 
 test("under_the_guard_a_mode_stands_still_while_its_instruments_run", async () => {
-  const mind = LAB_MINDS.guard.tactics;
+  const mind = LAB_PRESETS.guard.config;
   // The Routine: its clock runs, and it neither walks nor strikes.
   const stand = await coreStand(humanSpec("workshop-fighter"), { ground: true });
   const routine = startRoutine(labActor(stand.built, stand.world, { mind }));
@@ -169,9 +180,28 @@ test("under_the_guard_a_mode_stands_still_while_its_instruments_run", async () =
   }
 });
 
-test("a_lab_body_that_is_down_is_handed_to_the_sub_minds_its_actor_is_given", async () => {
-  assert.deepEqual(LAB_DOWN_IDS, ["lie", "rise"]);
-  assert.deepEqual(LAB_DOWN_IDS.map((id) => [LAB_DOWN[id].name, LAB_DOWN[id].subs]), [["Lies", [{ kind: "lie" }]], ["Rises", [{ kind: "staged-rise" }]]]);
+test("while_a_lab_blow_is_under_way_the_skills_its_actor_reports_give_the_hand_to_the_blow", async () => {
+  // What a mind's inspector reads (`mindInspector`): the hand under the blow is the blow's, before and after it the guard's.
+  const stored = LAB_BLOWS[0], seconds = STAND + stored.strike.chamber.seconds + 0.5;
+  const armed = await coreStand(loadoutSpec({ model: stored.model, right: "club", left: "empty" }), { ground: true });
+  const actor = labActor(armed.built, armed.world);
+  assert.equal(actor.skills, null, "nothing is reported before a mode drives it");
+  const blow = throwBlow(actor, { hand: stored.hand, strike: stored.strike, place: stored.place, band: stored.band });
+  try {
+    const seen = new Set();
+    for (let i = 0; i < armed.seconds(seconds); i++) {
+      armed.step(1);
+      const { strike, holders } = actor.skills.report;
+      seen.add(`${strike.phase ? "blow" : "none"} ${holders[stored.hand]} ${holders.left}`);
+    }
+    assert.deepEqual([...seen].sort(), ["blow blow guard", "none guard guard"]);
+  } finally { blow.dispose(); armed.dispose(); }
+});
+
+test("a_lab_body_that_is_down_is_handed_to_the_sub_minds_its_mind_names", async () => {
+  assert.deepEqual(Object.values(LAB_PRESETS).map(({ config }) => config.subs), [[{ kind: "lie" }], [{ kind: "lie" }]]);
+  /** The Script preset with `subs` for its sub-minds. */
+  const subs = (list) => ({ mind: { ...LAB_PRESETS.script.config, subs: list } });
   /** The Warrior standing under an actor given `options`, shoved 120 N s forward at its middle trunk a second in: who has it a second after it is down. */
   const has = async (options) => {
     const stand = await coreStand(humanSpec("workshop-fighter"), { ground: true });
@@ -189,8 +219,8 @@ test("a_lab_body_that_is_down_is_handed_to_the_sub_minds_its_actor_is_given", as
   };
   // Given none it has the game's, which lies.
   assert.deepEqual(await has(undefined), [true, "lie"]);
-  assert.deepEqual(await has({ subs: LAB_DOWN.lie.subs }), [true, "lie"]);
-  assert.deepEqual(await has({ subs: LAB_DOWN.rise.subs }), [true, "staged-rise"]);
+  assert.deepEqual(await has(subs([{ kind: "lie" }])), [true, "lie"]);
+  assert.deepEqual(await has(subs([{ kind: "staged-rise" }])), [true, "staged-rise"]);
   // Given no sub-mind, nobody takes it from the command layers.
-  assert.deepEqual(await has({ subs: [] }), [true, "command"]);
+  assert.deepEqual(await has(subs([])), [true, "command"]);
 });

@@ -62,6 +62,9 @@ body {
 
 .hud-clock { align-items: center; }
 #arena-pause { pointer-events: auto; width: auto; min-height: 44px; padding: 8px 14px; }
+.hud-mind { pointer-events: auto; width: min(300px, calc(50vw - 40px)); max-height: calc(100dvh - 220px); overflow-y: auto; padding: 6px 10px; background: #0a0e16c0; border-radius: 4px; text-align: left; }
+.hud-mind summary { cursor: pointer; color: var(--dim); }
+.hud-mind select { max-width: 100%; }
 
 /* The view panel leaves the centre of a live or paused bout open. */
 #arena-view {
@@ -245,12 +248,10 @@ body:has(#curtain:not(.gone)) #hud { visibility: hidden; }
 #curtain .settings select, #curtain .settings input { padding: 6px 8px; font: 13px Georgia, serif; letter-spacing: 0; text-transform: none; }
 #curtain .settings input { width: 100%; box-sizing: border-box; color: #ecddc5; background: #141013df; border: 1px solid #8b684861; text-align: center; }
 #curtain .settings-fault { margin: 6px 0 0; color: #d0705e; font-size: 12px; }
-#curtain .mind-part .mind-part { margin: 4px 0 0 10px; padding-left: 8px; border-left: 1px solid #8b684861; }
-#curtain .mind-slot-name { display: block; margin-top: 8px; font-size: 12px; color: #b7a790; }
-#curtain .mind-item-line { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 4px; margin-top: 6px; }
+#curtain .mind-slot-name { font-size: 12px; color: #b7a790; }
 #curtain .mind-item-line button { padding: 2px 8px; font: 13px Georgia, serif; }
 #curtain .mind-slot > select { width: 100%; margin-top: 6px; }
-#curtain .mind-tuning { margin: 6px 0 0; padding: 6px; max-height: 12em; overflow: auto; font-size: 11px; color: #b7a790; background: #141013df; white-space: pre-wrap; }
+#curtain .mind-tuning { color: #b7a790; background: #141013df; }
 .contender-preview { width: 100%; height: 100%; min-height: 0; display: block; pointer-events: none; }
 #curtain .field { display: grid; gap: 8px; margin: 0; }
 #curtain .contender .field-name { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }

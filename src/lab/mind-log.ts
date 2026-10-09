@@ -2,7 +2,7 @@ import type { Body } from "../core/body.ts";
 import type { Intent } from "../core/mind/intent.ts";
 import type { Sight, Tactics } from "../core/mind/tactics.ts";
 import type { Hook, World } from "../core/world.ts";
-import { deciding } from "./minds.ts";
+import { deciding } from "./actor.ts";
 import type { Side } from "../core/spec/body.ts";
 
 /**

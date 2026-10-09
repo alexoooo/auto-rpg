@@ -7,6 +7,7 @@
  * guaranteed complete. So the screens' ids and stylesheets never meet.
  */
 import "./menu.css";
+import "./ui/mind.css";
 import { MENU_HREF, playHref, routeFor, type Route } from "./app-route.ts";
 import { labAddress } from "./lab/scenarios.ts";
 import { need } from "./dom.ts";

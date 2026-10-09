@@ -1,0 +1,13 @@
+/* A mind's tree (`mind-editor.ts`) and its inspector (`mind-inspector.ts`), on every screen; a screen's own sheet dresses them further. */
+.mind-editor .field { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); align-items: center; gap: 6px; margin-top: 4px; }
+.mind-editor select, .mind-editor input { min-width: 0; width: 100%; }
+.mind-part .mind-part { margin: 4px 0 0 10px; padding-left: 8px; border-left: 1px solid #8b684861; }
+.mind-slot-name { display: block; margin-top: 8px; }
+.mind-item-line { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 4px; margin-top: 6px; }
+.mind-tuning { margin: 6px 0 0; padding: 6px; max-height: 12em; overflow: auto; font-size: 11px; white-space: pre-wrap; background: #0000004d; }
+.mind-editor .settings-fault { margin: 6px 0 0; color: #d0705e; }
+.mind-slot.live { box-shadow: inset 2px 0 #e8b45a; padding-left: 6px; }
+.mind-slot.live > .field > span, .mind-slot.live > .mind-slot-name { color: #e8b45a; }
+.mind-live { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px 10px; margin: 0 0 8px; }
+.mind-live dt { opacity: .7; }
+.mind-live dd { margin: 0; }

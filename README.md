@@ -128,14 +128,20 @@ runs (`&control=classic,brawler`), each side's mind as edited in the **Mind** pa
 controller (`&left.mind=`, written by the panel), and carry a bout's orders after a `#tape=`, which the arena then plays
 again by itself.
 
+During a bout, **Mind** under each side's bar opens that side's mind as it fights: who has the
+body, which of its parts holds the legs, the trunk and each hand, and the whole of it, read-only.
+
 ## The Crypt
 
 Choose **Dungeon**, click a standing character (Warrior, Rogue or Skeleton), choose a **Level**,
 and press **Start**. Companions default to **None**; up to three can join. **Options** holds the seed
-and the crypt levels' rendering quality. Walk to the exit's green ring. Everybody carries a club; the enemies are
+and the crypt levels' rendering quality. **Minds** chooses each hero's mind as a party member: its
+own, a preset, or any of its parts changed. Walk to the exit's green ring. Everybody carries a club; the enemies are
 skeletons, built and woken as the party comes near. The run is won when anybody standing reaches
 the exit and lost when the whole party is down. What the party sees it hears: footfalls, swings,
-blows and falls, nearer ones louder, over the torches and the drips.
+blows and falls, nearer ones louder, over the torches and the drips. The **Mind** panel shows the
+mind of the enemy under the pointer, else of the enemy the party fights, else of the first selected
+member: an enemy's mind is its body's own, shown and never changed.
 
 The dungeons:
 - **Generated depths** (the default): a floor of rooms and corridors after Diablo's Cathedral.
@@ -171,9 +177,11 @@ without resuming on its own.
   what the blow cost each of the two.
 
 Its sections, each of which folds away, choose the body and its balance, what each hand holds,
-boots and armour, its mind, whether it lies or tries to rise once it is down (**Down**: the
-Warrior gets up from most falls, with the club or without) and the strikes it may throw, the
-camera (Free, Isometric or Chase), the view, and 120 or 480 Hz; one logs what the mind decides.
+boots and armour, its mind (**Preset**: Script carries out the scenario, Guard stands in guard;
+any of its parts may be changed, among them what has the body once it is down: the staged rise gets
+the Warrior up from most falls, with the club or without) and the strikes it may throw, the camera
+(Free, Isometric or Chase), the view, and 120 or 480 Hz; one shows the mind as it goes and logs
+what it decides.
 The transport pauses (Space), steps one physics step at a time, scrubs, and slows time to 1/4 or
 1/10.
 

@@ -11,6 +11,8 @@ import "@babylonjs/core/Culling/ray.js";
 import type { PhysicsEngine } from "../core/engine/engine.ts";
 import { loadEngine } from "../core/engine/engines.ts";
 import { HUMANOID_MODELS, type BodyModel } from "../core/models.ts";
+import type { MindConfig } from "../core/mind/config.ts";
+import { mindInspector } from "../ui/mind-inspector.ts";
 import { MODEL_DISPLAY } from "../render/models.ts";
 import type { Clothing } from "../render/skin-view.ts";
 import { loadSkeletonArt, type SkeletonArt } from "../render/skeleton-skin.ts";
@@ -30,6 +32,7 @@ import { lightDungeon, REFERENCE_LIGHT, type DungeonLighting } from "./lighting.
 import { lookProbe } from "./look-probe.ts";
 import { frameMeter } from "./frame-meter.ts";
 import { dungeonStone, stoneQuery } from "./stone.ts";
+import { partyMinds } from "./party-minds.ts";
 
 import { type CryptRoomPlan } from "./crypt-plan.ts";
 import { generateCryptDungeon } from "./crypt-dungeon.ts";
@@ -107,6 +110,8 @@ for (const hero of HEROES) {
   label.append(input, name); heroChoices.append(label);
 }
 const heroLabel = (model: BodyModel) => HEROES.find(h => h.model === model)?.label ?? model;
+/** Each hero's mind, as a party member: chosen on the start panel and carried by the address. */
+const partyMindPanel = partyMinds(need("party-mind-list"), HEROES.map(h => h.model), location.search);
 
 const scenario = need<HTMLFieldSetElement>("dungeon-scene"), quality = need<HTMLSelectElement>("dungeon-quality");
 const requestedScene = new URLSearchParams(location.search).get("scene");
@@ -156,6 +161,8 @@ interface DungeonPage {
 
   /** What the start panel chose for the run. */
   selectedHero: BodyModel;
+  /** The party's minds by model (`partyMinds`). */
+  minds: Readonly<Partial<Record<BodyModel, MindConfig>>>;
   companions: BodyModel[];
   clothing: Clothing;
   selectedScenario: DungeonScenario;
@@ -191,6 +198,10 @@ interface DungeonPage {
   readonly held: Set<string>;
   /** Where the pointer is over the canvas, for the hover's pick; null when it is not over it. */
   hoverPointer: { clientX: number; clientY: number } | null;
+  /** The enemy under the pointer, outlined; null when there is none. */
+  hovered: DungeonActor | null;
+  /** The body whose mind the HUD's inspector shows, its combatant, and the inspector; null before one is shown. */
+  inspected: { readonly actor: DungeonActor; readonly fighter: NonNullable<DungeonActor["fighter"]>; readonly inspector: ReturnType<typeof mindInspector> } | null;
 }
 
 /** The page before its first run: the engines, the sound, the look's probe and the frame meter. */
@@ -210,11 +221,11 @@ function createPage(physicsEngine: PhysicsEngine, skeletonArt: Promise<SkeletonA
     meterElement, meterParent: meterElement.parentElement!, diagnostics,
     abort, signal: abort.signal,
     party: null,
-    selectedHero: "workshop-fighter", companions: [], clothing: { boots: true, armour: true },
+    selectedHero: "workshop-fighter", minds: {}, companions: [], clothing: { boots: true, armour: true },
     selectedScenario: "generated", selectedQuality: "high", reference: false,
     seed: 0, cryptPlan: undefined, scene: null, run: null, hearing: null, camera: null, lighting: null, referenceLook: null,
     drawn: [], soundTorches: [], route: null, routeSignature: "",
-    paused: false, launching: false, zoom: 10, lastUi: 0, held: new Set(), hoverPointer: null,
+    paused: false, launching: false, zoom: 10, lastUi: 0, held: new Set(), hoverPointer: null, hovered: null, inspected: null,
   };
   return page;
 }
@@ -281,6 +292,9 @@ function sampleKeys(page: DungeonPage): void {
 function teardownRun(page: DungeonPage): void {
   page.hover.dispose();
   page.hoverPointer = null;
+  page.hovered = null;
+  page.inspected = null;
+  need("mind-view").replaceChildren();
   page.referenceLook?.dispose();
   page.referenceLook = null;
   page.lighting?.dispose();
@@ -357,7 +371,7 @@ async function buildRun(page: DungeonPage, nextSeed: number): Promise<void> {
   const run = page.run = new DungeonRun(scene, {
     seed, engine: page.physicsEngine,
     visuals: { ...dungeonStone(scene, stone.floor, stone.wall), masonry: reference ? false : stone.masonry },
-    layout, hero: page.selectedHero, companions: page.companions, onBuilt: dress,
+    layout, hero: page.selectedHero, companions: page.companions, minds: page.minds, onBuilt: dress,
     // A blow is a touch, and is heard as one (`hearRun`); this is what it took off, where the party can see.
     onBlow: (blow) => {
       const heard = page.run;
@@ -461,8 +475,10 @@ function wireControls(page: DungeonPage): void {
     page.selectedScenario = scenarioOf(choice(scenario));
     page.reference = usesReferenceLook(page.selectedScenario);
     page.selectedQuality = quality.value === "reduced" ? "reduced" : "high";
-    // The address keeps the scenario, so that a reload opens the same one.
+    page.minds = partyMindPanel.minds();
+    // The address keeps the scenario and the party's minds, so that a reload opens the same.
     const url = new URL(location.href);
+    partyMindPanel.write(url);
     if (page.reference) {
       url.searchParams.set("scene", page.selectedScenario);
       url.searchParams.set("quality", page.selectedQuality);
@@ -618,6 +634,7 @@ function wirePointer(page: DungeonPage, party: Party): void {
   }, { signal });
   const unhover = () => {
     page.hoverPointer = null;
+    page.hovered = null;
     hover.clear();
   };
   canvas.addEventListener("pointerleave", unhover, { signal });
@@ -680,19 +697,44 @@ function refreshHud(page: DungeonPage, party: Party): void {
   }
   need("notice").textContent = run.notice;
   drawRoutes(page);
+  inspectMind(page, run);
+}
+
+/**
+ * Shows in the HUD the mind of the enemy under the pointer, else of the enemy the party is locked
+ * on, else of the first selected party member, else the hero's (`mindInspector`): who has the
+ * body and which part of the mind holds each part of it. An enemy's mind is its model's, shown and
+ * never changed; a party member's was chosen on the start panel.
+ */
+function inspectMind(page: DungeonPage, run: DungeonRun): void {
+  const target = run.leader.target?.alive ? run.leader.target : null;
+  const actor = page.hovered ?? target ?? run.party.find((member) => run.selected.has(member.id)) ?? run.hero;
+  const fighter = actor.fighter;
+  if (!fighter) return;
+  if (page.inspected?.actor !== actor || page.inspected.fighter !== fighter) {
+    const minded = fighter.minded;
+    const inspector = mindInspector(fighter.mind, fighter.built.spec, () => actor.fighter === fighter
+      ? { body: minded.body, skills: minded.kind === "fighter" ? minded.skills : null } : null);
+    page.inspected = { actor, fighter, inspector };
+    need("mind-who").textContent = `${actor.name.replaceAll("-", " ")} · ${actor.side === "enemy" ? "enemy" : "party"}`;
+    need("mind-view").replaceChildren(inspector.element);
+  }
+  page.inspected.inspector.refresh();
 }
 
 /** Outlines the enemy under the pointer, when the pointer is over the canvas and nothing of the HUD covers it. */
 function hoverEnemy(page: DungeonPage, scene: Scene, run: DungeonRun): void {
   const { hover, hoverPointer, camera, engine } = page;
   if (!hoverPointer || !camera || document.elementFromPoint(hoverPointer.clientX, hoverPointer.clientY) !== canvas) {
+    page.hovered = null;
     hover.clear();
     return;
   }
   const p = pickingCoordinates(hoverPointer.clientX, hoverPointer.clientY, canvas.getBoundingClientRect(),
     engine.getRenderWidth(), engine.getRenderHeight(), engine.getHardwareScalingLevel());
   const hit = scene.pick(p.x, p.y, (mesh) => mesh.isVisible && run.targetAt(mesh) !== null, false, camera);
-  hover.show(hit?.pickedMesh ? run.targetAt(hit.pickedMesh) : null);
+  page.hovered = hit?.pickedMesh ? run.targetAt(hit.pickedMesh) : null;
+  hover.show(page.hovered);
 }
 
 /** One drawn frame: the world and the torches advanced by the real time since the last unless the page is paused,

@@ -30,12 +30,12 @@ import { viewSection } from "./hud/view-section.ts";
 import { SCENARIO_PANELS, type LabScenario, type LabShell, type ScenarioRun } from "./lab-scenario.ts";
 import { allowing, loadoutBalance, loadoutSpec } from "./loadout.ts";
 import { createMindLog, logged, watchHas, type MindLog } from "./mind-log.ts";
-import { LAB_DOWN, LAB_MINDS } from "./minds.ts";
 import { blowScenario } from "./blow-scenario.ts";
 import { routineScenario } from "./routine-scenario.ts";
 import { runScenario } from "./run-scenario.ts";
 import { createSoundLog, LAB_BODY, logSounds, type SoundLog } from "./sound-log.ts";
-import { labHref, SCENARIOS, type LabAddress, type ScenarioId } from "./scenarios.ts";
+import { labHref, labMind, SCENARIOS, type LabAddress, type ScenarioId } from "./scenarios.ts";
+import { mindInspector } from "../ui/mind-inspector.ts";
 import { dresserFor } from "../render/dress.ts";
 import { skinSlot, type SkinSlot } from "../render/skin-slot.ts";
 import { appearanceFor, type Appearance } from "../render/appearance.ts";
@@ -51,8 +51,8 @@ import { need } from "../dom.ts";
  * them with its own controls, each section's in its module, then with the scenario's panels.
  *
  * The body is the loadout's (`loadout.ts`): the model, and what each hand holds. Its assist
- * (`actor.ts`) has the ceiling its balance buys (`loadoutBalance`), named by the clock. Its mind (`minds.ts`)
- * makes its tactics of the scenario's script, and throws no strike the address bars; what it decides
+ * (`actor.ts`) has the ceiling its balance buys (`loadoutBalance`), named by the clock. Its mind (`labMind`, `scenarios.ts`)
+ * carries out the scenario's script or stands, and throws no strike the address bars; what it decides
  * is logged (`mind-log.ts`), and the Thinking section shows the log up to the time shown. It is drawn in one
  * of two views: World, the workshop model's skin (`skin.ts`), wearing the loadout's clothing, or
  * Tactical, the collision shapes themselves (`src/render/body-shapes.ts`); what a hand holds is drawn as its shapes
@@ -227,9 +227,9 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
     const balance = loadoutBalance(to.balance, built.spec);
     const log = createMindLog();
     const actor = labActor(built, world, {
-      assist: balanceCeiling(balance, PERCENT), allows: allowing(to.barred), mind: (script) => logged(LAB_MINDS[to.mind].tactics(script), log),
-      subs: LAB_DOWN[to.down].subs,
+      mind: labMind(to.mind, spec).plays, assist: balanceCeiling(balance, PERCENT), allows: allowing(to.barred), around: (tactics) => logged(tactics, log),
     });
+    thinking.inspect(mindInspector(labMind(to.mind, spec).plays, spec, () => ({ body: actor.body, skills: actor.skills })));
     const rest = built.segments.get("lowerTrunk")!.node.rotationQuaternion!.clone();
     const view = drawBody(built, scene, Color3.FromHexString(MODEL_DISPLAY[to.model].tint)), heldView = drawHeld(built, scene);
     const sounds = createSoundLog(world.dt, AIR_SECONDS), logging = logSounds(world, actor.body, sounds);

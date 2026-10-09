@@ -114,8 +114,9 @@ export function skillSet(body: Body, { state: tactics, engagement }: Pick<Tactic
       if (motion) command = { ...command, ...motion, effectors: { ...command.effectors, ...motion.effectors } };
       holders.legs = motion ? "kick" : laid && laid.stance !== stance ? "support" : !claim || claim.legs.kind === "free" ? "tactics" : "blow";
       holders.trunk = laid && laid.posture !== posture ? "support" : claim?.posture ? "blow" : "guard";
-      holders.left = hands.left ? "blow" : "guard";
-      holders.right = hands.right ? "blow" : "guard";
+      // A blow has a hand it moves by its goal, or by its posture where the guard leaves that hand alone (`BlowSkill.holds`).
+      holders.left = hands.left || blow.holds === "left" ? "blow" : "guard";
+      holders.right = hands.right || blow.holds === "right" ? "blow" : "guard";
       state.command = command;
       return command;
     },

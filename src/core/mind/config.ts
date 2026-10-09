@@ -80,8 +80,14 @@ export interface OpeningsConfig {
   };
 }
 
+/** **Tactics that carry out the screen's script** (`MindWiring.script`): the Lab's scenario, as its mode writes it. */
+interface ScriptConfig { readonly kind: "script" }
+
+/** **Tactics that stand in guard** the way the body faces, whatever is about. */
+interface StandConfig { readonly kind: "stand" }
+
 /** **Tactics' config**, by kind: what turns what a body sees into its intent. */
-export type TacticsConfig = SeekConfig | OpeningsConfig;
+export type TacticsConfig = SeekConfig | OpeningsConfig | ScriptConfig | StandConfig;
 
 /** **The walk** within the body's stance envelope (`locomotion`). */
 export interface StanceWalkConfig {

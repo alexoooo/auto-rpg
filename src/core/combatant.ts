@@ -34,9 +34,11 @@ interface Enlistment extends Pick<MindWiring, "name" | "orders" | "contactIdenti
   readonly percent?: AssistCeiling;
 }
 
-/** A body in a fight under its mind: what the blows read (`Fighter`), the mind, and the body it drives. */
+/** A body in a fight under its mind: what the blows read (`Fighter`), the mind, the config it was made from, and the body it drives. */
 export interface Combatant extends Fighter {
   readonly minded: Minded;
+  /** The config its mind was made from: what an inspector shows of it (`mindInspector`). */
+  readonly mind: MindConfig;
   readonly body: PhysicalBody;
 }
 
@@ -55,5 +57,5 @@ export function enlist(world: World, enlisting: Enlistment): Combatant {
     name: enlisting.name, senses, assist, orders: enlisting.orders,
     ...(enlisting.contactIdentity ? { contactIdentity: enlisting.contactIdentity } : {}),
   });
-  return { id, side, built, pool, minded, body: minded.body };
+  return { id, side, built, pool, minded, mind, body: minded.body };
 }

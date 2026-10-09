@@ -6,11 +6,17 @@ import { HUMANOID_MODELS, type HumanoidModel } from "../core/models.ts";
 import { MODEL_DISPLAY } from "../render/models.ts";
 import { balanceFrom } from "../core/rules/rulebook.ts";
 import { HELD, type Held } from "../core/items/held.ts";
+import { RECIPE_FIGHTER, type FighterConfig, type MindConfig } from "../core/mind/config.ts";
+import type { Provision } from "../core/mind/parts.ts";
+import type { BodySpec } from "../core/spec/body.ts";
+import { deepFreeze } from "../core/state.ts";
+import { mindFaults, mindText, readMind } from "../ui/mind-link.ts";
 
 /**
  * **The lab's scenarios, and the address that opens one.** `?play=lab` is the scenario menu
  * (`setup.ts`); `?play=lab&scenario=…` runs that scenario (`main.ts`), where the loadout, the balance, the mind, the
- * rate, the view and the camera are chosen, and the address keeps them. Choosing a scenario, or going back to
+ * rate, the view and the camera are chosen, and the address keeps them: the mind as a preset's id or
+ * its whole tree (`readMind`). Choosing a scenario, or going back to
  * the menu, is a navigation, as every change of screen in the game is.
  *
  * Pure and free of the DOM, so `tests/lab-scenarios.test.mjs` can argue with it; the menu
@@ -64,12 +70,28 @@ export type LabLoadout = { readonly model: HumanoidModel }
 export const LAB_RATES = [120, 480] as const;
 type LabRate = (typeof LAB_RATES)[number];
 
-/** What may drive the body (`LAB_MINDS`, `minds.ts`); the first is the default. */
-export const LAB_MIND_IDS = ["script", "guard"] as const;
-export type LabMindId = (typeof LAB_MIND_IDS)[number];
-/** What a body does once it is down (`LAB_DOWN`, `minds.ts`); the first is the default. */
-export const LAB_DOWN_IDS = ["lie", "rise"] as const;
-export type LabDownId = (typeof LAB_DOWN_IDS)[number];
+/**
+ * **The minds the Lab names**, by the id its address carries; the first is the default. A scenario's
+ * mode writes a script, which the Script preset's tactics carry out on the game's recipe skills
+ * (`labActor`, `actor.ts`); Guard stands in guard the way it faces, whatever the script asks. Each
+ * lies still once down; any part of either may be changed (`mindEditor`).
+ */
+export const LAB_PRESETS: Readonly<Record<"script" | "guard", { readonly label: string; readonly config: FighterConfig }>> = deepFreeze({
+  script: { label: "Script", config: { ...RECIPE_FIGHTER, tactics: { kind: "script" } } },
+  guard: { label: "Guard", config: { ...RECIPE_FIGHTER, tactics: { kind: "stand" } } },
+});
+
+/** What the Lab gives a mind beyond the body and the world: its scenario's script. */
+export const LAB_PROVIDES: readonly Provision[] = Object.freeze(["script"]);
+
+/**
+ * What a Lab body of `spec` is driven by under the mind `config`, and what is wrong with `config`
+ * (`mindFaults`): the Lab drives a fighter, and a mind with a fault plays the Script preset whole.
+ */
+export function labMind(config: MindConfig, spec: BodySpec): { readonly plays: FighterConfig; readonly faults: readonly string[] } {
+  const faults = config.kind === "fighter" ? mindFaults(config, spec, LAB_PROVIDES) : ["the Lab drives a fighter"];
+  return { plays: config.kind === "fighter" && faults.length === 0 ? config : LAB_PRESETS.script.config, faults };
+}
 
 /**
  * The Routine's targets: the most the address may ask for, and how many it has and the seed they are
@@ -84,8 +106,8 @@ export interface LabAddress extends LabLoadout, ViewSettings {
   readonly scenario: ScenarioId | null;
   /** The body's balance, per cent of its weight, in place of its character's (`AttributeSpec.balance`); null is the character's. */
   readonly balance: number | null;
-  readonly mind: LabMindId;
-  readonly down: LabDownId;
+  /** The body's mind, as the address carries it: faults and all (`labMind`). */
+  readonly mind: MindConfig;
   /** What its mind may not strike with: each thing held whose strike is barred. */
   readonly barred: readonly Held[];
   readonly hz: LabRate;
@@ -94,7 +116,7 @@ export interface LabAddress extends LabLoadout, ViewSettings {
   readonly seed: number;
 }
 
-const KEYS = ["scenario", "model", "appearance", "right", "left", "boots", "armour", "balance", "mind", "down", "barred", "hz", "view", "camera", "projection", "targets", "seed"] as const;
+const KEYS = ["scenario", "model", "appearance", "right", "left", "boots", "armour", "balance", "mind", "barred", "hz", "view", "camera", "projection", "targets", "seed"] as const;
 
 /** A switch in the address: `1` on, `0` off, anything else `fallback`. */
 /** A whole number in the address, from `least` to `most`: plain digits, anything else `fallback`. */
@@ -120,8 +142,7 @@ export function labAddress(search: string): LabAddress {
     boots: flag(query.get("boots"), worn.boots),
     armour: flag(query.get("armour"), worn.armour),
     balance: balanceFrom(query.get("balance") ?? ""),
-    mind: LAB_MIND_IDS.find((m) => m === query.get("mind")) ?? LAB_MIND_IDS[0],
-    down: LAB_DOWN_IDS.find((d) => d === query.get("down")) ?? LAB_DOWN_IDS[0],
+    mind: readMind(query.get("mind"), LAB_PRESETS) ?? LAB_PRESETS.script.config,
     barred: HELD.filter((h) => barred.includes(h)),
     hz: LAB_RATES.find((r) => String(r) === query.get("hz")) ?? LAB_RATES[0],
     view: VIEW_MODES.find((v) => v === query.get("view")) ?? VIEW_MODES[0],
@@ -149,8 +170,7 @@ export function labHref(address: LabAddress, search = ""): string {
   query.set("boots", address.boots ? "1" : "0");
   query.set("armour", address.armour ? "1" : "0");
   if (address.balance !== null) query.set("balance", String(address.balance));
-  query.set("mind", address.mind);
-  query.set("down", address.down);
+  query.set("mind", mindText(address.mind, LAB_PRESETS));
   if (address.barred.length > 0) query.set("barred", address.barred.join(","));
   query.set("hz", String(address.hz));
   query.set("view", address.view);

@@ -1,4 +1,4 @@
-import { commandable, createBody, SERVO_SECONDS, type Body } from "../body.ts";
+import { commandable, createBody, SERVO_SECONDS, type Body, type BodyOptions } from "../body.ts";
 import type { BuiltBody } from "../build/build-body.ts";
 import { skillSet, type SkillParts } from "../skills/arbiter.ts";
 import { ATTACK_PATH, validAttackTuning, type AttackTuning } from "../skills/attack-path.ts";
@@ -7,6 +7,7 @@ import { guardPosture, guardSkill } from "../skills/guard.ts";
 import { kickSkill, validKickTuning } from "../skills/kick.ts";
 import { locomotion, validTurnLimit, validTurnStartup } from "../skills/locomotion.ts";
 import type { BlowSkill } from "../skills/skill.ts";
+import type { Skills } from "../skills/skills.ts";
 import { recipeStrike } from "../skills/strike.ts";
 import { supportFold } from "../skills/support-fold.ts";
 import { deepFreeze } from "../state.ts";
@@ -17,7 +18,7 @@ import type { MindWiring } from "./minds.ts";
 import type { Part } from "./parts.ts";
 import { subMindsOf } from "./sub-minds.ts";
 import { tacticsOf } from "./tactics-of.ts";
-import { driveBy, type Abilities } from "./tactics.ts";
+import { driveBy, type Abilities, type Tactics } from "./tactics.ts";
 import { aimedOrders, highMark } from "./targets.ts";
 
 /** A skill part of no settings: its role, what it is called, its stage, its config and what is wrong with one. */
@@ -69,11 +70,18 @@ function abilitiesOf(config: FighterConfig): Abilities {
  */
 export function fighterFaults(config: FighterConfig): readonly string[] {
   const faults: string[] = [], tactics = config.tactics;
+  const neverKick = () => {
+    if (config.kick) faults.push("kick: these tactics never kick");
+    if (config.support) faults.push("support: these tactics never fight from low support");
+  };
   switch (tactics.kind) {
     case "seek":
+    case "script":
       if (config.blow.kind === "path-strike") faults.push("blow: the path strike carries out a blow only along a path, and these tactics name none");
-      if (config.kick) faults.push("kick: these tactics never kick");
-      if (config.support) faults.push("support: these tactics never fight from low support");
+      neverKick();
+      break;
+    case "stand":
+      neverKick();
       break;
     case "openings":
       if (tactics.combinations === "overlap" && !(config.blow.kind === "path-strike" && config.blow.overlap))
@@ -114,12 +122,27 @@ function skillPartsOf(body: Body, config: FighterConfig, abilities: Abilities): 
   };
 }
 
-/** **A fighter**: its tactics, planning by what its skills can do, handing their intent to its skills (`skillSet`), over its body and sub-minds. */
-export function createFighter(built: BuiltBody, world: World, config: FighterConfig, wiring: MindWiring) {
+/** What a fighter of `config` asks of the body it is made with (`createBody`): its senses, its assist, its hands' contacts where it reads them, and its sub-minds. */
+export function fighterBody(config: FighterConfig, wiring: MindWiring): BodyOptions {
+  return { servoSeconds: SERVO_SECONDS, senses: wiring.senses, assist: wiring.assist,
+    ...(readsContact(config) ? { feedback: true, contactIdentity: wiring.contactIdentity } : {}), subs: subMindsOf(config.subs) };
+}
+
+/**
+ * `body` under a fighter of `config`: its tactics, planning by what its skills can do, handing
+ * their intent to its skills (`skillSet`). What the screen makes of the tactics (`around`: the
+ * Lab's log, its barred hands and its instrument) decides in their place.
+ */
+export function driveFighter(body: Body, config: FighterConfig, wiring: MindWiring, around: (tactics: Tactics) => Tactics = (tactics) => tactics): Skills {
   const abilities = abilitiesOf(config);
-  const body = createBody(built, world, { servoSeconds: SERVO_SECONDS, senses: wiring.senses, assist: wiring.assist,
-    ...(readsContact(config) ? { feedback: true, contactIdentity: wiring.contactIdentity } : {}), subs: subMindsOf(config.subs) });
-  const tactics = tacticsOf(config.tactics, built.spec, wiring.name, abilities, (sight) => aimedOrders(wiring.orders(sight.view.senses), sight.view.senses, highMark));
-  const skills = driveBy(body, tactics, (made, driving) => skillSet(made, driving, skillPartsOf(made, config, abilities)));
+  const tactics = tacticsOf(config.tactics, body.built.spec, wiring.name, abilities,
+    (sight) => aimedOrders(wiring.orders(sight.view.senses), sight.view.senses, highMark), wiring.script);
+  return driveBy(body, around(tactics), (made, driving) => skillSet(made, driving, skillPartsOf(made, config, abilities)));
+}
+
+/** **A fighter**: its body and sub-minds (`fighterBody`), driven by its tactics over its skills (`driveFighter`). */
+export function createFighter(built: BuiltBody, world: World, config: FighterConfig, wiring: MindWiring) {
+  const body = createBody(built, world, fighterBody(config, wiring));
+  const skills = driveFighter(body, config, wiring);
   return { kind: "fighter" as const, body, skills, state: skills.state };
 }

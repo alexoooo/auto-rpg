@@ -4,6 +4,7 @@ import type { PhysicsEngine } from "../core/engine/engine.ts";
 import { enlist, type Combatant } from "../core/combatant.ts";
 import { armedWith } from "../core/items/held.ts";
 import { modelInfo, modelSpec, type BodyModel } from "../core/models.ts";
+import type { MindConfig } from "../core/mind/config.ts";
 import { MODEL_DISPLAY } from "../render/models.ts";
 import { createSenses, type SensesHub } from "../core/mind/senses.ts";
 import { watchBlows, type BlowWatch, type LandedBlow } from "../core/rules/blows.ts";
@@ -189,6 +190,8 @@ interface DungeonRunOptions {
   readonly companions?: readonly BodyModel[];
   /** Each spawn's model; the skeleton unless given. */
   readonly enemy?: (i: number) => BodyModel;
+  /** The party's minds by model, in place of each model's own (`modelInfo`); an enemy has its model's always. */
+  readonly minds?: Readonly<Partial<Record<BodyModel, MindConfig>>>;
   /** Hears each blow as it lands. */
   readonly onBlow?: (blow: LandedBlow) => void;
   /** The actor and its world, before its first step: presentation can subscribe even during run construction. */
@@ -279,7 +282,8 @@ export class DungeonRun {
   get clock(): number { return this.world.time; }
 
   /**
-   * Build `actor`'s body where it waits, holding what its model holds, under its model's mind with
+   * Build `actor`'s body where it waits, holding what its model holds, under its mind (a party
+   * member's as the run was given it, `DungeonRunOptions.minds`, else its model's) with
    * the assist its character's balance gives it, and watch its blows with everybody's. The mind
    * carries out `actor`'s plan, which the run hands it as `Orders`, its target as the foe
    * (`docs/reference/crypt-foe.md`): the
@@ -291,7 +295,7 @@ export class DungeonRun {
     actor.fighter = enlist(this.world, {
       id: actor.id, side: actor.side, spec: armedWith(modelSpec(actor.model), "right", info.held), at: [actor.home.x, 0, actor.home.z],
       rules: this.rules, senses: this.senses, out: () => actor.fighter?.pool.ending() !== null && actor.fighter !== null,
-      mind: info.mind, name: `crypt ${actor.side}`,
+      mind: actor.side === "party" ? this.options.minds?.[actor.model] ?? info.mind : info.mind, name: `crypt ${actor.side}`,
       contactIdentity: other => {
         if (!other) return { kind: "world" };
         for (const candidate of [...this.party, ...this.enemies]) for (const segment of candidate.fighter?.built.segments.values() ?? []) {

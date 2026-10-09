@@ -1,15 +1,16 @@
-import { kindsFor, partOf, PARTS, treeFaults, treeFits } from "../core/mind/catalog.ts";
+import { kindsFor, partOf, PARTS } from "../core/mind/catalog.ts";
 import type { MindConfig } from "../core/mind/config.ts";
 import type { PartField } from "../core/mind/fields.ts";
-import type { Part, PartConfig, Slot } from "../core/mind/parts.ts";
+import type { Part, PartConfig, Provision, Slot } from "../core/mind/parts.ts";
 import type { BodySpec } from "../core/spec/body.ts";
+import { mindFaults } from "./mind-link.ts";
 
 /** **A mind's editor**: its tree of parts, drawn and changed in place. */
 interface MindEditor {
   readonly element: HTMLElement;
   /** The config as it stands. */
   readonly config: MindConfig;
-  /** What is wrong with it (`treeFaults`, and whether it fits the body). */
+  /** What is wrong with it (`mindFaults`). */
   readonly faults: readonly string[];
   /** Show `config` in place of what it shows, for a body of `spec` if given, or of the one it was for. */
   set(config: MindConfig, spec?: BodySpec): void;
@@ -18,6 +19,8 @@ interface MindEditor {
 interface EditorOptions {
   /** The body the mind is for: a part that does not fit it is offered disabled, with the reason. */
   readonly spec: BodySpec;
+  /** What the screen gives a mind (`Provision`): a part that needs what it does not is offered disabled, with the reason. Nothing unless given. */
+  readonly provides?: readonly Provision[];
   /** Called after each change a person makes. */
   readonly onChange?: (config: MindConfig) => void;
   /** Shown, never changed: an enemy's mind. */
@@ -76,21 +79,18 @@ function fieldInput<C extends PartConfig>(field: PartField<C>, config: C, write:
  * there disabled with the reason; a list slot's parts added, moved up and removed. Every change
  * draws the tree again.
  */
-export function mindEditor(config: MindConfig, { spec: body, onChange, readOnly = false, onFault }: EditorOptions): MindEditor {
+export function mindEditor(config: MindConfig, { spec: body, provides = [], onChange, readOnly = false, onFault }: EditorOptions): MindEditor {
   const element = document.createElement("div"), tree = document.createElement("div"), fault = document.createElement("p");
   element.className = "mind-editor"; fault.className = "settings-fault";
   element.append(tree, fault);
   let current = config, spec = body;
-  const faultsOf = (config: MindConfig): readonly string[] => {
-    const faults = treeFaults(config);
-    return faults.length > 0 || treeFits(spec, config) ? faults : ["the mind does not fit this body"];
-  };
+  const faultsOf = (config: MindConfig): readonly string[] => mindFaults(config, spec, provides);
   const change = (next: PartConfig) => { draw(next as MindConfig); onChange?.(current); };
 
   /** The kinds a slot may be set to, each disabled with the reason it cannot go there. */
   const choices = (slot: Slot) => [
     ...(slot.optional && !slot.many ? [{ value: "", text: "None" }] : []),
-    ...kindsFor(slot.role, spec).map(({ kind, part, reason }) => ({ value: kind, text: reason ? `${named(part)}: ${reason}` : named(part), disabled: reason !== null })),
+    ...kindsFor(slot.role, spec, provides).map(({ kind, part, reason }) => ({ value: kind, text: reason ? `${named(part)}: ${reason}` : named(part), disabled: reason !== null })),
   ];
   const defaultsOf = (kind: string): PartConfig => partOf({ kind }).defaults;
 
@@ -117,7 +117,7 @@ export function mindEditor(config: MindConfig, { spec: body, onChange, readOnly 
   /** `slot` of `config`: its part or parts, each with its own block beneath. */
   const drawSlot = (config: PartConfig, slot: Slot, write: (config: PartConfig) => void): HTMLElement => {
     const holder = document.createElement("div"), value = (config as unknown as Record<string, unknown>)[slot.key];
-    holder.className = "mind-slot";
+    holder.className = "mind-slot"; holder.dataset.slot = slot.key;
     const set = (next: unknown) => write({ ...config, [slot.key]: next } as PartConfig);
     if (!slot.many) {
       const child = value as PartConfig | null;

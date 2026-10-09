@@ -26,6 +26,7 @@ import { MATCHUP_PARAM, appearanceSearch, readAppearances, matchupSearch, readBa
 import { PRESETS } from "../core/mind/controllers.ts";
 import { partOf } from "../core/mind/catalog.ts";
 import { mindEditor } from "../ui/mind-editor.ts";
+import { mindInspector } from "../ui/mind-inspector.ts";
 import type { MindConfig } from "../core/mind/config.ts";
 import { Color3 } from "@babylonjs/core/Maths/math.color.js";
 import { arenaCameraRig, type ArenaSubjects } from "./camera.ts";
@@ -246,14 +247,15 @@ export async function bootArena(): Promise<void> {
   let hearing: { dispose(): void } | null = null, airs: { readonly side: Side; readonly air: (at: Vector3) => number }[] = [];
   const end = () => { undraw(); hearing?.dispose(); hearing = null; airs = []; duel?.dispose(); duel = null; shown = null; };
 
-  // The readout: each side's name and bar, and the clock.
+  // The readout: each side's name and bar, its mind as it goes (`mindInspector`), and the clock.
   const hud = need("hud");
   const rows = SIDES.map((side) => {
     const column = document.createElement("div"), label = document.createElement("strong"), bar = document.createElement("progress");
     column.className = "hud-col"; column.dataset.side = side; bar.max = 1; bar.value = 1;
-    const status = document.createElement("small");
-    column.append(label, bar, status); hud.append(column);
-    return { side, label, bar, status };
+    const status = document.createElement("small"), mind = document.createElement("details"), summary = document.createElement("summary");
+    mind.className = "hud-mind"; summary.textContent = "Mind"; mind.append(summary);
+    column.append(label, bar, status, mind); hud.append(column);
+    return { side, label, bar, status, mind, inspector: null as ReturnType<typeof mindInspector> | null };
   });
   const clockColumn = document.createElement("div"), clock = document.createElement("span"), pauseButton = document.createElement("button");
   clockColumn.className = "hud-col hud-clock";
@@ -327,7 +329,13 @@ export async function bootArena(): Promise<void> {
       hearing = hearTouches(world, sides, (cue) => audio.cue(cue));
       airs = sides.map(({ id, built }) => ({ side: id, air: airOf(built) }));
       bout.play(tape);
-      for (const row of rows) row.label.textContent = `${MODEL_DISPLAY[matchup[row.side]].label} (${row.side === you && !replaying ? "you" : row.side})`;
+      for (const row of rows) {
+        row.label.textContent = `${MODEL_DISPLAY[matchup[row.side]].label} (${row.side === you && !replaying ? "you" : row.side})`;
+        const duelist = bout.duelists[row.side], minded = duelist.minded;
+        row.inspector = mindInspector(duelist.mind, duelist.built.spec, () => duel === bout
+          ? { body: duelist.body, skills: minded.kind === "fighter" ? minded.skills : null } : null);
+        row.mind.replaceChildren(row.mind.firstElementChild!, row.inspector.element);
+      }
       show("curtain", false); show("bout-end", false); setPaused(false); screen = "fight"; viewPanel.hidden = false;
       canvas.focus();
     } catch (error) {
@@ -427,6 +435,7 @@ export async function bootArena(): Promise<void> {
       row.status.textContent = fighter.body.down
         ? `${fighter.body.has}${duel.recipe.recoverySeconds === null ? " - getting up" : down !== undefined ? ` - ${Math.max(0, duel.recipe.recoverySeconds! - down).toFixed(1)} s recovery left` : " - down"}`
         : `${controller} - ${phase}`;
+      if (row.mind.open) row.inspector?.refresh();
     }
     // While either side is helped, each side's balance, per cent of its weight: the link's, or its character's.
     const helped = SIDES.some((side) => duel!.duelists[side].body.assist.on);

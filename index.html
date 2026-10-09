@@ -114,6 +114,7 @@
         <div class="topbar-end"><small id="frame-meter" aria-label="Frame counter"></small><button id="pause-button" type="button">Pause <kbd>Esc</kbd></button></div>
       </header>
       <section id="target-panel" hidden aria-label="Selected enemy"><span id="target-name"></span><progress id="target-hp" max="1" value="1"></progress></section>
+      <details id="mind-panel"><summary>Mind <small id="mind-who"></small></summary><div id="mind-view"></div></details>
       <div id="notice" role="status">Preparing the dungeon…</div>
       <footer class="bottom-bar">
         <section class="hero-panel"><span class="eyebrow">YOUR HERO</span><strong id="hero-name">Warrior</strong>
@@ -162,6 +163,7 @@
               <label><input type="radio" name="companions" value="2" /><span>2</span></label>
               <label><input type="radio" name="companions" value="3" /><span>3</span></label>
             </fieldset>
+            <details id="party-minds"><summary>Minds</summary><div id="party-mind-list"></div></details>
             <details id="setup-options"><summary>Options</summary><div class="setup-options-fields">
               <label class="field">Seed <input id="seed" type="text" inputmode="numeric" maxlength="10" /></label>
               <label class="field" hidden>Quality <select id="dungeon-quality"><option value="high">High</option><option value="reduced">Reduced</option></select></label>

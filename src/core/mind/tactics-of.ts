@@ -1,4 +1,5 @@
 import { commandable } from "../body.ts";
+import { standIntent } from "./intent.ts";
 import type { BodySpec } from "../spec/body.ts";
 import { deepFreeze } from "../state.ts";
 import { OPENINGS, SEEK, type OpeningsConfig, type SeekConfig, type TacticsConfig } from "./config.ts";
@@ -53,17 +54,24 @@ function openingsFaults(config: OpeningsConfig): readonly string[] {
 export const TACTICS_PARTS: { readonly [K in TacticsConfig["kind"]]: Part<Extract<TacticsConfig, { kind: K }>> } = deepFreeze({
   seek: { role: "tactics", label: "Seek the foe", stage: "game", fields: SEEK_FIELDS, slots: [], defaults: SEEK, fits: commandable, faults: seekFaults },
   openings: { role: "tactics", label: "Choose openings", stage: "experimental", fields: OPENINGS_FIELDS, slots: [], defaults: OPENINGS, fits: commandable, faults: openingsFaults },
+  script: { role: "tactics", label: "Follow the script", stage: "game", fields: [], slots: [], defaults: { kind: "script" }, needs: "script", fits: commandable, faults: () => [] },
+  stand: { role: "tactics", label: "Stand in guard", stage: "game", fields: [], slots: [], defaults: { kind: "stand" }, fits: commandable, faults: () => [] },
 });
 
 /**
  * **The tactics `config` names**, for a body of `spec`, planning by what its skills can do
  * (`abilities`) and carrying out `orders` when it has them. Seeking tactics left to themselves
- * seek the foe (`seekFoe`).
+ * seek the foe (`seekFoe`); scripted tactics are the screen's `script`, as written.
  */
-export function tacticsOf(config: TacticsConfig, spec: BodySpec, name: string, abilities: Abilities, orders: (sight: Sight) => Orders | null): Tactics {
+export function tacticsOf(config: TacticsConfig, spec: BodySpec, name: string, abilities: Abilities, orders: (sight: Sight) => Orders | null,
+  script?: Tactics): Tactics {
   switch (config.kind) {
     case "seek": return recipeTactics(name, (sight) => orders(sight) ?? seekFoe(sight, config.aim, config.range, config.tuning?.edge), STRAFE, config.guard, config.tuning?.threat);
     case "openings": return pathTactics(spec, name, config, abilities, orders);
+    case "script":
+      if (!script) throw new Error("tactics of kind \"script\" need the screen's script");
+      return script;
+    case "stand": return { name: "guard", decide: ({ report }) => standIntent(report.heading) };
     default: { const never: never = config; throw new Error(`no tactics of kind ${JSON.stringify((never as { kind?: unknown }).kind)}`); }
   }
 }

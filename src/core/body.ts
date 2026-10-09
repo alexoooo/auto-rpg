@@ -159,7 +159,7 @@ export interface Fist {
  */
 export const SERVO_SECONDS = 0.1;
 
-interface BodyOptions {
+export interface BodyOptions {
   /** Read each effector's external contacts and striking-point motion into the body's view. */
   readonly feedback?: boolean;
   /** Trusted labeling for detached contact response; policies receive no engine body. */

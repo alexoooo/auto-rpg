@@ -9,22 +9,32 @@ import { routeFor } from "../src/app-route.ts";
 import { PHYSICS_HZ } from "../src/core/world.ts";
 import { CHARACTERS } from "../src/character-lab/catalog.ts";
 import { HELD } from "../src/core/items/held.ts";
-import { labAddress, labHref, LAB_DOWN_IDS, LAB_MIND_IDS, LAB_RATES, MODELS, SCENARIOS } from "../src/lab/scenarios.ts";
+import { labAddress, labHref, LAB_PRESETS, LAB_RATES, MODELS, SCENARIOS } from "../src/lab/scenarios.ts";
 
-const DEFAULTS = { appearance: "default", scenario: null, model: "workshop-fighter", right: "empty", left: "empty", boots: true, armour: true, balance: null, mind: "script", down: "lie", barred: [], hz: 120,
+const SCRIPT = LAB_PRESETS.script.config, GUARD = LAB_PRESETS.guard.config;
+/** A mind no preset is: the Guard preset getting up once down. */
+const RISING = { ...GUARD, subs: [{ kind: "staged-rise" }] };
+const DEFAULTS = { appearance: "default", scenario: null, model: "workshop-fighter", right: "empty", left: "empty", boots: true, armour: true, balance: null, mind: SCRIPT, barred: [], hz: 120,
   view: "world", camera: "free", projection: "orthographic", targets: 10, seed: 1 };
 /** The Rogue as the workshop dresses it: boots, no armour. */
 const ROGUE = { model: "workshop-rogue", boots: true, armour: false };
 
 test("the_lab_address_names_a_scenario_a_character_a_rate_a_view_and_a_camera_or_falls_back", () => {
   assert.deepEqual(labAddress("?play=lab"), DEFAULTS);
-  assert.deepEqual(labAddress("?play=lab&scenario=routine&model=workshop-rogue&right=club&left=club&boots=0&armour=1&balance=2.5&mind=guard&down=rise&barred=club,empty&hz=480&view=tactical&camera=chase&projection=perspective&targets=4&seed=7"),
-    { appearance: "default", scenario: "routine", model: "workshop-rogue", right: "club", left: "club", boots: false, armour: true, balance: 2.5, mind: "guard", down: "rise",
+  assert.deepEqual(labAddress("?play=lab&scenario=routine&model=workshop-rogue&right=club&left=club&boots=0&armour=1&balance=2.5&mind=guard&barred=club,empty&hz=480&view=tactical&camera=chase&projection=perspective&targets=4&seed=7"),
+    { appearance: "default", scenario: "routine", model: "workshop-rogue", right: "club", left: "club", boots: false, armour: true, balance: 2.5, mind: GUARD,
       barred: ["empty", "club"], hz: 480, view: "tactical",
       camera: "chase", projection: "perspective", targets: 4, seed: 7 });
   // Each field falls back alone; a known value beside an unknown one is kept.
   assert.deepEqual(labAddress("?scenario=elsewhere&model=workshop-rogue&right=sword&left=club&boots=yes&mind=fighter&down=stand&barred=sword,club,club&hz=60&view=x-ray&camera=isometric&projection=fisheye&targets=31&seed=-1"),
     { ...DEFAULTS, ...ROGUE, left: "club", barred: ["club"], camera: "isometric" });
+  // A mind is a preset's id or a whole tree as JSON, whose research tuning is dropped.
+  assert.deepEqual(labAddress(`?mind=${encodeURIComponent(JSON.stringify(RISING))}`), { ...DEFAULTS, mind: RISING });
+  const tuned = { ...GUARD, locomotion: { ...GUARD.locomotion, tuning: { turnLimit: 2 } } };
+  assert.deepEqual(labAddress(`?mind=${encodeURIComponent(JSON.stringify(tuned))}`), { ...DEFAULTS, mind: GUARD });
+  // A tree rooted in a mind of another kind is carried, for the page to refuse; anything else is the default.
+  assert.deepEqual(labAddress(`?mind=${encodeURIComponent('{"kind":"direct"}')}`).mind, { kind: "direct" });
+  for (const text of ["", "fighter", "{", '{"kind":"lie"}', '{"kind":"fly"}', "[]", "null"]) assert.deepEqual(labAddress(`?mind=${encodeURIComponent(text)}`).mind, SCRIPT, text);
   assert.deepEqual(labAddress("?scenario=stance&model=golem&right=club&left=bow&armour=0&hz=480&view=tactical&camera=drone&projection=perspective"),
     { ...DEFAULTS, scenario: "stance", right: "club", armour: false, hz: 480, view: "tactical", projection: "perspective" });
 });
@@ -53,11 +63,10 @@ test("every_choice_the_lab_offers_reads_back_from_the_address_it_writes", () => 
               for (const left of HELD) {
                 for (const boots of [false, true]) {
                   for (const armour of [false, true]) {
-                    for (const [mind, barred] of LAB_MIND_IDS.flatMap((m) => [[], ["empty"], ["club"], ["empty", "club"]].map((b) => [m, b]))) {
-                      // The Routine's targets and their seed ride with the scenario, so that each is met with every choice; what a body does once down rides with its armour.
+                    for (const [mind, barred] of [SCRIPT, GUARD, RISING].flatMap((m) => [[], ["empty"], ["club"], ["empty", "club"]].map((b) => [m, b]))) {
+                      // The Routine's targets and their seed ride with the scenario, so that each is met with every choice.
                       const [targets, seed] = scenario === null ? [10, 1] : [SCENARIOS.findIndex((s) => s.id === scenario), 4294967295];
-                      const down = LAB_DOWN_IDS[Number(armour)];
-                      const address = { appearance: "default", scenario, model, right, left, boots, armour, balance, mind, down, barred, hz, view, camera, projection, targets, seed }, href = labHref(address);
+                      const address = { appearance: "default", scenario, model, right, left, boots, armour, balance, mind, barred, hz, view, camera, projection, targets, seed }, href = labHref(address);
                       assert.equal(routeFor(href), "lab", href);
                       assert.deepEqual(labAddress(href), address, href);
                     }
@@ -109,9 +118,10 @@ test("the_lab_address_keeps_the_rest_of_the_query_and_replaces_its_own", () => {
   assert.equal(new URLSearchParams(labHref(DEFAULTS, "?play=lab&barred=club&mind=guard")).has("barred"), false);
   assert.deepEqual(new URLSearchParams(labHref({ ...DEFAULTS, barred: ["empty"] }, "?play=lab&barred=club&mind=guard")).getAll("barred"), ["empty"]);
   assert.deepEqual(new URLSearchParams(labHref(DEFAULTS, "?play=lab&barred=club&mind=guard")).getAll("mind"), ["script"]);
-  assert.deepEqual(new URLSearchParams(labHref({ ...DEFAULTS, down: "rise" }, "?play=lab&down=lie&down=lie")).getAll("down"), ["rise"]);
+  assert.deepEqual(new URLSearchParams(labHref({ ...DEFAULTS, mind: GUARD }, "?play=lab&mind=script&mind=script")).getAll("mind"), ["guard"]);
+  assert.deepEqual(new URLSearchParams(labHref({ ...DEFAULTS, mind: RISING }, "?play=lab&mind=script")).getAll("mind"), [JSON.stringify(RISING)]);
   // One address is one link, wherever in the query its keys stood before.
-  assert.equal(labHref({ ...DEFAULTS, down: "rise" }, "?down=lie&play=lab&kept=1&down=lie"), labHref({ ...DEFAULTS, down: "rise" }, "?play=lab&kept=1"));
+  assert.equal(labHref({ ...DEFAULTS, mind: GUARD }, "?mind=script&play=lab&kept=1&mind=script"), labHref({ ...DEFAULTS, mind: GUARD }, "?play=lab&kept=1"));
 });
 
 test("the_lab_offers_the_game_rate_first_and_distinct_scenarios", () => {
