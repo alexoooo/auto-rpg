@@ -14,7 +14,7 @@ import type { Orders } from "./orders.ts";
 import type { Abilities, Sight, Tactics } from "./tactics.ts";
 import { groundCombat } from "./ground-combat.ts";
 import { bodyClearance } from "./sensed-bounds.ts";
-import { clearStep, clearanceExit } from "./clear-step.ts";
+import { clearMove, clearanceExit } from "./clear-step.ts";
 import { openingAction, openingSelector, type OpeningTuning } from "./openings.ts";
 import { nearestFoe } from "./targets.ts";
 import { DEFENSE, guardCanReach, THREAT, threatReader } from "./threat.ts";
@@ -62,16 +62,8 @@ export function pathTactics(spec: BodySpec, name: string, config: OpeningsConfig
     }
   })();
   const bodyRadius = bodyClearance(spec) + COMBAT.boundaryMargin;
-  const moveClear = (view: Sight["view"], heading: number, move: readonly [number, number] | null) => {
-    if (!move || !view.senses.solids) return move;
-    const c = view.stance.centre, from: Vec3 = [c.x, c.y, c.z], angle = heading;
-    const candidates = [move, [move[0], -move[1]], [0, Math.abs(move[0]) + Math.abs(move[1])], [0, -Math.abs(move[0]) - Math.abs(move[1])]] as const;
-    for (const candidate of candidates) {
-      const dx = candidate[0] * sin(angle) + candidate[1] * cos(angle), dz = candidate[0] * cos(angle) - candidate[1] * sin(angle);
-      if (clearStep(from, [c.x + dx * COMBAT.escape, c.y, c.z + dz * COMBAT.escape], bodyRadius, view.senses.solids)) return candidate;
-    }
-    return null;
-  };
+  const moveClear = (view: Sight["view"], heading: number, move: readonly [number, number] | null) =>
+    clearMove(view.stance.centre, view.senses.solids, heading, move, bodyRadius, COMBAT.escape);
   const ground = abilities.ground ? groundCombat(spec, moveClear, {}, config.hands === "alternate") : null;
   state.ground = ground?.state ?? null;
   /** What the fighter decides with no kick under way, `given` its orders. */

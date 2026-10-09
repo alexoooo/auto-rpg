@@ -1,5 +1,6 @@
 import type { BodySpec } from "../spec/body.ts";
-import type { MindConfig, SkillConfig, SubMindConfig, TacticsConfig } from "./config.ts";
+import { BEHAVIOUR_PARTS } from "./behaviours.ts";
+import type { BehaviourConfig, MindConfig, SkillConfig, SubMindConfig, TacticsConfig } from "./config.ts";
 import { CONTROLLERS } from "./controllers.ts";
 import { SKILL_PARTS } from "./fighter.ts";
 import type { Part, PartConfig, Provision, Role } from "./parts.ts";
@@ -7,13 +8,13 @@ import { SUB_MIND_PARTS } from "./sub-minds.ts";
 import { TACTICS_PARTS } from "./tactics-of.ts";
 
 /** Every part's config, by kind. */
-type AnyPart = MindConfig | SubMindConfig | TacticsConfig | SkillConfig;
+type AnyPart = MindConfig | SubMindConfig | TacticsConfig | BehaviourConfig | SkillConfig;
 
 /**
  * **Every part, by its kind**, across roles: the one list a screen offers a slot's choices from.
  * A kind without an entry does not compile.
  */
-export const PARTS: { readonly [K in AnyPart["kind"]]: Part<Extract<AnyPart, { kind: K }>> } = Object.freeze({ ...CONTROLLERS, ...SUB_MIND_PARTS, ...TACTICS_PARTS, ...SKILL_PARTS });
+export const PARTS: { readonly [K in AnyPart["kind"]]: Part<Extract<AnyPart, { kind: K }>> } = Object.freeze({ ...CONTROLLERS, ...SUB_MIND_PARTS, ...TACTICS_PARTS, ...BEHAVIOUR_PARTS, ...SKILL_PARTS });
 
 /** The part of `config`'s kind; a thrown error for a kind no part has, read from a save or a link. */
 export function partOf<C extends PartConfig>(config: C): Part<C> {

@@ -1,13 +1,14 @@
 import { commandable } from "../body.ts";
+import { behaviourOf, behavioursTactics } from "./behaviours.ts";
 import { standIntent } from "./intent.ts";
 import type { BodySpec } from "../spec/body.ts";
 import { deepFreeze } from "../state.ts";
-import { OPENINGS, SEEK, type OpeningsConfig, type SeekConfig, type TacticsConfig } from "./config.ts";
+import { OPENINGS, SEEK, type BehavioursConfig, type OpeningsConfig, type SeekConfig, type TacticsConfig } from "./config.ts";
 import { choice, number, type PartField } from "./fields.ts";
 import { validOpeningTuning } from "./openings.ts";
 import { STRAFE } from "./ordered.ts";
 import type { Orders } from "./orders.ts";
-import type { Part } from "./parts.ts";
+import { slotList, type Part } from "./parts.ts";
 import { openingsOf, pathTactics } from "./path-tactics.ts";
 import { validRangeLearning } from "./range-learning.ts";
 import { recipeTactics, seekFoe } from "./recipe-tactics.ts";
@@ -50,18 +51,25 @@ function openingsFaults(config: OpeningsConfig): readonly string[] {
   return faults;
 }
 
+/** Behaviours as they start: orders followed, the foe struck with either hand, and the hands that do not strike covering. */
+const BEHAVIOURS: BehavioursConfig = deepFreeze({ kind: "behaviours",
+  list: [{ kind: "follow-orders" }, { kind: "strike", hands: "alternate", aim: "head" }, { kind: "cover", guard: "cover" }] });
+
 /** **Every kind of tactics** (`Part`): what a fighter's `tactics` slot may hold. */
 export const TACTICS_PARTS: { readonly [K in TacticsConfig["kind"]]: Part<Extract<TacticsConfig, { kind: K }>> } = deepFreeze({
   seek: { role: "tactics", label: "Seek the foe", stage: "game", fields: SEEK_FIELDS, slots: [], defaults: SEEK, fits: commandable, faults: seekFaults },
   openings: { role: "tactics", label: "Choose openings", stage: "experimental", fields: OPENINGS_FIELDS, slots: [], defaults: OPENINGS, fits: commandable, faults: openingsFaults },
   script: { role: "tactics", label: "Follow the script", stage: "game", fields: [], slots: [], defaults: { kind: "script" }, needs: "script", fits: commandable, faults: () => [] },
   stand: { role: "tactics", label: "Stand in guard", stage: "game", fields: [], slots: [], defaults: { kind: "stand" }, fits: commandable, faults: () => [] },
+  behaviours: { role: "tactics", label: "Behaviours", stage: "game", fields: [], slots: [slotList("list", "Behaviours", "behaviour")], defaults: BEHAVIOURS,
+    fits: commandable, faults: () => [] },
 });
 
 /**
  * **The tactics `config` names**, for a body of `spec`, planning by what its skills can do
  * (`abilities`) and carrying out `orders` when it has them. Seeking tactics left to themselves
- * seek the foe (`seekFoe`); scripted tactics are the screen's `script`, as written.
+ * seek the foe (`seekFoe`); scripted tactics are the screen's `script`, as written; behaviours
+ * are each made for the body (`behaviourOf`).
  */
 export function tacticsOf(config: TacticsConfig, spec: BodySpec, name: string, abilities: Abilities, orders: (sight: Sight) => Orders | null,
   script?: Tactics): Tactics {
@@ -72,6 +80,7 @@ export function tacticsOf(config: TacticsConfig, spec: BodySpec, name: string, a
       if (!script) throw new Error("tactics of kind \"script\" need the screen's script");
       return script;
     case "stand": return { name: "guard", decide: ({ report }) => standIntent(report.heading) };
+    case "behaviours": return behavioursTactics(name, config.list.map((behaviour) => behaviourOf(behaviour, spec, name, abilities, orders)));
     default: { const never: never = config; throw new Error(`no tactics of kind ${JSON.stringify((never as { kind?: unknown }).kind)}`); }
   }
 }

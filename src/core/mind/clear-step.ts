@@ -63,3 +63,21 @@ export function clearStep(from: Vec3, to: Vec3, radius: number, solids: readonly
   }
   return true;
 }
+
+/**
+ * **A walk that keeps clear of the solids**: `move` (forward, right, m/s, in the frame of `heading`)
+ * where a body at `centre` of clearance `radius` sweeps `ahead` m along it clear (`clearStep`); else
+ * the walk mirrored across the heading, then straight to the right, then to the left, at its speed;
+ * or null where none is clear. With nothing sensed it is `move`.
+ */
+export function clearMove(centre: { readonly x: number; readonly y: number; readonly z: number }, solids: readonly SolidSense[] | undefined,
+  heading: number, move: readonly [number, number] | null, radius: number, ahead: number): readonly [number, number] | null {
+  if (!move || !solids) return move;
+  const from: Vec3 = [centre.x, centre.y, centre.z];
+  const candidates = [move, [move[0], -move[1]], [0, Math.abs(move[0]) + Math.abs(move[1])], [0, -Math.abs(move[0]) - Math.abs(move[1])]] as const;
+  for (const candidate of candidates) {
+    const dx = candidate[0] * sin(heading) + candidate[1] * cos(heading), dz = candidate[0] * cos(heading) - candidate[1] * sin(heading);
+    if (clearStep(from, [centre.x + dx * ahead, centre.y, centre.z + dz * ahead], radius, solids)) return candidate;
+  }
+  return null;
+}

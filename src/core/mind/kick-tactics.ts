@@ -3,6 +3,7 @@ import { lowOpponent } from "./sensed-bounds.ts";
 import { atan2, hypot, cos, sin } from "../math/real.ts";
 import { wrap } from "../math/turn.ts";
 import type { KickTuning } from "../skills/kick.ts";
+import type { Side } from "../spec/body.ts";
 import { NO_COVER, type Intent, type KickAttack } from "./intent.ts";
 import type { Sight } from "./tactics.ts";
 import { nearestFoe } from "./targets.ts";
@@ -16,12 +17,12 @@ interface Kicking { readonly intent: Intent; readonly phase: string }
 
 /**
  * **The opening tactics' kick**, a part of them (`pathTactics`): a low kick at the nearest
- * standing foe's legs (`BodySpec.marks`), either foot in turn, approached and admitted by
+ * standing foe's legs (`BodySpec.marks`), with the foot `feet` names or each in turn, approached and admitted by
  * geometry alone; the common skill carries it out. `during` carries on a kick under way; `after`,
  * given what the fighter's own tactics decided, admits one or walks to where one can be.
  */
-export function kickTactics(tuning: KickTuning) {
-  const state = { action: null as KickAttack | null, began: false, ready: 0, approaching: 0, next: 0, deadline: 0, foot: "right" as "left" | "right" };
+export function kickTactics(tuning: KickTuning, feet: Side | "alternate" = "alternate") {
+  const state = { action: null as KickAttack | null, began: false, ready: 0, approaching: 0, next: 0, deadline: 0, foot: (feet === "left" ? "left" : "right") as Side };
   return {
     state,
     /** The kick under way, carried on or cancelled; null when there is none and the fighter's own tactics decide. */
@@ -29,7 +30,7 @@ export function kickTactics(tuning: KickTuning) {
       if (view.resumed) { state.action = null; state.began = false; state.ready = 0; state.approaching = 0; state.next = view.time + KICK_SELECTION.cooldown; }
       if (state.action && state.began && !report.kick?.foot) {
         state.action = null; state.began = false; state.next = view.time + KICK_SELECTION.cooldown;
-        state.foot = state.foot === "right" ? "left" : "right";
+        if (feet === "alternate") state.foot = state.foot === "right" ? "left" : "right";
       }
       if (!state.action) return null;
       state.began ||= !!report.kick?.foot;

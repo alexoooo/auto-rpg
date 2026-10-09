@@ -47,7 +47,8 @@ These controls work while paused and after the verdict. Links retain the view wi
 `camera`, `projection` and `focus` parameters.
 
 Each contender has a **Controller** choice: Classic fighter, **Combat**, **Brawler**, **Scrapper**,
-or **Kicker (experimental)**.
+**Kicker (experimental)**, or one made of behaviours: **Runner**, **Charger**, **Left hand only** or
+**Kicks only (experimental)**.
 Humanoids choose a wooden club or empty hands.
 The Reptile uses **Crawl and bite**, carries no equipment and has 1 HP at 8 kg. It trots toward
 opponents, slows for contact, and shifts its weight before placing one paw during close fighting
@@ -61,6 +62,11 @@ Every humanoid preset is one fighter whose tactics and skills you can change in 
 panel. Classic seeks its foe and strikes by searched recipes; Combat, Brawler, Scrapper and Kicker
 choose openings and strike along hand paths on a shared strike cycle, Scrapper fighting from low
 support too and Kicker kicking.
+A fighter's tactics may instead be **Behaviours**: a ranked list you build in the panel from
+following orders, running away, closing in, keeping a distance, striking (with the hand you name),
+kicking (with the foot you name) and guarding. Each step the first behaviour that wants the legs,
+the attack or a hand has it, so Runner is just "run away, guard" and Left hand only is "strike with
+the left, guard". Its skills are what it can do: a fighter with no blow never strikes.
 Any of them may throw one of two experimental blows from the punch's research instead: the
 driven strike, which turns the trunk flat out behind the arm, or the whole-body strike, one
 solve over every muscle at once ([measured](docs/reference/competencies.md#research-blows)).

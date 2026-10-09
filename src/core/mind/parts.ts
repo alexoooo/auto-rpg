@@ -5,7 +5,7 @@ import type { PartField } from "./fields.ts";
  * **What a part does in the mind it is part of**: the interface it carries out. A slot names the
  * role of what it holds, and holds only a part of that role.
  */
-export type Role = "mind" | "sub-mind" | "tactics" | "locomotion" | "guard" | "blow" | "kick" | "support";
+export type Role = "mind" | "sub-mind" | "tactics" | "behaviour" | "locomotion" | "guard" | "blow" | "kick" | "support";
 
 /** What a screen gives a mind beyond the body and the world: the Lab gives its scenario's script (`MindWiring.script`). */
 export type Provision = "script";

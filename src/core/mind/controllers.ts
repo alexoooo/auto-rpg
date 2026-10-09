@@ -7,7 +7,7 @@ import { guardPosture } from "../skills/guard.ts";
 import type { BodySpec } from "../spec/body.ts";
 import { deepFreeze } from "../state.ts";
 import type { World } from "../world.ts";
-import { BRAWLER, CLASSIC, COMBAT, KICKER, QUADRUPED, RECIPE_FIGHTER, SCRAPPER, type DirectMindConfig, type MindConfig } from "./config.ts";
+import { BRAWLER, CHARGER, CLASSIC, COMBAT, KICKER, KICKS_ONLY, LEFT_HAND, QUADRUPED, RUNNER, RECIPE_FIGHTER, SCRAPPER, type DirectMindConfig, type MindConfig } from "./config.ts";
 import { createDirectBody, directFaults } from "./direct.ts";
 import { createFighter, fighterFaults } from "./fighter.ts";
 import type { Minded, MindWiring } from "./minds.ts";
@@ -60,6 +60,10 @@ export const CONTROLLERS: { readonly [K in MindConfig["kind"]]: Controller<Extra
       brawler: { label: "Brawler (experimental)", config: BRAWLER },
       scrapper: { label: "Scrapper (experimental)", config: SCRAPPER },
       kicker: { label: "Kicker (experimental)", config: KICKER },
+      runner: { label: "Runner", config: RUNNER },
+      charger: { label: "Charger", config: CHARGER },
+      "left-hand": { label: "Left hand only", config: LEFT_HAND },
+      "kicks-only": { label: "Kicks only (experimental)", config: KICKS_ONLY },
     }),
     builtIn: guardPosture,
     create: createFighter,

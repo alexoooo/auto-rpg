@@ -162,6 +162,17 @@ export function fighterFaults(config: FighterConfig): readonly string[] {
       else if (tactics.combinations === "overlap" && !overlaps(blow))
         faults.push("blow: overlapping combinations need a blow that may begin while the other hand returns");
       break;
+    case "behaviours": {
+      const has = (kind: string) => tactics.list.some((behaviour) => behaviour.kind === kind);
+      if (has("strike") && !blow) faults.push("blow: a strike needs a blow");
+      if (blow && !has("strike") && !has("follow-orders")) faults.push("blow: these behaviours never strike");
+      if (blow && (has("strike") || has("follow-orders")) && !throwsPathless(blow))
+        faults.push("blow: the path strike carries out a blow only along a path, and these behaviours name none");
+      if (has("kick") && !config.kick) faults.push("kick: a kick needs a kick skill");
+      if (config.kick && !has("kick")) faults.push("kick: these behaviours never kick");
+      if (config.support) faults.push("support: these behaviours never fight from low support");
+      break;
+    }
     default: { const never: never = tactics; throw new Error(`no tactics of kind ${JSON.stringify((never as { kind?: unknown }).kind)}`); }
   }
   return faults;

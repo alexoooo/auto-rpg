@@ -1,10 +1,10 @@
 import type { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { APPROACH, rangeOf, type StrikeReport } from "../skills/strike.ts";
 import { BAND_NAMES, type Band } from "../skills/strikes.ts";
-import type { Marks } from "../spec/body.ts";
+import type { Marks, Side } from "../spec/body.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { SEEK, type SeekConfig } from "./config.ts";
-import type { Intent } from "./intent.ts";
+import { nextHand, type Intent } from "./intent.ts";
 import { STAND_ORDERS, type Orders } from "./orders.ts";
 import type { Sight, Tactics } from "./tactics.ts";
 import { guarding, orderedIntent, STRAFE } from "./ordered.ts";
@@ -33,7 +33,8 @@ export interface Edge { readonly band: number; readonly patience: number }
 /**
  * **The seeking tactics** carry out `Orders`, asked for every control step with what the
  * body sees: to walk and to face as `orderedIntent` does, at `strafe`. Given a point to attack it
- * attacks it with what the right hand holds: the strike skill brings the body the rest of the way
+ * attacks it with what a hand holds, the one `hands` names or each in turn (`nextHand`), the hand
+ * of a blow under way until it ends: the strike skill brings the body the rest of the way
  * (`APPROACH` in `src/core/skills/strike.ts`). It holds the point it aims at while the ordered one
  * stays within `APPROACH.reach` of it, and aims again after each blow, since the skill sets the
  * feet for the point it is given and a point that followed a swaying head would move under every
@@ -44,7 +45,7 @@ export interface Edge { readonly band: number; readonly patience: number }
  * A hand that does not attack guards as `guard` says (`SeekConfig.guard`, `guarding`).
  */
 export function recipeTactics(name: string, orders: (sight: Sight) => Orders, strafe: typeof STRAFE = STRAFE,
-  guard: SeekConfig["guard"] = SEEK.guard, threat: Threat = THREAT): Tactics {
+  guard: SeekConfig["guard"] = SEEK.guard, threat: Threat = THREAT, hands: Side | "alternate" = "right"): Tactics {
   const rest = guarding(guard, threat);
   /** Its memory: the point aimed at, and the blows thrown when it was chosen. */
   const state: { aim: { point: Vec3; thrown: number } | null } = { aim: null };
@@ -54,14 +55,15 @@ export function recipeTactics(name: string, orders: (sight: Sight) => Orders, st
       if (sight.view.resumed) state.aim = null;
       const { report } = sight, given = orders(sight), cover = rest(sight), attack = given.attack;
       if (attack) {
-        const thrown = report.strike.thrown.right;
+        const strike = report.strike, thrown = strike.thrown.left + strike.thrown.right, hand = strike.hand ?? nextHand(hands, thrown);
         let aim = state.aim;
-        const phase = report.strike.phase;
+        const phase = strike.phase;
         if (!aim || aim.thrown !== thrown || phase === "chamber" || phase === "swing"
           || hypot(attack[0] - aim.point[0], attack[1] - aim.point[1], attack[2] - aim.point[2]) > APPROACH.reach) {
           aim = state.aim = { point: [attack[0], attack[1], attack[2]], thrown };
         }
-        return { move: null, face: report.heading, guard: { left: cover, right: null }, attack: { kind: "blow", hand: "right", target: aim.point } };
+        return { move: null, face: report.heading, guard: hand === "right" ? { left: cover, right: null } : { left: null, right: cover },
+          attack: { kind: "blow", hand, target: aim.point } };
       }
       state.aim = null;
       return orderedIntent(sight, given, { left: cover, right: cover }, strafe);

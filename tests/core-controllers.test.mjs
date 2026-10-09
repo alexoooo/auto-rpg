@@ -16,13 +16,13 @@ test("every preset is its controller's kind, under an id no other controller use
     assert.equal(controllerOf(preset.config), controller);
     ids.push(id);
   }
-  assert.deepEqual(ids, ["classic", "combat", "brawler", "scrapper", "kicker", "crawl"]);
+  assert.deepEqual(ids, ["classic", "combat", "brawler", "scrapper", "kicker", "runner", "charger", "left-hand", "kicks-only", "crawl"]);
   assert.deepEqual(Object.keys(CONTROLS), ids);
   assert.throws(() => controllerOf({ kind: "point-fighter" }), /no mind of kind "point-fighter"/);
 });
 
 test("each controller says which bodies its presets fit, and the Arena offers just those", () => {
-  const humanoid = ["classic", "combat", "brawler", "scrapper", "kicker"];
+  const humanoid = ["classic", "combat", "brawler", "scrapper", "kicker", "runner", "charger", "left-hand", "kicks-only"];
   for (const model of BODY_MODELS) {
     const spec = modelSpec(model), fitting = [];
     for (const controller of Object.values(CONTROLLERS)) for (const [id, preset] of Object.entries(controller.presets))
@@ -39,12 +39,18 @@ test("every preset id reads to its tree: tactics, a skill of each role and the s
   const path = { kind: "path-strike", overlap: false }, recovery = [{ kind: "support-recovery" }];
   const fighter = (tactics, blow, kick, support, subs) => ({ kind: "fighter", tactics, locomotion: walk, guard, blow, kick, support, subs });
   const body = { ...openings, strikes: "mixed", prefers: "body" };
+  const rise = [{ kind: "staged-rise" }];
+  const behaving = (list) => ({ kind: "behaviours", list: [{ kind: "follow-orders" }, ...list, { kind: "cover", guard: "cover" }] });
   assert.deepEqual(Object.fromEntries(Object.entries(PRESETS).map(([id, { config }]) => [id, config])), {
     classic: fighter(seek, { kind: "recipe-strike" }, null, null, [{ kind: "staged-rise" }]),
     combat: fighter(openings, path, null, null, recovery),
     brawler: fighter(body, path, null, null, recovery),
     scrapper: fighter(body, path, null, { kind: "support-fold" }, recovery),
     kicker: fighter(body, path, { kind: "front-kick" }, { kind: "support-fold" }, recovery),
+    runner: fighter(behaving([{ kind: "flee" }]), null, null, null, rise),
+    charger: fighter(behaving([{ kind: "close-in", metres: 0.6 }]), null, null, null, rise),
+    "left-hand": fighter(behaving([{ kind: "strike", hands: "left", aim: "head" }]), { kind: "recipe-strike" }, null, null, rise),
+    "kicks-only": fighter(behaving([{ kind: "kick", feet: "alternate" }, { kind: "close-in", metres: 0.9 }]), null, { kind: "front-kick" }, null, rise),
     crawl: { kind: "quadruped" },
   });
   assert.deepEqual(RECIPE_FIGHTER, { ...CLASSIC, subs: [{ kind: "lie" }] });

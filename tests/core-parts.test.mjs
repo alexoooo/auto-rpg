@@ -6,7 +6,7 @@ import { PRESETS } from "../src/core/mind/controllers.ts";
 import { modelSpec } from "../src/core/models.ts";
 import { withParts } from "./fixtures/minds.mjs";
 
-const ROLES = ["mind", "sub-mind", "tactics", "locomotion", "guard", "blow", "kick", "support"];
+const ROLES = ["mind", "sub-mind", "tactics", "behaviour", "locomotion", "guard", "blow", "kick", "support"];
 
 test("every part has a role, a stage, frozen defaults of its own kind, and every slot's role has parts", () => {
   for (const [kind, part] of Object.entries(PARTS)) {
@@ -17,7 +17,8 @@ test("every part has a role, a stage, frozen defaults of its own kind, and every
     assert.deepEqual(treeFaults(part.defaults, part.needs ? [part.needs] : []), [], kind);
     for (const slot of part.slots) assert.ok(Object.values(PARTS).some((other) => other.role === slot.role), `${kind}.${slot.key}`);
   }
-  assert.deepEqual(Object.keys(PARTS), ["fighter", "quadruped", "direct", "lie", "staged-rise", "support-recovery", "seek", "openings", "script", "stand",
+  assert.deepEqual(Object.keys(PARTS), ["fighter", "quadruped", "direct", "lie", "staged-rise", "support-recovery", "seek", "openings", "script", "stand", "behaviours",
+    "follow-orders", "flee", "close-in", "keep-distance", "strike", "kick", "cover",
     "stance-walk", "cover-guard", "recipe-strike", "path-strike", "driven-strike", "whole-body-strike", "choose-blow", "front-kick", "support-fold"]);
   assert.equal(partOf(CLASSIC), PARTS.fighter);
   assert.deepEqual(new Set(Object.values(PARTS).map((part) => part.role)), new Set(ROLES));
@@ -56,10 +57,10 @@ test("a tree fits a body where every part does, and every part of a role is offe
   const offered = (role, spec) => kindsFor(role, spec).map(({ kind, reason }) => [kind, reason]);
   assert.deepEqual(offered("mind", human), [["fighter", null], ["quadruped", "does not fit this body"], ["direct", null]]);
   assert.deepEqual(offered("blow", human), [["recipe-strike", null], ["path-strike", null], ["driven-strike", null], ["whole-body-strike", null], ["choose-blow", null]]);
-  assert.deepEqual(offered("tactics", reptile), [["seek", "does not fit this body"], ["openings", "does not fit this body"], ["script", "does not fit this body"], ["stand", "does not fit this body"]]);
+  assert.deepEqual(offered("tactics", reptile), [["seek", "does not fit this body"], ["openings", "does not fit this body"], ["script", "does not fit this body"], ["stand", "does not fit this body"], ["behaviours", "does not fit this body"]]);
   // Every tactics part is offered on every screen; the script only where the screen gives one.
-  assert.deepEqual(offered("tactics", human), [["seek", null], ["openings", null], ["script", "this screen gives no script"], ["stand", null]]);
-  assert.deepEqual(kindsFor("tactics", human, ["script"]).map(({ reason }) => reason), [null, null, null, null]);
+  assert.deepEqual(offered("tactics", human), [["seek", null], ["openings", null], ["script", "this screen gives no script"], ["stand", null], ["behaviours", null]]);
+  assert.deepEqual(kindsFor("tactics", human, ["script"]).map(({ reason }) => reason), [null, null, null, null, null]);
   assert.deepEqual(offered("sub-mind", reptile), [["lie", null], ["staged-rise", "does not fit this body"], ["support-recovery", "does not fit this body"]]);
 });
 

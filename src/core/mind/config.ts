@@ -88,8 +88,42 @@ interface ScriptConfig { readonly kind: "script" }
 /** **Tactics that stand in guard** the way the body faces, whatever is about. */
 interface StandConfig { readonly kind: "stand" }
 
+/** Carry out a person's orders while there are any (`Orders`). */
+interface FollowOrdersConfig { readonly kind: "follow-orders" }
+
+/** Walk away from the nearest foe, around what is in the way. */
+interface FleeConfig { readonly kind: "flee" }
+
+/** Walk to the nearest foe until the centres of mass are within `metres` across the ground. */
+interface CloseInConfig { readonly kind: "close-in"; readonly metres: number }
+
+/** Hold `metres` from the nearest foe: walk in from further, back away from nearer. */
+interface KeepDistanceConfig { readonly kind: "keep-distance"; readonly metres: number }
+
+/** Strike the nearest foe with the blow, by `hands`, at what `aim` names, walking in to it. */
+interface StrikeConfig {
+  readonly kind: "strike";
+  readonly hands: "left" | "right" | "alternate";
+  readonly aim: SeekConfig["aim"];
+}
+
+/** Kick the nearest standing foe's legs with the kick, by `feet`, stepping to where it can. */
+interface KickConfig { readonly kind: "kick"; readonly feet: "left" | "right" | "alternate" }
+
+/** Guard with the hands that do not attack, as `guard` says. */
+interface CoverConfig { readonly kind: "cover"; readonly guard: SeekConfig["guard"] }
+
+/** **A behaviour's config**, by kind: one thing a fighter may want of its body (`behaviours.ts`). */
+export type BehaviourConfig = FollowOrdersConfig | FleeConfig | CloseInConfig | KeepDistanceConfig | StrikeConfig | KickConfig | CoverConfig;
+
+/**
+ * **Tactics made of behaviours**, in rank order: each step the first behaviour that wants the legs,
+ * the attack or a hand's guard has it, and what none wants stands in guard (`behavioursTactics`).
+ */
+export interface BehavioursConfig { readonly kind: "behaviours"; readonly list: readonly BehaviourConfig[] }
+
 /** **Tactics' config**, by kind: what turns what a body sees into its intent. */
-export type TacticsConfig = SeekConfig | OpeningsConfig | ScriptConfig | StandConfig;
+export type TacticsConfig = SeekConfig | OpeningsConfig | ScriptConfig | StandConfig | BehavioursConfig;
 
 /** **The walk** within the body's stance envelope (`locomotion`). */
 export interface StanceWalkConfig {
@@ -242,3 +276,22 @@ export const SCRAPPER: FighterConfig = deepFreeze({ ...BRAWLER, support: { kind:
 
 /** Low-kick development profile: `docs/reference/front-kicks.md#arena-selection`. */
 export const KICKER: FighterConfig = deepFreeze({ ...SCRAPPER, kick: { kind: "front-kick" } });
+
+/** A fighter of behaviours (`BehavioursConfig`) over no skill but the walk and the guard, rising by stages once down. */
+const BEHAVING: FighterConfig = deepFreeze({ ...CLASSIC, tactics: { kind: "behaviours", list: [] }, blow: null });
+
+/** A fighter of `list`, its behaviours in rank order, over `skills`. */
+const behaving = (list: readonly BehaviourConfig[], skills: Partial<Pick<FighterConfig, "blow" | "kick">> = {}): FighterConfig =>
+  deepFreeze({ ...BEHAVING, tactics: { kind: "behaviours", list: [{ kind: "follow-orders" }, ...list, { kind: "cover", guard: "cover" }] }, ...skills });
+
+/** Runs from the nearest foe, guarding, and never strikes. */
+export const RUNNER: FighterConfig = behaving([{ kind: "flee" }]);
+
+/** Walks at the nearest foe and stays on it, guarding, and never strikes. */
+export const CHARGER: FighterConfig = behaving([{ kind: "close-in", metres: 0.6 }]);
+
+/** Strikes with the left hand alone. */
+export const LEFT_HAND: FighterConfig = behaving([{ kind: "strike", hands: "left", aim: "head" }], { blow: { kind: "recipe-strike" } });
+
+/** Kicks and never strikes, closing in on a foe it cannot yet kick. */
+export const KICKS_ONLY: FighterConfig = behaving([{ kind: "kick", feet: "alternate" }, { kind: "close-in", metres: 0.9 }], { kick: { kind: "front-kick" } });

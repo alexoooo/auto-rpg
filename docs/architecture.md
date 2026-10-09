@@ -544,11 +544,15 @@ experiment's settings, which never travel in a link.
 sub-minds. Its tactics (`tacticsOf`, `tactics-of.ts`) are `seek` (`recipeTactics`, with `guard`,
 `aim` and `range`) or `openings` (`pathTactics`, with the hand that attacks, its blows, the
 surface it favours, its defence, its combinations and its spacing), `script` (the screen's own,
-carried out as written: the Lab's modes write one) or `stand` (in guard the way the body faces). Its skills are its walk
-(`stance-walk`), its guard (`cover-guard`), its blow (`recipe-strike`, or `path-strike`, which may
+carried out as written: the Lab's modes write one), `stand` (in guard the way the body faces) or `behaviours`
+(`behavioursTactics`, `behaviours.ts`): a ranked list of behaviours, each of which may want the legs, the
+attack or a hand's guard, the first that wants one having it and what none wants standing in guard
+(`follow-orders`, `flee`, `close-in`, `keep-distance`, `strike` with the hand or hands named, `kick`
+with the foot or feet named, and `cover`). Its skills are its walk
+(`stance-walk`), its guard (`cover-guard`), optionally a blow (`recipe-strike`, or `path-strike`, which may
 begin a hand while the other returns, the experimental `driven-strike` and `whole-body-strike`
 from the punch's research, or `choose-blow`, which gives each blow to one of a list of
-blows), and, optionally, a kick (`front-kick`) and low support
+blows; `noBlow` stands in for none), and, optionally, a kick (`front-kick`) and low support
 (`support-fold`): an empty slot is a fighter that does not do that. The tactics plan by what the
 skills can do (`Abilities`, `abilitiesOf`: the blow's hand paths, the kick, whether it fights from
 low support), never by a setting of their own; and a hand's contacts are read where the opening
@@ -556,17 +560,19 @@ tactics or the path strike read them (`readsContact`). A skill the tactics never
 that cannot carry out what they ask, is a fault at its slot (`fighterFaults`: `blow: the path
 strike carries out a blow only along a path, and these tactics name none`). The presets are
 `CLASSIC` (seek over the recipe strike, rising by stages) and `COMBAT`, `BRAWLER`, `SCRAPPER` and
-`KICKER` (openings over the path strike; Scrapper adds low support, and Kicker a kick).
+`KICKER` (openings over the path strike; Scrapper adds low support, and Kicker a kick); and, of
+behaviours, `RUNNER` (runs away), `CHARGER` (walks in and stays on the foe), `LEFT_HAND` (strikes
+with the left hand alone) and `KICKS_ONLY` (kicks, with no blow).
 
 **A mind is a tree of parts** (`Part`, `src/core/mind/parts.ts`). Each part has a role (`mind`,
-`sub-mind`, `tactics`, or a skill's: `locomotion`, `guard`, `blow`, `kick`, `support`), a label, a stage (`game`, or `experimental` for research offered beside the
+`sub-mind`, `tactics`, `behaviour`, or a skill's: `locomotion`, `guard`, `blow`, `kick`, `support`), a label, a stage (`game`, or `experimental` for research offered beside the
 game's), the settings a person may change (`fields`, built from `fields.ts`'s `choice`, `toggle`
 and `number`), its slots, the config it starts from (`defaults`), the bodies it fits (`fits`) and
 what is wrong with a config of it (`faults`), and what it needs of the screen it runs on (`needs`, a
 `Provision`: the script tactics need a script, which only the Lab gives). A slot is a key of the config that holds another
 part of a stated role, or none where it is optional (`slotOne`), or a ranked list of them
 (`slotList`). The controllers are the parts of role `mind`; the sub-minds are `SUB_MIND_PARTS`;
-the tactics `TACTICS_PARTS`; the skills `SKILL_PARTS`; `PARTS` (`src/core/mind/catalog.ts`) is every
+the tactics `TACTICS_PARTS`; the behaviours `BEHAVIOUR_PARTS`; the skills `SKILL_PARTS`; `PARTS` (`src/core/mind/catalog.ts`) is every
 part by kind, typed so that a kind without one does not compile. Over it, once for every part:
 `treeFaults` names each fault by its path in the tree (`subs.0: ...`), a part of the wrong role
 in a slot and a part whose need its screen does not provide (`tactics: this screen gives no

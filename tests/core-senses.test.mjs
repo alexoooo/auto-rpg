@@ -231,7 +231,7 @@ test("a fighter at the edge stands just outside its foe's reach and attacks when
 test("a fighter holds the point it aims at until the plan's leaves it, a blow is thrown or one is under way", () => {
   let attack = [1, 1.6, 0], thrown = 0, resumed = false, phase = "settle";
   const tactics = recipeTactics("aim", () => ({ move: null, face: null, attack }));
-  const decide = () => tactics.decide({ view: { resumed }, report: { heading: 0.25, strike: { thrown: { right: thrown }, phase } }, envelope: null }, 1 / 120);
+  const decide = () => tactics.decide({ view: { resumed }, report: { heading: 0.25, strike: { hand: null, thrown: { left: 0, right: thrown }, phase } }, envelope: null }, 1 / 120);
   const reach = APPROACH.reach;
   assert.deepEqual(decide().attack, { kind: "blow", hand: "right", target: [1, 1.6, 0] });
   // A point that sways inside the reach is not followed, though the plan moves its own array.
