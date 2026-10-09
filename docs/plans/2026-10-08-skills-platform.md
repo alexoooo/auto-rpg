@@ -68,7 +68,9 @@ experiments are `docs/analysis/2026-10-05-recovery-support.md@7f3ebcdb`.
    on the spike, at what cost per step. Asked 2026-10-08: the owner chose the cheaper option that
    meets the punch's bar, first a punch layer on today's stance, then the whole-body solve during a
    blow. Neither meets it: the solve lands at 4.2 to 4.4 m/s
-   ([whole-body spike](../reference/whole-body-spike.md)), and the layer lands almost nothing
+   ([whole-body spike](../reference/whole-body-spike.md)), and the layer lands almost nothing.
+   Asked for all it can give each step, the solve lands at 2.8 to 4.6 m/s, while the body itself
+   has a straight blow over the bar at every cell searched
    (`docs/analysis/2026-10-08-punch-layer.md`). Chunk 4 goes ahead on the owner's call among
    that study's choices.
 

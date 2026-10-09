@@ -76,9 +76,10 @@ export const SPIKE = Object.freeze({
     follow: 0.03, cycle: 2, returned: 0.05 }),
 });
 
-const ZERO = Object.freeze([0, 0, 0]), UP = new Vector3(0, 1, 0);
+export const ZERO = Object.freeze([0, 0, 0]);
+const UP = new Vector3(0, 1, 0);
 /** When the first punch is ordered, s, as the competency's stands (`ORDERED`). */
-const ORDERED = 2;
+export const ORDERED = 2;
 /** How long a stand settles before its shove, s, as `shove` does. */
 const SETTLE = 1.5;
 /** How far under its settled height the mass centre may sink before the body is down, m, as `shove` reads. */
@@ -91,7 +92,7 @@ function minimumJerk(t, span) {
 }
 
 /** `point`, body frame, reference pose, in `segment`'s node frame: where a frame goal's `at` is read. */
-function localPoint(segment, point) {
+export function localPoint(segment, point) {
   const { origin, x, y, z } = segment.frame, d = point.map((v, k) => v - origin[k]);
   const dot = (a) => d[0] * a[0] + d[1] * a[1] + d[2] * a[2];
   return [dot(x), dot(y), dot(z)];
@@ -102,7 +103,7 @@ function localPoint(segment, point) {
  * guard and driven by the whole-body tracker under `policy(model, guard)`. Returns the world, the
  * body and a stepper that reads each step's wall time and the tracker's report.
  */
-async function spikeBody({ model, held, hz, actuation }, policy) {
+export async function spikeBody({ model, held, hz, actuation }, policy) {
   const engine = new NullEngine(), scene = new Scene(engine);
   const world = createWorld(scene, await freshEngine(), { hz, actuation });
   world.physics.addFixedBox([0, -0.5, 0], [20, 1, 20]);
@@ -128,14 +129,14 @@ async function spikeBody({ model, held, hz, actuation }, policy) {
 }
 
 /** Every channel toward the guard, the knees bent, the arm's channels of `light` at `armWeight`. */
-function guardJoints(description, guard, light = null, armWeight = SPIKE.otherWeight) {
+export function guardJoints(description, guard, light = null, armWeight = SPIKE.otherWeight) {
   return description.channels.map((c) => ({ channel: c.name,
     angle: Math.max(c.min, Math.min(c.max, guard[c.name] ?? (/knee/.test(c.name) ? SPIKE.knee : 0))), rate: 0, acceleration: 0,
     seconds: SPIKE.jointSeconds, weight: /hip|knee|ankle/.test(c.name) ? SPIKE.legWeight : light?.test(c.name) ? armWeight : SPIKE.otherWeight }));
 }
 
 /** The goals every step holds: the mass centre over the soles' middle, and the pelvis's height. */
-function holding(observation, initial, segments) {
+export function holding(observation, initial, segments) {
   const feet = ["left", "right"].map((side) => observation.segments.find((s) => s.name === `foot.${side}`));
   const middle = [(feet[0].centre[0] + feet[1].centre[0]) / 2, 0, (feet[0].centre[2] + feet[1].centre[2]) / 2];
   return {
