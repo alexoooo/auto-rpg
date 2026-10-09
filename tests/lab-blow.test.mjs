@@ -5,7 +5,7 @@
  * that blow (`evaluateBlow`, `research/core-blow.mjs`), to the digit; the list is the unit blow
  * and every recipe of the repertoire; a blow's target hangs at its place from the head as the body
  * stands, a ball of its band's part; and the menu's Blow card puts the club in the right hand.
- * Node core stand, Rapier, 120 Hz. The control, run by hand: the lab's copy of the blow moved 1 cm
+ * Node core stand, Rapier, 120 Hz (the unit blow 480 Hz). The control, run by hand: the lab's copy of the blow moved 1 cm
  * farther reads another blow, and fails.
  */
 import test from "node:test";
@@ -13,6 +13,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { rulebook } from "../src/core/rules/rulebook.ts";
 import { humanSpec } from "../src/core/human/spec.ts";
+import { guardPosture } from "../src/core/skills/guard.ts";
 import { STAND } from "../src/core/skills/strike.ts";
 import { BAND_NAMES, BANDS, FIST, REPERTOIRE } from "../src/core/skills/strikes.ts";
 import { labActor } from "../src/lab/actor.ts";
@@ -44,7 +45,9 @@ test("the_labs_blow_on_the_loadouts_body_reads_as_the_search_reads_it", async ()
   const loadout = { model: stored.model, right: stored.held === FIST ? "empty" : "club", left: "empty", boots: true, armour: true };
   // The lab's body is the search's: the model's human with the club in the right hand.
   assert.deepEqual(plain(loadoutSpec(loadout)), plain(heldSpec(stored.model, stored.held, stored.hand)));
-  const stand = await coreStand(loadoutSpec(loadout), { ground: true, hz: 120 });
+  // Built in the guard its skills hold, as the lab builds it; at 480 Hz, where the unit blow, searched
+  // at 960 Hz, lands as written: at 120 Hz its first throw misses (`research/core-club-unit.json`).
+  const spec = loadoutSpec(loadout), stand = await coreStand(spec, { ground: true, hz: 480, posture: guardPosture(spec) });
   const actor = labActor(stand.built, stand.world);
   const blow = throwBlow(actor, { hand: stored.hand, strike: stored.strike, place: stored.place, band: stored.band });
   const watch = watchBlow(actor, blow, RULES);
@@ -58,7 +61,7 @@ test("the_labs_blow_on_the_loadouts_body_reads_as_the_search_reads_it", async ()
     }
     lab = plain(watch.reading);
   } finally { watch.dispose(); blow.dispose(); stand.dispose(); }
-  const search = await evaluateBlow({ model: stored.model, held: stored.held, hand: stored.hand, band: stored.band, strike: stored.strike, ahead: stored.place.ahead, hz: 120 });
+  const search = await evaluateBlow({ model: stored.model, held: stored.held, hand: stored.hand, band: stored.band, strike: stored.strike, ahead: stored.place.ahead, hz: 480 });
   assert.ok(lab.hung && lab.done > 0.5 && lab.blows.length > 0, `the lab's blow did ${lab.done} HP`);
   assert.deepEqual({ done: lab.done, cost: lab.cost, nearest: lab.nearest, blows: lab.blows }, plain({ done: search.done, cost: search.cost, nearest: search.nearest, blows: search.blows }));
 });

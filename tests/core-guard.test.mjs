@@ -243,9 +243,10 @@ async function firstBlow(gap, guard, experiment = {}) {
 }
 
 test("a_clubs_blow_at_the_head_is_met_by_the_club_that_covers", async () => {
-  // The pose takes the first blow on the head from every gap from 3 to 6 m. From these the covering
-  // hand meets it; from 3.5, 4 or 6 m the cover is late, and the blow lands on the head.
-  for (const gap of [3, 4.5, 5]) {
+  // The pose takes the first blow on the head from every gap from 2.6 to 6 m. From these the covering
+  // hand meets it first, as from 32 of the 35 gaps 0.1 m apart from 2.6 to 6 m; from 2.7, 3.6 and
+  // 4.4 m the cover is late, and the blow lands on the head.
+  for (const gap of [3, 4.5, 5.4]) {
     const { segment, item } = await firstBlow(gap, "pose");
     assert.deepEqual({ segment, item }, { segment: "head", item: null }, `in the pose, from ${gap} m`);
     const met = await firstBlow(gap, "cover");
@@ -306,7 +307,7 @@ test("the_guard_has_the_hands_the_strike_has_not", async () => {
 
 test("a_held_item_is_turned_at_the_wrist_as_near_upright_as_the_wrist_allows", async () => {
   const empty = await coreStand(WARRIOR, { ground: true });
-  try { assert.equal(guardPosture(empty.built), GUARD, "a body that holds nothing holds GUARD"); } finally { empty.dispose(); }
+  try { assert.equal(guardPosture(empty.built.spec), GUARD, "a body that holds nothing holds GUARD"); } finally { empty.dispose(); }
   const cases = [
     [CLUBBED, "right", true],
     [armed(humanSpec("workshop-rogue"), "left", woodenClub()), "left", true],
@@ -316,7 +317,7 @@ test("a_held_item_is_turned_at_the_wrist_as_near_upright_as_the_wrist_allows", a
   for (const [spec, side, upright] of cases) {
     const stand = await coreStand(spec, { ground: true });
     try {
-      const pose = guardPosture(stand.built), hand = stand.built.segments.get(`hand.${side}`), chain = chainTo(stand.built, hand);
+      const pose = guardPosture(stand.built.spec), hand = stand.built.segments.get(`hand.${side}`), chain = chainTo(stand.built, hand);
       const { free } = bodyEffectors(stand.built).find((e) => e.segment === hand), wrist = free.filter((f) => f.joint === chain.length - 1);
       const holding = spec.held.find((h) => h.segment === `hand.${side}`), grip = holding.origin.value;
       const haft = grip.map((v, k) => v + holding.along.value[k]);

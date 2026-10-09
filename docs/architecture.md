@@ -182,7 +182,9 @@ what a step allocates is held under a ceiling (`tests/core-step-cost.test.mjs`,
 `buildBody` (`src/core/build/build-body.ts`) makes one engine body per segment, with the spec's
 mass and inertia (a held item's are folded in by `rigidOf`, which says whose each of the rigid
 body's shapes is: the segment's own, or an item it holds), and one joint per spec joint, whose
-free axes are the spec's freedoms. The body is built in the pose its joints demand.
+free axes are the spec's freedoms. The body is built in the pose its joints demand: a fighter in
+the posture its mind holds from its first step (`builtAngles`, `Controller.builtIn`; for a
+recipe or path fighter its guard, `guardPosture`), so that no joint is flung into it.
 Rapier uses impulse joints. The pinned multibody implementation cannot represent the same
 anatomy unchanged: two-angular-DOF joints trap and three-axis internal limits accumulate
 angular motion rather than reading the current anatomical quaternion coordinates
@@ -288,7 +290,9 @@ and driven afresh to change what it costs.
   to its bend, a rolled foot left free to turn about its front edge. The solve's limbs are the
   stance's legs and its records the stance's own state; what the soles miss is published
   (`StanceReading.shortfall`). Steps (to recover, to walk, to shift weight) are placed from the
-  capture point. `stanceEnvelope` (`stance-envelope.ts`) reads what each body was measured to
+  capture point, and land facing the heading only as far as the bearing foot's hip lets the pelvis
+  turn over it (`landingHeading`, `support.ts`): a faster turn is taken step by step.
+  `stanceEnvelope` (`stance-envelope.ts`) reads what each body was measured to
   hold on parent-axis Rapier under its character's balance allowance
   (`assets/core/stance-envelope.json`). Unassisted coordinate-engine turns have a separate
   [combat calibration](reference/combat-locomotion.md); the reference table alone does not
@@ -881,7 +885,7 @@ The rules of a fight are `src/core/rules/`, free of any page so they can be argu
   cone prices the opposing side's share as `point`; its sides and back remain blunt
   (`pointsInto`). The strongest loaded shape pair supplies the surfaces and direction.
   The Warrior's strongest one-handed blow with the wooden club is a
-  measurement beside it (`CLUB_BEST`, `research/core-club-unit.json`): 133.75 J, 1.34 hit points.
+  measurement beside it (`CLUB_BEST`, `research/core-club-unit.json`): 138.23 J, 1.38 hit points.
   The arena's rulebook and the dungeon's are the same rules.
 - **Wounds** (`pool.ts`): one pool of hit points per body, split over its parts by cross-section
   (mass to the two-thirds, as the square of its cube root). A part's excess damage spreads to its neighbours, nearest first and

@@ -34,7 +34,10 @@ export function shoveControlFighter(stand, direction) {
   trunk.body.applyImpulse(new Vector3(...axis).scale(mass * 1.5), centreOfToRef(trunk, new Vector3()));
 }
 
-/** A commanded one-second walk followed by two seconds of standing. */
+/**
+ * A commanded two-second walk followed by two seconds of standing: a rise can end in a stance
+ * whose first weight shift, before the walk's first stride, takes over a second.
+ */
 export function walkAfterRecovery(stand) {
   const { world, duel, fighter } = stand;
   world.step(2);
@@ -42,8 +45,8 @@ export function walkAfterRecovery(stand) {
   const strides = fighter.body.view.stance.strides;
   duel.order("left", { move: { x: Math.sin(heading), z: Math.cos(heading) }, face: null, attack: null });
   let fell = false;
-  for (let step = 0; step < 360 && !duel.verdict; step++) {
-    if (step === 120) duel.order("left", STAND_ORDERS);
+  for (let step = 0; step < 480 && !duel.verdict; step++) {
+    if (step === 240) duel.order("left", STAND_ORDERS);
     world.step(); fell ||= fighter.body.down;
   }
   const now = fighter.body.view.stance.centre;

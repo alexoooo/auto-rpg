@@ -64,7 +64,7 @@ export function combatSkills(body: Body, { state: tactics, engagement }: Pick<Ta
   { paths: tuning = ATTACK_PATH, kick: kicks, execution, turnLimit, turnStartup, ground = false, overlap = false }: CombatSettings = {}): Skills {
   if (execution && !validCombatExecution(execution)) throw new Error("invalid combat execution settings");
   if (!validAttackTuning(tuning)) throw new Error("combat path settings need finite nonnegative values, positive durations and elbowExtension in [0,1]");
-  const spec = body.built.spec, legs = locomotion(body.envelope, turnLimit, turnStartup), guard = guardSkill(spec), guarding = guardPosture(body.built);
+  const spec = body.built.spec, legs = locomotion(body.envelope, turnLimit, turnStartup), guard = guardSkill(spec), guarding = guardPosture(body.built.spec);
   const elbowRange = (hand: Side) => spec.joints.find(j => j.name === `elbow.${hand}`)?.dofs.find(d => d.positive === "flexion");
   const elbows = { left: elbowRange("left"), right: elbowRange("right") };
   const fold = ground ? supportFold(body) : null;

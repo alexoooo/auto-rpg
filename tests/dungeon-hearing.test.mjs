@@ -86,7 +86,7 @@ test("a_run_is_heard_while_the_party_sees_where_a_body_stands_and_at_no_other_ti
 test("a_body_thrown_at_a_wall_in_sight_is_heard_on_the_wall", async () => {
   const { run, dispose } = await crypt(hall(6));
   try {
-    const [hero, enemy] = run.actors, seen = sees(run), cues = [], all = [];
+    const [hero, enemy] = run.actors, cues = [], all = [];
     const hearing = hearRun(run, (cue) => cues.push({ time: run.clock, ...cue }));
     const every = everyTouch(run, [hero, enemy], all);
     seconds(run, 1.2);
@@ -98,7 +98,9 @@ test("a_body_thrown_at_a_wall_in_sight_is_heard_on_the_wall", async () => {
     const walls = all.filter(({ touch }) => touch.on === null && touch.normal[2] > 0.9);
     assert.ok(walls.length >= 3, `${walls.length} touches on the wall`);
     assert.ok(walls.every(({ touch }) => touch.of.body.actor === enemy), "all of them the thrown body's");
-    assert.ok(walls.some(({ cue }) => !seen(cue.point)), "the point of a touch on a wall is in no cell the party sees");
+    // The wall's face is the edge of the floor's cells, z 21.5: which cell a touch's point rounds into is
+    // the solver's last hundredth of a millimetre, so the touch is read as on the face.
+    assert.ok(walls.every(({ cue }) => Math.abs(cue.point.z - 21.5) < 1e-3), "every touch on the wall is on its face");
     assert.ok(all.every((one) => one.seen), "and the body is in sight throughout");
     assert.deepEqual(cues, all.map(({ cue }) => cue), "so every touch is heard, the wall's among them");
     hearing.dispose(); every.dispose();

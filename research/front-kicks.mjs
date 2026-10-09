@@ -9,6 +9,7 @@ import {woodenClub} from '../src/core/items/club.ts';
 import {createBody,SERVO_SECONDS} from '../src/core/body.ts';
 import {DEFAULT_ENGINE} from '../src/core/engine/engines.ts';
 import {combatSkills} from '../src/core/skills/combat.ts';
+import {guardPosture} from '../src/core/skills/guard.ts';
 import {KICK_PATH} from '../src/core/skills/kick.ts';
 import {NO_COVER} from '../src/core/mind/intent.ts';
 import {pointOfToRef,motionAtToRef} from '../src/core/control/support.ts';
@@ -25,7 +26,8 @@ export async function frontKickStand({model='workshop-fighter',held='empty',foot
     ||![120,480,960,1920].includes(hz)||![seconds,height,ahead].every(Number.isFinite)
     ||seconds<=2||ahead<=0||!(cancelAt>=2))throw new Error('invalid front kick calibration');
   const config={model,held,foot,hz,seconds,height,ahead,mode,cancelAt:Number.isFinite(cancelAt)?cancelAt:null,tuning,pad,recovery,actuation,...(physique?{physique}:{})};
-  const s=await coreStand(held==='club'?armed(modelSpec(model,physique),'right',woodenClub()):modelSpec(model,physique),{engine:DEFAULT_ENGINE,hz,actuation});
+  const spec=held==='club'?armed(modelSpec(model,physique),'right',woodenClub()):modelSpec(model,physique);
+  const s=await coreStand(spec,{engine:DEFAULT_ENGINE,hz,actuation,posture:guardPosture(spec)});
   let sensor;
   const identity={kind:'object',id:mode==='block'?'block-pad':'kick-pad'};
   const body=createBody(s.built,s.world,{servoSeconds:SERVO_SECONDS,feedback:true,

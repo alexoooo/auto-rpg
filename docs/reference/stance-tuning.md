@@ -48,9 +48,13 @@ walks 24 and 25 held of 25; shoves 118 of 272 (41.9 N s the mean, 35 the least) 
 ## Stance height
 
 `STANCE_LOWER` (`src/core/skills/locomotion.ts`) is 0.03 m: how far under its reference height
-the skills hold a body's centre of mass. It is the height every table of this record was
-measured at, and was not itself swept, so a change to it voids them. A crouch is beyond the
-stance: asked 8 cm or more lower, a human settles only about 1 cm lower, and falls walking or
+the skills hold a body's centre of mass. The reference height is the centre of mass's over the
+soles' middle in the reference pose (`standingHeight`, `src/core/control/support.ts`), whatever
+posture the body was built in: a body built in its empty-handed guard has its centre of mass
+7 mm (the Rogue) to 11 mm (the skeleton) higher, and the envelope
+(`assets/core/stance-envelope.json`) is read built in that guard. It is the height every table of
+this record was measured at, and was not itself swept, so a change to it voids them. A crouch is
+beyond the stance: asked 8 cm or more lower, a human settles only about 1 cm lower, and falls walking or
 stopping from there (the lab's Stance).
 
 ## Fallen

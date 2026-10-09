@@ -1,7 +1,7 @@
 import { buildBody } from "./build/build-body.ts";
 import type { AssistCeiling } from "./control/assist.ts";
 import type { MindConfig } from "./mind/config.ts";
-import { createMind, type Minded, type MindWiring } from "./mind/minds.ts";
+import { builtAngles, createMind, type Minded, type MindWiring } from "./mind/minds.ts";
 import type { SolidSense } from "./mind/object-senses.ts";
 import type { SensesHub } from "./mind/senses.ts";
 import type { PhysicalBody } from "./physical-body.ts";
@@ -41,13 +41,13 @@ export interface Combatant extends Fighter {
 }
 
 /**
- * **One combatant**: its body built where it stands, its pool under the fight's rules, carried by
- * the fight's senses, and under the mind its config makes, with the assist its balance gives. Every
- * fight enlists its bodies here, in this order.
+ * **One combatant**: its body built where it stands, in the posture its mind holds (`builtAngles`),
+ * its pool under the fight's rules, carried by the fight's senses, and under the mind its config
+ * makes, with the assist its balance gives. Every fight enlists its bodies here, in this order.
  */
 export function enlist(world: World, enlisting: Enlistment): Combatant {
   const { id, side, spec, rules, mind } = enlisting;
-  const built = buildBody(spec, world, { position: enlisting.at });
+  const built = buildBody(spec, world, { position: enlisting.at, joints: builtAngles(spec, mind) });
   const pool = createPool(spec, rules);
   const senses = enlisting.senses.add({ id, side, built, out: enlisting.out, ...(enlisting.solids ? { solids: enlisting.solids } : {}) });
   const assist = balanceCeiling(enlisting.balance ?? spec.attributes.balance.value, enlisting.percent ?? balancePercent(rules));

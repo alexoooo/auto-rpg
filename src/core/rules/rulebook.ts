@@ -30,7 +30,7 @@ export interface Rulebook {
   /**
    * **The damage unit**: the energy of a blunt blow worth one hit point, joules. It is a round
    * number, the owner's (`owner-damage-unit`); the Warrior's strongest one-handed blow with the
-   * wooden club is a measurement beside it (`CLUB_BEST`), worth 1.34.
+   * wooden club is a measurement beside it (`CLUB_BEST`), worth 1.38.
    */
   readonly unit: Quantity<number>;
   /**
@@ -63,7 +63,7 @@ const MECHANISM_PRICE: Readonly<Record<Mechanism, Quantity<number>>> = Object.fr
 });
 
 /** The Warrior's strongest one-handed blow with the wooden club, J: a blow to price things against. */
-export const CLUB_BEST = sourced(133.75, "J", "core-club-unit", "the best blow at 1920 Hz, mean of 8 throws: 133.75 J");
+export const CLUB_BEST = sourced(138.23, "J", "core-club-unit", "the best blow at 1920 Hz, mean of 8 throws: 138.23 J");
 
 const RULES: Omit<Rulebook, "mode"> = Object.freeze({
   severMargin: sourced(0.5, "1", "owner-hp-pool", "a part severs half its hit points past empty"),

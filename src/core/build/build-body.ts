@@ -58,17 +58,25 @@ export interface BuiltDof {
   readonly sign: 1 | -1;
 }
 
-export interface BuiltJoint {
+/**
+ * **What turns a joint**, read from its spec alone (`jointKinematics`), so that a pose can be
+ * solved for a body before it is built: its freedoms as the constraint has them, and the
+ * constraint's axes.
+ */
+export interface JointKinematics {
   readonly spec: JointSpec;
-  readonly parent: BuiltSegment;
-  readonly child: BuiltSegment;
-  readonly joint: EngineJoint;
   readonly dofs: readonly BuiltDof[];
   /**
    * The constraint's X, Y and Z, body frame, reference pose: X is the first freedom's axis, and
    * the engine measures the joint's angles about these (`jointAngles`).
    */
   readonly axes: { readonly x: Vec3; readonly y: Vec3; readonly z: Vec3 };
+}
+
+export interface BuiltJoint extends JointKinematics {
+  readonly parent: BuiltSegment;
+  readonly child: BuiltSegment;
+  readonly joint: EngineJoint;
 }
 
 export interface BuiltBody {
@@ -184,9 +192,14 @@ function constraintAxes(dofs: readonly DofSpec[]): { readonly x: Vec3; readonly 
 /** The rotation taking a frame's own x, y and z onto `x`, `y` and `z`, given in that frame. */
 const frameRotation = (x: Vec3, y: Vec3, z: Vec3): Quaternion => Quaternion.RotationQuaternionFromAxis(v3(x), v3(y), v3(z));
 
-function buildJoint(spec: JointSpec, parent: BuiltSegment, child: BuiltSegment, world: World): BuiltJoint {
+/** `spec`'s kinematics: its constraint's axes (`constraintAxes`), and each freedom's sense about its axis. */
+export function jointKinematics(spec: JointSpec): JointKinematics {
   const { x, y, z, signs } = constraintAxes(spec.dofs);
-  const dofs: BuiltDof[] = spec.dofs.map((dof, k) => ({ spec: dof, sign: signs[k]! }));
+  return { spec, dofs: spec.dofs.map((dof, k) => ({ spec: dof, sign: signs[k]! })), axes: { x, y, z } };
+}
+
+function buildJoint(spec: JointSpec, parent: BuiltSegment, child: BuiltSegment, world: World): BuiltJoint {
+  const { dofs, axes } = jointKinematics(spec), { x, y, z } = axes;
   const centre = spec.centre.value;
   const inFrame = (frame: SegmentFrame) => frameRotation(localDirection(frame, x), localDirection(frame, y), localDirection(frame, z));
   const joint = world.physics.addJoint(parent.body, child.body, {
@@ -196,13 +209,13 @@ function buildJoint(spec: JointSpec, parent: BuiltSegment, child: BuiltSegment, 
     frameChild: inFrame(child.frame),
     limits: dofs.map(({ spec: { min, max }, sign }) => (sign > 0 ? [min.value, max.value] as const : [-max.value, -min.value] as const)),
   });
-  return { spec, parent, child, joint, dofs, axes: { x, y, z } };
+  return { spec, parent, child, joint, dofs, axes };
 }
 
 /** Compute a connected tree's initial pose before creating any physical segment or joint. */
 function initialPoses(spec: BodySpec, placement: Placement): ReadonlyMap<string, InitialPose> | undefined {
   if (placement.position.length !== 3 || !Array.from(placement.position).every(Number.isFinite)) throw new Error("invalid body placement");
-  if (!placement.rotation && !placement.joints) return undefined;
+  if (!placement.rotation && !Object.keys(placement.joints ?? {}).length) return undefined;
   const components = placement.rotation ?? [0, 0, 0, 1];
   const lengthSquared = components.reduce((sum, v) => sum + v * v, 0);
   if (components.length !== 4 || !Array.from(components).every(Number.isFinite)

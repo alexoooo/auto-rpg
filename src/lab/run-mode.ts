@@ -1,7 +1,7 @@
 import type { Body } from "../core/body.ts";
 import { paceRound, type StanceEnvelope } from "../core/control/stance-envelope.ts";
 import { NO_COVER, type Intent } from "../core/mind/intent.ts";
-import { wrap } from "../core/skills/locomotion.ts";
+import { wrap } from "../core/math/turn.ts";
 import type { Tactics } from "../core/mind/tactics.ts";
 import type { Actor } from "./actor.ts";
 import type { Track } from "./track.ts";

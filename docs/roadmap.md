@@ -237,8 +237,8 @@ After it, each with its own plan, in the order each needs the one before:
   and the skeleton (`assets/core/stance-envelope.json`), where a person's preferred walk is near
   1.4 m/s. Running, a dash, a roll, a crouch and turning on the spot are not built
   ([orders](reference/orders.md)).
-- **A half turn at the envelope's 2 rad/s, in a fight, now and then runs away sideways and
-  falls.** The pelvis falls behind the heading past the hips' turn
+- **A half turn at the next rate past the envelope's still now and then runs away sideways and
+  falls**, one to three of 56 in four cells: after the turn the walk's plan outruns the pace asked
   ([human and strikes](reference/human-and-strikes.md#turning)).
 - **Rising's own failures** ([rising](reference/rising.md#where-the-rise-stops)):
   - the kneel-up goes down forward in two of nine forward topples;

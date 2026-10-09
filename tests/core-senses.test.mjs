@@ -198,8 +198,8 @@ test("a fighter aims at a foe's head, or at the part its right hand's recipe net
 
 test("a fighter at the edge stands just outside its foe's reach and attacks when the foe is in its window", () => {
   const at = (x, y, z) => new Vector3(x, y, z);
-  // Its own blow reaches 0.3 m ahead of its head, and lands from 5 cm nearer to 5 cm further.
-  const mine = { reach: 0.3, along: [-0.05, 0.05] }, spec = modelSpec("workshop-rogue");
+  // Its own blow reaches 0.25 m ahead of its head, and lands from 5 cm nearer to 5 cm further.
+  const mine = { reach: 0.25, along: [-0.05, 0.05] }, spec = modelSpec("workshop-rogue");
   const theirs = rangeOf(spec, "right", 0), outside = theirs.reach + theirs.along[1];
   const sight = (apart, strike = {}) => ({
     view: { head: at(0, 1.6, 0), stance: { centre: at(0, 1, 0) }, senses: { side: "left", out: false,
@@ -216,8 +216,8 @@ test("a fighter at the edge stands just outside its foe's reach and attacks when
   assert.deepEqual(orders(outside + 0.01), { move: null, face: east, attack: null });
   assert.deepEqual(orders(outside - 0.01), { move: west, face: east, attack: null }, "inside the foe's reach it backs out");
   // The foe's head in its window, from either side of the window: it attacks from where it stands.
-  for (const apart of [0.25, 0.3, 0.35]) assert.deepEqual(orders(apart), { move: null, face: east, attack: [apart, 1.6, 0] }, `in its window at ${apart} m`);
-  assert.deepEqual(orders(0.24), { move: west, face: east, attack: null }, "nearer than its window, and inside the foe's reach");
+  for (const apart of [0.2, 0.25, 0.3]) assert.deepEqual(orders(apart), { move: null, face: east, attack: [apart, 1.6, 0] }, `in its window at ${apart} m`);
+  assert.deepEqual(orders(0.19), { move: west, face: east, attack: null }, "nearer than its window, and inside the foe's reach");
   // Stood still its patience, it attacks all the same; and a blow under way goes on to its end.
   assert.deepEqual(orders(outside + 0.1, { still: EDGE.patience }), { move: null, face: east, attack: [outside + 0.1, 1.6, 0] });
   assert.deepEqual(orders(outside + 0.1, { still: EDGE.patience - 0.01 }).attack, null);

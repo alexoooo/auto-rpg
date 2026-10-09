@@ -3,8 +3,8 @@
  * passed and no more than a page frame of it; a shove is told as it is applied, and sounds as a
  * hand with the energy its impulse gives; and under each of the lab's modes, what a step sounded
  * of is held at the time the frame that step recorded shows, on its feet and down, a target the
- * Routine or the Blow hangs beside the body heard with it. Node core stand, Rapier, 120 Hz,
- * balance 0 %.
+ * Routine or the Blow hangs beside the body heard with it. Node core stand, Rapier, each body
+ * built in its guard as the lab builds it, 120 Hz (the Blow 480 Hz), balance 0 %.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -14,6 +14,7 @@ import { contactMass } from "../src/core/build/contact-mass.ts";
 import { centreOfToRef } from "../src/core/control/support.ts";
 import { modelSpec } from "../src/core/models.ts";
 import { rulebook } from "../src/core/rules/rulebook.ts";
+import { guardPosture } from "../src/core/skills/guard.ts";
 import { STAND } from "../src/core/skills/strike.ts";
 import { labActor } from "../src/lab/actor.ts";
 import { throwBlow, watchBlow } from "../src/lab/blow.ts";
@@ -113,13 +114,14 @@ test("a shove is told as it is applied, and sounds as a hand, louder with its im
 
 /**
  * Run `mode` (`start(actor, logging, stand)` returns `{ time(), act?(step), done?(), dispose() }`) on
- * `spec` for `seconds`, or until it is `done`, under `logSounds`, and after every step hold the log
- * to the frame that step recorded:
+ * `spec`, built in its guard as the lab builds it, at `hz` (the game's when omitted) for `seconds`,
+ * or until it is `done`, under `logSounds`, and after every step hold the log to the frame that step
+ * recorded:
  * the frame's time (`time()`) is a step on from the last, the air held at it is the air of this
  * step, and what passed since the last frame is what this step sounded of.
  */
-async function logged(spec, seconds, start) {
-  const stand = await coreStand(spec, { ground: true });
+async function logged(spec, seconds, start, hz) {
+  const stand = await coreStand(spec, { ground: true, posture: guardPosture(spec), ...(hz ? { hz } : {}) });
   const actor = labActor(stand.built, stand.world), log = createSoundLog(stand.world.dt, 2);
   const logging = logSounds(stand.world, actor.body, log);
   let sounded = 0;
@@ -204,7 +206,8 @@ test("what a step sounded of is held at the time its frame shows, under every mo
   assert.deepEqual(run.faults.slice(0, 5), []);
   assert.ok(!run.down && run.cues.length >= 6 && run.cues.every((c) => c.key === `${LAB_BODY}:ground`), `${run.cues.length} footfalls`);
 
-  // The Blow: the body hung for it is heard with the body, as the Routine's is.
+  // The Blow: the body hung for it is heard with the body, as the Routine's is. At 480 Hz, where the
+  // unit blow, searched at 960 Hz, lands as written: at 120 Hz its first throw misses (`research/core-club-unit.json`).
   const stored = LAB_BLOWS[0];
   let landed = null;
   const blow = await logged(loadoutSpec({ model: stored.model, right: "club", left: "empty", boots: true, armour: true }), STAND + stored.strike.chamber.seconds + 0.6, (actor, logging) => {
@@ -212,7 +215,7 @@ test("what a step sounded of is held at the time its frame shows, under every mo
     const watch = watchBlow(actor, thrown, rulebook("arena"), { hung: logging.hears });
     // Read at every step, to the end: the blow that took the most from the target.
     return { time: () => thrown.body.view.time, done: () => { landed = hardestOn(watch.reading.blows, "dummy"); return false; }, dispose: () => { watch.dispose(); thrown.dispose(); } };
-  });
+  }, 480);
   assert.deepEqual(blow.faults.slice(0, 5), []);
   assert.ok(landed && !blow.down, "the blow landed");
   // Wood on a head of flesh: the softer one's voice, at the point the club touched, and all a cue can be.

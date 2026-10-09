@@ -70,6 +70,7 @@ export function kickSkill(body: Body, tuning: KickTuning = KICK_PATH): Skill & {
       strike: Vec3;
       rotation: Rotation;
       chamber: Vec3;
+      home: Vec3;
     } | null,
     returned: { left: 0, right: 0 }, failed: 0, interrupted: 0, placementVerified: false, withdrawalVerified: false, cycleFailed: false, setting: null as Side | null,
     footing: { left: [0, 0] as readonly [number, number], right: [0, 0] as readonly [number, number] } };
@@ -93,13 +94,18 @@ export function kickSkill(body: Body, tuning: KickTuning = KICK_PATH): Skill & {
   };
   const worldPoint = (view: BodyView, p: Vector3, out: Vector3) => p.applyRotationQuaternionToRef(view.root.rotation, out).addInPlace(view.root.position);
   const coordinates = (v: Vector3): Vec3 => [v.x, v.y, v.z];
-  /** Where the kicking foot stands as the kick begins, world frame, and the chamber above and behind it. */
+  /**
+   * Where the kicking foot stands as the kick begins, world frame, the chamber above and behind it,
+   * and the home its stroke returns to, `near` over its strike point: a foot that comes back to the
+   * ground short of its place is held there by its friction, so it comes back over it and is then set down.
+   */
   const capture = (view: BodyView, e: BodyView["effectors"][string]) => {
     const sole = coordinates(worldPoint(view, e.points.sole!, world));
     const strike = coordinates(worldPoint(view, e.points.strike!, world));
     view.root.rotation.multiplyToRef(e.rotation, turn).normalize();
     return { sole, strike, rotation: [turn.x, turn.y, turn.z, turn.w] as Rotation,
-      chamber: [strike[0] + tuning.windup * sin(state.heading), strike[1] + tuning.lift, strike[2] + tuning.windup * cos(state.heading)] as Vec3 };
+      chamber: [strike[0] + tuning.windup * sin(state.heading), strike[1] + tuning.lift, strike[2] + tuning.windup * cos(state.heading)] as Vec3,
+      home: [strike[0], strike[1] + tuning.near, strike[2]] as Vec3 };
   };
   const place = (view: BodyView, point: string, target: Vec3, seconds: number, rotation?: Rotation): EffectorGoal => {
     intoFrameToRef(view.root, target, local);
@@ -233,8 +239,10 @@ export function kickSkill(body: Body, tuning: KickTuning = KICK_PATH): Skill & {
         }
         case "strike": break;
         case "place": {
-          goal = place(view, "sole", initial.sole, tuning.placeSeconds, initial.rotation);
+          // Off its place across the ground by more than `placement`, the sole is carried `near` over it, and set down from there.
           const sole = worldPoint(view, e.points.sole!, world), error = hypot(sole.x - initial.sole[0], sole.y - initial.sole[1], sole.z - initial.sole[2]);
+          const over = hypot(sole.x - initial.sole[0], sole.z - initial.sole[2]) <= tuning.placement;
+          goal = place(view, "sole", over ? initial.sole : [initial.sole[0], initial.sole[1] + tuning.near, initial.sole[2]], tuning.placeSeconds, initial.rotation);
           view.root.rotation.multiplyToRef(e.rotation, turn).normalize();
           const angle = 1 - Math.abs(turn.x * initial.rotation[0] + turn.y * initial.rotation[1] + turn.z * initial.rotation[2] + turn.w * initial.rotation[3]);
           const ready = error <= tuning.placement && angle <= tuning.rotationError && loads[foot] > 0 && hypot(...velocity) <= tuning.placementSpeed;
@@ -274,7 +282,7 @@ export function kickSkill(body: Body, tuning: KickTuning = KICK_PATH): Skill & {
         const chamber: Vec3 = [local.x, local.y, local.z];
         intoFrameToRef(view.root, state.action!.target, local);
         const target: Vec3 = [local.x, local.y, local.z];
-        intoFrameToRef(view.root, initial.strike, local);
+        intoFrameToRef(view.root, initial.home, local);
         const home: Vec3 = [local.x, local.y, local.z];
         const dx = target[0] - chamber[0], dy = target[1] - chamber[1], dz = target[2] - chamber[2], length = hypot(dx, dy, dz);
         const contactVelocity: Vec3 = length ? [dx * tuning.contactSpeed / length, dy * tuning.contactSpeed / length, dz * tuning.contactSpeed / length] : [0, 0, 0];

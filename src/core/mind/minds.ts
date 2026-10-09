@@ -2,7 +2,9 @@ import type { Body } from "../body.ts";
 import type { BuiltBody } from "../build/build-body.ts";
 import type { ContactIdentity } from "../control/effector-feedback.ts";
 import type { AssistCeiling } from "../control/assist.ts";
+import { poseAngles } from "../control/kinematics.ts";
 import type { Skills } from "../skills/skills.ts";
+import type { BodySpec } from "../spec/body.ts";
 import type { World } from "../world.ts";
 import type { MindConfig } from "./config.ts";
 import { controllerOf } from "./controllers.ts";
@@ -42,6 +44,11 @@ interface FighterMind extends MindedBody {
  * the body and the memory; a reader that needs a kind's own narrows on `kind`.
  */
 export type Minded = FighterMind | (MindedBody & { readonly kind: "direct" }) | (MindedBody & { readonly kind: "quadruped" });
+
+/** The posture a body of `spec` is built in under the mind `config` names (`Controller.builtIn`), as a placement's angles (`poseAngles`). */
+export function builtAngles(spec: BodySpec, config: MindConfig): Record<string, number[]> {
+  return poseAngles(spec, controllerOf(config).builtIn(spec, config));
+}
 
 /** `built` under the mind `config` names, wired to its fight, made by its controller (`CONTROLLERS`); a config with a fault is refused. */
 export function createMind(built: BuiltBody, world: World, config: MindConfig, wiring: MindWiring): Minded {

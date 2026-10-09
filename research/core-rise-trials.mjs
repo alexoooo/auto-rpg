@@ -15,7 +15,7 @@ import { armed } from "../src/core/human/grip.ts";
 import { modelSpec } from "../src/core/models.ts";
 import { woodenClub } from "../src/core/items/club.ts";
 import { RECIPE_FIGHTER } from "../src/core/mind/config.ts";
-import { createMind } from "../src/core/mind/minds.ts";
+import { builtAngles, createMind } from "../src/core/mind/minds.ts";
 import { STAND_ORDERS } from "../src/core/mind/orders.ts";
 import { lieOf } from "../src/core/mind/rise/staged.ts";
 import { RISE } from "../src/core/mind/rise/stages.ts";
@@ -100,19 +100,21 @@ const FLOOR = 12;
 
 /**
  * `model` holding `held` (a key of `LOADOUTS`), built on the arena's ground as the arena builds a
- * body, under the mind `minded(built, world)` makes of it (its `Body`), left `STAND_SECONDS`, and
- * shoved at its middle trunk's centre by `impulse` N s a kilogram of the whole body, `degrees`
- * about up from the way it faces: the world stepped to the first step it is down, or
+ * body, in the posture the mind `mind` (a `MindConfig`) holds (`builtAngles`) or, with none, its
+ * reference pose, under the mind `minded(built, world)` makes of it (its `Body`), left
+ * `STAND_SECONDS`, and shoved at its middle trunk's centre by `impulse` N s a kilogram of the
+ * whole body, `degrees` about up from the way it faces: the world stepped to the first step it is down, or
  * `FALL_SECONDS` if it holds. With `level`, m, it is built on a floor that high over the arena's
  * ground, `FLOOR` m square. With `physique`, the body is the model's with it (`Physique`). The caller
  * disposes.
  */
-export async function felled({ model, held, degrees, impulse = 1.5, level = 0, hz = 120, actuation, physique }, minded) {
+export async function felled({ model, held, degrees, impulse = 1.5, level = 0, hz = 120, actuation, physique }, minded, mind = null) {
   const engine = new NullEngine(), scene = new Scene(engine);
   const world = createWorld(scene, await freshEngine(), { hz, actuation });
   addArenaSolids(world.physics);
   if (level > 0) world.physics.addFixedBox([0, level / 2, 0], [FLOOR, level, FLOOR]);
-  const built = buildBody(LOADOUTS[held](modelSpec(model, physique)), world, { position: [0, level, 0] });
+  const spec = LOADOUTS[held](modelSpec(model, physique));
+  const built = buildBody(spec, world, { position: [0, level, 0], ...(mind ? { joints: builtAngles(spec, mind) } : {}) });
   const body = minded(built, world);
   const dispose = () => { body.dispose(); built.dispose(); world.dispose(); scene.dispose(); engine.dispose(); };
   try {
@@ -157,7 +159,7 @@ export async function toppled(shove, subs) {
  */
 export async function shoved({ mind = RECIPE_FIGHTER, watch = WATCH_SECONDS, ...shove }) {
   const { world, built, body, dispose } = await felled(shove,
-    (made, into) => createMind(made, into, mind, { name: "battery", orders: () => STAND_ORDERS }).body);
+    (made, into) => createMind(made, into, mind, { name: "battery", orders: () => STAND_ORDERS }).body, mind);
   try {
     return body.view.down ? watchFall(world, built, body, watch) : HELD;
   } finally { dispose(); }

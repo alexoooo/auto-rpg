@@ -37,7 +37,7 @@ for (const model of values.models.split(",")) for (const hz of values.hz.split("
   let goal = null, lifted = false, from = null, to = null, landed = null, slid = 0, slidStepping = 0, speed = 0;
   body.drive((view) => {
     const s = view.stance;
-    if (!goal && view.time > 0) goal = { feet: ["left", "right"], centre: null, height: s.centre.y - s.support.y - 0.03, heading: 0 };
+    if (!goal && view.time > 0) goal = { feet: ["left", "right"], centre: null, height: view.standing - 0.03, heading: 0 };
     if (goal && !from && view.time >= BEFORE) {
       from = foot.clone();
       to = [s.soles.left.x + across, s.soles.left.z - back];

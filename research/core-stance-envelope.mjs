@@ -72,7 +72,7 @@ const models = Object.fromEntries(MODELS.map((model) => [model, {
   turnHeld: upTo(model).map((speed) => turnHeld(model, speed)),
   turns: upTo(model).map((speed) => fastestHeld({ speeds: RATES, ways: SENSES.length * HOLDS.length * AFTERS.length, held: turnHeld(model, speed) })),
 }]));
-const envelope = { harness: CORE_STANCE_HARNESS, played: "each body in the guard, under its character's balance (the rulebook's per cent), with each of `holds` in its right hand", hz, measured: new Date().toISOString().slice(0, 10), speeds: SPEEDS, ways: WAYS, rates: RATES, senses: SENSES, holds: HOLDS, afters: AFTERS, models };
+const envelope = { harness: CORE_STANCE_HARNESS, played: "each body built in the guard and holding it, under its character's balance (the rulebook's per cent), with each of `holds` in its right hand", hz, measured: new Date().toISOString().slice(0, 10), speeds: SPEEDS, ways: WAYS, rates: RATES, senses: SENSES, holds: HOLDS, afters: AFTERS, models };
 console.log(`${CORE_STANCE_HARNESS}, ${hz} Hz; ${walks.length} walks and ${turns.length} turns in ${((Date.now() - started) / 1000).toFixed(0)} s`);
 // Two-space JSON with each list of numbers on one line.
 const text = `${JSON.stringify(envelope, null, 2).replace(/\[[-\d.,\s]*\]/g, (list) => list.replace(/\s+/g, "").replaceAll(",", ", "))}\n`;

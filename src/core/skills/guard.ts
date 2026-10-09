@@ -1,9 +1,8 @@
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { BodyView } from "../body.ts";
-import type { BuiltBody } from "../build/build-body.ts";
 import { rigidPoints } from "../build/rigid.ts";
-import { bodyEffectors } from "../control/effectors.ts";
-import { intoFrameToRef, pointAtToRef, solveReach } from "../control/kinematics.ts";
+import { effectorFreedoms } from "../control/effectors.ts";
+import { intoFrameToRef, pointAtToRef, solveReach, specChainTo } from "../control/kinematics.ts";
 import type { EffectorGoal, Pose } from "../control/motor.ts";
 import type { Cover, Intent } from "../mind/intent.ts";
 import type { Side, BodySpec } from "../spec/body.ts";
@@ -34,16 +33,19 @@ export const GUARD_COVER: Covering = Object.freeze({ out: 0.3, seconds: 0.15 });
  * The arm is `GUARD`'s, read within its freedoms' ranges, which is where it holds the hand; the
  * wrist's freedoms alone are solved (`solveReach`) for the grip's place there and the haft's
  * line, so the arm's posture is the guard's and the wrist turns no further than it can. An empty
- * hand's arm is `GUARD`'s, and a body that holds nothing holds `GUARD`.
+ * hand's arm is `GUARD`'s, and a body that holds nothing holds `GUARD`. It is solved from the spec
+ * (`specChainTo`), so a fighter is built holding it (`poseAngles`, `Controller.builtIn`).
  */
-export function guardPosture(built: BuiltBody): Pose {
-  const held = built.spec.held ?? [];
+export function guardPosture(spec: BodySpec): Pose {
+  const held = spec.held ?? [];
   if (!held.length) return GUARD;
   const posture: Record<string, number> = { ...GUARD };
   const at = new Vector3();
-  for (const { segment, chain, free } of bodyEffectors(built)) {
-    const holding = held.find((h) => h.segment === segment.spec.name);
+  for (const effector of spec.effectors ?? []) {
+    const holding = held.find((h) => h.segment === effector.segment);
     if (!holding) continue;
+    const chain = specChainTo(spec, effector.segment), free = effectorFreedoms(chain, effector.base);
+    if (!free) throw new Error(`${spec.model}'s ${effector.segment} has no joint from ${effector.base}`);
     const angles = chain.map((joint) => joint.dofs.map((dof) => GUARD[`${joint.spec.name} ${dof.spec.positive}`] ?? 0));
     for (const f of free) angles[f.joint]![f.k] = Math.min(f.max, Math.max(f.min, angles[f.joint]![f.k]!));
     const grip = holding.origin.value, haft = add(grip, holding.along.value);

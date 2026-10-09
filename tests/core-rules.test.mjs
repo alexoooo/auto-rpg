@@ -228,14 +228,14 @@ test("a blow is worth its energy in the unit, and every weapon keeps the owner's
   for (const bad of [-1, NaN, Infinity]) assert.throws(() => blowDamage(RULES, "blunt", bad), String(bad));
 });
 
-test("the club's best blow is worth 1.34 hit points", async () => {
+test("the club's best blow is worth 1.38 hit points", async () => {
   // One hit point is 100 J of blunt blow, and an edge's 100 J is 5.73.
   assert.deepEqual([RULES.unit.value, RULES.unit.unit, RULES.unit.provenance.source], [100, "J/HP", "owner-damage-unit"]);
   assert.equal(blowDamage(RULES, "blunt", 100), 1);
   close(blowDamage(RULES, "edge", 100), 1134.99 / 197.96, "an edge's 100 J");
   // The club's best blow is a measurement beside the unit, and not the unit.
-  assert.deepEqual([CLUB_BEST.value, CLUB_BEST.unit, CLUB_BEST.provenance.source], [133.75, "J", "core-club-unit"]);
-  close(blowDamage(RULES, "blunt", CLUB_BEST.value), 1.3375, "the club's best blow");
+  assert.deepEqual([CLUB_BEST.value, CLUB_BEST.unit, CLUB_BEST.provenance.source], [138.23, "J", "core-club-unit"]);
+  close(blowDamage(RULES, "blunt", CLUB_BEST.value), 1.3823, "the club's best blow");
   // The whole path: that blow on the core stand at a target body, its contact, the masses it meets, its energy, its price.
   const { evaluateBlow } = await import("../research/core-blow.mjs");
   const { hardestOn } = await import("../src/lab/targets.ts");

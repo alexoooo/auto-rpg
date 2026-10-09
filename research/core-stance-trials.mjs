@@ -19,16 +19,17 @@ const across = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 /**
  * `model` on the stand: unarmed, its arms as the stance leaves them and nothing holding it up but its
  * muscles; or, given what its right hand holds (`held`, of `HELD`: "club" or "empty"), as a
- * fight plays it: the club in that hand, the arms in the body's guard (`guardPosture`), and its character's balance
- * under it (`balanceCeiling`, the rulebook's per cent). `actuation` is the world's (`createWorld`),
- * and `physique` the body's (`Physique`, `src/core/human/physique.ts`).
+ * fight plays it: the club in that hand, the arms in the body's guard (`guardPosture`) and built
+ * in it, and its character's balance under it (`balanceCeiling`, the rulebook's per cent).
+ * `actuation` is the world's (`createWorld`), and `physique` the body's (`Physique`,
+ * `src/core/human/physique.ts`).
  */
 async function body(model, stance, hz, held = null, actuation, physique) {
   const spec = held === "club" ? armed(modelSpec(model, physique), "right", woodenClub()) : modelSpec(model, physique);
-  const stand = await coreStand(spec, { ground: true, hz, actuation });
+  const stand = await coreStand(spec, { ground: true, hz, actuation, ...(held === null ? {} : { posture: guardPosture(spec) }) });
   const assist = held === null ? undefined : balanceCeiling(stand.built.spec.attributes.balance.value, balancePercent(rulebook("arena")));
   const built = createBody(stand.built, stand.world, { servoSeconds: 0.1, stance, measuring: true, assist });
-  return { stand, body: built, guard: guardPosture(stand.built), feet: ["left", "right"].map((side) => stand.built.segments.get(`foot.${side}`)) };
+  return { stand, body: built, guard: guardPosture(spec), feet: ["left", "right"].map((side) => stand.built.segments.get(`foot.${side}`)) };
 }
 
 /** The seconds stood at which `stand` reads the centre of mass's speed as the body settles. */
@@ -40,7 +41,7 @@ export async function stand({ model, stance, hz = 120 }) {
   let goal = null, from = null;
   b.drive((view) => {
     const s = view.stance;
-    if (!goal && view.time > 0) { goal = { feet: ["left", "right"], centre: null, height: s.centre.y - s.support.y - 0.03, heading: 0 }; from = feet.map((f) => f.node.position.clone()); }
+    if (!goal && view.time > 0) { goal = { feet: ["left", "right"], centre: null, height: view.standing - 0.03, heading: 0 }; from = feet.map((f) => f.node.position.clone()); }
     return { posture: GUARD, pushes: [], stance: goal };
   });
   try {
@@ -69,7 +70,7 @@ export async function edge({ model, degrees, stance, hz = 120 }) {
   b.drive((view) => {
     const s = view.stance;
     if (!goal && view.time > 0) {
-      goal = { feet: ["left", "right"], centre: [s.support.x + 0.3 * Math.sin(way), s.support.z + 0.3 * Math.cos(way)], height: s.centre.y - s.support.y - 0.03, heading: 0 };
+      goal = { feet: ["left", "right"], centre: [s.support.x + 0.3 * Math.sin(way), s.support.z + 0.3 * Math.cos(way)], height: view.standing - 0.03, heading: 0 };
       from = feet.map((f) => f.node.position.clone());
     }
     return { posture: {}, pushes: [], stance: goal };
@@ -90,7 +91,7 @@ export async function step({ model, foot, dx, dz, stance, hz = 120 }) {
   let goal = null, swing = null, to = null, bearing = null, lifted = null, turned = null;
   b.drive((view) => {
     const s = view.stance;
-    if (!goal && view.time > 0) goal = { feet: ["left", "right"], centre: null, height: s.centre.y - s.support.y - 0.03, heading: 0 };
+    if (!goal && view.time > 0) goal = { feet: ["left", "right"], centre: null, height: view.standing - 0.03, heading: 0 };
     if (goal && !swing && view.time >= 1) {
       to = [s.soles[foot].x + dx, s.soles[foot].z + dz];
       bearing = s.soles[other].clone();
@@ -129,7 +130,7 @@ export async function shove({ model, impulse, degrees, stance, hz = 120, walked 
   let goal = null, pace = null;
   b.drive((view) => {
     const s = view.stance;
-    if (!goal && view.time > 0) goal = { feet: ["left", "right"], centre: null, height: s.centre.y - s.support.y - 0.03, heading: 0 };
+    if (!goal && view.time > 0) goal = { feet: ["left", "right"], centre: null, height: view.standing - 0.03, heading: 0 };
     return { posture: held === null ? {} : guard, pushes: [], stance: goal && { ...goal, walk: pace } };
   });
   try {
@@ -166,7 +167,7 @@ export async function walk({ model, degrees, speed, stance, hz = 120, held = nul
   let goal = null, pace = null;
   b.drive((view) => {
     const s = view.stance;
-    if (!goal && view.time > 0) goal = { feet: ["left", "right"], centre: null, height: s.centre.y - s.support.y - 0.03, heading: 0 };
+    if (!goal && view.time > 0) goal = { feet: ["left", "right"], centre: null, height: view.standing - 0.03, heading: 0 };
     return { posture: held === null ? {} : guard, pushes: [], stance: goal && { ...goal, walk: pace } };
   });
   try {
@@ -208,7 +209,7 @@ export async function turn({ model, speed, rate, sense, stance, hz = 120, after 
   let goal = null, heading = 0, turning = false, walking = false, turned = 0;
   b.drive((view, dt) => {
     const s = view.stance;
-    if (!goal && view.time > 0) goal = { feet: ["left", "right"], centre: null, height: s.centre.y - s.support.y - 0.03 };
+    if (!goal && view.time > 0) goal = { feet: ["left", "right"], centre: null, height: view.standing - 0.03 };
     if (turning && turned < Math.PI) {
       const d = Math.min(rate * dt, Math.PI - turned);
       turned += d;

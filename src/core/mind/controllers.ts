@@ -1,6 +1,8 @@
 import { commandable } from "../body.ts";
 import type { BuiltBody } from "../build/build-body.ts";
+import type { Pose } from "../control/motor.ts";
 import { createQuadrupedMind, quadrupedFits } from "../reptile/mind.ts";
+import { guardPosture } from "../skills/guard.ts";
 import type { BodySpec } from "../spec/body.ts";
 import { deepFreeze } from "../state.ts";
 import type { World } from "../world.ts";
@@ -11,7 +13,7 @@ import type { Minded, MindWiring } from "./minds.ts";
 import { createPathFighter, pathFaults } from "./path-fighter.ts";
 import { createRecipeFighter, recipeFaults } from "./recipe-fighter.ts";
 
-/** **A controller**: a kind of mind, the bodies it can drive, what is wrong with a config, its named configs, a person's settings and how it is made. */
+/** **A controller**: a kind of mind, the bodies it can drive, what is wrong with a config, its named configs, a person's settings, the posture its body is built in and how it is made. */
 interface Controller<C extends MindConfig> {
   /** Whether a body of `spec` can carry out what a mind of `config` commands. */
   fits(spec: BodySpec, config: C): boolean;
@@ -21,8 +23,17 @@ interface Controller<C extends MindConfig> {
   readonly presets: Readonly<Record<string, { readonly label: string; readonly config: C }>>;
   /** The fields of its config a person may change, each in the panel and the link, in the order shown. */
   readonly fields: readonly ControllerField<C>[];
+  /**
+   * The posture a body of `spec` under a mind of `config` is built in (`poseAngles`): the one
+   * its mind holds from its first step, so that no joint is flung into it. `REFERENCE` builds the
+   * spec's reference pose.
+   */
+  builtIn(spec: BodySpec, config: C): Pose;
   create(built: BuiltBody, world: World, config: C, wiring: MindWiring): Minded;
 }
+
+/** No posture: a body built in its spec's reference pose. */
+const REFERENCE: Pose = Object.freeze({});
 
 /** The recipe fighter's settings: how it guards, what it aims at, how near it comes, and what it does when down. */
 const RECIPE_FIELDS: readonly ControllerField<RecipeFighterConfig>[] = Object.freeze([
@@ -60,6 +71,7 @@ export const CONTROLLERS: { readonly [K in MindConfig["kind"]]: Controller<Extra
     faults: recipeFaults,
     presets: deepFreeze({ classic: { label: "Classic fighter", config: CLASSIC } }),
     fields: RECIPE_FIELDS,
+    builtIn: guardPosture,
     create: createRecipeFighter,
   },
   "path-fighter": {
@@ -72,6 +84,7 @@ export const CONTROLLERS: { readonly [K in MindConfig["kind"]]: Controller<Extra
       kicker: { label: "Kicker (experimental)", config: KICKER },
     }),
     fields: PATH_FIELDS,
+    builtIn: guardPosture,
     create: createPathFighter,
   },
   quadruped: {
@@ -79,6 +92,7 @@ export const CONTROLLERS: { readonly [K in MindConfig["kind"]]: Controller<Extra
     faults: () => [],
     presets: deepFreeze({ crawl: { label: "Crawl and bite", config: QUADRUPED } }),
     fields: [],
+    builtIn: () => REFERENCE,
     create: (built, world, _config, wiring) => createQuadrupedMind(built, world, wiring),
   },
   direct: {
@@ -86,6 +100,7 @@ export const CONTROLLERS: { readonly [K in MindConfig["kind"]]: Controller<Extra
     faults: directFaults,
     presets: {},
     fields: [],
+    builtIn: () => REFERENCE,
     create: (built, world, config, wiring) => ({ kind: "direct", body: createDirectBody(built, world, config, wiring), state: {} }),
   },
 });

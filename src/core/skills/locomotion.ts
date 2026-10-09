@@ -6,6 +6,7 @@ import type { StanceGoal, SwingGoal } from "../control/stance.ts";
 import type { Side } from "../spec/body.ts";
 import { STANCE_GAIT } from "../control/stance-tuning.ts";
 import { atan2, sin, cos, hypot } from "../math/real.ts";
+import { wrap } from "../math/turn.ts";
 import type { Skill } from "./skill.ts";
 
 /**
@@ -26,8 +27,8 @@ export const RISING_SECONDS = 1.3;
 
 /**
  * **A body's legs, under the stance**: both feet bearing, the centre of mass held `lower` under
- * the height it was built standing at, the pelvis facing a heading, and walking at a velocity or
- * standing. What it remembers (`LegsMemory`) it keeps in the state it is made with.
+ * the height it stands at in the reference pose, the pelvis facing a heading, and walking at a
+ * velocity or standing. What it remembers (`LegsMemory`) it keeps in the state it is made with.
  */
 interface StanceLegs {
   /**
@@ -39,7 +40,7 @@ interface StanceLegs {
 }
 
 interface LegsMemory {
-  /** The centre of mass's height over the soles the body was built standing at, m; null before the first step. */
+  /** The centre of mass's height over the soles in the reference pose (`BodyView.standing`), m; null before the first step. */
   reference: number | null;
   /** Rising: the height over the soles it was resumed at, m, and when, s of the world's clock; null at its height. */
   rising: { from: number; at: number } | null;
@@ -51,10 +52,10 @@ function stanceLegs(state: LegsMemory): StanceLegs {
   return {
     goal(view, heading, walk, lower = STANCE_LOWER) {
       const s = view.stance;
-      // The reference height is read from the first view after a step, the body standing as built.
+      // The reference height is the body's (`BodyView.standing`), taken with the stance's width at the first view after a step.
       if (state.reference === null) {
         if (view.time <= 0) return null;
-        state.reference = s.centre.y - s.support.y;
+        state.reference = view.standing;
         state.width = hypot(s.soles.left.x - s.soles.right.x, s.soles.left.z - s.soles.right.z);
       }
       let height = state.reference - lower;
@@ -260,6 +261,3 @@ export function locomotion(envelope: StanceEnvelope | null, turnLimit?: number, 
     },
   };
 }
-
-/** `a` turned into (-pi, pi]. */
-export const wrap = (a: number): number => a - 2 * Math.PI * Math.ceil((a - Math.PI) / (2 * Math.PI));

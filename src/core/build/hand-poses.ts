@@ -1,6 +1,7 @@
 import type { BuiltSegment } from "./build-body.ts";
 import type { BodySpec, HandPose } from "../spec/body.ts";
 import { deepFreeze } from "../state.ts";
+import type { ColliderShape } from "../engine/engine.ts";
 import type { World } from "../world.ts";
 
 export interface HandPoseRequest { readonly hand: "left" | "right"; readonly pose: HandPose }
@@ -12,6 +13,14 @@ export interface HandPoses {
   check(requests: readonly HandPoseRequest[]): readonly HandPoseRequest[];
   request(requests: readonly HandPoseRequest[]): void;
   dispose(): void;
+}
+
+/**
+ * Whether a hand's change of pose to `collider` is blocked this step: a contact pushes on the hand,
+ * or the new shape would overlap something.
+ */
+export function poseBlocked(world: World, part: BuiltSegment, collider: ColliderShape): boolean {
+  return world.physics.contactsOf(part.body).some(contact => contact.impulse > 0) || !part.body.canChangeShape(0, collider);
 }
 
 /** Rigid-hand articulation uses the body's existing mass properties, never a shape's inferred mass. */
@@ -38,9 +47,8 @@ export function createHandPoses(spec: BodySpec, segments: ReadonlyMap<string, Bu
       const attached = hand.part.body.gripping();
       const desired = hand.held ? "grip" : attached ? (pose.requested === "open" ? pose.applied : "grip") : pose.requested;
       if (desired === pose.applied) continue;
-      if (world.physics.contactsOf(hand.part.body).some(contact => contact.impulse > 0)) continue;
       const collider = hand.poses[desired].collider;
-      if (!hand.part.body.canChangeShape(0, collider)) continue;
+      if (poseBlocked(world, hand.part, collider)) continue;
       hand.part.body.changeShape(0, collider); pose.applied = desired;
     }
   });

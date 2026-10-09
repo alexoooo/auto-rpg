@@ -10,7 +10,8 @@ import type { BearingSole } from "./contact-wrench.ts";
 import { chainTo } from "./kinematics.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { SUPPORT_INSET } from "./stance-tuning.ts";
-import { acos, hypot } from "../math/real.ts";
+import { acos, atan2, hypot } from "../math/real.ts";
+import { wrap } from "../math/turn.ts";
 import type { Side } from "../spec/body.ts";
 
 /** Whether `contact` is the ground bearing a body: a fixed collider that pushed this step, its normal (from the body into it) more than `minUp` down. */
@@ -61,6 +62,11 @@ export interface FootState {
   heel: number;
   /** `heel` in the reference pose, the foot flat on the ground, m. */
   readonly flat: number;
+  /**
+   * The pelvis's heading less the way the foot faces (`facingOf`), rad, at its hip's rotation
+   * stops, least then most: the headings the pelvis can face over the foot where it is planted.
+   */
+  readonly turns: readonly [number, number];
 }
 
 /**
@@ -74,7 +80,7 @@ export function footStatesOf(built: BuiltBody): FootState[] {
     if (!segment) throw new Error(`${built.spec.model} has no ${side} foot`);
     const corners = soleCorners(segment), sole = soleOf(segment, corners), chain = chainTo(built, segment);
     const ahead = aheadOf(corners, chain[2]!.spec.centre.value);
-    return { side, segment, chain, sole, memory: { channels: [] as number[], rolled: false }, corners: sole.map(() => new Vector3()), lengths: lengthsOf(chain),
+    return { turns: turnsOf(chain[0]!), side, segment, chain, sole, memory: { channels: [] as number[], rolled: false }, corners: sole.map(() => new Vector3()), lengths: lengthsOf(chain),
       straight: -referenceBendOf(chain),
       width: Math.max(...sole.map((q) => q.x)) - Math.min(...sole.map((q) => q.x)),
       // The rectangle's sides from one corner: the nearer two of the other three.
@@ -87,6 +93,57 @@ export function footStatesOf(built: BuiltBody): FootState[] {
     edgeOf(foot);
   }
   return feet;
+}
+
+/**
+ * The pelvis's heading less a foot's at `hip`'s rotation stops, least then most: the hip's freedom
+ * whose axis stands nearest up turns the thigh, and the foot under it, about up by its angle times
+ * the axis's upward part, so the pelvis turns the other way over a planted foot.
+ */
+function turnsOf(hip: BuiltJoint): [number, number] {
+  const dof = hip.dofs.reduce((best, d) => Math.abs(d.spec.axis.value[1]) > Math.abs(best.spec.axis.value[1]) ? d : best);
+  const up = dof.spec.axis.value[1], a = -up * dof.spec.min.value, b = -up * dof.spec.max.value;
+  return [Math.min(a, b), Math.max(a, b)];
+}
+
+/** The way `foot` faces, rad about up, as a heading is counted: 0 as in the reference pose, growing to the right. */
+function facingOf(foot: FootState): number {
+  const forward = scratch.forward.set(0, 0, 1).applyRotationQuaternionToRef(turnOfToRef(foot.segment, scratch.b), scratch.forward);
+  return atan2(forward.x, forward.z);
+}
+
+/**
+ * The heading a step lands facing, its foot turned no further than the pelvis can turn over
+ * `bearer` planted where it is: `heading`, or the nearest heading within the bearer's `turns` of
+ * the way it faces. A foot landed past that leaves the feet turned too far apart for any heading of
+ * the pelvis to serve both, its hips at their stops, and the next step cannot turn it further.
+ */
+export function landingHeading(bearer: FootState, heading: number): number {
+  const off = wrap(facingOf(bearer) - heading), lo = off + bearer.turns[0], hi = off + bearer.turns[1];
+  return lo > 0 ? heading + lo : hi < 0 ? heading + hi : heading;
+}
+
+/**
+ * The centre of mass's height over the middle of `built`'s soles in the reference pose, m: the
+ * height a body stands at whatever posture it was built in, from which the stance's height is
+ * asked (`STANCE_LOWER`).
+ */
+export function standingHeight(built: BuiltBody): number {
+  let mass = 0, moment = 0;
+  for (const segment of built.segments.values()) {
+    mass += segment.rigid.mass;
+    moment += segment.rigid.mass * segment.rigid.centre[1];
+  }
+  let sole = 0, count = 0;
+  for (const side of ["left", "right"] as const) {
+    const foot = built.segments.get(`foot.${side}`);
+    if (!foot) throw new Error(`${built.spec.model} has no ${side} foot`);
+    for (const corner of soleCorners(foot)) {
+      sole += corner[1];
+      count += 1;
+    }
+  }
+  return moment / mass - sole / count;
 }
 
 /** How far apart `feet`'s soles' middles stand across the ground, m, read now. */
@@ -162,7 +219,7 @@ function outline(points: [number, number][]): [number, number][] {
   return [...chain(sorted), ...chain([...sorted].reverse())];
 }
 
-const scratch = { a: new Quaternion(), b: new Quaternion() };
+const scratch = { a: new Quaternion(), b: new Quaternion(), forward: new Vector3() };
 
 /** `segment`'s turn since its reference pose, node times rest^-1. */
 export function turnOfToRef(segment: BuiltSegment, out: Quaternion): Quaternion {

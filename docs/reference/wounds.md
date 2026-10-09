@@ -147,7 +147,7 @@ changes less still: only a left hand is bare.
 mechanism keeps its ratio to blunt. The owner, 2026-10-01: "should we just make it 100J what's
 so special about 138?". Before it the unit was the Warrior's strongest one-handed blow with the
 wooden club as it was measured then, 138.26 J. The club's best blow stays a measurement
-(`CLUB_BEST`, `src/core/rules/rulebook.ts`, `core-club-unit`): 133.75 J, worth 1.34 hit points.
+(`CLUB_BEST`, `src/core/rules/rulebook.ts`, `core-club-unit`): 138.23 J, worth 1.38 hit points.
 
 The owner's words name the number and not what becomes of the bodies' hit points, so the option
 is the owner's to change. The first is what the rulebook has:

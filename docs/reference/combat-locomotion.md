@@ -18,8 +18,8 @@ or after an established walk. It then walks three seconds and stops for two.
 There are no opponents, imposed impulses, installed poses, recovery policies or
 external support. The body uses ordinary sourced muscles and unchanged stance tuning.
 
-`combat-locomotion-probes.json` retains the 72-job manifest, source fingerprint and
-whole physical results. The uncapped calibration deliberately gives locomotion no
+`combat-locomotion-probes.json` retains the 72-job manifest and whole physical
+results, measured on the tree of the commit that last changed it. The uncapped calibration deliberately gives locomotion no
 reference envelope, allowing the specified turn rate to reach the body. The ceiling
 comparison uses that same path with `turnLimit: 2`. Every cell can be reproduced by
 passing its recorded config to `combatTurn`; runs use separate worker threads with
@@ -27,28 +27,26 @@ one sequential loop in each.
 
 | Walk speed (m/s) | Requested rate (rad/s) | Falls / four ways (left/right, delay 0/3 s) |
 |---:|---:|---:|
-| 0.18 | 1 / 2 / 4 | 0 / 0 / 1 |
-| 0.25 | 1 / 2 / 4 | 0 / 0 / 1 |
-| 0.50 | 1 / 2 / 4 | 0 / 0 / 1 |
+| 0.18 | 1 / 2 / 4 | 0 / 0 / 0 |
+| 0.25 | 1 / 2 / 4 | 0 / 0 / 0 |
+| 0.50 | 1 / 2 / 4 | 0 / 0 / 0 |
 
-Each failure starts a left turn as walking begins, at 4 rad/s. The first ordinary
-down readings occur at 3.317, 3.000 and 2.917 s for the respective speeds. The other
-33 initial cells stay upright. All 24 additional cells at rates 2/4, both directions,
-delays 0.3/0.6 s and those three speeds stay upright. All twelve 4 rad/s requests with
-the 2 rad/s ceiling, both directions and delays 0/3 s, stay upright and settle to
-the standing phase. Every assist meter is zero.
+Every one of the 72 cells stays upright and settles to the standing phase, with every
+assist meter zero: the 36 initial cells, the 24 at rates 2/4, both directions, delays
+0.3/0.6 s, and the twelve 4 rad/s requests under the 2 rad/s ceiling. A step lands
+facing the heading only as far as the bearing foot's hip lets the pelvis turn over it
+(`landingHeading`, `src/core/control/support.ts`), so a turn faster than that is taken
+step by step. Without that rule, three left turns at 4 rad/s begun as the walk set off
+fell, one at each speed.
 
-This is evidence for a ceiling candidate and a specific startup failure, not proof
-that every Arena fall shares this cause. Abrupt lateral/backward changes, collisions
-with a grounded opponent and return from a planted fold require separate checks.
-The lowest stable rate is not inferred to be necessary; no complete turn-speed
-envelope or strength change is claimed. The optional ceiling also applies to ordinary
-skills and is plain immutable config, leaving policy and physical execution separate.
+The ceiling is an optional policy setting, plain immutable config applied to ordinary
+skills as well, leaving policy and physical execution separate. Abrupt lateral or
+backward changes, collisions with a grounded opponent and return from a planted fold
+require separate checks; no complete turn-speed envelope or strength change is claimed.
 
-The physical regression repeats the three failed cells with and without the ceiling.
-Removing the ceiling makes that test fail. A real Arena approach checks the actual
-heading change on both assignments and forks to a fresh world with identical whole
-state and pose traces. The ceiling remains an optional policy setting.
+`tests/core-combat-locomotion.test.mjs` repeats the three cells that fell, with and
+without the ceiling. A real Arena approach checks the actual heading change on both
+assignments and forks to a fresh world with identical whole state and pose traces.
 
 
 ## Arena ablation

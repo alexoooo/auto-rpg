@@ -7,6 +7,9 @@ import { acos, atan2, cos, hypot, sin } from "./real.ts";
  * on to the last bit. `tests/core-boundary.test.mjs` refuses those in the core.
  */
 
+/** `a` turned into (-pi, pi]. */
+export const wrap = (a: number): number => a - 2 * Math.PI * Math.ceil((a - Math.PI) / (2 * Math.PI));
+
 /** The turn of `angle`, rad, about `axis`, whatever its length, into `result`. */
 export function turnAboutToRef(axis: Vector3, angle: number, result: Quaternion): Quaternion {
   const sinByLength = sin(angle / 2) / axis.length();

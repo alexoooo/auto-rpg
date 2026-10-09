@@ -9,7 +9,7 @@ import {traceOf} from './harness/trace.mjs';
 async function make(side='left',paths={}) {
  const other=side==='left'?'right':'left',candidate={...SCRAPPER,spacing:.1,combinations:'follow-up',tuning:{paths}};
  return buildBout({left:'workshop-fighter',right:'workshop-fighter',held:{left:'empty',right:'empty'},balance:{left:0,right:0},
-  minds:{[side]:candidate,[other]:BRAWLER},gap:2,recoverySeconds:null,capSeconds:30},{physicsEngine:await loadEngine(DEFAULT_ENGINE)});
+  minds:{[side]:candidate,[other]:BRAWLER},gap:1.9,recoverySeconds:null,capSeconds:30},{physicsEngine:await loadEngine(DEFAULT_ENGINE)});
 }
 
 test('both Arena assignments follow confirmed target contact and verified return with one opposite-hand punch',async()=>{
