@@ -3,11 +3,12 @@
  * straight punch (`straightPunch`, `src/core/skills/straight-punch.ts`) bare-handed at the head of
  * a bare-handed Warrior that stands in guard, priced by the arena's rulebook as its blows land (`Duel.blows`). A bout's
  * score is the hit points the foe lost less those the puncher lost, with `FELL` taken off for each
- * second the puncher spent down.
+ * second the puncher spent down and `LOST` for a bout it lost. The foes are a Warrior standing in
+ * guard, or Classic fighting back (`--foes stands,classic`).
  *
  * Usage:
- *   node research/punch-in-bout.mjs [--settings '<json>'] [--gaps 1.2,1.6] [--seconds 8]  one setting, its blows printed
- *   node research/punch-in-bout.mjs --search [--generations 30] [--lambda 16] [--workers 15] [--seed 1] [--hz 120]
+ *   node research/punch-in-bout.mjs [--settings '<json>'] [--gaps 1.2,1.6] [--seconds 8] [--foes stands]  one setting, its blows printed
+ *   node research/punch-in-bout.mjs --search [--foes stands,classic] [--settings '<json>'] [--sigma 0.2] [--generations 30] [--lambda 16] [--workers 15] [--seed 1] [--hz 120]
  *
  * Harness: Node, the core's world on Rapier (`DEFAULT_ENGINE`), the Arena's room, 120 Hz unless asked.
  */
@@ -25,8 +26,11 @@ const STANDS = Object.freeze({ ...CLASSIC, tactics: { kind: "stand" }, blow: nul
 /** Both sides bare-handed: the Warrior's own loadout is a club. */
 const BARE = Object.freeze({ left: "empty", right: "empty" });
 
-/** Hit points a second down costs the puncher in the score. */
-const FELL = 0.5;
+/** Hit points a second down costs the puncher in the score, and a bout lost. */
+const FELL = 0.5, LOST = 1;
+
+/** The foes a setting may be scored against, by name. */
+const FOES = Object.freeze({ stands: STANDS, classic: CLASSIC });
 
 /** The settings searched, each its range. */
 const RANGES = Object.freeze({
@@ -63,34 +67,37 @@ export async function boutOf(mind, { foe = STANDS, gap = 1.4, seconds = 8, hz = 
         kg: [+me.kg.toFixed(2), +them.kg.toFixed(2)], hp: [+them.damage.toFixed(3), +me.damage.toFixed(3)] });
     }
     const thrown = left.minded.skills.report.strike.thrown;
-    return { gap, given, taken, down, thrown: thrown.left + thrown.right, punches, verdict: duel.verdict ? `${duel.verdict.winner ?? "draw"} by ${duel.verdict.ending}` : null, score: given - taken - FELL * down };
+    const lost = duel.verdict?.winner === "right" ? 1 : 0;
+    return { gap, given, taken, down, lost, thrown: thrown.left + thrown.right, punches, verdict: duel.verdict ? `${duel.verdict.winner ?? "draw"} by ${duel.verdict.ending}` : null,
+      score: given - taken - FELL * down - LOST * lost };
   } finally { dispose(); }
 }
 
 /** One bout of the straight punch with `settings` (`boutOf`), the rest of it the game's. */
 export const punchBout = (settings, options) => boutOf({ ...CLASSIC, blow: { kind: "straight-punch", ...STRAIGHT_PUNCH, ...settings } }, options);
 
-/** The bouts a setting is scored on: one a gap. */
+/** The bouts a setting is scored on: one a gap against each foe named. */
 const GAPS = [1.0, 1.4, 1.8, 2.2];
 
-async function scoreOf(settings, hz) {
+async function scoreOf(settings, hz, foes) {
   const bouts = [];
-  for (const gap of GAPS) bouts.push(await punchBout(settings, { gap, hz }));
+  for (const foe of foes) for (const gap of GAPS) bouts.push(await punchBout(settings, { foe: FOES[foe], gap, hz }));
   const mean = (key) => bouts.reduce((sum, b) => sum + b[key], 0) / bouts.length;
   return { score: mean("score"), given: mean("given"), taken: mean("taken"), down: mean("down"), thrown: mean("thrown"),
-    landed: bouts.reduce((n, b) => n + b.punches.length, 0) / bouts.length };
+    lost: mean("lost"), landed: bouts.reduce((n, b) => n + b.punches.length, 0) / bouts.length };
 }
 
 if (!isMainThread && workerData?.punchInBout) {
   parentPort.on("message", async ({ id, x }) => {
-    try { parentPort.postMessage({ id, r: await scoreOf(toSettings(x), workerData.hz) }); }
+    try { parentPort.postMessage({ id, r: await scoreOf(toSettings(x), workerData.hz, workerData.foes) }); }
     catch (error) { parentPort.postMessage({ id, r: { score: -10, error: String(error) } }); }
   });
 } else if (isMainThread && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const argv = process.argv.slice(2), arg = (name, fallback) => { const i = argv.indexOf(`--${name}`); return i < 0 ? fallback : argv[i + 1]; };
-  const hz = Number(arg("hz", 120));
+  const hz = Number(arg("hz", 120)), foes = arg("foes", "stands").split(",");
+  for (const foe of foes) if (!FOES[foe]) throw new Error(`no foe ${foe}: ${Object.keys(FOES).join(", ")}`);
   if (argv.includes("--search")) {
-    const workers = Number(arg("workers", Math.max(1, availableParallelism() - 1))), pool = workerPool(new URL(import.meta.url), { hz, punchInBout: true }, workers);
+    const workers = Number(arg("workers", Math.max(1, availableParallelism() - 1))), pool = workerPool(new URL(import.meta.url), { hz, foes, punchInBout: true }, workers);
     const start = toUnit({ ...STRAIGHT_PUNCH, ...JSON.parse(arg("settings", "{}")) }).map((v) => Math.min(1, Math.max(0, v)));
     try {
       const { best } = await cmaSearch({ n: KEYS.length, start, sigma: Number(arg("sigma", 0.2)), lambda: Number(arg("lambda", 16)), generations: Number(arg("generations", 30)),
@@ -100,6 +107,6 @@ if (!isMainThread && workerData?.punchInBout) {
     } finally { pool.terminate(); }
   } else {
     const settings = JSON.parse(arg("settings", "{}")), gaps = arg("gaps", GAPS.join(",")).split(",").map(Number);
-    for (const gap of gaps) console.log(JSON.stringify(await punchBout(settings, { gap, seconds: Number(arg("seconds", 8)), hz })));
+    for (const foe of foes) for (const gap of gaps) console.log(JSON.stringify(await punchBout(settings, { foe: FOES[foe], gap, seconds: Number(arg("seconds", 8)), hz })));
   }
 }
