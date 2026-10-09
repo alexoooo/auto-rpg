@@ -46,9 +46,9 @@ export interface ContactMass {
   mobility(segment: BuiltSegment, point: Vec3): number[][];
   /**
    * How the body gives at `point` on `segment` to an impulse pushing it along `direction`, with
-   * `holds` holding for one second (`Yield`).
+   * `holds` holding for one second (`Yield`), as far as the change `most` (`blowChange`).
    */
-  yielding(segment: BuiltSegment, point: Vec3, direction: Vec3, holds: readonly Hold[]): Yield;
+  yielding(segment: BuiltSegment, point: Vec3, direction: Vec3, holds: readonly Hold[], most?: number): Yield;
 }
 
 /** A freedom whose muscles hold through a contact: its joint, its index there, and the torque they can give toward each sense, N m. */
@@ -62,10 +62,11 @@ export interface Hold {
 /**
  * **How a body gives to an impulse at a point**, its holds lasting one second: the point's
  * velocity change along the push, against the impulse, piecewise linear from no impulse.
- * `impulse` and `change` are its corners (N s, m/s), and `slope` its rise past the last, which is
- * one over the free mass (`along`). Over a contact of T seconds the holds give T times the
- * angular impulse, and the change at impulse P is T times this one's at P / T: the problem is the
- * same one scaled.
+ * `impulse` and `change` are its corners (N s, m/s), and `slope` its rise past the last: one over
+ * the free mass (`along`) once every hold has given, or the last leg's where the path was stopped
+ * at a change it need not pass. Over a contact of T seconds the holds give T times the angular
+ * impulse, and the change at impulse P is T times this one's at P / T: the problem is the same one
+ * scaled.
  */
 interface Yield {
   readonly impulse: readonly number[];
@@ -212,7 +213,7 @@ export function contactMass(built: BuiltBody): ContactMass {
       return 1 / g.reduce((sum, gi, k) => sum + gi * x[k]!, 0);
     },
     mobility,
-    yielding(segment, point, direction, holds) {
+    yielding(segment, point, direction, holds, most) {
       const g = pushRow(segment, point, direction), Ag = solve(g);
       const a = g.reduce((sum, gi, k) => sum + gi * Ag[k]!, 0);
       const held = holds.filter((hold) => hold.negative > 0 || hold.positive > 0).map((hold) => {
@@ -224,7 +225,7 @@ export function contactMass(built: BuiltBody): ContactMass {
       const columns = held.map(({ column }) => { const e = new Array<number>(n).fill(0); e[column] = 1; return solve(e); });
       const K = held.map((_, i) => held.map(({ column }) => columns[i]![column]!));
       const c = held.map(({ column }) => Ag[column]!);
-      return yieldPath(a, c, K, held.map(({ low }) => low), held.map(({ high }) => high));
+      return yieldPath(a, c, K, held.map(({ low }) => low), held.map(({ high }) => high), most);
     },
   };
 
@@ -243,9 +244,12 @@ export function contactMass(built: BuiltBody): ContactMass {
  * inside its bounds does not turn; one at a bound turns the way the push takes it. With no impulse
  * every freedom holds; each leg of the path runs to the next freedom that reaches a bound or,
  * turning, comes to a stop, and changes it over, the first of equals first. K is a principal block
- * of the inverse of a mass matrix, positive definite, so there is one path.
+ * of the inverse of a mass matrix, positive definite, so there is one path. It is followed until
+ * the change has reached `most`, the most a blow reads of it (`blowChange`), or every freedom is
+ * done changing: its later legs reach impulses no blow carries.
  */
-export function yieldPath(a: number, c: readonly number[], K: readonly (readonly number[])[], low: readonly number[], high: readonly number[]): Yield {
+export function yieldPath(a: number, c: readonly number[], K: readonly (readonly number[])[], low: readonly number[], high: readonly number[],
+  most = Infinity): Yield {
   const h = c.length, given = new Array<number>(h).fill(0), turning = new Array<number>(h).fill(0);
   // 0 holds; +1 gives at its high bound, -1 at its low.
   const at = new Array<number>(h).fill(0);
@@ -260,6 +264,7 @@ export function yieldPath(a: number, c: readonly number[], K: readonly (readonly
     holding.forEach((i, k) => { dGiven[i] = rate[k]!; });
     let slope = a;
     for (const i of holding) slope += c[i]! * dGiven[i]!;
+    if (change[change.length - 1]! >= most) return { impulse, change, slope };
     for (let i = 0; i < h; i++) {
       if (at[i] === 0) continue;
       let d = c[i]!;
@@ -310,6 +315,20 @@ function spdSolve(A: readonly (readonly number[])[], b: readonly number[]): numb
   return y;
 }
 
+/** A contact's time, half the period of the mass `mu` on the stiffness `stiffness`: pi sqrt(mu / k), s. */
+function contactSeconds(mu: number, stiffness: number): number {
+  return Math.PI * Math.sqrt(mu / stiffness);
+}
+
+/**
+ * **The most change a blow reads of either side's path** (`Yield`, `contactGive`), m/s: the closing
+ * speed over the shortest contact the blow can have, the free masses' (`along`, kg) on the contact's
+ * stiffness. The holds only lengthen it, and each side's change is at most the two's together.
+ */
+export function blowChange(aKg: number, bKg: number, closing: number, stiffness: number): number {
+  return closing / contactSeconds(aKg * bKg / (aKg + bKg), stiffness);
+}
+
 /** The change `y` makes at impulse `P` (`Yield`). */
 export function changeAt(y: Yield, P: number): number {
   const last = y.impulse.length - 1;
@@ -346,7 +365,7 @@ export function contactGive(a: Yield, b: Yield, closing: number, stiffness: numb
   if (!(closing > 0) || !(stiffness < Infinity)) return { impulse: 0, aKg: 1 / a.slope, bKg: 1 / b.slope };
   let mu = 1 / (a.slope + b.slope), x = 0, T = 0;
   for (let round = 0; round < 32; round++) {
-    T = Math.PI * Math.sqrt(mu / stiffness);
+    T = contactSeconds(mu, stiffness);
     x = impulseFor(a, b, closing / T);
     const next = T * x / closing;
     if (!(next > mu)) break;

@@ -1,6 +1,6 @@
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { BuiltBody, BuiltSegment } from "./build/build-body.ts";
-import { contactGive, contactMass, type ContactMass, type Hold } from "./build/contact-mass.ts";
+import { blowChange, contactGive, contactMass, type ContactMass, type Hold } from "./build/contact-mass.ts";
 import type { ContactPair, SegmentBody } from "./engine/engine.ts";
 import { impactEnergy } from "./rules/impact.ts";
 import type { Vec3 } from "./spec/quantity.ts";
@@ -142,9 +142,9 @@ export function watchTouches<B extends { readonly built: BuiltBody }>(
     if (!posed.has(owned.masses)) { owned.masses.update(); posed.add(owned.masses); }
     return owned.masses.along(owned.segment, point, normal);
   };
-  const yieldAt = (owned: Owned<B>, point: Vec3, direction: Vec3, holds: readonly Hold[]) => {
+  const yieldAt = (owned: Owned<B>, point: Vec3, direction: Vec3, holds: readonly Hold[], most: number) => {
     if (!posed.has(owned.masses)) { owned.masses.update(); posed.add(owned.masses); }
-    return owned.masses.yielding(owned.segment, point, direction, holds);
+    return owned.masses.yielding(owned.segment, point, direction, holds, most);
   };
   /** Whether a step's touches are being told: outside it, a pose taken is not kept. */
   let telling = false;
@@ -188,14 +188,16 @@ export function watchTouches<B extends { readonly built: BuiltBody }>(
       const of = owners.get(touch.of.segment.body), on = touch.on ? owners.get(touch.on.segment.body) : null;
       if (!of || on === undefined) throw new Error("a touch is priced by the watch that read it");
       if (!telling) posed.clear();
-      if (stiffness !== undefined && on && options.holds) {
-        // The impulse pushes `of` back along the normal, and `on` on along it.
-        const back: Vec3 = [-touch.normal[0], -touch.normal[1], -touch.normal[2]];
-        const give = contactGive(yieldAt(of, touch.point, back, options.holds(of.body)), yieldAt(on, touch.point, touch.normal, options.holds(on.body)), touch.closing, stiffness);
-        return { ofKg: give.aKg, onKg: give.bKg, energy: impactEnergy(give.aKg, give.bKg, touch.closing) };
-      }
       const ofKg = massAt(of, touch.point, touch.normal);
       const onKg = on ? massAt(on, touch.point, touch.normal) : Infinity;
+      // A contact with no compliance, or none closing, meets the free masses (`contactGive`).
+      if (stiffness !== undefined && stiffness < Infinity && touch.closing > 0 && on && options.holds) {
+        // The impulse pushes `of` back along the normal, and `on` on along it.
+        const back: Vec3 = [-touch.normal[0], -touch.normal[1], -touch.normal[2]], most = blowChange(ofKg, onKg, touch.closing, stiffness);
+        const give = contactGive(yieldAt(of, touch.point, back, options.holds(of.body), most), yieldAt(on, touch.point, touch.normal, options.holds(on.body), most),
+          touch.closing, stiffness);
+        return { ofKg: give.aKg, onKg: give.bKg, energy: impactEnergy(give.aKg, give.bKg, touch.closing) };
+      }
       return { ofKg, onKg, energy: impactEnergy(ofKg, onKg, touch.closing) };
     },
     dispose: () => hook.dispose(),

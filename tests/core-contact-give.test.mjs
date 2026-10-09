@@ -2,11 +2,12 @@
  * Muscles that hold through a blow (`yieldPath`, `ContactMass.yielding`, `contactGive` in
  * `src/core/build/contact-mass.ts`): the path a push follows against held freedoms, against every
  * way the freedoms could hold or give, on random mass matrices; and on a Warrior's arm, that no hold
- * is the free mass, that holding raises it, and that two sides agree on the impulse and the time.
+ * is the free mass, that holding raises it, that two sides agree on the impulse and the time, and
+ * that a path stopped at the most change a blow reads (`blowChange`) prices it as the whole path does.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { changeAt, contactGive, contactMass, yieldPath } from "../src/core/build/contact-mass.ts";
+import { blowChange, changeAt, contactGive, contactMass, yieldPath } from "../src/core/build/contact-mass.ts";
 import { modelSpec } from "../src/core/models.ts";
 import { coreStand } from "./harness/core-stand.mjs";
 
@@ -97,5 +98,12 @@ test("a Warrior's fist meets its free mass with no hold, more with its arm held,
     const stops = T * (changeAt(held, give.impulse / T) + changeAt(head, give.impulse / T));
     assert.ok(Math.abs(stops - closing) < 1e-9 * closing, `the impulse stops the closing: ${stops}`);
     assert.ok(Math.abs(1 / (1 / give.aKg + 1 / give.bKg) - mu) < 1e-9 * mu, "each side's mass is the impulse over its change");
+    const most = blowChange(free, 1 / head.slope, closing, stiffness);
+    assert.deepEqual(contactGive(masses.yielding(hand, point, along, arm, most), head, closing, stiffness), give, "the blow reads no further than its most");
+    const half = held.change[held.change.length >> 1], stopped = masses.yielding(hand, point, along, arm, half), corners = stopped.impulse.length;
+    assert.ok(corners < held.impulse.length, `stopped at ${half} m/s, ${corners} of ${held.impulse.length} corners`);
+    assert.deepEqual([stopped.impulse, stopped.change], [held.impulse.slice(0, corners), held.change.slice(0, corners)]);
+    const within = held.impulse[corners - 1] * 1.0001;
+    assert.ok(Math.abs(changeAt(stopped, within) - changeAt(held, within)) < 1e-12, "it is the whole path's next leg past its last corner");
   } finally { stand.dispose(); }
 });
