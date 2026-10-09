@@ -11,12 +11,13 @@ import { noBlow } from "../skills/no-blow.ts";
 import type { BlowSkill } from "../skills/skill.ts";
 import type { Skills } from "../skills/skills.ts";
 import { recipeStrike } from "../skills/strike.ts";
+import { STRAIGHT_PUNCH, straightPunch, straightPunchFits, validStraightPunch } from "../skills/straight-punch.ts";
 import { supportFold } from "../skills/support-fold.ts";
 import { wholeBodyFits, wholeBodyStrike } from "../skills/whole-body-strike.ts";
 import { deepFreeze } from "../state.ts";
 import type { World } from "../world.ts";
 import { ARENA_KICKS, type BehaviourConfig, type BlowConfig, type ChooseBlowConfig, type DrivenStrikeConfig, type FighterConfig, type FrontKickConfig, type PathStrikeConfig, type SkillConfig, type StanceWalkConfig,
-  type WholeBodyStrikeConfig } from "./config.ts";
+  type StraightPunchConfig, type WholeBodyStrikeConfig } from "./config.ts";
 import { choice, number, toggle, type PartField } from "./fields.ts";
 import type { MindWiring } from "./minds.ts";
 import { slotList, type Part } from "./parts.ts";
@@ -36,7 +37,7 @@ const skill = <C extends SkillConfig>(role: Part["role"], label: string, stage: 
  */
 function pathsOf(config: BlowConfig): AttackTuning {
   switch (config.kind) {
-    case "recipe-strike": case "whole-body-strike": return ATTACK_PATH;
+    case "recipe-strike": case "whole-body-strike": case "straight-punch": return ATTACK_PATH;
     case "path-strike": return { ...ATTACK_PATH, ...config.tuning?.paths };
     case "driven-strike": return { ...ATTACK_PATH, ...config.tuning?.paths, windup: config.windup, torso: config.torso, contactSpeed: config.contact };
     case "choose-blow": return config.options[0] ? pathsOf(config.options[0]) : ATTACK_PATH;
@@ -53,6 +54,25 @@ const DRIVEN_FIELDS: readonly PartField<DrivenStrikeConfig>[] = Object.freeze([
   number<DrivenStrikeConfig, "torso">("torso", "Trunk turn", 0, 0.6, 0.01, "rad"),
   number<DrivenStrikeConfig, "windup">("windup", "Wind-up", 0, 0.4, 0.01, "m"),
   number<DrivenStrikeConfig, "contact">("contact", "Contact speed", 1, 12, 0.5, "m/s"),
+]);
+
+/** The straight punch's settings, as a panel offers them. */
+const STRAIGHT_FIELDS: readonly PartField<StraightPunchConfig>[] = Object.freeze([
+  number<StraightPunchConfig, "pace">("pace", "Approach pace", 0.1, 1.5, 0.05, "m/s"),
+  number<StraightPunchConfig, "reach">("reach", "Stand-off", 0.2, 1.2, 0.01, "m"),
+  number<StraightPunchConfig, "band">("band", "Stand-off band", 0.01, 0.3, 0.01, "m"),
+  number<StraightPunchConfig, "settle">("settle", "Settle", 0, 1, 0.05, "s"),
+  number<StraightPunchConfig, "through">("through", "Through", 0, 0.5, 0.01, "m"),
+  number<StraightPunchConfig, "hips">("hips", "Hip turn", 0, 0.6, 0.01, "rad"),
+  number<StraightPunchConfig, "turn">("turn", "Chest turn", 0, 0.5, 0.01, "rad"),
+  number<StraightPunchConfig, "lean">("lean", "Lean", 0, 0.8, 0.01, "rad"),
+  number<StraightPunchConfig, "chamber">("chamber", "Chamber", 0, 0.6, 0.01, "m"),
+  number<StraightPunchConfig, "lead">("lead", "Trunk lead", 0, 0.3, 0.01, "s"),
+  number<StraightPunchConfig, "elbow">("elbow", "Elbow delay", 0, 0.3, 0.01, "s"),
+  number<StraightPunchConfig, "brake">("brake", "Brake", 0, 0.5, 0.01, "rad"),
+  number<StraightPunchConfig, "follow">("follow", "Follow through", 0, 0.1, 0.005, "s"),
+  number<StraightPunchConfig, "longest">("longest", "Longest drive", 0.05, 1, 0.01, "s"),
+  number<StraightPunchConfig, "recover">("recover", "Recover", 0, 1, 0.05, "s"),
 ]);
 
 /**
@@ -87,6 +107,12 @@ export const SKILL_PARTS: { readonly [K in SkillConfig["kind"]]: Part<Extract<Sk
     fits: (spec) => commandable(spec) && wholeBodyFits(spec),
     fields: [choice("drive", "Drive", [["timed", "On a timed path"], ["flat-out", "Flat out along the line"]])],
   },
+  "straight-punch": {
+    ...skill<StraightPunchConfig>("blow", "Straight punch", "game", { kind: "straight-punch", ...STRAIGHT_PUNCH },
+      (config) => validStraightPunch(config) ? [] : ["a straight punch needs every setting finite and not negative, and a pace, reach, band and drive's length above zero"]),
+    fits: (spec) => commandable(spec) && straightPunchFits(spec),
+    fields: STRAIGHT_FIELDS,
+  },
   "choose-blow": {
     ...skill<ChooseBlowConfig>("blow", "Choose a blow", "experimental", { kind: "choose-blow", options: [{ kind: "recipe-strike" }], policy: "first-able" },
       (config) => config.options.length > 0 ? [] : ["a choice needs a blow to choose"]),
@@ -115,7 +141,7 @@ function abilitiesOf(config: Pick<FighterConfig, "blow" | "kick" | "support">): 
 /** Whether a blow of `config` may throw one with no path, as tactics that name none ask: the recipe strike, or a choice with an option that may. */
 function throwsPathless(config: BlowConfig): boolean {
   switch (config.kind) {
-    case "recipe-strike": case "whole-body-strike": return true;
+    case "recipe-strike": case "whole-body-strike": case "straight-punch": return true;
     case "path-strike": case "driven-strike": return false;
     case "choose-blow": return config.options.some(throwsPathless);
     default: { const never: never = config; throw new Error(`no blow of kind ${JSON.stringify((never as { kind?: unknown }).kind)}`); }
@@ -125,7 +151,7 @@ function throwsPathless(config: BlowConfig): boolean {
 /** Whether every blow of `config` may begin while the other hand returns: the overlapping path strike, or a choice of nothing else. */
 function overlaps(config: BlowConfig): boolean {
   switch (config.kind) {
-    case "recipe-strike": case "driven-strike": case "whole-body-strike": return false;
+    case "recipe-strike": case "driven-strike": case "whole-body-strike": case "straight-punch": return false;
     case "path-strike": return config.overlap;
     case "choose-blow": return config.options.length > 0 && config.options.every(overlaps);
     default: { const never: never = config; throw new Error(`no blow of kind ${JSON.stringify((never as { kind?: unknown }).kind)}`); }
@@ -139,7 +165,7 @@ function overlaps(config: BlowConfig): boolean {
 function blowReadsContact(config: BlowConfig): boolean {
   switch (config.kind) {
     case "recipe-strike": return false;
-    case "path-strike": case "driven-strike": case "whole-body-strike": case "choose-blow": return true;
+    case "path-strike": case "driven-strike": case "whole-body-strike": case "straight-punch": case "choose-blow": return true;
     default: { const never: never = config; throw new Error(`no blow of kind ${JSON.stringify((never as { kind?: unknown }).kind)}`); }
   }
 }
@@ -210,6 +236,7 @@ export function blowOf(body: Body, world: World, config: BlowConfig): BlowSkill 
       return pathStrike(body, { paths: { ...ATTACK_PATH, ...config.tuning?.paths }, ...(execution ? { execution } : {}), driven: { drive, torso, windup, contact } });
     }
     case "whole-body-strike": return wholeBodyStrike(body, world, config.drive);
+    case "straight-punch": { const { kind: _, ...settings } = config; return straightPunch(body, settings); }
     case "choose-blow": return chooseSkill(config.options.map((option) => blowOf(body, world, option)), config.policy);
     default: { const never: never = config; throw new Error(`no blow of kind ${JSON.stringify((never as { kind?: unknown }).kind)}`); }
   }

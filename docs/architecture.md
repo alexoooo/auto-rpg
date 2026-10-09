@@ -323,17 +323,22 @@ blow is under way and the body stands. A blow skill of one kind is swapped for a
 touching the rest. A fighter's set is the skills its slots name (`skillPartsOf`,
 `src/core/mind/fighter.ts`, `blowOf`): the walk, the guard, the recipe strike (`recipeStrike`), the path
 strike (`pathStrike`), the driven strike (`pathStrike` with its `driven` setting), the whole-body
-strike (`wholeBodyStrike`, `whole-body-strike.ts`) or a choice of blows (`chooseSkill`), and a kick
+strike (`wholeBodyStrike`, `whole-body-strike.ts`), the straight punch (`straightPunch`,
+`straight-punch.ts`) or a choice of blows (`chooseSkill`), and a kick
 and a support fold where it has them. A blow skill says whether it carries out an attack
-(`BlowSkill.accepts`): the recipe strike and the whole-body strike every blow, the path strikes one
-with a path. The driven strike turns the trunk flat out in the swing, by a push on its rotation,
+(`BlowSkill.accepts`): the recipe strike, the whole-body strike and the straight punch every blow,
+the path strikes one with a path. The driven strike turns the trunk flat out in the swing, by a push on its rotation,
 until it is turned as far as asked; aims the arm from where the trunk is, its goal's held freedoms
 read from the body (`EffectorGoal.carried`); winds up deeper; and times the swing as an evenly
 accelerating fist from where it is at launch to the contact speed at the target. The whole-body
 strike runs one bounded torque solve over the body, its contacts and its stops
 (`wholeBodyTracking`) from the blow's start to its return, the fist on a timed path behind the
 pelvis's and chest's turns or driven flat out along the line, and needs the world it is in for its
-physics and gravity (`driveFighter` takes it). For a stand,
+physics and gravity (`driveFighter` takes it). The straight punch walks to a stand-off, sets its
+fist on the line from the shoulder to the target, and drives every channel of the hips, the chest
+and the arm flat out at a contact pose solved each step by the arm's inverse kinematics
+(`solveReach`): the arm straight through the target and the wrist on the line, so the fist meets
+it with the arm behind it; its settings were searched in Arena bouts (`research/punch-in-bout.mjs`). For a stand,
 `recipeParts` (`src/core/skills/skills.ts`) and `pathParts` (`combat.ts`) make each blow's usual
 set and `recipeSkills` and `combatSkills` put it under the arbiter; `driveBy` hands a body to
 tactics over the skills it is given.

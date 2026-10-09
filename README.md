@@ -77,6 +77,11 @@ Against Classic on two Warriors ([384 bouts each](docs/reference/controller-pres
 preset wins bare-handed (Kicker 1.00, Combat 0.99, Brawler and Scrapper 0.98), all of it at the
 time cap, and loses with clubs (Combat 0.24, Brawler 0.12, Kicker 0.10, Scrapper 0.10), often by
 a wound. Finishing power remains under evaluation.
+**Puncher** is Classic throwing the straight punch: it walks in to its stand-off, sets its fist on
+the line to the head, and drives its hips, chest and arm at once at a pose with the arm straight
+through the target, so the fist lands with the arm behind it. Bare-handed against a Warrior
+standing in guard it takes 1.25 hit points in 10 s, where Classic takes 0.1; against Classic it
+gives 0.68 and takes 0.19. Most of it lands on the chest, past the foe's guard.
 Brawler is the experimental body-targeting fighter, with measured punch paths, guards and
 escapes. Try
 `?play=arena&matchup=workshop-fighter,workshop-fighter&control=brawler&held=empty&balance=0`.

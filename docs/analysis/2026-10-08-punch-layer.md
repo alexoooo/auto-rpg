@@ -289,6 +289,44 @@ searched blows land 35 to 50° short: the trunk carries the fist to the face whi
 still opening. How the muscles hold barely matters: holding at the activation's isometric peak,
 or its eccentric ceiling, rather than at the step's bounds, raises the fist's mass by under 10 %.
 
+## A punch in the game
+
+The straight punch (`straightPunch`, `src/core/skills/straight-punch.ts`) is a blow skill of
+the game. It does three things:
+
+- It walks to a stand-off from the target, faces it, and sets its fist on the line from the
+  shoulder to the target.
+- It drives the hips, the chest's turn, the trunk's lean and every arm channel flat out at a
+  contact pose that the arm's inverse kinematics solves each step: the arm straight through the
+  target and the wrist on the line. Each channel is held once it is near its goal.
+- It comes back to the guard.
+
+Its 15 settings were searched by CMA in Arena bouts (`research/punch-in-bout.mjs`): Classic
+throwing it at a Warrior standing in guard, gaps 1.0 to 2.2 m, 8 s each. The score was the hit
+points the foe lost less the puncher's, from the bouts' blows.
+
+The first search ran with both sides holding the Warrior's own club, the default loadout, so it
+tuned a club. Its best still punches. Each figure below is a mean over 8 bouts of 10 s, at gaps
+1.1 to 2.5 m that the search never saw. Both sides are bare-handed; the harness is Node, the
+core's world on Rapier, 120 Hz.
+
+| Puncher | Foe | HP given | HP taken | Thrown | Over 0.01 HP | Falls |
+|---|---|---|---|---|---|---|
+| recipe strike (Classic) | standing in guard | 0.10 | 0.02 | 0.9 | 1.1 | 0 |
+| straight punch | standing in guard | 1.25 | 0.03 | 11.9 | 11.3 | 0 |
+| recipe strike (Classic) | Classic | 0.11 | 0.10 | 0.6 | 0.6 | 2 of 8 |
+| straight punch | Classic | 0.68 | 0.19 | 13.3 | 7.8 | 0 |
+
+A bare-handed search from that best reached 2.2 HP a bout against the standing Warrior. On the
+fresh gaps that is 1.95, with 3 of 8 bouts won outright. Against Classic it gives 0.57, takes
+0.25 and falls in 3 of 8, because it was never searched against a foe that hits back. The game
+keeps the first setting.
+
+Most of the damage lands on the foe's chest and middle trunk, past the guard that covers the
+head: the head takes 0.01 to 0.04 HP a bout. A wounding fist meets 0.9 to 1.5 kg, the median.
+That is more than the recipe's 0.6 kg but far from the 6 kg of an arm straight on the line. The
+blows land at 2.5 to 6 m/s, before the arm is straight.
+
 ## What it says
 
 - **Today's body clears the bar.** On the muscles as they are, every cell searched has a straight
@@ -317,9 +355,11 @@ or its eccentric ceiling, rather than at the step's bounds, raises the fist's ma
 
 ## Open choices
 
-- **A blow that lands lined up.** The skill chooses its distance and its contact pose (elbow
-  10 to 20° short of straight, wrist on the line) first, then the motion that arrives there
-  fast. The exchange is the score to search it on.
+- **What the straight punch is searched against.** Against a standing Warrior, the search finds
+  a body puncher that falls to a Classic that hits back. Against both, the score has to price a
+  lost bout.
+- **The head behind the guard.** The punch aims at the head and lands on the chest. A punch that
+  reaches the head has to go around or over the foe's guard, or the fighter aims at the trunk.
 - **The fist's threshold against a head.** At 36.8 J and a 62 % share, the exchange stops paying
   at 59 J, and a boxer's blow costs the hand. Against a trunk the fist takes an eighth and the
   threshold is never reached.

@@ -19,7 +19,7 @@ test("every part has a role, a stage, frozen defaults of its own kind, and every
   }
   assert.deepEqual(Object.keys(PARTS), ["fighter", "quadruped", "direct", "lie", "staged-rise", "support-recovery", "seek", "openings", "script", "stand", "behaviours",
     "follow-orders", "flee", "close-in", "keep-distance", "strike", "kick", "cover",
-    "stance-walk", "cover-guard", "recipe-strike", "path-strike", "driven-strike", "whole-body-strike", "choose-blow", "front-kick", "support-fold"]);
+    "stance-walk", "cover-guard", "recipe-strike", "path-strike", "driven-strike", "whole-body-strike", "straight-punch", "choose-blow", "front-kick", "support-fold"]);
   assert.equal(partOf(CLASSIC), PARTS.fighter);
   assert.deepEqual(new Set(Object.values(PARTS).map((part) => part.role)), new Set(ROLES));
   for (const kind of ["point-fighter", "constructor", "toString"]) assert.throws(() => partOf({ kind }), /no part of kind/, kind);
@@ -56,7 +56,7 @@ test("a tree fits a body where every part does, and every part of a role is offe
   assert.equal(treeFits(reptile, QUADRUPED), true);
   const offered = (role, spec) => kindsFor(role, spec).map(({ kind, reason }) => [kind, reason]);
   assert.deepEqual(offered("mind", human), [["fighter", null], ["quadruped", "does not fit this body"], ["direct", null]]);
-  assert.deepEqual(offered("blow", human), [["recipe-strike", null], ["path-strike", null], ["driven-strike", null], ["whole-body-strike", null], ["choose-blow", null]]);
+  assert.deepEqual(offered("blow", human), [["recipe-strike", null], ["path-strike", null], ["driven-strike", null], ["whole-body-strike", null], ["straight-punch", null], ["choose-blow", null]]);
   assert.deepEqual(offered("tactics", reptile), [["seek", "does not fit this body"], ["openings", "does not fit this body"], ["script", "does not fit this body"], ["stand", "does not fit this body"], ["behaviours", "does not fit this body"]]);
   // Every tactics part is offered on every screen; the script only where the screen gives one.
   assert.deepEqual(offered("tactics", human), [["seek", null], ["openings", null], ["script", "this screen gives no script"], ["stand", null], ["behaviours", null]]);
