@@ -442,6 +442,23 @@ export const SOURCES = Object.freeze({
       + "mid-shaft in dynamic three-point bending.",
     link: "https://pmc.ncbi.nlm.nih.gov/articles/PMC3217417/",
   },
+  "carpanen-2019": {
+    kind: "literature",
+    cite: "Carpanen D, Masouros SD, Begonia MT, et al. Injury risk of interphalangeal and metacarpophalangeal joints "
+      + "under impact loading. J Mech Behav Biomed Mater 2019;97:306-311: cadaver fingers struck axially; the force "
+      + "with an even chance of injury, 3.0 kN at the metacarpophalangeal joints and 4.2 kN at the proximal "
+      + "interphalangeal ones.",
+    link: "https://doi.org/10.1016/j.jmbbm.2019.05.031",
+  },
+  "owner-fist-threshold": {
+    kind: "decision", date: "2026-10-09",
+    decided: "\"it makes sense to have a damage threshold with a fist ... for now damage threshold is a simple "
+      + "shortcut\", against distinguishing hard and soft surfaces later. The rule, its amount for the owner to "
+      + "confirm: a bare hand meeting a body's own surface takes no wound from the first joules of its share, as many as load its "
+      + "knuckles to an even chance of injury (carpanen-2019) on the hand's stiffness; past them it is wounded by "
+      + "the rest. Against an item it takes its whole share.",
+    record: "docs/reference/wounds.md#the-fist",
+  },
   "ochman-2011": {
     kind: "literature",
     cite: "Ochman S, Vordemvenne T, Paletta J, Raschke MJ, Meffert RH, Doht S. Experimental fracture model versus "

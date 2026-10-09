@@ -29,7 +29,7 @@ type Unit =
   | "kg" | "kg m2"
   | "kg/m3" | "g/cm3"
   | "m3" | "l"
-  | "N m" | "N"
+  | "N m" | "N" | "kN"
   | "N/m" | "N/mm" | "N/cm"
   | "rad" | "deg"
   | "rad/s" | "deg/s"
@@ -99,6 +99,7 @@ export function derive<const I extends readonly Quantity[], V extends Value>(
 const CONVERSIONS: Readonly<Partial<Record<Unit, { readonly to: Unit; readonly factor: number }>>> = Object.freeze({
   "%": { to: "1", factor: 1 / 100 },
   mm: { to: "m", factor: 1 / 1000 },
+  kN: { to: "N", factor: 1000 },
   cm: { to: "m", factor: 1 / 100 },
   "g/cm3": { to: "kg/m3", factor: 1000 },
   l: { to: "m3", factor: 1 / 1000 },

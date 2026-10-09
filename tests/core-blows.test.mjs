@@ -114,6 +114,19 @@ test("a fist sent into a body wounds both, each by its share", async () => {
   } finally { p.dispose(); }
 });
 
+test("a bare hand on a body takes only what its share brings past the fist's threshold, and on an item all of it", async () => {
+  for (const [held, spared] of [[null, RULES.fist.value], [0.15, 0]]) {
+    const p = await pair({ fistKg: 3, fist: { hand: true }, target: held === null ? {} : { held, itemStiffness: STRUCK_K }, right: held === null ? 0 : -held });
+    try {
+      p.send(12);
+      p.world.step(60);
+      const [blow] = p.watch.blows, [by] = blow.sides;
+      assert.ok(FIST_SHARE * blow.energy > spared && by.damage > 0, `the fist's share, ${FIST_SHARE * blow.energy} J, is past the threshold`);
+      assert.equal(by.damage, blowDamage(RULES, "blunt", FIST_SHARE * blow.energy - spared), `${held === null ? "a body" : "an item"}: ${by.damage}`);
+    } finally { p.dispose(); }
+  }
+});
+
 test("a blow that ends the first side's fight still wounds the second", async () => {
   // The fist holds less than its share of its own punch: its pool is spent by it.
   const p = await pair({ fist: { hp: 0.01, whole: ["hand.right"] } });

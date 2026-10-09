@@ -178,8 +178,8 @@ took 0.145. The rows: [bouts.md](bouts.md#a-hit-point-is-100-j).
 ## Tolerances
 
 **What a part tolerates is the pool's rule** (`partHitPoints`, `src/core/rules/pool.ts`): its
-cross-section's share of the body's hit points, times the unit. No part has a tolerance of its
-own. The energy that empties each part, which a blow must bring to that surface as its share, at
+cross-section's share of the body's hit points, times the unit. One part has more: a bare fist
+lets a blow's first share go ([the fist](#the-fist)). The energy that empties each part, which a blow must bring to that surface as its share, at
 100 J a hit point:
 
 | Part | Warrior and skeleton (6 HP): kg | HP | J | Rogue (4 HP): kg | HP | J |
@@ -215,8 +215,23 @@ and Bir 2005, Br J Sports Med 39:710-719, not opened at its source for this reco
 fist as it lands (mine).
 
 Against these the pool's vault and thigh are within a factor of two, on the tough side; its
-head is far tougher than a face; and its hand is about a quarter as tough as a knuckle. A
-tolerance of a part's own is not built: the pool's rule stands, by the owner's answer.
+head is far tougher than a face; and its hand is about a quarter as tough as a knuckle, which
+the fist's threshold answers.
+
+## The fist
+
+**A bare fist that strikes flesh takes only what its share brings past a threshold**
+(`Rulebook.fist`, the side's damage in `src/core/rules/blows.ts`): the energy a hand stores
+loaded to a knuckle's even chance of injury, F²/2k at 3.0 kN (`carpanen-2019`) on the hand's
+122.3 N/mm (`CONTACT_STIFFNESS.hand`), 36.8 J, all of it the threshold by the owner's decision
+(`owner-fist-threshold`). It is a deductible: a share of 50 J costs the hand 13.2 J's worth.
+It holds where a segment with hand poses and no item meets a body's own surface on the other
+side; against an item (a club, a blade, armour) the hand takes its whole share. A Warrior's
+hand then comes off at 36.8 + 13.2 = 50 J of its own share, against a head a blow of about 80 J
+(five eighths of it the fist's), where a boxer's straight punch brings 121 J.
+
+The owner's view: a hard surface and a soft one (skull and face, body and armour) are to be told
+apart in time; the threshold is the shortcut until then.
 
 ## Mechanisms
 

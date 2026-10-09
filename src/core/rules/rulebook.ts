@@ -1,5 +1,6 @@
 import type { AssistCeiling } from "../control/assist.ts";
-import { derive, sourced, type Quantity } from "../spec/quantity.ts";
+import { CONTACT_STIFFNESS } from "../human/tables/contact-stiffness.ts";
+import { derive, si, sourced, type Quantity } from "../spec/quantity.ts";
 
 /**
  * **The fight rules, in one immutable object per mode**: what wounds, what severs, what kills and
@@ -39,6 +40,11 @@ export interface Rulebook {
    */
   readonly worth: Readonly<Record<Mechanism, Quantity<number>>>;
   /**
+   * **The fist's threshold**, J: the joules of its share a bare hand meeting a body's own surface
+   * takes no wound from; it is wounded by the rest. Against an item it takes its whole share.
+   */
+  readonly fist: Quantity<number>;
+  /**
    * **What a per cent of balance is** (`AttributeSpec.balance`): the most an assist gives a
    * body for each per cent, a force in the body's own weights, which is a hundredth by the
    * meaning of a per cent, and the moment that goes with it, in its weights times a metre. What
@@ -65,9 +71,15 @@ const MECHANISM_PRICE: Readonly<Record<Mechanism, Quantity<number>>> = Object.fr
 /** The Warrior's strongest one-handed blow with the wooden club, J: a blow to price things against. */
 export const CLUB_BEST = sourced(138.23, "J", "core-club-unit", "the best blow at 1920 Hz, mean of 8 throws: 138.23 J");
 
+/** A knuckle's load with an even chance of injury, N. */
+const KNUCKLE_INJURY = sourced(3.0, "kN", "carpanen-2019", "abstract, the metacarpophalangeal joints' axial force at 50 % risk");
+
 const RULES: Omit<Rulebook, "mode"> = Object.freeze({
   severMargin: sourced(0.5, "1", "owner-hp-pool", "a part severs half its hit points past empty"),
   unit: sourced(100, "J/HP", "owner-damage-unit", "one hit point is 100 J of blunt blow"),
+  fist: derive("J", "the energy a hand stores loaded to a knuckle's injury, F^2 / 2k on the hand's stiffness, all of it the threshold",
+    [si(KNUCKLE_INJURY), si(CONTACT_STIFFNESS.hand), sourced(1, "1", "owner-fist-threshold", "the whole of it")],
+    (force, stiffness, whole) => whole * force * force / (2 * stiffness)),
   worth: Object.freeze(Object.fromEntries(MECHANISMS.map((mechanism) => [mechanism,
     derive("1", "the blunt price over this mechanism's", [MECHANISM_PRICE.blunt, MECHANISM_PRICE[mechanism]], (blunt, own) => blunt / own)],
   )) as Record<Mechanism, Quantity<number>>),

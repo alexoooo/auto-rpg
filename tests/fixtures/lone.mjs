@@ -19,10 +19,11 @@ export const ITEM = "held ball", ITEM_KG = 0.2;
  * gives it a surface, in `itemUnit`. It is made of `substance`, and says nothing of what it is
  * made of if none is given: no rule of a fight asks, and a sound does.
  */
-export function lone(model, name, kg, { hp = 1, whole = [], spare = false, held = null, stiffness = 100e3, unit = "N/m", itemStiffness = null, itemUnit = "N/m", substance } = {}) {
+export function lone(model, name, kg, { hp = 1, whole = [], spare = false, held = null, stiffness = 100e3, unit = "N/m", itemStiffness = null, itemUnit = "N/m", substance, hand = false } = {}) {
   const ball = (part, y) => ({ name: part, proximal: q([0, y - 0.05, 0]), distal: q([0, y + 0.05, 0]), mass: q(kg, "kg"),
     centreOfMass: q([0, y, 0]), inertia: q([0.001, 0.001, 0.001], "kg m2"), shape: { kind: "sphere", centre: q([0, y, 0]), radius: q(0.05) },
-    ...(stiffness === null ? {} : { surface: { stiffness: q(stiffness, unit) } }) });
+    ...(stiffness === null ? {} : { surface: { stiffness: q(stiffness, unit) } }),
+    ...(hand ? { handPoses: Object.fromEntries(["open", "fist", "grip"].map((pose) => [pose, { kind: "sphere", centre: q([0, y, 0]), radius: q(0.05) }])) } : {}) });
   const free = { unloadedSpeed: q(60, "rad/s"), curvature: q(0.25, "1"), eccentricCeiling: q(1.4, "1"), eccentricSlopeRatio: q(2, "1") };
   return {
     model, ...(substance ? { substance } : {}), mass: q(spare ? 2 * kg : kg, "kg"), stature: q(spare ? 0.2 : 0.1),

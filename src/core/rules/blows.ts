@@ -35,8 +35,9 @@ import { energyShares } from "./share.ts";
  *   Admitted point layers instead accumulate signed solver reaction work in the world: teeth on
  *   one opposing segment form one episode, priced once at release, retaining every pair's
  *   compliance and point contribution, with unloading subtracted.
- * - **A side's damage** is `blowDamage` of its share of that energy, priced by the opposing
- *   surface: a stated point facing into the contact normal pierces; sides and backs stay blunt.
+ * - **A side's damage** is `blowDamage` of its share of that energy, less the fist's threshold
+ *   (`Rulebook.fist`) where it is a bare hand and the other side a body's own surface, priced by
+ *   the opposing surface: a stated point facing into the contact normal pierces; sides and backs stay blunt.
  *   Neither is a clean sever, so it takes a part off only past empty by the rulebook's margin (`src/core/rules/pool.ts`). Both sides are wounded,
  *   the first then the second, even where the first's wound ends its fight: a blow is one event.
  * - A fighter whose pool has ended, and a part that has come off, neither wounds nor is wounded.
@@ -192,7 +193,9 @@ export function watchBlows(world: World, fighters: readonly Fighter[], rules: Ru
       ? [mechanismOf(first, surfaces[0], pair.normal, 1), mechanismOf(second, surfaces[1], pair.normal, -1)] as const
       : [surfaces[0].direction ? "point" : "blunt", surfaces[1].direction ? "point" : "blunt"] as const;
     const side = (part: Part<Fighter>, k: 0 | 1): BlowSide => {
-      const name = part.segment.spec.name, share = shares[k]!, mechanism = mechanisms[k === 0 ? 1 : 0], damage = material?.damage[k] ?? (share > 0 ? blowDamage(rules, mechanism, share * energy) : 0);
+      const name = part.segment.spec.name, share = shares[k]!, mechanism = mechanisms[k === 0 ? 1 : 0];
+      const spared = surfaces[k].item === null && part.segment.spec.handPoses && surfaces[k === 0 ? 1 : 0].item === null ? rules.fist.value : 0;
+      const damage = material?.damage[k] ?? (share > 0 ? blowDamage(rules, mechanism, Math.max(0, share * energy - spared)) : 0);
       const wound = share > 0 ? part.body.pool.wound({ part: name, damage, clean: false }) : null;
       return { fighter: part.body.id, segment: name, item: surfaces[k].item, ...(surfaces[k].region ? { region: surfaces[k].region } : {}),
         ...(mechanism === "blunt" ? {} : { mechanism }), kg: kg[k], share, damage,

@@ -989,7 +989,8 @@ The rules of a fight are `src/core/rules/`, free of any page so they can be argu
   item that states none is rigid and takes none. So a fist takes five eighths of its own punch to
   a head and an eighth of one to a chest, what a club strikes takes the whole blow, a bare hand
   that meets a club takes all of it, and two clubs meeting are a clash, in which neither side
-  takes any (`isClash`). The values, their gaps and what a part holds beside the literature:
+  takes any (`isClash`). A bare fist on flesh takes only what its share brings past the
+  rulebook's threshold (`Rulebook.fist`, a knuckle's injury). The values, their gaps and what a part holds beside the literature:
   [reference/wounds.md](reference/wounds.md).
 - **Damage** (`rulebook.ts`) is energy times the mechanism's worth over the unit. The unit is
   100 J of blunt blow a hit point, the owner's round number (`owner-damage-unit`,

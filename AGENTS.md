@@ -114,7 +114,7 @@ screens build on it; it never imports them.
 - **A blow has no striker.** Any two segments of two sides that meet closing have met in a blow,
   and the two surfaces share its energy by their compliance (`energyShares`,
   `src/core/rules/share.ts`); an item with no stated surface is rigid. A part's tolerance is the
-  pool's rule and no part has its own.
+  pool's rule, but a bare fist on flesh lets the first of its share go (`Rulebook.fist`).
 - **Cosmetics never carry authority**: nothing decorative collides or decides a hit. The visible
   room is not the collision arena; `validateRoomPlacements` (`src/arena/room.ts`) refuses a piece
   naming a collider the arena lacks, and a solid-looking piece within reach that names none.
