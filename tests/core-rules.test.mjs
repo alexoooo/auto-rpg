@@ -228,14 +228,14 @@ test("a blow is worth its energy in the unit, and every weapon keeps the owner's
   for (const bad of [-1, NaN, Infinity]) assert.throws(() => blowDamage(RULES, "blunt", bad), String(bad));
 });
 
-test("the club's best blow is worth 1.38 hit points", async () => {
+test("the club's best blow is worth 1.34 hit points", async () => {
   // One hit point is 100 J of blunt blow, and an edge's 100 J is 5.73.
   assert.deepEqual([RULES.unit.value, RULES.unit.unit, RULES.unit.provenance.source], [100, "J/HP", "owner-damage-unit"]);
   assert.equal(blowDamage(RULES, "blunt", 100), 1);
   close(blowDamage(RULES, "edge", 100), 1134.99 / 197.96, "an edge's 100 J");
   // The club's best blow is a measurement beside the unit, and not the unit.
-  assert.deepEqual([CLUB_BEST.value, CLUB_BEST.unit, CLUB_BEST.provenance.source], [138.26, "J", "core-club-unit"]);
-  close(blowDamage(RULES, "blunt", CLUB_BEST.value), 1.3826, "the club's best blow");
+  assert.deepEqual([CLUB_BEST.value, CLUB_BEST.unit, CLUB_BEST.provenance.source], [133.75, "J", "core-club-unit"]);
+  close(blowDamage(RULES, "blunt", CLUB_BEST.value), 1.3375, "the club's best blow");
   // The whole path: that blow on the core stand at a target body, its contact, the masses it meets, its energy, its price.
   const { evaluateBlow } = await import("../research/core-blow.mjs");
   const { hardestOn } = await import("../src/lab/targets.ts");
@@ -249,10 +249,10 @@ test("the club's best blow is worth 1.38 hit points", async () => {
   close(landed.energy, impactEnergy(club.kg, head.kg, landed.closing), "its energy is its parts'");
   close(head.damage, blowDamage(RULES, "blunt", landed.energy), "the head takes the whole of it");
   assert.deepEqual({ fell: result.fell, stood: result.stood, cost: result.cost }, { fell: false, stood: true, cost: 0 });
-  // It closes as the record's did. A head hung on no neck is its own mass and no more, where the
-  // record's mark was a head on a body: the same blow is worth that much less on it.
+  // It is the record's first throw at 960 Hz, the blow as written: a head hung on no neck, its own mass and no more.
   const record = blow.readings.at960, kg = humanSpec(blow.model).segments.find((segment) => segment.name === "head").mass.value;
-  assert.ok(Math.abs(landed.closing - record.closing) < 0.5 && Math.abs(club.kg - record.clubKg) < 0.05, `${landed.closing} m/s with ${club.kg} kg`);
-  assert.ok(Math.abs(head.kg - kg) < 0.01 * kg && record.headKg > 2 * kg, `${head.kg} kg of a head of ${kg}, the record's ${record.headKg}`);
-  assert.ok(Math.abs(head.damage - 1.28) < 0.05 && head.damage < blowDamage(RULES, "blunt", CLUB_BEST.value), `the club's best blow at 960 Hz is worth ${head.damage} HP on a hung head`);
+  assert.ok(Math.abs(landed.energy - record.runs[0]) < 0.01 && Math.abs(landed.closing - record.closing) < 0.001, `${landed.energy} J closing at ${landed.closing} m/s`);
+  assert.ok(Math.abs(club.kg - record.clubKg) < 0.001 && Math.abs(head.kg - record.headKg) < 0.001, `${club.kg} kg on ${head.kg} kg`);
+  assert.ok(Math.abs(head.kg - kg) < 0.01 * kg, `${head.kg} kg of a head of ${kg}`);
+  assert.ok(Math.abs(head.damage - blowDamage(RULES, "blunt", CLUB_BEST.value)) < 0.01, `the club's best blow at 960 Hz is worth ${head.damage} HP`);
 });

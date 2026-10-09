@@ -4,7 +4,8 @@
  * the head, and goes back to the guard; a club is laid across the threat's line, and is not swung
  * end over end; the threat is the foe's striking point that closes fastest on the head; in a bout
  * a club's blow at the head is met by the club that covers; an experiment's cover and threat ride
- * in the mind's config; and the guard gives no goal to a hand the strike has (Node core stand and
+ * in the mind's config; the guard gives no goal to a hand the strike has; and a held item is
+ * turned at the wrist as near upright as the wrist allows, clear of its holder (`guardPosture`) (Node core stand and
  * arena bout, Rapier, 120 Hz; each side's balance its character's).
  */
 import test from "node:test";
@@ -14,15 +15,18 @@ import { createBody, SERVO_SECONDS } from "../src/core/body.ts";
 import { buildBody } from "../src/core/build/build-body.ts";
 import { rigidPoints } from "../src/core/build/rigid.ts";
 import { centreOfToRef } from "../src/core/control/support.ts";
+import { bodyEffectors } from "../src/core/control/effectors.ts";
+import { chainTo, pointAtToRef } from "../src/core/control/kinematics.ts";
 import { armed } from "../src/core/human/grip.ts";
 import { humanSpec } from "../src/core/human/spec.ts";
+import { modelSpec } from "../src/core/models.ts";
 import { woodenClub } from "../src/core/items/club.ts";
 import { RECIPE_FIGHTER } from "../src/core/mind/config.ts";
 import { STAND_ORDERS } from "../src/core/mind/orders.ts";
 import { createSenses } from "../src/core/mind/senses.ts";
 import { driveBy } from "../src/core/mind/tactics.ts";
 import { THREAT, threatReader } from "../src/core/mind/threat.ts";
-import { GUARD, GUARD_COVER } from "../src/core/skills/guard.ts";
+import { GUARD, GUARD_COVER, guardPosture } from "../src/core/skills/guard.ts";
 import { recipeSkills } from "../src/core/skills/skills.ts";
 import { buildBout } from "../research/bout.mjs";
 import { coreStand } from "./harness/core-stand.mjs";
@@ -239,9 +243,9 @@ async function firstBlow(gap, guard, experiment = {}) {
 }
 
 test("a_clubs_blow_at_the_head_is_met_by_the_club_that_covers", async () => {
-  // Gaps from which the first blow the pose takes is at the head: from 3, 4 or 5.5 m it lands on the
-  // upper arm or the trunk instead.
-  for (const gap of [3.5, 4.5, 5]) {
+  // The pose takes the first blow on the head from every gap from 3 to 6 m. From these the covering
+  // hand meets it; from 3.5, 4 or 6 m the cover is late, and the blow lands on the head.
+  for (const gap of [3, 4.5, 5]) {
     const { segment, item } = await firstBlow(gap, "pose");
     assert.deepEqual({ segment, item }, { segment: "head", item: null }, `in the pose, from ${gap} m`);
     const met = await firstBlow(gap, "cover");
@@ -298,4 +302,65 @@ test("the_guard_has_the_hands_the_strike_has_not", async () => {
     assert.ok(after.length > 100 && after.every(({ hand, right }) => hand === null && right?.join() === "knuckles"), `${after.length} steps after the strike, the right hand covers`);
     assert.equal(skills.report.strike.thrown.right, 1);
   } finally { body.dispose(); stand.dispose(); }
+});
+
+test("a_held_item_is_turned_at_the_wrist_as_near_upright_as_the_wrist_allows", async () => {
+  const empty = await coreStand(WARRIOR, { ground: true });
+  try { assert.equal(guardPosture(empty.built), GUARD, "a body that holds nothing holds GUARD"); } finally { empty.dispose(); }
+  const cases = [
+    [CLUBBED, "right", true],
+    [armed(humanSpec("workshop-rogue"), "left", woodenClub()), "left", true],
+    // The skeleton's wrist cannot stand it up: its range stops it.
+    [armed(modelSpec("crypt-skeleton"), "right", woodenClub()), "right", false],
+  ];
+  for (const [spec, side, upright] of cases) {
+    const stand = await coreStand(spec, { ground: true });
+    try {
+      const pose = guardPosture(stand.built), hand = stand.built.segments.get(`hand.${side}`), chain = chainTo(stand.built, hand);
+      const { free } = bodyEffectors(stand.built).find((e) => e.segment === hand), wrist = free.filter((f) => f.joint === chain.length - 1);
+      const holding = spec.held.find((h) => h.segment === `hand.${side}`), grip = holding.origin.value;
+      const haft = grip.map((v, k) => v + holding.along.value[k]);
+      // The arm as GUARD holds it: its angles within their ranges.
+      const angles = (posture) => chain.map((joint) => joint.dofs.map((dof) => posture[`${joint.spec.name} ${dof.spec.positive}`] ?? 0));
+      const held = (posture) => { const a = angles(posture); for (const f of free) a[f.joint][f.k] = Math.min(f.max, Math.max(f.min, a[f.joint][f.k])); return a; };
+      const at = (a, point) => pointAtToRef(chain, a, point, new Vector3()).clone();
+      const tilt = (a) => { const line = at(a, haft).subtract(at(a, grip)); return Math.acos(line.y / line.length()); };
+      const before = tilt(held(GUARD)), after = tilt(held(pose));
+      assert.ok(after < before - 0.3, `${spec.model}'s ${side} haft stands nearer upright: ${after} rad off, where GUARD's is ${before}`);
+      // A human's wrist stands it up, its grip moved by the wrist's turn alone, a few centimetres;
+      // the skeleton's stops at its range.
+      if (upright) {
+        assert.ok(after < 0.02, `${spec.model}'s ${side} haft stands upright: ${after} rad off`);
+        const moved = Vector3.Distance(at(held(pose), grip), at(held(GUARD), grip));
+        assert.ok(moved < 0.06, `the ${side} grip stays near where GUARD holds it: ${moved} m off`);
+      } else assert.ok(wrist.some((f) => Math.min(pose[f.name] - f.min, f.max - pose[f.name]) < 1e-9), `${spec.model}'s wrist is at its range`);
+      for (const f of wrist) assert.ok(pose[f.name] >= f.min - 1e-12 && pose[f.name] <= f.max + 1e-12, `${f.name} within its range`);
+      // Only the holding wrist is turned: every other entry is GUARD's.
+      const turned = new Set(wrist.map((f) => f.name));
+      assert.deepEqual(Object.entries(pose).filter(([name]) => !turned.has(name)), Object.entries(GUARD));
+      assert.ok(turned.size === 3 && [...turned].every((name) => name.startsWith(`wrist.${side} `) && name in pose));
+    } finally { stand.dispose(); }
+  }
+});
+
+test("a_club_held_in_the_guard_bears_on_none_of_its_holder", async () => {
+  // The Rogue at size x0.9 is the body whose club fell on its own arm; the Warrior's rested on its head.
+  for (const spec of [CLUBBED, armed(humanSpec("workshop-rogue", { size: 0.9 }), "right", woodenClub()), armed(modelSpec("crypt-skeleton"), "right", woodenClub())]) {
+    const stand = await coreStand(spec, { ground: true });
+    const body = createBody(stand.built, stand.world, { servoSeconds: SERVO_SECONDS });
+    const skills = recipeSkills(body);
+    body.drive((view, dt) => skills.command(view, { move: null, face: 0, guard: { left: null, right: null }, attack: null }, dt));
+    try {
+      stand.step(stand.seconds(2));
+      const hand = stand.built.segments.get("hand.right"), own = new Map([...stand.built.segments.values()].map((s) => [s.body, s.spec.name]));
+      const touched = new Set();
+      for (let i = 0; i < stand.seconds(2); i++) {
+        stand.step(1);
+        for (const contact of stand.world.physics.contactsOf(hand.body)) if (contact.other && own.has(contact.other)) touched.add(own.get(contact.other));
+      }
+      assert.deepEqual([...touched], [], `${spec.model}'s club touches nothing of it`);
+      const { swellFrom: a, swellTo: b } = body.view.effectors["hand.right"].points;
+      if (spec.model !== "crypt-skeleton") assert.ok(Math.acos((b.y - a.y) / Vector3.Distance(a, b)) < 0.1, `${spec.model}'s haft stands within 0.1 rad of upright`);
+    } finally { body.dispose(); stand.dispose(); }
+  }
 });

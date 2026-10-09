@@ -382,8 +382,8 @@ test("a Warrior's club blow at a skeleton's head lands there and ends the fight"
     return { id, side, built, body: createBody(built, world, { servoSeconds: SERVO_SECONDS }), pool: createPool(spec, RULES) };
   };
   const warrior = make("warrior", armed(modelSpec("workshop-fighter"), "right", woodenClub()), 0, "party");
-  // Built 1.7 m ahead: from 1.4 and 1.5 m the blow at the head lands on the upper trunk.
-  const skeleton = make("skeleton", modelSpec("crypt-skeleton"), 1.7, "enemy");
+  // Built 1.8 m ahead: from 1.5 to 1.7 m the blow at the head lands on the upper trunk as well.
+  const skeleton = make("skeleton", modelSpec("crypt-skeleton"), 1.8, "enemy");
   try {
     driveBy(warrior.body, { name: "attack", decide: ({ report }) => {
       const h = skeleton.body.view.head;

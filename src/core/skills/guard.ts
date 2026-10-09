@@ -1,7 +1,9 @@
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { BodyView } from "../body.ts";
+import type { BuiltBody } from "../build/build-body.ts";
 import { rigidPoints } from "../build/rigid.ts";
-import { intoFrameToRef } from "../control/kinematics.ts";
+import { bodyEffectors } from "../control/effectors.ts";
+import { intoFrameToRef, pointAtToRef, solveReach } from "../control/kinematics.ts";
 import type { EffectorGoal, Pose } from "../control/motor.ts";
 import type { Cover, Intent } from "../mind/intent.ts";
 import type { Side, BodySpec } from "../spec/body.ts";
@@ -11,8 +13,8 @@ import type { Skill } from "./skill.ts";
 
 /**
  * **The guard**: fists up before the chin, elbows in; the arms' posture when no skill owns them,
- * rad. Every recipe of `REPERTOIRE` was searched from it, so a change to it voids them
- * (`docs/reference/human-and-strikes.md#guard`).
+ * rad. Every recipe of `REPERTOIRE` was searched from it, as a body holds it (`guardPosture`), so
+ * a change to either voids them (`docs/reference/human-and-strikes.md#guard`).
  */
 export const GUARD: Pose = Object.freeze({
   "shoulder.right flexion": 0.5, "shoulder.right abduction": -0.2, "elbow.right flexion": 1.3,
@@ -24,6 +26,35 @@ export const GUARD: Pose = Object.freeze({
  * guarded toward the threat, reached in `seconds`. Set: `docs/reference/blows.md#cover`.
  */
 export const GUARD_COVER: Covering = Object.freeze({ out: 0.3, seconds: 0.15 });
+
+/**
+ * **The guard a body holds**: `GUARD`, with each hand that holds an item turned at the wrist so
+ * that the item stands as near upright, along the body frame's up, as the wrist's range allows.
+ * Out of a fist held as `GUARD` holds it, a haft leans back over the head, and the head bears it.
+ * The arm is `GUARD`'s, read within its freedoms' ranges, which is where it holds the hand; the
+ * wrist's freedoms alone are solved (`solveReach`) for the grip's place there and the haft's
+ * line, so the arm's posture is the guard's and the wrist turns no further than it can. An empty
+ * hand's arm is `GUARD`'s, and a body that holds nothing holds `GUARD`.
+ */
+export function guardPosture(built: BuiltBody): Pose {
+  const held = built.spec.held ?? [];
+  if (!held.length) return GUARD;
+  const posture: Record<string, number> = { ...GUARD };
+  const at = new Vector3();
+  for (const { segment, chain, free } of bodyEffectors(built)) {
+    const holding = held.find((h) => h.segment === segment.spec.name);
+    if (!holding) continue;
+    const angles = chain.map((joint) => joint.dofs.map((dof) => GUARD[`${joint.spec.name} ${dof.spec.positive}`] ?? 0));
+    for (const f of free) angles[f.joint]![f.k] = Math.min(f.max, Math.max(f.min, angles[f.joint]![f.k]!));
+    const grip = holding.origin.value, haft = add(grip, holding.along.value);
+    pointAtToRef(chain, angles, grip, at);
+    const place: Vec3 = [at.x, at.y, at.z], wrist = free.filter((f) => f.joint === chain.length - 1);
+    solveReach(chain, angles, wrist.map((f) => ({ ...f, preferred: GUARD[f.name] ?? 0 })),
+      [{ point: grip, target: place }, { point: haft, target: add(place, scale(UP, length(holding.along.value))) }]);
+    for (const f of wrist) posture[f.name] = angles[f.joint]![f.k]!;
+  }
+  return Object.freeze(posture);
+}
 
 /** A cover's settings (`GUARD_COVER`). */
 export interface Covering {

@@ -390,8 +390,9 @@ test("on a side, a body goes on over that side onto its front", async () => {
   const mirrored = (posture) => Object.fromEntries(Object.entries(posture).map(([name, angle]) => [name.replace(/.(left|right) /, (_, side) => `.${side === "left" ? "right" : "left"} `), angle]));
   assert.deepEqual(RISE.roll.left, RISE.roll.right.map((stage) => ({ ...stage, posture: mirrored(stage.posture) })));
   assert.deepEqual(Object.keys(RISE.roll.right[0].posture).sort(), ["hip.left abduction", "hip.left flexion", "shoulder.right flexion"], "the fixture: the roll's postures are of one side and the other");
-  // Two of the battery's shoves that leave a body on a side, under the fighter's mind as the battery has it: it reads the side, rolls, and reads its front.
-  for (const [model, held, degrees, side] of [["workshop-fighter", "empty", 45, "right"], ["workshop-rogue", "club", 315, "left"]]) {
+  // Two shoves of the battery's impulse that leave a body on a side, under the fighter's mind as the battery has it: it reads the side, rolls, and reads its front.
+  // The first is one of the battery's sixteen; none of them leaves a body on its left and rolls it onto its front, so the second is turned off them.
+  for (const [model, held, degrees, side] of [["workshop-fighter", "empty", 45, "right"], ["workshop-fighter", "club", 105, "left"]]) {
     const mind = { kind: "recipe-fighter", subs: [{ kind: "staged-rise" }], guard: "pose", aim: "head", range: "close" };
     const { world, body, dispose } = await felled({ model, held, degrees }, (made, into) => createMind(made, into, mind, { name: "shoved", orders: () => STAND_ORDERS }).body);
     try {

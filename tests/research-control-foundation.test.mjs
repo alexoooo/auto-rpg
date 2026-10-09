@@ -407,6 +407,15 @@ test("the physique grid is its record's axes, any of which a run replaces, and a
   assert.ok(Math.abs(at(ranged, "size=1.3", shove).impulse / at(ranged, "default", shove).impulse - 1.3 ** 3) < 1e-12);
   const reach = (j) => j.competency === "punch" && j.placement === "reach" && j.hand === "right" && j.model === "workshop-fighter";
   assert.ok(at(ranged, "size=1.3", reach).ahead > at(ranged, "default", reach).ahead + 0.1);
+  // A place and a kick's target stand where they did in the body's own proportions; weight moves neither.
+  const place = (j) => j.competency === "punch" && j.placement === "place" && j.mode === "hit" && j.hand === "right" && j.model === "workshop-rogue";
+  const kick = (j) => j.competency === "kick" && j.foot === "left" && j.mode === "hit" && j.model === "workshop-rogue" && j.held === "empty";
+  for (const pick of [place, kick]) {
+    const big = at(ranged, "size=1.3", pick), plain = at(ranged, "default", pick);
+    assert.ok(Math.abs(big.ahead - 1.3 * plain.ahead) < 1e-12 && big.height > 1.29 * plain.height, JSON.stringify([big, plain]));
+  }
+  const heavy = foundationJobs({ suite: "competency", samples: 1, grid: "axes", ranges: { size: [], weight: [1.25], strength: [], speed: [] } });
+  for (const pick of [place, kick]) assert.deepEqual([at(heavy, "weight=1.25", pick).ahead, at(heavy, "weight=1.25", pick).height], [at(heavy, "default", pick).ahead, at(heavy, "default", pick).height]);
   for (const bad of [{ suite: "defense", grid: "axes" }, { suite: "competency", grid: "half" }, { suite: "competency", ranges: { size: [1.1] } }])
     assert.throws(() => foundationJobs({ samples: 1, ...bad }), /grid|physique/);
   // The summary keeps a physique's cell apart from the default's.

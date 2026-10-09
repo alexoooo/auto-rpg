@@ -40,7 +40,8 @@ reach the cell's 0.55 m at 1.55 m up.
 **The grid.** Each workshop body (`workshop-fighter`, `workshop-rogue`), empty-handed and with the
 club in the right hand, at 120 Hz and at 480 Hz. Two development seeds per cell. A blow with a held
 club is the club's competency and not the punch's, so the club's punch cell is an `unsupported` row.
-Physique cells join with the physiques.
+The grid of physiques is the same suite on each physique of `PHYSIQUE_GRID`
+([The physique grid](#the-physique-grid)).
 
 ## Physiques
 
@@ -252,3 +253,130 @@ Outside it, each a finding:
   beyond its straight arm.
 
 Impulse is reported and not gated: 120 Hz reads 1.4 to 2.0 times 480 Hz on the punch and the kick.
+
+## The physique grid
+
+The suite on every physique of `PHYSIQUE_GRID` by axes: the default, and each axis's two values
+with the others at 1, nine a cell. Node, the core's world on Rapier (`rapier/adapter-9`),
+symmetric actuation, development seeds 0 and 1, at 120 Hz and 480 Hz from the same source
+(`a7832fb9`, content `0e8644ee`), 6336 jobs a rate:
+
+```powershell
+node research/control-foundation.mjs --suite competency --grid axes --workers 14
+node research/control-foundation.mjs --suite competency --grid axes --hz 480 --workers 14
+```
+
+The rows of both runs, and their manifests without the job lists the rows repeat, are
+`competencies-grid.json.gz`; `node research/competency-passes.mjs docs/reference/competencies-grid.json.gz`
+prints the figures and the passes. Figures read "120 Hz | 480 Hz", a column a physique.
+
+The default column is the [Baseline](#baseline)'s suite on a later tree: the club now stands
+upright in the guard (`guardPosture`), so the club's cells differ from it (the Warrior with the
+club rises from 6 of 8 at 120 Hz, against 5; the Rogue with the club kicks nothing at 480 Hz,
+below), and the empty-handed cells read as they did.
+
+**53 of 252 cells pass at both rates: the stand in all 36, and the guard in 17. Nothing else passes
+on any physique.**
+
+### Stand, by physique
+
+The largest shove held from every direction, N s/kg:
+
+| Cell | default | size=0.9 | size=1.18 | speed=0.85 | speed=1.15 | strength=0.8 | strength=1.25 | weight=0.85 | weight=1.25 |
+|---|---|---|---|---|---|---|---|---|---|
+| Warrior, empty | 0.6 \| 0.6 | 0.6 \| 0.6 | 0.8 \| 0.8 | 0.6 \| 0.6 | 0.6 \| 0.6 | 0.6 \| 0.6 | 0.6 \| 0.6 | 0.6 \| 0.6 | 0.6 \| 0.6 |
+| Warrior, club | 0.6 \| 0.6 | 0.6 \| 0.6 | 0.8 \| 0.8 | 0.6 \| 0.6 | 0.6 \| 0.6 | 0.6 \| 0.6 | 0.6 \| 0.6 | 0.6 \| 0.6 | 0.6 \| 0.6 |
+| Rogue, empty | 0.6 \| 0.6 | 0.6 \| 0.6 | 0.6 \| 0.6 | 0.6 \| 0.6 | 0.6 \| 0.6 | 0.6 \| 0.5 | 0.6 \| 0.6 | 0.6 \| 0.6 | 0.5 \| 0.5 |
+| Rogue, club | 0.6 \| 0.6 | 0.6 \| 0.6 | 0.6 \| 0.6 | 0.6 \| 0.6 | 0.6 \| 0.6 | 0.5 \| 0.5 | 0.6 \| 0.6 | 0.6 \| 0.6 | 0.5 \| 0.5 |
+
+
+### Guard, by physique
+
+Predictive trials that succeed, of 6 (two a covering hand):
+
+| Cell | default | size=0.9 | size=1.18 | speed=0.85 | speed=1.15 | strength=0.8 | strength=1.25 | weight=0.85 | weight=1.25 |
+|---|---|---|---|---|---|---|---|---|---|
+| Warrior, empty | 6/6 \| 6/6 | 5/6 \| 6/6 | 6/6 \| 6/6 | 5/6 \| 6/6 | 6/6 \| 6/6 | 6/6 \| 6/6 | 6/6 \| 6/6 | 6/6 \| 6/6 | 6/6 \| 6/6 |
+| Warrior, club | 6/6 \| 4/6 | 4/6 \| 4/6 | 4/6 \| 4/6 | 6/6 \| 6/6 | 6/6 \| 6/6 | 6/6 \| 4/6 | 6/6 \| 4/6 | 6/6 \| 4/6 | 4/6 \| 4/6 |
+| Rogue, empty | 6/6 \| 6/6 | 6/6 \| 5/6 | 6/6 \| 6/6 | 6/6 \| 6/6 | 6/6 \| 6/6 | 6/6 \| 6/6 | 6/6 \| 6/6 | 6/6 \| 5/6 | 6/6 \| 6/6 |
+| Rogue, club | 2/6 \| 3/6 | 0/6 \| 0/6 | 6/6 \| 6/6 | 3/6 \| 4/6 | 2/6 \| 3/6 | 1/6 \| 3/6 | 3/6 \| 5/6 | 0/6 \| 4/6 | 3/6 \| 1/6 |
+
+
+### Walk, by physique
+
+The speed travelled, m/s:
+
+| Cell | default | size=0.9 | size=1.18 | speed=0.85 | speed=1.15 | strength=0.8 | strength=1.25 | weight=0.85 | weight=1.25 |
+|---|---|---|---|---|---|---|---|---|---|
+| Warrior, empty | 0.40 \| 0.40 | 0.40 \| 0.39 | 0.41 \| 0.54 | 0.40 \| 0.39 | 0.40 \| 0.40 | 0.24 \| 0.39 | 0.40 \| 0.40 | 0.40 \| 0.39 | 0.40 \| 0.40 |
+| Warrior, club | 0.39 \| 0.39 | 0.22 \| 0.38 | 0.40 \| 0.54 | 0.38 \| 0.39 | 0.39 \| 0.39 | 0.39 \| 0.39 | 0.39 \| 0.39 | 0.38 \| 0.39 | 0.40 \| 0.40 |
+| Rogue, empty | 0.25 \| 0.39 | 0.24 \| 0.39 | 0.27 \| 0.38 | 0.25 \| 0.39 | 0.25 \| 0.39 | 0.25 \| 0.35 | 0.25 \| 0.41 | 0.25 \| 0.41 | 0.24 \| 0.36 |
+| Rogue, club | 0.24 \| 0.39 | 0.23 \| 0.39 | 0.26 \| 0.38 | 0.23 \| 0.38 | 0.23 \| 0.39 | 0.23 \| 0.35 | 0.40 \| 0.41 | 0.40 \| 0.41 | 0.24 \| 0.36 |
+
+
+### Rise, by physique
+
+Falls risen and up at the end of the watch, of the falls:
+
+| Cell | default | size=0.9 | size=1.18 | speed=0.85 | speed=1.15 | strength=0.8 | strength=1.25 | weight=0.85 | weight=1.25 |
+|---|---|---|---|---|---|---|---|---|---|
+| Warrior, empty | 4/8 \| 0/8 | 5/8 \| 0/8 | 1/7 \| 0/7 | 6/8 \| 0/8 | 7/8 \| 0/8 | 1/8 \| 0/8 | 3/8 \| 0/8 | 0/8 \| 0/8 | 0/8 \| 0/8 |
+| Warrior, club | 6/8 \| 0/8 | 1/8 \| 0/8 | 2/7 \| 0/7 | 7/8 \| 0/8 | 7/8 \| 0/8 | 1/8 \| 0/8 | 0/8 \| 0/8 | 0/6 \| 0/8 | 0/8 \| 0/8 |
+| Rogue, empty | 0/8 \| 0/8 | 0/8 \| 0/8 | 0/8 \| 0/8 | 2/8 \| 0/8 | 0/8 \| 0/8 | 0/8 \| 0/8 | 0/8 \| 0/8 | 0/8 \| 0/8 | 0/8 \| 0/8 |
+| Rogue, club | 0/8 \| 0/8 | 0/8 \| 0/8 | 0/8 \| 0/8 | 0/8 \| 0/8 | 1/8 \| 0/8 | 0/8 \| 0/8 | 2/8 \| 0/8 | 0/8 \| 0/8 | 0/8 \| 0/8 |
+
+
+### Punch, by physique
+
+Blows landed at full reach, of those thrown, and their mean hand speed over the last 10 cm, m/s.
+The club's punch is `unsupported`:
+
+| Cell | default | size=0.9 | size=1.18 | speed=0.85 | speed=1.15 | strength=0.8 | strength=1.25 | weight=0.85 | weight=1.25 |
+|---|---|---|---|---|---|---|---|---|---|
+| Warrior, empty | 8/27 4.72 \| 26/27 4.78 | 7/24 4.39 \| 27/27 4.48 | 12/29 5.38 \| 22/23 5.03 | 2/27 4.35 \| 10/24 4.38 | 16/25 5.02 \| 24/26 5.06 | 4/27 4.56 \| 18/24 4.56 | 10/25 4.96 \| 27/27 5.02 | 10/24 4.95 \| 25/25 4.82 | 5/28 4.59 \| 21/25 4.55 |
+| Warrior, club | n/a \| n/a | n/a \| n/a | n/a \| n/a | n/a \| n/a | n/a \| n/a | n/a \| n/a | n/a \| n/a | n/a \| n/a | n/a \| n/a |
+| Rogue, empty | 8/25 3.25 \| 16/27 3.91 | 6/25 4.29 \| 22/24 3.94 | 0/30 – \| 1/28 4.68 | 12/25 4.21 \| 14/27 2.96 | 5/25 3.67 \| 19/27 4.02 | 7/27 4.02 \| 24/29 4.15 | 5/24 4.58 \| 22/27 4.25 | 6/25 4.80 \| 7/25 4.02 | 7/27 3.62 \| 9/28 3.09 |
+| Rogue, club | n/a \| n/a | n/a \| n/a | n/a \| n/a | n/a \| n/a | n/a \| n/a | n/a \| n/a | n/a \| n/a | n/a \| n/a | n/a \| n/a |
+
+
+### Kick, by physique
+
+The foot's mean speed at contact, m/s; "–" where no blow landed:
+
+| Cell | default | size=0.9 | size=1.18 | speed=0.85 | speed=1.15 | strength=0.8 | strength=1.25 | weight=0.85 | weight=1.25 |
+|---|---|---|---|---|---|---|---|---|---|
+| Warrior, empty | 1.19 \| 1.14 | 1.36 \| 1.27 | 1.10 \| 1.06 | 1.18 \| 1.13 | 1.21 \| 1.12 | 1.15 \| 1.16 | 1.24 \| 1.11 | 1.21 \| 1.13 | 1.17 \| 1.11 |
+| Warrior, club | 1.21 \| 1.19 | 1.36 \| 1.29 | 1.10 \| 1.04 | 1.23 \| 1.18 | 1.21 \| 1.17 | 1.19 \| 1.21 | 1.18 \| 1.17 | 1.22 \| 1.19 | 1.19 \| 1.13 |
+| Rogue, empty | 1.39 \| 1.37 | 1.41 \| 1.43 | 1.26 \| 1.26 | 1.45 \| 1.34 | 1.46 \| 1.34 | 1.31 \| 1.28 | 1.43 \| 1.40 | 1.34 \| 1.41 | 1.29 \| 1.14 |
+| Rogue, club | 1.42 \| – | – \| 1.39 | 1.25 \| 1.27 | 1.38 \| 1.35 | 1.53 \| 1.35 | 1.43 \| 1.32 | 1.54 \| 1.54 | 1.39 \| 1.47 | 1.30 \| 1.07 |
+
+### What the grid says
+
+- **Only the stand holds on every physique.** Every cell holds 0.5 N s/kg every way at both
+  rates; the larger Warrior (size x1.18) holds 0.8, and the Rogue at strength x0.8 or weight x1.25
+  only 0.5.
+- **The rise is the most brittle.** None rises at 480 Hz on any physique. At 120 Hz the Warrior's
+  4 of 8 with nothing in its hands is 0 of 8 at weight x0.85 and at x1.25, 1 of 8 at strength
+  x0.8, 1 of 7 at size x1.18, and 7 of 8 at speed x1.15: a script of timed poses works only near
+  the body it was timed on.
+- **The walk** reaches 0.54 m/s at best (the larger Warrior, at 480 Hz), 43 % of the threshold.
+  At 120 Hz strength x0.8 takes the Warrior's empty-handed walk from 0.40 to 0.24 m/s, and size
+  x0.9 its walk with the club from 0.39 to 0.22.
+- **The punch's speed follows the speed axis less than in proportion**: the Warrior's 4.72 m/s at
+  120 Hz is 4.35 at speed x0.85 and 5.02 at x1.15 (-8 % and +6 %), and 5.38 at size x1.18. At
+  120 Hz it lands 2 of 27 at speed x0.85 and 16 of 25 at x1.15. The larger Rogue lands 0 of 30
+  and 1 of 28.
+- **The guard with the club** passes for the Warrior only at speed x0.85 and x1.15, and for the
+  Rogue only at size x1.18; the smaller Rogue with the club covers none of 6 at either rate.
+- **The club, held upright, sweeps through the other hand as the arms come up.** A body is built
+  in its reference pose and its arms rise into the guard at the start. The club is one body with
+  the right hand, and on the way it meets the left hand and forearm. On the Rogue at 120 Hz it
+  grazes them with no impulse from 0.30 to 0.38 s, and the arms come free. At 480 Hz it pushes
+  from 0.25 s and stays hooked on the left forearm. The body never settles; it steps at 2 s and
+  goes down at 3.8 s, in the kick's setup. So every one of the Rogue's 8 club kick trials at
+  480 Hz falls before a kick. The smaller Rogue (size x0.9) is struck on the left forearm at
+  0.38 s at 120 Hz (1.7 N s) and falls the same way. The Warrior's club, at either rate, meets
+  neither of its left arm's segments.
+- **The upright guard stood the smaller Rogue with the club up.** Read on the same grid at
+  `08045d38`, its club leaning back over its head, it held 0.2 | 0.0 N s/kg and walked
+  0.00 | 0.00 m/s; it holds 0.6 | 0.6 and walks 0.23 | 0.39.

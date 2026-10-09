@@ -886,7 +886,8 @@ node research/core-rise.mjs --workers 10 --watch 40 --falls --mind '{"kind":"rec
 ```
 
 Harness: the battery's ([Battery](#battery)), 10 workers, each fall watched 40 s; code at
-`83c3540c`, the workshop hands' measured hulls.
+`1f354189`: the workshop hands' measured hulls, and a held item upright in the guard
+(`guardPosture`, [human-and-strikes.md](human-and-strikes.md#guard)).
 
 **The bar**, set and not swept: each human with each loadout risen within the watch in at least
 three falls of four; no way of lying under half, for either human; at least half of the bouts'
@@ -895,47 +896,55 @@ over its row of [Driven](#driven).
 
 | falls | of | fell | rose | median s to rise | median peak, m/s | worst asked, weights | median s it last moved | the longest, s | up at the end |
 |---|---|---|---|---|---|---|---|---|---|
-| workshop-fighter, club, shoved | 16 | 14 | 9 | 25.49 | 4.32 | 0.6 | 30.88 | 39.99 | 11 |
+| workshop-fighter, club, shoved | 16 | 16 | 8 | 25.37 | 4.93 | 0.4 | 39.61 | 39.99 | 8 |
 | workshop-fighter, empty, shoved | 16 | 16 | 11 | 22.32 | 4.50 | 2.0 | 31.31 | 39.99 | 10 |
-| workshop-rogue, club, shoved | 16 | 16 | 0 | - | 6.07 | 0.0 | 39.99 | 39.99 | 1 |
+| workshop-rogue, club, shoved | 16 | 16 | 1 | 23.58 | 6.26 | 0.4 | 39.99 | 39.99 | 2 |
 | workshop-rogue, empty, shoved | 16 | 16 | 2 | 29.49 | 5.83 | 0.0 | 39.99 | 39.99 | 0 |
-| crypt-skeleton, club, shoved | 16 | 16 | 0 | - | 6.74 | 0.0 | 39.99 | 39.99 | 0 |
+| crypt-skeleton, club, shoved | 16 | 16 | 0 | - | 5.22 | 0.0 | 39.99 | 39.99 | 0 |
 | crypt-skeleton, empty, shoved | 16 | 16 | 0 | - | 4.96 | 0.0 | 39.99 | 39.99 | 0 |
-| bouts | 9 | 7 | 0 | - | 6.43 | 0.0 | 39.99 | 39.99 | 0 |
+| bouts | 9 | 4 | 1 | 24.79 | 6.98 | 0.3 | 39.99 | 39.99 | 1 |
 
 | falls, as the body lay | fell | rose | the furthest stage reached | played to the rise's end |
 |---|---|---|---|---|
-| bouts, on its back | 3 | 0 | none: 2, half kneel: 1 | 0 |
-| bouts, on its front | 2 | 0 | fours: 1, half kneel: 1 | 0 |
-| bouts, on its left | 2 | 0 | none: 1, lunge 1: 1 | 0 |
-| crypt-skeleton, club, shoved, on its back | 7 | 0 | none: 7 | 0 |
-| crypt-skeleton, club, shoved, on its front | 2 | 0 | half kneel: 2 | 0 |
-| crypt-skeleton, club, shoved, on its left | 2 | 0 | prop: 1, half kneel: 1 | 0 |
-| crypt-skeleton, club, shoved, on its right | 5 | 0 | none: 1, prop: 2, half kneel: 2 | 0 |
+| bouts, on its back | 3 | 1 | fours: 1, half kneel: 1, even: 1 | 1 |
+| bouts, on its front | 1 | 0 | half kneel: 1 | 0 |
+| crypt-skeleton, club, shoved, on its back | 9 | 0 | none: 8, fours: 1 | 0 |
+| crypt-skeleton, club, shoved, on its front | 2 | 0 | tuck: 1, fours: 1 | 0 |
+| crypt-skeleton, club, shoved, on its left | 2 | 0 | none: 1, tall: 1 | 0 |
+| crypt-skeleton, club, shoved, on its right | 3 | 0 | prop: 1, fours: 1, half kneel: 1 | 0 |
 | crypt-skeleton, empty, shoved, on its back | 10 | 0 | none: 10 | 0 |
 | crypt-skeleton, empty, shoved, on its front | 4 | 0 | tuck: 2, half kneel: 2 | 0 |
 | crypt-skeleton, empty, shoved, on its left | 1 | 0 | none: 1 | 0 |
 | crypt-skeleton, empty, shoved, on its right | 1 | 0 | half kneel: 1 | 0 |
-| workshop-fighter, club, shoved, on its back | 9 | 7 | lunge 2: 1, lunge 3: 1, even: 7 | 7 |
-| workshop-fighter, club, shoved, on its front | 2 | 1 | even: 2 | 2 |
-| workshop-fighter, club, shoved, on its left | 3 | 1 | fours: 1, half kneel: 1, even: 1 | 1 |
+| workshop-fighter, club, shoved, on its back | 13 | 8 | reach: 1, half kneel: 1, lunge 1: 2, lunge 2: 1, even: 8 | 8 |
+| workshop-fighter, club, shoved, on its front | 2 | 0 | fours: 2 | 0 |
+| workshop-fighter, club, shoved, on its left | 1 | 0 | half kneel: 1 | 0 |
 | workshop-fighter, empty, shoved, on its back | 10 | 7 | half kneel: 1, lunge 1: 2, even: 7 | 7 |
 | workshop-fighter, empty, shoved, on its front | 4 | 2 | half kneel: 1, lunge 1: 1, even: 2 | 2 |
 | workshop-fighter, empty, shoved, on its left | 1 | 1 | even: 1 | 1 |
 | workshop-fighter, empty, shoved, on its right | 1 | 1 | even: 1 | 1 |
-| workshop-rogue, club, shoved, on its back | 14 | 0 | none: 1, fours: 2, kneel 0: 1, hold: 4, half kneel: 3, lunge 1: 1, lunge 2: 2 | 0 |
-| workshop-rogue, club, shoved, on its front | 1 | 0 | half kneel: 1 | 0 |
-| workshop-rogue, club, shoved, on its left | 1 | 0 | lunge 2: 1 | 0 |
+| workshop-rogue, club, shoved, on its back | 14 | 1 | none: 1, fours: 5, kneel 1: 1, tall 2: 1, half kneel: 1, onto the toes: 1, lunge 1: 1, lunge 2: 1, even: 2 | 1 |
+| workshop-rogue, club, shoved, on its front | 1 | 0 | hold: 1 | 0 |
+| workshop-rogue, club, shoved, on its left | 1 | 0 | lunge 1: 1 | 0 |
 | workshop-rogue, empty, shoved, on its back | 16 | 2 | prop: 1, fours: 5, hold: 4, reach: 1, half kneel: 1, lunge 1: 2, lunge 2: 2 | 0 |
 
 "The furthest stage" is the last attempt's, as the watch ends; a body that rose and went down
 again may have begun another.
 
 **The bar is missed**, by every row. The Warrior rises from 11 of 16 falls with nothing in its
-hands (10 up at the end) and 9 of 14 with the club (11 up), short of three of four; with the club
-it rises from 1 of its 3 falls on its left. The Rogue rises from 2 of its 16 falls with nothing in
-its hands and none with the club, the skeleton from none of 32, and none of the 7 bouts' falls
-rise. Nothing is flung: the median peaks are 4.3 to 6.7 m/s where the driven body's are 10 to 15.
+hands (10 up at the end) and 8 of 16 with the club (8 up), short of three of four; with the club
+it rises from none of its 3 falls on its front or left. The Rogue rises from 2 of its 16 falls
+with nothing in its hands and 1 with the club, the skeleton from none of 32, and 1 of the 4 bouts'
+falls rises. Nothing is flung: the median peaks are 4.5 to 7.0 m/s where the driven body's are
+10 to 15.
+
+**The upright guard moves only the club's rows.** With nothing in its hands a body holds `GUARD`
+as before, and those rows read as at `83c3540c` to the last figure. With the club, at `83c3540c`
+(the haft leaning back over the head): the Warrior fell from 14 of 16 shoves and rose from 9,
+11 up at the end; the Rogue fell from 16 and rose from none, 1 up; the skeleton rose from none,
+its median peak 6.74 m/s (5.22 now); and 7 of the 9 bouts fell, none rising. Of 16 falls a row,
+the Warrior's 9 of 14 against 8 of 16 is within a row's spread: 128 shoves a loadout, as below,
+would tell them apart, and have not been read with this guard.
 
 **The hands' hulls cost the rise.** The same battery at `8c59943b`, the hands still capsules:
 
@@ -978,7 +987,7 @@ node research/core-rise.mjs --workers 30 --watch 40 --shoves 128 --only workshop
 | workshop-fighter, empty, shoved, on its right | 10 | 8 | prop: 1, swing: 1, half kneel: 1, even: 7 | 8 |
 
 What the rows say of the falls (the Warrior's from the 128 shoves at `0b9a7b56`, the rest from
-the 16 at `83c3540c`):
+the 16 at `1f354189`):
 
 - **The Warrior rises from seven falls of eight with nothing in its hands, and from more than
   three of four with the club**: 112 of 127 and 94 of 121, 110 and 97 up at the end, in a median
@@ -988,10 +997,12 @@ the 16 at `83c3540c`):
 - **The falls it does not rise from** end their last attempt anywhere from `prop` to `lunge 3`;
   the most at one stage are 5 of the 15 with nothing in its hands at `half kneel`, and 6 of the
   27 with the club at `lunge 1` ([Where the rise stops](#where-the-rise-stops)).
-- **The Rogue** rises from 2 of its 32 falls. Of the 32, the last attempt ends at `hold` in 8, in
-  the lunge in 8, at `fours` in 7 and at the half kneel in 5.
-- **The skeleton**: its roll does not turn it (none of its 17 falls on the back begins a stage of
-  the rise), and from its front it goes down in the half kneel (4 of 6).
-- **The bouts**: none of 7 falls rises; 3 end their last attempt at `none` and 2 at the half kneel.
+- **The Rogue** rises from 3 of its 32 falls. Of the 32, the last attempt ends at `fours` in 10,
+  in the lunge in 7 and at `hold` in 5.
+- **The skeleton**: its roll does not turn it (18 of its 19 falls on the back begin no stage of
+  the rise), and from its front none rises: of 6, 3 end at `tuck` and 2 at the half kneel.
+- **The bouts**: 4 of the 9 fall, and 1 of the 4 rises, in the Warrior's bout against the
+  skeleton, from its back in 24.8 s; the other 3 end their last attempt at `fours` or the half
+  kneel.
 
 What a rising body costs a step is in `play.md#bodies-in-the-step`.

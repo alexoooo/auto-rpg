@@ -299,13 +299,14 @@ test("a_placed_blow_lands_whichever_way_the_body_faces", async () => {
 });
 
 test("a_reading_is_one_targets_own", async () => {
-  // Two targets in turn: the first where the recipe lands; the second 1.3 m under it, where a blow is placed and falls short.
-  const { head, readings, down } = await strikeAt(CLUB, [(h) => [0, h, 1.3], (h) => [0, h - 1.3, 1.3]]);
+  // Two targets in turn: the first where the recipe lands; the second 1.5 m under it, where a blow is placed and falls
+  // short. At 1.3 m under it the placed club grazes the target, and at 1.4 m a shin walks into it.
+  const { head, readings, down } = await strikeAt(CLUB, [(h) => [0, h, 1.3], (h) => [0, h - 1.5, 1.3]]);
   assert.equal(down, false);
   assert.deepEqual(readings.map(record), [
     { target: { at: [0, head, 1.3], stratum: "control" }, hand: "right", strike: "searched right club blow", hung: true, fell: false,
       ...CLUBBED },
-    { target: { at: [0, head - 1.3, 1.3], stratum: "control" }, hand: "right", strike: "placed", hung: true, fell: false, ...UNSTRUCK },
+    { target: { at: [0, head - 1.5, 1.3], stratum: "control" }, hand: "right", strike: "placed", hung: true, fell: false, ...UNSTRUCK },
   ]);
   const [first, second] = readings;
   assert.ok(first.blow.time < first.ended && first.ended < second.began, `${first.blow.time}, ${first.ended}, ${second.began}`);

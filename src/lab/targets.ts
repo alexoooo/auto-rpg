@@ -187,7 +187,8 @@ export interface TargetReading {
   /**
    * The nearest any shape of the hand's body came to the dummy's surface, or to where it would
    * hang while it does not, as each control step found them from the strike's beginning to the
-   * watch's end, m: 0 where a step found them touching; null if no strike began.
+   * watch's end, m: 0 where a step found them touching, or where the hand's body landed the blow
+   * read, which may meet the dummy and leave it between two steps; null if no strike began.
    */
   readonly nearest: number | null;
   /** The blow that took the most from the dummy (`hardestOn`), or null. */
@@ -258,7 +259,8 @@ export function readTarget(actor: Actor, target: Target, hand: Side, rules: Rule
   const reading = (fell: boolean): TargetReading => {
     const dummy = up?.dummy.fighter.id, blow = up ? hardestOn(up.watch.blows, up.dummy.fighter.id) : null;
     const took = blow?.sides.find((side) => side.fighter === dummy) ?? null, gave = blow?.sides.find((side) => side.fighter !== dummy) ?? null;
-    return { target, hand, strike: strike && { ...strike }, seconds: world.time - asked, hung: up !== null, nearest, blow, took, gave, fell };
+    const touched = gave?.segment === striking.spec.name;
+    return { target, hand, strike: strike && { ...strike }, seconds: world.time - asked, hung: up !== null, nearest: touched ? 0 : nearest, blow, took, gave, fell };
   };
   /** Where the ball is: its dummy's centre, or its place while none hangs. */
   const centre = (): Vec3 => up ? [up.dummy.centre.x, up.dummy.centre.y, up.dummy.centre.z] : target.at;

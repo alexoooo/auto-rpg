@@ -330,15 +330,19 @@ recipe fighter's `recipeSkills` (`src/core/skills/skills.ts`, below) and the pat
   window holds the target's height over the head, the nearest its place where two do
   (`recipeAt`), and a placed blow where none does; walks the body to where the target sits in
   the blow's window, sets the feet, stands `STAND` seconds, chooses again by the head as it
-  stands, once for a point attacked, and throws. From the commit to the end of its pushes a
+  stands, once for a point attacked and keeping a recipe whose window still holds the target
+  (`holdsAt`), and throws. From the commit to the end of its pushes a
   recipe turns the stance's heading by as much as its target's bearing has turned, read from
   where the feet stood at the commit, up to `STEER`, so a target that moves across under the
   blow stays where its window had it ([reference/blows.md](reference/blows.md#steered)). It
   reports what each hand's recipes net by band (`StrikeReport.nets`).
   While a strike runs it owns the legs and trunk, and the other hand guards.
 - **Guard** (`guard.ts`) is a skill in the one list, and has the hands the strike has not. Its
-  pose (`GUARD`) is the arms' posture when nothing else owns them. A guarding hand told what to
-  cover (`Cover`: where the threat is, and the place of its own body kept from it) is given a
+  pose is the arms' posture when nothing else owns them (`guardPosture`): `GUARD`, with a hand
+  that holds an item turned at the wrist so that the item stands as near upright as the wrist's
+  range allows, since out of a fist held as `GUARD` holds it a haft leans back onto the head.
+  A guarding hand told what to cover (`Cover`: where the threat is, and the place of its own body
+  kept from it) is given a
   hand goal that follows the two (`GUARD_COVER`): an empty hand's knuckles go between them,
   `out` from the place guarded; an item that names two points to cover with (`ItemSpec.cover`,
   the club's swell) has their middle there and their line square to the threat's, the way
@@ -897,7 +901,7 @@ The rules of a fight are `src/core/rules/`, free of any page so they can be argu
   (`pointsInto`). The strongest loaded shape pair supplies rigid impact surfaces and direction;
   material work retains each admitted pair's contribution.
   The Warrior's strongest one-handed blow with the wooden club is a
-  measurement beside it (`CLUB_BEST`, `research/core-club-unit.json`): 138.26 J, 1.38 hit points.
+  measurement beside it (`CLUB_BEST`, `research/core-club-unit.json`): 133.75 J, 1.34 hit points.
   The arena's rulebook and the dungeon's are the same rules.
 - **Wounds** (`pool.ts`): one pool of hit points per body, split over its parts by cross-section
   (mass to the two-thirds, as the square of its cube root). A part's excess damage spreads to its neighbours, nearest first and

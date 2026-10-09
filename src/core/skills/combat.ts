@@ -7,7 +7,7 @@ import { validArmExtension, type BlowAttack, type BlowPath, type KickAttack } fr
 import type { Tactics } from "../mind/tactics.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { attackPath, ATTACK_PATH, validAttackTuning, type AttackTuning } from "./attack-path.ts";
-import { GUARD, guardSkill } from "./guard.ts";
+import { guardPosture, guardSkill } from "./guard.ts";
 import { supportFold } from "./support-fold.ts";
 import { locomotion, STANCE_LOWER, type TurnStartup } from "./locomotion.ts";
 import type { SkillReport, Skills } from "./skills.ts";
@@ -64,7 +64,7 @@ export function combatSkills(body: Body, { state: tactics, engagement }: Pick<Ta
   { paths: tuning = ATTACK_PATH, kick: kicks, execution, turnLimit, turnStartup, ground = false, overlap = false }: CombatSettings = {}): Skills {
   if (execution && !validCombatExecution(execution)) throw new Error("invalid combat execution settings");
   if (!validAttackTuning(tuning)) throw new Error("combat path settings need finite nonnegative values, positive durations and elbowExtension in [0,1]");
-  const spec = body.built.spec, legs = locomotion(body.envelope, turnLimit, turnStartup), guard = guardSkill(spec);
+  const spec = body.built.spec, legs = locomotion(body.envelope, turnLimit, turnStartup), guard = guardSkill(spec), guarding = guardPosture(body.built);
   const elbowRange = (hand: Side) => spec.joints.find(j => j.name === `elbow.${hand}`)?.dofs.find(d => d.positive === "flexion");
   const elbows = { left: elbowRange("left"), right: elbowRange("right") };
   const fold = ground ? supportFold(body) : null;
@@ -79,7 +79,7 @@ export function combatSkills(body: Body, { state: tactics, engagement }: Pick<Ta
     chamberSeconds: tuning.chamberSeconds, returnSeconds: tuning.returnSeconds });
   const strikes = { left: strikeOf("left"), right: strikeOf("right") };
   const blowOf = (hand: Side): HandBlow => ({ cycle: strikes[hand].state, action: null, home: null, chamber: null, elbow: 0, initialElbow: 0 });
-  const state = { command: { posture: GUARD, pushes: [], stance: null } as BodyCommand,
+  const state = { command: { posture: guarding, pushes: [], stance: null } as BodyCommand,
     legs: legs.state, ...(kicking ? { kick: kicking.state } : {}), ...(foundation ? { foundation: foundation.state } : {}), ...(fold ? { support: fold.state } : {}),
     lower: STANCE_LOWER, tactics: tactics ?? null, hand: null as Side | null, hands: { left: blowOf("left"), right: blowOf("right") },
     cooldown: 0, interrupted: 0, canOverlap: false };
@@ -154,7 +154,7 @@ export function combatSkills(body: Body, { state: tactics, engagement }: Pick<Ta
       starting.chamber = attackPath(starting.home, [target.x, target.y, target.z], hand, requested.path.family, tuning).chamber;
       starting.initialElbow = starting.elbow; strikes[hand].begin("chamber", velocities[hand]);
     }
-    let posture: Pose = GUARD;
+    let posture: Pose = guarding;
     const goals: Record<Side, EffectorGoal | null> = { left: null, right: null };
     const advance = (hand: Side) => {
       const striking = state.hands[hand], strike = strikes[hand], action = striking.action!, home = striking.home!, chamber = striking.chamber!;
@@ -180,7 +180,7 @@ export function combatSkills(body: Body, { state: tactics, engagement }: Pick<Ta
       const extension = action.path.armExtension ?? tuning.elbowExtension;
       if (extension || striking.elbow) {
         striking.elbow = smoothElbow(striking.initialElbow, phase === "swing" ? extension : 0, Math.min(1, striking.cycle.time / strike.seconds(course)));
-        const dof = elbows[hand], name = `elbow.${hand} flexion`, preferred = (1 - striking.elbow) * GUARD[name]!;
+        const dof = elbows[hand], name = `elbow.${hand} flexion`, preferred = (1 - striking.elbow) * guarding[name]!;
         if (dof) posture = { ...posture, [name]: Math.max(dof.min.value, Math.min(dof.max.value, preferred)) };
       }
       const rotation = phase === "chamber" ? -path.torso : phase === "swing" ? path.torso : 0;
