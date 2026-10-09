@@ -3,6 +3,11 @@
   "stature": 0.325,
   "balance": 0,
   "stiffness": 17000,
+  "layer": {
+    "stiffness": 2000,
+    "dampingRatio": 0.25,
+    "depth": 0.008
+  },
   "curvature": 0.25,
   "eccentricCeiling": 1.5,
   "eccentricSlopeRatio": 1,

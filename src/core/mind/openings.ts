@@ -59,8 +59,8 @@ export function segmentDistanceSquared(start: Vec3, end: Vec3, otherStart: Vec3,
 }
 
 /** Sourced collider centre lines in their segment frames; this cache contains no changing poses. */
-const LOCAL = new WeakMap<SegmentSpec, { readonly a: Vec3; readonly b: Vec3; readonly radius: number }>();
-const POLYS = new WeakMap<SegmentSpec, { readonly planes: ReturnType<typeof convexHull>["planes"]; readonly vertices: readonly Vec3[]; readonly middle: Vec3; readonly extent: Vec3 }>();
+const LOCAL = new WeakMap<SegmentSpec, { readonly a: Vec3; readonly b: Vec3; readonly radius: number; readonly bound: number }>();
+const POLYS = new WeakMap<SegmentSpec, { readonly planes: ReturnType<typeof convexHull>["planes"]; readonly vertices: readonly Vec3[]; readonly middle: Vec3; readonly extent: Vec3; readonly bound: number }>();
 
 function polyhedron(segment: SegmentSpec) {
   const shape = segment.shape;
@@ -73,7 +73,8 @@ function polyhedron(segment: SegmentSpec) {
     vertices.push(local(add(shape.centre.value,add(scale(frame.x,x*shape.size.value[0]),add(scale(frame.y,y*shape.size.value[1]),scale(frame.z,z*shape.size.value[2]))))));
   const low = [0,1,2].map(k=>Math.min(...vertices.map(p=>p[k]!))),high = [0,1,2].map(k=>Math.max(...vertices.map(p=>p[k]!)));
   const middle = scale(vertices.reduce((a,p)=>add(a,p),[0,0,0] as Vec3),1/vertices.length);
-  const result = Object.freeze({planes:convexHull(vertices).planes,vertices:Object.freeze(vertices),middle,extent:sub(high as unknown as Vec3,low as unknown as Vec3)});
+  const bound = Math.max(...vertices.map(p => length(p)));
+  const result = Object.freeze({bound,planes:convexHull(vertices).planes,vertices:Object.freeze(vertices),middle,extent:sub(high as unknown as Vec3,low as unknown as Vec3)});
   POLYS.set(segment,result);return result;
 }
 
@@ -84,8 +85,8 @@ function capsule(segment: SegmentSpec) {
   if (shape.kind !== "capsule" && shape.kind !== "sphere") return null;
   const frame = frameOf(segment);
   const point = (at: Vec3): Vec3 => { const delta = sub(at, frame.origin); return [dot(delta, frame.x), dot(delta, frame.y), dot(delta, frame.z)]; };
-  local = Object.freeze({ a: point(shape.kind === "capsule" ? shape.from.value : shape.centre.value),
-    b: point(shape.kind === "capsule" ? shape.to.value : shape.centre.value), radius: shape.radius.value });
+  const a = point(shape.kind === "capsule" ? shape.from.value : shape.centre.value), b = point(shape.kind === "capsule" ? shape.to.value : shape.centre.value);
+  local = Object.freeze({ a, b, radius: shape.radius.value, bound: Math.max(length(a), length(b)) + shape.radius.value });
   LOCAL.set(segment, local); return local;
 }
 
@@ -134,6 +135,103 @@ export function nearSurface(foe: BodySense, name: string, from: Vec3): Vec3 | nu
   if (!at) return null;
   scratch.set(...at).applyRotationQuaternionToRef(sensed.rotation, scratch).addInPlace(sensed.position);
   return [scratch.x, scratch.y, scratch.z];
+}
+
+/** Immutable natural collider descriptions use the segment's common physical frame. */
+const ENTRY_SHAPES = new WeakMap<SegmentSpec, readonly SegmentSpec[]>();
+
+function entryShapes(segment: SegmentSpec): readonly SegmentSpec[] {
+  let shapes = ENTRY_SHAPES.get(segment);
+  if (!shapes) {
+    shapes = Object.freeze([segment, ...(segment.contacts ?? []).map(contact => Object.freeze({ ...segment, shape: contact.shape }))]);
+    ENTRY_SHAPES.set(segment, shapes);
+  }
+  return shapes;
+}
+
+/** A point on or inside any natural collider has no fresh exposed approach from there. */
+export function surfaceContains(foe: BodySense, name: string, at: Vec3): boolean {
+  const segment = foe.spec.segments.find(s => s.name === name), sensed = foe.segments.get(name);
+  return !!segment && !!sensed && entryShapes(segment).some(shape => shapeEntry(shape, sensed, at, at) === false);
+}
+
+/** First exposed entry into a sensed segment's primary collider or natural contact regions. */
+export function surfaceEntry(foe: BodySense, name: string, from: Vec3, to: Vec3): { readonly at: Vec3; readonly normal: Vec3 } | null {
+  const segment = foe.spec.segments.find(s => s.name === name), sensed = foe.segments.get(name);
+  if (!segment || !sensed) return null;
+  let best: { readonly at: Vec3; readonly normal: Vec3 } | null = null, distance = Infinity;
+  for (const shape of entryShapes(segment)) {
+    const hit = shapeEntry(shape, sensed, from, to);
+    if (hit === false) return null;
+    if (!hit) continue;
+    const dx = hit.at[0] - from[0], dy = hit.at[1] - from[1], dz = hit.at[2] - from[2], squared = dx * dx + dy * dy + dz * dz;
+    if (squared < distance) { best = hit; distance = squared; }
+  }
+  return best;
+}
+
+/** An internal start has no exposed entry into the compound segment. */
+function shapeEntry(segment: SegmentSpec, sensed: { readonly position: Vector3; readonly rotation: Quaternion }, from: Vec3, to: Vec3): { readonly at: Vec3; readonly normal: Vec3 } | false | null {
+  const round = capsule(segment), poly = polyhedron(segment), bound = round?.bound ?? poly?.bound;
+  if (bound === undefined) return null;
+  const x = from[0] - sensed.position.x, y = from[1] - sensed.position.y, z = from[2] - sensed.position.z;
+  const dx = to[0] - from[0], dy = to[1] - from[1], dz = to[2] - from[2];
+  const reach = bound + Math.sqrt(dx * dx + dy * dy + dz * dz);
+  if (x * x + y * y + z * z > reach * reach) return null;
+  const scratch = new Vector3(), inverse = Quaternion.Inverse(sensed.rotation);
+  const local = (p: Vec3): Vec3 => {
+    scratch.set(...p).subtractInPlace(sensed.position).applyRotationQuaternionToRef(inverse, scratch);
+    return [scratch.x, scratch.y, scratch.z];
+  };
+  const start = local(from), finish = local(to), direction = sub(finish, start);
+  let at: Vec3 | null = null, normal: Vec3 | null = null;
+  if (poly) {
+    if (poly.planes.every(plane => dot(plane.normal, start) <= plane.offset)) return false;
+    at = hullEntry(poly.planes, start, finish);
+    if (at) {
+      let nearest = -Infinity;
+      for (const plane of poly.planes) {
+        const distance = dot(plane.normal, at) - plane.offset;
+        if (distance > nearest) { nearest = distance; normal = plane.normal; }
+      }
+    }
+  } else if (round) {
+    const axis = sub(round.b, round.a), squared = dot(axis, axis), offset = sub(start, round.a);
+    const projection = squared ? Math.max(0, Math.min(1, dot(offset, axis) / squared)) : 0;
+    const nearest = sub(offset, scale(axis, projection));
+    if (dot(nearest, nearest) <= round.radius * round.radius) return false;
+    let first = Infinity;
+    const roots = (a: number, b: number, c: number) => {
+      const determinant = b * b - 4 * a * c;
+      return a > 0 && determinant >= 0 ? [(-b - Math.sqrt(determinant)) / (2 * a), (-b + Math.sqrt(determinant)) / (2 * a)] : [];
+    };
+    const accept = (t: number, centre: Vec3) => {
+      if (!(t >= 0 && t <= 1 && t < first)) return;
+      const p = add(start, scale(direction, t)), n = sub(p, centre);
+      if (!(dot(n, direction) < 0)) return;
+      first = t; at = p; normal = scale(n, 1 / length(n));
+    };
+    if (squared) {
+      const along = dot(offset, axis) / squared, speed = dot(direction, axis) / squared;
+      const radial = sub(offset, scale(axis, along)), motion = sub(direction, scale(axis, speed));
+      for (const t of roots(dot(motion, motion), 2 * dot(radial, motion), dot(radial, radial) - round.radius * round.radius)) {
+        const position = along + t * speed;
+        if (position >= 0 && position <= 1) accept(t, add(round.a, scale(axis, position)));
+      }
+    }
+    for (const [end, side] of [[round.a, -1], [round.b, 1]] as const) {
+      const offset = sub(start, end);
+      for (const t of roots(dot(direction, direction), 2 * dot(offset, direction), dot(offset, offset) - round.radius * round.radius)) {
+        const position = dot(sub(add(start, scale(direction, t)), end), axis);
+        if (!squared || side * position >= 0) accept(t, end);
+      }
+    }
+  }
+  if (!at || !normal) return null;
+  scratch.set(...at).applyRotationQuaternionToRef(sensed.rotation, scratch).addInPlace(sensed.position);
+  const position: Vec3 = [scratch.x, scratch.y, scratch.z];
+  scratch.set(...normal).applyRotationQuaternionToRef(sensed.rotation, scratch);
+  return { at: position, normal: [scratch.x, scratch.y, scratch.z] };
 }
 
 function verticalSurface(foe: BodySense, name: string, from: Vec3 | undefined, sense: 1 | -1): Vec3 | null {

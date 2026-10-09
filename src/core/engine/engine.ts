@@ -64,6 +64,8 @@ export interface MassProperties {
 
 /** **A dynamic body with its node**: what the core reads of a body and does to it. */
 export interface SegmentBody {
+  /** Stable body identity within this world's topology and snapshots. */
+  readonly id: number;
   readonly node: TransformNode;
   linearVelocityToRef(out: Vector3): Vector3;
   angularVelocityToRef(out: Vector3): Vector3;
@@ -103,6 +105,25 @@ export type ColliderShape =
   | { readonly kind: "box"; readonly centre: Vec3; readonly size: Vec3 }
   | { readonly kind: "sphere"; readonly centre: Vec3; readonly radius: number }
   | { readonly kind: "hull"; readonly points: readonly Vec3[] };
+
+/** Optional collider material; directions are in the rigid body's local frame. */
+export interface ContactMaterial {
+  readonly layer?: { readonly stiffness: number; readonly dampingRatio: number; readonly depth: number };
+  readonly point?: { readonly direction: Vec3; readonly alignment: number; readonly depth: number };
+}
+
+/** A compliant shape pair after one step. Work is signed reaction work at substep motion, J. */
+export interface MaterialContact {
+  readonly key: string;
+  readonly first: SegmentBody;
+  readonly second: SegmentBody;
+  readonly mine: number;
+  readonly theirs: number;
+  readonly point: Vec3;
+  readonly normal: Vec3;
+  readonly work: number;
+  readonly depth: number;
+}
 
 /**
  * **A joint between two bodies**: the joint's frame, whose X, Y and Z are its constraint axes
@@ -155,6 +176,8 @@ export interface ContactPair {
   readonly normal: Vec3;
   /** The impulse the solver pushed the pair apart with in the last step, N s. */
   readonly impulse: number;
+  /** Actual normal compression of an admitted material layer, m; absent for rigid contact. */
+  readonly compression?: number;
 }
 
 /**
@@ -215,7 +238,7 @@ export interface PhysicsWorld {
    * the engine's default behavior against fixed colliders (`docs/reference/collision-ccd.md`).
    */
   addBody(node: TransformNode, shapes: readonly ColliderShape[], mass: MassProperties,
-    options?: { readonly ccd?: boolean }): SegmentBody;
+    options?: { readonly ccd?: boolean; readonly materials?: readonly ContactMaterial[] }): SegmentBody;
   addJoint(parent: SegmentBody, child: SegmentBody, frames: JointFrames): EngineJoint;
   /** Register a detached grip slot. Slots persist across release and snapshot restoration. */
   addGrip(parent: SegmentBody, child: SegmentBody, frames: Omit<JointFrames, "limits">): EngineGrip;
@@ -235,6 +258,8 @@ export interface PhysicsWorld {
   contactsOf(body: SegmentBody, wanted?: (other: SegmentBody | null) => boolean): readonly Contact[];
   /** Unaveraged solver geometry. A predicted point or zero impulse is not proof of load-bearing contact. */
   contactManifoldsOf(body: SegmentBody, wanted?: (other: SegmentBody | null) => boolean): readonly ContactManifold[];
+  /** Active compliant pairs, once per shape pair in creation order; empty for ordinary contacts. */
+  materialContacts(): readonly MaterialContact[];
   /** One solver step of `dt`, then every body's node written from its body. */
   step(dt: number): void;
   /**

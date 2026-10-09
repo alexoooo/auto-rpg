@@ -432,6 +432,7 @@ test("every_field_of_a_bodys_state_is_sorted", async () => {
     const effectors = ["effectors", "motor > effectors > foot.left", "motor > effectors > foot.right"].map(field => `body > mind > host > ${field}`);
     const rotations = ["left", "right"].map(hand => `body > mind > host > motor > effectors > hand.${hand} > fromRotation`);
     // Pose memory is exercised by physical opening/closure and fresh-world continuation in core-hand-poses.test.mjs.
-    assert.deepEqual(unsorted(fields, [...Object.values(NEEDED).flat(), "body > handPoses", ...effectors, ...rotations], Object.keys(NOT_MEMORY)), []);
+    // Loaded contact-work memory and its negative control are exercised in core-contact-episodes.test.mjs.
+    assert.deepEqual(unsorted(fields, [...Object.values(NEEDED).flat(), "body > handPoses", "world > contactWork", ...effectors, ...rotations], Object.keys(NOT_MEMORY)), []);
   } finally { stand.dispose(); struck.dispose(); }
 });

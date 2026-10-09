@@ -31,7 +31,8 @@ export const REPTILE_RECOVERY = Object.freeze({
 
 /** The bite (`bite`, `quadrupedTactics`): the jaw's path, its reach and the strike cycle's limits: `docs/reference/reptile.md#controller-settings`. */
 export const REPTILE_BITE = Object.freeze({
-  prepare: .25, snap: .12, release: .2, open: .3, jawError: .03, jawClosed: .001, biteTimeout: 1.2, biteEntry: .008, bitePrepareNear: .12, biteElevation: .15, biteNear: .04, biteSlow: .2, biteHold: .03, biteReturnLimit: 8,
+  prepare: .25, snap: .12, release: .2, open: .65, jawError: .03, jawClosed: .001, biteTimeout: 2, biteEntry: .008, bitePrepareNear: .12, biteElevation: .15, biteNear: .04, biteSlow: .2, biteHold: .03, biteReturnLimit: 8,
   approach: .3, braking: .5, creepNear: .3,
-  contactAt: .5, closeRate: 4, biteAlign: .04, biteShift: .04, biteInset: .02,
+  contactAt: .5, closeRate: 4, biteResponse: .03, biteAlign: .04, biteShift: .04, biteInset: .02,
+  contactSeconds: .25, biteSamples: 4, biteLead: .03, neckRetract: .3,
 });

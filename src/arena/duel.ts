@@ -12,7 +12,7 @@ import { watchBlows, type BlowWatch, type LandedBlow } from "../core/rules/blows
 import type { Ending } from "../core/rules/pool.ts";
 import { rulebook, type Rulebook, type RulebookOverride } from "../core/rules/rulebook.ts";
 import type { BodySpec, Side } from "../core/spec/body.ts";
-import { derive } from "../core/spec/quantity.ts";
+import { derive, sourced } from "../core/spec/quantity.ts";
 import type { BuiltBody } from "../core/build/build-body.ts";
 import { loadState, saveState, type Saved } from "../core/state.ts";
 import type { Hook, World } from "../core/world.ts";
@@ -102,6 +102,8 @@ interface DuelRecipe {
   readonly rules?: RulebookOverride;
   /** For each segment named, what its surface's stiffness is times, on both sides: a sensitivity sweep's. */
   readonly surfaces?: Readonly<Record<string, number>>;
+  /** Immutable qualification cell over each declared contact layer; tooth height and anatomy remain the spec's. */
+  readonly contactLayer?: { readonly stiffness: number; readonly dampingRatio: number };
 }
 
 /** `spec` with each segment `factors` names as stiff as its own surface times its factor. */
@@ -113,9 +115,19 @@ function stiffened(spec: BodySpec, factors: Readonly<Record<string, number>>): B
       const factor = factors[segment.name];
       if (factor === undefined) return segment;
       const times = derive("1", "the recipe's factor on this surface", [], () => factor);
-      return { ...segment, surface: { stiffness: derive("N/m", "the surface's stiffness, times the recipe's factor", [segment.surface.stiffness, times], (k, f) => k * f) } };
+      return { ...segment, surface: { ...segment.surface, stiffness: derive("N/m", "the surface's stiffness, times the recipe's factor", [segment.surface.stiffness, times], (k, f) => k * f) } };
     }),
   };
+}
+
+/** A declared material layer with the recipe's authored measurement cell. */
+function layered(spec: BodySpec, cell: NonNullable<DuelRecipe["contactLayer"]>): BodySpec {
+  if (!(cell.stiffness > 0) || !(cell.dampingRatio >= 0) || !Number.isFinite(cell.stiffness) || !Number.isFinite(cell.dampingRatio))
+    throw new Error("a contact-layer cell needs finite positive stiffness and nonnegative damping");
+  return { ...spec, segments: spec.segments.map(segment => !segment.surface.layer ? segment : { ...segment,
+    surface: { ...segment.surface, layer: { ...segment.surface.layer,
+      stiffness: sourced(cell.stiffness, "N/m", "reptile-contact-sweep", "recipe stiffness cell"),
+      dampingRatio: sourced(cell.dampingRatio, "1", "reptile-contact-sweep", "recipe damping-ratio cell") } } }) };
 }
 
 /** A recipe as JSON with every object's keys in order: two recipes that say the same in it are one bout's, however each was written. */
@@ -221,7 +233,8 @@ export class Duel {
     for (const side of SIDES) {
       const model = recipe[side];
       const info = modelInfo(model), held = recipe.held?.[side] ?? info.held, config = recipe.minds?.[side] ?? info.mind;
-      const spec = armedWith(recipe.surfaces ? stiffened(modelSpec(model), recipe.surfaces) : modelSpec(model), "right", held);
+      const original = recipe.surfaces ? stiffened(modelSpec(model), recipe.surfaces) : modelSpec(model);
+      const spec = armedWith(recipe.contactLayer ? layered(original, recipe.contactLayer) : original, "right", held);
       const x = (side === "left" ? -1 : 1) * gap / 2;
       const combatant = enlist(world, {
         id: side, side, spec, at: [x, 0, 0], rules: this.rules, senses: this.senses, ...(solids ? { solids } : {}),

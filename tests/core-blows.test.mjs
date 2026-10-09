@@ -355,6 +355,8 @@ test("of two shapes that touched, a blow names the one the solver pushed on hard
       assert.deepEqual(touched.map((contact) => contact.pairs.map(({ mine, theirs }) => [mine, theirs])), [[[0, 0], [1, 0]]], "the hand's ball and the held one both touched");
       const [own, held] = touched[0].pairs;
       assert.equal(held.impulse > own.impulse, item !== null, `${own.impulse} N s on the hand's ball, ${held.impulse} on the held one`);
+      assert.notDeepEqual(touched[0].point, (item === null ? own : held).point);
+      assert.deepEqual({ point: blow.point, normal: blow.normal }, { point: touched[0].point, normal: touched[0].normal });
       assert.equal(blow.sides[0].item, item);
       // The surface is the shape's that was named: the hand's own shares the blow, the held ball takes none.
       assert.deepEqual(blow.sides.map((side) => side.share), item === null ? [FIST_SHARE, STRUCK_SHARE] : [0, 1]);

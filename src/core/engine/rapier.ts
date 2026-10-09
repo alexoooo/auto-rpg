@@ -3,10 +3,12 @@ import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { TransformNode } from "@babylonjs/core/Meshes/transformNode.js";
 import { STANDARD_GRAVITY } from "../spec/constants.ts";
 import { sourced, type Vec3 } from "../spec/quantity.ts";
-import { CONTACT_FRICTION, type ColliderShape, type Contact, type ContactManifold, type EngineGrip, type EngineJoint, type FixedCollider, type JointFrames, type MassProperties,
+import { CONTACT_FRICTION, type ColliderShape, type Contact, type ContactMaterial, type MaterialContact, type ContactManifold, type EngineGrip, type EngineJoint, type FixedCollider, type JointFrames, type MassProperties,
   type PhysicsEngine, type PhysicsOptions, type PhysicsWorld, type SegmentBody } from "./engine.ts";
 import { sin, cos, hypot } from "../math/real.ts";
 import { turnAboutToRef } from "../math/turn.ts";
+
+const EMPTY_MATERIAL_CONTACTS: readonly MaterialContact[] = Object.freeze([]);
 
 /**
  * **The core's physics engine: Rapier**, the SIMD build of its WebAssembly (`@dimforge/rapier3d-simd-compat`,
@@ -29,7 +31,7 @@ import { turnAboutToRef } from "../math/turn.ts";
 type Rapier = typeof RAPIER;
 
 /** Vendor archive identity (`docs/reference/rapier-vendor.md`) and the adapter's snapshot contract. */
-const REVISION = "rapier/adapter-9/sha256:1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde";
+const REVISION = "rapier/adapter-10/sha256:983fdf9572894a7903a45d3e4286aad7919dc6a510fd58978fe01e8a4ee1c54f";
 
 /**
  * Rapier's wasm, loading or loaded: one instance a realm. Rapier's own `init` asked again while
@@ -73,6 +75,7 @@ const NODE_POSE = 7;
 /** A body of a world's, or a fixed collider by its handle: a contact's other side as `contactsOf` sums it. */
 type Other = RapierBody | number;
 interface Sum { impulse: number; point: number[]; normal: number[] }
+interface ShapeSum extends Sum { mine: number; theirs: number; compression?: number }
 /** What `contactsOf` reads a body's contacts into (`createRapierPhysics`'s `scan`). */
 interface Scan {
   /** The body whose contacts are being read; null between reads. */
@@ -81,7 +84,7 @@ interface Scan {
   mine: number;
   wanted: ((other: SegmentBody | null) => boolean) | undefined;
   /** What the solver pushed on: each pair's point and normal, weighted by its impulse, and the same of each pair of shapes. */
-  pushed: Map<Other, Sum & { pairs: Map<number, Sum & { mine: number; theirs: number }> }> | null;
+  pushed: Map<Other, Sum & { pairs: Map<number, ShapeSum> }> | null;
   /** Everything in contact: each pair's point and normal, and how many pairs. */
   met: Map<Other, { pairs: number; point: number[]; normal: number[]; first: number[] }> | null;
   /** What a pair's reading threw, which Rapier's call back would drop: the read throws it once Rapier returns. */
@@ -100,7 +103,7 @@ interface RapierPhysics extends PhysicsWorld {
   readonly rapier: Rapier;
   /** Rapier's world as it is now: a load replaces it, so read it afresh. */
   readonly raw: RAPIER.World;
-  addBody(node: TransformNode, shapes: readonly ColliderShape[], mass: MassProperties, options?: { readonly ccd?: boolean }): RapierBody;
+  addBody(node: TransformNode, shapes: readonly ColliderShape[], mass: MassProperties, options?: { readonly ccd?: boolean; readonly materials?: readonly ContactMaterial[] }): RapierBody;
   addJoint(parent: SegmentBody, child: SegmentBody, frames: JointFrames): RapierJoint;
 }
 
@@ -128,6 +131,30 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
   const shapeOf = new Map<number, number>();
   /** Each body's colliders' handles, in its shapes' order. */
   const colliderHandles = new Map<RapierBody, readonly number[]>();
+  const materials = new Map<number, ContactMaterial>();
+  const materialMasses = new Map<RapierBody, number>();
+  // Loaded native manifolds retain their material law until release, including angular unloading.
+  const continuingLayers = new Set<string>();
+  const materialKey = (a: number, b: number) => `${Math.min(a, b)}:${Math.max(a, b)}`;
+  const materialDirection = new Vector3(), materialRotation = new Quaternion();
+  const layerFor = (a: number, b: number, nx: number, ny: number, nz: number): number[] | null => {
+    const first = bodyOf.get(a), second = bodyOf.get(b), one = materials.get(a), two = materials.get(b);
+    if (!first || !second) return null;
+    const fits = (body: RapierBody, point: ContactMaterial["point"], sign: number) => {
+      if (!point) return false;
+      materialRotation.copyFrom(body.node.rotationQuaternion!);
+      materialDirection.set(...point.direction).applyRotationQuaternionToRef(materialRotation, materialDirection);
+      return sign * (materialDirection.x * nx + materialDirection.y * ny + materialDirection.z * nz) >= point.alignment;
+    };
+    const continuing = continuingLayers.has(materialKey(a, b));
+    const tooth = one?.point && two?.layer && (continuing || fits(first, one.point, 1)) ? one.point
+      : two?.point && one?.layer && (continuing || fits(second, two.point, -1)) ? two.point : null;
+    const layer = tooth === one?.point ? two?.layer : one?.layer;
+    if (!tooth || !layer) return null;
+    const m = materialMasses.get(first)!, n = materialMasses.get(second)!;
+    const reduced = m + n > 0 ? 1 / (m + n) : 0;
+    return [layer.stiffness, 2 * layer.dampingRatio * Math.sqrt(layer.stiffness * reduced), Math.min(layer.depth, tooth.depth)];
+  };
   /** The bodies given a force or a moment for the next step: Rapier keeps one until it is reset. */
   const forced = new Set<RapierBody>();
   /** Which world's velocities a body's read holds: a step or a load moves it on. */
@@ -151,6 +178,7 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
       return R.SolverFlags.COMPUTE_IMPULSE;
     },
     filterIntersectionPair: () => true,
+    contactLayer: layerFor,
   };
   const enableFilter = (body: RapierBody, discrete = false) => {
     for (const handle of colliderHandles.get(body)!) {
@@ -209,7 +237,11 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
       const sum = pushed.get(other) ?? { impulse: 0, point: [0, 0, 0], normal: [0, 0, 0], pairs: new Map() };
       // A pair's key: this body's shape, then the other's, which a body has fewer of than this.
       const key = shapes[0] * SHAPES_MOST + shapes[1];
-      const pair = sum.pairs.get(key) ?? { mine: shapes[0], theirs: shapes[1], impulse: 0, point: [0, 0, 0], normal: [0, 0, 0] };
+      const pair: ShapeSum = sum.pairs.get(key) ?? { mine: shapes[0], theirs: shapes[1], impulse: 0, point: [0, 0, 0], normal: [0, 0, 0] };
+      if (materials.size && manifold.layerStiffness() > 0) {
+        pair.compression ??= 0;
+        for (let i = 0; i < points; i++) pair.compression = Math.max(pair.compression, -manifold.solverContactSeparation(i));
+      }
       for (const to of [sum, pair]) {
         to.impulse += impulse;
         for (let c = 0; c < 3; c++) to.point[c]! += at[c]! * impulse;
@@ -342,8 +374,18 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
         (node.rotationQuaternion ??= new Quaternion()).set(poses[k++]!, poses[k++]!, poses[k++]!, poses[k++]!);
       }
     },
-    addBody(node, shapes, mass, { ccd = false } = {}) {
+    addBody(node, shapes, mass, { ccd = false, materials: givenMaterials = [] } = {}) {
       if (typeof ccd !== "boolean") throw new Error("CCD must be a boolean");
+      const preparedMaterials = givenMaterials.map(given => {
+        if (given?.layer && (!(given.layer.stiffness > 0) || !(given.layer.depth > 0)
+          || !(given.layer.dampingRatio >= 0) || !Object.values(given.layer).every(Number.isFinite))) throw new Error("a contact layer needs finite positive stiffness and depth and nonnegative damping");
+        const direction = given?.point?.direction;
+        const length = direction && Math.sqrt(direction[0] * direction[0] + direction[1] * direction[1] + direction[2] * direction[2]);
+        if (given?.point && (!(length! > 0) || !direction!.every(Number.isFinite) || !(given.point.depth > 0)
+          || !Number.isFinite(given.point.depth) || !(given.point.alignment >= 0 && given.point.alignment <= 1))) throw new Error("a contact point needs a finite direction, depth and normal cosine");
+        return given && { ...(given.layer ? { layer: Object.freeze({ ...given.layer }) } : {}),
+          ...(given.point ? { point: Object.freeze({ ...given.point, direction: Object.freeze(direction!.map(v => v / length!)) as unknown as Vec3 }) } : {}) };
+      });
       const q = node.rotationQuaternion ?? Quaternion.Identity();
       let rigid = raw.createRigidBody(R.RigidBodyDesc.dynamic()
         .setTranslation(node.position.x, node.position.y, node.position.z)
@@ -353,6 +395,9 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
       const colliders = shapes.map((shape, k) => {
         const handle = raw.createCollider(contact(colliderOf(shape)).setDensity(0), rigid).handle;
         shapeOf.set(handle, k);
+        const material = preparedMaterials[k];
+        if (material?.layer || material?.point) materials.set(handle, material);
+        if (material?.point) raw.getCollider(handle).setActiveHooks(R.ActiveHooks.MODIFY_SOLVER_CONTACTS);
         return handle;
       });
       let properties = mass;
@@ -371,7 +416,7 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
       setMass(mass);
       const handle = rigid.handle;
       const body: RapierBody = {
-        node, get rigid() { return rigid; },
+        node, id: handle, get rigid() { return rigid; },
         linearVelocityToRef(out) {
           if (read.linearAt !== moment) { const v = rigid.linvel(); read.linear.set(v.x, v.y, v.z); read.linearAt = moment; }
           return out.copyFrom(read.linear);
@@ -597,7 +642,8 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
           normal: [normal[0]! / length, normal[1]! / length, normal[2]! / length] as Vec3 };
       };
       for (const [other, sum] of pushed!) {
-        const pairs = [...sum.pairs.entries()].sort((a, b) => a[0] - b[0]).map(([, pair]) => ({ mine: pair.mine, theirs: pair.theirs, ...touch(pair) }));
+        const pairs = [...sum.pairs.entries()].sort((a, b) => a[0] - b[0]).map(([, pair]) => ({ mine: pair.mine, theirs: pair.theirs, ...touch(pair),
+          ...(pair.compression === undefined ? {} : { compression: pair.compression }) }));
         out.push({ ...named(other), ...touch(sum), pairs });
       }
       for (const [other, { pairs, point, normal, first }] of met) {
@@ -609,8 +655,47 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
       }
       return out;
     },
+    materialContacts() {
+      if (!materials.size) return EMPTY_MATERIAL_CONTACTS;
+      const out: MaterialContact[] = [], read = new Set<string>();
+      for (const [mine, material] of materials) {
+        if (!material.point) continue;
+        raw.narrowPhase.contactPairsWith(mine, theirs => {
+          const a = Math.min(mine, theirs), b = Math.max(mine, theirs), key = `${a}:${b}`;
+          const first = bodyOf.get(a), second = bodyOf.get(b);
+          if (!first || !second || read.has(key)) return;
+          read.add(key);
+          raw.narrowPhase.contactPair(a, b, raw.bodies, (manifold, flipped) => {
+            if (!(manifold.layerStiffness() > 0)) return;
+            const normal = manifold.normal(), sign = flipped ? -1 : 1;
+            let work = 0, depth = 0, impulse = 0;
+            for (let i = 0; i < manifold.numContacts(); i++) {
+              work += manifold.contactLayerWork(i); impulse += manifold.contactImpulse(i);
+            }
+            for (let i = 0; i < manifold.numSolverContacts(); i++) depth = Math.max(depth, -manifold.solverContactSeparation(i));
+            if (work === 0 && !(impulse > 0) && !(depth > 0)) return;
+            const p = manifold.solverContactPoint(0);
+            if (!p) return;
+            out.push({ key, first, second, mine: shapeOf.get(a)!, theirs: shapeOf.get(b)!,
+              point: [p.x, p.y, p.z], normal: [sign * normal.x, sign * normal.y, sign * normal.z], work, depth });
+          });
+        });
+      }
+      return out;
+    },
     step(dt) {
       raw.timestep = dt;
+      if (materials.size) for (const body of bodies) materialMasses.set(body, body.rigid.isFixed() ? 0 : 1 / body.engineMass());
+      continuingLayers.clear();
+      for (const [mine, material] of materials) if (material.point) raw.narrowPhase.contactPairsWith(mine, theirs => {
+        raw.narrowPhase.contactPair(mine, theirs, raw.bodies, manifold => {
+          if (!(manifold.layerStiffness() > 0)) return;
+          let loaded = false;
+          for (let i = 0; i < manifold.numContacts(); i++) loaded ||= manifold.contactImpulse(i) > 0;
+          for (let i = 0; i < manifold.numSolverContacts(); i++) loaded ||= manifold.solverContactSeparation(i) < 0;
+          if (loaded) continuingLayers.add(materialKey(mine, theirs));
+        });
+      });
       for (const grip of grips) if (grip.suppressed && !overlaps(grip.parent, grip.child)) grip.suppressed = false;
       raw.step(events, hooks);
       moment += 1;
@@ -622,7 +707,8 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
       // After the world is freed its bodies went with it.
       const body = segment as RapierBody;
       if (!bodies.delete(body) || freed) return;
-      for (const handle of colliderHandles.get(body)!) { shapeOf.delete(handle); bodyOf.delete(handle); }
+      for (const handle of colliderHandles.get(body)!) { shapeOf.delete(handle); bodyOf.delete(handle); materials.delete(handle); }
+      materialMasses.delete(body);
       colliderHandles.delete(body);
       forced.delete(body);
       rebinds.delete(body);
@@ -641,6 +727,9 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
       bodyOf.clear();
       shapeOf.clear();
       colliderHandles.clear();
+      materials.clear();
+      materialMasses.clear();
+      continuingLayers.clear();
       forced.clear();
       rebinds.clear();
       for (const grip of grips) { grip.handle = null; grip.suppressed = false; }

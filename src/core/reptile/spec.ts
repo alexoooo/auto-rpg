@@ -40,7 +40,10 @@ export function reptileSpec(): BodySpec {
     })();
     return {
       name: s.name, proximal: a, distal: b, centreOfMass: centre, mass: own, inertia, shape,
-      surface: { stiffness: q(data.stiffness, "N/m", "/stiffness") },
+      surface: { stiffness: q(data.stiffness, "N/m", "/stiffness"), layer: {
+        stiffness: sourced(data.layer.stiffness, "N/m", "reptile-contact-sweep", "/layer/stiffness in assets/reptile/body.json"),
+        dampingRatio: sourced(data.layer.dampingRatio, "1", "reptile-contact-sweep", "/layer/dampingRatio in assets/reptile/body.json"),
+        depth: sourced(data.layer.depth, "m", "reptile-contact-sweep", "/layer/depth in assets/reptile/body.json") } },
       ...(s.contacts ? { contacts: s.contacts.map((c, k) => ({ name: c.name,
         shape: { kind: "hull" as const, points: c.points.map((p, n) => q(vector(p), "m", `${at}/contacts/${k}/points/${n}`)) },
         surface: { stiffness: q(c.stiffness, "N/m", `${at}/contacts/${k}/stiffness`),

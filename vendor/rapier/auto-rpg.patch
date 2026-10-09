@@ -1,5 +1,5 @@
 diff --git a/bindings/typescript/package.json b/bindings/typescript/package.json
-index ce0eec04..c397c2cf 100644
+index ce0eec0..c397c2c 100644
 --- a/bindings/typescript/package.json
 +++ b/bindings/typescript/package.json
 @@ -8,5 +8,9 @@
@@ -13,7 +13,7 @@ index ce0eec04..c397c2cf 100644
      }
  }
 diff --git a/bindings/typescript/src.ts/dynamics/integration_parameters.ts b/bindings/typescript/src.ts/dynamics/integration_parameters.ts
-index 9ebb61c4..0df00e98 100644
+index 9ebb61c..0df00e9 100644
 --- a/bindings/typescript/src.ts/dynamics/integration_parameters.ts
 +++ b/bindings/typescript/src.ts/dynamics/integration_parameters.ts
 @@ -4,6 +4,26 @@ import {SoftRecoverySettings} from "./soft_body";
@@ -44,10 +44,20 @@ index 9ebb61c4..0df00e98 100644
          this.raw = raw || new RawIntegrationParameters();
      }
 diff --git a/bindings/typescript/src.ts/geometry/narrow_phase.ts b/bindings/typescript/src.ts/geometry/narrow_phase.ts
-index 6163053b..9924376d 100644
+index 6163053..63594cf 100644
 --- a/bindings/typescript/src.ts/geometry/narrow_phase.ts
 +++ b/bindings/typescript/src.ts/geometry/narrow_phase.ts
-@@ -246,6 +246,11 @@ export class TempContactManifold {
+@@ -202,6 +202,9 @@ export class TempContactManifold {
+         return this.raw.contact_fid2(i);
+     }
+ 
++    public contactLayerWork(i: number): number { return this.raw.contact_layer_work(i); }
++    public layerStiffness(): number { return this.raw.layer_stiffness(); }
++
+     public contactImpulse(i: number): number {
+         return this.raw.contact_impulse(i);
+     }
+@@ -246,6 +249,11 @@ export class TempContactManifold {
          return this.raw.solver_contact_dist(i);
      }
  
@@ -60,20 +70,43 @@ index 6163053b..9924376d 100644
       * The friction coefficient applied to this manifold's solver contacts. It is combined
       * once per manifold, so every solver contact of this manifold shares it.
 diff --git a/bindings/typescript/src.ts/pipeline/physics_hooks.ts b/bindings/typescript/src.ts/pipeline/physics_hooks.ts
-index 20e12ad9..c6fb352b 100644
+index 20e12ad..74d306a 100644
 --- a/bindings/typescript/src.ts/pipeline/physics_hooks.ts
 +++ b/bindings/typescript/src.ts/pipeline/physics_hooks.ts
-@@ -5,6 +5,8 @@ export enum ActiveHooks {
+@@ -5,7 +5,9 @@ export enum ActiveHooks {
      NONE = 0,
      FILTER_CONTACT_PAIRS = 0b0001,
      FILTER_INTERSECTION_PAIRS = 0b0010,
+-    // MODIFY_SOLVER_CONTACTS = 0b0100, /* Not supported yet in JS. */
 +    /** Contact-pair filtering for continuous sweeps only, preserving ordinary contact recycling. */
 +    FILTER_CCD_PAIRS = 0b1000,
-     // MODIFY_SOLVER_CONTACTS = 0b0100, /* Not supported yet in JS. */
++    MODIFY_SOLVER_CONTACTS = 0b0100,
  }
  
+ export enum SolverFlags {
+@@ -14,6 +16,8 @@ export enum SolverFlags {
+ }
+ 
+ export interface PhysicsHooks {
++    /** Pair-local normal stiffness (N/m), damping (N s/m), depth (m), or null for ordinary contact. */
++    contactLayer?(a: ColliderHandle, b: ColliderHandle, nx: number, ny: number, nz: number): number[] | null;
+     /**
+      * Function that determines if contacts computation should happen between two colliders, and how the
+      * constraints solver should behave for these contacts.
+diff --git a/bindings/typescript/src.ts/pipeline/physics_pipeline.ts b/bindings/typescript/src.ts/pipeline/physics_pipeline.ts
+index b5854dc..f1e40f3 100644
+--- a/bindings/typescript/src.ts/pipeline/physics_pipeline.ts
++++ b/bindings/typescript/src.ts/pipeline/physics_pipeline.ts
+@@ -67,6 +67,7 @@ export class PhysicsPipeline {
+                 hooks,
+                 !!hooks ? hooks.filterContactPair : null,
+                 !!hooks ? hooks.filterIntersectionPair : null,
++                hooks?.contactLayer ?? undefined,
+             );
+         } else {
+             this.raw.step(
 diff --git a/bindings/typescript/src/dynamics/impulse_joint.rs b/bindings/typescript/src/dynamics/impulse_joint.rs
-index d74c6aeb..9f98eaa9 100644
+index d74c6ae..9f98eaa 100644
 --- a/bindings/typescript/src/dynamics/impulse_joint.rs
 +++ b/bindings/typescript/src/dynamics/impulse_joint.rs
 @@ -309,4 +309,42 @@ impl RawImpulseJointSet {
@@ -120,7 +153,7 @@ index d74c6aeb..9f98eaa9 100644
 +    }
  }
 diff --git a/bindings/typescript/src/dynamics/integration_parameters.rs b/bindings/typescript/src/dynamics/integration_parameters.rs
-index 9c603068..143efe8c 100644
+index 9c60306..143efe8 100644
 --- a/bindings/typescript/src/dynamics/integration_parameters.rs
 +++ b/bindings/typescript/src/dynamics/integration_parameters.rs
 @@ -7,6 +7,32 @@ pub struct RawIntegrationParameters(pub(crate) IntegrationParameters);
@@ -157,7 +190,7 @@ index 9c603068..143efe8c 100644
      pub fn new() -> Self {
          RawIntegrationParameters(IntegrationParameters::default())
 diff --git a/bindings/typescript/src/dynamics/multibody_joint.rs b/bindings/typescript/src/dynamics/multibody_joint.rs
-index 9a95f0d5..4a7e1264 100644
+index 9a95f0d..4a7e126 100644
 --- a/bindings/typescript/src/dynamics/multibody_joint.rs
 +++ b/bindings/typescript/src/dynamics/multibody_joint.rs
 @@ -76,6 +76,45 @@ impl RawMultibodyJointSet {
@@ -207,10 +240,23 @@ index 9a95f0d5..4a7e1264 100644
      //     &mut self,
      //     handle: FlatHandle,
 diff --git a/bindings/typescript/src/geometry/narrow_phase.rs b/bindings/typescript/src/geometry/narrow_phase.rs
-index 22d78a5c..7b97a8f9 100644
+index 22d78a5..ee7cb69 100644
 --- a/bindings/typescript/src/geometry/narrow_phase.rs
 +++ b/bindings/typescript/src/geometry/narrow_phase.rs
-@@ -324,6 +324,17 @@ impl RawContactManifold {
+@@ -229,6 +229,12 @@ impl RawContactManifold {
+         unsafe { (&(*self.0).points).get(i).map(|c| c.fid2.0).unwrap_or(0) }
+     }
+ 
++    pub fn contact_layer_work(&self, i: usize) -> Real {
++        unsafe { (&(*self.0).points).get(i).map(|p| p.data.layer_work).unwrap_or(0.0) }
++    }
++
++    pub fn layer_stiffness(&self) -> Real { unsafe { (*self.0).data.layer[0] } }
++
+     pub fn contact_impulse(&self, i: usize) -> Real {
+         unsafe {
+             (&(*self.0).points)
+@@ -324,6 +330,17 @@ impl RawContactManifold {
          }
      }
  
@@ -228,8 +274,63 @@ index 22d78a5c..7b97a8f9 100644
      // Friction and restitution are combined once per manifold, so they are read for the
      // whole manifold rather than per solver contact.
      pub fn friction(&self) -> Real {
+diff --git a/bindings/typescript/src/pipeline/physics_hooks.rs b/bindings/typescript/src/pipeline/physics_hooks.rs
+index 58ce979..cb9effe 100644
+--- a/bindings/typescript/src/pipeline/physics_hooks.rs
++++ b/bindings/typescript/src/pipeline/physics_hooks.rs
+@@ -7,6 +7,7 @@ pub struct RawPhysicsHooks {
+     pub this: js_sys::Object,
+     pub filter_contact_pair: js_sys::Function,
+     pub filter_intersection_pair: js_sys::Function,
++    pub contact_layer: Option<js_sys::Function>,
+     // pub modify_solver_contacts: &'a js_sys::Function,
+ }
+ 
+@@ -66,7 +67,21 @@ impl PhysicsHooks for RawPhysicsHooks {
+             .unwrap_or(false)
+     }
+ 
+-    fn modify_solver_contacts(&self, _ctxt: &mut ContactModificationContext) {}
++    fn modify_solver_contacts(&self, ctxt: &mut ContactModificationContext) {
++        let Some(callback) = &self.contact_layer else { return; };
++        let a = utils::flat_handle(ctxt.collider1.0);
++        let b = utils::flat_handle(ctxt.collider2.0);
++        let Some(rigid) = ctxt.rigid_mut() else { return; };
++        let n = *rigid.normal;
++        let args = js_sys::Array::new();
++        for v in [a, b, n.x as f64, n.y as f64, n.z as f64] { args.push(&JsValue::from(v)); }
++        if let Ok(value) = callback.apply(&self.this, &args) {
++            if js_sys::Array::is_array(&value) {
++                let values = js_sys::Array::from(&value);
++                for k in 0..3 { rigid.layer[k] = values.get(k as u32).as_f64().unwrap_or(0.0) as f32; }
++            }
++        }
++    }
+ }
+ 
+ /* NOTE: the following is an attempt to make contact modification work.
+diff --git a/bindings/typescript/src/pipeline/physics_pipeline.rs b/bindings/typescript/src/pipeline/physics_pipeline.rs
+index 27b7699..aca841c 100644
+--- a/bindings/typescript/src/pipeline/physics_pipeline.rs
++++ b/bindings/typescript/src/pipeline/physics_pipeline.rs
+@@ -144,6 +144,7 @@ impl RawPhysicsPipeline {
+         hookObject: js_sys::Object,
+         hookFilterContactPair: js_sys::Function,
+         hookFilterIntersectionPair: js_sys::Function,
++        hookContactLayer: Option<js_sys::Function>,
+     ) {
+         if eventQueue.auto_drain {
+             eventQueue.clear();
+@@ -153,6 +154,7 @@ impl RawPhysicsPipeline {
+             this: hookObject,
+             filter_contact_pair: hookFilterContactPair,
+             filter_intersection_pair: hookFilterIntersectionPair,
++            contact_layer: hookContactLayer,
+         };
+ 
+         self.0.step(
 diff --git a/crates/rapier3d/tests/ccd_default_vs_fixed.rs b/crates/rapier3d/tests/ccd_default_vs_fixed.rs
-index 1158fc90..cd56108f 100644
+index 1158fc9..cd56108 100644
 --- a/crates/rapier3d/tests/ccd_default_vs_fixed.rs
 +++ b/crates/rapier3d/tests/ccd_default_vs_fixed.rs
 @@ -39,7 +39,9 @@ impl Harness {
@@ -304,7 +405,7 @@ index 1158fc90..cd56108f 100644
 +    assert_eq!(run(ActiveHooks::empty()), run(ActiveHooks::FILTER_CCD_PAIRS));
 +}
 diff --git a/src/dynamics/ccd/sweeps.rs b/src/dynamics/ccd/sweeps.rs
-index 3f576afd..6a112080 100644
+index 3f576af..6a11208 100644
 --- a/src/dynamics/ccd/sweeps.rs
 +++ b/src/dynamics/ccd/sweeps.rs
 @@ -66,7 +66,7 @@ fn pair_filtered_out_by_hooks(
@@ -317,7 +418,7 @@ index 3f576afd..6a112080 100644
      }
      let context = PairFilterContext {
 diff --git a/src/dynamics/integration_parameters.rs b/src/dynamics/integration_parameters.rs
-index 8aa20eb0..68f90da2 100644
+index 8aa20eb..68f90da 100644
 --- a/src/dynamics/integration_parameters.rs
 +++ b/src/dynamics/integration_parameters.rs
 @@ -193,6 +193,9 @@ impl<N: SimdRealField<Element = Real> + Copy> SpringCoefficients<N> {
@@ -339,7 +440,7 @@ index 8aa20eb0..68f90da2 100644
              min_ccd_dt: 1.0 / 60.0 / 100.0,
              contact_softness: SpringCoefficients::contact_defaults(),
 diff --git a/src/dynamics/joint/generic_joint.rs b/src/dynamics/joint/generic_joint.rs
-index b1c6d265..d20a1e30 100644
+index b1c6d26..d20a1e3 100644
 --- a/src/dynamics/joint/generic_joint.rs
 +++ b/src/dynamics/joint/generic_joint.rs
 @@ -211,8 +211,20 @@ pub struct JointMotor {
@@ -502,7 +603,7 @@ index b1c6d265..d20a1e30 100644
 +
  }
 diff --git a/src/dynamics/joint/multibody_joint/unit_multibody_joint.rs b/src/dynamics/joint/multibody_joint/unit_multibody_joint.rs
-index fde5573e..9845b81f 100644
+index fde5573..9845b81 100644
 --- a/src/dynamics/joint/multibody_joint/unit_multibody_joint.rs
 +++ b/src/dynamics/joint/multibody_joint/unit_multibody_joint.rs
 @@ -161,7 +161,7 @@ pub fn unit_joint_motor_constraint(
@@ -514,8 +615,290 @@ index fde5573e..9845b81f 100644
      let cfm_gain = lhs * motor_params.cfm_coeff + motor_params.cfm_gain;
  
      let mut rhs_wo_bias = 0.0;
+diff --git a/src/dynamics/solver/contact_constraint/contact_constraint_element.rs b/src/dynamics/solver/contact_constraint/contact_constraint_element.rs
+index 011d81d..0b86ad5 100644
+--- a/src/dynamics/solver/contact_constraint/contact_constraint_element.rs
++++ b/src/dynamics/solver/contact_constraint/contact_constraint_element.rs
+@@ -1,4 +1,5 @@
+ use crate::dynamics::solver::SolverVel;
++use simba::simd::SimdBool;
+ use crate::math::{DIM, TangentImpulse};
+ #[cfg(feature = "dim3")]
+ use crate::utils::{AngularInertiaOps, CrossProduct};
+@@ -189,6 +190,10 @@ pub(crate) struct ContactConstraintNormalPart<N: ScalarType> {
+     /// Per-point softness (see `ContactConstraintNormalPartSlim::cfm_factor`):
+     /// separated (speculative) points are solved rigidly.
+     pub cfm_factor: N,
++    pub layer_backstop: N,
++    pub layer_enabled: N,
++    pub layer_distance: N,
++    pub layer_work: N,
+     // For coupled constraint pairs, even constraints store the
+     // diagonal of the projected mass matrix. Odd constraints
+     // store the off-diagonal element of the projected mass matrix,
+@@ -210,6 +215,7 @@ impl<N: ScalarType> ContactConstraintNormalPart<N> {
+             impulse_accumulator: N::zero(),
+             r: N::zero(),
+             cfm_factor: N::zero(),
++            layer_backstop: N::zero(), layer_enabled: N::zero(), layer_distance: N::zero(), layer_work: N::zero(),
+             #[cfg(feature = "block-solver")]
+             r_mat_elts: [N::zero(); 2],
+         }
+@@ -253,7 +259,12 @@ impl<N: ScalarType> ContactConstraintNormalPart<N> {
+             - dir1.gdot(solver_vel2.linear)
+             + self.torque_dir2.gdot(solver_vel2.angular)
+             + self.rhs;
+-        let new_impulse = self.cfm_factor * (self.impulse - self.r * dvel).simd_max(N::zero());
++        let soft_impulse = self.cfm_factor * (self.impulse - self.r * dvel).simd_max(N::zero());
++        let material = self.layer_enabled.simd_gt(N::zero());
++        let new_impulse = if material.any() {
++            let backstop = (self.impulse - self.r * (dvel - self.rhs + self.layer_backstop)).simd_max(N::zero());
++            soft_impulse.simd_max(backstop).select(material, soft_impulse)
++        } else { soft_impulse };
+         let dlambda = new_impulse - self.impulse;
+         self.impulse = new_impulse;
+ 
+@@ -381,6 +392,11 @@ impl<N: ScalarType> ContactConstraintNormalPart<N> {
+     ) where
+         N::AngVector: DotProduct<N::AngVector, Result = N>,
+     {
++        if (constraint_a.layer_enabled.simd_gt(N::zero()) | constraint_b.layer_enabled.simd_gt(N::zero())).any() {
++            constraint_a.solve(dir1, im1, im2, solver_vel1, solver_vel2);
++            constraint_b.solve(dir1, im1, im2, solver_vel1, solver_vel2);
++            return;
++        }
+         let dvel_lin1 = dir1.gdot(solver_vel1.linear);
+         let dvel_lin2 = dir1.gdot(solver_vel2.linear);
+         let dvel_lin = dvel_lin1 - dvel_lin2;
+@@ -443,6 +459,10 @@ pub(crate) struct ContactConstraintNormalPartSlim<N: ScalarType> {
+     /// (`massScale = 1`, `impulseScale = 0`): perfectly inelastic touchdowns damp stack
+     /// rocking; a constraint-wide cfm under-stops each touchdown and pumps tall stacks.
+     pub cfm_factor: N,
++    pub layer_backstop: N,
++    pub layer_enabled: N,
++    pub layer_distance: N,
++    pub layer_work: N,
+     /// See [`ContactConstraintNormalPart::r_mat_elts`]: the 2×2 block-solve
+     /// elements coupling this point with its pair partner.
+     #[cfg(feature = "block-solver")]
+@@ -492,7 +512,12 @@ where
+             - dir1.gdot(solver_vel2.linear)
+             + self.torque_dir2.gdot(solver_vel2.angular)
+             + self.rhs;
+-        let new_impulse = self.cfm_factor * (self.impulse - self.r * dvel).simd_max(N::zero());
++        let soft_impulse = self.cfm_factor * (self.impulse - self.r * dvel).simd_max(N::zero());
++        let material = self.layer_enabled.simd_gt(N::zero());
++        let new_impulse = if material.any() {
++            let backstop = (self.impulse - self.r * (dvel - self.rhs + self.layer_backstop)).simd_max(N::zero());
++            soft_impulse.simd_max(backstop).select(material, soft_impulse)
++        } else { soft_impulse };
+         let dlambda = new_impulse - self.impulse;
+         self.impulse = new_impulse;
+ 
+@@ -559,6 +584,11 @@ where
+         let ii_torque_dir1_b = constraint_b.ii_torque_dir1;
+         let ii_torque_dir2_b = constraint_b.ii_torque_dir2;
+ 
++        if (constraint_a.layer_enabled.simd_gt(N::zero()) | constraint_b.layer_enabled.simd_gt(N::zero())).any() {
++            constraint_a.solve(dir1, im1, im2, solver_vel1, solver_vel2);
++            constraint_b.solve(dir1, im1, im2, solver_vel1, solver_vel2);
++            return;
++        }
+         let dvel_lin1 = dir1.gdot(solver_vel1.linear);
+         let dvel_lin2 = dir1.gdot(solver_vel2.linear);
+         let dvel_lin = dvel_lin1 - dvel_lin2;
+diff --git a/src/dynamics/solver/contact_constraint/contact_with_coulomb_friction.rs b/src/dynamics/solver/contact_constraint/contact_with_coulomb_friction.rs
+index 322d1b7..451cd33 100644
+--- a/src/dynamics/solver/contact_constraint/contact_with_coulomb_friction.rs
++++ b/src/dynamics/solver/contact_constraint/contact_with_coulomb_friction.rs
+@@ -23,6 +23,9 @@ pub struct CoulombContactPointInfos<N: ScalarType> {
+     pub local_p1: N::Vector,
+     pub local_p2: N::Vector,
+     pub dist: N,
++    pub layer_k: N,
++    pub layer_c: N,
++    pub layer_depth: N,
+ }
+ 
+ impl<N: ScalarType> Default for CoulombContactPointInfos<N> {
+@@ -33,6 +36,7 @@ impl<N: ScalarType> Default for CoulombContactPointInfos<N> {
+             local_p1: Default::default(),
+             local_p2: Default::default(),
+             dist: N::zero(),
++            layer_k: N::zero(), layer_c: N::zero(), layer_depth: N::zero(),
+         }
+     }
+ }
+@@ -303,6 +307,16 @@ impl ContactWithCoulombFrictionBuilder {
+             // Builder. The substep anchors are the frozen per-body arms (each body's frozen
+             // contact point rides its own rigid motion — fixed-anchor separation
+             // tracking); the base separation is reconstructed from the anchors above.
++            let layer_k = SimdReal::from(array![|ii| manifolds[ii].data.layer[0] / manifolds[ii].data.solver_contacts.len().max(1) as Real]);
++            let layer_c = SimdReal::from(array![|ii| manifolds[ii].data.layer[1] / manifolds[ii].data.solver_contacts.len().max(1) as Real]);
++            let layer_depth = SimdReal::from(array![|ii| manifolds[ii].data.layer[2]]);
++            out_builder.infos[k].layer_k = layer_k;
++            out_builder.infos[k].layer_c = layer_c;
++            out_builder.infos[k].layer_depth = layer_depth;
++            out_constraint.normal_part[k].layer_enabled = SimdReal::splat(1.0).select(layer_k.simd_gt(SimdReal::zero()) & active, SimdReal::zero());
++            out_constraint.normal_part[k].layer_distance = dist;
++            out_constraint.normal_part[k].layer_work = SimdReal::zero();
++            out_constraint.normal_part[k].layer_backstop = SimdReal::zero();
+             out_builder.infos[k].local_p1 = poses1.inverse_transform_point(world_com1 + dp1);
+             out_builder.infos[k].local_p2 = poses2.inverse_transform_point(world_com2 + dp2);
+             out_builder.infos[k].tangent_vel = solver_contact.tangent_velocity;
+@@ -432,6 +446,16 @@ impl ContactWithCoulombFrictionBuilder {
+                 // the twist-friction `update`).
+                 normal_part.cfm_factor =
+                     cfm_factor.select(dist.simd_le(SimdReal::zero()), SimdReal::splat(1.0));
++                let material = normal_part.layer_enabled.simd_gt(SimdReal::zero());
++                if material.any() {
++                    let denom = info.layer_c + info.layer_k * SimdReal::splat(params.dt);
++                    let gamma = utils::simd_inv(SimdReal::splat(params.dt) * denom);
++                    let beta = info.layer_k * utils::simd_inv(denom);
++                    normal_part.rhs = (dist * beta).select(material, normal_part.rhs);
++                    normal_part.cfm_factor = utils::simd_inv(SimdReal::splat(1.0) + normal_part.r * gamma).select(material, normal_part.cfm_factor);
++                    normal_part.layer_backstop = (dist + info.layer_depth) * inv_dt;
++                    normal_part.layer_distance = dist;
++                }
+                 // Bank the previous substep's impulse before the warm-start scaling: that full
+                 // value is what the substep applied (its warm-start included), whereas the
+                 // scaling only sets what this substep starts from.
+@@ -481,8 +505,18 @@ impl ContactWithCoulombFrictionBuilder {
+             let p2 = poses2.transform_point(info.local_p2);
+             let dist = info.dist + (p1 - p2).gdot(constraint.dir1);
+             // See `update`: the restitution seed is applied by `apply_restitution`, not here.
+-            normal_part.rhs = dist.simd_max(SimdReal::zero()) * inv_dt;
+-            normal_part.cfm_factor = SimdReal::splat(1.0);
++            let material = normal_part.layer_enabled.simd_gt(SimdReal::zero());
++            if material.any() {
++                let work = normal_part.impulse * inv_dt * (normal_part.layer_distance - dist);
++                normal_part.layer_work += work.select(material, SimdReal::zero());
++                normal_part.layer_distance = dist;
++                let ordinary_rhs = dist.simd_max(SimdReal::zero()) * inv_dt;
++                normal_part.rhs = normal_part.rhs.select(material, ordinary_rhs);
++                normal_part.cfm_factor = normal_part.cfm_factor.select(material, SimdReal::splat(1.0));
++            } else {
++                normal_part.rhs = dist.simd_max(SimdReal::zero()) * inv_dt;
++                normal_part.cfm_factor = SimdReal::splat(1.0);
++            }
+             tangent_part.rhs = tangent_part.rhs_wo_bias;
+         }
+ 
+@@ -728,6 +762,7 @@ impl ContactWithCoulombFriction<SimdReal> {
+                             crate::math::Vector::new(wx[ii], wy[ii], wz[ii]);
+                     }
+                     active_contact.data.impulse = impulses[ii];
++                    active_contact.data.layer_work += self.normal_part[k].layer_work.extract(ii);
+                     active_contact.data.tangent_impulse = tangent_impulses.extract(ii);
+                 }
+             }
+diff --git a/src/dynamics/solver/contact_constraint/contact_with_twist_friction.rs b/src/dynamics/solver/contact_constraint/contact_with_twist_friction.rs
+index baad269..4f763eb 100644
+--- a/src/dynamics/solver/contact_constraint/contact_with_twist_friction.rs
++++ b/src/dynamics/solver/contact_constraint/contact_with_twist_friction.rs
+@@ -23,6 +23,9 @@ pub struct TwistContactPointInfos<N: ScalarType> {
+     pub local_p1: N::Vector,
+     pub local_p2: N::Vector,
+     pub dist: N,
++    pub layer_k: N,
++    pub layer_c: N,
++    pub layer_depth: N,
+ }
+ 
+ impl<N: ScalarType> Default for TwistContactPointInfos<N> {
+@@ -32,6 +35,7 @@ impl<N: ScalarType> Default for TwistContactPointInfos<N> {
+             local_p1: Default::default(),
+             local_p2: Default::default(),
+             dist: N::zero(),
++            layer_k: N::zero(), layer_c: N::zero(), layer_depth: N::zero(),
+         }
+     }
+ }
+@@ -292,6 +296,16 @@ impl ContactWithTwistFrictionBuilder<SimdReal> {
+             // Builder: substep anchors are the frozen per-body arms (fixed-anchor
+             // separation tracking); `dist` is rebased so the substep
+             // tracking `info.dist + (p1 - p2)·n` is a delta from build-time poses.
++            let layer_k = SimdReal::from(array![|ii| manifolds[ii].data.layer[0] / manifolds[ii].data.solver_contacts.len().max(1) as Real]);
++            let layer_c = SimdReal::from(array![|ii| manifolds[ii].data.layer[1] / manifolds[ii].data.solver_contacts.len().max(1) as Real]);
++            let layer_depth = SimdReal::from(array![|ii| manifolds[ii].data.layer[2]]);
++            out_builder.infos[k].layer_k = layer_k;
++            out_builder.infos[k].layer_c = layer_c;
++            out_builder.infos[k].layer_depth = layer_depth;
++            out_constraint.normal_part[k].layer_enabled = SimdReal::splat(1.0).select(layer_k.simd_gt(SimdReal::zero()) & active, SimdReal::zero());
++            out_constraint.normal_part[k].layer_distance = dist;
++            out_constraint.normal_part[k].layer_work = SimdReal::zero();
++            out_constraint.normal_part[k].layer_backstop = SimdReal::zero();
+             out_builder.infos[k].local_p1 = poses1.inverse_transform_point(point);
+             out_builder.infos[k].local_p2 = poses2.inverse_transform_point(world_com2 + dp2);
+             out_builder.infos[k].dist = dist - (point - (world_com2 + dp2)).gdot(force_dir1);
+@@ -496,6 +510,16 @@ impl ContactWithTwistFrictionBuilder<SimdReal> {
+                 // rocking. Only penetrating points get the soft treatment.
+                 normal_part.cfm_factor =
+                     cfm_factor.select(dist.simd_le(SimdReal::zero()), SimdReal::splat(1.0));
++                let material = normal_part.layer_enabled.simd_gt(SimdReal::zero());
++                if material.any() {
++                    let denom = info.layer_c + info.layer_k * SimdReal::splat(params.dt);
++                    let gamma = utils::simd_inv(SimdReal::splat(params.dt) * denom);
++                    let beta = info.layer_k * utils::simd_inv(denom);
++                    normal_part.rhs = (dist * beta).select(material, normal_part.rhs);
++                    normal_part.cfm_factor = utils::simd_inv(SimdReal::splat(1.0) + normal_part.r * gamma).select(material, normal_part.cfm_factor);
++                    normal_part.layer_backstop = (dist + info.layer_depth) * inv_dt;
++                    normal_part.layer_distance = dist;
++                }
+                 // Bank the previous substep's impulse before the warm-start scaling (see the
+                 // coulomb-friction `update`).
+                 normal_part.impulse_accumulator += normal_part.impulse;
+@@ -545,8 +569,18 @@ impl ContactWithTwistFrictionBuilder<SimdReal> {
+             let p2 = poses2.transform_point(info.local_p2);
+             let dist = info.dist + (p1 - p2).gdot(constraint.dir1);
+             // See `update`: the restitution seed is applied by `apply_restitution`, not here.
+-            normal_part.rhs = dist.simd_max(SimdReal::zero()) * inv_dt;
+-            normal_part.cfm_factor = SimdReal::splat(1.0);
++            let material = normal_part.layer_enabled.simd_gt(SimdReal::zero());
++            if material.any() {
++                let work = normal_part.impulse * inv_dt * (normal_part.layer_distance - dist);
++                normal_part.layer_work += work.select(material, SimdReal::zero());
++                normal_part.layer_distance = dist;
++                let ordinary_rhs = dist.simd_max(SimdReal::zero()) * inv_dt;
++                normal_part.rhs = normal_part.rhs.select(material, ordinary_rhs);
++                normal_part.cfm_factor = normal_part.cfm_factor.select(material, SimdReal::splat(1.0));
++            } else {
++                normal_part.rhs = dist.simd_max(SimdReal::zero()) * inv_dt;
++                normal_part.cfm_factor = SimdReal::splat(1.0);
++            }
+         }
+ 
+         constraint.cfm_factor = SimdReal::splat(1.0);
+@@ -814,6 +848,7 @@ impl ContactWithTwistFriction<SimdReal> {
+                     let active_contact = &mut manifold.points[contact_id as usize];
+                     active_contact.data.warmstart_impulse = warmstart_impulses[ii];
+                     active_contact.data.impulse = impulses[ii];
++                    active_contact.data.layer_work += self.normal_part[k].layer_work.extract(ii);
+                     active_contact.data.warmstart_tangent_impulse =
+                         warmstart_tangent_impulses.extract(ii);
+                     {
+diff --git a/src/dynamics/solver/contact_constraint/generic_contact_constraint.rs b/src/dynamics/solver/contact_constraint/generic_contact_constraint.rs
+index e599062..c6e1df5 100644
+--- a/src/dynamics/solver/contact_constraint/generic_contact_constraint.rs
++++ b/src/dynamics/solver/contact_constraint/generic_contact_constraint.rs
+@@ -236,6 +236,7 @@ impl GenericContactConstraintBuilder {
+                     rhs: Default::default(),
+                     rhs_wo_bias: Default::default(),
+                     cfm_factor: Default::default(),
++                    layer_backstop: 0.0, layer_enabled: 0.0, layer_distance: 0.0, layer_work: 0.0,
+                     // Minus the warm-start impulse, so the first substep's `update` cancels it
+                     // when it folds `impulse` in: that value belongs to the previous step (see
+                     // the coulomb-friction `generate`).
+@@ -361,6 +362,7 @@ impl GenericContactConstraintBuilder {
+                 }
+             };
+             let infos = CoulombContactPointInfos {
++                layer_k: 0.0, layer_c: 0.0, layer_depth: 0.0,
+                 local_p1: local_point(multibody1.is_some(), solver_vel1, rb1, point),
+                 local_p2: local_point(multibody2.is_some(), solver_vel2, rb2, point2),
+                 tangent_vel: manifold_point.tangent_velocity,
 diff --git a/src/dynamics/solver/joint_constraint/generic_joint_constraint.rs b/src/dynamics/solver/joint_constraint/generic_joint_constraint.rs
-index 7ffb5285..624bea3f 100644
+index 7ffb528..624bea3 100644
 --- a/src/dynamics/solver/joint_constraint/generic_joint_constraint.rs
 +++ b/src/dynamics/solver/joint_constraint/generic_joint_constraint.rs
 @@ -322,4 +322,13 @@ impl GenericJointConstraint {
@@ -533,7 +916,7 @@ index 7ffb5285..624bea3f 100644
 +    }
  }
 diff --git a/src/dynamics/solver/joint_constraint/generic_joint_constraint_builder.rs b/src/dynamics/solver/joint_constraint/generic_joint_constraint_builder.rs
-index 3eddbe61..e4c5f1e7 100644
+index 3eddbe6..e4c5f1e 100644
 --- a/src/dynamics/solver/joint_constraint/generic_joint_constraint_builder.rs
 +++ b/src/dynamics/solver/joint_constraint/generic_joint_constraint_builder.rs
 @@ -619,7 +619,7 @@ impl JointConstraintHelper<Real> {
@@ -583,7 +966,7 @@ index 3eddbe61..e4c5f1e7 100644
      }
  
 diff --git a/src/dynamics/solver/joint_constraint/joint_constraint_builder.rs b/src/dynamics/solver/joint_constraint/joint_constraint_builder.rs
-index 924f52c8..94697ea2 100644
+index 924f52c..94697ea 100644
 --- a/src/dynamics/solver/joint_constraint/joint_constraint_builder.rs
 +++ b/src/dynamics/solver/joint_constraint/joint_constraint_builder.rs
 @@ -31,6 +31,10 @@ pub struct JointConstraintBuilder {
@@ -644,7 +1027,7 @@ index 924f52c8..94697ea2 100644
          });
          #[cfg(feature = "dim3")]
 diff --git a/src/dynamics/solver/joint_constraint/joint_constraint_helper.rs b/src/dynamics/solver/joint_constraint/joint_constraint_helper.rs
-index d1e4123c..9e4192a8 100644
+index d1e4123..9e4192a 100644
 --- a/src/dynamics/solver/joint_constraint/joint_constraint_helper.rs
 +++ b/src/dynamics/solver/joint_constraint/joint_constraint_helper.rs
 @@ -324,7 +324,7 @@ impl<N: ScalarType> JointConstraintHelper<N> {
@@ -831,7 +1214,7 @@ index d1e4123c..9e4192a8 100644
      fn recentered_angle_slope_is_one_everywhere() {
          let helper_at = |theta: Real| {
 diff --git a/src/dynamics/solver/joint_constraint/joint_velocity_constraint.rs b/src/dynamics/solver/joint_constraint/joint_velocity_constraint.rs
-index 1c47839b..ecce93e4 100644
+index 1c47839..ecce93e 100644
 --- a/src/dynamics/solver/joint_constraint/joint_velocity_constraint.rs
 +++ b/src/dynamics/solver/joint_constraint/joint_velocity_constraint.rs
 @@ -19,6 +19,7 @@ pub struct MotorParameters<N: SimdRealCopy> {
@@ -882,7 +1265,7 @@ index 1c47839b..ecce93e4 100644
 +    }
  }
 diff --git a/src/dynamics/solver/staged_island_solver/worker.rs b/src/dynamics/solver/staged_island_solver/worker.rs
-index f38c2e54..5e37b028 100644
+index f38c2e5..5e37b02 100644
 --- a/src/dynamics/solver/staged_island_solver/worker.rs
 +++ b/src/dynamics/solver/staged_island_solver/worker.rs
 @@ -726,6 +726,35 @@ pub(super) unsafe fn run_worker(ctx: &SharedCtx, worker_id: usize) {
@@ -921,8 +1304,46 @@ index f38c2e54..5e37b028 100644
          }
  
          /*
+diff --git a/src/geometry/contact_pair.rs b/src/geometry/contact_pair.rs
+index a7dc3b0..794d12e 100644
+--- a/src/geometry/contact_pair.rs
++++ b/src/geometry/contact_pair.rs
+@@ -58,6 +58,8 @@ pub struct ContactData {
+     ///
+     /// The impulse applied to the second collider's rigid-body is given by `-impulse`.
+     pub impulse: Real,
++    /// Signed normal reaction work over the last step for a compliant layer, J.
++    pub layer_work: Real,
+     /// The friction impulse along the vector orthonormal to the contact normal, applied to the first
+     /// collider's rigid-body.
+     pub tangent_impulse: TangentImpulse<Real>,
+@@ -92,6 +94,7 @@ impl Default for ContactData {
+     fn default() -> Self {
+         Self {
+             impulse: 0.0,
++            layer_work: 0.0,
+             tangent_impulse: na::zero(),
+             warmstart_impulse: 0.0,
+             warmstart_tangent_impulse: na::zero(),
+@@ -688,6 +691,8 @@ impl ContactPair {
+ /// A contact manifold describes a set of contacts between two colliders. All the contact
+ /// part of the same contact manifold share the same contact normal and contact kinematics.
+ pub struct ContactManifoldData {
++    /// Pair-local spring stiffness, damping and maximum depth; zero stiffness is ordinary contact.
++    pub layer: [Real; 3],
+     // The following are set by the narrow-phase.
+     /// The first rigid-body involved in this contact manifold.
+     pub rigid_body1: Option<RigidBodyHandle>,
+@@ -956,6 +961,7 @@ impl ContactManifoldData {
+         solver_flags: SolverFlags,
+     ) -> ContactManifoldData {
+         Self {
++            layer: [0.0; 3],
+             rigid_body1,
+             rigid_body2,
+             solver_flags,
 diff --git a/src/geometry/narrow_phase/pair_update.rs b/src/geometry/narrow_phase/pair_update.rs
-index f4cc5de4..8e999d3e 100644
+index f4cc5de..1d17e06 100644
 --- a/src/geometry/narrow_phase/pair_update.rs
 +++ b/src/geometry/narrow_phase/pair_update.rs
 @@ -120,7 +120,8 @@ pub(super) fn process_pair(
@@ -935,11 +1356,68 @@ index f4cc5de4..8e999d3e 100644
  
              if ((co1.changes | co2.changes) & !recycle_safe).is_empty() && !hooks_involved {
                  let pos12 = co1.pos.inv_mul(&co2.pos);
+@@ -626,6 +627,7 @@ pub(super) fn process_pair(
+                 let mut modifiable_normal = manifold.data.normal;
+                 let mut modifiable_friction = manifold.data.friction;
+                 let mut modifiable_restitution = manifold.data.restitution;
++                let mut modifiable_layer = [0.0; 3];
+ 
+                 let mut context = ContactModificationContext {
+                     bodies,
+@@ -635,6 +637,7 @@ pub(super) fn process_pair(
+                     collider1,
+                     collider2,
+                     contacts: ModifiableContacts::Rigid(ModifiableManifold {
++                        layer: &mut modifiable_layer,
+                         manifold,
+                         solver_contacts: &mut modifiable_solver_contacts,
+                         normal: &mut modifiable_normal,
+@@ -650,6 +653,7 @@ pub(super) fn process_pair(
+                 manifold.data.normal = modifiable_normal;
+                 manifold.data.friction = modifiable_friction;
+                 manifold.data.restitution = modifiable_restitution;
++                manifold.data.layer = modifiable_layer;
+                 manifold.data.user_data = modifiable_user_data;
+             }
+ 
+diff --git a/src/geometry/narrow_phase/queries.rs b/src/geometry/narrow_phase/queries.rs
+index 0b6682f..a35f162 100644
+--- a/src/geometry/narrow_phase/queries.rs
++++ b/src/geometry/narrow_phase/queries.rs
+@@ -9,6 +9,19 @@ use crate::geometry::{
+ use parry::query::PersistentQueryDispatcher;
+ 
+ impl NarrowPhase {
++    /// Clear reaction work once per outer step, including inactive contact points.
++    pub(crate) fn reset_contact_layer_work(&mut self) {
++        for edge in &mut self.contact_graph.graph.edges {
++            if let Some(pair) = edge.weight.rigid_mut() {
++                for manifold in pair.manifolds.iter_mut().chain(pair.solver_clusters.iter_mut()) {
++                    for point in &mut manifold.points {
++                        point.data.layer_work = 0.0;
++                    }
++                }
++            }
++        }
++    }
++
+     /// Per-body masks (indexed by rigid-body arena index) of the solver colors used
+     /// by each body's active contact pairs. Read by the staged island solver to
+     /// color joints in the same color space as the contacts.
 diff --git a/src/pipeline/physics_hooks.rs b/src/pipeline/physics_hooks.rs
-index a4178e46..065482b5 100644
+index a4178e4..ee35f60 100644
 --- a/src/pipeline/physics_hooks.rs
 +++ b/src/pipeline/physics_hooks.rs
-@@ -224,6 +224,10 @@ bitflags::bitflags! {
+@@ -59,6 +59,8 @@ pub enum ModifiableContacts<'a> {
+ /// A contact manifold as the hook may modify it (see [`ModifiableContacts::Rigid`]).
+ #[cfg(feature = "alloc")]
+ pub struct ModifiableManifold<'a> {
++    /// Pair-local compliant normal material, writable by the hook.
++    pub layer: &'a mut [crate::math::Real; 3],
+     /// The contact manifold.
+     pub manifold: &'a ContactManifold,
+     /// The solver contacts that can be modified.
+@@ -224,6 +226,10 @@ bitflags::bitflags! {
          ///
          /// Lets you modify contact properties (friction, restitution, etc.) before solving.
          const MODIFY_SOLVER_CONTACTS = 0b0100;
@@ -951,20 +1429,21 @@ index a4178e46..065482b5 100644
  }
  impl Default for ActiveHooks {
 diff --git a/src/pipeline/physics_pipeline/substep.rs b/src/pipeline/physics_pipeline/substep.rs
-index 913cc7ac..3906fbc5 100644
+index 913cc7a..b656e6a 100644
 --- a/src/pipeline/physics_pipeline/substep.rs
 +++ b/src/pipeline/physics_pipeline/substep.rs
-@@ -326,6 +326,13 @@ impl PhysicsPipeline {
+@@ -325,6 +325,14 @@ impl PhysicsPipeline {
+         self.counters.reset();
          self.counters.step_started();
          self.quarantine.clear();
- 
++        narrow_phase.reset_contact_layer_work();
++
 +        // Reset once for the outer step, including inactive joints, without marking user changes.
 +        for edge in impulse_joints.joints_mut() {
 +            for motor in &mut edge.weight.data.motors {
 +                motor.step_impulse = 0.0;
 +            }
 +        }
-+
+ 
          // Apply some of delayed wake-ups.
          self.counters.stages.user_changes.start();
-         #[cfg(feature = "enhanced-determinism")]

@@ -25,7 +25,11 @@ export const SOURCES = Object.freeze({
   },
   "reptile-anatomy": {
     kind: "asset", file: "assets/reptile/body.json",
-    what: "Authored estimates for the 8 kg sprawling reptile: geometry, tooth contact surfaces, mass weights, joint limits and muscle ceilings; docs/reference/reptile.md states their uncertainty and derivations.",
+    what: "Authored estimates for the 8 kg sprawling reptile: geometry, tooth contact surfaces, bounded contact material, mass weights, joint limits and muscle ceilings; docs/reference/reptile.md states their uncertainty and derivations.",
+  },
+  "reptile-contact-sweep": {
+    kind: "measurement", how: "Authored material search cells exercised by research/reptile-bite.mjs and research/contact-layer.mjs; these are game material estimates, not tissue measurements.",
+    record: "docs/reference/reptile-bites.md",
   },
   "contact-projection-fixture": {
     kind: "asset", file: "assets/research/contact-projection.json",

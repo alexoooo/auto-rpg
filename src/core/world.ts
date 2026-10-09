@@ -1,6 +1,7 @@
 import type { Scene } from "@babylonjs/core/scene.js";
-import type { PhysicsEngine, PhysicsWorld } from "./engine/engine.ts";
-import { sourced, type Quantity } from "./spec/quantity.ts";
+import type { PhysicsEngine, PhysicsWorld, SegmentBody } from "./engine/engine.ts";
+import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { sourced, type Quantity, type Vec3 } from "./spec/quantity.ts";
 
 /** The fixed step's rate: physics and control run at 120 Hz. */
 export const PHYSICS_HZ: Quantity<number> = sourced(120, "Hz", "owner-physics-rate",
@@ -12,7 +13,7 @@ export const PHYSICS_HZ: Quantity<number> = sourced(120, "Hz", "owner-physics-ra
  * into whole steps), and nothing else moves its bodies or its clock.
  *
  * A step is: the sensing hooks; the step hooks, in the order they were added (minds, motor control,
- * the muscle driver); then one solver step of `dt`, which writes every body's node; then the
+ * the muscle driver); then one solver step of `dt`, which writes every body's node; then physical contact work; then the
  * after-step hooks (readings). The physics is the engine's the world was made with (`src/core/engine/engine.ts`),
  * beside the scene, which only carries the nodes: `scene.render()` never advances it, and a page renders what the steps
  * produced. The clock is the count of steps; `time` is that count over the rate, not a sum of deltas.
@@ -34,8 +35,10 @@ export interface World {
   readonly steps: number;
   /** Seconds since the world was made: `steps / hz`. */
   readonly time: number;
-  /** Its memory (`src/core/state.ts`): the steps taken, and the time `advance` owes. The physics saves its own (`PhysicsWorld.save`). */
+  /** Its memory (`src/core/state.ts`): the steps taken, the time `advance` owes and active contact work. The physics saves its own (`PhysicsWorld.save`). */
   readonly state: object;
+  /** Physical work episodes survive replacement of a fight's observers and are saved with the world. */
+  readonly contactWork: { readonly active: Map<string, ContactWork>; readonly released: ContactWork[] };
   /**
    * Run `hook` first in every step, before every `beforeStep` hook, after the sensing hooks added
    * before it: what reads the world for the minds, so that every mind in a step decides on the
@@ -60,6 +63,13 @@ export interface World {
 /** Called with the step, s. */
 type StepHook = (dt: number) => void;
 
+/** Numeric physical episode, independent of fighter registration and observer lifetime. */
+interface ContactWork {
+  first: number; second: number; mine: number; theirs: number;
+  point: Vec3; normal: Vec3; work: number; closing: number;
+  pairs: Map<string, { mine: number; theirs: number; work: number }>;
+}
+
 export interface Hook {
   dispose(): void;
 }
@@ -78,7 +88,37 @@ export function createWorld(scene: Scene, engine: PhysicsEngine, { hz = PHYSICS_
   const physics = engine.createPhysics({ hz, gravity });
   const dt = 1 / hz;
   const sensing: HookEntry[] = [], before: HookEntry[] = [], after: HookEntry[] = [];
-  const state = { steps: 0, owed: 0 };
+  const state = { steps: 0, owed: 0, contactWork: { active: new Map<string, ContactWork>(), released: [] as ContactWork[] } };
+  const touched = new Set<string>(), centre = new Vector3(), spin = new Vector3(), one = new Vector3(), two = new Vector3();
+  const motion = (body: SegmentBody, point: Vec3, out: Vector3) => {
+    centre.set(...body.massProperties.centre).applyRotationQuaternionToRef(body.node.rotationQuaternion!, centre).addInPlace(body.node.position);
+    body.linearVelocityToRef(out); body.angularVelocityToRef(spin);
+    const x = point[0] - centre.x, y = point[1] - centre.y, z = point[2] - centre.z;
+    out.x += spin.y * z - spin.z * y; out.y += spin.z * x - spin.x * z; out.z += spin.x * y - spin.y * x;
+  };
+  const readWork = () => {
+    touched.clear(); state.contactWork.released.length = 0;
+    for (const contact of physics.materialContacts()) {
+      const reversed = contact.first.id > contact.second.id;
+      const first = reversed ? contact.second.id : contact.first.id, second = reversed ? contact.first.id : contact.second.id;
+      const mine = reversed ? contact.theirs : contact.mine, theirs = reversed ? contact.mine : contact.theirs;
+      const normal: Vec3 = reversed ? [-contact.normal[0], -contact.normal[1], -contact.normal[2]] : contact.normal;
+      const key = `${first}:${second}`;
+      touched.add(key);
+      const episode = state.contactWork.active.get(key) ?? { first, second, mine, theirs, point: contact.point, normal, work: 0, closing: 0,
+        pairs: new Map<string, { mine: number; theirs: number; work: number }>() };
+      episode.work += contact.work;
+      const pair = episode.pairs.get(contact.key) ?? { mine, theirs, work: 0 };
+      pair.work += contact.work; episode.pairs.set(contact.key, pair);
+      motion(contact.first, contact.point, one); motion(contact.second, contact.point, two);
+      episode.closing = Math.max(episode.closing, (one.x - two.x) * contact.normal[0]
+        + (one.y - two.y) * contact.normal[1] + (one.z - two.z) * contact.normal[2]);
+      state.contactWork.active.set(key, episode);
+    }
+    for (const [key, episode] of state.contactWork.active) if (!touched.has(key)) {
+      state.contactWork.active.delete(key); state.contactWork.released.push(episode);
+    }
+  };
   let disposed = false;
 
   const add = (list: HookEntry[], run: StepHook): Hook => {
@@ -92,7 +132,7 @@ export function createWorld(scene: Scene, engine: PhysicsEngine, { hz = PHYSICS_
   };
 
   const world: World = {
-    scene, physics, hz, dt, state,
+    scene, physics, hz, dt, state, contactWork: state.contactWork,
     get actuation() { return actuation; },
     get steps() { return state.steps; },
     get time() { return state.steps / hz; },
@@ -108,6 +148,7 @@ export function createWorld(scene: Scene, engine: PhysicsEngine, { hz = PHYSICS_
         runAll(before);
         physics.step(dt);
         state.steps += 1;
+        readWork();
         runAll(after);
       }
     },

@@ -91,7 +91,8 @@ export function supportedMotor(own: OwnBody, endpoints: readonly SupportEndpoint
     });
   };
   read();
-  return { state, root, read, resume() { state.motion.started = false; state.motion.acceleration.fill(0); }, control(command: SupportedCommand, dt: number, tracked: (channel: number) => readonly [number, number, number] | undefined = () => undefined, timing: Pick<Response, "centre" | "endpoint" | "turn" | "posture"> = response) {
+  return { state, root, read, resume() { state.motion.started = false; state.motion.acceleration.fill(0); }, control(command: SupportedCommand, dt: number, tracked: (channel: number) => readonly [number, number, number] | undefined = () => undefined, timing: Pick<Response, "centre" | "endpoint" | "turn" | "posture"> = response,
+    trackingSeconds?: (channel: number) => number | undefined) {
     if (command.endpoints.length !== limbs.length) throw new Error("support goal count differs from anatomy");
     const ne = 1 / timing.endpoint;
     scratch.velocity.copyFrom(state.velocity).subtractInPlace(scratch.at.set(...command.velocity));
@@ -109,7 +110,8 @@ export function supportedMotor(own: OwnBody, endpoints: readonly SupportEndpoint
       else task.angular.copyFrom(scratch.angular).scaleInPlace(-2 * ne);
     });
     const work = servoAsk(muscles, i => tracked(i)?.[0] ?? command.posture[muscles.channels[i]!.name] ?? 0, timing.posture, dt,
-      { rate: i => tracked(i)?.[1] ?? 0, acceleration: i => tracked(i)?.[2] ?? 0 });
+      { rate: i => tracked(i)?.[1] ?? 0, acceleration: i => tracked(i)?.[2] ?? 0,
+        seconds: i => trackingSeconds?.(i) ?? timing.posture });
     definitions.forEach((d, i) => { for (let k = 0; k < d.channels.length; k++) toward[i]![k] = work.accel[d.channels[k]!]!; });
     carryRoot(bearing, muscles, work, state.aim, response.lever);
     limbMotion(bearing, work, scratch.moved);

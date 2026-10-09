@@ -2,18 +2,19 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { mirrorTrial } from "../research/reptile-motion.mjs";
 
-test("autonomous reptiles approach, bite and withdraw without falling across starting gaps", async t => {
-  for (const gap of [1.5, 2, 3]) {
+test("autonomous reptiles repeat damaging bites and verified releases across starting gaps", async t => {
+  for (const gap of [1.5, 2, 3, 4]) {
     const row = await mirrorTrial(gap), message = JSON.stringify({ ...row, hits: row.hits.length });
     assert.deepEqual(row.falls, [null, null], message);
-    assert.equal(row.seconds, 30, message);
-    assert.ok(row.bites.every(bite => bite.launched >= 1 && bite.returned >= 1), message);
-    const driven = row.hits.filter(hit => hit.sides.some(side => side.part === "jaw" && side.jawRate < 0
-      && (side.before === "swing" || side.phase === "swing")));
-    assert.ok(row.firstLaunch.every(time => time !== null && time < 12), message);
-    assert.ok(driven.length >= 1 && driven.some(hit => hit.sides.some(side => side.mechanism === "point")), message);
-    assert.ok(driven.every(hit => hit.energy > 0 && hit.closing > 0 && hit.sides.every(side => side.damage > 0)), message);
-    t.diagnostic(JSON.stringify({ ...row, hits: row.hits.length, driven }));
+    const injury = ["fatal", "severed", "exhausted"].includes(row.verdict?.ending);
+    assert.ok(injury || row.seconds === 60, message);
+    assert.ok(injury || row.damagingCycles.every(count => count >= 5), message);
+    assert.ok(row.biteDamage >= .05, message);
+    assert.ok(row.cycles.every(cycles => cycles.every(cycle => cycle.support === 4)), message);
+    assert.ok(row.hits.some(hit => hit.work > 0 && hit.sides.some(side => side.mechanism === "point")), message);
+    assert.ok(row.compression <= .008, message);
     for (const assist of row.assist) assert.deepEqual(assist, { steps: 0, force: 0, moment: 0 });
+    t.diagnostic(JSON.stringify({ gap, seconds: row.seconds, damagingCycles: row.damagingCycles,
+      biteDamage: row.biteDamage, compression: row.compression, falls: row.falls, verdict: row.verdict }));
   }
 });

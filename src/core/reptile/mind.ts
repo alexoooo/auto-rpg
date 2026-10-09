@@ -19,6 +19,7 @@ import { REPTILE_CRAWL, REPTILE_TROT, REPTILE_MOTOR, REPTILE_TRAVEL, REPTILE_BIT
 import { recover } from "./recover.ts";
 import { bite } from "./bite.ts";
 import { quadrupedTactics } from "./tactics.ts";
+import { effectorFeedback } from "../control/effector-feedback.ts";
 
 /**
  * Whether the quadruped mind can drive a body of `spec`: three or more effectors it stands on, so
@@ -54,14 +55,19 @@ export function createQuadrupedMind(built: BuiltBody, world: World, wiring: Part
     const view: QuadrupedView = { centre: motor.state.centre, velocity: motor.state.velocity, feet: motor.state.endpoints,
       senses: senses(), get yaw() { return look.yaw; }, get down() { return look.down; } };
     const reading = view as { -readonly [K in keyof QuadrupedView]: QuadrupedView[K] };
+    const lower = [...built.segments.values()].find(segment => segment.spec.points?.bite)!;
+    const head = [...built.segments.values()].find(segment => segment.spec.points?.mouth)!;
+    const feedback = effectorFeedback(built, [lower.spec.name, head.spec.name], wiring.contactIdentity, undefined,
+      { [lower.spec.name]: { point: "bite", regions: lower.spec.contacts!.filter(c => c.surface.point).map(c => c.name) },
+        [head.spec.name]: { point: "mouth" } });
     const read = (s: Senses) => {
-      motor.read(); turnOfToRef(motor.root, turn); forward.applyRotationQuaternionToRef(turn, front);
+      motor.read(); feedback.read(); turnOfToRef(motor.root, turn); forward.applyRotationQuaternionToRef(turn, front);
       reading.senses = s; look.yaw = atan2(front.x, front.z); look.down = down();
     };
-    const snap = bite(own, tracker, tuning.bite), tactics = quadrupedTactics(own, view => orders(view.senses), tuning.bite), skills = [skill, creep, snap];
+    const snap = bite(own, tracker, tuning.bite, feedback.state[lower.spec.name], feedback.state[head.spec.name]), tactics = quadrupedTactics(own, view => orders(view.senses), tuning.bite), skills = [skill, creep, snap];
     const sight = { view, bite: snap.state.cycle };
     read(senses()); for (const s of skills) s.resume(view);
-    const host: HostMind = { name: "crawl", state: { motor: motor.state, crawl: skill.state, creep: creep.state, gait, bite: snap.state, tactics: tactics.state, tracker: tracker.state, look }, look: read,
+    const host: HostMind = { name: "crawl", state: { motor: motor.state, crawl: skill.state, creep: creep.state, gait, bite: snap.state, tactics: tactics.state, tracker: tracker.state, feedback: feedback.state, look }, look: read,
       step(s: Senses, dt: number) { read(s); this.act(dt); }, act(dt: number) {
       const intent = tactics.decide(sight, dt);
       const busy = snap.state.cycle.phase !== null;
@@ -77,7 +83,7 @@ export function createQuadrupedMind(built: BuiltBody, world: World, wiring: Part
       let movement: Orders = intent;
       if (gait.reacquire) movement = placing ? { ...STAND_ORDERS, move: { x: 0, z: 0 }, face: heading } : STAND_ORDERS;
       else if (withdrawing) movement = { move: { x: -sin(view.yaw), z: -cos(view.yaw) }, face: { x: sin(view.yaw), z: cos(view.yaw) }, attack: null };
-      else if (busy) movement = STAND_ORDERS;
+      else if (busy || intent.attack) movement = STAND_ORDERS;
       const wanted = gait.reacquire || withdrawing || intent.creep || gait.kind === "crawl" && !intent.travel ? "crawl" : "trot";
       let active = locomotion[gait.kind];
       if (wanted !== gait.kind && active.state.phase === "settle") {
@@ -85,8 +91,13 @@ export function createQuadrupedMind(built: BuiltBody, world: World, wiring: Part
         active.resume(view); tracker.reset(); motor.resume();
       }
       const T = settings[gait.kind];
-      const command = active.command(view, wanted !== gait.kind ? STAND_ORDERS : movement, dt);
-      snap.command(view, gait.reacquire ? null : intent.attack, active.state.phase === "settle" && (busy ? view.feet.reduce((loaded, f) => loaded + (f.contact ? 1 : 0), 0) >= paws.length - 1 : view.feet.every(f => f.contact) && headingAligned(view.yaw, intent.face, tuning.trot.turnMoveAngle)), dt, command, intent.prepareBite);
+      const walking = wanted !== gait.kind ? STAND_ORDERS : movement;
+      const command = gait.kind === "crawl"
+        ? creep.command(view, walking, dt, intent.prepareBite || busy ? tuning.trot.crawlHeight : tuning.crawl.crawlHeight)
+        : skill.command(view, walking, dt);
+      snap.command(view, gait.reacquire ? null : intent.attack, active.state.phase === "settle" && (snap.state.cycle.phase === "swing" || snap.state.cycle.phase === "return"
+        ? view.feet.reduce((loaded, f) => loaded + (f.contact ? 1 : 0), 0) >= paws.length - 1
+        : view.feet.every(f => f.contact)), dt, command, intent.prepareBite, tactics.state.target);
       rootFrameToRef(motor.root, frame);
       desired.set(...command.rotation).multiplyToRef(Quaternion.InverseToRef(motor.root.rest, inverse), desired);
       Quaternion.InverseToRef(frame.rotation, inverse).multiplyToRef(desired, flat).normalize();
@@ -105,8 +116,10 @@ export function createQuadrupedMind(built: BuiltBody, world: World, wiring: Part
         }
       });
       const tracked = tracker.step(own.muscles, command.posture, dt, false, true);
-      motor.control(command, dt, i => snap.tracked(i) ?? tracked(i), gait.kind === "crawl" || active.state.standing && active.state.phase === "settle" ? tuning.motor : tuning.travel);
-    }, release() { tracker.reset(); for (const s of skills) s.resume(view); }, resume() {
+      motor.control(command, dt, i => snap.tracked(i) ?? tracked(i), gait.kind === "crawl" || active.state.standing && active.state.phase === "settle" ? tuning.motor : tuning.travel,
+        i => snap.response(i) ?? tracker.response(own.muscles.channels[i]!.name));
+    }, release() { tactics.state.target = null; tactics.state.pending = 0; tactics.state.phase = null; tracker.reset(); for (const s of skills) s.resume(view); }, resume() {
+      tactics.state.target = null; tactics.state.pending = 0; tactics.state.phase = null;
       motor.resume(); tracker.reset(); for (const s of skills) s.resume(view);
       gait.kind = "crawl"; gait.reacquire = true; gait.homeAt = creep.state.steps + paws.length; gait.stable = 0;
     } };

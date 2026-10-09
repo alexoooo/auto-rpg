@@ -292,6 +292,14 @@ export class DungeonRun {
       id: actor.id, side: actor.side, spec: armedWith(modelSpec(actor.model), "right", info.held), at: [actor.home.x, 0, actor.home.z],
       rules: this.rules, senses: this.senses, out: () => actor.fighter?.pool.ending() !== null && actor.fighter !== null,
       mind: info.mind, name: `crypt ${actor.side}`,
+      contactIdentity: other => {
+        if (!other) return { kind: "world" };
+        for (const candidate of [...this.party, ...this.enemies]) for (const segment of candidate.fighter?.built.segments.values() ?? []) {
+          if (segment.body === other) return { kind: "body", body: candidate.id, segment: segment.spec.name,
+            guard: candidate.fighter!.built.spec.marks.guards.includes(segment.spec.name) };
+        }
+        return null;
+      },
       orders: () => {
         const { move, face, attack } = actor.plan;
         return { move, face: move ? null : face, attack: null, ...(attack ? { foe: attack.id } : {}) };

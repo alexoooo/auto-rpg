@@ -1,3 +1,4 @@
+import type { REPTILE_BITE } from "../reptile/tuning.ts";
 import { KICK_PATH, type KickTuning } from "../skills/kick.ts";
 import type { AttackTuning } from "../skills/attack-path.ts";
 import type { CombatExecution } from "../skills/combat.ts";
@@ -56,7 +57,11 @@ export interface RecipeFighterConfig {
 export type MindConfig = RecipeFighterConfig | PathFighterConfig | DirectMindConfig | QuadrupedConfig;
 
 /** Four-paw crawling, physical jaw snaps and self-righting through the body's own muscles. */
-interface QuadrupedConfig { readonly kind: "quadruped" }
+interface QuadrupedConfig {
+  readonly kind: "quadruped";
+  /** Immutable bite cells for physical qualification; retained by recipes and replay. */
+  readonly tuning?: { readonly bite?: Partial<typeof REPTILE_BITE> };
+}
 
 export const QUADRUPED: QuadrupedConfig = deepFreeze({ kind: "quadruped" });
 

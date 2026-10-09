@@ -25,7 +25,8 @@ import { createHandPoses, type HandPoses } from "./hand-poses.ts";
  * frames. A joint that disagrees with its bodies is cleared by flinging the body.
  *
  * Nothing here drives a joint: the muscles do (`src/core/muscle/driver.ts`). A segment has the
- * engine's default contact material and collides with everything but its joint partners.
+ * declared contact layers and point geometry, with the engine's default friction, and collides
+ * with everything but its joint partners.
  */
 
 export interface BuiltSegment {
@@ -153,7 +154,24 @@ function buildSegment(body: BodySpec, spec: SegmentSpec, placement: Placement, w
     orientation: principal
       ? Quaternion.RotationQuaternionFromAxis(v3(principal.axes[0]), v3(principal.axes[1]), v3(principal.axes[2]))
       : Quaternion.Identity(),
-  });
+  }, { materials: rigid.owners.map((owner, i) => {
+    const surface = (() => {
+      switch (owner.kind) {
+        case "segment": return spec.surface;
+        case "region": return owner.region.surface;
+        case "held": return owner.held.item.surface;
+        default: { const never: never = owner; throw new Error(`unknown material owner ${JSON.stringify(never)}`); }
+      }
+    })();
+    const shape = shapes[i]!, point = surface?.point;
+    const direction = point && normalize(point.direction.value);
+    const piercing = point && shape.kind === "hull" && owner.kind !== "held" ? {
+      direction: [dot(direction!, frame.x), dot(direction!, frame.y), dot(direction!, frame.z)] as Vec3,
+      alignment: point.alignment.value,
+      depth: Math.max(...shape.points.map(p => dot(p.value, direction!))) - Math.min(...shape.points.map(p => dot(p.value, direction!))) } : undefined;
+    return { ...(surface?.layer ? { layer: { stiffness: surface.layer.stiffness.value,
+      dampingRatio: surface.layer.dampingRatio.value, depth: surface.layer.depth.value } } : {}), ...(piercing ? { point: piercing } : {}) };
+  }) });
   const handPose = spec.handPoses ? { applied: initial, requested: initial } : undefined;
   return { spec, frame, node, body: physics, rest, ...(handPose ? { handPose } : {}), ...(poses ? { poses } : {}),
     get rigid() { return poses && handPose ? poses[handPose.applied].rigid : rigid; } };

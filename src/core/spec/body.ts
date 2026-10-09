@@ -224,6 +224,8 @@ export function handShapeAt(body: BodySpec, segment: SegmentSpec, pose: HandPose
  */
 interface SurfaceSpec {
   readonly stiffness: Quantity<number>;
+  /** Authored finite normal layer, admitted only against an aligned piercing surface. */
+  readonly layer?: { readonly stiffness: Quantity<number>; readonly dampingRatio: Quantity<number>; readonly depth: Quantity<number> };
   /** A piercing direction and admitted normal cosine: body reference frame for anatomy, item frame for equipment. */
   readonly point?: { readonly direction: Quantity<Vec3>; readonly alignment: Quantity<number> };
 }

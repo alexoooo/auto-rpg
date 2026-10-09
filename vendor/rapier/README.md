@@ -44,6 +44,12 @@ uses this vendored package. The package layout remains compatible with the bench
   anchors through the current body poses and projects their separation onto its normal.
   `solverContactDist` retains its upstream meaning: a cached distance from the last full
   contact update. Neither reading changes contact solving.
+- **Pair-local compliant contact** (`PhysicsHooks.contactLayer`) supplies spring stiffness,
+  damping and maximum compression to a manifold. Its implicit normal row has a rigid depth
+  backstop. `contactLayerWork` sums normal reaction times solver-anchor displacement over
+  substeps, including unloading and CCD subdivisions; inactive readings clear at each outer
+  step. Layer parameters and contact readings are serialized. Unconfigured pairs retain the
+  ordinary normal row. The core opts in only physical points against a declared material.
 - **Optional angular-limit gradients** (`coordinateAngularLimits` on integration parameters)
   make impulse-joint and generic external limit rows follow the spatial gradient of their
   reported coordinate. False retains parent-axis rows; motor rows are unchanged. The setting
@@ -61,7 +67,7 @@ uses this vendored package. The package layout remains compatible with the bench
 
 Needs git, bash (Git Bash on Windows), Node and npm, and Rust with the `wasm32-unknown-unknown`
 target (`rustup target add wasm32-unknown-unknown`). wasm-pack 0.12.1 and wasm-bindgen 0.2.129 come
-pinned by Rapier's own lockfiles. Built with rustc 1.97.1 and Node 24.19.
+pinned by Rapier's own lockfiles. Built with rustc 1.97.1 and Node 24.15.
 
 ```bash
 bash vendor/rapier/build.sh   # RAPIER_WORK=<dir> to choose the work tree; CARGO_BUILD_JOBS to spare the machine

@@ -17,6 +17,8 @@ interface Motion {
   readonly home: Vec3;
   readonly chamber: Vec3;
   readonly requested: boolean;
+  /** The adapter has measured the physical end of its committed stroke. */
+  readonly complete?: boolean;
   readonly down: boolean;
   readonly supported: boolean;
   readonly prepared: boolean;
@@ -26,6 +28,10 @@ interface Motion {
   readonly intended: boolean;
   readonly aligned: boolean;
   readonly contactVelocity: Vec3;
+  /** A physical adapter can keep intended touch pending until its stroke actually closes. */
+  readonly closing?: boolean;
+  /** A material adapter measures normal compression instead of free endpoint travel. */
+  readonly contactDepth?: number;
   readonly seconds: number;
 }
 export interface StrikeLimits {
@@ -56,6 +62,8 @@ export function advanceStrike(state: StrikeCycleState, motion: Motion, limits: S
   state.time += dt;
   const distance = (to: Vec3) => hypot(motion.at[0] - to[0], motion.at[1] - to[1], motion.at[2] - to[2]);
   let event = 0;
+  const pendingClosing = state.phase === "swing" && state.impact === null && limits.impact !== undefined
+    && motion.touching && motion.closing === false && motion.intended && motion.aligned;
   switch (state.phase) {
     case "chamber":
       if (!motion.requested) strikeTransition(state, "return", motion.velocity);
@@ -70,19 +78,21 @@ export function advanceStrike(state: StrikeCycleState, motion: Motion, limits: S
       if (impact && state.impact) {
         state.impact.elapsed += dt;
         const failed = motion.down || !motion.supported || !motion.requested || (motion.touching && (!motion.intended || !motion.aligned));
-        if (failed || state.impact.elapsed >= impact.impactSeconds || distance(state.impact.origin) >= impact.impactTravel) {
+        if (failed || motion.complete || state.impact.elapsed >= impact.impactSeconds || (motion.contactDepth ?? distance(state.impact.origin)) >= impact.impactTravel) {
           event = STRIKE_EVENT.thrown | (failed ? STRIKE_EVENT.aborted : 0); strikeTransition(state, "return", motion.velocity);
         }
-      } else if (impact && motion.touching && !state.touching && !motion.down && motion.supported && motion.requested
+      } else if (motion.complete) { event = STRIKE_EVENT.thrown; strikeTransition(state, "return", motion.velocity);
+      } else if (impact && motion.touching && !state.touching && motion.closing !== false && !motion.down && motion.supported && motion.requested
         && impact.impactSeconds > 0 && impact.impactTravel > 0 && motion.intended) {
         const unit = hypot(...motion.contactVelocity);
         if (motion.aligned && unit > 0) {
           state.impact = { origin: [...motion.at], finish: motion.at.map((v, k) => v + motion.contactVelocity[k]! / unit * impact.impactTravel) as unknown as Vec3, elapsed: 0 };
           state.sequence++; state.velocity = motion.velocity; event = STRIKE_EVENT.admitted;
         } else { event = STRIKE_EVENT.thrown | STRIKE_EVENT.aborted; strikeTransition(state, "return", motion.velocity); }
-      } else if (!motion.requested || (impact && (motion.down || !motion.supported)) || (motion.touching && !state.touching)
+      } else if (!motion.requested || (impact && (motion.down || !motion.supported)) || (motion.touching && !state.touching && !pendingClosing)
         || state.time >= motion.seconds + limits.followSeconds) {
-        event = STRIKE_EVENT.thrown; strikeTransition(state, "return", motion.velocity);
+        event = STRIKE_EVENT.thrown | (impact && (motion.down || !motion.supported || !motion.requested
+          || motion.touching && !state.touching && !pendingClosing) ? STRIKE_EVENT.aborted : 0); strikeTransition(state, "return", motion.velocity);
       }
       break;
     }
@@ -95,6 +105,6 @@ export function advanceStrike(state: StrikeCycleState, motion: Motion, limits: S
     case null: break;
     default: { const never: never = state.phase; throw new Error(`unknown strike phase ${never}`); }
   }
-  state.touching = motion.touching;
+  state.touching = motion.touching && !pendingClosing;
   return event;
 }

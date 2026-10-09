@@ -1,5 +1,6 @@
 import { commandable } from "../body.ts";
 import type { BuiltBody } from "../build/build-body.ts";
+import { REPTILE_BITE, REPTILE_CRAWL, REPTILE_TROT, REPTILE_MOTOR, REPTILE_TRAVEL } from "../reptile/tuning.ts";
 import { createQuadrupedMind, quadrupedFits } from "../reptile/mind.ts";
 import type { BodySpec } from "../spec/body.ts";
 import { deepFreeze } from "../state.ts";
@@ -76,10 +77,15 @@ export const CONTROLLERS: { readonly [K in MindConfig["kind"]]: Controller<Extra
   },
   quadruped: {
     fits: quadrupedFits,
-    faults: () => [],
+    faults: config => Object.entries(config.tuning?.bite ?? {}).flatMap(([key, value]) =>
+      !(key in REPTILE_BITE) || !Number.isFinite(value) || (key === "closeRate" || key === "biteInset" || key === "contactAt" || key === "biteLead" || key === "neckRetract" ? value < 0 : value <= 0)
+      || key === "open" && value > REPTILE_BITE.open || key === "contactAt" && value > 1 || key === "biteSamples" && !Number.isInteger(value)
+        ? [`invalid bite setting ${key}`] : []),
     presets: deepFreeze({ crawl: { label: "Crawl and bite", config: QUADRUPED } }),
     fields: [],
-    create: (built, world, _config, wiring) => createQuadrupedMind(built, world, wiring),
+    create: (built, world, config, wiring) => createQuadrupedMind(built, world, wiring,
+      { crawl: REPTILE_CRAWL, trot: REPTILE_TROT, motor: REPTILE_MOTOR, travel: REPTILE_TRAVEL,
+        bite: deepFreeze({ ...REPTILE_BITE, ...config.tuning?.bite }) }),
   },
   direct: {
     fits: () => true,

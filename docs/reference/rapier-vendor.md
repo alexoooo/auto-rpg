@@ -6,8 +6,9 @@ bounds and accumulated effort. The muscle driver selects symmetric reference or 
 bounds from immutable world configuration. Gameplay retains the reference while corrected-law
 control is measured separately in the [common battery](control-foundation.md).
 
-Adapter 9 adds stable collider-shape replacement, admitted-pair clearance queries and attached
-grip observation for coarse live hand poses. It uses the same committed vendor archive. Collider
+Adapter 10 supports pair-local compliant point contact and world-owned work episodes, alongside
+stable collider-shape replacement, admitted-pair clearance queries and attached
+grip observation for coarse live hand poses. Collider
 geometry restores through the native snapshot; pending/applied pose state restores with the body.
 
 ## Source and installation
@@ -17,10 +18,11 @@ geometry restores through the native snapshot; pending/applied pose state restor
   last-substep motor/limit/locked-axis impulse reads, whole-step motor impulse, multibody setters,
   CCD-only pair filtering that preserves ordinary contact recycling, and current-pose
   solver contact separation, an opt-in measured-angle gradient for angular limits, and accessors
-  for the native rigid-body friction-model selector.
-- Package version: `0.21.0-auto-rpg.7`.
-- Archive SHA256: `1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde`.
-- Build toolchain: Rust 1.97.1, Node 24.19.0; wasm-pack 0.12.1 and wasm-bindgen 0.2.129 from
+  for the native rigid-body friction-model selector, pair-local spring/damper normal rows with
+  a rigid depth backstop, and signed whole-step contact reaction work.
+- Package version: `0.21.0-auto-rpg.8`.
+- Archive SHA256: `983fdf9572894a7903a45d3e4286aad7919dc6a510fd58978fe01e8a4ee1c54f`.
+- Build toolchain: Rust 1.97.1, Node 24.15.0; wasm-pack 0.12.1 and wasm-bindgen 0.2.129 from
   the upstream lockfiles. The build remaps source/cache paths and writes declarations with LF.
 - Installation: package metadata and lockfile name the same archive; SHA512 integrity is
   computed from its bytes. `npm ci --offline --no-audit --no-fund` successfully installs it
@@ -185,7 +187,8 @@ reason to migrate gameplay to per-point friction.
 
 The `.7` package changes only the whole-step motor-impulse accumulator and its binding to
 double precision. Adapter revision 8 identifies the changed serialized representation.
-The two managed builds produce identical archives at the SHA256 in the source section;
+The two managed builds produce identical archives at SHA256
+`1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde`;
 offline `npm ci` installs it. The installed CJS entry SHA256 is
 `c8f3d8f0f2ddac056a9cde27755951c081b53ec23bcd82d517a92bb15320e89c`.
 
@@ -199,3 +202,26 @@ Validation of `.7`: 830 tests, 828 pass, no failures and two existing TODOs; typ
 production build pass. The first suite caught a stale adapter-version expectation, which now
 names revision 8. A subsequent runner check correctly refused a source edit during measurement;
 the final suite ran with its measured sources fixed and passed.
+
+The `.8` package adds opt-in, pair-local bounded tooth layers and signed normal
+reaction-work readback. Adapter revision 10 identifies the serialized layer law
+and work accumulator. The committed archive SHA256 is
+`983fdf9572894a7903a45d3e4286aad7919dc6a510fd58978fe01e8a4ee1c54f`.
+Offline `npm ci` installs the vendored archive. The build uses Rust 1.97.1,
+wasm-pack 0.12.1 and wasm-bindgen 0.2.129 against the pinned Rapier source and patch.
+
+`contactLayer` supplies the admitted manifold's stiffness, damping and compression
+depth; `layerStiffness` and `contactLayerWork` expose its law and signed work.
+The normal row uses the implicit spring/damper response with a rigid backstop.
+Work accumulates from actual solver-anchor displacement and reaction impulse at
+every solver substep, including CCD, and resets once per outer step. Both native
+fields survive loaded snapshots. Ordinary contacts keep the original normal row.
+
+The native contact tests pass. The Node two-sphere stand on rapier-coordinate at
+120 Hz agrees with its 960 Hz reference within 10% for all twelve cells in
+[the contact grid](reptile-bites.md). Static pressure, elastic unloading, reverse
+and side contact, momentum and a loaded rotating-point fork have permanent witnesses.
+The same current adapter with the `.7` and `.8` packages gives the identical
+`84e3797a45f1d5aa` pose digest and ten blows in a 15 s Warrior/Rogue Node arena bout
+at 120 Hz. This comparison covers ordinary-contact arithmetic; its timings under
+concurrent measurements do not establish a performance comparison.

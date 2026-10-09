@@ -383,9 +383,19 @@ placements use the body's reference footprint around the actual COM. Both count 
 lift followed by a positive fixed-ground impulse. Gaits switch after the active placement lands;
 close fighting retains the crawl until the opponent is clear. After recovery or hold/resume,
 each paw is placed and the actual heading is aligned before quiet four-sole support admits another
-trot. The jaw follows sensed
-targets while chambering, commits its aim for the snap and follows a finite angular path through
-the shared strike cycle. Contact wounds both surfaces through the common blow rules. Recovery
+trot. A pending bite retains its sensed material point while an active paw placement
+finishes and pauses further locomotion, with a finite placement deadline. Each tooth
+searches its closing arc for the first exposed collider surface with a valid
+piercing normal. Primary shapes and natural contact regions both obstruct the path. Preparation
+retains the opponent's material point, predicts its motion from sensed velocity and spin,
+finishes the current paw placement and requires four loaded paws. Close crawling retains
+standing height for jaw clearance. A supported centre shift and the neck place the mouth;
+the snap freezes the world aim and can continue with three loaded paws. The shared strike
+cycle bounds admitted contact by time and measured normal compression. Withdrawal opens
+the jaw before retracting a loaded neck; persistent contact after the opening and
+release interval requests backward paw placement. It verifies physical release
+before another bite. Contact wounds
+both surfaces through the common blow rules. Recovery
 supplies grounded joint torques, routes paws clear of the trunk and verifies quiet four-paw support
 before the host resumes.
 Blocked placements try the other end of the trunk; broad combat recovery remains unqualified.
@@ -792,7 +802,8 @@ fresh-world replay accompany the [human comparison](reference/punch-calibration.
 
 `createWorld(scene, engine)` (`src/core/world.ts`) makes the world: one fixed step at 120 Hz
 (`PHYSICS_HZ`) that owns physics, control, combat and the clock. A step runs the sensing hooks (a fight's senses, `createSenses`), the before-step hooks
-in the order they were added, one solver step, which writes every node, and the after-step hooks
+in the order they were added, one solver step, which writes every node, the world's compliant
+contact-work episodes, and the after-step hooks
 (readings, blows); the clock is the count of steps. Each body adds one before-step hook
 (`driveMuscles`), in which the muscles read the joints, the body's mind steps (`embody`), its
 assist gives what the mind asked of it and the motors are set; for a game body the mind is `commandMind` with its sub-minds (`hosting`): it reads the view (`look`), and then a sub-mind that wants the
@@ -858,10 +869,18 @@ The rules of a fight are `src/core/rules/`, free of any page so they can be argu
   reduced mass of the two effective masses (`contactMass`; something fixed is a mass nothing
   moves) times the closing speed squared.
 - **A blow** (`watchBlows`, `blows.ts`) is a touch between any two segments of two sides'
-  bodies, lasting while the solver pushes: it has no striker. Its energy is the touch's. Its
-  record is two sides (`BlowSide`), the surfaces that met: of the pairs of shapes the solver
-  pushed on, the one it pushed on hardest, each shape its segment's own, a natural contact region (`ContactRegionSpec`), or an item it holds. Each
-  side has the share of the energy it took, its damage and its wound.
+  bodies: it has no striker. Ordinary contacts use the touch's impact energy. An admitted
+  point against a declared `SurfaceSpec.layer` uses the solver's reaction work instead:
+  a finite spring and damper with a rigid depth backstop. Compression adds work and unloading
+  subtracts it; static pressure adds none. `World.contactWork` aggregates simultaneous teeth
+  on the same opposing segment and prices the nonnegative net work once at release. The
+  numeric episodes survive combat-observer replacement and restore with the world; native
+  solver memory restores with the physics. An admitted layer persists through angular unloading
+  until physical release. A material episode retains every collider pair's signed work,
+  compliance shares and piercing contributions, including opposing tooth sets. It prices one
+  wound per side. Ordinary rigid impacts use the strongest loaded shape pair. A shape belongs
+  to its segment, a natural contact region (`ContactRegionSpec`), or a held item. Each
+  `BlowSide` records its energy share, damage and wound.
 - **The two surfaces share the energy by their compliance** (`energyShares`, `share.ts`): springs
   in series under one force, so the softer takes the more. A segment's surface is its spec's; an
   item that states none is rigid and takes none. So a fist takes five eighths of its own punch to
@@ -875,7 +894,8 @@ The rules of a fight are `src/core/rules/`, free of any page so they can be argu
   keeps its ratio to blunt. A declared piercing direction is read in the body reference frame
   for anatomy and the item frame for equipment: a tooth or point inside its admitted normal
   cone prices the opposing side's share as `point`; its sides and back remain blunt
-  (`pointsInto`). The strongest loaded shape pair supplies the surfaces and direction.
+  (`pointsInto`). The strongest loaded shape pair supplies rigid impact surfaces and direction;
+  material work retains each admitted pair's contribution.
   The Warrior's strongest one-handed blow with the wooden club is a
   measurement beside it (`CLUB_BEST`, `research/core-club-unit.json`): 138.26 J, 1.38 hit points.
   The arena's rulebook and the dungeon's are the same rules.

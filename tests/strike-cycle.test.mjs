@@ -61,3 +61,44 @@ test('contact release gates a measured return and still has a finite deadline',(
  assert.equal(s.ready,0);
  assert.equal(advanceStrike(s,{...motion,released:true},limits,.05),STRIKE_EVENT.finished|STRIKE_EVENT.returned);
 });
+
+
+test('measured stroke completion withdraws without a cancellation abort', () => {
+ for (const touching of [false, true]) {
+  const s = fresh(); strikeTransition(s, 'swing', [0, 0, 0]);
+  assert.equal(advanceStrike(s, { ...motion, touching, complete: true }, limits, .01), STRIKE_EVENT.thrown);
+  assert.equal(s.phase, 'return'); assert.equal(s.impact, null);
+ }
+ const s = fresh(); strikeTransition(s, 'swing', [0, 0, 0]);
+ assert.equal(advanceStrike(s, { ...motion, requested: false }, limits, .01), STRIKE_EVENT.thrown | STRIKE_EVENT.aborted);
+ assert.equal(s.phase, 'return');
+});
+
+
+test('normal compression bounds a material impact independently of tangential endpoint travel', () => {
+ const s=fresh(); strikeTransition(s,'swing',[0,0,0]);
+ const material={...motion,touching:true,intended:true,contactDepth:0};
+ const bound={...limits,impact:{impactSeconds:.25,impactTravel:.008}};
+ assert.equal(advanceStrike(s,material,bound,.01),STRIKE_EVENT.admitted);
+ assert.equal(advanceStrike(s,{...material,at:[.02,0,0],contactDepth:.003},bound,.01),0);
+ assert.equal(s.phase,'swing');
+ assert.equal(advanceStrike(s,{...material,at:[.02,0,0],contactDepth:.008},bound,.01),STRIKE_EVENT.thrown);
+ assert.equal(s.phase,'return');
+});
+
+test('intended touch waits for actual closing without extending the missed-stroke clock', () => {
+ const touch={...motion,touching:true,intended:true,closing:false};
+ const s=fresh();strikeTransition(s,'swing',[0,0,0]);
+ assert.equal(advanceStrike(s,touch,limits,.01),0);
+ assert.equal(s.phase,'swing');assert.equal(s.impact,null);assert.equal(s.touching,false);
+ assert.equal(advanceStrike(s,{...touch,closing:true},limits,.01),STRIKE_EVENT.admitted);
+ assert.ok(s.impact);assert.equal(s.touching,true);
+ for(const change of [{aligned:false},{intended:false},{requested:false},{supported:false},{down:true}]) {
+  const blocked=fresh();strikeTransition(blocked,'swing',[0,0,0]);
+  assert.equal(advanceStrike(blocked,{...touch,...change},limits,.01),STRIKE_EVENT.thrown|STRIKE_EVENT.aborted);
+  assert.equal(blocked.phase,'return');assert.equal(blocked.impact,null);
+ }
+ const missed=fresh();strikeTransition(missed,'swing',[0,0,0]);
+ assert.equal(advanceStrike(missed,touch,limits,.16),STRIKE_EVENT.thrown);
+ assert.equal(missed.phase,'return');
+});

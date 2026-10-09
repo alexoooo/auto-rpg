@@ -57,9 +57,9 @@ export function crawl(own: OwnBody, motor: ReturnType<typeof supportedMotor>, na
     state.centre[0] = view.centre.x; state.centre[2] = view.centre.z;
     view.feet.forEach((e, i) => { state.anchors[i]![0] = e.at.x; state.anchors[i]![1] = e.ground; state.anchors[i]![2] = e.at.z; });
   };
-  const skill: Skill<QuadrupedView> & { readonly state: typeof state; command(view: QuadrupedView, intent: Orders, dt: number): SupportedCommand } = {
+  const skill: Skill<QuadrupedView> & { readonly state: typeof state; command(view: QuadrupedView, intent: Orders, dt: number, height?: number): SupportedCommand } = {
     state, resume,
-    command(view, intent, dt) {
+    command(view, intent, dt, height = T.crawlHeight) {
       const face = intent.face ?? intent.move;
       let error = 0;
       if (face && (face.x * face.x + face.z * face.z) > 0) {
@@ -77,7 +77,7 @@ export function crawl(own: OwnBody, motor: ReturnType<typeof supportedMotor>, na
       const average = [0, 0, 0];
       for (const anchor of state.anchors) for (let k = 0; k < 3; k++) average[k] += anchor[k]! / names.length;
       const ground = average[1]!;
-      state.command.centre[1] = ground + reference[1] * (state.phase === "settle" ? 1 : T.crawlHeight);
+      state.command.centre[1] = ground + reference[1] * (state.phase === "settle" ? 1 : height);
       if (state.phase === "settle") {
         if (moving || !state.standing) {
           const c = cos(state.yaw), s = sin(state.yaw);

@@ -6,6 +6,7 @@ import { watchBlows } from "../src/core/rules/blows.ts";
 import { createPool } from "../src/core/rules/pool.ts";
 import { rulebook } from "../src/core/rules/rulebook.ts";
 import { createSenses } from "../src/core/mind/senses.ts";
+import { REPTILE_BITE } from "../src/core/reptile/tuning.ts";
 import { reptileSpec } from "../src/core/reptile/spec.ts";
 import { STAND_ORDERS } from "../src/core/mind/orders.ts";
 import { coreStand } from "./harness/core-stand.mjs";
@@ -47,12 +48,15 @@ test("a chambered jaw, its snap and cancellation return fork through the shared 
 });
 
 async function sensedBite() {
-  const stand = await coreStand(reptileSpec(), { engine: "rapier-coordinate", joints: { jaw: [.3] } });
+  const stand = await coreStand(reptileSpec(), { engine: "rapier-coordinate", joints: { jaw: [REPTILE_BITE.open] } });
   const target = buildBody(reptileSpec(), stand.world, { position: [0, 0, .97], rotation: [0, 1, 0, 0] });
   for (const segment of target.segments.values()) segment.body.setFixed(true);
   const hub = createSenses(stand.world), see = hub.add({ id: "mine", side: "one", built: stand.built, out: () => false });
   hub.add({ id: "target", side: "two", built: target, out: () => false });
-  const mind = createQuadrupedMind(stand.built, stand.world, { senses: see }), body = mind.body, host = body.state.mind.host, seen = new Set();
+  const parts = new Map([...target.segments.values()].map(segment => [segment.body, segment.spec.name]));
+  const mind = createQuadrupedMind(stand.built, stand.world, { senses: see,
+    contactIdentity: other => parts.has(other) ? { kind: "body", body: "target", segment: parts.get(other), guard: false } : { kind: "world" } }),
+    body = mind.body, host = body.state.mind.host, seen = new Set();
   const rules = rulebook("arena"), mine = createPool(stand.built.spec, rules), theirs = createPool(target.spec, rules);
   const blows = watchBlows(stand.world, [{ id: "mine", side: "one", built: stand.built, pool: mine },
     { id: "target", side: "two", built: target, pool: theirs }], rules);
@@ -63,7 +67,7 @@ async function sensedBite() {
 }
 
 test("a sensed material target and supported bite shift fork with the jaw's committed motion", async () => {
-  const run = await forks(sensedBite, 6, 12, 10, { physics: PHYSICS_ALONE, state: STATE_ALONE });
+  const run = await forks(sensedBite, 6, 12, 60, { physics: PHYSICS_ALONE, state: STATE_ALONE });
   assertForks(run, ["physics", "state"]);
   assert.deepEqual([...run.seen], ["target", "point"]);
 });

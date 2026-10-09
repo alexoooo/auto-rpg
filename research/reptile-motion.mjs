@@ -1,3 +1,4 @@
+import { biteMeter } from "./bite-work.mjs";
 import { pathToFileURL } from "node:url";
 import { coreStand, freshEngine } from "../tests/harness/core-stand.mjs";
 import { reptileSpec } from "../src/core/reptile/spec.ts";
@@ -33,44 +34,20 @@ export async function motionTrial(tuning, direction = [0, 1], seconds = 10, yaw 
 }
 
 /** Node arena, rapier-coordinate, 120 Hz: autonomous mirror match with driven-jaw contacts distinguished from collisions. */
-export async function mirrorTrial(gap = 2, seconds = 30) {
-  const bout = await buildBout({ left: "reptile", right: "reptile", gap, capSeconds: seconds }, { physicsEngine: await freshEngine("rapier-coordinate") });
+export async function mirrorTrial(gap = 2, seconds = 60, bite, material) {
+  const bout = await buildBout({ left: "reptile", right: "reptile", gap, capSeconds: seconds, ...(material ? { contactLayer: material } : {}), ...(bite ? { minds: { left: { kind: "quadruped", tuning: { bite } }, right: { kind: "quadruped", tuning: { bite } } } } : {}) }, { physicsEngine: await freshEngine("rapier-coordinate") });
   const { world, duel } = bout;
   const sides = ["left", "right"], falls = [null, null], firstLaunch = [null, null], hits = [];
-  const cycles = sides.map(() => []), pending = [null, null];
-  let seen = 0;
+  const meter = biteMeter(world, sides.map(id => ({ id, body: duel.duelists[id].body }))), cycles = meter.cycles;
+  let seen = 0, compression = 0;
   try {
     while (!duel.verdict && world.time < seconds) {
-      const before = Object.fromEntries(sides.map(side => {
-        const body = duel.duelists[side].body;
-        const host = body.state.mind.host;
-        return [side, { rate: body.muscles.rate(body.muscles.channel("jaw axis0")), phase: host.bite.cycle.phase,
-          launched: host.bite.launched, returned: host.bite.returned, failed: host.bite.failed,
-          target: structuredClone(host.tactics.target), support: host.motor.endpoints.filter(e => e.contact).length }];
-      }));
+      const before = meter.before();
       world.step();
-      sides.forEach((side, i) => {
-        const bite = duel.duelists[side].body.state.mind.host.bite, was = before[side];
-        if (bite.launched > was.launched) {
-          pending[i] = { launch: world.time, release: null, target: was.target, support: was.support, damage: 0, energy: 0, regions: [] };
-          cycles[i].push(pending[i]);
-        }
-        if (bite.returned > was.returned && pending[i]) { pending[i].release = world.time; pending[i] = null; }
-        if (bite.failed > was.failed && pending[i]) { pending[i].failed = true; pending[i] = null; }
-      });
+      for (const contact of world.physics.materialContacts()) compression = Math.max(compression, contact.depth);
+      meter.after(before, duel.blows.slice(seen));
       sides.forEach((side, i) => { if (duel.duelists[side].body.down) falls[i] ??= world.time; if (duel.duelists[side].body.state.mind.host.bite.launched > 0) firstLaunch[i] ??= world.time; });
       for (const blow of duel.blows.slice(seen)) {
-        sides.forEach((side, i) => {
-          const tooth = blow.sides.find(s => s.fighter === side && s.segment === "jaw" && s.region?.startsWith("tooth"));
-          const victim = blow.sides.find(s => s.fighter !== side);
-          const cycle = pending[i] ?? cycles[i].at(-1);
-          if (tooth && victim?.mechanism === "point" && cycle && !cycle.failed
-            && (before[side].phase === "swing" || blow.work !== undefined)) {
-            cycle.energy += blow.energy;
-            cycle.damage += victim.wound?.taken.reduce((sum, part) => sum + part.hp, 0) ?? 0;
-            cycle.regions.push(tooth.region);
-          }
-        });
         hits.push({ time: blow.time, energy: blow.energy, closing: blow.closing, ...(blow.work === undefined ? {} : { work: blow.work }),
         sides: blow.sides.map(s => ({ fighter: s.fighter, part: s.segment, damage: s.damage, region: s.region, mechanism: s.mechanism,
           taken: s.wound?.taken.reduce((sum, part) => sum + part.hp, 0) ?? 0,
@@ -79,11 +56,11 @@ export async function mirrorTrial(gap = 2, seconds = 30) {
       seen = duel.blows.length;
     }
     return { harness: "Node arena", engine: world.physics.engine, hz: world.hz, balances: [0, 0],
-      gap, seconds: world.time, falls, firstLaunch, verdict: duel.verdict, cycles,
+      gap, seconds: world.time, compression, falls, firstLaunch, verdict: duel.verdict, cycles,
       damagingCycles: cycles.map(list => list.filter(c => c.release !== null && c.damage > 0 && !c.failed).length),
       biteDamage: cycles.reduce((sum, list) => sum + list.reduce((n, c) => n + c.damage, 0), 0), bites: sides.map(side => {
       const bite = duel.duelists[side].body.state.mind.host.bite;
-      return { launched: bite.launched, returned: bite.returned, failed: bite.failed, phase: bite.cycle.phase };
+      return { launched: bite.launched, returned: bite.returned, failed: bite.failed, aborted: bite.aborted, phase: bite.cycle.phase };
     }), centres: sides.map(side => duel.duelists[side].body.observe().centre), bars: sides.map(side => duel.duelists[side].pool.bar()),
       assist: sides.map(side => ({ ...duel.duelists[side].body.assist.meter })), hits };
   } finally { bout.dispose(); }
@@ -97,7 +74,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     }
   } else {
     console.log(JSON.stringify(await motionTrial()));
-    for (const gap of [1.5, 2, 3]) {
+    for (const gap of [1.5, 2, 3, 4]) {
       const row = await mirrorTrial(gap);
       row.hitCount = row.hits.length;
       row.hits = row.hits.filter(hit => hit.sides.some(side => side.part === "jaw" && (side.phase === "swing" || side.before === "swing") && side.jawRate < 0));
