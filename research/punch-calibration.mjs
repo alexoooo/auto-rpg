@@ -146,7 +146,7 @@ export async function punchStand({model='workshop-fighter',hand='right',family='
         maximumCompression,maximumFaceCompression,qualification:{accepted:faults.length===0,faults},
         bestOfThree:best?{time:best.time,speed:best.last10cmSpeed,impulse:best.impulse,peakStepForce:best.peakStepForce,effectiveMass:best.effectiveMass}:null,
         unassignedImpulse:state.unassignedImpulse,preContactTorquePeaks:state.preContactTorquePeaks,
-        impactResponse:{admitted:skills.state.hands[hand].cycle.admitted,aborted:skills.state.hands[hand].cycle.aborted},
+        impactResponse:{admitted:skills.state.blow.hands[hand].cycle.admitted,aborted:skills.state.blow.hands[hand].cycle.aborted},
         effort:structuredClone(effort.state),
         assist:{force:body.assist.meter.force,moment:body.assist.meter.moment}};
     },

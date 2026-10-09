@@ -40,12 +40,16 @@ export interface KickReport {
   readonly failed: number;
   readonly interrupted: number;
 }
-/** A measured support transfer and foot adapter around the shared finite strike cycle. */
-export function kickSkill(body: Body, tuning: KickTuning = KICK_PATH): Skill & {
+/** **A kick skill**: a foot's attack, which takes the stance from the legs while it works. */
+export interface KickSkill extends Skill {
   readonly state: object;
   readonly report: KickReport;
+  /** The stance and foot goals for the kick `requested` or under way, over `stance`; null with none. A kick begins only while `available`. */
   command(view: BodyView, requested: KickAttack | null, stance: StanceGoal | null, available: boolean, dt: number): Pick<BodyCommand, "stance" | "effectors"> | null;
-} {
+}
+
+/** A measured support transfer and foot adapter around the shared finite strike cycle. */
+export function kickSkill(body: Body, tuning: KickTuning = KICK_PATH): KickSkill {
   tuning = Object.freeze({ ...tuning });
   if (!validKickTuning(tuning))
     throw new Error("invalid kick tuning");

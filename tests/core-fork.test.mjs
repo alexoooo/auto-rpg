@@ -323,7 +323,8 @@ const NEEDED = {
   taken: ["width", "squaring", "rising"].map((field) => `skills > legs > ${field}`),
   striker: [
     ...["reference", "placing"].map((field) => `skills > legs > ${field}`),
-    ...["hand", "phase", "blow", "recipe", "distance", "stoodFor", "still", "since", "begun", "readyAt", "origin", "bearing", "steer", "width", "over", "thrown"].map((field) => `skills > strikes > ${field}`),
+    ...["hand", "phase", "blow", "recipe", "distance", "stoodFor", "still", "since", "begun", "readyAt", "origin", "bearing", "steer", "width", "over", "thrown"].map((field) => `skills > blow > ${field}`),
+    "skills > holders",
     "skills > tactics > aim",
   ],
   placed: ["skills > legs > placed"],
@@ -342,7 +343,7 @@ const NOT_MEMORY = {
   ...Object.fromEntries(["aim", "helped", "held", "tasks", "pose"].map((field) =>
     [`${STANCE} > ${field}`, "the stance's `command` writes it each step, for `carry` and `bear` of that step"])),
   "skills > command": "each step the skills write its posture, effectors, pushes and stance before the body reads them: it is in the state for what the body's shares with it",
-  "skills > strikes > pushes": "each command of a strike clears it and fills it before the body reads it",
+  "skills > blow > pushes": "each command of a strike clears it and fills it before the body reads it",
 };
 
 test("a_standing_and_a_walking_body_fork", async () => {

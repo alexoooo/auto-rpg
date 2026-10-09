@@ -111,7 +111,7 @@ const NO_LINE = 1e-6;
  * A hand whose guard names no cover has no goal: its arm is the posture's (`GUARD`). So has the
  * hand a strike has. The skill remembers nothing.
  */
-interface GuardSkill extends Skill {
+export interface GuardSkill extends Skill {
   /** Each hand's goal this step: a cover's places for a hand that guards with one and that `taken` is not; null otherwise. */
   command(view: BodyView, guard: Intent["guard"], taken: Side | null): Readonly<Record<Side, EffectorGoal | null>>;
 }

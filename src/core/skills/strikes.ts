@@ -166,7 +166,7 @@ export const mirroredWindow = (window: StrikeWindow): StrikeWindow =>
 /**
  * Whether `hand` of `spec` closes into its fist to strike: it has a fist pose and a point on it to
  * strike with (`strike`), and holds nothing. Every skill set closes such a hand for its blow
- * (`recipeSkills`, `combatSkills`).
+ * (`skillSet`).
  */
 export function closesToStrike(spec: BodySpec, hand: Side): boolean {
   const segment = spec.segments.find((s) => s.name === `hand.${hand}`);

@@ -17,13 +17,18 @@ export interface SupportReport {
   readonly ready: boolean;
 }
 
-/** A planted-foot fold behind the neutral requested lowering, using the common body and muscle limits. */
-export function supportFold(body: Body): Skill & {
+/** **A support skill**: fighting from low support, the stance and the trunk lowered under what the other skills ask. */
+export interface SupportSkill extends Skill {
   readonly state: object;
   readonly report: SupportReport;
+  /** Move toward `lower` (`Intent.lower`), the body `moving` or not. */
   tick(view: BodyView, lower: number, moving: boolean, dt: number): void;
+  /** `stance` and `posture` as the support under way leaves them. */
   apply(stance: StanceGoal | null, posture: Pose): { stance: StanceGoal | null; posture: Pose };
-} {
+}
+
+/** A planted-foot fold behind the neutral requested lowering, using the common body and muscle limits. */
+export function supportFold(body: Body): SupportSkill {
   const feet = footStatesOf(body.built), upright = uprightness(body.built), middle = new Vector3();
   const others = new Set([...body.built.segments.values()].filter(p => !/^(head|.*Trunk)$/.test(p.spec.name)));
   const clamp = (name: string, goal: number) => {

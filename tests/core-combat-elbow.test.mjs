@@ -64,14 +64,14 @@ test('elbow interpolation survives a fresh-world swing/return fork and resets on
   const a=await stand(),b=await stand();
   try{
    while(a.skills.report.strike.phase!==phase&&a.world.time<5)a.step();a.step(3);
-   assert.equal(a.skills.report.strike.phase,phase);assert.ok(a.skills.state.hands.right.elbow>0);
+   assert.equal(a.skills.report.strike.phase,phase);assert.ok(a.skills.state.blow.hands.right.elbow>0);
    const states=s=>({body:s.body.state,skills:s.skills.state});
    loadStand(b.world,states(b),saveStand(a.world,states(a)));
    const ta=traceOf([a.built]),tb=traceOf([b.built]);
    for(let i=0;i<160;i++){a.step();b.step();ta.take();tb.take();}
    assert.deepEqual(saveStand(a.world,states(a)).state,saveStand(b.world,states(b)).state);
    assert.equal(ta.digest(),tb.digest());assert.ok(a.skills.report.strike.pointCycle.returned.right>=1);
-   a.skills.resume(a.body.view);assert.equal(a.skills.state.hands.right.elbow,0);assert.equal(a.skills.state.hands.right.initialElbow,0);assert.equal(a.skills.report.strike.hand,null);
+   a.skills.resume(a.body.view);assert.equal(a.skills.state.blow.hands.right.elbow,0);assert.equal(a.skills.state.blow.hands.right.initialElbow,0);assert.equal(a.skills.report.strike.hand,null);
   }finally{a.body.dispose();b.body.dispose();a.dispose();b.dispose();}
  }
 });

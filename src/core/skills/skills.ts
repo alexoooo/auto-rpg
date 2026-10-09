@@ -3,13 +3,12 @@ import type { SupportReport } from "./support-fold.ts";
 import type { Body, BodyCommand, BodyView } from "../body.ts";
 import type { Intent } from "../mind/intent.ts";
 import type { Tactics } from "../mind/tactics.ts";
-import type { EffectorGoal, MusclePush } from "../control/motor.ts";
-import type { HandPose, Side } from "../spec/body.ts";
+import { skillSet, type Holders, type SkillParts } from "./arbiter.ts";
 import { guardPosture, guardSkill, type Covering } from "./guard.ts";
 import { locomotion } from "./locomotion.ts";
 import type { Skill } from "./skill.ts";
-import { strikeSkill, type Placed, type StrikeReport } from "./strike.ts";
-import { closesToStrike, REPERTOIRE, type Repertoire } from "./strikes.ts";
+import { recipeStrike, type Placed, type StrikeReport } from "./strike.ts";
+import { REPERTOIRE, type Repertoire } from "./strikes.ts";
 
 /**
  * **The skills**: the one place the tactics' intent (`src/core/mind/intent.ts`) becomes the command a
@@ -28,8 +27,9 @@ import { closesToStrike, REPERTOIRE, type Repertoire } from "./strikes.ts";
  * A bare hand closes into its fist for its blow and opens in the guard (`closesToStrike`), in both.
  *
  * Every skill answers `Skill.resume`, and the skills tell every one of them from one list: a
- * skill added to it cannot be left out. Each controller composes its own: the recipe fighter's
- * here (`recipeSkills`), the path fighter's on the strike cycle (`combatSkills`, `combat.ts`).
+ * skill added to it cannot be left out. One arbiter gives the body's parts to the skills of a set,
+ * one a role (`skillSet`, `arbiter.ts`): the recipe fighter's here (`recipeParts`), the path
+ * fighter's on the strike cycle (`pathParts`, `combat.ts`).
  */
 export interface Skills extends Skill {
   /** The command for this control step. */
@@ -56,6 +56,8 @@ export interface SkillReport {
   readonly engagement?: { readonly phase: string };
   readonly support?: SupportReport;
   readonly kick?: KickReport;
+  /** Which skill had each part of the body (`skillSet`). */
+  readonly holders?: Holders;
 }
 
 /** An experiment's recipe skills, in place of the ones set. */
@@ -70,59 +72,12 @@ export interface RecipeOptions {
   readonly cover?: Covering;
 }
 
-/** Whether a strike in `phase` holds its hand closed: from settling to throw to the blow's end. */
-function closedIn(phase: StrikeReport["phase"]): boolean {
-  switch (phase) {
-    case "settle": case "chamber": case "swing": case "return": return true;
-    case "approach": case "place": case null: return false;
-    default: { const never: never = phase; throw new Error(`unknown strike phase ${never}`); }
-  }
+/** The recipe fighter's skills of `body`: the walk, the recipe strike (`recipeStrike`) and the guard. */
+export function recipeParts(body: Body, { repertoire = REPERTOIRE, placed, steer, cover }: RecipeOptions = {}): SkillParts {
+  const spec = body.built.spec;
+  return { legs: locomotion(body.envelope), guard: guardSkill(spec, cover), blow: recipeStrike(spec, repertoire, placed, steer, guardPosture(spec)) };
 }
 
-/**
- * The recipe fighter's skills of `body`: the walk, the recipe strike and the guard. `tactics` will
- * hand them their intent; their memory (`Tactics.state`) is kept with the skills'.
- */
-export function recipeSkills(body: Body, { state: tactics, engagement }: Pick<Tactics, "state" | "engagement"> = {},
-  { repertoire = REPERTOIRE, placed, steer, cover }: RecipeOptions = {}): Skills {
-  const guarding = guardPosture(body.built.spec);
-  const legs = locomotion(body.envelope), strikes = strikeSkill(body.built.spec, repertoire, placed, steer, guarding), guard = guardSkill(body.built.spec, cover);
-  const none: readonly MusclePush[] = Object.freeze([]);
-  const effectors: Record<string, EffectorGoal | null> = { "hand.left": null, "hand.right": null };
-  const closes = { left: closesToStrike(body.built.spec, "left"), right: closesToStrike(body.built.spec, "right") };
-  const poses: Partial<Record<Side, HandPose>> = { ...(closes.left ? { left: "open" } : {}), ...(closes.right ? { right: "open" } : {}) };
-  const command: { -readonly [K in keyof BodyCommand]: BodyCommand[K] } =
-    { posture: guarding, effectors, pushes: none, stance: null, ...(closes.left || closes.right ? { handPoses: poses } : {}) };
-  const state = { command, legs: legs.state, strikes: strikes.state, tactics: tactics ?? null };
-  const all: readonly Skill[] = [legs, strikes, guard];
-  const report: SkillReport = {
-    get heading() { return legs.heading; },
-    get pace() { return legs.pace; },
-    get reference() { return legs.reference; },
-    strike: strikes.report,
-    ...(engagement ? { engagement } : {}),
-  };
-  return {
-    report, state,
-    resume(view) { for (const skill of all) skill.resume(view); },
-    command(view, intent, dt) {
-      const strike = strikes.command(view, intent.attack, legs.heading, legs.placed, dt);
-      if (!strike) strikes.idle(intent.move !== null, dt);
-      const goal = strike?.footing ? legs.place(view, strike.footing, intent.lower)
-        : strike ? legs.goal(view, strike.walk, strike.face, dt, intent.lower)
-        : legs.goal(view, intent.move, intent.face, dt, intent.lower);
-      // A blow under way turns the heading to follow its target (`STEER`).
-      if (goal) command.stance = strike?.steer ? { ...goal, heading: goal.heading + strike.steer } : goal;
-      command.posture = strike?.posture ?? guarding;
-      command.pushes = strike?.pushes ?? none;
-      // The strike's goal for the hand it has; the guard's for a hand it has not.
-      const thrown = strike?.hands, covers = guard.command(view, intent.guard, strikes.report.hand);
-      const either = !!thrown && (!!thrown.left || !!thrown.right);
-      effectors["hand.left"] = either ? thrown!.left ?? covers.left : covers.left;
-      effectors["hand.right"] = either ? thrown!.right ?? covers.right : covers.right;
-      const closed = closedIn(strikes.report.phase) ? strikes.report.hand : null, held = command.handPoses as Partial<Record<Side, HandPose>> | undefined;
-      if (held) for (const hand of ["left", "right"] as const) if (closes[hand]) held[hand] = closed === hand ? "fist" : "open";
-      return command;
-    },
-  };
-}
+/** The recipe fighter's skill set of `body` (`recipeParts`), which `tactics` will hand their intent. */
+export const recipeSkills = (body: Body, tactics: Pick<Tactics, "state" | "engagement"> = {}, options: RecipeOptions = {}): Skills =>
+  skillSet(body, tactics, recipeParts(body, options));

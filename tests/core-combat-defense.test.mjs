@@ -75,7 +75,7 @@ test('physical predictive defense covers only an available hand and preserves it
    a.world.step();const st=d.minded.skills.state,v=d.minded.body.view;
    defended+=Number(st.tactics.defense==='guard');evaded+=Number(st.tactics.defense==='evade');
    if(st.tactics.defense==='guard'){
-    const hands=Object.entries(st.command.effectors).filter(([h,g])=>h!==`hand.${st.hand}`&&g);
+    const hands=Object.entries(st.command.effectors).filter(([h,g])=>h!==`hand.${st.blow.hand}`&&g);
     assert.ok(hands.length<=1);covered+=hands.length;
     for(const [,goal]of hands)assert.ok(goal.seconds>0&&goal.seconds<=.15);
     const foe=v.senses.others[0];assert.ok(v.time>=foe.time);assert.ok(v.senses.solids.length>20);

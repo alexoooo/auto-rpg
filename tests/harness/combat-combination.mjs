@@ -20,7 +20,7 @@ export async function combinationStand({lead='right',mode='hit',tuning={}}={}) {
   const report=skills.report.strike,other=lead==='right'?'left':'right';
   if(view.time>=2&&!policy.cancelled){
    if(policy.stage==='lead'&&report.overlapHand===other){
-    policy.overlaps.push({time:view.time,lead,returned:report.pointCycle.returned[lead],sequence:skills.state.hands[lead].cycle.sequence});
+    policy.overlaps.push({time:view.time,lead,returned:report.pointCycle.returned[lead],sequence:skills.state.blow.hands[lead].cycle.sequence});
     policy.stage='follow';policy.hand=other;
    }else if(policy.stage==='follow'&&report.hand===other&&report.phase==='return'){
     policy.stage='wait';policy.hand=null;
@@ -29,12 +29,12 @@ export async function combinationStand({lead='right',mode='hit',tuning={}}={}) {
   const hand=policy.hand;
   const command=skills.command(view,{move:null,face:0,guard:NO_COVER,
    attack:view.time>=2&&!policy.cancelled&&hand?{kind:'blow',hand,target:[hand==='right'?.1:-.1,1.63,.6],path:{family:'straight'}}:null},dt);
-  const active=skills.state.hand;
+  const active=skills.state.blow.hand;
   if(active){
    motionAtToRef(s.built.segments.get(`hand.${active}`),view.fists[active].position,velocity,spin);
    velocity.subtractInPlace(view.stance.velocity);
   }
-  policy.witness={hand:active,phase:active?skills.state.hands[active].cycle.phase:null,closing:active?velocity.z:0};
+  policy.witness={hand:active,phase:active?skills.state.blow.hands[active].cycle.phase:null,closing:active?velocity.z:0};
   return command;
  });
  return {...s,body,skills,policy,obstacle,dispose(){body.dispose();s.dispose();}};

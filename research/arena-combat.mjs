@@ -113,9 +113,9 @@ export async function combatTrial(config) {
         if (d.body.down) out.downSeconds += world.dt;
         const phase = d.body.has === 'command' ? report?.engagement?.phase ?? report?.strike.phase ?? 'guard' : d.body.has;
         const strikePhase = report?.strike.phase;
-        if(strikePhase==='swing'&&out.lastPhase!=='swing'&&d.minded.skills.state.hands?.[d.minded.skills.state.hand]?.action) {
+        if(strikePhase==='swing'&&out.lastPhase!=='swing'&&d.minded.skills.state.blow.hands?.[d.minded.skills.state.blow.hand]?.action) {
           const tactics=d.minded.skills.state.tactics;
-          const family=d.minded.skills.state.hands?.[d.minded.skills.state.hand]?.action.path.family,surface=tactics.surface;
+          const family=d.minded.skills.state.blow.hands?.[d.minded.skills.state.blow.hand]?.action.path.family,surface=tactics.surface;
           out.pathLaunches[family]=(out.pathLaunches[family]??0)+1;
           out.intendedSurfaces[surface]=(out.intendedSurfaces[surface]??0)+1;
         }

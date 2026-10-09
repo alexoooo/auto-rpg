@@ -115,7 +115,7 @@ const SQUARE_NEAR = 0.1;
  * the width the body was built standing at, unless it is within `SQUARE_NEAR` of there, before
  * it walks or stands (`squaring`). The reference height stays: it is the body's.
  */
-interface Locomotion extends Skill {
+export interface Locomotion extends Skill {
   /** The stance goal for `walk` and `face` this control step (null before the body's first step). */
   goal(view: BodyView, walk: readonly [forward: number, right: number] | null, face: number, dt: number, lower?: number): StanceGoal | null;
   /** The heading the stance is asked to face, rad. */

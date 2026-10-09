@@ -8,8 +8,8 @@ export async function combatOverlap({lead='right',mode='hit',seconds=10,tuning={
   const contacts=[],phases=[];let overlapSteps=0,fell=false,last=null;
   for(let i=0;i<seconds*120;i++){
    s.step();fell ||= s.body.down;
-   const state=s.skills.state,returning=s.skills.report.strike.returning,phase=state.hand?state.hands[state.hand].cycle.phase:null,key=[state.hand,phase,returning].join('/');
-   if(key!==last){phases.push({time:s.world.time,hand:state.hand,phase,returning});last=key;}
+   const state=s.skills.state,returning=s.skills.report.strike.returning,phase=state.blow.hand?state.blow.hands[state.blow.hand].cycle.phase:null,key=[state.blow.hand,phase,returning].join('/');
+   if(key!==last){phases.push({time:s.world.time,hand:state.blow.hand,phase,returning});last=key;}
    if(returning&&state.command.effectors["hand.left"]&&state.command.effectors["hand.right"])overlapSteps++;
    const w=s.policy.witness;
    if(w.phase==='swing'&&s.obstacle){

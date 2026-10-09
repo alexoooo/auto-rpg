@@ -28,8 +28,8 @@ const COMBAT = Object.freeze({ band: .08, reserve: .08, braking: .5, prediction:
  * **The path fighter's tactics**: an opening chosen on the nearest standing foe's sensed surfaces
  * (`openingSelector`), approached to its working distance and attacked when ready; covers or
  * evasions, ground combat and a kick as its config asks (`PathFighterConfig`, `resolved`); and
- * orders, when it has them, carried out. The common skill carries out what it asks
- * (`combatSkills`). A kick under way decides alone; otherwise the rest decide, then a kick may be admitted.
+ * orders, when it has them, carried out. Its skill set carries out what it asks
+ * (`pathParts`). A kick under way decides alone; otherwise the rest decide, then a kick may be admitted.
  */
 export function pathTactics(spec: BodySpec, name: string, config: PathFighterConfig, resolved: ResolvedPath, orders: (sight: Sight) => Orders | null): Tactics {
   const range = config.spacingStep > 0 ? rangeLearning(config.spacing, config.spacingStep) : null;

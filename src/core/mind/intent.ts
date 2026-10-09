@@ -45,7 +45,7 @@ export const NO_COVER: Intent["guard"] = Object.freeze({ left: null, right: null
  * (`contactResponse`): only its touch may admit the blow's bounded follow-through. The skills carry
  * it out, and refuse a kind they do not: a blow with no `path` is the recipe skill's, which chooses
  * the blow for what the hand holds and brings the body to its range (`src/core/skills/strike.ts`);
- * one with a path is the path skill's (`combatSkills`), as is a kick.
+ * one with a path is the path strike's (`pathStrike`), and a kick is the kick skill's.
  */
 export type Attack = BlowAttack | KickAttack;
 

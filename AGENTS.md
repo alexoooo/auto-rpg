@@ -109,8 +109,8 @@ screens build on it; it never imports them.
   host's view, never by a bar of its own. What a mind is made of is its config, plain data by
   kind (`MindConfig`, `src/core/mind/config.ts`): a fight passes it through, reads nothing in it,
   and holds what it gets by what every kind gives (`Minded`, `src/core/mind/minds.ts`). A skill
-  answers `Skill.resume` and is in the one list its controller's skills resume (`recipeSkills`,
-  `combatSkills`).
+  answers `Skill.resume` and is in the one list its skill set resumes (`skillSet`,
+  `src/core/skills/arbiter.ts`).
 - **A blow has no striker.** Any two segments of two sides that meet closing have met in a blow,
   and the two surfaces share its energy by their compliance (`energyShares`,
   `src/core/rules/share.ts`); an item with no stated surface is rigid. A part's tolerance is the

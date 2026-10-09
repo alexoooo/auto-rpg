@@ -63,7 +63,7 @@ plain bout state.
 
 
 The path fighter selects collider-derived target surfaces and commits a hand trajectory through
-`combatSkills`. Terminal hand velocity and segment identity extend the common IK/muscle path; an optional, range-bounded elbow preference composes with trunk rotation and returns to guard. Optional lateral head-surface samples expand the same collider-based lane search; zero preserves the retained selector.
+`pathStrike`. Terminal hand velocity and segment identity extend the common IK/muscle path; an optional, range-bounded elbow preference composes with trunk rotation and returns to guard. Optional lateral head-surface samples expand the same collider-based lane search; zero preserves the retained selector.
 Optional bounded combinations can overlap an opposite-hand strike with a contact-free, physically
 returning hand. Each hand is a strike of its own (`effectorStrike`), so the returning one keeps its
 motion sequence and completion checks; both arms share the ordinary body command, muscles and
@@ -305,9 +305,22 @@ and driven afresh to change what it costs.
 ### Skills
 
 A controller's skills are the only place an `Intent` becomes a `BodyCommand`, and they report
-back (`SkillReport`: heading, pace, where a strike is). Each controller composes its own: the
-recipe fighter's `recipeSkills` (`src/core/skills/skills.ts`, below) and the path fighter's
-`combatSkills` (`combat.ts`); `driveBy` hands a body to tactics over the skills it is given.
+back (`SkillReport`: heading, pace, where a strike is, and which skill had each part of the body,
+`holders`). A skill set is one skill a role under one arbiter (`skillSet`,
+`src/core/skills/arbiter.ts`): the legs (`Locomotion`), the guard, a blow (`BlowSkill`,
+`skill.ts`), and a kick and a support skill if it has them. A blow skill is given the blow asked,
+or none while a kick is asked or under way, and claims what it uses (`Claim`): each hand's goal,
+the posture, pushes, the hands it holds closed, a turn of the heading, and what it asks of the
+legs (`LegsAsk`: the tactics' walk, no walk, its own walk, or a footing). The arbiter moves the
+support skill first, by the stance the blow under way keeps; takes the blow's claim; has the
+guard cover with each hand the blow does not hold; carries out the legs' ask, a kick or the
+support lowering, low or rising holding the walk; lays the support's stance and trunk over the
+command; and lays a kick's stance and foot goals over it last, a kick beginning only while no
+blow is under way and the body stands. A blow skill of one kind is swapped for another without
+touching the rest. The recipe fighter's set is `recipeParts` (`src/core/skills/skills.ts`), with
+the recipe strike (`recipeStrike`); the path fighter's is `pathParts` (`combat.ts`), with the
+path strike (`pathStrike`); `recipeSkills` and `combatSkills` make each set, and `driveBy` hands
+a body to tactics over the skills it is given.
 
 - **Locomotion** (`locomotion.ts`) walks at no more than the body's measured fastest walk, turns
   only while walking and no faster than its envelope and optional `turnLimit` allow, and can

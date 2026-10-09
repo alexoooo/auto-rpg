@@ -27,7 +27,7 @@ test('the shared executor rejects invalid action arm styles before capturing a s
   s.step(240);const snapshot=structuredClone(s.skills.state);
   for(const armExtension of [-.1,1.1,NaN,Infinity]){
    assert.throws(()=>s.skills.command(s.body.view,{move:null,face:0,guard:NO_COVER,attack:{...s.action,path:{...s.action.path,armExtension}}},1/120),/armExtension/);
-   assert.equal(s.skills.state.hands.right.action,snapshot.hands.right.action);assert.equal(s.skills.state.hand,null);
+   assert.equal(s.skills.state.blow.hands.right.action,snapshot.blow.hands.right.action);assert.equal(s.skills.state.blow.hand,null);
   }
  }finally{s.body.dispose();s.dispose();}
 });
@@ -49,19 +49,19 @@ test('captured arm style survives changed proposals, verified return, fresh-worl
   const a=await stand(hand,1),b=await stand(hand,1);
   try{
    while(a.skills.report.strike.phase!=='swing'&&a.world.time<5)a.step();a.step(8);
-   assert.equal(a.skills.report.strike.phase,'swing');assert.ok(a.skills.state.hands[hand].elbow>0);
+   assert.equal(a.skills.report.strike.phase,'swing');assert.ok(a.skills.state.blow.hands[hand].elbow>0);
    a.action.path.armExtension=0;
    const states=s=>({body:s.body.state,skills:s.skills.state});
    loadStand(b.world,states(b),saveStand(a.world,states(a)));b.action.path.armExtension=0;
    const ta=traceOf([a.built]),tb=traceOf([b.built]);let returned=false;
    for(let i=0;i<200;i++){
-    if(a.skills.report.strike.hand&&!returned)assert.equal(a.skills.state.hands[hand].action.path.armExtension,1);
+    if(a.skills.report.strike.hand&&!returned)assert.equal(a.skills.state.blow.hands[hand].action.path.armExtension,1);
     a.step();b.step();ta.take();tb.take();returned ||= a.skills.report.strike.pointCycle.returned[hand]>0;
    }
    assert.equal(returned,true);assert.deepEqual(saveStand(a.world,states(a)).state,saveStand(b.world,states(b)).state);
-   assert.equal(ta.digest(),tb.digest());assert.equal(a.skills.state.hands[hand].action.path.armExtension,0);
+   assert.equal(ta.digest(),tb.digest());assert.equal(a.skills.state.blow.hands[hand].action.path.armExtension,0);
    assert.equal(a.skills.state.command.posture[`elbow.${hand} flexion`],GUARD[`elbow.${hand} flexion`]);
-   a.skills.resume(a.body.view);assert.equal(a.skills.state.hands[hand].elbow,0);assert.equal(a.skills.state.hands[hand].initialElbow,0);assert.equal(a.skills.state.hands[hand].action,null);
+   a.skills.resume(a.body.view);assert.equal(a.skills.state.blow.hands[hand].elbow,0);assert.equal(a.skills.state.blow.hands[hand].initialElbow,0);assert.equal(a.skills.state.blow.hands[hand].action,null);
   }finally{a.body.dispose();b.body.dispose();a.dispose();b.dispose();}
  }
 });

@@ -47,7 +47,7 @@ test('lateral Arena selection carries through the shared physical strike and fre
  try{
   const d=a.duel.duelists.left,skills=d.minded.skills;
   while(a.duel.clock<20&&!(skills.report.strike.phase==='swing'&&skills.state.tactics.surface==='head'))a.world.step();
-  assert.equal(skills.report.strike.phase,'swing');assert.equal(skills.state.tactics.surface,'head');assert.ok(skills.state.hands[skills.state.hand]?.action);
+  assert.equal(skills.report.strike.phase,'swing');assert.equal(skills.state.tactics.surface,'head');assert.ok(skills.state.blow.hands[skills.state.blow.hand]?.action);
   b.duel.load(a.duel.save());const trace=s=>traceOf(Object.values(s.duel.duelists).map(d=>d.built)),ta=trace(a),tb=trace(b);
   for(let i=0;i<240;i++){a.world.step();b.world.step();ta.take();tb.take();}
   assert.deepEqual(a.duel.save().state,b.duel.save().state);assert.equal(ta.digest(),tb.digest());

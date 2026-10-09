@@ -11,7 +11,7 @@ import { deepFreeze } from "../state.ts";
 import { GUARD } from "./guard.ts";
 import { PLACING, type Footing } from "./locomotion.ts";
 import { wrap } from "../math/turn.ts";
-import type { Skill } from "./skill.ts";
+import type { BlowSkill, Skill } from "./skill.ts";
 import { aimOf, holdsAt, netsOf, recipeAt, recipesFor, REPERTOIRE, type Band, type Chosen, type Repertoire, type StrikeWindow } from "./strikes.ts";
 import { sin, cos, asin, atan2, hypot } from "../math/real.ts";
 
@@ -518,6 +518,45 @@ export function strikeSkill(spec: BodySpec, repertoire: Repertoire, placing: Pla
         }
       }
       return { walk, face, footing, posture, pushes, hands: goals, steer };
+    },
+  };
+}
+
+/** Whether a strike in `phase` holds its hand closed: from settling to throw to the blow's end. */
+function closedIn(phase: StrikeReport["phase"]): boolean {
+  switch (phase) {
+    case "settle": case "chamber": case "swing": case "return": return true;
+    case "approach": case "place": case null: return false;
+    default: { const never: never = phase; throw new Error(`unknown strike phase ${never}`); }
+  }
+}
+
+const OPEN: Readonly<Record<Side, boolean>> = Object.freeze({ left: false, right: false });
+const CLOSED: Readonly<Record<Side, Readonly<Record<Side, boolean>>>> = Object.freeze({
+  left: Object.freeze({ left: true, right: false }), right: Object.freeze({ left: false, right: true }),
+});
+
+/**
+ * **The recipe strike as a blow skill**: `strikeSkill`'s command, claimed of the body. Its blow
+ * walks the body to its place, or sets the feet there, and has the legs while it works; its hand
+ * is closed from settling to the blow's end. Given no blow, it counts the body's stand
+ * (`StrikeSkill.idle`).
+ */
+export function recipeStrike(spec: BodySpec, repertoire: Repertoire = REPERTOIRE, placing: Placed = PLACED, steering = STEER, guard: Pose = GUARD): BlowSkill {
+  const strike = strikeSkill(spec, repertoire, placing, steering, guard), { report } = strike;
+  return {
+    report, state: strike.state, releases: false, lower: null,
+    get holds() { return report.hand; },
+    get busy() { return report.hand !== null; },
+    resume: (view) => strike.resume(view),
+    command(view, attack, intent, around, dt) {
+      const made = strike.command(view, attack, around.heading, around.placed, dt);
+      if (!made) { strike.idle(intent.move !== null, dt); return null; }
+      const closed = closedIn(report.phase) && report.hand ? CLOSED[report.hand] : OPEN;
+      return {
+        hands: made.hands, posture: made.posture === guard ? null : made.posture, pushes: made.pushes, closed, steer: made.steer,
+        legs: made.footing ? { kind: "place", footing: made.footing } : { kind: "walk", walk: made.walk, face: made.face },
+      };
     },
   };
 }

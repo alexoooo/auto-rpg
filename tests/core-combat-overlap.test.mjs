@@ -22,16 +22,16 @@ test('both leading hands overlap real strikes and returns through one unpinned b
     const state=s.skills.state,r=s.skills.report.strike.returning;
     assert.equal(s.body.down,false);
     if(r){
-     const back=state.hands[r];
-     overlapSteps++;assert.notEqual(state.hand,r);assert.equal(back.cycle.phase,'return');
+     const back=state.blow.hands[r];
+     overlapSteps++;assert.notEqual(state.blow.hand,r);assert.equal(back.cycle.phase,'return');
      assert.ok(state.command.effectors["hand.left"]);assert.ok(state.command.effectors["hand.right"]);
      assert.equal(state.command.effectors[`hand.${r}`].sequence,back.cycle.sequence);
      assert.equal(s.body.state.mind.host.motor.effectors[`hand.${r}`].goal.sequence,back.cycle.sequence,'return motion keeps its identity');
      if(!wasBack){
-      starts++;assert.equal(before.hands[r].cycle.phase,'return');assert.equal(before.hand,r);
-      assert.equal(back.cycle.returned,before.hands[r].cycle.returned,'overlap is not a verified return');
+      starts++;assert.equal(before.blow.hands[r].cycle.phase,'return');assert.equal(before.blow.hand,r);
+      assert.equal(back.cycle.returned,before.blow.hands[r].cycle.returned,'overlap is not a verified return');
       assert.equal(s.body.view.effectors[`hand.${r}`].feedback.impulse,0,'old contact has cleared');
-      const was=before.hands[r].cycle.previous,at=back.cycle.previous;
+      const was=before.blow.hands[r].cycle.previous,at=back.cycle.previous;
       assert.ok(at.reduce((sum,v,k)=>sum+(v-was[k])*(back.home[k]-v),0)>0,'physical hand motion is homeward');
      }
     }
@@ -65,11 +65,11 @@ test('overlapping chamber and swing forks preserve complete motion; cancellation
    assert.equal(a.skills.report.strike.hand,null);assert.equal(a.skills.report.strike.returning,null);
    a.step(120);assert.deepEqual(a.skills.report.strike.thrown,thrown);
    a.policy.cancelled=false;a.policy.stage='lead';a.policy.hand=lead;
-   while(!a.skills.report.strike.returning&&a.world.time<12)a.step();assert.ok(a.skills.report.strike.returning);assert.ok(a.skills.state.hand);
+   while(!a.skills.report.strike.returning&&a.world.time<12)a.step();assert.ok(a.skills.report.strike.returning);assert.ok(a.skills.state.blow.hand);
    const interrupted=a.skills.report.strike.pointCycle.interrupted;
    a.skills.resume(a.body.view);
    assert.equal(a.skills.report.strike.pointCycle.interrupted,interrupted+2);
-   assert.equal(a.skills.state.hand,null);assert.equal(a.skills.report.strike.returning,null);assert.equal(a.skills.report.strike.overlapHand,null);
+   assert.equal(a.skills.state.blow.hand,null);assert.equal(a.skills.report.strike.returning,null);assert.equal(a.skills.report.strike.overlapHand,null);
   }finally{a.dispose();b.dispose();}
  }
 });
@@ -109,8 +109,8 @@ test('both Arena assignments overlap only a promised opposite-hand follow-up, ne
     const state=skills.state,combo=state.tactics.combo,back=skills.report.strike.returning;
     if(before.tactics.combo.hand)promise=before.tactics.combo;
     if(back&&!wasBack){
-     starts++;assert.ok(promise);assert.equal(state.hand,promise.hand);assert.notEqual(state.hand,back);
-     assert.equal(skills.report.strike.pointCycle.returned[back],before.hands[back].cycle.returned);
+     starts++;assert.ok(promise);assert.equal(state.blow.hand,promise.hand);assert.notEqual(state.blow.hand,back);
+     assert.equal(skills.report.strike.pointCycle.returned[back],before.blow.hands[back].cycle.returned);
     }
     if(combo.depth===1)assert.equal(combo.hand,null);
     assert.equal(d.body.down,false);

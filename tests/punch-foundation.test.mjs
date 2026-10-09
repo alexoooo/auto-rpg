@@ -17,7 +17,7 @@ test('both planted physical fists use matched tactile contact, bounded impact pa
   try{while(s.world.time<6){s.step();if(s.skills.report.strike.impact){impacts++;
     assert.equal(s.built.handPoses.state[hand].applied,'fist');
     assert.equal(s.skills.state.command.effectors[`hand.${hand}`].places[0].point,'strike');
-    const {origin,finish,elapsed}=s.skills.state.hands[hand].cycle.impact;
+    const {origin,finish,elapsed}=s.skills.state.blow.hands[hand].cycle.impact;
     assert.ok(Math.hypot(...finish.map((v,k)=>v-origin[k]))<=PUNCH_EXECUTION.impactTravel+1e-10);
     assert.ok(elapsed<PUNCH_EXECUTION.impactSeconds);assert.equal(contactResponse(s.body.view.effectors[`hand.${hand}`].feedback,'punch-pad'),'target');
    }}
@@ -49,7 +49,7 @@ test('cancellation interrupts an admitted impact and a fresh-world fork replays 
    const cancel=s=>s.body.drive((view,dt)=>s.skills.command(view,{move:null,face:0,guard:NO_COVER,attack:null},dt));
    cancel(a);cancel(b);a.step(240);b.step(240);
    assert.deepEqual(a.reading(),b.reading());assert.deepEqual(saveStand(a.world,states(a)).state,saveStand(b.world,states(b)).state);
-   assert.equal(a.skills.report.strike.hand,null);assert.equal(a.skills.state.hands[hand].cycle.aborted,1);
+   assert.equal(a.skills.report.strike.hand,null);assert.equal(a.skills.state.blow.hands[hand].cycle.aborted,1);
    assert.equal(a.reading().cycles.failed,0);assert.equal(a.reading().cycles.returned[hand],1);
   }finally{a.dispose();b.dispose();}
  }
