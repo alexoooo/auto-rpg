@@ -67,25 +67,23 @@ The fighter's skills sit in its own slots: `locomotion`, `guard`, `blow`, and th
 - **Presets keep their ids** (`classic`, `combat`, `brawler`, `scrapper`, `kicker`, `crawl`), so
   today's links still pick the same mind.
 
-## Owner's choices this plan puts
+## Decided (owner, 2026-10-09)
 
-Each needs an answer before the chunk named.
-
-A. **Who sees experimental parts** (before chunk 1, which adds `stage`; it takes effect in chunk 6).
-   - *Every player*, each such part labelled "experimental" in its own group. Recommended: it is
-     what was asked for.
-   - *Only with a research switch* (`&research=1`).
-
-B. **How a link carries a tree** (before chunk 1).
-   - *Readable keys*, one per setting or slot, by its path: `&left.tactics.aim=pays`,
-     `&left.skills.blow=path-strike`. Recommended: links stay readable and only differences
-     from the preset are written.
-   - *An encoded tree*, one JSON parameter a side.
-   - *Readable keys, plus an encoded tree* once a side's differences pass a length.
-
-C. **What the Crypt lets a player change** (before chunk 4).
-   - *The party's minds*, with enemies' minds shown but not editable. Recommended.
-   - *The enemies' too*, per model, from the start panel.
+- **Nothing is hidden.**
+  - Every part of a role is listed in its picker. A part that does not fit the body, or that the
+    screen does not provide for, is shown disabled, with the reason.
+  - Experimental parts are offered beside the game's, each labelled "experimental". There is no
+    switch.
+  - A part's research `tuning` is shown read-only under it, in the editor and the inspector.
+- **A link is an implementation detail**, done the simplest way that works.
+  - A side's mind travels as its preset's id or, once edited, as its whole config in JSON, one
+    parameter.
+  - No per-setting keys, no old-key aliases, no diffing against the preset.
+  - The writer leaves `tuning` out, and the reader drops any it finds, so research settings still
+    never travel in a link.
+  - A config with a fault plays its preset, as today.
+- **The Crypt.** The player configures the party's minds. Enemies have their model's
+  pre-configured mind, which the player can view in the inspector but not change.
 
 ## Chunks, each landing green
 
@@ -111,7 +109,7 @@ the difference is reported with the case and the step where the poses part.
 Browser checks use `npm run preview -- --port 5181`, killed by PID afterwards. Port 5180 may be
 the owner's.
 
-### 1. Parts and slots: the registry, generic links and a recursive panel
+### 1. Parts and slots: the registry, links and a recursive panel
 
 Nothing changes how a body moves. The sub-minds become parts, and today's `down` field becomes
 the fighters' `subs` slot.
@@ -128,13 +126,10 @@ the fighters' `subs` slot.
   - `partOf(config)`, which throws for an unknown kind as `controllerOf` does;
   - `treeFaults(config)`: each fault prefixed with its path (`subs.0`);
   - `treeFits(spec, config)`;
-  - `settingsOf(config)`: every setting and slot in the tree as `{ path, read, write }`, in panel
-    order;
-  - `withSetting(config, path, text)`: the config with one setting or slot changed, or null for
-    text it does not take. Setting a slot to a kind puts that kind's `defaults` there. A list
-    slot reads and writes its kinds joined by `+`, as `down` does today;
-  - `kindsFor(role, spec, offered)`: the parts of a role that fit a body, `offered` saying
-    what the screen provides (chunk 4's `script`).
+  - `withoutTuning(config)`: the tree with every part's `tuning` left out;
+  - `kindsFor(role, spec, offered)`: every part of a role, each with null or the reason it
+    cannot go there: it does not fit the body, or needs what the screen does not provide
+    (`offered`, chunk 4's `script`). A slot set to a kind takes that kind's `defaults`.
 - `src/core/mind/fields.ts`:
   - `ControllerField` becomes `PartField`;
   - `down()` and `DOWN` are deleted.
@@ -145,41 +140,47 @@ the fighters' `subs` slot.
 - `src/core/mind/controllers.ts`:
   - `Controller` becomes `MindPart extends Part`, keeping `presets`, `builtIn` and `create`;
   - `CONTROLLERS` keeps its role;
-  - `fieldsOf` and `controllerOf` are replaced by `settingsOf` and `partOf`;
+  - `fieldsOf` and `controllerOf` are replaced by `partOf`;
   - each fighter gets a `subs` slot of role `sub-mind`, `many`.
 - `src/core/mind/catalog.ts` (**new**): `PARTS`, every part by kind across roles, typed so
   that a kind without an entry does not compile, as `CONTROLLERS` is.
 - `src/core/mind/minds.ts`: `createMind` refuses a config with any `treeFaults`.
 - `src/core/models.ts`: `modelSupportsMind` reads `treeFits`.
-- `src/ui/mind-link.ts` (**new**, no DOM), the Arena's link logic made generic:
-  - `readMindSettings(preset, setting, aliases)`;
-  - `mindSettingsSearch(...)`, which writes only paths that differ from the preset;
-  - `MIND_ALIASES`: old keys read and never written. `down` is `subs`; `guard` is today's
-    `GUARD_PARAM`.
-- `src/ui/mind-editor.ts` (**new**): `mindEditor(config, { label, offered, onChange })`, drawing
-  the tree recursively:
-  - a field as today's panel draws it;
-  - a single slot as a picker of `kindsFor` its role, opening the chosen part's own fields and
-    slots beneath;
+- `src/ui/mind-link.ts` (**new**, no DOM):
+  - `readMind(text, preset)`: the config parsed from JSON with its tuning dropped, or the preset
+    for text that does not parse, a kind no part has, or a tree with a fault;
+  - `writeMind(config)`: `withoutTuning`, as JSON.
+- `src/ui/mind-editor.ts` (**new**): `mindEditor(config, { label, spec, offered, onChange })`,
+  drawing the tree recursively:
+  - a field as today's panel draws it, through the field's own `read` and `write`;
+  - a single slot as a picker of every kind `kindsFor` gives, the ones that cannot go there
+    disabled with their reason, opening the chosen part's own fields and slots beneath;
   - a list slot as an ordered list with add, remove and move up;
-  - a part of stage `experimental` labelled per choice A;
+  - a part of stage `experimental` labelled so;
+  - a part's `tuning`, read-only;
   - faults with their paths.
-- `src/arena/matchup.ts`: `settled`, `linkedSettings`, `settingsSearch`, `readMinds` and
-  `controllerLabel` are read through `src/ui/mind-link.ts`.
+- `src/arena/matchup.ts`:
+  - a side's mind is `&control=` (its preset), or `&left.mind=` / `&right.mind=`, the whole
+    config through `readMind`, which wins;
+  - `settled`, `linkedSettings`, `settingsSearch`, `settingKey` and `GUARD_PARAM` are deleted;
+  - `readMinds` and `controllerLabel` read the two parameters.
 - `src/arena/main.ts`: the settings panel is `mindEditor`. The panel's DOM handling stays as
   AGENTS.md says: stop `pointerdown`, blur on change.
+- `scripts/fingerprint.mjs`: reads minds through `readMinds` as before.
 - `tests/core-parts.test.mjs` (**new**), `tests/core-controllers.test.mjs`,
   `tests/arena-controls.test.mjs`
-- `docs/architecture.md` (Minds)
+- `docs/architecture.md` (Minds); `AGENTS.md` (Pages: `&left.mind=` in place of
+  `&left.<field>=`)
 
 **Tests:**
 - every kind in `PARTS` has a role, and every slot's role has at least one part;
-- every preset goes through `settingsOf` and `withSetting` back to itself, as a whole record;
+- every preset, with `tuning` set on it, goes through `writeMind` and `readMind` back to itself
+  without the tuning, as a whole record;
+- text that does not parse, an unknown kind, and a tree with a fault each read as the preset;
 - a fault in a nested part comes back with its path;
-- `&left.down=staged-rise` still reads as the `subs` slot, and a link written from it says
-  `left.subs=staged-rise`;
 - a part of the wrong role in a slot is a fault;
-- with a slot removed from a part's registry entry, the round-trip test goes red.
+- `kindsFor` lists the quadruped's mind for a humanoid, disabled with its reason;
+- with `withoutTuning` made to keep one part's tuning, the round-trip test goes red.
 
 **Gate:** the full gate, and the behaviour lock unchanged. In the browser, check the Arena's
 panel for every preset, with a sub-mind added, moved and removed.
@@ -284,9 +285,6 @@ Nothing changes how a body moves. Recipe fighter and path fighter become presets
 - `src/core/tasks/support-entry.ts`, and the research scripts that build fighter configs:
   `research/arena-combat.mjs`, `body-cost.mjs`, `bout-trace.mjs`, `core-rise-trials.mjs`,
   `core-rise.mjs`.
-- `src/ui/mind-link.ts`: `MIND_ALIASES` maps each of today's field keys to its path. `aim`
-  becomes `tactics.aim`; `kicks=yes` becomes `skills.kick=front-kick`; `ground=yes` becomes
-  `skills.support=support-fold`.
 - `tests/core-parts.test.mjs`, `tests/core-controllers.test.mjs`, `tests/arena-controls.test.mjs`,
   `tests/arena-fork.test.mjs`, `tests/core-fork.test.mjs`, `tests/core-ground.test.mjs`,
   `tests/harness/fork.mjs`
@@ -294,9 +292,9 @@ Nothing changes how a body moves. Recipe fighter and path fighter become presets
   same figures)
 
 **Tests:**
-- every one of today's links reads to the same config as before, presets and settings alike;
-- `classic` with `left.skills.blow=path-strike` is a fault at `skills.blow`, and the preset plays;
-- `combat` with `left.skills.blow=recipe-strike` plays;
+- every preset id reads to its re-expressed config;
+- Classic with its blow set to the path strike is a fault at `skills.blow`, and the preset plays;
+- Combat with its blow set to the recipe strike plays;
 - a fighter with no kick skill never asks for a kick;
 - a forked bout under each preset goes on as the unforked one.
 
@@ -323,18 +321,18 @@ Nothing changes how a body moves under the default minds.
   `src/lab/scenarios.ts`:
   - `script`: the script on the game's recipe skills, lying still;
   - `guard`: standing in guard.
-- `src/lab/scenarios.ts`:
-  - `&mind=<preset>` and `&mind.<path>=` through `src/ui/mind-link.ts`;
-  - the old `mind=script|guard` and `down=lie|rise` read as aliases.
+- `src/lab/scenarios.ts`: `&mind=` is a Lab preset's id or a whole config (`readMind`). `&down=`
+  is deleted: it is the config's `subs`.
 - `src/lab/blow.ts`, `src/lab/routine.ts`: pass their skill overrides as config `tuning`.
 - `src/lab/hud/character-section.ts`: the Type and Down choices become `mindEditor`.
 - `src/lab/hud/thinking-section.ts`: the inspector.
 - `src/dungeon/run.ts`: `RunOptions.minds`, the party's configs by model. Enemies take their
-  model's (`modelInfo`), or their own under choice C.
+  model's (`modelInfo`).
 - `src/dungeon/main.ts`:
   - the start panel's party rows get a mind picker and `mindEditor`;
-  - `&mind=` and `&mind.<path>=` apply to the party;
-  - the selected member's panel shows the inspector.
+  - the party's minds travel as `&mind=`, through `readMind`;
+  - the selected member's panel shows the inspector;
+  - an enemy under the cursor (`src/dungeon/hover.ts`) or selected shows the inspector, read-only.
 - `src/ui/mind-inspector.ts` (**new**): `mindInspector(minded, config)` draws the config's
   tree, marking live:
   - who has the body (`PhysicalBody.has`);
@@ -347,8 +345,9 @@ Nothing changes how a body moves under the default minds.
 - `docs/architecture.md` (Minds, The screens), `README.md` (choosing and changing a mind)
 
 **Tests:**
-- every old Lab link opens the same scenario under the same mind;
-- a `script` tactics part offered with no script is not in `kindsFor`;
+- `&mind=script` and `&mind=guard` open the scenario under the minds `LAB_MINDS` gave;
+- on a screen that provides no script, the `script` tactics part is listed disabled, with its
+  reason;
 - a party member given a path fighter in `RunOptions.minds` is built under it, while the
   enemies keep their model's;
 - the inspector's holders name the blow part while a blow is under way, and the guard's after it.
@@ -419,7 +418,7 @@ read.
 **Tests:**
 - on the stand, each part takes a blow, lands it or misses, gives the body back, and the body
   stays up;
-- each part is `experimental`, and is offered as choice A says.
+- each part is `experimental`, and is offered in every blow picker with that label.
 
 **Gate:**
 - the full gate, and the behaviour lock unchanged;
