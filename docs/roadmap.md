@@ -94,7 +94,9 @@ After it, each with its own plan, in the order each needs the one before:
   A person's is 8 m/s ([punch calibration](reference/punch-calibration.md)), and no paired-limb
   family reaches trained-adult force ([trained force](reference/trained-attack-force.md)). The
   body itself brings the hand to 8.6 m/s at full reach from the guard
-  (`docs/analysis/2026-10-08-punch-and-rise-speed.md@7f3ebcdb`).
+  (`docs/analysis/2026-10-08-punch-and-rise-speed.md@7f3ebcdb`). Neither a layer on today's
+  stance nor the whole-body solve lands a blow at the competency's 6.8 m/s
+  ([punch layer](analysis/2026-10-08-punch-layer.md)).
 - **Kicks.** Either-foot [front kicks](reference/front-kicks.md) share the punch's tracker and
   cycle. Higher targets and competitive kick selection are open.
 - **Rising.** Rising is built to the feet and continues Arena bouts:
