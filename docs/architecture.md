@@ -497,7 +497,7 @@ sub-minds, locomotion and the strike cycle), not a flag that chooses a stack. Th
 searched recipe blows, `recipe-fighter.ts`), the **path fighter** (Combat, Brawler, Scrapper,
 Kicker: hand paths on the strike cycle, `path-fighter.ts`), the **quadruped** (crawl and bite)
 and **direct** joint control. A config read from a save or a link whose kind none has is refused
-(`controllerOf`), and so is one its controller names a fault in (`faults`, which `createMind`
+(`partOf`), and so is a tree any part of which names a fault (`treeFaults`, which `createMind`
 reads). A controller's config holds a player's fields, plain choices, and under `tuning` an
 experiment's settings, which never travel in a link. The recipe fighter's are `guard`, `aim` and
 `range`; its preset is `CLASSIC`, which rises by stages. The path fighter's are the hand that
@@ -506,18 +506,31 @@ whether it kicks and fights on the ground, its combinations and its spacing; the
 with its tuning once into the settings its tactics and its skills share (`resolvePath`), and its
 presets are `COMBAT`, `BRAWLER`, `SCRAPPER` and `KICKER`.
 
-**A controller names the settings a person may change** (`Controller.fields`, built from
-`fields.ts`'s `choice`, `toggle`, `number` and `down`): each field's label, the values it takes
-or its range, and how it reads and writes a config. The recipe fighter's are its three player
-fields and what it does when down; the path fighter's are its player fields and the same; the
-quadruped has none yet. The fields alone drive the Arena's settings panel under each side's
-controller, the link (`&left.<key>=`, `&right.<key>=`, written by `settingsSearch` only where a
-value differs from the preset) and its reading (`readMinds`, `settled` in `src/arena/matchup.ts`):
-a value a field does not take keeps the preset's, a config its controller names a fault in is the
-preset whole (the panel shows the fault), and an old link's `&guard=` sets each recipe fighter's
-guard where its side's own is not given. A bout's HUD names the preset, `(edited)` where the
-link changes it (`controllerLabel`). A tape's link carries its settings, so a replay drives the
-same minds.
+**A mind is a tree of parts** (`Part`, `src/core/mind/parts.ts`). Each part has a role (`mind`
+or `sub-mind`), a label, a stage (`game`, or `experimental` for research offered beside the
+game's), the settings a person may change (`fields`, built from `fields.ts`'s `choice`, `toggle`
+and `number`), its slots, the config it starts from (`defaults`), the bodies it fits (`fits`) and
+what is wrong with a config of it (`faults`). A slot is a key of the config that holds another
+part of a stated role, or a ranked list of them (`slotList`). The controllers are the parts of
+role `mind`; the sub-minds are `SUB_MIND_PARTS`; `PARTS` (`src/core/mind/catalog.ts`) is every
+part by kind, typed so that a kind without one does not compile. Over it, once for every part:
+`treeFaults` names each fault by its path in the tree (`subs.0: ...`), a part of the wrong role
+in a slot among them; `treeFits` asks every part whether it fits a body; `withoutTuning` leaves
+out every part's `tuning`; and `kindsFor` lists every part of a role, none left out, each with
+the reason it cannot go there for a body or null. Both fighters hand their body to the sub-minds
+in their `subs` slot.
+
+**The mind editor** (`mindEditor`, `src/ui/mind-editor.ts`) draws a tree for a body: each part's
+fields, its research `tuning` read-only, each single slot as a picker of every part of its role
+(the ones that cannot go there disabled with the reason, an experimental one so labelled), each
+list slot with add, move up and remove, and the tree's faults by path. It is the Arena's panel
+under each side's controller. A side's mind travels in a link as its preset (`&control=`) or,
+once edited, as its whole config in JSON under `&left.mind=` or `&right.mind=` (`writeMind`,
+`parseMind` in `src/ui/mind-link.ts`; `linkedMind`, `readMinds` and `mindsSearch` in
+`src/arena/matchup.ts`), with no part's `tuning`: the reader drops any it finds, and a tree with a
+fault, or one that does not fit its body, plays the preset whole while the panel shows the fault.
+A bout's HUD names the preset, `(edited)` where the link changes it (`controllerLabel`). A tape's
+link carries its minds, so a replay drives the same minds.
 
 There are three sub-minds, each of which wants the body while it is down
 (`BodyView.down`), and the body hands each maker its world (`SubMindMaker`): `lie` (`lying`,
@@ -954,7 +967,7 @@ file or a link gives the orders the bout gave.
 
 A tape rides in a link's fragment, which no server is sent (`#tape=`, `readTape` and `tapeHash`
 in `src/arena/matchup.ts`), with the rest of its recipe in the link's query (`&gap=`, `&cap=`,
-`&balance=`, each side's settings). The arena plays a bout whose link carries a tape with nobody at the keys, and a
+`&balance=`, each side's mind). The arena plays a bout whose link carries a tape with nobody at the keys, and a
 tape made in Node plays its bout in a browser.
 
 **A bout forks** (`rollout`, `research/rollouts.mjs`) by a load: a bout of the recipe, which the

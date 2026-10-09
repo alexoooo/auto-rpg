@@ -122,9 +122,8 @@ A link can name its matchup and open the bout directly:
 `workshop-rogue` and `crypt-skeleton`). It may also say how far apart the two start (`&gap=3`,
 metres), how long the bout may run (`&cap=30`, seconds) and what each right hand holds
 (`&held=empty` for a bare-handed bout, or `&held=empty,club` left then right) which controller each side
-runs (`&control=classic,brawler`) with any of its settings changed (`&left.guard=cover`: the left
-side's free hand covers what threatens the head; the Settings under each side's controller write
-these), and carry a bout's orders after a `#tape=`, which the arena then plays
+runs (`&control=classic,brawler`), each side's mind as edited in the **Mind** panel under its
+controller (`&left.mind=`, written by the panel), and carry a bout's orders after a `#tape=`, which the arena then plays
 again by itself.
 
 ## The Crypt

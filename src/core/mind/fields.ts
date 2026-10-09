@@ -1,13 +1,11 @@
-import type { SubMindConfig } from "./config.ts";
-
-/** A value a field may take, as a link writes it, and its name on the page. */
+/** A value a field may take, as text, and its name on the page. */
 type Option<V extends string> = readonly [value: V, name: string];
 
 interface Field<C> {
-  /** The key a link writes it under, after its side: `&left.<key>=`. */
+  /** Its key in the config. */
   readonly key: string;
   readonly label: string;
-  /** Its value in `config`, as a link writes it. */
+  /** Its value in `config`, as text. */
   read(config: C): string;
   /** `config` with `text` for its value; null for text this field does not take. */
   write(config: C, text: string): C | null;
@@ -29,10 +27,10 @@ interface NumberField<C> extends Field<C> {
 }
 
 /**
- * **A setting a person may change** on a controller's config (`Controller.fields`): a player's
- * field, never an experiment's `tuning`. The Arena's panel shows it and a link carries it.
+ * **A setting a person may change** on a part's config (`Part.fields`): a player's field, never an
+ * experiment's `tuning`. The mind editor shows it (`src/ui/mind-editor.ts`).
  */
-export type ControllerField<C> = ChoiceField<C> | NumberField<C>;
+export type PartField<C> = ChoiceField<C> | NumberField<C>;
 
 /** The string-valued field `key` of a config, from `options`. */
 export function choice<C, K extends keyof C & string>(key: K, label: string, options: readonly Option<C[K] & string>[]): ChoiceField<C> {
@@ -62,20 +60,6 @@ export function number<C, K extends keyof C & string>(key: K, label: string, lea
     write: (config, text) => {
       const value = text.trim() === "" ? NaN : Number(text);
       return Number.isFinite(value) && value >= least && value <= most ? { ...config, [key]: value } : null;
-    },
-  };
-}
-
-const DOWN: readonly Option<SubMindConfig["kind"]>[] = [["lie", "Lie still"], ["staged-rise", "Rise by stages"], ["support-recovery", "Rise, then steady"]];
-
-/** What a fighter does when it is down: the one sub-mind its config hands its body to (`subs`). */
-export function down<C extends { readonly subs: readonly SubMindConfig[] }>(): ChoiceField<C> {
-  return {
-    kind: "choice", key: "down", label: "When down", options: DOWN,
-    read: (config) => config.subs.map((sub) => sub.kind).join("+"),
-    write: (config, text) => {
-      const kind = DOWN.find(([value]) => value === text)?.[0];
-      return kind ? { ...config, subs: [{ kind }] } : null;
     },
   };
 }

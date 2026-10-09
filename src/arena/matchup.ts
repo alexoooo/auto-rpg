@@ -1,12 +1,13 @@
-import { BODY_MODELS, modelHolds, modelSupportsMind, type BodyModel } from "../core/models.ts";
+import { BODY_MODELS, modelHolds, modelSpec, modelSupportsMind, type BodyModel } from "../core/models.ts";
 import type { MindConfig } from "../core/mind/config.ts";
-import { controllerOf, fieldsOf, PRESETS } from "../core/mind/controllers.ts";
+import { PRESETS } from "../core/mind/controllers.ts";
 import { isOrders } from "../core/mind/orders.ts";
 import { balanceFrom } from "../core/rules/rulebook.ts";
 import { SIDES, type OrdersEntry } from "./duel.ts";
 import { HELD, type Held } from "../core/items/held.ts";
 import { appearanceFor, type Appearance } from "../render/appearance.ts";
 import type { Side } from "../core/spec/body.ts";
+import { parseMind, writeMind, type LinkedMind } from "../ui/mind-link.ts";
 
 /** The arena link's parameter: `?matchup=left,right`, each a core model. */
 export const MATCHUP_PARAM = "matchup";
@@ -96,12 +97,6 @@ export function readHeld(search: string): Readonly<Record<Side, Held>> | undefin
 }
 
 /**
- * An old link's parameter for how both sides guard (`&guard=cover`): read as each side's `guard`
- * setting where the side's own is not given, and never written.
- */
-const GUARD_PARAM = "guard";
-
-/**
  * The gap, m, and the cap, s, a link may ask for (`DuelRecipe.gap`, `.capSeconds`), a numeric setting:
  * from the two all but touching to the arena's floor, and from a second to ten minutes.
  */
@@ -167,67 +162,39 @@ export function controlsFor(model: BodyModel): readonly Control[] {
   return Object.keys(PRESETS).filter((control) => modelSupportsMind(model, PRESETS[control]!.config));
 }
 
-/** The link's key for `side`'s setting `key` (`Controller.fields`): `&left.guard=cover`. */
-const settingKey = (side: Side, key: string): string => `${side}.${key}`;
+/** The link's key for `side`'s mind once a person has changed it from its preset: its whole tree (`writeMind`). */
+const mindKey = (side: Side): string => `${side}.mind`;
 
 /**
- * `side`'s controller's config as `search` sets it: the selected preset with each of the
- * controller's fields the link writes for the side (`&left.<key>=`, or an old link's `&guard=`). A
- * value a field does not take keeps the preset's; a config its controller finds a fault in is the
- * preset whole.
+ * `side`'s mind as `search` carries it, faults and all (`parseMind`): what its panel shows. The
+ * preset `control=` names, unless the link carries the side's own tree.
  */
-function sideMind(search: string, side: Side, control: Control): MindConfig {
-  const { config, faults } = linkedSettings(search, side, control);
-  return faults.length > 0 ? PRESETS[control]!.config : config;
+export function linkedMind(search: string, side: Side): LinkedMind {
+  const preset = PRESETS[readControls(search)[side]]!.config;
+  return parseMind(new URLSearchParams(search).get(mindKey(side)), modelSpec(readMatchup(search)[side])) ?? { config: preset, faults: [] };
 }
 
-/** The preset `control` with `side`'s settings as `search` writes them, faults and all (`settled`): what the panel shows. */
-export function linkedSettings(search: string, side: Side, control: Control = readControls(search)[side]): ReturnType<typeof settled> {
-  const query = new URLSearchParams(search);
-  return settled(control, (key) => query.get(settingKey(side, key)) ?? (key === GUARD_PARAM ? query.get(GUARD_PARAM) : null));
-}
-
-/**
- * The preset `control` with each of its controller's fields set to what `setting` gives for its key
- * (`Controller.fields`), a value the field does not take keeping the preset's, and what the
- * controller finds wrong with the result (`Controller.faults`).
- */
-export function settled(control: Control, setting: (key: string) => string | null): { readonly config: MindConfig; readonly faults: readonly string[] } {
-  const preset = PRESETS[control]!.config;
-  let config = preset;
-  for (const field of fieldsOf(preset)) {
-    const text = setting(field.key);
-    if (text !== null) config = field.write(config, text) ?? config;
-  }
-  return { config, faults: controllerOf(config).faults(config) };
-}
-
-/** The selected controllers' configs, each its preset with the link's settings (`sideMind`). */
+/** The sides' minds as `search` carries them (`linkedMind`); a side whose tree has a fault plays its preset whole. */
 export function readMinds(search: string): Readonly<Record<Side, MindConfig>> {
-  const controls = readControls(search);
-  return { left: sideMind(search, "left", controls.left), right: sideMind(search, "right", controls.right) };
+  const controls = readControls(search), read = (side: Side) => {
+    const { config, faults } = linkedMind(search, side);
+    return faults.length > 0 ? PRESETS[controls[side]]!.config : config;
+  };
+  return { left: read("left"), right: read("right") };
 }
 
-/**
- * `search` with each side's settings (`Controller.fields`) written where `settings` differ from
- * its preset, each as its field reads it, and no other: no old `&guard=`, no value a field does not
- * take, and no key of a field its controller lacks.
- */
-export function settingsSearch(search: string, settings: Readonly<Record<Side, Readonly<Record<string, string>>>>): string {
+/** `search` with each side's mind written where it differs from its preset (`writeMind`), and no other. */
+export function mindsSearch(search: string, minds: Readonly<Record<Side, MindConfig>>): string {
   const query = new URLSearchParams(search), controls = readControls(search);
-  query.delete(GUARD_PARAM);
-  for (const key of [...query.keys()]) if (/^(left|right)\./.test(key)) query.delete(key);
   for (const side of SIDES) {
-    const preset = PRESETS[controls[side]]!.config;
-    for (const field of fieldsOf(preset)) {
-      const text = settings[side][field.key], set = text === undefined ? null : field.write(preset, text);
-      if (set && field.read(set) !== field.read(preset)) query.set(settingKey(side, field.key), field.read(set));
-    }
+    const text = writeMind(minds[side]);
+    query.delete(mindKey(side));
+    if (text !== writeMind(PRESETS[controls[side]]!.config)) query.set(mindKey(side), text);
   }
   return `?${query}`;
 }
 
-/** What the bout calls a side's controller: its preset's name, `(edited)` where the address changes the preset's settings. */
+/** What the bout calls a side's controller: its preset's name, `(edited)` where the address carries a mind of its own. */
 export function controllerLabel(search: string, side: Side): string {
   const control = readControls(search)[side];
   const edited = JSON.stringify(readMinds(search)[side]) !== JSON.stringify(PRESETS[control]!.config);

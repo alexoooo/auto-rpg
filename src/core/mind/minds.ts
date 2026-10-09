@@ -7,6 +7,7 @@ import type { Skills } from "../skills/skills.ts";
 import type { BodySpec } from "../spec/body.ts";
 import type { World } from "../world.ts";
 import type { MindConfig } from "./config.ts";
+import { treeFaults } from "./catalog.ts";
 import { controllerOf } from "./controllers.ts";
 import type { Orders } from "./orders.ts";
 import type { Senses } from "./senses.ts";
@@ -50,9 +51,9 @@ export function builtAngles(spec: BodySpec, config: MindConfig): Record<string, 
   return poseAngles(spec, controllerOf(config).builtIn(spec, config));
 }
 
-/** `built` under the mind `config` names, wired to its fight, made by its controller (`CONTROLLERS`); a config with a fault is refused. */
+/** `built` under the mind `config` names, wired to its fight, made by its controller (`CONTROLLERS`); a config with a fault anywhere in its tree (`treeFaults`) is refused. */
 export function createMind(built: BuiltBody, world: World, config: MindConfig, wiring: MindWiring): Minded {
-  const controller = controllerOf(config), fault = controller.faults(config)[0];
+  const fault = treeFaults(config)[0];
   if (fault) throw new Error(fault);
-  return controller.create(built, world, config, wiring);
+  return controllerOf(config).create(built, world, config, wiring);
 }

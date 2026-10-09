@@ -13,7 +13,7 @@ import { airOf, hearTouches } from "../audio/body-sounds.ts";
 import { debrisCues } from "../audio/cues.ts";
 import { GameAudio } from "../audio/game-audio.ts";
 import { loadEngine } from "../core/engine/engines.ts";
-import { BODY_MODELS, modelHolds, modelInfo, type BodyModel } from "../core/models.ts";
+import { BODY_MODELS, modelHolds, modelInfo, modelSpec, type BodyModel } from "../core/models.ts";
 import { MODEL_DISPLAY } from "../render/models.ts";
 import { createWorld, type World } from "../core/world.ts";
 import type { SkinView } from "../render/skin-view.ts";
@@ -22,8 +22,10 @@ import { drawBody, drawHeld, type BodyShapes } from "../render/body-shapes.ts";
 import { dresserFor, type Dresser } from "../render/dress.ts";
 import { fighterHands } from "../render/strike-hands.ts";
 import { Duel, SIDES, type DuelEnding, type Verdict } from "./duel.ts";
-import { MATCHUP_PARAM, appearanceSearch, readAppearances, matchupSearch, readBalance, readCap, readGap, CONTROLS, controllerLabel, controlsFor, readControls, readMinds, readRecovery, readHeld, readMatchup, readTape, readYou, linkedSettings, settingsSearch, settled, youSearch, type Matchup } from "./matchup.ts";
-import { fieldsOf, PRESETS } from "../core/mind/controllers.ts";
+import { MATCHUP_PARAM, appearanceSearch, readAppearances, matchupSearch, readBalance, readCap, readGap, CONTROLS, controllerLabel, controlsFor, readControls, readMinds, readRecovery, readHeld, readMatchup, readTape, readYou, linkedMind, mindsSearch, youSearch, type Matchup } from "./matchup.ts";
+import { PRESETS } from "../core/mind/controllers.ts";
+import { partOf } from "../core/mind/catalog.ts";
+import { mindEditor } from "../ui/mind-editor.ts";
 import type { MindConfig } from "../core/mind/config.ts";
 import { Color3 } from "@babylonjs/core/Maths/math.color.js";
 import { arenaCameraRig, type ArenaSubjects } from "./camera.ts";
@@ -89,8 +91,8 @@ export async function bootArena(): Promise<void> {
   const youPicker = need<HTMLSelectElement>("you");
   youPicker.value = you ?? "";
   const controlPickers = {} as Record<Side, HTMLSelectElement>, heldPickers = {} as Record<Side, HTMLSelectElement>;
-  // Each side's settings as its panel shows them, by field key (`Controller.fields`).
-  const settingsOf = {} as Record<Side, () => Record<string, string>>;
+  // Each side's mind as its panel shows it (`mindEditor`).
+  const mindOf = {} as Record<Side, () => MindConfig>;
   const controls = readControls(location.search), heldChoices = readHeld(location.search);
   const linkedControl = JSON.stringify(readMinds(location.search)), linkedRecovery = readRecovery(location.search);
   const linkedHeld = JSON.stringify(heldChoices ?? { left: modelInfo(matchup.left).held, right: modelInfo(matchup.right).held });
@@ -132,47 +134,17 @@ export async function bootArena(): Promise<void> {
     for (const [value, textContent] of Object.entries(CONTROLS)) control.append(Object.assign(document.createElement("option"), { value, textContent }));
     control.value = controls[side];
     controller.append(control); choices.append(controller); controlPickers[side] = control;
-    // The controller's settings, its preset's until changed; the linked controller's as the link writes them, with any fault.
+    // The mind's tree (`mindEditor`), its preset's until changed; the linked mind as the link carries it, with any fault.
     const settings = document.createElement("details"), summary = document.createElement("summary");
-    const fields = document.createElement("div"), fault = document.createElement("p");
-    settings.className = "settings"; summary.textContent = "Settings"; fault.className = "settings-fault";
-    settings.append(summary, fields, fault); choices.append(settings);
-    const inputs = new Map<string, HTMLSelectElement | HTMLInputElement>();
-    const value = (key: string): string | null => inputs.get(key)?.value ?? null;
-    const showFault = () => {
-      const { faults } = settled(control.value, value);
-      fault.hidden = faults.length === 0;
-      fault.textContent = faults.length ? `${faults.join("; ")}: the preset is used` : "";
-    };
+    settings.className = "settings"; summary.textContent = "Mind";
+    const editor = mindEditor(linkedMind(location.search, side).config, { spec: modelSpec(matchup[side]), onFault: "the preset is used" });
+    settings.append(summary, editor.element); choices.append(settings);
     const showSettings = (config: MindConfig) => {
-      inputs.clear();
-      fields.replaceChildren(...fieldsOf(config).map((field) => {
-        const row = document.createElement("label"), name = document.createElement("span");
-        row.className = "field"; name.textContent = field.label;
-        const input = (() => {
-          switch (field.kind) {
-            case "choice": {
-              const select = document.createElement("select");
-              for (const [value, textContent] of field.options) select.append(Object.assign(document.createElement("option"), { value, textContent }));
-              return select;
-            }
-            case "number":
-              return Object.assign(document.createElement("input"), { type: "number", min: String(field.least), max: String(field.most), step: String(field.step) });
-            default: { const never: never = field; throw new Error(`no field of kind ${JSON.stringify(never)}`); }
-          }
-        })();
-        input.value = field.read(config);
-        input.setAttribute("aria-label", `${side} ${field.label.toLowerCase()}${field.kind === "number" ? `, ${field.unit}` : ""}`);
-        input.addEventListener("change", () => { input.blur(); showFault(); });
-        inputs.set(field.key, input);
-        row.append(name, input);
-        return row;
-      }));
-      settings.hidden = inputs.size === 0;
-      showFault();
+      editor.set(config, modelSpec(select.value as BodyModel));
+      settings.hidden = partOf(config).fields.length === 0 && partOf(config).slots.length === 0;
     };
-    settingsOf[side] = () => Object.fromEntries([...inputs].map(([key, input]) => [key, input.value]));
-    showSettings(linkedSettings(location.search, side).config);
+    showSettings(editor.config);
+    mindOf[side] = () => editor.config;
     control.addEventListener("change", () => { control.blur(); showSettings(PRESETS[control.value]!.config); });
     const equipment = document.createElement("label"), held = document.createElement("select");
     equipment.className = "field"; equipment.textContent = "Right hand"; held.setAttribute("aria-label", `${side} equipment`);
@@ -185,7 +157,7 @@ export async function bootArena(): Promise<void> {
       const model = select.value as BodyModel, choices = controlsFor(model), previous = control.value;
       control.replaceChildren(...choices.map(value => Object.assign(document.createElement("option"), { value, textContent: CONTROLS[value] })));
       control.value = choices.includes(previous as typeof choices[number]) ? previous : readControls(matchupSearch("", { ...matchup, [side]: model }))[side];
-      if (control.value !== previous) showSettings(PRESETS[control.value]!.config);
+      showSettings(control.value !== previous ? PRESETS[control.value]!.config : editor.config);
       const hands = modelHolds(model);
       equipment.hidden = !hands;
       for (const option of held.options) option.disabled = !hands && option.value !== "empty";
@@ -316,7 +288,7 @@ export async function bootArena(): Promise<void> {
       query.set("control", SIDES.map((side) => controlPickers[side].value).join(","));
       query.set("held", SIDES.map((side) => heldPickers[side].value).join(","));
       query.set("recovery", recoveryPicker.value);
-      const search = settingsSearch(`?${query}`, { left: settingsOf.left(), right: settingsOf.right() });
+      const search = mindsSearch(`?${query}`, { left: mindOf.left(), right: mindOf.right() });
       const sameControllers = linkedControl === JSON.stringify(readMinds(search));
       const sameRecovery = (linkedRecovery ?? null) === (readRecovery(search) ?? null);
       const sameHeld = linkedHeld === JSON.stringify(readHeld(search));
