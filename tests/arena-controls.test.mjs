@@ -16,6 +16,7 @@ import { saveState } from "../src/core/state.ts";
 import { createWorld } from "../src/core/world.ts";
 import { traceOf } from "./harness/trace.mjs";
 import { freshEngine } from "./harness/core-stand.mjs";
+import { withParts } from "./fixtures/minds.mjs";
 
 async function bout(overrides = {}) {
   const engine = new NullEngine(), scene = new Scene(engine), world = createWorld(scene, await freshEngine());
@@ -40,27 +41,37 @@ test("each side's mind travels in a link as its whole tree, without research tun
   const query = (search) => new URLSearchParams(search);
   // A preset writes nothing; a changed tree writes itself whole, and a link drops any research tuning.
   assert.equal(mindsSearch("?control=classic,combat", { left: CLASSIC, right: COMBAT }), "?control=classic%2Ccombat");
-  const edited = { ...COMBAT, prefers: "body", spacing: .5, subs: [{ kind: "staged-rise" }, { kind: "lie" }] };
-  const search = mindsSearch("?control=classic,combat&left.mind=x", { left: CLASSIC, right: { ...edited, tuning: { turnLimit: 2 } } });
+  const edited = withParts(COMBAT, { tactics: { prefers: "body", spacing: .5 }, subs: [{ kind: "staged-rise" }, { kind: "lie" }] });
+  const tuned = withParts(edited, { locomotion: { tuning: { turnLimit: 2 } }, blow: { tuning: { paths: { returnLimit: .05 } } } });
+  const search = mindsSearch("?control=classic,combat&left.mind=x", { left: CLASSIC, right: tuned });
   assert.deepEqual(JSON.parse(query(search).get("right.mind")), edited);
   assert.equal(query(search).get("left.mind"), null);
   assert.deepEqual(readMinds(search), { left: CLASSIC, right: edited });
-  assert.deepEqual(readMinds(`?control=classic,combat&right.mind=${encodeURIComponent(JSON.stringify({ ...edited, tuning: { turnLimit: 2 } }))}`).right, edited);
-  // Every field of every preset, set to each value it takes but the preset's, round trips, or is the preset where the tree has a fault.
+  assert.deepEqual(readMinds(`?control=classic,combat&right.mind=${encodeURIComponent(JSON.stringify(tuned))}`).right, edited);
+  // Every field of every part of every preset, set to each value it takes but the preset's, round trips, or is the preset where the tree has a fault.
+  let fields = 0;
   for (const [control, { config: preset }] of Object.entries(PRESETS)) {
-    for (const field of partOf(preset).fields) {
+    const parts = [[null, preset], ...partOf(preset).slots.filter((slot) => !slot.many && preset[slot.key]).map((slot) => [slot.key, preset[slot.key]])];
+    for (const [key, part] of parts) for (const field of partOf(part).fields) {
       const values = field.kind === "choice" ? field.options.map(([value]) => value) : [field.least, field.most].map(String);
-      for (const value of values.filter((value) => value !== field.read(preset))) {
-        const config = field.write(preset, value), linked = mindsSearch(`?control=classic,${control}`, { left: CLASSIC, right: config });
-        assert.deepEqual(readMinds(linked).right, treeFaults(config).length > 0 ? preset : config, `${control} ${field.key}=${value}`);
+      for (const value of values.filter((value) => value !== field.read(part))) {
+        const changed = field.write(part, value), config = key ? { ...preset, [key]: changed } : changed;
+        const linked = mindsSearch(`?control=classic,${control}`, { left: CLASSIC, right: config });
+        assert.deepEqual(readMinds(linked).right, treeFaults(config).length > 0 ? preset : config, `${control} ${key}.${field.key}=${value}`);
         assert.deepEqual(readMinds(linked).left, CLASSIC);
+        fields++;
       }
     }
   }
+  assert.ok(fields > 40, `${fields} changes of a field`);
   // A tree with a fault is the preset whole, and the panel shows it with why.
-  const faulty = { ...COMBAT, combinations: "overlap", hands: "right" }, refused = mindsSearch("?control=classic,combat", { left: CLASSIC, right: faulty });
+  const faulty = withParts(COMBAT, { tactics: { combinations: "follow-up", hands: "right" } }), refused = mindsSearch("?control=classic,combat", { left: CLASSIC, right: faulty });
   assert.deepEqual(readMinds(refused).right, COMBAT);
-  assert.deepEqual(linkedMind(refused, "right"), { config: faulty, faults: ["combat combinations require alternate hands"] });
+  assert.deepEqual(linkedMind(refused, "right"), { config: faulty, faults: ["tactics: combat combinations require alternate hands"] });
+  // Classic with the path strike for its blow is a fault at the blow, and plays Classic.
+  const pathed = withParts(CLASSIC, { blow: { kind: "path-strike", overlap: false } }), classic = mindsSearch("?control=classic,combat", { left: pathed, right: COMBAT });
+  assert.deepEqual(readMinds(classic).left, CLASSIC);
+  assert.deepEqual(linkedMind(classic, "left").faults, ["blow: the path strike carries out a blow only along a path, and these tactics name none"]);
   const nested = mindsSearch("?control=classic,combat", { left: CLASSIC, right: { ...COMBAT, subs: [{ kind: "lie" }, { kind: "fly" }] } });
   assert.deepEqual(linkedMind(nested, "right").faults, ['subs.1: no part of kind "fly"']);
   assert.deepEqual(readMinds(nested).right, COMBAT);
@@ -77,7 +88,7 @@ test("each side's mind travels in a link as its whole tree, without research tun
   // The HUD marks an edited side.
   assert.deepEqual(["left", "right"].map((side) => controllerLabel(search, side)), ["Classic fighter", "Combat (experimental) (edited)"]);
   assert.equal(controllerLabel("?control=classic,brawler", "right"), "Brawler (experimental)");
-  assert.equal(readMinds(`?control=classic,scrapper&right.mind=${encodeURIComponent(JSON.stringify({ ...SCRAPPER, spacing: .25 }))}`).right.spacing, .25);
+  assert.equal(readMinds(`?control=classic,scrapper&right.mind=${encodeURIComponent(JSON.stringify(withParts(SCRAPPER, { tactics: { spacing: .25 } })))}`).right.tactics.spacing, .25);
   assert.deepEqual(readMinds("?control=brawler,classic").left, BRAWLER);
   assert.deepEqual(readMinds("?control=classic,classic").left, CLASSIC);
 });

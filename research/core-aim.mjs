@@ -1,5 +1,5 @@
 /**
- * Whether a fighter that aims at the part its blow pays most on (`RecipeFighterConfig.aim`,
+ * Whether a fighter that aims at the part its blow pays most on (`SeekConfig.aim`,
  * `"pays"`) does better than one that aims at the head: arena bouts (`bout.mjs`), each in a world
  * of its own on a worker (`bout-pool.mjs`).
  *
@@ -35,6 +35,7 @@ import { BAND_NAMES, netsOf, recipesFor, REPERTOIRE } from "../src/core/skills/s
 import { BOUT_HARNESS } from "./bout.mjs";
 import { defaultLanes, playBouts } from "./bout-pool.mjs";
 import { heldSpec } from "./core-blow.mjs";
+import { withParts } from "../tests/fixtures/minds.mjs";
 
 const { values } = parseArgs({ options: {
   bouts: { type: "string", default: "384" }, from: { type: "string", default: "0" },
@@ -78,7 +79,7 @@ function sideOf(row, side) {
 
 /** A bout's job, and the record its row becomes: `pays` is the side that aims at what pays, or null in the control. */
 function jobOf(seed, held, left, right, pays) {
-  const mind = (side) => side === pays ? { ...RECIPE_FIGHTER, aim: "pays" } : RECIPE_FIGHTER;
+  const mind = (side) => side === pays ? withParts(RECIPE_FIGHTER, { tactics: { aim: "pays" } }) : RECIPE_FIGHTER;
   return {
     key: { seed, gap: gapOf(seed), held, left, right, pays },
     recipe: { left, right, gap: gapOf(seed), held: { left: held, right: held }, minds: { left: mind("left"), right: mind("right") } },

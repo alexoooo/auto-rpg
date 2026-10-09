@@ -29,7 +29,7 @@ export function validCombatExecution(execution: CombatExecution): boolean {
     .every(v => Number.isFinite(v) && v >= 0) && execution.normalAlignment <= 1;
 }
 
-/** **What a path fighter's skills are made of**; a setting left out is its default. */
+/** **What the path strike's usual skill set is made of**; a setting left out is its default. */
 interface CombatSettings {
   /** The hands' paths. */
   readonly paths?: AttackTuning;
@@ -204,7 +204,7 @@ export function pathStrike(body: Body, { paths: tuning = ATTACK_PATH, execution,
   };
 }
 
-/** The path fighter's skills of `body`: the walk, the guard, the path strike, and the kick and the support fold it has. */
+/** The path strike's usual skills of `body`: the walk, the guard, the path strike, and the kick and the support fold it has. */
 export function pathParts(body: Body, { paths, kick, execution, turnLimit, turnStartup, ground = false, overlap = false }: CombatSettings = {}): SkillParts {
   return {
     legs: locomotion(body.envelope, turnLimit, turnStartup), guard: guardSkill(body.built.spec),
@@ -213,6 +213,6 @@ export function pathParts(body: Body, { paths, kick, execution, turnLimit, turnS
   };
 }
 
-/** The path fighter's skill set of `body` (`pathParts`), which `tactics` will hand their intent. */
+/** The path strike's usual skill set of `body` (`pathParts`), which `tactics` will hand their intent. */
 export const combatSkills = (body: Body, tactics: Pick<Tactics, "state" | "engagement"> = {}, settings: CombatSettings = {}): Skills =>
   skillSet(body, tactics, pathParts(body, settings));

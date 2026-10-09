@@ -5,9 +5,10 @@ import {buildBout} from '../research/bout.mjs';
 import {loadEngine,DEFAULT_ENGINE} from '../src/core/engine/engines.ts';
 import {STAND_ORDERS} from '../src/core/mind/orders.ts';
 import {traceOf} from './harness/trace.mjs';
+import {withParts} from './fixtures/minds.mjs';
 
 async function make(side='left',paths={}) {
- const other=side==='left'?'right':'left',candidate={...SCRAPPER,spacing:.1,combinations:'follow-up',tuning:{paths}};
+ const other=side==='left'?'right':'left',candidate=withParts(SCRAPPER,{tactics:{spacing:.1,combinations:'follow-up'},blow:{tuning:{paths}}});
  return buildBout({left:'workshop-fighter',right:'workshop-fighter',held:{left:'empty',right:'empty'},balance:{left:0,right:0},
   minds:{[side]:candidate,[other]:BRAWLER},gap:1.9,recoverySeconds:null,capSeconds:30},{physicsEngine:await loadEngine(DEFAULT_ENGINE)});
 }

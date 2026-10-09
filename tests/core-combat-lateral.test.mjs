@@ -8,6 +8,7 @@ import {buildBout} from '../research/bout.mjs';
 import {loadEngine,DEFAULT_ENGINE} from '../src/core/engine/engines.ts';
 import {frameOf} from '../src/core/spec/body.ts';
 import {traceOf} from './harness/trace.mjs';
+import {withParts} from './fixtures/minds.mjs';
 
 const recipe={left:'workshop-fighter',right:'workshop-fighter',held:{left:'empty',right:'empty'},balance:{left:0,right:0},
  minds:{left:SCRAPPER,right:SCRAPPER},recoverySeconds:null,capSeconds:30};
@@ -41,7 +42,7 @@ test('both real guard hands can select a lateral collider surface while zero pre
 });
 
 test('lateral Arena selection carries through the shared physical strike and fresh-world replay',async()=>{
- const candidate={...SCRAPPER,spacing:.1,tuning:{paths:{elbowExtension:1},openings:{head:-.6,upperTrunk:0,middleTrunk:0,headLateral:.5}}};
+ const candidate=withParts(SCRAPPER,{tactics:{spacing:.1,tuning:{openings:{head:-.6,upperTrunk:0,middleTrunk:0,headLateral:.5}}},blow:{tuning:{paths:{elbowExtension:1}}}});
  const r={...recipe,minds:{left:candidate,right:COMBAT},gap:2};
  const a=await buildBout(r,{physicsEngine:await loadEngine(DEFAULT_ENGINE)}),b=await buildBout(r,{physicsEngine:await loadEngine(DEFAULT_ENGINE)});
  try{

@@ -1,8 +1,22 @@
-# The path fighter's presets against Classic
+# The opening presets against Classic
 
-How each preset of the path fighter (Combat, Brawler, Scrapper, Kicker) fares against the recipe
-fighter's Classic, on the Warrior against itself, bare-handed and with the wooden club. These are
-the README's figures; the run sets no bar.
+How each fighter preset of the opening tactics over the path strike (Combat, Brawler, Scrapper,
+Kicker) fares against Classic, the seeking tactics over the recipe strike, on the Warrior against
+itself, bare-handed and with the wooden club. These are the README's figures; the run sets no bar.
+
+Each preset is a fighter's tree (`FighterConfig`, `src/core/mind/config.ts`):
+
+| preset | tactics | blow | kick | low support | when down |
+|---|---|---|---|---|---|
+| Classic | `seek`: the pose, the head, walking in | `recipe-strike` | none | none | `staged-rise` |
+| Combat | `openings`: both hands in turn, straight blows, the head, cover, no combinations, no spacing | `path-strike`, no overlap | none | none | `support-recovery` |
+| Brawler | Combat's, with straight blows and hooks at the body | as Combat | none | none | as Combat |
+| Scrapper | Brawler's | as Combat | none | `support-fold` | as Combat |
+| Kicker | Brawler's | as Combat | `front-kick` | `support-fold` | as Combat |
+
+Each walks in the stance (`stance-walk`) and guards with `cover-guard`. The figures were read
+with each preset as a controller of its own (the recipe and path fighters), whose bouts the
+fighter's trees play to the bit: the behaviour lock (`scripts/fingerprint.mjs`) moves no pose.
 
 **Harness:** Node Arena Duel, rapier-coordinate (`rapier/adapter-9/...coordinate-limits`), 120 Hz,
 symmetric actuation; the arena-combat protocol (`COMBAT_PROTOCOL`): 60 s cap, recovery continuing,

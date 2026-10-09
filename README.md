@@ -57,8 +57,10 @@ Its anatomy is an authored estimate; its blunt bite is weak, and fighting effect
 unqualified against humanoids. [Control checks](docs/reference/reptile.md) cover standing, fast
 travel, biting mirror matches, release and recovery. Recovery may take several retries,
 particularly from awkward leg positions.
-Classic strikes by searched recipes; Combat, Brawler, Scrapper and Kicker are presets of one
-path fighter, which strikes along hand paths on a shared strike cycle.
+Every humanoid preset is one fighter whose tactics and skills you can change in the Arena's
+panel. Classic seeks its foe and strikes by searched recipes; Combat, Brawler, Scrapper and Kicker
+choose openings and strike along hand paths on a shared strike cycle, Scrapper fighting from low
+support too and Kicker kicking.
 Against Classic on two Warriors ([384 bouts each](docs/reference/controller-presets.md)), every
 preset wins bare-handed (Kicker 1.00, Combat 0.99, Brawler and Scrapper 0.98), all of it at the
 time cap, and loses with clubs (Combat 0.24, Brawler 0.12, Kicker 0.10, Scrapper 0.10), often by

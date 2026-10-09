@@ -111,7 +111,7 @@ pad at the cell's place (0.1 m to the hand's side, 1.55 m up, 0.55 m ahead), at 
 | Rogue, 120 Hz | 11/12 | 2.25 | 0.80 | 0.29 | 7/12 | 0 |
 | Rogue, 480 Hz | 12/12 | 3.75 | 2.03 | 0.19 | 8/12 | 0 |
 
-Today's controller, the path fighter's planted cross ([baseline](competencies.md#punch)), lands
+Today's controller, the path strike's planted cross ([baseline](competencies.md#punch)), lands
 the Warrior's blows at 4.4 to 4.9 m/s with first contact at 0.34 to 0.37 s, and the Rogue's at 1.7
 to 4.0 m/s, most of them late or not at all. No cell of either meets the threshold: every trial
 upright, 95 % landed, every landed blow 6.8 m/s or faster, first contact within 0.5 s.

@@ -1,5 +1,5 @@
 /**
- * Whether a fighter that covers what threatens its head (`RecipeFighterConfig.guard`, `"cover"`) is
+ * Whether a fighter that covers what threatens its head (`SeekConfig.guard`, `"cover"`) is
  * hit there less than one that guards in the pose: arena bouts (`bout.mjs`), each in a world of
  * its own on a worker (`bout-pool.mjs`).
  *
@@ -25,7 +25,7 @@
  *   the head's hit points over 0.2, with no more falls.
  *
  * - `--variants` are the covering side's experiments, each a part of its mind's config
- *   (`covering`, `threat`: `RecipeFighterConfig.tuning`): a sweep's cells, against one control.
+ *   (`covering`: the guard's `tuning`; `threat`: the tactics'): a sweep's cells, against one control.
  * - `--save` appends each bout's record to a file as it is read, and `--load` reads records in
  *   place of playing: a run cut short is not lost, and two sets are read as one.
  */
@@ -37,6 +37,7 @@ import { HUMANOID_MODELS } from "../src/core/models.ts";
 import { RECIPE_FIGHTER } from "../src/core/mind/config.ts";
 import { BOUT_HARNESS } from "./bout.mjs";
 import { defaultLanes, playBouts } from "./bout-pool.mjs";
+import { withParts } from "../tests/fixtures/minds.mjs";
 
 const { values } = parseArgs({ options: {
   bouts: { type: "string", default: "384" }, from: { type: "string", default: "0" }, delays: { type: "string", default: "0,24" },
@@ -76,9 +77,12 @@ function sideOf(row, side) {
   return { head, taken, on, fell: row.fallen.includes(side), won: row.winner === side };
 }
 
+/** The fighter that covers under `variant`'s experiment: its cover on the guard, its threat on the tactics. */
+const covering = ({ covering, threat }) => withParts(RECIPE_FIGHTER, { tactics: { guard: "cover", tuning: { threat } }, guard: { tuning: { covering } } });
+
 /** A bout's job, and the record its row becomes: `covers` is the side that covers, or null in the control. */
 function jobOf(seed, held, delay, left, right, variant, covers) {
-  const mind = (side) => side === covers ? { ...RECIPE_FIGHTER, guard: "cover", tuning: variants[variant] } : RECIPE_FIGHTER;
+  const mind = (side) => side === covers ? covering(variants[variant]) : RECIPE_FIGHTER;
   return {
     key: { seed, gap: gapOf(seed), held, delay, left, right, variant, covers },
     recipe: { left, right, gap: gapOf(seed), senseDelay: delay, held: { left: held, right: held }, minds: { left: mind("left"), right: mind("right") } },
@@ -154,7 +158,7 @@ for (const variant of variantsRead) {
   const line = (label, r) => `| ${label} | ${r.n} | ${two(r.head, 3)} | ${(r.head[0] - r.head[1]).toFixed(3)} | ${r.headD.toFixed(2)} | ${two(r.taken, 3)} | ${r.takenD.toFixed(2)} | ${two(r.falls, 2)} | ${two(r.wins, 2)} | ${two(r.seconds, 1)} |`;
   const label = (cell) => `${cell.held} | ${cell.delay} | ${cell.left} | ${cell.right} | ${cell.covers}`;
 
-  console.log(`\n## The covering side's mind: ${JSON.stringify({ guard: "cover", tuning: variants[variant] })}`);
+  console.log(`\n## The covering side's mind: ${JSON.stringify(covering(variants[variant]))}`);
   console.log("\nA bout, to the side that covers, in the pose (the control) and covering: hit points lost to blows that met its head, what covering saved of them and its effect size; all the hit points it lost and the effect size of what covering saved; the share of bouts it fell in, and won; the bout's seconds.\n");
   console.log("| Held | Delay | Left | Right | Covers | Gaps | Head HP, pose | cover | Saved | d | HP, pose | cover | d | Fell, pose | cover | Won, pose | cover | Seconds, pose | cover |");
   console.log("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|");

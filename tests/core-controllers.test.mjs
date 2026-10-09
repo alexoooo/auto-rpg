@@ -1,12 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { CONTROLLERS, controllerOf, PRESETS } from "../src/core/mind/controllers.ts";
-import { ARENA_KICKS, BODY_OPENINGS, BRAWLER, CLASSIC, COMBAT, KICKER, SCRAPPER } from "../src/core/mind/config.ts";
-import { resolvePath } from "../src/core/mind/path-fighter.ts";
-import { ATTACK_PATH } from "../src/core/skills/attack-path.ts";
+import { CLASSIC, COMBAT, KICKER, RECIPE_FIGHTER, SCRAPPER } from "../src/core/mind/config.ts";
+import { treeFaults } from "../src/core/mind/catalog.ts";
 import { createMind } from "../src/core/mind/minds.ts";
 import { BODY_MODELS, modelSpec } from "../src/core/models.ts";
 import { CONTROLS, controlsFor } from "../src/arena/matchup.ts";
+import { withParts } from "./fixtures/minds.mjs";
 
 test("every preset is its controller's kind, under an id no other controller uses", () => {
   const ids = [];
@@ -33,31 +33,44 @@ test("each controller says which bodies its presets fit, and the Arena offers ju
   }
 });
 
-test("a controller names what is wrong with a config, and no mind is made of one with a fault", () => {
-  for (const [id, { config }] of Object.entries(PRESETS)) assert.deepEqual(controllerOf(config).faults(config), [], id);
-  const faults = (config) => controllerOf(config).faults(config);
-  assert.deepEqual(faults({ ...SCRAPPER, hands: "right", combinations: "follow-up" }), ["combat combinations require alternate hands"]);
-  assert.deepEqual(faults({ ...SCRAPPER, hands: "alternate", combinations: "overlap" }), []);
-  assert.deepEqual(faults({ ...SCRAPPER, tuning: { kick: { swingSeconds: .3 } } }), ["kick settings need a fighter that kicks"]);
-  assert.deepEqual(faults({ ...KICKER, tuning: { kick: { swingSeconds: -1 } } }), ["invalid kick settings"]);
-  assert.deepEqual(faults({ ...COMBAT, spacingStep: -.1 }), ["invalid combat range learning settings"]);
-  assert.deepEqual(faults({ ...COMBAT, tuning: { turnLimit: 0 } }), ["locomotion turn limit must be finite and positive"]);
-  assert.match(faults({ ...COMBAT, tuning: { paths: { elbowExtension: 2 } } })[0], /^combat path settings/);
-  assert.match(faults({ ...COMBAT, tuning: { openings: { headLateral: 2 } } })[0], /^opening preferences/);
-  assert.deepEqual(faults({ ...CLASSIC, tuning: { edge: { band: -1, patience: 4 } } }), ["the edge needs a finite nonnegative band and patience"]);
-  assert.deepEqual(faults({ ...CLASSIC, tuning: { edge: { band: .25, patience: 4 } } }), []);
-  assert.deepEqual(faults({ kind: "direct", targets: {}, seconds: 0, speed: 1, activation: 1 }), ["invalid direct controller gains"]);
-  assert.deepEqual(faults({ kind: "direct", targets: {}, seconds: .1, speed: 1, activation: 1 }), []);
-  assert.throws(() => createMind(null, null, { ...COMBAT, hands: "left", combinations: "overlap" }, { name: "faulty" }), /combat combinations require alternate hands/);
+test("every preset id reads to its tree: tactics, a skill of each role and the sub-minds", () => {
+  const walk = { kind: "stance-walk" }, guard = { kind: "cover-guard" }, seek = { kind: "seek", guard: "pose", aim: "head", range: "close" };
+  const openings = { kind: "openings", hands: "alternate", strikes: "linear", prefers: "head", defence: "cover", combinations: "none", spacing: 0, spacingStep: 0 };
+  const path = { kind: "path-strike", overlap: false }, recovery = [{ kind: "support-recovery" }];
+  const fighter = (tactics, blow, kick, support, subs) => ({ kind: "fighter", tactics, locomotion: walk, guard, blow, kick, support, subs });
+  const body = { ...openings, strikes: "mixed", prefers: "body" };
+  assert.deepEqual(Object.fromEntries(Object.entries(PRESETS).map(([id, { config }]) => [id, config])), {
+    classic: fighter(seek, { kind: "recipe-strike" }, null, null, [{ kind: "staged-rise" }]),
+    combat: fighter(openings, path, null, null, recovery),
+    brawler: fighter(body, path, null, null, recovery),
+    scrapper: fighter(body, path, null, { kind: "support-fold" }, recovery),
+    kicker: fighter(body, path, { kind: "front-kick" }, { kind: "support-fold" }, recovery),
+    crawl: { kind: "quadruped" },
+  });
+  assert.deepEqual(RECIPE_FIGHTER, { ...CLASSIC, subs: [{ kind: "lie" }] });
 });
 
-test("a path fighter's settings are merged once, each over its default", () => {
-  const combat = resolvePath(COMBAT), kicker = resolvePath(KICKER);
-  assert.ok(Object.isFrozen(combat) && Object.isFrozen(combat.paths));
-  assert.deepEqual(combat, { paths: ATTACK_PATH, openings: undefined, kick: null, execution: undefined, turnLimit: undefined, turnStartup: undefined });
-  assert.deepEqual(resolvePath(BRAWLER).openings, BODY_OPENINGS);
-  assert.deepEqual(resolvePath({ ...BRAWLER, tuning: { openings: { head: 1 } } }).openings, { ...BODY_OPENINGS, head: 1 });
-  assert.deepEqual(kicker.kick, ARENA_KICKS);
-  assert.deepEqual(resolvePath({ ...KICKER, tuning: { kick: { contactSpeed: 2 }, paths: { returnLimit: .05 }, turnLimit: 1 } }),
-    { ...kicker, kick: { ...ARENA_KICKS, contactSpeed: 2 }, paths: { ...ATTACK_PATH, returnLimit: .05 }, turnLimit: 1 });
+test("a tree names what is wrong with it where it is, and no mind is made of one with a fault", () => {
+  for (const [id, { config }] of Object.entries(PRESETS)) assert.deepEqual(treeFaults(config), [], id);
+  assert.deepEqual(treeFaults(withParts(SCRAPPER, { tactics: { hands: "right", combinations: "follow-up" } })), ["tactics: combat combinations require alternate hands"]);
+  assert.deepEqual(treeFaults(withParts(SCRAPPER, { tactics: { combinations: "overlap" } })), ["blow: overlapping combinations need a blow that may begin while the other hand returns"]);
+  assert.deepEqual(treeFaults(withParts(SCRAPPER, { tactics: { combinations: "overlap" }, blow: { overlap: true } })), []);
+  assert.deepEqual(treeFaults(withParts(KICKER, { kick: { tuning: { swingSeconds: -1 } } })), ["kick: invalid kick settings"]);
+  assert.deepEqual(treeFaults(withParts(KICKER, { kick: { tuning: { swingSeconds: .3 } } })), []);
+  assert.deepEqual(treeFaults(withParts(COMBAT, { tactics: { spacingStep: -.1 } })), ["tactics: invalid combat range learning settings"]);
+  assert.deepEqual(treeFaults(withParts(COMBAT, { locomotion: { tuning: { turnLimit: 0 } } })), ["locomotion: locomotion turn limit must be finite and positive"]);
+  assert.match(treeFaults(withParts(COMBAT, { blow: { tuning: { paths: { elbowExtension: 2 } } } }))[0], /^blow: combat path settings/);
+  assert.match(treeFaults(withParts(COMBAT, { tactics: { tuning: { openings: { headLateral: 2 } } } }))[0], /^tactics: opening preferences/);
+  assert.deepEqual(treeFaults(withParts(CLASSIC, { tactics: { tuning: { edge: { band: -1, patience: 4 } } } })), ["tactics: the edge needs a finite nonnegative band and patience"]);
+  assert.deepEqual(treeFaults(withParts(CLASSIC, { tactics: { tuning: { edge: { band: .25, patience: 4 } } } })), []);
+  // A skill the tactics never ask of, or a blow that cannot carry out what they ask, is a fault at its slot.
+  assert.deepEqual(treeFaults(withParts(CLASSIC, { blow: { kind: "path-strike", overlap: false } })), ["blow: the path strike carries out a blow only along a path, and these tactics name none"]);
+  assert.deepEqual(treeFaults(withParts(CLASSIC, { kick: { kind: "front-kick" }, support: { kind: "support-fold" } })), ["kick: these tactics never kick", "support: these tactics never fight from low support"]);
+  assert.deepEqual(treeFaults(withParts(COMBAT, { blow: { kind: "recipe-strike" } })), []);
+  const faults = (config) => controllerOf(config).faults(config);
+  assert.deepEqual(faults({ kind: "direct", targets: {}, seconds: 0, speed: 1, activation: 1 }), ["invalid direct controller gains"]);
+  assert.deepEqual(faults({ kind: "direct", targets: {}, seconds: .1, speed: 1, activation: 1 }), []);
+  assert.throws(() => createMind(null, null, withParts(COMBAT, { tactics: { hands: "left", combinations: "follow-up" } }), { name: "faulty" }), /tactics: combat combinations require alternate hands/);
+  assert.deepEqual(treeFaults(withParts(COMBAT, { tactics: { hands: "left", combinations: "overlap" } })),
+    ["blow: overlapping combinations need a blow that may begin while the other hand returns", "tactics: combat combinations require alternate hands"]);
 });

@@ -6,6 +6,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { RISE } from "../src/core/mind/rise/stages.ts";
 import { risenAt, shoved, UP_SECONDS, WATCH_SECONDS } from "../research/core-rise-trials.mjs";
+import { CLASSIC, RECIPE_FIGHTER } from "../src/core/mind/config.ts";
 
 test("a rise is two seconds up running", () => {
   const hz = 10, run = UP_SECONDS * hz;
@@ -19,7 +20,7 @@ test("a rise is two seconds up running", () => {
 });
 
 /** A fighter that hands its body to nobody: what drives it standing drives it lying. */
-const DRIVEN = { kind: "recipe-fighter", subs: [], guard: "pose", aim: "head", range: "close" };
+const DRIVEN = { ...RECIPE_FIGHTER, subs: [] };
 
 test("a shove of the battery fells the Warrior, and it does not rise", async () => {
   for (const degrees of [0, 90]) {
@@ -52,7 +53,7 @@ test("a row says how the body lay, and how far a riser got", {
 }, async () => {
   // Under a mind whose sub-mind rises by stages (`stagedRise`), the row names the furthest stage of the game's rise it reached, or that it
   // reached none, and says whether the rise was played to its end. Watched 30 s: the rise takes 20 s and more.
-  const rise = { kind: "recipe-fighter", subs: [{ kind: "staged-rise" }], guard: "pose", aim: "head", range: "close" };
+  const rise = CLASSIC;
   const stages = ["none", ...RISE.rise.map((stage) => stage.name)], last = RISE.rise.at(-1).name;
   const rows = [];
   for (const degrees of [315, 0, 180]) rows.push(await shoved({ model: "workshop-fighter", held: "empty", degrees, mind: rise, watch: 30 }));

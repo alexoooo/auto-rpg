@@ -169,7 +169,7 @@ export async function combatTrial(config) {
       delete out.touching; delete out.drivenThisStep;
       delete out.lastPhase;
       const tactics = d.minded.skills?.state?.tactics;
-      const learned = (recipe.minds[side].kicks ? tactics?.base : tactics)?.range;
+      const learned = tactics?.range;
       if(d.minded.skills?.report.kick)out.kicks=structuredClone({...d.minded.skills.report.kick});
       if (learned) out.rangeLearning = structuredClone(learned);
       out.bar = d.pool.bar(); out.assist = { force: d.body.assist.meter.force, moment: d.body.assist.meter.moment };

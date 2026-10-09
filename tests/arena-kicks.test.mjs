@@ -29,7 +29,7 @@ test('foot scoring requires the active moving foot and preserves actual native w
 
 test('the selectable Arena profile completes either-foot native strikes and keeps the retained profiles unchanged',async()=>{
   assert.deepEqual(readMinds('?control=kicker,scrapper'),{left:KICKER,right:SCRAPPER});
-  assert.equal(SCRAPPER.kicks,false);
+  assert.equal(SCRAPPER.kick,null);
   for(const side of ['left','right']){
     const row=await combatTrial({left:side==='left'?KICKER:'scrapper',right:side==='right'?KICKER:'scrapper',
       recipe:{capSeconds:90},tape:[{step:0,side:side==='left'?'right':'left',orders:STAND_ORDERS}]});

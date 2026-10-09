@@ -80,7 +80,7 @@ bears on soles that are not under it. Every character's balance is 0, so no assi
 ask.
 
 ```powershell
-node research/core-rise.mjs --mind '{"kind":"recipe-fighter","subs":[],"guard":"pose","aim":"head","range":"close"}'
+node research/core-rise.mjs --mind '{"kind":"fighter","tactics":{"kind":"seek","guard":"pose","aim":"head","range":"close"},"locomotion":{"kind":"stance-walk"},"guard":{"kind":"cover-guard"},"blow":{"kind":"recipe-strike"},"kick":null,"support":null,"subs":[]}'
 ```
 
 | falls | of | fell | rose | median s to rise | median peak, m/s | worst asked, weights | median s it last moved | the longest, s |
@@ -322,7 +322,7 @@ were read on the battery ([Staged](#staged)) with the Warrior's 128 shoves with 
 each watched 40 s, one number changed at a time, the rest the game's:
 
 ```powershell
-node research/core-rise.mjs --workers 30 --watch 40 --shoves 128 --only workshop-fighter --falls --mind '{"kind":"recipe-fighter","subs":[{"kind":"staged-rise"}],"guard":"pose","aim":"head","range":"close"}'
+node research/core-rise.mjs --workers 30 --watch 40 --shoves 128 --only workshop-fighter --falls --mind '{"kind":"fighter","tactics":{"kind":"seek","guard":"pose","aim":"head","range":"close"},"locomotion":{"kind":"stance-walk"},"guard":{"kind":"cover-guard"},"blow":{"kind":"recipe-strike"},"kick":null,"support":null,"subs":[{"kind":"staged-rise"}]}'
 ```
 
 Each cell gives how many falls rose (2 s up running) and how many are up at the end of the
@@ -882,7 +882,7 @@ side's balance is 0 %. Each fall is watched 40 s, since a fall, the stillness af
 a rise take 20 s and more:
 
 ```powershell
-node research/core-rise.mjs --workers 10 --watch 40 --falls --mind '{"kind":"recipe-fighter","subs":[{"kind":"staged-rise"}],"guard":"pose","aim":"head","range":"close"}'
+node research/core-rise.mjs --workers 10 --watch 40 --falls --mind '{"kind":"fighter","tactics":{"kind":"seek","guard":"pose","aim":"head","range":"close"},"locomotion":{"kind":"stance-walk"},"guard":{"kind":"cover-guard"},"blow":{"kind":"recipe-strike"},"kick":null,"support":null,"subs":[{"kind":"staged-rise"}]}'
 ```
 
 Harness: the battery's ([Battery](#battery)), 10 workers, each fall watched 40 s; code at
@@ -967,7 +967,7 @@ the Warrior alone, at `0b9a7b56`, the hands capsules; every sweep of [Stages](#s
 on it:
 
 ```powershell
-node research/core-rise.mjs --workers 30 --watch 40 --shoves 128 --only workshop-fighter --falls --mind '{"kind":"recipe-fighter","subs":[{"kind":"staged-rise"}],"guard":"pose","aim":"head","range":"close"}'
+node research/core-rise.mjs --workers 30 --watch 40 --shoves 128 --only workshop-fighter --falls --mind '{"kind":"fighter","tactics":{"kind":"seek","guard":"pose","aim":"head","range":"close"},"locomotion":{"kind":"stance-walk"},"guard":{"kind":"cover-guard"},"blow":{"kind":"recipe-strike"},"kick":null,"support":null,"subs":[{"kind":"staged-rise"}]}'
 ```
 
 | falls | of | fell | rose | median s to rise | median peak, m/s | worst asked, weights | median s it last moved | the longest, s | up at the end |

@@ -30,6 +30,7 @@ import { buildBout } from "./bout.mjs";
 import { solverTrial } from "./control-foundation-solvers.mjs";
 import { COMPETENCIES, competencyGaps, competencyJobs, competencyTrial } from "./competencies.mjs";
 import { PHYSIQUE_DESIGNS, physiqueGrid, physiqueRanges } from "./physiques.mjs";
+import { withParts } from "../tests/fixtures/minds.mjs";
 
 Logger.LogLevels = Logger.ErrorLogLevel;
 
@@ -301,7 +302,7 @@ export function attackAccounting() {
 }
 
 async function boutTrial(job) {
-  const cover = { ...RECIPE_FIGHTER, guard: "cover" };
+  const cover = withParts(RECIPE_FIGHTER, { tactics: { guard: "cover" } });
   const recipe = { left: job.model, right: job.model, gap: job.gap, cap: job.cap,
     held: { left: job.held, right: job.held },
     minds: { left: job.guard === "left-cover" ? cover : RECIPE_FIGHTER, right: job.guard === "right-cover" ? cover : RECIPE_FIGHTER } };

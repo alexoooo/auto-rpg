@@ -15,6 +15,7 @@ import { loadEngine,DEFAULT_ENGINE } from '../src/core/engine/engines.ts';
 import { buildBout } from '../research/bout.mjs';
 import { traceOf } from './harness/trace.mjs';
 import { STAND_ORDERS } from '../src/core/mind/orders.ts';
+import { withParts } from "./fixtures/minds.mjs";
 
 const { incomingThreat } = threatReader();
 const spec=modelSpec('workshop-fighter');
@@ -67,7 +68,7 @@ test('fixed geometry grants preserve physical sizes and reject swept walls, post
 
 test('physical predictive defense covers only an available hand and preserves its timing through a fresh-world fork',async()=>{
  const recipe={left:'workshop-fighter',right:'workshop-fighter',held:{left:'empty',right:'empty'},balance:{left:0,right:0},
-  minds:{left:{...COMBAT,defence:'predictive'},right:COMBAT},senseDelay:6,recoverySeconds:null,capSeconds:30};
+  minds:{left:withParts(COMBAT,{tactics:{defence:'predictive'}}),right:COMBAT},senseDelay:6,recoverySeconds:null,capSeconds:30};
  const a=await buildBout(recipe,{physicsEngine:await loadEngine(DEFAULT_ENGINE)}),b=await buildBout(recipe,{physicsEngine:await loadEngine(DEFAULT_ENGINE)});
  try{
   const d=a.duel.duelists.left;let defended=0,evaded=0,covered=0,forked=false;

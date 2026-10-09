@@ -167,7 +167,7 @@ test("every part is resumed, and a release resumes them only where the blow asks
   } finally { s.dispose(); }
 });
 
-test("a blow skill of the role is swapped for another: the path strike thrown under the recipe fighter's legs and guard", async () => {
+test("a blow skill of the role is swapped for another: the path strike thrown under the recipe set's legs and guard", async () => {
   const s = await standing();
   try {
     const skills = skillSet(s.body, {}, { ...recipeParts(s.body), blow: pathStrike(s.body) });
@@ -187,7 +187,7 @@ test("a blow skill of the role is swapped for another: the path strike thrown un
   } finally { s.dispose(); }
 });
 
-test("the path fighter's parts are its settings: a kick and a support skill only where it has them", async () => {
+test("the path strike's usual parts are its settings: a kick and a support skill only where it has them", async () => {
   const s = await standing();
   try {
     const plain = pathParts(s.body), full = pathParts(s.body, { kick: undefined, ground: true });

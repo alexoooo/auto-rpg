@@ -28,8 +28,9 @@ import { REPERTOIRE, type Repertoire } from "./strikes.ts";
  *
  * Every skill answers `Skill.resume`, and the skills tell every one of them from one list: a
  * skill added to it cannot be left out. One arbiter gives the body's parts to the skills of a set,
- * one a role (`skillSet`, `arbiter.ts`): the recipe fighter's here (`recipeParts`), the path
- * fighter's on the strike cycle (`pathParts`, `combat.ts`).
+ * one a role (`skillSet`, `arbiter.ts`): a fighter's are the skills its slots name
+ * (`src/core/mind/fighter.ts`); the recipe strike's usual set is here (`recipeParts`), the path
+ * strike's on the strike cycle (`pathParts`, `combat.ts`).
  */
 export interface Skills extends Skill {
   /** The command for this control step. */
@@ -72,12 +73,12 @@ export interface RecipeOptions {
   readonly cover?: Covering;
 }
 
-/** The recipe fighter's skills of `body`: the walk, the recipe strike (`recipeStrike`) and the guard. */
+/** The recipe strike's usual skills of `body`: the walk, the recipe strike (`recipeStrike`) and the guard. */
 export function recipeParts(body: Body, { repertoire = REPERTOIRE, placed, steer, cover }: RecipeOptions = {}): SkillParts {
   const spec = body.built.spec;
   return { legs: locomotion(body.envelope), guard: guardSkill(spec, cover), blow: recipeStrike(spec, repertoire, placed, steer, guardPosture(spec)) };
 }
 
-/** The recipe fighter's skill set of `body` (`recipeParts`), which `tactics` will hand their intent. */
+/** The recipe strike's usual skill set of `body` (`recipeParts`), which `tactics` will hand their intent. */
 export const recipeSkills = (body: Body, tactics: Pick<Tactics, "state" | "engagement"> = {}, options: RecipeOptions = {}): Skills =>
   skillSet(body, tactics, recipeParts(body, options));

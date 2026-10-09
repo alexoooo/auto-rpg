@@ -7,6 +7,7 @@ import {buildBout} from '../research/bout.mjs';
 import {loadEngine,DEFAULT_ENGINE} from '../src/core/engine/engines.ts';
 import {STAND_ORDERS} from '../src/core/mind/orders.ts';
 import {traceOf} from './harness/trace.mjs';
+import {withParts} from './fixtures/minds.mjs';
 
 test('range adaptation consumes only a clean launched swing with a verified return and saturates at the reference spacing',()=>{
  const learner=rangeLearning(.125,.03125),report={hand:'left',phase:'chamber',pointCycle:{returned:{left:0,right:0}}};
@@ -45,7 +46,7 @@ test('range-learning settings reject nonfinite and negative active inputs',()=>{
  assert.equal(validRangeLearning(-.1,0),true);assert.equal(validRangeLearning(),true);
 });
 
-const candidate={...SCRAPPER,spacing:.1,spacingStep:.1};
+const candidate=withParts(SCRAPPER,{tactics:{spacing:.1,spacingStep:.1}});
 test('observed clean misses correct physical self-play spacing without assistance or prolonged pressure', {
   todo: "a bare hand strikes with its fist's measured surface (`closesToStrike`), about 9 cm short of the open capsule's fingers that its blows' spacing, aim and recipes were tuned to",
 }, async()=>{
@@ -77,7 +78,7 @@ test('fresh-world replay retains learned range and ordinary orders cancel the pe
 });
 
 test('physical timed-out returns cannot train a shorter Arena working distance',async()=>{
- const timed={...candidate,tuning:{paths:{returnLimit:.05}}};
+ const timed=withParts(candidate,{blow:{tuning:{paths:{returnLimit:.05}}}});
  const s=await buildBout({left:'workshop-fighter',right:'workshop-fighter',minds:{left:timed,right:timed},
   balance:{left:0,right:0},held:{left:'empty',right:'empty'},capSeconds:20,recoverySeconds:null},{physicsEngine:await loadEngine(DEFAULT_ENGINE)});
  try{

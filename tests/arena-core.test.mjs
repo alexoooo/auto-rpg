@@ -21,6 +21,7 @@ import { STAND_ORDERS, isOrders } from "../src/core/mind/orders.ts";
 import { createWorld } from "../src/core/world.ts";
 import { freshEngine } from "./harness/core-stand.mjs";
 import { playBout } from "../research/bout.mjs";
+import { withParts } from "./fixtures/minds.mjs";
 
 async function arena() {
   const scene = new Scene(new NullEngine());
@@ -225,7 +226,7 @@ test("a_fighters_aim_rides_in_its_minds_config", async () => {
   // A Warrior with the club against one ordered to stand: the band of the recipe its first blow is thrown with.
   const thrown = async (aim) => {
     const { world, dispose } = await arena();
-    const duel = new Duel(world, { left: "workshop-fighter", right: "workshop-fighter", gap: 3, minds: { left: { ...RECIPE_FIGHTER, aim }, right: RECIPE_FIGHTER } });
+    const duel = new Duel(world, { left: "workshop-fighter", right: "workshop-fighter", gap: 3, minds: { left: withParts(RECIPE_FIGHTER, { tactics: { aim } }), right: RECIPE_FIGHTER } });
     try {
       duel.play([{ step: 0, side: "right", orders: STAND_ORDERS }]);
       const report = () => duel.duelists.left.minded.skills.report.strike;
@@ -369,7 +370,7 @@ test("a_side_under_orders_does_what_it_is_told_and_the_other_fights_on", async (
     assert.equal(duel.steps, 480);
     assert.ok(Math.abs(x(left) - start) < 0.05, `ordered to stand, it stands: ${start} to ${x(left)}`);
     assert.ok(x(right) < there - 0.6, `while the other side walks at it: ${there} to ${x(right)}`);
-    assert.equal(left.minded.kind, "recipe-fighter");
+    assert.equal(left.minded.kind, "fighter");
     assert.equal(left.minded.skills.report.strike.thrown.right, 0, "and it throws nothing unasked");
     assert.deepEqual(duel.tape, [{ step: 0, side: "left", orders: STAND_ORDERS }]);
     duel.order("left", { move: null, face: null, attack: null });

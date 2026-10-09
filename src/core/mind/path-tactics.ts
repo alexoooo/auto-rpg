@@ -6,17 +6,16 @@ import { wrap } from "../math/turn.ts";
 import { placedReach } from "../skills/strike.ts";
 import type { BodySpec } from "../spec/body.ts";
 import type { Vec3 } from "../spec/quantity.ts";
-import type { PathFighterConfig } from "./config.ts";
-import type { ResolvedPath } from "./path-fighter.ts";
+import { BODY_OPENINGS, type OpeningsConfig } from "./config.ts";
 import { orderedIntent, STRAFE } from "./ordered.ts";
 import { NO_COVER, nextHand, type BlowAttack, type Intent } from "./intent.ts";
 import { kickTactics } from "./kick-tactics.ts";
 import type { Orders } from "./orders.ts";
-import type { Sight, Tactics } from "./tactics.ts";
+import type { Abilities, Sight, Tactics } from "./tactics.ts";
 import { groundCombat } from "./ground-combat.ts";
 import { bodyClearance } from "./sensed-bounds.ts";
 import { clearStep, clearanceExit } from "./clear-step.ts";
-import { openingAction, openingSelector } from "./openings.ts";
+import { openingAction, openingSelector, type OpeningTuning } from "./openings.ts";
 import { nearestFoe } from "./targets.ts";
 import { DEFENSE, guardCanReach, THREAT, threatReader } from "./threat.ts";
 
@@ -25,17 +24,17 @@ const COMBAT = Object.freeze({ band: .08, reserve: .08, braking: .5, prediction:
   escape: .6, blockedAttempts: 3, boundaryMargin: .08, counter: .2, lateral: .2, settle: .08, readySpeed: .35, boundarySpeed: .18 });
 
 /**
- * **The path fighter's tactics**: an opening chosen on the nearest standing foe's sensed surfaces
+ * **The opening tactics**: an opening chosen on the nearest standing foe's sensed surfaces
  * (`openingSelector`), approached to its working distance and attacked when ready; covers or
- * evasions, ground combat and a kick as its config asks (`PathFighterConfig`, `resolved`); and
- * orders, when it has them, carried out. Its skill set carries out what it asks
- * (`pathParts`). A kick under way decides alone; otherwise the rest decide, then a kick may be admitted.
+ * evasions as its config asks (`OpeningsConfig`); ground combat and a kick as its skills can
+ * (`Abilities`); and orders, when it has them, carried out. A kick under way decides alone;
+ * otherwise the rest decide, then a kick may be admitted.
  */
-export function pathTactics(spec: BodySpec, name: string, config: PathFighterConfig, resolved: ResolvedPath, orders: (sight: Sight) => Orders | null): Tactics {
+export function pathTactics(spec: BodySpec, name: string, config: OpeningsConfig, abilities: Abilities, orders: (sight: Sight) => Orders | null): Tactics {
   const range = config.spacingStep > 0 ? rangeLearning(config.spacing, config.spacingStep) : null;
-  const paths = resolved.paths;
+  const paths = abilities.paths;
   const combinationWindow = paths.returnLimit + paths.chamberSeconds;
-  const selectOpening = openingSelector(spec,resolved.openings,paths);
+  const selectOpening = openingSelector(spec,openingsOf(config),paths);
   const { threatOf, incomingThreat } = threatReader();
   const repertoire = config.strikes;
   const mixed = (()=>{
@@ -45,7 +44,7 @@ export function pathTactics(spec: BodySpec, name: string, config: PathFighterCon
       default:{const never:never=repertoire;throw new Error(`unknown repertoire ${never}`);}
     }
   })();
-  const kick = resolved.kick ? kickTactics(resolved.kick) : null;
+  const kick = abilities.kick ? kickTactics(abilities.kick) : null;
   const state = { phase: "guard", foe: null as string | null, action: null as BlowAttack | null,
     pressure: 0, escape: 0, angle: 1, cycle: 0, ready: 0, surface: null as string | null,
     blockedSurface: null as string | null, blocks: 0, responded: false, previousHead: null as { time: number; at: Vec3 } | null, counter: 0,
@@ -73,7 +72,7 @@ export function pathTactics(spec: BodySpec, name: string, config: PathFighterCon
     }
     return null;
   };
-  const ground = config.ground ? groundCombat(spec, moveClear, {}, config.hands === "alternate") : null;
+  const ground = abilities.ground ? groundCombat(spec, moveClear, {}, config.hands === "alternate") : null;
   state.ground = ground?.state ?? null;
   /** What the fighter decides with no kick under way, `given` its orders. */
   const fight = (sight: Sight, dt: number, given: Orders | null): Intent => {
@@ -245,4 +244,9 @@ export function pathTactics(spec: BodySpec, name: string, config: PathFighterCon
     if (admitted) { state.phase = admitted.phase; return admitted.intent; }
     return intent;
   } };
+}
+
+/** The openings `config` scores by: `prefers`' over its research tuning. */
+export function openingsOf(config: OpeningsConfig): OpeningTuning | undefined {
+  return config.prefers === "body" ? { ...BODY_OPENINGS, ...config.tuning?.openings } : config.tuning?.openings;
 }

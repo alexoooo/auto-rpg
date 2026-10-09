@@ -1,6 +1,6 @@
 /**
- * **The presets against Classic**: each preset of the path fighter (Combat, Brawler, Scrapper,
- * Kicker) against the recipe fighter's Classic, on the Warrior against itself, bare-handed and with
+ * **The presets against Classic**: each opening preset, the opening tactics over the path strike (Combat, Brawler, Scrapper,
+ * Kicker), against Classic, on the Warrior against itself, bare-handed and with
  * the wooden club in both right hands. 192 mirrored held-out pairs a cell (`combatPairs`), under the
  * arena-combat protocol (`COMBAT_PROTOCOL`: 60 s cap, recovery continuing, balance 0 as every
  * character's is).
@@ -17,7 +17,7 @@ import { parseArgs } from "node:util";
 import { combatPairs } from "./arena-combat.mjs";
 import { combatCell } from "./combat-records.mjs";
 
-/** The path fighter's presets, each a candidate against Classic. */
+/** The opening presets, each a candidate against Classic. */
 const CANDIDATES = ["combat", "brawler", "scrapper", "kicker"];
 /** What both sides hold. */
 const HELD = ["empty", "club"];

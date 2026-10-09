@@ -21,6 +21,7 @@ import { RECIPE_FIGHTER } from "../src/core/mind/config.ts";
 import { THREAT, threatReader } from "../src/core/mind/threat.ts";
 import { GUARD_COVER } from "../src/core/skills/guard.ts";
 import { BOUT_HARNESS, buildBout } from "./bout.mjs";
+import { withParts } from "../tests/fixtures/minds.mjs";
 
 const { threatOf } = threatReader();
 
@@ -34,7 +35,7 @@ const threat = values.threat ? JSON.parse(values.threat) : THREAT;
 
 /** One bout with `covers` covering: its head's blows as the step before each left them, and the bout's counts. */
 async function play(left, right, gap, covers) {
-  const mind = (side) => side === covers ? { ...RECIPE_FIGHTER, guard: "cover", tuning: { threat } } : RECIPE_FIGHTER;
+  const mind = (side) => side === covers ? withParts(RECIPE_FIGHTER, { tactics: { guard: "cover", tuning: { threat } } }) : RECIPE_FIGHTER;
   const { world, duel, dispose } = await buildBout({ left, right, gap, senseDelay: delay, minds: { left: mind("left"), right: mind("right") } });
   try {
     const me = duel.duelists[covers], { view } = me.body;

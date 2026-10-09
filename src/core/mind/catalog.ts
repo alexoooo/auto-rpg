@@ -1,17 +1,19 @@
 import type { BodySpec } from "../spec/body.ts";
-import type { MindConfig, SubMindConfig } from "./config.ts";
+import type { MindConfig, SkillConfig, SubMindConfig, TacticsConfig } from "./config.ts";
 import { CONTROLLERS } from "./controllers.ts";
+import { SKILL_PARTS } from "./fighter.ts";
 import type { Part, PartConfig, Role } from "./parts.ts";
 import { SUB_MIND_PARTS } from "./sub-minds.ts";
+import { TACTICS_PARTS } from "./tactics-of.ts";
 
 /** Every part's config, by kind. */
-type AnyPart = MindConfig | SubMindConfig;
+type AnyPart = MindConfig | SubMindConfig | TacticsConfig | SkillConfig;
 
 /**
  * **Every part, by its kind**, across roles: the one list a screen offers a slot's choices from.
  * A kind without an entry does not compile.
  */
-export const PARTS: { readonly [K in AnyPart["kind"]]: Part<Extract<AnyPart, { kind: K }>> } = Object.freeze({ ...CONTROLLERS, ...SUB_MIND_PARTS });
+export const PARTS: { readonly [K in AnyPart["kind"]]: Part<Extract<AnyPart, { kind: K }>> } = Object.freeze({ ...CONTROLLERS, ...SUB_MIND_PARTS, ...TACTICS_PARTS, ...SKILL_PARTS });
 
 /** The part of `config`'s kind; a thrown error for a kind no part has, read from a save or a link. */
 export function partOf<C extends PartConfig>(config: C): Part<C> {
@@ -35,25 +37,27 @@ const isPart = (value: unknown): value is PartConfig =>
 /**
  * **What is wrong with the tree `config` roots**, each a sentence. A part's own faults come first,
  * then each slot's, each prefixed with where it is (`subs.0: `). A slot that holds what is no part,
- * a part of another role, or nothing where it must hold one is a fault.
+ * a part of another role, or nothing where it must hold one is a fault; a part's own faults
+ * (`Part.faults`) are read only once every slot holds parts of its role.
  */
 export function treeFaults(config: PartConfig, at = ""): readonly string[] {
   const where = (fault: string, path = at) => path ? `${path}: ${fault}` : fault;
   const kind = (value: unknown) => `no part of kind ${JSON.stringify((value as { kind?: unknown } | null)?.kind)}`;
   if (!isPart(config)) return [where(kind(config))];
-  const faults = partOf(config).faults(config).map((fault) => where(fault));
+  const slots: string[] = [];
+  let formed = true;
   for (const { slot, parts } of held(config)) {
     const value = (config as unknown as Record<string, unknown>)[slot.key], path = at ? `${at}.${slot.key}` : slot.key;
-    if (slot.many && !Array.isArray(value)) { faults.push(where(`a list of ${slot.role} parts`, path)); continue; }
-    if (!slot.many && parts.length === 0 && !slot.optional) { faults.push(where(`a ${slot.role} part is needed`, path)); continue; }
+    if (slot.many && !Array.isArray(value)) { formed = false; slots.push(where(`a list of ${slot.role} parts`, path)); continue; }
+    if (!slot.many && parts.length === 0 && !slot.optional) { formed = false; slots.push(where(`a ${slot.role} part is needed`, path)); continue; }
     parts.forEach((child, i) => {
       const here = slot.many ? `${path}.${i}` : path;
-      if (!isPart(child)) faults.push(where(kind(child), here));
-      else if (partOf(child).role !== slot.role) faults.push(where(`a ${partOf(child).role} part cannot go where a ${slot.role} part goes`, here));
-      else faults.push(...treeFaults(child, here));
+      if (!isPart(child)) { formed = false; slots.push(where(kind(child), here)); }
+      else if (partOf(child).role !== slot.role) { formed = false; slots.push(where(`a ${partOf(child).role} part cannot go where a ${slot.role} part goes`, here)); }
+      else slots.push(...treeFaults(child, here));
     });
   }
-  return faults;
+  return [...(formed ? partOf(config).faults(config).map((fault) => where(fault)) : []), ...slots];
 }
 
 /** Whether a body of `spec` can carry out what every part of the tree `config` roots commands. */

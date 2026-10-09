@@ -16,6 +16,7 @@ import {createBody,SERVO_SECONDS} from '../src/core/body.ts';
 import {combatSkills} from '../src/core/skills/combat.ts';
 import {NO_COVER} from '../src/core/mind/intent.ts';
 import {traceOf} from './harness/trace.mjs';
+import {withParts} from './fixtures/minds.mjs';
 
 test('uppercut chambers mirror below guard, carry upward contact velocity and own their measured duration',()=>{
  const a=attackPath([.15,1.49,.3],[.1,1.63,.35],'right','uppercut',ATTACK_PATH,[0,1,0]);
@@ -96,7 +97,7 @@ test('a fresh-world fork preserves the full upward swing and return with either 
 test('an actual Arena uppercut keeps its world direction and full state through a fresh-world fork', {
   todo: "a bare hand strikes with its fist's measured surface (`closesToStrike`), about 9 cm short of the open capsule's fingers that its blows' spacing, aim and recipes were tuned to",
 }, async()=>{
- const candidate={...SCRAPPER,strikes:'boxing',tuning:{openings:{head:0,upperTrunk:.2,middleTrunk:.4,uppercut:-.6}}};
+ const candidate=withParts(SCRAPPER,{tactics:{strikes:'boxing',tuning:{openings:{head:0,upperTrunk:.2,middleTrunk:.4,uppercut:-.6}}}});
  const recipe={left:'workshop-fighter',right:'workshop-fighter',gap:2,capSeconds:30,recoverySeconds:null,held:{left:'empty',right:'empty'},balance:{left:0,right:0},
   minds:{left:candidate,right:COMBAT}};
  const a=await buildBout(recipe,{physicsEngine:await loadEngine(DEFAULT_ENGINE)}),b=await buildBout(recipe,{physicsEngine:await loadEngine(DEFAULT_ENGINE)});

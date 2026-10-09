@@ -204,7 +204,7 @@ async function punchTrial(job) {
     const r = s.reading();
     return { status: "measured", outcome: { ...blows(job, r, changes, seconds, (e) => e.last10cmSpeed),
       effectiveMass: mean(r.impacts.filter((e) => e.eligible && e.effectiveMass !== null).map((e) => e.effectiveMass)), returned: r.cycles.returned[job.hand] },
-    harness: r.harness, limits: ["the planted cross of the path fighter's combat skills", "a sliding, rotation-locked pad; impulse and force are reported, not gated"] };
+    harness: r.harness, limits: ["the planted cross of the path strike", "a sliding, rotation-locked pad; impulse and force are reported, not gated"] };
   } finally { hook.dispose(); s.dispose(); }
 }
 
@@ -216,7 +216,7 @@ async function kickTrial(job) {
     s.step(s.seconds(seconds));
     const r = s.reading();
     return { status: "measured", outcome: { ...blows(job, r, r.phases, seconds, (e) => e.preImpact.speed), returned: r.report.returned[job.foot] },
-      harness: r.harness, limits: ["the front kick of the path fighter's combat skills", "a sliding, rotation-locked pad; impulse and force are reported, not gated"] };
+      harness: r.harness, limits: ["the front kick", "a sliding, rotation-locked pad; impulse and force are reported, not gated"] };
   } finally { s.dispose(); }
 }
 

@@ -15,7 +15,7 @@ const KICK_SELECTION = Object.freeze({ height: .4, ahead: .45, band: .08, across
 interface Kicking { readonly intent: Intent; readonly phase: string }
 
 /**
- * **A path fighter's kick**, a part of its tactics (`pathTactics`): a low kick at the nearest
+ * **The opening tactics' kick**, a part of them (`pathTactics`): a low kick at the nearest
  * standing foe's legs (`BodySpec.marks`), either foot in turn, approached and admitted by
  * geometry alone; the common skill carries it out. `during` carries on a kick under way; `after`,
  * given what the fighter's own tactics decided, admits one or walks to where one can be.

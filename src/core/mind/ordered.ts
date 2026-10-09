@@ -1,6 +1,6 @@
 import { atan2, cos, hypot, sin } from "../math/real.ts";
 import { wrap } from "../math/turn.ts";
-import type { RecipeFighterConfig } from "./config.ts";
+import type { SeekConfig } from "./config.ts";
 import type { Cover, Intent } from "./intent.ts";
 import type { Orders } from "./orders.ts";
 import type { Sight } from "./tactics.ts";
@@ -17,7 +17,7 @@ export const STRAFE = { share: 0.5, turned: 0.3 } as const;
  * **What a hand that does not attack covers**, as `guard` says: nothing, holding the pose, or
  * what threatens the head (`threatOf`, by `threat`) while anything does.
  */
-export function guarding(guard: RecipeFighterConfig["guard"], threat: Threat = THREAT): (sight: Sight) => Cover | null {
+export function guarding(guard: SeekConfig["guard"], threat: Threat = THREAT): (sight: Sight) => Cover | null {
   const { threatOf } = threatReader();
   switch (guard) {
     case "pose": return () => null;

@@ -62,7 +62,7 @@ contact impulses from the preceding physics step, with no engine objects exposed
 plain bout state.
 
 
-The path fighter selects collider-derived target surfaces and commits a hand trajectory through
+The opening tactics select collider-derived target surfaces, and the path strike commits a hand trajectory through
 `pathStrike`. Terminal hand velocity and segment identity extend the common IK/muscle path; an optional, range-bounded elbow preference composes with trunk rotation and returns to guard. Optional lateral head-surface samples expand the same collider-based lane search; zero preserves the retained selector.
 Optional bounded combinations can overlap an opposite-hand strike with a contact-free, physically
 returning hand. Each hand is a strike of its own (`effectorStrike`), so the returning one keeps its
@@ -184,7 +184,7 @@ mass and inertia (a held item's are folded in by `rigidOf`, which says whose eac
 body's shapes is: the segment's own, or an item it holds), and one joint per spec joint, whose
 free axes are the spec's freedoms. The body is built in the pose its joints demand: a fighter in
 the posture its mind holds from its first step (`builtAngles`, `Controller.builtIn`; for a
-recipe or path fighter its guard, `guardPosture`), so that no joint is flung into it.
+fighter its guard, `guardPosture`), so that no joint is flung into it.
 Rapier uses impulse joints. The pinned multibody implementation cannot represent the same
 anatomy unchanged: two-angular-DOF joints trap and three-axis internal limits accumulate
 angular motion rather than reading the current anatomical quaternion coordinates
@@ -317,10 +317,12 @@ guard cover with each hand the blow does not hold; carries out the legs' ask, a 
 support lowering, low or rising holding the walk; lays the support's stance and trunk over the
 command; and lays a kick's stance and foot goals over it last, a kick beginning only while no
 blow is under way and the body stands. A blow skill of one kind is swapped for another without
-touching the rest. The recipe fighter's set is `recipeParts` (`src/core/skills/skills.ts`), with
-the recipe strike (`recipeStrike`); the path fighter's is `pathParts` (`combat.ts`), with the
-path strike (`pathStrike`); `recipeSkills` and `combatSkills` make each set, and `driveBy` hands
-a body to tactics over the skills it is given.
+touching the rest. A fighter's set is the skills its slots name (`skillPartsOf`,
+`src/core/mind/fighter.ts`): the walk, the guard, the recipe strike (`recipeStrike`) or the path
+strike (`pathStrike`), and a kick and a support fold where it has them. For a stand,
+`recipeParts` (`src/core/skills/skills.ts`) and `pathParts` (`combat.ts`) make each blow's usual
+set and `recipeSkills` and `combatSkills` put it under the arbiter; `driveBy` hands a body to
+tactics over the skills it is given.
 
 - **Locomotion** (`locomotion.ts`) walks at no more than the body's measured fastest walk, turns
   only while walking and no faster than its envelope and optional `turnLimit` allow, and can
@@ -506,32 +508,42 @@ kinds, so a kind without one does not compile: it says which bodies it fits (`fi
 its presets (`PRESETS` merges them; the Arena's picker and a link's `control=` read them, ids
 unique across controllers) and makes the mind (`create`). Each controller composes its own
 tactics and skills; what they share is shared code (the orders, the targets, the guard, the
-sub-minds, locomotion and the strike cycle), not a flag that chooses a stack. There are four: the **recipe fighter** (Classic:
-searched recipe blows, `recipe-fighter.ts`), the **path fighter** (Combat, Brawler, Scrapper,
-Kicker: hand paths on the strike cycle, `path-fighter.ts`), the **quadruped** (crawl and bite)
-and **direct** joint control. A config read from a save or a link whose kind none has is refused
+sub-minds, locomotion and the strike cycle), not a flag that chooses a stack. There are three: the
+**fighter** (`createFighter`, `fighter.ts`), whose tactics and skills are parts in its slots;
+the **quadruped** (crawl and bite); and **direct** joint control. A config read from a save or a link whose kind none has is refused
 (`partOf`), and so is a tree any part of which names a fault (`treeFaults`, which `createMind`
-reads). A controller's config holds a player's fields, plain choices, and under `tuning` an
-experiment's settings, which never travel in a link. The recipe fighter's are `guard`, `aim` and
-`range`; its preset is `CLASSIC`, which rises by stages. The path fighter's are the hand that
-attacks (`hands`), its blows (`strikes`), the surface it favours (`prefers`), its defence,
-whether it kicks and fights on the ground, its combinations and its spacing; they are merged
-with its tuning once into the settings its tactics and its skills share (`resolvePath`), and its
-presets are `COMBAT`, `BRAWLER`, `SCRAPPER` and `KICKER`.
+reads). A part's config holds a player's fields, plain choices, and under `tuning` an
+experiment's settings, which never travel in a link.
 
-**A mind is a tree of parts** (`Part`, `src/core/mind/parts.ts`). Each part has a role (`mind`
-or `sub-mind`), a label, a stage (`game`, or `experimental` for research offered beside the
+**The fighter's slots** (`FighterConfig`) are its tactics, a skill of each role and its
+sub-minds. Its tactics (`tacticsOf`, `tactics-of.ts`) are `seek` (`recipeTactics`, with `guard`,
+`aim` and `range`) or `openings` (`pathTactics`, with the hand that attacks, its blows, the
+surface it favours, its defence, its combinations and its spacing). Its skills are its walk
+(`stance-walk`), its guard (`cover-guard`), its blow (`recipe-strike`, or `path-strike`, which may
+begin a hand while the other returns), and, optionally, a kick (`front-kick`) and low support
+(`support-fold`): an empty slot is a fighter that does not do that. The tactics plan by what the
+skills can do (`Abilities`, `abilitiesOf`: the blow's hand paths, the kick, whether it fights from
+low support), never by a setting of their own; and a hand's contacts are read where the opening
+tactics or the path strike read them (`readsContact`). A skill the tactics never ask of, or a blow
+that cannot carry out what they ask, is a fault at its slot (`fighterFaults`: `blow: the path
+strike carries out a blow only along a path, and these tactics name none`). The presets are
+`CLASSIC` (seek over the recipe strike, rising by stages) and `COMBAT`, `BRAWLER`, `SCRAPPER` and
+`KICKER` (openings over the path strike; Scrapper adds low support, and Kicker a kick).
+
+**A mind is a tree of parts** (`Part`, `src/core/mind/parts.ts`). Each part has a role (`mind`,
+`sub-mind`, `tactics`, or a skill's: `locomotion`, `guard`, `blow`, `kick`, `support`), a label, a stage (`game`, or `experimental` for research offered beside the
 game's), the settings a person may change (`fields`, built from `fields.ts`'s `choice`, `toggle`
 and `number`), its slots, the config it starts from (`defaults`), the bodies it fits (`fits`) and
 what is wrong with a config of it (`faults`). A slot is a key of the config that holds another
-part of a stated role, or a ranked list of them (`slotList`). The controllers are the parts of
-role `mind`; the sub-minds are `SUB_MIND_PARTS`; `PARTS` (`src/core/mind/catalog.ts`) is every
+part of a stated role, or none where it is optional (`slotOne`), or a ranked list of them
+(`slotList`). The controllers are the parts of role `mind`; the sub-minds are `SUB_MIND_PARTS`;
+the tactics `TACTICS_PARTS`; the skills `SKILL_PARTS`; `PARTS` (`src/core/mind/catalog.ts`) is every
 part by kind, typed so that a kind without one does not compile. Over it, once for every part:
 `treeFaults` names each fault by its path in the tree (`subs.0: ...`), a part of the wrong role
-in a slot among them; `treeFits` asks every part whether it fits a body; `withoutTuning` leaves
+in a slot among them, a part's own faults read once each of its slots holds parts of its role; `treeFits` asks every part whether it fits a body; `withoutTuning` leaves
 out every part's `tuning`; and `kindsFor` lists every part of a role, none left out, each with
-the reason it cannot go there for a body or null. Both fighters hand their body to the sub-minds
-in their `subs` slot.
+the reason it cannot go there for a body or null. The fighter hands its body to the sub-minds in
+its `subs` slot.
 
 **The mind editor** (`mindEditor`, `src/ui/mind-editor.ts`) draws a tree for a body: each part's
 fields, its research `tuning` read-only, each single slot as a picker of every part of its role
@@ -549,7 +561,7 @@ There are three sub-minds, each of which wants the body while it is down
 (`BodyView.down`), and the body hands each maker its world (`SubMindMaker`): `lie` (`lying`,
 `lie.ts`), which asks its muscles for nothing, `staged-rise` (`stagedRise`, `rise/staged.ts`),
 the riser, and `support-recovery` (`supportRecovery`), the riser followed by a quiet standing
-handover. `RECIPE_FIGHTER` is the recipe fighter with `lie`: the mind every body has unless its fight says otherwise,
+handover. `RECIPE_FIGHTER` is Classic's fighter with `lie`: the mind every body has unless its fight says otherwise,
 so a body that falls lies still ([reference/rising.md](reference/rising.md#lying)). An arena
 recipe may name each side's mind (`DuelRecipe.minds`); the crypt gives every body `RECIPE_FIGHTER`;
 the lab's actor, whose tactics are its scenario's, takes the sub-minds its page chose
@@ -597,30 +609,30 @@ guards with, where a contact is a block, `contactResponse`) and never by a human
 walk, turning to it. Ordered to face another way as it walks, it walks at half that pace until
 it has turned to its facing, and from then at half plus the other half times the cosine of the
 angle between its heading and its walk (`STRAFE`, [reference/orders.md](reference/orders.md)).
-Given a point the recipe fighter (`recipeTactics`, `recipe-tactics.ts`) attacks it with its
+Given a point the seeking tactics (`recipeTactics`, `recipe-tactics.ts`) attack it with the
 right hand, the strike skill closing the distance, while the left guards: it holds the point while the strike skill walks and sets the feet for it, and aims
 at the ordered point itself once a blow is committed. The stance turns only while it walks or
 follows a blow's target, so a standing body ordered to face does not turn.
 
-A hand that does not attack guards as the mind's config says (`RecipeFighterConfig.guard`): in the
+A hand that does not attack guards as the tactics' config says (`SeekConfig.guard`): in the
 pose, or by a cover of what threatens its head. The threat is read from the senses (`threatOf`,
 `threat.ts`): of the other sides' bodies still in the fight, the point each hand strikes with
 (its knuckles, or its club's swell) that closes fastest on the head, within `THREAT`'s distance
 and over its speed. What is sensed is as old as the senses' delay, and nothing corrects for it.
-Every body's fighter guards in the pose (`RECIPE_FIGHTER`); an Arena side's `guard` setting
-(`&left.guard=cover`) gives it the cover ([reference/blows.md](reference/blows.md#covering-searched)).
+Every body's fighter guards in the pose (`RECIPE_FIGHTER`); an Arena side whose tactics' `guard` is
+set to cover covers ([reference/blows.md](reference/blows.md#covering-searched)).
 
 Orders come from three places. An arena side nobody has taken makes its own (`seekFoe`): from
 its senses it picks the nearest body of another side still in the fight, walks at it, and attacks
 it once their centres are within `ATTACK_METRES` (1.8 m): at its head, or, where its config says
-to aim at what pays (`RecipeFighterConfig.aim`, `bandAimed`), at the part of the band its hand's
+to aim at what pays (`SeekConfig.aim`, `bandAimed`), at the part of the band its hand's
 recipe nets most on (`StrikeReport.nets`, `markOf`). Every body's fighter aims at the head
 (`RECIPE_FIGHTER`; [reference/blows.md](reference/blows.md#aim)). Where its config says to hold at the
-edge (`RecipeFighterConfig.range`, `EDGE`), it reads the foe's reach from what it sees of the foe
+edge (`SeekConfig.range`, `EDGE`), it reads the foe's reach from what it sees of the foe
 (`rangeOf`, by `BodySense.spec`, the rule its own strike skill throws by, `StrikeReport.rangeAt`):
 it stands just outside it, backing out from inside it, and attacks when the part it aims at
 stands in its own blow's window from where it stands, or when it has stood there its patience.
-Every body's fighter walks in (`RECIPE_FIGHTER.range`). A side a person has taken is
+Every body's fighter walks in (`RECIPE_FIGHTER.tactics.range`). A side a person has taken is
 given the person's (`Duel.order`) and does only what it is ordered, until it is handed back or is
 out of the fight. In the crypt the run plans for its fighters with the map (`DungeonRun`) and
 hands each its plan as orders, its target as the foe; its bodies sense each other, with no delay. Each
@@ -1095,8 +1107,8 @@ physical loadouts, duel recipes and tapes. They do not change collisions, sounds
 ## What the seams are for
 
 An attack is a function of its target: the tactics say what to attack (`Attack`: a blow of a
-hand, with whatever it holds, or a kick of a foot, at a point) and, for the path fighter, along
-which family of path (`BlowPath`); the recipe fighter's strike skill chooses how, a searched
+hand, with whatever it holds, or a kick of a foot, at a point) and, for the opening tactics, along
+which family of path (`BlowPath`); the recipe strike chooses how, a searched
 recipe or a placed blow. No technique is a kind in the code: a recipe is data a search found. Defence
 is the guard placing what a hand holds, or the hand. A blow is whatever two surfaces of two
 sides met with. Each seam is where one kind of addition goes; none of these is built

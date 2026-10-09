@@ -205,7 +205,7 @@ test("Crypt supplies the world to presentation during construction and when an e
   }
 });
 
-for (const mind of [RECIPE_FIGHTER, COMBAT]) test(`${mind.kind}: actual Arena punches form fists without changing the bout`, async () => {
+for (const mind of [RECIPE_FIGHTER, COMBAT]) test(`${mind.tactics.kind}: actual Arena punches form fists without changing the bout`, async () => {
   const recipe = { left: "workshop-fighter", right: "workshop-fighter", gap: 2, capSeconds: 8,
     balance: { left: 25, right: 25 }, held: { left: "empty", right: "empty" }, minds: { left: mind, right: mind } };
   const run = async decorated => {
@@ -213,7 +213,7 @@ for (const mind of [RECIPE_FIGHTER, COMBAT]) test(`${mind.kind}: actual Arena pu
     const { world, duel } = stand, scene = world.scene, poses = [], skins = [], swung = new Set();
     try {
       // Classic receives stationary practice marks so its approach does not chase a moving foe.
-      if (mind.kind === "recipe-fighter") for (const side of ["left", "right"]) {
+      if (mind.tactics.kind === "seek") for (const side of ["left", "right"]) {
         const head = duel.duelists[side].body.physical.head;
         duel.order(side, { move: null, face: 0, attack: [head.x, head.y, head.z + .5] });
       }

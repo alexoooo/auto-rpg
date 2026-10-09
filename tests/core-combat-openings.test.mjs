@@ -13,6 +13,7 @@ import { frameOf } from '../src/core/spec/body.ts';
 import { Quaternion, Vector3 } from '@babylonjs/core/Maths/math.vector.js';
 import { combatTrial } from '../research/arena-combat.mjs';
 import { STAND_ORDERS } from '../src/core/mind/orders.ts';
+import {withParts} from './fixtures/minds.mjs';
 
 test('convex surface rays enter faces, reject misses and never substitute an internal centre',()=>{
  const vertices=[];for(const x of [-1,1])for(const y of [-1,1])for(const z of [-1,1])vertices.push([x,y,z]);
@@ -83,7 +84,7 @@ test('a physical guard block triggers an angle change and replay preserves conta
 });
 
 test('the real Warrior trunk hull supplies a surface opening and a fresh-world selection fork',async()=>{
- const config={...COMBAT,strikes:'mixed',tuning:{openings:{head:1,upperTrunk:.2,middleTrunk:0}}};
+ const config=withParts(COMBAT,{tactics:{strikes:'mixed',tuning:{openings:{head:1,upperTrunk:.2,middleTrunk:0}}}});
  const recipe={left:'workshop-fighter',right:'workshop-fighter',held:{left:'empty',right:'empty'},balance:{left:0,right:0},
   minds:{left:config,right:COMBAT},recoverySeconds:null,capSeconds:30};
  const a=await buildBout(recipe,{physicsEngine:await loadEngine(DEFAULT_ENGINE)}),b=await buildBout(recipe,{physicsEngine:await loadEngine(DEFAULT_ENGINE)});
@@ -111,7 +112,7 @@ test('the real Warrior trunk hull supplies a surface opening and a fresh-world s
 });
 
 test('hull-aware body selection lands driven torso blows against an active Combat fighter',async()=>{
- const row=await combatTrial({left:{...COMBAT,strikes:'mixed',prefers:'body'},right:'combat',recipe:{capSeconds:30}});
+ const row=await combatTrial({left:withParts(COMBAT,{tactics:{strikes:'mixed',prefers:'body'}}),right:'combat',recipe:{capSeconds:30}});
  const out=row.sides.left;
  assert.ok((out.drivenTargets.middleTrunk??0)+(out.drivenTargets.upperTrunk??0)>=5,JSON.stringify(out));assert.ok(out.drivenDamage>.2,JSON.stringify(out));
  assert.equal(out.falls,0);assert.deepEqual(out.assist,{force:0,moment:0});assert.ok(out.pressureOnly.longest<2);
@@ -121,7 +122,7 @@ test('hull-aware body selection lands driven torso blows against an active Comba
 test('a selected overhand keeps its world contact direction through execution and fresh-world replay', {
   todo: "a bare hand strikes with its fist's measured surface (`closesToStrike`), about 9 cm short of the open capsule's fingers that its blows' spacing, aim and recipes were tuned to",
 }, async()=>{
- const candidate={...COMBAT,strikes:'vertical',tuning:{openings:{overhand:-.6}}};
+ const candidate=withParts(COMBAT,{tactics:{strikes:'vertical',tuning:{openings:{overhand:-.6}}}});
  const recipe={left:'workshop-fighter',right:'workshop-fighter',held:{left:'empty',right:'empty'},balance:{left:0,right:0},
   minds:{left:candidate,right:COMBAT},recoverySeconds:null,capSeconds:30};
  const a=await buildBout(recipe,{physicsEngine:await loadEngine(DEFAULT_ENGINE)}),b=await buildBout(recipe,{physicsEngine:await loadEngine(DEFAULT_ENGINE)});

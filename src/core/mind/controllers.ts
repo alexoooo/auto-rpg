@@ -7,13 +7,11 @@ import { guardPosture } from "../skills/guard.ts";
 import type { BodySpec } from "../spec/body.ts";
 import { deepFreeze } from "../state.ts";
 import type { World } from "../world.ts";
-import { BRAWLER, CLASSIC, COMBAT, KICKER, QUADRUPED, RECIPE_FIGHTER, SCRAPPER, type DirectMindConfig, type MindConfig, type PathFighterConfig, type RecipeFighterConfig } from "./config.ts";
+import { BRAWLER, CLASSIC, COMBAT, KICKER, QUADRUPED, RECIPE_FIGHTER, SCRAPPER, type DirectMindConfig, type MindConfig } from "./config.ts";
 import { createDirectBody, directFaults } from "./direct.ts";
-import { choice, number, toggle, type PartField } from "./fields.ts";
+import { createFighter, fighterFaults } from "./fighter.ts";
 import type { Minded, MindWiring } from "./minds.ts";
-import { slotList, type Part, type Slot } from "./parts.ts";
-import { createPathFighter, pathFaults } from "./path-fighter.ts";
-import { createRecipeFighter, recipeFaults } from "./recipe-fighter.ts";
+import { slotList, slotOne, type Part, type Slot } from "./parts.ts";
 
 /**
  * **A controller**: a kind of mind, as a part (`Part`) of role `mind`, with its named configs, the
@@ -37,31 +35,14 @@ const DIRECT: DirectMindConfig = deepFreeze({ kind: "direct", targets: {}, secon
 /** No posture: a body built in its spec's reference pose. */
 const REFERENCE: Pose = Object.freeze({});
 
-/** A fighter's slot: the sub-minds it hands its body to when down, in rank order (`subs`). */
-const DOWN: readonly Slot[] = Object.freeze([slotList("subs", "When down", "sub-mind")]);
-
-/** The recipe fighter's settings: how it guards, what it aims at and how near it comes. */
-const RECIPE_FIELDS: readonly PartField<RecipeFighterConfig>[] = Object.freeze([
-  choice<RecipeFighterConfig, "guard">("guard", "Guard", [["pose", "Hold the pose"], ["cover", "Cover the threat"]]),
-  choice<RecipeFighterConfig, "aim">("aim", "Aim", [["head", "The head"], ["pays", "What pays"]]),
-  choice<RecipeFighterConfig, "range">("range", "Range", [["close", "Walk in"], ["edge", "Hold at the edge"]]),
-]);
-
 /**
- * The path fighter's settings: the config's player fields. The spacing's bounds are a
- * numeric setting, the most a panel offers: what a fighter can do with them is
- * `validRangeLearning`'s.
+ * A fighter's slots: its tactics, a skill of each role, a kick and low support if it has them,
+ * and the sub-minds it hands its body to when down, in rank order (`subs`).
  */
-const PATH_FIELDS: readonly PartField<PathFighterConfig>[] = Object.freeze([
-  choice<PathFighterConfig, "hands">("hands", "Hands", [["alternate", "Both in turn"], ["right", "Right"], ["left", "Left"]]),
-  choice<PathFighterConfig, "strikes">("strikes", "Blows", [["linear", "Straight"], ["mixed", "Straight and hooks"], ["vertical", "With overhands"], ["boxing", "With uppercuts"]]),
-  choice<PathFighterConfig, "prefers">("prefers", "Target", [["head", "The head"], ["body", "The body"]]),
-  choice<PathFighterConfig, "defence">("defence", "Defence", [["cover", "Cover"], ["predictive", "Predictive cover"]]),
-  toggle<PathFighterConfig, "kicks">("kicks", "Kicks"),
-  toggle<PathFighterConfig, "ground">("ground", "On the ground"),
-  choice<PathFighterConfig, "combinations">("combinations", "Combinations", [["none", "None"], ["follow-up", "Follow-up"], ["overlap", "Overlap"]]),
-  number<PathFighterConfig, "spacing">("spacing", "Spacing", 0, 1, .05, "m"),
-  number<PathFighterConfig, "spacingStep">("spacingStep", "Spacing learnt", 0, .2, .01, "m"),
+const FIGHTER_SLOTS: readonly Slot[] = Object.freeze([
+  slotOne("tactics", "Tactics", "tactics"), slotOne("locomotion", "Walk", "locomotion"), slotOne("guard", "Guard", "guard"),
+  slotOne("blow", "Blow", "blow"), slotOne("kick", "Kick", "kick", true), slotOne("support", "Low support", "support", true),
+  slotList("subs", "When down", "sub-mind"),
 ]);
 
 /**
@@ -69,28 +50,19 @@ const PATH_FIELDS: readonly PartField<PathFighterConfig>[] = Object.freeze([
  * offered by name. A kind without an entry does not compile.
  */
 export const CONTROLLERS: { readonly [K in MindConfig["kind"]]: Controller<Extract<MindConfig, { kind: K }>> } = Object.freeze({
-  "recipe-fighter": {
-    role: "mind", label: "Recipe fighter", stage: "game", slots: DOWN, defaults: RECIPE_FIGHTER,
+  fighter: {
+    role: "mind", label: "Fighter", stage: "game", fields: [], slots: FIGHTER_SLOTS, defaults: RECIPE_FIGHTER,
     fits: commandable,
-    faults: recipeFaults,
-    presets: deepFreeze({ classic: { label: "Classic fighter", config: CLASSIC } }),
-    fields: RECIPE_FIELDS,
-    builtIn: guardPosture,
-    create: createRecipeFighter,
-  },
-  "path-fighter": {
-    role: "mind", label: "Path fighter", stage: "experimental", slots: DOWN, defaults: COMBAT,
-    fits: commandable,
-    faults: pathFaults,
+    faults: fighterFaults,
     presets: deepFreeze({
+      classic: { label: "Classic fighter", config: CLASSIC },
       combat: { label: "Combat (experimental)", config: COMBAT },
       brawler: { label: "Brawler (experimental)", config: BRAWLER },
       scrapper: { label: "Scrapper (experimental)", config: SCRAPPER },
       kicker: { label: "Kicker (experimental)", config: KICKER },
     }),
-    fields: PATH_FIELDS,
     builtIn: guardPosture,
-    create: createPathFighter,
+    create: createFighter,
   },
   quadruped: {
     role: "mind", label: "Quadruped", stage: "game", fields: [], slots: [], defaults: QUADRUPED,

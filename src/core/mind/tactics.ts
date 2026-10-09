@@ -1,5 +1,7 @@
 import type { Body, BodyView } from "../body.ts";
 import type { StanceEnvelope } from "../control/stance-envelope.ts";
+import type { AttackTuning } from "../skills/attack-path.ts";
+import type { KickTuning } from "../skills/kick.ts";
 import { recipeSkills, type SkillReport, type Skills } from "../skills/skills.ts";
 import type { Intent } from "./intent.ts";
 
@@ -21,6 +23,19 @@ export interface Tactics<S = Sight, I = Intent> {
 }
 
 /**
+ * **What a fighter's skills can do**, as its tactics plan by it: read from the skills' configs,
+ * never from the tactics' own.
+ */
+export interface Abilities {
+  /** The timings of the blow's hand paths: the path strike's, or `ATTACK_PATH` for a blow of none. */
+  readonly paths: AttackTuning;
+  /** Its kick, or null with no kick skill. */
+  readonly kick: KickTuning | null;
+  /** Whether it has a skill to fight from low support. */
+  readonly ground: boolean;
+}
+
+/**
  * What tactics see: the body's view, with what it senses of the others (`BodyView.senses`), how
  * its skills are going, and what its stance holds.
  */
@@ -34,7 +49,7 @@ export interface Sight {
 
 /**
  * Hand `body` to `tactics`: each control step they decide on the body's view and the skills'
- * report, and the skills `make` makes (the recipe fighter's unless given) make the command.
+ * report, and the skills `make` makes (the recipe strike's set, `recipeSkills`, unless given) make the command.
  * Returns the skills, for their report. On the step the body is back from another mind
  * (`BodyView.resumed`) the skills are resumed before the tactics decide, so the report they read
  * is of the body as it is.

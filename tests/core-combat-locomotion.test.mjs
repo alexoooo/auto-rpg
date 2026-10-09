@@ -6,6 +6,7 @@ import {SCRAPPER} from '../src/core/mind/config.ts';
 import {buildBout} from '../research/bout.mjs';
 import {loadEngine,DEFAULT_ENGINE} from '../src/core/engine/engines.ts';
 import {traceOf} from './harness/trace.mjs';
+import {withParts} from './fixtures/minds.mjs';
 
 test('heading ceilings reject invalid values and an omitted ceiling retains the envelope',()=>{
  for(const value of [-1,0,Infinity,NaN,null]){assert.equal(validTurnLimit(value),false);assert.throws(()=>locomotion(null,value),/finite and positive/);}
@@ -25,7 +26,7 @@ test('an unassisted Warrior starting a fast left turn stands, at the asked rate 
 
 test('a configured Arena turn ceiling forks during an ordinary approach and retains its limit',async()=>{
  const make=async()=>buildBout({left:'workshop-fighter',right:'workshop-fighter',gap:2,capSeconds:20,recoverySeconds:null,
-  balance:{left:0,right:0},held:{left:'empty',right:'empty'},minds:{left:{...SCRAPPER,tuning:{turnLimit:1}},right:{...SCRAPPER,tuning:{turnLimit:1}}}},
+  balance:{left:0,right:0},held:{left:'empty',right:'empty'},minds:{left:withParts(SCRAPPER,{locomotion:{tuning:{turnLimit:1}}}),right:withParts(SCRAPPER,{locomotion:{tuning:{turnLimit:1}}})}},
   {physicsEngine:await loadEngine(DEFAULT_ENGINE)});
  const a=await make(),b=await make();
  try{

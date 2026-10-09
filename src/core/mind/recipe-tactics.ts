@@ -3,7 +3,7 @@ import { APPROACH, rangeOf, type StrikeReport } from "../skills/strike.ts";
 import { BAND_NAMES, type Band } from "../skills/strikes.ts";
 import type { Marks } from "../spec/body.ts";
 import type { Vec3 } from "../spec/quantity.ts";
-import { RECIPE_FIGHTER, type RecipeFighterConfig } from "./config.ts";
+import { SEEK, type SeekConfig } from "./config.ts";
 import type { Intent } from "./intent.ts";
 import { STAND_ORDERS, type Orders } from "./orders.ts";
 import type { Sight, Tactics } from "./tactics.ts";
@@ -20,7 +20,7 @@ import { hypot } from "../math/real.ts";
 export const ATTACK_METRES = 1.8;
 
 /**
- * **Holding at the edge of a foe's reach** (`RecipeFighterConfig.range`, `"edge"`): how far past the
+ * **Holding at the edge of a foe's reach** (`SeekConfig.range`, `"edge"`): how far past the
  * foe's reach a fighter stands before it walks in again, m; and how long it stands still there,
  * s, before it walks in to attack all the same. The band is set, the patience read in bouts:
  * `docs/reference/human-and-strikes.md#the-edge`.
@@ -31,7 +31,7 @@ export const EDGE: Edge = Object.freeze({ band: 0.25, patience: 4 });
 export interface Edge { readonly band: number; readonly patience: number }
 
 /**
- * **The recipe fighter's tactics** carry out `Orders`, asked for every control step with what the
+ * **The seeking tactics** carry out `Orders`, asked for every control step with what the
  * body sees: to walk and to face as `orderedIntent` does, at `strafe`. Given a point to attack it
  * attacks it with what the right hand holds: the strike skill brings the body the rest of the way
  * (`APPROACH` in `src/core/skills/strike.ts`). It holds the point it aims at while the ordered one
@@ -41,10 +41,10 @@ export interface Edge { readonly band: number; readonly patience: number }
  * itself, which the skill turns the body to follow (`STEER`). Back from another mind
  * (`BodyView.resumed`), it aims afresh.
  *
- * A hand that does not attack guards as `guard` says (`RecipeFighterConfig.guard`, `guarding`).
+ * A hand that does not attack guards as `guard` says (`SeekConfig.guard`, `guarding`).
  */
 export function recipeTactics(name: string, orders: (sight: Sight) => Orders, strafe: typeof STRAFE = STRAFE,
-  guard: RecipeFighterConfig["guard"] = RECIPE_FIGHTER.guard, threat: Threat = THREAT): Tactics {
+  guard: SeekConfig["guard"] = SEEK.guard, threat: Threat = THREAT): Tactics {
   const rest = guarding(guard, threat);
   /** Its memory: the point aimed at, and the blows thrown when it was chosen. */
   const state: { aim: { point: Vec3; thrown: number } | null } = { aim: null };
@@ -70,11 +70,11 @@ export function recipeTactics(name: string, orders: (sight: Sight) => Orders, st
 }
 
 /**
- * The band of a foe a fighter attacks, by its `aim` (`RecipeFighterConfig.aim`): the high one, its
+ * The band of a foe a fighter attacks, by its `aim` (`SeekConfig.aim`): the high one, its
  * head; or the one the right hand's recipe nets the most on (`StrikeReport.nets`), the first of
  * equals in the bands' order, and the high one where the hand has no recipe or the skill throws none.
  */
-function bandAimed(aim: RecipeFighterConfig["aim"], nets: StrikeReport["nets"]): Band {
+function bandAimed(aim: SeekConfig["aim"], nets: StrikeReport["nets"]): Band {
   switch (aim) {
     case "head": return "high";
     case "pays": {
@@ -121,8 +121,8 @@ function markOf(marks: Marks, band: Band): string | undefined {
  *
  * Once either is out it stands, facing the foe; and with nobody to fight it stands as it is.
  */
-export function seekFoe({ view, report }: Sight, aim: RecipeFighterConfig["aim"] = RECIPE_FIGHTER.aim,
-  range: RecipeFighterConfig["range"] = RECIPE_FIGHTER.range, edge: Edge = EDGE): Orders {
+export function seekFoe({ view, report }: Sight, aim: SeekConfig["aim"] = SEEK.aim,
+  range: SeekConfig["range"] = SEEK.range, edge: Edge = EDGE): Orders {
   const { senses, stance } = view, from = stance.centre;
   const foe = nearestFoe(senses, from, "standing-first");
   if (!foe) return STAND_ORDERS;

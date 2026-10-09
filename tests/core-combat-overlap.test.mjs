@@ -7,6 +7,7 @@ import {SCRAPPER,BRAWLER} from '../src/core/mind/config.ts';
 import {buildBout} from '../research/bout.mjs';
 import {loadEngine,DEFAULT_ENGINE} from '../src/core/engine/engines.ts';
 import {STAND_ORDERS} from '../src/core/mind/orders.ts';
+import {withParts} from './fixtures/minds.mjs';
 
 const states=s=>({body:s.body.state,skills:s.skills.state,policy:s.policy});
 
@@ -93,7 +94,7 @@ test('an auxiliary return deadline records failure and never manufactures guard 
 async function arena(side='left'){
  const other=side==='left'?'right':'left';
  return buildBout({left:'workshop-fighter',right:'workshop-fighter',held:{left:'empty',right:'empty'},balance:{left:0,right:0},gap:1.9,
-  recoverySeconds:null,capSeconds:30,minds:{[side]:{...SCRAPPER,spacing:.1,combinations:'overlap'},[other]:BRAWLER}},
+  recoverySeconds:null,capSeconds:30,minds:{[side]:withParts(SCRAPPER,{tactics:{spacing:.1,combinations:'overlap'},blow:{overlap:true}}),[other]:BRAWLER}},
   {physicsEngine:await loadEngine(DEFAULT_ENGINE)});
 }
 

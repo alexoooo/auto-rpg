@@ -22,6 +22,7 @@ import { lieOf, stagedRise } from "../src/core/mind/rise/staged.ts";
 import { RISE, stageFaults } from "../src/core/mind/rise/stages.ts";
 import { felled, riserOf, toppled } from "../research/core-rise-trials.mjs";
 import { coreStand } from "./harness/core-stand.mjs";
+import { CLASSIC } from "../src/core/mind/config.ts";
 
 /** No roll: a body not on its front lies as it is. */
 const NO_ROLL = { back: [], left: [], right: [] };
@@ -393,7 +394,7 @@ test("on a side, a body goes on over that side onto its front", async () => {
   // Two shoves that leave a body on a side, under the fighter's mind as the battery has it: it reads the side, rolls, and reads its front.
   // The club's is one of the battery's sixteen (1.5 N s/kg); none of them leaves the empty-handed Warrior on its right, and 1.8 N s/kg from 90 degrees does.
   for (const [model, held, degrees, side, impulse] of [["workshop-fighter", "empty", 90, "right", 1.8], ["workshop-fighter", "club", 247.5, "left", 1.5]]) {
-    const mind = { kind: "recipe-fighter", subs: [{ kind: "staged-rise" }], guard: "pose", aim: "head", range: "close" };
+    const mind = CLASSIC;
     const { world, body, dispose } = await felled({ model, held, degrees, impulse }, (made, into) => createMind(made, into, mind, { name: "shoved", orders: () => STAND_ORDERS }).body);
     try {
       const riser = riserOf(body), reads = [];

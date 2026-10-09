@@ -194,7 +194,7 @@ test('every skill set closes a bare hand for its blow and opens it in the guard'
    }
   } finally {hook.dispose();bout.dispose();}
   for(const [key,t] of Object.entries(tally)) {
-   // The recipe fighter throws with its right hand alone; its left is never closed.
+   // The seeking tactics throw with the right hand alone; the left is never closed.
    if(mind===RECIPE_FIGHTER&&key.endsWith('.left'))assert.equal(t.swing,0,key);
    else assert.ok(t.swing>0,`${key}: ${JSON.stringify(t)}`);
    assert.equal(t.swingOpen,0,`${key} swings with its fist: ${JSON.stringify(t)}`);

@@ -79,7 +79,7 @@ After it, each with its own plan, in the order each needs the one before:
 - **Retiring what the new skills replace**, each with its records:
   - the strike repertoire;
   - the staged rise;
-  - the path fighter's presets.
+  - the opening presets (Combat, Brawler, Scrapper, Kicker).
 - **Items**, as columns of the grid, each a new skill only where one measurably needs it. In
   this order:
   1. armour (mass and shape);
@@ -91,7 +91,8 @@ After it, each with its own plan, in the order each needs the one before:
 
 ## Where the control work stands
 
-- **Fighters.** Four presets of the path fighter run through the same body and muscle contract:
+- **Fighters.** One fighter, its tactics and skills parts a player picks, runs every humanoid preset
+  through the same body and muscle contract. Four use the opening tactics over the path strike:
   Combat, Brawler, the grounded Scrapper and Kicker. Against Classic on two Warriors, each wins
   bare-handed (0.98 to 1.00) and loses with clubs (0.10 to 0.24), every win on the clock
   ([presets](reference/controller-presets.md)).
@@ -107,7 +108,7 @@ After it, each with its own plan, in the order each needs the one before:
 - **Kicks.** Either-foot [front kicks](reference/front-kicks.md) share the punch's tracker and
   cycle. Higher targets and competitive kick selection are open.
 - **Rising.** Rising is built to the feet and continues Arena bouts:
-  - Classic tries its staged rise. The path fighter verifies standing support before handing back
+  - Classic tries its staged rise. The opening presets verify standing support before handing back
     ([recovery cycle](reference/recovery-cycle.md)).
   - On the hands' hulls, the Warrior rises from 11 of 16 falls empty-handed and 9 of 14 with the
     club; the Rogue from 2 of 32. The capsule hands rose from 13, 13 and 6 on the same shoves
@@ -199,7 +200,7 @@ After it, each with its own plan, in the order each needs the one before:
   club, high and middle (`assets/core/strikes.json`, [blows](reference/blows.md#searched)), and
   Classic throws it. It is to be retired when the new skills meet the suite.
 - **The owner's to choose, each landed at its default:**
-  - **Where a fighter aims** (`RecipeFighterConfig.aim`): the head, or the part a blow pays most
+  - **Where a fighter aims** (`SeekConfig.aim`): the head, or the part a blow pays most
     on. Aiming at what pays gains 0.015 to 0.018 of the bar's margin over two pilots and wins
     fewer bouts ([blows](reference/blows.md#aim)).
   - **Whether a bare fist strikes at a head at all.** The hand takes the greater share of a blow

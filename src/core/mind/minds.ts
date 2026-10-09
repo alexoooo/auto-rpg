@@ -35,7 +35,7 @@ interface MindedBody {
 
 /** A body under a fighter's mind: its skills, for whoever knows it is a fighter and reads their report. */
 interface FighterMind extends MindedBody {
-  readonly kind: "recipe-fighter" | "path-fighter";
+  readonly kind: "fighter";
   readonly body: Body;
   readonly skills: Skills;
 }

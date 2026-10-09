@@ -9,6 +9,7 @@ import { STAND_ORDERS } from '../src/core/mind/orders.ts';
 import { centreOfToRef } from '../src/core/control/support.ts';
 import { readMinds } from '../src/arena/matchup.ts';
 import { traceOf } from './harness/trace.mjs';
+import {withParts} from './fixtures/minds.mjs';
 
 for(const hand of ['right','left'])for(const recover of [false,true])test(`the real Arena ${hand} hand attacks a ${recover?'recovering':'stationary fallen'} Warrior and returns standing`, { todo: "a bare hand strikes with its fist's measured surface (`closesToStrike`), about 9 cm short of the open capsule's fingers that its blows' spacing, aim and recipes were tuned to" }, async()=>{
  const row=await groundFight({hand,recover,seconds:45}),out=row.summary;
@@ -23,7 +24,7 @@ for(const hand of ['right','left'])for(const recover of [false,true])test(`the r
 });
 
 test('selectable grounded combat forks its approach and low swing and obeys an ordinary stand order',async()=>{
- const candidate={...readMinds('?control=scrapper').left,hands:'right'};
+ const candidate=withParts(readMinds('?control=scrapper').left,{tactics:{hands:'right'}});
  assert.deepEqual(readMinds('?control=scrapper').left,SCRAPPER);
  const recipe={left:'workshop-fighter',right:'workshop-fighter',held:{left:'empty',right:'empty'},balance:{left:0,right:0},
   minds:{left:candidate,right:RECIPE_FIGHTER},gap:.8,capSeconds:60,recoverySeconds:null};
