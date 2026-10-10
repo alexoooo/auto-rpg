@@ -115,6 +115,12 @@ After it, each with its own plan, in the order each needs the one before:
     ([rising](reference/rising.md#staged)).
   - Passing rises take 22 to 29 s. Most of it is pose stages of set time, which can lose a
     quarter and no more.
+  - Experimental Dynamic rise is an additional `When down` choice for Warrior and Rogue,
+    including a retained club. Its contact-driven preparation and whole-body support transfer
+    do not pass the four-second median / six-second deadline: none of 64 development falls
+    completes verified handover within the deadline
+    ([dynamic rise](reference/rising.md#dynamic-rise)). Support transfer and reliable handover
+    remain open; existing presets retain their recovery.
   - The Crypt still uses `lie`.
 - **The posture hold.** On the hands' hulls, independent joint feedback
   [holds no installed pose](reference/posture-hold.md) within 2 cm for 10 s. An

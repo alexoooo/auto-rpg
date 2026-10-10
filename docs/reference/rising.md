@@ -73,6 +73,44 @@ began (`none` if its riser began none; the count is of the body's last fall with
 and how many played the rise to its end within the watch: its last stage done, and not given up
 at its limit. Under a mind with no riser the last two columns are empty.
 
+## Dynamic rise
+
+`dynamic-rise` is an additional experimental recovery sub-mind in the editor's `When down`
+slot. Its intended human baseline is a median verified recovery within 4 seconds, with at least
+15 of 16 directional falls in each body/loadout group completed within 6 seconds. This is the
+owner's requested gameplay target, not a change to anatomical strength or speed. Presets
+retain their existing recovery.
+
+```powershell
+node research/dynamic-rise.mjs --workers 2
+```
+
+Harness: Node core stand with Arena solids, `rapier-coordinate` (adapter 10), 120 Hz,
+symmetric actuation, balance 0. Warrior and Rogue stand under Puncher for one second, then
+receive the battery's mass-scaled shove in sixteen directions 22.5 degrees apart, with empty
+hands and a right-hand club. The clock begins at sub-mind takeover and includes landing,
+orientation, retries and half a second of verified quiet standing. A completion must then
+survive two seconds of standing and execute a one-second commanded walk. Failed or censored
+falls remain failures in the median; a median over only successful outliers is not the gate.
+
+| Body | Loadout | Actual falls | Verified handovers within 6 s | Gate |
+|---|---|---:|---:|---|
+| Warrior | Empty | 16 | 0 | Fail |
+| Warrior | Club | 16 | 0 | Fail |
+| Rogue | Empty | 16 | 0 | Fail |
+| Rogue | Club | 16 | 0 | Fail |
+
+The trials reach orientation, acquisition, placement and transfer, but none reaches extension
+and standing verification within the watch. No finite passing median is established. Maximum
+measured effort above the applied muscle bound is 0.000038933 N m, below the 0.0001 N m numeric
+tolerance; root assistance is zero throughout, and all club trials retain the item. This does
+not establish walking after recovery, repeated recovery or an interrupted Arena get-up.
+
+The real-fall checkpoint test reaches the whole-body adapter and reproduces its subsequent
+observations and saved state in a fresh world and after a rewind. The short-watch test rejects
+unfinished falls as fast recoveries. Catalog and link tests preserve the additional choice.
+These contract checks do not turn the failed physical timing gate into a passing one.
+
 ## Driven
 
 A fighter that hands its body to nobody: a body that is down is driven on by its stance, which

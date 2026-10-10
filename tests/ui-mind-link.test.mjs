@@ -31,6 +31,14 @@ test("a_link_carries_no_research_tuning_either_way", () => {
   assert.deepEqual(readMind(JSON.stringify(tuned), PRESETS), CLASSIC);
 });
 
+test("a dynamic recovery choice travels in the whole mind link", () => {
+  const config = { ...CLASSIC, subs: [{ kind: "dynamic-rise" }] };
+  const text = mindText(config, PRESETS);
+  assert.deepEqual(parseMind(text, HUMAN), { config, faults: [] });
+  assert.deepEqual(readMind(text, PRESETS), config);
+  assert.equal(parseMind(text, REPTILE).faults.includes("the mind does not fit this body"), true);
+});
+
 test("a_link_with_no_mind_in_it_reads_as_none", () => {
   for (const text of [null, "", "nothing", "{", "[]", "null", "7", '{"kind":"fly"}', '{"kind":"lie"}', '{"kind":"seek"}', '{"kind":"toString"}', '"classic"']) {
     assert.equal(readMind(text, PRESETS), null, String(text));

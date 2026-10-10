@@ -14,7 +14,7 @@ import { centreOfToRef } from "../src/core/control/support.ts";
 import { armed } from "../src/core/human/grip.ts";
 import { modelSpec } from "../src/core/models.ts";
 import { woodenClub } from "../src/core/items/club.ts";
-import { RECIPE_FIGHTER } from "../src/core/mind/config.ts";
+import { PUNCHER, RECIPE_FIGHTER } from "../src/core/mind/config.ts";
 import { builtAngles, createMind } from "../src/core/mind/minds.ts";
 import { STAND_ORDERS } from "../src/core/mind/orders.ts";
 import { lieOf } from "../src/core/mind/rise/staged.ts";
@@ -108,9 +108,9 @@ const FLOOR = 12;
  * ground, `FLOOR` m square. With `physique`, the body is the model's with it (`Physique`). The caller
  * disposes.
  */
-export async function felled({ model, held, degrees, impulse = 1.5, level = 0, hz = 120, actuation, physique }, minded, mind = null) {
+export async function felled({ model, held, degrees, impulse = 1.5, level = 0, hz = 120, actuation, physique, engine: engineName }, minded, mind = null) {
   const engine = new NullEngine(), scene = new Scene(engine);
-  const world = createWorld(scene, await freshEngine(), { hz, actuation });
+  const world = createWorld(scene, await freshEngine(engineName), { hz, actuation });
   addArenaSolids(world.physics);
   if (level > 0) world.physics.addFixedBox([0, level / 2, 0], [FLOOR, level, FLOOR]);
   const spec = LOADOUTS[held](modelSpec(model, physique));
@@ -183,4 +183,42 @@ export async function boutFall({ recipe, mind, watch = WATCH_SECONDS }) {
   } finally { dispose(); }
 }
 
-export const TRIALS = { shoved, boutFall };
+/** Six-second dynamic-rise qualification; every successful handover must survive standing and walking. */
+export async function dynamicFall({ model, held, degrees, watch = 6 }) {
+  const mind = { ...PUNCHER, subs: [{ kind: "dynamic-rise" }] };
+  let orders = STAND_ORDERS;
+  const stand = await felled({ model, held, degrees, engine: "rapier-coordinate" }, (made, world) =>
+    createMind(made, world, mind, { name: "dynamic qualification", orders: () => orders }).body, mind);
+  const { world, built, body } = stand;
+  try {
+    const policy = body.state.mind.subs[0].policy, start = world.time, before = policy.completed;
+    const fell = body.down, phases = new Set();
+    let effortExcess = 0, assistForce = 0, assistMoment = 0;
+    const take = () => {
+      world.step(); phases.add(policy.phase);
+      const o = body.observe();
+      for (const j of o.joints) effortExcess = Math.max(effortExcess, j.effort - j.positive, -j.effort - j.negative);
+      assistForce = Math.max(assistForce, body.assist.meter.force);
+      assistMoment = Math.max(assistMoment, body.assist.meter.moment);
+    };
+    while (fell && policy.completed === before && world.time - start < watch) take();
+    const seconds = policy.completed > before ? policy.finished - policy.began : null;
+    let remainedUp = seconds !== null, walked = false;
+    if (seconds !== null) {
+      for (let step = 0; step < world.hz * 2; step++) { take(); remainedUp &&= !body.down; }
+      const from = [...body.observe().centre], heading = policy.yaw;
+      orders = { move: { x: Math.sin(heading), z: Math.cos(heading) }, face: null, attack: null };
+      for (let step = 0; step < world.hz; step++) { take(); remainedUp &&= !body.down; }
+      const to = body.observe().centre;
+      walked = Math.hypot(to[0] - from[0], to[2] - from[2]) > .05;
+    }
+    return { model, held, degrees, fell, seconds, remainedUp, walked, phases: [...phases], attempts: policy.attempts,
+      retries: policy.retries, rejected: body.state.mind.subs[0].rejected, effortExcess,
+      assist: { force: assistForce, moment: assistMoment }, retained: (built.spec.held?.length ?? 0) === (held === "club" ? 1 : 0),
+      harness: { name: "Node core stand with Arena solids", engine: world.physics.engine,
+        hz: world.hz, actuation: world.actuation, balance: 0 },
+      success: fell && seconds !== null && seconds <= 6 && remainedUp && walked && effortExcess <= .0001 && assistForce === 0 && assistMoment === 0 };
+  } finally { stand.dispose(); }
+}
+
+export const TRIALS = { shoved, boutFall, dynamicFall };

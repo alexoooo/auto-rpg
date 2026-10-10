@@ -615,11 +615,12 @@ goal or by its posture, `BlowSkill.holds`), whose slot it marks live. Each side'
 HUD has one, the Lab's thinking section one, and the Crypt's HUD one, for the enemy under the
 pointer, else the enemy the party is locked on, else the first selected member.
 
-There are three sub-minds, each of which wants the body while it is down
+There are four sub-minds, each of which wants the body while it is down
 (`BodyView.down`), and the body hands each maker its world (`SubMindMaker`): `lie` (`lying`,
 `lie.ts`), which asks its muscles for nothing, `staged-rise` (`stagedRise`, `rise/staged.ts`),
-the riser, and `support-recovery` (`supportRecovery`), the riser followed by a quiet standing
-handover. `RECIPE_FIGHTER` is Classic's fighter with `lie`: the mind every body has unless its fight says otherwise,
+the riser, `support-recovery` (`supportRecovery`), the riser followed by a quiet standing
+handover, and experimental `dynamic-rise` (`dynamicRise`, `rise/dynamic.ts`).
+`RECIPE_FIGHTER` is Classic's fighter with `lie`: the mind every body has unless its fight says otherwise,
 so a body that falls lies still ([reference/rising.md](reference/rising.md#lying)). An arena
 recipe may name each side's mind (`DuelRecipe.minds`); the crypt gives an enemy its model's (`modelInfo`) and a party member the
 mind chosen for its model on the start panel (`DungeonRunOptions.minds`), its model's unless one
@@ -645,6 +646,25 @@ stands it at the stance's height and squares its feet. It stands the Warrior fro
 eight with nothing in its hands and more than three of four with the club, the Rogue from one
 fall of five and the skeleton from almost none
 ([reference/rising.md](reference/rising.md#where-the-rise-stops)).
+
+**Dynamic rise** separates a detached observation policy from the muscle adapter. The policy
+waits for a non-foot floor contact, orients, acquires hand/shin support, places a lead foot,
+transfers weight, extends and verifies standing. It retains a held club and uses the free hand;
+empty-handed it retains both hands during placement. Support release uses the measured contact
+outline and a mass-weighted velocity projection of the centre. Pose seeds are clamped to the
+body's limits; the Warrior's fours seed is the installed posture asset. Placement and root-height
+aims use smooth trajectories scaled to the body's leg geometry. The whole-body tracker predicts
+loaded contacts and lift-off and asks only muscle torques; a rejected prediction applies zero
+torque. Orientation and acquisition use bounded joint-velocity feedback. A stalled objective
+retries locally, and a six-second attempt reclassifies actual contacts and orientation.
+
+Handover requires half a second of quiet, loaded two-foot support, no other floor contacts and
+the centre inside the soles. Locomotion resumes from measured stance before this check and
+gradually restores height and foot spacing. Policy, trajectory, tracker and stabilization memory
+save under the hosted mind. The editor offers the variant to Warrior and Rogue with empty hands
+or one retained item; presets keep their existing recovery. Its zero-assist human timing gate
+fails ([reference/rising.md](reference/rising.md#dynamic-rise)); it is an experimental controller,
+not a demonstrated faster recovery route.
 
 `Tactics` (`tactics.ts`) are `decide(sight, dt)`: from their `Sight` (the body's view, the
 skills' report and the body's envelope) they return an `Intent` (`intent.ts`): a velocity forward

@@ -17,7 +17,7 @@ test("every part has a role, a stage, frozen defaults of its own kind, and every
     assert.deepEqual(treeFaults(part.defaults, part.needs ? [part.needs] : []), [], kind);
     for (const slot of part.slots) assert.ok(Object.values(PARTS).some((other) => other.role === slot.role), `${kind}.${slot.key}`);
   }
-  assert.deepEqual(Object.keys(PARTS), ["fighter", "quadruped", "direct", "lie", "staged-rise", "support-recovery", "seek", "openings", "script", "stand", "behaviours",
+  assert.deepEqual(Object.keys(PARTS), ["fighter", "quadruped", "direct", "lie", "staged-rise", "support-recovery", "dynamic-rise", "seek", "openings", "script", "stand", "behaviours",
     "follow-orders", "flee", "close-in", "keep-distance", "strike", "kick", "cover",
     "stance-walk", "cover-guard", "recipe-strike", "path-strike", "driven-strike", "whole-body-strike", "straight-punch", "choose-blow", "front-kick", "support-fold"]);
   assert.equal(partOf(CLASSIC), PARTS.fighter);
@@ -61,7 +61,7 @@ test("a tree fits a body where every part does, and every part of a role is offe
   // Every tactics part is offered on every screen; the script only where the screen gives one.
   assert.deepEqual(offered("tactics", human), [["seek", null], ["openings", null], ["script", "this screen gives no script"], ["stand", null], ["behaviours", null]]);
   assert.deepEqual(kindsFor("tactics", human, ["script"]).map(({ reason }) => reason), [null, null, null, null, null]);
-  assert.deepEqual(offered("sub-mind", reptile), [["lie", null], ["staged-rise", "does not fit this body"], ["support-recovery", "does not fit this body"]]);
+  assert.deepEqual(offered("sub-mind", reptile), [["lie", null], ["staged-rise", "does not fit this body"], ["support-recovery", "does not fit this body"], ["dynamic-rise", "does not fit this body"]]);
 });
 
 test("a tree without its tuning keeps everything else, its slots' parts included", () => {
