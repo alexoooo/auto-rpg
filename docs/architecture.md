@@ -692,7 +692,9 @@ recipe nets most on (`StrikeReport.nets`, `markOf`). Every body's fighter aims a
 edge (`SeekConfig.range`, `EDGE`), it reads the foe's reach from what it sees of the foe
 (`rangeOf`, by `BodySense.spec`, the rule its own strike skill throws by, `StrikeReport.rangeAt`):
 it stands just outside it, backing out from inside it, and attacks when the part it aims at
-stands in its own blow's window from where it stands, or when it has stood there its patience.
+stands in its own blow's window from where it stands, or when it has stood there its patience;
+a foe that comes within its clinch (`EDGE.clinch`, 0.65 m between the centres of mass) it backs
+out from, unless its blow is already thrown.
 While the foe is down it attacks nothing and lets it rise, facing it and backing off from it while
 any part of it lies within `CLEAR_OF_DOWN` (0.9 m), so it does not walk onto it. Every body's fighter walks in (`RECIPE_FIGHTER.tactics.range`); the Puncher holds at the edge (`PUNCHER`). A side a person has taken is
 given the person's (`Duel.order`) and does only what it is ordered, until it is handed back or is

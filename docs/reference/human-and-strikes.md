@@ -216,6 +216,17 @@ margin at d over 0.2 in 26 and loses it at d under -0.2 in 30. With a club, a fi
 edge takes off its foe about a third less; empty-handed it falls less and does as much, and
 gains nothing in margin.
 
+The clinch is 0.65 m: a fighter at the edge backs out, facing its foe, from a blow walking in or
+settling while their centres of mass are within it across the ground (`seekFoe`). Read on the
+Puncher with the straight punch against Classic, Behaviours, Combat, Brawler, Kicker and
+Scrapper, empty-handed, 40 s bouts at ten gaps from 1.2 to 3.9 m and both sides (Node core world,
+Rapier, 120 Hz, 120 bouts a clinch): with none it won 0.94 and fell 0.12 a bout; at 0.6 to
+0.7 m it won 0.99 to 1.00, fell 0.03 to 0.10, and took a quarter of the damage from the two that
+walk into it; from 0.75 m it backs out of its own punch's window and throws ever less (0.8 m: 15
+blows a bout to 27, 0.9 m: none). In the empty-hand league (`research/empty-hand-league.mjs`,
+120 s, gaps 3 to 5 m) the clinch of 0.65 m rated 1431 to the Puncher's 1322 without it, 0.7 m
+1348.
+
 ## Windows
 
 A recipe's window is where its target may stand from its place for the recipe to be thrown at

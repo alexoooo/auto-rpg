@@ -82,7 +82,8 @@ is eight tenths of its arm's length from its punching shoulder once the punch tu
 forward, sets its fist on the line to the head, and drives its hips and chest and, a moment
 later, its arm at a pose with the arm straight through the target. It holds at the edge of its foe's reach, backing
 out from a foe that walks in and punching once the foe's head comes into its own reach, or
-stepping in after four seconds' wait. Bare-handed it wounds a Warrior standing in guard, most of
+stepping in after four seconds' wait; a foe that walks chest to chest it backs away from before
+punching again. Bare-handed it wounds a Warrior standing in guard, most of
 it on the chest and the guarding arms.
 Brawler is the experimental body-targeting fighter, with measured punch paths, guards and
 escapes. Try

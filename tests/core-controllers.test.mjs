@@ -70,8 +70,8 @@ test("a tree names what is wrong with it where it is, and no mind is made of one
   assert.deepEqual(treeFaults(withParts(COMBAT, { locomotion: { tuning: { turnLimit: 0 } } })), ["locomotion: locomotion turn limit must be finite and positive"]);
   assert.match(treeFaults(withParts(COMBAT, { blow: { tuning: { paths: { elbowExtension: 2 } } } }))[0], /^blow: combat path settings/);
   assert.match(treeFaults(withParts(COMBAT, { tactics: { tuning: { openings: { headLateral: 2 } } } }))[0], /^tactics: opening preferences/);
-  assert.deepEqual(treeFaults(withParts(CLASSIC, { tactics: { tuning: { edge: { band: -1, patience: 4 } } } })), ["tactics: the edge needs a finite nonnegative band and patience"]);
-  assert.deepEqual(treeFaults(withParts(CLASSIC, { tactics: { tuning: { edge: { band: .25, patience: 4 } } } })), []);
+  assert.deepEqual(treeFaults(withParts(CLASSIC, { tactics: { tuning: { edge: { band: -1, patience: 4, clinch: 0 } } } })), ["tactics: the edge needs a finite nonnegative band, patience and clinch"]);
+  assert.deepEqual(treeFaults(withParts(CLASSIC, { tactics: { tuning: { edge: { band: .25, patience: 4, clinch: .7 } } } })), []);
   // A skill the tactics never ask of, or a blow that cannot carry out what they ask, is a fault at its slot.
   assert.deepEqual(treeFaults(withParts(CLASSIC, { blow: { kind: "path-strike", overlap: false } })), ["blow: the path strike carries out a blow only along a path, and these tactics name none"]);
   assert.deepEqual(treeFaults(withParts(CLASSIC, { kick: { kind: "front-kick" }, support: { kind: "support-fold" } })), ["kick: these tactics never kick", "support: these tactics never fight from low support"]);

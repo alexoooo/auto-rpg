@@ -22,11 +22,12 @@ export const ATTACK_METRES = 1.8;
 
 /**
  * **Holding at the edge of a foe's reach** (`SeekConfig.range`, `"edge"`): how far past the
- * foe's reach a fighter stands before it walks in again, m; and how long it stands still there,
- * s, before it walks in to attack all the same. The band is set, the patience read in bouts:
+ * foe's reach a fighter stands before it walks in again, m; how long it stands still there, s,
+ * before it walks in to attack all the same; and how near the foe's centre of mass it backs out
+ * from a blow not yet thrown, m. The band is set, the patience and the clinch read in bouts:
  * `docs/reference/human-and-strikes.md#the-edge`.
  */
-export const EDGE: Edge = Object.freeze({ band: 0.25, patience: 4 });
+export const EDGE: Edge = Object.freeze({ band: 0.25, patience: 4, clinch: 0.65 });
 
 /**
  * How far a fighter keeps its centre of mass from every part of a foe that is down, m, across the
@@ -34,8 +35,11 @@ export const EDGE: Edge = Object.freeze({ band: 0.25, patience: 4 });
  */
 const CLEAR_OF_DOWN = 0.9;
 
-/** Where a fighter holds at the edge of a foe's reach (`EDGE`): the band past it, m, and the patience there, s. */
-export interface Edge { readonly band: number; readonly patience: number }
+/**
+ * Where a fighter holds at the edge of a foe's reach (`EDGE`): the band past it, m, the patience
+ * there, s, and how near the foe's centre of mass it backs out from a blow not yet driven, m.
+ */
+export interface Edge { readonly band: number; readonly patience: number; readonly clinch: number }
 
 /**
  * **The seeking tactics** carry out `Orders`, asked for every control step with what the
@@ -116,6 +120,18 @@ function markOf(marks: Marks, band: Band): string | undefined {
 }
 
 /**
+ * Whether a strike in `phase` gives way to backing out of a clinch: none under way, or one walking
+ * in or settling, its arm not yet thrown nor its feet being placed.
+ */
+function yields(phase: StrikeReport["phase"]): boolean {
+  switch (phase) {
+    case null: case "approach": case "settle": return true;
+    case "place": case "chamber": case "swing": case "return": return false;
+    default: { const never: never = phase; throw new Error(`unknown strike phase ${never}`); }
+  }
+}
+
+/**
  * **The orders of a fighter that picks its own fight**, from what it sees: the nearest body of
  * another side, one still in the fight before one that is out (`nearestFoe`). It attacks the
  * mark its `aim` names (`bandAimed`, `markOf`), its high one where it has not that mark, coming to it as its `range`
@@ -128,7 +144,9 @@ function markOf(marks: Marks, band: Band): string | undefined {
  *   facing its walk, from further, and backing out, facing the foe, from nearer. It attacks when
  *   the part stands in its own blow's window along from where it stands (`StrikeReport.rangeAt`),
  *   which the strike skill throws from there; or when it has stood still `edge.patience`, and
- *   the skill walks it in. An attack under way goes on to its end.
+ *   the skill walks it in. An attack under way goes on to its end, but one that `yields` gives
+ *   way to backing out, facing the foe, while their centres of mass are within `edge.clinch`
+ *   across the ground: a foe that walks into it is met an arm away, not chest to chest.
  *
  * Once either is out it stands, facing the foe; while the foe is down (`BodySense.down`) it lets
  * it rise, facing it, backing off from it while any part of it lies within `CLEAR_OF_DOWN`
@@ -151,6 +169,7 @@ export function seekFoe({ view, report }: Sight, aim: SeekConfig["aim"] = SEEK.a
     case "close": return d > ATTACK_METRES ? { move: toward, face: null, attack: null } : attack;
     case "edge": {
       const strike = report.strike, me = view.head;
+      if (d < edge.clinch && yields(strike.phase)) return { move: { x: -toward.x, z: -toward.z }, face: toward, attack: null };
       if (strike.phase !== null) return attack;
       const mine = strike.rangeAt("right", part.y - me.y), off = hypot(part.x - me.x, part.z - me.z) - mine.reach;
       if ((mine.along[0] <= off && off <= mine.along[1]) || strike.still >= edge.patience) return attack;
