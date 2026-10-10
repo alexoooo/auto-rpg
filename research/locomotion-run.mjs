@@ -3,19 +3,26 @@
  * `src/lab/run-mode.ts`) on every combination of body, track, pace asked, wind and seed, each run
  * for `--seconds` or until the body falls. A fall ends a run as a failure.
  *
- *   node research/locomotion-run.mjs [--models workshop-fighter,workshop-rogue] [--tracks square,circle]
+ *   node research/locomotion-run.mjs [--models workshop-fighter,workshop-rogue] [--tracks square,circle,forward,right,back,left]
  *     [--paces 0.5,1,1.5] [--winds 0:0,1:50] [--seeds 1,2] [--seconds 30] [--side 6] [--radius 4]
- *     [--legs '{"kind":"stance-walk"}'] [--stance '{...}'] [--workers 16] [--out runs.jsonl]
+ *     [--legs '{"kind":"stance-walk"}'] [--stance '{...}'] [--physique '{"strength":2}'] [--workers 16] [--out runs.jsonl]
  *
+ * - The tracks are the Run's, or a straight line walked facing +z in one direction (`LINES`).
  * - `--winds` is a list of rate:strength (gusts a second : N at a gust's peak).
  * - `--legs` is the mind's locomotion part (`FighterConfig.locomotion`); the rest of the mind is
  *   the Lab's Script preset (`LAB_PRESETS`).
  * - `--stance` is an experiment's stance tuning (`StanceTuning`), whose body has no envelope: its
  *   walk is not capped by one. Its `gait` merges into `STANCE_GAIT`.
+ * - `--physique` builds the body with a physique (`Physique`: its strength and speed scale the
+ *   muscles), as a probe of whether the body or the controller caps a walk.
  *
  * Each run's record goes to `--out` as a line of JSON if asked. The summary, per body, track and
  * wind: at each pace, the runs that fell (and on which piece of the track), the mean speed along the
- * track and each side's; and the fastest pace at which no seed fell, with every slower one.
+ * track and each side's, what the feet did, the share of steps the soles could not give what the
+ * stance asked (`StanceReading.shortfall`), the legs' demand (the share of steps a hip, knee and
+ * ankle channel was at full activation, and the most of its peak torque it gave), the way each fall
+ * went in the body's frame over its last half second and the stance's phases then; and the fastest
+ * pace at which no seed fell, with every slower one.
  *
  * Runs go in parallel on worker threads, one stand at a time in each.
  */
@@ -24,32 +31,72 @@ import { appendFileSync } from "node:fs";
 import { availableParallelism } from "node:os";
 import { fileURLToPath } from "node:url";
 
+/**
+ * The straight lines a body walks facing +z, each 80 m from the origin: forward, to its right, back
+ * and to its left. One direction a run, where the square turns from one to the next.
+ */
+const LINES = { forward: 0, right: Math.PI / 2, back: Math.PI, left: -Math.PI / 2 };
+
 /** One run: its record, as the run's last frame left it. */
-async function runOnce({ model, track: id, pace, wind, seed, seconds, side, radius, legs, stance }) {
-  const [{ humanSpec }, { labActor }, { startRun }, { TRACKS, trackOf }, { LAB_PRESETS }, { STANCE_GAIT }, { coreStand }] = await Promise.all([
-    import("../src/core/human/spec.ts"), import("../src/lab/actor.ts"), import("../src/lab/run-mode.ts"), import("../src/lab/track.ts"),
+async function runOnce({ model, track: id, pace, wind, seed, seconds, side, radius, legs, stance, physique }) {
+  const [{ modelSpec }, { labActor }, { startRun }, { TRACKS, trackOf }, { LAB_PRESETS }, { STANCE_GAIT }, { coreStand }] = await Promise.all([
+    import("../src/core/models.ts"), import("../src/lab/actor.ts"), import("../src/lab/run-mode.ts"), import("../src/lab/track.ts"),
     import("../src/lab/scenarios.ts"), import("../src/core/control/stance-tuning.ts"), import("../tests/harness/core-stand.mjs"),
   ]);
-  const info = TRACKS[id], size = id === "square" ? side : id === "circle" ? radius : undefined;
+  const line = LINES[id];
+  const info = line === undefined ? TRACKS[id] : { pieces: [{ kind: "corner", metres: 0, turn: line }, { kind: "straight", metres: 80 }], facing: 0 };
+  const size = id === "square" ? side : id === "circle" ? radius : undefined;
   const track = trackOf(info.size && size !== undefined ? info.size.of(size) : info.pieces);
-  const stand = await coreStand(humanSpec(model), { ground: true });
+  const stand = await coreStand(modelSpec(model, physique ?? undefined), { ground: true });
   const mind = { ...LAB_PRESETS.script.config, ...(legs ? { locomotion: legs } : {}) };
   const tuning = stance ? { ...stance, ...(stance.gait ? { gait: { ...STANCE_GAIT, ...stance.gait } } : {}) } : undefined;
   const run = startRun(labActor(stand.built, stand.world, { mind, stance: tuning }), track, { top: pace, facing: info.facing, wind: { settings: wind, seed } });
   let frame = run.frame(), off = 0, fellOn = null;
+  // The legs' demand: per joint (hip, knee, ankle), the share of control steps a channel of it was
+  // at full activation, and the most of its peak torque it delivered. The fall: its phase, and the
+  // way the centre of mass went in the body's frame (forward, right) half a second before it.
+  const muscles = run.body.muscles, limbs = muscles.channels.flatMap((c, i) => {
+    const joint = ["hip", "knee", "ankle"].find((j) => c.name.startsWith(`${j}.`));
+    return joint ? [{ joint, i, peak: Math.max(c.positive.peak, c.negative.peak) }] : [];
+  });
+  const demand = Object.fromEntries(["hip", "knee", "ankle"].map((j) => [j, { full: 0, most: 0 }]));
+  const trail = [];
+  let steps = 0, shortfall = 0;
+  const hook = stand.world.afterStep(() => {
+    steps++;
+    const full = new Set();
+    for (const { joint, i, peak } of limbs) {
+      if (muscles.activation[i] >= 0.99) full.add(joint);
+      demand[joint].most = Math.max(demand[joint].most, Math.abs(muscles.pulled[i]) / peak);
+    }
+    for (const joint of full) demand[joint].full++;
+    const r = run.body.view.stance;
+    if (r.shortfall.force.length() > 1) shortfall++;
+    trail.push({ time: stand.world.time, phase: r.phase, c: [r.centre.x, r.centre.z], heading: r.facing });
+    if (trail.length > 120) trail.shift();
+  });
+  let fall = null;
   try {
     while (frame.time < seconds && !frame.fallen) {
       stand.step(stand.seconds(0.1));
       frame = run.frame();
       if (frame.time > 1) off = Math.max(off, frame.off);
     }
-    if (frame.fallen) fellOn = track.piece(frame.along);
-  } finally { run.dispose(); stand.dispose(); }
+    if (frame.fallen) {
+      fellOn = track.piece(frame.along);
+      // Where the centre went over the last half second before the fall, in the body's frame then.
+      const end = trail[trail.length - 1], from = trail[Math.max(0, trail.length - 61)];
+      const dx = end.c[0] - from.c[0], dz = end.c[1] - from.c[1], h = from.heading;
+      const phases = [...new Set(trail.slice(-61).map((t) => t.phase))];
+      fall = { forward: +(dx * Math.sin(h) + dz * Math.cos(h)).toFixed(2), right: +(dx * Math.cos(h) - dz * Math.sin(h)).toFixed(2), phases };
+    }
+  } finally { hook.dispose(); run.dispose(); stand.dispose(); }
   return {
     model, track: id, pace, wind, seed, fell: frame.fallen ? +frame.time.toFixed(2) : null, fellOn,
     travelled: +frame.travelled.toFixed(3), mean: +frame.mean.toFixed(3), walking: frame.walking, off: +off.toFixed(3),
     pieces: frame.pieces.map((v) => v === null ? null : +v.toFixed(3)), gait: Object.fromEntries(Object.entries(frame.gait).map(([k, v]) => [k, +v.toFixed(3)])),
-    gusts: frame.gusts,
+    gusts: frame.gusts, fall, shortfall: +(shortfall / steps).toFixed(3),
+    demand: Object.fromEntries(Object.entries(demand).map(([j, d]) => [j, { full: +(d.full / steps).toFixed(3), most: +d.most.toFixed(2) }])),
   };
 }
 
@@ -66,11 +113,12 @@ if (!isMainThread) {
   const winds = list("winds", "0:0").map((w) => { const [rate, strength] = w.split(":").map(Number); return { rate, strength }; });
   const seconds = Number(arg("seconds", "30")), side = Number(arg("side", "6")), radius = Number(arg("radius", "4"));
   const legs = arg("legs") ? JSON.parse(arg("legs")) : null, stance = arg("stance") ? JSON.parse(arg("stance")) : null;
+  const physique = arg("physique") ? JSON.parse(arg("physique")) : null;
   const out = arg("out"), workers = Math.min(Number(arg("workers", String(Math.max(1, availableParallelism() - 2)))), 64);
 
   const jobs = [];
   for (const model of models) for (const track of tracks) for (const wind of winds) for (const pace of paces) for (const seed of seeds)
-    jobs.push({ id: jobs.length, model, track, pace, wind, seed, seconds, side, radius, legs, stance });
+    jobs.push({ id: jobs.length, model, track, pace, wind, seed, seconds, side, radius, legs, stance, physique });
   // A calm wind blows the same on every seed: one seed is enough.
   const todo = jobs.filter((job) => job.wind.rate > 0 && job.wind.strength > 0 || job.seed === seeds[0]);
   const results = [];
@@ -90,7 +138,7 @@ if (!isMainThread) {
       feed(worker);
     }
   });
-  console.log(`${results.length} runs in ${((Date.now() - started) / 60000).toFixed(1)} min: Node stand, Rapier, 120 Hz, ${seconds} s, legs ${JSON.stringify(legs ?? "Script preset's")}${stance ? `, stance ${JSON.stringify(stance)}` : ""}`);
+  console.log(`${results.length} runs in ${((Date.now() - started) / 60000).toFixed(1)} min: Node stand, Rapier, 120 Hz, ${seconds} s, legs ${JSON.stringify(legs ?? "Script preset's")}${stance ? `, stance ${JSON.stringify(stance)}` : ""}${physique ? `, physique ${JSON.stringify(physique)}` : ""}`);
   for (const model of models) for (const track of tracks) for (const wind of winds) {
     console.log(`\n${model} ${track} wind ${wind.rate}/s ${wind.strength} N`);
     let held = null, holding = true;
@@ -101,7 +149,11 @@ if (!isMainThread) {
       const g = (k) => (rows.reduce((s, r) => s + r.gait[k], 0) / rows.length).toFixed(2);
       console.log(`  pace ${pace.toFixed(2)}: fell ${fell.length}/${rows.length}${fell.length ? ` (at ${fell.map((r) => `${r.fell}s piece ${r.fellOn}`).join(", ")})` : ""}`
         + ` walked ${rows[0].walking.toFixed(2)} mean ${mean("mean").toFixed(2)} sides ${pieces.join("/")} off ${mean("off").toFixed(2)}`
-        + ` step ${g("step")} cadence ${g("cadence")} double ${g("double")} flight ${g("flight")}`);
+        + ` step ${g("step")} cadence ${g("cadence")} double ${g("double")} flight ${g("flight")}`
+        + ` short ${(rows.reduce((s, r) => s + r.shortfall, 0) / rows.length).toFixed(2)}`
+        + ` full ${["hip", "knee", "ankle"].map((j) => (rows.reduce((s, r) => s + r.demand[j].full, 0) / rows.length).toFixed(2)).join("/")}`
+        + ` most ${["hip", "knee", "ankle"].map((j) => Math.max(...rows.map((r) => r.demand[j].most)).toFixed(2)).join("/")}`
+        + (fell.length ? ` falls ${fell.map((r) => `f${r.fall.forward}/r${r.fall.right} ${r.fall.phases.join("+")}`).join(", ")}` : ""));
       if (holding && fell.length === 0) held = { pace, mean: mean("mean") }; else holding = false;
     }
     console.log(`  fastest held: ${held ? `asked ${held.pace}, ${held.mean.toFixed(2)} m/s along the track` : "none"}`);
