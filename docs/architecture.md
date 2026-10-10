@@ -336,7 +336,7 @@ accelerating fist from where it is at launch to the contact speed at the target.
 strike runs one bounded torque solve over the body, its contacts and its stops
 (`wholeBodyTracking`) from the blow's start to its return, the fist on a timed path behind the
 pelvis's and chest's turns or driven flat out along the line, and needs the world it is in for its
-physics and gravity (`driveFighter` takes it). The straight punch walks to where the target is a set share of the arm's straight length from its punching shoulder, sets its
+physics and gravity (`driveFighter` takes it). The straight punch walks to where the target is a set share of the arm's straight length from its punching shoulder, as the drive's turn of the hips and chest will carry it, so the two bodies stand an arm apart; it sets its
 fist on the line from the shoulder to the target, and drives every channel of the hips, the chest
 and the arm flat out at a contact pose solved each step by the arm's inverse kinematics
 (`solveReach`): the arm straight through the target and the wrist on the line, so the fist meets

@@ -48,10 +48,11 @@ export interface StraightPunch {
 /**
  * A straight punch's settings as the game throws it: the best of a bare-handed search of Arena
  * bouts against a Warrior standing in guard (`research/punch-in-bout.mjs`), rounded, at the
- * stand-off of those that kept their feet best against Classic fighting back.
+ * longest reach whose fist still meets its target with the arm behind it: an arm apart, not chest
+ * to chest.
  */
 export const STRAIGHT_PUNCH: StraightPunch = deepFreeze({
-  pace: 0.596, reach: 0.9, band: 0.148, settle: 0.023, through: 0.32, hips: 0.13, turn: 0.427, lean: 0.143,
+  pace: 0.596, reach: 0.8, band: 0.148, settle: 0.023, through: 0.32, hips: 0.13, turn: 0.427, lean: 0.143,
   chamber: 0.024, lead: 0.007, elbow: 0.002, brake: 0.024, follow: 0.021, longest: 0.475, recover: 0.163,
 });
 
@@ -156,12 +157,15 @@ export function straightPunch(body: Body, settings: StraightPunch = STRAIGHT_PUN
     /** Seconds stood at the stand-off; when the drive began, when its hand began to touch, whether it touched last step, and when it came back. */
     stood: 0, began: 0, touched: null as number | null, touching: false, ended: 0, now: 0, headY: 0,
     still: 0, thrown: { left: 0, right: 0 },
-    /** Each shoulder from the head in the body frame, as the last step left it: across, up and forward, m. */
+    /**
+     * Each shoulder at contact from the head as the last step left it, in the body frame: the
+     * trunk at its contact goals and the hips turned, across, up and forward, m.
+     */
     shoulders: { left: [0, 0, 0] as [number, number, number], right: [0, 0, 0] as [number, number, number] },
   };
   /**
    * How far across the ground the head stands from a target `up` m above it, facing it, for the
-   * target to be `reach` of the arm from the `hand`'s shoulder.
+   * target to be `reach` of the arm from the `hand`'s shoulder as the drive carries it forward.
    */
   const standOff = (hand: Side, up: number): number => {
     const [across, high, ahead] = state.shoulders[hand], length = settings.reach * limbs[hand].arm, rise = up - high;
@@ -241,9 +245,12 @@ export function straightPunch(body: Body, settings: StraightPunch = STRAIGHT_PUN
           const names = trunkNames[j]!, row = trunkAngles[j]!;
           for (let k = 0; k < names.length; k++) row[k] = view.angles[names[k]!] ?? 0;
         }
+        for (const g of limb.goals) trunkAngles[g.joint]![g.k] = g.angle;
         pointAtToRef(trunkChain, trunkAngles, limb.shoulder, shoulder);
+        // The hips' turn swings the shoulder forward about up through the root.
+        const h = settings.hips, toward = shoulder.x < 0 ? -1 : 1, x = shoulder.x * cos(h) - toward * shoulder.z * sin(h), z = toward * shoulder.x * sin(h) + shoulder.z * cos(h);
         const into = state.shoulders[side];
-        into[0] = shoulder.x - head.x; into[1] = shoulder.y - head.y; into[2] = shoulder.z - head.z;
+        into[0] = x - head.x; into[1] = shoulder.y - head.y; into[2] = z - head.z;
       }
       if (view.down) { if (state.hand) end(); return null; }
       // An attack given up, or another hand's, before the drive drops it.
