@@ -42,10 +42,11 @@ export interface Edge { readonly band: number; readonly patience: number }
  * body sees: to walk and to face as `orderedIntent` does, at `strafe`. Given a point to attack it
  * attacks it with what a hand holds, the one `hands` names or each in turn (`nextHand`), the hand
  * of a blow under way until it ends: the strike skill brings the body the rest of the way
- * (`APPROACH` in `src/core/skills/strike.ts`). It holds the point it aims at while the ordered one
- * stays within `APPROACH.reach` of it, and aims again after each blow, since the skill sets the
- * feet for the point it is given and a point that followed a swaying head would move under every
- * placing. Once the blow is committed (its chamber and its swing) it aims at the ordered point
+ * (`APPROACH` in `src/core/skills/strike.ts`). For a skill that sets the feet for the point it is
+ * given, it holds the point it aims at while the ordered one stays within `APPROACH.reach` of it,
+ * and aims again after each blow, since a point that followed a swaying head would move under every
+ * placing; a skill that reads its target afresh each step (`StrikeReport.follows`) is given the
+ * ordered point as it is, or it stands off from where the foe was. Once the blow is committed (its chamber and its swing) it aims at the ordered point
  * itself, which the skill turns the body to follow (`STEER`). Back from another mind
  * (`BodyView.resumed`), it aims afresh.
  *
@@ -65,7 +66,7 @@ export function recipeTactics(name: string, orders: (sight: Sight) => Orders, st
         const strike = report.strike, thrown = strike.thrown.left + strike.thrown.right, hand = strike.hand ?? nextHand(hands, thrown);
         let aim = state.aim;
         const phase = strike.phase;
-        if (!aim || aim.thrown !== thrown || phase === "chamber" || phase === "swing"
+        if (!aim || strike.follows || aim.thrown !== thrown || phase === "chamber" || phase === "swing"
           || hypot(attack[0] - aim.point[0], attack[1] - aim.point[1], attack[2] - aim.point[2]) > APPROACH.reach) {
           aim = state.aim = { point: [attack[0], attack[1], attack[2]], thrown };
         }

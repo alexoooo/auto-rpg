@@ -76,6 +76,7 @@ export function chooseSkill(options: readonly BlowSkill[], policy: ChoosePolicy)
     get chosen() { return held().report.chosen; },
     get distance() { return held().report.distance; },
     get since() { return held().report.since; },
+    get follows() { return held().report.follows; },
     thrown: {
       get left() { let sum = 0; for (const option of options) sum += option.report.thrown.left; return sum; },
       get right() { let sum = 0; for (const option of options) sum += option.report.thrown.right; return sum; },

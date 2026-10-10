@@ -223,6 +223,12 @@ export interface StrikeReport {
   readonly distance?: number | null;
   /** Seconds since the pushes, or a placed blow's path, began (negative before). */
   readonly since: number;
+  /**
+   * Whether the skill reads its target afresh each step as it comes to it, so a fighter gives it
+   * the point as it is (the straight punch); absent or false, it sets the feet for the point it is
+   * given, and a fighter holds that point (`recipeTactics`).
+   */
+  readonly follows?: boolean;
   /** Strikes thrown to the end of their pushes, each hand. */
   readonly thrown: Readonly<Record<Side, number>>;
   /** Point-cycle outcomes: verified returns, preparation/return timeouts, and interruptions. */

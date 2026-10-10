@@ -670,7 +670,9 @@ it has turned to its facing, and from then at half plus the other half times the
 angle between its heading and its walk (`STRAFE`, [reference/orders.md](reference/orders.md)).
 Given a point the seeking tactics (`recipeTactics`, `recipe-tactics.ts`) attack it with the
 right hand, the strike skill closing the distance, while the left guards: it holds the point while the strike skill walks and sets the feet for it, and aims
-at the ordered point itself once a blow is committed. The stance turns only while it walks or
+at the ordered point itself once a blow is committed. A skill that reads its target afresh each
+step (`StrikeReport.follows`, the straight punch) is given the ordered point as it is throughout,
+so it stands off from where the foe is, not from where it was. The stance turns only while it walks or
 follows a blow's target, so a standing body ordered to face does not turn.
 
 A hand that does not attack guards as the tactics' config says (`SeekConfig.guard`): in the

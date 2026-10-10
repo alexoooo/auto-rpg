@@ -234,7 +234,7 @@ test("a fighter at the edge stands just outside its foe's reach and attacks when
   assert.equal(RECIPE_FIGHTER.tactics.range, "close");
 });
 
-test("a fighter holds the point it aims at until the plan's leaves it, a blow is thrown or one is under way", () => {
+test("a fighter holds the point it aims at until the plan's leaves it, a blow is thrown or one is under way, unless its skill follows the point", () => {
   let attack = [1, 1.6, 0], thrown = 0, resumed = false, phase = "settle";
   const tactics = recipeTactics("aim", () => ({ move: null, face: null, attack }));
   const decide = () => tactics.decide({ view: { resumed }, report: { heading: 0.25, strike: { hand: null, thrown: { left: 0, right: thrown }, phase } }, envelope: null }, 1 / 120);
@@ -271,5 +271,12 @@ test("a fighter holds the point it aims at until the plan's leaves it, a blow is
     attack = [attack[0] + 0.1 * reach, 1.6, 0];
     if (followed) aim = attack;
     assert.deepEqual(decide().attack.target, aim, `${now}`);
+  }
+  // A skill that reads its target afresh each step is given the point as it is, in every phase.
+  for (const now of ["approach", "settle", null]) {
+    phase = now;
+    attack = [attack[0] + 0.1 * reach, 1.6, 0];
+    const given = tactics.decide({ view: { resumed }, report: { heading: 0.25, strike: { hand: null, thrown: { left: 0, right: thrown }, phase, follows: true } }, envelope: null }, 1 / 120);
+    assert.deepEqual(given.attack.target, attack, `${now}, following`);
   }
 });

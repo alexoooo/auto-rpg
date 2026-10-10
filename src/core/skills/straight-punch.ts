@@ -174,6 +174,7 @@ export function straightPunch(body: Body, settings: StraightPunch = STRAIGHT_PUN
     get blow() { return state.phase ? "placed" : null; },
     get distance() { return state.hand && state.phase ? standOff(state.hand, state.target[1] - state.headY) : null; },
     get since() { return state.phase === "swing" || state.phase === "return" ? state.now - state.began : -Infinity; },
+    follows: true,
     thrown: state.thrown,
     get still() { return state.still; },
     rangeAt: (hand, up) => ({ reach: standOff(hand, up), along: [-settings.band, settings.band] }),
