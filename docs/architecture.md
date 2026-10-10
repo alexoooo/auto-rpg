@@ -336,7 +336,7 @@ accelerating fist from where it is at launch to the contact speed at the target.
 strike runs one bounded torque solve over the body, its contacts and its stops
 (`wholeBodyTracking`) from the blow's start to its return, the fist on a timed path behind the
 pelvis's and chest's turns or driven flat out along the line, and needs the world it is in for its
-physics and gravity (`driveFighter` takes it). The straight punch walks to where the target is a set share of the arm's straight length from its punching shoulder, as the drive's turn of the hips and chest will carry it, so the two bodies stand an arm apart; it sets its
+physics and gravity (`driveFighter` takes it). The straight punch walks to where the target is a set share of the arm's straight length from its punching shoulder, as the drive's turn of the hips and chest will carry it, so the two bodies stand an arm apart, walking no slower than `LEAST_PACE` while it is short of there; it sets its
 fist on the line from the shoulder to the target, and drives every channel of the hips, the chest
 and the arm flat out at a contact pose solved each step by the arm's inverse kinematics
 (`solveReach`): the arm straight through the target and the wrist on the line, so the fist meets
@@ -694,7 +694,7 @@ edge (`SeekConfig.range`, `EDGE`), it reads the foe's reach from what it sees of
 it stands just outside it, backing out from inside it, and attacks when the part it aims at
 stands in its own blow's window from where it stands, or when it has stood there its patience.
 While the foe is down it attacks nothing and lets it rise, facing it and backing off from it while
-any part of it lies within `CLEAR_OF_DOWN` (0.9 m), so it does not walk onto it. Every body's fighter walks in (`RECIPE_FIGHTER.tactics.range`). A side a person has taken is
+any part of it lies within `CLEAR_OF_DOWN` (0.9 m), so it does not walk onto it. Every body's fighter walks in (`RECIPE_FIGHTER.tactics.range`); the Puncher holds at the edge (`PUNCHER`). A side a person has taken is
 given the person's (`Duel.order`) and does only what it is ordered, until it is handed back or is
 out of the fight. In the crypt the run plans for its fighters with the map (`DungeonRun`) and
 hands each its plan as orders, its target as the foe; its bodies sense each other, with no delay. Each

@@ -44,7 +44,7 @@ test("every preset id reads to its tree: tactics, a skill of each role and the s
   const behaving = (list) => ({ kind: "behaviours", list: [{ kind: "follow-orders" }, ...list, { kind: "cover", guard: "cover" }] });
   assert.deepEqual(Object.fromEntries(Object.entries(PRESETS).map(([id, { config }]) => [id, config])), {
     classic: fighter(seek, { kind: "recipe-strike" }, null, null, [{ kind: "staged-rise" }]),
-    puncher: fighter(seek, { kind: "straight-punch", ...STRAIGHT_PUNCH }, null, null, [{ kind: "staged-rise" }]),
+    puncher: fighter({ ...seek, range: "edge" }, { kind: "straight-punch", ...STRAIGHT_PUNCH }, null, null, [{ kind: "staged-rise" }]),
     combat: fighter(openings, path, null, null, recovery),
     brawler: fighter(body, path, null, null, recovery),
     scrapper: fighter(body, path, null, { kind: "support-fold" }, recovery),

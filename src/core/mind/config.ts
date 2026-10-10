@@ -269,8 +269,8 @@ export const RECIPE_FIGHTER: FighterConfig = deepFreeze({ kind: "fighter", tacti
 /** The Arena's Classic: the recipe fighter, rising by stages once down. */
 export const CLASSIC: FighterConfig = deepFreeze({ ...RECIPE_FIGHTER, subs: [{ kind: "staged-rise" }] });
 
-/** Classic throwing the straight punch: its fist lined up behind the arm, searched in Arena bouts (`research/punch-in-bout.mjs`). */
-export const PUNCHER: FighterConfig = deepFreeze({ ...CLASSIC, blow: { kind: "straight-punch", ...STRAIGHT_PUNCH } });
+/** Classic throwing the straight punch, its fist lined up behind the arm (searched in Arena bouts, `research/punch-in-bout.mjs`), held at the edge of its foe's reach. */
+export const PUNCHER: FighterConfig = deepFreeze({ ...CLASSIC, tactics: { ...SEEK, range: "edge" }, blow: { kind: "straight-punch", ...STRAIGHT_PUNCH } });
 
 /** Opening scores that favour the trunk over the head: `docs/reference/arena-combat-evaluation.md#body-targeting-held-out-evaluation`. */
 export const BODY_OPENINGS: OpeningTuning = deepFreeze({ head: .3, upperTrunk: 0, middleTrunk: 0 });

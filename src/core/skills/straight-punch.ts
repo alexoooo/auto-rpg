@@ -14,7 +14,8 @@ import { APPROACH, type StrikeReport } from "./strike.ts";
 import { turnSense } from "./whole-body-strike.ts";
 
 /**
- * **A straight punch's settings.** The body walks at `pace` m/s at most to stand, facing the
+ * **A straight punch's settings.** The body walks at `pace` m/s at most (and `LEAST_PACE` at
+ * least) to stand, facing the
  * target, with it `reach` of the arm's straight length (shoulder to knuckles) from the punching
  * shoulder, no more than `band` m further across the ground and no nearer than `CROWDED` (a foe
  * come nearer it backs out from at its full pace), for `settle` s, its fist set on the
@@ -99,6 +100,12 @@ type Phase = "approach" | "settle" | "swing" | "return";
 /** How far nearer than its stand-off a foe may come before the punch backs out from it, m. */
 const CROWDED = 0.05;
 
+/**
+ * The least pace it walks toward a stand-off still ahead of it, m/s: closing the last few
+ * centimetres over `APPROACH.seconds` crawls, and a foe that steps in meanwhile has its blow first.
+ */
+const LEAST_PACE = 0.4;
+
 const HANDS: readonly Side[] = Object.freeze(["left", "right"]);
 const NO_HANDS = Object.freeze({ left: null, right: null }) as Readonly<Record<Side, EffectorGoal | null>>;
 const CLOSED: Readonly<Record<Side, Readonly<Record<Side, boolean>>>> = Object.freeze({
@@ -109,7 +116,8 @@ const CLOSED: Readonly<Record<Side, Readonly<Record<Side, boolean>>>> = Object.f
  * **The straight punch**: a hand's blow thrown with the arm lined up behind the fist, for a fist
  * that meets its target with the arm's mass behind it rather than an elbow giving way. Given an
  * attack, it walks the body to where the target stands `reach` from the head, facing it, closing
- * the error over `APPROACH.seconds` (backing out at its full pace from a foe come too near), and
+ * the error over `APPROACH.seconds` but no slower than `LEAST_PACE` (backing out at its full pace
+ * from a foe come too near), and
  * stands there `settle` s with its fist on the line (its chamber). Then it turns the hips and the
  * chest and leans the trunk to bring the punching shoulder forward, and drives the arm, `lead` s
  * behind, at its
@@ -276,7 +284,7 @@ export function straightPunch(body: Body, settings: StraightPunch = STRAIGHT_PUN
             // from a foe come too near at its full pace, or a foe walking in pushes it about.
             const heading = around.heading, ux = (tx - hx) / apart * off, uz = (tz - hz) / apart * off;
             const s = sin(heading), c = cos(heading), forward = ux * s + uz * c, right = ux * c - uz * s;
-            const speed = hypot(forward, right) / APPROACH.seconds, scale = off < 0 || speed > settings.pace ? settings.pace / speed : 1;
+            const speed = hypot(forward, right) / APPROACH.seconds, scale = off < 0 || speed > settings.pace ? settings.pace / speed : speed < LEAST_PACE ? LEAST_PACE / speed : 1;
             state.phase = "approach"; state.stood = 0; state.still = 0;
             return { hands: NO_HANDS, posture: null, pushes, closed: CLOSED[hand], steer: 0,
               legs: { kind: "walk", walk: [forward / APPROACH.seconds * scale, right / APPROACH.seconds * scale], face } };
