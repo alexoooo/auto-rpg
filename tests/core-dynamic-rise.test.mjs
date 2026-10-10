@@ -1,10 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { armed } from "../src/core/human/grip.ts";
 import { woodenClub } from "../src/core/items/club.ts";
 import { kindsFor, treeFits } from "../src/core/mind/catalog.ts";
 import { PUNCHER } from "../src/core/mind/config.ts";
-import { dynamicRiseFits, dynamicRisePolicy } from "../src/core/mind/rise/dynamic.ts";
+import { dynamicRiseFits, dynamicRisePolicy, riseFootPlanted } from "../src/core/mind/rise/dynamic.ts";
 import { RISE } from "../src/core/mind/rise/stages.ts";
 import { ratesToRef } from "../src/core/build/joint-state.ts";
 import poses from "../assets/research/posture-holds.json" with { type: "json" };
@@ -20,6 +21,8 @@ import { coreStand, saveStand, loadStand } from "./harness/core-stand.mjs";
 import { dynamicFall, felled } from "../research/core-rise-trials.mjs";
 
 const config = { ...PUNCHER, subs: [{ kind: "dynamic-rise" }] };
+const soleUpOf = built => Object.fromEntries(["left", "right"].map(side => [side,
+  Vector3.Up().applyRotationQuaternionToRef(Quaternion.Inverse(built.segments.get(`foot.${side}`).rest), new Vector3()).asArray()]));
 
 test("dynamic rise is an additional human recovery choice, including a retained club", () => {
   for (const model of ["workshop-fighter", "workshop-rogue"]) {
@@ -38,8 +41,9 @@ test("dynamic rise is an additional human recovery choice, including a retained 
 test("dynamic rise rejects invalid model and clock data before producing a command", () => {
   const model = { channels: [{ name: "knee.left flexion", min: 0, max: 2, bind: 0 }],
     segments: [{ name: "lowerTrunk", mass: 1 }], rest: [0, 0, 0, 1], rootHeight: 1, leg: 1, gravity: 9.81,
-    held: null, fours: {} };
+    held: null, fours: {}, soleUp: { left: [0, 1, 0], right: [0, 1, 0] } };
   assert.throws(() => dynamicRisePolicy({ ...model, gravity: 0 }), /invalid dynamic rise model/);
+  assert.throws(() => dynamicRisePolicy({ ...model, soleUp: { left: [0, 0, 0], right: [0, 1, 0] } }), /invalid dynamic rise model/);
   const policy = dynamicRisePolicy(model);
   const before = saveState(policy.state);
   for (const dt of [0, -1, NaN, Infinity]) assert.throws(() => policy.step({}, dt), /invalid dynamic rise step/);
@@ -74,10 +78,13 @@ test("dynamic rise keeps an actual planted leg when the other hand holds a club"
     const loaded = name => observation.contacts.some(c => c.fixed !== null && c.segment === name && c.impulse > 0);
     assert.equal(observation.down, true);
     assert.deepEqual([loaded("foot.left"), loaded("shank.left"), loaded("shank.right")], [true, false, true]);
+    const soleUp = soleUpOf(stand.built);
+    assert.equal(riseFootPlanted(observation, "left", soleUp.left), true);
     const policy = dynamicRisePolicy({
       channels: held.own.muscles.channels.map(c => ({ name: c.name, min: c.dof.spec.min.value, max: c.dof.spec.max.value, bind: c.dof.spec.bind.value })),
       segments: [...stand.built.segments.values()].map(s => ({ name: s.spec.name, mass: s.rigid.mass })),
       rest: root.rest.asArray(), rootHeight: root.frame.origin[1], leg: 1, gravity: 9.81, held: "right", fours: {},
+      soleUp,
     });
     policy.begin(observation);
     assert.deepEqual({ phase: policy.state.phase, lead: policy.state.lead }, { phase: "transfer", lead: "left" });
@@ -96,6 +103,29 @@ async function fallen() {
   assert.equal(stand.body.down, true, "the checkpoint follows an actual fall");
   return stand;
 }
+
+test("a boot landing on its side during a real fall does not release the supports for transfer", async () => {
+  const stand = await fallen();
+  try {
+    const p = stand.body.state.mind.subs[0].policy, soleUp = soleUpOf(stand.built);
+    let found = false;
+    for (let step = 0; step < 840; step++) {
+      const o = stand.body.observe(), loaded = name => o.contacts.some(c => c.fixed !== null
+        && c.impulse > 0 && Math.abs(c.normal[1]) >= .9 && c.segment === name);
+      if (p.phase === "place" && p.released && loaded(`foot.${p.lead}`) && !loaded(`shank.${p.lead}`)
+        && !riseFootPlanted(o, p.lead, soleUp[p.lead])) {
+        assert.equal(o.down, true);
+        assert.equal(loaded("head"), true, "the foot-side contact accompanies lost trunk support");
+        stand.world.step();
+        assert.notEqual(p.phase, "transfer", "an unsafe contact cannot start weight transfer");
+        found = true;
+        break;
+      }
+      stand.world.step();
+    }
+    assert.equal(found, true, "the physical fall must reach the contact that caused the false transition");
+  } finally { stand.dispose(); }
+});
 
 test("a dynamic roll requests coordinate rates through the bent joints of a real fall", async () => {
   const stand = await felled({ model: "workshop-fighter", held: "empty", degrees: 180, engine: "rapier-coordinate" },

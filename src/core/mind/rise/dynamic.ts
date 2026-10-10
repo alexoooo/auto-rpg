@@ -37,6 +37,7 @@ type Phase = "orient" | "acquire" | "place" | "transfer" | "extend" | "stabilize
 interface Model {
   readonly channels: readonly { readonly name: string; readonly min: number; readonly max: number; readonly bind: number }[];
   readonly segments: readonly { readonly name: string; readonly mass: number }[];
+  readonly soleUp: Readonly<Record<Side, Vec3>>;
   readonly rest: readonly [number, number, number, number];
   readonly rootHeight: number;
   readonly leg: number;
@@ -47,6 +48,16 @@ interface Model {
 const other = (side: Side): Side => side === "left" ? "right" : "left";
 const length = (a: Vec3, b: Vec3) => Math.sqrt((a[0] - b[0]) * (a[0] - b[0])
   + (a[1] - b[1]) * (a[1] - b[1]) + (a[2] - b[2]) * (a[2] - b[2]));
+
+/** A loaded sole facing up, rather than a boot touching the floor on its side or toes. */
+export function riseFootPlanted(o: BodyObservation, side: Side, soleUp: Vec3,
+  work = { up: new Vector3(), turn: new Quaternion() }): boolean {
+  const name = `foot.${side}`, foot = o.segments.find(s => s.name === name);
+  if (!foot || !o.contacts.some(c => c.segment === name && c.fixed !== null
+    && c.impulse > 0 && Math.abs(c.normal[1]) >= T.minUpNormal)) return false;
+  work.up.set(...soleUp).applyRotationQuaternionToRef(work.turn.set(...foot.rotation), work.up);
+  return work.up.y >= T.minUpNormal;
+}
 
 /** Human rigs with two legs, usable hands and at most one compound held item. */
 export function dynamicRiseFits(spec: BodySpec): boolean {
@@ -61,6 +72,8 @@ export function dynamicRisePolicy(input: Model) {
   if (!(model.leg > 0 && model.rootHeight > 0 && model.gravity > 0)
     || ![model.leg, model.rootHeight, model.gravity, ...model.rest].every(Number.isFinite)
     || !model.channels.length || model.channels.some(c => ![c.min, c.max, c.bind].every(Number.isFinite) || c.min > c.max)
+    || SIDES.some(s => !model.soleUp?.[s] || !model.soleUp[s].every(Number.isFinite)
+      || Math.abs(model.soleUp[s].reduce((n, v) => n + v * v, 0) - 1) > 1e-6)
     || model.segments.some(s => !(s.mass > 0) || !Number.isFinite(s.mass))) throw new Error("invalid dynamic rise model");
   const state = { phase: "complete" as Phase, elapsed: 0, time: 0, attemptTime: 0, stagnant: 0, error: Infinity,
     stage: 0, held: 0, ready: 0, attempts: 0, retries: 0, completed: 0, began: 0, finished: 0,
@@ -83,6 +96,8 @@ export function dynamicRisePolicy(input: Model) {
   const contacts = (o: BodyObservation, names?: readonly string[]) => o.contacts.filter(c => c.fixed !== null
     && c.impulse > 0 && Math.abs(c.normal[1]) >= T.minUpNormal && (!names || names.includes(c.segment)));
   const loaded = (o: BodyObservation, name: string) => contacts(o, [name]).length > 0;
+  const footWork = { up: new Vector3(), turn: new Quaternion() };
+  const planted = (o: BodyObservation, side: Side) => riseFootPlanted(o, side, model.soleUp[side], footWork);
   const clear = (o: BodyObservation) => !contacts(o, ["head", "upperTrunk", "middleTrunk", "lowerTrunk"]).length;
   const capture = (o: BodyObservation): Vec3 => {
     const mass = model.segments.reduce((n, s) => n + s.mass, 0), velocity = model.segments.reduce((v, s) => {
@@ -111,9 +126,9 @@ export function dynamicRisePolicy(input: Model) {
     relative.set(...root.rotation).multiplyToRef(restInverse, relative);
     way.set(1, 0, 0).applyRotationQuaternionToRef(relative, way);
     state.yaw = atan2(-way.z, way.x);
-    const planted = SIDES.find(s => loaded(o, `foot.${s}`) && !loaded(o, `shank.${s}`) && loaded(o, `shank.${other(s)}`));
-    if (SIDES.every(s => loaded(o, `foot.${s}`)) && !o.down) enter("stabilize", o);
-    else if (clear(o) && planted) { state.lead = planted; enter("transfer", o); }
+    const lead = SIDES.find(s => planted(o, s) && !loaded(o, `shank.${s}`) && loaded(o, `shank.${other(s)}`));
+    if (SIDES.every(s => planted(o, s)) && clear(o) && !o.down) enter("stabilize", o);
+    else if (clear(o) && lead) { state.lead = lead; enter("transfer", o); }
     else if (clear(o) && SIDES.every(s => loaded(o, `shank.${s}`)) && loaded(o, `hand.${freeHand()}`)) enter("place", o);
     else enter(state.lie === "front" ? "acquire" : "orient", o);
   };
@@ -180,16 +195,20 @@ export function dynamicRisePolicy(input: Model) {
             if (/^(hip|knee|ankle)\.left /.test(name)) (pose as Record<string, number>)[name.replace(".left ", `.${state.lead} `)] = angle;
           }
           mirror = false;
-          if (state.released && loaded(o, moving) && !loaded(o, `shank.${state.lead}`)) { enter("transfer", o); state.released = false; }
+          if (state.released && clear(o) && planted(o, state.lead) && loaded(o, rear)
+            && !loaded(o, `shank.${state.lead}`)) { enter("transfer", o); state.released = false; }
           break;
         }
         case "transfer":
           pose = posture("half kneel");
-          if (supported(o, [moving, `foot.${free}`])) { enter("extend", o); state.released = true; }
+          if (supported(o, [moving, rear])) state.released = true;
+          if (clear(o) && SIDES.every(s => planted(o, s)) && supported(o, [moving, `foot.${free}`])) {
+            enter("extend", o); state.released = true;
+          }
           break;
         case "extend":
           pose = posture("lunge 3");
-          if (!o.down && SIDES.every(s => loaded(o, `foot.${s}`)) && !contacts(o, [hand, rear]).length) enter("stabilize", o);
+          if (!o.down && clear(o) && SIDES.every(s => planted(o, s)) && !contacts(o, [hand, rear]).length) enter("stabilize", o);
           break;
         case "stabilize": case "complete": break;
         default: { const never: never = state.phase; throw new Error(`unknown dynamic rise phase ${never}`); }
@@ -223,7 +242,8 @@ export function dynamicRisePolicy(input: Model) {
       const bearing = state.phase === "place" || state.phase === "transfer" || state.phase === "extend" || state.phase === "acquire";
       if (bearing) {
         const names = state.phase === "acquire" ? [...hands, rear, `shank.${state.lead}`] : state.phase === "place" ? [...hands, rear] : state.phase === "transfer" ? [moving, rear] : SIDES.map(s => `foot.${s}`);
-        const retained = state.phase === "place" && !state.released ? [...names, `shank.${state.lead}`, moving] : names;
+        const retained = state.phase === "place" && !state.released ? [...names, `shank.${state.lead}`, moving]
+          : state.phase === "transfer" && !state.released ? [...names, ...hands] : names;
         for (const segment of model.segments) if (!retained.includes(segment.name)) {
           supports.push({ frame: { kind: "segment", name: segment.name }, mode: "free" });
         }
@@ -272,8 +292,14 @@ export function dynamicRise(own: OwnBody, view: BodyView, world: World): SubMind
   const fours = witness ? Object.fromEntries(muscles.channels.map(c => [c.name,
     (witness.placement.joints as Record<string, number[]>)[c.joint.spec.name]![c.index]! + c.dof.spec.bind.value]))
     : RISE.rise.find(s => s.name === "fours")!.posture as Readonly<Record<string, number>>;
+  const soleUp = (side: Side): Vec3 => {
+    const up = Vector3.UpReadOnly.applyRotationQuaternionToRef(
+      Quaternion.Inverse(built.segments.get(`foot.${side}`)!.rest), new Vector3());
+    return [up.x, up.y, up.z];
+  };
   const model: Model = { channels: muscles.channels.map(c => ({ name: c.name, min: c.dof.spec.min.value, max: c.dof.spec.max.value, bind: c.dof.spec.bind.value })), fours,
     segments: [...built.segments.values()].map(s => ({ name: s.spec.name, mass: s.rigid.mass })), rest: [root.rest.x, root.rest.y, root.rest.z, root.rest.w],
+    soleUp: { left: soleUp("left"), right: soleUp("right") },
     rootHeight: root.frame.origin[1], leg, gravity: Math.sqrt(world.physics.gravity.reduce((n, v) => n + v * v, 0)),
     held: SIDES.find(side => own.spec.held?.some(h => h.segment === `hand.${side}`)) ?? null };
   const policy = dynamicRisePolicy(model), tracking = wholeBodyTracking(built, muscles, world.physics.gravity, [], [],
