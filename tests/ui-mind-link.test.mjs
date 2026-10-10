@@ -25,7 +25,7 @@ test("a_link_names_a_preset_by_its_id_and_any_other_mind_by_its_whole_tree", () 
 });
 
 test("a_link_carries_no_research_tuning_either_way", () => {
-  const tuned = withParts(CLASSIC, { locomotion: { tuning: { turnLimit: 1 } }, tactics: { tuning: { edge: { band: 1, patience: 1 } } } });
+  const tuned = withParts(CLASSIC, { locomotion: { tuning: { turnLimit: 1 } }, tactics: { tuning: { edge: { band: 1, patience: 1, clinch: 0 } } } });
   assert.equal(writeMind(tuned), JSON.stringify(CLASSIC));
   assert.equal(mindText(tuned, PRESETS), "classic");
   assert.deepEqual(readMind(JSON.stringify(tuned), PRESETS), CLASSIC);

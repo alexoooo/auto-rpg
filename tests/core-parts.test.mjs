@@ -66,7 +66,7 @@ test("a tree fits a body where every part does, and every part of a role is offe
 
 test("a tree without its tuning keeps everything else, its slots' parts included", () => {
   assert.deepEqual(withoutTuning(withParts(KICKER, { locomotion: { tuning: { turnLimit: 1 } }, blow: { tuning: { paths: { returnLimit: .05 } } }, kick: { tuning: { contactSpeed: 2 } } })), KICKER);
-  assert.deepEqual(withoutTuning({ ...withParts(CLASSIC, { tactics: { tuning: { edge: { band: 1, patience: 1 } } } }), subs: [{ kind: "lie", tuning: { x: 1 } }, { kind: "staged-rise" }] }),
+  assert.deepEqual(withoutTuning({ ...withParts(CLASSIC, { tactics: { tuning: { edge: { band: 1, patience: 1, clinch: 0 } } } }), subs: [{ kind: "lie", tuning: { x: 1 } }, { kind: "staged-rise" }] }),
     { ...CLASSIC, subs: [{ kind: "lie" }, { kind: "staged-rise" }] });
   assert.deepEqual(withoutTuning({ ...QUADRUPED, tuning: { bite: { open: .1 } } }), QUADRUPED);
 });

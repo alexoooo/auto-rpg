@@ -38,8 +38,8 @@ const OPENINGS_FIELDS: readonly PartField<OpeningsConfig>[] = Object.freeze([
 /** What is wrong with seeking tactics of `config`, each a sentence. */
 function seekFaults(config: SeekConfig): readonly string[] {
   const edge = config.tuning?.edge;
-  return edge && !(Number.isFinite(edge.band) && edge.band >= 0 && Number.isFinite(edge.patience) && edge.patience >= 0)
-    ? ["the edge needs a finite nonnegative band and patience"] : [];
+  return edge && ![edge.band, edge.patience, edge.clinch].every((x) => Number.isFinite(x) && x >= 0)
+    ? ["the edge needs a finite nonnegative band, patience and clinch"] : [];
 }
 
 /** What is wrong with opening tactics of `config`, each a sentence. */

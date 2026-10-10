@@ -14,9 +14,12 @@ import { APPROACH, type StrikeReport } from "./strike.ts";
 import { turnSense } from "./whole-body-strike.ts";
 
 /**
- * **A straight punch's settings.** The body walks at `pace` m/s at most to stand, facing the
+ * **A straight punch's settings.** The body walks at `pace` m/s at most (and `LEAST_PACE` at
+ * least) to stand, facing the
  * target, with it `reach` of the arm's straight length (shoulder to knuckles) from the punching
- * shoulder, within `band` m across the ground, for `settle` s, its fist set on the
+ * shoulder, no more than `band` m further across the ground and no nearer than `CROWDED` (a foe
+ * come nearer it backs out from at its full pace), for `settle` s with both feet bearing (no
+ * foot swinging in a step), its fist set on the
  * line from the shoulder to the target `chamber` m from the shoulder (none at 0). Then the hips
  * turn its punching shoulder forward by `hips` rad (the stance's heading, `Claim.steer`), the
  * chest by `turn` rad and the trunk leans `lean` rad, and `lead` s later the arm is driven at its
@@ -47,12 +50,14 @@ export interface StraightPunch {
 
 /**
  * A straight punch's settings as the game throws it: the best of a bare-handed search of Arena
- * bouts against a Warrior standing in guard (`research/punch-in-bout.mjs`), rounded, at the
- * stand-off of those that kept their feet best against Classic fighting back.
+ * bouts of the Puncher against Combat, Brawler and Kicker fighting back, held to the punch test's
+ * walked-in blows on a Warrior standing in guard (`research/punch-in-bout.mjs --scene`), rounded,
+ * at the longest reach whose fist still meets its target with the arm behind it: an arm apart,
+ * not chest to chest.
  */
 export const STRAIGHT_PUNCH: StraightPunch = deepFreeze({
-  pace: 0.596, reach: 0.9, band: 0.148, settle: 0.023, through: 0.32, hips: 0.13, turn: 0.427, lean: 0.143,
-  chamber: 0.024, lead: 0.007, elbow: 0.002, brake: 0.024, follow: 0.021, longest: 0.475, recover: 0.163,
+  pace: 1.009, reach: 0.8, band: 0.275, settle: 0.004, through: 0.334, hips: 0.034, turn: 0.434, lean: 0.348,
+  chamber: 0.212, lead: 0.077, elbow: 0, brake: 0.04, follow: 0.022, longest: 0.413, recover: 0.376,
 });
 
 /** Whether `settings` are a straight punch's: every one finite and not negative, the pace, reach, band and drive's length positive. */
@@ -94,6 +99,22 @@ interface Limb {
 /** Where a straight punch is: walking to its stand-off, standing there, driven, or coming back. */
 type Phase = "approach" | "settle" | "swing" | "return";
 
+/** How far nearer than its stand-off a foe may come before the punch backs out from it, m. */
+const CROWDED = 0.05;
+
+/**
+ * The least pace it walks toward a stand-off still ahead of it, m/s: closing the last few
+ * centimetres over `APPROACH.seconds` crawls, and a foe that steps in meanwhile has its blow first.
+ */
+const LEAST_PACE = 0.4;
+
+/**
+ * The fastest its centre of mass may move across the ground, m/s, for a stance shifting its weight
+ * for a step to count as set: a drive begun from a shift while the body still carries its walk
+ * throws it over.
+ */
+const SHIFTING_PACE = 0.25;
+
 const HANDS: readonly Side[] = Object.freeze(["left", "right"]);
 const NO_HANDS = Object.freeze({ left: null, right: null }) as Readonly<Record<Side, EffectorGoal | null>>;
 const CLOSED: Readonly<Record<Side, Readonly<Record<Side, boolean>>>> = Object.freeze({
@@ -104,9 +125,14 @@ const CLOSED: Readonly<Record<Side, Readonly<Record<Side, boolean>>>> = Object.f
  * **The straight punch**: a hand's blow thrown with the arm lined up behind the fist, for a fist
  * that meets its target with the arm's mass behind it rather than an elbow giving way. Given an
  * attack, it walks the body to where the target stands `reach` from the head, facing it, closing
- * the error over `APPROACH.seconds`, and stands there `settle` s with its fist on the line (its
- * chamber). Then it turns the hips and the chest and leans the trunk to bring the punching
- * shoulder forward, and drives the arm, `lead` s behind, at its
+ * the error over `APPROACH.seconds` but no slower than `LEAST_PACE` (backing out at its full pace
+ * from a foe come too near), and
+ * stands there `settle` s with both feet bearing, its fist on the line (its chamber): a stance
+ * shifting its weight for a step still bears on both, and so counts while the body moves no
+ * faster than `SHIFTING_PACE`, since waiting for the step to land would cost it a quarter of its
+ * punches. Then it turns the hips and the
+ * chest and leans the trunk to bring the punching shoulder forward, and drives the arm, `lead` s
+ * behind, at its
  * contact pose, solved each step for where the target is (`solveReach`): the striking point on
  * the line from the shoulder, `through` m past the target, with the elbow straight and the wrist
  * on the line where the reach leaves them free. Each channel is pushed flat out toward its goal
@@ -153,15 +179,18 @@ export function straightPunch(body: Body, settings: StraightPunch = STRAIGHT_PUN
     hand: null as Side | null, phase: null as Phase | null,
     /** Where it aims, world, the last target asked; the way it faces as the drive began. */
     target: [0, 0, 0] as [number, number, number], face: 0,
-    /** Seconds stood at the stand-off; when the drive began, when its hand began to touch, whether it touched last step, and when it came back. */
+    /** Seconds stood at the stand-off on both feet; when the drive began, when its hand began to touch, whether it touched last step, and when it came back. */
     stood: 0, began: 0, touched: null as number | null, touching: false, ended: 0, now: 0, headY: 0,
     still: 0, thrown: { left: 0, right: 0 },
-    /** Each shoulder from the head in the body frame, as the last step left it: across, up and forward, m. */
+    /**
+     * Each shoulder at contact from the head as the last step left it, in the body frame: the
+     * trunk at its contact goals and the hips turned, across, up and forward, m.
+     */
     shoulders: { left: [0, 0, 0] as [number, number, number], right: [0, 0, 0] as [number, number, number] },
   };
   /**
    * How far across the ground the head stands from a target `up` m above it, facing it, for the
-   * target to be `reach` of the arm from the `hand`'s shoulder.
+   * target to be `reach` of the arm from the `hand`'s shoulder as the drive carries it forward.
    */
   const standOff = (hand: Side, up: number): number => {
     const [across, high, ahead] = state.shoulders[hand], length = settings.reach * limbs[hand].arm, rise = up - high;
@@ -177,7 +206,7 @@ export function straightPunch(body: Body, settings: StraightPunch = STRAIGHT_PUN
     follows: true,
     thrown: state.thrown,
     get still() { return state.still; },
-    rangeAt: (hand, up) => ({ reach: standOff(hand, up), along: [-settings.band, settings.band] }),
+    rangeAt: (hand, up) => ({ reach: standOff(hand, up), along: [-CROWDED, settings.band] }),
   };
   const end = () => { state.hand = null; state.phase = null; state.touched = null; state.stood = 0; state.still = 0; };
   const target = new Vector3(), shoulder = new Vector3(), head = new Vector3(), headAt: [number, number, number] = [0, 0, 0];
@@ -241,9 +270,12 @@ export function straightPunch(body: Body, settings: StraightPunch = STRAIGHT_PUN
           const names = trunkNames[j]!, row = trunkAngles[j]!;
           for (let k = 0; k < names.length; k++) row[k] = view.angles[names[k]!] ?? 0;
         }
+        for (const g of limb.goals) trunkAngles[g.joint]![g.k] = g.angle;
         pointAtToRef(trunkChain, trunkAngles, limb.shoulder, shoulder);
+        // The hips' turn swings the shoulder forward about up through the root.
+        const h = settings.hips, toward = shoulder.x < 0 ? -1 : 1, x = shoulder.x * cos(h) - toward * shoulder.z * sin(h), z = toward * shoulder.x * sin(h) + shoulder.z * cos(h);
         const into = state.shoulders[side];
-        into[0] = shoulder.x - head.x; into[1] = shoulder.y - head.y; into[2] = shoulder.z - head.z;
+        into[0] = x - head.x; into[1] = shoulder.y - head.y; into[2] = z - head.z;
       }
       if (view.down) { if (state.hand) end(); return null; }
       // An attack given up, or another hand's, before the drive drops it.
@@ -259,17 +291,19 @@ export function straightPunch(body: Body, settings: StraightPunch = STRAIGHT_PUN
         case "approach": case "settle": {
           const [tx, , tz] = state.target, hx = view.head.x, hz = view.head.z, apart = hypot(tx - hx, tz - hz) || 1;
           const face = atan2(tx - hx, tz - hz), off = apart - standOff(hand, state.target[1] - view.head.y);
-          if (Math.abs(off) > settings.band) {
-            // Walked toward the stand-off along the line to the target, the centre of mass leading.
+          if (off > settings.band || off < -CROWDED) {
+            // Walked toward the stand-off along the line to the target, the centre of mass leading; out
+            // from a foe come too near at its full pace, or a foe walking in pushes it about.
             const heading = around.heading, ux = (tx - hx) / apart * off, uz = (tz - hz) / apart * off;
             const s = sin(heading), c = cos(heading), forward = ux * s + uz * c, right = ux * c - uz * s;
-            const speed = hypot(forward, right) / APPROACH.seconds, scale = speed > settings.pace ? settings.pace / speed : 1;
+            const speed = hypot(forward, right) / APPROACH.seconds, scale = off < 0 || speed > settings.pace ? settings.pace / speed : speed < LEAST_PACE ? LEAST_PACE / speed : 1;
             state.phase = "approach"; state.stood = 0; state.still = 0;
             return { hands: NO_HANDS, posture: null, pushes, closed: CLOSED[hand], steer: 0,
               legs: { kind: "walk", walk: [forward / APPROACH.seconds * scale, right / APPROACH.seconds * scale], face } };
           }
           state.phase = "settle";
-          if (view.stance.phase === "stand") state.stood += dt;
+          const { phase, velocity } = view.stance;
+          if (phase === "stand" || (phase === "shift" && hypot(velocity.x, velocity.z) < SHIFTING_PACE)) state.stood += dt;
           if (state.stood < settings.settle) {
             return { hands: NO_HANDS, posture: chamber(view, hand), pushes, closed: CLOSED[hand], steer: 0, legs: { kind: "walk", walk: null, face } };
           }

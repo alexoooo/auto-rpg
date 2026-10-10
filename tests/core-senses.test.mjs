@@ -215,21 +215,28 @@ test("a fighter at the edge stands just outside its foe's reach and attacks when
   // Backing out is the way to the foe turned round, a zero across it negated.
   const east = { x: 1, z: 0 }, west = { x: -1, z: -0 };
   const orders = (apart, strike, edge) => seekFoe(sight(apart, strike), "head", "edge", edge);
+  // With no clinch to back out of, the fixture's foe, which stands near, is held at the edge of its reach.
+  const open = { ...EDGE, clinch: 0 };
   // The fixture's foe outreaches it, so the edge is outside its own window.
   assert.ok(outside > mine.reach + mine.along[1] + 0.1, `the foe reaches ${outside} m`);
-  assert.deepEqual(orders(outside + EDGE.band + 0.01), { move: east, face: null, attack: null }, "beyond the edge it walks in");
-  assert.deepEqual(orders(outside + EDGE.band - 0.01), { move: null, face: east, attack: null }, "at the edge it stands, facing the foe");
-  assert.deepEqual(orders(outside + 0.01), { move: null, face: east, attack: null });
-  assert.deepEqual(orders(outside - 0.01), { move: west, face: east, attack: null }, "inside the foe's reach it backs out");
+  assert.deepEqual(orders(outside + EDGE.band + 0.01, {}, open), { move: east, face: null, attack: null }, "beyond the edge it walks in");
+  assert.deepEqual(orders(outside + EDGE.band - 0.01, {}, open), { move: null, face: east, attack: null }, "at the edge it stands, facing the foe");
+  assert.deepEqual(orders(outside + 0.01, {}, open), { move: null, face: east, attack: null });
+  assert.deepEqual(orders(outside - 0.01, {}, open), { move: west, face: east, attack: null }, "inside the foe's reach it backs out");
   // The foe's head in its window, from either side of the window: it attacks from where it stands.
-  for (const apart of [0.2, 0.25, 0.3]) assert.deepEqual(orders(apart), { move: null, face: east, attack: [apart, 1.6, 0] }, `in its window at ${apart} m`);
-  assert.deepEqual(orders(0.19), { move: west, face: east, attack: null }, "nearer than its window, and inside the foe's reach");
+  for (const apart of [0.2, 0.25, 0.3]) assert.deepEqual(orders(apart, {}, open), { move: null, face: east, attack: [apart, 1.6, 0] }, `in its window at ${apart} m`);
+  assert.deepEqual(orders(0.19, {}, open), { move: west, face: east, attack: null }, "nearer than its window, and inside the foe's reach");
+  // A foe within the clinch is backed out of, from a blow walking in or settling but not one thrown or placing its feet.
+  assert.ok(EDGE.clinch > 0.3, `the clinch is ${EDGE.clinch} m`);
+  for (const phase of [null, "approach", "settle"]) assert.deepEqual(orders(EDGE.clinch - 0.01, { phase }), { move: west, face: east, attack: null }, `backing out of the clinch from ${phase}`);
+  for (const phase of ["place", "chamber", "swing", "return"]) assert.deepEqual(orders(EDGE.clinch - 0.01, { phase }).attack, [EDGE.clinch - 0.01, 1.6, 0], `a blow ${phase} goes on in the clinch`);
+  assert.deepEqual(orders(EDGE.clinch + 0.01, { phase: "settle" }).attack, [EDGE.clinch + 0.01, 1.6, 0], "outside the clinch a settling blow goes on");
   // Stood still its patience, it attacks all the same; and a blow under way goes on to its end.
-  assert.deepEqual(orders(outside + 0.1, { still: EDGE.patience }), { move: null, face: east, attack: [outside + 0.1, 1.6, 0] });
-  assert.deepEqual(orders(outside + 0.1, { still: EDGE.patience - 0.01 }).attack, null);
-  assert.deepEqual(orders(outside + 0.1, { still: 1 }, { band: 0.25, patience: 1 }).attack, [outside + 0.1, 1.6, 0], "an experiment's edge");
-  assert.deepEqual(orders(outside + 1, { phase: "approach" }).attack, [outside + 1, 1.6, 0]);
-  assert.deepEqual(orders(outside + 0.3, {}, { band: 0.5, patience: 4 }).move, null, "a wider band stands further out");
+  assert.deepEqual(orders(outside + 0.1, { still: EDGE.patience }, open), { move: null, face: east, attack: [outside + 0.1, 1.6, 0] });
+  assert.deepEqual(orders(outside + 0.1, { still: EDGE.patience - 0.01 }, open).attack, null);
+  assert.deepEqual(orders(outside + 0.1, { still: 1 }, { band: 0.25, patience: 1, clinch: 0 }).attack, [outside + 0.1, 1.6, 0], "an experiment's edge");
+  assert.deepEqual(orders(outside + 1, { phase: "approach" }, open).attack, [outside + 1, 1.6, 0]);
+  assert.deepEqual(orders(outside + 0.3, {}, { band: 0.5, patience: 4, clinch: 0 }).move, null, "a wider band stands further out");
   // Walking in is the fighter's way unless it is told otherwise.
   assert.equal(RECIPE_FIGHTER.tactics.range, "close");
 });

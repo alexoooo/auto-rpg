@@ -12,8 +12,9 @@ import { modelSpec } from "../src/core/models.ts";
 import { straightPunchFits } from "../src/core/skills/straight-punch.ts";
 import { withParts } from "./fixtures/minds.mjs";
 
-test("a Puncher walks in and lands its fist with the arm behind it, wounding a Warrior that stands in guard", async () => {
-  const bout = await boutOf(PUNCHER, { gap: 1.2, seconds: 5 });
+test("a Puncher that walks in lands its fist with the arm behind it, wounding a Warrior that stands in guard", async () => {
+  // The game's Puncher holds at the edge of a foe's reach, and a foe that never comes waits out its patience there.
+  const bout = await boutOf({ ...PUNCHER, tactics: { ...PUNCHER.tactics, range: "close" } }, { gap: 1.2, seconds: 5 });
   const wounding = bout.punches.filter((p) => p.hp[0] > 0.01);
   assert.ok(bout.thrown >= 2, `punches thrown: ${bout.thrown}`);
   assert.ok(wounding.length >= 2, `wounding punches: ${JSON.stringify(bout.punches)}`);
