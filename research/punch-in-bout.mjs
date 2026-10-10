@@ -5,7 +5,7 @@
  * rulebook as its blows land (`Duel.blows`). A bout's
  * score is the hit points the foe lost less those the puncher lost, with `FELL` taken off for each
  * second the puncher spent down and `LOST` for a bout it lost. The foes are a Warrior standing in
- * guard, or Classic fighting back (`--foes stands,classic`).
+ * guard, or Classic, Combat or Brawler fighting back (`--foes stands,classic,combat,brawler`).
  *
  * Usage:
  *   node research/punch-in-bout.mjs [--settings '<json>'] [--gaps 1.2,1.6] [--seconds 8] [--foes stands] [--aim head]  one setting, its blows printed
@@ -20,7 +20,7 @@ import { pathToFileURL } from "node:url";
 import { isMainThread, parentPort, workerData } from "node:worker_threads";
 import { buildBout } from "./bout.mjs";
 import { cmaSearch, workerPool } from "./cma.mjs";
-import { CLASSIC } from "../src/core/mind/config.ts";
+import { BRAWLER, CLASSIC, COMBAT } from "../src/core/mind/config.ts";
 import { STRAIGHT_PUNCH } from "../src/core/skills/straight-punch.ts";
 
 /** A Warrior standing in guard, throwing nothing. */
@@ -33,7 +33,7 @@ const BARE = Object.freeze({ left: "empty", right: "empty" });
 const FELL = 0.5, LOST = 1;
 
 /** The foes a setting may be scored against, by name. */
-const FOES = Object.freeze({ stands: STANDS, classic: CLASSIC });
+const FOES = Object.freeze({ stands: STANDS, classic: CLASSIC, combat: COMBAT, brawler: BRAWLER });
 
 /** The settings searched, each its range. */
 const RANGES = Object.freeze({
