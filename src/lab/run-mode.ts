@@ -20,8 +20,8 @@ import { startWind, type WindSettings } from "./wind.ts";
  * the square), they face that way and walk toward the point in the body's own frame: forward,
  * sideways or back.
  *
- * Their pace is the body's fastest walk (`Body.envelope`, what the stance was measured to hold with
- * it), or the pace the lab asks (`RunOptions.top`), which may be past it: pushing a walk past what
+ * Their pace is the body's fastest walk (`Sight.envelope`, what its locomotion was measured to hold
+ * with it), or the pace the lab asks (`RunOptions.top`), which may be past it: pushing a walk past what
  * it holds is what the Run is for. Either way it is no faster than the body's turn carries it round
  * the tightest bend within `AIM_AHEAD` either way (`turnAt` and `paceRound`; past the envelope's
  * fastest walk, at the turn it held there).
@@ -95,7 +95,7 @@ function tightest(track: Track, s: number, metres: number): number {
 /**
  * The fastest pace no faster than `top` at which `envelope`'s turns carry the body round a bend of
  * `radius` m, m/s (`paceRound`); past the envelope's fastest walk, at the turn it held there
- * (`turnAt`). A body with no envelope (one under a stance tuning of an experiment's) is not slowed.
+ * (`turnAt`). A body with no envelope (one measured, or under an experiment's stance tuning) is not slowed.
  */
 function paceRoundTo(envelope: StanceEnvelope | null, radius: number, top: number | undefined): number {
   if (!envelope) return Infinity;
@@ -124,8 +124,8 @@ interface TrackTactics extends Tactics {
   frame(time: number): Omit<RunFrame, "speed" | "off" | "time" | "heading" | "fallen" | "walking" | "gait" | "wind" | "gusts">;
 }
 
-export function trackTactics(track: Track, envelope: StanceEnvelope | null, { top, pace: most, turn, facing }: TrackOptions = {}): TrackTactics {
-  const fastest = Math.min(top ?? envelope?.walk.value ?? 0, most ?? Infinity), turning = turn ?? Infinity;
+export function trackTactics(track: Track, { top, pace: most, turn, facing }: TrackOptions = {}): TrackTactics {
+  const turning = turn ?? Infinity;
   let along = 0, travelled = 0, laps = 0, lapFrom = 0, lastLap: number | null = null;
   let pace = 0, bending = false, aim: [number, number] = [0, 0], face = facing ?? 0, move: [number, number] = [0, 0];
   let setOff: number | null = null, last: number | null = null;
@@ -133,8 +133,8 @@ export function trackTactics(track: Track, envelope: StanceEnvelope | null, { to
   const onPiece = track.lengths.map(() => ({ metres: 0, seconds: 0 }));
   return {
     name: "track",
-    decide({ view, report }, dt): Intent {
-      const c = view.stance.centre;
+    decide({ view, report, envelope }, dt): Intent {
+      const c = view.stance.centre, fastest = Math.min(top ?? envelope?.walk.value ?? 0, most ?? Infinity);
       if (view.time > 0) {
         setOff ??= view.time;
         const s = track.nearest(c.x, c.z, along);
@@ -180,7 +180,7 @@ export function trackTactics(track: Track, envelope: StanceEnvelope | null, { to
 
 /** What the lab asks of a run beyond its track. */
 interface RunOptions {
-  /** The fastest pace it asks, m/s; none, the body's fastest walk (`Body.envelope`), which a body with none must be given. */
+  /** The fastest pace it asks, m/s; none, the body's fastest walk (`Sight.envelope`), which a body with none must be given. */
   readonly top?: number;
   /** The heading it faces throughout (`TrackInfo.facing`). */
   readonly facing?: number;
@@ -191,7 +191,7 @@ interface RunOptions {
 /** Run `actor`'s body, a human in its reference pose at the track's start facing along it, round `track`. */
 export function startRun(actor: Actor, track: Track, { top, facing, wind }: RunOptions = {}): RunSession {
   const { body, world } = actor;
-  const tactics = trackTactics(track, body.envelope, { top, facing });
+  const tactics = trackTactics(track, { top, facing });
   const { report } = actor.drive(tactics);
   const meter = startGaitMeter(body.built, world);
   const blowing = startWind(body.built, world, wind?.settings ?? { rate: 0, strength: 0 }, wind?.seed ?? 0);

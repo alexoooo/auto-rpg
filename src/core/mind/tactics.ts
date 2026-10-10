@@ -43,7 +43,7 @@ export interface Sight {
   readonly view: BodyView;
   /** How the skills are going, as the last step left them. */
   readonly report: SkillReport;
-  /** What the stance holds with this body (`Body.envelope`): its fastest walk, and its turns. */
+  /** What the skills' locomotion was measured to hold with this body (`Locomotion.envelope`): its fastest walk, and its turns. */
   readonly envelope: StanceEnvelope | null;
 }
 
@@ -56,7 +56,7 @@ export interface Sight {
  */
 export function driveBy(body: Body, tactics: Tactics, make: (body: Body, tactics: Tactics) => Skills = recipeSkills): Skills {
   const skills = make(body, tactics);
-  const sight: Sight = { view: body.view, report: skills.report, envelope: body.envelope };
+  const sight: Sight = { view: body.view, report: skills.report, envelope: skills.envelope };
   body.drive((view, dt) => {
     if (view.resumed) skills.resume(view);
     return skills.command(view, tactics.decide(sight, dt), dt);

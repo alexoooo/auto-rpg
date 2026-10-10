@@ -49,6 +49,8 @@ interface ActorOptions {
   readonly assist?: AssistCeiling;
   /** An experiment's stance tuning in place of the stance's constants. */
   readonly stance?: StanceTuning;
+  /** A body being measured (`BodyOptions.measuring`): no envelope caps its walk or turn. */
+  readonly measuring?: boolean;
   /**
    * What its mind may strike with, by what a hand holds (`heldIn`); anything unless given. A hand
    * that holds what is barred guards, whatever its mind asks of it.
@@ -96,11 +98,11 @@ function tuned(config: FighterConfig, skills: RecipeOptions | undefined): Fighte
 }
 
 /** `built`, a human in its reference pose on the ground of `world`, as a mode's actor; a mind with a fault in its tree (`treeFaults`, given a script) is refused. */
-export function labActor(built: BuiltBody, world: World, { mind = LAB_PRESETS.script.config, assist, stance, allows = () => true, around = (tactics) => tactics }: ActorOptions = {}): Actor {
+export function labActor(built: BuiltBody, world: World, { mind = LAB_PRESETS.script.config, assist, stance, measuring, allows = () => true, around = (tactics) => tactics }: ActorOptions = {}): Actor {
   const fault = treeFaults(mind, ["script"])[0];
   if (fault) throw new Error(fault);
   const wiring: MindWiring = { name: "lab", orders: () => null, assist };
-  const body = createBody(built, world, { ...fighterBody(mind, wiring), stance });
+  const body = createBody(built, world, { ...fighterBody(mind, wiring), stance, measuring });
   const strikes = { left: allows(heldIn(built.spec, "left")), right: allows(heldIn(built.spec, "right")) };
   let driven: Skills | null = null;
   return {

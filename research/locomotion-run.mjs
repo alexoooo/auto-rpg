@@ -11,8 +11,8 @@
  * - `--winds` is a list of rate:strength (gusts a second : N at a gust's peak).
  * - `--legs` is the mind's locomotion part (`FighterConfig.locomotion`); the rest of the mind is
  *   the Lab's Script preset (`LAB_PRESETS`).
- * - `--stance` is an experiment's stance tuning (`StanceTuning`), whose body has no envelope: its
- *   walk is not capped by one. Its `gait` merges into `STANCE_GAIT`.
+ * - Each body is built as one being measured (`BodyOptions.measuring`): no envelope caps its walk.
+ * - `--stance` is an experiment's stance tuning (`StanceTuning`). Its `gait` merges into `STANCE_GAIT`.
  * - `--physique` builds the body with a physique (`Physique`: its strength and speed scale the
  *   muscles), as a probe of whether the body or the controller caps a walk.
  *
@@ -58,7 +58,7 @@ async function runOnce({ model, track: id, pace, wind, seed, seconds, side, radi
   const stand = await coreStand(modelSpec(model, physique ?? undefined), { ground: true, groundSize: GROUND });
   const mind = { ...LAB_PRESETS.script.config, ...(legs ? { locomotion: legs } : {}) };
   const tuning = stance ? { ...stance, ...(stance.gait ? { gait: { ...STANCE_GAIT, ...stance.gait } } : {}) } : undefined;
-  const run = startRun(labActor(stand.built, stand.world, { mind, stance: tuning }), track, { top: pace, facing: info.facing, wind: { settings: wind, seed } });
+  const run = startRun(labActor(stand.built, stand.world, { mind, stance: tuning, measuring: true }), track, { top: pace, facing: info.facing, wind: { settings: wind, seed } });
   let frame = run.frame(), off = 0, fellOn = null;
   // The legs' demand: per joint (hip, knee, ankle), the share of control steps a channel of it was
   // at full activation, and the most of its peak torque it delivered. The fall: its phase, and the

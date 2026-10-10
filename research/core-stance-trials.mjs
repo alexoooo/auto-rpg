@@ -10,6 +10,7 @@ import { modelSpec } from "../src/core/models.ts";
 import { woodenClub } from "../src/core/items/club.ts";
 import { balanceCeiling, balancePercent, rulebook } from "../src/core/rules/rulebook.ts";
 import { GUARD, guardPosture } from "../src/core/skills/guard.ts";
+import { stride } from "../src/core/skills/stride.ts";
 import { coreStand } from "../tests/harness/core-stand.mjs";
 
 export const CORE_STANCE_HARNESS = "Node core stand (tests/harness/core-stand.mjs), Rapier";
@@ -158,17 +159,35 @@ export async function shove({ model, impulse, degrees, stance, hz = 120, walked 
 }
 
 /**
- * Walk at `speed` m/s `degrees` from forward for 8 s after 1 s, then walk nowhere 4 s (`walking` in
- * the tests); as a fight plays the body with `held` (`body`).
+ * The locomotion skill `legs` names, driving `b`: null for the stance's own walk, which a trial asks
+ * of the stance's goal itself; `"stride"` for the stride (`src/core/skills/stride.ts`).
  */
-export async function walk({ model, degrees, speed, stance, hz = 120, held = null, actuation, physique }) {
+function skillOf(legs, b) {
+  switch (legs) {
+    case null: case undefined: return null;
+    case "stride": return stride(b);
+    default: throw new Error(`no locomotion skill named ${legs}`);
+  }
+}
+
+/**
+ * Walk at `speed` m/s `degrees` from forward for 8 s after 1 s, then walk nowhere 4 s (`walking` in
+ * the tests); as a fight plays the body with `held` (`body`), walking by the stance's own walk or
+ * by the locomotion skill `legs` names (`skillOf`).
+ */
+export async function walk({ model, degrees, speed, stance, hz = 120, held = null, actuation, physique, legs = null }) {
   const { stand, body: b, guard } = await body(model, stance, hz, held, actuation, physique);
-  const way = degrees * Math.PI / 180, ux = Math.sin(way), uz = Math.cos(way);
+  const way = degrees * Math.PI / 180, ux = Math.sin(way), uz = Math.cos(way), skill = skillOf(legs, b);
   let goal = null, pace = null;
-  b.drive((view) => {
-    const s = view.stance;
+  b.drive((view, dt) => {
+    const posture = held === null ? {} : guard;
+    if (skill) {
+      // The walk in the body's frame, facing +z: forward along z, right along x.
+      goal = skill.goal(view, pace && [pace[1], pace[0]], 0, dt) ?? goal;
+      return { posture, pushes: [], stance: view.time > 0 ? goal : null };
+    }
     if (!goal && view.time > 0) goal = { feet: ["left", "right"], centre: null, height: view.standing - 0.03, heading: 0 };
-    return { posture: held === null ? {} : guard, pushes: [], stance: goal && { ...goal, walk: pace } };
+    return { posture, pushes: [], stance: goal && { ...goal, walk: pace } };
   });
   try {
     stand.step(stand.seconds(1));
@@ -177,7 +196,7 @@ export async function walk({ model, degrees, speed, stance, hz = 120, held = nul
       for (let i = 0; i < stand.seconds(seconds); i++) {
         stand.step(1);
         const s = b.view.stance;
-        low = Math.max(low, goal.height - (s.centre.y - s.support.y));
+        if (goal) low = Math.max(low, goal.height - (s.centre.y - s.support.y));
       }
     };
     pace = [speed * ux, speed * uz];
@@ -202,21 +221,26 @@ export async function walk({ model, degrees, speed, stance, hz = 120, held = nul
  * rad/s (`sense` 1 to the right, -1 to the left) still walking, walk on 3 s and stop for 2: whether
  * it fell, and how far the walk's direction was off the new heading over the last second of walking,
  * rad. At an `after` of 0 the heading turns as the walk sets off. As a fight plays the body with
- * `held` (`body`).
+ * `held` (`body`), walking by the stance's own walk or by the locomotion skill `legs` names (`skillOf`).
  */
-export async function turn({ model, speed, rate, sense, stance, hz = 120, after = 3, held = null, actuation, physique }) {
+export async function turn({ model, speed, rate, sense, stance, hz = 120, after = 3, held = null, actuation, physique, legs = null }) {
   const { stand, body: b, guard } = await body(model, stance, hz, held, actuation, physique);
+  const skill = skillOf(legs, b);
   let goal = null, heading = 0, turning = false, walking = false, turned = 0;
   b.drive((view, dt) => {
-    const s = view.stance;
-    if (!goal && view.time > 0) goal = { feet: ["left", "right"], centre: null, height: view.standing - 0.03 };
     if (turning && turned < Math.PI) {
       const d = Math.min(rate * dt, Math.PI - turned);
       turned += d;
       heading += sense * d;
     }
+    const posture = held === null ? {} : guard;
+    if (skill) {
+      goal = skill.goal(view, walking ? [speed, 0] : null, heading, dt) ?? goal;
+      return { posture, pushes: [], stance: view.time > 0 ? goal : null };
+    }
+    if (!goal && view.time > 0) goal = { feet: ["left", "right"], centre: null, height: view.standing - 0.03 };
     const walk = walking ? [speed * Math.sin(heading), speed * Math.cos(heading)] : null;
-    return { posture: held === null ? {} : guard, pushes: [], stance: goal && { ...goal, heading, walk } };
+    return { posture, pushes: [], stance: goal && { ...goal, heading, walk } };
   });
   try {
     let low = -Infinity;

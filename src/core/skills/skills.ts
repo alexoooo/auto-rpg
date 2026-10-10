@@ -1,6 +1,7 @@
 import type { KickReport } from "./kick.ts";
 import type { SupportReport } from "./support-fold.ts";
 import type { Body, BodyCommand, BodyView } from "../body.ts";
+import type { StanceEnvelope } from "../control/stance-envelope.ts";
 import type { Intent } from "../mind/intent.ts";
 import type { Tactics } from "../mind/tactics.ts";
 import { skillSet, type Holders, type SkillParts } from "./arbiter.ts";
@@ -36,6 +37,8 @@ export interface Skills extends Skill {
   /** The command for this control step. */
   command(view: BodyView, intent: Intent, dt: number): BodyCommand;
   readonly report: SkillReport;
+  /** What their locomotion was measured to hold with the body (`Locomotion.envelope`). */
+  readonly envelope: StanceEnvelope | null;
   /**
    * Their memory (`src/core/state.ts`): the one command they write again each step, which the
    * body's state shares; the legs' and the strike's; and their tactics' (`Tactics.state`), or null.

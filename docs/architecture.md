@@ -295,10 +295,12 @@ and driven afresh to change what it costs.
   turn over it (`landingHeading`, `support.ts`): a faster turn is taken step by step. A push
   that carries the capture point out of the soles and away from the bearing one during a weight
   shift is caught by a recovery step, ahead of any step the goal asks (`catchStep`). A goal's step
-  that follows the one under way, of the same foot, re-aims it in flight (`SwingGoal.follows`).
+  that follows the one under way, of the same foot, re-aims it in flight (`SwingGoal.follows`),
+  and may hold the foot to its path more tightly than the stance's own steps (`SwingGoal.settle`).
   `stanceEnvelope` (`stance-envelope.ts`) reads what each body was measured to
   hold on parent-axis Rapier under its character's balance allowance
-  (`assets/core/stance-envelope.json`). Unassisted coordinate-engine turns have a separate
+  (`assets/core/stance-envelope.json`), and `strideEnvelope` the same, walking by the stride
+  (`assets/core/stride-envelope.json`). Unassisted coordinate-engine turns have a separate
   [combat calibration](reference/combat-locomotion.md); the reference table alone does not
   establish that gameplay capability.
 - **The assist** (`assist.ts`) is a force and a moment on the root that no muscle gives: an ask
@@ -353,8 +355,11 @@ tactics over the skills it is given.
   steps and hands the stance one at a time (`StanceGoal.swing`), never its own walk: each landing
   and the capture point it is to catch are a steady capture-point walk's, re-aimed every control
   step from the measured capture point, and a swing whose landing would be past the longest step
-  is shortened to one that is not. A walk ends with steps that bring the capture point between
-  the feet.
+  is shortened to one that is not, and one farther behind the centre of mass than the hip
+  reaches back is drawn in. Its swinging foot is held to its path at 0.07 s (`SwingGoal.settle`):
+  a step that lands short leaves the capture point ahead of the next, and the walk runs away. A
+  walk ends with steps that bring the capture point between the feet. Its locomotion carries its
+  own envelope (`Locomotion.envelope`), the stance's own walk's being no measure of it.
 - **Strike** (`strike.ts`, `strikes.ts`) carries out a hand's attack by one of two blows. A
   searched recipe is a chamber pose and timed muscle pushes (`Strike`) for a body, a thing held
   and a height band (`BANDS`: high, where a foe of its own build has its head; middle, its
@@ -653,7 +658,7 @@ fall of five and the skeleton from almost none
 ([reference/rising.md](reference/rising.md#where-the-rise-stops)).
 
 `Tactics` (`tactics.ts`) are `decide(sight, dt)`: from their `Sight` (the body's view, the
-skills' report and the body's envelope) they return an `Intent` (`intent.ts`): a velocity forward
+skills' report and the envelope of the locomotion they drive) they return an `Intent` (`intent.ts`): a velocity forward
 and to the right of the body's heading, or none; a way to face; how low to stand; what each hand
 covers (`Cover`), or none, holding the guard's pose; and the one attack (`Attack`), or none: a
 blow of a hand at a point, which the recipe skill chooses for what the hand holds unless it names

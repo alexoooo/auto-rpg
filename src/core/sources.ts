@@ -414,6 +414,13 @@ export const SOURCES = Object.freeze({
       + "src/core/control/stance-envelope.ts; written by research/core-stance-envelope.mjs --write, whose "
       + "harness it names, and held to the rule by tests/core-stance-envelope.test.mjs.",
   },
+  "stride-envelope": {
+    kind: "asset", file: "assets/core/stride-envelope.json",
+    what: "What the stride (src/core/skills/stride.ts) held with each body as a fight plays it, by the "
+      + "batteries and rule of core-stance-envelope at the stride's speeds, 0.2-1.2 m/s; written by "
+      + "research/core-stance-envelope.mjs --legs stride --write, whose harness it names, and held to the "
+      + "rule by tests/core-stance-envelope.test.mjs.",
+  },
   "core-strikes": {
     kind: "asset", file: "assets/core/strikes.json",
     what: "The strike skill's repertoire (src/core/skills/strikes.ts): for a body, a thing held and a height "

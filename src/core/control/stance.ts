@@ -84,6 +84,11 @@ export interface SwingGoal {
    * them so as the body goes (`src/core/skills/stride.ts`).
    */
   readonly follows?: boolean;
+  /**
+   * The constant the swing's foot takes up its errors from its path at, s, critically damped; none,
+   * the stance's (`StanceTuning.seconds.swing`). A shorter one lands a fast step nearer its place.
+   */
+  readonly settle?: number;
 }
 
 /**
@@ -364,7 +369,8 @@ function swingFoot(s: Stance, swing: SwingGoal, heading: number, dt: number): vo
   path.set(from.x + (swing.to[0] - from.x) * eased, from.y + swing.lift * bump, from.z + (swing.to[1] - from.z) * eased);
   turnBetweenToRef(step.lift, level, eased, step.turn);
   along.set((swing.to[0] - from.x) * ds, swing.lift * dbump, (swing.to[1] - from.z) * ds);
-  spinBetweenToRef(foot.segment.node.rotationQuaternion!, step.turn, seconds.swing, turn);
+  const settle = swing.settle ?? seconds.swing;
+  spinBetweenToRef(foot.segment.node.rotationQuaternion!, step.turn, settle, turn);
   // The whole turn from lift to landing, world, as its axis times its angle: the path's turn goes
   // about its axis at its angle times the path's rate.
   spinBetweenToRef(step.lift, level, 1, wholeAxis);
@@ -372,7 +378,7 @@ function swingFoot(s: Stance, swing: SwingGoal, heading: number, dt: number): vo
   // swing's constant; its turn's likewise, with the turn's own rate and acceleration: damping
   // alone lags a turn by twice its rate times the swing's constant, and a foot turning over a
   // swing lands off the heading (`tests/core-stance.test.mjs`).
-  const task = tasks[feet.indexOf(foot)]!, w = 1 / seconds.swing, T = swing.seconds;
+  const task = tasks[feet.indexOf(foot)]!, w = 1 / settle, T = swing.seconds;
   const dds = tau < 1 ? 60 * tau * (1 - tau) * (1 - 2 * tau) / (T * T) : 0, ddbump = tau < 1 ? 32 * (1 - 6 * tau + 6 * tau * tau) / (T * T) : 0;
   motionAtToRef(foot.segment, sole, task.linear, task.angular);
   task.linear.set((swing.to[0] - from.x) * dds + w * w * (path.x - sole.x) + 2 * w * (along.x - task.linear.x),
