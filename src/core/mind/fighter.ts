@@ -6,17 +6,18 @@ import { chooseSkill } from "../skills/choose.ts";
 import { DRIVEN_STRIKE, pathStrike, validCombatExecution, validDrivenStrike } from "../skills/combat.ts";
 import { guardPosture, guardSkill } from "../skills/guard.ts";
 import { kickSkill, validKickTuning } from "../skills/kick.ts";
-import { locomotion, validTurnLimit, validTurnStartup } from "../skills/locomotion.ts";
+import { locomotion, validTurnLimit, validTurnStartup, type Locomotion } from "../skills/locomotion.ts";
 import { noBlow } from "../skills/no-blow.ts";
 import type { BlowSkill } from "../skills/skill.ts";
 import type { Skills } from "../skills/skills.ts";
 import { recipeStrike } from "../skills/strike.ts";
 import { STRAIGHT_PUNCH, straightPunch, straightPunchFits, validStraightPunch } from "../skills/straight-punch.ts";
+import { STRIDE, stride, validStride } from "../skills/stride.ts";
 import { supportFold } from "../skills/support-fold.ts";
 import { wholeBodyFits, wholeBodyStrike } from "../skills/whole-body-strike.ts";
 import { deepFreeze } from "../state.ts";
 import type { World } from "../world.ts";
-import { ARENA_KICKS, type BehaviourConfig, type BlowConfig, type ChooseBlowConfig, type DrivenStrikeConfig, type FighterConfig, type FrontKickConfig, type PathStrikeConfig, type SkillConfig, type StanceWalkConfig,
+import { ARENA_KICKS, type BehaviourConfig, type BlowConfig, type ChooseBlowConfig, type DrivenStrikeConfig, type FighterConfig, type FrontKickConfig, type PathStrikeConfig, type SkillConfig, type StanceWalkConfig, type StrideConfig, type LocomotionConfig,
   type StraightPunchConfig, type WholeBodyStrikeConfig } from "./config.ts";
 import { choice, number, toggle, type PartField } from "./fields.ts";
 import type { MindWiring } from "./minds.ts";
@@ -56,6 +57,17 @@ const DRIVEN_FIELDS: readonly PartField<DrivenStrikeConfig>[] = Object.freeze([
   number<DrivenStrikeConfig, "contact">("contact", "Contact speed", 1, 12, 0.5, "m/s"),
 ]);
 
+/** The stride's settings, as a panel offers them. Their bounds are a numeric setting, the most a panel offers. */
+const STRIDE_FIELDS: readonly PartField<StrideConfig>[] = Object.freeze([
+  number<StrideConfig, "swing">("swing", "Swing", 0.1, 0.8, 0.01, "s"),
+  number<StrideConfig, "transfer">("transfer", "Both feet", 0, 0.3, 0.01, "s"),
+  number<StrideConfig, "lift">("lift", "Lift", 0.01, 0.2, 0.01, "m"),
+  number<StrideConfig, "width">("width", "Width", 0.05, 0.5, 0.01, "m"),
+  number<StrideConfig, "longest">("longest", "Longest step", 0.3, 1.2, 0.01, "of the leg"),
+  number<StrideConfig, "accel">("accel", "Speeding up", 0.5, 10, 0.1, "m/s²"),
+  number<StrideConfig, "turn">("turn", "Turn", 0.5, 12, 0.1, "rad/s"),
+]);
+
 /** The straight punch's settings, as a panel offers them. */
 const STRAIGHT_FIELDS: readonly PartField<StraightPunchConfig>[] = Object.freeze([
   number<StraightPunchConfig, "pace">("pace", "Approach pace", 0.1, 1.5, 0.05, "m/s"),
@@ -85,6 +97,11 @@ export const SKILL_PARTS: { readonly [K in SkillConfig["kind"]]: Part<Extract<Sk
     ...(validTurnLimit(config.tuning?.turnLimit) ? [] : ["locomotion turn limit must be finite and positive"]),
     ...(validTurnStartup(config.tuning?.turnStartup) ? [] : ["invalid combat turn startup settings"]),
   ]),
+  "stride": {
+    ...skill<StrideConfig>("locomotion", "Walk and run", "experimental", { kind: "stride", ...STRIDE },
+      (config) => validStride(config) ? [] : ["a stride needs every setting finite and positive, its double support not negative"]),
+    fields: STRIDE_FIELDS,
+  },
   "cover-guard": skill("guard", "Guard and cover", "game", { kind: "cover-guard" }),
   "recipe-strike": skill("blow", "Recipe strike", "game", { kind: "recipe-strike" }),
   "path-strike": {
@@ -242,11 +259,20 @@ export function blowOf(body: Body, world: World, config: BlowConfig): BlowSkill 
   }
 }
 
+/** The legs' skill of `config` for `body`. */
+function legsOf(body: Body, config: LocomotionConfig): Locomotion {
+  switch (config.kind) {
+    case "stance-walk": return locomotion(body.envelope, config.tuning?.turnLimit, config.tuning?.turnStartup);
+    case "stride": { const { kind: _, ...settings } = config; return stride(body, settings); }
+    default: { const never: never = config; throw new Error(`no locomotion of kind ${JSON.stringify((never as { kind?: unknown }).kind)}`); }
+  }
+}
+
 /** The skills of a fighter of `config`, for `body` in `world`: one a slot, an empty slot a skill it has not (`noBlow` for the blow). */
 function skillPartsOf(body: Body, world: World, config: FighterConfig, abilities: Abilities): SkillParts {
-  const walk = config.locomotion.tuning, { blow, support } = fighterSkills(config);
+  const { blow, support } = fighterSkills(config);
   return {
-    legs: locomotion(body.envelope, walk?.turnLimit, walk?.turnStartup), guard: guardSkill(body.built.spec, config.guard.tuning?.covering),
+    legs: legsOf(body, config.locomotion), guard: guardSkill(body.built.spec, config.guard.tuning?.covering),
     blow: blow ? blowOf(body, world, blow) : noBlow(body.built.spec),
     kick: abilities.kick ? kickSkill(body, abilities.kick) : null, support: support ? supportFold(body) : null,
   };

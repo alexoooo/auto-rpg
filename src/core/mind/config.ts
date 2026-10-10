@@ -4,6 +4,7 @@ import type { AttackTuning } from "../skills/attack-path.ts";
 import type { CombatExecution, DrivenStrike } from "../skills/combat.ts";
 import type { TurnStartup } from "../skills/locomotion.ts";
 import { STRAIGHT_PUNCH, type StraightPunch } from "../skills/straight-punch.ts";
+import type { StrideSettings } from "../skills/stride.ts";
 import type { ChoosePolicy } from "../skills/choose.ts";
 import type { Placed } from "../skills/strike.ts";
 import type { Repertoire } from "../skills/strikes.ts";
@@ -140,6 +141,14 @@ export interface StanceWalkConfig {
   };
 }
 
+/** **The walk and run** (`stride`, `skills/stride.ts`): steps it plans itself, its settings these. */
+export interface StrideConfig extends StrideSettings {
+  readonly kind: "stride";
+}
+
+/** **The legs' skill**, by kind. */
+export type LocomotionConfig = StanceWalkConfig | StrideConfig;
+
 /** **The guard**: the arms' posture, and a guarding hand's cover of what the tactics name (`guardSkill`). */
 interface CoverGuardConfig {
   readonly kind: "cover-guard";
@@ -211,7 +220,7 @@ export interface FrontKickConfig {
 interface SupportFoldConfig { readonly kind: "support-fold" }
 
 /** **A skill's config**, by kind, across the fighter's skill slots. */
-export type SkillConfig = StanceWalkConfig | CoverGuardConfig | BlowConfig | FrontKickConfig | SupportFoldConfig;
+export type SkillConfig = StanceWalkConfig | StrideConfig | CoverGuardConfig | BlowConfig | FrontKickConfig | SupportFoldConfig;
 
 /**
  * **The fighter**: tactics over a skill of each role, under one arbiter (`skillSet`), handing its
@@ -222,7 +231,7 @@ export type SkillConfig = StanceWalkConfig | CoverGuardConfig | BlowConfig | Fro
 export interface FighterConfig {
   readonly kind: "fighter";
   readonly tactics: TacticsConfig;
-  readonly locomotion: StanceWalkConfig;
+  readonly locomotion: LocomotionConfig;
   readonly guard: CoverGuardConfig;
   readonly blow: BlowConfig | null;
   readonly kick: FrontKickConfig | null;

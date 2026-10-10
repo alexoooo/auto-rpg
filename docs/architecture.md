@@ -294,7 +294,8 @@ and driven afresh to change what it costs.
   capture point, and land facing the heading only as far as the bearing foot's hip lets the pelvis
   turn over it (`landingHeading`, `support.ts`): a faster turn is taken step by step. A push
   that carries the capture point out of the soles and away from the bearing one during a weight
-  shift is caught by a recovery step, ahead of any step the goal asks (`catchStep`).
+  shift is caught by a recovery step, ahead of any step the goal asks (`catchStep`). A goal's step
+  that follows the one under way, of the same foot, re-aims it in flight (`SwingGoal.follows`).
   `stanceEnvelope` (`stance-envelope.ts`) reads what each body was measured to
   hold on parent-axis Rapier under its character's balance allowance
   (`assets/core/stance-envelope.json`). Unassisted coordinate-engine turns have a separate
@@ -348,6 +349,12 @@ tactics over the skills it is given.
 - **Locomotion** (`locomotion.ts`) walks at no more than the body's measured fastest walk, turns
   only while walking and no faster than its envelope and optional `turnLimit` allow, and can
   set the feet at a chosen place (`Locomotion.place`).
+- **Stride** (`stride.ts`, "Walk and run", experimental) is a locomotion skill that plans its own
+  steps and hands the stance one at a time (`StanceGoal.swing`), never its own walk: each landing
+  and the capture point it is to catch are a steady capture-point walk's, re-aimed every control
+  step from the measured capture point, and a swing whose landing would be past the longest step
+  is shortened to one that is not. A walk ends with steps that bring the capture point between
+  the feet.
 - **Strike** (`strike.ts`, `strikes.ts`) carries out a hand's attack by one of two blows. A
   searched recipe is a chamber pose and timed muscle pushes (`Strike`) for a body, a thing held
   and a height band (`BANDS`: high, where a foe of its own build has its head; middle, its
@@ -561,7 +568,7 @@ its blow, `kick` with the foot or feet named and its kick, walking in and kickin
 standing leg within reach, and `cover`); under them the fighter's blow and kick are the ones its
 behaviours name and it has no low support (`fighterSkills`), its own slots for them not offered
 (`slotsFor`), and two strikes that name different blows are a fault. Its skills are its walk
-(`stance-walk`), its guard (`cover-guard`), optionally a blow (`recipe-strike`, or `path-strike`, which may
+(`stance-walk`, or the experimental `stride`), its guard (`cover-guard`), optionally a blow (`recipe-strike`, or `path-strike`, which may
 begin a hand while the other returns, the experimental `driven-strike` and `whole-body-strike`
 from the punch's research, or `choose-blow`, which gives each blow to one of a list of
 blows; `noBlow` stands in for none), and, optionally, a kick (`front-kick`) and low support

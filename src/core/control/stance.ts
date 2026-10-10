@@ -77,6 +77,13 @@ export interface SwingGoal {
    */
   readonly transfer?: number;
   readonly handover?: readonly [number, number];
+  /**
+   * Whether this swing goes on with the step under way, of the same foot: its landing, its time and
+   * its capture point re-aimed, its path still from where the foot lifted and its clock running on.
+   * None, and a swing unlike the last starts a step afresh. A walk that plans its own steps re-aims
+   * them so as the body goes (`src/core/skills/stride.ts`).
+   */
+  readonly follows?: boolean;
 }
 
 /**
@@ -397,7 +404,7 @@ function stepsOfItself(goal: StanceGoal | null): goal is StanceGoal {
 /**
  * The step this command takes: a catch of a push under way (`catchStep`), or the goal's, or the
  * stance's own (`ownStep`), or none. A swing unlike the last starts a step, at its weight shift or,
- * asked to, at its swing.
+ * asked to, at its swing; one that follows the step under way re-aims it (`SwingGoal.follows`).
  */
 function chooseStep(s: Stance, goal: StanceGoal | null): SwingGoal | null {
   const { state } = s, { reading, step } = state;
@@ -416,6 +423,9 @@ function chooseStep(s: Stance, goal: StanceGoal | null): SwingGoal | null {
   if (!swing) {
     step.swing = null;
     reading.phase = "stand";
+  } else if (swing.follows && step.swing && step.swing.foot === swing.foot && reading.phase !== "stand") {
+    // The step under way, re-aimed.
+    step.swing = swing;
   } else if (!sameSwing(swing, step.swing)) {
     step.swing = swing;
     step.lifted = false;
