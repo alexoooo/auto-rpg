@@ -1,18 +1,19 @@
 /**
  * **The Run scenario's tracks** (`src/lab/track.ts`): closed paths from the origin facing +z,
  * continuous, of the length their pieces say, and found again from a point on them -- on the
- * shuttle, from the straight the body is on, not the one 0.6 m across.
+ * shuttle, from the straight the body is on, not the one 0.6 m across. The square goes forward,
+ * right, back and left of +z, turning at its corners in no length, and comes in sizes.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { CIRCLE_RADIUS, SHUTTLE_METRES, SHUTTLE_TURN_RADIUS, TRACK_IDS, TRACKS, trackOf, TURN_PACE } from "../src/lab/track.ts";
+import { CIRCLE_RADIUS, SHUTTLE_METRES, SHUTTLE_TURN_RADIUS, SQUARE_SIDE, TRACK_IDS, TRACKS, trackOf, TURN_PACE } from "../src/lab/track.ts";
 import { LAB_TURN_RATE } from "../src/lab/stance-mode.ts";
 
 const near = (a, b, within, what) => assert.ok(Math.abs(a - b) <= within, `${what}: ${a} against ${b}`);
 const wrap = (a) => a - 2 * Math.PI * Math.round(a / (2 * Math.PI));
 
 test("each_track_starts_where_the_body_stands_and_closes_on_itself", () => {
-  assert.deepEqual([...TRACK_IDS], ["circle", "shuttle"]);
+  assert.deepEqual([...TRACK_IDS], ["circle", "shuttle", "square"]);
   near(trackOf(TRACKS.circle.pieces).length, 2 * Math.PI * CIRCLE_RADIUS, 1e-9, "circle length");
   near(trackOf(TRACKS.shuttle.pieces).length, 2 * SHUTTLE_METRES + 2 * Math.PI * SHUTTLE_TURN_RADIUS, 1e-9, "shuttle length");
   // The shuttle turns on the Routine's arc: its pace at the lab's turn rate.
@@ -37,6 +38,8 @@ test("a_track_is_continuous_and_turns_by_its_curvature", () => {
     const track = trackOf(TRACKS[id].pieces), ds = 0.01;
     for (let s = 0; s < track.length; s += ds) {
       const a = track.at(s), b = track.at(s + ds);
+      // A track with corners turns at them in no length, the square's last at its start.
+      if (track.piece(s) !== track.piece(s + ds) && track.lengths.includes(0)) continue;
       assert.ok(Math.hypot(b.x - a.x, b.z - a.z) <= ds + 1e-9, `${id} jumps at ${s}`);
       // Along the heading, as far as the arc goes; turned by the curvature over it.
       near((b.x - a.x) * Math.sin(a.heading) + (b.z - a.z) * Math.cos(a.heading), ds, 1e-3 * ds + ds * ds * Math.abs(a.curvature), `${id} runs along its heading at ${s}`);
@@ -63,4 +66,26 @@ test("a_point_is_found_on_the_track_where_it_lies_and_on_the_shuttle_on_its_own_
   near(shuttle.nearest(0.35, 3, 2.9), 3, 0.0015, "shuttle, 0.35 m right of the way out");
   const wayBack = 2 * SHUTTLE_METRES + Math.PI * SHUTTLE_TURN_RADIUS - 3;
   near(shuttle.nearest(0.25, 3, wayBack), wayBack, 0.0015, "shuttle, 0.35 m left of the way back");
+});
+
+test("the_square_goes_forward_right_back_and_left_and_comes_in_sizes", () => {
+  for (const side of [SQUARE_SIDE, 2.5]) {
+    const track = trackOf(TRACKS.square.size.of(side));
+    near(track.length, 4 * side, 1e-9, `the ${side} m square's length`);
+    assert.deepEqual(track.lengths, [side, 0, side, 0, side, 0, side], `the ${side} m square's pieces`);
+    // Each side's middle, and the way it goes: +z, +x, -z, -x.
+    const middles = [[0, side / 2, 0], [side / 2, side, Math.PI / 2], [side, side / 2, Math.PI], [side / 2, 0, -Math.PI / 2]];
+    middles.forEach(([x, z, heading], k) => {
+      const p = track.at((k + 0.5) * side);
+      near(p.x, x, 1e-9, `side ${k} x`); near(p.z, z, 1e-9, `side ${k} z`); near(wrap(p.heading - heading), 0, 1e-9, `side ${k} heading`);
+      assert.equal(track.piece((k + 0.5) * side), 2 * k, `side ${k}'s piece`);
+    });
+    // At a corner, the side after it.
+    assert.equal(track.piece(side), 2);
+    const corner = track.at(side);
+    near(corner.x, 0, 1e-9, "corner x"); near(corner.z, side, 1e-9, "corner z"); near(corner.heading, Math.PI / 2, 1e-9, "corner heading");
+  }
+  assert.equal(TRACKS.square.facing, 0, "walked facing +z");
+  assert.equal(TRACKS.circle.size.of(CIRCLE_RADIUS)[0].curvature, 1 / CIRCLE_RADIUS);
+  near(trackOf(TRACKS.circle.size.of(10)).length, 20 * Math.PI, 1e-9, "a 10 m circle");
 });

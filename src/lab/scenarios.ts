@@ -37,7 +37,7 @@ interface ScenarioInfo {
 export const SCENARIOS: readonly ScenarioInfo[] = [
   { id: "stance", name: "Stance", line: "Walk it from the keyboard, and shove it." },
   { id: "routine", name: "Routine", line: "It walks out, strikes at ten targets hung high, middle and low, turns and walks back." },
-  { id: "run", name: "Run", line: "It goes round a track as fast as its walk holds: a big circle, or straight back and forth." },
+  { id: "run", name: "Run", line: "It goes round a track at the pace asked, in the wind: a big circle, back and forth, or a square walked facing one way." },
   { id: "blow", name: "Blow", line: "It swings a club blow the strike search found into a head, and reads what it lands with.", holds: { right: "club" } },
 ];
 

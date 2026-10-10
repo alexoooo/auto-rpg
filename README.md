@@ -180,11 +180,15 @@ without resuming on its own.
 **Lab** on the main menu (`?play=lab`) lists scenarios that stand one body and exercise it:
 
 - **Stance**: walk it from the keyboard (W/S or Up/Down forward and back, A/D or Left/Right
-  sideways, Q/E turn while walking) and shove it.
+  sideways, Q/E turn while walking) at the speed a slider sets, and shove it.
 - **Routine**: it walks out, strikes at ten targets hung high, middle and low, turns and walks
   back. Each target is a ball of its own head, and the table says what the blow did to it or how
   near it passed. `&targets=` (0 to 30) and `&seed=` in the address choose how many and which.
-- **Run**: it goes round a track as fast as its walk holds.
+- **Run**: it goes round a track at the pace a slider asks (0.2 to 8 m/s, past what its walk
+  holds if need be): a big circle of any radius, straight back and forth, or a square walked
+  facing one way, forward, right, back and left. Gusts of wind, as often and as strong as two
+  more sliders say, push it as it goes; the readout says its speeds, how far it is off the track,
+  its steps and how much of the time it is on both feet or none.
 - **Blow**: it throws a stored blow, the Warrior's strongest club blow or any searched recipe, at
   a target hung where that blow's target stood, a ball of a head or of an upper trunk, and says
   what the blow cost each of the two.

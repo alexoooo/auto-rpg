@@ -90,6 +90,23 @@ export function quantity(label: string, step: number, allows: (value: number) =>
   return all;
 }
 
+/**
+ * A number from `least` to `most` in steps of `step`, on a slider read out beside it as `shown`
+ * writes it; a move calls `set`. Its keys are the slider's while it has focus, so it blurs once
+ * the pointer lets it go.
+ */
+export function slider(label: string, least: number, most: number, step: number, value: () => number, set: (value: number) => void,
+  shown: (value: number) => string = String): Control {
+  const input = Object.assign(document.createElement("input"), { type: "range", min: String(least), max: String(most), step: String(step) });
+  const out = document.createElement("output");
+  const refresh = (): void => { input.value = String(value()); out.textContent = shown(value()); };
+  input.addEventListener("input", () => { set(Number(input.value)); out.textContent = shown(value()); });
+  input.addEventListener("change", () => input.blur());
+  const all = field(label, [{ element: input, refresh }, { element: out, refresh() {} }]);
+  refresh();
+  return all;
+}
+
 /** `control`, shown only while `visible`. */
 export function when(visible: () => boolean, control: Control): Control {
   const element = document.createElement("div");

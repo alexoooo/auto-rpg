@@ -1124,7 +1124,10 @@ the start panel (`partyMinds`, carried by `&<model>.mind=`), which the HUD inspe
   that has the body once it is down among its parts. The Routine's
   targets are bodies (`targets.ts`): a ball of the attacker's head, hung where a seed drew it as
   the strike at it begins and read by the rule a fight wounds by (`watchBlows`), one at a time
-  ([reference/blows.md](reference/blows.md#targets)). The page inspects the
+  ([reference/blows.md](reference/blows.md#targets)). The Run goes round its tracks (`track.ts`)
+  at the pace asked, its feet metered from the ground's contacts (`gait-meter.ts`), and the
+  lab's wind (`wind.ts`) blows seeded gusts on its chest: a disturbance from outside, as a shove
+  is, and no assist. The page inspects the
   mind as it goes (`mindInspector`), logs what it decides, and who has the body when it changes hands (`mind-log.ts`), and what the body
   sounds of (`sound-log.ts`): its touches, its air, the touches of a target that hangs beside it,
   and the cue of the instrument that is no contact, the shove, each at the

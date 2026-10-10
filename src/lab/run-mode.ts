@@ -1,28 +1,36 @@
 import type { Body } from "../core/body.ts";
-import { paceRound, type StanceEnvelope } from "../core/control/stance-envelope.ts";
+import { paceRound, turnAt, type StanceEnvelope } from "../core/control/stance-envelope.ts";
 import { NO_COVER, type Intent } from "../core/mind/intent.ts";
 import { wrap } from "../core/math/turn.ts";
 import type { Tactics } from "../core/mind/tactics.ts";
 import type { Actor } from "./actor.ts";
+import { startGaitMeter, type GaitReading } from "./gait-meter.ts";
 import type { Track } from "./track.ts";
+import { startWind, type WindSettings } from "./wind.ts";
 
 /**
- * **The lab's run mode**: a human on its own feet under the core stance, going round a
- * `Track` as fast as it can walk, guard up, driven by tactics (`trackTactics`). The core has no run
- * gait: this is the stance's walk at its fastest.
+ * **The lab's run mode**: a human on its own feet going round a `Track`, guard up, driven by
+ * tactics (`trackTactics`), as fast as it is asked and its legs take it. Whatever locomotion skill
+ * its mind has carries the walk out.
  *
  * Each control step the tactics find the body on the track (`Track.nearest`, from where it last
- * was), face the track's point `AIM_AHEAD` ahead of that, and walk forward. The locomotion skill
- * (`src/core/skills/locomotion.ts`) turns the heading toward it no faster than the body turns at
- * the pace it walks. Its pace is the body's fastest walk, but no
- * faster than its turn carries it round the tightest bend within `AIM_AHEAD` either way. Both
- * are the body's own (`Body.envelope`, what the stance was measured to hold with it, its turn
- * at each speed of walk, `turnAt` and `paceRound`).
+ * was) and aim at the track's point `AIM_AHEAD` ahead of that. On a track walked facing along it,
+ * they face that point and walk forward; the locomotion skill turns the heading toward it no faster
+ * than the body turns at the pace it walks. On a track walked facing one way (`TrackInfo.facing`,
+ * the square), they face that way and walk toward the point in the body's own frame: forward,
+ * sideways or back.
+ *
+ * Their pace is the body's fastest walk (`Body.envelope`, what the stance was measured to hold with
+ * it), or the pace the lab asks (`RunOptions.top`), which may be past it: pushing a walk past what
+ * it holds is what the Run is for. Either way it is no faster than the body's turn carries it round
+ * the tightest bend within `AIM_AHEAD` either way (`turnAt` and `paceRound`; past the envelope's
+ * fastest walk, at the turn it held there).
  *
  * It slows before a bend and keeps the bend's pace a metre past it, for its heading lags the
  * track's: sped up at the arc's end, it leaves the bend short of the way back and drifts off the
- * track. The stance's own acceleration takes it from one pace to the other. Nothing here names a
- * pace: a change of engine re-measures the envelope, and the run asks for what it says.
+ * track. The locomotion skill's own acceleration takes it from one pace to the other.
+ *
+ * Wind may blow on it (`wind.ts`), and its feet are metered (`gait-meter.ts`).
  *
  * This module has no page-only imports, so the Node stand can run it (`tests/lab-run.test.mjs`).
  */
@@ -41,21 +49,32 @@ export interface RunFrame {
   /** The pace asked, m/s; whether a bend has slowed it. */
   readonly pace: number;
   readonly bending: boolean;
+  /** The pace the locomotion skill walks at, m/s: what it takes of the pace asked. */
+  readonly walking: number;
   /** The centre of mass's speed across the ground, m/s, and the mean speed along the track since it set off. */
   readonly speed: number;
   readonly mean: number;
+  /** For each piece of the track with a length, in order: its mean speed along the track while on it, m/s (null before it is reached). */
+  readonly pieces: readonly (number | null)[];
   /** The centre of mass's distance from the track, m. */
   readonly off: number;
   /** The point it aims at, across the ground (x, z). */
   readonly aim: readonly [number, number];
   /** Whether it is down (`BodyView.down`). */
   readonly fallen: boolean;
+  /** What its feet have done (`startGaitMeter`). */
+  readonly gait: GaitReading;
+  /** The wind's force on it in the last step, N, world (x, z), and its gusts so far. */
+  readonly wind: readonly [number, number];
+  readonly gusts: number;
 }
 
 interface RunSession {
   readonly body: Body;
   readonly track: Track;
   frame(): RunFrame;
+  /** The wind's settings: changed, they hold from the next step. */
+  wind: WindSettings;
   dispose(): void;
 }
 
@@ -74,18 +93,44 @@ function tightest(track: Track, s: number, metres: number): number {
 }
 
 /**
- * **The Run's tactics**: round `track` as fast as the body's walk and turns take it; given a `gait`,
- * walking no faster than its `pace` (m/s) and turning no faster than its `turn` (rad/s: it asks to
- * face no further round than that from the heading it has).
+ * The fastest pace no faster than `top` at which `envelope`'s turns carry the body round a bend of
+ * `radius` m, m/s (`paceRound`); past the envelope's fastest walk, at the turn it held there
+ * (`turnAt`). A body with no envelope (one under a stance tuning of an experiment's) is not slowed.
  */
-interface TrackTactics extends Tactics {
-  frame(time: number): Omit<RunFrame, "speed" | "off" | "time" | "heading" | "fallen">;
+function paceRoundTo(envelope: StanceEnvelope | null, radius: number, top: number | undefined): number {
+  if (!envelope) return Infinity;
+  const within = paceRound(envelope, radius);
+  if (top === undefined || top <= envelope.walk.value) return within;
+  return Math.max(within, Math.min(top, turnAt(envelope, top) * radius));
 }
 
-export function trackTactics(track: Track, envelope: StanceEnvelope, gait?: { readonly pace: number; readonly turn: number }): TrackTactics {
-  const fastest = Math.min(envelope.walk.value, gait?.pace ?? Infinity), turn = gait?.turn ?? Infinity;
+/** How the Run's tactics go round. */
+interface TrackOptions {
+  /** The fastest pace asked, m/s, in place of the envelope's fastest walk. */
+  readonly top?: number;
+  /** A gait of their own: a pace, m/s, and a turn, rad/s, they ask no more than. */
+  readonly pace?: number;
+  readonly turn?: number;
+  /** The heading they face throughout, rad (`TrackInfo.facing`); none faces along the track. */
+  readonly facing?: number;
+}
+
+/**
+ * **The Run's tactics**: round `track` as fast as the body's walk and turns take it, or as `top`
+ * asks; given a gait, walking no faster than its `pace` and turning no faster than its `turn` (it
+ * asks to face no further round than that from the heading it has).
+ */
+interface TrackTactics extends Tactics {
+  frame(time: number): Omit<RunFrame, "speed" | "off" | "time" | "heading" | "fallen" | "walking" | "gait" | "wind" | "gusts">;
+}
+
+export function trackTactics(track: Track, envelope: StanceEnvelope | null, { top, pace: most, turn, facing }: TrackOptions = {}): TrackTactics {
+  const fastest = Math.min(top ?? envelope?.walk.value ?? 0, most ?? Infinity), turning = turn ?? Infinity;
   let along = 0, travelled = 0, laps = 0, lapFrom = 0, lastLap: number | null = null;
-  let pace = 0, bending = false, aim: [number, number] = [0, 0], face = 0, setOff: number | null = null;
+  let pace = 0, bending = false, aim: [number, number] = [0, 0], face = facing ?? 0, move: [number, number] = [0, 0];
+  let setOff: number | null = null, last: number | null = null;
+  // Each piece's distance along the track and time on it, by its order.
+  const onPiece = track.lengths.map(() => ({ metres: 0, seconds: 0 }));
   return {
     name: "track",
     decide({ view, report }, dt): Intent {
@@ -99,6 +144,10 @@ export function trackTactics(track: Track, envelope: StanceEnvelope, gait?: { re
         if (ds > track.length / 2) ds -= track.length;
         travelled += ds;
         along = s;
+        const on = onPiece[track.piece(s)]!;
+        on.metres += ds;
+        if (last !== null) on.seconds += view.time - last;
+        last = view.time;
         if (travelled >= (laps + 1) * track.length) {
           laps++;
           lastLap = view.time - lapFrom;
@@ -106,29 +155,58 @@ export function trackTactics(track: Track, envelope: StanceEnvelope, gait?: { re
         }
         const to = track.at(along + AIM_AHEAD);
         aim = [to.x, to.z];
-        face = Math.atan2(to.x - c.x, to.z - c.z);
-        if (gait) face = report.heading + Math.max(-turn * dt, Math.min(turn * dt, wrap(face - report.heading)));
-        const radius = tightest(track, along, AIM_AHEAD), bend = Math.min(paceRound(envelope, radius), turn * radius);
+        const toward = Math.atan2(to.x - c.x, to.z - c.z);
+        const radius = tightest(track, along, AIM_AHEAD), bend = Math.min(paceRoundTo(envelope, radius, top), turning * radius);
         bending = bend < fastest;
         pace = Math.min(fastest, bend);
+        if (facing === undefined) {
+          face = turn === undefined ? toward : report.heading + Math.max(-turn * dt, Math.min(turn * dt, wrap(toward - report.heading)));
+          move = [pace, 0];
+        } else {
+          // Toward the point in the body's own frame: forward along its heading, and to its right.
+          const off = toward - report.heading;
+          move = [pace * Math.cos(off), pace * Math.sin(off)];
+        }
       }
-      return { move: [pace, 0], face, guard: NO_COVER, attack: null };
+      return { move: facing === undefined ? [pace, 0] : move, face, guard: NO_COVER, attack: null };
     },
     frame(time) {
       const running = setOff === null ? 0 : time - setOff;
-      return { along, travelled, laps, lastLap, pace, bending, mean: running > 0 ? travelled / running : 0, aim };
+      const pieces = onPiece.flatMap((on, i) => track.lengths[i]! > 0 ? [on.seconds > 0 ? on.metres / on.seconds : null] : []);
+      return { along, travelled, laps, lastLap, pace, bending, mean: running > 0 ? travelled / running : 0, pieces, aim };
     },
   };
 }
 
+/** What the lab asks of a run beyond its track. */
+interface RunOptions {
+  /** The fastest pace it asks, m/s; none, the body's fastest walk (`Body.envelope`), which a body with none must be given. */
+  readonly top?: number;
+  /** The heading it faces throughout (`TrackInfo.facing`). */
+  readonly facing?: number;
+  /** The wind's settings and seed; none blows no wind. */
+  readonly wind?: { readonly settings: WindSettings; readonly seed: number };
+}
+
 /** Run `actor`'s body, a human in its reference pose at the track's start facing along it, round `track`. */
-export function startRun(actor: Actor, track: Track): RunSession {
-  const { body } = actor;
-  const tactics = trackTactics(track, body.envelope!);
+export function startRun(actor: Actor, track: Track, { top, facing, wind }: RunOptions = {}): RunSession {
+  const { body, world } = actor;
+  const tactics = trackTactics(track, body.envelope, { top, facing });
   const { report } = actor.drive(tactics);
+  const meter = startGaitMeter(body.built, world);
+  const blowing = startWind(body.built, world, wind?.settings ?? { rate: 0, strength: 0 }, wind?.seed ?? 0);
   const frame = (): RunFrame => {
     const s = body.view.stance, time = body.view.time, f = tactics.frame(time), on = track.at(f.along);
-    return { ...f, time, heading: report.heading, fallen: body.view.down, speed: Math.hypot(s.velocity.x, s.velocity.z), off: Math.hypot(s.centre.x - on.x, s.centre.z - on.z) };
+    return {
+      ...f, time, heading: report.heading, fallen: body.view.down, walking: report.pace,
+      speed: Math.hypot(s.velocity.x, s.velocity.z), off: Math.hypot(s.centre.x - on.x, s.centre.z - on.z),
+      gait: meter.reading(), wind: blowing.state.force, gusts: blowing.state.count,
+    };
   };
-  return { body, track, frame, dispose: () => actor.dispose() };
+  return {
+    body, track, frame,
+    get wind() { return blowing.settings; },
+    set wind(settings) { blowing.settings = settings; },
+    dispose: () => { meter.dispose(); blowing.dispose(); actor.dispose(); },
+  };
 }
