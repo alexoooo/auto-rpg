@@ -278,17 +278,14 @@ export const BODY_OPENINGS: OpeningTuning = deepFreeze({ head: .3, upperTrunk: 0
 /** The Arena's low kick: `docs/reference/front-kicks.md#arena-selection`. */
 export const ARENA_KICKS: KickTuning = deepFreeze({ ...KICK_PATH, swingSeconds: .3, contactSpeed: 3 });
 
-/** The Arena's Combat: opening tactics over the path strike, straight blows at the head. Promotion is measured by the paired combat harness. */
-export const COMBAT: FighterConfig = deepFreeze({ ...RECIPE_FIGHTER, tactics: OPENINGS, blow: { kind: "path-strike", overlap: false }, subs: [{ kind: "support-recovery" }] });
-
-/** Body-targeting candidate and scope: `docs/reference/arena-combat-evaluation.md#body-targeting-held-out-evaluation`. */
-export const BRAWLER: FighterConfig = deepFreeze({ ...COMBAT, tactics: { ...OPENINGS, strikes: "mixed", prefers: "body" } });
-
-/** Playable grounded profile with both-hand low gates: `docs/reference/ground-combat.md#arena-integration`. */
-export const SCRAPPER: FighterConfig = deepFreeze({ ...BRAWLER, support: { kind: "support-fold" } });
-
-/** Low-kick development profile: `docs/reference/front-kicks.md#arena-selection`. */
-export const KICKER: FighterConfig = deepFreeze({ ...SCRAPPER, kick: { kind: "front-kick" } });
+/**
+ * The Arena's second-tier fighter: opening tactics over the path strike, straight blows and hooks
+ * aimed at the body (`docs/reference/arena-combat-evaluation.md#body-targeting-held-out-evaluation`),
+ * fighting from low support against a foe that is down or rising
+ * (`docs/reference/ground-combat.md#arena-integration`), and rising, then steadying, once down.
+ */
+export const SCRAPPER: FighterConfig = deepFreeze({ ...RECIPE_FIGHTER, tactics: { ...OPENINGS, strikes: "mixed", prefers: "body" },
+  blow: { kind: "path-strike", overlap: false }, support: { kind: "support-fold" }, subs: [{ kind: "support-recovery" }] });
 
 /** A fighter of behaviours (`BehavioursConfig`): orders followed first, then `list`, then the hands covering; rising by stages once down. */
 const behaving = (list: readonly BehaviourConfig[]): FighterConfig => deepFreeze({ ...CLASSIC, blow: null,
@@ -296,15 +293,3 @@ const behaving = (list: readonly BehaviourConfig[]): FighterConfig => deepFreeze
 
 /** Behaviours as they start: the foe struck with either hand by the recipe strike. */
 export const BEHAVIOURS: FighterConfig = behaving([{ kind: "strike", hands: "alternate", aim: "head", blow: { kind: "recipe-strike" } }]);
-
-/** Runs from the nearest foe, guarding, and never strikes. */
-export const RUNNER: FighterConfig = behaving([{ kind: "flee" }]);
-
-/** Walks at the nearest foe and stays on it, guarding, and never strikes. */
-export const CHARGER: FighterConfig = behaving([{ kind: "close-in", metres: 0.6 }]);
-
-/** Strikes with the left hand alone. */
-export const LEFT_HAND: FighterConfig = behaving([{ kind: "strike", hands: "left", aim: "head", blow: { kind: "recipe-strike" } }]);
-
-/** Kicks and never strikes. */
-export const KICKS_ONLY: FighterConfig = behaving([{ kind: "kick", feet: "alternate", kick: { kind: "front-kick" } }]);

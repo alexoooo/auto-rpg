@@ -1,6 +1,5 @@
 /**
- * **The presets against Classic**: each opening preset, the opening tactics over the path strike (Combat, Brawler, Scrapper,
- * Kicker), against Classic, on the Warrior against itself, bare-handed and with
+ * **The presets against Classic**: the Puncher and the Scrapper against Classic, on the Warrior against itself, bare-handed and with
  * the wooden club in both right hands. 192 mirrored held-out pairs a cell (`combatPairs`), under the
  * arena-combat protocol (`COMBAT_PROTOCOL`: 60 s cap, recovery continuing, balance 0 as every
  * character's is).
@@ -10,15 +9,15 @@
  *   node research/controller-presets.mjs --report <run.json>    # the table
  *
  * The report gives, per cell, what the club check gives (`combatCell`). It sets no bar: the table
- * is the README's figures. A side split over 10 points marks the cell invalid.
+ * is the record's figures (`docs/reference/controller-presets.md`). A side split over 10 points marks the cell invalid.
  */
 import { readFileSync, writeFileSync } from "node:fs";
 import { parseArgs } from "node:util";
 import { combatPairs } from "./arena-combat.mjs";
 import { combatCell } from "./combat-records.mjs";
 
-/** The opening presets, each a candidate against Classic. */
-const CANDIDATES = ["combat", "brawler", "scrapper", "kicker"];
+/** The fighter presets, each a candidate against Classic. */
+const CANDIDATES = ["puncher", "scrapper"];
 /** What both sides hold. */
 const HELD = ["empty", "club"];
 /** The model both sides are. */

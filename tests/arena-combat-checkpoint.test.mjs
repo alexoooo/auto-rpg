@@ -7,7 +7,7 @@ import {spawnSync} from 'node:child_process';
 import {combatCheckpoint,appendCombatRow,combatGroups,combatLeague} from '../research/combat-records.mjs';
 import {combatPairs,combatFingerprint,combatTrial} from '../research/arena-combat.mjs';
 
-const jobs=combatPairs({candidate:'scrapper',opponent:'brawler',count:1,capSeconds:3}).map(j=>({...j,search:{round:2,parent:'brawler'}}));
+const jobs=combatPairs({candidate:'scrapper',opponent:'puncher',count:1,capSeconds:3}).map(j=>({...j,search:{round:2,parent:'puncher'}}));
 let physical;
 async function trials(){return physical??=(async()=>{const rows=[];for(const job of jobs)rows.push({...job,result:await combatTrial(job.config)});return rows;})();}
 

@@ -4,7 +4,7 @@ import {Vector3} from '@babylonjs/core/Maths/math.vector.js';
 import {bodyClearance,sensedBounds,sensedFootClearance,lowOpponent} from '../src/core/mind/sensed-bounds.ts';
 import {clearanceExit,clearStep} from '../src/core/mind/clear-step.ts';
 import {buildBout} from '../research/bout.mjs';
-import {COMBAT} from '../src/core/mind/config.ts';
+import {COMBAT} from './fixtures/minds.mjs';
 import {DEFAULT_ENGINE,loadEngine} from '../src/core/engine/engines.ts';
 import {STAND_ORDERS} from '../src/core/mind/orders.ts';
 import {upperSurface,highestSurface} from '../src/core/mind/openings.ts';

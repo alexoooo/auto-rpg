@@ -3,11 +3,11 @@ import assert from 'node:assert/strict';
 import {combinationStand} from './harness/combat-combination.mjs';
 import {saveStand,loadStand} from './harness/core-stand.mjs';
 import {traceOf} from './harness/trace.mjs';
-import {SCRAPPER,BRAWLER} from '../src/core/mind/config.ts';
+import {SCRAPPER} from '../src/core/mind/config.ts';
 import {buildBout} from '../research/bout.mjs';
 import {loadEngine,DEFAULT_ENGINE} from '../src/core/engine/engines.ts';
 import {STAND_ORDERS} from '../src/core/mind/orders.ts';
-import {withParts} from './fixtures/minds.mjs';
+import {BRAWLER,withParts} from './fixtures/minds.mjs';
 
 const states=s=>({body:s.body.state,skills:s.skills.state,policy:s.policy});
 

@@ -113,15 +113,15 @@ cause. The Classic row requires recovery/pressure investigation. These results d
 not establish armed or other-body performance, a browser cost budget, or promotion
 against the decisive-combat proposal.
 
-The selectable `BRAWLER` uses this exact target preference (`BODY_OPENINGS`) and mixed strikes. It
-is exposed separately from retained linear Combat, so existing controller links keep their
-meaning. The measured scope is Warrior empty hands; this exposure does not meet the proposed
+The Brawler (`BRAWLER`, `tests/fixtures/minds.mjs`) uses this exact target preference
+(`BODY_OPENINGS`) and mixed strikes, as the Arena's Scrapper does standing (`SCRAPPER`). The
+measured scope is Warrior empty hands; this exposure does not meet the proposed
 majority-before-cap finishing gate or validate other equipment and anatomy.
 
 ## Built Brawler exposure and cost
 
-The Arena's Brawler choice uses the exact body-targeting held-out candidate, while Combat
-retains its earlier configuration. The URL recipe test checks both choices. A 30-second Node
+The Brawler uses the exact body-targeting held-out candidate, while Combat retains its earlier
+configuration. A 30-second Node
 ArenaDuel self-play test at 120 Hz, gameplay Rapier coordinate limits, empty-handed Warriors,
 zero/zero balance and continuing recovery records 16/19 driven blows and 0.269/0.415 driven
 outgoing HP, including guard contacts. Both sides remain standing; the longest pressure-only

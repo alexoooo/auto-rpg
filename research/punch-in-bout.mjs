@@ -8,7 +8,7 @@
  * second the puncher spent down and `LOST` for a bout it lost; with `--head`, also that many hit points for
  * the share of the foe's vital part (its head) emptied, less the same of the puncher's, since an
  * emptied head ends the bout however full the rest is. The foes are a Warrior standing in
- * guard, or Classic, Combat, Brawler, Kicker, Scrapper or the Puncher fighting back
+ * guard, or Classic, the tests' Combat, Brawler and Kicker, Scrapper or the Puncher fighting back
  * (`--foes stands,classic,combat,brawler,kicker,scrapper,puncher`), or a rival: the Puncher throwing
  * the straight punch with the settings `--rival` gives (`--foes rival`).
  * `--scene` also plays the punch test's bout (`tests/straight-punch.test.mjs`: walked in, on a Warrior
@@ -28,7 +28,8 @@ import { pathToFileURL } from "node:url";
 import { isMainThread, parentPort, workerData } from "node:worker_threads";
 import { buildBout } from "./bout.mjs";
 import { cmaSearch, workerPool } from "./cma.mjs";
-import { BRAWLER, CLASSIC, COMBAT, KICKER, PUNCHER, SCRAPPER } from "../src/core/mind/config.ts";
+import { CLASSIC, PUNCHER, SCRAPPER } from "../src/core/mind/config.ts";
+import { BRAWLER, COMBAT, KICKER } from "../tests/fixtures/minds.mjs";
 import { STRAIGHT_PUNCH } from "../src/core/skills/straight-punch.ts";
 
 /** A Warrior standing in guard, throwing nothing. */

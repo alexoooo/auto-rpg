@@ -1,10 +1,12 @@
 # The opening presets against Classic
 
-How each fighter preset of the opening tactics over the path strike (Combat, Brawler, Scrapper,
-Kicker) fares against Classic, the seeking tactics over the recipe strike, on the Warrior against
-itself, bare-handed and with the wooden club. These are the README's figures; the run sets no bar.
+How four fighters of the opening tactics over the path strike (Combat, Brawler, Scrapper, Kicker)
+fare against Classic, the seeking tactics over the recipe strike, on the Warrior against itself,
+bare-handed and with the wooden club. Scrapper's are the README's figures; the run sets no bar.
+Scrapper is the Arena's preset (`SCRAPPER`, `src/core/mind/config.ts`); the other three are the
+tests' fighters (`tests/fixtures/minds.mjs`).
 
-Each preset is a fighter's tree (`FighterConfig`, `src/core/mind/config.ts`):
+Each is a fighter's tree (`FighterConfig`):
 
 | preset | tactics | blow | kick | low support | when down |
 |---|---|---|---|---|---|
@@ -25,8 +27,8 @@ fist hull.
 
 **Design:** `workshop-fighter` on both sides, both right hands empty or both holding the club, 192
 mirrored held-out pairs a cell (`combatPairs`), 384 bouts a cell, 3072 in all. Run from a snapshot
-with `research/controller-presets.mjs --jobs`, `research/arena-combat-run.mjs --workers 16`
-(4985 s), reported with `research/controller-presets.mjs --report`. Raw rows:
+with `research/controller-presets.mjs@6d565300 --jobs`, `research/arena-combat-run.mjs --workers 16`
+(4985 s), reported with `research/controller-presets.mjs@6d565300 --report`. Raw rows:
 `controller-presets.json.gz`. A side split over 10 points would make a cell invalid; none is.
 
 | cell | bouts | score | Wilson 95 % | as left | as right | damage-rate diff (SE) | d bar margin | falls cand/opp |

@@ -8,7 +8,7 @@ import {frameOf} from '../src/core/spec/body.ts';
 import {convexHull} from '../src/core/spec/hull.ts';
 import {combatStrike} from '../research/combat-strikes.mjs';
 import {buildBout} from '../research/bout.mjs';
-import {COMBAT,SCRAPPER} from '../src/core/mind/config.ts';
+import {SCRAPPER} from '../src/core/mind/config.ts';
 import {STAND_ORDERS} from '../src/core/mind/orders.ts';
 import {DEFAULT_ENGINE,loadEngine} from '../src/core/engine/engines.ts';
 import {coreStand,saveStand,loadStand} from './harness/core-stand.mjs';
@@ -16,7 +16,7 @@ import {createBody,SERVO_SECONDS} from '../src/core/body.ts';
 import {combatSkills} from '../src/core/skills/combat.ts';
 import {NO_COVER} from '../src/core/mind/intent.ts';
 import {traceOf} from './harness/trace.mjs';
-import {withParts} from './fixtures/minds.mjs';
+import {COMBAT,withParts} from './fixtures/minds.mjs';
 
 test('uppercut chambers mirror below guard, carry upward contact velocity and own their measured duration',()=>{
  const a=attackPath([.15,1.49,.3],[.1,1.63,.35],'right','uppercut',ATTACK_PATH,[0,1,0]);

@@ -45,12 +45,12 @@ independent orientation, all on ordinary bounded muscles. No two effectors share
 bearing foot cannot simultaneously receive an effector goal. Detached capabilities, observations, contact
 feedback and path memory share the body/bout replay boundary. See [effector contract](reference/striking-effectors.md).
 
-The Combat fighters' `supportRecovery` sub-mind takes control from the host's down reading,
+Scrapper's `supportRecovery` sub-mind takes control from the host's down reading,
 runs `stagedRise`, then uses locomotion's gradual height restoration and foot squaring to
 stabilize. `recoveryReady` independently requires loaded feet, no other fixed support, a centre
 of mass inside their support polygon, low segment speed and the host's upright reading for a
 continuous interval. A stabilization timeout retries from the actual body. The host releases
-pending commands on takeover; Combat also clears pending skill cycles through its driver
+pending commands on takeover; the opening tactics also clear pending skill cycles through its driver
 release callback, and resumes after this handover. Recovery and
 trajectory memory are plain data under the body/bout state, including the standing reference.
 See [recovery measurements](reference/recovery-cycle.md) for the tested envelope and failures.
@@ -79,8 +79,8 @@ predictive defense variant uses age-corrected relative motion, available-hand re
 checks, cancellation and a bounded counter window. Its self-play initiative is below the
 reference diagnostic, so reference cover remains the default. See [defense measurements](reference/combat-defense.md).
 All selection, contact-response and trajectory memory belongs to the saved bout. The Arena
-exposes Combat and the body-targeting Brawler as experimental choices, with Warrior fist primitives measured in
-[combat strikes](reference/combat-strikes.md). Scrapper adds measured physical low support and attacks against grounded or rising enemies; competitive promotion and finishing power remain open.
+exposes Scrapper, which aims at the body, with Warrior fist primitives measured in
+[combat strikes](reference/combat-strikes.md), and measured physical low support and attacks against grounded or rising enemies; competitive promotion and finishing power remain open.
 
 `DuelRecipe.recoverySeconds` optionally permits a continuous interval down. Its per-side clocks
 are saved only when enabled; null allows unlimited time down until injury or the bout cap. Damage elimination remains immediate, opponents continue sensing
@@ -571,10 +571,9 @@ low support), never by a setting of their own; and a hand's contacts are read wh
 tactics or the path strike read them (`readsContact`). A skill the tactics never ask of, or a blow
 that cannot carry out what they ask, is a fault at its slot (`fighterFaults`: `blow: the path
 strike carries out a blow only along a path, and these tactics name none`). The presets are
-`CLASSIC` (seek over the recipe strike, rising by stages) and `COMBAT`, `BRAWLER`, `SCRAPPER` and
-`KICKER` (openings over the path strike; Scrapper adds low support, and Kicker a kick); and, of
-behaviours, `BEHAVIOURS` (strikes with either hand in turn), `RUNNER` (runs away), `CHARGER` (walks in and stays on the foe), `LEFT_HAND` (strikes
-with the left hand alone) and `KICKS_ONLY` (kicks, with no blow). A preset changed in the Arena's
+`CLASSIC` (seek over the recipe strike, rising by stages), `PUNCHER` (Classic holding at the edge
+and throwing the straight punch), `SCRAPPER` (openings over the path strike, aimed at the body,
+with low support) and, of behaviours, `BEHAVIOURS` (strikes with either hand in turn). A preset changed in the Arena's
 panel is named `Custom (from` its preset`)` (`controlName`, `src/arena/matchup.ts`).
 
 **A mind is a tree of parts** (`Part`, `src/core/mind/parts.ts`). Each part has a role (`mind`,
@@ -1245,7 +1244,7 @@ include held items; foot sweeps use exact round-collider distance and conservati
 bounds. A body inside a fixed boundary margin backs away at its current heading before
 turning to fight. Existing margin penetration permits parallel or outward motion.
 
-Scrapper is an optional grounded extension of the retained standing Brawler. Its `groundCombat`
+Scrapper fights from low support as well as standing. Its `groundCombat`
 policy observes head height, trunk motion and collider geometry, admits a close approach by
 foot clearance, and otherwise uses a wider route. `pathTactics` resolves the resulting neutral
 intent through the common executor. It retains a committed hand/aim, refreshes only between
@@ -1278,10 +1277,10 @@ stroke comes to, and each phase's goal, a held contact's included. The skills ow
 of the course and, for the kick, the support transfer and placing around it. The
 optional planted punch executor admits actual loaded support and freezes locomotion for the
 whole cycle. Its [stability record](reference/punch-stability.md) passes standing cases and
-rejects the combined low-attack candidate; ordinary Brawler/Scrapper remain unchanged.
+rejects the combined low-attack candidate; ordinary Scrapper remains unchanged.
 
 The [bounded punch search](reference/punch-foundation.md) records its failed promotion and
-leaves Brawler/Scrapper settings intact. The [mass audit](reference/punch-mass-audit.md) identifies
+leaves Scrapper's settings intact. The [mass audit](reference/punch-mass-audit.md) identifies
 the current damage model's free-joint assumption without substituting a new rule.
 
 A kick (`KickAttack`, an `Attack`) passes either foot, a world point and detached target identity
@@ -1290,8 +1289,8 @@ cycle with hands and surrounds it with support transfer, verified unloading, pla
 and recentering. Supported stance poses can own one bearing leg with captured sole
 anchors, while the free leg tracks its named strike point and orientation. Effector
 path duration and optional muscle response are independent. All changing execution
-and tactical data forks with the bout. The selectable Kicker adds low shin targeting
-and alternates feet over Scrapper; its limited qualification and strength gaps are
+and tactical data forks with the bout. The front kick in a fighter's Kick slot adds low shin
+targeting and alternates feet; its limited qualification and strength gaps are
 recorded in [front kicks](reference/front-kicks.md).
 
 The shared strike apparatus clips live collision surfaces to a finite pad and

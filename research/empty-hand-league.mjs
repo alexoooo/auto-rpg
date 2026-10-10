@@ -16,8 +16,8 @@
  * across the ground (`close`).
  *
  * Usage:
- *   node research/empty-hand-league.mjs [--entrants classic,combat,...] [--modules file.mjs,...]
- *     [--against classic,combat] [--gaps 3,3.2,...] [--cap 120] [--epoch e1] [--store path]
+ *   node research/empty-hand-league.mjs [--entrants classic,scrapper,...] [--modules file.mjs,...]
+ *     [--against classic,scrapper] [--gaps 3,3.2,...] [--cap 120] [--epoch e1] [--store path]
  *     [--lanes 28] [--report-only]
  *
  * `--entrants` names presets (`PRESETS`) or entrants a `--modules` file exports by name (its
@@ -81,7 +81,7 @@ if (!isMainThread) {
   const lanes = Number(arg("lanes", Math.max(1, availableParallelism() - 4)));
   const known = Object.fromEntries(Object.entries(PRESETS).map(([name, preset]) => [name, preset.config]));
   for (const file of list(arg("modules"))) Object.assign(known, (await import(pathToFileURL(resolve(file)).href)).default);
-  const entrants = list(arg("entrants", "classic,puncher,combat,brawler,scrapper,kicker,behaviours")), against = list(arg("against"));
+  const entrants = list(arg("entrants", "classic,puncher,scrapper,behaviours")), against = list(arg("against"));
   for (const name of [...entrants, ...against]) if (!known[name]) throw new Error(`no entrant ${name}: ${Object.keys(known).join(", ")}`);
 
   mkdirSync(dirname(store), { recursive: true });

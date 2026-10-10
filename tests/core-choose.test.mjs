@@ -6,13 +6,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { treeFaults, kindsFor, partOf } from "../src/core/mind/catalog.ts";
-import { CLASSIC, COMBAT } from "../src/core/mind/config.ts";
+import { CLASSIC } from "../src/core/mind/config.ts";
 import { loadEngine, DEFAULT_ENGINE } from "../src/core/engine/engines.ts";
 import { modelSpec } from "../src/core/models.ts";
 import { chooseSkill } from "../src/core/skills/choose.ts";
 import { buildBout } from "../research/bout.mjs";
 import { traceOf } from "./harness/trace.mjs";
-import { withParts } from "./fixtures/minds.mjs";
+import { COMBAT, withParts } from "./fixtures/minds.mjs";
 
 /**
  * A stub blow skill named `name`: given an attack it `accepts`, a blow of `steps` steps with its

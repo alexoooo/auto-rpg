@@ -1,13 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { CONTROLLERS, controllerOf, PRESETS } from "../src/core/mind/controllers.ts";
-import { CLASSIC, COMBAT, KICKER, RECIPE_FIGHTER, SCRAPPER } from "../src/core/mind/config.ts";
+import { CLASSIC, RECIPE_FIGHTER, SCRAPPER } from "../src/core/mind/config.ts";
 import { treeFaults } from "../src/core/mind/catalog.ts";
 import { createMind } from "../src/core/mind/minds.ts";
 import { BODY_MODELS, modelSpec } from "../src/core/models.ts";
 import { CONTROLS, controlsFor } from "../src/arena/matchup.ts";
 import { STRAIGHT_PUNCH } from "../src/core/skills/straight-punch.ts";
-import { withParts } from "./fixtures/minds.mjs";
+import { COMBAT, KICKER, withParts } from "./fixtures/minds.mjs";
 
 test("every preset is its controller's kind, under an id no other controller uses", () => {
   const ids = [];
@@ -17,13 +17,13 @@ test("every preset is its controller's kind, under an id no other controller use
     assert.equal(controllerOf(preset.config), controller);
     ids.push(id);
   }
-  assert.deepEqual(ids, ["classic", "puncher", "combat", "brawler", "scrapper", "kicker", "behaviours", "runner", "charger", "left-hand", "kicks-only", "crawl"]);
+  assert.deepEqual(ids, ["classic", "puncher", "scrapper", "behaviours", "crawl"]);
   assert.deepEqual(Object.keys(CONTROLS), ids);
   assert.throws(() => controllerOf({ kind: "point-fighter" }), /no mind of kind "point-fighter"/);
 });
 
 test("each controller says which bodies its presets fit, and the Arena offers just those", () => {
-  const humanoid = ["classic", "puncher", "combat", "brawler", "scrapper", "kicker", "behaviours", "runner", "charger", "left-hand", "kicks-only"];
+  const humanoid = ["classic", "puncher", "scrapper", "behaviours"];
   for (const model of BODY_MODELS) {
     const spec = modelSpec(model), fitting = [];
     for (const controller of Object.values(CONTROLLERS)) for (const [id, preset] of Object.entries(controller.presets))
@@ -45,15 +45,8 @@ test("every preset id reads to its tree: tactics, a skill of each role and the s
   assert.deepEqual(Object.fromEntries(Object.entries(PRESETS).map(([id, { config }]) => [id, config])), {
     classic: fighter(seek, { kind: "recipe-strike" }, null, null, [{ kind: "staged-rise" }]),
     puncher: fighter({ ...seek, range: "edge" }, { kind: "straight-punch", ...STRAIGHT_PUNCH }, null, null, [{ kind: "staged-rise" }]),
-    combat: fighter(openings, path, null, null, recovery),
-    brawler: fighter(body, path, null, null, recovery),
     scrapper: fighter(body, path, null, { kind: "support-fold" }, recovery),
-    kicker: fighter(body, path, { kind: "front-kick" }, { kind: "support-fold" }, recovery),
     behaviours: fighter(behaving([{ kind: "strike", hands: "alternate", aim: "head", blow: { kind: "recipe-strike" } }]), null, null, null, rise),
-    runner: fighter(behaving([{ kind: "flee" }]), null, null, null, rise),
-    charger: fighter(behaving([{ kind: "close-in", metres: 0.6 }]), null, null, null, rise),
-    "left-hand": fighter(behaving([{ kind: "strike", hands: "left", aim: "head", blow: { kind: "recipe-strike" } }]), null, null, null, rise),
-    "kicks-only": fighter(behaving([{ kind: "kick", feet: "alternate", kick: { kind: "front-kick" } }]), null, null, null, rise),
     crawl: { kind: "quadruped" },
   });
   assert.deepEqual(RECIPE_FIGHTER, { ...CLASSIC, subs: [{ kind: "lie" }] });

@@ -79,7 +79,7 @@ After it, each with its own plan, in the order each needs the one before:
 - **Retiring what the new skills replace**, each with its records:
   - the strike repertoire;
   - the staged rise;
-  - the opening presets (Combat, Brawler, Scrapper, Kicker).
+  - the opening preset (Scrapper).
 - **Items**, as columns of the grid, each a new skill only where one measurably needs it. In
   this order:
   1. armour (mass and shape);
@@ -92,10 +92,11 @@ After it, each with its own plan, in the order each needs the one before:
 ## Where the control work stands
 
 - **Fighters.** One fighter, its tactics and skills parts a player picks, runs every humanoid preset
-  through the same body and muscle contract. Four use the opening tactics over the path strike:
-  Combat, Brawler, the grounded Scrapper and Kicker. Against Classic on two Warriors, each wins
-  bare-handed (0.98 to 1.00) and loses with clubs (0.10 to 0.24), every win on the clock
-  ([presets](reference/controller-presets.md)).
+  through the same body and muscle contract. Puncher holds at the edge of its foe's reach and
+  throws the straight punch, and wins every empty-handed pairing in the league
+  (`research/empty-hand-league.mjs`). Scrapper, the grounded opening tactics over the path strike,
+  is the second tier: against Classic on two Warriors it wins bare-handed (0.98) and loses with
+  clubs (0.10), every win on the clock ([presets](reference/controller-presets.md)).
 - **The punch.** The planted punch reaches 4.3 to 5.3 m/s and 4 to 10 N s on the fist's hull.
   A person's is 8 m/s ([punch calibration](reference/punch-calibration.md)), and no paired-limb
   family reaches trained-adult force ([trained force](reference/trained-attack-force.md)). The

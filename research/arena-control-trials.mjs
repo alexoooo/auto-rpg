@@ -6,11 +6,11 @@ import { addArenaSolids } from "../src/arena/room.ts";
 import { centreOfToRef, pointOfToRef, motionAtToRef } from "../src/core/control/support.ts";
 import { rigidPoints } from "../src/core/build/rigid.ts";
 import { aimOf } from "../src/core/skills/strikes.ts";
-import { COMBAT, RECIPE_FIGHTER } from "../src/core/mind/config.ts";
+import { RECIPE_FIGHTER } from "../src/core/mind/config.ts";
 import { STAND_ORDERS } from "../src/core/mind/orders.ts";
 import { createWorld } from "../src/core/world.ts";
 import { freshEngine } from "../tests/harness/core-stand.mjs";
-import { withParts } from "../tests/fixtures/minds.mjs";
+import { COMBAT, withParts } from "../tests/fixtures/minds.mjs";
 
 /** Actual arena lifecycle, isolated by standing the other contestant out of reach. */
 export async function controlArena({ held = "empty", hand = "right", model = "workshop-fighter", seconds = 120,

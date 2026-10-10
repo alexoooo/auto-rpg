@@ -1,11 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {SCRAPPER,BRAWLER} from '../src/core/mind/config.ts';
+import {SCRAPPER} from '../src/core/mind/config.ts';
 import {buildBout} from '../research/bout.mjs';
 import {loadEngine,DEFAULT_ENGINE} from '../src/core/engine/engines.ts';
 import {STAND_ORDERS} from '../src/core/mind/orders.ts';
 import {traceOf} from './harness/trace.mjs';
-import {withParts} from './fixtures/minds.mjs';
+import {BRAWLER,withParts} from './fixtures/minds.mjs';
 
 async function make(side='left',paths={}) {
  const other=side==='left'?'right':'left',candidate=withParts(SCRAPPER,{tactics:{spacing:.1,combinations:'follow-up'},blow:{tuning:{paths}}});

@@ -46,9 +46,8 @@ side. Isometric offers orthographic and perspective projection; Chase follows on
 These controls work while paused and after the verdict. Links retain the view with `view`,
 `camera`, `projection` and `focus` parameters.
 
-Each contender has a **Controller** choice: Classic fighter, **Combat**, **Brawler**, **Scrapper**,
-**Kicker (experimental)**, or one made of behaviours: **Behaviours**, **Runner**, **Charger**,
-**Left hand only** or **Kicks only (experimental)**. A preset you change in the panel reads
+Each contender has a **Controller** choice: Classic fighter, **Puncher**, **Scrapper**, or
+**Behaviours**, a fighter made of behaviours. A preset you change in the panel reads
 **Custom (from** its preset**)**.
 Humanoids choose a wooden club or empty hands.
 The Reptile uses **Crawl and bite**, carries no equipment and has 1 HP at 8 kg. It trots toward
@@ -60,23 +59,22 @@ unqualified against humanoids. [Control checks](docs/reference/reptile.md) cover
 travel, biting mirror matches, release and recovery. Recovery may take several retries,
 particularly from awkward leg positions.
 Every humanoid preset is one fighter whose tactics and skills you can change in the Arena's
-panel. Classic seeks its foe and strikes by searched recipes; Combat, Brawler, Scrapper and Kicker
-choose openings and strike along hand paths on a shared strike cycle, Scrapper fighting from low
-support too and Kicker kicking.
+panel. Classic seeks its foe and strikes by searched recipes; Puncher holds at the edge of its
+foe's reach and throws the straight punch; Scrapper chooses openings and strikes along hand paths
+on a shared strike cycle, and fights from low support too.
 A fighter's tactics may instead be **Behaviours**: a ranked list you build in the panel from
 following orders, running away, closing in, keeping a distance, striking (with the hand you name),
 kicking (with the foot you name) and guarding. Each step the first behaviour that wants the legs,
-the attack or a hand has it, so Runner is just "run away, guard" and Left hand only is "strike with
-the left, guard". A strike names its blow and a kick its kick, so under Behaviours the fighter has
+the attack or a hand has it, so "run away, guard" is a runner and "strike with the left, guard"
+fights with the left hand only. A strike names its blow and a kick its kick, so under Behaviours the fighter has
 no Blow, Kick or Low support of its own to set. A kick walks in and kicks the nearest standing
 leg within reach; the front kick is slow, and a foe who keeps moving rarely lets it land.
 Any of them may throw one of two experimental blows from the punch's research instead: the
 driven strike, which turns the trunk flat out behind the arm, or the whole-body strike, one
 solve over every muscle at once ([measured](docs/reference/competencies.md#research-blows)).
-Against Classic on two Warriors ([384 bouts each](docs/reference/controller-presets.md)), every
-preset wins bare-handed (Kicker 1.00, Combat 0.99, Brawler and Scrapper 0.98), all of it at the
-time cap, and loses with clubs (Combat 0.24, Brawler 0.12, Kicker 0.10, Scrapper 0.10), often by
-a wound. Finishing power remains under evaluation.
+Against Classic on two Warriors ([384 bouts each](docs/reference/controller-presets.md)), Scrapper
+wins bare-handed (0.98), all of it at the time cap, and loses with clubs (0.10), often by a wound.
+Finishing power remains under evaluation.
 **Puncher** is Classic throwing the straight punch: it stands an arm apart, where the foe's head
 is eight tenths of its arm's length from its punching shoulder once the punch turns that shoulder
 forward, sets its fist on the line to the head, and drives its hips and chest and, a moment
@@ -85,23 +83,18 @@ out from a foe that walks in and punching once the foe's head comes into its own
 stepping in after four seconds' wait; a foe that walks chest to chest it backs away from before
 punching again. Bare-handed it wounds a Warrior standing in guard, most of
 it on the chest and the guarding arms.
-Brawler is the experimental body-targeting fighter, with measured punch paths, guards and
-escapes. Try
-`?play=arena&matchup=workshop-fighter,workshop-fighter&control=brawler&held=empty&balance=0`.
-Scrapper adds supported low attacks against fallen or rising opponents. Start with two
+Scrapper aims straight blows and hooks at the body, with measured punch paths, guards and
+escapes, and attacks low, from support, a foe who is down or rising. Start with two
 empty-handed Warriors:
 `?play=arena&matchup=workshop-fighter,workshop-fighter&control=scrapper&held=empty&balance=0`.
 It creates room for punches, approaches low targets, acquires foot support and returns to
-standing. The checks cover both hands; unreachable placements time out and retry. Combat retains the earlier
-controller for comparison and replay.
-Kicker adds low front kicks with either foot to Scrapper. Start with empty-handed Warriors
-and `control=kicker`. It usually punches against moving opponents; its kicks are qualified
-against a quiet defender, and stronger competitive fighting remains under evaluation.
+standing. The checks cover both hands; unreachable placements time out and retry. Its Kick slot
+takes a low front kick with either foot, qualified against a quiet defender.
 
 **After a fall** defaults to continuing the fight while players try to get up. It can also
 select defeat after 15, 30 or 60 seconds down, or on the first fall. The HUD names the
-current controller or recovery attempt. Combat, Brawler, Scrapper and Kicker rise with the
-reference pose sequence, then verify quiet foot support before resuming walking or attacks.
+current controller or recovery attempt. Scrapper rises with the
+reference pose sequence, then verifies quiet foot support before resuming walking or attacks.
 [Development checks](docs/reference/recovery-cycle.md)
 cover Warrior with empty hands and a club; recovery takes about 25-29 seconds in passing cases,
 and one tested club fall direction still fails. Arena Classic also attempts the staged rise. Recovery remains imperfect and may need retries.
@@ -144,7 +137,7 @@ A link can name its matchup and open the bout directly:
 `workshop-rogue` and `crypt-skeleton`). It may also say how far apart the two start (`&gap=3`,
 metres), how long the bout may run (`&cap=30`, seconds) and what each right hand holds
 (`&held=empty` for a bare-handed bout, or `&held=empty,club` left then right) which controller each side
-runs (`&control=classic,brawler`), each side's mind as edited in the **Mind** panel under its
+runs (`&control=classic,scrapper`), each side's mind as edited in the **Mind** panel under its
 controller (`&left.mind=`, written by the panel), and carry a bout's orders after a `#tape=`, which the arena then plays
 again by itself.
 

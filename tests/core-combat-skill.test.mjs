@@ -4,7 +4,8 @@ import { createBody, SERVO_SECONDS } from '../src/core/body.ts';
 import { modelSpec } from '../src/core/models.ts';
 import { GUARD } from '../src/core/skills/guard.ts';
 import { attackPath, ATTACK_PATH } from '../src/core/skills/attack-path.ts';
-import { COMBAT, RECIPE_FIGHTER } from '../src/core/mind/config.ts';
+import { RECIPE_FIGHTER } from '../src/core/mind/config.ts';
+import { COMBAT } from './fixtures/minds.mjs';
 import { STAND_ORDERS } from '../src/core/mind/orders.ts';
 import { loadEngine, DEFAULT_ENGINE } from '../src/core/engine/engines.ts';
 import { combatStrike } from '../research/combat-strikes.mjs';
@@ -119,7 +120,7 @@ test('either hand repeats a close curved strike and survives misses without assi
 });
 
 test('combat self-play takes initiative and breaks prolonged hand pressure without self-falls', async () => {
- const row=await combatTrial({left:'combat',right:'combat',recipe:{capSeconds:20}});
+ const row=await combatTrial({left:COMBAT,right:COMBAT,recipe:{capSeconds:20}});
  for(const out of Object.values(row.sides)) {
   assert.ok(out.driven>=10,JSON.stringify(out)); assert.equal(out.falls,0);
   assert.ok(out.pressureOnly.longest<2,JSON.stringify(out)); assert.ok(out.drivenDamage>.02,JSON.stringify(out));
