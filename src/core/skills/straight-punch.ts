@@ -18,7 +18,8 @@ import { turnSense } from "./whole-body-strike.ts";
  * least) to stand, facing the
  * target, with it `reach` of the arm's straight length (shoulder to knuckles) from the punching
  * shoulder, no more than `band` m further across the ground and no nearer than `CROWDED` (a foe
- * come nearer it backs out from at its full pace), for `settle` s, its fist set on the
+ * come nearer it backs out from at its full pace), for `settle` s with both feet bearing (no
+ * foot swinging in a step), its fist set on the
  * line from the shoulder to the target `chamber` m from the shoulder (none at 0). Then the hips
  * turn its punching shoulder forward by `hips` rad (the stance's heading, `Claim.steer`), the
  * chest by `turn` rad and the trunk leans `lean` rad, and `lead` s later the arm is driven at its
@@ -106,6 +107,13 @@ const CROWDED = 0.05;
  */
 const LEAST_PACE = 0.4;
 
+/**
+ * The fastest its centre of mass may move across the ground, m/s, for a stance shifting its weight
+ * for a step to count as set: a drive begun from a shift while the body still carries its walk
+ * throws it over.
+ */
+const SHIFTING_PACE = 0.25;
+
 const HANDS: readonly Side[] = Object.freeze(["left", "right"]);
 const NO_HANDS = Object.freeze({ left: null, right: null }) as Readonly<Record<Side, EffectorGoal | null>>;
 const CLOSED: Readonly<Record<Side, Readonly<Record<Side, boolean>>>> = Object.freeze({
@@ -118,7 +126,10 @@ const CLOSED: Readonly<Record<Side, Readonly<Record<Side, boolean>>>> = Object.f
  * attack, it walks the body to where the target stands `reach` from the head, facing it, closing
  * the error over `APPROACH.seconds` but no slower than `LEAST_PACE` (backing out at its full pace
  * from a foe come too near), and
- * stands there `settle` s with its fist on the line (its chamber). Then it turns the hips and the
+ * stands there `settle` s with both feet bearing, its fist on the line (its chamber): a stance
+ * shifting its weight for a step still bears on both, and so counts while the body moves no
+ * faster than `SHIFTING_PACE`, since waiting for the step to land would cost it a quarter of its
+ * punches. Then it turns the hips and the
  * chest and leans the trunk to bring the punching shoulder forward, and drives the arm, `lead` s
  * behind, at its
  * contact pose, solved each step for where the target is (`solveReach`): the striking point on
@@ -167,7 +178,7 @@ export function straightPunch(body: Body, settings: StraightPunch = STRAIGHT_PUN
     hand: null as Side | null, phase: null as Phase | null,
     /** Where it aims, world, the last target asked; the way it faces as the drive began. */
     target: [0, 0, 0] as [number, number, number], face: 0,
-    /** Seconds stood at the stand-off; when the drive began, when its hand began to touch, whether it touched last step, and when it came back. */
+    /** Seconds stood at the stand-off on both feet; when the drive began, when its hand began to touch, whether it touched last step, and when it came back. */
     stood: 0, began: 0, touched: null as number | null, touching: false, ended: 0, now: 0, headY: 0,
     still: 0, thrown: { left: 0, right: 0 },
     /**
@@ -290,7 +301,8 @@ export function straightPunch(body: Body, settings: StraightPunch = STRAIGHT_PUN
               legs: { kind: "walk", walk: [forward / APPROACH.seconds * scale, right / APPROACH.seconds * scale], face } };
           }
           state.phase = "settle";
-          if (view.stance.phase === "stand") state.stood += dt;
+          const { phase, velocity } = view.stance;
+          if (phase === "stand" || (phase === "shift" && hypot(velocity.x, velocity.z) < SHIFTING_PACE)) state.stood += dt;
           if (state.stood < settings.settle) {
             return { hands: NO_HANDS, posture: chamber(view, hand), pushes, closed: CLOSED[hand], steer: 0, legs: { kind: "walk", walk: null, face } };
           }
