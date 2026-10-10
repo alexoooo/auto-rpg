@@ -7,10 +7,13 @@
  * score is the hit points the foe lost less those the puncher lost, with `FELL` taken off for each
  * second the puncher spent down and `LOST` for a bout it lost. The foes are a Warrior standing in
  * guard, or Classic, Combat, Brawler or Kicker fighting back (`--foes stands,classic,combat,brawler,kicker`).
+ * `--scene` also plays the punch test's bout (`tests/straight-punch.test.mjs`: walked in, on a Warrior
+ * standing in guard 1.2 m off, 5 s) and takes off what it falls short of there: `SHORT` a wounding
+ * punch under two, and `SHORT` a kilogram under 1.5 that the heaviest wounding fist met.
  *
  * Usage:
  *   node research/punch-in-bout.mjs [--settings '<json>'] [--gaps 1.2,1.6] [--seconds 8] [--foes stands] [--aim head] [--range edge]  one setting, its blows printed
- *   node research/punch-in-bout.mjs --search [--foes stands,classic] [--aim head] [--range edge] [--gaps 1,1.4] [--seconds 8] [--settings '<json>'] [--fixed '<json>'] [--sigma 0.2] [--generations 30] [--lambda 16] [--workers 15] [--seed 1] [--hz 120]
+ *   node research/punch-in-bout.mjs --search [--foes stands,classic] [--aim head] [--range edge] [--gaps 1,1.4] [--seconds 8] [--settings '<json>'] [--fixed '<json>'] [--scene] [--sigma 0.2] [--generations 30] [--lambda 16] [--workers 15] [--seed 1] [--hz 120]
  *
  * `--fixed` holds the settings it names where it puts them and searches the rest.
  *
@@ -33,12 +36,15 @@ const BARE = Object.freeze({ left: "empty", right: "empty" });
 /** Hit points a second down costs the puncher in the score, and a bout lost. */
 const FELL = 0.5, LOST = 1;
 
+/** Hit points a wounding punch or a kilogram short of the punch test's bout costs in the score. */
+const SHORT = 0.5;
+
 /** The foes a setting may be scored against, by name. */
 const FOES = Object.freeze({ stands: STANDS, classic: CLASSIC, combat: COMBAT, brawler: BRAWLER, kicker: KICKER });
 
 /** The settings searched, each its range. */
 const RANGES = Object.freeze({
-  pace: [0.2, 1.2], reach: [0.6, 1.3], band: [0.02, 0.15], settle: [0, 0.6], through: [0, 0.4], hips: [0, 0.5], turn: [0, 0.45], lean: [0, 0.5],
+  pace: [0.2, 1.2], reach: [0.6, 1.3], band: [0.02, 0.3], settle: [0, 0.6], through: [0, 0.4], hips: [0, 0.5], turn: [0, 0.45], lean: [0, 0.5],
   chamber: [0, 0.5], lead: [0, 0.15], elbow: [0, 0.25], brake: [0.02, 0.4], follow: [0, 0.06], longest: [0.15, 0.6], recover: [0.1, 0.8],
 });
 const argOf = (name) => { const i = process.argv.indexOf(`--${name}`); return i < 0 ? undefined : process.argv[i + 1]; };
@@ -86,11 +92,19 @@ export const punchBout = (settings, { aim = PUNCHER.tactics.aim, range = PUNCHER
 /** The bouts a setting is scored on unless asked: one a gap against each foe named. */
 const GAPS = [1.0, 1.4, 1.8, 2.2];
 
-async function scoreOf(settings, { hz, foes, aim, range, gaps, seconds }) {
+/** What `settings` fall short of in the punch test's bout: wounding punches under two, and kilograms under 1.5 that the heaviest wounding fist met. */
+async function sceneShortOf(settings, hz) {
+  const bout = await punchBout(settings, { foe: STANDS, gap: 1.2, seconds: 5, hz, range: "close" });
+  const wounding = bout.punches.filter((p) => p.hp[0] > 0.01);
+  return Math.max(0, 2 - wounding.length) + Math.max(0, 1.5 - Math.max(0, ...wounding.map((p) => p.kg[0])));
+}
+
+async function scoreOf(settings, { hz, foes, aim, range, gaps, seconds, scene }) {
   const bouts = [];
   for (const foe of foes) for (const gap of gaps) bouts.push(await punchBout(settings, { foe: FOES[foe], gap, hz, aim, range, seconds }));
   const mean = (key) => bouts.reduce((sum, b) => sum + b[key], 0) / bouts.length;
-  return { score: mean("score"), given: mean("given"), taken: mean("taken"), down: mean("down"), thrown: mean("thrown"),
+  const short = scene ? await sceneShortOf(settings, hz) : 0;
+  return { score: mean("score") - SHORT * short, short, given: mean("given"), taken: mean("taken"), down: mean("down"), thrown: mean("thrown"),
     lost: mean("lost"), landed: bouts.reduce((n, b) => n + b.punches.length, 0) / bouts.length };
 }
 
@@ -102,10 +116,10 @@ if (!isMainThread && workerData?.punchInBout) {
 } else if (isMainThread && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const argv = process.argv.slice(2), arg = (name, fallback) => { const i = argv.indexOf(`--${name}`); return i < 0 ? fallback : argv[i + 1]; };
   const hz = Number(arg("hz", 120)), foes = arg("foes", "stands").split(","), aim = arg("aim", PUNCHER.tactics.aim), range = arg("range", PUNCHER.tactics.range);
-  const gaps = arg("gaps", GAPS.join(",")).split(",").map(Number), seconds = Number(arg("seconds", 8));
+  const gaps = arg("gaps", GAPS.join(",")).split(",").map(Number), seconds = Number(arg("seconds", 8)), scene = argv.includes("--scene");
   for (const foe of foes) if (!FOES[foe]) throw new Error(`no foe ${foe}: ${Object.keys(FOES).join(", ")}`);
   if (argv.includes("--search")) {
-    const workers = Number(arg("workers", Math.max(1, availableParallelism() - 1))), pool = workerPool(new URL(import.meta.url), { hz, foes, aim, range, gaps, seconds, fixed: FIXED, punchInBout: true }, workers);
+    const workers = Number(arg("workers", Math.max(1, availableParallelism() - 1))), pool = workerPool(new URL(import.meta.url), { hz, foes, aim, range, gaps, seconds, scene, fixed: FIXED, punchInBout: true }, workers);
     const start = toUnit({ ...STRAIGHT_PUNCH, ...JSON.parse(arg("settings", "{}")) }).map((v) => Math.min(1, Math.max(0, v)));
     try {
       const { best } = await cmaSearch({ n: KEYS.length, start, sigma: Number(arg("sigma", 0.2)), lambda: Number(arg("lambda", 16)), generations: Number(arg("generations", 30)),
