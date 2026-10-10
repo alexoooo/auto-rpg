@@ -5,7 +5,9 @@
  * the edge unless asked), of a bare-handed Warrior, priced by the arena's
  * rulebook as its blows land (`Duel.blows`). A bout's
  * score is the hit points the foe lost less those the puncher lost, with `FELL` taken off for each
- * second the puncher spent down and `LOST` for a bout it lost. The foes are a Warrior standing in
+ * second the puncher spent down and `LOST` for a bout it lost; with `--head`, also that many hit points for
+ * the share of the foe's vital part (its head) emptied, less the same of the puncher's, since an
+ * emptied head ends the bout however full the rest is. The foes are a Warrior standing in
  * guard, or Classic, Combat, Brawler, Kicker, Scrapper or the Puncher fighting back
  * (`--foes stands,classic,combat,brawler,kicker,scrapper,puncher`), or a rival: the Puncher throwing
  * the straight punch with the settings `--rival` gives (`--foes rival`).
@@ -15,7 +17,7 @@
  *
  * Usage:
  *   node research/punch-in-bout.mjs [--settings '<json>'] [--gaps 1.2,1.6] [--seconds 8] [--foes stands] [--aim head] [--range edge]  one setting, its blows printed
- *   node research/punch-in-bout.mjs --search [--foes stands,classic] [--aim head] [--range edge] [--gaps 1,1.4] [--seconds 8] [--settings '<json>'] [--fixed '<json>'] [--rival '<json>'] [--scene] [--sigma 0.2] [--generations 30] [--lambda 16] [--workers 15] [--seed 1] [--hz 120]
+ *   node research/punch-in-bout.mjs --search [--foes stands,classic] [--aim head] [--range edge] [--gaps 1,1.4] [--seconds 8] [--settings '<json>'] [--fixed '<json>'] [--rival '<json>'] [--scene] [--head 2] [--sigma 0.2] [--generations 30] [--lambda 16] [--workers 15] [--seed 1] [--hz 120]
  *
  * `--fixed` holds the settings it names where it puts them and searches the rest.
  *
@@ -84,9 +86,10 @@ export async function boutOf(mind, { foe = STANDS, gap = 1.4, seconds = 8, hz = 
       if (/^hand\./.test(me.segment)) punches.push({ time: +blow.time.toFixed(3), on: them.segment, closing: +blow.closing.toFixed(2), energy: +blow.energy.toFixed(1),
         kg: [+me.kg.toFixed(2), +them.kg.toFixed(2)], hp: [+them.damage.toFixed(3), +me.damage.toFixed(3)] });
     }
+    const headOf = (side) => { const d = duel.duelists[side], vital = d.body.built.spec.wounds.vital[0]; return 1 - d.pool.hp(vital) / d.pool.max(vital); };
     const thrown = left.minded.skills.report.strike.thrown;
     const lost = duel.verdict?.winner === "right" ? 1 : 0;
-    return { gap, given, taken, down, lost, thrown: thrown.left + thrown.right, punches, verdict: duel.verdict ? `${duel.verdict.winner ?? "draw"} by ${duel.verdict.ending}` : null,
+    return { gap, given, taken, heads: [headOf("right"), headOf("left")], down, lost, thrown: thrown.left + thrown.right, punches, verdict: duel.verdict ? `${duel.verdict.winner ?? "draw"} by ${duel.verdict.ending}` : null,
       score: given - taken - FELL * down - LOST * lost };
   } finally { dispose(); }
 }
@@ -105,12 +108,12 @@ async function sceneShortOf(settings, hz) {
   return Math.max(0, 2 - wounding.length) + Math.max(0, 1.5 - Math.max(0, ...wounding.map((p) => p.kg[0])));
 }
 
-async function scoreOf(settings, { hz, foes, aim, range, gaps, seconds, scene }) {
+async function scoreOf(settings, { hz, foes, aim, range, gaps, seconds, scene, head }) {
   const bouts = [];
   for (const foe of foes) for (const gap of gaps) bouts.push(await punchBout(settings, { foe: FOES[foe], gap, hz, aim, range, seconds }));
   const mean = (key) => bouts.reduce((sum, b) => sum + b[key], 0) / bouts.length;
-  const short = scene ? await sceneShortOf(settings, hz) : 0;
-  return { score: mean("score") - SHORT * short, short, given: mean("given"), taken: mean("taken"), down: mean("down"), thrown: mean("thrown"),
+  const short = scene ? await sceneShortOf(settings, hz) : 0, heads = bouts.reduce((sum, b) => sum + b.heads[0] - b.heads[1], 0) / bouts.length;
+  return { score: mean("score") + head * heads - SHORT * short, short, heads, given: mean("given"), taken: mean("taken"), down: mean("down"), thrown: mean("thrown"),
     lost: mean("lost"), landed: bouts.reduce((n, b) => n + b.punches.length, 0) / bouts.length };
 }
 
@@ -122,10 +125,10 @@ if (!isMainThread && workerData?.punchInBout) {
 } else if (isMainThread && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const argv = process.argv.slice(2), arg = (name, fallback) => { const i = argv.indexOf(`--${name}`); return i < 0 ? fallback : argv[i + 1]; };
   const hz = Number(arg("hz", 120)), foes = arg("foes", "stands").split(","), aim = arg("aim", PUNCHER.tactics.aim), range = arg("range", PUNCHER.tactics.range);
-  const gaps = arg("gaps", GAPS.join(",")).split(",").map(Number), seconds = Number(arg("seconds", 8)), scene = argv.includes("--scene");
+  const gaps = arg("gaps", GAPS.join(",")).split(",").map(Number), seconds = Number(arg("seconds", 8)), scene = argv.includes("--scene"), head = Number(arg("head", 0));
   for (const foe of foes) if (!FOES[foe]) throw new Error(`no foe ${foe}: ${Object.keys(FOES).join(", ")}`);
   if (argv.includes("--search")) {
-    const workers = Number(arg("workers", Math.max(1, availableParallelism() - 1))), pool = workerPool(new URL(import.meta.url), { hz, foes, aim, range, gaps, seconds, scene, fixed: FIXED, rival: RIVAL, punchInBout: true }, workers);
+    const workers = Number(arg("workers", Math.max(1, availableParallelism() - 1))), pool = workerPool(new URL(import.meta.url), { hz, foes, aim, range, gaps, seconds, scene, head, fixed: FIXED, rival: RIVAL, punchInBout: true }, workers);
     const start = toUnit({ ...STRAIGHT_PUNCH, ...JSON.parse(arg("settings", "{}")) }).map((v) => Math.min(1, Math.max(0, v)));
     try {
       const { best } = await cmaSearch({ n: KEYS.length, start, sigma: Number(arg("sigma", 0.2)), lambda: Number(arg("lambda", 16)), generations: Number(arg("generations", 30)),
