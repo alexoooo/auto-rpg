@@ -102,6 +102,7 @@ export function dynamicRisePolicy(input: Model) {
     state.phase = phase; state.time = 0; state.stagnant = 0; state.error = Infinity; state.held = 0;
     state.from = o.joints.map(j => j.angle); state.rootFrom = find(o, "lowerTrunk").position[1];
   };
+  const freeHand = () => model.held ? other(model.held) : other(state.lead);
   const classify = (o: BodyObservation) => {
     state.attemptTime = 0;
     state.lie = facing(o); state.released = false; state.stage = 0;
@@ -110,9 +111,10 @@ export function dynamicRisePolicy(input: Model) {
     relative.set(...root.rotation).multiplyToRef(restInverse, relative);
     way.set(1, 0, 0).applyRotationQuaternionToRef(relative, way);
     state.yaw = atan2(-way.z, way.x);
+    const planted = SIDES.find(s => loaded(o, `foot.${s}`) && !loaded(o, `shank.${s}`) && loaded(o, `shank.${other(s)}`));
     if (SIDES.every(s => loaded(o, `foot.${s}`)) && !o.down) enter("stabilize", o);
-    else if (clear(o) && loaded(o, `foot.${state.lead}`) && !loaded(o, `shank.${state.lead}`) && loaded(o, `shank.${other(state.lead)}`)) enter("transfer", o);
-    else if (clear(o) && SIDES.every(s => loaded(o, `shank.${s}`)) && loaded(o, `hand.${other(state.lead)}`)) enter("place", o);
+    else if (clear(o) && planted) { state.lead = planted; enter("transfer", o); }
+    else if (clear(o) && SIDES.every(s => loaded(o, `shank.${s}`)) && loaded(o, `hand.${freeHand()}`)) enter("place", o);
     else enter(state.lie === "front" ? "acquire" : "orient", o);
   };
   const begin = (o: BodyObservation) => {
@@ -142,7 +144,7 @@ export function dynamicRisePolicy(input: Model) {
         if (state.landed) classify(o);
         else return { joints: [], frames: [], grips: [] };
       }
-      const free = other(state.lead), hand = `hand.${free}`, rear = `shank.${free}`, moving = `foot.${state.lead}`;
+      const free = other(state.lead), hand = `hand.${freeHand()}`, rear = `shank.${free}`, moving = `foot.${state.lead}`;
       const hands = model.held ? [hand] : SIDES.map(side => `hand.${side}`);
       let pose: Readonly<Record<string, number>> = {}, mirror = state.lead === "right";
       switch (state.phase) {

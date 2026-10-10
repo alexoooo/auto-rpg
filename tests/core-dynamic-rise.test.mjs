@@ -7,12 +7,16 @@ import { PUNCHER } from "../src/core/mind/config.ts";
 import { dynamicRiseFits, dynamicRisePolicy } from "../src/core/mind/rise/dynamic.ts";
 import { RISE } from "../src/core/mind/rise/stages.ts";
 import { ratesToRef } from "../src/core/build/joint-state.ts";
+import poses from "../assets/research/posture-holds.json" with { type: "json" };
+import { uprightness } from "../src/core/control/ground.ts";
+import { embody } from "../src/core/mind/mind.ts";
+import { observeBody } from "../src/core/observation.ts";
 import { minimumJerk } from "../src/core/skills/whole-body-strike.ts";
 import { createMind } from "../src/core/mind/minds.ts";
 import { STAND_ORDERS } from "../src/core/mind/orders.ts";
 import { modelSpec } from "../src/core/models.ts";
 import { saveState } from "../src/core/state.ts";
-import { saveStand, loadStand } from "./harness/core-stand.mjs";
+import { coreStand, saveStand, loadStand } from "./harness/core-stand.mjs";
 import { dynamicFall, felled } from "../research/core-rise-trials.mjs";
 
 const config = { ...PUNCHER, subs: [{ kind: "dynamic-rise" }] };
@@ -50,6 +54,40 @@ test("an unfinished fall is censored instead of being counted as a fast rise", a
     assert.ok(row.attempts >= 1 && row.effortExcess <= .0001);
     assert.deepEqual(row.harness, { name: "Node core stand with Arena solids", engine: "rapier-coordinate", hz: 120, actuation: "symmetric", balance: 0 });
   }
+});
+
+test("dynamic rise keeps an actual planted leg when the other hand holds a club", async () => {
+  const spec = armed(modelSpec("workshop-fighter"), "right", woodenClub());
+  const placement = poses.find(p => p.model === spec.model && p.id === "half-kneel").placement;
+  const stand = await coreStand(spec, { ...placement, engine: "rapier-coordinate" });
+  let held;
+  try {
+    held = embody(stand.built, stand.world, own => {
+      const up = uprightness(own.built), observe = observeBody(own.built, own.muscles, stand.world,
+        () => ({ time: stand.world.time, others: [] }), undefined, () => up.down());
+      return { name: "half-kneel fixture", state: {}, observe, step() {
+        own.muscles.activation.fill(1); own.muscles.velocity.fill(0);
+      } };
+    });
+    stand.world.step(24);
+    const observation = held.mind.observe(), root = stand.built.segments.get("lowerTrunk");
+    const loaded = name => observation.contacts.some(c => c.fixed !== null && c.segment === name && c.impulse > 0);
+    assert.equal(observation.down, true);
+    assert.deepEqual([loaded("foot.left"), loaded("shank.left"), loaded("shank.right")], [true, false, true]);
+    const policy = dynamicRisePolicy({
+      channels: held.own.muscles.channels.map(c => ({ name: c.name, min: c.dof.spec.min.value, max: c.dof.spec.max.value, bind: c.dof.spec.bind.value })),
+      segments: [...stand.built.segments.values()].map(s => ({ name: s.spec.name, mass: s.rigid.mass })),
+      rest: root.rest.asArray(), rootHeight: root.frame.origin[1], leg: 1, gravity: 9.81, held: "right", fours: {},
+    });
+    policy.begin(observation);
+    assert.deepEqual({ phase: policy.state.phase, lead: policy.state.lead }, { phase: "transfer", lead: "left" });
+    policy.state.lead = "right"; policy.reclassify(observation);
+    assert.deepEqual({ phase: policy.state.phase, lead: policy.state.lead }, { phase: "transfer", lead: "left" });
+    policy.state.phase = "acquire"; policy.state.stage = 3;
+    const command = policy.step(observation, stand.world.dt);
+    const freed = name => command.supports.some(s => s.frame.kind === "segment" && s.frame.name === name && s.mode === "free");
+    assert.deepEqual([freed("hand.left"), freed("hand.right")], [false, true]);
+  } finally { held?.dispose(); stand.dispose(); }
 });
 
 async function fallen() {
