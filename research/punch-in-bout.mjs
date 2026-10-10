@@ -9,7 +9,9 @@
  *
  * Usage:
  *   node research/punch-in-bout.mjs [--settings '<json>'] [--gaps 1.2,1.6] [--seconds 8] [--foes stands] [--aim head]  one setting, its blows printed
- *   node research/punch-in-bout.mjs --search [--foes stands,classic] [--aim head] [--settings '<json>'] [--sigma 0.2] [--generations 30] [--lambda 16] [--workers 15] [--seed 1] [--hz 120]
+ *   node research/punch-in-bout.mjs --search [--foes stands,classic] [--aim head] [--settings '<json>'] [--fixed '<json>'] [--sigma 0.2] [--generations 30] [--lambda 16] [--workers 15] [--seed 1] [--hz 120]
+ *
+ * `--fixed` holds the settings it names where it puts them and searches the rest.
  *
  * Harness: Node, the core's world on Rapier (`DEFAULT_ENGINE`), the Arena's room, 120 Hz unless asked.
  */
@@ -38,8 +40,10 @@ const RANGES = Object.freeze({
   pace: [0.2, 1.2], reach: [0.6, 1.3], band: [0.02, 0.15], settle: [0, 0.6], through: [0, 0.4], hips: [0, 0.5], turn: [0, 0.45], lean: [0, 0.5],
   chamber: [0, 0.5], lead: [0, 0.15], elbow: [0, 0.25], brake: [0.02, 0.4], follow: [0, 0.06], longest: [0.15, 0.6], recover: [0.1, 0.8],
 });
-const KEYS = Object.keys(RANGES);
-const toSettings = (u) => Object.fromEntries(KEYS.map((key, i) => [key, RANGES[key][0] + u[i] * (RANGES[key][1] - RANGES[key][0])]));
+const argOf = (name) => { const i = process.argv.indexOf(`--${name}`); return i < 0 ? undefined : process.argv[i + 1]; };
+const FIXED = Object.freeze(isMainThread ? JSON.parse(argOf("fixed") ?? "{}") : workerData?.fixed ?? {});
+const KEYS = Object.keys(RANGES).filter((key) => !(key in FIXED));
+const toSettings = (u) => ({ ...Object.fromEntries(KEYS.map((key, i) => [key, RANGES[key][0] + u[i] * (RANGES[key][1] - RANGES[key][0])])), ...FIXED });
 const toUnit = (settings) => KEYS.map((key) => (settings[key] - RANGES[key][0]) / (RANGES[key][1] - RANGES[key][0]));
 
 /**
@@ -99,7 +103,7 @@ if (!isMainThread && workerData?.punchInBout) {
   const hz = Number(arg("hz", 120)), foes = arg("foes", "stands").split(","), aim = arg("aim", CLASSIC.tactics.aim);
   for (const foe of foes) if (!FOES[foe]) throw new Error(`no foe ${foe}: ${Object.keys(FOES).join(", ")}`);
   if (argv.includes("--search")) {
-    const workers = Number(arg("workers", Math.max(1, availableParallelism() - 1))), pool = workerPool(new URL(import.meta.url), { hz, foes, aim, punchInBout: true }, workers);
+    const workers = Number(arg("workers", Math.max(1, availableParallelism() - 1))), pool = workerPool(new URL(import.meta.url), { hz, foes, aim, fixed: FIXED, punchInBout: true }, workers);
     const start = toUnit({ ...STRAIGHT_PUNCH, ...JSON.parse(arg("settings", "{}")) }).map((v) => Math.min(1, Math.max(0, v)));
     try {
       const { best } = await cmaSearch({ n: KEYS.length, start, sigma: Number(arg("sigma", 0.2)), lambda: Number(arg("lambda", 16)), generations: Number(arg("generations", 30)),
