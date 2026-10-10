@@ -79,8 +79,8 @@ time cap, and loses with clubs (Combat 0.24, Brawler 0.12, Kicker 0.10, Scrapper
 a wound. Finishing power remains under evaluation.
 **Puncher** is Classic throwing the straight punch: it stands an arm apart, where the foe's head
 is eight tenths of its arm's length from its punching shoulder once the punch turns that shoulder
-forward, sets its fist on the line to the head, and drives its hips, chest and arm at once at a
-pose with the arm straight through the target. It holds at the edge of its foe's reach, backing
+forward, sets its fist on the line to the head, and drives its hips and chest and, a moment
+later, its arm at a pose with the arm straight through the target. It holds at the edge of its foe's reach, backing
 out from a foe that walks in and punching once the foe's head comes into its own reach, or
 stepping in after four seconds' wait. Bare-handed it wounds a Warrior standing in guard, most of
 it on the chest and the guarding arms.

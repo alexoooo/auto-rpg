@@ -50,13 +50,14 @@ export interface StraightPunch {
 
 /**
  * A straight punch's settings as the game throws it: the best of a bare-handed search of Arena
- * bouts against a Warrior standing in guard (`research/punch-in-bout.mjs`), rounded, at the
- * longest reach whose fist still meets its target with the arm behind it: an arm apart, not chest
- * to chest.
+ * bouts of the Puncher against Combat, Brawler and Kicker fighting back, held to the punch test's
+ * walked-in blows on a Warrior standing in guard (`research/punch-in-bout.mjs --scene`), rounded,
+ * at the longest reach whose fist still meets its target with the arm behind it: an arm apart,
+ * not chest to chest.
  */
 export const STRAIGHT_PUNCH: StraightPunch = deepFreeze({
-  pace: 0.596, reach: 0.8, band: 0.148, settle: 0.023, through: 0.32, hips: 0.13, turn: 0.427, lean: 0.143,
-  chamber: 0.024, lead: 0.007, elbow: 0.002, brake: 0.024, follow: 0.021, longest: 0.475, recover: 0.163,
+  pace: 1.009, reach: 0.8, band: 0.275, settle: 0.004, through: 0.334, hips: 0.034, turn: 0.434, lean: 0.348,
+  chamber: 0.212, lead: 0.077, elbow: 0, brake: 0.04, follow: 0.022, longest: 0.413, recover: 0.376,
 });
 
 /** Whether `settings` are a straight punch's: every one finite and not negative, the pace, reach, band and drive's length positive. */
