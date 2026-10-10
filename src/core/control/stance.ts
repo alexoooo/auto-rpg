@@ -289,8 +289,9 @@ function heightLimits(s: Stance, goal: StanceGoal, stance: readonly FootState[],
 }
 
 /**
- * Which feet bear on their front edges. A walk's bearing foot whose ankle's floor is over the
- * knees' ceiling (`high`) on one foot rolls onto its front edge instead (Perry 1992, "Gait
+ * Which feet bear on their front edges. A walk's bearing foot (the stance's own walk's, or a goal's
+ * step's with a double support, `SwingGoal.transfer`) whose ankle's floor is over the knees'
+ * ceiling (`high`) on one foot rolls onto its front edge instead (Perry 1992, "Gait
  * Analysis", terminal stance: the heel rises as the body passes over the forefoot), once the plan's
  * centre of mass is past that edge: rolled, the foot's pressure is on the edge, and one rolled with
  * the centre behind it brakes the walk (`docs/reference/stance-tuning.md#heel-off`). The height
@@ -306,7 +307,7 @@ function rollFeet(s: Stance, stance: readonly FootState[], swing: SwingGoal | nu
     if (!stance.includes(foot)) continue;
     const ex = r.x - foot.edge.x, ez = r.z - foot.edge.z;
     const past = ex * (foot.edge.x - foot.middle.x) + ez * (foot.edge.z - foot.middle.z) >= 0;
-    if (heelOff && s.state.striding && past && !foot.memory.rolled && floor > high && reading.phase === "swing") foot.memory.rolled = true;
+    if (heelOff && (s.state.striding || swing?.transfer !== undefined && swing !== reading.own) && past && !foot.memory.rolled && floor > high && reading.phase === "swing") foot.memory.rolled = true;
     else if (foot.memory.rolled && !past && foot.heel <= foot.flat) foot.memory.rolled = false;
   }
   if (gait.preswing !== undefined && reading.phase === "shift" && swing?.transfer) {

@@ -33,7 +33,7 @@ type Unit =
   | "N/m" | "N/mm" | "N/cm"
   | "rad" | "deg"
   | "rad/s" | "deg/s"
-  | "m/s" | "m/s2"
+  | "m/s" | "cm/s" | "m/s2"
   | "s" | "Hz"
   | "J" | "J/HP"
   /** Hit points: the rulebook's damage unit (`Rulebook.unit`), one 100 J of blunt blow. */
@@ -105,6 +105,7 @@ const CONVERSIONS: Readonly<Partial<Record<Unit, { readonly to: Unit; readonly f
   l: { to: "m3", factor: 1 / 1000 },
   deg: { to: "rad", factor: Math.PI / 180 },
   "deg/s": { to: "rad/s", factor: Math.PI / 180 },
+  "cm/s": { to: "m/s", factor: 1 / 100 },
   "N/mm": { to: "N/m", factor: 1000 },
   "N/cm": { to: "N/m", factor: 100 },
 });

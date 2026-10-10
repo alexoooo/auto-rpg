@@ -41,6 +41,25 @@ export const SOURCES = Object.freeze({
       + "J Biomech 29(9):1223-1230.",
     link: "https://doi.org/10.1016/0021-9290(95)00178-6",
   },
+  "bohannon-1997": {
+    kind: "literature",
+    cite: "Bohannon RW (1997). Comfortable and maximum walking speed of adults aged 20-79 years: reference values "
+      + "and determinants. Age Ageing 26(1):15-19. Men aged 20-29: comfortable 139.3 cm/s, maximum 253.3 cm/s.",
+    link: "https://doi.org/10.1093/ageing/26.1.15",
+  },
+  "popelsky-2023": {
+    kind: "literature",
+    cite: "Popelsky A, Ylitalo K, Hockett C (2023). Backward walking speed: a novel mobility measure for younger and "
+      + "older adults. Innov Aging 7(Suppl 1). Young adults (n = 20, mean age 22.9): forward 138.3 cm/s, "
+      + "backward 82.6 cm/s, each at their own pace.",
+    link: "https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10738916/",
+  },
+  "handford-2014": {
+    kind: "literature",
+    cite: "Handford ML, Srinivasan M (2014). Sideways walking: preferred is slow, slow is optimal, and optimal is "
+      + "expensive. Biol Lett 10(1):20131006. Preferred sideways speed 0.575 m/s (SD 0.123).",
+    link: "https://doi.org/10.1098/rsbl.2013.1006",
+  },
   "winter-table-4-1": {
     kind: "literature",
     cite: "Winter DA. Biomechanics and Motor Control of Human Movement, Table 4.1 (anthropometric data; "

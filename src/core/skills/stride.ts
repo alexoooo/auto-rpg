@@ -43,6 +43,20 @@ export function validStride(settings: StrideSettings): boolean {
  */
 const STILL = 0.06;
 
+/** How far apart the two soles' edges stay across the heading at a landing, m: room for the swinging foot to pass the bearing one. */
+const PASS = 0.05;
+
+/** The shortest a swing is cut to when its landing would be past the longest step, as a fraction of its time: the foot needs the time to get there. */
+const SOONEST = 0.75;
+
+/** The pendulum's least height, m: a numeric floor, for a body that has fallen flat. */
+const HEIGHT_FLOOR = 0.1;
+
+/** Whether every number of `step` is finite: a body read in a state no step can be planned from asks none. */
+function finite(step: SwingGoal): boolean {
+  return [step.to[0], step.to[1], step.seconds, ...(step.capture ?? []), ...(step.handover ?? [])].every(Number.isFinite);
+}
+
 /** How far (x, z) is from the segment from (ax, az) to (bx, bz). */
 function offSegment(x: number, z: number, ax: number, az: number, bx: number, bz: number): number {
   const ux = bx - ax, uz = bz - az, n = ux * ux + uz * uz;
@@ -72,7 +86,7 @@ interface StrideMemory {
  * resume are the locomotion skill's, under no envelope, its heading turning no faster than
  * `settings.turn`.
  *
- * Each step is placed from the body's capture point xi = c + v / w, w = sqrt(g / height) (Pratt et
+ * Each step is placed from the body's capture point xi = c + v / w, w = sqrt(g / height) of the height the stance holds (Pratt et
  * al. 2006), about the bearing sole's middle b. In a steady walk at velocity V with steps of time T
  * (the swing and its double support), the foot lands at b + V T, out to its own side by the width,
  * with the capture point ahead of it by V T / (exp(w T) - 1) and in from it by the width over
@@ -81,8 +95,7 @@ interface StrideMemory {
  * (`SwingGoal.capture`), and where the double support hands it over (`SwingGoal.handover`).
  *
  * Under way, each control step re-aims the landing (`SwingGoal.follows`): the capture point,
- * measured, run about the pivot the stance holds (`StanceReading.place`) for the swing's time left,
- * less that offset. Where that landing is past the longest step, the swing is shortened to the time
+ * measured, run about the bearing sole's middle for the swing's time left, less that offset. Where that landing is past the longest step, the swing is shortened to the time
  * at which the capture point is still within reach (Khadiv et al. 2016, "Step timing adjustment: a
  * step toward generating robust gaits", Humanoids), and the foot lands no further than the longest
  * step in any case. A walk starts with a step that shifts the weight first, and ends with steps
@@ -95,6 +108,8 @@ export function stride(body: Body, settings: StrideSettings = STRIDE): Locomotio
   const reach = settings.longest * leg, g = -body.built.physics.gravity[1];
   const memory: StrideMemory = { step: null, lifted: false, swung: 0, last: null, pace: [0, 0], width: null };
   const state = { legs: legs.state, stride: memory };
+  /** The pendulum's rate, 1/s: of the height the stance holds the centre of mass at over its soles. */
+  const omega = (view: BodyView): number => Math.sqrt(g / Math.max(view.stance.plan.y, HEIGHT_FLOOR));
   const forget = (): void => {
     memory.step = null;
     memory.lifted = false;
@@ -111,10 +126,10 @@ export function stride(body: Body, settings: StrideSettings = STRIDE): Locomotio
    */
   const plan = (view: BodyView, goal: StanceGoal, side: Side, walk: readonly [number, number], first: boolean): SwingGoal => {
     const s = view.stance, b = s.soles[side === "left" ? "right" : "left"], sign = side === "right" ? 1 : -1;
-    const rx = cos(goal.heading), rz = -sin(goal.heading), w = Math.sqrt(g / goal.height);
+    const rx = cos(goal.heading), rz = -sin(goal.heading), w = omega(view);
     const T = first ? settings.swing : settings.swing + settings.transfer, grow = exp(w * T);
     const moving = walk[0] !== 0 || walk[1] !== 0;
-    const width = Math.max(settings.width, clear + Math.abs(walk[0] * rx + walk[1] * rz) * T);
+    const width = Math.max(settings.width, clear + PASS + Math.abs(walk[0] * rx + walk[1] * rz) * T);
     const to = moving ? within(b.x, b.z, b.x + walk[0] * T + sign * width * rx, b.z + walk[1] * T + sign * width * rz, sign, rx, rz)
       : halt(view, goal, sign, T);
     const capture: [number, number] = moving ? [to[0] + walk[0] * T / (grow - 1) - sign * width * rx / (grow + 1),
@@ -131,15 +146,15 @@ export function stride(body: Body, settings: StrideSettings = STRIDE): Locomotio
    * least as far apart across the heading as the body stood.
    */
   const halt = (view: BodyView, goal: StanceGoal, sign: number, t: number): [number, number] => {
-    const s = view.stance, b = s.soles[sign > 0 ? "left" : "right"], w = Math.sqrt(g / goal.height), k = exp(w * t);
+    const s = view.stance, b = s.soles[sign > 0 ? "left" : "right"], w = omega(view), k = exp(w * t);
     const rx = cos(goal.heading), rz = -sin(goal.heading);
-    const x = s.place.x + (s.centre.x + s.velocity.x / w - s.place.x) * k, z = s.place.z + (s.centre.z + s.velocity.z / w - s.place.z) * k;
+    const x = b.x + (s.centre.x + s.velocity.x / w - b.x) * k, z = b.z + (s.centre.z + s.velocity.z / w - b.z) * k;
     // Twice the capture point's way from the bearing sole, out at least the width the body stood at.
     const dx = 2 * (x - b.x), dz = 2 * (z - b.z), out = sign * (dx * rx + dz * rz), more = Math.max((memory.width ?? settings.width) - out, 0);
     return within(b.x, b.z, b.x + dx + sign * more * rx, b.z + dz + sign * more * rz, sign, rx, rz);
   };
 
-  /** A landing at (x, z) from a bearing sole's middle at (bx, bz): no further than the longest step, and a sole's width out to its own side. */
+  /** A landing at (x, z) from a bearing sole's middle at (bx, bz): no further than the longest step, and a sole's width and `PASS` out to its own side. */
   const within = (bx: number, bz: number, x: number, z: number, sign: number, rx: number, rz: number): [number, number] => {
     const far = hypot(x - bx, z - bz);
     if (far > reach) {
@@ -147,41 +162,43 @@ export function stride(body: Body, settings: StrideSettings = STRIDE): Locomotio
       z = bz + (z - bz) * reach / far;
     }
     const out = sign * ((x - bx) * rx + (z - bz) * rz);
-    if (out < clear) {
-      x += sign * (clear - out) * rx;
-      z += sign * (clear - out) * rz;
+    if (out < clear + PASS) {
+      x += sign * (clear + PASS - out) * rx;
+      z += sign * (clear + PASS - out) * rz;
     }
     return [x, z];
   };
 
   /**
-   * The step under way re-aimed: where the measured capture point, run about the stance's pivot for
-   * the swing's time left, says the foot lands, sooner if that is past the longest step.
+   * The step under way re-aimed: where the measured capture point, run about the bearing sole's
+   * middle for the swing's time left, says the foot lands, sooner if that is past the longest step
+   * (but no sooner than `SOONEST` of the swing). The capture point is asked to its steady place
+   * from the landing chosen: where that landing is clipped, the stance's pivot makes up the rest.
    */
   const reaim = (view: BodyView, goal: StanceGoal, step: SwingGoal, walk: readonly [number, number]): SwingGoal => {
     const s = view.stance, b = s.soles[step.foot === "left" ? "right" : "left"], sign = step.foot === "right" ? 1 : -1;
-    const rx = cos(goal.heading), rz = -sin(goal.heading), w = Math.sqrt(g / goal.height);
+    const rx = cos(goal.heading), rz = -sin(goal.heading), w = omega(view);
     const T = settings.swing + settings.transfer, grow = exp(w * T);
     if (walk[0] === 0 && walk[1] === 0) {
       const t = Math.max(step.seconds - memory.swung, 0), to = halt(view, goal, sign, t);
       return { ...step, to, capture: [(b.x + to[0]) / 2, (b.z + to[1]) / 2], follows: true };
     }
-    const width = Math.max(settings.width, clear + Math.abs(walk[0] * rx + walk[1] * rz) * T);
+    const width = Math.max(settings.width, clear + PASS + Math.abs(walk[0] * rx + walk[1] * rz) * T);
     // The capture point's offset from the landing foot as a steady walk lands.
     const nx = walk[0] * T / (grow - 1) - sign * width * rx / (grow + 1), nz = walk[1] * T / (grow - 1) - sign * width * rz / (grow + 1);
-    const px = s.place.x, pz = s.place.z, xi = s.centre.x + s.velocity.x / w - px, zi = s.centre.z + s.velocity.z / w - pz;
+    const px = b.x, pz = b.z, xi = s.centre.x + s.velocity.x / w - px, zi = s.centre.z + s.velocity.z / w - pz;
     const landing = (t: number): [number, number] => { const k = exp(w * t); return [px + xi * k - nx, pz + zi * k - nz]; };
-    const left = Math.max(step.seconds - memory.swung, 0);
+    const left = Math.max(step.seconds - memory.swung, 0), least = Math.min(Math.max(SOONEST * settings.swing - memory.swung, 0), left);
     let t = left;
     const off = (time: number): number => { const [x, z] = landing(time); return hypot(x - b.x, z - b.z); };
     if (off(t) > reach) {
       // The time at which the landing is the longest step away, by bisection; a numeric setting, 16 halvings.
-      let lo = 0, hi = t;
+      let lo = least, hi = t;
       for (let i = 0; i < 16; i++) { const mid = (lo + hi) / 2; if (off(mid) > reach) hi = mid; else lo = mid; }
       t = lo;
     }
-    const [x, z] = landing(t), to = within(b.x, b.z, x, z, sign, rx, rz), k = exp(w * t);
-    return { ...step, to, seconds: memory.swung + t, capture: [px + xi * k, pz + zi * k], follows: true };
+    const [x, z] = landing(t), to = within(b.x, b.z, x, z, sign, rx, rz);
+    return { ...step, to, seconds: memory.swung + t, capture: [to[0] + nx, to[1] + nz], follows: true };
   };
 
   return {
@@ -221,7 +238,8 @@ export function stride(body: Body, settings: StrideSettings = STRIDE): Locomotio
         if (s.phase === "swing") {
           memory.lifted = true;
           memory.swung += dt;
-          memory.step = reaim(view, base, memory.step, pace);
+          const aimed = reaim(view, base, memory.step, pace);
+          if (finite(aimed)) memory.step = aimed;
           return { ...stand, swing: memory.step };
         }
         if (s.phase !== "stand" || !memory.lifted) return { ...stand, swing: memory.step };
@@ -234,13 +252,15 @@ export function stride(body: Body, settings: StrideSettings = STRIDE): Locomotio
       const moving = pace[0] !== 0 || pace[1] !== 0;
       if (!moving) {
         if (memory.last === null) return stand;
-        const w = Math.sqrt(g / base.height), l = s.soles.left, r = s.soles.right;
+        const w = omega(view), l = s.soles.left, r = s.soles.right;
         if (offSegment(s.centre.x + s.velocity.x / w, s.centre.z + s.velocity.z / w, l.x, l.z, r.x, r.z) < STILL) { memory.last = null; return stand; }
       }
       // Starting, the foot on the side the walk goes steps first (the right, going straight).
       const rx = cos(base.heading), rz = -sin(base.heading);
       const side: Side = memory.last ? (memory.last === "left" ? "right" : "left") : pace[0] * rx + pace[1] * rz < 0 ? "left" : "right";
-      memory.step = plan(view, base, side, pace, memory.last === null);
+      const planned = plan(view, base, side, pace, memory.last === null);
+      if (!finite(planned)) return stand;
+      memory.step = planned;
       return { ...stand, swing: memory.step };
     },
   };

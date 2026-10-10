@@ -30,12 +30,16 @@ import { Worker, isMainThread, parentPort } from "node:worker_threads";
 import { appendFileSync } from "node:fs";
 import { availableParallelism } from "node:os";
 import { fileURLToPath } from "node:url";
+import { PERSON_PACE } from "../src/core/human/gait.ts";
 
 /**
  * The straight lines a body walks facing +z, each 80 m from the origin: forward, to its right, back
  * and to its left. One direction a run, where the square turns from one to the next.
  */
 const LINES = { forward: 0, right: Math.PI / 2, back: Math.PI, left: -Math.PI / 2 };
+
+/** What a person walks each line at (`PERSON_PACE`): forward, their comfortable and fastest walk. */
+const TARGETS = { forward: [PERSON_PACE.forward, PERSON_PACE.fast], right: [PERSON_PACE.sideways], back: [PERSON_PACE.back], left: [PERSON_PACE.sideways] };
 
 /** The ground's side, m: twice the longest line, and some. */
 const GROUND = 200;
@@ -160,6 +164,8 @@ if (!isMainThread) {
         + (fell.length ? ` falls ${fell.map((r) => `f${r.fall.forward}/r${r.fall.right} ${r.fall.phases.join("+")}`).join(", ")}` : ""));
       if (holding && fell.length === 0) held = { pace, mean: mean("mean") }; else holding = false;
     }
-    console.log(`  fastest held: ${held ? `asked ${held.pace}, ${held.mean.toFixed(2)} m/s along the track` : "none"}`);
+    const target = TARGETS[track];
+    console.log(`  fastest held: ${held ? `asked ${held.pace}, ${held.mean.toFixed(2)} m/s along the track` : "none"}`
+      + (target ? `; a person: ${target.map((q) => q.value.toFixed(2)).join(" to ")} m/s` : ""));
   }
 }
