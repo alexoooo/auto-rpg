@@ -118,19 +118,22 @@ export function dynamicRisePolicy(input: Model) {
     const p = capture(o), near = withinSupport(patches, p[0], p[2], 0);
     return near[0] === p[0] && near[1] === p[2];
   };
+  const heading = (o: BodyObservation) => {
+    relative.set(...find(o, "lowerTrunk").rotation).multiplyToRef(restInverse, relative);
+    way.set(1, 0, 0).applyRotationQuaternionToRef(relative, way);
+    return atan2(-way.z, way.x);
+  };
   const enter = (phase: Phase, o: BodyObservation) => {
     state.phase = phase; state.time = 0; state.stagnant = 0; state.error = Infinity; state.held = 0;
     state.from = o.joints.map(j => j.angle); state.rootFrom = find(o, "lowerTrunk").position[1];
+    if (phase === "place") state.yaw = heading(o);
   };
   const freeHand = () => model.held ? other(model.held) : other(state.lead);
   const classify = (o: BodyObservation) => {
     state.attemptTime = 0;
     state.lie = facing(o); state.released = false; state.stage = 0;
     if (state.lie === "left" || state.lie === "right") state.roll = state.lie;
-    const root = find(o, "lowerTrunk");
-    relative.set(...root.rotation).multiplyToRef(restInverse, relative);
-    way.set(1, 0, 0).applyRotationQuaternionToRef(relative, way);
-    state.yaw = atan2(-way.z, way.x);
+    state.yaw = heading(o);
     const lead = SIDES.find(s => planted(o, s) && !loaded(o, `shank.${s}`) && loaded(o, `shank.${other(s)}`));
     if (SIDES.every(s => planted(o, s)) && clear(o) && !o.down) enter("stabilize", o);
     else if (clear(o) && lead) { state.lead = lead; enter("transfer", o); }

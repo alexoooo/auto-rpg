@@ -8,9 +8,11 @@ import { PUNCHER } from "../src/core/mind/config.ts";
 import { dynamicRiseFits, dynamicRisePolicy, riseFootPlanted } from "../src/core/mind/rise/dynamic.ts";
 import { RISE } from "../src/core/mind/rise/stages.ts";
 import { ratesToRef } from "../src/core/build/joint-state.ts";
+import { atan2 } from "../src/core/math/real.ts";
+import { turnAboutToRef } from "../src/core/math/turn.ts";
 import { footStatesOf } from "../src/core/control/support.ts";
 import poses from "../assets/research/posture-holds.json" with { type: "json" };
-import { uprightness } from "../src/core/control/ground.ts";
+import { lowsOf, uprightness } from "../src/core/control/ground.ts";
 import { embody } from "../src/core/mind/mind.ts";
 import { observeBody } from "../src/core/observation.ts";
 import { minimumJerk } from "../src/core/skills/whole-body-strike.ts";
@@ -118,7 +120,7 @@ test("a boot landing on its side during a real fall does not release the support
     for (let step = 0; step < 840; step++) {
       const o = stand.body.observe(), loaded = name => o.contacts.some(c => c.fixed !== null
         && c.impulse > 0 && Math.abs(c.normal[1]) >= .9 && c.segment === name);
-      if (p.phase === "place" && p.released && loaded(`foot.${p.lead}`) && !loaded(`shank.${p.lead}`)
+      if (p.phase === "place" && p.released && loaded(`foot.${p.lead}`)
         && !riseFootPlanted(o, p.lead, soleUp[p.lead])) {
         assert.equal(o.down, true);
         assert.ok(o.contacts.some(c => c.fixed !== null && c.impulse > 0 && !c.segment.startsWith("foot.")),
@@ -138,9 +140,17 @@ test("placement from a real fall targets a flat sole on the floor with clearance
   const stand = await fallen();
   try {
     const saved = stand.body.state.mind.subs[0].policy;
-    for (let step = 0; step < 720 && !(saved.phase === "place" && saved.released); step++) stand.world.step();
+    let placementFrom = null;
+    for (let step = 0; step < 720 && !(saved.phase === "place" && saved.released); step++) {
+      placementFrom = stand.body.observe(); stand.world.step();
+    }
     assert.deepEqual({ phase: saved.phase, released: saved.released }, { phase: "place", released: true });
     const o = stand.body.observe(), muscles = stand.body.muscles, root = stand.built.segments.get("lowerTrunk");
+    assert.ok(placementFrom, "the fall reaches placement through the hosted controller");
+    const right = Vector3.Right().applyRotationQuaternionToRef(Quaternion.FromArray(placementFrom.segments.find(s => s.name === "lowerTrunk").rotation)
+      .multiply(Quaternion.Inverse(root.rest)), new Vector3());
+    const actualHeading = atan2(-right.z, right.x);
+    assert.ok(Math.abs(saved.yaw - actualHeading) < 1e-10, "placement follows the body's heading after rolling and acquisition");
     const leg = stand.built.spec.segments.filter(s => /^(thigh|shank)\.left$/.test(s.name)).reduce((sum, s) =>
       sum + Vector3.Distance(Vector3.FromArray(s.proximal.value), Vector3.FromArray(s.distal.value)), 0);
     const policy = dynamicRisePolicy({
@@ -159,10 +169,23 @@ test("placement from a real fall targets a flat sole on the floor with clearance
     assert.deepEqual({ ...landed.translation, velocity: canonical(landed.translation.velocity), acceleration: canonical(landed.translation.acceleration) },
       { target: saved.pointTo, velocity: [0, 0, 0], acceleration: [0, 0, 0], seconds: .15, weight: 2 });
     const foot = footStatesOf(stand.built).find(f => f.side === saved.lead);
+    const expectedTurn = turnAboutToRef(Vector3.UpReadOnly, actualHeading, new Quaternion()).multiply(foot.segment.rest);
+    assert.ok(1 - Math.abs(Quaternion.Dot(expectedTurn, Quaternion.FromArray(landed.orientation.target))) < 1e-10,
+      "the planted boot faces the acquired support posture");
     const heights = foot.sole.map(corner => corner.subtract(Vector3.FromArray(landed.at))
       .applyRotationQuaternionToRef(Quaternion.FromArray(landed.orientation.target), new Vector3()).y + landed.translation.target[1]);
     assert.ok(heights.every(y => Math.abs(y - saved.ground) < 1e-10), `every sole corner lands at the floor: ${heights}`);
-    assert.ok(Math.abs(flight.translation.target[1] - (saved.pointFrom[1] + saved.pointTo[1]) / 2 - .18 * leg) < 1e-10);
+    const corners = foot.segment.rigid.shapes.flatMap(shape => lowsOf(shape, foot.segment.frame)).map(low => ({
+      at: Vector3.FromArray(low.at).subtract(Vector3.FromArray(foot.segment.frame.origin))
+        .applyRotationQuaternionToRef(Quaternion.Inverse(foot.segment.rest), new Vector3()), radius: low.radius,
+    }));
+    const bootLow = frame => Math.min(...corners.map(corner => corner.at.subtract(Vector3.FromArray(frame.at))
+      .applyRotationQuaternionToRef(Quaternion.FromArray(frame.orientation.target), new Vector3()).y
+      + frame.translation.target[1] - corner.radius));
+    const floor = Math.min(saved.ground, bootLow(commandAt(0)));
+    for (const time of [.05, .1, .2, .325, .5, .6, .65]) assert.ok(bootLow(commandAt(time)) >= floor - 1e-7,
+      `the whole boot clears the floor throughout placement at ${time}`);
+    assert.ok(bootLow(flight) > saved.ground, "the boot is airborne while advancing");
     assert.deepEqual(canonical(landed.orientation.velocity), [0, 0, 0]);
     assert.deepEqual(canonical(landed.orientation.acceleration), [0, 0, 0]);
     assert.ok(foot.sole.some(corner => corner.subtract(Vector3.FromArray(landed.at)).length() > .1), "the sole has extent around its tracked centre");
