@@ -51,8 +51,8 @@ const FOES = Object.freeze({ stands: STANDS, classic: CLASSIC, combat: COMBAT, b
 
 /** The settings searched, each its range. */
 const RANGES = Object.freeze({
-  pace: [0.2, 1.2], reach: [0.6, 1.3], band: [0.02, 0.3], settle: [0, 0.6], through: [0, 0.4], hips: [0, 0.5], turn: [0, 0.45], lean: [0, 0.5],
-  chamber: [0, 0.5], lead: [0, 0.15], elbow: [0, 0.25], brake: [0.02, 0.4], follow: [0, 0.06], longest: [0.15, 0.6], recover: [0.1, 0.8],
+  pace: [0.2, 2], reach: [0.6, 1.3], band: [0.02, 0.3], settle: [0, 0.6], through: [0, 0.4], hips: [0, 0.5], turn: [0, 0.45], lean: [0, 0.5],
+  chamber: [0, 0.5], lead: [0, 0.15], elbow: [0, 0.25], brake: [0, 0.4], follow: [0, 0.06], longest: [0.15, 0.6], recover: [0.1, 0.8],
 });
 const FIXED = Object.freeze(isMainThread ? JSON.parse(argOf("fixed") ?? "{}") : workerData?.fixed ?? {});
 const KEYS = Object.keys(RANGES).filter((key) => !(key in FIXED));
