@@ -51,9 +51,12 @@ export function enlist(world: World, enlisting: Enlistment): Combatant {
   const { id, side, spec, rules, mind } = enlisting;
   const built = buildBody(spec, world, { position: enlisting.at, joints: builtAngles(spec, mind) });
   const pool = createPool(spec, rules);
-  const senses = enlisting.senses.add({ id, side, built, out: enlisting.out, ...(enlisting.solids ? { solids: enlisting.solids } : {}) });
+  // The mind is made after the senses carry its body; it is asked whether the body is down from the first step.
+  let minded: Minded | null = null;
+  const senses = enlisting.senses.add({ id, side, built, out: enlisting.out, down: () => minded?.body.down ?? false,
+    ...(enlisting.solids ? { solids: enlisting.solids } : {}) });
   const assist = balanceCeiling(enlisting.balance ?? spec.attributes.balance.value, enlisting.percent ?? balancePercent(rules));
-  const minded = createMind(built, world, mind, {
+  minded = createMind(built, world, mind, {
     name: enlisting.name, senses, assist, orders: enlisting.orders,
     ...(enlisting.contactIdentity ? { contactIdentity: enlisting.contactIdentity } : {}),
   });

@@ -95,22 +95,22 @@ test("a delay shows the others that many steps late", async () => {
   } finally { hub.dispose(); dispose(); }
 });
 
-test("a body is out to the others a step after it is out, and to itself at once", async () => {
+test("a body is out, or down, to the others a step after it is, and out to itself at once", async () => {
   for (const [delay, steps] of [[0, 1], [3, 4]]) {
     const { stand, second, dispose } = await pair();
     const hub = createSenses(stand.world, delay);
-    let out = false;
+    let out = false, down = false;
     const a = hub.add({ id: "a", side: "left", built: stand.built, out: () => false });
-    const b = hub.add({ id: "b", side: "right", built: second, out: () => out });
+    const b = hub.add({ id: "b", side: "right", built: second, out: () => out, down: () => down });
     try {
-      assert.deepEqual([b().out, a().others[0].out], [false, false]);
-      out = true;
-      assert.deepEqual([b().out, a().others[0].out], [true, false], "its own it knows at once; the other has not been shown it");
+      assert.deepEqual([b().out, a().others[0].out, a().others[0].down], [false, false, false]);
+      out = true; down = true;
+      assert.deepEqual([b().out, a().others[0].out, a().others[0].down], [true, false, false], "its own it knows at once; the other has not been shown it");
       stand.step(steps - 1);
-      assert.equal(a().others[0].out, false, `a delay of ${delay}: not after ${steps - 1} steps`);
+      assert.deepEqual([a().others[0].out, a().others[0].down], [false, false], `a delay of ${delay}: not after ${steps - 1} steps`);
       stand.step(1);
-      assert.equal(a().others[0].out, true, `a delay of ${delay}: after ${steps}`);
-      assert.equal(b().others[0].out, false, "and the other is still in");
+      assert.deepEqual([a().others[0].out, a().others[0].down], [true, true], `a delay of ${delay}: after ${steps}`);
+      assert.deepEqual([b().others[0].out, b().others[0].down], [false, false], "and the other is still in, and never down, since nothing says it is");
     } finally { hub.dispose(); dispose(); }
   }
 });
@@ -164,6 +164,10 @@ test("a fighter picks its foe from what it sees", () => {
   for (const order of [[far, down], [down, far]]) assert.deepEqual(plan(order), { move: east, face: null, attack: null }, "the nearer out: the farther");
   const downFar = { ...far, out: true };
   for (const order of [[downFar, down], [down, downFar]]) assert.deepEqual(plan(order), { move: null, face: north, attack: null }, "both out: it faces the nearer");
+  // A foe that is down is let rise: faced from where any part of it lies 0.9 m clear, backed away from nearer.
+  const lying = (z, head) => ({ ...body("right", false, at(0, 0.2, z), at(0, 0.2, head)), down: true });
+  assert.deepEqual(plan([lying(1.5, 2.4)]), { move: null, face: north, attack: null }, "a foe down, clear");
+  assert.deepEqual(plan([lying(1.5, 0.6)]), { move: { x: -0, z: -1 }, face: north, attack: null }, "a foe down, its head under the next step");
 });
 
 test("a fighter aims at a foe's head, its upper trunk, or the part its right hand's recipe nets the most on", () => {

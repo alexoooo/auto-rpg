@@ -8,6 +8,7 @@ import { nextHand, type Intent } from "./intent.ts";
 import { STAND_ORDERS, type Orders } from "./orders.ts";
 import type { Sight, Tactics } from "./tactics.ts";
 import { guarding, orderedIntent, STRAFE } from "./ordered.ts";
+import type { BodySense } from "./senses.ts";
 import { nearestFoe } from "./targets.ts";
 import { THREAT, type Threat } from "./threat.ts";
 import { hypot } from "../math/real.ts";
@@ -26,6 +27,12 @@ export const ATTACK_METRES = 1.8;
  * `docs/reference/human-and-strikes.md#the-edge`.
  */
 export const EDGE: Edge = Object.freeze({ band: 0.25, patience: 4 });
+
+/**
+ * How far a fighter keeps its centre of mass from every part of a foe that is down, m, across the
+ * ground: a foot's length and a half clear of the step it would otherwise take onto the body.
+ */
+const CLEAR_OF_DOWN = 0.9;
 
 /** Where a fighter holds at the edge of a foe's reach (`EDGE`): the band past it, m, and the patience there, s. */
 export interface Edge { readonly band: number; readonly patience: number }
@@ -122,7 +129,9 @@ function markOf(marks: Marks, band: Band): string | undefined {
  *   which the strike skill throws from there; or when it has stood still `edge.patience`, and
  *   the skill walks it in. An attack under way goes on to its end.
  *
- * Once either is out it stands, facing the foe; and with nobody to fight it stands as it is.
+ * Once either is out it stands, facing the foe; while the foe is down (`BodySense.down`) it lets
+ * it rise, facing it, backing off from it while any part of it lies within `CLEAR_OF_DOWN`
+ * (`downFoeOrders`); and with nobody to fight it stands as it is.
  */
 export function seekFoe({ view, report }: Sight, aim: SeekConfig["aim"] = SEEK.aim,
   range: SeekConfig["range"] = SEEK.range, edge: Edge = EDGE): Orders {
@@ -132,6 +141,7 @@ export function seekFoe({ view, report }: Sight, aim: SeekConfig["aim"] = SEEK.a
   const d = Math.max(0.001, hypot(foe.centre.x - from.x, foe.centre.z - from.z));
   const toward = { x: (foe.centre.x - from.x) / d, z: (foe.centre.z - from.z) / d };
   if (senses.out || foe.out) return { move: null, face: toward, attack: null };
+  if (foe.down) return downFoeOrders(foe, from, toward);
   const head: Vector3 = foe.segments.get(foe.spec.marks.high)?.centre ?? foe.centre;
   const mark = aim === "head" ? undefined : markOf(foe.spec.marks, bandAimed(aim, report.strike.nets));
   const part = (mark === undefined ? undefined : foe.segments.get(mark)?.centre) ?? head;
@@ -154,4 +164,15 @@ export function seekFoe({ view, report }: Sight, aim: SeekConfig["aim"] = SEEK.a
       throw new Error(`a fighter comes close or holds at the edge, not ${JSON.stringify(never)}`);
     }
   }
+}
+
+/**
+ * **The orders of a fighter whose foe is down**: it faces it, `toward` it from `from`, and backs
+ * straight away from it while any part of it lies within `CLEAR_OF_DOWN` across the ground,
+ * standing otherwise. It attacks nothing.
+ */
+function downFoeOrders(foe: BodySense, from: { readonly x: number; readonly z: number }, toward: { readonly x: number; readonly z: number }): Orders {
+  let near = Infinity;
+  for (const segment of foe.segments.values()) near = Math.min(near, hypot(segment.centre.x - from.x, segment.centre.z - from.z));
+  return near < CLEAR_OF_DOWN ? { move: { x: -toward.x, z: -toward.z }, face: toward, attack: null } : { move: null, face: toward, attack: null };
 }

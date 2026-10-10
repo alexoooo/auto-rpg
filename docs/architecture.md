@@ -418,7 +418,8 @@ nothing else under `src/` drives muscles. What a mind remembers from step to ste
 (`Mind.state`; a tactics', `Tactics.state`), saved and loaded with its body's ([State](#state)).
 
 `Senses` are the clock, the body's side, whether it is out of the fight, and every other body the
-senses carry (`BodySense`): its side, its spec with what it holds, whether it is out, its centre
+senses carry (`BodySense`): its side, its spec with what it holds, whether it is out, whether it
+is down by its own body's rule (what anyone who sees it lying sees), its centre
 of mass and that centre's velocity, and each segment's pose, centre, velocity and spin. Not its hit
 points, and nothing of its mind. A fight owns one sensing layer (`createSenses`), which reads every
 body it carries in the step's sensing phase (`World.sense`), before any mind steps, so every mind
@@ -690,7 +691,8 @@ edge (`SeekConfig.range`, `EDGE`), it reads the foe's reach from what it sees of
 (`rangeOf`, by `BodySense.spec`, the rule its own strike skill throws by, `StrikeReport.rangeAt`):
 it stands just outside it, backing out from inside it, and attacks when the part it aims at
 stands in its own blow's window from where it stands, or when it has stood there its patience.
-Every body's fighter walks in (`RECIPE_FIGHTER.tactics.range`). A side a person has taken is
+While the foe is down it attacks nothing and lets it rise, facing it and backing off from it while
+any part of it lies within `CLEAR_OF_DOWN` (0.9 m), so it does not walk onto it. Every body's fighter walks in (`RECIPE_FIGHTER.tactics.range`). A side a person has taken is
 given the person's (`Duel.order`) and does only what it is ordered, until it is handed back or is
 out of the fight. In the crypt the run plans for its fighters with the map (`DungeonRun`) and
 hands each its plan as orders, its target as the foe; its bodies sense each other, with no delay. Each
