@@ -6,14 +6,16 @@
  * rulebook as its blows land (`Duel.blows`). A bout's
  * score is the hit points the foe lost less those the puncher lost, with `FELL` taken off for each
  * second the puncher spent down and `LOST` for a bout it lost. The foes are a Warrior standing in
- * guard, or Classic, Combat, Brawler or Kicker fighting back (`--foes stands,classic,combat,brawler,kicker`).
+ * guard, or Classic, Combat, Brawler, Kicker, Scrapper or the Puncher fighting back
+ * (`--foes stands,classic,combat,brawler,kicker,scrapper,puncher`), or a rival: the Puncher throwing
+ * the straight punch with the settings `--rival` gives (`--foes rival`).
  * `--scene` also plays the punch test's bout (`tests/straight-punch.test.mjs`: walked in, on a Warrior
  * standing in guard 1.2 m off, 5 s) and takes off what it falls short of there: `SHORT` a wounding
  * punch under two, and `SHORT` a kilogram under 1.5 that the heaviest wounding fist met.
  *
  * Usage:
  *   node research/punch-in-bout.mjs [--settings '<json>'] [--gaps 1.2,1.6] [--seconds 8] [--foes stands] [--aim head] [--range edge]  one setting, its blows printed
- *   node research/punch-in-bout.mjs --search [--foes stands,classic] [--aim head] [--range edge] [--gaps 1,1.4] [--seconds 8] [--settings '<json>'] [--fixed '<json>'] [--scene] [--sigma 0.2] [--generations 30] [--lambda 16] [--workers 15] [--seed 1] [--hz 120]
+ *   node research/punch-in-bout.mjs --search [--foes stands,classic] [--aim head] [--range edge] [--gaps 1,1.4] [--seconds 8] [--settings '<json>'] [--fixed '<json>'] [--rival '<json>'] [--scene] [--sigma 0.2] [--generations 30] [--lambda 16] [--workers 15] [--seed 1] [--hz 120]
  *
  * `--fixed` holds the settings it names where it puts them and searches the rest.
  *
@@ -24,7 +26,7 @@ import { pathToFileURL } from "node:url";
 import { isMainThread, parentPort, workerData } from "node:worker_threads";
 import { buildBout } from "./bout.mjs";
 import { cmaSearch, workerPool } from "./cma.mjs";
-import { BRAWLER, CLASSIC, COMBAT, KICKER, PUNCHER } from "../src/core/mind/config.ts";
+import { BRAWLER, CLASSIC, COMBAT, KICKER, PUNCHER, SCRAPPER } from "../src/core/mind/config.ts";
 import { STRAIGHT_PUNCH } from "../src/core/skills/straight-punch.ts";
 
 /** A Warrior standing in guard, throwing nothing. */
@@ -39,15 +41,19 @@ const FELL = 0.5, LOST = 1;
 /** Hit points a wounding punch or a kilogram short of the punch test's bout costs in the score. */
 const SHORT = 0.5;
 
+const argOf = (name) => { const i = process.argv.indexOf(`--${name}`); return i < 0 ? undefined : process.argv[i + 1]; };
+/** The rival's straight punch settings, over the Puncher's. */
+const RIVAL = Object.freeze(isMainThread ? JSON.parse(argOf("rival") ?? "{}") : workerData?.rival ?? {});
+
 /** The foes a setting may be scored against, by name. */
-const FOES = Object.freeze({ stands: STANDS, classic: CLASSIC, combat: COMBAT, brawler: BRAWLER, kicker: KICKER });
+const FOES = Object.freeze({ stands: STANDS, classic: CLASSIC, combat: COMBAT, brawler: BRAWLER, kicker: KICKER, scrapper: SCRAPPER, puncher: PUNCHER,
+  rival: { ...PUNCHER, blow: { ...PUNCHER.blow, ...RIVAL } } });
 
 /** The settings searched, each its range. */
 const RANGES = Object.freeze({
   pace: [0.2, 1.2], reach: [0.6, 1.3], band: [0.02, 0.3], settle: [0, 0.6], through: [0, 0.4], hips: [0, 0.5], turn: [0, 0.45], lean: [0, 0.5],
   chamber: [0, 0.5], lead: [0, 0.15], elbow: [0, 0.25], brake: [0.02, 0.4], follow: [0, 0.06], longest: [0.15, 0.6], recover: [0.1, 0.8],
 });
-const argOf = (name) => { const i = process.argv.indexOf(`--${name}`); return i < 0 ? undefined : process.argv[i + 1]; };
 const FIXED = Object.freeze(isMainThread ? JSON.parse(argOf("fixed") ?? "{}") : workerData?.fixed ?? {});
 const KEYS = Object.keys(RANGES).filter((key) => !(key in FIXED));
 const toSettings = (u) => ({ ...Object.fromEntries(KEYS.map((key, i) => [key, RANGES[key][0] + u[i] * (RANGES[key][1] - RANGES[key][0])])), ...FIXED });
@@ -119,7 +125,7 @@ if (!isMainThread && workerData?.punchInBout) {
   const gaps = arg("gaps", GAPS.join(",")).split(",").map(Number), seconds = Number(arg("seconds", 8)), scene = argv.includes("--scene");
   for (const foe of foes) if (!FOES[foe]) throw new Error(`no foe ${foe}: ${Object.keys(FOES).join(", ")}`);
   if (argv.includes("--search")) {
-    const workers = Number(arg("workers", Math.max(1, availableParallelism() - 1))), pool = workerPool(new URL(import.meta.url), { hz, foes, aim, range, gaps, seconds, scene, fixed: FIXED, punchInBout: true }, workers);
+    const workers = Number(arg("workers", Math.max(1, availableParallelism() - 1))), pool = workerPool(new URL(import.meta.url), { hz, foes, aim, range, gaps, seconds, scene, fixed: FIXED, rival: RIVAL, punchInBout: true }, workers);
     const start = toUnit({ ...STRAIGHT_PUNCH, ...JSON.parse(arg("settings", "{}")) }).map((v) => Math.min(1, Math.max(0, v)));
     try {
       const { best } = await cmaSearch({ n: KEYS.length, start, sigma: Number(arg("sigma", 0.2)), lambda: Number(arg("lambda", 16)), generations: Number(arg("generations", 30)),
