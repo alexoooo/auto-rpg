@@ -7,7 +7,7 @@ import type { ServoWork } from "./servo.ts";
 import { bearLimbs, carryRoot, limbMotion, makeBearing, type Bearing, type Limb } from "./bearing.ts";
 import { rotationAtToRef } from "./kinematics.ts";
 import type { StanceTuning } from "./stance-tuning.ts";
-import { ownStep, paceToward } from "./gait.ts";
+import { catchStep, ownStep, paceToward } from "./gait.ts";
 import { gravityOf, makeStance, type Stance } from "./stance-state.ts";
 import {
   bearingOf, bearingSole, massCentreToRef, motionAtToRef, pointOfToRef, landingHeading, readSupport, rolledRows, soleMiddleToRef, turnOfToRef,
@@ -377,6 +377,7 @@ function swingFoot(s: Stance, swing: SwingGoal, heading: number, dt: number): vo
   if (tau >= 1) {
     reading.phase = "stand";
     reading.own = null;
+    step.catching = false;
   }
 }
 
@@ -394,18 +395,24 @@ function stepsOfItself(goal: StanceGoal | null): goal is StanceGoal {
 }
 
 /**
- * The step this command takes: the goal's, or the stance's own (`ownStep`), or none. A swing unlike
- * the last starts a step, at its weight shift or, asked to, at its swing.
+ * The step this command takes: a catch of a push under way (`catchStep`), or the goal's, or the
+ * stance's own (`ownStep`), or none. A swing unlike the last starts a step, at its weight shift or,
+ * asked to, at its swing.
  */
 function chooseStep(s: Stance, goal: StanceGoal | null): SwingGoal | null {
   const { state } = s, { reading, step } = state;
-  if (stepsOfItself(goal)) ownStep(s, goal.heading);
+  if (!goal) step.catching = false;
+  else if (!step.catching) step.catching = catchStep(s);
+  // A catch runs to its landing.
+  if (step.catching) {
+    // Nothing else is chosen.
+  } else if (stepsOfItself(goal)) ownStep(s, goal.heading);
   else {
     reading.own = null;
     state.stride = null;
     state.striding = null;
   }
-  const swing = goal?.swing ?? reading.own;
+  const swing = step.catching ? reading.own : goal?.swing ?? reading.own;
   if (!swing) {
     step.swing = null;
     reading.phase = "stand";
@@ -413,6 +420,7 @@ function chooseStep(s: Stance, goal: StanceGoal | null): SwingGoal | null {
     step.swing = swing;
     step.lifted = false;
     step.held = 0;
+    step.off = Infinity;
     reading.phase = swing.shift === false ? "swing" : "shift";
   }
   return swing;
@@ -556,6 +564,8 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}, assis
       step.lifted = false;
       step.time = 0;
       step.held = 0;
+      step.off = Infinity;
+      step.catching = false;
       reading.phase = "stand";
       reading.own = null;
       for (const foot of s.feet) foot.memory.rolled = false;
@@ -643,7 +653,7 @@ function holdPose(s: Stance, goal: StanceGoal, pose: NonNullable<StanceGoal["pos
   const bearing = goal.feet.length === feet.length ? feet : feet.filter(foot => goal.feet.includes(foot.side));
   readSupport(feet, bearing, reading.support);
   reading.phase = "stand"; reading.own = null; state.plan.on = false; state.last = goal.feet;
-  state.step.swing = null; state.stride = null; state.striding = null; state.pace.fill(0);
+  state.step.swing = null; state.step.catching = false; state.stride = null; state.striding = null; state.pace.fill(0);
   const c = reading.centre, v = reading.velocity, p = reading.support;
   const [x, z] = goal.centre ? withinSupport(bearing.map(bearingOf), goal.centre[0], goal.centre[1], s.tuning.inset) : [p.x, p.z];
   approachToRef(s.scratch.p.set(x, p.y + goal.height, z), c, v, n, aim.centre);

@@ -81,12 +81,15 @@ function recoveryStep(feet: readonly FootState[], centre: Vector3, velocity: Vec
   return { foot: far.side, to: [tx, tz], seconds: tuning.seconds, lift: tuning.lift, shift: false };
 }
 
-/** How far the capture point of a body at `centre` moving at `velocity` is outside the region `feet`'s soles hold, m. */
-function outside(feet: readonly FootState[], centre: Vector3, velocity: Vector3, g: number, inset: number): number {
+/**
+ * How far the capture point of a body at `centre` moving at `velocity`, standing on `feet`, is
+ * outside the region the soles of `of` (all of `feet` unless asked) hold, m.
+ */
+function outside(feet: readonly FootState[], centre: Vector3, velocity: Vector3, g: number, inset: number, of = feet): number {
   const height = centre.y - (feet[0]!.middle.y + feet[1]!.middle.y) / 2;
   // The height's floor, 1 mm, is a numeric setting.
   const w = Math.sqrt(g / Math.max(height, 1e-3)), xi = centre.x + velocity.x / w, zi = centre.z + velocity.z / w;
-  const [hx, hz] = withinSupport(feet, xi, zi, inset);
+  const [hx, hz] = withinSupport(of, xi, zi, inset);
   return hypot(xi - hx, zi - hz);
 }
 
@@ -226,6 +229,27 @@ export function paceToward(s: Stance, walk: readonly [number, number] | null | u
   const most = gait.accel * dt, d = hypot(dx, dz), k = d > most ? most / d : 1;
   pace[0] += dx * k;
   pace[1] += dz * k;
+}
+
+/**
+ * The catch of a body pushed during a weight shift (`SwingGoal.shift`), its own step's or the
+ * goal's, if it is pushed: the step it takes instead (`recoveryStep`), into `reading.own`, and
+ * whether it took one. A shift carries the capture point toward the bearing sole, past what both
+ * soles hold if need be; one that has left them and goes on away from that sole would not end,
+ * and the body falls with both feet down. A walk of the stance's own goes on from the catch, the
+ * other foot next.
+ */
+export function catchStep(s: Stance): boolean {
+  const { feet, state } = s, { reading, step } = state, { recovery, gait, inset } = s.tuning, swing = step.swing;
+  if (!recovery || reading.phase !== "shift" || !swing || swing.transfer) return false;
+  const g = gravityOf(s), bearer = feet.find((f) => f.side !== swing.foot)!, off = outside(feet, reading.centre, reading.velocity, g, inset, [bearer]);
+  const away = off > step.off;
+  step.off = off;
+  if (!away || outside(feet, reading.centre, reading.velocity, g, inset) <= recovery.margin) return false;
+  reading.own = recoveryStep(feet, reading.centre, reading.velocity, g, recovery, gait.longest, inset)!;
+  state.stride = state.striding ? reading.own.foot : null;
+  reading.recoveries += 1;
+  return true;
 }
 
 /**

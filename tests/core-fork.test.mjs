@@ -311,7 +311,7 @@ const NEEDED = {
     ...["pose", "pushes", "standing", "reach"].map((field) => `body > mind > host > motor > ${field}`),
     ...["left", "right"].flatMap((hand) => HAND.map((field) => `body > mind > host > motor > effectors > hand.${hand} > ${field}`)),
     ...["stride", "striding", "owned", "last", "pace", "reading", "feet"].map((field) => `${STANCE} > ${field}`),
-    ...["swing", "lifted", "time", "held", "from", "lift"].map((field) => `${STANCE} > step > ${field}`),
+    ...["swing", "lifted", "time", "held", "off", "from", "lift"].map((field) => `${STANCE} > step > ${field}`),
     ...["on", "at", "velocity"].map((field) => `${STANCE} > plan > ${field}`),
   ],
   framed: ["world > owed"],
@@ -326,6 +326,7 @@ const NEEDED = {
     ...["hand", "phase", "blow", "recipe", "distance", "stoodFor", "still", "since", "begun", "readyAt", "origin", "bearing", "steer", "width", "over", "thrown"].map((field) => `skills > blow > ${field}`),
     "skills > holders",
     "skills > tactics > aim",
+    `${STANCE} > step > catching`,
   ],
   placed: ["skills > legs > placed"],
 };

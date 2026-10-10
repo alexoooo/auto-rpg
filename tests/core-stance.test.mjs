@@ -9,7 +9,9 @@
  * asked to turn as it steps, the foot lands facing the new heading, and without the turn's own rate
  * it does not (the control, run by hand).
  * Shoved at the trunk past what its soles hold, it steps to catch itself and stands, where without
- * the step it falls (the control); shoved lightly, it does not step. Asked to walk, it steps of
+ * the step it falls (the control); shoved lightly, it does not step. Shoved back as it shifts its
+ * weight for a step it was asked for, the Warrior catches itself first and stands, where a stance
+ * that does not step of itself falls still shifting (the control). Asked to walk, it steps of
  * itself, goes the way and about the speed asked, and asked to walk nowhere, stops and stands;
  * asked to walk nowhere from the start, it takes no step (the control). A walk stopped ends with its
  * feet back at the width the body was built standing at, and holds a sideways shove there that the
@@ -279,6 +281,43 @@ test("shoved past its soles, each human steps to catch itself and stands, and wi
     const light = await shoved(model, 10, degrees);
     assert.deepEqual([light.steps, light.fell], [0, false], `${model} 10 N s at ${degrees}: ${light.steps} steps, ${light.fell ? "fell" : "stood"}`);
   }
+});
+
+/**
+ * Stand the Warrior 1 s, 3 cm under its reference height, ask its left foot 15 cm forward, and
+ * 0.1 s into the weight shift shove its middle trunk at its centre of mass by `impulse` N s straight
+ * back; watch 3 s. Returns the phases seen from the shove, the steps it took to catch itself, and
+ * whether it is down.
+ */
+async function shovedShifting(impulse, stance) {
+  const stand = await coreStand(humanSpec("workshop-fighter"), { ground: true, hz: 120 });
+  const body = createBody(stand.built, stand.world, { servoSeconds: 0.1, stance });
+  let goal = null, swing = null;
+  body.drive((view) => {
+    const s = view.stance;
+    if (!goal && view.time > 0) goal = { feet: ["left", "right"], centre: null, height: s.centre.y - s.support.y - 0.03, heading: 0 };
+    if (goal && !swing && view.time >= 1) swing = { foot: "left", to: [s.soles.left.x, s.soles.left.z + 0.15], seconds: 0.45, lift: 0.05 };
+    return { posture: {}, pushes: [], stance: goal && { ...goal, swing } };
+  });
+  try {
+    stand.step(stand.seconds(1.1));
+    const phases = [body.view.stance.phase];
+    const trunk = stand.built.segments.get("middleTrunk"), turn = trunk.node.rotationQuaternion.multiply(Quaternion.Inverse(trunk.rest));
+    const com = trunk.spec.centreOfMass.value, o = trunk.frame.origin;
+    trunk.body.applyImpulse(new Vector3(0, 0, -impulse), new Vector3(com[0] - o[0], com[1] - o[1], com[2] - o[2]).applyRotationQuaternion(turn).add(trunk.node.position));
+    for (let i = 0; i < stand.seconds(3); i++) {
+      stand.step(1);
+      if (phases.at(-1) !== body.view.stance.phase) phases.push(body.view.stance.phase);
+    }
+    return { phases, steps: body.view.stance.recoveries, down: body.view.down };
+  } finally { body.dispose(); stand.dispose(); }
+}
+
+test("shoved back as it shifts its weight for a step it was asked, the Warrior catches itself first and stands", async () => {
+  // 40 N s: 30 the shift outlasts, its capture point coming back over the bearing sole.
+  const caught = await shovedShifting(40), free = await shovedShifting(40, { recovery: null });
+  assert.deepEqual(caught, { phases: ["shift", "swing", "stand", "shift", "swing", "stand"], steps: 1, down: false }, "the catch, then the step asked");
+  assert.deepEqual(free, { phases: ["shift"], steps: 0, down: true }, "the control: it falls still shifting");
 });
 
 test("the sole margin holds a sideways edge: the Rogue stands at +x with it, and without it a foot slides", async () => {

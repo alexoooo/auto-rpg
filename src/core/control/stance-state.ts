@@ -40,6 +40,10 @@ interface StanceState {
     time: number;
     /** How long a walk's double support has run, s. */
     held: number;
+    /** How far the capture point was from what the bearing sole holds at a weight shift's last command, m; Infinity before its first. */
+    off: number;
+    /** Whether the step under way catches a push (`catchStep`): it runs to its landing before any step the goal asks. */
+    catching: boolean;
     readonly from: Vector3;
     readonly turn: Quaternion;
     readonly lift: Quaternion;
@@ -123,7 +127,7 @@ export function makeStance(built: BuiltBody, tuning: StanceTuning, assist: Assis
   const segments = [...built.segments.values()];
   const state: StanceState = {
     pose: null, stride: null, striding: null, owned: new Uint8Array(0), last: null, pace: [0, 0],
-    step: { swing: null, lifted: false, time: 0, held: 0, from: new Vector3(), turn: new Quaternion(), lift: new Quaternion() },
+    step: { swing: null, lifted: false, time: 0, held: 0, off: Infinity, catching: false, from: new Vector3(), turn: new Quaternion(), lift: new Quaternion() },
     plan: { on: false, at: new Vector3(), velocity: new Vector3() },
     reading: { centre: new Vector3(), velocity: new Vector3(), support: new Vector3(), place: new Vector3(),
       plan: new Vector3(), planVelocity: new Vector3(),

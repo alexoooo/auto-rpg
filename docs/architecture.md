@@ -292,7 +292,9 @@ and driven afresh to change what it costs.
   stance's legs and its records the stance's own state; what the soles miss is published
   (`StanceReading.shortfall`). Steps (to recover, to walk, to shift weight) are placed from the
   capture point, and land facing the heading only as far as the bearing foot's hip lets the pelvis
-  turn over it (`landingHeading`, `support.ts`): a faster turn is taken step by step.
+  turn over it (`landingHeading`, `support.ts`): a faster turn is taken step by step. A push
+  that carries the capture point out of the soles and away from the bearing one during a weight
+  shift is caught by a recovery step, ahead of any step the goal asks (`catchStep`).
   `stanceEnvelope` (`stance-envelope.ts`) reads what each body was measured to
   hold on parent-axis Rapier under its character's balance allowance
   (`assets/core/stance-envelope.json`). Unassisted coordinate-engine turns have a separate
